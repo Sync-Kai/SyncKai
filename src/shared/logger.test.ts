@@ -49,3 +49,24 @@ describe('createLogger', () => {
     expect(spies.info).toHaveBeenCalledWith('[SyncKai:scope]', 'x');
   });
 });
+
+describe('journal des warn/error', () => {
+  it('consigne warn et error, jamais debug ni info', () => {
+    spyConsole();
+    const record = vi.fn();
+    const log = createLoggerFor('sync', true, { record, flush: () => Promise.resolve() });
+    log.debug('a');
+    log.info('b');
+    log.warn('c', 1);
+    log.error('d');
+    expect(record.mock.calls).toEqual([
+      ['warn', 'sync', ['c', 1]],
+      ['error', 'sync', ['d']],
+    ]);
+  });
+
+  it('createLogger ne lève pas sans API chrome (tests)', () => {
+    spyConsole();
+    expect(() => createLogger('scope').error('x')).not.toThrow();
+  });
+});

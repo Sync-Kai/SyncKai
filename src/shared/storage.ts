@@ -8,19 +8,13 @@ import type { TrackerId } from './tracker.types';
 import { SYNC_QUEUE_KEY } from './sync-queue-store';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './engagement-store';
 import { isWatchingList, type WatchingList } from './watching.types';
+import { withStorageLock } from './storage-lock';
+
+// Verrou déplacé dans storage-lock.ts (importé par le logger) ; réexporté pour les modules existants
+export { withStorageLock };
 
 export const MAX_PENDING_REVIEWS = 20;
 export const MAX_RECENT_SYNCS = 5;
-const STORAGE_LOCK = 'synckai:storage';
-
-/**
- * Sérialise les lectures-modifications-écritures du stockage. Le popup, la page d'options et le
- * service worker partagent l'origine chrome-extension:// : le même verrou Web Locks les coordonne,
- * ce qui évite qu'une écriture en écrase une autre (ex : "Ignorer" pendant une synchro).
- */
-export function withStorageLock<T>(task: () => Promise<T>): Promise<T> {
-  return navigator.locks.request(STORAGE_LOCK, task);
-}
 
 /** Clés utilisées dans chrome.storage.local */
 export const STORAGE_KEYS = {

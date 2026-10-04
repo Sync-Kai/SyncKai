@@ -13,7 +13,7 @@ SyncKai automatically updates the user's anime list on AniList and/or MyAnimeLis
 ### storage
 
 ```
-Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, the retry queue for failed syncs, and the AniList/MyAnimeList OAuth tokens. Everything is kept in chrome.storage.local on the user's device; nothing is sent to the developer.
+Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens. Everything is kept in chrome.storage.local on the user's device; nothing is sent to the developer.
 ```
 
 ### identity

@@ -22,6 +22,7 @@ import {
   type RuntimeMessage,
 } from '../shared/messages';
 import { createLogger } from '../shared/logger';
+import { describeFailedResponse } from './response-errors';
 
 const log = createLogger('background');
 
@@ -135,7 +136,12 @@ chrome.runtime.onMessage.addListener(
 
     i18nReady
       .then(() => dispatch(message, sender))
-      .then(sendResponse)
+      .then((response) => {
+        // Erreurs prévues (réseau, API…) renvoyées sans log : consignées ici pour le rapport de diagnostic
+        const failure = describeFailedResponse(response);
+        if (failure !== null) log.warn(`${message.type} :`, failure);
+        sendResponse(response);
+      })
       .catch((error: unknown) => {
         log.error('Erreur non gérée pour', message.type, error);
         sendResponse(unexpectedErrors()[message.type]);

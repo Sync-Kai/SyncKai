@@ -1,3 +1,5 @@
+import { defaultJournal, type Journal } from './error-journal';
+
 export interface Logger {
   debug(...args: unknown[]): void;
   info(...args: unknown[]): void;
@@ -8,16 +10,23 @@ export interface Logger {
 const noop = (): void => {};
 
 /**
- * Logger préfixé ([SyncKai:scope]) avec debug/info activables.
+ * Logger préfixé ([SyncKai:scope]) avec debug/info activables. warn/error sont toujours affichés
+ * et consignés dans le journal local (rapport de diagnostic) quand `journal` est fourni.
  * Exporté pour les tests ; le code applicatif passe par `createLogger`.
  */
-export function createLoggerFor(scope: string, debugEnabled: boolean): Logger {
+export function createLoggerFor(scope: string, debugEnabled: boolean, journal: Journal | null = null): Logger {
   const prefix = `[SyncKai:${scope}]`;
   return {
     debug: debugEnabled ? (...args: unknown[]) => console.debug(prefix, ...args) : noop,
     info: debugEnabled ? (...args: unknown[]) => console.info(prefix, ...args) : noop,
-    warn: (...args: unknown[]) => console.warn(prefix, ...args),
-    error: (...args: unknown[]) => console.error(prefix, ...args),
+    warn: (...args: unknown[]) => {
+      console.warn(prefix, ...args);
+      journal?.record('warn', scope, args);
+    },
+    error: (...args: unknown[]) => {
+      console.error(prefix, ...args);
+      journal?.record('error', scope, args);
+    },
   };
 }
 
@@ -30,7 +39,13 @@ export function createLogger(scope: string): Logger {
   return {
     debug: __SYNCKAI_DEBUG__ ? (...args: unknown[]) => console.debug(prefix, ...args) : noop,
     info: __SYNCKAI_DEBUG__ ? (...args: unknown[]) => console.info(prefix, ...args) : noop,
-    warn: (...args: unknown[]) => console.warn(prefix, ...args),
-    error: (...args: unknown[]) => console.error(prefix, ...args),
+    warn: (...args: unknown[]) => {
+      console.warn(prefix, ...args);
+      defaultJournal.record('warn', scope, args);
+    },
+    error: (...args: unknown[]) => {
+      console.error(prefix, ...args);
+      defaultJournal.record('error', scope, args);
+    },
   };
 }

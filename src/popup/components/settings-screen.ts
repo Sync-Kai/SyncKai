@@ -1,4 +1,4 @@
-import { t, tp } from '../../i18n';
+import { getLocale, t, tp } from '../../i18n';
 import { formatAiringStatus, type AiringCheckResult } from '../../shared/airing.types';
 import type { AniListViewer } from '../../shared/anilist.types';
 import type { StreamingPlatform } from '../../shared/episode.types';
@@ -10,6 +10,9 @@ import type { MalViewer } from '../../shared/mal.types';
 import { AIRING_DELAYS, type AiringDelayHours } from '../../shared/engagement.types';
 import { normalizeSettings, PERCENTAGE_RANGE, saveSettings, type LanguageSetting, type NotificationLevel, type SyncSettings } from '../../shared/settings';
 import { clearMediaMappings, deleteMediaMapping, getMediaMappings } from '../../shared/storage';
+import { buildIssueUrl } from '../../shared/diagnostics';
+import { buildCurrentReport, currentBrowser } from '../../shared/diagnostics-store';
+import { clearJournal, readJournal } from '../../shared/error-journal';
 import type { MediaMapping } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { h, nodes, preserveFocus, type Child } from '../../ui/dom';
@@ -22,7 +25,6 @@ import { createLogger } from '../../shared/logger';
 const log = createLogger('popup');
 
 const REPO_URL = 'https://github.com/Sync-Kai/SyncKai';
-const ISSUES_URL = 'https://github.com/Sync-Kai/SyncKai/issues';
 const SAVED_BADGE_MS = 1_500;
 const DIVIDER = 'border-t border-dotted border-line';
 const COMMAND_NAME = 'complete-episode';
@@ -31,6 +33,9 @@ const IMPORT_PAGE = 'src/import/import.html';
 const EXPORTED_BADGE_MS = 2_000;
 
 type ExportState = 'idle' | 'exporting' | 'exported' | 'error';
+/** Retour des actions de la section Aide */
+type HelpFeedback = { tone: 'ok' | 'error'; text: string } | null;
+const HELP_FEEDBACK_MS = 2_500;
 
 /** "Alt+Shift+S" → "Alt+Maj+S" (nom de la touche Maj dans la langue active) */
 function formatShortcut(shortcut: string): string {
@@ -869,6 +874,124 @@ export function createSettingsScreen(): SettingsScreen {
     drawBackup();
   }
 
+  // ─── Aide : rapport de diagnostic ───
+  const helpCard = h('div', { class: `${CARD} flex flex-col gap-2 px-3 py-2.5` });
+  /** Nombre d'entrées du journal ; null = en lecture ou illisible */
+  let journalCount: number | null = null;
+  let helpBusy: 'copy' | 'clear' | null = null;
+  let helpFeedback: HelpFeedback = null;
+  let helpTimer: ReturnType<typeof setTimeout> | undefined;
+  // Modèle court : version, navigateur, langue (le rapport complet est collé par l'utilisateur)
+  const issueUrl = buildIssueUrl({ version, browser: currentBrowser(), locale: getLocale() });
+
+  function drawHelp(): void {
+    preserveFocus(helpCard, () => helpCard.replaceChildren(...nodes(renderHelp())));
+  }
+
+  function renderHelp(): Child[] {
+    const busy = helpBusy !== null;
+    const count =
+      journalCount === null ? '' : journalCount === 0 ? t('settings.help.noErrors') : tp('settings.help.errors', journalCount);
+    return [
+      h('p', { class: 'm-0 text-[11px] font-semibold text-muted' }, t('settings.help.text')),
+      h(
+        'div',
+        { class: 'flex flex-wrap items-center gap-2' },
+        h(
+          'button',
+          {
+            class: `${BTN_GHOST} border border-line px-3.5 text-ink`,
+            attrs: { type: 'button', 'data-focus': 'help-copy', title: t('settings.help.copyTitle'), ...(busy ? { disabled: '' } : {}) },
+            on: { click: () => void copyReport() },
+          },
+          helpBusy === 'copy' && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),
+          t('settings.help.copy'),
+        ),
+        h(
+          'a',
+          {
+            class: `${BTN_GHOST} border border-line px-3.5 text-sakura`,
+            attrs: { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', title: t('settings.help.reportTitle'), 'data-focus': 'help-report' },
+          },
+          t('settings.help.report'),
+          icon('external', 'h-3 w-3'),
+        ),
+      ),
+      h(
+        'div',
+        { class: `flex min-h-8 items-center justify-between gap-2 pt-2 ${DIVIDER}` },
+        helpFeedback
+          ? h(
+              'span',
+              { class: `flex min-w-0 items-center gap-1 text-[11px] font-bold ${helpFeedback.tone === 'ok' ? 'text-mint' : 'text-danger'}`, attrs: { role: 'status' } },
+              icon(helpFeedback.tone === 'ok' ? 'check' : 'alert', 'h-3 w-3 shrink-0', helpFeedback.tone === 'ok' ? '3' : '2'),
+              helpFeedback.text,
+            )
+          : h('span', { class: 'min-w-0 text-[11px] font-semibold text-muted', attrs: { role: 'status' } }, count),
+        h(
+          'button',
+          {
+            class: `${BTN_GHOST} text-muted`,
+            attrs: { type: 'button', 'data-focus': 'help-clear', ...(busy || journalCount === 0 ? { disabled: '' } : {}) },
+            on: { click: () => void clearLog() },
+          },
+          helpBusy === 'clear' && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),
+          t('settings.help.clear'),
+        ),
+      ),
+    ];
+  }
+
+  function showHelpFeedback(feedback: HelpFeedback): void {
+    clearTimeout(helpTimer);
+    helpFeedback = feedback;
+    // Le succès s'efface ; l'erreur reste jusqu'à la prochaine action
+    if (feedback?.tone === 'ok') {
+      helpTimer = setTimeout(() => {
+        helpFeedback = null;
+        drawHelp();
+      }, HELP_FEEDBACK_MS);
+    }
+  }
+
+  async function refreshJournalCount(): Promise<void> {
+    try {
+      journalCount = (await readJournal()).length;
+    } catch {
+      journalCount = null;
+    }
+    drawHelp();
+  }
+
+  async function copyReport(): Promise<void> {
+    helpBusy = 'copy';
+    drawHelp();
+    try {
+      // Clic utilisateur dans le popup : l'API Clipboard n'exige pas la permission clipboardWrite
+      await navigator.clipboard.writeText(await buildCurrentReport());
+      showHelpFeedback({ tone: 'ok', text: t('settings.help.copied') });
+    } catch (error: unknown) {
+      log.error('Copie du rapport de diagnostic impossible :', error);
+      showHelpFeedback({ tone: 'error', text: t('settings.help.copyFailed') });
+    }
+    helpBusy = null;
+    await refreshJournalCount();
+  }
+
+  async function clearLog(): Promise<void> {
+    helpBusy = 'clear';
+    drawHelp();
+    try {
+      await clearJournal();
+      showHelpFeedback({ tone: 'ok', text: t('settings.help.cleared') });
+    } catch {
+      // Pas de log ici : il serait aussitôt réécrit dans le journal qu'on vient d'effacer
+      showHelpFeedback({ tone: 'error', text: t('settings.help.clearFailed') });
+    }
+    helpBusy = null;
+    await refreshJournalCount();
+  }
+
   async function refreshMappings(): Promise<void> {
     try {
       mappings = Object.entries(await getMediaMappings()).sort(([a], [b]) => a.localeCompare(b));
@@ -888,6 +1011,7 @@ export function createSettingsScreen(): SettingsScreen {
     h('section', { class: 'flex flex-col gap-2' }, sectionLabel(t('settings.section.mappings')), mappingsCard),
     h('section', { class: 'flex flex-col gap-2' }, sectionLabel(t('settings.section.exclusions')), exclusionsCard),
     h('section', { class: 'flex flex-col gap-2' }, sectionLabel(t('settings.section.backup')), backupCard),
+    h('section', { class: 'flex flex-col gap-2' }, sectionLabel(t('settings.section.help')), helpCard),
     h(
       'section',
       { class: 'flex flex-col gap-2' },
@@ -905,7 +1029,6 @@ export function createSettingsScreen(): SettingsScreen {
           'div',
           { class: `flex min-h-10 items-center gap-4 ${DIVIDER}` },
           h('a', { class: `${LINK} inline-flex min-h-8 items-center text-[12px] font-bold`, attrs: { href: REPO_URL, target: '_blank', rel: 'noopener noreferrer' } }, t('settings.about.source')),
-          h('a', { class: `${LINK} inline-flex min-h-8 items-center text-[12px] font-bold`, attrs: { href: ISSUES_URL, target: '_blank', rel: 'noopener noreferrer' } }, t('settings.about.issues')),
         ),
       ),
     ),
@@ -915,6 +1038,8 @@ export function createSettingsScreen(): SettingsScreen {
   drawMappings();
   drawExclusions();
   drawBackup();
+  drawHelp();
+  void refreshJournalCount();
   void loadShortcut();
 
   return {

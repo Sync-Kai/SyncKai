@@ -31,7 +31,8 @@ Tout est enregistré **localement** dans le stockage de l’extension (`chrome.s
 - les correspondances mémorisées entre séries et fiches AniList/MAL, les séries exclues ;
 - l’historique des dernières synchros, les épisodes à vérifier, les séries à noter, les refus de revisionnage ;
 - la file des synchros en attente (nouvel essai hors ligne) ;
-- des caches (liste « En cours », profil, calendrier des sorties).
+- des caches (liste « En cours », profil, calendrier des sorties) ;
+- les 50 dernières erreurs techniques (sans jetons ni noms de compte), pour aider à diagnostiquer un problème : elles ne quittent jamais le navigateur, sauf si tu copies toi-même le rapport de diagnostic (Réglages › Aide).
 
 ### Comptes AniList et MyAnimeList
 
@@ -92,7 +93,8 @@ Everything is stored **locally** in the extension storage (`chrome.storage.local
 - remembered matches between series and AniList/MAL entries, excluded series;
 - recent sync history, episodes to review, series to rate, declined rewatches;
 - the queue of pending syncs (offline retry);
-- caches (“Watching” list, profile, airing schedule).
+- caches (“Watching” list, profile, airing schedule);
+- the last 50 technical errors (without tokens or account names), to help diagnose problems: they never leave your browser unless you copy the diagnostic report yourself (Settings › Help).
 
 ### AniList and MyAnimeList accounts
 
@@ -153,7 +155,8 @@ Alles wird **lokal** im Erweiterungsspeicher (`chrome.storage.local`) auf deinem
 - gespeicherte Zuordnungen zwischen Serien und AniList-/MAL-Einträgen, ausgeschlossene Serien;
 - Verlauf der letzten Synchronisierungen, zu prüfende Episoden, zu bewertende Serien, abgelehnte Rewatches;
 - die Warteschlange ausstehender Synchronisierungen (Offline-Wiederholung);
-- Caches (Liste „Schaue ich“, Profil, Ausstrahlungsplan).
+- Caches (Liste „Schaue ich“, Profil, Ausstrahlungsplan);
+- die letzten 50 technischen Fehler (ohne Tokens und Kontonamen) zur Fehlerdiagnose: Sie verlassen den Browser nie, außer du kopierst selbst den Diagnosebericht (Einstellungen › Hilfe).
 
 ### AniList- und MyAnimeList-Konten
 
