@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fromMalStatus, malProgressBody, parseMalListStatus, toMalStatus } from './mal';
+import { fromMalStatus, malProgressBody, malStatusBody, parseMalListStatus, toMalStatus } from './mal';
 
 describe('statuts MyAnimeList', () => {
   it('convertit les statuts MAL vers les statuts communs', () => {
@@ -44,5 +44,28 @@ describe('statuts MyAnimeList', () => {
       is_rewatching: 'false',
       num_times_rewatched: '2',
     });
+  });
+});
+
+describe('changement de statut MyAnimeList', () => {
+  it('convertit les statuts du popup vers les statuts MAL', () => {
+    expect(malStatusBody('PAUSED', 5).get('status')).toBe('on_hold');
+    expect(malStatusBody('DROPPED', 5).get('status')).toBe('dropped');
+    expect(malStatusBody('COMPLETED', 12).get('status')).toBe('completed');
+  });
+
+  it('construit le corps du PATCH (sortie de revisionnage, compteur si fourni)', () => {
+    expect(Object.fromEntries(malStatusBody('PAUSED', 5))).toEqual({ status: 'on_hold', num_watched_episodes: '5', is_rewatching: 'false' });
+    expect(Object.fromEntries(malStatusBody('COMPLETED', 12, 2))).toEqual({
+      status: 'completed',
+      num_watched_episodes: '12',
+      is_rewatching: 'false',
+      num_times_rewatched: '2',
+    });
+  });
+
+  it('lit la note (0 = non notée)', () => {
+    expect(parseMalListStatus({ status: 'watching', num_episodes_watched: 4, score: 8 })).toEqual({ status: 'CURRENT', progress: 4, score: 8 });
+    expect(parseMalListStatus({ status: 'watching', num_episodes_watched: 4, score: 0 })).toEqual({ status: 'CURRENT', progress: 4 });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideAdjustment } from './controls';
+import { decideAdjustment, shouldQueueRating } from './controls';
 import { setLocale } from '../i18n';
 
 // Textes attendus en français
@@ -30,5 +30,28 @@ describe('decideAdjustment', () => {
 
   it('total inconnu : jamais terminé automatiquement', () => {
     expect(decideAdjustment({ status: 'CURRENT', progress: 1100 }, null, 1)).toEqual({ action: 'write', progress: 1101, status: 'CURRENT' });
+  });
+});
+
+describe('shouldQueueRating', () => {
+  const completed = { result: { service: 'anilist', outcome: { status: 'updated', progress: 12, completed: true } }, scored: false } as const;
+  const malUpToDate = { result: { service: 'mal', outcome: { status: 'up-to-date', progress: 12 } }, scored: false } as const;
+
+  it('carte « À noter » après Terminé, sans note existante', () => {
+    expect(shouldQueueRating('COMPLETED', [completed, malUpToDate], true)).toBe(true);
+  });
+
+  it('pas de carte si une note existe sur un service', () => {
+    expect(shouldQueueRating('COMPLETED', [completed, { ...malUpToDate, scored: true }], true)).toBe(false);
+  });
+
+  it('pas de carte si la proposition de note est désactivée', () => {
+    expect(shouldQueueRating('COMPLETED', [completed], false)).toBe(false);
+  });
+
+  it('pas de carte pour En pause / Abandonné, ni sans passage effectif en Terminé', () => {
+    expect(shouldQueueRating('PAUSED', [completed], true)).toBe(false);
+    expect(shouldQueueRating('DROPPED', [completed], true)).toBe(false);
+    expect(shouldQueueRating('COMPLETED', [malUpToDate], true)).toBe(false);
   });
 });

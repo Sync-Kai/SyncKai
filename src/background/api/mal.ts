@@ -2,6 +2,7 @@ import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import type { MalViewer, MalViewerResult } from '../../shared/mal.types';
 import { clearMalSession, saveCachedMalViewer } from '../../shared/storage';
+import type { ListStatusChange } from '../../shared/sync.types';
 import { toSafeUrl } from '../../shared/url';
 import { getMalAccessToken } from '../auth/mal';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
@@ -41,7 +42,26 @@ export function parseMalListStatus(value: unknown): ListEntryState | null {
   if (!status) return null;
   const entry: ListEntryState = { status, progress: typeof value.num_episodes_watched === 'number' ? value.num_episodes_watched : 0 };
   if (typeof value.num_times_rewatched === 'number') entry.repeat = value.num_times_rewatched;
+  // 0 = pas de note sur MAL
+  if (typeof value.score === 'number' && value.score > 0) entry.score = value.score;
   return entry;
+}
+
+const STATUS_CHANGE_TO_MAL: Record<ListStatusChange, MalListStatus> = {
+  PAUSED: 'on_hold',
+  DROPPED: 'dropped',
+  COMPLETED: 'completed',
+};
+
+/**
+ * Corps du PATCH my_list_status pour un changement de statut manuel (pur, testable).
+ * is_rewatching toujours à false : mettre en pause, abandonner ou terminer sort d'un revisionnage.
+ * `repeat` : nouveau compteur de revisionnages (revisionnage marqué terminé).
+ */
+export function malStatusBody(status: ListStatusChange, progress: number, repeat?: number): URLSearchParams {
+  const body = new URLSearchParams({ status: STATUS_CHANGE_TO_MAL[status], num_watched_episodes: String(progress), is_rewatching: 'false' });
+  if (repeat !== undefined) body.set('num_times_rewatched', String(repeat));
+  return body;
 }
 
 /**
@@ -182,6 +202,11 @@ async function patchMalListStatus(malId: number, body: URLSearchParams): Promise
 /** `repeat` : nouveau nombre de revisionnages (fin d'un revisionnage), sinon inchangé */
 export function saveMalProgress(malId: number, progress: number, status: WriteStatus, repeat?: number): Promise<ListEntryState> {
   return patchMalListStatus(malId, malProgressBody(progress, status, repeat));
+}
+
+/** Changement de statut manuel (on_hold, dropped, completed) */
+export function saveMalListStatus(malId: number, status: ListStatusChange, progress: number, repeat?: number): Promise<ListEntryState> {
+  return patchMalListStatus(malId, malStatusBody(status, progress, repeat));
 }
 
 /** `score` déjà converti (entier 1 à 10, voir toMalScore) */

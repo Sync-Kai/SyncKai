@@ -6,6 +6,7 @@ import type { ExcludedSeries } from '../shared/exclusions';
 import type { SyncQueueItem } from '../shared/queue.types';
 import type { SyncSettings } from '../shared/settings';
 import type { FeedbackTone } from '../shared/sync-feedback';
+import type { ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
 
@@ -45,6 +46,8 @@ export interface UiState {
   sortMenuOpen: boolean;
   /** Menu « … » ouvert sur une série de « En cours » (clé d'entrée) : un seul à la fois */
   rowMenu: string | null;
+  /** Confirmation affichée dans le menu « … » ouvert (Abandonner, Terminé), null sinon */
+  rowConfirm: ListStatusChange | null;
 }
 
 /** Retour bref affiché sur une ligne après une action (+1, −1, réessai…) */
@@ -56,7 +59,8 @@ export interface InlineFeedback {
 }
 
 /** Action en cours ou terminée sur une série de « En cours » */
-export type EntryAction = { phase: 'pending' } | { phase: 'done'; feedback: InlineFeedback };
+/** `kind` : `status` = changement de statut en cours (pastille « Mise à jour… ») */
+export type EntryAction = { phase: 'pending'; kind: 'adjust' | 'status' } | { phase: 'done'; feedback: InlineFeedback };
 
 /** Séries exclues (Réglages › Séries exclues, pastille « Exclue ») */
 export type ExclusionsState = { status: 'loading' } | { status: 'ready'; items: ExcludedSeries[] } | { status: 'error' };

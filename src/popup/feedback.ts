@@ -1,6 +1,6 @@
-import { t } from '../i18n';
+import { t, type MessageKey } from '../i18n';
 import { describeOutcome, type FeedbackTone } from '../shared/sync-feedback';
-import type { SyncOutcome } from '../shared/sync.types';
+import type { ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import type { InlineFeedback } from './state';
 
@@ -42,6 +42,31 @@ export function adjustFeedback(outcome: SyncOutcome, delta: 1 | -1): InlineFeedb
     case 'error':
       return { tone: 'error', text: outcome.message, detail };
   }
+}
+
+const STATUS_DONE: Record<ListStatusChange, MessageKey> = {
+  PAUSED: 'inline.status.PAUSED',
+  DROPPED: 'inline.status.DROPPED',
+  COMPLETED: 'inline.status.COMPLETED',
+};
+
+/**
+ * Résultat d'un changement de statut (En pause, Abandonné, Terminé) : phrase affichée en bandeau,
+ * la série quittant « En cours ». Mentionne la carte « À noter » créée après « Terminé ».
+ */
+export function statusFeedback(outcome: SyncOutcome, status: ListStatusChange): InlineFeedback {
+  const detail = detailOf(outcome);
+  // Hors « synced », mêmes textes que +1 / −1 (le sens de l'ajustement n'y intervient pas)
+  if (outcome.status !== 'synced') return adjustFeedback(outcome, 1);
+  const written = outcome.results.some((r) => r.outcome.status === 'updated' || r.outcome.status === 'up-to-date');
+  const failed = outcome.results.filter((r) => r.outcome.status === 'error').map((r) => TRACKER_LABELS[r.service]);
+  if (!written) {
+    return { tone: failed.length > 0 ? 'error' : 'warning', text: failed.length > 0 ? t('inline.updateFailed') : t('inline.nothingChanged'), detail };
+  }
+  const done = t(STATUS_DONE[status], { title: outcome.mediaTitle });
+  const text = outcome.prompts?.rate ? `${done} · ${t('inline.rateInActivity')}` : done;
+  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+  return { tone: 'success', text, detail };
 }
 
 /** Résultat d'un « Réessayer » de la file : phrase complète (affichée en bandeau) */

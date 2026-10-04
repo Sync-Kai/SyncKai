@@ -6,7 +6,7 @@ import { isRecord } from './guards';
 import type { Result } from './result';
 import type { CandidateSummary } from './review.types';
 import type { MalViewerResult } from './mal.types';
-import type { SyncOutcome } from './sync.types';
+import { isListStatusChange, type ListStatusChange, type SyncOutcome } from './sync.types';
 import { isTrackerId, type TrackerId } from './tracker.types';
 import type { WatchingResult } from './watching.types';
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from './engagement.types';
@@ -16,6 +16,15 @@ export interface AdjustProgressPayload {
   mediaId: number | null;
   malId: number | null;
   delta: 1 | -1;
+}
+
+export interface SetListStatusPayload {
+  /** Fiche AniList (catalogue) ; null pour une entrée MAL sans équivalent AniList */
+  mediaId: number | null;
+  malId: number | null;
+  status: ListStatusChange;
+  /** Affiche de la carte « À noter » créée après « Terminé » (https uniquement) */
+  coverUrl: string | null;
 }
 
 export interface EpisodeCompletedPayload {
@@ -44,6 +53,8 @@ export interface MessageMap {
   GET_WATCHING: { payload: { service: TrackerId }; response: WatchingResult };
   /** +1 / −1 manuel depuis le popup, écrit sur tous les services connectés où la série existe */
   ADJUST_PROGRESS: { payload: AdjustProgressPayload; response: SyncOutcome };
+  /** En pause / Abandonné / Terminé depuis le popup, écrit sur tous les services connectés où la série est dans la liste */
+  SET_LIST_STATUS: { payload: SetListStatusPayload; response: SyncOutcome };
   /** « Réessayer » sur une synchro en échec de la file (Activité) */
   RETRY_QUEUED: { payload: { id: string }; response: SyncOutcome };
   /** Note sur 10 (pas 0,5), convertie et écrite sur chaque service connecté ; retire la carte « À noter » */
@@ -67,6 +78,7 @@ export const EXTENSION_PAGE_ONLY: ReadonlySet<MessageType> = new Set([
   'REOPEN_REVIEW',
   'GET_WATCHING',
   'ADJUST_PROGRESS',
+  'SET_LIST_STATUS',
   'RETRY_QUEUED',
   'CHECK_AIRING',
 ]);
@@ -103,7 +115,14 @@ const isAdjustProgressPayload = (p: unknown): p is AdjustProgressPayload =>
   (p.malId === null || isPositiveInt(p.malId)) &&
   (p.mediaId !== null || p.malId !== null) &&
   (p.delta === 1 || p.delta === -1);
-const isRetryQueuedPayload = (p: unknown): p is { id: string } => isRecord(p) && isKey(p.id);
+const isSetListStatusPayload = (p: unknown): p is SetListStatusPayload =>
+  isRecord(p) &&
+  (p.mediaId === null || isPositiveInt(p.mediaId)) &&
+  (p.malId === null || isPositiveInt(p.malId)) &&
+  (p.mediaId !== null || p.malId !== null) &&
+  isListStatusChange(p.status) &&
+  (p.coverUrl === null || (typeof p.coverUrl === 'string' && p.coverUrl.length <= 2000 && p.coverUrl.startsWith('https://')));
+const isRetryQueuedPayload =(p: unknown): p is { id: string } => isRecord(p) && isKey(p.id);
 const isRatePayload = (p: unknown): p is { media: MediaRef; score: Score10 } => isRecord(p) && isMediaRef(p.media) && isScore10(p.score);
 const isDeferRatingPayload = (p: unknown): p is { media: MediaRef; coverUrl: string | null } =>
   isRecord(p) && isMediaRef(p.media) && (p.coverUrl === null || (typeof p.coverUrl === 'string' && p.coverUrl.length <= 2000));
@@ -123,6 +142,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   REOPEN_REVIEW: isReopenReviewPayload,
   GET_WATCHING: isWatchingPayload,
   ADJUST_PROGRESS: isAdjustProgressPayload,
+  SET_LIST_STATUS: isSetListStatusPayload,
   RETRY_QUEUED: isRetryQueuedPayload,
   RATE_MEDIA: isRatePayload,
   DEFER_RATING: isDeferRatingPayload,

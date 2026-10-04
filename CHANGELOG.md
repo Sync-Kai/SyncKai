@@ -3,6 +3,12 @@
 Toutes les évolutions notables de SyncKai sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [Unreleased]
+
+### Ajouté
+
+- **Statut depuis le popup** : *Mettre en pause*, *Abandonner* ou *Marquer comme terminé* une série depuis le menu « … » de *En cours*, sur tous les services connectés (confirmation pour Abandonner et Terminé ; la note de fin de série est proposée après Terminé).
+
 ## [1.7.3] - 2026-10-03
 
 ### Ajouté

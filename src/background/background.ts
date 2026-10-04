@@ -5,7 +5,7 @@ import { getWatchingList } from './api/watching';
 import { loginWithAniList } from './auth/anilist';
 import { loginWithMal } from './auth/mal';
 import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
-import { adjustProgress, handleCommand } from './controls';
+import { adjustProgress, handleCommand, setListStatus } from './controls';
 import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } from './sync/queue';
 import { reopenReview, resolveReview, searchCandidates, syncEpisode } from './sync/sync-service';
@@ -53,6 +53,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     GET_MAL_VIEWER: { ok: false, code: 'API_ERROR', message },
     EPISODE_COMPLETED: { status: 'error', message: t('error.unexpectedSync') },
     ADJUST_PROGRESS: { status: 'error', message },
+    SET_LIST_STATUS: { status: 'error', message: t('error.unexpectedStatus') },
     RETRY_QUEUED: { status: 'error', message },
     SEARCH_ANIME: { ok: false, code: 'API_ERROR', message },
     RESOLVE_REVIEW: { status: 'error', message: t('error.unexpectedSync') },
@@ -87,6 +88,7 @@ const handlers: MessageHandlers = {
   // Échec passager → mise en file de relance automatique (le résultat porte alors `queued: true`)
   EPISODE_COMPLETED: async ({ episode, services }) => recordSyncOutcome(episode, services, await syncEpisode(episode, services)),
   ADJUST_PROGRESS: (payload) => adjustProgress(payload),
+  SET_LIST_STATUS: (payload) => setListStatus(payload),
   RETRY_QUEUED: ({ id }) => retryQueued(id),
   SEARCH_ANIME: ({ query }) => searchCandidates(query),
   RESOLVE_REVIEW: (payload) => resolveReview(payload),

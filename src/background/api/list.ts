@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { getValidToken } from '../../shared/storage';
+import type { ListStatusChange } from '../../shared/sync.types';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
 import { isAniListScoreFormat, type AniListScoreFormat } from '../sync/score';
 import { anilistQuery } from './client';
@@ -20,7 +21,7 @@ const MEDIA_ENTRY_QUERY = /* GraphQL */ `
       id
       episodes
       title { userPreferred }
-      mediaListEntry { status progress repeat }
+      mediaListEntry { status progress repeat score }
     }
   }
 `;
@@ -66,6 +67,8 @@ function parseEntry(value: unknown): ListEntryState | null {
   if (!isRecord(value) || typeof value.status !== 'string' || !Object.hasOwn(LIST_STATUSES, value.status)) return null;
   const entry: ListEntryState = { status: value.status as ListStatus, progress: typeof value.progress === 'number' ? value.progress : 0 };
   if (typeof value.repeat === 'number') entry.repeat = value.repeat;
+  // 0 = pas de note sur AniList
+  if (typeof value.score === 'number' && value.score > 0) entry.score = value.score;
   return entry;
 }
 
@@ -116,11 +119,29 @@ function parseSaved(data: SaveProgressData): ListEntryState {
   return entry;
 }
 
-/** `repeat` : nouveau nombre de revisionnages (fin d'un revisionnage), sinon inchangé */
-export async function saveProgress(mediaId: number, progress: number, status: WriteStatus, repeat?: number): Promise<ListEntryState> {
+/**
+ * Variables de SaveMediaListEntry (pur, testable). Les statuts communs portent les noms de
+ * l'énumération AniList MediaListStatus (CURRENT, PAUSED, DROPPED, COMPLETED, REPEATING) : aucune conversion.
+ */
+export function anilistEntryVariables(
+  mediaId: number,
+  progress: number,
+  status: WriteStatus | ListStatusChange,
+  repeat?: number,
+): Record<string, number | string> {
   const variables: Record<string, number | string> = { mediaId, progress, status };
   if (repeat !== undefined) variables.repeat = repeat;
-  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, variables));
+  return variables;
+}
+
+/** `repeat` : nouveau nombre de revisionnages (fin d'un revisionnage), sinon inchangé */
+export async function saveProgress(mediaId: number, progress: number, status: WriteStatus, repeat?: number): Promise<ListEntryState> {
+  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat)));
+}
+
+/** Changement de statut manuel (En pause, Abandonné, Terminé) : même mutation que la progression */
+export async function saveListStatus(mediaId: number, status: ListStatusChange, progress: number, repeat?: number): Promise<ListEntryState> {
+  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat)));
 }
 
 /** Format de note du profil, gardé en mémoire le temps de vie du service worker (lié au token : changement de compte = relecture) */

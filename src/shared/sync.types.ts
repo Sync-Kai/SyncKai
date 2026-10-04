@@ -63,3 +63,12 @@ export type SyncOutcome =
 export function failedServices(outcome: SyncOutcome): TrackerId[] {
   return outcome.status === 'synced' ? outcome.results.filter((r) => r.outcome.status === 'error').map((r) => r.service) : [];
 }
+
+/** Changement de statut manuel depuis le popup (menu « … » de « En cours ») */
+export type ListStatusChange = 'PAUSED' | 'DROPPED' | 'COMPLETED';
+
+export const LIST_STATUS_CHANGES: readonly ListStatusChange[] = ['PAUSED', 'DROPPED', 'COMPLETED'];
+
+export function isListStatusChange(value: unknown): value is ListStatusChange {
+  return typeof value === 'string' && (LIST_STATUS_CHANGES as readonly string[]).includes(value);
+}

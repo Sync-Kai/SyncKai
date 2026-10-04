@@ -1,10 +1,13 @@
 import { t } from '../i18n';
 import type { ContentMessage } from '../shared/content-messages';
-import type { AdjustProgressPayload } from '../shared/messages';
-import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
+import type { AdjustProgressPayload, SetListStatusPayload } from '../shared/messages';
+import type { MediaRef } from '../shared/engagement.types';
+import { getSettings } from '../shared/settings';
+import type { ListStatusChange, ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './api/errors';
-import type { ListEntryState, WriteStatus } from './sync/rules';
+import { deferRating } from './engagement';
+import { decideStatusChange, type ListEntryState, type WriteStatus } from './sync/rules';
 import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
@@ -35,8 +38,28 @@ export function decideAdjustment(entry: ListEntryState | null, total: number | n
   return { action: 'write', progress, status: entry?.status === 'REPEATING' ? 'REPEATING' : 'CURRENT' };
 }
 
+function toServiceError(error: unknown): ServiceOutcome {
+  return error instanceof ApiError ? { status: 'error', message: error.message, code: error.code } : { status: 'error', message: t('error.unexpected') };
+}
+
+interface Target {
+  tracker: TrackerService;
+  id: number;
+}
+
+/**
+ * Services connectés où la série a un identifiant. Catalogue AniList si connu (idMal, total) ;
+ * sinon MAL seul avec son propre identifiant (entrée MAL sans équivalent AniList).
+ */
+function resolveTargets(trackers: readonly TrackerService[], catalog: CatalogMedia | null, malId: number | null): Target[] {
+  return trackers.flatMap((tracker) => {
+    const id = catalog ? tracker.resolveId(catalog) : tracker.id === 'mal' ? malId : null;
+    return id !== null ? [{ tracker, id }] : [];
+  });
+}
+
 /** Ajuste UN service. Ne lève jamais : l'échec est un résultat. */
-async function adjustOnService(tracker: TrackerService, id: number, fallbackTotal: number | null, delta: 1 | -1): Promise<{ result: ServiceResult; title: string | null }> {
+async function adjustOnService({ tracker, id }: Target, fallbackTotal: number | null, delta: 1 | -1): Promise<{ result: ServiceResult; title: string | null }> {
   const label = TRACKER_LABELS[tracker.id];
   try {
     // Lecture fraîche : la progression de référence est celle de CE service
@@ -51,9 +74,7 @@ async function adjustOnService(tracker: TrackerService, id: number, fallbackTota
     return { result: { service: tracker.id, outcome }, title: current.title };
   } catch (error: unknown) {
     log.error(`${label} : échec de l’ajustement`, error);
-    const outcome: ServiceOutcome =
-      error instanceof ApiError ? { status: 'error', message: error.message, code: error.code } : { status: 'error', message: t('error.unexpected') };
-    return { result: { service: tracker.id, outcome }, title: null };
+    return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null };
   }
 }
 
@@ -66,21 +87,100 @@ export async function adjustProgress(payload: AdjustProgressPayload): Promise<Sy
     const trackers = await getConnectedTrackers();
     if (trackers.length === 0) return { status: 'not-connected' };
 
-    // Catalogue AniList si connu (idMal, total) ; sinon MAL seul avec son propre identifiant
     const catalog: CatalogMedia | null = payload.mediaId !== null ? await getCatalogMedia(payload.mediaId) : null;
-    const targets = trackers.flatMap((tracker) => {
-      const id = catalog ? tracker.resolveId(catalog) : tracker.id === 'mal' ? payload.malId : null;
-      return id !== null ? [{ tracker, id }] : [];
-    });
+    const targets = resolveTargets(trackers, catalog, payload.malId);
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const adjusted = await Promise.all(targets.map(({ tracker, id }) => adjustOnService(tracker, id, catalog?.episodes ?? null, payload.delta)));
+    const adjusted = await Promise.all(targets.map((target) => adjustOnService(target, catalog?.episodes ?? null, payload.delta)));
     const mediaTitle = catalog?.title ?? adjusted.find((a) => a.title !== null)?.title ?? t('sync.seriesFallback');
     return { status: 'synced', mediaTitle, results: adjusted.map((a) => a.result) };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { status: 'error', message: error.message, code: error.code };
     log.error('Erreur inattendue :', error);
     return { status: 'error', message: t('error.unexpectedAdjust') };
+  }
+}
+
+// ─── Statut (En pause, Abandonné, Terminé) ───────────────────────────────
+
+interface StatusWrite {
+  result: ServiceResult;
+  title: string | null;
+  /** L'entrée de ce service porte déjà une note */
+  scored: boolean;
+}
+
+/** Change le statut sur UN service (lecture fraîche, puis règle decideStatusChange). Ne lève jamais. */
+async function statusOnService({ tracker, id }: Target, fallbackTotal: number | null, status: ListStatusChange): Promise<StatusWrite> {
+  const label = TRACKER_LABELS[tracker.id];
+  try {
+    const current = await tracker.getEntry(id);
+    const scored = current.entry?.score !== undefined;
+    const decision = decideStatusChange(current.entry, current.episodes ?? fallbackTotal, status);
+    if (decision.action === 'skip') {
+      const outcome: ServiceOutcome =
+        decision.reason === 'not-in-list'
+          ? { status: 'skipped', reason: t('engagement.notInList') }
+          : { status: 'up-to-date', progress: current.entry?.progress ?? 0 };
+      return { result: { service: tracker.id, outcome }, title: current.title, scored };
+    }
+    const saved = await tracker.saveStatus(id, decision.status, decision.progress, decision.repeat);
+    log.info(`${label} : ${current.title} → ${saved.status}, épisode ${saved.progress}`);
+    const outcome: ServiceOutcome = { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
+    return { result: { service: tracker.id, outcome }, title: current.title, scored };
+  } catch (error: unknown) {
+    log.error(`${label} : échec du changement de statut`, error);
+    return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null, scored: false };
+  }
+}
+
+/**
+ * Carte « À noter » après « Terminé » (pur, testable) : la série vient de passer en Terminé sur au moins
+ * un service, aucun service n'a déjà de note, et la proposition de note est activée dans les réglages.
+ */
+export function shouldQueueRating(status: ListStatusChange, writes: readonly Pick<StatusWrite, 'result' | 'scored'>[], ratingPrompt: boolean): boolean {
+  if (status !== 'COMPLETED' || !ratingPrompt || writes.some((w) => w.scored)) return false;
+  return writes.some(({ result }) => result.outcome.status === 'updated' && result.outcome.completed);
+}
+
+/** Réglage « Proposer de noter en fin de série » ; illisible → pas de carte (facultative) */
+async function isRatingPromptEnabled(): Promise<boolean> {
+  try {
+    return (await getSettings()).ratingPrompt;
+  } catch (error: unknown) {
+    log.warn('Réglages illisibles, pas de carte « À noter » :', error);
+    return false;
+  }
+}
+
+/**
+ * En pause / Abandonné / Terminé depuis le popup : écrit sur tous les services connectés où la série
+ * est dans la liste. N'alimente pas les « dernières synchros » (action manuelle, comme +1 / −1).
+ * Après « Terminé », la carte « À noter » est créée (comme « Plus tard ») ; `prompts.rate` le signale au popup.
+ */
+export async function setListStatus(payload: SetListStatusPayload): Promise<SyncOutcome> {
+  try {
+    const trackers = await getConnectedTrackers();
+    if (trackers.length === 0) return { status: 'not-connected' };
+
+    const catalog: CatalogMedia | null = payload.mediaId !== null ? await getCatalogMedia(payload.mediaId) : null;
+    const targets = resolveTargets(trackers, catalog, payload.malId);
+    if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
+
+    const writes = await Promise.all(targets.map((target) => statusOnService(target, catalog?.episodes ?? null, payload.status)));
+    const mediaTitle = catalog?.title ?? writes.find((w) => w.title !== null)?.title ?? t('sync.seriesFallback');
+    const outcome: SyncOutcome = { status: 'synced', mediaTitle, results: writes.map((w) => w.result) };
+
+    if (shouldQueueRating(payload.status, writes, await isRatingPromptEnabled())) {
+      const media: MediaRef = { mediaId: catalog?.mediaId ?? payload.mediaId, malId: catalog?.idMal ?? payload.malId, title: mediaTitle.slice(0, 300) };
+      const queued = await deferRating(media, payload.coverUrl);
+      if (queued.ok) outcome.prompts = { rate: media };
+    }
+    return outcome;
+  } catch (error: unknown) {
+    if (error instanceof ApiError) return { status: 'error', message: error.message, code: error.code };
+    log.error('Erreur inattendue :', error);
+    return { status: 'error', message: t('error.unexpectedStatus') };
   }
 }
 

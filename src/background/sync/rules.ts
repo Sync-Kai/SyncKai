@@ -1,3 +1,5 @@
+import type { ListStatusChange } from '../../shared/sync.types';
+
 export type ListStatus = 'CURRENT' | 'PLANNING' | 'COMPLETED' | 'DROPPED' | 'PAUSED' | 'REPEATING';
 
 /** Statuts que SyncKai écrit lui-même */
@@ -8,6 +10,8 @@ export interface ListEntryState {
   progress: number;
   /** Nombre de revisionnages terminés (AniList `repeat`, MAL `num_times_rewatched`), si connu */
   repeat?: number;
+  /** Note brute du service (dans son format), présente seulement si l'entrée est notée (> 0) */
+  score?: number;
 }
 
 export type UpdateDecision =
@@ -49,4 +53,25 @@ export function decideListUpdate(
   }
 
   return { action: 'update', progress, status: isLastEpisode ? 'COMPLETED' : 'CURRENT' };
+}
+
+export type StatusChangeDecision =
+  /** `repeat` : nouveau nombre de revisionnages (un revisionnage marqué terminé compte comme achevé) */
+  | { action: 'write'; status: ListStatusChange; progress: number; repeat?: number }
+  | { action: 'skip'; reason: 'not-in-list' | 'unchanged' };
+
+/**
+ * Changement de statut manuel depuis le popup (pur, testable) :
+ * - série absente de la liste : rien n'est écrit (on n'ajoute pas une série abandonnée à une liste)
+ * - Terminé : progression portée au nombre total d'épisodes s'il est connu, sans jamais la baisser
+ * - En pause / Abandonné : progression conservée
+ * - revisionnage (REPEATING) marqué terminé : compteur de revisionnages incrémenté, comme à la fin
+ *   naturelle d'un revisionnage (decideListUpdate) ; mis en pause / abandonné : compteur inchangé
+ */
+export function decideStatusChange(entry: ListEntryState | null, totalEpisodes: number | null, status: ListStatusChange): StatusChangeDecision {
+  if (entry === null) return { action: 'skip', reason: 'not-in-list' };
+  const progress = status === 'COMPLETED' && totalEpisodes !== null ? Math.max(entry.progress, totalEpisodes) : entry.progress;
+  if (entry.status === status && entry.progress === progress) return { action: 'skip', reason: 'unchanged' };
+  if (status === 'COMPLETED' && entry.status === 'REPEATING') return { action: 'write', status, progress, repeat: (entry.repeat ?? 0) + 1 };
+  return { action: 'write', status, progress };
 }

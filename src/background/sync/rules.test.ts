@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideListUpdate } from './rules';
+import { decideListUpdate, decideStatusChange } from './rules';
 
 describe('decideListUpdate', () => {
   it('ajoute un anime absent de la liste en CURRENT', () => {
@@ -63,5 +63,46 @@ describe('decideListUpdate — correction manuelle sur la même fiche', () => {
 
   it('ne réécrit pas une valeur identique', () => {
     expect(decideListUpdate({ status: 'CURRENT', progress: 4 }, 4, 12, true)).toEqual({ action: 'skip', reason: 'up-to-date' });
+  });
+});
+
+describe('decideStatusChange', () => {
+  it('Terminé : progression portée au total connu', () => {
+    expect(decideStatusChange({ status: 'CURRENT', progress: 5 }, 12, 'COMPLETED')).toEqual({ action: 'write', status: 'COMPLETED', progress: 12 });
+  });
+
+  it('Terminé : total inconnu, progression conservée', () => {
+    expect(decideStatusChange({ status: 'CURRENT', progress: 1100 }, null, 'COMPLETED')).toEqual({ action: 'write', status: 'COMPLETED', progress: 1100 });
+  });
+
+  it('Terminé : ne baisse jamais la progression', () => {
+    expect(decideStatusChange({ status: 'CURRENT', progress: 14 }, 12, 'COMPLETED')).toEqual({ action: 'write', status: 'COMPLETED', progress: 14 });
+  });
+
+  it('En pause / Abandonné : progression conservée', () => {
+    expect(decideStatusChange({ status: 'CURRENT', progress: 5 }, 12, 'PAUSED')).toEqual({ action: 'write', status: 'PAUSED', progress: 5 });
+    expect(decideStatusChange({ status: 'CURRENT', progress: 5 }, 12, 'DROPPED')).toEqual({ action: 'write', status: 'DROPPED', progress: 5 });
+  });
+
+  it('revisionnage marqué terminé : compteur incrémenté', () => {
+    expect(decideStatusChange({ status: 'REPEATING', progress: 4, repeat: 1 }, 12, 'COMPLETED')).toEqual({ action: 'write', status: 'COMPLETED', progress: 12, repeat: 2 });
+    expect(decideStatusChange({ status: 'REPEATING', progress: 4 }, null, 'COMPLETED')).toEqual({ action: 'write', status: 'COMPLETED', progress: 4, repeat: 1 });
+  });
+
+  it('revisionnage mis en pause ou abandonné : compteur inchangé', () => {
+    expect(decideStatusChange({ status: 'REPEATING', progress: 4, repeat: 1 }, 12, 'PAUSED')).toEqual({ action: 'write', status: 'PAUSED', progress: 4 });
+  });
+
+  it('série absente de la liste : rien n’est écrit', () => {
+    expect(decideStatusChange(null, 12, 'DROPPED')).toEqual({ action: 'skip', reason: 'not-in-list' });
+  });
+
+  it('statut déjà en place : rien n’est écrit', () => {
+    expect(decideStatusChange({ status: 'PAUSED', progress: 5 }, 12, 'PAUSED')).toEqual({ action: 'skip', reason: 'unchanged' });
+    expect(decideStatusChange({ status: 'COMPLETED', progress: 12 }, 12, 'COMPLETED')).toEqual({ action: 'skip', reason: 'unchanged' });
+  });
+
+  it('déjà terminé mais progression incomplète : complétée', () => {
+    expect(decideStatusChange({ status: 'COMPLETED', progress: 10 }, 12, 'COMPLETED')).toEqual({ action: 'write', status: 'COMPLETED', progress: 12 });
   });
 });
