@@ -180,14 +180,24 @@ function walkSeasons(seasons: MediaCandidate[], startIndex: number, episode: num
 
 // ─── Résolution ───────────────────────────────────────────────────────────
 
-/** Choisit la fiche AniList et la progression correspondant à un épisode. */
-export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidate[]): ResolveResult {
+/**
+ * Saisons de la série, dans l'ordre de diffusion : fiches séries liées à la plateforme,
+ * ou à défaut fiches séries au titre identique. Partagé par la synchro et la fiche de la page.
+ */
+export function seasonPool(candidates: readonly MediaCandidate[], animeTitle: string): MediaCandidate[] {
   const seasons = candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format)).sort(byStartDate);
   const linked = seasons.filter((c) => c.link !== null);
-  const animeKey = normalizeTitle(episode.animeTitle);
-
+  if (linked.length > 0) return linked;
   // Sans lien vers la plateforme, repli sur un titre identique
-  const pool = linked.length > 0 ? linked : seasons.filter((c) => c.titles.some((t) => normalizeTitle(t) === animeKey));
+  const animeKey = normalizeTitle(animeTitle);
+  return seasons.filter((c) => c.titles.some((t) => normalizeTitle(t) === animeKey));
+}
+
+/** Choisit la fiche AniList et la progression correspondant à un épisode. */
+export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidate[]): ResolveResult {
+  const linked = candidates.filter((c) => c.link !== null && c.format !== null && SERIES_FORMATS.has(c.format));
+  const animeKey = normalizeTitle(episode.animeTitle);
+  const pool = seasonPool(candidates, episode.animeTitle);
   if (pool.length === 0) return { ok: false, reason: t('match.noEntry', { title: episode.animeTitle }) };
 
   // Titre seul jugé fiable uniquement s'il désigne UNE fiche série et qu'il s'agit de la 1re saison

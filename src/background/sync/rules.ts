@@ -1,6 +1,6 @@
-import type { ListStatusChange } from '../../shared/sync.types';
+import type { AddListStatus, ListStatus, ListStatusChange } from '../../shared/sync.types';
 
-export type ListStatus = 'CURRENT' | 'PLANNING' | 'COMPLETED' | 'DROPPED' | 'PAUSED' | 'REPEATING';
+export type { ListStatus };
 
 /** Statuts que SyncKai écrit lui-même */
 export type WriteStatus = 'CURRENT' | 'COMPLETED' | 'REPEATING';
@@ -74,4 +74,14 @@ export function decideStatusChange(entry: ListEntryState | null, totalEpisodes: 
   if (entry.status === status && entry.progress === progress) return { action: 'skip', reason: 'unchanged' };
   if (status === 'COMPLETED' && entry.status === 'REPEATING') return { action: 'write', status, progress, repeat: (entry.repeat ?? 0) + 1 };
   return { action: 'write', status, progress };
+}
+
+export type AddDecision = { action: 'write'; status: AddListStatus; progress: 0 } | { action: 'skip'; reason: 'already-in-list' };
+
+/**
+ * Ajout depuis la fiche de la page (pur, testable) : seulement si la série est absente de la liste
+ * de ce service. Une entrée existante (quel que soit son statut) n'est jamais écrasée ni rétrogradée.
+ */
+export function decideAddToList(entry: ListEntryState | null, status: AddListStatus): AddDecision {
+  return entry === null ? { action: 'write', status, progress: 0 } : { action: 'skip', reason: 'already-in-list' };
 }

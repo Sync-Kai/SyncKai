@@ -6,7 +6,8 @@ import { isRecord } from './guards';
 import type { Result } from './result';
 import type { CandidateSummary } from './review.types';
 import type { MalViewerResult } from './mal.types';
-import { isListStatusChange, type ListStatusChange, type SyncOutcome } from './sync.types';
+import { isAddListStatus, isListStatusChange, type AddListStatus, type ListStatusChange, type SyncOutcome } from './sync.types';
+import { isPageMediaInfo, type PageMediaResult, type ResolvePageMediaPayload } from './page-media.types';
 import { isTrackerId, type TrackerId } from './tracker.types';
 import type { WatchingResult } from './watching.types';
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from './engagement.types';
@@ -25,6 +26,13 @@ export interface SetListStatusPayload {
   status: ListStatusChange;
   /** Affiche de la carte « À noter » créée après « Terminé » (https uniquement) */
   coverUrl: string | null;
+}
+
+export interface AddToListPayload {
+  /** Fiche AniList (catalogue) affichée dans la carte « Sur cette page » */
+  mediaId: number;
+  malId: number | null;
+  status: AddListStatus;
 }
 
 export interface EpisodeCompletedPayload {
@@ -67,6 +75,10 @@ export interface MessageMap {
   DECLINE_REWATCH: { payload: { media: MediaRef }; response: Result<null, AniListErrorCode> };
   /** « Vérifier maintenant » : vérification manuelle des sorties (même fenêtre / dédoublonnage que l'alarme) */
   CHECK_AIRING: { payload: null; response: AiringCheckResult };
+  /** Fiche AniList de la série affichée dans l'onglet actif + état dans chaque liste (lecture seule) */
+  RESOLVE_PAGE_MEDIA: { payload: ResolvePageMediaPayload; response: PageMediaResult };
+  /** « À regarder » / « En cours » depuis la fiche de la page : seulement là où la série n'est pas déjà dans la liste */
+  ADD_TO_LIST: { payload: AddToListPayload; response: SyncOutcome };
 }
 
 /** Messages réservés aux pages de l'extension (popup) : refusés s'ils viennent d'un content script */
@@ -81,6 +93,8 @@ export const EXTENSION_PAGE_ONLY: ReadonlySet<MessageType> = new Set([
   'SET_LIST_STATUS',
   'RETRY_QUEUED',
   'CHECK_AIRING',
+  'RESOLVE_PAGE_MEDIA',
+  'ADD_TO_LIST',
 ]);
 
 export type MessageType = keyof MessageMap;
@@ -129,6 +143,10 @@ const isDeferRatingPayload = (p: unknown): p is { media: MediaRef; coverUrl: str
 const isRewatchPayload = (p: unknown): p is { media: MediaRef; progress: number } => isRecord(p) && isMediaRef(p.media) && isPositiveInt(p.progress);
 const isMediaPayload = (p: unknown): p is { media: MediaRef } => isRecord(p) && isMediaRef(p.media);
 const isReopenReviewPayload = (p: unknown): p is { key: string } => isRecord(p) && isKey(p.key);
+const isResolvePageMediaPayload = (p: unknown): p is ResolvePageMediaPayload =>
+  isRecord(p) && isPageMediaInfo(p.page) && (p.mediaId === null || isPositiveInt(p.mediaId));
+const isAddToListPayload = (p: unknown): p is AddToListPayload =>
+  isRecord(p) && isPositiveInt(p.mediaId) && (p.malId === null || isPositiveInt(p.malId)) && isAddListStatus(p.status);
 
 // Record exhaustif : TypeScript impose un validateur de payload pour chaque MessageType
 const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is MessagePayload<K> } = {
@@ -149,6 +167,8 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   START_REWATCH: isRewatchPayload,
   DECLINE_REWATCH: isMediaPayload,
   CHECK_AIRING: isNull,
+  RESOLVE_PAGE_MEDIA: isResolvePageMediaPayload,
+  ADD_TO_LIST: isAddToListPayload,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */

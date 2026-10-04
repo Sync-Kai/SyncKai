@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanText, createLabelGuard, flattenJsonLd, labelKey, toNumber } from './parsing';
+import { cleanPageTitle, cleanText, createLabelGuard, flattenJsonLd, labelKey, slugToTitle, stripAudioTag, toNumber } from './parsing';
 
 describe('toNumber / cleanText', () => {
   it('lit les nombres, y compris avec virgule décimale', () => {
@@ -37,5 +37,26 @@ describe('createLabelGuard', () => {
     const guard = createLabelGuard();
     guard.remember('ep-1', labelKey(1, null));
     expect(guard.isStale('ep-2', labelKey(1, null))).toBe(false);
+  });
+});
+
+describe('titres de page de série', () => {
+  it('slugToTitle : dernier repli lisible', () => {
+    expect(slugToTitle('black-clover')).toBe('black clover');
+    expect(slugToTitle('re%3Azero')).toBe('re:zero');
+    expect(slugToTitle(null)).toBeNull();
+  });
+
+  it('cleanPageTitle retire la plateforme et l’appel à l’action', () => {
+    expect(cleanPageTitle('Black Clover - Watch on Crunchyroll', /crunchyroll/i)).toBe('Black Clover');
+    expect(cleanPageTitle('Regarder Black Clover | Crunchyroll', /crunchyroll/i)).toBe('Black Clover');
+    expect(cleanPageTitle('TOUGEN ANKI - ADN', /\bADN\b/i)).toBe('TOUGEN ANKI');
+    expect(cleanPageTitle('Crunchyroll', /crunchyroll/i)).toBeNull();
+  });
+
+  it('stripAudioTag retire la mention de version', () => {
+    expect(stripAudioTag('Elbaph (VF)')).toBe('Elbaph');
+    expect(stripAudioTag('Frieren (English Dub)')).toBe('Frieren');
+    expect(stripAudioTag('Re:Zero (Director’s Cut)')).toBe('Re:Zero (Director’s Cut)');
   });
 });

@@ -25,7 +25,9 @@ import {
   STORAGE_KEYS,
 } from '../shared/storage';
 import { getSyncQueue, removeQueueItem, SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
-import type { ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import { isPageMediaResponse, type ContentMessage } from '../shared/content-messages';
+import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
 import { isTrackerId, TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingResult, type WatchingSort } from '../shared/watching.types';
@@ -40,8 +42,9 @@ import { renderRecentSyncs } from './components/recent-syncs';
 import type { ReviewActions } from './components/review-card';
 import { createReviewSection } from './components/review-section';
 import { createSettingsScreen } from './components/settings-screen';
+import { renderPageMediaCard } from './components/page-media-card';
 import { entryKey, renderWatchingScreen } from './components/watching-screen';
-import { adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from './feedback';
+import { addFeedback, adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from './feedback';
 import { getPendingRatings, PENDING_RATINGS_KEY, removePendingRating } from './pending-ratings';
 import {
   createStore,
@@ -54,6 +57,8 @@ import {
   type QueueState,
   type RatingsState,
   type MalState,
+  type PageCardAction,
+  type PageCardState,
   type Screen,
   type SettingsState,
   type Store,
@@ -119,6 +124,8 @@ const watchingNoticeStore = createStore<InlineFeedback | null>(null);
 const exclusionsStore = createStore<ExclusionsState>({ status: 'loading' });
 const queueStore = createStore<QueueState>({ items: [], busyIds: new Set(), notice: null, error: null });
 const ratingsStore = createStore<RatingsState>({ items: [], busyIds: new Set(), errors: new Map(), notice: null, error: null });
+/** Carte « Sur cette page » (série de l'onglet actif) */
+const pageCardStore = createStore<PageCardState>({ media: { status: 'none' }, busy: null, confirm: null, feedback: null });
 const version = chrome.runtime.getManifest().version;
 let now = Date.now();
 
@@ -389,7 +396,8 @@ function renderWatching(): void {
   const exclusions = exclusionsStore.get();
   const actions = entryActionsStore.get();
   const notice = watchingNoticeStore.get();
-  const inputs = [watchingStore.get(), now, preferredPlayer, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice];
+  const pageCard = pageCardStore.get();
+  const inputs = [watchingStore.get(), now, preferredPlayer, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard];
   if (inputs.length === watchingMemo.length && inputs.every((value, i) => value === watchingMemo[i])) return;
   watchingMemo = inputs;
 
@@ -407,6 +415,17 @@ function renderWatching(): void {
         onSortMenu: (open) => setSortMenu(open),
         onPickSort: (value) => void pickSort(value),
         onRetry: () => void reloadWatching(),
+        pageCard: renderPageMediaCard({
+          card: pageCard,
+          now,
+          onRetry: () => void loadPageMedia(),
+          onAdd: (status) => void pageAdd(status),
+          onAdjust: (delta) => void pageAdjust(delta),
+          onConfirm: (status) => setPageConfirm(status),
+          onSetStatus: (status) => void pageSetStatus(status),
+          onRate: (value) => void pageRate(value),
+          onPickSeason: (mediaId) => pickPageSeason(mediaId),
+        }),
         controls: {
           actions,
           excludedMediaIds: new Set(exclusions.status === 'ready' ? exclusions.items.flatMap((e) => (e.mediaId !== null ? [e.mediaId] : [])) : []),
@@ -686,6 +705,7 @@ function syncWatchingSource(): void {
   const service = activeService();
   if (service === loadedService) return;
   loadedService = service;
+  if (service) startPageMedia();
   if (service) {
     void loadWatching(service);
   } else {
@@ -858,6 +878,170 @@ async function loadExclusions(): Promise<void> {
     log.error('Lecture des séries exclues impossible :', error);
     exclusionsStore.set({ status: 'error' });
   }
+}
+
+// ─── Carte « Sur cette page » (série de l'onglet actif) ────────────────────
+// Le content script de l'onglet actif décrit la page ; le service worker résout la fiche AniList.
+// Tout est asynchrone : sans réponse (autre site, onglet ouvert avant le rechargement de
+// l'extension), la carte « Reprendre » reste affichée.
+
+/** Délai maximal de réponse du content script (un script orphelin ne répond jamais) */
+const PAGE_DETECT_TIMEOUT_MS = 1_500;
+const PAGE_FEEDBACK_MS = 4_000;
+
+/** Série ou épisode de l'onglet actif, null hors page reconnue ou content script injoignable */
+async function detectActivePage(): Promise<PageMediaInfo | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    // L'id de l'onglet ne requiert pas la permission "tabs"
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id === undefined) return null;
+    const message: ContentMessage = { type: 'GET_PAGE_MEDIA' };
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), PAGE_DETECT_TIMEOUT_MS);
+    });
+    const response: unknown = await Promise.race([chrome.tabs.sendMessage(tab.id, message), timeout]);
+    return isPageMediaResponse(response) ? response : null;
+  } catch {
+    // « Receiving end does not exist » : onglet hors Crunchyroll/ADN, ou script de contenu absent
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Lancée dès l'ouverture du popup, en parallèle de la lecture des comptes */
+const activePage: Promise<PageMediaInfo | null> = detectActivePage();
+let pageRequest = 0;
+let pageStarted = false;
+/** Saison choisie dans le sélecteur : conservée pour les relectures après une action */
+let pageManualId: number | null = null;
+let pageFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
+
+function patchPageCard(patch: Partial<PageCardState>): void {
+  pageCardStore.set({ ...pageCardStore.get(), ...patch });
+}
+
+/** Résout la fiche de la page ; `silent` : relecture sans skeleton (après une action, choix de saison) */
+async function loadPageMedia(silent = false): Promise<void> {
+  const page = await activePage;
+  if (!page) return;
+  const request = ++pageRequest;
+  const current = pageCardStore.get().media;
+  if (silent && current.status === 'ready') patchPageCard({ media: { ...current, refreshing: true } });
+  else patchPageCard({ media: { status: 'loading', page } });
+
+  let result: PageMediaResult;
+  try {
+    result = await sendMessage('RESOLVE_PAGE_MEDIA', { page, mediaId: pageManualId });
+  } catch (error: unknown) {
+    log.error('Service worker injoignable :', error);
+    result = { ok: false, code: 'NETWORK', message: swUnreachable() };
+  }
+  if (request !== pageRequest) return;
+
+  if (result.ok) {
+    patchPageCard({ media: { status: 'ready', page, view: result.data, refreshing: false } });
+  } else if (silent && current.status === 'ready') {
+    // Relecture en échec : la fiche précédente reste affichée, l'erreur passe en retour d'action
+    patchPageCard({ media: { ...current, refreshing: false } });
+    showPageFeedback(errorFeedback(result.message));
+  } else {
+    patchPageCard({ media: { status: 'error', page, message: result.message } });
+  }
+}
+
+/** Premier chargement, dès qu'un service est connecté (l'écran « En cours » devient visible) */
+function startPageMedia(): void {
+  if (pageStarted) return;
+  pageStarted = true;
+  void loadPageMedia();
+}
+
+function showPageFeedback(feedback: InlineFeedback): void {
+  clearTimeout(pageFeedbackTimer);
+  patchPageCard({ feedback });
+  // Un échec reste affiché plus longtemps (texte à lire)
+  pageFeedbackTimer = setTimeout(() => patchPageCard({ feedback: null }), feedback.tone === 'success' ? PAGE_FEEDBACK_MS : PAGE_FEEDBACK_MS * 2);
+}
+
+/** Exécute une action de la carte (une à la fois), affiche son retour puis relit la fiche et « En cours » */
+async function runPageAction(action: PageCardAction, send: (view: PageMediaView) => Promise<SyncOutcome>, toFeedback: (outcome: SyncOutcome) => InlineFeedback): Promise<void> {
+  const card = pageCardStore.get();
+  if (card.busy !== null || card.media.status !== 'ready') return;
+  patchPageCard({ busy: action, confirm: null });
+
+  let outcome: SyncOutcome;
+  try {
+    outcome = await send(card.media.view);
+  } catch (error: unknown) {
+    log.error('Service worker injoignable :', error);
+    outcome = { status: 'error', message: swUnreachable() };
+  }
+  patchPageCard({ busy: null });
+  showPageFeedback(toFeedback(outcome));
+  scheduleWatchingRevalidation();
+  await loadPageMedia(true);
+}
+
+function pageAdd(status: AddListStatus): Promise<void> {
+  return runPageAction(
+    `add-${status}`,
+    ({ media }) => sendMessage('ADD_TO_LIST', { mediaId: media.mediaId, malId: media.idMal, status }),
+    (outcome) => addFeedback(outcome, status),
+  );
+}
+
+function pageAdjust(delta: 1 | -1): Promise<void> {
+  return runPageAction(
+    delta === 1 ? 'plus' : 'minus',
+    ({ media }) => sendMessage('ADJUST_PROGRESS', { mediaId: media.mediaId, malId: media.idMal, delta }),
+    (outcome) => adjustFeedback(outcome, delta),
+  );
+}
+
+function pageSetStatus(status: ListStatusChange): Promise<void> {
+  return runPageAction(
+    `status-${status}`,
+    ({ media }) => {
+      // Affiche de la carte « À noter » : https uniquement (refusée sinon par la validation du message)
+      const coverUrl = media.coverUrl?.startsWith('https://') && media.coverUrl.length <= 2000 ? media.coverUrl : null;
+      return sendMessage('SET_LIST_STATUS', { mediaId: media.mediaId, malId: media.idMal, status, coverUrl });
+    },
+    (outcome) => statusFeedback(outcome, status),
+  );
+}
+
+function pageRate(value: number): Promise<void> {
+  return runPageAction(
+    'rate',
+    ({ media }) => sendMessage('RATE_MEDIA', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) }, score: value }),
+    (outcome) => {
+      const card = pageCardStore.get().media;
+      const { tone, text, detail } = ratingFeedback(outcome, formatStarValue(value), card.status === 'ready' ? card.view.media.title : '');
+      return { tone, text, detail };
+    },
+  );
+}
+
+/**
+ * Confirmation Abandonner / Terminé de la carte. Ouverture : focus sur « Non » (une action
+ * irréversible ne se valide pas d'un double Entrée) ; annulation : focus rendu au bouton d'origine.
+ */
+function setPageConfirm(status: ListStatusChange | null): void {
+  const card = pageCardStore.get();
+  if (card.busy !== null || card.confirm === status) return;
+  const previous = card.confirm;
+  patchPageCard({ confirm: status });
+  if (status !== null) focusInWatching('[data-focus="confirm-no-page"]');
+  else if (previous !== null) focusInWatching(`[data-focus="page-status-${previous}"]`);
+}
+
+function pickPageSeason(mediaId: number): void {
+  if (pageCardStore.get().busy !== null) return;
+  pageManualId = mediaId;
+  patchPageCard({ confirm: null, feedback: null });
+  void loadPageMedia(true);
 }
 
 // ─── File de synchro (Activité › Synchros en attente) ──────────────────────
@@ -1100,7 +1284,7 @@ anilistStore.subscribe(syncWatchingSource);
 malStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncMenuListeners);
-for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore]) store.subscribe(render);
+for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore]) store.subscribe(render);
 exclusionsStore.subscribe((state) => {
   settingsScreen.updateExclusions(state);
   render();

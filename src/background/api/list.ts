@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { getValidToken } from '../../shared/storage';
-import type { ListStatusChange } from '../../shared/sync.types';
+import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
 import { isAniListScoreFormat, type AniListScoreFormat } from '../sync/score';
 import { anilistQuery } from './client';
@@ -126,7 +126,7 @@ function parseSaved(data: SaveProgressData): ListEntryState {
 export function anilistEntryVariables(
   mediaId: number,
   progress: number,
-  status: WriteStatus | ListStatusChange,
+  status: WriteStatus | ManualListStatus,
   repeat?: number,
 ): Record<string, number | string> {
   const variables: Record<string, number | string> = { mediaId, progress, status };
@@ -139,8 +139,8 @@ export async function saveProgress(mediaId: number, progress: number, status: Wr
   return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat)));
 }
 
-/** Changement de statut manuel (En pause, Abandonné, Terminé) : même mutation que la progression */
-export async function saveListStatus(mediaId: number, status: ListStatusChange, progress: number, repeat?: number): Promise<ListEntryState> {
+/** Statut manuel (En pause, Abandonné, Terminé, ajout À regarder / En cours) : même mutation que la progression */
+export async function saveListStatus(mediaId: number, status: ManualListStatus, progress: number, repeat?: number): Promise<ListEntryState> {
   return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat)));
 }
 

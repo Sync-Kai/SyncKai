@@ -35,12 +35,12 @@ const MAL_AIRING_STATUS: Record<string, AiringStatus> = {
   not_yet_aired: 'NOT_YET_RELEASED',
 };
 
-const toAiringStatus = (v: unknown): AiringStatus | null => AIRING_STATUSES.find((s) => s === v) ?? null;
+export const toAiringStatus = (v: unknown): AiringStatus | null => AIRING_STATUSES.find((s) => s === v) ?? null;
 const fromMalAiringStatus = (v: unknown): AiringStatus | null =>
   typeof v === 'string' && Object.hasOwn(MAL_AIRING_STATUS, v) ? MAL_AIRING_STATUS[v] : null;
 
 /** nextAiringEpisode AniList (airingAt en secondes UNIX) → ms */
-function parseNextEpisode(value: unknown): NextEpisode | null {
+export function parseNextEpisode(value: unknown): NextEpisode | null {
   if (!isRecord(value)) return null;
   const episode = num(value.episode);
   const airingAt = num(value.airingAt);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ratingFeedback, statusFeedback } from './feedback';
+import { addFeedback, ratingFeedback, statusFeedback } from './feedback';
 import { setLocale } from '../i18n';
 
 // Textes attendus en français
@@ -70,5 +70,24 @@ describe('statusFeedback', () => {
 
   it('erreur globale : message affiché', () => {
     expect(statusFeedback({ status: 'error', message: 'Hors ligne' }, 'COMPLETED')).toMatchObject({ tone: 'error', text: 'Hors ligne' });
+  });
+});
+
+describe('addFeedback', () => {
+  it('ajout réussi, partiel ou déjà présent', () => {
+    setLocale('fr');
+    const updated = { status: 'updated', progress: 0, completed: false } as const;
+    const skipped = { status: 'skipped', reason: 'Déjà dans ta liste' } as const;
+    expect(addFeedback({ status: 'synced', mediaTitle: 'A', results: [{ service: 'anilist', outcome: updated }] }, 'PLANNING')).toMatchObject({
+      tone: 'success',
+      text: 'Ajoutée à À regarder',
+    });
+    expect(
+      addFeedback({ status: 'synced', mediaTitle: 'A', results: [{ service: 'anilist', outcome: updated }, { service: 'mal', outcome: { status: 'error', message: 'x' } }] }, 'CURRENT'),
+    ).toMatchObject({ tone: 'warning', text: 'Ajoutée à En cours · échec MyAnimeList' });
+    expect(addFeedback({ status: 'synced', mediaTitle: 'A', results: [{ service: 'anilist', outcome: skipped }] }, 'PLANNING')).toMatchObject({
+      tone: 'info',
+      text: 'Déjà dans ta liste',
+    });
   });
 });

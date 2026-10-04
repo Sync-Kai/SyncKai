@@ -3,6 +3,8 @@ import { isRecord } from '../../shared/guards';
 import { toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
 import { ApiError } from './errors';
+import { parseNextEpisode, toAiringStatus } from './watching';
+import type { PageMediaDetails } from '../../shared/page-media.types';
 
 /** Fiche AniList normalisée (les champs absents de l'API deviennent null / []) */
 export interface AniListMedia {
@@ -121,4 +123,45 @@ export async function getAnimeById(id: number): Promise<AniListMedia> {
   const media = parseMedia((await anilistPublicQuery(BY_ID_QUERY, isMediaData, { id })).Media);
   if (!media) throw new ApiError('INVALID_RESPONSE', t('api.invalidResponse.anilist'));
   return media;
+}
+
+// ─── Fiche de la page (carte « Sur cette page ») ──────────────────────────
+
+const DETAILS_QUERY = /* GraphQL */ `
+  query PageMedia($id: Int!) {
+    Media(id: $id, type: ANIME) {
+      id
+      idMal
+      siteUrl
+      format
+      episodes
+      status
+      seasonYear
+      startDate { year }
+      title { userPreferred romaji english }
+      coverImage { large medium }
+      nextAiringEpisode { episode airingAt }
+    }
+  }
+`;
+
+/** Fiche détaillée pour la carte « Sur cette page » (catalogue public, sans compte requis). */
+export async function getPageMediaDetails(id: number): Promise<PageMediaDetails> {
+  const { Media: media } = await anilistPublicQuery(DETAILS_QUERY, isMediaData, { id });
+  if (!isRecord(media) || typeof media.id !== 'number') throw new ApiError('INVALID_RESPONSE', t('api.invalidResponse.anilist'));
+  const title = isRecord(media.title) ? media.title : {};
+  const cover = isRecord(media.coverImage) ? media.coverImage : {};
+  const start = isRecord(media.startDate) ? media.startDate : {};
+  return {
+    mediaId: media.id,
+    idMal: num(media.idMal),
+    title: str(title.userPreferred) ?? str(title.romaji) ?? str(title.english) ?? `#${media.id}`,
+    coverUrl: toSafeUrl(str(cover.large) ?? str(cover.medium)),
+    episodes: num(media.episodes),
+    format: str(media.format),
+    year: num(media.seasonYear) ?? num(start.year),
+    airingStatus: toAiringStatus(media.status),
+    nextEpisode: parseNextEpisode(media.nextAiringEpisode),
+    siteUrl: toSafeUrl(str(media.siteUrl), 'anilist.co') ?? `https://anilist.co/anime/${media.id}`,
+  };
 }

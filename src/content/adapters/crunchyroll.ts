@@ -1,8 +1,19 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
-import { cleanText, createLabelGuard, labelKey, readJsonLdNodes, toNumber } from './parsing';
-import type { StreamingAdapter } from './adapter';
+import {
+  cleanPageTitle,
+  cleanText,
+  createLabelGuard,
+  labelKey,
+  readJsonLdNodes,
+  readMetaContent,
+  slugToTitle,
+  stripAudioTag,
+  stripCtaPrefix,
+  toNumber,
+} from './parsing';
+import type { SeriesPageInfo, StreamingAdapter } from './adapter';
 
 const log = createLogger('crunchyroll');
 
@@ -112,6 +123,106 @@ const STRATEGIES = [
   { name: 'DOM', run: extractFromDom },
 ] as const;
 
+
+// ─── Page de série (fiche « Sur cette page ») ──────────────────────────────
+
+/** /series/{seriesId}/{slug}, préfixe de langue optionnel : page de série uniquement (pas de sous-page) */
+const SERIES_PAGE_REGEX = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?series\/([A-Z0-9]+)(?:\/([^/?#]+))?\/?$/i;
+
+/**
+ * Libellé de saison du sélecteur de la page de série, avec mention audio optionnelle :
+ * "S2: Black Clover", "S1 : Elbaph (VF)" ; ou générique : "Saison 2", "Season 2", "Staffel 2".
+ */
+const SEASON_LABEL_REGEX = /^S(\d+)\s*[:：.-]\s*(.+)$/i;
+// (?!\d) plutôt que \b : le sélecteur réel répète son libellé ("Season 1Season 1", vérifié le 2026-10-05)
+const GENERIC_SEASON_LABEL_REGEX = /^(?:saison|season|staffel|temporada|stagione)\s+(\d+)(?!\d)/i;
+
+// ⚠️ Sélecteurs de la page de série (non vérifiés hors ligne, à valider sur le site réel) :
+// - titre : <h1> du bandeau de la série ;
+// - saison : bouton du menu déroulant des saisons (texte "S2: …"), ou libellé seul s'il n'y a qu'une saison.
+// Interrogés dans l'ordre ; le premier texte reconnu comme libellé de saison est retenu.
+const SERIES_SELECTORS = {
+  title: ['[data-t="series-hero-title"]', '.hero-heading-line h1', 'main h1', 'h1'],
+  season: [
+    '[data-t="seasons-select"]',
+    '[data-t="seasons-dropdown"] [aria-expanded]',
+    '[data-t="seasons-dropdown"]',
+    '[data-t="season-select"]',
+    '.seasons-select button',
+    '.seasons-select',
+    '[class*="seasons-select"] button',
+    '[class*="season-info"]',
+    '.season-info',
+  ],
+} as const;
+
+const PLATFORM_NAME = /crunchyroll/i;
+
+export function parseCrunchyrollSeriesPath(pathname: string): { seriesId: string; seriesSlug: string | null } | null {
+  const match = SERIES_PAGE_REGEX.exec(pathname);
+  return match ? { seriesId: match[1], seriesSlug: match[2]?.toLowerCase() ?? null } : null;
+}
+
+/** Libellé de saison → numéro + nom (null si le texte n'est pas un libellé de saison) */
+export function parseCrunchyrollSeasonLabel(text: string | null): { number: number | null; title: string | null } | null {
+  const label = cleanText(text);
+  if (!label || label.length > 200) return null;
+  const named = SEASON_LABEL_REGEX.exec(label);
+  if (named) return { number: toNumber(named[1]), title: cleanText(stripAudioTag(named[2])) };
+  const generic = GENERIC_SEASON_LABEL_REGEX.exec(label);
+  return generic ? { number: toNumber(generic[1]), title: null } : null;
+}
+
+/**
+ * Titre de la série dans le JSON-LD (TVSeries). Hypothèse non vérifiée hors ligne :
+ * { "@type": "TVSeries", name: "Black Clover", url: ".../series/GRVN8MNQY/black-clover" }.
+ * En SPA, un nœud dont l'URL désigne une autre série est ignoré.
+ */
+export function seriesTitleFromJsonLd(nodes: readonly Record<string, unknown>[], seriesId: string): string | null {
+  for (const node of nodes) {
+    if (node['@type'] !== 'TVSeries') continue;
+    const urls = [node.url, node['@id']].map(cleanText).filter((u): u is string => u !== null);
+    if (urls.length > 0 && !urls.some((u) => u.toLowerCase().includes(`/series/${seriesId.toLowerCase()}`))) continue;
+    // Le nom réel est préfixé d'un appel à l'action ("Watch TOUGEN ANKI", vérifié le 2026-10-05)
+    const name = cleanText(typeof node.name === 'string' ? stripCtaPrefix(node.name) : null);
+    if (name) return name;
+  }
+  return null;
+}
+
+function firstText(selectors: readonly string[], accept: (text: string) => boolean): string | null {
+  for (const selector of selectors) {
+    for (const el of document.querySelectorAll<HTMLElement>(selector)) {
+      const text = cleanText(el.textContent);
+      if (text && accept(text)) return text;
+    }
+  }
+  return null;
+}
+
+/** Page de série : titre (JSON-LD → <h1> → og:title → slug) et saison sélectionnée si lisible */
+function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
+  const path = parseCrunchyrollSeriesPath(url.pathname);
+  if (!path) return null;
+
+  const seriesTitle =
+    seriesTitleFromJsonLd(readJsonLdNodes('TVSeries'), path.seriesId) ??
+    firstText(SERIES_SELECTORS.title, (text) => text.length <= 200) ??
+    cleanPageTitle(readMetaContent('og:title'), PLATFORM_NAME) ??
+    slugToTitle(path.seriesSlug);
+  if (!seriesTitle) return null;
+
+  const seasonText = firstText(SERIES_SELECTORS.season, (text) => parseCrunchyrollSeasonLabel(text) !== null);
+  const season = parseCrunchyrollSeasonLabel(seasonText);
+  return {
+    seriesId: path.seriesId,
+    seriesSlug: path.seriesSlug,
+    seriesTitle,
+    seasonNumber: season?.number ?? null,
+    seasonTitle: season?.title ?? null,
+  };
+}
+
 // ─── Adapter ──────────────────────────────────────────────────────────────
 
 export const crunchyrollAdapter: StreamingAdapter = {
@@ -138,6 +249,10 @@ export const crunchyrollAdapter: StreamingAdapter = {
       }
     }
     return null;
+  },
+
+  detectSeries(url) {
+    return detectCrunchyrollSeries(url);
   },
 
   findVideo() {

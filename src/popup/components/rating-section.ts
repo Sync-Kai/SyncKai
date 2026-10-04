@@ -17,7 +17,7 @@ interface RatingSectionProps {
 }
 
 // 10 étoiles de 16 px (zone cliquable de 24 px de haut), demi-étoiles cliquables, libellé "8,5/10"
-const STAR_CLASSES = {
+export const STAR_CLASSES = {
   group: 'flex min-w-0 items-center gap-1.5',
   row: 'flex flex-none',
   value: 'w-9 flex-none text-[12px] font-extrabold tabular-nums text-butter',

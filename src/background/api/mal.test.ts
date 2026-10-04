@@ -69,3 +69,10 @@ describe('changement de statut MyAnimeList', () => {
     expect(parseMalListStatus({ status: 'watching', num_episodes_watched: 4, score: 0 })).toEqual({ status: 'CURRENT', progress: 4 });
   });
 });
+
+describe('ajout à la liste MyAnimeList (fiche de la page)', () => {
+  it('plan_to_watch / watching à 0 épisode', () => {
+    expect(Object.fromEntries(malStatusBody('PLANNING', 0))).toEqual({ status: 'plan_to_watch', num_watched_episodes: '0', is_rewatching: 'false' });
+    expect(Object.fromEntries(malStatusBody('CURRENT', 0))).toEqual({ status: 'watching', num_watched_episodes: '0', is_rewatching: 'false' });
+  });
+});

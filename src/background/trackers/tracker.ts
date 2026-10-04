@@ -1,6 +1,6 @@
 import type { TrackerId } from '../../shared/tracker.types';
 import type { Score10 } from '../../shared/engagement.types';
-import type { ListStatusChange } from '../../shared/sync.types';
+import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, WriteStatus } from '../sync/rules';
 
 /**
@@ -38,8 +38,8 @@ export interface TrackerService {
   /** Démarre un revisionnage (REPEATING) à la progression donnée */
   startRewatch(id: number, progress: number): Promise<ListEntryState>;
   /**
-   * Changement de statut manuel (En pause, Abandonné, Terminé) à la progression donnée.
+   * Statut manuel (En pause, Abandonné, Terminé, ou ajout À regarder / En cours) à la progression donnée.
    * `repeat` : nouveau nombre de revisionnages (revisionnage marqué terminé), sinon inchangé.
    */
-  saveStatus(id: number, status: ListStatusChange, progress: number, repeat?: number): Promise<ListEntryState>;
+  saveStatus(id: number, status: ManualListStatus, progress: number, repeat?: number): Promise<ListEntryState>;
 }

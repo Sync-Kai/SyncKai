@@ -9,6 +9,7 @@ import { TONE_CHIP } from '../feedback';
 import type { ListStatusChange } from '../../shared/sync.types';
 import type { EntryAction, InlineFeedback, WatchingState } from '../state';
 import { renderAlert } from './alert';
+import { renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from './status-actions';
 import { CARD, kanaLabel, PLATFORM_LABELS, platformChip, renderCover, sectionTitle, segmented } from './ui';
 
 /** Actions par série (+1, menu « … ») : état fourni par le popup, il survit aux nouveaux rendus */
@@ -42,9 +43,11 @@ interface WatchingScreenProps {
   onSortMenu: (open: boolean) => void;
   onPickSort: (sort: WatchingSort) => void;
   onRetry: () => void;
+  /** Carte « Sur cette page » (onglet actif sur une série reconnue) : remplace la carte « Reprendre » */
+  pageCard: HTMLElement | null;
 }
 
-const BADGE_CLASSES: Record<NextEpisodeBadge['kind'], string> = {
+export const BADGE_CLASSES: Record<NextEpisodeBadge['kind'], string> = {
   available: 'border-mint bg-mint text-on-fill',
   upcoming: 'border-lavender bg-lavender text-on-fill',
   finished: 'border-line bg-transparent text-muted',
@@ -112,64 +115,6 @@ function rowMenuId(key: string): string {
   return `sk-row-menu-${key.replace(/[^\w-]/g, '_')}`;
 }
 
-const STATUS_LABELS: Record<ListStatusChange, MessageKey> = {
-  PAUSED: 'watching.status.PAUSED',
-  DROPPED: 'watching.status.DROPPED',
-  COMPLETED: 'watching.status.COMPLETED',
-};
-
-const STATUS_ICONS: Record<ListStatusChange, () => SVGSVGElement> = {
-  PAUSED: () => icon('pause', 'h-3.5 w-3.5 text-butter', '2.6'),
-  DROPPED: () => icon('xCircle', 'h-3.5 w-3.5 text-danger'),
-  COMPLETED: () => icon('checkCircle', 'h-3.5 w-3.5 text-mint'),
-};
-
-/** Statuts confirmés dans le menu avant l'envoi (Abandonner retire la série, Terminé avance la progression) */
-const CONFIRM_LABELS: Record<Exclude<ListStatusChange, 'PAUSED'>, MessageKey> = {
-  DROPPED: 'watching.confirm.DROPPED',
-  COMPLETED: 'watching.confirm.COMPLETED',
-};
-
-const CONFIRM_BTN = 'inline-flex h-7 shrink-0 cursor-pointer items-center rounded-full px-2.5 text-[11px] font-bold transition hover:brightness-110 focus-visible:outline-2';
-
-/**
- * Confirmation en ligne dans le menu : « Abandonner ? Oui / Non ».
- * Oui / Non restent des `menuitem` : la navigation aux flèches du menu continue de fonctionner.
- */
-function renderStatusConfirm(entry: WatchingEntry, controls: EntryControls, status: Exclude<ListStatusChange, 'PAUSED'>, close: () => void): HTMLElement {
-  const key = entryKey(entry);
-  const action = t(STATUS_LABELS[status]);
-  return h(
-    'div',
-    { class: 'flex min-h-8 items-center gap-1.5 rounded-lg bg-raised px-2 py-0.5', attrs: { role: 'group', 'aria-label': action } },
-    STATUS_ICONS[status](),
-    h('span', { class: 'min-w-0 flex-1 truncate text-[12px] font-bold text-ink' }, t(CONFIRM_LABELS[status])),
-    h(
-      'button',
-      {
-        class: `${CONFIRM_BTN} ${status === 'DROPPED' ? 'bg-danger' : 'bg-mint'} text-on-fill`,
-        attrs: { type: 'button', role: 'menuitem', tabindex: '-1', 'data-focus': `confirm-yes-${key}`, 'aria-label': t('watching.confirm.yesAria', { action }) },
-        on: {
-          click: () => {
-            close();
-            controls.onSetStatus(entry, status);
-          },
-        },
-      },
-      t('watching.confirm.yes'),
-    ),
-    h(
-      'button',
-      {
-        class: `${CONFIRM_BTN} border border-line text-ink`,
-        attrs: { type: 'button', role: 'menuitem', tabindex: '-1', 'data-focus': `confirm-no-${key}`, 'aria-label': t('watching.confirm.noAria', { action }) },
-        on: { click: () => controls.onRowConfirm(null) },
-      },
-      t('watching.confirm.no'),
-    ),
-  );
-}
-
 /** Menu « … » d'une série : −1, statut (pause, abandon, terminé), exclusion / réactivation, fiche du service */
 function renderRowMenu(entry: WatchingEntry, controls: EntryControls): HTMLElement {
   const key = entryKey(entry);
@@ -205,7 +150,16 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls): HTMLEleme
     }, pending),
     ...(['DROPPED', 'COMPLETED'] as const).map((status) =>
       controls.rowConfirm === status && !pending
-        ? renderStatusConfirm(entry, controls, status, close)
+        ? renderStatusConfirm({
+            status,
+            focusKey: key,
+            inMenu: true,
+            onYes: () => {
+              close();
+              controls.onSetStatus(entry, status);
+            },
+            onNo: () => controls.onRowConfirm(null),
+          })
         : item(status, t(STATUS_LABELS[status]), STATUS_ICONS[status](), () => controls.onRowConfirm(status), pending),
     ),
     h('div', { class: 'mx-1 my-0.5 h-px bg-line', attrs: { role: 'separator' } }),
@@ -634,12 +588,12 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
   // Ligne dédiée (hors liste peuplée, où le sélecteur rejoint l'en-tête « Mes séries »)
   const switchRow = (): HTMLElement | false => sourceSwitch && h('div', { class: 'flex justify-end' }, sourceSwitch);
 
-  if (state.status === 'loading') return h('div', { class: 'flex flex-col gap-3' }, ...nodes([switchRow(), renderSkeleton()]));
+  if (state.status === 'loading') return h('div', { class: 'flex flex-col gap-3' }, ...nodes([switchRow(), props.pageCard, renderSkeleton()]));
   if (state.status === 'error') {
     return h(
       'div',
       { class: 'flex flex-col gap-3' },
-      ...nodes([switchRow(), renderAlert({ message: state.message, action: { label: t('common.retry'), onClick: props.onRetry } })]),
+      ...nodes([switchRow(), props.pageCard, renderAlert({ message: state.message, action: { label: t('common.retry'), onClick: props.onRetry } })]),
     );
   }
 
@@ -651,11 +605,12 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
     return h(
       'div',
       { class: 'flex min-h-full flex-col gap-3' },
-      ...nodes([errorAlert, notice, switchRow(), renderEmpty()]),
+      ...nodes([errorAlert, notice, switchRow(), props.pageCard, renderEmpty()]),
     );
   }
 
-  const hero = pickHeroEntry(list.entries);
+  // Carte « Sur cette page » prioritaire : la série « Reprendre » reste alors dans la liste
+  const hero = props.pageCard ? null : pickHeroEntry(list.entries);
   // La carte « Reprendre » reste hors tri : elle est simplement retirée de la liste triée
   const rows = sortWatchingBy(list.entries, props.sort, now).filter((entry) => entry !== hero);
 
@@ -665,7 +620,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
     ...nodes([
       errorAlert,
       notice,
-      hero && renderHero(hero, now, preferredPlayer, props.controls),
+      props.pageCard ?? (hero && renderHero(hero, now, preferredPlayer, props.controls)),
       h(
         'div',
         { class: 'flex shrink-0 items-center justify-between gap-2' },

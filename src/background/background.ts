@@ -5,7 +5,8 @@ import { getWatchingList } from './api/watching';
 import { loginWithAniList } from './auth/anilist';
 import { loginWithMal } from './auth/mal';
 import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
-import { adjustProgress, handleCommand, setListStatus } from './controls';
+import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
+import { resolvePageMedia } from './page-media';
 import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } from './sync/queue';
 import { reopenReview, resolveReview, searchCandidates, syncEpisode } from './sync/sync-service';
@@ -64,6 +65,8 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     START_REWATCH: { status: 'error', message: t('error.unexpectedRewatch') },
     DECLINE_REWATCH: { ok: false, code: 'API_ERROR', message },
     CHECK_AIRING: { checkedAt: 0, notified: 0, skipped: null, error: message },
+    RESOLVE_PAGE_MEDIA: { ok: false, code: 'API_ERROR', message },
+    ADD_TO_LIST: { status: 'error', message: t('error.unexpectedAdd') },
   };
 }
 
@@ -98,6 +101,8 @@ const handlers: MessageHandlers = {
   DEFER_RATING: ({ media, coverUrl }) => deferRating(media, coverUrl),
   START_REWATCH: ({ media, progress }) => startRewatch(media, progress),
   DECLINE_REWATCH: ({ media }) => declineRewatch(media),
+  RESOLVE_PAGE_MEDIA: (payload) => resolvePageMedia(payload),
+  ADD_TO_LIST: (payload) => addToList(payload),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();

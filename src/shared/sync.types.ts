@@ -72,3 +72,18 @@ export const LIST_STATUS_CHANGES: readonly ListStatusChange[] = ['PAUSED', 'DROP
 export function isListStatusChange(value: unknown): value is ListStatusChange {
   return typeof value === 'string' && (LIST_STATUS_CHANGES as readonly string[]).includes(value);
 }
+
+/** Statut d'une entrée de liste (noms de l'énumération AniList MediaListStatus) */
+export type ListStatus = 'CURRENT' | 'PLANNING' | 'COMPLETED' | 'DROPPED' | 'PAUSED' | 'REPEATING';
+
+/** Ajout d'une série absente de la liste depuis la fiche de la page (« À regarder » / « En cours ») */
+export type AddListStatus = 'PLANNING' | 'CURRENT';
+
+export const ADD_LIST_STATUSES: readonly AddListStatus[] = ['PLANNING', 'CURRENT'];
+
+export function isAddListStatus(value: unknown): value is AddListStatus {
+  return typeof value === 'string' && (ADD_LIST_STATUSES as readonly string[]).includes(value);
+}
+
+/** Statut écrit manuellement depuis le popup : changement de statut ou ajout à la liste */
+export type ManualListStatus = ListStatusChange | AddListStatus;

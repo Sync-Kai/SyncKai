@@ -63,3 +63,53 @@ export function createLabelGuard(): LabelGuard {
 export function labelKey(displayedNumber: number | null, title: string | null): string | null {
   return title ? `${displayedNumber ?? '?'}|${title}` : null;
 }
+
+// ─── Pages de série (fiche « Sur cette page ») ────────────────────────────
+
+/** "black-clover" → "black clover" : dernier repli pour la recherche AniList (titre absent du DOM) */
+export function slugToTitle(slug: string | null): string | null {
+  if (!slug) return null;
+  let decoded = slug;
+  try {
+    decoded = decodeURIComponent(slug);
+  } catch {
+    // Slug mal encodé : utilisé tel quel
+  }
+  return cleanText(decoded.replace(/[-_]+/g, ' '));
+}
+
+/** Verbes d'appel à l'action des titres de page ("Watch …", "Regarder …") retirés par cleanPageTitle */
+const CTA_PREFIX_REGEX = /^(?:watch|regarder|schaue?n?|ver|assistir|guarda|stream)\s+/i;
+/** Séparateur entre le titre et la mention de la plateforme ("Black Clover - Crunchyroll") */
+const TITLE_SEPARATOR_REGEX = /\s+[-–—|]\s+/;
+
+/** Retire un verbe d'appel à l'action en tête de titre ("Watch TOUGEN ANKI" → "TOUGEN ANKI") */
+export function stripCtaPrefix(text: string): string {
+  return text.replace(CTA_PREFIX_REGEX, '').trim();
+}
+
+/**
+ * Titre de série tiré d'un titre de page / og:title : les segments qui mentionnent la plateforme
+ * ("Watch on Crunchyroll", "ADN") et les verbes d'appel à l'action sont retirés.
+ * `platform` : motif reconnaissant la plateforme (ex : /crunchyroll/i).
+ */
+export function cleanPageTitle(text: string | null, platform: RegExp): string | null {
+  const title = cleanText(text);
+  if (!title) return null;
+  const parts = title.split(TITLE_SEPARATOR_REGEX).filter((part) => !platform.test(part));
+  return cleanText(stripCtaPrefix(parts[0] ?? ''));
+}
+
+/** Mention de version audio en fin de nom de saison : "(VF)", "(English Dub)", "(Sub)" */
+const AUDIO_TAG_REGEX = /\s*\((?:[^)]*\b(?:dub|sub|vf|vostfr|vost|vo|doblaje|synchro|dublado)\b[^)]*)\)\s*$/i;
+
+/** Retire la mention de version audio d'un nom de saison */
+export function stripAudioTag(text: string): string {
+  return text.replace(AUDIO_TAG_REGEX, '').trim();
+}
+
+/** Contenu d'une balise <meta property|name="…"> de la page */
+export function readMetaContent(name: string): string | null {
+  const meta = document.querySelector<HTMLMetaElement>(`meta[property="${name}"], meta[name="${name}"]`);
+  return cleanText(meta?.content);
+}

@@ -1,13 +1,13 @@
 import { t } from '../i18n';
 import type { ContentMessage } from '../shared/content-messages';
-import type { AdjustProgressPayload, SetListStatusPayload } from '../shared/messages';
+import type { AddToListPayload, AdjustProgressPayload, SetListStatusPayload } from '../shared/messages';
 import type { MediaRef } from '../shared/engagement.types';
 import { getSettings } from '../shared/settings';
-import type { ListStatusChange, ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, ListStatusChange, ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './api/errors';
 import { deferRating } from './engagement';
-import { decideStatusChange, type ListEntryState, type WriteStatus } from './sync/rules';
+import { decideAddToList, decideStatusChange, type ListEntryState, type WriteStatus } from './sync/rules';
 import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
@@ -181,6 +181,54 @@ export async function setListStatus(payload: SetListStatusPayload): Promise<Sync
     if (error instanceof ApiError) return { status: 'error', message: error.message, code: error.code };
     log.error('Erreur inattendue :', error);
     return { status: 'error', message: t('error.unexpectedStatus') };
+  }
+}
+
+// ─── Ajout à la liste (fiche « Sur cette page ») ──────────────────────────
+
+/** Ajoute la série sur UN service si elle n'y est pas (lecture fraîche). Ne lève jamais. */
+async function addOnService({ tracker, id }: Target, status: AddListStatus): Promise<{ result: ServiceResult; title: string | null }> {
+  const label = TRACKER_LABELS[tracker.id];
+  try {
+    const current = await tracker.getEntry(id);
+    const decision = decideAddToList(current.entry, status);
+    if (decision.action === 'skip') {
+      return { result: { service: tracker.id, outcome: { status: 'skipped', reason: t('page.alreadyInList') } }, title: current.title };
+    }
+    const saved = await tracker.saveStatus(id, decision.status, decision.progress);
+    log.info(`${label} : ${current.title} ajouté (${saved.status})`);
+    return { result: { service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: false } }, title: current.title };
+  } catch (error: unknown) {
+    log.error(`${label} : échec de l’ajout à la liste`, error);
+    return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null };
+  }
+}
+
+/**
+ * « Ajouter à À regarder / En cours » depuis la fiche de la page : écrit sur chaque service connecté
+ * où la fiche existe et où la série n'est pas déjà dans la liste (une entrée existante n'est jamais modifiée).
+ */
+export async function addToList(payload: AddToListPayload): Promise<SyncOutcome> {
+  try {
+    const trackers = await getConnectedTrackers();
+    if (trackers.length === 0) return { status: 'not-connected' };
+
+    const fetched = await getCatalogMedia(payload.mediaId);
+    // idMal du catalogue prioritaire ; celui du popup en secours (même fiche, lu juste avant)
+    const catalog: CatalogMedia = { ...fetched, idMal: fetched.idMal ?? payload.malId };
+    const targets = resolveTargets(trackers, catalog, null);
+    if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
+
+    const added = await Promise.all(targets.map((target) => addOnService(target, payload.status)));
+    // Service sans équivalent (ex : pas d'idMal) : signalé plutôt qu'omis
+    const missing: ServiceResult[] = trackers
+      .filter((tracker) => !targets.some((target) => target.tracker.id === tracker.id))
+      .map((tracker) => ({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.noEquivalent') } }));
+    return { status: 'synced', mediaTitle: catalog.title, results: [...added.map((a) => a.result), ...missing] };
+  } catch (error: unknown) {
+    if (error instanceof ApiError) return { status: 'error', message: error.message, code: error.code };
+    log.error('Erreur inattendue :', error);
+    return { status: 'error', message: t('error.unexpectedAdd') };
   }
 }
 

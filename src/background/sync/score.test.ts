@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAniListScoreFormat, toAniListScore, toMalScore } from './score';
+import { fromAniListScore, fromMalScore, isAniListScoreFormat, toAniListScore, toMalScore } from './score';
 
 describe('toAniListScore', () => {
   it('POINT_100 : note × 10', () => {
@@ -45,5 +45,26 @@ describe('isAniListScoreFormat', () => {
     expect(isAniListScoreFormat('POINT_5')).toBe(true);
     expect(isAniListScoreFormat('POINT_7')).toBe(false);
     expect(isAniListScoreFormat(null)).toBe(false);
+  });
+});
+
+describe('note du service → note sur 10 (affichage)', () => {
+  it('convertit chaque format AniList au demi-point', () => {
+    expect(fromAniListScore(85, 'POINT_100')).toBe(8.5);
+    expect(fromAniListScore(87, 'POINT_100')).toBe(8.5);
+    expect(fromAniListScore(7.3, 'POINT_10_DECIMAL')).toBe(7.5);
+    expect(fromAniListScore(8, 'POINT_10')).toBe(8);
+    expect(fromAniListScore(4, 'POINT_5')).toBe(8);
+    expect(fromAniListScore(3, 'POINT_3')).toBe(10);
+  });
+
+  it('0 = non notée ; MAL entier', () => {
+    expect(fromAniListScore(0, 'POINT_100')).toBeNull();
+    expect(fromMalScore(0)).toBeNull();
+    expect(fromMalScore(9)).toBe(9);
+  });
+
+  it('aller-retour stable pour une note SyncKai sur 100', () => {
+    expect(fromAniListScore(toAniListScore(7.5, 'POINT_100'), 'POINT_100')).toBe(7.5);
   });
 });

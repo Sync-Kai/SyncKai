@@ -1,6 +1,6 @@
 import { t, type MessageKey } from '../i18n';
 import { describeOutcome, type FeedbackTone } from '../shared/sync-feedback';
-import type { ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import type { InlineFeedback } from './state';
 
@@ -94,4 +94,26 @@ export function ratingFeedback(outcome: SyncOutcome, stars: string, title: strin
   }
   if (outcome.status === 'error') return { ok: false, tone: 'error', text: outcome.message, detail };
   return { ok: false, tone: 'warning', text: describeOutcome(outcome).title, detail };
+}
+
+const ADDED: Record<AddListStatus, MessageKey> = {
+  PLANNING: 'page.added.PLANNING',
+  CURRENT: 'page.added.CURRENT',
+};
+
+/**
+ * Résultat d'un ajout depuis la carte « Sur cette page » : « Ajoutée à À regarder », ou
+ * « Déjà dans ta liste » si chaque service l'avait déjà (rien n'est écrasé).
+ */
+export function addFeedback(outcome: SyncOutcome, status: AddListStatus): InlineFeedback {
+  const detail = detailOf(outcome);
+  if (outcome.status !== 'synced') return adjustFeedback(outcome, 1);
+  const added = outcome.results.some((r) => r.outcome.status === 'updated');
+  const failed = outcome.results.filter((r) => r.outcome.status === 'error').map((r) => TRACKER_LABELS[r.service]);
+  if (!added) {
+    return failed.length > 0 ? { tone: 'error', text: t('inline.updateFailed'), detail } : { tone: 'info', text: t('page.alreadyInList'), detail };
+  }
+  const text = t(ADDED[status]);
+  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+  return { tone: 'success', text, detail };
 }

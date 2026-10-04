@@ -30,3 +30,29 @@ export function toAniListScore(score: Score10, format: AniListScoreFormat): numb
 export function toMalScore(score: Score10): number {
   return Math.min(10, Math.max(1, Math.floor(score)));
 }
+
+/** Arrondi au demi-point le plus proche, borné à l'échelle SyncKai (0,5 à 10) */
+function toScore10(value: number): Score10 | null {
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.min(10, Math.max(0.5, Math.round(value * 2) / 2));
+}
+
+/** Note AniList brute (format du profil) → note SyncKai sur 10 (affichage) ; null si non notée */
+export function fromAniListScore(score: number, format: AniListScoreFormat): Score10 | null {
+  switch (format) {
+    case 'POINT_100':
+      return toScore10(score / 10);
+    case 'POINT_10_DECIMAL':
+    case 'POINT_10':
+      return toScore10(score);
+    case 'POINT_5':
+      return toScore10(score * 2);
+    case 'POINT_3':
+      return toScore10((score / 3) * 10);
+  }
+}
+
+/** Note MAL (entier 1 à 10) → note SyncKai ; null si non notée */
+export function fromMalScore(score: number): Score10 | null {
+  return toScore10(score);
+}

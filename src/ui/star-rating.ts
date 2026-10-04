@@ -1,4 +1,4 @@
-import { formatScoreLabel, halfValue, rateAriaLabel, STAR_COUNT, starFill, stepStarValue, type StarFill } from './rating';
+import { formatScoreLabel, halfValue, isStarValue, rateAriaLabel, STAR_COUNT, starFill, stepStarValue, type StarFill } from './rating';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const STAR_PATH = 'M12 2.6l2.85 5.95 6.55.85-4.8 4.55 1.25 6.5L12 17.3l-5.85 3.15 1.25-6.5-4.8-4.55 6.55-.85z';
@@ -30,6 +30,8 @@ export interface StarRatingOptions {
   /** Préfixe data-focus (popup : focus restauré après un nouveau rendu) */
   focusKey?: string;
   disabled?: boolean;
+  /** Note actuelle affichée au repos (0 ou absente = aucune) */
+  value?: number;
   /** Clic, Entrée ou Espace sur une valeur */
   onConfirm: (value: number) => void;
 }
@@ -51,7 +53,9 @@ function starSvg(className: string): SVGSVGElement {
  * Survol et focus prévisualisent ; flèches ±0,5 (focus itinérant, un seul arrêt de tabulation) ;
  * Entrée/clic confirme. Les écouteurs vivent sur les éléments créés : rien à nettoyer.
  */
-export function createStarRating({ label, classes, focusKey, disabled = false, onConfirm }: StarRatingOptions): HTMLElement {
+export function createStarRating({ label, classes, focusKey, disabled = false, value = 0, onConfirm }: StarRatingOptions): HTMLElement {
+  /** Note au repos : valeur valide (pas de 0,5) ou aucune */
+  const current = isStarValue(value) ? value : 0;
   const group = document.createElement('div');
   group.className = classes.group;
   group.setAttribute('role', 'group');
@@ -67,7 +71,7 @@ export function createStarRating({ label, classes, focusKey, disabled = false, o
   const fills: SVGSVGElement[] = [];
   const buttons = new Map<number, HTMLButtonElement>();
   /** Valeur portant le focus itinérant (seul bouton atteignable par Tab) */
-  let anchor = halfValue(1, 'left');
+  let anchor = current > 0 ? current : halfValue(1, 'left');
 
   const preview = (value: number): void => {
     fills.forEach((fill, i) => {
@@ -131,13 +135,13 @@ export function createStarRating({ label, classes, focusKey, disabled = false, o
     event.stopPropagation();
     buttons.get(next)?.focus();
   });
-  row.addEventListener('mouseleave', () => preview(group.contains(document.activeElement) || isFocusedInShadow(group) ? anchor : 0));
+  row.addEventListener('mouseleave', () => preview(group.contains(document.activeElement) || isFocusedInShadow(group) ? anchor : current));
   group.addEventListener('focusout', (event) => {
-    if (!(event.relatedTarget instanceof Node && group.contains(event.relatedTarget))) preview(0);
+    if (!(event.relatedTarget instanceof Node && group.contains(event.relatedTarget))) preview(current);
   });
 
   setAnchor(anchor);
-  preview(0);
+  preview(current);
   return group;
 }
 

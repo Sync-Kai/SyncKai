@@ -6,7 +6,8 @@ import type { ExcludedSeries } from '../shared/exclusions';
 import type { SyncQueueItem } from '../shared/queue.types';
 import type { SyncSettings } from '../shared/settings';
 import type { FeedbackTone } from '../shared/sync-feedback';
-import type { ListStatusChange } from '../shared/sync.types';
+import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
+import type { AddListStatus, ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
 
@@ -121,4 +122,25 @@ export interface RatingsState {
   /** Confirmation de la dernière note (la carte a quitté la liste) */
   notice: InlineFeedback | null;
   error: string | null;
+}
+
+/** Fiche de la page de l'onglet actif (carte « Sur cette page ») */
+export type PageMediaState =
+  /** Onglet hors page de série / d'épisode reconnue : carte « Reprendre » habituelle */
+  | { status: 'none' }
+  | { status: 'loading'; page: PageMediaInfo }
+  /** `refreshing` : relecture après une action (la fiche reste affichée) */
+  | { status: 'ready'; page: PageMediaInfo; view: PageMediaView; refreshing: boolean }
+  | { status: 'error'; page: PageMediaInfo; message: string };
+
+/** Action en cours sur la carte « Sur cette page » (une seule à la fois) */
+export type PageCardAction = `add-${AddListStatus}` | 'minus' | 'plus' | `status-${ListStatusChange}` | 'rate' | 'season';
+
+export interface PageCardState {
+  media: PageMediaState;
+  busy: PageCardAction | null;
+  /** Confirmation affichée (Abandonner, Terminé), null sinon */
+  confirm: ListStatusChange | null;
+  /** Retour de la dernière action (affiché quelques secondes) */
+  feedback: InlineFeedback | null;
 }

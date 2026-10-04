@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideListUpdate, decideStatusChange } from './rules';
+import { decideAddToList, decideListUpdate, decideStatusChange } from './rules';
 
 describe('decideListUpdate', () => {
   it('ajoute un anime absent de la liste en CURRENT', () => {
@@ -104,5 +104,19 @@ describe('decideStatusChange', () => {
 
   it('déjà terminé mais progression incomplète : complétée', () => {
     expect(decideStatusChange({ status: 'COMPLETED', progress: 10 }, 12, 'COMPLETED')).toEqual({ action: 'write', status: 'COMPLETED', progress: 12 });
+  });
+});
+
+describe('decideAddToList', () => {
+  it('ajoute une série absente avec la progression 0', () => {
+    expect(decideAddToList(null, 'PLANNING')).toEqual({ action: 'write', status: 'PLANNING', progress: 0 });
+    expect(decideAddToList(null, 'CURRENT')).toEqual({ action: 'write', status: 'CURRENT', progress: 0 });
+  });
+
+  it('ne touche jamais une entrée existante (pas de rétrogradation)', () => {
+    for (const status of ['CURRENT', 'PLANNING', 'COMPLETED', 'DROPPED', 'PAUSED', 'REPEATING'] as const) {
+      expect(decideAddToList({ status, progress: 7 }, 'PLANNING')).toEqual({ action: 'skip', reason: 'already-in-list' });
+      expect(decideAddToList({ status, progress: 7 }, 'CURRENT')).toEqual({ action: 'skip', reason: 'already-in-list' });
+    }
   });
 });

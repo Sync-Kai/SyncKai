@@ -1,8 +1,8 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
-import type { StreamingAdapter } from './adapter';
-import { cleanText, createLabelGuard, labelKey, readJsonLdNodes, toNumber } from './parsing';
+import type { SeriesPageInfo, StreamingAdapter } from './adapter';
+import { cleanPageTitle, cleanText, createLabelGuard, labelKey, readJsonLdNodes, readMetaContent, slugToTitle, toNumber } from './parsing';
 
 const log = createLogger('adn');
 
@@ -113,6 +113,55 @@ const STRATEGIES = [
   { name: 'lecteur', run: extractFromPlayer },
 ] as const;
 
+
+// ─── Page de série (fiche « Sur cette page ») ──────────────────────────────
+
+/** /video/{seriesId}-{seriesSlug}, sans segment d'épisode (préfixe de langue optionnel) */
+const SERIES_PAGE_REGEX = /^\/(?:[a-z]{2}\/)?video\/(\d+)-([^/?#]+)\/?$/i;
+
+const PLATFORM_NAME = /\bADN\b|animation\s*digital\s*network/i;
+
+// ⚠️ Titre de la page de série (non vérifié hors ligne, à valider sur le site réel) : <h1> du bandeau.
+const SERIES_TITLE_SELECTORS = ['main h1', 'h1'] as const;
+
+export function parseAdnSeriesPath(pathname: string): { seriesId: string; seriesSlug: string } | null {
+  const match = SERIES_PAGE_REGEX.exec(pathname);
+  return match ? { seriesId: match[1], seriesSlug: match[2].toLowerCase() } : null;
+}
+
+/**
+ * Titre de la série dans le JSON-LD (TVSeries). Hypothèse non vérifiée hors ligne :
+ * { "@type": "TVSeries", name: "TOUGEN ANKI", url: ".../video/1311-tougen-anki" }.
+ * Un nœud dont l'URL désigne une autre série (navigation SPA) est ignoré.
+ */
+export function adnSeriesTitleFromJsonLd(nodes: readonly Record<string, unknown>[], seriesId: string): string | null {
+  for (const node of nodes) {
+    if (node['@type'] !== 'TVSeries') continue;
+    const urls = [node.url, node['@id']].map(cleanText).filter((u): u is string => u !== null);
+    if (urls.length > 0 && !urls.some((u) => u.includes(`/video/${seriesId}-`))) continue;
+    const name = cleanText(node.name);
+    if (name) return name;
+  }
+  return null;
+}
+
+/** Page de série : titre (JSON-LD → <h1> → og:title → slug). Saison non lisible : choisie par le service worker. */
+function detectAdnSeries(url: URL): SeriesPageInfo | null {
+  const path = parseAdnSeriesPath(url.pathname);
+  if (!path) return null;
+
+  const heading = SERIES_TITLE_SELECTORS.map((s) => cleanText(document.querySelector(s)?.textContent)).find(
+    (text): text is string => text !== null && text.length <= 200,
+  );
+  const seriesTitle =
+    adnSeriesTitleFromJsonLd(readJsonLdNodes('TVSeries'), path.seriesId) ??
+    heading ??
+    cleanPageTitle(readMetaContent('og:title'), PLATFORM_NAME) ??
+    slugToTitle(path.seriesSlug);
+  if (!seriesTitle) return null;
+  return { seriesId: path.seriesId, seriesSlug: path.seriesSlug, seriesTitle, seasonNumber: null, seasonTitle: null };
+}
+
 // ─── Adapter ──────────────────────────────────────────────────────────────
 
 export const adnAdapter: StreamingAdapter = {
@@ -139,6 +188,10 @@ export const adnAdapter: StreamingAdapter = {
       }
     }
     return null;
+  },
+
+  detectSeries(url) {
+    return detectAdnSeries(url);
   },
 
   findVideo() {

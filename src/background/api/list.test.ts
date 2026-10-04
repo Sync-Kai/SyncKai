@@ -12,3 +12,10 @@ describe('SaveMediaListEntry (AniList)', () => {
     expect(anilistEntryVariables(21, 12, 'COMPLETED', 2)).toEqual({ mediaId: 21, progress: 12, status: 'COMPLETED', repeat: 2 });
   });
 });
+
+describe('ajout à la liste AniList (fiche de la page)', () => {
+  it('PLANNING / CURRENT à 0 épisode', () => {
+    expect(anilistEntryVariables(21, 0, 'PLANNING')).toEqual({ mediaId: 21, progress: 0, status: 'PLANNING' });
+    expect(anilistEntryVariables(21, 0, 'CURRENT')).toEqual({ mediaId: 21, progress: 0, status: 'CURRENT' });
+  });
+});

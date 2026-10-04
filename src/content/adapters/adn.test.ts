@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { meaningfulSeasonTitle, parseAdnEpisodeLabel, parseAdnWatchPath } from './adn';
+import { adnSeriesTitleFromJsonLd, meaningfulSeasonTitle, parseAdnEpisodeLabel, parseAdnSeriesPath, parseAdnWatchPath } from './adn';
+import { flattenJsonLd } from './parsing';
 
 describe('parseAdnWatchPath', () => {
   it('extrait série et épisode d’une page de lecture (URL réelle)', () => {
@@ -50,5 +51,31 @@ describe('meaningfulSeasonTitle', () => {
 
   it('garde un vrai nom de saison ou d’arc', () => {
     expect(meaningfulSeasonTitle('Arc du Pays des Wa')).toBe('Arc du Pays des Wa');
+  });
+});
+
+describe('parseAdnSeriesPath', () => {
+  it('reconnaît une page de série (sans segment d’épisode)', () => {
+    expect(parseAdnSeriesPath('/video/1311-tougen-anki')).toEqual({ seriesId: '1311', seriesSlug: 'tougen-anki' });
+    expect(parseAdnSeriesPath('/de/video/1311-tougen-anki/')).toEqual({ seriesId: '1311', seriesSlug: 'tougen-anki' });
+  });
+
+  it('ignore les pages de lecture et le reste du site', () => {
+    expect(parseAdnSeriesPath('/video/1311-tougen-anki/29344-episode-1')).toBeNull();
+    expect(parseAdnSeriesPath('/video/tougen-anki')).toBeNull();
+    expect(parseAdnSeriesPath('/catalog')).toBeNull();
+  });
+});
+
+describe('adnSeriesTitleFromJsonLd', () => {
+  // Fixture supposée (à vérifier sur le site réel)
+  const nodes = flattenJsonLd(JSON.parse('[{ "@type": "TVSeries", "name": "TOUGEN ANKI", "url": "https://animationdigitalnetwork.com/video/1311-tougen-anki" }]'));
+
+  it('lit le nom de la série', () => {
+    expect(adnSeriesTitleFromJsonLd(nodes, '1311')).toBe('TOUGEN ANKI');
+  });
+
+  it('ignore une autre série', () => {
+    expect(adnSeriesTitleFromJsonLd(nodes, '999')).toBeNull();
   });
 });
