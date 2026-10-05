@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../i18n';
 import type { PageListState, PageMediaView } from '../shared/page-media.types';
-import { displayScore, hasMissingList, mediaMetaParts, pageBadge, primaryList, seasonPosition } from './page-media-view';
+import { displayScore, hasMissingList, mediaMetaParts, pageBadge, primaryList, seasonOptionLabel, seasonPosition, seasonSlotLabel } from './page-media-view';
 
 // Textes attendus en français
 setLocale('fr');
@@ -28,8 +28,8 @@ function view(lists: PageListState[], patch: Partial<PageMediaView['media']> = {
     confidence: 'certain',
     source: 'page',
     seasons: [
-      { id: 1, title: 'Série', format: 'TV', episodes: 12, year: 2017, coverUrl: null },
-      { id: 2, title: 'Série S2', format: 'TV', episodes: 12, year: 2018, coverUrl: null },
+      { id: 1, title: 'Série', format: 'TV', episodes: 12, year: 2017, coverUrl: null, slot: { season: 1, part: 1, parts: 1 } },
+      { id: 2, title: 'Série S2', format: 'TV', episodes: 12, year: 2018, coverUrl: null, slot: { season: 2, part: 1, parts: 1 } },
     ],
   };
 }
@@ -67,13 +67,33 @@ describe('vue de la carte « Sur cette page »', () => {
   });
 
   it('position de la saison et ligne d’infos', () => {
-    expect(seasonPosition(view([]))).toEqual({ index: 2, count: 2 });
-    expect(mediaMetaParts(view([]))).toEqual(['Saison 2/2', '2018', '12 ép.', 'En diffusion']);
-    expect(mediaMetaParts(view([], { format: 'MOVIE', episodes: 1, airingStatus: null }))).toEqual(['Saison 2/2', 'MOVIE 2018', '1 ép.']);
+    expect(seasonPosition(view([]))).toEqual({ season: 2, part: 1, parts: 1 });
+    expect(mediaMetaParts(view([]))).toEqual(['Saison 2', '2018', '12 ép.', 'En diffusion']);
+    expect(mediaMetaParts(view([], { format: 'MOVIE', episodes: 1, airingStatus: null }))).toEqual(['Saison 2', 'MOVIE 2018', '1 ép.']);
   });
 
-  it('saison unique ou absente du sélecteur : pas de position', () => {
+  it('saison découpée en parties : « Saison 2 · partie 1/2 »', () => {
+    const split: PageMediaView = {
+      ...view([]),
+      seasons: [
+        { id: 1, title: 'Mushoku Tensei', format: 'TV', episodes: 11, year: 2021, coverUrl: null, slot: { season: 1, part: 1, parts: 2 } },
+        { id: 2, title: 'Mushoku Tensei II', format: 'TV', episodes: 12, year: 2023, coverUrl: null, slot: { season: 2, part: 1, parts: 2 } },
+      ],
+    };
+    expect(mediaMetaParts(split)[0]).toBe('Saison 2 · partie 1/2');
+    expect(seasonSlotLabel({ season: 1, part: 2, parts: 2 })).toBe('Saison 1 · partie 2/2');
+  });
+
+  it('options du sélecteur : position, titre et année', () => {
+    expect(seasonOptionLabel({ title: 'Mushoku Tensei II', year: 2023, slot: { season: 2, part: 1, parts: 2 } })).toBe('Saison 2 · partie 1 — Mushoku Tensei II (2023)');
+    expect(seasonOptionLabel({ title: 'Frieren', year: 2023, slot: { season: 1, part: 1, parts: 1 } })).toBe('Saison 1 — Frieren (2023)');
+    expect(seasonOptionLabel({ title: 'ONE PIECE HEROINES', year: null, slot: null })).toBe('ONE PIECE HEROINES');
+  });
+
+  it('saison unique, fiche hors saisons ou absente du sélecteur : pas de position', () => {
     expect(seasonPosition({ ...view([]), seasons: [] })).toBeNull();
     expect(seasonPosition({ ...view([]), media: { ...view([]).media, mediaId: 99 } })).toBeNull();
+    expect(seasonPosition({ ...view([]), seasons: [{ ...view([]).seasons[1], slot: { season: 1, part: 1, parts: 1 } }] })).toBeNull();
+    expect(seasonPosition({ ...view([]), seasons: view([]).seasons.map((s) => ({ ...s, slot: null })) })).toBeNull();
   });
 });

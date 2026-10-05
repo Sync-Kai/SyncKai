@@ -9,6 +9,9 @@ const clamp = (text: string | null): string | null => (text ? text.slice(0, MAX_
 /** Numéro de saison exploitable (entier positif raisonnable), sinon null */
 const seasonOrNull = (n: number | null): number | null => (n !== null && Number.isInteger(n) && n >= 0 && n < 1000 ? n : null);
 
+/** Nombre d'épisodes exploitable (entier positif raisonnable), sinon null */
+const countOrNull = (n: number | null): number | null => (n !== null && Number.isInteger(n) && n >= 1 && n < 10_000 ? n : null);
+
 /** Fiche de la page à partir d'un épisode détecté (page de lecture). Pur, testable. */
 export function pageMediaFromEpisode(episode: EpisodeInfo): PageMediaInfo {
   return {
@@ -33,6 +36,7 @@ export function pageMediaFromSeries(platform: StreamingAdapter['platform'], seri
     seriesTitle: series.seriesTitle.slice(0, MAX_TEXT),
     seasonNumber: seasonOrNull(series.seasonNumber),
     seasonTitle: clamp(series.seasonTitle),
+    seasonEpisodeCount: countOrNull(series.seasonEpisodeCount ?? null),
     episode: null,
   };
 }

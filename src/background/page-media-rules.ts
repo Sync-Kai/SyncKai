@@ -1,4 +1,5 @@
-import type { PageMediaInfo, SeasonSource } from '../shared/page-media.types';
+import type { PageMediaInfo, PageSeason, SeasonSlot, SeasonSource } from '../shared/page-media.types';
+import type { CandidateSummary } from '../shared/review.types';
 import type { ListStatus, MediaMapping } from '../shared/sync.types';
 import { mappingKey } from './sync/matching';
 
@@ -77,4 +78,51 @@ export function firstUnfinishedSeason(seasonIds: readonly number[], statuses: re
   // Lectures tronquées (toutes terminées jusque-là) : la saison suivante, ou la dernière
   const pick = index !== -1 ? index : Math.min(statuses.length, seasonIds.length - 1);
   return { mediaId: seasonIds[pick] ?? seasonIds[0], source: 'progress', confidence: 'uncertain' };
+}
+
+// ─── Saisons découpées en parties (cours) ─────────────────────────────────
+
+/**
+ * Fiches du sélecteur avec leur position (saison · partie) : saisons de la série dans l'ordre des groupes,
+ * puis les autres fiches proposées (sans position). `groups` : identifiants regroupés par saison (groupSeasons).
+ */
+export function toPageSeasons(summaries: readonly CandidateSummary[], groups: readonly (readonly number[])[]): PageSeason[] {
+  const slots = new Map<number, SeasonSlot>();
+  groups.forEach((group, index) => group.forEach((id, part) => slots.set(id, { season: index + 1, part: part + 1, parts: group.length })));
+  const order = (s: CandidateSummary): number => {
+    const slot = slots.get(s.id);
+    return slot ? slot.season * 100 + slot.part : Number.MAX_SAFE_INTEGER;
+  };
+  // Tri stable : les fiches sans position gardent leur ordre d'origine
+  return summaries.map((s) => ({ ...s, slot: slots.get(s.id) ?? null })).sort((a, b) => order(a) - order(b));
+}
+
+/**
+ * Partie affichée pour une saison de la page découpée en plusieurs fiches : correspondance mémorisée
+ * pour cette saison si elle désigne l'une des parties, sinon première partie non terminée (statuts lus
+ * dans l'ordre, éventuellement tronqués), toutes terminées → dernière partie, statuts inconnus → première.
+ */
+export function pickPartInGroup(groupIds: readonly number[], remembered: { mediaId: number; exact: boolean } | null, statuses: readonly (ListStatus | null)[]): number | null {
+  if (groupIds.length === 0) return null;
+  if (remembered?.exact && groupIds.includes(remembered.mediaId)) return remembered.mediaId;
+  const index = statuses.findIndex((status) => status !== 'COMPLETED');
+  if (index !== -1) return groupIds[index] ?? groupIds[0];
+  return statuses.length >= groupIds.length ? groupIds[groupIds.length - 1] : (groupIds[statuses.length] ?? groupIds[0]);
+}
+
+/** Écart toléré entre la plateforme et AniList (épisode 0, récapitulatif compté à part…) */
+const EPISODE_COUNT_TOLERANCE = 2;
+
+/**
+ * Vrai si le nombre d'épisodes de la saison affiché sur la page ne correspond pas à celui des fiches
+ * AniList retenues (somme des parties). Inconnu d'un côté ou de l'autre (saison en cours) → pas d'alerte.
+ */
+export function episodeCountMismatch(pageCount: number | null | undefined, episodes: readonly (number | null)[]): boolean {
+  if (pageCount === null || pageCount === undefined || episodes.length === 0) return false;
+  let total = 0;
+  for (const count of episodes) {
+    if (count === null) return false;
+    total += count;
+  }
+  return Math.abs(pageCount - total) > EPISODE_COUNT_TOLERANCE;
 }

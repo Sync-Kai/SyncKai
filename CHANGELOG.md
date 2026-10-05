@@ -11,6 +11,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - **Fiche de la page** : sur une page de série ou d'épisode Crunchyroll / ADN, le popup affiche la fiche AniList correspondante ; ajout à « À regarder » ou « En cours » si elle n'est pas dans ta liste, sinon progression, statut et note modifiables.
 - **Rapport de diagnostic** (Réglages › Aide) : copie un rapport technique sans données sensibles (version, navigateur, réglages, dernières erreurs) et ouvre un signalement GitHub prérempli. Les 50 dernières erreurs sont conservées localement.
 
+### Corrigé
+
+- Saisons découpées en plusieurs fiches AniList (« Part 2 », « Cour 2 ») : la saison Crunchyroll est associée au bon groupe de fiches (fiche de la page, et repli de la synchro par numéro de saison).
+- Épisode spécial rangé dans une saison de la série (ex. *ONE PIECE HEROINES*, saison 30 de One Piece sur Crunchyroll) : la synchro et la fiche de la page retrouvent sa fiche AniList dédiée au lieu de compter l'épisode 1 de la série principale ; le sélecteur de saison de la fiche de la page ne propose plus de films ni de spéciaux.
+
 ## [1.7.3] - 2026-10-03
 
 ### Ajouté

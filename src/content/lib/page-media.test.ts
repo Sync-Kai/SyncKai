@@ -30,4 +30,20 @@ describe('fiche de la page (content script)', () => {
     expect(page.seasonNumber).toBeNull();
     expect(isPageMediaInfo(page)).toBe(true);
   });
+
+  it('page de série : nombre d’épisodes de la saison facultatif, borné', () => {
+    const series = { seriesId: 'G24H1N3MP', seriesSlug: 'mushoku-tensei', seriesTitle: 'Mushoku Tensei', seasonNumber: 2, seasonTitle: null };
+    expect(pageMediaFromSeries('crunchyroll', { ...series, seasonEpisodeCount: 25 }).seasonEpisodeCount).toBe(25);
+    expect(pageMediaFromSeries('crunchyroll', { ...series, seasonEpisodeCount: 0 }).seasonEpisodeCount).toBeNull();
+    expect(pageMediaFromSeries('adn', series).seasonEpisodeCount).toBeNull();
+    expect(isPageMediaInfo(pageMediaFromSeries('crunchyroll', { ...series, seasonEpisodeCount: 25 }))).toBe(true);
+  });
+
+  it('validation : nombre d’épisodes absent accepté, invalide rejeté', () => {
+    const page = pageMediaFromEpisode(episode);
+    expect(isPageMediaInfo(page)).toBe(true);
+    expect(isPageMediaInfo({ ...page, seasonEpisodeCount: 12 })).toBe(true);
+    expect(isPageMediaInfo({ ...page, seasonEpisodeCount: -1 })).toBe(false);
+    expect(isPageMediaInfo({ ...page, seasonEpisodeCount: '25' })).toBe(false);
+  });
 });

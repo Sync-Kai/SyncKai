@@ -15,6 +15,7 @@ import {
   pageBadge,
   primaryList,
   progressText,
+  seasonOptionLabel,
   type InListState,
 } from '../page-media-view';
 import type { PageCardAction, PageCardState } from '../state';
@@ -152,7 +153,7 @@ function renderSeasonPicker(view: PageMediaView, disabled: boolean, onPick: (med
   if (view.seasons.length < 2 && !uncertain) return null;
   const options = view.seasons.some((s) => s.id === view.media.mediaId)
     ? view.seasons
-    : [{ id: view.media.mediaId, title: view.media.title, year: view.media.year }, ...view.seasons];
+    : [{ id: view.media.mediaId, title: view.media.title, year: view.media.year, slot: null }, ...view.seasons];
 
   const select = h(
     'select',
@@ -161,7 +162,7 @@ function renderSeasonPicker(view: PageMediaView, disabled: boolean, onPick: (med
       attrs: { 'data-focus': 'page-season', 'aria-label': t('page.seasonPickerAria'), ...(disabled ? { disabled: '' } : {}) },
     },
     ...options.map((s) =>
-      h('option', { attrs: { value: String(s.id), ...(s.id === view.media.mediaId ? { selected: '' } : {}) } }, s.year !== null ? `${s.title} (${s.year})` : s.title),
+      h('option', { attrs: { value: String(s.id), ...(s.id === view.media.mediaId ? { selected: '' } : {}) } }, seasonOptionLabel(s)),
     ),
   );
   select.addEventListener('change', () => {

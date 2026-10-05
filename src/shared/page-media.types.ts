@@ -24,6 +24,11 @@ export interface PageMediaInfo {
   /** Saison sélectionnée sur la page, si lisible */
   seasonNumber: number | null;
   seasonTitle: string | null;
+  /**
+   * Nombre d'épisodes de la saison sélectionnée, si la page l'affiche (menu des saisons Crunchyroll :
+   * "Season 2 · 25 Episodes"). Sert uniquement à signaler une saison AniList douteuse.
+   */
+  seasonEpisodeCount?: number | null;
   episode: EpisodeInfo | null;
 }
 
@@ -33,10 +38,13 @@ const MAX_TEXT = 300;
 const isShortString = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= MAX_TEXT;
 const isNullableShortString = (v: unknown): v is string | null => v === null || isShortString(v);
 const isNullableSeason = (v: unknown): v is number | null => v === null || (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 1000);
+/** Nombre d'épisodes d'une saison : facultatif (absent sur ADN), entier positif raisonnable */
+const isOptionalCount = (v: unknown): v is number | null | undefined =>
+  v === undefined || v === null || (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v < 10_000);
 
 export function isPageMediaInfo(value: unknown): value is PageMediaInfo {
   if (!isRecord(value)) return false;
-  const { platform, kind, seriesId, seriesSlug, seriesTitle, seasonNumber, seasonTitle, episode } = value;
+  const { platform, kind, seriesId, seriesSlug, seriesTitle, seasonNumber, seasonTitle, seasonEpisodeCount, episode } = value;
   return (
     (platform === 'crunchyroll' || platform === 'adn') &&
     (kind === 'series' || kind === 'episode') &&
@@ -45,6 +53,7 @@ export function isPageMediaInfo(value: unknown): value is PageMediaInfo {
     isShortString(seriesTitle) &&
     isNullableSeason(seasonNumber) &&
     isNullableShortString(seasonTitle) &&
+    isOptionalCount(seasonEpisodeCount) &&
     // Une page d'épisode porte toujours son épisode, une page de série jamais
     (kind === 'episode' ? isEpisodeInfo(episode) && episode.platform === platform : episode === null)
   );
@@ -85,6 +94,19 @@ export type PageListState =
   | { service: TrackerId; state: 'unavailable' }
   | { service: TrackerId; state: 'error'; message: string };
 
+/** Position d'une fiche dans les saisons de la série : saison (parties « Part 2 » regroupées) et partie */
+export interface SeasonSlot {
+  season: number;
+  /** Partie dans la saison (1 si la saison tient en une fiche) */
+  part: number;
+  parts: number;
+}
+
+/** Fiche proposée dans le sélecteur de saison ; `slot` null hors des saisons de la série (spécial, autre résultat) */
+export interface PageSeason extends CandidateSummary {
+  slot: SeasonSlot | null;
+}
+
 export interface PageMediaView {
   media: PageMediaDetails;
   /** Un état par service connecté (AniList d'abord) */
@@ -92,7 +114,7 @@ export interface PageMediaView {
   confidence: 'certain' | 'uncertain';
   source: SeasonSource;
   /** Saisons proposées dans le sélecteur (ordre de diffusion) ; vide ou une seule = pas de sélecteur */
-  seasons: CandidateSummary[];
+  seasons: PageSeason[];
 }
 
 export type PageMediaErrorCode = AniListErrorCode | 'NOT_FOUND';

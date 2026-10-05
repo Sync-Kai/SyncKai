@@ -5,17 +5,26 @@ import type {
   PageMediaDetails,
   PageMediaInfo,
   PageMediaResult,
+  PageSeason,
   ResolvePageMediaPayload,
   SeasonSource,
 } from '../shared/page-media.types';
-import type { CandidateSummary } from '../shared/review.types';
 import { getMediaMappings } from '../shared/storage';
 import type { ListStatus } from '../shared/sync.types';
 import { createLogger } from '../shared/logger';
 import { getScoreFormat } from './api/list';
 import { ApiError } from './api/errors';
 import { getPageMediaDetails, type AniListMedia } from './api/media';
-import { firstUnfinishedSeason, pickKnownSeason, rememberedSeason, seriesMappingPrefix, type SeasonChoice } from './page-media-rules';
+import {
+  episodeCountMismatch,
+  firstUnfinishedSeason,
+  pickKnownSeason,
+  pickPartInGroup,
+  rememberedSeason,
+  seriesMappingPrefix,
+  toPageSeasons,
+  type SeasonChoice,
+} from './page-media-rules';
 import { resolveTarget } from './sync/matching';
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary } from './sync/resolver';
 import { fromAniListScore, fromMalScore } from './sync/score';
@@ -39,7 +48,7 @@ interface Resolution {
   mediaId: number;
   source: SeasonSource;
   confidence: 'certain' | 'uncertain';
-  seasons: CandidateSummary[];
+  seasons: PageSeason[];
 }
 
 interface Cached<T> {
@@ -92,39 +101,44 @@ async function seasonStatuses(seasons: readonly AniListMedia[]): Promise<(ListSt
 
 /** Page de lecture : même résolution que la synchro (cache des correspondances compris), sans écriture */
 async function resolveEpisodePage(page: PageMediaInfo & { episode: NonNullable<PageMediaInfo['episode']> }, manual: number | null): Promise<Resolution | null> {
-  const { result, candidates } = await resolveEpisode(page.episode, { persist: false });
-  if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons: candidates };
+  const { result, candidates, seasons: pool, seasonGroups } = await resolveEpisode(page.episode, { persist: false });
+  // Sélecteur : saisons de la série uniquement (pas de films ni de spéciaux) ; la fiche retenue hors saisons
+  // (spécial lié à l'épisode) est ajoutée par la carte. Aucune saison identifiée : fiches candidates, à confirmer.
+  const seasons = toPageSeasons(pool.length > 0 ? pool.slice(0, MAX_PICKER_SEASONS) : candidates, seasonGroups);
+  if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons };
   if (result.ok) {
-    return { mediaId: result.target.mediaId, source: 'page', confidence: result.target.confidence === 'high' ? 'certain' : 'uncertain', seasons: candidates };
+    return { mediaId: result.target.mediaId, source: 'page', confidence: result.target.confidence === 'high' ? 'certain' : 'uncertain', seasons };
   }
-  // Aucune correspondance : meilleure fiche candidate, à confirmer dans le sélecteur
-  const first = candidates[0];
-  return first ? { mediaId: first.id, source: 'page', confidence: 'uncertain', seasons: candidates } : null;
+  // Aucune correspondance : première saison (ou meilleure fiche candidate), à confirmer dans le sélecteur
+  const first = seasons[0];
+  return first ? { mediaId: first.id, source: 'page', confidence: 'uncertain', seasons } : null;
 }
 
 /** Page de série : saison lue sur la page, correspondance mémorisée, puis première saison non terminée */
 async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Promise<Resolution | null> {
   const query = { platform: page.platform, seriesId: page.seriesId, seriesSlug: page.seriesSlug, animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle };
-  const { candidates, seasons, others } = await findSeriesSeasons(query);
+  const { candidates, seasons, others, seasonGroups } = await findSeriesSeasons(query);
   const shown = (seasons.length > 0 ? seasons : others).slice(0, MAX_PICKER_SEASONS);
-  const summaries = shown.map(toCandidateSummary);
+  const summaries = toPageSeasons(shown.map(toCandidateSummary), seasonGroups);
   if (shown.length === 0) return null;
-
-  if (seasons.length === 0) {
-    // Aucune saison liée ni titre identique : premier résultat de recherche, à confirmer
-    return { mediaId: manual ?? shown[0].id, source: manual !== null ? 'manual' : 'page', confidence: manual !== null ? 'certain' : 'uncertain', seasons: summaries };
-  }
 
   // (a) Saison de la page : même règle que la synchro, appliquée à son premier épisode
   const hasSeasonInfo = page.seasonNumber !== null || page.seasonTitle !== null;
   const target =
-    hasSeasonInfo || seasons.length === 1
+    hasSeasonInfo || seasons.length <= 1
       ? resolveTarget(
           { animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 },
           candidates,
         )
       : null;
   const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: target.target.confidence === 'high' } : null;
+
+  if (seasons.length === 0) {
+    if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons: summaries };
+    // Aucune saison série : fiche dédiée (spécial publié comme série, titre exact), sinon premier résultat, à confirmer
+    if (pageMatch) return { mediaId: pageMatch.mediaId, source: 'page', confidence: pageMatch.confident ? 'certain' : 'uncertain', seasons: summaries };
+    return { mediaId: summaries[0].id, source: 'page', confidence: 'uncertain', seasons: summaries };
+  }
   // (b) Correspondance mémorisée (synchro précédente)
   const remembered = rememberedSeason(await getMediaMappings(), seriesMappingPrefix(page), page.seasonNumber);
 
@@ -133,7 +147,36 @@ async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Pr
     pickKnownSeason({ seasonIds, manual, pageMatch, remembered }) ??
     // (c) Première saison non terminée par l'utilisateur
     firstUnfinishedSeason(seasonIds, await seasonStatuses(seasons));
-  return choice ? { ...choice, seasons: summaries } : null;
+  if (!choice) return null;
+  return { ...(choice.source === 'page' ? await refinePageSeason(page, choice, seasons, seasonGroups, remembered) : choice), seasons: summaries };
+}
+
+/**
+ * Saison lue sur la page et découpée en plusieurs fiches AniList (Mushoku Tensei « Season 2 » = « II » +
+ * « II Part 2 ») : partie à afficher, et contrôle du nombre d'épisodes affiché par la page.
+ */
+async function refinePageSeason(
+  page: PageMediaInfo,
+  choice: SeasonChoice,
+  seasons: readonly AniListMedia[],
+  seasonGroups: readonly number[][],
+  remembered: { mediaId: number; exact: boolean } | null,
+): Promise<SeasonChoice> {
+  const group = seasonGroups.find((ids) => ids.includes(choice.mediaId));
+  if (!group) return choice;
+  const byId = new Map(seasons.map((m) => [m.id, m]));
+  const parts = group.flatMap((id) => byId.get(id) ?? []);
+
+  let mediaId = choice.mediaId;
+  // Première partie retenue par la résolution : la partie que l'utilisateur regarde, si on peut la connaître
+  if (page.seasonNumber !== null && parts.length > 1 && group[0] === choice.mediaId) {
+    const needsStatuses = !(remembered?.exact && group.includes(remembered.mediaId));
+    mediaId = pickPartInGroup(group, remembered, needsStatuses ? await seasonStatuses(parts) : []) ?? mediaId;
+  }
+  // Nombre d'épisodes de la saison (page) très différent de la somme des parties : choix à vérifier
+  const mismatch = episodeCountMismatch(page.seasonEpisodeCount, parts.map((m) => m.episodes));
+  if (mismatch) log.info(`Saison ${page.seasonNumber ?? '?'} : ${page.seasonEpisodeCount ?? '?'} épisodes sur la page, autre total sur AniList`);
+  return { ...choice, mediaId, confidence: mismatch ? 'uncertain' : choice.confidence };
 }
 
 async function resolveSeason(page: PageMediaInfo, manual: number | null): Promise<Resolution | null> {

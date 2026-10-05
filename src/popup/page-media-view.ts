@@ -1,5 +1,5 @@
 import { getLocale, t, tp, type Locale, type MessageKey } from '../i18n';
-import type { PageListState, PageMediaView } from '../shared/page-media.types';
+import type { PageListState, PageMediaView, PageSeason, SeasonSlot } from '../shared/page-media.types';
 import type { ListStatus } from '../shared/sync.types';
 import { nextEpisodeBadge } from '../shared/watching';
 import type { AiringStatus, NextEpisodeBadge } from '../shared/watching.types';
@@ -52,10 +52,28 @@ export function pageBadge(view: PageMediaView, now: number): NextEpisodeBadge {
   );
 }
 
-/** Position de la fiche parmi les saisons proposées ("Saison 2/4"), null si inconnue ou saison unique */
-export function seasonPosition(view: PageMediaView): { index: number; count: number } | null {
-  const index = view.seasons.findIndex((s) => s.id === view.media.mediaId);
-  return index !== -1 && view.seasons.length > 1 ? { index: index + 1, count: view.seasons.length } : null;
+/**
+ * Position de la fiche dans les saisons de la série (parties « Part 2 » regroupées), null si la fiche est
+ * hors des saisons (spécial, autre résultat) ou si la série tient en une seule fiche.
+ */
+export function seasonPosition(view: PageMediaView): SeasonSlot | null {
+  const slot = view.seasons.find((s) => s.id === view.media.mediaId)?.slot ?? null;
+  if (!slot) return null;
+  const seasonCount = Math.max(...view.seasons.map((s) => s.slot?.season ?? 0));
+  return seasonCount > 1 || slot.parts > 1 ? slot : null;
+}
+
+/** "Saison 2", ou "Saison 2 · partie 1/2" pour une saison découpée en plusieurs fiches AniList */
+export function seasonSlotLabel(slot: SeasonSlot): string {
+  return slot.parts > 1 ? t('page.seasonSlotPart', { season: slot.season, part: slot.part, parts: slot.parts }) : t('page.seasonSlot', { season: slot.season });
+}
+
+/** Option du sélecteur : "Saison 2 · partie 1 — Mushoku Tensei II (2023)", ou "Titre (2023)" hors des saisons */
+export function seasonOptionLabel(season: Pick<PageSeason, 'title' | 'year' | 'slot'>): string {
+  const title = season.year !== null ? `${season.title} (${season.year})` : season.title;
+  const { slot } = season;
+  if (!slot) return title;
+  return slot.parts > 1 ? t('page.seasonOptionPart', { season: slot.season, part: slot.part, title }) : t('page.seasonOption', { season: slot.season, title });
 }
 
 const AIRING_LABELS: Record<AiringStatus, MessageKey> = {
@@ -69,12 +87,12 @@ const AIRING_LABELS: Record<AiringStatus, MessageKey> = {
 /** Formats affichés tels quels (les séries TV, cas courant, ne sont pas précisées) */
 const SHOWN_FORMATS: ReadonlySet<string> = new Set(['MOVIE', 'OVA', 'ONA', 'SPECIAL']);
 
-/** Ligne d'infos sous le titre : "Saison 2/4 · 2018 · 12 ép. · Terminée" */
+/** Ligne d'infos sous le titre : "Saison 2 · partie 1/2 · 2023 · 12 ép. · Terminée" */
 export function mediaMetaParts(view: PageMediaView): string[] {
   const { media } = view;
   const position = seasonPosition(view);
   const parts: string[] = [];
-  if (position) parts.push(t('page.season', { index: position.index, count: position.count }));
+  if (position) parts.push(seasonSlotLabel(position));
   const format = media.format !== null && SHOWN_FORMATS.has(media.format) ? media.format : null;
   const when = [format, media.year].filter((p) => p !== null).join(' ');
   if (when) parts.push(when);

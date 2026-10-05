@@ -8,6 +8,7 @@ import {
   seasonLabel,
   matchPlatformLink,
   normalizeTitle,
+  seasonSearchQuery,
   resolveTarget,
   seasonPool,
   SERIES_FORMATS,
@@ -16,6 +17,7 @@ import {
   type MediaCandidate,
   type ResolveResult,
 } from './matching';
+import { groupSeasons } from './season-groups';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('sync');
@@ -32,8 +34,11 @@ interface CollectedCandidates {
   media: AniListMedia[];
 }
 
-/** Série à rechercher : un épisode, ou une page de série (titre et saison lus sur la page) */
-export type SeriesQuery = Pick<EpisodeInfo, 'platform' | 'seriesId' | 'seriesSlug' | 'animeTitle' | 'seasonTitle'>;
+/**
+ * Série à rechercher : un épisode, ou une page de série (titre et saison lus sur la page).
+ * `episodeId` (page de lecture) : reconnaît une fiche AniList liée à l'épisode lui-même.
+ */
+export type SeriesQuery = Pick<EpisodeInfo, 'platform' | 'seriesId' | 'seriesSlug' | 'animeTitle' | 'seasonTitle'> & { episodeId?: string | null };
 
 interface ResolveOptions {
   /** false : lecture seule (fiche de la page), le cache des correspondances n'est ni écrit ni purgé */
@@ -44,6 +49,10 @@ export interface EpisodeResolution {
   result: ResolveResult;
   /** Fiches à proposer si l'utilisateur doit choisir (vide si la correspondance vient du cache) */
   candidates: CandidateSummary[];
+  /** Saisons de la série (formats série, ordre de diffusion), vide si la correspondance vient du cache */
+  seasons: CandidateSummary[];
+  /** Identifiants des saisons regroupées par saison de la plateforme (parties « Part 2 » réunies, voir groupSeasons) */
+  seasonGroups: number[][];
 }
 
 /**
@@ -55,20 +64,31 @@ async function collectCandidates(episode: SeriesQuery): Promise<CollectedCandida
   const mediaById = new Map<number, AniListMedia>();
   const links = new Map<number, LinkKind>();
 
-  const linkOf = (media: AniListMedia): LinkKind =>
-    media.externalLinkUrls.map((url) => matchPlatformLink(url, episode.platform, episode.seriesId, episode.seriesSlug)).find((k) => k !== null) ?? null;
+  const episodeId = episode.episodeId ?? null;
+  const linkOf = (media: AniListMedia): LinkKind => {
+    const kinds = media.externalLinkUrls.map((url) => matchPlatformLink(url, episode.platform, episode.seriesId, episode.seriesSlug, episodeId));
+    // Le lien vers l'épisode lui-même prime sur le lien vers la série
+    return kinds.includes('episode') ? 'episode' : (kinds.find((k) => k !== null) ?? null);
+  };
   const add = (list: AniListMedia[], fallback: LinkKind = null): void => {
     for (const media of list) {
+      if (mediaById.has(media.id)) continue;
       mediaById.set(media.id, media);
       links.set(media.id, linkOf(media) ?? fallback);
     }
   };
 
-  add(await searchAnime(episode.animeTitle));
+  // Titre de saison distinct (ex : saison « HEROINES » de One Piece) : la recherche du seul titre de la série
+  // est noyée sous les fiches de la franchise (20 résultats), la fiche de la saison n'y figure pas toujours.
+  // Recherche complémentaire « série + saison », fusionnée sans doublon.
+  const seasonQuery = seasonSearchQuery(episode.animeTitle, episode.seasonTitle);
+  const [main, bySeason] = await Promise.all([searchAnime(episode.animeTitle), seasonQuery ? searchAnime(seasonQuery) : Promise.resolve([])]);
+  add(main);
+  add(bySeason);
 
-  // Aucun résultat lié : le titre de saison est parfois le titre AniList (ex : "… Season 2")
+  // Aucun résultat lié : le titre de saison seul est parfois le titre AniList (ex : "… Season 2")
   const hasLinked = [...links.values()].some((l) => l !== null);
-  if (!hasLinked && episode.seasonTitle && normalizeTitle(episode.seasonTitle) !== normalizeTitle(episode.animeTitle)) {
+  if (!hasLinked && episode.seasonTitle && normalizeTitle(episode.seasonTitle) !== normalizeTitle(episode.animeTitle) && episode.seasonTitle !== seasonQuery) {
     add(await searchAnime(episode.seasonTitle));
   }
 
@@ -79,7 +99,9 @@ async function collectCandidates(episode: SeriesQuery): Promise<CollectedCandida
     const missing = new Set<number>();
 
     for (const media of mediaById.values()) {
-      if (links.get(media.id) === null) continue;
+      // Un lien vers un épisode précis (spécial, film) ne fait pas de ses suites des saisons de la série
+      const link = links.get(media.id);
+      if (link === null || link === 'episode') continue;
       for (const rel of media.relations) {
         if (rel.type !== 'ANIME' || !FRANCHISE_RELATIONS.has(rel.relationType ?? '')) continue;
         if (mediaById.has(rel.id)) {
@@ -139,15 +161,25 @@ export interface SeriesSeasons {
   seasons: AniListMedia[];
   /** Autres résultats de recherche (hors clips musicaux), si aucune saison n'est identifiée */
   others: AniListMedia[];
+  /** Saisons regroupées par saison de la plateforme (identifiants, voir groupSeasons) */
+  seasonGroups: number[][];
+}
+
+/** Saisons de la série (fiches complètes) et leurs groupes, à partir des candidats */
+function poolOf({ candidates, media }: CollectedCandidates, animeTitle: string): { seasons: AniListMedia[]; seasonGroups: number[][] } {
+  const byId = new Map(media.map((m) => [m.id, m]));
+  const pool = seasonPool(candidates, animeTitle);
+  return {
+    seasons: pool.flatMap((c) => byId.get(c.id) ?? []),
+    seasonGroups: groupSeasons(pool).map((group) => group.map((c) => c.id)),
+  };
 }
 
 /** Saisons AniList d'une série (page de série) : même recherche que la synchro, sans rien écrire. */
 export async function findSeriesSeasons(query: SeriesQuery): Promise<SeriesSeasons> {
-  const { candidates, media } = await collectCandidates(query);
-  const byId = new Map(media.map((m) => [m.id, m]));
-  const seasons = seasonPool(candidates, query.animeTitle).flatMap((c) => byId.get(c.id) ?? []);
-  const others = media.filter((m) => m.format !== 'MUSIC');
-  return { candidates, seasons, others };
+  const collected = await collectCandidates(query);
+  const others = collected.media.filter((m) => m.format !== 'MUSIC');
+  return { candidates: collected.candidates, ...poolOf(collected, query.animeTitle), others };
 }
 
 /** Fiches candidates d'un épisode, sans résolution (ex : correction d'une synchro passée). */
@@ -163,7 +195,7 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true }: R
   if (cached) {
     const progress = applyMapping(episode, cached);
     if (progress !== null) {
-      return { result: { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache' } }, candidates: [] };
+      return { result: { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache' } }, candidates: [], seasons: [], seasonGroups: [] };
     }
     // Ex : numérotation absolue passée à la fiche suivante → nouvelle résolution
     if (persist) await deleteMediaMapping(key);
@@ -185,5 +217,6 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true }: R
     const mediaTitle = collected.media.find((m) => m.id === mediaId)?.displayTitle;
     await saveMediaMapping(key, { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...(mediaTitle ? { mediaTitle } : {}) });
   }
-  return { result, candidates: summarize(collected, result.ok ? result.target.mediaId : null) };
+  const { seasons, seasonGroups } = poolOf(collected, episode.animeTitle);
+  return { result, candidates: summarize(collected, result.ok ? result.target.mediaId : null), seasons: seasons.map(toCandidateSummary), seasonGroups };
 }

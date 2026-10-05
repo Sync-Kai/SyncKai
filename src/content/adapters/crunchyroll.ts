@@ -154,6 +154,15 @@ const SERIES_SELECTORS = {
     '[class*="season-info"]',
     '.season-info',
   ],
+  // Entrées du menu des saisons ("Season 1" / "24 Episodes"), souvent rendues seulement menu ouvert
+  seasonOptions: [
+    '[data-t="seasons-select"] ~ * [role="option"]',
+    '[data-t="seasons-dropdown"] [role="option"]',
+    '[data-t="season-item"]',
+    '[class*="seasons-select"] [role="option"]',
+    '[role="listbox"] [role="option"]',
+    '[class*="dropdown-content"] [role="option"]',
+  ],
 } as const;
 
 const PLATFORM_NAME = /crunchyroll/i;
@@ -190,6 +199,65 @@ export function seriesTitleFromJsonLd(nodes: readonly Record<string, unknown>[],
   return null;
 }
 
+/** "25 Episodes", "24 épisodes", "12 Folgen" → nombre d'épisodes, sinon null */
+const EPISODE_COUNT_REGEX = /(\d{1,4})\s*(?:[ée]pisodes?|folgen?|episodios?|epis[óo]dios?|episodi)(?![a-z])/i;
+
+export function parseEpisodeCount(text: string | null): number | null {
+  const match = text ? EPISODE_COUNT_REGEX.exec(text) : null;
+  const count = match ? toNumber(match[1]) : null;
+  return count !== null && count >= 1 ? count : null;
+}
+
+/**
+ * Entrée du menu des saisons → numéro de saison + nombre d'épisodes. `parts` : textes des éléments
+ * feuilles de l'entrée (le texte concaténé "Season 124 Episodes" serait ambigu), dans l'ordre du DOM.
+ */
+export function parseSeasonOption(parts: readonly string[]): { number: number; episodes: number | null } | null {
+  let number: number | null = null;
+  let episodes: number | null = null;
+  for (const part of parts) {
+    // Une même feuille peut porter les deux : "Season 2 · 25 Episodes"
+    for (const piece of part.split(/[·•|/]/)) {
+      episodes ??= parseEpisodeCount(piece);
+      if (number === null && parseEpisodeCount(piece) === null) number = parseCrunchyrollSeasonLabel(piece)?.number ?? null;
+    }
+  }
+  return number !== null ? { number, episodes } : null;
+}
+
+/** Nombre d'épisodes d'une saison dans le JSON-LD (TVSeries.containsSeason[].numberOfEpisodes), si présent */
+export function seasonEpisodeCountFromJsonLd(nodes: readonly Record<string, unknown>[], seasonNumber: number): number | null {
+  for (const node of nodes) {
+    const seasons = Array.isArray(node.containsSeason) ? node.containsSeason : [node.containsSeason];
+    for (const season of seasons) {
+      if (!isRecord(season) || toNumber(season.seasonNumber) !== seasonNumber) continue;
+      const count = toNumber(season.numberOfEpisodes);
+      if (count !== null && Number.isInteger(count) && count >= 1) return count;
+    }
+  }
+  return null;
+}
+
+/** Textes des éléments feuilles d'une entrée de menu (ou son propre texte) */
+function leafTexts(el: Element): string[] {
+  const leaves = [...el.querySelectorAll('*')].filter((child) => child.childElementCount === 0);
+  return (leaves.length > 0 ? leaves : [el]).map((leaf) => cleanText(leaf.textContent)).filter((text): text is string => text !== null);
+}
+
+/** Nombre d'épisodes de la saison sélectionnée : JSON-LD, sinon entrée correspondante du menu des saisons */
+function readSeasonEpisodeCount(seasonNumber: number | null): number | null {
+  if (seasonNumber === null) return null;
+  const fromJsonLd = seasonEpisodeCountFromJsonLd(readJsonLdNodes('TVSeries'), seasonNumber);
+  if (fromJsonLd !== null) return fromJsonLd;
+  for (const selector of SERIES_SELECTORS.seasonOptions) {
+    for (const el of document.querySelectorAll(selector)) {
+      const option = parseSeasonOption(leafTexts(el));
+      if (option?.number === seasonNumber && option.episodes !== null) return option.episodes;
+    }
+  }
+  return null;
+}
+
 function firstText(selectors: readonly string[], accept: (text: string) => boolean): string | null {
   for (const selector of selectors) {
     for (const el of document.querySelectorAll<HTMLElement>(selector)) {
@@ -220,6 +288,7 @@ function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
     seriesTitle,
     seasonNumber: season?.number ?? null,
     seasonTitle: season?.title ?? null,
+    seasonEpisodeCount: readSeasonEpisodeCount(season?.number ?? null),
   };
 }
 

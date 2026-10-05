@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { crunchyrollAdapter, parseCrunchyrollSeasonLabel, parseCrunchyrollSeriesPath, seriesTitleFromJsonLd } from './crunchyroll';
+import {
+  crunchyrollAdapter,
+  parseCrunchyrollSeasonLabel,
+  parseCrunchyrollSeriesPath,
+  parseEpisodeCount,
+  parseSeasonOption,
+  seasonEpisodeCountFromJsonLd,
+  seriesTitleFromJsonLd,
+} from './crunchyroll';
 import { flattenJsonLd } from './parsing';
 
 // Fixture JSON-LD d'une page de série (structure supposée, à vérifier sur le site réel)
@@ -51,6 +59,33 @@ describe('parseCrunchyrollSeasonLabel', () => {
     expect(parseCrunchyrollSeasonLabel('Black Clover')).toBeNull();
     expect(parseCrunchyrollSeasonLabel('Sous-titres')).toBeNull();
     expect(parseCrunchyrollSeasonLabel(null)).toBeNull();
+  });
+});
+
+describe('nombre d’épisodes de la saison (menu des saisons, JSON-LD)', () => {
+  it('parseEpisodeCount : libellés usuels', () => {
+    expect(parseEpisodeCount('25 Episodes')).toBe(25);
+    expect(parseEpisodeCount('24 épisodes')).toBe(24);
+    expect(parseEpisodeCount('12 Folgen')).toBe(12);
+    expect(parseEpisodeCount('1 Episode')).toBe(1);
+    expect(parseEpisodeCount('Season 2')).toBeNull();
+    expect(parseEpisodeCount(null)).toBeNull();
+  });
+
+  it('parseSeasonOption : entrée en éléments séparés ou texte unique', () => {
+    expect(parseSeasonOption(['Season 2', '25 Episodes'])).toEqual({ number: 2, episodes: 25 });
+    expect(parseSeasonOption(['S2: Mushoku Tensei', '25 épisodes'])).toEqual({ number: 2, episodes: 25 });
+    expect(parseSeasonOption(['Season 1 · 24 Episodes'])).toEqual({ number: 1, episodes: 24 });
+    expect(parseSeasonOption(['Season 3 / 14 Episodes'])).toEqual({ number: 3, episodes: 14 });
+    expect(parseSeasonOption(['Season 3'])).toEqual({ number: 3, episodes: null });
+    expect(parseSeasonOption(['25 Episodes'])).toBeNull();
+  });
+
+  it('seasonEpisodeCountFromJsonLd : TVSeries.containsSeason[].numberOfEpisodes', () => {
+    const nodes = [{ '@type': 'TVSeries', containsSeason: [{ seasonNumber: 1, numberOfEpisodes: 24 }, { seasonNumber: 2, numberOfEpisodes: '25' }] }];
+    expect(seasonEpisodeCountFromJsonLd(nodes, 2)).toBe(25);
+    expect(seasonEpisodeCountFromJsonLd(nodes, 3)).toBeNull();
+    expect(seasonEpisodeCountFromJsonLd(flattenJsonLd(JSON.parse(SERIES_JSON_LD)), 1)).toBeNull();
   });
 });
 
