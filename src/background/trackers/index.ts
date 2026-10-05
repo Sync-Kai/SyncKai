@@ -1,7 +1,7 @@
 import { getMalToken, getValidToken } from '../../shared/storage';
 import type { TrackerId } from '../../shared/tracker.types';
-import { getMediaListInfo, getScoreFormat, saveListStatus, saveProgress, saveScore } from '../api/list';
-import { getMalAnime, saveMalListStatus, saveMalProgress, saveMalScore } from '../api/mal';
+import { getMediaListInfo, getScoreFormat, saveListEntry, saveListStatus, saveProgress, saveScore } from '../api/list';
+import { getMalAnime, saveMalEntry, saveMalListStatus, saveMalProgress, saveMalScore } from '../api/mal';
 import { toAniListScore, toMalScore } from '../sync/score';
 import type { TrackerService } from './tracker';
 
@@ -18,6 +18,7 @@ export const anilistTracker: TrackerService = {
   saveScore: async (id, score) => saveScore(id, toAniListScore(score, await getScoreFormat())),
   startRewatch: (id, progress) => saveProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveListStatus(id, status, progress, repeat),
+  saveEntry: (id, write) => saveListEntry(id, write),
 };
 
 export const malTracker: TrackerService = {
@@ -30,6 +31,7 @@ export const malTracker: TrackerService = {
   saveScore: (id, score) => saveMalScore(id, toMalScore(score)),
   startRewatch: (id, progress) => saveMalProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveMalListStatus(id, status, progress, repeat),
+  saveEntry: (id, write) => saveMalEntry(id, write),
 };
 
 const TRACKERS: readonly TrackerService[] = [anilistTracker, malTracker];

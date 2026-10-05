@@ -26,6 +26,10 @@ export const STORAGE_KEYS = {
   malToken: 'malToken',
   malViewer: 'malViewer',
   watchingCache: 'watchingCache',
+  /** Dernière comparaison AniList ↔ MAL (Activité › Écarts) */
+  compareLast: 'compare:last',
+  /** Tâche d'analyse ou d'alignement en cours (progression, reprise) */
+  compareJob: 'compare:job',
 } as const;
 
 /** Retourne le token AniList s'il existe et n'a pas expiré. */
@@ -124,7 +128,7 @@ export function addRecentSync(sync: RecentSync): Promise<void> {
  */
 export function clearAniListSession(): Promise<void> {
   return withStorageLock(async () => {
-    await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer]);
+    await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob]);
     await removeCachedWatching('anilist');
   });
 }
@@ -134,7 +138,7 @@ export function clearAniListSession(): Promise<void> {
  * service de suivi n'est connecté (déconnexion du dernier compte).
  */
 export function clearUserSyncData(): Promise<void> {
-  return withStorageLock(() => chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY]));
+  return withStorageLock(() => chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob]));
 }
 
 // ─── Session MyAnimeList ──────────────────────────────────────────────────
@@ -163,7 +167,7 @@ export async function saveCachedMalViewer(viewer: MalViewer): Promise<void> {
 /** Comme clearAniListSession : token, profil et liste « En cours » MAL en cache. */
 export function clearMalSession(): Promise<void> {
   return withStorageLock(async () => {
-    await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer]);
+    await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob]);
     await removeCachedWatching('mal');
   });
 }

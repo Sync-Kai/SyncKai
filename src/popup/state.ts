@@ -10,6 +10,8 @@ import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
 import type { AddListStatus, ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
+import type { ComparisonResult, DiffFilter } from '../shared/compare';
+import type { CompareJob } from '../shared/compare-job';
 
 /** État de connexion d'un compte (AniList, MyAnimeList) : chaque vue est une fonction pure de cet état. */
 export type AccountState<Viewer> =
@@ -143,4 +145,20 @@ export interface PageCardState {
   confirm: ListStatusChange | null;
   /** Retour de la dernière action (affiché quelques secondes) */
   feedback: InlineFeedback | null;
+}
+
+/** Activité › « Écarts AniList ↔ MAL » (dernière analyse et tâche en cours, lues du stockage) */
+export interface CompareState {
+  result: ComparisonResult | null;
+  /** Analyse ou alignement en cours / dernier alignement terminé (bilan) */
+  job: CompareJob | null;
+  /** Demande envoyée au service worker, réponse pas encore reçue */
+  requesting: 'analyze' | 'apply' | null;
+  /** Erreur de l'analyse ou du lancement d'un alignement (affichée en alerte) */
+  error: string | null;
+  /** Confirmation « Tout aligner sur … » affichée */
+  confirm: TrackerId | null;
+  filter: DiffFilter;
+  /** Nombre de lignes affichées (« Afficher plus ») */
+  shown: number;
 }

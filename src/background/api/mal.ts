@@ -6,7 +6,8 @@ import type { ManualListStatus } from '../../shared/sync.types';
 import { toSafeUrl } from '../../shared/url';
 import { getMalAccessToken } from '../auth/mal';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
-import { ApiError } from './errors';
+import { malScoreFrom, type EntryWrite } from '../../shared/compare';
+import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
 import { retryDelayMs, sleep } from './rate-limit';
 import { createLogger } from '../../shared/logger';
 
@@ -103,8 +104,11 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
         ...(options.body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
       },
       body: options.body,
+      // MAL surchargé peut garder la requête ouverte longtemps (puis répondre 504) : abandon après le délai
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-  } catch {
+  } catch (error: unknown) {
+    if (isTimeoutError(error)) throw new ApiError('NETWORK', t('api.timeout', { service: 'MyAnimeList' }), { timedOut: true });
     throw new ApiError('NETWORK', t('api.network', { service: 'MyAnimeList' }));
   }
 
@@ -128,7 +132,7 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
   if (response.status === 404) throw new ApiError('API_ERROR', t('api.malNotFound'));
   if (!response.ok) {
     log.error('Erreur API MyAnimeList :', response.status);
-    throw new ApiError('API_ERROR', t('api.httpError', { service: 'MyAnimeList', status: response.status }));
+    throw new ApiError('API_ERROR', t('api.httpError', { service: 'MyAnimeList', status: response.status }), { httpStatus: response.status });
   }
 
   let body: unknown = null;
@@ -215,4 +219,37 @@ export function saveMalListStatus(malId: number, status: ManualListStatus, progr
 /** `score` déjà converti (entier 1 à 10, voir toMalScore) */
 export function saveMalScore(malId: number, score: number): Promise<ListEntryState> {
   return patchMalListStatus(malId, new URLSearchParams({ score: String(score) }));
+}
+
+// ─── Alignement depuis la comparaison des listes ──────────────────────────
+
+const LIST_STATUS_TO_MAL: Record<ListStatus, MalListStatus> = {
+  CURRENT: 'watching',
+  PLANNING: 'plan_to_watch',
+  COMPLETED: 'completed',
+  PAUSED: 'on_hold',
+  DROPPED: 'dropped',
+  // Un revisionnage MAL reste « completed » avec is_rewatching
+  REPEATING: 'completed',
+};
+
+/**
+ * Corps du PATCH my_list_status pour un alignement (pur, testable) : seuls les champs fournis sont écrits.
+ * Statut écrit → is_rewatching suit (true pour REPEATING, false sinon). Note convertie en entier MAL (arrondi inférieur).
+ */
+export function malEntryBody(write: EntryWrite): URLSearchParams {
+  const body = new URLSearchParams();
+  if (write.status !== undefined) {
+    body.set('status', LIST_STATUS_TO_MAL[write.status]);
+    body.set('is_rewatching', String(write.status === 'REPEATING'));
+  }
+  if (write.progress !== undefined) body.set('num_watched_episodes', String(write.progress));
+  if (write.repeat !== undefined) body.set('num_times_rewatched', String(write.repeat));
+  if (write.score !== undefined) body.set('score', String(malScoreFrom(write.score)));
+  return body;
+}
+
+/** Écrit (ou crée) l'entrée de liste MAL avec les champs fournis, en une requête */
+export function saveMalEntry(malId: number, write: EntryWrite): Promise<ListEntryState> {
+  return patchMalListStatus(malId, malEntryBody(write));
 }

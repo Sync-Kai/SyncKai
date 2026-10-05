@@ -1,4 +1,7 @@
 import { initI18n, onLocaleChange, t } from '../i18n';
+import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type ListDiff } from '../shared/compare';
+import { COMPARE_JOB_KEY, isCompareJob } from '../shared/compare-job';
+import { withStorageLock } from '../shared/storage-lock';
 import { AIRING_RESULT_KEY, isAiringCheckResult, type AiringCheckResult } from '../shared/airing.types';
 import { isAniListViewer, type ViewerErrorCode, type ViewerResult } from '../shared/anilist.types';
 import { isAniListToken, type AuthResult } from '../shared/auth.types';
@@ -36,6 +39,7 @@ import { formatStarValue } from '../ui/rating';
 import { renderFooter, type FooterStatus } from './components/footer';
 import { renderHeader, renderNav, renderSettingsBar } from './components/header';
 import { renderOnboarding } from './components/onboarding';
+import { COMPARE_PAGE_SIZE, renderCompareSection } from './components/compare-section';
 import { renderQueueSection } from './components/queue-section';
 import { renderRatingSection } from './components/rating-section';
 import { renderRecentSyncs } from './components/recent-syncs';
@@ -51,6 +55,7 @@ import {
   LOGGED_OUT,
   type AccountState,
   type AniListState,
+  type CompareState,
   type EntryAction,
   type ExclusionsState,
   type InlineFeedback,
@@ -126,6 +131,8 @@ const queueStore = createStore<QueueState>({ items: [], busyIds: new Set(), noti
 const ratingsStore = createStore<RatingsState>({ items: [], busyIds: new Set(), errors: new Map(), notice: null, error: null });
 /** Carte « Sur cette page » (série de l'onglet actif) */
 const pageCardStore = createStore<PageCardState>({ media: { status: 'none' }, busy: null, confirm: null, feedback: null });
+/** Activité › « Écarts AniList ↔ MAL » */
+const compareStore = createStore<CompareState>({ result: null, job: null, requesting: null, error: null, confirm: null, filter: 'all', shown: COMPARE_PAGE_SIZE });
 const version = chrome.runtime.getManifest().version;
 let now = Date.now();
 
@@ -181,7 +188,8 @@ const reviewSection = createReviewSection(reviewActions);
 const queueSlot = h('div', { class: 'contents' });
 const ratingSlot = h('div', { class: 'contents' });
 const recentSlot = h('div', { class: 'contents' });
-const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot);
+const compareSlot = h('div', { class: 'contents' });
+const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot, compareSlot);
 const settingsScreen = createSettingsScreen();
 const footerSlot = h('div', { class: 'contents' });
 const main = h(
@@ -467,6 +475,35 @@ function renderRatings(): void {
   );
 }
 
+/** Section « Écarts » redessinée seulement si son état change (jusqu'à 30+ lignes) */
+let compareMemo: readonly unknown[] = [];
+/** Compte à rebours d'une pause d'alignement : avance chaque seconde tant que la pause dure */
+let compareClock = 0;
+
+function renderCompare(): void {
+  const both = connectedServices().length === 2;
+  const inputs = [compareStore.get(), both, now, compareClock];
+  if (inputs.every((value, i) => value === compareMemo[i])) return;
+  compareMemo = inputs;
+  compareSlot.replaceChildren(
+    ...nodes([
+      both &&
+        renderCompareSection({
+          state: compareStore.get(),
+          now,
+          onAnalyze: () => void analyzeLists(),
+          onApply: (diffs, source) => void applyDiffs(diffs, source),
+          onConfirm: (source) => patchCompare({ confirm: source }),
+          onFilter: (filter) => patchCompare({ filter, shown: COMPARE_PAGE_SIZE, confirm: null }),
+          onCancel: () => void cancelCompareJob(),
+          onDismissJob: () => void dismissCompareJob(),
+          onRetryFailed: (diffs, source) => void applyDiffs(diffs, source),
+          onShowMore: () => patchCompare({ shown: compareStore.get().shown + COMPARE_PAGE_SIZE }),
+        }),
+    ]),
+  );
+}
+
 function render(): void {
   const ui = uiStore.get();
   const onboarding = isOnboarding();
@@ -509,6 +546,7 @@ function render(): void {
       ]),
     );
     renderRatings();
+    renderCompare();
     reviewSection.update(connectedServices().length > 0 ? data.reviews : []);
     recentSlot.replaceChildren(
       renderRecentSyncs({
@@ -1169,6 +1207,90 @@ async function loadRatings(): Promise<void> {
   }
 }
 
+// ─── Écarts AniList ↔ MAL (Activité) ───────────────────────────────────────
+
+function patchCompare(patch: Partial<CompareState>): void {
+  compareStore.set({ ...compareStore.get(), ...patch });
+}
+
+/** Dernière analyse (stockage) : affichée à la réouverture du popup */
+function setComparison(value: unknown): void {
+  patchCompare({ result: isComparisonResult(value) ? value : null });
+}
+
+/** Tâche en cours (progression) ou bilan du dernier alignement ; un alignement qui se termine relit « En cours » */
+function setCompareJob(value: unknown): void {
+  const previous = compareStore.get().job;
+  const job = isCompareJob(value) ? value : null;
+  patchCompare({ job });
+  const finished = previous?.status === 'running' && job !== null && job.kind === 'apply' && job.status !== 'running';
+  if (finished && job.updated > 0) void reloadWatching();
+}
+
+async function loadComparison(): Promise<void> {
+  try {
+    const stored = await chrome.storage.local.get([COMPARE_STORAGE_KEY, COMPARE_JOB_KEY]);
+    setComparison(stored[COMPARE_STORAGE_KEY]);
+    setCompareJob(stored[COMPARE_JOB_KEY]);
+  } catch (error: unknown) {
+    log.warn('Lecture de la dernière comparaison impossible :', error);
+  }
+}
+
+async function analyzeLists(): Promise<void> {
+  if (compareStore.get().requesting !== null) return;
+  patchCompare({ requesting: 'analyze', error: null, confirm: null });
+  let result: CompareResult;
+  try {
+    result = await sendMessage('COMPARE_LISTS', null);
+  } catch (error: unknown) {
+    log.error('Service worker injoignable :', error);
+    result = { ok: false, code: 'NETWORK', message: swUnreachable() };
+  }
+  if (result.ok) patchCompare({ requesting: null, result: result.data, shown: COMPARE_PAGE_SIZE });
+  else patchCompare({ requesting: null, error: result.message });
+}
+
+/** Lance l'alignement (une série ou un lot) : le service worker le traite en arrière-plan, la progression arrive par le stockage */
+async function applyDiffs(diffs: readonly ListDiff[], source: TrackerId): Promise<void> {
+  if (diffs.length === 0 || compareStore.get().requesting !== null) return;
+  patchCompare({ requesting: 'apply', confirm: null, error: null });
+  let result: ApplyResult;
+  try {
+    result = await sendMessage('APPLY_DIFFS', { items: diffs.map((d) => ({ mediaId: d.mediaId, malId: d.malId })), source });
+  } catch (error: unknown) {
+    log.error('Service worker injoignable :', error);
+    result = { ok: false, code: 'NETWORK', message: swUnreachable() };
+  }
+  // Tâche acceptée : affichée tout de suite (le changement du stockage suit)
+  if (result.ok) patchCompare({ requesting: null, job: result.data });
+  else patchCompare({ requesting: null, error: result.message });
+}
+
+async function cancelCompareJob(): Promise<void> {
+  const job = compareStore.get().job;
+  if (job) patchCompare({ job: { ...job, cancelled: true } });
+  try {
+    await sendMessage('CANCEL_COMPARE_JOB', null);
+  } catch (error: unknown) {
+    log.error('Service worker injoignable :', error);
+    patchCompare({ error: swUnreachable() });
+  }
+}
+
+/** « OK » sur le bilan : la tâche terminée est retirée du stockage (jamais une tâche en cours) */
+async function dismissCompareJob(): Promise<void> {
+  try {
+    await withStorageLock(async () => {
+      const stored = await chrome.storage.local.get(COMPARE_JOB_KEY);
+      const job: unknown = stored[COMPARE_JOB_KEY];
+      if (!isCompareJob(job) || job.status !== 'running') await chrome.storage.local.remove(COMPARE_JOB_KEY);
+    });
+  } catch (error: unknown) {
+    log.warn('Suppression du bilan d’alignement impossible :', error);
+  }
+}
+
 // ─── Données de synchro ───────────────────────────────────────────────────
 
 /** "Corriger" : le service worker recharge les fiches candidates et rouvre une carte. */
@@ -1233,6 +1355,10 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 
   if (changes[STORAGE_KEYS.pendingReviews] || changes[STORAGE_KEYS.recentSyncs]) void loadSyncData();
   if (changes[PENDING_RATINGS_KEY]) void loadRatings();
+  const compareChange = changes[COMPARE_STORAGE_KEY];
+  if (compareChange) setComparison(compareChange.newValue);
+  const compareJobChange = changes[COMPARE_JOB_KEY];
+  if (compareJobChange) setCompareJob(compareJobChange.newValue);
 
   const settingsChange = changes[SETTINGS_STORAGE_KEY];
   if (settingsChange) settingsStore.set({ status: 'ready', settings: normalizeSettings(settingsChange.newValue) });
@@ -1284,7 +1410,7 @@ anilistStore.subscribe(syncWatchingSource);
 malStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncMenuListeners);
-for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore]) store.subscribe(render);
+for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore, compareStore]) store.subscribe(render);
 exclusionsStore.subscribe((state) => {
   settingsScreen.updateExclusions(state);
   render();
@@ -1311,6 +1437,15 @@ onLocaleChange(() => {
   location.reload();
 });
 
+// Pause d'alignement (limite de requêtes, service lent) : compte à rebours rafraîchi chaque seconde
+setInterval(() => {
+  const job = compareStore.get().job;
+  if (job?.status === 'running' && job.pausedUntil !== null && job.pauseReason !== 'resume') {
+    compareClock++;
+    render();
+  }
+}, 1_000);
+
 // Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert
 setInterval(() => {
   now = Date.now();
@@ -1323,6 +1458,7 @@ void loadSyncData();
 void loadExclusions();
 void loadQueue();
 void loadRatings();
+void loadComparison();
 void loadAiringResult();
 void settingsScreen.refreshMappings();
 // La source préférée est lue avant les comptes : évite de charger la mauvaise liste puis de basculer

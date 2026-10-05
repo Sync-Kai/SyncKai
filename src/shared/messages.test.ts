@@ -105,3 +105,14 @@ describe('ADD_TO_LIST', () => {
     expect(EXTENSION_PAGE_ONLY.has('ADD_TO_LIST')).toBe(true);
   });
 });
+
+describe('COMPARE_LISTS / APPLY_DIFFS', () => {
+  it('payloads validés et réservés aux pages de l’extension', () => {
+    expect(isRuntimeMessage({ type: 'COMPARE_LISTS', payload: null })).toBe(true);
+    expect(isRuntimeMessage({ type: 'COMPARE_LISTS', payload: {} })).toBe(false);
+    expect(isRuntimeMessage({ type: 'APPLY_DIFFS', payload: { items: [{ mediaId: 1, malId: 2 }], source: 'anilist' } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'APPLY_DIFFS', payload: { items: [{ mediaId: 1, malId: 2 }] } })).toBe(false);
+    expect(EXTENSION_PAGE_ONLY.has('COMPARE_LISTS')).toBe(true);
+    expect(EXTENSION_PAGE_ONLY.has('APPLY_DIFFS')).toBe(true);
+  });
+});

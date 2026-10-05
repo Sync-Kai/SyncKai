@@ -3,7 +3,8 @@ import { isRecord } from '../../shared/guards';
 import { getValidToken } from '../../shared/storage';
 import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
-import { isAniListScoreFormat, type AniListScoreFormat } from '../sync/score';
+import { isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from '../sync/score';
+import type { EntryWrite } from '../../shared/compare';
 import { anilistQuery } from './client';
 import { ApiError } from './errors';
 
@@ -158,4 +159,36 @@ export async function getScoreFormat(): Promise<AniListScoreFormat> {
 /** `score` déjà converti dans le format du profil (voir toAniListScore) */
 export async function saveScore(mediaId: number, score: number): Promise<ListEntryState> {
   return parseSaved(await anilistQuery(SAVE_SCORE_MUTATION, isSaveProgressData, { mediaId, score }));
+}
+
+// ─── Alignement depuis la comparaison des listes ──────────────────────────
+
+const SAVE_ENTRY_MUTATION = /* GraphQL */ `
+  mutation SaveEntry($mediaId: Int!, $status: MediaListStatus, $progress: Int, $score: Float, $repeat: Int) {
+    SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress, score: $score, repeat: $repeat) {
+      status
+      progress
+      repeat
+      score
+    }
+  }
+`;
+
+/**
+ * Variables de SaveMediaListEntry pour un alignement (pur, testable) : seuls les champs fournis sont
+ * envoyés (une variable absente laisse le champ inchangé). Note convertie dans le format du profil.
+ */
+export function anilistEntryWriteVariables(mediaId: number, write: EntryWrite, format: AniListScoreFormat): Record<string, number | string> {
+  const variables: Record<string, number | string> = { mediaId };
+  if (write.status !== undefined) variables.status = write.status;
+  if (write.progress !== undefined) variables.progress = write.progress;
+  if (write.repeat !== undefined) variables.repeat = write.repeat;
+  if (write.score !== undefined) variables.score = toAniListScore(write.score, format);
+  return variables;
+}
+
+/** Écrit (ou crée) l'entrée de liste AniList avec les champs fournis, en une requête (+ format de note, en cache) */
+export async function saveListEntry(mediaId: number, write: EntryWrite): Promise<ListEntryState> {
+  const format = write.score !== undefined ? await getScoreFormat() : 'POINT_10_DECIMAL';
+  return parseSaved(await anilistQuery(SAVE_ENTRY_MUTATION, isSaveProgressData, anilistEntryWriteVariables(mediaId, write, format)));
 }

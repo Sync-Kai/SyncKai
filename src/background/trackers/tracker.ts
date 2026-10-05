@@ -2,6 +2,7 @@ import type { TrackerId } from '../../shared/tracker.types';
 import type { Score10 } from '../../shared/engagement.types';
 import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, WriteStatus } from '../sync/rules';
+import type { EntryWrite } from '../../shared/compare';
 
 /**
  * Fiche du catalogue (AniList) choisie par la correspondance.
@@ -42,4 +43,6 @@ export interface TrackerService {
    * `repeat` : nouveau nombre de revisionnages (revisionnage marqué terminé), sinon inchangé.
    */
   saveStatus(id: number, status: ManualListStatus, progress: number, repeat?: number): Promise<ListEntryState>;
+  /** Alignement (comparaison des listes) : écrit ou crée l'entrée avec les seuls champs fournis, en une requête */
+  saveEntry(id: number, write: EntryWrite): Promise<ListEntryState>;
 }

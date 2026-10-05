@@ -10,6 +10,7 @@ import { isAddListStatus, isListStatusChange, type AddListStatus, type ListStatu
 import { isPageMediaInfo, type PageMediaResult, type ResolvePageMediaPayload } from './page-media.types';
 import { isTrackerId, type TrackerId } from './tracker.types';
 import type { WatchingResult } from './watching.types';
+import { isApplyDiffsPayload, type ApplyDiffsPayload, type ApplyResult, type CancelJobResult, type CompareResult } from './compare';
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from './engagement.types';
 
 export interface AdjustProgressPayload {
@@ -79,6 +80,12 @@ export interface MessageMap {
   RESOLVE_PAGE_MEDIA: { payload: ResolvePageMediaPayload; response: PageMediaResult };
   /** « À regarder » / « En cours » depuis la fiche de la page : seulement là où la série n'est pas déjà dans la liste */
   ADD_TO_LIST: { payload: AddToListPayload; response: SyncOutcome };
+  /** Activité › Écarts : lit les listes complètes AniList et MAL et calcule les écarts (rien n'est écrit) */
+  COMPARE_LISTS: { payload: null; response: CompareResult };
+  /** Lance l'alignement des séries choisies sur `source` (tâche en arrière-plan, progression dans compare:job) */
+  APPLY_DIFFS: { payload: ApplyDiffsPayload; response: ApplyResult };
+  /** « Arrêter » l'alignement en cours (la série en cours se termine) */
+  CANCEL_COMPARE_JOB: { payload: null; response: CancelJobResult };
 }
 
 /** Messages réservés aux pages de l'extension (popup) : refusés s'ils viennent d'un content script */
@@ -95,6 +102,9 @@ export const EXTENSION_PAGE_ONLY: ReadonlySet<MessageType> = new Set([
   'CHECK_AIRING',
   'RESOLVE_PAGE_MEDIA',
   'ADD_TO_LIST',
+  'COMPARE_LISTS',
+  'APPLY_DIFFS',
+  'CANCEL_COMPARE_JOB',
 ]);
 
 export type MessageType = keyof MessageMap;
@@ -169,6 +179,9 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   CHECK_AIRING: isNull,
   RESOLVE_PAGE_MEDIA: isResolvePageMediaPayload,
   ADD_TO_LIST: isAddToListPayload,
+  COMPARE_LISTS: isNull,
+  APPLY_DIFFS: isApplyDiffsPayload,
+  CANCEL_COMPARE_JOB: isNull,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */

@@ -2,7 +2,7 @@ import { t } from '../../i18n';
 import { refreshReviewBadge } from '../../shared/badge';
 import { isRecord } from '../../shared/guards';
 import { clearAniListSession, getValidToken } from '../../shared/storage';
-import { ApiError } from './errors';
+import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
 import { retryDelayMs, sleep } from './rate-limit';
 import { createLogger } from '../../shared/logger';
 
@@ -33,8 +33,10 @@ async function request<T>(
         ...(token ? { Authorization: `Bearer ${token.accessToken}` } : {}),
       },
       body: JSON.stringify({ query, variables }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-  } catch {
+  } catch (error: unknown) {
+    if (isTimeoutError(error)) throw new ApiError('NETWORK', t('api.timeout', { service: 'AniList' }), { timedOut: true });
     throw new ApiError('NETWORK', t('api.network', { service: 'AniList' }));
   }
 
@@ -73,7 +75,7 @@ async function request<T>(
 
   if (!response.ok || errors.length > 0) {
     log.error('Erreur API AniList :', response.status, errors);
-    throw new ApiError('API_ERROR', t('api.httpError', { service: 'AniList', status: response.status }));
+    throw new ApiError('API_ERROR', t('api.httpError', { service: 'AniList', status: response.status }), { httpStatus: response.status });
   }
 
   const data: unknown = isRecord(body) ? body.data : undefined;

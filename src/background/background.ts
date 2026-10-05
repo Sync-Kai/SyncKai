@@ -7,6 +7,8 @@ import { loginWithMal } from './auth/mal';
 import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
 import { resolvePageMedia } from './page-media';
+import { applyDiffs, cancelCompareJob, compareServiceLists, resumeCompareJob } from './compare';
+import { COMPARE_JOB_ALARM } from '../shared/compare-job';
 import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } from './sync/queue';
 import { reopenReview, resolveReview, searchCandidates, syncEpisode } from './sync/sync-service';
@@ -68,6 +70,9 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     CHECK_AIRING: { checkedAt: 0, notified: 0, skipped: null, error: message },
     RESOLVE_PAGE_MEDIA: { ok: false, code: 'API_ERROR', message },
     ADD_TO_LIST: { status: 'error', message: t('error.unexpectedAdd') },
+    COMPARE_LISTS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
+    APPLY_DIFFS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
+    CANCEL_COMPARE_JOB: { ok: false, code: 'NOT_FOUND', message },
   };
 }
 
@@ -104,6 +109,9 @@ const handlers: MessageHandlers = {
   DECLINE_REWATCH: ({ media }) => declineRewatch(media),
   RESOLVE_PAGE_MEDIA: (payload) => resolvePageMedia(payload),
   ADD_TO_LIST: (payload) => addToList(payload),
+  COMPARE_LISTS: () => compareServiceLists(),
+  APPLY_DIFFS: (payload) => applyDiffs(payload),
+  CANCEL_COMPARE_JOB: () => cancelCompareJob(),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();
@@ -189,4 +197,13 @@ chrome.storage.onChanged.addListener((changes, area): void => {
   if (area === 'local' && (SETTINGS_STORAGE_KEY in changes || STORAGE_KEYS.anilistToken in changes || STORAGE_KEYS.malToken in changes)) {
     void ensureAiringAlarm();
   }
+});
+
+// ─── Comparaison AniList ↔ MAL : reprise d'un alignement interrompu ───────
+
+chrome.alarms.onAlarm.addListener((alarm): void => {
+  if (alarm.name === COMPARE_JOB_ALARM) afterI18n(resumeCompareJob);
+});
+chrome.runtime.onStartup.addListener((): void => {
+  afterI18n(resumeCompareJob);
 });
