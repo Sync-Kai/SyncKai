@@ -241,7 +241,8 @@ function promo(): string {
   const markLine = (60 * markSize) / 56;
   const taglineSize = 16;
   const taglineLine = 22;
-  const lines = ['Ton suivi d’anime,', 'en pilote automatique'];
+  // Tuile promo commune à toutes les langues du Store : en anglais (comme la tuile 1400×560)
+  const lines = ['Your anime list,', 'on autopilot'];
   const taglineRuns = lines.map((text): TextRun => ({ text, font: body, size: taglineSize }));
 
   const columnHeight = markLine + 10 + lines.length * taglineLine;
@@ -252,7 +253,7 @@ function promo(): string {
   const top = (height - columnHeight) / 2;
   const mark = wordmark(DARK, 'promo-', textX, top, markSize);
 
-  return svgDocument(width, height, 'SyncKai – Ton suivi d’anime, en pilote automatique', [
+  return svgDocument(width, height, 'SyncKai – Your anime list, on autopilot', [
     `<defs>`,
     `<radialGradient id="promo-bg" cx="150" cy="110" r="380" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2A3590"/><stop offset="0.5" stop-color="#1F2A66"/><stop offset="1" stop-color="#141A3D"/></radialGradient>`,
     `<radialGradient id="promo-glow" cx="${round(left + iconArt / 2)}" cy="140" r="150" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7C5CFF" stop-opacity="0.35"/><stop offset="1" stop-color="#46D6FF" stop-opacity="0"/></radialGradient>`,

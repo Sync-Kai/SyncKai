@@ -25,6 +25,10 @@ Fonctionnalités
 • Correspondance des saisons, y compris la numérotation absolue (ex. One Piece) et les saisons découpées en plusieurs fiches.
 • « À vérifier » : quand une correspondance est incertaine, tu choisis la bonne fiche depuis le popup. Rien n'est envoyé au hasard.
 • « En cours » : tes séries en cours, la date du prochain épisode (« Ép. 5 dans 18 h »), +1 / −1, et « Ouvrir » sur Crunchyroll ou ADN.
+• « Sur cette page » : sur une page de série ou d'épisode Crunchyroll / ADN, la fiche AniList de ce que tu regardes ; ajoute-la à ta liste ou change progression, statut et note sans quitter la page.
+• Statut en un clic : mettre en pause, abandonner ou marquer comme terminé, sur AniList et MyAnimeList.
+• Comparer AniList ↔ MyAnimeList : repère les écarts (progression, statut, note, séries absentes) et aligne-les en un clic, jamais automatiquement.
+• Rapport de diagnostic (Réglages › Aide) : à joindre à un signalement, sans aucune donnée sensible.
 • Note en fin de série (sur 10, convertie selon ton format de note AniList) et prise en charge du revisionnage.
 • Alertes de nouveaux épisodes : notification Chrome à la sortie, avec un délai réglable.
 • Synchros en attente : en cas de coupure réseau, la synchro est relancée automatiquement.

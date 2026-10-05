@@ -1,19 +1,25 @@
 // Données de démo réalistes mais fictives (aucune donnée personnelle, aucune jaquette protégée).
 
+import manifest from '../../manifest.json';
 import { tl, type Locale } from '../../src/i18n';
+import type { ComparisonResult, DiffSide, ListDiff } from '../../src/shared/compare';
+import type { PageMediaInfo, PageMediaView, PageSeason } from '../../src/shared/page-media.types';
+import type { ListStatus } from '../../src/shared/sync.types';
 import type { AiringCheckResult } from '../../src/shared/airing.types';
 import type { AniListViewer } from '../../src/shared/anilist.types';
 import type { EpisodeInfo, StreamingPlatform } from '../../src/shared/episode.types';
 import type { MalViewer } from '../../src/shared/mal.types';
 import type { CandidateSummary, PendingReview, RecentSync } from '../../src/shared/review.types';
 import type { SyncSettings } from '../../src/shared/settings';
+import { STORAGE_KEYS } from '../../src/shared/storage';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import type { TrackerId } from '../../src/shared/tracker.types';
 import type { AiringStatus, WatchingEntry, WatchingList } from '../../src/shared/watching.types';
 import { avatarUrl, coverUrl, type CoverMotif } from './covers';
 import type { ChromeMockOptions } from './mock-chrome';
 
-export const VERSION = '1.7.1';
+/** Version affichée dans le pied du popup : toujours celle du manifest (relue à chaque génération) */
+export const VERSION: string = manifest.version;
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -117,7 +123,101 @@ function mappings(): Record<string, MediaMapping> {
   };
 }
 
-export type Scenario = 'watching' | 'activity' | 'settings';
+// ─── Fiche de la page (« Sur cette page ») ────────────────────────────────
+// Page série Crunchyroll d'une saison découpée en deux fiches AniList (saison 2 · partie 1/2).
+
+const MUSHOKU_COVER = { from: '#3B2A6E', to: '#46D6FF', accent: '#FFE3A3', motif: 'sun' } as const;
+
+const PAGE_INFO: PageMediaInfo = {
+  platform: 'crunchyroll',
+  kind: 'series',
+  seriesId: 'DEMOMUSHOKU',
+  seriesSlug: 'mushoku-tensei-jobless-reincarnation',
+  seriesTitle: 'Mushoku Tensei: Jobless Reincarnation',
+  seasonNumber: 2,
+  seasonTitle: null,
+  seasonEpisodeCount: 25,
+  episode: null,
+};
+
+function pageView(): PageMediaView {
+  const season = (id: number, title: string, year: number, episodes: number, s: number, part: number): PageSeason => ({
+    id,
+    title,
+    format: 'TV',
+    episodes,
+    year,
+    coverUrl: coverUrl(MUSHOKU_COVER),
+    slot: { season: s, part, parts: 2 },
+  });
+  return {
+    media: {
+      mediaId: 146065,
+      idMal: 51179,
+      title: 'Mushoku Tensei: Jobless Reincarnation Season 2',
+      coverUrl: coverUrl(MUSHOKU_COVER),
+      episodes: 13,
+      format: 'TV',
+      year: 2023,
+      airingStatus: 'FINISHED',
+      nextEpisode: null,
+      siteUrl: 'https://anilist.co/anime/146065',
+    },
+    lists: [
+      { service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 7, score: 8, siteUrl: 'https://anilist.co/anime/146065' },
+      { service: 'mal', state: 'in-list', status: 'CURRENT', progress: 7, score: 8, siteUrl: 'https://myanimelist.net/anime/51179' },
+    ],
+    confidence: 'certain',
+    source: 'page',
+    seasons: [
+      season(108465, 'Mushoku Tensei: Jobless Reincarnation', 2021, 11, 1, 1),
+      season(127720, 'Mushoku Tensei: Jobless Reincarnation Part 2', 2021, 12, 1, 2),
+      season(146065, 'Mushoku Tensei: Jobless Reincarnation Season 2', 2023, 13, 2, 1),
+      season(166873, 'Mushoku Tensei: Jobless Reincarnation Season 2 Part 2', 2024, 12, 2, 2),
+    ],
+  };
+}
+
+// ─── Écarts AniList ↔ MAL ─────────────────────────────────────────────────
+
+function comparison(now: number): ComparisonResult {
+  const side = (status: ListStatus, progress: number, score: number | null = null): DiffSide => ({ status, progress, score, repeat: 0 });
+  const diff = (mediaId: number, malId: number, title: string, cover: Parameters<typeof coverUrl>[0], anilist: DiffSide | null, mal: DiffSide | null, fields: ListDiff['fields']): ListDiff => ({
+    key: `mal:${malId}`,
+    mediaId,
+    malId,
+    title,
+    coverUrl: coverUrl(cover),
+    anilist,
+    mal,
+    fields,
+  });
+  // Triés par titre, comme compareLists() : les quatre premiers montrent chaque type d'écart
+  const items: ListDiff[] = [
+    diff(137822, 49596, 'Blue Lock', { from: '#1B3A8A', to: '#46D6FF', accent: '#FFFFFF', motif: 'bolt' }, side('COMPLETED', 24), side('CURRENT', 22), ['progress', 'status']),
+    diff(127230, 44511, 'Chainsaw Man', { from: '#6E1F2E', to: '#FF8F6B', accent: '#FFD37A', motif: 'rings' }, side('COMPLETED', 12, 9), side('COMPLETED', 12, 8), ['score']),
+    diff(153518, 52701, 'Delicious in Dungeon', { from: '#5A4A1E', to: '#FFD37A', accent: '#FFF6D8', motif: 'sun' }, side('CURRENT', 9), null, ['presence']),
+    diff(154587, 52991, 'Frieren', SERIES[2].cover, side('CURRENT', 26, 9.5), side('CURRENT', 24, 9), ['progress']),
+    diff(150672, 52034, 'Oshi no Ko', { from: '#8A3B5C', to: '#FF8FB8', accent: '#FFE3EE', motif: 'moon' }, side('PAUSED', 6), side('CURRENT', 6), ['status']),
+    diff(176496, 58567, 'Solo Leveling', SERIES[1].cover, side('CURRENT', 2), side('CURRENT', 1), ['progress']),
+    diff(136430, 49387, 'Vinland Saga Season 2', { from: '#2F4E6E', to: '#B9A4FF', accent: '#FFFFFF', motif: 'wave' }, side('CURRENT', 18), side('CURRENT', 16), ['progress']),
+  ];
+  return {
+    analyzedAt: now - 2 * MIN,
+    scoreFormat: 'POINT_10_DECIMAL',
+    counts: { compared: 412, identical: 412 - items.length, different: items.length, onlyAniList: 1, onlyMal: 0, notComparable: 0 },
+    items,
+    errors: {},
+  };
+}
+
+/**
+ * Écran rendu par popup-frame :
+ * - watching : « En cours » (carte « Reprendre ») ; menu : idem, menu « ⋯ » d'une ligne ouvert ;
+ * - page : « En cours » avec la carte « Sur cette page » (onglet actif sur Crunchyroll) ;
+ * - activity : carte « À vérifier » ; compare : « Écarts AniList ↔ MAL » analysés ; settings : Réglages.
+ */
+export type Scenario = 'watching' | 'menu' | 'page' | 'activity' | 'compare' | 'settings';
 
 export function demoChrome(locale: Locale, scenario: Scenario): ChromeMockOptions {
   const now = Date.now();
@@ -157,7 +257,11 @@ export function demoChrome(locale: Locale, scenario: Scenario): ChromeMockOption
       syncQueue: [],
       pendingRatings: [],
       airingLastResult: airing,
+      ...(scenario === 'compare' ? { [STORAGE_KEYS.compareLast]: comparison(now) } : {}),
     },
+    // Content script de l'onglet actif : page série Crunchyroll (scénario « page » seulement)
+    tabMessage: (message) =>
+      scenario === 'page' && typeof message === 'object' && message !== null && 'type' in message && message.type === 'GET_PAGE_MEDIA' ? PAGE_INFO : undefined,
     handlers: {
       GET_VIEWER: () => ({ ok: true, data: anilistViewer }),
       GET_MAL_VIEWER: () => ({ ok: true, data: malViewer }),
@@ -167,6 +271,8 @@ export function demoChrome(locale: Locale, scenario: Scenario): ChromeMockOption
       },
       CHECK_AIRING: () => airing,
       SEARCH_ANIME: () => ({ ok: true, data: candidates() }),
+      RESOLVE_PAGE_MEDIA: () => ({ ok: true, data: pageView() }),
+      COMPARE_LISTS: () => ({ ok: true, data: comparison(now) }),
     },
   };
 }

@@ -12,6 +12,8 @@ export interface ChromeMockOptions {
   storage: StorageItems;
   /** Réponses du « service worker » par type de message */
   handlers: Record<string, MessageHandler>;
+  /** Réponse du content script de l'onglet actif (chrome.tabs.sendMessage) ; absente = aucun script */
+  tabMessage?: MessageHandler;
 }
 
 const clone = <T>(value: T): T => (value === undefined ? value : structuredClone(value));
@@ -85,7 +87,12 @@ export function installChromeMock(options: ChromeMockOptions): void {
     },
     i18n: { getUILanguage: () => options.locale },
     commands: { getAll: () => Promise.resolve([{ name: 'complete-episode', shortcut: 'Alt+Shift+S', description: '' }]) },
-    tabs: { create: () => Promise.resolve({}), sendMessage: () => Promise.resolve() },
+    tabs: {
+      create: () => Promise.resolve({}),
+      // Onglet actif fictif : sa page (Crunchyroll / ADN) est décrite par `tabMessage`
+      query: () => Promise.resolve([{ id: 1, active: true }]),
+      sendMessage: (_tabId: number, message: unknown) => Promise.resolve(clone(options.tabMessage?.(message))),
+    },
     action: {
       setBadgeText: () => Promise.resolve(),
       setBadgeBackgroundColor: () => Promise.resolve(),

@@ -225,3 +225,66 @@ body {
     0 8px 24px rgba(0, 0, 0, 0.35);
   background: #07060f;
 }
+
+/* ─── Tuile promo « marquee » 1400×560 ─────────────────── */
+html.marquee,
+html.marquee body,
+html.marquee .canvas {
+  width: 1400px;
+  height: 560px;
+}
+html.marquee .canvas {
+  background:
+    radial-gradient(640px 460px at 24% 52%, rgba(124, 92, 255, 0.32), transparent 70%),
+    radial-gradient(560px 420px at 80% 80%, rgba(70, 214, 255, 0.14), transparent 70%),
+    radial-gradient(1000px 640px at 18% 0%, var(--navy-1) 0%, var(--navy-2) 45%, var(--navy-3) 82%),
+    var(--night);
+}
+html.marquee .lockup {
+  left: 88px;
+  top: 64px;
+  height: 64px;
+}
+html.marquee .copy {
+  left: 88px;
+  top: 180px;
+  bottom: auto;
+  width: 640px;
+  justify-content: flex-start;
+  gap: 20px;
+}
+html.marquee .headline {
+  font-size: 60px;
+}
+html.marquee .sub {
+  font-size: 22px;
+}
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font: 700 17px/1 'Nunito', sans-serif;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.pill.stream {
+  background: rgba(255, 143, 184, 0.16);
+  border-color: rgba(255, 143, 184, 0.45);
+}
+.pill.tracker {
+  background: rgba(70, 214, 255, 0.12);
+  border-color: rgba(95, 227, 255, 0.45);
+}
+.arrow {
+  font: 800 24px/1 'M PLUS Rounded 1c', sans-serif;
+  color: #8fa4ff;
+  padding: 0 4px;
+}
