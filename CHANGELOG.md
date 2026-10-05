@@ -3,7 +3,7 @@
 Toutes les évolutions notables de SyncKai sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
 
-## [Unreleased]
+## [1.8.0] - 2026-10-05
 
 ### Ajouté
 
@@ -11,6 +11,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - **Fiche de la page** : sur une page de série ou d'épisode Crunchyroll / ADN, le popup affiche la fiche AniList correspondante ; ajout à « À regarder » ou « En cours » si elle n'est pas dans ta liste, sinon progression, statut et note modifiables.
 - **Comparer AniList ↔ MyAnimeList** (Activité) : repère les écarts de progression, de statut, de note et les séries absentes d'un côté, puis aligne une série ou toute la liste sur le service de ton choix (rien n'est corrigé automatiquement).
 - **Rapport de diagnostic** (Réglages › Aide) : copie un rapport technique sans données sensibles (version, navigateur, réglages, dernières erreurs) et ouvre un signalement GitHub prérempli. Les 50 dernières erreurs sont conservées localement.
+
+### Modifié
+
+- Requêtes AniList / MyAnimeList limitées à 20 s ; erreurs passagères de MyAnimeList (502, 503, 504, délai dépassé) retentées automatiquement pendant un alignement.
+- Visuels du Chrome Web Store renouvelés (fiche de la page, statuts, comparateur) et tuile promo 1400×560.
 
 ### Corrigé
 
@@ -182,6 +187,7 @@ Première version : synchronisation automatique Crunchyroll → AniList.
 - **Vérification manuelle** des correspondances incertaines depuis le popup (fiches suggérées, recherche, numéro d'épisode), avec badge sur l'icône de l'extension.
 - **Dernières synchros** dans le popup, avec correction a posteriori d'une correspondance.
 
+[1.8.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.8.0
 [1.7.3]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.7.3
 [1.7.2]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.7.2
 [1.7.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.7.1

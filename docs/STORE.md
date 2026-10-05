@@ -32,6 +32,17 @@ Remplir les onglets **Store listing** et **Privacy** avec :
 | Fiche allemande | [docs/store/listing-de.md](store/listing-de.md) |
 | Justification des permissions | [docs/store/permissions.md](store/permissions.md) |
 
+**Visuels** (onglet **Store listing**, détail et régénération : [docs/store/screenshots.md](store/screenshots.md)) :
+
+| Champ du dashboard | Fichier | Langues |
+| --- | --- | --- |
+| *Store icon* (128×128) | `docs/store/icon-128.png` | toutes |
+| *Screenshots* (1280×800, 5 max, dans l'ordre 01 → 05) | `docs/store/screenshots/<langue>/0N-*.png` | une série par langue (sélecteur de langue de la fiche) |
+| *Graphic assets › Small promo tile* (440×280) | `docs/store/promo-440x280.png` | non localisable |
+| *Graphic assets › Marquee promo tile* (1400×560) | `docs/store/promo-1400x560.png` | non localisable (anglais) |
+
+Les captures et la tuile marquee se régénèrent avec `npm run screenshots` (version du popup lue dans `manifest.json` : relancer après chaque montée de version).
+
 - **Privacy policy URL** : `https://github.com/Sync-Kai/SyncKai/blob/main/PRIVACY.md`
 - Déclarer les données traitées (onglet Privacy) conformément à `PRIVACY.md` et cocher les certifications d'usage (pas de vente de données, pas d'usage hors fonctionnalité).
 
