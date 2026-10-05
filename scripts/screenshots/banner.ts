@@ -128,7 +128,8 @@ function marqueeParts(): HTMLElement[] {
   const w = POPUP.width * zoom;
   const h = POPUP.height * zoom;
   const win = el('div', 'window', { left: px(MARQUEE.width - 96 - w), top: px(56), width: px(w), height: px(h) });
-  win.append(frame(popupSrc('watching', zoom), w, h));
+  // Écran de la dernière version : carte « Sur cette page » (1.8) en tête du popup
+  win.append(frame(popupSrc('page', zoom), w, h));
   return [logo, box, win];
 }
 
