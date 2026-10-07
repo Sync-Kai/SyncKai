@@ -5,6 +5,7 @@ import { sidePanelKind } from '../shared/side-panel';
 import { h, preserveFocus } from '../ui/dom';
 import { icon, kai, type IconName } from '../ui/icons';
 import { createNowPlaying } from './components/now-playing';
+import { createAgenda, type AgendaView } from './components/agenda';
 import { watchPanelContext, type PanelContext } from './presence';
 import { nextTabIndex, PANEL_TABS, type PanelTab } from './tabs';
 
@@ -102,6 +103,8 @@ function renderTabPanel(): HTMLElement {
     },
     selected === 'nowPlaying'
       ? nowPlaying.render()
+      : selected === 'agenda'
+        ? mountAgenda()
       : h(
           'div',
           { class: 'flex flex-col items-center gap-2 rounded-card bg-surface px-4 py-6 text-center' },
@@ -110,6 +113,14 @@ function renderTabPanel(): HTMLElement {
           h('p', { class: 'm-0 max-w-[260px] text-muted' }, t(copy.soon)),
         ),
   );
+}
+
+/** Onglet « Agenda » : créé au premier affichage puis conservé (semaine affichée, cache en mémoire) */
+let agenda: AgendaView | null = null;
+function mountAgenda(): HTMLElement {
+  agenda ??= createAgenda();
+  agenda.activate();
+  return agenda.element;
 }
 
 /** Hors Crunchyroll / ADN (Firefox, ou Chrome juste avant la fermeture) : une seule ligne neutre */

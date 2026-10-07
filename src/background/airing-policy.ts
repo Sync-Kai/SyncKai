@@ -1,4 +1,6 @@
 import { t } from '../i18n';
+import type { AiringSchedule } from '../shared/agenda';
+import { isRecord } from '../shared/guards';
 
 // Règles pures des alertes de sortie d'épisodes (testées sans chrome.*).
 
@@ -16,15 +18,7 @@ export const GROUP_THRESHOLD = 3;
 export const MEDIA_CHUNK = 50;
 
 /** Sortie renvoyée par AniList (airingSchedules) */
-export interface AiringItem {
-  scheduleId: number;
-  mediaId: number;
-  episode: number;
-  /** UNIX secondes */
-  airingAt: number;
-  title: string;
-  coverUrl: string | null;
-}
+export type AiringItem = AiringSchedule;
 
 export interface AiringWindow {
   /** UNIX secondes (exclu) */
@@ -41,6 +35,68 @@ export function computeWindow(nowS: number, lastCheckS: number | null, delayHour
   const delay = delayHours * HOUR_S;
   const start = lastCheckS === null ? nowS - FIRST_RUN_LOOKBACK_S : Math.min(nowS, Math.max(lastCheckS, nowS - MAX_LOOKBACK_S));
   return { from: start - delay, to: nowS - delay };
+}
+
+/**
+ * Fenêtre interrogée par l'alarme : celle des alertes, élargie à toute la semaine affichée par l'agenda
+ * (bornes exclues, comme airingAt_greater / airingAt_lesser). Une seule série de requêtes sert les deux.
+ */
+export function mergeWeekWindow(alerts: AiringWindow, weekStartS: number, weekEndS: number): AiringWindow {
+  return { from: Math.min(alerts.from, weekStartS - 1), to: Math.max(alerts.to, weekEndS) };
+}
+
+/** Sorties strictement comprises dans la fenêtre (bornes exclues) */
+export function itemsInWindow<T extends { airingAt: number }>(items: readonly T[], range: AiringWindow): T[] {
+  return items.filter((item) => item.airingAt > range.from && item.airingAt < range.to);
+}
+
+/** Pages AniList lues au plus par lot de séries (50 sorties par page) */
+export const MAX_SCHEDULE_PAGES = 3;
+
+/** Nœud `airingSchedules` de la réponse GraphQL */
+export interface AiringScheduleNode {
+  id: number;
+  episode: number;
+  airingAt: number;
+  media: { id: number; title: { userPreferred: string | null }; coverImage?: { medium: string | null } | null };
+}
+
+export interface AiringPageData {
+  Page: { pageInfo?: { hasNextPage: boolean | null } | null; airingSchedules: AiringScheduleNode[] };
+}
+
+export function isAiringScheduleNode(value: unknown): value is AiringScheduleNode {
+  if (!isRecord(value) || typeof value.id !== 'number' || typeof value.episode !== 'number' || typeof value.airingAt !== 'number') return false;
+  const media = value.media;
+  if (!isRecord(media) || typeof media.id !== 'number' || !isRecord(media.title)) return false;
+  const title = media.title.userPreferred;
+  const cover = media.coverImage;
+  return (
+    (title === null || typeof title === 'string') &&
+    (cover === null || cover === undefined || (isRecord(cover) && (cover.medium === null || typeof cover.medium === 'string')))
+  );
+}
+
+export function isAiringPageData(data: unknown): data is AiringPageData {
+  if (!isRecord(data) || !isRecord(data.Page)) return false;
+  const info = data.Page.pageInfo;
+  return (
+    (info === null || info === undefined || (isRecord(info) && (info.hasNextPage === null || typeof info.hasNextPage === 'boolean'))) &&
+    Array.isArray(data.Page.airingSchedules) &&
+    data.Page.airingSchedules.every(isAiringScheduleNode)
+  );
+}
+
+/** Nœuds AniList → sorties (titre de repli « Anime #id ») */
+export function toAiringItems(data: AiringPageData): AiringItem[] {
+  return data.Page.airingSchedules.map((node) => ({
+    scheduleId: node.id,
+    mediaId: node.media.id,
+    episode: node.episode,
+    airingAt: node.airingAt,
+    title: node.media.title.userPreferred ?? `Anime #${node.media.id}`,
+    coverUrl: node.media.coverImage?.medium ?? null,
+  }));
 }
 
 /** Découpe une liste en lots de `size` éléments. */

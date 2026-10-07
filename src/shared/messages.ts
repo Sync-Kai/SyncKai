@@ -1,3 +1,4 @@
+import { isAgendaPayload, type AgendaPayload, type AgendaResult } from './agenda';
 import type { AiringCheckResult } from './airing.types';
 import type { AniListErrorCode, ViewerResult } from './anilist.types';
 import type { AuthResult } from './auth.types';
@@ -91,6 +92,8 @@ export interface MessageMap {
   PANEL_AVAILABLE: { payload: null; response: null };
   /** Panneau latéral › « En lecture » : fiche AniList complète (synopsis, genres, studio, relations), cache de session */
   GET_PANEL_MEDIA: { payload: { mediaId: number }; response: PanelMediaResult };
+  /** Agenda (panneau latéral) : sorties d'une semaine, lues sur AniList quand le cache du panneau manque ou a expiré */
+  GET_AGENDA: { payload: AgendaPayload; response: AgendaResult };
 }
 
 /** Messages réservés aux pages de l'extension (popup) : refusés s'ils viennent d'un content script */
@@ -111,6 +114,7 @@ export const EXTENSION_PAGE_ONLY: ReadonlySet<MessageType> = new Set([
   'APPLY_DIFFS',
   'CANCEL_COMPARE_JOB',
   'GET_PANEL_MEDIA',
+  'GET_AGENDA',
 ]);
 
 export type MessageType = keyof MessageMap;
@@ -192,6 +196,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   CANCEL_COMPARE_JOB: isNull,
   PANEL_AVAILABLE: isNull,
   GET_PANEL_MEDIA: isPanelMediaPayload,
+  GET_AGENDA: isAgendaPayload,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */

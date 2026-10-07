@@ -5,6 +5,7 @@ import { getViewer } from './api/viewer';
 import { getWatchingList } from './api/watching';
 import { loginWithAniList } from './auth/anilist';
 import { loginWithMal } from './auth/mal';
+import { getAgendaWeek } from './agenda';
 import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
 import { resolvePageMedia } from './page-media';
@@ -77,6 +78,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     CANCEL_COMPARE_JOB: { ok: false, code: 'NOT_FOUND', message },
     PANEL_AVAILABLE: null,
     GET_PANEL_MEDIA: { ok: false, code: 'API_ERROR', message },
+    GET_AGENDA: { ok: false, code: 'API_ERROR', message },
   };
 }
 
@@ -118,6 +120,7 @@ const handlers: MessageHandlers = {
   CANCEL_COMPARE_JOB: () => cancelCompareJob(),
   PANEL_AVAILABLE: (_payload, sender) => enablePanelForSender(sender),
   GET_PANEL_MEDIA: ({ mediaId }) => getPanelMedia(mediaId),
+  GET_AGENDA: ({ weekStart }) => getAgendaWeek(weekStart),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();

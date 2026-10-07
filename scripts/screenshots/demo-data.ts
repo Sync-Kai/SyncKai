@@ -234,6 +234,8 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
     airingAlerts: true,
     airingDelayHours: 0,
     language: locale,
+    platformOffsets: { crunchyroll: 60, adn: 60 },
+    seriesOffsets: {},
   };
   const airing: AiringCheckResult = { checkedAt: now - 12 * MIN, notified: 1, skipped: null, error: null };
   const lists = { anilist: watchingList('anilist', now), mal: watchingList('mal', now) };

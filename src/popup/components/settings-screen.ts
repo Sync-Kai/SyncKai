@@ -8,7 +8,7 @@ import { includeSeries, type ExcludedSeries } from '../../shared/exclusions';
 import { sendMessage } from '../../shared/messages';
 import type { MalViewer } from '../../shared/mal.types';
 import { AIRING_DELAYS, type AiringDelayHours } from '../../shared/engagement.types';
-import { normalizeSettings, PERCENTAGE_RANGE, saveSettings, type LanguageSetting, type NotificationLevel, type SyncSettings } from '../../shared/settings';
+import { normalizeOffset, normalizeSettings, OFFSET_RANGE, PERCENTAGE_RANGE, saveSettings, type LanguageSetting, type NotificationLevel, type SyncSettings } from '../../shared/settings';
 import { clearMediaMappings, deleteMediaMapping, getMediaMappings } from '../../shared/storage';
 import { buildIssueUrl } from '../../shared/diagnostics';
 import { buildCurrentReport, currentBrowser } from '../../shared/diagnostics-store';
@@ -19,7 +19,7 @@ import { h, nodes, preserveFocus, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import type { AccountState, ExclusionsState, SettingsState } from '../state';
 import { renderAlert } from './alert';
-import { BTN_GHOST, CARD, LINK, sectionLabel, segmented, SERVICE_CHIPS, serviceAvatar } from './ui';
+import { BTN_GHOST, CARD, LINK, PLATFORM_LABELS, sectionLabel, segmented, SERVICE_CHIPS, serviceAvatar } from './ui';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('popup');
@@ -359,6 +359,51 @@ export function createSettingsScreen(): SettingsScreen {
     }
   }
 
+  /** Agenda : délai estimé de sortie par plateforme (minutes après la diffusion japonaise) */
+  function renderOffsets(s: SyncSettings): HTMLElement {
+    const field = (platform: StreamingPlatform): HTMLElement => {
+      const id = `sk-offset-${platform}`;
+      const input = h('input', {
+        class: 'h-8 w-[72px] rounded-lg border border-line bg-ground px-2 text-[12px] font-bold tabular-nums invalid:border-danger',
+        attrs: {
+          id,
+          type: 'number',
+          inputmode: 'numeric',
+          step: '5',
+          min: String(OFFSET_RANGE.min),
+          max: String(OFFSET_RANGE.max),
+          required: '',
+          'aria-label': t('settings.offsets.aria', { platform: PLATFORM_LABELS[platform] }),
+          'aria-describedby': 'sk-offsets-help',
+          'data-focus': id,
+        },
+        on: {
+          // Valeur hors bornes ou vide : non enregistrée (le champ reste signalé invalide)
+          change: () => {
+            const value = normalizeOffset(input.value.trim() === '' ? Number.NaN : Number(input.value));
+            if (value === null || !input.checkValidity()) return;
+            void update({ platformOffsets: { ...(settings ?? s).platformOffsets, [platform]: value } });
+          },
+        },
+      });
+      input.value = String(s.platformOffsets[platform]);
+      return h(
+        'label',
+        { class: 'flex items-center gap-1.5 text-[12px] font-bold' },
+        h('span', { attrs: { 'aria-hidden': 'true' } }, PLATFORM_LABELS[platform]),
+        input,
+        h('span', { class: 'text-[11px] font-semibold text-muted', attrs: { 'aria-hidden': 'true' } }, t('settings.offsets.unit')),
+      );
+    };
+    return h(
+      'div',
+      { class: `flex flex-col gap-1.5 pt-2 ${DIVIDER}`, attrs: { role: 'group', 'aria-labelledby': 'sk-offsets-title' } },
+      h('span', { class: 'text-[12px] font-bold', attrs: { id: 'sk-offsets-title' } }, t('settings.offsets.title')),
+      h('div', { class: 'flex flex-wrap items-center gap-x-4 gap-y-1.5' }, field('crunchyroll'), field('adn')),
+      h('span', { class: 'text-[11px] font-semibold text-muted', attrs: { id: 'sk-offsets-help' } }, t('settings.offsets.help')),
+    );
+  }
+
   function drawForm(): void {
     preserveFocus(formSlot, () => formSlot.replaceChildren(...renderForm()));
   }
@@ -548,6 +593,7 @@ export function createSettingsScreen(): SettingsScreen {
             t('settings.airing.help'),
           ),
           airingRow(),
+          renderOffsets(s),
         ),
       ),
       h(

@@ -5,13 +5,20 @@ import {
   chunk,
   computeWindow,
   filterNewEpisodes,
+  isAiringPageData,
+  itemsInWindow,
+  MAX_SCHEDULE_PAGES,
   MEDIA_CHUNK,
+  mergeWeekWindow,
   planNotifications,
+  toAiringItems,
   trimNotified,
   type AiringItem,
 } from './airing-policy';
+import { watchingProgress, weekRange } from '../shared/agenda';
+import { agendaFirstDay, writeWeekCache } from '../shared/agenda-store';
 import { AIRING_RESULT_KEY, type AiringCheckResult, type AiringSkipReason } from '../shared/airing.types';
-import { getExcludedSeries, matchesExclusion } from '../shared/exclusions';
+import { getExcludedSeries } from '../shared/exclusions';
 import { isRecord } from '../shared/guards';
 import { getSettings } from '../shared/settings';
 import { getCachedWatching, getMalToken, getValidToken, withStorageLock } from '../shared/storage';
@@ -30,9 +37,11 @@ const TARGETS_KEY = 'airingTargets';
 const MAX_TARGETS = 20;
 const log = createLogger('airing');
 
+// Pagination : une semaine de séries suivies peut dépasser 50 sorties par lot
 const AIRING_QUERY = `
-query ($ids: [Int], $from: Int, $to: Int) {
-  Page(perPage: 50) {
+query ($ids: [Int], $from: Int, $to: Int, $page: Int) {
+  Page(page: $page, perPage: 50) {
+    pageInfo { hasNextPage }
     airingSchedules(mediaId_in: $ids, airingAt_greater: $from, airingAt_lesser: $to, sort: TIME) {
       id episode airingAt
       media { id title { userPreferred } coverImage { medium } }
@@ -40,47 +49,15 @@ query ($ids: [Int], $from: Int, $to: Int) {
   }
 }`;
 
-interface AiringScheduleNode {
-  id: number;
-  episode: number;
-  airingAt: number;
-  media: { id: number; title: { userPreferred: string | null }; coverImage: { medium: string | null } | null };
-}
-
-interface AiringQueryData {
-  Page: { airingSchedules: AiringScheduleNode[] };
-}
-
-function isAiringScheduleNode(value: unknown): value is AiringScheduleNode {
-  if (!isRecord(value) || typeof value.id !== 'number' || typeof value.episode !== 'number' || typeof value.airingAt !== 'number') return false;
-  const media = value.media;
-  if (!isRecord(media) || typeof media.id !== 'number' || !isRecord(media.title)) return false;
-  const title = media.title.userPreferred;
-  const cover = media.coverImage;
-  return (
-    (title === null || typeof title === 'string') &&
-    (cover === null || (isRecord(cover) && (cover.medium === null || typeof cover.medium === 'string')))
-  );
-}
-
-function isAiringQueryData(data: unknown): data is AiringQueryData {
-  return (
-    isRecord(data) &&
-    isRecord(data.Page) &&
-    Array.isArray(data.Page.airingSchedules) &&
-    data.Page.airingSchedules.every(isAiringScheduleNode)
-  );
-}
-
 const isNumberArray = (value: unknown): value is number[] => Array.isArray(value) && value.every((v) => typeof v === 'number');
 
 /** Entrées en cache des deux services (AniList d'abord) */
-async function getCachedEntries(): Promise<WatchingEntry[]> {
+export async function getCachedEntries(): Promise<WatchingEntry[]> {
   const [anilist, mal] = await Promise.all([getCachedWatching('anilist'), getCachedWatching('mal')]);
   return [...(anilist?.entries ?? []), ...(mal?.entries ?? [])];
 }
 
-async function hasConnectedService(): Promise<boolean> {
+export async function hasConnectedService(): Promise<boolean> {
   const [anilist, mal] = await Promise.all([getValidToken(), getMalToken()]);
   return anilist !== null || mal !== null;
 }
@@ -100,19 +77,18 @@ export async function ensureAiringAlarm(): Promise<void> {
   }
 }
 
-async function fetchAiring(ids: number[], from: number, to: number): Promise<AiringItem[]> {
+/**
+ * Sorties des séries `ids` entre `from` et `to` (UNIX secondes, bornes exclues) : lots de 50 séries,
+ * au plus MAX_SCHEDULE_PAGES pages par lot. Lève une ApiError.
+ */
+export async function fetchAiring(ids: readonly number[], from: number, to: number): Promise<AiringItem[]> {
   const items: AiringItem[] = [];
   for (const ids50 of chunk(ids, MEDIA_CHUNK)) {
-    const data = await anilistPublicQuery(AIRING_QUERY, isAiringQueryData, { ids: ids50, from, to });
-    for (const node of data.Page.airingSchedules) {
-      items.push({
-        scheduleId: node.id,
-        mediaId: node.media.id,
-        episode: node.episode,
-        airingAt: node.airingAt,
-        title: node.media.title.userPreferred ?? `Anime #${node.media.id}`,
-        coverUrl: node.media.coverImage?.medium ?? null,
-      });
+    for (let page = 1; page <= MAX_SCHEDULE_PAGES; page++) {
+      const data = await anilistPublicQuery(AIRING_QUERY, isAiringPageData, { ids: ids50, from, to, page });
+      items.push(...toAiringItems(data));
+      if (data.Page.pageInfo?.hasNextPage !== true) break;
+      if (page === MAX_SCHEDULE_PAGES) log.warn('Calendrier tronqué : trop de sorties pour un lot de séries');
     }
   }
   return items;
@@ -132,11 +108,7 @@ async function runCheck(): Promise<{ notified: number; skipped: AiringSkipReason
 
   const [entries, excluded] = await Promise.all([getCachedEntries(), getExcludedSeries()]);
   // Progression par fiche AniList (la plus avancée si la série est sur les deux services)
-  const progressByMedia = new Map<number, number>();
-  for (const entry of entries) {
-    if (entry.mediaId === null || excluded.some((ex) => matchesExclusion(ex, { mediaId: entry.mediaId }))) continue;
-    progressByMedia.set(entry.mediaId, Math.max(entry.progress, progressByMedia.get(entry.mediaId) ?? 0));
-  }
+  const progressByMedia = watchingProgress(entries, excluded);
   log.info(`${progressByMedia.size} série(s) en cours à vérifier`);
   if (progressByMedia.size === 0) return { notified: 0, skipped: 'no-series' };
 
@@ -144,8 +116,19 @@ async function runCheck(): Promise<{ notified: number; skipped: AiringSkipReason
   const lastCheck: unknown = stored[LAST_CHECK_KEY];
   const nowS = Math.floor(Date.now() / 1000);
   const range = computeWindow(nowS, typeof lastCheck === 'number' ? lastCheck : null, settings.airingDelayHours);
-  const items = await fetchAiring([...progressByMedia.keys()], range.from, range.to);
+  // Une seule lecture du calendrier sert aussi l'agenda : fenêtre élargie à toute la semaine en cours
+  const week = weekRange(nowS * 1000, agendaFirstDay());
+  const weekWindow = { from: Math.floor(week.start / 1000) - 1, to: Math.floor(week.end / 1000) };
+  const mediaIds = [...progressByMedia.keys()];
+  const fetchWindow = mergeWeekWindow(range, weekWindow.from + 1, weekWindow.to);
+  const fetched = await fetchAiring(mediaIds, fetchWindow.from, fetchWindow.to);
+  const items = itemsInWindow(fetched, range);
   log.info(`${items.length} diffusion(s) trouvée(s) dans la fenêtre`);
+  try {
+    await writeWeekCache({ weekStart: week.key, fetchedAt: Date.now(), mediaIds, schedules: itemsInWindow(fetched, weekWindow) });
+  } catch (error) {
+    log.warn('Agenda non mis en cache :', error);
+  }
 
   // Liste des épisodes déjà notifiés lue/écrite sous verrou : alarme et vérification manuelle ne doublonnent pas
   const fresh = await withStorageLock(async () => {

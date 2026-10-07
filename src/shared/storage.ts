@@ -138,7 +138,11 @@ export function clearAniListSession(): Promise<void> {
  * service de suivi n'est connecté (déconnexion du dernier compte).
  */
 export function clearUserSyncData(): Promise<void> {
-  return withStorageLock(() => chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob]));
+  return withStorageLock(async () => {
+    // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
+    const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => key.startsWith('airingWeek:'));
+    await chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...weeks]);
+  });
 }
 
 // ─── Session MyAnimeList ──────────────────────────────────────────────────

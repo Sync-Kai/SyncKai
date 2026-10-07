@@ -34,7 +34,18 @@ export interface SyncSettings {
   /** Délai après la diffusion japonaise avant de notifier */
   airingDelayHours: AiringDelayHours;
   language: LanguageSetting;
+  /** Agenda : délai estimé (minutes) entre la diffusion japonaise et la sortie sur chaque plateforme */
+  platformOffsets: PlatformOffsets;
+  /** Agenda : délai propre à une série (clé = mediaId AniList), prioritaire sur `platformOffsets` */
+  seriesOffsets: Readonly<Record<string, number>>;
 }
+
+export type PlatformOffsets = Readonly<Record<StreamingPlatform, number>>;
+
+/** Bornes d'un délai de sortie (minutes) : jusqu'à 1 jour d'avance, 1 semaine de retard */
+export const OFFSET_RANGE = { min: -1440, max: 10080 } as const;
+/** Nombre maximal de délais par série conservés */
+export const MAX_SERIES_OFFSETS = 200;
 
 export const DEFAULT_SETTINGS: SyncSettings = {
   autoSync: true,
@@ -46,6 +57,8 @@ export const DEFAULT_SETTINGS: SyncSettings = {
   airingAlerts: true,
   airingDelayHours: 0,
   language: 'auto',
+  platformOffsets: { crunchyroll: 60, adn: 60 },
+  seriesOffsets: {},
 };
 
 export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
@@ -53,6 +66,33 @@ export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
 const SETTINGS_KEY = 'settings';
 const NOTIFICATION_LEVELS: readonly NotificationLevel[] = ['discreet', 'detailed', 'alerts-only'];
 const PLAYERS: readonly StreamingPlatform[] = ['crunchyroll', 'adn'];
+
+/** Délai en minutes (entier borné) ou null si invalide */
+export function normalizeOffset(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.min(OFFSET_RANGE.max, Math.max(OFFSET_RANGE.min, Math.round(value)));
+}
+
+function normalizePlatformOffsets(raw: unknown): PlatformOffsets {
+  const value = isRecord(raw) ? raw : {};
+  return {
+    crunchyroll: normalizeOffset(value.crunchyroll) ?? DEFAULT_SETTINGS.platformOffsets.crunchyroll,
+    adn: normalizeOffset(value.adn) ?? DEFAULT_SETTINGS.platformOffsets.adn,
+  };
+}
+
+/** Garde les entrées `mediaId (entier > 0) → minutes` valides, dans la limite de MAX_SERIES_OFFSETS (les plus récentes) */
+function normalizeSeriesOffsets(raw: unknown): Record<string, number> {
+  if (!isRecord(raw) || Array.isArray(raw)) return {};
+  const result: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const offset = normalizeOffset(value);
+    if (/^[1-9]\d{0,9}$/.test(key) && offset !== null) result[key] = offset;
+  }
+  const keys = Object.keys(result);
+  for (const key of keys.slice(0, Math.max(0, keys.length - MAX_SERIES_OFFSETS))) delete result[key];
+  return result;
+}
 
 /**
  * Complète et borne des réglages lus du stockage : les valeurs absentes ou invalides
@@ -82,6 +122,8 @@ export function normalizeSettings(raw: unknown): SyncSettings {
     airingAlerts: typeof value.airingAlerts === 'boolean' ? value.airingAlerts : DEFAULT_SETTINGS.airingAlerts,
     airingDelayHours: AIRING_DELAYS.find((d) => d === value.airingDelayHours) ?? DEFAULT_SETTINGS.airingDelayHours,
     language: LANGUAGE_SETTINGS.find((l) => l === value.language) ?? DEFAULT_SETTINGS.language,
+    platformOffsets: normalizePlatformOffsets(value.platformOffsets),
+    seriesOffsets: normalizeSeriesOffsets(value.seriesOffsets),
   };
 }
 

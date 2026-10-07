@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { EXTENSION_PAGE_ONLY, isRuntimeMessage } from './messages';
 
+describe('GET_AGENDA', () => {
+  it('clé de semaine validée, réservé aux pages de l’extension', () => {
+    expect(isRuntimeMessage({ type: 'GET_AGENDA', payload: { weekStart: '2026-10-05' } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'GET_AGENDA', payload: { weekStart: '2026-10-32' } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'GET_AGENDA', payload: null })).toBe(false);
+    expect(EXTENSION_PAGE_ONLY.has('GET_AGENDA')).toBe(true);
+  });
+});
+
 describe('SET_LIST_STATUS', () => {
   const valid = { mediaId: 21, malId: 21, status: 'DROPPED', coverUrl: 'https://s4.anilist.co/cover.jpg' };
   const message = (payload: unknown): unknown => ({ type: 'SET_LIST_STATUS', payload });

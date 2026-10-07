@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { chunk, computeWindow, filterNewEpisodes, planNotifications, trimNotified, type AiringItem } from './airing-policy';
+import {
+  chunk,
+  computeWindow,
+  filterNewEpisodes,
+  isAiringPageData,
+  itemsInWindow,
+  mergeWeekWindow,
+  planNotifications,
+  toAiringItems,
+  trimNotified,
+  type AiringItem,
+} from './airing-policy';
 import { setLocale } from '../i18n';
 
 // Textes attendus en français
@@ -74,5 +85,50 @@ describe('planNotifications', () => {
 
   it('rien à notifier', () => {
     expect(planNotifications([])).toEqual([]);
+  });
+});
+
+describe('fenêtre élargie à la semaine (agenda)', () => {
+  const week = { from: NOW - 3 * 86400, to: NOW + 4 * 86400 };
+
+  it('couvre la fenêtre des alertes et toute la semaine', () => {
+    expect(mergeWeekWindow({ from: NOW - 7200, to: NOW }, week.from, week.to)).toEqual({ from: week.from - 1, to: week.to });
+    // Rattrapage de 24 h en début de semaine : la fenêtre des alertes déborde sur la semaine précédente
+    expect(mergeWeekWindow({ from: NOW - 86400, to: NOW }, NOW - 3600, NOW + 6 * 86400)).toEqual({ from: NOW - 86400, to: NOW + 6 * 86400 });
+  });
+
+  it('les notifications ne portent que sur la fenêtre des alertes (bornes exclues)', () => {
+    const alerts = computeWindow(NOW, NOW - 3600, 0);
+    const items = [
+      { ...item(1, 1, 4), airingAt: NOW - 1800 },
+      { ...item(2, 1, 5), airingAt: NOW + 86400 }, // à venir : agenda seulement
+      { ...item(3, 2, 2), airingAt: NOW - 2 * 86400 }, // plus tôt dans la semaine
+      { ...item(4, 2, 3), airingAt: alerts.from },
+      { ...item(5, 2, 4), airingAt: alerts.to },
+    ];
+    expect(itemsInWindow(items, alerts).map((i) => i.scheduleId)).toEqual([1]);
+    expect(itemsInWindow(items, { from: week.from - 1, to: week.to }).map((i) => i.scheduleId)).toEqual([1, 2, 3, 4, 5]);
+    expect(filterNewEpisodes(itemsInWindow(items, alerts), new Map([[1, 3]]), [])).toHaveLength(1);
+  });
+});
+
+describe('réponse airingSchedules', () => {
+  const node = { id: 7, episode: 3, airingAt: NOW, media: { id: 1, title: { userPreferred: 'Frieren' }, coverImage: { medium: 'https://img/1.jpg' } } };
+
+  it('valide une page et ses nœuds', () => {
+    expect(isAiringPageData({ Page: { pageInfo: { hasNextPage: true }, airingSchedules: [node] } })).toBe(true);
+    expect(isAiringPageData({ Page: { airingSchedules: [] } })).toBe(true);
+    expect(isAiringPageData({ Page: { pageInfo: { hasNextPage: 'oui' }, airingSchedules: [] } })).toBe(false);
+    expect(isAiringPageData({ Page: { airingSchedules: [{ ...node, episode: '3' }] } })).toBe(false);
+    expect(isAiringPageData({ Page: { airingSchedules: [{ ...node, media: { id: 1, title: null } }] } })).toBe(false);
+    expect(isAiringPageData(null)).toBe(false);
+  });
+
+  it('convertit en sorties (titre et jaquette de repli)', () => {
+    const data = { Page: { pageInfo: null, airingSchedules: [node, { ...node, id: 8, media: { id: 2, title: { userPreferred: null }, coverImage: null } }] } };
+    expect(toAiringItems(data)).toEqual([
+      { scheduleId: 7, mediaId: 1, episode: 3, airingAt: NOW, title: 'Frieren', coverUrl: 'https://img/1.jpg' },
+      { scheduleId: 8, mediaId: 2, episode: 3, airingAt: NOW, title: 'Anime #2', coverUrl: null },
+    ]);
   });
 });

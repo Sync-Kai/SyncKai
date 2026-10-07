@@ -8,6 +8,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 ### Ajouté
 
 - **Panneau latéral** (Crunchyroll et ADN) : onglet *En lecture* avec la fiche AniList complète (synopsis, genres, studio, suites), ta progression et tes actions, et un lien vers la discussion de l'épisode.
+- **Agenda** (panneau latéral) : les sorties de la semaine pour tes séries en cours, avec l'heure estimée sur Crunchyroll / ADN (réglable) et les épisodes déjà vus.
 - Tests de bout en bout du popup dans l'intégration continue (bloquent une release en cas d'échec).
 
 ### Modifié
