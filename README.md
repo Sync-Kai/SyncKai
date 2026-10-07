@@ -41,13 +41,17 @@
 | [Crunchyroll](https://www.crunchyroll.com) | Début du générique (repli au pourcentage) | | [AniList](https://anilist.co) |
 | [ADN](https://animationdigitalnetwork.com) | Pourcentage réglable | | [MyAnimeList](https://myanimelist.net) |
 
-Navigateur : Chrome 116 ou plus récent (et navigateurs basés sur Chromium).
+Navigateurs : Chrome 116 ou plus récent (et navigateurs basés sur Chromium : Edge, Brave…), Firefox 140 ou plus récent (ordinateur).
 
 ## Installation
 
 ### Chrome Web Store (recommandé)
 
 [Installer SyncKai depuis le Chrome Web Store](https://chromewebstore.google.com/detail/synckai/khokcmigioggannjoojambdgioigdceb).
+
+### Firefox Add-ons
+
+SyncKai pour Firefox est en cours d’examen par Mozilla : le lien arrive très bientôt.
 
 ### Installation depuis les sources
 
@@ -115,4 +119,4 @@ SyncKai n’est affilié ni à Crunchyroll, ni à ADN, ni à AniList, ni à MyAn
 - Rating prompt at series end, rewatch detection, new-episode alerts, backup export / import.
 - Interface in French, English and German.
 
-Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/synckai/khokcmigioggannjoojambdgioigdceb). No server, no analytics: see the [privacy policy](PRIVACY.md). Licensed under [MIT](LICENSE).
+Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/synckai/khokcmigioggannjoojambdgioigdceb) (Firefox Add-ons: coming soon). No server, no analytics: see the [privacy policy](PRIVACY.md). Licensed under [MIT](LICENSE).

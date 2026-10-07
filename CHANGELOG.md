@@ -3,16 +3,20 @@
 Toutes les évolutions notables de SyncKai sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
 
-## [Unreleased]
+## [1.9.0] - 2026-10-07
+
+SyncKai arrive sur Firefox.
 
 ### Ajouté
 
-- Version Firefox (en préparation) : build dédié, accès aux sites demandé si Firefox l'a retiré.
-- Publication automatique sur Firefox Add-ons (AMO) à chaque version, en plus du Chrome Web Store.
+- **Version Firefox** (Firefox 140 ou plus récent, ordinateur) : mêmes fonctionnalités que sur Chrome, publiée sur Firefox Add-ons (AMO).
+- Bandeau « Autoriser l’accès » dans le popup si l’accès à Crunchyroll / ADN a été retiré (Firefox).
+- Publication automatique sur le Chrome Web Store et Firefox Add-ons à chaque version.
 
 ### Modifié
 
-- Connexions AniList / MyAnimeList configurées par navigateur (préparation de Firefox).
+- Connexions AniList / MyAnimeList configurées par navigateur.
+- Firefox : notifications de nouvel épisode sans bouton (un clic ouvre l’épisode).
 
 ## [1.8.0] - 2026-10-05
 
@@ -198,6 +202,7 @@ Première version : synchronisation automatique Crunchyroll → AniList.
 - **Vérification manuelle** des correspondances incertaines depuis le popup (fiches suggérées, recherche, numéro d'épisode), avec badge sur l'icône de l'extension.
 - **Dernières synchros** dans le popup, avec correction a posteriori d'une correspondance.
 
+[1.9.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.9.0
 [1.8.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.8.0
 [1.7.3]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.7.3
 [1.7.2]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.7.2
