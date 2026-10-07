@@ -57,6 +57,15 @@ L'ID attribué par le store diffère de celui du build local : les redirections 
 5. `npm run build`, puis `chrome://extensions` → **Recharger** l'extension non empaquetée ; vérifier que l'ID affiché correspond à l'Item ID.
 6. Se **déconnecter puis reconnecter** AniList et MyAnimeList dans les options pour valider les nouvelles redirections.
 
+### Clients OAuth par navigateur
+
+Chaque navigateur attribue son propre ID d'extension, donc sa propre URL de redirection. Un client AniList n'accepte qu'une seule Redirect URL (et SyncKai n'envoie jamais `redirect_uri`) : il faut **un client AniList et une app MAL par navigateur**. La correspondance ID → clients est dans `src/background/auth/oauth-clients.ts` ; un ID absent de la table affiche « Connexion non configurée pour ce navigateur » avec l'URL à enregistrer (aussi journalisée en warn).
+
+| Navigateur | ID d'extension | URL de redirection | Client AniList | App MAL |
+| --- | --- | --- | --- | --- |
+| Chrome (Web Store) | `khokcmigioggannjoojambdgioigdceb` | `https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/` | `52346` | `84d05521c007a529cc458421bd0940c5` |
+| Firefox (AMO) | `synckai@sync-kai.github.io` | `https://01497c3a0de229567af456487a2af9d686551088.extensions.allizom.org/` (SHA-1 de l'ID, vérifiée via `chrome.identity.getRedirectURL()`) | `52509` (« SyncKai Firefox ») | `1846238e6ea67a5109899f5311a51d15` |
+
 ## 5. Soumission
 
 1. Dashboard → **Submit for review**.

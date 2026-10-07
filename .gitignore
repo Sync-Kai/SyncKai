@@ -28,3 +28,6 @@ dist-ssr
 
 # Archives Chrome Web Store
 release/
+
+# Copies de travail locales (Claude Code)
+.claude/worktrees/

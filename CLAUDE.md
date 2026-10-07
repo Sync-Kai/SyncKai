@@ -84,6 +84,7 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
 
 - **ID de l'extension** : `khokcmigioggannjoojambdgioigdceb`, fixé par la clé publique du Chrome Web Store dans `manifest.json` → `key`. Ne pas retirer cette clé : elle donne au build local le même ID que le Store. `npm run package` la retire automatiquement du zip envoyé au Store.
 - **URL de redirection OAuth** (identique pour AniList et MAL) : `https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/`
+- **Clients par navigateur** : un client AniList et une app MAL par ID d'extension (une URL de redirection chacun), table dans `src/background/auth/oauth-clients.ts` (`getOAuthClients()`). ID inconnu → connexion refusée avec l'URL à enregistrer. Firefox (`synckai@sync-kai.github.io`, redirection `https://01497c3a0de229567af456487a2af9d686551088.extensions.allizom.org/`) : AniList `52509`, MAL `1846238e6ea67a5109899f5311a51d15` (voir `docs/STORE.md` › 4).
 - **AniList** :
   - client `52346`, Implicit Grant ;
   - ne jamais envoyer `redirect_uri` : AniList rejette la requête (« Authorization page could not be loaded ») et utilise l'URL enregistrée sur le client.
@@ -110,4 +111,4 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - Onglet Confidentialité : `docs/store/permissions.md`.
   - Procédure : `docs/STORE.md`.
 - **Captures du Store** : `npm run screenshots` → `docs/store/screenshots/{fr,en,de}/`, en 1280×800. Le popup est rendu depuis `src/` (serveur Vite) avec une fausse API chrome ; la version affichée vient de `manifest.json` : régénérer après chaque montée de version. Tuiles promo : `docs/store/promo-440x280.png` (`npm run icons`) et `docs/store/promo-1400x560.png` (`npm run screenshots`), en anglais (communes à toutes les langues).
-- **Prochaines étapes** (feuille de route validée le 2026-10-05) : 1.8.x tests de bout en bout dans la CI ; 1.9.0 Edge + Firefox (clients OAuth par navigateur, publication sur 3 stores) ; 1.10.0 panneau latéral (onglets « En lecture » et « Agenda ») ; 2.0.0 Netflix, Prime Video / Disney+ et import de l’historique Crunchyroll (après exploration). Fiche du Store (description, captures, tuiles) à mettre à jour à la main : l’API ne gère que le paquet.
+- **Prochaines étapes** (feuille de route validée le 2026-10-05) : 1.8.x tests de bout en bout dans la CI ; 1.9.0 Firefox (clients OAuth par navigateur, build Firefox, publication sur 2 stores ; pas d’Edge, décision du 2026-10-07) ; 1.10.0 panneau latéral (onglets « En lecture » et « Agenda ») ; 2.0.0 Netflix, Prime Video / Disney+ et import de l’historique Crunchyroll (après exploration). Fiche du Store (description, captures, tuiles) à mettre à jour à la main : l’API ne gère que le paquet.

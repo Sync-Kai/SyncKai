@@ -33,6 +33,7 @@
   "auth.invalidResponse.mal": "Invalid response from MyAnimeList.",
   "auth.noResponse.anilist": "No response received from AniList.",
   "auth.noResponse.mal": "No response received from MyAnimeList.",
+  "auth.notConfigured": "Sign-in isn't configured for this browser. Redirect URL to register: {url}",
   "auth.rejected.anilist": "AniList rejected the request. Check that the client's Redirect URL is: {url}",
   "auth.rejected.mal": "MyAnimeList rejected the request. Check that the App Redirect URL is: {url}",
   "auth.saveFailed": "Couldn't save the session.",

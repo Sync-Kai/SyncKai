@@ -3,6 +3,12 @@
 Toutes les évolutions notables de SyncKai sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [Unreleased]
+
+### Modifié
+
+- Connexions AniList / MyAnimeList configurées par navigateur (préparation de Firefox).
+
 ## [1.8.0] - 2026-10-05
 
 ### Ajouté

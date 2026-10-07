@@ -33,6 +33,7 @@
   "auth.invalidResponse.mal": "Ungültige Antwort von MyAnimeList.",
   "auth.noResponse.anilist": "Keine Antwort von AniList erhalten.",
   "auth.noResponse.mal": "Keine Antwort von MyAnimeList erhalten.",
+  "auth.notConfigured": "Anmeldung ist für diesen Browser nicht eingerichtet. Zu registrierende Redirect URL: {url}",
   "auth.rejected.anilist": "AniList hat die Anfrage abgelehnt. Prüfe, ob die Redirect URL des Clients lautet: {url}",
   "auth.rejected.mal": "MyAnimeList hat die Anfrage abgelehnt. Prüfe, ob die App Redirect URL lautet: {url}",
   "auth.saveFailed": "Sitzung konnte nicht gespeichert werden.",

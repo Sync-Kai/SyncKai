@@ -4,13 +4,13 @@ import { isRecord } from '../../shared/guards';
 import type { MalToken } from '../../shared/mal.types';
 import { clearMalSession, getMalToken, saveMalToken } from '../../shared/storage';
 import { ApiError } from '../api/errors';
+import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
 import { createCodeVerifier, createState } from './pkce';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('auth');
 
-/** Client public (type "other" sur MAL) : PKCE, aucun secret embarqué dans l'extension */
-const MAL_CLIENT_ID = '84d05521c007a529cc458421bd0940c5';
+// Client public (type "other" sur MAL, un par navigateur : voir oauth-clients.ts) : PKCE, aucun secret
 const MAL_AUTHORIZE_URL = 'https://myanimelist.net/v1/oauth2/authorize';
 const MAL_TOKEN_URL = 'https://myanimelist.net/v1/oauth2/token';
 /** Renouvellement anticipé : évite qu'un token expire au milieu d'une synchronisation */
@@ -26,12 +26,19 @@ function toMalToken(value: unknown): MalToken | null {
 
 /** POST sur l'endpoint de token (échange de code ou renouvellement). */
 async function requestToken(params: Record<string, string>): Promise<MalToken> {
+  const clients = getOAuthClients();
+  if (!clients) {
+    // Aucune app MAL pour ce navigateur : la session ne peut pas être renouvelée → reconnexion requise
+    const redirectUri = chrome.identity.getRedirectURL();
+    log.warn('Aucune app MyAnimeList pour cet ID d’extension | redirect_uri à enregistrer :', redirectUri);
+    throw new ApiError('TOKEN_INVALID', t('auth.notConfigured', { url: redirectUri }));
+  }
   let response: Response;
   try {
     response = await fetch(MAL_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: MAL_CLIENT_ID, ...params }),
+      body: new URLSearchParams({ client_id: clients.malClientId, ...params }),
     });
   } catch {
     throw new ApiError('NETWORK', t('api.network', { service: 'MyAnimeList' }));
@@ -60,13 +67,19 @@ async function requestToken(params: Record<string, string>): Promise<MalToken> {
  */
 export async function loginWithMal(): Promise<AuthResult> {
   const redirectUri = chrome.identity.getRedirectURL();
+  const clients = getOAuthClients();
+  if (!clients) {
+    // ID d'extension sans app MAL enregistrée : la redirection serait rejetée par MyAnimeList
+    log.warn('Aucune app MyAnimeList pour cet ID d’extension | redirect_uri à enregistrer :', redirectUri);
+    return { ok: false, code: 'AUTH_FLOW_FAILED', message: t('auth.notConfigured', { url: redirectUri }) };
+  }
   const codeVerifier = createCodeVerifier();
   const state = createState();
 
   const authUrl = new URL(MAL_AUTHORIZE_URL);
   authUrl.search = new URLSearchParams({
     response_type: 'code',
-    client_id: MAL_CLIENT_ID,
+    client_id: clients.malClientId,
     code_challenge: codeVerifier,
     code_challenge_method: 'plain',
     state,
@@ -79,8 +92,9 @@ export async function loginWithMal(): Promise<AuthResult> {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     log.error('Connexion MyAnimeList interrompue :', message, '| redirect_uri :', redirectUri);
-    if (/did not approve/i.test(message)) return { ok: false, code: 'USER_CANCELLED', message: t('auth.cancelled') };
-    if (/could not be loaded/i.test(message)) {
+    const kind = classifyAuthFlowError(message);
+    if (kind === 'cancelled') return { ok: false, code: 'USER_CANCELLED', message: t('auth.cancelled') };
+    if (kind === 'rejected') {
       return {
         ok: false,
         code: 'AUTH_FLOW_FAILED',

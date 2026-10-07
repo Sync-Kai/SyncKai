@@ -2,10 +2,10 @@ import { t } from '../../i18n';
 import type { AniListToken, AuthResult } from '../../shared/auth.types';
 import { saveToken } from '../../shared/storage';
 import { createLogger } from '../../shared/logger';
+import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
 
 const log = createLogger('auth');
 
-const ANILIST_CLIENT_ID = '52346';
 const ANILIST_AUTHORIZE_URL = 'https://anilist.co/api/v2/oauth/authorize';
 
 /**
@@ -14,8 +14,15 @@ const ANILIST_AUTHORIZE_URL = 'https://anilist.co/api/v2/oauth/authorize';
  */
 export async function loginWithAniList(): Promise<AuthResult> {
   const redirectUri = chrome.identity.getRedirectURL();
+  const clients = getOAuthClients();
+  if (!clients) {
+    // ID d'extension sans client AniList enregistré : la redirection serait rejetée par AniList
+    log.warn('Aucun client AniList pour cet ID d’extension | redirect_uri à enregistrer :', redirectUri);
+    return { ok: false, code: 'AUTH_FLOW_FAILED', message: t('auth.notConfigured', { url: redirectUri }) };
+  }
+
   const authUrl = new URL(ANILIST_AUTHORIZE_URL);
-  authUrl.searchParams.set('client_id', ANILIST_CLIENT_ID);
+  authUrl.searchParams.set('client_id', clients.anilistClientId);
   authUrl.searchParams.set('response_type', 'token');
   // Pas de redirect_uri : AniList redirige vers l'URL enregistrée sur le client (= redirectUri),
   // ce qui évite un rejet sur une différence mineure (slash final…).
@@ -27,12 +34,13 @@ export async function loginWithAniList(): Promise<AuthResult> {
     const message = error instanceof Error ? error.message : String(error);
     log.error('launchWebAuthFlow a échoué :', message, '| redirect_uri :', redirectUri);
 
-    // Seul ce message correspond à une fermeture volontaire de la fenêtre par l'utilisateur
-    if (/did not approve/i.test(message)) {
+    const kind = classifyAuthFlowError(message);
+    // Fenêtre fermée ou accès refusé par l'utilisateur (libellés Chrome et Firefox)
+    if (kind === 'cancelled') {
       return { ok: false, code: 'USER_CANCELLED', message: t('auth.cancelled') };
     }
     // Page d'auth en erreur (client_id invalide, redirect_uri non enregistrée chez AniList…)
-    if (/could not be loaded/i.test(message)) {
+    if (kind === 'rejected') {
       return {
         ok: false,
         code: 'AUTH_FLOW_FAILED',
