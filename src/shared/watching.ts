@@ -123,7 +123,7 @@ export function sortWatchingBy(entries: readonly WatchingEntry[], sort: Watching
  * Lien utilisé par « Ouvrir » : la plateforme préférée si l'anime y est, sinon la première disponible.
  * null si aucune plateforme connue (le bouton est alors masqué).
  */
-export function choosePlatformLink(entry: WatchingEntry, preferred: StreamingPlatform): PlatformLink | null {
+export function choosePlatformLink(entry: Pick<WatchingEntry, 'platforms'>, preferred: StreamingPlatform): PlatformLink | null {
   return entry.platforms.find((link) => link.platform === preferred) ?? entry.platforms[0] ?? null;
 }
 

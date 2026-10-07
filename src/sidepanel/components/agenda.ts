@@ -1,5 +1,6 @@
 import { getLocale, t } from '../../i18n';
 import { BTN_GHOST, CARD, PLATFORM_LABELS, renderCover } from '../../popup/components/ui';
+import { platformIcon } from '../../ui/brand-icons';
 import {
   airingWeekKey,
   buildAgendaDays,
@@ -341,15 +342,19 @@ export function createAgenda(): AgendaView {
         row.customOffset !== null || !row.platform
           ? t('agenda.estimate.custom', { offset: formatOffset(offset) })
           : t('agenda.estimate.title', { platform: platformLabel, offset: formatOffset(offset) });
-      // Libellé court affiché (« ≈ CR 18:30 »), nom complet pour les lecteurs d'écran
-      const short = row.platform ? SHORT_PLATFORM[row.platform] : '';
+      // Affiché : « ≈ [logo] 18:30 » (logo à la place du nom de plateforme, abréviation en infobulle) ;
+      // nom complet pour les lecteurs d'écran via aria-label
+      const MARK = '\u0000';
+      const [before, after = ''] = t('agenda.estimate', { platform: row.platform ? MARK : '', time }).replace(/ {2,}/g, ' ').split(MARK);
       estimate = h(
         'span',
         {
-          class: `cursor-help ${row.customOffset !== null ? 'text-lavender' : 'text-ink'}`,
+          class: `inline-flex cursor-help items-center gap-1 ${row.customOffset !== null ? 'text-lavender' : 'text-ink'}`,
           attrs: { title, 'aria-label': `${t('agenda.estimate', { platform: platformLabel, time })}. ${title}`.replace(/ {2,}/g, ' ') },
         },
-        t('agenda.estimate', { platform: short, time }).replace(/ {2,}/g, ' '),
+        before.trim(),
+        row.platform && platformIcon(row.platform, 'h-3 w-3 rounded-[3px]', { title: SHORT_PLATFORM[row.platform] }),
+        after.trim(),
       );
     }
     return h('span', { class: 'flex flex-wrap items-center gap-x-2 text-[11px] font-semibold text-muted tabular-nums' }, jp, estimate);

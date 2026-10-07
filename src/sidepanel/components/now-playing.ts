@@ -1,15 +1,19 @@
 import { t } from '../../i18n';
 import { renderAlert } from '../../popup/components/alert';
 import { renderAiring } from '../../popup/components/page-media-card';
-import { kanaLabel, renderCover } from '../../popup/components/ui';
+import { kanaLabel, PLATFORM_LABELS, renderCover } from '../../popup/components/ui';
+import { platformIcon } from '../../ui/brand-icons';
 import { mediaMetaParts } from '../../popup/page-media-view';
 import type { InlineFeedback } from '../../popup/state';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../shared/messages';
+import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import { isLongDescription, malForumUrl, redditSearchUrl } from '../../shared/panel-media';
 import type { PanelMedia, PanelRelation } from '../../shared/panel-media.types';
+import { DEFAULT_SETTINGS, getSettings, SETTINGS_STORAGE_KEY } from '../../shared/settings';
 import type { ListStatusChange } from '../../shared/sync.types';
+import { choosePlatformLink } from '../../shared/watching';
 import { h, nodes, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { mediaActionKey, runMediaAction, type MediaActionRequest } from '../../ui/media-action-requests';
@@ -45,6 +49,37 @@ const SECTION_TITLE = 'm-0 text-[11px] font-bold tracking-[0.4px] text-muted upp
 const CHIP_LINK =
   'inline-flex h-7 min-w-0 items-center gap-1 rounded-full border border-line bg-raised px-2.5 text-[11px] font-bold text-ink no-underline transition-colors hover:border-sakura';
 
+const reducedMotion = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Déplie / replie le synopsis sur place (sans redessiner le panneau : ni saut de défilement, ni perte de focus).
+ * Transition de hauteur via l'API Web Animations, sautée si l'utilisateur limite les animations.
+ */
+function toggleSynopsis(text: HTMLElement, button: HTMLButtonElement, expanded: boolean): void {
+  const from = text.getBoundingClientRect().height;
+  text.classList.toggle('line-clamp-5', !expanded);
+  const to = text.getBoundingClientRect().height;
+  button.textContent = t(expanded ? 'panel.nowPlaying.readLess' : 'panel.nowPlaying.readMore');
+  button.setAttribute('aria-expanded', String(expanded));
+  // Repli : le bouton peut se retrouver au-dessus de la zone visible, on le ramène (jamais au dépliage)
+  const keepVisible = (): void => {
+    if (!expanded && button.isConnected) button.scrollIntoView({ block: 'nearest' });
+  };
+  if (reducedMotion() || from === to) {
+    keepVisible();
+    return;
+  }
+  // Repli : texte entier pendant la transition, coupé (« … ») une fois la hauteur finale atteinte
+  if (!expanded) text.classList.remove('line-clamp-5');
+  text.style.overflow = 'hidden';
+  const animation = text.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  animation.addEventListener('finish', () => {
+    text.style.overflow = '';
+    if (!expanded) text.classList.add('line-clamp-5');
+    keepVisible();
+  });
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -70,6 +105,22 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
   let manualId: number | null = null;
   let run = 0;
   let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Lecteur préféré (réglages) : plateforme du bouton « Regarder » des relations */
+  let preferred: StreamingPlatform = DEFAULT_SETTINGS.preferredPlayer;
+
+  const loadPreferred = (): void => {
+    getSettings()
+      .then((settings) => {
+        if (settings.preferredPlayer === preferred) return;
+        preferred = settings.preferredPlayer;
+        if (content.status === 'ready' && content.panel?.relations.some((r) => r.platforms.length > 1)) onChange();
+      })
+      .catch((error: unknown) => log.debug('Réglages illisibles :', error));
+  };
+  loadPreferred();
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && SETTINGS_STORAGE_KEY in changes) loadPreferred();
+  });
 
   const set = (next: ContentState): void => {
     content = next;
@@ -338,27 +389,33 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
 
   function renderSynopsis(text: string): HTMLElement {
     const long = isLongDescription(text);
-    return h(
-      'section',
-      { class: SECTION, attrs: { 'aria-labelledby': 'sk-synopsis' } },
-      h('h3', { class: SECTION_TITLE, attrs: { id: 'sk-synopsis' } }, t('panel.nowPlaying.synopsis')),
-      // Texte brut (sanitizeDescription) inséré comme nœud texte ; sauts de ligne conservés
-      h('p', { class: `m-0 text-[12px] leading-[18px] font-semibold whitespace-pre-line text-ink/90 ${long && !expanded ? 'line-clamp-5' : ''}`, attrs: { id: 'sk-synopsis-text' } }, text),
-      long &&
-        h(
+    // Texte brut (sanitizeDescription) inséré comme nœud texte ; sauts de ligne conservés
+    const body = h(
+      'p',
+      { class: `m-0 text-[12px] leading-[18px] font-semibold whitespace-pre-line text-ink/90 ${long && !expanded ? 'line-clamp-5' : ''}`, attrs: { id: 'sk-synopsis-text' } },
+      text,
+    );
+    const toggle = long
+      ? h(
           'button',
           {
             class: 'self-start cursor-pointer rounded-full text-[11px] font-bold text-sakura underline-offset-2 hover:underline',
             attrs: { type: 'button', 'data-focus': 'panel-synopsis', 'aria-expanded': String(expanded), 'aria-controls': 'sk-synopsis-text' },
-            on: {
-              click: () => {
-                expanded = !expanded;
-                onChange();
-              },
-            },
           },
           t(expanded ? 'panel.nowPlaying.readLess' : 'panel.nowPlaying.readMore'),
-        ),
+        )
+      : null;
+    // Bascule sur place, sans onChange() : le reste du panneau n'a pas à être redessiné
+    toggle?.addEventListener('click', () => {
+      expanded = !expanded;
+      toggleSynopsis(body, toggle, expanded);
+    });
+    return h(
+      'section',
+      { class: SECTION, attrs: { 'aria-labelledby': 'sk-synopsis' } },
+      h('h3', { class: SECTION_TITLE, attrs: { id: 'sk-synopsis' } }, t('panel.nowPlaying.synopsis')),
+      body,
+      toggle,
     );
   }
 
@@ -382,13 +439,14 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
 
   function renderRelation(relation: PanelRelation): HTMLElement {
     const label = relationLabel(relation.relationType);
+    const watch = choosePlatformLink(relation, preferred);
     return h(
       'li',
-      {},
+      { class: 'flex min-w-0 items-center gap-1' },
       externalLink(
         relation.siteUrl,
         `${label} : ${relation.title}`,
-        'flex min-w-0 items-center gap-2 rounded-lg p-1 text-ink no-underline transition-colors hover:bg-raised',
+        'flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1 text-ink no-underline transition-colors hover:bg-raised',
         renderCover(relation.title, relation.coverUrl, 'h-12 w-[34px]', 'text-[10px]'),
         h(
           'span',
@@ -398,6 +456,24 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
         ),
         icon('external', 'h-3 w-3 shrink-0 text-muted'),
       ),
+      watch &&
+        h(
+          'a',
+          {
+            class:
+              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-line pr-2.5 pl-1.5 text-[11px] font-bold text-sakura no-underline transition-colors hover:border-sakura hover:bg-raised',
+            attrs: {
+              href: watch.url,
+              target: '_blank',
+              rel: 'noopener noreferrer',
+              title: t('panel.nowPlaying.watchOn', { platform: PLATFORM_LABELS[watch.platform] }),
+              'aria-label': t('panel.nowPlaying.watchAria', { title: relation.title, platform: PLATFORM_LABELS[watch.platform] }),
+              'data-focus': `relation-watch-${relation.mediaId}`,
+            },
+          },
+          platformIcon(watch.platform, 'h-3.5 w-3.5 rounded-[3px]', { decorative: true }),
+          t('panel.nowPlaying.watch'),
+        ),
     );
   }
 

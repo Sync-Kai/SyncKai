@@ -58,7 +58,7 @@ export function platformFromUrl(value: string): StreamingPlatform | null {
 }
 
 /** Liens de plateformes : liens AniList d'abord, puis historique SyncKai ; un seul lien par plateforme */
-function buildPlatforms(externalLinks: unknown, syncs: readonly RecentSync[]): PlatformLink[] {
+export function buildPlatforms(externalLinks: unknown, syncs: readonly RecentSync[]): PlatformLink[] {
   const links: PlatformLink[] = [];
   const add = (platform: StreamingPlatform | null, url: string | null): void => {
     if (platform && url && !links.some((l) => l.platform === platform)) links.push({ platform, url });

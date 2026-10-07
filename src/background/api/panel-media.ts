@@ -11,10 +11,12 @@ import {
   type PanelMediaResult,
   type PanelRelation,
 } from '../../shared/panel-media.types';
+import type { RecentSync } from '../../shared/review.types';
+import { getRecentSyncs } from '../../shared/storage';
 import { toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
 import { ApiError } from './errors';
-import { parseNextEpisode, toAiringStatus } from './watching';
+import { buildPlatforms, parseNextEpisode, toAiringStatus } from './watching';
 
 // Fiche complète de l'onglet « En lecture » (panneau latéral) : une requête AniList, cache de session 6 h.
 
@@ -39,7 +41,7 @@ const PANEL_MEDIA_QUERY = /* GraphQL */ `
       nextAiringEpisode { episode airingAt }
       studios(isMain: true) { nodes { name siteUrl } }
       title { romaji english userPreferred }
-      relations { edges { relationType node { id type format title { userPreferred } coverImage { medium } siteUrl } } }
+      relations { edges { relationType node { id type format title { userPreferred } coverImage { medium } siteUrl externalLinks { url } } } }
     }
   }
 `;
@@ -67,6 +69,7 @@ function parseRelation(edge: unknown): PanelRelation | null {
     format: str(node.format),
     coverUrl: toSafeUrl(str(cover.medium)),
     siteUrl: anilistUrl(node.siteUrl) ?? `https://anilist.co/anime/${node.id}`,
+    platforms: buildPlatforms(node.externalLinks, []),
   };
 }
 
@@ -121,7 +124,9 @@ function isMediaData(data: unknown): data is { Media: unknown } {
 // Indisponible : cache mémoire du service worker (perdu à sa mise en veille).
 
 const CACHE_TTL_MS = 6 * 3_600_000;
-const CACHE_PREFIX = 'panelMedia:';
+/** Versionnée : une fiche d'un format précédent (relations sans liens de plateformes) n'est jamais relue */
+export const PANEL_MEDIA_CACHE_VERSION = 2;
+export const panelMediaCacheKey = (mediaId: number): string => `panelMedia:v${PANEL_MEDIA_CACHE_VERSION}:${mediaId}`;
 const memory = new Map<number, { at: number; value: PanelMedia }>();
 
 function sessionArea(): chrome.storage.StorageArea | null {
@@ -134,7 +139,7 @@ async function readCache(mediaId: number): Promise<PanelMedia | null> {
   let hit: unknown = memory.get(mediaId);
   if (session) {
     try {
-      const key = `${CACHE_PREFIX}${mediaId}`;
+      const key = panelMediaCacheKey(mediaId);
       hit = (await session.get(key))[key];
     } catch (error: unknown) {
       log.debug('Cache de session illisible :', error);
@@ -153,10 +158,37 @@ async function writeCache(media: PanelMedia): Promise<void> {
     return;
   }
   try {
-    await session.set({ [`${CACHE_PREFIX}${media.mediaId}`]: entry });
+    await session.set({ [panelMediaCacheKey(media.mediaId)]: entry });
   } catch (error: unknown) {
     // Quota de session atteint : simple accélération perdue
     log.debug('Cache de session non écrit :', error);
+  }
+}
+
+/**
+ * Complète les liens de plateformes des relations avec l'historique SyncKai (dernier épisode synchronisé),
+ * appliqué à la lecture : le cache ne garde que les liens AniList.
+ */
+export function withHistoryLinks(media: PanelMedia, syncs: readonly RecentSync[]): PanelMedia {
+  if (syncs.length === 0) return media;
+  return {
+    ...media,
+    relations: media.relations.map((relation) => {
+      const own = syncs.filter((sync) => sync.mediaId === relation.mediaId);
+      if (own.length === 0) return relation;
+      const platforms = [...relation.platforms];
+      for (const link of buildPlatforms([], own)) if (!platforms.some((l) => l.platform === link.platform)) platforms.push(link);
+      return { ...relation, platforms };
+    }),
+  };
+}
+
+async function recentSyncs(): Promise<RecentSync[]> {
+  try {
+    return await getRecentSyncs();
+  } catch (error: unknown) {
+    log.debug('Historique illisible :', error);
+    return [];
   }
 }
 
@@ -164,12 +196,12 @@ async function writeCache(media: PanelMedia): Promise<void> {
 export async function getPanelMedia(mediaId: number): Promise<PanelMediaResult> {
   try {
     const cached = await readCache(mediaId);
-    if (cached) return { ok: true, data: cached };
+    if (cached) return { ok: true, data: withHistoryLinks(cached, await recentSyncs()) };
     const { Media } = await anilistPublicQuery(PANEL_MEDIA_QUERY, isMediaData, { id: mediaId });
     const media = parsePanelMedia(Media);
     if (!media) throw new ApiError('INVALID_RESPONSE', t('api.invalidResponse.anilist'));
     await writeCache(media);
-    return { ok: true, data: media };
+    return { ok: true, data: withHistoryLinks(media, await recentSyncs()) };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, code: error.code, message: error.message };
     log.error('Erreur inattendue (fiche du panneau) :', error);

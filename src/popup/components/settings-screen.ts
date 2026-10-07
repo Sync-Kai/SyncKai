@@ -19,7 +19,8 @@ import { h, nodes, preserveFocus, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import type { AccountState, ExclusionsState, SettingsState } from '../state';
 import { renderAlert } from './alert';
-import { BTN_GHOST, CARD, LINK, PLATFORM_LABELS, sectionLabel, segmented, SERVICE_CHIPS, serviceAvatar } from './ui';
+import { BTN_GHOST, CARD, LINK, PLATFORM_LABELS, sectionLabel, segmented, serviceAvatar } from './ui';
+import { serviceIcon } from '../../ui/brand-icons';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('popup');
@@ -167,7 +168,7 @@ function notifGlyph(glyph: NotifGlyph): SVGSVGElement {
 function viewerAvatar(service: TrackerId, url: string | null): HTMLElement {
   if (!url) return serviceAvatar(service, 'ok');
   const img = h('img', { class: 'h-8 w-8 rounded-full object-cover', attrs: { src: url, alt: '', referrerpolicy: 'no-referrer' } });
-  img.addEventListener('error', () => img.replaceWith(SERVICE_CHIPS[service].short), { once: true });
+  img.addEventListener('error', () => img.replaceWith(serviceIcon(service, 'h-5 w-5 rounded-[4px]', { decorative: true })), { once: true });
   return serviceAvatar(service, 'ok', img);
 }
 

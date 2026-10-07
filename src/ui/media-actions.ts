@@ -7,7 +7,7 @@ import { displayScore, hasMissingList, listStatusLabel, primaryList, progressTex
 import type { InlineFeedback } from '../popup/state';
 import { STAR_CLASSES } from '../popup/components/rating-section';
 import { needsConfirm, renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from '../popup/components/status-actions';
-import { SERVICE_CHIPS } from '../popup/components/ui';
+import { serviceIcon } from './brand-icons';
 import { h, nodes, type Child } from './dom';
 import { icon, playIcon } from './icons';
 import { createStarRating } from './star-rating';
@@ -45,7 +45,6 @@ const spinner = (): SVGSVGElement => icon('spinner', 'h-3.5 w-3.5 shrink-0 motio
 
 /** Une ligne par service connecté : statut + progression (et note), absence de la liste, ou erreur */
 export function renderListLine(list: PageListState, episodes: number | null, withScore = false): HTMLElement {
-  const chip = SERVICE_CHIPS[list.service];
   const score = withScore && list.state === 'in-list' && list.score !== null ? ` · ★ ${list.score}/10` : '';
   const text =
     list.state === 'in-list'
@@ -58,7 +57,7 @@ export function renderListLine(list: PageListState, episodes: number | null, wit
   return h(
     'li',
     { class: 'flex min-w-0 items-center gap-1.5 text-[11px] font-semibold' },
-    h('span', { class: `inline-flex h-4 shrink-0 items-center rounded-[4px] px-1 text-[9px] leading-none font-bold text-on-fill ${chip.class}`, attrs: { title: TRACKER_LABELS[list.service] } }, chip.short),
+    serviceIcon(list.service, 'h-3.5 w-3.5 rounded-[3px]', { title: TRACKER_LABELS[list.service] }),
     h('span', { class: `min-w-0 truncate ${list.state === 'error' ? 'text-danger' : list.state === 'in-list' ? 'text-ink' : 'text-muted'}`, attrs: { title: text } }, text),
   );
 }

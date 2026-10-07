@@ -7,7 +7,8 @@ import { renderMediaActions, type MediaActionHandlers } from '../../ui/media-act
 import { formatAiringDate, mediaMetaParts, pageBadge } from '../page-media-view';
 import type { PageCardState } from '../state';
 import { renderAlert } from './alert';
-import { kanaLabel, renderCover, SERVICE_CHIPS } from './ui';
+import { kanaLabel, renderCover } from './ui';
+import { serviceIcon } from '../../ui/brand-icons';
 import { BADGE_CLASSES } from './watching-screen';
 
 // Carte « Sur cette page » (#23) : fiche AniList de la série ouverte dans l'onglet actif.
@@ -79,10 +80,10 @@ function renderLinks(view: PageMediaView): HTMLElement {
       h(
         'a',
         {
-          class: 'inline-flex h-6 items-center gap-0.5 rounded-full border border-line px-1.5 text-[10px] font-bold text-muted no-underline transition-colors hover:border-sakura hover:text-ink',
+          class: 'inline-flex h-6 items-center gap-1 rounded-full border border-line pr-1.5 pl-1 text-[10px] font-bold text-muted no-underline transition-colors hover:border-sakura hover:text-ink',
           attrs: { href: url, target: '_blank', rel: 'noopener noreferrer', 'aria-label': t('page.openOn', { service: TRACKER_LABELS[service] }) },
         },
-        SERVICE_CHIPS[service].short,
+        serviceIcon(service, 'h-3 w-3 rounded-[3px]', { decorative: true }),
         icon('external', 'h-2.5 w-2.5'),
       ),
     ),

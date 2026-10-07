@@ -1,7 +1,7 @@
 import type { AniListErrorCode } from './anilist.types';
 import { isRecord } from './guards';
 import type { Result } from './result';
-import type { AiringStatus, NextEpisode } from './watching.types';
+import type { AiringStatus, NextEpisode, PlatformLink } from './watching.types';
 
 // Fiche complète affichée dans l'onglet « En lecture » du panneau latéral (catalogue AniList public).
 
@@ -27,6 +27,8 @@ export interface PanelRelation {
   format: string | null;
   coverUrl: string | null;
   siteUrl: string;
+  /** Pages Crunchyroll / ADN de la relation (liens AniList, puis historique SyncKai), une par plateforme */
+  platforms: PlatformLink[];
 }
 
 export interface PanelMedia {
@@ -64,6 +66,9 @@ const isNullableString = (v: unknown): v is string | null => v === null || typeo
 const isNullableNumber = (v: unknown): v is number | null => v === null || (typeof v === 'number' && Number.isFinite(v));
 const isPositiveInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 1;
 
+const isPlatformLink = (v: unknown): v is PlatformLink =>
+  isRecord(v) && (v.platform === 'crunchyroll' || v.platform === 'adn') && typeof v.url === 'string';
+
 function isPanelRelation(value: unknown): value is PanelRelation {
   return (
     isRecord(value) &&
@@ -72,7 +77,9 @@ function isPanelRelation(value: unknown): value is PanelRelation {
     typeof value.title === 'string' &&
     isNullableString(value.format) &&
     isNullableString(value.coverUrl) &&
-    typeof value.siteUrl === 'string'
+    typeof value.siteUrl === 'string' &&
+    Array.isArray(value.platforms) &&
+    value.platforms.every(isPlatformLink)
   );
 }
 

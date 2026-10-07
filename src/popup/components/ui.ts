@@ -1,5 +1,6 @@
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { TrackerId } from '../../shared/tracker.types';
+import { platformIcon, serviceIcon } from '../../ui/brand-icons';
 import { h, type Child } from '../../ui/dom';
 
 // Classes partagées par les écrans du popup (direction « Kotatsu »)
@@ -12,10 +13,6 @@ export const BTN_PRIMARY =
 export const LINK = 'text-sakura hover:underline';
 
 export const PLATFORM_LABELS: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN' };
-const PLATFORM_CHIPS: Record<StreamingPlatform, { label: string; class: string }> = {
-  crunchyroll: { label: 'CR', class: 'bg-butter' },
-  adn: { label: 'ADN', class: 'bg-mint' },
-};
 
 export const SERVICE_CHIPS: Record<TrackerId, { short: string; class: string }> = {
   anilist: { short: 'AL', class: 'bg-anilist text-[11px]' },
@@ -42,29 +39,26 @@ export function kanaLabel(text: string, colorClass = 'text-muted'): HTMLElement 
   return h('span', { class: `font-display text-[10px] font-bold tracking-[1px] opacity-70 ${colorClass}`, attrs: { 'aria-hidden': 'true' } }, text);
 }
 
-/** Pastille de plateforme en coin de jaquette (décorative) */
+/** Logo de plateforme en coin de jaquette (décoratif : la plateforme est annoncée ailleurs) */
 export function platformChip(platform: StreamingPlatform, position: string): HTMLElement {
-  const chip = PLATFORM_CHIPS[platform];
   return h(
     'span',
-    {
-      class: `absolute flex h-3.5 w-3.5 items-center justify-center rounded-[4px] text-[5px] leading-none font-bold tracking-[-0.2px] text-on-fill ${chip.class} ${position}`,
-      attrs: { 'aria-hidden': 'true' },
-    },
-    chip.label,
+    { class: `absolute flex rounded-[5px] ring-2 ring-surface ${position}`, attrs: { 'aria-hidden': 'true' } },
+    platformIcon(platform, 'h-3 w-3 rounded-[3px]', { decorative: true }),
   );
 }
 
-/** Pastille ronde AL / MAL avec point d'état (vert connecté, rouge session expirée) */
+/** Pastille ronde (logo AniList / MyAnimeList, ou avatar `extra`) avec point d'état (vert connecté, rouge session expirée) */
 export function serviceAvatar(service: TrackerId, dot: 'ok' | 'expired' | null, extra: Child = null): HTMLElement {
   const chip = SERVICE_CHIPS[service];
   return h(
     'span',
-    { class: `relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold text-on-fill ${chip.class}`, attrs: { 'aria-hidden': 'true' } },
-    extra ?? chip.short,
+    // Fond transparent : le logo seul (sans pastille colorée) ; l'avatar `extra` garde sa couleur de repli
+    { class: `relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold text-on-fill ${extra ? chip.class : ''}`, attrs: { 'aria-hidden': 'true' } },
+    extra ?? serviceIcon(service, 'h-6 w-6 rounded-[6px]', { decorative: true }),
     dot &&
       h('span', {
-        class: `absolute -right-px -bottom-px h-2 w-2 rounded-full border-2 border-surface ${dot === 'ok' ? 'bg-mint' : 'bg-danger'}`,
+        class: `absolute right-0 bottom-0 h-2 w-2 rounded-full border-2 border-surface ${dot === 'ok' ? 'bg-mint' : 'bg-danger'}`,
       }),
   );
 }
