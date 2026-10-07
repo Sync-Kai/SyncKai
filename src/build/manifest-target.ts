@@ -11,8 +11,9 @@ export const BUILD_TARGETS: readonly BuildTarget[] = ['chrome', 'firefox'];
 /** ID AMO de l'extension (identique à `FIREFOX_ADDON_ID` côté OAuth) : fixe l'URL de redirection identity */
 export const FIREFOX_GECKO_ID = 'synckai@sync-kai.github.io';
 
-/** Firefox 140 : première version avec le consentement intégré `data_collection_permissions` (bureau) */
-export const FIREFOX_MIN_VERSION = '140.0';
+/** Firefox 142 : 140 suffit sur ordinateur pour `data_collection_permissions`, mais AMO applique aussi ce minimum à
+ * Firefox pour Android, qui ne le gère qu'à partir de 142 (avertissement de validation de la 1.9.0) */
+export const FIREFOX_MIN_VERSION = '142.0';
 
 /** Valeurs acceptées par AMO pour `data_collection_permissions.required` */
 export type GeckoDataCollection =

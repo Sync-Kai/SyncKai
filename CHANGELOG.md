@@ -3,6 +3,12 @@
 Toutes les évolutions notables de SyncKai sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [Unreleased]
+
+### Modifié
+
+- Firefox : version minimale 142 (supprime l’avertissement de validation AMO lié à Firefox pour Android).
+
 ## [1.9.0] - 2026-10-07
 
 SyncKai arrive sur Firefox.

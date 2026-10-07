@@ -21,7 +21,7 @@ describe('targetManifest', () => {
   it('firefox : gecko id, version minimale et consentement de collecte', () => {
     const { gecko } = targetManifest(manifest, 'firefox').browser_specific_settings;
     expect(gecko.id).toBe(FIREFOX_GECKO_ID);
-    expect(gecko.strict_min_version).toBe('140.0');
+    expect(gecko.strict_min_version).toBe('142.0');
     expect(gecko.data_collection_permissions.required).toEqual(['websiteContent', 'websiteActivity']);
   });
 

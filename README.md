@@ -41,7 +41,7 @@
 | [Crunchyroll](https://www.crunchyroll.com) | Début du générique (repli au pourcentage) | | [AniList](https://anilist.co) |
 | [ADN](https://animationdigitalnetwork.com) | Pourcentage réglable | | [MyAnimeList](https://myanimelist.net) |
 
-Navigateurs : Chrome 116 ou plus récent (et navigateurs basés sur Chromium : Edge, Brave…), Firefox 140 ou plus récent (ordinateur).
+Navigateurs : Chrome 116 ou plus récent (et navigateurs basés sur Chromium : Edge, Brave…), Firefox 142 ou plus récent (ordinateur).
 
 ## Installation
 

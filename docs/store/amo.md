@@ -35,4 +35,4 @@ Les tuiles promo du Chrome Web Store n'ont pas d'équivalent sur AMO.
 
 - Le paquet est minifié par Vite : AMO exige les sources. Le workflow joint `release/synckai-<version>-source.zip` (`git archive` du tag + `.source-date-epoch`), à reconstruire avec `npm ci && npm run build:firefox` (voir `BUILD.md`).
 - Le relecteur compare son build au paquet envoyé : les fichiers doivent être identiques (dépendances figées par `package-lock.json`, horodatage tiré de `.source-date-epoch`).
-- Permissions de collecte (Firefox 140+) : `data_collection_permissions.required` = `websiteContent`, `websiteActivity` (ajoutées par le build Firefox, `src/build/manifest-target.ts`).
+- Permissions de collecte (Firefox 142+ requis par AMO) : `data_collection_permissions.required` = `websiteContent`, `websiteActivity` (ajoutées par le build Firefox, `src/build/manifest-target.ts`).
