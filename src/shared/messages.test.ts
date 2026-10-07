@@ -116,3 +116,21 @@ describe('COMPARE_LISTS / APPLY_DIFFS', () => {
     expect(EXTENSION_PAGE_ONLY.has('APPLY_DIFFS')).toBe(true);
   });
 });
+
+describe('GET_PANEL_MEDIA', () => {
+  const message = (payload: unknown): unknown => ({ type: 'GET_PANEL_MEDIA', payload });
+
+  it('accepte un identifiant AniList positif', () => {
+    expect(isRuntimeMessage(message({ mediaId: 146065 }))).toBe(true);
+  });
+
+  it('refuse un identifiant absent ou invalide', () => {
+    for (const payload of [null, {}, { mediaId: 0 }, { mediaId: -3 }, { mediaId: 1.5 }, { mediaId: '21' }]) {
+      expect(isRuntimeMessage(message(payload))).toBe(false);
+    }
+  });
+
+  it('est réservé aux pages de l’extension', () => {
+    expect(EXTENSION_PAGE_ONLY.has('GET_PANEL_MEDIA')).toBe(true);
+  });
+});

@@ -7,11 +7,12 @@ import type { SyncQueueItem } from '../shared/queue.types';
 import type { SyncSettings } from '../shared/settings';
 import type { FeedbackTone } from '../shared/sync-feedback';
 import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
-import type { AddListStatus, ListStatusChange } from '../shared/sync.types';
+import type { ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
 import type { ComparisonResult, DiffFilter } from '../shared/compare';
 import type { CompareJob } from '../shared/compare-job';
+import type { MediaAction } from '../ui/media-actions';
 
 /** État de connexion d'un compte (AniList, MyAnimeList) : chaque vue est une fonction pure de cet état. */
 export type AccountState<Viewer> =
@@ -136,7 +137,7 @@ export type PageMediaState =
   | { status: 'error'; page: PageMediaInfo; message: string };
 
 /** Action en cours sur la carte « Sur cette page » (une seule à la fois) */
-export type PageCardAction = `add-${AddListStatus}` | 'minus' | 'plus' | `status-${ListStatusChange}` | 'rate' | 'season';
+export type PageCardAction = MediaAction;
 
 export interface PageCardState {
   media: PageMediaState;

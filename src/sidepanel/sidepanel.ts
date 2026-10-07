@@ -4,6 +4,7 @@ import { createLogger } from '../shared/logger';
 import { sidePanelKind } from '../shared/side-panel';
 import { h, preserveFocus } from '../ui/dom';
 import { icon, kai, type IconName } from '../ui/icons';
+import { createNowPlaying } from './components/now-playing';
 import { watchPanelContext, type PanelContext } from './presence';
 import { nextTabIndex, PANEL_TABS, type PanelTab } from './tabs';
 
@@ -27,6 +28,7 @@ let context: PanelContext = { status: 'checking' };
 let selected: PanelTab = 'nowPlaying';
 
 const app = document.getElementById('app');
+const nowPlaying = createNowPlaying(() => render());
 
 function selectTab(tab: PanelTab, focus: boolean): void {
   selected = tab;
@@ -98,13 +100,15 @@ function renderTabPanel(): HTMLElement {
       class: 'sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3',
       attrs: { role: 'tabpanel', id: `sk-tabpanel-${selected}`, 'aria-labelledby': `sk-tab-${selected}`, tabindex: '0' },
     },
-    h(
-      'div',
-      { class: 'flex flex-col items-center gap-2 rounded-card bg-surface px-4 py-6 text-center' },
-      icon(copy.icon, 'h-6 w-6 text-lavender'),
-      h('span', { class: 'rounded-full bg-raised px-2 py-0.5 text-[11px] font-bold text-butter' }, t('panel.soon')),
-      h('p', { class: 'm-0 max-w-[260px] text-muted' }, t(copy.soon)),
-    ),
+    selected === 'nowPlaying'
+      ? nowPlaying.render()
+      : h(
+          'div',
+          { class: 'flex flex-col items-center gap-2 rounded-card bg-surface px-4 py-6 text-center' },
+          icon(copy.icon, 'h-6 w-6 text-lavender'),
+          h('span', { class: 'rounded-full bg-raised px-2 py-0.5 text-[11px] font-bold text-butter' }, t('panel.soon')),
+          h('p', { class: 'm-0 max-w-[260px] text-muted' }, t(copy.soon)),
+        ),
   );
 }
 
@@ -120,15 +124,20 @@ function renderNotice(text: string, busy: boolean): HTMLElement {
 
 function render(): void {
   if (!app) return;
+  // Le contenu est recréé à chaque rendu : la position de défilement de l'onglet est conservée
+  const previous = app.querySelector<HTMLElement>('[role="tabpanel"]');
   preserveFocus(app, () => {
     if (context.status === 'target') app.replaceChildren(renderHeader(), renderTabList(), renderTabPanel());
     else if (context.status === 'checking') app.replaceChildren(renderHeader(), renderNotice(t('panel.checking'), true));
     else app.replaceChildren(renderHeader(), renderNotice(t('panel.offTarget'), false));
   });
+  const next = app.querySelector<HTMLElement>('[role="tabpanel"]');
+  if (previous && next && previous.id === next.id) next.scrollTop = previous.scrollTop;
 }
 
 function setContext(next: PanelContext): void {
   context = next;
+  nowPlaying.setTab(next.status === 'target' ? next.tabId : null);
   render();
 }
 

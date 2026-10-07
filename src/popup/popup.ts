@@ -28,14 +28,15 @@ import {
   STORAGE_KEYS,
 } from '../shared/storage';
 import { getSyncQueue, removeQueueItem, SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
-import type { AddListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { isPageMediaResponse, type ContentMessage } from '../shared/content-messages';
-import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
+import type { PageMediaInfo, PageMediaResult } from '../shared/page-media.types';
 import { isTrackerId, TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingResult, type WatchingSort } from '../shared/watching.types';
 import { h, nodes, preserveFocus } from '../ui/dom';
 import { formatStarValue } from '../ui/rating';
+import { mediaActionKey, runMediaAction, type MediaActionRequest } from '../ui/media-action-requests';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../shared/host-access';
 import { renderFooter, type FooterStatus } from './components/footer';
 import { renderHostAccessBanner } from './components/host-access-banner';
@@ -50,7 +51,7 @@ import { createReviewSection } from './components/review-section';
 import { createSettingsScreen } from './components/settings-screen';
 import { renderPageMediaCard } from './components/page-media-card';
 import { entryKey, renderWatchingScreen } from './components/watching-screen';
-import { addFeedback, adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from './feedback';
+import { adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from './feedback';
 import { getPendingRatings, PENDING_RATINGS_KEY, removePendingRating } from './pending-ratings';
 import {
   createStore,
@@ -65,7 +66,6 @@ import {
   type QueueState,
   type RatingsState,
   type MalState,
-  type PageCardAction,
   type PageCardState,
   type Screen,
   type SettingsState,
@@ -437,11 +437,11 @@ function renderWatching(): void {
           card: pageCard,
           now,
           onRetry: () => void loadPageMedia(),
-          onAdd: (status) => void pageAdd(status),
-          onAdjust: (delta) => void pageAdjust(delta),
+          onAdd: (status) => void runPageAction({ kind: 'add', status }),
+          onAdjust: (delta) => void runPageAction({ kind: 'adjust', delta }),
           onConfirm: (status) => setPageConfirm(status),
-          onSetStatus: (status) => void pageSetStatus(status),
-          onRate: (value) => void pageRate(value),
+          onSetStatus: (status) => void runPageAction({ kind: 'status', status }),
+          onRate: (value) => void runPageAction({ kind: 'rate', value }),
           onPickSeason: (mediaId) => pickPageSeason(mediaId),
         }),
         controls: {
@@ -1072,63 +1072,17 @@ function showPageFeedback(feedback: InlineFeedback): void {
 }
 
 /** Exécute une action de la carte (une à la fois), affiche son retour puis relit la fiche et « En cours » */
-async function runPageAction(action: PageCardAction, send: (view: PageMediaView) => Promise<SyncOutcome>, toFeedback: (outcome: SyncOutcome) => InlineFeedback): Promise<void> {
+async function runPageAction(request: MediaActionRequest): Promise<void> {
   const card = pageCardStore.get();
   if (card.busy !== null || card.media.status !== 'ready') return;
-  patchPageCard({ busy: action, confirm: null });
-
-  let outcome: SyncOutcome;
-  try {
-    outcome = await send(card.media.view);
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    outcome = { status: 'error', message: swUnreachable() };
-  }
+  patchPageCard({ busy: mediaActionKey(request), confirm: null });
+  const feedback = await runMediaAction(request, card.media.view, (error) => log.error('Service worker injoignable :', error));
   patchPageCard({ busy: null });
-  showPageFeedback(toFeedback(outcome));
+  showPageFeedback(feedback);
   scheduleWatchingRevalidation();
   await loadPageMedia(true);
 }
 
-function pageAdd(status: AddListStatus): Promise<void> {
-  return runPageAction(
-    `add-${status}`,
-    ({ media }) => sendMessage('ADD_TO_LIST', { mediaId: media.mediaId, malId: media.idMal, status }),
-    (outcome) => addFeedback(outcome, status),
-  );
-}
-
-function pageAdjust(delta: 1 | -1): Promise<void> {
-  return runPageAction(
-    delta === 1 ? 'plus' : 'minus',
-    ({ media }) => sendMessage('ADJUST_PROGRESS', { mediaId: media.mediaId, malId: media.idMal, delta }),
-    (outcome) => adjustFeedback(outcome, delta),
-  );
-}
-
-function pageSetStatus(status: ListStatusChange): Promise<void> {
-  return runPageAction(
-    `status-${status}`,
-    ({ media }) => {
-      // Affiche de la carte « À noter » : https uniquement (refusée sinon par la validation du message)
-      const coverUrl = media.coverUrl?.startsWith('https://') && media.coverUrl.length <= 2000 ? media.coverUrl : null;
-      return sendMessage('SET_LIST_STATUS', { mediaId: media.mediaId, malId: media.idMal, status, coverUrl });
-    },
-    (outcome) => statusFeedback(outcome, status),
-  );
-}
-
-function pageRate(value: number): Promise<void> {
-  return runPageAction(
-    'rate',
-    ({ media }) => sendMessage('RATE_MEDIA', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) }, score: value }),
-    (outcome) => {
-      const card = pageCardStore.get().media;
-      const { tone, text, detail } = ratingFeedback(outcome, formatStarValue(value), card.status === 'ready' ? card.view.media.title : '');
-      return { tone, text, detail };
-    },
-  );
-}
 
 /**
  * Confirmation Abandonner / Terminé de la carte. Ouverture : focus sur « Non » (une action

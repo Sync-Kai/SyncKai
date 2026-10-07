@@ -170,6 +170,7 @@ export function pageView(): PageMediaView {
     ],
     confidence: 'certain',
     source: 'page',
+    episodeProgress: null,
     seasons: [
       season(108465, 'Mushoku Tensei: Jobless Reincarnation', 2021, 11, 1, 1),
       season(127720, 'Mushoku Tensei: Jobless Reincarnation Part 2', 2021, 12, 1, 2),

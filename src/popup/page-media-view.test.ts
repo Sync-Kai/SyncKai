@@ -27,6 +27,7 @@ function view(lists: PageListState[], patch: Partial<PageMediaView['media']> = {
     lists,
     confidence: 'certain',
     source: 'page',
+    episodeProgress: null,
     seasons: [
       { id: 1, title: 'Série', format: 'TV', episodes: 12, year: 2017, coverUrl: null, slot: { season: 1, part: 1, parts: 1 } },
       { id: 2, title: 'Série S2', format: 'TV', episodes: 12, year: 2018, coverUrl: null, slot: { season: 2, part: 1, parts: 1 } },

@@ -7,7 +7,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 ### Ajouté
 
-- Panneau latéral (en préparation) : ouverture depuis le popup sur Crunchyroll et ADN uniquement.
+- **Panneau latéral** (Crunchyroll et ADN) : onglet *En lecture* avec la fiche AniList complète (synopsis, genres, studio, suites), ta progression et tes actions, et un lien vers la discussion de l'épisode.
 - Tests de bout en bout du popup dans l'intégration continue (bloquent une release en cas d'échec).
 
 ### Modifié

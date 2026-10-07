@@ -1,5 +1,6 @@
 import { initI18n, t } from '../i18n';
 import { getMalViewer } from './api/mal';
+import { getPanelMedia } from './api/panel-media';
 import { getViewer } from './api/viewer';
 import { getWatchingList } from './api/watching';
 import { loginWithAniList } from './auth/anilist';
@@ -75,6 +76,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     APPLY_DIFFS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
     CANCEL_COMPARE_JOB: { ok: false, code: 'NOT_FOUND', message },
     PANEL_AVAILABLE: null,
+    GET_PANEL_MEDIA: { ok: false, code: 'API_ERROR', message },
   };
 }
 
@@ -115,6 +117,7 @@ const handlers: MessageHandlers = {
   APPLY_DIFFS: (payload) => applyDiffs(payload),
   CANCEL_COMPARE_JOB: () => cancelCompareJob(),
   PANEL_AVAILABLE: (_payload, sender) => enablePanelForSender(sender),
+  GET_PANEL_MEDIA: ({ mediaId }) => getPanelMedia(mediaId),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();

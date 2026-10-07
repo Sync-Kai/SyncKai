@@ -1,4 +1,4 @@
-import { isPageMediaResponse, type ContentMessage } from '../shared/content-messages';
+import { isPageMediaResponse, type ContentMessage, type PageMediaResponse } from '../shared/content-messages';
 import { createLogger } from '../shared/logger';
 import { disableSidePanelForTab, type SidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
@@ -27,8 +27,11 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** true si le script de contenu SyncKai répond dans l'onglet (il ne tourne que sur Crunchyroll / ADN) */
-async function pingContentScript(tabId: number): Promise<boolean> {
+/**
+ * Demande au script de contenu SyncKai la série / l'épisode affiché (GET_PAGE_MEDIA).
+ * `unreachable` : pas de script de contenu (autre site) ou pas de réponse à temps.
+ */
+export async function requestPageMedia(tabId: number): Promise<PageMediaResponse | 'unreachable'> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const message: ContentMessage = { type: 'GET_PAGE_MEDIA' };
@@ -36,13 +39,18 @@ async function pingContentScript(tabId: number): Promise<boolean> {
       timer = setTimeout(() => resolve('timeout'), PING_TIMEOUT_MS);
     });
     const response: unknown = await Promise.race([chrome.tabs.sendMessage(tabId, message), timeout]);
-    return response !== 'timeout' && isPageMediaResponse(response);
+    return response !== 'timeout' && isPageMediaResponse(response) ? response : 'unreachable';
   } catch {
     // « Receiving end does not exist » : pas de script de contenu dans cet onglet
-    return false;
+    return 'unreachable';
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** true si le script de contenu SyncKai répond dans l'onglet (il ne tourne que sur Crunchyroll / ADN) */
+async function pingContentScript(tabId: number): Promise<boolean> {
+  return (await requestPageMedia(tabId)) !== 'unreachable';
 }
 
 /** URL visible : réponse immédiate ; URL masquée : le script de contenu fait foi (quelques essais pendant le chargement) */

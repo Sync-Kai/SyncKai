@@ -8,6 +8,7 @@ import type { CandidateSummary } from './review.types';
 import type { MalViewerResult } from './mal.types';
 import { isAddListStatus, isListStatusChange, type AddListStatus, type ListStatusChange, type SyncOutcome } from './sync.types';
 import { isPageMediaInfo, type PageMediaResult, type ResolvePageMediaPayload } from './page-media.types';
+import type { PanelMediaResult } from './panel-media.types';
 import { isTrackerId, type TrackerId } from './tracker.types';
 import type { WatchingResult } from './watching.types';
 import { isApplyDiffsPayload, type ApplyDiffsPayload, type ApplyResult, type CancelJobResult, type CompareResult } from './compare';
@@ -88,6 +89,8 @@ export interface MessageMap {
   CANCEL_COMPARE_JOB: { payload: null; response: CancelJobResult };
   /** Chrome : script de contenu chargé sur Crunchyroll / ADN → panneau latéral activé pour cet onglet seulement */
   PANEL_AVAILABLE: { payload: null; response: null };
+  /** Panneau latéral › « En lecture » : fiche AniList complète (synopsis, genres, studio, relations), cache de session */
+  GET_PANEL_MEDIA: { payload: { mediaId: number }; response: PanelMediaResult };
 }
 
 /** Messages réservés aux pages de l'extension (popup) : refusés s'ils viennent d'un content script */
@@ -107,6 +110,7 @@ export const EXTENSION_PAGE_ONLY: ReadonlySet<MessageType> = new Set([
   'COMPARE_LISTS',
   'APPLY_DIFFS',
   'CANCEL_COMPARE_JOB',
+  'GET_PANEL_MEDIA',
 ]);
 
 export type MessageType = keyof MessageMap;
@@ -160,6 +164,8 @@ const isResolvePageMediaPayload = (p: unknown): p is ResolvePageMediaPayload =>
 const isAddToListPayload = (p: unknown): p is AddToListPayload =>
   isRecord(p) && isPositiveInt(p.mediaId) && (p.malId === null || isPositiveInt(p.malId)) && isAddListStatus(p.status);
 
+const isPanelMediaPayload = (p: unknown): p is { mediaId: number } => isRecord(p) && isPositiveInt(p.mediaId);
+
 // Record exhaustif : TypeScript impose un validateur de payload pour chaque MessageType
 const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is MessagePayload<K> } = {
   LOGIN_ANILIST: isNull,
@@ -185,6 +191,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   APPLY_DIFFS: isApplyDiffsPayload,
   CANCEL_COMPARE_JOB: isNull,
   PANEL_AVAILABLE: isNull,
+  GET_PANEL_MEDIA: isPanelMediaPayload,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */

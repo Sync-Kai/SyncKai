@@ -49,6 +49,8 @@ interface Resolution {
   source: SeasonSource;
   confidence: 'certain' | 'uncertain';
   seasons: PageSeason[];
+  /** Page de lecture : épisode rapporté à la fiche retenue (SyncTarget.progress), sinon null */
+  episodeProgress: number | null;
 }
 
 interface Cached<T> {
@@ -105,13 +107,15 @@ async function resolveEpisodePage(page: PageMediaInfo & { episode: NonNullable<P
   // Sélecteur : saisons de la série uniquement (pas de films ni de spéciaux) ; la fiche retenue hors saisons
   // (spécial lié à l'épisode) est ajoutée par la carte. Aucune saison identifiée : fiches candidates, à confirmer.
   const seasons = toPageSeasons(pool.length > 0 ? pool.slice(0, MAX_PICKER_SEASONS) : candidates, seasonGroups);
-  if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons };
-  if (result.ok) {
-    return { mediaId: result.target.mediaId, source: 'page', confidence: result.target.confidence === 'high' ? 'certain' : 'uncertain', seasons };
+  // Épisode de la page sur la fiche retenue par la synchro (valable seulement si c'est la fiche affichée)
+  const target = result.ok ? result.target : null;
+  if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons, episodeProgress: target?.mediaId === manual ? target.progress : null };
+  if (target) {
+    return { mediaId: target.mediaId, source: 'page', confidence: target.confidence === 'high' ? 'certain' : 'uncertain', seasons, episodeProgress: target.progress };
   }
   // Aucune correspondance : première saison (ou meilleure fiche candidate), à confirmer dans le sélecteur
   const first = seasons[0];
-  return first ? { mediaId: first.id, source: 'page', confidence: 'uncertain', seasons } : null;
+  return first ? { mediaId: first.id, source: 'page', confidence: 'uncertain', seasons, episodeProgress: null } : null;
 }
 
 /** Page de série : saison lue sur la page, correspondance mémorisée, puis première saison non terminée */
@@ -134,10 +138,10 @@ async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Pr
   const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: target.target.confidence === 'high' } : null;
 
   if (seasons.length === 0) {
-    if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons: summaries };
+    if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons: summaries, episodeProgress: null };
     // Aucune saison série : fiche dédiée (spécial publié comme série, titre exact), sinon premier résultat, à confirmer
-    if (pageMatch) return { mediaId: pageMatch.mediaId, source: 'page', confidence: pageMatch.confident ? 'certain' : 'uncertain', seasons: summaries };
-    return { mediaId: summaries[0].id, source: 'page', confidence: 'uncertain', seasons: summaries };
+    if (pageMatch) return { mediaId: pageMatch.mediaId, source: 'page', confidence: pageMatch.confident ? 'certain' : 'uncertain', seasons: summaries, episodeProgress: null };
+    return { mediaId: summaries[0].id, source: 'page', confidence: 'uncertain', seasons: summaries, episodeProgress: null };
   }
   // (b) Correspondance mémorisée (synchro précédente)
   const remembered = rememberedSeason(await getMediaMappings(), seriesMappingPrefix(page), page.seasonNumber);
@@ -148,7 +152,7 @@ async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Pr
     // (c) Première saison non terminée par l'utilisateur
     firstUnfinishedSeason(seasonIds, await seasonStatuses(seasons));
   if (!choice) return null;
-  return { ...(choice.source === 'page' ? await refinePageSeason(page, choice, seasons, seasonGroups, remembered) : choice), seasons: summaries };
+  return { ...(choice.source === 'page' ? await refinePageSeason(page, choice, seasons, seasonGroups, remembered) : choice), seasons: summaries, episodeProgress: null };
 }
 
 /**
@@ -246,8 +250,8 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
     const media = await getDetails(resolution.mediaId);
     const lists = await readLists(media);
     log.info(`Fiche de la page : ${media.title} (#${media.mediaId}, ${resolution.source}, ${resolution.confidence})`);
-    const { confidence, source, seasons } = resolution;
-    return { ok: true, data: { media, lists, confidence, source, seasons } };
+    const { confidence, source, seasons, episodeProgress } = resolution;
+    return { ok: true, data: { media, lists, confidence, source, seasons, episodeProgress } };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, code: error.code, message: error.message };
     log.error('Erreur inattendue (fiche de la page) :', error);

@@ -115,6 +115,11 @@ export interface PageMediaView {
   source: SeasonSource;
   /** Saisons proposées dans le sélecteur (ordre de diffusion) ; vide ou une seule = pas de sélecteur */
   seasons: PageSeason[];
+  /**
+   * Page de lecture : épisode de la page rapporté à la fiche AniList affichée (progression que la synchro
+   * écrirait, jamais le numéro relatif à la saison Crunchyroll). null sur une page de série ou si inconnu.
+   */
+  episodeProgress: number | null;
 }
 
 export type PageMediaErrorCode = AniListErrorCode | 'NOT_FOUND';
