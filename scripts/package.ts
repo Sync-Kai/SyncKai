@@ -1,11 +1,11 @@
 /**
  * Empaquette le build en archive prête pour les stores, ou les sources pour la relecture AMO.
- * - Chrome (défaut) : dist/ → release/synckai-<version>.zip (Chrome Web Store, champ `key` retiré).
+ * - Chrome (défaut) : dist/ → release/synckai-<version>-chrome.zip (Chrome Web Store, champ `key` retiré).
  * - Firefox : dist-firefox/ → release/synckai-<version>-firefox.zip (AMO, gecko id et background.scripts vérifiés).
  * - Sources : `git archive` de HEAD → release/synckai-<version>-source.zip (avec BUILD.md et .source-date-epoch).
  * Écrivain ZIP minimal (deflate via node:zlib), sans dépendance externe.
  *
- * Usage : npm run package | npm run package:firefox | npm run package:source
+ * Usage : npm run package | npm run package:firefox | npm run package:source | npm run package:all (les trois)
  *         node scripts/package.ts [--target chrome|firefox] [--source]
  */
 import { execFileSync } from 'node:child_process';
@@ -202,8 +202,8 @@ function packageBuild(version: string, target: BuildTarget): void {
 
   const zip = createZip(entries);
   mkdirSync(RELEASE, { recursive: true });
-  // Nom historique pour Chrome : attendu par .github/workflows/release.yml
-  const zipPath = join(RELEASE, target === 'chrome' ? `synckai-${version}.zip` : `synckai-${version}-${target}.zip`);
+  // Noms attendus par .github/workflows/release.yml
+  const zipPath = join(RELEASE, `synckai-${version}-${target}.zip`);
   writeFileSync(zipPath, zip);
 
   console.log(`✔ ${relative(ROOT, zipPath)}`);

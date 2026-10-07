@@ -16,6 +16,7 @@
     "package": "tsc --noEmit -p scripts && npm run build && node scripts/package.ts",
     "package:firefox": "tsc --noEmit -p scripts && npm run build:firefox && node scripts/package.ts --target firefox",
     "package:source": "tsc --noEmit -p scripts && node scripts/package.ts --source",
+    "package:all": "npm run package && npm run package:firefox && npm run package:source",
     "screenshots": "tsc --noEmit -p scripts/screenshots && node scripts/screenshots/capture.ts"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
-# Publication sur le Chrome Web Store
+# Publication sur le Chrome Web Store et Firefox Add-ons
 
-Procédure pas à pas pour publier SyncKai (première soumission puis mises à jour).
+Procédure pas à pas pour publier SyncKai (première soumission puis mises à jour). Sections 1 à 6 : Chrome Web Store ; Firefox Add-ons (AMO) : section 7 et [docs/store/amo.md](store/amo.md).
 
 ## 1. Générer l'archive
 
@@ -8,7 +8,7 @@ Procédure pas à pas pour publier SyncKai (première soumission puis mises à j
 npm run package
 ```
 
-Produit `release/synckai-<version>.zip` (contenu de `dist/` à la racine). Le script :
+Produit `release/synckai-<version>-chrome.zip` (contenu de `dist/` à la racine). Le script :
 
 - vérifie que la version de `dist/manifest.json` = version de `package.json` ;
 - **retire le champ `key`** du manifest (le Web Store le refuse : l'ID est attribué par le store) ;
@@ -17,7 +17,7 @@ Produit `release/synckai-<version>.zip` (contenu de `dist/` à la racine). Le sc
 ## 2. Premier dépôt (brouillon non répertorié)
 
 1. Ouvrir le [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) (frais d'inscription uniques de 5 $ si le compte n'est pas encore activé).
-2. **New item** → déposer `release/synckai-<version>.zip`.
+2. **New item** → déposer `release/synckai-<version>-chrome.zip`.
 3. Onglet **Distribution** → visibilité **Unlisted** (non répertorié) pour la première version : l'extension n'est accessible que via son lien, le temps de valider OAuth en conditions réelles.
 4. **Ne pas encore soumettre** : il faut d'abord mettre à jour les redirections OAuth (étape 4).
 
@@ -86,14 +86,27 @@ L'ID ne change plus : aucune modification OAuth n'est nécessaire pour les mises
 
 ### Workflows
 
-- **`.github/workflows/ci.yml`** : à chaque push sur `main`/`develop` et sur chaque pull request, vérifie les types (`src` et `scripts`), lance les tests et le build.
-- **`.github/workflows/release.yml`** : à chaque tag `vx.y.z` poussé :
-  1. vérifie que la version du tag = `package.json` = `manifest.json` ;
-  2. tests, puis `npm run package` → `release/synckai-<version>.zip` ;
-  3. envoie l'archive au Chrome Web Store et la **soumet pour examen** (`chrome-webstore-upload-cli`) : la version est mise en ligne automatiquement dès sa validation, sans action manuelle ;
-  4. crée la release GitHub avec le zip et les notes extraites du `CHANGELOG.md` (`scripts/changelog-notes.ts`).
+- **`.github/workflows/ci.yml`** : à chaque push sur `main`/`develop` et sur chaque pull request, vérifie les types (`src` et `scripts`), lance les tests, les builds Chrome et Firefox et `web-ext lint`.
+- **`.github/workflows/release.yml`** : à chaque tag `vx.y.z` poussé, quatre jobs :
 
-Le Store passe avant la release GitHub : en cas d'échec, aucune release n'annonce une version absente du Store. Après correction, supprimer le tag (`git push --delete origin vx.y.z`, `git tag -d vx.y.z`), le recréer et le repousser. Si l'envoi au Store a réussi mais pas la release GitHub, la créer à la main (`gh release create`) : relancer le workflow échouerait, le Store refusant une version déjà envoyée.
+  ```text
+  build ──┬── chrome ───┬── github-release
+          └── firefox ──┘
+  ```
+
+  1. **build** : vérifie que la version du tag = `package.json` = `manifest.json`, lance les tests, puis `npm run package:all` → `release/synckai-<version>-chrome.zip`, `-firefox.zip` et `-source.zip` (`git archive` du tag), `web-ext lint` et les notes extraites du `CHANGELOG.md` (`scripts/changelog-notes.ts`). Le tout est transmis aux jobs suivants (artefact `release`).
+  2. **chrome** : envoie l'archive Chrome au Chrome Web Store et la **soumet pour examen** (`chrome-webstore-upload-cli`) : la version est mise en ligne automatiquement dès sa validation.
+  3. **firefox** (en parallèle) : `web-ext sign --channel listed` envoie le paquet Firefox **et l'archive des sources** à AMO, puis le soumet pour examen sans attendre (`--approval-timeout 0`) : AMO publie la version une fois approuvée. La fiche complète (`docs/store/amo-metadata.json`) n'est envoyée que tant que le module n'est pas public ; ensuite, seules les métadonnées de version (licence, notes pour les relecteurs) partent, pour ne pas écraser les modifications faites à la main sur AMO.
+  4. **github-release** : si le Chrome Web Store a accepté la version (même si AMO a échoué), crée la release GitHub avec les trois zips, les notes du changelog et une ligne de statut (« Chrome Web Store : soumis pour examen · Firefox (AMO) : … »).
+
+Chaque job n'a que les droits nécessaires (`contents: write` uniquement pour la release GitHub). Chaque store vérifie ses propres secrets et échoue avec la liste des noms manquants.
+
+**En cas d'échec** :
+
+- **Secrets ou panne passagère** : corriger, puis *Actions › run › Re-run failed jobs* (ne relance que les jobs échoués et ceux qui en dépendent ; un store qui a déjà accepté la version n'est pas renvoyé).
+- **Correction de code** : supprimer le tag (`git push --delete origin vx.y.z`, `git tag -d vx.y.z`), le recréer et le repousser. Si un store a déjà accepté la version, il refusera ce nouvel envoi (même numéro) : préférer une nouvelle version de correctif.
+- **Chrome Web Store en échec** : pas de release GitHub, aucune annonce d'une version absente du Store.
+- **Seul AMO en échec** : la release GitHub est créée avec « Firefox (AMO) : échec » ; relancer le job `firefox` (*Re-run failed jobs*) ou envoyer `release/synckai-<version>-firefox.zip` + `-source.zip` à la main sur le [Developer Hub](https://addons.mozilla.org/developers/addons). La ligne de statut de la release se corrige à la main (`gh release edit`).
 
 ### Configuration (une seule fois)
 
@@ -111,8 +124,20 @@ Le Store passe avant la release GitHub : en cas d'échec, aucune release n'annon
    | `CWS_CLIENT_SECRET` | Client secret OAuth |
    | `CWS_REFRESH_TOKEN` | Refresh token (étape 5) |
    | `CWS_PUBLISHER_ID` | Publisher ID (étape 6) |
+   | `AMO_JWT_ISSUER` | Firefox Add-ons : *JWT issuer* (étape 8) |
+   | `AMO_JWT_SECRET` | Firefox Add-ons : *JWT secret* (étape 8) |
 
-   Le workflow échoue avec un message explicite si l'un d'eux manque. L'ID de l'extension est une constante publique du workflow.
+   Le workflow échoue avec un message explicite si l'un d'eux manque. L'ID de l'extension (Chrome) et l'ID Gecko (`synckai@sync-kai.github.io`, Firefox) sont des constantes publiques du workflow.
+8. **Clés API AMO** : se connecter à [addons.mozilla.org](https://addons.mozilla.org/) avec le compte développeur Firefox, puis [Developer Hub › Manage API Keys](https://addons.mozilla.org/developers/addon/api/key/) → accepter le contrat de distribution si demandé → **Generate new credentials** : copier le *JWT issuer* (`user:…`) dans `AMO_JWT_ISSUER` et le *JWT secret* dans `AMO_JWT_SECRET`. Ces clés n'expirent pas mais peuvent être révoquées et régénérées depuis la même page.
+
+### Première soumission Firefox (AMO)
+
+Le module n'existe pas encore sur AMO : c'est le premier tag poussé qui le crée (canal *listed*, fiche publique après examen).
+
+1. Le job `firefox` envoie la fiche de `docs/store/amo-metadata.json` (nom, résumé et description en en-US/fr/de, catégories, licence MIT, page d'accueil, support, notes pour les relecteurs) avec le paquet et l'archive des sources.
+2. Compléter ensuite la fiche à la main dans le Developer Hub (icône, captures, politique de confidentialité, e-mail de support) : voir [docs/store/amo.md](store/amo.md).
+3. **Examen** : les versions *listed* passent une validation automatique puis, selon le cas, un examen humain (souvent quelques heures à quelques jours ; plus long pour un nouveau module ou un code minifié). Le relecteur reconstruit le paquet depuis l'archive des sources avec `BUILD.md` (`npm ci && npm run build:firefox`) : le build doit être identique, d'où le `.source-date-epoch` ajouté par `npm run package:source`.
+4. Les redirections OAuth Firefox ne dépendent que de l'ID Gecko : aucune modification AniList/MAL après la publication (voir *Clients OAuth par navigateur*, section 4).
 
 ### Routine de release
 
@@ -125,7 +150,7 @@ git checkout main && git merge --ff-only release/x.y.z
 git tag -a vx.y.z -m "SyncKai x.y.z"
 git checkout develop && git merge --ff-only main
 git branch -d release/x.y.z
-git push origin main develop vx.y.z      # déclenche release.yml : Store puis release GitHub
+git push origin main develop vx.y.z      # déclenche release.yml : Chrome Web Store + AMO, puis release GitHub
 ```
 
-Suivre l'exécution dans l'onglet **Actions** du dépôt. Le Store refuse un nouvel envoi tant qu'une version précédente est encore en cours d'examen.
+Suivre l'exécution dans l'onglet **Actions** du dépôt. Le Chrome Web Store refuse un nouvel envoi tant qu'une version précédente est encore en cours d'examen ; AMO accepte une nouvelle version pendant l'examen de la précédente, mais refuse un numéro de version déjà envoyé.

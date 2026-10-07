@@ -1,13 +1,17 @@
 name: Release
 
-# Un tag de version poussé (git push origin vx.y.z) publie la release GitHub
-# et envoie l'archive au Chrome Web Store (soumission pour examen, publication automatique après validation).
+# Un tag de version poussé (git push origin vx.y.z) :
+#   build → archives Chrome, Firefox et sources (artefact partagé)
+#   chrome → envoi + soumission au Chrome Web Store
+#   firefox → envoi + soumission sur Firefox Add-ons (AMO), en parallèle
+#   github-release → release GitHub avec les trois archives, si le Chrome Web Store a accepté la version
+# Chaque store publie automatiquement la version après son examen. Voir docs/STORE.md › 7.
 on:
   push:
     tags: ['v*.*.*']
 
-permissions:
-  contents: write
+# Aucun droit par défaut : chaque job déclare le strict nécessaire
+permissions: {}
 
 # Jamais deux publications en parallèle ; une publication en cours n'est pas interrompue
 concurrency:
@@ -15,15 +19,22 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PUPPETEER_SKIP_DOWNLOAD: 'true'
   # ID public de l'élément sur le Chrome Web Store
   EXTENSION_ID: khokcmigioggannjoojambdgioigdceb
+  # ID Gecko (browser_specific_settings.gecko.id) : identifie le module sur AMO
+  AMO_ADDON_ID: synckai@sync-kai.github.io
 
 jobs:
-  release:
-    name: GitHub + Chrome Web Store
+  build:
+    name: Tests et archives
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -50,12 +61,35 @@ jobs:
       - name: Tests
         run: npx vitest run
 
-      # Types des scripts + build de production + release/synckai-<version>.zip (sans le champ key)
-      - name: Archive
-        run: npm run package
+      # Types des scripts + builds de production → release/synckai-<version>-{chrome,firefox,source}.zip
+      # (Chrome sans le champ key ; sources = git archive du tag, avec BUILD.md et .source-date-epoch)
+      - name: Archives
+        run: npm run package:all
+
+      - name: web-ext lint (Firefox)
+        run: npm run lint:firefox
 
       - name: Notes de version
-        run: node scripts/changelog-notes.ts "${{ steps.version.outputs.version }}" > notes.md
+        run: node scripts/changelog-notes.ts "${{ steps.version.outputs.version }}" > release/notes.md
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
+
+  chrome:
+    name: Chrome Web Store
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
 
       - name: Identifiants du Chrome Web Store
         env:
@@ -74,28 +108,129 @@ jobs:
             exit 1
           fi
 
-      # Le Store passe AVANT la release GitHub : s'il refuse l'archive (identifiants expirés,
-      # version déjà envoyée, examen en cours…), aucune release publique n'annonce une version
-      # absente du Store. Le tag peut alors être supprimé et repoussé après correction.
       # Sans sous-commande, la CLI envoie l'archive puis la soumet (DEFAULT_PUBLISH : mise en ligne
       # automatique dès la validation). Elle lit CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN, PUBLISHER_ID.
-      - name: Chrome Web Store (envoi + soumission)
+      - name: Envoi + soumission
         env:
           CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
           PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: >-
           npx --yes chrome-webstore-upload-cli@4
-          --source "release/synckai-${{ steps.version.outputs.version }}.zip"
+          --source "release/synckai-$VERSION-chrome.zip"
           --extension-id "$EXTENSION_ID"
+
+  firefox:
+    name: Firefox Add-ons (AMO)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      # Seulement pour docs/store/amo-metadata.json
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: docs/store
+          sparse-checkout-cone-mode: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
+
+      - name: Identifiants AMO
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          missing=""
+          [ -n "$AMO_JWT_ISSUER" ] || missing="$missing AMO_JWT_ISSUER"
+          [ -n "$AMO_JWT_SECRET" ] || missing="$missing AMO_JWT_SECRET"
+          if [ -n "$missing" ]; then
+            echo "::error::Secrets manquants :$missing (Settings › Secrets and variables › Actions, voir docs/STORE.md)."
+            exit 1
+          fi
+
+      # L'API (PUT addon/<guid>) applique les champs de fiche à chaque envoi : la fiche complète n'est
+      # envoyée que tant que le module n'est pas public (première soumission), pour ne pas écraser
+      # ensuite les modifications faites à la main sur AMO. Les versions suivantes ne reçoivent
+      # que les métadonnées de version (licence, notes pour les relecteurs).
+      - name: Métadonnées AMO
+        run: |
+          status="$(curl -s -o /dev/null -w '%{http_code}' "https://addons.mozilla.org/api/v5/addons/addon/$AMO_ADDON_ID/" || true)"
+          if [ "$status" = "200" ]; then
+            jq '{version: .version}' docs/store/amo-metadata.json > amo-metadata.json
+            echo "Module public sur AMO : métadonnées de version uniquement."
+          else
+            cp docs/store/amo-metadata.json amo-metadata.json
+            echo "Module absent ou non public sur AMO (HTTP $status) : fiche complète envoyée."
+          fi
+
+      # web-ext sign reconstruit le .zip à partir d'un dossier : on lui donne le paquet Firefox décompressé,
+      # identique à l'archive jointe à la release. --approval-timeout 0 : soumission sans attendre l'examen
+      # (la version est publiée par AMO une fois approuvée). Identifiants lus dans WEB_EXT_API_KEY / _SECRET.
+      - name: Envoi + soumission (canal listed)
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          unzip -q "release/synckai-$VERSION-firefox.zip" -d amo-package
+          npx --yes web-ext@8 sign \
+            --no-config-discovery \
+            --source-dir amo-package \
+            --artifacts-dir web-ext-artifacts \
+            --channel listed \
+            --amo-metadata amo-metadata.json \
+            --upload-source-code "release/synckai-$VERSION-source.zip" \
+            --approval-timeout 0
+
+  github-release:
+    name: Release GitHub
+    needs: [build, chrome, firefox]
+    # Publiée dès que le Chrome Web Store a accepté la version, même si AMO a échoué (statut dans les notes)
+    if: always() && needs.build.result == 'success' && needs.chrome.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
+
+      - name: Statut des stores
+        env:
+          FIREFOX_RESULT: ${{ needs.firefox.result }}
+        run: |
+          case "$FIREFOX_RESULT" in
+            success) firefox="soumis pour examen" ;;
+            failure) firefox="échec, nouvel envoi à venir" ;;
+            *) firefox="non soumis" ;;
+          esac
+          printf '\n---\n\nChrome Web Store : soumis pour examen · Firefox (AMO) : %s\n' "$firefox" >> release/notes.md
+          if [ "$FIREFOX_RESULT" != "success" ]; then
+            echo "::warning::Firefox (AMO) : $FIREFOX_RESULT. La release GitHub est créée quand même (voir docs/STORE.md › 7)."
+          fi
 
       - name: Release GitHub
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: >-
-          gh release create "$GITHUB_REF_NAME" "release/synckai-$VERSION.zip"
+          gh release create "$GITHUB_REF_NAME"
+          "release/synckai-$VERSION-chrome.zip"
+          "release/synckai-$VERSION-firefox.zip"
+          "release/synckai-$VERSION-source.zip"
+          --repo "$GITHUB_REPOSITORY"
           --title "SyncKai $VERSION"
-          --notes-file notes.md
+          --notes-file release/notes.md
           --verify-tag

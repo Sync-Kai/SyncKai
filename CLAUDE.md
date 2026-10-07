@@ -76,7 +76,7 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - la version est montée dans `manifest.json`, `package.json` et `package-lock.json` (`npm version x.y.z --no-git-tag-version`) ;
   - entrée dans le `CHANGELOG.md` (FR, Keep a Changelog) et commit `chore(release): x.y.z` ;
   - fast-forward sur `main`, tag annoté `vx.y.z` (« SyncKai x.y.z »), `develop` aligné, push ;
-  - le push du tag déclenche `.github/workflows/release.yml` : archive, envoi et soumission au Chrome Web Store, release GitHub avec le zip (voir `docs/STORE.md` › 7).
+  - le push du tag déclenche `.github/workflows/release.yml` : archives Chrome, Firefox et sources, envoi et soumission au Chrome Web Store et sur Firefox Add-ons (AMO) en parallèle, puis release GitHub avec les trois zips si le Chrome Web Store a accepté la version (voir `docs/STORE.md` › 7).
 - **Organisation** : le travail est confié à des sous-agents spécialisés, avec un brief précis. La session principale orchestre, vérifie (`npx tsc --noEmit`, `npx vitest run`, `npm run build`), gère Git et fait le compte rendu.
 - L'utilisateur teste dans Chrome avant chaque merge important. Signale ce qui n'a pas été testé.
 
@@ -110,5 +110,6 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - Textes de la fiche : `docs/store/listing-{fr,en,de}.md`.
   - Onglet Confidentialité : `docs/store/permissions.md`.
   - Procédure : `docs/STORE.md`.
+- **Firefox Add-ons (AMO)** : ID Gecko `synckai@sync-kai.github.io`, canal listed. Pas encore soumis : le premier tag poussé crée le module avec `docs/store/amo-metadata.json` (secrets `AMO_JWT_ISSUER` / `AMO_JWT_SECRET`), fiche à compléter à la main ensuite (`docs/store/amo.md`).
 - **Captures du Store** : `npm run screenshots` → `docs/store/screenshots/{fr,en,de}/`, en 1280×800. Le popup est rendu depuis `src/` (serveur Vite) avec une fausse API chrome ; la version affichée vient de `manifest.json` : régénérer après chaque montée de version. Tuiles promo : `docs/store/promo-440x280.png` (`npm run icons`) et `docs/store/promo-1400x560.png` (`npm run screenshots`), en anglais (communes à toutes les langues).
 - **Prochaines étapes** (feuille de route validée le 2026-10-05) : 1.8.x tests de bout en bout dans la CI ; 1.9.0 Firefox (clients OAuth par navigateur, build Firefox, publication sur 2 stores ; pas d’Edge, décision du 2026-10-07) ; 1.10.0 panneau latéral (onglets « En lecture » et « Agenda ») ; 2.0.0 Netflix, Prime Video / Disney+ et import de l’historique Crunchyroll (après exploration). Fiche du Store (description, captures, tuiles) à mettre à jour à la main : l’API ne gère que le paquet.

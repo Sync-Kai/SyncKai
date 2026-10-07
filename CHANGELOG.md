@@ -8,6 +8,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 ### Ajouté
 
 - Version Firefox (en préparation) : build dédié, accès aux sites demandé si Firefox l'a retiré.
+- Publication automatique sur Firefox Add-ons (AMO) à chaque version, en plus du Chrome Web Store.
 
 ### Modifié
 
