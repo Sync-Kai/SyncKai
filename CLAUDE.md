@@ -105,9 +105,9 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
 ### Publication
 
 - **Dépôt** : https://github.com/Sync-Kai/SyncKai (organisation `Sync-Kai`).
-- **Chrome Web Store** : élément `khokcmigioggannjoojambdgioigdceb`. Dernière version publiée : 1.7.3 (2026-10-03, envoyée par `release.yml`), visibilité « Public » depuis le 2026-10-03 : https://chromewebstore.google.com/detail/synckai/khokcmigioggannjoojambdgioigdceb
+- **Chrome Web Store** : élément `khokcmigioggannjoojambdgioigdceb`. Dernière version publiée : 1.8.0 (approuvée le 2026-10-07, envoyée par `release.yml`), visibilité « Public » depuis le 2026-10-03 : https://chromewebstore.google.com/detail/synckai/khokcmigioggannjoojambdgioigdceb
   - Textes de la fiche : `docs/store/listing-{fr,en,de}.md`.
   - Onglet Confidentialité : `docs/store/permissions.md`.
   - Procédure : `docs/STORE.md`.
 - **Captures du Store** : `npm run screenshots` → `docs/store/screenshots/{fr,en,de}/`, en 1280×800. Le popup est rendu depuis `src/` (serveur Vite) avec une fausse API chrome ; la version affichée vient de `manifest.json` : régénérer après chaque montée de version. Tuiles promo : `docs/store/promo-440x280.png` (`npm run icons`) et `docs/store/promo-1400x560.png` (`npm run screenshots`), en anglais (communes à toutes les langues).
-- **Prochaines étapes** : nouvelles plateformes et langues (pt_BR, es_419, pl).
+- **Prochaines étapes** (feuille de route validée le 2026-10-05) : 1.8.x tests de bout en bout dans la CI ; 1.9.0 Edge + Firefox (clients OAuth par navigateur, publication sur 3 stores) ; 1.10.0 panneau latéral (onglets « En lecture » et « Agenda ») ; 2.0.0 Netflix, Prime Video / Disney+ et import de l’historique Crunchyroll (après exploration). Fiche du Store (description, captures, tuiles) à mettre à jour à la main : l’API ne gère que le paquet.
