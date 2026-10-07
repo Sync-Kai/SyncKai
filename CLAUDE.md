@@ -76,8 +76,9 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - la version est montée dans `manifest.json`, `package.json` et `package-lock.json` (`npm version x.y.z --no-git-tag-version`) ;
   - entrée dans le `CHANGELOG.md` (FR, Keep a Changelog) et commit `chore(release): x.y.z` ;
   - fast-forward sur `main`, tag annoté `vx.y.z` (« SyncKai x.y.z »), `develop` aligné, push ;
-  - le push du tag déclenche `.github/workflows/release.yml` : archives Chrome, Firefox et sources, envoi et soumission au Chrome Web Store et sur Firefox Add-ons (AMO) en parallèle, puis release GitHub avec les trois zips si le Chrome Web Store a accepté la version (voir `docs/STORE.md` › 7).
-- **Organisation** : le travail est confié à des sous-agents spécialisés, avec un brief précis. La session principale orchestre, vérifie (`npx tsc --noEmit`, `npx vitest run`, `npm run build`), gère Git et fait le compte rendu.
+  - le push du tag déclenche `.github/workflows/release.yml` : archives Chrome, Firefox et sources, envoi et soumission au Chrome Web Store et sur Firefox Add-ons (AMO) en parallèle, puis release GitHub avec les trois zips si le Chrome Web Store a accepté la version (voir `docs/STORE.md` › 7) ;
+  - avant de taguer, lancer `npm run test:e2e` : le job `build` de `release.yml` l'exécute et un échec bloque l'envoi aux stores.
+- **Organisation** : le travail est confié à des sous-agents spécialisés, avec un brief précis. La session principale orchestre, vérifie (`npx tsc --noEmit`, `npx vitest run`, `npm run test:e2e` si le popup change, `npm run build`), gère Git et fait le compte rendu.
 - L'utilisateur teste dans Chrome avant chaque merge important. Signale ce qui n'a pas été testé.
 
 ### Authentification (identifiants publics, aucun secret)
@@ -100,7 +101,8 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - après le rechargement de l'extension, rouvrir l'onglet, sinon le script de contenu orphelin reste actif ;
   - le script de contenu affiche l'horodatage de son build dans la console ;
   - le service worker écrit des lignes `[SyncKai:sync]` ;
-  - logs info/debug visibles seulement avec `npm run build:dev` (ou `npm run dev`) ; `npm run build`/`package` ne gardent que warn/error.
+  - logs info/debug visibles seulement avec `npm run build:dev` (ou `npm run dev`) ; `npm run build`/`package` ne gardent que warn/error ;
+  - tests de bout en bout du popup : `npm run test:e2e` (Vitest + Puppeteer, Chrome headless ; `scripts/e2e/`). Le vrai popup tourne sur l'API chrome simulée des captures (`scripts/screenshots/mock-chrome.ts`) ; les messages envoyés au service worker, les demandes d'accès et le presse-papiers sont relevés dans `window.__e2e`. Job `e2e` de la CI ; en local, Chrome via `npx puppeteer browsers install chrome-headless-shell` si absent.
 - **Point ouvert (mineur)** : une déconnexion pendant une requête `GET_WATCHING` peut remettre la liste en cache.
 
 ### Publication

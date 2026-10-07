@@ -66,7 +66,8 @@ function entry(spec: SeriesSpec, service: TrackerId, now: number): WatchingEntry
   };
 }
 
-function watchingList(service: TrackerId, now: number): WatchingList {
+/** Liste « En cours » de démo d'un service (exportée pour les tests de bout en bout) */
+export function watchingList(service: TrackerId, now: number): WatchingList {
   return { service, entries: SERIES.map((s) => entry(s, service, now)), fetchedAt: now - 2 * MIN };
 }
 
@@ -128,7 +129,7 @@ function mappings(): Record<string, MediaMapping> {
 
 const MUSHOKU_COVER = { from: '#3B2A6E', to: '#46D6FF', accent: '#FFE3A3', motif: 'sun' } as const;
 
-const PAGE_INFO: PageMediaInfo = {
+export const PAGE_INFO: PageMediaInfo = {
   platform: 'crunchyroll',
   kind: 'series',
   seriesId: 'DEMOMUSHOKU',
@@ -140,7 +141,7 @@ const PAGE_INFO: PageMediaInfo = {
   episode: null,
 };
 
-function pageView(): PageMediaView {
+export function pageView(): PageMediaView {
   const season = (id: number, title: string, year: number, episodes: number, s: number, part: number): PageSeason => ({
     id,
     title,
@@ -219,8 +220,7 @@ function comparison(now: number): ComparisonResult {
  */
 export type Scenario = 'watching' | 'menu' | 'page' | 'activity' | 'compare' | 'settings';
 
-export function demoChrome(locale: Locale, scenario: Scenario): ChromeMockOptions {
-  const now = Date.now();
+export function demoChrome(locale: Locale, scenario: Scenario, now: number = Date.now()): ChromeMockOptions {
   const anilistViewer: AniListViewer = { id: 1000001, name: 'Kai_fan', siteUrl: 'https://anilist.co/user/Kai_fan', avatarUrl: avatarUrl('K', '#FF8FB8', '#B9A4FF') };
   const malViewer: MalViewer = { id: 2000002, name: 'Kai_fan', pictureUrl: avatarUrl('K', '#7EE0C3', '#5FE3FF') };
   const settings: SyncSettings = {

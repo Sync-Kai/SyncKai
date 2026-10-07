@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Puppeteer ne sert qu'aux captures du Store (npm run screenshots) : pas de navigateur à télécharger
+  # Pas de navigateur téléchargé par npm ci : seul le job e2e installe Chrome headless, explicitement
   PUPPETEER_SKIP_DOWNLOAD: 'true'
 
 jobs:
@@ -46,3 +46,24 @@ jobs:
 
       - name: Build Firefox + web-ext lint
         run: npm run build:firefox && npm run lint:firefox
+
+  e2e:
+    name: Tests de bout en bout (popup)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Chrome headless (shell) utilisé par Puppeteer, dans ~/.cache/puppeteer
+      - name: Chrome headless pour Puppeteer
+        run: npx puppeteer browsers install chrome-headless-shell
+
+      - name: Tests de bout en bout
+        run: npm run test:e2e

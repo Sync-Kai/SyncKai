@@ -5,6 +5,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 ## [Unreleased]
 
+### Ajouté
+
+- Tests de bout en bout du popup dans l'intégration continue (bloquent une release en cas d'échec).
+
 ### Modifié
 
 - Firefox : version minimale 142 (supprime l’avertissement de validation AMO lié à Firefox pour Android).

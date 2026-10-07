@@ -4,14 +4,10 @@
 // Usage : npm run screenshots [-- --locale fr --shot 2 | --shot marquee]
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import tailwindcss from '@tailwindcss/vite';
-import puppeteer from 'puppeteer';
-import { createServer } from 'vite';
 import { MARQUEE, SHOT_FILES, SHOT_IDS } from './captions.ts';
+import { launchBrowser, ROOT, startHarnessServer } from './harness.ts';
 import { pngInfo, toRgbPng } from './png.ts';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'docs/store/screenshots');
 const LOCALES = ['fr', 'en', 'de'] as const;
 
@@ -23,19 +19,10 @@ function arg(name: string): string | null {
 const onlyLocale = arg('locale');
 const onlyShot = arg('shot');
 
-const server = await createServer({
-  configFile: false,
-  root: ROOT,
-  logLevel: 'warn',
-  plugins: [tailwindcss()],
-  // Mêmes constantes que vite.config.ts (build de production : logs info/debug coupés)
-  define: { __SYNCKAI_BUILD__: JSON.stringify('screenshots'), __SYNCKAI_DEBUG__: JSON.stringify(false), __SYNCKAI_TARGET__: JSON.stringify('chrome') },
-  server: { port: 5199, strictPort: false, host: '127.0.0.1' },
-});
-await server.listen();
-const base = server.resolvedUrls?.local[0] ?? 'http://127.0.0.1:5199/';
+const server = await startHarnessServer('screenshots');
+const { base } = server;
 
-const browser = await puppeteer.launch({ headless: 'shell', args: ['--force-color-profile=srgb', '--font-render-hinting=none'] });
+const browser = await launchBrowser();
 let failures = 0;
 try {
   const page = await browser.newPage();

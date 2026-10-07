@@ -95,6 +95,7 @@ npm run dev       # build de développement (Vite + @crxjs/vite-plugin)
 npm run build     # vérification TypeScript + build de production dans dist/ (console : warn/error)
 npm run build:dev # même build avec les journaux détaillés (info/debug) dans la console
 npm test          # tests unitaires (Vitest)
+npm run test:e2e  # tests de bout en bout du popup (Puppeteer, Chrome headless)
 ```
 
 Charge ensuite le dossier `dist/` via **Charger l’extension non empaquetée**. Pour empaqueter une version (zip prêt pour le Chrome Web Store, sans la clé `key`), lance `npm run package` : le fichier est créé dans `release/`. Les informations de publication sur le Chrome Web Store sont dans [docs/STORE.md](docs/STORE.md).

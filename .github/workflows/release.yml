@@ -1,7 +1,7 @@
 name: Release
 
 # Un tag de version poussé (git push origin vx.y.z) :
-#   build → archives Chrome, Firefox et sources (artefact partagé)
+#   build → tests (unitaires + bout en bout du popup), archives Chrome, Firefox et sources (artefact partagé)
 #   chrome → envoi + soumission au Chrome Web Store
 #   firefox → envoi + soumission sur Firefox Add-ons (AMO), en parallèle
 #   github-release → release GitHub avec les trois archives, si le Chrome Web Store a accepté la version
@@ -60,6 +60,13 @@ jobs:
 
       - name: Tests
         run: npx vitest run
+
+      # Tests de bout en bout du popup : un échec bloque l'envoi aux stores
+      - name: Chrome headless pour Puppeteer
+        run: npx puppeteer browsers install chrome-headless-shell
+
+      - name: Tests de bout en bout
+        run: npm run test:e2e
 
       # Types des scripts + builds de production → release/synckai-<version>-{chrome,firefox,source}.zip
       # (Chrome sans le champ key ; sources = git archive du tag, avec BUILD.md et .source-date-epoch)
