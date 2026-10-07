@@ -121,7 +121,10 @@ export function sortWatchingBy(entries: readonly WatchingEntry[], sort: Watching
 
 /**
  * Lien utilisé par « Ouvrir » : la plateforme préférée si l'anime y est, sinon la première disponible.
+ * Choix assumé : sans lien connu sur la plateforme préférée, « Ouvrir » ouvre le lien direct de l'autre
+ * plateforme plutôt qu'une page de recherche ; la recherche sur la préférée est proposée dans le menu « ⋯ ».
  * null si aucune plateforme connue (le bouton est alors masqué).
+ * La pastille de plateforme des jaquettes suit ce lien (même plateforme que « Ouvrir »).
  */
 export function choosePlatformLink(entry: Pick<WatchingEntry, 'platforms'>, preferred: StreamingPlatform): PlatformLink | null {
   return entry.platforms.find((link) => link.platform === preferred) ?? entry.platforms[0] ?? null;

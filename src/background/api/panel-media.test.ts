@@ -36,7 +36,7 @@ const full = {
           siteUrl: 'https://anilist.co/anime/182255',
           externalLinks: [
             { url: 'https://www.netflix.com/title/1' },
-            { url: 'http://www.crunchyroll.com/series/INSECURE' },
+            { url: 'javascript:alert(1)' },
             { url: 'https://animationdigitalnetwork.com/video/1234-frieren' },
             { url: 'https://www.crunchyroll.com/series/GG5H5XQ7D/frieren' },
             { url: 'https://www.crunchyroll.com/series/OTHER' },
@@ -182,6 +182,18 @@ describe('liens « Regarder » des relations', () => {
     expect(enriched.relations.find((r) => r.mediaId === 182255)?.platforms).toEqual(media.relations.find((r) => r.mediaId === 182255)?.platforms);
     expect(withHistoryLinks(media, [])).toBe(media);
     expect(isPanelMedia(enriched)).toBe(true);
+  });
+
+  it('liens appris : après AniList, avant l’historique ; la fiche en cache reste inchangée', () => {
+    const media = parsePanelMedia(full);
+    if (!media) throw new Error('fiche absente');
+    const learnedAdn = 'https://animationdigitalnetwork.com/video/42-avant';
+    const enriched = withHistoryLinks(media, [sync(2, 'adn', 'https://animationdigitalnetwork.com/video/42-avant/7-ep', 3)], {
+      '2': { links: { adn: learnedAdn }, updatedAt: 1 },
+    });
+    expect(enriched.relations.find((r) => r.mediaId === 2)?.platforms).toEqual([{ platform: 'adn', url: learnedAdn }]);
+    expect(choosePlatformLink(enriched.relations.find((r) => r.mediaId === 2) ?? { platforms: [] }, 'adn')?.url).toBe(learnedAdn);
+    expect(media.relations.find((r) => r.mediaId === 2)?.platforms).toEqual([]);
   });
 
   it('cache versionné : clé v2, et une fiche sans liens de plateformes est rejetée', () => {

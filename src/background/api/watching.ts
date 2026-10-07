@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
-import type { StreamingPlatform } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
+import { learnedLinksFor, mergePlatformLinks, platformFromUrl, platformLinkFromExternal, withLearnedLinks, type PlatformLinkStore } from '../../shared/platform-links';
+import { getPlatformLinks } from '../../shared/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
 import { getCachedViewer, getRecentSyncs, saveCachedWatching } from '../../shared/storage';
 import type { TrackerId } from '../../shared/tracker.types';
@@ -47,28 +48,23 @@ export function parseNextEpisode(value: unknown): NextEpisode | null {
   return episode !== null && airingAt !== null ? { episode, airingAt: airingAt * 1000 } : null;
 }
 
-/** Plateforme SyncKai reconnue dans un lien externe (https uniquement) */
-export function platformFromUrl(value: string): StreamingPlatform | null {
-  const safe = toSafeUrl(value);
-  if (!safe) return null;
-  const host = new URL(safe).hostname;
-  if (host === 'crunchyroll.com' || host.endsWith('.crunchyroll.com')) return 'crunchyroll';
-  if (/^(?:[\w-]+\.)*animationdigitalnetwork\.(?:com|fr|de)$/.test(host)) return 'adn';
-  return null;
-}
+// Déplacé dans shared/platform-links.ts, réexporté pour les modules existants
+export { platformFromUrl };
 
-/** Liens de plateformes : liens AniList d'abord, puis historique SyncKai ; un seul lien par plateforme */
-export function buildPlatforms(externalLinks: unknown, syncs: readonly RecentSync[]): PlatformLink[] {
-  const links: PlatformLink[] = [];
-  const add = (platform: StreamingPlatform | null, url: string | null): void => {
-    if (platform && url && !links.some((l) => l.platform === platform)) links.push({ platform, url });
-  };
-  for (const link of arr(externalLinks)) {
-    const url = isRecord(link) ? str(link.url) : null;
-    if (url) add(platformFromUrl(url), toSafeUrl(url));
-  }
-  for (const sync of syncs) add(sync.episode.platform, toSafeUrl(sync.episode.url));
-  return links;
+/**
+ * Liens de plateformes, un seul par plateforme, par ordre de priorité : liens AniList (externalLinks),
+ * puis liens de séries appris en naviguant (AniList ne référence presque jamais ADN), puis historique SyncKai.
+ */
+export function buildPlatforms(externalLinks: unknown, syncs: readonly RecentSync[], learned: readonly PlatformLink[] = []): PlatformLink[] {
+  const anilist = arr(externalLinks).flatMap((link): PlatformLink[] => {
+    const parsed = platformLinkFromExternal(isRecord(link) ? str(link.url) : null);
+    return parsed ? [parsed] : [];
+  });
+  const history = syncs.flatMap((sync): PlatformLink[] => {
+    const url = toSafeUrl(sync.episode.url);
+    return url ? [{ platform: sync.episode.platform, url }] : [];
+  });
+  return mergePlatformLinks(anilist, learned, history);
 }
 
 /** Synchros SyncKai de la fiche, la plus récente en premier (getRecentSyncs est déjà trié) */
@@ -117,7 +113,7 @@ async function getAniListUserId(): Promise<number> {
   return result.data.id;
 }
 
-async function fetchAniListEntries(syncs: readonly RecentSync[]): Promise<WatchingEntry[]> {
+async function fetchAniListEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore): Promise<WatchingEntry[]> {
   const userId = await getAniListUserId();
   const { MediaListCollection } = await anilistQuery(ANILIST_WATCHING_QUERY, isCollectionData, { userId });
 
@@ -144,7 +140,7 @@ async function fetchAniListEntries(syncs: readonly RecentSync[]): Promise<Watchi
         updatedAt: updatedAt ? updatedAt * 1000 : null,
         nextEpisode: parseNextEpisode(media.nextAiringEpisode),
         airingStatus: toAiringStatus(media.status),
-        platforms: buildPlatforms(media.externalLinks, mediaSyncs),
+        platforms: buildPlatforms(media.externalLinks, mediaSyncs, learnedLinksFor(learned, id)),
         lastSync: toLastSync(mediaSyncs),
         siteUrl: toSafeUrl(str(media.siteUrl), 'anilist.co') ?? `https://anilist.co/anime/${id}`,
       });
@@ -200,7 +196,7 @@ async function fetchCatalogByMalIds(malIds: readonly number[]): Promise<Map<numb
   return catalog;
 }
 
-async function fetchMalEntries(syncs: readonly RecentSync[]): Promise<WatchingEntry[]> {
+async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore): Promise<WatchingEntry[]> {
   const { data } = await malRequest(MAL_WATCHING_PATH, isMalListData);
   const items = data.flatMap((item) => {
     if (!isRecord(item) || !isRecord(item.node)) return [];
@@ -230,7 +226,7 @@ async function fetchMalEntries(syncs: readonly RecentSync[]): Promise<WatchingEn
       updatedAt: Number.isNaN(updatedAt) ? null : updatedAt,
       nextEpisode: media ? parseNextEpisode(media.nextAiringEpisode) : null,
       airingStatus: (media ? toAiringStatus(media.status) : null) ?? fromMalAiringStatus(node.status),
-      platforms: buildPlatforms(media?.externalLinks, mediaSyncs),
+      platforms: buildPlatforms(media?.externalLinks, mediaSyncs, learnedLinksFor(learned, mediaId)),
       lastSync: toLastSync(mediaSyncs),
       siteUrl: `https://myanimelist.net/anime/${id}`,
     };
@@ -242,9 +238,10 @@ async function fetchMalEntries(syncs: readonly RecentSync[]): Promise<WatchingEn
 /** Liste « en cours » du service demandé, mise en cache pour le popup. Ne lève jamais. */
 export async function getWatchingList(service: TrackerId): Promise<WatchingResult> {
   try {
-    const syncs = await getRecentSyncs();
-    const entries = service === 'anilist' ? await fetchAniListEntries(syncs) : await fetchMalEntries(syncs);
-    const list: WatchingList = { service, entries, fetchedAt: Date.now() };
+    const [syncs, learned] = await Promise.all([getRecentSyncs(), getPlatformLinks()]);
+    const entries = service === 'anilist' ? await fetchAniListEntries(syncs, learned) : await fetchMalEntries(syncs, learned);
+    // Lien appris pendant la requête (popup ouvert sur une page de série) : pas écrasé par cette liste
+    const list: WatchingList = { service, entries: withLearnedLinks(entries, await getPlatformLinks()) ?? entries, fetchedAt: Date.now() };
     await saveCachedWatching(list);
     return { ok: true, data: list };
   } catch (error: unknown) {

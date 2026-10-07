@@ -16,6 +16,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Logos de Crunchyroll, ADN, AniList et MyAnimeList à la place des pastilles texte CR / ADN / AL / MAL (popup, panneau latéral), embarqués dans l’extension.
 - Firefox : version minimale 142 (supprime l’avertissement de validation AMO lié à Firefox pour Android).
 
+### Corrigé
+
+- Lecteur préféré ADN : SyncKai retient les pages de séries ADN que tu visites (AniList ne les référence presque jamais) ; sinon « Ouvrir » reste sur Crunchyroll et le menu ⋯ propose « Chercher sur ADN ».
+
 ## [1.9.0] - 2026-10-07
 
 SyncKai arrive sur Firefox.

@@ -170,7 +170,9 @@ describe('séries suivies', () => {
   it('fusion par fiche AniList : progression la plus élevée, exclusions et fiches MAL seules ignorées', () => {
     const series = mergeWatchingSeries(entries, [excluded(3)], 'crunchyroll');
     expect([...series.keys()]).toEqual([1, 2]);
-    expect(series.get(1)).toMatchObject({ progress: 5, title: 'Un (AL)', link: { platform: 'adn' } });
+    // Liens des deux services réunis : la plateforme préférée l'emporte même si elle vient du second service
+    expect(series.get(1)).toMatchObject({ progress: 5, title: 'Un (AL)', link: { platform: 'crunchyroll' } });
+    expect(mergeWatchingSeries(entries, [], 'adn').get(1)?.link?.platform).toBe('adn');
     expect(series.get(2)?.link).toBeNull();
   });
 
@@ -218,8 +220,8 @@ describe('buildAgendaDays', () => {
     expect(days.map((d) => d.isToday)).toEqual([false, false, true, false, false, false, false]);
     const [monday, , wednesday] = days;
     expect(monday?.rows[0]).toMatchObject({ watched: true, episode: 5 });
-    expect(wednesday?.rows[1]).toMatchObject({ watched: false, platform: 'crunchyroll', estimateAt: Math.floor(local(2026, 10, 7, 18, 30) / 1000), customOffset: null });
-    expect(wednesday?.rows[0]).toMatchObject({ platform: null, estimateAt: null, link: null });
+    expect(wednesday?.rows[1]).toMatchObject({ watched: false, platform: 'crunchyroll', estimateAt: Math.floor(local(2026, 10, 7, 18, 30) / 1000), customOffset: null, searchPlatforms: ['adn'] });
+    expect(wednesday?.rows[0]).toMatchObject({ platform: null, estimateAt: null, link: null, searchPlatforms: ['crunchyroll', 'adn'] });
   });
 
   it('dimanche du changement d’heure : sortie à 23 h rangée le dimanche', () => {

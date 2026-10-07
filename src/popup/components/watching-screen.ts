@@ -1,6 +1,7 @@
 import { t, tp, type MessageKey } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
+import { platformSearchUrl, platformsWithoutLink } from '../../shared/platform-links';
 import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type NextEpisodeBadge, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import { h, nodes } from '../../ui/dom';
@@ -115,8 +116,16 @@ function rowMenuId(key: string): string {
   return `sk-row-menu-${key.replace(/[^\w-]/g, '_')}`;
 }
 
-/** Menu « … » d'une série : −1, statut (pause, abandon, terminé), exclusion / réactivation, fiche du service */
-function renderRowMenu(entry: WatchingEntry, controls: EntryControls): HTMLElement {
+/**
+ * Recherche sur les plateformes sans lien connu (plateforme préférée en tête). « Ouvrir » reste sur l'autre
+ * plateforme quand la préférée n'a pas de lien (lien direct plutôt qu'une recherche) : ce choix est proposé ici.
+ */
+function searchPlatforms(entry: WatchingEntry, preferred: StreamingPlatform): StreamingPlatform[] {
+  return platformsWithoutLink(entry.platforms).sort((a, b) => Number(b === preferred) - Number(a === preferred));
+}
+
+/** Menu « … » d'une série : −1, statut (pause, abandon, terminé), exclusion / réactivation, recherche sur une plateforme, fiche du service */
+function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred: StreamingPlatform): HTMLElement {
   const key = entryKey(entry);
   const pending = controls.actions.get(key)?.phase === 'pending';
   const excluded = isExcludedEntry(entry, controls);
@@ -172,6 +181,26 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls): HTMLEleme
           close();
           controls.onExclude(entry);
         }, entry.mediaId === null, true),
+    ...searchPlatforms(entry, preferred).map((platform) =>
+      h(
+        'a',
+        {
+          class: MENU_ITEM,
+          attrs: {
+            href: platformSearchUrl(platform, entry.title),
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            role: 'menuitem',
+            tabindex: '-1',
+            'aria-label': t('watching.searchOnAria', { title: entry.title, platform: PLATFORM_LABELS[platform] }),
+            'data-focus': `search-${platform}-${key}`,
+          },
+          on: { click: close },
+        },
+        icon('search', 'h-3.5 w-3.5 text-muted'),
+        t('watching.searchOn', { platform: PLATFORM_LABELS[platform] }),
+      ),
+    ),
     h(
       'a',
       {
@@ -187,7 +216,7 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls): HTMLEleme
 }
 
 /** Bouton « … » + menu ; un seul menu ouvert à la fois (clé dans l'état du popup) */
-function renderRowMenuControl(entry: WatchingEntry, controls: EntryControls, bgClass: string): HTMLElement {
+function renderRowMenuControl(entry: WatchingEntry, controls: EntryControls, bgClass: string, preferred: StreamingPlatform): HTMLElement {
   const key = entryKey(entry);
   const open = controls.rowMenu === key;
   const trigger = h(
@@ -214,7 +243,7 @@ function renderRowMenuControl(entry: WatchingEntry, controls: EntryControls, bgC
     },
     icon('more', 'h-4 w-4', '3.2'),
   );
-  return h('div', { class: 'relative shrink-0', attrs: { 'data-menu-root': key } }, ...nodes([trigger, open && renderRowMenu(entry, controls)]));
+  return h('div', { class: 'relative shrink-0', attrs: { 'data-menu-root': key } }, ...nodes([trigger, open && renderRowMenu(entry, controls, preferred)]));
 }
 
 /** Pastille de retour d'action (remplace brièvement la pastille d'état) */
@@ -334,7 +363,7 @@ function renderHero(entry: WatchingEntry, now: number, preferred: StreamingPlatf
         feedback && h('span', { class: 'flex-1' }),
         excluded && excludedChip(),
         !excluded && renderPlusOne(entry, controls, 'bg-surface'),
-        renderRowMenuControl(entry, controls, 'bg-surface'),
+        renderRowMenuControl(entry, controls, 'bg-surface', preferred),
       ),
     ),
   );
@@ -397,7 +426,7 @@ function renderRow(entry: WatchingEntry, now: number, preferred: StreamingPlatfo
         icon('screen', 'h-4 w-4'),
       ),
     !excluded && renderPlusOne(entry, controls, 'bg-raised'),
-    renderRowMenuControl(entry, controls, 'bg-raised'),
+    renderRowMenuControl(entry, controls, 'bg-raised', preferred),
     h(
       'div',
       { class: 'pointer-events-none absolute inset-0 overflow-hidden rounded-lg', attrs: { 'aria-hidden': 'true' } },

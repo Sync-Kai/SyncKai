@@ -630,6 +630,8 @@
   "watching.openEntry": "Open entry",
   "watching.openOn": "Open on {platform}",
   "watching.openOnAria": "Open {title} on {platform}",
+  "watching.searchOn": "Search on {platform}",
+  "watching.searchOnAria": "Search for {title} on {platform}",
   "watching.openPlatform": "Open {platform}",
   "watching.plusOneAria": "Mark the next episode as watched: {title}",
   "watching.resume": "Continue",

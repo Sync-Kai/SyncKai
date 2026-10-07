@@ -8,6 +8,7 @@ import type { TrackerId } from './tracker.types';
 import { SYNC_QUEUE_KEY } from './sync-queue-store';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './engagement-store';
 import { isWatchingList, type WatchingList } from './watching.types';
+import { PLATFORM_LINKS_KEY } from './platform-links';
 import { withStorageLock } from './storage-lock';
 
 // Verrou déplacé dans storage-lock.ts (importé par le logger) ; réexporté pour les modules existants
@@ -134,14 +135,14 @@ export function clearAniListSession(): Promise<void> {
 }
 
 /**
- * Vérifications, dernières synchros et file de relance : propres à l'utilisateur, effacées quand plus aucun
+ * Vérifications, dernières synchros, liens de séries appris (pages visitées) et file de relance : propres à l'utilisateur, effacées quand plus aucun
  * service de suivi n'est connecté (déconnexion du dernier compte).
  */
 export function clearUserSyncData(): Promise<void> {
   return withStorageLock(async () => {
     // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
     const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => key.startsWith('airingWeek:'));
-    await chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...weeks]);
+    await chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, PLATFORM_LINKS_KEY, ...weeks]);
   });
 }
 

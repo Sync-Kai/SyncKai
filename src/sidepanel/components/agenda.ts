@@ -21,6 +21,7 @@ import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions'
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../shared/messages';
+import { platformSearchUrl } from '../../shared/platform-links';
 import { getSettings, OFFSET_RANGE, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getCachedWatching, getMalToken, getValidToken, STORAGE_KEYS } from '../../shared/storage';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
@@ -450,6 +451,27 @@ export function createAgenda(): AgendaView {
         icon('clock', 'h-3.5 w-3.5'),
         t('agenda.adjust'),
       ),
+      // Plateformes sans lien connu : « Ouvrir » reste sur l'autre plateforme, la recherche est proposée ici
+      ...[...row.searchPlatforms]
+        .sort((a, b) => Number(b === settings?.preferredPlayer) - Number(a === settings?.preferredPlayer))
+        .map((platform) =>
+          h(
+            'a',
+            {
+              class: 'flex h-8 w-full items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-bold text-ink no-underline hover:bg-surface',
+              attrs: {
+                href: platformSearchUrl(platform, row.title),
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                role: 'menuitem',
+                'aria-label': t('watching.searchOnAria', { title: row.title, platform: PLATFORM_LABELS[platform] }),
+              },
+              on: { click: () => closeMenu(row.scheduleId) },
+            },
+            icon('search', 'h-3.5 w-3.5'),
+            t('watching.searchOn', { platform: PLATFORM_LABELS[platform] }),
+          ),
+        ),
     );
   }
 

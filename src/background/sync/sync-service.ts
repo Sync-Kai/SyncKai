@@ -4,6 +4,8 @@ import { flashSyncBadge, refreshReviewBadge } from '../../shared/badge';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isExcluded, platformSeriesKey } from '../../shared/exclusions';
 import type { ResolveReviewPayload } from '../../shared/messages';
+import { platformSeriesUrl } from '../../shared/platform-links';
+import { learnPlatformLink } from '../../shared/platform-links-store';
 import type { Result } from '../../shared/result';
 import type { CandidateSummary, PendingReview } from '../../shared/review.types';
 import {
@@ -172,6 +174,9 @@ async function writeToServices(
 
   if (results.some((r) => r.outcome.status === 'updated')) {
     await addRecentSync({ key, episode, mediaId: catalog.mediaId, mediaTitle: catalog.title, progress, syncedAt: Date.now() });
+    // Synchro réussie (correspondance sûre ou confirmée) : page de la série mémorisée au-delà des 5 synchros de l'historique
+    const seriesUrl = platformSeriesUrl(episode.platform, episode.seriesId, episode.seriesSlug);
+    if (seriesUrl) await learnPlatformLink(catalog.mediaId, { platform: episode.platform, url: seriesUrl });
     // Coche sur l'icône (visible en plein écran) : décorative, ne bloque ni ne fait échouer la synchro
     void flashSyncBadge();
   }

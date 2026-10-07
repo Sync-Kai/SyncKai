@@ -9,6 +9,7 @@ import type {
   ResolvePageMediaPayload,
   SeasonSource,
 } from '../shared/page-media.types';
+import { learnPlatformLink } from '../shared/platform-links-store';
 import { getMediaMappings } from '../shared/storage';
 import type { ListStatus } from '../shared/sync.types';
 import { createLogger } from '../shared/logger';
@@ -18,6 +19,7 @@ import { getPageMediaDetails, type AniListMedia } from './api/media';
 import {
   episodeCountMismatch,
   firstUnfinishedSeason,
+  learnableSeriesLink,
   pickKnownSeason,
   pickPartInGroup,
   rememberedSeason,
@@ -32,7 +34,8 @@ import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
 
 // Fiche de la page (#23) : série ou épisode de l'onglet actif → fiche AniList + état dans les listes.
-// Lecture seule : rien n'est écrit (ni sur les services, ni dans le cache des correspondances).
+// Lecture seule côté services et correspondances ; seul le lien de la série est mémorisé localement
+// (correspondance certaine uniquement) pour le bouton « Ouvrir » sur la plateforme préférée.
 
 const log = createLogger('page-media');
 
@@ -246,6 +249,10 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
     if (mediaId !== null) manualChoices.set(seasonKey, mediaId);
     const resolution = await resolveSeason(page, mediaId ?? manualChoices.get(seasonKey) ?? null);
     if (!resolution) return { ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: page.seriesTitle }) };
+
+    // Page de série visitée, fiche certaine : lien mémorisé (AniList ne référence presque jamais ADN)
+    const learnable = learnableSeriesLink(page, resolution.confidence);
+    if (learnable) await learnPlatformLink(resolution.mediaId, learnable);
 
     const media = await getDetails(resolution.mediaId);
     const lists = await readLists(media);

@@ -7,6 +7,8 @@ import manifest from '../../manifest.json';
 import { tl, type Locale, type MessageKey, type MessageParams } from '../../src/i18n';
 import { launchBrowser, startHarnessServer, type HarnessServer } from '../screenshots/harness';
 import type { SentMessage } from '../screenshots/mock-chrome';
+import { PLATFORM_LINKS_KEY } from '../../src/shared/platform-links';
+import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
 import { PLANTED_SECRETS, type E2EState, type FrameParams } from './protocol';
 
 let server: HarnessServer;
@@ -225,6 +227,32 @@ describe('popup (bout en bout)', () => {
       {},
       'Solo Leveling',
     );
+  });
+
+  it('lecteur ADN : « Ouvrir » reste sur Crunchyroll sans lien ADN, le menu propose « Chercher sur ADN », un lien appris bascule « Ouvrir »', async () => {
+    const page = await openPopup();
+    const openOn = (platform: string): string => `a[aria-label="${fr('watching.openOnAria', { title: 'Solo Leveling', platform })}"]`;
+    await page.waitForSelector(openOn('Crunchyroll'));
+
+    // Lecteur préféré ADN : aucun lien ADN connu → lien direct Crunchyroll conservé
+    await page.evaluate(async (key: string) => {
+      const stored = await chrome.storage.local.get(key);
+      const current: unknown = stored[key];
+      await chrome.storage.local.set({ [key]: { ...(typeof current === 'object' && current !== null ? current : {}), preferredPlayer: 'adn' } });
+    }, SETTINGS_STORAGE_KEY);
+    await click(page, `more-${SOLO}`);
+    await page.waitForSelector(sel(`search-adn-${SOLO}`));
+    expect(await attr(page, sel(`search-adn-${SOLO}`), 'href')).toBe('https://animationdigitalnetwork.com/video?search=Solo%20Leveling');
+    expect(await text(page, sel(`search-adn-${SOLO}`))).toBe(fr('watching.searchOn', { platform: 'ADN' }));
+    expect(await page.$(openOn('ADN'))).toBeNull();
+
+    // Page de la série ADN visitée : lien appris → « Ouvrir » passe sur ADN, la recherche disparaît
+    await page.evaluate(async (key: string) => {
+      await chrome.storage.local.set({ [key]: { '176496': { links: { adn: 'https://animationdigitalnetwork.com/video/1234-solo-leveling' }, updatedAt: Date.now() } } });
+    }, PLATFORM_LINKS_KEY);
+    await page.waitForSelector(openOn('ADN'));
+    expect(await attr(page, openOn('ADN'), 'href')).toBe('https://animationdigitalnetwork.com/video/1234-solo-leveling');
+    await page.waitForSelector(sel(`search-adn-${SOLO}`), { hidden: true });
   });
 
   it('« Sur cette page » : fiche de l’onglet Crunchyroll, saison, et « Ajouter à À regarder » envoie ADD_TO_LIST PLANNING', async () => {

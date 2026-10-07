@@ -1,6 +1,8 @@
 import type { PageMediaInfo, PageSeason, SeasonSlot, SeasonSource } from '../shared/page-media.types';
+import { platformSeriesUrl } from '../shared/platform-links';
 import type { CandidateSummary } from '../shared/review.types';
 import type { ListStatus, MediaMapping } from '../shared/sync.types';
+import type { PlatformLink } from '../shared/watching.types';
 import { mappingKey } from './sync/matching';
 
 // Règles pures de la fiche de la page (#23) : choix de la saison affichée. Testables sans API.
@@ -125,4 +127,18 @@ export function episodeCountMismatch(pageCount: number | null | undefined, episo
     total += count;
   }
   return Math.abs(pageCount - total) > EPISODE_COUNT_TOLERANCE;
+}
+
+/**
+ * Lien de série à mémoriser pour la fiche résolue (« Ouvrir » sur la plateforme préférée) : seulement si
+ * la correspondance est certaine (saison lue sur la page, correspondance exacte, choix manuel). Une
+ * correspondance à confirmer n'est jamais apprise : un mauvais lien serait proposé sur une autre série.
+ */
+export function learnableSeriesLink(
+  page: Pick<PageMediaInfo, 'platform' | 'seriesId' | 'seriesSlug'>,
+  confidence: 'certain' | 'uncertain',
+): PlatformLink | null {
+  if (confidence !== 'certain') return null;
+  const url = platformSeriesUrl(page.platform, page.seriesId, page.seriesSlug);
+  return url ? { platform: page.platform, url } : null;
 }

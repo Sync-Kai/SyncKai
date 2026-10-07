@@ -33,6 +33,7 @@ import { isPageMediaResponse, type ContentMessage } from '../shared/content-mess
 import type { PageMediaInfo, PageMediaResult } from '../shared/page-media.types';
 import { isTrackerId, TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
+import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../shared/platform-links';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingResult, type WatchingSort } from '../shared/watching.types';
 import { h, nodes, preserveFocus } from '../ui/dom';
 import { formatStarValue } from '../ui/rating';
@@ -810,6 +811,14 @@ function flashEntryFeedback(key: string, feedback: InlineFeedback): void {
   );
 }
 
+/** Liens de séries appris pendant que le popup est ouvert : ajoutés aux séries affichées */
+function applyLearnedLinks(value: unknown): void {
+  const shown = watchingStore.get();
+  if (shown.status !== 'ready') return;
+  const entries = withLearnedLinks(shown.list.entries, parsePlatformLinkStore(value));
+  if (entries) watchingStore.set({ ...shown, list: { ...shown.list, entries } });
+}
+
 /** Mise à jour optimiste de la progression affichée (avant la revalidation de la liste) */
 function patchWatchingProgress(entry: WatchingEntry, outcome: SyncOutcome): void {
   const shown = watchingStore.get();
@@ -1390,6 +1399,10 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
   if (changes[SYNC_QUEUE_KEY]) void loadQueue();
   const airingChange = changes[AIRING_RESULT_KEY];
   if (airingChange) setAiringResult(airingChange.newValue);
+
+  // Lien de série appris (page visitée) : « Ouvrir » et la pastille de plateforme suivent sans requête
+  const linksChange = changes[PLATFORM_LINKS_KEY];
+  if (linksChange) applyLearnedLinks(linksChange.newValue);
 
   // Synchro dans un onglet : le service worker ne met pas le cache « En cours » à jour → revalidation
   if (changes[STORAGE_KEYS.recentSyncs]) scheduleWatchingRevalidation();

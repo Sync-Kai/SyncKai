@@ -3,6 +3,7 @@ import type { StreamingPlatform } from './episode.types';
 import { matchesExclusion, type ExcludedSeries } from './exclusions';
 import { isRecord } from './guards';
 import type { SyncSettings } from './settings';
+import { mergePlatformLinks, platformsWithoutLink } from './platform-links';
 import { choosePlatformLink } from './watching';
 import type { PlatformLink, WatchingEntry } from './watching.types';
 import type { Result } from './result';
@@ -212,6 +213,8 @@ export interface AgendaSeries {
   progress: number;
   title: string;
   coverUrl: string | null;
+  /** Liens connus des deux services, un par plateforme */
+  platforms: PlatformLink[];
   /** Lien « Ouvrir » (plateforme préférée si disponible) */
   link: PlatformLink | null;
 }
@@ -230,12 +233,15 @@ export function mergeWatchingSeries(
     const mediaId = entry.mediaId;
     if (mediaId === null || excluded.some((ex) => matchesExclusion(ex, { mediaId }))) continue;
     const previous = series.get(mediaId);
+    // Liens des deux services réunis avant le choix : un lien ADN connu d'un seul service suffit
+    const platforms = mergePlatformLinks(previous?.platforms ?? [], entry.platforms);
     series.set(mediaId, {
       mediaId,
       progress: Math.max(entry.progress, previous?.progress ?? 0),
       title: previous?.title ?? entry.title,
       coverUrl: previous?.coverUrl ?? entry.coverUrl,
-      link: previous?.link ?? choosePlatformLink(entry, preferred),
+      platforms,
+      link: choosePlatformLink({ platforms }, preferred),
     });
   }
   return series;
@@ -286,6 +292,8 @@ export interface AgendaRow {
   /** Délai réglé pour cette série (minutes), sinon null */
   customOffset: number | null;
   link: PlatformLink | null;
+  /** Plateformes sans lien connu (recherche proposée dans le menu « ⋯ ») */
+  searchPlatforms: StreamingPlatform[];
 }
 
 export interface AgendaDay {
@@ -330,6 +338,7 @@ export function buildAgendaDays(
       estimateAt: estimateRelease(schedule.airingAt, platform, settings, schedule.mediaId),
       customOffset: seriesOffset(settings, schedule.mediaId),
       link: info.link,
+      searchPlatforms: platformsWithoutLink(info.platforms),
     });
   }
   return days;

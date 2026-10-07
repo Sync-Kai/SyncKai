@@ -630,6 +630,8 @@
   "watching.openEntry": "Ouvrir la fiche",
   "watching.openOn": "Ouvrir sur {platform}",
   "watching.openOnAria": "Ouvrir {title} sur {platform}",
+  "watching.searchOn": "Chercher sur {platform}",
+  "watching.searchOnAria": "Chercher {title} sur {platform}",
   "watching.openPlatform": "Ouvrir {platform}",
   "watching.plusOneAria": "Marquer l’épisode suivant comme vu : {title}",
   "watching.resume": "Reprendre",

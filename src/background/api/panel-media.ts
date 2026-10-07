@@ -11,6 +11,8 @@ import {
   type PanelMediaResult,
   type PanelRelation,
 } from '../../shared/panel-media.types';
+import { learnedLinksFor, mergePlatformLinks, type PlatformLinkStore } from '../../shared/platform-links';
+import { getPlatformLinks } from '../../shared/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
 import { getRecentSyncs } from '../../shared/storage';
 import { toSafeUrl } from '../../shared/url';
@@ -166,19 +168,16 @@ async function writeCache(media: PanelMedia): Promise<void> {
 }
 
 /**
- * Complète les liens de plateformes des relations avec l'historique SyncKai (dernier épisode synchronisé),
- * appliqué à la lecture : le cache ne garde que les liens AniList.
+ * Complète les liens de plateformes des relations avec les liens de séries appris en naviguant, puis
+ * l'historique SyncKai (dernier épisode synchronisé), appliqué à la lecture : le cache ne garde que les liens AniList.
  */
-export function withHistoryLinks(media: PanelMedia, syncs: readonly RecentSync[]): PanelMedia {
-  if (syncs.length === 0) return media;
+export function withHistoryLinks(media: PanelMedia, syncs: readonly RecentSync[], learned: PlatformLinkStore = {}): PanelMedia {
+  if (syncs.length === 0 && Object.keys(learned).length === 0) return media;
   return {
     ...media,
     relations: media.relations.map((relation) => {
-      const own = syncs.filter((sync) => sync.mediaId === relation.mediaId);
-      if (own.length === 0) return relation;
-      const platforms = [...relation.platforms];
-      for (const link of buildPlatforms([], own)) if (!platforms.some((l) => l.platform === link.platform)) platforms.push(link);
-      return { ...relation, platforms };
+      const extra = buildPlatforms([], syncs.filter((sync) => sync.mediaId === relation.mediaId), learnedLinksFor(learned, relation.mediaId));
+      return extra.length === 0 ? relation : { ...relation, platforms: mergePlatformLinks(relation.platforms, extra) };
     }),
   };
 }
@@ -192,16 +191,22 @@ async function recentSyncs(): Promise<RecentSync[]> {
   }
 }
 
+/** Liens appris et historique, lus à chaque affichage (le cache de la fiche ne garde que les liens AniList) */
+async function withKnownLinks(media: PanelMedia): Promise<PanelMedia> {
+  const [syncs, learned] = await Promise.all([recentSyncs(), getPlatformLinks()]);
+  return withHistoryLinks(media, syncs, learned);
+}
+
 /** Fiche complète pour le panneau latéral (catalogue public, sans compte requis) */
 export async function getPanelMedia(mediaId: number): Promise<PanelMediaResult> {
   try {
     const cached = await readCache(mediaId);
-    if (cached) return { ok: true, data: withHistoryLinks(cached, await recentSyncs()) };
+    if (cached) return { ok: true, data: await withKnownLinks(cached) };
     const { Media } = await anilistPublicQuery(PANEL_MEDIA_QUERY, isMediaData, { id: mediaId });
     const media = parsePanelMedia(Media);
     if (!media) throw new ApiError('INVALID_RESPONSE', t('api.invalidResponse.anilist'));
     await writeCache(media);
-    return { ok: true, data: withHistoryLinks(media, await recentSyncs()) };
+    return { ok: true, data: await withKnownLinks(media) };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, code: error.code, message: error.message };
     log.error('Erreur inattendue (fiche du panneau) :', error);

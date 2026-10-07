@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   episodeCountMismatch,
   firstUnfinishedSeason,
+  learnableSeriesLink,
   pickKnownSeason,
   pickPartInGroup,
   rememberedSeason,
@@ -141,5 +142,22 @@ describe('saisons découpées en parties', () => {
     expect(episodeCountMismatch(14, [null, null])).toBe(false);
     expect(episodeCountMismatch(null, [12])).toBe(false);
     expect(episodeCountMismatch(undefined, [12])).toBe(false);
+  });
+});
+
+describe('learnableSeriesLink', () => {
+  const adn = { platform: 'adn', seriesId: '1311', seriesSlug: 'tougen-anki' } as const;
+
+  it('correspondance certaine : page de la série, forme canonique', () => {
+    expect(learnableSeriesLink(adn, 'certain')).toEqual({ platform: 'adn', url: 'https://animationdigitalnetwork.com/video/1311-tougen-anki' });
+    expect(learnableSeriesLink({ platform: 'crunchyroll', seriesId: 'GRMG8ZQZR', seriesSlug: 'one-piece' }, 'certain')).toEqual({
+      platform: 'crunchyroll',
+      url: 'https://www.crunchyroll.com/series/GRMG8ZQZR/one-piece',
+    });
+  });
+
+  it('correspondance à confirmer ou identifiant inconnu : rien n’est appris', () => {
+    expect(learnableSeriesLink(adn, 'uncertain')).toBeNull();
+    expect(learnableSeriesLink({ platform: 'crunchyroll', seriesId: null, seriesSlug: 'one-piece' }, 'certain')).toBeNull();
   });
 });
