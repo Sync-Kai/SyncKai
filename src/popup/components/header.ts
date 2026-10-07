@@ -7,9 +7,13 @@ import { kanaLabel } from './ui';
 interface HeaderProps {
   isSettings: boolean;
   onSettings: () => void;
+  /** « Ouvrir le panneau » : null hors Crunchyroll / ADN ou navigateur sans panneau latéral */
+  onOpenPanel: (() => void) | null;
 }
 
-export function renderHeader({ isSettings, onSettings }: HeaderProps): HTMLElement {
+const HEADER_BUTTON = 'flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-raised';
+
+export function renderHeader({ isSettings, onSettings, onOpenPanel }: HeaderProps): HTMLElement {
   return h(
     'header',
     { class: 'flex h-14 shrink-0 items-center justify-between px-4' },
@@ -25,13 +29,27 @@ export function renderHeader({ isSettings, onSettings }: HeaderProps): HTMLEleme
       ),
     ),
     h(
-      'button',
-      {
-        class: `flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-raised ${isSettings ? 'bg-raised text-sakura' : 'bg-surface text-muted'}`,
-        attrs: { type: 'button', 'aria-label': t('nav.settings'), 'aria-pressed': String(isSettings), 'data-focus': 'gear' },
-        on: { click: onSettings },
-      },
-      icon('gear', 'h-[18px] w-[18px]'),
+      'div',
+      { class: 'flex items-center gap-1.5' },
+      onOpenPanel &&
+        h(
+          'button',
+          {
+            class: `${HEADER_BUTTON} bg-surface text-muted hover:text-ink`,
+            attrs: { type: 'button', 'aria-label': t('panel.open'), title: t('panel.open'), 'data-focus': 'panel' },
+            on: { click: onOpenPanel },
+          },
+          icon('panel', 'h-[18px] w-[18px]'),
+        ),
+      h(
+        'button',
+        {
+          class: `${HEADER_BUTTON} ${isSettings ? 'bg-raised text-sakura' : 'bg-surface text-muted'}`,
+          attrs: { type: 'button', 'aria-label': t('nav.settings'), 'aria-pressed': String(isSettings), 'data-focus': 'gear' },
+          on: { click: onSettings },
+        },
+        icon('gear', 'h-[18px] w-[18px]'),
+      ),
     ),
   );
 }

@@ -36,8 +36,12 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: targetOutDir(target),
     rollupOptions: {
-      // Pages d'extension hors manifeste (ouvertes via chrome.runtime.getURL)
-      input: { import: 'src/import/import.html' },
+      // Pages d'extension hors manifeste (ouvertes via chrome.runtime.getURL). Panneau latéral : crxjs le
+      // construit d'après `side_panel` (Chrome) mais ignore `sidebar_action` (Firefox) → entrée explicite
+      input: {
+        import: 'src/import/import.html',
+        ...(target === 'firefox' ? { sidepanel: 'src/sidepanel/sidepanel.html' } : {}),
+      },
     },
   },
   define: {

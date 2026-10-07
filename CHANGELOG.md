@@ -7,6 +7,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 ### Ajouté
 
+- Panneau latéral (en préparation) : ouverture depuis le popup sur Crunchyroll et ADN uniquement.
 - Tests de bout en bout du popup dans l'intégration continue (bloquent une release en cas d'échec).
 
 ### Modifié

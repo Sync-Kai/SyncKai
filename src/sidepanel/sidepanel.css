@@ -1,0 +1,15 @@
+@import "../ui/theme.css";
+
+/* Panneau latéral : largeur imposée par le navigateur (≈ 320 à 500 px), hauteur de la fenêtre */
+@layer base {
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  body {
+    min-width: 280px;
+  }
+}

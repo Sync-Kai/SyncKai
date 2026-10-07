@@ -86,6 +86,8 @@ export interface MessageMap {
   APPLY_DIFFS: { payload: ApplyDiffsPayload; response: ApplyResult };
   /** « Arrêter » l'alignement en cours (la série en cours se termine) */
   CANCEL_COMPARE_JOB: { payload: null; response: CancelJobResult };
+  /** Chrome : script de contenu chargé sur Crunchyroll / ADN → panneau latéral activé pour cet onglet seulement */
+  PANEL_AVAILABLE: { payload: null; response: null };
 }
 
 /** Messages réservés aux pages de l'extension (popup) : refusés s'ils viennent d'un content script */
@@ -182,6 +184,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   COMPARE_LISTS: isNull,
   APPLY_DIFFS: isApplyDiffsPayload,
   CANCEL_COMPARE_JOB: isNull,
+  PANEL_AVAILABLE: isNull,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */

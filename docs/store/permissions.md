@@ -34,6 +34,12 @@ Two alarms, both run by the service worker: (1) an hourly check of the AniList a
 Shows a Chrome notification when a new episode of a series the user is watching has aired (optional feature, "Notify me when an episode is out" in Settings). The notification has an "Open" button that opens the episode on the user's preferred platform.
 ```
 
+### sidePanel
+
+```
+Shows SyncKai's companion side panel (episode being watched, release schedule) on Crunchyroll and ADN pages only. The panel is disabled by default and enabled per tab only on those sites; it opens only when the user clicks "Open the side panel" in the popup. It reads no browsing data and sends nothing anywhere.
+```
+
 ### Host permissions
 
 Declared in `host_permissions` (exactly as in manifest.json):

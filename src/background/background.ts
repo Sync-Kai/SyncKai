@@ -25,6 +25,7 @@ import {
 } from '../shared/messages';
 import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
+import { enablePanelForSender, resetSidePanel } from './side-panel';
 
 const log = createLogger('background');
 
@@ -73,6 +74,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     COMPARE_LISTS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
     APPLY_DIFFS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
     CANCEL_COMPARE_JOB: { ok: false, code: 'NOT_FOUND', message },
+    PANEL_AVAILABLE: null,
   };
 }
 
@@ -112,6 +114,7 @@ const handlers: MessageHandlers = {
   COMPARE_LISTS: () => compareServiceLists(),
   APPLY_DIFFS: (payload) => applyDiffs(payload),
   CANCEL_COMPARE_JOB: () => cancelCompareJob(),
+  PANEL_AVAILABLE: (_payload, sender) => enablePanelForSender(sender),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();
@@ -207,3 +210,12 @@ chrome.alarms.onAlarm.addListener((alarm): void => {
 chrome.runtime.onStartup.addListener((): void => {
   afterI18n(resumeCompareJob);
 });
+
+// ─── Panneau latéral (Chrome) : indisponible hors Crunchyroll / ADN ───────
+// Activé onglet par onglet via PANEL_AVAILABLE (script de contenu) ou le bouton du popup.
+// Pas de tabs.onUpdated ici : sans filtre sur Chrome, il réveillerait le service worker à chaque navigation.
+
+if (__SYNCKAI_TARGET__ === 'chrome') {
+  chrome.runtime.onInstalled.addListener(resetSidePanel);
+  chrome.runtime.onStartup.addListener(resetSidePanel);
+}

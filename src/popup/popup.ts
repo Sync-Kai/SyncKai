@@ -75,6 +75,8 @@ import {
   type WatchingState,
 } from './state';
 import { createLogger } from '../shared/logger';
+import { openSidePanel, sidePanelKind } from '../shared/side-panel';
+import { isTargetPage } from '../shared/target-pages';
 
 const log = createLogger('popup');
 
@@ -521,7 +523,7 @@ function render(): void {
   const pending = connectedServices().length > 0 ? data.reviews.length + queueCounts().failed + ratingsStore.get().items.length : 0;
 
   preserveFocus(root, () => {
-    headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings }));
+    headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTabId === null ? null : openPanel }));
     barSlot.replaceChildren(
       ...nodes([
         isSettings
@@ -959,29 +961,63 @@ async function loadExclusions(): Promise<void> {
 const PAGE_DETECT_TIMEOUT_MS = 1_500;
 const PAGE_FEEDBACK_MS = 4_000;
 
-/** Série ou épisode de l'onglet actif, null hors page reconnue ou content script injoignable */
-async function detectActivePage(): Promise<PageMediaInfo | null> {
+/** Onglet actif vu par le popup : page reconnue et présence du script de contenu (donc Crunchyroll / ADN) */
+interface ActiveTabProbe {
+  tabId: number | null;
+  /** Le script de contenu a répondu : l'onglet est une page Crunchyroll / ADN */
+  reachable: boolean;
+  /** URL visible seulement avec une permission d'hôte sur le site */
+  url: string | undefined;
+  page: PageMediaInfo | null;
+}
+
+/** Série ou épisode de l'onglet actif (null hors page reconnue ou content script injoignable) */
+async function probeActiveTab(): Promise<ActiveTabProbe> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let tab: chrome.tabs.Tab | undefined;
   try {
     // L'id de l'onglet ne requiert pas la permission "tabs"
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id === undefined) return null;
+    [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id === undefined) return { tabId: null, reachable: false, url: undefined, page: null };
     const message: ContentMessage = { type: 'GET_PAGE_MEDIA' };
-    const timeout = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), PAGE_DETECT_TIMEOUT_MS);
+    const timeout = new Promise<undefined>((resolve) => {
+      timer = setTimeout(() => resolve(undefined), PAGE_DETECT_TIMEOUT_MS);
     });
     const response: unknown = await Promise.race([chrome.tabs.sendMessage(tab.id, message), timeout]);
-    return isPageMediaResponse(response) ? response : null;
+    const reachable = isPageMediaResponse(response);
+    return { tabId: tab.id, reachable, url: tab.url, page: reachable ? response : null };
   } catch {
     // « Receiving end does not exist » : onglet hors Crunchyroll/ADN, ou script de contenu absent
-    return null;
+    return { tabId: tab?.id ?? null, reachable: false, url: tab?.url, page: null };
   } finally {
     clearTimeout(timer);
   }
 }
 
 /** Lancée dès l'ouverture du popup, en parallèle de la lecture des comptes */
-const activePage: Promise<PageMediaInfo | null> = detectActivePage();
+const activeTab: Promise<ActiveTabProbe> = probeActiveTab();
+const activePage: Promise<PageMediaInfo | null> = activeTab.then((probe) => probe.page);
+
+// ─── Panneau latéral : bouton d'en-tête, seulement sur Crunchyroll / ADN ───
+
+/** Onglet Crunchyroll / ADN actif pour lequel le bouton « Ouvrir le panneau » est proposé */
+let panelTabId: number | null = null;
+
+void activeTab.then((probe) => {
+  // Script de contenu joignable, ou URL reconnue (onglet ouvert avant l'installation : script absent)
+  if (probe.tabId === null || sidePanelKind() === null || !(probe.reachable || isTargetPage(probe.url))) return;
+  panelTabId = probe.tabId;
+  render();
+});
+
+/** Clic : aucun `await` avant l'ouverture (geste utilisateur requis par sidePanel.open / sidebarAction.open) */
+function openPanel(): void {
+  if (panelTabId === null) return;
+  openSidePanel(panelTabId).then(
+    () => window.close(),
+    (error: unknown) => log.warn('Ouverture du panneau impossible :', error),
+  );
+}
 let pageRequest = 0;
 let pageStarted = false;
 /** Saison choisie dans le sélecteur : conservée pour les relectures après une action */

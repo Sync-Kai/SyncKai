@@ -4,6 +4,7 @@ import type { StreamingAdapter } from './adapters/adapter';
 import { adnAdapter } from './adapters/adn';
 import { crunchyrollAdapter } from './adapters/crunchyroll';
 import { createLogger } from '../shared/logger';
+import { sendMessage } from '../shared/messages';
 import { detectPageMedia } from './lib/page-media';
 import { watchUrl } from './lib/url-watcher';
 import { startWatchSession, type WatchSession } from './lib/watch-session';
@@ -50,6 +51,20 @@ function main(): void {
 
   handleUrl(new URL(location.href));
   watchUrl(handleUrl);
+  announcePanel();
+  // Retour arrière depuis le cache (bfcache) : le script ne redémarre pas, mais le panneau a pu être retiré
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) announcePanel();
+  });
+}
+
+/**
+ * Chrome : panneau latéral activé pour cet onglet (désactivé partout ailleurs). Un seul message par
+ * chargement de page : l'option reste valable pendant la navigation SPA de Crunchyroll.
+ */
+function announcePanel(): void {
+  if (__SYNCKAI_TARGET__ !== 'chrome' || window !== window.top) return;
+  sendMessage('PANEL_AVAILABLE', null).catch((error: unknown) => log.debug('Panneau non signalé :', error));
 }
 
 // Langue des toasts lue avant le démarrage (puis suivie via storage.onChanged)

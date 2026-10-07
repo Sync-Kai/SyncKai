@@ -1,7 +1,8 @@
 /**
  * Manifeste par navigateur cible, appliqué au build (vite.config.ts) avant le plugin crx.
  * Chrome : manifest.json tel quel. Firefox : service worker → `background.scripts`,
- * champs propres à Chrome retirés, `browser_specific_settings.gecko` ajouté.
+ * champs propres à Chrome retirés, `browser_specific_settings.gecko` ajouté, panneau latéral Chrome
+ * (`side_panel` + permission `sidePanel`) remplacé par la barre latérale Firefox (`sidebar_action`).
  */
 
 export type BuildTarget = 'chrome' | 'firefox';
@@ -45,6 +46,17 @@ export interface SourceManifest {
   key?: string;
   minimum_chrome_version?: string;
   background?: { service_worker: string; type?: string };
+  permissions?: string[];
+  side_panel?: { default_path: string };
+  action?: { default_icon?: Record<string, string> };
+}
+
+/** Barre latérale Firefox : jamais ouverte d'office (`open_at_install` vaut true par défaut) */
+export interface FirefoxSidebarAction {
+  default_panel: string;
+  default_title: string;
+  default_icon?: Record<string, string>;
+  open_at_install: false;
 }
 
 export interface FirefoxBackground {
@@ -60,8 +72,9 @@ export interface GeckoSettings {
   };
 }
 
-export type FirefoxManifest<M extends SourceManifest> = Omit<M, 'key' | 'minimum_chrome_version' | 'background'> & {
+export type FirefoxManifest<M extends SourceManifest> = Omit<M, 'key' | 'minimum_chrome_version' | 'background' | 'side_panel'> & {
   background?: FirefoxBackground;
+  sidebar_action?: FirefoxSidebarAction;
   browser_specific_settings: GeckoSettings;
 };
 
@@ -85,9 +98,22 @@ export function targetManifest<M extends SourceManifest>(base: M, target: BuildT
   if (target === 'chrome') return base;
 
   // `key` (ID Chrome Web Store) et `minimum_chrome_version` sont propres à Chrome
-  const { key: _key, minimum_chrome_version: _minChrome, background, ...rest } = base;
+  // `side_panel` et `sidePanel` sont inconnus de Firefox (avertissements web-ext) : remplacés par `sidebar_action`
+  const { key: _key, minimum_chrome_version: _minChrome, background, side_panel: sidePanel, ...rest } = base;
+  const defaultIcon = rest.action?.default_icon;
   return {
     ...rest,
+    ...(rest.permissions ? { permissions: rest.permissions.filter((permission) => permission !== 'sidePanel') } : {}),
+    ...(sidePanel
+      ? {
+          sidebar_action: {
+            default_panel: sidePanel.default_path,
+            default_title: '__MSG_extName__',
+            ...(defaultIcon ? { default_icon: defaultIcon } : {}),
+            open_at_install: false,
+          },
+        }
+      : {}),
     // Firefox n'accepte pas `service_worker` : script d'arrière-plan (event page) en module ES
     ...(background ? { background: { scripts: [background.service_worker], type: 'module' } } : {}),
     browser_specific_settings: {
