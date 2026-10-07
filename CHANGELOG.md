@@ -5,6 +5,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 ## [Unreleased]
 
+### Ajouté
+
+- Version Firefox (en préparation) : build dédié, accès aux sites demandé si Firefox l'a retiré.
+
 ### Modifié
 
 - Connexions AniList / MyAnimeList configurées par navigateur (préparation de Firefox).

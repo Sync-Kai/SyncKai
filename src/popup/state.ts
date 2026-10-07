@@ -162,3 +162,6 @@ export interface CompareState {
   /** Nombre de lignes affichées (« Afficher plus ») */
   shown: number;
 }
+
+/** Accès aux sites (Firefox : retirables par l'utilisateur) ; `denied` = dernière demande refusée */
+export type HostAccessState = { status: 'unknown' } | { status: 'granted' } | { status: 'missing'; denied: boolean };

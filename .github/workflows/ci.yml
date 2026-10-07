@@ -43,3 +43,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Build Firefox + web-ext lint
+        run: npm run build:firefox && npm run lint:firefox

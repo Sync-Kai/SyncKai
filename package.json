@@ -7,10 +7,15 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:dev": "tsc && vite build --mode development",
+    "build:firefox": "tsc && cross-env SYNCKAI_TARGET=firefox vite build",
+    "build:firefox:dev": "tsc && cross-env SYNCKAI_TARGET=firefox vite build --mode development",
     "preview": "vite preview",
     "test": "vitest run",
+    "lint:firefox": "web-ext lint --source-dir dist-firefox",
     "icons": "tsc --noEmit -p scripts && node scripts/generate-icons.ts",
     "package": "tsc --noEmit -p scripts && npm run build && node scripts/package.ts",
+    "package:firefox": "tsc --noEmit -p scripts && npm run build:firefox && node scripts/package.ts --target firefox",
+    "package:source": "tsc --noEmit -p scripts && node scripts/package.ts --source",
     "screenshots": "tsc --noEmit -p scripts/screenshots && node scripts/screenshots/capture.ts"
   },
   "devDependencies": {
@@ -22,10 +27,12 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/chrome": "^0.3.4",
     "@types/node": "^24.19.0",
+    "cross-env": "^10.1.0",
     "puppeteer": "^25.12.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "web-ext": "^8.10.0"
   }
 }

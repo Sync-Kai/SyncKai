@@ -36,7 +36,9 @@ import { formatRelativeTime } from '../shared/watching';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingResult, type WatchingSort } from '../shared/watching.types';
 import { h, nodes, preserveFocus } from '../ui/dom';
 import { formatStarValue } from '../ui/rating';
+import { hasHostAccess, requestHostAccess, requiredOrigins } from '../shared/host-access';
 import { renderFooter, type FooterStatus } from './components/footer';
+import { renderHostAccessBanner } from './components/host-access-banner';
 import { renderHeader, renderNav, renderSettingsBar } from './components/header';
 import { renderOnboarding } from './components/onboarding';
 import { COMPARE_PAGE_SIZE, renderCompareSection } from './components/compare-section';
@@ -58,6 +60,7 @@ import {
   type CompareState,
   type EntryAction,
   type ExclusionsState,
+  type HostAccessState,
   type InlineFeedback,
   type QueueState,
   type RatingsState,
@@ -133,7 +136,11 @@ const ratingsStore = createStore<RatingsState>({ items: [], busyIds: new Set(), 
 const pageCardStore = createStore<PageCardState>({ media: { status: 'none' }, busy: null, confirm: null, feedback: null });
 /** Activité › « Écarts AniList ↔ MAL » */
 const compareStore = createStore<CompareState>({ result: null, job: null, requesting: null, error: null, confirm: null, filter: 'all', shown: COMPARE_PAGE_SIZE });
+/** Accès à Crunchyroll / ADN et aux API (bandeau « Autoriser l'accès » si Firefox l'a retiré) */
+const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
 const version = chrome.runtime.getManifest().version;
+/** Lues au démarrage (synchrone) : la demande d'accès doit partir sans `await` dans le clic */
+const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
 let now = Date.now();
 
 function accountStore(service: TrackerId): Store<AccountState<unknown>> {
@@ -182,6 +189,7 @@ const reviewActions: ReviewActions = {
 
 const headerSlot = h('div', { class: 'contents' });
 const barSlot = h('div', { class: 'contents' });
+const hostAccessSlot = h('div', { class: 'contents' });
 const watchingSlot = h('div', { class: 'min-h-full' });
 const onboardingSlot = h('div', { class: 'min-h-full' });
 const reviewSection = createReviewSection(reviewActions);
@@ -201,7 +209,7 @@ const main = h(
   onboardingSlot,
 );
 const root = getRoot();
-root.replaceChildren(headerSlot, barSlot, main, footerSlot);
+root.replaceChildren(headerSlot, barSlot, hostAccessSlot, main, footerSlot);
 
 // ─── Navigation ───────────────────────────────────────────────────────────
 
@@ -522,6 +530,8 @@ function render(): void {
       ]),
     );
 
+    hostAccessSlot.replaceChildren(...nodes([renderHostAccessBanner({ state: hostAccessStore.get(), onAllow: allowHostAccess })]));
+
     watchingSlot.hidden = isSettings || onboarding || ui.screen !== 'watching';
     activityScreen.hidden = isSettings || onboarding || ui.screen !== 'activity';
     settingsScreen.element.hidden = !isSettings;
@@ -579,6 +589,28 @@ function render(): void {
       }),
     );
   });
+}
+
+// ─── Accès aux sites (Firefox) ──────────────────────────────────────────────
+
+async function checkHostAccess(): Promise<void> {
+  const granted = await hasHostAccess(hostOrigins);
+  const current = hostAccessStore.get();
+  hostAccessStore.set(granted ? { status: 'granted' } : { status: 'missing', denied: current.status === 'missing' && current.denied });
+}
+
+/** Clic « Autoriser l'accès » : `permissions.request` appelé immédiatement (geste utilisateur requis par Firefox) */
+function allowHostAccess(): void {
+  requestHostAccess(hostOrigins).then(
+    (granted) => {
+      if (granted) void checkHostAccess();
+      else hostAccessStore.set({ status: 'missing', denied: true });
+    },
+    (error: unknown) => {
+      log.warn('Demande d’accès aux sites impossible :', error);
+      hostAccessStore.set({ status: 'missing', denied: true });
+    },
+  );
 }
 
 // ─── Comptes (AniList, MyAnimeList) ─────────────────────────────────────────
@@ -1410,7 +1442,10 @@ anilistStore.subscribe(syncWatchingSource);
 malStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncMenuListeners);
-for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore, compareStore]) store.subscribe(render);
+for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore, compareStore, hostAccessStore]) store.subscribe(render);
+// Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre)
+chrome.permissions?.onAdded?.addListener(() => void checkHostAccess());
+chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());
 exclusionsStore.subscribe((state) => {
   settingsScreen.updateExclusions(state);
   render();
@@ -1453,6 +1488,7 @@ setInterval(() => {
   settingsScreen.updateAiring(airingResult, now);
 }, CLOCK_TICK_MS);
 
+void checkHostAccess();
 void loadSettings();
 void loadSyncData();
 void loadExclusions();

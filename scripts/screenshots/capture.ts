@@ -29,7 +29,7 @@ const server = await createServer({
   logLevel: 'warn',
   plugins: [tailwindcss()],
   // Mêmes constantes que vite.config.ts (build de production : logs info/debug coupés)
-  define: { __SYNCKAI_BUILD__: JSON.stringify('screenshots'), __SYNCKAI_DEBUG__: JSON.stringify(false) },
+  define: { __SYNCKAI_BUILD__: JSON.stringify('screenshots'), __SYNCKAI_DEBUG__: JSON.stringify(false), __SYNCKAI_TARGET__: JSON.stringify('chrome') },
   server: { port: 5199, strictPort: false, host: '127.0.0.1' },
 });
 await server.listen();

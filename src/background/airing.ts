@@ -174,7 +174,8 @@ async function runCheck(): Promise<{ notified: number; skipped: AiringSkipReason
       iconUrl,
       title: notification.title,
       message: notification.message,
-      buttons: [{ title: t('common.open') }],
+      // Firefox ne gère pas les boutons de notification : un clic sur la notification ouvre déjà la série
+      ...(__SYNCKAI_TARGET__ === 'firefox' ? {} : { buttons: [{ title: t('common.open') }] }),
       priority: 0,
     });
   }
