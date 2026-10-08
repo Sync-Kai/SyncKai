@@ -46,8 +46,11 @@ export function settingsPlaceholder(ctx: SettingsContext): Node[] {
   return [h('div', { class: `${CARD} h-40 motion-safe:animate-pulse`, attrs: { 'aria-busy': 'true', 'aria-label': t('settings.loading') } })];
 }
 
-/** Retour de la dernière demande d'accès Netflix (affiché sous l'interrupteur jusqu'au prochain changement) */
-type NetflixNotice = 'denied' | 'error' | null;
+/**
+ * Retour de la dernière demande d'accès Netflix (affiché sous l'interrupteur jusqu'au prochain changement).
+ * `disabled` : accès retiré, le script déjà exécuté dans un onglet ouvert tourne jusqu'à son rechargement.
+ */
+type NetflixNotice = 'denied' | 'error' | 'disabled' | null;
 
 export function createSyncPage(ctx: SettingsContext): SettingsPageView {
   let netflixNotice: NetflixNotice = null;
@@ -75,7 +78,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
     removeNetflixAccess().then(
       (removed) => {
         if (removed && ctx.data.settings?.preferredPlayer === 'netflix') void ctx.update({ preferredPlayer: DEFAULT_SETTINGS.preferredPlayer }, true);
-        settleNetflix(removed ? null : 'error');
+        settleNetflix(removed ? 'disabled' : 'error');
       },
       (error: unknown) => {
         log.warn('Retrait de l’accès à Netflix impossible :', error);
@@ -86,7 +89,10 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
 
   function renderNetflix(): HTMLElement {
     const granted = ctx.data.netflixAccess === true;
-    const notice = netflixNotice && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-danger', attrs: { role: 'alert' } }, t(netflixNotice === 'denied' ? 'settings.netflix.denied' : 'settings.netflix.error'));
+    const notice =
+      netflixNotice === 'disabled'
+        ? !granted && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-muted', attrs: { role: 'status' } }, t('settings.netflix.disabled'))
+        : netflixNotice && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-danger', attrs: { role: 'alert' } }, t(netflixNotice === 'denied' ? 'settings.netflix.denied' : 'settings.netflix.error'));
     return settingsSection(
       t('settings.netflix.section'),
       rowsCard(

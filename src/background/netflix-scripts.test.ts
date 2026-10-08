@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { NETFLIX_SCRIPT_IDS, netflixContentScripts, reconcileNetflixScripts, touchesNetflix, type NetflixScriptingApi } from './netflix-scripts';
+import {
+  injectIntoOpenNetflixTabs,
+  NETFLIX_SCRIPT_IDS,
+  netflixContentScripts,
+  reconcileNetflixScripts,
+  touchesNetflix,
+  type NetflixInjectionApi,
+  type NetflixScriptingApi,
+} from './netflix-scripts';
 
 const PATHS = { bridge: 'src/content/netflix/page-bridge.iife.js', content: 'src/content/netflix/content-netflix.iife.js' };
 
@@ -90,5 +98,52 @@ describe('touchesNetflix', () => {
     expect(touchesNetflix({ origins: ['*://*.crunchyroll.com/*'] })).toBe(false);
     expect(touchesNetflix({ permissions: ['scripting'] } as { origins?: string[] })).toBe(false);
     expect(touchesNetflix({})).toBe(false);
+  });
+});
+
+/** Faux navigateur pour l'injection : onglets ouverts, onglets en échec, appels relevés */
+function fakeInjection(granted: boolean, tabIds: number[], failing: number[] = []): NetflixInjectionApi & { calls: string[] } {
+  const calls: string[] = [];
+  return {
+    calls,
+    hasAccess: () => Promise.resolve(granted),
+    netflixTabIds: () => Promise.resolve(tabIds),
+    inject: (tabId, file, world) => {
+      if (failing.includes(tabId)) return Promise.reject(new Error('Frame with ID 0 was removed.'));
+      calls.push(`${tabId}:${world}:${file}`);
+      return Promise.resolve();
+    },
+  };
+}
+
+describe('injectIntoOpenNetflixTabs', () => {
+  it('chaque onglet ouvert : pont MAIN puis script isolé', async () => {
+    const api = fakeInjection(true, [7, 9]);
+    expect(await injectIntoOpenNetflixTabs(api, PATHS, () => undefined)).toBe(2);
+    for (const tabId of [7, 9]) {
+      expect(api.calls.filter((call) => call.startsWith(`${tabId}:`))).toEqual([`${tabId}:MAIN:${PATHS.bridge}`, `${tabId}:ISOLATED:${PATHS.content}`]);
+    }
+  });
+
+  it('onglet en échec (déchargé, page d’erreur) : signalé, les autres onglets sont traités', async () => {
+    const api = fakeInjection(true, [3, 4], [3]);
+    const errors: (number | null)[] = [];
+    expect(await injectIntoOpenNetflixTabs(api, PATHS, (tabId) => errors.push(tabId))).toBe(1);
+    expect(errors).toEqual([3]);
+    expect(api.calls).toEqual([`4:MAIN:${PATHS.bridge}`, `4:ISOLATED:${PATHS.content}`]);
+  });
+
+  it('accès absent (retiré entre-temps) ou aucun onglet : rien n’est exécuté', async () => {
+    const denied = fakeInjection(false, [1]);
+    expect(await injectIntoOpenNetflixTabs(denied, PATHS, () => undefined)).toBe(0);
+    expect(denied.calls).toEqual([]);
+    expect(await injectIntoOpenNetflixTabs(fakeInjection(true, []), PATHS, () => undefined)).toBe(0);
+  });
+
+  it('lecture des onglets impossible : signalée, jamais d’exception', async () => {
+    const api: NetflixInjectionApi = { ...fakeInjection(true, []), netflixTabIds: () => Promise.reject(new Error('boom')) };
+    const errors: (number | null)[] = [];
+    expect(await injectIntoOpenNetflixTabs(api, PATHS, (tabId) => errors.push(tabId))).toBe(0);
+    expect(errors).toEqual([null]);
   });
 });

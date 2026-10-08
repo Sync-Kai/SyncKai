@@ -6,7 +6,14 @@ import bridgePath from '../content/netflix/page-bridge.iife.ts?script';
 import contentPath from '../content/netflix/content-netflix.iife.ts?script';
 import { createLogger } from '../shared/logger';
 import { NETFLIX_MATCHES } from '../shared/target-pages';
-import { reconcileNetflixScripts, touchesNetflix, type NetflixScriptingApi, type NetflixScriptPaths } from './netflix-scripts';
+import {
+  injectIntoOpenNetflixTabs,
+  reconcileNetflixScripts,
+  touchesNetflix,
+  type NetflixInjectionApi,
+  type NetflixScriptingApi,
+  type NetflixScriptPaths,
+} from './netflix-scripts';
 
 const log = createLogger('netflix-access');
 
@@ -19,14 +26,27 @@ const api: NetflixScriptingApi = {
   unregister: (ids) => chrome.scripting.unregisterContentScripts({ ids }),
 };
 
+const injection: NetflixInjectionApi = {
+  hasAccess: api.hasAccess,
+  netflixTabIds: async () => (await chrome.tabs.query({ url: [...NETFLIX_MATCHES] })).flatMap((tab) => (tab.id !== undefined ? [tab.id] : [])),
+  inject: async (tabId, file, world) => {
+    await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, files: [file], world });
+  },
+};
+
 /** Réconciliations en série : onInstalled et onAdded peuvent arriver ensemble (identifiants en double sinon) */
 let queue: Promise<void> = Promise.resolve();
 
-function reconcile(reregister: boolean): void {
+/** `injectOpenTabs` : accès tout juste accordé, scripts aussi exécutés dans les onglets Netflix déjà ouverts */
+function reconcile(reregister: boolean, injectOpenTabs = false): void {
   queue = queue
     .then(() => reconcileNetflixScripts(api, PATHS, reregister))
-    .then((result) => {
+    .then(async (result) => {
       if (result !== 'unchanged') log.info(`Scripts Netflix : ${result === 'registered' ? 'enregistrés' : 'retirés'}`);
+      if (!injectOpenTabs || result === 'unregistered') return;
+      // Onglet déchargé, page d'erreur… : sans conséquence, le script s'appliquera au prochain chargement
+      const count = await injectIntoOpenNetflixTabs(injection, PATHS, (tabId, error) => log.debug(`Injection Netflix impossible (onglet ${tabId ?? '?'}) :`, error));
+      if (count > 0) log.info(`Scripts Netflix exécutés dans ${count} onglet(s) ouvert(s)`);
     })
     .catch((error: unknown) => log.warn('Enregistrement des scripts Netflix impossible :', error));
 }
@@ -34,7 +54,7 @@ function reconcile(reregister: boolean): void {
 /** Écouteurs posés au chargement du service worker (niveau supérieur de background.ts) */
 export function listenNetflixAccess(): void {
   chrome.permissions.onAdded.addListener((permissions) => {
-    if (touchesNetflix(permissions)) reconcile(false);
+    if (touchesNetflix(permissions)) reconcile(false, true);
   });
   chrome.permissions.onRemoved.addListener((permissions) => {
     if (touchesNetflix(permissions)) reconcile(false);

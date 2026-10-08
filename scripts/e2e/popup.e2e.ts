@@ -394,7 +394,7 @@ describe('popup (bout en bout)', () => {
     await click(page, 'sk-netflix');
     await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
     expect((await trace(page)).permissionRequests).toEqual([manifest.optional_host_permissions]);
-    // Accès accordé : consigne de rechargement, option Netflix proposée
+    // Accès accordé (scripts aussi exécutés dans les onglets ouverts : aucune consigne de rechargement), option Netflix proposée
     await page.waitForSelector(sel('player-netflix'));
     expect(await checked()).toBe(true);
     expect(await text(page, '#sk-netflix-help')).toBe(fr('settings.netflix.helpOn'));
@@ -407,6 +407,9 @@ describe('popup (bout en bout)', () => {
     expect((await trace(page)).permissionRemovals).toEqual([manifest.optional_host_permissions]);
     await page.waitForSelector(sel('player-netflix'), { hidden: true });
     expect(await checked()).toBe(false);
+    // Le script d'un onglet déjà ouvert tourne jusqu'à son rechargement : consigne discrète
+    const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
+    expect(statuses).toContain(fr('settings.netflix.disabled'));
   });
 
   it('accès aux sites retiré : bandeau, « Autoriser l’accès » appelle permissions.request', async () => {

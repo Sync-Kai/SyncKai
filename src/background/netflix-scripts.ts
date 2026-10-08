@@ -60,3 +60,49 @@ export async function reconcileNetflixScripts(api: NetflixScriptingApi, paths: N
 export function touchesNetflix(permissions: { origins?: string[] }): boolean {
   return (permissions.origins ?? []).some((origin) => NETFLIX_MATCHES.includes(origin));
 }
+
+// ─── Onglets déjà ouverts ─────────────────────────────────────────────────
+
+/** Sous-ensemble de chrome.tabs / chrome.scripting utilisé pour l'injection dans les onglets ouverts */
+export interface NetflixInjectionApi {
+  hasAccess(): Promise<boolean>;
+  /** Onglets netflix.com ouverts (tabs.query par URL : permission d'hôte suffisante, sans `tabs`) */
+  netflixTabIds(): Promise<number[]>;
+  /** Exécute un fichier du paquet dans la frame principale de l'onglet */
+  inject(tabId: number, file: string, world: 'MAIN' | 'ISOLATED'): Promise<void>;
+}
+
+/**
+ * Accès tout juste accordé : les scripts enregistrés ne s'appliquent qu'aux pages chargées ensuite, ils sont
+ * donc exécutés dans les onglets Netflix déjà ouverts (pont MAIN d'abord, puis script isolé : le pont doit
+ * écouter avant la première demande). Les deux scripts se protègent d'une double exécution.
+ * Un onglet en échec (déchargé, page d'erreur…) n'empêche pas les autres : `onError`, jamais d'exception.
+ * Retourne le nombre d'onglets où les deux scripts ont été exécutés.
+ */
+export async function injectIntoOpenNetflixTabs(
+  api: NetflixInjectionApi,
+  paths: NetflixScriptPaths,
+  onError: (tabId: number | null, error: unknown) => void,
+): Promise<number> {
+  let tabIds: number[];
+  try {
+    if (!(await api.hasAccess())) return 0;
+    tabIds = await api.netflixTabIds();
+  } catch (error: unknown) {
+    onError(null, error);
+    return 0;
+  }
+  const results = await Promise.all(
+    tabIds.map(async (tabId) => {
+      try {
+        await api.inject(tabId, paths.bridge, 'MAIN');
+        await api.inject(tabId, paths.content, 'ISOLATED');
+        return true;
+      } catch (error: unknown) {
+        onError(tabId, error);
+        return false;
+      }
+    }),
+  );
+  return results.filter(Boolean).length;
+}
