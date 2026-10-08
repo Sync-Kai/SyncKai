@@ -1,0 +1,14 @@
+@import "../ui/theme.css";
+
+/* Page d'import Crunchyroll : onglet pleine page, défilement natif */
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+    margin: 0;
+  }
+
+  body {
+    font-size: 13px;
+  }
+}

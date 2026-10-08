@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXTENSION_PAGE_ONLY, isRuntimeMessage } from './messages';
+import { EXTENSION_PAGE_ONLY, isExtensionPageSender, isRuntimeMessage } from './messages';
 
 describe('GET_AGENDA', () => {
   it('clé de semaine validée, réservé aux pages de l’extension', () => {
@@ -141,5 +141,35 @@ describe('GET_PANEL_MEDIA', () => {
 
   it('est réservé aux pages de l’extension', () => {
     expect(EXTENSION_PAGE_ONLY.has('GET_PANEL_MEDIA')).toBe(true);
+  });
+});
+
+describe('import Crunchyroll', () => {
+  const history = { seasons: [], stats: { items: 0, pages: 1, partial: false } };
+
+  it('payloads validés, réservés aux pages de l’extension', () => {
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history: { seasons: 'x', stats: history.stats } } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: ['m:21'] } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: [21] } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_CANCEL', payload: null })).toBe(true);
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_REVIEWS', payload: { keys: ['crunchyroll:GR:s1'] } })).toBe(true);
+    for (const type of ['CR_IMPORT_ANALYZE', 'CR_IMPORT_APPLY', 'CR_IMPORT_CANCEL', 'CR_IMPORT_REVIEWS'] as const) expect(EXTENSION_PAGE_ONLY.has(type)).toBe(true);
+  });
+});
+
+describe('isExtensionPageSender', () => {
+  const origin = 'chrome-extension://khokcmigioggannjoojambdgioigdceb/';
+
+  it('accepte les pages de l’extension, même ouvertes dans un onglet (page d’import)', () => {
+    expect(isExtensionPageSender({ url: `${origin}src/import-cr/import-cr.html` }, origin)).toBe(true);
+    expect(isExtensionPageSender({ url: `${origin}src/popup/popup.html` }, origin)).toBe(true);
+    expect(isExtensionPageSender({ url: 'moz-extension://abc/src/sidepanel/sidepanel.html' }, 'moz-extension://abc/')).toBe(true);
+  });
+
+  it('refuse les content scripts (URL de la page web) et un expéditeur sans URL', () => {
+    expect(isExtensionPageSender({ url: 'https://www.crunchyroll.com/watch/X' }, origin)).toBe(false);
+    expect(isExtensionPageSender({ url: 'chrome-extension://autre-extension/page.html' }, origin)).toBe(false);
+    expect(isExtensionPageSender({}, origin)).toBe(false);
   });
 });

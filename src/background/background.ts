@@ -11,6 +11,8 @@ import { addToList, adjustProgress, handleCommand, setListStatus } from './contr
 import { forgetPageResolutions, refreshTabPageMedia, resolvePageMedia } from './page-media';
 import { applyDiffs, cancelCompareJob, compareServiceLists, resumeCompareJob } from './compare';
 import { COMPARE_JOB_ALARM } from '../shared/compare-job';
+import { cancelCrImport, createCrReviews, resumeCrImport, startCrAnalyze, startCrApply } from './cr-import';
+import { CR_IMPORT_ALARM } from '../shared/cr-import';
 import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } from './sync/queue';
 import { reopenReview, resolveReview, searchCandidates, syncEpisode } from './sync/sync-service';
@@ -19,6 +21,7 @@ import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { STORAGE_KEYS } from '../shared/storage';
 import {
   EXTENSION_PAGE_ONLY,
+  isExtensionPageSender,
   isRuntimeMessage,
   type MessagePayload,
   type MessageResponse,
@@ -79,6 +82,10 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     PANEL_AVAILABLE: null,
     GET_PANEL_MEDIA: { ok: false, code: 'API_ERROR', message },
     GET_AGENDA: { ok: false, code: 'API_ERROR', message },
+    CR_IMPORT_ANALYZE: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
+    CR_IMPORT_APPLY: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
+    CR_IMPORT_CANCEL: { ok: false, code: 'NOT_FOUND', message },
+    CR_IMPORT_REVIEWS: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
   };
 }
 
@@ -135,6 +142,10 @@ const handlers: MessageHandlers = {
   PANEL_AVAILABLE: (_payload, sender) => enablePanelForSender(sender),
   GET_PANEL_MEDIA: ({ mediaId }) => getPanelMedia(mediaId),
   GET_AGENDA: ({ weekStart }) => getAgendaWeek(weekStart),
+  CR_IMPORT_ANALYZE: (payload) => startCrAnalyze(payload),
+  CR_IMPORT_APPLY: (payload) => startCrApply(payload),
+  CR_IMPORT_CANCEL: () => cancelCrImport(),
+  CR_IMPORT_REVIEWS: (payload) => createCrReviews(payload),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();
@@ -159,8 +170,9 @@ chrome.runtime.onMessage.addListener(
   ): boolean => {
     // N'accepte que les messages provenant de l'extension elle-même (popup ou content scripts)
     if (sender.id !== chrome.runtime.id || !isRuntimeMessage(message)) return false;
-    // Les actions sur le compte ne viennent que du popup : un content script (sender.tab) est refusé
-    if (EXTENSION_PAGE_ONLY.has(message.type) && sender.tab !== undefined) {
+    // Les actions sur le compte ne viennent que des pages de l'extension (popup, panneau, onglets d'import) :
+    // un content script est refusé, même s'il tourne dans un onglet comme une page de l'extension
+    if (EXTENSION_PAGE_ONLY.has(message.type) && !isExtensionPageSender(sender, chrome.runtime.getURL(''))) {
       log.warn('Message refusé depuis un onglet :', message.type);
       return false;
     }
@@ -229,6 +241,15 @@ chrome.alarms.onAlarm.addListener((alarm): void => {
 });
 chrome.runtime.onStartup.addListener((): void => {
   afterI18n(resumeCompareJob);
+});
+
+// ─── Import de l'historique Crunchyroll : reprise d'une analyse ou d'un import interrompu ───
+
+chrome.alarms.onAlarm.addListener((alarm): void => {
+  if (alarm.name === CR_IMPORT_ALARM) afterI18n(resumeCrImport);
+});
+chrome.runtime.onStartup.addListener((): void => {
+  afterI18n(resumeCrImport);
 });
 
 // ─── Panneau latéral (Chrome) : indisponible hors Crunchyroll / ADN ───────

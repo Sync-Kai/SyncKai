@@ -12,7 +12,7 @@ import {
   type DiffSide,
   type ListDiff,
 } from '../../shared/compare';
-import { isJobActive, pauseSecondsLeft, type CompareJob } from '../../shared/compare-job';
+import { isJobActive, type CompareJob } from '../../shared/compare-job';
 import type { ListStatus } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { formatRelativeTime } from '../../shared/watching';
@@ -22,6 +22,7 @@ import { formatStarValue } from '../../ui/rating';
 import { TONE_CHIP } from '../feedback';
 import type { CompareState } from '../state';
 import { renderAlert } from './alert';
+import { jobPauseText } from './job-pause';
 import { BTN_GHOST, BTN_PRIMARY, renderCover, sectionTitle } from './ui';
 
 /** Lignes affichées d'emblée, puis par tranche (« Afficher plus ») : le popup reste rapide sur de longues listes */
@@ -140,13 +141,15 @@ function renderRow(diff: ListDiff, { state, onApply }: CompareSectionProps, busy
 /** Barre de progression de l'alignement (restaurée à la réouverture du popup) + « Arrêter » */
 /** Texte de la pause en cours (compte à rebours recalculé chaque seconde par le popup) */
 function pauseText(job: CompareJob): string | null {
-  if (job.pausedUntil === null || job.pauseReason === null) return null;
-  if (job.pauseReason === 'resume') return t('compare.pause.resume');
-  const service = job.pauseService ? TRACKER_LABELS[job.pauseService] : '';
-  return t(`compare.pause.${job.pauseReason}` satisfies MessageKey, { service, seconds: pauseSecondsLeft(job, Date.now()) });
+  return jobPauseText(job, Date.now());
 }
 
 function renderJob(job: CompareJob, { state, onCancel, onDismissJob, onRetryFailed }: CompareSectionProps): HTMLElement | null {
+  if (job.kind === 'analyze') {
+    // Analyse en attente du quota AniList : expliquée sous le bouton (sinon le spinner semble figé)
+    const pause = job.status === 'running' ? pauseText(job) : null;
+    return pause ? h('p', { class: 'm-0 text-[11px] font-semibold text-butter', attrs: { role: 'status' } }, pause) : null;
+  }
   if (job.kind !== 'apply') return null;
   if (job.status === 'running') {
     const percent = job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;

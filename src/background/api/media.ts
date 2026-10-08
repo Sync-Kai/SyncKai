@@ -2,6 +2,7 @@ import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
+import type { RequestLane } from './rate-limit';
 import { ApiError } from './errors';
 import { parseNextEpisode, toAiringStatus } from './watching';
 import type { PageMediaDetails } from '../../shared/page-media.types';
@@ -99,13 +100,37 @@ function parsePage(data: PageData): AniListMedia[] {
 
 // ─── API ──────────────────────────────────────────────────────────────────
 
-export async function searchAnime(search: string): Promise<AniListMedia[]> {
-  return parsePage(await anilistPublicQuery(SEARCH_QUERY, isPageData, { search }));
+/**
+ * Résultats des requêtes de fond gardés quelques minutes : l'analyse de l'historique Crunchyroll interroge la
+ * même série pour chacune de ses saisons (One Piece : 20 saisons → une seule recherche « One Piece »).
+ * Les requêtes interactives restent toujours fraîches.
+ */
+const BACKGROUND_CACHE_TTL_MS = 10 * 60_000;
+const BACKGROUND_CACHE_MAX = 300;
+const backgroundCache = new Map<string, { at: number; media: AniListMedia[] }>();
+
+async function cachedPage(key: string, lane: RequestLane, load: () => Promise<AniListMedia[]>): Promise<AniListMedia[]> {
+  if (lane !== 'background') return load();
+  const now = Date.now();
+  const hit = backgroundCache.get(key);
+  if (hit && now - hit.at < BACKGROUND_CACHE_TTL_MS) return hit.media;
+  const media = await load();
+  backgroundCache.delete(key);
+  backgroundCache.set(key, { at: now, media });
+  // Plus ancienne entrée retirée au-delà de la limite (ordre d'insertion de la Map)
+  if (backgroundCache.size > BACKGROUND_CACHE_MAX) backgroundCache.delete(backgroundCache.keys().next().value ?? '');
+  return media;
 }
 
-export async function getAnimeByIds(ids: readonly number[]): Promise<AniListMedia[]> {
+/** `lane` : 'background' pour les tâches de fond (budget limité et cache court, voir rate-limit.ts) */
+export async function searchAnime(search: string, lane: RequestLane = 'interactive'): Promise<AniListMedia[]> {
+  return cachedPage(`search:${search.toLowerCase()}`, lane, async () => parsePage(await anilistPublicQuery(SEARCH_QUERY, isPageData, { search }, lane)));
+}
+
+export async function getAnimeByIds(ids: readonly number[], lane: RequestLane = 'interactive'): Promise<AniListMedia[]> {
   if (ids.length === 0) return [];
-  return parsePage(await anilistPublicQuery(BY_IDS_QUERY, isPageData, { ids }));
+  const key = `ids:${[...ids].sort((a, b) => a - b).join(',')}`;
+  return cachedPage(key, lane, async () => parsePage(await anilistPublicQuery(BY_IDS_QUERY, isPageData, { ids }, lane)));
 }
 
 const BY_ID_QUERY = /* GraphQL */ `

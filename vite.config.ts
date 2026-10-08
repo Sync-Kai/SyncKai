@@ -40,6 +40,7 @@ export default defineConfig(({ mode }) => ({
       // construit d'après `side_panel` (Chrome) mais ignore `sidebar_action` (Firefox) → entrée explicite
       input: {
         import: 'src/import/import.html',
+        'import-cr': 'src/import-cr/import-cr.html',
         ...(target === 'firefox' ? { sidepanel: 'src/sidepanel/sidepanel.html' } : {}),
       },
     },

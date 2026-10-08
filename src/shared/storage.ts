@@ -31,7 +31,15 @@ export const STORAGE_KEYS = {
   compareLast: 'compare:last',
   /** Tâche d'analyse ou d'alignement en cours (progression, reprise) */
   compareJob: 'compare:job',
+  /** Import de l'historique Crunchyroll : tâche, historique réduit, correspondances, aperçu (voir cr-import.ts) */
+  crImportJob: 'crImport:job',
+  crImportInput: 'crImport:input',
+  crImportResolutions: 'crImport:resolutions',
+  crImportPlan: 'crImport:plan',
 } as const;
+
+/** Import Crunchyroll : propre au compte (aperçu = état des listes), effacé à toute déconnexion */
+const CR_IMPORT_STORAGE_KEYS = [STORAGE_KEYS.crImportJob, STORAGE_KEYS.crImportInput, STORAGE_KEYS.crImportResolutions, STORAGE_KEYS.crImportPlan];
 
 /** Retourne le token AniList s'il existe et n'a pas expiré. */
 export async function getValidToken(): Promise<AniListToken | null> {
@@ -129,7 +137,7 @@ export function addRecentSync(sync: RecentSync): Promise<void> {
  */
 export function clearAniListSession(): Promise<void> {
   return withStorageLock(async () => {
-    await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob]);
+    await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
     await removeCachedWatching('anilist');
   });
 }
@@ -142,7 +150,7 @@ export function clearUserSyncData(): Promise<void> {
   return withStorageLock(async () => {
     // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
     const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => key.startsWith('airingWeek:'));
-    await chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, PLATFORM_LINKS_KEY, ...weeks]);
+    await chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS, PLATFORM_LINKS_KEY, ...weeks]);
   });
 }
 
@@ -172,7 +180,7 @@ export async function saveCachedMalViewer(viewer: MalViewer): Promise<void> {
 /** Comme clearAniListSession : token, profil et liste « En cours » MAL en cache. */
 export function clearMalSession(): Promise<void> {
   return withStorageLock(async () => {
-    await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob]);
+    await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
     await removeCachedWatching('mal');
   });
 }

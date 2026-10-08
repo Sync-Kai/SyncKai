@@ -22,23 +22,21 @@ import {
   isCompareJob,
   isJobActive,
   isJobStale,
-  JOB_STALE_MS,
   reduceJob,
   startAnalyzeJob,
   startApplyJob,
   type CompareJob,
-  type JobEvent,
 } from '../shared/compare-job';
 import { isRecord } from '../shared/guards';
-import { getCachedViewer, STORAGE_KEYS, withStorageLock } from '../shared/storage';
+import { getCachedViewer, STORAGE_KEYS } from '../shared/storage';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { anilistPublicQuery, anilistQuery } from './api/client';
-import { ApiError, type ApiErrorCode } from './api/errors';
+import { ApiError } from './api/errors';
 import { getScoreFormat } from './api/list';
 import { malRequest } from './api/mal';
-import { sleep } from './api/rate-limit';
 import { getViewer } from './api/viewer';
 import { parseAniListCollection, parseMalListPage } from './compare-parse';
+import { createJobLoop, createJobStore, isFatalError, trackBudgetWaits, transientKind, waitWriteSlot, type StepResult, type TransientKind } from './jobs/runner';
 import { getConnectedTrackers } from './trackers';
 import { createLogger } from '../shared/logger';
 
@@ -86,11 +84,12 @@ async function getAniListUserId(): Promise<number> {
   return result.data.id;
 }
 
-async function fetchAniListFullList(): Promise<ReturnType<typeof parseAniListCollection>> {
+/** Liste complète : requêtes de fond (comparaison, import Crunchyroll), budget limité */
+export async function fetchAniListFullList(): Promise<ReturnType<typeof parseAniListCollection>> {
   const userId = await getAniListUserId();
   const entries: ReturnType<typeof parseAniListCollection> = [];
   for (let chunk = 1; chunk <= MAX_ANILIST_CHUNKS; chunk++) {
-    const { MediaListCollection } = await anilistQuery(ANILIST_FULL_LIST_QUERY, isCollectionData, { userId, chunk, perChunk: ANILIST_CHUNK });
+    const { MediaListCollection } = await anilistQuery(ANILIST_FULL_LIST_QUERY, isCollectionData, { userId, chunk, perChunk: ANILIST_CHUNK }, 'background');
     entries.push(...parseAniListCollection(MediaListCollection));
     if (MediaListCollection.hasNextChunk !== true) break;
   }
@@ -105,7 +104,7 @@ const MAL_FULL_LIST_PATH =
 
 const isMalListData = (data: unknown): data is { data: unknown[]; paging?: unknown } => isRecord(data) && Array.isArray(data.data);
 
-async function fetchMalFullList(): Promise<MalListEntry[]> {
+export async function fetchMalFullList(): Promise<MalListEntry[]> {
   const entries: MalListEntry[] = [];
   for (let page = 0; page < MAX_MAL_PAGES; page++) {
     const result = await malRequest(`${MAL_FULL_LIST_PATH}&limit=${MAL_PAGE}&offset=${page * MAL_PAGE}`, isMalListData);
@@ -133,7 +132,7 @@ async function resolveMalOnly(mal: readonly MalListEntry[], knownMalIds: Readonl
   const missing = [...new Set(mal.filter((e) => !knownMalIds.has(e.malId)).map((e) => e.malId))];
   const byMal = new Map<number, number>();
   for (let i = 0; i < missing.length; i += CATALOG_CHUNK) {
-    const { Page } = await anilistPublicQuery(CATALOG_BY_MAL_QUERY, isPageData, { ids: missing.slice(i, i + CATALOG_CHUNK) });
+    const { Page } = await anilistPublicQuery(CATALOG_BY_MAL_QUERY, isPageData, { ids: missing.slice(i, i + CATALOG_CHUNK) }, 'background');
     for (const media of Page.media) {
       if (isRecord(media) && typeof media.id === 'number' && typeof media.idMal === 'number' && !byMal.has(media.idMal)) byMal.set(media.idMal, media.id);
     }
@@ -159,24 +158,10 @@ async function writeComparison(result: ComparisonResult): Promise<void> {
   if (await hasBothTokens()) await chrome.storage.local.set({ [COMPARE_STORAGE_KEY]: result });
 }
 
-async function readJob(): Promise<CompareJob | null> {
-  const stored = await chrome.storage.local.get(COMPARE_JOB_KEY);
-  const value: unknown = stored[COMPARE_JOB_KEY];
-  return isCompareJob(value) ? value : null;
-}
-
-/**
- * Lecture-modification-écriture de la tâche sous verrou : le popup (« Arrêter ») et la boucle
- * d'alignement l'écrivent tous deux. `update` renvoie null pour supprimer la tâche.
- */
-function updateJob(update: (job: CompareJob | null) => CompareJob | null): Promise<CompareJob | null> {
-  return withStorageLock(async () => {
-    const next = update(await readJob());
-    if (next === null) await chrome.storage.local.remove(COMPARE_JOB_KEY);
-    else await chrome.storage.local.set({ [COMPARE_JOB_KEY]: next });
-    return next;
-  });
-}
+/** Tâche d'analyse ou d'alignement (`compare:job`), écrite sous verrou par le popup (« Arrêter ») et la boucle */
+const jobStore = createJobStore(COMPARE_JOB_KEY, isCompareJob);
+const readJob = (): Promise<CompareJob | null> => jobStore.read();
+const updateJob = (update: (job: CompareJob | null) => CompareJob | null): Promise<CompareJob | null> => jobStore.update(update);
 
 // ─── Analyse ──────────────────────────────────────────────────────────────
 
@@ -202,6 +187,8 @@ export async function compareServiceLists(): Promise<CompareResult> {
   });
   if (started === null) return isBusy();
   const startedAt = (started as CompareJob).startedAt;
+  // Attente du quota AniList (requêtes de fond) affichée sous le bouton d'analyse ; elle entretient aussi la tâche
+  const stopTracking = trackBudgetWaits(jobStore);
 
   try {
     const [anilist, malRaw, scoreFormat] = await Promise.all([fetchAniListFullList(), fetchMalFullList(), getScoreFormat()]);
@@ -217,6 +204,7 @@ export async function compareServiceLists(): Promise<CompareResult> {
     log.error('Erreur inattendue (comparaison) :', error);
     return { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') };
   } finally {
+    await stopTracking();
     // Retire seulement NOTRE analyse (une tâche plus récente a pu la remplacer si celle-ci a été jugée interrompue)
     await updateJob((job) => (job?.kind === 'analyze' && job.startedAt === startedAt ? null : job));
   }
@@ -224,58 +212,8 @@ export async function compareServiceLists(): Promise<CompareResult> {
 
 // ─── Alignement (tâche reprenable) ────────────────────────────────────────
 
-/** Espacement minimal entre deux écritures MyAnimeList (pas de limite publiée : ~60 écritures/min) */
-export const MAL_WRITE_GAP_MS = 1_000;
-/** Espacement minimal entre deux écritures AniList (limite ~90 requêtes/min) */
-export const ANILIST_WRITE_GAP_MS = 750;
-const WRITE_GAP_MS: Record<TrackerId, number> = { anilist: ANILIST_WRITE_GAP_MS, mal: MAL_WRITE_GAP_MS };
-
-/** Signe de vie pendant une requête ou une pause : la tâche ne passe jamais pour interrompue */
-const HEARTBEAT_MS = 10_000;
-
-/**
- * Attentes avant de retenter la MÊME série, par type d'erreur passagère (la longueur fixe le nombre d'essais) :
- * - rate-limit : 429 persistant (le client a déjà attendu Retry-After une fois) ;
- * - server : 502 / 503 / 504 ou délai dépassé (MAL surchargé répond 504 après une longue attente) ;
- * - network : connexion perdue.
- */
-export const RETRY_DELAYS_MS: Record<'rate-limit' | 'server' | 'network', readonly number[]> = {
-  'rate-limit': [60_000, 120_000, 240_000],
-  server: [5_000, 15_000],
-  network: [30_000, 60_000],
-};
-
-/** Erreurs qui feraient échouer toutes les séries suivantes : la tâche s'arrête */
-const FATAL_CODES: ReadonlySet<ApiErrorCode> = new Set(['NOT_AUTHENTICATED', 'TOKEN_INVALID', 'RATE_LIMITED', 'NETWORK']);
-
-export type TransientKind = 'rate-limit' | 'server' | 'network';
-
-/** Erreur passagère qui mérite une nouvelle tentative de la même série (pur, testé) */
-export function transientKind(error: unknown): TransientKind | null {
-  if (!(error instanceof ApiError)) return null;
-  if (error.code === 'RATE_LIMITED') return 'rate-limit';
-  if (error.timedOut || (error.httpStatus !== null && [500, 502, 503, 504].includes(error.httpStatus))) return 'server';
-  if (error.code === 'NETWORK') return 'network';
-  return null;
-}
-
-type StepResult =
-  | { kind: 'event'; event: JobEvent; stop: string | null }
-  /** Erreur passagère : attendre puis retenter la même série */
-  | { kind: 'retry'; reason: TransientKind; service: TrackerId; error: string };
-
-/** Exécute `task` en entretenant le signe de vie (mémoire + tâche stockée) toutes les 10 s */
-async function withHeartbeat<T>(task: () => Promise<T>): Promise<T> {
-  const timer = setInterval(() => {
-    loopBeat = Date.now();
-    void updateJob((job) => job && reduceJob(job, { type: 'touch', at: Date.now() }));
-  }, HEARTBEAT_MS);
-  try {
-    return await task();
-  } finally {
-    clearInterval(timer);
-  }
-}
+// Espacement des écritures, erreurs passagères et boucle reprenable : src/background/jobs/runner.ts
+export { ANILIST_WRITE_GAP_MS, MAL_WRITE_GAP_MS, RETRY_DELAYS_MS, transientKind, type TransientKind } from './jobs/runner';
 
 /** Traite UNE série de la tâche : écrit les valeurs de `source` sur l'autre service. Ne lève jamais. */
 async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt: (reason: TransientKind) => boolean): Promise<StepResult> {
@@ -296,8 +234,7 @@ async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt
   const tracker = (await getConnectedTrackers()).find((tr) => tr.id === plan.target);
   if (!tracker) return stop(t('compare.error.notConnected'));
 
-  await sleep(Math.max(0, lastWriteAt + WRITE_GAP_MS[plan.target] - Date.now()));
-  lastWriteAt = Date.now();
+  await waitWriteSlot(plan.target);
   const label = TRACKER_LABELS[plan.target];
   try {
     await tracker.saveEntry(plan.id, plan.write);
@@ -315,102 +252,26 @@ async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt
     log.warn(`${label} : échec de l’alignement de ${diff.title} :`, message);
     await writeComparison(withDiffError((await readComparison()) ?? comparison, diff.key, message));
     // Service surchargé : la série échoue mais la tâche continue ; session expirée, réseau, limite persistante : arrêt
-    const fatal = error instanceof ApiError && transient !== 'server' && FATAL_CODES.has(error.code);
-    return { kind: 'event', event: { type: 'item', outcome: 'failed', message, at: at() }, stop: fatal ? message : null };
+    return { kind: 'event', event: { type: 'item', outcome: 'failed', message, at: at() }, stop: isFatalError(error) ? message : null };
   }
 }
 
-/** Attend la fin de la pause par tranches (signe de vie entretenu) ; s'interrompt sur « Arrêter » */
-async function waitPause(until: number, generation: number): Promise<void> {
-  while (Date.now() < until && generation === loopGeneration) {
-    loopBeat = Date.now();
-    await sleep(Math.min(5_000, until - Date.now()));
-    const job = await updateJob((j) => j && reduceJob(j, { type: 'touch', at: Date.now() }));
-    if (!job || job.status !== 'running' || job.cancelled) return;
-  }
-}
-
-let lastWriteAt = 0;
-/** Génération de la boucle : une boucle plus récente (reprise après blocage) fait sortir l'ancienne */
-let loopGeneration = 0;
-let loopRunning = false;
-let loopBeat = 0;
+/** Boucle d'alignement (une par service worker) : séries traitées une par une, reprise par l'alarme */
+const applyLoop = createJobLoop<CompareJob>({
+  label: 'alignement',
+  log,
+  store: jobStore,
+  alarm: COMPARE_JOB_ALARM,
+  accepts: (job) => job.kind === 'apply' && job.source !== null,
+  itemKey: (item) => `${item.mediaId ?? ''}:${item.malId ?? ''}`,
+  process: async (job, item, isLastAttempt) =>
+    job.source === null ? { kind: 'event', event: { type: 'finish', at: Date.now() }, stop: null } : processItem(item, job.source, isLastAttempt),
+  onEnd: (job) => log.info(`Alignement ${job.status} : ${job.updated} écrites, ${job.skipped} ignorées, ${job.failed} échecs`),
+});
 
 /** Démarre la boucle d'alignement si aucune boucle vivante ne tourne dans ce service worker */
 export function ensureApplyLoop(): void {
-  const now = Date.now();
-  // Le signe de vie est entretenu pendant les requêtes et les pauses : une boucle muette depuis 60 s est
-  // réellement bloquée ; elle est remplacée, le drapeau ne peut pas bloquer indéfiniment
-  if (loopRunning && now - loopBeat < JOB_STALE_MS) return;
-  if (loopRunning) log.warn('Boucle d’alignement sans signe de vie : relance');
-  const generation = ++loopGeneration;
-  loopRunning = true;
-  loopBeat = now;
-  void runApplyLoop(generation)
-    .catch((error: unknown) => log.error('Boucle d’alignement interrompue :', error))
-    .finally(() => {
-      if (generation === loopGeneration) loopRunning = false;
-    });
-}
-
-/**
- * Traite les séries de la tâche une par une, jusqu'à la fin, un « Arrêter » ou une erreur bloquante.
- * Erreur passagère : pause visible (compte à rebours dans le popup) puis nouvelle tentative de la même série.
- * Chaque appel au stockage prolonge la vie du service worker ; s'il est quand même arrêté,
- * l'alarme de reprise relance la boucle sur les séries restantes (stockées dans la tâche).
- */
-async function runApplyLoop(generation: number): Promise<void> {
-  // Tâche sans signe de vie depuis 60 s : service worker arrêté puis relancé → « Reprise… » affiché
-  const initial = await readJob();
-  if (isJobStale(initial, Date.now())) {
-    log.info('Reprise d’un alignement interrompu');
-    await updateJob((j) => j && reduceJob(j, { type: 'pause', until: Date.now(), reason: 'resume', service: null, at: Date.now() }));
-  }
-
-  /** Essais déjà faits pour la série en tête de file, par type d'erreur passagère */
-  let attempts: Record<TransientKind, number> = { 'rate-limit': 0, server: 0, network: 0 };
-  let currentKey: string | null = null;
-
-  while (generation === loopGeneration) {
-    loopBeat = Date.now();
-    const job = await readJob();
-    if (!job || job.kind !== 'apply' || job.status !== 'running' || job.source === null) break;
-    const item = job.pending[0];
-    if (job.cancelled || !item) {
-      await updateJob((j) => j && reduceJob(j, { type: 'finish', at: Date.now() }));
-      break;
-    }
-    const key = `${item.mediaId ?? ''}:${item.malId ?? ''}`;
-    if (key !== currentKey) {
-      currentKey = key;
-      attempts = { 'rate-limit': 0, server: 0, network: 0 };
-    }
-
-    await updateJob((j) => j && reduceJob(j, { type: 'item-start', at: Date.now() }));
-    const source = job.source;
-    const step = await withHeartbeat(() => processItem(item, source, (reason) => attempts[reason] >= RETRY_DELAYS_MS[reason].length));
-    if (generation !== loopGeneration) break;
-
-    if (step.kind === 'retry') {
-      const delay = RETRY_DELAYS_MS[step.reason][attempts[step.reason]] ?? 0;
-      attempts[step.reason]++;
-      const until = Date.now() + delay;
-      await updateJob((j) => j && reduceJob(j, { type: 'pause', until, reason: step.reason, service: step.service, at: Date.now() }));
-      await waitPause(until, generation);
-      continue;
-    }
-
-    await updateJob((j) => {
-      if (!j || j.status !== 'running') return j;
-      const next = step.event.type === 'item' ? reduceJob(j, step.event) : j;
-      return step.stop === null ? next : reduceJob(next, { type: 'stop', message: step.stop, at: Date.now() });
-    });
-  }
-  const job = await readJob();
-  if (!job || job.status !== 'running') {
-    await chrome.alarms.clear(COMPARE_JOB_ALARM);
-    if (job) log.info(`Alignement ${job.status} : ${job.updated} écrites, ${job.skipped} ignorées, ${job.failed} échecs`);
-  }
+  applyLoop.ensure();
 }
 
 /** APPLY_DIFFS : crée la tâche d'alignement et la lance en arrière-plan ; la progression est dans `compare:job`. */

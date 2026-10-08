@@ -1,10 +1,13 @@
 import { t } from '../../i18n';
 import type { EpisodeInfo, StreamingPlatform } from '../../shared/episode.types';
 import type { MediaMapping, NumberingMode } from '../../shared/sync.types';
-import { groupSeasons } from './season-groups';
+import { groupSeasons, stripCourMarker } from './season-groups';
 
 /** Formats AniList considérés comme des "saisons" (exclut films, OVA, spéciaux, clips) */
 export const SERIES_FORMATS: ReadonlySet<string> = new Set(['TV', 'TV_SHORT', 'ONA']);
+
+/** Formats AniList d'un épisode spécial, d'un OVA ou d'un film (saisons « spéciales » de la plateforme) */
+export const SPECIAL_FORMATS: ReadonlySet<string> = new Set(['OVA', 'ONA', 'SPECIAL', 'MOVIE']);
 
 /**
  * Lien entre une fiche AniList et la série de la plateforme :
@@ -211,13 +214,78 @@ function walkSeasons(seasons: MediaCandidate[], startIndex: number, episode: num
  * Saisons de la série, dans l'ordre de diffusion : fiches séries liées à la plateforme,
  * ou à défaut fiches séries au titre identique. Partagé par la synchro et la fiche de la page.
  */
+/** Titre (normalisé) terminé par un mot de spécial : « … season 5 ova », « … specials », « … recap » */
+const SPECIAL_TITLE_END = / (?:ovas?|oads?|specials?|recaps?)$/;
+
 export function seasonPool(candidates: readonly MediaCandidate[], animeTitle: string): MediaCandidate[] {
-  const seasons = candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format)).sort(byStartDate);
+  const formats = candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format));
+  // ONA titrée comme un spécial (« My Hero Academia Season 5 OVA ») : pas une saison, elle décalerait les suivantes
+  const regular = formats.filter((c) => !c.titles.some((title) => SPECIAL_TITLE_END.test(normalizeTitle(title))));
+  const seasons = (regular.length > 0 ? regular : formats).sort(byStartDate);
   const linked = seasons.filter((c) => c.link !== null);
   if (linked.length > 0) return linked;
-  // Sans lien vers la plateforme, repli sur un titre identique
+  // Sans lien vers la plateforme, repli sur un titre identique, parties (« Moriarty the Patriot Part 2 ») et
+  // saisons numérotées (« Kaiju No. 8 Season 2 ») comprises
   const animeKey = normalizeTitle(animeTitle);
-  return seasons.filter((c) => c.titles.some((t) => normalizeTitle(t) === animeKey));
+  return seasons.filter((c) => titleSeasonOf(c.titles, animeKey) !== null);
+}
+
+/** « kaiju no 8 season 2 » → { base: « kaiju no 8 », season: 2 } (titre normalisé) ; null sans numéro de saison final */
+function seasonMarker(key: string): { base: string; season: number } | null {
+  const match = / (?:season|saison|staffel) (\d{1,2})$/.exec(key) ?? / (\d{1,2})(?:st|nd|rd|th) season$/.exec(key);
+  const season = match ? Number(match[1]) : 0;
+  return match && season >= 1 ? { base: key.slice(0, match.index), season } : null;
+}
+
+/**
+ * Saison désignée par le titre d'une fiche, pour une série sans lien vers la plateforme : 1 pour le titre de la
+ * série (ou l'une de ses parties « Part 2 »), N pour « Série Season N » / « Série 2nd Season » (parties comprises),
+ * null si la fiche ne porte pas le titre de la série.
+ */
+export function titleSeasonOf(titles: readonly string[], animeKey: string): number | null {
+  let numbered: number | null = null;
+  for (const title of titles) {
+    const key = normalizeTitle(title);
+    const part = stripCourMarker(title);
+    if (key === animeKey || part?.base === animeKey) return 1;
+    const marker = seasonMarker(part?.base ?? key);
+    if (marker && marker.base === animeKey) numbered ??= marker.season;
+  }
+  return numbered;
+}
+
+/**
+ * Numéro de saison écrit dans le titre de saison : « Season 2 », « Saison 2 », « Staffel 2 », « 2nd Season ».
+ * Crunchyroll compte parfois une saison spéciale dans `season_number` (Kaiju No. 8 : S3 « Season 2 »).
+ * « Part N » n'est pas un numéro de saison (JoJo « Part 3 », cours d'une même saison).
+ */
+export function seasonNumberFromTitle(seasonTitle: string | null): number | null {
+  if (!seasonTitle) return null;
+  const match = /\b(?:season|saison|staffel|temporada)\s*(\d{1,2})\b/i.exec(seasonTitle) ?? /\b(\d{1,2})\s*(?:st|nd|rd|th)\s+season\b/i.exec(seasonTitle);
+  const value = match ? Number(match[1]) : null;
+  return value !== null && value >= 1 ? value : null;
+}
+
+/** Numéro de saison retenu pour choisir la fiche : celui du titre de saison s'il en contient un, sinon celui de la plateforme */
+export function effectiveSeasonNumber(episode: Pick<EpisodeNumbers, 'seasonNumber' | 'seasonTitle'>): number | null {
+  return seasonNumberFromTitle(episode.seasonTitle) ?? episode.seasonNumber;
+}
+
+/** Mots qui désignent une saison spéciale dans son titre (« OVA Season 1 », « Extras », « Specials », « Movie »…) */
+const SPECIAL_SEASON = /\b(?:ovas?|oads?|extras?|specials?|speciaux|movies?|films?|recaps?)\b/;
+
+/**
+ * Saison spéciale de la plateforme : saison 0, ou titre de saison (hors titre de la série) désignant des
+ * OVA, des extras, des spéciaux ou un film. Ses épisodes ne sont jamais ceux de la N-ième saison AniList.
+ */
+export function isSpecialSeason(episode: Pick<EpisodeNumbers, 'animeTitle' | 'seasonTitle' | 'seasonNumber'>): boolean {
+  if (episode.seasonNumber === 0) return true;
+  if (!episode.seasonTitle) return false;
+  const animeKey = normalizeTitle(episode.animeTitle);
+  let key = normalizeTitle(episode.seasonTitle);
+  if (!key || key === animeKey) return false;
+  if (key.startsWith(`${animeKey} `)) key = key.slice(animeKey.length + 1);
+  return SPECIAL_SEASON.test(key);
 }
 
 /**
@@ -299,6 +367,33 @@ function dedicatedEntry(
   return null;
 }
 
+/** « ova season 1 » → « ova » : la 1re saison d'OVA porte souvent le titre AniList « … OVA » */
+const withoutFirstSeason = (key: string): string => key.replace(/ (?:season 1|saison 1|staffel 1|1st season)$/, '');
+
+/**
+ * Fiche d'une saison spéciale (OVA, spéciaux, film) : fiche unique au titre exact parmi les formats spéciaux.
+ * Titres acceptés : celui de la saison, « série + saison » (sans « Season 1 »), ou celui de la série pour une
+ * saison sans titre propre (JUJUTSU KAISEN 0 · S0 → film « Jujutsu Kaisen 0 »). null si aucune ou plusieurs.
+ */
+function specialEntry(episode: EpisodeNumbers, candidates: readonly MediaCandidate[], relative: number): MediaCandidate | null {
+  const animeKey = normalizeTitle(episode.animeTitle);
+  const seasonKey = episode.seasonTitle ? normalizeTitle(episode.seasonTitle) : '';
+  const wanted = new Set<string>();
+  if (!seasonKey || seasonKey === animeKey) {
+    wanted.add(animeKey);
+  } else {
+    const compound = seasonKey.startsWith(`${animeKey} `) ? seasonKey : `${animeKey} ${seasonKey}`;
+    for (const key of [seasonKey, compound]) {
+      wanted.add(key);
+      wanted.add(withoutFirstSeason(key));
+    }
+    // Titre réduit à celui de la série une fois « Season 1 » retiré : ce n'est plus le titre d'un spécial
+    wanted.delete(animeKey);
+  }
+  const matches = candidates.filter((c) => c.format !== null && SPECIAL_FORMATS.has(c.format) && c.titles.some((title) => wanted.has(normalizeTitle(title))));
+  return matches.length === 1 && fits(matches[0], relative) ? matches[0] : null;
+}
+
 /** Choisit la fiche AniList et la progression correspondant à un épisode. */
 export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidate[]): ResolveResult {
   const linked = candidates.filter((c) => c.link !== null && c.format !== null && SERIES_FORMATS.has(c.format));
@@ -306,9 +401,13 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
   const pool = seasonPool(candidates, episode.animeTitle);
   const noEntry: ResolveResult = { ok: false, reason: t('match.noEntry', { title: episode.animeTitle }) };
 
-  // Titre seul jugé fiable uniquement s'il désigne UNE fiche série et qu'il s'agit de la 1re saison
-  // (fréquent sur ADN, rarement lié sur AniList). Remakes au même titre → plusieurs fiches → à vérifier.
-  const isTrustedTitleMatch = linked.length === 0 && pool.length === 1 && (episode.seasonNumber ?? 1) === 1;
+  const seasonNumber = effectiveSeasonNumber(episode);
+  // Titre seul jugé fiable uniquement s'il désigne UNE saison (une fiche, ou ses parties « Part 2 ») et qu'il
+  // s'agit de la 1re saison (fréquent sur ADN, rarement lié sur AniList). Remakes au même titre → plusieurs saisons → à vérifier.
+  // Sans lien : fiches au titre de la série (saison 1), hors « Série Season N »
+  const basePool = linked.length > 0 ? pool : pool.filter((c) => titleSeasonOf(c.titles, animeKey) === 1);
+  const isSoleSeason = basePool.length > 0 && groupSeasons(basePool).length === 1;
+  const isTrustedTitleMatch = linked.length === 0 && isSoleSeason && (seasonNumber ?? 1) === 1;
   const level = (isConfident: boolean): 'high' | 'low' => (isConfident && (linked.length > 0 || isTrustedTitleMatch) ? 'high' : 'low');
 
   const displayed = episode.displayedEpisodeNumber;
@@ -327,6 +426,7 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
     numbering: NumberingMode,
     confidence: 'high' | 'low',
     reason: string,
+    trustedReason: string = t('match.titleOnlyTrusted'),
   ): ResolveResult => ({
     ok: true,
     target: {
@@ -339,12 +439,23 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
       reason:
         linked.length === 0 && candidate.link === null
           ? confidence === 'high'
-            ? t('match.titleOnlyTrusted')
+            ? trustedReason
             : // Sans lien plateforme, c'est l'absence de lien (et non la règle appliquée) qui rend le choix incertain
               t('match.titleOnly')
           : reason,
     },
   });
+
+  // Saison spéciale (OVA, extras, spéciaux, film) : jamais la N-ième saison de la série. Fiche liée à l'épisode
+  // ou dédiée à la saison, sinon fiche spéciale unique au titre exact, sinon à choisir.
+  if (isSpecialSeason(episode)) {
+    const own = dedicatedEntry(episode, candidates, pool, relative);
+    if (own?.confident) return target(own.candidate, relative, own.progress, 'season', 'high', own.reason, own.reason);
+    const special = specialEntry(episode, candidates, relative);
+    if (special) return target(special, relative, relative, 'season', 'high', t('match.specialTitle'), t('match.specialTitle'));
+    if (own) return target(own.candidate, relative, own.progress, 'season', 'low', own.reason);
+    return { ok: false, reason: t('match.specialSeason') };
+  }
 
   // 0. Fiche dédiée à l'épisode ou à sa saison (spécial rangé dans une saison de la série) : prime sur la
   //    fiche unique, qui avalerait sinon l'épisode 1 de « saison 30 » comme épisode 1 de One Piece.
@@ -359,13 +470,15 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
   if (pool.length === 1) {
     const only = pool[0];
     if (isAbsolute && displayed !== null && fits(only, displayed)) {
-      return target(only, displayed, displayed, 'displayed', level(true), t('match.singleAbsolute'));
+      // Numérotation absolue qui tient dans la seule fiche au titre de la série (One Piece E1180) : fiable
+      // même sans lien plateforme, quelle que soit la saison
+      return target(only, displayed, displayed, 'displayed', 'high', t('match.singleAbsolute'), t('match.titleOnlyAbsolute'));
     }
     if (fits(only, relative)) {
       // Saison > 1 mais une seule fiche : la suite n'est peut-être pas liée sur AniList
-      const isLaterSeason = !isAbsolute && (episode.seasonNumber ?? 1) > 1;
+      const isLaterSeason = !isAbsolute && (seasonNumber ?? 1) > 1;
       return target(only, relative, relative, 'season', level(!isLaterSeason), isLaterSeason
-        ? t('match.singleLaterSeason', { season: episode.seasonNumber ?? '?' })
+        ? t('match.singleLaterSeason', { season: seasonNumber ?? '?' })
         : t('match.single'));
     }
     return { ok: false, reason: t('match.beyondAniList', { episode: displayed ?? relative, total: only.episodes ?? '?' }) };
@@ -375,7 +488,10 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
   if (isAbsolute && displayed !== null) {
     const hit = walkSeasons(pool, 0, displayed);
     if (hit && fits(pool[hit.index], hit.progress)) {
-      return target(pool[hit.index], displayed, hit.progress, 'displayed', level(true), t('match.absoluteSplit', { count: pool.length }));
+      // Sans lien : sûr si la fiche atteinte porte le numéro de la saison (« Kaiju No. 8 Season 2 » pour « Season 2 ») :
+      // la numérotation absolue et le titre concordent
+      const agrees = seasonNumber !== null && titleSeasonOf(pool[hit.index].titles, animeKey) === seasonNumber;
+      return target(pool[hit.index], displayed, hit.progress, 'displayed', agrees ? 'high' : level(true), t('match.absoluteSplit', { count: pool.length }), t('match.titleOnlySeason', { season: seasonNumber ?? '?' }));
     }
   }
 
@@ -389,12 +505,28 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
     }
   }
 
+  const groups = groupSeasons(pool);
+  const season = seasonNumber ?? (isSoleSeason ? 1 : null);
+
+  // 3b. Numéro affiché au-delà de la saison N alors que la numérotation n'a pas été reconnue comme absolue
+  //     (position dans la saison inconnue ou faussée : Attack on Titan S4 E87, Kaiju No. 8 « Season 2 » E23) :
+  //     cumul depuis la 1re saison, retenu seulement s'il tombe dans la saison N.
+  if (!isAbsolute && displayed !== null && season !== null && season >= 1 && season <= groups.length) {
+    const group = groups[season - 1];
+    const groupTotal = group.every((c) => c.episodes !== null) ? group.reduce((sum, c) => sum + (c.episodes ?? 0), 0) : Number.POSITIVE_INFINITY;
+    const hit = displayed > groupTotal ? walkSeasons(pool, 0, displayed) : null;
+    if (hit && group.includes(pool[hit.index]) && fits(pool[hit.index], hit.progress)) {
+      const agrees = seasonNumber !== null && titleSeasonOf(pool[hit.index].titles, animeKey) === seasonNumber;
+      return target(pool[hit.index], displayed, hit.progress, 'displayed', agrees ? 'high' : level(true), t('match.absoluteSplit', { count: pool.length }), t('match.titleOnlySeason', { season: seasonNumber ?? '?' }));
+    }
+  }
+
   // 4. …ou par son numéro. AniList découpe souvent une saison en plusieurs fiches (« Part 2 », « Cour 2 ») que
   //    la plateforme réunit : la saison N est le N-ième groupe de fiches (voir groupSeasons), avec report sur
   //    la partie suivante quand le numéro dépasse la première.
-  if (episode.seasonNumber !== null && episode.seasonNumber >= 1) {
-    const season = episode.seasonNumber;
-    const groups = groupSeasons(pool);
+  //    Numéro du titre de saison prioritaire (« Season 2 » rangée en S3 par Crunchyroll) ; sans numéro, une série
+  //    dont les fiches forment une seule saison est la saison 1.
+  if (season !== null && season >= 1) {
     const isGrouped = groups.length < pool.length;
 
     if (isGrouped && season <= groups.length) {
@@ -404,9 +536,10 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
       if (!hit || !fits(pool[hit.index], hit.progress)) return { ok: false, reason: t('match.undetermined') };
       // Fiable seulement si l'épisode reste dans le groupe de la saison N (sinon il déborde sur la saison suivante)
       const part = group.indexOf(pool[hit.index]);
+      const groupTotal = group.reduce((sum, c) => sum + (c.episodes ?? 0), 0);
       const reason =
         part === -1
-          ? t('match.seasonSplit', { season })
+          ? t('match.beyondSeason', { episode: relative, season, total: groupTotal })
           : group.length > 1
             ? t('match.seasonGroup', { season, part: part + 1, parts: group.length })
             : t('match.seasonExact', { season, index: start + 1 });

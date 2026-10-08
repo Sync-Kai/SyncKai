@@ -14,6 +14,16 @@ import { isTrackerId, type TrackerId } from './tracker.types';
 import type { WatchingResult } from './watching.types';
 import { isApplyDiffsPayload, type ApplyDiffsPayload, type ApplyResult, type CancelJobResult, type CompareResult } from './compare';
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from './engagement.types';
+import {
+  isCrImportAnalyzePayload,
+  isCrImportApplyPayload,
+  isCrImportReviewsPayload,
+  type CrImportAnalyzePayload,
+  type CrImportApplyPayload,
+  type CrImportJobResult,
+  type CrImportReviewsPayload,
+  type CrImportReviewsResult,
+} from './cr-import';
 
 export interface AdjustProgressPayload {
   /** Fiche AniList (catalogue) ; null pour une entrée MAL sans équivalent AniList */
@@ -94,6 +104,14 @@ export interface MessageMap {
   GET_PANEL_MEDIA: { payload: { mediaId: number }; response: PanelMediaResult };
   /** Agenda (panneau latéral) : sorties d'une semaine, lues sur AniList quand le cache du panneau manque ou a expiré */
   GET_AGENDA: { payload: AgendaPayload; response: AgendaResult };
+  /** Import Crunchyroll : historique lu dans l'onglet Crunchyroll → analyse en tâche de fond (rien n'est écrit) */
+  CR_IMPORT_ANALYZE: { payload: CrImportAnalyzePayload; response: CrImportJobResult };
+  /** Import Crunchyroll : applique les éléments cochés de l'aperçu (tâche de fond) */
+  CR_IMPORT_APPLY: { payload: CrImportApplyPayload; response: CrImportJobResult };
+  /** « Arrêter » l'analyse ou l'application en cours */
+  CR_IMPORT_CANCEL: { payload: null; response: Result<null, 'NOT_FOUND'> };
+  /** Crée les cartes « À vérifier » des saisons incertaines choisies */
+  CR_IMPORT_REVIEWS: { payload: CrImportReviewsPayload; response: CrImportReviewsResult };
 }
 
 /** Messages réservés aux pages de l'extension (popup) : refusés s'ils viennent d'un content script */
@@ -115,6 +133,10 @@ export const EXTENSION_PAGE_ONLY: ReadonlySet<MessageType> = new Set([
   'CANCEL_COMPARE_JOB',
   'GET_PANEL_MEDIA',
   'GET_AGENDA',
+  'CR_IMPORT_ANALYZE',
+  'CR_IMPORT_APPLY',
+  'CR_IMPORT_CANCEL',
+  'CR_IMPORT_REVIEWS',
 ]);
 
 export type MessageType = keyof MessageMap;
@@ -197,6 +219,10 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   PANEL_AVAILABLE: isNull,
   GET_PANEL_MEDIA: isPanelMediaPayload,
   GET_AGENDA: isAgendaPayload,
+  CR_IMPORT_ANALYZE: isCrImportAnalyzePayload,
+  CR_IMPORT_APPLY: isCrImportApplyPayload,
+  CR_IMPORT_CANCEL: isNull,
+  CR_IMPORT_REVIEWS: isCrImportReviewsPayload,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */
@@ -208,7 +234,19 @@ export function isRuntimeMessage(value: unknown): value is AnyRuntimeMessage {
 }
 
 /** Envoie un message typé au service worker et retourne sa réponse typée. */
-export function sendMessage<K extends MessageType>(type: K, payload: MessagePayload<K>): Promise<MessageResponse<K>> {
+export async function sendMessage<K extends MessageType>(type: K, payload: MessagePayload<K>): Promise<MessageResponse<K>> {
   const message: RuntimeMessage<K> = { type, payload };
-  return chrome.runtime.sendMessage<RuntimeMessage<K>, MessageResponse<K>>(message);
+  const response: MessageResponse<K> | undefined = await chrome.runtime.sendMessage<RuntimeMessage<K>, MessageResponse<K>>(message);
+  // Message refusé ou resté sans réponse : erreur explicite plutôt qu'un `undefined` qui ferait planter l'appelant
+  if (response === undefined) throw new Error(`Aucune réponse du service worker (${type})`);
+  return response;
+}
+
+/**
+ * Expéditeur = page de l'extension (popup, panneau, pages d'import ouvertes dans un onglet) et non un
+ * content script. `sender.tab` ne suffit pas : une page de l'extension ouverte dans un onglet en a un.
+ * `extensionOrigin` : chrome.runtime.getURL('') (chrome-extension://<id>/ ou moz-extension://<uuid>/).
+ */
+export function isExtensionPageSender(sender: { url?: string }, extensionOrigin: string): boolean {
+  return typeof sender.url === 'string' && sender.url.startsWith(extensionOrigin);
 }

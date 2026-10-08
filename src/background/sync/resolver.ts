@@ -2,6 +2,7 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import type { CandidateSummary } from '../../shared/review.types';
 import { deleteMediaMapping, getMediaMapping, saveMediaMapping } from '../../shared/storage';
 import { getAnimeByIds, searchAnime, type AniListMedia } from '../api/media';
+import type { RequestLane } from '../api/rate-limit';
 import {
   applyMapping,
   mappingKey,
@@ -43,6 +44,8 @@ export type SeriesQuery = Pick<EpisodeInfo, 'platform' | 'seriesId' | 'seriesSlu
 interface ResolveOptions {
   /** false : lecture seule (fiche de la page), le cache des correspondances n'est ni écrit ni purgé */
   persist?: boolean;
+  /** 'background' : tâche de fond (import Crunchyroll), budget de requêtes limité */
+  lane?: RequestLane;
 }
 
 export interface EpisodeResolution {
@@ -60,7 +63,7 @@ export interface EpisodeResolution {
  * Les suites/préquelles d'une fiche liée sont ajoutées (et récupérées si besoin) : AniList ne lie
  * pas toujours chaque saison à la plateforme.
  */
-async function collectCandidates(episode: SeriesQuery): Promise<CollectedCandidates> {
+async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'interactive'): Promise<CollectedCandidates> {
   const mediaById = new Map<number, AniListMedia>();
   const links = new Map<number, LinkKind>();
 
@@ -82,14 +85,14 @@ async function collectCandidates(episode: SeriesQuery): Promise<CollectedCandida
   // est noyée sous les fiches de la franchise (20 résultats), la fiche de la saison n'y figure pas toujours.
   // Recherche complémentaire « série + saison », fusionnée sans doublon.
   const seasonQuery = seasonSearchQuery(episode.animeTitle, episode.seasonTitle);
-  const [main, bySeason] = await Promise.all([searchAnime(episode.animeTitle), seasonQuery ? searchAnime(seasonQuery) : Promise.resolve([])]);
+  const [main, bySeason] = await Promise.all([searchAnime(episode.animeTitle, lane), seasonQuery ? searchAnime(seasonQuery, lane) : Promise.resolve([])]);
   add(main);
   add(bySeason);
 
   // Aucun résultat lié : le titre de saison seul est parfois le titre AniList (ex : "… Season 2")
   const hasLinked = [...links.values()].some((l) => l !== null);
   if (!hasLinked && episode.seasonTitle && normalizeTitle(episode.seasonTitle) !== normalizeTitle(episode.animeTitle) && episode.seasonTitle !== seasonQuery) {
-    add(await searchAnime(episode.seasonTitle));
+    add(await searchAnime(episode.seasonTitle, lane));
   }
 
   // Propagation du lien le long des relations SEQUEL/PREQUEL jusqu'à stabilisation
@@ -117,7 +120,7 @@ async function collectCandidates(episode: SeriesQuery): Promise<CollectedCandida
 
     if (missing.size > 0 && fetchRounds < MAX_FETCH_ROUNDS) {
       fetchRounds++;
-      add(await getAnimeByIds([...missing]), 'relation');
+      add(await getAnimeByIds([...missing], lane), 'relation');
       changed = true;
     }
     if (!changed) break;
@@ -188,7 +191,7 @@ export async function findReviewCandidates(episode: EpisodeInfo, suggestedId: nu
 }
 
 /** Résout la fiche AniList d'un épisode : cache d'abord, recherche sinon (et mise en cache si fiable). */
-export async function resolveEpisode(episode: EpisodeInfo, { persist = true }: ResolveOptions = {}): Promise<EpisodeResolution> {
+export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lane = 'interactive' }: ResolveOptions = {}): Promise<EpisodeResolution> {
   const key = mappingKey(episode);
 
   const cached = await getMediaMapping(key);
@@ -201,7 +204,7 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true }: R
     if (persist) await deleteMediaMapping(key);
   }
 
-  const collected = await collectCandidates(episode);
+  const collected = await collectCandidates(episode, lane);
   const { candidates } = collected;
   // Diagnostic : fiches retenues comme appartenant à la série (les autres résultats de recherche sont omis)
   log.info(

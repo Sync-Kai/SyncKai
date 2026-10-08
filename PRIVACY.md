@@ -21,7 +21,9 @@ Le content script s’exécute uniquement sur **crunchyroll.com** et **animation
 - le titre de la série, la saison et le numéro d’épisode ;
 - la position et la durée de lecture de la vidéo (pour détecter la fin de l’épisode).
 
-Il ne lit ni ton compte Crunchyroll/ADN, ni tes identifiants, ni ton historique de navigation.
+Il ne lit ni tes identifiants Crunchyroll/ADN, ni ton historique de navigation.
+
+**Import depuis Crunchyroll** (Réglages, facultatif) : seulement quand tu le lances, SyncKai lit ton historique de visionnage Crunchyroll dans ton propre onglet Crunchyroll, avec la session de ce site. Rien n’est conservé hormis l’aperçu de l’import (séries, épisodes, progression prévue) ; rien n’est envoyé à quiconque d’autre qu’AniList / MyAnimeList. Le jeton temporaire de Crunchyroll reste dans l’onglet et n’est jamais enregistré.
 
 ### Données stockées
 
@@ -50,6 +52,7 @@ SyncKai ne contacte que ces adresses :
 | `anilist.co` | Connexion OAuth AniList |
 | `myanimelist.net`, `api.myanimelist.net` | Connexion OAuth et API MyAnimeList |
 | `static.crunchyroll.com` | Repères du générique de fin d’un épisode (sans cookies) |
+| `www.crunchyroll.com` | Import de l’historique, uniquement quand tu le lances, depuis ton onglet Crunchyroll |
 
 Le popup affiche aussi les images de couverture et l’avatar fournis par AniList et MyAnimeList, chargés depuis leurs serveurs d’images.
 
@@ -83,7 +86,9 @@ The content script runs only on **crunchyroll.com** and **animationdigitalnetwor
 - the series title, season and episode number;
 - the video playback position and duration (to detect the end of the episode).
 
-It does not read your Crunchyroll/ADN account, credentials or browsing history.
+It does not read your Crunchyroll/ADN credentials or your browsing history.
+
+**Import from Crunchyroll** (Settings, optional): only when you start it, SyncKai reads your Crunchyroll watch history in your own Crunchyroll tab, using that site’s session. Nothing is kept except the import preview (series, episodes, planned progress); nothing is sent to anyone but AniList / MyAnimeList. Crunchyroll’s temporary token stays in the tab and is never saved.
 
 ### Stored data
 
@@ -112,6 +117,7 @@ SyncKai only contacts these hosts:
 | `anilist.co` | AniList OAuth sign-in |
 | `myanimelist.net`, `api.myanimelist.net` | MyAnimeList OAuth sign-in and API |
 | `static.crunchyroll.com` | End-credits markers for an episode (no cookies) |
+| `www.crunchyroll.com` | History import, only when you start it, from your Crunchyroll tab |
 
 The popup also displays cover images and avatars provided by AniList and MyAnimeList, loaded from their image servers.
 
@@ -145,7 +151,9 @@ Das Content-Script läuft nur auf **crunchyroll.com** und **animationdigitalnetw
 - den Serientitel, die Staffel und die Episodennummer;
 - die Wiedergabeposition und Dauer des Videos (um das Ende der Episode zu erkennen).
 
-Es liest weder dein Crunchyroll-/ADN-Konto noch Zugangsdaten oder deinen Browserverlauf.
+Es liest weder deine Crunchyroll-/ADN-Zugangsdaten noch deinen Browserverlauf.
+
+**Import von Crunchyroll** (Einstellungen, optional): nur wenn du ihn startest, liest SyncKai deinen Crunchyroll-Wiedergabeverlauf in deinem eigenen Crunchyroll-Tab, mit der Sitzung dieser Website. Gespeichert wird nur die Import-Vorschau (Serien, Folgen, geplanter Fortschritt); gesendet wird nur an AniList / MyAnimeList. Das temporäre Crunchyroll-Token bleibt im Tab und wird nie gespeichert.
 
 ### Gespeicherte Daten
 
@@ -174,6 +182,7 @@ SyncKai kontaktiert nur diese Hosts:
 | `anilist.co` | AniList-OAuth-Anmeldung |
 | `myanimelist.net`, `api.myanimelist.net` | MyAnimeList-OAuth-Anmeldung und API |
 | `static.crunchyroll.com` | Abspann-Markierungen einer Episode (ohne Cookies) |
+| `www.crunchyroll.com` | Verlaufsimport, nur wenn du ihn startest, aus deinem Crunchyroll-Tab |
 
 Das Popup zeigt außerdem Coverbilder und Avatare von AniList und MyAnimeList an, die von deren Bildservern geladen werden.
 

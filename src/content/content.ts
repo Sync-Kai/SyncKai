@@ -9,6 +9,7 @@ import { sendMessage } from '../shared/messages';
 import { createLiveStream, type LiveStream } from './lib/live-stream';
 import { detectPageMedia } from './lib/page-media';
 import { watchUrl } from './lib/url-watcher';
+import { listenCrHistoryPorts } from './lib/cr-history-port';
 import { startWatchSession, type WatchSession } from './lib/watch-session';
 
 /** Adapters disponibles : ajouter ici les futures plateformes (ADN…) */
@@ -56,6 +57,7 @@ function main(): void {
   });
 
   listenLivePorts(live);
+  if (adapter.platform === 'crunchyroll') listenCrHistoryPorts();
   handleUrl(new URL(location.href));
   watchUrl(handleUrl);
   announcePanel();

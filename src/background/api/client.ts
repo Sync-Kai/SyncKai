@@ -3,7 +3,7 @@ import { refreshReviewBadge } from '../../shared/badge';
 import { isRecord } from '../../shared/guards';
 import { clearAniListSession, getValidToken } from '../../shared/storage';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
-import { retryDelayMs, sleep } from './rate-limit';
+import { aniListBudget, MAX_RETRY_WAIT_MS, readRateLimitHeaders, retryDelayMs, sleep, type RequestLane } from './rate-limit';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('anilist');
@@ -19,10 +19,19 @@ async function request<T>(
   variables: Record<string, unknown>,
   auth: AuthMode,
   isRetry: boolean,
+  lane: RequestLane,
 ): Promise<T> {
   const token = await getValidToken();
   if (!token && auth === 'required') throw new ApiError('NOT_AUTHENTICATED', t('api.notAuthenticated', { service: 'AniList' }));
 
+  // Pénalité 429 en cours : une requête interactive attend si c'est court, échoue aussitôt sinon (erreur visible)
+  if (lane === 'interactive') {
+    const cooldown = aniListBudget.cooldownLeft();
+    if (cooldown > MAX_RETRY_WAIT_MS) throw new ApiError('RATE_LIMITED', t('api.rateLimited', { service: 'AniList' }));
+    if (cooldown > 0) await sleep(cooldown);
+  }
+  // Budget partagé : les tâches de fond attendent leur tour, les requêtes interactives passent en priorité
+  const release = await aniListBudget.acquire(lane);
   let response: Response;
   try {
     response = await fetch(ANILIST_GRAPHQL_URL, {
@@ -38,7 +47,10 @@ async function request<T>(
   } catch (error: unknown) {
     if (isTimeoutError(error)) throw new ApiError('NETWORK', t('api.timeout', { service: 'AniList' }), { timedOut: true });
     throw new ApiError('NETWORK', t('api.network', { service: 'AniList' }));
+  } finally {
+    release();
   }
+  aniListBudget.observe(readRateLimitHeaders(response.headers));
 
   let body: unknown = null;
   try {
@@ -58,17 +70,18 @@ async function request<T>(
     await clearAniListSession();
     await refreshReviewBadge();
     // Catalogue public : on rejoue la requête sans token plutôt que d'échouer
-    if (auth === 'optional') return request(query, isData, variables, auth, isRetry);
+    if (auth === 'optional') return request(query, isData, variables, auth, isRetry, lane);
     throw new ApiError('TOKEN_INVALID', t('api.sessionExpired', { service: 'AniList' }));
   }
 
   if (response.status === 429) {
-    // Une seule nouvelle tentative, si AniList demande une attente courte (requête non traitée : sans risque)
-    const delay = isRetry ? null : retryDelayMs(response.headers.get('Retry-After'));
-    if (delay !== null) {
+    // Pénalité commune (au moins 5 s : `Retry-After: 0` relancerait aussitôt), puis une seule nouvelle tentative
+    // si l'attente est courte (requête non traitée : sans risque). Les tâches de fond attendent aussi.
+    const delay = retryDelayMs(response.headers.get('Retry-After'), Date.now(), response.headers.get('X-RateLimit-Reset'));
+    aniListBudget.penalize(delay ?? 60_000);
+    if (delay !== null && !isRetry) {
       log.warn(`Limite de requêtes AniList atteinte, nouvelle tentative dans ${Math.ceil(delay / 1000)} s`);
-      await sleep(delay);
-      return request(query, isData, variables, auth, true);
+      return request(query, isData, variables, auth, true, lane);
     }
     throw new ApiError('RATE_LIMITED', t('api.rateLimited', { service: 'AniList' }));
   }
@@ -87,8 +100,13 @@ async function request<T>(
 }
 
 /** Requête authentifiée (liste de l'utilisateur, mutations). Lève une ApiError typée. */
-export function anilistQuery<T>(query: string, isData: (data: unknown) => data is T, variables: Record<string, unknown> = {}): Promise<T> {
-  return request(query, isData, variables, 'required', false);
+export function anilistQuery<T>(
+  query: string,
+  isData: (data: unknown) => data is T,
+  variables: Record<string, unknown> = {},
+  lane: RequestLane = 'interactive',
+): Promise<T> {
+  return request(query, isData, variables, 'required', false, lane);
 }
 
 /**
@@ -99,6 +117,7 @@ export function anilistPublicQuery<T>(
   query: string,
   isData: (data: unknown) => data is T,
   variables: Record<string, unknown> = {},
+  lane: RequestLane = 'interactive',
 ): Promise<T> {
-  return request(query, isData, variables, 'optional', false);
+  return request(query, isData, variables, 'optional', false, lane);
 }

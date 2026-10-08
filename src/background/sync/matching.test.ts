@@ -168,7 +168,7 @@ describe('resolveTarget', () => {
     ]);
     expect(result).toMatchObject({
       ok: true,
-      target: { mediaId: 1, confidence: 'low', reason: expect.stringContaining('aucun lien vers la plateforme') },
+      target: { mediaId: 1, confidence: 'low', reason: expect.stringContaining('titre seul') },
     });
   });
 

@@ -20,7 +20,7 @@ import { icon } from '../../ui/icons';
 import type { AccountState, ExclusionsState, SettingsState } from '../state';
 import { renderAlert } from './alert';
 import { BTN_GHOST, CARD, LINK, PLATFORM_LABELS, sectionLabel, segmented, serviceAvatar } from './ui';
-import { serviceIcon } from '../../ui/brand-icons';
+import { platformIcon, serviceIcon } from '../../ui/brand-icons';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('popup');
@@ -31,6 +31,8 @@ const DIVIDER = 'border-t border-dotted border-line';
 const COMMAND_NAME = 'complete-episode';
 const SHORTCUTS_URL = 'chrome://extensions/shortcuts';
 const IMPORT_PAGE = 'src/import/import.html';
+/** Import de l'historique Crunchyroll (onglet dédié : lecture, analyse et aperçu durent plusieurs minutes) */
+const CR_IMPORT_PAGE = 'src/import-cr/import-cr.html';
 const EXPORTED_BADGE_MS = 2_000;
 
 type ExportState = 'idle' | 'exporting' | 'exported' | 'error';
@@ -893,6 +895,20 @@ export function createSettingsScreen(): SettingsScreen {
         ),
       ),
       exportState === 'error' && renderAlert({ message: t('settings.backup.exportFailed') }),
+      h(
+        'div',
+        { class: `flex items-center justify-end pt-2 ${DIVIDER}` },
+        h(
+          'button',
+          {
+            class: `${BTN_GHOST} border border-line px-3.5 text-sakura`,
+            attrs: { type: 'button', 'data-focus': 'cr-import', title: t('settings.backup.crImportTitle') },
+            on: { click: () => void chrome.tabs.create({ url: chrome.runtime.getURL(CR_IMPORT_PAGE) }) },
+          },
+          platformIcon('crunchyroll', 'h-3.5 w-3.5 rounded-[3px]', { decorative: true }),
+          t('settings.backup.crImport'),
+        ),
+      ),
     ];
   }
 

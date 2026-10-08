@@ -10,6 +10,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - **Panneau latéral** (Crunchyroll et ADN) : onglet *En lecture* avec la fiche AniList complète (synopsis, genres, studio, suites avec un bouton *Regarder* quand elles sont sur Crunchyroll / ADN), ta progression et tes actions, et un lien vers la discussion de l'épisode.
 - Progression en direct dans le panneau (position, synchro au générique dans X min, synchronisé) ; la fiche se met à jour après la synchro.
 - **Agenda** (panneau latéral) : les sorties de la semaine pour tes séries en cours, avec l'heure estimée sur Crunchyroll / ADN (réglable) et les épisodes déjà vus.
+- **Import de l'historique Crunchyroll** (Réglages) : lit ton historique dans ton navigateur et met à jour AniList / MyAnimeList (aperçu avant import, jamais de recul, vérification en cas de doute).
 - Tests de bout en bout du popup dans l'intégration continue (bloquent une release en cas d'échec).
 
 ### Modifié
@@ -21,6 +22,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 - Fiche de la page : popup et panneau affichent la même fiche pour un onglet, mise à jour juste après la synchro ; une page de lecture lue avant son chargement complet ne donne plus une saison devinée sur le seul titre (ex : *Black Butler -Public School Arc-* affiché comme *Kuroshitsuji* 2008).
 - Lecteur préféré ADN : SyncKai retient les pages de séries ADN que tu visites (AniList ne les référence presque jamais) ; sinon « Ouvrir » reste sur Crunchyroll et le menu ⋯ propose « Chercher sur ADN ».
+- Correspondance des saisons : saisons spéciales (OVA, extras, saison 0) jamais confondues avec la N-ième saison (film ou OVA unique au titre exact reconnu, sinon fiche à choisir) ; numéro de saison du titre (« Season 2 ») prioritaire ; saison Crunchyroll découpée en « Part 2 » sur AniList reconnue sans lien ; numérotation absolue sur une fiche unique (One Piece) jugée sûre.
+- Limite de requêtes AniList : les tâches de fond (import, comparaison des listes) se limitent à ~20 requêtes/min et laissent passer le popup et la synchro en priorité ; après un refus, attente d’au moins 5 s (plus de « réessaie dans 0 s »).
 
 ## [1.9.0] - 2026-10-07
 

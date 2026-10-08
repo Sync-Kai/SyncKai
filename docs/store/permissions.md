@@ -46,7 +46,7 @@ Declared in `host_permissions` (exactly as in manifest.json):
 
 | Host pattern | Justification |
 |---|---|
-| `*://*.crunchyroll.com/*` | Content script on Crunchyroll episode pages. Also lets it fetch `static.crunchyroll.com/skip-events/production/…`, the public JSON that gives the credits start time (same source the Crunchyroll player uses), to detect the end of an episode. |
+| `*://*.crunchyroll.com/*` | Content script on Crunchyroll episode pages. Also lets it fetch `static.crunchyroll.com/skip-events/production/…`, the public JSON that gives the credits start time (same source the Crunchyroll player uses), to detect the end of an episode. On explicit request only (Settings › Import from Crunchyroll), the content script running in the user's own Crunchyroll tab reads their watch history from Crunchyroll's API (same origin, the site's own session) so the user can bring AniList/MyAnimeList up to date after a preview; the short-lived Crunchyroll token never leaves the tab and is never stored. |
 | `https://graphql.anilist.co/*` | AniList GraphQL API: find the matching entry (public catalog, also used when only MyAnimeList is connected), read the user's list, save progress, rating and rewatch, read the airing schedule for new-episode alerts. |
 | `https://myanimelist.net/*` | MyAnimeList OAuth2 token endpoint (`/v1/oauth2/token`): exchange the authorization code and refresh the access token. |
 | `https://api.myanimelist.net/*` | MyAnimeList REST API v2: read the user's list and profile, save progress, rating and rewatch status. |
@@ -54,7 +54,7 @@ Declared in `host_permissions` (exactly as in manifest.json):
 Note: there is **no** host permission for ADN. `animationdigitalnetwork.com` is only covered by the content-script `matches` below; the ADN adapter reads the page and makes no network request.
 
 ```
-crunchyroll.com: the content script detects the episode being played (JSON-LD on the page, video element) and fetches Crunchyroll's public skip-events JSON (static.crunchyroll.com) to know when the credits start. graphql.anilist.co: AniList API, to match the series and save the user's progress. myanimelist.net: MyAnimeList OAuth2 token endpoint (sign-in and token refresh). api.myanimelist.net: MyAnimeList API, to read the user's list and save progress. No other site is accessed.
+crunchyroll.com: the content script detects the episode being played (JSON-LD on the page, video element) and fetches Crunchyroll's public skip-events JSON (static.crunchyroll.com) to know when the credits start; only when the user starts "Import from Crunchyroll", it also reads the user's watch history in their own Crunchyroll tab. graphql.anilist.co: AniList API, to match the series and save the user's progress. myanimelist.net: MyAnimeList OAuth2 token endpoint (sign-in and token refresh). api.myanimelist.net: MyAnimeList API, to read the user's list and save progress. No other site is accessed.
 ```
 
 ### Content-script matches
