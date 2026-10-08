@@ -1,6 +1,6 @@
 import type { AniListErrorCode } from './anilist.types';
 import type { Score10 } from './engagement.types';
-import { isEpisodeInfo, type EpisodeInfo, type StreamingPlatform } from './episode.types';
+import { isEpisodeInfo, isStreamingPlatform, type EpisodeInfo, type StreamingPlatform } from './episode.types';
 import { isRecord } from './guards';
 import type { Result } from './result';
 import type { CandidateSummary } from './review.types';
@@ -46,7 +46,7 @@ export function isPageMediaInfo(value: unknown): value is PageMediaInfo {
   if (!isRecord(value)) return false;
   const { platform, kind, seriesId, seriesSlug, seriesTitle, seasonNumber, seasonTitle, seasonEpisodeCount, episode } = value;
   return (
-    (platform === 'crunchyroll' || platform === 'adn') &&
+    isStreamingPlatform(platform) &&
     (kind === 'series' || kind === 'episode') &&
     isNullableShortString(seriesId) &&
     isNullableShortString(seriesSlug) &&

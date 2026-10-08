@@ -69,12 +69,14 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  */
 export function platformSeriesUrl(platform: StreamingPlatform, seriesId: string | null, seriesSlug: string | null): string | null {
   const slug = seriesSlug !== null && SLUG.test(seriesSlug.toLowerCase()) ? seriesSlug.toLowerCase() : null;
-  if (platform === 'crunchyroll') {
-    if (seriesId === null || !CRUNCHYROLL_ID.test(seriesId)) return null;
-    return `https://www.crunchyroll.com/series/${seriesId.toUpperCase()}${slug ? `/${slug}` : ''}`;
+  switch (platform) {
+    case 'crunchyroll':
+      if (seriesId === null || !CRUNCHYROLL_ID.test(seriesId)) return null;
+      return `https://www.crunchyroll.com/series/${seriesId.toUpperCase()}${slug ? `/${slug}` : ''}`;
+    case 'adn':
+      if (seriesId === null || !ADN_ID.test(seriesId) || slug === null) return null;
+      return `https://animationdigitalnetwork.com/video/${seriesId}-${slug}`;
   }
-  if (seriesId === null || !ADN_ID.test(seriesId) || slug === null) return null;
-  return `https://animationdigitalnetwork.com/video/${seriesId}-${slug}`;
 }
 
 /** Page de recherche de la plateforme pour un titre (ADN : SearchAction du JSON-LD de la page d'accueil) */
@@ -113,9 +115,12 @@ function capitalizeWords(text: string): string {
 
 export function platformSearchUrl(platform: StreamingPlatform, title: string): string {
   const query = encodeURIComponent(searchTitle(title));
-  return platform === 'crunchyroll'
-    ? `https://www.crunchyroll.com/search?q=${query}`
-    : `https://animationdigitalnetwork.com/video?search=${query}`;
+  switch (platform) {
+    case 'crunchyroll':
+      return `https://www.crunchyroll.com/search?q=${query}`;
+    case 'adn':
+      return `https://animationdigitalnetwork.com/video?search=${query}`;
+  }
 }
 
 /** Lien stocké valide : https, hôte de la plateforme annoncée */

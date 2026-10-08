@@ -1,4 +1,5 @@
 import type { AniListErrorCode } from './anilist.types';
+import { isStreamingPlatform } from './episode.types';
 import { isRecord } from './guards';
 import type { Result } from './result';
 import type { AiringStatus, NextEpisode, PlatformLink } from './watching.types';
@@ -67,7 +68,7 @@ const isNullableNumber = (v: unknown): v is number | null => v === null || (type
 const isPositiveInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 1;
 
 const isPlatformLink = (v: unknown): v is PlatformLink =>
-  isRecord(v) && (v.platform === 'crunchyroll' || v.platform === 'adn') && typeof v.url === 'string';
+  isRecord(v) && isStreamingPlatform(v.platform) && typeof v.url === 'string';
 
 function isPanelRelation(value: unknown): value is PanelRelation {
   return (

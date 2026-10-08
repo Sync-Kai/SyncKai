@@ -32,14 +32,18 @@ export interface EpisodeInfo {
 
 const PLATFORMS: Record<StreamingPlatform, true> = { crunchyroll: true, adn: true };
 
+/** Plateforme de streaming connue de SyncKai (valeur venant d'un message ou du stockage) */
+export function isStreamingPlatform(value: unknown): value is StreamingPlatform {
+  return typeof value === 'string' && Object.hasOwn(PLATFORMS, value);
+}
+
 const isNullableNumber = (v: unknown): v is number | null => v === null || typeof v === 'number';
 const isNullableString = (v: unknown): v is string | null => v === null || typeof v === 'string';
 
 export function isEpisodeInfo(value: unknown): value is EpisodeInfo {
   return (
     isRecord(value) &&
-    typeof value.platform === 'string' &&
-    Object.hasOwn(PLATFORMS, value.platform) &&
+    isStreamingPlatform(value.platform) &&
     typeof value.episodeId === 'string' &&
     isNullableString(value.seriesId) &&
     isNullableString(value.seriesSlug) &&
