@@ -30,6 +30,8 @@ export interface SettingsData {
   airing: AiringCheckResult | null;
   /** Raccourci « valider l'épisode » : undefined = en lecture, '' = non défini */
   shortcut: string | undefined;
+  /** Accès à Netflix (permission optionnelle) : undefined = en lecture */
+  netflixAccess: boolean | undefined;
 }
 
 /** Contexte passé aux pages */
@@ -44,6 +46,8 @@ export interface SettingsContext {
   refreshMappings(): Promise<void>;
   /** Relit le nombre d'erreurs du journal */
   refreshJournal(): Promise<void>;
+  /** Relit l'accès à Netflix (après une demande ou un retrait de permission) */
+  refreshNetflixAccess(): Promise<void>;
 }
 
 /** Une sous-page : rendu à la demande, état local conservé entre deux visites */

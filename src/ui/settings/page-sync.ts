@@ -1,13 +1,18 @@
 // Réglages › Lecture & synchro : synchro automatique, moment de la synchro, raccourci clavier,
-// lecteur préféré et options du panneau latéral.
+// lecteur préféré, accès à Netflix (permission optionnelle) et options du panneau latéral.
 import { t } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
-import { PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
+import { createLogger } from '../../shared/logger';
+import { removeNetflixAccess, requestNetflixAccess } from '../../shared/netflix-access';
+import { DEFAULT_SETTINGS, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../../popup/components/alert';
 import { CARD, LINK, segmented } from '../../popup/components/ui';
 import { h } from '../dom';
 import type { SettingsContext, SettingsPageView } from './context';
 import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, toggleRow } from './rows';
+import { displayedPlayer } from './summary';
+
+const log = createLogger('settings');
 
 const SHORTCUTS_URL = 'chrome://extensions/shortcuts';
 
@@ -41,7 +46,62 @@ export function settingsPlaceholder(ctx: SettingsContext): Node[] {
   return [h('div', { class: `${CARD} h-40 motion-safe:animate-pulse`, attrs: { 'aria-busy': 'true', 'aria-label': t('settings.loading') } })];
 }
 
+/** Retour de la dernière demande d'accès Netflix (affiché sous l'interrupteur jusqu'au prochain changement) */
+type NetflixNotice = 'denied' | 'error' | null;
+
 export function createSyncPage(ctx: SettingsContext): SettingsPageView {
+  let netflixNotice: NetflixNotice = null;
+
+  function settleNetflix(notice: NetflixNotice): void {
+    netflixNotice = notice;
+    void ctx.refreshNetflixAccess();
+  }
+
+  /**
+   * Interrupteur Netflix. Activation : permissions.request appelé directement dans le gestionnaire (geste
+   * utilisateur exigé, aucun await avant). Retrait : le lecteur préféré Netflix repasse sur le lecteur par défaut.
+   */
+  function onNetflixToggle(checked: boolean): void {
+    if (checked) {
+      requestNetflixAccess().then(
+        (granted) => settleNetflix(granted ? null : 'denied'),
+        (error: unknown) => {
+          log.warn('Demande d’accès à Netflix impossible :', error);
+          settleNetflix('error');
+        },
+      );
+      return;
+    }
+    removeNetflixAccess().then(
+      (removed) => {
+        if (removed && ctx.data.settings?.preferredPlayer === 'netflix') void ctx.update({ preferredPlayer: DEFAULT_SETTINGS.preferredPlayer }, true);
+        settleNetflix(removed ? null : 'error');
+      },
+      (error: unknown) => {
+        log.warn('Retrait de l’accès à Netflix impossible :', error);
+        settleNetflix('error');
+      },
+    );
+  }
+
+  function renderNetflix(): HTMLElement {
+    const granted = ctx.data.netflixAccess === true;
+    const notice = netflixNotice && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-danger', attrs: { role: 'alert' } }, t(netflixNotice === 'denied' ? 'settings.netflix.denied' : 'settings.netflix.error'));
+    return settingsSection(
+      t('settings.netflix.section'),
+      rowsCard(
+        toggleRow({
+          id: 'sk-netflix',
+          label: t('settings.netflix.label'),
+          help: t(granted ? 'settings.netflix.helpOn' : 'settings.netflix.helpOff'),
+          checked: granted,
+          onChange: onNetflixToggle,
+        }),
+        notice,
+      ),
+    );
+  }
+
   function renderShortcutHint(): HTMLElement {
     const { shortcut } = ctx.data;
     // Touche mise en forme (<kbd>) au milieu de la phrase traduite
@@ -139,8 +199,9 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
               label: t('settings.player.label'),
               help: t('settings.player.help'),
               control: segmented({
-                options: PLAYER_OPTIONS,
-                current: s.preferredPlayer,
+                // Netflix proposé seulement avec l'accès accordé
+                options: ctx.data.netflixAccess === true ? PLAYER_OPTIONS : PLAYER_OPTIONS.filter((option) => option.value !== 'netflix'),
+                current: displayedPlayer(s.preferredPlayer, ctx.data.netflixAccess),
                 onPick: (value) => void ctx.update({ preferredPlayer: value }, true),
                 attrs: { 'aria-labelledby': 'sk-player-label' },
                 focusKey: 'player',
@@ -150,6 +211,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
             }),
           ),
         ),
+        renderNetflix(),
         settingsSection(
           t('settings.section.panel'),
           rowsCard(

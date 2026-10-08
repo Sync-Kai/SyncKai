@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import manifest from '../../manifest.json';
-import { contentScriptMatches, isTargetPage, matchesPattern, SIDE_PANEL_PATH } from './target-pages';
+import { contentScriptMatches, isTargetPage, matchesPattern, NETFLIX_MATCHES, SIDE_PANEL_PATH, targetPagePatterns } from './target-pages';
 
 const patterns = contentScriptMatches(manifest);
 
@@ -61,5 +61,27 @@ describe('matchesPattern', () => {
 describe('SIDE_PANEL_PATH', () => {
   it('identique au manifeste', () => {
     expect(SIDE_PANEL_PATH).toBe(manifest.side_panel.default_path);
+  });
+});
+
+describe('targetPagePatterns (Netflix)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('ajoute Netflix (accès optionnel) aux scripts de contenu du manifeste', () => {
+    vi.stubGlobal('chrome', { runtime: { getManifest: () => manifest } });
+    const all = targetPagePatterns();
+    expect(all).toEqual([...patterns, ...NETFLIX_MATCHES]);
+    expect(isTargetPage('https://www.netflix.com/watch/81402901', all)).toBe(true);
+    expect(isTargetPage('https://www.netflix.com.evil.example/watch/1', all)).toBe(false);
+    // Sans accès accordé, l'URL d'un onglet Netflix est masquée : jamais reconnu
+    expect(isTargetPage(undefined, all)).toBe(false);
+  });
+
+  it('Netflix absent des scripts de contenu et des origines requises du manifeste', () => {
+    expect(patterns.some((p) => p.includes('netflix'))).toBe(false);
+    expect(manifest.host_permissions.some((p) => p.includes('netflix'))).toBe(false);
+    expect(manifest.optional_host_permissions).toEqual([...NETFLIX_MATCHES]);
   });
 });

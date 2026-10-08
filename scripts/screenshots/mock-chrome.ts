@@ -23,10 +23,14 @@ export interface ManifestExtras {
 
 /** Accès aux sites simulé (chrome.permissions) */
 export interface PermissionsMock {
-  /** Réponse de permissions.contains */
+  /** Réponse de permissions.contains pour les origines requises */
   granted: boolean;
   /** permissions.request : renvoie l'accord de l'utilisateur ; accordé, `contains` répond ensuite true */
   onRequest: (origins: string[]) => boolean;
+  /** Origines optionnelles (Netflix) : non accordées au départ, suivies une à une (request / remove) */
+  optional?: readonly string[];
+  /** Appelé à chaque permissions.remove (tests : retraits relevés) */
+  onRemove?: (origins: string[]) => void;
 }
 
 export interface ChromeMockOptions {
@@ -160,12 +164,28 @@ export function installChromeMock(options: ChromeMockOptions): void {
   const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session', false));
 
   const access = options.permissions;
+  const optional = new Set(access?.optional ?? []);
+  /** Origines optionnelles accordées */
+  const grantedOptional = new Set<string>();
   const permissions = access && {
-    contains: () => Promise.resolve(access.granted),
+    contains: ({ origins }: { origins?: string[] }) =>
+      Promise.resolve((origins ?? []).every((origin) => (optional.has(origin) ? grantedOptional.has(origin) : access.granted))),
     request: ({ origins }: { origins?: string[] }) => {
-      const granted = access.onRequest([...(origins ?? [])]);
-      if (granted) access.granted = true;
+      const requested = [...(origins ?? [])];
+      const granted = access.onRequest(requested);
+      if (granted) {
+        for (const origin of requested) {
+          if (optional.has(origin)) grantedOptional.add(origin);
+          else access.granted = true;
+        }
+      }
       return Promise.resolve(granted);
+    },
+    remove: ({ origins }: { origins?: string[] }) => {
+      const removed = [...(origins ?? [])];
+      access.onRemove?.(removed);
+      for (const origin of removed) grantedOptional.delete(origin);
+      return Promise.resolve(true);
     },
     onAdded: event,
     onRemoved: event,

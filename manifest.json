@@ -17,13 +17,17 @@
     "identity",
     "alarms",
     "notifications",
-    "sidePanel"
+    "sidePanel",
+    "scripting"
   ],
   "host_permissions": [
     "*://*.crunchyroll.com/*",
     "https://graphql.anilist.co/*",
     "https://myanimelist.net/*",
     "https://api.myanimelist.net/*"
+  ],
+  "optional_host_permissions": [
+    "*://*.netflix.com/*"
   ],
   "background": {
     "service_worker": "src/background/background.ts",
@@ -38,6 +42,16 @@
       ],
       "js": [
         "src/content/content.ts"
+      ]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "<dynamic_resource>"
+      ],
+      "matches": [
+        "*://*.netflix.com/*"
       ]
     }
   ],

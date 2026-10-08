@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale } from '../../i18n';
 import { DEFAULT_SETTINGS } from '../../shared/settings';
 import { LOGGED_OUT } from '../../popup/state';
-import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, syncSummary } from './summary';
+import { accountLink, accountsSummary, dataSummary, displayedPlayer, helpSummary, languageSummary, notificationsSummary, syncSummary } from './summary';
 
 const initial = getLocale();
 afterEach(() => setLocale(initial));
@@ -52,6 +52,15 @@ describe('syncSummary', () => {
     setLocale('de');
     expect(syncSummary(DEFAULT_SETTINGS)).toBe('Crunchyroll · beim Abspann');
     expect(syncSummary({ ...DEFAULT_SETTINGS, autoSync: false })).toBe('Crunchyroll · pausiert');
+  });
+
+  it('Netflix affiché seulement avec l’accès accordé (sinon lecteur par défaut)', () => {
+    setLocale('fr');
+    const netflix = { ...DEFAULT_SETTINGS, preferredPlayer: 'netflix' } as const;
+    expect(syncSummary(netflix, true)).toBe('Netflix · au générique');
+    expect(syncSummary(netflix, false)).toBe('Crunchyroll · au générique');
+    expect(syncSummary(netflix)).toBe('Crunchyroll · au générique');
+    expect(displayedPlayer('adn', false)).toBe('adn');
   });
 });
 

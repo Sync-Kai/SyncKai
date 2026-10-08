@@ -370,6 +370,37 @@ describe('popup (bout en bout)', () => {
     expect(await page.$eval('#sk-quick-airing', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
   });
 
+  it('Réglages › Lecture & synchro : activer Netflix demande l’accès à netflix.com, puis le lecteur Netflix devient proposé', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'sync');
+    await page.waitForSelector('#sk-netflix');
+    const checked = (): Promise<boolean> => page.$eval('#sk-netflix', (input) => input instanceof HTMLInputElement && input.checked);
+
+    // Accès non accordé : interrupteur éteint, Netflix absent du lecteur préféré
+    expect(await checked()).toBe(false);
+    expect(await text(page, '#sk-netflix-help')).toBe(fr('settings.netflix.helpOff'));
+    expect(await page.$(sel('player-netflix'))).toBeNull();
+    expect(await page.$(sel('player-crunchyroll'))).not.toBeNull();
+
+    await click(page, 'sk-netflix');
+    await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
+    expect((await trace(page)).permissionRequests).toEqual([manifest.optional_host_permissions]);
+    // Accès accordé : consigne de rechargement, option Netflix proposée
+    await page.waitForSelector(sel('player-netflix'));
+    expect(await checked()).toBe(true);
+    expect(await text(page, '#sk-netflix-help')).toBe(fr('settings.netflix.helpOn'));
+    // Aucun message au service worker : l'enregistrement des scripts suit la permission (permissions.onAdded)
+    expect((await trace(page)).messages.filter((m) => m.type !== 'GET_WATCHING' && m.type !== 'GET_VIEWER' && m.type !== 'GET_MAL_VIEWER')).toEqual([]);
+
+    // Retrait : permissions.remove, l'option disparaît
+    await click(page, 'sk-netflix');
+    await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
+    expect((await trace(page)).permissionRemovals).toEqual([manifest.optional_host_permissions]);
+    await page.waitForSelector(sel('player-netflix'), { hidden: true });
+    expect(await checked()).toBe(false);
+  });
+
   it('accès aux sites retiré : bandeau, « Autoriser l’accès » appelle permissions.request', async () => {
     const page = await openPopup({ hostAccess: 'missing' });
     await page.waitForSelector(sel('host-access'));

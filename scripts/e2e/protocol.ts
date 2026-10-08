@@ -7,6 +7,8 @@ export interface E2EState {
   messages: SentMessage[];
   /** Origines de chaque appel à chrome.permissions.request */
   permissionRequests: string[][];
+  /** Origines de chaque appel à chrome.permissions.remove */
+  permissionRemovals: string[][];
   /** Textes écrits dans le presse-papiers (navigator.clipboard.writeText) */
   clipboard: string[];
 }

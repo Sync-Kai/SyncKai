@@ -12,9 +12,19 @@ export function contentScriptMatches(source: ManifestContentScripts): string[] {
   return [...new Set((source.content_scripts ?? []).flatMap((script) => script.matches ?? []))];
 }
 
-/** Motifs du manifeste chargé (lu à l'exécution : le manifeste n'est pas embarqué dans les bundles) */
+/**
+ * Netflix : accès optionnel (optional_host_permissions), scripts enregistrés à la demande par le service worker
+ * (background/netflix-access.ts) et absents de `content_scripts`.
+ */
+export const NETFLIX_MATCHES: readonly string[] = ['*://*.netflix.com/*'];
+
+/**
+ * Motifs du manifeste chargé (lu à l'exécution : le manifeste n'est pas embarqué dans les bundles), plus Netflix.
+ * Netflix sans accès accordé n'est jamais reconnu : l'URL de l'onglet reste masquée (pas de permission "tabs")
+ * et aucun script de contenu n'y répond ni ne signale le panneau.
+ */
 export function targetPagePatterns(): string[] {
-  return contentScriptMatches(chrome.runtime.getManifest());
+  return [...new Set([...contentScriptMatches(chrome.runtime.getManifest()), ...NETFLIX_MATCHES])];
 }
 
 /** Page du panneau latéral (chemin conservé tel quel par le build, comme le popup) */

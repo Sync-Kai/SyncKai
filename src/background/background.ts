@@ -31,6 +31,7 @@ import {
 import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
 import { enablePanelForSender, resetSidePanel } from './side-panel';
+import { listenNetflixAccess } from './netflix-access';
 
 const log = createLogger('background');
 
@@ -260,3 +261,7 @@ if (__SYNCKAI_TARGET__ === 'chrome') {
   chrome.runtime.onInstalled.addListener(resetSidePanel);
   chrome.runtime.onStartup.addListener(resetSidePanel);
 }
+
+// ─── Netflix (accès optionnel) : scripts enregistrés quand l'accès est accordé, retirés sinon ───
+
+listenNetflixAccess();

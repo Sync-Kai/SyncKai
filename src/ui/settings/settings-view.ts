@@ -6,6 +6,7 @@ import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.type
 import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
+import { hasNetflixAccess } from '../../shared/netflix-access';
 import { getSettings, normalizeSettings, saveSettings, SETTINGS_STORAGE_KEY, type LanguageSetting, type SyncSettings } from '../../shared/settings';
 import { getMediaMappings, STORAGE_KEYS } from '../../shared/storage';
 import { CARD, kanaLabel, segmented } from '../../popup/components/ui';
@@ -79,6 +80,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     journalCount: null,
     airing: null,
     shortcut: undefined,
+    netflixAccess: undefined,
   };
 
   // ─── Coque : barre + contenu ───
@@ -192,6 +194,12 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     redraw(['sync']);
   }
 
+  /** Accès Netflix relu (ouverture, ou permission changée ici ou dans chrome://extensions) */
+  async function loadNetflixAccess(): Promise<void> {
+    data.netflixAccess = await hasNetflixAccess();
+    redraw(['home', 'sync']);
+  }
+
   async function loadSettings(): Promise<void> {
     try {
       data.settings = await getSettings();
@@ -217,7 +225,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     notifications.drawAiring(Date.now());
   }
 
-  const ctx: SettingsContext = { host, data, update, redraw, refreshMappings, refreshJournal };
+  const ctx: SettingsContext = { host, data, update, redraw, refreshMappings, refreshJournal, refreshNetflixAccess: loadNetflixAccess };
 
   // ─── Pages ───
 
@@ -300,7 +308,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
       settingsSection(
         t('settings.group.daily'),
         rowsCard(
-          categoryRow('sync', muted(s ? syncSummary(s) : loading), false),
+          categoryRow('sync', muted(s ? syncSummary(s, data.netflixAccess) : loading), false),
           categoryRow('notifications', muted(s ? notificationsSummary(s) : loading), true),
         ),
       ),
@@ -383,6 +391,12 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     if (airingChange) setAiring(airingChange.newValue);
   });
 
+  // Accès Netflix accordé ou retiré ailleurs (chrome://extensions, autre vue) : interrupteur et lecteur préféré suivent
+  if (typeof chrome.permissions?.onAdded?.addListener === 'function') {
+    chrome.permissions.onAdded.addListener(() => void loadNetflixAccess());
+    chrome.permissions.onRemoved.addListener(() => void loadNetflixAccess());
+  }
+
   // Comptes connectés ou déconnectés (ici ou ailleurs) : carte Comptes et résumé de l'accueil
   host.accounts.anilist.subscribe(() => redraw(['home', 'accounts']));
   host.accounts.mal.subscribe(() => redraw(['home', 'accounts']));
@@ -406,6 +420,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   void refreshJournal();
   void loadAiring();
   void loadShortcut();
+  void loadNetflixAccess();
 
   return {
     bar,

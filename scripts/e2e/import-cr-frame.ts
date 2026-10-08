@@ -12,7 +12,7 @@ import { installChromeMock } from '../screenshots/mock-chrome';
 import { localeParam, param } from '../screenshots/params';
 import type { E2EState } from './protocol';
 
-const trace: E2EState = { messages: [], permissionRequests: [], clipboard: [] };
+const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [] };
 window.__e2e = trace;
 const now = Date.now();
 

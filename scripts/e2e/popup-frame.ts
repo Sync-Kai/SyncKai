@@ -26,7 +26,7 @@ const hangWatching = param('watching') === 'hang';
 let watchingCalls = 0;
 if (hangWatching) popupTimeouts.watchingMs = E2E_WATCHING_TIMEOUT_MS;
 
-const trace: E2EState = { messages: [], permissionRequests: [], clipboard: [] };
+const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [] };
 window.__e2e = trace;
 
 // Presse-papiers simulé : déterministe en headless, sans permission à accorder
@@ -165,6 +165,9 @@ installChromeMock({
       trace.permissionRequests.push(origins);
       return true;
     },
+    // Netflix : accès optionnel, non accordé au départ
+    optional: manifest.optional_host_permissions,
+    onRemove: (origins) => trace.permissionRemovals.push(origins),
   },
   manifest: { host_permissions: manifest.host_permissions, content_scripts: manifest.content_scripts },
   persistKey: E2E_PERSIST_KEY,
