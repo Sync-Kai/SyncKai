@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanPageTitle, cleanText, createLabelGuard, flattenJsonLd, labelKey, slugToTitle, stripAudioTag, toNumber } from './parsing';
+import { cleanPageTitle, cleanText, createLabelGuard, flattenJsonLd, labelKey, meaningfulSeasonTitle, slugToTitle, stripAudioTag, toNumber } from './parsing';
 
 describe('toNumber / cleanText', () => {
   it('lit les nombres, y compris avec virgule décimale', () => {
@@ -58,5 +58,20 @@ describe('titres de page de série', () => {
     expect(stripAudioTag('Elbaph (VF)')).toBe('Elbaph');
     expect(stripAudioTag('Frieren (English Dub)')).toBe('Frieren');
     expect(stripAudioTag('Re:Zero (Director’s Cut)')).toBe('Re:Zero (Director’s Cut)');
+  });
+});
+
+describe('meaningfulSeasonTitle', () => {
+  it('écarte les libellés génériques (FR, EN, DE, parties, volumes)', () => {
+    for (const name of ['Saison 1', 'Season 2', 'Staffel 3', 'Part 2', 'Partie 1', 'Volume 4', 'season  10']) {
+      expect(meaningfulSeasonTitle(name)).toBeNull();
+    }
+    expect(meaningfulSeasonTitle(null)).toBeNull();
+  });
+
+  it('garde un vrai nom de saison ou d’arc', () => {
+    expect(meaningfulSeasonTitle('Arc du Pays des Wa')).toBe('Arc du Pays des Wa');
+    expect(meaningfulSeasonTitle('Mushoku Tensei II')).toBe('Mushoku Tensei II');
+    expect(meaningfulSeasonTitle('Part 2: The Final Chapter')).toBe('Part 2: The Final Chapter');
   });
 });

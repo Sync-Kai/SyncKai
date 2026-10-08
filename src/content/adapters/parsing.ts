@@ -108,6 +108,17 @@ export function stripAudioTag(text: string): string {
   return text.replace(AUDIO_TAG_REGEX, '').trim();
 }
 
+/**
+ * Nom de saison générique ("Saison 1", "Season 2", "Staffel 3", "Part 2", "Partie 1", "Volume 4") :
+ * inutile (et trompeur) pour reconnaître la saison sur AniList
+ */
+const GENERIC_SEASON_REGEX = /^(?:season|saison|staffel|part|partie|volume)\s+\d+$/i;
+
+/** Nom de saison exploitable pour la correspondance AniList, null s'il est générique ("Saison 1") */
+export function meaningfulSeasonTitle(name: string | null): string | null {
+  return name && !GENERIC_SEASON_REGEX.test(name) ? name : null;
+}
+
 /** Contenu d'une balise <meta property|name="…"> de la page */
 export function readMetaContent(name: string): string | null {
   const meta = document.querySelector<HTMLMetaElement>(`meta[property="${name}"], meta[name="${name}"]`);

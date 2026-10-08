@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adnSeriesTitleFromJsonLd, meaningfulSeasonTitle, parseAdnEpisodeLabel, parseAdnSeriesPath, parseAdnWatchPath } from './adn';
+import { adnSeriesTitleFromJsonLd, parseAdnEpisodeLabel, parseAdnSeriesPath, parseAdnWatchPath } from './adn';
 import { flattenJsonLd } from './parsing';
 
 describe('parseAdnWatchPath', () => {
@@ -40,17 +40,6 @@ describe('parseAdnEpisodeLabel', () => {
 
   it('conserve le libellé tel quel sans numéro (film, OAV)', () => {
     expect(parseAdnEpisodeLabel('TOUGEN ANKI - Film')).toEqual({ number: null, title: 'TOUGEN ANKI - Film' });
-  });
-});
-
-describe('meaningfulSeasonTitle', () => {
-  it('écarte les libellés génériques', () => {
-    expect(meaningfulSeasonTitle('Saison 1')).toBeNull();
-    expect(meaningfulSeasonTitle('Staffel 2')).toBeNull();
-  });
-
-  it('garde un vrai nom de saison ou d’arc', () => {
-    expect(meaningfulSeasonTitle('Arc du Pays des Wa')).toBe('Arc du Pays des Wa');
   });
 });
 

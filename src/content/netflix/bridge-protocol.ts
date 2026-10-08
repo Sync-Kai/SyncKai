@@ -1,0 +1,211 @@
+// Protocole du pont Netflix entre le script de la page (monde MAIN, page-bridge.iife.ts) et le script de
+// contenu isolé (content-netflix.iife.ts). Module PUR : aucun accès au DOM ni à chrome.*, importé des deux côtés.
+//
+// Échange par CustomEvent sur `document`, `detail` toujours en CHAÎNE JSON (Firefox : un objet créé dans un
+// monde n'est pas lisible tel quel dans l'autre, à cause des Xray wrappers).
+import { isRecord } from '../../shared/guards';
+
+export const NETFLIX_BRIDGE_VERSION = 1;
+export const NETFLIX_REQUEST_EVENT = 'synckai:netflix:request';
+export const NETFLIX_RESPONSE_EVENT = 'synckai:netflix:response';
+
+/** Identifiant de vidéo Netflix (/watch/{id}) */
+export const NETFLIX_MOVIE_ID_REGEX = /^\d{1,12}$/;
+
+/** Bornes de la réduction : textes tronqués, nombre total d'épisodes et de saisons limité */
+export const NETFLIX_MAX_TEXT = 300;
+export const NETFLIX_MAX_EPISODES = 2000;
+export const NETFLIX_MAX_SEASONS = 200;
+const MAX_ID_LENGTH = 64;
+
+export interface NetflixEpisodeMetadata {
+  /** Identifiant de lecture (/watch/{id}) */
+  id: string;
+  /** Numéro dans la saison */
+  seq: number;
+  title: string | null;
+  /** Durée (s) */
+  runtime: number | null;
+  /** Début du générique de fin (s) */
+  creditsOffset: number | null;
+}
+
+export interface NetflixSeasonMetadata {
+  seq: number;
+  title: string | null;
+  episodes: NetflixEpisodeMetadata[];
+}
+
+/**
+ * Métadonnées réduites d'une série ou d'un film : seuls ces champs quittent le monde MAIN.
+ * Jamais d'authURL, d'artwork, de synopsis, de skipMarkers ni de donnée de compte.
+ */
+export interface NetflixShowMetadata {
+  showId: string;
+  type: 'show' | 'movie';
+  title: string;
+  /** Film : durée (s) ; série : null */
+  runtime: number | null;
+  /** Film : début du générique (s) ; série : null */
+  creditsOffset: number | null;
+  /** Film : [] */
+  seasons: NetflixSeasonMetadata[];
+}
+
+export interface NetflixBridgeRequest {
+  v: typeof NETFLIX_BRIDGE_VERSION;
+  /** Corrélation requête ↔ réponse (crypto.randomUUID) */
+  id: string;
+  movieId: string;
+}
+
+export type NetflixBridgeError = 'http' | 'network' | 'shape';
+
+export type NetflixBridgeResponse =
+  | { v: typeof NETFLIX_BRIDGE_VERSION; id: string; ok: true; data: NetflixShowMetadata }
+  | { v: typeof NETFLIX_BRIDGE_VERSION; id: string; ok: false; error: NetflixBridgeError; status?: number };
+
+// ─── Réduction de la réponse brute (exécutée dans le monde MAIN) ──────────
+
+/** Texte nettoyé et tronqué ; null si absent ou vide */
+function text(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.replace(/\s+/g, ' ').trim();
+  return cleaned ? cleaned.slice(0, NETFLIX_MAX_TEXT) : null;
+}
+
+/** Identifiant numérique Netflix (nombre ou chaîne) → chaîne, sinon null */
+function numericId(value: unknown): string | null {
+  const id = typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? String(value) : value;
+  return typeof id === 'string' && NETFLIX_MOVIE_ID_REGEX.test(id) ? id : null;
+}
+
+/** Durée en secondes (> 0), sinon null */
+function seconds(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/** Numéro d'ordre (entier ≥ 0), sinon null */
+function sequence(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+/**
+ * Réduit la réponse de `/nq/website/memberapi/release/metadata` (`{ video: {…} }`) à `NetflixShowMetadata`.
+ * Null si la forme est inattendue. Les épisodes au-delà de NETFLIX_MAX_EPISODES (au total) sont ignorés.
+ */
+export function reduceNetflixMetadata(raw: unknown): NetflixShowMetadata | null {
+  const video = isRecord(raw) ? raw.video : null;
+  if (!isRecord(video)) return null;
+  const showId = numericId(video.id);
+  const title = text(video.title);
+  const type = video.type === 'show' || video.type === 'movie' ? video.type : null;
+  if (!showId || !title || !type) return null;
+
+  if (type === 'movie') {
+    return { showId, type, title, runtime: seconds(video.runtime), creditsOffset: seconds(video.creditsOffset), seasons: [] };
+  }
+
+  if (!Array.isArray(video.seasons)) return null;
+  const seasons: NetflixSeasonMetadata[] = [];
+  let episodeCount = 0;
+  for (const [seasonIndex, rawSeason] of video.seasons.slice(0, NETFLIX_MAX_SEASONS).entries()) {
+    if (!isRecord(rawSeason)) continue;
+    const episodes: NetflixEpisodeMetadata[] = [];
+    const rawEpisodes: unknown[] = Array.isArray(rawSeason.episodes) ? rawSeason.episodes : [];
+    for (const [episodeIndex, rawEpisode] of rawEpisodes.entries()) {
+      if (episodeCount >= NETFLIX_MAX_EPISODES) break;
+      if (!isRecord(rawEpisode)) continue;
+      const id = numericId(rawEpisode.id);
+      if (!id) continue;
+      episodes.push({
+        id,
+        seq: sequence(rawEpisode.seq) ?? episodeIndex + 1,
+        title: text(rawEpisode.title),
+        runtime: seconds(rawEpisode.runtime),
+        creditsOffset: seconds(rawEpisode.creditsOffset),
+      });
+      episodeCount++;
+    }
+    seasons.push({ seq: sequence(rawSeason.seq) ?? seasonIndex + 1, title: text(rawSeason.title) ?? text(rawSeason.longName), episodes });
+  }
+  return { showId, type, title, runtime: null, creditsOffset: null, seasons };
+}
+
+// ─── Revalidation (monde isolé : la page peut émettre n'importe quoi) ─────
+
+const isBoundedText = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= NETFLIX_MAX_TEXT;
+const isNullableText = (v: unknown): v is string | null => v === null || isBoundedText(v);
+const isNullableSeconds = (v: unknown): v is number | null => v === null || seconds(v) !== null;
+const isId = (v: unknown): v is string => typeof v === 'string' && NETFLIX_MOVIE_ID_REGEX.test(v);
+
+function isEpisodeMetadata(value: unknown): value is NetflixEpisodeMetadata {
+  return (
+    isRecord(value) &&
+    isId(value.id) &&
+    sequence(value.seq) !== null &&
+    isNullableText(value.title) &&
+    isNullableSeconds(value.runtime) &&
+    isNullableSeconds(value.creditsOffset)
+  );
+}
+
+function isSeasonMetadata(value: unknown): value is NetflixSeasonMetadata {
+  return isRecord(value) && sequence(value.seq) !== null && isNullableText(value.title) && Array.isArray(value.episodes) && value.episodes.every(isEpisodeMetadata);
+}
+
+export function isNetflixShowMetadata(value: unknown): value is NetflixShowMetadata {
+  if (
+    !isRecord(value) ||
+    !isId(value.showId) ||
+    (value.type !== 'show' && value.type !== 'movie') ||
+    !isBoundedText(value.title) ||
+    !isNullableSeconds(value.runtime) ||
+    !isNullableSeconds(value.creditsOffset) ||
+    !Array.isArray(value.seasons) ||
+    value.seasons.length > NETFLIX_MAX_SEASONS ||
+    !value.seasons.every(isSeasonMetadata)
+  ) {
+    return false;
+  }
+  const seasons: NetflixSeasonMetadata[] = value.seasons;
+  return seasons.reduce((total, season) => total + season.episodes.length, 0) <= NETFLIX_MAX_EPISODES;
+}
+
+// ─── Messages (chaînes JSON) ──────────────────────────────────────────────
+
+function parseJson(detail: unknown): unknown {
+  if (typeof detail !== 'string' || detail.length > 2_000_000) return null;
+  try {
+    return JSON.parse(detail);
+  } catch {
+    return null;
+  }
+}
+
+const isCorrelationId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= MAX_ID_LENGTH;
+
+export function encodeNetflixRequest(request: NetflixBridgeRequest): string {
+  return JSON.stringify(request);
+}
+
+export function decodeNetflixRequest(detail: unknown): NetflixBridgeRequest | null {
+  const value = parseJson(detail);
+  if (!isRecord(value) || value.v !== NETFLIX_BRIDGE_VERSION || !isCorrelationId(value.id) || !isId(value.movieId)) return null;
+  return { v: NETFLIX_BRIDGE_VERSION, id: value.id, movieId: value.movieId };
+}
+
+export function encodeNetflixResponse(response: NetflixBridgeResponse): string {
+  return JSON.stringify(response);
+}
+
+export function decodeNetflixResponse(detail: unknown): NetflixBridgeResponse | null {
+  const value = parseJson(detail);
+  if (!isRecord(value) || value.v !== NETFLIX_BRIDGE_VERSION || !isCorrelationId(value.id)) return null;
+  if (value.ok === true) {
+    return isNetflixShowMetadata(value.data) ? { v: NETFLIX_BRIDGE_VERSION, id: value.id, ok: true, data: value.data } : null;
+  }
+  if (value.ok !== false || (value.error !== 'http' && value.error !== 'network' && value.error !== 'shape')) return null;
+  const status = typeof value.status === 'number' && Number.isInteger(value.status) ? value.status : undefined;
+  return { v: NETFLIX_BRIDGE_VERSION, id: value.id, ok: false, error: value.error, ...(status !== undefined ? { status } : {}) };
+}

@@ -2,7 +2,17 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
 import type { SeriesPageInfo, StreamingAdapter } from './adapter';
-import { cleanPageTitle, cleanText, createLabelGuard, labelKey, readJsonLdNodes, readMetaContent, slugToTitle, toNumber } from './parsing';
+import {
+  cleanPageTitle,
+  cleanText,
+  createLabelGuard,
+  labelKey,
+  meaningfulSeasonTitle,
+  readJsonLdNodes,
+  readMetaContent,
+  slugToTitle,
+  toNumber,
+} from './parsing';
 
 const log = createLogger('adn');
 
@@ -18,9 +28,6 @@ const WATCH_PATH_REGEX = /^\/(?:[a-z]{2}\/)?video\/(\d+)-([^/]+)\/(\d+)(?:-[^/?#
  * - lecteur : "Épisode 1 : Sang d'Oni"
  */
 const EPISODE_LABEL_REGEX = /(?:^|\s[-–—]\s)(?:Épisode|Episode|Folge)\s+(\d+(?:[.,]\d+)?)(?:\s*:\s*(.+))?$/i;
-
-/** "Saison 1" est générique : inutile (et trompeur) pour reconnaître la saison sur AniList */
-const GENERIC_SEASON_REGEX = /^(?:saison|season|staffel)\s+\d+$/i;
 
 // Classes du lecteur video.js d'ADN (plus stables que les classes générées styled-components)
 const SELECTORS = {
@@ -49,11 +56,6 @@ export function parseAdnEpisodeLabel(label: string | null): { number: number | n
   const match = label ? EPISODE_LABEL_REGEX.exec(label) : null;
   if (!match) return { number: null, title: label };
   return { number: toNumber(match[1]), title: cleanText(match[2]) };
-}
-
-/** Nom de saison exploitable pour la correspondance AniList, null s'il est générique ("Saison 1") */
-export function meaningfulSeasonTitle(name: string | null): string | null {
-  return name && !GENERIC_SEASON_REGEX.test(name) ? name : null;
 }
 
 // ─── Stratégies d'extraction ──────────────────────────────────────────────
