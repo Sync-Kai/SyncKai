@@ -259,6 +259,8 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     metadata = adapter.loadEpisodeInfo ? await load() : await waitFor(extract, { signal, timeoutMs: METADATA_WAIT_TIMEOUT_MS });
     if (signal.aborted) return;
     if (metadata) log.info(`Épisode identifié : ${formatEpisode(metadata)}`, metadata);
+    // Catalogue généraliste (Netflix) : /watch/{id de série} avant redirection, bande-annonce… → cas normal, hors journal
+    else if (adapter.quiet) log.info('Métadonnées indisponibles pour l’instant, nouvel essai à la fin de l’épisode');
     else log.warn('Métadonnées indisponibles pour l’instant, nouvel essai à la fin de l’épisode');
   }
 
