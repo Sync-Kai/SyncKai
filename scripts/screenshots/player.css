@@ -152,3 +152,11 @@ body {
 .grow {
   flex: 1;
 }
+
+/* Lecture en cours (capture du panneau latéral) : scène sans générique, moins assombrie */
+.watch .credits {
+  display: none;
+}
+.watch .dim {
+  opacity: 0.35;
+}

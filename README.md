@@ -20,7 +20,12 @@
 - **AniList et MyAnimeList**, ensemble ou séparément : chaque compte est facultatif.
 - **Reconnaissance intelligente des saisons** : numérotation absolue (One Piece E1180) ou par saison, saisons découpées en plusieurs fiches. En cas de doute, une carte **À vérifier** te laisse choisir la bonne fiche.
 - **En cours** : tes séries avec le prochain épisode (« Ép. 5 dans 18 h », « Ép. 3 disponible »), triables par prochaine sortie, dernière mise à jour, titre ou épisodes restants.
-- **Ouvrir** une série directement sur Crunchyroll ou ADN, selon ton **lecteur préféré**.
+- **Ouvrir** une série directement sur Crunchyroll ou ADN, selon ton **lecteur préféré** : SyncKai retient les pages de séries ADN que tu visites, sinon le menu ⋯ propose « Chercher sur ADN ».
+- **Sur cette page** : sur une page de série ou d’épisode, la fiche AniList de ce que tu regardes, avec progression, statut et note modifiables.
+- **Panneau latéral** sur Crunchyroll et ADN (barre latérale sur Firefox) :
+  - *En lecture* : la fiche AniList complète, ta progression en direct (« Synchro dans 2 min 10 »), tes actions, les suites avec un bouton *Regarder* et la discussion de l’épisode ;
+  - *Agenda* : les sorties de la semaine pour tes séries en cours, avec l’heure estimée sur Crunchyroll / ADN (délai réglable, par série si besoin) et les épisodes déjà vus cochés.
+- **Import de l’historique Crunchyroll** (Réglages) : SyncKai lit ton historique dans ton navigateur, montre un aperçu, puis met AniList / MyAnimeList à jour en tâche de fond, sans jamais reculer ; en cas de doute, une vérification plutôt qu’une écriture.
 - **Notifications sur la page** à trois niveaux : *Discrètes*, *Détaillées*, *Alertes seulement*. Compatibles plein écran.
 - **File de synchro hors ligne** : en cas de coupure réseau ou de service indisponible, la synchro est relancée automatiquement.
 - **+1 / −1** sur chaque série, et raccourci **Alt+Maj+S** pour valider l’épisode en cours.
@@ -28,6 +33,7 @@
 - **Note en fin de série** : une bulle « Ta note ? » quand une série passe en Terminé.
 - **Revisionnage** : SyncKai le détecte sur une série terminée et le propose.
 - **Alertes de nouveaux épisodes** : notification à la sortie d’un épisode de tes séries en cours.
+- **Réglages par catégories**, avec un résumé de chaque réglage et des interrupteurs rapides, dans le popup comme dans le panneau latéral.
 - **Sauvegarde** : export / import de tes réglages, correspondances et historique (jamais de tes connexions).
 - **Interface en français, anglais et allemand.**
 
@@ -112,10 +118,14 @@ SyncKai n’est affilié ni à Crunchyroll, ni à ADN, ni à AniList, ni à MyAn
 
 ## In English
 
-**SyncKai** is a Chrome extension that automatically updates your **AniList** and/or **MyAnimeList** list while you watch anime on **Crunchyroll** or **ADN**: the episode is marked as watched when the ending credits start (or at an adjustable percentage).
+**SyncKai** is a Chrome and Firefox extension that automatically updates your **AniList** and/or **MyAnimeList** list while you watch anime on **Crunchyroll** or **ADN**: the episode is marked as watched when the ending credits start (or at an adjustable percentage).
 
 - Smart season matching, with review cards when a match is uncertain.
-- “Watching” list with next-episode countdown, sorting and an “Open” button for your preferred player.
+- “Watching” list with next-episode countdown, sorting and an “Open” button for your preferred player (remembers the ADN series pages you visit, otherwise “Search on ADN”).
+- “On this page”: the AniList entry of the series or episode you are on, with editable progress, status and score.
+- Side panel on Crunchyroll and ADN (sidebar on Firefox): “Now playing” (full AniList entry, live sync countdown, sequels with a “Watch” button, episode discussion) and “Schedule” (this week’s releases with the estimated time on Crunchyroll / ADN, watched episodes ticked off).
+- Crunchyroll history import, with a preview before anything is written to AniList / MyAnimeList.
+- Settings organized by category, in the popup and the side panel.
 - Offline retry queue, +1 / −1, `Alt+Shift+S` shortcut, per-series exclusion.
 - Rating prompt at series end, rewatch detection, new-episode alerts, backup export / import.
 - Interface in French, English and German.

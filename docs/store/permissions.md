@@ -1,11 +1,11 @@
 # Privacy practices — Chrome Web Store dashboard
 
-Answers for the **Privacy practices** tab (manifest v1.7.0). Copy each block into the matching field.
+Answers for the **Privacy practices** tab (manifest v2.0.0). Copy each block into the matching field.
 
 ## Single purpose
 
 ```
-SyncKai automatically updates the user's anime list on AniList and/or MyAnimeList with the episode they are watching on Crunchyroll or ADN (Animation Digital Network). All features (episode detection, list of series in progress, next-episode alerts, ratings, backup) serve this single purpose: keeping the user's anime tracking list in sync with what they watch.
+SyncKai automatically updates the user's anime list on AniList and/or MyAnimeList with the episode they are watching on Crunchyroll or ADN (Animation Digital Network). All features (episode detection, list of series in progress, companion side panel with the episode's entry and the week's releases, next-episode alerts, ratings, Crunchyroll history import, backup) serve this single purpose: keeping the user's anime tracking list in sync with what they watch.
 ```
 
 ## Permission justifications
@@ -25,7 +25,7 @@ Used only for chrome.identity.launchWebAuthFlow to let the user sign in to AniLi
 ### alarms
 
 ```
-Two alarms, both run by the service worker: (1) an hourly check of the AniList airing schedule for the series the user is watching, to notify new episodes (only when the user has turned alerts on); (2) a retry alarm that re-sends syncs that failed for a transient reason (network, rate limit, server error). The retry alarm only exists while the queue contains a pending item.
+Alarms run by the service worker: (1) an hourly check of the AniList airing schedule for the series the user is watching, to notify new episodes (only when the user has turned alerts on) and refresh the week's release schedule shown in the side panel; (2) a retry alarm that re-sends syncs that failed for a transient reason (network, rate limit, server error), which only exists while the queue contains a pending item; (3) a resume alarm for a background task the user started (Crunchyroll history import, AniList ↔ MyAnimeList comparison), which only exists while that task is running, so it resumes if the browser stops the service worker.
 ```
 
 ### notifications
@@ -35,6 +35,8 @@ Shows a Chrome notification when a new episode of a series the user is watching 
 ```
 
 ### sidePanel
+
+Chrome only: the Firefox build has no `sidePanel` permission (it declares a `sidebar_action` instead).
 
 ```
 Shows SyncKai's companion side panel (episode being watched, release schedule) on Crunchyroll and ADN pages only. The panel is disabled by default and enabled per tab only on those sites; it opens only when the user clicks "Open the side panel" in the popup. It reads no browsing data and sends nothing anywhere.

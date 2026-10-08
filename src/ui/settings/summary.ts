@@ -73,7 +73,7 @@ export function languageSummary(setting: LanguageSetting, active: Locale): strin
   return setting === 'auto' ? t('settings.summary.languageAuto', { language: LANGUAGE_NAMES[active] }) : LANGUAGE_NAMES[setting];
 }
 
-/** « v1.9.0 », précédé du nombre d'erreurs enregistrées s'il y en a */
+/** « v2.0.0 », précédé du nombre d'erreurs enregistrées s'il y en a */
 export function helpSummary(version: string, errors: number | null): string {
   const versionText = t('settings.summary.version', { version });
   return errors !== null && errors > 0 ? `${tp('settings.summary.errors', errors)} · ${versionText}` : versionText;

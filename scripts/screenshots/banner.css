@@ -288,3 +288,137 @@ html.marquee .sub {
   color: #8fa4ff;
   padding: 0 4px;
 }
+
+/* ─── Fenêtre de navigateur (panneau latéral, page d'import) ── */
+.browser {
+  display: flex;
+  flex-direction: column;
+}
+.browser-bar {
+  height: 46px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 12px 0 16px;
+  background: #1c1830;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+}
+.address {
+  font: 600 13px/1 'Nunito', sans-serif;
+  color: #b7afd3;
+  letter-spacing: 0.2px;
+}
+.ext.kai.small {
+  width: 30px;
+  height: 30px;
+}
+.ext.kai.small img {
+  width: 19px;
+  height: 19px;
+}
+.browser-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background: #16131f;
+}
+.browser-body.split {
+  display: flex;
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Panneau latéral (en-tête Chrome + page du panneau) ── */
+.sp {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  background: #16131f;
+}
+.sp-head {
+  height: 36px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  background: #1c1830;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #a79fc6;
+  box-sizing: border-box;
+}
+.sp-head img {
+  width: 16px;
+  height: 16px;
+}
+.sp-name {
+  font: 700 13px/1 'Nunito', sans-serif;
+  color: #e9e3f7;
+}
+.sp-head svg {
+  width: 16px;
+  height: 16px;
+}
+.sp-head .sp-caret {
+  width: 14px;
+  height: 14px;
+  margin-left: -3px;
+}
+.sp-head .grow {
+  flex: 1;
+}
+
+/* ─── Page de lecture simulée ─────────────────────────── */
+.watch-page {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: #0b0a12;
+}
+.watch-page .frame {
+  background: #07060f;
+}
+.watch-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 18px 14px;
+}
+.watch-series {
+  font: 700 13px/1.2 'Nunito', sans-serif;
+  color: #ff9a5a;
+}
+.watch-ep {
+  font: 800 19px/1.2 'M PLUS Rounded 1c', sans-serif;
+  color: #fff;
+}
+.watch-info b,
+.watch-row span {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.watch-next {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 6px 18px;
+}
+.watch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.watch-row i {
+  width: 96px;
+  height: 54px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.3), rgba(70, 214, 255, 0.14));
+}
+.watch-row span {
+  flex: 1;
+}

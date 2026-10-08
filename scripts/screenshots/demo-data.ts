@@ -39,7 +39,7 @@ interface SeriesSpec {
   cover: { from: string; to: string; accent: string; motif: CoverMotif };
 }
 
-const SERIES: readonly SeriesSpec[] = [
+export const SERIES: readonly SeriesSpec[] = [
   { id: 185660, malId: 60543, title: 'Dandadan', progress: 7, total: 12, status: 'RELEASING', next: { episode: 8, inMs: 5 * DAY + 4 * HOUR }, updatedAgo: 3 * MIN, platform: 'crunchyroll', lastSyncAgo: 3 * MIN, cover: { from: '#2A3590', to: '#7C5CFF', accent: '#5FE3FF', motif: 'bolt' } },
   { id: 176496, malId: 58567, title: 'Solo Leveling', progress: 2, total: 13, status: 'RELEASING', next: { episode: 4, inMs: 3 * DAY + 6 * HOUR }, updatedAgo: 1 * DAY, platform: 'crunchyroll', lastSyncAgo: 1 * DAY, cover: { from: '#141A3D', to: '#3E5C8A', accent: '#B9A4FF', motif: 'peaks' } },
   { id: 154587, malId: 52991, title: 'Frieren', progress: 26, total: 28, status: 'FINISHED', next: null, updatedAgo: 2 * DAY, platform: 'crunchyroll', lastSyncAgo: 2 * DAY, cover: { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'sun' } },
@@ -71,7 +71,7 @@ export function watchingList(service: TrackerId, now: number): WatchingList {
   return { service, entries: SERIES.map((s) => entry(s, service, now)), fetchedAt: now - 2 * MIN };
 }
 
-function episode(title: string, season: number | null, number: number, platform: StreamingPlatform = 'crunchyroll'): EpisodeInfo {
+export function episode(title: string, season: number | null, number: number, platform: StreamingPlatform = 'crunchyroll'): EpisodeInfo {
   return {
     platform,
     episodeId: `DEMO${title.replace(/\W/g, '').toUpperCase()}${number}`,

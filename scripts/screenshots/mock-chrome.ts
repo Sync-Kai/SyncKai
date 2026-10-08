@@ -46,6 +46,42 @@ export interface ChromeMockOptions {
    * Il survit ainsi au rechargement du popup (changement de langue) ; l'appelant efface la clé pour repartir des données de démo.
    */
   persistKey?: string;
+  /** Contenu initial de chrome.storage.session (absent = zone vide) */
+  session?: StorageItems;
+  /** Port ouvert par chrome.tabs.connect (script de contenu simulé) ; absent = connexion refusée */
+  connect?: (tabId: number, name: string) => chrome.runtime.Port;
+  /** Onglet actif renvoyé par chrome.tabs.query / chrome.tabs.get (URL, titre) */
+  tab?: { url: string; title?: string };
+  /** Expose chrome.sidePanel (le panneau latéral se croit sur Chrome) */
+  sidePanel?: boolean;
+}
+
+/** Port simulé : `emit` pousse un message vers l'extension (script de contenu → page) */
+export interface MockPort {
+  port: chrome.runtime.Port;
+  emit: (message: unknown) => void;
+}
+
+export function createMockPort(name: string, onPost: (message: unknown) => void = () => undefined): MockPort {
+  const messageListeners = new Set<(message: unknown) => void>();
+  const disconnectListeners = new Set<() => void>();
+  let open = true;
+  const event = <T>(set: Set<T>) => ({ addListener: (l: T) => void set.add(l), removeListener: (l: T) => void set.delete(l), hasListener: (l: T) => set.has(l) });
+  const port = {
+    name,
+    postMessage: (message: unknown) => onPost(message),
+    disconnect: () => {
+      open = false;
+    },
+    onMessage: event(messageListeners),
+    onDisconnect: event(disconnectListeners),
+  };
+  return {
+    port: port as unknown as chrome.runtime.Port,
+    emit: (message) => {
+      if (open) messageListeners.forEach((listener) => listener(clone(message)));
+    },
+  };
 }
 
 const clone = <T>(value: T): T => (value === undefined ? value : structuredClone(value));
@@ -86,20 +122,23 @@ export function installChromeMock(options: ChromeMockOptions): void {
   };
   persist();
 
-  const emit = (changes: StorageChanges): void => {
-    if (Object.keys(changes).length === 0) return;
-    persist();
-    // Asynchrone, comme dans Chrome
-    queueMicrotask(() => listeners.forEach((listener) => listener(changes, 'local')));
-  };
+  const emitFor =
+    (area: 'local' | 'session', save: boolean) =>
+    (changes: StorageChanges): void => {
+      if (Object.keys(changes).length === 0) return;
+      if (save) persist();
+      // Asynchrone, comme dans Chrome
+      queueMicrotask(() => listeners.forEach((listener) => listener(changes, area)));
+    };
 
-  const local = {
-    get: (keys?: unknown) => Promise.resolve(pick(store, keys)),
+  /** Zone de stockage en mémoire (chrome.storage.local / session) */
+  const storageArea = (data: Map<string, unknown>, emit: (changes: StorageChanges) => void) => ({
+    get: (keys?: unknown) => Promise.resolve(pick(data, keys)),
     set: (items: StorageItems) => {
       const changes: StorageChanges = {};
       for (const [key, value] of Object.entries(items)) {
-        changes[key] = { oldValue: clone(store.get(key)), newValue: clone(value) };
-        store.set(key, clone(value));
+        changes[key] = { oldValue: clone(data.get(key)), newValue: clone(value) };
+        data.set(key, clone(value));
       }
       emit(changes);
       return Promise.resolve();
@@ -107,14 +146,17 @@ export function installChromeMock(options: ChromeMockOptions): void {
     remove: (keys: string | string[]) => {
       const changes: StorageChanges = {};
       for (const key of Array.isArray(keys) ? keys : [keys]) {
-        if (!store.has(key)) continue;
-        changes[key] = { oldValue: clone(store.get(key)) };
-        store.delete(key);
+        if (!data.has(key)) continue;
+        changes[key] = { oldValue: clone(data.get(key)) };
+        data.delete(key);
       }
       emit(changes);
       return Promise.resolve();
     },
-  };
+  });
+
+  const local = storageArea(store, emitFor('local', true));
+  const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session', false));
 
   const access = options.permissions;
   const permissions = access && {
@@ -131,6 +173,7 @@ export function installChromeMock(options: ChromeMockOptions): void {
   const mock = {
     storage: {
       local,
+      session,
       onChanged: {
         addListener: (listener: ChangeListener) => void listeners.add(listener),
         removeListener: (listener: ChangeListener) => void listeners.delete(listener),
@@ -154,15 +197,25 @@ export function installChromeMock(options: ChromeMockOptions): void {
     tabs: {
       create: () => Promise.resolve({}),
       // Onglet actif fictif : sa page (Crunchyroll / ADN) est décrite par `tabMessage`
-      query: () => Promise.resolve([{ id: 1, active: true }]),
+      query: () => Promise.resolve([{ id: 1, active: true, status: 'complete', ...options.tab }]),
+      get: (id: number) => Promise.resolve({ id, active: true, status: 'complete', ...options.tab }),
+      update: () => Promise.resolve({}),
       sendMessage: (_tabId: number, message: unknown) => Promise.resolve(clone(options.tabMessage?.(message))),
+      connect: (tabId: number, info?: { name?: string }) => {
+        if (!options.connect) throw new Error('Aucun script de contenu');
+        return options.connect(tabId, info?.name ?? '');
+      },
+      onUpdated: event,
+      onActivated: event,
     },
+    windows: { getCurrent: () => Promise.resolve({ id: 1 }) },
     action: {
       setBadgeText: () => Promise.resolve(),
       setBadgeBackgroundColor: () => Promise.resolve(),
       setBadgeTextColor: () => Promise.resolve(),
     },
     ...(permissions ? { permissions } : {}),
+    ...(options.sidePanel ? { sidePanel: { open: () => Promise.resolve(), setOptions: () => Promise.resolve() } } : {}),
   };
 
   // Seules les méthodes réellement appelées par les vues sont simulées

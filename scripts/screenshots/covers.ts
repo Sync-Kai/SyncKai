@@ -38,3 +38,9 @@ export function avatarUrl(letter: string, from: string, to: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="64" height="64" fill="url(#g)"/><text x="32" y="43" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="30" fill="#1A0F1C">${letter}</text></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
+
+/** Bannière panoramique (fiche du panneau latéral) : paysage abstrait, aucune image protégée */
+export function bannerUrl(spec: Omit<CoverSpec, 'motif'>): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="s" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${spec.from}"/><stop offset="1" stop-color="${spec.to}"/></linearGradient></defs><rect width="400" height="120" fill="url(#s)"/><circle cx="300" cy="44" r="22" fill="${spec.accent}" opacity=".85"/><g fill="#fff" opacity=".7"><circle cx="40" cy="20" r="1.2"/><circle cx="120" cy="34" r="1"/><circle cx="210" cy="14" r="1.1"/><circle cx="360" cy="18" r=".9"/></g><path d="M0 92 L60 58 L100 78 L160 40 L220 80 L270 62 L330 86 L400 60 V120 H0Z" fill="#000" opacity=".28"/><path d="M0 104 Q80 86 160 100 T320 96 T400 92 V120 H0Z" fill="#000" opacity=".35"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
