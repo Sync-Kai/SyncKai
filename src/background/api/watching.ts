@@ -3,8 +3,8 @@ import { isRecord } from '../../shared/guards';
 import { learnedLinksFor, mergePlatformLinks, platformFromUrl, platformLinkFromExternal, withLearnedLinks, type PlatformLinkStore } from '../../shared/platform-links';
 import { getPlatformLinks } from '../../shared/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
-import { getCachedViewer, getRecentSyncs, saveCachedWatching } from '../../shared/storage';
-import type { TrackerId } from '../../shared/tracker.types';
+import { getCachedViewer, getRecentSyncs, getSessionEpoch, saveCachedWatching } from '../../shared/storage';
+import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { toSafeUrl } from '../../shared/url';
 import type {
   AiringStatus,
@@ -238,11 +238,16 @@ async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLi
 /** Liste « en cours » du service demandé, mise en cache pour le popup. Ne lève jamais. */
 export async function getWatchingList(service: TrackerId): Promise<WatchingResult> {
   try {
+    // Génération capturée avant la requête : une déconnexion pendant celle-ci la rend obsolète
+    const epoch = await getSessionEpoch(service);
     const [syncs, learned] = await Promise.all([getRecentSyncs(), getPlatformLinks()]);
     const entries = service === 'anilist' ? await fetchAniListEntries(syncs, learned) : await fetchMalEntries(syncs, learned);
     // Lien appris pendant la requête (popup ouvert sur une page de série) : pas écrasé par cette liste
     const list: WatchingList = { service, entries: withLearnedLinks(entries, await getPlatformLinks()) ?? entries, fetchedAt: Date.now() };
-    await saveCachedWatching(list);
+    if (!(await saveCachedWatching(list, epoch))) {
+      // Déconnecté pendant la requête : ni cache, ni liste de l'ancien compte renvoyée à l'interface
+      return { ok: false, code: 'NOT_AUTHENTICATED', message: t('api.notAuthenticated', { service: TRACKER_LABELS[service] }) };
+    }
     return { ok: true, data: list };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, code: error.code, message: error.message };

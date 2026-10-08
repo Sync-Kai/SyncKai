@@ -27,6 +27,8 @@ export const STORAGE_KEYS = {
   malToken: 'malToken',
   malViewer: 'malViewer',
   watchingCache: 'watchingCache',
+  /** Génération de session par service, incrémentée à chaque déconnexion (voir saveCachedWatching) */
+  sessionEpoch: 'sessionEpoch',
   /** Dernière comparaison AniList ↔ MAL (Activité › Écarts) */
   compareLast: 'compare:last',
   /** Tâche d'analyse ou d'alignement en cours (progression, reprise) */
@@ -139,6 +141,7 @@ export function clearAniListSession(): Promise<void> {
   return withStorageLock(async () => {
     await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
     await removeCachedWatching('anilist');
+    await bumpSessionEpoch('anilist');
   });
 }
 
@@ -182,6 +185,7 @@ export function clearMalSession(): Promise<void> {
   return withStorageLock(async () => {
     await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
     await removeCachedWatching('mal');
+    await bumpSessionEpoch('mal');
   });
 }
 
@@ -204,10 +208,39 @@ async function removeCachedWatching(service: TrackerId): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.watchingCache]: rest });
 }
 
-export function saveCachedWatching(list: WatchingList): Promise<void> {
+// ─── Génération de session (course requête / déconnexion) ──────────────────
+// La déconnexion se fait depuis le popup ou le panneau, pas dans le service worker : un compteur en
+// mémoire du worker ne la verrait pas. Compteur dans storage.local, jamais effacé (clearUserSyncData
+// ne le retire pas) : une remise à 0 ferait de nouveau correspondre une génération capturée avant.
+
+/** Génération de session du service (0 tant qu'aucune déconnexion n'a eu lieu). */
+export async function getSessionEpoch(service: TrackerId): Promise<number> {
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.sessionEpoch);
+  const epochs: unknown = stored[STORAGE_KEYS.sessionEpoch];
+  const epoch: unknown = isRecord(epochs) ? epochs[service] : undefined;
+  return typeof epoch === 'number' && Number.isFinite(epoch) ? epoch : 0;
+}
+
+/** Incrémente la génération, sans verrou (appelée sous celui de clear*Session). */
+async function bumpSessionEpoch(service: TrackerId): Promise<void> {
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.sessionEpoch);
+  const epochs: unknown = stored[STORAGE_KEYS.sessionEpoch];
+  const current: unknown = isRecord(epochs) ? epochs[service] : undefined;
+  const next = (typeof current === 'number' && Number.isFinite(current) ? current : 0) + 1;
+  await chrome.storage.local.set({ [STORAGE_KEYS.sessionEpoch]: { ...(isRecord(epochs) ? epochs : {}), [service]: next } });
+}
+
+/**
+ * Met la liste en cache si la session n'a pas changé depuis `epoch` (capturée avant la requête).
+ * Vérification et écriture sous le même verrou que la déconnexion : la liste d'un compte déconnecté
+ * n'est jamais remise en cache. Retourne false si la liste est obsolète (rien n'est écrit).
+ */
+export function saveCachedWatching(list: WatchingList, epoch: number): Promise<boolean> {
   return withStorageLock(async () => {
+    if ((await getSessionEpoch(list.service)) !== epoch) return false;
     const stored = await chrome.storage.local.get(STORAGE_KEYS.watchingCache);
     const cache: unknown = stored[STORAGE_KEYS.watchingCache];
     await chrome.storage.local.set({ [STORAGE_KEYS.watchingCache]: { ...(isRecord(cache) ? cache : {}), [list.service]: list } });
+    return true;
   });
 }
