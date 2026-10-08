@@ -204,7 +204,14 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
     const key = mappingKey(episode);
     const { result, candidates } = await resolveEpisode(episode);
 
-    if (!result.ok || result.target.confidence === 'low') {
+    // Plateforme généraliste (Netflix) : série sans fiche AniList liée ni au même titre, probablement pas un anime.
+    // Ni carte de vérification ni entrée au journal (info, pas warn) : le content script n'affiche rien.
+    if (!result.ok && result.ignored) {
+      log.info('Série ignorée (aucune fiche AniList liée) :', episode.animeTitle);
+      return { status: 'ignored' };
+    }
+
+    if (!result.ok ||result.target.confidence === 'low') {
       // Fiche suggérée exclue : pas de carte de vérification pour une série que l'utilisateur ignore
       if (result.ok && (await isExcluded({ mediaId: result.target.mediaId }))) {
         log.info(`Fiche suggérée ${result.target.mediaId} exclue : aucune vérification créée`);

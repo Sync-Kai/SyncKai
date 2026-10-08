@@ -41,7 +41,8 @@ export interface SyncTarget extends MediaMapping {
   reason: string;
 }
 
-export type ResolveResult = { ok: true; target: SyncTarget } | { ok: false; reason: string };
+/** `ignored` : série hors du périmètre de la plateforme (Netflix sans fiche AniList liée ni au même titre), ignorée en silence */
+export type ResolveResult = { ok: true; target: SyncTarget } | { ok: false; reason: string; ignored?: true };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -111,6 +112,23 @@ export function matchAdnLink(url: string, seriesId: string | null, seriesSlug: s
   return seriesSlug && linkedSlug === seriesSlug ? 'slug' : null;
 }
 
+/**
+ * Lien Netflix vers la fiche de la série : /title/{seriesId}, éventuellement précédé du pays
+ * (/be-fr/title/{id}, /us/title/{id}). Les pages de lecture (/watch/{id}) ne désignent pas la série.
+ */
+export function matchNetflixLink(url: string, seriesId: string | null): LinkKind {
+  if (!seriesId) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!/(^|\.)netflix\.com$/i.test(parsed.hostname)) return null;
+  const match = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)\/?$/i.exec(parsed.pathname);
+  return match?.[1] === seriesId ? 'id' : null;
+}
+
 /** Lien Crunchyroll vers la page de lecture d'un épisode précis : /watch/{episodeId}[/slug] */
 export function matchCrunchyrollEpisodeLink(url: string, episodeId: string | null): boolean {
   if (!episodeId) return false;
@@ -143,8 +161,7 @@ export function matchPlatformLink(
     case 'adn':
       return matchAdnLink(url, seriesId, seriesSlug);
     case 'netflix':
-      // Pas encore de correspondance par lien Netflix
-      return null;
+      return matchNetflixLink(url, seriesId);
   }
 }
 
@@ -562,4 +579,34 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
   }
 
   return { ok: false, reason: t('match.undetermined') };
+}
+
+// ─── Plateformes généralistes ─────────────────────────────────────────────
+
+/**
+ * Plateformes au catalogue généraliste (Netflix) : une série n'est traitée comme un anime que si une fiche
+ * AniList y renvoie, ou à défaut porte le même titre (à vérifier). Crunchyroll et ADN ne sont pas concernés.
+ */
+export const LINK_REQUIRED_PLATFORMS: ReadonlySet<StreamingPlatform> = new Set<StreamingPlatform>(['netflix']);
+
+/**
+ * Filtre « anime » d'une plateforme généraliste, appliqué au résultat de resolveTarget :
+ * 1. une fiche liée à la série (lien plateforme ou suite/préquelle d'une fiche liée) → résultat inchangé ;
+ * 2. sinon, des fiches au titre de la série → correspondance jamais fiable (carte « à vérifier »), échec inchangé ;
+ * 3. sinon → série ignorée (probablement pas un anime : ni carte de vérification ni toast).
+ */
+export function gateByPlatformLink(
+  episode: Pick<EpisodeInfo, 'platform' | 'animeTitle'>,
+  candidates: readonly MediaCandidate[],
+  result: ResolveResult,
+): ResolveResult {
+  if (!LINK_REQUIRED_PLATFORMS.has(episode.platform)) return result;
+  if (candidates.some((c) => c.link !== null)) return result;
+
+  const animeKey = normalizeTitle(episode.animeTitle);
+  const isTitleMatch = seasonPool(candidates, episode.animeTitle).length > 0 || candidates.some((c) => c.titles.some((title) => normalizeTitle(title) === animeKey));
+  if (isTitleMatch) {
+    return result.ok ? { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.netflixTitleOnly') } } : result;
+  }
+  return { ok: false, reason: t('match.noEntry', { title: episode.animeTitle }), ignored: true };
 }

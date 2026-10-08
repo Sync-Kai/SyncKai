@@ -56,3 +56,14 @@ describe('describeOutcome', () => {
     expect(failedServices({ status: 'not-connected' })).toEqual([]);
   });
 });
+
+describe('describeOutcome — série ignorée', () => {
+  it('texte neutre (information), sans relance', () => {
+    expect(describeOutcome({ status: 'ignored' })).toEqual({
+      tone: 'info',
+      title: 'Série ignorée',
+      message: 'Aucune fiche AniList n’est liée à ce titre Netflix : ce n’est probablement pas un anime.',
+    });
+    expect(failedServices({ status: 'ignored' })).toEqual([]);
+  });
+});

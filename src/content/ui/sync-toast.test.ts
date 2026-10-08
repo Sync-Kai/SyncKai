@@ -116,3 +116,12 @@ describe('engagementResultToast', () => {
     });
   });
 });
+
+describe('toastForOutcome — série ignorée (Netflix, pas un anime)', () => {
+  it('rien à tous les niveaux, même en mode détaillé', () => {
+    const ignored: SyncOutcome = { status: 'ignored' };
+    for (const level of ['detailed', 'discreet', 'alerts-only'] as const) {
+      expect(toastForOutcome(ignored, level, false)).toBeNull();
+    }
+  });
+});

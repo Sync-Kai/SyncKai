@@ -74,10 +74,11 @@ describe('classifyOutcome', () => {
     expect(classifyOutcome({ status: 'error', message: 'Introuvable' }, null).kind).toBe('final');
   });
 
-  it('considère vérification, déconnexion et exclusion comme résolues', () => {
+  it('considère vérification, déconnexion, exclusion et série ignorée comme résolues', () => {
     expect(classifyOutcome({ status: 'needs-review', reason: 'x' }, null).kind).toBe('resolved');
     expect(classifyOutcome({ status: 'not-connected' }, null).kind).toBe('resolved');
     expect(classifyOutcome({ status: 'excluded', mediaTitle: 'x' }, null).kind).toBe('resolved');
+    expect(classifyOutcome({ status: 'ignored' }, null).kind).toBe('resolved');
   });
 
   it('ne relance que les services en échec passager d’un résultat synced', () => {

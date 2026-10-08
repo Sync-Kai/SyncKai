@@ -51,6 +51,8 @@ export function describeOutcome(outcome: SyncOutcome): SyncFeedback {
       return { tone: 'warning', title: t('feedback.notConnected.title'), message: t('feedback.notConnected.message') };
     case 'excluded':
       return { tone: 'info', title: outcome.mediaTitle, message: t('feedback.excluded') };
+    case 'ignored':
+      return { tone: 'info', title: t('feedback.ignored.title'), message: t('feedback.ignored.message') };
     case 'error':
       return {
         tone: 'error',

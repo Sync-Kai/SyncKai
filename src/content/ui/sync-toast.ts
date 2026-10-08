@@ -57,9 +57,11 @@ export function bubbleForOutcome(outcome: SyncOutcome): ToastContent {
 
 /**
  * Traduit le résultat d'une synchronisation en toast selon le niveau de notification.
- * `null` : rien à afficher (succès en mode "alertes seulement", ou discret en plein écran).
+ * `null` : rien à afficher (succès en mode "alertes seulement", discret en plein écran, ou série ignorée).
  */
 export function toastForOutcome(outcome: SyncOutcome, level: NotificationLevel, isFullscreen: boolean): OutcomeToast | null {
+  // Série hors périmètre (Netflix, pas un anime) : jamais signalée, quel que soit le niveau
+  if (outcome.status === 'ignored') return null;
   const tone = describeOutcome(outcome).tone;
   const display = outcome.status === 'excluded' ? decideExcludedNotification(level) : decideNotification(level, tone, isFullscreen);
   switch (display) {

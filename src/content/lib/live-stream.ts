@@ -35,8 +35,9 @@ export interface LiveStream {
 
 export const LIVE_TICK_MS = 1_000;
 
-/** Issue d'une synchronisation → état affiché par le panneau (un service en échec compte comme une erreur) */
-export function liveOutcomeOf(outcome: SyncOutcome): { state: LiveState; outcome: LiveOutcome } {
+/** Issue d'une synchronisation → état affiché par le panneau (un service en échec compte comme une erreur ; série ignorée → repos) */
+export function liveOutcomeOf(outcome: SyncOutcome): { state: LiveState; outcome?: LiveOutcome } {
+  if (outcome.status === 'ignored') return { state: 'idle' };
   if (outcome.status === 'synced' && failedServices(outcome).length === 0) return { state: 'synced', outcome: { status: 'synced', message: null } };
   if (outcome.status === 'excluded') return { state: 'excluded', outcome: { status: 'excluded', message: null } };
   const feedback = describeOutcome(outcome);

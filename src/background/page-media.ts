@@ -116,6 +116,8 @@ async function resolveEpisodePage(page: PageMediaInfo & { episode: NonNullable<P
   // Épisode de la page sur la fiche retenue par la synchro (valable seulement si c'est la fiche affichée)
   const target = result.ok ? result.target : null;
   if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons, episodeProgress: target?.mediaId === manual ? target.progress : null };
+  // Série ignorée (Netflix, probablement pas un anime) : aucune fiche proposée, même à confirmer
+  if (!result.ok && result.ignored) return null;
   if (target) {
     return { mediaId: target.mediaId, source: 'page', confidence: target.confidence === 'high' ? 'certain' : 'uncertain', seasons, episodeProgress: target.progress };
   }

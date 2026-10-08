@@ -27,7 +27,7 @@ export function isRetryableCode(code: SyncErrorCode | undefined): boolean {
  * - success : tous les services demandés sont à jour
  * - retry   : échec passager, à relancer pour `services`
  * - final   : erreur définitive (session expirée, erreur métier…)
- * - resolved: plus rien à relancer (vérification manuelle, service déconnecté, série exclue)
+ * - resolved: plus rien à relancer (vérification manuelle, service déconnecté, série exclue ou ignorée)
  */
 export type OutcomeClass =
   | { kind: 'success' }
@@ -56,6 +56,7 @@ export function classifyOutcome(outcome: SyncOutcome, requested: TrackerId[] | n
     case 'needs-review':
     case 'not-connected':
     case 'excluded':
+    case 'ignored':
       return { kind: 'resolved' };
   }
 }

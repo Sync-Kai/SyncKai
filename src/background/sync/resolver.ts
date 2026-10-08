@@ -5,6 +5,7 @@ import { getAnimeByIds, searchAnime, type AniListMedia } from '../api/media';
 import type { RequestLane } from '../api/rate-limit';
 import {
   applyMapping,
+  gateByPlatformLink,
   mappingKey,
   seasonLabel,
   matchPlatformLink,
@@ -214,7 +215,9 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
       .map((c) => `#${c.id} ${c.format ?? '?'} ${c.episodes ?? '?'} ép. ${c.startDate ?? '?'} « ${c.titles[0] ?? '?'} » (${c.link})`),
   );
 
-  const result = resolveTarget(episode, candidates);
+  // Plateforme généraliste (Netflix) : filtre « anime » avant toute mise en cache (un résultat trouvé par le
+  // titre seul n'est jamais fiable, donc jamais enregistré ; un choix manuel en carte enregistre la correspondance)
+  const result = gateByPlatformLink(episode, candidates, resolveTarget(episode, candidates));
   if (persist && result.ok && result.target.confidence === 'high') {
     const { mediaId, numbering, offset, episodes } = result.target;
     const mediaTitle = collected.media.find((m) => m.id === mediaId)?.displayTitle;

@@ -35,6 +35,8 @@ export function adjustFeedback(outcome: SyncOutcome, delta: 1 | -1): InlineFeedb
     }
     case 'excluded':
       return { tone: 'info', text: t('inline.excluded'), detail };
+    case 'ignored':
+      return { tone: 'info', text: t('feedback.ignored.title'), detail };
     case 'not-connected':
       return { tone: 'warning', text: t('feedback.notConnected.title'), detail };
     case 'needs-review':

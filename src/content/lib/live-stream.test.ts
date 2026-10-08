@@ -164,9 +164,10 @@ describe('liveOutcomeOf', () => {
       ],
     });
     expect(partial.state).toBe('error');
-    expect(partial.outcome.message).toContain('MAL indisponible');
+    expect(partial.outcome?.message).toContain('MAL indisponible');
     expect(liveOutcomeOf({ status: 'excluded', mediaTitle: 'X' }).state).toBe('excluded');
     expect(liveOutcomeOf({ status: 'error', message: 'Réseau' })).toEqual({ state: 'error', outcome: { status: 'error', message: 'Réseau' } });
-    expect(liveOutcomeOf({ status: 'not-connected' }).outcome.status).toBe('not-connected');
+    expect(liveOutcomeOf({ status: 'not-connected' }).outcome?.status).toBe('not-connected');
+    expect(liveOutcomeOf({ status: 'ignored' })).toEqual({ state: 'idle' });
   });
 });
