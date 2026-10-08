@@ -30,7 +30,8 @@ import {
 import { getSyncQueue, removeQueueItem, SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
 import type { ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { isPageMediaResponse, type ContentMessage } from '../shared/content-messages';
-import type { PageMediaInfo, PageMediaResult } from '../shared/page-media.types';
+import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
+import { matchCachedPageMedia, readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { isTrackerId, TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../shared/platform-links';
@@ -437,7 +438,7 @@ function renderWatching(): void {
         pageCard: renderPageMediaCard({
           card: pageCard,
           now,
-          onRetry: () => void loadPageMedia(),
+          onRetry: () => void loadPageMedia(false, true),
           onAdd: (status) => void runPageAction({ kind: 'add', status }),
           onAdjust: (delta) => void runPageAction({ kind: 'adjust', delta }),
           onConfirm: (status) => setPageConfirm(status),
@@ -1037,14 +1038,37 @@ function patchPageCard(patch: Partial<PageCardState>): void {
   pageCardStore.set({ ...pageCardStore.get(), ...patch });
 }
 
-/** Résout la fiche de la page ; `silent` : relecture sans skeleton (après une action, choix de saison) */
-async function loadPageMedia(silent = false): Promise<void> {
+/** Fiche de l'onglet en cache (panneau, synchro, popup précédent) valable pour cette page */
+async function cachedPageView(tabId: number | null, page: PageMediaInfo): Promise<PageMediaView | null> {
+  if (tabId === null) return null;
+  try {
+    return matchCachedPageMedia(await readCachedPageMedia(tabId), page, Date.now())?.view ?? null;
+  } catch (error: unknown) {
+    log.debug('Cache de la fiche illisible :', error);
+    return null;
+  }
+}
+
+/**
+ * Résout la fiche de la page : cache de l'onglet d'abord (même fiche que le panneau et la synchro), sinon
+ * RESOLVE_PAGE_MEDIA. `silent` : relecture sans skeleton (après une action, choix de saison) ;
+ * `fresh` : cache ignoré (après une action, « Réessayer »).
+ */
+async function loadPageMedia(silent = false, fresh = silent): Promise<void> {
   const page = await activePage;
   if (!page) return;
+  const { tabId } = await activeTab;
   const request = ++pageRequest;
   const current = pageCardStore.get().media;
   if (silent && current.status === 'ready') patchPageCard({ media: { ...current, refreshing: true } });
   else patchPageCard({ media: { status: 'loading', page } });
+
+  const cached = !fresh && pageManualId === null ? await cachedPageView(tabId, page) : null;
+  if (request !== pageRequest) return;
+  if (cached) {
+    patchPageCard({ media: { status: 'ready', page, view: cached, refreshing: false } });
+    return;
+  }
 
   let result: PageMediaResult;
   try {
@@ -1054,6 +1078,9 @@ async function loadPageMedia(silent = false): Promise<void> {
     result = { ok: false, code: 'NETWORK', message: swUnreachable() };
   }
   if (request !== pageRequest) return;
+  if (result.ok && tabId !== null) {
+    storeCachedPageMedia(tabId, page, result.data, 'resolve').catch((error: unknown) => log.debug('Fiche non mise en cache :', error));
+  }
 
   if (result.ok) {
     patchPageCard({ media: { status: 'ready', page, view: result.data, refreshing: false } });

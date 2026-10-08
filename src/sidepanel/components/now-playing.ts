@@ -18,8 +18,10 @@ import { h, nodes, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { mediaActionKey, runMediaAction, type MediaActionRequest } from '../../ui/media-action-requests';
 import { renderMediaActions, type MediaActionsState } from '../../ui/media-actions';
-import { airedLabel, episodeLine, pageKey, relationLabel } from '../now-playing-view';
+import { airedLabel, episodeLine, isPartialEpisodePage, pageKey, relationLabel, shouldRedetect } from '../now-playing-view';
+import { isCachedPageMedia, matchCachedPageMedia, pageMediaCacheKey, readCachedPageMedia, storeCachedPageMedia } from '../../shared/page-media-cache';
 import { requestPageMedia } from '../presence';
+import { createLiveProgress, type LiveTarget } from './live-progress';
 
 const log = createLogger('sidepanel');
 
@@ -31,8 +33,8 @@ type ContentState =
   | { status: 'idle' }
   /** Interrogation du script de contenu */
   | { status: 'detecting' }
-  /** Page de la plateforme sans série (accueil, catalogue…) */
-  | { status: 'no-page' }
+  /** Page de la plateforme sans série (accueil, catalogue…) ; `unreachable` : script de contenu muet (orphelin) */
+  | { status: 'no-page'; unreachable: boolean }
   | { status: 'loading'; page: PageMediaInfo }
   /** Aucune fiche AniList trouvée */
   | { status: 'not-found'; page: PageMediaInfo; message: string }
@@ -43,6 +45,10 @@ type ContentState =
 /** Nouvelles tentatives quand la page n'est pas encore lisible (navigation SPA, chargement) */
 const DETECT_RETRY_DELAYS_MS: readonly number[] = [0, 700, 1_800];
 const FEEDBACK_MS = 4_000;
+/** Page de lecture lue sans ses données structurées : nouvelles lectures en arrière-plan */
+const PARTIAL_RECHECK_MS: readonly number[] = [2_500, 5_000, 10_000];
+/** Relecture demandée pendant un chargement ou une action : réessayée après ce délai */
+const FOLLOW_UP_RETRY_MS = 1_000;
 
 const SECTION = 'flex flex-col gap-2 rounded-card bg-surface p-3';
 const SECTION_TITLE = 'm-0 text-[11px] font-bold tracking-[0.4px] text-muted uppercase';
@@ -122,8 +128,37 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     if (area === 'local' && SETTINGS_STORAGE_KEY in changes) loadPreferred();
   });
 
+  /** Relectures d'une page partielle : épisode concerné et nombre d'essais déjà faits */
+  let recheck: { episodeId: string | null; count: number } = { episodeId: null, count: 0 };
+  let recheckTimer: ReturnType<typeof setTimeout> | undefined;
+  let followUpTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Horodatage de la dernière fiche écrite par ce panneau dans le cache de l'onglet (son propre écho est ignoré) */
+  let lastWrittenAt: number | null = null;
+
+  // Progression en direct : nouvel épisode annoncé ou synchro terminée → page relue
+  const live = createLiveProgress((event) => {
+    if (shouldRedetect('page' in content ? content.page : null, event)) void redetect(false);
+  });
+
+  // Fiche de l'onglet réécrite ailleurs (synchro par le service worker, action dans le popup) : appliquée tout de suite
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'session' || tabId === null) return;
+    const change = changes[pageMediaCacheKey(tabId)];
+    const entry: unknown = change?.newValue;
+    if (!isCachedPageMedia(entry) || entry.resolvedAt === lastWrittenAt) return;
+    void redetect(true);
+  });
+
+  /** Épisode de la fiche à suivre en direct (page de lecture uniquement) */
+  const liveTarget = (): LiveTarget | null => {
+    const page = 'page' in content ? content.page : null;
+    return tabId !== null && page?.kind === 'episode' && page.episode ? { tabId, episodeId: page.episode.episodeId } : null;
+  };
+
   const set = (next: ContentState): void => {
     content = next;
+    live.follow(liveTarget());
     onChange();
   };
   const patchActions = (patch: Partial<MediaActionsState>): void => {
@@ -134,14 +169,63 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
   // ─── Données ──────────────────────────────────────────────────────────
 
   /** Série / épisode de l'onglet (quelques essais : la page peut être en cours de rendu) */
-  async function detect(current: number, id: number): Promise<PageMediaInfo | null> {
+  async function detect(current: number, id: number): Promise<PageMediaInfo | null | 'unreachable'> {
+    let reached = false;
+    /** Lecture partielle (JSON-LD pas encore là) : gardée en dernier recours */
+    let partial: PageMediaInfo | null = null;
     for (const wait of DETECT_RETRY_DELAYS_MS) {
       if (wait > 0) await delay(wait);
       if (current !== run) return null;
       const response = await requestPageMedia(id);
-      if (response !== 'unreachable' && response !== null) return response;
+      if (response !== 'unreachable') reached = true;
+      if (response === 'unreachable' || response === null) continue;
+      if (!isPartialEpisodePage(response)) return response;
+      partial = response;
     }
-    return null;
+    return partial ?? (reached ? null : 'unreachable');
+  }
+
+  /** Page partielle : relue plus tard (essais limités par épisode) jusqu'à obtenir l'épisode complet */
+  function scheduleRecheck(page: PageMediaInfo): void {
+    clearTimeout(recheckTimer);
+    const episodeId = page.episode?.episodeId ?? null;
+    if (recheck.episodeId !== episodeId) recheck = { episodeId, count: 0 };
+    if (!isPartialEpisodePage(page)) return;
+    const wait = PARTIAL_RECHECK_MS[recheck.count];
+    if (wait === undefined) return;
+    recheck.count++;
+    recheckTimer = setTimeout(() => void redetect(false), wait);
+  }
+
+  /** Fiche stable (ni détection, ni chargement, ni action en cours) : une relecture peut la remplacer */
+  const settled = (): boolean =>
+    actions.busy === null && (content.status === 'not-found' || content.status === 'error' || (content.status === 'ready' && !content.refreshing));
+
+  /**
+   * Relit la page de l'onglet sans repasser par le squelette ; recalcule la fiche si la page a changé,
+   * ou toujours avec `reresolve` (synchro terminée : la correspondance mémorisée prime sur la saison devinée).
+   */
+  async function redetect(reresolve: boolean): Promise<void> {
+    clearTimeout(followUpTimer);
+    const id = tabId;
+    if (id === null) return;
+    if (!settled()) {
+      // Chargement ou action en cours : la relecture est reportée, jamais perdue
+      if (content.status !== 'idle' && content.status !== 'no-page') followUpTimer = setTimeout(() => void redetect(reresolve), FOLLOW_UP_RETRY_MS);
+      return;
+    }
+    const current = ++run;
+    const page = await detect(current, id);
+    if (current !== run || !page || page === 'unreachable') return;
+    const known = 'page' in content ? content.page : null;
+    scheduleRecheck(page);
+    if (!reresolve && known && pageKey(known) === pageKey(page)) return;
+    if (known?.episode?.episodeId !== page.episode?.episodeId) {
+      manualId = null;
+      expanded = false;
+      actions = { busy: null, confirm: null, feedback: null };
+    }
+    await resolve(page, true);
   }
 
   async function loadDetails(current: number, page: PageMediaInfo, view: PageMediaView, refreshing: boolean): Promise<void> {
@@ -162,14 +246,43 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     set({ status: 'ready', page, view, panel, panelError: panel ? null : panelError, refreshing: false });
   }
 
-  /** Résout la fiche de la page ; `silent` : la fiche reste affichée pendant la relecture */
-  async function resolve(page: PageMediaInfo, silent: boolean): Promise<void> {
+  /** Fiche de l'onglet en cache (popup, synchro, panneau) valable pour cette page */
+  async function cachedView(id: number, page: PageMediaInfo): Promise<PageMediaView | null> {
+    try {
+      return matchCachedPageMedia(await readCachedPageMedia(id), page, Date.now())?.view ?? null;
+    } catch (error: unknown) {
+      log.debug('Cache de la fiche illisible :', error);
+      return null;
+    }
+  }
+
+  /**
+   * Résout la fiche de la page : cache de l'onglet d'abord (même fiche que le popup et la synchro), sinon
+   * RESOLVE_PAGE_MEDIA. `silent` : la fiche reste affichée ; `fresh` : cache ignoré (après une action, « Actualiser »).
+   */
+  async function resolve(page: PageMediaInfo, silent: boolean, fresh = false): Promise<void> {
     const current = ++run;
+    const id = tabId;
     if (silent && content.status === 'ready') set({ ...content, refreshing: true });
     else set({ status: 'loading', page });
+    if (!fresh && manualId === null && id !== null) {
+      const view = await cachedView(id, page);
+      if (current !== run) return;
+      if (view) {
+        await loadDetails(current, page, view, false);
+        return;
+      }
+    }
     try {
       const result = await sendMessage('RESOLVE_PAGE_MEDIA', { page, mediaId: manualId });
       if (current !== run) return;
+      if (result.ok && id !== null) {
+        storeCachedPageMedia(id, page, result.data, 'resolve')
+          .then((entry) => {
+            if (entry) lastWrittenAt = entry.resolvedAt;
+          })
+          .catch((error: unknown) => log.debug('Fiche non mise en cache :', error));
+      }
       if (result.ok) await loadDetails(current, page, result.data, false);
       else if (result.code === 'NOT_FOUND') set({ status: 'not-found', page, message: result.message });
       else set({ status: 'error', page, message: result.message });
@@ -188,10 +301,11 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     if (!known || force) set({ status: 'detecting' });
     const page = await detect(current, id);
     if (current !== run) return;
-    if (!page) {
-      set({ status: 'no-page' });
+    if (!page || page === 'unreachable') {
+      set({ status: 'no-page', unreachable: page === 'unreachable' });
       return;
     }
+    scheduleRecheck(page);
     // Même page (fin de chargement, retour d'onglet) : rien à recharger
     if (!force && known && pageKey(known) === pageKey(page) && content.status !== 'error') return;
     if (!known || pageKey(known) !== pageKey(page)) {
@@ -199,7 +313,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       expanded = false;
       actions = { busy: null, confirm: null, feedback: null };
     }
-    await resolve(page, false);
+    await resolve(page, false, force);
   }
 
   // ─── Actions (mêmes messages que le popup) ────────────────────────────
@@ -217,7 +331,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     const feedback = await runMediaAction(request, view, (error) => log.warn('Service worker injoignable :', error));
     patchActions({ busy: null });
     showFeedback(feedback);
-    await resolve(page, true);
+    await resolve(page, true, true);
   }
 
   /** Confirmation Abandonner / Terminé : focus sur « Non » à l'ouverture, rendu au bouton à l'annulation */
@@ -348,7 +462,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     );
   }
 
-  function renderProgress(view: PageMediaView, refreshing: boolean): HTMLElement {
+  function renderProgress(view: PageMediaView, page: PageMediaInfo, refreshing: boolean): HTMLElement {
     const line = episodeLine(view.episodeProgress, view.media.episodes);
     return h(
       'section',
@@ -359,8 +473,8 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
         h('h3', { class: SECTION_TITLE }, t('panel.nowPlaying.progress')),
         line && h('span', { class: 'text-[13px] font-extrabold text-sakura tabular-nums' }, line),
       ),
-      // Emplacement réservé : position de lecture en direct et compte à rebours (version suivante)
-      renderLiveProgress(),
+      // Position de lecture en direct et compte à rebours (page de lecture uniquement)
+      page.kind === 'episode' && live.element,
       view.lists.length === 0 && h('p', { class: 'm-0 text-[11px] text-muted' }, t('panel.nowPlaying.connectHint')),
       ...nodes(
         renderMediaActions({
@@ -380,11 +494,6 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
         }),
       ),
     );
-  }
-
-  /** Position de lecture en direct : pas encore disponible (emplacement gardé dans la mise en page) */
-  function renderLiveProgress(): HTMLElement | null {
-    return null;
   }
 
   function renderSynopsis(text: string): HTMLElement {
@@ -495,8 +604,8 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       renderHero(view, panel),
       ...nodes([
         state.panelError !== null &&
-          renderAlert({ message: `${t('panel.nowPlaying.detailsError')} ${state.panelError}`, action: { label: t('common.retry'), onClick: () => void resolve(page, true) } }),
-        renderProgress(view, state.refreshing),
+          renderAlert({ message: `${t('panel.nowPlaying.detailsError')} ${state.panelError}`, action: { label: t('common.retry'), onClick: () => void resolve(page, true, true) } }),
+        renderProgress(view, page, state.refreshing),
         panel?.description && renderSynopsis(panel.description),
         renderDiscussion(view, panel, page),
         panel && renderRelations(panel.relations),
@@ -510,7 +619,11 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       case 'detecting':
         return content.status === 'detecting' ? renderSkeleton(null) : renderStatus(t('panel.nowPlaying.detecting'), true);
       case 'no-page':
-        return renderStatus(t('panel.nowPlaying.noPage'), false);
+        return renderStatus(
+          t('panel.nowPlaying.noPage'),
+          false,
+          content.unreachable && h('p', { class: 'm-0 max-w-[280px] text-[11px] text-muted' }, t('panel.live.unreachable')),
+        );
       case 'loading':
         return renderSkeleton(content.page);
       case 'not-found':
@@ -525,7 +638,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
           'div',
           { class: 'flex flex-col gap-2' },
           h('span', { class: 'truncate text-[13px] font-bold', attrs: { title: page.seriesTitle } }, page.seriesTitle),
-          renderAlert({ message: content.message, action: { label: t('common.retry'), onClick: () => void resolve(page, false) } }),
+          renderAlert({ message: content.message, action: { label: t('common.retry'), onClick: () => void resolve(page, false, true) } }),
         );
       }
       case 'ready':
@@ -537,9 +650,14 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     setTab(next: number | null): void {
       const changed = next !== tabId;
       tabId = next;
+      if (changed || next === null) {
+        clearTimeout(recheckTimer);
+        clearTimeout(followUpTimer);
+      }
       if (next === null) {
         run++;
         content = { status: 'idle' };
+        live.follow(null);
         return;
       }
       void refresh(changed);

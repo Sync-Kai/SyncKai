@@ -3,8 +3,10 @@ import { isContentMessage, type PageMediaResponse } from '../shared/content-mess
 import type { StreamingAdapter } from './adapters/adapter';
 import { adnAdapter } from './adapters/adn';
 import { crunchyrollAdapter } from './adapters/crunchyroll';
+import { isLivePanelMessage, LIVE_PORT_NAME, type LiveContentMessage } from '../shared/live.types';
 import { createLogger } from '../shared/logger';
 import { sendMessage } from '../shared/messages';
+import { createLiveStream, type LiveStream } from './lib/live-stream';
 import { detectPageMedia } from './lib/page-media';
 import { watchUrl } from './lib/url-watcher';
 import { startWatchSession, type WatchSession } from './lib/watch-session';
@@ -23,6 +25,8 @@ function main(): void {
   log.info(`Adapter "${adapter.platform}" chargé (build ${__SYNCKAI_BUILD__})`);
 
   let session: WatchSession | null = null;
+  // Progression en direct vers le panneau latéral : rien ne tourne tant qu'aucun panneau n'est connecté
+  const live = createLiveStream(() => session?.snapshot() ?? null);
 
   // Crunchyroll est une SPA : chaque changement d'URL peut démarrer ou terminer une session
   const handleUrl = (url: URL): void => {
@@ -31,6 +35,8 @@ function main(): void {
 
     session?.destroy();
     session = episodeId ? startWatchSession(adapter, episodeId) : null;
+    session?.onStateChange((state, outcome) => live.notifySync(state, outcome));
+    live.refresh();
   };
 
   // Un seul écouteur pour toute la vie de la page, routé vers la session courante
@@ -49,12 +55,33 @@ function main(): void {
     session.forceComplete();
   });
 
+  listenLivePorts(live);
   handleUrl(new URL(location.href));
   watchUrl(handleUrl);
   announcePanel();
   // Retour arrière depuis le cache (bfcache) : le script ne redémarre pas, mais le panneau a pu être retiré
   window.addEventListener('pageshow', (event) => {
     if (event.persisted) announcePanel();
+  });
+}
+
+/**
+ * Ports du panneau latéral (chrome.tabs.connect depuis la page de l'extension, sans service worker).
+ * Chaque port reçoit l'état complet à la connexion ; l'intervalle s'arrête quand le dernier se ferme.
+ */
+function listenLivePorts(live: LiveStream): void {
+  chrome.runtime.onConnect.addListener((port) => {
+    // Seule une page de cette extension (panneau) peut ouvrir ce port
+    if (port.name !== LIVE_PORT_NAME || port.sender?.id !== chrome.runtime.id) return;
+    const peer = live.addPeer((message: LiveContentMessage) => port.postMessage(message));
+    const onMessage = (message: unknown): void => {
+      if (isLivePanelMessage(message)) peer.resend();
+    };
+    port.onMessage.addListener(onMessage);
+    port.onDisconnect.addListener(() => {
+      port.onMessage.removeListener(onMessage);
+      peer.remove();
+    });
   });
 }
 

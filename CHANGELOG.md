@@ -8,6 +8,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 ### Ajouté
 
 - **Panneau latéral** (Crunchyroll et ADN) : onglet *En lecture* avec la fiche AniList complète (synopsis, genres, studio, suites avec un bouton *Regarder* quand elles sont sur Crunchyroll / ADN), ta progression et tes actions, et un lien vers la discussion de l'épisode.
+- Progression en direct dans le panneau (position, synchro au générique dans X min, synchronisé) ; la fiche se met à jour après la synchro.
 - **Agenda** (panneau latéral) : les sorties de la semaine pour tes séries en cours, avec l'heure estimée sur Crunchyroll / ADN (réglable) et les épisodes déjà vus.
 - Tests de bout en bout du popup dans l'intégration continue (bloquent une release en cas d'échec).
 
@@ -18,6 +19,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 ### Corrigé
 
+- Fiche de la page : popup et panneau affichent la même fiche pour un onglet, mise à jour juste après la synchro ; une page de lecture lue avant son chargement complet ne donne plus une saison devinée sur le seul titre (ex : *Black Butler -Public School Arc-* affiché comme *Kuroshitsuji* 2008).
 - Lecteur préféré ADN : SyncKai retient les pages de séries ADN que tu visites (AniList ne les référence presque jamais) ; sinon « Ouvrir » reste sur Crunchyroll et le menu ⋯ propose « Chercher sur ADN ».
 
 ## [1.9.0] - 2026-10-07

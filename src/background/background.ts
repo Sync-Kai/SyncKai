@@ -8,7 +8,7 @@ import { loginWithMal } from './auth/mal';
 import { getAgendaWeek } from './agenda';
 import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
-import { resolvePageMedia } from './page-media';
+import { forgetPageResolutions, refreshTabPageMedia, resolvePageMedia } from './page-media';
 import { applyDiffs, cancelCompareJob, compareServiceLists, resumeCompareJob } from './compare';
 import { COMPARE_JOB_ALARM } from '../shared/compare-job';
 import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
@@ -101,12 +101,26 @@ const handlers: MessageHandlers = {
   },
   GET_MAL_VIEWER: () => getMalViewer(),
   // Échec passager → mise en file de relance automatique (le résultat porte alors `queued: true`)
-  EPISODE_COMPLETED: async ({ episode, services }) => recordSyncOutcome(episode, services, await syncEpisode(episode, services)),
+  EPISODE_COMPLETED: async ({ episode, services }, sender) => {
+    const outcome = await syncEpisode(episode, services);
+    // Correspondance saison → fiche peut-être apprise : les résolutions en mémoire sont oubliées
+    forgetPageResolutions();
+    const tabId = sender.tab?.id;
+    if (outcome.status === 'synced' && tabId !== undefined) {
+      // Fiche de l'onglet recalculée sans retarder le toast de la page (panneau et popup la lisent dans le cache)
+      refreshTabPageMedia(tabId, episode).catch((error: unknown) => log.warn('Fiche de l’onglet non mise à jour :', error));
+    }
+    return recordSyncOutcome(episode, services, outcome);
+  },
   ADJUST_PROGRESS: (payload) => adjustProgress(payload),
   SET_LIST_STATUS: (payload) => setListStatus(payload),
   RETRY_QUEUED: ({ id }) => retryQueued(id),
   SEARCH_ANIME: ({ query }) => searchCandidates(query),
-  RESOLVE_REVIEW: (payload) => resolveReview(payload),
+  RESOLVE_REVIEW: async (payload) => {
+    const result = await resolveReview(payload);
+    forgetPageResolutions();
+    return result;
+  },
   REOPEN_REVIEW: ({ key }) => reopenReview(key),
   GET_WATCHING: ({ service }) => getWatchingList(service),
   RATE_MEDIA: ({ media, score }) => rateMedia(media, score),

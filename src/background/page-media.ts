@@ -9,7 +9,10 @@ import type {
   ResolvePageMediaPayload,
   SeasonSource,
 } from '../shared/page-media.types';
+import type { EpisodeInfo } from '../shared/episode.types';
+import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { learnPlatformLink } from '../shared/platform-links-store';
+import { pageMediaFromEpisode } from '../content/lib/page-media';
 import { getMediaMappings } from '../shared/storage';
 import type { ListStatus } from '../shared/sync.types';
 import { createLogger } from '../shared/logger';
@@ -195,6 +198,14 @@ async function resolveSeason(page: PageMediaInfo, manual: number | null): Promis
   return resolution;
 }
 
+/**
+ * Oublie les saisons résolues (pas les fiches) : après une synchro ou une vérification, la correspondance
+ * mémorisée doit primer sur une résolution incertaine mise en cache avant elle.
+ */
+export function forgetPageResolutions(): void {
+  resolutions.clear();
+}
+
 // ─── Fiche et listes ──────────────────────────────────────────────────────
 
 async function getDetails(mediaId: number): Promise<PageMediaDetails> {
@@ -264,4 +275,16 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
     log.error('Erreur inattendue (fiche de la page) :', error);
     return { ok: false, code: 'API_ERROR', message: t('error.unexpected') };
   }
+}
+
+/**
+ * Après la synchro d'un épisode : fiche de son onglet recalculée (correspondance tout juste apprise, listes à jour)
+ * et écrite dans le cache de l'onglet, que le panneau suit (storage.onChanged). Rien si aucune vue n'affiche
+ * cet onglet (pas d'entrée en cache) : aucune requête inutile.
+ */
+export async function refreshTabPageMedia(tabId: number, episode: EpisodeInfo): Promise<void> {
+  if (!(await readCachedPageMedia(tabId))) return;
+  const page = pageMediaFromEpisode(episode);
+  const result = await resolvePageMedia({ page, mediaId: null });
+  if (result.ok) await storeCachedPageMedia(tabId, page, result.data, 'sync');
 }

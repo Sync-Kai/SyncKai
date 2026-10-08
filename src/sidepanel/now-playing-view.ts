@@ -1,4 +1,5 @@
 import { t, type MessageKey } from '../i18n';
+import { isPartialEpisodePage } from '../shared/page-media-cache';
 import type { PageMediaInfo } from '../shared/page-media.types';
 import type { MediaSeason, PanelMedia, PanelRelationType } from '../shared/panel-media.types';
 
@@ -35,7 +36,19 @@ export function episodeLine(episode: number | null, total: number | null): strin
   return total !== null ? t('panel.nowPlaying.episode', { episode, total }) : t('panel.nowPlaying.episodeNoTotal', { episode });
 }
 
-/** Clé d'identité d'une page (série/saison + épisode) : même clé = rien à recharger */
-export function pageKey(page: PageMediaInfo): string {
-  return JSON.stringify([page.platform, page.kind, page.seriesId, page.seriesSlug, page.seriesTitle, page.seasonNumber, page.seasonTitle, page.episode?.episodeId ?? null]);
+// Identité et lecture partielle d'une page : partagées avec le popup et le service worker (cache par onglet)
+export { isPartialEpisodePage, pageKey } from '../shared/page-media-cache';
+
+/** Événement utile à la fiche : épisode annoncé par la page (port de lecture), synchro terminée */
+export type LiveEvent = { type: 'page'; episodeId: string | null } | { type: 'synced' };
+
+/**
+ * Relire la page de l'onglet ? Synchro terminée : oui (la page a pu se compléter depuis ; la fiche elle-même
+ * arrive par le cache de l'onglet, écrit par le service worker). Épisode annoncé : s'il diffère de la fiche
+ * (navigation SPA) ou si la fiche vient d'une lecture partielle.
+ */
+export function shouldRedetect(shown: PageMediaInfo | null, event: LiveEvent): boolean {
+  if (event.type === 'synced') return true;
+  if (event.episodeId === null) return false;
+  return !shown || shown.episode?.episodeId !== event.episodeId || isPartialEpisodePage(shown);
 }
