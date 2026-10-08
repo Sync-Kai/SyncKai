@@ -134,7 +134,9 @@ export type PageMediaState =
   | { status: 'loading'; page: PageMediaInfo }
   /** `refreshing` : relecture après une action (la fiche reste affichée) */
   | { status: 'ready'; page: PageMediaInfo; view: PageMediaView; refreshing: boolean }
-  | { status: 'error'; page: PageMediaInfo; message: string };
+  | { status: 'error'; page: PageMediaInfo; message: string }
+  /** Série ignorée (Netflix, pas un anime) : mention neutre, sans « Réessayer » */
+  | { status: 'untracked'; page: PageMediaInfo; message: string };
 
 /** Action en cours sur la carte « Sur cette page » (une seule à la fois) */
 export type PageCardAction = MediaAction;

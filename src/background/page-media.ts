@@ -59,13 +59,16 @@ interface Resolution {
   episodeProgress: number | null;
 }
 
+/** Série ignorée par la synchro (plateforme généraliste, pas un anime) : rien à afficher ni à vérifier */
+const IGNORED = 'ignored';
+
 interface Cached<T> {
   at: number;
   value: T;
 }
 
 /** Caches mémoire du service worker (perdus à sa mise en veille : simple accélération) */
-const resolutions = new Map<string, Cached<Resolution>>();
+const resolutions = new Map<string, Cached<Resolution | typeof IGNORED>>();
 const details = new Map<number, Cached<PageMediaDetails>>();
 /** Saison choisie dans le sélecteur, par série/saison de la page (durée de vie du service worker) */
 const manualChoices = new Map<string, number>();
@@ -108,7 +111,10 @@ async function seasonStatuses(seasons: readonly AniListMedia[]): Promise<(ListSt
 }
 
 /** Page de lecture : même résolution que la synchro (cache des correspondances compris), sans écriture */
-async function resolveEpisodePage(page: PageMediaInfo & { episode: NonNullable<PageMediaInfo['episode']> }, manual: number | null): Promise<Resolution | null> {
+async function resolveEpisodePage(
+  page: PageMediaInfo & { episode: NonNullable<PageMediaInfo['episode']> },
+  manual: number | null,
+): Promise<Resolution | typeof IGNORED | null> {
   const { result, candidates, seasons: pool, seasonGroups } = await resolveEpisode(page.episode, { persist: false });
   // Sélecteur : saisons de la série uniquement (pas de films ni de spéciaux) ; la fiche retenue hors saisons
   // (spécial lié à l'épisode) est ajoutée par la carte. Aucune saison identifiée : fiches candidates, à confirmer.
@@ -117,7 +123,7 @@ async function resolveEpisodePage(page: PageMediaInfo & { episode: NonNullable<P
   const target = result.ok ? result.target : null;
   if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons, episodeProgress: target?.mediaId === manual ? target.progress : null };
   // Série ignorée (Netflix, probablement pas un anime) : aucune fiche proposée, même à confirmer
-  if (!result.ok && result.ignored) return null;
+  if (!result.ok && result.ignored) return IGNORED;
   if (target) {
     return { mediaId: target.mediaId, source: 'page', confidence: target.confidence === 'high' ? 'certain' : 'uncertain', seasons, episodeProgress: target.progress };
   }
@@ -191,7 +197,7 @@ async function refinePageSeason(
   return { ...choice, mediaId, confidence: mismatch ? 'uncertain' : choice.confidence };
 }
 
-async function resolveSeason(page: PageMediaInfo, manual: number | null): Promise<Resolution | null> {
+async function resolveSeason(page: PageMediaInfo, manual: number | null): Promise<Resolution | typeof IGNORED | null> {
   const key = JSON.stringify([pageSeasonKey(page), page.episode?.episodeId ?? null, manual]);
   const cached = readCache(resolutions, key);
   if (cached) return cached;
@@ -261,6 +267,11 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
     const seasonKey = pageSeasonKey(page);
     if (mediaId !== null) manualChoices.set(seasonKey, mediaId);
     const resolution = await resolveSeason(page, mediaId ?? manualChoices.get(seasonKey) ?? null);
+    if (resolution === IGNORED) {
+      // Info seulement (aucune entrée au journal d'erreurs) : comme la synchro, qui ignore la série
+      log.info('Fiche de la page : série ignorée (aucune fiche AniList liée) :', page.seriesTitle);
+      return { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked') };
+    }
     if (!resolution) return { ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: page.seriesTitle }) };
 
     // Page de série visitée, fiche certaine : lien mémorisé (AniList ne référence presque jamais ADN)

@@ -444,6 +444,7 @@
   "page.loading": "Loading the entry: {title}",
   "page.minusOneAria": "Remove one watched episode: {title}",
   "page.notFound": "No AniList entry found for “{title}”.",
+  "page.notTracked": "Nothing to track here: on Netflix, SyncKai only tracks anime recognized by AniList.",
   "page.notInList": "Not in your list",
   "page.openOn": "Open the entry on {service}",
   "page.seasonOption": "Season {season} — {title}",

@@ -65,6 +65,17 @@ function renderError(page: PageMediaInfo, message: string, onRetry: () => void):
   );
 }
 
+/** Série ignorée (Netflix, pas un anime) : mention discrète, rien à réessayer ni à vérifier */
+function renderUntracked(page: PageMediaInfo, message: string): HTMLElement {
+  return h(
+    'section',
+    { class: CARD_CLASS, attrs: { 'aria-label': t('page.title') } },
+    cardHeader(),
+    h('span', { class: 'truncate text-[13px] font-bold text-muted', attrs: { title: page.seriesTitle } }, page.seriesTitle),
+    h('p', { class: 'm-0 text-[11px] text-muted', attrs: { role: 'status' } }, message),
+  );
+}
+
 // ─── Fiche ────────────────────────────────────────────────────────────────
 
 /** Liens vers la fiche AniList et MyAnimeList */
@@ -137,6 +148,8 @@ export function renderPageMediaCard(props: PageMediaCardProps): HTMLElement | nu
       return renderSkeleton(media.page);
     case 'error':
       return renderError(media.page, media.message, props.onRetry);
+    case 'untracked':
+      return renderUntracked(media.page, media.message);
     case 'ready':
       return renderReady(media.view, media.refreshing, props);
   }

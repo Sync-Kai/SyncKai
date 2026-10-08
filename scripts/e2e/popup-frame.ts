@@ -3,10 +3,11 @@
 // (messages envoyés, demandes d'accès, presse-papiers) lues par les tests via `window.__e2e`.
 import '../../src/popup/popup.css';
 import manifest from '../../manifest.json';
+import { t } from '../../src/i18n';
 import type { CompareJob } from '../../src/shared/compare-job';
 import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../src/shared/error-journal';
 import { isRecord } from '../../src/shared/guards';
-import type { PageMediaView } from '../../src/shared/page-media.types';
+import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
 import { STORAGE_KEYS } from '../../src/shared/storage';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
@@ -155,7 +156,9 @@ installChromeMock({
     ADJUST_PROGRESS: adjustProgress,
     SET_LIST_STATUS: setListStatus,
     ADD_TO_LIST: () => synced(pageView().media.title, { status: 'updated', progress: 0, completed: false }),
-    RESOLVE_PAGE_MEDIA: () => ({ ok: true, data: resolvePage() }),
+    RESOLVE_PAGE_MEDIA: (): PageMediaResult =>
+      // `pageMedia=untracked` : série ignorée par la synchro (Netflix, pas un anime)
+      param('pageMedia') === 'untracked' ? { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked') } : { ok: true, data: resolvePage() },
     APPLY_DIFFS: applyDiffs,
   },
   onSendMessage: (message) => trace.messages.push(message),

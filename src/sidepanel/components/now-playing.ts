@@ -36,8 +36,8 @@ type ContentState =
   /** Page de la plateforme sans série (accueil, catalogue…) ; `unreachable` : script de contenu muet (orphelin) */
   | { status: 'no-page'; unreachable: boolean }
   | { status: 'loading'; page: PageMediaInfo }
-  /** Aucune fiche AniList trouvée */
-  | { status: 'not-found'; page: PageMediaInfo; message: string }
+  /** Aucune fiche AniList trouvée ; `untracked` : série ignorée (Netflix, pas un anime), rien à suivre ni à vérifier */
+  | { status: 'not-found'; page: PageMediaInfo; message: string; untracked: boolean }
   | { status: 'error'; page: PageMediaInfo; message: string }
   /** `panel` null : détails AniList non chargés (`panelError` renseigné en cas d'échec) */
   | { status: 'ready'; page: PageMediaInfo; view: PageMediaView; panel: PanelMedia | null; panelError: string | null; refreshing: boolean };
@@ -297,7 +297,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
           .catch((error: unknown) => log.debug('Fiche non mise en cache :', error));
       }
       if (result.ok) await loadDetails(current, page, result.data, false);
-      else if (result.code === 'NOT_FOUND') set({ status: 'not-found', page, message: result.message });
+      else if (result.code === 'NOT_FOUND' || result.code === 'NOT_TRACKED') set({ status: 'not-found', page, message: result.message, untracked: result.code === 'NOT_TRACKED' });
       else set({ status: 'error', page, message: result.message });
     } catch (error: unknown) {
       log.warn('Service worker injoignable :', error);
@@ -640,10 +640,11 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       case 'loading':
         return renderSkeleton(content.page);
       case 'not-found':
+        // Série ignorée : état neutre, sans l'indice « termine l'épisode » (aucune carte « À vérifier » ne viendra)
         return renderStatus(
           content.message,
           false,
-          h('p', { class: 'm-0 max-w-[280px] text-[11px] text-muted' }, kanaLabel('ヒント', 'text-butter'), ' ', t('panel.nowPlaying.notFoundHint')),
+          !content.untracked && h('p', { class: 'm-0 max-w-[280px] text-[11px] text-muted' }, kanaLabel('ヒント', 'text-butter'), ' ', t('panel.nowPlaying.notFoundHint')),
         );
       case 'error': {
         const { page } = content;

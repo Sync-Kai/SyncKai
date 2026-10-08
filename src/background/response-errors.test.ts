@@ -16,6 +16,11 @@ describe('describeFailedResponse', () => {
     expect(describeFailedResponse({ checkedAt: 1, notified: 0, skipped: null, error: 'Réseau' })).toBe('Réseau');
   });
 
+  it('ignore une série Netflix ignorée (fiche de la page sans objet), pas une fiche introuvable', () => {
+    expect(describeFailedResponse({ ok: false, code: 'NOT_TRACKED', message: 'Rien à suivre ici' })).toBeNull();
+    expect(describeFailedResponse({ ok: false, code: 'NOT_FOUND', message: 'Aucune fiche' })).toBe('NOT_FOUND · Aucune fiche');
+  });
+
   it('ignore les succès, les échecs partiels et l’annulation par l’utilisateur', () => {
     expect(describeFailedResponse({ ok: true, data: null })).toBeNull();
     expect(describeFailedResponse({ status: 'synced', mediaTitle: 'X', results: [] })).toBeNull();

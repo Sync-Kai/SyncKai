@@ -973,6 +973,8 @@ async function loadPageMedia(silent = false, fresh = silent): Promise<void> {
 
   if (result.ok) {
     patchPageCard({ media: { status: 'ready', page, view: result.data, refreshing: false } });
+  } else if (result.code === 'NOT_TRACKED') {
+    patchPageCard({ media: { status: 'untracked', page, message: result.message } });
   } else if (silent && current.status === 'ready') {
     // Relecture en échec : la fiche précédente reste affichée, l'erreur passe en retour d'action
     patchPageCard({ media: { ...current, refreshing: false } });

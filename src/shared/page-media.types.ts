@@ -122,7 +122,11 @@ export interface PageMediaView {
   episodeProgress: number | null;
 }
 
-export type PageMediaErrorCode = AniListErrorCode | 'NOT_FOUND';
+/**
+ * - `NOT_FOUND` : aucune fiche AniList (la synchro demandera la fiche à la fin de l'épisode, carte « À vérifier ») ;
+ * - `NOT_TRACKED` : série ignorée sur une plateforme généraliste (Netflix, probablement pas un anime) : rien à suivre.
+ */
+export type PageMediaErrorCode = AniListErrorCode | 'NOT_FOUND' | 'NOT_TRACKED';
 
 export type PageMediaResult = Result<PageMediaView, PageMediaErrorCode>;
 

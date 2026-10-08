@@ -444,6 +444,7 @@
   "page.loading": "Eintrag wird geladen: {title}",
   "page.minusOneAria": "Eine gesehene Folge entfernen: {title}",
   "page.notFound": "Kein AniList-Eintrag für „{title}“ gefunden.",
+  "page.notTracked": "Hier gibt es nichts zu verfolgen: Auf Netflix verfolgt SyncKai nur Animes, die AniList kennt.",
   "page.notInList": "Nicht in deiner Liste",
   "page.openOn": "Eintrag auf {service} öffnen",
   "page.seasonOption": "Staffel {season} — {title}",

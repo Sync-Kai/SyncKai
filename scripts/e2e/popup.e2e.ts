@@ -292,6 +292,14 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(`section[aria-label="${fr('watching.resume')}"]`)).toBeNull();
   });
 
+  it('« Sur cette page » : série ignorée (Netflix, pas un anime) → mention neutre, sans « Réessayer »', async () => {
+    const page = await openPopup({ scenario: 'page', pageMedia: 'untracked' });
+    const card = `section[aria-label="${fr('page.title')}"]`;
+    await page.waitForSelector(`${card} [role="status"]`);
+    expect(await text(page, `${card} [role="status"]`)).toBe(fr('page.notTracked'));
+    expect(await page.$(`${card} button`)).toBeNull();
+  });
+
   it('Écarts AniList ↔ MAL : analyse, filtres, « Garder AniList » envoie APPLY_DIFFS', async () => {
     const page = await openPopup();
     await click(page, 'nav-activity');

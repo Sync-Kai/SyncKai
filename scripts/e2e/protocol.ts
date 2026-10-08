@@ -40,6 +40,8 @@ export interface FrameParams {
   pageList?: 'missing';
   /** Liste « En cours » sans cache et premier GET_WATCHING sans réponse (délai d'attente raccourci) */
   watching?: 'hang';
+  /** Carte « Sur cette page » : série ignorée (Netflix, pas un anime) */
+  pageMedia?: 'untracked';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang` */

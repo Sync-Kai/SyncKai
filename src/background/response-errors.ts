@@ -1,7 +1,10 @@
 import { isRecord } from '../shared/guards';
 
-/** Échecs voulus par l'utilisateur : pas une erreur à consigner */
-const IGNORED_CODES: ReadonlySet<string> = new Set(['USER_CANCELLED']);
+/**
+ * Pas une erreur à consigner : échec voulu par l'utilisateur, ou série ignorée sur Netflix (pas un anime :
+ * fiche de la page sans objet, consignée en info par le handler)
+ */
+const IGNORED_CODES: ReadonlySet<string> = new Set(['USER_CANCELLED', 'NOT_TRACKED']);
 
 /**
  * Erreur portée par une réponse du service worker, en texte court pour le journal, sinon null.
