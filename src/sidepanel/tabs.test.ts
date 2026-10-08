@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPanelTab, nextTabIndex, PANEL_TABS } from './tabs';
+import { initialPanelTab, isPanelTab, nextTabIndex, PANEL_TABS } from './tabs';
 
 describe('nextTabIndex', () => {
   it('flèches en boucle', () => {
@@ -26,5 +26,18 @@ describe('PANEL_TABS', () => {
     expect(PANEL_TABS).toEqual(['nowPlaying', 'agenda']);
     expect(isPanelTab('agenda')).toBe(true);
     expect(isPanelTab('settings')).toBe(false);
+  });
+});
+
+describe('initialPanelTab', () => {
+  it('onglet imposé par le réglage, quel que soit le dernier onglet', () => {
+    expect(initialPanelTab('agenda', 'nowPlaying')).toBe('agenda');
+    expect(initialPanelTab('nowPlaying', 'agenda')).toBe('nowPlaying');
+  });
+
+  it('« Dernier onglet ouvert » : onglet mémorisé, « En lecture » s’il est absent ou inconnu', () => {
+    expect(initialPanelTab('last', 'agenda')).toBe('agenda');
+    expect(initialPanelTab('last', undefined)).toBe('nowPlaying');
+    expect(initialPanelTab('last', 'settings')).toBe('nowPlaying');
   });
 });

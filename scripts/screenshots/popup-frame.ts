@@ -3,6 +3,7 @@ import '../../src/popup/popup.css';
 import { demoChrome, type Scenario } from './demo-data';
 import { installChromeMock } from './mock-chrome';
 import { localeParam, markReady, param, waitFor } from './params';
+import { isSettingsCategory } from '../../src/ui/settings/navigation';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'menu', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
@@ -48,10 +49,19 @@ switch (scenario) {
     await click('[data-focus="nav-activity"]');
     scrollToTop((await find('[data-focus^="compare-anilist-"]')).closest('section'));
     break;
-  case 'settings':
+  case 'settings': {
+    // Accueil des Réglages, ou sous-page via `settingsPage` (accounts, sync, notifications, data, language, help)
     await click('[data-focus="gear"]');
-    await waitFor(() => document.querySelector('#sk-airing') && [...document.querySelectorAll('main a')].some((a) => a.textContent === 'Kai_fan'));
+    await waitFor(() => document.querySelector('[data-focus="settings-cat-accounts"]')?.textContent?.includes('✓') && document.querySelector('#sk-quick-auto'));
+    const settingsPage = param('settingsPage');
+    if (isSettingsCategory(settingsPage)) {
+      await click(`[data-focus="settings-cat-${settingsPage}"]`);
+      await find('[data-focus="settings-home"]');
+      // Comptes : profils chargés (avatars) avant la capture
+      if (settingsPage === 'accounts') await waitFor(() => [...document.querySelectorAll('main a')].some((a) => a.textContent === 'Kai_fan'));
+    }
     break;
+  }
 }
 // Pas de focus visible sur le bouton cliqué ni sur le premier élément du menu
 (document.activeElement as HTMLElement | null)?.blur();

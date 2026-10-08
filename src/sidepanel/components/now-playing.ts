@@ -113,19 +113,30 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
   let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
   /** Lecteur préféré (réglages) : plateforme du bouton « Regarder » des relations */
   let preferred: StreamingPlatform = DEFAULT_SETTINGS.preferredPlayer;
+  /** Réglage « Afficher la progression en direct » : désactivé, aucun port n'est ouvert vers l'onglet (faux jusqu'à la lecture du réglage) */
+  let liveEnabled = false;
 
-  const loadPreferred = (): void => {
+  const loadSettings = (): void => {
     getSettings()
       .then((settings) => {
-        if (settings.preferredPlayer === preferred) return;
+        const playerChanged = settings.preferredPlayer !== preferred;
+        const liveChanged = settings.panelLiveProgress !== liveEnabled;
         preferred = settings.preferredPlayer;
-        if (content.status === 'ready' && content.panel?.relations.some((r) => r.platforms.length > 1)) onChange();
+        liveEnabled = settings.panelLiveProgress;
+        if (liveChanged) live.follow(liveTarget());
+        if (liveChanged || (playerChanged && content.status === 'ready' && content.panel?.relations.some((r) => r.platforms.length > 1))) onChange();
       })
-      .catch((error: unknown) => log.debug('Réglages illisibles :', error));
+      .catch((error: unknown) => {
+        log.debug('Réglages illisibles :', error);
+        // Réglages illisibles : comportement par défaut (progression en direct affichée)
+        if (liveEnabled === DEFAULT_SETTINGS.panelLiveProgress) return;
+        liveEnabled = DEFAULT_SETTINGS.panelLiveProgress;
+        live.follow(liveTarget());
+        onChange();
+      });
   };
-  loadPreferred();
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && SETTINGS_STORAGE_KEY in changes) loadPreferred();
+    if (area === 'local' && SETTINGS_STORAGE_KEY in changes) loadSettings();
   });
 
   /** Relectures d'une page partielle : épisode concerné et nombre d'essais déjà faits */
@@ -140,6 +151,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
   const live = createLiveProgress((event) => {
     if (shouldRedetect('page' in content ? content.page : null, event)) void redetect(false);
   });
+  loadSettings();
 
   // Fiche de l'onglet réécrite ailleurs (synchro par le service worker, action dans le popup) : appliquée tout de suite
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -150,8 +162,9 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     void redetect(true);
   });
 
-  /** Épisode de la fiche à suivre en direct (page de lecture uniquement) */
+  /** Épisode de la fiche à suivre en direct (page de lecture uniquement, réglage actif) */
   const liveTarget = (): LiveTarget | null => {
+    if (!liveEnabled) return null;
     const page = 'page' in content ? content.page : null;
     return tabId !== null && page?.kind === 'episode' && page.episode ? { tabId, episodeId: page.episode.episodeId } : null;
   };
@@ -474,7 +487,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
         line && h('span', { class: 'text-[13px] font-extrabold text-sakura tabular-nums' }, line),
       ),
       // Position de lecture en direct et compte à rebours (page de lecture uniquement)
-      page.kind === 'episode' && live.element,
+      page.kind === 'episode' && liveEnabled && live.element,
       view.lists.length === 0 && h('p', { class: 'm-0 text-[11px] text-muted' }, t('panel.nowPlaying.connectHint')),
       ...nodes(
         renderMediaActions({

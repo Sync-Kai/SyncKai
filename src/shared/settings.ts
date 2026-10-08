@@ -17,6 +17,10 @@ export type NotificationLevel = 'discreet' | 'detailed' | 'alerts-only';
 export type LanguageSetting = 'auto' | 'fr' | 'en' | 'de';
 export const LANGUAGE_SETTINGS: readonly LanguageSetting[] = ['auto', 'fr', 'en', 'de'];
 
+/** Onglet affiché à l'ouverture du panneau latéral : 'last' = dernier onglet consulté */
+export type PanelDefaultTab = 'last' | 'nowPlaying' | 'agenda';
+export const PANEL_DEFAULT_TABS: readonly PanelDefaultTab[] = ['last', 'nowPlaying', 'agenda'];
+
 export interface SyncSettings {
   /** Synchronisation automatique active (false = pause) */
   autoSync: boolean;
@@ -38,6 +42,10 @@ export interface SyncSettings {
   platformOffsets: PlatformOffsets;
   /** Agenda : délai propre à une série (clé = mediaId AniList), prioritaire sur `platformOffsets` */
   seriesOffsets: Readonly<Record<string, number>>;
+  /** Panneau latéral : onglet ouvert par défaut */
+  panelDefaultTab: PanelDefaultTab;
+  /** Panneau latéral : position de lecture et compte à rebours en direct (port ouvert vers l'onglet) */
+  panelLiveProgress: boolean;
 }
 
 export type PlatformOffsets = Readonly<Record<StreamingPlatform, number>>;
@@ -59,6 +67,8 @@ export const DEFAULT_SETTINGS: SyncSettings = {
   language: 'auto',
   platformOffsets: { crunchyroll: 60, adn: 60 },
   seriesOffsets: {},
+  panelDefaultTab: 'last',
+  panelLiveProgress: true,
 };
 
 export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
@@ -124,6 +134,9 @@ export function normalizeSettings(raw: unknown): SyncSettings {
     language: LANGUAGE_SETTINGS.find((l) => l === value.language) ?? DEFAULT_SETTINGS.language,
     platformOffsets: normalizePlatformOffsets(value.platformOffsets),
     seriesOffsets: normalizeSeriesOffsets(value.seriesOffsets),
+    // Réglages du panneau (1.10) : absents des réglages plus anciens → valeurs par défaut
+    panelDefaultTab: PANEL_DEFAULT_TABS.find((tab) => tab === value.panelDefaultTab) ?? DEFAULT_SETTINGS.panelDefaultTab,
+    panelLiveProgress: typeof value.panelLiveProgress === 'boolean' ? value.panelLiveProgress : DEFAULT_SETTINGS.panelLiveProgress,
   };
 }
 

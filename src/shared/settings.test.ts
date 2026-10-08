@@ -20,6 +20,8 @@ describe('normalizeSettings', () => {
       language: 'de',
       platformOffsets: { crunchyroll: 30, adn: -15 },
       seriesOffsets: { '21': 120 },
+      panelDefaultTab: 'agenda',
+      panelLiveProgress: false,
     } as const;
     expect(normalizeSettings(settings)).toEqual(settings);
   });
@@ -77,5 +79,16 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings({ completionPercentage: 87.6 }).completionPercentage).toBe(88);
     expect(normalizeSettings({ completionPercentage: Number.NaN }).completionPercentage).toBe(85);
     expect(normalizeSettings({ completionTrigger: 'autre' }).completionTrigger).toBe('credits');
+  });
+
+  it('migre les réglages sans options du panneau (≤ 1.9) : dernier onglet, progression en direct affichée', () => {
+    const legacy = { autoSync: false, language: 'de', platformOffsets: { crunchyroll: 30, adn: 90 } };
+    expect(normalizeSettings(legacy)).toMatchObject({ autoSync: false, language: 'de', panelDefaultTab: 'last', panelLiveProgress: true });
+  });
+
+  it('rejette un onglet de panneau inconnu ou une progression en direct non booléenne', () => {
+    expect(normalizeSettings({ panelDefaultTab: 'settings', panelLiveProgress: 'oui' })).toMatchObject({ panelDefaultTab: 'last', panelLiveProgress: true });
+    expect(normalizeSettings({ panelDefaultTab: 'nowPlaying' }).panelDefaultTab).toBe('nowPlaying');
+    expect(normalizeSettings({ panelLiveProgress: false }).panelLiveProgress).toBe(false);
   });
 });

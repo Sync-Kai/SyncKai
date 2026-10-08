@@ -1,18 +1,21 @@
 import { initI18n, onLocaleChange, t, type MessageKey } from '../i18n';
 import { kanaLabel } from '../popup/components/ui';
 import { createLogger } from '../shared/logger';
+import { getSettings } from '../shared/settings';
 import { sidePanelKind } from '../shared/side-panel';
+import { createAccountsController } from '../ui/accounts';
+import { createSettingsView, type SettingsView } from '../ui/settings/settings-view';
 import { h, preserveFocus } from '../ui/dom';
 import { icon, kai, type IconName } from '../ui/icons';
 import { createNowPlaying } from './components/now-playing';
 import { createAgenda, type AgendaView } from './components/agenda';
 import { watchPanelContext, type PanelContext } from './presence';
-import { nextTabIndex, PANEL_TABS, type PanelTab } from './tabs';
+import { initialPanelTab, nextTabIndex, PANEL_LAST_TAB_KEY, PANEL_TABS, type PanelTab } from './tabs';
 
 const log = createLogger('sidepanel');
 
-// Coque du panneau latéral : en-tête + onglets « En lecture » / « Agenda ».
-// Le contenu des onglets arrive dans les versions suivantes (épisode en cours, agenda des sorties).
+// Coque du panneau latéral : en-tête (bouton Réglages) + onglets « En lecture » / « Agenda ».
+// Les Réglages sont la même vue que dans le popup (src/ui/settings), affichée à la place des onglets.
 
 interface TabCopy {
   label: MessageKey;
@@ -32,9 +35,60 @@ const app = document.getElementById('app');
 const nowPlaying = createNowPlaying(() => render());
 
 function selectTab(tab: PanelTab, focus: boolean): void {
+  const changed = tab !== selected;
   selected = tab;
   render();
   if (focus) document.getElementById(`sk-tab-${tab}`)?.focus();
+  // Mémorisé pour le réglage « Onglet à l'ouverture : Dernier ouvert »
+  if (changed) chrome.storage.local.set({ [PANEL_LAST_TAB_KEY]: tab }).catch((error: unknown) => log.debug('Dernier onglet non mémorisé :', error));
+}
+
+// ─── Réglages (même vue que le popup) ───
+
+let settingsOpen = false;
+let settingsView: SettingsView | null = null;
+/** Zone défilante des Réglages (jamais retirée du DOM pendant l'affichage : défilement conservé) */
+const settingsScroll = h('main', { class: 'sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3' });
+
+/** Créée à la première ouverture : comptes lus seulement si l'utilisateur ouvre les Réglages */
+function getSettingsView(): SettingsView {
+  if (settingsView) return settingsView;
+  const accounts = createAccountsController();
+  void accounts.bootstrapAll();
+  settingsView = createSettingsView({
+    navigateBack: () => setSettingsOpen(false),
+    openTab: (url) => void chrome.tabs.create({ url }),
+    accounts,
+  });
+  settingsScroll.append(settingsView.element);
+  return settingsView;
+}
+
+function setSettingsOpen(open: boolean): void {
+  if (open === settingsOpen) return;
+  settingsOpen = open;
+  if (open) getSettingsView().show();
+  render();
+  // Fermeture : focus rendu au bouton Réglages de l'en-tête
+  if (!open) gearButton.focus({ preventScroll: true });
+}
+
+const gearButton = h('button', {
+  class: 'ml-auto flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-raised',
+  attrs: { type: 'button', 'data-focus': 'gear' },
+  on: { click: () => setSettingsOpen(!settingsOpen) },
+});
+gearButton.append(icon('gear', 'h-[18px] w-[18px]'));
+
+/** État du bouton Réglages (libellé traduit, enfoncé quand les Réglages sont affichés) */
+function syncGearButton(): void {
+  gearButton.setAttribute('aria-label', t('nav.settings'));
+  gearButton.title = t('nav.settings');
+  gearButton.setAttribute('aria-pressed', String(settingsOpen));
+  gearButton.classList.toggle('bg-raised', settingsOpen);
+  gearButton.classList.toggle('text-sakura', settingsOpen);
+  gearButton.classList.toggle('bg-surface', !settingsOpen);
+  gearButton.classList.toggle('text-muted', !settingsOpen);
 }
 
 function renderHeader(): HTMLElement {
@@ -48,6 +102,7 @@ function renderHeader(): HTMLElement {
       h('h1', { class: 'm-0 font-display text-[15px] font-extrabold tracking-[0.2px]' }, 'SyncKai'),
       kanaLabel('シンカイ'),
     ),
+    gearButton,
   );
 }
 
@@ -149,8 +204,14 @@ function renderNotice(text: string, busy: boolean): HTMLElement {
 
 function render(): void {
   if (!app) return;
+  syncGearButton();
   preserveFocus(app, () => {
-    if (context.status === 'target') {
+    if (settingsOpen && settingsView) {
+      // Réglages affichés quel que soit l'onglet suivi ; l'onglet du panneau reprendra sa position au retour
+      if (shownTab !== null) scrollByTab[shownTab] = tabPanel.scrollTop;
+      shownTab = null;
+      mount(app, [header, settingsView.bar, settingsScroll]);
+    } else if (context.status === 'target') {
       mount(app, [header, tabBar, tabPanel]);
       tabBar.replaceChildren(renderTabList());
       fillTabPanel();
@@ -168,8 +229,18 @@ function setContext(next: PanelContext): void {
   render();
 }
 
+/** Onglet à l'ouverture : réglage « Onglet à l'ouverture » (dernier onglet consulté par défaut) */
+async function loadInitialTab(): Promise<void> {
+  try {
+    const [settings, stored] = await Promise.all([getSettings(), chrome.storage.local.get(PANEL_LAST_TAB_KEY)]);
+    selected = initialPanelTab(settings.panelDefaultTab, stored[PANEL_LAST_TAB_KEY]);
+  } catch (error: unknown) {
+    log.debug('Onglet initial illisible :', error);
+  }
+}
+
 async function main(): Promise<void> {
-  await initI18n();
+  await Promise.all([initI18n(), loadInitialTab()]);
   onLocaleChange(render);
   render();
   const kind = sidePanelKind();

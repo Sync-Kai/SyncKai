@@ -100,28 +100,3 @@ export function renderNav({ screen, pending, onNavigate }: NavProps): HTMLElemen
     ),
   );
 }
-
-/** Barre de l'écran Réglages : retour + titre centré ; `status` = retour d'enregistrement */
-export function renderSettingsBar(onBack: () => void, status: HTMLElement): HTMLElement {
-  return h(
-    'div',
-    { class: 'flex h-11 shrink-0 items-start gap-2 px-4' },
-    h(
-      'button',
-      {
-        class: 'flex h-9 w-[76px] shrink-0 cursor-pointer items-center gap-1 rounded-full bg-surface pr-3 pl-2 text-[13px] font-bold text-ink transition-colors hover:bg-raised',
-        attrs: { type: 'button', 'data-focus': 'back' },
-        on: { click: onBack },
-      },
-      icon('back', 'h-4 w-4', '2.4'),
-      t('nav.back'),
-    ),
-    h(
-      'div',
-      { class: 'flex h-9 flex-1 items-center justify-center gap-1.5' },
-      h('h1', { class: 'm-0 font-display text-[15px] font-extrabold' }, t('nav.settings')),
-      kanaLabel('セッテイ', 'text-sakura'),
-    ),
-    h('div', { class: 'flex h-9 w-[76px] shrink-0 items-center justify-end' }, status),
-  );
-}

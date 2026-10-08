@@ -12,9 +12,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - **Agenda** (panneau latéral) : les sorties de la semaine pour tes séries en cours, avec l'heure estimée sur Crunchyroll / ADN (réglable) et les épisodes déjà vus.
 - **Import de l'historique Crunchyroll** (Réglages) : lit ton historique dans ton navigateur et met à jour AniList / MyAnimeList (aperçu avant import, jamais de recul, vérification en cas de doute).
 - Tests de bout en bout du popup dans l'intégration continue (bloquent une release en cas d'échec).
+- Réglages du panneau latéral : onglet ouvert par défaut, affichage de la progression en direct.
 
 ### Modifié
 
+- **Réglages réorganisés** : accueil par catégories avec un résumé de chaque réglage, interrupteurs rapides (synchro, alertes), sous-pages et zones de danger ; aussi accessibles depuis le panneau latéral.
 - Logos de Crunchyroll, ADN, AniList et MyAnimeList à la place des pastilles texte CR / ADN / AL / MAL (popup, panneau latéral), embarqués dans l’extension.
 - Firefox : version minimale 142 (supprime l’avertissement de validation AMO lié à Firefox pour Android).
 

@@ -116,7 +116,13 @@ async function compareRows(page: Page): Promise<string[]> {
   }, fr('compare.section'));
 }
 
-/** Change la langue dans Réglages : le popup se recharge sur l'écran Réglages */
+/** Ouvre une sous-page depuis l'accueil des Réglages */
+async function openCategory(page: Page, category: string): Promise<void> {
+  await click(page, `settings-cat-${category}`);
+  await page.waitForSelector(sel('settings-home'));
+}
+
+/** Change la langue dans Réglages › Langue : le popup se recharge sur la même sous-page */
 async function switchLanguage(page: Page, locale: Locale): Promise<void> {
   await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), click(page, `language-${locale}`)]);
   await page.waitForSelector(sel(`language-${locale}`));
@@ -172,17 +178,22 @@ describe('popup (bout en bout)', () => {
     expect(await shownScreen(page)).toBe(0);
     expect(await text(page, sel('nav-activity'))).toBe(fr('nav.activity'));
 
-    // Langue : rechargement du popup, toujours sur Réglages, libellés traduits
+    // Langue : rechargement du popup, toujours sur Réglages › Langue, libellés traduits
     await click(page, 'gear');
+    await openCategory(page, 'language');
     for (const locale of ['en', 'de', 'fr'] as const) {
       await switchLanguage(page, locale);
       expect(await page.evaluate(() => document.documentElement.lang)).toBe(locale);
       expect(await shownScreen(page)).toBe(2);
-      expect(await text(page, 'h1')).toBe(tl(locale, 'nav.settings'));
-      expect(await text(page, sel('back'))).toBe(tl(locale, 'nav.back'));
+      expect(await text(page, 'h1')).toBe(tl(locale, 'settings.section.language'));
+      expect(await text(page, sel('settings-home'))).toBe(tl(locale, 'nav.settings'));
       expect(await text(page, '#sk-language-label')).toBe(tl(locale, 'settings.section.language'));
-      expect(await text(page, sel('help-copy'))).toBe(tl(locale, 'settings.help.copy'));
     }
+    // Retour à l'accueil des Réglages (résumés traduits), puis à l'écran principal
+    await click(page, 'settings-home');
+    await page.waitForSelector(sel('back'));
+    expect(await text(page, sel('settings-cat-help'))).toContain(fr('settings.cat.help'));
+    expect(await text(page, sel('settings-cat-language'))).toContain(fr('settings.section.language'));
     await click(page, 'back');
     await page.waitForSelector(sel('nav-watching'));
     expect(await text(page, sel('nav-watching'))).toBe(fr('nav.watching'));
@@ -308,6 +319,7 @@ describe('popup (bout en bout)', () => {
   it('Réglages › Aide : « Copier le rapport » copie un rapport sans token ni nom de compte', async () => {
     const page = await openPopup();
     await click(page, 'gear');
+    await openCategory(page, 'help');
     await click(page, 'help-copy');
     await page.waitForFunction(() => (window.__e2e?.clipboard.length ?? 0) > 0);
     const [report] = (await trace(page)).clipboard;
@@ -318,6 +330,44 @@ describe('popup (bout en bout)', () => {
     for (const secret of Object.values(PLANTED_SECRETS)) expect(report).not.toContain(secret);
     expect(report).not.toContain('Kai_fan');
     await page.waitForFunction((label: string) => document.body.textContent?.includes(label) ?? false, {}, fr('settings.help.copied'));
+  });
+
+  it('Réglages : sous-page Notifications & Agenda (focus sur le titre, retour sur la ligne d’origine), interrupteur rapide enregistré', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await page.waitForSelector(sel('settings-cat-notifications'));
+    // Résumé de l'accueil : réglages de démo (notifications détaillées, alertes à l'heure)
+    expect(await text(page, sel('settings-cat-notifications'))).toContain(`${fr('settings.notif.detailed.title')} · ${fr('settings.summary.airingOnTime')}`);
+
+    await openCategory(page, 'notifications');
+    expect(await text(page, 'h1')).toBe(fr('settings.cat.notifications'));
+    expect(await focused(page)).toBe('settings-heading');
+    expect(await page.$('#sk-airing')).not.toBeNull();
+
+    // Échap : retour à l'accueil, focus rendu à la ligne de la catégorie
+    await page.keyboard.press('Escape');
+    await page.waitForSelector(sel('back'));
+    expect(await focused(page)).toBe('settings-cat-notifications');
+    // « ← Réglages » fait de même
+    await openCategory(page, 'notifications');
+    await click(page, 'settings-home');
+    await page.waitForSelector(sel('back'));
+    expect(await focused(page)).toBe('settings-cat-notifications');
+
+    // Interrupteur rapide « Alertes de sortie » : réglage enregistré, résumé mis à jour
+    expect(await page.$eval('#sk-quick-airing', (input) => input instanceof HTMLInputElement && input.checked)).toBe(true);
+    await click(page, 'sk-quick-airing');
+    await page.waitForFunction(
+      async (key: string) => {
+        const stored = await chrome.storage.local.get(key);
+        const value: unknown = stored[key];
+        return typeof value === 'object' && value !== null && 'airingAlerts' in value && value.airingAlerts === false;
+      },
+      {},
+      SETTINGS_STORAGE_KEY,
+    );
+    expect(await text(page, sel('settings-cat-notifications'))).toContain(fr('settings.summary.airingOff'));
+    expect(await page.$eval('#sk-quick-airing', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
   });
 
   it('accès aux sites retiré : bandeau, « Autoriser l’accès » appelle permissions.request', async () => {

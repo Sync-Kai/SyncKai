@@ -2,37 +2,20 @@ import { initI18n, onLocaleChange, t } from '../i18n';
 import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type ListDiff } from '../shared/compare';
 import { COMPARE_JOB_KEY, isCompareJob } from '../shared/compare-job';
 import { withStorageLock } from '../shared/storage-lock';
-import { AIRING_RESULT_KEY, isAiringCheckResult, type AiringCheckResult } from '../shared/airing.types';
-import { isAniListViewer, type ViewerErrorCode, type ViewerResult } from '../shared/anilist.types';
-import { isAniListToken, type AuthResult } from '../shared/auth.types';
 import { refreshReviewBadge } from '../shared/badge';
 import type { PendingRating } from '../shared/engagement.types';
 import type { EpisodeInfo } from '../shared/episode.types';
 import { EXCLUDED_SERIES_KEY, excludeSeries, getExcludedSeries, includeSeries, platformSeriesKey } from '../shared/exclusions';
-import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
 import { sendMessage } from '../shared/messages';
 import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
-import {
-  clearAniListSession,
-  clearMalSession,
-  clearUserSyncData,
-  deletePendingReview,
-  getCachedMalViewer,
-  getCachedViewer,
-  getCachedWatching,
-  getMalToken,
-  getPendingReviews,
-  getRecentSyncs,
-  getValidToken,
-  STORAGE_KEYS,
-} from '../shared/storage';
+import { deletePendingReview, getCachedWatching, getPendingReviews, getRecentSyncs, STORAGE_KEYS } from '../shared/storage';
 import { getSyncQueue, removeQueueItem, SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
 import type { ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { isPageMediaResponse, type ContentMessage } from '../shared/content-messages';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
 import { matchCachedPageMedia, readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
-import { isTrackerId, TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
+import { isTrackerId, TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../shared/platform-links';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingResult, type WatchingSort } from '../shared/watching.types';
@@ -42,7 +25,7 @@ import { mediaActionKey, runMediaAction, type MediaActionRequest } from '../ui/m
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../shared/host-access';
 import { renderFooter, type FooterStatus } from './components/footer';
 import { renderHostAccessBanner } from './components/host-access-banner';
-import { renderHeader, renderNav, renderSettingsBar } from './components/header';
+import { renderHeader, renderNav } from './components/header';
 import { renderOnboarding } from './components/onboarding';
 import { COMPARE_PAGE_SIZE, renderCompareSection } from './components/compare-section';
 import { renderQueueSection } from './components/queue-section';
@@ -50,16 +33,13 @@ import { renderRatingSection } from './components/rating-section';
 import { renderRecentSyncs } from './components/recent-syncs';
 import type { ReviewActions } from './components/review-card';
 import { createReviewSection } from './components/review-section';
-import { createSettingsScreen } from './components/settings-screen';
 import { renderPageMediaCard } from './components/page-media-card';
 import { entryKey, renderWatchingScreen } from './components/watching-screen';
 import { adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from './feedback';
 import { getPendingRatings, PENDING_RATINGS_KEY, removePendingRating } from './pending-ratings';
 import {
   createStore,
-  LOGGED_OUT,
   type AccountState,
-  type AniListState,
   type CompareState,
   type EntryAction,
   type ExclusionsState,
@@ -67,7 +47,6 @@ import {
   type InlineFeedback,
   type QueueState,
   type RatingsState,
-  type MalState,
   type PageCardState,
   type Screen,
   type SettingsState,
@@ -79,6 +58,9 @@ import {
 import { createLogger } from '../shared/logger';
 import { openSidePanel, sidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
+import { AUTH_ERRORS, createAccountsController } from '../ui/accounts';
+import { isSettingsPage, type SettingsPage } from '../ui/settings/navigation';
+import { createSettingsView } from '../ui/settings/settings-view';
 
 const log = createLogger('popup');
 
@@ -88,8 +70,6 @@ await initI18n();
 const swUnreachable = (): string => t('popup.swUnreachable');
 /** Écran (et défilement) à rouvrir après le rechargement provoqué par un changement de langue */
 const REOPEN_KEY = 'synckai:reopen';
-/** Erreurs qui invalident la session : « Session expirée » + reconnexion */
-const AUTH_ERRORS: ReadonlySet<ViewerErrorCode> = new Set(['NOT_AUTHENTICATED', 'TOKEN_INVALID']);
 const PREFS_KEY = 'popupPrefs';
 const CLOCK_TICK_MS = 60_000;
 /** Durée d'affichage du retour d'une action sur une série (+1, −1, exclusion) */
@@ -101,16 +81,24 @@ interface PopupPrefs {
   sort: WatchingSort;
 }
 
+interface ReopenState {
+  screen: Screen;
+  /** Sous-page des Réglages affichée (changement de langue depuis Réglages › Langue) */
+  settingsPage: SettingsPage;
+  scroll: number;
+}
+
 /** Écran mémorisé avant un changement de langue (lu une seule fois) */
-function takeReopenState(): { screen: Screen; scroll: number } | null {
+function takeReopenState(): ReopenState | null {
   try {
     const raw = sessionStorage.getItem(REOPEN_KEY);
     sessionStorage.removeItem(REOPEN_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : null;
     if (typeof parsed !== 'object' || parsed === null || !('screen' in parsed) || !('scroll' in parsed)) return null;
     const { screen, scroll } = parsed;
+    const settingsPage = 'settingsPage' in parsed && isSettingsPage(parsed.settingsPage) ? parsed.settingsPage : 'home';
     const valid = screen === 'watching' || screen === 'activity' || screen === 'settings';
-    return valid && typeof scroll === 'number' ? { screen, scroll } : null;
+    return valid && typeof scroll === 'number' ? { screen, settingsPage, scroll } : null;
   } catch {
     return null;
   }
@@ -124,8 +112,10 @@ function getRoot(): HTMLDivElement {
   return el;
 }
 
-const anilistStore = createStore<AniListState>({ status: 'loading' });
-const malStore = createStore<MalState>({ status: 'loading' });
+/** Comptes AniList / MyAnimeList (connexion, session expirée…), aussi affichés par les Réglages */
+const accounts = createAccountsController();
+const anilistStore = accounts.anilist;
+const malStore = accounts.mal;
 const syncStore = createStore<SyncData>({ reviews: [], recentSyncs: [], busyKey: null, recentError: null });
 const uiStore = createStore<UiState>({ screen: reopen?.screen ?? 'watching', previous: 'watching', source: 'anilist', sort: DEFAULT_WATCHING_SORT, sortMenuOpen: false, rowMenu: null, rowConfirm: null });
 const watchingStore = createStore<WatchingState>({ status: 'idle' });
@@ -148,8 +138,7 @@ const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
 let now = Date.now();
 
 function accountStore(service: TrackerId): Store<AccountState<unknown>> {
-  // Les deux stores ne diffèrent que par le type du profil : les transitions génériques les manipulent pareil
-  return (service === 'anilist' ? anilistStore : malStore) as Store<AccountState<unknown>>;
+  return accounts.store(service);
 }
 
 function connectedServices(): TrackerId[] {
@@ -202,14 +191,19 @@ const ratingSlot = h('div', { class: 'contents' });
 const recentSlot = h('div', { class: 'contents' });
 const compareSlot = h('div', { class: 'contents' });
 const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot, compareSlot);
-const settingsScreen = createSettingsScreen();
+const settingsView = createSettingsView({
+  navigateBack: () => goBack(),
+  // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
+  openTab: (url) => void chrome.tabs.create({ url }),
+  accounts,
+});
 const footerSlot = h('div', { class: 'contents' });
 const main = h(
   'main',
   { class: 'sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3' },
   watchingSlot,
   activityScreen,
-  settingsScreen.element,
+  settingsView.element,
   onboardingSlot,
 );
 const root = getRoot();
@@ -217,9 +211,11 @@ root.replaceChildren(headerSlot, barSlot, hostAccessSlot, main, footerSlot);
 
 // ─── Navigation ───────────────────────────────────────────────────────────
 
-function navigate(screen: Screen): void {
+function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
   const ui = uiStore.get();
   if (ui.screen === screen) return;
+  // Entrée dans les Réglages : accueil, ou sous-page demandée (pastille de compte → Comptes)
+  if (screen === 'settings') settingsView.show(settingsPage);
   // Changement d'écran : les menus éventuellement ouverts se ferment
   uiStore.set({ ...ui, screen, previous: ui.screen === 'settings' ? ui.previous : ui.screen, sortMenuOpen: false, rowMenu: null, rowConfirm: null });
   main.scrollTop = 0;
@@ -526,25 +522,26 @@ function render(): void {
 
   preserveFocus(root, () => {
     headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTabId === null ? null : openPanel }));
-    barSlot.replaceChildren(
-      ...nodes([
-        isSettings
-          ? renderSettingsBar(goBack, settingsScreen.status)
-          : !onboarding && renderNav({ screen: ui.screen === 'activity' ? 'activity' : 'watching', pending, onNavigate: navigate }),
-      ]),
-    );
+    // Barre des Réglages persistante (gérée par la vue) : jamais retirée puis réinsérée, le focus y resterait perdu
+    if (isSettings) {
+      if (barSlot.firstChild !== settingsView.bar || barSlot.childNodes.length !== 1) barSlot.replaceChildren(settingsView.bar);
+    } else {
+      barSlot.replaceChildren(
+        ...nodes([!onboarding && renderNav({ screen: ui.screen === 'activity' ? 'activity' : 'watching', pending, onNavigate: (screen) => navigate(screen) })]),
+      );
+    }
 
     hostAccessSlot.replaceChildren(...nodes([renderHostAccessBanner({ state: hostAccessStore.get(), onAllow: allowHostAccess })]));
 
     watchingSlot.hidden = isSettings || onboarding || ui.screen !== 'watching';
     activityScreen.hidden = isSettings || onboarding || ui.screen !== 'activity';
-    settingsScreen.element.hidden = !isSettings;
+    settingsView.element.hidden = !isSettings;
     onboardingSlot.hidden = isSettings || !onboarding;
 
     if (!watchingSlot.hidden) renderWatching();
     if (!onboardingSlot.hidden) {
       onboardingSlot.replaceChildren(
-        renderOnboarding({ anilist: anilistStore.get(), mal: malStore.get(), onLogin: (service) => void login(service) }),
+        renderOnboarding({ anilist: anilistStore.get(), mal: malStore.get(), onLogin: (service) => void accounts.login(service) }),
       );
     }
 
@@ -574,22 +571,14 @@ function render(): void {
       }),
     );
 
-    settingsScreen.updateAccounts({
-      anilist: anilistStore.get(),
-      mal: malStore.get(),
-      onLogin: (service) => void login(service),
-      onLogout: (service) => void logout(service),
-      onRetry: (service) => void refreshAccount(service),
-    });
-
     footerSlot.replaceChildren(
       renderFooter({
         version,
         chips: footerChips(),
         status: footerStatus(),
-        onOpenSettings: () => navigate('settings'),
+        onOpenSettings: () => navigate('settings', 'accounts'),
         onOpenActivity: () => navigate('activity'),
-        onReconnect: (service) => void login(service),
+        onReconnect: (service) => void accounts.login(service),
       }),
     );
   });
@@ -615,112 +604,6 @@ function allowHostAccess(): void {
       hostAccessStore.set({ status: 'missing', denied: true });
     },
   );
-}
-
-// ─── Comptes (AniList, MyAnimeList) ─────────────────────────────────────────
-
-/** Rafraîchit le profil depuis l'API (stale-while-revalidate : le cache reste affiché). */
-async function refreshAccount(service: TrackerId): Promise<void> {
-  let result: ViewerResult | MalViewerResult;
-  try {
-    result = service === 'anilist' ? await sendMessage('GET_VIEWER', null) : await sendMessage('GET_MAL_VIEWER', null);
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    result = { ok: false, code: 'NETWORK', message: swUnreachable() };
-  }
-
-  if (!result.ok && AUTH_ERRORS.has(result.code)) {
-    markExpired(service);
-    return;
-  }
-
-  if (service === 'anilist') {
-    const current = anilistStore.get();
-    if (current.status !== 'logged-in') return; // Déconnecté entre-temps
-    anilistStore.set(result.ok && isAniListViewer(result.data) ? { ...current, viewer: result.data, error: null } : { ...current, error: result.ok ? null : result.message });
-  } else {
-    const current = malStore.get();
-    if (current.status !== 'logged-in') return;
-    malStore.set(result.ok && isMalViewer(result.data) ? { ...current, viewer: result.data, error: null } : { ...current, error: result.ok ? null : result.message });
-  }
-}
-
-function markExpired(service: TrackerId): void {
-  accountStore(service).set({ ...LOGGED_OUT, expired: true });
-}
-
-async function loadCachedViewer(service: TrackerId): Promise<void> {
-  if (service === 'anilist') anilistStore.set({ status: 'logged-in', viewer: await getCachedViewer(), error: null });
-  else malStore.set({ status: 'logged-in', viewer: await getCachedMalViewer(), error: null });
-}
-
-async function login(service: TrackerId): Promise<void> {
-  const store = accountStore(service);
-  const before = store.get();
-  const expired = before.status === 'logged-out' && before.expired;
-  store.set({ status: 'logged-out', pending: true, error: null, expired });
-
-  let result: AuthResult;
-  try {
-    result = await sendMessage(service === 'anilist' ? 'LOGIN_ANILIST' : 'LOGIN_MAL', null);
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    result = { ok: false, code: 'UNKNOWN', message: swUnreachable() };
-  }
-
-  if (!result.ok) {
-    log.warn(`Échec de connexion ${TRACKER_LABELS[service]} :`, result.code, result.message);
-    store.set({ status: 'logged-out', pending: false, error: result.message, expired });
-    return;
-  }
-
-  // Le service worker a déjà préchargé le profil après l'OAuth
-  await loadCachedViewer(service);
-  const state = store.get();
-  if (state.status === 'logged-in' && !state.viewer) await refreshAccount(service);
-}
-
-/** Après une déconnexion : plus aucun service connecté → effacement des données de l'utilisateur */
-async function clearUserDataIfLastService(): Promise<void> {
-  const [anilistToken, malToken] = await Promise.all([getValidToken(), getMalToken()]);
-  if (!anilistToken && !malToken) await clearUserSyncData();
-  await refreshReviewBadge();
-}
-
-async function logout(service: TrackerId): Promise<void> {
-  const store = accountStore(service);
-  try {
-    await (service === 'anilist' ? clearAniListSession() : clearMalSession());
-    await clearUserDataIfLastService();
-    store.set(LOGGED_OUT);
-  } catch (error: unknown) {
-    log.error(`Échec de la déconnexion ${TRACKER_LABELS[service]} :`, error);
-    const current = store.get();
-    if (current.status === 'logged-in') store.set({ ...current, error: t('popup.logoutFailed') });
-  }
-}
-
-/** Token AniList présent mais expiré : on propose « Reconnecter » plutôt que l'accueil */
-async function hasExpiredAniListToken(): Promise<boolean> {
-  const stored = await chrome.storage.local.get(STORAGE_KEYS.anilistToken);
-  return isAniListToken(stored[STORAGE_KEYS.anilistToken]);
-}
-
-async function bootstrap(service: TrackerId): Promise<void> {
-  const store = accountStore(service);
-  try {
-    // MAL : token présent, même expiré (le service worker le renouvellera)
-    const token = service === 'anilist' ? await getValidToken() : await getMalToken();
-    if (!token) {
-      store.set({ ...LOGGED_OUT, expired: service === 'anilist' && (await hasExpiredAniListToken()) });
-      return;
-    }
-    await loadCachedViewer(service);
-    await refreshAccount(service);
-  } catch (error: unknown) {
-    log.error('Lecture du stockage impossible :', error);
-    store.set({ ...LOGGED_OUT, error: t('popup.sessionReadFailed') });
-  }
 }
 
 // ─── Liste « En cours » ─────────────────────────────────────────────────────
@@ -761,7 +644,7 @@ async function loadWatching(service: TrackerId): Promise<void> {
   }
   if (AUTH_ERRORS.has(result.code)) {
     // markExpired re-résout la source (nouvelle requête) : cette réponse devient obsolète
-    markExpired(service);
+    accounts.markExpired(service);
     if (request !== watchingRequest) return;
   }
   watchingStore.set(cached ? { status: 'ready', service, list: cached, refreshing: false, error: result.message } : { status: 'error', service, message: result.message });
@@ -1384,32 +1267,9 @@ async function loadSettings(): Promise<void> {
 // La popup se ferme souvent pendant l'OAuth, et le service worker peut invalider une session
 // ou ajouter des vérifications : on suit donc les changements du stockage.
 
-function onTokenChange(service: TrackerId, change: chrome.storage.StorageChange | undefined): void {
-  if (!change) return;
-  const store = accountStore(service);
-  const state = store.get();
-  const hasToken = change.newValue !== undefined;
-  if (!hasToken && state.status === 'logged-in') store.set(LOGGED_OUT);
-  else if (hasToken && state.status === 'logged-out' && !state.pending) void bootstrap(service);
-}
-
 chrome.storage.onChanged.addListener((changes, areaName): void => {
   if (areaName !== 'local') return;
-
-  onTokenChange('anilist', changes[STORAGE_KEYS.anilistToken]);
-  onTokenChange('mal', changes[STORAGE_KEYS.malToken]);
-
-  const viewerChange = changes[STORAGE_KEYS.anilistViewer];
-  const anilist = anilistStore.get();
-  if (viewerChange && anilist.status === 'logged-in' && isAniListViewer(viewerChange.newValue)) {
-    anilistStore.set({ ...anilist, viewer: viewerChange.newValue });
-  }
-
-  const malViewerChange = changes[STORAGE_KEYS.malViewer];
-  const mal = malStore.get();
-  if (malViewerChange && mal.status === 'logged-in' && isMalViewer(malViewerChange.newValue)) {
-    malStore.set({ ...mal, viewer: malViewerChange.newValue });
-  }
+  // Sessions et profils : suivis par le contrôleur des comptes (ui/accounts.ts)
 
   if (changes[STORAGE_KEYS.pendingReviews] || changes[STORAGE_KEYS.recentSyncs]) void loadSyncData();
   if (changes[PENDING_RATINGS_KEY]) void loadRatings();
@@ -1421,11 +1281,8 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
   const settingsChange = changes[SETTINGS_STORAGE_KEY];
   if (settingsChange) settingsStore.set({ status: 'ready', settings: normalizeSettings(settingsChange.newValue) });
 
-  if (changes[STORAGE_KEYS.mediaMappings]) void settingsScreen.refreshMappings();
   if (changes[EXCLUDED_SERIES_KEY]) void loadExclusions();
   if (changes[SYNC_QUEUE_KEY]) void loadQueue();
-  const airingChange = changes[AIRING_RESULT_KEY];
-  if (airingChange) setAiringResult(airingChange.newValue);
 
   // Lien de série appris (page visitée) : « Ouvrir » et la pastille de plateforme suivent sans requête
   const linksChange = changes[PLATFORM_LINKS_KEY];
@@ -1434,24 +1291,6 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
   // Synchro dans un onglet : le service worker ne met pas le cache « En cours » à jour → revalidation
   if (changes[STORAGE_KEYS.recentSyncs]) scheduleWatchingRevalidation();
 });
-
-// ─── Alertes de sortie : dernier résumé de vérification ───────────────────
-
-let airingResult: AiringCheckResult | null = null;
-
-function setAiringResult(value: unknown): void {
-  airingResult = isAiringCheckResult(value) ? value : null;
-  settingsScreen.updateAiring(airingResult, Date.now());
-}
-
-async function loadAiringResult(): Promise<void> {
-  try {
-    const stored = await chrome.storage.local.get(AIRING_RESULT_KEY);
-    setAiringResult(stored[AIRING_RESULT_KEY]);
-  } catch (error: unknown) {
-    log.warn('Lecture du résumé des alertes impossible :', error);
-  }
-}
 
 const REVALIDATE_DEBOUNCE_MS = 1_000;
 let revalidateTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1476,26 +1315,22 @@ for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, 
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre)
 chrome.permissions?.onAdded?.addListener(() => void checkHostAccess());
 chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());
-exclusionsStore.subscribe((state) => {
-  settingsScreen.updateExclusions(state);
-  render();
-});
-let pendingScroll: number | null = reopen?.scroll ?? null;
+exclusionsStore.subscribe(render);
+settingsStore.subscribe(render);
 
-settingsStore.subscribe((state) => {
-  settingsScreen.updateSettings(state);
-  render();
-  // Après un changement de langue : défilement restauré une fois le formulaire dessiné
-  if (state.status === 'ready' && pendingScroll !== null) {
-    main.scrollTop = pendingScroll;
-    pendingScroll = null;
-  }
-});
+// Après un changement de langue : même sous-page des Réglages, défilement restauré une fois les réglages dessinés
+if (reopen?.screen === 'settings') {
+  settingsView.show(reopen.settingsPage, { focus: false });
+  void settingsView.ready.then(() => {
+    main.scrollTop = reopen.scroll;
+  });
+}
 
 // Nouvelle langue : le popup est rechargé (toutes les vues reconstruites) en revenant au même écran
 onLocaleChange(() => {
   try {
-    sessionStorage.setItem(REOPEN_KEY, JSON.stringify({ screen: uiStore.get().screen, scroll: main.scrollTop }));
+    const state: ReopenState = { screen: uiStore.get().screen, settingsPage: settingsView.page(), scroll: main.scrollTop };
+    sessionStorage.setItem(REOPEN_KEY, JSON.stringify(state));
   } catch {
     // Stockage de session indisponible : retour à l'écran d'accueil du popup
   }
@@ -1515,7 +1350,6 @@ setInterval(() => {
 setInterval(() => {
   now = Date.now();
   render();
-  settingsScreen.updateAiring(airingResult, now);
 }, CLOCK_TICK_MS);
 
 void checkHostAccess();
@@ -1525,7 +1359,5 @@ void loadExclusions();
 void loadQueue();
 void loadRatings();
 void loadComparison();
-void loadAiringResult();
-void settingsScreen.refreshMappings();
 // La source préférée est lue avant les comptes : évite de charger la mauvaise liste puis de basculer
-void loadPrefs().then(() => Promise.all([bootstrap('anilist'), bootstrap('mal')]));
+void loadPrefs().then(() => accounts.bootstrapAll());
