@@ -22,6 +22,12 @@ const METADATA_WAIT_TIMEOUT_MS = 15_000;
 
 const log = createLogger('session');
 
+/**
+ * Séries ignorées par le service worker pendant la vie de la page (Netflix : pas un anime), par clé plateforme.
+ * Leurs épisodes suivants (lecture automatique) ne sont plus envoyés ; vidé au rechargement de l'onglet.
+ */
+const ignoredSeries = new Set<string>();
+
 /** Réglages de la page d'options ; valeurs par défaut si le stockage est illisible */
 async function loadSettings(): Promise<SyncSettings> {
   try {
@@ -92,6 +98,17 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   const isCurrentEpisode = (): boolean => adapter.getEpisodeId(new URL(location.href)) === episodeId;
   const extract = (): EpisodeInfo | null => (isCurrentEpisode() ? adapter.extractEpisodeInfo(new URL(location.href)) : null);
 
+  /** Métadonnées asynchrones de l'adapter (Netflix) ; un échec inattendu vaut « introuvable » */
+  async function load(): Promise<EpisodeInfo | null> {
+    if (!adapter.loadEpisodeInfo) return null;
+    try {
+      return await adapter.loadEpisodeInfo(episodeId, signal);
+    } catch (error: unknown) {
+      log.warn('Métadonnées de la plateforme indisponibles :', error);
+      return null;
+    }
+  }
+
   function destroy(): void {
     if (signal.aborted) return;
     controller.abort();
@@ -112,16 +129,27 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       return;
     }
 
-    // Relecture à la complétion (DOM complet), avec repli sur les métadonnées du démarrage
-    const episode = extract() ?? metadata;
+    // Réservé avant toute attente : le raccourci et la fin de lecture ne doivent pas envoyer deux fois
+    completionReported = true;
+    // Relecture à la complétion (DOM complet), avec repli sur les métadonnées du démarrage,
+    // puis nouvelle demande à la plateforme pour un adapter asynchrone
+    let episode = extract() ?? metadata;
+    if (!episode && adapter.loadEpisodeInfo && isCurrentEpisode()) episode = await load();
+    if (signal.aborted) return;
     if (!episode) {
+      completionReported = false;
+      // Catalogue généraliste : une vidéo non identifiée n'est généralement pas un anime, rien n'est affiché
+      if (adapter.quiet) {
+        log.warn('Épisode terminé mais métadonnées introuvables : complétion non envoyée (plateforme discrète)');
+        setState('idle');
+        return;
+      }
       log.error('Épisode terminé mais métadonnées introuvables : complétion non envoyée');
       setState('error', { status: 'error', message: t('content.unidentified.message') });
       showToast({ tone: 'error', title: t('content.unidentified.title'), message: t('content.unidentified.message') }, { autoHideMs: ALERT_TOAST_MS });
       return;
     }
 
-    completionReported = true;
     log.info(`✔ Épisode terminé : ${formatEpisode(episode)}`, episode);
 
     // Relus maintenant : une pause activée pendant l'épisode s'applique immédiatement
@@ -134,6 +162,11 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     if (await isSeriesExcluded(episode)) {
       log.info(`Série exclue (Réglages › Séries exclues) : épisode non envoyé (${platformSeriesKey(episode)})`);
       setState('excluded', { status: 'excluded', message: null });
+      return;
+    }
+    if (ignoredSeries.has(platformSeriesKey(episode))) {
+      log.info(`Série déjà ignorée par SyncKai (pas un anime) : épisode non envoyé (${platformSeriesKey(episode)})`);
+      setState('idle');
       return;
     }
     await syncWithFeedback(episode, settings.notificationLevel);
@@ -165,7 +198,8 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
    * Une erreur (réseau, AniList indisponible…) propose "Réessayer" : l'épisode n'est pas perdu.
    */
   async function syncWithFeedback(episode: EpisodeInfo, level: NotificationLevel, services: TrackerId[] | null = null): Promise<void> {
-    const toast = showsProgress(level)
+    // Plateforme discrète : pas de toast de progression (la série n'est peut-être pas un anime)
+    const toast = showsProgress(level) && !adapter.quiet
       ? showToast({ tone: 'info', title: t('common.syncing'), message: formatEpisodeShort(episode) })
       : null;
     setState('syncing');
@@ -177,6 +211,13 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     try {
       const outcome = await sendMessage('EPISODE_COMPLETED', { episode, services });
       log.info('Résultat de la synchronisation :', outcome);
+      // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, épisodes suivants non renvoyés
+      if (outcome.status === 'ignored') {
+        ignoredSeries.add(platformSeriesKey(episode));
+        toast?.dismiss();
+        setState('idle');
+        return;
+      }
       if (!signal.aborted) {
         const live = liveOutcomeOf(outcome);
         setState(live.state, live.outcome);
@@ -214,7 +255,8 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   async function waitForMetadata(): Promise<void> {
     // Après une navigation SPA, le DOM/JSON-LD peut encore décrire l'épisode précédent :
     // l'adapter rejette ces données périmées, on attend donc qu'elles soient à jour
-    metadata = await waitFor(extract, { signal, timeoutMs: METADATA_WAIT_TIMEOUT_MS });
+    // Adapter asynchrone (Netflix) : métadonnées demandées à la plateforme plutôt qu'attendues dans le DOM
+    metadata = adapter.loadEpisodeInfo ? await load() : await waitFor(extract, { signal, timeoutMs: METADATA_WAIT_TIMEOUT_MS });
     if (signal.aborted) return;
     if (metadata) log.info(`Épisode identifié : ${formatEpisode(metadata)}`, metadata);
     else log.warn('Métadonnées indisponibles pour l’instant, nouvel essai à la fin de l’épisode');
