@@ -18,7 +18,7 @@ describe('normalizeSettings', () => {
       airingAlerts: false,
       airingDelayHours: 3,
       language: 'de',
-      platformOffsets: { crunchyroll: 30, adn: -15 },
+      platformOffsets: { crunchyroll: 30, adn: -15, netflix: 90 },
       seriesOffsets: { '21': 120 },
       panelDefaultTab: 'agenda',
       panelLiveProgress: false,
@@ -38,9 +38,9 @@ describe('normalizeSettings', () => {
   });
 
   it('borne et arrondit les délais de plateforme, rejette les valeurs invalides', () => {
-    expect(normalizeSettings({ platformOffsets: { crunchyroll: 99_999, adn: -5000 } }).platformOffsets).toEqual({ crunchyroll: 10080, adn: -1440 });
-    expect(normalizeSettings({ platformOffsets: { crunchyroll: 12.6, adn: 'tard' } }).platformOffsets).toEqual({ crunchyroll: 13, adn: 60 });
-    expect(normalizeSettings({ platformOffsets: [1, 2] }).platformOffsets).toEqual({ crunchyroll: 60, adn: 60 });
+    expect(normalizeSettings({ platformOffsets: { crunchyroll: 99_999, adn: -5000, netflix: 7.4 } }).platformOffsets).toEqual({ crunchyroll: 10080, adn: -1440, netflix: 7 });
+    expect(normalizeSettings({ platformOffsets: { crunchyroll: 12.6, adn: 'tard' } }).platformOffsets).toEqual({ crunchyroll: 13, adn: 60, netflix: 60 });
+    expect(normalizeSettings({ platformOffsets: [1, 2] }).platformOffsets).toEqual({ crunchyroll: 60, adn: 60, netflix: 60 });
   });
 
   it('ne garde que les délais de série valides, dans la limite autorisée', () => {
@@ -61,7 +61,8 @@ describe('normalizeSettings', () => {
   });
 
   it('rejette un niveau de notification ou un lecteur inconnus', () => {
-    expect(normalizeSettings({ notificationLevel: 'bruyant', preferredPlayer: 'netflix' })).toMatchObject({
+    expect(normalizeSettings({ preferredPlayer: 'netflix' }).preferredPlayer).toBe('netflix');
+    expect(normalizeSettings({ notificationLevel: 'bruyant', preferredPlayer: 'hidive' })).toMatchObject({
       notificationLevel: 'discreet',
       preferredPlayer: 'crunchyroll',
     });

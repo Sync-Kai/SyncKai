@@ -234,7 +234,7 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
     airingAlerts: true,
     airingDelayHours: 0,
     language: locale,
-    platformOffsets: { crunchyroll: 60, adn: 60 },
+    platformOffsets: { crunchyroll: 60, adn: 60, netflix: 60 },
     seriesOffsets: {},
     panelDefaultTab: 'last',
     panelLiveProgress: true,

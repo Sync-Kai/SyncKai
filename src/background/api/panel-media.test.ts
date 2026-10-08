@@ -152,8 +152,9 @@ describe('liens « Regarder » des relations', () => {
   });
   const relation = (id: number) => parsePanelMedia(full)?.relations.find((r) => r.mediaId === id);
 
-  it('liens Crunchyroll / ADN extraits d’AniList : https, un par plateforme, autres sites ignorés', () => {
+  it('liens Crunchyroll / ADN / Netflix extraits d’AniList : https, un par plateforme, autres sites ignorés', () => {
     expect(relation(182255)?.platforms).toEqual([
+      { platform: 'netflix', url: 'https://www.netflix.com/title/1' },
       { platform: 'adn', url: 'https://animationdigitalnetwork.com/video/1234-frieren' },
       { platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/GG5H5XQ7D/frieren' },
     ]);
@@ -165,7 +166,10 @@ describe('liens « Regarder » des relations', () => {
     if (!sequel) throw new Error('relation absente');
     expect(choosePlatformLink(sequel, 'crunchyroll')?.platform).toBe('crunchyroll');
     expect(choosePlatformLink(sequel, 'adn')?.platform).toBe('adn');
-    expect(choosePlatformLink({ platforms: [sequel.platforms[1]] }, 'adn')?.platform).toBe('crunchyroll');
+    expect(choosePlatformLink({ platforms: [sequel.platforms[2]] }, 'adn')?.platform).toBe('crunchyroll');
+    expect(choosePlatformLink(sequel, 'netflix')?.platform).toBe('netflix');
+    // Repli dans l’ordre fixe des plateformes (Crunchyroll, ADN, Netflix), pas dans l’ordre des liens AniList
+    expect(choosePlatformLink({ platforms: [sequel.platforms[0], sequel.platforms[1]] }, 'crunchyroll')?.platform).toBe('adn');
     expect(choosePlatformLink({ platforms: [] }, 'adn')).toBeNull();
   });
 
@@ -203,6 +207,6 @@ describe('liens « Regarder » des relations', () => {
     if (!media) throw new Error('fiche absente');
     const legacy = { ...media, relations: media.relations.map(({ platforms: _, ...rest }) => rest) };
     expect(isPanelMedia(legacy)).toBe(false);
-    expect(isPanelMedia({ ...media, relations: [{ ...media.relations[0], platforms: [{ platform: 'netflix', url: 'x' }] }] })).toBe(false);
+    expect(isPanelMedia({ ...media, relations: [{ ...media.relations[0], platforms: [{ platform: 'hidive', url: 'x' }] }] })).toBe(false);
   });
 });

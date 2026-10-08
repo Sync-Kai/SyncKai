@@ -15,7 +15,7 @@ export interface SettingsSummary {
   tone: 'muted' | 'danger';
 }
 
-const PLAYER_NAMES: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN' };
+const PLAYER_NAMES: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix' };
 /** Langues affichées dans leur propre langue (comme le sélecteur) */
 const LANGUAGE_NAMES: Record<Locale, string> = { fr: 'Français', en: 'English', de: 'Deutsch' };
 /** Libellé court des services (« AniList ✓ · MAL ✓ ») */

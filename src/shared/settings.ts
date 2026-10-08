@@ -65,7 +65,7 @@ export const DEFAULT_SETTINGS: SyncSettings = {
   airingAlerts: true,
   airingDelayHours: 0,
   language: 'auto',
-  platformOffsets: { crunchyroll: 60, adn: 60 },
+  platformOffsets: { crunchyroll: 60, adn: 60, netflix: 60 },
   seriesOffsets: {},
   panelDefaultTab: 'last',
   panelLiveProgress: true,
@@ -75,7 +75,7 @@ export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
 
 const SETTINGS_KEY = 'settings';
 const NOTIFICATION_LEVELS: readonly NotificationLevel[] = ['discreet', 'detailed', 'alerts-only'];
-const PLAYERS: readonly StreamingPlatform[] = ['crunchyroll', 'adn'];
+const PLAYERS: readonly StreamingPlatform[] = ['crunchyroll', 'adn', 'netflix'];
 
 /** Délai en minutes (entier borné) ou null si invalide */
 export function normalizeOffset(value: unknown): number | null {
@@ -88,6 +88,7 @@ function normalizePlatformOffsets(raw: unknown): PlatformOffsets {
   return {
     crunchyroll: normalizeOffset(value.crunchyroll) ?? DEFAULT_SETTINGS.platformOffsets.crunchyroll,
     adn: normalizeOffset(value.adn) ?? DEFAULT_SETTINGS.platformOffsets.adn,
+    netflix: normalizeOffset(value.netflix) ?? DEFAULT_SETTINGS.platformOffsets.netflix,
   };
 }
 

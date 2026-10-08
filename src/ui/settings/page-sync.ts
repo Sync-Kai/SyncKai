@@ -14,6 +14,7 @@ const SHORTCUTS_URL = 'chrome://extensions/shortcuts';
 const PLAYER_OPTIONS = [
   { value: 'crunchyroll', label: 'Crunchyroll' },
   { value: 'adn', label: 'ADN' },
+  { value: 'netflix', label: 'Netflix' },
 ] as const satisfies readonly { value: StreamingPlatform; label: string }[];
 
 /** "Alt+Shift+S" → "Alt+Maj+S" (nom de la touche Maj dans la langue active) */

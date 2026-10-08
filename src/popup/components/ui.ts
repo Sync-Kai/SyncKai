@@ -12,7 +12,7 @@ export const BTN_PRIMARY =
   'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-sakura px-4 text-[12px] font-bold text-on-fill shadow-pop transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
 export const LINK = 'text-sakura hover:underline';
 
-export const PLATFORM_LABELS: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN' };
+export const PLATFORM_LABELS: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix' };
 
 export const SERVICE_CHIPS: Record<TrackerId, { short: string; class: string }> = {
   anilist: { short: 'AL', class: 'bg-anilist text-[11px]' },

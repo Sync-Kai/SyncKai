@@ -680,7 +680,7 @@
   "settings.percentage.fallbackLabel": "Ersatz-Prozentsatz",
   "settings.percentage.help": "Gilt ab der nächsten Folge",
   "settings.percentage.label": "Prozentsatz",
-  "settings.player.help": "Wird von „Öffnen“ verwendet, wenn der Anime auf beiden Plattformen verfügbar ist",
+  "settings.player.help": "Wird von „Öffnen“ verwendet, wenn der Anime auf mehreren Plattformen verfügbar ist",
   "settings.player.label": "Bevorzugter Player",
   "settings.ratingPrompt.help": "Eine Blase „Deine Bewertung?“, wenn eine Serie auf Abgeschlossen wechselt",
   "settings.ratingPrompt.label": "Am Serienende eine Bewertung anbieten",

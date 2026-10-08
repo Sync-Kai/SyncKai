@@ -12,7 +12,11 @@ export const PLATFORM_LINKS_KEY = 'platformLinks';
 /** Fiches mémorisées au plus (les moins récemment vues sont oubliées en premier) */
 export const MAX_PLATFORM_LINKS = 500;
 
-export const STREAMING_PLATFORMS: readonly StreamingPlatform[] = ['crunchyroll', 'adn'];
+/** Ordre fixe des plateformes (liens, réglages, repli de « Ouvrir ») */
+export const STREAMING_PLATFORMS: readonly StreamingPlatform[] = ['crunchyroll', 'adn', 'netflix'];
+
+/** Catalogue généraliste : jamais proposé en recherche (« Chercher sur… ») sans lien connu vers l'anime */
+const UNSEARCHED_PLATFORMS: ReadonlySet<StreamingPlatform> = new Set(['netflix']);
 
 /** Liens appris pour une fiche AniList */
 export interface LearnedLinks {
@@ -31,12 +35,13 @@ export function platformFromUrl(value: string): StreamingPlatform | null {
   const host = new URL(safe).hostname;
   if (host === 'crunchyroll.com' || host.endsWith('.crunchyroll.com')) return 'crunchyroll';
   if (/^(?:[\w-]+\.)*animationdigitalnetwork\.(?:com|fr|de)$/.test(host)) return 'adn';
+  if (host === 'netflix.com' || host.endsWith('.netflix.com')) return 'netflix';
   return null;
 }
 
 /**
  * Lien externe AniList → lien de plateforme. Les vieux liens AniList sont souvent en http
- * (« http://www.crunchyroll.com/naruto-shippuden ») : passés en https pour Crunchyroll / ADN uniquement,
+ * (« http://www.crunchyroll.com/naruto-shippuden ») : passés en https pour les plateformes SyncKai uniquement,
  * sinon le lien est écarté et « Ouvrir » ignore la plateforme.
  */
 export function platformLinkFromExternal(raw: string | null): PlatformLink | null {
@@ -58,6 +63,7 @@ export function platformLinkFromExternal(raw: string | null): PlatformLink | nul
 
 const CRUNCHYROLL_ID = /^[A-Z0-9]{4,20}$/i;
 const ADN_ID = /^\d{1,9}$/;
+const NETFLIX_ID = /^\d{1,12}$/;
 /** Slug d'URL (minuscules, chiffres, tirets) : tout autre caractère rend le lien douteux */
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -76,6 +82,9 @@ export function platformSeriesUrl(platform: StreamingPlatform, seriesId: string 
     case 'adn':
       if (seriesId === null || !ADN_ID.test(seriesId) || slug === null) return null;
       return `https://animationdigitalnetwork.com/video/${seriesId}-${slug}`;
+    case 'netflix':
+      if (seriesId === null || !NETFLIX_ID.test(seriesId)) return null;
+      return `https://www.netflix.com/title/${seriesId}`;
   }
 }
 
@@ -120,6 +129,8 @@ export function platformSearchUrl(platform: StreamingPlatform, title: string): s
       return `https://www.crunchyroll.com/search?q=${query}`;
     case 'adn':
       return `https://animationdigitalnetwork.com/video?search=${query}`;
+    case 'netflix':
+      return `https://www.netflix.com/search?q=${query}`;
   }
 }
 
@@ -195,9 +206,11 @@ export function mergePlatformLinks(...groups: readonly (readonly PlatformLink[])
   return merged;
 }
 
-/** Plateformes sans lien connu pour une série (proposées en recherche dans le menu « ⋯ ») */
+/** Plateformes sans lien connu pour une série (proposées en recherche dans le menu « ⋯ ») ; Netflix exclu */
 export function platformsWithoutLink(platforms: readonly PlatformLink[]): StreamingPlatform[] {
-  return STREAMING_PLATFORMS.filter((platform) => !platforms.some((link) => link.platform === platform));
+  return STREAMING_PLATFORMS.filter(
+    (platform) => !UNSEARCHED_PLATFORMS.has(platform) && !platforms.some((link) => link.platform === platform),
+  );
 }
 
 /**

@@ -41,7 +41,7 @@ const STORAGE_DEBOUNCE_MS = 250;
 /** Après une requête, pas de nouvelle requête automatique pour la même semaine avant ce délai (évite toute boucle) */
 const REFETCH_GUARD_MS = 60_000;
 
-const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', adn: 'ADN' };
+const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', adn: 'ADN', netflix: 'NF' };
 
 type Status =
   | { kind: 'loading' }

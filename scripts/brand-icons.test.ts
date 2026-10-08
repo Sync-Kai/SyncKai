@@ -7,8 +7,8 @@ describe('logos des plateformes et des services', () => {
   const source = readFileSync('src/ui/brand-icons.ts', 'utf8');
   const paths = [...source.matchAll(/src: '(\/brands\/[\w.-]+)'/g)].map((m) => m[1]);
 
-  it('quatre logos locaux (Crunchyroll, ADN, AniList, MyAnimeList)', () => {
-    expect(paths).toEqual(['/brands/crunchyroll.png', '/brands/adn.png', '/brands/anilist.png', '/brands/myanimelist.svg']);
+  it('cinq logos locaux (Crunchyroll, ADN, Netflix, AniList, MyAnimeList)', () => {
+    expect(paths).toEqual(['/brands/crunchyroll.png', '/brands/adn.png', '/brands/netflix.png', '/brands/anilist.png', '/brands/myanimelist.svg']);
   });
 
   it.each(paths)('%s : présent dans public/ et léger', (path) => {

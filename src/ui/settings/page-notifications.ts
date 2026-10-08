@@ -6,6 +6,7 @@ import { AIRING_DELAYS, type AiringDelayHours } from '../../shared/engagement.ty
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../shared/messages';
+import { STREAMING_PLATFORMS } from '../../shared/platform-links';
 import { normalizeOffset, OFFSET_RANGE, type NotificationLevel, type SyncSettings } from '../../shared/settings';
 import { BTN_GHOST, CARD, PLATFORM_LABELS, segmented } from '../../popup/components/ui';
 import { h, nodes, preserveFocus, type Child } from '../dom';
@@ -165,7 +166,7 @@ export function createNotificationsPage(ctx: SettingsContext): NotificationsPage
       'div',
       { class: 'flex flex-col gap-1.5 px-3 py-2.5', attrs: { role: 'group', 'aria-labelledby': 'sk-offsets-title' } },
       h('span', { class: 'text-[13px] font-bold', attrs: { id: 'sk-offsets-title' } }, t('settings.offsets.title')),
-      h('div', { class: 'flex flex-wrap items-center gap-x-4 gap-y-1.5' }, field('crunchyroll'), field('adn')),
+      h('div', { class: 'flex flex-wrap items-center gap-x-4 gap-y-1.5' }, ...STREAMING_PLATFORMS.map(field)),
       h('span', { class: HELP_TEXT, attrs: { id: 'sk-offsets-help' } }, t('settings.offsets.help')),
     );
   }

@@ -680,7 +680,7 @@
   "settings.percentage.fallbackLabel": "Fallback percentage",
   "settings.percentage.help": "Applies from the next episode",
   "settings.percentage.label": "Percentage",
-  "settings.player.help": "Used by “Open” when the anime is available on both platforms",
+  "settings.player.help": "Used by “Open” when the anime is available on several platforms",
   "settings.player.label": "Preferred player",
   "settings.ratingPrompt.help": "A “Your rating?” bubble when a series moves to Completed",
   "settings.ratingPrompt.label": "Offer to rate at the end of a series",

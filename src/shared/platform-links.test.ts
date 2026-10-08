@@ -35,6 +35,13 @@ describe('platformSeriesUrl', () => {
     expect(platformSeriesUrl('adn', 'abc', 'slug')).toBeNull();
     expect(platformSeriesUrl('adn', '12', 'slug/../x')).toBeNull();
   });
+
+  it('Netflix : page du titre, identifiant numérique uniquement', () => {
+    expect(platformSeriesUrl('netflix', '80987039', null)).toBe('https://www.netflix.com/title/80987039');
+    expect(platformSeriesUrl('netflix', '80987039', 'ignored-slug')).toBe('https://www.netflix.com/title/80987039');
+    expect(platformSeriesUrl('netflix', 'GRMG8ZQZR', null)).toBeNull();
+    expect(platformSeriesUrl('netflix', null, null)).toBeNull();
+  });
 });
 
 describe('platformSearchUrl', () => {
@@ -42,6 +49,7 @@ describe('platformSearchUrl', () => {
     expect(platformSearchUrl('crunchyroll', 'One Piece')).toBe('https://www.crunchyroll.com/search?q=One%20Piece');
     expect(platformSearchUrl('adn', ' Spy×Family & co ')).toBe('https://animationdigitalnetwork.com/video?search=Spy%C3%97Family%20%26%20Co');
     expect(platformSearchUrl('adn', 'Frieren?#/')).toBe('https://animationdigitalnetwork.com/video?search=Frieren%3F%23%2F');
+    expect(platformSearchUrl('netflix', 'Mushoku Tensei II')).toBe('https://www.netflix.com/search?q=Mushoku%20Tensei');
   });
 });
 
@@ -94,6 +102,8 @@ describe('fusion des liens', () => {
     expect(mergePlatformLinks(anilist, [CR, ADN], history)).toEqual([anilist[0], ADN]);
     expect(platformsWithoutLink([ADN])).toEqual(['crunchyroll']);
     expect(platformsWithoutLink([])).toEqual(['crunchyroll', 'adn']);
+    // Netflix (catalogue généraliste) n'est jamais proposé en recherche
+    expect(platformsWithoutLink([{ platform: 'netflix', url: 'https://www.netflix.com/title/1' }])).toEqual(['crunchyroll', 'adn']);
   });
 
   it('learnedLinksFor : ordre fixe, fiche inconnue ou MAL seule → aucun lien', () => {
@@ -172,12 +182,14 @@ describe('learnPlatformLink (stockage)', () => {
 });
 
 describe('platformLinkFromExternal', () => {
-  it('passe en https les vieux liens AniList http de Crunchyroll / ADN (ex. Naruto Shippuden)', () => {
+  it('passe en https les vieux liens AniList http de Crunchyroll / ADN / Netflix (ex. Naruto Shippuden)', () => {
     expect(platformLinkFromExternal('http://www.crunchyroll.com/naruto-shippuden')).toEqual({
       platform: 'crunchyroll',
       url: 'https://www.crunchyroll.com/naruto-shippuden',
     });
     expect(platformLinkFromExternal('http://animationdigitalnetwork.fr/video/1-x')?.platform).toBe('adn');
+    expect(platformLinkFromExternal('http://www.netflix.com/title/80987039')).toEqual({ platform: 'netflix', url: 'https://www.netflix.com/title/80987039' });
+    expect(platformLinkFromExternal('https://evilnetflix.com/title/1')).toBeNull();
   });
 
   it('ignore les autres sites, les URL invalides et les schémas non web', () => {

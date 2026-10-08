@@ -1,6 +1,6 @@
 import { isRecord } from './guards';
 
-export type StreamingPlatform = 'crunchyroll' | 'adn';
+export type StreamingPlatform = 'crunchyroll' | 'adn' | 'netflix';
 
 /**
  * Épisode détecté sur une plateforme de streaming.
@@ -30,7 +30,7 @@ export interface EpisodeInfo {
   url: string;
 }
 
-const PLATFORMS: Record<StreamingPlatform, true> = { crunchyroll: true, adn: true };
+const PLATFORMS: Record<StreamingPlatform, true> = { crunchyroll: true, adn: true, netflix: true };
 
 /** Plateforme de streaming connue de SyncKai (valeur venant d'un message ou du stockage) */
 export function isStreamingPlatform(value: unknown): value is StreamingPlatform {

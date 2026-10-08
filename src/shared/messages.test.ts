@@ -81,7 +81,7 @@ describe('RESOLVE_PAGE_MEDIA', () => {
   it('refuse une page incohérente ou invalide', () => {
     expect(isRuntimeMessage(message({ page: { ...seriesPage, kind: 'episode' }, mediaId: null }))).toBe(false);
     expect(isRuntimeMessage(message({ page: { ...seriesPage, episode }, mediaId: null }))).toBe(false);
-    expect(isRuntimeMessage(message({ page: { ...seriesPage, platform: 'netflix' }, mediaId: null }))).toBe(false);
+    expect(isRuntimeMessage(message({ page: { ...seriesPage, platform: 'hidive' }, mediaId: null }))).toBe(false);
     expect(isRuntimeMessage(message({ page: { ...seriesPage, seriesTitle: '' }, mediaId: null }))).toBe(false);
     expect(isRuntimeMessage(message({ page: { ...seriesPage, seriesTitle: 'x'.repeat(301) }, mediaId: null }))).toBe(false);
     expect(isRuntimeMessage(message({ page: { ...seriesPage, seasonNumber: 1.5 }, mediaId: null }))).toBe(false);

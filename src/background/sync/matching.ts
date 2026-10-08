@@ -142,6 +142,9 @@ export function matchPlatformLink(
       return matchCrunchyrollEpisodeLink(url, episodeId) ? 'episode' : matchCrunchyrollLink(url, seriesId, seriesSlug);
     case 'adn':
       return matchAdnLink(url, seriesId, seriesSlug);
+    case 'netflix':
+      // Pas encore de correspondance par lien Netflix
+      return null;
   }
 }
 

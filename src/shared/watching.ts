@@ -1,5 +1,6 @@
 import { getLocale, t, tl, type Locale } from '../i18n';
 import type { StreamingPlatform } from './episode.types';
+import { STREAMING_PLATFORMS } from './platform-links';
 import type { NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingSort } from './watching.types';
 
 // Fonctions pures partagées par le service worker (tri, liens) et le popup (affichage).
@@ -127,7 +128,13 @@ export function sortWatchingBy(entries: readonly WatchingEntry[], sort: Watching
  * La pastille de plateforme des jaquettes suit ce lien (même plateforme que « Ouvrir »).
  */
 export function choosePlatformLink(entry: Pick<WatchingEntry, 'platforms'>, preferred: StreamingPlatform): PlatformLink | null {
-  return entry.platforms.find((link) => link.platform === preferred) ?? entry.platforms[0] ?? null;
+  const byPlatform = (platform: StreamingPlatform): PlatformLink | undefined => entry.platforms.find((link) => link.platform === platform);
+  // Repli dans l'ordre fixe des plateformes (Crunchyroll, ADN, puis Netflix), pas dans l'ordre des liens
+  for (const platform of [preferred, ...STREAMING_PLATFORMS]) {
+    const link = byPlatform(platform);
+    if (link) return link;
+  }
+  return null;
 }
 
 /** Série mise en avant dans la carte « Reprendre » : la dernière synchronisée par SyncKai, sinon null. */

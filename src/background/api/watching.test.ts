@@ -34,12 +34,13 @@ describe('buildPlatforms', () => {
       { platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/OTHER' },
       learnedAdn,
     ]);
-    expect(links).toEqual([{ platform: 'crunchyroll', url: anilist[0].url }, learnedAdn]);
+    expect(links).toEqual([{ platform: 'crunchyroll', url: anilist[0].url }, { platform: 'netflix', url: anilist[1].url }, learnedAdn]);
   });
 
   it('sans lien appris : l’historique complète toujours AniList', () => {
     expect(buildPlatforms(anilist, [sync('adn', 'https://animationdigitalnetwork.com/video/1311-x/5-ep')])).toEqual([
       { platform: 'crunchyroll', url: anilist[0].url },
+      { platform: 'netflix', url: anilist[1].url },
       { platform: 'adn', url: 'https://animationdigitalnetwork.com/video/1311-x/5-ep' },
     ]);
     expect(buildPlatforms(null, [])).toEqual([]);

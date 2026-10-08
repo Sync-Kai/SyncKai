@@ -680,7 +680,7 @@
   "settings.percentage.fallbackLabel": "Pourcentage de repli",
   "settings.percentage.help": "Appliqué à partir de l’épisode suivant",
   "settings.percentage.label": "Pourcentage",
-  "settings.player.help": "Utilisé par « Ouvrir » quand l’anime est disponible sur les deux plateformes",
+  "settings.player.help": "Utilisé par « Ouvrir » quand l’anime est disponible sur plusieurs plateformes",
   "settings.player.label": "Lecteur préféré",
   "settings.ratingPrompt.help": "Une bulle « Ta note ? » quand une série passe en Terminé",
   "settings.ratingPrompt.label": "Proposer de noter en fin de série",
