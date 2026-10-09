@@ -44,13 +44,14 @@ Fonctionnalités
 Plateformes prises en charge
 • Crunchyroll
 • ADN (Animation Digital Network)
+• Netflix, en option (Réglages › Lecture & synchro) : animes liés à Netflix sur AniList uniquement, les autres titres sont ignorés
 
 Services de suivi
 • AniList
 • MyAnimeList
 
 Confidentialité
-SyncKai n'a pas de serveur. Tes données (réglages, correspondances, historique, connexions) restent dans le stockage local de ton navigateur. L'extension lit la page de l'épisode en cours sur Crunchyroll/ADN (et ton historique Crunchyroll, seulement si tu lances l'import) et n'échange tes données qu'avec AniList et MyAnimeList. Rien n'est envoyé au développeur.
+SyncKai n'a pas de serveur. Tes données (réglages, correspondances, historique, connexions) restent dans le stockage local de ton navigateur. L'extension lit la page de l'épisode en cours sur Crunchyroll/ADN (et Netflix, seulement si tu l'actives : l'accès à netflix.com t'est alors demandé), ton historique Crunchyroll seulement si tu lances l'import, et n'échange tes données qu'avec AniList et MyAnimeList. Rien n'est envoyé au développeur.
 
 Code source et signalement de problèmes : https://github.com/Sync-Kai/SyncKai
 ```

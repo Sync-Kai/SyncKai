@@ -16,12 +16,14 @@ SyncKai n’a **aucun serveur**. Tes données restent dans ton navigateur et ne 
 
 ### Données lues sur les pages
 
-Le content script s’exécute uniquement sur **crunchyroll.com** et **animationdigitalnetwork.com**. Sur une page d’épisode, il lit :
+Le content script s’exécute uniquement sur **crunchyroll.com** et **animationdigitalnetwork.com** (et sur **netflix.com** si tu l’actives, voir plus bas). Sur une page d’épisode, il lit :
 
 - le titre de la série, la saison et le numéro d’épisode ;
 - la position et la durée de lecture de la vidéo (pour détecter la fin de l’épisode).
 
 Il ne lit ni tes identifiants Crunchyroll/ADN, ni ton historique de navigation.
+
+**Netflix** (Réglages, facultatif) : seulement si tu l’actives, ton navigateur te demande l’accès à **netflix.com** ; le désactiver retire cet accès. Sur la page de lecture Netflix, SyncKai lit les mêmes informations (titre de la série, saison, numéro d’épisode, début du générique) en interrogeant, depuis ton onglet et avec la session de ce site, les métadonnées de la vidéo en cours, ainsi que la position de lecture. Il ne lit ni ton compte, ni ton profil, ni ton historique Netflix, et rien n’est envoyé à quiconque d’autre qu’AniList / MyAnimeList. Seuls les animes liés à Netflix sur AniList sont synchronisés : les autres titres sont ignorés, sans rien envoyer ni conserver.
 
 **Import depuis Crunchyroll** (Réglages, facultatif) : seulement quand tu le lances, SyncKai lit ton historique de visionnage Crunchyroll dans ton propre onglet Crunchyroll, avec la session de ce site. Rien n’est conservé hormis l’aperçu de l’import (séries, épisodes, progression prévue) ; rien n’est envoyé à quiconque d’autre qu’AniList / MyAnimeList. Le jeton temporaire de Crunchyroll reste dans l’onglet et n’est jamais enregistré.
 
@@ -53,6 +55,7 @@ SyncKai ne contacte que ces adresses :
 | `myanimelist.net`, `api.myanimelist.net` | Connexion OAuth et API MyAnimeList |
 | `static.crunchyroll.com` | Repères du générique de fin d’un épisode (sans cookies) |
 | `www.crunchyroll.com` | Import de l’historique, uniquement quand tu le lances, depuis ton onglet Crunchyroll |
+| `www.netflix.com` | Métadonnées de l’épisode en cours (titre, saison, numéro), uniquement si Netflix est activé, depuis ton onglet Netflix |
 
 Le popup affiche aussi les images de couverture et l’avatar fournis par AniList et MyAnimeList, chargés depuis leurs serveurs d’images.
 
@@ -81,12 +84,14 @@ SyncKai has **no server**. Your data stays in your browser and is only sent to A
 
 ### Data read from pages
 
-The content script runs only on **crunchyroll.com** and **animationdigitalnetwork.com**. On an episode page, it reads:
+The content script runs only on **crunchyroll.com** and **animationdigitalnetwork.com** (and on **netflix.com** if you turn it on, see below). On an episode page, it reads:
 
 - the series title, season and episode number;
 - the video playback position and duration (to detect the end of the episode).
 
 It does not read your Crunchyroll/ADN credentials or your browsing history.
+
+**Netflix** (Settings, optional): only if you turn it on, your browser asks you for access to **netflix.com**; turning it off removes that access. On the Netflix player page, SyncKai reads the same information (series title, season, episode number, credits start) by requesting the current video’s metadata from your tab, using that site’s session, plus the playback position. It does not read your Netflix account, profile or viewing history, and nothing is sent to anyone but AniList / MyAnimeList. Only anime linked to Netflix on AniList are synced: other titles are ignored, with nothing sent or kept.
 
 **Import from Crunchyroll** (Settings, optional): only when you start it, SyncKai reads your Crunchyroll watch history in your own Crunchyroll tab, using that site’s session. Nothing is kept except the import preview (series, episodes, planned progress); nothing is sent to anyone but AniList / MyAnimeList. Crunchyroll’s temporary token stays in the tab and is never saved.
 
@@ -118,6 +123,7 @@ SyncKai only contacts these hosts:
 | `myanimelist.net`, `api.myanimelist.net` | MyAnimeList OAuth sign-in and API |
 | `static.crunchyroll.com` | End-credits markers for an episode (no cookies) |
 | `www.crunchyroll.com` | History import, only when you start it, from your Crunchyroll tab |
+| `www.netflix.com` | Current episode metadata (title, season, number), only if Netflix is turned on, from your Netflix tab |
 
 The popup also displays cover images and avatars provided by AniList and MyAnimeList, loaded from their image servers.
 
@@ -146,12 +152,14 @@ SyncKai hat **keinen eigenen Server**. Deine Daten bleiben in deinem Browser und
 
 ### Von Seiten gelesene Daten
 
-Das Content-Script läuft nur auf **crunchyroll.com** und **animationdigitalnetwork.com**. Auf einer Episodenseite liest es:
+Das Content-Script läuft nur auf **crunchyroll.com** und **animationdigitalnetwork.com** (und auf **netflix.com**, wenn du es aktivierst, siehe unten). Auf einer Episodenseite liest es:
 
 - den Serientitel, die Staffel und die Episodennummer;
 - die Wiedergabeposition und Dauer des Videos (um das Ende der Episode zu erkennen).
 
 Es liest weder deine Crunchyroll-/ADN-Zugangsdaten noch deinen Browserverlauf.
+
+**Netflix** (Einstellungen, optional): nur wenn du es aktivierst, fragt dein Browser nach Zugriff auf **netflix.com**; beim Deaktivieren wird dieser Zugriff entfernt. Auf der Netflix-Wiedergabeseite liest SyncKai dieselben Informationen (Serientitel, Staffel, Episodennummer, Beginn des Abspanns), indem es aus deinem Tab, mit der Sitzung dieser Website, die Metadaten des laufenden Videos abfragt, sowie die Wiedergabeposition. Es liest weder dein Netflix-Konto noch dein Profil oder deinen Netflix-Verlauf, und gesendet wird nur an AniList / MyAnimeList. Synchronisiert werden nur Animes, die auf AniList mit Netflix verknüpft sind: andere Titel werden ignoriert, ohne etwas zu senden oder zu speichern.
 
 **Import von Crunchyroll** (Einstellungen, optional): nur wenn du ihn startest, liest SyncKai deinen Crunchyroll-Wiedergabeverlauf in deinem eigenen Crunchyroll-Tab, mit der Sitzung dieser Website. Gespeichert wird nur die Import-Vorschau (Serien, Folgen, geplanter Fortschritt); gesendet wird nur an AniList / MyAnimeList. Das temporäre Crunchyroll-Token bleibt im Tab und wird nie gespeichert.
 
@@ -183,6 +191,7 @@ SyncKai kontaktiert nur diese Hosts:
 | `myanimelist.net`, `api.myanimelist.net` | MyAnimeList-OAuth-Anmeldung und API |
 | `static.crunchyroll.com` | Abspann-Markierungen einer Episode (ohne Cookies) |
 | `www.crunchyroll.com` | Verlaufsimport, nur wenn du ihn startest, aus deinem Crunchyroll-Tab |
+| `www.netflix.com` | Metadaten der aktuellen Episode (Titel, Staffel, Nummer), nur wenn Netflix aktiviert ist, aus deinem Netflix-Tab |
 
 Das Popup zeigt außerdem Coverbilder und Avatare von AniList und MyAnimeList an, die von deren Bildservern geladen werden.
 

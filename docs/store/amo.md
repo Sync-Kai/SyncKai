@@ -35,4 +35,10 @@ Les tuiles promo du Chrome Web Store n'ont pas d'équivalent sur AMO.
 
 - Le paquet est minifié par Vite : AMO exige les sources. Le workflow joint `release/synckai-<version>-source.zip` (`git archive` du tag + `.source-date-epoch`), à reconstruire avec `npm ci && npm run build:firefox` (voir `BUILD.md`).
 - Le relecteur compare son build au paquet envoyé : les fichiers doivent être identiques (dépendances figées par `package-lock.json`, horodatage tiré de `.source-date-epoch`).
+- **Netflix (2.1.0)** : à signaler au relecteur (paragraphe ajouté à `version.approval_notes`, envoyé à chaque version) :
+  - accès `*://*.netflix.com/*` dans `optional_host_permissions` : demandé seulement quand l'utilisateur active « Synchroniser sur Netflix » (Réglages › Lecture & synchro), retiré à la désactivation ;
+  - permission `scripting` : enregistre (`registerContentScripts`) les deux scripts Netflix du paquet après cet accord, et les exécute une fois dans les onglets Netflix déjà ouverts ; aucun script distant, aucun `eval` ;
+  - script du monde `MAIN` (`src/content/netflix/page-bridge.iife.ts`) court et lisible, sans API `browser.*` : il interroge l'API de métadonnées de Netflix (même origine) et ne renvoie que titre, saisons, numéros d'épisode et générique (`reduceNetflixMetadata`) ;
+  - `web_accessible_resources` limité à `*://*.netflix.com/*` ;
+  - `data_collection_permissions` inchangées : les données lues sur Netflix restent du contenu de page (`websiteContent`) et de l'activité de lecture (`websiteActivity`).
 - Permissions de collecte (Firefox 142+ requis par AMO) : `data_collection_permissions.required` = `websiteContent`, `websiteActivity` (ajoutées par le build Firefox, `src/build/manifest-target.ts`).

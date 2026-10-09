@@ -46,6 +46,9 @@
 | --- | --- | --- | --- |
 | [Crunchyroll](https://www.crunchyroll.com) | Début du générique (repli au pourcentage) | | [AniList](https://anilist.co) |
 | [ADN](https://animationdigitalnetwork.com) | Pourcentage réglable | | [MyAnimeList](https://myanimelist.net) |
+| [Netflix](https://www.netflix.com) (facultatif, animes uniquement) | Début du générique (repli au pourcentage) | | |
+
+**Netflix** est désactivé par défaut : active-le dans *Réglages › Lecture & synchro*, le navigateur te demande alors l’accès à netflix.com. Netflix ne distinguant pas les animes, seules les séries liées à Netflix sur AniList sont synchronisées ; une série trouvée par son seul titre passe par une carte *À vérifier*, les autres titres sont ignorés sans bruit.
 
 Navigateurs : Chrome 116 ou plus récent (et navigateurs basés sur Chromium : Edge, Brave…), Firefox 142 ou plus récent (ordinateur).
 
@@ -75,6 +78,9 @@ La connexion AniList / MyAnimeList n’est autorisée que pour l’identifiant d
 
 **Mon épisode n’a pas été synchronisé.**
 Regarde d’abord la barre d’état du popup : élément à vérifier, synchro en attente ou session expirée (« Reconnecter »). Vérifie aussi que la synchro automatique n’est pas en pause et que la série n’est pas exclue (Réglages). Après une mise à jour de l’extension, recharge l’onglet du lecteur. En dernier recours, `Alt+Maj+S` valide l’épisode en cours.
+
+**Mon anime sur Netflix n’est pas synchronisé.**
+Vérifie que Netflix est activé (*Réglages › Lecture & synchro*). SyncKai ne synchronise que les séries dont la fiche AniList contient un lien vers Netflix : si ce lien manque, ajoute-le sur AniList (fiche › *Edit* › liens externes) ou choisis la fiche dans la carte *À vérifier* quand elle s’affiche.
 
 **SyncKai a choisi la mauvaise saison.**
 Dans *Activité › Dernières synchros*, clique sur **Corriger** et choisis la bonne fiche. Tu peux aussi « Oublier » une correspondance dans *Réglages › Correspondances* : elle sera recalculée au prochain épisode. Pense à corriger la progression enregistrée par erreur (bouton −1 dans *En cours*).
@@ -118,7 +124,7 @@ SyncKai n’est affilié ni à Crunchyroll, ni à ADN, ni à AniList, ni à MyAn
 
 ## In English
 
-**SyncKai** is a Chrome and Firefox extension that automatically updates your **AniList** and/or **MyAnimeList** list while you watch anime on **Crunchyroll** or **ADN**: the episode is marked as watched when the ending credits start (or at an adjustable percentage).
+**SyncKai** is a Chrome and Firefox extension that automatically updates your **AniList** and/or **MyAnimeList** list while you watch anime on **Crunchyroll**, **ADN** or, optionally, **Netflix** (anime linked to Netflix on AniList only): the episode is marked as watched when the ending credits start (or at an adjustable percentage).
 
 - Smart season matching, with review cards when a match is uncertain.
 - “Watching” list with next-episode countdown, sorting and an “Open” button for your preferred player (remembers the ADN series pages you visit, otherwise “Search on ADN”).
