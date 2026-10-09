@@ -18,7 +18,7 @@ import { matchCachedPageMedia, readCachedPageMedia, storeCachedPageMedia } from 
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../shared/platform-links';
-import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingResult, type WatchingSort } from '../shared/watching.types';
+import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingList, type WatchingResult, type WatchingSort } from '../shared/watching.types';
 import { h, nodes, preserveFocus } from '../ui/dom';
 import { formatStarValue } from '../ui/rating';
 import { mediaActionKey, runMediaAction, type MediaActionRequest } from '../ui/media-action-requests';
@@ -59,7 +59,6 @@ import {
 import { createLogger } from '../shared/logger';
 import { openSidePanel, sidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
-import { withTimeout } from '../shared/with-timeout';
 import { AUTH_ERRORS, createAccountsController } from '../ui/accounts';
 import { isSettingsPage, type SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView } from '../ui/settings/settings-view';
@@ -631,17 +630,29 @@ async function loadWatching(service: TrackerId): Promise<void> {
   watchingStore.set(cached ? { status: 'ready', service, list: cached, refreshing: true, error: null } : { status: 'loading', service });
 
   // 2. Revalidation par le service worker
-  let result: WatchingResult;
-  try {
-    // Service worker bloqué (verrou du stockage…) : erreur au bout du délai ; une réponse tardive est ignorée
-    result = await withTimeout(sendMessage('GET_WATCHING', { service }), popupTimeouts.watchingMs, (): WatchingResult => {
-      log.warn('GET_WATCHING sans réponse après', popupTimeouts.watchingMs, 'ms');
-      return { ok: false, code: 'NETWORK', message: t('popup.swTimeout') };
-    });
-  } catch (error: unknown) {
+  const response = sendMessage('GET_WATCHING', { service }).catch((error: unknown): WatchingResult => {
     log.error('Service worker injoignable :', error);
-    result = { ok: false, code: 'NETWORK', message: swUnreachable() };
+    return { ok: false, code: 'NETWORK', message: swUnreachable() };
+  });
+  // Service worker lent ou bloqué (verrou du stockage…) : erreur affichée au bout du délai, mais la réponse
+  // reste attendue et s'applique si elle arrive (sauf requête plus récente : « Réessayer », autre source)
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), popupTimeouts.watchingMs);
+  });
+  const first = await Promise.race([response, timedOut]);
+  clearTimeout(timer);
+  if (first) {
+    applyWatchingResult(request, service, cached, first);
+    return;
   }
+  log.warn('GET_WATCHING sans réponse après', popupTimeouts.watchingMs, 'ms');
+  applyWatchingResult(request, service, cached, { ok: false, code: 'NETWORK', message: t('popup.swTimeout') });
+  applyWatchingResult(request, service, cached, await response);
+}
+
+/** Affiche une réponse GET_WATCHING (ou l'erreur du délai), sauf si une requête plus récente est partie */
+function applyWatchingResult(request: number, service: TrackerId, cached: WatchingList | null, result: WatchingResult): void {
   if (request !== watchingRequest) return;
 
   if (result.ok) {

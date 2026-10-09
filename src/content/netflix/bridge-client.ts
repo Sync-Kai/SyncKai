@@ -1,10 +1,13 @@
 // Client du pont Netflix, côté script de contenu isolé : demande les métadonnées au script du monde MAIN
-// (page-bridge.iife.ts) et revalide la réponse. Délai de 5 s, 2 nouvelles tentatives, une seule requête
-// en vol par vidéo, cache LRU des 5 dernières séries (la réponse décrit toute la série : l'épisode suivant
-// de la lecture automatique est servi sans nouvelle requête).
+// (page-bridge.iife.ts) et revalide la réponse. Délai par tentative de 12 s, supérieur au fetch du pont
+// (10 s) : une réponse lente mais valide est toujours reçue par la tentative qui l'a demandée. 2 nouvelles
+// tentatives (pont muet, réseau, 5xx, 429), une seule requête en vol par vidéo, cache LRU des 5 dernières
+// séries (la réponse décrit toute la série : l'épisode suivant de la lecture automatique est servi sans
+// nouvelle requête).
 import {
   decodeNetflixResponse,
   encodeNetflixRequest,
+  NETFLIX_ATTEMPT_TIMEOUT_MS,
   NETFLIX_BRIDGE_VERSION,
   NETFLIX_MOVIE_ID_REGEX,
   NETFLIX_REQUEST_EVENT,
@@ -16,6 +19,7 @@ import {
 export interface NetflixBridgeClientOptions {
   /** Cible des événements (document en production, faux document dans les tests) */
   target: EventTarget;
+  /** Délai d'une tentative ; doit rester supérieur à NETFLIX_FETCH_TIMEOUT_MS */
   timeoutMs?: number;
   /** Nouvelles tentatives après un délai dépassé ou une erreur passagère */
   retries?: number;
@@ -31,7 +35,7 @@ export interface NetflixBridgeClient {
   peek(movieId: string): NetflixShowMetadata | null;
 }
 
-const DEFAULTS = { timeoutMs: 5_000, retries: 2, retryDelayMs: 500, cacheSize: 5 } as const;
+const DEFAULTS = { timeoutMs: NETFLIX_ATTEMPT_TIMEOUT_MS, retries: 2, retryDelayMs: 500, cacheSize: 5 } as const;
 
 /** Échec d'une tentative : `retry` si une nouvelle tentative a un sens (délai, réseau, erreur serveur) */
 type Attempt = { ok: true; data: NetflixShowMetadata } | { ok: false; retry: boolean };

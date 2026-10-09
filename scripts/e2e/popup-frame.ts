@@ -16,16 +16,21 @@ import { demoChrome, pageView, watchingList, type Scenario } from '../screenshot
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { localeParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
-import { E2E_PERSIST_KEY, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
+import { E2E_PERSIST_KEY, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
 const now = Date.now();
 const far = now + 30 * 24 * 3_600_000;
-/** `watching=hang` : pas de cache, le premier GET_WATCHING ne répond jamais (service worker bloqué) */
-const hangWatching = param('watching') === 'hang';
+/**
+ * Pas de cache, délai raccourci ; premier GET_WATCHING : `watching=hang` ne répond jamais (service worker
+ * bloqué), `watching=slow` répond après le délai d'attente (service worker lent)
+ */
+const watchingMode = param('watching');
+const hangWatching = watchingMode === 'hang';
+const slowWatching = watchingMode === 'slow';
 let watchingCalls = 0;
-if (hangWatching) popupTimeouts.watchingMs = E2E_WATCHING_TIMEOUT_MS;
+if (hangWatching || slowWatching) popupTimeouts.watchingMs = E2E_WATCHING_TIMEOUT_MS;
 
 const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [] };
 window.__e2e = trace;
@@ -144,14 +149,16 @@ installChromeMock({
     [STORAGE_KEYS.anilistToken]: { accessToken: PLANTED_SECRETS.anilistAccess, expiresAt: far },
     [STORAGE_KEYS.malToken]: { accessToken: PLANTED_SECRETS.malAccess, refreshToken: PLANTED_SECRETS.malRefresh, expiresAt: far },
     [DIAGNOSTICS_LOG_KEY]: journal,
-    ...(hangWatching ? { [STORAGE_KEYS.watchingCache]: {} } : {}),
+    ...(hangWatching || slowWatching ? { [STORAGE_KEYS.watchingCache]: {} } : {}),
   },
   handlers: {
     ...demo.handlers,
     GET_WATCHING: (payload) => {
-      if (hangWatching && ++watchingCalls === 1) return new Promise<never>(() => {});
+      const first = ++watchingCalls === 1;
+      if (hangWatching && first) return new Promise<never>(() => {});
       const service: TrackerId = isRecord(payload) && payload.service === 'mal' ? 'mal' : 'anilist';
-      return { ok: true, data: lists[service] };
+      const result = { ok: true, data: lists[service] };
+      return slowWatching && first ? new Promise((resolve) => setTimeout(() => resolve(result), E2E_WATCHING_SLOW_MS)) : result;
     },
     ADJUST_PROGRESS: adjustProgress,
     SET_LIST_STATUS: setListStatus,

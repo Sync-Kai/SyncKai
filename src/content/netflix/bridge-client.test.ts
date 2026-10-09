@@ -3,6 +3,8 @@ import { createNetflixBridgeClient } from './bridge-client';
 import {
   decodeNetflixRequest,
   encodeNetflixResponse,
+  NETFLIX_ATTEMPT_TIMEOUT_MS,
+  NETFLIX_FETCH_TIMEOUT_MS,
   NETFLIX_REQUEST_EVENT,
   NETFLIX_RESPONSE_EVENT,
   reduceNetflixMetadata,
@@ -18,8 +20,11 @@ const SHOW: NetflixShowMetadata = reduced;
 
 type Reply = (request: NetflixBridgeRequest) => Omit<Extract<NetflixBridgeResponse, { ok: true }>, 'v' | 'id'> | Omit<Extract<NetflixBridgeResponse, { ok: false }>, 'v' | 'id'> | null;
 
-/** Faux document : un script « MAIN » simulé répond (de façon asynchrone) selon `reply` ; null = pas de réponse */
-function fakeDocument(reply: Reply): { target: EventTarget; requests: NetflixBridgeRequest[] } {
+/**
+ * Faux document : un script « MAIN » simulé répond (de façon asynchrone, après `delayMs` si fourni) selon
+ * `reply` ; null = pas de réponse
+ */
+function fakeDocument(reply: Reply, delayMs?: number): { target: EventTarget; requests: NetflixBridgeRequest[] } {
   const target = new EventTarget();
   const requests: NetflixBridgeRequest[] = [];
   target.addEventListener(NETFLIX_REQUEST_EVENT, (event) => {
@@ -29,7 +34,8 @@ function fakeDocument(reply: Reply): { target: EventTarget; requests: NetflixBri
     requests.push(request);
     const body = reply(request);
     if (!body) return;
-    queueMicrotask(() => {
+    const respond = delayMs === undefined ? queueMicrotask : (callback: () => void): void => void setTimeout(callback, delayMs);
+    respond(() => {
       // Bruit : réponse d'une autre demande, puis détail illisible
       target.dispatchEvent(new CustomEvent(NETFLIX_RESPONSE_EVENT, { detail: encodeNetflixResponse({ v: 1, id: 'autre', ok: false, error: 'shape' }) }));
       target.dispatchEvent(new CustomEvent(NETFLIX_RESPONSE_EVENT, { detail: '{oops' }));
@@ -75,13 +81,26 @@ describe('createNetflixBridgeClient', () => {
     expect(requests).toHaveLength(1);
   });
 
-  it('délai dépassé : 2 nouvelles tentatives (5 s chacune), puis null', async () => {
+  it('le délai d’une tentative dépasse celui du fetch côté MAIN', () => {
+    expect(NETFLIX_ATTEMPT_TIMEOUT_MS).toBeGreaterThan(NETFLIX_FETCH_TIMEOUT_MS);
+  });
+
+  it('réponse lente (6 s) mais valide : acceptée dès la première tentative', async () => {
+    const { target, requests } = fakeDocument(() => ({ ok: true, data: SHOW }), 6_000);
+    const client = createNetflixBridgeClient({ target, newId });
+    const result = client.load('81402901', signal());
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(await result).toEqual(SHOW);
+    expect(requests).toHaveLength(1);
+  });
+
+  it('pont muet : 2 nouvelles tentatives (12 s chacune), puis null', async () => {
     const { target, requests } = fakeDocument(() => null);
     const client = createNetflixBridgeClient({ target, newId });
     const result = client.load('81402901', signal());
-    await vi.advanceTimersByTimeAsync(4_999);
+    await vi.advanceTimersByTimeAsync(NETFLIX_ATTEMPT_TIMEOUT_MS - 1);
     expect(requests).toHaveLength(1);
-    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.advanceTimersByTimeAsync(60_000);
     expect(await result).toBeNull();
     expect(requests).toHaveLength(3);
     expect(client.peek('81402901')).toBeNull();

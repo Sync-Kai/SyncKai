@@ -181,6 +181,29 @@ function chromeJournalStorage(): JournalStorage | null {
 /** Journal par défaut de l'extension, utilisé par `createLogger` */
 export const defaultJournal: Journal = createJournal(chromeJournalStorage);
 
+/**
+ * Écrit une entrée tout de suite, SANS prendre le verrou du stockage : réservé au diagnostic d'un verrou
+ * bloqué (storage-lock.ts), qu'un `record` ne pourrait jamais écrire tant que le verrou reste détenu.
+ * Course acceptée : une écriture verrouillée concurrente du journal peut écraser cette entrée, ou
+ * l'inverse (rare, diagnostic uniquement). Ne logue jamais et ne lève jamais.
+ */
+export async function recordUnlocked(
+  level: JournalLevel,
+  scope: string,
+  args: readonly unknown[],
+  storage: () => JournalStorage | null = chromeJournalStorage,
+  now: () => number = Date.now,
+): Promise<void> {
+  try {
+    const store = storage();
+    if (!store) return;
+    const entry: JournalEntry = { at: now(), level, scope, message: formatLogArgs(args) };
+    await store.write(appendToRing(await store.read(), [entry]));
+  } catch {
+    // Stockage indisponible : entrée perdue, jamais de log ici
+  }
+}
+
 /** Entrées valides du journal, de la plus ancienne à la plus récente */
 export async function readJournal(): Promise<JournalEntry[]> {
   const stored = await chrome.storage.local.get(DIAGNOSTICS_LOG_KEY);

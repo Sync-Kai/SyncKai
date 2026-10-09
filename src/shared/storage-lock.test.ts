@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from './error-journal';
 import { STORAGE_LOCK } from './storage-lock-core';
 import { LOCK_WAIT_WARN_MS, withStorageLock } from './storage-lock';
 
@@ -18,6 +19,17 @@ function fakeLocks() {
     ),
   };
   return { locks, grant: () => waiting.shift()?.() };
+}
+
+/** Faux chrome.storage.local (journal de diagnostic) */
+function fakeChrome() {
+  const data: Record<string, unknown> = {};
+  const local = {
+    get: vi.fn(async (key: string): Promise<Record<string, unknown>> => ({ [key]: data[key] })),
+    set: vi.fn(async (items: Record<string, unknown>): Promise<void> => void Object.assign(data, items)),
+  };
+  vi.stubGlobal('chrome', { runtime: { id: 'synckai-test' }, storage: { local } });
+  return { journal: (): JournalEntry[] => (data[DIAGNOSTICS_LOG_KEY] as JournalEntry[] | undefined) ?? [] };
 }
 
 let warn: ReturnType<typeof vi.spyOn>;
@@ -49,6 +61,7 @@ describe('withStorageLock', () => {
   it('attente > 10 s : un seul avertissement avec l’état du verrou, puis la tâche s’exécute normalement', async () => {
     const { locks, grant } = fakeLocks();
     vi.stubGlobal('navigator', { locks });
+    const { journal } = fakeChrome();
     const task = vi.fn(async () => 42);
     const result = withStorageLock(task);
 
@@ -60,9 +73,16 @@ describe('withStorageLock', () => {
     expect(line).toContain('[SyncKai:lock]');
     expect(line).toContain('détenu 1 [holder-1], en attente 1 [popup-2]');
     expect(task).not.toHaveBeenCalled();
+    // Entrée écrite au journal alors que le verrou est toujours détenu (aucune nouvelle demande de verrou)
+    await vi.advanceTimersByTimeAsync(100);
+    expect(journal()).toEqual([
+      expect.objectContaining({ level: 'warn', scope: 'lock', message: expect.stringContaining('détenu 1 [holder-1], en attente 1 [popup-2]') }),
+    ]);
+    expect(locks.request).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(LOCK_WAIT_WARN_MS * 3);
     expect(warn).toHaveBeenCalledTimes(1);
+    expect(journal()).toHaveLength(1);
 
     grant();
     await expect(result).resolves.toBe(42);

@@ -9,6 +9,14 @@ export const NETFLIX_BRIDGE_VERSION = 1;
 export const NETFLIX_REQUEST_EVENT = 'synckai:netflix:request';
 export const NETFLIX_RESPONSE_EVENT = 'synckai:netflix:response';
 
+/** Délai du fetch des métadonnées côté MAIN (page-bridge.iife.ts) */
+export const NETFLIX_FETCH_TIMEOUT_MS = 10_000;
+/**
+ * Délai d'une tentative côté client isolé : strictement supérieur au fetch, pour qu'une réponse lente mais
+ * valide arrive avant l'abandon (sinon elle porterait l'identifiant d'une tentative close et serait perdue).
+ */
+export const NETFLIX_ATTEMPT_TIMEOUT_MS = NETFLIX_FETCH_TIMEOUT_MS + 2_000;
+
 /** Identifiant de vidéo Netflix (/watch/{id}) */
 export const NETFLIX_MOVIE_ID_REGEX = /^\d{1,12}$/;
 

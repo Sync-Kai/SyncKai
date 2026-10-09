@@ -38,11 +38,16 @@ export interface FrameParams {
   hostAccess?: 'missing';
   /** Carte « Sur cette page » : série absente des deux listes */
   pageList?: 'missing';
-  /** Liste « En cours » sans cache et premier GET_WATCHING sans réponse (délai d'attente raccourci) */
-  watching?: 'hang';
+  /**
+   * Liste « En cours » sans cache, délai d'attente raccourci ; premier GET_WATCHING : `hang` sans réponse,
+   * `slow` répond après le délai (E2E_WATCHING_SLOW_MS)
+   */
+  watching?: 'hang' | 'slow';
   /** Carte « Sur cette page » : série ignorée (Netflix, pas un anime) */
   pageMedia?: 'untracked';
 }
 
-/** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang` */
+/** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */
 export const E2E_WATCHING_TIMEOUT_MS = 300;
+/** Réponse tardive au premier GET_WATCHING avec `watching=slow` (après le délai d'attente) */
+export const E2E_WATCHING_SLOW_MS = 1_500;

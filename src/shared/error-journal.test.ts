@@ -5,6 +5,7 @@ import {
   formatLogArgs,
   MAX_JOURNAL_ENTRIES,
   MAX_MESSAGE_LENGTH,
+  recordUnlocked,
   redactSecrets,
   type JournalEntry,
   type JournalStorage,
@@ -151,5 +152,32 @@ describe('createJournal', () => {
     );
     failing.record('error', 's', ['x']);
     await expect(failing.flush()).resolves.toBeUndefined();
+  });
+});
+
+describe('recordUnlocked', () => {
+  it('écrit tout de suite sans prendre le verrou, en respectant l’anneau', async () => {
+    const existing = Array.from({ length: MAX_JOURNAL_ENTRIES }, (_, i): JournalEntry => ({ at: i, level: 'warn', scope: 's', message: `e${i}` }));
+    const storage = memoryStorage(existing);
+    // Verrou détenu indéfiniment : une écriture verrouillée n'aboutirait jamais
+    const locked = { ...storage, lock: <T>(): Promise<T> => new Promise<T>(() => {}) };
+    await recordUnlocked('warn', 'lock', ['attendu', 'access_token=secret1'], () => locked, () => 99);
+    const entries = storage.value as JournalEntry[];
+    expect(entries).toHaveLength(MAX_JOURNAL_ENTRIES);
+    expect(entries[0]?.message).toBe('e1');
+    expect(entries.at(-1)).toEqual({ at: 99, level: 'warn', scope: 'lock', message: 'attendu access_token=[REDACTED]' });
+  });
+
+  it('ne lève jamais : stockage absent ou en échec', async () => {
+    await expect(recordUnlocked('warn', 's', ['x'], () => null)).resolves.toBeUndefined();
+    const failing: JournalStorage = { read: () => Promise.reject(new Error('quota')), write: () => Promise.resolve(), lock: (task) => task() };
+    await expect(recordUnlocked('warn', 's', ['x'], () => failing)).resolves.toBeUndefined();
+    await expect(
+      recordUnlocked('warn', 's', ['x'], () => {
+        throw new Error('contexte invalidé');
+      }),
+    ).resolves.toBeUndefined();
+    // Stockage par défaut (chrome absent sous Vitest)
+    await expect(recordUnlocked('warn', 's', ['x'])).resolves.toBeUndefined();
   });
 });

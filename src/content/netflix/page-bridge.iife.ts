@@ -7,6 +7,7 @@ import {
   decodeNetflixRequest,
   encodeNetflixResponse,
   NETFLIX_BRIDGE_VERSION,
+  NETFLIX_FETCH_TIMEOUT_MS,
   NETFLIX_REQUEST_EVENT,
   NETFLIX_RESPONSE_EVENT,
   reduceNetflixMetadata,
@@ -14,7 +15,6 @@ import {
 } from './bridge-protocol';
 
 const METADATA_URL = '/nq/website/memberapi/release/metadata';
-const FETCH_TIMEOUT_MS = 10_000;
 /** Garde contre une double injection (réenregistrement du script, navigation bfcache) */
 const INSTALLED_FLAG = Symbol.for('synckai.netflix.bridge');
 
@@ -25,7 +25,7 @@ async function fetchMetadata(movieId: string): Promise<ResponseBody> {
   const query = new URLSearchParams({ movieid: movieId, languages: 'en-US' });
   let response: Response;
   try {
-    response = await fetch(`${METADATA_URL}?${query.toString()}`, { credentials: 'include', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    response = await fetch(`${METADATA_URL}?${query.toString()}`, { credentials: 'include', signal: AbortSignal.timeout(NETFLIX_FETCH_TIMEOUT_MS) });
   } catch {
     return { ok: false, error: 'network' };
   }

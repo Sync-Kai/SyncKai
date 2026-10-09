@@ -1,7 +1,7 @@
-import { createLogger } from './logger';
+import { recordUnlocked } from './error-journal';
 import { requestStorageLock, STORAGE_LOCK } from './storage-lock-core';
 
-const log = createLogger('lock');
+const SCOPE = 'lock';
 
 /** Attente du verrou au-delà de laquelle un avertissement (unique) part dans le journal de diagnostic */
 export const LOCK_WAIT_WARN_MS = 10_000;
@@ -25,13 +25,17 @@ export async function describeStorageLock(): Promise<string> {
  * service worker partagent l'origine chrome-extension:// : le même verrou Web Locks les coordonne,
  * ce qui évite qu'une écriture en écrase une autre (ex : "Ignorer" pendant une synchro).
  *
- * Attente > LOCK_WAIT_WARN_MS : un seul avertissement, jamais attendu par la tâche. Sans risque de
- * boucle ni d'interblocage : `log.warn` ne fait que mettre l'entrée en file, et le journal l'écrit
- * plus tard via `requestStorageLock` (verrou brut, sans diagnostic), quitte à attendre lui aussi.
+ * Attente > LOCK_WAIT_WARN_MS : un seul avertissement, jamais attendu par la tâche. Il est écrit dans
+ * le journal SANS le verrou (`recordUnlocked`) : `log.warn` passerait par une écriture verrouillée,
+ * jamais faite si le verrou reste détenu, c'est-à-dire précisément le cas diagnostiqué.
  */
 export function withStorageLock<T>(task: () => Promise<T>): Promise<T> {
   const watchdog = setTimeout(() => {
-    void describeStorageLock().then((state) => log.warn(`Verrou du stockage attendu depuis plus de ${LOCK_WAIT_WARN_MS / 1000} s :`, state));
+    void describeStorageLock().then((state) => {
+      const args = [`Verrou du stockage attendu depuis plus de ${LOCK_WAIT_WARN_MS / 1000} s :`, state];
+      console.warn(`[SyncKai:${SCOPE}]`, ...args);
+      return recordUnlocked('warn', SCOPE, args);
+    });
   }, LOCK_WAIT_WARN_MS);
   return requestStorageLock(() => {
     clearTimeout(watchdog);

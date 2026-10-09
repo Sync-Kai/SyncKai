@@ -437,4 +437,14 @@ describe('popup (bout en bout)', () => {
     await page.waitForSelector(sel(`more-${SOLO}`));
     expect(await page.$('main [role="alert"]')).toBeNull();
   });
+
+  it('service worker lent sur GET_WATCHING : erreur au bout du délai, puis la réponse tardive affiche la liste sans « Réessayer »', async () => {
+    const page = await openPopup({ watching: 'slow' });
+    await page.waitForFunction((message: string) => document.querySelector('main [role="alert"]')?.textContent?.includes(message) ?? false, {}, fr('popup.swTimeout'));
+    expect(await watchingRows(page)).toEqual([]);
+
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    expect(await page.$('main [role="alert"]')).toBeNull();
+    expect(await sent(page, 'GET_WATCHING')).toHaveLength(1);
+  });
 });
