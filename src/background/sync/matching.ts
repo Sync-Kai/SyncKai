@@ -608,5 +608,10 @@ export function gateByPlatformLink(
   if (isTitleMatch) {
     return result.ok ? { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.netflixTitleOnly') } } : result;
   }
+  return ignoredResult(episode);
+}
+
+/** Verdict « série ignorée » (filtre ci-dessus, ou verdict mémorisé : voir ignored-series.ts) */
+export function ignoredResult(episode: Pick<EpisodeInfo, 'animeTitle'>): ResolveResult {
   return { ok: false, reason: t('match.noEntry', { title: episode.animeTitle }), ignored: true };
 }

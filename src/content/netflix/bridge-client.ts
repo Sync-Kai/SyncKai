@@ -1,31 +1,42 @@
 // Client du pont Netflix, côté script de contenu isolé : demande les métadonnées au script du monde MAIN
-// (page-bridge.iife.ts) et revalide la réponse. Délai par tentative de 12 s, supérieur au fetch du pont
-// (10 s) : une réponse lente mais valide est toujours reçue par la tentative qui l'a demandée. 2 nouvelles
-// tentatives (pont muet, réseau, 5xx, 429), une seule requête en vol par vidéo, cache LRU des 5 dernières
-// séries (la réponse décrit toute la série : l'épisode suivant de la lecture automatique est servi sans
-// nouvelle requête).
+// (page-bridge.iife.ts) sur un canal privé (MessageChannel, voir bridge-protocol.ts) et revalide la réponse.
+// Délai par tentative de 12 s, supérieur au fetch du pont (10 s) : une réponse lente mais valide est toujours
+// reçue par la tentative qui l'a demandée. 2 nouvelles tentatives (pont muet ou pas encore prêt, réseau, 5xx,
+// 429), une seule requête en vol par vidéo, cache LRU des 5 dernières séries (la réponse décrit toute la série :
+// l'épisode suivant de la lecture automatique est servi sans nouvelle requête).
 import {
+  decodeNetflixPortOffer,
   decodeNetflixResponse,
+  encodeNetflixHandshake,
   encodeNetflixRequest,
   NETFLIX_ATTEMPT_TIMEOUT_MS,
   NETFLIX_BRIDGE_VERSION,
+  NETFLIX_HANDSHAKE_EVENT,
   NETFLIX_MOVIE_ID_REGEX,
-  NETFLIX_REQUEST_EVENT,
-  NETFLIX_RESPONSE_EVENT,
   type NetflixBridgeResponse,
   type NetflixShowMetadata,
 } from './bridge-protocol';
 
 export interface NetflixBridgeClientOptions {
-  /** Cible des événements (document en production, faux document dans les tests) */
+  /** Cible de la demande d'ouverture du canal (document en production, faux document dans les tests) */
   target: EventTarget;
-  /** Délai d'une tentative ; doit rester supérieur à NETFLIX_FETCH_TIMEOUT_MS */
+  /** Réception de l'offre de port par `postMessage` (window en production) */
+  messages: EventTarget;
+  /** Origine attendue de l'offre (location.origin) */
+  origin: string;
+  /** Délai d'une tentative (ouverture du canal comprise) ; doit rester supérieur à NETFLIX_FETCH_TIMEOUT_MS */
   timeoutMs?: number;
   /** Nouvelles tentatives après un délai dépassé ou une erreur passagère */
   retries?: number;
   retryDelayMs?: number;
   cacheSize?: number;
+  /** Identifiants de corrélation et nonces d'ouverture */
   newId?: () => string;
+  /**
+   * Événement émis par le navigateur (vrai postMessage) et non par `dispatchEvent` d'un script de la page.
+   * Défaut : `event.isTrusted` ; remplacé dans les tests (Node : toujours faux).
+   */
+  isTrusted?: (event: Event) => boolean;
 }
 
 export interface NetflixBridgeClient {
@@ -66,16 +77,21 @@ function untilAborted<T>(promise: Promise<T | null>, signal: AbortSignal): Promi
 }
 
 export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): NetflixBridgeClient {
-  const { target } = options;
+  const { target, messages, origin } = options;
   const timeoutMs = options.timeoutMs ?? DEFAULTS.timeoutMs;
   const retries = options.retries ?? DEFAULTS.retries;
   const retryDelayMs = options.retryDelayMs ?? DEFAULTS.retryDelayMs;
   const cacheSize = options.cacheSize ?? DEFAULTS.cacheSize;
   const newId = options.newId ?? ((): string => crypto.randomUUID());
+  const isTrusted = options.isTrusted ?? ((event: Event): boolean => event.isTrusted);
 
   /** Clé : vidéo demandée ; ordre d'insertion = ancienneté d'usage (LRU) */
   const cache = new Map<string, NetflixShowMetadata>();
   const inFlight = new Map<string, Promise<NetflixShowMetadata | null>>();
+  /** Canal privé vers le pont, une fois ouvert ; réponses aiguillées par identifiant de corrélation */
+  let port: MessagePort | null = null;
+  let opening: Promise<MessagePort | null> | null = null;
+  const pending = new Map<string, (response: NetflixBridgeResponse) => void>();
 
   function remember(movieId: string, show: NetflixShowMetadata): void {
     cache.delete(movieId);
@@ -103,24 +119,78 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
     return null;
   }
 
-  /** Une demande au script MAIN ; l'écouteur est toujours retiré */
+  // Le port transféré est aussi visible des écouteurs `message` de la page : un MessageEvent synthétique
+  // qu'elle déclencherait sur ce port (dispatchEvent) n'est pas « trusted » et reste ignoré
+  function onPortMessage(event: Event): void {
+    if (!(event instanceof MessageEvent) || !isTrusted(event)) return;
+    const response = decodeNetflixResponse(event.data);
+    if (response) pending.get(response.id)?.(response);
+  }
+
+  /**
+   * Ouvre le canal : demande d'ouverture avec un nonce neuf, puis PREMIER port offert pour ce nonce (les offres
+   * suivantes ne sont plus écoutées). Pont absent ou pas encore prêt : null après `timeoutMs`, nouvel essai à la
+   * tentative suivante (nouveau nonce).
+   */
+  function openChannel(): Promise<MessagePort | null> {
+    const nonce = newId();
+    return new Promise((resolve) => {
+      const done = (offered: MessagePort | null): void => {
+        clearTimeout(timer);
+        messages.removeEventListener('message', onOffer);
+        resolve(offered);
+      };
+      const onOffer = (event: Event): void => {
+        // Offre synthétique (dispatchEvent) : elle passerait avant le vrai postMessage du pont → refusée
+        if (!(event instanceof MessageEvent) || !isTrusted(event) || event.origin !== origin) return;
+        if (decodeNetflixPortOffer(event.data)?.nonce !== nonce) return;
+        const [offered] = event.ports;
+        if (offered instanceof MessagePort) done(offered);
+      };
+      const timer = setTimeout(() => done(null), timeoutMs);
+      messages.addEventListener('message', onOffer);
+      target.dispatchEvent(new CustomEvent(NETFLIX_HANDSHAKE_EVENT, { detail: encodeNetflixHandshake({ v: NETFLIX_BRIDGE_VERSION, nonce }) }));
+    });
+  }
+
+  /** Canal ouvert, ou ouverture en cours partagée entre les demandes simultanées */
+  function connect(): Promise<MessagePort | null> {
+    if (port) return Promise.resolve(port);
+    opening ??= openChannel().then((offered) => {
+      opening = null;
+      if (offered) {
+        port = offered;
+        offered.addEventListener('message', onPortMessage);
+        offered.start(); // Obligatoire avec addEventListener (onmessage le ferait implicitement)
+      }
+      return offered;
+    });
+    return opening;
+  }
+
+  /** Une demande au script MAIN ; l'attente de la réponse est toujours retirée */
   function attempt(movieId: string): Promise<Attempt> {
     const id = newId();
     return new Promise((resolve) => {
+      let settled = false;
       const finish = (result: Attempt): void => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
-        target.removeEventListener(NETFLIX_RESPONSE_EVENT, onResponse);
+        pending.delete(id);
         resolve(result);
       };
-      const onResponse = (event: Event): void => {
-        if (!(event instanceof CustomEvent)) return;
-        const response = decodeNetflixResponse(event.detail);
-        if (!response || response.id !== id) return; // Réponse à une autre demande, ou forme invalide
-        finish(response.ok ? { ok: true, data: response.data } : { ok: false, retry: retryable(response) });
-      };
       const timer = setTimeout(() => finish({ ok: false, retry: true }), timeoutMs);
-      target.addEventListener(NETFLIX_RESPONSE_EVENT, onResponse);
-      target.dispatchEvent(new CustomEvent(NETFLIX_REQUEST_EVENT, { detail: encodeNetflixRequest({ v: NETFLIX_BRIDGE_VERSION, id, movieId }) }));
+      pending.set(id, (response) => {
+        if (!response.ok) return finish({ ok: false, retry: retryable(response) });
+        // Réponse décrivant une autre série ou un autre film (bande-annonce, /watch/{id de série}…) : rejetée
+        finish(containsMovie(response.data, movieId) ? { ok: true, data: response.data } : { ok: false, retry: false });
+      });
+      void connect().then((channel) => {
+        if (settled) return;
+        if (!channel) return finish({ ok: false, retry: true });
+        channel.postMessage(encodeNetflixRequest({ v: NETFLIX_BRIDGE_VERSION, id, movieId }));
+      });
     });
   }
 
@@ -141,12 +211,12 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
     if (!NETFLIX_MOVIE_ID_REGEX.test(movieId)) return Promise.resolve(null);
     const cached = peek(movieId);
     if (cached) return Promise.resolve(cached);
-    let pending = inFlight.get(movieId);
-    if (!pending) {
-      pending = fetchShow(movieId).finally(() => inFlight.delete(movieId));
-      inFlight.set(movieId, pending);
+    let pendingShow = inFlight.get(movieId);
+    if (!pendingShow) {
+      pendingShow = fetchShow(movieId).finally(() => inFlight.delete(movieId));
+      inFlight.set(movieId, pendingShow);
     }
-    return untilAborted(pending, signal);
+    return untilAborted(pendingShow, signal);
   }
 
   return { load, peek };

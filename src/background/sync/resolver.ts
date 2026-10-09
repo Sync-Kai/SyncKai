@@ -6,6 +6,8 @@ import type { RequestLane } from '../api/rate-limit';
 import {
   applyMapping,
   gateByPlatformLink,
+  ignoredResult,
+  LINK_REQUIRED_PLATFORMS,
   mappingKey,
   seasonLabel,
   matchPlatformLink,
@@ -19,6 +21,7 @@ import {
   type MediaCandidate,
   type ResolveResult,
 } from './matching';
+import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './season-groups';
 import { createLogger } from '../../shared/logger';
 
@@ -205,6 +208,13 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
     if (persist) await deleteMediaMapping(key);
   }
 
+  // Plateforme généraliste : série déjà ignorée (moins de 24 h) → aucune recherche AniList. Une correspondance
+  // enregistrée (choix manuel) l'emporte : vérifiée ci-dessus, et sa présence montre que la série est un anime.
+  if (LINK_REQUIRED_PLATFORMS.has(episode.platform) && !cached && (await isSeriesIgnored(episode))) {
+    log.info('Série déjà ignorée (verdict mémorisé) : pas de nouvelle recherche', episode.animeTitle);
+    return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
+  }
+
   const collected = await collectCandidates(episode, lane);
   const { candidates } = collected;
   // Diagnostic : fiches retenues comme appartenant à la série (les autres résultats de recherche sont omis)
@@ -218,6 +228,9 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   // Plateforme généraliste (Netflix) : filtre « anime » avant toute mise en cache (un résultat trouvé par le
   // titre seul n'est jamais fiable, donc jamais enregistré ; un choix manuel en carte enregistre la correspondance)
   const result = gateByPlatformLink(episode, candidates, resolveTarget(episode, candidates));
+  // Écrit aussi en lecture seule (persist: false, fiche de la page) : `persist` protège les correspondances
+  // de l'utilisateur, alors que ce verdict ne dépend que du catalogue AniList (même calcul, même résultat)
+  if (!result.ok && result.ignored) await rememberIgnoredSeries(episode);
   if (persist && result.ok && result.target.confidence === 'high') {
     const { mediaId, numbering, offset, episodes } = result.target;
     const mediaTitle = collected.media.find((m) => m.id === mediaId)?.displayTitle;

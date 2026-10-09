@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   /** Fin de lecture du lecteur simulé (onCompleted du suivi vidéo) */
   completions: [] as (() => void)[],
+  /** Messages warn/error : consignés au journal de diagnostic en production */
+  journaled: [] as unknown[][],
 }));
 
 vi.mock('../ui/toast', () => ({ showToast: mocks.showToast }));
@@ -20,7 +22,8 @@ vi.mock('../ui/engagement-prompt', () => ({ showEngagementPrompt: vi.fn() }));
 vi.mock('../../shared/messages', () => ({ sendMessage: mocks.sendMessage }));
 vi.mock('../../shared/logger', () => {
   const noop = (): void => undefined;
-  return { createLogger: () => ({ debug: noop, info: noop, warn: noop, error: noop }) };
+  const journal = (...args: unknown[]): void => void mocks.journaled.push(args);
+  return { createLogger: () => ({ debug: noop, info: noop, warn: journal, error: journal }) };
 });
 vi.mock('../../shared/exclusions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../shared/exclusions')>()),
@@ -108,6 +111,7 @@ async function watchToEnd(adapter: StreamingAdapter, watchId: string): Promise<v
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.journaled.length = 0;
   vi.stubGlobal('chrome', { runtime: { id: 'test' } });
   vi.stubGlobal('document', { fullscreenElement: null });
   mocks.showToast.mockReturnValue(toastHandle);
@@ -143,6 +147,8 @@ describe('startWatchSession — adapter asynchrone', () => {
     await watchToEnd(asyncAdapter({}), '1021');
     expect(mocks.sendMessage).not.toHaveBeenCalled();
     expect(mocks.showToast).not.toHaveBeenCalled();
+    // Bande-annonce, bonus regardés jusqu'au bout : cas normal, hors journal de diagnostic
+    expect(mocks.journaled).toEqual([]);
 
     // Envoi en cours : aucun toast de progression même en mode détaillé
     mocks.sendMessage.mockReturnValue(new Promise<SyncOutcome>(() => undefined));
@@ -201,6 +207,8 @@ describe('startWatchSession — adapter synchrone (inchangé)', () => {
     await flush();
     expect(mocks.sendMessage).not.toHaveBeenCalled();
     expect(mocks.showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'error' }), expect.anything());
+    // Plateforme d'animes : un épisode non identifié reste une anomalie consignée
+    expect(mocks.journaled.length).toBeGreaterThan(0);
     session.destroy();
   });
 });

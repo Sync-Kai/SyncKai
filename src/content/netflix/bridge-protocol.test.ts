@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  decodeNetflixHandshake,
+  decodeNetflixPortOffer,
   decodeNetflixRequest,
   decodeNetflixResponse,
+  encodeNetflixHandshake,
+  encodeNetflixPortOffer,
   encodeNetflixRequest,
   encodeNetflixResponse,
   isNetflixShowMetadata,
   NETFLIX_MAX_EPISODES,
   NETFLIX_MAX_TEXT,
+  NETFLIX_PORT_OFFER,
   reduceNetflixMetadata,
   type NetflixShowMetadata,
 } from './bridge-protocol';
@@ -141,5 +146,22 @@ describe('messages du pont (chaînes JSON)', () => {
     expect(decodeNetflixResponse(JSON.stringify({ v: 1, id: 'r4', ok: true, data: { showId: 'x' } }))).toBeNull();
     expect(decodeNetflixResponse(JSON.stringify({ v: 1, id: 'r5', ok: false, error: 'autre' }))).toBeNull();
     expect(decodeNetflixResponse(42)).toBeNull();
+  });
+
+  it('ouverture du canal : demande et offre de port en chaînes JSON, revalidées', () => {
+    const handshake = encodeNetflixHandshake({ v: 1, nonce: 'n1' });
+    expect(typeof handshake).toBe('string');
+    expect(decodeNetflixHandshake(handshake)).toEqual({ v: 1, nonce: 'n1' });
+    expect(decodeNetflixHandshake({ v: 1, nonce: 'n1' })).toBeNull();
+    expect(decodeNetflixHandshake(JSON.stringify({ v: 1, nonce: '' }))).toBeNull();
+    expect(decodeNetflixHandshake(JSON.stringify({ v: 2, nonce: 'n1' }))).toBeNull();
+
+    const offer = encodeNetflixPortOffer({ v: 1, type: NETFLIX_PORT_OFFER, nonce: 'n1' });
+    expect(decodeNetflixPortOffer(offer)).toEqual({ v: 1, type: NETFLIX_PORT_OFFER, nonce: 'n1' });
+    // Autres messages postMessage de la page : ignorés
+    expect(decodeNetflixPortOffer({ v: 1, type: NETFLIX_PORT_OFFER, nonce: 'n1' })).toBeNull();
+    expect(decodeNetflixPortOffer(JSON.stringify({ v: 1, type: 'autre', nonce: 'n1' }))).toBeNull();
+    expect(decodeNetflixPortOffer(JSON.stringify({ v: 1, type: NETFLIX_PORT_OFFER, nonce: 'x'.repeat(65) }))).toBeNull();
+    expect(decodeNetflixPortOffer(`${NETFLIX_PORT_OFFER}{`)).toBeNull();
   });
 });

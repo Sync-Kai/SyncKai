@@ -138,9 +138,10 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     if (signal.aborted) return;
     if (!episode) {
       completionReported = false;
-      // Catalogue généraliste : une vidéo non identifiée n'est généralement pas un anime, rien n'est affiché
+      // Catalogue généraliste : une vidéo non identifiée (bande-annonce, bonus…) n'est généralement pas un anime,
+      // cas normal → rien d'affiché ni consigné au journal (info, pas warn)
       if (adapter.quiet) {
-        log.warn('Épisode terminé mais métadonnées introuvables : complétion non envoyée (plateforme discrète)');
+        log.info('Épisode terminé mais métadonnées introuvables : complétion non envoyée (plateforme discrète)');
         setState('idle');
         return;
       }

@@ -76,7 +76,7 @@ export function creditsStartFromMetadata(show: NetflixShowMetadata | null, movie
 /** Créé à la première utilisation : le module est aussi importé hors navigateur (tests) */
 let client: NetflixBridgeClient | null = null;
 function bridge(): NetflixBridgeClient {
-  client ??= createNetflixBridgeClient({ target: document });
+  client ??= createNetflixBridgeClient({ target: document, messages: window, origin: location.origin });
   return client;
 }
 

@@ -1,13 +1,22 @@
 // Protocole du pont Netflix entre le script de la page (monde MAIN, page-bridge.iife.ts) et le script de
 // contenu isolé (content-netflix.iife.ts). Module PUR : aucun accès au DOM ni à chrome.*, importé des deux côtés.
 //
-// Échange par CustomEvent sur `document`, `detail` toujours en CHAÎNE JSON (Firefox : un objet créé dans un
-// monde n'est pas lisible tel quel dans l'autre, à cause des Xray wrappers).
+// Canal privé (MessageChannel) : les demandes et réponses ne passent jamais par un événement visible de la page.
+// 1. Le client isolé émet NETFLIX_HANDSHAKE_EVENT (CustomEvent sur `document`) avec un nonce aléatoire.
+// 2. Le pont (écouteur en capture sur `window`, posé à `document_start` avant tout script de la page : il passe
+//    en premier) crée un MessageChannel, garde port1 et transfère port2 par
+//    `window.postMessage(offre, location.origin, [port2])`.
+// 3. Le client n'accepte que le PREMIER port reçu pour son nonce, par un vrai postMessage (`isTrusted`) : une
+//    offre forgée par la page arrive forcément après, un événement synthétique (dispatchEvent) est refusé.
+// Toutes les charges utiles sont des CHAÎNES JSON (Firefox : un objet créé dans un monde n'est pas lisible tel
+// quel dans l'autre, à cause des Xray wrappers ; une chaîne est copiée).
 import { isRecord } from '../../shared/guards';
 
 export const NETFLIX_BRIDGE_VERSION = 1;
-export const NETFLIX_REQUEST_EVENT = 'synckai:netflix:request';
-export const NETFLIX_RESPONSE_EVENT = 'synckai:netflix:response';
+/** Ouverture du canal (client isolé → pont), detail = NetflixHandshake en chaîne JSON */
+export const NETFLIX_HANDSHAKE_EVENT = 'synckai:netflix:handshake';
+/** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
+export const NETFLIX_PORT_OFFER = 'synckai:netflix:port';
 
 /** Délai du fetch des métadonnées côté MAIN (page-bridge.iife.ts) */
 export const NETFLIX_FETCH_TIMEOUT_MS = 10_000;
@@ -58,6 +67,18 @@ export interface NetflixShowMetadata {
   creditsOffset: number | null;
   /** Film : [] */
   seasons: NetflixSeasonMetadata[];
+}
+
+export interface NetflixHandshake {
+  v: typeof NETFLIX_BRIDGE_VERSION;
+  /** Aléatoire (crypto.randomUUID) : relie l'offre de port à cette demande d'ouverture */
+  nonce: string;
+}
+
+export interface NetflixPortOffer {
+  v: typeof NETFLIX_BRIDGE_VERSION;
+  type: typeof NETFLIX_PORT_OFFER;
+  nonce: string;
 }
 
 export interface NetflixBridgeRequest {
@@ -192,6 +213,29 @@ function parseJson(detail: unknown): unknown {
 }
 
 const isCorrelationId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= MAX_ID_LENGTH;
+
+export function encodeNetflixHandshake(handshake: NetflixHandshake): string {
+  return JSON.stringify(handshake);
+}
+
+export function decodeNetflixHandshake(detail: unknown): NetflixHandshake | null {
+  const value = parseJson(detail);
+  if (!isRecord(value) || value.v !== NETFLIX_BRIDGE_VERSION || !isCorrelationId(value.nonce)) return null;
+  return { v: NETFLIX_BRIDGE_VERSION, nonce: value.nonce };
+}
+
+export function encodeNetflixPortOffer(offer: NetflixPortOffer): string {
+  return JSON.stringify(offer);
+}
+
+/** Message `window.postMessage` quelconque (la page en émet d'autres) → offre de port, ou null */
+export function decodeNetflixPortOffer(data: unknown): NetflixPortOffer | null {
+  // Filtre bon marché avant JSON.parse : la plupart des messages de la page ne sont pas des chaînes
+  if (typeof data !== 'string' || !data.includes(NETFLIX_PORT_OFFER) || data.length > 1_000) return null;
+  const value = parseJson(data);
+  if (!isRecord(value) || value.v !== NETFLIX_BRIDGE_VERSION || value.type !== NETFLIX_PORT_OFFER || !isCorrelationId(value.nonce)) return null;
+  return { v: NETFLIX_BRIDGE_VERSION, type: NETFLIX_PORT_OFFER, nonce: value.nonce };
+}
 
 export function encodeNetflixRequest(request: NetflixBridgeRequest): string {
   return JSON.stringify(request);
