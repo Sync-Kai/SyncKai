@@ -530,6 +530,7 @@
   "popup.queueReadFailed": "Couldn't read pending syncs.",
   "popup.ratingsReadFailed": "Couldn't read the series to rate.",
   "popup.sessionReadFailed": "Couldn't read the session.",
+  "popup.swTimeout": "The extension isn't responding. Try again in a moment.",
   "popup.swUnreachable": "Couldn't reach the extension. Try again.",
   "popup.syncDisabled": "Sync turned off",
   "popup.syncDisabledDetail": "Can be re-enabled in Settings › Excluded series",

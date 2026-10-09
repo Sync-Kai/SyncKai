@@ -530,6 +530,7 @@
   "popup.queueReadFailed": "Ausstehende Synchronisierungen konnten nicht gelesen werden.",
   "popup.ratingsReadFailed": "Zu bewertende Serien konnten nicht gelesen werden.",
   "popup.sessionReadFailed": "Sitzung konnte nicht gelesen werden.",
+  "popup.swTimeout": "Die Erweiterung antwortet nicht. Versuche es gleich noch einmal.",
   "popup.swUnreachable": "Erweiterung nicht erreichbar. Versuche es erneut.",
   "popup.syncDisabled": "Synchronisierung deaktiviert",
   "popup.syncDisabledDetail": "Reaktivierbar unter Einstellungen › Ausgeschlossene Serien",

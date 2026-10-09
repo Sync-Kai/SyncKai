@@ -14,12 +14,17 @@ import type { WatchingEntry, WatchingList } from '../../src/shared/watching.type
 import { demoChrome, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { localeParam, param } from '../screenshots/params';
-import { E2E_PERSIST_KEY, PLANTED_SECRETS, type E2EState } from './protocol';
+import { popupTimeouts } from '../../src/popup/timeouts';
+import { E2E_PERSIST_KEY, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
 const now = Date.now();
 const far = now + 30 * 24 * 3_600_000;
+/** `watching=hang` : pas de cache, le premier GET_WATCHING ne répond jamais (service worker bloqué) */
+const hangWatching = param('watching') === 'hang';
+let watchingCalls = 0;
+if (hangWatching) popupTimeouts.watchingMs = E2E_WATCHING_TIMEOUT_MS;
 
 const trace: E2EState = { messages: [], permissionRequests: [], clipboard: [] };
 window.__e2e = trace;
@@ -138,10 +143,12 @@ installChromeMock({
     [STORAGE_KEYS.anilistToken]: { accessToken: PLANTED_SECRETS.anilistAccess, expiresAt: far },
     [STORAGE_KEYS.malToken]: { accessToken: PLANTED_SECRETS.malAccess, refreshToken: PLANTED_SECRETS.malRefresh, expiresAt: far },
     [DIAGNOSTICS_LOG_KEY]: journal,
+    ...(hangWatching ? { [STORAGE_KEYS.watchingCache]: {} } : {}),
   },
   handlers: {
     ...demo.handlers,
     GET_WATCHING: (payload) => {
+      if (hangWatching && ++watchingCalls === 1) return new Promise<never>(() => {});
       const service: TrackerId = isRecord(payload) && payload.service === 'mal' ? 'mal' : 'anilist';
       return { ok: true, data: lists[service] };
     },

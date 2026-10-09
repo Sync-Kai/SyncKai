@@ -36,4 +36,9 @@ export interface FrameParams {
   hostAccess?: 'missing';
   /** Carte « Sur cette page » : série absente des deux listes */
   pageList?: 'missing';
+  /** Liste « En cours » sans cache et premier GET_WATCHING sans réponse (délai d'attente raccourci) */
+  watching?: 'hang';
 }
+
+/** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang` */
+export const E2E_WATCHING_TIMEOUT_MS = 300;

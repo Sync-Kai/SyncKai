@@ -11,7 +11,7 @@ import { isWatchingList, type WatchingList } from './watching.types';
 import { PLATFORM_LINKS_KEY } from './platform-links';
 import { withStorageLock } from './storage-lock';
 
-// Verrou déplacé dans storage-lock.ts (importé par le logger) ; réexporté pour les modules existants
+// Verrou défini dans storage-lock.ts ; réexporté pour les modules existants
 export { withStorageLock };
 
 export const MAX_PENDING_REVIEWS = 20;

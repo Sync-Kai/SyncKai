@@ -530,6 +530,7 @@
   "popup.queueReadFailed": "Impossible de lire les synchros en attente.",
   "popup.ratingsReadFailed": "Impossible de lire les séries à noter.",
   "popup.sessionReadFailed": "Impossible de lire la session.",
+  "popup.swTimeout": "L’extension ne répond pas. Réessaie dans un instant.",
   "popup.swUnreachable": "Impossible de contacter l’extension. Réessaie.",
   "popup.syncDisabled": "Synchro désactivée",
   "popup.syncDisabledDetail": "Réactivable dans Réglages › Séries exclues",

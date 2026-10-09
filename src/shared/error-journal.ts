@@ -1,5 +1,5 @@
 import { isRecord } from './guards';
-import { withStorageLock } from './storage-lock';
+import { requestStorageLock } from './storage-lock-core';
 
 // Journal local des warn/error (rapport de diagnostic). Règle absolue : ce module ne logue jamais
 // (le logger l'appelle, tout log ici bouclerait) et ne lève jamais.
@@ -174,7 +174,7 @@ function chromeJournalStorage(): JournalStorage | null {
     write: (entries) => local.set({ [DIAGNOSTICS_LOG_KEY]: entries }),
     // Web Locks par origine : partagé entre popup / page d'import / service worker ; dans un content
     // script, il ne sérialise que les écritures de cette origine (course rare avec le service worker)
-    lock: (task) => (typeof navigator !== 'undefined' && navigator.locks ? withStorageLock(task) : task()),
+    lock: (task) => (typeof navigator !== 'undefined' && navigator.locks ? requestStorageLock(task) : task()),
   };
 }
 
@@ -189,5 +189,5 @@ export async function readJournal(): Promise<JournalEntry[]> {
 }
 
 export function clearJournal(): Promise<void> {
-  return withStorageLock(() => chrome.storage.local.remove(DIAGNOSTICS_LOG_KEY));
+  return requestStorageLock(() => chrome.storage.local.remove(DIAGNOSTICS_LOG_KEY));
 }

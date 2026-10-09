@@ -383,4 +383,16 @@ describe('popup (bout en bout)', () => {
     // Accès accordé : le bandeau disparaît
     await page.waitForSelector(sel('host-access'), { hidden: true });
   });
+
+  it('service worker muet sur GET_WATCHING : erreur et « Réessayer » au bout du délai, puis la liste', async () => {
+    const page = await openPopup({ watching: 'hang' });
+    await page.waitForFunction((message: string) => document.querySelector('main [role="alert"]')?.textContent?.includes(message) ?? false, {}, fr('popup.swTimeout'));
+    expect(await watchingRows(page)).toEqual([]);
+
+    const retry = await page.waitForSelector(`::-p-xpath(//main//*[@role="alert"]//button[normalize-space()="${fr('common.retry')}"])`);
+    await retry?.click();
+    await waitForMessage(page, 'GET_WATCHING', 2);
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    expect(await page.$('main [role="alert"]')).toBeNull();
+  });
 });

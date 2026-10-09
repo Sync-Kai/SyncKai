@@ -6,6 +6,7 @@
 type StorageItems = Record<string, unknown>;
 type StorageChanges = Record<string, chrome.storage.StorageChange>;
 type ChangeListener = (changes: StorageChanges, areaName: string) => void;
+/** Réponse du « service worker » ; une promesse simule une réponse lente (ou absente) */
 type MessageHandler = (payload: unknown) => unknown;
 
 /** Message envoyé au « service worker » (chrome.runtime.sendMessage) */
@@ -188,7 +189,9 @@ export function installChromeMock(options: ChromeMockOptions): void {
         options.onSendMessage?.(clone(message));
         const handler = options.handlers[message.type];
         if (!handler) return Promise.reject(new Error(`Message non simulé : ${message.type}`));
-        return Promise.resolve(clone(handler(message.payload)));
+        // Réponse asynchrone acceptée (tests : service worker lent ou qui ne répond jamais)
+        const response = handler(message.payload);
+        return response instanceof Promise ? response.then(clone) : Promise.resolve(clone(response));
       },
       onMessage: event,
     },

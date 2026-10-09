@@ -37,6 +37,7 @@ import { renderPageMediaCard } from './components/page-media-card';
 import { entryKey, renderWatchingScreen } from './components/watching-screen';
 import { adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from './feedback';
 import { getPendingRatings, PENDING_RATINGS_KEY, removePendingRating } from './pending-ratings';
+import { popupTimeouts } from './timeouts';
 import {
   createStore,
   type AccountState,
@@ -58,6 +59,7 @@ import {
 import { createLogger } from '../shared/logger';
 import { openSidePanel, sidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
+import { withTimeout } from '../shared/with-timeout';
 import { AUTH_ERRORS, createAccountsController } from '../ui/accounts';
 import { isSettingsPage, type SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView } from '../ui/settings/settings-view';
@@ -631,7 +633,11 @@ async function loadWatching(service: TrackerId): Promise<void> {
   // 2. Revalidation par le service worker
   let result: WatchingResult;
   try {
-    result = await sendMessage('GET_WATCHING', { service });
+    // Service worker bloqué (verrou du stockage…) : erreur au bout du délai ; une réponse tardive est ignorée
+    result = await withTimeout(sendMessage('GET_WATCHING', { service }), popupTimeouts.watchingMs, (): WatchingResult => {
+      log.warn('GET_WATCHING sans réponse après', popupTimeouts.watchingMs, 'ms');
+      return { ok: false, code: 'NETWORK', message: t('popup.swTimeout') };
+    });
   } catch (error: unknown) {
     log.error('Service worker injoignable :', error);
     result = { ok: false, code: 'NETWORK', message: swUnreachable() };
