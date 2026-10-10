@@ -13,7 +13,7 @@ SyncKai automatically updates the user's anime list on AniList and/or MyAnimeLis
 ### storage
 
 ```
-Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens. Everything is kept in chrome.storage.local on the user's device; nothing is sent to the developer.
+Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens. Everything is kept in chrome.storage.local on the user's device, except short-lived caches (the entry shown for the current page, the side panel data, Netflix series recognized as not anime) kept in chrome.storage.session, in memory and cleared when the browser closes. Nothing is sent to the developer.
 ```
 
 ### identity
@@ -65,14 +65,12 @@ Declared in `optional_host_permissions` (requested at runtime, never at install)
 |---|---|
 | `*://*.netflix.com/*` | Optional Netflix support (anime only). Requested only when the user turns on Settings › Playback & sync › "Sync on Netflix", from that click; turning it off removes the access. On a Netflix player page, SyncKai reads the video being played (series title, season, episode number, credits start time) through Netflix's own episode metadata endpoint, same origin, from the user's own tab, plus the `<video>` element's playback position. No Netflix account, profile or viewing-history data is read or sent. Only series linked to Netflix on AniList are synced; any other title is ignored silently. |
 
-```
-netflix.com (optional, requested only when the user turns on Netflix in Settings): on a Netflix player page, the extension reads the series title, season and episode number of the video being played (same-origin request to Netflix's episode metadata, from the user's own tab) and the video's playback position to detect the credits. No Netflix account or profile data is read or sent anywhere. Only anime linked to Netflix on AniList are synced to the user's AniList/MyAnimeList list; any other title is ignored.
-```
-
 Note: there is **no** host permission for ADN. `animationdigitalnetwork.com` is only covered by the content-script `matches` below; the ADN adapter reads the page and makes no network request.
 
+The dashboard has a single "Host permission justification" field (1000 characters max), covering both `host_permissions` and `optional_host_permissions`: paste this block.
+
 ```
-crunchyroll.com: the content script detects the episode being played (JSON-LD on the page, video element) and fetches Crunchyroll's public skip-events JSON (static.crunchyroll.com) to know when the credits start; only when the user starts "Import from Crunchyroll", it also reads the user's watch history in their own Crunchyroll tab. graphql.anilist.co: AniList API, to match the series and save the user's progress. myanimelist.net: MyAnimeList OAuth2 token endpoint (sign-in and token refresh). api.myanimelist.net: MyAnimeList API, to read the user's list and save progress. No other site is accessed.
+crunchyroll.com: detects the episode being played (page JSON-LD, video element) and fetches Crunchyroll's public skip-events JSON (static.crunchyroll.com) to know when the credits start; only when the user starts "Import from Crunchyroll", reads their watch history in their own tab. graphql.anilist.co: AniList API, to match the series and save progress. myanimelist.net: MyAnimeList OAuth2 token endpoint (sign-in, token refresh). api.myanimelist.net: MyAnimeList API, to read the list and save progress. netflix.com (optional, requested only when the user turns Netflix on in Settings, removed when turned off): on a Netflix player page, reads the title, season and episode number of the video (same-origin metadata request from the user's tab) and its playback position. No Netflix account or profile data is read or sent. Only anime linked to Netflix on AniList are synced. No other site is accessed.
 ```
 
 ### Content-script matches
@@ -99,7 +97,7 @@ The content script runs on these sites only. It reads the current episode page (
 **Are you using remote code? → No**
 
 ```
-No. All JavaScript is bundled in the extension package. The extension only fetches JSON data (AniList GraphQL, MyAnimeList REST, Crunchyroll skip-events, Netflix episode metadata when the user has turned Netflix on); it never loads or evaluates remote scripts. The optional Netflix scripts are files of the package, registered with chrome.scripting.
+No. All JavaScript is bundled in the extension package. The extension only fetches JSON data (AniList GraphQL, MyAnimeList REST, Crunchyroll skip-events, the user's Crunchyroll watch history only when they start "Import from Crunchyroll", Netflix episode metadata when the user has turned Netflix on); it never loads or evaluates remote scripts. The optional Netflix scripts are files of the package, registered with chrome.scripting.
 ```
 
 ## Data usage disclosure
@@ -114,14 +112,14 @@ No. All JavaScript is bundled in the extension package. The extension only fetch
 | **Authentication information** | **Yes** | AniList and MyAnimeList OAuth access tokens (and MAL refresh token), obtained via `chrome.identity`, stored in `chrome.storage.local` on the device and sent only to AniList / MyAnimeList to authorize API calls. No password is ever seen by the extension. |
 | Personal communications | No | — |
 | Location | No | — |
-| **Web history** | **Yes (conservative)** | Not browsing history: the extension never reads history or pages outside Crunchyroll/ADN (and Netflix player pages, only if the user turns Netflix on). It keeps a local list of recently synced episodes (title, episode, platform link) and sends the watched episode's progress to the user's own AniList/MAL list. Checked so the disclosure covers this record of watched episodes. |
+| **Web history** | **Yes (conservative)** | Not browsing history: the extension never reads history or pages outside Crunchyroll/ADN (and Netflix player pages, only if the user turns Netflix on). It keeps a local list of recently synced episodes (title, episode, platform link) and sends the watched episode's progress to the user's own AniList/MAL list. Only when the user starts "Import from Crunchyroll", it reads their Crunchyroll watch history in their own Crunchyroll tab to update their lists (only the import preview is kept). Checked so the disclosure covers these records of watched episodes. |
 | User activity | No | Only the video's playback position on the episode page is checked to detect the credits; no clicks, keystrokes or scroll are recorded. |
-| **Website content** | **Yes** | Reads the current episode page on Crunchyroll/ADN only (series title, season, episode number and title from JSON-LD / page heading), and on Netflix only if the user turns it on (title, season and episode number of the video being played). |
+| **Website content** | **Yes** | Reads the current episode page on Crunchyroll/ADN only (series title, season, episode number and title from JSON-LD / page heading), and on Netflix only if the user turns it on (title, season and episode number of the video being played). On explicit request (Import from Crunchyroll), the user's Crunchyroll watch history, read in their own tab. |
 
 Suggested justification text (if a free-text field is shown):
 
 ```
-SyncKai reads the current episode page on Crunchyroll or ADN, and on Netflix only if the user turns it on (series title, season, episode number), and sends the watched episode to the user's own AniList and/or MyAnimeList list, using OAuth tokens the user grants via chrome.identity. Tokens, settings and history are stored only in chrome.storage.local on the user's device. SyncKai has no server: no data is sent to the developer or to any third party other than AniList and MyAnimeList.
+SyncKai reads the current episode page on Crunchyroll or ADN, and on Netflix only if the user turns it on (series title, season, episode number), and sends the watched episode to the user's own AniList and/or MyAnimeList list (and, only when the user starts "Import from Crunchyroll", reads their Crunchyroll watch history in their own tab to bring those lists up to date), using OAuth tokens the user grants via chrome.identity. Tokens, settings and history are stored only in chrome.storage.local on the user's device. SyncKai has no server: no data is sent to the developer or to any third party other than AniList and MyAnimeList.
 ```
 
 ### Certifications (check all three)
@@ -132,4 +130,4 @@ SyncKai reads the current episode page on Crunchyroll or ADN, and on Netflix onl
 
 ### Privacy policy URL
 
-Required because user data is disclosed. Point to a privacy page in the repository, e.g. `https://github.com/Sync-Kai/SyncKai/blob/main/PRIVACY.md` (to be created — content: the justification text above).
+Required because user data is disclosed. `https://github.com/Sync-Kai/SyncKai/blob/main/PRIVACY.md` (FR/EN/DE, kept in sync with this file).
