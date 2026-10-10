@@ -3,6 +3,26 @@
 Toutes les évolutions notables de SyncKai sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [2.1.0] - 2026-10-10
+
+Netflix rejoint Crunchyroll et ADN, en option et pour les animes uniquement.
+
+### Ajouté
+
+- **Netflix (facultatif)** : à activer dans *Réglages › Lecture & synchro* ; le navigateur demande alors l’accès à netflix.com, et les onglets Netflix déjà ouverts fonctionnent sans les recharger. Désactiver Netflix retire cet accès.
+- Netflix ne distinguant pas les animes, seules les séries dont la fiche AniList contient un lien vers le titre Netflix sont synchronisées ; une série trouvée par son seul titre passe par une carte *À vérifier*, les autres titres sont ignorés sans bruit (ni notification, ni journal, popup et panneau neutres).
+- Numérotation des épisodes continue d’une saison Netflix à l’autre, synchro au début du générique (repli au pourcentage, comme sur Crunchyroll).
+- Panneau latéral, fiche de la page et progression en direct sur les pages de lecture Netflix ; logo Netflix dans le popup et le panneau, Netflix proposé comme lecteur préféré et dans les réglages de l’agenda.
+
+### Modifié
+
+- Moins de requêtes AniList sur Netflix : une série reconnue comme hors animes est mémorisée 24 h.
+
+### Corrigé
+
+- Liste « En cours » bloquée sur le chargement : après 25 s, un message d’erreur et un bouton *Réessayer* s’affichent ; une réponse arrivée en retard est tout de même affichée.
+- Rapport de diagnostic : un stockage local bloqué plus de 10 s est désormais signalé dans les erreurs récentes.
+
 ## [2.0.0] - 2026-10-08
 
 Panneau latéral, import de l’historique Crunchyroll et réglages repensés.
@@ -228,6 +248,7 @@ Première version : synchronisation automatique Crunchyroll → AniList.
 - **Vérification manuelle** des correspondances incertaines depuis le popup (fiches suggérées, recherche, numéro d'épisode), avec badge sur l'icône de l'extension.
 - **Dernières synchros** dans le popup, avec correction a posteriori d'une correspondance.
 
+[2.1.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.1.0
 [2.0.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.0.0
 [1.9.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.9.0
 [1.8.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v1.8.0
