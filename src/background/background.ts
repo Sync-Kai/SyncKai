@@ -32,13 +32,17 @@ import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
 import { enablePanelForSender, resetSidePanel } from './side-panel';
 import { listenNetflixAccess } from './netflix-access';
+import { runUpdateMigrations } from './update-migrations';
 
 const log = createLogger('background');
 
-chrome.runtime.onInstalled.addListener((): void => {
+chrome.runtime.onInstalled.addListener((details): void => {
   log.info('SyncKai installé et prêt');
   log.info('Redirect URL OAuth :', chrome.identity.getRedirectURL());
   void refreshReviewBadge();
+  if (details.reason === 'update') {
+    runUpdateMigrations(details.previousVersion).catch((error: unknown) => log.warn('Migration après mise à jour impossible :', error));
+  }
 });
 
 // Le texte du badge n'est pas conservé au redémarrage du navigateur

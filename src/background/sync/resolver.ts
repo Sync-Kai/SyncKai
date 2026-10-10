@@ -7,7 +7,11 @@ import {
   applyMapping,
   gateByPlatformLink,
   ignoredResult,
+  isLinked,
+  isOtherSeries,
   LINK_REQUIRED_PLATFORMS,
+  linksToOtherSeries,
+  linksToOtherSeriesBySlug,
   mappingKey,
   seasonLabel,
   matchPlatformLink,
@@ -75,7 +79,13 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
   const linkOf = (media: AniListMedia): LinkKind => {
     const kinds = media.externalLinkUrls.map((url) => matchPlatformLink(url, episode.platform, episode.seriesId, episode.seriesSlug, episodeId));
     // Le lien vers l'épisode lui-même prime sur le lien vers la série
-    return kinds.includes('episode') ? 'episode' : (kinds.find((k) => k !== null) ?? null);
+    if (kinds.includes('episode')) return 'episode';
+    const own = kinds.find((k) => k !== null);
+    if (own) return own;
+    // Liée seulement à une autre série de la plateforme : marquée pour ne jamais devenir une saison par relation
+    // (identifiant différent : signal fort ; ancien slug différent : signal faible, voir resolveTarget)
+    if (media.externalLinkUrls.some((url) => linksToOtherSeries(url, episode.platform, episode.seriesId))) return 'other';
+    return media.externalLinkUrls.some((url) => linksToOtherSeriesBySlug(url, episode.platform, episode.seriesSlug)) ? 'other-slug' : null;
   };
   const add = (list: AniListMedia[], fallback: LinkKind = null): void => {
     for (const media of list) {
@@ -94,7 +104,7 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
   add(bySeason);
 
   // Aucun résultat lié : le titre de saison seul est parfois le titre AniList (ex : "… Season 2")
-  const hasLinked = [...links.values()].some((l) => l !== null);
+  const hasLinked = [...links.values()].some((link) => isLinked({ link }));
   if (!hasLinked && episode.seasonTitle && normalizeTitle(episode.seasonTitle) !== normalizeTitle(episode.animeTitle) && episode.seasonTitle !== seasonQuery) {
     add(await searchAnime(episode.seasonTitle, lane));
   }
@@ -106,12 +116,14 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
     const missing = new Set<number>();
 
     for (const media of mediaById.values()) {
-      // Un lien vers un épisode précis (spécial, film) ne fait pas de ses suites des saisons de la série
+      // Un lien vers un épisode précis (spécial, film) ne fait pas de ses suites des saisons de la série, ni une
+      // fiche d'une autre série de la plateforme (Naruto ne propage rien vers Boruto sur la page Shippuden)
       const link = links.get(media.id);
-      if (link === null || link === 'episode') continue;
+      if (link === undefined || link === null || link === 'episode' || isOtherSeries({ link })) continue;
       for (const rel of media.relations) {
         if (rel.type !== 'ANIME' || !FRANCHISE_RELATIONS.has(rel.relationType ?? '')) continue;
         if (mediaById.has(rel.id)) {
+          // Seule une fiche sans aucun lien devient 'relation' : une fiche 'other' / 'other-slug' le reste
           if (links.get(rel.id) === null) {
             links.set(rel.id, 'relation');
             changed = true;
@@ -124,6 +136,7 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
 
     if (missing.size > 0 && fetchRounds < MAX_FETCH_ROUNDS) {
       fetchRounds++;
+      // Repli 'relation' pour une fiche sans lien ; une fiche liée à une autre série reste 'other' / 'other-slug' (voir linkOf)
       add(await getAnimeByIds([...missing], lane), 'relation');
       changed = true;
     }
@@ -150,7 +163,7 @@ export function toCandidateSummary(media: AniListMedia): CandidateSummary {
 function summarize({ candidates, media }: CollectedCandidates, suggestedId: number | null): CandidateSummary[] {
   const byId = new Map(media.map((m) => [m.id, m]));
   const linkedIds = candidates
-    .filter((c) => c.link !== null)
+    .filter(isLinked)
     .sort((a, b) => (a.startDate ?? Number.MAX_SAFE_INTEGER) - (b.startDate ?? Number.MAX_SAFE_INTEGER))
     .map((c) => c.id);
   const otherIds = media.filter((m) => m.format !== 'MUSIC').map((m) => m.id);

@@ -90,6 +90,17 @@ export function deleteMediaMapping(key: string): Promise<void> {
   });
 }
 
+/** Supprime les correspondances dont la clé commence par `prefix` (ex : `netflix:`) ; retourne leur nombre. */
+export function deleteMediaMappingsByPrefix(prefix: string): Promise<number> {
+  return withStorageLock(async () => {
+    const mappings = await getMediaMappings();
+    const kept = Object.fromEntries(Object.entries(mappings).filter(([key]) => !key.startsWith(prefix)));
+    const removed = Object.keys(mappings).length - Object.keys(kept).length;
+    if (removed > 0) await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: kept });
+    return removed;
+  });
+}
+
 export function clearMediaMappings(): Promise<void> {
   return withStorageLock(() => chrome.storage.local.remove(STORAGE_KEYS.mediaMappings));
 }

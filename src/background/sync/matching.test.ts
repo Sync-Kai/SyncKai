@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyMapping,
+  linksToOtherSeries,
+  linksToOtherSeriesBySlug,
   mappingFromManualChoice,
   mappingKey,
   matchAdnLink,
@@ -9,6 +11,7 @@ import {
   normalizeTitle,
   resolveTarget,
   seasonLabel,
+  seasonPool,
   toSortableDate,
   type EpisodeNumbers,
   type MediaCandidate,
@@ -262,5 +265,105 @@ describe('matchAdnLink / matchPlatformLink', () => {
     const adnUrl = 'https://animationdigitalnetwork.com/video/1311-tougen-anki';
     expect(matchPlatformLink(adnUrl, 'adn', '1311', 'tougen-anki')).toBe('id');
     expect(matchPlatformLink(adnUrl, 'crunchyroll', 'GP5HJ84D2', 'tougen-anki')).toBeNull();
+  });
+});
+
+describe('suite publiée comme une autre série de la plateforme (Naruto ← Naruto Shippuden)', () => {
+  // Candidats tels que les produit collectCandidates sur la page Shippuden : Naruto et Boruto (préquelle, suite)
+  // ont leur propre lien Crunchyroll vers une autre série → 'other'
+  const shippudenPage = [
+    candidate({ id: 1735, episodes: 500, startDate: 20070215, titles: ['Naruto: Shippuuden', 'Naruto Shippuden'], link: 'id' }),
+    candidate({ id: 20, episodes: 220, startDate: 20021003, titles: ['NARUTO', 'Naruto'], link: 'other' }),
+    candidate({ id: 97938, episodes: 293, startDate: 20170405, titles: ['BORUTO: NARUTO NEXT GENERATIONS'], link: 'other' }),
+  ];
+  const shippuden = (overrides: Partial<EpisodeNumbers>): EpisodeNumbers => episode({ animeTitle: 'Naruto Shippuden', seasonTitle: 'Naruto Shippuden', ...overrides });
+
+  it('S1 E5 → Shippuden épisode 5, jamais Naruto', () => {
+    const result = resolveTarget(shippuden({ seasonNumber: 1, seasonEpisodeNumber: 5, displayedEpisodeNumber: 5 }), shippudenPage);
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 1735, progress: 5 } });
+  });
+
+  it('S2 E3 affiché E35 (numérotation absolue) → Shippuden épisode 35, jamais Naruto', () => {
+    const result = resolveTarget(shippuden({ seasonNumber: 2, seasonEpisodeNumber: 3, displayedEpisodeNumber: 35 }), shippudenPage);
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 1735, progress: 35, numbering: 'displayed' } });
+  });
+
+  it('seasonPool exclut une fiche « other », liée ou au même titre', () => {
+    expect(seasonPool(shippudenPage, 'Naruto Shippuden').map((c) => c.id)).toEqual([1735]);
+    // Sans fiche liée, le repli par titre ignore aussi une fiche liée à une autre série
+    const remake = [candidate({ id: 120, titles: ['Fruits Basket'], link: 'other' }), candidate({ id: 105334, titles: ['Fruits Basket (2019)', 'Fruits Basket'], link: null })];
+    expect(seasonPool(remake, 'Fruits Basket').map((c) => c.id)).toEqual([105334]);
+  });
+
+  it('une fiche « other » seule ne rend pas la correspondance fiable', () => {
+    const result = resolveTarget(episode({ animeTitle: 'Naruto Shippuden' }), [candidate({ id: 20, titles: ['Naruto Shippuden'], link: 'other' })]);
+    expect(result).not.toMatchObject({ ok: true, target: { confidence: 'high' } });
+  });
+});
+
+describe('fiche écartée sur un ancien slug différent (« other-slug », signal faible)', () => {
+  it('exclue des saisons, Shippuden liée par slug reste fiable', () => {
+    const candidates = [
+      candidate({ id: 1735, episodes: 500, startDate: 20070215, titles: ['Naruto Shippuden'], link: 'slug' }),
+      candidate({ id: 20, episodes: 220, startDate: 20021003, titles: ['Naruto'], link: 'other-slug' }),
+    ];
+    expect(seasonPool(candidates, 'Naruto Shippuden').map((c) => c.id)).toEqual([1735]);
+    const result = resolveTarget(episode({ animeTitle: 'Naruto Shippuden', seasonNumber: 1, seasonEpisodeNumber: 5, displayedEpisodeNumber: 5 }), candidates);
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 1735, progress: 5, confidence: 'high' } });
+  });
+
+  it('fiche choisie rattachée par relation seulement : confiance plafonnée (saisons peut-être décalées)', () => {
+    // S2 renommée (ancienne page « foo-season-2 ») écartée : l'épisode de S2 tomberait sur la fiche de S3
+    const candidates = [
+      candidate({ id: 1, startDate: 20180101, titles: ['Foo'], link: 'slug' }),
+      candidate({ id: 2, startDate: 20200101, titles: ['Foo Season 2'], link: 'other-slug' }),
+      candidate({ id: 3, startDate: 20220101, titles: ['Foo Season 3'], link: 'relation' }),
+    ];
+    const result = resolveTarget(episode({ animeTitle: 'Foo', seasonNumber: 2, seasonEpisodeNumber: 4, displayedEpisodeNumber: 4 }), candidates);
+    expect(result).toMatchObject({
+      ok: true,
+      target: { mediaId: 3, confidence: 'low', reason: 'Une fiche liée à une autre série de la plateforme a été écartée : saison à vérifier' },
+    });
+  });
+});
+
+describe('linksToOtherSeriesBySlug', () => {
+  it('ancienne page de série au slug différent', () => {
+    expect(linksToOtherSeriesBySlug('http://www.crunchyroll.com/naruto', 'crunchyroll', 'naruto-shippuden')).toBe(true);
+    expect(linksToOtherSeriesBySlug('https://www.crunchyroll.com/fr/naruto/', 'crunchyroll', 'naruto-shippuden')).toBe(true);
+    expect(linksToOtherSeriesBySlug('https://animationdigitalnetwork.fr/video/autre-serie', 'adn', 'tougen-anki')).toBe(true);
+  });
+
+  it('jamais pour le même slug, un lien avec identifiant, une page d’épisode, Netflix ou sans slug connu', () => {
+    expect(linksToOtherSeriesBySlug('http://www.crunchyroll.com/naruto-shippuden', 'crunchyroll', 'naruto-shippuden')).toBe(false);
+    expect(linksToOtherSeriesBySlug('https://www.crunchyroll.com/attack-on-titan-dubs', 'crunchyroll', 'attack-on-titan')).toBe(false);
+    expect(linksToOtherSeriesBySlug('https://www.crunchyroll.com/my-hero-academia/', 'crunchyroll', 'my-hero-academia')).toBe(false);
+    expect(linksToOtherSeriesBySlug('https://www.crunchyroll.com/series/GY9VWW3XY/naruto', 'crunchyroll', 'naruto-shippuden')).toBe(false);
+    expect(linksToOtherSeriesBySlug('https://www.crunchyroll.com/watch/GR3VWXP96', 'crunchyroll', 'naruto-shippuden')).toBe(false);
+    expect(linksToOtherSeriesBySlug('http://www.crunchyroll.com/naruto/episode-1-enter-naruto-uzumaki-123', 'crunchyroll', 'naruto-shippuden')).toBe(false);
+    expect(linksToOtherSeriesBySlug('https://www.netflix.com/naruto', 'crunchyroll', 'naruto-shippuden')).toBe(false);
+    expect(linksToOtherSeriesBySlug('https://animationdigitalnetwork.com/video/999-autre', 'adn', 'tougen-anki')).toBe(false);
+    expect(linksToOtherSeriesBySlug('https://www.netflix.com/title/1', 'netflix', 'x')).toBe(false);
+    expect(linksToOtherSeriesBySlug('http://www.crunchyroll.com/naruto', 'crunchyroll', null)).toBe(false);
+  });
+});
+
+describe('linksToOtherSeries', () => {
+  it('reconnaît un identifiant de série différent sur la même plateforme', () => {
+    expect(linksToOtherSeries('https://www.crunchyroll.com/series/GY9VWW3XY/naruto', 'crunchyroll', 'GYQ4MW246')).toBe(true);
+    expect(linksToOtherSeries('https://www.crunchyroll.com/fr/series/gy9vwW3xy', 'crunchyroll', 'GYQ4MW246')).toBe(true);
+    expect(linksToOtherSeries('https://animationdigitalnetwork.com/video/999-tougen-anki', 'adn', '1311')).toBe(true);
+    expect(linksToOtherSeries('https://www.netflix.com/be-fr/title/81234567', 'netflix', '80987039')).toBe(true);
+  });
+
+  it('jamais pour la série elle-même, un slug seul, une page de lecture, un autre site ou sans identifiant', () => {
+    expect(linksToOtherSeries('https://www.crunchyroll.com/series/GYQ4MW246/naruto-shippuden', 'crunchyroll', 'gyq4mw246')).toBe(false);
+    expect(linksToOtherSeries('https://www.crunchyroll.com/naruto', 'crunchyroll', 'GYQ4MW246')).toBe(false);
+    expect(linksToOtherSeries('https://www.crunchyroll.com/watch/GR3VWXP96/x', 'crunchyroll', 'GYQ4MW246')).toBe(false);
+    expect(linksToOtherSeries('https://animationdigitalnetwork.fr/video/tougen-anki', 'adn', '1311')).toBe(false);
+    expect(linksToOtherSeries('https://www.netflix.com/watch/81234567', 'netflix', '80987039')).toBe(false);
+    expect(linksToOtherSeries('https://www.netflix.com/title/81234567', 'crunchyroll', 'GYQ4MW246')).toBe(false);
+    expect(linksToOtherSeries('https://www.crunchyroll.com/series/GY9VWW3XY', 'crunchyroll', null)).toBe(false);
+    expect(linksToOtherSeries('pas une url', 'crunchyroll', 'GYQ4MW246')).toBe(false);
   });
 });

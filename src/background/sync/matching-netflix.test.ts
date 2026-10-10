@@ -129,3 +129,48 @@ describe('Mushoku Tensei sur Netflix (S1 23 ép., S2 25 ép., numérotation cont
     });
   });
 });
+
+describe('film Netflix : la fiche liée l’emporte sur une série TV homonyme', () => {
+  /** Film : pas de saison, épisode 1 (voir episodeInfoFromMetadata) */
+  const movie = (animeTitle: string): EpisodeInfo => netflixEpisode({ animeTitle, seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 });
+  const resolve = (episode: EpisodeInfo, candidates: MediaCandidate[]): ResolveResult => gateByPlatformLink(episode, candidates, resolveTarget(episode, candidates));
+
+  it('« Jujutsu Kaisen 0: The Movie » → film lié (titre AniList différent), confiance haute', () => {
+    const candidates = [
+      candidate({ id: 131573, format: 'MOVIE', episodes: 1, titles: ['Jujutsu Kaisen 0'], link: 'id' }),
+      candidate({ id: 113415, episodes: 24, titles: ['Jujutsu Kaisen'] }),
+    ];
+    expect(resolve(movie('Jujutsu Kaisen 0: The Movie'), candidates)).toMatchObject({ ok: true, target: { mediaId: 131573, progress: 1, confidence: 'high' } });
+  });
+
+  it('« Bubble » → film lié, pas la série TV « Bubble » non liée', () => {
+    const candidates = [
+      candidate({ id: 136430, format: 'MOVIE', episodes: 1, titles: ['Bubble Movie'], link: 'id' }),
+      candidate({ id: 999001, episodes: 12, titles: ['Bubble'] }),
+    ];
+    expect(resolve(movie('Bubble'), candidates)).toMatchObject({ ok: true, target: { mediaId: 136430, progress: 1, confidence: 'high' } });
+  });
+
+  it('fiche choisie non liée alors qu’une autre l’est : confiance basse', () => {
+    const candidates = [
+      candidate({ id: 136430, format: 'MOVIE', episodes: 1, titles: ['Bubble Movie'], link: 'id' }),
+      candidate({ id: 999001, episodes: 12, titles: ['Bubble'] }),
+    ];
+    const tvChosen: ResolveResult = {
+      ok: true,
+      target: { mediaId: 999001, numbering: 'season', offset: 0, episodes: 12, progress: 1, confidence: 'high', reason: 'Fiche unique' },
+    };
+    expect(gateByPlatformLink(movie('Bubble'), candidates, tvChosen)).toMatchObject({
+      ok: true,
+      target: { mediaId: 999001, confidence: 'low', reason: 'Trouvée par le titre, alors qu’une autre fiche AniList est liée à ce titre Netflix' },
+    });
+  });
+
+  it('une saison série liée garde la priorité sur un film lié au même titre', () => {
+    const candidates = [
+      candidate({ id: 1, episodes: 12, titles: ['Bubble'], link: 'id' }),
+      candidate({ id: 2, format: 'MOVIE', episodes: 1, titles: ['Bubble Movie'], link: 'id' }),
+    ];
+    expect(resolve(movie('Bubble'), candidates)).toMatchObject({ ok: true, target: { mediaId: 1, confidence: 'high' } });
+  });
+});

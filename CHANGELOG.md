@@ -3,6 +3,15 @@
 Toutes les évolutions notables de SyncKai sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [Unreleased]
+
+### Corrigé
+
+- Une préquelle ou une suite publiée comme une autre série sur la plateforme (Naruto pour Naruto Shippuden, Bleach pour Bleach TYBW…) n’est plus comptée comme une saison de la série regardée : la progression n’est plus écrite sur la fiche de la série précédente.
+- Film Netflix : la fiche AniList liée au film l’emporte sur une série TV au même titre ; une fiche trouvée par son seul titre passe par une carte *À vérifier*.
+- Les correspondances Netflix enregistrées par la 2.1.0 sont oubliées à la mise à jour et se recalculent toutes seules au prochain épisode.
+- Si tu regardes une suite publiée à part sur Crunchyroll (Naruto Shippuden, Bleach TYBW…), vérifie dans AniList et MAL que la série précédente n’a pas reçu ta progression, et utilise *Réglages › Mes données › Correspondances › Oublier* si une correspondance est fausse.
+
 ## [2.1.0] - 2026-10-10
 
 Netflix rejoint Crunchyroll et ADN, en option et pour les animes uniquement.

@@ -16,8 +16,21 @@ export const SPECIAL_FORMATS: ReadonlySet<string> = new Set(['OVA', 'ONA', 'SPEC
  * - relation : suite/préquelle d'une fiche liée (même franchise)
  * - episode  : externalLink vers la page de lecture de l'épisode lui-même (/watch/{episodeId}),
  *              fréquent pour un spécial rangé dans une saison de la série (ex : ONE PIECE HEROINES)
+ * - other    : externalLink vers une AUTRE série de la même plateforme (Naruto pour la page Naruto Shippuden) :
+ *              jamais une saison de la série, ni un relais de propagation des relations (voir linksToOtherSeries)
+ * - other-slug : comme `other`, mais désignée par un ancien slug différent (crunchyroll.com/naruto sur la page
+ *              naruto-shippuden) : signal faible, un slug a pu être renommé (voir linksToOtherSeriesBySlug)
  */
-export type LinkKind = 'id' | 'slug' | 'relation' | 'episode' | null;
+export type LinkKind = 'id' | 'slug' | 'relation' | 'episode' | 'other' | 'other-slug' | null;
+
+/** Fiche liée seulement à une autre série de la plateforme (identifiant ou ancien slug différent) */
+export const isOtherSeries = (candidate: Pick<MediaCandidate, 'link'>): boolean => candidate.link === 'other' || candidate.link === 'other-slug';
+
+/** Fiche rattachée à la série de la plateforme (lien direct, épisode ou suite/préquelle d'une fiche liée) */
+export const isLinked = (candidate: Pick<MediaCandidate, 'link'>): boolean => candidate.link !== null && !isOtherSeries(candidate);
+
+/** Fiche liée directement à la série ou à l'épisode (hors rattachement par relation) */
+const isDirectlyLinked = (candidate: Pick<MediaCandidate, 'link'>): boolean => candidate.link === 'id' || candidate.link === 'slug' || candidate.link === 'episode';
 
 export interface MediaCandidate {
   id: number;
@@ -165,6 +178,91 @@ export function matchPlatformLink(
   }
 }
 
+/**
+ * Identifiant de série explicite d'un lien de la plateforme : /series/{id} (Crunchyroll), /video/{id}-{slug} (ADN),
+ * /title/{id} (Netflix). null pour un autre site, une page de lecture ou l'ancien format Crunchyroll par slug.
+ */
+function seriesIdInLink(url: string, platform: StreamingPlatform): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const segments = parsed.pathname.toLowerCase().split('/').filter(Boolean);
+  switch (platform) {
+    case 'crunchyroll': {
+      if (!/(^|\.)crunchyroll\.com$/i.test(parsed.hostname)) return null;
+      const index = segments.indexOf('series');
+      return index === -1 ? null : (segments[index + 1] ?? null);
+    }
+    case 'adn': {
+      if (!/(^|\.)animationdigitalnetwork\.(com|fr|de)$/i.test(parsed.hostname)) return null;
+      const index = segments.indexOf('video');
+      return index === -1 ? null : (/^(\d+)-/.exec(segments[index + 1] ?? '')?.[1] ?? null);
+    }
+    case 'netflix': {
+      if (!/(^|\.)netflix\.com$/i.test(parsed.hostname)) return null;
+      return /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)\/?$/i.exec(parsed.pathname)?.[1] ?? null;
+    }
+  }
+}
+
+/**
+ * Lien vers une AUTRE série de la même plateforme, désignée par son identifiant (Naruto → /series/{id de Naruto}
+ * sur la page Naruto Shippuden). Un slug seul (ancien format Crunchyroll) ne suffit pas : les slugs ont pu être
+ * renommés ou fusionnés, et exclure à tort une saison décalerait toutes les suivantes.
+ */
+export function linksToOtherSeries(url: string, platform: StreamingPlatform, seriesId: string | null): boolean {
+  if (!seriesId) return false;
+  const linkedId = seriesIdInLink(url, platform);
+  return linkedId !== null && linkedId !== seriesId.toLowerCase();
+}
+
+/**
+ * Même série sur l'ancien site Crunchyroll : même slug, ou sa page de version doublée
+ * (« attack-on-titan-dubs », fréquente dans les liens AniList à côté de la page principale).
+ */
+function isSameCrunchyrollSlug(linkedSlug: string, slug: string): boolean {
+  return linkedSlug === slug || linkedSlug === `${slug}-dubs` || linkedSlug === `${slug}-dub`;
+}
+
+/**
+ * Ancien lien sans identifiant vers une AUTRE série de la plateforme : crunchyroll.com/{slug} (ou /{langue}/{slug}),
+ * animationdigitalnetwork.fr/video/{slug}, slug différent de celui de la série. Signal faible (slug renommé ou
+ * ancienne page par saison possible) : la fiche est écartée, mais la confiance du résultat est plafonnée
+ * (voir resolveTarget).
+ */
+export function linksToOtherSeriesBySlug(url: string, platform: StreamingPlatform, seriesSlug: string | null): boolean {
+  if (!seriesSlug) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  const segments = parsed.pathname.toLowerCase().split('/').filter(Boolean);
+  const slug = seriesSlug.toLowerCase();
+  switch (platform) {
+    case 'crunchyroll': {
+      if (!/(^|\.)crunchyroll\.com$/i.test(parsed.hostname)) return false;
+      // Page de série de l'ancien site uniquement : /{slug} ou /{langue}/{slug} (pas /{slug}/episode-…, /series/…, /watch/…)
+      const isSeriesPage = segments.length === 1 || (segments.length === 2 && /^[a-z]{2}(?:-[a-z]{2})?$/.test(segments[0] ?? ''));
+      const linkedSlug = segments.at(-1);
+      return isSeriesPage && linkedSlug !== undefined && !['series', 'watch'].includes(linkedSlug) && !isSameCrunchyrollSlug(linkedSlug, slug);
+    }
+    case 'adn': {
+      if (!/(^|\.)animationdigitalnetwork\.(com|fr|de)$/i.test(parsed.hostname)) return false;
+      const index = segments.indexOf('video');
+      const linkedSlug = index === -1 ? undefined : segments[index + 1];
+      // Avec identifiant (/video/{id}-{slug}) : signal fort, traité par linksToOtherSeries
+      return linkedSlug !== undefined && !/^\d+-/.test(linkedSlug) && linkedSlug !== slug;
+    }
+    case 'netflix':
+      return false;
+  }
+}
+
 /** Clé de cache d'une saison : "crunchyroll:GRMG8ZQZR:s24" */
 export function mappingKey(episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle' | 'seasonNumber'>): string {
   const series = episode.seriesId ?? `title:${normalizeTitle(episode.animeTitle)}`;
@@ -238,11 +336,12 @@ function walkSeasons(seasons: MediaCandidate[], startIndex: number, episode: num
 const SPECIAL_TITLE_END = / (?:ovas?|oads?|specials?|recaps?)$/;
 
 export function seasonPool(candidates: readonly MediaCandidate[], animeTitle: string): MediaCandidate[] {
-  const formats = candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format));
+  // Fiche liée à une autre série de la plateforme (préquelle Naruto de Naruto Shippuden) : jamais une saison
+  const formats = candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format) && !isOtherSeries(c));
   // ONA titrée comme un spécial (« My Hero Academia Season 5 OVA ») : pas une saison, elle décalerait les suivantes
   const regular = formats.filter((c) => !c.titles.some((title) => SPECIAL_TITLE_END.test(normalizeTitle(title))));
   const seasons = (regular.length > 0 ? regular : formats).sort(byStartDate);
-  const linked = seasons.filter((c) => c.link !== null);
+  const linked = seasons.filter(isLinked);
   if (linked.length > 0) return linked;
   // Sans lien vers la plateforme, repli sur un titre identique, parties (« Moriarty the Patriot Part 2 ») et
   // saisons numérotées (« Kaiju No. 8 Season 2 ») comprises
@@ -358,6 +457,16 @@ function dedicatedEntry(
     if (progress !== null) return { candidate: only, progress, confident: true, reason: t('match.episodeLink') };
   }
 
+  // a') Épisode sans saison (film Netflix) et aucune saison série liée : fiche film / spécial liée à la série
+  //     elle-même. Elle prime sur une série TV homonyme non liée (« Bubble » TV contre le film « Bubble »).
+  const hasLinkedSeries = candidates.some((c) => isLinked(c) && c.format !== null && SERIES_FORMATS.has(c.format));
+  if (episode.seasonNumber === null && !hasLinkedSeries) {
+    const direct = outside.filter((c) => (c.link === 'id' || c.link === 'slug') && c.format !== null && !SERIES_FORMATS.has(c.format));
+    if (direct.length === 1 && fits(direct[0], relative)) {
+      return { candidate: direct[0], progress: relative, confident: true, reason: t('match.linkedEntry') };
+    }
+  }
+
   const animeKey = normalizeTitle(episode.animeTitle);
   const seasonKey = episode.seasonTitle ? normalizeTitle(episode.seasonTitle) : '';
   const keysOf = (c: MediaCandidate): string[] => c.titles.map(normalizeTitle);
@@ -372,7 +481,7 @@ function dedicatedEntry(
     if (matches.length === 1 && fits(matches[0], relative)) {
       const [only] = matches;
       // Titre « série + saison » ou fiche liée : fiable ; titre de saison seul ou simplement inclus : à vérifier
-      const confident = only.link !== null || keysOf(only).includes(compound);
+      const confident = isLinked(only) || keysOf(only).includes(compound);
       return { candidate: only, progress: relative, confident, reason: t('match.dedicatedSeason', { title: episode.seasonTitle ?? '' }) };
     }
   }
@@ -381,7 +490,7 @@ function dedicatedEntry(
     const sameTitle = outside.filter((c) => c.titles.some((title) => normalizeTitle(title) === animeKey));
     if (sameTitle.length === 1 && fits(sameTitle[0], relative)) {
       const [only] = sameTitle;
-      return { candidate: only, progress: relative, confident: only.link !== null, reason: t('match.dedicatedSeries') };
+      return { candidate: only, progress: relative, confident: isLinked(only), reason: t('match.dedicatedSeries') };
     }
   }
   return null;
@@ -416,7 +525,7 @@ function specialEntry(episode: EpisodeNumbers, candidates: readonly MediaCandida
 
 /** Choisit la fiche AniList et la progression correspondant à un épisode. */
 export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidate[]): ResolveResult {
-  const linked = candidates.filter((c) => c.link !== null && c.format !== null && SERIES_FORMATS.has(c.format));
+  const linked = candidates.filter((c) => isLinked(c) && c.format !== null && SERIES_FORMATS.has(c.format));
   const animeKey = normalizeTitle(episode.animeTitle);
   const pool = seasonPool(candidates, episode.animeTitle);
   const noEntry: ResolveResult = { ok: false, reason: t('match.noEntry', { title: episode.animeTitle }) };
@@ -439,6 +548,12 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
   // Ex. One Piece : "E1180" affiché pour le 25e épisode de la saison 24
   const isAbsolute = displayed !== null && episode.seasonEpisodeNumber !== null && displayed > episode.seasonEpisodeNumber;
 
+  // Fiche écartée sur un ancien slug différent : ce peut être une vraie saison dont la page a été renommée
+  // (ancienne page par saison). Les saisons suivantes seraient alors décalées d'un cran (épisode de S2 compté sur
+  // la fiche de S3) : seul un choix lié directement à la série ou à l'épisode reste fiable, le reste passe en
+  // vérification (jamais mis en cache).
+  const hasWeakExclusion = candidates.some((c) => c.link === 'other-slug');
+
   const target = (
     candidate: MediaCandidate,
     base: number,
@@ -447,24 +562,28 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
     confidence: 'high' | 'low',
     reason: string,
     trustedReason: string = t('match.titleOnlyTrusted'),
-  ): ResolveResult => ({
-    ok: true,
-    target: {
-      mediaId: candidate.id,
-      numbering,
-      offset: base - progress,
-      episodes: candidate.episodes,
-      progress,
-      confidence,
-      reason:
-        linked.length === 0 && candidate.link === null
-          ? confidence === 'high'
-            ? trustedReason
-            : // Sans lien plateforme, c'est l'absence de lien (et non la règle appliquée) qui rend le choix incertain
-              t('match.titleOnly')
-          : reason,
-    },
-  });
+  ): ResolveResult => {
+    const isCapped = confidence === 'high' && hasWeakExclusion && !isDirectlyLinked(candidate);
+    return {
+      ok: true,
+      target: {
+        mediaId: candidate.id,
+        numbering,
+        offset: base - progress,
+        episodes: candidate.episodes,
+        progress,
+        confidence: isCapped ? 'low' : confidence,
+        reason: isCapped
+          ? t('match.otherSeriesExcluded')
+          : linked.length === 0 && !isLinked(candidate)
+            ? confidence === 'high'
+              ? trustedReason
+              : // Sans lien plateforme, c'est l'absence de lien (et non la règle appliquée) qui rend le choix incertain
+                t('match.titleOnly')
+            : reason,
+      },
+    };
+  };
 
   // Saison spéciale (OVA, extras, spéciaux, film) : jamais la N-ième saison de la série. Fiche liée à l'épisode
   // ou dédiée à la saison, sinon fiche spéciale unique au titre exact, sinon à choisir.
@@ -591,7 +710,8 @@ export const LINK_REQUIRED_PLATFORMS: ReadonlySet<StreamingPlatform> = new Set<S
 
 /**
  * Filtre « anime » d'une plateforme généraliste, appliqué au résultat de resolveTarget :
- * 1. une fiche liée à la série (lien plateforme ou suite/préquelle d'une fiche liée) → résultat inchangé ;
+ * 1. une fiche liée à la série (lien plateforme ou suite/préquelle d'une fiche liée) → résultat inchangé, mais
+ *    confiance basse si la fiche choisie n'est pas elle-même liée (série TV homonyme d'un film lié) ;
  * 2. sinon, des fiches au titre de la série → correspondance jamais fiable (carte « à vérifier »), échec inchangé ;
  * 3. sinon → série ignorée (probablement pas un anime : ni carte de vérification ni toast).
  */
@@ -601,7 +721,12 @@ export function gateByPlatformLink(
   result: ResolveResult,
 ): ResolveResult {
   if (!LINK_REQUIRED_PLATFORMS.has(episode.platform)) return result;
-  if (candidates.some((c) => c.link !== null)) return result;
+  if (candidates.some(isLinked)) {
+    if (!result.ok || result.target.confidence !== 'high') return result;
+    const { mediaId } = result.target;
+    if (candidates.some((c) => c.id === mediaId && isLinked(c))) return result;
+    return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.netflixUnlinkedEntry') } };
+  }
 
   const animeKey = normalizeTitle(episode.animeTitle);
   const isTitleMatch = seasonPool(candidates, episode.animeTitle).length > 0 || candidates.some((c) => c.titles.some((title) => normalizeTitle(title) === animeKey));
