@@ -120,3 +120,52 @@ describe('creditsStartFromMetadata', () => {
     expect(creditsStartFromMetadata(null, '81402901')).toBeNull();
   });
 });
+
+describe('numérotation déjà absolue dans les saisons Netflix (One Piece, /title/80107103, relevé le 2026-10-11)', () => {
+  /** Saison `seq` dont les épisodes portent les numéros `from`..`to` (identifiants arbitraires) */
+  function season(seq: number, title: string, from: number, to: number): NetflixShowMetadata['seasons'][number] {
+    return {
+      seq,
+      title,
+      episodes: Array.from({ length: to - from + 1 }, (_, i) => ({ id: String(82_700_000 + seq * 10_000 + i), seq: from + i, title: null, runtime: 1440, creditsOffset: null })),
+    };
+  }
+  // Région où Netflix ne propose que quelques arcs : les saisons précédentes comptent bien moins d'épisodes que 1180
+  const ONE_PIECE: NetflixShowMetadata = {
+    showId: '80107103',
+    type: 'show',
+    title: 'One Piece',
+    runtime: null,
+    creditsOffset: null,
+    seasons: [season(1, 'East Blue', 1, 61), season(38, 'Egghead Arc', 1086, 1155), season(40, 'Elbaph Arc', 1156, 1180)],
+  };
+  const idOf = (seasonSeq: number, number: number): string => {
+    const found = ONE_PIECE.seasons.find((s) => s.seq === seasonSeq)?.episodes.find((e) => e.seq === number);
+    if (!found) throw new Error('épisode absent');
+    return found.id;
+  };
+
+  it('S40 « E1180 » : numéro affiché 1180 (pas 1180 + les épisodes des saisons précédentes)', () => {
+    expect(episodeInfoFromMetadata(ONE_PIECE, idOf(40, 1180))).toMatchObject({ seasonNumber: 40, seasonEpisodeNumber: 25, displayedEpisodeNumber: 1180 });
+    expect(episodeInfoFromMetadata(ONE_PIECE, idOf(40, 1165))).toMatchObject({ seasonEpisodeNumber: 10, displayedEpisodeNumber: 1165 });
+    expect(episodeInfoFromMetadata(ONE_PIECE, idOf(38, 1086))).toMatchObject({ seasonEpisodeNumber: 1, displayedEpisodeNumber: 1086 });
+  });
+
+  it('1re saison (numéros dès 1) : inchangée', () => {
+    expect(episodeInfoFromMetadata(ONE_PIECE, idOf(1, 61))).toMatchObject({ seasonEpisodeNumber: 61, displayedEpisodeNumber: 61 });
+  });
+
+  it('numéros qui continuent d’une saison à l’autre (S2 commence à 13 après 12 épisodes) : gardés tels quels', () => {
+    const show: NetflixShowMetadata = { ...ONE_PIECE, seasons: [season(1, 'Season 1', 1, 12), season(2, 'Season 2', 13, 24)] };
+    const id = show.seasons[1]?.episodes[2]?.id ?? '';
+    expect(episodeInfoFromMetadata(show, id)).toMatchObject({ seasonNumber: 2, seasonEpisodeNumber: 3, displayedEpisodeNumber: 15 });
+  });
+
+  it('numérotation par saison (Ranma1/2, Mushoku Tensei : chaque saison repart de 1) : inchangée', () => {
+    expect(episodeInfoFromMetadata(MUSHOKU, mushokuEpisodeId(2, 1))).toMatchObject({ seasonNumber: 2, seasonEpisodeNumber: 1, displayedEpisodeNumber: 24 });
+    // Saison 2 dont le 1er épisode manque (numéro 2) : toujours relative, pas absolue
+    const missingFirst: NetflixShowMetadata = { ...ONE_PIECE, seasons: [season(1, 'Season 1', 1, 12), season(2, 'Season 2', 2, 12)] };
+    const id = missingFirst.seasons[1]?.episodes[0]?.id ?? '';
+    expect(episodeInfoFromMetadata(missingFirst, id)).toMatchObject({ seasonEpisodeNumber: 2, displayedEpisodeNumber: 14 });
+  });
+});
