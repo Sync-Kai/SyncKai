@@ -30,7 +30,8 @@ import {
   type CompareJob,
 } from '../shared/compare-job';
 import { isRecord } from '../shared/guards';
-import { getCachedViewer, STORAGE_KEYS, withStorageLock } from '../shared/storage';
+import { getCachedViewer, getOpenSessions, writeIfSessions } from '../shared/storage';
+import type { SessionEpochs } from '../shared/session-epochs';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { anilistPublicQuery, anilistQuery } from './api/client';
 import { ApiError } from './api/errors';
@@ -156,17 +157,13 @@ async function resolveMalOnly(mal: readonly MalListEntry[], knownMalIds: Readonl
 
 // ─── Stockage : dernière comparaison et tâche en cours ───────────────────
 
-/** Les deux comptes sont-ils toujours connectés ? (rien à écrire pour un compte déconnecté entre-temps) */
-async function hasBothTokens(): Promise<boolean> {
-  const stored = await chrome.storage.local.get([STORAGE_KEYS.anilistToken, STORAGE_KEYS.malToken]);
-  return stored[STORAGE_KEYS.anilistToken] !== undefined && stored[STORAGE_KEYS.malToken] !== undefined;
-}
-
-/** Nouvelle analyse : remplace la comparaison, sous verrou (une invalidation en cours ne la réécrase pas) */
-function writeComparison(result: ComparisonResult): Promise<void> {
-  return withStorageLock(async () => {
-    if (await hasBothTokens()) await chrome.storage.local.set({ [COMPARE_STORAGE_KEY]: result });
-  });
+/**
+ * Nouvelle analyse : remplace la comparaison, sous verrou (une invalidation en cours ne la réécrase pas), seulement si
+ * les deux sessions relevées avant la lecture des listes sont toujours ouvertes (DATA-05). Retourne false sinon.
+ */
+function writeComparison(result: ComparisonResult, epochs: SessionEpochs): Promise<boolean> {
+  if (epochs.anilist === undefined || epochs.mal === undefined) return Promise.resolve(false);
+  return writeIfSessions(epochs, { [COMPARE_STORAGE_KEY]: result });
 }
 
 /** Tâche d'analyse ou d'alignement (`compare:job`), écrite sous verrou par le popup (« Arrêter ») et la boucle */
@@ -202,13 +199,18 @@ export async function compareServiceLists(): Promise<CompareResult> {
   const stopTracking = trackBudgetWaits(jobStore);
 
   try {
+    // Sessions relevées avant la lecture des listes : la comparaison décrit les listes de ces comptes
+    const epochs = await getOpenSessions();
     const [anilist, malRaw, scoreFormat] = await Promise.all([fetchAniListFullList(), fetchMalFullList(), getScoreFormat()]);
     await touchJob();
     const knownMalIds = new Set(anilist.flatMap((e) => (e.malId !== null ? [e.malId] : [])));
     const mal = await resolveMalOnly(malRaw, knownMalIds);
     const result = compareLists({ anilist, mal, scoreFormat }, Date.now());
     log.info(`Comparaison : ${result.counts.compared} séries, ${result.counts.different} écarts, ${result.counts.notComparable} non comparables`);
-    await writeComparison(result);
+    if (!(await writeComparison(result, epochs))) {
+      log.warn('Compte déconnecté ou changé pendant l’analyse : comparaison abandonnée');
+      return notConnected();
+    }
     return { ok: true, data: result };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, code: error.code, message: error.message };

@@ -8,10 +8,11 @@ import type { TrackerId } from './tracker.types';
 import { SYNC_QUEUE_KEY } from './sync-queue-store';
 import { isPendingRating, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './engagement-store';
 import { isSyncQueueItem, restrictToSession } from './queue.types';
-import { liveServices, type SessionEpochs } from './session-epochs';
+import { liveServices, stillOpen, type SessionEpochs } from './session-epochs';
 import { isWatchingList, type WatchingList } from './watching.types';
 import { PLATFORM_LINKS_KEY } from './platform-links';
 import { withStorageLock } from './storage-lock';
+import { AIRING_USER_KEYS } from './airing-keys';
 
 // Verrou défini dans storage-lock.ts ; réexporté pour les modules existants
 export { withStorageLock };
@@ -68,8 +69,9 @@ export async function getCachedViewer(): Promise<AniListViewer | null> {
   return isAniListViewer(viewer) ? viewer : null;
 }
 
-export async function saveCachedViewer(viewer: AniListViewer): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.anilistViewer]: viewer });
+/** Profil AniList, enregistré seulement si la session `epoch` (relevée avant la requête) est toujours ouverte (AUTH-04). */
+export function saveCachedViewer(viewer: AniListViewer, epoch: number): Promise<boolean> {
+  return writeIfSession('anilist', epoch, { [STORAGE_KEYS.anilistViewer]: viewer });
 }
 
 // Les correspondances ne dépendent pas de l'utilisateur (mediaId global) : conservées à la déconnexion
@@ -158,11 +160,27 @@ export function addRecentSync(sync: RecentSync): Promise<void> {
  * Appelée à la déconnexion comme à l'invalidation du token.
  */
 export function clearAniListSession(): Promise<void> {
+  return withStorageLock(removeAniListSession);
+}
+
+/** Corps de clearAniListSession, sans verrou */
+async function removeAniListSession(): Promise<void> {
+  await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
+  await removeCachedWatching('anilist');
+  await bumpSessionEpoch('anilist');
+  await purgeClosedSessions();
+}
+
+/**
+ * Token refusé par AniList : ferme la session seulement si `accessToken` est toujours le token enregistré (AUTH-02).
+ * Une reconnexion pendant la requête refusée n'est pas effacée. Retourne true si la session a été fermée.
+ */
+export function clearAniListSessionIfToken(accessToken: string): Promise<boolean> {
   return withStorageLock(async () => {
-    await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
-    await removeCachedWatching('anilist');
-    await bumpSessionEpoch('anilist');
-    await purgeClosedSessions();
+    const stored: unknown = (await chrome.storage.local.get(STORAGE_KEYS.anilistToken))[STORAGE_KEYS.anilistToken];
+    if (!isAniListToken(stored) || stored.accessToken !== accessToken) return false;
+    await removeAniListSession();
+    return true;
   });
 }
 
@@ -170,7 +188,21 @@ export function clearAniListSession(): Promise<void> {
 async function removeUserSyncData(): Promise<void> {
   // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
   const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => key.startsWith('airingWeek:'));
-  await chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS, PLATFORM_LINKS_KEY, ...weeks]);
+  await chrome.storage.local.remove([
+    STORAGE_KEYS.pendingReviews,
+    STORAGE_KEYS.recentSyncs,
+    STORAGE_KEYS.watchingCache,
+    SYNC_QUEUE_KEY,
+    PENDING_RATINGS_KEY,
+    REWATCH_DECLINED_KEY,
+    STORAGE_KEYS.compareLast,
+    STORAGE_KEYS.compareJob,
+    ...CR_IMPORT_STORAGE_KEYS,
+    PLATFORM_LINKS_KEY,
+    // Alertes de sortie : épisodes notifiés, cibles des notifications (séries de l'ancien compte), dernière vérification (ALRT-05)
+    ...AIRING_USER_KEYS,
+    ...weeks,
+  ]);
 }
 
 /**
@@ -203,8 +235,22 @@ export async function getMalToken(): Promise<MalToken | null> {
   return isMalToken(token) ? token : null;
 }
 
+/** Connexion MAL (nouvelle session). Un renouvellement passe par saveRefreshedMalToken. */
 export async function saveMalToken(token: MalToken): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.malToken]: token });
+}
+
+/**
+ * Token renouvelé : enregistré seulement si la session `epoch` (relevée avant le renouvellement) est toujours ouverte
+ * et que `previous` est toujours le token enregistré (AUTH-01). Sinon (déconnexion, autre compte), le token est
+ * abandonné : retourne false.
+ */
+export function saveRefreshedMalToken(previous: string, token: MalToken, epoch: number): Promise<boolean> {
+  return withStorageLock(async () => {
+    if (!(await sessionsStillOpen({ mal: epoch })) || (await getMalToken())?.accessToken !== previous) return false;
+    await chrome.storage.local.set({ [STORAGE_KEYS.malToken]: token });
+    return true;
+  });
 }
 
 export async function getCachedMalViewer(): Promise<MalViewer | null> {
@@ -213,17 +259,30 @@ export async function getCachedMalViewer(): Promise<MalViewer | null> {
   return isMalViewer(viewer) ? viewer : null;
 }
 
-export async function saveCachedMalViewer(viewer: MalViewer): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.malViewer]: viewer });
+/** Profil MAL, enregistré seulement si la session `epoch` (relevée avant la requête) est toujours ouverte (AUTH-04). */
+export function saveCachedMalViewer(viewer: MalViewer, epoch: number): Promise<boolean> {
+  return writeIfSession('mal', epoch, { [STORAGE_KEYS.malViewer]: viewer });
 }
 
 /** Comme clearAniListSession : token, profil et liste « En cours » MAL en cache, puis la part MAL des données du compte. */
 export function clearMalSession(): Promise<void> {
+  return withStorageLock(removeMalSession);
+}
+
+/** Corps de clearMalSession, sans verrou */
+async function removeMalSession(): Promise<void> {
+  await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
+  await removeCachedWatching('mal');
+  await bumpSessionEpoch('mal');
+  await purgeClosedSessions();
+}
+
+/** Comme clearAniListSessionIfToken : la session MAL n'est fermée que si `accessToken` est toujours le token enregistré. */
+export function clearMalSessionIfToken(accessToken: string): Promise<boolean> {
   return withStorageLock(async () => {
-    await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
-    await removeCachedWatching('mal');
-    await bumpSessionEpoch('mal');
-    await purgeClosedSessions();
+    if ((await getMalToken())?.accessToken !== accessToken) return false;
+    await removeMalSession();
+    return true;
   });
 }
 
@@ -279,6 +338,32 @@ export async function getOpenSessions(): Promise<SessionEpochs> {
 /** La session `epoch` du service est toujours ouverte : aucune déconnexion depuis, token toujours enregistré. */
 export async function isSessionOpen(service: TrackerId, epoch: number | undefined): Promise<boolean> {
   return epoch !== undefined && (await getOpenSessions())[service] === epoch;
+}
+
+/**
+ * Les sessions relevées dans `epochs` sont toujours ouvertes (même génération, token enregistré). Sans verrou :
+ * à appeler sous withStorageLock, juste avant l'écriture qu'elle autorise.
+ */
+export async function sessionsStillOpen(epochs: SessionEpochs): Promise<boolean> {
+  return stillOpen(epochs, await getOpenSessions());
+}
+
+/**
+ * Écriture d'une donnée liée au compte après une requête réseau (profil, comparaison, semaine d'agenda) : vérification
+ * des sessions relevées AVANT la requête et écriture sous le même verrou que la déconnexion. Une donnée d'un compte
+ * déconnecté entre-temps n'est jamais recréée. Retourne false si rien n'a été écrit.
+ */
+export function writeIfSessions(epochs: SessionEpochs, entries: Record<string, unknown>): Promise<boolean> {
+  return withStorageLock(async () => {
+    if (!(await sessionsStillOpen(epochs))) return false;
+    await chrome.storage.local.set(entries);
+    return true;
+  });
+}
+
+/** writeIfSessions pour un seul service */
+export function writeIfSession(service: TrackerId, epoch: number, entries: Record<string, unknown>): Promise<boolean> {
+  return writeIfSessions({ [service]: epoch }, entries);
 }
 
 /** Incrémente la génération, sans verrou (appelée sous celui de clear*Session). */

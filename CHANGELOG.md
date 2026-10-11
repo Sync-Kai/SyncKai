@@ -17,6 +17,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Se déconnecter de MyAnimeList quand le token AniList a seulement expiré (*Reconnecter*) n’efface plus tes vérifications, synchros en attente, notes, liens de séries ni l’agenda.
 - *Reconnecter* AniList après l’expiration du token : le profil, la liste *En cours*, la dernière comparaison et l’aperçu d’import de l’ancien compte sont effacés avant la nouvelle connexion.
 - Import de l’historique Crunchyroll : un changement de compte pendant l’analyse ou l’application (pendant une attente de quota, par exemple) arrête l’import sans rien écrire sur le nouveau compte, et l’aperçu de l’ancien compte n’est plus recréé.
+- Se déconnecter de MyAnimeList pendant un renouvellement de session (popup ouvert, synchro en cours) ne reconnecte plus le compte quelques secondes plus tard : le token renouvelé est abandonné.
+- Une reconnexion à AniList ou MyAnimeList juste après un accès refusé n’est plus effacée par la réponse tardive d’une requête partie avec l’ancien token : la requête repart avec le nouveau.
+- Plusieurs requêtes MyAnimeList refusées en même temps ne renouvellent plus la session une fois chacune : un seul renouvellement, que les autres réutilisent (moins de déconnexions intempestives).
+- Après une déconnexion pendant un chargement, le profil, la dernière comparaison AniList ↔ MAL et la semaine d’agenda de l’ancien compte ne sont plus réenregistrés ; le compte suivant ne voit plus la liste *En cours* de l’ancien.
+- Déconnexion du dernier compte : les alertes de sortie déjà envoyées, leurs séries et la date de la dernière vérification sont effacées, et une vérification en cours n’envoie plus de notification pour le compte déconnecté.
 
 - Une préquelle ou une suite publiée comme une autre série sur la plateforme (Naruto pour Naruto Shippuden, Bleach pour Bleach TYBW…) n’est plus comptée comme une saison de la série regardée : la progression n’est plus écrite sur la fiche de la série précédente.
 - Film Netflix : la fiche AniList liée au film l’emporte sur une série TV au même titre ; une fiche trouvée par son seul titre passe par une carte *À vérifier*.

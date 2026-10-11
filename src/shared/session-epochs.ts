@@ -23,6 +23,15 @@ export function liveServices(epochs: SessionEpochs, current: SessionEpochs): Tra
   return TRACKER_IDS.filter((service) => epochs[service] !== undefined && epochs[service] === current[service]);
 }
 
+/**
+ * Toutes les sessions relevées dans `epochs` sont encore ouvertes, avec la même génération (une connexion à un autre
+ * service entre-temps n'y change rien). Aucune session relevée : false (rien à écrire pour un compte).
+ */
+export function stillOpen(epochs: SessionEpochs, current: SessionEpochs): boolean {
+  const services = TRACKER_IDS.filter((service) => epochs[service] !== undefined);
+  return services.length > 0 && liveServices(epochs, current).length === services.length;
+}
+
 /** Mêmes sessions ouvertes (aucune connexion ni déconnexion entre les deux relevés) */
 export function sameSessions(a: SessionEpochs, b: SessionEpochs): boolean {
   return TRACKER_IDS.every((service) => a[service] === b[service]);

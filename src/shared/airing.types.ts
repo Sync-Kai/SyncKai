@@ -2,8 +2,8 @@ import { t, tp, type MessageKey } from '../i18n';
 import { isRecord } from './guards';
 import { formatRelativeTime } from './watching';
 
-/** Clé de stockage du dernier résumé de vérification des sorties */
-export const AIRING_RESULT_KEY = 'airingLastResult';
+/** Clé de stockage du dernier résumé de vérification des sorties (définie dans airing-keys.ts) */
+export { AIRING_RESULT_KEY } from './airing-keys';
 
 export type AiringSkipReason = 'disabled' | 'not-connected' | 'no-series';
 

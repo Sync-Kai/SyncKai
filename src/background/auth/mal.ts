@@ -2,8 +2,8 @@ import { t } from '../../i18n';
 import type { AuthResult } from '../../shared/auth.types';
 import { isRecord } from '../../shared/guards';
 import type { MalToken } from '../../shared/mal.types';
-import { endSession } from '../../shared/session-end';
-import { getMalToken, saveMalToken } from '../../shared/storage';
+import { endSessionIfToken } from '../../shared/session-end';
+import { getMalToken, getOpenSessions, saveMalToken, saveRefreshedMalToken } from '../../shared/storage';
 import { ApiError } from '../api/errors';
 import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
 import { createCodeVerifier, createState } from './pkce';
@@ -127,29 +127,47 @@ export async function loginWithMal(): Promise<AuthResult> {
   }
 }
 
+interface AccessTokenOptions {
+  /** Token refusé par l'API (401) : renouvelé seulement s'il est toujours le token enregistré (AUTH-08) */
+  rejected?: string;
+}
+
+/** Token à renouveler : expiré ou dans la marge de renouvellement anticipé */
+function isExpiring(token: MalToken): boolean {
+  return token.expiresAt - REFRESH_MARGIN_MS <= Date.now();
+}
+
 /**
- * Access token MAL valide, renouvelé si nécessaire (ou si `forceRefresh`, après un 401).
- * Retourne null si l'utilisateur n'est pas connecté ou si la session ne peut plus être renouvelée.
- * Le verrou évite deux renouvellements simultanés (le premier invaliderait le refresh token du second).
+ * Access token MAL valide, renouvelé si nécessaire (ou si `rejected` est toujours le token enregistré, après un 401).
+ * Retourne null si l'utilisateur n'est pas connecté, si la session ne peut plus être renouvelée, ou si elle a été
+ * fermée pendant le renouvellement.
+ * Le verrou évite deux renouvellements simultanés (le premier invaliderait le refresh token du second). Ordre des
+ * verrous : renouvellement MAL → stockage (voir sync/entry-lock.ts).
  */
-export async function getMalAccessToken(forceRefresh = false): Promise<string | null> {
+export async function getMalAccessToken({ rejected }: AccessTokenOptions = {}): Promise<string | null> {
   const token = await getMalToken();
   if (!token) return null;
-  if (!forceRefresh && token.expiresAt - REFRESH_MARGIN_MS > Date.now()) return token.accessToken;
+  if (token.accessToken !== rejected && !isExpiring(token)) return token.accessToken;
 
   return navigator.locks.request(REFRESH_LOCK, async () => {
     const current = await getMalToken();
-    if (!current) return null;
-    // Renouvelé par un autre appel pendant l'attente du verrou
-    if (current.accessToken !== token.accessToken && current.expiresAt - REFRESH_MARGIN_MS > Date.now()) return current.accessToken;
+    // Session relevée APRÈS le token : une déconnexion entre les deux lectures donne undefined
+    const epoch = (await getOpenSessions()).mal;
+    if (!current || epoch === undefined) return null;
+    // Renouvelé par un autre appel (pendant l'attente du verrou, ou depuis le 401) : comparé au token refusé, pas au
+    // token relu, sinon chaque 401 concurrent relancerait un renouvellement (AUTH-08)
+    if (current.accessToken !== rejected && !isExpiring(current)) return current.accessToken;
 
     try {
       const refreshed = await requestToken({ grant_type: 'refresh_token', refresh_token: current.refreshToken });
-      await saveMalToken(refreshed);
-      return refreshed.accessToken;
+      // Déconnexion (ou autre compte) pendant la requête : le token renouvelé est abandonné, la session reste fermée (AUTH-01)
+      if (await saveRefreshedMalToken(current.accessToken, refreshed, epoch)) return refreshed.accessToken;
+      log.warn('Session MyAnimeList fermée pendant le renouvellement : token abandonné');
+      return null;
     } catch (error: unknown) {
       if (error instanceof ApiError && error.code === 'TOKEN_INVALID') {
-        await endSession('mal');
+        // Session fermée seulement si ce token est toujours enregistré : une reconnexion entre-temps est conservée (AUTH-02)
+        await endSessionIfToken('mal', current.accessToken);
         return null;
       }
       throw error; // Réseau : la session reste valide, on réessaiera plus tard

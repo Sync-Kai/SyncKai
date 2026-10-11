@@ -9,7 +9,9 @@ import {
   type AiringWeekCache,
   type IsoWeekday,
 } from './agenda';
+import type { SessionEpochs } from './session-epochs';
 import { getSettings, saveSettings } from './settings';
+import { writeIfSessions } from './storage';
 import { withStorageLock } from './storage-lock';
 
 // Accès chrome.storage de l'agenda (panneau latéral et service worker).
@@ -35,12 +37,17 @@ export async function readWeekCache(weekStart: string): Promise<AiringWeekCache 
   return isAiringWeekCache(value) && value.weekStart === weekStart ? value : null;
 }
 
-/** Enregistre la semaine et supprime les semaines trop anciennes ou trop lointaines */
-export async function writeWeekCache(cache: AiringWeekCache, now: number = Date.now()): Promise<void> {
-  await chrome.storage.local.set({ [airingWeekKey(cache.weekStart)]: cache });
+/**
+ * Enregistre la semaine si les sessions `epochs` (relevées avant la lecture de la liste et du calendrier) sont
+ * toujours ouvertes (DATA-05, ALRT-05), puis supprime les semaines trop anciennes ou trop lointaines. Retourne false
+ * si la semaine, celle d'un compte déconnecté entre-temps, n'a pas été enregistrée.
+ */
+export async function writeWeekCache(cache: AiringWeekCache, epochs: SessionEpochs, now: number = Date.now()): Promise<boolean> {
+  if (!(await writeIfSessions(epochs, { [airingWeekKey(cache.weekStart)]: cache }))) return false;
   const all = await chrome.storage.local.get(null);
   const stale = weekKeysToPrune(Object.keys(all), now);
   if (stale.length > 0) await chrome.storage.local.remove(stale);
+  return true;
 }
 
 /** « Ajuster l'heure » : délai propre à une série (null = retour au délai de la plateforme) */

@@ -17,12 +17,13 @@ import {
 } from './airing-policy';
 import { watchingProgress, weekRange } from '../shared/agenda';
 import { agendaFirstDay, writeWeekCache } from '../shared/agenda-store';
-import { AIRING_RESULT_KEY, type AiringCheckResult, type AiringSkipReason } from '../shared/airing.types';
+import { AIRING_LAST_CHECK_KEY, AIRING_NOTIFIED_KEY, AIRING_RESULT_KEY, AIRING_TARGETS_KEY } from '../shared/airing-keys';
+import type { AiringCheckResult, AiringSkipReason } from '../shared/airing.types';
 import { getExcludedSeries } from '../shared/exclusions';
 import { isRecord } from '../shared/guards';
 import { effectivePreferredPlayer } from '../shared/netflix-access';
 import { getSettings } from '../shared/settings';
-import { getCachedWatching, getMalToken, getValidToken, withStorageLock } from '../shared/storage';
+import { getCachedWatching, getMalToken, getOpenSessions, getValidToken, sessionsStillOpen, withStorageLock } from '../shared/storage';
 import { choosePlatformLink } from '../shared/watching';
 import type { WatchingEntry } from '../shared/watching.types';
 import { createLogger } from '../shared/logger';
@@ -31,10 +32,6 @@ import { createLogger } from '../shared/logger';
 
 export const AIRING_ALARM = 'synckai:airing';
 
-const LAST_CHECK_KEY = 'airingLastCheck';
-const NOTIFIED_KEY = 'airingNotified';
-/** notificationId → mediaIds à ouvrir au clic (le service worker peut s'endormir entre-temps) */
-const TARGETS_KEY = 'airingTargets';
 const MAX_TARGETS = 20;
 const log = createLogger('airing');
 
@@ -107,14 +104,17 @@ async function runCheck(): Promise<{ notified: number; skipped: AiringSkipReason
   if (!settings.airingAlerts) return { notified: 0, skipped: 'disabled' };
   if (!(await hasConnectedService())) return { notified: 0, skipped: 'not-connected' };
 
+  // Sessions relevées avant la lecture des séries suivies : une déconnexion pendant la vérification abandonne la
+  // semaine d'agenda et les notifications de l'ancien compte (ALRT-05)
+  const epochs = await getOpenSessions();
   const [entries, excluded] = await Promise.all([getCachedEntries(), getExcludedSeries()]);
   // Progression par fiche AniList (la plus avancée si la série est sur les deux services)
   const progressByMedia = watchingProgress(entries, excluded);
   log.info(`${progressByMedia.size} série(s) en cours à vérifier`);
   if (progressByMedia.size === 0) return { notified: 0, skipped: 'no-series' };
 
-  const stored = await chrome.storage.local.get(LAST_CHECK_KEY);
-  const lastCheck: unknown = stored[LAST_CHECK_KEY];
+  const stored = await chrome.storage.local.get(AIRING_LAST_CHECK_KEY);
+  const lastCheck: unknown = stored[AIRING_LAST_CHECK_KEY];
   const nowS = Math.floor(Date.now() / 1000);
   const range = computeWindow(nowS, typeof lastCheck === 'number' ? lastCheck : null, settings.airingDelayHours);
   // Une seule lecture du calendrier sert aussi l'agenda : fenêtre élargie à toute la semaine en cours
@@ -126,30 +126,36 @@ async function runCheck(): Promise<{ notified: number; skipped: AiringSkipReason
   const items = itemsInWindow(fetched, range);
   log.info(`${items.length} diffusion(s) trouvée(s) dans la fenêtre`);
   try {
-    await writeWeekCache({ weekStart: week.key, fetchedAt: Date.now(), mediaIds, schedules: itemsInWindow(fetched, weekWindow) });
+    await writeWeekCache({ weekStart: week.key, fetchedAt: Date.now(), mediaIds, schedules: itemsInWindow(fetched, weekWindow) }, epochs);
   } catch (error) {
     log.warn('Agenda non mis en cache :', error);
   }
 
-  // Liste des épisodes déjà notifiés lue/écrite sous verrou : alarme et vérification manuelle ne doublonnent pas
+  // Liste des épisodes déjà notifiés lue/écrite sous verrou : alarme et vérification manuelle ne doublonnent pas.
+  // Même verrou que la déconnexion : sessions revérifiées avant toute écriture (null = vérification abandonnée)
   const fresh = await withStorageLock(async () => {
-    const current = await chrome.storage.local.get([NOTIFIED_KEY, TARGETS_KEY]);
-    const notifiedRaw: unknown = current[NOTIFIED_KEY];
+    if (!(await sessionsStillOpen(epochs))) return null;
+    const current = await chrome.storage.local.get([AIRING_NOTIFIED_KEY, AIRING_TARGETS_KEY]);
+    const notifiedRaw: unknown = current[AIRING_NOTIFIED_KEY];
     const notified = isNumberArray(notifiedRaw) ? notifiedRaw : [];
     const newItems = filterNewEpisodes(items, progressByMedia, notified);
     const plan = planNotifications(newItems);
 
-    const targetsRaw: unknown = current[TARGETS_KEY];
+    const targetsRaw: unknown = current[AIRING_TARGETS_KEY];
     const targets = Object.entries(isRecord(targetsRaw) ? targetsRaw : {}).filter((pair): pair is [string, number[]] => isNumberArray(pair[1]));
     const nextTargets = [...targets.filter(([id]) => !plan.some((p) => p.id === id)), ...plan.map((p): [string, number[]] => [p.id, p.mediaIds])];
 
     await chrome.storage.local.set({
-      [LAST_CHECK_KEY]: nowS,
-      [NOTIFIED_KEY]: trimNotified(notified, newItems.map((i) => i.scheduleId)),
-      [TARGETS_KEY]: Object.fromEntries(nextTargets.slice(-MAX_TARGETS)),
+      [AIRING_LAST_CHECK_KEY]: nowS,
+      [AIRING_NOTIFIED_KEY]: trimNotified(notified, newItems.map((i) => i.scheduleId)),
+      [AIRING_TARGETS_KEY]: Object.fromEntries(nextTargets.slice(-MAX_TARGETS)),
     });
     return plan;
   });
+  if (fresh === null) {
+    log.info('Compte déconnecté pendant la vérification : aucune notification');
+    return { notified: 0, skipped: 'not-connected' };
+  }
 
   const iconUrl = chrome.runtime.getURL('icons/icon-128.png');
   for (const notification of fresh) {
@@ -205,8 +211,8 @@ async function openFromNotification(notificationId: string): Promise<void> {
   if (!notificationId.startsWith(AIRING_NOTIFICATION_PREFIX)) return;
   try {
     await chrome.notifications.clear(notificationId);
-    const stored = await chrome.storage.local.get(TARGETS_KEY);
-    const targets: unknown = stored[TARGETS_KEY];
+    const stored = await chrome.storage.local.get(AIRING_TARGETS_KEY);
+    const targets: unknown = stored[AIRING_TARGETS_KEY];
     const mediaIds: unknown = isRecord(targets) ? targets[notificationId] : undefined;
     const mediaId = isNumberArray(mediaIds) ? mediaIds[0] : undefined;
     if (mediaId === undefined) return;

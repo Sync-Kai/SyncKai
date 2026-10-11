@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../shared/storage', () => ({ getValidToken: async () => null }));
-vi.mock('../../shared/session-end', () => ({ endSession: async () => undefined }));
+vi.mock('../../shared/session-end', () => ({ endSessionIfToken: async () => true }));
 
 import { anilistPublicQuery } from './client';
 import { aniListBudget } from './rate-limit';

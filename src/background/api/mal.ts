@@ -1,8 +1,8 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import type { MalViewer, MalViewerResult } from '../../shared/mal.types';
-import { endSession } from '../../shared/session-end';
-import { saveCachedMalViewer } from '../../shared/storage';
+import { endSessionIfToken } from '../../shared/session-end';
+import { getSessionEpoch, saveCachedMalViewer } from '../../shared/storage';
 import type { ManualListStatus } from '../../shared/sync.types';
 import { toSafeUrl } from '../../shared/url';
 import { getMalAccessToken } from '../auth/mal';
@@ -87,14 +87,19 @@ export function malProgressBody(progress: number, status: WriteStatus, repeat?: 
 interface RequestOptions {
   method?: 'GET' | 'PATCH';
   body?: URLSearchParams;
-  /** Nouvelle tentative déjà faite après un 401 (token renouvelé) */
-  refreshed?: boolean;
+  /** Token refusé par le 401 précédent : renouvelé s'il est toujours enregistré (voir getMalAccessToken) */
+  rejected?: string;
+  /** Nouvelles tentatives déjà faites après un 401 */
+  authRetries?: number;
   /** Nouvelle tentative déjà faite après un 429 */
   rateRetried?: boolean;
 }
 
+/** Après un 401 : un renouvellement, puis un essai de plus si le token a été remplacé entre-temps (reconnexion) */
+const MAX_AUTH_RETRIES = 2;
+
 export async function malRequest<T>(path: string, isData: (data: unknown) => data is T, options: RequestOptions = {}): Promise<T> {
-  const accessToken = await getMalAccessToken(options.refreshed === true);
+  const accessToken = await getMalAccessToken({ rejected: options.rejected });
   if (!accessToken) throw new ApiError('NOT_AUTHENTICATED', t('api.notAuthenticated', { service: 'MyAnimeList' }));
 
   let response: Response;
@@ -115,9 +120,12 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
   }
 
   if (response.status === 401) {
-    // Token révoqué ou expiré plus tôt que prévu : un renouvellement, puis abandon
-    if (!options.refreshed) return malRequest(path, isData, { ...options, refreshed: true });
-    await endSession('mal');
+    // Token révoqué ou expiré plus tôt que prévu : un renouvellement (ou le token déjà renouvelé par un autre appel)
+    const retries = options.authRetries ?? 0;
+    const retry = (): Promise<T> => malRequest(path, isData, { ...options, rejected: accessToken, authRetries: retries + 1 });
+    if (retries === 0) return retry();
+    // Refusé encore : session fermée seulement si ce token est toujours enregistré (AUTH-02), sinon essai avec le nouveau
+    if (!(await endSessionIfToken('mal', accessToken)) && retries < MAX_AUTH_RETRIES) return retry();
     throw new ApiError('TOKEN_INVALID', t('api.sessionExpired', { service: 'MyAnimeList' }));
   }
 
@@ -165,13 +173,17 @@ function isRawMalUser(data: unknown): data is RawMalUser {
 /** Profil de l'utilisateur MAL connecté, mis en cache pour le popup. Ne lève jamais. */
 export async function getMalViewer(): Promise<MalViewerResult> {
   try {
+    // Génération relevée avant la requête : une déconnexion pendant celle-ci rend le profil obsolète (AUTH-04)
+    const epoch = await getSessionEpoch('mal');
     const user = await malRequest('/users/@me?fields=picture', isRawMalUser);
     const viewer: MalViewer = {
       id: user.id,
       name: user.name,
       pictureUrl: toSafeUrl(typeof user.picture === 'string' ? user.picture : null),
     };
-    await saveCachedMalViewer(viewer);
+    if (!(await saveCachedMalViewer(viewer, epoch))) {
+      return { ok: false, code: 'NOT_AUTHENTICATED', message: t('api.notAuthenticated', { service: 'MyAnimeList' }) };
+    }
     return { ok: true, data: viewer };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, code: error.code, message: error.message };

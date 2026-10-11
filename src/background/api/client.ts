@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
-import { endSession } from '../../shared/session-end';
+import { endSessionIfToken } from '../../shared/session-end';
 import { getValidToken } from '../../shared/storage';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
 import { aniListBudget, MAX_RETRY_WAIT_MS, readRateLimitHeaders, retryDelayMs, sleep, type RequestLane } from './rate-limit';
@@ -67,9 +67,11 @@ async function request<T>(
     (response.status === 401 ||
       errors.some((e) => isRecord(e) && typeof e.message === 'string' && /invalid token/i.test(e.message)));
   if (isTokenInvalid) {
-    await endSession('anilist');
+    // Session fermée seulement si le token refusé est toujours celui enregistré (AUTH-02) : sinon reconnexion ou
+    // déconnexion pendant la requête, rejouée avec le token actuel
+    const ended = await endSessionIfToken('anilist', token.accessToken);
     // Catalogue public : on rejoue la requête sans token plutôt que d'échouer
-    if (auth === 'optional') return request(query, isData, variables, auth, isRetry, lane);
+    if (!ended || auth === 'optional') return request(query, isData, variables, auth, isRetry, lane);
     throw new ApiError('TOKEN_INVALID', t('api.sessionExpired', { service: 'AniList' }));
   }
 

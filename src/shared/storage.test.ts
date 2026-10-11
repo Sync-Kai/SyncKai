@@ -5,7 +5,8 @@ import type { SyncQueueItem } from './queue.types';
 import type { PendingReview, RecentSync } from './review.types';
 import type { SessionEpochs } from './session-epochs';
 
-// Effacements de session, données liées au compte et plafonds de storage.ts (TEST-10, DATA-01, DATA-06) :
+// Effacements de session, données liées au compte, écritures sous session et plafonds de storage.ts
+// (TEST-10, DATA-01, DATA-06, AUTH-01, AUTH-02, ARCH-17) :
 // chrome.storage.local simulé par une Map, verrou du stockage immédiat.
 
 const store = new Map<string, unknown>();
@@ -120,6 +121,11 @@ function seedEverything(): void {
     [PLATFORM_LINKS_KEY]: { '1': [] },
     'airingWeek:2026-10-05': {},
     'airingWeek:2026-10-12': {},
+    // Alertes de sortie (ALRT-05)
+    airingLastCheck: 1,
+    airingNotified: [1],
+    airingTargets: { 'synckai-airing:1': [1] },
+    airingLastResult: { checkedAt: 1, notified: 1, skipped: null, error: null },
     excludedSeries: [],
     settings: {},
   };
@@ -270,5 +276,81 @@ describe('plafonds (TEST-10)', () => {
     const syncs = await storage.getRecentSyncs();
     expect(syncs).toHaveLength(MAX_RECENT_SYNCS);
     expect(syncs.map((s) => s.mediaId)).toEqual([6, 7, 5, 4, 3]);
+  });
+});
+
+describe('écritures sous session (ARCH-17, AUTH-04, DATA-05)', () => {
+  it('writeIfSession : écrit tant que la session relevée est ouverte, rien après une déconnexion', async () => {
+    store.set(STORAGE_KEYS.malToken, MAL_TOKEN);
+    expect(await storage.writeIfSession('mal', 0, { [STORAGE_KEYS.malViewer]: { id: 2, name: 'M' } })).toBe(true);
+    expect(store.get(STORAGE_KEYS.malViewer)).toEqual({ id: 2, name: 'M' });
+
+    await storage.clearMalSession();
+    expect(await storage.writeIfSession('mal', 0, { [STORAGE_KEYS.malViewer]: { id: 2, name: 'M' } })).toBe(false);
+    expect(store.has(STORAGE_KEYS.malViewer)).toBe(false);
+  });
+
+  it('writeIfSession : autre compte connecté depuis (nouvelle génération) → rien n’est écrit', async () => {
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    await storage.clearAniListSession();
+    store.set(STORAGE_KEYS.anilistToken, { accessToken: 'autre', expiresAt: FAR });
+    expect(await storage.saveCachedViewer({ id: 1, name: 'A', siteUrl: 'https://anilist.co/user/1', avatarUrl: null }, 0)).toBe(false);
+    expect(store.has(STORAGE_KEYS.anilistViewer)).toBe(false);
+    expect(await storage.saveCachedViewer({ id: 3, name: 'B', siteUrl: 'https://anilist.co/user/3', avatarUrl: null }, 1)).toBe(true);
+    expect(store.get(STORAGE_KEYS.anilistViewer)).toMatchObject({ id: 3 });
+  });
+
+  it('writeIfSessions : toutes les sessions relevées doivent rester ouvertes ; aucune relevée → rien', async () => {
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    store.set(STORAGE_KEYS.malToken, MAL_TOKEN);
+    expect(await storage.writeIfSessions(BOTH, { [STORAGE_KEYS.compareLast]: { n: 1 } })).toBe(true);
+    await storage.clearMalSession();
+    expect(await storage.writeIfSessions(BOTH, { [STORAGE_KEYS.compareLast]: { n: 2 } })).toBe(false);
+    expect(store.has(STORAGE_KEYS.compareLast)).toBe(false);
+    // Session AniList seule relevée : la déconnexion MAL n'y change rien
+    expect(await storage.writeIfSessions({ anilist: 0 }, { 'airingWeek:2026-10-12': {} })).toBe(true);
+    expect(await storage.writeIfSessions({}, { 'airingWeek:2026-10-05': {} })).toBe(false);
+    expect(store.has('airingWeek:2026-10-05')).toBe(false);
+  });
+
+  it('saveRefreshedMalToken : abandonné après une déconnexion, ou si le token renouvelé n’est plus enregistré (AUTH-01)', async () => {
+    const next = { accessToken: 'mal2', refreshToken: 'refresh2', expiresAt: FAR };
+    store.set(STORAGE_KEYS.malToken, MAL_TOKEN);
+    expect(await storage.saveRefreshedMalToken('autre', next, 0)).toBe(false);
+    expect(store.get(STORAGE_KEYS.malToken)).toEqual(MAL_TOKEN);
+    expect(await storage.saveRefreshedMalToken('mal', next, 0)).toBe(true);
+    expect(store.get(STORAGE_KEYS.malToken)).toEqual(next);
+
+    await storage.clearMalSession();
+    expect(await storage.saveRefreshedMalToken('mal2', { ...next, accessToken: 'mal3' }, 0)).toBe(false);
+    expect(store.has(STORAGE_KEYS.malToken)).toBe(false);
+  });
+});
+
+describe('token refusé (AUTH-02)', () => {
+  it('clearAniListSessionIfToken : n’efface que le token refusé, une reconnexion entre-temps est conservée', async () => {
+    seedEverything();
+    store.set(STORAGE_KEYS.anilistToken, { accessToken: 'nouveau', expiresAt: FAR });
+    expect(await storage.clearAniListSessionIfToken('anilist')).toBe(false);
+    expect(store.get(STORAGE_KEYS.anilistToken)).toEqual({ accessToken: 'nouveau', expiresAt: FAR });
+    expect(store.has(STORAGE_KEYS.anilistViewer)).toBe(true);
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 0, mal: 0 });
+
+    expect(await storage.clearAniListSessionIfToken('nouveau')).toBe(true);
+    expect(store.has(STORAGE_KEYS.anilistToken)).toBe(false);
+    expect(store.has(STORAGE_KEYS.anilistViewer)).toBe(false);
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 1, mal: 0 });
+  });
+
+  it('clearMalSessionIfToken : symétrique ; aucun token enregistré → rien', async () => {
+    seedEverything();
+    expect(await storage.clearMalSessionIfToken('ancien')).toBe(false);
+    expect(store.get(STORAGE_KEYS.malToken)).toEqual(MAL_TOKEN);
+    expect(await storage.clearMalSessionIfToken('mal')).toBe(true);
+    expect(store.has(STORAGE_KEYS.malToken)).toBe(false);
+    expect(store.has(STORAGE_KEYS.malViewer)).toBe(false);
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 0, mal: 1 });
+    expect(await storage.clearMalSessionIfToken('mal')).toBe(false);
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 0, mal: 1 });
   });
 });
