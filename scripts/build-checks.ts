@@ -29,8 +29,12 @@ export const CONTENT_SCRIPT_BUDGET_BYTES = 83 * 1024;
 /** Budget des deux scripts Netflix (IIFE autonomes, clés i18n du contenu comprises) : 59,4 Ko mesurés au 2026-10-11, ~10 % de marge */
 export const NETFLIX_SCRIPTS_BUDGET_BYTES = 65 * 1024;
 
-/** Budget des deux scripts Disney+ (IIFE autonomes, clés i18n du contenu comprises) : 63,9 Ko mesurés au 2026-10-11 (journal de diagnostic compris), ~10 % de marge */
-export const DISNEY_SCRIPTS_BUDGET_BYTES = 70 * 1024;
+/**
+ * Budget des deux scripts Disney+ (IIFE autonomes, clés i18n du contenu comprises) : 70,0 Ko mesurés au 2026-10-11
+ * (lecture, pages de série, générique de fin), ~7 % de marge. Relevé de 70 à 75 Ko le 2026-10-11 : trois fonctions
+ * portées par un seul script ; au-delà, alléger (code des pages de série ou du pont) plutôt que relever encore.
+ */
+export const DISNEY_SCRIPTS_BUDGET_BYTES = 75 * 1024;
 
 /** Plateforme (dossier) d'un script enregistré `src/content/{dossier}/….iife.js`, null sinon */
 export function registeredScriptPlatform(file: string): string | null {
