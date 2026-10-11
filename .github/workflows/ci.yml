@@ -13,10 +13,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # Pas de navigateur téléchargé par npm ci : seul le job e2e installe Chrome headless, explicitement
-  PUPPETEER_SKIP_DOWNLOAD: 'true'
-
 jobs:
   check:
     name: Types, tests et build
@@ -30,7 +26,8 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      # Aucun script d'installation : pas de navigateur téléchargé par puppeteer, versions du lockfile uniquement
+      - run: npm ci --ignore-scripts
 
       - name: Types (extension)
         run: npx tsc --noEmit
@@ -59,11 +56,11 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
-      # Chrome headless (shell) utilisé par Puppeteer, dans ~/.cache/puppeteer
+      # Chrome headless (shell) utilisé par Puppeteer, dans ~/.cache/puppeteer : build épinglé par puppeteer (lockfile)
       - name: Chrome headless pour Puppeteer
-        run: npx puppeteer browsers install chrome-headless-shell
+        run: npx --no-install puppeteer browsers install chrome-headless-shell@pinned
 
       - name: Tests de bout en bout
         run: npm run test:e2e

@@ -1,7 +1,8 @@
 name: Release
 
 # Un tag de version poussé (git push origin vx.y.z) :
-#   build → tests (unitaires + bout en bout du popup), archives Chrome, Firefox et sources (artefact partagé)
+#   build → tag sur main, tests (unitaires, dont les justifications de permissions, + bout en bout du popup),
+#           archives Chrome, Firefox et sources (artefact partagé)
 #   chrome → envoi + soumission au Chrome Web Store
 #   firefox → envoi + soumission sur Firefox Add-ons (AMO), en parallèle
 #   github-release → release GitHub avec les trois archives, si le Chrome Web Store a accepté la version
@@ -33,10 +34,21 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
-    env:
-      PUPPETEER_SKIP_DOWNLOAD: 'true'
     steps:
+      # Historique complet : contrôle d'ascendance avec origin/main
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Tag sur main
+        run: |
+          commit="$(git rev-parse "$GITHUB_REF^{commit}")"
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::Le tag $GITHUB_REF_NAME ($commit) n'est pas sur main : publication refusée (voir docs/STORE.md › 7)."
+            exit 1
+          fi
+          echo "Tag $GITHUB_REF_NAME ($commit) contenu dans origin/main."
 
       - uses: actions/setup-node@v7
         with:
@@ -56,14 +68,16 @@ jobs:
           fi
           echo "version=$tag_version" >> "$GITHUB_OUTPUT"
 
-      - run: npm ci
+      # Aucun script d'installation (ni le téléchargement de Chrome par puppeteer) : versions du lockfile uniquement
+      - run: npm ci --ignore-scripts
 
+      # Dont scripts/store-permissions.test.ts : une permission sans justification bloque l'envoi aux stores
       - name: Tests
         run: npx vitest run
 
-      # Tests de bout en bout du popup : un échec bloque l'envoi aux stores
+      # Build épinglé par puppeteer (lockfile), jamais « latest » : un échec bloque l'envoi aux stores
       - name: Chrome headless pour Puppeteer
-        run: npx puppeteer browsers install chrome-headless-shell
+        run: npx --no-install puppeteer browsers install chrome-headless-shell@pinned
 
       - name: Tests de bout en bout
         run: npm run test:e2e
@@ -91,8 +105,25 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions: {}
+    # Secrets des stores : environnement réservé aux tags v* (docs/STORE.md › 7, configuration GitHub)
+    environment: stores
+    permissions:
+      contents: read
     steps:
+      # package.json + package-lock.json seulement (fichiers racine du mode cone) : CLI à version exacte
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
       - uses: actions/download-artifact@v8
         with:
           name: release
@@ -115,8 +146,10 @@ jobs:
             exit 1
           fi
 
+      # chrome-webstore-upload-cli (devDependency à version exacte) : jamais résolu sur le registre au moment du run.
       # Sans sous-commande, la CLI envoie l'archive puis la soumet (DEFAULT_PUBLISH : mise en ligne
       # automatique dès la validation). Elle lit CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN, PUBLISHER_ID.
+      # « does not meet the requirements » : justification manquante dans l'onglet Confidentialité (docs/STORE.md › 7).
       - name: Envoi + soumission
         env:
           CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
@@ -125,7 +158,7 @@ jobs:
           PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           VERSION: ${{ needs.build.outputs.version }}
         run: >-
-          npx --yes chrome-webstore-upload-cli@4
+          npx --no-install chrome-webstore-upload
           --source "release/synckai-$VERSION-chrome.zip"
           --extension-id "$EXTENSION_ID"
 
@@ -134,18 +167,24 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: stores
     permissions:
       contents: read
     steps:
-      # Seulement pour docs/store/amo-metadata.json
+      # docs/store/amo-metadata.json, plus package.json + package-lock.json (fichiers racine du mode cone)
       - uses: actions/checkout@v7
         with:
           sparse-checkout: docs/store
           sparse-checkout-cone-mode: true
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
+
+      # web-ext du lockfile (le même que pour web-ext lint)
+      - run: npm ci --ignore-scripts
 
       - uses: actions/download-artifact@v8
         with:
@@ -169,16 +208,23 @@ jobs:
       # envoyée que tant que le module n'est pas public (première soumission), pour ne pas écraser
       # ensuite les modifications faites à la main sur AMO. Les versions suivantes ne reçoivent
       # que les métadonnées de version (licence, notes pour les relecteurs).
+      # 200 : public ; 401/403/404 : absent ou non public ; tout autre code (5xx, 429, délai dépassé) : échec,
+      # pour ne jamais renvoyer la fiche complète sur une panne passagère (Re-run failed jobs ensuite).
       - name: Métadonnées AMO
         run: |
-          status="$(curl -s -o /dev/null -w '%{http_code}' "https://addons.mozilla.org/api/v5/addons/addon/$AMO_ADDON_ID/" || true)"
-          if [ "$status" = "200" ]; then
-            jq '{version: .version}' docs/store/amo-metadata.json > amo-metadata.json
-            echo "Module public sur AMO : métadonnées de version uniquement."
-          else
-            cp docs/store/amo-metadata.json amo-metadata.json
-            echo "Module absent ou non public sur AMO (HTTP $status) : fiche complète envoyée."
-          fi
+          status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 --retry 3 --retry-delay 5 \
+            "https://addons.mozilla.org/api/v5/addons/addon/$AMO_ADDON_ID/")" || status="000"
+          case "$status" in
+            200)
+              jq '{version: .version}' docs/store/amo-metadata.json > amo-metadata.json
+              echo "Module public sur AMO : métadonnées de version uniquement." ;;
+            401|403|404)
+              cp docs/store/amo-metadata.json amo-metadata.json
+              echo "Module absent ou non public sur AMO (HTTP $status) : fiche complète envoyée." ;;
+            *)
+              echo "::error::Statut AMO indéterminé (HTTP $status) : envoi annulé, relancer le job (Re-run failed jobs)."
+              exit 1 ;;
+          esac
 
       # web-ext sign reconstruit le .zip à partir d'un dossier : on lui donne le paquet Firefox décompressé,
       # identique à l'archive jointe à la release. --approval-timeout 0 : soumission sans attendre l'examen
@@ -190,7 +236,7 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           unzip -q "release/synckai-$VERSION-firefox.zip" -d amo-package
-          npx --yes web-ext@8 sign \
+          npx --no-install web-ext sign \
             --no-config-discovery \
             --source-dir amo-package \
             --artifacts-dir web-ext-artifacts \
@@ -228,16 +274,27 @@ jobs:
             echo "::warning::Firefox (AMO) : $FIREFOX_RESULT. La release GitHub est créée quand même (voir docs/STORE.md › 7)."
           fi
 
+      # Idempotent : une release existante (créée à la main, ou run relancé) est mise à jour
+      # (titre, notes, archives remplacées) au lieu de faire échouer le job
       - name: Release GitHub
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.build.outputs.version }}
-        run: >-
-          gh release create "$GITHUB_REF_NAME"
-          "release/synckai-$VERSION-chrome.zip"
-          "release/synckai-$VERSION-firefox.zip"
-          "release/synckai-$VERSION-source.zip"
-          --repo "$GITHUB_REPOSITORY"
-          --title "SyncKai $VERSION"
-          --notes-file release/notes.md
-          --verify-tag
+        run: |
+          assets=(
+            "release/synckai-$VERSION-chrome.zip"
+            "release/synckai-$VERSION-firefox.zip"
+            "release/synckai-$VERSION-source.zip"
+          )
+          if view_error="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json tagName 2>&1 >/dev/null)"; then
+            echo "Release $GITHUB_REF_NAME existante : notes et archives mises à jour."
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+              --title "SyncKai $VERSION" --notes-file release/notes.md
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          elif [[ "$view_error" == *"release not found"* ]]; then
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" \
+              --title "SyncKai $VERSION" --notes-file release/notes.md --verify-tag
+          else
+            echo "::error::gh release view a échoué : $view_error"
+            exit 1
+          fi

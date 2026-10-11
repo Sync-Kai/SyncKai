@@ -77,7 +77,9 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - entrée dans le `CHANGELOG.md` (FR, Keep a Changelog) et commit `chore(release): x.y.z` ;
   - fast-forward sur `main`, tag annoté `vx.y.z` (« SyncKai x.y.z »), `develop` aligné, push ;
   - le push du tag déclenche `.github/workflows/release.yml` : archives Chrome, Firefox et sources, envoi et soumission au Chrome Web Store et sur Firefox Add-ons (AMO) en parallèle, puis release GitHub avec les trois zips si le Chrome Web Store a accepté la version (voir `docs/STORE.md` › 7) ;
-  - avant de taguer, lancer `npm run test:e2e` : le job `build` de `release.yml` l'exécute et un échec bloque l'envoi aux stores.
+  - avant de taguer, lancer `npm run test:e2e` : le job `build` de `release.yml` l'exécute et un échec bloque l'envoi aux stores ;
+  - permissions : `scripts/store-permissions.test.ts` exige une section dans `docs/store/permissions.md` par permission ou hôte du manifeste ; si ce fichier a changé depuis le dernier tag, coller les blocs dans l'onglet Confidentialité du Chrome Web Store **avant** le tag (sinon soumission refusée, reprise : `docs/STORE.md` › 7) ;
+  - `release.yml` refuse un tag hors de `main` et n'exécute que les CLI du lockfile (`chrome-webstore-upload-cli`, `web-ext` à version exacte, `npx --no-install`).
 - **Organisation** : le travail est confié à des sous-agents spécialisés, avec un brief précis. La session principale orchestre, vérifie (`npx tsc --noEmit`, `npx vitest run`, `npm run test:e2e` si le popup change, `npm run build`), gère Git et fait le compte rendu.
 - L'utilisateur teste dans Chrome avant chaque merge important. Signale ce qui n'a pas été testé.
 

@@ -1,6 +1,8 @@
 # Privacy practices — Chrome Web Store dashboard
 
-Answers for the **Privacy practices** tab (manifest v2.1.0). Copy each block into the matching field.
+Answers for the **Privacy practices** tab, for the permissions declared in `manifest.json`. Copy each block into the matching field.
+
+`scripts/store-permissions.test.ts` (run by `npx vitest run`, so by CI and by `release.yml`) fails when an entry of `permissions`, `optional_permissions`, `host_permissions` or `optional_host_permissions` has no section or table row here, when a section has no matching permission, when the host block does not name a host, or when a block exceeds 1000 characters. Whenever this file changes, paste the changed blocks into the dashboard **before** pushing the next tag, otherwise the Chrome Web Store refuses the submission (see `docs/STORE.md` › 7).
 
 ## Single purpose
 

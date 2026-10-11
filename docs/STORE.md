@@ -94,18 +94,34 @@ L'ID ne change plus : aucune modification OAuth n'est nécessaire pour les mises
           └── firefox ──┘
   ```
 
-  1. **build** : vérifie que la version du tag = `package.json` = `manifest.json`, lance les tests, puis `npm run package:all` → `release/synckai-<version>-chrome.zip`, `-firefox.zip` et `-source.zip` (`git archive` du tag), `web-ext lint` et les notes extraites du `CHANGELOG.md` (`scripts/changelog-notes.ts`). Le tout est transmis aux jobs suivants (artefact `release`).
+  1. **build** : vérifie que le commit du tag est contenu dans `origin/main` (`git merge-base --is-ancestor`, sinon aucun envoi) et que la version du tag = `package.json` = `manifest.json`, installe les dépendances sans scripts d'installation (`npm ci --ignore-scripts`), lance les tests (dont `scripts/store-permissions.test.ts` : chaque permission du manifeste a sa justification dans `docs/store/permissions.md`) et les tests de bout en bout (Chrome headless à la version épinglée par `puppeteer` dans le lockfile : `chrome-headless-shell@pinned`), puis `npm run package:all` → `release/synckai-<version>-chrome.zip`, `-firefox.zip` et `-source.zip` (`git archive` du tag), `web-ext lint` et les notes extraites du `CHANGELOG.md` (`scripts/changelog-notes.ts`). Le tout est transmis aux jobs suivants (artefact `release`).
   2. **chrome** : envoie l'archive Chrome au Chrome Web Store et la **soumet pour examen** (`chrome-webstore-upload-cli`) : la version est mise en ligne automatiquement dès sa validation.
-  3. **firefox** (en parallèle) : `web-ext sign --channel listed` envoie le paquet Firefox **et l'archive des sources** à AMO, puis le soumet pour examen sans attendre (`--approval-timeout 0`) : AMO publie la version une fois approuvée. La fiche complète (`docs/store/amo-metadata.json`) n'est envoyée que tant que le module n'est pas public ; ensuite, seules les métadonnées de version (licence, notes pour les relecteurs) partent, pour ne pas écraser les modifications faites à la main sur AMO.
-  4. **github-release** : si le Chrome Web Store a accepté la version (même si AMO a échoué), crée la release GitHub avec les trois zips, les notes du changelog et une ligne de statut (« Chrome Web Store : soumis pour examen · Firefox (AMO) : … »).
+  3. **firefox** (en parallèle) : `web-ext sign --channel listed` envoie le paquet Firefox **et l'archive des sources** à AMO, puis le soumet pour examen sans attendre (`--approval-timeout 0`) : AMO publie la version une fois approuvée. La fiche complète (`docs/store/amo-metadata.json`) n'est envoyée que tant que le module n'est pas public ; ensuite, seules les métadonnées de version (licence, notes pour les relecteurs) partent, pour ne pas écraser les modifications faites à la main sur AMO. Le statut du module est lu sur l'API publique d'AMO : 200 → module public ; 401, 403 ou 404 → absent ou non public ; tout autre code (5xx, 429, délai dépassé, après 3 essais) fait échouer le job, sans rien envoyer.
+  4. **github-release** : si le Chrome Web Store a accepté la version (même si AMO a échoué), crée la release GitHub avec les trois zips, les notes du changelog et une ligne de statut (« Chrome Web Store : soumis pour examen · Firefox (AMO) : … »). Si la release existe déjà (créée à la main, run relancé), il la met à jour (`gh release edit`, puis `gh release upload --clobber`) au lieu d'échouer.
 
-Chaque job n'a que les droits nécessaires (`contents: write` uniquement pour la release GitHub). Chaque store vérifie ses propres secrets et échoue avec la liste des noms manquants.
+Chaque job n'a que les droits nécessaires (`contents: write` uniquement pour la release GitHub). Les jobs **chrome** et **firefox** tournent dans l'environnement GitHub `stores` (secrets des stores réservés aux tags `v*`, voir *Réglages GitHub* ci-dessous) et n'exécutent que les outils du lockfile : `chrome-webstore-upload-cli` et `web-ext` sont des devDependencies à version exacte, installées par `npm ci --ignore-scripts` et lancées par `npx --no-install` (jamais résolues sur le registre npm pendant le run). Pour les mettre à jour : `npm install --save-dev --save-exact <paquet>@<version>`, sur une branche `chore/…`. Chaque store vérifie ses propres secrets et échoue avec la liste des noms manquants.
 
 **En cas d'échec** :
 
 - **Secrets ou panne passagère** : corriger, puis *Actions › run › Re-run failed jobs* (ne relance que les jobs échoués et ceux qui en dépendent ; un store qui a déjà accepté la version n'est pas renvoyé).
 - **Correction de code** : supprimer le tag (`git push --delete origin vx.y.z`, `git tag -d vx.y.z`), le recréer et le repousser. Si un store a déjà accepté la version, il refusera ce nouvel envoi (même numéro) : préférer une nouvelle version de correctif.
-- **Chrome Web Store en échec** : pas de release GitHub, aucune annonce d'une version absente du Store.
+- **Chrome Web Store en échec** : pas de release GitHub, aucune annonce d'une version absente du Store. Ne pas créer la release à la main avec « Chrome Web Store : soumis pour examen » tant que la version n'est pas réellement soumise.
+- **Chrome Web Store refusé : « Your submission does not meet the requirements to be published »** : une permission ou un hôte n'a pas sa justification dans l'onglet **Confidentialité** du tableau de bord (cas des 2.0.0 et 2.1.0). Le paquet est envoyé mais pas soumis ; AMO, en parallèle, a en général déjà accepté la version. Reprise :
+  1. Tableau de bord → onglet **Confidentialité** (*Privacy practices*) → coller les blocs de [docs/store/permissions.md](store/permissions.md) (justification de chaque permission, champ unique des hôtes) → **Enregistrer le brouillon**.
+  2. **Soit** *Actions › run › Re-run failed jobs*, sans rien soumettre dans le tableau de bord : le job `chrome` renvoie le même zip (il remplace le brouillon non publié, à confirmer à la première occurrence) et le soumet, puis `github-release` crée la release. AMO n'est pas renvoyé (job réussi).
+  3. **Soit**, si ce nouvel envoi est refusé ou si la version a déjà été soumise à la main (**Submit for review** dans le tableau de bord ; tout envoi est alors refusé pendant l'examen) : ne pas relancer, créer la release GitHub depuis l'artefact du run :
+
+     ```bash
+     gh run download <run-id> --repo Sync-Kai/SyncKai -n release -D release-x.y.z
+     printf '\n---\n\nChrome Web Store : soumis pour examen · Firefox (AMO) : soumis pour examen\n' >> release-x.y.z/notes.md
+     gh release create vx.y.z release-x.y.z/synckai-x.y.z-{chrome,firefox,source}.zip \
+       --repo Sync-Kai/SyncKai --title "SyncKai x.y.z" --notes-file release-x.y.z/notes.md --verify-tag
+     ```
+
+     Adapter le statut AMO au résultat du job `firefox`. Un *Re-run* ultérieur de `github-release` mettrait cette release à jour au lieu d'échouer.
+  4. Prévention : `scripts/store-permissions.test.ts` rougit la CI dès qu'une permission est ajoutée sans section dans `permissions.md` ; reporter ces blocs dans l'onglet Confidentialité **avant** le tag (voir *Routine de release*).
+- **Tag hors de `main`** (« n'est pas sur main ») : rien n'est envoyé. Supprimer le tag (`git push --delete origin vx.y.z`, `git tag -d vx.y.z`), fusionner la release dans `main` (`--ff-only`), retaguer le commit de `main` et repousser.
+- **Statut AMO indéterminé** (HTTP 5xx, 429, délai dépassé) : panne passagère d'AMO, rien n'a été envoyé à AMO ; *Re-run failed jobs* plus tard.
 - **Seul AMO en échec** : la release GitHub est créée avec « Firefox (AMO) : échec » ; relancer le job `firefox` (*Re-run failed jobs*) ou envoyer `release/synckai-<version>-firefox.zip` + `-source.zip` à la main sur le [Developer Hub](https://addons.mozilla.org/developers/addons). La ligne de statut de la release se corrige à la main (`gh release edit`).
 
 ### Configuration (une seule fois)
@@ -127,8 +143,18 @@ Chaque job n'a que les droits nécessaires (`contents: write` uniquement pour la
    | `AMO_JWT_ISSUER` | Firefox Add-ons : *JWT issuer* (étape 8) |
    | `AMO_JWT_SECRET` | Firefox Add-ons : *JWT secret* (étape 8) |
 
-   Le workflow échoue avec un message explicite si l'un d'eux manque. L'ID de l'extension (Chrome) et l'ID Gecko (`synckai@sync-kai.github.io`, Firefox) sont des constantes publiques du workflow.
+   Le workflow échoue avec un message explicite si l'un d'eux manque. L'ID de l'extension (Chrome) et l'ID Gecko (`synckai@sync-kai.github.io`, Firefox) sont des constantes publiques du workflow. Les secrets de dépôt restent lus par les jobs de l'environnement `stores` ; les déplacer dans l'environnement est recommandé (*Réglages GitHub* ci-dessous).
 8. **Clés API AMO** : se connecter à [addons.mozilla.org](https://addons.mozilla.org/) avec le compte développeur Firefox, puis [Developer Hub › Manage API Keys](https://addons.mozilla.org/developers/addon/api/key/) → accepter le contrat de distribution si demandé → **Generate new credentials** : copier le *JWT issuer* (`user:…`) dans `AMO_JWT_ISSUER` et le *JWT secret* dans `AMO_JWT_SECRET`. Ces clés n'expirent pas mais peuvent être révoquées et régénérées depuis la même page.
+
+### Réglages GitHub (une seule fois, à la main)
+
+Le workflow fonctionne sans ces réglages (GitHub crée l'environnement `stores` au premier run, sans restriction), mais ce sont eux qui réservent les secrets des stores aux tags de version :
+
+- [ ] **Environnement `stores`** : *Settings › Environments › New environment* → `stores` → *Deployment branches and tags* → **Selected branches and tags** → *Add deployment branch or tag rule* → type **Tag**, motif `v*`, aucune branche. Facultatif : *Required reviewers* (soi-même) pour approuver chaque envoi aux stores.
+- [ ] **Secrets dans l'environnement** : recréer les six secrets (`CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, `CWS_PUBLISHER_ID`, `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`) dans *Environments › stores › Environment secrets*, puis supprimer les secrets de dépôt (*Settings › Secrets and variables › Actions › Repository secrets*). Tant qu'ils sont au niveau du dépôt, n'importe quel workflow peut les lire.
+- [ ] **Ruleset sur les tags** : *Settings › Rules › Rulesets › New ruleset › New tag ruleset* → nom « Tags de version », *Enforcement status* **Active**, cible *Include by pattern* `v*` → **Restrict creations**, **Restrict updates**, **Restrict deletions**, **Block force pushes** → *Bypass list* : **Repository admin** (le propriétaire tague et peut supprimer un tag raté).
+- [ ] **Ruleset sur `main`** (recommandé : le contrôle `merge-base` s'appuie sur `main`) : *New branch ruleset* → cible `main` → **Restrict deletions**, **Block force pushes**, sans exiger de pull request (la routine pousse en fast-forward).
+- [ ] **Releases v2.0.0 et v2.1.0** : créées à la main avec « Chrome Web Store : soumis pour examen » alors que le job `chrome` avait échoué. Si ces versions n'ont pas été soumises ensuite depuis le tableau de bord, corriger la ligne de statut (`gh release edit vx.y.z --notes-file …`).
 
 ### Première soumission Firefox (AMO)
 
@@ -140,6 +166,8 @@ Le module n'existe pas encore sur AMO : c'est le premier tag poussé qui le cré
 4. Les redirections OAuth Firefox ne dépendent que de l'ID Gecko : aucune modification AniList/MAL après la publication (voir *Clients OAuth par navigateur*, section 4).
 
 ### Routine de release
+
+Avant le tag : si les permissions ont changé depuis la version précédente (`git diff vPRÉCÉDENTE -- manifest.json docs/store/permissions.md`), coller les blocs modifiés de `docs/store/permissions.md` dans l'onglet **Confidentialité** du tableau de bord du Chrome Web Store et enregistrer. Sinon, la soumission Chrome est refusée alors qu'AMO a déjà reçu la version (voir *En cas d'échec*).
 
 ```bash
 git checkout -b release/x.y.z develop
