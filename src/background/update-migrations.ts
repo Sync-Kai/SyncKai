@@ -1,4 +1,4 @@
-import { deleteMediaMappingsByPrefix } from '../shared/storage';
+import { bindLegacyDataToSession, deleteMediaMappingsByPrefix } from '../shared/storage';
 import { createLogger } from '../shared/logger';
 
 const log = createLogger('background');
@@ -8,6 +8,12 @@ const log = createLogger('background');
  * retenue) et des fiches liées à un autre titre Netflix. Recalculées toutes seules au prochain épisode.
  */
 const NETFLIX_MAPPINGS_FIXED_IN = '2.1.1';
+
+/**
+ * File de relance, notes en attente, synchros récentes et corrections liées au compte depuis la 2.2.0 : celles des
+ * versions précédentes sont rattachées aux sessions ouvertes à la mise à jour (le compte connecté est le plus probable).
+ */
+const ACCOUNT_BINDING_IN = '2.2.0';
 
 /** Compare deux versions « x.y.z » ; négatif si a < b, NaN si l'une est illisible. */
 export function compareVersions(a: string, b: string): number {
@@ -25,8 +31,15 @@ export function compareVersions(a: string, b: string): number {
  * qu'en venant d'une version antérieure à son correctif : les mises à jour suivantes gardent les choix manuels.
  */
 export async function runUpdateMigrations(previousVersion: string | undefined): Promise<void> {
-  // Version illisible (NaN) : aucune purge
-  if (previousVersion === undefined || !(compareVersions(previousVersion, NETFLIX_MAPPINGS_FIXED_IN) < 0)) return;
-  const removed = await deleteMediaMappingsByPrefix('netflix:');
-  if (removed > 0) log.info(`Mise à jour depuis ${previousVersion} : ${removed} correspondance(s) Netflix oubliée(s)`);
+  if (previousVersion === undefined) return;
+  // Version illisible (NaN) : aucune migration
+  const before = (fixedIn: string): boolean => compareVersions(previousVersion, fixedIn) < 0;
+  if (before(NETFLIX_MAPPINGS_FIXED_IN)) {
+    const removed = await deleteMediaMappingsByPrefix('netflix:');
+    if (removed > 0) log.info(`Mise à jour depuis ${previousVersion} : ${removed} correspondance(s) Netflix oubliée(s)`);
+  }
+  if (before(ACCOUNT_BINDING_IN)) {
+    const bound = await bindLegacyDataToSession();
+    if (bound > 0) log.info(`Mise à jour depuis ${previousVersion} : ${bound} élément(s) rattaché(s) au compte connecté`);
+  }
 }

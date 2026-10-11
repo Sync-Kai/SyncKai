@@ -5,6 +5,7 @@ import {
   BACKUP_STORAGE_KEYS,
   BACKUP_VERSION,
   backupFileName,
+  bindBackupToSession,
   buildBackup,
   mergeBackup,
   parseBackup,
@@ -261,6 +262,22 @@ describe('mergeBackup', () => {
     const cur: BackupData = { ...emptyData(), excludedSeries: [{ id: 'anilist:7', platformKey: null, mediaId: 7, label: 'X', excludedAt: 1 }] };
     const inc: BackupData = { ...emptyData(), excludedSeries: [{ id: 'adn:9', platformKey: 'adn:9', mediaId: 7, label: 'X', excludedAt: 2 }] };
     expect(mergeBackup(cur, inc, 'merge').excludedSeries).toEqual([{ id: 'anilist:7', platformKey: 'adn:9', mediaId: 7, label: 'X', excludedAt: 1 }]);
+  });
+});
+
+describe('bindBackupToSession (DATA-01)', () => {
+  it('notes et synchros importées rattachées aux sessions ouvertes, celles du fichier ignorées ; vérifications sans session', () => {
+    const epochs = { anilist: 4, mal: 1 };
+    const data: BackupData = {
+      ...emptyData(),
+      pendingReviews: [{ ...review('k1', 1), epochs: { anilist: 9 } }],
+      recentSyncs: [recent('k1', 1), { ...recent('k2', 2), epochs: { anilist: 9 } }],
+      pendingRatings: [rating(1, 1)],
+    };
+    const bound = bindBackupToSession(data, epochs);
+    expect(bound.pendingReviews).toEqual([review('k1', 1)]);
+    expect(bound.recentSyncs).toEqual([{ ...recent('k1', 1), epochs }, { ...recent('k2', 2), epochs }]);
+    expect(bound.pendingRatings).toEqual([{ ...rating(1, 1), epochs }]);
   });
 });
 

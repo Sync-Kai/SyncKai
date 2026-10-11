@@ -76,8 +76,14 @@ function fakeLocks(): LockManager['request'] {
 
 let store: Record<string, unknown> = {};
 
+/** Sessions AniList et MAL ouvertes (génération 0) : les écritures leur appartiennent */
+const OPEN_SESSIONS = {
+  anilistToken: { accessToken: 'anilist', expiresAt: Number.MAX_SAFE_INTEGER },
+  malToken: { accessToken: 'mal', refreshToken: 'refresh', expiresAt: Number.MAX_SAFE_INTEGER },
+};
+
 function stubGlobals(): void {
-  store = {};
+  store = { ...OPEN_SESSIONS };
   vi.stubGlobal('chrome', {
     runtime: { id: 'synckai-test' },
     storage: {
@@ -261,7 +267,7 @@ describe('import Crunchyroll : importOnService', () => {
   it('créneaux d’écriture et de lecture pris avant la relecture ; aucune attente entre relecture et écriture', async () => {
     fakes.episodes = 12;
     connect(5);
-    await expect(importOnService(anilist, MEDIA_ID, item)).resolves.toEqual({ action: 'update', progress: 11, status: 'CURRENT' });
+    await expect(importOnService(anilist, MEDIA_ID, item, 0)).resolves.toEqual({ action: 'update', progress: 11, status: 'CURRENT' });
     expect(slots.calls).toEqual(['writeSlot:anilist', 'readSlot:anilist', 'read:anilist', 'save:anilist']);
   });
 
@@ -269,8 +275,30 @@ describe('import Crunchyroll : importOnService', () => {
     fakes.episodes = 12;
     connect(5);
     slots.writeDelayMs = 20;
-    const [decision] = await Promise.all([importOnService(anilist, MEDIA_ID, item), syncEpisode(episode(12), ['anilist'])]);
+    const [decision] = await Promise.all([importOnService(anilist, MEDIA_ID, item, 0), syncEpisode(episode(12), ['anilist'])]);
     expect(decision).toEqual({ action: 'skip', reason: 'completed' });
     expect(anilist.entries.get(MEDIA_ID)).toEqual({ status: 'COMPLETED', progress: 12 });
+  });
+
+  it('compte déconnecté puis autre compte entre la relecture et l’écriture : élément abandonné, rien n’est écrit (CRI-03)', async () => {
+    fakes.episodes = 12;
+    connect(5);
+    const read = anilist.getEntry;
+    anilist.getEntry = async (id) => {
+      const entry = await read(id);
+      // Déconnexion du compte A (nouvelle génération) et connexion du compte B pendant l'attente de la réponse
+      store.sessionEpoch = { anilist: 1 };
+      return entry;
+    };
+    await expect(importOnService(anilist, MEDIA_ID, item, 0)).resolves.toEqual({ action: 'session-closed' });
+    expect(anilist.writes).toEqual([]);
+  });
+
+  it('session fermée pendant l’attente du créneau : ni relecture ni écriture', async () => {
+    fakes.episodes = 12;
+    connect(5);
+    delete store.anilistToken;
+    await expect(importOnService(anilist, MEDIA_ID, item, 0)).resolves.toEqual({ action: 'session-closed' });
+    expect(slots.calls).toEqual(['writeSlot:anilist', 'readSlot:anilist']);
   });
 });

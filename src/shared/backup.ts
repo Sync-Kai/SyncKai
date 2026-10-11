@@ -5,6 +5,7 @@ import { EXCLUDED_SERIES_KEY, isExcludedSeries, mergeExclusion, type ExcludedSer
 import { isRecord } from './guards';
 import type { Result } from './result';
 import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } from './review.types';
+import type { SessionEpochs } from './session-epochs';
 import { normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from './settings';
 import { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS, STORAGE_KEYS } from './storage';
 import { isMediaMapping, type MediaMapping } from './sync.types';
@@ -231,6 +232,20 @@ export function summarizeBackup(backup: Backup): BackupSummary {
     excludedSeries: data.excludedSeries.length,
     pendingRatings: data.pendingRatings.length,
     rewatchDeclined: Object.keys(data.rewatchDeclined).length,
+  };
+}
+
+/**
+ * Données importées rattachées aux sessions ouvertes (`epochs`) : celles du fichier viennent d'une autre installation
+ * ou d'une autre date (générations sans rapport). Les notes et synchros importées valent pour les comptes connectés,
+ * qui reçoivent l'import ; une vérification importée est toujours simple (sans session).
+ */
+export function bindBackupToSession(data: BackupData, epochs: SessionEpochs): BackupData {
+  return {
+    ...data,
+    pendingReviews: data.pendingReviews.map(({ epochs: _ignored, ...review }) => review),
+    recentSyncs: data.recentSyncs.map((sync) => ({ ...sync, epochs })),
+    pendingRatings: data.pendingRatings.map((rating) => ({ ...rating, epochs })),
   };
 }
 

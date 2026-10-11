@@ -8,12 +8,15 @@ import { platformSeriesUrl } from '../../shared/platform-links';
 import { learnPlatformLink } from '../../shared/platform-links-store';
 import type { Result } from '../../shared/result';
 import type { CandidateSummary, PendingReview } from '../../shared/review.types';
+import { sessionsOf, type SessionEpochs } from '../../shared/session-epochs';
 import {
   addRecentSync,
   deleteMediaMapping,
   deletePendingReview,
+  getOpenSessions,
   getPendingReviews,
   getRecentSyncs,
+  isSessionOpen,
   saveMediaMapping,
   savePendingReview,
 } from '../../shared/storage';
@@ -91,24 +94,32 @@ function serviceWrite(result: ServiceResult, entry: ListEntryState | null = null
   return { result, alreadyCompleted, scored: entry?.score !== undefined, wasRepeating: entry?.status === 'REPEATING' };
 }
 
+/** Écriture refusée : la donnée appartient à une session fermée depuis (autre compte, ou compte reconnecté) */
+function sessionClosed(service: TrackerId): ServiceWrite {
+  return serviceWrite({ service, outcome: { status: 'skipped', reason: t('sync.sessionClosed') } });
+}
+
 /**
  * Applique les règles métier et écrit sur UN service. Ne lève jamais : l'échec est un résultat.
  * `correctionFrom` : progression écrite par la synchro corrigée (« Corriger »), null hors correction.
+ * `epoch` : session du service à laquelle appartient l'écriture (rien n'est écrit si elle est fermée depuis).
  */
 async function writeToService(
   tracker: TrackerService,
   catalog: CatalogMedia,
   progress: number,
   correctionFrom: number | null,
+  epoch: number | undefined,
 ): Promise<ServiceWrite> {
   const label = TRACKER_LABELS[tracker.id];
   const id = tracker.resolveId(catalog);
   if (id === null) return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.noEquivalent') } });
+  if (!(await isSessionOpen(tracker.id, epoch))) return sessionClosed(tracker.id);
 
   try {
     // Lecture, décision et écriture sous le verrou de la fiche : une relance de la file ou un +1 concurrent ne peut
     // ni faire reculer la progression ni perdre une écriture (voir entry-lock.ts)
-    return await withEntryLock(tracker.id, id, () => writeEntry(tracker, id, catalog, progress, correctionFrom));
+    return await withEntryLock(tracker.id, id, () => writeEntry(tracker, id, catalog, progress, correctionFrom, epoch));
   } catch (error: unknown) {
     log.error(`${label} : échec`, error);
     return serviceWrite({
@@ -119,7 +130,14 @@ async function writeToService(
 }
 
 /** Relecture, règles métier puis écriture sur la fiche `id` (appelé sous son verrou). Lève les erreurs d'API. */
-async function writeEntry(tracker: TrackerService, id: number, catalog: CatalogMedia, progress: number, correctionFrom: number | null): Promise<ServiceWrite> {
+async function writeEntry(
+  tracker: TrackerService,
+  id: number,
+  catalog: CatalogMedia,
+  progress: number,
+  correctionFrom: number | null,
+  epoch: number | undefined,
+): Promise<ServiceWrite> {
   const label = TRACKER_LABELS[tracker.id];
   // Lecture fraîche juste avant l'écriture (la liste a pu changer depuis un autre appareil)
   const current = await tracker.getEntry(id);
@@ -152,6 +170,8 @@ async function writeEntry(tracker: TrackerService, id: number, catalog: CatalogM
     );
   }
 
+  // Déconnexion (puis autre compte) pendant la lecture ou l'attente du verrou : la décision vaut pour l'ancienne session
+  if (!(await isSessionOpen(tracker.id, epoch))) return sessionClosed(tracker.id);
   const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
   log.info(`✔ ${label} : ${current.title} → épisode ${saved.progress} (${saved.status})`);
   return serviceWrite({ service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' } }, current.entry);
@@ -189,6 +209,8 @@ async function buildPrompts(catalog: CatalogMedia, progress: number, writes: rea
 }
 
 interface WriteOptions {
+  /** Sessions auxquelles appartient l'écriture : un service dont la session a changé depuis n'est pas écrit */
+  epochs: SessionEpochs;
   /** Correction : progression écrite par la synchro corrigée (voir writeEntry) */
   correctionFrom?: number | null;
   /** Restreint l'écriture à ces services (nouvelle tentative après un échec partiel) */
@@ -206,16 +228,16 @@ async function writeToServices(
   episode: EpisodeInfo,
   catalog: CatalogMedia,
   progress: number,
-  options: WriteOptions = {},
+  options: WriteOptions,
 ): Promise<SyncOutcome> {
   const trackers = await getConnectedTrackers(options.only ?? null);
   if (trackers.length === 0) return { status: 'not-connected' };
 
-  const writes = await Promise.all(trackers.map((t) => writeToService(t, catalog, progress, options.correctionFrom ?? null)));
+  const writes = await Promise.all(trackers.map((tr) => writeToService(tr, catalog, progress, options.correctionFrom ?? null, options.epochs[tr.id])));
   const results = writes.map((w) => w.result);
 
   if (results.some((r) => r.outcome.status === 'updated')) {
-    await addRecentSync({ key, episode, mediaId: catalog.mediaId, mediaTitle: catalog.title, progress, syncedAt: Date.now() });
+    await addRecentSync({ key, episode, mediaId: catalog.mediaId, mediaTitle: catalog.title, progress, syncedAt: Date.now(), epochs: options.epochs });
     // Synchro réussie (correspondance sûre ou confirmée) : page de la série mémorisée au-delà des 5 synchros de l'historique
     const seriesUrl = platformSeriesUrl(episode.platform, episode.seriesId, episode.seriesSlug);
     if (seriesUrl) await learnPlatformLink(catalog.mediaId, { platform: episode.platform, url: seriesUrl });
@@ -307,9 +329,11 @@ async function resolveForSync(episode: EpisodeInfo, key: string): Promise<SyncRe
 /**
  * Synchronise un épisode terminé avec les services connectés (tous, ou `only` après un échec partiel).
  * La correspondance passe toujours par le catalogue AniList, même sans compte AniList. Ne lève jamais.
+ * `epochs` : sessions de l'épisode (relance de la file), sinon celles ouvertes maintenant.
  */
-export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId[] | null = null): Promise<SyncOutcome> {
+export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId[] | null = null, epochs?: SessionEpochs): Promise<SyncOutcome> {
   try {
+    const sessions = epochs ?? (await getOpenSessions());
     if ((await getConnectedTrackers(only)).length === 0) return { status: 'not-connected' };
     // Série exclue côté plateforme (filet de sécurité : le content script vérifie déjà avant l'envoi)
     if (await isExcluded({ platformKey: platformSeriesKey(episode) })) {
@@ -360,7 +384,7 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
       log.info(`Fiche ${target.mediaId} exclue : rien n’est écrit`);
       return { status: 'excluded', mediaTitle: catalog.title };
     }
-    return await writeToServices(key, episode, catalog, target.progress, { only });
+    return await writeToServices(key, episode, catalog, target.progress, { only, epochs: sessions });
   } catch (error: unknown) {
     return toErrorOutcome(error);
   }
@@ -375,18 +399,25 @@ export interface ReviewResolution {
    * qu'un service est en erreur ; une relance automatique n'appliquerait que les règles normales).
    */
   episode: EpisodeInfo | null;
+  /** Sessions de l'écriture (mise en file de l'épisode) */
+  epochs: SessionEpochs;
 }
 
 /** Choix manuel depuis le popup : mémorise la correspondance pour la saison puis synchronise. */
 export async function resolveReview({ key, mediaId, progress }: ResolveReviewPayload): Promise<ReviewResolution> {
+  let epochs: SessionEpochs = {};
   try {
+    const current = await getOpenSessions();
+    epochs = current;
     const review = (await getPendingReviews()).find((r) => r.key === key);
-    if (!review) return { outcome: { status: 'error', message: t('sync.reviewGone') }, episode: null };
+    if (!review) return { outcome: { status: 'error', message: t('sync.reviewGone') }, episode: null, epochs };
+    // Correction : seulement sur les sessions de la synchro corrigée (la valeur à corriger n'existe que là)
+    if (review.previous !== null) epochs = sessionsOf(review.epochs, current);
 
     const catalog = await getCatalogMedia(mediaId);
     const mapping = mappingFromManualChoice(review.episode, mediaId, progress, catalog.episodes);
     if (!mapping) {
-      return { outcome: { status: 'error', message: t('sync.invalidEpisode', { progress, title: catalog.title, total: catalog.episodes ?? '?' }) }, episode: null };
+      return { outcome: { status: 'error', message: t('sync.invalidEpisode', { progress, title: catalog.title, total: catalog.episodes ?? '?' }) }, episode: null, epochs };
     }
 
     await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title });
@@ -394,10 +425,10 @@ export async function resolveReview({ key, mediaId, progress }: ResolveReviewPay
     // Correction sur la fiche déjà utilisée : la valeur choisie remplace celle écrite (même plus basse), seulement
     // sur un service resté à la progression écrite par la synchro corrigée (voir writeEntry)
     const correctionFrom = review.previous !== null && review.previous.mediaId === mediaId ? review.previous.progress : null;
-    const outcome = await writeToServices(key, review.episode, catalog, progress, { correctionFrom, confirmed: review });
-    return { outcome, episode: outcome.status === 'synced' && review.previous === null ? review.episode : null };
+    const outcome = await writeToServices(key, review.episode, catalog, progress, { correctionFrom, confirmed: review, epochs });
+    return { outcome, episode: outcome.status === 'synced' && review.previous === null ? review.episode : null, epochs };
   } catch (error: unknown) {
-    return { outcome: toErrorOutcome(error), episode: null };
+    return { outcome: toErrorOutcome(error), episode: null, epochs };
   }
 }
 
@@ -420,6 +451,8 @@ export async function reopenReview(key: string): Promise<Result<null, AniListErr
       suggestion: { mediaId: recent.mediaId, progress: recent.progress },
       candidates,
       previous: { mediaId: recent.mediaId, title: recent.mediaTitle, progress: recent.progress },
+      // La correction ne vaut que sur les sessions où la synchro a écrit
+      epochs: sessionsOf(recent.epochs, await getOpenSessions()),
       createdAt: Date.now(),
     });
     return { ok: true, data: null };

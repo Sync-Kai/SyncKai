@@ -1,7 +1,9 @@
 import { t } from '../../i18n';
 import { refreshReviewBadge } from '../../shared/badge';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { queueItemId, type SyncQueueItem } from '../../shared/queue.types';
+import { queueItemId, restrictToSession, type SyncQueueItem } from '../../shared/queue.types';
+import type { SessionEpochs } from '../../shared/session-epochs';
+import { getOpenSessions } from '../../shared/storage';
 import { getSyncQueue, removeQueueItem, saveQueueItem } from '../../shared/sync-queue-store';
 import type { SyncOutcome } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
@@ -51,11 +53,13 @@ async function refreshBadgeSafely(): Promise<void> {
  * Après une synchro : met en file l'épisode si l'échec est passager (erreur globale réseau/limite/serveur,
  * ou services en erreur dans un résultat `synced`), et retourne le résultat avec `queued: true` le cas échéant.
  * Retire l'éventuelle entrée existante si la synchro a réussi pour tous les services demandés.
+ * `epochs` : sessions ouvertes au début de la synchro (getOpenSessions), l'entrée n'est relancée que sur elles.
  */
 export async function recordSyncOutcome(
   episode: EpisodeInfo,
   services: TrackerId[] | null,
   outcome: SyncOutcome,
+  epochs: SessionEpochs,
 ): Promise<SyncOutcome> {
   try {
     const id = queueItemId(episode);
@@ -65,8 +69,8 @@ export async function recordSyncOutcome(
     const queued = await withItemLock(id, async (): Promise<boolean> => {
       const existing = await findItem(id);
       if (result.kind === 'retry') {
-        await saveQueueItem(upsertFailure(existing, episode, result.services, result.message, Date.now()));
-        return true;
+        // Session fermée pendant la synchro : rien n'est mis en file
+        return saveQueueItem(upsertFailure(existing, episode, result.services, result.message, Date.now(), epochs));
       }
       // Succès (ou plus rien à relancer) : retire les services concernés de l'entrée existante
       if (existing !== null) {
@@ -89,12 +93,22 @@ export async function recordSyncOutcome(
 /** Relance une entrée et applique la décision ; null si l'entrée a disparu ou n'est plus due */
 async function retryItem(id: string, manual: boolean): Promise<SyncOutcome | null> {
   return withItemLock(id, async (): Promise<SyncOutcome | null> => {
-    const item = await findItem(id);
-    if (item === null) return null;
+    const stored = await findItem(id);
+    if (stored === null) return null;
     // Relue sous verrou : un « Réessayer » concurrent a pu la replanifier
-    if (!manual && (item.status !== 'pending' || item.nextAttemptAt > Date.now())) return null;
+    if (!manual && (stored.status !== 'pending' || stored.nextAttemptAt > Date.now())) return null;
 
-    const outcome = await syncEpisode(item.episode, item.services);
+    // Relancée seulement sur les sessions de son échec : un épisode de l'ancien compte n'est jamais écrit sur un
+    // autre (déconnexion puis connexion d'un autre compte entre-temps). Élément antérieur à la 2.2.0 encore présent :
+    // aucune déconnexion depuis (elle l'aurait purgé), session courante
+    const item = restrictToSession(stored, await getOpenSessions(), 'current');
+    if (item === null) {
+      await removeQueueItem(id);
+      log.info('Synchro d’une session fermée retirée sans écriture :', id);
+      return { status: 'error', message: t('queue.sessionClosed') };
+    }
+
+    const outcome = await syncEpisode(item.episode, item.services, item.epochs);
     const decision = decideAfterRetry(item, outcome, Date.now(), manual);
     if (decision.action === 'remove') {
       await removeQueueItem(id);

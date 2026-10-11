@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import type { SyncQueueItem } from '../../shared/queue.types';
+import { restrictToSession, type SyncQueueItem } from '../../shared/queue.types';
 import type { SyncOutcome } from '../../shared/sync.types';
 import {
   backoffDelay,
@@ -135,22 +135,55 @@ describe('backoff et abandon', () => {
   });
 });
 
+/** Sessions AniList et MAL ouvertes, génération 0 */
+const SESSIONS = { anilist: 0, mal: 0 };
+
 describe('upsertFailure', () => {
-  it('crée une entrée pending à la première tentative', () => {
-    expect(upsertFailure(null, episode, null, 'Hors ligne', NOW)).toEqual(
-      item({ attempts: 1, nextAttemptAt: NOW + MIN, firstFailedAt: NOW, lastError: 'Hors ligne' }),
+  it('crée une entrée pending à la première tentative, liée aux sessions de la synchro', () => {
+    expect(upsertFailure(null, episode, null, 'Hors ligne', NOW, SESSIONS)).toEqual(
+      item({ attempts: 1, nextAttemptAt: NOW + MIN, firstFailedAt: NOW, lastError: 'Hors ligne', epochs: SESSIONS }),
     );
   });
 
   it('fusionne avec l’entrée pending existante en conservant compteur et premier échec', () => {
-    const existing = item({ services: ['anilist'], attempts: 3, firstFailedAt: NOW - 10 * MIN });
-    const merged = upsertFailure(existing, episode, ['mal'], 'Erreur', NOW);
+    const existing = item({ services: ['anilist'], attempts: 3, firstFailedAt: NOW - 10 * MIN, epochs: SESSIONS });
+    const merged = upsertFailure(existing, episode, ['mal'], 'Erreur', NOW, SESSIONS);
     expect(merged).toMatchObject({ services: ['anilist', 'mal'], attempts: 3, firstFailedAt: NOW - 10 * MIN, nextAttemptAt: NOW + 15 * MIN });
   });
 
   it('repart de zéro si l’entrée existante était abandonnée', () => {
     const existing = item({ status: 'failed', attempts: 6, firstFailedAt: NOW - MAX_AGE_MS });
-    expect(upsertFailure(existing, episode, null, 'x', NOW)).toMatchObject({ status: 'pending', attempts: 1, firstFailedAt: NOW });
+    expect(upsertFailure(existing, episode, null, 'x', NOW, SESSIONS)).toMatchObject({ status: 'pending', attempts: 1, firstFailedAt: NOW });
+  });
+
+  it('entrée existante d’une session AniList fermée depuis : sa part AniList n’est pas reprise (DATA-01)', () => {
+    const existing = item({ services: ['anilist'], attempts: 3, firstFailedAt: NOW - 10 * MIN, epochs: SESSIONS });
+    const fresh = upsertFailure(existing, episode, ['mal'], 'Erreur', NOW, { anilist: 1, mal: 0 });
+    expect(fresh).toMatchObject({ services: ['mal'], attempts: 1, firstFailedAt: NOW, epochs: { anilist: 1, mal: 0 } });
+  });
+});
+
+describe('restrictToSession (DATA-01)', () => {
+  it('sessions inchangées : services explicites, rien n’est retiré', () => {
+    expect(restrictToSession(item({ services: null, epochs: SESSIONS }), SESSIONS)).toMatchObject({ services: ['anilist', 'mal'], epochs: SESSIONS });
+  });
+
+  it('AniList reconnecté (autre génération) : seul MAL reste', () => {
+    expect(restrictToSession(item({ services: null, epochs: SESSIONS }), { anilist: 1, mal: 0 })).toMatchObject({ services: ['mal'], epochs: { mal: 0 } });
+    expect(restrictToSession(item({ services: ['anilist'], epochs: SESSIONS }), { anilist: 1, mal: 0 })).toBeNull();
+  });
+
+  it('service déconnecté (absent des sessions ouvertes) : retiré', () => {
+    expect(restrictToSession(item({ services: ['anilist', 'mal'], epochs: SESSIONS }), { anilist: 0 })).toMatchObject({ services: ['anilist'] });
+  });
+
+  it('service connecté après l’échec : jamais ajouté', () => {
+    expect(restrictToSession(item({ services: null, epochs: { mal: 0 } }), SESSIONS)).toMatchObject({ services: ['mal'] });
+  });
+
+  it('élément sans session (antérieur à la 2.2.0) : session courante à la relance, aucune à la purge', () => {
+    expect(restrictToSession(item({ services: null }), SESSIONS, 'current')).toMatchObject({ services: ['anilist', 'mal'], epochs: SESSIONS });
+    expect(restrictToSession(item({ services: null }), SESSIONS)).toBeNull();
   });
 });
 

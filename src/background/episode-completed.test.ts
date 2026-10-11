@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   forgetPageResolutions: vi.fn(),
   refreshTabPageMedia: vi.fn(),
 }));
+/** Sessions ouvertes au début de la synchro : transmises à la file avec l'épisode */
+const SESSIONS = { anilist: 2, mal: 0 };
+vi.mock('../shared/storage', () => ({ getOpenSessions: async () => SESSIONS }));
 vi.mock('../shared/netflix-access', () => ({ hasNetflixAccess: mocks.hasNetflixAccess }));
 vi.mock('./sync/sync-service', () => ({ syncEpisode: mocks.syncEpisode }));
 vi.mock('./sync/queue', () => ({ recordSyncOutcome: mocks.recordSyncOutcome }));
@@ -55,8 +58,8 @@ describe('EPISODE_COMPLETED — accès Netflix', () => {
     mocks.hasNetflixAccess.mockResolvedValue(true);
     const ep = episode('netflix');
     expect(await handleEpisodeCompleted({ episode: ep, services: ['mal'] }, 7)).toEqual(SYNCED);
-    expect(mocks.syncEpisode).toHaveBeenCalledWith(ep, ['mal']);
-    expect(mocks.recordSyncOutcome).toHaveBeenCalledWith(ep, ['mal'], SYNCED);
+    expect(mocks.syncEpisode).toHaveBeenCalledWith(ep, ['mal'], SESSIONS);
+    expect(mocks.recordSyncOutcome).toHaveBeenCalledWith(ep, ['mal'], SYNCED, SESSIONS);
     expect(mocks.refreshTabPageMedia).toHaveBeenCalledWith(7, ep);
   });
 

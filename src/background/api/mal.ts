@@ -1,7 +1,8 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import type { MalViewer, MalViewerResult } from '../../shared/mal.types';
-import { clearMalSession, saveCachedMalViewer } from '../../shared/storage';
+import { endSession } from '../../shared/session-end';
+import { saveCachedMalViewer } from '../../shared/storage';
 import type { ManualListStatus } from '../../shared/sync.types';
 import { toSafeUrl } from '../../shared/url';
 import { getMalAccessToken } from '../auth/mal';
@@ -116,7 +117,7 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
   if (response.status === 401) {
     // Token révoqué ou expiré plus tôt que prévu : un renouvellement, puis abandon
     if (!options.refreshed) return malRequest(path, isData, { ...options, refreshed: true });
-    await clearMalSession();
+    await endSession('mal');
     throw new ApiError('TOKEN_INVALID', t('api.sessionExpired', { service: 'MyAnimeList' }));
   }
 

@@ -1,9 +1,11 @@
 import { t } from '../i18n';
 import type { AniListErrorCode } from '../shared/anilist.types';
 import { refreshReviewBadge } from '../shared/badge';
-import { addPendingRating, isRatingSettled, recordRewatchDecline, removePendingRating } from '../shared/engagement-store';
+import { addPendingRating, getPendingRatings, isRatingSettled, recordRewatchDecline, removePendingRating } from '../shared/engagement-store';
 import { mediaRefId, type MediaRef, type Score10 } from '../shared/engagement.types';
 import type { Result } from '../shared/result';
+import { sessionsOf, type SessionEpochs } from '../shared/session-epochs';
+import { getOpenSessions, isSessionOpen } from '../shared/storage';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './api/errors';
@@ -44,15 +46,22 @@ function toSyncError(error: unknown, fallback: string): SyncOutcome {
 /**
  * Lecture fraîche puis action sur UN service ; `act` renvoie un saut (raison) ou l'écriture. Lecture et écriture
  * sous le verrou de la fiche : le revisionnage décidé sur « Terminé » n'écrase pas une synchro concurrente. Ne lève jamais.
+ * `epochs` : sessions auxquelles appartient l'action (carte « À noter ») ; rien n'est écrit sur une session fermée.
  */
 async function onService(
   { tracker, id }: Target,
   act: (current: TrackerEntry) => string | (() => Promise<ServiceOutcome>),
+  epochs: SessionEpochs | null = null,
 ): Promise<ServiceResult> {
+  const sessionClosed: ServiceResult = { service: tracker.id, outcome: { status: 'skipped', reason: t('sync.sessionClosed') } };
+  const open = async (): Promise<boolean> => epochs === null || (await isSessionOpen(tracker.id, epochs[tracker.id]));
   try {
+    if (!(await open())) return sessionClosed;
     return await withEntryLock(tracker.id, id, async (): Promise<ServiceResult> => {
       const step = act(await tracker.getEntry(id));
       if (typeof step === 'string') return { service: tracker.id, outcome: { status: 'skipped', reason: step } };
+      // Déconnexion (puis autre compte) pendant la lecture : rien n'est écrit
+      if (!(await open())) return sessionClosed;
       return { service: tracker.id, outcome: await step() };
     });
   } catch (error: unknown) {
@@ -61,9 +70,14 @@ async function onService(
   }
 }
 
-/** Écrit la note sur chaque service où la série est dans la liste, puis retire la carte « À noter ». */
-export async function rateMedia(media: MediaRef, score: Score10): Promise<SyncOutcome> {
+/**
+ * Écrit la note sur chaque service où la série est dans la liste, puis retire la carte « À noter ». Depuis la carte
+ * (`fromCard`) : seulement sur les sessions où elle a été créée, jamais sur un compte connecté depuis.
+ */
+export async function rateMedia(media: MediaRef, score: Score10, fromCard = false): Promise<SyncOutcome> {
   try {
+    const card = fromCard ? (await getPendingRatings()).find((r) => r.id === mediaRefId(media)) : undefined;
+    const epochs = card ? sessionsOf(card.epochs, await getOpenSessions()) : null;
     const targets = await resolveTargets(media);
     if (targets === null) return { status: 'not-connected' };
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
@@ -78,7 +92,7 @@ export async function rateMedia(media: MediaRef, score: Score10): Promise<SyncOu
             log.info(`✔ ${TRACKER_LABELS[target.tracker.id]} : ${current.title} noté ${score}/10`);
             return { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
           };
-        }),
+        }, epochs),
       ),
     );
 
@@ -95,7 +109,8 @@ export async function rateMedia(media: MediaRef, score: Score10): Promise<SyncOu
 /** « Plus tard » : carte « À noter » dans Activité */
 export async function deferRating(media: MediaRef, coverUrl: string | null): Promise<Result<null, AniListErrorCode>> {
   try {
-    await addPendingRating({ mediaId: media.mediaId, malId: media.malId, title: media.title, id: mediaRefId(media), coverUrl, completedAt: Date.now() });
+    const epochs = await getOpenSessions();
+    await addPendingRating({ mediaId: media.mediaId, malId: media.malId, title: media.title, id: mediaRefId(media), coverUrl, completedAt: Date.now(), epochs });
     await refreshReviewBadge();
     return { ok: true, data: null };
   } catch (error: unknown) {

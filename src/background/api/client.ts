@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
-import { refreshReviewBadge } from '../../shared/badge';
 import { isRecord } from '../../shared/guards';
-import { clearAniListSession, getValidToken } from '../../shared/storage';
+import { endSession } from '../../shared/session-end';
+import { getValidToken } from '../../shared/storage';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
 import { aniListBudget, MAX_RETRY_WAIT_MS, readRateLimitHeaders, retryDelayMs, sleep, type RequestLane } from './rate-limit';
 import { createLogger } from '../../shared/logger';
@@ -67,8 +67,7 @@ async function request<T>(
     (response.status === 401 ||
       errors.some((e) => isRecord(e) && typeof e.message === 'string' && /invalid token/i.test(e.message)));
   if (isTokenInvalid) {
-    await clearAniListSession();
-    await refreshReviewBadge();
+    await endSession('anilist');
     // Catalogue public : on rejoue la requête sans token plutôt que d'échouer
     if (auth === 'optional') return request(query, isData, variables, auth, isRetry, lane);
     throw new ApiError('TOKEN_INVALID', t('api.sessionExpired', { service: 'AniList' }));

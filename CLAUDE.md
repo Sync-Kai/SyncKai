@@ -107,6 +107,7 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - numérotation absolue entre saisons (`displayedEpisodeNumber` = épisodes des saisons précédentes + `seq`) ; correspondance par saison `netflix:{showId}:s{seq}` ;
   - sans la permission, le service worker refuse `EPISODE_COMPLETED` et `RESOLVE_PAGE_MEDIA` Netflix (scripts encore actifs dans les onglets ouverts) ; ne jamais lire `preferredPlayer` directement : passer par `effectivePlayer` / `effectivePreferredPlayer` (repli si Netflix est retiré) ;
   - Netflix ouvre d'abord `/watch/{showId}` puis redirige vers `/watch/{episodeId}` : identifiant absent des épisodes → pas d'avertissement.
+- **Données liées au compte** : file de synchro, cartes « À noter », synchros récentes et corrections portent les `epochs` des sessions ouvertes à leur création (`getOpenSessions`) ; rien n'est écrit sur un service dont la session a changé (vérifié juste avant l'écriture), et `clear*Session` purge la part du service déconnecté. Fin de session automatique ou manuelle : toujours `endSession(service)`.
 - **Débogage** :
   - après le rechargement de l'extension, rouvrir l'onglet, sinon le script de contenu orphelin reste actif ;
   - le script de contenu affiche l'horodatage de son build dans la console ;

@@ -86,8 +86,11 @@ export interface MessageMap {
   SET_LIST_STATUS: { payload: SetListStatusPayload; response: SyncOutcome };
   /** « Réessayer » sur une synchro en échec de la file (Activité) */
   RETRY_QUEUED: { payload: { id: string }; response: SyncOutcome };
-  /** Note sur 10 (pas 0,5), convertie et écrite sur chaque service connecté ; retire la carte « À noter » */
-  RATE_MEDIA: { payload: { media: MediaRef; score: Score10 }; response: SyncOutcome };
+  /**
+   * Note sur 10 (pas 0,5), convertie et écrite sur chaque service connecté ; retire la carte « À noter ».
+   * `fromCard` : depuis la carte, écrite seulement sur les sessions où elle a été créée.
+   */
+  RATE_MEDIA: { payload: { media: MediaRef; score: Score10; fromCard?: boolean }; response: SyncOutcome };
   /** « Plus tard » : crée la carte « À noter » */
   DEFER_RATING: { payload: { media: MediaRef; coverUrl: string | null }; response: Result<null, AniListErrorCode> };
   /** « Oui » au revisionnage : REPEATING + progression sur chaque service */
@@ -198,7 +201,8 @@ const isSetListStatusPayload = (p: unknown): p is SetListStatusPayload =>
   isListStatusChange(p.status) &&
   (p.coverUrl === null || (typeof p.coverUrl === 'string' && p.coverUrl.length <= 2000 && p.coverUrl.startsWith('https://')));
 const isRetryQueuedPayload =(p: unknown): p is { id: string } => isRecord(p) && isKey(p.id);
-const isRatePayload = (p: unknown): p is { media: MediaRef; score: Score10 } => isRecord(p) && isMediaRef(p.media) && isScore10(p.score);
+const isRatePayload = (p: unknown): p is { media: MediaRef; score: Score10; fromCard?: boolean } =>
+  isRecord(p) && isMediaRef(p.media) && isScore10(p.score) && (p.fromCard === undefined || typeof p.fromCard === 'boolean');
 const isDeferRatingPayload = (p: unknown): p is { media: MediaRef; coverUrl: string | null } =>
   isRecord(p) && isMediaRef(p.media) && (p.coverUrl === null || (typeof p.coverUrl === 'string' && p.coverUrl.length <= 2000));
 const isRewatchPayload = (p: unknown): p is { media: MediaRef; progress: number } => isRecord(p) && isMediaRef(p.media) && isPositiveInt(p.progress);

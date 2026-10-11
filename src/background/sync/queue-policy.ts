@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { queueItemId, type SyncQueueItem } from '../../shared/queue.types';
+import { queueItemId, restrictToSession, type SyncQueueItem } from '../../shared/queue.types';
+import type { SessionEpochs } from '../../shared/session-epochs';
 import type { SyncErrorCode, SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 
@@ -85,7 +86,8 @@ export function mergeServices(a: TrackerId[] | null, b: TrackerId[] | null): Tra
 
 /**
  * Premier échec passager (synchro normale) : crée l'entrée ou fusionne avec l'entrée pending existante
- * (services unis, premier échec et compteur conservés). Une entrée abandonnée repart de zéro.
+ * (services unis, premier échec et compteur conservés). Une entrée abandonnée repart de zéro. `epochs` : sessions
+ * ouvertes au début de la synchro ; seule la part de l'entrée existante encore valable pour elles est reprise.
  */
 export function upsertFailure(
   existing: SyncQueueItem | null,
@@ -93,13 +95,16 @@ export function upsertFailure(
   services: TrackerId[] | null,
   message: string,
   now: number,
+  epochs: SessionEpochs,
 ): SyncQueueItem {
-  if (existing !== null && existing.status === 'pending') {
+  const live = existing !== null && existing.status === 'pending' ? restrictToSession(existing, epochs, 'current') : null;
+  if (live !== null) {
     return {
-      ...existing,
+      ...live,
       episode,
-      services: mergeServices(existing.services, services),
-      nextAttemptAt: now + backoffDelay(existing.attempts),
+      services: mergeServices(live.services, services),
+      epochs,
+      nextAttemptAt: now + backoffDelay(live.attempts),
       lastError: message,
     };
   }
@@ -107,6 +112,7 @@ export function upsertFailure(
     id: queueItemId(episode),
     episode,
     services,
+    epochs,
     attempts: 1,
     status: 'pending',
     nextAttemptAt: now + backoffDelay(1),

@@ -1,6 +1,6 @@
 import { refreshReviewBadge } from './badge';
-import { BACKUP_STORAGE_KEYS, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type ImportMode } from './backup';
-import { withStorageLock } from './storage';
+import { BACKUP_STORAGE_KEYS, bindBackupToSession, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type ImportMode } from './backup';
+import { getOpenSessions, withStorageLock } from './storage';
 import { createLogger } from './logger';
 import { hasNetflixAccess } from './netflix-access';
 import { effectivePlayer } from './settings';
@@ -27,7 +27,8 @@ export async function applyBackup(incoming: BackupData, mode: ImportMode, includ
   const netflixGranted = await hasNetflixAccess();
   await withStorageLock(async () => {
     const current = await readCurrent(chrome.runtime.getManifest().version);
-    const next = mergeBackup(current.data, incoming, mode, includeSettings);
+    // Sessions relevées sous le verrou de la déconnexion : l'import vaut pour les comptes connectés à cet instant
+    const next = mergeBackup(current.data, bindBackupToSession(incoming, await getOpenSessions()), mode, includeSettings);
     const settings = next.settings && { ...next.settings, preferredPlayer: effectivePlayer(next.settings.preferredPlayer, netflixGranted) };
     const k = BACKUP_STORAGE_KEYS;
     await chrome.storage.local.set({

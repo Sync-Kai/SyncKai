@@ -3,21 +3,12 @@
 // son contrôleur, le stockage (storage.onChanged) garde les deux vues alignées.
 import { t } from '../i18n';
 import { isAniListViewer, type ViewerErrorCode, type ViewerResult } from '../shared/anilist.types';
-import { isAniListToken, type AuthResult } from '../shared/auth.types';
-import { refreshReviewBadge } from '../shared/badge';
+import type { AuthResult } from '../shared/auth.types';
 import { createLogger } from '../shared/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
 import { sendMessage } from '../shared/messages';
-import {
-  clearAniListSession,
-  clearMalSession,
-  clearUserSyncData,
-  getCachedMalViewer,
-  getCachedViewer,
-  getMalToken,
-  getValidToken,
-  STORAGE_KEYS,
-} from '../shared/storage';
+import { endSession } from '../shared/session-end';
+import { getCachedMalViewer, getCachedViewer, getMalToken, getValidToken, hasAniListToken, STORAGE_KEYS } from '../shared/storage';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { createStore, LOGGED_OUT, type AccountState, type AniListState, type MalState, type Store } from '../popup/state';
 
@@ -112,18 +103,11 @@ export function createAccountsController(): AccountsController {
     if (state.status === 'logged-in' && !state.viewer) await refresh(service);
   }
 
-  /** Après une déconnexion : plus aucun service connecté → effacement des données de l'utilisateur */
-  async function clearUserDataIfLastService(): Promise<void> {
-    const [anilistToken, malToken] = await Promise.all([getValidToken(), getMalToken()]);
-    if (!anilistToken && !malToken) await clearUserSyncData();
-    await refreshReviewBadge();
-  }
-
   async function logout(service: TrackerId): Promise<void> {
     const target = store(service);
     try {
-      await (service === 'anilist' ? clearAniListSession() : clearMalSession());
-      await clearUserDataIfLastService();
+      // Plus aucun service connecté (un token AniList seulement expiré compte encore) : données de l'utilisateur effacées
+      await endSession(service);
       target.set(LOGGED_OUT);
     } catch (error: unknown) {
       log.error(`Échec de la déconnexion ${TRACKER_LABELS[service]} :`, error);
@@ -132,19 +116,14 @@ export function createAccountsController(): AccountsController {
     }
   }
 
-  /** Token AniList présent mais expiré : on propose « Reconnecter » plutôt que l'accueil */
-  async function hasExpiredAniListToken(): Promise<boolean> {
-    const stored = await chrome.storage.local.get(STORAGE_KEYS.anilistToken);
-    return isAniListToken(stored[STORAGE_KEYS.anilistToken]);
-  }
-
   async function bootstrap(service: TrackerId): Promise<void> {
     const target = store(service);
     try {
       // MAL : token présent, même expiré (le service worker le renouvellera)
       const token = service === 'anilist' ? await getValidToken() : await getMalToken();
       if (!token) {
-        target.set({ ...LOGGED_OUT, expired: service === 'anilist' && (await hasExpiredAniListToken()) });
+        // Token AniList présent mais expiré : on propose « Reconnecter » plutôt que l'accueil
+        target.set({ ...LOGGED_OUT, expired: service === 'anilist' && (await hasAniListToken()) });
         return;
       }
       await loadCachedViewer(service);

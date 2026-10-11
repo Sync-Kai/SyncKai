@@ -65,8 +65,14 @@ function fakeLocks(): LockManager['request'] {
   return request as LockManager['request'];
 }
 
+/** Sessions AniList et MAL ouvertes (génération 0) : les écritures leur appartiennent */
+const OPEN_SESSIONS = {
+  anilistToken: { accessToken: 'anilist', expiresAt: Number.MAX_SAFE_INTEGER },
+  malToken: { accessToken: 'mal', refreshToken: 'refresh', expiresAt: Number.MAX_SAFE_INTEGER },
+};
+
 function stubGlobals(): void {
-  store = {};
+  store = { ...OPEN_SESSIONS };
   vi.stubGlobal('chrome', {
     runtime: { id: 'synckai-test' },
     alarms: { create: async () => undefined, clear: async () => true },
@@ -234,13 +240,13 @@ describe('resolveReview : échec passager d’un service (SYNC-03)', () => {
     mal.failWith = new ApiError('API_ERROR', 'MyAnimeList : erreur 504', { httpStatus: 504 });
     await savePendingReview(review());
 
-    const { outcome, episode: toQueue } = await resolveReview({ key: KEY, mediaId: PART1, progress: 12 });
+    const { outcome, episode: toQueue, epochs } = await resolveReview({ key: KEY, mediaId: PART1, progress: 12 });
     expect(resultOf(outcome, 'mal')).toMatchObject({ status: 'error', code: 'API_ERROR', httpStatus: 504 });
     expect(anilist.entries.get(PART1)).toMatchObject({ status: 'COMPLETED', progress: 12 });
     expect(toQueue).toEqual(episode(12));
 
     // Composition du handler RESOLVE_REVIEW (background.ts)
-    const recorded = await recordSyncOutcome(episode(12), null, outcome);
+    const recorded = await recordSyncOutcome(episode(12), null, outcome, epochs);
     expect(recorded).toMatchObject({ status: 'synced', queued: true });
     expect(await getSyncQueue()).toMatchObject([{ status: 'pending', services: ['mal'], episode: episode(12) }]);
     expect(await getPendingReviews()).toEqual([]);
@@ -253,7 +259,7 @@ describe('resolveReview : échec passager d’un service (SYNC-03)', () => {
 
     const { outcome, episode: toQueue } = await resolveReview({ key: KEY, mediaId: PART1, progress: 12 });
     expect(toQueue).not.toBeNull();
-    const recorded = await recordSyncOutcome(episode(12), null, outcome);
+    const recorded = await recordSyncOutcome(episode(12), null, outcome, { anilist: 0, mal: 0 });
     expect(recorded).not.toHaveProperty('queued');
     expect(await getSyncQueue()).toEqual([]);
   });
@@ -417,7 +423,50 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
     fakes.resolutions = [resolved(PART1, 5)];
     const outcome = await syncEpisode(episode(5));
     expect(outcome).toMatchObject({ status: 'error', code: 'API_ERROR', httpStatus: 404 });
-    expect(await recordSyncOutcome(episode(5), null, outcome)).not.toHaveProperty('queued');
+    expect(await recordSyncOutcome(episode(5), null, outcome, { anilist: 0, mal: 0 })).not.toHaveProperty('queued');
     expect(await getSyncQueue()).toEqual([]);
+  });
+});
+
+describe('écritures liées au compte (DATA-01)', () => {
+  it('correction ouverte sous le compte AniList A, compte B connecté depuis : seul MAL est corrigé', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await savePendingReview(review({ episode: episode(5), previous: { mediaId: PART1, title: 'Fiche 1001', progress: 5 }, epochs: { anilist: 0, mal: 0 } }));
+    store.sessionEpoch = { anilist: 1, mal: 0 };
+
+    const { outcome } = await resolveReview({ key: KEY, mediaId: PART1, progress: 3 });
+    expect(resultOf(outcome, 'anilist')).toEqual({ status: 'skipped', reason: expect.stringContaining('rien n’est écrit') });
+    expect(anilist.writes).toEqual([]);
+    expect(mal.entries.get(MAL_PART1)?.progress).toBe(3);
+  });
+
+  it('synchro d’un épisode de la session A relancée sous la session B : rien n’est écrit', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    store.sessionEpoch = { anilist: 1, mal: 1 };
+    fakes.resolutions = [resolved(PART1, 6)];
+    const outcome = await syncEpisode(episode(6), null, { anilist: 0, mal: 0 });
+    expect(resultOf(outcome, 'anilist')).toMatchObject({ status: 'skipped' });
+    expect(resultOf(outcome, 'mal')).toMatchObject({ status: 'skipped' });
+    expect(anilist.writes).toEqual([]);
+    expect(mal.writes).toEqual([]);
+    // Aucune synchro récente enregistrée : rien n'a été écrit
+    expect(store.recentSyncs).toBeUndefined();
+  });
+
+  it('déconnexion puis autre compte pendant la lecture : la décision n’est pas écrite', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    const read = anilist.getEntry;
+    anilist.getEntry = async (id) => {
+      const entry = await read(id);
+      store.sessionEpoch = { anilist: 1, mal: 0 };
+      return entry;
+    };
+    fakes.resolutions = [resolved(PART1, 6)];
+    const outcome = await syncEpisode(episode(6));
+    expect(resultOf(outcome, 'anilist')).toMatchObject({ status: 'skipped' });
+    expect(anilist.writes).toEqual([]);
+    expect(mal.entries.get(MAL_PART1)?.progress).toBe(6);
+    // Synchro récente liée aux sessions du début de la synchro
+    expect(store.recentSyncs).toMatchObject([{ progress: 6, epochs: { anilist: 0, mal: 0 } }]);
   });
 });

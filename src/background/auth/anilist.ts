@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import type { AniListToken, AuthResult } from '../../shared/auth.types';
-import { saveToken } from '../../shared/storage';
+import { clearAniListSession, hasAniListToken, saveToken } from '../../shared/storage';
 import { createLogger } from '../../shared/logger';
 import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
 
@@ -73,6 +73,9 @@ export async function loginWithAniList(): Promise<AuthResult> {
 
   const token: AniListToken = { accessToken, expiresAt: Date.now() + expiresIn * 1000 };
   try {
+    // Ancien token encore enregistré (expiré : « Reconnecter ») : le compte peut avoir changé. Sa session est fermée
+    // comme à la déconnexion (profil, listes en cache, aperçu d'import, nouvelle génération) avant d'ouvrir la nouvelle
+    if (await hasAniListToken()) await clearAniListSession();
     await saveToken(token);
   } catch (storageError: unknown) {
     log.error('Échec de la sauvegarde du token :', storageError);

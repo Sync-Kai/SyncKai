@@ -1,5 +1,6 @@
 import { isEpisodeInfo, type EpisodeInfo } from './episode.types';
 import { isRecord } from './guards';
+import { isSessionEpochs, type SessionEpochs } from './session-epochs';
 
 /** Fiche AniList résumée pour l'affichage dans une carte de vérification */
 export interface CandidateSummary {
@@ -21,6 +22,8 @@ export interface PendingReview {
   candidates: CandidateSummary[];
   /** Renseigné pour une correction : fiche sur laquelle la synchro a déjà écrit */
   previous: { mediaId: number; title: string; progress: number } | null;
+  /** Correction : sessions de la synchro corrigée, seules à pouvoir être corrigées (absent : vérification simple) */
+  epochs?: SessionEpochs;
   createdAt: number;
 }
 
@@ -32,6 +35,8 @@ export interface RecentSync {
   mediaTitle: string;
   progress: number;
   syncedAt: number;
+  /** Sessions ouvertes lors de l'écriture : « Corriger » ne vaut que pour elles (absent : antérieure à la 2.2.0) */
+  epochs?: SessionEpochs;
 }
 
 const isNullableNumber = (v: unknown): v is number | null => v === null || typeof v === 'number';
@@ -67,6 +72,7 @@ export function isPendingReview(value: unknown): value is PendingReview {
     Array.isArray(value.candidates) &&
     value.candidates.every(isCandidateSummary) &&
     (value.previous === null || isPreviousSync(value.previous)) &&
+    (value.epochs === undefined || isSessionEpochs(value.epochs)) &&
     typeof value.createdAt === 'number'
   );
 }
@@ -79,6 +85,7 @@ export function isRecentSync(value: unknown): value is RecentSync {
     typeof value.mediaId === 'number' &&
     typeof value.mediaTitle === 'string' &&
     typeof value.progress === 'number' &&
-    typeof value.syncedAt === 'number'
+    typeof value.syncedAt === 'number' &&
+    (value.epochs === undefined || isSessionEpochs(value.epochs))
   );
 }

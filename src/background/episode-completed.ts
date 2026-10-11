@@ -1,6 +1,7 @@
 // Épisode terminé envoyé par un script de contenu (EPISODE_COMPLETED) : garde d'accès, synchro, file de relance.
 import type { EpisodeCompletedPayload } from '../shared/messages';
 import { hasNetflixAccess } from '../shared/netflix-access';
+import { getOpenSessions } from '../shared/storage';
 import { createLogger } from '../shared/logger';
 import type { SyncOutcome } from '../shared/sync.types';
 import { forgetPageResolutions, refreshTabPageMedia } from './page-media';
@@ -24,12 +25,14 @@ export async function handleEpisodeCompleted({ episode, services }: EpisodeCompl
     log.info('Accès Netflix retiré : épisode ignoré, rien n’est écrit', episode.animeTitle);
     return { status: 'ignored', noAccess: true };
   }
-  const outcome = await syncEpisode(episode, services);
+  // Sessions capturées avant la synchro : un échec n'est relancé que sur elles (jamais sur un compte connecté depuis)
+  const epochs = await getOpenSessions();
+  const outcome = await syncEpisode(episode, services, epochs);
   // Correspondance saison → fiche peut-être apprise : les résolutions en mémoire sont oubliées
   forgetPageResolutions();
   if (outcome.status === 'synced' && tabId !== undefined) {
     // Fiche de l'onglet recalculée sans retarder le toast de la page (panneau et popup la lisent dans le cache)
     refreshTabPageMedia(tabId, episode).catch((error: unknown) => log.warn('Fiche de l’onglet non mise à jour :', error));
   }
-  return recordSyncOutcome(episode, services, outcome);
+  return recordSyncOutcome(episode, services, outcome, epochs);
 }

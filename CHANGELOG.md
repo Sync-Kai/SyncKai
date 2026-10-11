@@ -5,7 +5,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 ## [Unreleased]
 
+### Modifié
+
+- La file des synchros en attente, les cartes *À noter*, les dernières synchros et les corrections sont liées au compte connecté au moment de leur création : elles ne valent plus que pour lui. À la mise à jour, celles qui existent déjà sont rattachées au compte connecté ; une sauvegarde importée les rattache au compte connecté à l’import.
+- Après une déconnexion, même suivie d’une reconnexion au même compte, les synchros en attente, notes et corrections créées avant ne sont plus écrites sur ce service.
+
 ### Corrigé
+
+- Les synchros en attente, les cartes *À noter* et *Corriger* d’un compte ne sont plus rejouées sur un autre compte : après une déconnexion (ou un accès révoqué) puis la connexion d’un autre compte AniList ou MyAnimeList, rien de l’ancien compte n’est écrit sur le nouveau, et la part du service déconnecté est retirée de la file.
+- Accès révoqué sur AniList ou MyAnimeList alors qu’aucun autre service n’est connecté : tes vérifications, synchros en attente, notes, liens de séries et agenda sont effacés comme après une déconnexion.
+- Se déconnecter de MyAnimeList quand le token AniList a seulement expiré (*Reconnecter*) n’efface plus tes vérifications, synchros en attente, notes, liens de séries ni l’agenda.
+- *Reconnecter* AniList après l’expiration du token : le profil, la liste *En cours*, la dernière comparaison et l’aperçu d’import de l’ancien compte sont effacés avant la nouvelle connexion.
+- Import de l’historique Crunchyroll : un changement de compte pendant l’analyse ou l’application (pendant une attente de quota, par exemple) arrête l’import sans rien écrire sur le nouveau compte, et l’aperçu de l’ancien compte n’est plus recréé.
 
 - Une préquelle ou une suite publiée comme une autre série sur la plateforme (Naruto pour Naruto Shippuden, Bleach pour Bleach TYBW…) n’est plus comptée comme une saison de la série regardée : la progression n’est plus écrite sur la fiche de la série précédente.
 - Film Netflix : la fiche AniList liée au film l’emporte sur une série TV au même titre ; une fiche trouvée par son seul titre passe par une carte *À vérifier*.

@@ -2,7 +2,8 @@ import { t } from '../../i18n';
 import type { AuthResult } from '../../shared/auth.types';
 import { isRecord } from '../../shared/guards';
 import type { MalToken } from '../../shared/mal.types';
-import { clearMalSession, getMalToken, saveMalToken } from '../../shared/storage';
+import { endSession } from '../../shared/session-end';
+import { getMalToken, saveMalToken } from '../../shared/storage';
 import { ApiError } from '../api/errors';
 import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
 import { createCodeVerifier, createState } from './pkce';
@@ -148,7 +149,7 @@ export async function getMalAccessToken(forceRefresh = false): Promise<string | 
       return refreshed.accessToken;
     } catch (error: unknown) {
       if (error instanceof ApiError && error.code === 'TOKEN_INVALID') {
-        await clearMalSession();
+        await endSession('mal');
         return null;
       }
       throw error; // Réseau : la session reste valide, on réessaiera plus tard

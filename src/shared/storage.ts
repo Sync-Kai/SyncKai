@@ -6,7 +6,9 @@ import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } fr
 import { isMediaMapping, type MediaMapping } from './sync.types';
 import type { TrackerId } from './tracker.types';
 import { SYNC_QUEUE_KEY } from './sync-queue-store';
-import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './engagement-store';
+import { isPendingRating, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './engagement-store';
+import { isSyncQueueItem, restrictToSession } from './queue.types';
+import { liveServices, type SessionEpochs } from './session-epochs';
 import { isWatchingList, type WatchingList } from './watching.types';
 import { PLATFORM_LINKS_KEY } from './platform-links';
 import { withStorageLock } from './storage-lock';
@@ -27,7 +29,7 @@ export const STORAGE_KEYS = {
   malToken: 'malToken',
   malViewer: 'malViewer',
   watchingCache: 'watchingCache',
-  /** Génération de session par service, incrémentée à chaque déconnexion (voir saveCachedWatching) */
+  /** Génération de session par service, incrémentée à chaque déconnexion (voir saveCachedWatching et session-epochs.ts) */
   sessionEpoch: 'sessionEpoch',
   /** Dernière comparaison AniList ↔ MAL (Activité › Écarts) */
   compareLast: 'compare:last',
@@ -48,6 +50,12 @@ export async function getValidToken(): Promise<AniListToken | null> {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.anilistToken);
   const token: unknown = stored[STORAGE_KEYS.anilistToken];
   return isAniListToken(token) && token.expiresAt > Date.now() ? token : null;
+}
+
+/** Token AniList enregistré, même expiré (« Reconnecter ») : la session reste ouverte jusqu'à la déconnexion. */
+export async function hasAniListToken(): Promise<boolean> {
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.anilistToken);
+  return isAniListToken(stored[STORAGE_KEYS.anilistToken]);
 }
 
 export async function saveToken(token: AniListToken): Promise<void> {
@@ -146,14 +154,23 @@ export function addRecentSync(sync: RecentSync): Promise<void> {
 
 /**
  * Supprime la session AniList : token, profil et liste « En cours » en cache (un autre compte ne doit
- * pas la voir). Appelée à la déconnexion comme à l'invalidation du token.
+ * pas la voir), puis la part AniList de la file, des notes, des synchros récentes et des corrections.
+ * Appelée à la déconnexion comme à l'invalidation du token.
  */
 export function clearAniListSession(): Promise<void> {
   return withStorageLock(async () => {
     await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
     await removeCachedWatching('anilist');
     await bumpSessionEpoch('anilist');
+    await purgeClosedSessions();
   });
+}
+
+/** Clés propres à l'utilisateur, sans verrou (voir clearUserSyncData) */
+async function removeUserSyncData(): Promise<void> {
+  // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
+  const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => key.startsWith('airingWeek:'));
+  await chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS, PLATFORM_LINKS_KEY, ...weeks]);
 }
 
 /**
@@ -161,10 +178,19 @@ export function clearAniListSession(): Promise<void> {
  * service de suivi n'est connecté (déconnexion du dernier compte).
  */
 export function clearUserSyncData(): Promise<void> {
+  return withStorageLock(removeUserSyncData);
+}
+
+/**
+ * Après une déconnexion ou un token refusé : efface les données de l'utilisateur si plus aucune session n'est
+ * ouverte. Un token AniList seulement expiré garde sa session (« Reconnecter ») : rien n'est effacé. Retourne true
+ * si les données ont été effacées.
+ */
+export function clearUserSyncDataIfNoSession(): Promise<boolean> {
   return withStorageLock(async () => {
-    // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
-    const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => key.startsWith('airingWeek:'));
-    await chrome.storage.local.remove([STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs, STORAGE_KEYS.watchingCache, SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS, PLATFORM_LINKS_KEY, ...weeks]);
+    if (Object.keys(await getOpenSessions()).length > 0) return false;
+    await removeUserSyncData();
+    return true;
   });
 }
 
@@ -191,12 +217,13 @@ export async function saveCachedMalViewer(viewer: MalViewer): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.malViewer]: viewer });
 }
 
-/** Comme clearAniListSession : token, profil et liste « En cours » MAL en cache. */
+/** Comme clearAniListSession : token, profil et liste « En cours » MAL en cache, puis la part MAL des données du compte. */
 export function clearMalSession(): Promise<void> {
   return withStorageLock(async () => {
     await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
     await removeCachedWatching('mal');
     await bumpSessionEpoch('mal');
+    await purgeClosedSessions();
   });
 }
 
@@ -232,6 +259,28 @@ export async function getSessionEpoch(service: TrackerId): Promise<number> {
   return typeof epoch === 'number' && Number.isFinite(epoch) ? epoch : 0;
 }
 
+/**
+ * Sessions ouvertes : génération de chaque service qui a un token enregistré (AniList même expiré). Une donnée liée
+ * au compte (file, note, synchro récente, correction) les mémorise à sa création, voir session-epochs.ts.
+ */
+export async function getOpenSessions(): Promise<SessionEpochs> {
+  const stored = await chrome.storage.local.get([STORAGE_KEYS.anilistToken, STORAGE_KEYS.malToken, STORAGE_KEYS.sessionEpoch]);
+  const epochs: unknown = stored[STORAGE_KEYS.sessionEpoch];
+  const epochOf = (service: TrackerId): number => {
+    const epoch: unknown = isRecord(epochs) ? epochs[service] : undefined;
+    return typeof epoch === 'number' && Number.isFinite(epoch) ? epoch : 0;
+  };
+  return {
+    ...(isAniListToken(stored[STORAGE_KEYS.anilistToken]) ? { anilist: epochOf('anilist') } : {}),
+    ...(isMalToken(stored[STORAGE_KEYS.malToken]) ? { mal: epochOf('mal') } : {}),
+  };
+}
+
+/** La session `epoch` du service est toujours ouverte : aucune déconnexion depuis, token toujours enregistré. */
+export async function isSessionOpen(service: TrackerId, epoch: number | undefined): Promise<boolean> {
+  return epoch !== undefined && (await getOpenSessions())[service] === epoch;
+}
+
 /** Incrémente la génération, sans verrou (appelée sous celui de clear*Session). */
 async function bumpSessionEpoch(service: TrackerId): Promise<void> {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.sessionEpoch);
@@ -253,5 +302,64 @@ export function saveCachedWatching(list: WatchingList, epoch: number): Promise<b
     const cache: unknown = stored[STORAGE_KEYS.watchingCache];
     await chrome.storage.local.set({ [STORAGE_KEYS.watchingCache]: { ...(isRecord(cache) ? cache : {}), [list.service]: list } });
     return true;
+  });
+}
+
+// ─── Données liées au compte (file, notes, synchros récentes, corrections) ──
+
+/** Tableau d'une clé, sans les éléments illisibles */
+async function readList<T>(key: string, guard: (value: unknown) => value is T): Promise<T[]> {
+  const raw: unknown = (await chrome.storage.local.get(key))[key];
+  return Array.isArray(raw) ? raw.filter(guard) : [];
+}
+
+/** Réécrit la liste si elle a changé (vide : clé retirée) ; retourne le nombre d'éléments retirés ou modifiés */
+async function writeListIfChanged<T>(key: string, before: readonly T[], after: readonly T[]): Promise<number> {
+  const changed = before.length - after.length + after.filter((item) => !before.includes(item)).length;
+  if (changed === 0) return 0;
+  if (after.length === 0) await chrome.storage.local.remove(key);
+  else await chrome.storage.local.set({ [key]: after });
+  return changed;
+}
+
+/**
+ * Après une déconnexion (sous le verrou du stockage, génération déjà incrémentée) : retire de la file les services
+ * dont la session est fermée, et supprime les notes, synchros récentes et corrections qui ne valent plus pour aucune
+ * session ouverte. Les données sans session (antérieures à la 2.2.0, non migrées) sont supprimées.
+ */
+async function purgeClosedSessions(): Promise<void> {
+  const current = await getOpenSessions();
+  const live = (epochs: SessionEpochs | undefined): boolean => epochs !== undefined && liveServices(epochs, current).length > 0;
+
+  const queue = await readList(SYNC_QUEUE_KEY, isSyncQueueItem);
+  await writeListIfChanged(SYNC_QUEUE_KEY, queue, queue.flatMap((item) => restrictToSession(item, current) ?? []));
+  const ratings = await readList(PENDING_RATINGS_KEY, isPendingRating);
+  await writeListIfChanged(PENDING_RATINGS_KEY, ratings, ratings.filter((rating) => live(rating.epochs)));
+  const syncs = await readList(STORAGE_KEYS.recentSyncs, isRecentSync);
+  await writeListIfChanged(STORAGE_KEYS.recentSyncs, syncs, syncs.filter((sync) => live(sync.epochs)));
+  // Vérification simple : non liée au compte (elle n'applique que les règles normales, sans recul)
+  const reviews = await readList(STORAGE_KEYS.pendingReviews, isPendingReview);
+  await writeListIfChanged(STORAGE_KEYS.pendingReviews, reviews, reviews.filter((review) => review.previous === null || live(review.epochs)));
+}
+
+/**
+ * Migration (mise à jour vers la 2.2.0) : la file, les notes en attente, les synchros récentes et les corrections
+ * créées sans session reçoivent les sessions ouvertes, celles du compte connecté au moment de la mise à jour.
+ * Retourne le nombre d'éléments rattachés.
+ */
+export function bindLegacyDataToSession(): Promise<number> {
+  return withStorageLock(async () => {
+    const epochs = await getOpenSessions();
+    const bind = <T extends { epochs?: SessionEpochs }>(item: T, eligible = true): T => (item.epochs === undefined && eligible ? { ...item, epochs } : item);
+    const queue = await readList(SYNC_QUEUE_KEY, isSyncQueueItem);
+    const ratings = await readList(PENDING_RATINGS_KEY, isPendingRating);
+    const syncs = await readList(STORAGE_KEYS.recentSyncs, isRecentSync);
+    const reviews = await readList(STORAGE_KEYS.pendingReviews, isPendingReview);
+    return (
+      (await writeListIfChanged(SYNC_QUEUE_KEY, queue, queue.map((item) => bind(item)))) +
+      (await writeListIfChanged(PENDING_RATINGS_KEY, ratings, ratings.map((rating) => bind(rating)))) +
+      (await writeListIfChanged(STORAGE_KEYS.recentSyncs, syncs, syncs.map((sync) => bind(sync)))) +
+      (await writeListIfChanged(STORAGE_KEYS.pendingReviews, reviews, reviews.map((review) => bind(review, review.previous !== null))))
+    );
   });
 }

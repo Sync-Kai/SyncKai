@@ -1,0 +1,274 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PendingRating } from './engagement.types';
+import type { EpisodeInfo } from './episode.types';
+import type { SyncQueueItem } from './queue.types';
+import type { PendingReview, RecentSync } from './review.types';
+import type { SessionEpochs } from './session-epochs';
+
+// Effacements de session, données liées au compte et plafonds de storage.ts (TEST-10, DATA-01, DATA-06) :
+// chrome.storage.local simulé par une Map, verrou du stockage immédiat.
+
+const store = new Map<string, unknown>();
+
+vi.stubGlobal('chrome', {
+  storage: {
+    local: {
+      get: async (keys: string | string[] | null): Promise<Record<string, unknown>> => {
+        const wanted = keys === null ? [...store.keys()] : Array.isArray(keys) ? keys : [keys];
+        return Object.fromEntries(wanted.filter((key) => store.has(key)).map((key) => [key, structuredClone(store.get(key))]));
+      },
+      set: async (items: Record<string, unknown>): Promise<void> => {
+        for (const [key, value] of Object.entries(items)) store.set(key, structuredClone(value));
+      },
+      remove: async (keys: string | string[]): Promise<void> => {
+        for (const key of Array.isArray(keys) ? keys : [keys]) store.delete(key);
+      },
+    },
+  },
+});
+vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
+
+const storage = await import('./storage');
+const { getSyncQueue, saveQueueItem, SYNC_QUEUE_KEY } = await import('./sync-queue-store');
+const { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } = await import('./engagement-store');
+const { PLATFORM_LINKS_KEY } = await import('./platform-links');
+const { STORAGE_KEYS, MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } = storage;
+
+const FAR = Number.MAX_SAFE_INTEGER;
+const ANILIST_TOKEN = { accessToken: 'anilist', expiresAt: FAR };
+const MAL_TOKEN = { accessToken: 'mal', refreshToken: 'refresh', expiresAt: FAR };
+/** Les deux services connectés, première génération */
+const BOTH: SessionEpochs = { anilist: 0, mal: 0 };
+
+const episode = (n: number): EpisodeInfo => ({
+  platform: 'crunchyroll',
+  episodeId: `EP${n}`,
+  seriesId: `GSERIES${n}`,
+  seriesSlug: 'serie',
+  animeTitle: 'Série',
+  seasonNumber: 1,
+  seasonTitle: null,
+  seasonEpisodeNumber: n,
+  displayedEpisodeNumber: n,
+  episodeTitle: null,
+  url: `https://www.crunchyroll.com/watch/EP${n}`,
+});
+
+const queued = (n: number, services: SyncQueueItem['services'], epochs?: SessionEpochs): SyncQueueItem => ({
+  id: `crunchyroll:EP${n}`,
+  episode: episode(n),
+  services,
+  ...(epochs ? { epochs } : {}),
+  attempts: 1,
+  status: 'pending',
+  nextAttemptAt: 1,
+  firstFailedAt: 1,
+  lastError: 'Hors ligne',
+});
+const rating = (mediaId: number, epochs?: SessionEpochs): PendingRating => ({
+  id: `anilist:${mediaId}`,
+  mediaId,
+  malId: null,
+  title: `Série ${mediaId}`,
+  coverUrl: null,
+  completedAt: mediaId,
+  ...(epochs ? { epochs } : {}),
+});
+const recent = (n: number, epochs?: SessionEpochs, syncedAt = n): RecentSync => ({
+  key: `crunchyroll:GSERIES${n}:s1`,
+  episode: episode(n),
+  mediaId: n,
+  mediaTitle: `Fiche ${n}`,
+  progress: n,
+  syncedAt,
+  ...(epochs ? { epochs } : {}),
+});
+const review = (n: number, overrides: Partial<PendingReview> = {}): PendingReview => ({
+  key: `crunchyroll:GSERIES${n}:s1`,
+  episode: episode(n),
+  reason: 'À vérifier',
+  suggestion: null,
+  candidates: [],
+  previous: null,
+  createdAt: n,
+  ...overrides,
+});
+const correction = (n: number, epochs?: SessionEpochs): PendingReview =>
+  review(n, { previous: { mediaId: n, title: `Fiche ${n}`, progress: n }, ...(epochs ? { epochs } : {}) });
+
+/** Toutes les clés écrites par SyncKai pour un utilisateur connecté aux deux services */
+function seedEverything(): void {
+  const entries: Record<string, unknown> = {
+    [STORAGE_KEYS.anilistToken]: ANILIST_TOKEN,
+    [STORAGE_KEYS.anilistViewer]: { id: 1, name: 'A' },
+    [STORAGE_KEYS.malToken]: MAL_TOKEN,
+    [STORAGE_KEYS.malViewer]: { id: 2, name: 'M' },
+    [STORAGE_KEYS.mediaMappings]: { 'crunchyroll:GSERIES1:s1': { mediaId: 1, numbering: 'season', offset: 0, episodes: 12 } },
+    [STORAGE_KEYS.pendingReviews]: [review(1)],
+    [STORAGE_KEYS.recentSyncs]: [recent(1, BOTH)],
+    [STORAGE_KEYS.watchingCache]: { anilist: { service: 'anilist' }, mal: { service: 'mal' } },
+    [STORAGE_KEYS.sessionEpoch]: { anilist: 0, mal: 0 },
+    [STORAGE_KEYS.compareLast]: {},
+    [STORAGE_KEYS.compareJob]: {},
+    [STORAGE_KEYS.crImportJob]: {},
+    [STORAGE_KEYS.crImportInput]: {},
+    [STORAGE_KEYS.crImportResolutions]: {},
+    [STORAGE_KEYS.crImportPlan]: {},
+    [SYNC_QUEUE_KEY]: [queued(1, null, BOTH)],
+    [PENDING_RATINGS_KEY]: [rating(1, BOTH)],
+    [REWATCH_DECLINED_KEY]: { 'anilist:1': 1 },
+    [PLATFORM_LINKS_KEY]: { '1': [] },
+    'airingWeek:2026-10-05': {},
+    'airingWeek:2026-10-12': {},
+    excludedSeries: [],
+    settings: {},
+  };
+  for (const [key, value] of Object.entries(entries)) store.set(key, value);
+}
+
+const keys = (): string[] => [...store.keys()].sort();
+
+beforeEach(() => store.clear());
+
+describe('clearUserSyncData (TEST-10)', () => {
+  it('efface exactement les données de l’utilisateur, garde sessions, correspondances, exclusions et réglages', async () => {
+    seedEverything();
+    await storage.clearUserSyncData();
+    expect(keys()).toEqual(
+      [
+        STORAGE_KEYS.anilistToken,
+        STORAGE_KEYS.anilistViewer,
+        STORAGE_KEYS.malToken,
+        STORAGE_KEYS.malViewer,
+        STORAGE_KEYS.mediaMappings,
+        STORAGE_KEYS.sessionEpoch,
+        'excludedSeries',
+        'settings',
+      ].sort(),
+    );
+  });
+});
+
+describe('clearAniListSession / clearMalSession (TEST-10, DATA-01)', () => {
+  it('AniList : session, comparaison, import et cache AniList effacés ; génération AniList incrémentée seule', async () => {
+    seedEverything();
+    await storage.clearAniListSession();
+    for (const key of [STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, STORAGE_KEYS.crImportJob, STORAGE_KEYS.crImportInput, STORAGE_KEYS.crImportResolutions, STORAGE_KEYS.crImportPlan]) {
+      expect(store.has(key), key).toBe(false);
+    }
+    expect(store.get(STORAGE_KEYS.watchingCache)).toEqual({ mal: { service: 'mal' } });
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 1, mal: 0 });
+    expect(await storage.getSessionEpoch('anilist')).toBe(1);
+    // Conservés : session MAL, correspondances, données encore valables pour MAL
+    for (const key of [STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.mediaMappings, STORAGE_KEYS.pendingReviews, PLATFORM_LINKS_KEY, REWATCH_DECLINED_KEY, 'airingWeek:2026-10-05']) {
+      expect(store.has(key), key).toBe(true);
+    }
+  });
+
+  it('MAL : symétrique, le cache AniList et la génération AniList restent', async () => {
+    seedEverything();
+    await storage.clearMalSession();
+    expect(store.has(STORAGE_KEYS.malToken)).toBe(false);
+    expect(store.has(STORAGE_KEYS.malViewer)).toBe(false);
+    expect(store.has(STORAGE_KEYS.crImportPlan)).toBe(false);
+    expect(store.get(STORAGE_KEYS.watchingCache)).toEqual({ anilist: { service: 'anilist' } });
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 0, mal: 1 });
+    expect(store.get(STORAGE_KEYS.anilistToken)).toEqual(ANILIST_TOKEN);
+  });
+
+  it('retire la part AniList de la file, des notes, des synchros récentes et des corrections', async () => {
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    store.set(STORAGE_KEYS.malToken, MAL_TOKEN);
+    store.set(SYNC_QUEUE_KEY, [queued(1, ['anilist'], BOTH), queued(2, null, BOTH), queued(3, ['anilist', 'mal'], BOTH), queued(4, null)]);
+    store.set(PENDING_RATINGS_KEY, [rating(1, { anilist: 0 }), rating(2, BOTH), rating(3)]);
+    store.set(STORAGE_KEYS.recentSyncs, [recent(1, { anilist: 0 }), recent(2, BOTH), recent(3)]);
+    store.set(STORAGE_KEYS.pendingReviews, [correction(1, { anilist: 0 }), correction(2, BOTH), review(3)]);
+
+    await storage.clearAniListSession();
+
+    // Élément sans session (antérieur à la 2.2.0, non migré) : supprimé, comme ce qui ne vaut que pour AniList
+    expect(await getSyncQueue()).toEqual([
+      { ...queued(2, null), services: ['mal'], epochs: { mal: 0 } },
+      { ...queued(3, null), services: ['mal'], epochs: { mal: 0 } },
+    ]);
+    expect(store.get(PENDING_RATINGS_KEY)).toEqual([rating(2, BOTH)]);
+    expect(store.get(STORAGE_KEYS.recentSyncs)).toEqual([recent(2, BOTH)]);
+    // Vérification simple : non liée au compte, conservée
+    expect(store.get(STORAGE_KEYS.pendingReviews)).toEqual([correction(2, BOTH), review(3)]);
+  });
+
+  it('ne retire rien qui vaut encore pour une session ouverte : stockage non réécrit', async () => {
+    store.set(STORAGE_KEYS.malToken, MAL_TOKEN);
+    const ratings = [rating(2, BOTH)];
+    store.set(PENDING_RATINGS_KEY, ratings);
+    await storage.clearAniListSession();
+    expect(store.get(PENDING_RATINGS_KEY)).toBe(ratings);
+  });
+});
+
+describe('clearUserSyncDataIfNoSession (DATA-01, DATA-06)', () => {
+  it('token AniList seulement expiré (« Reconnecter ») : la session reste, rien n’est effacé', async () => {
+    seedEverything();
+    store.set(STORAGE_KEYS.anilistToken, { accessToken: 'anilist', expiresAt: 1 });
+    await storage.clearMalSession();
+    expect(await storage.clearUserSyncDataIfNoSession()).toBe(false);
+    expect(store.has(SYNC_QUEUE_KEY)).toBe(true);
+    expect(store.has(PLATFORM_LINKS_KEY)).toBe(true);
+  });
+
+  it('plus aucun token : données de l’utilisateur effacées', async () => {
+    seedEverything();
+    store.delete(STORAGE_KEYS.malToken);
+    await storage.clearAniListSession();
+    expect(await storage.clearUserSyncDataIfNoSession()).toBe(true);
+    expect(store.has(STORAGE_KEYS.pendingReviews)).toBe(false);
+    expect(store.has(PLATFORM_LINKS_KEY)).toBe(false);
+    expect(store.has('airingWeek:2026-10-12')).toBe(false);
+    expect(store.has(STORAGE_KEYS.mediaMappings)).toBe(true);
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 1, mal: 0 });
+  });
+});
+
+describe('sessions ouvertes', () => {
+  it('token enregistré (AniList même expiré) : génération du service, 0 par défaut', async () => {
+    expect(await storage.getOpenSessions()).toEqual({});
+    store.set(STORAGE_KEYS.anilistToken, { accessToken: 'anilist', expiresAt: 1 });
+    store.set(STORAGE_KEYS.sessionEpoch, { anilist: 4 });
+    expect(await storage.getOpenSessions()).toEqual({ anilist: 4 });
+    store.set(STORAGE_KEYS.malToken, MAL_TOKEN);
+    expect(await storage.getOpenSessions()).toEqual({ anilist: 4, mal: 0 });
+    expect(await storage.isSessionOpen('anilist', 4)).toBe(true);
+    expect(await storage.isSessionOpen('anilist', 3)).toBe(false);
+    expect(await storage.isSessionOpen('mal', undefined)).toBe(false);
+  });
+
+  it('file : un échec d’une session fermée n’est jamais enregistré, l’entrée de même épisode est retirée', async () => {
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    store.set(STORAGE_KEYS.sessionEpoch, { anilist: 1 });
+    store.set(SYNC_QUEUE_KEY, [queued(1, ['anilist'], { anilist: 1 })]);
+    expect(await saveQueueItem(queued(1, ['anilist'], { anilist: 0 }))).toBe(false);
+    expect(store.has(SYNC_QUEUE_KEY)).toBe(false);
+    expect(await saveQueueItem(queued(2, null, { anilist: 1, mal: 0 }))).toBe(true);
+    expect(await getSyncQueue()).toEqual([{ ...queued(2, ['anilist']), epochs: { anilist: 1 } }]);
+  });
+});
+
+describe('plafonds (TEST-10)', () => {
+  it('savePendingReview : une carte par saison (la dernière l’emporte), 20 au plus, la plus récente en premier', async () => {
+    for (let n = 1; n <= MAX_PENDING_REVIEWS + 3; n++) await storage.savePendingReview(review(n));
+    await storage.savePendingReview(review(23, { reason: 'Remplacée', createdAt: 100 }));
+    const reviews = await storage.getPendingReviews();
+    expect(reviews).toHaveLength(MAX_PENDING_REVIEWS);
+    expect(reviews[0]).toMatchObject({ key: review(23).key, reason: 'Remplacée' });
+    expect(reviews.filter((r) => r.key === review(23).key)).toHaveLength(1);
+    expect(reviews.map((r) => r.createdAt)).not.toContain(1);
+  });
+
+  it('addRecentSync : une entrée par saison, 5 au plus, la plus récente en premier', async () => {
+    for (let n = 1; n <= 7; n++) await storage.addRecentSync(recent(n, BOTH));
+    await storage.addRecentSync(recent(6, BOTH, 50));
+    const syncs = await storage.getRecentSyncs();
+    expect(syncs).toHaveLength(MAX_RECENT_SYNCS);
+    expect(syncs.map((s) => s.mediaId)).toEqual([6, 7, 5, 4, 3]);
+  });
+});

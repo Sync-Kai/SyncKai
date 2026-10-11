@@ -121,13 +121,13 @@ const handlers: MessageHandlers = {
   SEARCH_ANIME: ({ query }) => searchCandidates(query),
   // Échec passager d'un service après une vérification confirmée : mis en file comme une synchro en direct
   RESOLVE_REVIEW: async (payload) => {
-    const { outcome, episode } = await resolveReview(payload);
+    const { outcome, episode, epochs } = await resolveReview(payload);
     forgetPageResolutions();
-    return episode !== null ? recordSyncOutcome(episode, null, outcome) : outcome;
+    return episode !== null ? recordSyncOutcome(episode, null, outcome, epochs) : outcome;
   },
   REOPEN_REVIEW: ({ key }) => reopenReview(key),
   GET_WATCHING: ({ service }) => getWatchingList(service),
-  RATE_MEDIA: ({ media, score }) => rateMedia(media, score),
+  RATE_MEDIA: ({ media, score, fromCard }) => rateMedia(media, score, fromCard === true),
   DEFER_RATING: ({ media, coverUrl }) => deferRating(media, coverUrl),
   START_REWATCH: ({ media, progress }) => startRewatch(media, progress),
   DECLINE_REWATCH: ({ media }) => declineRewatch(media),

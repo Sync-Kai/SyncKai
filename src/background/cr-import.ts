@@ -37,7 +37,17 @@ import { getExcludedSeries, isExcluded, platformSeriesKey } from '../shared/excl
 import { isJobActive, reduceJob } from '../shared/job';
 import { createLogger } from '../shared/logger';
 import type { Result } from '../shared/result';
-import { getMediaMapping, getPendingReviews, MAX_PENDING_REVIEWS, saveMediaMapping, savePendingReview, withStorageLock } from '../shared/storage';
+import { sameSessions, type SessionEpochs } from '../shared/session-epochs';
+import {
+  getMediaMapping,
+  getOpenSessions,
+  getPendingReviews,
+  isSessionOpen,
+  MAX_PENDING_REVIEWS,
+  saveMediaMapping,
+  savePendingReview,
+  withStorageLock,
+} from '../shared/storage';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { ApiError } from './api/errors';
 import { getAnimeByIds } from './api/media';
@@ -169,7 +179,23 @@ async function readList(service: TrackerId): Promise<Map<number, CrListState>> {
   return list;
 }
 
+/**
+ * Enregistre l'aperçu si les sessions n'ont pas changé depuis la lecture des listes. Vérification et écriture sous le
+ * même verrou que la déconnexion (qui efface `crImport:*`) : l'aperçu de l'ancien compte n'est jamais recréé.
+ */
+function savePlanIfSession(plan: CrImportPlan, epochs: SessionEpochs): Promise<boolean> {
+  return withStorageLock(async () => {
+    if (!sameSessions(await getOpenSessions(), epochs)) return false;
+    await chrome.storage.local.set({ [CR_IMPORT_KEYS.plan]: plan });
+    // L'aperçu contient tout le nécessaire : historique et correspondances intermédiaires effacés
+    await chrome.storage.local.remove([CR_IMPORT_KEYS.input, CR_IMPORT_KEYS.resolutions]);
+    return true;
+  });
+}
+
 async function finalize(isLastAttempt: (reason: TransientKind) => boolean): Promise<StepResult> {
+  // Sessions relevées avant la lecture des listes : l'aperçu décrit les listes de ces comptes
+  const epochs = await getOpenSessions();
   const input = await readInput();
   if (!input) return stopStep(t('crImport.error.noHistory'));
   const services = (await getConnectedTrackers()).map((tr) => tr.id);
@@ -182,9 +208,10 @@ async function finalize(isLastAttempt: (reason: TransientKind) => boolean): Prom
     for (const service of services) lists[service] = await readList(service);
     const excludedMediaIds = new Set((await getExcludedSeries()).flatMap((e) => (e.mediaId !== null ? [e.mediaId] : [])));
     const plan = buildCrImportPlan({ seasons: input.seasons, resolutions, catalog, lists, services, excludedMediaIds, stats: input.stats }, Date.now());
-    await chrome.storage.local.set({ [CR_IMPORT_KEYS.plan]: plan });
-    // L'aperçu contient tout le nécessaire : historique et correspondances intermédiaires effacés
-    await chrome.storage.local.remove([CR_IMPORT_KEYS.input, CR_IMPORT_KEYS.resolutions]);
+    if (!(await savePlanIfSession(plan, epochs))) {
+      log.warn('Compte déconnecté ou changé pendant l’analyse : aperçu abandonné');
+      return stopStep(t('crImport.error.sessionClosed'));
+    }
     log.info(`Aperçu de l’import : ${plan.items.length} séries, ${plan.review.length} à vérifier, ${plan.excluded} exclues, ${plan.failed} en échec`);
     return itemEvent('updated');
   } catch (error: unknown) {
@@ -211,26 +238,41 @@ const analyzeLoop = createJobLoop<CrImportJob>({
 
 // ─── Application ──────────────────────────────────────────────────────────
 
+/** Élément abandonné : la session du service a été fermée (déconnexion, autre compte) depuis le début de l'élément */
+export type ImportOnServiceResult = CrImportDecision | { action: 'session-closed' };
+
 /**
  * Écrit l'élément sur UN service ; lève les erreurs d'API. Créneaux (espacement, budget AniList de fond) pris AVANT
  * la relecture : aucune attente ne sépare la lecture de l'écriture, et la fiche n'est jamais verrouillée pendant une
  * attente de quota. Relecture, décision et écriture sous le verrou de la fiche : une synchro en direct concurrente
  * (12/12 Terminé) n'est jamais remplacée par la valeur décidée sur l'état d'avant (11 En cours).
+ * `epoch` : session du service au début de l'élément, revérifiée juste avant l'écriture (une attente de quota peut
+ * durer : un autre compte connecté entre-temps ne reçoit jamais la valeur décidée sur la liste de l'ancien).
  */
-export async function importOnService(tracker: TrackerService, targetId: number, item: Pick<CrPlanItem, 'progress' | 'episodes'>): Promise<CrImportDecision> {
+export async function importOnService(
+  tracker: TrackerService,
+  targetId: number,
+  item: Pick<CrPlanItem, 'progress' | 'episodes'>,
+  epoch: number | undefined,
+): Promise<ImportOnServiceResult> {
   await waitWriteSlot(tracker.id);
   await waitReadSlot(tracker.id);
-  return withEntryLock(tracker.id, targetId, async (): Promise<CrImportDecision> => {
+  if (!(await isSessionOpen(tracker.id, epoch))) return { action: 'session-closed' };
+  return withEntryLock(tracker.id, targetId, async (): Promise<ImportOnServiceResult> => {
     // Lecture fraîche : la liste a pu changer depuis l'aperçu (autre appareil, synchro en direct)
     const current = await tracker.getEntry(targetId);
     const decision = decideImport(current.entry, item.progress, current.episodes ?? item.episodes);
-    if (decision.action === 'update') await tracker.saveProgress(targetId, decision.progress, decision.status);
+    if (decision.action !== 'update') return decision;
+    if (!(await isSessionOpen(tracker.id, epoch))) return { action: 'session-closed' };
+    await tracker.saveProgress(targetId, decision.progress, decision.status);
     return decision;
   });
 }
 
 /** Écrit UN élément du plan sur chaque service prévu (état relu juste avant : jamais de recul). Ne lève jamais. */
 async function applyItem(id: string, isLastAttempt: (reason: TransientKind) => boolean): Promise<StepResult> {
+  // Sessions relevées AVANT l'aperçu : une déconnexion ensuite efface l'aperçu ou rend la session caduque (CRI-03)
+  const epochs = await getOpenSessions();
   const plan = await readPlan();
   if (!plan) return stopStep(t('crImport.error.noPlan'));
   const item = plan.items.find((i) => i.id === id);
@@ -249,7 +291,15 @@ async function applyItem(id: string, isLastAttempt: (reason: TransientKind) => b
       continue;
     }
     try {
-      const decision = await importOnService(tracker, targetId, item);
+      const decision = await importOnService(tracker, targetId, item, epochs[planned.service]);
+      if (decision.action === 'session-closed') {
+        // Compte déconnecté ou changé pendant l'élément : rien n'est écrit, et l'import s'arrête (aperçu de l'ancien compte)
+        const message = t('crImport.skip.sessionClosed', { service: label });
+        log.warn(message, item.title);
+        outcomes.push({ service: planned.service, result: 'skipped', message });
+        fatal = message;
+        break;
+      }
       if (decision.action === 'skip') {
         outcomes.push({ service: planned.service, result: 'skipped', message: `${label} : ${t(`crImport.skipReason.${decision.reason}`)}` });
         continue;

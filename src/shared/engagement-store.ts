@@ -1,5 +1,6 @@
 import { isMediaRef, mediaRefId, REWATCH_DECLINE_MS, type MediaRef, type PendingRating } from './engagement.types';
 import { isRecord } from './guards';
+import { isSessionEpochs } from './session-epochs';
 import { withStorageLock } from './storage';
 import type { ServiceResult } from './sync.types';
 
@@ -20,7 +21,8 @@ export function isPendingRating(value: unknown): value is PendingRating {
     value.id === mediaRefId(value) &&
     (value.coverUrl === null || typeof value.coverUrl === 'string') &&
     typeof value.completedAt === 'number' &&
-    Number.isFinite(value.completedAt)
+    Number.isFinite(value.completedAt) &&
+    (value.epochs === undefined || isSessionEpochs(value.epochs))
   );
 }
 

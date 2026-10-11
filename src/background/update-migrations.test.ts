@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../shared/guards';
 import { STORAGE_KEYS, saveMediaMapping } from '../shared/storage';
 import { STORAGE_LOCK } from '../shared/storage-lock-core';
+import { PENDING_RATINGS_KEY } from '../shared/engagement-store';
+import type { PendingRating } from '../shared/engagement.types';
+import type { EpisodeInfo } from '../shared/episode.types';
+import type { SyncQueueItem } from '../shared/queue.types';
+import type { PendingReview, RecentSync } from '../shared/review.types';
+import { SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
 import type { MediaMapping } from '../shared/sync.types';
 import { compareVersions, runUpdateMigrations } from './update-migrations';
 
@@ -10,7 +16,7 @@ let store: Record<string, unknown> = {};
 vi.stubGlobal('chrome', {
   storage: {
     local: {
-      get: async (key: string) => ({ [key]: store[key] }),
+      get: async (keys: string | string[]) => Object.fromEntries((Array.isArray(keys) ? keys : [keys]).map((key) => [key, store[key]])),
       set: async (items: Record<string, unknown>) => {
         store = { ...store, ...items };
       },
@@ -64,18 +70,73 @@ describe('runUpdateMigrations', () => {
     expect(mappingKeys()).toEqual(['adn:1311:s1', 'crunchyroll:GRMG8ZQZR:s24', 'crunchyroll:GY9VWW3XY:s1']);
   });
 
-  it('depuis la 2.1.1 ou plus, ou version inconnue : rien n’est supprimé', async () => {
-    for (const version of ['2.1.1', '2.2.0', '10.0.0', 'inconnue', undefined]) {
+  it('depuis la 2.1.1 : correspondances Netflix conservées', async () => {
+    await runUpdateMigrations('2.1.1');
+    expect(mappingKeys()).toHaveLength(4);
+  });
+
+  it('depuis la 2.2.0 ou plus, ou version inconnue : aucune migration', async () => {
+    for (const version of ['2.2.0', '10.0.0', 'inconnue', undefined]) {
       await runUpdateMigrations(version);
     }
     expect(mappingKeys()).toHaveLength(4);
     expect(request).not.toHaveBeenCalled();
   });
 
-  it('aucune correspondance Netflix : stockage non réécrit', async () => {
+  it('aucune correspondance Netflix ni donnée à rattacher : stockage non réécrit', async () => {
     store = { [STORAGE_KEYS.mediaMappings]: { 'adn:1311:s1': mapping(3) } };
     const before = store;
     await runUpdateMigrations('2.0.0');
     expect(store).toBe(before);
+  });
+});
+
+describe('runUpdateMigrations : liaison au compte (DATA-01)', () => {
+  const episode: EpisodeInfo = {
+    platform: 'crunchyroll',
+    episodeId: 'GE001',
+    seriesId: 'GR001',
+    seriesSlug: 'frieren',
+    animeTitle: 'Frieren',
+    seasonNumber: 1,
+    seasonTitle: null,
+    seasonEpisodeNumber: 5,
+    displayedEpisodeNumber: 5,
+    episodeTitle: null,
+    url: 'https://www.crunchyroll.com/watch/GE001',
+  };
+  const queued: SyncQueueItem = { id: 'crunchyroll:GE001', episode, services: null, attempts: 1, status: 'pending', nextAttemptAt: 1, firstFailedAt: 1, lastError: 'Hors ligne' };
+  const rating: PendingRating = { id: 'anilist:1', mediaId: 1, malId: 2, title: 'Frieren', coverUrl: null, completedAt: 1 };
+  const recent: RecentSync = { key: 'crunchyroll:GR001:s1', episode, mediaId: 1, mediaTitle: 'Frieren', progress: 5, syncedAt: 1 };
+  const review: PendingReview = { key: 'crunchyroll:GR001:s1', episode, reason: 'À vérifier', suggestion: null, candidates: [], previous: null, createdAt: 1 };
+  const correction: PendingReview = { ...review, key: 'crunchyroll:GR002:s1', previous: { mediaId: 1, title: 'Frieren', progress: 5 } };
+  // AniList connecté (génération 3, après des déconnexions passées), MAL jamais connecté
+  const SESSIONS = { anilist: 3 };
+
+  beforeEach(() => {
+    store = {
+      anilistToken: { accessToken: 'a', expiresAt: 1 },
+      sessionEpoch: { anilist: 3, mal: 1 },
+      [SYNC_QUEUE_KEY]: [queued],
+      [PENDING_RATINGS_KEY]: [rating, { ...rating, id: 'anilist:9', mediaId: 9, epochs: { anilist: 2 } }],
+      [STORAGE_KEYS.recentSyncs]: [recent],
+      [STORAGE_KEYS.pendingReviews]: [review, correction],
+    };
+  });
+
+  it('depuis la 2.1.x : file, notes, synchros récentes et corrections rattachées aux sessions ouvertes', async () => {
+    await runUpdateMigrations('2.1.1');
+    expect(store[SYNC_QUEUE_KEY]).toEqual([{ ...queued, epochs: SESSIONS }]);
+    // Déjà rattachée : inchangée
+    expect(store[PENDING_RATINGS_KEY]).toEqual([{ ...rating, epochs: SESSIONS }, { ...rating, id: 'anilist:9', mediaId: 9, epochs: { anilist: 2 } }]);
+    expect(store[STORAGE_KEYS.recentSyncs]).toEqual([{ ...recent, epochs: SESSIONS }]);
+    // Vérification simple : non liée au compte
+    expect(store[STORAGE_KEYS.pendingReviews]).toEqual([review, { ...correction, epochs: SESSIONS }]);
+  });
+
+  it('depuis la 2.2.0 : rien n’est rattaché', async () => {
+    await runUpdateMigrations('2.2.0');
+    expect(store[SYNC_QUEUE_KEY]).toEqual([queued]);
+    expect(store[STORAGE_KEYS.recentSyncs]).toEqual([recent]);
   });
 });

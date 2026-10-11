@@ -1,4 +1,5 @@
 import { isRecord } from './guards';
+import type { SessionEpochs } from './session-epochs';
 
 // Contrats v1.6 : note de fin de série, revisionnage, alertes de nouveaux épisodes.
 
@@ -33,6 +34,8 @@ export interface PendingRating extends MediaRef {
   id: string;
   coverUrl: string | null;
   completedAt: number;
+  /** Sessions ouvertes à la création de la carte : la note n'est écrite que sur elles (absent : antérieure à la 2.2.0) */
+  epochs?: SessionEpochs;
 }
 
 export function mediaRefId(ref: Pick<MediaRef, 'mediaId' | 'malId'>): string {

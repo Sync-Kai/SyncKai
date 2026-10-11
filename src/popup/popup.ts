@@ -1151,7 +1151,7 @@ async function rateMedia(item: PendingRating, value: number): Promise<void> {
   patchRatings({ busyIds: withBusy(item.id, true), errors: withError(item.id, null) });
   let outcome: SyncOutcome;
   try {
-    outcome = await sendMessage('RATE_MEDIA', { media: { mediaId: item.mediaId, malId: item.malId, title: item.title }, score: value });
+    outcome = await sendMessage('RATE_MEDIA', { media: { mediaId: item.mediaId, malId: item.malId, title: item.title }, score: value, fromCard: true });
   } catch (error: unknown) {
     log.error('Service worker injoignable :', error);
     outcome = { status: 'error', message: swUnreachable() };

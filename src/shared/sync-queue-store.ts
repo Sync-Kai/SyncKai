@@ -1,5 +1,5 @@
-import { isSyncQueueItem, type SyncQueueItem } from './queue.types';
-import { withStorageLock } from './storage';
+import { isSyncQueueItem, restrictToSession, type SyncQueueItem } from './queue.types';
+import { getOpenSessions, withStorageLock } from './storage';
 
 // Accès au stockage de la file de synchro (popup + service worker).
 // Écritures sous `withStorageLock` (src/shared/storage.ts), clé de stockage `syncQueue`.
@@ -24,11 +24,23 @@ export async function getSyncQueue(): Promise<SyncQueueItem[]> {
   return (await readQueue()).sort(compareQueueItems);
 }
 
-/** Ajoute ou remplace l'entrée de même `id`. */
-export function saveQueueItem(item: SyncQueueItem): Promise<void> {
+/**
+ * Ajoute ou remplace l'entrée de même `id`, réduite aux services dont la session est toujours ouverte. Vérifié sous
+ * le même verrou que la déconnexion : un échec de l'ancien compte n'est jamais remis en file après celle-ci. Plus
+ * aucun service valable : l'entrée est retirée. Retourne false dans ce cas.
+ */
+export function saveQueueItem(item: SyncQueueItem): Promise<boolean> {
   return withStorageLock(async () => {
-    const others = (await readQueue()).filter((i) => i.id !== item.id);
-    await chrome.storage.local.set({ [SYNC_QUEUE_KEY]: [...others, item] });
+    // Élément antérieur à la 2.2.0 encore présent : aucune déconnexion depuis (elle l'aurait purgé), session courante
+    const live = restrictToSession(item, await getOpenSessions(), 'current');
+    const queue = await readQueue();
+    const others = queue.filter((i) => i.id !== item.id);
+    if (live !== null) await chrome.storage.local.set({ [SYNC_QUEUE_KEY]: [...others, live] });
+    else if (others.length < queue.length) {
+      if (others.length === 0) await chrome.storage.local.remove(SYNC_QUEUE_KEY);
+      else await chrome.storage.local.set({ [SYNC_QUEUE_KEY]: others });
+    }
+    return live !== null;
   });
 }
 
