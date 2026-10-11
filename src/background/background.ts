@@ -24,7 +24,8 @@ import type { MessagePayload, MessageResponse, MessageType, RuntimeMessage } fro
 import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, type MessageOrigin } from './message-guards';
 import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
-import { enablePanelForSender, resetSidePanel } from './side-panel';
+import { enablePanelForSender, resetSidePanel, togglePanelFromCommand } from './side-panel';
+import { OPEN_SIDE_PANEL_COMMAND } from '../shared/commands';
 import { listenContentReinjection } from './content-reinjection';
 import { listenPlatformAccess } from './platform-access';
 import { runUpdateMigrations } from './update-migrations';
@@ -201,7 +202,14 @@ chrome.alarms.onAlarm.addListener((alarm): void => {
   if (alarm.name === QUEUE_ALARM) afterI18n(processSyncQueue);
 });
 
-chrome.commands.onCommand.addListener((command): void => {
+chrome.commands.onCommand.addListener((command, tab): void => {
+  // Panneau latéral (Chrome) : ouverture synchrone, sans attendre la langue (geste utilisateur perdu au premier await) ;
+  // un panneau déjà ouvert se ferme lui-même ensuite (bascule). Firefox : `_execute_sidebar_action` (manifest-target.ts),
+  // bascule native du navigateur, n'arrive jamais ici.
+  if (__SYNCKAI_TARGET__ === 'chrome' && command === OPEN_SIDE_PANEL_COMMAND) {
+    togglePanelFromCommand(tab);
+    return;
+  }
   void handleCommand(command);
 });
 

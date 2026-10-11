@@ -38,6 +38,7 @@ Tip to simulate a service outage: developer tools of the popup (right-click › 
 - [ ] **Panel while loading**: open the side panel while an episode is loading. Expected: the entry shows (no endless skeleton).
 - [ ] **Action, then episode change**: *+1* in the side panel, then immediately start another episode. Expected: the new episode's entry stays displayed.
 - [ ] **Schedule error**: block AniList, open the Schedule. Expected: the error message and *Retry* stay visible.
+- [ ] **Alt+Shift+P shortcut** (set it first in `brave://extensions/shortcuts` or `about:addons` › *Manage Extension Shortcuts* on an existing install): on a Crunchyroll or ADN episode → the panel opens, even right after the page loads, and a second press closes it (also after leaving the panel open for more than a minute: service worker asleep); with two windows each showing a panel, only the focused window's panel closes; on another site → nothing (Brave/Chrome); Firefox → the sidebar shows, a second press hides it.
 - [ ] **Season choice**: on an episode of a series with split seasons, pick another season in the side panel, finish the episode. Expected: the progress goes to the chosen season; Settings › My data lists the match.
 
 ## 6. Alerts, import, backup

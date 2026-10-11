@@ -14,6 +14,7 @@ import { icon, kai, type IconName } from '../ui/icons';
 import { createNowPlaying } from './components/now-playing';
 import { createAgenda, type AgendaView } from './components/agenda';
 import { watchPanelContext, type PanelContext } from './presence';
+import { listenPanelToggle } from './toggle';
 import { initialPanelTab, isTabEntering, nextTabIndex, PANEL_LAST_TAB_KEY, PANEL_TABS, type PanelTab } from './tabs';
 
 const log = createLogger('sidepanel');
@@ -266,6 +267,8 @@ async function loadInitialTab(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // Raccourci « ouvrir ou fermer » (Chrome) : écoute posée avant tout await (instant de chargement au plus tôt)
+  if (sidePanelKind() === 'chrome') listenPanelToggle();
   await Promise.all([initI18n(), loadInitialTab()]);
   onLocaleChange(() => {
     // Agenda affiché : textes et premier jour de la semaine à jour (il n'est plus réactivé à chaque rendu)

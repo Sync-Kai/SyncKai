@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { COMPLETE_EPISODE_COMMAND } from '../shared/commands';
 import type { ContentMessage } from '../shared/content-messages';
 import type { AddToListPayload, AdjustProgressPayload, AdjustRetryTarget, SetListStatusPayload } from '../shared/messages';
 import type { MediaRef } from '../shared/engagement.types';
@@ -17,9 +18,6 @@ import { createLogger } from '../shared/logger';
 // Contrôles manuels (service worker) : +1 / −1 depuis le popup et raccourci « valider l'épisode ».
 
 const log = createLogger('controls');
-
-/** Identifiant de la commande déclarée dans manifest.json (`commands`) */
-export const COMPLETE_EPISODE_COMMAND = 'complete-episode';
 
 export type AdjustDecision =
   /** `repeat` : nouveau compteur de revisionnages (revisionnage terminé par ce +1) */

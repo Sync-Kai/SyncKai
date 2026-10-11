@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import manifest from '../../manifest.json';
-import { FIREFOX_GECKO_ID, parseBuildTarget, targetManifest, targetOutDir } from './manifest-target';
+import { COMPLETE_EPISODE_COMMAND, FIREFOX_SIDEBAR_COMMAND, OPEN_SIDE_PANEL_COMMAND, panelCommandName } from '../shared/commands';
+import {
+  FIREFOX_GECKO_ID,
+  FIREFOX_PANEL_COMMAND,
+  firefoxCommands,
+  parseBuildTarget,
+  SOURCE_PANEL_COMMAND,
+  targetManifest,
+  targetOutDir,
+} from './manifest-target';
 
 describe('targetManifest', () => {
   it('chrome : manifeste inchangé', () => {
@@ -48,12 +57,47 @@ describe('targetManifest', () => {
     expect(firefox.permissions).toEqual(manifest.permissions.filter((permission) => permission !== 'sidePanel'));
     expect(firefox.host_permissions).toEqual(manifest.host_permissions);
     expect(firefox.content_scripts).toEqual(manifest.content_scripts);
-    expect(firefox.commands).toEqual(manifest.commands);
+    expect(firefox.commands?.['complete-episode']).toEqual(manifest.commands['complete-episode']);
     expect(firefox.action).toEqual(manifest.action);
     expect(firefox.version).toBe(manifest.version);
     expect(manifest.key).toBeTypeOf('string');
     expect(manifest.background.service_worker).toBe('src/background/background.ts');
     expect(manifest.permissions).toContain('sidePanel');
+  });
+});
+
+describe('raccourcis clavier (commands)', () => {
+  it('noms partagés avec le service worker et les réglages (src/shared/commands.ts)', () => {
+    expect(SOURCE_PANEL_COMMAND).toBe(OPEN_SIDE_PANEL_COMMAND);
+    expect(FIREFOX_PANEL_COMMAND).toBe(FIREFOX_SIDEBAR_COMMAND);
+    expect(panelCommandName('chrome')).toBe(OPEN_SIDE_PANEL_COMMAND);
+    expect(panelCommandName('firefox')).toBe(FIREFOX_SIDEBAR_COMMAND);
+    expect(Object.keys(manifest.commands)).toEqual([COMPLETE_EPISODE_COMMAND, OPEN_SIDE_PANEL_COMMAND]);
+  });
+
+  it('manifeste source : Alt+Shift+S et Alt+Shift+P, au plus 4 touches suggérées (limite de Chrome), sans doublon', () => {
+    const keys = Object.values(manifest.commands).map((command) => command.suggested_key.default);
+    expect(keys).toEqual(['Alt+Shift+S', 'Alt+Shift+P']);
+    expect(keys.length).toBeLessThanOrEqual(4);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(manifest.commands['open-side-panel'].description).toBe('__MSG_cmdOpenSidePanel__');
+  });
+
+  it('chrome : commande du panneau traitée par le service worker', () => {
+    expect(targetManifest(manifest, 'chrome').commands).toBe(manifest.commands);
+  });
+
+  it('firefox : _execute_sidebar_action (bascule native de la barre latérale), même touche et description, même ordre', () => {
+    const { commands } = targetManifest(manifest, 'firefox');
+    expect(Object.keys(commands ?? {})).toEqual([COMPLETE_EPISODE_COMMAND, FIREFOX_SIDEBAR_COMMAND]);
+    expect(commands?.[FIREFOX_SIDEBAR_COMMAND]).toEqual(manifest.commands['open-side-panel']);
+    expect(commands?.[OPEN_SIDE_PANEL_COMMAND]).toBeUndefined();
+    // Source intacte
+    expect(OPEN_SIDE_PANEL_COMMAND in manifest.commands).toBe(true);
+  });
+
+  it('firefoxCommands : autres commandes recopiées telles quelles', () => {
+    expect(firefoxCommands({ a: { description: 'x' } })).toEqual({ a: { description: 'x' } });
   });
 });
 

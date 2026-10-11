@@ -240,7 +240,13 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
       onMessage: event,
     },
     i18n: { getUILanguage: () => options.locale },
-    commands: { getAll: () => Promise.resolve([{ name: 'complete-episode', shortcut: 'Alt+Shift+S', description: '' }]) },
+    commands: {
+      getAll: () =>
+        Promise.resolve([
+          { name: 'complete-episode', shortcut: 'Alt+Shift+S', description: '' },
+          { name: 'open-side-panel', shortcut: 'Alt+Shift+P', description: '' },
+        ]),
+    },
     tabs: {
       create: (info: { url?: string }) => {
         options.onCreateTab?.(info.url ?? '');

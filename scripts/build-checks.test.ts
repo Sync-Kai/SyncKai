@@ -4,6 +4,7 @@ import {
   NETFLIX_PATTERN,
   registeredScriptPlatform,
   checkAccessDeclarations,
+  checkCommands,
   checkContentSecurityPolicy,
   checkWebAccessibleResources,
   fileReferences,
@@ -130,6 +131,53 @@ describe('checkContentSecurityPolicy', () => {
     const wider = { extension_pages: `${csp.extension_pages} https:` };
     expect(checkContentSecurityPolicy({ content_security_policy: wider }, { content_security_policy: csp })[0]).toMatch(/^content_security_policy/);
     expect(checkContentSecurityPolicy({}, {})).toEqual(['content_security_policy.extension_pages absente du manifeste source']);
+  });
+});
+
+describe('checkCommands', () => {
+  const episode = { suggested_key: { default: 'Alt+Shift+S' }, description: '__MSG_cmdCompleteEpisode__' };
+  const panel = { suggested_key: { default: 'Alt+Shift+P' }, description: '__MSG_cmdOpenSidePanel__' };
+  const chromeBuilt: BuiltManifest = { side_panel: { default_path: 'src/sidepanel/sidepanel.html' }, commands: { 'complete-episode': episode, 'open-side-panel': panel } };
+  const firefoxBuilt: BuiltManifest = {
+    sidebar_action: { default_panel: 'src/sidepanel/sidepanel.html' },
+    commands: { 'complete-episode': episode, _execute_sidebar_action: panel },
+  };
+
+  it('Chrome : open-side-panel ; Firefox : _execute_sidebar_action', () => {
+    expect(checkCommands(chromeBuilt, chromeBuilt, 'chrome')).toEqual([]);
+    expect(checkCommands(firefoxBuilt, firefoxBuilt, 'firefox')).toEqual([]);
+  });
+
+  it('Firefox livré avec la commande Chrome (non transformée) : refusé', () => {
+    const errors = checkCommands(chromeBuilt, firefoxBuilt, 'firefox');
+    expect(errors).toEqual([
+      expect.stringMatching(/^commands : .* ≠ manifeste source/),
+      'commands : _execute_sidebar_action absente (raccourci du panneau latéral, firefox)',
+      'commands : open-side-panel inattendue sur firefox',
+      'commands : _execute_sidebar_action sans sidebar_action',
+    ]);
+  });
+
+  it('commandes retirées par le build', () => {
+    expect(checkCommands({ side_panel: chromeBuilt.side_panel }, chromeBuilt, 'chrome')).toEqual([
+      expect.stringMatching(/^commands : \{\} ≠/),
+      'commands : open-side-panel absente (raccourci du panneau latéral, chrome)',
+    ]);
+  });
+
+  it('plus de 4 touches suggérées, touche en double', () => {
+    const commands = {
+      'complete-episode': episode,
+      'open-side-panel': panel,
+      a: { suggested_key: { default: 'Alt+Shift+A' } },
+      b: { suggested_key: { default: 'Alt+Shift+B' } },
+      c: { suggested_key: { default: 'alt+shift+s' } },
+    };
+    const built: BuiltManifest = { ...chromeBuilt, commands };
+    expect(checkCommands(built, built, 'chrome')).toEqual([
+      'commands : 5 touches suggérées (Chrome en accepte 4 au plus)',
+      'commands : alt+shift+s (default) suggérée pour complete-episode et c',
+    ]);
   });
 });
 

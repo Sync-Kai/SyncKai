@@ -10,5 +10,9 @@
   "cmdCompleteEpisode": {
     "message": "Aktuelle Folge als gesehen markieren",
     "description": "Keyboard shortcut description"
+  },
+  "cmdOpenSidePanel": {
+    "message": "Seitenleiste öffnen oder schließen",
+    "description": "Keyboard shortcut description (side panel on Chrome, sidebar on Firefox)"
   }
 }

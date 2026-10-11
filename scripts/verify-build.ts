@@ -3,7 +3,7 @@
  * - tous les fichiers cités par le manifeste généré, les pages, les styles et les chunks existent ;
  * - `web_accessible_resources` : scripts Netflix et Disney+ limités à leur plateforme, rien d'exposé à tous les sites ;
  * - `*.iife.js` : scripts classiques (aucun import ni export, aucun `import(`) ;
- * - permissions, motifs et CSP des pages identiques au manifeste source adapté à la cible ;
+ * - permissions, motifs, CSP des pages et commandes clavier identiques au manifeste source adapté à la cible ;
  * - budgets de taille des scripts de contenu (Crunchyroll / ADN, Netflix, Disney+).
  *
  * Usage : npm run verify:build                        (dist/ et dist-firefox/)
@@ -21,6 +21,7 @@ import {
   NETFLIX_SCRIPTS_BUDGET_BYTES,
   registeredScriptPlatform,
   checkAccessDeclarations,
+  checkCommands,
   checkContentSecurityPolicy,
   checkWebAccessibleResources,
   fileReferences,
@@ -98,6 +99,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   // 4. Permissions livrées = manifeste source adapté à la cible
   errors.push(...checkAccessDeclarations(manifest, targetManifest(source, target)));
   errors.push(...checkContentSecurityPolicy(manifest, targetManifest(source, target)));
+  errors.push(...checkCommands(manifest, targetManifest(source, target), target));
 
   // 5. Budgets : chargeur du script de contenu + chunks atteignables ; scripts de chaque plateforme optionnelle
   const contentFiles = reachableFiles(

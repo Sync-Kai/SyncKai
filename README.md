@@ -68,7 +68,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 
 **Side panel and schedule**
 
-- Side panel on Crunchyroll, ADN, Netflix and Disney+ (sidebar on Firefox).
+- Side panel on Crunchyroll, ADN, Netflix and Disney+ (sidebar on Firefox), opened or closed with <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>.
 - *Now playing*: the episode's AniList entry, live progress ("Sync in 2 min 10"), your actions, sequels with a *Watch* button, and the episode discussion.
 - *Schedule*: this week's releases for the series you're watching, with the estimated time on each platform (adjustable delay, per series if needed) and watched episodes ticked off.
 - New episode alerts as browser notifications, with an adjustable delay.
@@ -83,7 +83,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 - No server, no analytics: data only goes to AniList and MyAnimeList.
 - Offline queue: if the network or a service is down, pending syncs are retried automatically.
 - On-page notifications in three levels (Discreet, Detailed, Alerts only), fullscreen-friendly.
-- Keyboard shortcut <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> to mark the current episode as watched.
+- Keyboard shortcuts: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> to mark the current episode as watched, <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> to open or close the side panel. Already installed? Set them in `chrome://extensions/shortcuts` (Firefox: `about:addons` › gear icon › *Manage Extension Shortcuts*).
 - Per-series exclusion, settings grouped by category with quick toggles.
 - Interface in English, French and German.
 

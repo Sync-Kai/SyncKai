@@ -34,7 +34,7 @@ Funktionen
 • Bewertung am Ende einer Serie (von 10, umgerechnet in dein AniList-Bewertungsformat) und Unterstützung für erneutes Anschauen.
 • Benachrichtigungen bei neuen Folgen: Chrome-Benachrichtigung beim Erscheinen, mit einstellbarer Verzögerung.
 • Ausstehende Synchronisierungen: Bei Netzwerkausfall wird automatisch erneut versucht.
-• Tastenkürzel Alt+Umschalt+S, um die aktuelle Folge abzuschließen.
+• Tastenkürzel: Alt+Umschalt+S, um die aktuelle Folge abzuschließen, Alt+Umschalt+P, um die Seitenleiste zu öffnen oder zu schließen.
 • Ausgeschlossene Serien und Benachrichtigungen auf der Seite (Dezent, Ausführlich, Nur Warnungen), vollbildtauglich.
 • Einstellungen nach Kategorien, mit Zusammenfassung jeder Einstellung und Schnellschaltern, im Popup wie in der Seitenleiste.
 • Sicherung: Export / Import deiner Einstellungen, Zuordnungen und deines Verlaufs (niemals deine AniList-/MAL-Anmeldungen).

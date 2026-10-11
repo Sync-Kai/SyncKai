@@ -3,6 +3,7 @@
 // tout comportement propre à l'hôte passe par `SettingsHost`.
 import { getLocale, onLocaleChange, t } from '../../i18n';
 import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.types';
+import { COMPLETE_EPISODE_COMMAND, panelCommandName } from '../../shared/commands';
 import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
@@ -80,6 +81,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     journalCount: null,
     airing: null,
     shortcut: undefined,
+    panelShortcut: undefined,
     netflixAccess: undefined,
     disneyAccess: undefined,
   };
@@ -184,13 +186,17 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     redraw(['home', 'data']);
   }
 
-  async function loadShortcut(): Promise<void> {
+  /** Raccourcis « valider l'épisode » et « ouvrir le panneau » (nom propre à la cible : voir shared/commands.ts) */
+  async function loadShortcuts(): Promise<void> {
     try {
       const commands = await chrome.commands.getAll();
-      data.shortcut = commands.find((c) => c.name === 'complete-episode')?.shortcut ?? '';
+      const shortcutOf = (name: string): string => commands.find((c) => c.name === name)?.shortcut ?? '';
+      data.shortcut = shortcutOf(COMPLETE_EPISODE_COMMAND);
+      data.panelShortcut = shortcutOf(panelCommandName(__SYNCKAI_TARGET__));
     } catch (error: unknown) {
-      log.warn('Lecture du raccourci impossible :', error);
+      log.warn('Lecture des raccourcis impossible :', error);
       data.shortcut = '';
+      data.panelShortcut = '';
     }
     redraw(['sync']);
   }
@@ -420,7 +426,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   void loadExclusions();
   void refreshJournal();
   void loadAiring();
-  void loadShortcut();
+  void loadShortcuts();
   void loadPlatformAccess();
 
   return {

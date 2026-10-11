@@ -35,6 +35,8 @@ export interface SettingsData {
   airing: AiringCheckResult | null;
   /** Raccourci « valider l'épisode » : undefined = en lecture, '' = non défini */
   shortcut: string | undefined;
+  /** Raccourci « ouvrir le panneau latéral » : undefined = en lecture, '' = non défini */
+  panelShortcut: string | undefined;
   /** Accès à Netflix (permission optionnelle) : undefined = en lecture */
   netflixAccess: boolean | undefined;
   /** Accès à Disney+ (permission optionnelle) : undefined = en lecture */

@@ -76,6 +76,12 @@
         "default": "Alt+Shift+S"
       },
       "description": "__MSG_cmdCompleteEpisode__"
+    },
+    "open-side-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+P"
+      },
+      "description": "__MSG_cmdOpenSidePanel__"
     }
   }
 }

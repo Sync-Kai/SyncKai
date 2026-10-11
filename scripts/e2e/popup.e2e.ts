@@ -642,6 +642,20 @@ describe('popup (bout en bout)', () => {
     expect(await page.$('[data-shortcut-manual]')).toBeNull();
   });
 
+  it('raccourci du panneau latéral : affiché dans la section Panneau latéral, « Modifier » ouvre chrome://extensions/shortcuts', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'sync');
+    await page.waitForSelector(sel('panel-shortcut'));
+    expect(await attr(page, sel('panel-shortcut'), 'aria-label')).toBe(fr('settings.shortcut.panelEditAria'));
+    // Touche mise en forme dans la phrase traduite (Shift → Maj)
+    const hint = await page.$eval(sel('panel-shortcut'), (button) => button.previousElementSibling?.textContent ?? '');
+    expect(hint).toBe(fr('settings.shortcut.panelHint').replace('{key}', 'Alt+Maj+P'));
+    await click(page, 'panel-shortcut');
+    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 0);
+    expect((await trace(page)).openedTabs).toEqual(['chrome://extensions/shortcuts']);
+  });
+
   it('BAK-05 : « Exporter » depuis le popup ouvre la page Sauvegarde, qui lance l’export (pas de téléchargement dans le popup)', async () => {
     const page = await openPopup();
     await click(page, 'gear');

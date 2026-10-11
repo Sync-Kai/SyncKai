@@ -5,6 +5,7 @@
  * permissions réellement livrées, poids des scripts de contenu.
  */
 import { posix } from 'node:path';
+import { FIREFOX_PANEL_COMMAND, SOURCE_PANEL_COMMAND, type BuildTarget, type ManifestCommand } from '../src/build/manifest-target.ts';
 
 /** Netflix : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
 export const NETFLIX_PATTERN = '*://*.netflix.com/*';
@@ -55,6 +56,42 @@ export interface BuiltManifest {
   options_page?: string;
   options_ui?: { page?: string };
   content_security_policy?: { extension_pages?: string };
+  commands?: Record<string, ManifestCommand>;
+}
+
+/** Chrome refuse de charger une extension qui suggère plus de 4 raccourcis */
+export const MAX_SUGGESTED_KEYS = 4;
+
+/**
+ * Commandes clavier : identiques au manifeste source adapté à la cible, au plus 4 touches suggérées, sans doublon par
+ * plateforme. Panneau : `open-side-panel` + `side_panel` sur Chrome (service worker), `_execute_sidebar_action` +
+ * `sidebar_action` sur Firefox (bascule native de la barre latérale), jamais l'une à la place de l'autre.
+ */
+export function checkCommands(built: BuiltManifest, expected: BuiltManifest, target: BuildTarget): string[] {
+  const errors: string[] = [];
+  const commands = built.commands ?? {};
+  const actual = JSON.stringify(commands);
+  const wanted = JSON.stringify(expected.commands ?? {});
+  if (actual !== wanted) errors.push(`commands : ${actual} ≠ manifeste source ${wanted}`);
+
+  const suggested = Object.entries(commands).filter(([, command]) => command.suggested_key !== undefined);
+  if (suggested.length > MAX_SUGGESTED_KEYS) errors.push(`commands : ${suggested.length} touches suggérées (Chrome en accepte ${MAX_SUGGESTED_KEYS} au plus)`);
+  const seen = new Map<string, string>();
+  for (const [name, command] of suggested) {
+    for (const [platform, key] of Object.entries(command.suggested_key ?? {})) {
+      const id = `${platform}:${key.toLowerCase()}`;
+      const other = seen.get(id);
+      if (other !== undefined) errors.push(`commands : ${key} (${platform}) suggérée pour ${other} et ${name}`);
+      seen.set(id, name);
+    }
+  }
+
+  const [wantedPanel, otherPanel] = target === 'firefox' ? [FIREFOX_PANEL_COMMAND, SOURCE_PANEL_COMMAND] : [SOURCE_PANEL_COMMAND, FIREFOX_PANEL_COMMAND];
+  if (!(wantedPanel in commands)) errors.push(`commands : ${wantedPanel} absente (raccourci du panneau latéral, ${target})`);
+  if (otherPanel in commands) errors.push(`commands : ${otherPanel} inattendue sur ${target}`);
+  const panelDeclared = target === 'firefox' ? built.sidebar_action !== undefined : built.side_panel !== undefined;
+  if (!panelDeclared) errors.push(`commands : ${wantedPanel} sans ${target === 'firefox' ? 'sidebar_action' : 'side_panel'}`);
+  return errors;
 }
 
 /** Champs d'accès comparés au manifeste source (après adaptation à la cible) */

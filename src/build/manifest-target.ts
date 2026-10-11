@@ -2,7 +2,8 @@
  * Manifeste par navigateur cible, appliqué au build (vite.config.ts) avant le plugin crx.
  * Chrome : manifest.json tel quel. Firefox : service worker → `background.scripts`,
  * champs propres à Chrome retirés, `browser_specific_settings.gecko` ajouté, panneau latéral Chrome
- * (`side_panel` + permission `sidePanel`) remplacé par la barre latérale Firefox (`sidebar_action`).
+ * (`side_panel` + permission `sidePanel`) remplacé par la barre latérale Firefox (`sidebar_action`), et commande
+ * « Ouvrir le panneau latéral » remplacée par la commande native `_execute_sidebar_action` (même touche suggérée).
  */
 
 export type BuildTarget = 'chrome' | 'firefox';
@@ -41,6 +42,21 @@ export type GeckoDataCollection =
  */
 export const FIREFOX_DATA_COLLECTION: readonly GeckoDataCollection[] = ['websiteContent', 'websiteActivity'];
 
+/**
+ * Commande du panneau latéral dans le manifeste source (Chrome, traitée par le service worker). Sans import : ce module
+ * est aussi chargé tel quel par Node (scripts/verify-build.ts). Égalité avec src/shared/commands.ts vérifiée par les tests.
+ */
+export const SOURCE_PANEL_COMMAND = 'open-side-panel';
+
+/** Firefox : commande native qui affiche ou masque la barre latérale (`sidebar_action`), sans code */
+export const FIREFOX_PANEL_COMMAND = '_execute_sidebar_action';
+
+/** Commande clavier du manifeste (`commands`) */
+export interface ManifestCommand {
+  suggested_key?: Record<string, string>;
+  description?: string;
+}
+
 /** Champs du manifeste source que la cible modifie ; les autres sont recopiés tels quels */
 export interface SourceManifest {
   key?: string;
@@ -49,6 +65,7 @@ export interface SourceManifest {
   permissions?: string[];
   side_panel?: { default_path: string };
   action?: { default_icon?: Record<string, string> };
+  commands?: Record<string, ManifestCommand>;
 }
 
 /** Barre latérale Firefox : jamais ouverte d'office (`open_at_install` vaut true par défaut) */
@@ -72,8 +89,9 @@ export interface GeckoSettings {
   };
 }
 
-export type FirefoxManifest<M extends SourceManifest> = Omit<M, 'key' | 'minimum_chrome_version' | 'background' | 'side_panel'> & {
+export type FirefoxManifest<M extends SourceManifest> = Omit<M, 'key' | 'minimum_chrome_version' | 'background' | 'side_panel' | 'commands'> & {
   background?: FirefoxBackground;
+  commands?: Record<string, ManifestCommand>;
   sidebar_action?: FirefoxSidebarAction;
   browser_specific_settings: GeckoSettings;
 };
@@ -84,6 +102,14 @@ export function parseBuildTarget(value: string | undefined): BuildTarget {
   const target = BUILD_TARGETS.find((candidate) => candidate === value);
   if (!target) throw new Error(`SYNCKAI_TARGET inconnu : « ${value} » (attendu : ${BUILD_TARGETS.join(', ')})`);
   return target;
+}
+
+/**
+ * Firefox : la commande du panneau devient `_execute_sidebar_action` (touche et description conservées, même position).
+ * Le navigateur affiche ou masque alors lui-même la barre latérale, sans passer par le script d'arrière-plan.
+ */
+export function firefoxCommands(commands: Readonly<Record<string, ManifestCommand>>): Record<string, ManifestCommand> {
+  return Object.fromEntries(Object.entries(commands).map(([name, command]) => [name === SOURCE_PANEL_COMMAND ? FIREFOX_PANEL_COMMAND : name, command]));
 }
 
 /** Dossier de sortie du build pour une cible */
@@ -99,10 +125,11 @@ export function targetManifest<M extends SourceManifest>(base: M, target: BuildT
 
   // `key` (ID Chrome Web Store) et `minimum_chrome_version` sont propres à Chrome
   // `side_panel` et `sidePanel` sont inconnus de Firefox (avertissements web-ext) : remplacés par `sidebar_action`
-  const { key: _key, minimum_chrome_version: _minChrome, background, side_panel: sidePanel, ...rest } = base;
+  const { key: _key, minimum_chrome_version: _minChrome, background, side_panel: sidePanel, commands, ...rest } = base;
   const defaultIcon = rest.action?.default_icon;
   return {
     ...rest,
+    ...(commands ? { commands: firefoxCommands(commands) } : {}),
     ...(rest.permissions ? { permissions: rest.permissions.filter((permission) => permission !== 'sidePanel') } : {}),
     ...(sidePanel
       ? {
