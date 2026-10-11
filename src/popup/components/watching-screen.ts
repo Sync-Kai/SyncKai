@@ -3,7 +3,8 @@ import type { StreamingPlatform } from '../../shared/episode.types';
 import { entryLink, type EntryLink, type EntryLinkContext } from '../../shared/entry-link';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsWithoutLink } from '../../shared/platform-links';
-import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../../shared/platforms';
+import { activePlatforms } from '../../shared/platform-access';
+import { PLATFORMS } from '../../shared/platforms';
 import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import { BADGE_CLASSES } from '../../ui/airing-badge';
@@ -18,6 +19,7 @@ import { renderRetryButton } from '../../ui/media-actions';
 import { renderAlert } from '../../ui/alert';
 import { renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from '../../ui/status-actions';
 import { CARD, kanaLabel, PLATFORM_LABELS, platformChip, renderCover, sectionTitle, segmented } from '../../ui/kit';
+import { formatPlatformList } from '../../ui/platform-list';
 import { settingsPath } from '../../ui/settings/navigation';
 
 /** Actions par série (+1, menu « … ») : état fourni par le popup, il survit aux nouveaux rendus */
@@ -57,8 +59,8 @@ interface WatchingScreenProps {
   onRetry: () => void;
   /** Carte « Sur cette page » (onglet actif sur une série reconnue) : remplace la carte « Reprendre » */
   pageCard: HTMLElement | null;
-  /** Accès Netflix accordé : l'état vide cite Netflix parmi les plateformes */
-  netflixAccess: boolean;
+  /** Plateformes à accès optionnel accordées (Netflix, Disney+) : l'état vide les cite parmi les plateformes */
+  optionalPlatforms: readonly StreamingPlatform[];
   /** Lien de l'astuce de l'état vide : Réglages › Lecture & synchro */
   onOpenSyncSettings: () => void;
 }
@@ -578,7 +580,7 @@ function renderSkeleton(): HTMLElement {
   );
 }
 
-function renderEmpty(netflixAccess: boolean, onOpenSyncSettings: () => void): HTMLElement {
+function renderEmpty(optionalPlatforms: readonly StreamingPlatform[], onOpenSyncSettings: () => void): HTMLElement {
   const pill = 'inline-flex h-9 items-center rounded-full px-4 text-[13px] font-bold transition';
   const secondary = `${pill} border border-line text-ink hover:bg-surface`;
   // Chemin « Réglages › Lecture & synchro » (titres réels des Réglages) cliquable au milieu de la phrase traduite
@@ -591,12 +593,14 @@ function renderEmpty(netflixAccess: boolean, onOpenSyncSettings: () => void): HT
       { class: 'flex flex-1 flex-col items-center justify-center gap-2 text-center', attrs: { 'aria-labelledby': 'sk-empty-title' } },
       kai('h-12 w-12', { expression: 'sleep', size: 'large' }),
       h('h2', { class: 'm-0 mt-1 text-[15px] leading-5 font-bold', attrs: { id: 'sk-empty-title' } }, t('watching.empty.title')),
-      h('p', { class: 'm-0 max-w-[300px] text-[12px] leading-[18px] font-semibold text-muted' }, t(netflixAccess ? 'watching.empty.textNetflix' : 'watching.empty.text')),
+      h('p', { class: 'm-0 max-w-[300px] text-[12px] leading-[18px] font-semibold text-muted' }, optionalPlatforms.length > 0
+        ? t('watching.empty.textPlatforms', { platforms: formatPlatformList(activePlatforms(optionalPlatforms), 'disjunction') })
+        : t('watching.empty.text')),
       h(
         'div',
         { class: 'mt-2 flex flex-wrap justify-center gap-2' },
-        // Première plateforme mise en avant ; plateforme à accès optionnel (Netflix) seulement avec l'accès accordé
-        ...STREAMING_PLATFORMS.filter((platform) => netflixAccess || !isOptionalPlatform(platform)).map((platform, index) =>
+        // Première plateforme mise en avant ; plateforme à accès optionnel (Netflix, Disney+) seulement avec l'accès accordé
+        ...activePlatforms(optionalPlatforms).map((platform, index) =>
           h(
             'a',
             {
@@ -682,7 +686,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
     return h(
       'div',
       { class: 'flex min-h-full flex-col gap-3' },
-      ...nodes([errorAlert, notice, switchRow(), props.pageCard, renderEmpty(props.netflixAccess, props.onOpenSyncSettings)]),
+      ...nodes([errorAlert, notice, switchRow(), props.pageCard, renderEmpty(props.optionalPlatforms, props.onOpenSyncSettings)]),
     );
   }
 

@@ -243,3 +243,31 @@ describe('expéditeurs autorisés (MESSAGE_ORIGINS, ARCH-07)', () => {
     expect(isAllowedOrigin('RATE_MEDIA', 'extension')).toBe(true);
   });
 });
+
+describe('Disney+ (EPISODE_COMPLETED, RESOLVE_PAGE_MEDIA)', () => {
+  /** Épisode tel que le produit l'adapter Disney+ : aucun identifiant de série, arc en saison 99 */
+  const disneyEpisode = {
+    platform: 'disney',
+    episodeId: '0580a81e-2408-48e8-a6e0-14da8ca0e87f',
+    seriesId: null,
+    seriesSlug: null,
+    animeTitle: 'Undead Unluck',
+    seasonNumber: 99,
+    seasonTitle: 'Undead Unluck: Winter Arc',
+    seasonEpisodeNumber: 1,
+    displayedEpisodeNumber: 1,
+    episodeTitle: 'Undead Unluck: Winter Arc',
+    url: 'https://www.disneyplus.com/play/0580a81e-2408-48e8-a6e0-14da8ca0e87f',
+  };
+
+  it('épisode Disney+ accepté depuis un script de contenu', () => {
+    expect(isRuntimeMessage({ type: 'EPISODE_COMPLETED', payload: { episode: disneyEpisode, services: null } })).toBe(true);
+    expect(isAllowedOrigin('EPISODE_COMPLETED', 'content')).toBe(true);
+  });
+
+  it('fiche de la page d’un épisode Disney+ acceptée depuis les pages de l’extension', () => {
+    const page = { platform: 'disney', kind: 'episode', seriesId: null, seriesSlug: null, seriesTitle: 'Undead Unluck', seasonNumber: 99, seasonTitle: 'Undead Unluck: Winter Arc', episode: disneyEpisode };
+    expect(isRuntimeMessage({ type: 'RESOLVE_PAGE_MEDIA', payload: { page, mediaId: null } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'RESOLVE_PAGE_MEDIA', payload: { page: { ...page, platform: 'netflix' }, mediaId: null } })).toBe(false);
+  });
+});

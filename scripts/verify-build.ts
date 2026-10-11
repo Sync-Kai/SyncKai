@@ -1,10 +1,10 @@
 /**
  * Vérifie l'extension construite, et pas seulement les sources (à lancer après `npm run build` / `build:firefox`) :
  * - tous les fichiers cités par le manifeste généré, les pages, les styles et les chunks existent ;
- * - `web_accessible_resources` : scripts Netflix limités à *://*.netflix.com/*, rien d'exposé à tous les sites ;
+ * - `web_accessible_resources` : scripts Netflix et Disney+ limités à leur plateforme, rien d'exposé à tous les sites ;
  * - `*.iife.js` : scripts classiques (aucun import ni export, aucun `import(`) ;
  * - permissions, motifs et CSP des pages identiques au manifeste source adapté à la cible ;
- * - budgets de taille des scripts de contenu (Crunchyroll / ADN, Netflix).
+ * - budgets de taille des scripts de contenu (Crunchyroll / ADN, Netflix, Disney+).
  *
  * Usage : npm run verify:build                        (dist/ et dist-firefox/)
  *         node scripts/verify-build.ts --target chrome|firefox
@@ -17,7 +17,9 @@ import { Script } from 'node:vm';
 import { BUILD_TARGETS, parseBuildTarget, targetManifest, targetOutDir, type BuildTarget } from '../src/build/manifest-target.ts';
 import {
   CONTENT_SCRIPT_BUDGET_BYTES,
+  DISNEY_SCRIPTS_BUDGET_BYTES,
   NETFLIX_SCRIPTS_BUDGET_BYTES,
+  registeredScriptPlatform,
   checkAccessDeclarations,
   checkContentSecurityPolicy,
   checkWebAccessibleResources,
@@ -72,7 +74,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
 
   if (manifest.version !== source.version) errors.push(`version ${manifest.version ?? '?'} ≠ manifest.json ${source.version}`);
 
-  // 1. Références : manifeste, puis pages, styles et chunks (imports, getURL, chemins des scripts Netflix)
+  // 1. Références : manifeste, puis pages, styles et chunks (imports, getURL, chemins des scripts enregistrés)
   const roots = manifestReferences(manifest);
   for (const ref of roots) if (!files.has(ref)) errors.push(`manifest.json → ${ref} : fichier absent`);
   for (const file of [...files].sort()) {
@@ -82,7 +84,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   // 2. Ressources exposées aux pages web
   errors.push(...checkWebAccessibleResources(manifest));
 
-  // 3. Scripts Netflix : scripts classiques (le moteur refuse import/export hors module), sans chargeur ESM
+  // 3. Scripts Netflix et Disney+ : scripts classiques (le moteur refuse import/export hors module), sans chargeur ESM
   const iifeFiles = [...files].filter((file) => file.endsWith('.iife.js')).sort();
   for (const file of iifeFiles) {
     try {
@@ -97,17 +99,20 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   errors.push(...checkAccessDeclarations(manifest, targetManifest(source, target)));
   errors.push(...checkContentSecurityPolicy(manifest, targetManifest(source, target)));
 
-  // 5. Budgets : chargeur du script de contenu + chunks atteignables ; scripts Netflix
+  // 5. Budgets : chargeur du script de contenu + chunks atteignables ; scripts de chaque plateforme optionnelle
   const contentFiles = reachableFiles(
     (manifest.content_scripts ?? []).flatMap((script) => script.js ?? []),
     referencesOf,
   );
   const contentBytes = [...contentFiles].reduce((total, file) => total + size(file), 0);
-  const netflixBytes = iifeFiles.reduce((total, file) => total + size(file), 0);
+  const platformBytes = (dir: string): number => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).reduce((total, file) => total + size(file), 0);
+  const netflixBytes = platformBytes('netflix');
+  const disneyBytes = platformBytes('disney');
   if (contentBytes > CONTENT_SCRIPT_BUDGET_BYTES) {
     errors.push(`script de contenu Crunchyroll/ADN : ${kib(contentBytes)} > budget ${kib(CONTENT_SCRIPT_BUDGET_BYTES)}`);
   }
   if (netflixBytes > NETFLIX_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Netflix : ${kib(netflixBytes)} > budget ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)}`);
+  if (disneyBytes > DISNEY_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Disney+ : ${kib(disneyBytes)} > budget ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)}`);
 
   // Informatif : fichiers que rien ne référence (les autres langues de _locales sont lues par le navigateur)
   const used = reachableFiles(['manifest.json', ...roots], referencesOf);
@@ -116,7 +121,9 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   const status = errors.length === 0 ? '✔' : '✖';
   console.log(`${status} ${outDir}/ : ${files.size} fichiers, ${roots.length} références du manifeste`);
   console.log(`  script de contenu Crunchyroll/ADN : ${kib(contentBytes)} / ${kib(CONTENT_SCRIPT_BUDGET_BYTES)} (${contentFiles.size} fichiers)`);
-  console.log(`  scripts Netflix : ${kib(netflixBytes)} / ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)} (${iifeFiles.join(', ')})`);
+  const listOf = (dir: string): string => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).join(', ');
+  console.log(`  scripts Netflix : ${kib(netflixBytes)} / ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)} (${listOf('netflix')})`);
+  console.log(`  scripts Disney+ : ${kib(disneyBytes)} / ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)} (${listOf('disney')})`);
   if (unused.length > 0) console.log(`  non référencés (${unused.length}) : ${unused.join(', ')}`);
   return errors;
 }

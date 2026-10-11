@@ -52,20 +52,20 @@ describe('reinjectContentScripts', () => {
 
 describe('reinjectionPlan', () => {
   it('Chrome, installation ou mise à jour : Crunchyroll / ADN et Netflix', () => {
-    expect(reinjectionPlan('update', 'chrome')).toEqual({ manifest: true, netflix: true });
-    expect(reinjectionPlan('install', 'chrome')).toEqual({ manifest: true, netflix: true });
+    expect(reinjectionPlan('update', 'chrome')).toEqual({ manifest: true, registered: true });
+    expect(reinjectionPlan('install', 'chrome')).toEqual({ manifest: true, registered: true });
   });
 
   it('Firefox : scripts du manifeste exécutés par le navigateur, Netflix (scripts enregistrés effacés) repris', () => {
-    expect(reinjectionPlan('update', 'firefox')).toEqual({ manifest: false, netflix: true });
-    expect(reinjectionPlan('install', 'firefox')).toEqual({ manifest: false, netflix: true });
+    expect(reinjectionPlan('update', 'firefox')).toEqual({ manifest: false, registered: true });
+    expect(reinjectionPlan('install', 'firefox')).toEqual({ manifest: false, registered: true });
   });
 
   it('mise à jour du navigateur ou d’un module partagé : rien', () => {
     for (const target of ['chrome', 'firefox'] as const) {
-      expect(reinjectionPlan('chrome_update', target)).toEqual({ manifest: false, netflix: false });
-      expect(reinjectionPlan('browser_update', target)).toEqual({ manifest: false, netflix: false });
-      expect(reinjectionPlan('shared_module_update', target)).toEqual({ manifest: false, netflix: false });
+      expect(reinjectionPlan('chrome_update', target)).toEqual({ manifest: false, registered: false });
+      expect(reinjectionPlan('browser_update', target)).toEqual({ manifest: false, registered: false });
+      expect(reinjectionPlan('shared_module_update', target)).toEqual({ manifest: false, registered: false });
     }
   });
 });

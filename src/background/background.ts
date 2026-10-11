@@ -26,7 +26,7 @@ import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
 import { enablePanelForSender, resetSidePanel } from './side-panel';
 import { listenContentReinjection } from './content-reinjection';
-import { listenNetflixAccess } from './netflix-access';
+import { listenPlatformAccess } from './platform-access';
 import { runUpdateMigrations } from './update-migrations';
 import { runPendingOtherSeriesPurge } from './sync/mapping-purge';
 
@@ -111,7 +111,7 @@ const handlers: MessageHandlers = {
     return result;
   },
   GET_MAL_VIEWER: () => getMalViewer(),
-  // Accès Netflix retiré → ignoré ; échec passager → mise en file de relance automatique (`queued: true`)
+  // Accès Netflix / Disney+ retiré → ignoré ; échec passager → mise en file de relance automatique (`queued: true`)
   EPISODE_COMPLETED: (payload, sender) => handleEpisodeCompleted(payload, sender.tab?.id),
   ADJUST_PROGRESS: (payload) => adjustProgress(payload),
   SET_LIST_STATUS: (payload) => setListStatus(payload),
@@ -253,10 +253,10 @@ if (__SYNCKAI_TARGET__ === 'chrome') {
 
 // ─── Onglets Crunchyroll / ADN déjà ouverts : script de contenu réinjecté à l'installation et à la mise à jour ───
 // Chrome seulement : Firefox exécute lui-même les scripts du manifeste dans les onglets ouverts (content-reinjection.ts).
-// Netflix (accès accordé) : repris sur les deux navigateurs par netflix-access.ts
+// Netflix, Disney+ (accès accordé) : repris sur les deux navigateurs par platform-access.ts
 
 listenContentReinjection();
 
-// ─── Netflix (accès optionnel) : scripts enregistrés quand l'accès est accordé, retirés sinon ───
+// ─── Netflix, Disney+ (accès optionnel) : scripts enregistrés quand l'accès est accordé, retirés sinon ───
 
-listenNetflixAccess();
+listenPlatformAccess();

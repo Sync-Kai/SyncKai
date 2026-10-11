@@ -8,8 +8,10 @@ import type { RequestLane } from '../api/rate-limit';
 import {
   applyMapping,
   gateByPlatformLink,
+  hasSeriesTitle,
   ignoredResult,
   isLinked,
+  isTitleBoundLink,
   isOtherSeries,
   linksToOtherSeries,
   linksToOtherSeriesBySlug,
@@ -77,7 +79,10 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
   const links = new Map<number, LinkKind>();
 
   const episodeId = episode.episodeId ?? null;
+  // Disney+ : lien vers la plateforme sans identifiant de série, valable seulement pour une fiche au titre de la série
+  const titleBound = isTitleBoundLink(episode.platform);
   const linkOf = (media: AniListMedia): LinkKind => {
+    if (titleBound && !hasSeriesTitle(media.titles, episode.animeTitle) && !(episode.seasonTitle && hasSeriesTitle(media.titles, episode.seasonTitle))) return null;
     const kinds = media.externalLinkUrls.map((url) => matchPlatformLink(url, episode.platform, episode.seriesId, episode.seriesSlug, episodeId));
     // Le lien vers l'épisode lui-même prime sur le lien vers la série
     if (kinds.includes('episode')) return 'episode';

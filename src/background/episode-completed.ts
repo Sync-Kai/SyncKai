@@ -1,6 +1,7 @@
 // Épisode terminé envoyé par un script de contenu (EPISODE_COMPLETED) : garde d'accès, synchro, file de relance.
 import type { EpisodeCompletedPayload } from '../shared/messages';
-import { hasNetflixAccess } from '../shared/netflix-access';
+import { hasPlatformAccess } from '../shared/platform-access';
+import { isOptionalPlatform, PLATFORMS } from '../shared/platforms';
 import { getOpenSessions } from '../shared/storage';
 import { createLogger } from '../shared/logger';
 import type { SyncOutcome } from '../shared/sync.types';
@@ -11,18 +12,18 @@ import { syncEpisode } from './sync/sync-service';
 const log = createLogger('background');
 
 /**
- * Accès Netflix retiré (Réglages, chrome://extensions, about:addons) : les scripts déjà exécutés dans les onglets
- * ouverts tournent encore jusqu'au rechargement. Leurs épisodes sont refusés ici, sans écriture ni mise en file
+ * Accès Netflix ou Disney+ retiré (Réglages, chrome://extensions, about:addons) : les scripts déjà exécutés dans les
+ * onglets ouverts tournent encore jusqu'au rechargement. Leurs épisodes sont refusés ici, sans écriture ni mise en file
  * (la file garde, elle, les épisodes regardés quand l'accès était accordé).
  */
-async function netflixRevoked(episode: EpisodeCompletedPayload['episode']): Promise<boolean> {
-  return episode.platform === 'netflix' && !(await hasNetflixAccess());
+async function accessRevoked(episode: EpisodeCompletedPayload['episode']): Promise<boolean> {
+  return isOptionalPlatform(episode.platform) && !(await hasPlatformAccess(episode.platform));
 }
 
 /** Échec passager → mise en file de relance automatique (le résultat porte alors `queued: true`) */
 export async function handleEpisodeCompleted({ episode, services }: EpisodeCompletedPayload, tabId: number | undefined): Promise<SyncOutcome> {
-  if (await netflixRevoked(episode)) {
-    log.info('Accès Netflix retiré : épisode ignoré, rien n’est écrit', episode.animeTitle);
+  if (await accessRevoked(episode)) {
+    log.info(`Accès ${PLATFORMS[episode.platform].label} retiré : épisode ignoré, rien n’est écrit`, episode.animeTitle);
     return { status: 'ignored', noAccess: true };
   }
   // Sessions capturées avant la synchro : un échec n'est relancé que sur elles (jamais sur un compte connecté depuis)

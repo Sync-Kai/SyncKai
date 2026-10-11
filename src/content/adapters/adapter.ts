@@ -1,6 +1,12 @@
 import type { EpisodeInfo, StreamingPlatform } from '../../shared/episode.types';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 
+/** Position et durée de lecture (s) */
+export interface PlaybackTime {
+  currentTime: number;
+  duration: number;
+}
+
 /**
  * Contrat commun à toutes les plateformes (Crunchyroll, ADN…).
  * Toute la logique spécifique au DOM/URL d'un site est isolée dans son adapter.
@@ -40,7 +46,15 @@ export interface StreamingAdapter {
   loadEpisodeInfo?(episodeId: string, signal: AbortSignal): Promise<EpisodeInfo | null>;
 
   /**
-   * Catalogue généraliste (Netflix) : la plupart des vidéos ne sont pas des animes. Ni toast
+   * Position et durée de lecture (s) si la <video> ne les donne pas de façon fiable (Disney+ : `duration` vaut
+   * Infinity ou NaN, la position est lue dans la barre de progression du lecteur). Null si indisponibles pour
+   * l'instant. Optionnel : sans implémentation, `currentTime` et `duration` de la <video> font foi.
+   * Lue à chaque `timeupdate` de la <video> (et par la progression en direct du panneau) : doit rester légère.
+   */
+  readPlayback?(video: HTMLVideoElement): PlaybackTime | null;
+
+  /**
+   * Catalogue généraliste (Netflix, Disney+) : la plupart des vidéos ne sont pas des animes. Ni toast
    * « Synchronisation… » ni toast « épisode non identifié » ; une série ignorée n'est plus renvoyée.
    */
   readonly quiet?: boolean;

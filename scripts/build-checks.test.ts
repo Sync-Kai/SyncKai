@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DISNEY_PATTERN,
   NETFLIX_PATTERN,
+  registeredScriptPlatform,
   checkAccessDeclarations,
   checkContentSecurityPolicy,
   checkWebAccessibleResources,
@@ -13,6 +15,7 @@ import {
 
 const CR = ['*://*.crunchyroll.com/*'];
 const netflixEntry = { matches: [NETFLIX_PATTERN], resources: ['src/content/netflix/a.iife.js', 'src/content/netflix/b.iife.js'] };
+const disneyEntry = { matches: [DISNEY_PATTERN], resources: ['src/content/disney/a.iife.js', 'src/content/disney/b.iife.js'] };
 const crEntry = { matches: CR, resources: ['assets/start-x.js'] };
 
 const base: BuiltManifest = {
@@ -21,10 +24,10 @@ const base: BuiltManifest = {
   icons: { '16': 'icons/icon-16.png' },
   permissions: ['storage', 'scripting'],
   host_permissions: CR,
-  optional_host_permissions: [NETFLIX_PATTERN],
+  optional_host_permissions: [NETFLIX_PATTERN, DISNEY_PATTERN],
   background: { service_worker: 'service-worker-loader.js' },
   content_scripts: [{ matches: CR, js: ['assets/content.ts-loader-x.js'] }],
-  web_accessible_resources: [crEntry, netflixEntry],
+  web_accessible_resources: [crEntry, netflixEntry, disneyEntry],
   action: { default_popup: 'src/popup/popup.html', default_icon: { '16': 'icons/icon-16.png' } },
 };
 
@@ -39,6 +42,8 @@ describe('manifestReferences', () => {
       'assets/start-x.js',
       'src/content/netflix/a.iife.js',
       'src/content/netflix/b.iife.js',
+      'src/content/disney/a.iife.js',
+      'src/content/disney/b.iife.js',
       '_locales/en/messages.json',
     ]);
   });
@@ -55,7 +60,7 @@ describe('checkWebAccessibleResources', () => {
   });
 
   it('scripts Netflix exposés à tous les sites (exposition par défaut de crxjs)', () => {
-    const errors = checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, matches: ['http://*/*', 'https://*/*'] }] });
+    const errors = checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, matches: ['http://*/*', 'https://*/*'] }, disneyEntry] });
     expect(errors).toHaveLength(2);
     expect(errors.join('\n')).toMatch(/tous les sites/);
     expect(errors.join('\n')).toMatch(/hors de/);
@@ -65,11 +70,30 @@ describe('checkWebAccessibleResources', () => {
     expect(checkWebAccessibleResources({ web_accessible_resources: [{ matches: ['<all_urls>'], resources: ['assets/x.js'] }] })).toEqual([
       'web_accessible_resources ["<all_urls>"] : ressources exposées à tous les sites',
       'web_accessible_resources : scripts Netflix (*.iife.js) absents',
+      'web_accessible_resources : scripts Disney+ (*.iife.js) absents',
     ]);
-    expect(checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, resources: [...netflixEntry.resources, '<dynamic_resource>'] }] })).toEqual([
+    expect(checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, resources: [...netflixEntry.resources, '<dynamic_resource>'] }, disneyEntry] })).toEqual([
       'web_accessible_resources ["*://*.netflix.com/*"] : ressource non résolue « <dynamic_resource> »',
       'web_accessible_resources ["*://*.netflix.com/*"] : entrée Netflix mêlée à d\'autres ressources',
     ]);
+  });
+
+  it('scripts de deux plateformes réunis sous l’union des motifs (sortie brute de crxjs)', () => {
+    const merged = { matches: [NETFLIX_PATTERN, DISNEY_PATTERN], resources: [...netflixEntry.resources, ...disneyEntry.resources] };
+    const errors = checkWebAccessibleResources({ web_accessible_resources: [merged] });
+    expect(errors).toEqual([
+      expect.stringMatching(/scripts Netflix .* exposés hors de \*:\/\/\*\.netflix\.com/),
+      expect.stringMatching(/entrée Netflix mêlée/),
+      expect.stringMatching(/scripts Disney\+ .* exposés hors de \*:\/\/\*\.disneyplus\.com/),
+      expect.stringMatching(/entrée Disney\+ mêlée/),
+    ]);
+  });
+
+  it('plateforme d’un script enregistré : dossier connu uniquement', () => {
+    expect(registeredScriptPlatform('src/content/disney/page-bridge.iife.js')).toBe('disney');
+    expect(registeredScriptPlatform('src/content/netflix/content-netflix.iife.js')).toBe('netflix');
+    expect(registeredScriptPlatform('src/content/hidive/a.iife.js')).toBeNull();
+    expect(registeredScriptPlatform('assets/a.js')).toBeNull();
   });
 });
 
@@ -89,7 +113,7 @@ describe('checkAccessDeclarations', () => {
       },
       base,
     );
-    expect(errors).toHaveLength(7);
+    expect(errors).toHaveLength(8);
     expect(errors[0]).toMatch(/^permissions :/);
   });
 });

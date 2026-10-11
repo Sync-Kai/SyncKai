@@ -19,7 +19,7 @@
   <img src="docs/store/screenshots/en/01-sync-at-credits.png" alt="SyncKai saving an episode to AniList and MyAnimeList as the credits start" width="800">
 </p>
 
-**SyncKai** is a browser extension for Chrome and Firefox that keeps your anime list up to date without any manual input. Start an episode on Crunchyroll, ADN or (optionally) Netflix: SyncKai recognizes the series, finds the right entry, and saves your progress to AniList and/or MyAnimeList as soon as the ending credits start. It runs entirely in your browser, with no account of its own and no server.
+**SyncKai** is a browser extension for Chrome and Firefox that keeps your anime list up to date without any manual input. Start an episode on Crunchyroll, ADN or (optionally) Netflix and Disney+: SyncKai recognizes the series, finds the right entry, and saves your progress to AniList and/or MyAnimeList as soon as the ending credits start. It runs entirely in your browser, with no account of its own and no server.
 
 ## Contents
 
@@ -55,6 +55,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 - Season matching that handles absolute numbering (One Piece episode 1180) as well as seasons split across several entries.
 - *To check* cards: when a match is uncertain, you pick the right entry once and SyncKai remembers it. Nothing is sent blindly.
 - Netflix support, off by default and limited to anime: only series linked to their Netflix title on AniList are synced.
+- Disney+ support, off by default and limited to Japanese anime: only series whose AniList entry carries the same title and a Disney+ link are synced.
 
 **Your lists**
 
@@ -67,7 +68,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 
 **Side panel and schedule**
 
-- Side panel on Crunchyroll, ADN and Netflix (sidebar on Firefox).
+- Side panel on Crunchyroll, ADN, Netflix and Disney+ (sidebar on Firefox).
 - *Now playing*: the episode's AniList entry, live progress ("Sync in 2 min 10"), your actions, sequels with a *Watch* button, and the episode discussion.
 - *Schedule*: this week's releases for the series you're watching, with the estimated time on each platform (adjustable delay, per series if needed) and watched episodes ticked off.
 - New episode alerts as browser notifications, with an adjustable delay.
@@ -104,6 +105,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 | [Crunchyroll](https://www.crunchyroll.com) | Start of the credits (percentage fallback) | History import available |
 | [ADN](https://animationdigitalnetwork.com) | Adjustable percentage | |
 | [Netflix](https://www.netflix.com) | Start of the credits (percentage fallback) | Optional, anime only |
+| [Disney+](https://www.disneyplus.com) | Adjustable percentage | Optional, Japanese anime only |
 
 | Tracker | Sign-in |
 | --- | --- |
@@ -111,6 +113,8 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 | [MyAnimeList](https://myanimelist.net) | OAuth2 with PKCE, no client secret |
 
 **Netflix** is off by default. Turn it on in *Settings › Playback & sync*: the browser then asks for access to netflix.com, and turning it off removes that access. Since Netflix does not label anime, only series whose AniList entry links to the Netflix title are synced. A series found by title alone goes through a *To check* card, and other titles are silently ignored.
+
+**Disney+** is off by default too (*Settings › Playback & sync*, access to disneyplus.com). Only titles whose original language is Japanese are considered; the others are ignored in the page without being sent anywhere. Disney+ gives no series ID on its player page, so the English series title (season 99 arcs by their own title) is matched against AniList, and a match is trusted only if that entry links to Disney+; otherwise it goes through *To check*. SyncKai sends no request to Disney+: it reads the response the player already receives, and the position from the player's progress bar. In a Disney+ tab opened before turning it on (or before an update), tracking starts with the next episode.
 
 ## How it works
 
@@ -125,9 +129,9 @@ SyncKai has no server and collects no usage data.
 
 - Settings, matches and history stay in the extension's local storage.
 - OAuth tokens are stored encrypted (AES-GCM, non-exportable key) and only sent back to the service that issued them.
-- The extension only contacts AniList, MyAnimeList and the streaming sites you use (Crunchyroll credit markers, your Crunchyroll history when you start an import, Netflix episode metadata when Netflix is turned on).
+- The extension only contacts AniList, MyAnimeList and the streaming sites you use (Crunchyroll credit markers, your Crunchyroll history when you start an import, Netflix episode metadata when Netflix is turned on). On Disney+, nothing is requested: SyncKai only reads what the player already receives.
 
-Permissions: `storage`, `identity` (sign-in), `alarms` (release alerts, retries), `notifications`, `sidePanel`, `scripting`, host access to Crunchyroll, ADN, AniList and MyAnimeList, and optional access to Netflix.
+Permissions: `storage`, `identity` (sign-in), `alarms` (release alerts, retries), `notifications`, `sidePanel`, `scripting`, host access to Crunchyroll, ADN, AniList and MyAnimeList, and optional access to Netflix and Disney+.
 
 Full details in [PRIVACY.md](PRIVACY.md).
 
@@ -160,7 +164,7 @@ The repository manifest keeps the Chrome Web Store public key and the Firefox ad
 ```
 src/
 ├── background/   service worker: OAuth, AniList/MAL API, matching, sync queue, alerts
-├── content/      content scripts: one adapter per platform (adapters/), Netflix bridge (netflix/)
+├── content/      content scripts: one adapter per platform (adapters/), Netflix and Disney+ page bridges (netflix/, disney/)
 ├── popup/        extension popup
 ├── sidepanel/    side panel (Now playing, Schedule)
 ├── import-cr/    Crunchyroll history import page
@@ -186,4 +190,4 @@ Pull requests are welcome too, including translations (`src/i18n/locales/`). Ple
 
 [MIT](LICENSE) © 2026 Quentin Geerts
 
-SyncKai is not affiliated with Crunchyroll, ADN, Netflix, AniList or MyAnimeList.
+SyncKai is not affiliated with Crunchyroll, ADN, Netflix, Disney+, AniList or MyAnimeList.

@@ -6,7 +6,7 @@ import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.type
 import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
-import { hasNetflixAccess } from '../../shared/netflix-access';
+import { hasPlatformAccess } from '../../shared/platform-access';
 import { getSettings, normalizeSettings, saveSettings, SETTINGS_STORAGE_KEY, type LanguageSetting, type SyncSettings } from '../../shared/settings';
 import { getMediaMappings } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../shared/storage-keys';
@@ -81,6 +81,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     airing: null,
     shortcut: undefined,
     netflixAccess: undefined,
+    disneyAccess: undefined,
   };
 
   // ─── Coque : barre + contenu ───
@@ -194,9 +195,9 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     redraw(['sync']);
   }
 
-  /** Accès Netflix relu (ouverture, ou permission changée ici ou dans chrome://extensions) */
-  async function loadNetflixAccess(): Promise<void> {
-    data.netflixAccess = await hasNetflixAccess();
+  /** Accès Netflix et Disney+ relus (ouverture, ou permission changée ici ou dans chrome://extensions) */
+  async function loadPlatformAccess(): Promise<void> {
+    [data.netflixAccess, data.disneyAccess] = await Promise.all([hasPlatformAccess('netflix'), hasPlatformAccess('disney')]);
     redraw(['home', 'sync']);
   }
 
@@ -225,7 +226,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     notifications.drawAiring(Date.now());
   }
 
-  const ctx: SettingsContext = { host, data, update, redraw, refreshMappings, refreshJournal, refreshNetflixAccess: loadNetflixAccess };
+  const ctx: SettingsContext = { host, data, update, redraw, refreshMappings, refreshJournal, refreshPlatformAccess: loadPlatformAccess };
 
   // ─── Pages ───
 
@@ -391,10 +392,10 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     if (airingChange) setAiring(airingChange.newValue);
   });
 
-  // Accès Netflix accordé ou retiré ailleurs (chrome://extensions, autre vue) : interrupteur et lecteur préféré suivent
+  // Accès Netflix / Disney+ accordé ou retiré ailleurs (chrome://extensions, autre vue) : interrupteurs et lecteur préféré suivent
   if (typeof chrome.permissions?.onAdded?.addListener === 'function') {
-    chrome.permissions.onAdded.addListener(() => void loadNetflixAccess());
-    chrome.permissions.onRemoved.addListener(() => void loadNetflixAccess());
+    chrome.permissions.onAdded.addListener(() => void loadPlatformAccess());
+    chrome.permissions.onRemoved.addListener(() => void loadPlatformAccess());
   }
 
   // Comptes connectés ou déconnectés (ici ou ailleurs) : carte Comptes, résumé de l'accueil et « Fiche ouverte par défaut »
@@ -420,7 +421,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   void refreshJournal();
   void loadAiring();
   void loadShortcut();
-  void loadNetflixAccess();
+  void loadPlatformAccess();
 
   return {
     bar,

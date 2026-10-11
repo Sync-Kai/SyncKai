@@ -22,7 +22,7 @@ import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions'
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { sendMessage, type MessageResponse } from '../../shared/messages';
-import { hasNetflixAccess } from '../../shared/netflix-access';
+import { activePlatforms, grantedOptionalPlatforms } from '../../shared/platform-access';
 import { platformSearchUrl } from '../../shared/platform-links';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, parseOffsetInput, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getCachedWatching, hasMalToken, hasValidAniListToken } from '../../shared/storage';
@@ -32,6 +32,7 @@ import { busyAttrs, h, nodes, preserveFocus, type Child } from '../../ui/dom';
 import { entryCover, entryTitle } from '../../ui/entry-link';
 import { createMenuDismiss } from '../../ui/menu';
 import { alertAttrs } from '../../ui/live-region';
+import { formatPlatformList } from '../../ui/platform-list';
 import { icon } from '../../ui/icons';
 import { decideAgendaLoad } from '../agenda-load';
 
@@ -46,13 +47,13 @@ const NAV_DEBOUNCE_MS = 300;
 /** Changements du stockage regroupés */
 const STORAGE_DEBOUNCE_MS = 250;
 
-const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', adn: 'ADN', netflix: 'NF' };
+const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', adn: 'ADN', netflix: 'NF', disney: 'D+' };
 
 type Status =
   | { kind: 'loading' }
   | { kind: 'not-connected' }
-  /** `netflix` : accès Netflix accordé, cité parmi les plateformes */
-  | { kind: 'no-series'; netflix: boolean }
+  /** `optional` : plateformes à accès optionnel accordées (Netflix, Disney+), citées parmi les plateformes */
+  | { kind: 'no-series'; optional: readonly StreamingPlatform[] }
   | { kind: 'ready'; cache: AiringWeekCache; refreshing: boolean; error: string | null }
   | { kind: 'error'; message: string };
 
@@ -178,9 +179,9 @@ export function createAgenda(): AgendaView {
     /** GET_AGENDA envoyé : son échec est retenu pour la semaine */
     let requested = false;
     try {
-      const [nextSettings, netflixGranted, anilistConnected, malConnected, anilist, mal, excluded, cache] = await Promise.all([
+      const [nextSettings, optionalGranted, anilistConnected, malConnected, anilist, mal, excluded, cache] = await Promise.all([
         getSettings(),
-        hasNetflixAccess(),
+        grantedOptionalPlatforms(),
         hasValidAniListToken(),
         hasMalToken(),
         getCachedWatching('anilist'),
@@ -190,7 +191,7 @@ export function createAgenda(): AgendaView {
       ]);
       if (current !== run) return;
       settings = nextSettings;
-      player = effectivePlayer(nextSettings.preferredPlayer, netflixGranted);
+      player = effectivePlayer(nextSettings.preferredPlayer, optionalGranted.includes('netflix'));
       connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistConnected : malConnected));
       if (connected.length === 0) {
         status = { kind: 'not-connected' };
@@ -201,7 +202,7 @@ export function createAgenda(): AgendaView {
       const entries = [...(anilistConnected ? (anilist?.entries ?? []) : []), ...(malConnected ? (mal?.entries ?? []) : [])];
       series = mergeWatchingSeries(entries, excluded, player);
       if (series.size === 0) {
-        status = { kind: 'no-series', netflix: netflixGranted };
+        status = { kind: 'no-series', optional: optionalGranted };
         draw();
         return;
       }
@@ -348,7 +349,14 @@ export function createAgenda(): AgendaView {
       case 'not-connected':
         return [message(t('agenda.notConnected'), 'muted')];
       case 'no-series':
-        return [message(t(status.netflix ? 'agenda.empty.noSeriesNetflix' : 'agenda.empty.noSeries'), 'muted')];
+        return [
+          message(
+            status.optional.length > 0
+              ? t('agenda.empty.noSeriesPlatforms', { platforms: formatPlatformList(activePlatforms(status.optional), 'disjunction') })
+              : t('agenda.empty.noSeries'),
+            'muted',
+          ),
+        ];
       case 'error':
         return [message(t('agenda.error', { error: status.message }), 'danger', retryButton())];
       case 'ready': {

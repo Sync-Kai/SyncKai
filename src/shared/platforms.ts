@@ -49,6 +49,7 @@ function domainOrSubdomain(...domains: readonly string[]): (hostname: string) =>
 const CRUNCHYROLL_ID = /^[A-Z0-9]{4,20}$/i;
 const ADN_ID = /^\d{1,9}$/;
 const NETFLIX_ID = /^\d{1,12}$/;
+const DISNEY_ENTITY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> = {
   crunchyroll: {
@@ -93,6 +94,20 @@ export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> 
     seriesIdInPath: /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)(?:\/|$)/i,
     seriesUrl: (seriesId) => (seriesId !== null && NETFLIX_ID.test(seriesId) ? `https://www.netflix.com/title/${seriesId}` : null),
     searchUrl: (query) => `https://www.netflix.com/search?q=${query}`,
+  },
+  disney: {
+    label: 'Disney+',
+    icon: '/brands/disney.png',
+    homeUrl: 'https://www.disneyplus.com',
+    matchesHost: domainOrSubdomain('disneyplus.com'),
+    // Catalogue généraliste : seuls les animes (langue originale japonaise) liés à Disney+ sur AniList sont suivis
+    linkRequired: true,
+    searchable: false,
+    optionalMatches: ['*://*.disneyplus.com/*'],
+    // Page de série actuelle : /{langue}/browse/entity-{uuid} (les anciens liens /series/{slug}/{id} n'ont pas de clé)
+    seriesIdInPath: /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?browse\/entity-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i,
+    seriesUrl: (seriesId) => (seriesId !== null && DISNEY_ENTITY_ID.test(seriesId) ? `https://www.disneyplus.com/browse/entity-${seriesId.toLowerCase()}` : null),
+    searchUrl: (query) => `https://www.disneyplus.com/search?q=${query}`,
   },
 };
 

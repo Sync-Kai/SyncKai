@@ -172,7 +172,8 @@ describe('panneau latéral (bout en bout)', () => {
     await off.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, offText);
 
     const granted = await openPanel({ site: 'other', netflix: 'granted' });
-    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetNetflix'));
+    // Netflix accordé, Disney+ non : seules les plateformes réellement suivies sont citées
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' }));
     expect(await granted.evaluate(() => document.body.textContent ?? '')).not.toContain(offText);
   });
 

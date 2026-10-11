@@ -1,10 +1,10 @@
 // Réglages › Lecture & synchro : synchro automatique, moment de la synchro, raccourci clavier,
-// lecteur préféré, fiche ouverte par défaut, accès à Netflix (permission optionnelle) et options du panneau latéral.
-import { t } from '../../i18n';
+// lecteur préféré, fiche ouverte par défaut, accès à Netflix et à Disney+ (permissions optionnelles) et options du panneau latéral.
+import { t, type MessageKey } from '../../i18n';
 import { createLogger } from '../../shared/logger';
-import { removeNetflixAccess, requestNetflixAccess } from '../../shared/netflix-access';
+import { removePlatformAccess, requestPlatformAccess } from '../../shared/platform-access';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
-import { DEFAULT_SETTINGS, effectivePlayer, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer, isPreferredPlayerOption, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../alert';
 import { alertAttrs } from '../live-region';
 import { CARD, LINK, segmented } from '../kit';
@@ -15,9 +15,11 @@ import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, 
 
 const log = createLogger('settings');
 
-/** Lecteurs proposés : une plateforme à accès optionnel (Netflix) seulement avec l'accès accordé */
+/** Lecteurs proposés : Netflix seulement avec l'accès accordé ; jamais Disney+ (voir isPreferredPlayerOption) */
 function playerOptions(netflixAccess: boolean): { value: StreamingPlatform; label: string }[] {
-  return STREAMING_PLATFORMS.filter((platform) => netflixAccess || !isOptionalPlatform(platform)).map((platform) => ({
+  const offered = (platform: StreamingPlatform): boolean =>
+    isPreferredPlayerOption(platform) && (!isOptionalPlatform(platform) || (platform === 'netflix' && netflixAccess));
+  return STREAMING_PLATFORMS.filter(offered).map((platform) => ({
     value: platform,
     label: PLATFORMS[platform].label,
   }));
@@ -48,65 +50,100 @@ export function settingsPlaceholder(ctx: SettingsContext): Node[] {
   return [h('div', { class: `${CARD} h-40 motion-safe:animate-pulse`, attrs: { 'aria-busy': 'true', 'aria-label': t('settings.loading') } })];
 }
 
+/** Plateformes activées par un interrupteur (permission d'hôte optionnelle) */
+type ToggledPlatform = 'netflix' | 'disney';
+const TOGGLED_PLATFORMS: readonly ToggledPlatform[] = ['netflix', 'disney'];
+
+type AccessText = 'section' | 'label' | 'helpOff' | 'helpOn' | 'denied' | 'disabled' | 'error';
+
+/** Textes de l'interrupteur de chaque plateforme */
+const ACCESS_TEXTS: Readonly<Record<ToggledPlatform, Readonly<Record<AccessText, MessageKey>>>> = {
+  netflix: {
+    section: 'settings.netflix.section',
+    label: 'settings.netflix.label',
+    helpOff: 'settings.netflix.helpOff',
+    helpOn: 'settings.netflix.helpOn',
+    denied: 'settings.netflix.denied',
+    disabled: 'settings.netflix.disabled',
+    error: 'settings.netflix.error',
+  },
+  disney: {
+    section: 'settings.disney.section',
+    label: 'settings.disney.label',
+    helpOff: 'settings.disney.helpOff',
+    helpOn: 'settings.disney.helpOn',
+    denied: 'settings.disney.denied',
+    disabled: 'settings.disney.disabled',
+    error: 'settings.disney.error',
+  },
+};
+
 /**
- * Retour de la dernière demande d'accès Netflix (affiché sous l'interrupteur jusqu'au prochain changement).
+ * Retour de la dernière demande d'accès (affiché sous l'interrupteur jusqu'au prochain changement).
  * `disabled` : accès retiré, le script déjà exécuté dans un onglet ouvert tourne jusqu'à son rechargement.
  */
-type NetflixNotice = 'denied' | 'error' | 'disabled' | null;
+type AccessNotice = 'denied' | 'error' | 'disabled' | null;
 
 export function createSyncPage(ctx: SettingsContext): SettingsPageView {
-  let netflixNotice: NetflixNotice = null;
+  const notices: Record<ToggledPlatform, AccessNotice> = { netflix: null, disney: null };
   /** Ouverture de la page des raccourcis en échec : la marche à suivre reste affichée */
   let shortcutManual = false;
 
-  function settleNetflix(notice: NetflixNotice): void {
-    netflixNotice = notice;
-    void ctx.refreshNetflixAccess();
+  function settle(platform: ToggledPlatform, notice: AccessNotice): void {
+    notices[platform] = notice;
+    void ctx.refreshPlatformAccess();
+  }
+
+  function isGranted(platform: ToggledPlatform): boolean {
+    return (platform === 'netflix' ? ctx.data.netflixAccess : ctx.data.disneyAccess) === true;
   }
 
   /**
-   * Interrupteur Netflix. Activation : permissions.request appelé directement dans le gestionnaire (geste
-   * utilisateur exigé, aucun await avant). Retrait : le lecteur préféré Netflix repasse sur le lecteur par défaut.
+   * Interrupteur d'une plateforme. Activation : permissions.request appelé directement dans le gestionnaire (geste
+   * utilisateur exigé, aucun await avant). Retrait de Netflix : le lecteur préféré Netflix repasse sur le lecteur par défaut.
    */
-  function onNetflixToggle(checked: boolean): void {
+  function onAccessToggle(platform: ToggledPlatform, checked: boolean): void {
+    const { label } = PLATFORMS[platform];
     if (checked) {
-      requestNetflixAccess().then(
-        (granted) => settleNetflix(granted ? null : 'denied'),
+      requestPlatformAccess(platform).then(
+        (granted) => settle(platform, granted ? null : 'denied'),
         (error: unknown) => {
-          log.warn('Demande d’accès à Netflix impossible :', error);
-          settleNetflix('error');
+          log.warn(`Demande d’accès à ${label} impossible :`, error);
+          settle(platform, 'error');
         },
       );
       return;
     }
-    removeNetflixAccess().then(
+    removePlatformAccess(platform).then(
       (removed) => {
-        if (removed && ctx.data.settings?.preferredPlayer === 'netflix') void ctx.update({ preferredPlayer: DEFAULT_SETTINGS.preferredPlayer }, true);
-        settleNetflix(removed ? 'disabled' : 'error');
+        if (removed && platform === 'netflix' && ctx.data.settings?.preferredPlayer === 'netflix') void ctx.update({ preferredPlayer: DEFAULT_SETTINGS.preferredPlayer }, true);
+        settle(platform, removed ? 'disabled' : 'error');
       },
       (error: unknown) => {
-        log.warn('Retrait de l’accès à Netflix impossible :', error);
-        settleNetflix('error');
+        log.warn(`Retrait de l’accès à ${label} impossible :`, error);
+        settle(platform, 'error');
       },
     );
   }
 
-  function renderNetflix(): HTMLElement {
-    const granted = ctx.data.netflixAccess === true;
-    const errorText = netflixNotice === 'denied' ? t('settings.netflix.denied') : netflixNotice === 'error' ? t('settings.netflix.error') : null;
+  function renderAccess(platform: ToggledPlatform): HTMLElement {
+    const texts = ACCESS_TEXTS[platform];
+    const granted = isGranted(platform);
+    const state = notices[platform];
+    const errorText = state === 'denied' ? t(texts.denied) : state === 'error' ? t(texts.error) : null;
     const notice =
-      netflixNotice === 'disabled'
-        ? !granted && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-muted', attrs: { role: 'status' } }, t('settings.netflix.disabled'))
+      state === 'disabled'
+        ? !granted && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-muted', attrs: { role: 'status' } }, t(texts.disabled))
         : errorText && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-danger', attrs: alertAttrs(errorText) }, errorText);
     return settingsSection(
-      t('settings.netflix.section'),
+      t(texts.section),
       rowsCard(
         toggleRow({
-          id: 'sk-netflix',
-          label: t('settings.netflix.label'),
-          help: t(granted ? 'settings.netflix.helpOn' : 'settings.netflix.helpOff'),
+          id: `sk-${platform}`,
+          label: t(texts.label),
+          help: t(granted ? texts.helpOn : texts.helpOff),
           checked: granted,
-          onChange: onNetflixToggle,
+          onChange: (checked) => onAccessToggle(platform, checked),
         }),
         notice,
       ),
@@ -236,7 +273,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
             }),
           ),
         ),
-        renderNetflix(),
+        ...TOGGLED_PLATFORMS.map(renderAccess),
         settingsSection(
           t('settings.section.panel'),
           rowsCard(

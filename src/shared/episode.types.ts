@@ -31,6 +31,12 @@ export interface EpisodeInfo {
   url: string;
 }
 
+/**
+ * Disney+ : saison 99 = arc ou spécial publié comme une saison de la série (« Undead Unluck - s99e1 »), plusieurs
+ * par série. L'épisode porte alors le titre de l'arc dans `seasonTitle` (voir mappingKey).
+ */
+export const DISNEY_ARC_SEASON = 99;
+
 /** Plateforme de streaming connue de SyncKai (valeur venant d'un message ou du stockage) */
 export function isStreamingPlatform(value: unknown): value is StreamingPlatform {
   return typeof value === 'string' && (STREAMING_PLATFORMS as readonly string[]).includes(value);

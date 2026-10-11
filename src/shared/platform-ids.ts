@@ -2,7 +2,7 @@
 // Module feuille, seule partie du registre dont ont besoin les scripts de contenu (validation des épisodes, réglages).
 
 /** Ordre fixe des plateformes (liens, réglages, repli de « Ouvrir ») */
-export const STREAMING_PLATFORMS = ['crunchyroll', 'adn', 'netflix'] as const;
+export const STREAMING_PLATFORMS = ['crunchyroll', 'adn', 'netflix', 'disney'] as const;
 
 export type StreamingPlatform = (typeof STREAMING_PLATFORMS)[number];
 

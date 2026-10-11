@@ -45,13 +45,14 @@ Supported platforms
 • Crunchyroll
 • ADN (Animation Digital Network)
 • Netflix, optional (Settings › Playback & sync): only anime linked to Netflix on AniList, other titles are ignored
+• Disney+, optional (Settings › Playback & sync): only Japanese anime linked to Disney+ on AniList, other titles are ignored
 
 Tracking services
 • AniList
 • MyAnimeList
 
 Privacy
-SyncKai has no server. Your data (settings, matches, history, sign-ins) stays in your browser's local storage. The extension reads the current episode page on Crunchyroll/ADN (and Netflix, only if you turn it on: access to netflix.com is then requested), your Crunchyroll history only if you start the import, and only shares your data with AniList and MyAnimeList. Nothing is sent to the developer.
+SyncKai has no server. Your data (settings, matches, history, sign-ins) stays in your browser's local storage. The extension reads the current episode page on Crunchyroll/ADN (and Netflix or Disney+, only if you turn them on: access to netflix.com or disneyplus.com is then requested), your Crunchyroll history only if you start the import, and only shares your data with AniList and MyAnimeList. Nothing is sent to the developer.
 
 Source code and issue reports: https://github.com/Sync-Kai/SyncKai
 ```

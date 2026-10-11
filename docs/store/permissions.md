@@ -7,7 +7,7 @@ Answers for the **Privacy practices** tab, for the permissions declared in `mani
 ## Single purpose
 
 ```
-SyncKai automatically updates the user's anime list on AniList and/or MyAnimeList with the episode they are watching on Crunchyroll, ADN (Animation Digital Network) or, if the user turns it on, Netflix (anime only). All features (episode detection, list of series in progress, companion side panel with the episode's entry and the week's releases, next-episode alerts, ratings, Crunchyroll history import, backup) serve this single purpose: keeping the user's anime tracking list in sync with what they watch.
+SyncKai automatically updates the user's anime list on AniList and/or MyAnimeList with the episode they are watching on Crunchyroll, ADN (Animation Digital Network) or, if the user turns them on, Netflix and Disney+ (anime only). All features (episode detection, list of series in progress, companion side panel with the episode's entry and the week's releases, next-episode alerts, ratings, Crunchyroll history import, backup) serve this single purpose: keeping the user's anime tracking list in sync with what they watch.
 ```
 
 ## Permission justifications
@@ -15,7 +15,7 @@ SyncKai automatically updates the user's anime list on AniList and/or MyAnimeLis
 ### storage
 
 ```
-Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, links to series pages the user visited on the streaming sites, the last AniList/MyAnimeList comparison and Crunchyroll import preview, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens, encrypted with AES-GCM (non-extractable key kept in the extension's IndexedDB, out of reach of content scripts). Everything is kept in chrome.storage.local on the user's device, except short-lived caches (the entry shown for the current page, the side panel data, Netflix series recognized as not anime) kept in chrome.storage.session, in memory and cleared when the browser closes. Nothing is sent to the developer.
+Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, links to series pages the user visited on the streaming sites, the last AniList/MyAnimeList comparison and Crunchyroll import preview, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens, encrypted with AES-GCM (non-extractable key kept in the extension's IndexedDB, out of reach of content scripts). Everything is kept in chrome.storage.local on the user's device, except short-lived caches (the entry shown for the current page, the side panel data, Netflix and Disney+ series recognized as not anime) kept in chrome.storage.session, in memory and cleared when the browser closes. Nothing is sent to the developer.
 ```
 
 ### identity
@@ -41,13 +41,13 @@ Shows a Chrome notification when a new episode of a series the user is watching 
 Chrome only: the Firefox build has no `sidePanel` permission (it declares a `sidebar_action` instead).
 
 ```
-Shows SyncKai's companion side panel (episode being watched, release schedule) on Crunchyroll and ADN pages only (and on Netflix pages, only if the user has turned Netflix on). The panel is disabled by default and enabled per tab only on those sites; it opens only when the user clicks "Open the side panel" in the popup. It reads no browsing data and sends nothing anywhere.
+Shows SyncKai's companion side panel (episode being watched, release schedule) on Crunchyroll and ADN pages only (and on Netflix or Disney+ pages, only if the user has turned that platform on). The panel is disabled by default and enabled per tab only on those sites; it opens only when the user clicks "Open the side panel" in the popup. It reads no browsing data and sends nothing anywhere.
 ```
 
 ### scripting
 
 ```
-Runs only SyncKai's own content scripts, which are files of the extension package; no remote code is loaded. 1) When SyncKai is installed or updated, its Crunchyroll/ADN content script is run once with chrome.scripting.executeScript in Crunchyroll and ADN tabs that are already open, so the episode being watched is still detected without reloading the tab. 2) Optional Netflix support, only after the user turns it on in Settings and grants access to netflix.com (optional host permission): the service worker registers SyncKai's two Netflix content scripts with chrome.scripting.registerContentScripts and runs them once in Netflix tabs that are already open, at that moment and when SyncKai is updated. If the user turns Netflix off or removes the access, the scripts are unregistered and nothing runs on Netflix.
+Runs only SyncKai's own content scripts, files of the extension package; no remote code is loaded. 1) When SyncKai is installed or updated, its Crunchyroll/ADN content script is run once with chrome.scripting.executeScript in Crunchyroll and ADN tabs that are already open, so the episode being watched is still detected without reloading the tab. 2) Optional Netflix and Disney+ support, each only after the user turns it on in Settings and grants access to that site (optional host permission): the service worker registers SyncKai's two content scripts for that site with chrome.scripting.registerContentScripts and runs them once in its tabs that are already open, at that moment and when SyncKai is updated. If the user turns the platform off or removes the access, its scripts are unregistered and nothing runs on that site.
 ```
 
 ### Host permissions
@@ -66,13 +66,14 @@ Declared in `optional_host_permissions` (requested at runtime, never at install)
 | Host pattern | Justification |
 |---|---|
 | `*://*.netflix.com/*` | Optional Netflix support (anime only). Requested only when the user turns on Settings › Playback & sync › "Sync on Netflix", from that click; turning it off removes the access. On a Netflix player page, SyncKai reads the video being played (series title, season, episode number, credits start time) through Netflix's own episode metadata endpoint, same origin, from the user's own tab, plus the `<video>` element's playback position. No Netflix account, profile or viewing-history data is read or sent. Only series linked to Netflix on AniList are synced; any other title is ignored silently. |
+| `*://*.disneyplus.com/*` | Optional Disney+ support (Japanese anime only). Requested only when the user turns on Settings › Playback & sync › "Sync on Disney+", from that click; turning it off removes the access. On a Disney+ player page, a small script in the page passively reads the response of the request the Disney+ player itself sends for the current video (`…/explore/v1.x/playerExperience/{id}`), keeping only the title, season and episode number, original language, runtime and the video's identifiers. It never sends a request of its own and never reads headers, tokens, stream URLs or account data. The playback position is read from the player's progress bar. Titles whose original language is not Japanese are ignored without being sent anywhere; only series linked to Disney+ on AniList are synced. |
 
 Note: there is **no** host permission for ADN. `animationdigitalnetwork.com` is only covered by the content-script `matches` below; the ADN adapter reads the page and makes no network request.
 
 The dashboard has a single "Host permission justification" field (1000 characters max), covering both `host_permissions` and `optional_host_permissions`: paste this block.
 
 ```
-crunchyroll.com: detects the episode being played (page JSON-LD, video element) and fetches Crunchyroll's public skip-events JSON (static.crunchyroll.com) to know when the credits start; only when the user starts "Import from Crunchyroll", reads their watch history in their own tab, with a short-lived token requested with the site's public client ID (never stored). graphql.anilist.co: AniList API, to match the series and save progress. myanimelist.net: MyAnimeList OAuth2 token endpoint (sign-in, token refresh). api.myanimelist.net: MyAnimeList API, to read the list and save progress. netflix.com (optional, requested only when the user turns Netflix on in Settings, removed when turned off): on a Netflix player page, reads the title, season and episode number of the video (same-origin metadata request from the user's tab) and its playback position. No Netflix account or profile data is read or sent. Only anime linked to Netflix on AniList are synced. No other site is accessed.
+crunchyroll.com: detects the episode being played (page JSON-LD, video element) and fetches Crunchyroll's public skip-events JSON (static.crunchyroll.com) for the credits start; only when the user starts "Import from Crunchyroll", reads their watch history in their own tab with a short-lived token requested with the site's public client ID (never stored). graphql.anilist.co: AniList API (match the series, save progress). myanimelist.net: MyAnimeList OAuth2 token endpoint. api.myanimelist.net: MyAnimeList API (read the list, save progress). netflix.com, disneyplus.com (optional, each requested only when the user turns it on in Settings, removed when turned off): on a player page, reads the title, season and episode number of the video and its playback position (Netflix: same-origin metadata request; Disney+: the response of the player's own request, no request issued). No account data is read or sent. Only anime linked to the platform on AniList are synced. No other site is accessed.
 ```
 
 ### Content-script matches
@@ -90,14 +91,22 @@ Netflix is **not** in `content_scripts`: its two scripts are registered at runti
 | `src/content/netflix/content-netflix.iife.ts` | isolated | Netflix adapter: detects the episode and the end of the credits, shows on-page notifications |
 | `src/content/netflix/page-bridge.iife.ts` | `MAIN` | Short bridge with no `chrome.*` API: fetches Netflix's metadata for the current video (`/nq/website/memberapi/release/metadata`, same origin) and returns only title, seasons, episode numbers and credits timing to the isolated script |
 
-`web_accessible_resources` has two entries in the built manifest (`dist/manifest.json`, `dist-firefox/manifest.json`), each limited to the sites where SyncKai runs a content script:
+Disney+ is **not** in `content_scripts` either: its two scripts are registered the same way (`*://*.disneyplus.com/*`) only once the user has granted that optional access:
+
+| Script | World | Purpose |
+|---|---|---|
+| `src/content/disney/content-disney.iife.ts` | isolated | Disney+ adapter: identifies the episode (Japanese originals only), reads the playback position from the player's progress bar, shows on-page notifications |
+| `src/content/disney/page-bridge.iife.ts` | `MAIN` | Passive observer with no `chrome.*` API, registered at `document_start`: reads the response of the Disney+ player's own `playerExperience` request (XMLHttpRequest) and passes only title, season/episode, original language, runtime and the video's identifiers to the isolated script. It sends no request and reads no header, token or stream URL |
+
+`web_accessible_resources` has three entries in the built manifest (`dist/manifest.json`, `dist-firefox/manifest.json`), each limited to the sites where SyncKai runs a content script:
 
 | Matches | Resources | Origin |
 |---|---|---|
-| `*://*.netflix.com/*` | the two Netflix scripts above (`src/content/netflix/*.iife.js`) | `manifest.json` (`<dynamic_resource>`, filled in at build time) |
+| `*://*.netflix.com/*` | the two Netflix scripts above (`src/content/netflix/*.iife.js`) | `manifest.json` (`<dynamic_resource>`, filled in at build time, then split per platform by `vite.config.ts`) |
+| `*://*.disneyplus.com/*` | the two Disney+ scripts above (`src/content/disney/*.iife.js`) | same |
 | `*://*.crunchyroll.com/*`, `*://animationdigitalnetwork.com/*`, `*://*.animationdigitalnetwork.com/*` | the chunks of the main content script (`assets/*.js`) | added by `@crxjs/vite-plugin`: the content script declared in the manifest is a small loader that imports the bundled script as an ES module (`import(chrome.runtime.getURL(…))`) |
 
-Both entries expose only the extension's own code, never user data. In the Chrome build they use a fixed URL (`use_dynamic_url: false`): a page on those sites can request one of these files at `chrome-extension://khokcmigioggannjoojambdgioigdceb/…` and so tell that SyncKai is installed. Firefox serves them from a `moz-extension://` UUID drawn at random for each installation.
+All entries expose only the extension's own code, never user data. In the Chrome build they use a fixed URL (`use_dynamic_url: false`): a page on those sites can request one of these files at `chrome-extension://khokcmigioggannjoojambdgioigdceb/…` and so tell that SyncKai is installed. Firefox serves them from a `moz-extension://` UUID drawn at random for each installation.
 
 The content script runs on these sites only. It reads the current episode page (series title, season, episode number and title, platform episode/series ID from the URL and JSON-LD) and listens to the `<video>` element's playback progress to detect the end of the episode. It also displays SyncKai's on-page notifications. It does not read anything else on the page and does not run on any other site.
 
@@ -106,7 +115,7 @@ The content script runs on these sites only. It reads the current episode page (
 **Are you using remote code? → No**
 
 ```
-No. All JavaScript is bundled in the extension package. The extension only fetches JSON data (AniList GraphQL, MyAnimeList REST, Crunchyroll skip-events, the user's Crunchyroll watch history only when they start "Import from Crunchyroll", Netflix episode metadata when the user has turned Netflix on); it never loads or evaluates remote scripts. The optional Netflix scripts are files of the package, registered with chrome.scripting.
+No. All JavaScript is bundled in the extension package. The extension only fetches JSON data (AniList GraphQL, MyAnimeList REST, Crunchyroll skip-events, the user's Crunchyroll watch history only when they start "Import from Crunchyroll", Netflix episode metadata when the user has turned Netflix on); on Disney+, when turned on, it only reads the response of the player's own request, without sending any. It never loads or evaluates remote scripts. The optional Netflix and Disney+ scripts are files of the package, registered with chrome.scripting.
 ```
 
 ## Data usage disclosure
@@ -121,14 +130,14 @@ No. All JavaScript is bundled in the extension package. The extension only fetch
 | **Authentication information** | **Yes** | AniList and MyAnimeList OAuth access tokens (and MAL refresh token), obtained via `chrome.identity`, stored encrypted (AES-GCM) in `chrome.storage.local` on the device and sent only to AniList / MyAnimeList to authorize API calls. No password is ever seen by the extension. |
 | Personal communications | No | — |
 | Location | No | — |
-| **Web history** | **Yes (conservative)** | Not browsing history: the extension never reads history or pages outside Crunchyroll/ADN (and Netflix player pages, only if the user turns Netflix on). It keeps a local list of recently synced episodes (title, episode, platform link) and sends the watched episode's progress to the user's own AniList/MAL list. Only when the user starts "Import from Crunchyroll", it reads their Crunchyroll watch history in their own Crunchyroll tab to update their lists (the reduced history is kept only until the analysis ends; afterwards only the import preview is kept). Checked so the disclosure covers these records of watched episodes. |
+| **Web history** | **Yes (conservative)** | Not browsing history: the extension never reads history or pages outside Crunchyroll/ADN (and Netflix or Disney+ player pages, only if the user turns that platform on). It keeps a local list of recently synced episodes (title, episode, platform link) and sends the watched episode's progress to the user's own AniList/MAL list. Only when the user starts "Import from Crunchyroll", it reads their Crunchyroll watch history in their own Crunchyroll tab to update their lists (the reduced history is kept only until the analysis ends; afterwards only the import preview is kept). Checked so the disclosure covers these records of watched episodes. |
 | User activity | No | Only the video's playback position on the episode page is checked to detect the credits; no clicks, keystrokes or scroll are recorded. |
-| **Website content** | **Yes** | Reads the current episode page on Crunchyroll/ADN only (series title, season, episode number and title from JSON-LD / page heading), and on Netflix only if the user turns it on (title, season and episode number of the video being played). On explicit request (Import from Crunchyroll), the user's Crunchyroll watch history, read in their own tab. |
+| **Website content** | **Yes** | Reads the current episode page on Crunchyroll/ADN only (series title, season, episode number and title from JSON-LD / page heading), and on Netflix or Disney+ only if the user turns them on (title, season and episode number of the video being played). On explicit request (Import from Crunchyroll), the user's Crunchyroll watch history, read in their own tab. |
 
 Suggested justification text (if a free-text field is shown):
 
 ```
-SyncKai reads the current episode page on Crunchyroll or ADN, and on Netflix only if the user turns it on (series title, season, episode number), and sends the watched episode to the user's own AniList and/or MyAnimeList list (and, only when the user starts "Import from Crunchyroll", reads their Crunchyroll watch history in their own tab to bring those lists up to date), using OAuth tokens the user grants via chrome.identity. Tokens, settings and history are stored only in chrome.storage.local on the user's device. SyncKai has no server: no data is sent to the developer or to any third party other than AniList and MyAnimeList.
+SyncKai reads the current episode page on Crunchyroll or ADN, and on Netflix or Disney+ only if the user turns them on (series title, season, episode number), and sends the watched episode to the user's own AniList and/or MyAnimeList list (and, only when the user starts "Import from Crunchyroll", reads their Crunchyroll watch history in their own tab to bring those lists up to date), using OAuth tokens the user grants via chrome.identity. Tokens, settings and history are stored only in chrome.storage.local on the user's device. SyncKai has no server: no data is sent to the developer or to any third party other than AniList and MyAnimeList.
 ```
 
 ### Certifications (check all three)

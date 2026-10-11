@@ -1,39 +1,21 @@
 /**
- * Accès à Netflix, activé à la demande (Réglages › Lecture & synchro) : permission d'hôte optionnelle.
- * L'état de l'accès EST la permission : rien n'est stocké. Le service worker enregistre ou retire les scripts
- * Netflix quand la permission change (background/netflix-access.ts).
+ * Accès à Netflix, activé à la demande (Réglages › Lecture & synchro) : permission d'hôte optionnelle, voir
+ * platform-access.ts. Seul Netflix peut être le lecteur préféré parmi les plateformes optionnelles : ce module garde
+ * les règles de ce réglage (lecteur effectif, correction quand l'accès est retiré).
  */
 import type { StreamingPlatform } from './episode.types';
+import { hasPlatformAccess } from './platform-access';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, saveSettings } from './settings';
 import { withStorageLock } from './storage-lock';
-import { NETFLIX_MATCHES } from './target-pages';
 
 /** true si l'accès à netflix.com est accordé ; API absente ou en échec → false (l'interrupteur reste éteint) */
-export async function hasNetflixAccess(): Promise<boolean> {
-  if (typeof chrome === 'undefined' || !chrome.permissions?.contains) return false;
-  try {
-    return await chrome.permissions.contains({ origins: [...NETFLIX_MATCHES] });
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Demande l'accès. À appeler directement dans le gestionnaire du clic : Firefox exige un geste utilisateur
- * et refuse la demande si un `await` le précède.
- */
-export function requestNetflixAccess(): Promise<boolean> {
-  return chrome.permissions.request({ origins: [...NETFLIX_MATCHES] });
-}
-
-/** Retire l'accès (les scripts Netflix sont désenregistrés par le service worker) */
-export function removeNetflixAccess(): Promise<boolean> {
-  return chrome.permissions.remove({ origins: [...NETFLIX_MATCHES] });
+export function hasNetflixAccess(): Promise<boolean> {
+  return hasPlatformAccess('netflix');
 }
 
 /** Lecteur préféré effectif (voir `effectivePlayer`) ; la permission n'est lue que si le réglage vaut Netflix */
 export async function effectivePreferredPlayer(preferred: StreamingPlatform): Promise<StreamingPlatform> {
-  return preferred === 'netflix' ? effectivePlayer(preferred, await hasNetflixAccess()) : preferred;
+  return preferred === 'netflix' ? effectivePlayer(preferred, await hasNetflixAccess()) : effectivePlayer(preferred, undefined);
 }
 
 /**

@@ -357,7 +357,7 @@ describe('popup (bout en bout)', () => {
     const page = await openPopup({ scenario: 'page', pageMedia: 'untracked' });
     const card = `section[aria-label="${fr('page.title')}"]`;
     await page.waitForSelector(`${card} [role="status"]`);
-    expect(await text(page, `${card} [role="status"]`)).toBe(fr('page.notTracked'));
+    expect(await text(page, `${card} [role="status"]`)).toBe(fr('page.notTracked', { platform: 'Netflix' }));
     expect(await page.$(`${card} button`)).toBeNull();
   });
 
@@ -502,7 +502,7 @@ describe('popup (bout en bout)', () => {
 
     await click(page, 'sk-netflix');
     await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
-    expect((await trace(page)).permissionRequests).toEqual([manifest.optional_host_permissions]);
+    expect((await trace(page)).permissionRequests).toEqual([['*://*.netflix.com/*']]);
     // Accès accordé (scripts aussi exécutés dans les onglets ouverts : aucune consigne de rechargement), option Netflix proposée
     await page.waitForSelector(sel('player-netflix'));
     expect(await checked()).toBe(true);
@@ -513,12 +513,38 @@ describe('popup (bout en bout)', () => {
     // Retrait : permissions.remove, l'option disparaît
     await click(page, 'sk-netflix');
     await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
-    expect((await trace(page)).permissionRemovals).toEqual([manifest.optional_host_permissions]);
+    expect((await trace(page)).permissionRemovals).toEqual([['*://*.netflix.com/*']]);
     await page.waitForSelector(sel('player-netflix'), { hidden: true });
     expect(await checked()).toBe(false);
     // Le script d'un onglet déjà ouvert tourne jusqu'à son rechargement : consigne discrète
     const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
     expect(statuses).toContain(fr('settings.netflix.disabled'));
+  });
+
+  it('Réglages › Lecture & synchro : activer Disney+ demande l’accès à disneyplus.com, jamais proposé comme lecteur préféré', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'sync');
+    await page.waitForSelector('#sk-disney');
+    const checked = (): Promise<boolean> => page.$eval('#sk-disney', (input) => input instanceof HTMLInputElement && input.checked);
+    expect(await checked()).toBe(false);
+    expect(await text(page, '#sk-disney-help')).toBe(fr('settings.disney.helpOff'));
+
+    await click(page, 'sk-disney');
+    await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
+    expect((await trace(page)).permissionRequests).toEqual([['*://*.disneyplus.com/*']]);
+    await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-disney')?.checked === true);
+    expect(await text(page, '#sk-disney-help')).toBe(fr('settings.disney.helpOn'));
+    // Lecteur préféré inchangé : Disney+ n'y est jamais proposé, l'interrupteur Netflix reste éteint
+    expect(await page.$(sel('player-disney'))).toBeNull();
+    expect(await page.$eval('#sk-netflix', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
+
+    await click(page, 'sk-disney');
+    await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
+    expect((await trace(page)).permissionRemovals).toEqual([['*://*.disneyplus.com/*']]);
+    await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-disney')?.checked === false);
+    const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
+    expect(statuses).toContain(fr('settings.disney.disabled'));
   });
 
   it('accès aux sites retiré : bandeau annoncé une seule fois, même nœud entre deux rendus', async () => {

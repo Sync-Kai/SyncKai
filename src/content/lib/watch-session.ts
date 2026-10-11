@@ -20,6 +20,11 @@ import { waitFor } from './wait-for';
 const MIN_EPISODE_DURATION_S = 120;
 /** Sans lecteur après ce délai, le panneau affiche « pas de vidéo » ; l'attente passive continue */
 const VIDEO_WAIT_TIMEOUT_MS = 30_000;
+/**
+ * Recherche du lecteur tant qu'aucune <video> connectée n'est suivie : un lecteur créé hors du document puis inséré
+ * (Netflix) n'émet plus aucun événement média visible depuis `document`.
+ */
+export const VIDEO_POLL_MS = 1_000;
 const METADATA_WAIT_TIMEOUT_MS = 15_000;
 /**
  * Événements média captés sur `document` (ils ne remontent pas, mais la phase de capture les voit passer) :
@@ -355,6 +360,8 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       getCreditsStart: () => creditsStart,
       minDurationSeconds: MIN_EPISODE_DURATION_S,
       onCompleted: () => void reportCompletion('auto'),
+      // Disney+ : position et durée lues dans le lecteur (la <video> n'en donne pas de fiables)
+      ...(adapter.readPlayback ? { readPlayback: (target: HTMLVideoElement) => adapter.readPlayback?.(target) ?? null } : {}),
       signal: AbortSignal.any([signal, trackerController.signal]),
       logger: log,
     });
@@ -373,8 +380,9 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   }
 
   /**
-   * Attente passive du lecteur, sans limite de durée : chaque événement média capté sur `document` relit
-   * `findVideo()`. Les écouteurs vivent autant que la session (retirés par son signal).
+   * Attente du lecteur, sans limite de durée : chaque événement média capté sur `document` relit `findVideo()`, et
+   * `findVideo()` est aussi relu chaque seconde tant qu'aucune <video> connectée n'est suivie (lecteur inséré sans
+   * événement visible, ou retiré du DOM). Écouteurs et minuterie vivent autant que la session (retirés par son signal).
    */
   function watchVideo(): void {
     const onMediaEvent = (): void => {
@@ -383,6 +391,13 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       else refreshVideo();
     };
     for (const type of MEDIA_EVENTS) document.addEventListener(type, onMediaEvent, { capture: true, signal });
+    // Lecteur suivi et connecté : simple test de `isConnected`, findVideo() n'est relu que sans lecteur
+    // (instance orpheline : rien, l'avertissement part au premier événement média, comme avant)
+    const poll = setInterval(() => {
+      if (video?.isConnected || isExtensionContextInvalidated()) return;
+      refreshVideo();
+    }, VIDEO_POLL_MS);
+    signal.addEventListener('abort', () => clearInterval(poll), { once: true });
     refreshVideo();
     if (video) return;
     const timer = setTimeout(() => {
@@ -396,10 +411,12 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   function snapshot(): LiveSnapshot {
     // Panneau ouvert : lecteur détaché du DOM sans nouvel événement capté → suivi rattaché au lecteur actuel
     if (video && !video.isConnected) refreshVideo();
-    const duration = video && Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+    // Position et durée de la plateforme si elle les fournit (Disney+), sinon celles de la <video>
+    const time = video ? (adapter.readPlayback ? adapter.readPlayback(video) : { currentTime: video.currentTime, duration: video.duration }) : null;
+    const duration = time && Number.isFinite(time.duration) && time.duration > 0 ? time.duration : null;
     return {
       episodeId,
-      t: video && duration !== null ? video.currentTime : null,
+      t: time && duration !== null ? time.currentTime : null,
       duration,
       paused: video?.paused ?? true,
       point: tracker?.completionPoint() ?? null,

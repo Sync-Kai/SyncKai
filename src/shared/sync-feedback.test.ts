@@ -62,7 +62,7 @@ describe('describeOutcome — série ignorée', () => {
     expect(describeOutcome({ status: 'ignored' })).toEqual({
       tone: 'info',
       title: 'Série ignorée',
-      message: 'Aucune fiche AniList n’est liée à ce titre Netflix : ce n’est probablement pas un anime.',
+      message: 'Aucune fiche AniList n’est liée à ce titre sur cette plateforme : ce n’est probablement pas un anime.',
     });
     expect(failedServices({ status: 'ignored' })).toEqual([]);
   });

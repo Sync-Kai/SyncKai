@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import type { EpisodeInfo } from '../../shared/episode.types';
+import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../../shared/episode.types';
 import { PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
 import type { MediaMapping, NumberingMode } from '../../shared/sync.types';
 import { normalizeTitle } from '../../shared/title';
@@ -58,7 +58,7 @@ export interface SyncTarget extends MediaMapping {
   fromCache?: true;
 }
 
-/** `ignored` : série hors du périmètre de la plateforme (Netflix sans fiche AniList liée ni au même titre), ignorée en silence */
+/** `ignored` : série hors du périmètre de la plateforme (Netflix, Disney+ : sans fiche AniList liée ni au même titre), ignorée en silence */
 export type ResolveResult = { ok: true; target: SyncTarget } | { ok: false; reason: string; ignored?: true };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -136,6 +136,35 @@ export function matchNetflixLink(url: string, seriesId: string | null): LinkKind
   return match?.[1] === seriesId ? 'id' : null;
 }
 
+/**
+ * Lien Disney+ (source « Disney Plus » d'AniList, toutes formes : /series/{slug}/{id}, /browse/entity-{uuid}…) :
+ * la page de lecture ne donne aucun identifiant de série, le lien prouve seulement que la fiche est sur Disney+.
+ * Retenu comme lien de la série uniquement si un titre de la fiche est celui de la série (voir isTitleBoundLink).
+ */
+export function matchDisneyLink(url: string): LinkKind {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  return PLATFORMS.disney.matchesHost(parsed.hostname) ? 'id' : null;
+}
+
+/**
+ * Plateforme sans identifiant de série sur la page de lecture (Disney+) : un lien vers la plateforme ne rattache une
+ * fiche à la série que si l'un de ses titres est celui de la série (titre exact, partie « Part 2 » ou « Season N »).
+ * Sans cette condition, toute fiche Disney+ des résultats de recherche deviendrait une saison de la série.
+ */
+export function isTitleBoundLink(platform: StreamingPlatform): boolean {
+  return platform === 'disney';
+}
+
+/** Fiche dont l'un des titres est celui de la série (ou d'une de ses saisons / parties), voir titleSeasonOf */
+export function hasSeriesTitle(titles: readonly string[], animeTitle: string): boolean {
+  return titleSeasonOf(titles, normalizeTitle(animeTitle)) !== null;
+}
+
 /** Lien Crunchyroll vers la page de lecture d'un épisode précis : /watch/{episodeId}[/slug] */
 export function matchCrunchyrollEpisodeLink(url: string, episodeId: string | null): boolean {
   if (!episodeId) return false;
@@ -159,6 +188,7 @@ const LINK_MATCHERS: Record<StreamingPlatform, LinkMatcher> = {
     matchCrunchyrollEpisodeLink(url, episodeId) ? 'episode' : matchCrunchyrollLink(url, seriesId, seriesSlug),
   adn: (url, seriesId, seriesSlug) => matchAdnLink(url, seriesId, seriesSlug),
   netflix: (url, seriesId) => matchNetflixLink(url, seriesId),
+  disney: (url) => matchDisneyLink(url),
 };
 
 /**
@@ -202,6 +232,9 @@ function seriesIdInLink(url: string, platform: StreamingPlatform): string | null
       if (!PLATFORMS.netflix.matchesHost(parsed.hostname)) return null;
       return /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)\/?$/i.exec(parsed.pathname)?.[1] ?? null;
     }
+    // Aucun identifiant de série côté lecture : une autre série Disney+ n'est pas reconnaissable à son lien
+    case 'disney':
+      return null;
   }
 }
 
@@ -252,6 +285,7 @@ export function legacySeriesSlugInLink(url: string, platform: StreamingPlatform)
       return linkedSlug !== undefined && !/^\d+-/.test(linkedSlug) ? linkedSlug : null;
     }
     case 'netflix':
+    case 'disney':
       return null;
   }
 }
@@ -270,9 +304,13 @@ export function linksToOtherSeriesBySlug(url: string, platform: StreamingPlatfor
   return platform === 'crunchyroll' ? !isSameCrunchyrollSlug(linkedSlug, slug) : linkedSlug !== slug;
 }
 
-/** Clé de cache d'une saison : "crunchyroll:GRMG8ZQZR:s24" */
-export function mappingKey(episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle' | 'seasonNumber'>): string {
-  const series = episode.seriesId ?? `title:${normalizeTitle(episode.animeTitle)}`;
+/**
+ * Clé de cache d'une saison : "crunchyroll:GRMG8ZQZR:s24", "disney:title:undead unluck:s1". Arc Disney+ (saison 99,
+ * plusieurs par série) : clé par titre de l'arc, "disney:title:undead unluck winter arc:s99".
+ */
+export function mappingKey(episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle' | 'seasonNumber'> & { seasonTitle?: string | null }): string {
+  const arcTitle = episode.platform === 'disney' && episode.seasonNumber === DISNEY_ARC_SEASON ? episode.seasonTitle : null;
+  const series = episode.seriesId ?? `title:${normalizeTitle(arcTitle ?? episode.animeTitle)}`;
   return `${episode.platform}:${series}:s${episode.seasonNumber ?? 0}`;
 }
 
@@ -710,7 +748,7 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
 // ─── Plateformes généralistes ─────────────────────────────────────────────
 
 /**
- * Filtre « anime » d'une plateforme généraliste (PLATFORMS[…].linkRequired : Netflix), appliqué au résultat de resolveTarget :
+ * Filtre « anime » d'une plateforme généraliste (PLATFORMS[…].linkRequired : Netflix, Disney+), appliqué au résultat de resolveTarget :
  * 1. une fiche liée à la série (lien plateforme ou suite/préquelle d'une fiche liée) → résultat inchangé, mais
  *    confiance basse si la fiche choisie n'est pas elle-même liée (série TV homonyme d'un film lié) ;
  * 2. sinon, des fiches au titre de la série → correspondance jamais fiable (carte « à vérifier »), échec inchangé ;
@@ -726,13 +764,13 @@ export function gateByPlatformLink(
     if (!result.ok || result.target.confidence !== 'high') return result;
     const { mediaId } = result.target;
     if (candidates.some((c) => c.id === mediaId && isLinked(c))) return result;
-    return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.netflixUnlinkedEntry') } };
+    return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformUnlinkedEntry', { platform: PLATFORMS[episode.platform].label }) } };
   }
 
   const animeKey = normalizeTitle(episode.animeTitle);
   const isTitleMatch = seasonPool(candidates, episode.animeTitle).length > 0 || candidates.some((c) => c.titles.some((title) => normalizeTitle(title) === animeKey));
   if (isTitleMatch) {
-    return result.ok ? { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.netflixTitleOnly') } } : result;
+    return result.ok ? { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformTitleOnly', { platform: PLATFORMS[episode.platform].label }) } } : result;
   }
   return ignoredResult(episode);
 }

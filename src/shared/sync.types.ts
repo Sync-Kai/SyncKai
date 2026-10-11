@@ -52,7 +52,7 @@ export function isMediaMapping(value: unknown): value is MediaMapping {
 export const IMPORTED_MAPPING_OFFSET_RANGE = { min: -300, max: 5000 } as const;
 
 /** Clé de correspondance produite par mappingKey : "crunchyroll:GRMG8ZQZR:s24", "netflix:80987039:s1" */
-export const MAPPING_KEY_PATTERN = /^(crunchyroll|adn|netflix):.+:s\d+$/;
+export const MAPPING_KEY_PATTERN = /^(crunchyroll|adn|netflix|disney):.+:s\d+$/;
 
 /** Correspondance d'une sauvegarde (fichier non fiable) : clé au format de mappingKey, décalage borné */
 export function isImportableMapping(key: string, value: unknown): value is MediaMapping {

@@ -195,7 +195,7 @@ installChromeMock({
     ADD_TO_LIST: () => synced(pageView().media.title, { status: 'updated', progress: 0, completed: false }),
     RESOLVE_PAGE_MEDIA: (): PageMediaResult =>
       // `pageMedia=untracked` : série ignorée par la synchro (Netflix, pas un anime)
-      param('pageMedia') === 'untracked' ? { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked') } : { ok: true, data: resolvePage() },
+      param('pageMedia') === 'untracked' ? { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Netflix' }) } : { ok: true, data: resolvePage() },
     APPLY_DIFFS: applyDiffs,
   },
   onSendMessage: (message) => trace.messages.push(message),
@@ -206,7 +206,7 @@ installChromeMock({
       trace.permissionRequests.push(origins);
       return true;
     },
-    // Netflix : accès optionnel, non accordé au départ
+    // Netflix, Disney+ : accès optionnels, non accordés au départ
     optional: manifest.optional_host_permissions,
     onRemove: (origins) => trace.permissionRemovals.push(origins),
   },

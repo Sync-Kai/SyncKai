@@ -10,7 +10,8 @@ import type {
   SeasonSource,
 } from '../shared/page-media.types';
 import type { EpisodeInfo } from '../shared/episode.types';
-import { hasNetflixAccess } from '../shared/netflix-access';
+import { hasPlatformAccess } from '../shared/platform-access';
+import { isOptionalPlatform, PLATFORMS } from '../shared/platforms';
 import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { learnPlatformLink } from '../shared/platform-links-store';
 import { pageMediaFromEpisode } from '../shared/page-media';
@@ -294,13 +295,14 @@ async function readLists(media: PageMediaDetails): Promise<PageListState[]> {
  */
 export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayload): Promise<PageMediaResult> {
   try {
-    // Accès Netflix retiré, onglet ouvert avant le retrait (son script répond encore) : rien à suivre, comme la synchro
-    if (page.platform === 'netflix' && !(await hasNetflixAccess())) return { ok: false, code: 'NOT_TRACKED', message: t('page.netflixOff') };
+    // Accès Netflix / Disney+ retiré, onglet ouvert avant le retrait (son script répond encore) : rien à suivre, comme la synchro
+    const platform = PLATFORMS[page.platform].label;
+    if (isOptionalPlatform(page.platform) && !(await hasPlatformAccess(page.platform))) return { ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform }) };
     const resolution = await resolveSeason(page, mediaId);
     if (resolution === IGNORED) {
       // Info seulement (aucune entrée au journal d'erreurs) : comme la synchro, qui ignore la série
       log.info('Fiche de la page : série ignorée (aucune fiche AniList liée) :', page.seriesTitle);
-      return { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked') };
+      return { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform }) };
     }
     if (!resolution) return { ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: page.seriesTitle }) };
 

@@ -27,7 +27,8 @@
     "https://api.myanimelist.net/*"
   ],
   "optional_host_permissions": [
-    "*://*.netflix.com/*"
+    "*://*.netflix.com/*",
+    "*://*.disneyplus.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https://s4.anilist.co https://cdn.myanimelist.net https://api-cdn.myanimelist.net"
@@ -54,7 +55,8 @@
         "<dynamic_resource>"
       ],
       "matches": [
-        "*://*.netflix.com/*"
+        "*://*.netflix.com/*",
+        "*://*.disneyplus.com/*"
       ]
     }
   ],

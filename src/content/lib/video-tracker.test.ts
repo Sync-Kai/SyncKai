@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '../../shared/logger';
-import { trackVideoProgress } from './video-tracker';
+import { PLAYBACK_POLL_MS, trackVideoProgress } from './video-tracker';
 
 // Suivi de la progression sur une fausse <video> (EventTarget de Node) : déclenchement unique, réarmement,
 // vidéos courtes ignorées et nettoyage des écouteurs à l'annulation.
@@ -108,5 +108,110 @@ describe('trackVideoProgress', () => {
     video.tick(10);
     video.tick(990);
     expect(onCompleted).not.toHaveBeenCalled();
+  });
+});
+
+describe('trackVideoProgress — position fournie par la plateforme (Disney+)', () => {
+  it('durée infinie sur la <video> : position et durée lues par readPlayback, complétion au seuil', () => {
+    const video = new FakeVideo();
+    video.duration = Number.POSITIVE_INFINITY;
+    let position = 0;
+    const onCompleted = vi.fn();
+    const tracker = trackVideoProgress(video as unknown as HTMLVideoElement, {
+      fallbackRatio: 0.9,
+      getCreditsStart: () => null,
+      minDurationSeconds: 120,
+      onCompleted,
+      readPlayback: () => ({ currentTime: position, duration: 1_460 }),
+      signal: new AbortController().signal,
+      logger: silent,
+    });
+    expect(tracker.completionPoint()).toEqual({ seconds: 1_314, source: 'ratio' });
+    position = 600;
+    video.tick(99_999);
+    expect(onCompleted).not.toHaveBeenCalled();
+    position = 1_314;
+    video.tick(99_999);
+    expect(onCompleted).toHaveBeenCalledOnce();
+  });
+
+  it('position encore inconnue (lecteur pas monté) : aucun point, aucune complétion', () => {
+    const video = new FakeVideo();
+    const onCompleted = vi.fn();
+    const tracker = trackVideoProgress(video as unknown as HTMLVideoElement, {
+      fallbackRatio: 0.9,
+      getCreditsStart: () => null,
+      minDurationSeconds: 120,
+      onCompleted,
+      readPlayback: () => null,
+      signal: new AbortController().signal,
+      logger: silent,
+    });
+    video.tick(5_000);
+    expect(tracker.completionPoint()).toBeNull();
+    expect(onCompleted).not.toHaveBeenCalled();
+  });
+});
+
+describe('trackVideoProgress — relecture périodique de la position fournie (Disney+)', () => {
+  it('aucun timeupdate (la <video> suivie n’en émet pas) : complétion par la relecture chaque seconde', () => {
+    vi.useFakeTimers();
+    try {
+      const video = new FakeVideo();
+      let position = 600;
+      const onCompleted = vi.fn();
+      const controller = new AbortController();
+      trackVideoProgress(video as unknown as HTMLVideoElement, {
+        fallbackRatio: 0.85,
+        getCreditsStart: () => null,
+        minDurationSeconds: 120,
+        onCompleted,
+        readPlayback: () => ({ currentTime: position, duration: 1_460 }),
+        signal: controller.signal,
+        logger: silent,
+      });
+      vi.advanceTimersByTime(PLAYBACK_POLL_MS);
+      expect(onCompleted).not.toHaveBeenCalled();
+      position = 1_300;
+      vi.advanceTimersByTime(PLAYBACK_POLL_MS);
+      expect(onCompleted).toHaveBeenCalledOnce();
+      // Désarmé après la complétion, puis tout retiré à l'annulation
+      expect(vi.getTimerCount()).toBe(0);
+      controller.abort();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('sans readPlayback (Crunchyroll, ADN, Netflix) : aucune minuterie', () => {
+    vi.useFakeTimers();
+    try {
+      track(new FakeVideo());
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('annulation de la session avant la fin : minuterie retirée', () => {
+    vi.useFakeTimers();
+    try {
+      const controller = new AbortController();
+      trackVideoProgress(new FakeVideo() as unknown as HTMLVideoElement, {
+        fallbackRatio: 0.85,
+        getCreditsStart: () => null,
+        minDurationSeconds: 120,
+        onCompleted: vi.fn(),
+        readPlayback: () => null,
+        signal: controller.signal,
+        logger: silent,
+      });
+      expect(vi.getTimerCount()).toBe(1);
+      controller.abort();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

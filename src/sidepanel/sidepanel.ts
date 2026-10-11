@@ -1,10 +1,12 @@
 import { initI18n, onLocaleChange, t, type MessageKey } from '../i18n';
 import { kanaLabel } from '../ui/kit';
 import { createLogger } from '../shared/logger';
-import { hasNetflixAccess } from '../shared/netflix-access';
+import type { StreamingPlatform } from '../shared/episode.types';
+import { activePlatforms, grantedOptionalPlatforms } from '../shared/platform-access';
 import { getSettings } from '../shared/settings';
 import { sidePanelKind } from '../shared/side-panel';
 import { createAccountsController } from '../ui/accounts';
+import { formatPlatformList } from '../ui/platform-list';
 import { settingsPath } from '../ui/settings/navigation';
 import { createSettingsView, type SettingsView } from '../ui/settings/settings-view';
 import { h, preserveFocus } from '../ui/dom';
@@ -231,12 +233,14 @@ function render(): void {
   });
 }
 
-/** Accès Netflix (permission optionnelle), relu à chaque passage hors page cible */
-let netflixAccess = false;
+/** Plateformes à accès optionnel accordées (Netflix, Disney+), relues à chaque passage hors page cible */
+let optionalPlatforms: readonly StreamingPlatform[] = [];
 
-/** Ligne hors page cible : plateformes réellement suivies, Netflix cité seulement s'il est activé (UX-05) */
+/** Ligne hors page cible : plateformes réellement suivies, Netflix et Disney+ cités seulement s'ils sont activés (UX-05) */
 function offTargetText(): string {
-  return netflixAccess ? t('panel.offTargetNetflix') : t('panel.offTarget', { path: settingsPath('sync') });
+  return optionalPlatforms.length > 0
+    ? t('panel.offTargetPlatforms', { platforms: formatPlatformList(activePlatforms(optionalPlatforms), 'conjunction') })
+    : t('panel.offTarget', { path: settingsPath('sync') });
 }
 
 function setContext(next: PanelContext): void {
@@ -244,9 +248,9 @@ function setContext(next: PanelContext): void {
   nowPlaying.setTab(next.status === 'target' ? next.tabId : null);
   render();
   if (next.status !== 'off') return;
-  void hasNetflixAccess().then((granted) => {
-    if (granted === netflixAccess) return;
-    netflixAccess = granted;
+  void grantedOptionalPlatforms().then((granted) => {
+    if (granted.join() === optionalPlatforms.join()) return;
+    optionalPlatforms = granted;
     render();
   });
 }

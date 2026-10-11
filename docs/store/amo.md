@@ -13,7 +13,7 @@ Add-on: Gecko ID `synckai@sync-kai.github.io`, **listed** channel, MIT license. 
 | `homepage`, `support_url` | GitHub repository, issues page |
 | `requires_payment` | `false` |
 | `version.license` | `MIT` |
-| `version.approval_notes` | build (`BUILD.md`, `npm ci --ignore-scripts`) and test instructions, contacted hosts ("Network connections" table in `PRIVACY.md`), Netflix and `web_accessible_resources` for the reviewers; sent with every version |
+| `version.approval_notes` | build (`BUILD.md`, `npm ci --ignore-scripts`) and test instructions, contacted hosts ("Network connections" table in `PRIVACY.md`), Netflix, Disney+ and `web_accessible_resources` for the reviewers; sent with every version |
 
 As long as the add-on is not public (first version still under review), the full listing is sent again with every version: it must stay up to date. Once the add-on is public, only `version` is sent: the listing fields are then edited in the Developer Hub (or by changing the file and sending it again by hand). After changing the `listing-*.md` texts, carry the changes over to this file to keep both stores aligned.
 
@@ -41,4 +41,9 @@ The Chrome Web Store promo tiles have no equivalent on AMO.
   - `MAIN` world script (`src/content/netflix/page-bridge.iife.ts`), short and readable, with no `browser.*` API: it queries Netflix's metadata API (same origin) and only returns title, seasons, episode numbers and credits (`reduceNetflixMetadata`);
   - `web_accessible_resources`: the Netflix scripts for `*://*.netflix.com/*` only; a second entry, added by `@crxjs/vite-plugin`, exposes the chunks of the main content script (`assets/*.js`) to the Crunchyroll and ADN sites only (see `permissions.md` › Content-script matches);
   - `data_collection_permissions` unchanged: the data read on Netflix remains page content (`websiteContent`) and playback activity (`websiteActivity`).
+- **Disney+ (unreleased)**: same mechanism, also pointed out in `version.approval_notes`:
+  - `*://*.disneyplus.com/*` in `optional_host_permissions`, requested only by "Sync on Disney+" (Settings › Playback & sync), removed when turned off; two scripts registered after that consent and run once in open Disney+ tabs;
+  - `MAIN` world script (`src/content/disney/page-bridge.iife.ts`, `document_start`, no `browser.*` API, no `eval`): a passive observer that wraps `XMLHttpRequest.open/send` (and `fetch`) only to read the response of the player's own `…/explore/v1.x/playerExperience/{id}` request; it issues no request and reads no header, token or stream URL, and only passes title, season/episode, original language, runtime and the video's identifiers (incl. the episode id decoded from `infoBlock`) to the isolated script;
+  - `web_accessible_resources`: each platform's two scripts for its own pattern only (split per platform at build time by `splitRegisteredScripts`, `src/build/output-names.ts`);
+  - `data_collection_permissions` unchanged (`websiteContent`, `websiteActivity`).
 - Data collection permissions (Firefox 142+ required by AMO): `data_collection_permissions.required` = `websiteContent`, `websiteActivity` (added by the Firefox build, `src/build/manifest-target.ts`).

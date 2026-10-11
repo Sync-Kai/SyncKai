@@ -63,14 +63,14 @@ describe('frontières des modules', () => {
     expect(violations('content', ['background'])).toEqual([]);
   });
 
-  it('background/ ne dépend du contenu que pour les scripts Netflix enregistrés (`?script`)', () => {
-    const netflixScripts = (e: Edge): boolean => e.from === 'background/netflix-access.ts' && e.spec.endsWith('.iife.ts?script');
-    expect(violations('background', ['content'], netflixScripts)).toEqual([]);
+  it('background/ ne dépend du contenu que pour les scripts enregistrés de Netflix et Disney+ (`?script`)', () => {
+    const registeredScripts = (e: Edge): boolean => e.from === 'background/platform-access.ts' && e.spec.endsWith('.iife.ts?script');
+    expect(violations('background', ['content'], registeredScripts)).toEqual([]);
   });
 });
 
 describe('scripts de contenu légers (PERF-01)', () => {
-  /** Modules réellement embarqués par les scripts de contenu (Crunchyroll, ADN, Netflix) : imports de valeurs seuls */
+  /** Modules réellement embarqués par les scripts de contenu (Crunchyroll, ADN, Netflix, Disney+) : imports de valeurs seuls */
   const contentModules = reachableFrom(layerFiles('content'), { valuesOnly: true });
 
   it('aucun module réservé au service worker ni aux pages de l’extension', () => {

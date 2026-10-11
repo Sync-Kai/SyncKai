@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Garde du script isolé Netflix : exécuté de nouveau dans les onglets ouverts après une mise à jour de l'extension
-// (background/netflix-access.ts) ou un nouvel accord de l'accès, sans double exécution.
+// (background/platform-access.ts) ou un nouvel accord de l'accès, sans double exécution.
 
 const startContent = vi.hoisted(() => vi.fn());
 vi.mock('../start', () => ({ startContent }));

@@ -1,0 +1,234 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { createDisneyBridgeClient, type DisneyBridgeClient, type DisneyBridgeClientOptions } from './bridge-client';
+import {
+  decodeDisneyHandshake,
+  DISNEY_BRIDGE_VERSION,
+  DISNEY_HANDSHAKE_EVENT,
+  DISNEY_PORT_OFFER,
+  encodeDisneyPortOffer,
+  encodeDisneyPush,
+  reduceDisneyPlayerExperience,
+  type DisneyPlayerExperience,
+} from './bridge-protocol';
+import {
+  nonAnimeEpisode,
+  SEEN_AT,
+  UNDEAD_UNLUCK_S1E1_AVAIL_ID,
+  UNDEAD_UNLUCK_S1E1_PLAY_ID,
+  undeadUnluckS1E1,
+  WINTER_ARC_E1_AVAIL_ID,
+  winterArcE1,
+} from './fixtures';
+
+const ORIGIN = 'https://www.disneyplus.com';
+const V = DISNEY_BRIDGE_VERSION;
+/** Identifiant d'épisode de l'URL de l'arc (absent de sa fiche : pas d'infoBlock) */
+const ARC_PLAY_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+const OTHER_ID = '11111111-2222-4333-8444-555555555555';
+
+function entry(raw: unknown, requestId: string, seenAt = SEEN_AT): DisneyPlayerExperience {
+  const reduced = reduceDisneyPlayerExperience(raw, requestId, seenAt);
+  if (!reduced) throw new Error('fixture invalide');
+  return reduced;
+}
+
+/** S1E1 demandée par availId : l'épisode de l'URL vient de infoBlock */
+const S1E1 = entry(undeadUnluckS1E1(), UNDEAD_UNLUCK_S1E1_AVAIL_ID);
+/** Changement d'URL des tests : après SEEN_AT */
+const URL_CHANGE = SEEN_AT + 1_000;
+const ARC = entry(winterArcE1(), WINTER_ARC_E1_AVAIL_ID, URL_CHANGE + 10);
+const OTHER = entry(nonAnimeEpisode(OTHER_ID), OTHER_ID, URL_CHANGE + 20);
+
+/** Ports ouverts pendant le test (fermés ensuite : un MessagePort Node ouvert garde le worker actif) */
+const channels: MessageChannel[] = [];
+/** Événements déclenchés par un « script de la page » (dispatchEvent) : non « trusted » */
+const forged = new WeakSet<Event>();
+
+afterEach(() => {
+  for (const { port1, port2 } of channels.splice(0)) {
+    port1.close();
+    port2.close();
+  }
+});
+
+interface FakeBridge {
+  /** Fiches poussées à chaque client connecté (et instantané pour les suivants) */
+  push(...entries: DisneyPlayerExperience[]): void;
+  handshakes: number;
+}
+
+/**
+ * Faux onglet avec pont MAIN simulé : répond à la demande d'ouverture par un vrai postMessage (asynchrone), envoie
+ * l'instantané des fiches déjà vues, puis chaque nouvelle fiche. `bridge: false` : pont absent.
+ */
+function setup(options: { bridge?: boolean; seen?: DisneyPlayerExperience[]; forgeFirst?: boolean } & Partial<DisneyBridgeClientOptions> = {}): {
+  client: DisneyBridgeClient;
+  bridge: FakeBridge;
+  logs: string[];
+} {
+  const document = new EventTarget();
+  const window = new EventTarget();
+  const seen = [...(options.seen ?? [])];
+  const ports: MessagePort[] = [];
+  const logs: string[] = [];
+  const bridge: FakeBridge = {
+    handshakes: 0,
+    push(...entries) {
+      seen.push(...entries);
+      for (const port of ports) port.postMessage(encodeDisneyPush({ v: V, entries }));
+    },
+  };
+  if (options.bridge !== false) {
+    document.addEventListener(DISNEY_HANDSHAKE_EVENT, (event) => {
+      const handshake = event instanceof CustomEvent ? decodeDisneyHandshake(event.detail) : null;
+      if (!handshake) return;
+      bridge.handshakes++;
+      const data = encodeDisneyPortOffer({ v: V, type: DISNEY_PORT_OFFER, nonce: handshake.nonce });
+      if (options.forgeFirst) {
+        // Script de la page qui imite l'offre (synchrone, donc avant le vrai postMessage)
+        const forgedChannel = new MessageChannel();
+        channels.push(forgedChannel);
+        const fake = new MessageEvent('message', { data, origin: ORIGIN, ports: [forgedChannel.port2] });
+        forged.add(fake);
+        window.dispatchEvent(fake);
+        forgedChannel.port1.postMessage(encodeDisneyPush({ v: V, entries: [{ ...S1E1, title: 'Forged' }] }));
+      }
+      const channel = new MessageChannel();
+      channels.push(channel);
+      ports.push(channel.port1);
+      queueMicrotask(() => window.dispatchEvent(new MessageEvent('message', { data, origin: ORIGIN, ports: [channel.port2] })));
+      if (seen.length > 0) channel.port1.postMessage(encodeDisneyPush({ v: V, entries: seen }));
+    });
+  }
+  const client = createDisneyBridgeClient({
+    target: document,
+    messages: window,
+    origin: ORIGIN,
+    connectTimeoutMs: 50,
+    matchWaitMs: 40,
+    waitMs: 200,
+    isTrusted: (event) => !forged.has(event),
+    log: (message) => logs.push(message),
+    ...options,
+  });
+  return { client, bridge, logs };
+}
+
+const signal = (): AbortSignal => new AbortController().signal;
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+describe('createDisneyBridgeClient — fiche portant l’identifiant de l’URL', () => {
+  it('épisode de l’URL décodé de infoBlock (différent de l’availId) : fiche servie, puis lue en cache', async () => {
+    const { client, bridge, logs } = setup({ seen: [S1E1] });
+    expect(await client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID.toUpperCase(), signal(), 0)).toEqual(S1E1);
+    expect(client.peek(UNDEAD_UNLUCK_S1E1_PLAY_ID)).toEqual(S1E1);
+    expect(client.peek(UNDEAD_UNLUCK_S1E1_AVAIL_ID)).toEqual(S1E1);
+    expect(await client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0)).toEqual(S1E1);
+    expect(bridge.handshakes).toBe(1);
+    expect(logs).toContain('Pont Disney+ connecté');
+  });
+
+  it('fiche arrivée après la demande (navigation, épisode suivant) : attendue puis servie, même avec d’autres fiches', async () => {
+    const { client, bridge } = setup();
+    const pending = client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), URL_CHANGE);
+    await delay(10);
+    bridge.push(OTHER);
+    bridge.push(S1E1);
+    expect(await pending).toEqual(S1E1);
+    expect(client.peek(OTHER_ID)).toEqual(OTHER);
+  });
+
+  it('même vidéo reçue deux fois (requête doublée par le site) : une seule fiche, identifiants réunis', async () => {
+    const byPlayId = entry(undeadUnluckS1E1(), UNDEAD_UNLUCK_S1E1_PLAY_ID, URL_CHANGE + 5);
+    const { client, bridge } = setup({ seen: [S1E1] });
+    await client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0);
+    bridge.push(byPlayId);
+    await delay(10);
+    expect(client.peek(UNDEAD_UNLUCK_S1E1_AVAIL_ID)?.seenAt).toBe(URL_CHANGE + 5);
+  });
+});
+
+describe('createDisneyBridgeClient — repli sans identifiant correspondant', () => {
+  it('une seule fiche reçue depuis le changement d’URL : retenue après le délai, puis associée à l’URL', async () => {
+    const { client, bridge, logs } = setup({ seen: [S1E1] });
+    const started = Date.now();
+    const pending = client.load(ARC_PLAY_ID, signal(), URL_CHANGE);
+    await delay(5);
+    bridge.push(ARC);
+    const found = await pending;
+    expect(found?.title).toBe(ARC.title);
+    expect(found?.ids).toEqual([WINTER_ARC_E1_AVAIL_ID, ARC_PLAY_ID]);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(35);
+    // Relectures (popup, fin de l'épisode) : retrouvée directement par l'identifiant de l'URL
+    expect(client.peek(ARC_PLAY_ID)?.title).toBe(ARC.title);
+    expect(logs.some((line) => line.includes('seule fiche reçue'))).toBe(true);
+  });
+
+  it('fiche arrivée après le délai de correspondance (réseau lent) : retenue à son arrivée', async () => {
+    const { client, bridge } = setup();
+    const pending = client.load(ARC_PLAY_ID, signal(), URL_CHANGE);
+    await delay(80);
+    bridge.push(ARC);
+    expect((await pending)?.ids).toContain(ARC_PLAY_ID);
+  });
+
+  it('plusieurs fiches reçues depuis le changement d’URL (ambiguïté) : vidéo non suivie', async () => {
+    const { client, bridge, logs } = setup();
+    const pending = client.load(ARC_PLAY_ID, signal(), URL_CHANGE);
+    await delay(5);
+    bridge.push(ARC, OTHER);
+    expect(await pending).toBeNull();
+    expect(client.peek(ARC_PLAY_ID)).toBeNull();
+    expect(logs.some((line) => line.includes('2 fiches reçues'))).toBe(true);
+  });
+
+  it('seules des fiches antérieures au changement d’URL (épisode précédent) : rien après le délai maximal', async () => {
+    const { client } = setup({ seen: [S1E1] });
+    const started = Date.now();
+    expect(await client.load(ARC_PLAY_ID, signal(), URL_CHANGE)).toBeNull();
+    expect(Date.now() - started).toBeGreaterThanOrEqual(150);
+  });
+});
+
+describe('createDisneyBridgeClient — pont et sécurité', () => {
+  it('pont absent (accès accordé après le chargement de l’onglet) : null sans attendre la fiche', async () => {
+    const { client, logs } = setup({ bridge: false });
+    const started = Date.now();
+    expect(await client.load(WINTER_ARC_E1_AVAIL_ID, signal(), 0)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(150);
+    expect(logs.some((line) => line.startsWith('Pont Disney+ absent'))).toBe(true);
+  });
+
+  it('annulation (épisode quitté) : null aussitôt', async () => {
+    const { client } = setup();
+    const controller = new AbortController();
+    const pending = client.load(WINTER_ARC_E1_AVAIL_ID, controller.signal, 0);
+    await delay(10);
+    controller.abort();
+    expect(await pending).toBeNull();
+    const aborted = new AbortController();
+    aborted.abort();
+    expect(await client.load(WINTER_ARC_E1_AVAIL_ID, aborted.signal, 0)).toBeNull();
+  });
+
+  it('identifiant invalide : aucune demande au pont', async () => {
+    const { client, bridge } = setup();
+    expect(await client.load('../x', signal(), 0)).toBeNull();
+    expect(bridge.handshakes).toBe(0);
+  });
+
+  it('offre de port imitée par la page (dispatchEvent) : refusée, seul le vrai port est écouté', async () => {
+    const { client } = setup({ seen: [S1E1], forgeFirst: true });
+    expect(await client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0)).toEqual(S1E1);
+    await delay(10);
+    expect(client.peek(UNDEAD_UNLUCK_S1E1_PLAY_ID)?.title).toBe('Undead Unluck');
+  });
+
+  it('fiche falsifiée ou invalide poussée sur le port : écartée', async () => {
+    const { client, bridge } = setup();
+    const pending = client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), URL_CHANGE);
+    await delay(5);
+    bridge.push({ ...S1E1, ids: ['pas-un-uuid'] });
+    expect(await pending).toBeNull();
+  });
+});

@@ -16,7 +16,7 @@ export function contentScriptMatches(source: ManifestContentScripts): string[] {
 
 /**
  * Netflix : accès optionnel (optional_host_permissions), scripts enregistrés à la demande par le service worker
- * (background/netflix-access.ts) et absents de `content_scripts`.
+ * (background/platform-access.ts) et absents de `content_scripts`.
  */
 export const NETFLIX_MATCHES: readonly string[] = PLATFORMS.netflix.optionalMatches;
 

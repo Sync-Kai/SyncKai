@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   /** Fin de lecture du lecteur simulé (onCompleted du suivi vidéo) */
   completions: [] as (() => void)[],
-  /** <video> suivies, dans l'ordre, avec le signal de leur tracker */
-  tracked: [] as { video: HTMLVideoElement; signal: AbortSignal }[],
+  /** <video> suivies, dans l'ordre, avec le signal de leur tracker et la lecture de position transmise */
+  tracked: [] as { video: HTMLVideoElement; signal: AbortSignal; readPlayback?: (video: HTMLVideoElement) => unknown }[],
   /** Messages warn/error : consignés au journal de diagnostic en production */
   journaled: [] as unknown[][],
 }));
@@ -36,15 +36,15 @@ vi.mock('../../shared/settings', async (importOriginal) => ({
   getSettings: mocks.getSettings,
 }));
 vi.mock('./video-tracker', () => ({
-  trackVideoProgress: (video: HTMLVideoElement, options: { onCompleted: () => void; signal: AbortSignal }) => {
+  trackVideoProgress: (video: HTMLVideoElement, options: { onCompleted: () => void; signal: AbortSignal; readPlayback?: (video: HTMLVideoElement) => unknown }) => {
     mocks.completions.push(options.onCompleted);
-    mocks.tracked.push({ video, signal: options.signal });
+    mocks.tracked.push({ video, signal: options.signal, readPlayback: options.readPlayback });
     return { completionPoint: () => null };
   },
 }));
 
 const { DEFAULT_SETTINGS } = await import('../../shared/settings');
-const { startWatchSession } = await import('./watch-session');
+const { startWatchSession, VIDEO_POLL_MS } = await import('./watch-session');
 
 /** Fausse <video> : seules les propriétés lues par la session */
 function makeVideo(id = ''): HTMLVideoElement & { isConnected: boolean } {
@@ -318,6 +318,68 @@ describe('startWatchSession — lecteur suivi (CONT-01, CONT-02)', () => {
     mocks.completions.at(-1)?.();
     await flush();
     expect(mocks.sendMessage).toHaveBeenCalledOnce();
+    session.destroy();
+  });
+
+  it('position fournie par l’adapter (Disney+) : lue par le suivi et par la progression en direct, pas sur la <video>', async () => {
+    const info = episode('X', 'GE013', { platform: 'crunchyroll' });
+    const player: { current: HTMLVideoElement | null } = { current: makeVideo('disney') };
+    const readPlayback = vi.fn(() => ({ currentTime: 120, duration: 1_460 }));
+    navigate('/watch/GE013');
+    const session = startWatchSession({ ...playerAdapter(info, player), readPlayback }, 'GE013');
+    await flush();
+    expect(session.snapshot()).toMatchObject({ t: 120, duration: 1_460 });
+    expect(mocks.tracked[0]?.readPlayback?.(makeVideo())).toEqual({ currentTime: 120, duration: 1_460 });
+    session.destroy();
+  });
+
+  it('sans lecture propre à l’adapter : rien n’est transmis au suivi (position de la <video>)', async () => {
+    const player: { current: HTMLVideoElement | null } = { current: makeVideo('cr') };
+    navigate('/watch/GE014');
+    const session = startWatchSession(playerAdapter(episode('X', 'GE014', { platform: 'crunchyroll' }), player), 'GE014');
+    await flush();
+    expect(mocks.tracked[0]?.readPlayback).toBeUndefined();
+    expect(session.snapshot()).toMatchObject({ t: null, duration: null });
+    session.destroy();
+  });
+
+  it('lecteur créé hors du document puis inséré, sans événement média visible (Netflix) : trouvé par la relecture périodique', async () => {
+    vi.useFakeTimers();
+    const player: { current: HTMLVideoElement | null } = { current: null };
+    navigate('/watch/GE015');
+    const session = startWatchSession(playerAdapter(episode('X', 'GE015', { platform: 'crunchyroll' }), player), 'GE015');
+    await flush();
+    vi.advanceTimersByTime(VIDEO_POLL_MS);
+    expect(mocks.tracked).toHaveLength(0);
+    player.current = makeVideo('inserted');
+    vi.advanceTimersByTime(VIDEO_POLL_MS);
+    expect(mocks.tracked.map((t) => t.video)).toEqual([player.current]);
+    session.destroy();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('lecteur suivi et connecté : plus de relecture ; retiré du DOM : relecture jusqu’au nouveau lecteur', async () => {
+    vi.useFakeTimers();
+    const first = makeVideo('first');
+    const player: { current: HTMLVideoElement | null } = { current: first };
+    const findVideo = vi.fn(() => player.current);
+    navigate('/watch/GE016');
+    const session = startWatchSession({ ...playerAdapter(episode('X', 'GE016', { platform: 'crunchyroll' }), player), findVideo }, 'GE016');
+    await flush();
+    const calls = findVideo.mock.calls.length;
+    vi.advanceTimersByTime(5 * VIDEO_POLL_MS);
+    expect(findVideo.mock.calls.length).toBe(calls);
+
+    // Lecteur retiré, remplacé plus tard, sans aucun événement média
+    first.isConnected = false;
+    player.current = null;
+    vi.advanceTimersByTime(2 * VIDEO_POLL_MS);
+    expect(findVideo.mock.calls.length).toBe(calls + 2);
+    const second = makeVideo('second');
+    player.current = second;
+    vi.advanceTimersByTime(VIDEO_POLL_MS);
+    expect(mocks.tracked.map((t) => t.video)).toEqual([first, second]);
+    expect(mocks.tracked[0]?.signal.aborted).toBe(true);
     session.destroy();
   });
 

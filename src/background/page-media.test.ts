@@ -10,8 +10,8 @@ import { installFakeChrome } from '../test/fake-chrome';
 // enregistrée comme correspondance (ARCH-20), relue par la vraie résolution de la synchro.
 const resolver = vi.hoisted(() => ({ resolveEpisode: vi.fn(), findSeriesSeasons: vi.fn(), toCandidateSummary: vi.fn() }));
 vi.mock('./sync/resolver', () => resolver);
-const access = vi.hoisted(() => ({ hasNetflixAccess: vi.fn() }));
-vi.mock('../shared/netflix-access', () => access);
+const access = vi.hoisted(() => ({ hasPlatformAccess: vi.fn() }));
+vi.mock('../shared/platform-access', () => access);
 const api = vi.hoisted(() => ({ getPageMediaDetails: vi.fn() }));
 vi.mock('./api/media', async (importOriginal) => ({ ...(await importOriginal<typeof import('./api/media')>()), getPageMediaDetails: api.getPageMediaDetails }));
 // Aucun service connecté : pas de lecture des listes
@@ -48,13 +48,20 @@ beforeEach(() => {
   vi.clearAllMocks();
   fake.reset();
   forgetPageResolutions();
-  access.hasNetflixAccess.mockResolvedValue(true);
+  access.hasPlatformAccess.mockResolvedValue(true);
 });
 
 describe('resolvePageMedia — accès Netflix retiré', () => {
   it('onglet Netflix ouvert avant le retrait → NOT_TRACKED (Netflix désactivé), sans aucune recherche', async () => {
-    access.hasNetflixAccess.mockResolvedValue(false);
-    expect(await resolvePageMedia({ page: page({ episodeId: '81991799' }), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.netflixOff') });
+    access.hasPlatformAccess.mockResolvedValue(false);
+    expect(await resolvePageMedia({ page: page({ episodeId: '81991799' }), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform: 'Netflix' }) });
+    expect(resolver.resolveEpisode).not.toHaveBeenCalled();
+  });
+
+  it('onglet Disney+ ouvert avant le retrait → NOT_TRACKED (Disney+ désactivé)', async () => {
+    access.hasPlatformAccess.mockImplementation((platform: string) => Promise.resolve(platform !== 'disney'));
+    const result = await resolvePageMedia({ page: page({ platform: 'disney', episodeId: '0580a81e-2408-48e8-a6e0-14da8ca0e87f', seriesId: null }), mediaId: null });
+    expect(result).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform: 'Disney+' }) });
     expect(resolver.resolveEpisode).not.toHaveBeenCalled();
   });
 });
@@ -62,7 +69,7 @@ describe('resolvePageMedia — accès Netflix retiré', () => {
 describe('resolvePageMedia — série ignorée', () => {
   it('Netflix sans fiche liée ni même titre → NOT_TRACKED, message neutre (pas « introuvable »)', async () => {
     resolver.resolveEpisode.mockResolvedValue({ result: { ok: false, reason: 'x', ignored: true }, candidates: [], seasons: [], seasonGroups: [] });
-    expect(await resolvePageMedia({ page: page(), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.notTracked') });
+    expect(await resolvePageMedia({ page: page(), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Netflix' }) });
     // Résultat mémorisé : une relecture du panneau ne relance pas la recherche
     await resolvePageMedia({ page: page(), mediaId: null });
     expect(resolver.resolveEpisode).toHaveBeenCalledTimes(1);
