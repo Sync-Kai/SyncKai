@@ -1,7 +1,7 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { createNetflixBridgeClient, type NetflixBridgeClient } from '../netflix/bridge-client';
-import type { NetflixSeasonMetadata, NetflixShowMetadata } from '../netflix/bridge-protocol';
+import type { NetflixEpisodeMetadata, NetflixSeasonMetadata, NetflixShowMetadata } from '../netflix/bridge-protocol';
 import { findPlayerVideo } from '../lib/find-video';
 import type { StreamingAdapter } from './adapter';
 import { meaningfulSeasonTitle } from './parsing';
@@ -33,6 +33,29 @@ export function absoluteEpisodeNumber(seasons: readonly NetflixSeasonMetadata[],
   return before + episodeSeq;
 }
 
+/**
+ * Numéros de l'épisode : numéro dans la saison, et numéro « absolu » affiché.
+ * - Numérotation par saison (chaque saison repart de 1 : Ranma1/2, Mushoku Tensei) : `seq` dans la saison, numéro absolu
+ *   = épisodes des saisons précédentes + `seq` (absoluteEpisodeNumber).
+ * - Numérotation déjà absolue (One Piece : saison 40 « Elbaph Arc » = E1156…E1180) : la saison ne commence pas à 1 et
+ *   son premier numéro dépasse le nombre d'épisodes des saisons précédentes (Netflix n'en propose souvent qu'une
+ *   partie). `seq` EST le numéro absolu (il ne faut rien y ajouter : 1180 devenait 1377) ; numéro dans la saison = rang
+ *   de l'épisode dans la saison. Une saison qui commence à 2 (1er épisode absent) reste relative.
+ */
+export function episodeNumbers(
+  seasons: readonly NetflixSeasonMetadata[],
+  season: NetflixSeasonMetadata,
+  episode: NetflixEpisodeMetadata,
+): { seasonEpisodeNumber: number; displayedEpisodeNumber: number | null } {
+  const first = Math.min(...season.episodes.map((e) => e.seq));
+  const before = seasons.filter((s) => s.seq < season.seq).reduce((sum, s) => sum + s.episodes.length, 0);
+  if (first > 1 && first > before) {
+    const rank = season.episodes.filter((e) => e.seq <= episode.seq).length;
+    return { seasonEpisodeNumber: rank, displayedEpisodeNumber: episode.seq };
+  }
+  return { seasonEpisodeNumber: episode.seq, displayedEpisodeNumber: absoluteEpisodeNumber(seasons, season.seq, episode.seq) };
+}
+
 const watchUrl = (movieId: string): string => `https://www.netflix.com/watch/${movieId}`;
 
 /**
@@ -52,8 +75,7 @@ export function episodeInfoFromMetadata(show: NetflixShowMetadata, movieId: stri
       ...base,
       seasonNumber: season.seq,
       seasonTitle: meaningfulSeasonTitle(season.title),
-      seasonEpisodeNumber: episode.seq,
-      displayedEpisodeNumber: absoluteEpisodeNumber(show.seasons, season.seq, episode.seq),
+      ...episodeNumbers(show.seasons, season, episode),
       episodeTitle: episode.title,
     };
   }
