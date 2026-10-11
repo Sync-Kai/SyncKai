@@ -8,7 +8,7 @@ import { createLogger } from '../shared/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
 import { sendMessage } from '../shared/messages';
 import { endSession } from '../shared/session-end';
-import { getCachedMalViewer, getCachedViewer, getMalToken, getValidToken, hasAniListToken, STORAGE_KEYS } from '../shared/storage';
+import { getCachedMalViewer, getCachedViewer, getMalToken, getValidToken, hasAniListToken, isSessionExpired, STORAGE_KEYS } from '../shared/storage';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { createStore, LOGGED_OUT, type AccountState, type AniListState, type MalState, type Store } from '../popup/state';
 
@@ -122,8 +122,9 @@ export function createAccountsController(): AccountsController {
       // MAL : token présent, même expiré (le service worker le renouvellera)
       const token = service === 'anilist' ? await getValidToken() : await getMalToken();
       if (!token) {
-        // Token AniList présent mais expiré : on propose « Reconnecter » plutôt que l'accueil
-        target.set({ ...LOGGED_OUT, expired: service === 'anilist' && (await hasAniListToken()) });
+        // Token AniList présent mais expiré, ou session invalidée en arrière-plan (AUTH-03) : « Reconnecter » plutôt que l'accueil
+        const expired = (service === 'anilist' && (await hasAniListToken())) || (await isSessionExpired(service));
+        target.set({ ...LOGGED_OUT, expired });
         return;
       }
       await loadCachedViewer(service);
@@ -139,8 +140,26 @@ export function createAccountsController(): AccountsController {
     const target = store(service);
     const state = target.get();
     const hasToken = change.newValue !== undefined;
-    if (!hasToken && state.status === 'logged-in') target.set(LOGGED_OUT);
-    else if (hasToken && state.status === 'logged-out' && !state.pending) void bootstrap(service);
+    if (!hasToken && state.status === 'logged-in') {
+      target.set(LOGGED_OUT);
+      void showExpiredIfInvalidated(service);
+    } else if (hasToken && state.status === 'logged-out' && !state.pending) void bootstrap(service);
+  }
+
+  /**
+   * Token supprimé par le service worker (refusé, renouvellement impossible) : l'indicateur, écrit avant la
+   * suppression, donne « Session expirée » au lieu de « Non connecté » (AUTH-03). Absent après une déconnexion volontaire.
+   */
+  async function showExpiredIfInvalidated(service: TrackerId): Promise<void> {
+    try {
+      if (!(await isSessionExpired(service))) return;
+    } catch (error: unknown) {
+      log.error('Lecture du stockage impossible :', error);
+      return;
+    }
+    const target = store(service);
+    const state = target.get();
+    if (state.status === 'logged-out' && !state.pending && !state.expired) target.set({ ...state, expired: true });
   }
 
   // La vue se ferme souvent pendant l'OAuth, et le service worker peut invalider une session : on suit le stockage

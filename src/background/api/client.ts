@@ -55,7 +55,9 @@ async function request<T>(
   let body: unknown = null;
   try {
     body = await response.json();
-  } catch {
+  } catch (error: unknown) {
+    // Le délai couvre aussi la lecture du corps : c'est un délai dépassé, pas une réponse invalide (AUTH-09)
+    if (isTimeoutError(error)) throw new ApiError('NETWORK', t('api.timeout', { service: 'AniList' }), { timedOut: true });
     // Corps non JSON (page d'erreur proxy…) : traité plus bas via le statut HTTP
   }
 

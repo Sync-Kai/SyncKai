@@ -22,6 +22,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Plusieurs requêtes MyAnimeList refusées en même temps ne renouvellent plus la session une fois chacune : un seul renouvellement, que les autres réutilisent (moins de déconnexions intempestives).
 - Après une déconnexion pendant un chargement, le profil, la dernière comparaison AniList ↔ MAL et la semaine d’agenda de l’ancien compte ne sont plus réenregistrés ; le compte suivant ne voit plus la liste *En cours* de l’ancien.
 - Déconnexion du dernier compte : les alertes de sortie déjà envoyées, leurs séries et la date de la dernière vérification sont effacées, et une vérification en cours n’envoie plus de notification pour le compte déconnecté.
+- Accès révoqué sur AniList, ou session MyAnimeList impossible à renouveler, pendant une synchro en arrière-plan : le popup, le panneau et les réglages affichent *Session expirée* en rouge avec *Reconnecter*, au lieu de *Non connecté*.
+- MyAnimeList qui ne répond pas au renouvellement de la session : abandon après 20 secondes avec le message *délai dépassé*, au lieu de bloquer sans fin les synchros MyAnimeList, la liste *En cours*, l’alignement et l’import.
+- Trop de requêtes (erreur 429) au renouvellement de la session MyAnimeList : la session est gardée, et l’alignement ou l’import Crunchyroll fait une pause puis réessaie au lieu de marquer la série en échec.
+- Réponse d’AniList ou de MyAnimeList trop lente à arriver (connexion faible, longue liste) : message *délai dépassé* au lieu de *réponse inattendue*, et les tâches de fond réessaient.
+- Première connexion à MyAnimeList refusée à la dernière étape (code expiré, URL de redirection de l’app différente) : le message en donne la cause et rappelle l’URL de redirection attendue, au lieu de *Session MyAnimeList expirée*.
 
 - Une préquelle ou une suite publiée comme une autre série sur la plateforme (Naruto pour Naruto Shippuden, Bleach pour Bleach TYBW…) n’est plus comptée comme une saison de la série regardée : la progression n’est plus écrite sur la fiche de la série précédente.
 - Film Netflix : la fiche AniList liée au film l’emporte sur une série TV au même titre ; une fiche trouvée par son seul titre passe par une carte *À vérifier*.

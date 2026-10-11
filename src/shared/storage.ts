@@ -43,6 +43,28 @@ export const STORAGE_KEYS = {
   crImportPlan: 'crImport:plan',
 } as const;
 
+/**
+ * Session invalidée par le service (token refusé, renouvellement MAL impossible) : « Session expirée » dans
+ * l'interface plutôt que « Non connecté » (AUTH-03). Effacé par une déconnexion volontaire et par une connexion réussie.
+ */
+export const SESSION_EXPIRED_KEYS: Readonly<Record<TrackerId, string>> = {
+  anilist: 'sessionExpired:anilist',
+  mal: 'sessionExpired:mal',
+};
+
+/** Session du service invalidée en arrière-plan depuis la dernière connexion (voir SESSION_EXPIRED_KEYS) */
+export async function isSessionExpired(service: TrackerId): Promise<boolean> {
+  const key = SESSION_EXPIRED_KEYS[service];
+  return (await chrome.storage.local.get(key))[key] === true;
+}
+
+/** Pose (invalidation) ou retire (déconnexion volontaire, connexion) l'indicateur de session expirée */
+async function setSessionExpired(service: TrackerId, expired: boolean): Promise<void> {
+  const key = SESSION_EXPIRED_KEYS[service];
+  if (expired) await chrome.storage.local.set({ [key]: true });
+  else await chrome.storage.local.remove(key);
+}
+
 /** Import Crunchyroll : propre au compte (aperçu = état des listes), effacé à toute déconnexion */
 const CR_IMPORT_STORAGE_KEYS = [STORAGE_KEYS.crImportJob, STORAGE_KEYS.crImportInput, STORAGE_KEYS.crImportResolutions, STORAGE_KEYS.crImportPlan];
 
@@ -59,8 +81,10 @@ export async function hasAniListToken(): Promise<boolean> {
   return isAniListToken(stored[STORAGE_KEYS.anilistToken]);
 }
 
+/** Connexion AniList réussie : nouveau token, indicateur « Session expirée » retiré */
 export async function saveToken(token: AniListToken): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.anilistToken]: token });
+  await setSessionExpired('anilist', false);
 }
 
 export async function getCachedViewer(): Promise<AniListViewer | null> {
@@ -160,11 +184,13 @@ export function addRecentSync(sync: RecentSync): Promise<void> {
  * Appelée à la déconnexion comme à l'invalidation du token.
  */
 export function clearAniListSession(): Promise<void> {
-  return withStorageLock(removeAniListSession);
+  return withStorageLock(() => removeAniListSession(false));
 }
 
-/** Corps de clearAniListSession, sans verrou */
-async function removeAniListSession(): Promise<void> {
+/** Corps de clearAniListSession, sans verrou. `expired` : session invalidée par AniList (et non déconnexion volontaire) */
+async function removeAniListSession(expired: boolean): Promise<void> {
+  // Indicateur écrit avant la suppression du token : l'interface qui réagit à cette suppression le lit déjà (AUTH-03)
+  await setSessionExpired('anilist', expired);
   await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
   await removeCachedWatching('anilist');
   await bumpSessionEpoch('anilist');
@@ -179,7 +205,7 @@ export function clearAniListSessionIfToken(accessToken: string): Promise<boolean
   return withStorageLock(async () => {
     const stored: unknown = (await chrome.storage.local.get(STORAGE_KEYS.anilistToken))[STORAGE_KEYS.anilistToken];
     if (!isAniListToken(stored) || stored.accessToken !== accessToken) return false;
-    await removeAniListSession();
+    await removeAniListSession(true);
     return true;
   });
 }
@@ -235,9 +261,10 @@ export async function getMalToken(): Promise<MalToken | null> {
   return isMalToken(token) ? token : null;
 }
 
-/** Connexion MAL (nouvelle session). Un renouvellement passe par saveRefreshedMalToken. */
+/** Connexion MAL (nouvelle session), indicateur « Session expirée » retiré. Un renouvellement passe par saveRefreshedMalToken. */
 export async function saveMalToken(token: MalToken): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.malToken]: token });
+  await setSessionExpired('mal', false);
 }
 
 /**
@@ -266,11 +293,13 @@ export function saveCachedMalViewer(viewer: MalViewer, epoch: number): Promise<b
 
 /** Comme clearAniListSession : token, profil et liste « En cours » MAL en cache, puis la part MAL des données du compte. */
 export function clearMalSession(): Promise<void> {
-  return withStorageLock(removeMalSession);
+  return withStorageLock(() => removeMalSession(false));
 }
 
-/** Corps de clearMalSession, sans verrou */
-async function removeMalSession(): Promise<void> {
+/** Corps de clearMalSession, sans verrou. `expired` : session invalidée par MyAnimeList (et non déconnexion volontaire) */
+async function removeMalSession(expired: boolean): Promise<void> {
+  // Indicateur écrit avant la suppression du token, comme pour AniList (AUTH-03)
+  await setSessionExpired('mal', expired);
   await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
   await removeCachedWatching('mal');
   await bumpSessionEpoch('mal');
@@ -281,7 +310,7 @@ async function removeMalSession(): Promise<void> {
 export function clearMalSessionIfToken(accessToken: string): Promise<boolean> {
   return withStorageLock(async () => {
     if ((await getMalToken())?.accessToken !== accessToken) return false;
-    await removeMalSession();
+    await removeMalSession(true);
     return true;
   });
 }

@@ -54,6 +54,7 @@
   "api.timeout": "{service} ne répond pas (délai dépassé).",
   "auth.cancelled": "Connexion annulée.",
   "auth.denied": "Accès refusé par {service}.",
+  "auth.exchangeFailed.mal": "MyAnimeList a refusé de finaliser la connexion (code expiré ou App Redirect URL différente). Réessaie, et vérifie que l’App Redirect URL est : {url}",
   "auth.failed": "Échec de l’authentification : {message}",
   "auth.finalizeFailed": "Impossible de finaliser la connexion.",
   "auth.invalidResponse.anilist": "Réponse d’AniList invalide.",

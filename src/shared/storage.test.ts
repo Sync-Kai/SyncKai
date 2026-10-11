@@ -354,3 +354,29 @@ describe('token refusé (AUTH-02)', () => {
     expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 0, mal: 1 });
   });
 });
+
+describe('indicateur « Session expirée » (AUTH-03)', () => {
+  it('posé par un token refusé, retiré par la déconnexion volontaire et par une connexion', async () => {
+    const { SESSION_EXPIRED_KEYS } = storage;
+    seedEverything();
+    expect(await storage.clearAniListSessionIfToken('anilist')).toBe(true);
+    expect(await storage.clearMalSessionIfToken('mal')).toBe(true);
+    expect(await storage.isSessionExpired('anilist')).toBe(true);
+    expect(await storage.isSessionExpired('mal')).toBe(true);
+    // Les données de l'utilisateur (plus aucune session ouverte) n'emportent pas l'indicateur
+    await storage.clearUserSyncDataIfNoSession();
+    expect(store.get(SESSION_EXPIRED_KEYS.anilist)).toBe(true);
+
+    await storage.saveToken(ANILIST_TOKEN);
+    await storage.saveMalToken(MAL_TOKEN);
+    expect(await storage.isSessionExpired('anilist')).toBe(false);
+    expect(await storage.isSessionExpired('mal')).toBe(false);
+
+    store.set(SESSION_EXPIRED_KEYS.anilist, true);
+    store.set(SESSION_EXPIRED_KEYS.mal, true);
+    await storage.clearAniListSession();
+    await storage.clearMalSession();
+    expect(store.has(SESSION_EXPIRED_KEYS.anilist)).toBe(false);
+    expect(store.has(SESSION_EXPIRED_KEYS.mal)).toBe(false);
+  });
+});

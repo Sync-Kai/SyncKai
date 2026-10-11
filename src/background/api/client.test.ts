@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AniListToken } from '../../shared/auth.types';
 
-vi.mock('../../shared/storage', () => ({ getValidToken: async () => null }));
-vi.mock('../../shared/session-end', () => ({ endSessionIfToken: async () => true }));
+// Token AniList et fermeture de session simulés : aucun token par défaut (catalogue public)
+const mocks = vi.hoisted(() => ({
+  getValidToken: vi.fn<() => Promise<AniListToken | null>>(async () => null),
+  endSessionIfToken: vi.fn<(service: string, accessToken: string) => Promise<boolean>>(async () => true),
+}));
+vi.mock('../../shared/storage', () => ({ getValidToken: mocks.getValidToken }));
+vi.mock('../../shared/session-end', () => ({ endSessionIfToken: mocks.endSessionIfToken }));
 
-import { anilistPublicQuery } from './client';
-import { aniListBudget } from './rate-limit';
+import { anilistPublicQuery, anilistQuery } from './client';
+import { aniListBudget, MAX_RETRY_WAIT_MS } from './rate-limit';
 
 const isAny = (data: unknown): data is { ok: boolean } => typeof data === 'object' && data !== null;
 const json = (status: number, body: unknown, headers: Record<string, string> = {}): Response =>
@@ -44,5 +50,77 @@ describe('client AniList : 429 et budget partagé', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(5_000);
     await expect(result).resolves.toEqual({ ok: true });
+  });
+});
+
+describe('client AniList : token refusé et erreurs GraphQL (TEST-03)', () => {
+  const token = (accessToken: string): AniListToken => ({ accessToken, expiresAt: Number.MAX_SAFE_INTEGER });
+  const authorization = (init: RequestInit | undefined): string | null => new Headers(init?.headers).get('Authorization');
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // Bien après les pénalités des tests précédents (budget partagé par le module)
+    vi.setSystemTime(Date.parse('2026-10-09T12:00:00Z'));
+    // Token A jusqu'à la fermeture de la session (comme clearAniListSessionIfToken)
+    let current: AniListToken | null = token('A');
+    mocks.getValidToken.mockImplementation(async () => current);
+    mocks.endSessionIfToken.mockImplementation(async () => {
+      current = null;
+      return true;
+    });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    mocks.getValidToken.mockReset();
+    mocks.endSessionIfToken.mockReset();
+  });
+
+  it('« Invalid token » en mode public : session fermée, requête rejouée sans Authorization', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(json(400, { errors: [{ message: 'Invalid token', status: 400 }] }))
+      .mockResolvedValueOnce(json(200, { data: { ok: true } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(anilistPublicQuery('query { ok }', isAny)).resolves.toEqual({ ok: true });
+    expect(mocks.endSessionIfToken).toHaveBeenCalledWith('anilist', 'A');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(authorization(fetchMock.mock.calls[0]?.[1])).toBe('Bearer A');
+    expect(authorization(fetchMock.mock.calls[1]?.[1])).toBeNull();
+  });
+
+  it('« Invalid token » en mode required : TOKEN_INVALID, aucun rejeu', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(json(400, { errors: [{ message: 'Invalid token', status: 400 }] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(anilistQuery('query { ok }', isAny)).rejects.toMatchObject({ code: 'TOKEN_INVALID' });
+    expect(mocks.endSessionIfToken).toHaveBeenCalledWith('anilist', 'A');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('200 avec errors : API_ERROR, session intacte', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(json(200, { data: null, errors: [{ message: 'Not Found.', status: 404 }] })));
+
+    await expect(anilistQuery('query { ok }', isAny)).rejects.toMatchObject({ code: 'API_ERROR', httpStatus: 200 });
+    expect(mocks.endSessionIfToken).not.toHaveBeenCalled();
+  });
+
+  it('délai dépassé pendant la lecture du corps : NETWORK avec timedOut, pas « réponse invalide » (AUTH-09)', async () => {
+    const response = json(200, { data: { ok: true } });
+    response.json = (): Promise<never> => Promise.reject(new DOMException('signal timed out', 'TimeoutError'));
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(response));
+
+    await expect(anilistQuery('query { ok }', isAny)).rejects.toMatchObject({ code: 'NETWORK', timedOut: true });
+  });
+
+  it('pénalité plus longue que l’attente maximale : RATE_LIMITED aussitôt, sans requête', async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    aniListBudget.penalize(MAX_RETRY_WAIT_MS + 10_000);
+
+    await expect(anilistQuery('query { ok }', isAny)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(MAX_RETRY_WAIT_MS + 10_000);
   });
 });

@@ -4,7 +4,7 @@ import { isRecord } from '../../shared/guards';
 import type { MalToken } from '../../shared/mal.types';
 import { endSessionIfToken } from '../../shared/session-end';
 import { getMalToken, getOpenSessions, saveMalToken, saveRefreshedMalToken } from '../../shared/storage';
-import { ApiError } from '../api/errors';
+import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../api/errors';
 import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
 import { createCodeVerifier, createState } from './pkce';
 import { createLogger } from '../../shared/logger';
@@ -25,7 +25,11 @@ function toMalToken(value: unknown): MalToken | null {
   return { accessToken: access_token, refreshToken: refresh_token, expiresAt: Date.now() + expires_in * 1000 };
 }
 
-/** POST sur l'endpoint de token (échange de code ou renouvellement). */
+/**
+ * POST sur l'endpoint de token (échange de code ou renouvellement). Erreurs : TOKEN_INVALID (400/401, nouvelle
+ * connexion nécessaire), RATE_LIMITED (429), NETWORK (avec `timedOut` après le délai), API_ERROR avec `httpStatus`
+ * (5xx : passager, retenté par les tâches de fond), INVALID_RESPONSE.
+ */
 async function requestToken(params: Record<string, string>): Promise<MalToken> {
   const clients = getOAuthClients();
   if (!clients) {
@@ -34,14 +38,18 @@ async function requestToken(params: Record<string, string>): Promise<MalToken> {
     log.warn('Aucune app MyAnimeList pour cet ID d’extension | redirect_uri à enregistrer :', redirectUri);
     throw new ApiError('TOKEN_INVALID', t('auth.notConfigured', { url: redirectUri }));
   }
+  const timeout = (): ApiError => new ApiError('NETWORK', t('api.timeout', { service: 'MyAnimeList' }), { timedOut: true });
   let response: Response;
   try {
     response = await fetch(MAL_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_id: clients.malClientId, ...params }),
+      // Appelé sous le verrou de renouvellement : sans délai, un MAL qui ne répond pas bloquerait toutes les requêtes MAL (AUTH-05)
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-  } catch {
+  } catch (error: unknown) {
+    if (isTimeoutError(error)) throw timeout();
     throw new ApiError('NETWORK', t('api.network', { service: 'MyAnimeList' }));
   }
 
@@ -49,13 +57,16 @@ async function requestToken(params: Record<string, string>): Promise<MalToken> {
   if (response.status === 400 || response.status === 401) {
     throw new ApiError('TOKEN_INVALID', t('api.sessionExpired', { service: 'MyAnimeList' }));
   }
+  // 429 et 5xx : passagers, la session reste valide (AUTH-07)
+  if (response.status === 429) throw new ApiError('RATE_LIMITED', t('api.rateLimited', { service: 'MyAnimeList' }));
   if (!response.ok) throw new ApiError('API_ERROR', t('api.httpError', { service: 'MyAnimeList', status: response.status }), { httpStatus: response.status });
 
   let body: unknown = null;
   try {
     body = await response.json();
-  } catch {
-    // traité ci-dessous
+  } catch (error: unknown) {
+    // Le délai couvre aussi la lecture du corps : c'est un délai dépassé, pas une réponse invalide (AUTH-09)
+    if (isTimeoutError(error)) throw timeout();
   }
   const token = toMalToken(body);
   if (!token) throw new ApiError('INVALID_RESPONSE', t('api.invalidResponse.mal'));
@@ -122,7 +133,12 @@ export async function loginWithMal(): Promise<AuthResult> {
     await saveMalToken(token);
     return { ok: true, data: null };
   } catch (error: unknown) {
-    log.error('Échange du code MyAnimeList impossible :', error);
+    log.error('Échange du code MyAnimeList impossible :', error, '| redirect_uri :', redirectUri);
+    // Code refusé (expiré, code_verifier ou redirect_uri différents de l'app MAL) : aucune session n'existait encore,
+    // ce n'est pas une « session expirée » (AUTH-10)
+    if (error instanceof ApiError && error.code === 'TOKEN_INVALID') {
+      return { ok: false, code: 'AUTH_FLOW_FAILED', message: t('auth.exchangeFailed.mal', { url: redirectUri }) };
+    }
     return { ok: false, code: 'UNKNOWN', message: error instanceof ApiError ? error.message : t('auth.finalizeFailed') };
   }
 }

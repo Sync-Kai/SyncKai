@@ -54,6 +54,7 @@
   "api.timeout": "{service} antwortet nicht (Zeitüberschreitung).",
   "auth.cancelled": "Anmeldung abgebrochen.",
   "auth.denied": "Zugriff von {service} verweigert.",
+  "auth.exchangeFailed.mal": "MyAnimeList hat den Abschluss der Anmeldung abgelehnt (Code abgelaufen oder abweichende App Redirect URL). Versuche es erneut und prüfe, ob die App Redirect URL lautet: {url}",
   "auth.failed": "Authentifizierung fehlgeschlagen: {message}",
   "auth.finalizeFailed": "Anmeldung konnte nicht abgeschlossen werden.",
   "auth.invalidResponse.anilist": "Ungültige Antwort von AniList.",

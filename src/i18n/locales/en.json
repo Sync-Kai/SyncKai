@@ -54,6 +54,7 @@
   "api.timeout": "{service} is not responding (timed out).",
   "auth.cancelled": "Sign-in cancelled.",
   "auth.denied": "Access denied by {service}.",
+  "auth.exchangeFailed.mal": "MyAnimeList refused to complete sign-in (expired code or different App Redirect URL). Try again, and check that the App Redirect URL is: {url}",
   "auth.failed": "Authentication failed: {message}",
   "auth.finalizeFailed": "Couldn't complete sign-in.",
   "auth.invalidResponse.anilist": "Invalid response from AniList.",
