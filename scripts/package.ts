@@ -14,6 +14,7 @@ import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { crc32, deflateRawSync } from 'node:zlib';
+import { GIT_COMMIT_EPOCH_ARGS } from '../src/build/build-stamp.ts';
 import { FIREFOX_GECKO_ID, parseBuildTarget, targetOutDir, type BuildTarget } from '../src/build/manifest-target.ts';
 
 interface PackageJson {
@@ -137,8 +138,9 @@ function packageSource(version: string): void {
   if (git(['status', '--porcelain', '--untracked-files=no']) !== '') {
     console.warn('⚠ Modifications non commitées : elles ne sont pas dans l’archive (seul HEAD est archivé).');
   }
-  // Lu par vite.config.ts quand l'archive est construite hors dépôt git (même __SYNCKAI_BUILD__ que le paquet)
-  const epoch = git(['log', '-1', '--format=%ct', 'HEAD']);
+  // Lu par vite.config.ts quand l'archive est construite hors dépôt git. Même commande git que le build du paquet
+  // (GIT_COMMIT_EPOCH_ARGS) → même __SYNCKAI_BUILD__ ; vérifié en CI par un build depuis l'archive (diff -r)
+  const epoch = git(GIT_COMMIT_EPOCH_ARGS);
   mkdirSync(RELEASE, { recursive: true });
   const zipPath = join(RELEASE, `synckai-${version}-source.zip`);
   git(['archive', '--format=zip', `--add-virtual-file=.source-date-epoch:${epoch}`, '-o', zipPath, 'HEAD']);

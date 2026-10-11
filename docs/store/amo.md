@@ -34,7 +34,7 @@ Les tuiles promo du Chrome Web Store n'ont pas d'équivalent sur AMO.
 ## Examen et code source
 
 - Le paquet est minifié par Vite : AMO exige les sources. Le workflow joint `release/synckai-<version>-source.zip` (`git archive` du tag + `.source-date-epoch`), à reconstruire avec `npm ci --ignore-scripts && npm run build:firefox` (voir `BUILD.md` : sans `--ignore-scripts`, le postinstall de `puppeteer` télécharge Chrome).
-- Le relecteur compare son build au paquet envoyé : les fichiers doivent être identiques (dépendances figées par `package-lock.json`, horodatage tiré de `.source-date-epoch`).
+- Le relecteur compare son build au paquet envoyé : les fichiers doivent être identiques (dépendances figées par `package-lock.json`, horodatage tiré de `.source-date-epoch`, noms de fichiers indépendants du dossier de build). `release.yml` le vérifie avant chaque envoi : archive des sources décompressée dans un autre dossier, build sans `SOURCE_DATE_EPOCH`, `diff -r` avec l'archive Firefox ; un écart bloque l'envoi.
 - **Netflix (2.1.0)** : à signaler au relecteur (paragraphe ajouté à `version.approval_notes`, envoyé à chaque version) :
   - accès `*://*.netflix.com/*` dans `optional_host_permissions` : demandé seulement quand l'utilisateur active « Synchroniser sur Netflix » (Réglages › Lecture & synchro), retiré à la désactivation ;
   - permission `scripting` : enregistre (`registerContentScripts`) les deux scripts Netflix du paquet après cet accord, et les exécute une fois dans les onglets Netflix déjà ouverts ; aucun script distant, aucun `eval` ;

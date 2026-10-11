@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:e2e": "tsc --noEmit -p scripts/e2e && vitest run -c vitest.e2e.config.ts",
     "lint:firefox": "web-ext lint --source-dir dist-firefox",
+    "verify:build": "tsc --noEmit -p scripts && node scripts/verify-build.ts",
     "icons": "tsc --noEmit -p scripts && node scripts/generate-icons.ts",
     "package": "tsc --noEmit -p scripts && npm run build && node scripts/package.ts",
     "package:firefox": "tsc --noEmit -p scripts && npm run build:firefox && node scripts/package.ts --target firefox",

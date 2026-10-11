@@ -44,6 +44,21 @@ jobs:
       - name: Build Firefox + web-ext lint
         run: npm run build:firefox && npm run lint:firefox
 
+      # Paquets construits : fichiers référencés, web_accessible_resources, IIFE Netflix, permissions, budgets
+      - name: Vérification des paquets construits
+        run: npm run verify:build
+
+      # Comme le relecteur AMO : archive des sources décompressée ailleurs, build sans SOURCE_DATE_EPOCH
+      # (horodatage lu dans .source-date-epoch), puis comparaison avec le build Firefox du dépôt
+      - name: Build Firefox reproductible depuis l'archive des sources
+        run: |
+          npm run package:source
+          repro="$(mktemp -d)/synckai-source"
+          unzip -q release/synckai-*-source.zip -d "$repro"
+          (cd "$repro" && env -u SOURCE_DATE_EPOCH npm ci --ignore-scripts --no-audit --no-fund && env -u SOURCE_DATE_EPOCH npm run build:firefox)
+          diff -r dist-firefox "$repro/dist-firefox"
+          echo "Build Firefox identique depuis l'archive des sources ($repro)."
+
   e2e:
     name: Tests de bout en bout (popup)
     runs-on: ubuntu-latest

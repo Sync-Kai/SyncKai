@@ -2,7 +2,8 @@ name: Release
 
 # Un tag de version poussé (git push origin vx.y.z) :
 #   build → tag sur main, tests (unitaires, dont les justifications de permissions, + bout en bout du popup),
-#           archives Chrome, Firefox et sources (artefact partagé)
+#           archives Chrome, Firefox et sources (artefact partagé), paquets vérifiés (verify:build),
+#           build Firefox depuis l'archive des sources identique à l'archive Firefox (relecture AMO)
 #   chrome → envoi + soumission au Chrome Web Store
 #   firefox → envoi + soumission sur Firefox Add-ons (AMO), en parallèle
 #   github-release → release GitHub avec les trois archives, si le Chrome Web Store a accepté la version
@@ -89,6 +90,25 @@ jobs:
 
       - name: web-ext lint (Firefox)
         run: npm run lint:firefox
+
+      # dist/ et dist-firefox/ (construits par package:all) : fichiers référencés, web_accessible_resources,
+      # IIFE Netflix, permissions, budgets des scripts de contenu
+      - name: Vérification des paquets construits
+        run: npm run verify:build
+
+      # Ce que fait le relecteur AMO : archive des sources décompressée dans un autre dossier, build sans
+      # SOURCE_DATE_EPOCH (horodatage lu dans .source-date-epoch), comparaison avec l'archive Firefox envoyée.
+      # Le moindre écart bloque l'envoi aux deux stores.
+      - name: Build Firefox reproductible depuis l'archive des sources
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          repro="$(mktemp -d)"
+          unzip -q "release/synckai-$VERSION-source.zip" -d "$repro/source"
+          unzip -q "release/synckai-$VERSION-firefox.zip" -d "$repro/submitted"
+          (cd "$repro/source" && env -u SOURCE_DATE_EPOCH npm ci --ignore-scripts --no-audit --no-fund && env -u SOURCE_DATE_EPOCH npm run build:firefox)
+          diff -r "$repro/submitted" "$repro/source/dist-firefox"
+          echo "Archive Firefox identique au build depuis l'archive des sources."
 
       - name: Notes de version
         run: node scripts/changelog-notes.ts "${{ steps.version.outputs.version }}" > release/notes.md
