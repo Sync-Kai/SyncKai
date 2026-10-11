@@ -1,6 +1,6 @@
 // Graphe des imports relatifs de src/, tests compris, lu par Vite (sources brutes) sans dépendance. Partagé par le
-// test des frontières des modules (src/architecture.test.ts), celui des expéditeurs de messages (messages.test.ts) et
-// celui des traductions des scripts de contenu (i18n/content.test.ts).
+// test des frontières des modules (src/architecture.test.ts), celui des expéditeurs de messages
+// (background/message-guards.test.ts) et celui des traductions des scripts de contenu (i18n/content.test.ts).
 // Imports de types inclus (marqués `typeOnly`) : un cycle de types finit souvent en cycle de valeurs.
 
 /** Sources de src/, clés relatives à src/ ("popup/popup.ts") */

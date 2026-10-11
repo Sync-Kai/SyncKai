@@ -20,16 +20,8 @@ import { confirmReview, ignoreReview } from './sync/review-decision';
 import { refreshReviewBadge } from '../shared/badge';
 import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { STORAGE_KEYS } from '../shared/storage-keys';
-import {
-  isAllowedOrigin,
-  isExtensionPageSender,
-  isRuntimeMessage,
-  type MessageOrigin,
-  type MessagePayload,
-  type MessageResponse,
-  type MessageType,
-  type RuntimeMessage,
-} from '../shared/messages';
+import type { MessagePayload, MessageResponse, MessageType, RuntimeMessage } from '../shared/messages';
+import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, type MessageOrigin } from './message-guards';
 import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
 import { enablePanelForSender, resetSidePanel } from './side-panel';

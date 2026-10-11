@@ -11,13 +11,14 @@ export const NETFLIX_PATTERN = '*://*.netflix.com/*';
 
 /**
  * Budget du script de contenu Crunchyroll / ADN : chargeur + tous les chunks qu'il charge (imports statiques et
- * dynamiques). Mesuré à 128,8 Ko au 2026-10-11, avec les seules clés i18n du contenu (src/i18n/content-keys.ts,
- * PERF-01 ; 267 Ko avec les catalogues complets) : ~10 % de marge.
+ * dynamiques). Mesuré à 75,6 Ko au 2026-10-11 (PERF-01 : 267 Ko avec les catalogues i18n complets, 129,5 Ko avec
+ * les seules clés du contenu, puis gardes des messages, icônes, écritures des exclusions et descripteurs des plateformes
+ * sortis du graphe du contenu, voir architecture.test.ts) : ~10 % de marge.
  */
-export const CONTENT_SCRIPT_BUDGET_BYTES = 142 * 1024;
+export const CONTENT_SCRIPT_BUDGET_BYTES = 83 * 1024;
 
-/** Budget des deux scripts Netflix (IIFE autonomes, clés i18n du contenu comprises) : 69,5 Ko mesurés au 2026-10-11, ~10 % de marge */
-export const NETFLIX_SCRIPTS_BUDGET_BYTES = 77 * 1024;
+/** Budget des deux scripts Netflix (IIFE autonomes, clés i18n du contenu comprises) : 59,4 Ko mesurés au 2026-10-11, ~10 % de marge */
+export const NETFLIX_SCRIPTS_BUDGET_BYTES = 65 * 1024;
 
 /** Champs du manifeste généré lus par les contrôles */
 export interface BuiltManifest {

@@ -27,8 +27,8 @@ vi.mock('../../shared/logger', () => {
   const journal = (...args: unknown[]): void => void mocks.journaled.push(args);
   return { createLogger: () => ({ debug: noop, info: noop, warn: journal, error: journal }) };
 });
-vi.mock('../../shared/exclusions', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../shared/exclusions')>()),
+vi.mock('../../shared/exclusions-core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../shared/exclusions-core')>()),
   isExcluded: mocks.isExcluded,
 }));
 vi.mock('../../shared/settings', async (importOriginal) => ({

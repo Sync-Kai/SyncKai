@@ -1,6 +1,6 @@
 import { AIRING_DELAYS, type AiringDelayHours } from './engagement.types';
 import { isRecord } from './guards';
-import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platforms';
+import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
 import { TRACKER_IDS, type TrackerId } from './tracker.types';
 
 export type CompletionTrigger = 'credits' | 'percentage';

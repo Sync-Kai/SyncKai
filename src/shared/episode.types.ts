@@ -1,7 +1,7 @@
 import { isRecord } from './guards';
-import { PLATFORMS, type StreamingPlatform } from './platforms';
+import { STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
 
-export type { StreamingPlatform } from './platforms';
+export type { StreamingPlatform } from './platform-ids';
 
 /**
  * Épisode détecté sur une plateforme de streaming.
@@ -33,7 +33,7 @@ export interface EpisodeInfo {
 
 /** Plateforme de streaming connue de SyncKai (valeur venant d'un message ou du stockage) */
 export function isStreamingPlatform(value: unknown): value is StreamingPlatform {
-  return typeof value === 'string' && Object.hasOwn(PLATFORMS, value);
+  return typeof value === 'string' && (STREAMING_PLATFORMS as readonly string[]).includes(value);
 }
 
 const isNullableNumber = (v: unknown): v is number | null => v === null || typeof v === 'number';

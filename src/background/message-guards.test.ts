@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { MessageType } from '../shared/messages';
 import { layerFiles, reachableFrom, SOURCES } from '../test/import-graph';
-import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, MESSAGE_ORIGINS, type MessageType } from './messages';
+import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, MESSAGE_ORIGINS } from './message-guards';
 
 describe('GET_AGENDA', () => {
   it('clé de semaine validée, réservé aux pages de l’extension', () => {
