@@ -1,6 +1,6 @@
 import { COMPARE_STORAGE_KEY, isComparisonResult, withStaleDiffs, type ComparisonResult } from '../shared/compare';
 import { createLogger } from '../shared/logger';
-import { withStorageLock } from '../shared/storage';
+import { withStorageLock } from '../shared/storage-lock';
 import type { TrackerId } from '../shared/tracker.types';
 
 // Dernière comparaison AniList ↔ MAL (`compare:last`) : lecture, et modifications sous le verrou du stockage

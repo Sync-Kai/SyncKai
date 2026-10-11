@@ -2,7 +2,7 @@ import { t, tp } from '../../i18n';
 import { h } from '../../ui/dom';
 import { icon, kai } from '../../ui/icons';
 import type { Screen } from '../state';
-import { kanaLabel } from './ui';
+import { kanaLabel } from '../../ui/kit';
 
 interface HeaderProps {
   isSettings: boolean;

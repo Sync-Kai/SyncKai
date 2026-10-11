@@ -3,16 +3,18 @@ import type { StreamingPlatform } from '../../shared/episode.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsWithoutLink } from '../../shared/platform-links';
 import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
-import { WATCHING_SORTS, type NextEpisodeBadge, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
+import { WATCHING_SORTS, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
+import { BADGE_CLASSES } from '../../ui/airing-badge';
 import { h, nodes } from '../../ui/dom';
 import { icon, kai, playIcon, sparkIcon } from '../../ui/icons';
-import { TONE_CHIP } from '../feedback';
+import { TONE_CHIP } from '../../ui/feedback';
 import type { ListStatusChange } from '../../shared/sync.types';
-import type { EntryAction, InlineFeedback, WatchingState } from '../state';
+import type { EntryAction, WatchingState } from '../state';
+import type { InlineFeedback } from '../../ui/state';
 import { renderRetryButton } from '../../ui/media-actions';
-import { renderAlert } from './alert';
-import { renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from './status-actions';
-import { CARD, kanaLabel, PLATFORM_LABELS, platformChip, renderCover, sectionTitle, segmented } from './ui';
+import { renderAlert } from '../../ui/alert';
+import { renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from '../../ui/status-actions';
+import { CARD, kanaLabel, PLATFORM_LABELS, platformChip, renderCover, sectionTitle, segmented } from '../../ui/kit';
 
 /** Actions par série (+1, menu « … ») : état fourni par le popup, il survit aux nouveaux rendus */
 export interface EntryControls {
@@ -50,13 +52,6 @@ interface WatchingScreenProps {
   /** Carte « Sur cette page » (onglet actif sur une série reconnue) : remplace la carte « Reprendre » */
   pageCard: HTMLElement | null;
 }
-
-export const BADGE_CLASSES: Record<NextEpisodeBadge['kind'], string> = {
-  available: 'border-mint bg-mint text-on-fill',
-  upcoming: 'border-lavender bg-lavender text-on-fill',
-  finished: 'border-line bg-transparent text-muted',
-  unknown: 'border-line bg-transparent text-muted',
-};
 
 const SOURCE_OPTIONS = [
   { value: 'anilist', label: 'AniList', aria: 'AniList' },

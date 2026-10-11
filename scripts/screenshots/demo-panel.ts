@@ -11,7 +11,7 @@ import { LIVE_PORT_NAME, type LiveContentMessage } from '../../src/shared/live.t
 import { pageMediaCacheKey, toCachedPageMedia } from '../../src/shared/page-media-cache';
 import type { PageMediaInfo, PageMediaView } from '../../src/shared/page-media.types';
 import type { PanelMedia } from '../../src/shared/panel-media.types';
-import { STORAGE_KEYS } from '../../src/shared/storage';
+import { STORAGE_KEYS } from '../../src/shared/storage-keys';
 import { PANEL_LAST_TAB_KEY, type PanelTab } from '../../src/sidepanel/tabs';
 import { bannerUrl, coverUrl } from './covers';
 import { demoChrome, episode, SERIES } from './demo-data';

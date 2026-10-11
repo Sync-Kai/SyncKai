@@ -1,5 +1,5 @@
 import { getLocale, t } from '../../i18n';
-import { BTN_GHOST, CARD, PLATFORM_LABELS, renderCover } from '../../popup/components/ui';
+import { BTN_GHOST, CARD, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { platformIcon } from '../../ui/brand-icons';
 import {
   airingWeekKey,
@@ -24,7 +24,8 @@ import { sendMessage, type MessageResponse } from '../../shared/messages';
 import { hasNetflixAccess } from '../../shared/netflix-access';
 import { platformSearchUrl } from '../../shared/platform-links';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
-import { getCachedWatching, getMalToken, getValidToken, STORAGE_KEYS } from '../../shared/storage';
+import { getCachedWatching, getMalToken, getValidToken } from '../../shared/storage';
+import { STORAGE_KEYS } from '../../shared/storage-keys';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { h, nodes, preserveFocus, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';

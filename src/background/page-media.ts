@@ -13,7 +13,7 @@ import type { EpisodeInfo } from '../shared/episode.types';
 import { hasNetflixAccess } from '../shared/netflix-access';
 import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { learnPlatformLink } from '../shared/platform-links-store';
-import { pageMediaFromEpisode } from '../content/lib/page-media';
+import { pageMediaFromEpisode } from '../shared/page-media';
 import { getMediaMappings } from '../shared/storage';
 import type { ListStatus } from '../shared/sync.types';
 import { createLogger } from '../shared/logger';

@@ -4,6 +4,7 @@ import type { EpisodeInfo } from './episode.types';
 import type { SyncQueueItem } from './queue.types';
 import type { PendingReview, RecentSync } from './review.types';
 import type { SessionEpochs } from './session-epochs';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from './storage-keys';
 import type { MediaMapping } from './sync.types';
 
 // Effacements de session, données liées au compte, écritures sous session et plafonds de storage.ts
@@ -31,10 +32,9 @@ vi.stubGlobal('chrome', {
 vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
 
 const storage = await import('./storage');
-const { getSyncQueue, saveQueueItem, SYNC_QUEUE_KEY } = await import('./sync-queue-store');
-const { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } = await import('./engagement-store');
+const { getSyncQueue, saveQueueItem } = await import('./sync-queue-store');
 const { PLATFORM_LINKS_KEY } = await import('./platform-links');
-const { STORAGE_KEYS, MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } = storage;
+const { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } = storage;
 
 const FAR = Number.MAX_SAFE_INTEGER;
 const ANILIST_TOKEN = { accessToken: 'anilist', expiresAt: FAR };
@@ -359,7 +359,6 @@ describe('token refusé (AUTH-02)', () => {
 
 describe('indicateur « Session expirée » (AUTH-03)', () => {
   it('posé par un token refusé, retiré par la déconnexion volontaire et par une connexion', async () => {
-    const { SESSION_EXPIRED_KEYS } = storage;
     seedEverything();
     expect(await storage.clearAniListSessionIfToken('anilist')).toBe(true);
     expect(await storage.clearMalSessionIfToken('mal')).toBe(true);

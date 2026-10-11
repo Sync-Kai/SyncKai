@@ -32,6 +32,9 @@ export interface PageMediaInfo {
   episode: EpisodeInfo | null;
 }
 
+/** Page de série détectée (sans épisode) : complétée par `kind` et `episode` dans shared/page-media.ts */
+export type SeriesPageInfo = Omit<PageMediaInfo, 'platform' | 'kind' | 'episode'>;
+
 /** Limite de longueur des textes venant d'une page tierce (validation du message) */
 const MAX_TEXT = 300;
 

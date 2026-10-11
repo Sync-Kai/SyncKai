@@ -4,10 +4,10 @@ import { formatRelativeTime } from '../../shared/watching';
 import { h, nodes } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { createStarRating } from '../../ui/star-rating';
-import { TONE_CHIP } from '../feedback';
+import { TONE_CHIP } from '../../ui/feedback';
 import type { RatingsState } from '../state';
-import { renderAlert } from './alert';
-import { BTN_GHOST, CARD, renderCover, sectionTitle } from './ui';
+import { renderAlert } from '../../ui/alert';
+import { BTN_GHOST, CARD, renderCover, sectionTitle, STAR_CLASSES } from '../../ui/kit';
 
 interface RatingSectionProps {
   ratings: RatingsState;
@@ -15,17 +15,6 @@ interface RatingSectionProps {
   onRate: (item: PendingRating, value: number) => void;
   onIgnore: (item: PendingRating) => void;
 }
-
-// 10 étoiles de 16 px (zone cliquable de 24 px de haut), demi-étoiles cliquables, libellé "8,5/10"
-export const STAR_CLASSES = {
-  group: 'flex min-w-0 items-center gap-1.5',
-  row: 'flex flex-none',
-  value: 'w-9 flex-none text-[12px] font-extrabold tabular-nums text-butter',
-  star: 'h-6 w-4',
-  outline: 'fill-none stroke-muted stroke-[1.6]',
-  fill: 'fill-butter stroke-butter stroke-[1.6]',
-  half: 'cursor-pointer rounded-[4px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-lavender disabled:cursor-default',
-};
 
 function renderItem(item: PendingRating, { ratings, now, onRate, onIgnore }: RatingSectionProps): HTMLElement {
   const busy = ratings.busyIds.has(item.id);

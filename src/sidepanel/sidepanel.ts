@@ -1,5 +1,5 @@
 import { initI18n, onLocaleChange, t, type MessageKey } from '../i18n';
-import { kanaLabel } from '../popup/components/ui';
+import { kanaLabel } from '../ui/kit';
 import { createLogger } from '../shared/logger';
 import { getSettings } from '../shared/settings';
 import { sidePanelKind } from '../shared/side-panel';

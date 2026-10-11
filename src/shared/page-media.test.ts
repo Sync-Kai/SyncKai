@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { EpisodeInfo } from '../../shared/episode.types';
-import { isPageMediaInfo } from '../../shared/page-media.types';
+import type { EpisodeInfo } from './episode.types';
+import { isPageMediaInfo } from './page-media.types';
 import { pageMediaFromEpisode, pageMediaFromSeries } from './page-media';
 
 const episode: EpisodeInfo = {
@@ -17,7 +17,7 @@ const episode: EpisodeInfo = {
   url: 'https://www.crunchyroll.com/fr/watch/GE00376431JAJP/titre',
 };
 
-describe('fiche de la page (content script)', () => {
+describe('fiche de la page', () => {
   it('page d’épisode : série et saison reprises de l’épisode', () => {
     const page = pageMediaFromEpisode(episode);
     expect(page).toMatchObject({ kind: 'episode', seriesTitle: 'One Piece', seasonNumber: 24, seasonTitle: 'Elbaph', episode });

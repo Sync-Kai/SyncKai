@@ -10,7 +10,6 @@ import {
   withDiffError,
   withoutDiff,
   withStaleDiffs,
-  type ApplyDiffItem,
   type ApplyDiffsPayload,
   type ApplyResult,
   type CancelJobResult,
@@ -27,6 +26,7 @@ import {
   reduceJob,
   startAnalyzeJob,
   startApplyJob,
+  type ApplyDiffItem,
   type CompareJob,
 } from '../shared/compare-job';
 import { isRecord } from '../shared/guards';

@@ -4,12 +4,12 @@ import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { h, nodes, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { renderMediaActions, type MediaActionHandlers } from '../../ui/media-actions';
-import { formatAiringDate, mediaMetaParts, pageBadge } from '../page-media-view';
+import { mediaMetaParts } from '../../ui/page-media-view';
+import { renderAiring } from '../../ui/airing-badge';
 import type { PageCardState } from '../state';
-import { renderAlert } from './alert';
-import { kanaLabel, renderCover } from './ui';
+import { renderAlert } from '../../ui/alert';
+import { kanaLabel, renderCover } from '../../ui/kit';
 import { serviceIcon } from '../../ui/brand-icons';
-import { BADGE_CLASSES } from './watching-screen';
 
 // Carte « Sur cette page » (#23) : fiche AniList de la série ouverte dans l'onglet actif.
 // Remplace la carte « Reprendre » ; chargée de façon asynchrone, elle ne bloque jamais le popup.
@@ -98,18 +98,6 @@ function renderLinks(view: PageMediaView): HTMLElement {
         icon('external', 'h-2.5 w-2.5'),
       ),
     ),
-  );
-}
-
-/** Pastille de diffusion + date du prochain épisode */
-export function renderAiring(view: PageMediaView, now: number): HTMLElement {
-  const badge = pageBadge(view, now);
-  const next = view.media.nextEpisode;
-  return h(
-    'div',
-    { class: 'flex min-w-0 items-center gap-1.5' },
-    h('span', { class: `inline-flex h-[18px] shrink-0 items-center rounded-full border px-2 text-[11px] leading-4 font-bold whitespace-nowrap ${BADGE_CLASSES[badge.kind]}` }, badge.label),
-    next && next.airingAt > now && h('span', { class: 'min-w-0 truncate text-[11px] font-semibold text-muted' }, formatAiringDate(next.airingAt)),
   );
 }
 

@@ -1,5 +1,6 @@
 import { t } from '../i18n';
-import { isPendingRating, MAX_PENDING_RATINGS, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './engagement-store';
+import { isPendingRating, MAX_PENDING_RATINGS } from './engagement-store';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS } from './storage-keys';
 import type { PendingRating } from './engagement.types';
 import { EXCLUDED_SERIES_KEY, isExcludedSeries, mergeExclusion, type ExcludedSeries } from './exclusions';
 import { isRecord } from './guards';
@@ -7,7 +8,7 @@ import type { Result } from './result';
 import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } from './review.types';
 import type { SessionEpochs } from './session-epochs';
 import { normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from './settings';
-import { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS, STORAGE_KEYS } from './storage';
+import { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } from './storage';
 import { isImportableMapping, isMediaMapping, type MediaMapping } from './sync.types';
 
 // Sauvegarde exportable / importable (module pur, testable). Ne contient JAMAIS les tokens,

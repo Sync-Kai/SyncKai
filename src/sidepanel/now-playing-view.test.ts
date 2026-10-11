@@ -3,7 +3,7 @@ import { setLocale } from '../i18n';
 import type { PageMediaInfo } from '../shared/page-media.types';
 import { PANEL_RELATION_TYPES } from '../shared/panel-media.types';
 import { airedLabel, episodeLine, isPartialEpisodePage, pageKey, relationLabel, shouldRedetect } from './now-playing-view';
-import { pageMediaFromEpisode } from '../content/lib/page-media';
+import { pageMediaFromEpisode } from '../shared/page-media';
 import type { EpisodeInfo } from '../shared/episode.types';
 
 // Régression : Black Butler -Public School Arc- E1 (GJWU2W1N5). Lu avant le JSON-LD (repli DOM, sans saison),

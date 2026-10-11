@@ -34,6 +34,17 @@ Respecte strictement ces règles lors de la génération de code :
 - Adopte le pattern Adapter pour les content scripts (un module spécifique pour interagir avec Crunchyroll, un autre pour ADN, etc.) afin d'isoler la logique de scraping.
 - Garde le Service Worker (`background.js`) inactif au maximum : il ne doit se réveiller que pour gérer l'authentification OAuth2 et les requêtes réseau vers les API.
 
+### Frontières des modules
+
+Vérifiées par `src/architecture.test.ts` (imports de types compris) :
+
+- **Aucun cycle d'import.** Une constante partagée par deux modules qui s'importent va dans une feuille (ex. `shared/storage-keys.ts`, `shared/title.ts`).
+- **`shared/`** (types, gardes, stockage, logique pure) s'appuie sur `i18n/` au plus, jamais sur `ui/`, `popup/`, `sidepanel/`, `content/`, `background/`, `import/`, `import-cr/`. Clés de `chrome.storage.local` dans `shared/storage-keys.ts` ; verrou dans `shared/storage-lock.ts`.
+- **`ui/`** : kit d'interface commun (`kit.ts`, `alert.ts`, `feedback.ts`, `state.ts`, `media-actions.ts`, `settings/`…), jamais `popup/` ni `sidepanel/`. Un composant utilisé par deux écrans (popup, panneau, réglages, pages d'import) y monte.
+- **`popup/`, `sidepanel/`, `import/`, `import-cr/`** : écrans propres, qui dépendent de `ui/` et `shared/` sans s'importer entre eux.
+- **`content/`** n'importe jamais `background/` (messages typés de `shared/` seulement).
+- **`background/`** n'importe jamais `content/`, sauf les imports `?script` de `netflix-access.ts`. Une logique pure utile aux deux va dans `shared/` (ex. `shared/page-media.ts`).
+
 ### Style et UI
 
 - Utilise Tailwind CSS pour tout le style du popup et de la page d'options. 

@@ -1,6 +1,6 @@
-import { t, type MessageKey } from '../../i18n';
-import { pauseSecondsLeft, type AnyJob } from '../../shared/job';
-import { TRACKER_LABELS } from '../../shared/tracker.types';
+import { t, type MessageKey } from '../i18n';
+import { pauseSecondsLeft, type AnyJob } from '../shared/job';
+import { TRACKER_LABELS } from '../shared/tracker.types';
 
 /**
  * Texte de la pause en cours d'une tâche de fond (comparaison des listes, import Crunchyroll), compte à rebours

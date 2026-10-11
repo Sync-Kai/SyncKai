@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeChrome } from '../test/fake-chrome';
 import { REWATCH_DECLINE_MS, type PendingRating } from './engagement.types';
+import { PENDING_RATINGS_KEY } from './storage-keys';
 import type { ServiceResult } from './sync.types';
 
 const fake = installFakeChrome();
-const { addPendingRating, getPendingRatings, isDeclineActive, isPendingRating, isRatingSettled, PENDING_RATINGS_KEY, purgeExpiredDeclines, removePendingRating } = await import(
+const { addPendingRating, getPendingRatings, isDeclineActive, isPendingRating, isRatingSettled, purgeExpiredDeclines, removePendingRating } = await import(
   './engagement-store'
 );
 const { STORAGE_LOCK } = await import('./storage-lock-core');

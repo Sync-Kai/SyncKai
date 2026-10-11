@@ -19,11 +19,11 @@ import { formatRelativeTime } from '../../shared/watching';
 import { h, nodes } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { formatStarValue } from '../../ui/rating';
-import { TONE_CHIP } from '../feedback';
+import { TONE_CHIP } from '../../ui/feedback';
 import type { CompareState } from '../state';
-import { renderAlert } from './alert';
-import { jobPauseText } from './job-pause';
-import { BTN_GHOST, BTN_PRIMARY, renderCover, sectionTitle } from './ui';
+import { renderAlert } from '../../ui/alert';
+import { jobPauseText } from '../../ui/job-pause';
+import { BTN_GHOST, BTN_PRIMARY, renderCover, sectionTitle } from '../../ui/kit';
 
 /** Lignes affichées d'emblée, puis par tranche (« Afficher plus ») : le popup reste rapide sur de longues listes */
 export const COMPARE_PAGE_SIZE = 30;

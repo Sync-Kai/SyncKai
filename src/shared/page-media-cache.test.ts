@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { pageMediaFromEpisode } from '../content/lib/page-media';
+import { pageMediaFromEpisode } from './page-media';
 import { installFakeChrome } from '../test/fake-chrome';
 import type { EpisodeInfo } from './episode.types';
 import type { PageMediaView } from './page-media.types';
@@ -12,10 +12,11 @@ import {
   storeCachedPageMedia,
   toCachedPageMedia,
 } from './page-media-cache';
+import { STORAGE_KEYS } from './storage-keys';
 import { PANEL_MEDIA_CACHE_TTL_MS, panelMediaCacheKey, purgeStaleSessionCaches } from './session-cache';
 
 const fake = installFakeChrome();
-const { clearAniListSession, clearMalSession, clearUserSyncData, STORAGE_KEYS } = await import('./storage');
+const { clearAniListSession, clearMalSession, clearUserSyncData } = await import('./storage');
 
 // Régression : Black Butler -Public School Arc- E1. Le panneau lisait la page avant son JSON-LD (repli DOM sans
 // saison) et devinait « Kuroshitsuji » (2008) ; la synchro et le popup retenaient « Kishuku Gakkou-hen » (2024).

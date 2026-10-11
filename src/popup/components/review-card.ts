@@ -5,7 +5,7 @@ import { describeOutcome, type SyncFeedback } from '../../shared/sync-feedback';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { h, nodes, preserveFocus } from '../../ui/dom';
 import { icon, warnIcon } from '../../ui/icons';
-import { BTN_GHOST, BTN_PRIMARY, PLATFORM_LABELS, renderCover } from './ui';
+import { BTN_GHOST, BTN_PRIMARY, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('popup');

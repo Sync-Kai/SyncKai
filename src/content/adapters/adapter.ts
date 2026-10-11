@@ -1,8 +1,5 @@
 import type { EpisodeInfo, StreamingPlatform } from '../../shared/episode.types';
-import type { PageMediaInfo } from '../../shared/page-media.types';
-
-/** Page de série détectée (sans épisode) : complétée par `kind` et `episode` dans lib/page-media */
-export type SeriesPageInfo = Omit<PageMediaInfo, 'platform' | 'kind' | 'episode'>;
+import type { SeriesPageInfo } from '../../shared/page-media.types';
 
 /**
  * Contrat commun à toutes les plateformes (Crunchyroll, ADN…).

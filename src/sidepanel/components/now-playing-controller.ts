@@ -7,7 +7,7 @@ import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types
 import type { PanelMedia } from '../../shared/panel-media.types';
 import { DEFAULT_SETTINGS, getSettings, SETTINGS_STORAGE_KEY } from '../../shared/settings';
 import type { ListStatusChange } from '../../shared/sync.types';
-import type { InlineFeedback } from '../../popup/state';
+import type { InlineFeedback } from '../../ui/state';
 import { mediaActionKey, runMediaAction, type MediaActionRequest } from '../../ui/media-action-requests';
 import type { MediaActionsState } from '../../ui/media-actions';
 import { isPartialEpisodePage, pageKey, shouldRedetect } from '../now-playing-view';

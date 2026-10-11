@@ -36,8 +36,8 @@ import {
   getRecentSyncs,
   getValidToken,
   sessionsStillOpen,
-  withStorageLock,
 } from '../shared/storage';
+import { withStorageLock } from '../shared/storage-lock';
 import type { TrackerId } from '../shared/tracker.types';
 import { choosePlatformLink, isWatchingFresh, WATCHING_MAX_AGE_MS } from '../shared/watching';
 import type { WatchingEntry, WatchingList } from '../shared/watching.types';

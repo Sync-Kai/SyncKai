@@ -11,7 +11,7 @@ import type { EpisodeInfo, StreamingPlatform } from '../../src/shared/episode.ty
 import type { MalViewer } from '../../src/shared/mal.types';
 import type { CandidateSummary, PendingReview, RecentSync } from '../../src/shared/review.types';
 import type { SyncSettings } from '../../src/shared/settings';
-import { STORAGE_KEYS } from '../../src/shared/storage';
+import { STORAGE_KEYS } from '../../src/shared/storage-keys';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import type { TrackerId } from '../../src/shared/tracker.types';
 import type { AiringStatus, WatchingEntry, WatchingList } from '../../src/shared/watching.types';

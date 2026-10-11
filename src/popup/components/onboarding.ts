@@ -2,9 +2,9 @@ import { t, type MessageKey } from '../../i18n';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { h, nodes } from '../../ui/dom';
 import { icon, kai } from '../../ui/icons';
-import type { AccountState } from '../state';
-import { renderAlert } from './alert';
-import { kanaLabel, serviceAvatar } from './ui';
+import type { AccountState } from '../../ui/state';
+import { renderAlert } from '../../ui/alert';
+import { kanaLabel, serviceAvatar } from '../../ui/kit';
 
 interface OnboardingProps {
   anilist: AccountState<unknown>;

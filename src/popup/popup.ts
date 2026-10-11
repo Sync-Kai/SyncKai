@@ -10,8 +10,9 @@ import { sendMessage } from '../shared/messages';
 import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { hasNetflixAccess } from '../shared/netflix-access';
-import { deletePendingReview, getCachedWatching, getPendingReviews, getRecentSyncs, STORAGE_KEYS } from '../shared/storage';
-import { getSyncQueue, removeQueueItem, SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
+import { deletePendingReview, getCachedWatching, getPendingReviews, getRecentSyncs } from '../shared/storage';
+import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../shared/storage-keys';
+import { getSyncQueue, removeQueueItem } from '../shared/sync-queue-store';
 import type { AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { isPageMediaResponse, type ContentMessage } from '../shared/content-messages';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
@@ -36,27 +37,23 @@ import type { ReviewActions } from './components/review-card';
 import { createReviewSection } from './components/review-section';
 import { renderPageMediaCard } from './components/page-media-card';
 import { entryKey, renderWatchingScreen } from './components/watching-screen';
-import { adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from './feedback';
-import { getPendingRatings, PENDING_RATINGS_KEY, removePendingRating } from '../shared/engagement-store';
+import { adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from '../ui/feedback';
+import { getPendingRatings, removePendingRating } from '../shared/engagement-store';
 import { popupTimeouts } from './timeouts';
-import {
-  createStore,
-  type AccountState,
-  type CompareState,
-  type EntryAction,
-  type ExclusionsState,
-  type HostAccessState,
-  type InlineFeedback,
-  type QueueState,
-  type RatingsState,
-  type PageCardState,
-  type Screen,
-  type SettingsState,
-  type Store,
-  type SyncData,
-  type UiState,
-  type WatchingState,
+import type {
+  CompareState,
+  EntryAction,
+  HostAccessState,
+  QueueState,
+  RatingsState,
+  PageCardState,
+  Screen,
+  SettingsState,
+  SyncData,
+  UiState,
+  WatchingState,
 } from './state';
+import { createStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
 import { createLogger } from '../shared/logger';
 import { openSidePanel, sidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';

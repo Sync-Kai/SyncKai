@@ -8,7 +8,7 @@ import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../shared/messages';
 import { STREAMING_PLATFORMS } from '../../shared/platform-links';
 import { normalizeOffset, OFFSET_RANGE, type NotificationLevel, type SyncSettings } from '../../shared/settings';
-import { BTN_GHOST, CARD, PLATFORM_LABELS, segmented } from '../../popup/components/ui';
+import { BTN_GHOST, CARD, PLATFORM_LABELS, segmented } from '../kit';
 import { h, nodes, preserveFocus, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';

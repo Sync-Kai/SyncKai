@@ -1,7 +1,8 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
-import type { SeriesPageInfo, StreamingAdapter } from './adapter';
+import type { StreamingAdapter } from './adapter';
+import type { SeriesPageInfo } from '../../shared/page-media.types';
 import {
   cleanPageTitle,
   cleanText,

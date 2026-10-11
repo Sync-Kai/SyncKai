@@ -5,7 +5,7 @@ import { buildIssueUrl } from '../../shared/diagnostics';
 import { buildCurrentReport, currentBrowser } from '../../shared/diagnostics-store';
 import { clearJournal } from '../../shared/error-journal';
 import { createLogger } from '../../shared/logger';
-import { BTN_GHOST, CARD } from '../../popup/components/ui';
+import { BTN_GHOST, CARD } from '../kit';
 import { h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';

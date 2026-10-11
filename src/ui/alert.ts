@@ -1,5 +1,5 @@
-import { h } from '../../ui/dom';
-import { icon } from '../../ui/icons';
+import { h } from './dom';
+import { icon } from './icons';
 
 interface AlertProps {
   message: string;

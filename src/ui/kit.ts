@@ -1,9 +1,9 @@
-import type { StreamingPlatform } from '../../shared/episode.types';
-import type { TrackerId } from '../../shared/tracker.types';
-import { platformIcon, serviceIcon } from '../../ui/brand-icons';
-import { h, type Child } from '../../ui/dom';
+import type { StreamingPlatform } from '../shared/episode.types';
+import type { TrackerId } from '../shared/tracker.types';
+import { platformIcon, serviceIcon } from './brand-icons';
+import { h, type Child } from './dom';
 
-// Classes partagées par les écrans du popup (direction « Kotatsu »)
+// Kit d'interface commun (popup, panneau latéral, réglages, pages d'import), direction « Kotatsu »
 
 export const CARD = 'rounded-card bg-surface';
 export const BTN_GHOST =
@@ -11,6 +11,17 @@ export const BTN_GHOST =
 export const BTN_PRIMARY =
   'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-sakura px-4 text-[12px] font-bold text-on-fill shadow-pop transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
 export const LINK = 'text-sakura hover:underline';
+
+// 10 étoiles de 16 px (zone cliquable de 24 px de haut), demi-étoiles cliquables, libellé "8,5/10"
+export const STAR_CLASSES = {
+  group: 'flex min-w-0 items-center gap-1.5',
+  row: 'flex flex-none',
+  value: 'w-9 flex-none text-[12px] font-extrabold tabular-nums text-butter',
+  star: 'h-6 w-4',
+  outline: 'fill-none stroke-muted stroke-[1.6]',
+  fill: 'fill-butter stroke-butter stroke-[1.6]',
+  half: 'cursor-pointer rounded-[4px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-lavender disabled:cursor-default',
+};
 
 export const PLATFORM_LABELS: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix' };
 

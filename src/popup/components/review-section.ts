@@ -3,7 +3,7 @@ import type { PendingReview } from '../../shared/review.types';
 import { h } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { createReviewCard, type ReviewActions, type ReviewCard } from './review-card';
-import { CARD, kanaLabel } from './ui';
+import { CARD, kanaLabel } from '../../ui/kit';
 
 export interface ReviewSection {
   readonly element: HTMLElement;

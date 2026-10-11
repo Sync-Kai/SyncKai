@@ -1,31 +1,15 @@
-import type { AniListViewer } from '../shared/anilist.types';
 import type { PendingRating } from '../shared/engagement.types';
-import type { MalViewer } from '../shared/mal.types';
 import type { PendingReview, RecentSync } from '../shared/review.types';
-import type { ExcludedSeries } from '../shared/exclusions';
 import type { SyncQueueItem } from '../shared/queue.types';
 import type { SyncSettings } from '../shared/settings';
-import type { FeedbackTone } from '../shared/sync-feedback';
 import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
-import type { AdjustRetry, ListStatusChange } from '../shared/sync.types';
+import type { ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
 import type { ComparisonResult, DiffFilter } from '../shared/compare';
 import type { CompareJob } from '../shared/compare-job';
 import type { MediaAction } from '../ui/media-actions';
-
-/** État de connexion d'un compte (AniList, MyAnimeList) : chaque vue est une fonction pure de cet état. */
-export type AccountState<Viewer> =
-  | { status: 'loading' }
-  /** expired = la session a été invalidée (token expiré ou refusé) : « Reconnecter » */
-  | { status: 'logged-out'; pending: boolean; error: string | null; expired: boolean }
-  /** viewer à null = profil pas encore chargé (affichage skeleton) */
-  | { status: 'logged-in'; viewer: Viewer | null; error: string | null };
-
-export type AniListState = AccountState<AniListViewer>;
-export type MalState = AccountState<MalViewer>;
-
-export const LOGGED_OUT = { status: 'logged-out', pending: false, error: null, expired: false } as const;
+import type { InlineFeedback } from '../ui/state';
 
 /** Données de synchronisation lues depuis le stockage (vérifications, dernières synchros). */
 export interface SyncData {
@@ -54,22 +38,9 @@ export interface UiState {
   rowConfirm: ListStatusChange | null;
 }
 
-/** Retour bref affiché sur une ligne après une action (+1, −1, réessai…) */
-export interface InlineFeedback {
-  tone: FeedbackTone;
-  text: string;
-  /** Détail complet (infobulle) : le texte affiché est tronqué */
-  detail: string;
-  /** +1 / −1 en échec partiel : bouton « Réessayer » (progression absolue sur les seuls services en échec) */
-  retry?: AdjustRetry;
-}
-
 /** Action en cours ou terminée sur une série de « En cours » */
 /** `kind` : `status` = changement de statut en cours (pastille « Mise à jour… ») */
 export type EntryAction = { phase: 'pending'; kind: 'adjust' | 'status' } | { phase: 'done'; feedback: InlineFeedback };
-
-/** Séries exclues (Réglages › Séries exclues, pastille « Exclue ») */
-export type ExclusionsState = { status: 'loading' } | { status: 'ready'; items: ExcludedSeries[] } | { status: 'error' };
 
 /** File de synchro (Activité › Synchros en attente) */
 export interface QueueState {
@@ -90,32 +61,6 @@ export type WatchingState =
   | { status: 'error'; service: TrackerId; message: string };
 
 export type SettingsState = { status: 'loading' } | { status: 'ready'; settings: SyncSettings } | { status: 'error' };
-
-type Listener<T> = (state: T) => void;
-
-export interface Store<T> {
-  get(): T;
-  set(next: T): void;
-  subscribe(listener: Listener<T>): () => void;
-}
-
-export function createStore<T>(initial: T): Store<T> {
-  let state = initial;
-  const listeners = new Set<Listener<T>>();
-
-  return {
-    get: () => state,
-    set(next) {
-      state = next;
-      listeners.forEach((listener) => listener(state));
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      listener(state);
-      return () => listeners.delete(listener);
-    },
-  };
-}
 
 /** Activité › « À noter » (notes de fin de série reportées) */
 export interface RatingsState {

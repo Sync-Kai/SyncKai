@@ -4,7 +4,7 @@ import { t, tp, type Locale } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { effectivePlayer, type LanguageSetting, type SyncSettings } from '../../shared/settings';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
-import type { AccountState } from '../../popup/state';
+import type { AccountState } from '../state';
 
 /** État d'un compte réduit à ce que résume l'accueil */
 export type AccountLink = 'loading' | 'connected' | 'expired' | 'disconnected';

@@ -3,8 +3,8 @@ import { BACKUP_MAX_BYTES, parseBackup, summarizeBackup, type BackupSummary, typ
 import { applyBackup } from '../shared/backup-store';
 import { h, nodes, preserveFocus, type Child } from '../ui/dom';
 import { icon, kai } from '../ui/icons';
-import { renderAlert } from '../popup/components/alert';
-import { BTN_GHOST, BTN_PRIMARY, CARD } from '../popup/components/ui';
+import { renderAlert } from '../ui/alert';
+import { BTN_GHOST, BTN_PRIMARY, CARD } from '../ui/kit';
 import { createLogger } from '../shared/logger';
 
 const log = createLogger('import');

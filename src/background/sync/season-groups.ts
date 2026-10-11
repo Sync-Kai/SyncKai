@@ -1,4 +1,4 @@
-import { normalizeTitle } from './matching';
+import { normalizeTitle } from '../../shared/title';
 
 // Saisons découpées en plusieurs fiches AniList (cours) : « Part 2 », « 2nd Cour », « Cour 2 », « 第2クール »…
 // Crunchyroll regroupe généralement ces parties dans une seule saison (Mushoku Tensei « Season 2 » = « II » + « II Part 2»).

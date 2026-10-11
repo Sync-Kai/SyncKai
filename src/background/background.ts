@@ -18,7 +18,7 @@ import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, ret
 import { reopenReview, resolveReview, searchCandidates } from './sync/sync-service';
 import { refreshReviewBadge } from '../shared/badge';
 import { SETTINGS_STORAGE_KEY } from '../shared/settings';
-import { STORAGE_KEYS } from '../shared/storage';
+import { STORAGE_KEYS } from '../shared/storage-keys';
 import {
   EXTENSION_PAGE_ONLY,
   isExtensionPageSender,

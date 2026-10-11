@@ -1,7 +1,7 @@
 // Briques communes des Réglages (popup et panneau latéral) : interrupteur, ligne à bascule, ligne de choix,
 // ligne de navigation vers une sous-page, ligne de lien et zone de danger. Un seul rendu pour toutes les pages.
 import { t } from '../../i18n';
-import { CARD, LINK, sectionLabel } from '../../popup/components/ui';
+import { CARD, LINK, sectionLabel } from '../kit';
 import { h, type Child } from '../dom';
 import { icon, type IconName } from '../icons';
 

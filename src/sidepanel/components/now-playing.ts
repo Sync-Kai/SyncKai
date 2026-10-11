@@ -1,9 +1,9 @@
 import { t } from '../../i18n';
-import { renderAlert } from '../../popup/components/alert';
-import { renderAiring } from '../../popup/components/page-media-card';
-import { kanaLabel, PLATFORM_LABELS, renderCover } from '../../popup/components/ui';
+import { renderAlert } from '../../ui/alert';
+import { renderAiring } from '../../ui/airing-badge';
+import { kanaLabel, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { platformIcon } from '../../ui/brand-icons';
-import { mediaMetaParts } from '../../popup/page-media-view';
+import { mediaMetaParts } from '../../ui/page-media-view';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import { isLongDescription, malForumUrl, redditSearchUrl } from '../../shared/panel-media';
 import type { PanelMedia, PanelRelation } from '../../shared/panel-media.types';

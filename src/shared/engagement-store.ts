@@ -1,14 +1,12 @@
 import { isMediaRef, mediaRefId, REWATCH_DECLINE_MS, type MediaRef, type PendingRating } from './engagement.types';
 import { isRecord } from './guards';
 import { isSessionEpochs } from './session-epochs';
-import { withStorageLock } from './storage';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './storage-keys';
+import { withStorageLock } from './storage-lock';
 import type { ServiceResult } from './sync.types';
 
 // Stockage de l'engagement (popup + service worker) : notes en attente et revisionnages refusés.
-// Écritures sous `withStorageLock` (src/shared/storage.ts).
-
-export const PENDING_RATINGS_KEY = 'pendingRatings';
-export const REWATCH_DECLINED_KEY = 'rewatchDeclined';
+// Écritures sous `withStorageLock` (src/shared/storage-lock.ts), clés dans storage-keys.ts.
 
 /** Cartes « À noter » conservées au maximum (les plus anciennes sont abandonnées) */
 export const MAX_PENDING_RATINGS = 30;

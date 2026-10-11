@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../shared/guards';
-import { STORAGE_KEYS, saveMediaMapping } from '../shared/storage';
+import { saveMediaMapping } from '../shared/storage';
+import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../shared/storage-keys';
 import { STORAGE_LOCK } from '../shared/storage-lock-core';
-import { PENDING_RATINGS_KEY } from '../shared/engagement-store';
 import type { PendingRating } from '../shared/engagement.types';
 import type { EpisodeInfo } from '../shared/episode.types';
 import type { SyncQueueItem } from '../shared/queue.types';
 import type { PendingReview, RecentSync } from '../shared/review.types';
-import { SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
 import type { MediaMapping } from '../shared/sync.types';
 import { compareVersions, runUpdateMigrations } from './update-migrations';
 

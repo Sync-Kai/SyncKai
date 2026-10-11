@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { setLocale } from '../../i18n';
-import { reduceJob, startJob } from '../../shared/job';
+import { setLocale } from '../i18n';
+import { reduceJob, startJob } from '../shared/job';
 import { jobPauseText } from './job-pause';
 
 setLocale('fr');

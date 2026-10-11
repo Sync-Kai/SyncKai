@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import type { EpisodeInfo, StreamingPlatform } from '../../shared/episode.types';
 import type { MediaMapping, NumberingMode } from '../../shared/sync.types';
+import { normalizeTitle } from '../../shared/title';
 import { groupSeasons, stripCourMarker } from './season-groups';
 
 /** Formats AniList considérés comme des "saisons" (exclut films, OVA, spéciaux, clips) */
@@ -60,16 +61,6 @@ export interface SyncTarget extends MediaMapping {
 export type ResolveResult = { ok: true; target: SyncTarget } | { ok: false; reason: string; ignored?: true };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** "Shingeki no Kyojin: Season 2" → "shingeki no kyojin season 2" (accents et ponctuation retirés) */
-export function normalizeTitle(title: string): string {
-  return title
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
 
 export function toSortableDate(date: { year: number | null; month: number | null; day: number | null } | null): number | null {
   if (!date?.year) return null;

@@ -1,7 +1,8 @@
 import { refreshReviewBadge } from './badge';
 import { BACKUP_STORAGE_KEYS, bindBackupToSession, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type ImportMode } from './backup';
 import { isRecord } from './guards';
-import { getOpenSessions, withStorageLock } from './storage';
+import { getOpenSessions } from './storage';
+import { withStorageLock } from './storage-lock';
 import { createLogger } from './logger';
 import { hasNetflixAccess } from './netflix-access';
 import { effectivePlayer } from './settings';

@@ -1,7 +1,7 @@
 import type { AniListErrorCode } from './anilist.types';
-import type { CompareJob } from './compare-job';
+import type { ApplyDiffItem, CompareJob } from './compare-job';
 import { isRecord } from './guards';
-import { STORAGE_KEYS } from './storage';
+import { STORAGE_KEYS } from './storage-keys';
 import type { Result } from './result';
 import { aniListScoreOn10, isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from './score';
 import type { ListStatus } from './sync.types';
@@ -94,11 +94,6 @@ export interface ComparisonResult {
 
 export type CompareErrorCode = AniListErrorCode | 'NOT_CONNECTED' | 'BUSY';
 export type CompareResult = Result<ComparisonResult, CompareErrorCode>;
-
-export interface ApplyDiffItem {
-  mediaId: number | null;
-  malId: number | null;
-}
 
 export interface ApplyDiffsPayload {
   items: ApplyDiffItem[];

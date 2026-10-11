@@ -8,7 +8,8 @@ import { isRecord } from './guards';
 import { isMalToken } from './mal.types';
 import { buildDiagnosticsReport, describeBrowser, type BuildMode } from './diagnostics';
 import { getSettings } from './settings';
-import { getMediaMappings, getPendingReviews, getRecentSyncs, STORAGE_KEYS } from './storage';
+import { getMediaMappings, getPendingReviews, getRecentSyncs } from './storage';
+import { STORAGE_KEYS } from './storage-keys';
 import { getSyncQueue } from './sync-queue-store';
 
 // Collecte des données du rapport de diagnostic (popup) : lecture directe de chrome.storage.local.

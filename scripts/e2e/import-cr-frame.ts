@@ -7,7 +7,7 @@ import type { CrHistoryPortMessage } from '../../src/shared/cr-history';
 import { CR_IMPORT_KEYS, startAnalyzeJob, startApplyJob, type CrImportJob, type CrImportPlan } from '../../src/shared/cr-import';
 import { isRecord } from '../../src/shared/guards';
 import { reduceJob } from '../../src/shared/job';
-import { STORAGE_KEYS } from '../../src/shared/storage';
+import { STORAGE_KEYS } from '../../src/shared/storage-keys';
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { localeParam, param } from '../screenshots/params';
 import type { E2EState } from './protocol';

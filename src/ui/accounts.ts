@@ -8,18 +8,10 @@ import { createLogger } from '../shared/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
 import { sendMessage } from '../shared/messages';
 import { endSession } from '../shared/session-end';
-import {
-  getCachedMalViewer,
-  getCachedViewer,
-  getMalToken,
-  getValidToken,
-  getViewerFetchedAt,
-  hasAniListToken,
-  isSessionExpired,
-  STORAGE_KEYS,
-} from '../shared/storage';
+import { getCachedMalViewer, getCachedViewer, getMalToken, getValidToken, getViewerFetchedAt, hasAniListToken, isSessionExpired } from '../shared/storage';
+import { STORAGE_KEYS } from '../shared/storage-keys';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
-import { createStore, LOGGED_OUT, type AccountState, type AniListState, type MalState, type Store } from '../popup/state';
+import { createStore, LOGGED_OUT, type AccountState, type AniListState, type MalState, type Store } from './state';
 
 const log = createLogger('accounts');
 

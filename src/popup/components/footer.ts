@@ -2,7 +2,7 @@ import { t, tp } from '../../i18n';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { h } from '../../ui/dom';
 import { icon, warnIcon } from '../../ui/icons';
-import { serviceAvatar } from './ui';
+import { serviceAvatar } from '../../ui/kit';
 
 export type FooterStatus =
   | { kind: 'none' }

@@ -8,7 +8,6 @@ import {
   matchAdnLink,
   matchPlatformLink,
   matchCrunchyrollLink,
-  normalizeTitle,
   resolveTarget,
   seasonLabel,
   seasonPool,
@@ -16,6 +15,7 @@ import {
   type EpisodeNumbers,
   type MediaCandidate,
 } from './matching';
+import { normalizeTitle } from '../../shared/title';
 import { setLocale } from '../../i18n';
 
 // Textes attendus en français

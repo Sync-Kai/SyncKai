@@ -1,7 +1,8 @@
 import type { EpisodeInfo } from './episode.types';
 import { isRecord } from './guards';
 import { seriesKeyFromLink } from './platform-links';
-import { withStorageLock } from './storage';
+import { withStorageLock } from './storage-lock';
+import { normalizeTitle } from './title';
 import type { PlatformLink } from './watching.types';
 
 // Séries exclues de la synchronisation (toutes saisons) — lues par le content script
@@ -33,15 +34,8 @@ export function isExcludedSeries(value: unknown): value is ExcludedSeries {
   );
 }
 
-/** Titre comparable : minuscules, sans accents, ponctuation → espaces (même logique que matching.normalizeTitle). */
-export function normalizeSeriesTitle(title: string): string {
-  return title
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
+/** Titre comparable : minuscules, sans accents, ponctuation → espaces (voir title.ts) */
+export const normalizeSeriesTitle = normalizeTitle;
 
 /** Clé de série plateforme, toutes saisons : "crunchyroll:GRMG8ZQZR", "adn:1311" ou "crunchyroll:title:one piece". */
 export function platformSeriesKey(episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle'>): string {

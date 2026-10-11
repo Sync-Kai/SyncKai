@@ -4,7 +4,7 @@ import type { HistorySeason } from '../shared/cr-history';
 import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../shared/cr-import';
 import type { EpisodeInfo } from '../shared/episode.types';
 import { isRecord } from '../shared/guards';
-import { STORAGE_KEYS } from '../shared/storage';
+import { STORAGE_KEYS } from '../shared/storage-keys';
 import type { MediaMapping } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import { installFakeChrome } from '../test/fake-chrome';

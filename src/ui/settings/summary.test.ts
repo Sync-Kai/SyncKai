@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale } from '../../i18n';
 import { DEFAULT_SETTINGS, effectivePlayer } from '../../shared/settings';
-import { LOGGED_OUT } from '../../popup/state';
+import { LOGGED_OUT } from '../state';
 import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, syncSummary } from './summary';
 
 const initial = getLocale();

@@ -1,7 +1,7 @@
-import { t, type MessageKey } from '../../i18n';
-import type { ListStatusChange } from '../../shared/sync.types';
-import { h } from '../../ui/dom';
-import { icon } from '../../ui/icons';
+import { t, type MessageKey } from '../i18n';
+import type { ListStatusChange } from '../shared/sync.types';
+import { h } from './dom';
+import { icon } from './icons';
 
 // Statut depuis le popup (En pause, Abandonner, Terminé) : libellés, icônes et confirmation en ligne,
 // partagés par le menu « … » de « En cours » et la carte « Sur cette page ».

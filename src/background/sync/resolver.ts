@@ -16,7 +16,6 @@ import {
   mappingKey,
   seasonLabel,
   matchPlatformLink,
-  normalizeTitle,
   seasonSearchQuery,
   resolveTarget,
   seasonPool,
@@ -26,6 +25,7 @@ import {
   type MediaCandidate,
   type ResolveResult,
 } from './matching';
+import { normalizeTitle } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './season-groups';
 import { createLogger } from '../../shared/logger';

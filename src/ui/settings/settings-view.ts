@@ -8,8 +8,9 @@ import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions'
 import { createLogger } from '../../shared/logger';
 import { hasNetflixAccess } from '../../shared/netflix-access';
 import { getSettings, normalizeSettings, saveSettings, SETTINGS_STORAGE_KEY, type LanguageSetting, type SyncSettings } from '../../shared/settings';
-import { getMediaMappings, STORAGE_KEYS } from '../../shared/storage';
-import { CARD, kanaLabel, segmented } from '../../popup/components/ui';
+import { getMediaMappings } from '../../shared/storage';
+import { STORAGE_KEYS } from '../../shared/storage-keys';
+import { CARD, kanaLabel, segmented } from '../kit';
 import { h, nodes, preserveFocus } from '../dom';
 import { icon, type IconName } from '../icons';
 import type { SettingsContext, SettingsData, SettingsHost, SettingsPageView } from './context';

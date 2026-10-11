@@ -4,10 +4,10 @@ import type { SyncQueueItem } from '../../shared/queue.types';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { h, nodes } from '../../ui/dom';
 import { icon } from '../../ui/icons';
-import { TONE_CHIP } from '../feedback';
+import { TONE_CHIP } from '../../ui/feedback';
 import type { QueueState } from '../state';
-import { renderAlert } from './alert';
-import { BTN_GHOST, PLATFORM_LABELS, sectionTitle } from './ui';
+import { renderAlert } from '../../ui/alert';
+import { BTN_GHOST, PLATFORM_LABELS, sectionTitle } from '../../ui/kit';
 
 interface QueueSectionProps {
   queue: QueueState;

@@ -2,7 +2,7 @@
 import type { AiringCheckResult } from '../../shared/airing.types';
 import type { SyncSettings } from '../../shared/settings';
 import type { MediaMapping } from '../../shared/sync.types';
-import type { ExclusionsState } from '../../popup/state';
+import type { ExclusionsState } from '../state';
 import type { AccountsController } from '../accounts';
 import type { SettingsPage } from './navigation';
 

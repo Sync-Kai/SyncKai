@@ -2,8 +2,8 @@ import { t } from '../i18n';
 import { sendMessage, type AdjustProgressPayload } from '../shared/messages';
 import type { PageMediaView } from '../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
-import { addFeedback, adjustFeedback, ratingFeedback, statusFeedback } from '../popup/feedback';
-import type { InlineFeedback } from '../popup/state';
+import { addFeedback, adjustFeedback, ratingFeedback, statusFeedback } from './feedback';
+import type { InlineFeedback } from './state';
 import type { MediaAction } from './media-actions';
 import { formatStarValue } from './rating';
 

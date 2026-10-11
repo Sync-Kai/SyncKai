@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../i18n';
 import { AIRING_COVERED_KEY, AIRING_NOTIFIED_KEY } from '../shared/airing-keys';
 import { isAiringWeekCache } from '../shared/agenda';
-import { STORAGE_KEYS } from '../shared/storage';
+import { STORAGE_KEYS } from '../shared/storage-keys';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingEntry, WatchingList, WatchingResult } from '../shared/watching.types';
 import { installFakeChrome } from '../test/fake-chrome';

@@ -1,7 +1,6 @@
-import type { ApplyDiffItem } from './compare';
 import { isRecord } from './guards';
 import { isJobOf, startJob, type Job } from './job';
-import { STORAGE_KEYS } from './storage';
+import { STORAGE_KEYS } from './storage-keys';
 import { isTrackerId, type TrackerId } from './tracker.types';
 
 // Tâche de comparaison (analyse ou alignement) persistée dans chrome.storage.local (`compare:job`) :
@@ -15,6 +14,12 @@ export const COMPARE_JOB_KEY = STORAGE_KEYS.compareJob;
 export const COMPARE_JOB_ALARM = 'synckai:compare-job';
 
 export type JobKind = 'analyze' | 'apply';
+
+/** Fiche à aligner (identifiants AniList et MAL) */
+export interface ApplyDiffItem {
+  mediaId: number | null;
+  malId: number | null;
+}
 
 export interface CompareJob extends Job<JobKind, ApplyDiffItem> {
   /** Service de référence d'un alignement (null pour une analyse) */

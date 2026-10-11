@@ -5,8 +5,8 @@ import { isMalToken, isMalViewer, type MalToken, type MalViewer } from './mal.ty
 import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } from './review.types';
 import { isMediaMapping, type MediaMapping } from './sync.types';
 import type { TrackerId } from './tracker.types';
-import { SYNC_QUEUE_KEY } from './sync-queue-store';
-import { isPendingRating, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './engagement-store';
+import { isPendingRating } from './engagement-store';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from './storage-keys';
 import { isSyncQueueItem, restrictToSession } from './queue.types';
 import { liveServices, stillOpen, type SessionEpochs } from './session-epochs';
 import { isWatchingList, type WatchingList } from './watching.types';
@@ -18,47 +18,8 @@ import { createLogger } from './logger';
 
 const log = createLogger('storage');
 
-// Verrou défini dans storage-lock.ts ; réexporté pour les modules existants
-export { withStorageLock };
-
 export const MAX_PENDING_REVIEWS = 20;
 export const MAX_RECENT_SYNCS = 5;
-
-/** Clés utilisées dans chrome.storage.local */
-export const STORAGE_KEYS = {
-  anilistToken: 'anilistToken',
-  anilistViewer: 'anilistViewer',
-  /** Lecture du profil AniList en cache (ms) : pas de nouvelle requête à chaque ouverture (PERF-04) */
-  anilistViewerAt: 'anilistViewerAt',
-  mediaMappings: 'mediaMappings',
-  pendingReviews: 'pendingReviews',
-  recentSyncs: 'recentSyncs',
-  malToken: 'malToken',
-  malViewer: 'malViewer',
-  /** Lecture du profil MAL en cache (ms) */
-  malViewerAt: 'malViewerAt',
-  watchingCache: 'watchingCache',
-  /** Génération de session par service, incrémentée à chaque déconnexion (voir saveCachedWatching et session-epochs.ts) */
-  sessionEpoch: 'sessionEpoch',
-  /** Dernière comparaison AniList ↔ MAL (Activité › Écarts) */
-  compareLast: 'compare:last',
-  /** Tâche d'analyse ou d'alignement en cours (progression, reprise) */
-  compareJob: 'compare:job',
-  /** Import de l'historique Crunchyroll : tâche, historique réduit, correspondances, aperçu (voir cr-import.ts) */
-  crImportJob: 'crImport:job',
-  crImportInput: 'crImport:input',
-  crImportResolutions: 'crImport:resolutions',
-  crImportPlan: 'crImport:plan',
-} as const;
-
-/**
- * Session invalidée par le service (token refusé, renouvellement MAL impossible) : « Session expirée » dans
- * l'interface plutôt que « Non connecté » (AUTH-03). Effacé par une déconnexion volontaire et par une connexion réussie.
- */
-export const SESSION_EXPIRED_KEYS: Readonly<Record<TrackerId, string>> = {
-  anilist: 'sessionExpired:anilist',
-  mal: 'sessionExpired:mal',
-};
 
 /** Session du service invalidée en arrière-plan depuis la dernière connexion (voir SESSION_EXPIRED_KEYS) */
 export async function isSessionExpired(service: TrackerId): Promise<boolean> {

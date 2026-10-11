@@ -2,8 +2,8 @@ import { t } from '../../i18n';
 import type { RecentSync } from '../../shared/review.types';
 import { h, nodes } from '../../ui/dom';
 import { icon } from '../../ui/icons';
-import { renderAlert } from './alert';
-import { BTN_GHOST, CARD, sectionTitle } from './ui';
+import { renderAlert } from '../../ui/alert';
+import { BTN_GHOST, CARD, sectionTitle } from '../../ui/kit';
 
 interface RecentSyncsProps {
   syncs: RecentSync[];

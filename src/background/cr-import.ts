@@ -47,8 +47,8 @@ import {
   MAX_PENDING_REVIEWS,
   saveMediaMappingsIfAbsent,
   savePendingReview,
-  withStorageLock,
 } from '../shared/storage';
+import { withStorageLock } from '../shared/storage-lock';
 import type { MediaMapping } from '../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { ApiError } from './api/errors';

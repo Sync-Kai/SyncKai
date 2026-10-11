@@ -14,7 +14,8 @@ import {
   stripCtaPrefix,
   toNumber,
 } from './parsing';
-import type { SeriesPageInfo, StreamingAdapter } from './adapter';
+import type { StreamingAdapter } from './adapter';
+import type { SeriesPageInfo } from '../../shared/page-media.types';
 
 const log = createLogger('crunchyroll');
 

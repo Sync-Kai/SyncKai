@@ -19,14 +19,14 @@ import { hasHostAccess, requestHostAccess } from '../shared/host-access';
 import { isJobActive } from '../shared/job';
 import { createLogger } from '../shared/logger';
 import { sendMessage } from '../shared/messages';
-import { STORAGE_KEYS } from '../shared/storage';
+import { STORAGE_KEYS } from '../shared/storage-keys';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { h, nodes, preserveFocus, type Child } from '../ui/dom';
 import { icon, kai } from '../ui/icons';
-import { renderAlert } from '../popup/components/alert';
-import { jobPauseText } from '../popup/components/job-pause';
-import { TONE_CHIP } from '../popup/feedback';
-import { BTN_GHOST, BTN_PRIMARY, CARD, renderCover, SERVICE_CHIPS } from '../popup/components/ui';
+import { renderAlert } from '../ui/alert';
+import { jobPauseText } from '../ui/job-pause';
+import { TONE_CHIP } from '../ui/feedback';
+import { BTN_GHOST, BTN_PRIMARY, CARD, renderCover, SERVICE_CHIPS } from '../ui/kit';
 
 const log = createLogger('import-cr');
 

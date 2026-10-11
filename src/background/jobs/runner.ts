@@ -1,6 +1,6 @@
 import { reduceJob, isJobStale, JOB_STALE_MS, type AnyJob, type JobEvent } from '../../shared/job';
 import type { Logger } from '../../shared/logger';
-import { withStorageLock } from '../../shared/storage';
+import { withStorageLock } from '../../shared/storage-lock';
 import type { TrackerId } from '../../shared/tracker.types';
 import { ApiError, type ApiErrorCode } from '../api/errors';
 import { aniListBudget, sleep, type BudgetWait } from '../api/rate-limit';

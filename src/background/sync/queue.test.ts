@@ -3,6 +3,7 @@ import { setLocale, t } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SyncQueueItem } from '../../shared/queue.types';
 import type { SyncOutcome } from '../../shared/sync.types';
+import { SYNC_QUEUE_KEY } from '../../shared/storage-keys';
 import { installFakeChrome } from '../../test/fake-chrome';
 
 // File de relance : vrai queue.ts, vrai stockage et vraies alarmes (fausse API chrome partagée), Web Locks en
@@ -16,7 +17,7 @@ const fake = installFakeChrome();
 
 const { processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } = await import('./queue');
 const { BACKOFF_MS } = await import('./queue-policy');
-const { getSyncQueue, SYNC_QUEUE_KEY } = await import('../../shared/sync-queue-store');
+const { getSyncQueue } = await import('../../shared/sync-queue-store');
 
 setLocale('fr');
 

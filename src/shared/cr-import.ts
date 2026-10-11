@@ -7,7 +7,7 @@ import type { Result } from './result';
 import { isCandidateSummary, type CandidateSummary } from './review.types';
 import { isMediaMapping, type ListStatus, type MediaMapping } from './sync.types';
 import { isListStatus } from './compare';
-import { STORAGE_KEYS } from './storage';
+import { STORAGE_KEYS } from './storage-keys';
 import { isTrackerId, type TrackerId } from './tracker.types';
 
 // Import de l'historique Crunchyroll (Réglages › Importer depuis Crunchyroll) : types, stockage et planification

@@ -1,6 +1,6 @@
 import { CR_IMPORT_KEYS, isCrImportJob, type CrImportJob } from './cr-import';
 import { isJobActive } from './job';
-import { withStorageLock } from './storage';
+import { withStorageLock } from './storage-lock';
 
 // Écritures de la page d'import Crunchyroll (ARCH-18) : sous le verrou du stockage, tâche relue sous ce verrou. L'état
 // en mémoire de la page peut être en retard sur le service worker (analyse lancée depuis un autre onglet, reprise).
