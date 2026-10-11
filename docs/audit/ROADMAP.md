@@ -1,18 +1,18 @@
-# Feuille de route des correctifs (audit du 2026-10-10)
+# Fix roadmap (2026-10-10 audit)
 
-Plan de traitement des 131 cas de l'[audit 2.1.0](AUDIT-2026-10-10.md). Chaque lot correspond à une branche Gitflow (rebase sur `develop`, `merge --ff-only`, branche supprimée ensuite). Les cas en double entre thèmes sont rattachés à un seul ID principal ; les autres figurent dans « [Regroupés / écartés](#regroupés--écartés) ».
+Plan for handling the 131 cases of the [2.1.0 audit](AUDIT-2026-10-10.md). Each batch maps to one Gitflow branch (rebase on `develop`, `merge --ff-only`, branch deleted afterwards). Cases duplicated across themes are attached to a single main ID; the others are listed in "[Grouped / dropped](#grouped--dropped)".
 
-Ordre de priorité dans chaque version : 1) corruption de données (mauvaise fiche, progression qui recule, mauvais compte) ; 2) fonctionnalité centrale cassée ; 3) le reste.
+Priority order within each version: 1) data corruption (wrong entry, progress going backwards, wrong account); 2) broken core feature; 3) everything else.
 
-Vérification avant chaque fusion (session principale) : `npx tsc --noEmit`, `npx vitest run`, `npm run build`, `npm run test:e2e` si le popup ou le panneau changent. À partir du lot 11, `npm run verify` remplace cette liste.
+Checks before each merge (main session): `npx tsc --noEmit`, `npx vitest run`, `npm run build`, `npm run test:e2e` if the popup or the side panel changes. From batch 11 on, `npm run verify` replaces this list.
 
-## Avancement (au 2026-10-11)
+## Progress (as of 2026-10-11)
 
-Lots 1 à 26, 28 et 29 traités et publiés dans la 2.2.0 (un commit par lot), puis reliquats corrigés sur `develop` pour la 2.3.0 : purge unique des correspondances vers une autre série (lot 1), épisode mémorisé pendant une correction en attente (lot 5), cache de la page lié aux sessions (lot 18), onglets Netflix repris après une mise à jour et pont versionné (lot 26 ; Firefox réinjecte lui-même Crunchyroll et ADN), script de contenu à 76 Ko (lot 29), web-ext 10 (audit 13 → 3). **Lot 27 écarté** : l'Agenda hors des sites de streaming contredit la décision du 2026-10-07 (extension non intrusive) ; UX-04 reste ouvert. Restent hors de notre main : TypeScript 6.1 (attend typescript-eslint), couverture faussée sous Windows (bug de @vitest/coverage-v8), `node-forge` sans correctif (web-ext run, inutilisé). Tests manuels : `docs/audit/TESTS-MANUELS.md`.
+Batches 1 to 26, 28 and 29 done and released in 2.2.0 (one commit per batch), then leftovers fixed on `develop` for 2.3.0: one-time purge of matches pointing to another series (batch 1), episode remembered while a correction is pending (batch 5), page cache tied to sessions (batch 18), Netflix tabs picked up again after an update and versioned bridge (batch 26; Firefox reinjects Crunchyroll and ADN itself), content script down to 76 KB (batch 29), web-ext 10 (audit 13 → 3). **Batch 27 dropped**: the Schedule outside streaming sites contradicts the 2026-10-07 decision (non-intrusive extension); UX-04 stays open. Still out of our hands: TypeScript 6.1 (waiting on typescript-eslint), skewed coverage on Windows (@vitest/coverage-v8 bug), `node-forge` with no fix (web-ext run, unused). Manual tests: `docs/audit/MANUAL-TESTS.md`.
 
-## Synthèse
+## Summary
 
-| Ordre | Version | Branche | Cas | Effort |
+| Order | Version | Branch | Cases | Effort |
 |---|---|---|---|---|
 | 1 | 2.1.1 | `bugfix/relation-autre-serie` | 3 | M |
 | 2 | 2.1.1 | `bugfix/alignement-instantane-perime` | 2 | S |
@@ -21,10 +21,10 @@ Lots 1 à 26, 28 et 29 traités et publiés dans la 2.2.0 (un commit par lot), p
 | 5 | 2.1.1 | `bugfix/cartes-verification` | 6 | M |
 | 6 | 2.1.1 | `bugfix/panneau-en-lecture` | 3 | M |
 | 7 | 2.1.1 | `bugfix/netflix-retrait-acces` | 2 | S |
-| 8 | sans version | `chore/garde-permissions-release` | 3 | S |
-| 9 | sans version | `chore/docs-stores` | 5 | S |
-| 10 | sans version | `chore/build-reproductible` | 3 | M |
-| 11 | sans version | `chore/verification-locale-ci` | 3 | S |
+| 8 | no version | `chore/garde-permissions-release` | 3 | S |
+| 9 | no version | `chore/docs-stores` | 5 | S |
+| 10 | no version | `chore/build-reproductible` | 3 | M |
+| 11 | no version | `chore/verification-locale-ci` | 3 | S |
 | 12 | 2.2.0 | `bugfix/liaison-compte` | 5 | M |
 | 13 | 2.2.0 | `bugfix/ecritures-sous-session` | 6 | M |
 | 14 | 2.2.0 | `bugfix/auth-erreurs` | 7 | M |
@@ -40,582 +40,582 @@ Lots 1 à 26, 28 et 29 traités et publiés dans la 2.2.0 (un commit par lot), p
 | 24 | 2.2.0 | `feature/durcissement-securite` | 3 | M |
 | 25 | 2.3.0 | `chore/registre-plateformes` | 1 | S |
 | 26 | 2.3.0 | `bugfix/reattachement-video` | 7 | L |
-| 27 | 2.3.0 | `feature/agenda-hors-cible` (écarté) | 1 | M |
-| 28 | plus tard | `chore/popup-controleurs` | 1 | L |
-| 29 | plus tard | `chore/i18n-contenu-leger` | 1 | M |
+| 27 | 2.3.0 | `feature/agenda-hors-cible` (dropped) | 1 | M |
+| 28 | later | `chore/popup-controleurs` | 1 | L |
+| 29 | later | `chore/i18n-contenu-leger` | 1 | M |
 
-Total : 112 cas affectés à un lot, 19 regroupés, aucun écarté.
+Total: 112 cases assigned to a batch, 19 grouped, none dropped.
 
-## Par où commencer
+## Where to start
 
-Commencer par le **lot 1** : [SYNC-01](AUDIT-2026-10-10.md#sync-01) est le seul cas de gravité haute confirmé qui corrompt les listes. Une préquelle ou une suite publiée comme une autre série Crunchyroll (Naruto pour Naruto Shippuden, Bleach pour Bleach TYBW) reçoit la progression avec une confiance « high », et la correspondance fausse est mise en cache pour toute la saison. Enchaîner aussitôt avec le **lot 2** ([SYNC-02](AUDIT-2026-10-10.md#sync-02)) : « Aligner » réécrit un instantané périmé et peut faire reculer des centaines de séries en un clic. Les deux lots sont courts, touchent des fichiers distincts (`resolver.ts`/`matching.ts` contre `compare.ts`) et peuvent être relus le même jour. Faire ensuite le lot 3 (verrou par fiche), dont dépendent les lots 4 et 5. Le lot 8 (garde-fou des permissions et chaîne de publication) doit être fusionné avant le tag `v2.1.1`.
-
----
-
-## 2.1.1 : correctifs urgents (intégrité des données et panneau)
-
-### Lot 1 · `bugfix/relation-autre-serie`
-
-**Objectif :** ne plus écrire la progression sur une fiche AniList liée à une autre série de la plateforme, ni sur une série TV homonyme d'un film Netflix.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [SYNC-01](AUDIT-2026-10-10.md#sync-01) | haute | Préquelle/suite d'une autre série Crunchyroll comptée comme saison (Naruto ← Shippuden) |
-| [BRW-01](AUDIT-2026-10-10.md#brw-01) | moyenne | Film Netflix : la série TV homonyme l'emporte en confiance high |
-| [TEST-08](AUDIT-2026-10-10.md#test-08) | moyenne | Chemin « correspondance en cache » et propagation SEQUEL/PREQUEL non testés |
-
-- **Effort :** M.
-- **Dépendances :** aucune.
-- **Tests :**
-  - `matching.test.ts` : Shippuden S1 E5 avec Naruto en PREQUEL lié à un autre `seriesId` donne Shippuden (ou une vérification), jamais Naruto ; S2 E35 de même ; LinkKind `'other'` exclu de `seasonPool` et jamais propagé.
-  - `matching-netflix.test.ts` : « Jujutsu Kaisen 0 » donne le MOVIE lié ; « Bubble » donne le MOVIE lié, et la TV homonyme non liée retombe à confiance `low`.
-  - `resolver.test.ts` : bloc « cache » (mapping valide : aucun `searchAnime` ; hors fiche avec `persist:true` : suppression puis nouvelle résolution ; `persist:false` : ni suppression ni écriture) ; relation SEQUEL récupérée par `getAnimeByIds` et marquée `'relation'`.
-- **Vérification manuelle (Chrome ou Brave) :** Naruto Shippuden S1 E1 sur Crunchyroll, popup ouvert : la fiche proposée est Shippuden (1735), pas Naruto (20). Un épisode de One Piece reste correct (non-régression de la numérotation absolue). Firefox : un film Netflix lié sur AniList (Netflix activé).
-- **Migration et purge :**
-  - Revalidation au premier usage d'une correspondance en cache : si la fiche mise en cache a son propre lien vers une autre série de la même plateforme, supprimer la correspondance et relancer la résolution.
-  - À la mise à jour vers 2.1.1 (`onInstalled`, `reason === 'update'`), supprimer toutes les correspondances `netflix:*` (créées depuis la 2.1.0, il y a quelques jours, elles se recalculent toutes seules).
-  - La progression déjà écrite sur la mauvaise fiche ne peut pas être annulée automatiquement. CHANGELOG (Corrigé) : « Si tu regardes une suite publiée à part sur Crunchyroll (Naruto Shippuden, Bleach TYBW…), vérifie dans AniList et MAL que la série précédente n'a pas reçu ta progression, et utilise *Réglages › Mes données › Correspondances › Oublier* si une correspondance est fausse. »
-
-### Lot 2 · `bugfix/alignement-instantane-perime`
-
-**Objectif :** l'alignement AniList ↔ MAL relit l'état réel avant d'écrire et ne fait jamais reculer une liste.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [SYNC-02](AUDIT-2026-10-10.md#sync-02) | moyenne | « Aligner » écrit l'instantané `compare:last` sans relecture |
-| [ARCH-21](AUDIT-2026-10-10.md#arch-21) | moyenne | `compare:last` jamais invalidé après une synchro ou un contrôle |
-
-- **Effort :** S.
-- **Dépendances :** aucune. Si le lot 3 est déjà fusionné, faire la relecture sous `withEntryLock`.
-- **Tests :** `src/background/compare.test.ts` : la cible relue avec une progression différente de `diff[target]` donne un élément ignoré « modifié depuis l'analyse » ; une écriture inférieure à la progression actuelle de la cible est refusée ; `compare:last` est marqué « à réanalyser » (ou les écarts de la fiche retirés) après une synchro réussie de la même fiche.
-- **Vérification manuelle (Chrome) :** lancer une analyse avec un écart, regarder un épisode de cette série, puis cliquer « Aligner » : la série est ignorée avec le message, et aucune progression ne recule sur AniList ni sur MAL.
-- **Migration :** aucune. CHANGELOG : l'alignement ignore les séries modifiées depuis l'analyse.
-
-### Lot 3 · `bugfix/verrou-par-fiche`
-
-**Objectif :** sérialiser par fiche la séquence lecture → décision → écriture, pour qu'aucun chemin concurrent ne fasse reculer la progression.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [ARCH-12](AUDIT-2026-10-10.md#arch-12) | moyenne | Aucun verrou par fiche entre direct, file, contrôles, import, alignement |
-| [CRI-02](AUDIT-2026-10-10.md#cri-02) | basse | `applyItem` : attente du budget entre lecture et écriture |
-
-- **Effort :** S.
-- **Dépendances :** aucune. Les lots 4, 5 et 16 s'appuient sur le helper.
-- **Tests :** nouveau `src/background/sync/entry-lock.test.ts` sur le modèle de `watching-race.test.ts` : deux `syncEpisode` concurrents (E5 depuis la file, E7 en direct) sur la même fiche donnent une progression finale de 7 ; deux `ADJUST_PROGRESS` +1 donnent +2 ; dans `applyItem`, le créneau d'écriture (`waitWriteSlot`) est pris avant la relecture.
-- **Vérification manuelle (Chrome) :** +1 depuis le panneau et depuis « En cours » du popup dans la même seconde : +2 au total sur AniList.
-- **Migration :** aucune.
-
-### Lot 4 · `bugfix/controles-revisionnage`
-
-**Objectif :** des contrôles manuels (+1/−1, note, correction) cohérents avec la synchro automatique, revisionnage compris.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [CTRL-02](AUDIT-2026-10-10.md#ctrl-02) | moyenne | +1 crée l'entrée à l'épisode 1 sur le service où la série est absente |
-| [CTRL-03](AUDIT-2026-10-10.md#ctrl-03) | moyenne | +1 en échec partiel : recliquer décale le service qui avait réussi |
-| [CTRL-01](AUDIT-2026-10-10.md#ctrl-01) | moyenne | +1 au dernier épisode d'un revisionnage : compteur et `is_rewatching` |
-| [CTRL-04](AUDIT-2026-10-10.md#ctrl-04) | moyenne | Carte « À noter » supprimée malgré un service en échec |
-| [SYNC-08](AUDIT-2026-10-10.md#sync-08) | basse | « Corriger » sur un revisionnage le fait sortir du revisionnage |
-
-- **Effort :** M.
-- **Dépendances :** lot 3 (`adjustOnService` et `statusOnService` sous verrou).
-- **Tests :**
-  - `controls.test.ts` : `entry === null` donne un skip `notInList` ; REPEATING 11/12 puis +1 donne COMPLETED avec `repeat+1` ; après un échec partiel, le nouvel essai écrit une progression absolue sur le seul service en échec.
-  - `rules.test.ts` : une correction sur REPEATING reste REPEATING, avec `repeat+1` au dernier épisode, et MAL reçoit `is_rewatching` explicite.
-  - `engagement-store.test.ts` : la carte est conservée tant qu'un service est en erreur ou que tous sont `skipped`.
-- **Vérification manuelle (Chrome + Firefox) :** une série présente sur AniList et absente de MAL, +1 : MAL n'est pas créé. Une série en revisionnage à 11/12, +1 : AniList COMPLETED avec un revisionnage de plus, MAL n'est plus « Re-watching ». Noter avec MAL hors ligne (coupure réseau dans les outils de développement) : la carte reste après la réouverture du popup.
-- **Migration :** aucune. Les entrées MAL restées en `is_rewatching` se corrigent à la main ; le mentionner dans le CHANGELOG.
-
-### Lot 5 · `bugfix/cartes-verification`
-
-**Objectif :** les cartes « À vérifier » et « Corriger » ne perdent plus d'échec, ne font pas reculer la progression et ne restent pas bloquées sur une correspondance caduque.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [BAK-01](AUDIT-2026-10-10.md#bak-01) | basse | Carte de correction importée : la progression peut reculer |
-| [SYNC-07](AUDIT-2026-10-10.md#sync-07) | basse | La synchro suivante supprime la carte « Corriger » et réécrit sur la fiche contestée |
-| [SYNC-03](AUDIT-2026-10-10.md#sync-03) | moyenne | Vérification manuelle : un échec MAL passager est perdu |
-| [SYNC-04](AUDIT-2026-10-10.md#sync-04) | moyenne | Demande de note alors que la série est déjà notée |
-| [SYNC-05](AUDIT-2026-10-10.md#sync-05) | moyenne | Correspondance en cache avec `episodes:null` jamais revalidée |
-| [SYNC-06](AUDIT-2026-10-10.md#sync-06) | basse | 404 et fiche supprimée classés « passagers », cache jamais invalidé |
-
-- **Effort :** M.
-- **Dépendances :** lot 3.
-- **Tests :** créer `src/background/sync/sync-service.test.ts` (mocks de `../trackers`, `../api/media`, `./resolver`, `../../shared/storage`) avec les scénarios de ce lot : `resolveReview` avec MAL en 504 passe par `recordSyncOutcome` (élément en file) ; une correction n'est acceptée que si la progression actuelle vaut `previous.progress` ; une carte avec `previous !== null` n'est pas supprimée par la synchro suivante ; pas de demande de note si un service a déjà une note ou si l'entrée était REPEATING ; une correspondance avec `episodes:null` est revalidée avec `catalog.episodes`. `queue-policy.test.ts` : `API_ERROR` 404 donne `failed` sans relance, 503 donne `retry`.
-- **Vérification manuelle (Chrome) :** ouvrir « Corriger » sur une synchro, lancer l'épisode suivant sans valider : la carte reste. Finale d'une série déjà notée : aucune bulle « Noter ».
-- **Migration :** à l'import d'une sauvegarde, forcer `previous` à `null` sur les `pendingReviews` (`backup.ts`). Correspondances `episodes:null` : revalidées au premier usage, sans purge globale. CHANGELOG : préciser que les corrections importées depuis une sauvegarde deviennent de simples vérifications.
-
-### Lot 6 · `bugfix/panneau-en-lecture`
-
-**Objectif :** le panneau « En lecture » ne reste plus bloqué en chargement et n'affiche plus la fiche d'une page quittée ; l'agenda ne jette plus ses réponses.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [UI-01](AUDIT-2026-10-10.md#ui-01) | haute | Panneau bloqué en chargement si l'onglet se met à jour pendant la résolution |
-| [UI-02](AUDIT-2026-10-10.md#ui-02) | moyenne | Le retour d'une action recharge l'ancienne page après un changement d'onglet |
-| [UI-03](AUDIT-2026-10-10.md#ui-03) | moyenne | Agenda : chaque rendu relance `load()` et jette `GET_AGENDA`, erreurs comprises |
-
-- **Effort :** M.
-- **Dépendances :** aucune.
-- **Tests :** `src/sidepanel/now-playing-view.test.ts` (ou un nouveau `now-playing.test.ts` avec un faux `sendMessage`) : `refresh(false)` sur la même page pendant un `resolve` en vol finit en `ready` ; une action dont la réponse arrive après un changement de `tabId` ou de `pageKey` ne touche ni la fiche ni `actions`. `src/sidepanel/tabs.test.ts` : `activate()` n'est appelé qu'au passage sur l'onglet Agenda ; une erreur `GET_AGENDA` affiche « données périmées » et le bouton Réessayer. Ajouter un scénario e2e du panneau si le harnais le permet.
-- **Vérification manuelle (Chrome + Brave, puis Firefox pour le changement d'onglet) :** ouvrir le panneau pendant le chargement d'un épisode Crunchyroll : la fiche s'affiche. Cliquer « +1 » puis changer aussitôt d'onglet : la fiche du nouvel onglet reste affichée. Agenda ouvert avec AniList bloqué (outils de développement) : le message d'erreur reste visible.
-- **Migration :** aucune.
-
-### Lot 7 · `bugfix/netflix-retrait-acces`
-
-**Objectif :** retirer l'accès Netflix arrête vraiment la synchro et le lecteur préféré Netflix.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [CONT-03](AUDIT-2026-10-10.md#cont-03) | moyenne | Onglets Netflix déjà ouverts : la synchro continue après le retrait |
-| [BRW-04](AUDIT-2026-10-10.md#brw-04) | basse | Lecteur préféré « Netflix » encore utilisé après le retrait de l'accès |
-
-- **Effort :** S.
-- **Dépendances :** aucune.
-- **Tests :** `src/background/netflix-scripts.test.ts` (ou un nouveau test du routage) : `EPISODE_COMPLETED` `platform:'netflix'` sans permission donne `ignored`, sans écriture. `src/ui/settings/summary.test.ts` : un helper unique `effectivePlayer(preferred, netflixGranted)` est utilisé par le popup, le panneau, l'agenda et `airing.ts` ; sur `permissions.onRemoved`, `preferredPlayer` revient à la valeur par défaut.
-- **Vérification manuelle (Chrome + Firefox) :** onglet Netflix ouvert, retirer l'accès dans `chrome://extensions` (Firefox : `about:addons`) sans recharger l'onglet, finir un épisode lié : rien n'est écrit. Notification de sortie et bouton de reprise : ils ouvrent Crunchyroll.
-- **Migration :** au démarrage, si `preferredPlayer === 'netflix'` sans permission, le remettre à la valeur par défaut.
+Start with **batch 1**: [SYNC-01](AUDIT-2026-10-10.md#sync-01) is the only confirmed high-severity case that corrupts lists. A prequel or sequel published as a separate Crunchyroll series (Naruto for Naruto Shippuden, Bleach for Bleach TYBW) receives the progress with "high" confidence, and the wrong match is cached for the whole season. Follow right away with **batch 2** ([SYNC-02](AUDIT-2026-10-10.md#sync-02)): "Match" rewrites a stale snapshot and can move hundreds of series backwards in one click. Both batches are short, touch separate files (`resolver.ts`/`matching.ts` versus `compare.ts`) and can be reviewed the same day. Then do batch 3 (per-entry lock), which batches 4 and 5 depend on. Batch 8 (permission guard and publishing pipeline) must be merged before the `v2.1.1` tag.
 
 ---
 
-## Outillage et publication (sans version)
+## 2.1.1: urgent fixes (data integrity and side panel)
 
-Branches `chore/…` fusionnées dans `develop` hors release. Le lot 8 doit précéder le tag `v2.1.1`.
+### Batch 1 · `bugfix/relation-autre-serie`
 
-### Lot 8 · `chore/garde-permissions-release`
+**Goal:** stop writing progress to an AniList entry linked to another series on the platform, or to a TV series sharing its name with a Netflix movie.
 
-**Objectif :** plus jamais de soumission refusée au Chrome Web Store pour une permission non justifiée, et une chaîne de publication verrouillée.
-
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [ARCH-24](AUDIT-2026-10-10.md#arch-24) | haute | Test manifest ↔ `permissions.md`, release GitHub idempotente, codes AMO |
-| [ARCH-23](AUDIT-2026-10-10.md#arch-23) | haute | CLI de publication non épinglées, secrets hors environnement, tag hors `main` |
-| [ARCH-32](AUDIT-2026-10-10.md#arch-32) | moyenne | Chrome headless non épinglé dans la release |
+| [SYNC-01](AUDIT-2026-10-10.md#sync-01) | high | Prequel/sequel of another Crunchyroll series counted as a season (Naruto ← Shippuden) |
+| [BRW-01](AUDIT-2026-10-10.md#brw-01) | medium | Netflix movie: the TV series with the same name wins with high confidence |
+| [TEST-08](AUDIT-2026-10-10.md#test-08) | medium | "Cached match" path and SEQUEL/PREQUEL propagation not tested |
 
-- **Effort :** S.
-- **Dépendances :** aucune.
-- **Tests :** `scripts/store-permissions.test.ts` : chaque entrée de `permissions`, `host_permissions` et `optional_host_permissions` de `manifest.json` a sa section dans `docs/store/permissions.md`, et l'en-tête de version y correspond. Le test doit échouer sur un manifeste où une permission fictive a été ajoutée.
-- **Vérification manuelle :** lancer `release.yml` en `workflow_dispatch` à blanc (ou un tag de test sur un fork) : `npx --no-install` résout les versions du lockfile, `gh release` passe en `edit`/`upload --clobber` si la release existe, et l'étape AMO échoue sur un code autre que 200, 401, 403 ou 404. Côté GitHub : environnement `stores` limité aux tags `v*`, règle sur les tags, contrôle `merge-base --is-ancestor` avec `main`.
-- **Migration :** documenter la reprise dans `docs/STORE.md` › 7 (onglet Confidentialité, puis « Re-run failed jobs »). Corriger les releases v2.0.0 et v2.1.0 rédigées à la main si leur texte est faux.
+- **Effort:** M.
+- **Dependencies:** none.
+- **Tests:**
+  - `matching.test.ts`: Shippuden S1 E5 with Naruto as a PREQUEL linked to another `seriesId` gives Shippuden (or a check), never Naruto; same for S2 E35; LinkKind `'other'` excluded from `seasonPool` and never propagated.
+  - `matching-netflix.test.ts`: "Jujutsu Kaisen 0" gives the linked MOVIE; "Bubble" gives the linked MOVIE, and the unlinked TV series with the same name falls back to `low` confidence.
+  - `resolver.test.ts`: "cache" block (valid mapping: no `searchAnime`; beyond the entry with `persist:true`: deletion then new resolution; `persist:false`: neither deletion nor write); SEQUEL relation fetched by `getAnimeByIds` and marked `'relation'`.
+- **Manual check (Chrome or Brave):** Naruto Shippuden S1 E1 on Crunchyroll, popup open: the suggested entry is Shippuden (1735), not Naruto (20). A One Piece episode stays correct (no regression in absolute numbering). Firefox: a Netflix movie linked on AniList (Netflix turned on).
+- **Migration and purge:**
+  - Revalidation on first use of a cached match: if the cached entry has its own link to another series on the same platform, delete the match and run the resolution again.
+  - On update to 2.1.1 (`onInstalled`, `reason === 'update'`), delete all `netflix:*` matches (created since 2.1.0, a few days ago, they recompute on their own).
+  - Progress already written to the wrong entry cannot be undone automatically. CHANGELOG (Fixed): "If you watch a sequel published separately on Crunchyroll (Naruto Shippuden, Bleach TYBW…), check on AniList and MAL that the previous series did not receive your progress, and use *Settings › My data › Matches › Forget* if a match is wrong."
 
-### Lot 9 · `chore/docs-stores`
+### Batch 2 · `bugfix/alignement-instantane-perime`
 
-**Objectif :** des fiches et des notes d'examen fidèles au code (AMO, confidentialité, build des relecteurs).
+**Goal:** the AniList ↔ MAL alignment rereads the actual state before writing and never moves a list backwards.
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [REL-02](AUDIT-2026-10-10.md#rel-02) | moyenne | Fiche AMO sans Netflix, renvoyée à chaque version |
-| [REL-03](AUDIT-2026-10-10.md#rel-03) | basse | `approval_notes` inexactes sur les hôtes contactés |
-| [REL-04](AUDIT-2026-10-10.md#rel-04) | basse | `npm ci` télécharge Chrome pour le relecteur AMO |
-| [REL-06](AUDIT-2026-10-10.md#rel-06) | basse | Date d'effet de `PRIVACY.md` non mise à jour, `storage.session` absent |
-| [SEC-04](AUDIT-2026-10-10.md#sec-04) | basse | `permissions.md` : `web_accessible_resources` décrit comme limité à Netflix |
+| [SYNC-02](AUDIT-2026-10-10.md#sync-02) | medium | "Match" writes the `compare:last` snapshot without rereading |
+| [ARCH-21](AUDIT-2026-10-10.md#arch-21) | medium | `compare:last` never invalidated after a sync or a manual control |
 
-- **Effort :** S.
-- **Dépendances :** aucune.
-- **Tests :** test Vitest : chaque plateforme citée dans `docs/store/listing-*.md` figure dans `description` de `amo-metadata.json` (en-US, fr, de).
-- **Vérification manuelle :** relire `amo-metadata.json`, `PRIVACY.md` (3 langues) et `BUILD.md` (`PUPPETEER_SKIP_DOWNLOAD=true npm ci`, variante PowerShell) ; lancer cette commande dans un clone propre. Corriger la ligne de `CLAUDE.md` qui dit que seules les `approval_notes` repartent.
-- **Migration :** aucune.
+- **Effort:** S.
+- **Dependencies:** none. If batch 3 is already merged, do the reread under `withEntryLock`.
+- **Tests:** `src/background/compare.test.ts`: a reread target with progress different from `diff[target]` gives a skipped item "changed since the analysis"; a write lower than the target's current progress is refused; `compare:last` is marked "needs re-analysis" (or the entry's differences removed) after a successful sync of the same entry.
+- **Manual check (Chrome):** run an analysis with a difference, watch an episode of that series, then click "Match": the series is skipped with the message, and no progress goes backwards on AniList or MAL.
+- **Migration:** none. CHANGELOG: the alignment skips series changed since the analysis.
 
-### Lot 10 · `chore/build-reproductible`
+### Batch 3 · `bugfix/verrou-par-fiche`
 
-**Objectif :** un build Firefox identique quel que soit le dossier, et un contrôle automatique du paquet construit.
+**Goal:** serialize the read → decide → write sequence per entry, so that no concurrent path moves progress backwards.
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [ARCH-22](AUDIT-2026-10-10.md#arch-22) | haute | Nom du chunk background dépendant du chemin absolu |
-| [ARCH-31](AUDIT-2026-10-10.md#arch-31) | moyenne | Horodatage CI (`git log`) contre `.source-date-epoch` du relecteur |
-| [ARCH-27](AUDIT-2026-10-10.md#arch-27) | moyenne | Aucune vérification du manifeste généré ni budget de taille |
+| [ARCH-12](AUDIT-2026-10-10.md#arch-12) | medium | No per-entry lock between live sync, queue, controls, import, alignment |
+| [CRI-02](AUDIT-2026-10-10.md#cri-02) | low | `applyItem`: waiting for the budget between read and write |
 
-- **Effort :** M.
-- **Dépendances :** lot 9 (`BUILD.md`).
-- **Tests :** `scripts/verify-build.ts` lancé en CI après `build` et `build:firefox` : l'entrée Netflix des `web_accessible_resources` est limitée à `*://*.netflix.com/*`, tous les fichiers référencés existent, les `*.iife.js` n'ont ni `import` ni `export` au niveau supérieur, les permissions sont identiques au manifeste source, et le budget des scripts de contenu tient en 300 Ko. Étape CI : dézipper l'archive des sources dans `/tmp/repro`, construire sans `SOURCE_DATE_EPOCH` forcé, puis `diff -r` avec le zip Firefox.
-- **Vérification manuelle :** build Firefox dans deux dossiers différents sous Windows : même nom de chunk. Charger `dist/` dans Chrome et `dist-firefox/` dans Firefox : popup, panneau et synchro d'un épisode fonctionnent (le chunk renommé ne casse pas le chargeur crxjs).
-- **Migration :** aucune.
+- **Effort:** S.
+- **Dependencies:** none. Batches 4, 5 and 16 build on the helper.
+- **Tests:** new `src/background/sync/entry-lock.test.ts` modeled on `watching-race.test.ts`: two concurrent `syncEpisode` calls (E5 from the queue, E7 live) on the same entry give a final progress of 7; two `ADJUST_PROGRESS` +1 give +2; in `applyItem`, the write slot (`waitWriteSlot`) is taken before the reread.
+- **Manual check (Chrome):** +1 from the side panel and from the popup's "Watching" in the same second: +2 in total on AniList.
+- **Migration:** none.
 
-### Lot 11 · `chore/verification-locale-ci`
+### Batch 4 · `bugfix/controles-revisionnage`
 
-**Objectif :** les vérifications de la CI tournent en local avant chaque fusion, sur un outillage assaini.
+**Goal:** manual controls (+1/−1, rating, correction) consistent with automatic sync, rewatching included.
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [ARCH-28](AUDIT-2026-10-10.md#arch-28) | moyenne | La CI ne tourne qu'après la fusion ; checklist locale incomplète |
-| [ARCH-29](AUDIT-2026-10-10.md#arch-29) | basse | `@tailwindcss/cli` inutilisé, `npm audit`, alertes Dependabot |
-| [ARCH-30](AUDIT-2026-10-10.md#arch-30) | basse | Aucun linter typé (`no-floating-promises`) |
+| [CTRL-02](AUDIT-2026-10-10.md#ctrl-02) | medium | +1 creates the entry at episode 1 on the service where the series is missing |
+| [CTRL-03](AUDIT-2026-10-10.md#ctrl-03) | medium | +1 with partial failure: clicking again shifts the service that had succeeded |
+| [CTRL-01](AUDIT-2026-10-10.md#ctrl-01) | medium | +1 on the last episode of a rewatch: counter and `is_rewatching` |
+| [CTRL-04](AUDIT-2026-10-10.md#ctrl-04) | medium | "To rate" card deleted despite a failed service |
+| [SYNC-08](AUDIT-2026-10-10.md#sync-08) | low | "Correct" on a rewatch takes it out of rewatching |
 
-- **Effort :** S (web-ext 10 à part, sans urgence).
-- **Dépendances :** aucune ; idéalement après le lot 10 pour inclure `verify-build` dans `verify`.
-- **Tests :** `npm run verify` (`tsc --noEmit`, `tsc -p scripts`, `tsc -p scripts/screenshots`, `vitest run`, `build`, `build:firefox`, `lint:firefox`) passe ; lint typé limité à `no-floating-promises`, `no-misused-promises`, `switch-exhaustiveness-check` et `no-explicit-any`, après vérification de la compatibilité avec TypeScript 6.
-- **Vérification manuelle :** `npm run verify` sur une copie propre ; mettre à jour la checklist de `CLAUDE.md`. Alertes Dependabot de sécurité, avec des mises à jour groupées mensuelles.
-- **Migration :** aucune.
+- **Effort:** M.
+- **Dependencies:** batch 3 (`adjustOnService` and `statusOnService` under the lock).
+- **Tests:**
+  - `controls.test.ts`: `entry === null` gives a `notInList` skip; REPEATING 11/12 then +1 gives COMPLETED with `repeat+1`; after a partial failure, the retry writes an absolute progress to the failed service only.
+  - `rules.test.ts`: a correction on REPEATING stays REPEATING, with `repeat+1` on the last episode, and MAL receives an explicit `is_rewatching`.
+  - `engagement-store.test.ts`: the card is kept as long as a service is in error or all are `skipped`.
+- **Manual check (Chrome + Firefox):** a series present on AniList and missing from MAL, +1: MAL is not created. A series being rewatched at 11/12, +1: AniList COMPLETED with one more rewatch, MAL is no longer "Re-watching". Rate with MAL offline (network cut in the developer tools): the card stays after reopening the popup.
+- **Migration:** none. MAL entries left with `is_rewatching` must be fixed by hand; mention it in the CHANGELOG.
+
+### Batch 5 · `bugfix/cartes-verification`
+
+**Goal:** the "To check" and "Correct" cards no longer lose failures, no longer move progress backwards and no longer stay stuck on an obsolete match.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [BAK-01](AUDIT-2026-10-10.md#bak-01) | low | Imported correction card: progress can go backwards |
+| [SYNC-07](AUDIT-2026-10-10.md#sync-07) | low | The next sync deletes the "Correct" card and writes again to the disputed entry |
+| [SYNC-03](AUDIT-2026-10-10.md#sync-03) | medium | Manual check: a transient MAL failure is lost |
+| [SYNC-04](AUDIT-2026-10-10.md#sync-04) | medium | Rating request although the series is already rated |
+| [SYNC-05](AUDIT-2026-10-10.md#sync-05) | medium | Cached match with `episodes:null` never revalidated |
+| [SYNC-06](AUDIT-2026-10-10.md#sync-06) | low | 404 and deleted entry classified as "transient", cache never invalidated |
+
+- **Effort:** M.
+- **Dependencies:** batch 3.
+- **Tests:** create `src/background/sync/sync-service.test.ts` (mocks of `../trackers`, `../api/media`, `./resolver`, `../../shared/storage`) with this batch's scenarios: `resolveReview` with MAL returning 504 goes through `recordSyncOutcome` (item queued); a correction is accepted only if the current progress equals `previous.progress`; a card with `previous !== null` is not deleted by the next sync; no rating request if a service already has a rating or if the entry was REPEATING; a match with `episodes:null` is revalidated with `catalog.episodes`. `queue-policy.test.ts`: `API_ERROR` 404 gives `failed` without retry, 503 gives `retry`.
+- **Manual check (Chrome):** open "Correct" on a sync, start the next episode without confirming: the card stays. Finale of a series that is already rated: no "Rate" bubble.
+- **Migration:** when importing a backup, force `previous` to `null` on `pendingReviews` (`backup.ts`). `episodes:null` matches: revalidated on first use, no global purge. CHANGELOG: state that corrections imported from a backup become plain checks.
+
+### Batch 6 · `bugfix/panneau-en-lecture`
+
+**Goal:** the "Now playing" side panel no longer stays stuck loading and no longer shows the entry of a page that was left; the Schedule no longer throws away its responses.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [UI-01](AUDIT-2026-10-10.md#ui-01) | high | Side panel stuck loading if the tab updates during resolution |
+| [UI-02](AUDIT-2026-10-10.md#ui-02) | medium | An action's response reloads the old page after a tab switch |
+| [UI-03](AUDIT-2026-10-10.md#ui-03) | medium | Schedule: each render reruns `load()` and throws away `GET_AGENDA`, errors included |
+
+- **Effort:** M.
+- **Dependencies:** none.
+- **Tests:** `src/sidepanel/now-playing-view.test.ts` (or a new `now-playing.test.ts` with a fake `sendMessage`): `refresh(false)` on the same page during an in-flight `resolve` ends in `ready`; an action whose response arrives after a change of `tabId` or `pageKey` touches neither the entry nor `actions`. `src/sidepanel/tabs.test.ts`: `activate()` is called only when switching to the Schedule tab; a `GET_AGENDA` error shows "stale data" and the Retry button. Add a side panel e2e scenario if the harness allows it.
+- **Manual check (Chrome + Brave, then Firefox for the tab switch):** open the side panel while a Crunchyroll episode is loading: the entry shows up. Click "+1" then switch tabs right away: the new tab's entry stays displayed. Schedule open with AniList blocked (developer tools): the error message stays visible.
+- **Migration:** none.
+
+### Batch 7 · `bugfix/netflix-retrait-acces`
+
+**Goal:** removing Netflix access really stops sync and the Netflix preferred player.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [CONT-03](AUDIT-2026-10-10.md#cont-03) | medium | Netflix tabs already open: sync continues after removal |
+| [BRW-04](AUDIT-2026-10-10.md#brw-04) | low | "Netflix" preferred player still used after access is removed |
+
+- **Effort:** S.
+- **Dependencies:** none.
+- **Tests:** `src/background/netflix-scripts.test.ts` (or a new routing test): `EPISODE_COMPLETED` `platform:'netflix'` without permission gives `ignored`, with no write. `src/ui/settings/summary.test.ts`: a single helper `effectivePlayer(preferred, netflixGranted)` is used by the popup, the side panel, the Schedule and `airing.ts`; on `permissions.onRemoved`, `preferredPlayer` goes back to the default value.
+- **Manual check (Chrome + Firefox):** with a Netflix tab open, remove access in `chrome://extensions` (Firefox: `about:addons`) without reloading the tab, finish a linked episode: nothing is written. Release notification and resume button: they open Crunchyroll.
+- **Migration:** on startup, if `preferredPlayer === 'netflix'` without permission, reset it to the default value.
 
 ---
 
-## 2.2.0 : socle (liaison au compte, tests d'orchestration, frontières de modules, accessibilité)
+## Tooling and publishing (no version)
 
-### Lot 12 · `bugfix/liaison-compte`
+`chore/…` branches merged into `develop` outside of a release. Batch 8 must come before the `v2.1.1` tag.
 
-**Objectif :** la file, les cartes et les notes d'un compte ne sont jamais rejouées sur un autre compte.
+### Batch 8 · `chore/garde-permissions-release`
 
-| Cas | Gravité | Sujet |
+**Goal:** never again a Chrome Web Store submission rejected for an unjustified permission, and a locked-down publishing pipeline.
+
+| Cases | Severity | Subject |
 |---|---|---|
-| [DATA-01](AUDIT-2026-10-10.md#data-01) | moyenne | File, notes et synchros récentes rejouées sur un autre compte |
-| [CRI-03](AUDIT-2026-10-10.md#cri-03) | basse | Changement de compte pendant l'application de l'import |
-| [AUTH-06](AUDIT-2026-10-10.md#auth-06) | basse | Jeton AniList expiré jamais purgé : données de l'ancien compte conservées |
-| [DATA-06](AUDIT-2026-10-10.md#data-06) | basse | Jeton AniList expiré traité comme « aucun service » : données effacées |
-| [TEST-10](AUDIT-2026-10-10.md#test-10) | basse | Effacements de session et plafonds de `storage.ts` non testés |
+| [ARCH-24](AUDIT-2026-10-10.md#arch-24) | high | Manifest ↔ `permissions.md` test, idempotent GitHub release, AMO codes |
+| [ARCH-23](AUDIT-2026-10-10.md#arch-23) | high | Publishing CLIs not pinned, secrets outside an environment, tag not on `main` |
+| [ARCH-32](AUDIT-2026-10-10.md#arch-32) | medium | Headless Chrome not pinned in the release |
 
-- **Effort :** M.
-- **Dépendances :** lot 3 ; à faire avant le lot 13 (même module `storage.ts`).
-- **Tests :** nouveau `src/shared/storage.test.ts` (faux `chrome.storage.local` en Map, verrou immédiat) : liste exacte des clés effacées par `clearUserSyncData`, `clearAniListSession` et `clearMalSession` ; `mediaMappings` et `sessionEpoch` conservés ; plafonds de `savePendingReview` (20) et `addRecentSync` (5). `queue.test.ts` : un élément enregistré avec l'epoch A et relancé sous l'epoch B est retiré sans écriture. `cr-import` : un epoch changé entre `getEntry` et `saveProgress` abandonne l'élément.
-- **Vérification manuelle (Chrome) :** mettre MAL hors ligne pour remplir la file, se déconnecter d'AniList, connecter un autre compte AniList : la file de l'ancien compte disparaît et rien n'est écrit sur le nouveau.
-- **Migration :** les éléments existants de `syncQueue`, `pendingRatings` et `recentSyncs` n'ont pas d'epoch. À la mise à jour, leur attribuer l'epoch courant (le compte connecté au moment de la mise à jour est le plus probable). CHANGELOG : la file et les cartes sont désormais liées au compte.
+- **Effort:** S.
+- **Dependencies:** none.
+- **Tests:** `scripts/store-permissions.test.ts`: every entry of `permissions`, `host_permissions` and `optional_host_permissions` in `manifest.json` has its section in `docs/store/permissions.md`, and the version header there matches. The test must fail on a manifest where a fake permission has been added.
+- **Manual check:** run `release.yml` as a dry-run `workflow_dispatch` (or a test tag on a fork): `npx --no-install` resolves the lockfile versions, `gh release` switches to `edit`/`upload --clobber` if the release exists, and the AMO step fails on any code other than 200, 401, 403 or 404. On GitHub: `stores` environment restricted to `v*` tags, tag ruleset, `merge-base --is-ancestor` check against `main`.
+- **Migration:** document the recovery in `docs/STORE.md` › 7 (Privacy tab, then "Re-run failed jobs"). Fix the hand-written v2.0.0 and v2.1.0 releases if their text is wrong.
 
-### Lot 13 · `bugfix/ecritures-sous-session`
+### Batch 9 · `chore/docs-stores`
 
-**Objectif :** aucune écriture réseau tardive ne recrée la session ou les données d'un compte déconnecté.
+**Goal:** listings and review notes faithful to the code (AMO, privacy, reviewer build).
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [AUTH-01](AUDIT-2026-10-10.md#auth-01) | moyenne | Un renouvellement MAL en cours ressuscite la session après la déconnexion |
-| [AUTH-02](AUDIT-2026-10-10.md#auth-02) | moyenne | Effacement sur 401 sans vérifier que c'est le jeton refusé |
-| [AUTH-04](AUDIT-2026-10-10.md#auth-04) | moyenne | Profil en cache sans epoch : liste « En cours » de l'ancien compte |
-| [AUTH-08](AUDIT-2026-10-10.md#auth-08) | basse | Renouvellement forcé comparé au jeton relu : renouvellements en cascade |
-| [DATA-05](AUDIT-2026-10-10.md#data-05) | basse | Aperçu d'import, comparaison et semaine d'agenda réécrits après déconnexion |
-| [ALRT-05](AUDIT-2026-10-10.md#alrt-05) | basse | Clés `airing*` non effacées, agenda réécrit pour le compte déconnecté |
+| [REL-02](AUDIT-2026-10-10.md#rel-02) | medium | AMO listing without Netflix, resent with every version |
+| [REL-03](AUDIT-2026-10-10.md#rel-03) | low | Inaccurate `approval_notes` about the contacted hosts |
+| [REL-04](AUDIT-2026-10-10.md#rel-04) | low | `npm ci` downloads Chrome for the AMO reviewer |
+| [REL-06](AUDIT-2026-10-10.md#rel-06) | low | `PRIVACY.md` effective date not updated, `storage.session` missing |
+| [SEC-04](AUDIT-2026-10-10.md#sec-04) | low | `permissions.md`: `web_accessible_resources` described as limited to Netflix |
 
-- **Effort :** M.
-- **Dépendances :** lot 12.
-- **Tests :** `storage.test.ts` : `writeIfSession(service, epoch, entries)` n'écrit rien si l'epoch a changé ; `clearAniListSessionIfToken` et `clearMalSessionIfToken` n'effacent que le jeton refusé. Nouveau `src/background/auth/mal.test.ts` (partagé avec le lot 14) : déconnexion pendant `requestToken` donne un jeton abandonné ; trois 401 concurrents avec le même jeton donnent un seul renouvellement.
-- **Vérification manuelle (Chrome) :** jeton MAL proche de l'expiration (le modifier dans le stockage), ouvrir le popup puis se déconnecter de MAL aussitôt : le compte reste déconnecté. Se déconnecter pendant une vérification des sorties : l'agenda est vide.
-- **Migration :** ajouter `airingNotified`, `airingTargets`, `airingLastCheck` et `airingLastResult` à `clearUserSyncData`. Pas de purge des données existantes.
+- **Effort:** S.
+- **Dependencies:** none.
+- **Tests:** Vitest test: every platform mentioned in `docs/store/listing-*.md` appears in the `description` of `amo-metadata.json` (en-US, fr, de).
+- **Manual check:** proofread `amo-metadata.json`, `PRIVACY.md` (3 languages) and `BUILD.md` (`PUPPETEER_SKIP_DOWNLOAD=true npm ci`, PowerShell variant); run that command in a clean clone. Fix the line in `CLAUDE.md` saying that only `approval_notes` are resent.
+- **Migration:** none.
 
-### Lot 14 · `bugfix/auth-erreurs`
+### Batch 10 · `chore/build-reproductible`
 
-**Objectif :** des erreurs d'authentification exactes et des renouvellements MAL bornés, testés.
+**Goal:** an identical Firefox build whatever the folder, and an automatic check of the built package.
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [AUTH-03](AUDIT-2026-10-10.md#auth-03) | moyenne | Session invalidée en arrière-plan affichée « Non connecté » |
-| [AUTH-05](AUDIT-2026-10-10.md#auth-05) | basse | Aucun délai sur l'endpoint de jeton MAL appelé sous verrou |
-| [AUTH-07](AUDIT-2026-10-10.md#auth-07) | basse | 5xx et 429 du renouvellement sans statut HTTP : tâches arrêtées |
-| [AUTH-09](AUDIT-2026-10-10.md#auth-09) | basse | Délai dépassé pendant la lecture du corps présenté comme « réponse invalide » |
-| [AUTH-10](AUDIT-2026-10-10.md#auth-10) | basse | Échec de l'échange du code MAL affiché « session expirée » |
-| [TEST-02](AUDIT-2026-10-10.md#test-02) | moyenne | Renouvellement du jeton MAL non testé |
-| [TEST-03](AUDIT-2026-10-10.md#test-03) | moyenne | « Invalid token » AniList et 401/429 de `malRequest` non testés |
+| [ARCH-22](AUDIT-2026-10-10.md#arch-22) | high | Background chunk name depends on the absolute path |
+| [ARCH-31](AUDIT-2026-10-10.md#arch-31) | medium | CI timestamp (`git log`) versus the reviewer's `.source-date-epoch` |
+| [ARCH-27](AUDIT-2026-10-10.md#arch-27) | medium | No check of the generated manifest and no size budget |
 
-- **Effort :** M.
-- **Dépendances :** lot 13 (même `auth/mal.ts`).
-- **Tests :** `src/background/auth/mal.test.ts` : deux appels concurrents donnent un seul POST ; 400 efface la session ; 503 lève une erreur `httpStatus` 503 avec la session intacte ; 429 donne `RATE_LIMITED` ; le délai est respecté ; un `state` différent donne `INVALID_RESPONSE`. `src/background/api/client.test.ts` : « Invalid token » en mode public donne un rejeu sans `Authorization`, en mode `required` `TOKEN_INVALID`, 200 avec `errors` `API_ERROR`. `src/background/api/mal.test.ts` : 401 puis renouvellement puis succès ; 429 avec `Retry-After` ; délai pendant `json()` donne `NETWORK` avec `timedOut`. `src/ui/accounts` : l'indicateur `sessionExpired:<service>` donne `expired: true`.
-- **Vérification manuelle (Chrome + Firefox) :** révoquer l'accès SyncKai sur AniList, attendre une synchro, ouvrir le popup : « Session expirée » en rouge. Firefox : première connexion MAL avec une URL de redirection erronée affiche le message dédié avec l'URL attendue.
-- **Migration :** aucune.
+- **Effort:** M.
+- **Dependencies:** batch 9 (`BUILD.md`).
+- **Tests:** `scripts/verify-build.ts` run in CI after `build` and `build:firefox`: the Netflix entry of `web_accessible_resources` is limited to `*://*.netflix.com/*`, all referenced files exist, the `*.iife.js` files have no top-level `import` or `export`, the permissions are identical to the source manifest, and the content script budget fits in 300 KB. CI step: unzip the source archive into `/tmp/repro`, build without forcing `SOURCE_DATE_EPOCH`, then `diff -r` against the Firefox zip.
+- **Manual check:** Firefox build in two different folders on Windows: same chunk name. Load `dist/` in Chrome and `dist-firefox/` in Firefox: popup, side panel and syncing an episode work (the renamed chunk does not break the crxjs loader).
+- **Migration:** none.
 
-### Lot 15 · `chore/tests-orchestration`
+### Batch 11 · `chore/verification-locale-ci`
 
-**Objectif :** couvrir le chemin d'écriture du service worker par une table de décision et quelques scénarios d'intégration.
+**Goal:** the CI checks run locally before each merge, on cleaned-up tooling.
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [TEST-01](AUDIT-2026-10-10.md#test-01) | moyenne | `sync-service.ts` sans test |
-| [TEST-07](AUDIT-2026-10-10.md#test-07) | moyenne | `queue.ts` sans test |
-| [TEST-06](AUDIT-2026-10-10.md#test-06) | moyenne | `createJobLoop` sans test |
-| [ARCH-25](AUDIT-2026-10-10.md#arch-25) | moyenne | Fausse API chrome partagée et mesure de couverture |
+| [ARCH-28](AUDIT-2026-10-10.md#arch-28) | medium | CI only runs after the merge; incomplete local checklist |
+| [ARCH-29](AUDIT-2026-10-10.md#arch-29) | low | Unused `@tailwindcss/cli`, `npm audit`, Dependabot alerts |
+| [ARCH-30](AUDIT-2026-10-10.md#arch-30) | low | No type-aware linter (`no-floating-promises`) |
 
-- **Effort :** M.
-- **Dépendances :** lots 3 et 5 (le fichier `sync-service.test.ts` existe déjà).
-- **Tests :** `src/test/fake-chrome.ts` (`storage.local`/`session` avec `onChanged`, `alarms`, `navigator.locks` avec `ifAvailable`, `fetch` scriptable). Compléter `sync-service.test.ts` avec la table de décision de TEST-01 (exclusions, `ignored`, faible confiance, `idMal` null, garde « au-delà de la fiche »). `src/background/sync/queue.test.ts` : échec réseau donne une entrée et l'alarme ; succès ultérieur vide la file et retire l'alarme ; succès partiel `only=['mal']` ; deux `processSyncQueue` simultanés donnent un seul `syncEpisode`. `src/background/jobs/runner.test.ts` : faux timers, `cancel` pendant la pause, `ensure()` sur une boucle muette depuis plus de `JOB_STALE_MS`, `step.stop`. `@vitest/coverage-v8` en rapport seulement, sans seuil bloquant.
-- **Vérification manuelle :** aucune (tests seuls).
-- **Migration :** aucune.
-
-### Lot 16 · `bugfix/import-crunchyroll`
-
-**Objectif :** un import d'historique robuste aux erreurs passagères, linéaire en coût et conforme à la politique de confidentialité.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [CRI-05](AUDIT-2026-10-10.md#cri-05) | basse | Nouvel essai : écriture réussie rapportée en échec, correspondance non apprise |
-| [CRI-01](AUDIT-2026-10-10.md#cri-01) | moyenne | Une erreur passagère fait perdre toute la lecture de l'historique |
-| [ARCH-14](AUDIT-2026-10-10.md#arch-14) | moyenne | Tâches de fond non reprises après une mise à jour |
-| [CRI-04](AUDIT-2026-10-10.md#cri-04) | basse | Historique réduit conservé après un arrêt ou un échec |
-| [CRI-06](AUDIT-2026-10-10.md#cri-06) | basse | 400 sans `invalid_client` classé « déconnecté » ; justification du Store |
-| [PERF-02](AUDIT-2026-10-10.md#perf-02) | basse | Relecture et réécriture complètes à chaque saison (coût quadratique) |
-| [UI-06](AUDIT-2026-10-10.md#ui-06) | basse | Blocs « Déjà à jour » / « À vérifier » repliés à chaque progression |
-| [TEST-05](AUDIT-2026-10-10.md#test-05) | moyenne | `background/cr-import.ts` sans test |
-
-- **Effort :** L (découper en deux commits si la relecture l'exige : robustesse puis performance).
-- **Dépendances :** lots 3, 12 et 15 (fausse API chrome).
-- **Tests :** nouveau `src/background/cr-import.test.ts` (scénarios de TEST-05) : saison sans numéro connu, donc à vérifier ; `persist:false` ; AniList OK puis MAL 503 : seul MAL est retenté et AniList compté « mis à jour » avec la correspondance apprise ; arrêt donne `input` et `resolutions` effacés ; résolutions écrites par lots. `src/content/lib/crunchyroll-history.test.ts` : 429 avec `Retry-After` puis succès ; échec persistant d'une recherche de saison donne une position inconnue, pas un abandon ; 400 `invalid_request` donne `unavailable`. `src/background` : `onInstalled` appelle `resumeCompareJob` et `resumeCrImport`. `scripts/e2e/import-cr.e2e.ts` : l'état ouvert des `<details>` survit à un `draw()`.
-- **Vérification manuelle (Chrome) :** import d'un vrai historique avec une coupure Wi-Fi brève pendant les recherches de saison ; recharger l'extension pendant l'application, puis vérifier la reprise sans redémarrer le navigateur.
-- **Migration :** au démarrage, supprimer `crImport:input` et `crImport:resolutions` orphelins (tâche absente ou terminée). Mettre à jour `PRIVACY.md` et `docs/store/permissions.md` (jeton temporaire demandé à Crunchyroll avec l'identifiant public du site) et documenter la rotation de `CR_WEB_CLIENT_ID` dans `docs/STORE.md`.
-
-### Lot 17 · `bugfix/alertes-sortie`
-
-**Objectif :** des alertes de sortie justes sans ouvrir le popup, sans trou ni perte.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [ALRT-01](AUDIT-2026-10-10.md#alrt-01) | moyenne | Alertes basées sur un cache « En cours » que seul le popup rafraîchit |
-| [ALRT-04](AUDIT-2026-10-10.md#alrt-04) | basse | `airingNotified` validé avant la création des notifications |
-| [ALRT-02](AUDIT-2026-10-10.md#alrt-02) | basse | Baisse du délai : épisodes de l'intervalle jamais notifiés |
-| [ALRT-06](AUDIT-2026-10-10.md#alrt-06) | basse | Pagination tronquée en silence : les sorties récentes sont perdues |
-| [ALRT-03](AUDIT-2026-10-10.md#alrt-03) | basse | Série exclue sans `mediaId` toujours notifiée |
-| [PERF-04](AUDIT-2026-10-10.md#perf-04) | basse | Profils et liste « En cours » rechargés à chaque ouverture |
-
-- **Effort :** M.
-- **Dépendances :** lot 13 (epoch dans `runCheck`).
-- **Tests :** `airing-policy.test.ts` : fenêtre reprise à la dernière borne couverte quand le délai passe de 6 h à 0 h. Nouveau `src/background/airing.test.ts` (fausse API chrome) : un cache plus vieux que 12 h est rafraîchi avant le calcul ; une notification qui échoue est retirée de `airingNotified` ; troncature donne un cache de semaine marqué incomplet. `agenda.test.ts` : exclusion par `platformKey`. `src/shared/watching.test.ts` : `GET_WATCHING` sans `force` et récent de moins de 90 s ne relance pas de requête.
-- **Vérification manuelle (Chrome) :** popup fermé pendant plus de 12 h, puis une série suivie sort : l'alerte arrive. Exclure une série depuis Crunchyroll avant la résolution de la fiche : elle disparaît de l'agenda.
-- **Migration :** aucune.
-
-### Lot 18 · `bugfix/stockage-local`
-
-**Objectif :** des écritures de stockage verrouillées, non destructives et bornées.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [BAK-02](AUDIT-2026-10-10.md#bak-02) | basse | Correspondances importées peu validées, utilisées en confiance high |
-| [ARCH-15](AUDIT-2026-10-10.md#arch-15) | basse | Réécritures destructives de `mediaMappings` (écrire sur l'objet brut) |
-| [DATA-02](AUDIT-2026-10-10.md#data-02) | basse | « Ignorer » une note réécrit `pendingRatings` sans verrou |
-| [ARCH-18](AUDIT-2026-10-10.md#arch-18) | basse | Écritures hors verrou de `import-cr.ts`, réveils dus à `storage.session` |
-| [DATA-03](AUDIT-2026-10-10.md#data-03) | basse | Élagage des délais par série : les plus petits `mediaId`, pas les plus anciens |
-| [DATA-04](AUDIT-2026-10-10.md#data-04) | basse | Caches `storage.session` jamais purgés ni effacés à la déconnexion |
-
-- **Effort :** M.
-- **Dépendances :** lot 12.
-- **Tests :** `backup.test.ts` : `mediaId` 1.5 ou -3, offset -500, clé hors motif `^(crunchyroll|adn|netflix):.+:s\d+$` sont rejetés. `storage.test.ts` : une entrée illisible de `mediaMappings` survit à `saveMediaMapping`. `engagement-store.test.ts` : une seule garde `isPendingRating` ; `popup/pending-ratings.ts` et son test supprimés. `settings.test.ts` : 200 délais plus un réglage sur l'id 21 gardent l'id 21 (insertion dans le désordre). `page-media-cache.test.ts` : purge des `pageMedia:*` et `panelMedia:*` expirés, effacement à la déconnexion.
-- **Vérification manuelle (Chrome) :** importer une sauvegarde forgée avec un offset absurde : la correspondance est refusée. « Ignorer » une note dans le popup pendant qu'une finale se termine dans un autre onglet : la nouvelle carte reste.
-- **Migration :** les délais par série passent au format `{ minutes, at }` ; convertir les anciens en conservant tout (`at` = date de mise à jour). Les correspondances importées marquées « à revérifier » au premier usage.
-
-### Lot 19 · `bugfix/extraction-episode`
-
-**Objectif :** une extraction d'épisode Crunchyroll et ADN testée sur des données réelles, sans effet de bord sur les pages hôtes.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [CONT-04](AUDIT-2026-10-10.md#cont-04) | moyenne | JSON-LD périmé accepté s'il n'a ni `url` ni `@id` |
-| [TEST-04](AUDIT-2026-10-10.md#test-04) | moyenne | Extraction de la page de lecture Crunchyroll et ADN non testée |
-| [ARCH-01](AUDIT-2026-10-10.md#arch-01) | moyenne | Le script de contenu réécrit `<html lang>` des sites |
-| [PERF-03](AUDIT-2026-10-10.md#perf-03) | basse | Chaque onglet de streaming écoute `storage.onChanged` |
-
-- **Effort :** M.
-- **Dépendances :** aucune.
-- **Tests :** fixtures réelles anonymisées et datées dans `src/content/adapters/__fixtures__/` (One Piece : `episodeNumber` 25, nom « Elbaph | E1180 - … » ; ADN). `crunchyroll.test.ts` : `episodeFromJsonLdNodes` sépare `seasonEpisodeNumber` et `displayedEpisodeNumber` ; un nœud sans `url` resté sur E1180 est rejeté quand le `<h1>` annonce E1181. `adn.test.ts` : extraction de la page de lecture. `src/i18n` : `initI18n({ setDocumentLang: false, follow: false })` laisse `document.documentElement.lang` intact et ne pose aucun écouteur.
-- **Vérification manuelle (Chrome + Firefox) :** lecture automatique One Piece E1180 vers E1181 : le popup affiche E1181. Crunchyroll en espagnol avec SyncKai en anglais : `document.documentElement.lang` reste `es-419`, et l'import récupère les titres espagnols.
-- **Migration :** aucune.
-
-### Lot 20 · `chore/frontieres-modules`
-
-**Objectif :** casser les cycles d'import et remonter le kit UI hors de `popup/`.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [ARCH-04](AUDIT-2026-10-10.md#arch-04) | moyenne | `ui/` importe `popup/`, deux cycles d'import |
-| [ARCH-11](AUDIT-2026-10-10.md#arch-11) | moyenne | `STORAGE_KEYS` importé depuis `storage.ts` par des modules de types |
-
-- **Effort :** M (renommages mécaniques).
-- **Dépendances :** à faire après les lots 6 et 18 pour limiter les conflits ; avant le lot 21.
-- **Tests :** `src/architecture.test.ts` minimal : aucun cycle, `shared ↛ ui/popup/sidepanel/content`, `ui ↛ popup/sidepanel`. Nouvelle feuille `src/shared/storage-keys.ts`, `normalizeTitle` sorti de `matching.ts`.
-- **Vérification manuelle (Chrome) :** popup, panneau, réglages, import de sauvegarde et import Crunchyroll s'ouvrent sans erreur console ; `npm run test:e2e` passe.
-- **Migration :** aucune. Règles des frontières décrites en 10 lignes dans `CLAUDE.md`.
-
-### Lot 21 · `feature/controleur-fiche-page`
-
-**Objectif :** une seule machine d'état « fiche de la page » pour le popup et le panneau, et un choix de saison qui compte pour la synchro.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [ARCH-20](AUDIT-2026-10-10.md#arch-20) | moyenne | Saison choisie dans le panneau ignorée par la synchro |
-| [ARCH-05](AUDIT-2026-10-10.md#arch-05) | moyenne | Contrôleur « fiche de la page » dupliqué popup/panneau |
-
-- **Effort :** M.
-- **Dépendances :** lots 6 et 20.
-- **Tests :** `src/ui/page-media-controller.test.ts` : états `detecting`, `loading`, `ready`, `not-found` et `error` alignés ; anti-écho ; réponse tardive après changement de page ignorée. `page-media.test.ts` : un choix de saison manuel enregistre la correspondance (`mediaMappings`), et `EPISODE_COMPLETED` l'utilise.
-- **Vérification manuelle (Chrome + Firefox) :** choisir une autre saison dans le panneau puis finir l'épisode : la progression part sur la saison choisie. Même page dans le popup et le panneau : mêmes états et mêmes messages.
-- **Migration :** aucune. CHANGELOG : le choix de saison du panneau est mémorisé comme correspondance (« Oublier » pour revenir en arrière).
-
-### Lot 22 · `feature/accessibilite`
-
-**Objectif :** un focus clavier stable et des annonces de lecteur d'écran non répétées.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [UX-01](AUDIT-2026-10-10.md#ux-01) | moyenne | Focus perdu quand le bouton actif est désactivé ou retiré |
-| [UX-02](AUDIT-2026-10-10.md#ux-02) | moyenne | Zones `role="alert"` recréées à chaque rendu |
-| [PERF-06](AUDIT-2026-10-10.md#perf-06) | basse | Rendu complet du popup chaque seconde et sans regroupement |
-
-- **Effort :** M.
-- **Dépendances :** lot 20 (kit UI déplacé).
-- **Tests :** test de `src/ui/dom.ts` : un bouton en `aria-disabled` garde le focus ; un élément retiré donne le focus à `data-focus-fallback`. `scripts/e2e/popup.e2e.ts` : Tab jusqu'au +1, Entrée, `document.activeElement` est toujours le +1 ; le nœud `role="alert"` du bandeau d'accès est le même objet entre deux rendus ; `scheduleRender()` ne déclenche qu'un rendu par tour.
-- **Vérification manuelle (Firefox + NVDA, Chrome au clavier) :** +1, « Réessayer » et « Oublier » au clavier ; bandeau d'accès retiré sous Firefox : une seule annonce.
-- **Migration :** aucune.
-
-### Lot 23 · `bugfix/finitions-ui`
-
-**Objectif :** petites erreurs d'interface et de textes (3 langues).
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [UI-04](AUDIT-2026-10-10.md#ui-04) | basse | Carte de compte bloquée sur le squelette sans erreur |
-| [UI-05](AUDIT-2026-10-10.md#ui-05) | basse | Entrée sur un délai vide enregistre 0 minute |
-| [UI-07](AUDIT-2026-10-10.md#ui-07) | basse | Import de sauvegarde : un autre fichier choisi pendant l'import écrase l'état |
-| [BRW-02](AUDIT-2026-10-10.md#brw-02) | basse | Firefox : « Modifier le raccourci » ouvre une URL `chrome://` |
-| [UX-05](AUDIT-2026-10-10.md#ux-05) | basse | Netflix absent de l'accueil, de l'état vide et du panneau hors cible |
-| [UX-06](AUDIT-2026-10-10.md#ux-06) | basse | Astuce « Réglages › Lecture » sans entrée correspondante |
-| [UX-07](AUDIT-2026-10-10.md#ux-07) | basse | Ponctuation française codée en dur sur la page d'import |
-| [BAK-05](AUDIT-2026-10-10.md#bak-05) | basse | Nom du fichier d'export toujours en français, export par blob depuis le popup |
-
-- **Effort :** M (nombreux mais petits).
-- **Dépendances :** lot 20 de préférence.
-- **Tests :** `src/i18n/locales.test.ts` : clés `crImport.labelValue` présentes dans les 3 langues. `src/ui/settings/navigation.test.ts` : chemin de l'astuce construit depuis `settings.cat.sync`. Tests unitaires de la lecture du champ de délai (vide donne NaN) et de `page-accounts` (viewer null avec erreur donne une alerte avec Réessayer). Régénérer les captures (`npm run screenshots`) si les textes affichés changent.
-- **Vérification manuelle :** Firefox : bouton du raccourci (ouvre `browser.commands.openShortcutSettings()` ou affiche l'aide). Export depuis le popup avec « Toujours demander où enregistrer » sous Firefox et Chrome. Page d'import en anglais et en allemand.
-- **Migration :** aucune.
-
-### Lot 24 · `feature/durcissement-securite`
-
-**Objectif :** tenir la règle de `CLAUDE.md` sur les jetons, restreindre les images et les messages.
-
-| Cas | Gravité | Sujet |
-|---|---|---|
-| [SEC-01](AUDIT-2026-10-10.md#sec-01) | basse | Jetons OAuth en clair dans `storage.local`, lisibles par les scripts de contenu |
-| [SEC-02](AUDIT-2026-10-10.md#sec-02) | basse | URLs de couverture non validées, pas de CSP `img-src` |
-| [ARCH-07](AUDIT-2026-10-10.md#arch-07) | basse | Liste de refus des messages au lieu d'une liste d'autorisation |
-
-- **Effort :** M.
-- **Dépendances :** lots 13 et 14 (même code de jetons).
-- **Tests :** `storage.test.ts` : jeton chiffré en AES-GCM avec une clé non extractible conservée dans IndexedDB ; un ancien jeton en clair est migré au premier accès. `messages.test.ts` : `MESSAGE_ORIGINS` exhaustif, et les types `content` correspondent exactement aux envois de `src/content`. `engagement-store.test.ts` et `backup.test.ts` : `coverUrl` hors liste d'hôtes rejetée.
-- **Vérification manuelle (Chrome + Firefox) :** après la mise à jour, AniList et MAL restent connectés (migration des jetons) ; les couvertures s'affichent ; aucune erreur CSP en console dans le popup, le panneau ni les pages d'import.
-- **Migration :** chiffrement des jetons existants à la mise à jour ; en cas d'échec, déconnexion propre avec « Session expirée ». La CSP `extension_pages` modifie le manifeste : la vérifier sous Firefox, et vérifier que la fiche du Chrome Web Store n'a rien à justifier (ce n'est pas une permission).
+- **Effort:** S (web-ext 10 separately, not urgent).
+- **Dependencies:** none; ideally after batch 10 to include `verify-build` in `verify`.
+- **Tests:** `npm run verify` (`tsc --noEmit`, `tsc -p scripts`, `tsc -p scripts/screenshots`, `vitest run`, `build`, `build:firefox`, `lint:firefox`) passes; type-aware lint limited to `no-floating-promises`, `no-misused-promises`, `switch-exhaustiveness-check` and `no-explicit-any`, after checking compatibility with TypeScript 6.
+- **Manual check:** `npm run verify` on a clean copy; update the checklist in `CLAUDE.md`. Dependabot security alerts, with monthly grouped updates.
+- **Migration:** none.
 
 ---
 
-## 2.3.0 : plateformes
+## 2.2.0: foundations (account binding, orchestration tests, module boundaries, accessibility)
 
-### Lot 25 · `chore/registre-plateformes`
+### Batch 12 · `bugfix/liaison-compte`
 
-**Objectif :** un descripteur unique par plateforme (libellé, hôtes, `linkRequired`, URLs), préalable à toute nouvelle plateforme.
+**Goal:** an account's queue, cards and ratings are never replayed on another account.
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [ARCH-02](AUDIT-2026-10-10.md#arch-02) | moyenne | Registre des plateformes (périmètre réduit : `shared/platforms.ts` seul) |
+| [DATA-01](AUDIT-2026-10-10.md#data-01) | medium | Queue, ratings and recent syncs replayed on another account |
+| [CRI-03](AUDIT-2026-10-10.md#cri-03) | low | Account change while the import is being applied |
+| [AUTH-06](AUDIT-2026-10-10.md#auth-06) | low | Expired AniList token never purged: old account's data kept |
+| [DATA-06](AUDIT-2026-10-10.md#data-06) | low | Expired AniList token treated as "no service": data erased |
+| [TEST-10](AUDIT-2026-10-10.md#test-10) | low | Session clearing and `storage.ts` caps not tested |
 
-- **Effort :** S.
-- **Dépendances :** lots 1 et 20.
-- **Tests :** `src/shared/platforms.test.ts` : `Record<StreamingPlatform, …>` exhaustif ; `matchPlatformLink`, `platform-links.ts` et les libellés passent par le registre. Non-régression avec `matching-netflix.test.ts` et `platform-links.test.ts`.
-- **Vérification manuelle (Chrome) :** liens « Ouvrir » et icônes de plateforme dans le popup, le panneau et l'agenda.
-- **Migration :** aucune. L'extraction de `optional-platforms.ts` et de `main-bridge.ts` attend une deuxième plateforme optionnelle.
+- **Effort:** M.
+- **Dependencies:** batch 3; to be done before batch 13 (same `storage.ts` module).
+- **Tests:** new `src/shared/storage.test.ts` (fake `chrome.storage.local` as a Map, immediate lock): exact list of keys cleared by `clearUserSyncData`, `clearAniListSession` and `clearMalSession`; `mediaMappings` and `sessionEpoch` kept; caps of `savePendingReview` (20) and `addRecentSync` (5). `queue.test.ts`: an item recorded with epoch A and retried under epoch B is removed without a write. `cr-import`: an epoch changed between `getEntry` and `saveProgress` drops the item.
+- **Manual check (Chrome):** take MAL offline to fill the queue, sign out of AniList, connect another AniList account: the old account's queue disappears and nothing is written to the new one.
+- **Migration:** existing items in `syncQueue`, `pendingRatings` and `recentSyncs` have no epoch. On update, assign them the current epoch (the account connected at update time is the most likely one). CHANGELOG: the queue and the cards are now tied to the account.
 
-L'adaptateur HIDIVE (`feature/hidive-adapter`, hors audit) se branche sur ce registre. Un nouvel hôte dans `host_permissions` ou `content_scripts` déclenche un avertissement de permission sous Chrome, et l'extension est désactivée jusqu'à l'acceptation de l'utilisateur : passer par `optional_host_permissions` comme Netflix, ou l'assumer explicitement. Dans les deux cas, justifier la permission dans l'onglet Confidentialité du Chrome Web Store avant le tag.
+### Batch 13 · `bugfix/ecritures-sous-session`
 
-### Lot 26 · `bugfix/reattachement-video`
+**Goal:** no late network write recreates the session or the data of a disconnected account.
 
-**Objectif :** la session de lecture suit le bon `<video>` jusqu'au bout et ne perd plus un épisode en silence.
-
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [CONT-01](AUDIT-2026-10-10.md#cont-01) | moyenne | `<video>` figée au démarrage : complétion manquée si le lecteur est remplacé |
-| [CONT-02](AUDIT-2026-10-10.md#cont-02) | moyenne | Attente du lecteur limitée à 30 s sans nouvel essai |
-| [CONT-06](AUDIT-2026-10-10.md#cont-06) | basse | Script orphelin après une mise à jour : prévient seulement à la fin |
-| [CONT-05](AUDIT-2026-10-10.md#cont-05) | basse | Échec d'envoi sans « Réessayer », complétion désarmée |
-| [CONT-07](AUDIT-2026-10-10.md#cont-07) | basse | Netflix : « Réessayer » reste actif pendant l'envoi (doublons) |
-| [CTRL-07](AUDIT-2026-10-10.md#ctrl-07) | basse | Raccourci « valider l'épisode » sans retour quand il ne fait rien |
-| [TEST-09](AUDIT-2026-10-10.md#test-09) | basse | `trackVideoProgress` jamais exécuté en test |
+| [AUTH-01](AUDIT-2026-10-10.md#auth-01) | medium | An in-flight MAL refresh revives the session after sign-out |
+| [AUTH-02](AUDIT-2026-10-10.md#auth-02) | medium | Clearing on 401 without checking it is the rejected token |
+| [AUTH-04](AUDIT-2026-10-10.md#auth-04) | medium | Cached profile without an epoch: old account's "Watching" list |
+| [AUTH-08](AUDIT-2026-10-10.md#auth-08) | low | Forced refresh compared with the reread token: cascading refreshes |
+| [DATA-05](AUDIT-2026-10-10.md#data-05) | low | Import preview, comparison and Schedule week rewritten after sign-out |
+| [ALRT-05](AUDIT-2026-10-10.md#alrt-05) | low | `airing*` keys not cleared, Schedule rewritten for the disconnected account |
 
-- **Effort :** L.
-- **Dépendances :** lot 19 (fixtures et i18n du contenu), lot 15 pour les faux timers.
-- **Tests :** nouveau `src/content/lib/video-tracker.test.ts` (fausse vidéo basée sur `EventTarget`) : un seul `onCompleted` ; réarmement sur `loadstart` ; durée inférieure à 120 s ignorée ; plus aucun appel après `abort`. `watch-session.test.ts` : `<video>` détachée puis remplacée, donc tracker recréé ; lecteur apparu après 35 s (`play` capté sur `document`) ; `sendMessage` qui lève donne un toast avec Réessayer ; pause de la synchro, puis `forceComplete` renvoie l'épisode ; double clic sur Réessayer donne un seul envoi ; contexte invalidé détecté au démarrage de la session. Test de la réinjection `onInstalled` avec garde `STARTED_FLAG`.
-- **Vérification manuelle (Chrome + Brave + Firefox) :** lecture automatique Crunchyroll et Netflix jusqu'à l'épisode suivant ; épisode ouvert dans un onglet en arrière-plan puis regardé plus d'une minute après ; recharger l'extension avec un onglet Crunchyroll ouvert : avertissement immédiat ou script réinjecté ; Alt+Maj+S sur un épisode déjà synchronisé affiche un toast.
-- **Migration :** aucune. La réinjection utilise la permission `scripting` déjà déclarée (2.1.0) : pas de nouvelle justification.
+- **Effort:** M.
+- **Dependencies:** batch 12.
+- **Tests:** `storage.test.ts`: `writeIfSession(service, epoch, entries)` writes nothing if the epoch has changed; `clearAniListSessionIfToken` and `clearMalSessionIfToken` only clear the rejected token. New `src/background/auth/mal.test.ts` (shared with batch 14): sign-out during `requestToken` gives a dropped token; three concurrent 401s with the same token give a single refresh.
+- **Manual check (Chrome):** MAL token close to expiry (edit it in storage), open the popup then disconnect from MAL right away: the account stays disconnected. Disconnect during a release check: the Schedule is empty.
+- **Migration:** add `airingNotified`, `airingTargets`, `airingLastCheck` and `airingLastResult` to `clearUserSyncData`. No purge of existing data.
 
-### Lot 27 · `feature/agenda-hors-cible`
+### Batch 14 · `bugfix/auth-erreurs`
 
-**Objectif :** l'agenda et le panneau sont accessibles hors d'un onglet de streaming.
+**Goal:** accurate authentication errors and bounded, tested MAL refreshes.
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [UX-04](AUDIT-2026-10-10.md#ux-04) | basse | Agenda inaccessible hors d'un onglet Crunchyroll, ADN ou Netflix |
+| [AUTH-03](AUDIT-2026-10-10.md#auth-03) | medium | Session invalidated in the background shown as "Not connected" |
+| [AUTH-05](AUDIT-2026-10-10.md#auth-05) | low | No timeout on the MAL token endpoint called under the lock |
+| [AUTH-07](AUDIT-2026-10-10.md#auth-07) | low | Refresh 5xx and 429 without HTTP status: jobs stopped |
+| [AUTH-09](AUDIT-2026-10-10.md#auth-09) | low | Timeout while reading the body reported as "invalid response" |
+| [AUTH-10](AUDIT-2026-10-10.md#auth-10) | low | MAL code exchange failure shown as "Session expired" |
+| [TEST-02](AUDIT-2026-10-10.md#test-02) | medium | MAL token refresh not tested |
+| [TEST-03](AUDIT-2026-10-10.md#test-03) | medium | AniList "Invalid token" and `malRequest` 401/429 not tested |
 
-- **Effort :** M.
-- **Dépendances :** lots 6 et 21.
-- **Tests :** `src/sidepanel/tabs.test.ts` et `presence.test.ts` : hors cible, onglets Agenda et Réglages disponibles, Agenda par défaut ; « En lecture » réservé à l'onglet suivi. e2e : bouton « Ouvrir le panneau » visible hors cible.
-- **Vérification manuelle (Chrome + Firefox) :** ouvrir le panneau sur un site quelconque : l'agenda s'affiche et le panneau ne se ferme pas (Chrome, `presence.ts`).
-- **Migration :** aucune.
+- **Effort:** M.
+- **Dependencies:** batch 13 (same `auth/mal.ts`).
+- **Tests:** `src/background/auth/mal.test.ts`: two concurrent calls give a single POST; 400 clears the session; 503 throws an `httpStatus` 503 error with the session intact; 429 gives `RATE_LIMITED`; the timeout is honored; a different `state` gives `INVALID_RESPONSE`. `src/background/api/client.test.ts`: "Invalid token" in public mode gives a replay without `Authorization`, in `required` mode `TOKEN_INVALID`, 200 with `errors` `API_ERROR`. `src/background/api/mal.test.ts`: 401 then refresh then success; 429 with `Retry-After`; timeout during `json()` gives `NETWORK` with `timedOut`. `src/ui/accounts`: the `sessionExpired:<service>` flag gives `expired: true`.
+- **Manual check (Chrome + Firefox):** revoke SyncKai's access on AniList, wait for a sync, open the popup: "Session expired" in red. Firefox: first MAL sign-in with a wrong redirect URL shows the dedicated message with the expected URL.
+- **Migration:** none.
+
+### Batch 15 · `chore/tests-orchestration`
+
+**Goal:** cover the service worker's write path with a decision table and a few integration scenarios.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [TEST-01](AUDIT-2026-10-10.md#test-01) | medium | `sync-service.ts` without tests |
+| [TEST-07](AUDIT-2026-10-10.md#test-07) | medium | `queue.ts` without tests |
+| [TEST-06](AUDIT-2026-10-10.md#test-06) | medium | `createJobLoop` without tests |
+| [ARCH-25](AUDIT-2026-10-10.md#arch-25) | medium | Shared fake chrome API and coverage measurement |
+
+- **Effort:** M.
+- **Dependencies:** batches 3 and 5 (the `sync-service.test.ts` file already exists).
+- **Tests:** `src/test/fake-chrome.ts` (`storage.local`/`session` with `onChanged`, `alarms`, `navigator.locks` with `ifAvailable`, scriptable `fetch`). Extend `sync-service.test.ts` with the TEST-01 decision table (exclusions, `ignored`, low confidence, null `idMal`, "beyond the entry" guard). `src/background/sync/queue.test.ts`: network failure gives an entry and the alarm; later success empties the queue and clears the alarm; partial success `only=['mal']`; two simultaneous `processSyncQueue` calls give a single `syncEpisode`. `src/background/jobs/runner.test.ts`: fake timers, `cancel` during the pause, `ensure()` on a loop silent for longer than `JOB_STALE_MS`, `step.stop`. `@vitest/coverage-v8` as a report only, with no blocking threshold.
+- **Manual check:** none (tests only).
+- **Migration:** none.
+
+### Batch 16 · `bugfix/import-crunchyroll`
+
+**Goal:** a history import that is robust to transient errors, linear in cost and compliant with the privacy policy.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [CRI-05](AUDIT-2026-10-10.md#cri-05) | low | Retry: successful write reported as a failure, match not learned |
+| [CRI-01](AUDIT-2026-10-10.md#cri-01) | medium | A transient error loses the whole history read |
+| [ARCH-14](AUDIT-2026-10-10.md#arch-14) | medium | Background jobs not resumed after an update |
+| [CRI-04](AUDIT-2026-10-10.md#cri-04) | low | Reduced history kept after a stop or a failure |
+| [CRI-06](AUDIT-2026-10-10.md#cri-06) | low | 400 without `invalid_client` classified as "disconnected"; Store justification |
+| [PERF-02](AUDIT-2026-10-10.md#perf-02) | low | Full reread and rewrite for each season (quadratic cost) |
+| [UI-06](AUDIT-2026-10-10.md#ui-06) | low | "Already up to date" / "To check" blocks collapsed on every progress update |
+| [TEST-05](AUDIT-2026-10-10.md#test-05) | medium | `background/cr-import.ts` without tests |
+
+- **Effort:** L (split into two commits if review requires it: robustness, then performance).
+- **Dependencies:** batches 3, 12 and 15 (fake chrome API).
+- **Tests:** new `src/background/cr-import.test.ts` (TEST-05 scenarios): season with no known number, so to check; `persist:false`; AniList OK then MAL 503: only MAL is retried and AniList counted as "updated" with the match learned; stop gives `input` and `resolutions` cleared; resolutions written in batches. `src/content/lib/crunchyroll-history.test.ts`: 429 with `Retry-After` then success; persistent failure of a season lookup gives an unknown position, not an abort; 400 `invalid_request` gives `unavailable`. `src/background`: `onInstalled` calls `resumeCompareJob` and `resumeCrImport`. `scripts/e2e/import-cr.e2e.ts`: the open state of the `<details>` survives a `draw()`.
+- **Manual check (Chrome):** import a real history with a brief Wi-Fi outage during season lookups; reload the extension while the import is being applied, then check that it resumes without restarting the browser.
+- **Migration:** on startup, delete orphaned `crImport:input` and `crImport:resolutions` (job missing or finished). Update `PRIVACY.md` and `docs/store/permissions.md` (temporary token requested from Crunchyroll with the site's public identifier) and document the rotation of `CR_WEB_CLIENT_ID` in `docs/STORE.md`.
+
+### Batch 17 · `bugfix/alertes-sortie`
+
+**Goal:** accurate airing alerts without opening the popup, with no gaps and no losses.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [ALRT-01](AUDIT-2026-10-10.md#alrt-01) | medium | Alerts based on a "Watching" cache that only the popup refreshes |
+| [ALRT-04](AUDIT-2026-10-10.md#alrt-04) | low | `airingNotified` committed before the notifications are created |
+| [ALRT-02](AUDIT-2026-10-10.md#alrt-02) | low | Delay lowered: episodes in the interval never notified |
+| [ALRT-06](AUDIT-2026-10-10.md#alrt-06) | low | Pagination silently truncated: recent releases are lost |
+| [ALRT-03](AUDIT-2026-10-10.md#alrt-03) | low | Excluded series without `mediaId` still notified |
+| [PERF-04](AUDIT-2026-10-10.md#perf-04) | low | Profiles and "Watching" list reloaded on every open |
+
+- **Effort:** M.
+- **Dependencies:** batch 13 (epoch in `runCheck`).
+- **Tests:** `airing-policy.test.ts`: window resumed from the last covered bound when the delay goes from 6 h to 0 h. New `src/background/airing.test.ts` (fake chrome API): a cache older than 12 h is refreshed before the computation; a notification that fails is removed from `airingNotified`; truncation gives a week cache marked incomplete. `agenda.test.ts`: exclusion by `platformKey`. `src/shared/watching.test.ts`: `GET_WATCHING` without `force` and less than 90 s old does not send a new request.
+- **Manual check (Chrome):** popup closed for more than 12 h, then a followed series airs: the alert arrives. Exclude a series from Crunchyroll before the entry is resolved: it disappears from the Schedule.
+- **Migration:** none.
+
+### Batch 18 · `bugfix/stockage-local`
+
+**Goal:** storage writes that are locked, non-destructive and bounded.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [BAK-02](AUDIT-2026-10-10.md#bak-02) | low | Imported matches poorly validated, used with high confidence |
+| [ARCH-15](AUDIT-2026-10-10.md#arch-15) | low | Destructive rewrites of `mediaMappings` (write to the raw object) |
+| [DATA-02](AUDIT-2026-10-10.md#data-02) | low | "Ignore" on a rating rewrites `pendingRatings` without a lock |
+| [ARCH-18](AUDIT-2026-10-10.md#arch-18) | low | Unlocked writes in `import-cr.ts`, wake-ups caused by `storage.session` |
+| [DATA-03](AUDIT-2026-10-10.md#data-03) | low | Pruning of per-series delays: smallest `mediaId`, not oldest |
+| [DATA-04](AUDIT-2026-10-10.md#data-04) | low | `storage.session` caches never purged nor cleared on sign-out |
+
+- **Effort:** M.
+- **Dependencies:** batch 12.
+- **Tests:** `backup.test.ts`: `mediaId` 1.5 or -3, offset -500, key not matching `^(crunchyroll|adn|netflix):.+:s\d+$` are rejected. `storage.test.ts`: an unreadable `mediaMappings` entry survives `saveMediaMapping`. `engagement-store.test.ts`: a single `isPendingRating` guard; `popup/pending-ratings.ts` and its test deleted. `settings.test.ts`: 200 delays plus a setting on id 21 keep id 21 (out-of-order insertion). `page-media-cache.test.ts`: purge of expired `pageMedia:*` and `panelMedia:*`, cleared on sign-out.
+- **Manual check (Chrome):** import a forged backup with an absurd offset: the match is refused. "Ignore" a rating in the popup while a finale ends in another tab: the new card stays.
+- **Migration:** per-series delays move to the `{ minutes, at }` format; convert the old ones keeping everything (`at` = update date). Imported matches marked "to recheck" on first use.
+
+### Batch 19 · `bugfix/extraction-episode`
+
+**Goal:** Crunchyroll and ADN episode extraction tested on real data, with no side effects on host pages.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [CONT-04](AUDIT-2026-10-10.md#cont-04) | medium | Stale JSON-LD accepted if it has neither `url` nor `@id` |
+| [TEST-04](AUDIT-2026-10-10.md#test-04) | medium | Crunchyroll and ADN watch page extraction not tested |
+| [ARCH-01](AUDIT-2026-10-10.md#arch-01) | medium | The content script rewrites the sites' `<html lang>` |
+| [PERF-03](AUDIT-2026-10-10.md#perf-03) | low | Every streaming tab listens to `storage.onChanged` |
+
+- **Effort:** M.
+- **Dependencies:** none.
+- **Tests:** real, anonymized and dated fixtures in `src/content/adapters/__fixtures__/` (One Piece: `episodeNumber` 25, name "Elbaph | E1180 - …"; ADN). `crunchyroll.test.ts`: `episodeFromJsonLdNodes` separates `seasonEpisodeNumber` and `displayedEpisodeNumber`; a node without `url` still on E1180 is rejected when the `<h1>` announces E1181. `adn.test.ts`: watch page extraction. `src/i18n`: `initI18n({ setDocumentLang: false, follow: false })` leaves `document.documentElement.lang` untouched and sets no listener.
+- **Manual check (Chrome + Firefox):** autoplay One Piece E1180 to E1181: the popup shows E1181. Crunchyroll in Spanish with SyncKai in English: `document.documentElement.lang` stays `es-419`, and the import fetches the Spanish titles.
+- **Migration:** none.
+
+### Batch 20 · `chore/frontieres-modules`
+
+**Goal:** break the import cycles and move the UI kit out of `popup/`.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [ARCH-04](AUDIT-2026-10-10.md#arch-04) | medium | `ui/` imports `popup/`, two import cycles |
+| [ARCH-11](AUDIT-2026-10-10.md#arch-11) | medium | `STORAGE_KEYS` imported from `storage.ts` by type modules |
+
+- **Effort:** M (mechanical renames).
+- **Dependencies:** to be done after batches 6 and 18 to limit conflicts; before batch 21.
+- **Tests:** minimal `src/architecture.test.ts`: no cycles, `shared ↛ ui/popup/sidepanel/content`, `ui ↛ popup/sidepanel`. New leaf `src/shared/storage-keys.ts`, `normalizeTitle` moved out of `matching.ts`.
+- **Manual check (Chrome):** popup, side panel, settings, backup import and Crunchyroll import open without console errors; `npm run test:e2e` passes.
+- **Migration:** none. Boundary rules described in 10 lines in `CLAUDE.md`.
+
+### Batch 21 · `feature/controleur-fiche-page`
+
+**Goal:** a single "page entry" state machine for the popup and the side panel, and a season choice that counts for sync.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [ARCH-20](AUDIT-2026-10-10.md#arch-20) | medium | Season chosen in the side panel ignored by sync |
+| [ARCH-05](AUDIT-2026-10-10.md#arch-05) | medium | "Page entry" controller duplicated between popup and side panel |
+
+- **Effort:** M.
+- **Dependencies:** batches 6 and 20.
+- **Tests:** `src/ui/page-media-controller.test.ts`: `detecting`, `loading`, `ready`, `not-found` and `error` states aligned; anti-echo; late response after a page change ignored. `page-media.test.ts`: a manual season choice records the match (`mediaMappings`), and `EPISODE_COMPLETED` uses it.
+- **Manual check (Chrome + Firefox):** choose another season in the side panel then finish the episode: the progress goes to the chosen season. Same page in the popup and the side panel: same states and same messages.
+- **Migration:** none. CHANGELOG: the season chosen in the side panel is remembered as a match ("Forget" to undo).
+
+### Batch 22 · `feature/accessibilite`
+
+**Goal:** stable keyboard focus and screen reader announcements that are not repeated.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [UX-01](AUDIT-2026-10-10.md#ux-01) | medium | Focus lost when the active button is disabled or removed |
+| [UX-02](AUDIT-2026-10-10.md#ux-02) | medium | `role="alert"` regions recreated on every render |
+| [PERF-06](AUDIT-2026-10-10.md#perf-06) | low | Full popup render every second, with no batching |
+
+- **Effort:** M.
+- **Dependencies:** batch 20 (UI kit moved).
+- **Tests:** test of `src/ui/dom.ts`: a button in `aria-disabled` keeps the focus; a removed element gives the focus to `data-focus-fallback`. `scripts/e2e/popup.e2e.ts`: Tab to the +1, Enter, `document.activeElement` is still the +1; the `role="alert"` node of the access banner is the same object between two renders; `scheduleRender()` triggers only one render per tick.
+- **Manual check (Firefox + NVDA, Chrome with the keyboard):** +1, "Retry" and "Forget" with the keyboard; access banner removed in Firefox: a single announcement.
+- **Migration:** none.
+
+### Batch 23 · `bugfix/finitions-ui`
+
+**Goal:** small interface and text errors (3 languages).
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [UI-04](AUDIT-2026-10-10.md#ui-04) | low | Account card stuck on the skeleton with no error |
+| [UI-05](AUDIT-2026-10-10.md#ui-05) | low | Enter on an empty delay saves 0 minutes |
+| [UI-07](AUDIT-2026-10-10.md#ui-07) | low | Backup import: another file chosen during the import overwrites the state |
+| [BRW-02](AUDIT-2026-10-10.md#brw-02) | low | Firefox: the shortcut's "Change" button opens a `chrome://` URL |
+| [UX-05](AUDIT-2026-10-10.md#ux-05) | low | Netflix missing from the welcome screen, the empty state and the off-target side panel |
+| [UX-06](AUDIT-2026-10-10.md#ux-06) | low | "Settings › Playback" tip with no matching entry |
+| [UX-07](AUDIT-2026-10-10.md#ux-07) | low | Hardcoded French punctuation on the import page |
+| [BAK-05](AUDIT-2026-10-10.md#bak-05) | low | Export file name always in French, blob export from the popup |
+
+- **Effort:** M (many but small).
+- **Dependencies:** batch 20 preferably.
+- **Tests:** `src/i18n/locales.test.ts`: `crImport.labelValue` keys present in all 3 languages. `src/ui/settings/navigation.test.ts`: tip path built from `settings.cat.sync`. Unit tests for reading the delay field (empty gives NaN) and for `page-accounts` (null viewer with an error gives an alert with Retry). Regenerate the screenshots (`npm run screenshots`) if the displayed texts change.
+- **Manual check:** Firefox: shortcut button (opens `browser.commands.openShortcutSettings()` or shows the help). Export from the popup with "Always ask where to save files" in Firefox and Chrome. Import page in English and German.
+- **Migration:** none.
+
+### Batch 24 · `feature/durcissement-securite`
+
+**Goal:** comply with the `CLAUDE.md` rule on tokens, restrict images and messages.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [SEC-01](AUDIT-2026-10-10.md#sec-01) | low | OAuth tokens in plain text in `storage.local`, readable by content scripts |
+| [SEC-02](AUDIT-2026-10-10.md#sec-02) | low | Cover URLs not validated, no `img-src` CSP |
+| [ARCH-07](AUDIT-2026-10-10.md#arch-07) | low | Message denylist instead of an allowlist |
+
+- **Effort:** M.
+- **Dependencies:** batches 13 and 14 (same token code).
+- **Tests:** `storage.test.ts`: token encrypted with AES-GCM using a non-extractable key kept in IndexedDB; an old plain-text token is migrated on first access. `messages.test.ts`: exhaustive `MESSAGE_ORIGINS`, and the `content` types match exactly what `src/content` sends. `engagement-store.test.ts` and `backup.test.ts`: `coverUrl` outside the host list rejected.
+- **Manual check (Chrome + Firefox):** after the update, AniList and MAL stay connected (token migration); covers are displayed; no CSP error in the console in the popup, the side panel or the import pages.
+- **Migration:** encryption of existing tokens on update; on failure, clean disconnect with "Session expired". The `extension_pages` CSP changes the manifest: check it in Firefox, and check that the Chrome Web Store listing has nothing to justify (it is not a permission).
 
 ---
 
-## Plus tard
+## 2.3.0: platforms
 
-### Lot 28 · `chore/popup-controleurs`
+### Batch 25 · `chore/registre-plateformes`
 
-**Objectif :** découper `popup.ts` en contrôleurs au fil de l'eau, quand une fonctionnalité y touche.
+**Goal:** a single descriptor per platform (label, hosts, `linkRequired`, URLs), a prerequisite for any new platform.
 
-| Cas | Gravité | Sujet |
+| Cases | Severity | Subject |
 |---|---|---|
-| [ARCH-08](AUDIT-2026-10-10.md#arch-08) | basse | `popup.ts` de 1 382 lignes, trois conventions d'état, menus doublés |
+| [ARCH-02](AUDIT-2026-10-10.md#arch-02) | medium | Platform registry (reduced scope: `shared/platforms.ts` only) |
 
-- **Effort :** L (par petites extractions : `compare`, `ratings`, `queue`, puis `watching`).
-- **Dépendances :** lots 21 et 22 (regroupement des rendus déjà fait).
-- **Tests :** chaque contrôleur extrait reçoit son test unitaire avec la fausse API chrome ; `npm run test:e2e` à chaque extraction.
-- **Vérification manuelle :** popup complet sous Chrome et Firefox après chaque extraction.
-- **Migration :** aucune.
+- **Effort:** S.
+- **Dependencies:** batches 1 and 20.
+- **Tests:** `src/shared/platforms.test.ts`: exhaustive `Record<StreamingPlatform, …>`; `matchPlatformLink`, `platform-links.ts` and the labels go through the registry. No regression with `matching-netflix.test.ts` and `platform-links.test.ts`.
+- **Manual check (Chrome):** "Open" links and platform icons in the popup, the side panel and the Schedule.
+- **Migration:** none. Extracting `optional-platforms.ts` and `main-bridge.ts` waits for a second optional platform.
 
-### Lot 29 · `chore/i18n-contenu-leger`
+The HIDIVE adapter (`feature/hidive-adapter`, outside the audit) plugs into this registry. A new host in `host_permissions` or `content_scripts` triggers a permission warning in Chrome, and the extension is disabled until the user accepts: go through `optional_host_permissions` like Netflix, or accept it explicitly. In both cases, justify the permission in the Chrome Web Store Privacy tab before the tag.
 
-**Objectif :** ne charger dans les scripts de contenu que les clés utiles, ou la seule langue active.
+### Batch 26 · `bugfix/reattachement-video`
 
-| Cas | Gravité | Sujet |
+**Goal:** the playback session follows the right `<video>` to the end and no longer silently loses an episode.
+
+| Cases | Severity | Subject |
 |---|---|---|
-| [PERF-01](AUDIT-2026-10-10.md#perf-01) | basse | 3 catalogues i18n complets dans chaque script de contenu (~255 Ko) |
+| [CONT-01](AUDIT-2026-10-10.md#cont-01) | medium | `<video>` fixed at startup: completion missed if the player is replaced |
+| [CONT-02](AUDIT-2026-10-10.md#cont-02) | medium | Wait for the player limited to 30 s with no retry |
+| [CONT-06](AUDIT-2026-10-10.md#cont-06) | low | Orphaned script after an update: only warns at the end |
+| [CONT-05](AUDIT-2026-10-10.md#cont-05) | low | Send failure without "Retry", completion disarmed |
+| [CONT-07](AUDIT-2026-10-10.md#cont-07) | low | Netflix: "Retry" stays active during sending (duplicates) |
+| [CTRL-07](AUDIT-2026-10-10.md#ctrl-07) | low | "Mark the episode as watched" shortcut gives no feedback when it does nothing |
+| [TEST-09](AUDIT-2026-10-10.md#test-09) | low | `trackVideoProgress` never run in tests |
 
-- **Effort :** M.
-- **Dépendances :** lots 10 (budget de taille) et 19.
-- **Tests :** `verify-build.ts` : budget resserré à 80 Ko pour le chargeur de contenu ; `locales.test.ts` : toutes les clés `content.*` utilisées existent dans le catalogue réduit.
-- **Vérification manuelle (Chrome + Firefox) :** toasts et bulles du script de contenu dans les 3 langues, changement de langue pris en compte à la session suivante.
-- **Migration :** aucune.
+- **Effort:** L.
+- **Dependencies:** batch 19 (fixtures and content i18n), batch 15 for the fake timers.
+- **Tests:** new `src/content/lib/video-tracker.test.ts` (fake video based on `EventTarget`): a single `onCompleted`; rearming on `loadstart`; duration under 120 s ignored; no more calls after `abort`. `watch-session.test.ts`: `<video>` detached then replaced, so tracker recreated; player appearing after 35 s (`play` captured on `document`); `sendMessage` throwing gives a toast with Retry; sync paused, then `forceComplete` resends the episode; double click on Retry gives a single send; invalidated context detected at session start. Test of the `onInstalled` reinjection with the `STARTED_FLAG` guard.
+- **Manual check (Chrome + Brave + Firefox):** Crunchyroll and Netflix autoplay through to the next episode; episode opened in a background tab then watched more than a minute later; reload the extension with a Crunchyroll tab open: immediate warning or reinjected script; Alt+Shift+S on an already synced episode shows a toast.
+- **Migration:** none. Reinjection uses the `scripting` permission already declared (2.1.0): no new justification.
+
+### Batch 27 · `feature/agenda-hors-cible`
+
+**Goal:** the Schedule and the side panel are reachable outside a streaming tab.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [UX-04](AUDIT-2026-10-10.md#ux-04) | low | Schedule unreachable outside a Crunchyroll, ADN or Netflix tab |
+
+- **Effort:** M.
+- **Dependencies:** batches 6 and 21.
+- **Tests:** `src/sidepanel/tabs.test.ts` and `presence.test.ts`: off target, Schedule and Settings tabs available, Schedule by default; "Now playing" reserved for the tracked tab. e2e: "Open the side panel" button visible off target.
+- **Manual check (Chrome + Firefox):** open the side panel on any site: the Schedule shows and the side panel does not close (Chrome, `presence.ts`).
+- **Migration:** none.
 
 ---
 
-## Regroupés / écartés
+## Later
 
-Chaque ligne renvoie au cas principal qui porte le correctif. Aucun cas n'est écarté : les recommandations surdimensionnées sont réduites dans le lot de leur cas principal (ARCH-02, ARCH-15, ARCH-19, ARCH-25).
+### Batch 28 · `chore/popup-controleurs`
 
-| Cas | Rattaché à | Raison |
+**Goal:** split `popup.ts` into controllers gradually, whenever a feature touches it.
+
+| Cases | Severity | Subject |
 |---|---|---|
-| [ARCH-13](AUDIT-2026-10-10.md#arch-13) | [SYNC-02](AUDIT-2026-10-10.md#sync-02) (lot 2) | Même défaut : relecture avant l'alignement |
-| [CTRL-05](AUDIT-2026-10-10.md#ctrl-05) | [UI-02](AUDIT-2026-10-10.md#ui-02) (lot 6) | Même scénario `runAction` dans `now-playing.ts:347` |
-| [CTRL-06](AUDIT-2026-10-10.md#ctrl-06) | [ARCH-12](AUDIT-2026-10-10.md#arch-12) (lot 3) | Verrou par fiche autour de `adjustOnService` |
-| [BRW-03](AUDIT-2026-10-10.md#brw-03) | [CONT-03](AUDIT-2026-10-10.md#cont-03) (lot 7) | Même cas : onglet Netflix ouvert après le retrait |
-| [BAK-03](AUDIT-2026-10-10.md#bak-03) | [BRW-04](AUDIT-2026-10-10.md#brw-04) (lot 7) | Même correctif : lecteur préféré effectif centralisé |
-| [UX-03](AUDIT-2026-10-10.md#ux-03) | [BRW-02](AUDIT-2026-10-10.md#brw-02) (lot 23) | Même bouton de raccourci sous Firefox |
-| [BAK-04](AUDIT-2026-10-10.md#bak-04) | [DATA-03](AUDIT-2026-10-10.md#data-03) (lot 18) | Même élagage de `seriesOffsets` |
-| [PERF-05](AUDIT-2026-10-10.md#perf-05) | [DATA-04](AUDIT-2026-10-10.md#data-04) (lot 18) | Mêmes caches `storage.session` non purgés |
-| [SEC-03](AUDIT-2026-10-10.md#sec-03) | [DATA-04](AUDIT-2026-10-10.md#data-04) (lot 18) | Effacement de `pageMedia:*` à la déconnexion, inclus dans DATA-04 |
-| [ARCH-06](AUDIT-2026-10-10.md#arch-06) | [DATA-02](AUDIT-2026-10-10.md#data-02) (lot 18) | Suppression du second store « À noter » non verrouillé |
-| [ARCH-16](AUDIT-2026-10-10.md#arch-16) | [ALRT-01](AUDIT-2026-10-10.md#alrt-01) (lot 17) | Même cache « En cours » non rafraîchi |
-| [ARCH-17](AUDIT-2026-10-10.md#arch-17) | [AUTH-01](AUDIT-2026-10-10.md#auth-01) (lot 13) | Helper `writeIfSession` appliqué à AUTH-01, AUTH-04, DATA-05 et ALRT-05 |
-| [ARCH-19](AUDIT-2026-10-10.md#arch-19) | [PERF-02](AUDIT-2026-10-10.md#perf-02) (lot 16) | Seul point retenu : `writeResolution` par lots ; LRU et index de clés jugés spéculatifs |
-| [ARCH-09](AUDIT-2026-10-10.md#arch-09) | [TEST-01](AUDIT-2026-10-10.md#test-01) (lot 15) | Même table de décision sur `syncEpisode` |
-| [ARCH-26](AUDIT-2026-10-10.md#arch-26) | [TEST-04](AUDIT-2026-10-10.md#test-04) (lot 19) | Fixtures réelles datées ; happy-dom seulement si un repli DOM l'exige |
-| [ARCH-03](AUDIT-2026-10-10.md#arch-03) | [PERF-01](AUDIT-2026-10-10.md#perf-01) (lot 29) | Gain réel uniquement côté i18n ; scission de `messages.ts` sans effet ; budget dans le lot 10 |
-| [ARCH-10](AUDIT-2026-10-10.md#arch-10) | [PERF-01](AUDIT-2026-10-10.md#perf-01) (lot 29) | Constat complémentaire du même poids i18n |
-| [REL-01](AUDIT-2026-10-10.md#rel-01) | [ARCH-24](AUDIT-2026-10-10.md#arch-24) (lot 8) | Même échec CWS ; ARCH-24 porte le garde-fou automatique |
-| [REL-05](AUDIT-2026-10-10.md#rel-05) | [ARCH-23](AUDIT-2026-10-10.md#arch-23) (lot 8) | Même épinglage des CLI de publication |
+| [ARCH-08](AUDIT-2026-10-10.md#arch-08) | low | 1,382-line `popup.ts`, three state conventions, duplicated menus |
+
+- **Effort:** L (through small extractions: `compare`, `ratings`, `queue`, then `watching`).
+- **Dependencies:** batches 21 and 22 (render batching already done).
+- **Tests:** each extracted controller gets its unit test with the fake chrome API; `npm run test:e2e` at each extraction.
+- **Manual check:** full popup in Chrome and Firefox after each extraction.
+- **Migration:** none.
+
+### Batch 29 · `chore/i18n-contenu-leger`
+
+**Goal:** load into content scripts only the keys that are needed, or only the active language.
+
+| Cases | Severity | Subject |
+|---|---|---|
+| [PERF-01](AUDIT-2026-10-10.md#perf-01) | low | 3 full i18n catalogs in every content script (~255 KB) |
+
+- **Effort:** M.
+- **Dependencies:** batches 10 (size budget) and 19.
+- **Tests:** `verify-build.ts`: budget tightened to 80 KB for the content loader; `locales.test.ts`: all `content.*` keys in use exist in the reduced catalog.
+- **Manual check (Chrome + Firefox):** content script toasts and bubbles in all 3 languages, language change applied at the next session.
+- **Migration:** none.
 
 ---
 
-## Rappel : checklist de release
+## Grouped / dropped
 
-Commune à chaque version (voir `CLAUDE.md` et `docs/STORE.md`) :
+Each row points to the main case that carries the fix. No case is dropped: oversized recommendations are scaled down in the batch of their main case (ARCH-02, ARCH-15, ARCH-19, ARCH-25).
 
-1. Branche `release/x.y.z` depuis `develop`.
-2. `npm version x.y.z --no-git-tag-version` (`manifest.json`, `package.json`, `package-lock.json`), puis grep de l'ancienne version (pied de page du popup, harnais des captures).
-3. Entrée `CHANGELOG.md` (FR, Keep a Changelog), commit `chore(release): x.y.z`.
-4. **Permissions** : si `permissions`, `host_permissions` ou `optional_host_permissions` changent, mettre à jour `docs/store/permissions.md` **et** l'onglet Confidentialité du tableau de bord du Chrome Web Store **avant le tag**. Les soumissions 2.0.0 et 2.1.0 ont échoué faute de justification. Reporter aussi le changement dans `amo-metadata.json` et les fiches.
-5. `npm run verify` (après le lot 11) et `npm run test:e2e` avant le tag : le job `build` de `release.yml` les rejoue, et un échec bloque l'envoi aux stores.
-6. `npm run screenshots` si l'interface ou la version affichée change.
-7. Fast-forward sur `main`, tag annoté `vx.y.z` (« SyncKai x.y.z »), `develop` aligné, push : seulement après un go explicite.
+| Cases | Attached to | Reason |
+|---|---|---|
+| [ARCH-13](AUDIT-2026-10-10.md#arch-13) | [SYNC-02](AUDIT-2026-10-10.md#sync-02) (batch 2) | Same defect: reread before the alignment |
+| [CTRL-05](AUDIT-2026-10-10.md#ctrl-05) | [UI-02](AUDIT-2026-10-10.md#ui-02) (batch 6) | Same `runAction` scenario in `now-playing.ts:347` |
+| [CTRL-06](AUDIT-2026-10-10.md#ctrl-06) | [ARCH-12](AUDIT-2026-10-10.md#arch-12) (batch 3) | Per-entry lock around `adjustOnService` |
+| [BRW-03](AUDIT-2026-10-10.md#brw-03) | [CONT-03](AUDIT-2026-10-10.md#cont-03) (batch 7) | Same case: Netflix tab open after removal |
+| [BAK-03](AUDIT-2026-10-10.md#bak-03) | [BRW-04](AUDIT-2026-10-10.md#brw-04) (batch 7) | Same fix: centralized effective preferred player |
+| [UX-03](AUDIT-2026-10-10.md#ux-03) | [BRW-02](AUDIT-2026-10-10.md#brw-02) (batch 23) | Same shortcut button in Firefox |
+| [BAK-04](AUDIT-2026-10-10.md#bak-04) | [DATA-03](AUDIT-2026-10-10.md#data-03) (batch 18) | Same pruning of `seriesOffsets` |
+| [PERF-05](AUDIT-2026-10-10.md#perf-05) | [DATA-04](AUDIT-2026-10-10.md#data-04) (batch 18) | Same unpurged `storage.session` caches |
+| [SEC-03](AUDIT-2026-10-10.md#sec-03) | [DATA-04](AUDIT-2026-10-10.md#data-04) (batch 18) | Clearing `pageMedia:*` on sign-out, included in DATA-04 |
+| [ARCH-06](AUDIT-2026-10-10.md#arch-06) | [DATA-02](AUDIT-2026-10-10.md#data-02) (batch 18) | Removal of the second, unlocked "To rate" store |
+| [ARCH-16](AUDIT-2026-10-10.md#arch-16) | [ALRT-01](AUDIT-2026-10-10.md#alrt-01) (batch 17) | Same unrefreshed "Watching" cache |
+| [ARCH-17](AUDIT-2026-10-10.md#arch-17) | [AUTH-01](AUDIT-2026-10-10.md#auth-01) (batch 13) | `writeIfSession` helper applied to AUTH-01, AUTH-04, DATA-05 and ALRT-05 |
+| [ARCH-19](AUDIT-2026-10-10.md#arch-19) | [PERF-02](AUDIT-2026-10-10.md#perf-02) (batch 16) | Only point kept: batched `writeResolution`; LRU and key index deemed speculative |
+| [ARCH-09](AUDIT-2026-10-10.md#arch-09) | [TEST-01](AUDIT-2026-10-10.md#test-01) (batch 15) | Same decision table on `syncEpisode` |
+| [ARCH-26](AUDIT-2026-10-10.md#arch-26) | [TEST-04](AUDIT-2026-10-10.md#test-04) (batch 19) | Real dated fixtures; happy-dom only if a DOM fallback requires it |
+| [ARCH-03](AUDIT-2026-10-10.md#arch-03) | [PERF-01](AUDIT-2026-10-10.md#perf-01) (batch 29) | Real gain only on the i18n side; splitting `messages.ts` has no effect; budget in batch 10 |
+| [ARCH-10](AUDIT-2026-10-10.md#arch-10) | [PERF-01](AUDIT-2026-10-10.md#perf-01) (batch 29) | Complementary finding on the same i18n weight |
+| [REL-01](AUDIT-2026-10-10.md#rel-01) | [ARCH-24](AUDIT-2026-10-10.md#arch-24) (batch 8) | Same CWS failure; ARCH-24 carries the automatic guard |
+| [REL-05](AUDIT-2026-10-10.md#rel-05) | [ARCH-23](AUDIT-2026-10-10.md#arch-23) (batch 8) | Same pinning of the publishing CLIs |
 
-Points propres à chaque version :
+---
 
-- **2.1.1** : aucune nouvelle permission attendue (le test du lot 8 le confirme). Lot 8 fusionné avant le tag. CHANGELOG : note sur les correspondances fausses (lot 1 : vérifier les séries précédentes, « Oublier » dans *Réglages › Mes données*), purge des correspondances `netflix:*`, alignement qui ignore les séries modifiées. Test manuel complet sous Chrome et Firefox (lots 1, 6 et 7).
-- **2.2.0** : migrations à la mise à jour (epoch de la file, format des délais par série, chiffrement des jetons) testées en installant la 2.1.1 puis en mettant à jour vers le build local. La CSP du lot 24 change le manifeste : vérifier `web-ext lint` et l'absence d'erreur CSP. CHANGELOG : liaison au compte, choix de saison mémorisé.
-- **2.3.0** : toute nouvelle plateforme (HIDIVE, Prime Video, Disney+) ajoute un hôte. Préférer `optional_host_permissions` pour éviter la désactivation à la mise à jour sous Chrome, et justifier la permission dans l'onglet Confidentialité avant le tag. Mettre à jour `PRIVACY.md` (date d'effet), `permissions.md`, les fiches et `amo-metadata.json`.
+## Reminder: release checklist
+
+Common to every version (see `CLAUDE.md` and `docs/STORE.md`):
+
+1. `release/x.y.z` branch from `develop`.
+2. `npm version x.y.z --no-git-tag-version` (`manifest.json`, `package.json`, `package-lock.json`), then grep for the old version (popup footer, screenshot harness).
+3. `CHANGELOG.md` entry (FR, Keep a Changelog), `chore(release): x.y.z` commit.
+4. **Permissions**: if `permissions`, `host_permissions` or `optional_host_permissions` change, update `docs/store/permissions.md` **and** the Privacy tab of the Chrome Web Store dashboard **before the tag**. The 2.0.0 and 2.1.0 submissions failed for lack of justification. Also carry the change over to `amo-metadata.json` and the listings.
+5. `npm run verify` (after batch 11) and `npm run test:e2e` before the tag: the `build` job of `release.yml` reruns them, and a failure blocks the upload to the stores.
+6. `npm run screenshots` if the interface or the displayed version changes.
+7. Fast-forward on `main`, annotated tag `vx.y.z` ("SyncKai x.y.z"), `develop` aligned, push: only after an explicit go.
+
+Points specific to each version:
+
+- **2.1.1**: no new permission expected (the batch 8 test confirms it). Batch 8 merged before the tag. CHANGELOG: note on wrong matches (batch 1: check previous series, "Forget" in *Settings › My data*), purge of `netflix:*` matches, alignment that skips modified series. Full manual test in Chrome and Firefox (batches 1, 6 and 7).
+- **2.2.0**: migrations on update (queue epoch, per-series delay format, token encryption) tested by installing 2.1.1 then updating to the local build. The batch 24 CSP changes the manifest: check `web-ext lint` and that there is no CSP error. CHANGELOG: account binding, remembered season choice.
+- **2.3.0**: any new platform (HIDIVE, Prime Video, Disney+) adds a host. Prefer `optional_host_permissions` to avoid the extension being disabled on update in Chrome, and justify the permission in the Privacy tab before the tag. Update `PRIVACY.md` (effective date), `permissions.md`, the listings and `amo-metadata.json`.

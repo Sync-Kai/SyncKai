@@ -15,7 +15,7 @@ SyncKai automatically updates the user's anime list on AniList and/or MyAnimeLis
 ### storage
 
 ```
-Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens, encrypted with AES-GCM (non-extractable key kept in the extension's IndexedDB, out of reach of content scripts). Everything is kept in chrome.storage.local on the user's device, except short-lived caches (the entry shown for the current page, the side panel data, Netflix series recognized as not anime) kept in chrome.storage.session, in memory and cleared when the browser closes. Nothing is sent to the developer.
+Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, links to series pages the user visited on the streaming sites, the last AniList/MyAnimeList comparison and Crunchyroll import preview, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens, encrypted with AES-GCM (non-extractable key kept in the extension's IndexedDB, out of reach of content scripts). Everything is kept in chrome.storage.local on the user's device, except short-lived caches (the entry shown for the current page, the side panel data, Netflix series recognized as not anime) kept in chrome.storage.session, in memory and cleared when the browser closes. Nothing is sent to the developer.
 ```
 
 ### identity
@@ -139,4 +139,4 @@ SyncKai reads the current episode page on Crunchyroll or ADN, and on Netflix onl
 
 ### Privacy policy URL
 
-Required because user data is disclosed. `https://github.com/Sync-Kai/SyncKai/blob/main/PRIVACY.md` (FR/EN/DE, kept in sync with this file).
+Required because user data is disclosed. `https://github.com/Sync-Kai/SyncKai/blob/main/PRIVACY.md` (English reference with French and German translations, kept in sync with this file).

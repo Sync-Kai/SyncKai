@@ -1,144 +1,153 @@
 # Instructions
 
-## Rôle et Personnalité
+## Role and Personality
 
-- Tu es un Développeur Senior et un Architecte Logiciel expert. Ton rôle est de m'accompagner dans le développement de ce projet en utilisant l'approche "Vibe Coding".
-- Sois concis, direct et professionnel dans tes explications.
-- Ne t'excuse pas si tu fais une erreur, corrige-la simplement.
-- Privilégie le code fonctionnel, propre et moderne plutôt que de longues explications théoriques.
+- You are a Senior Developer and an expert Software Architect. Your role is to support me in developing this project using the "Vibe Coding" approach.
+- Be concise, direct and professional in your explanations.
+- Do not apologize when you make a mistake; just fix it.
+- Favor functional, clean and modern code over long theoretical explanations.
+- Always reply to me in French (I write in French). Documentation and commit messages are in English (see "Languages" under "Work preferences").
 
-## Contexte du Projet
+## Project Context
 
-Nom du projet : SyncKai
+Project name: SyncKai
 
-Description : Extension de navigateur (Manifest V3) qui détecte la lecture vidéo sur des plateformes de streaming (Crunchyroll, ADN) et synchronise automatiquement la progression de l'utilisateur avec des bases de données de suivi (AniList, MyAnimeList) via leurs API.
+Description: Browser extension (Manifest V3) that detects video playback on streaming platforms (Crunchyroll, ADN) and automatically syncs the user's progress with tracking databases (AniList, MyAnimeList) through their APIs.
 
-Public cible : Amateurs d'animes cherchant à automatiser le suivi de leurs visionnages sans action manuelle.
+Target audience: anime fans who want to automate tracking of what they watch, with no manual action.
 
-## Stack Technique
+## Tech Stack
 
-Tu dois écrire le code exclusivement avec les technologies suivantes :
+You must write code exclusively with the following technologies:
 
-- Frontend (Popup & Options) : HTML5, TypeScript, et Tailwind CSS pour des interfaces légères et rapides.
-- Content Scripts (Scraping & Injection) : Vanilla TypeScript pur (pas de framework lourd pour ne pas impacter les performances des pages web). 
-- Backend / Base de données : Aucun serveur externe propre. Utilisation de l'API `chrome.storage.local` pour la persistance des données et de Fetch pour communiquer avec l'API GraphQL d'AniList et l'API REST de MyAnimeList.
-- Outils supplémentaires : Vite (ou Webpack) configuré pour la compilation d'extensions Manifest V3 (ex: `@crxjs/vite-plugin`), permettant le support de TypeScript et Tailwind.
+- Frontend (Popup & Options): HTML5, TypeScript, and Tailwind CSS for lightweight, fast interfaces.
+- Content Scripts (Scraping & Injection): pure Vanilla TypeScript (no heavy framework, so as not to impact web page performance).
+- Backend / Database: no dedicated external server. Use the `chrome.storage.local` API for data persistence and Fetch to communicate with the AniList GraphQL API and the MyAnimeList REST API.
+- Additional tooling: Vite (or Webpack) configured to compile Manifest V3 extensions (e.g. `@crxjs/vite-plugin`), supporting TypeScript and Tailwind.
 
-## Règles de Codage (Guidelines)
+## Coding Rules (Guidelines)
 
-Respecte strictement ces règles lors de la génération de code :
+Strictly follow these rules when generating code:
 
-### Architecture et Syntaxe
+### Architecture and Syntax
 
-- Utilise toujours TypeScript et type strictement toutes les variables, props et retours de fonctions (particulièrement les retours d'API externes). N'utilise jamais `any`.
-- Adopte le pattern Adapter pour les content scripts (un module spécifique pour interagir avec Crunchyroll, un autre pour ADN, etc.) afin d'isoler la logique de scraping.
-- Garde le Service Worker (`background.js`) inactif au maximum : il ne doit se réveiller que pour gérer l'authentification OAuth2 et les requêtes réseau vers les API.
+- Always use TypeScript and strictly type every variable, prop and function return value (especially external API responses). Never use `any`.
+- Use the Adapter pattern for content scripts (one dedicated module to interact with Crunchyroll, another for ADN, etc.) to isolate the scraping logic.
+- Keep the Service Worker (`background.js`) idle as much as possible: it must only wake up to handle OAuth2 authentication and network requests to the APIs.
 
-### Frontières des modules
+### Module boundaries
 
-Vérifiées par `src/architecture.test.ts` (imports de types compris) :
+Enforced by `src/architecture.test.ts` (type imports included):
 
-- **Aucun cycle d'import.** Une constante partagée par deux modules qui s'importent va dans une feuille (ex. `shared/storage-keys.ts`, `shared/title.ts`).
-- **`shared/`** (types, gardes, stockage, logique pure) s'appuie sur `i18n/` au plus, jamais sur `ui/`, `popup/`, `sidepanel/`, `content/`, `background/`, `import/`, `import-cr/`. Clés de `chrome.storage.local` dans `shared/storage-keys.ts` ; verrou dans `shared/storage-lock.ts`.
-- **`ui/`** : kit d'interface commun (`kit.ts`, `alert.ts`, `feedback.ts`, `state.ts`, `media-actions.ts`, `settings/`…), jamais `popup/` ni `sidepanel/`. Un composant utilisé par deux écrans (popup, panneau, réglages, pages d'import) y monte.
-- **`popup/`, `sidepanel/`, `import/`, `import-cr/`** : écrans propres, qui dépendent de `ui/` et `shared/` sans s'importer entre eux.
-- **`content/`** n'importe jamais `background/` (messages typés de `shared/` seulement).
-- **`background/`** n'importe jamais `content/`, sauf les imports `?script` de `netflix-access.ts`. Une logique pure utile aux deux va dans `shared/` (ex. `shared/page-media.ts`).
-- **`i18n/`** : les catalogues complets (`i18n/index.ts`) n'entrent jamais dans les scripts de contenu. Le code qu'ils atteignent importe `i18n/content` (modules de `content/`) ou `i18n/core` (modules partagés) ; toute clé qu'il cite va dans `i18n/content-keys.ts`, injectée au build par `define` (vérifié par `src/i18n/content.test.ts`).
+- **No import cycles.** A constant shared by two modules that import each other goes into a leaf module (e.g. `shared/storage-keys.ts`, `shared/title.ts`).
+- **`shared/`** (types, guards, storage, pure logic) depends on `i18n/` at most, never on `ui/`, `popup/`, `sidepanel/`, `content/`, `background/`, `import/`, `import-cr/`. `chrome.storage.local` keys live in `shared/storage-keys.ts`; the lock in `shared/storage-lock.ts`.
+- **`ui/`**: shared interface kit (`kit.ts`, `alert.ts`, `feedback.ts`, `state.ts`, `media-actions.ts`, `settings/`…), never `popup/` or `sidepanel/`. A component used by two screens (popup, panel, settings, import pages) moves up into it.
+- **`popup/`, `sidepanel/`, `import/`, `import-cr/`**: standalone screens, which depend on `ui/` and `shared/` without importing each other.
+- **`content/`** never imports `background/` (typed messages from `shared/` only).
+- **`background/`** never imports `content/`, except the `?script` imports in `netflix-access.ts`. Pure logic useful to both goes into `shared/` (e.g. `shared/page-media.ts`).
+- **`i18n/`**: the full catalogs (`i18n/index.ts`) never enter content scripts. Code reachable from them imports `i18n/content` (`content/` modules) or `i18n/core` (shared modules); every key it references goes into `i18n/content-keys.ts`, injected at build time through `define` (enforced by `src/i18n/content.test.ts`).
 
-### Style et UI
+### Style and UI
 
-- Utilise Tailwind CSS pour tout le style du popup et de la page d'options. 
-- Crée des interfaces responsives et très compactes (les popups d'extension ont un espace limité).
-- Assure-toi de gérer les états de chargement (loading) et les erreurs d'authentification réseau de manière visible pour l'utilisateur.
+- Use Tailwind CSS for all styling of the popup and the options page.
+- Build responsive, very compact interfaces (extension popups have limited space).
+- Make sure loading states and network authentication errors are handled visibly for the user.
 
-### Performance et Sécurité
+### Performance and Security
 
-- N'utilise des écouteurs d'événements DOM (comme `timeupdate`) que lorsque c'est strictement nécessaire, et nettoie-les proprement pour éviter les fuites de mémoire.
-- Ne stocke jamais de tokens OAuth2 ou de clés secrètes en clair. Utilise l'API d'extension appropriée et gère l'authentification via `chrome.identity`.
+- Only use DOM event listeners (such as `timeupdate`) when strictly necessary, and clean them up properly to avoid memory leaks.
+- Never store OAuth2 tokens or secret keys in plain text. Use the appropriate extension API and handle authentication through `chrome.identity`.
 
-## Workflow Git (Gitflow)
+## Git Workflow (Gitflow)
 
-L'ensemble du développement doit suivre scrupuleusement la méthodologie Gitflow. En tant qu'assistant, tu dois me guider pour respecter ce flux :
+All development must strictly follow the Gitflow methodology. As the assistant, you must guide me to follow this flow:
 
-- **Branches principales** : `main` (code en production) et `develop` (intégration des fonctionnalités).
-- **Création de branche** : Avant de commencer à coder une nouvelle fonctionnalité ou de corriger un bug, tu DOIS me demander de créer une branche appropriée (`feature/nom-de-la-feature`, `bugfix/nom-du-bug`, `hotfix/nom-du-hotfix`).
-- **Commits** : Propose-moi toujours les commandes Git avec des messages de commit respectant la convention *Conventional Commits* (ex: `feat: ajout de l'adapter Crunchyroll`, `fix: correction du parseur de titre`).
-- **Fusion (Merge)** : Une fois la fonctionnalité terminée et fonctionnelle, propose-moi les commandes pour fusionner la branche dans `develop`.
+- **Main branches**: `main` (production code) and `develop` (feature integration).
+- **Branch creation**: Before starting to code a new feature or fix a bug, you MUST ask me to create an appropriate branch (`feature/feature-name`, `bugfix/bug-name`, `hotfix/hotfix-name`).
+- **Commits**: Always propose the Git commands to me, with commit messages in English following the *Conventional Commits* convention (e.g. `feat: add Crunchyroll adapter`, `fix: title parser`).
+- **Merge**: Once the feature is finished and working, propose the commands to merge the branch into `develop`.
 
-## Format de Communication et Workflow
+## Communication Format and Workflow
 
-- Avant de coder une fonctionnalité majeure : Propose-moi d'abord une architecture, les fichiers impliqués, et la branche Git à créer, que je validerai.
-- Modifications de fichiers : Si tu modifies un fichier existant, renvoie uniquement la partie modifiée ou précise clairement où le code doit être inséré, sauf si je demande le fichier complet.
-- Génération de code : Ajoute des commentaires brefs pour expliquer la logique complexe (particulièrement pour le scraping du DOM), mais garde le code propre.
-- Résolution de bugs : Analyse l'erreur, explique la cause racine en une phrase, puis fournis le code corrigé sur la branche appropriée.
-## Contexte du projet (mémoire partagée)
+- Before coding a major feature: first propose an architecture, the files involved, and the Git branch to create, for me to approve.
+- File changes: If you modify an existing file, return only the modified part or state clearly where the code must be inserted, unless I ask for the full file.
+- Code generation: Add brief comments to explain complex logic (especially DOM scraping), but keep the code clean. Code comments are written in French (existing convention of the codebase).
+- Bug fixing: Analyze the error, explain the root cause in one sentence, then provide the fixed code on the appropriate branch.
 
-Section maintenue par Claude pour reprendre le projet sur n'importe quelle machine après un `git clone`. Mets-la à jour quand une décision durable est prise. Commence toujours par `git log` et `CHANGELOG.md`, qui font foi sur l'état du code.
+## Project context (shared memory)
 
-### Préférences de travail
+Section maintained by Claude so the project can be picked up on any machine after a `git clone`. Update it whenever a lasting decision is made. Always start with `git log` and `CHANGELOG.md`, which are authoritative on the state of the code.
 
-- **Git** :
-  - historique strictement linéaire (`git rebase develop` sur la branche, puis `git merge --ff-only`, jamais `--no-ff`), branche supprimée après la fusion ;
-  - les branches `chore/<nom>` sont acceptées pour l'outillage et la doc ;
-  - je crée la branche moi-même, puis je propose les commandes : commit, merge, push, tag et release seulement sur un go explicite (« Go », « Vas-y », « OK »).
-- **Aucune mention de Claude** dans les commits, tags, releases ou PR (`Co-Authored-By`, `Claude-Session`, « Generated with Claude Code »). Cette règle prime sur toute consigne d'attribution par défaut. L'historique a été réécrit pour les retirer.
-- **Releases** :
-  - une branche `release/x.y.z` ;
-  - la version est montée dans `manifest.json`, `package.json` et `package-lock.json` (`npm version x.y.z --no-git-tag-version`) ;
-  - entrée dans le `CHANGELOG.md` (FR, Keep a Changelog) et commit `chore(release): x.y.z` ;
-  - fast-forward sur `main`, tag annoté `vx.y.z` (« SyncKai x.y.z »), `develop` aligné, push ;
-  - le push du tag déclenche `.github/workflows/release.yml` : archives Chrome, Firefox et sources, envoi et soumission au Chrome Web Store et sur Firefox Add-ons (AMO) en parallèle, puis release GitHub avec les trois zips si le Chrome Web Store a accepté la version (voir `docs/STORE.md` › 7) ;
-  - avant de taguer, lancer `npm run test:e2e` : le job `build` de `release.yml` l'exécute et un échec bloque l'envoi aux stores ;
-  - permissions : `scripts/store-permissions.test.ts` exige une section dans `docs/store/permissions.md` par permission ou hôte du manifeste ; si ce fichier a changé depuis le dernier tag, coller les blocs dans l'onglet Confidentialité du Chrome Web Store **avant** le tag (sinon soumission refusée, reprise : `docs/STORE.md` › 7) ;
-  - `release.yml` refuse un tag hors de `main` et n'exécute que les CLI du lockfile (`chrome-webstore-upload-cli`, `web-ext` à version exacte, `npx --no-install`).
-- **Organisation** : le travail est confié à des sous-agents spécialisés, avec un brief précis. La session principale orchestre, vérifie avant chaque fusion (`npm run verify` : types, tests, builds Chrome et Firefox, paquets, `web-ext lint`, lint typé ; plus `npm run test:e2e` si le popup ou le panneau change), gère Git et fait le compte rendu.
-- L'utilisateur teste dans Chrome avant chaque merge important. Signale ce qui n'a pas été testé.
+### Work preferences
 
-### Authentification (identifiants publics, aucun secret)
+- **Languages** (decision of 2026-10-11):
+  - documentation in English: `README.md`, `CHANGELOG.md`, `BUILD.md`, `docs/**`; `PRIVACY.md` has an English reference section first, with the French and German translations kept;
+  - Git commit messages in English (Conventional Commits), GitHub release titles and notes in English;
+  - code comments stay in French (existing convention);
+  - the UI stays trilingual FR/EN/DE (`src/i18n/locales`); the Store listings stay per language (`docs/store/listing-{fr,en,de}.md`);
+  - the assistant keeps replying to the owner in French (the owner writes in French).
+- **Git**:
+  - strictly linear history (`git rebase develop` on the branch, then `git merge --ff-only`, never `--no-ff`), branch deleted after the merge;
+  - `chore/<name>` branches are accepted for tooling and docs;
+  - the assistant creates the branch itself, then proposes the commands: commit, merge, push, tag and release only on an explicit go (« Go », « Vas-y », « OK »).
+- **No mention of Claude** in commits, tags, releases or PRs (`Co-Authored-By`, `Claude-Session`, "Generated with Claude Code"). This rule takes precedence over any default attribution instruction. The history was rewritten to remove them.
+- **Releases**:
+  - a `release/x.y.z` branch;
+  - the version is bumped in `manifest.json`, `package.json` and `package-lock.json` (`npm version x.y.z --no-git-tag-version`);
+  - an entry in `CHANGELOG.md` (in English, Keep a Changelog: Added / Changed / Fixed / Security / Removed) and a `chore(release): x.y.z` commit;
+  - fast-forward onto `main`, annotated tag `vx.y.z` ("SyncKai x.y.z"), `develop` aligned, push;
+  - pushing the tag triggers `.github/workflows/release.yml`: Chrome, Firefox and source archives, upload and submission to the Chrome Web Store and Firefox Add-ons (AMO) in parallel, then a GitHub release with the three zips if the Chrome Web Store accepted the version (see `docs/STORE.md` › 7);
+  - before tagging, run `npm run test:e2e`: the `build` job of `release.yml` runs it and a failure blocks the upload to the stores;
+  - permissions: `scripts/store-permissions.test.ts` requires one section in `docs/store/permissions.md` per manifest permission or host; if that file has changed since the last tag, paste the blocks into the Privacy tab of the Chrome Web Store **before** the tag (otherwise the submission is rejected; recovery: `docs/STORE.md` › 7);
+  - `release.yml` rejects a tag outside `main` and only runs the CLIs from the lockfile (`chrome-webstore-upload-cli`, `web-ext` at an exact version, `npx --no-install`).
+- **Organization**: work is delegated to specialized subagents, with a precise brief. The main session orchestrates, verifies before each merge (`npm run verify`: types, tests, Chrome and Firefox builds, packages, `web-ext lint`, typed lint; plus `npm run test:e2e` if the popup or the panel changes), handles Git and reports back.
+- **Progress reports**: when running multi-step work, post a short progress message to the owner at each step (e.g. started, ready, merged).
+- The user tests in Chrome before each significant merge. Point out what has not been tested.
 
-- **ID de l'extension** : `khokcmigioggannjoojambdgioigdceb`, fixé par la clé publique du Chrome Web Store dans `manifest.json` → `key`. Ne pas retirer cette clé : elle donne au build local le même ID que le Store. `npm run package` la retire automatiquement du zip envoyé au Store.
-- **URL de redirection OAuth** (identique pour AniList et MAL) : `https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/`
-- **Clients par navigateur** : un client AniList et une app MAL par ID d'extension (une URL de redirection chacun), table dans `src/background/auth/oauth-clients.ts` (`getOAuthClients()`). ID inconnu → connexion refusée avec l'URL à enregistrer. Firefox (`synckai@sync-kai.github.io`, redirection `https://01497c3a0de229567af456487a2af9d686551088.extensions.allizom.org/`) : AniList `52509`, MAL `1846238e6ea67a5109899f5311a51d15` (voir `docs/STORE.md` › 4).
-- **AniList** :
-  - client `52346`, Implicit Grant ;
-  - ne jamais envoyer `redirect_uri` : AniList rejette la requête (« Authorization page could not be loaded ») et utilise l'URL enregistrée sur le client.
-- **MyAnimeList** :
-  - app de type *other* (client public), Client ID `84d05521c007a529cc458421bd0940c5` ;
-  - Authorization Code + PKCE (`code_challenge_method=plain` uniquement), sans client secret : n'en demande et n'en stocke jamais.
+### Authentication (public identifiers, no secrets)
 
-### Pièges connus
+- **Extension ID**: `khokcmigioggannjoojambdgioigdceb`, pinned by the Chrome Web Store public key in `manifest.json` → `key`. Do not remove this key: it gives the local build the same ID as the Store. `npm run package` automatically strips it from the zip uploaded to the Store.
+- **OAuth redirect URL** (same for AniList and MAL): `https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/`
+- **Per-browser clients**: one AniList client and one MAL app per extension ID (one redirect URL each), table in `src/background/auth/oauth-clients.ts` (`getOAuthClients()`). Unknown ID → sign-in refused, showing the URL to register. Firefox (`synckai@sync-kai.github.io`, redirect `https://01497c3a0de229567af456487a2af9d686551088.extensions.allizom.org/`): AniList `52509`, MAL `1846238e6ea67a5109899f5311a51d15` (see `docs/STORE.md` › 4).
+- **AniList**:
+  - client `52346`, Implicit Grant;
+  - never send `redirect_uri`: AniList rejects the request ("Authorization page could not be loaded") and uses the URL registered on the client.
+- **MyAnimeList**:
+  - app of type *other* (public client), Client ID `84d05521c007a529cc458421bd0940c5`;
+  - Authorization Code + PKCE (`code_challenge_method=plain` only), without a client secret: never ask for one or store one.
 
-- **Numérotation Crunchyroll** : `episodeNumber` du JSON-LD est relatif à la saison Crunchyroll (One Piece E1180 → `25`). Ne jamais l'envoyer tel quel comme progression. On passe par la correspondance saison → fiche AniList (`seasonEpisodeNumber`, `displayedEpisodeNumber`).
-- **Raccourci `Alt+Maj+S`** : Chrome n'attribue pas le raccourci suggéré à une extension déjà installée. Il faut le régler dans `chrome://extensions/shortcuts`.
-- **Netflix** (facultatif, animes uniquement) :
-  - activation à la demande : `*://*.netflix.com/*` en `optional_host_permissions` (jamais dans `host_permissions` ni `content_scripts`, sinon Chrome désactive l'extension à la mise à jour) ; `src/background/netflix-access.ts` enregistre les scripts par `chrome.scripting.registerContentScripts` à `permissions.onAdded` (et les exécute dans les onglets ouverts), les retire à `onRemoved`, et les réenregistre à chaque `runtime.onInstalled` (chemins propres au build). Aucun stockage : l'état, c'est la permission ;
-  - scripts `*.iife.ts` obligatoires (sinon `?script` produit un chargeur ESM qui casse en monde MAIN), imports `?script` uniquement dans `netflix-access.ts` ; `web_accessible_resources` = `<dynamic_resource>` limité à `*://*.netflix.com/*` (sinon crxjs l'expose à tous les sites) ;
-  - métadonnées via `/nq/website/memberapi/release/metadata?movieid=…` en monde MAIN (`page-bridge.iife.ts`, `window.netflix` et la session n'y sont visibles que là), réduites avant de passer au script isolé par un `MessageChannel` privé (ouverture par `CustomEvent` + nonce, port transféré par `window.postMessage`, premier port « trusted » seul accepté ; charges utiles en chaînes JSON) ;
-  - aucun genre dans les métadonnées → filtre anime par lien AniList `netflix.com/title/{showId}` ; titre seul → carte « À vérifier » (jamais mise en cache) ; sinon statut `ignored` silencieux (ni journal, ni carte, popup/panneau neutres `NOT_TRACKED`) ;
-  - numérotation absolue entre saisons (`displayedEpisodeNumber` = épisodes des saisons précédentes + `seq`) ; correspondance par saison `netflix:{showId}:s{seq}` ;
-  - sans la permission, le service worker refuse `EPISODE_COMPLETED` et `RESOLVE_PAGE_MEDIA` Netflix (scripts encore actifs dans les onglets ouverts) ; ne jamais lire `preferredPlayer` directement : passer par `effectivePlayer` / `effectivePreferredPlayer` (repli si Netflix est retiré) ;
-  - Netflix ouvre d'abord `/watch/{showId}` puis redirige vers `/watch/{episodeId}` : identifiant absent des épisodes → pas d'avertissement.
-  - mise à jour de l'extension (accès accordé) : `netflix-access.ts` réexécute pont MAIN puis script isolé dans les onglets Netflix ouverts, Chrome et Firefox (Firefox efface les scripts enregistrés à la mise à jour). Le pont reste dans la page : garde par version (`installNetflixBridgeOnce`), incrémenter `NETFLIX_BRIDGE_VERSION` à tout changement du protocole ou de la forme réduite.
-- **Mise à jour, onglets ouverts** : Chrome laisse un script orphelin, `content-reinjection.ts` réexécute Crunchyroll / ADN ; Firefox détruit l'ancien script et réexécute lui-même ceux du manifeste (pas de réinjection).
-- **Données liées au compte** : file de synchro, cartes « À noter », synchros récentes et corrections portent les `epochs` des sessions ouvertes à leur création (`getOpenSessions`) ; rien n'est écrit sur un service dont la session a changé (vérifié juste avant l'écriture), et `clear*Session` purge la part du service déconnecté. Fin de session manuelle : `endSession(service)` ; token refusé par l'API : `endSessionIfToken(service, token)` (une reconnexion entre-temps est conservée). Toute écriture liée au compte après une requête réseau (profil, comparaison, semaine d'agenda, token MAL renouvelé) relève la génération AVANT la requête et passe par `writeIfSession` / `writeIfSessions` (ou `saveRefreshedMalToken`) sous le verrou du stockage. Un jeton refusé (`endSessionIfToken`) pose `sessionExpired:<service>` (« Session expirée » dans l'UI), effacé par une déconnexion volontaire ou une connexion.
-- **Tokens OAuth chiffrés** (depuis la 2.2.0) : `anilistToken` / `malToken` valent `{ v: 1, iv, data, expiresAt }` (AES-GCM, `src/shared/token-crypto.ts`), clé non extractible dans l'IndexedDB `synckai-vault` de l'origine de l'extension (`token-key-store.ts`, en mémoire dans les tests via `src/test/setup.ts`). Déchiffrement côté service worker seulement (`shared/token-access.ts` : `getValidToken`, `getMalToken`, jamais sous le verrou du stockage) ; les pages lisent la présence sans déchiffrer (`hasValidAniListToken`, `hasMalToken`, `getOpenSessions`). Un ancien token en clair est chiffré au premier accès et à la mise à jour ; un token indéchiffrable (clé perdue) ferme la session avec « Session expirée ». Comparer les tokens déchiffrés, jamais les chiffrés (IV neuf à chaque écriture).
-- **Images et messages** : toute image affichée passe par `toImageSrc` / `toSafeImageUrl` (`shared/url.ts`, hôtes `IMAGE_HOSTS`), qui doivent rester identiques à `img-src` de `content_security_policy.extension_pages` (test). Chaque type de message déclare ses expéditeurs dans `MESSAGE_ORIGINS` (`background/message-guards.ts`) ; un nouveau message envoyé par un script de contenu doit y être `content` ou `both` (test statique).
-- **Débogage** :
-  - après le rechargement de l'extension, rouvrir l'onglet, sinon le script de contenu orphelin reste actif ;
-  - le script de contenu affiche l'horodatage de son build dans la console ;
-  - le service worker écrit des lignes `[SyncKai:sync]` ;
-  - logs info/debug visibles seulement avec `npm run build:dev` (ou `npm run dev`) ; `npm run build`/`package` ne gardent que warn/error ;
-  - tests de bout en bout du popup, du panneau latéral et de la page d'import : `npm run test:e2e` (Vitest + Puppeteer, Chrome headless ; `scripts/e2e/`, relevés du panneau dans `window.__e2ePanel`). Le vrai popup tourne sur l'API chrome simulée des captures (`scripts/screenshots/mock-chrome.ts`) ; les messages envoyés au service worker, les demandes d'accès et le presse-papiers sont relevés dans `window.__e2e`. Job `e2e` de la CI ; en local, Chrome via `npx puppeteer browsers install chrome-headless-shell` si absent.
+### Known pitfalls
+
+- **Crunchyroll numbering**: the JSON-LD `episodeNumber` is relative to the Crunchyroll season (One Piece E1180 → `25`). Never send it as-is as progress. Go through the season → AniList entry mapping (`seasonEpisodeNumber`, `displayedEpisodeNumber`).
+- **`Alt+Shift+S` shortcut**: Chrome does not assign the suggested shortcut to an already-installed extension. It must be set in `chrome://extensions/shortcuts`.
+- **Netflix** (optional, anime only):
+  - on-demand activation: `*://*.netflix.com/*` in `optional_host_permissions` (never in `host_permissions` or `content_scripts`, otherwise Chrome disables the extension on update); `src/background/netflix-access.ts` registers the scripts with `chrome.scripting.registerContentScripts` on `permissions.onAdded` (and executes them in open tabs), removes them on `onRemoved`, and re-registers them on every `runtime.onInstalled` (build-specific paths). No storage: the permission is the state;
+  - `*.iife.ts` scripts are mandatory (otherwise `?script` produces an ESM loader that breaks in the MAIN world), `?script` imports only in `netflix-access.ts`; `web_accessible_resources` = `<dynamic_resource>` restricted to `*://*.netflix.com/*` (otherwise crxjs exposes it to every site);
+  - metadata via `/nq/website/memberapi/release/metadata?movieid=…` in the MAIN world (`page-bridge.iife.ts`; `window.netflix` and the session are only visible there), reduced before being passed to the isolated script through a private `MessageChannel` (opened by `CustomEvent` + nonce, port transferred via `window.postMessage`, only the first "trusted" port accepted; payloads as JSON strings);
+  - no genre in the metadata → anime filter via the AniList link `netflix.com/title/{showId}`; title-only match → « À vérifier » card (never cached); otherwise silent `ignored` status (no log, no card, neutral popup/panel `NOT_TRACKED`);
+  - absolute numbering across seasons (`displayedEpisodeNumber` = episodes of the previous seasons + `seq`); per-season mapping `netflix:{showId}:s{seq}`;
+  - without the permission, the service worker rejects Netflix `EPISODE_COMPLETED` and `RESOLVE_PAGE_MEDIA` (scripts still active in open tabs); never read `preferredPlayer` directly: go through `effectivePlayer` / `effectivePreferredPlayer` (fallback if Netflix is removed);
+  - Netflix first opens `/watch/{showId}` then redirects to `/watch/{episodeId}`: identifier missing from the episodes → no warning;
+  - extension update (access granted): `netflix-access.ts` re-executes the MAIN bridge then the isolated script in open Netflix tabs, on Chrome and Firefox (Firefox clears registered scripts on update). The bridge stays in the page: version guard (`installNetflixBridgeOnce`); bump `NETFLIX_BRIDGE_VERSION` on any change to the protocol or the reduced shape.
+- **Update, open tabs**: Chrome leaves an orphaned script, `content-reinjection.ts` re-executes Crunchyroll / ADN; Firefox destroys the old script and re-executes the manifest ones itself (no reinjection).
+- **Account-bound data**: the sync queue, « À noter » cards, recent syncs and corrections carry the `epochs` of the sessions open when they were created (`getOpenSessions`); nothing is written to a service whose session has changed (checked right before the write), and `clear*Session` purges the disconnected service's share. Manual end of session: `endSession(service)`; token rejected by the API: `endSessionIfToken(service, token)` (a reconnection in the meantime is preserved). Any account-bound write after a network request (profile, comparison, Agenda week, renewed MAL token) captures the generation BEFORE the request and goes through `writeIfSession` / `writeIfSessions` (or `saveRefreshedMalToken`) under the storage lock. A rejected token (`endSessionIfToken`) sets `sessionExpired:<service>` (« Session expirée » in the UI), cleared by a voluntary sign-out or a sign-in.
+- **Encrypted OAuth tokens** (since 2.2.0): `anilistToken` / `malToken` are `{ v: 1, iv, data, expiresAt }` (AES-GCM, `src/shared/token-crypto.ts`), with a non-extractable key in the `synckai-vault` IndexedDB of the extension's origin (`token-key-store.ts`, in memory in tests via `src/test/setup.ts`). Decryption in the service worker only (`shared/token-access.ts`: `getValidToken`, `getMalToken`, never under the storage lock); pages read presence without decrypting (`hasValidAniListToken`, `hasMalToken`, `getOpenSessions`). A legacy plaintext token is encrypted on first access and on update; an undecryptable token (lost key) closes the session with « Session expirée ». Compare decrypted tokens, never encrypted ones (fresh IV on every write).
+- **Images and messages**: every displayed image goes through `toImageSrc` / `toSafeImageUrl` (`shared/url.ts`, `IMAGE_HOSTS` hosts), which must stay identical to `img-src` in `content_security_policy.extension_pages` (test). Each message type declares its senders in `MESSAGE_ORIGINS` (`background/message-guards.ts`); a new message sent by a content script must be `content` or `both` there (static test).
+- **Debugging**:
+  - after reloading the extension, reopen the tab, otherwise the orphaned content script stays active;
+  - the content script prints its build timestamp in the console;
+  - the service worker writes `[SyncKai:sync]` lines;
+  - info/debug logs are visible only with `npm run build:dev` (or `npm run dev`); `npm run build`/`package` keep only warn/error;
+  - end-to-end tests of the popup, the side panel and the import page: `npm run test:e2e` (Vitest + Puppeteer, headless Chrome; `scripts/e2e/`, panel records in `window.__e2ePanel`). The real popup runs on the mocked chrome API of the screenshots (`scripts/screenshots/mock-chrome.ts`); messages sent to the service worker, access requests and the clipboard are recorded in `window.__e2e`. CI `e2e` job; locally, Chrome via `npx puppeteer browsers install chrome-headless-shell` if missing.
 
 ### Publication
 
-- **Dépôt** : https://github.com/Sync-Kai/SyncKai (organisation `Sync-Kai`).
-- **Chrome Web Store** : élément `khokcmigioggannjoojambdgioigdceb`. Dernière version publiée : 2.1.0 ; 2.2.0 soumise le 2026-10-11 par `release.yml`, en examen, visibilité « Public » depuis le 2026-10-03 : https://chromewebstore.google.com/detail/synckai/khokcmigioggannjoojambdgioigdceb
-  - Textes de la fiche : `docs/store/listing-{fr,en,de}.md`.
-  - Onglet Confidentialité : `docs/store/permissions.md`.
-  - Procédure : `docs/STORE.md`.
-  - Toute nouvelle permission (`permissions` / `optional_host_permissions` du manifest) doit être justifiée dans l'onglet Confidentialité AVANT de pousser le tag, sinon l'envoi automatique est refusé (« does not meet the requirements ») : arrivé avec `sidePanel` en 2.0.0.
-- **Firefox Add-ons (AMO)** : ID Gecko `synckai@sync-kai.github.io`, canal listed. 1.9.0 (soumise le 2026-10-07 par `release.yml`, module créé avec `docs/store/amo-metadata.json`, secrets `AMO_JWT_ISSUER` / `AMO_JWT_SECRET`), 2.0.0 (soumise le 2026-10-09), 2.1.0 (soumise le 2026-10-10) et 2.2.0 (envoyée à la main avec ses sources le 2026-10-11 : le workflow avait été refusé pour des `approval_notes` trop longues) toujours en attente d'examen ; fiche à compléter à la main (`docs/store/amo.md`). Tant que le module n'est pas public, `release.yml` renvoie la fiche complète de `amo-metadata.json` avec chaque version : la garder à jour ; une fois le module public, seul `version` (licence, notes d'examen `approval_notes`) repart et la fiche se modifie à la main.
-- **Captures du Store** : `npm run screenshots` → `docs/store/screenshots/{fr,en,de}/`, en 1280×800. Le popup, le panneau latéral et la page d'import sont rendus depuis `src/` (serveur Vite) avec une fausse API chrome (`scripts/screenshots/demo-panel.ts` pour le panneau et l'import) ; la version affichée vient de `manifest.json` : régénérer après chaque montée de version. Tuiles promo : `docs/store/promo-440x280.png` (`npm run icons`) et `docs/store/promo-1400x560.png` (`npm run screenshots`), en anglais (communes à toutes les langues).
-- **Prochaines étapes** (au 2026-10-11) : 2.2.0 (audit : intégrité des données, comptes, sécurité, outillage) publiée le 2026-10-11 (tag `v2.2.0`), en examen sur les deux stores ; captures du Store à remplacer à la main. UX-04 (Agenda hors des sites de streaming) écarté par décision : l'extension reste non intrusive, panneau réservé à Crunchyroll, ADN et Netflix. Pas de page de série Netflix (`/title`, `?jbv`) : décision du 2026-10-10, Netflix reste limité aux pages de lecture. Ensuite : Prime Video / Disney+ (exploration technique d'abord) ; HIDIVE (animes uniquement, par le registre des plateformes `src/shared/platforms.ts`, en permission d'hôte facultative comme Netflix) ; import de l'historique ADN (exploration faite : API `/viewing/history`, faisable en 2-3 jours, priorité basse) ; pas d'Edge (décision du 2026-10-07). Fiche du Store (description, captures, tuiles) à mettre à jour à la main : l'API ne gère que le paquet.
+- **Repository**: https://github.com/Sync-Kai/SyncKai (organization `Sync-Kai`).
+- **Chrome Web Store**: item `khokcmigioggannjoojambdgioigdceb`. Latest published version: 2.1.0; 2.2.0 submitted on 2026-10-11 by `release.yml`, under review; visibility "Public" since 2026-10-03: https://chromewebstore.google.com/detail/synckai/khokcmigioggannjoojambdgioigdceb
+  - Listing texts: `docs/store/listing-{fr,en,de}.md`.
+  - Privacy tab: `docs/store/permissions.md`.
+  - Procedure: `docs/STORE.md`.
+  - Any new permission (`permissions` / `optional_host_permissions` in the manifest) must be justified in the Privacy tab BEFORE pushing the tag, otherwise the automatic upload is rejected ("does not meet the requirements"): this happened with `sidePanel` in 2.0.0.
+- **Firefox Add-ons (AMO)**: Gecko ID `synckai@sync-kai.github.io`, listed channel. 1.9.0 (submitted on 2026-10-07 by `release.yml`, add-on created with `docs/store/amo-metadata.json`, secrets `AMO_JWT_ISSUER` / `AMO_JWT_SECRET`), 2.0.0 (submitted on 2026-10-09), 2.1.0 (submitted on 2026-10-10) and 2.2.0 (uploaded manually with its sources on 2026-10-11: the workflow had been rejected because of `approval_notes` that were too long) all still awaiting review; listing to be completed manually (`docs/store/amo.md`). As long as the add-on is not public, `release.yml` resends the full listing from `amo-metadata.json` with each version: keep it up to date; once the add-on is public, only `version` (license, review notes `approval_notes`) is sent and the listing is edited manually.
+- **Store screenshots**: `npm run screenshots` → `docs/store/screenshots/{fr,en,de}/`, at 1280×800. The popup, the side panel and the import page are rendered from `src/` (Vite server) with a fake chrome API (`scripts/screenshots/demo-panel.ts` for the panel and the import page); the displayed version comes from `manifest.json`: regenerate after every version bump. Promo tiles: `docs/store/promo-440x280.png` (`npm run icons`) and `docs/store/promo-1400x560.png` (`npm run screenshots`), in English (shared by all languages).
+- **Next steps** (as of 2026-10-11): 2.2.0 (audit: data integrity, accounts, security, tooling) published on 2026-10-11 (tag `v2.2.0`), under review on both stores; Store screenshots to be replaced manually. UX-04 (Agenda outside streaming sites) dropped by decision: the extension stays non-intrusive, panel reserved for Crunchyroll, ADN and Netflix. No Netflix series page (`/title`, `?jbv`): decision of 2026-10-10, Netflix stays limited to playback pages. Then: Prime Video / Disney+ (technical exploration first); HIDIVE (anime only, through the platform registry `src/shared/platforms.ts`, as an optional host permission like Netflix); ADN history import (exploration done: `/viewing/history` API, feasible in 2-3 days, low priority); no Edge (decision of 2026-10-07). Store listing (description, screenshots, tiles) to be updated manually: the API only handles the package.
