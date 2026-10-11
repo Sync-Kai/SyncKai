@@ -1,3 +1,5 @@
+import { OPTIONAL_PLATFORM_MATCHES, PLATFORMS } from './platforms';
+
 /**
  * Pages ciblées par SyncKai (Crunchyroll, ADN) : exactement les `matches` du script de contenu.
  * Sert à n'activer le panneau latéral et le bouton « Ouvrir le panneau » que sur ces pages.
@@ -16,15 +18,16 @@ export function contentScriptMatches(source: ManifestContentScripts): string[] {
  * Netflix : accès optionnel (optional_host_permissions), scripts enregistrés à la demande par le service worker
  * (background/netflix-access.ts) et absents de `content_scripts`.
  */
-export const NETFLIX_MATCHES: readonly string[] = ['*://*.netflix.com/*'];
+export const NETFLIX_MATCHES: readonly string[] = PLATFORMS.netflix.optionalMatches;
 
 /**
- * Motifs du manifeste chargé (lu à l'exécution : le manifeste n'est pas embarqué dans les bundles), plus Netflix.
+ * Motifs du manifeste chargé (lu à l'exécution : le manifeste n'est pas embarqué dans les bundles), plus les
+ * plateformes à accès optionnel (Netflix).
  * Netflix sans accès accordé n'est jamais reconnu : l'URL de l'onglet reste masquée (pas de permission "tabs")
  * et aucun script de contenu n'y répond ni ne signale le panneau.
  */
 export function targetPagePatterns(): string[] {
-  return [...new Set([...contentScriptMatches(chrome.runtime.getManifest()), ...NETFLIX_MATCHES])];
+  return [...new Set([...contentScriptMatches(chrome.runtime.getManifest()), ...OPTIONAL_PLATFORM_MATCHES])];
 }
 
 /** Page du panneau latéral (chemin conservé tel quel par le build, comme le popup) */

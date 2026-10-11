@@ -24,7 +24,7 @@ export const STAR_CLASSES = {
   half: 'cursor-pointer rounded-[4px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-lavender disabled:cursor-default aria-disabled:cursor-default',
 };
 
-export const PLATFORM_LABELS: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix' };
+export { PLATFORM_LABELS } from '../shared/platforms';
 
 export const SERVICE_CHIPS: Record<TrackerId, { short: string; class: string }> = {
   anilist: { short: 'AL', class: 'bg-anilist text-[11px]' },

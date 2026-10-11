@@ -6,7 +6,7 @@ import { AIRING_DELAYS, type AiringDelayHours } from '../../shared/engagement.ty
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../shared/messages';
-import { STREAMING_PLATFORMS } from '../../shared/platform-links';
+import { STREAMING_PLATFORMS } from '../../shared/platforms';
 import { normalizeOffset, OFFSET_RANGE, parseOffsetInput, type NotificationLevel, type SyncSettings } from '../../shared/settings';
 import { BTN_GHOST, CARD, PLATFORM_LABELS, segmented } from '../kit';
 import { h, nodes, preserveFocus, type Child } from '../dom';

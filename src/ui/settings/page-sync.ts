@@ -1,9 +1,9 @@
 // Réglages › Lecture & synchro : synchro automatique, moment de la synchro, raccourci clavier,
 // lecteur préféré, accès à Netflix (permission optionnelle) et options du panneau latéral.
 import { t } from '../../i18n';
-import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { removeNetflixAccess, requestNetflixAccess } from '../../shared/netflix-access';
+import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
 import { DEFAULT_SETTINGS, effectivePlayer, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../alert';
 import { alertAttrs } from '../live-region';
@@ -15,11 +15,13 @@ import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, 
 
 const log = createLogger('settings');
 
-const PLAYER_OPTIONS = [
-  { value: 'crunchyroll', label: 'Crunchyroll' },
-  { value: 'adn', label: 'ADN' },
-  { value: 'netflix', label: 'Netflix' },
-] as const satisfies readonly { value: StreamingPlatform; label: string }[];
+/** Lecteurs proposés : une plateforme à accès optionnel (Netflix) seulement avec l'accès accordé */
+function playerOptions(netflixAccess: boolean): { value: StreamingPlatform; label: string }[] {
+  return STREAMING_PLATFORMS.filter((platform) => netflixAccess || !isOptionalPlatform(platform)).map((platform) => ({
+    value: platform,
+    label: PLATFORMS[platform].label,
+  }));
+}
 
 /** "Alt+Shift+S" → "Alt+Maj+S" (nom de la touche Maj dans la langue active) */
 function formatShortcut(shortcut: string): string {
@@ -222,8 +224,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
               label: t('settings.player.label'),
               help: t('settings.player.help'),
               control: segmented({
-                // Netflix proposé seulement avec l'accès accordé
-                options: ctx.data.netflixAccess === true ? PLAYER_OPTIONS : PLAYER_OPTIONS.filter((option) => option.value !== 'netflix'),
+                options: playerOptions(ctx.data.netflixAccess === true),
                 current: effectivePlayer(s.preferredPlayer, ctx.data.netflixAccess),
                 onPick: (value) => void ctx.update({ preferredPlayer: value }, true),
                 attrs: { 'aria-labelledby': 'sk-player-label' },

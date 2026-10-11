@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
-import type { EpisodeInfo, StreamingPlatform } from '../../shared/episode.types';
+import type { EpisodeInfo } from '../../shared/episode.types';
+import { PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
 import type { MediaMapping, NumberingMode } from '../../shared/sync.types';
 import { normalizeTitle } from '../../shared/title';
 import { groupSeasons, stripCourMarker } from './season-groups';
@@ -75,7 +76,7 @@ export function matchCrunchyrollLink(url: string, seriesId: string | null, serie
   } catch {
     return null;
   }
-  if (!/(^|\.)crunchyroll\.com$/i.test(parsed.hostname)) return null;
+  if (!PLATFORMS.crunchyroll.matchesHost(parsed.hostname)) return null;
 
   const segments = parsed.pathname.toLowerCase().split('/').filter(Boolean);
   const seriesIndex = segments.indexOf('series');
@@ -104,7 +105,7 @@ export function matchAdnLink(url: string, seriesId: string | null, seriesSlug: s
   } catch {
     return null;
   }
-  if (!/(^|\.)animationdigitalnetwork\.(com|fr|de)$/i.test(parsed.hostname)) return null;
+  if (!PLATFORMS.adn.matchesHost(parsed.hostname)) return null;
 
   const segments = parsed.pathname.toLowerCase().split('/').filter(Boolean);
   const series = segments[segments.indexOf('video') + 1];
@@ -130,7 +131,7 @@ export function matchNetflixLink(url: string, seriesId: string | null): LinkKind
   } catch {
     return null;
   }
-  if (!/(^|\.)netflix\.com$/i.test(parsed.hostname)) return null;
+  if (!PLATFORMS.netflix.matchesHost(parsed.hostname)) return null;
   const match = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)\/?$/i.exec(parsed.pathname);
   return match?.[1] === seriesId ? 'id' : null;
 }
@@ -144,11 +145,21 @@ export function matchCrunchyrollEpisodeLink(url: string, episodeId: string | nul
   } catch {
     return false;
   }
-  if (!/(^|\.)crunchyroll\.com$/i.test(parsed.hostname)) return false;
+  if (!PLATFORMS.crunchyroll.matchesHost(parsed.hostname)) return false;
   const segments = parsed.pathname.toLowerCase().split('/').filter(Boolean);
   const watchIndex = segments.indexOf('watch');
   return watchIndex !== -1 && segments[watchIndex + 1] === episodeId.toLowerCase();
 }
+
+type LinkMatcher = (url: string, seriesId: string | null, seriesSlug: string | null, episodeId: string | null) => LinkKind;
+
+/** Lecture des liens AniList propre à chaque plateforme (formes d'URL), hôtes vérifiés par le registre PLATFORMS */
+const LINK_MATCHERS: Record<StreamingPlatform, LinkMatcher> = {
+  crunchyroll: (url, seriesId, seriesSlug, episodeId) =>
+    matchCrunchyrollEpisodeLink(url, episodeId) ? 'episode' : matchCrunchyrollLink(url, seriesId, seriesSlug),
+  adn: (url, seriesId, seriesSlug) => matchAdnLink(url, seriesId, seriesSlug),
+  netflix: (url, seriesId) => matchNetflixLink(url, seriesId),
+};
 
 /**
  * Lien d'une fiche AniList vers la série de la plateforme de l'épisode, ou vers l'épisode lui-même
@@ -161,14 +172,7 @@ export function matchPlatformLink(
   seriesSlug: string | null,
   episodeId: string | null = null,
 ): LinkKind {
-  switch (platform) {
-    case 'crunchyroll':
-      return matchCrunchyrollEpisodeLink(url, episodeId) ? 'episode' : matchCrunchyrollLink(url, seriesId, seriesSlug);
-    case 'adn':
-      return matchAdnLink(url, seriesId, seriesSlug);
-    case 'netflix':
-      return matchNetflixLink(url, seriesId);
-  }
+  return LINK_MATCHERS[platform](url, seriesId, seriesSlug, episodeId);
 }
 
 /**
@@ -185,17 +189,17 @@ function seriesIdInLink(url: string, platform: StreamingPlatform): string | null
   const segments = parsed.pathname.toLowerCase().split('/').filter(Boolean);
   switch (platform) {
     case 'crunchyroll': {
-      if (!/(^|\.)crunchyroll\.com$/i.test(parsed.hostname)) return null;
+      if (!PLATFORMS.crunchyroll.matchesHost(parsed.hostname)) return null;
       const index = segments.indexOf('series');
       return index === -1 ? null : (segments[index + 1] ?? null);
     }
     case 'adn': {
-      if (!/(^|\.)animationdigitalnetwork\.(com|fr|de)$/i.test(parsed.hostname)) return null;
+      if (!PLATFORMS.adn.matchesHost(parsed.hostname)) return null;
       const index = segments.indexOf('video');
       return index === -1 ? null : (/^(\d+)-/.exec(segments[index + 1] ?? '')?.[1] ?? null);
     }
     case 'netflix': {
-      if (!/(^|\.)netflix\.com$/i.test(parsed.hostname)) return null;
+      if (!PLATFORMS.netflix.matchesHost(parsed.hostname)) return null;
       return /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)\/?$/i.exec(parsed.pathname)?.[1] ?? null;
     }
   }
@@ -238,14 +242,14 @@ export function linksToOtherSeriesBySlug(url: string, platform: StreamingPlatfor
   const slug = seriesSlug.toLowerCase();
   switch (platform) {
     case 'crunchyroll': {
-      if (!/(^|\.)crunchyroll\.com$/i.test(parsed.hostname)) return false;
+      if (!PLATFORMS.crunchyroll.matchesHost(parsed.hostname)) return false;
       // Page de série de l'ancien site uniquement : /{slug} ou /{langue}/{slug} (pas /{slug}/episode-…, /series/…, /watch/…)
       const isSeriesPage = segments.length === 1 || (segments.length === 2 && /^[a-z]{2}(?:-[a-z]{2})?$/.test(segments[0] ?? ''));
       const linkedSlug = segments.at(-1);
       return isSeriesPage && linkedSlug !== undefined && !['series', 'watch'].includes(linkedSlug) && !isSameCrunchyrollSlug(linkedSlug, slug);
     }
     case 'adn': {
-      if (!/(^|\.)animationdigitalnetwork\.(com|fr|de)$/i.test(parsed.hostname)) return false;
+      if (!PLATFORMS.adn.matchesHost(parsed.hostname)) return false;
       const index = segments.indexOf('video');
       const linkedSlug = index === -1 ? undefined : segments[index + 1];
       // Avec identifiant (/video/{id}-{slug}) : signal fort, traité par linksToOtherSeries
@@ -696,13 +700,7 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
 // ─── Plateformes généralistes ─────────────────────────────────────────────
 
 /**
- * Plateformes au catalogue généraliste (Netflix) : une série n'est traitée comme un anime que si une fiche
- * AniList y renvoie, ou à défaut porte le même titre (à vérifier). Crunchyroll et ADN ne sont pas concernés.
- */
-export const LINK_REQUIRED_PLATFORMS: ReadonlySet<StreamingPlatform> = new Set<StreamingPlatform>(['netflix']);
-
-/**
- * Filtre « anime » d'une plateforme généraliste, appliqué au résultat de resolveTarget :
+ * Filtre « anime » d'une plateforme généraliste (PLATFORMS[…].linkRequired : Netflix), appliqué au résultat de resolveTarget :
  * 1. une fiche liée à la série (lien plateforme ou suite/préquelle d'une fiche liée) → résultat inchangé, mais
  *    confiance basse si la fiche choisie n'est pas elle-même liée (série TV homonyme d'un film lié) ;
  * 2. sinon, des fiches au titre de la série → correspondance jamais fiable (carte « à vérifier »), échec inchangé ;
@@ -713,7 +711,7 @@ export function gateByPlatformLink(
   candidates: readonly MediaCandidate[],
   result: ResolveResult,
 ): ResolveResult {
-  if (!LINK_REQUIRED_PLATFORMS.has(episode.platform)) return result;
+  if (!PLATFORMS[episode.platform].linkRequired) return result;
   if (candidates.some(isLinked)) {
     if (!result.ok || result.target.confidence !== 'high') return result;
     const { mediaId } = result.target;

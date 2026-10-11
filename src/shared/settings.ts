@@ -1,6 +1,6 @@
-import type { StreamingPlatform } from './episode.types';
 import { AIRING_DELAYS, type AiringDelayHours } from './engagement.types';
 import { isRecord } from './guards';
+import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platforms';
 
 export type CompletionTrigger = 'credits' | 'percentage';
 
@@ -71,7 +71,7 @@ export const DEFAULT_SETTINGS: SyncSettings = {
   airingAlerts: true,
   airingDelayHours: 0,
   language: 'auto',
-  platformOffsets: { crunchyroll: 60, adn: 60, netflix: 60 },
+  platformOffsets: platformRecord(() => 60),
   seriesOffsets: {},
   panelDefaultTab: 'last',
   panelLiveProgress: true,
@@ -90,7 +90,6 @@ export function effectivePlayer(preferred: StreamingPlatform, netflixGranted: bo
 
 const SETTINGS_KEY = 'settings';
 const NOTIFICATION_LEVELS: readonly NotificationLevel[] = ['discreet', 'detailed', 'alerts-only'];
-const PLAYERS: readonly StreamingPlatform[] = ['crunchyroll', 'adn', 'netflix'];
 
 /**
  * Valeur d'un champ de délai (`<input type="number">`) : vide, ou saisie non numérique que le navigateur rend
@@ -108,11 +107,7 @@ export function normalizeOffset(value: unknown): number | null {
 
 function normalizePlatformOffsets(raw: unknown): PlatformOffsets {
   const value = isRecord(raw) ? raw : {};
-  return {
-    crunchyroll: normalizeOffset(value.crunchyroll) ?? DEFAULT_SETTINGS.platformOffsets.crunchyroll,
-    adn: normalizeOffset(value.adn) ?? DEFAULT_SETTINGS.platformOffsets.adn,
-    netflix: normalizeOffset(value.netflix) ?? DEFAULT_SETTINGS.platformOffsets.netflix,
-  };
+  return platformRecord((platform) => normalizeOffset(value[platform]) ?? DEFAULT_SETTINGS.platformOffsets[platform]);
 }
 
 /**
@@ -170,7 +165,7 @@ export function normalizeSettings(raw: unknown): SyncSettings {
         : DEFAULT_SETTINGS.completionTrigger,
     completionPercentage: percentage,
     notificationLevel,
-    preferredPlayer: PLAYERS.find((p) => p === value.preferredPlayer) ?? DEFAULT_SETTINGS.preferredPlayer,
+    preferredPlayer: STREAMING_PLATFORMS.find((p) => p === value.preferredPlayer) ?? DEFAULT_SETTINGS.preferredPlayer,
     ratingPrompt: typeof value.ratingPrompt === 'boolean' ? value.ratingPrompt : DEFAULT_SETTINGS.ratingPrompt,
     airingAlerts: typeof value.airingAlerts === 'boolean' ? value.airingAlerts : DEFAULT_SETTINGS.airingAlerts,
     airingDelayHours: AIRING_DELAYS.find((d) => d === value.airingDelayHours) ?? DEFAULT_SETTINGS.airingDelayHours,

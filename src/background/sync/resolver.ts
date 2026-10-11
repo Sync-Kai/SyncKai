@@ -1,5 +1,6 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { CandidateSummary } from '../../shared/review.types';
+import { PLATFORMS } from '../../shared/platforms';
 import type { MediaMapping } from '../../shared/sync.types';
 import { deleteMediaMapping, getMediaMapping, saveMediaMapping } from '../../shared/storage';
 import { getAnimeByIds, searchAnime, type AniListMedia } from '../api/media';
@@ -10,7 +11,6 @@ import {
   ignoredResult,
   isLinked,
   isOtherSeries,
-  LINK_REQUIRED_PLATFORMS,
   linksToOtherSeries,
   linksToOtherSeriesBySlug,
   mappingKey,
@@ -253,7 +253,7 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
 
   // Plateforme généraliste : série déjà ignorée (moins de 24 h) → aucune recherche AniList. Une correspondance
   // enregistrée (choix manuel) l'emporte : vérifiée ci-dessus, et sa présence montre que la série est un anime.
-  if (LINK_REQUIRED_PLATFORMS.has(episode.platform) && !stored && (await isSeriesIgnored(episode))) {
+  if (PLATFORMS[episode.platform].linkRequired && !stored && (await isSeriesIgnored(episode))) {
     log.info('Série déjà ignorée (verdict mémorisé) : pas de nouvelle recherche', episode.animeTitle);
     return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
   }

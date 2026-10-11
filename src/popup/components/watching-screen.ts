@@ -2,6 +2,7 @@ import { t, tp, type MessageKey } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsWithoutLink } from '../../shared/platform-links';
+import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../../shared/platforms';
 import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import { BADGE_CLASSES } from '../../ui/airing-badge';
@@ -579,9 +580,17 @@ function renderEmpty(netflixAccess: boolean, onOpenSyncSettings: () => void): HT
       h(
         'div',
         { class: 'mt-2 flex flex-wrap justify-center gap-2' },
-        h('a', { class: `${pill} bg-sakura text-on-fill shadow-pop motion-safe:hover:-translate-px`, attrs: { href: 'https://www.crunchyroll.com', target: '_blank', rel: 'noopener noreferrer' } }, t('watching.openPlatform', { platform: 'Crunchyroll' })),
-        h('a', { class: secondary, attrs: { href: 'https://animationdigitalnetwork.com', target: '_blank', rel: 'noopener noreferrer' } }, t('watching.openPlatform', { platform: 'ADN' })),
-        netflixAccess && h('a', { class: secondary, attrs: { href: 'https://www.netflix.com', target: '_blank', rel: 'noopener noreferrer' } }, t('watching.openPlatform', { platform: 'Netflix' })),
+        // Première plateforme mise en avant ; plateforme à accès optionnel (Netflix) seulement avec l'accès accordé
+        ...STREAMING_PLATFORMS.filter((platform) => netflixAccess || !isOptionalPlatform(platform)).map((platform, index) =>
+          h(
+            'a',
+            {
+              class: index === 0 ? `${pill} bg-sakura text-on-fill shadow-pop motion-safe:hover:-translate-px` : secondary,
+              attrs: { href: PLATFORMS[platform].homeUrl, target: '_blank', rel: 'noopener noreferrer' },
+            },
+            t('watching.openPlatform', { platform: PLATFORMS[platform].label }),
+          ),
+        ),
       ),
     ),
     h(

@@ -1,5 +1,5 @@
-import type { StreamingPlatform } from './episode.types';
 import { isRecord } from './guards';
+import { PLATFORMS, platformFromHost, STREAMING_PLATFORMS, type StreamingPlatform } from './platforms';
 import { toSafeUrl } from './url';
 import type { PlatformLink, WatchingEntry } from './watching.types';
 
@@ -11,12 +11,6 @@ import type { PlatformLink, WatchingEntry } from './watching.types';
 export const PLATFORM_LINKS_KEY = 'platformLinks';
 /** Fiches mémorisées au plus (les moins récemment vues sont oubliées en premier) */
 export const MAX_PLATFORM_LINKS = 500;
-
-/** Ordre fixe des plateformes (liens, réglages, repli de « Ouvrir ») */
-export const STREAMING_PLATFORMS: readonly StreamingPlatform[] = ['crunchyroll', 'adn', 'netflix'];
-
-/** Catalogue généraliste : jamais proposé en recherche (« Chercher sur… ») sans lien connu vers l'anime */
-const UNSEARCHED_PLATFORMS: ReadonlySet<StreamingPlatform> = new Set(['netflix']);
 
 /** Liens appris pour une fiche AniList */
 export interface LearnedLinks {
@@ -32,11 +26,7 @@ export type PlatformLinkStore = Record<string, LearnedLinks>;
 export function platformFromUrl(value: string): StreamingPlatform | null {
   const safe = toSafeUrl(value);
   if (!safe) return null;
-  const host = new URL(safe).hostname;
-  if (host === 'crunchyroll.com' || host.endsWith('.crunchyroll.com')) return 'crunchyroll';
-  if (/^(?:[\w-]+\.)*animationdigitalnetwork\.(?:com|fr|de)$/.test(host)) return 'adn';
-  if (host === 'netflix.com' || host.endsWith('.netflix.com')) return 'netflix';
-  return null;
+  return platformFromHost(new URL(safe).hostname);
 }
 
 /**
@@ -61,40 +51,17 @@ export function platformLinkFromExternal(raw: string | null): PlatformLink | nul
   return url && platform ? { platform, url } : null;
 }
 
-const CRUNCHYROLL_ID = /^[A-Z0-9]{4,20}$/i;
-const ADN_ID = /^\d{1,9}$/;
-const NETFLIX_ID = /^\d{1,12}$/;
 /** Slug d'URL (minuscules, chiffres, tirets) : tout autre caractère rend le lien douteux */
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
- * Page de la série sur la plateforme, forme canonique (sans préfixe de langue) :
- * - Crunchyroll : https://www.crunchyroll.com/series/{ID}/{slug} (slug facultatif, Crunchyroll redirige)
- * - ADN : https://animationdigitalnetwork.com/video/{id}-{slug} (slug obligatoire)
+ * Page de la série sur la plateforme, forme canonique sans préfixe de langue (voir PLATFORMS[…].seriesUrl).
  * null si l'identifiant manque ou n'a pas la forme attendue.
  */
 export function platformSeriesUrl(platform: StreamingPlatform, seriesId: string | null, seriesSlug: string | null): string | null {
   const slug = seriesSlug !== null && SLUG.test(seriesSlug.toLowerCase()) ? seriesSlug.toLowerCase() : null;
-  switch (platform) {
-    case 'crunchyroll':
-      if (seriesId === null || !CRUNCHYROLL_ID.test(seriesId)) return null;
-      return `https://www.crunchyroll.com/series/${seriesId.toUpperCase()}${slug ? `/${slug}` : ''}`;
-    case 'adn':
-      if (seriesId === null || !ADN_ID.test(seriesId) || slug === null) return null;
-      return `https://animationdigitalnetwork.com/video/${seriesId}-${slug}`;
-    case 'netflix':
-      if (seriesId === null || !NETFLIX_ID.test(seriesId)) return null;
-      return `https://www.netflix.com/title/${seriesId}`;
-  }
+  return PLATFORMS[platform].seriesUrl(seriesId, slug);
 }
-
-/** Identifiant de série dans le chemin d'un lien de plateforme (préfixe de langue optionnel) */
-const SERIES_ID_IN_PATH: Record<StreamingPlatform, RegExp> = {
-  crunchyroll: /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?series\/([A-Z0-9]+)(?:\/|$)/i,
-  // Page de série ou d'épisode : /video/{seriesId}-{slug}[/{episodeId}-…]
-  adn: /^\/(?:[a-z]{2}\/)?video\/(\d+)-/i,
-  netflix: /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)(?:\/|$)/i,
-};
 
 /**
  * Clé de série (`${platform}:${seriesId}`, forme de platformSeriesKey) d'un lien de plateforme, null si le lien ne
@@ -102,11 +69,10 @@ const SERIES_ID_IN_PATH: Record<StreamingPlatform, RegExp> = {
  */
 export function seriesKeyFromLink(link: PlatformLink): string | null {
   if (platformFromUrl(link.url) !== link.platform) return null;
-  const id = SERIES_ID_IN_PATH[link.platform].exec(new URL(link.url).pathname)?.[1];
+  const id = PLATFORMS[link.platform].seriesIdInPath.exec(new URL(link.url).pathname)?.[1];
   return id ? `${link.platform}:${id}` : null;
 }
 
-/** Page de recherche de la plateforme pour un titre (ADN : SearchAction du JSON-LD de la page d'accueil) */
 // Mentions de saison / partie / cour en fin de titre : la recherche des plateformes ne les trouve pas
 const SEASON_SUFFIX =
   /\s+(?:\(\d{4}\)|(?:the\s+)?final\s+season|\d+(?:st|nd|rd|th)\s+(?:season|cour|part)|(?:season|part|cour|saison|staffel)\s*\d+|s\d+|ii|iii|iv|v|vi)\s*$/i;
@@ -140,16 +106,9 @@ function capitalizeWords(text: string): string {
   );
 }
 
+/** Page de recherche de la plateforme pour un titre (voir PLATFORMS[…].searchUrl) */
 export function platformSearchUrl(platform: StreamingPlatform, title: string): string {
-  const query = encodeURIComponent(searchTitle(title));
-  switch (platform) {
-    case 'crunchyroll':
-      return `https://www.crunchyroll.com/search?q=${query}`;
-    case 'adn':
-      return `https://animationdigitalnetwork.com/video?search=${query}`;
-    case 'netflix':
-      return `https://www.netflix.com/search?q=${query}`;
-  }
+  return PLATFORMS[platform].searchUrl(encodeURIComponent(searchTitle(title)));
 }
 
 /** Lien stocké valide : https, hôte de la plateforme annoncée */
@@ -224,10 +183,10 @@ export function mergePlatformLinks(...groups: readonly (readonly PlatformLink[])
   return merged;
 }
 
-/** Plateformes sans lien connu pour une série (proposées en recherche dans le menu « ⋯ ») ; Netflix exclu */
+/** Plateformes sans lien connu pour une série (proposées en recherche dans le menu « ⋯ ») ; plateformes non `searchable` (Netflix) exclues */
 export function platformsWithoutLink(platforms: readonly PlatformLink[]): StreamingPlatform[] {
   return STREAMING_PLATFORMS.filter(
-    (platform) => !UNSEARCHED_PLATFORMS.has(platform) && !platforms.some((link) => link.platform === platform),
+    (platform) => PLATFORMS[platform].searchable && !platforms.some((link) => link.platform === platform),
   );
 }
 
