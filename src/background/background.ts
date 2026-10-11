@@ -260,9 +260,10 @@ if (__SYNCKAI_TARGET__ === 'chrome') {
 }
 
 // ─── Onglets Crunchyroll / ADN déjà ouverts : script de contenu réinjecté à l'installation et à la mise à jour ───
-// Chrome seulement (comportement de Firefox à la mise à jour non vérifié) : un script orphelin y prévient dès la lecture
+// Chrome seulement : Firefox exécute lui-même les scripts du manifeste dans les onglets ouverts (content-reinjection.ts).
+// Netflix (accès accordé) : repris sur les deux navigateurs par netflix-access.ts
 
-if (__SYNCKAI_TARGET__ === 'chrome') listenContentReinjection();
+listenContentReinjection();
 
 // ─── Netflix (accès optionnel) : scripts enregistrés quand l'accès est accordé, retirés sinon ───
 

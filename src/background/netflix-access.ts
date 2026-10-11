@@ -7,6 +7,7 @@ import contentPath from '../content/netflix/content-netflix.iife.ts?script';
 import { createLogger } from '../shared/logger';
 import { resetRevokedNetflixPlayer } from '../shared/netflix-access';
 import { NETFLIX_MATCHES } from '../shared/target-pages';
+import { reinjectionPlan } from './content-reinjection';
 import {
   injectIntoOpenNetflixTabs,
   reconcileNetflixScripts,
@@ -38,7 +39,7 @@ const injection: NetflixInjectionApi = {
 /** Réconciliations en série : onInstalled et onAdded peuvent arriver ensemble (identifiants en double sinon) */
 let queue: Promise<void> = Promise.resolve();
 
-/** `injectOpenTabs` : accès tout juste accordé, scripts aussi exécutés dans les onglets Netflix déjà ouverts */
+/** `injectOpenTabs` : accès tout juste accordé ou extension mise à jour, scripts aussi exécutés dans les onglets Netflix déjà ouverts */
 function reconcile(reregister: boolean, injectOpenTabs = false): void {
   queue = queue
     .then(() => reconcileNetflixScripts(api, PATHS, reregister))
@@ -72,10 +73,12 @@ export function listenNetflixAccess(): void {
     reconcile(false);
     resetPlayer();
   });
-  // Installation et mise à jour : chemins des scripts propres au build → réenregistrement si l'accès est accordé.
+  // Installation et mise à jour : chemins des scripts propres au build → réenregistrement si l'accès est accordé,
+  // puis scripts exécutés dans les onglets Netflix ouverts (l'ancien script isolé est orphelin sur Chrome, détruit
+  // sur Firefox ; aucun des deux ne réinjecte les scripts enregistrés, voir content-reinjection.ts).
   // Accès perdu hors de la vue du service worker (navigateur fermé, version antérieure) : lecteur corrigé au démarrage
-  chrome.runtime.onInstalled.addListener(() => {
-    reconcile(true);
+  chrome.runtime.onInstalled.addListener((details) => {
+    reconcile(true, reinjectionPlan(details.reason, __SYNCKAI_TARGET__).netflix);
     resetPlayer();
   });
   chrome.runtime.onStartup.addListener(resetPlayer);

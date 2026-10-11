@@ -73,9 +73,10 @@ export interface NetflixInjectionApi {
 }
 
 /**
- * Accès tout juste accordé : les scripts enregistrés ne s'appliquent qu'aux pages chargées ensuite, ils sont
- * donc exécutés dans les onglets Netflix déjà ouverts (pont MAIN d'abord, puis script isolé : le pont doit
- * écouter avant la première demande). Les deux scripts se protègent d'une double exécution.
+ * Accès tout juste accordé, ou extension mise à jour : les scripts enregistrés ne s'appliquent qu'aux pages
+ * chargées ensuite, ils sont donc exécutés dans les onglets Netflix déjà ouverts (pont MAIN d'abord, puis script
+ * isolé : le pont doit écouter avant la première demande). Les deux scripts se protègent d'une double exécution
+ * (pont : une fois par version de protocole ; script isolé : l'instance orpheline s'arrête).
  * Un onglet en échec (déchargé, page d'erreur…) n'empêche pas les autres : `onError`, jamais d'exception.
  * Retourne le nombre d'onglets où les deux scripts ont été exécutés.
  */

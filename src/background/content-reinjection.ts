@@ -1,10 +1,36 @@
 // Scripts de contenu du manifeste (Crunchyroll, ADN) exécutés dans les onglets déjà ouverts à l'installation
-// et à la mise à jour : le navigateur ne le fait pas, et le script de la version précédente, orphelin, ne peut
+// et à la mise à jour, sur Chrome : il ne le fait pas, et le script de la version précédente, orphelin, ne peut
 // plus rien envoyer (l'épisode en cours serait perdu). Le nouveau script arrête l'orphelin (start.ts) et se
-// protège d'une double exécution (STARTED_FLAG de content.ts). Netflix a sa propre injection (netflix-access.ts).
+// protège d'une double exécution (instance-guard.ts). Netflix a sa propre injection (netflix-access.ts).
+//
+// Firefox (sources de Gecko, toolkit/components/extensions) : à l'arrêt de l'ancienne version, chaque contexte de
+// script de contenu est fermé (`Cu.nukeSandbox`, ExtensionContent.sys.mjs) ; au démarrage de la nouvelle,
+// `policy.injectContentScripts()` (ExtensionProcessScript.sys.mjs) exécute les scripts du manifeste dans les
+// pages déjà ouvertes. Les scripts enregistrés par scripting.registerContentScripts sont en revanche effacés à
+// la mise à jour (ExtensionScriptingStore.initExtension, ADDON_UPGRADE) : seul Netflix est donc à reprendre.
 import { createLogger } from '../shared/logger';
 
 const log = createLogger('reinjection');
+
+export type ReinjectionTarget = 'chrome' | 'firefox';
+
+/** Scripts à exécuter dans les onglets déjà ouverts pour un `runtime.onInstalled` */
+export interface ReinjectionPlan {
+  /** Crunchyroll / ADN (scripts du manifeste) */
+  manifest: boolean;
+  /** Netflix (scripts enregistrés), si l'accès est accordé */
+  netflix: boolean;
+}
+
+/**
+ * Installation ou mise à jour de l'extension uniquement : après une mise à jour du navigateur (`chrome_update`…),
+ * les onglets ont été rechargés avec leurs scripts. Firefox exécute lui-même les scripts du manifeste (voir
+ * l'en-tête), pas les scripts Netflix enregistrés.
+ */
+export function reinjectionPlan(reason: string, target: ReinjectionTarget): ReinjectionPlan {
+  const lifecycle = reason === 'install' || reason === 'update';
+  return { manifest: lifecycle && target === 'chrome', netflix: lifecycle };
+}
 
 /** Script de contenu déclaré dans le manifeste généré (chemin du chargeur propre au build) */
 export interface ManifestContentScript {
@@ -69,8 +95,7 @@ const api: ContentReinjectionApi = {
 /** Écouteur posé au chargement du service worker (niveau supérieur de background.ts) */
 export function listenContentReinjection(): void {
   chrome.runtime.onInstalled.addListener((details) => {
-    // Mise à jour du navigateur (`chrome_update`…) : les onglets ont déjà leur script, rien à faire
-    if (details.reason !== 'install' && details.reason !== 'update') return;
+    if (!reinjectionPlan(details.reason, __SYNCKAI_TARGET__).manifest) return;
     reinjectContentScripts(api, (tabId, error) => log.debug(`Réinjection impossible (onglet ${tabId ?? '?'}) :`, error))
       .then((count) => {
         if (count > 0) log.info(`Script de contenu exécuté dans ${count} onglet(s) ouvert(s)`);

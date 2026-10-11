@@ -12,6 +12,11 @@
 // quel dans l'autre, à cause des Xray wrappers ; une chaîne est copiée).
 import { isRecord } from '../../shared/guards';
 
+/**
+ * Version du protocole, à incrémenter à tout changement des messages ou de la forme réduite : le pont MAIN d'une
+ * version précédente reste dans les onglets ouverts après une mise à jour (code de la page, jamais invalidé) et
+ * répondrait au nouveau client. Chaque côté ignore les messages d'une autre version.
+ */
 export const NETFLIX_BRIDGE_VERSION = 1;
 /** Ouverture du canal (client isolé → pont), detail = NetflixHandshake en chaîne JSON */
 export const NETFLIX_HANDSHAKE_EVENT = 'synckai:netflix:handshake';
@@ -93,6 +98,30 @@ export type NetflixBridgeError = 'http' | 'network' | 'shape';
 export type NetflixBridgeResponse =
   | { v: typeof NETFLIX_BRIDGE_VERSION; id: string; ok: true; data: NetflixShowMetadata }
   | { v: typeof NETFLIX_BRIDGE_VERSION; id: string; ok: false; error: NetflixBridgeError; status?: number };
+
+// ─── Installation du pont (une fois par version de protocole) ─────────────
+
+/**
+ * Garde d'installation du pont pour une version du protocole. La version 1 garde la clé historique
+ * (`synckai.netflix.bridge`) : un pont v1 déjà présent dans la page n'est pas installé une seconde fois.
+ */
+export function netflixBridgeFlag(version: number): symbol {
+  return Symbol.for(version === 1 ? 'synckai.netflix.bridge' : `synckai.netflix.bridge.v${version}`);
+}
+
+/**
+ * Pose l'écouteur du pont (`install`) au plus une fois par version sur ce global : double injection (script
+ * enregistré puis exécuté dans l'onglet, bfcache) sans écouteur en double. Après une mise à jour, un pont d'une
+ * autre version déjà présent n'empêche pas l'installation du nouveau ; l'ancien ignore les demandes de la nouvelle
+ * version (`decodeNetflixHandshake`) : une seule offre de port par demande. Retourne true si installé.
+ */
+export function installNetflixBridgeOnce(global: object, version: number, install: () => void): boolean {
+  const flag = netflixBridgeFlag(version);
+  if (Reflect.get(global, flag)) return false;
+  Reflect.defineProperty(global, flag, { value: true });
+  install();
+  return true;
+}
 
 // ─── Réduction de la réponse brute (exécutée dans le monde MAIN) ──────────
 

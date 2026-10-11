@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { reinjectContentScripts, type ContentReinjectionApi, type ManifestContentScript } from './content-reinjection';
+import { reinjectContentScripts, reinjectionPlan, type ContentReinjectionApi, type ManifestContentScript } from './content-reinjection';
 
 // Réinjection des scripts de contenu du manifeste dans les onglets ouverts (installation, mise à jour).
 
@@ -47,5 +47,25 @@ describe('reinjectContentScripts', () => {
     const api = fakeApi([{ js: [], matches: MATCHES }, { js: [LOADER] }], [31]);
     expect(await reinjectContentScripts(api, vi.fn())).toBe(0);
     expect(api.tabIds).not.toHaveBeenCalled();
+  });
+});
+
+describe('reinjectionPlan', () => {
+  it('Chrome, installation ou mise à jour : Crunchyroll / ADN et Netflix', () => {
+    expect(reinjectionPlan('update', 'chrome')).toEqual({ manifest: true, netflix: true });
+    expect(reinjectionPlan('install', 'chrome')).toEqual({ manifest: true, netflix: true });
+  });
+
+  it('Firefox : scripts du manifeste exécutés par le navigateur, Netflix (scripts enregistrés effacés) repris', () => {
+    expect(reinjectionPlan('update', 'firefox')).toEqual({ manifest: false, netflix: true });
+    expect(reinjectionPlan('install', 'firefox')).toEqual({ manifest: false, netflix: true });
+  });
+
+  it('mise à jour du navigateur ou d’un module partagé : rien', () => {
+    for (const target of ['chrome', 'firefox'] as const) {
+      expect(reinjectionPlan('chrome_update', target)).toEqual({ manifest: false, netflix: false });
+      expect(reinjectionPlan('browser_update', target)).toEqual({ manifest: false, netflix: false });
+      expect(reinjectionPlan('shared_module_update', target)).toEqual({ manifest: false, netflix: false });
+    }
   });
 });
