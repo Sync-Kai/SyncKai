@@ -23,6 +23,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - After disconnecting an account, *On this page* and the *Now playing* panel no longer show that account's list status, even if the entry was still loading when you disconnected. After connecting an account, the entry is no longer taken from an earlier cache that lacked its list.
 - After a SyncKai update, Netflix tabs that are already open (with access granted) are picked up automatically, in Chrome and Firefox, without reloading the page: previously, the current episode was no longer tracked there. In Firefox, Crunchyroll and ADN tabs already were.
 
+## [2.2.1] - 2026-10-11
+
+### Fixed
+
+- Netflix: shows whose seasons are arcs numbered continuously (e.g. One Piece) no longer get the previous arcs' episodes added again (E1180 was synced as 1377). Shows whose seasons restart at episode 1 are numbered as before.
+
 ## [2.2.0] - 2026-10-11
 
 Reliability release: after a full audit of the extension, your progress never goes backwards, each account keeps its own data, and sign-in tokens are encrypted.
@@ -318,6 +324,7 @@ First release: automatic Crunchyroll → AniList sync.
 - **Manual review** of uncertain matches from the popup (suggested entries, search, episode number), with a badge on the extension icon.
 - **Recent syncs** in the popup, with after-the-fact correction of a match.
 
+[2.2.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.2.1
 [2.2.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.2.0
 [2.1.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.1.0
 [2.0.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.0.0
