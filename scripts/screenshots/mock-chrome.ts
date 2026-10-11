@@ -29,6 +29,8 @@ export interface PermissionsMock {
   onRequest: (origins: string[]) => boolean;
   /** Origines optionnelles (Netflix) : non accordées au départ, suivies une à une (request / remove) */
   optional?: readonly string[];
+  /** Origines optionnelles déjà accordées au départ (Netflix activé) */
+  optionalGranted?: readonly string[];
   /** Appelé à chaque permissions.remove (tests : retraits relevés) */
   onRemove?: (origins: string[]) => void;
 }
@@ -57,6 +59,8 @@ export interface ChromeMockOptions {
   connect?: (tabId: number, name: string) => chrome.runtime.Port;
   /** Onglet actif renvoyé par chrome.tabs.query / chrome.tabs.get (URL, titre) */
   tab?: { url: string; title?: string };
+  /** Appelé à chaque chrome.tabs.create (tests : onglets ouverts) */
+  onCreateTab?: (url: string) => void;
   /** Expose chrome.sidePanel (le panneau latéral se croit sur Chrome) */
   sidePanel?: boolean;
 }
@@ -186,7 +190,7 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
   const access = options.permissions;
   const optional = new Set(access?.optional ?? []);
   /** Origines optionnelles accordées */
-  const grantedOptional = new Set<string>();
+  const grantedOptional = new Set<string>(access?.optionalGranted ?? []);
   const permissions = access && {
     contains: ({ origins }: { origins?: string[] }) =>
       Promise.resolve((origins ?? []).every((origin) => (optional.has(origin) ? grantedOptional.has(origin) : access.granted))),
@@ -238,7 +242,10 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
     i18n: { getUILanguage: () => options.locale },
     commands: { getAll: () => Promise.resolve([{ name: 'complete-episode', shortcut: 'Alt+Shift+S', description: '' }]) },
     tabs: {
-      create: () => Promise.resolve({}),
+      create: (info: { url?: string }) => {
+        options.onCreateTab?.(info.url ?? '');
+        return Promise.resolve({});
+      },
       // Onglet actif fictif : sa page (Crunchyroll / ADN) est décrite par `tabMessage`
       query: () => Promise.resolve([{ id: 1, active: true, status: 'complete', ...options.tab }]),
       get: (id: number) => Promise.resolve({ id, active: true, status: 'complete', ...options.tab }),

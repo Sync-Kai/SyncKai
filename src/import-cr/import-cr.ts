@@ -562,10 +562,11 @@ function serviceChip(plan: CrServicePlan): HTMLElement {
     'span',
     {
       class: `inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${plan.action === 'update' ? 'bg-lavender/15 text-ink' : 'bg-raised text-muted'}`,
-      attrs: { title: `${label} : ${text}` },
+      attrs: { title: t('common.labelValue', { label, value: text }) },
     },
     h('span', { class: `rounded-full px-1 text-on-fill ${chip.class}` }, chip.short),
-    h('span', { class: 'sr-only' }, `${label} : `),
+    // Préfixe lu par les lecteurs d'écran (« AniList : » en français, « AniList: » en anglais et en allemand)
+    h('span', { class: 'sr-only' }, t('common.labelValue', { label }).split('{value}')[0] ?? ''),
     text,
   );
 }
@@ -595,7 +596,7 @@ function renderItem(item: CrPlanItem, selectable: boolean, disabled: boolean): H
       'div',
       { class: 'flex min-w-0 flex-1 flex-col gap-1' },
       h('span', { class: 'truncate text-[13px] font-bold', attrs: { title: item.title } }, item.title),
-      h('span', { class: 'truncate text-[11px] text-muted', attrs: { title: item.seasons.join('\n') } }, `Crunchyroll : ${item.seasons.join(' · ')}`),
+      h('span', { class: 'truncate text-[11px] text-muted', attrs: { title: item.seasons.join('\n') } }, t('common.labelValue', { label: 'Crunchyroll', value: item.seasons.join(' · ') })),
       h('div', { class: 'flex flex-wrap gap-1' }, ...item.services.map(serviceChip)),
       item.result &&
         h(

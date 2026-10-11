@@ -7,7 +7,7 @@ import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../shared/messages';
 import { STREAMING_PLATFORMS } from '../../shared/platform-links';
-import { normalizeOffset, OFFSET_RANGE, type NotificationLevel, type SyncSettings } from '../../shared/settings';
+import { normalizeOffset, OFFSET_RANGE, parseOffsetInput, type NotificationLevel, type SyncSettings } from '../../shared/settings';
 import { BTN_GHOST, CARD, PLATFORM_LABELS, segmented } from '../kit';
 import { h, nodes, preserveFocus, type Child } from '../dom';
 import { icon } from '../icons';
@@ -147,7 +147,7 @@ export function createNotificationsPage(ctx: SettingsContext): NotificationsPage
         on: {
           // Valeur hors bornes ou vide : non enregistrée (le champ reste signalé invalide)
           change: () => {
-            const value = normalizeOffset(input.value.trim() === '' ? Number.NaN : Number(input.value));
+            const value = normalizeOffset(parseOffsetInput(input.value));
             if (value === null || !input.checkValidity()) return;
             void ctx.update({ platformOffsets: { ...(ctx.data.settings ?? s).platformOffsets, [platform]: value } });
           },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { seriesOffset, withSeriesOffset } from './agenda';
-import { DEFAULT_SETTINGS, MAX_SERIES_OFFSETS, normalizeSettings } from './settings';
+import { DEFAULT_SETTINGS, MAX_SERIES_OFFSETS, normalizeSettings, parseOffsetInput } from './settings';
 
 describe('normalizeSettings', () => {
   it('retourne les valeurs par défaut sans données', () => {
@@ -117,5 +117,18 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings({ panelDefaultTab: 'settings', panelLiveProgress: 'oui' })).toMatchObject({ panelDefaultTab: 'last', panelLiveProgress: true });
     expect(normalizeSettings({ panelDefaultTab: 'nowPlaying' }).panelDefaultTab).toBe('nowPlaying');
     expect(normalizeSettings({ panelLiveProgress: false }).panelLiveProgress).toBe(false);
+  });
+});
+
+describe('parseOffsetInput (UI-05)', () => {
+  it('champ vide ou blanc : NaN, jamais 0', () => {
+    expect(parseOffsetInput('')).toBeNaN();
+    expect(parseOffsetInput('   ')).toBeNaN();
+  });
+
+  it('nombre saisi : sa valeur (validation par l’appelant)', () => {
+    expect(parseOffsetInput('0')).toBe(0);
+    expect(parseOffsetInput('-30')).toBe(-30);
+    expect(parseOffsetInput('12.5')).toBe(12.5);
   });
 });

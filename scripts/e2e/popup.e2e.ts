@@ -567,4 +567,58 @@ describe('popup (bout en bout)', () => {
     expect(await page.$('main [data-alert]')).toBeNull();
     expect(await sent(page, 'GET_WATCHING')).toHaveLength(1);
   });
+
+  it('UI-04 : profil MAL jamais chargé et lecture en échec → erreur et « Réessayer » au lieu du squelette, puis le profil', async () => {
+    const page = await openPopup({ viewer: 'missing' });
+    await click(page, 'gear');
+    await openCategory(page, 'accounts');
+    const message = 'MyAnimeList injoignable (e2e)';
+    await page.waitForFunction((m: string) => document.querySelector('main [data-alert]')?.getAttribute('data-alert') === m, {}, message);
+    // Plus de squelette pour MAL ; déconnexion possible
+    expect(await page.$(`[aria-label="${fr('settings.account.loading', { service: 'MyAnimeList' })}"]`)).toBeNull();
+    expect(await page.$(sel('logout-mal'))).not.toBeNull();
+
+    // « Réessayer » : nouvelle lecture du profil, qui s'affiche
+    await page.locator('main [data-alert] button').click();
+    await page.waitForSelector('main a[href^="https://myanimelist.net/profile/"]');
+    expect(await page.$('main [data-alert]')).toBeNull();
+    expect(await sent(page, 'GET_MAL_VIEWER')).toHaveLength(2);
+  });
+
+  it('BRW-02 : « Modifier » le raccourci ouvre chrome://extensions/shortcuts (libellé neutre vis-à-vis du navigateur)', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'sync');
+    await page.waitForSelector(sel('shortcut'));
+    expect(await attr(page, sel('shortcut'), 'aria-label')).toBe(fr('settings.shortcut.editAria'));
+    await click(page, 'shortcut');
+    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 0);
+    expect((await trace(page)).openedTabs).toEqual(['chrome://extensions/shortcuts']);
+    expect(await page.$('[data-shortcut-manual]')).toBeNull();
+  });
+
+  it('BAK-05 : « Exporter » depuis le popup ouvre la page Sauvegarde, qui lance l’export (pas de téléchargement dans le popup)', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'data');
+    await click(page, 'backup-export');
+    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 0);
+    const [opened] = (await trace(page)).openedTabs;
+    expect(new URL(opened ?? '').pathname).toBe('/src/import/import.html');
+    expect(new URL(opened ?? '').searchParams.has('export')).toBe(true);
+    // Aucun lien de téléchargement créé dans le popup
+    expect(await page.$('a[download]')).toBeNull();
+  });
+
+  it('UX-05 / UX-06 : état vide, astuce avec le vrai chemin « Réglages › Lecture & synchro », cliquable', async () => {
+    const page = await openPopup({ watching: 'empty' });
+    await page.waitForSelector(sel('tip-settings'));
+    expect(await text(page, '#sk-empty-title + p')).toBe(fr('watching.empty.text'));
+    expect(await text(page, sel('tip-settings'))).toBe(`${fr('nav.settings')} › ${fr('settings.cat.sync')}`);
+    expect(await text(page, 'main aside p')).toContain('Netflix');
+
+    await click(page, 'tip-settings');
+    await page.waitForFunction((title: string) => document.querySelector('h1')?.textContent?.trim() === title, {}, fr('settings.cat.sync'));
+    expect(await shownScreen(page)).toBe(2);
+  });
 });

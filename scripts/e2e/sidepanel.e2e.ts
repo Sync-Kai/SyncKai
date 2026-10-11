@@ -140,4 +140,37 @@ describe('panneau latéral (bout en bout)', () => {
     expect(alert).toContain(fr('agenda.stale', { error: 'AniList 429 (e2e)' }));
     expect(await messages(page, 'GET_AGENDA')).toHaveLength(1);
   });
+
+  it('UX-05 : hors page cible, la ligne neutre cite Netflix selon l’accès (et le vrai chemin des Réglages)', async () => {
+    const off = await openPanel({ site: 'other' });
+    const offText = fr('panel.offTarget', { path: `${fr('nav.settings')} › ${fr('settings.cat.sync')}` });
+    await off.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, offText);
+
+    const granted = await openPanel({ site: 'other', netflix: 'granted' });
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetNetflix'));
+    expect(await granted.evaluate(() => document.body.textContent ?? '')).not.toContain(offText);
+  });
+
+  it('UI-05 : Entrée sur un délai vide ne l’enregistre pas (0 min) : champ signalé invalide, éditeur ouvert', async () => {
+    const page = await openPanel({ tab: 'agenda' });
+    await page.locator('[data-focus^="agenda-menu-"]').click();
+    await page.locator('[data-focus^="agenda-adjust-"]').click();
+    await page.waitForSelector('[data-focus^="agenda-offset-"]');
+    const field = '[data-focus^="agenda-offset-"]';
+    await page.focus(field);
+    await page.$eval(field, (input) => {
+      if (input instanceof HTMLInputElement) input.select();
+    });
+    await page.keyboard.press('Backspace');
+    expect(await page.$eval(field, (input) => (input instanceof HTMLInputElement ? input.value : null))).toBe('');
+    await page.keyboard.press('Enter');
+
+    await page.waitForSelector(`${field}[aria-invalid="true"]`);
+    const offsets = await page.evaluate(async () => {
+      const stored = await chrome.storage.local.get('settings');
+      const settings: unknown = stored.settings;
+      return typeof settings === 'object' && settings !== null && 'seriesOffsets' in settings ? settings.seriesOffsets : null;
+    });
+    expect(offsets).toEqual({});
+  });
 });

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { INITIAL_SETTINGS_NAV, isSettingsPage, settingsNavReducer, SETTINGS_CATEGORIES } from './navigation';
+import { afterEach, describe, expect, it } from 'vitest';
+import { getLocale, setLocale, t } from '../../i18n';
+import { INITIAL_SETTINGS_NAV, isSettingsPage, settingsNavReducer, settingsPath, SETTINGS_CATEGORIES } from './navigation';
 
 describe('settingsNavReducer', () => {
   it('ouvre une sous-page et demande le focus sur son titre', () => {
@@ -38,5 +39,20 @@ describe('isSettingsPage', () => {
     expect(isSettingsPage('home')).toBe(true);
     expect(isSettingsPage('activity')).toBe(false);
     expect(isSettingsPage(null)).toBe(false);
+  });
+});
+
+describe('settingsPath (UX-06)', () => {
+  const initial = getLocale();
+  afterEach(() => setLocale(initial));
+
+  it('chemin de l’astuce construit depuis le titre réel de la catégorie, dans les 3 langues', () => {
+    setLocale('fr');
+    expect(settingsPath('sync')).toBe('Réglages › Lecture & synchro');
+    setLocale('en');
+    expect(settingsPath('sync')).toBe('Settings › Playback & sync');
+    setLocale('de');
+    expect(settingsPath('sync')).toBe(`${t('nav.settings')} › ${t('settings.cat.sync')}`);
+    expect(settingsPath('data')).toBe('Einstellungen › Meine Daten');
   });
 });

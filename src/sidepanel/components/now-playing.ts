@@ -155,7 +155,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       panel && airedLabel(panel),
       panel?.studio &&
         (panel.studio.siteUrl
-          ? externalLink(panel.studio.siteUrl, `${t('panel.nowPlaying.studio')} : ${panel.studio.name}`, 'min-w-0 truncate text-muted no-underline hover:text-ink hover:underline', panel.studio.name)
+          ? externalLink(panel.studio.siteUrl, t('common.labelValue', { label: t('panel.nowPlaying.studio'), value: panel.studio.name }), 'min-w-0 truncate text-muted no-underline hover:text-ink hover:underline', panel.studio.name)
           : h('span', { class: 'min-w-0 truncate', attrs: { title: t('panel.nowPlaying.studio') } }, panel.studio.name)),
     ]);
 
@@ -285,7 +285,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       { class: 'flex min-w-0 items-center gap-1' },
       externalLink(
         relation.siteUrl,
-        `${label} : ${relation.title}`,
+        t('common.labelValue', { label, value: relation.title }),
         'flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1 text-ink no-underline transition-colors hover:bg-raised',
         renderCover(relation.title, relation.coverUrl, 'h-12 w-[34px]', 'text-[10px]'),
         h(

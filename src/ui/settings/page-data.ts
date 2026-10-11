@@ -1,13 +1,12 @@
 // Réglages › Mes données : correspondances mémorisées, séries exclues, import Crunchyroll,
 // sauvegarde (export / import) et zone de danger (réinitialisation des correspondances).
 import { t, tp } from '../../i18n';
-import { backupFileName } from '../../shared/backup';
-import { exportBackup } from '../../shared/backup-store';
 import { includeSeries, type ExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
 import { clearMediaMappings, deleteMediaMapping } from '../../shared/storage';
 import type { MediaMapping } from '../../shared/sync.types';
 import { renderAlert } from '../alert';
+import { BACKUP_EXPORT_PARAM, BACKUP_PAGE, downloadBackup } from '../backup-download';
 import { BTN_GHOST, CARD, LINK } from '../kit';
 import { platformIcon } from '../brand-icons';
 import { busyAttrs, h, nodes, type Child } from '../dom';
@@ -17,7 +16,6 @@ import { BTN_DANGER, BTN_DANGER_FILL, dangerRow, dangerZone, DIVIDER, HELP_TEXT,
 
 const log = createLogger('settings');
 
-const IMPORT_PAGE = 'src/import/import.html';
 /** Import de l'historique Crunchyroll (onglet dédié : lecture, analyse et aperçu durent plusieurs minutes) */
 const CR_IMPORT_PAGE = 'src/import-cr/import-cr.html';
 const EXPORTED_BADGE_MS = 2_000;
@@ -219,7 +217,12 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
           'button',
           {
             class: `${BTN_GHOST} border border-line px-3.5 text-ink`,
-            attrs: { type: 'button', 'data-focus': 'backup-export', title: t('settings.backup.exportTitle'), ...busyAttrs(exporting, true) },
+            attrs: {
+              type: 'button',
+              'data-focus': 'backup-export',
+              title: t(ctx.host.closesOnBlur ? 'settings.backup.exportTabTitle' : 'settings.backup.exportTitle'),
+              ...busyAttrs(exporting, true),
+            },
             on: { click: () => void runExport() },
           },
           exporting && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),
@@ -231,7 +234,7 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
             class: `${BTN_GHOST} border border-line px-3.5 text-sakura`,
             attrs: { type: 'button', 'data-focus': 'backup-import', title: t('settings.backup.importTitle') },
             // Onglet dédié : le sélecteur de fichier fermerait le popup
-            on: { click: () => ctx.host.openTab(chrome.runtime.getURL(IMPORT_PAGE)) },
+            on: { click: () => ctx.host.openTab(chrome.runtime.getURL(BACKUP_PAGE)) },
           },
           t('settings.backup.import'),
         ),
@@ -241,18 +244,17 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
   }
 
   async function runExport(): Promise<void> {
+    if (exportState === 'exporting') return;
+    // Popup : la boîte « Enregistrer sous » le fermerait avec le fichier en cours ; export depuis la page Sauvegarde
+    if (ctx.host.closesOnBlur) {
+      ctx.host.openTab(`${chrome.runtime.getURL(BACKUP_PAGE)}?${BACKUP_EXPORT_PARAM}`);
+      return;
+    }
     clearTimeout(exportTimer);
     exportState = 'exporting';
     redraw();
     try {
-      const backup = await exportBackup();
-      // Téléchargement via un lien temporaire : aucune permission "downloads" nécessaire
-      const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
-      const link = h('a', { attrs: { href: url, download: backupFileName(new Date()) } });
-      document.body.append(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1_000);
+      await downloadBackup();
       exportState = 'exported';
       exportTimer = setTimeout(() => {
         exportState = 'idle';

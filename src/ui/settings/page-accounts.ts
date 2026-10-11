@@ -19,6 +19,17 @@ function viewerAvatar(service: TrackerId, url: string | null): HTMLElement {
   return serviceAvatar(service, 'ok', img);
 }
 
+/** Affichage d'une carte de compte ; `profile-error` : connecté, profil jamais chargé et lecture en échec (UI-04) */
+export type AccountRowKind = 'skeleton' | 'logged-out' | 'profile' | 'profile-error';
+
+export function accountRowKind(state: AccountState<unknown>): AccountRowKind {
+  if (state.status === 'loading') return 'skeleton';
+  if (state.status === 'logged-out') return 'logged-out';
+  if (state.viewer) return 'profile';
+  // Squelette seulement pendant le chargement : une erreur sans profil en cache doit rester visible
+  return state.error === null ? 'skeleton' : 'profile-error';
+}
+
 function accountRow(ctx: SettingsContext, service: TrackerId, state: AccountState<AniListViewer | MalViewer>, first: boolean): Child[] {
   const { accounts } = ctx.host;
   const label = TRACKER_LABELS[service];
@@ -30,8 +41,20 @@ function accountRow(ctx: SettingsContext, service: TrackerId, state: AccountStat
       h('span', { class: 'truncate text-[13px] font-bold' }, title),
       h('span', { class: `text-[11px] font-semibold ${subClass}` }, sub),
     );
+  const logoutButton = (): HTMLElement =>
+    h(
+      'button',
+      {
+        class: `${BTN_GHOST} text-danger`,
+        attrs: { type: 'button', 'aria-label': t('settings.account.logoutAria', { service: label }), 'data-focus': `logout-${service}` },
+        on: { click: () => void accounts.logout(service) },
+      },
+      t('settings.account.logout'),
+    );
+  const errorAlert = (message: string): HTMLElement =>
+    h('div', { class: 'pr-2 pb-2' }, renderAlert({ message, action: { label: t('common.retry'), onClick: () => void accounts.refresh(service) } }));
 
-  if (state.status === 'loading' || (state.status === 'logged-in' && !state.viewer)) {
+  if (accountRowKind(state) === 'skeleton') {
     return [
       row(
         h('span', { class: 'h-8 w-8 shrink-0 rounded-full bg-raised motion-safe:animate-pulse' }),
@@ -70,8 +93,12 @@ function accountRow(ctx: SettingsContext, service: TrackerId, state: AccountStat
     ];
   }
 
+  if (state.status !== 'logged-in') return []; // Garde de type : chargement couvert par le squelette
   const viewer = state.viewer;
-  if (!viewer) return []; // Garde de type : cas couvert par le skeleton
+  if (!viewer) {
+    // Profil jamais chargé et lecture en échec : service connecté, erreur avec « Réessayer », déconnexion possible
+    return [row(serviceAvatar(service, 'ok'), text(label, t('settings.account.connected', { service: label })), logoutButton()), state.error && errorAlert(state.error)];
+  }
   const avatarUrl = 'avatarUrl' in viewer ? viewer.avatarUrl : viewer.pictureUrl;
   const profileUrl = 'siteUrl' in viewer ? viewer.siteUrl : `https://myanimelist.net/profile/${encodeURIComponent(viewer.name)}`;
 
@@ -82,18 +109,9 @@ function accountRow(ctx: SettingsContext, service: TrackerId, state: AccountStat
         h('a', { class: 'text-ink hover:underline', attrs: { href: profileUrl, target: '_blank', rel: 'noopener noreferrer', title: t('settings.account.openProfile', { service: label }) } }, viewer.name),
         t('settings.account.connected', { service: label }),
       ),
-      h(
-        'button',
-        {
-          class: `${BTN_GHOST} text-danger`,
-          attrs: { type: 'button', 'aria-label': t('settings.account.logoutAria', { service: label }), 'data-focus': `logout-${service}` },
-          on: { click: () => void accounts.logout(service) },
-        },
-        t('settings.account.logout'),
-      ),
+      logoutButton(),
     ),
-    state.error &&
-      h('div', { class: 'pr-2 pb-2' }, renderAlert({ message: state.error, action: { label: t('common.retry'), onClick: () => void accounts.refresh(service) } })),
+    state.error && errorAlert(state.error),
   ];
 }
 

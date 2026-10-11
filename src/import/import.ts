@@ -6,11 +6,15 @@ import { icon, kai } from '../ui/icons';
 import { renderAlert } from '../ui/alert';
 import { alertAttrs } from '../ui/live-region';
 import { BTN_GHOST, BTN_PRIMARY, CARD } from '../ui/kit';
+import { BACKUP_EXPORT_PARAM, downloadBackup } from '../ui/backup-download';
 import { createLogger } from '../shared/logger';
 
 const log = createLogger('import');
 
-// Page d'import ouverte dans un onglet depuis Réglages › Sauvegarde (le sélecteur de fichier fermerait le popup).
+// Page Sauvegarde ouverte dans un onglet depuis Réglages › Mes données : le sélecteur de fichier et la boîte
+// « Enregistrer sous » fermeraient le popup. Export (lancé à l'ouverture avec `?export`) et import.
+
+type ExportState = 'idle' | 'exporting' | 'exported' | 'error';
 
 type ImportState =
   | { kind: 'idle'; error: string | null }
@@ -32,10 +36,34 @@ const SUMMARY_LABELS: { key: Exclude<keyof BackupSummary, 'settings'>; label: Pl
 
 const app = document.getElementById('app');
 let state: ImportState = { kind: 'idle', error: null };
+let exportState: ExportState = 'idle';
+
+function draw(): void {
+  if (app) preserveFocus(app, () => app.replaceChildren(render()));
+}
 
 function setState(next: ImportState): void {
   state = next;
-  if (app) preserveFocus(app, () => app.replaceChildren(render()));
+  draw();
+}
+
+/** Import en cours d'application : le fichier et les options sont figés */
+function isApplying(): boolean {
+  return state.kind === 'ready' && state.applying;
+}
+
+async function runExport(): Promise<void> {
+  if (exportState === 'exporting') return;
+  exportState = 'exporting';
+  draw();
+  try {
+    await downloadBackup();
+    exportState = 'exported';
+  } catch (error: unknown) {
+    log.error('Export de la sauvegarde impossible :', error);
+    exportState = 'error';
+  }
+  draw();
 }
 
 function formatDate(iso: string): string {
@@ -43,7 +71,8 @@ function formatDate(iso: string): string {
 }
 
 async function onFile(file: File | undefined): Promise<void> {
-  if (!file) return;
+  // Sélecteur désactivé pendant l'application ; garde contre un changement arrivé quand même (UI-07)
+  if (!file || isApplying()) return;
   // Taille vérifiée avant lecture : un fichier énorme n'est jamais chargé en mémoire
   if (file.size > BACKUP_MAX_BYTES) {
     setState({ kind: 'idle', error: t('import.tooLarge') });
@@ -65,14 +94,17 @@ async function onFile(file: File | undefined): Promise<void> {
 
 async function runImport(): Promise<void> {
   if (state.kind !== 'ready') return;
+  if (state.applying) return;
   const current = state;
-  setState({ ...current, applying: true, error: null });
+  const applying: ImportState = { ...current, applying: true, error: null };
+  setState(applying);
   try {
     await applyBackup(current.parsed.backup.data, current.mode, current.includeSettings);
-    setState({ kind: 'done' });
+    // Résultat appliqué seulement si la page n'a pas changé d'état entre-temps (UI-07)
+    if (state === applying) setState({ kind: 'done' });
   } catch (error: unknown) {
     log.error('Import impossible :', error);
-    setState({ ...current, applying: false, confirming: false, error: t('import.failed') });
+    if (state === applying) setState({ ...current, applying: false, confirming: false, error: t('import.failed') });
   }
 }
 
@@ -90,10 +122,10 @@ function renderHeader(): HTMLElement {
   );
 }
 
-function renderFilePicker(label: string): HTMLElement {
+function renderFilePicker(label: string, disabled = false): HTMLElement {
   const input = h('input', {
     class: 'sr-only',
-    attrs: { id: 'sk-file', type: 'file', accept: '.json,application/json', 'data-focus': 'file' },
+    attrs: { id: 'sk-file', type: 'file', accept: '.json,application/json', 'data-focus': 'file', ...(disabled ? { disabled: '' } : {}) },
     on: {
       change: () => {
         const file = input.files?.[0];
@@ -108,7 +140,10 @@ function renderFilePicker(label: string): HTMLElement {
     {},
     h(
       'label',
-      { class: `${BTN_GHOST} border border-line px-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-lavender`, attrs: { for: 'sk-file' } },
+      {
+        class: `${BTN_GHOST} border border-line px-4 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-lavender ${disabled ? 'cursor-not-allowed opacity-50 hover:bg-transparent' : ''}`,
+        attrs: { for: 'sk-file' },
+      },
       input,
       label,
     ),
@@ -180,7 +215,7 @@ function renderActions(s: Extract<ImportState, { kind: 'ready' }>): Child {
           {
             class: `${BTN_GHOST} text-muted`,
             attrs: { type: 'button', 'data-focus': 'cancel', ...busyAttrs(s.applying) },
-            on: { click: () => setState({ ...s, confirming: false }) },
+            on: { click: () => !s.applying && setState({ ...s, confirming: false }) },
           },
           t('common.cancel'),
         ),
@@ -200,7 +235,7 @@ function renderActions(s: Extract<ImportState, { kind: 'ready' }>): Child {
       {
         class: s.mode === 'replace' ? BTN_DANGER : BTN_PRIMARY,
         attrs: { type: 'button', 'data-focus': 'import', ...busyAttrs(s.applying, true) },
-        on: { click: () => (s.mode === 'replace' ? setState({ ...s, confirming: true }) : void runImport()) },
+        on: { click: () => (s.applying ? undefined : s.mode === 'replace' ? setState({ ...s, confirming: true }) : void runImport()) },
       },
       ...(busy ?? [t('import.import')]),
     ),
@@ -235,7 +270,8 @@ function renderReady(s: Extract<ImportState, { kind: 'ready' }>): Child[] {
     ),
     s.error && renderAlert({ message: s.error }),
     renderActions(s),
-    h('div', { class: 'border-t border-dotted border-line pt-3' }, renderFilePicker(t('import.chooseOther'))),
+    // Pas d'autre fichier pendant l'application : l'état de l'import en cours serait écrasé (UI-07)
+    h('div', { class: 'border-t border-dotted border-line pt-3' }, renderFilePicker(t('import.chooseOther'), s.applying)),
   ];
 }
 
@@ -271,6 +307,36 @@ function renderDone(): Child[] {
   ];
 }
 
+const SECTION_TITLE = 'm-0 text-[11px] font-bold tracking-[0.06em] text-muted uppercase';
+
+/** Export : bouton, « Téléchargement lancé » ou erreur */
+function renderExport(): HTMLElement {
+  const exporting = exportState === 'exporting';
+  return h(
+    'section',
+    { class: 'flex flex-col gap-2', attrs: { 'aria-labelledby': 'sk-export-title' } },
+    h('h2', { class: SECTION_TITLE, attrs: { id: 'sk-export-title' } }, t('import.section.export')),
+    h(
+      'div',
+      { class: 'flex items-center justify-between gap-3' },
+      h('p', { class: 'm-0 text-[12px] text-muted' }, t('import.export.help')),
+      h(
+        'button',
+        {
+          class: `${BTN_GHOST} border border-line px-4`,
+          attrs: { type: 'button', 'data-focus': 'export', ...busyAttrs(exporting, true) },
+          on: { click: () => void runExport() },
+        },
+        exporting && icon('spinner', 'h-3.5 w-3.5 animate-spin'),
+        t('settings.backup.export'),
+      ),
+    ),
+    exportState === 'exported' &&
+      h('p', { class: 'm-0 flex items-center gap-1 text-[12px] font-bold text-mint', attrs: { role: 'status' } }, icon('check', 'h-3 w-3', '3'), t('import.export.started')),
+    exportState === 'error' && renderAlert({ message: t('settings.backup.exportFailed') }),
+  );
+}
+
 function render(): HTMLElement {
   let body: Child[];
   switch (state.kind) {
@@ -291,7 +357,18 @@ function render(): HTMLElement {
       body = renderDone();
       break;
   }
-  return h('div', { class: `${CARD} flex flex-col gap-4 p-5 shadow-pop` }, renderHeader(), ...nodes(body));
+  return h(
+    'div',
+    { class: `${CARD} flex flex-col gap-4 p-5 shadow-pop` },
+    renderHeader(),
+    renderExport(),
+    h(
+      'section',
+      { class: 'flex flex-col gap-4 border-t border-dotted border-line pt-4', attrs: { 'aria-labelledby': 'sk-import-title' } },
+      h('h2', { class: SECTION_TITLE, attrs: { id: 'sk-import-title' } }, t('import.section.import')),
+      ...nodes(body),
+    ),
+  );
 }
 
 // Langue lue avant le premier rendu ; un changement depuis le popup redessine la page
@@ -302,3 +379,11 @@ onLocaleChange(() => {
   setState(state);
 });
 setState(state);
+
+// Ouverte par « Exporter » du popup : export lancé tout de suite, paramètre retiré (un rechargement ne relance rien)
+const url = new URL(location.href);
+if (url.searchParams.has(BACKUP_EXPORT_PARAM)) {
+  url.searchParams.delete(BACKUP_EXPORT_PARAM);
+  history.replaceState(null, '', url);
+  void runExport();
+}

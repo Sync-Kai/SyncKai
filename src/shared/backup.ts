@@ -303,8 +303,8 @@ export function mergeBackup(current: BackupData, incoming: BackupData, mode: Imp
   };
 }
 
-/** "synckai-sauvegarde-2026-10-01.json" (date locale) */
+/** Nom du fichier dans la langue de l’interface : « synckai-sauvegarde-2026-10-01.json », « synckai-backup-… » (date locale) */
 export function backupFileName(now: Date): string {
   const pad = (n: number): string => String(n).padStart(2, '0');
-  return `synckai-sauvegarde-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.json`;
+  return t('backup.fileName', { date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` });
 }

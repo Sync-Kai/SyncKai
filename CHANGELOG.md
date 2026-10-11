@@ -82,6 +82,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Clavier : après *+1*, *Réessayer*, *Oublier*, *Réactiver*, *Ignorer* ou *Fermer* sur une vérification, le focus reste sur le bouton ou passe à l’élément voisin (ou au titre de la section) au lieu de repartir du haut du popup ; même chose sur le lien *Ouvrir* d’une série quand la liste se met à jour.
 - Lecteurs d’écran (NVDA, VoiceOver, Narrateur) : le bandeau *Pas d’accès à Crunchyroll / ADN* et les messages d’erreur du popup, du panneau et des pages d’import ne sont plus relus à chaque mise à jour de l’affichage, ni chaque minute.
 - Pause d’un alignement AniList ↔ MAL ou d’un import Crunchyroll : seul le compte à rebours change chaque seconde ; le popup et la page d’import ne sont plus redessinés en entier (le survol et le focus clavier ne sautent plus), et les mises à jour simultanées du popup sont regroupées en un seul affichage.
+- Réglages › Comptes : un compte connecté dont le profil n’a jamais pu être chargé (réseau coupé juste après la connexion, service en panne) affiche l’erreur avec *Réessayer* et *Déconnecter*, au lieu d’une animation de chargement sans fin.
+- Agenda : *Entrée* dans un champ de délai vide (ou non numérique) n’enregistre plus un délai de 0 minute : le champ est signalé invalide, comme avec *Enregistrer*. Un second appui pendant l’enregistrement est sans effet.
+- Page Sauvegarde : impossible de choisir un autre fichier pendant un import ; la fin de l’import ne remplace plus l’affichage d’un fichier choisi entre-temps.
+- Firefox : *Modifier* ou *Définir* le raccourci clavier ouvre la page des raccourcis de Firefox, au lieu de ne rien faire. Si la page ne peut pas s’ouvrir, la marche à suivre s’affiche.
+- Netflix est cité dans l’accueil, dans *Rien en cours* (avec un bouton *Ouvrir Netflix* quand il est activé), dans l’Agenda vide et dans le panneau hors Crunchyroll / ADN, qui ne dit plus que SyncKai fonctionne seulement sur Crunchyroll et ADN quand Netflix est activé.
+- L’astuce de *Rien en cours* indique le vrai chemin *Réglages › Lecture & synchro* et l’ouvre d’un clic.
+- Anglais et allemand : plus d’espace avant les deux-points (*Crunchyroll:*, *AniList:*) sur la page d’import Crunchyroll et dans le panneau (studio, suites et préquelles).
+- Sauvegarde : le fichier exporté porte un nom dans la langue de l’interface (*synckai-backup-…* en anglais, *synckai-sicherung-…* en allemand). Depuis le popup, *Exporter* ouvre la page *Sauvegarde* dans un onglet, qui lance le téléchargement : la boîte *Enregistrer sous* ne ferme plus le popup en plein export.
 
 ## [2.1.0] - 2026-10-10
 

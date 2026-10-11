@@ -143,3 +143,20 @@ describe('profil en cache (PERF-04)', () => {
     expect(isProfileFresh(now + 1, now)).toBe(false);
   });
 });
+
+describe('profil jamais chargé (UI-04)', () => {
+  it('lecture en échec sans cache : erreur gardée ; « Réessayer » repasse en chargement puis affiche le profil', async () => {
+    openMalSession();
+    sendMessage.mockResolvedValueOnce({ ok: false, code: 'NETWORK', message: 'MyAnimeList injoignable' });
+    const accounts = createAccountsController();
+    await accounts.bootstrapAll();
+    expect(accounts.mal.get()).toEqual({ status: 'logged-in', viewer: null, error: 'MyAnimeList injoignable' });
+
+    const states: unknown[] = [];
+    accounts.mal.subscribe(() => states.push(accounts.mal.get()));
+    await accounts.refresh('mal');
+    // states[0] : état courant remis à l'abonnement ; states[1] : pendant la requête
+    expect(states[1]).toEqual({ status: 'logged-in', viewer: null, error: null });
+    expect(accounts.mal.get()).toMatchObject({ status: 'logged-in', viewer: { name: 'Kai' }, error: null });
+  });
+});

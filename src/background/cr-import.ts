@@ -474,7 +474,7 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
         break;
       }
       if (decision.action === 'skip') {
-        outcomes.push({ service: planned.service, result: 'skipped', message: `${label} : ${t(`crImport.skipReason.${decision.reason}`)}` });
+        outcomes.push({ service: planned.service, result: 'skipped', message: t('common.serviceMessage', { service: label, message: t(`crImport.skipReason.${decision.reason}`) }) });
         continue;
       }
       log.info(`${label} : ${item.title} → épisode ${decision.progress} (${decision.status}, import Crunchyroll)`);
@@ -488,7 +488,7 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
         return step.retry;
       }
       log.warn(`${label} : échec de l’import de ${item.title} :`, step.message);
-      outcomes.push({ service: planned.service, result: 'failed', message: `${label} : ${step.message}` });
+      outcomes.push({ service: planned.service, result: 'failed', message: t('common.serviceMessage', { service: label, message: step.message }) });
       if (step.fatal) {
         fatal = step.message;
         break;

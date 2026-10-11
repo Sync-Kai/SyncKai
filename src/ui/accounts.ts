@@ -53,6 +53,9 @@ export function createAccountsController(): AccountsController {
   }
 
   async function refresh(service: TrackerId): Promise<void> {
+    // Nouvel essai sans profil en cache : l'erreur laisse place au chargement (squelette) le temps de la requête
+    const before = store(service).get();
+    if (before.status === 'logged-in' && !before.viewer && before.error !== null) store(service).set({ ...before, error: null });
     let result: ViewerResult | MalViewerResult;
     try {
       result = service === 'anilist' ? await sendMessage('GET_VIEWER', null) : await sendMessage('GET_MAL_VIEWER', null);

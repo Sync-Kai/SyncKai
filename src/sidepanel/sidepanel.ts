@@ -1,9 +1,11 @@
 import { initI18n, onLocaleChange, t, type MessageKey } from '../i18n';
 import { kanaLabel } from '../ui/kit';
 import { createLogger } from '../shared/logger';
+import { hasNetflixAccess } from '../shared/netflix-access';
 import { getSettings } from '../shared/settings';
 import { sidePanelKind } from '../shared/side-panel';
 import { createAccountsController } from '../ui/accounts';
+import { settingsPath } from '../ui/settings/navigation';
 import { createSettingsView, type SettingsView } from '../ui/settings/settings-view';
 import { h, preserveFocus } from '../ui/dom';
 import { icon, kai, type IconName } from '../ui/icons';
@@ -58,6 +60,7 @@ function getSettingsView(): SettingsView {
   settingsView = createSettingsView({
     navigateBack: () => setSettingsOpen(false),
     openTab: (url) => void chrome.tabs.create({ url }),
+    closesOnBlur: false,
     accounts,
   });
   settingsScroll.append(settingsView.element);
@@ -223,15 +226,29 @@ function render(): void {
     } else {
       // Le panneau d'onglet quitte le DOM : sa position sera perdue, on repartira du haut
       shownTab = null;
-      app.replaceChildren(header, renderNotice(t(context.status === 'checking' ? 'panel.checking' : 'panel.offTarget'), context.status === 'checking'));
+      app.replaceChildren(header, renderNotice(context.status === 'checking' ? t('panel.checking') : offTargetText(), context.status === 'checking'));
     }
   });
+}
+
+/** Accès Netflix (permission optionnelle), relu à chaque passage hors page cible */
+let netflixAccess = false;
+
+/** Ligne hors page cible : plateformes réellement suivies, Netflix cité seulement s'il est activé (UX-05) */
+function offTargetText(): string {
+  return netflixAccess ? t('panel.offTargetNetflix') : t('panel.offTarget', { path: settingsPath('sync') });
 }
 
 function setContext(next: PanelContext): void {
   context = next;
   nowPlaying.setTab(next.status === 'target' ? next.tabId : null);
   render();
+  if (next.status !== 'off') return;
+  void hasNetflixAccess().then((granted) => {
+    if (granted === netflixAccess) return;
+    netflixAccess = granted;
+    render();
+  });
 }
 
 /** Onglet à l'ouverture : réglage « Onglet à l'ouverture » (dernier onglet consulté par défaut) */

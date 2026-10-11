@@ -1,7 +1,7 @@
 // Vue Réglages autonome, montée par le popup et par le panneau latéral : accueil par catégories
 // (résumé de chaque réglage, interrupteurs rapides) et sous-pages. Elle lit et suit elle-même le stockage ;
 // tout comportement propre à l'hôte passe par `SettingsHost`.
-import { getLocale, onLocaleChange, t, type MessageKey } from '../../i18n';
+import { getLocale, onLocaleChange, t } from '../../i18n';
 import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.types';
 import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
@@ -14,7 +14,7 @@ import { CARD, kanaLabel, segmented } from '../kit';
 import { h, nodes, preserveFocus } from '../dom';
 import { icon, type IconName } from '../icons';
 import type { SettingsContext, SettingsData, SettingsHost, SettingsPageView } from './context';
-import { INITIAL_SETTINGS_NAV, settingsNavReducer, type SettingsCategory, type SettingsNavAction, type SettingsPage } from './navigation';
+import { INITIAL_SETTINGS_NAV, SETTINGS_CATEGORY_TITLES, settingsNavReducer, type SettingsCategory, type SettingsNavAction, type SettingsPage } from './navigation';
 import { createAccountsPage } from './page-accounts';
 import { createDataPage } from './page-data';
 import { createHelpPage } from './page-help';
@@ -42,18 +42,17 @@ export interface SettingsView {
 }
 
 interface CategoryCopy {
-  title: MessageKey;
   icon: IconName;
   tint: RowTint;
 }
 
 const CATEGORY_COPY: Record<SettingsCategory, CategoryCopy> = {
-  accounts: { title: 'settings.section.accounts', icon: 'user', tint: 'anilist' },
-  sync: { title: 'settings.cat.sync', icon: 'sync', tint: 'sakura' },
-  notifications: { title: 'settings.cat.notifications', icon: 'bell', tint: 'butter' },
-  data: { title: 'settings.cat.data', icon: 'folder', tint: 'lavender' },
-  language: { title: 'settings.section.language', icon: 'globe', tint: 'mint' },
-  help: { title: 'settings.cat.help', icon: 'help', tint: 'muted' },
+  accounts: { icon: 'user', tint: 'anilist' },
+  sync: { icon: 'sync', tint: 'sakura' },
+  notifications: { icon: 'bell', tint: 'butter' },
+  data: { icon: 'folder', tint: 'lavender' },
+  language: { icon: 'globe', tint: 'mint' },
+  help: { icon: 'help', tint: 'muted' },
 };
 
 /** Langues proposées : chacune dans sa propre langue, sauf « Automatique » (langue active) */
@@ -102,7 +101,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   function drawBar(): void {
     const page = nav.page;
     const home = page === 'home';
-    const title = page === 'home' ? t('nav.settings') : t(CATEGORY_COPY[page].title);
+    const title = page === 'home' ? t('nav.settings') : t(SETTINGS_CATEGORY_TITLES[page]);
     preserveFocus(bar, () =>
       bar.replaceChildren(
         ...nodes([
@@ -273,7 +272,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
       focusKey: `settings-cat-${category}`,
       iconName: copy.icon,
       tint: copy.tint,
-      title: t(copy.title),
+      title: t(SETTINGS_CATEGORY_TITLES[category]),
       summary: summary.text,
       summaryTone: summary.tone,
       onClick: () => dispatch({ type: 'open', category }),

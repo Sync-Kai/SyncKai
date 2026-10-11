@@ -92,6 +92,14 @@ const SETTINGS_KEY = 'settings';
 const NOTIFICATION_LEVELS: readonly NotificationLevel[] = ['discreet', 'detailed', 'alerts-only'];
 const PLAYERS: readonly StreamingPlatform[] = ['crunchyroll', 'adn', 'netflix'];
 
+/**
+ * Valeur d'un champ de délai (`<input type="number">`) : vide, ou saisie non numérique que le navigateur rend
+ * vide, donne NaN (jamais 0 comme `Number('')`) ; la validation reste à l'appelant.
+ */
+export function parseOffsetInput(raw: string): number {
+  return raw.trim() === '' ? Number.NaN : Number(raw);
+}
+
 /** Délai en minutes (entier borné) ou null si invalide */
 export function normalizeOffset(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;

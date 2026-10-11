@@ -15,6 +15,7 @@ import { renderRetryButton } from '../../ui/media-actions';
 import { renderAlert } from '../../ui/alert';
 import { renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from '../../ui/status-actions';
 import { CARD, kanaLabel, PLATFORM_LABELS, platformChip, renderCover, sectionTitle, segmented } from '../../ui/kit';
+import { settingsPath } from '../../ui/settings/navigation';
 
 /** Actions par série (+1, menu « … ») : état fourni par le popup, il survit aux nouveaux rendus */
 export interface EntryControls {
@@ -51,6 +52,10 @@ interface WatchingScreenProps {
   onRetry: () => void;
   /** Carte « Sur cette page » (onglet actif sur une série reconnue) : remplace la carte « Reprendre » */
   pageCard: HTMLElement | null;
+  /** Accès Netflix accordé : l'état vide cite Netflix parmi les plateformes */
+  netflixAccess: boolean;
+  /** Lien de l'astuce de l'état vide : Réglages › Lecture & synchro */
+  onOpenSyncSettings: () => void;
 }
 
 const SOURCE_OPTIONS = [
@@ -557,9 +562,10 @@ function renderSkeleton(): HTMLElement {
   );
 }
 
-function renderEmpty(): HTMLElement {
+function renderEmpty(netflixAccess: boolean, onOpenSyncSettings: () => void): HTMLElement {
   const pill = 'inline-flex h-9 items-center rounded-full px-4 text-[13px] font-bold transition';
-  // Chemin « Réglages › Lecture » mis en gras au milieu de la phrase traduite
+  const secondary = `${pill} border border-line text-ink hover:bg-surface`;
+  // Chemin « Réglages › Lecture & synchro » (titres réels des Réglages) cliquable au milieu de la phrase traduite
   const [tipBefore = '', tipAfter = ''] = t('watching.tip').split('{path}');
   return h(
     'div',
@@ -569,19 +575,34 @@ function renderEmpty(): HTMLElement {
       { class: 'flex flex-1 flex-col items-center justify-center gap-2 text-center', attrs: { 'aria-labelledby': 'sk-empty-title' } },
       kai('h-12 w-12', { expression: 'sleep', size: 'large' }),
       h('h2', { class: 'm-0 mt-1 text-[15px] leading-5 font-bold', attrs: { id: 'sk-empty-title' } }, t('watching.empty.title')),
-      h('p', { class: 'm-0 max-w-[300px] text-[12px] leading-[18px] font-semibold text-muted' }, t('watching.empty.text')),
+      h('p', { class: 'm-0 max-w-[300px] text-[12px] leading-[18px] font-semibold text-muted' }, t(netflixAccess ? 'watching.empty.textNetflix' : 'watching.empty.text')),
       h(
         'div',
-        { class: 'mt-2 flex gap-2' },
+        { class: 'mt-2 flex flex-wrap justify-center gap-2' },
         h('a', { class: `${pill} bg-sakura text-on-fill shadow-pop motion-safe:hover:-translate-px`, attrs: { href: 'https://www.crunchyroll.com', target: '_blank', rel: 'noopener noreferrer' } }, t('watching.openPlatform', { platform: 'Crunchyroll' })),
-        h('a', { class: `${pill} border border-line text-ink hover:bg-surface`, attrs: { href: 'https://animationdigitalnetwork.com', target: '_blank', rel: 'noopener noreferrer' } }, t('watching.openPlatform', { platform: 'ADN' })),
+        h('a', { class: secondary, attrs: { href: 'https://animationdigitalnetwork.com', target: '_blank', rel: 'noopener noreferrer' } }, t('watching.openPlatform', { platform: 'ADN' })),
+        netflixAccess && h('a', { class: secondary, attrs: { href: 'https://www.netflix.com', target: '_blank', rel: 'noopener noreferrer' } }, t('watching.openPlatform', { platform: 'Netflix' })),
       ),
     ),
     h(
       'aside',
       { class: `${CARD} flex shrink-0 flex-col gap-1 p-3`, attrs: { 'aria-label': t('watching.tipTitle') } },
       h('div', { class: 'flex items-baseline gap-1.5' }, kanaLabel('ヒント', 'text-butter'), h('span', { class: 'text-[11px] font-bold' }, t('watching.tipTitle'))),
-      h('p', { class: 'm-0 text-[12px] leading-[17px] font-semibold text-muted' }, tipBefore, h('span', { class: 'font-bold text-ink' }, t('watching.tipPath')), tipAfter),
+      h(
+        'p',
+        { class: 'm-0 text-[12px] leading-[17px] font-semibold text-muted' },
+        tipBefore,
+        h(
+          'button',
+          {
+            class: 'cursor-pointer bg-transparent p-0 font-bold text-ink underline-offset-2 hover:underline',
+            attrs: { type: 'button', 'data-focus': 'tip-settings' },
+            on: { click: onOpenSyncSettings },
+          },
+          settingsPath('sync'),
+        ),
+        tipAfter,
+      ),
     ),
   );
 }
@@ -637,7 +658,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
     return h(
       'div',
       { class: 'flex min-h-full flex-col gap-3' },
-      ...nodes([errorAlert, notice, switchRow(), props.pageCard, renderEmpty()]),
+      ...nodes([errorAlert, notice, switchRow(), props.pageCard, renderEmpty(props.netflixAccess, props.onOpenSyncSettings)]),
     );
   }
 

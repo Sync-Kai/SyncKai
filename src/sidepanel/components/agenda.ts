@@ -23,7 +23,7 @@ import { createLogger } from '../../shared/logger';
 import { sendMessage, type MessageResponse } from '../../shared/messages';
 import { hasNetflixAccess } from '../../shared/netflix-access';
 import { platformSearchUrl } from '../../shared/platform-links';
-import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, parseOffsetInput, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getCachedWatching, getMalToken, getValidToken } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../shared/storage-keys';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
@@ -48,7 +48,8 @@ const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', a
 type Status =
   | { kind: 'loading' }
   | { kind: 'not-connected' }
-  | { kind: 'no-series' }
+  /** `netflix` : accès Netflix accordé, cité parmi les plateformes */
+  | { kind: 'no-series'; netflix: boolean }
   | { kind: 'ready'; cache: AiringWeekCache; refreshing: boolean; error: string | null }
   | { kind: 'error'; message: string };
 
@@ -185,7 +186,7 @@ export function createAgenda(): AgendaView {
       const entries = [...(anilistToken ? (anilist?.entries ?? []) : []), ...(malToken ? (mal?.entries ?? []) : [])];
       series = mergeWatchingSeries(entries, excluded, player);
       if (series.size === 0) {
-        status = { kind: 'no-series' };
+        status = { kind: 'no-series', netflix: netflixGranted };
         draw();
         return;
       }
@@ -332,7 +333,7 @@ export function createAgenda(): AgendaView {
       case 'not-connected':
         return [message(t('agenda.notConnected'), 'muted')];
       case 'no-series':
-        return [message(t('agenda.empty.noSeries'), 'muted')];
+        return [message(t(status.netflix ? 'agenda.empty.noSeriesNetflix' : 'agenda.empty.noSeries'), 'muted')];
       case 'error':
         return [message(t('agenda.error', { error: status.message }), 'danger', retryButton())];
       case 'ready': {
@@ -543,6 +544,8 @@ export function createAgenda(): AgendaView {
   }
 
   async function saveOffset(edit: Editing, offset: number | null): Promise<void> {
+    // Enregistrement en cours : Entrée ou second clic sans effet (un seul envoi)
+    if (edit.saving) return;
     if (offset !== null && (!Number.isInteger(offset) || offset < OFFSET_RANGE.min || offset > OFFSET_RANGE.max)) {
       editing = { ...edit, invalid: true };
       draw();
@@ -586,7 +589,8 @@ export function createAgenda(): AgendaView {
           if (editing) editing = { ...editing, value: input.value };
         },
         keydown: (event) => {
-          if (event.key === 'Enter') void saveOffset({ ...edit, value: input.value }, Number(input.value));
+          // Même lecture que « Enregistrer » : champ vide = invalide, jamais 0
+          if (event.key === 'Enter') void saveOffset({ ...edit, value: input.value }, parseOffsetInput(input.value));
           if (event.key === 'Escape') {
             editing = null;
             draw();
@@ -609,7 +613,7 @@ export function createAgenda(): AgendaView {
           {
             class: `${BTN_GHOST} bg-sakura text-on-fill hover:bg-sakura`,
             attrs: { type: 'button', 'data-focus': `agenda-save-${row.scheduleId}`, ...busyAttrs(edit.saving, true) },
-            on: { click: () => void saveOffset({ ...edit, value: input.value }, input.value.trim() === '' ? Number.NaN : Number(input.value)) },
+            on: { click: () => void saveOffset({ ...edit, value: input.value }, parseOffsetInput(input.value)) },
           },
           edit.saving && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),
           t('agenda.adjust.save'),

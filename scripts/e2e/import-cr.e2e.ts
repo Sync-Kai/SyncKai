@@ -118,4 +118,14 @@ describe('page d’import Crunchyroll (bout en bout)', () => {
     await page.waitForFunction((message: string) => document.querySelector('[data-live-region][role="alert"]')?.textContent?.includes(message) ?? false, {}, fr('crImport.read.error.logged-out'));
     expect((await trace(page)).messages.some((m) => m.type === 'CR_IMPORT_ANALYZE')).toBe(false);
   });
+
+  it('UX-07 : en anglais, « Crunchyroll: » et « AniList: » sans l’espace français avant les deux-points', async () => {
+    const page = await openPage({ locale: 'en' });
+    await page.locator(sel('cr-read')).click();
+    await page.waitForSelector(sel('cr-apply'));
+    const body = await page.$eval('main', (el) => el.textContent ?? '');
+    expect(body).toContain('Crunchyroll: ');
+    expect(body).toContain('AniList: ');
+    expect(body).not.toMatch(/(Crunchyroll|AniList|MyAnimeList) :/);
+  });
 });

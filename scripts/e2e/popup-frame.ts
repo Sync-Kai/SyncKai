@@ -32,7 +32,7 @@ const slowWatching = watchingMode === 'slow';
 let watchingCalls = 0;
 if (hangWatching || slowWatching) popupTimeouts.watchingMs = E2E_WATCHING_TIMEOUT_MS;
 
-const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [] };
+const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [], openedTabs: [] };
 window.__e2e = trace;
 
 // Presse-papiers simulé : déterministe en headless, sans permission à accorder
@@ -52,7 +52,17 @@ if (!(navigation instanceof PerformanceNavigationTiming && navigation.type === '
 
 // ─── Service worker simulé (à état) ─────────────────────────────────────────
 
-const lists: Record<TrackerId, WatchingList> = { anilist: watchingList('anilist', now), mal: watchingList('mal', now) };
+/** `watching=empty` : listes vides, cache compris (état vide « Rien en cours ») */
+const emptyWatching = watchingMode === 'empty';
+const demoList = (service: TrackerId): WatchingList => {
+  const list = watchingList(service, now);
+  return emptyWatching ? { ...list, entries: [] } : list;
+};
+const lists: Record<TrackerId, WatchingList> = { anilist: demoList('anilist'), mal: demoList('mal') };
+
+/** `viewer=missing` : profil MAL jamais chargé, premier GET_MAL_VIEWER en échec réseau, les suivants répondent */
+const missingViewer = param('viewer') === 'missing';
+let malViewerCalls = 0;
 
 const numberField = (payload: unknown, key: string): number | null => (isRecord(payload) && typeof payload[key] === 'number' ? payload[key] : null);
 
@@ -155,10 +165,13 @@ const journal: JournalEntry[] = [
   { at: now - 5 * 60_000, level: 'error', scope: 'sync', message: `AniList 401 (Bearer ${PLANTED_SECRETS.anilistAccess})` },
 ];
 
+const demoStorage = Object.fromEntries(Object.entries(demo.storage).filter(([key]) => !(missingViewer && key === STORAGE_KEYS.malViewer)));
+
 installChromeMock({
   ...demo,
   storage: {
-    ...demo.storage,
+    ...demoStorage,
+    ...(emptyWatching ? { [STORAGE_KEYS.watchingCache]: lists } : {}),
     [STORAGE_KEYS.anilistToken]: { accessToken: PLANTED_SECRETS.anilistAccess, expiresAt: far },
     [STORAGE_KEYS.malToken]: { accessToken: PLANTED_SECRETS.malAccess, refreshToken: PLANTED_SECRETS.malRefresh, expiresAt: far },
     [DIAGNOSTICS_LOG_KEY]: journal,
@@ -166,6 +179,8 @@ installChromeMock({
   },
   handlers: {
     ...demo.handlers,
+    GET_MAL_VIEWER: (payload) =>
+      missingViewer && ++malViewerCalls === 1 ? { ok: false, code: 'NETWORK', message: 'MyAnimeList injoignable (e2e)' } : demo.handlers.GET_MAL_VIEWER?.(payload),
     GET_WATCHING: (payload) => {
       const first = ++watchingCalls === 1;
       if (hangWatching && first) return new Promise<never>(() => {});
@@ -184,6 +199,7 @@ installChromeMock({
     APPLY_DIFFS: applyDiffs,
   },
   onSendMessage: (message) => trace.messages.push(message),
+  onCreateTab: (url) => trace.openedTabs.push(url),
   permissions: {
     granted: param('hostAccess') !== 'missing',
     onRequest: (origins) => {

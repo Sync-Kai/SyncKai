@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { getLocale, setLocale } from '../i18n';
 import {
   BACKUP_FORMAT,
   BACKUP_MAX_BYTES,
@@ -318,8 +319,19 @@ describe('bindBackupToSession (DATA-01)', () => {
   });
 });
 
-describe('backupFileName', () => {
-  it('utilise la date locale AAAA-MM-JJ', () => {
-    expect(backupFileName(new Date(2026, 0, 5, 23, 59))).toBe('synckai-sauvegarde-2026-01-05.json');
+describe('backupFileName (BAK-05)', () => {
+  it('date locale AAAA-MM-JJ, nom dans la langue de l’interface', () => {
+    const initial = getLocale();
+    try {
+      const date = new Date(2026, 0, 5, 23, 59);
+      setLocale('fr');
+      expect(backupFileName(date)).toBe('synckai-sauvegarde-2026-01-05.json');
+      setLocale('en');
+      expect(backupFileName(date)).toBe('synckai-backup-2026-01-05.json');
+      setLocale('de');
+      expect(backupFileName(date)).toBe('synckai-sicherung-2026-01-05.json');
+    } finally {
+      setLocale(initial);
+    }
   });
 });

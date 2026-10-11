@@ -2,6 +2,7 @@
 // (onglet Crunchyroll, page de lecture de Frieren). Les tests retiennent des réponses du service worker, changent
 // la page de l'onglet et déclenchent tabs.onUpdated via `window.__e2ePanel`, pour reproduire les courses du panneau.
 import '../../src/sidepanel/sidepanel.css';
+import manifest from '../../manifest.json';
 import { airingWeekKey, weekRange, type IsoWeekday } from '../../src/shared/agenda';
 import { isRecord } from '../../src/shared/guards';
 import type { PageMediaInfo, PageMediaResult } from '../../src/shared/page-media.types';
@@ -16,7 +17,7 @@ const tab = isPanelTab(tabParam) ? tabParam : 'nowPlaying';
 const now = Date.now();
 const TAB_ID = 1;
 
-const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [] };
+const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [], openedTabs: [] };
 window.__e2e = trace;
 
 // ─── Page de l'onglet ─────────────────────────────────────────────────────
@@ -73,8 +74,19 @@ const expiredWeeks = agendaError
     )
   : {};
 
+/** `site=other` : onglet hors plateformes (ligne neutre) ; accès Netflix accordé avec `netflix=granted` */
+const offTarget = param('site') === 'other';
+const netflixOrigins = manifest.optional_host_permissions;
+const offTargetOptions = offTarget
+  ? {
+      tab: { url: 'https://example.com/', title: 'Example' },
+      permissions: { granted: true, onRequest: () => true, optional: netflixOrigins, optionalGranted: param('netflix') === 'granted' ? netflixOrigins : [] },
+    }
+  : {};
+
 const controls = installChromeMock({
   ...base,
+  ...offTargetOptions,
   storage: { ...base.storage, ...expiredWeeks },
   session: param('cache') === 'none' ? {} : base.session,
   tabMessage: (message) => {

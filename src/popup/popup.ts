@@ -196,6 +196,7 @@ const settingsView = createSettingsView({
   navigateBack: () => goBack(),
   // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
   openTab: (url) => void chrome.tabs.create({ url }),
+  closesOnBlur: true,
   accounts,
 });
 const footerSlot = h('div', { class: 'contents' });
@@ -417,7 +418,8 @@ function renderWatching(): void {
   const actions = entryActionsStore.get();
   const notice = watchingNoticeStore.get();
   const pageCard = pageCardStore.get();
-  if (!watchingChanged([watchingStore.get(), now, preferredPlayer, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
+  const netflixAccess = netflixAccessStore.get() === true;
+  if (!watchingChanged([watchingStore.get(), now, preferredPlayer, netflixAccess, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
 
   preserveFocus(watchingSlot, () =>
     watchingSlot.replaceChildren(
@@ -434,6 +436,8 @@ function renderWatching(): void {
         onSortMenu: (open) => setSortMenu(open),
         onPickSort: (value) => void pickSort(value),
         onRetry: () => void reloadWatching(),
+        netflixAccess,
+        onOpenSyncSettings: () => navigate('settings', 'sync'),
         pageCard: renderPageMediaCard({
           card: pageCard,
           now,

@@ -10,8 +10,13 @@ import type { SettingsPage } from './navigation';
 export interface SettingsHost {
   /** Quitte les Réglages (popup : écran précédent ; panneau : onglet précédent) */
   navigateBack(): void;
-  /** Ouvre une page dans un nouvel onglet (import, raccourcis clavier) */
+  /** Ouvre une page dans un nouvel onglet (import, sauvegarde) */
   openTab(url: string): void;
+  /**
+   * Vue fermée dès qu'elle perd le focus (popup) : une boîte de dialogue (fichier, « Enregistrer sous ») la ferme,
+   * l'export passe donc par la page Sauvegarde dans un onglet (BAK-05)
+   */
+  closesOnBlur: boolean;
   /** Comptes AniList / MyAnimeList (état partagé avec le reste de l'hôte) */
   accounts: AccountsController;
 }

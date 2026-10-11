@@ -11,6 +11,8 @@ export interface E2EState {
   permissionRemovals: string[][];
   /** Textes écrits dans le presse-papiers (navigator.clipboard.writeText) */
   clipboard: string[];
+  /** URL de chaque onglet ouvert (chrome.tabs.create) */
+  openedTabs: string[];
 }
 
 declare global {
@@ -39,10 +41,10 @@ export interface FrameParams {
   /** Carte « Sur cette page » : série absente des deux listes */
   pageList?: 'missing';
   /**
-   * Liste « En cours » sans cache, délai d'attente raccourci ; premier GET_WATCHING : `hang` sans réponse,
-   * `slow` répond après le délai (E2E_WATCHING_SLOW_MS)
+   * `hang` / `slow` : liste « En cours » sans cache, délai d'attente raccourci ; premier GET_WATCHING `hang` sans réponse,
+   * `slow` répond après le délai (E2E_WATCHING_SLOW_MS) ; `empty` : listes vides (état vide « Rien en cours »)
    */
-  watching?: 'hang' | 'slow';
+  watching?: 'hang' | 'slow' | 'empty';
   /**
    * +1 / −1 : `partial` = MyAnimeList échoue, le nouvel essai (`retry`) n'écrit que MAL à la progression absolue ;
    * `slow` = réponse après E2E_ADJUST_SLOW_MS (état « envoi en cours » observable)
@@ -50,6 +52,8 @@ export interface FrameParams {
   adjust?: 'partial' | 'slow';
   /** Carte « Sur cette page » : série ignorée (Netflix, pas un anime) */
   pageMedia?: 'untracked';
+  /** `missing` : profil MyAnimeList absent du cache, premier GET_MAL_VIEWER en échec réseau (UI-04) */
+  viewer?: 'missing';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */
@@ -84,6 +88,10 @@ export interface PanelFrameParams {
   agenda?: 'error';
   /** Types de messages retenus dès le démarrage, séparés par des virgules (voir `hold`) */
   hold?: string;
+  /** `other` : onglet suivi hors Crunchyroll / ADN / Netflix (ligne neutre du panneau) */
+  site?: 'other';
+  /** `granted` : accès Netflix (permission optionnelle) accordé */
+  netflix?: 'granted';
 }
 
 declare global {

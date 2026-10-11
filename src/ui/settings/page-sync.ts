@@ -8,13 +8,12 @@ import { DEFAULT_SETTINGS, effectivePlayer, PERCENTAGE_RANGE, type PanelDefaultT
 import { renderAlert } from '../alert';
 import { alertAttrs } from '../live-region';
 import { CARD, LINK, segmented } from '../kit';
+import { openShortcutSettings } from '../shortcut-settings';
 import { h } from '../dom';
 import type { SettingsContext, SettingsPageView } from './context';
 import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, toggleRow } from './rows';
 
 const log = createLogger('settings');
-
-const SHORTCUTS_URL = 'chrome://extensions/shortcuts';
 
 const PLAYER_OPTIONS = [
   { value: 'crunchyroll', label: 'Crunchyroll' },
@@ -54,6 +53,8 @@ type NetflixNotice = 'denied' | 'error' | 'disabled' | null;
 
 export function createSyncPage(ctx: SettingsContext): SettingsPageView {
   let netflixNotice: NetflixNotice = null;
+  /** Ouverture de la page des raccourcis en échec : la marche à suivre reste affichée */
+  let shortcutManual = false;
 
   function settleNetflix(notice: NetflixNotice): void {
     netflixNotice = notice;
@@ -119,21 +120,36 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
         : shortcut
           ? h('span', {}, before, h('kbd', { class: 'font-body font-bold text-ink' }, formatShortcut(shortcut)), after)
           : t('settings.shortcut.none');
+    const manual = t(__SYNCKAI_TARGET__ === 'firefox' ? 'settings.shortcut.manualFirefox' : 'settings.shortcut.manual');
     return h(
       'div',
-      { class: `flex items-center justify-between gap-2 px-3 py-1 ${DIVIDER}` },
-      h('span', { class: `min-w-0 ${HELP_TEXT}` }, text),
+      { class: DIVIDER },
       h(
-        'button',
-        {
-          class: `${LINK} inline-flex min-h-8 shrink-0 cursor-pointer items-center bg-transparent px-1 text-[12px] font-bold`,
-          attrs: { type: 'button', 'aria-label': t('settings.shortcut.editAria'), 'data-focus': 'shortcut' },
-          // Les pages chrome:// ne s'ouvrent pas via un lien : passage par l'API tabs
-          on: { click: () => ctx.host.openTab(SHORTCUTS_URL) },
-        },
-        shortcut ? t('settings.shortcut.edit') : t('settings.shortcut.set'),
+        'div',
+        { class: 'flex items-center justify-between gap-2 px-3 py-1' },
+        h('span', { class: `min-w-0 ${HELP_TEXT}` }, text),
+        h(
+          'button',
+          {
+            class: `${LINK} inline-flex min-h-8 shrink-0 cursor-pointer items-center bg-transparent px-1 text-[12px] font-bold`,
+            attrs: { type: 'button', 'aria-label': t('settings.shortcut.editAria'), 'data-focus': 'shortcut' },
+            on: { click: onEditShortcut },
+          },
+          shortcut ? t('settings.shortcut.edit') : t('settings.shortcut.set'),
+        ),
       ),
+      // Page des raccourcis impossible à ouvrir : marche à suivre (au lieu d'un clic sans effet)
+      shortcutManual && h('p', { class: `m-0 px-3 pb-2 ${HELP_TEXT}`, attrs: { role: 'status', 'data-shortcut-manual': '' } }, manual),
     );
+  }
+
+  /** Chrome : onglet chrome://extensions/shortcuts ; Firefox : commands.openShortcutSettings() (BRW-02) */
+  function onEditShortcut(): void {
+    openShortcutSettings().catch((error: unknown) => {
+      log.warn('Page des raccourcis impossible à ouvrir :', error);
+      shortcutManual = true;
+      ctx.redraw(['sync']);
+    });
   }
 
   function renderTrigger(s: SyncSettings): HTMLElement[] {

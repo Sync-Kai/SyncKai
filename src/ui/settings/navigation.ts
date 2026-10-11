@@ -1,10 +1,26 @@
 // Navigation des Réglages (accueil → sous-pages) : réducteur pur, testé sans DOM.
 // La vue applique l'effet renvoyé (focus du titre, retour du focus sur la ligne d'origine, sortie).
+import { t, type MessageKey } from '../../i18n';
 
 /** Catégories de l'accueil, dans l'ordre d'affichage */
 export const SETTINGS_CATEGORIES = ['accounts', 'sync', 'notifications', 'data', 'language', 'help'] as const;
 export type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
 export type SettingsPage = 'home' | SettingsCategory;
+
+/** Titre de chaque catégorie : ligne de l'accueil, titre de la sous-page et chemins cités ailleurs */
+export const SETTINGS_CATEGORY_TITLES: Record<SettingsCategory, MessageKey> = {
+  accounts: 'settings.section.accounts',
+  sync: 'settings.cat.sync',
+  notifications: 'settings.cat.notifications',
+  data: 'settings.cat.data',
+  language: 'settings.section.language',
+  help: 'settings.cat.help',
+};
+
+/** Chemin vers une catégorie (« Réglages › Lecture & synchro ») construit depuis les titres affichés (UX-06) */
+export function settingsPath(category: SettingsCategory): string {
+  return `${t('nav.settings')} › ${t(SETTINGS_CATEGORY_TITLES[category])}`;
+}
 
 export interface SettingsNavState {
   page: SettingsPage;
