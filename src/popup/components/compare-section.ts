@@ -126,6 +126,8 @@ function renderRow(diff: ListDiff, { state, onApply }: CompareSectionProps, busy
       h('span', { class: 'truncate text-[12px] font-bold', attrs: { title: diff.title } }, diff.title),
       h('div', { class: 'flex flex-wrap gap-1' }, ...renderChips(diff)),
       error && h('span', { class: 'line-clamp-2 text-[11px] font-semibold text-danger', attrs: { role: 'alert', title: error } }, error),
+      // Modifiée depuis l'analyse (synchro, contrôle) : valeurs affichées périmées, boutons désactivés (planApply)
+      diff.stale === true && h('span', { class: 'line-clamp-2 text-[11px] font-semibold text-butter' }, t('compare.skip.changed')),
       h(
         'div',
         { class: 'flex flex-wrap items-center justify-end gap-1' },

@@ -3,11 +3,13 @@ import {
   compareLists,
   COMPARE_STORAGE_KEY,
   findDiff,
-  isComparisonResult,
+  isAlignedNow,
   planApply,
+  sideMatches,
   skipReasonText,
   withDiffError,
   withoutDiff,
+  withStaleDiffs,
   type ApplyDiffItem,
   type ApplyDiffsPayload,
   type ApplyResult,
@@ -28,7 +30,7 @@ import {
   type CompareJob,
 } from '../shared/compare-job';
 import { isRecord } from '../shared/guards';
-import { getCachedViewer, STORAGE_KEYS } from '../shared/storage';
+import { getCachedViewer, STORAGE_KEYS, withStorageLock } from '../shared/storage';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { anilistPublicQuery, anilistQuery } from './api/client';
 import { ApiError } from './api/errors';
@@ -36,7 +38,18 @@ import { getScoreFormat } from './api/list';
 import { malRequest } from './api/mal';
 import { getViewer } from './api/viewer';
 import { parseAniListCollection, parseMalListPage } from './compare-parse';
-import { createJobLoop, createJobStore, isFatalError, trackBudgetWaits, transientKind, waitWriteSlot, type StepResult, type TransientKind } from './jobs/runner';
+import { readComparison, updateComparison } from './compare-snapshot';
+import {
+  createJobLoop,
+  createJobStore,
+  isFatalError,
+  trackBudgetWaits,
+  transientKind,
+  waitReadSlot,
+  waitWriteSlot,
+  type StepResult,
+  type TransientKind,
+} from './jobs/runner';
 import { getConnectedTrackers } from './trackers';
 import { createLogger } from '../shared/logger';
 
@@ -142,20 +155,17 @@ async function resolveMalOnly(mal: readonly MalListEntry[], knownMalIds: Readonl
 
 // ─── Stockage : dernière comparaison et tâche en cours ───────────────────
 
-async function readComparison(): Promise<ComparisonResult | null> {
-  const stored = await chrome.storage.local.get(COMPARE_STORAGE_KEY);
-  const value: unknown = stored[COMPARE_STORAGE_KEY];
-  return isComparisonResult(value) ? value : null;
-}
-
 /** Les deux comptes sont-ils toujours connectés ? (rien à écrire pour un compte déconnecté entre-temps) */
 async function hasBothTokens(): Promise<boolean> {
   const stored = await chrome.storage.local.get([STORAGE_KEYS.anilistToken, STORAGE_KEYS.malToken]);
   return stored[STORAGE_KEYS.anilistToken] !== undefined && stored[STORAGE_KEYS.malToken] !== undefined;
 }
 
-async function writeComparison(result: ComparisonResult): Promise<void> {
-  if (await hasBothTokens()) await chrome.storage.local.set({ [COMPARE_STORAGE_KEY]: result });
+/** Nouvelle analyse : remplace la comparaison, sous verrou (une invalidation en cours ne la réécrase pas) */
+function writeComparison(result: ComparisonResult): Promise<void> {
+  return withStorageLock(async () => {
+    if (await hasBothTokens()) await chrome.storage.local.set({ [COMPARE_STORAGE_KEY]: result });
+  });
 }
 
 /** Tâche d'analyse ou d'alignement (`compare:job`), écrite sous verrou par le popup (« Arrêter ») et la boucle */
@@ -215,31 +225,61 @@ export async function compareServiceLists(): Promise<CompareResult> {
 // Espacement des écritures, erreurs passagères et boucle reprenable : src/background/jobs/runner.ts
 export { ANILIST_WRITE_GAP_MS, MAL_WRITE_GAP_MS, RETRY_DELAYS_MS, transientKind, type TransientKind } from './jobs/runner';
 
-/** Traite UNE série de la tâche : écrit les valeurs de `source` sur l'autre service. Ne lève jamais. */
+/**
+ * Traite UNE série de la tâche : écrit les valeurs de `source` sur l'autre service. Ne lève jamais.
+ * Les deux entrées sont relues juste avant l'écriture : si l'une a changé depuis l'analyse (synchro en direct,
+ * contrôle, autre appareil), la série est ignorée et marquée « à réanalyser » ; l'instantané n'est jamais réécrit.
+ */
 async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt: (reason: TransientKind) => boolean): Promise<StepResult> {
   const at = (): number => Date.now();
   const stop = (message: string): StepResult => ({ kind: 'event', event: { type: 'stop', message, at: at() }, stop: message });
+  const skipped = (message: string): StepResult => ({ kind: 'event', event: { type: 'item', outcome: 'skipped', message, at: at() }, stop: null });
   const comparison = await readComparison();
   if (!comparison) return stop(t('compare.error.noComparison'));
   const diff = findDiff(comparison, item);
   // Déjà alignée (autre action, analyse relancée) : rien à faire
-  if (!diff) return { kind: 'event', event: { type: 'item', outcome: 'skipped', message: t('compare.skip.nothing'), at: at() }, stop: null };
+  if (!diff) return skipped(t('compare.skip.nothing'));
 
   const plan = planApply(diff, source);
   if (plan.action === 'skip') {
     const message = skipReasonText(plan.reason, source);
     log.info(`Alignement ignoré : ${diff.title} (${message})`);
-    return { kind: 'event', event: { type: 'item', outcome: 'skipped', message, at: at() }, stop: null };
+    return skipped(message);
   }
-  const tracker = (await getConnectedTrackers()).find((tr) => tr.id === plan.target);
-  if (!tracker) return stop(t('compare.error.notConnected'));
+  const trackers = await getConnectedTrackers();
+  const tracker = trackers.find((tr) => tr.id === plan.target);
+  const origin = trackers.find((tr) => tr.id === source);
+  // Source présente dans l'instantané : son identifiant est connu (fiche AniList ou id MAL)
+  const sourceId = source === 'mal' ? diff.malId : diff.mediaId;
+  if (!tracker || !origin) return stop(t('compare.error.notConnected'));
+  if (sourceId === null) return skipped(skipReasonText('no-equivalent', source));
 
+  // Créneau d'écriture pris avant les relectures : aucune attente entre la relecture de la cible et l'écriture
   await waitWriteSlot(plan.target);
   const label = TRACKER_LABELS[plan.target];
   try {
+    // Verrou par fiche (withEntryLock, pas encore disponible) : il envelopperait les relectures et l'écriture ci-dessous
+    await waitReadSlot(source);
+    const from = (await origin.getEntry(sourceId)).entry;
+    await waitReadSlot(plan.target);
+    const to = (await tracker.getEntry(plan.id)).entry;
+    const { scoreFormat } = comparison;
+
+    if (isAlignedNow(source === 'anilist' ? from : to, source === 'mal' ? from : to, scoreFormat)) {
+      log.info(`Alignement inutile : ${diff.title} est déjà alignée`);
+      await updateComparison((result) => withoutDiff(result, diff.key));
+      return skipped(t('compare.skip.nothing'));
+    }
+    if (!sideMatches(diff[source], from, source, scoreFormat) || !sideMatches(diff[plan.target], to, plan.target, scoreFormat)) {
+      const message = skipReasonText('changed', source);
+      log.info(`Alignement ignoré : ${diff.title} modifiée depuis l'analyse`, { analyse: { [source]: diff[source], [plan.target]: diff[plan.target] }, relu: { [source]: from, [plan.target]: to } });
+      await updateComparison((result) => withStaleDiffs(result, (d) => d.key === diff.key));
+      return skipped(message);
+    }
+
     await tracker.saveEntry(plan.id, plan.write);
     log.info(`${label} : ${diff.title} aligné sur ${TRACKER_LABELS[source]}${plan.create ? ' (ajout)' : ''}`, plan.write);
-    await writeComparison(withoutDiff((await readComparison()) ?? comparison, diff.key));
+    await updateComparison((result) => withoutDiff(result, diff.key));
     return { kind: 'event', event: { type: 'item', outcome: 'updated', at: at() }, stop: null };
   } catch (error: unknown) {
     const message = error instanceof ApiError ? error.message : t('error.unexpected');
@@ -250,7 +290,7 @@ async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt
     }
     // Journal local : chaque échec est consigné (rapport de diagnostic) ; la série reste listée avec son erreur
     log.warn(`${label} : échec de l’alignement de ${diff.title} :`, message);
-    await writeComparison(withDiffError((await readComparison()) ?? comparison, diff.key, message));
+    await updateComparison((result) => withDiffError(result, diff.key, message));
     // Service surchargé : la série échoue mais la tâche continue ; session expirée, réseau, limite persistante : arrêt
     return { kind: 'event', event: { type: 'item', outcome: 'failed', message, at: at() }, stop: isFatalError(error) ? message : null };
   }

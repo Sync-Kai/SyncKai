@@ -168,6 +168,7 @@
   "compare.result.updated_other": "{count} séries alignées",
   "compare.section": "Écarts AniList ↔ MAL",
   "compare.showMore": "Afficher plus ({count})",
+  "compare.skip.changed": "Modifiée depuis l’analyse : relance l’analyse avant d’aligner cette série.",
   "compare.skip.missingSource": "Absente de {service} : rien à recopier (aucune entrée n’est supprimée).",
   "compare.skip.noEquivalent": "Pas de fiche équivalente sur l’autre service.",
   "compare.skip.noScore": "Pas de note sur {service} : la note existante est conservée.",

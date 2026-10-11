@@ -2,10 +2,34 @@ import { getMalToken, getValidToken } from '../../shared/storage';
 import type { TrackerId } from '../../shared/tracker.types';
 import { getMediaListInfo, getScoreFormat, saveListEntry, saveListStatus, saveProgress, saveScore } from '../api/list';
 import { getMalAnime, saveMalEntry, saveMalListStatus, saveMalProgress, saveMalScore } from '../api/mal';
+import { markSeriesStale } from '../compare-snapshot';
+import type { ListEntryState } from '../sync/rules';
 import { toAniListScore, toMalScore } from '../sync/score';
 import type { TrackerService } from './tracker';
 
-export const anilistTracker: TrackerService = {
+/**
+ * Toute écriture réussie hors alignement (synchro en direct ou en file, carte vérifiée, +1/−1, statut, note,
+ * revisionnage, import) rend périmé l'écart de la comparaison des listes pour cette fiche. Fait ici, une seule
+ * fois pour tous les chemins d'écriture ; `saveEntry` (l'alignement) retire lui-même l'écart aligné.
+ */
+function invalidatingComparison(tracker: TrackerService): TrackerService {
+  const then =
+    <A extends unknown[]>(write: (id: number, ...args: A) => Promise<ListEntryState>) =>
+    async (id: number, ...args: A): Promise<ListEntryState> => {
+      const saved = await write(id, ...args);
+      await markSeriesStale(tracker.id, id);
+      return saved;
+    };
+  return {
+    ...tracker,
+    saveProgress: then(tracker.saveProgress),
+    saveScore: then(tracker.saveScore),
+    startRewatch: then(tracker.startRewatch),
+    saveStatus: then(tracker.saveStatus),
+  };
+}
+
+export const anilistTracker: TrackerService = invalidatingComparison({
   id: 'anilist',
   isConnected: async () => (await getValidToken()) !== null,
   resolveId: (media) => media.mediaId,
@@ -19,9 +43,9 @@ export const anilistTracker: TrackerService = {
   startRewatch: (id, progress) => saveProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveListStatus(id, status, progress, repeat),
   saveEntry: (id, write) => saveListEntry(id, write),
-};
+});
 
-export const malTracker: TrackerService = {
+export const malTracker: TrackerService = invalidatingComparison({
   id: 'mal',
   // Token présent (même expiré) : il sera renouvelé à la première requête
   isConnected: async () => (await getMalToken()) !== null,
@@ -32,7 +56,7 @@ export const malTracker: TrackerService = {
   startRewatch: (id, progress) => saveMalProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveMalListStatus(id, status, progress, repeat),
   saveEntry: (id, write) => saveMalEntry(id, write),
-};
+});
 
 const TRACKERS: readonly TrackerService[] = [anilistTracker, malTracker];
 

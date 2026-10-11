@@ -68,6 +68,8 @@ export interface ListDiff {
   anilist: DiffSide | null;
   mal: DiffSide | null;
   fields: DiffField[];
+  /** Fiche modifiée depuis l'analyse (synchro, contrôle, état relu différent) : à réanalyser, jamais alignée */
+  stale?: boolean;
 }
 
 export interface CompareCounts {
@@ -230,7 +232,7 @@ export interface EntryWrite {
   repeat?: number;
 }
 
-export type ApplySkipReason = 'missing-source' | 'no-equivalent' | 'no-score' | 'nothing';
+export type ApplySkipReason = 'missing-source' | 'no-equivalent' | 'no-score' | 'nothing' | 'changed';
 
 export type ApplyPlan =
   | { action: 'write'; target: TrackerId; id: number; write: EntryWrite; create: boolean }
@@ -244,9 +246,11 @@ export const otherService = (service: TrackerId): TrackerId => (service === 'ani
  * - série absente de la destination : créée avec le statut, la progression, la note (si la source en a une)
  *   et le compteur de revisionnages de la source ;
  * - sinon seuls les champs en écart sont écrits (statut + progression ensemble, pour un état cohérent) ;
- * - une note n'est recopiée que si la source en a une : « pas de note » n'efface jamais une note existante.
+ * - une note n'est recopiée que si la source en a une : « pas de note » n'efface jamais une note existante ;
+ * - série modifiée depuis l'analyse : rien n'est écrit (valeurs périmées), il faut relancer l'analyse.
  */
 export function planApply(diff: ListDiff, source: TrackerId): ApplyPlan {
+  if (diff.stale === true) return { action: 'skip', reason: 'changed' };
   const target = otherService(source);
   const from = diff[source];
   const to = diff[target];
@@ -298,6 +302,48 @@ export function withDiffError(result: ComparisonResult, key: string, message: st
   return { ...result, errors: message === null ? errors : { ...errors, [key]: message } };
 }
 
+/**
+ * Marque « à réanalyser » les séries visées par `matches` (leur erreur d'alignement, désormais caduque, est retirée).
+ * Renvoie `result` lui-même si rien ne change : l'appelant n'écrit alors rien.
+ */
+export function withStaleDiffs(result: ComparisonResult, matches: (diff: ListDiff) => boolean): ComparisonResult {
+  const keys = new Set(result.items.filter((d) => d.stale !== true && matches(d)).map((d) => d.key));
+  if (keys.size === 0) return result;
+  const errors = Object.fromEntries(Object.entries(result.errors).filter(([key]) => !keys.has(key)));
+  return { ...result, items: result.items.map((d) => (keys.has(d.key) ? { ...d, stale: true } : d)), errors };
+}
+
+/** Entrée relue sur un service juste avant l'alignement (forme de `ListEntryState`, notes brutes du service) */
+export interface LiveEntry {
+  status: ListStatus;
+  progress: number;
+  repeat?: number;
+  /** Note brute (format du profil AniList, entier MAL), absente si non notée */
+  score?: number;
+}
+
+/**
+ * L'entrée relue correspond-elle encore à l'instantané de l'analyse (présence, statut, progression, note, revisionnages) ?
+ * Sinon les valeurs de l'instantané sont périmées : les écrire pourrait faire reculer la liste.
+ */
+export function sideMatches(side: DiffSide | null, entry: LiveEntry | null, service: TrackerId, scoreFormat: AniListScoreFormat): boolean {
+  if (side === null || entry === null) return side === entry;
+  const score = entry.score === undefined ? null : service === 'anilist' ? aniListScoreOn10(entry.score, scoreFormat) : entry.score;
+  return (
+    entry.status === side.status &&
+    entry.progress === side.progress &&
+    score === side.score &&
+    // Compteur inconnu (absent de la réponse) : pas comparé
+    (entry.repeat === undefined || entry.repeat === side.repeat)
+  );
+}
+
+/** Les deux entrées relues sont-elles déjà alignées (mêmes règles que l'analyse) ? */
+export function isAlignedNow(anilist: LiveEntry | null, mal: LiveEntry | null, scoreFormat: AniListScoreFormat): boolean {
+  if (anilist === null || mal === null) return false;
+  return anilist.progress === mal.progress && anilist.status === mal.status && scoresMatch(anilist.score ?? null, mal.score ?? null, scoreFormat);
+}
+
 // ─── Validation (stockage, messages) ──────────────────────────────────────
 
 const LIST_STATUSES: readonly ListStatus[] = ['CURRENT', 'PLANNING', 'COMPLETED', 'DROPPED', 'PAUSED', 'REPEATING'];
@@ -330,7 +376,8 @@ function isListDiff(value: unknown): value is ListDiff {
     isDiffSide(value.anilist) &&
     isDiffSide(value.mal) &&
     Array.isArray(value.fields) &&
-    value.fields.every((f) => DIFF_FIELDS.some((d) => d === f))
+    value.fields.every((f) => DIFF_FIELDS.some((d) => d === f)) &&
+    (value.stale === undefined || typeof value.stale === 'boolean')
   );
 }
 
@@ -385,6 +432,8 @@ export function skipReasonText(reason: ApplySkipReason, source: TrackerId): stri
       return t('compare.skip.noScore', { service });
     case 'nothing':
       return t('compare.skip.nothing');
+    case 'changed':
+      return t('compare.skip.changed');
   }
 }
 

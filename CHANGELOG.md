@@ -11,6 +11,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Film Netflix : la fiche AniList liée au film l’emporte sur une série TV au même titre ; une fiche trouvée par son seul titre passe par une carte *À vérifier*.
 - Les correspondances Netflix enregistrées par la 2.1.0 sont oubliées à la mise à jour et se recalculent toutes seules au prochain épisode.
 - Si tu regardes une suite publiée à part sur Crunchyroll (Naruto Shippuden, Bleach TYBW…), vérifie dans AniList et MAL que la série précédente n’a pas reçu ta progression, et utilise *Réglages › Mes données › Correspondances › Oublier* si une correspondance est fausse.
+- Écarts AniList ↔ MAL : « Garder AniList », « Garder MAL » et « Tout aligner » relisent les deux listes juste avant d’écrire. Une série modifiée depuis l’analyse (épisode regardé, +1/−1, statut, note, autre appareil) est ignorée avec le message *Modifiée depuis l’analyse* au lieu d’être réécrite avec d’anciennes valeurs : l’alignement ne fait plus reculer la progression ni le statut.
+- Après une synchro ou un contrôle sur une série, son écart affiché dans Activité est marqué *Modifiée depuis l’analyse* et ne peut plus être aligné avant une nouvelle analyse.
 
 ## [2.1.0] - 2026-10-10
 

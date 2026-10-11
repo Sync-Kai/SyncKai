@@ -168,6 +168,7 @@
   "compare.result.updated_other": "{count} series matched",
   "compare.section": "AniList ↔ MAL differences",
   "compare.showMore": "Show more ({count})",
+  "compare.skip.changed": "Changed since the analysis: run it again before aligning this series.",
   "compare.skip.missingSource": "Not on {service}: nothing to copy (entries are never deleted).",
   "compare.skip.noEquivalent": "No matching entry on the other service.",
   "compare.skip.noScore": "No score on {service}: the existing score is kept.",

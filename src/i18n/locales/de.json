@@ -168,6 +168,7 @@
   "compare.result.updated_other": "{count} Serien angeglichen",
   "compare.section": "Abweichungen AniList ↔ MAL",
   "compare.showMore": "Mehr anzeigen ({count})",
+  "compare.skip.changed": "Seit der Analyse geändert: Starte die Analyse neu, bevor du diese Serie angleichst.",
   "compare.skip.missingSource": "Fehlt auf {service}: nichts zu kopieren (Einträge werden nie gelöscht).",
   "compare.skip.noEquivalent": "Kein passender Eintrag beim anderen Dienst.",
   "compare.skip.noScore": "Keine Bewertung auf {service}: Die vorhandene Bewertung bleibt.",

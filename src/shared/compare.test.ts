@@ -6,13 +6,16 @@ import {
   matchesFilter,
   compareLists,
   findDiff,
+  isAlignedNow,
   isApplyDiffsPayload,
   isComparisonResult,
   malScoreFrom,
   planApply,
   scoresMatch,
+  sideMatches,
   withDiffError,
   withoutDiff,
+  withStaleDiffs,
   type AniListListEntry,
   type ListDiff,
   type MalListEntry,
@@ -204,6 +207,12 @@ describe('planApply', () => {
     expect(planApply(diff({ anilist: null, fields: ['presence'] }), 'anilist')).toEqual({ action: 'skip', reason: 'missing-source' });
   });
 
+  it('série marquée « à réanalyser » : rien, dans les deux sens', () => {
+    expect(planApply(diff({ stale: true }), 'anilist')).toEqual({ action: 'skip', reason: 'changed' });
+    expect(planApply(diff({ stale: true }), 'mal')).toEqual({ action: 'skip', reason: 'changed' });
+    expect(applicableDiffs([diff({ stale: true })], 'anilist')).toEqual([]);
+  });
+
   it('destination AniList sans fiche connue : rien', () => {
     expect(planApply(diff({ mediaId: null }), 'mal')).toEqual({ action: 'skip', reason: 'no-equivalent' });
   });
@@ -238,11 +247,52 @@ describe('mise à jour de la comparaison', () => {
     expect(withDiffError(errored, 'mal:101', null).errors).toEqual({});
   });
 
+  it('withStaleDiffs marque les séries visées et retire leur erreur ; inchangée si rien ne correspond', () => {
+    const errored = withDiffError(result, 'mal:101', 'boom');
+    const next = withStaleDiffs(errored, (d) => d.malId === 101);
+    expect(next.items.find((d) => d.key === 'mal:101')?.stale).toBe(true);
+    expect(next.items.find((d) => d.key === 'mal:102')?.stale).toBeUndefined();
+    expect(next.errors).toEqual({});
+    expect(next.counts).toEqual(result.counts);
+    expect(withStaleDiffs(next, (d) => d.malId === 101)).toBe(next);
+    expect(withStaleDiffs(result, () => false)).toBe(result);
+  });
+
   it('isComparisonResult valide le stockage', () => {
     expect(isComparisonResult(result)).toBe(true);
+    expect(isComparisonResult(withStaleDiffs(result, () => true))).toBe(true);
+    expect(isComparisonResult({ ...result, items: [{ ...result.items[0], stale: 'oui' }] })).toBe(false);
     expect(isComparisonResult({ ...result, scoreFormat: 'X' })).toBe(false);
     expect(isComparisonResult({ ...result, items: [{ ...result.items[0], fields: ['nope'] }] })).toBe(false);
     expect(isComparisonResult(null)).toBe(false);
+  });
+});
+
+describe('relecture avant alignement', () => {
+  const side = { status: 'CURRENT', progress: 7, score: 8.5, repeat: 1 } as const;
+
+  it('sideMatches : même présence, statut, progression, note (sur 10) et revisionnages', () => {
+    expect(sideMatches(side, { status: 'CURRENT', progress: 7, score: 85, repeat: 1 }, 'anilist', 'POINT_100')).toBe(true);
+    expect(sideMatches(side, { status: 'CURRENT', progress: 8, score: 85, repeat: 1 }, 'anilist', 'POINT_100')).toBe(false);
+    expect(sideMatches(side, { status: 'COMPLETED', progress: 7, score: 85, repeat: 1 }, 'anilist', 'POINT_100')).toBe(false);
+    expect(sideMatches(side, { status: 'CURRENT', progress: 7, repeat: 1 }, 'anilist', 'POINT_100')).toBe(false);
+    expect(sideMatches(side, { status: 'CURRENT', progress: 7, score: 85, repeat: 2 }, 'anilist', 'POINT_100')).toBe(false);
+    // Compteur absent de la réponse : non comparé
+    expect(sideMatches(side, { status: 'CURRENT', progress: 7, score: 85 }, 'anilist', 'POINT_100')).toBe(true);
+    // Note MAL : entier brut
+    expect(sideMatches({ ...side, score: 8 }, { status: 'CURRENT', progress: 7, score: 8, repeat: 1 }, 'mal', 'POINT_100')).toBe(true);
+  });
+
+  it('sideMatches : présence', () => {
+    expect(sideMatches(null, null, 'mal', 'POINT_10')).toBe(true);
+    expect(sideMatches(null, { status: 'PLANNING', progress: 0 }, 'mal', 'POINT_10')).toBe(false);
+    expect(sideMatches(side, null, 'mal', 'POINT_10')).toBe(false);
+  });
+
+  it('isAlignedNow : mêmes règles que l’analyse (note MAL arrondie à l’inférieur)', () => {
+    expect(isAlignedNow({ status: 'CURRENT', progress: 8, score: 85 }, { status: 'CURRENT', progress: 8, score: 8 }, 'POINT_100')).toBe(true);
+    expect(isAlignedNow({ status: 'CURRENT', progress: 8 }, { status: 'CURRENT', progress: 7 }, 'POINT_100')).toBe(false);
+    expect(isAlignedNow(null, { status: 'CURRENT', progress: 8 }, 'POINT_100')).toBe(false);
   });
 });
 
