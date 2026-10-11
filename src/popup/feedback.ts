@@ -1,6 +1,6 @@
 import { t, type MessageKey } from '../i18n';
 import { describeOutcome, type FeedbackTone } from '../shared/sync-feedback';
-import type { AddListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import type { InlineFeedback } from './state';
 
@@ -17,20 +17,31 @@ function detailOf(outcome: SyncOutcome): string {
   return message ? `${title} — ${message}` : title;
 }
 
-/** Texte court d'un résultat de +1 / −1 (« Ép. 5 vu »), le détail complet passant en infobulle */
-export function adjustFeedback(outcome: SyncOutcome, delta: 1 | -1): InlineFeedback {
+/**
+ * Texte court d'un résultat de +1 / −1 (« Ép. 5 vu »), le détail complet passant en infobulle.
+ * Service où la série est absente : nommé (rien n'y a été écrit). Échec partiel : `retry` porte la progression
+ * absolue du service qui a réussi, à écrire sur les seuls services en échec. `retried` : nouvel essai envoyé,
+ * reproposé s'il échoue encore (recliquer +1 décalerait le service déjà à jour).
+ */
+export function adjustFeedback(outcome: SyncOutcome, delta: 1 | -1, retried?: AdjustRetry): InlineFeedback {
   const detail = detailOf(outcome);
   switch (outcome.status) {
     case 'synced': {
       const written = outcome.results.flatMap((r) => (r.outcome.status === 'updated' || r.outcome.status === 'up-to-date' ? [r.outcome.progress] : []));
-      const failed = outcome.results.filter((r) => r.outcome.status === 'error').map((r) => TRACKER_LABELS[r.service]);
+      const failed = outcome.results.filter((r) => r.outcome.status === 'error').map((r) => r.service);
+      const absent = outcome.results.filter((r) => r.outcome.status === 'skipped' && r.outcome.code === 'not-in-list').map((r) => TRACKER_LABELS[r.service]);
       const progress = written[0];
       if (progress === undefined) {
-        return { tone: failed.length > 0 ? 'error' : 'warning', text: failed.length > 0 ? t('inline.updateFailed') : t('inline.nothingChanged'), detail };
+        if (failed.length > 0) return { tone: 'error', text: t('inline.updateFailed'), detail, ...(retried ? { retry: retried } : {}) };
+        return { tone: 'warning', text: absent.length > 0 && absent.length === outcome.results.length ? t('engagement.notInList') : t('inline.nothingChanged'), detail };
       }
       const text = t(delta === 1 ? 'inline.watched' : 'inline.backTo', { progress });
-      // Succès partiel : le service en échec est nommé (relance automatique éventuelle dans le détail)
-      if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+      // Succès partiel : le service en échec est nommé, « Réessayer » y écrit la même progression
+      if (failed.length > 0) {
+        const services = failed.map((s) => TRACKER_LABELS[s]).join(', ');
+        return { tone: 'warning', text: t('inline.partial', { text, services }), detail, retry: { delta, services: failed, progress } };
+      }
+      if (absent.length > 0) return { tone: 'info', text: t('inline.notInListOn', { text, services: absent.join(', ') }), detail };
       return { tone: 'success', text, detail };
     }
     case 'excluded':
@@ -42,7 +53,7 @@ export function adjustFeedback(outcome: SyncOutcome, delta: 1 | -1): InlineFeedb
     case 'needs-review':
       return { tone: 'warning', text: t('inline.toCheck'), detail };
     case 'error':
-      return { tone: 'error', text: outcome.message, detail };
+      return { tone: 'error', text: outcome.message, detail, ...(retried ? { retry: retried } : {}) };
   }
 }
 

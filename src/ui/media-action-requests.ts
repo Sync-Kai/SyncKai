@@ -1,7 +1,7 @@
 import { t } from '../i18n';
-import { sendMessage } from '../shared/messages';
+import { sendMessage, type AdjustProgressPayload } from '../shared/messages';
 import type { PageMediaView } from '../shared/page-media.types';
-import type { AddListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { addFeedback, adjustFeedback, ratingFeedback, statusFeedback } from '../popup/feedback';
 import type { InlineFeedback } from '../popup/state';
 import type { MediaAction } from './media-actions';
@@ -11,7 +11,8 @@ import { formatStarValue } from './rating';
 
 export type MediaActionRequest =
   | { kind: 'add'; status: AddListStatus }
-  | { kind: 'adjust'; delta: 1 | -1 }
+  /** `retry` : nouvel essai après un échec partiel (progression absolue sur les seuls services en échec) */
+  | { kind: 'adjust'; delta: 1 | -1; retry?: AdjustRetry }
   | { kind: 'status'; status: ListStatusChange }
   | { kind: 'rate'; value: number };
 
@@ -29,12 +30,17 @@ export function mediaActionKey(request: MediaActionRequest): MediaAction {
   }
 }
 
+/** Message ADJUST_PROGRESS : delta, ou nouvel essai ciblé (`retry`) ; partagé avec « En cours » du popup */
+export function adjustPayload(mediaId: number | null, malId: number | null, delta: 1 | -1, retry?: AdjustRetry): AdjustProgressPayload {
+  return retry ? { mediaId, malId, delta, retry: { services: retry.services, progress: retry.progress } } : { mediaId, malId, delta };
+}
+
 function send(request: MediaActionRequest, { media }: PageMediaView): Promise<SyncOutcome> {
   switch (request.kind) {
     case 'add':
       return sendMessage('ADD_TO_LIST', { mediaId: media.mediaId, malId: media.idMal, status: request.status });
     case 'adjust':
-      return sendMessage('ADJUST_PROGRESS', { mediaId: media.mediaId, malId: media.idMal, delta: request.delta });
+      return sendMessage('ADJUST_PROGRESS', adjustPayload(media.mediaId, media.idMal, request.delta, request.retry));
     case 'status': {
       // Affiche de la carte « À noter » : https uniquement (refusée sinon par la validation du message)
       const coverUrl = media.coverUrl?.startsWith('https://') && media.coverUrl.length <= 2000 ? media.coverUrl : null;
@@ -50,7 +56,7 @@ function toFeedback(request: MediaActionRequest, outcome: SyncOutcome, view: Pag
     case 'add':
       return addFeedback(outcome, request.status);
     case 'adjust':
-      return adjustFeedback(outcome, request.delta);
+      return adjustFeedback(outcome, request.delta, request.retry);
     case 'status':
       return statusFeedback(outcome, request.status);
     case 'rate': {

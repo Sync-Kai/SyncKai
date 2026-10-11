@@ -14,6 +14,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Écarts AniList ↔ MAL : « Garder AniList », « Garder MAL » et « Tout aligner » relisent les deux listes juste avant d’écrire. Une série modifiée depuis l’analyse (épisode regardé, +1/−1, statut, note, autre appareil) est ignorée avec le message *Modifiée depuis l’analyse* au lieu d’être réécrite avec d’anciennes valeurs : l’alignement ne fait plus reculer la progression ni le statut.
 - Après une synchro ou un contrôle sur une série, son écart affiché dans Activité est marqué *Modifiée depuis l’analyse* et ne peut plus être aligné avant une nouvelle analyse.
 - Les écritures simultanées sur une même série passent l’une après l’autre (synchro en direct, nouvelle tentative d’une synchro en attente, +1/−1, statut, note, revisionnage, import Crunchyroll, alignement AniList ↔ MAL) : deux +1 cliqués en même temps depuis le panneau et le popup comptent bien pour deux, et un ancien épisode renvoyé au retour de la connexion ou par l’import ne fait plus reculer la progression.
+- +1 / −1 n’ajoutent plus la série à l’épisode 1 sur le service où elle est absente de ta liste : ce service est laissé tel quel et le retour l’indique (*Ép. 8 vu · absente de MyAnimeList*). L’ajout reste réservé aux boutons *Ajouter*.
+- +1 / −1 réussi sur un service et en échec sur l’autre : un bouton *Réessayer* écrit le même épisode sur le seul service en échec, au lieu de recliquer +1 et de décaler celui qui avait réussi.
+- +1 sur le dernier épisode d’un revisionnage le termine comme la synchro automatique : *Terminé* avec un revisionnage de plus sur AniList, et MyAnimeList quitte *Re-watching* avec son compteur incrémenté. Les séries laissées en *Re-watching* sur MyAnimeList par l’ancien comportement sont à corriger à la main sur MyAnimeList.
+- *Corriger* une synchro sur une série en revisionnage la laisse en revisionnage (et le termine, compteur compris, au dernier épisode) ; MyAnimeList reçoit toujours l’état du revisionnage explicitement.
+- La carte *À noter* reste dans Activité tant qu’un service n’a pas enregistré la note (MyAnimeList hors ligne, par exemple) ou si la série n’est dans aucune de tes listes : la note peut être renvoyée plus tard, ou la carte ignorée.
 
 ## [2.1.0] - 2026-10-10
 

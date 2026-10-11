@@ -240,6 +240,20 @@ describe('popup (bout en bout)', () => {
     );
   });
 
+  it('« +1 » en échec partiel : « Réessayer » envoie la progression absolue au seul service en échec', async () => {
+    const page = await openPopup({ adjust: 'partial' });
+    await click(page, `plus-${SOLO}`);
+    expect((await waitForMessage(page, 'ADJUST_PROGRESS')).payload).toEqual({ mediaId: 176496, malId: 58567, delta: 1 });
+    await page.waitForSelector(sel('watching-retry'));
+    expect(await attr(page, sel('watching-retry'), 'aria-label')).toBe(fr('inline.retryOn', { services: 'MyAnimeList' }));
+
+    await click(page, 'watching-retry');
+    const retry = await waitForMessage(page, 'ADJUST_PROGRESS', 2);
+    // Pas de delta réappliqué : AniList (déjà à 3) n'est pas visé
+    expect(retry.payload).toEqual({ mediaId: 176496, malId: 58567, delta: 1, retry: { services: ['mal'], progress: 3 } });
+    await page.waitForSelector(sel('watching-retry'), { hidden: true });
+  });
+
   it('lecteur ADN : « Ouvrir » reste sur Crunchyroll sans lien ADN, le menu propose « Chercher sur ADN », un lien appris bascule « Ouvrir »', async () => {
     const page = await openPopup();
     const openOn = (platform: string): string => `a[aria-label="${fr('watching.openOnAria', { title: 'Solo Leveling', platform })}"]`;

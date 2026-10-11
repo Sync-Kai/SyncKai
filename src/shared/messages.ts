@@ -30,6 +30,14 @@ export interface AdjustProgressPayload {
   mediaId: number | null;
   malId: number | null;
   delta: 1 | -1;
+  /** Nouvel essai après un échec partiel : progression absolue écrite sur ces seuls services (sans delta) */
+  retry?: AdjustRetryTarget;
+}
+
+/** Cible d'un nouvel essai de +1 / −1 (voir AdjustRetry) */
+export interface AdjustRetryTarget {
+  services: TrackerId[];
+  progress: number;
 }
 
 export interface SetListStatusPayload {
@@ -165,12 +173,23 @@ const isSearchPayload = (p: unknown): p is { query: string } =>
 const isResolveReviewPayload = (p: unknown): p is ResolveReviewPayload =>
   isRecord(p) && isKey(p.key) && isPositiveInt(p.mediaId) && isPositiveInt(p.progress);
 const isWatchingPayload = (p: unknown): p is { service: TrackerId } => isRecord(p) && isTrackerId(p.service);
+const isAdjustRetryTarget = (r: unknown): r is AdjustRetryTarget =>
+  isRecord(r) &&
+  Array.isArray(r.services) &&
+  r.services.length > 0 &&
+  r.services.every(isTrackerId) &&
+  new Set(r.services).size === r.services.length &&
+  typeof r.progress === 'number' &&
+  Number.isInteger(r.progress) &&
+  r.progress >= 0 &&
+  r.progress <= 100_000;
 const isAdjustProgressPayload = (p: unknown): p is AdjustProgressPayload =>
   isRecord(p) &&
   (p.mediaId === null || isPositiveInt(p.mediaId)) &&
   (p.malId === null || isPositiveInt(p.malId)) &&
   (p.mediaId !== null || p.malId !== null) &&
-  (p.delta === 1 || p.delta === -1);
+  (p.delta === 1 || p.delta === -1) &&
+  (p.retry === undefined || isAdjustRetryTarget(p.retry));
 const isSetListStatusPayload = (p: unknown): p is SetListStatusPayload =>
   isRecord(p) &&
   (p.mediaId === null || isPositiveInt(p.mediaId)) &&

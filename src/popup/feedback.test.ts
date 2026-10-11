@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addFeedback, ratingFeedback, statusFeedback } from './feedback';
+import { addFeedback, adjustFeedback, ratingFeedback, statusFeedback } from './feedback';
 import { setLocale } from '../i18n';
 
 // Textes attendus en français
@@ -89,5 +89,30 @@ describe('addFeedback', () => {
       tone: 'info',
       text: 'Déjà dans ta liste',
     });
+  });
+});
+
+describe('adjustFeedback', () => {
+  const anilistOk = { service: 'anilist', outcome: { status: 'updated', progress: 8, completed: false } } as const;
+  const malError = { service: 'mal', outcome: { status: 'error', message: 'Réseau' } } as const;
+  const malAbsent = { service: 'mal', outcome: { status: 'skipped', reason: 'Absente de ta liste', code: 'not-in-list' } } as const;
+
+  it('service où la série est absente : nommé, rien n’y est écrit', () => {
+    expect(adjustFeedback({ status: 'synced', mediaTitle: 'F', results: [anilistOk, malAbsent] }, 1)).toMatchObject({ tone: 'info', text: 'Ép. 8 vu · absente de MyAnimeList' });
+    expect(adjustFeedback({ status: 'synced', mediaTitle: 'F', results: [malAbsent] }, 1)).toMatchObject({ tone: 'warning', text: 'Absente de ta liste' });
+  });
+
+  it('échec partiel : « Réessayer » porte la progression absolue pour le seul service en échec', () => {
+    const feedback = adjustFeedback({ status: 'synced', mediaTitle: 'F', results: [anilistOk, malError] }, 1);
+    expect(feedback).toMatchObject({ tone: 'warning', text: 'Ép. 8 vu · échec MyAnimeList', retry: { delta: 1, services: ['mal'], progress: 8 } });
+  });
+
+  it('nouvel essai encore en échec : « Réessayer » reproposé, jamais de retour au delta', () => {
+    const retry = { delta: 1, services: ['mal'], progress: 8 } as const;
+    const again = { delta: 1 as const, services: [...retry.services], progress: retry.progress };
+    expect(adjustFeedback({ status: 'synced', mediaTitle: 'F', results: [malError] }, 1, again)).toMatchObject({ tone: 'error', retry: again });
+    expect(adjustFeedback({ status: 'error', message: 'Hors ligne' }, 1, again)).toMatchObject({ tone: 'error', retry: again });
+    // Succès complet : plus de bouton
+    expect(adjustFeedback({ status: 'synced', mediaTitle: 'F', results: [{ service: 'mal', outcome: { status: 'updated', progress: 8, completed: false } }] }, 1, again)).not.toHaveProperty('retry');
   });
 });

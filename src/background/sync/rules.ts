@@ -19,6 +19,25 @@ export type UpdateDecision =
   | { action: 'update'; progress: number; status: WriteStatus; repeat?: number }
   | { action: 'skip'; reason: 'already-completed' | 'up-to-date' };
 
+/** Statut à écrire avec une progression ; `repeat` seulement à la fin d'un revisionnage */
+export interface ProgressWrite {
+  status: WriteStatus;
+  repeat?: number;
+}
+
+/**
+ * Statut qui accompagne l'écriture d'une progression (pur, testable), commun à la synchro, à la correction
+ * et aux contrôles +1 / −1 :
+ * - dernier épisode atteint : COMPLETED ; si l'entrée était en revisionnage (REPEATING), compteur de revisionnages + 1
+ * - avant le dernier épisode : le revisionnage continue (REPEATING), sinon CURRENT
+ */
+export function progressWrite(entry: ListEntryState | null, progress: number, totalEpisodes: number | null): ProgressWrite {
+  const isLastEpisode = totalEpisodes !== null && progress >= totalEpisodes;
+  const repeating = entry?.status === 'REPEATING';
+  if (isLastEpisode) return repeating ? { status: 'COMPLETED', repeat: (entry.repeat ?? 0) + 1 } : { status: 'COMPLETED' };
+  return { status: repeating ? 'REPEATING' : 'CURRENT' };
+}
+
 /**
  * Règles métier de mise à jour de la liste :
  * - ne jamais faire reculer la progression (retour en arrière)
@@ -29,6 +48,7 @@ export type UpdateDecision =
  *
  * `isCorrection` : l'utilisateur corrige une valeur écrite par SyncKai sur cette même fiche.
  * Il a vérifié le numéro : on écrit tel quel, même vers le bas ou sur une fiche terminée.
+ * Un revisionnage corrigé reste un revisionnage (et se termine au dernier épisode, compteur compris).
  */
 export function decideListUpdate(
   entry: ListEntryState | null,
@@ -36,23 +56,15 @@ export function decideListUpdate(
   totalEpisodes: number | null,
   isCorrection = false,
 ): UpdateDecision {
-  const isLastEpisode = totalEpisodes !== null && progress >= totalEpisodes;
   if (isCorrection) {
     return entry?.progress === progress
       ? { action: 'skip', reason: 'up-to-date' }
-      : { action: 'update', progress, status: isLastEpisode ? 'COMPLETED' : 'CURRENT' };
+      : { action: 'update', progress, ...progressWrite(entry, progress, totalEpisodes) };
   }
 
   if (entry?.status === 'COMPLETED') return { action: 'skip', reason: 'already-completed' };
   if (entry && progress <= entry.progress) return { action: 'skip', reason: 'up-to-date' };
-
-  if (entry?.status === 'REPEATING') {
-    return isLastEpisode
-      ? { action: 'update', progress, status: 'COMPLETED', repeat: (entry.repeat ?? 0) + 1 }
-      : { action: 'update', progress, status: 'REPEATING' };
-  }
-
-  return { action: 'update', progress, status: isLastEpisode ? 'COMPLETED' : 'CURRENT' };
+  return { action: 'update', progress, ...progressWrite(entry, progress, totalEpisodes) };
 }
 
 export type StatusChangeDecision =

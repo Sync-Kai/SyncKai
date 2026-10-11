@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import type { PageListState, PageMediaView } from '../shared/page-media.types';
-import type { AddListStatus, ListStatusChange } from '../shared/sync.types';
+import type { AddListStatus, AdjustRetry, ListStatusChange } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { TONE_CHIP } from '../popup/feedback';
 import { displayScore, hasMissingList, listStatusLabel, primaryList, progressText, seasonOptionLabel, type InListState } from '../popup/page-media-view';
@@ -29,6 +29,8 @@ export interface MediaActionsState {
 export interface MediaActionHandlers {
   onAdd: (status: AddListStatus) => void;
   onAdjust: (delta: 1 | -1) => void;
+  /** « Réessayer » d'un +1 / −1 en échec partiel */
+  onRetryAdjust: (retry: AdjustRetry) => void;
   /** Ouvre (Abandonner, Terminé) ou annule (null) la confirmation */
   onConfirm: (status: ListStatusChange | null) => void;
   onSetStatus: (status: ListStatusChange) => void;
@@ -192,14 +194,35 @@ function renderStatusRow(primary: InListState, state: MediaActionsState, disable
   );
 }
 
-/** Retour de la dernière action */
-export function renderActionFeedback(feedback: InlineFeedback | null): HTMLElement | null {
+/** Bouton « Réessayer » d'un +1 / −1 en échec partiel (progression absolue sur les seuls services en échec) */
+export function renderRetryButton(retry: AdjustRetry, disabled: boolean, onRetry: (retry: AdjustRetry) => void, focusKey: string): HTMLElement {
+  return h(
+    'button',
+    {
+      class: 'shrink-0 cursor-pointer rounded-full border border-current px-2 py-0.5 text-[11px] font-bold transition hover:brightness-125 disabled:cursor-default disabled:opacity-50',
+      attrs: {
+        type: 'button',
+        'data-focus': focusKey,
+        'aria-label': t('inline.retryOn', { services: retry.services.map((s) => TRACKER_LABELS[s]).join(', ') }),
+        ...(disabled ? { disabled: '' } : {}),
+      },
+      on: { click: () => onRetry(retry) },
+    },
+    t('common.retry'),
+  );
+}
+
+/** Retour de la dernière action (avec « Réessayer » après un +1 / −1 en échec partiel) */
+export function renderActionFeedback(feedback: InlineFeedback | null, disabled = false, onRetry: ((retry: AdjustRetry) => void) | null = null): HTMLElement | null {
   if (!feedback) return null;
   return h(
     'p',
     { class: `m-0 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold ${TONE_CHIP[feedback.tone]}`, attrs: { role: 'status', title: feedback.detail } },
-    feedback.tone === 'success' ? icon('check', 'h-3 w-3 shrink-0', '3') : icon('alert', 'h-3 w-3 shrink-0'),
-    h('span', { class: 'min-w-0 flex-1 break-words' }, feedback.text),
+    ...nodes([
+      feedback.tone === 'success' ? icon('check', 'h-3 w-3 shrink-0', '3') : icon('alert', 'h-3 w-3 shrink-0'),
+      h('span', { class: 'min-w-0 flex-1 break-words' }, feedback.text),
+      feedback.retry && onRetry && renderRetryButton(feedback.retry, disabled, onRetry, 'page-retry'),
+    ]),
   );
 }
 
@@ -239,7 +262,7 @@ export function renderMediaActions({ view, state, refreshing, handlers, lines, l
   return [
     renderSeasonPicker(view, disabled, handlers.onPickSeason),
     showLines && renderListLines(view, linesWithScore),
-    renderActionFeedback(state.feedback),
+    renderActionFeedback(state.feedback, disabled, handlers.onRetryAdjust),
     hasMissingList(view.lists) && renderAddButtons(state.busy, disabled, handlers.onAdd),
     primary && renderStepper(view, primary, state.busy, disabled, handlers.onAdjust),
     primary && renderStatusRow(primary, state, disabled, handlers),

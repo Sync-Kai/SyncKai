@@ -43,6 +43,8 @@ export interface FrameParams {
    * `slow` répond après le délai (E2E_WATCHING_SLOW_MS)
    */
   watching?: 'hang' | 'slow';
+  /** +1 / −1 : `partial` = MyAnimeList échoue, le nouvel essai (`retry`) n'écrit que MAL à la progression absolue */
+  adjust?: 'partial';
   /** Carte « Sur cette page » : série ignorée (Netflix, pas un anime) */
   pageMedia?: 'untracked';
 }

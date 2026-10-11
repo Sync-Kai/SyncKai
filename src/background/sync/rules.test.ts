@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { decideAddToList, decideListUpdate, decideStatusChange } from './rules';
+import { malProgressBody } from '../api/mal';
+import { decideAddToList, decideListUpdate, decideStatusChange, type ListEntryState } from './rules';
 
 describe('decideListUpdate', () => {
   it('ajoute un anime absent de la liste en CURRENT', () => {
@@ -63,6 +64,33 @@ describe('decideListUpdate — correction manuelle sur la même fiche', () => {
 
   it('ne réécrit pas une valeur identique', () => {
     expect(decideListUpdate({ status: 'CURRENT', progress: 4 }, 4, 12, true)).toEqual({ action: 'skip', reason: 'up-to-date' });
+  });
+
+  it('un revisionnage corrigé reste un revisionnage (même vers le bas)', () => {
+    expect(decideListUpdate({ status: 'REPEATING', progress: 4, repeat: 1 }, 5, 12, true)).toEqual({ action: 'update', progress: 5, status: 'REPEATING' });
+    expect(decideListUpdate({ status: 'REPEATING', progress: 8, repeat: 1 }, 3, 12, true)).toEqual({ action: 'update', progress: 3, status: 'REPEATING' });
+  });
+
+  it('un revisionnage corrigé au dernier épisode se termine avec le compteur incrémenté', () => {
+    expect(decideListUpdate({ status: 'REPEATING', progress: 4, repeat: 1 }, 12, 12, true)).toEqual({ action: 'update', progress: 12, status: 'COMPLETED', repeat: 2 });
+    expect(decideListUpdate({ status: 'REPEATING', progress: 4 }, 12, 12, true)).toEqual({ action: 'update', progress: 12, status: 'COMPLETED', repeat: 1 });
+  });
+
+  it('MAL reçoit is_rewatching explicite pour chaque correction', () => {
+    const body = (entry: ListEntryState, progress: number): Record<string, string> => {
+      const decision = decideListUpdate(entry, progress, 12, true);
+      if (decision.action !== 'update') throw new Error('écriture attendue');
+      return Object.fromEntries(malProgressBody(decision.progress, decision.status, decision.repeat));
+    };
+    expect(body({ status: 'REPEATING', progress: 4 }, 5)).toEqual({ status: 'completed', num_watched_episodes: '5', is_rewatching: 'true' });
+    expect(body({ status: 'REPEATING', progress: 4, repeat: 1 }, 12)).toEqual({
+      status: 'completed',
+      num_watched_episodes: '12',
+      is_rewatching: 'false',
+      num_times_rewatched: '2',
+    });
+    // Entrée hors revisionnage : is_rewatching=false écrit, plus jamais omis
+    expect(body({ status: 'COMPLETED', progress: 12 }, 5)).toEqual({ status: 'watching', num_watched_episodes: '5', is_rewatching: 'false' });
   });
 });
 

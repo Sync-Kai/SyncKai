@@ -9,6 +9,7 @@ import { icon, kai, playIcon, sparkIcon } from '../../ui/icons';
 import { TONE_CHIP } from '../feedback';
 import type { ListStatusChange } from '../../shared/sync.types';
 import type { EntryAction, InlineFeedback, WatchingState } from '../state';
+import { renderRetryButton } from '../../ui/media-actions';
 import { renderAlert } from './alert';
 import { renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from './status-actions';
 import { CARD, kanaLabel, PLATFORM_LABELS, platformChip, renderCover, sectionTitle, segmented } from './ui';
@@ -33,6 +34,8 @@ interface WatchingScreenProps {
   controls: EntryControls;
   /** Retour d'un changement de statut (la série a quitté la liste) : bandeau en haut de l'écran */
   notice: InlineFeedback | null;
+  /** « Réessayer » du bandeau après un +1 / −1 en échec partiel */
+  onNoticeRetry: (() => void) | null;
   state: WatchingState;
   now: number;
   preferredPlayer: StreamingPlatform;
@@ -586,13 +589,16 @@ function renderEmpty(): HTMLElement {
   );
 }
 
-/** Bandeau de retour d'un changement de statut (même style que les avis d'Activité) */
-function renderNotice(notice: InlineFeedback): HTMLElement {
+/** Bandeau de retour d'un changement de statut ou d'un +1 / −1 en échec partiel (même style que les avis d'Activité) */
+function renderNotice(notice: InlineFeedback, onRetry: (() => void) | null): HTMLElement {
   return h(
     'p',
     { class: `m-0 flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-bold ${TONE_CHIP[notice.tone]}`, attrs: { role: 'status', title: notice.detail, 'data-watching-notice': '' } },
-    notice.tone === 'success' ? icon('check', 'h-3 w-3 shrink-0', '3') : icon('alert', 'h-3 w-3 shrink-0'),
-    h('span', { class: 'min-w-0 flex-1 break-words' }, notice.text),
+    ...nodes([
+      notice.tone === 'success' ? icon('check', 'h-3 w-3 shrink-0', '3') : icon('alert', 'h-3 w-3 shrink-0'),
+      h('span', { class: 'min-w-0 flex-1 break-words' }, notice.text),
+      notice.retry && onRetry && renderRetryButton(notice.retry, false, onRetry, 'watching-retry'),
+    ]),
   );
 }
 
@@ -628,7 +634,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
 
   const { list } = state;
   const errorAlert = state.error && renderAlert({ message: state.error, action: { label: t('common.retry'), onClick: props.onRetry } });
-  const notice = props.notice && renderNotice(props.notice);
+  const notice = props.notice && renderNotice(props.notice, props.onNoticeRetry);
 
   if (list.entries.length === 0) {
     return h(

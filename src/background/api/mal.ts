@@ -71,14 +71,15 @@ export function malStatusBody(status: ManualListStatus, progress: number, repeat
 /**
  * Corps du PATCH my_list_status pour une progression (pur, testable) :
  * REPEATING → completed + is_rewatching ; `repeat` (fin de revisionnage) → is_rewatching false + compteur.
+ * is_rewatching toujours explicite : une écriture CURRENT ou COMPLETED (correction, +1) sort d'un revisionnage MAL.
  */
 export function malProgressBody(progress: number, status: WriteStatus, repeat?: number): URLSearchParams {
-  const body = new URLSearchParams({ status: toMalStatus(status), num_watched_episodes: String(progress) });
-  if (status === 'REPEATING') body.set('is_rewatching', 'true');
-  if (repeat !== undefined) {
-    body.set('is_rewatching', 'false');
-    body.set('num_times_rewatched', String(repeat));
-  }
+  const body = new URLSearchParams({
+    status: toMalStatus(status),
+    num_watched_episodes: String(progress),
+    is_rewatching: String(status === 'REPEATING' && repeat === undefined),
+  });
+  if (repeat !== undefined) body.set('num_times_rewatched', String(repeat));
   return body;
 }
 

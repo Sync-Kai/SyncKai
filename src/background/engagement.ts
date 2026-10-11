@@ -1,7 +1,7 @@
 import { t } from '../i18n';
 import type { AniListErrorCode } from '../shared/anilist.types';
 import { refreshReviewBadge } from '../shared/badge';
-import { addPendingRating, recordRewatchDecline, removePendingRating } from '../shared/engagement-store';
+import { addPendingRating, isRatingSettled, recordRewatchDecline, removePendingRating } from '../shared/engagement-store';
 import { mediaRefId, type MediaRef, type Score10 } from '../shared/engagement.types';
 import type { Result } from '../shared/result';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
@@ -82,8 +82,8 @@ export async function rateMedia(media: MediaRef, score: Score10): Promise<SyncOu
       ),
     );
 
-    // Carte « À noter » conservée si aucun service n'a pu enregistrer la note (nouvel essai possible)
-    if (results.some((r) => r.outcome.status !== 'error') && (await removePendingRating(mediaRefId(media)))) {
+    // Carte « À noter » conservée tant qu'un service est en erreur ou que personne n'a enregistré la note (nouvel essai possible)
+    if (isRatingSettled(results) && (await removePendingRating(mediaRefId(media)))) {
       await refreshReviewBadge();
     }
     return { status: 'synced', mediaTitle: media.title, results };

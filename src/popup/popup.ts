@@ -11,7 +11,7 @@ import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { deletePendingReview, getCachedWatching, getPendingReviews, getRecentSyncs, STORAGE_KEYS } from '../shared/storage';
 import { getSyncQueue, removeQueueItem, SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
-import type { ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { isPageMediaResponse, type ContentMessage } from '../shared/content-messages';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
 import { matchCachedPageMedia, readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
@@ -21,7 +21,7 @@ import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '..
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingList, type WatchingResult, type WatchingSort } from '../shared/watching.types';
 import { h, nodes, preserveFocus } from '../ui/dom';
 import { formatStarValue } from '../ui/rating';
-import { mediaActionKey, runMediaAction, type MediaActionRequest } from '../ui/media-action-requests';
+import { adjustPayload, mediaActionKey, runMediaAction, type MediaActionRequest } from '../ui/media-action-requests';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../shared/host-access';
 import { renderFooter, type FooterStatus } from './components/footer';
 import { renderHostAccessBanner } from './components/host-access-banner';
@@ -423,6 +423,7 @@ function renderWatching(): void {
       renderWatchingScreen({
         state: watchingStore.get(),
         notice,
+        onNoticeRetry: watchingNoticeRetry,
         now,
         preferredPlayer,
         services,
@@ -438,6 +439,7 @@ function renderWatching(): void {
           onRetry: () => void loadPageMedia(false, true),
           onAdd: (status) => void runPageAction({ kind: 'add', status }),
           onAdjust: (delta) => void runPageAction({ kind: 'adjust', delta }),
+          onRetryAdjust: (retry) => void runPageAction({ kind: 'adjust', delta: retry.delta, retry }),
           onConfirm: (status) => setPageConfirm(status),
           onSetStatus: (status) => void runPageAction({ kind: 'status', status }),
           onRate: (value) => void runPageAction({ kind: 'rate', value }),
@@ -731,34 +733,51 @@ function patchWatchingProgress(entry: WatchingEntry, outcome: SyncOutcome): void
   watchingStore.set({ ...shown, list: { ...shown.list, entries } });
 }
 
-async function adjustProgress(entry: WatchingEntry, delta: 1 | -1): Promise<void> {
+/**
+ * +1 / −1 sur une série de « En cours ». `retry` : nouvel essai après un échec partiel (progression absolue sur les
+ * seuls services en échec). Un échec partiel ouvre le bandeau avec « Réessayer » : la pastille seule disparaît trop vite.
+ */
+async function adjustProgress(entry: WatchingEntry, delta: 1 | -1, retry?: AdjustRetry): Promise<void> {
   const key = entryKey(entry);
   if (entryActionsStore.get().get(key)?.phase === 'pending') return;
   clearTimeout(entryFeedbackTimers.get(key));
   setEntryAction(key, { phase: 'pending', kind: 'adjust' });
+  if (retry) hideWatchingNotice();
 
   let outcome: SyncOutcome;
   try {
-    outcome = await sendMessage('ADJUST_PROGRESS', { mediaId: entry.mediaId, malId: entry.malId, delta });
+    outcome = await sendMessage('ADJUST_PROGRESS', adjustPayload(entry.mediaId, entry.malId, delta, retry));
   } catch (error: unknown) {
     log.error('Service worker injoignable :', error);
     outcome = { status: 'error', message: swUnreachable() };
   }
   patchWatchingProgress(entry, outcome);
-  flashEntryFeedback(key, adjustFeedback(outcome, delta));
+  const feedback = adjustFeedback(outcome, delta, retry);
+  flashEntryFeedback(key, feedback);
+  const next = feedback.retry;
+  if (next) showWatchingNotice({ ...feedback, text: `${entry.title} · ${feedback.text}` }, () => void adjustProgress(entry, next.delta, next));
   // Revalidation silencieuse : la liste reflète ensuite l'état réel des services
   scheduleWatchingRevalidation();
 }
 
 let watchingNoticeTimer: ReturnType<typeof setTimeout> | undefined;
+/** « Réessayer » du bandeau (+1 / −1 en échec partiel) ; null pour les autres retours */
+let watchingNoticeRetry: (() => void) | null = null;
 
-function showWatchingNotice(notice: InlineFeedback): void {
+function hideWatchingNotice(): void {
   clearTimeout(watchingNoticeTimer);
+  watchingNoticeRetry = null;
+  watchingNoticeStore.set(null);
+}
+
+function showWatchingNotice(notice: InlineFeedback, onRetry: (() => void) | null = null): void {
+  clearTimeout(watchingNoticeTimer);
+  watchingNoticeRetry = onRetry;
   watchingNoticeStore.set(notice);
   // Bandeau en haut de la liste : ramené dans la zone visible si la série était plus bas
   watchingSlot.querySelector('[data-watching-notice]')?.scrollIntoView({ block: 'nearest' });
   // Un échec reste affiché plus longtemps (texte à lire)
-  watchingNoticeTimer = setTimeout(() => watchingNoticeStore.set(null), notice.tone === 'success' ? QUEUE_NOTICE_MS : QUEUE_NOTICE_MS * 2);
+  watchingNoticeTimer = setTimeout(hideWatchingNotice, notice.tone === 'success' ? QUEUE_NOTICE_MS : QUEUE_NOTICE_MS * 2);
 }
 
 /** Retire la série de la liste affichée (elle n'est plus « en cours » sur ce service) */

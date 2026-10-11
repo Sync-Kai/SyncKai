@@ -1,6 +1,7 @@
 import { isMediaRef, mediaRefId, REWATCH_DECLINE_MS, type MediaRef, type PendingRating } from './engagement.types';
 import { isRecord } from './guards';
 import { withStorageLock } from './storage';
+import type { ServiceResult } from './sync.types';
 
 // Stockage de l'engagement (popup + service worker) : notes en attente et revisionnages refusés.
 // Écritures sous `withStorageLock` (src/shared/storage.ts).
@@ -21,6 +22,17 @@ export function isPendingRating(value: unknown): value is PendingRating {
     typeof value.completedAt === 'number' &&
     Number.isFinite(value.completedAt)
   );
+}
+
+/**
+ * Note réglée (pur, testable) : la carte « À noter » ne part que si aucun service n'est en erreur et qu'au moins un
+ * a enregistré la note (même critère que le retour du popup). Échec partiel, ou série absente de toutes les listes
+ * (tous `skipped`) : la carte reste, pour un nouvel essai ou « Ignorer ».
+ */
+export function isRatingSettled(results: readonly ServiceResult[]): boolean {
+  const failed = results.some((r) => r.outcome.status === 'error');
+  const written = results.some((r) => r.outcome.status === 'updated' || r.outcome.status === 'up-to-date');
+  return !failed && written;
 }
 
 async function readPendingRatings(): Promise<PendingRating[]> {

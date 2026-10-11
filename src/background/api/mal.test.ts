@@ -36,7 +36,9 @@ describe('statuts MyAnimeList', () => {
   });
 
   it('construit le corps du PATCH de progression', () => {
-    expect(Object.fromEntries(malProgressBody(4, 'CURRENT'))).toEqual({ status: 'watching', num_watched_episodes: '4' });
+    // is_rewatching explicite : une correction ou un +1 en CURRENT / COMPLETED sort d'un revisionnage MAL
+    expect(Object.fromEntries(malProgressBody(4, 'CURRENT'))).toEqual({ status: 'watching', num_watched_episodes: '4', is_rewatching: 'false' });
+    expect(Object.fromEntries(malProgressBody(12, 'COMPLETED'))).toEqual({ status: 'completed', num_watched_episodes: '12', is_rewatching: 'false' });
     expect(Object.fromEntries(malProgressBody(2, 'REPEATING'))).toEqual({ status: 'completed', num_watched_episodes: '2', is_rewatching: 'true' });
     expect(Object.fromEntries(malProgressBody(12, 'COMPLETED', 2))).toEqual({
       status: 'completed',

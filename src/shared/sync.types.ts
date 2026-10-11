@@ -40,7 +40,8 @@ export function isMediaMapping(value: unknown): value is MediaMapping {
 export type ServiceOutcome =
   | { status: 'updated'; progress: number; completed: boolean }
   | { status: 'up-to-date'; progress: number }
-  | { status: 'skipped'; reason: string }
+  /** `code` : raison connue du popup (série absente de la liste de ce service) */
+  | { status: 'skipped'; reason: string; code?: 'not-in-list' }
   | { status: 'error'; message: string; code?: SyncErrorCode };
 
 export interface ServiceResult {
@@ -64,6 +65,16 @@ export type SyncOutcome =
 /** Services à relancer après un échec partiel ("Réessayer" ne réécrit pas les services déjà à jour) */
 export function failedServices(outcome: SyncOutcome): TrackerId[] {
   return outcome.status === 'synced' ? outcome.results.filter((r) => r.outcome.status === 'error').map((r) => r.service) : [];
+}
+
+/**
+ * Nouvel essai d'un +1 / −1 après un échec partiel : la progression ABSOLUE obtenue sur le service qui a réussi,
+ * écrite sur les seuls services en échec (réappliquer le delta décalerait le service déjà à jour).
+ */
+export interface AdjustRetry {
+  delta: 1 | -1;
+  services: TrackerId[];
+  progress: number;
 }
 
 /** Changement de statut manuel depuis le popup (menu « … » de « En cours ») */

@@ -7,7 +7,7 @@ import type { SyncQueueItem } from '../shared/queue.types';
 import type { SyncSettings } from '../shared/settings';
 import type { FeedbackTone } from '../shared/sync-feedback';
 import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
-import type { ListStatusChange } from '../shared/sync.types';
+import type { AdjustRetry, ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
 import type { ComparisonResult, DiffFilter } from '../shared/compare';
@@ -60,6 +60,8 @@ export interface InlineFeedback {
   text: string;
   /** Détail complet (infobulle) : le texte affiché est tronqué */
   detail: string;
+  /** +1 / −1 en échec partiel : bouton « Réessayer » (progression absolue sur les seuls services en échec) */
+  retry?: AdjustRetry;
 }
 
 /** Action en cours ou terminée sur une série de « En cours » */

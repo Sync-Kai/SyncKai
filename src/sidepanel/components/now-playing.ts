@@ -499,6 +499,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
           handlers: {
             onAdd: (status) => void runAction({ kind: 'add', status }),
             onAdjust: (delta) => void runAction({ kind: 'adjust', delta }),
+            onRetryAdjust: (retry) => void runAction({ kind: 'adjust', delta: retry.delta, retry }),
             onConfirm: setConfirm,
             onSetStatus: (status) => void runAction({ kind: 'status', status }),
             onRate: (value) => void runAction({ kind: 'rate', value }),

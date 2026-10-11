@@ -77,13 +77,26 @@ function patchEntry(mediaId: number, update: (entry: WatchingEntry) => WatchingE
   }
 }
 
+/** `adjust=partial` : MyAnimeList échoue au +1 / −1 ; le nouvel essai (`retry`) n'écrit que MAL, à la progression absolue */
+const partialAdjust = param('adjust') === 'partial';
+
 function adjustProgress(payload: unknown): SyncOutcome {
   const entry = findEntry(numberField(payload, 'mediaId'));
   const delta = numberField(payload, 'delta');
   if (!entry || entry.mediaId === null || (delta !== 1 && delta !== -1)) return { status: 'error', message: 'Série inconnue (e2e)' };
+  const retried = isRecord(payload) ? numberField(payload.retry, 'progress') : null;
+  if (retried !== null) return { status: 'synced', mediaTitle: entry.title, results: [{ service: 'mal', outcome: { status: 'updated', progress: retried, completed: false } }] };
   const progress = entry.progress + delta;
   patchEntry(entry.mediaId, (e) => ({ ...e, progress }));
-  return synced(entry.title, { status: 'updated', progress, completed: false });
+  if (!partialAdjust) return synced(entry.title, { status: 'updated', progress, completed: false });
+  return {
+    status: 'synced',
+    mediaTitle: entry.title,
+    results: [
+      { service: 'anilist', outcome: { status: 'updated', progress, completed: false } },
+      { service: 'mal', outcome: { status: 'error', message: 'Service indisponible (e2e)' } },
+    ],
+  };
 }
 
 function setListStatus(payload: unknown): SyncOutcome {

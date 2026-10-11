@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import type { ContentMessage } from '../shared/content-messages';
-import type { AddToListPayload, AdjustProgressPayload, SetListStatusPayload } from '../shared/messages';
+import type { AddToListPayload, AdjustProgressPayload, AdjustRetryTarget, SetListStatusPayload } from '../shared/messages';
 import type { MediaRef } from '../shared/engagement.types';
 import { getSettings } from '../shared/settings';
 import type { AddListStatus, ListStatusChange, ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
@@ -8,7 +8,7 @@ import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './api/errors';
 import { deferRating } from './engagement';
 import { withEntryLock } from './sync/entry-lock';
-import { decideAddToList, decideStatusChange, type ListEntryState, type WriteStatus } from './sync/rules';
+import { decideAddToList, decideStatusChange, progressWrite, type ListEntryState, type WriteStatus } from './sync/rules';
 import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
@@ -22,21 +22,39 @@ const log = createLogger('controls');
 export const COMPLETE_EPISODE_COMMAND = 'complete-episode';
 
 export type AdjustDecision =
-  | { action: 'write'; progress: number; status: WriteStatus }
-  | { action: 'skip'; reason: string };
+  /** `repeat` : nouveau compteur de revisionnages (revisionnage terminé par ce +1) */
+  | { action: 'write'; progress: number; status: WriteStatus; repeat?: number }
+  /** Déjà à la progression visée (nouvel essai : écriture passée malgré l'erreur, ou synchro entre-temps) */
+  | { action: 'up-to-date'; progress: number }
+  | { action: 'skip'; reason: string; notInList?: true };
+
+/** Série absente de la liste de ce service : +1 / −1 ne l'y ajoute jamais (boutons « Ajouter » réservés à ça) */
+const notInList = (): AdjustDecision => ({ action: 'skip', reason: t('engagement.notInList'), notInList: true });
 
 /**
  * Nouvelle progression après un ajustement manuel (pur, testable).
  * −1 contourne volontairement « jamais de recul » ; +1 au-delà du total est refusé.
+ * Statut et compteur de revisionnages : mêmes règles que la synchro (progressWrite).
  */
 export function decideAdjustment(entry: ListEntryState | null, total: number | null, delta: 1 | -1): AdjustDecision {
-  const current = entry?.progress ?? 0;
+  if (entry === null) return notInList();
+  const current = entry.progress;
   if (delta === -1 && current <= 0) return { action: 'skip', reason: t('controls.nothingToRemove') };
   if (delta === 1 && total !== null && current >= total) return { action: 'skip', reason: t('controls.alreadyLast') };
   const progress = Math.max(0, current + delta);
-  if (total !== null && progress >= total) return { action: 'write', progress, status: 'COMPLETED' };
-  // Revisionnage en cours : il continue ; −1 sur une entrée terminée la repasse « en cours »
-  return { action: 'write', progress, status: entry?.status === 'REPEATING' ? 'REPEATING' : 'CURRENT' };
+  // Revisionnage : il continue, et le dernier épisode le termine (compteur + 1) ; −1 sur une entrée terminée la repasse « en cours »
+  return { action: 'write', progress, ...progressWrite(entry, progress, total) };
+}
+
+/**
+ * Nouvel essai d'un +1 / −1 en échec partiel (pur, testable) : progression ABSOLUE `target` (celle du service
+ * qui a réussi), sans jamais aller au-delà dans le sens de l'ajustement (+1 ne recule pas, −1 n'avance pas).
+ */
+export function decideRetryAdjustment(entry: ListEntryState | null, total: number | null, delta: 1 | -1, target: number): AdjustDecision {
+  if (entry === null) return notInList();
+  if (total !== null && target > total) return { action: 'skip', reason: t('controls.alreadyLast') };
+  if (delta === 1 ? entry.progress >= target : entry.progress <= target) return { action: 'up-to-date', progress: entry.progress };
+  return { action: 'write', progress: target, ...progressWrite(entry, target, total) };
 }
 
 function toServiceError(error: unknown): ServiceOutcome {
@@ -59,20 +77,30 @@ function resolveTargets(trackers: readonly TrackerService[], catalog: CatalogMed
   });
 }
 
-/** Ajuste UN service. Ne lève jamais : l'échec est un résultat. */
-async function adjustOnService({ tracker, id }: Target, fallbackTotal: number | null, delta: 1 | -1): Promise<{ result: ServiceResult; title: string | null }> {
+/** Ajuste UN service : delta relatif, ou progression absolue `retry` (nouvel essai). Ne lève jamais : l'échec est un résultat. */
+async function adjustOnService(
+  { tracker, id }: Target,
+  fallbackTotal: number | null,
+  delta: 1 | -1,
+  retry: AdjustRetryTarget | null,
+): Promise<{ result: ServiceResult; title: string | null }> {
   const label = TRACKER_LABELS[tracker.id];
   try {
     // Sous le verrou de la fiche : deux +1 simultanés (panneau et popup) ou un −1 pendant une synchro ne se perdent pas
     return await withEntryLock(tracker.id, id, async (): Promise<{ result: ServiceResult; title: string | null }> => {
       // Lecture fraîche : la progression de référence est celle de CE service
       const current = await tracker.getEntry(id);
-      const decision = decideAdjustment(current.entry, current.episodes ?? fallbackTotal, delta);
+      const total = current.episodes ?? fallbackTotal;
+      const decision = retry ? decideRetryAdjustment(current.entry, total, delta, retry.progress) : decideAdjustment(current.entry, total, delta);
       if (decision.action === 'skip') {
-        return { result: { service: tracker.id, outcome: { status: 'skipped', reason: decision.reason } }, title: current.title };
+        const outcome: ServiceOutcome = { status: 'skipped', reason: decision.reason, ...(decision.notInList ? { code: 'not-in-list' as const } : {}) };
+        return { result: { service: tracker.id, outcome }, title: current.title };
       }
-      const saved = await tracker.saveProgress(id, decision.progress, decision.status);
-      log.info(`${label} : ${current.title} → épisode ${saved.progress} (${saved.status}, ajustement ${delta > 0 ? '+1' : '−1'})`);
+      if (decision.action === 'up-to-date') {
+        return { result: { service: tracker.id, outcome: { status: 'up-to-date', progress: decision.progress } }, title: current.title };
+      }
+      const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
+      log.info(`${label} : ${current.title} → épisode ${saved.progress} (${saved.status}, ${retry ? 'nouvel essai' : `ajustement ${delta > 0 ? '+1' : '−1'}`})`);
       const outcome: ServiceOutcome = { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
       return { result: { service: tracker.id, outcome }, title: current.title };
     });
@@ -83,19 +111,21 @@ async function adjustOnService({ tracker, id }: Target, fallbackTotal: number | 
 }
 
 /**
- * +1 / −1 manuel : écrit sur tous les services connectés où la série existe.
+ * +1 / −1 manuel : écrit sur tous les services connectés où la série est dans la liste.
+ * `retry` (après un échec partiel) : la progression absolue est écrite sur les seuls services indiqués.
  * N'alimente pas les « dernières synchros » (action manuelle, le popup affiche le résultat).
  */
 export async function adjustProgress(payload: AdjustProgressPayload): Promise<SyncOutcome> {
   try {
-    const trackers = await getConnectedTrackers();
+    const retry = payload.retry ?? null;
+    const trackers = await getConnectedTrackers(retry?.services ?? null);
     if (trackers.length === 0) return { status: 'not-connected' };
 
     const catalog: CatalogMedia | null = payload.mediaId !== null ? await getCatalogMedia(payload.mediaId) : null;
     const targets = resolveTargets(trackers, catalog, payload.malId);
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const adjusted = await Promise.all(targets.map((target) => adjustOnService(target, catalog?.episodes ?? null, payload.delta)));
+    const adjusted = await Promise.all(targets.map((target) => adjustOnService(target, catalog?.episodes ?? null, payload.delta, retry)));
     const mediaTitle = catalog?.title ?? adjusted.find((a) => a.title !== null)?.title ?? t('sync.seriesFallback');
     return { status: 'synced', mediaTitle, results: adjusted.map((a) => a.result) };
   } catch (error: unknown) {
@@ -126,7 +156,7 @@ async function statusOnService({ tracker, id }: Target, fallbackTotal: number | 
       if (decision.action === 'skip') {
         const outcome: ServiceOutcome =
           decision.reason === 'not-in-list'
-            ? { status: 'skipped', reason: t('engagement.notInList') }
+            ? { status: 'skipped', reason: t('engagement.notInList'), code: 'not-in-list' }
             : { status: 'up-to-date', progress: current.entry?.progress ?? 0 };
         return { result: { service: tracker.id, outcome }, title: current.title, scored };
       }
