@@ -177,7 +177,17 @@ describe('liveOutcomeOf', () => {
     expect(partial.outcome?.message).toContain('MAL indisponible');
     expect(liveOutcomeOf({ status: 'excluded', mediaTitle: 'X' }).state).toBe('excluded');
     expect(liveOutcomeOf({ status: 'error', message: 'Réseau' })).toEqual({ state: 'error', outcome: { status: 'error', message: 'Réseau' } });
-    expect(liveOutcomeOf({ status: 'not-connected' }).outcome?.status).toBe('not-connected');
     expect(liveOutcomeOf({ status: 'ignored' })).toEqual({ state: 'idle' });
+  });
+
+  it('fiche à vérifier et compte absent : états propres, pas une erreur', () => {
+    setLocale('fr');
+    const review = liveOutcomeOf({ status: 'needs-review', reason: 'Trouvé par le titre seulement' });
+    expect(review.state).toBe('review');
+    expect(review.outcome).toEqual({ status: 'needs-review', message: 'Trouvé par le titre seulement. Clique sur l’icône SyncKai pour choisir la fiche.' });
+    expect(liveOutcomeOf({ status: 'not-connected' })).toEqual({
+      state: 'not-connected',
+      outcome: { status: 'not-connected', message: 'Clique sur l’icône SyncKai pour connecter AniList ou MyAnimeList.' },
+    });
   });
 });

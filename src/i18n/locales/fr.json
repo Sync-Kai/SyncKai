@@ -502,6 +502,8 @@
   "panel.live.pointPassed": "Point de synchro dépassé",
   "panel.live.pointRatio": "Synchro à {percent} %",
   "panel.live.position": "{position} sur {duration}",
+  "panel.live.review": "À vérifier",
+  "panel.live.reviewHint": "Clique sur l’icône SyncKai pour choisir la fiche.",
   "panel.live.seconds": "{sec} s",
   "panel.live.synced": "Synchronisé ✓",
   "panel.live.syncing": "Synchronisation…",

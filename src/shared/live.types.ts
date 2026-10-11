@@ -5,10 +5,13 @@ import { isRecord } from './guards';
 
 export const LIVE_PORT_NAME = 'synckai:live';
 
-/** État du suivi de l'épisode côté page */
-export type LiveState = 'idle' | 'watching' | 'syncing' | 'synced' | 'error' | 'excluded' | 'no-video';
+/**
+ * État du suivi de l'épisode côté page.
+ * `review` : fiche AniList à confirmer (correspondance par titre seul) ; `not-connected` : aucun compte connecté.
+ */
+export type LiveState = 'idle' | 'watching' | 'syncing' | 'synced' | 'review' | 'not-connected' | 'error' | 'excluded' | 'no-video';
 
-export const LIVE_STATES: readonly LiveState[] = ['idle', 'watching', 'syncing', 'synced', 'error', 'excluded', 'no-video'];
+export const LIVE_STATES: readonly LiveState[] = ['idle', 'watching', 'syncing', 'synced', 'review', 'not-connected', 'error', 'excluded', 'no-video'];
 
 /** Point de synchronisation : début du générique de fin, ou seuil en % de la durée */
 export interface LivePoint {

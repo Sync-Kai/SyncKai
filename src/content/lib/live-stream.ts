@@ -37,13 +37,17 @@ export interface LiveStream {
 
 export const LIVE_TICK_MS = 1_000;
 
-/** Issue d'une synchronisation → état affiché par le panneau (un service en échec compte comme une erreur ; série ignorée → repos) */
+/**
+ * Issue d'une synchronisation → état affiché par le panneau : fiche à confirmer et compte absent ont leur propre état
+ * (pas un échec) ; un service en échec compte comme une erreur ; série ignorée → repos
+ */
 export function liveOutcomeOf(outcome: SyncOutcome): { state: LiveState; outcome?: LiveOutcome } {
   if (outcome.status === 'ignored') return { state: 'idle' };
   if (outcome.status === 'synced' && failedServices(outcome).length === 0) return { state: 'synced', outcome: { status: 'synced', message: null } };
   if (outcome.status === 'excluded') return { state: 'excluded', outcome: { status: 'excluded', message: null } };
   const feedback = describeOutcome(outcome);
-  return { state: 'error', outcome: { status: outcome.status, message: feedback.message ?? feedback.title } };
+  const state: LiveState = outcome.status === 'needs-review' ? 'review' : outcome.status === 'not-connected' ? 'not-connected' : 'error';
+  return { state, outcome: { status: outcome.status, message: feedback.message ?? feedback.title } };
 }
 
 /** Valeurs arrondies : une position identique à la seconde près n'est pas renvoyée (pause, lecteur figé) */

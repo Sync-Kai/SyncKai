@@ -502,6 +502,8 @@
   "panel.live.pointPassed": "Sync-Punkt überschritten",
   "panel.live.pointRatio": "Sync bei {percent} %",
   "panel.live.position": "{position} von {duration}",
+  "panel.live.review": "Zu prüfen",
+  "panel.live.reviewHint": "Klicke auf das SyncKai-Symbol, um den Eintrag auszuwählen.",
   "panel.live.seconds": "{sec} s",
   "panel.live.synced": "Synchronisiert ✓",
   "panel.live.syncing": "Synchronisiere…",

@@ -502,6 +502,8 @@
   "panel.live.pointPassed": "Sync point passed",
   "panel.live.pointRatio": "Sync at {percent}%",
   "panel.live.position": "{position} of {duration}",
+  "panel.live.review": "To check",
+  "panel.live.reviewHint": "Click the SyncKai icon to pick the entry.",
   "panel.live.seconds": "{sec} s",
   "panel.live.synced": "Synced ✓",
   "panel.live.syncing": "Syncing…",

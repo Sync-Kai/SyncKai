@@ -30,6 +30,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - An episode watched while a correction (*Correct*) awaits your decision is no longer lost: it is set aside on the card (*Episode N on hold, applied after your decision*), then synced as soon as you confirm or ignore the correction, without ever moving your progress backwards. No more manual +1. It only applies to the account that was connected when you watched it.
 - After disconnecting an account, *On this page* and the *Now playing* panel no longer show that account's list status, even if the entry was still loading when you disconnected. After connecting an account, the entry is no longer taken from an earlier cache that lacked its list.
 - After a SyncKai update, Netflix tabs that are already open (with access granted) are picked up automatically, in Chrome and Firefox, without reloading the page: previously, the current episode was no longer tracked there. In Firefox, Crunchyroll and ADN tabs already were.
+- Side panel: an episode waiting for you to confirm its AniList entry (found by title only) is shown as *To check* in the live progress, with the reason and what to do, instead of *Sync failed* in red; with no account connected, it shows *No account connected*. A real failure still shows *Sync failed*.
 
 ## [2.2.1] - 2026-10-11
 
