@@ -7,6 +7,7 @@ import type { AddListStatus, ListStatusChange, ServiceOutcome, ServiceResult, Sy
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './api/errors';
 import { deferRating } from './engagement';
+import { withEntryLock } from './sync/entry-lock';
 import { decideAddToList, decideStatusChange, type ListEntryState, type WriteStatus } from './sync/rules';
 import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
@@ -62,16 +63,19 @@ function resolveTargets(trackers: readonly TrackerService[], catalog: CatalogMed
 async function adjustOnService({ tracker, id }: Target, fallbackTotal: number | null, delta: 1 | -1): Promise<{ result: ServiceResult; title: string | null }> {
   const label = TRACKER_LABELS[tracker.id];
   try {
-    // Lecture fraîche : la progression de référence est celle de CE service
-    const current = await tracker.getEntry(id);
-    const decision = decideAdjustment(current.entry, current.episodes ?? fallbackTotal, delta);
-    if (decision.action === 'skip') {
-      return { result: { service: tracker.id, outcome: { status: 'skipped', reason: decision.reason } }, title: current.title };
-    }
-    const saved = await tracker.saveProgress(id, decision.progress, decision.status);
-    log.info(`${label} : ${current.title} → épisode ${saved.progress} (${saved.status}, ajustement ${delta > 0 ? '+1' : '−1'})`);
-    const outcome: ServiceOutcome = { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
-    return { result: { service: tracker.id, outcome }, title: current.title };
+    // Sous le verrou de la fiche : deux +1 simultanés (panneau et popup) ou un −1 pendant une synchro ne se perdent pas
+    return await withEntryLock(tracker.id, id, async (): Promise<{ result: ServiceResult; title: string | null }> => {
+      // Lecture fraîche : la progression de référence est celle de CE service
+      const current = await tracker.getEntry(id);
+      const decision = decideAdjustment(current.entry, current.episodes ?? fallbackTotal, delta);
+      if (decision.action === 'skip') {
+        return { result: { service: tracker.id, outcome: { status: 'skipped', reason: decision.reason } }, title: current.title };
+      }
+      const saved = await tracker.saveProgress(id, decision.progress, decision.status);
+      log.info(`${label} : ${current.title} → épisode ${saved.progress} (${saved.status}, ajustement ${delta > 0 ? '+1' : '−1'})`);
+      const outcome: ServiceOutcome = { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
+      return { result: { service: tracker.id, outcome }, title: current.title };
+    });
   } catch (error: unknown) {
     log.error(`${label} : échec de l’ajustement`, error);
     return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null };
@@ -114,20 +118,23 @@ interface StatusWrite {
 async function statusOnService({ tracker, id }: Target, fallbackTotal: number | null, status: ListStatusChange): Promise<StatusWrite> {
   const label = TRACKER_LABELS[tracker.id];
   try {
-    const current = await tracker.getEntry(id);
-    const scored = current.entry?.score !== undefined;
-    const decision = decideStatusChange(current.entry, current.episodes ?? fallbackTotal, status);
-    if (decision.action === 'skip') {
-      const outcome: ServiceOutcome =
-        decision.reason === 'not-in-list'
-          ? { status: 'skipped', reason: t('engagement.notInList') }
-          : { status: 'up-to-date', progress: current.entry?.progress ?? 0 };
+    // Lecture et écriture sous le verrou de la fiche (synchro ou +1 concurrents)
+    return await withEntryLock(tracker.id, id, async (): Promise<StatusWrite> => {
+      const current = await tracker.getEntry(id);
+      const scored = current.entry?.score !== undefined;
+      const decision = decideStatusChange(current.entry, current.episodes ?? fallbackTotal, status);
+      if (decision.action === 'skip') {
+        const outcome: ServiceOutcome =
+          decision.reason === 'not-in-list'
+            ? { status: 'skipped', reason: t('engagement.notInList') }
+            : { status: 'up-to-date', progress: current.entry?.progress ?? 0 };
+        return { result: { service: tracker.id, outcome }, title: current.title, scored };
+      }
+      const saved = await tracker.saveStatus(id, decision.status, decision.progress, decision.repeat);
+      log.info(`${label} : ${current.title} → ${saved.status}, épisode ${saved.progress}`);
+      const outcome: ServiceOutcome = { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
       return { result: { service: tracker.id, outcome }, title: current.title, scored };
-    }
-    const saved = await tracker.saveStatus(id, decision.status, decision.progress, decision.repeat);
-    log.info(`${label} : ${current.title} → ${saved.status}, épisode ${saved.progress}`);
-    const outcome: ServiceOutcome = { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
-    return { result: { service: tracker.id, outcome }, title: current.title, scored };
+    });
   } catch (error: unknown) {
     log.error(`${label} : échec du changement de statut`, error);
     return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null, scored: false };
@@ -190,14 +197,17 @@ export async function setListStatus(payload: SetListStatusPayload): Promise<Sync
 async function addOnService({ tracker, id }: Target, status: AddListStatus): Promise<{ result: ServiceResult; title: string | null }> {
   const label = TRACKER_LABELS[tracker.id];
   try {
-    const current = await tracker.getEntry(id);
-    const decision = decideAddToList(current.entry, status);
-    if (decision.action === 'skip') {
-      return { result: { service: tracker.id, outcome: { status: 'skipped', reason: t('page.alreadyInList') } }, title: current.title };
-    }
-    const saved = await tracker.saveStatus(id, decision.status, decision.progress);
-    log.info(`${label} : ${current.title} ajouté (${saved.status})`);
-    return { result: { service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: false } }, title: current.title };
+    // Sous le verrou de la fiche : une synchro concurrente ne peut pas être écrasée par l'ajout
+    return await withEntryLock(tracker.id, id, async (): Promise<{ result: ServiceResult; title: string | null }> => {
+      const current = await tracker.getEntry(id);
+      const decision = decideAddToList(current.entry, status);
+      if (decision.action === 'skip') {
+        return { result: { service: tracker.id, outcome: { status: 'skipped', reason: t('page.alreadyInList') } }, title: current.title };
+      }
+      const saved = await tracker.saveStatus(id, decision.status, decision.progress);
+      log.info(`${label} : ${current.title} ajouté (${saved.status})`);
+      return { result: { service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: false } }, title: current.title };
+    });
   } catch (error: unknown) {
     log.error(`${label} : échec de l’ajout à la liste`, error);
     return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null };

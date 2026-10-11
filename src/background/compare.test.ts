@@ -39,7 +39,7 @@ vi.mock('../shared/storage', async (importOriginal) => ({
 const slots = vi.hoisted(() => ({ waitWriteSlot: vi.fn(async () => undefined), waitReadSlot: vi.fn(async () => undefined) }));
 vi.mock('./jobs/runner', async (importOriginal) => ({ ...(await importOriginal<typeof import('./jobs/runner')>()), ...slots }));
 
-// chrome.storage.local, alarmes et verrou Web Locks en file (une tâche à la fois, comme navigator.locks)
+// chrome.storage.local, alarmes et verrous Web Locks en file (une tâche à la fois par nom, comme navigator.locks)
 let store: Record<string, unknown> = {};
 const alarmsClear = vi.fn(async () => true);
 vi.stubGlobal('chrome', {
@@ -59,12 +59,13 @@ vi.stubGlobal('chrome', {
   },
   alarms: { create: async () => undefined, clear: alarmsClear },
 });
-let queue: Promise<unknown> = Promise.resolve();
+// Une file par nom de verrou : le verrou de la fiche (alignement) englobe celui du stockage (comparaison)
+const queues = new Map<string, Promise<unknown>>();
 vi.stubGlobal('navigator', {
   locks: {
-    request: <T>(_name: string, task: () => Promise<T>): Promise<T> => {
-      const run = queue.then(task);
-      queue = run.catch(() => undefined);
+    request: <T>(name: string, task: () => Promise<T>): Promise<T> => {
+      const run = (queues.get(name) ?? Promise.resolve()).then(task);
+      queues.set(name, run.catch(() => undefined));
       return run;
     },
   },

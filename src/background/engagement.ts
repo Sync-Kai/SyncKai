@@ -7,6 +7,7 @@ import type { Result } from '../shared/result';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './api/errors';
+import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
 import type { TrackerEntry, TrackerService } from './trackers/tracker';
 import { createLogger } from '../shared/logger';
@@ -40,15 +41,20 @@ function toSyncError(error: unknown, fallback: string): SyncOutcome {
   return { status: 'error', message: fallback };
 }
 
-/** Lecture fraîche puis action sur UN service ; `act` renvoie un saut (raison) ou l'écriture. Ne lève jamais. */
+/**
+ * Lecture fraîche puis action sur UN service ; `act` renvoie un saut (raison) ou l'écriture. Lecture et écriture
+ * sous le verrou de la fiche : le revisionnage décidé sur « Terminé » n'écrase pas une synchro concurrente. Ne lève jamais.
+ */
 async function onService(
   { tracker, id }: Target,
   act: (current: TrackerEntry) => string | (() => Promise<ServiceOutcome>),
 ): Promise<ServiceResult> {
   try {
-    const step = act(await tracker.getEntry(id));
-    if (typeof step === 'string') return { service: tracker.id, outcome: { status: 'skipped', reason: step } };
-    return { service: tracker.id, outcome: await step() };
+    return await withEntryLock(tracker.id, id, async (): Promise<ServiceResult> => {
+      const step = act(await tracker.getEntry(id));
+      if (typeof step === 'string') return { service: tracker.id, outcome: { status: 'skipped', reason: step } };
+      return { service: tracker.id, outcome: await step() };
+    });
   } catch (error: unknown) {
     log.error(`${TRACKER_LABELS[tracker.id]} : échec`, error);
     return { service: tracker.id, outcome: toErrorOutcome(error) };

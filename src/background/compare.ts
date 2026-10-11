@@ -50,6 +50,7 @@ import {
   type StepResult,
   type TransientKind,
 } from './jobs/runner';
+import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
 import { createLogger } from '../shared/logger';
 
@@ -254,33 +255,37 @@ async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt
   if (!tracker || !origin) return stop(t('compare.error.notConnected'));
   if (sourceId === null) return skipped(skipReasonText('no-equivalent', source));
 
-  // Créneau d'écriture pris avant les relectures : aucune attente entre la relecture de la cible et l'écriture
+  // Créneaux (espacement, budget AniList de fond) pris avant le verrou et les relectures : aucune attente entre la
+  // relecture de la cible et l'écriture, et la fiche n'est jamais verrouillée pendant une attente de quota
   await waitWriteSlot(plan.target);
+  await waitReadSlot(source);
+  await waitReadSlot(plan.target);
   const label = TRACKER_LABELS[plan.target];
   try {
-    // Verrou par fiche (withEntryLock, pas encore disponible) : il envelopperait les relectures et l'écriture ci-dessous
-    await waitReadSlot(source);
-    const from = (await origin.getEntry(sourceId)).entry;
-    await waitReadSlot(plan.target);
-    const to = (await tracker.getEntry(plan.id)).entry;
-    const { scoreFormat } = comparison;
+    // Relectures et écriture sous le verrou de la fiche cible : une synchro ou un +1 concurrents attendent l'alignement
+    // (puis relisent sa valeur), ou l'alignement les voit à la relecture et ignore la série
+    return await withEntryLock(plan.target, plan.id, async (): Promise<StepResult> => {
+      const from = (await origin.getEntry(sourceId)).entry;
+      const to = (await tracker.getEntry(plan.id)).entry;
+      const { scoreFormat } = comparison;
 
-    if (isAlignedNow(source === 'anilist' ? from : to, source === 'mal' ? from : to, scoreFormat)) {
-      log.info(`Alignement inutile : ${diff.title} est déjà alignée`);
+      if (isAlignedNow(source === 'anilist' ? from : to, source === 'mal' ? from : to, scoreFormat)) {
+        log.info(`Alignement inutile : ${diff.title} est déjà alignée`);
+        await updateComparison((result) => withoutDiff(result, diff.key));
+        return skipped(t('compare.skip.nothing'));
+      }
+      if (!sideMatches(diff[source], from, source, scoreFormat) || !sideMatches(diff[plan.target], to, plan.target, scoreFormat)) {
+        const message = skipReasonText('changed', source);
+        log.info(`Alignement ignoré : ${diff.title} modifiée depuis l'analyse`, { analyse: { [source]: diff[source], [plan.target]: diff[plan.target] }, relu: { [source]: from, [plan.target]: to } });
+        await updateComparison((result) => withStaleDiffs(result, (d) => d.key === diff.key));
+        return skipped(message);
+      }
+
+      await tracker.saveEntry(plan.id, plan.write);
+      log.info(`${label} : ${diff.title} aligné sur ${TRACKER_LABELS[source]}${plan.create ? ' (ajout)' : ''}`, plan.write);
       await updateComparison((result) => withoutDiff(result, diff.key));
-      return skipped(t('compare.skip.nothing'));
-    }
-    if (!sideMatches(diff[source], from, source, scoreFormat) || !sideMatches(diff[plan.target], to, plan.target, scoreFormat)) {
-      const message = skipReasonText('changed', source);
-      log.info(`Alignement ignoré : ${diff.title} modifiée depuis l'analyse`, { analyse: { [source]: diff[source], [plan.target]: diff[plan.target] }, relu: { [source]: from, [plan.target]: to } });
-      await updateComparison((result) => withStaleDiffs(result, (d) => d.key === diff.key));
-      return skipped(message);
-    }
-
-    await tracker.saveEntry(plan.id, plan.write);
-    log.info(`${label} : ${diff.title} aligné sur ${TRACKER_LABELS[source]}${plan.create ? ' (ajout)' : ''}`, plan.write);
-    await updateComparison((result) => withoutDiff(result, diff.key));
-    return { kind: 'event', event: { type: 'item', outcome: 'updated', at: at() }, stop: null };
+      return { kind: 'event', event: { type: 'item', outcome: 'updated', at: at() }, stop: null };
+    });
   } catch (error: unknown) {
     const message = error instanceof ApiError ? error.message : t('error.unexpected');
     const transient = transientKind(error);

@@ -19,6 +19,7 @@ import {
   type CrCatalogEntry,
   type CrImportAnalyzePayload,
   type CrImportApplyPayload,
+  type CrImportDecision,
   type CrImportErrorCode,
   type CrImportInput,
   type CrImportJob,
@@ -44,7 +45,9 @@ import { fetchAniListFullList, fetchMalFullList } from './compare';
 import { createJobLoop, createJobStore, isFatalError, transientKind, waitReadSlot, waitWriteSlot, type StepResult, type TransientKind } from './jobs/runner';
 import { mappingKey, seasonLabel } from './sync/matching';
 import { resolveEpisode } from './sync/resolver';
+import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
+import type { TrackerService } from './trackers/tracker';
 
 // Import de l'historique Crunchyroll : analyse (correspondance de chaque saison, sans rien écrire) puis
 // application des éléments choisis dans l'aperçu. Deux tâches reprenables (src/background/jobs/runner.ts).
@@ -208,6 +211,24 @@ const analyzeLoop = createJobLoop<CrImportJob>({
 
 // ─── Application ──────────────────────────────────────────────────────────
 
+/**
+ * Écrit l'élément sur UN service ; lève les erreurs d'API. Créneaux (espacement, budget AniList de fond) pris AVANT
+ * la relecture : aucune attente ne sépare la lecture de l'écriture, et la fiche n'est jamais verrouillée pendant une
+ * attente de quota. Relecture, décision et écriture sous le verrou de la fiche : une synchro en direct concurrente
+ * (12/12 Terminé) n'est jamais remplacée par la valeur décidée sur l'état d'avant (11 En cours).
+ */
+export async function importOnService(tracker: TrackerService, targetId: number, item: Pick<CrPlanItem, 'progress' | 'episodes'>): Promise<CrImportDecision> {
+  await waitWriteSlot(tracker.id);
+  await waitReadSlot(tracker.id);
+  return withEntryLock(tracker.id, targetId, async (): Promise<CrImportDecision> => {
+    // Lecture fraîche : la liste a pu changer depuis l'aperçu (autre appareil, synchro en direct)
+    const current = await tracker.getEntry(targetId);
+    const decision = decideImport(current.entry, item.progress, current.episodes ?? item.episodes);
+    if (decision.action === 'update') await tracker.saveProgress(targetId, decision.progress, decision.status);
+    return decision;
+  });
+}
+
 /** Écrit UN élément du plan sur chaque service prévu (état relu juste avant : jamais de recul). Ne lève jamais. */
 async function applyItem(id: string, isLastAttempt: (reason: TransientKind) => boolean): Promise<StepResult> {
   const plan = await readPlan();
@@ -228,16 +249,11 @@ async function applyItem(id: string, isLastAttempt: (reason: TransientKind) => b
       continue;
     }
     try {
-      // Lecture fraîche : la liste a pu changer depuis l'aperçu (autre appareil, synchro en direct)
-      await waitReadSlot(planned.service);
-      const current = await tracker.getEntry(targetId);
-      const decision = decideImport(current.entry, item.progress, current.episodes ?? item.episodes);
+      const decision = await importOnService(tracker, targetId, item);
       if (decision.action === 'skip') {
         outcomes.push({ service: planned.service, result: 'skipped', message: `${label} : ${t(`crImport.skipReason.${decision.reason}`)}` });
         continue;
       }
-      await waitWriteSlot(planned.service);
-      await tracker.saveProgress(targetId, decision.progress, decision.status);
       log.info(`${label} : ${item.title} → épisode ${decision.progress} (${decision.status}, import Crunchyroll)`);
       outcomes.push({ service: planned.service, result: 'updated', message: null });
     } catch (error: unknown) {

@@ -13,6 +13,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Si tu regardes une suite publiée à part sur Crunchyroll (Naruto Shippuden, Bleach TYBW…), vérifie dans AniList et MAL que la série précédente n’a pas reçu ta progression, et utilise *Réglages › Mes données › Correspondances › Oublier* si une correspondance est fausse.
 - Écarts AniList ↔ MAL : « Garder AniList », « Garder MAL » et « Tout aligner » relisent les deux listes juste avant d’écrire. Une série modifiée depuis l’analyse (épisode regardé, +1/−1, statut, note, autre appareil) est ignorée avec le message *Modifiée depuis l’analyse* au lieu d’être réécrite avec d’anciennes valeurs : l’alignement ne fait plus reculer la progression ni le statut.
 - Après une synchro ou un contrôle sur une série, son écart affiché dans Activité est marqué *Modifiée depuis l’analyse* et ne peut plus être aligné avant une nouvelle analyse.
+- Les écritures simultanées sur une même série passent l’une après l’autre (synchro en direct, nouvelle tentative d’une synchro en attente, +1/−1, statut, note, revisionnage, import Crunchyroll, alignement AniList ↔ MAL) : deux +1 cliqués en même temps depuis le panneau et le popup comptent bien pour deux, et un ancien épisode renvoyé au retour de la connexion ou par l’import ne fait plus reculer la progression.
 
 ## [2.1.0] - 2026-10-10
 

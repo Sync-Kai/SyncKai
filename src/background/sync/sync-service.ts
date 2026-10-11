@@ -27,6 +27,7 @@ import { getConnectedTrackers } from '../trackers';
 import type { CatalogMedia, TrackerService } from '../trackers/tracker';
 import { mappingFromManualChoice, mappingKey, seasonLabel } from './matching';
 import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './resolver';
+import { withEntryLock } from './entry-lock';
 import { decideListUpdate } from './rules';
 import { createLogger } from '../../shared/logger';
 
@@ -82,40 +83,9 @@ async function writeToService(
   if (id === null) return { result: { service: tracker.id, outcome: { status: 'skipped', reason: t('sync.noEquivalent') } }, alreadyCompleted: false };
 
   try {
-    // Lecture fraîche juste avant l'écriture (la liste a pu changer depuis un autre appareil)
-    const current = await tracker.getEntry(id);
-    // Découpage différent entre services : on n'écrit pas au-delà de la fiche de ce service
-    if (current.episodes !== null && progress > current.episodes) {
-      return {
-        result: {
-          service: tracker.id,
-          outcome: { status: 'skipped', reason: t('sync.beyondEntry', { progress, total: current.episodes }) },
-        },
-        alreadyCompleted: false,
-      };
-    }
-
-    const decision = decideListUpdate(current.entry, progress, current.episodes ?? catalog.episodes, isCorrection);
-    if (decision.action === 'skip') {
-      log.info(`${label} : pas de mise à jour (${decision.reason})`, current);
-      return {
-        result: {
-          service: tracker.id,
-          outcome:
-            decision.reason === 'up-to-date'
-              ? { status: 'up-to-date', progress: current.entry?.progress ?? progress }
-              : { status: 'skipped', reason: t(SKIP_REASONS[decision.reason]) },
-        },
-        alreadyCompleted: decision.reason === 'already-completed',
-      };
-    }
-
-    const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
-    log.info(`✔ ${label} : ${current.title} → épisode ${saved.progress} (${saved.status})`);
-    return {
-      result: { service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' } },
-      alreadyCompleted: false,
-    };
+    // Lecture, décision et écriture sous le verrou de la fiche : une relance de la file ou un +1 concurrent ne peut
+    // ni faire reculer la progression ni perdre une écriture (voir entry-lock.ts)
+    return await withEntryLock(tracker.id, id, () => writeEntry(tracker, id, catalog, progress, isCorrection));
   } catch (error: unknown) {
     log.error(`${label} : échec`, error);
     return {
@@ -126,6 +96,45 @@ async function writeToService(
       alreadyCompleted: false,
     };
   }
+}
+
+/** Relecture, règles métier puis écriture sur la fiche `id` (appelé sous son verrou). Lève les erreurs d'API. */
+async function writeEntry(tracker: TrackerService, id: number, catalog: CatalogMedia, progress: number, isCorrection: boolean): Promise<ServiceWrite> {
+  const label = TRACKER_LABELS[tracker.id];
+  // Lecture fraîche juste avant l'écriture (la liste a pu changer depuis un autre appareil)
+  const current = await tracker.getEntry(id);
+  // Découpage différent entre services : on n'écrit pas au-delà de la fiche de ce service
+  if (current.episodes !== null && progress > current.episodes) {
+    return {
+      result: {
+        service: tracker.id,
+        outcome: { status: 'skipped', reason: t('sync.beyondEntry', { progress, total: current.episodes }) },
+      },
+      alreadyCompleted: false,
+    };
+  }
+
+  const decision = decideListUpdate(current.entry, progress, current.episodes ?? catalog.episodes, isCorrection);
+  if (decision.action === 'skip') {
+    log.info(`${label} : pas de mise à jour (${decision.reason})`, current);
+    return {
+      result: {
+        service: tracker.id,
+        outcome:
+          decision.reason === 'up-to-date'
+            ? { status: 'up-to-date', progress: current.entry?.progress ?? progress }
+            : { status: 'skipped', reason: t(SKIP_REASONS[decision.reason]) },
+      },
+      alreadyCompleted: decision.reason === 'already-completed',
+    };
+  }
+
+  const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
+  log.info(`✔ ${label} : ${current.title} → épisode ${saved.progress} (${saved.status})`);
+  return {
+    result: { service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' } },
+    alreadyCompleted: false,
+  };
 }
 
 /**
