@@ -130,7 +130,7 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
     throw new ApiError('RATE_LIMITED', t('api.rateLimited', { service: 'MyAnimeList' }));
   }
 
-  if (response.status === 404) throw new ApiError('API_ERROR', t('api.malNotFound'));
+  if (response.status === 404) throw new ApiError('API_ERROR', t('api.malNotFound'), { httpStatus: 404 });
   if (!response.ok) {
     log.error('Erreur API MyAnimeList :', response.status);
     throw new ApiError('API_ERROR', t('api.httpError', { service: 'MyAnimeList', status: response.status }), { httpStatus: response.status });

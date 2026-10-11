@@ -48,7 +48,7 @@ async function requestToken(params: Record<string, string>): Promise<MalToken> {
   if (response.status === 400 || response.status === 401) {
     throw new ApiError('TOKEN_INVALID', t('api.sessionExpired', { service: 'MyAnimeList' }));
   }
-  if (!response.ok) throw new ApiError('API_ERROR', t('api.httpError', { service: 'MyAnimeList', status: response.status }));
+  if (!response.ok) throw new ApiError('API_ERROR', t('api.httpError', { service: 'MyAnimeList', status: response.status }), { httpStatus: response.status });
 
   let body: unknown = null;
   try {

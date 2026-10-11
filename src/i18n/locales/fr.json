@@ -728,6 +728,8 @@
   "settings.trigger.percentage": "À un pourcentage fixe",
   "sync.alreadyCompleted": "Déjà marqué comme terminé",
   "sync.beyondEntry": "Épisode {progress} au-delà des {total} épisodes de la fiche",
+  "sync.correctionOutdated": "Correction non appliquée : la progression a changé depuis la synchro (épisode {progress})",
+  "sync.correctionPending": "Correction en attente pour cette saison : valide ou ignore d’abord la carte dans Activité",
   "sync.correctionReason": "Correction : actuellement synchronisé avec « {title} »",
   "sync.invalidEpisode": "Épisode {progress} invalide pour « {title} » ({total} épisodes).",
   "sync.noEquivalent": "Pas de fiche équivalente",

@@ -52,6 +52,8 @@ export interface SyncTarget extends MediaMapping {
   confidence: 'high' | 'low';
   /** Explication lisible du choix (logs / toast "à vérifier") */
   reason: string;
+  /** Correspondance lue dans le cache (à revalider avec le catalogue avant d'écrire, voir syncEpisode) */
+  fromCache?: true;
 }
 
 /** `ignored` : série hors du périmètre de la plateforme (Netflix sans fiche AniList liée ni au même titre), ignorée en silence */

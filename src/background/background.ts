@@ -128,10 +128,11 @@ const handlers: MessageHandlers = {
   SET_LIST_STATUS: (payload) => setListStatus(payload),
   RETRY_QUEUED: ({ id }) => retryQueued(id),
   SEARCH_ANIME: ({ query }) => searchCandidates(query),
+  // Échec passager d'un service après une vérification confirmée : mis en file comme une synchro en direct
   RESOLVE_REVIEW: async (payload) => {
-    const result = await resolveReview(payload);
+    const { outcome, episode } = await resolveReview(payload);
     forgetPageResolutions();
-    return result;
+    return episode !== null ? recordSyncOutcome(episode, null, outcome) : outcome;
   },
   REOPEN_REVIEW: ({ key }) => reopenReview(key),
   GET_WATCHING: ({ service }) => getWatchingList(service),

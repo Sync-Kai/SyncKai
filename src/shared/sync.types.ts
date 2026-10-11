@@ -42,7 +42,8 @@ export type ServiceOutcome =
   | { status: 'up-to-date'; progress: number }
   /** `code` : raison connue du popup (série absente de la liste de ce service) */
   | { status: 'skipped'; reason: string; code?: 'not-in-list' }
-  | { status: 'error'; message: string; code?: SyncErrorCode };
+  /** `httpStatus` : statut HTTP de l'erreur d'API (5xx passager, 4xx définitif : voir queue-policy) */
+  | { status: 'error'; message: string; code?: SyncErrorCode; httpStatus?: number };
 
 export interface ServiceResult {
   service: TrackerId;
@@ -60,7 +61,7 @@ export type SyncOutcome =
   | { status: 'excluded'; mediaTitle: string }
   /** Série hors du périmètre de la plateforme (Netflix sans fiche AniList liée : probablement pas un anime), ignorée en silence */
   | { status: 'ignored' }
-  | { status: 'error'; message: string; code?: SyncErrorCode; queued?: boolean };
+  | { status: 'error'; message: string; code?: SyncErrorCode; httpStatus?: number; queued?: boolean };
 
 /** Services à relancer après un échec partiel ("Réessayer" ne réécrit pas les services déjà à jour) */
 export function failedServices(outcome: SyncOutcome): TrackerId[] {

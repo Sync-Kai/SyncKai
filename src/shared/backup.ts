@@ -206,7 +206,11 @@ export function parseBackup(text: string): Result<ParsedBackup, BackupErrorCode>
     return fail('INVALID_FORMAT', t('backup.error.corrupted'));
   }
 
-  const { value, invalid } = validateData(json.data, false);
+  const validated = validateData(json.data, false);
+  const { invalid } = validated;
+  // Une correction (« Corriger ») ne vaut que dans la session qui a écrit la valeur : importée (autre date, autre
+  // compte peut-être), elle redevient une vérification simple, qui ne fait jamais reculer la progression
+  const value: BackupData = { ...validated.value, pendingReviews: validated.value.pendingReviews.map((r) => ({ ...r, previous: null })) };
   return {
     ok: true,
     data: {

@@ -728,6 +728,8 @@
   "settings.trigger.percentage": "At a fixed percentage",
   "sync.alreadyCompleted": "Already marked as completed",
   "sync.beyondEntry": "Episode {progress} exceeds the entry's {total} episodes",
+  "sync.correctionOutdated": "Correction not applied: progress has changed since the sync (episode {progress})",
+  "sync.correctionPending": "Correction pending for this season: confirm or dismiss its card in Activity first",
   "sync.correctionReason": "Correction: currently synced with “{title}”",
   "sync.invalidEpisode": "Episode {progress} is invalid for “{title}” ({total} episodes).",
   "sync.noEquivalent": "No matching entry",

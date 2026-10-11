@@ -94,6 +94,25 @@ describe('classifyOutcome', () => {
     expect(classifyOutcome(success, null).kind).toBe('success');
   });
 
+  it('API_ERROR : 4xx (404 fiche supprimée ou introuvable) définitive, 5xx relancée', () => {
+    expect(classifyOutcome({ status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 404 }, null).kind).toBe('final');
+    expect(classifyOutcome({ status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 400 }, null).kind).toBe('final');
+    expect(classifyOutcome({ status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 503 }, null).kind).toBe('retry');
+    const malError = (httpStatus: number): SyncOutcome => ({
+      status: 'synced',
+      mediaTitle: 'x',
+      results: [
+        { service: 'anilist', outcome: { status: 'updated', progress: 3, completed: false } },
+        { service: 'mal', outcome: { status: 'error', message: 'Erreur', code: 'API_ERROR', httpStatus } },
+      ],
+    });
+    expect(classifyOutcome(malError(404), null).kind).toBe('final');
+    expect(classifyOutcome(malError(504), null)).toMatchObject({ kind: 'retry', services: ['mal'] });
+    // Élément en file : un 404 l'abandonne aussitôt, un 503 le replanifie
+    expect(decideAfterRetry(item(), malError(404), NOW)).toMatchObject({ item: { status: 'failed' } });
+    expect(decideAfterRetry(item(), { status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 503 }, NOW)).toMatchObject({ item: { status: 'pending' } });
+  });
+
   it('classe final un résultat synced dont les erreurs sont définitives', () => {
     const outcome: SyncOutcome = {
       status: 'synced',

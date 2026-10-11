@@ -19,6 +19,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - +1 sur le dernier épisode d’un revisionnage le termine comme la synchro automatique : *Terminé* avec un revisionnage de plus sur AniList, et MyAnimeList quitte *Re-watching* avec son compteur incrémenté. Les séries laissées en *Re-watching* sur MyAnimeList par l’ancien comportement sont à corriger à la main sur MyAnimeList.
 - *Corriger* une synchro sur une série en revisionnage la laisse en revisionnage (et le termine, compteur compris, au dernier épisode) ; MyAnimeList reçoit toujours l’état du revisionnage explicitement.
 - La carte *À noter* reste dans Activité tant qu’un service n’a pas enregistré la note (MyAnimeList hors ligne, par exemple) ou si la série n’est dans aucune de tes listes : la note peut être renvoyée plus tard, ou la carte ignorée.
+- Carte *À vérifier* validée alors que MyAnimeList (ou AniList) est momentanément indisponible : l’épisode est mis en attente et renvoyé automatiquement à ce service, au lieu d’être perdu.
+- *Corriger* : l’épisode suivant de la même saison ne fait plus disparaître la carte de correction et n’est plus écrit sur la fiche contestée ; il est signalé *À vérifier* tant que la correction n’est pas validée ou ignorée.
+- *Corriger* ne fait plus reculer une série dont la progression a changé depuis la synchro (épisode suivant, autre appareil) : la correction est refusée avec un message, et une série terminée entre-temps reste terminée.
+- Les corrections importées depuis une sauvegarde deviennent de simples vérifications : elles ne peuvent plus faire reculer la progression ni repasser une série terminée en cours.
+- Plus de bulle *Noter* en fin de série si la série a déjà une note sur AniList ou MyAnimeList, à la fin d’un revisionnage, ni quand seule la fiche MyAnimeList, découpée plus court, se termine.
+- Une saison mise en correspondance pendant sa diffusion (nombre d’épisodes encore inconnu) n’est plus bloquée quand AniList publie la suite dans une fiche séparée (*Part 2*) : les épisodes suivants vont sur la bonne fiche au lieu d’être ignorés.
+- Une fiche introuvable (supprimée ou fusionnée sur AniList, absente de MyAnimeList) n’est plus renvoyée en boucle pendant 24 h : l’erreur est affichée tout de suite, et une correspondance vers une fiche AniList supprimée est oubliée puis recalculée.
 
 ## [2.1.0] - 2026-10-10
 

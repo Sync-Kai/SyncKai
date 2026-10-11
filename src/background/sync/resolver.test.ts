@@ -196,7 +196,7 @@ describe('resolveEpisode — correspondance en cache', () => {
   it('correspondance valide : confiance haute, aucune recherche AniList ni écriture', async () => {
     const { result } = await resolveEpisode(crunchyrollEpisode());
     expect(storage.getMediaMapping).toHaveBeenCalledWith(KEY);
-    expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3, confidence: 'high', reason: 'Correspondance en cache' } });
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } });
     expect(api.searchAnime).not.toHaveBeenCalled();
     expect(api.getAnimeByIds).not.toHaveBeenCalled();
     expect(storage.deleteMediaMapping).not.toHaveBeenCalled();

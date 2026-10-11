@@ -728,6 +728,8 @@
   "settings.trigger.percentage": "Bei einem festen Prozentsatz",
   "sync.alreadyCompleted": "Bereits als abgeschlossen markiert",
   "sync.beyondEntry": "Folge {progress} überschreitet die {total} Folgen des Eintrags",
+  "sync.correctionOutdated": "Korrektur nicht angewendet: Der Fortschritt hat sich seit der Synchronisierung geändert (Folge {progress})",
+  "sync.correctionPending": "Korrektur für diese Staffel ausstehend: Bestätige oder verwirf zuerst ihre Karte unter Aktivität",
   "sync.correctionReason": "Korrektur: derzeit synchronisiert mit „{title}“",
   "sync.invalidEpisode": "Folge {progress} ist ungültig für „{title}“ ({total} Folgen).",
   "sync.noEquivalent": "Kein entsprechender Eintrag",

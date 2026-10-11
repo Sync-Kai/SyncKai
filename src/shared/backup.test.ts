@@ -166,6 +166,13 @@ describe('parseBackup', () => {
     });
   });
 
+  it('une carte de correction importée devient une vérification simple (previous → null)', () => {
+    const correction: PendingReview = { ...review('k', 1), previous: { mediaId: 1, title: 'T', progress: 3 } };
+    const result = parseBackup(fileText({ pendingReviews: [correction] }));
+    if (!result.ok) throw new Error(result.message);
+    expect(result.data.backup.data.pendingReviews).toEqual([{ ...correction, previous: null }]);
+  });
+
   it('sections absentes : vides, sans erreur', () => {
     const result = parseBackup(fileText({}));
     expect(result).toEqual({ ok: true, data: { backup: expect.objectContaining({ data: { ...emptyData(), settings: null } }), invalidCount: 0 } });

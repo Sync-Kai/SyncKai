@@ -215,7 +215,12 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   if (cached) {
     const progress = applyMapping(episode, cached);
     if (progress !== null) {
-      return { result: { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache' } }, candidates: [], seasons: [], seasonGroups: [] };
+      return {
+        result: { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } },
+        candidates: [],
+        seasons: [],
+        seasonGroups: [],
+      };
     }
     // Ex : numérotation absolue passée à la fiche suivante → nouvelle résolution
     if (persist) await deleteMediaMapping(key);

@@ -18,8 +18,14 @@ export const MIN_ALARM_DELAY_MS = 30_000;
 
 const RETRYABLE_CODES: ReadonlySet<SyncErrorCode> = new Set<SyncErrorCode>(['NETWORK', 'RATE_LIMITED', 'API_ERROR']);
 
-export function isRetryableCode(code: SyncErrorCode | undefined): boolean {
-  return code !== undefined && RETRYABLE_CODES.has(code);
+/**
+ * Échec passager, à relancer : réseau, limite de requêtes, ou erreur HTTP du serveur (5xx). Une erreur HTTP 4xx
+ * (404 fiche supprimée ou introuvable, requête refusée) ne réussira pas mieux plus tard : définitive, comme pour
+ * les tâches de fond (transientKind). Statut inconnu : relancé (prudence).
+ */
+export function isRetryableError(code: SyncErrorCode | undefined, httpStatus?: number): boolean {
+  if (code === undefined || !RETRYABLE_CODES.has(code)) return false;
+  return code !== 'API_ERROR' || httpStatus === undefined || httpStatus >= 500;
 }
 
 /**
@@ -38,16 +44,16 @@ export type OutcomeClass =
 export function classifyOutcome(outcome: SyncOutcome, requested: TrackerId[] | null): OutcomeClass {
   switch (outcome.status) {
     case 'error':
-      return isRetryableCode(outcome.code)
+      return isRetryableError(outcome.code, outcome.httpStatus)
         ? { kind: 'retry', services: requested, message: outcome.message }
         : { kind: 'final', message: outcome.message };
     case 'synced': {
       const errors = outcome.results.flatMap((r) =>
-        r.outcome.status === 'error' ? [{ service: r.service, message: r.outcome.message, code: r.outcome.code }] : [],
+        r.outcome.status === 'error' ? [{ service: r.service, message: r.outcome.message, code: r.outcome.code, httpStatus: r.outcome.httpStatus }] : [],
       );
       if (errors.length === 0) return { kind: 'success' };
       const message = errors.map((e) => t('common.serviceMessage', { service: TRACKER_LABELS[e.service], message: e.message })).join(' · ');
-      const retryable = errors.filter((e) => isRetryableCode(e.code));
+      const retryable = errors.filter((e) => isRetryableError(e.code, e.httpStatus));
       // Services en erreur définitive ignorés : seuls les échecs passagers sont relancés
       return retryable.length > 0
         ? { kind: 'retry', services: retryable.map((e) => e.service), message }

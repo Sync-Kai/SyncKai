@@ -10,6 +10,7 @@ import type { Result } from '../../shared/result';
 import type { CandidateSummary, PendingReview } from '../../shared/review.types';
 import {
   addRecentSync,
+  deleteMediaMapping,
   deletePendingReview,
   getPendingReviews,
   getRecentSyncs,
@@ -25,10 +26,10 @@ import { ApiError } from '../api/errors';
 import { getAnimeById, searchAnime } from '../api/media';
 import { getConnectedTrackers } from '../trackers';
 import type { CatalogMedia, TrackerService } from '../trackers/tracker';
-import { mappingFromManualChoice, mappingKey, seasonLabel } from './matching';
+import { mappingFromManualChoice, mappingKey, seasonLabel, type ResolveResult, type SyncTarget } from './matching';
 import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './resolver';
 import { withEntryLock } from './entry-lock';
-import { decideListUpdate } from './rules';
+import { decideListUpdate, type ListEntryState } from './rules';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('sync');
@@ -38,11 +39,21 @@ const SKIP_REASONS = {
   'already-completed': 'sync.alreadyCompleted',
 } as const satisfies Record<string, MessageKey>;
 
+/** Erreur d'API sous forme de résultat (statut HTTP compris : il décide de la relance, voir queue-policy) */
+function apiErrorOutcome(error: ApiError): { status: 'error'; message: string; code: AniListErrorCode; httpStatus?: number } {
+  return { status: 'error', message: error.message, code: error.code, ...(error.httpStatus !== null ? { httpStatus: error.httpStatus } : {}) };
+}
+
+/** Fiche introuvable (404) : supprimée ou fusionnée sur AniList, identifiant erroné sur MAL */
+function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.httpStatus === 404;
+}
+
 /** Convertit une erreur en résultat affichable (les handlers de messages ne lèvent jamais). */
 function toErrorOutcome(error: unknown): SyncOutcome {
   if (error instanceof ApiError) {
     log.error(error.code, error.message);
-    return { status: 'error', message: error.message, code: error.code };
+    return apiErrorOutcome(error);
   }
   log.error('Erreur inattendue :', error);
   return { status: 'error', message: t('error.unexpectedSync') };
@@ -65,76 +76,96 @@ export async function getCatalogMedia(mediaId: number): Promise<CatalogMedia> {
   return { mediaId, idMal: media.idMal, title: media.displayTitle, episodes: media.episodes };
 }
 
-/** Résultat d'écriture sur un service + fiche déjà terminée (déclenche la proposition de revisionnage) */
-interface ServiceWrite {
+/** Résultat d'écriture sur un service et état de l'entrée lue avant l'écriture */
+export interface ServiceWrite {
   result: ServiceResult;
+  /** Fiche déjà terminée (déclenche la proposition de revisionnage) */
   alreadyCompleted: boolean;
+  /** L'entrée portait déjà une note : aucune demande de note */
+  scored: boolean;
+  /** L'entrée était en revisionnage : sa fin ne redemande pas de note */
+  wasRepeating: boolean;
 }
 
-/** Applique les règles métier et écrit sur UN service. Ne lève jamais : l'échec est un résultat. */
+function serviceWrite(result: ServiceResult, entry: ListEntryState | null = null, alreadyCompleted = false): ServiceWrite {
+  return { result, alreadyCompleted, scored: entry?.score !== undefined, wasRepeating: entry?.status === 'REPEATING' };
+}
+
+/**
+ * Applique les règles métier et écrit sur UN service. Ne lève jamais : l'échec est un résultat.
+ * `correctionFrom` : progression écrite par la synchro corrigée (« Corriger »), null hors correction.
+ */
 async function writeToService(
   tracker: TrackerService,
   catalog: CatalogMedia,
   progress: number,
-  isCorrection: boolean,
+  correctionFrom: number | null,
 ): Promise<ServiceWrite> {
   const label = TRACKER_LABELS[tracker.id];
   const id = tracker.resolveId(catalog);
-  if (id === null) return { result: { service: tracker.id, outcome: { status: 'skipped', reason: t('sync.noEquivalent') } }, alreadyCompleted: false };
+  if (id === null) return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.noEquivalent') } });
 
   try {
     // Lecture, décision et écriture sous le verrou de la fiche : une relance de la file ou un +1 concurrent ne peut
     // ni faire reculer la progression ni perdre une écriture (voir entry-lock.ts)
-    return await withEntryLock(tracker.id, id, () => writeEntry(tracker, id, catalog, progress, isCorrection));
+    return await withEntryLock(tracker.id, id, () => writeEntry(tracker, id, catalog, progress, correctionFrom));
   } catch (error: unknown) {
     log.error(`${label} : échec`, error);
-    return {
-      result: {
-        service: tracker.id,
-        outcome: error instanceof ApiError ? { status: 'error', message: error.message, code: error.code } : { status: 'error', message: t('error.unexpected') },
-      },
-      alreadyCompleted: false,
-    };
+    return serviceWrite({
+      service: tracker.id,
+      outcome: error instanceof ApiError ? apiErrorOutcome(error) : { status: 'error', message: t('error.unexpected') },
+    });
   }
 }
 
 /** Relecture, règles métier puis écriture sur la fiche `id` (appelé sous son verrou). Lève les erreurs d'API. */
-async function writeEntry(tracker: TrackerService, id: number, catalog: CatalogMedia, progress: number, isCorrection: boolean): Promise<ServiceWrite> {
+async function writeEntry(tracker: TrackerService, id: number, catalog: CatalogMedia, progress: number, correctionFrom: number | null): Promise<ServiceWrite> {
   const label = TRACKER_LABELS[tracker.id];
   // Lecture fraîche juste avant l'écriture (la liste a pu changer depuis un autre appareil)
   const current = await tracker.getEntry(id);
   // Découpage différent entre services : on n'écrit pas au-delà de la fiche de ce service
   if (current.episodes !== null && progress > current.episodes) {
-    return {
-      result: {
-        service: tracker.id,
-        outcome: { status: 'skipped', reason: t('sync.beyondEntry', { progress, total: current.episodes }) },
-      },
-      alreadyCompleted: false,
-    };
+    return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.beyondEntry', { progress, total: current.episodes }) } }, current.entry);
   }
 
+  // Une correction (écriture vers le bas permise) ne vaut que sur la valeur écrite par la synchro corrigée : si la
+  // progression a changé depuis (autre épisode, autre appareil, carte importée d'une sauvegarde), règles normales,
+  // qui ne font jamais reculer la liste
+  const isCorrection = correctionFrom !== null && current.entry?.progress === correctionFrom;
+  const outdatedCorrection = correctionFrom !== null && !isCorrection;
   const decision = decideListUpdate(current.entry, progress, current.episodes ?? catalog.episodes, isCorrection);
   if (decision.action === 'skip') {
     log.info(`${label} : pas de mise à jour (${decision.reason})`, current);
-    return {
-      result: {
+    if (outdatedCorrection && current.entry !== null && current.entry.progress !== progress) {
+      return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.correctionOutdated', { progress: current.entry.progress }) } }, current.entry);
+    }
+    return serviceWrite(
+      {
         service: tracker.id,
         outcome:
           decision.reason === 'up-to-date'
             ? { status: 'up-to-date', progress: current.entry?.progress ?? progress }
             : { status: 'skipped', reason: t(SKIP_REASONS[decision.reason]) },
       },
-      alreadyCompleted: decision.reason === 'already-completed',
-    };
+      current.entry,
+      decision.reason === 'already-completed',
+    );
   }
 
   const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
   log.info(`✔ ${label} : ${current.title} → épisode ${saved.progress} (${saved.status})`);
-  return {
-    result: { service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' } },
-    alreadyCompleted: false,
-  };
+  return serviceWrite({ service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' } }, current.entry);
+}
+
+/**
+ * Demande de note après la synchro (pur, testable) : la série vient de passer en Terminé sur un service, aucune
+ * entrée n'est déjà notée ni n'était en revisionnage, et la fiche AniList est terminée (une fiche MAL découpée
+ * plus court qui se termine seule ne termine pas la série).
+ */
+export function shouldPromptRating(catalog: Pick<CatalogMedia, 'episodes'>, progress: number, writes: readonly ServiceWrite[]): boolean {
+  const justCompleted = writes.some(({ result }) => result.outcome.status === 'updated' && result.outcome.completed);
+  if (!justCompleted || writes.some((w) => w.scored || w.wasRepeating)) return false;
+  return catalog.episodes === null || progress >= catalog.episodes;
 }
 
 /**
@@ -145,8 +176,7 @@ async function buildPrompts(catalog: CatalogMedia, progress: number, writes: rea
   try {
     const ref: MediaRef = { mediaId: catalog.mediaId, malId: catalog.idMal, title: catalog.title };
     const prompts: SyncPrompts = {};
-    const justCompleted = writes.some(({ result }) => result.outcome.status === 'updated' && result.outcome.completed);
-    if (justCompleted && (await getSettings()).ratingPrompt) prompts.rate = ref;
+    if (shouldPromptRating(catalog, progress, writes) && (await getSettings()).ratingPrompt) prompts.rate = ref;
     // Revoir le dernier épisode seul n'est pas un revisionnage : il ne pourrait jamais se terminer
     const isFinale = catalog.episodes !== null && progress >= catalog.episodes;
     if (!isFinale && writes.some((w) => w.alreadyCompleted) && !(await isRewatchDeclined(ref))) prompts.rewatch = { ...ref, progress };
@@ -159,9 +189,12 @@ async function buildPrompts(catalog: CatalogMedia, progress: number, writes: rea
 }
 
 interface WriteOptions {
-  isCorrection?: boolean;
+  /** Correction : progression écrite par la synchro corrigée (voir writeEntry) */
+  correctionFrom?: number | null;
   /** Restreint l'écriture à ces services (nouvelle tentative après un échec partiel) */
   only?: readonly TrackerId[] | null;
+  /** Carte de vérification confirmée par l'utilisateur (voir settleReviewCard) */
+  confirmed?: PendingReview;
 }
 
 /**
@@ -178,7 +211,7 @@ async function writeToServices(
   const trackers = await getConnectedTrackers(options.only ?? null);
   if (trackers.length === 0) return { status: 'not-connected' };
 
-  const writes = await Promise.all(trackers.map((t) => writeToService(t, catalog, progress, options.isCorrection ?? false)));
+  const writes = await Promise.all(trackers.map((t) => writeToService(t, catalog, progress, options.correctionFrom ?? null)));
   const results = writes.map((w) => w.result);
 
   if (results.some((r) => r.outcome.status === 'updated')) {
@@ -189,13 +222,86 @@ async function writeToServices(
     // Coche sur l'icône (visible en plein écran) : décorative, ne bloque ni ne fait échouer la synchro
     void flashSyncBadge();
   }
-  // Correspondance appliquée pour cette saison : une éventuelle vérification en attente est caduque
-  if (results.some((r) => r.outcome.status !== 'error') && (await getPendingReviews()).some((r) => r.key === key)) {
-    await deletePendingReview(key);
-    await refreshReviewBadge();
-  }
+  await settleReviewCard(key, results, options.confirmed ?? null);
   const prompts = await buildPrompts(catalog, progress, writes);
   return { status: 'synced', mediaTitle: catalog.title, results, ...(prompts ? { prompts } : {}) };
+}
+
+/**
+ * Carte de vérification de la saison après une écriture :
+ * - synchro automatique : une vérification simple est caduque (correspondance appliquée) ; une correction
+ *   ouverte par l'utilisateur (« Corriger ») reste, elle seule décide de la fiche
+ * - carte confirmée : supprimée si un service a été écrit ; une correction reste tant qu'un service est en
+ *   erreur (un nouvel essai la rejoue : le service déjà corrigé est alors à jour)
+ */
+async function settleReviewCard(key: string, results: readonly ServiceResult[], confirmed: PendingReview | null): Promise<void> {
+  const card = (await getPendingReviews()).find((r) => r.key === key);
+  if (!card) return;
+  const failed = results.some((r) => r.outcome.status === 'error');
+  const applied = results.some((r) => r.outcome.status !== 'error');
+  const obsolete = confirmed === null ? card.previous === null && applied : confirmed.previous === null ? applied : !failed;
+  if (!obsolete) return;
+  await deletePendingReview(key);
+  await refreshReviewBadge();
+}
+
+interface SyncResolution {
+  result: ResolveResult;
+  candidates: CandidateSummary[];
+  /** Fiche du catalogue de la cible fiable, null si une vérification est nécessaire */
+  catalog: CatalogMedia | null;
+}
+
+function reliableTarget(result: ResolveResult): SyncTarget | null {
+  return result.ok && result.target.confidence === 'high' ? result.target : null;
+}
+
+/**
+ * Correspondance en cache confrontée au catalogue AniList : null (correspondance oubliée) si la fiche n'existe plus
+ * (404 : supprimée ou fusionnée) ou s'arrête avant l'épisode (total publié après la mise en cache, suite créée en
+ * fiche séparée « Part 2 »). Un total inconnu à la mise en cache (fiche en diffusion) est complété.
+ */
+async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<CatalogMedia | null> {
+  let catalog: CatalogMedia;
+  try {
+    catalog = await getCatalogMedia(target.mediaId);
+  } catch (error: unknown) {
+    if (!isNotFound(error)) throw error;
+    log.warn(`Fiche ${target.mediaId} introuvable sur AniList : correspondance ${key} oubliée`);
+    await deleteMediaMapping(key);
+    return null;
+  }
+  if (catalog.episodes !== null && target.progress > catalog.episodes) {
+    log.warn(`Épisode ${target.progress} au-delà des ${catalog.episodes} épisodes de la fiche ${target.mediaId} : correspondance ${key} oubliée`);
+    await deleteMediaMapping(key);
+    return null;
+  }
+  if (target.episodes === null && catalog.episodes !== null) {
+    const { mediaId, numbering, offset, seriesLabel, mediaTitle } = target;
+    await saveMediaMapping(key, {
+      mediaId,
+      numbering,
+      offset,
+      episodes: catalog.episodes,
+      ...(seriesLabel !== undefined ? { seriesLabel } : {}),
+      ...(mediaTitle !== undefined ? { mediaTitle } : {}),
+    });
+  }
+  return catalog;
+}
+
+/** Résolution de la fiche, puis catalogue de la cible fiable ; une correspondance en cache caduque est résolue à nouveau (une fois). */
+async function resolveForSync(episode: EpisodeInfo, key: string): Promise<SyncResolution> {
+  const first = await resolveEpisode(episode);
+  const target = reliableTarget(first.result);
+  if (target === null) return { result: first.result, candidates: first.candidates, catalog: null };
+  if (!target.fromCache) return { result: first.result, candidates: first.candidates, catalog: await getCatalogMedia(target.mediaId) };
+
+  const catalog = await revalidateCachedTarget(key, target);
+  if (catalog !== null) return { result: first.result, candidates: first.candidates, catalog };
+  const second = await resolveEpisode(episode);
+  const fresh = reliableTarget(second.result);
+  return { result: second.result, candidates: second.candidates, catalog: fresh ? await getCatalogMedia(fresh.mediaId) : null };
 }
 
 /**
@@ -211,7 +317,7 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
       return { status: 'excluded', mediaTitle: episode.animeTitle };
     }
     const key = mappingKey(episode);
-    const { result, candidates } = await resolveEpisode(episode);
+    const { result, candidates, catalog } = await resolveForSync(episode, key);
 
     // Plateforme généraliste (Netflix) : série sans fiche AniList liée ni au même titre, probablement pas un anime.
     // Ni carte de vérification ni entrée au journal (info, pas warn) : le content script n'affiche rien.
@@ -220,7 +326,15 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
       return { status: 'ignored' };
     }
 
-    if (!result.ok ||result.target.confidence === 'low') {
+    // Correction (« Corriger ») en attente pour la saison : rien n'est écrit sur la fiche contestée, et la carte
+    // n'est pas remplacée par une vérification simple ; l'utilisateur valide ou ignore d'abord la correction
+    const correction = (await getPendingReviews()).find((r) => r.key === key && r.previous !== null);
+    if (correction?.previous && (catalog === null || catalog.mediaId === correction.previous.mediaId)) {
+      log.info(`Correction en attente pour ${key} : épisode non écrit`, episode);
+      return { status: 'needs-review', reason: t('sync.correctionPending') };
+    }
+
+    if (!result.ok || catalog === null) {
       // Fiche suggérée exclue : pas de carte de vérification pour une série que l'utilisateur ignore
       if (result.ok && (await isExcluded({ mediaId: result.target.mediaId }))) {
         log.info(`Fiche suggérée ${result.target.mediaId} exclue : aucune vérification créée`);
@@ -242,7 +356,6 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
 
     const { target } = result;
     log.info(`Fiche ${target.mediaId}, progression ${target.progress} : ${target.reason}`);
-    const catalog = await getCatalogMedia(target.mediaId);
     if (await isExcluded({ mediaId: target.mediaId })) {
       log.info(`Fiche ${target.mediaId} exclue : rien n’est écrit`);
       return { status: 'excluded', mediaTitle: catalog.title };
@@ -253,25 +366,38 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
   }
 }
 
+/** Résultat d'une vérification confirmée */
+export interface ReviewResolution {
+  outcome: SyncOutcome;
+  /**
+   * Épisode à confier à la file de relance (recordSyncOutcome), comme une synchro en direct : vérification simple
+   * écrite (au moins en partie). null sinon : erreur globale (la carte reste) ou correction (la carte reste tant
+   * qu'un service est en erreur ; une relance automatique n'appliquerait que les règles normales).
+   */
+  episode: EpisodeInfo | null;
+}
+
 /** Choix manuel depuis le popup : mémorise la correspondance pour la saison puis synchronise. */
-export async function resolveReview({ key, mediaId, progress }: ResolveReviewPayload): Promise<SyncOutcome> {
+export async function resolveReview({ key, mediaId, progress }: ResolveReviewPayload): Promise<ReviewResolution> {
   try {
     const review = (await getPendingReviews()).find((r) => r.key === key);
-    if (!review) return { status: 'error', message: t('sync.reviewGone') };
+    if (!review) return { outcome: { status: 'error', message: t('sync.reviewGone') }, episode: null };
 
     const catalog = await getCatalogMedia(mediaId);
     const mapping = mappingFromManualChoice(review.episode, mediaId, progress, catalog.episodes);
     if (!mapping) {
-      return { status: 'error', message: t('sync.invalidEpisode', { progress, title: catalog.title, total: catalog.episodes ?? '?' }) };
+      return { outcome: { status: 'error', message: t('sync.invalidEpisode', { progress, title: catalog.title, total: catalog.episodes ?? '?' }) }, episode: null };
     }
 
     await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title });
     log.info(`Correspondance manuelle enregistrée pour ${key} :`, mapping);
-    // Correction sur la fiche déjà utilisée : la valeur choisie remplace celle écrite (même plus basse)
-    const isCorrection = review.previous?.mediaId === mediaId;
-    return await writeToServices(key, review.episode, catalog, progress, { isCorrection });
+    // Correction sur la fiche déjà utilisée : la valeur choisie remplace celle écrite (même plus basse), seulement
+    // sur un service resté à la progression écrite par la synchro corrigée (voir writeEntry)
+    const correctionFrom = review.previous !== null && review.previous.mediaId === mediaId ? review.previous.progress : null;
+    const outcome = await writeToServices(key, review.episode, catalog, progress, { correctionFrom, confirmed: review });
+    return { outcome, episode: outcome.status === 'synced' && review.previous === null ? review.episode : null };
   } catch (error: unknown) {
-    return toErrorOutcome(error);
+    return { outcome: toErrorOutcome(error), episode: null };
   }
 }
 
