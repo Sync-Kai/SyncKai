@@ -257,3 +257,60 @@ export function winterArcSeasonResponse(): Record<string, unknown> {
 export function nonAnimeSeriesPage(): Record<string, unknown> {
   return undeadUnluckSeriesPage({ entityId: '11111111-2222-4333-8444-000000000001', title: 'Andor', genres: ['Science-fiction', 'Action et aventure'], internalTitles: false });
 }
+
+// ─── Réponse de lecture (générique de fin) ────────────────────────────────
+// Synduality Noir, saison 1 épisode 1 (relevé le 2026-10-11). Réponse du lecteur `disney.playback.edge.bamgrid.com`
+// (scénario `ctr-regular`, requête POST ; chemin exact non relevé). Forme RÉDUITE : la réponse réelle contient aussi des
+// URL de flux signées et des jetons de droits, jamais repris ici.
+
+/** Identifiant de l'URL /play/{id} (épisode, deeplinkId) = `tracking.qoe.entityId` de la réponse de lecture */
+export const SYNDUALITY_S1E1_PLAY_ID = 'e6055866-d238-415c-aa41-f60d7bf0dcf5';
+/** `availId` (playerExperience) = `stream.playbackRights.externalIds.availId` de la réponse de lecture */
+export const SYNDUALITY_S1E1_AVAIL_ID = 'eb81190f-39ec-476b-841a-b7add45d3315';
+/** mediaId du titre interne = `tracking.telemetry.mediaId` de la réponse de lecture */
+export const SYNDUALITY_S1E1_MEDIA_ID = '14c83c07-17c3-4aa3-b04c-e53e68dd7393';
+/** Début du générique de fin (FFEC, ms) et durée de l'épisode (ms, 24:20) */
+export const SYNDUALITY_S1E1_FFEC_MS = 1_429_803;
+export const SYNDUALITY_S1E1_RUNTIME_MS = 1_460_084;
+
+/** Chemin probable de la requête de lecture (version et scénario variables) */
+export const PLAYBACK_URL = 'https://disney.playback.edge.bamgrid.com/v7/playback/ctr-regular';
+
+/** Réponse de lecture réduite (forme réelle des champs gardés) */
+export function syndualityPlayback(): Record<string, unknown> {
+  return {
+    stream: {
+      insertion: {
+        mode: 'SGAI',
+        points: [{ id: 'INT-0', offset: 0, placement: 'PREROLL', content: [{ type: 'AUXILIARY_CONTENT', subtype: 'BRAND_BUMPER', duration: 5000 }] }],
+      },
+      editorial: [
+        { label: 'FFEC', offsetMillis: SYNDUALITY_S1E1_FFEC_MS },
+        { label: 'up_next', offsetMillis: 1_434_808 },
+        { label: 'LFEC', offsetMillis: 1_441_023 },
+      ],
+      playbackRights: { externalIds: { alid: '12ab9363-0149-4389-8de8-08cc2d699e15', availId: SYNDUALITY_S1E1_AVAIL_ID } },
+    },
+    tracking: {
+      telemetry: { mediaId: SYNDUALITY_S1E1_MEDIA_ID },
+      conviva: { assetName: `Synduality Noir - s1e1 - mediaId:${SYNDUALITY_S1E1_MEDIA_ID}` },
+      qoe: { entityId: SYNDUALITY_S1E1_PLAY_ID },
+    },
+    playhead: { position: 0, status: 'PlayheadFound' },
+  };
+}
+
+/**
+ * Réponse playerExperience du même épisode, reconstituée à partir des valeurs relevées (availId, titre interne avec le
+ * mediaId, durée) ; sans infoBlock : l'identifiant de l'URL n'y figure pas
+ */
+export function syndualityS1E1(): Record<string, unknown> {
+  return response({
+    availId: SYNDUALITY_S1E1_AVAIL_ID,
+    title: 'Synduality Noir',
+    internalTitle: `Synduality Noir - s1e1 - mediaId:${SYNDUALITY_S1E1_MEDIA_ID}`,
+    originalLanguage: 'ja',
+    timeline: { runtimeMs: SYNDUALITY_S1E1_RUNTIME_MS },
+    analytics: { programType: 'episode' },
+  });
+}

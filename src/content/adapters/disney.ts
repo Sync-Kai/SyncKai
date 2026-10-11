@@ -421,7 +421,7 @@ function reportProgressHost(found: boolean): void {
   if (hostReports.key !== key) hostReports = { key, seen: new Set() };
   if (hostReports.seen.has(found)) return;
   hostReports.seen.add(found);
-  if (__SYNCKAI_DEBUG__) log.debug(found ? 'Barre de progression du lecteur trouvée' : 'Barre de progression du lecteur introuvable pour l’instant');
+  log.debug(found ? 'Barre de progression du lecteur trouvée' : 'Barre de progression du lecteur introuvable pour l’instant');
 }
 
 /** Dernier lecteur signalé (diagnostic : « trouvé » / « introuvable » journalisé à chaque changement) */
@@ -501,9 +501,22 @@ export const disneyAdapter: StreamingAdapter = {
   },
 
   readPlayback(video) {
-    progressReader ??= createProgressReader(() => findShadowHost(SELECTORS.progressHost), Date.now, reportProgressHost);
+    // Diagnostic de la barre en développement seulement : retiré du script publié (budget de taille)
+    progressReader ??= createProgressReader(() => findShadowHost(SELECTORS.progressHost), Date.now, __SYNCKAI_DEBUG__ ? reportProgressHost : undefined);
     return progressReader(video, currentProgressContext());
   },
 
-  // Aucun début de générique dans les métadonnées de Disney+ : complétion au seuil de repli (getCreditsStart absent)
+  /**
+   * Début du générique de fin : repère FFEC de la réponse de lecture du lecteur, joint à la fiche par le pont (attente
+   * bornée, voir loadEditorial). Même ligne de temps que la barre de progression (position du programme) : le bumper
+   * de marque en préroll (SGAI, « INT-0 », 5 s) est une insertion hors du programme, absente de la barre comme des
+   * repères (aria-valuemax de la barre = runtimeMs de la fiche ; FFEC 1429,8 s < LFEC 1441,0 s < durée 1460,1 s).
+   * Null (seuil de repli) sans réponse de lecture ou sans FFEC ; resolveCompletionPoint écarte une valeur invraisemblable.
+   */
+  async getCreditsStart(episodeId, signal) {
+    const ms = (await bridge().loadEditorial(episodeId, signal, urlChangedAt(episodeId)))?.creditsStartMs ?? null;
+    const start = ms !== null ? ms / 1000 : null;
+    if (__SYNCKAI_DEBUG__ && !signal.aborted) log.debug(start !== null ? `Générique de fin annoncé à ${start} s` : 'Pas de données de générique de fin (seuil de repli)');
+    return start;
+  },
 };

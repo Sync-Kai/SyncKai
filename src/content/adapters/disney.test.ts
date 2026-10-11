@@ -71,8 +71,8 @@ describe('parseDisneyPlayId', () => {
     expect(disneyAdapter.supportsHost('disneyplus.com.evil.example')).toBe(false);
     expect(disneyAdapter.getEpisodeId(new URL(`https://www.disneyplus.com/fr-fr/play/${UNDEAD_UNLUCK_S1E1_PLAY_ID}?contextId=x`))).toBe(UNDEAD_UNLUCK_S1E1_PLAY_ID);
     expect(disneyAdapter.quiet).toBe(true);
-    // Aucun début de générique dans les métadonnées : seuil de repli
-    expect(disneyAdapter.getCreditsStart).toBeUndefined();
+    // Début du générique de fin : repère FFEC de la réponse de lecture (voir disney-credits.test.ts)
+    expect(disneyAdapter.getCreditsStart).toBeTypeOf('function');
   });
 });
 

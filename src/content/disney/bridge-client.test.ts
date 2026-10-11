@@ -269,3 +269,33 @@ describe('createDisneyBridgeClient — pages de série', () => {
     expect(await setup().client.loadPage('x', signal())).toBeNull();
   });
 });
+
+describe('createDisneyBridgeClient — repères éditoriaux (générique de fin)', () => {
+  const CREDITS = { creditsStartMs: 1_429_803, upNextMs: 1_434_808 };
+
+  it('fiche sans repères puis fiche complétée par le pont (réponse de lecture) : repères servis', async () => {
+    const { client, bridge } = setup({ seen: [S1E1] });
+    const loading = client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0);
+    await delay(10);
+    bridge.push({ ...S1E1, editorial: CREDITS });
+    expect(await loading).toEqual(CREDITS);
+    expect(client.peek(UNDEAD_UNLUCK_S1E1_PLAY_ID)?.editorial).toEqual(CREDITS);
+  });
+
+  it('repères déjà joints à la fiche : servis sans attente', async () => {
+    const { client } = setup({ seen: [{ ...S1E1, editorial: CREDITS }] });
+    expect(await client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0)).toEqual(CREDITS);
+  });
+
+  it('aucune réponse de lecture dans le délai, aucune fiche, ou annulation : null', async () => {
+    const started = Date.now();
+    expect(await setup({ seen: [S1E1] }).client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0)).toBeNull();
+    expect(Date.now() - started).toBeGreaterThanOrEqual(150);
+    expect(await setup({ bridge: false }).client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0)).toBeNull();
+    const controller = new AbortController();
+    const loading = setup({ seen: [S1E1] }).client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, controller.signal, 0);
+    await delay(20);
+    controller.abort();
+    expect(await loading).toBeNull();
+  });
+});

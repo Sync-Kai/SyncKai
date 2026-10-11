@@ -16,14 +16,24 @@ import {
   infoBlockEntityIds,
   installDisneyBridgeOnce,
   isDisneyPlayerExperience,
+  observedRequest,
   playerExperienceRequestId,
+  reduceDisneyPlayback,
   reduceDisneyPlayerExperience,
+  withDisneyPlayback,
   type DisneyPlayerExperience,
 } from './bridge-protocol';
 import {
   nonAnimeEpisode,
+  PLAYBACK_URL,
   playerExperienceUrl,
   SEEN_AT,
+  SYNDUALITY_S1E1_AVAIL_ID,
+  SYNDUALITY_S1E1_FFEC_MS,
+  SYNDUALITY_S1E1_MEDIA_ID,
+  SYNDUALITY_S1E1_PLAY_ID,
+  syndualityPlayback,
+  syndualityS1E1,
   UNDEAD_UNLUCK_S1E1_AVAIL_ID,
   UNDEAD_UNLUCK_S1E1_INFO_BLOCK,
   UNDEAD_UNLUCK_S1E1_PLAY_ID,
@@ -83,6 +93,7 @@ describe('reduceDisneyPlayerExperience', () => {
       originalLanguage: 'ja',
       runtimeMs: 1460000,
       programType: 'episode',
+      editorial: null,
     });
     expect(JSON.stringify(reduced)).not.toMatch(/playback|ripcut|ratings|EiJ1/);
     expect(isDisneyPlayerExperience(reduced)).toBe(true);
@@ -128,6 +139,7 @@ describe('reduceDisneyPlayerExperience', () => {
       originalLanguage: null,
       runtimeMs: null,
       programType: null,
+      editorial: null,
     });
   });
 
@@ -140,6 +152,79 @@ describe('reduceDisneyPlayerExperience', () => {
   });
 });
 
+describe('réponse de lecture (générique de fin)', () => {
+  it('requête de lecture : hôte bamgrid.com et chemin …/playback/…, version et scénario variables', () => {
+    expect(observedRequest(PLAYBACK_URL)).toEqual({ kind: 'playback', id: '' });
+    expect(observedRequest('https://disney.playback.edge.bamgrid.com/v12/playback/tv-drm-ctr?x=1')).toEqual({ kind: 'playback', id: '' });
+    expect(observedRequest('https://www.disneyplus.com/playback/ctr-regular')).toBeNull();
+    expect(observedRequest('https://disney.playback.edge.bamgrid.com.evil.example/v7/playback/ctr-regular')).toBeNull();
+    expect(observedRequest('http://disney.playback.edge.bamgrid.com/v7/playback/ctr-regular')).toBeNull();
+    expect(observedRequest('https://disney.playback.edge.bamgrid.com/widevine/v1/obtain-license')).toBeNull();
+    expect(playerExperienceRequestId(PLAYBACK_URL)).toBeNull();
+  });
+
+  it('réduite aux identifiants (availId, entityId de l’URL, mediaId) et aux repères FFEC / up_next', () => {
+    expect(reduceDisneyPlayback(syndualityPlayback())).toEqual({
+      ids: [SYNDUALITY_S1E1_AVAIL_ID, SYNDUALITY_S1E1_PLAY_ID, SYNDUALITY_S1E1_MEDIA_ID],
+      creditsStartMs: SYNDUALITY_S1E1_FFEC_MS,
+      upNextMs: 1434808,
+    });
+  });
+
+  it('URL de flux et jetons de droits présents dans la réponse : jamais gardés', () => {
+    const raw = syndualityPlayback();
+    const stream = raw.stream as Record<string, unknown>;
+    const rights = stream.playbackRights as Record<string, unknown>;
+    const withSecrets = {
+      ...raw,
+      stream: {
+        ...stream,
+        sources: [{ complete: { url: 'https://vod.example.invalid/master.m3u8?sig=FAKE-SIGNATURE' } }],
+        insertion: { ...(stream.insertion as Record<string, unknown>), base: 'https://vod.example.invalid/base?sig=FAKE-SIGNATURE' },
+        playbackRights: { ...rights, playbackRightsContext: 'eyJGAKE.FAKE-TOKEN.FAKE' },
+      },
+      url: 'https://vod.example.invalid/top?sig=FAKE-SIGNATURE',
+    };
+    const reduced = reduceDisneyPlayback(withSecrets);
+    expect(reduced?.creditsStartMs).toBe(SYNDUALITY_S1E1_FFEC_MS);
+    expect(JSON.stringify(reduced)).not.toMatch(/https?:|FAKE|sig=|eyJ|alid|12ab9363|SGAI|INT-0/);
+    expect(Object.keys(reduced ?? {}).sort()).toEqual(['creditsStartMs', 'ids', 'upNextMs']);
+  });
+
+  it('sans FFEC ni up_next, repères invalides : null ; sans stream ou sans identifiant valide : écartée', () => {
+    const base = syndualityPlayback();
+    const stream = base.stream as Record<string, unknown>;
+    expect(reduceDisneyPlayback({ ...base, stream: { ...stream, editorial: [{ label: 'LFEC', offsetMillis: 1441023 }] } })).toMatchObject({ creditsStartMs: null, upNextMs: null });
+    expect(reduceDisneyPlayback({ ...base, stream: { ...stream, editorial: [{ label: 'FFEC', offsetMillis: -5 }, { label: 'up_next', offsetMillis: '1434808' }] } })).toMatchObject({
+      creditsStartMs: null,
+      upNextMs: null,
+    });
+    expect(reduceDisneyPlayback({ ...base, stream: { ...stream, editorial: undefined } })).toMatchObject({ creditsStartMs: null });
+    expect(reduceDisneyPlayback({ tracking: base.tracking })).toBeNull();
+    expect(reduceDisneyPlayback({ stream: { editorial: stream.editorial } })).toBeNull();
+    expect(reduceDisneyPlayback(null)).toBeNull();
+  });
+
+  it('jointe à la fiche de la même vidéo (availId commun, ou mediaId du titre interne) ; autre vidéo : fiche inchangée', () => {
+    const playback = reduceDisneyPlayback(syndualityPlayback());
+    const entry = reduceDisneyPlayerExperience(syndualityS1E1(), SYNDUALITY_S1E1_AVAIL_ID, SEEN_AT);
+    if (!playback || !entry) throw new Error('fixture');
+    const joined = withDisneyPlayback(entry, [playback]);
+    expect(joined.editorial).toEqual({ creditsStartMs: SYNDUALITY_S1E1_FFEC_MS, upNextMs: 1434808 });
+    expect(joined.ids).toEqual(entry.ids);
+    expect(isDisneyPlayerExperience(joined)).toBe(true);
+    // mediaId seul en commun (fiche demandée par un autre identifiant, sans availId lisible)
+    const byMedia = { ...entry, ids: ['00000000-0000-4000-8000-000000000001'] };
+    expect(withDisneyPlayback(byMedia, [{ ...playback, ids: [SYNDUALITY_S1E1_MEDIA_ID] }]).editorial?.creditsStartMs).toBe(SYNDUALITY_S1E1_FFEC_MS);
+    const other = reduceDisneyPlayerExperience(undeadUnluckS1E1(), UNDEAD_UNLUCK_S1E1_AVAIL_ID, SEEN_AT);
+    if (!other) throw new Error('fixture');
+    expect(withDisneyPlayback(other, [playback])).toBe(other);
+    // Plusieurs réponses de la même vidéo : la plus récente
+    const later = { ...playback, creditsStartMs: 1_400_000 };
+    expect(withDisneyPlayback(entry, [playback, later]).editorial?.creditsStartMs).toBe(1_400_000);
+  });
+});
+
 const ENTRY: DisneyPlayerExperience = {
   ids: [UNDEAD_UNLUCK_S1E1_PLAY_ID, UNDEAD_UNLUCK_S1E1_AVAIL_ID],
   seenAt: SEEN_AT,
@@ -149,9 +234,15 @@ const ENTRY: DisneyPlayerExperience = {
   originalLanguage: 'ja',
   runtimeMs: 1460000,
   programType: 'episode',
+  editorial: null,
 };
 
 describe('isDisneyPlayerExperience (revalidation côté isolé)', () => {
+  it('repères éditoriaux valides (ou inconnus) : acceptés', () => {
+    expect(isDisneyPlayerExperience({ ...ENTRY, editorial: { creditsStartMs: 1429803, upNextMs: null } })).toBe(true);
+    expect(isDisneyPlayerExperience({ ...ENTRY, editorial: { creditsStartMs: null, upNextMs: null } })).toBe(true);
+  });
+
   it.each<[string, Record<string, unknown>]>([
     ['identifiant en majuscules', { ids: [UNDEAD_UNLUCK_S1E1_AVAIL_ID.toUpperCase()] }],
     ['identifiant invalide', { ids: ['x'] }],
@@ -165,6 +256,10 @@ describe('isDisneyPlayerExperience (revalidation côté isolé)', () => {
     ['durée négative', { runtimeMs: -1 }],
     ['durée non entière', { runtimeMs: 1.5 }],
     ['type invalide', { programType: 'Episode' }],
+    ['repères absents', { editorial: undefined }],
+    ['repères invalides', { editorial: { creditsStartMs: -1, upNextMs: null } }],
+    ['repère non entier', { editorial: { creditsStartMs: 1.5, upNextMs: null } }],
+    ['repère manquant', { editorial: { creditsStartMs: 1000 } }],
   ])('%s : refusée', (_label, patch) => {
     expect(isDisneyPlayerExperience({ ...ENTRY, ...patch })).toBe(false);
   });

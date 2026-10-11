@@ -2,9 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { decodeDisneyPush, DISNEY_BRIDGE_VERSION, DISNEY_HANDSHAKE_EVENT, encodeDisneyHandshake, type DisneyPlayerExperience, type DisneySeriesPage } from './bridge-protocol';
 import {
   nonAnimeEpisode,
+  PLAYBACK_URL,
   playerExperienceUrl,
   seasonUrl,
   seriesPageUrl,
+  SYNDUALITY_S1E1_AVAIL_ID,
+  SYNDUALITY_S1E1_FFEC_MS,
+  SYNDUALITY_S1E1_PLAY_ID,
+  syndualityPlayback,
+  syndualityS1E1,
   UNDEAD_UNLUCK_ENTITY_ID,
   UNDEAD_UNLUCK_S1_ID,
   undeadUnluckSeriesPage,
@@ -81,11 +87,11 @@ function connect(nonce = 'n1'): DisneyPlayerExperience[] {
 }
 
 /** Requête du site : XHR vers `url`, réponse `body` */
-function siteXhr(url: string, body: unknown, { status = 200, responseType = '' as XMLHttpRequestResponseType } = {}): void {
+function siteXhr(url: string, body: unknown, { status = 200, responseType = '' as XMLHttpRequestResponseType, method = 'GET' } = {}): void {
   const xhr = new XMLHttpRequest() as unknown as FakeXhr;
   xhr.reply = { status, body };
   xhr.responseType = responseType;
-  xhr.open('GET', url);
+  xhr.open(method, url);
   xhr.send();
 }
 
@@ -196,5 +202,68 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     await flush();
     expect(receivedPages).toHaveLength(2);
     expect(FakeXhr.sent).toBe(3);
+  });
+
+  describe('réponse de lecture (générique de fin)', () => {
+    /** Réponse de lecture avec des URL signées et un jeton (faux) : jamais transmis */
+    function playbackWithSecrets(): Record<string, unknown> {
+      const raw = syndualityPlayback();
+      const stream = raw.stream as Record<string, unknown>;
+      return {
+        ...raw,
+        stream: {
+          ...stream,
+          sources: [{ complete: { url: 'https://vod.example.invalid/master.m3u8?sig=FAKE-SIGNATURE' } }],
+          playbackRights: { ...(stream.playbackRights as Record<string, unknown>), playbackRightsContext: 'eyJGAKE.FAKE-TOKEN.FAKE' },
+        },
+      };
+    }
+    const credits = { creditsStartMs: SYNDUALITY_S1E1_FFEC_MS, upNextMs: 1434808 };
+
+    it('fiche puis réponse de lecture (POST) : fiche repoussée avec les repères, sans URL ni jeton', async () => {
+      await runBridge();
+      const entries = connect();
+      siteXhr(playerExperienceUrl(SYNDUALITY_S1E1_PLAY_ID), syndualityS1E1());
+      await flush();
+      expect(entries.map((entry) => entry.editorial)).toEqual([null]);
+      siteXhr(PLAYBACK_URL, playbackWithSecrets(), { method: 'POST' });
+      await flush();
+      expect(entries).toHaveLength(2);
+      expect(entries[1]?.ids).toEqual([SYNDUALITY_S1E1_PLAY_ID, SYNDUALITY_S1E1_AVAIL_ID]);
+      expect(entries[1]?.editorial).toEqual(credits);
+      expect(JSON.stringify(entries)).not.toMatch(/FAKE|sig=|eyJ|m3u8/);
+      // La requête du site part telle quelle (même méthode, mêmes arguments)
+      expect(FakeXhr.opened.at(-1)).toEqual(['POST', PLAYBACK_URL]);
+      expect(FakeXhr.sent).toBe(2);
+    });
+
+    it('réponse de lecture avant la fiche : gardée en attente, repères joints à la fiche dès son arrivée', async () => {
+      await runBridge();
+      siteXhr(PLAYBACK_URL, playbackWithSecrets(), { method: 'POST', responseType: 'json' });
+      await flush();
+      const entries = connect();
+      await flush();
+      // Rien à pousser tant que la fiche manque (la réponse de lecture seule n'est jamais transmise)
+      expect(entries).toEqual([]);
+      siteXhr(playerExperienceUrl(SYNDUALITY_S1E1_AVAIL_ID), syndualityS1E1());
+      await flush();
+      expect(entries.map((entry) => entry.editorial)).toEqual([credits]);
+      expect(JSON.stringify(entries)).not.toMatch(/FAKE|sig=|eyJ|m3u8/);
+    });
+
+    it('fetch (précaution) : réponse de lecture lue sur une copie ; autre vidéo : fiche inchangée', async () => {
+      page.fetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response(JSON.stringify(syndualityPlayback()), { status: 200 })));
+      await runBridge();
+      const entries = connect();
+      siteXhr(playerExperienceUrl(UNDEAD_UNLUCK_S1E1_AVAIL_ID), undeadUnluckS1E1());
+      await flush();
+      const response = await window.fetch(PLAYBACK_URL, { method: 'POST' });
+      expect(await response.json()).toEqual(syndualityPlayback());
+      await flush();
+      expect(entries.map((entry) => entry.editorial)).toEqual([null]);
+      siteXhr(playerExperienceUrl(SYNDUALITY_S1E1_AVAIL_ID), syndualityS1E1());
+      await flush();
+      expect(entries.at(-1)?.editorial).toEqual(credits);
+    });
   });
 });

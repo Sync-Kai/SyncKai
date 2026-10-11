@@ -1,8 +1,9 @@
 // Script Disney+ du monde principal (MAIN), enregistré à `document_start` : observateur PASSIF des réponses
-// `playerExperience`, `page/entity-{uuid}` et `season/{id}` que le site demande lui-même (XMLHttpRequest ; fetch couvert
-// par précaution). Il n'émet aucune requête, ne lit aucun en-tête ni jeton, ne touche à aucune URL de flux : seules les
-// formes réduites (`reduceDisneyPlayerExperience` des 20 dernières fiches, `reduceDisneySeriesPage` des 10 dernières pages
-// de série) sont gardées et transmises au script isolé.
+// `playerExperience`, `page/entity-{uuid}`, `season/{id}` et de lecture (`…/playback/…`) que le site demande lui-même
+// (XMLHttpRequest ; fetch couvert par précaution). Il n'émet aucune requête, ne lit aucun en-tête ni jeton, ne touche à
+// aucune URL de flux : seules les formes réduites (`reduceDisneyPlayerExperience` des 20 dernières fiches, avec les
+// repères de `reduceDisneyPlayback`, `reduceDisneySeriesPage` des 10 dernières pages de série) sont gardées et
+// transmises au script isolé.
 // Aucun chrome.*. Format IIFE (suffixe .iife.ts) : un chargeur ESM ne fonctionne pas dans le monde MAIN.
 //
 // Le relevé ne voit que les requêtes émises APRÈS son installation : dans un onglet déjà ouvert à l'activation ou à
@@ -11,6 +12,10 @@
 // Canal privé (voir bridge-protocol.ts) : à chaque demande d'ouverture, un MessageChannel dont port1 reste dans cette
 // fermeture ; les fiches ne partent que sur ces ports, jamais sur un événement que la page pourrait imiter.
 // Le monde MAIN appartient à la page (JSON, XHR… redéfinissables) : le client isolé revalide toujours les fiches.
+//
+// Générique de fin : la réponse de lecture du lecteur (`…bamgrid.com/…/playback/…`) est réduite ICI à ses identifiants
+// et repères éditoriaux (`reduceDisneyPlayback`) ; URL signées et jetons de droits ne quittent jamais ce relevé. Les
+// repères rejoignent la fiche de la même vidéo, qu'elle soit arrivée avant (fiche repoussée) ou après (en attente).
 import {
   applyDisneySeason,
   decodeDisneyHandshake,
@@ -23,8 +28,11 @@ import {
   encodeDisneyPush,
   installDisneyBridgeOnce,
   observedRequest,
+  reduceDisneyPlayback,
   reduceDisneyPlayerExperience,
   reduceDisneySeriesPage,
+  withDisneyPlayback,
+  type DisneyPlayback,
   type DisneyPlayerExperience,
   type DisneyRequestKind,
   type DisneySeriesPage,
@@ -45,6 +53,8 @@ const postToWindow = window.postMessage.bind(window);
 const entries = new Map<string, DisneyPlayerExperience>();
 /** Pages de série vues, par uuid de l'entité ; ordre d'insertion = ancienneté */
 const pages = new Map<string, DisneySeriesPage>();
+/** Réponses de lecture réduites, de la plus ancienne à la plus récente (10 au plus) */
+const playbacks: DisneyPlayback[] = [];
 const ports: MessagePort[] = [];
 
 function push(list: DisneyPlayerExperience[], targets: readonly MessagePort[], pageList: DisneySeriesPage[] = []): void {
@@ -53,15 +63,16 @@ function push(list: DisneyPlayerExperience[], targets: readonly MessagePort[], p
   for (const port of targets) port.postMessage(message);
 }
 
+/** Retire les plus anciennes clés (ordre d'insertion) au-delà de `max` */
+function trim(map: Map<string, unknown>, max: number): void {
+  for (const key of [...map.keys()].slice(0, Math.max(0, map.size - max))) map.delete(key);
+}
+
 /** Garde la page (la plus récente en dernier, 10 au plus) et la pousse aux clients */
 function keepPage(page: DisneySeriesPage): void {
   pages.delete(page.entityId);
   pages.set(page.entityId, page);
-  while (pages.size > DISNEY_MAX_PAGES) {
-    const oldest = pages.keys().next();
-    if (oldest.done) break;
-    pages.delete(oldest.value);
-  }
+  trim(pages, DISNEY_MAX_PAGES);
   push([], ports, [page]);
 }
 
@@ -70,6 +81,10 @@ function keepPage(page: DisneySeriesPage): void {
  * fiche de vidéo (voir onPlayerExperience)
  */
 function onPayload(kind: DisneyRequestKind, id: string, raw: unknown): void {
+  if (kind === 'playback') {
+    onPlayback(raw);
+    return;
+  }
   if (kind === 'player') {
     onPlayerExperience(id, raw);
     return;
@@ -90,16 +105,28 @@ function onPayload(kind: DisneyRequestKind, id: string, raw: unknown): void {
 
 /** Fiche de vidéo reçue pour la requête `requestId` : réduite, gardée (remplace une fiche de la même vidéo) et poussée aux clients */
 function onPlayerExperience(requestId: string, raw: unknown): void {
-  const entry = reduceDisneyPlayerExperience(raw, requestId, Date.now());
-  if (!entry) return;
+  const reduced = reduceDisneyPlayerExperience(raw, requestId, Date.now());
+  if (!reduced) return;
+  // Réponse de lecture déjà reçue (en attente) : repères joints dès maintenant
+  const entry = withDisneyPlayback(reduced, playbacks);
   for (const [key, known] of entries) if (known.ids.some((id) => entry.ids.includes(id))) entries.delete(key);
   entries.set(requestId, entry);
-  while (entries.size > DISNEY_MAX_ENTRIES) {
-    const oldest = entries.keys().next();
-    if (oldest.done) break;
-    entries.delete(oldest.value);
-  }
+  trim(entries, DISNEY_MAX_ENTRIES);
   push([entry], ports);
+}
+
+/** Réponse de lecture : réduite, gardée, puis jointe aux fiches de la même vidéo déjà vues (fiches repoussées) */
+function onPlayback(raw: unknown): void {
+  const playback = reduceDisneyPlayback(raw);
+  if (!playback) return;
+  playbacks.push(playback);
+  if (playbacks.length > 10) playbacks.shift();
+  for (const [key, known] of entries) {
+    const entry = withDisneyPlayback(known, [playback]);
+    if (entry === known) continue;
+    entries.set(key, entry);
+    push([entry], ports);
+  }
 }
 
 function parseText(body: string): unknown {
@@ -121,6 +148,12 @@ function urlOf(input: unknown): string | null {
 
 type Observed = { kind: DisneyRequestKind; id: string };
 
+/** Requête lue par le pont (voir observedRequest), sinon null */
+function observe(input: unknown): Observed | null {
+  const url = urlOf(input);
+  return url !== null ? observedRequest(url, location.href) : null;
+}
+
 /** XMLHttpRequest : `open` repère les requêtes lues (voir observedRequest), `send` attend leur réponse (lecture seule) */
 function observeXhr(): void {
   const proto = XMLHttpRequest.prototype;
@@ -130,8 +163,7 @@ function observeXhr(): void {
 
   // Arguments transmis tels quels (même nombre) : `open(m, u, undefined)` rendrait la requête synchrone
   proto.open = function patchedOpen(this: XMLHttpRequest, ...args: unknown[]): void {
-    const url = urlOf(args[1]);
-    const request = url !== null ? observedRequest(url, location.href) : null;
+    const request = observe(args[1]);
     if (request) observed.set(this, request);
     else observed.delete(this);
     Reflect.apply(open, this, args);
@@ -159,8 +191,7 @@ function observeFetch(): void {
   const originalFetch = window.fetch;
   window.fetch = function patchedFetch(this: unknown, ...args: Parameters<typeof fetch>): Promise<Response> {
     const result = originalFetch.apply(this, args);
-    const url = urlOf(args[0]);
-    const request = url !== null ? observedRequest(url, location.href) : null;
+    const request = observe(args[0]);
     if (request) {
       result
         .then((response) => (response.ok ? response.clone().text() : ''))

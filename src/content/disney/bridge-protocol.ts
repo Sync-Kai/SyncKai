@@ -20,6 +20,11 @@
 // Pages de série (/browse/entity-{uuid}) : le pont observe aussi les réponses `page/entity-{uuid}` (série, genres,
 // saisons) et `season/{id}` (saison choisie dans le menu, pagination des épisodes), réduites à `DisneySeriesPage` et
 // poussées dans le même message (`pages`), indexées par l'uuid de l'entité.
+//
+// Générique de fin (protocole v4) : le pont lit aussi la réponse de lecture du site (`…bamgrid.com/…/playback/…`,
+// requête POST du lecteur) et n'en garde que les identifiants de la vidéo et les repères éditoriaux
+// (`stream.editorial` : FFEC, up_next), réunis à la fiche de la même vidéo (`DisneyPlayerExperience.editorial`). Les
+// URL signées des flux et les jetons de droits (`playbackRightsContext`…) de cette réponse ne sont jamais lus.
 import { isRecord } from '../../shared/guards';
 
 /**
@@ -27,7 +32,7 @@ import { isRecord } from '../../shared/guards';
  * version précédente reste dans les onglets ouverts après une mise à jour (code de la page, jamais invalidé).
  * Chaque côté ignore les messages d'une autre version.
  */
-export const DISNEY_BRIDGE_VERSION = 3;
+export const DISNEY_BRIDGE_VERSION = 4;
 /** Ouverture du canal (client isolé → pont), detail = DisneyHandshake en chaîne JSON */
 export const DISNEY_HANDSHAKE_EVENT = 'synckai:disney:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
@@ -78,6 +83,22 @@ export interface DisneyPlayerExperience {
   runtimeMs: number | null;
   /** « episode », « movie »… */
   programType: string | null;
+  /** Repères de la réponse de lecture de la même vidéo ; null tant qu'elle n'a pas été vue */
+  editorial: DisneyEditorial | null;
+}
+
+/**
+ * Repères éditoriaux de la réponse de lecture (ms, sur la ligne de temps du programme, comme la barre de progression) :
+ * `FFEC` (First Frame End Credits, début du générique de fin) et `up_next` (carte « À suivre »), null si absents.
+ */
+export interface DisneyEditorial {
+  creditsStartMs: number | null;
+  upNextMs: number | null;
+}
+
+/** Réponse de lecture réduite (monde MAIN seulement) : identifiants de la vidéo (availId, entityId, mediaId) et repères */
+export interface DisneyPlayback extends DisneyEditorial {
+  ids: string[];
 }
 
 export interface DisneyHandshake {
@@ -167,12 +188,13 @@ function isApiHost(hostname: string): boolean {
 /** Requêtes lues : fiche d'une vidéo, page de série (entité), saison d'une page de série */
 const OBSERVED_PATH = /^\/explore\/v1(?:\.\d{1,3})?\/(playerExperience|page|season)\/(entity-)?([0-9a-f-]{36})\/?$/i;
 
-export type DisneyRequestKind = 'player' | 'page' | 'season';
+export type DisneyRequestKind = 'player' | 'page' | 'season' | 'playback';
 
 /**
  * URL d'une requête de l'API du site lue par le pont → nature et identifiant du chemin (minuscules), sinon null :
  * `…/explore/v1.21/playerExperience/{id}` (availId ou épisode : non garanti), `…/page/entity-{uuid}` (page de série),
- * `…/season/{id}` (saison). Toute autre requête (flux, upNext, images, autres pages…) est ignorée sans être lue.
+ * `…/season/{id}` (saison), `…bamgrid.com/…/playback/…` (réponse de lecture, identifiant vide). Toute autre requête
+ * (flux, upNext, images, autres pages…) est ignorée sans être lue.
  */
 export function observedRequest(url: string, base = 'https://www.disneyplus.com/'): { kind: DisneyRequestKind; id: string } | null {
   let parsed: URL;
@@ -182,6 +204,10 @@ export function observedRequest(url: string, base = 'https://www.disneyplus.com/
     return null;
   }
   if (parsed.protocol !== 'https:' || !isApiHost(parsed.hostname)) return null;
+  // Lecture (POST du lecteur, `disney.playback.edge.bamgrid.com/v{n}/playback/{scénario}`, chemin exact non relevé) :
+  // filtre tolérant sur la version et le scénario, hôte bamgrid.com seulement ; sans identifiant dans le chemin. Les
+  // autres requêtes de cet hôte (licences DRM…) ne sont jamais lues.
+  if (/\/playback\//i.test(parsed.pathname)) return parsed.hostname.endsWith('bamgrid.com') ? { kind: 'playback', id: '' } : null;
   const [, type = '', entity, id] = OBSERVED_PATH.exec(parsed.pathname) ?? [];
   if (id === undefined || !DISNEY_ID_REGEX.test(id)) return null;
   const kind: DisneyRequestKind = /^playerExperience$/i.test(type) ? 'player' : /^page$/i.test(type) ? 'page' : 'season';
@@ -262,7 +288,38 @@ export function reduceDisneyPlayerExperience(raw: unknown, requestId: string, se
     originalLanguage: language(experience.originalLanguage),
     runtimeMs: runtime(timeline.runtimeMs),
     programType: programType(analytics.programType),
+    editorial: null,
   };
+}
+
+// ─── Réponse de lecture (monde MAIN) ──────────────────────────────────────
+
+/**
+ * Réduit la réponse de lecture à ses identifiants (`stream.playbackRights.externalIds.availId`, `tracking.qoe.entityId`
+ * = identifiant de l'URL /play/{id}, `tracking.telemetry.mediaId`) et aux repères FFEC / up_next de `stream.editorial`.
+ * Seuls ces champs sont lus : jamais `stream.sources`, `insertion`, ni les jetons de droits. Null sans `stream` ou sans
+ * identifiant valide.
+ */
+export function reduceDisneyPlayback(raw: unknown): DisneyPlayback | null {
+  const { stream, tracking } = record(raw);
+  if (!isRecord(stream)) return null;
+  const { qoe, telemetry } = record(tracking);
+  const ids = [...new Set([record(record(stream.playbackRights).externalIds).availId, record(qoe).entityId, record(telemetry).mediaId].flatMap((id) => lowerId(id) ?? []))];
+  if (ids.length === 0) return null;
+  const marks = list(stream.editorial).map(record);
+  const offset = (label: string): number | null => runtime(marks.find((mark) => typeof mark.label === 'string' && mark.label.toLowerCase() === label)?.offsetMillis);
+  return { ids, creditsStartMs: offset('ffec'), upNextMs: offset('up_next') };
+}
+
+/**
+ * Fiche complétée par la dernière réponse de lecture de la même vidéo (un identifiant en commun, ou le mediaId de son
+ * titre interne), quel que soit l'ordre d'arrivée ; la fiche telle quelle sans correspondance.
+ */
+export function withDisneyPlayback(entry: DisneyPlayerExperience, playbacks: readonly DisneyPlayback[]): DisneyPlayerExperience {
+  // Titre interne « … - s1e1 - mediaId:{uuid} » : le mediaId de la réponse de lecture en est la fin
+  const title = entry.internalTitle?.toLowerCase();
+  const playback = playbacks.findLast((known) => known.ids.some((id) => entry.ids.includes(id) || title?.endsWith(id)));
+  return playback ? { ...entry, editorial: { creditsStartMs: playback.creditsStartMs, upNextMs: playback.upNextMs } } : entry;
 }
 
 // ─── Titre interne (anglais, stable) ──────────────────────────────────────
@@ -409,6 +466,8 @@ const isBoundedText = (v: unknown): v is string => typeof v === 'string' && v.le
 const isNullableText = (v: unknown): v is string | null => v === null || isBoundedText(v);
 const isLowerId = (v: unknown): v is string => typeof v === 'string' && DISNEY_ID_REGEX.test(v) && v === v.toLowerCase();
 /** 1 à DISNEY_MAX_IDS identifiants en minuscules, sans doublon */
+/** Durée (ms) entière, positive et plausible, ou null */
+const isNullableMs = (v: unknown): boolean => v === null || runtime(v) === v;
 const isIdList = (v: unknown): v is string[] => Array.isArray(v) && v.length >= 1 && v.length <= DISNEY_MAX_IDS && v.every(isLowerId) && new Set(v).size === v.length;
 
 export function isDisneyPlayerExperience(value: unknown): value is DisneyPlayerExperience {
@@ -420,8 +479,9 @@ export function isDisneyPlayerExperience(value: unknown): value is DisneyPlayerE
     isNullableText(value.subtitle) &&
     isNullableText(value.internalTitle) &&
     (value.originalLanguage === null || language(value.originalLanguage) !== null) &&
-    (value.runtimeMs === null || runtime(value.runtimeMs) === value.runtimeMs) &&
-    (value.programType === null || programType(value.programType) === value.programType)
+    isNullableMs(value.runtimeMs) &&
+    (value.programType === null || programType(value.programType) === value.programType) &&
+    (value.editorial === null || (isRecord(value.editorial) && isNullableMs(value.editorial.creditsStartMs) && isNullableMs(value.editorial.upNextMs)))
   );
 }
 

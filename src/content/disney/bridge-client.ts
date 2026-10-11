@@ -9,6 +9,9 @@
 //
 // Pages de série : `loadPage` attend la page de l'entité de l'URL (/browse/entity-{uuid}), sans délai propre (borné par
 // l'appelant au moyen de `signal`) ; les réponses `season/{id}` observées ensuite la mettent à jour.
+//
+// Générique de fin : `loadEditorial` attend la fiche, puis (borné par `waitMs`) ses repères éditoriaux, joints
+// par le pont quand la réponse de lecture du lecteur arrive (en général juste après `playerExperience`).
 import {
   decodeDisneyPortOffer,
   decodeDisneyPush,
@@ -20,6 +23,7 @@ import {
   DISNEY_MAX_PAGES,
   encodeDisneyHandshake,
   hasDisneyId,
+  type DisneyEditorial,
   type DisneyPlayerExperience,
   type DisneySeriesPage,
 } from './bridge-protocol';
@@ -35,7 +39,7 @@ export interface DisneyBridgeClientOptions {
   connectTimeoutMs?: number;
   /** Attente d'une fiche portant l'identifiant de l'URL avant le repli sur la seule fiche reçue depuis le changement d'URL */
   matchWaitMs?: number;
-  /** Attente maximale d'une fiche, une fois le canal ouvert */
+  /** Attente maximale d'une fiche une fois le canal ouvert, puis de ses repères éditoriaux (`loadEditorial`) */
   waitMs?: number;
   cacheSize?: number;
   /** Nonces d'ouverture */
@@ -61,6 +65,11 @@ export interface DisneyBridgeClient {
   load(urlId: string, signal: AbortSignal, since: number): Promise<DisneyPlayerExperience | null>;
   /** Lecture synchrone du cache, sans attente */
   peek(urlId: string): DisneyPlayerExperience | null;
+  /**
+   * Repères éditoriaux (générique de fin) de la vidéo `urlId` : fiche attendue comme `load`, puis ses repères jusqu'à
+   * `waitMs`. Null sans fiche, sans réponse de lecture dans le délai, ou si `signal` est annulé.
+   */
+  loadEditorial(urlId: string, signal: AbortSignal, since: number): Promise<DisneyEditorial | null>;
   /** Page de série de l'entité `entityId` : en cache, sinon attendue jusqu'à son arrivée ; null si pont absent ou `signal` annulé */
   loadPage(entityId: string, signal: AbortSignal): Promise<DisneySeriesPage | null>;
   /** Page de série en cache, sans attente */
@@ -116,6 +125,11 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     for (const page of receivedPages) pages = [...pages.filter((known) => known.entityId !== page.entityId), page].slice(-DISNEY_MAX_PAGES);
     if (__SYNCKAI_DEBUG__ && received.length > 0) log(`Fiches reçues du pont : ${received.map((entry) => `[${entry.ids.join(', ')}]`).join(' ')}`);
     if (__SYNCKAI_DEBUG__ && receivedPages.length > 0) log(`Pages de série reçues du pont : ${receivedPages.map((page) => page.entityId).join(', ')}`);
+    notify();
+  }
+
+  /** Relit les attentes en cours */
+  function notify(): void {
     for (const listener of [...listeners]) listener();
   }
 
@@ -190,32 +204,45 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     if (cached) return cached;
     const channel = await connect();
     if (!channel || signal.aborted) return peek(id);
+    let matchExpired = false;
+    const matchTimer = setTimeout(() => {
+      matchExpired = true;
+      notify();
+    }, matchWaitMs);
+    const entry = await until(() => decide(id, since, matchExpired), signal, waitMs);
+    clearTimeout(matchTimer);
+    if (__SYNCKAI_DEBUG__ && entry === null && !signal.aborted && !peek(id)) log(`Aucune fiche retenue pour l’URL ${id} : vidéo non suivie`);
+    return entry;
+  }
+
+  /**
+   * Valeur de `get` dès qu'elle est définie (relue à chaque message du pont, et à chaque `notify`) : null (vidéo non
+   * suivie) compris ; null aussi si `signal` est annulé ou après `timeoutMs`
+   */
+  function until<T>(get: () => T | null | undefined, signal: AbortSignal, timeoutMs?: number): Promise<T | null> {
     return new Promise((resolve) => {
-      let matchExpired = false;
-      const finish = (entry: DisneyPlayerExperience | null): void => {
-        clearTimeout(matchTimer);
+      const finish = (value: T | null): void => {
         clearTimeout(timer);
         listeners.delete(check);
         signal.removeEventListener('abort', onAbort);
-        resolve(entry);
+        resolve(value);
       };
       const check = (): void => {
-        const entry = decide(id, since, matchExpired);
-        if (entry !== undefined) finish(entry);
+        const value = get();
+        if (value !== undefined) finish(value);
       };
       const onAbort = (): void => finish(null);
-      const matchTimer = setTimeout(() => {
-        matchExpired = true;
-        check();
-      }, matchWaitMs);
-      const timer = setTimeout(() => {
-        if (__SYNCKAI_DEBUG__) log(`Aucune fiche reçue pour l’URL ${id} : vidéo non suivie`);
-        finish(null);
-      }, waitMs);
+      const timer = timeoutMs === undefined ? undefined : setTimeout(onAbort, timeoutMs);
       signal.addEventListener('abort', onAbort, { once: true });
       listeners.add(check);
       check();
     });
+  }
+
+  async function loadEditorial(urlId: string, signal: AbortSignal, since: number): Promise<DisneyEditorial | null> {
+    const entry = await load(urlId, signal, since);
+    if (!entry || signal.aborted) return null;
+    return entry.editorial ?? until(() => peek(urlId)?.editorial ?? undefined, signal, waitMs);
   }
 
   async function loadPage(entityId: string, signal: AbortSignal): Promise<DisneySeriesPage | null> {
@@ -224,22 +251,8 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     if (cached) return cached;
     const channel = await connect();
     if (!channel || signal.aborted) return peekPage(entityId);
-    return new Promise((resolve) => {
-      const finish = (page: DisneySeriesPage | null): void => {
-        listeners.delete(check);
-        signal.removeEventListener('abort', onAbort);
-        resolve(page);
-      };
-      const check = (): void => {
-        const page = peekPage(entityId);
-        if (page) finish(page);
-      };
-      const onAbort = (): void => finish(null);
-      signal.addEventListener('abort', onAbort, { once: true });
-      listeners.add(check);
-      check();
-    });
+    return until(() => peekPage(entityId) ?? undefined, signal);
   }
 
-  return { load, peek, loadPage, peekPage };
+  return { load, peek, loadEditorial, loadPage, peekPage };
 }
