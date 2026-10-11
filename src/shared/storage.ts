@@ -3,7 +3,7 @@ import { isAniListToken, type AniListToken } from './auth.types';
 import { isRecord } from './guards';
 import { isSealedToken, openToken, sealToken, type SealedToken } from './token-crypto';
 import { isMalToken, isMalViewer, type MalToken, type MalViewer } from './mal.types';
-import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } from './review.types';
+import { isPendingReview, isRecentSync, keepDeferred, type DeferredEpisode, type PendingReview, type RecentSync } from './review.types';
 import { isMediaMapping, type MediaMapping } from './sync.types';
 import { TRACKER_IDS, type TrackerId } from './tracker.types';
 import { isPendingRating } from './engagement-store';
@@ -274,6 +274,31 @@ export function deletePendingReview(key: string): Promise<void> {
   return withStorageLock(async () => {
     const remaining = (await getPendingReviews()).filter((r) => r.key !== key);
     await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: remaining });
+  });
+}
+
+/** Retire la carte d'une saison et la renvoie (null : déjà retirée), en une seule opération sous le verrou */
+export function takePendingReview(key: string): Promise<PendingReview | null> {
+  return withStorageLock(async () => {
+    const reviews = await getPendingReviews();
+    const taken = reviews.find((r) => r.key === key) ?? null;
+    if (taken !== null) await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: reviews.filter((r) => r.key !== key) });
+    return taken;
+  });
+}
+
+/**
+ * Met un épisode de côté sur la correction (« Corriger ») en attente pour la saison : il sera appliqué après la
+ * décision. false si la carte n'est plus une correction (validée ou ignorée entre-temps) : rien n'est enregistré.
+ */
+export function deferOnCorrection(key: string, deferred: DeferredEpisode): Promise<boolean> {
+  return withStorageLock(async () => {
+    const reviews = await getPendingReviews();
+    const card = reviews.find((r) => r.key === key);
+    if (card === undefined || card.previous === null) return false;
+    const updated: PendingReview = { ...card, deferred: keepDeferred(card.deferred, deferred) };
+    await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: reviews.map((r) => (r.key === key ? updated : r)) });
+    return true;
   });
 }
 

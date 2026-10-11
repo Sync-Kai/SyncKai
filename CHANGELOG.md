@@ -12,6 +12,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 ### Corrigé
 
 - Les correspondances enregistrées avant la 2.2.0 qui envoyaient la progression d’une suite publiée à part sur Crunchyroll ou ADN vers la série précédente (Naruto Shippuden vers Naruto, Bleach TYBW vers Bleach…) sont vérifiées sur AniList à la mise à jour et oubliées : elles sont recalculées au prochain épisode. Si AniList ne répond pas, la vérification est retentée au prochain démarrage du navigateur. Une correspondance que SyncKai ne peut pas juger fausse avec certitude est gardée : si une suite reçoit encore la progression de la mauvaise série, utilise *Réglages › Mes données › Correspondances › Oublier*. La progression déjà écrite sur la mauvaise série reste à corriger à la main.
+- Un épisode regardé pendant qu’une correction (*Corriger*) attend ta décision n’est plus perdu : il est mis de côté sur la carte (*Épisode N en attente, appliqué après ta décision*), puis synchronisé dès que tu valides ou ignores la correction, sans jamais faire reculer ta progression. Plus besoin de faire +1 à la main. Il n’est appliqué qu’au compte connecté quand tu l’as regardé.
 
 ## [2.2.0] - 2026-10-11
 

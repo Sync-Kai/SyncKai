@@ -14,8 +14,9 @@ import { applyDiffs, cancelCompareJob, compareServiceLists } from './compare';
 import { cancelCrImport, createCrReviews, startCrAnalyze, startCrApply } from './cr-import';
 import { listenJobResume } from './job-resume';
 import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
-import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } from './sync/queue';
-import { reopenReview, resolveReview, searchCandidates } from './sync/sync-service';
+import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, retryQueued } from './sync/queue';
+import { reopenReview, searchCandidates } from './sync/sync-service';
+import { confirmReview, ignoreReview } from './sync/review-decision';
 import { refreshReviewBadge } from '../shared/badge';
 import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { STORAGE_KEYS } from '../shared/storage-keys';
@@ -78,6 +79,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     SEARCH_ANIME: { ok: false, code: 'API_ERROR', message },
     RESOLVE_REVIEW: { status: 'error', message: t('error.unexpectedSync') },
     REOPEN_REVIEW: { ok: false, code: 'API_ERROR', message },
+    DISMISS_REVIEW: { ok: false, code: 'API_ERROR', message },
     GET_WATCHING: { ok: false, code: 'API_ERROR', message },
     RATE_MEDIA: { status: 'error', message: t('error.unexpectedRating') },
     DEFER_RATING: { ok: false, code: 'API_ERROR', message },
@@ -123,13 +125,19 @@ const handlers: MessageHandlers = {
   SET_LIST_STATUS: (payload) => setListStatus(payload),
   RETRY_QUEUED: ({ id }) => retryQueued(id),
   SEARCH_ANIME: ({ query }) => searchCandidates(query),
-  // Échec passager d'un service après une vérification confirmée : mis en file comme une synchro en direct
+  // Échec passager d'un service après une vérification confirmée : mis en file comme une synchro en direct ; épisode
+  // mis de côté pendant une correction rejoué ensuite (review-decision.ts)
   RESOLVE_REVIEW: async (payload) => {
-    const { outcome, episode, epochs } = await resolveReview(payload);
+    const outcome = await confirmReview(payload);
     forgetPageResolutions();
-    return episode !== null ? recordSyncOutcome(episode, null, outcome, epochs) : outcome;
+    return outcome;
   },
   REOPEN_REVIEW: ({ key }) => reopenReview(key),
+  DISMISS_REVIEW: async ({ key }) => {
+    const result = await ignoreReview(key);
+    forgetPageResolutions();
+    return result;
+  },
   GET_WATCHING: ({ service, force }) => getWatchingList(service, force === true),
   RATE_MEDIA: ({ media, score, fromCard }) => rateMedia(media, score, fromCard === true),
   DEFER_RATING: ({ media, coverUrl }) => deferRating(media, coverUrl),

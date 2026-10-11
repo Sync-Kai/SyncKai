@@ -199,10 +199,12 @@ describe('parseBackup', () => {
     });
   });
 
-  it('une carte de correction importée devient une vérification simple (previous → null)', () => {
+  it('une carte de correction importée devient une vérification simple (previous → null, épisode mis de côté retiré)', () => {
     const correction: PendingReview = { ...review('k', 1), previous: { mediaId: 1, title: 'T', progress: 3 } };
-    const result = parseBackup(fileText({ pendingReviews: [correction] }));
+    const withDeferred: PendingReview = { ...correction, deferred: { episode, epochs: { anilist: 2 } } };
+    const result = parseBackup(fileText({ pendingReviews: [withDeferred] }));
     if (!result.ok) throw new Error(result.message);
+    expect(result.data.invalidCount).toBe(0);
     expect(result.data.backup.data.pendingReviews).toEqual([{ ...correction, previous: null }]);
   });
 
@@ -353,7 +355,7 @@ describe('bindBackupToSession (DATA-01)', () => {
     const epochs = { anilist: 4, mal: 1 };
     const data: BackupData = {
       ...emptyData(),
-      pendingReviews: [{ ...review('k1', 1), epochs: { anilist: 9 } }],
+      pendingReviews: [{ ...review('k1', 1), epochs: { anilist: 9 }, deferred: { episode, epochs: { anilist: 9 } } }],
       recentSyncs: [recent('k1', 1), { ...recent('k2', 2), epochs: { anilist: 9 } }],
       pendingRatings: [rating(1, 1)],
     };

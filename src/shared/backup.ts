@@ -234,12 +234,13 @@ export function parseBackup(text: string): Result<ParsedBackup, BackupErrorCode>
   const validated = validateData(json.data, true);
   const { invalid } = validated;
   // Une correction (« Corriger ») ne vaut que dans la session qui a écrit la valeur : importée (autre date, autre
-  // compte peut-être), elle redevient une vérification simple, qui ne fait jamais reculer la progression.
+  // compte peut-être), elle redevient une vérification simple, qui ne fait jamais reculer la progression. L'épisode
+  // mis de côté pendant la correction (lié à sa session) n'est pas importé.
   // Correspondances importées : revérifiées sur le catalogue AniList à leur premier usage (BAK-02, voir resolver.ts)
   const value: BackupData = {
     ...validated.value,
     mediaMappings: markUnverified(validated.value.mediaMappings),
-    pendingReviews: validated.value.pendingReviews.map((r) => ({ ...r, previous: null })),
+    pendingReviews: validated.value.pendingReviews.map(({ deferred: _deferred, ...r }) => ({ ...r, previous: null })),
   };
   return {
     ok: true,
@@ -272,7 +273,7 @@ export function summarizeBackup(backup: Backup): BackupSummary {
 export function bindBackupToSession(data: BackupData, epochs: SessionEpochs): BackupData {
   return {
     ...data,
-    pendingReviews: data.pendingReviews.map(({ epochs: _ignored, ...review }) => review),
+    pendingReviews: data.pendingReviews.map(({ epochs: _ignored, deferred: _deferred, ...review }) => review),
     recentSyncs: data.recentSyncs.map((sync) => ({ ...sync, epochs })),
     pendingRatings: data.pendingRatings.map((rating) => ({ ...rating, epochs })),
   };

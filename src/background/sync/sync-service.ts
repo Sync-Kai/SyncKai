@@ -7,18 +7,19 @@ import type { ResolveReviewPayload } from '../../shared/messages';
 import { platformSeriesUrl } from '../../shared/platform-links';
 import { learnPlatformLink } from '../../shared/platform-links-store';
 import type { Result } from '../../shared/result';
-import type { CandidateSummary, PendingReview } from '../../shared/review.types';
-import { sessionsOf, type SessionEpochs } from '../../shared/session-epochs';
+import type { CandidateSummary, DeferredEpisode, PendingReview } from '../../shared/review.types';
+import { pickSessions, sessionsOf, type SessionEpochs } from '../../shared/session-epochs';
 import {
   addRecentSync,
+  deferOnCorrection,
   deleteMediaMapping,
-  deletePendingReview,
   getOpenSessions,
   getPendingReviews,
   getRecentSyncs,
   isSessionOpen,
   saveMediaMapping,
   savePendingReview,
+  takePendingReview,
 } from '../../shared/storage';
 import { isRewatchDeclined } from '../../shared/engagement-store';
 import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
@@ -219,6 +220,12 @@ interface WriteOptions {
   confirmed?: PendingReview;
 }
 
+interface ServicesWrite {
+  outcome: SyncOutcome;
+  /** Épisode mis de côté sur la carte de correction retirée par cette écriture (à rejouer), null sinon */
+  deferred: DeferredEpisode | null;
+}
+
 /**
  * Écrit la progression sur chaque service connecté. Commun à la synchro automatique, au choix
  * manuel et à la correction. Seules les écritures réelles alimentent les "dernières synchros".
@@ -229,9 +236,9 @@ async function writeToServices(
   catalog: CatalogMedia,
   progress: number,
   options: WriteOptions,
-): Promise<SyncOutcome> {
+): Promise<ServicesWrite> {
   const trackers = await getConnectedTrackers(options.only ?? null);
-  if (trackers.length === 0) return { status: 'not-connected' };
+  if (trackers.length === 0) return { outcome: { status: 'not-connected' }, deferred: null };
 
   const writes = await Promise.all(trackers.map((tr) => writeToService(tr, catalog, progress, options.correctionFrom ?? null, options.epochs[tr.id])));
   const results = writes.map((w) => w.result);
@@ -244,9 +251,9 @@ async function writeToServices(
     // Coche sur l'icône (visible en plein écran) : décorative, ne bloque ni ne fait échouer la synchro
     void flashSyncBadge();
   }
-  await settleReviewCard(key, results, options.confirmed ?? null);
+  const deferred = await settleReviewCard(key, results, options.confirmed ?? null);
   const prompts = await buildPrompts(catalog, progress, writes);
-  return { status: 'synced', mediaTitle: catalog.title, results, ...(prompts ? { prompts } : {}) };
+  return { outcome: { status: 'synced', mediaTitle: catalog.title, results, ...(prompts ? { prompts } : {}) }, deferred };
 }
 
 /**
@@ -255,16 +262,18 @@ async function writeToServices(
  *   ouverte par l'utilisateur (« Corriger ») reste, elle seule décide de la fiche
  * - carte confirmée : supprimée si un service a été écrit ; une correction reste tant qu'un service est en
  *   erreur (un nouvel essai la rejoue : le service déjà corrigé est alors à jour)
+ * Renvoie l'épisode mis de côté sur la carte retirée (relu au retrait : il a pu arriver pendant l'écriture).
  */
-async function settleReviewCard(key: string, results: readonly ServiceResult[], confirmed: PendingReview | null): Promise<void> {
+async function settleReviewCard(key: string, results: readonly ServiceResult[], confirmed: PendingReview | null): Promise<DeferredEpisode | null> {
   const card = (await getPendingReviews()).find((r) => r.key === key);
-  if (!card) return;
+  if (!card) return null;
   const failed = results.some((r) => r.outcome.status === 'error');
   const applied = results.some((r) => r.outcome.status !== 'error');
   const obsolete = confirmed === null ? card.previous === null && applied : confirmed.previous === null ? applied : !failed;
-  if (!obsolete) return;
-  await deletePendingReview(key);
+  if (!obsolete) return null;
+  const removed = await takePendingReview(key);
   await refreshReviewBadge();
+  return removed?.deferred ?? null;
 }
 
 interface SyncResolution {
@@ -351,11 +360,16 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
     }
 
     // Correction (« Corriger ») en attente pour la saison : rien n'est écrit sur la fiche contestée, et la carte
-    // n'est pas remplacée par une vérification simple ; l'utilisateur valide ou ignore d'abord la correction
+    // n'est pas remplacée par une vérification simple. L'épisode est mis de côté sur la carte, puis rejoué après la
+    // décision de l'utilisateur (validée ou ignorée, voir review-decision.ts) avec les sessions de cette synchro.
     const correction = (await getPendingReviews()).find((r) => r.key === key && r.previous !== null);
     if (correction?.previous && (catalog === null || catalog.mediaId === correction.previous.mediaId)) {
-      log.info(`Correction en attente pour ${key} : épisode non écrit`, episode);
-      return { status: 'needs-review', reason: t('sync.correctionPending') };
+      const deferred: DeferredEpisode = { episode, epochs: only !== null ? pickSessions(sessions, only) : sessions };
+      if (await deferOnCorrection(key, deferred)) {
+        log.info(`Correction en attente pour ${key} : épisode mis de côté jusqu’à la décision`, episode);
+        return { status: 'needs-review', reason: t('sync.correctionPending') };
+      }
+      // Correction décidée entre-temps (carte retirée) : synchro normale
     }
 
     if (!result.ok || catalog === null) {
@@ -384,7 +398,7 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
       log.info(`Fiche ${target.mediaId} exclue : rien n’est écrit`);
       return { status: 'excluded', mediaTitle: catalog.title };
     }
-    return await writeToServices(key, episode, catalog, target.progress, { only, epochs: sessions });
+    return (await writeToServices(key, episode, catalog, target.progress, { only, epochs: sessions })).outcome;
   } catch (error: unknown) {
     return toErrorOutcome(error);
   }
@@ -401,6 +415,8 @@ export interface ReviewResolution {
   episode: EpisodeInfo | null;
   /** Sessions de l'écriture (mise en file de l'épisode) */
   epochs: SessionEpochs;
+  /** Épisode mis de côté pendant la correction, à rejouer maintenant que la carte est retirée (null sinon) */
+  deferred: DeferredEpisode | null;
 }
 
 /** Choix manuel depuis le popup : mémorise la correspondance pour la saison puis synchronise. */
@@ -410,14 +426,19 @@ export async function resolveReview({ key, mediaId, progress }: ResolveReviewPay
     const current = await getOpenSessions();
     epochs = current;
     const review = (await getPendingReviews()).find((r) => r.key === key);
-    if (!review) return { outcome: { status: 'error', message: t('sync.reviewGone') }, episode: null, epochs };
+    if (!review) return { outcome: { status: 'error', message: t('sync.reviewGone') }, episode: null, epochs, deferred: null };
     // Correction : seulement sur les sessions de la synchro corrigée (la valeur à corriger n'existe que là)
     if (review.previous !== null) epochs = sessionsOf(review.epochs, current);
 
     const catalog = await getCatalogMedia(mediaId);
     const mapping = mappingFromManualChoice(review.episode, mediaId, progress, catalog.episodes);
     if (!mapping) {
-      return { outcome: { status: 'error', message: t('sync.invalidEpisode', { progress, title: catalog.title, total: catalog.episodes ?? '?' }) }, episode: null, epochs };
+      return {
+        outcome: { status: 'error', message: t('sync.invalidEpisode', { progress, title: catalog.title, total: catalog.episodes ?? '?' }) },
+        episode: null,
+        epochs,
+        deferred: null,
+      };
     }
 
     await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title });
@@ -425,11 +446,18 @@ export async function resolveReview({ key, mediaId, progress }: ResolveReviewPay
     // Correction sur la fiche déjà utilisée : la valeur choisie remplace celle écrite (même plus basse), seulement
     // sur un service resté à la progression écrite par la synchro corrigée (voir writeEntry)
     const correctionFrom = review.previous !== null && review.previous.mediaId === mediaId ? review.previous.progress : null;
-    const outcome = await writeToServices(key, review.episode, catalog, progress, { correctionFrom, confirmed: review, epochs });
-    return { outcome, episode: outcome.status === 'synced' && review.previous === null ? review.episode : null, epochs };
+    const { outcome, deferred } = await writeToServices(key, review.episode, catalog, progress, { correctionFrom, confirmed: review, epochs });
+    return { outcome, episode: outcome.status === 'synced' && review.previous === null ? review.episode : null, epochs, deferred };
   } catch (error: unknown) {
-    return { outcome: toErrorOutcome(error), episode: null, epochs };
+    return { outcome: toErrorOutcome(error), episode: null, epochs, deferred: null };
   }
+}
+
+/** « Ignorer » : retire la carte et renvoie l'épisode mis de côté pendant une correction (à rejouer), null sinon. */
+export async function dismissReview(key: string): Promise<DeferredEpisode | null> {
+  const card = await takePendingReview(key);
+  await refreshReviewBadge();
+  return card?.deferred ?? null;
 }
 
 /** "Corriger" une synchro passée : rouvre une carte de vérification avec les fiches candidates. */

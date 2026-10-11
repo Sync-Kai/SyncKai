@@ -79,6 +79,8 @@ export interface MessageMap {
   SEARCH_ANIME: { payload: { query: string }; response: Result<CandidateSummary[], AniListErrorCode> };
   RESOLVE_REVIEW: { payload: ResolveReviewPayload; response: SyncOutcome };
   REOPEN_REVIEW: { payload: { key: string }; response: Result<null, AniListErrorCode | 'NOT_FOUND'> };
+  /** « Ignorer » une carte « À vérifier » : retirée, puis l'épisode mis de côté pendant une correction est rejoué */
+  DISMISS_REVIEW: { payload: { key: string }; response: Result<null, AniListErrorCode> };
   /**
    * Liste "en cours" d'un service (le popup affiche d'abord le cache du stockage). Sans `force`, le cache de moins de
    * 90 s est renvoyé sans requête ; `force` (« Réessayer », synchro, import) relit toujours la liste.
@@ -156,6 +158,7 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   SEARCH_ANIME: 'extension',
   RESOLVE_REVIEW: 'extension',
   REOPEN_REVIEW: 'extension',
+  DISMISS_REVIEW: 'extension',
   GET_WATCHING: 'extension',
   ADJUST_PROGRESS: 'extension',
   SET_LIST_STATUS: 'extension',
@@ -235,6 +238,7 @@ const isDeferRatingPayload = (p: unknown): p is { media: MediaRef; coverUrl: str
   isRecord(p) && isMediaRef(p.media) && (p.coverUrl === null || isSafeImageUrl(p.coverUrl));
 const isRewatchPayload = (p: unknown): p is { media: MediaRef; progress: number } => isRecord(p) && isMediaRef(p.media) && isPositiveInt(p.progress);
 const isMediaPayload = (p: unknown): p is { media: MediaRef } => isRecord(p) && isMediaRef(p.media);
+/** Payload { key } d'une carte « À vérifier » (REOPEN_REVIEW, DISMISS_REVIEW) */
 const isReopenReviewPayload = (p: unknown): p is { key: string } => isRecord(p) && isKey(p.key);
 const isResolvePageMediaPayload = (p: unknown): p is ResolvePageMediaPayload =>
   isRecord(p) && isPageMediaInfo(p.page) && (p.mediaId === null || isPositiveInt(p.mediaId));
@@ -253,6 +257,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   SEARCH_ANIME: isSearchPayload,
   RESOLVE_REVIEW: isResolveReviewPayload,
   REOPEN_REVIEW: isReopenReviewPayload,
+  DISMISS_REVIEW: isReopenReviewPayload,
   GET_WATCHING: isWatchingPayload,
   ADJUST_PROGRESS: isAdjustProgressPayload,
   SET_LIST_STATUS: isSetListStatusPayload,

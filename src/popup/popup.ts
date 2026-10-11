@@ -153,15 +153,17 @@ const reviewActions: ReviewActions = {
       return { status: 'error', message: swUnreachable() };
     }
   },
-  // Pas besoin du service worker : simple suppression dans le stockage
+  // Service worker : l'épisode mis de côté pendant une correction est rejoué après le retrait de la carte
   async dismiss(key) {
-    await deletePendingReview(key);
-    await refreshReviewBadge();
+    const result = await sendMessage('DISMISS_REVIEW', { key });
+    if (!result.ok) throw new Error(result.message);
   },
   async exclude(review) {
     // Fiche suggérée volontairement ignorée (par définition incertaine) : seule une fiche déjà écrite est reprise
     await excludeSeries({ platformKey: platformSeriesKey(review.episode), mediaId: review.previous?.mediaId ?? null, label: review.episode.animeTitle });
-    await reviewActions.dismiss(review.key);
+    // Série exclue : simple suppression, aucun épisode mis de côté n'est rejoué
+    await deletePendingReview(review.key);
+    await refreshReviewBadge();
   },
 };
 
