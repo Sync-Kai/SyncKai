@@ -3,6 +3,12 @@
 Toutes les évolutions notables de SyncKai sont documentées ici.
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
 
+## [2.2.1] - 2026-10-11
+
+### Fixed
+
+- Netflix: shows whose seasons are arcs numbered continuously (e.g. One Piece) no longer get the previous arcs' episodes added again (E1180 was synced as 1377). Shows whose seasons restart at episode 1 are numbered as before.
+
 ## [2.2.0] - 2026-10-11
 
 Version fiabilité : après un audit complet de l’extension, ta progression ne recule plus jamais, chaque compte garde ses propres données et les jetons de connexion sont chiffrés.
@@ -298,6 +304,7 @@ Première version : synchronisation automatique Crunchyroll → AniList.
 - **Vérification manuelle** des correspondances incertaines depuis le popup (fiches suggérées, recherche, numéro d'épisode), avec badge sur l'icône de l'extension.
 - **Dernières synchros** dans le popup, avec correction a posteriori d'une correspondance.
 
+[2.2.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.2.1
 [2.2.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.2.0
 [2.1.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.1.0
 [2.0.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.0.0
