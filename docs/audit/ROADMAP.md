@@ -8,7 +8,7 @@ Vérification avant chaque fusion (session principale) : `npx tsc --noEmit`, `np
 
 ## Avancement (au 2026-10-11)
 
-Lots 1 à 26, 28 et 29 traités et fusionnés dans `develop` (un commit par lot, de `3986fa6` à `5dac6f2`), avec `npm run verify`, les tests e2e et un chargement de l'extension dans Chrome à chaque fusion. **Lot 27 écarté** : l'Agenda hors des sites de streaming contredit la décision du 2026-10-07 (« je ne veux pas que l'extension soit intrusive » : panneau réservé à Crunchyroll, ADN et Netflix) ; UX-04 reste ouvert. Tests manuels dans le navigateur à faire avant la prochaine release (voir chaque lot).
+Lots 1 à 26, 28 et 29 traités et publiés dans la 2.2.0 (un commit par lot), puis reliquats corrigés sur `develop` pour la 2.3.0 : purge unique des correspondances vers une autre série (lot 1), épisode mémorisé pendant une correction en attente (lot 5), cache de la page lié aux sessions (lot 18), onglets Netflix repris après une mise à jour et pont versionné (lot 26 ; Firefox réinjecte lui-même Crunchyroll et ADN), script de contenu à 76 Ko (lot 29), web-ext 10 (audit 13 → 3). **Lot 27 écarté** : l'Agenda hors des sites de streaming contredit la décision du 2026-10-07 (extension non intrusive) ; UX-04 reste ouvert. Restent hors de notre main : TypeScript 6.1 (attend typescript-eslint), couverture faussée sous Windows (bug de @vitest/coverage-v8), `node-forge` sans correctif (web-ext run, inutilisé). Tests manuels : `docs/audit/TESTS-MANUELS.md`.
 
 ## Synthèse
 
