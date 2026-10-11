@@ -10,7 +10,8 @@ import {
   type IsoWeekday,
 } from './agenda';
 import type { SessionEpochs } from './session-epochs';
-import { getSettings, saveSettings } from './settings';
+import { isRecord } from './guards';
+import { getSettings, normalizeSeriesOffsets, saveSettings, SETTINGS_STORAGE_KEY } from './settings';
 import { writeIfSessions } from './storage';
 import { withStorageLock } from './storage-lock';
 
@@ -55,5 +56,21 @@ export function saveSeriesOffset(mediaId: number, offset: number | null): Promis
   return withStorageLock(async () => {
     const settings = await getSettings();
     await saveSettings(withSeriesOffset(settings, mediaId, offset));
+  });
+}
+
+/**
+ * Migration (mise à jour vers la 2.2.0) : délais par série enregistrés en minutes seules convertis au format
+ * `{ minutes, at }`, datés de la mise à jour (`now`). Tous conservés (≤ MAX_SERIES_OFFSETS, plafond déjà appliqué par
+ * les versions précédentes). Retourne le nombre de délais convertis.
+ */
+export function migrateLegacySeriesOffsets(now: number = Date.now()): Promise<number> {
+  return withStorageLock(async () => {
+    const raw: unknown = (await chrome.storage.local.get(SETTINGS_STORAGE_KEY))[SETTINGS_STORAGE_KEY];
+    if (!isRecord(raw) || !isRecord(raw.seriesOffsets)) return 0;
+    const legacy = Object.values(raw.seriesOffsets).filter((value) => typeof value === 'number').length;
+    if (legacy === 0) return 0;
+    await chrome.storage.local.set({ [SETTINGS_STORAGE_KEY]: { ...raw, seriesOffsets: normalizeSeriesOffsets(raw.seriesOffsets, now) } });
+    return legacy;
   });
 }

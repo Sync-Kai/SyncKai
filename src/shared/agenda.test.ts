@@ -108,7 +108,7 @@ describe('weekRange', () => {
   });
 });
 
-const settings: OffsetSettings = { platformOffsets: { crunchyroll: 60, adn: 90, netflix: 60 }, seriesOffsets: { '42': -30 } };
+const settings: OffsetSettings = { platformOffsets: { crunchyroll: 60, adn: 90, netflix: 60 }, seriesOffsets: { '42': { minutes: -30, at: 1 } } };
 
 describe('estimateRelease', () => {
   it('diffusion + délai de la plateforme', () => {
@@ -126,8 +126,8 @@ describe('estimateRelease', () => {
   });
 
   it('withSeriesOffset ajoute, remplace et retire', () => {
-    expect(withSeriesOffset(settings, 7, 120).seriesOffsets).toEqual({ '42': -30, '7': 120 });
-    expect(withSeriesOffset(settings, 42, 15).seriesOffsets).toEqual({ '42': 15 });
+    expect(withSeriesOffset(settings, 7, 120, 5).seriesOffsets).toEqual({ '42': { minutes: -30, at: 1 }, '7': { minutes: 120, at: 5 } });
+    expect(withSeriesOffset(settings, 42, 15, 5).seriesOffsets).toEqual({ '42': { minutes: 15, at: 5 } });
     expect(withSeriesOffset(settings, 42, null).seriesOffsets).toEqual({});
   });
 

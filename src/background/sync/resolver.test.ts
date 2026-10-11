@@ -219,6 +219,45 @@ describe('resolveEpisode — correspondance en cache', () => {
     expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
     expect(storage.saveMediaMapping).not.toHaveBeenCalled();
   });
+
+  describe('correspondance importée d’une sauvegarde, à revérifier (BAK-02)', () => {
+    const imported = { ...cached, episodes: null, unverified: true } as const;
+
+    beforeEach(() => {
+      storage.getMediaMapping.mockResolvedValue(imported);
+    });
+
+    it('fiche du catalogue cohérente : confirmée, enregistrée sans l’indicateur avec le nombre d’épisodes du catalogue', async () => {
+      api.getAnimeByIds.mockResolvedValue([media({ id: 154587, titles: ['Frieren'], episodes: 28 })]);
+      const { result } = await resolveEpisode(crunchyrollEpisode());
+      expect(api.getAnimeByIds).toHaveBeenCalledWith([154587], 'interactive');
+      expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3, confidence: 'high', fromCache: true } });
+      expect(storage.saveMediaMapping).toHaveBeenCalledWith(KEY, { mediaId: 154587, numbering: 'season', offset: 0, episodes: 28 });
+      expect(api.searchAnime).not.toHaveBeenCalled();
+    });
+
+    it('fiche introuvable : correspondance retirée, nouvelle résolution', async () => {
+      const { result } = await resolveEpisode(crunchyrollEpisode());
+      expect(storage.deleteMediaMapping).toHaveBeenCalledWith(KEY);
+      expect(api.searchAnime).toHaveBeenCalled();
+      expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3 } });
+    });
+
+    it('progression au-delà de la fiche du catalogue (décalage forgé) : jamais envoyée', async () => {
+      storage.getMediaMapping.mockResolvedValue({ ...imported, numbering: 'displayed', offset: -500 });
+      api.getAnimeByIds.mockResolvedValue([media({ id: 154587, titles: ['Frieren'], episodes: 28 })]);
+      const { result } = await resolveEpisode(crunchyrollEpisode());
+      expect(storage.deleteMediaMapping).toHaveBeenCalledWith(KEY);
+      expect(result).toMatchObject({ ok: true, target: { progress: 3 } });
+    });
+
+    it('lecture seule (persist: false) : confirmée pour cette lecture, rien n’est écrit', async () => {
+      api.getAnimeByIds.mockResolvedValue([media({ id: 154587, titles: ['Frieren'], episodes: 28 })]);
+      const { result } = await resolveEpisode(crunchyrollEpisode(), { persist: false });
+      expect(result).toMatchObject({ ok: true, target: { progress: 3, confidence: 'high' } });
+      expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('resolveEpisode — propagation des relations SEQUEL / PREQUEL', () => {

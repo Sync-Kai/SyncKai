@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pageMediaFromEpisode } from '../content/lib/page-media';
+import { installFakeChrome } from '../test/fake-chrome';
 import type { EpisodeInfo } from './episode.types';
 import type { PageMediaView } from './page-media.types';
 import {
@@ -8,8 +9,13 @@ import {
   PAGE_MEDIA_CACHE_TTL_MS,
   pageMediaCacheKey,
   shouldReplaceCachedPageMedia,
+  storeCachedPageMedia,
   toCachedPageMedia,
 } from './page-media-cache';
+import { PANEL_MEDIA_CACHE_TTL_MS, panelMediaCacheKey, purgeStaleSessionCaches } from './session-cache';
+
+const fake = installFakeChrome();
+const { clearAniListSession, clearMalSession, clearUserSyncData, STORAGE_KEYS } = await import('./storage');
 
 // Régression : Black Butler -Public School Arc- E1. Le panneau lisait la page avant son JSON-LD (repli DOM sans
 // saison) et devinait « Kuroshitsuji » (2008) ; la synchro et le popup retenaient « Kishuku Gakkou-hen » (2024).
@@ -76,5 +82,53 @@ describe('cache de la fiche par onglet', () => {
     expect(isCachedPageMedia({ ...toCachedPageMedia(completePage, SCHOOL, 'sync', NOW), source: 'popup' })).toBe(false);
     expect(isCachedPageMedia({ pageKey: 'x' })).toBe(false);
     expect(isCachedPageMedia(null)).toBe(false);
+  });
+});
+
+describe('caches de session : purge et déconnexion (DATA-04, PERF-05, SEC-03)', () => {
+  const FAR = Number.MAX_SAFE_INTEGER;
+  const entry = (resolvedAt: number): unknown => toCachedPageMedia(completePage, SCHOOL, 'resolve', resolvedAt);
+  const panel = (at: number): unknown => ({ at, value: { mediaId: 1 } });
+  const sessionKeys = (): string[] => [...fake.session.data.keys()].sort();
+
+  beforeEach(() => {
+    fake.reset();
+    vi.useFakeTimers({ toFake: ['Date'] });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('écriture d’une fiche : purge des pageMedia:* et panelMedia:* expirés, illisibles ou d’un format précédent', async () => {
+    vi.setSystemTime(NOW);
+    fake.session.seed({
+      'pageMedia:1': entry(NOW - 60_000),
+      'pageMedia:2': entry(NOW - PAGE_MEDIA_CACHE_TTL_MS - 1),
+      'pageMedia:3': 'illisible',
+      [panelMediaCacheKey(10)]: panel(NOW - 3_600_000),
+      [panelMediaCacheKey(11)]: panel(NOW - PANEL_MEDIA_CACHE_TTL_MS - 1),
+      'panelMedia:v1:12': panel(NOW),
+      ignoredSeries: { 'netflix:1': NOW },
+    });
+    await storeCachedPageMedia(4, completePage, SCHOOL, 'resolve');
+    expect(sessionKeys()).toEqual(['ignoredSeries', 'pageMedia:1', 'pageMedia:4', panelMediaCacheKey(10)].sort());
+  });
+
+  it('au plus une purge par intervalle (une par réveil du service worker)', async () => {
+    const later = NOW + 3_600_000;
+    expect(await purgeStaleSessionCaches(later)).toBe(0);
+    fake.session.seed({ 'pageMedia:5': entry(later - PAGE_MEDIA_CACHE_TTL_MS - 1) });
+    expect(await purgeStaleSessionCaches(later + 60_000)).toBe(0);
+    expect(await purgeStaleSessionCaches(later + PAGE_MEDIA_CACHE_TTL_MS)).toBe(1);
+    expect(sessionKeys()).toEqual([]);
+  });
+
+  it.each([
+    ['clearAniListSession', clearAniListSession],
+    ['clearMalSession', clearMalSession],
+    ['clearUserSyncData', clearUserSyncData],
+  ])('%s : fiches de page (états des listes) et du panneau effacées, séries Netflix ignorées gardées', async (_name, clear) => {
+    fake.reset({ [STORAGE_KEYS.anilistToken]: { accessToken: 'a', expiresAt: FAR }, [STORAGE_KEYS.malToken]: { accessToken: 'm', refreshToken: 'r', expiresAt: FAR } });
+    fake.session.seed({ 'pageMedia:1': entry(Date.now()), [panelMediaCacheKey(10)]: panel(Date.now()), ignoredSeries: {} });
+    await clear();
+    expect(sessionKeys()).toEqual(['ignoredSeries']);
   });
 });

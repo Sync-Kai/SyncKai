@@ -1,5 +1,6 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { CandidateSummary } from '../../shared/review.types';
+import type { MediaMapping } from '../../shared/sync.types';
 import { deleteMediaMapping, getMediaMapping, saveMediaMapping } from '../../shared/storage';
 import { getAnimeByIds, searchAnime, type AniListMedia } from '../api/media';
 import type { RequestLane } from '../api/rate-limit';
@@ -207,11 +208,35 @@ export async function findReviewCandidates(episode: EpisodeInfo, suggestedId: nu
   return summarize(await collectCandidates(episode), suggestedId);
 }
 
+/**
+ * Correspondance importée d'une sauvegarde (BAK-02) : jugée sûre seulement si sa fiche existe dans le catalogue AniList
+ * et contient la progression qu'elle donne. Confirmée : enregistrée sans l'indicateur, avec le nombre d'épisodes du
+ * catalogue (`persist`). Réfutée : null (l'appelant la retire et résout de nouveau). Erreur réseau : propagée, comme
+ * celle d'une recherche (la correspondance reste à revérifier).
+ */
+async function confirmImportedMapping(episode: EpisodeInfo, key: string, mapping: MediaMapping, persist: boolean, lane: RequestLane): Promise<MediaMapping | null> {
+  const media = (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId);
+  if (!media) {
+    log.warn(`Correspondance importée ${key} : fiche #${mapping.mediaId} introuvable sur AniList, ignorée`);
+    return null;
+  }
+  const { unverified: _unverified, ...rest } = mapping;
+  const confirmed: MediaMapping = { ...rest, episodes: media.episodes };
+  if (applyMapping(episode, confirmed) === null) {
+    log.warn(`Correspondance importée ${key} : épisode hors de la fiche #${mapping.mediaId} (${media.episodes ?? '?'} ép.), ignorée`);
+    return null;
+  }
+  if (persist) await saveMediaMapping(key, confirmed);
+  return confirmed;
+}
+
 /** Résout la fiche AniList d'un épisode : cache d'abord, recherche sinon (et mise en cache si fiable). */
 export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lane = 'interactive' }: ResolveOptions = {}): Promise<EpisodeResolution> {
   const key = mappingKey(episode);
 
-  const cached = await getMediaMapping(key);
+  const stored = await getMediaMapping(key);
+  // Correspondance importée : revérifiée sur le catalogue avant d'être jugée sûre (BAK-02)
+  const cached = stored?.unverified === true && applyMapping(episode, stored) !== null ? await confirmImportedMapping(episode, key, stored, persist, lane) : stored;
   if (cached) {
     const progress = applyMapping(episode, cached);
     if (progress !== null) {
@@ -222,13 +247,13 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
         seasonGroups: [],
       };
     }
-    // Ex : numérotation absolue passée à la fiche suivante → nouvelle résolution
-    if (persist) await deleteMediaMapping(key);
   }
+  // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution
+  if (stored && persist) await deleteMediaMapping(key);
 
   // Plateforme généraliste : série déjà ignorée (moins de 24 h) → aucune recherche AniList. Une correspondance
   // enregistrée (choix manuel) l'emporte : vérifiée ci-dessus, et sa présence montre que la série est un anime.
-  if (LINK_REQUIRED_PLATFORMS.has(episode.platform) && !cached && (await isSeriesIgnored(episode))) {
+  if (LINK_REQUIRED_PLATFORMS.has(episode.platform) && !stored && (await isSeriesIgnored(episode))) {
     log.info('Série déjà ignorée (verdict mémorisé) : pas de nouvelle recherche', episode.animeTitle);
     return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
   }

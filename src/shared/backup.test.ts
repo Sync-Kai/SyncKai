@@ -38,6 +38,8 @@ const episode: EpisodeInfo = {
 };
 
 const mapping = (mediaId: number): MediaMapping => ({ mediaId, numbering: 'displayed', offset: 0, episodes: 12 });
+/** Clé au format de mappingKey */
+const KEY = 'crunchyroll:GG5H5XQX4:s1';
 const review = (key: string, createdAt: number): PendingReview => ({ key, episode, reason: 'r', suggestion: null, candidates: [], previous: null, createdAt });
 const recent = (key: string, syncedAt: number): RecentSync => ({ key, episode, mediaId: 1, mediaTitle: 'T', progress: 3, syncedAt });
 const exclusion = (id: string, mediaId: number | null = null): ExcludedSeries => ({ id, platformKey: id.startsWith('anilist:') ? null : id, mediaId, label: id, excludedAt: 1 });
@@ -108,10 +110,38 @@ describe('buildBackup', () => {
 });
 
 describe('parseBackup', () => {
-  it('relit une sauvegarde exportée à l’identique', () => {
-    const backup = buildBackup({ mediaMappings: { a: mapping(1) }, recentSyncs: [recent('k', 1)] }, '1.7.0', NOW);
+  it('relit une sauvegarde exportée à l’identique, correspondances marquées « à revérifier »', () => {
+    const backup = buildBackup({ mediaMappings: { [KEY]: mapping(1) }, recentSyncs: [recent('k', 1)] }, '1.7.0', NOW);
     const result = parseBackup(JSON.stringify(backup));
-    expect(result).toEqual({ ok: true, data: { backup, invalidCount: 0 } });
+    const expected = { ...backup, data: { ...backup.data, mediaMappings: { [KEY]: { ...mapping(1), unverified: true } } } };
+    expect(result).toEqual({ ok: true, data: { backup: expected, invalidCount: 0 } });
+  });
+
+  it('rejette les correspondances suspectes : mediaId non entier ou négatif, décalage absurde, clé hors format (BAK-02)', () => {
+    const result = parseBackup(
+      fileText({
+        mediaMappings: {
+          [KEY]: mapping(1),
+          'crunchyroll:GRMG8ZQZR:s1': { ...mapping(2), mediaId: 1.5 },
+          'crunchyroll:GRMG8ZQZR:s2': { ...mapping(3), mediaId: -3 },
+          'crunchyroll:GRMG8ZQZR:s0': { mediaId: 21, numbering: 'displayed', offset: -500, episodes: null },
+          'crunchyroll:GRMG8ZQZR:s3': { ...mapping(4), offset: 2.5 },
+          'crunchyroll:GRMG8ZQZR:s4': { ...mapping(5), episodes: 0 },
+          'hidive:X:s1': mapping(6),
+          'crunchyroll:GRMG8ZQZR': mapping(7),
+          a: mapping(8),
+        },
+      }),
+    );
+    if (!result.ok) throw new Error(result.message);
+    expect(Object.keys(result.data.backup.data.mediaMappings)).toEqual([KEY]);
+    expect(result.data.invalidCount).toBe(8);
+  });
+
+  it('accepte les décalages réels (numérotation absolue, seconde partie numérotée depuis 1)', () => {
+    const result = parseBackup(fileText({ mediaMappings: { 'crunchyroll:GRMG8ZQZR:s24': { ...mapping(21), offset: 1155 }, 'adn:1311:s2': { ...mapping(3), offset: -12 } } }));
+    if (!result.ok) throw new Error(result.message);
+    expect(Object.keys(result.data.backup.data.mediaMappings)).toHaveLength(2);
   });
 
   it('rejette un JSON invalide', () => {
@@ -144,7 +174,7 @@ describe('parseBackup', () => {
     const result = parseBackup(
       fileText({
         settings: 'nope',
-        mediaMappings: { a: mapping(1), b: null },
+        mediaMappings: { [KEY]: mapping(1), 'adn:1:s1': null },
         pendingReviews: [review('k', 1), { key: 'k2' }],
         recentSyncs: 'nope',
         excludedSeries: [exclusion('adn:1'), exclusion('adn:1')],
@@ -179,11 +209,18 @@ describe('parseBackup', () => {
     expect(result).toEqual({ ok: true, data: { backup: expect.objectContaining({ data: { ...emptyData(), settings: null } }), invalidCount: 0 } });
   });
 
-  it('traite une clé "__proto__" comme une donnée', () => {
-    const result = parseBackup(fileText({ mediaMappings: JSON.parse('{"__proto__": {"mediaId": 1, "numbering": "season", "offset": 0, "episodes": null}}') }));
+  it('traite une clé "__proto__" comme une donnée (refusée comme clé de correspondance)', () => {
+    const result = parseBackup(
+      fileText({
+        mediaMappings: JSON.parse('{"__proto__": {"mediaId": 1, "numbering": "season", "offset": 0, "episodes": null}}'),
+        rewatchDeclined: JSON.parse('{"__proto__": 5}'),
+      }),
+    );
     if (!result.ok) throw new Error(result.message);
-    expect(Object.hasOwn(result.data.backup.data.mediaMappings, '__proto__')).toBe(true);
+    expect(Object.hasOwn(result.data.backup.data.mediaMappings, '__proto__')).toBe(false);
     expect(Object.getPrototypeOf(result.data.backup.data.mediaMappings)).toBe(Object.prototype);
+    expect(Object.hasOwn(result.data.backup.data.rewatchDeclined, '__proto__')).toBe(true);
+    expect(Object.getPrototypeOf(result.data.backup.data.rewatchDeclined)).toBe(Object.prototype);
   });
 
   it('normalise les réglages importés', () => {

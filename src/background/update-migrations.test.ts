@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../shared/guards';
 import { STORAGE_KEYS, saveMediaMapping } from '../shared/storage';
 import { STORAGE_LOCK } from '../shared/storage-lock-core';
@@ -138,5 +138,33 @@ describe('runUpdateMigrations : liaison au compte (DATA-01)', () => {
     await runUpdateMigrations('2.2.0');
     expect(store[SYNC_QUEUE_KEY]).toEqual([queued]);
     expect(store[STORAGE_KEYS.recentSyncs]).toEqual([recent]);
+  });
+});
+
+describe('runUpdateMigrations : délais par série datés (DATA-03)', () => {
+  const NOW = 1_800_000_000_000;
+  const legacy = Object.fromEntries(Array.from({ length: 200 }, (_, i) => [String(200 - i), i - 100]));
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    store = { settings: { autoSync: false, seriesOffsets: legacy } };
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('depuis la 2.1.x : chaque délai en minutes devient { minutes, at = mise à jour }, tous conservés, autres réglages intacts', async () => {
+    await runUpdateMigrations('2.1.1');
+    const settings = store.settings;
+    if (!isRecord(settings) || !isRecord(settings.seriesOffsets)) throw new Error('réglages absents');
+    expect(settings.autoSync).toBe(false);
+    expect(Object.keys(settings.seriesOffsets)).toHaveLength(200);
+    expect(settings.seriesOffsets['200']).toEqual({ minutes: -100, at: NOW });
+    expect(settings.seriesOffsets['1']).toEqual({ minutes: 99, at: NOW });
+  });
+
+  it('depuis la 2.2.0 : rien n’est réécrit', async () => {
+    const before = store;
+    await runUpdateMigrations('2.2.0');
+    expect(store).toBe(before);
   });
 });

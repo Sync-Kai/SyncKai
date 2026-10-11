@@ -1,13 +1,13 @@
 import { isRecord } from './guards';
 import type { PageMediaInfo, PageMediaView } from './page-media.types';
+import { PAGE_MEDIA_CACHE_PREFIX, PAGE_MEDIA_CACHE_TTL_MS, purgeStaleSessionCaches, sessionArea } from './session-cache';
 
 // Fiche de la page par onglet : source de vérité unique pour le popup (carte « Sur cette page ») et le panneau.
 // Écrite après chaque RESOLVE_PAGE_MEDIA (popup, panneau) et après la synchro d'un épisode de l'onglet
-// (service worker, fiche certaine). `storage.session` : en mémoire, vidée à la fermeture du navigateur.
+// (service worker, fiche certaine). `storage.session` : en mémoire, vidée à la fermeture du navigateur et à la
+// déconnexion d'un compte, entrées expirées purgées à l'écriture (voir session-cache.ts).
 
-export const PAGE_MEDIA_CACHE_PREFIX = 'pageMedia:';
-/** Au-delà, la fiche est recalculée (états de liste modifiés ailleurs) */
-export const PAGE_MEDIA_CACHE_TTL_MS = 10 * 60_000;
+export { PAGE_MEDIA_CACHE_PREFIX, PAGE_MEDIA_CACHE_TTL_MS };
 
 export type PageMediaSource = 'sync' | 'resolve';
 
@@ -74,11 +74,7 @@ export function isCachedPageMedia(value: unknown): value is CachedPageMedia {
   );
 }
 
-/** `storage.session` (Chrome 102+, Firefox 115+) ; absent : pas de cache, tout passe par RESOLVE_PAGE_MEDIA */
-function sessionArea(): chrome.storage.StorageArea | null {
-  const area: unknown = typeof chrome !== 'undefined' && chrome.storage ? Reflect.get(chrome.storage, 'session') : undefined;
-  return isRecord(area) && typeof area.get === 'function' ? chrome.storage.session : null;
-}
+// `storage.session` absent : pas de cache, tout passe par RESOLVE_PAGE_MEDIA
 
 export async function readCachedPageMedia(tabId: number): Promise<CachedPageMedia | null> {
   const area = sessionArea();
@@ -96,5 +92,7 @@ export async function storeCachedPageMedia(tabId: number, page: PageMediaInfo, v
   const next = toCachedPageMedia(page, view, source, Date.now());
   if (!shouldReplaceCachedPageMedia(await readCachedPageMedia(tabId), next)) return null;
   await area.set({ [pageMediaCacheKey(tabId)]: next });
+  // Fiches des onglets fermés ou expirées : retirées en passant (jamais d'échec de l'écriture pour autant)
+  await purgeStaleSessionCaches().catch(() => 0);
   return next;
 }

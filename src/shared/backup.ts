@@ -8,7 +8,7 @@ import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } fr
 import type { SessionEpochs } from './session-epochs';
 import { normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from './settings';
 import { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS, STORAGE_KEYS } from './storage';
-import { isMediaMapping, type MediaMapping } from './sync.types';
+import { isImportableMapping, isMediaMapping, type MediaMapping } from './sync.types';
 
 // Sauvegarde exportable / importable (module pur, testable). Ne contient JAMAIS les tokens,
 // profils, caches, file de relance ni préférences d'affichage du popup.
@@ -98,15 +98,15 @@ function validateList<T>(raw: unknown, guard: (v: unknown) => v is T, key: (item
   return { value, invalid };
 }
 
-/** Dictionnaire : entrées invalides ignorées. Section absente = vide. */
-function validateRecord<T>(raw: unknown, guard: (v: unknown) => v is T): Validated<Record<string, T>> {
+/** Dictionnaire : entrées invalides (valeur ou clé) ignorées. Section absente = vide. */
+function validateRecord<T>(raw: unknown, guard: (v: unknown, key: string) => v is T): Validated<Record<string, T>> {
   if (raw === undefined) return { value: {}, invalid: 0 };
   if (!isRecord(raw) || Array.isArray(raw)) return { value: {}, invalid: 1 };
   const value: Record<string, T> = {};
   let invalid = 0;
   for (const [k, v] of Object.entries(raw)) {
     // defineProperty : une clé "__proto__" reste une simple donnée
-    if (guard(v)) Object.defineProperty(value, k, { value: v, enumerable: true, writable: true, configurable: true });
+    if (guard(v, k)) Object.defineProperty(value, k, { value: v, enumerable: true, writable: true, configurable: true });
     else invalid++;
   }
   return { value, invalid };
@@ -119,11 +119,14 @@ function sortDesc<T>(list: T[], at: (item: T) => number, max: number): T[] {
   return [...list].sort((a, b) => at(b) - at(a)).slice(0, max);
 }
 
-/** Valide les 7 sections (valeurs brutes du stockage ou du fichier) et compte les éléments ignorés. */
-function validateData(raw: Record<string, unknown>, settingsFallback: boolean): Validated<BackupData> {
+/**
+ * Valide les 7 sections (valeurs brutes du stockage ou du fichier) et compte les éléments ignorés. `fromFile` : fichier
+ * importé, non fiable (réglages absents non importables, correspondances au format de clé attendu et décalage borné).
+ */
+function validateData(raw: Record<string, unknown>, fromFile: boolean): Validated<BackupData> {
   const rawSettings = raw.settings;
   const settingsValid = isRecord(rawSettings) && !Array.isArray(rawSettings);
-  const mappings = validateRecord(raw.mediaMappings, isMediaMapping);
+  const mappings = validateRecord(raw.mediaMappings, (v, key): v is MediaMapping => (fromFile ? isImportableMapping(key, v) : isMediaMapping(v)));
   const reviews = validateList(raw.pendingReviews, isPendingReview, (r) => r.key);
   const syncs = validateList(raw.recentSyncs, isRecentSync, (s) => s.key);
   const exclusions = validateList(raw.excludedSeries, isExcludedSeries, (e) => e.id);
@@ -133,7 +136,7 @@ function validateData(raw: Record<string, unknown>, settingsFallback: boolean): 
   return {
     value: {
       // Stockage : réglages absents = valeurs par défaut ; fichier : absents = non importables
-      settings: settingsValid || settingsFallback ? normalizeSettings(rawSettings) : null,
+      settings: settingsValid || !fromFile ? normalizeSettings(rawSettings) : null,
       mediaMappings: mappings.value,
       pendingReviews: sortDesc(reviews.value, (r) => r.createdAt, MAX_PENDING_REVIEWS),
       recentSyncs: sortDesc(syncs.value, (s) => s.syncedAt, MAX_RECENT_SYNCS),
@@ -161,7 +164,7 @@ export function buildBackup(raw: Record<string, unknown>, appVersion: string, no
     version: BACKUP_VERSION,
     exportedAt: now.toISOString(),
     appVersion,
-    data: validateData(raw, true).value,
+    data: validateData(raw, false).value,
   };
 }
 
@@ -177,6 +180,11 @@ export function sectionsFromStorage(stored: Record<string, unknown>): Record<Bac
     pendingRatings: stored[k.pendingRatings],
     rewatchDeclined: stored[k.rewatchDeclined],
   };
+}
+
+/** Correspondances marquées « à revérifier » (Object.fromEntries : une clé "__proto__" reste une simple donnée) */
+function markUnverified(mappings: Record<string, MediaMapping>): Record<string, MediaMapping> {
+  return Object.fromEntries(Object.entries(mappings).map(([key, mapping]) => [key, { ...mapping, unverified: true as const }]));
 }
 
 function fail(code: BackupErrorCode, message: string): Result<ParsedBackup, BackupErrorCode> {
@@ -207,11 +215,16 @@ export function parseBackup(text: string): Result<ParsedBackup, BackupErrorCode>
     return fail('INVALID_FORMAT', t('backup.error.corrupted'));
   }
 
-  const validated = validateData(json.data, false);
+  const validated = validateData(json.data, true);
   const { invalid } = validated;
   // Une correction (« Corriger ») ne vaut que dans la session qui a écrit la valeur : importée (autre date, autre
-  // compte peut-être), elle redevient une vérification simple, qui ne fait jamais reculer la progression
-  const value: BackupData = { ...validated.value, pendingReviews: validated.value.pendingReviews.map((r) => ({ ...r, previous: null })) };
+  // compte peut-être), elle redevient une vérification simple, qui ne fait jamais reculer la progression.
+  // Correspondances importées : revérifiées sur le catalogue AniList à leur premier usage (BAK-02, voir resolver.ts)
+  const value: BackupData = {
+    ...validated.value,
+    mediaMappings: markUnverified(validated.value.mediaMappings),
+    pendingReviews: validated.value.pendingReviews.map((r) => ({ ...r, previous: null })),
+  };
   return {
     ok: true,
     data: {

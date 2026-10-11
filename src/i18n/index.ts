@@ -95,9 +95,10 @@ export function initI18n(): Promise<Locale> {
     } catch {
       // Stockage illisible : la langue du navigateur reste active
     }
-    chrome.storage.onChanged.addListener((changes, area) => {
+    // Zone locale seule : une écriture dans `storage.session` ne réveille pas le service worker (ARCH-18)
+    chrome.storage.local.onChanged.addListener((changes) => {
       const change = changes[SETTINGS_STORAGE_KEY];
-      if (area === 'local' && change) setLocale(resolveLocale(normalizeSettings(change.newValue).language));
+      if (change) setLocale(resolveLocale(normalizeSettings(change.newValue).language));
     });
     return current;
   })();

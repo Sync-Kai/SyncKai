@@ -37,7 +37,7 @@ import { createReviewSection } from './components/review-section';
 import { renderPageMediaCard } from './components/page-media-card';
 import { entryKey, renderWatchingScreen } from './components/watching-screen';
 import { adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from './feedback';
-import { getPendingRatings, PENDING_RATINGS_KEY, removePendingRating } from './pending-ratings';
+import { getPendingRatings, PENDING_RATINGS_KEY, removePendingRating } from '../shared/engagement-store';
 import { popupTimeouts } from './timeouts';
 import {
   createStore,

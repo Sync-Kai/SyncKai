@@ -14,6 +14,7 @@ import {
   type CrReviewItem,
   type CrServicePlan,
 } from '../shared/cr-import';
+import { dismissCrImportJob, resetCrImport } from '../shared/cr-import-store';
 import { hasHostAccess, requestHostAccess } from '../shared/host-access';
 import { isJobActive } from '../shared/job';
 import { createLogger } from '../shared/logger';
@@ -325,7 +326,8 @@ async function createReviews(): Promise<void> {
 /** « Recommencer » : efface l'aperçu et la dernière tâche (jamais une tâche en cours) */
 async function restart(): Promise<void> {
   if (isJobActive(state.job, Date.now())) return;
-  await chrome.storage.local.remove([CR_IMPORT_KEYS.job, CR_IMPORT_KEYS.plan, CR_IMPORT_KEYS.input, CR_IMPORT_KEYS.resolutions]);
+  // Tâche relue sous verrou : une analyse lancée entre-temps (autre onglet, reprise) n'est jamais effacée
+  if (!(await resetCrImport())) return;
   state.job = null;
   state.plan = null;
   state.selectionFor = null;
@@ -336,7 +338,7 @@ async function restart(): Promise<void> {
 
 async function dismissJob(): Promise<void> {
   if (state.job?.status === 'running') return;
-  await chrome.storage.local.remove(CR_IMPORT_KEYS.job);
+  await dismissCrImportJob();
 }
 
 // ─── Minuteries (attente d'un onglet, compte à rebours des pauses) ────────

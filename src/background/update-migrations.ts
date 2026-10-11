@@ -1,3 +1,4 @@
+import { migrateLegacySeriesOffsets } from '../shared/agenda-store';
 import { bindLegacyDataToSession, deleteMediaMappingsByPrefix } from '../shared/storage';
 import { createLogger } from '../shared/logger';
 
@@ -14,6 +15,9 @@ const NETFLIX_MAPPINGS_FIXED_IN = '2.1.1';
  * versions précédentes sont rattachées aux sessions ouvertes à la mise à jour (le compte connecté est le plus probable).
  */
 const ACCOUNT_BINDING_IN = '2.2.0';
+
+/** Délais par série datés depuis la 2.2.0 (DATA-03) : ceux des versions précédentes sont datés de la mise à jour */
+const DATED_SERIES_OFFSETS_IN = '2.2.0';
 
 /** Compare deux versions « x.y.z » ; négatif si a < b, NaN si l'une est illisible. */
 export function compareVersions(a: string, b: string): number {
@@ -41,5 +45,9 @@ export async function runUpdateMigrations(previousVersion: string | undefined): 
   if (before(ACCOUNT_BINDING_IN)) {
     const bound = await bindLegacyDataToSession();
     if (bound > 0) log.info(`Mise à jour depuis ${previousVersion} : ${bound} élément(s) rattaché(s) au compte connecté`);
+  }
+  if (before(DATED_SERIES_OFFSETS_IN)) {
+    const dated = await migrateLegacySeriesOffsets();
+    if (dated > 0) log.info(`Mise à jour depuis ${previousVersion} : ${dated} délai(s) par série daté(s)`);
   }
 }

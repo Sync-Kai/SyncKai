@@ -266,7 +266,7 @@ export type OffsetSettings = Pick<SyncSettings, 'platformOffsets' | 'seriesOffse
 /** Délai (minutes) propre à la série, s'il existe */
 export function seriesOffset(settings: OffsetSettings, mediaId: number): number | null {
   const key = String(mediaId);
-  return Object.hasOwn(settings.seriesOffsets, key) ? (settings.seriesOffsets[key] ?? null) : null;
+  return Object.hasOwn(settings.seriesOffsets, key) ? (settings.seriesOffsets[key]?.minutes ?? null) : null;
 }
 
 /**
@@ -349,10 +349,10 @@ export function buildAgendaDays(
   return days;
 }
 
-/** Applique (ou retire avec null) le délai d'une série dans les réglages */
-export function withSeriesOffset<T extends OffsetSettings>(settings: T, mediaId: number, offset: number | null): T {
+/** Applique (ou retire avec null) le délai d'une série dans les réglages, daté de `now` (le plus récent est gardé) */
+export function withSeriesOffset<T extends OffsetSettings>(settings: T, mediaId: number, offset: number | null, now: number = Date.now()): T {
   const { [String(mediaId)]: _previous, ...rest } = settings.seriesOffsets;
-  return { ...settings, seriesOffsets: offset === null ? rest : { ...rest, [String(mediaId)]: offset } };
+  return { ...settings, seriesOffsets: offset === null ? rest : { ...rest, [String(mediaId)]: { minutes: offset, at: now } } };
 }
 
 /** Délai lisible et signé : « +1 h », « +1 h 30 », « +45 min », « −2 h » */

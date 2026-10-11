@@ -2,6 +2,7 @@ import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
 import { sanitizeDescription } from '../../shared/panel-media';
+import { PANEL_MEDIA_CACHE_TTL_MS, PANEL_MEDIA_CACHE_VERSION, panelMediaCacheKey, purgeStaleSessionCaches, sessionArea } from '../../shared/session-cache';
 import {
   isMediaSeason,
   isPanelMedia,
@@ -122,19 +123,11 @@ function isMediaData(data: unknown): data is { Media: unknown } {
 }
 
 // ─── Cache de session (6 h) ───────────────────────────────────────────────
-// `storage.session` (Chrome 102+, Firefox 115+) : vidé à la fermeture du navigateur, jamais écrit sur disque.
-// Indisponible : cache mémoire du service worker (perdu à sa mise en veille).
+// `storage.session` (voir shared/session-cache.ts) : vidé à la fermeture du navigateur et à la déconnexion, entrées
+// expirées purgées à l'écriture. Indisponible : cache mémoire du service worker (perdu à sa mise en veille).
 
-const CACHE_TTL_MS = 6 * 3_600_000;
-/** Versionnée : une fiche d'un format précédent (relations sans liens de plateformes) n'est jamais relue */
-export const PANEL_MEDIA_CACHE_VERSION = 2;
-export const panelMediaCacheKey = (mediaId: number): string => `panelMedia:v${PANEL_MEDIA_CACHE_VERSION}:${mediaId}`;
+export { PANEL_MEDIA_CACHE_VERSION, panelMediaCacheKey };
 const memory = new Map<number, { at: number; value: PanelMedia }>();
-
-function sessionArea(): chrome.storage.StorageArea | null {
-  const area: unknown = Reflect.get(chrome.storage, 'session');
-  return isRecord(area) && typeof area.get === 'function' ? chrome.storage.session : null;
-}
 
 async function readCache(mediaId: number): Promise<PanelMedia | null> {
   const session = sessionArea();
@@ -147,7 +140,7 @@ async function readCache(mediaId: number): Promise<PanelMedia | null> {
       log.debug('Cache de session illisible :', error);
     }
   }
-  if (!isRecord(hit) || typeof hit.at !== 'number' || Date.now() - hit.at > CACHE_TTL_MS || !isPanelMedia(hit.value)) return null;
+  if (!isRecord(hit) || typeof hit.at !== 'number' || Date.now() - hit.at > PANEL_MEDIA_CACHE_TTL_MS || !isPanelMedia(hit.value)) return null;
   return hit.value;
 }
 
@@ -161,8 +154,9 @@ async function writeCache(media: PanelMedia): Promise<void> {
   }
   try {
     await session.set({ [panelMediaCacheKey(media.mediaId)]: entry });
+    await purgeStaleSessionCaches();
   } catch (error: unknown) {
-    // Quota de session atteint : simple accélération perdue
+    // Quota de session atteint, purge impossible : simple accélération perdue
     log.debug('Cache de session non écrit :', error);
   }
 }

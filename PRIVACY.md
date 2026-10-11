@@ -38,7 +38,7 @@ Sont enregistrés **localement** sur ton appareil, dans le stockage de l’exten
 - des caches (liste « En cours », profil, calendrier des sorties) ;
 - les 50 dernières erreurs techniques (sans jetons ni noms de compte), pour aider à diagnostiquer un problème : elles ne quittent jamais le navigateur, sauf si tu copies toi-même le rapport de diagnostic (Réglages › Aide).
 
-Quelques caches de courte durée sont gardés en mémoire, dans le stockage de session de l’extension (`chrome.storage.session`) : la fiche affichée pour la page en cours, les données du panneau latéral (fiche AniList de l’épisode, suites) et les séries Netflix reconnues comme non-animes. Ils ne sont jamais écrits sur le disque et sont effacés à la fermeture du navigateur.
+Quelques caches de courte durée sont gardés en mémoire, dans le stockage de session de l’extension (`chrome.storage.session`) : la fiche affichée pour la page en cours, les données du panneau latéral (fiche AniList de l’épisode, suites) et les séries Netflix reconnues comme non-animes. Ils ne sont jamais écrits sur le disque : les entrées périmées sont retirées au fil de l’eau, la fiche de la page et les données du panneau sont effacées dès la déconnexion d’un compte, et le reste à la fermeture du navigateur.
 
 ### Comptes AniList et MyAnimeList
 
@@ -67,7 +67,7 @@ Le fichier d’export est un fichier JSON téléchargé sur ton appareil. Il n�
 
 ### Supprimer tes données
 
-- **Déconnecter** un compte dans Réglages › Comptes supprime son jeton et son profil ; à la déconnexion du dernier compte, l’historique, les vérifications, la file d’attente et les caches de `chrome.storage.local` sont effacés (ceux de la session le sont à la fermeture du navigateur).
+- **Déconnecter** un compte dans Réglages › Comptes supprime son jeton et son profil ; à la déconnexion du dernier compte, l’historique, les vérifications, la file d’attente et les caches de `chrome.storage.local` sont effacés. Toute déconnexion efface aussi la fiche de la page et les données du panneau gardées dans `chrome.storage.session`.
 - Réglages › Correspondances › « Tout réinitialiser » efface les correspondances.
 - **Désinstaller l’extension** supprime toutes les données stockées.
 - Les données enregistrées sur AniList ou MyAnimeList (ta liste) se gèrent directement sur ces services.
@@ -108,7 +108,7 @@ Stored **locally** on your device, in the extension storage (`chrome.storage.loc
 - caches (“Watching” list, profile, airing schedule);
 - the last 50 technical errors (without tokens or account names), to help diagnose problems: they never leave your browser unless you copy the diagnostic report yourself (Settings › Help).
 
-A few short-lived caches are kept in memory, in the extension’s session storage (`chrome.storage.session`): the entry shown for the current page, the side panel data (the episode’s AniList entry, sequels) and the Netflix series recognized as not anime. They are never written to disk and are cleared when the browser closes.
+A few short-lived caches are kept in memory, in the extension’s session storage (`chrome.storage.session`): the entry shown for the current page, the side panel data (the episode’s AniList entry, sequels) and the Netflix series recognized as not anime. They are never written to disk: stale entries are removed along the way, the current page entry and the side panel data are cleared as soon as you log out of an account, and the rest when the browser closes.
 
 ### AniList and MyAnimeList accounts
 
@@ -137,7 +137,7 @@ The export file is a JSON file downloaded to your device. It is not sent anywher
 
 ### Deleting your data
 
-- **Log out** of an account in Settings › Accounts to delete its token and profile; logging out of the last account also clears history, reviews, the pending queue and the `chrome.storage.local` caches (session caches are cleared when the browser closes).
+- **Log out** of an account in Settings › Accounts to delete its token and profile; logging out of the last account also clears history, reviews, the pending queue and the `chrome.storage.local` caches. Any logout also clears the current page entry and the side panel data kept in `chrome.storage.session`.
 - Settings › Matches › “Reset all” clears the remembered matches.
 - **Uninstalling the extension** deletes all stored data.
 - Data saved on AniList or MyAnimeList (your list) is managed directly on those services.
@@ -178,7 +178,7 @@ Es liest weder deine Crunchyroll-/ADN-Zugangsdaten noch deinen Browserverlauf.
 - Caches (Liste „Schaue ich“, Profil, Ausstrahlungsplan);
 - die letzten 50 technischen Fehler (ohne Tokens und Kontonamen) zur Fehlerdiagnose: Sie verlassen den Browser nie, außer du kopierst selbst den Diagnosebericht (Einstellungen › Hilfe).
 
-Einige kurzlebige Caches werden im Arbeitsspeicher gehalten, im Sitzungsspeicher der Erweiterung (`chrome.storage.session`): der für die aktuelle Seite angezeigte Eintrag, die Daten der Seitenleiste (AniList-Eintrag der Folge, Fortsetzungen) und die als Nicht-Anime erkannten Netflix-Serien. Sie werden nie auf die Festplatte geschrieben und beim Schließen des Browsers gelöscht.
+Einige kurzlebige Caches werden im Arbeitsspeicher gehalten, im Sitzungsspeicher der Erweiterung (`chrome.storage.session`): der für die aktuelle Seite angezeigte Eintrag, die Daten der Seitenleiste (AniList-Eintrag der Folge, Fortsetzungen) und die als Nicht-Anime erkannten Netflix-Serien. Sie werden nie auf die Festplatte geschrieben: veraltete Einträge werden laufend entfernt, der Eintrag der aktuellen Seite und die Daten der Seitenleiste sofort beim Abmelden eines Kontos gelöscht, der Rest beim Schließen des Browsers.
 
 ### AniList- und MyAnimeList-Konten
 
@@ -207,7 +207,7 @@ Die Exportdatei ist eine JSON-Datei, die auf dein Gerät heruntergeladen wird. S
 
 ### Daten löschen
 
-- **Abmelden** eines Kontos unter Einstellungen › Konten löscht dessen Token und Profil; beim Abmelden des letzten Kontos werden auch Verlauf, Prüfungen, Warteschlange und die Caches in `chrome.storage.local` gelöscht (die Sitzungs-Caches beim Schließen des Browsers).
+- **Abmelden** eines Kontos unter Einstellungen › Konten löscht dessen Token und Profil; beim Abmelden des letzten Kontos werden auch Verlauf, Prüfungen, Warteschlange und die Caches in `chrome.storage.local` gelöscht. Jedes Abmelden löscht außerdem den Eintrag der aktuellen Seite und die Daten der Seitenleiste in `chrome.storage.session`.
 - Einstellungen › Zuordnungen › „Alles zurücksetzen“ löscht die Zuordnungen.
 - **Deinstallieren der Erweiterung** löscht alle gespeicherten Daten.
 - Auf AniList oder MyAnimeList gespeicherte Daten (deine Liste) verwaltest du direkt bei diesen Diensten.

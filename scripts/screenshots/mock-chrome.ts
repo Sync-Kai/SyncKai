@@ -135,17 +135,29 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
   };
   persist();
 
+  /** Écouteurs propres à une zone (chrome.storage.local.onChanged / session.onChanged) */
+  type AreaListener = (changes: StorageChanges) => void;
+  const areaListeners = { local: new Set<AreaListener>(), session: new Set<AreaListener>() };
+
   const emitFor =
     (area: 'local' | 'session', save: boolean) =>
     (changes: StorageChanges): void => {
       if (Object.keys(changes).length === 0) return;
       if (save) persist();
       // Asynchrone, comme dans Chrome
-      queueMicrotask(() => listeners.forEach((listener) => listener(changes, area)));
+      queueMicrotask(() => {
+        areaListeners[area].forEach((listener) => listener(changes));
+        listeners.forEach((listener) => listener(changes, area));
+      });
     };
 
   /** Zone de stockage en mémoire (chrome.storage.local / session) */
-  const storageArea = (data: Map<string, unknown>, emit: (changes: StorageChanges) => void) => ({
+  const storageArea = (data: Map<string, unknown>, emit: (changes: StorageChanges) => void, own: Set<AreaListener>) => ({
+    onChanged: {
+      addListener: (listener: AreaListener) => void own.add(listener),
+      removeListener: (listener: AreaListener) => void own.delete(listener),
+      hasListener: (listener: AreaListener) => own.has(listener),
+    },
     get: (keys?: unknown) => Promise.resolve(pick(data, keys)),
     set: (items: StorageItems) => {
       const changes: StorageChanges = {};
@@ -168,8 +180,8 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
     },
   });
 
-  const local = storageArea(store, emitFor('local', true));
-  const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session', false));
+  const local = storageArea(store, emitFor('local', true), areaListeners.local);
+  const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session', false), areaListeners.session);
 
   const access = options.permissions;
   const optional = new Set(access?.optional ?? []);

@@ -13,6 +13,10 @@ import { isWatchingList, type WatchingList } from './watching.types';
 import { PLATFORM_LINKS_KEY } from './platform-links';
 import { withStorageLock } from './storage-lock';
 import { AIRING_USER_KEYS } from './airing-keys';
+import { clearSessionCaches } from './session-cache';
+import { createLogger } from './logger';
+
+const log = createLogger('storage');
 
 // Verrou défini dans storage-lock.ts ; réexporté pour les modules existants
 export { withStorageLock };
@@ -102,52 +106,66 @@ export function saveCachedViewer(viewer: AniListViewer, epoch: number): Promise<
   return writeIfSession('anilist', epoch, { [STORAGE_KEYS.anilistViewer]: viewer, [STORAGE_KEYS.anilistViewerAt]: Date.now() });
 }
 
-// Les correspondances ne dépendent pas de l'utilisateur (mediaId global) : conservées à la déconnexion
-export async function getMediaMappings(): Promise<Record<string, MediaMapping>> {
-  const stored = await chrome.storage.local.get(STORAGE_KEYS.mediaMappings);
-  const raw: unknown = stored[STORAGE_KEYS.mediaMappings];
-  if (!isRecord(raw)) return {};
+// Les correspondances ne dépendent pas de l'utilisateur (mediaId global) : conservées à la déconnexion.
+// Écritures sur l'objet brut (ARCH-15) : une entrée que cette version ne sait pas lire (format d'une autre version,
+// garde resserrée) n'est jamais effacée par l'écriture d'une autre clé.
+
+/** Copie de l'objet brut du stockage, entrées illisibles comprises */
+async function readRawMappings(): Promise<Record<string, unknown>> {
+  const raw: unknown = (await chrome.storage.local.get(STORAGE_KEYS.mediaMappings))[STORAGE_KEYS.mediaMappings];
+  return isRecord(raw) && !Array.isArray(raw) ? { ...raw } : {};
+}
+
+function readableMappings(raw: Record<string, unknown>): Record<string, MediaMapping> {
   return Object.fromEntries(Object.entries(raw).filter((entry): entry is [string, MediaMapping] => isMediaMapping(entry[1])));
+}
+
+export async function getMediaMappings(): Promise<Record<string, MediaMapping>> {
+  return readableMappings(await readRawMappings());
 }
 
 export async function getMediaMapping(key: string): Promise<MediaMapping | null> {
   return (await getMediaMappings())[key] ?? null;
 }
 
+/** Ajoute ou remplace la correspondance de la clé (les autres entrées, même illisibles, restent intactes). */
 export function saveMediaMapping(key: string, mapping: MediaMapping): Promise<void> {
   return withStorageLock(async () => {
-    const mappings = await getMediaMappings();
-    await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: { ...mappings, [key]: mapping } });
+    const raw = await readRawMappings();
+    await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: { ...raw, [key]: mapping } });
   });
 }
 
 /**
- * Enregistre en une seule écriture les correspondances dont la clé n'en a pas encore (import : jamais d'écrasement
- * d'une correspondance existante, apprise ou corrigée par l'utilisateur). Retourne le nombre ajouté.
+ * Enregistre en une seule écriture les correspondances dont la clé n'en a pas encore de lisible (import : jamais
+ * d'écrasement d'une correspondance existante, apprise ou corrigée par l'utilisateur). Retourne le nombre ajouté.
  */
 export function saveMediaMappingsIfAbsent(entries: readonly { key: string; mapping: MediaMapping }[]): Promise<number> {
   if (entries.length === 0) return Promise.resolve(0);
   return withStorageLock(async () => {
-    const mappings = await getMediaMappings();
-    const added = entries.filter(({ key }, i) => !Object.hasOwn(mappings, key) && entries.findIndex((e) => e.key === key) === i);
-    if (added.length > 0) await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: { ...mappings, ...Object.fromEntries(added.map(({ key, mapping }) => [key, mapping])) } });
+    const raw = await readRawMappings();
+    const known = readableMappings(raw);
+    const added = entries.filter(({ key }, i) => !Object.hasOwn(known, key) && entries.findIndex((e) => e.key === key) === i);
+    if (added.length > 0) await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: { ...raw, ...Object.fromEntries(added.map(({ key, mapping }) => [key, mapping])) } });
     return added.length;
   });
 }
 
 export function deleteMediaMapping(key: string): Promise<void> {
   return withStorageLock(async () => {
-    const { [key]: _removed, ...rest } = await getMediaMappings();
+    const raw = await readRawMappings();
+    if (!Object.hasOwn(raw, key)) return;
+    const { [key]: _removed, ...rest } = raw;
     await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: rest });
   });
 }
 
-/** Supprime les correspondances dont la clé commence par `prefix` (ex : `netflix:`) ; retourne leur nombre. */
+/** Supprime les correspondances dont la clé commence par `prefix` (ex : `netflix:`), même illisibles ; retourne leur nombre. */
 export function deleteMediaMappingsByPrefix(prefix: string): Promise<number> {
   return withStorageLock(async () => {
-    const mappings = await getMediaMappings();
-    const kept = Object.fromEntries(Object.entries(mappings).filter(([key]) => !key.startsWith(prefix)));
-    const removed = Object.keys(mappings).length - Object.keys(kept).length;
+    const raw = await readRawMappings();
+    const kept = Object.fromEntries(Object.entries(raw).filter(([key]) => !key.startsWith(prefix)));
+    const removed = Object.keys(raw).length - Object.keys(kept).length;
     if (removed > 0) await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: kept });
     return removed;
   });
@@ -213,6 +231,7 @@ async function removeAniListSession(expired: boolean): Promise<void> {
   await removeCachedWatching('anilist');
   await bumpSessionEpoch('anilist');
   await purgeClosedSessions();
+  await removeSessionCaches();
 }
 
 /**
@@ -247,6 +266,20 @@ async function removeUserSyncData(): Promise<void> {
     ...AIRING_USER_KEYS,
     ...weeks,
   ]);
+  await removeSessionCaches();
+}
+
+/**
+ * Fiches en cache de session (état des listes du compte dans la fiche de la page) effacées à toute déconnexion
+ * (SEC-03). Un échec (zone de session indisponible) ne bloque jamais la déconnexion : la TTL et la fermeture du
+ * navigateur restent.
+ */
+async function removeSessionCaches(): Promise<void> {
+  try {
+    await clearSessionCaches();
+  } catch (error: unknown) {
+    log.warn('Caches de session non effacés à la déconnexion :', error);
+  }
 }
 
 /**
@@ -329,6 +362,7 @@ async function removeMalSession(expired: boolean): Promise<void> {
   await removeCachedWatching('mal');
   await bumpSessionEpoch('mal');
   await purgeClosedSessions();
+  await removeSessionCaches();
 }
 
 /** Comme clearAniListSessionIfToken : la session MAL n'est fermée que si `accessToken` est toujours le token enregistré. */

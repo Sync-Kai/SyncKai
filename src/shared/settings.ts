@@ -41,7 +41,7 @@ export interface SyncSettings {
   /** Agenda : délai estimé (minutes) entre la diffusion japonaise et la sortie sur chaque plateforme */
   platformOffsets: PlatformOffsets;
   /** Agenda : délai propre à une série (clé = mediaId AniList), prioritaire sur `platformOffsets` */
-  seriesOffsets: Readonly<Record<string, number>>;
+  seriesOffsets: Readonly<Record<string, SeriesOffset>>;
   /** Panneau latéral : onglet ouvert par défaut */
   panelDefaultTab: PanelDefaultTab;
   /** Panneau latéral : position de lecture et compte à rebours en direct (port ouvert vers l'onglet) */
@@ -49,6 +49,12 @@ export interface SyncSettings {
 }
 
 export type PlatformOffsets = Readonly<Record<StreamingPlatform, number>>;
+
+/** Délai propre à une série : minutes, et date du réglage (ms) pour ne garder que les plus récents (DATA-03) */
+export interface SeriesOffset {
+  minutes: number;
+  at: number;
+}
 
 /** Bornes d'un délai de sortie (minutes) : jusqu'à 1 jour d'avance, 1 semaine de retard */
 export const OFFSET_RANGE = { min: -1440, max: 10080 } as const;
@@ -101,17 +107,36 @@ function normalizePlatformOffsets(raw: unknown): PlatformOffsets {
   };
 }
 
-/** Garde les entrées `mediaId (entier > 0) → minutes` valides, dans la limite de MAX_SERIES_OFFSETS (les plus récentes) */
-function normalizeSeriesOffsets(raw: unknown): Record<string, number> {
-  if (!isRecord(raw) || Array.isArray(raw)) return {};
-  const result: Record<string, number> = {};
-  for (const [key, value] of Object.entries(raw)) {
-    const offset = normalizeOffset(value);
-    if (/^[1-9]\d{0,9}$/.test(key) && offset !== null) result[key] = offset;
+/**
+ * Délai d'une série, null si invalide. Format ≤ 2.1 (nombre de minutes seul) : daté de `legacyAt` (0 par défaut : le
+ * plus ancien ; la migration de la 2.2.0 le date de la mise à jour, voir agenda-store.ts).
+ */
+function normalizeSeriesOffset(value: unknown, legacyAt: number): SeriesOffset | null {
+  if (typeof value === 'number') {
+    const minutes = normalizeOffset(value);
+    return minutes === null ? null : { minutes, at: legacyAt };
   }
-  const keys = Object.keys(result);
-  for (const key of keys.slice(0, Math.max(0, keys.length - MAX_SERIES_OFFSETS))) delete result[key];
-  return result;
+  if (!isRecord(value)) return null;
+  const minutes = normalizeOffset(value.minutes);
+  if (minutes === null) return null;
+  return { minutes, at: typeof value.at === 'number' && Number.isFinite(value.at) && value.at >= 0 ? value.at : legacyAt };
+}
+
+/**
+ * Garde les entrées `mediaId (entier > 0) → délai` valides, dans la limite de MAX_SERIES_OFFSETS : les plus récemment
+ * réglées (date `at`). Jamais l'ordre des clés : JavaScript énumère les clés entières par ordre numérique croissant,
+ * quel que soit l'ordre d'insertion (DATA-03, BAK-04).
+ */
+export function normalizeSeriesOffsets(raw: unknown, legacyAt = 0): Record<string, SeriesOffset> {
+  if (!isRecord(raw) || Array.isArray(raw)) return {};
+  const valid: [string, SeriesOffset][] = [];
+  for (const [key, value] of Object.entries(raw)) {
+    const offset = /^[1-9]\d{0,9}$/.test(key) ? normalizeSeriesOffset(value, legacyAt) : null;
+    if (offset) valid.push([key, offset]);
+  }
+  // Tri stable : à date égale, l'ordre de lecture départage
+  const kept = valid.sort((a, b) => b[1].at - a[1].at).slice(0, MAX_SERIES_OFFSETS);
+  return Object.fromEntries(kept);
 }
 
 /**

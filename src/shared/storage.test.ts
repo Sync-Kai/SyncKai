@@ -4,6 +4,7 @@ import type { EpisodeInfo } from './episode.types';
 import type { SyncQueueItem } from './queue.types';
 import type { PendingReview, RecentSync } from './review.types';
 import type { SessionEpochs } from './session-epochs';
+import type { MediaMapping } from './sync.types';
 
 // Effacements de session, données liées au compte, écritures sous session et plafonds de storage.ts
 // (TEST-10, DATA-01, DATA-06, AUTH-01, AUTH-02, ARCH-17) :
@@ -379,5 +380,42 @@ describe('indicateur « Session expirée » (AUTH-03)', () => {
     await storage.clearMalSession();
     expect(store.has(SESSION_EXPIRED_KEYS.anilist)).toBe(false);
     expect(store.has(SESSION_EXPIRED_KEYS.mal)).toBe(false);
+  });
+});
+
+describe('correspondances : écritures non destructives (ARCH-15)', () => {
+  const valid = (mediaId: number): MediaMapping => ({ mediaId, numbering: 'season', offset: 0, episodes: 12 });
+  /** Entrée d'un format que cette version ne sait pas lire (autre version, garde resserrée) */
+  const unreadable = { mediaId: 7, numbering: 'absolute-v3', offset: 0, episodes: 12 };
+  const mappings = (): unknown => store.get(STORAGE_KEYS.mediaMappings);
+
+  beforeEach(() => store.set(STORAGE_KEYS.mediaMappings, { 'adn:7:s1': unreadable, 'crunchyroll:A:s1': valid(1) }));
+
+  it('saveMediaMapping : une entrée illisible survit, seule la clé visée change', async () => {
+    await storage.saveMediaMapping('crunchyroll:B:s1', valid(2));
+    expect(mappings()).toEqual({ 'adn:7:s1': unreadable, 'crunchyroll:A:s1': valid(1), 'crunchyroll:B:s1': valid(2) });
+    expect(await storage.getMediaMappings()).toEqual({ 'crunchyroll:A:s1': valid(1), 'crunchyroll:B:s1': valid(2) });
+  });
+
+  it('saveMediaMappingsIfAbsent : jamais d’écrasement d’une correspondance lisible, entrée illisible gardée', async () => {
+    expect(await storage.saveMediaMappingsIfAbsent([{ key: 'crunchyroll:A:s1', mapping: valid(9) }, { key: 'crunchyroll:C:s1', mapping: valid(3) }])).toBe(1);
+    expect(mappings()).toEqual({ 'adn:7:s1': unreadable, 'crunchyroll:A:s1': valid(1), 'crunchyroll:C:s1': valid(3) });
+  });
+
+  it('deleteMediaMapping : retire la seule clé visée, illisible comprise', async () => {
+    await storage.deleteMediaMapping('crunchyroll:A:s1');
+    expect(mappings()).toEqual({ 'adn:7:s1': unreadable });
+    await storage.deleteMediaMapping('adn:7:s1');
+    expect(mappings()).toEqual({});
+  });
+
+  it('deleteMediaMappingsByPrefix : les autres plateformes, même illisibles, restent', async () => {
+    expect(await storage.deleteMediaMappingsByPrefix('crunchyroll:')).toBe(1);
+    expect(mappings()).toEqual({ 'adn:7:s1': unreadable });
+  });
+
+  it('une correspondance au mediaId non entier, au décalage non entier ou sans épisode n’est jamais lue (BAK-02)', async () => {
+    store.set(STORAGE_KEYS.mediaMappings, { a: { ...valid(1), mediaId: 1.5 }, b: { ...valid(2), offset: 0.5 }, c: { ...valid(3), episodes: 0 }, d: valid(4) });
+    expect(Object.keys(await storage.getMediaMappings())).toEqual(['d']);
   });
 });

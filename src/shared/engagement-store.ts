@@ -13,17 +13,26 @@ export const REWATCH_DECLINED_KEY = 'rewatchDeclined';
 /** Cartes « À noter » conservées au maximum (les plus anciennes sont abandonnées) */
 export const MAX_PENDING_RATINGS = 30;
 
+/**
+ * Seule garde des cartes « À noter » (popup, service worker, sauvegarde, purge de session) : identifiant cohérent avec
+ * la fiche (`anilist:<id>` / `mal:<id>`), affiche en https (affichée telle quelle dans le popup), date valide.
+ */
 export function isPendingRating(value: unknown): value is PendingRating {
   return (
     isMediaRef(value) &&
     isRecord(value) &&
     typeof value.id === 'string' &&
     value.id === mediaRefId(value) &&
-    (value.coverUrl === null || typeof value.coverUrl === 'string') &&
+    (value.coverUrl === null || isSafeCoverUrl(value.coverUrl)) &&
     typeof value.completedAt === 'number' &&
     Number.isFinite(value.completedAt) &&
     (value.epochs === undefined || isSessionEpochs(value.epochs))
   );
+}
+
+/** Affiche d'une carte : URL https de taille raisonnable (jamais `javascript:` ni `data:`) */
+export function isSafeCoverUrl(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('https://') && value.length <= 2000;
 }
 
 /**
@@ -57,12 +66,16 @@ export function addPendingRating(rating: PendingRating): Promise<void> {
   });
 }
 
-/** Retire la note en attente ; renvoie true si une carte a été supprimée. */
+/**
+ * Retire la note en attente (« Ignorer » dans le popup, note enregistrée par le service worker) ; renvoie true si une
+ * carte a été supprimée. Filtrage sur le tableau brut : une entrée que cette version ne sait pas lire n'est pas effacée.
+ */
 export function removePendingRating(id: string): Promise<boolean> {
   return withStorageLock(async () => {
-    const ratings = await readPendingRatings();
-    const remaining = ratings.filter((r) => r.id !== id);
-    if (remaining.length === ratings.length) return false;
+    const raw: unknown = (await chrome.storage.local.get(PENDING_RATINGS_KEY))[PENDING_RATINGS_KEY];
+    if (!Array.isArray(raw)) return false;
+    const remaining = raw.filter((item: unknown) => !(isPendingRating(item) && item.id === id));
+    if (remaining.length === raw.length) return false;
     if (remaining.length === 0) await chrome.storage.local.remove(PENDING_RATINGS_KEY);
     else await chrome.storage.local.set({ [PENDING_RATINGS_KEY]: remaining });
     return true;

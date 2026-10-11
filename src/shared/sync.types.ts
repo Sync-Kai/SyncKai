@@ -22,17 +22,45 @@ export interface MediaMapping {
   /** Affichage dans la page d'options (absents des correspondances enregistrées avant la 1.1) */
   seriesLabel?: string;
   mediaTitle?: string;
+  /**
+   * Correspondance importée d'une sauvegarde (BAK-02) : revérifiée sur le catalogue AniList (fiche existante, épisode
+   * dans la fiche) à son premier usage avant d'être jugée sûre. Absent : apprise ou choisie sur cette installation.
+   */
+  unverified?: true;
 }
+
+const isPositiveInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 
 export function isMediaMapping(value: unknown): value is MediaMapping {
   return (
     isRecord(value) &&
-    typeof value.mediaId === 'number' &&
+    isPositiveInteger(value.mediaId) &&
     (value.numbering === 'displayed' || value.numbering === 'season') &&
-    typeof value.offset === 'number' &&
-    (value.episodes === null || typeof value.episodes === 'number') &&
+    Number.isSafeInteger(value.offset) &&
+    (value.episodes === null || isPositiveInteger(value.episodes)) &&
     (value.seriesLabel === undefined || typeof value.seriesLabel === 'string') &&
-    (value.mediaTitle === undefined || typeof value.mediaTitle === 'string')
+    (value.mediaTitle === undefined || typeof value.mediaTitle === 'string') &&
+    (value.unverified === undefined || value.unverified === true)
+  );
+}
+
+/**
+ * Décalage admis pour une correspondance importée (épisodes) : au-delà, la progression envoyée n'aurait plus de sens.
+ * Positif : numéro affiché au-delà de la fiche (numérotation absolue répartie sur plusieurs fiches, One Piece, Gintama) ;
+ * négatif : saison de la plateforme qui reprend au milieu d'une fiche AniList (deuxième partie numérotée depuis 1).
+ */
+export const IMPORTED_MAPPING_OFFSET_RANGE = { min: -300, max: 5000 } as const;
+
+/** Clé de correspondance produite par mappingKey : "crunchyroll:GRMG8ZQZR:s24", "netflix:80987039:s1" */
+export const MAPPING_KEY_PATTERN = /^(crunchyroll|adn|netflix):.+:s\d+$/;
+
+/** Correspondance d'une sauvegarde (fichier non fiable) : clé au format de mappingKey, décalage borné */
+export function isImportableMapping(key: string, value: unknown): value is MediaMapping {
+  return (
+    MAPPING_KEY_PATTERN.test(key) &&
+    isMediaMapping(value) &&
+    value.offset >= IMPORTED_MAPPING_OFFSET_RANGE.min &&
+    value.offset <= IMPORTED_MAPPING_OFFSET_RANGE.max
   );
 }
 

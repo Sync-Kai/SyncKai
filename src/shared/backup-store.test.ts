@@ -46,3 +46,22 @@ describe('applyBackup — lecteur préféré Netflix', () => {
     expect(stored[SETTINGS_STORAGE_KEY]).toEqual({ ...DEFAULT_SETTINGS, preferredPlayer: 'netflix', completionPercentage: 90 });
   });
 });
+
+describe('applyBackup — correspondances (ARCH-15)', () => {
+  const imported = { mediaId: 21, numbering: 'displayed', offset: 0, episodes: null, unverified: true } as const;
+  const unreadable = { mediaId: 7, numbering: 'absolute-v3', offset: 0, episodes: 12 };
+
+  it('fusion : une correspondance illisible par cette version est gardée, les importées ajoutées', async () => {
+    const stored = fakeBrowser(false, { mediaMappings: { 'adn:1:s1': unreadable } });
+    const incoming = { ...buildBackup({}, '2.2.0', new Date()).data, mediaMappings: { 'crunchyroll:GRMG8ZQZR:s24': imported } };
+    await applyBackup(incoming, 'merge', false);
+    expect(stored.mediaMappings).toEqual({ 'adn:1:s1': unreadable, 'crunchyroll:GRMG8ZQZR:s24': imported });
+  });
+
+  it('remplacement : seules les correspondances importées restent', async () => {
+    const stored = fakeBrowser(false, { mediaMappings: { 'adn:1:s1': unreadable } });
+    const incoming = { ...buildBackup({}, '2.2.0', new Date()).data, mediaMappings: { 'crunchyroll:GRMG8ZQZR:s24': imported } };
+    await applyBackup(incoming, 'replace', false);
+    expect(stored.mediaMappings).toEqual({ 'crunchyroll:GRMG8ZQZR:s24': imported });
+  });
+});

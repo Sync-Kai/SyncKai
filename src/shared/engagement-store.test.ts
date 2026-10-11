@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { REWATCH_DECLINE_MS } from './engagement.types';
-import { isDeclineActive, isPendingRating, isRatingSettled, purgeExpiredDeclines } from './engagement-store';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { installFakeChrome } from '../test/fake-chrome';
+import { REWATCH_DECLINE_MS, type PendingRating } from './engagement.types';
 import type { ServiceResult } from './sync.types';
+
+const fake = installFakeChrome();
+const { addPendingRating, getPendingRatings, isDeclineActive, isPendingRating, isRatingSettled, PENDING_RATINGS_KEY, purgeExpiredDeclines, removePendingRating } = await import(
+  './engagement-store'
+);
+const { STORAGE_LOCK } = await import('./storage-lock-core');
 
 const NOW = 1_800_000_000_000;
 
@@ -27,8 +33,48 @@ describe('isPendingRating', () => {
 
   it('refuse un identifiant incohérent ou des champs invalides', () => {
     expect(isPendingRating({ ...rating, id: 'anilist:22' })).toBe(false);
+    expect(isPendingRating({ ...rating, id: '' })).toBe(false);
     expect(isPendingRating({ ...rating, completedAt: 'hier' })).toBe(false);
     expect(isPendingRating({ ...rating, mediaId: null, malId: null })).toBe(false);
+    expect(isPendingRating(null)).toBe(false);
+  });
+
+  it('garde unique (DATA-02, ARCH-06) : affiche en https seulement, comme l’affiche le popup', () => {
+    expect(isPendingRating({ ...rating, coverUrl: 'https://s4.anilist.co/x.jpg' })).toBe(true);
+    expect(isPendingRating({ ...rating, coverUrl: 'javascript:alert(1)' })).toBe(false);
+    expect(isPendingRating({ ...rating, coverUrl: 'http://s4.anilist.co/x.jpg' })).toBe(false);
+    expect(isPendingRating({ ...rating, coverUrl: `https://${'a'.repeat(2000)}` })).toBe(false);
+  });
+
+  it('une seule définition dans le code : la copie du popup a disparu', () => {
+    const sources = import.meta.glob<string>(['../**/*.ts', '!../**/*.test.ts'], { query: '?raw', import: 'default', eager: true });
+    const owners = Object.entries(sources)
+      .filter(([, code]) => /function isPendingRating\b|const isPendingRating\b/.test(code))
+      .map(([path]) => path);
+    expect(owners).toEqual(['./engagement-store.ts']);
+    expect(Object.keys(sources).some((path) => path.endsWith('popup/pending-ratings.ts'))).toBe(false);
+  });
+});
+
+describe('cartes « À noter » : écritures verrouillées (DATA-02)', () => {
+  const card = (mediaId: number, completedAt = mediaId): PendingRating => ({ id: `anilist:${mediaId}`, mediaId, malId: null, title: `Série ${mediaId}`, coverUrl: null, completedAt });
+  /** Entrée que cette version ne sait pas lire */
+  const unreadable = { id: 'future:1', kind: 'v3' };
+
+  beforeEach(() => fake.reset());
+
+  it('« Ignorer » : sous le verrou du stockage, sur le tableau brut (entrée illisible conservée)', async () => {
+    fake.local.seed({ [PENDING_RATINGS_KEY]: [card(1), unreadable, card(2)] });
+    expect(await removePendingRating('anilist:1')).toBe(true);
+    expect(fake.locks.requested).toContain(STORAGE_LOCK);
+    expect(fake.local.peek(PENDING_RATINGS_KEY)).toEqual([unreadable, card(2)]);
+    expect(await removePendingRating('anilist:1')).toBe(false);
+  });
+
+  it('« Ignorer » pendant qu’une finale ajoute une carte : la nouvelle carte reste', async () => {
+    fake.local.seed({ [PENDING_RATINGS_KEY]: [card(1)] });
+    await Promise.all([addPendingRating(card(3, 10)), removePendingRating('anilist:1')]);
+    expect(await getPendingRatings()).toEqual([card(3, 10)]);
   });
 });
 

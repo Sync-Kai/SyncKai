@@ -223,9 +223,10 @@ chrome.runtime.onStartup.addListener((): void => {
 chrome.runtime.onInstalled.addListener((): void => {
   void ensureAiringAlarm();
 });
-// Réglage modifié ou compte (dé)connecté : l'alarme suit
-chrome.storage.onChanged.addListener((changes, area): void => {
-  if (area === 'local' && (SETTINGS_STORAGE_KEY in changes || STORAGE_KEYS.anilistToken in changes || STORAGE_KEYS.malToken in changes)) {
+// Réglage modifié ou compte (dé)connecté : l'alarme suit. Zone locale seule (ARCH-18) : les caches de
+// `storage.session` écrits par le popup et le panneau ne réveillent pas le service worker.
+chrome.storage.local.onChanged.addListener((changes): void => {
+  if (SETTINGS_STORAGE_KEY in changes || STORAGE_KEYS.anilistToken in changes || STORAGE_KEYS.malToken in changes) {
     void ensureAiringAlarm();
   }
 });
