@@ -47,6 +47,19 @@ function dynamicKeyCalls(code: string): string[] {
     .map((match) => code.slice(match.index, (match.index ?? 0) + 60).split('\n')[0] ?? '');
 }
 
+describe('constantes de build dans les scripts de contenu', () => {
+  it('aucune lecture de __SYNCKAI_*__ à l’import (sous `npm run dev`, la constante n’existe pas encore)', () => {
+    // Ligne non indentée = code exécuté à l'évaluation du module (fonctions et objets sont indentés)
+    const topLevel = [...contentModules].flatMap((path) =>
+      (SOURCES.get(path) ?? '')
+        .split('\n')
+        .filter((line) => /^[^\s/*].*__SYNCKAI_[A-Z_]+__/.test(line) && !/^(?:export\s+)?(?:async\s+)?function\s/.test(line))
+        .map((line) => `${path}: ${line.trim()}`),
+    );
+    expect(topLevel).toEqual([]);
+  });
+});
+
 describe('traductions des scripts de contenu', () => {
   it('les entrées sont trouvées', () => {
     expect(CONTENT_ENTRIES).toEqual(expect.arrayContaining(['content/content.ts', 'content/netflix/content-netflix.iife.ts', 'content/netflix/page-bridge.iife.ts']));
