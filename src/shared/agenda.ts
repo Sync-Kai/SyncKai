@@ -1,6 +1,6 @@
 import type { AniListErrorCode } from './anilist.types';
 import type { StreamingPlatform } from './episode.types';
-import { matchesExclusion, type ExcludedSeries } from './exclusions';
+import { isEntryExcluded, type ExcludedSeries } from './exclusions';
 import { isRecord } from './guards';
 import type { SyncSettings } from './settings';
 import { mergePlatformLinks, platformsWithoutLink } from './platform-links';
@@ -144,6 +144,8 @@ export interface AiringWeekCache {
   /** Séries interrogées : une série ajoutée depuis rend le cache incomplet */
   mediaIds: number[];
   schedules: AiringSchedule[];
+  /** Pagination arrêtée avant la fin de la semaine : sorties les plus tardives manquantes, cache à relire (ALRT-06) */
+  truncated?: boolean;
 }
 
 export const AIRING_WEEK_PREFIX = 'airingWeek:';
@@ -161,7 +163,8 @@ export function isAiringWeekCache(value: unknown): value is AiringWeekCache {
     Array.isArray(value.mediaIds) &&
     value.mediaIds.every(isPositiveInt) &&
     Array.isArray(value.schedules) &&
-    value.schedules.every(isAiringSchedule)
+    value.schedules.every(isAiringSchedule) &&
+    (value.truncated === undefined || typeof value.truncated === 'boolean')
   );
 }
 
@@ -179,9 +182,10 @@ export function weekTiming(range: Pick<WeekRange, 'start' | 'end'>, now: number)
 
 /**
  * Cache utilisable sans requête : âge inférieur au TTL de la semaine (1 h en cours, 6 h à venir,
- * 7 j passée — à condition d'avoir été lu après la fin de la semaine) et couvrant toutes les séries suivies.
+ * 7 j passée — à condition d'avoir été lu après la fin de la semaine), complet et couvrant toutes les séries suivies.
  */
 export function isWeekCacheFresh(cache: AiringWeekCache, range: Pick<WeekRange, 'start' | 'end'>, now: number, mediaIds: Iterable<number>): boolean {
+  if (cache.truncated === true) return false;
   const age = now - cache.fetchedAt;
   if (age < -CLOCK_SKEW_MS) return false;
   const timing = weekTiming(range, now);
@@ -231,7 +235,8 @@ export function mergeWatchingSeries(
   const series = new Map<number, AgendaSeries>();
   for (const entry of entries) {
     const mediaId = entry.mediaId;
-    if (mediaId === null || excluded.some((ex) => matchesExclusion(ex, { mediaId }))) continue;
+    // Exclusion par fiche, ou par série de plateforme (exclue avant la résolution de la fiche, ALRT-03)
+    if (mediaId === null || isEntryExcluded(excluded, { mediaId, platforms: entry.platforms })) continue;
     const previous = series.get(mediaId);
     // Liens des deux services réunis avant le choix : un lien ADN connu d'un seul service suffit
     const platforms = mergePlatformLinks(previous?.platforms ?? [], entry.platforms);

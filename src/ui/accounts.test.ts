@@ -64,7 +64,7 @@ vi.stubGlobal('navigator', {
   },
 });
 
-const { createAccountsController } = await import('./accounts');
+const { createAccountsController, isProfileFresh, PROFILE_TTL_MS } = await import('./accounts');
 const { endSessionIfToken } = await import('../shared/session-end');
 
 /** Session MAL ouverte (token X), profil renvoyé par le service worker */
@@ -115,5 +115,31 @@ describe('comptes : « Session expirée » après une invalidation en arrière-p
 
     expect(accounts.mal.get()).toMatchObject({ status: 'logged-out', expired: false });
     expect(store.has('sessionExpired:mal')).toBe(false);
+  });
+});
+
+describe('profil en cache (PERF-04)', () => {
+  it('lu il y a moins de 6 h : affiché sans requête ; plus ancien ou date inconnue : relu', async () => {
+    openMalSession();
+    store.set('malViewer', { id: 1, name: 'Kai', pictureUrl: null });
+    store.set('malViewerAt', Date.now() - 60_000);
+    await createAccountsController().bootstrapAll();
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    store.set('malViewerAt', Date.now() - PROFILE_TTL_MS);
+    await createAccountsController().bootstrapAll();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+
+    store.delete('malViewerAt');
+    await createAccountsController().bootstrapAll();
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('isProfileFresh : bornes', () => {
+    const now = 1_800_000_000_000;
+    expect(isProfileFresh(now - PROFILE_TTL_MS + 1, now)).toBe(true);
+    expect(isProfileFresh(now - PROFILE_TTL_MS, now)).toBe(false);
+    expect(isProfileFresh(null, now)).toBe(false);
+    expect(isProfileFresh(now + 1, now)).toBe(false);
   });
 });

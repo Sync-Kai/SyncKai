@@ -123,6 +123,7 @@ function seedEverything(): void {
     'airingWeek:2026-10-12': {},
     // Alertes de sortie (ALRT-05)
     airingLastCheck: 1,
+    airingCoveredUntil: 1,
     airingNotified: [1],
     airingTargets: { 'synckai-airing:1': [1] },
     airingLastResult: { checkedAt: 1, notified: 1, skipped: null, error: null },

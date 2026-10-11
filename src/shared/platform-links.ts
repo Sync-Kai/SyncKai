@@ -88,6 +88,24 @@ export function platformSeriesUrl(platform: StreamingPlatform, seriesId: string 
   }
 }
 
+/** Identifiant de série dans le chemin d'un lien de plateforme (préfixe de langue optionnel) */
+const SERIES_ID_IN_PATH: Record<StreamingPlatform, RegExp> = {
+  crunchyroll: /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?series\/([A-Z0-9]+)(?:\/|$)/i,
+  // Page de série ou d'épisode : /video/{seriesId}-{slug}[/{episodeId}-…]
+  adn: /^\/(?:[a-z]{2}\/)?video\/(\d+)-/i,
+  netflix: /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)(?:\/|$)/i,
+};
+
+/**
+ * Clé de série (`${platform}:${seriesId}`, forme de platformSeriesKey) d'un lien de plateforme, null si le lien ne
+ * désigne pas la série (page d'épisode Crunchyroll ou Netflix, ancien lien Crunchyroll sans identifiant).
+ */
+export function seriesKeyFromLink(link: PlatformLink): string | null {
+  if (platformFromUrl(link.url) !== link.platform) return null;
+  const id = SERIES_ID_IN_PATH[link.platform].exec(new URL(link.url).pathname)?.[1];
+  return id ? `${link.platform}:${id}` : null;
+}
+
 /** Page de recherche de la plateforme pour un titre (ADN : SearchAction du JSON-LD de la page d'accueil) */
 // Mentions de saison / partie / cour en fin de titre : la recherche des plateformes ne les trouve pas
 const SEASON_SUFFIX =

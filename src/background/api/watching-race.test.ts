@@ -120,3 +120,56 @@ describe('getWatchingList : déconnexion pendant la requête', () => {
     expect(await getCachedWatching('anilist')).not.toBeNull();
   });
 });
+
+describe('getWatchingList : liste récente servie sans requête (PERF-04)', () => {
+  const cachedList = (fetchedAt: number): Record<string, unknown> => ({
+    service: 'anilist',
+    fetchedAt,
+    entries: [{ mediaId: 21, malId: null, title: 'En cache', coverUrl: null, progress: 2, totalEpisodes: null, updatedAt: null, nextEpisode: null, airingStatus: null, platforms: [], lastSync: null, siteUrl: 'https://anilist.co/anime/21' }],
+  });
+
+  const EPISODE = {
+    platform: 'crunchyroll',
+    episodeId: 'E1',
+    seriesId: null,
+    seriesSlug: null,
+    animeTitle: 'One Piece',
+    seasonNumber: null,
+    seasonTitle: null,
+    seasonEpisodeNumber: 3,
+    displayedEpisodeNumber: 3,
+    episodeTitle: null,
+    url: 'https://www.crunchyroll.com/watch/E1',
+  };
+
+  beforeEach(() => {
+    network.anilist = null;
+    network.mal = null;
+    stubChrome({ anilistToken: { accessToken: 'a', expiresAt: Date.now() + 1e9 }, anilistViewer: viewer(1) });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('GET_WATCHING sans force, cache de moins de 90 s : aucune requête', async () => {
+    data.watchingCache = { anilist: cachedList(Date.now() - 30_000) };
+    const result = await getWatchingList('anilist');
+    expect(result).toMatchObject({ ok: true, data: { entries: [{ title: 'En cache' }] } });
+    expect(network.anilist).toBeNull();
+  });
+
+  it('avec force, cache trop ancien ou synchro depuis : la liste est relue', async () => {
+    data.watchingCache = { anilist: cachedList(Date.now() - 30_000) };
+    const forced = getWatchingList('anilist', true);
+    (await inFlight('anilist'))(ANILIST_DATA);
+    expect((await forced).ok).toBe(true);
+    expect((await getCachedWatching('anilist'))?.entries[0].title).toBe('One Piece');
+
+    for (const patch of [{ watchingCache: { anilist: cachedList(Date.now() - 120_000) } }, { recentSyncs: [{ key: 'k', episode: EPISODE, mediaId: 21, mediaTitle: 'x', progress: 3, syncedAt: Date.now() }] }]) {
+      network.anilist = null;
+      data.watchingCache = { anilist: cachedList(Date.now() - 30_000) };
+      Object.assign(data, patch);
+      const pending = getWatchingList('anilist');
+      (await inFlight('anilist'))(ANILIST_DATA);
+      expect((await pending).ok).toBe(true);
+    }
+  });
+});

@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   chunk,
   computeWindow,
+  coveredEnd,
   filterNewEpisodes,
   isAiringPageData,
   itemsInWindow,
+  legacyCoveredUntil,
   mergeWeekWindow,
   planNotifications,
   toAiringItems,
   trimNotified,
+  withSyncedProgress,
   type AiringItem,
 } from './airing-policy';
 import { setLocale } from '../i18n';
@@ -27,20 +30,80 @@ const item = (scheduleId: number, mediaId: number, episode: number, title = `Sé
 });
 
 describe('computeWindow', () => {
+  const HOUR = 3600;
+
   it('premier passage : 2 h en arrière', () => {
     expect(computeWindow(NOW, null, 0)).toEqual({ from: NOW - 7200, to: NOW });
   });
 
-  it('reprend depuis la dernière vérification, décalée du délai', () => {
-    expect(computeWindow(NOW, NOW - 3600, 3)).toEqual({ from: NOW - 3600 - 3 * 3600, to: NOW - 3 * 3600 });
+  it('reprend à la fin de la fenêtre couverte (seconde de reprise incluse), décalée du délai', () => {
+    // Vérification précédente une heure plus tôt avec 3 h de délai : couverte jusqu'à NOW - 4 h
+    expect(computeWindow(NOW, NOW - 4 * HOUR, 3)).toEqual({ from: NOW - 4 * HOUR - 1, to: NOW - 3 * HOUR });
+  });
+
+  it('délai passé de 6 h à 0 h : la fenêtre reprend à la dernière borne couverte (ALRT-02)', () => {
+    // Dernière vérification à NOW - 1 h avec 6 h de délai : sorties traitées jusqu'à NOW - 7 h
+    const covered = NOW - HOUR - 6 * HOUR;
+    const range = computeWindow(NOW, covered, 0);
+    expect(range).toEqual({ from: covered - 1, to: NOW });
+    // Diffusions de l'intervalle autrefois sauté (entre NOW - 7 h et NOW - 1 h) : dans la fenêtre
+    const skipped = [{ airingAt: covered }, { airingAt: NOW - 4 * HOUR }, { airingAt: NOW - HOUR - 1 }];
+    expect(itemsInWindow(skipped, range)).toHaveLength(3);
+  });
+
+  it('délai augmenté : fenêtre vide jusqu’à rattraper la borne couverte (doublons écartés par airingNotified)', () => {
+    expect(computeWindow(NOW, NOW - HOUR, 6)).toEqual({ from: NOW - 6 * HOUR, to: NOW - 6 * HOUR });
   });
 
   it('rattrapage borné à 24 h', () => {
     expect(computeWindow(NOW, NOW - 10 * 86400, 0)).toEqual({ from: NOW - 86400, to: NOW });
   });
 
-  it('dernière vérification dans le futur ramenée à maintenant', () => {
+  it('borne couverte dans le futur ramenée à la fin de la fenêtre', () => {
     expect(computeWindow(NOW, NOW + 500, 1)).toEqual({ from: NOW - 3600, to: NOW - 3600 });
+  });
+
+  it('ancien format (heure de la dernière vérification) : décalé du délai actuel', () => {
+    expect(legacyCoveredUntil(NOW - HOUR, 3)).toBe(NOW - 4 * HOUR);
+    expect(computeWindow(NOW, legacyCoveredUntil(NOW - HOUR, 0), 0)).toEqual({ from: NOW - HOUR - 1, to: NOW });
+  });
+});
+
+describe('coveredEnd (pagination tronquée, ALRT-06)', () => {
+  const range = { from: NOW - 7200, to: NOW };
+
+  it('lecture complète : toute la fenêtre est couverte', () => {
+    expect(coveredEnd(range, null)).toBe(NOW);
+    expect(coveredEnd(range, NOW + 3600)).toBe(NOW);
+  });
+
+  it('lecture coupée dans la fenêtre : couverte jusqu’à la dernière sortie lue (exclue), qui sera relue', () => {
+    expect(coveredEnd(range, NOW - 1800)).toBe(NOW - 1800);
+    // Coupée avant même la fenêtre : la reprise avance quand même d'une seconde
+    expect(coveredEnd(range, NOW - 9000)).toBe(NOW - 7199);
+  });
+});
+
+describe('withSyncedProgress (ALRT-01)', () => {
+  const progress = new Map([
+    [1, 6],
+    [2, 3],
+  ]);
+
+  it('relève la progression des séries suivies avec les synchros postérieures à la liste', () => {
+    const syncs = [
+      { mediaId: 1, progress: 7, syncedAt: 2000 },
+      { mediaId: 2, progress: 9, syncedAt: 500 }, // antérieure à la lecture de la liste : déjà prise en compte
+      { mediaId: 3, progress: 4, syncedAt: 2000 }, // série non suivie : pas ajoutée
+      { mediaId: 1, progress: 5, syncedAt: 3000 }, // jamais de baisse
+    ];
+    expect(withSyncedProgress(progress, syncs, 1000)).toEqual(
+      new Map([
+        [1, 7],
+        [2, 3],
+      ]),
+    );
+    expect(progress.get(1)).toBe(6);
   });
 });
 
@@ -74,13 +137,13 @@ describe('planNotifications', () => {
   it('une notification par sortie jusqu’à 3', () => {
     const plan = planNotifications([item(100, 1, 4, 'Frieren'), item(101, 2, 11)]);
     expect(plan).toHaveLength(2);
-    expect(plan[0]).toMatchObject({ id: 'synckai-airing:100', title: 'Ép. 4 de Frieren est sorti', mediaIds: [1] });
+    expect(plan[0]).toMatchObject({ id: 'synckai-airing:100', title: 'Ép. 4 de Frieren est sorti', mediaIds: [1], scheduleIds: [100] });
   });
 
   it('regroupe au-delà de 3', () => {
     const plan = planNotifications([item(1, 1, 2, 'A'), item(2, 2, 2, 'B'), item(3, 3, 2, 'C'), item(4, 3, 3, 'C')]);
     expect(plan).toHaveLength(1);
-    expect(plan[0]).toMatchObject({ id: 'synckai-airing:group:4', title: '4 nouveaux épisodes : A, B, C', mediaIds: [1, 2, 3] });
+    expect(plan[0]).toMatchObject({ id: 'synckai-airing:group:4', title: '4 nouveaux épisodes : A, B, C', mediaIds: [1, 2, 3], scheduleIds: [1, 2, 3, 4] });
   });
 
   it('rien à notifier', () => {
@@ -98,7 +161,7 @@ describe('fenêtre élargie à la semaine (agenda)', () => {
   });
 
   it('les notifications ne portent que sur la fenêtre des alertes (bornes exclues)', () => {
-    const alerts = computeWindow(NOW, NOW - 3600, 0);
+    const alerts = computeWindow(NOW, NOW - 3599, 0);
     const items = [
       { ...item(1, 1, 4), airingAt: NOW - 1800 },
       { ...item(2, 1, 5), airingAt: NOW + 86400 }, // à venir : agenda seulement

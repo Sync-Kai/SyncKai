@@ -24,11 +24,15 @@ export const MAX_RECENT_SYNCS = 5;
 export const STORAGE_KEYS = {
   anilistToken: 'anilistToken',
   anilistViewer: 'anilistViewer',
+  /** Lecture du profil AniList en cache (ms) : pas de nouvelle requête à chaque ouverture (PERF-04) */
+  anilistViewerAt: 'anilistViewerAt',
   mediaMappings: 'mediaMappings',
   pendingReviews: 'pendingReviews',
   recentSyncs: 'recentSyncs',
   malToken: 'malToken',
   malViewer: 'malViewer',
+  /** Lecture du profil MAL en cache (ms) */
+  malViewerAt: 'malViewerAt',
   watchingCache: 'watchingCache',
   /** Génération de session par service, incrémentée à chaque déconnexion (voir saveCachedWatching et session-epochs.ts) */
   sessionEpoch: 'sessionEpoch',
@@ -95,7 +99,7 @@ export async function getCachedViewer(): Promise<AniListViewer | null> {
 
 /** Profil AniList, enregistré seulement si la session `epoch` (relevée avant la requête) est toujours ouverte (AUTH-04). */
 export function saveCachedViewer(viewer: AniListViewer, epoch: number): Promise<boolean> {
-  return writeIfSession('anilist', epoch, { [STORAGE_KEYS.anilistViewer]: viewer });
+  return writeIfSession('anilist', epoch, { [STORAGE_KEYS.anilistViewer]: viewer, [STORAGE_KEYS.anilistViewerAt]: Date.now() });
 }
 
 // Les correspondances ne dépendent pas de l'utilisateur (mediaId global) : conservées à la déconnexion
@@ -205,7 +209,7 @@ export function clearAniListSession(): Promise<void> {
 async function removeAniListSession(expired: boolean): Promise<void> {
   // Indicateur écrit avant la suppression du token : l'interface qui réagit à cette suppression le lit déjà (AUTH-03)
   await setSessionExpired('anilist', expired);
-  await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
+  await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.anilistViewerAt, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
   await removeCachedWatching('anilist');
   await bumpSessionEpoch('anilist');
   await purgeClosedSessions();
@@ -300,9 +304,16 @@ export async function getCachedMalViewer(): Promise<MalViewer | null> {
   return isMalViewer(viewer) ? viewer : null;
 }
 
+/** Moment de la lecture du profil en cache (ms), null si inconnu (profil enregistré avant la 2.2.0) */
+export async function getViewerFetchedAt(service: TrackerId): Promise<number | null> {
+  const key = service === 'anilist' ? STORAGE_KEYS.anilistViewerAt : STORAGE_KEYS.malViewerAt;
+  const value: unknown = (await chrome.storage.local.get(key))[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 /** Profil MAL, enregistré seulement si la session `epoch` (relevée avant la requête) est toujours ouverte (AUTH-04). */
 export function saveCachedMalViewer(viewer: MalViewer, epoch: number): Promise<boolean> {
-  return writeIfSession('mal', epoch, { [STORAGE_KEYS.malViewer]: viewer });
+  return writeIfSession('mal', epoch, { [STORAGE_KEYS.malViewer]: viewer, [STORAGE_KEYS.malViewerAt]: Date.now() });
 }
 
 /** Comme clearAniListSession : token, profil et liste « En cours » MAL en cache, puis la part MAL des données du compte. */
@@ -314,7 +325,7 @@ export function clearMalSession(): Promise<void> {
 async function removeMalSession(expired: boolean): Promise<void> {
   // Indicateur écrit avant la suppression du token, comme pour AniList (AUTH-03)
   await setSessionExpired('mal', expired);
-  await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
+  await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.malViewerAt, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
   await removeCachedWatching('mal');
   await bumpSessionEpoch('mal');
   await purgeClosedSessions();

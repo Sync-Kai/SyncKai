@@ -627,7 +627,8 @@ let loadedService: TrackerId | null = null;
 /** Jeton de requête : une réponse arrivée après un changement de source est ignorée */
 let watchingRequest = 0;
 
-async function loadWatching(service: TrackerId): Promise<void> {
+/** `force` : relit la liste même si le service worker en a une de moins de 90 s (« Réessayer », synchro, import) */
+async function loadWatching(service: TrackerId, force = false): Promise<void> {
   const request = ++watchingRequest;
   const current = watchingStore.get();
 
@@ -637,7 +638,7 @@ async function loadWatching(service: TrackerId): Promise<void> {
   watchingStore.set(cached ? { status: 'ready', service, list: cached, refreshing: true, error: null } : { status: 'loading', service });
 
   // 2. Revalidation par le service worker
-  const response = sendMessage('GET_WATCHING', { service }).catch((error: unknown): WatchingResult => {
+  const response = sendMessage('GET_WATCHING', force ? { service, force } : { service }).catch((error: unknown): WatchingResult => {
     log.error('Service worker injoignable :', error);
     return { ok: false, code: 'NETWORK', message: swUnreachable() };
   });
@@ -676,7 +677,7 @@ function applyWatchingResult(request: number, service: TrackerId, cached: Watchi
 
 function reloadWatching(): Promise<void> {
   const service = activeService();
-  return service ? loadWatching(service) : Promise.resolve();
+  return service ? loadWatching(service, true) : Promise.resolve();
 }
 
 /** Recharge la liste quand le service affiché change (connexion, déconnexion, choix de source) */
@@ -1344,7 +1345,7 @@ function scheduleWatchingRevalidation(): void {
   revalidateTimer = setTimeout(() => {
     revalidateTimer = undefined;
     const shown = watchingStore.get();
-    if (shown.status === 'ready' && shown.service === activeService()) void loadWatching(shown.service);
+    if (shown.status === 'ready' && shown.service === activeService()) void loadWatching(shown.service, true);
   }, REVALIDATE_DEBOUNCE_MS);
 }
 

@@ -3,10 +3,13 @@ import {
   airedEpisodes,
   choosePlatformLink,
   formatRelativeTime,
+  isWatchingFresh,
   nextEpisodeBadge,
   pickHeroEntry,
   sortWatching,
   sortWatchingBy,
+  WATCHING_MAX_AGE_MS,
+  WATCHING_REVALIDATE_MS,
 } from './watching';
 import { isWatchingList, isWatchingSort, WATCHING_SORTS, type WatchingEntry } from './watching.types';
 import { setLocale } from '../i18n';
@@ -302,5 +305,27 @@ describe('isWatchingList', () => {
     expect(isWatchingList({ service: 'kitsu', fetchedAt: NOW, entries: [] })).toBe(false);
     expect(isWatchingList({ service: 'mal', fetchedAt: NOW, entries: [{ title: 'x' }] })).toBe(false);
     expect(isWatchingList(null)).toBe(false);
+  });
+});
+
+describe('isWatchingFresh (PERF-04, ALRT-01)', () => {
+  const list = (fetchedAt: number): { fetchedAt: number } => ({ fetchedAt });
+
+  it('GET_WATCHING sans force : liste de moins de 90 s servie sans requête', () => {
+    expect(WATCHING_REVALIDATE_MS).toBe(90_000);
+    expect(isWatchingFresh(list(NOW - 89_000), NOW, WATCHING_REVALIDATE_MS)).toBe(true);
+    expect(isWatchingFresh(list(NOW - 90_000), NOW, WATCHING_REVALIDATE_MS)).toBe(false);
+    expect(isWatchingFresh(null, NOW, WATCHING_REVALIDATE_MS)).toBe(false);
+  });
+
+  it('synchro postérieure à la lecture de la liste : à relire', () => {
+    expect(isWatchingFresh(list(NOW - 30_000), NOW, WATCHING_REVALIDATE_MS, NOW - 10_000)).toBe(false);
+    expect(isWatchingFresh(list(NOW - 30_000), NOW, WATCHING_REVALIDATE_MS, NOW - 60_000)).toBe(true);
+  });
+
+  it('alertes : relue au-delà de 12 h ; liste datée du futur (horloge) : relue', () => {
+    expect(isWatchingFresh(list(NOW - WATCHING_MAX_AGE_MS + 1), NOW, WATCHING_MAX_AGE_MS)).toBe(true);
+    expect(isWatchingFresh(list(NOW - WATCHING_MAX_AGE_MS), NOW, WATCHING_MAX_AGE_MS)).toBe(false);
+    expect(isWatchingFresh(list(NOW + 3_600_000), NOW, WATCHING_MAX_AGE_MS)).toBe(false);
   });
 });

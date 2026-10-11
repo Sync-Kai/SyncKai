@@ -3,7 +3,7 @@ import { isRecord } from '../../shared/guards';
 import { learnedLinksFor, mergePlatformLinks, platformFromUrl, platformLinkFromExternal, withLearnedLinks, type PlatformLinkStore } from '../../shared/platform-links';
 import { getPlatformLinks } from '../../shared/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
-import { getCachedViewer, getRecentSyncs, getSessionEpoch, saveCachedWatching } from '../../shared/storage';
+import { getCachedViewer, getCachedWatching, getRecentSyncs, getSessionEpoch, saveCachedWatching } from '../../shared/storage';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { toSafeUrl } from '../../shared/url';
 import type {
@@ -14,6 +14,7 @@ import type {
   WatchingList,
   WatchingResult,
 } from '../../shared/watching.types';
+import { isWatchingFresh, WATCHING_REVALIDATE_MS } from '../../shared/watching';
 import { anilistPublicQuery, anilistQuery } from './client';
 import { ApiError } from './errors';
 import { malRequest } from './mal';
@@ -235,9 +236,20 @@ async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLi
 
 // ─── Point d'entrée ───────────────────────────────────────────────────────
 
-/** Liste « en cours » du service demandé, mise en cache pour le popup. Ne lève jamais. */
-export async function getWatchingList(service: TrackerId): Promise<WatchingResult> {
+/**
+ * Liste « en cours » du service demandé, mise en cache pour le popup. Sans `force`, une liste en cache de moins de
+ * 90 s, sans synchro depuis, est renvoyée sans requête (ouvertures rapprochées du popup ou du panneau, PERF-04).
+ * Ne lève jamais.
+ */
+export async function getWatchingList(service: TrackerId, force = false): Promise<WatchingResult> {
   try {
+    if (!force) {
+      const [cached, syncs] = await Promise.all([getCachedWatching(service), getRecentSyncs()]);
+      const lastSyncAt = syncs.length > 0 ? Math.max(...syncs.map((sync) => sync.syncedAt)) : null;
+      if (cached && isWatchingFresh(cached, Date.now(), WATCHING_REVALIDATE_MS, lastSyncAt)) {
+        return { ok: true, data: { ...cached, entries: withLearnedLinks(cached.entries, await getPlatformLinks()) ?? cached.entries } };
+      }
+    }
     // Génération capturée avant la requête : une déconnexion pendant celle-ci la rend obsolète
     const epoch = await getSessionEpoch(service);
     const [syncs, learned] = await Promise.all([getRecentSyncs(), getPlatformLinks()]);

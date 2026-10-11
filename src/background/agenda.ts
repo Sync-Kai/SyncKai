@@ -1,8 +1,8 @@
 import { t } from '../i18n';
-import { itemsInWindow } from './airing-policy';
+import { AGENDA_SCHEDULE_PAGES, itemsInWindow } from './airing-policy';
 import { fetchAiring, getCachedEntries, hasConnectedService } from './airing';
 import { ApiError } from './api/errors';
-import { mergeWatchingSeries, weekRangeFromKey, type AgendaResult } from '../shared/agenda';
+import { mergeWatchingSeries, weekRangeFromKey, type AgendaResult, type AiringWeekCache } from '../shared/agenda';
 import { writeWeekCache } from '../shared/agenda-store';
 import { getExcludedSeries } from '../shared/exclusions';
 import { getOpenSessions } from '../shared/storage';
@@ -28,8 +28,10 @@ async function loadWeek(weekStart: string): Promise<AgendaResult> {
   // Bornes exclues côté AniList : la seconde précédant minuit est la borne basse
   const window = { from: Math.floor(range.start / 1000) - 1, to: Math.floor(range.end / 1000) };
   try {
-    const schedules = mediaIds.length > 0 ? itemsInWindow(await fetchAiring(mediaIds, window.from, window.to), window) : [];
-    const cache = { weekStart, fetchedAt: Date.now(), mediaIds, schedules };
+    // Demande du panneau ouvert : budget de pages plus large que la vérification horaire (ALRT-06)
+    const fetched = mediaIds.length > 0 ? await fetchAiring(mediaIds, window.from, window.to, AGENDA_SCHEDULE_PAGES) : { items: [], truncatedAt: null };
+    const schedules = itemsInWindow(fetched.items, window);
+    const cache: AiringWeekCache = { weekStart, fetchedAt: Date.now(), mediaIds, schedules, ...(fetched.truncatedAt !== null ? { truncated: true } : {}) };
     if (!(await writeWeekCache(cache, epochs))) return notConnected;
     log.info(`Semaine ${weekStart} : ${schedules.length} sortie(s) pour ${mediaIds.length} série(s)`);
     return { ok: true, data: cache };

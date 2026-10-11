@@ -125,7 +125,7 @@ const handlers: MessageHandlers = {
     return episode !== null ? recordSyncOutcome(episode, null, outcome, epochs) : outcome;
   },
   REOPEN_REVIEW: ({ key }) => reopenReview(key),
-  GET_WATCHING: ({ service }) => getWatchingList(service),
+  GET_WATCHING: ({ service, force }) => getWatchingList(service, force === true),
   RATE_MEDIA: ({ media, score, fromCard }) => rateMedia(media, score, fromCard === true),
   DEFER_RATING: ({ media, coverUrl }) => deferRating(media, coverUrl),
   START_REWATCH: ({ media, progress }) => startRewatch(media, progress),

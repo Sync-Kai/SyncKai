@@ -10,6 +10,14 @@ describe('GET_AGENDA', () => {
   });
 });
 
+describe('GET_WATCHING', () => {
+  it('`force` facultatif et booléen (PERF-04)', () => {
+    expect(isRuntimeMessage({ type: 'GET_WATCHING', payload: { service: 'mal' } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'GET_WATCHING', payload: { service: 'anilist', force: true } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'GET_WATCHING', payload: { service: 'anilist', force: 'oui' } })).toBe(false);
+  });
+});
+
 describe('SET_LIST_STATUS', () => {
   const valid = { mediaId: 21, malId: 21, status: 'DROPPED', coverUrl: 'https://s4.anilist.co/cover.jpg' };
   const message = (payload: unknown): unknown => ({ type: 'SET_LIST_STATUS', payload });

@@ -28,13 +28,46 @@ export interface AiringWindow {
 }
 
 /**
- * Fenêtre de recherche : depuis la dernière vérification (2 h au premier passage, 24 h au plus),
- * décalée du délai choisi pour ne notifier qu'une fois le délai écoulé après la diffusion.
+ * Fenêtre de recherche, décalée du délai choisi pour ne notifier qu'une fois le délai écoulé après la diffusion :
+ * reprend à la fin de la fenêtre réellement couverte (`coveredUntilS`, sorties antérieures déjà traitées), 2 h en
+ * arrière au premier passage, 24 h au plus. Une baisse du délai ne saute donc aucune sortie (ALRT-02) ; une hausse
+ * repasse sur des sorties déjà notifiées, écartées par airingNotified.
  */
-export function computeWindow(nowS: number, lastCheckS: number | null, delayHours: number): AiringWindow {
-  const delay = delayHours * HOUR_S;
-  const start = lastCheckS === null ? nowS - FIRST_RUN_LOOKBACK_S : Math.min(nowS, Math.max(lastCheckS, nowS - MAX_LOOKBACK_S));
-  return { from: start - delay, to: nowS - delay };
+export function computeWindow(nowS: number, coveredUntilS: number | null, delayHours: number): AiringWindow {
+  const to = nowS - delayHours * HOUR_S;
+  if (coveredUntilS === null) return { from: to - FIRST_RUN_LOOKBACK_S, to };
+  // Bornes exclues : `coveredUntilS - 1` inclut la seconde `coveredUntilS`, pas encore couverte
+  return { from: Math.min(Math.max(coveredUntilS - 1, to - MAX_LOOKBACK_S), to), to };
+}
+
+/** Ancien format (heure de la dernière vérification) → fin de fenêtre couverte, décalée du délai actuel */
+export function legacyCoveredUntil(lastCheckS: number, delayHours: number): number {
+  return lastCheckS - delayHours * HOUR_S;
+}
+
+/**
+ * Fin de la fenêtre couverte après la lecture : `range.to`, ramenée à `truncatedAt` (dernière sortie lue d'un lot
+ * tronqué) si la pagination s'est arrêtée avant. La vérification suivante reprend là, sans perdre de sortie (ALRT-06).
+ */
+export function coveredEnd(range: AiringWindow, truncatedAt: number | null): number {
+  return truncatedAt === null ? range.to : Math.max(range.from + 1, Math.min(range.to, truncatedAt));
+}
+
+/**
+ * Progression relevée par les synchros récentes de SyncKai (max par fiche), pour les séries déjà suivies : le cache
+ * « En cours » n'est rechargé que toutes les 12 h, un épisode vu entre-temps ne doit pas être annoncé (ALRT-01).
+ */
+export function withSyncedProgress(
+  progressByMedia: ReadonlyMap<number, number>,
+  syncs: readonly { mediaId: number; progress: number; syncedAt: number }[],
+  sinceMs: number,
+): Map<number, number> {
+  const progress = new Map(progressByMedia);
+  for (const sync of syncs) {
+    const current = progress.get(sync.mediaId);
+    if (current !== undefined && sync.syncedAt > sinceMs && sync.progress > current) progress.set(sync.mediaId, sync.progress);
+  }
+  return progress;
 }
 
 /**
@@ -50,8 +83,10 @@ export function itemsInWindow<T extends { airingAt: number }>(items: readonly T[
   return items.filter((item) => item.airingAt > range.from && item.airingAt < range.to);
 }
 
-/** Pages AniList lues au plus par lot de séries (50 sorties par page) */
+/** Pages AniList lues au plus par lot de séries (50 sorties par page) : vérification horaire */
 export const MAX_SCHEDULE_PAGES = 3;
+/** Agenda demandé par le panneau (semaine entière, à l'ouverture seulement) : 50 séries quotidiennes tiennent */
+export const AGENDA_SCHEDULE_PAGES = 8;
 
 /** Nœud `airingSchedules` de la réponse GraphQL */
 export interface AiringScheduleNode {
@@ -135,6 +170,8 @@ export interface PlannedNotification {
   message: string;
   /** Séries ouvertes par un clic (la première pour un résumé) */
   mediaIds: number[];
+  /** Sorties annoncées : retirées de airingNotified si la notification ne peut pas être affichée (ALRT-04) */
+  scheduleIds: number[];
 }
 
 export const AIRING_NOTIFICATION_PREFIX = 'synckai-airing:';
@@ -148,6 +185,7 @@ export function planNotifications(items: readonly AiringItem[]): PlannedNotifica
       title: t('airing.notification.single', { episode: item.episode, title: item.title }),
       message: t('airing.notification.message'),
       mediaIds: [item.mediaId],
+      scheduleIds: [item.scheduleId],
     }));
   }
   const titles = [...new Set(items.map((item) => item.title))];
@@ -157,6 +195,7 @@ export function planNotifications(items: readonly AiringItem[]): PlannedNotifica
       title: t('airing.notification.group', { count: items.length, titles: titles.join(', ') }),
       message: t('airing.notification.message'),
       mediaIds: [...new Set(items.map((item) => item.mediaId))],
+      scheduleIds: items.map((item) => item.scheduleId),
     },
   ];
 }

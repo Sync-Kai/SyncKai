@@ -78,8 +78,11 @@ export interface MessageMap {
   SEARCH_ANIME: { payload: { query: string }; response: Result<CandidateSummary[], AniListErrorCode> };
   RESOLVE_REVIEW: { payload: ResolveReviewPayload; response: SyncOutcome };
   REOPEN_REVIEW: { payload: { key: string }; response: Result<null, AniListErrorCode | 'NOT_FOUND'> };
-  /** Liste "en cours" d'un service (réponse fraîche ; le popup affiche d'abord le cache du stockage) */
-  GET_WATCHING: { payload: { service: TrackerId }; response: WatchingResult };
+  /**
+   * Liste "en cours" d'un service (le popup affiche d'abord le cache du stockage). Sans `force`, le cache de moins de
+   * 90 s est renvoyé sans requête ; `force` (« Réessayer », synchro, import) relit toujours la liste.
+   */
+  GET_WATCHING: { payload: { service: TrackerId; force?: boolean }; response: WatchingResult };
   /** +1 / −1 manuel depuis le popup, écrit sur tous les services connectés où la série existe */
   ADJUST_PROGRESS: { payload: AdjustProgressPayload; response: SyncOutcome };
   /** En pause / Abandonné / Terminé depuis le popup, écrit sur tous les services connectés où la série est dans la liste */
@@ -175,7 +178,8 @@ const isSearchPayload = (p: unknown): p is { query: string } =>
   isRecord(p) && typeof p.query === 'string' && p.query.trim().length > 0 && p.query.length <= 100;
 const isResolveReviewPayload = (p: unknown): p is ResolveReviewPayload =>
   isRecord(p) && isKey(p.key) && isPositiveInt(p.mediaId) && isPositiveInt(p.progress);
-const isWatchingPayload = (p: unknown): p is { service: TrackerId } => isRecord(p) && isTrackerId(p.service);
+const isWatchingPayload = (p: unknown): p is { service: TrackerId; force?: boolean } =>
+  isRecord(p) && isTrackerId(p.service) && (p.force === undefined || typeof p.force === 'boolean');
 const isAdjustRetryTarget = (r: unknown): r is AdjustRetryTarget =>
   isRecord(r) &&
   Array.isArray(r.services) &&

@@ -7,6 +7,7 @@ import {
   parsePlatformLinkStore,
   platformSearchUrl,
   platformSeriesUrl,
+  seriesKeyFromLink,
   platformsWithoutLink,
   rememberPlatformLink,
   withLearnedLinks,
@@ -41,6 +42,23 @@ describe('platformSeriesUrl', () => {
     expect(platformSeriesUrl('netflix', '80987039', 'ignored-slug')).toBe('https://www.netflix.com/title/80987039');
     expect(platformSeriesUrl('netflix', 'GRMG8ZQZR', null)).toBeNull();
     expect(platformSeriesUrl('netflix', null, null)).toBeNull();
+  });
+});
+
+describe('seriesKeyFromLink (exclusions, ALRT-03)', () => {
+  it('clé de série des pages de série ou d’épisode qui portent l’identifiant', () => {
+    expect(seriesKeyFromLink(CR)).toBe('crunchyroll:GRMG8ZQZR');
+    expect(seriesKeyFromLink({ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/fr/series/GRMG8ZQZR' })).toBe('crunchyroll:GRMG8ZQZR');
+    expect(seriesKeyFromLink(ADN)).toBe('adn:1311');
+    expect(seriesKeyFromLink({ platform: 'adn', url: 'https://animationdigitalnetwork.com/de/video/1311-tougen-anki/29344-episode-1' })).toBe('adn:1311');
+    expect(seriesKeyFromLink({ platform: 'netflix', url: 'https://www.netflix.com/title/80987039' })).toBe('netflix:80987039');
+  });
+
+  it('page d’épisode Crunchyroll ou Netflix, ancien lien, hôte d’une autre plateforme : aucune clé', () => {
+    expect(seriesKeyFromLink({ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/watch/GEVUZD9KJ/x' })).toBeNull();
+    expect(seriesKeyFromLink({ platform: 'netflix', url: 'https://www.netflix.com/watch/81000001' })).toBeNull();
+    expect(seriesKeyFromLink({ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/naruto-shippuden' })).toBeNull();
+    expect(seriesKeyFromLink({ platform: 'adn', url: 'https://www.crunchyroll.com/series/GRMG8ZQZR' })).toBeNull();
   });
 });
 

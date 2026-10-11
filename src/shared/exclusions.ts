@@ -1,6 +1,8 @@
 import type { EpisodeInfo } from './episode.types';
 import { isRecord } from './guards';
+import { seriesKeyFromLink } from './platform-links';
 import { withStorageLock } from './storage';
+import type { PlatformLink } from './watching.types';
 
 // Séries exclues de la synchronisation (toutes saisons) — lues par le content script
 // (avant tout envoi), le service worker (après résolution) et le popup (gestion).
@@ -59,6 +61,16 @@ export function matchesExclusion(entry: ExcludedSeries, query: { platformKey?: s
     (query.platformKey != null && entry.platformKey === query.platformKey) ||
     (query.mediaId != null && entry.mediaId === query.mediaId)
   );
+}
+
+/**
+ * Série « En cours » exclue : par sa fiche AniList, ou par la série d'un de ses liens de plateforme. Une exclusion
+ * créée depuis une page de lecture avant la résolution de la fiche n'a que sa platformKey (ALRT-03). Identifiants
+ * comparés sans la casse (Crunchyroll).
+ */
+export function isEntryExcluded(list: readonly ExcludedSeries[], entry: { mediaId: number | null; platforms: readonly PlatformLink[] }): boolean {
+  const keys = new Set(entry.platforms.flatMap((link) => seriesKeyFromLink(link)?.toLowerCase() ?? []));
+  return list.some((ex) => matchesExclusion(ex, { mediaId: entry.mediaId }) || (ex.platformKey !== null && keys.has(ex.platformKey.toLowerCase())));
 }
 
 /** Fusionne une nouvelle exclusion dans la liste (pur, testable) : complète l'entrée existante qui partage une clé. */

@@ -8,7 +8,16 @@ import { createLogger } from '../shared/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
 import { sendMessage } from '../shared/messages';
 import { endSession } from '../shared/session-end';
-import { getCachedMalViewer, getCachedViewer, getMalToken, getValidToken, hasAniListToken, isSessionExpired, STORAGE_KEYS } from '../shared/storage';
+import {
+  getCachedMalViewer,
+  getCachedViewer,
+  getMalToken,
+  getValidToken,
+  getViewerFetchedAt,
+  hasAniListToken,
+  isSessionExpired,
+  STORAGE_KEYS,
+} from '../shared/storage';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { createStore, LOGGED_OUT, type AccountState, type AniListState, type MalState, type Store } from '../popup/state';
 
@@ -18,6 +27,14 @@ const log = createLogger('accounts');
 export const AUTH_ERRORS: ReadonlySet<ViewerErrorCode> = new Set(['NOT_AUTHENTICATED', 'TOKEN_INVALID']);
 
 const swUnreachable = (): string => t('popup.swUnreachable');
+
+/** Profil en cache relu au plus toutes les 6 h à l'ouverture du popup ou du panneau (PERF-04) */
+export const PROFILE_TTL_MS = 6 * 60 * 60 * 1000;
+
+/** Profil en cache assez récent pour ne pas relancer GET_VIEWER / GET_MAL_VIEWER (date inconnue ou du futur : à relire) */
+export function isProfileFresh(fetchedAt: number | null, now: number): boolean {
+  return fetchedAt !== null && fetchedAt <= now && now - fetchedAt < PROFILE_TTL_MS;
+}
 
 export interface AccountsController {
   readonly anilist: Store<AniListState>;
@@ -128,6 +145,9 @@ export function createAccountsController(): AccountsController {
         return;
       }
       await loadCachedViewer(service);
+      // Profil affiché et récent : pas de requête à chaque ouverture ; une session refusée est signalée par la liste
+      const state = target.get();
+      if (state.status === 'logged-in' && state.viewer && isProfileFresh(await getViewerFetchedAt(service), Date.now())) return;
       await refresh(service);
     } catch (error: unknown) {
       log.error('Lecture du stockage impossible :', error);

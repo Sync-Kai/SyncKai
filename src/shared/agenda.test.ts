@@ -179,6 +179,22 @@ describe('séries suivies', () => {
   it('watchingProgress (alertes) : même règle', () => {
     expect(watchingProgress(entries, [excluded(3)])).toEqual(new Map([[1, 5], [2, 1]]));
   });
+
+  it('exclusion par platformKey (fiche pas encore résolue) : retirée des alertes et de l’agenda (ALRT-03)', () => {
+    const byPlatform = (platformKey: string): ExcludedSeries => ({ id: platformKey, platformKey, mediaId: null, label: 'x', excludedAt: 0 });
+    const followed = [
+      entry({ mediaId: 10, platforms: [{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/fr/series/GRMG8ZQZR/one-piece' }] }),
+      entry({ mediaId: 11, platforms: [{ platform: 'adn', url: 'https://animationdigitalnetwork.com/video/1311-tougen-anki/29344-episode-1' }] }),
+      entry({ mediaId: 12, platforms: [{ platform: 'netflix', url: 'https://www.netflix.com/title/81564899' }] }),
+      entry({ mediaId: 13, platforms: [{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/watch/GEVUZD9KJ/episode' }] }),
+    ];
+    // Clé Crunchyroll comparée sans la casse ; une page d'épisode Crunchyroll ne désigne pas la série
+    const list = [byPlatform('crunchyroll:grmg8zqzr'), byPlatform('adn:1311'), byPlatform('netflix:81564899'), byPlatform('crunchyroll:GEVUZD9KJ')];
+    expect([...mergeWatchingSeries(followed, list, 'crunchyroll').keys()]).toEqual([13]);
+    expect([...watchingProgress(followed, list).keys()]).toEqual([13]);
+    // Exclusion d'une autre série : rien n'est retiré
+    expect(mergeWatchingSeries(followed, [byPlatform('adn:999')], 'crunchyroll').size).toBe(4);
+  });
 });
 
 const schedule = (scheduleId: number, mediaId: number, episode: number, airingAt: number): AiringSchedule => ({
@@ -252,6 +268,14 @@ describe('cache de semaine', () => {
     expect(isWeekCacheFresh(cache(range.end + HOUR), range, now, [1])).toBe(true);
     expect(isWeekCacheFresh(cache(range.end - HOUR), range, now, [1])).toBe(false);
     expect(isWeekCacheFresh(cache(range.end + HOUR), range, range.end + 8 * 24 * HOUR, [1])).toBe(false);
+  });
+
+  it('semaine tronquée (pagination coupée) : à relire même récente (ALRT-06)', () => {
+    const now = local(2026, 10, 7, 12);
+    expect(isWeekCacheFresh({ ...cache(now - 60_000), truncated: true }, range, now, [1])).toBe(false);
+    expect(isWeekCacheFresh({ ...cache(now - 60_000), truncated: false }, range, now, [1])).toBe(true);
+    expect(isAiringWeekCache({ ...cache(1), truncated: true })).toBe(true);
+    expect(isAiringWeekCache({ ...cache(1), truncated: 'oui' })).toBe(false);
   });
 
   it('série ajoutée depuis la lecture ou cache daté du futur : à relire', () => {

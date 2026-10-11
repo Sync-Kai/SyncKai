@@ -1,13 +1,31 @@
 import { getLocale, t, tl, type Locale } from '../i18n';
 import type { StreamingPlatform } from './episode.types';
 import { STREAMING_PLATFORMS } from './platform-links';
-import type { NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingSort } from './watching.types';
+import type { NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingList, WatchingSort } from './watching.types';
 
 // Fonctions pures partagées par le service worker (tri, liens) et le popup (affichage).
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
+
+/** GET_WATCHING sans `force` (ouverture du popup ou du panneau) : liste en cache servie sans requête pendant 90 s (PERF-04) */
+export const WATCHING_REVALIDATE_MS = 90 * 1000;
+/** Alertes de sortie : liste « En cours » rechargée par la vérification horaire au-delà de 12 h (ALRT-01) */
+export const WATCHING_MAX_AGE_MS = 12 * HOUR;
+/** Tolérance d'horloge : une liste datée du futur au-delà est périmée */
+const WATCHING_CLOCK_SKEW_MS = 5 * MINUTE;
+
+/**
+ * Liste en cache utilisable sans requête : moins de `maxAgeMs`, et aucune synchro SyncKai depuis sa lecture
+ * (`lastSyncAt`, ms) qui aurait changé une progression.
+ */
+export function isWatchingFresh(list: Pick<WatchingList, 'fetchedAt'> | null, now: number, maxAgeMs: number, lastSyncAt: number | null = null): boolean {
+  if (!list) return false;
+  const age = now - list.fetchedAt;
+  if (age < -WATCHING_CLOCK_SKEW_MS || age >= maxAgeMs) return false;
+  return lastSyncAt === null || lastSyncAt <= list.fetchedAt;
+}
 
 const isFinished = (entry: WatchingEntry): boolean =>
   entry.airingStatus === 'FINISHED' || entry.airingStatus === 'CANCELLED';
