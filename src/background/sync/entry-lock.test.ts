@@ -4,6 +4,7 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import type { CatalogMedia, TrackerEntry, TrackerService } from '../trackers/tracker';
 import type { ListEntryState } from './rules';
+import { installFakeChrome } from '../../test/fake-chrome';
 
 // Verrou par fiche : courses entre synchro en direct, relance de la file, +1 et import Crunchyroll sur la même fiche.
 // Les vrais chemins (syncEpisode, adjustProgress, importOnService) tournent sur des services simulés en mémoire.
@@ -56,52 +57,17 @@ vi.mock('../jobs/runner', async (importOriginal) => ({
   waitReadSlot: async (service: TrackerId): Promise<void> => void slots.calls.push(`readSlot:${service}`),
 }));
 
-// ─── Web Locks simulés ───────────────────────────────────────────────────
+// ─── Stockage, Web Locks et services simulés ──────────────────────────────
 
-/**
- * navigator.locks simulé avec la sémantique de Web Locks : une file FIFO par nom, noms indépendants, non réentrant.
- * Une prise imbriquée du même verrou ou un ordre de prise inversé bloquerait : le test échouerait par dépassement de délai.
- */
-function fakeLocks(): LockManager['request'] {
-  const tails = new Map<string, Promise<unknown>>();
-  const request = <T>(name: string, task: () => Promise<T>): Promise<T> => {
-    const run = (tails.get(name) ?? Promise.resolve()).then(task);
-    tails.set(name, run.catch(() => undefined));
-    return run;
-  };
-  return request as LockManager['request'];
-}
-
-// ─── Stockage et services simulés ─────────────────────────────────────────
-
-let store: Record<string, unknown> = {};
+// Web Locks de la fausse API partagée : file FIFO par nom, noms indépendants, non réentrant. Une prise imbriquée
+// du même verrou ou un ordre de prise inversé bloquerait : le test échouerait par dépassement de délai.
+const fake = installFakeChrome();
 
 /** Sessions AniList et MAL ouvertes (génération 0) : les écritures leur appartiennent */
 const OPEN_SESSIONS = {
   anilistToken: { accessToken: 'anilist', expiresAt: Number.MAX_SAFE_INTEGER },
   malToken: { accessToken: 'mal', refreshToken: 'refresh', expiresAt: Number.MAX_SAFE_INTEGER },
 };
-
-function stubGlobals(): void {
-  store = { ...OPEN_SESSIONS };
-  vi.stubGlobal('chrome', {
-    runtime: { id: 'synckai-test' },
-    storage: {
-      local: {
-        get: async (keys: string | string[] | Record<string, unknown> | null): Promise<Record<string, unknown>> => {
-          if (keys === null) return { ...store };
-          if (typeof keys === 'object' && !Array.isArray(keys)) return Object.fromEntries(Object.entries(keys).map(([k, d]) => [k, k in store ? store[k] : d]));
-          return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter((k) => k in store).map((k) => [k, store[k]]));
-        },
-        set: async (items: Record<string, unknown>): Promise<void> => void Object.assign(store, items),
-        remove: async (keys: string | string[]): Promise<void> => {
-          for (const k of Array.isArray(keys) ? keys : [keys]) delete store[k];
-        },
-      },
-    },
-  });
-  vi.stubGlobal('navigator', { language: 'fr', locks: { request: fakeLocks() } });
-}
 
 interface FakeTracker extends TrackerService {
   entries: Map<number, ListEntryState>;
@@ -158,7 +124,6 @@ const episode = (n: number): EpisodeInfo => ({
   url: `https://www.crunchyroll.com/watch/EP${n}`,
 });
 
-stubGlobals();
 const storageLock = await import('../../shared/storage-lock');
 const { withEntryLock } = await import('./entry-lock');
 const { syncEpisode } = await import('./sync-service');
@@ -180,7 +145,7 @@ function connect(progress: number, writeDelay?: (progress: number) => number): v
 }
 
 beforeEach(() => {
-  stubGlobals();
+  fake.reset(OPEN_SESSIONS);
   fakes.episodes = 28;
   slots.calls = [];
   slots.writeDelayMs = 0;
@@ -287,7 +252,7 @@ describe('import Crunchyroll : importOnService', () => {
     anilist.getEntry = async (id) => {
       const entry = await read(id);
       // Déconnexion du compte A (nouvelle génération) et connexion du compte B pendant l'attente de la réponse
-      store.sessionEpoch = { anilist: 1 };
+      fake.local.data.set('sessionEpoch', { anilist: 1 });
       return entry;
     };
     await expect(importOnService(anilist, MEDIA_ID, item, 0)).resolves.toEqual({ action: 'session-closed' });
@@ -297,7 +262,7 @@ describe('import Crunchyroll : importOnService', () => {
   it('session fermée pendant l’attente du créneau : ni relecture ni écriture', async () => {
     fakes.episodes = 12;
     connect(5);
-    delete store.anilistToken;
+    fake.local.data.delete('anilistToken');
     await expect(importOnService(anilist, MEDIA_ID, item, 0)).resolves.toEqual({ action: 'session-closed' });
     expect(slots.calls).toEqual(['writeSlot:anilist', 'readSlot:anilist']);
   });
