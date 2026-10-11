@@ -35,7 +35,7 @@ import {
   type SeasonChoice,
 } from './page-media-rules';
 import { isSeriesIgnored, rememberIgnoredSeries } from './sync/ignored-series';
-import { isDisneyEntityLink, mappingFromManualChoice, mappingKey, platformLinkVerdict, representsWholeShow, resolveTarget, seasonLabel, singleEntryDoubt } from './sync/matching';
+import { isDisneyEntityLink, isUnmatchedNamedSeason, mappingFromManualChoice, mappingKey, platformLinkVerdict, representsWholeShow, resolveTarget, seasonLabel, singleEntryDoubt } from './sync/matching';
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from './sync/resolver';
 import { fromAniListScore, fromMalScore } from './sync/score';
 import { getConnectedTrackers } from './trackers';
@@ -188,7 +188,10 @@ async function pickSeriesSeason(page: PageMediaInfo, manual: number | null, { ca
   const doubt = target?.ok ? singleEntryDoubt({ platform: page.platform, animeTitle: page.seriesTitle, platformSeasons: page.platformSeasons }, candidates, target.target.mediaId) : false;
   // Fiche unique liée qui couvre toutes les saisons de la plateforme (One Piece, arcs Netflix) : la série entière, certaine
   const wholeShow = target?.ok ? representsWholeShow({ animeTitle: page.seriesTitle, platformSeasons: page.platformSeasons }, candidates, target.target.mediaId) : false;
-  const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: (target.target.confidence === 'high' && !doubt) || wholeShow } : null;
+  // Saison nommée (« HEROINES ») sans fiche à son titre : la fiche retenue (série principale) reste à vérifier
+  const chosen = target?.ok ? candidates.find((c) => c.id === target.target.mediaId) : undefined;
+  const unmatchedName = chosen !== undefined && isUnmatchedNamedSeason({ animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonFirstEpisode: page.seasonFirstEpisode }, chosen);
+  const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: ((target.target.confidence === 'high' && !doubt) || wholeShow) && !unmatchedName } : null;
 
   if (seasons.length === 0) {
     if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons: summaries, episodeProgress: null };

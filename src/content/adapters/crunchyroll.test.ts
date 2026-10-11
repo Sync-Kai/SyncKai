@@ -9,6 +9,7 @@ import {
   episodeFromWatchDom,
   parseEpisodeLabel,
   parseCrunchyrollSeasonLabel,
+  parseCrunchyrollSeasonName,
   parseCrunchyrollSeriesPath,
   parseEpisodeCount,
   parseSeasonOption,
@@ -84,12 +85,85 @@ describe('parseCrunchyrollSeasonLabel', () => {
   it('lit le libellé répété du sélecteur réel ("Season 1Season 1")', () => {
     expect(parseCrunchyrollSeasonLabel('Season 1Season 1')).toEqual({ number: 1, title: null });
     expect(parseCrunchyrollSeasonLabel('Season 12Season 12')).toEqual({ number: 12, title: null });
+    expect(parseCrunchyrollSeasonLabel('Elbaph (1156-current)Elbaph (1156-current)')).toEqual({ number: null, title: 'Elbaph', firstEpisode: 1156 });
+    expect(parseCrunchyrollSeasonLabel('S2: Black CloverS2: Black Clover')).toEqual({ number: 2, title: 'Black Clover' });
   });
 
   it('rejette un texte qui n’est pas un libellé de saison', () => {
     expect(parseCrunchyrollSeasonLabel('Black Clover')).toBeNull();
     expect(parseCrunchyrollSeasonLabel('Sous-titres')).toBeNull();
     expect(parseCrunchyrollSeasonLabel(null)).toBeNull();
+  });
+});
+
+describe('parseCrunchyrollSeasonName (bouton du menu des saisons : saison nommée, sans numéro)', () => {
+  it('saison nommée seule (« HEROINES » de One Piece, relevé le 2026-10-11) : titre de saison', () => {
+    expect(parseCrunchyrollSeasonName('HEROINES')).toBe('HEROINES');
+    expect(parseCrunchyrollSeasonName('HEROINESHEROINES')).toBe('HEROINES');
+    expect(parseCrunchyrollSeasonName('HEROINES HEROINES')).toBe('HEROINES');
+    expect(parseCrunchyrollSeasonName('HEROINES (VF)')).toBe('HEROINES');
+    expect(parseCrunchyrollSeasonName('Wano Country')).toBe('Wano Country');
+  });
+
+  it('textes des contrôles voisins (tri, options, langue, navigation) : jamais un nom de saison, en FR / EN / DE', () => {
+    const noise = [
+      'Options', 'Optionen', 'Newest', 'Oldest', 'Plus récents', 'Plus anciens', 'Neueste', 'Älteste', 'Sort by', 'Trier par', 'Sortieren',
+      'Sous-titres', 'Subtitles', 'Untertitel', 'Audio', 'Seasons', 'Saisons', 'Staffeln', 'Next Season', 'Saison précédente', 'Nächste Staffel',
+      'Show more', 'Afficher plus', 'Mehr anzeigen',
+    ];
+    for (const text of noise) expect(parseCrunchyrollSeasonName(text), text).toBeNull();
+  });
+
+  it('épisode, nombre d’épisodes, numéro seul, texte trop long ou vide : rejetés', () => {
+    for (const text of ['E1 - One Piece Heroines', '25 Episodes', '1156', '(VF)', '', null, 'x'.repeat(81)]) expect(parseCrunchyrollSeasonName(text)).toBeNull();
+  });
+});
+
+describe('crunchyrollAdapter.detectSeries : saison du menu de la page de série', () => {
+  const ONE_PIECE = new URL('https://www.crunchyroll.com/fr/series/GRMG8ZQZR/one-piece');
+  let page: FakeDocument;
+
+  beforeEach(() => {
+    page = installFakeDocument();
+    page.set('h1', { text: 'One Piece' });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('saison nommée « HEROINES » sur le bouton du menu : titre de saison, ni numéro ni indice de numérotation absolue', () => {
+    page.set('[data-t="seasons-select"]', { text: 'HEROINESHEROINES' });
+    const series = crunchyrollAdapter.detectSeries?.(ONE_PIECE);
+    expect(series).toMatchObject({ seriesTitle: 'One Piece', seasonNumber: null, seasonTitle: 'HEROINES' });
+    expect(series).not.toHaveProperty('seasonFirstEpisode');
+  });
+
+  it('menu réel (relevé le 2026-10-11) : div[role="button"] de .erc-seasons-select, libellé affiché deux fois', () => {
+    page.set('.erc-seasons-select [role="button"]', { text: 'HEROINESHEROINES' });
+    page.set('.season-info', { text: 'HEROINESHEROINES' });
+    expect(crunchyrollAdapter.detectSeries?.(ONE_PIECE)).toMatchObject({ seasonNumber: null, seasonTitle: 'HEROINES' });
+    page.set('.erc-seasons-select [role="button"]', { text: 'Elbaph (1156-current)Elbaph (1156-current)' });
+    expect(crunchyrollAdapter.detectSeries?.(ONE_PIECE)).toMatchObject({ seasonTitle: 'Elbaph', seasonFirstEpisode: 1156 });
+  });
+
+  it('Elbaph ↔ HEROINES : la saison retenue change à chaque choix (suivi du menu par le panneau)', () => {
+    const season = (): string | null | undefined => crunchyrollAdapter.detectSeries?.(ONE_PIECE)?.seasonTitle;
+    page.set('[data-t="seasons-select"]', { text: 'Elbaph (1156-current)' });
+    expect(crunchyrollAdapter.detectSeries?.(ONE_PIECE)).toMatchObject({ seasonTitle: 'Elbaph', seasonFirstEpisode: 1156 });
+    page.set('[data-t="seasons-select"]', { text: 'HEROINES' });
+    expect(season()).toBe('HEROINES');
+    page.set('[data-t="seasons-select"]', { text: 'Egghead (1086-1155)' });
+    expect(season()).toBe('Egghead');
+  });
+
+  it('nom seul lu uniquement sur le bouton du menu, jamais sur un conteneur ni sur un contrôle voisin', () => {
+    // Conteneur du menu : seuls les libellés reconnus (numéro, plage, spécial) y sont lus
+    page.set('[data-t="seasons-dropdown"]', { text: 'HEROINES' });
+    expect(crunchyrollAdapter.detectSeries?.(ONE_PIECE)).toMatchObject({ seasonNumber: null, seasonTitle: null });
+    page.set('.season-info', { text: 'Options' });
+    expect(crunchyrollAdapter.detectSeries?.(ONE_PIECE)).toMatchObject({ seasonNumber: null, seasonTitle: null });
+    // Bouton au texte de tri : ignoré, le libellé reconnu d'un sélecteur suivant reste lu
+    page.set('.seasons-select button', { text: 'Newest' });
+    page.set('.seasons-select', { text: 'S2: Black Clover' });
+    expect(crunchyrollAdapter.detectSeries?.(ONE_PIECE)).toMatchObject({ seasonNumber: 2, seasonTitle: 'Black Clover' });
   });
 });
 

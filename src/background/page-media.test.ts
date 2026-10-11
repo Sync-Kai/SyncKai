@@ -6,6 +6,14 @@ import type { CandidateSummary } from '../shared/review.types';
 import { STORAGE_KEYS } from '../shared/storage-keys';
 import { installFakeChrome } from '../test/fake-chrome';
 import type { AniListMedia } from './api/media';
+import {
+  AOT_SEASON_IDS,
+  AOT_SERIES,
+  ATTACK_ON_TITAN_SEARCH,
+  LAST_ATTACK_MOVIE,
+  LAST_ATTACK_MOVIE_ID,
+  LAST_ATTACK_SEASON,
+} from './sync/__fixtures__/attack-on-titan-search';
 
 // Fiche de la page : résolution simulée (séries ignorées, accès Netflix), et saison choisie dans le sélecteur
 // enregistrée comme correspondance (ARCH-20), relue par la vraie résolution de la synchro.
@@ -13,8 +21,14 @@ const resolver = vi.hoisted(() => ({ resolveEpisode: vi.fn(), findSeriesSeasons:
 vi.mock('./sync/resolver', () => resolver);
 const access = vi.hoisted(() => ({ hasPlatformAccess: vi.fn() }));
 vi.mock('../shared/platform-access', () => access);
-const api = vi.hoisted(() => ({ getPageMediaDetails: vi.fn() }));
-vi.mock('./api/media', async (importOriginal) => ({ ...(await importOriginal<typeof import('./api/media')>()), getPageMediaDetails: api.getPageMediaDetails }));
+// Recherches du catalogue simulées : la vraie résolution (sync, ci-dessous) ne part jamais sur le réseau
+const api = vi.hoisted(() => ({ getPageMediaDetails: vi.fn(), searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
+vi.mock('./api/media', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./api/media')>()),
+  getPageMediaDetails: api.getPageMediaDetails,
+  searchAnime: api.searchAnime,
+  getAnimeByIds: api.getAnimeByIds,
+}));
 // Aucun service connecté : pas de lecture des listes
 vi.mock('./trackers', () => ({ getConnectedTrackers: async () => [] }));
 
@@ -50,6 +64,8 @@ beforeEach(() => {
   fake.reset();
   forgetPageResolutions();
   access.hasPlatformAccess.mockResolvedValue(true);
+  api.searchAnime.mockResolvedValue([]);
+  api.getAnimeByIds.mockResolvedValue([]);
 });
 
 describe('resolvePageMedia — accès Netflix retiré', () => {
@@ -385,5 +401,105 @@ describe('resolvePageMedia — One Piece sur Crunchyroll, arc « Elbaph (1156-cu
     const result = await resolvePageMedia({ page, mediaId: null });
     expect(result).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'certain' } });
     expect(result.ok && result.data.seasons.length).toBeLessThan(2);
+  });
+});
+
+describe('resolvePageMedia — One Piece sur Crunchyroll, saison nommée « HEROINES » (spécial rangé en saison 30)', () => {
+  // Identifiants AniList réels : ONE PIECE (21), ONE PIECE HEROINES (197178, voir matching-seasons.test.ts), MONSTERS (167404)
+  const ONE_PIECE = 21;
+  const HEROINES = 197178;
+  const MONSTERS = 167404;
+
+  const onePieceCandidate = { id: ONE_PIECE, format: 'TV', episodes: null, startDate: 19991020, titles: ['ONE PIECE', 'One Piece'], link: 'id', hasPrequel: true } as const;
+  const monstersCandidate = { id: MONSTERS, format: 'ONA', episodes: 1, startDate: 20240121, titles: ['MONSTERS: Ippaku Sanjou Hiryuu Jigoku'], link: 'other' } as const;
+  const heroinesCandidate = { id: HEROINES, format: 'SPECIAL', episodes: 1, startDate: 20260705, titles: ['ONE PIECE HEROINES'], link: null } as const;
+
+  function entry(id: number, format: string, episodes: number | null, titles: string[]): AniListMedia {
+    return { id, idMal: null, format, episodes, startDate: null, displayTitle: titles[0] ?? '', titles, year: 1999, coverUrl: null, externalLinkUrls: [], relations: [] };
+  }
+
+  function found(withHeroines: boolean): void {
+    const onePiece = entry(ONE_PIECE, 'TV', null, ['ONE PIECE', 'One Piece']);
+    const others = [onePiece, entry(MONSTERS, 'ONA', 1, ['MONSTERS']), ...(withHeroines ? [entry(HEROINES, 'SPECIAL', 1, ['ONE PIECE HEROINES'])] : [])];
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [onePieceCandidate, monstersCandidate, ...(withHeroines ? [heroinesCandidate] : [])],
+      seasons: [onePiece],
+      others,
+      seasonGroups: [[ONE_PIECE]],
+    });
+  }
+
+  const seriesPage = (season: Partial<PageMediaInfo>): PageMediaInfo => ({
+    platform: 'crunchyroll',
+    kind: 'series',
+    seriesId: 'GRMG8ZQZR',
+    seriesSlug: 'one-piece',
+    seriesTitle: 'One Piece',
+    seasonNumber: null,
+    seasonTitle: null,
+    episode: null,
+    ...season,
+  });
+
+  beforeEach(() => {
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'ONE PIECE'));
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'ONE PIECE', episodes: null }));
+  });
+
+  it('fiche ONE PIECE HEROINES trouvée (recherche « One Piece HEROINES ») : retenue, certaine, plutôt que la fiche principale', async () => {
+    found(true);
+    const result = await resolvePageMedia({ page: seriesPage({ seasonTitle: 'HEROINES' }), mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { media: { mediaId: HEROINES }, confidence: 'certain' } });
+    expect(resolver.findSeriesSeasons).toHaveBeenCalledWith(expect.objectContaining({ animeTitle: 'One Piece', seasonTitle: 'HEROINES' }));
+  });
+
+  it('fiche de la saison absente des résultats : la fiche principale n’est jamais certaine pour une saison nommée', async () => {
+    found(false);
+    expect(await resolvePageMedia({ page: seriesPage({ seasonTitle: 'HEROINES' }), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'uncertain' } });
+  });
+
+  it('non-régression : arc « Elbaph (1156-current) » → ONE PIECE certaine, même avec HEROINES dans les résultats', async () => {
+    found(true);
+    expect(await resolvePageMedia({ page: seriesPage({ seasonTitle: 'Elbaph', seasonFirstEpisode: 1156 }), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'certain' } });
+  });
+});
+
+describe('resolvePageMedia — Attack on Titan sur Crunchyroll, saison nommée « Attack on Titan: Last Attack » (film)', () => {
+  // Vraie résolution (findSeriesSeasons) sur les résultats AniList réels, voir sync/__fixtures__/attack-on-titan-search.ts
+  const seriesPage: PageMediaInfo = {
+    platform: 'crunchyroll',
+    kind: 'series',
+    seriesId: AOT_SERIES.seriesId,
+    seriesSlug: AOT_SERIES.seriesSlug,
+    seriesTitle: AOT_SERIES.animeTitle,
+    seasonNumber: null,
+    seasonTitle: LAST_ATTACK_SEASON,
+    episode: null,
+  };
+
+  function searchResults(bySeason: AniListMedia[]): void {
+    api.searchAnime.mockImplementation(async (search: string) => (search === AOT_SERIES.animeTitle ? ATTACK_ON_TITAN_SEARCH : search === LAST_ATTACK_SEASON ? bySeason : []));
+  }
+
+  beforeEach(() => {
+    resolver.findSeriesSeasons.mockImplementation(sync.findSeriesSeasons);
+    resolver.toCandidateSummary.mockImplementation(sync.toCandidateSummary);
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: `#${id}`, episodes: 1, format: id === LAST_ATTACK_MOVIE_ID ? 'MOVIE' : 'TV' }));
+  });
+
+  it('AniList sans fiche du film (réel) : saison devinée parmi les saisons TV, jamais certaine ; 2 recherches seulement', async () => {
+    searchResults([]);
+    const result = await resolvePageMedia({ page: seriesPage, mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { confidence: 'uncertain', source: 'progress' } });
+    expect(result.ok && (AOT_SEASON_IDS as readonly number[]).includes(result.data.media.mediaId)).toBe(true);
+    expect(api.searchAnime).toHaveBeenCalledTimes(2);
+    expect(api.getAnimeByIds).not.toHaveBeenCalled();
+  });
+
+  it('fiche du film trouvée (fiche fictive) : retenue, certaine ; le sélecteur garde les saisons TV (la carte y ajoute le film)', async () => {
+    searchResults([LAST_ATTACK_MOVIE]);
+    const result = await resolvePageMedia({ page: seriesPage, mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { media: { mediaId: LAST_ATTACK_MOVIE_ID }, confidence: 'certain', source: 'page' } });
+    expect(result.ok && result.data.seasons.map((s) => s.id)).toEqual([...AOT_SEASON_IDS]);
   });
 });

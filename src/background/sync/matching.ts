@@ -52,7 +52,9 @@ const SEASON_COUNT_TOLERANCE = 2;
 export type EpisodeNumbers = Pick<
   EpisodeInfo,
   'animeTitle' | 'seasonTitle' | 'seasonNumber' | 'seasonEpisodeNumber' | 'displayedEpisodeNumber'
->;
+> &
+  // Page de lecture uniquement : reconnaît une saison réduite à une œuvre (voir isSpecialSeason)
+  Partial<Pick<EpisodeInfo, 'episodeTitle'>>;
 
 export interface SyncTarget extends MediaMapping {
   progress: number;
@@ -495,17 +497,32 @@ export function effectiveSeasonNumber(episode: Pick<EpisodeNumbers, 'seasonNumbe
 const SPECIAL_SEASON = /\b(?:ovas?|oads?|extras?|specials?|speciaux|movies?|films?|recaps?)\b/;
 
 /**
- * Saison spéciale de la plateforme : saison 0, ou titre de saison (hors titre de la série) désignant des
- * OVA, des extras, des spéciaux ou un film. Ses épisodes ne sont jamais ceux de la N-ième saison AniList.
+ * Saison spéciale de la plateforme : saison 0, titre de saison (hors titre de la série) désignant des OVA, des extras,
+ * des spéciaux ou un film, ou saison réduite à une œuvre (isSingleWorkSeason). Ses épisodes ne sont jamais ceux de la
+ * N-ième saison AniList.
  */
-export function isSpecialSeason(episode: Pick<EpisodeNumbers, 'animeTitle' | 'seasonTitle' | 'seasonNumber'>): boolean {
+export function isSpecialSeason(episode: Pick<EpisodeNumbers, 'animeTitle' | 'seasonTitle' | 'seasonNumber' | 'episodeTitle'>): boolean {
   if (episode.seasonNumber === 0) return true;
   if (!episode.seasonTitle) return false;
   const animeKey = normalizeTitle(episode.animeTitle);
   let key = normalizeTitle(episode.seasonTitle);
   if (!key || key === animeKey) return false;
   if (key.startsWith(`${animeKey} `)) key = key.slice(animeKey.length + 1);
-  return SPECIAL_SEASON.test(key);
+  return SPECIAL_SEASON.test(key) || isSingleWorkSeason(episode);
+}
+
+/**
+ * Saison nommée dont l'épisode porte le nom de la saison elle-même (titre de la série et article « the » mis à part) :
+ * film, spécial ou OVA publié comme une saison de la série (Crunchyroll : saison « Attack on Titan: Last Attack », épisode
+ * « E1 - Attack on Titan: The Last Attack », film de 2 h 24). Son rang dans le menu (numéro de saison) ne désigne jamais
+ * une saison TV : seule une fiche dédiée (titre, lien vers l'épisode) peut la recevoir.
+ */
+function isSingleWorkSeason({ animeTitle, seasonTitle, episodeTitle }: Pick<EpisodeNumbers, 'animeTitle' | 'seasonTitle' | 'episodeTitle'>): boolean {
+  if (!seasonTitle || !episodeTitle) return false;
+  const animeKey = titleWords(animeTitle);
+  const withoutSeries = (key: string): string => (key.startsWith(`${animeKey} `) ? key.slice(animeKey.length + 1) : key);
+  const season = withoutSeries(titleWords(seasonTitle));
+  return season.length >= 3 && season !== animeKey && withoutSeries(titleWords(episodeTitle)) === season;
 }
 
 /**
@@ -521,16 +538,48 @@ export function seasonSearchQuery(animeTitle: string, seasonTitle: string | null
   return seasonKey.startsWith(`${animeKey} `) ? seasonTitle : `${animeTitle} ${seasonTitle}`;
 }
 
+/**
+ * Page de série sur une saison nommée, sans numéro ni plage d'épisodes absolus (Crunchyroll « HEROINES », spécial rangé
+ * dans One Piece), rattachée à une fiche dont aucun titre ne reprend le nom de la saison : ni numéro ni titre ne la
+ * désignent, le choix n'est jamais certain (la fiche principale de la série prendrait sinon la place d'une saison dont la
+ * fiche manque à la recherche). Saison spéciale, numérotée, ou au titre de la série : non concernée.
+ */
+export function isUnmatchedNamedSeason(
+  season: { animeTitle: string; seasonTitle: string | null; seasonNumber: number | null; seasonFirstEpisode?: number | undefined },
+  candidate: Pick<MediaCandidate, 'titles'>,
+): boolean {
+  const { seasonTitle } = season;
+  if (!seasonTitle || season.seasonNumber !== null || season.seasonFirstEpisode !== undefined) return false;
+  if (seasonNumberFromTitle(seasonTitle) !== null || isSpecialSeason(season)) return false;
+  const seasonKey = titleWords(seasonTitle);
+  if (!seasonKey || seasonKey === titleWords(season.animeTitle)) return false;
+  return !candidate.titles.some((title) => containsWords(titleWords(title), seasonKey));
+}
+
 /** Fiche dédiée à l'épisode ou à sa saison, hors des saisons de la série (spécial, film, fiche non liée…) */
 interface DedicatedEntry {
   candidate: MediaCandidate;
   progress: number;
   confident: boolean;
+  /** Fiche désignée par le titre « série + saison » exact : indépendante du rang des saisons (voir resolveTarget) */
+  exactTitle: boolean;
   reason: string;
 }
 
 /** Mots du titre de saison retrouvés tels quels dans un titre normalisé ("heroines" ⊂ "one piece heroines") */
 const containsWords = (key: string, words: string): boolean => ` ${key} `.includes(` ${words} `);
+
+/**
+ * Titre normalisé sans l'article « the », que la plateforme et AniList n'écrivent pas toujours de la même façon
+ * (Crunchyroll « Attack on Titan: Last Attack », titre du film « Attack on Titan: THE LAST ATTACK ») : rapprochement
+ * d'un titre de saison et du titre d'une fiche dédiée uniquement.
+ */
+function titleWords(title: string): string {
+  return normalizeTitle(title)
+    .split(' ')
+    .filter((word) => word !== 'the')
+    .join(' ');
+}
 
 /**
  * Fiche hors des saisons de la série désignant précisément l'épisode (numérotation relative uniquement) :
@@ -555,7 +604,7 @@ function dedicatedEntry(
   if (byEpisode.length === 1) {
     const [only] = byEpisode;
     const progress = fits(only, relative) ? relative : only.episodes === 1 ? 1 : null;
-    if (progress !== null) return { candidate: only, progress, confident: true, reason: t('match.episodeLink') };
+    if (progress !== null) return { candidate: only, progress, confident: true, exactTitle: false, reason: t('match.episodeLink') };
   }
 
   // a') Épisode sans saison (film Netflix) et aucune saison série liée : fiche film / spécial liée à la série
@@ -564,13 +613,14 @@ function dedicatedEntry(
   if (episode.seasonNumber === null && !hasLinkedSeries) {
     const direct = outside.filter((c) => (c.link === 'id' || c.link === 'slug') && c.format !== null && !SERIES_FORMATS.has(c.format));
     if (direct.length === 1 && fits(direct[0], relative)) {
-      return { candidate: direct[0], progress: relative, confident: true, reason: t('match.linkedEntry') };
+      return { candidate: direct[0], progress: relative, confident: true, exactTitle: false, reason: t('match.linkedEntry') };
     }
   }
 
-  const animeKey = normalizeTitle(episode.animeTitle);
-  const seasonKey = episode.seasonTitle ? normalizeTitle(episode.seasonTitle) : '';
-  const keysOf = (c: MediaCandidate): string[] => c.titles.map(normalizeTitle);
+  // Titres comparés sans l'article « the » (« Last Attack » ↔ « THE LAST ATTACK », voir titleWords)
+  const animeKey = titleWords(episode.animeTitle);
+  const seasonKey = episode.seasonTitle ? titleWords(episode.seasonTitle) : '';
+  const keysOf = (c: MediaCandidate): string[] => c.titles.map(titleWords);
   // Une saison de la série porte déjà ce titre (« Attack on Titan Season 2 ») : l'étape 3 s'en charge,
   // un OVA « … Season 2 OVA » ne doit pas lui voler l'épisode
   const isPoolSeason = pool.some((c) => keysOf(c).some((k) => containsWords(k, seasonKey)));
@@ -582,16 +632,18 @@ function dedicatedEntry(
     if (matches.length === 1 && fits(matches[0], relative)) {
       const [only] = matches;
       // Titre « série + saison » ou fiche liée : fiable ; titre de saison seul ou simplement inclus : à vérifier
-      const confident = isLinked(only) || keysOf(only).includes(compound);
-      return { candidate: only, progress: relative, confident, reason: t('match.dedicatedSeason', { title: episode.seasonTitle ?? '' }) };
+      const exactTitle = keysOf(only).includes(compound);
+      const confident = isLinked(only) || exactTitle;
+      return { candidate: only, progress: relative, confident, exactTitle, reason: t('match.dedicatedSeason', { title: episode.seasonTitle ?? '' }) };
     }
   }
 
   if (pool.length === 0) {
-    const sameTitle = outside.filter((c) => c.titles.some((title) => normalizeTitle(title) === animeKey));
+    const seriesKey = normalizeTitle(episode.animeTitle);
+    const sameTitle = outside.filter((c) => c.titles.some((title) => normalizeTitle(title) === seriesKey));
     if (sameTitle.length === 1 && fits(sameTitle[0], relative)) {
       const [only] = sameTitle;
-      return { candidate: only, progress: relative, confident: isLinked(only), reason: t('match.dedicatedSeries') };
+      return { candidate: only, progress: relative, confident: isLinked(only), exactTitle: false, reason: t('match.dedicatedSeries') };
     }
   }
   return null;
@@ -663,8 +715,10 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
     confidence: 'high' | 'low',
     reason: string,
     trustedReason: string = t('match.titleOnlyTrusted'),
+    /** Fiche dédiée au titre « série + saison » exact : le rang des saisons n'y joue aucun rôle, pas de plafond */
+    byExactTitle = false,
   ): ResolveResult => {
-    const isCapped = confidence === 'high' && hasWeakExclusion && !isDirectlyLinked(candidate);
+    const isCapped = confidence === 'high' && hasWeakExclusion && !isDirectlyLinked(candidate) && !byExactTitle;
     return {
       ok: true,
       target: {
@@ -690,7 +744,7 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
   // ou dédiée à la saison, sinon fiche spéciale unique au titre exact, sinon à choisir.
   if (isSpecialSeason(episode)) {
     const own = dedicatedEntry(episode, candidates, pool, relative);
-    if (own?.confident) return target(own.candidate, relative, own.progress, 'season', 'high', own.reason, own.reason);
+    if (own?.confident) return target(own.candidate, relative, own.progress, 'season', 'high', own.reason, own.reason, own.exactTitle);
     const special = specialEntry(episode, candidates, relative);
     if (special) return target(special, relative, relative, 'season', 'high', t('match.specialTitle'), t('match.specialTitle'));
     if (own) return target(own.candidate, relative, own.progress, 'season', 'low', own.reason);
@@ -702,7 +756,7 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
   //    Jamais en numérotation absolue (One Piece E1180 reste sur la fiche principale).
   if (!isAbsolute) {
     const own = dedicatedEntry(episode, candidates, pool, relative);
-    if (own) return target(own.candidate, relative, own.progress, 'season', own.confident ? 'high' : 'low', own.reason);
+    if (own) return target(own.candidate, relative, own.progress, 'season', own.confident ? 'high' : 'low', own.reason, undefined, own.exactTitle);
   }
   if (pool.length === 0) return noEntry;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../../i18n';
-import { matchCrunchyrollEpisodeLink, matchPlatformLink, resolveTarget, seasonSearchQuery, type EpisodeNumbers, type MediaCandidate } from './matching';
+import { isUnmatchedNamedSeason, matchCrunchyrollEpisodeLink, matchPlatformLink, resolveTarget, seasonSearchQuery, type EpisodeNumbers, type MediaCandidate } from './matching';
 
 // Saisons découpées en parties (cours) et fiches dédiées à une saison. Textes attendus en français.
 setLocale('fr');
@@ -142,5 +142,35 @@ describe('seasonSearchQuery / matchCrunchyrollEpisodeLink', () => {
     expect(matchCrunchyrollEpisodeLink('https://crunchyroll.com/watch/GE00380778JAJP', null)).toBe(false);
     expect(matchPlatformLink('https://crunchyroll.com/watch/GE00380778JAJP', 'crunchyroll', 'GRMG8ZQZR', 'one-piece', 'GE00380778JAJP')).toBe('episode');
     expect(matchPlatformLink('https://www.crunchyroll.com/one-piece', 'crunchyroll', 'GRMG8ZQZR', 'one-piece', 'GE00380778JAJP')).toBe('slug');
+  });
+});
+
+describe('isUnmatchedNamedSeason (page de série sur une saison nommée)', () => {
+  const onePiece = { titles: ['ONE PIECE', 'One Piece'] };
+  const named = (seasonTitle: string | null, more: { seasonNumber?: number | null; seasonFirstEpisode?: number } = {}): Parameters<typeof isUnmatchedNamedSeason>[0] => ({
+    animeTitle: 'One Piece',
+    seasonTitle,
+    seasonNumber: more.seasonNumber ?? null,
+    ...(more.seasonFirstEpisode !== undefined ? { seasonFirstEpisode: more.seasonFirstEpisode } : {}),
+  });
+
+  it('« HEROINES » sur la fiche ONE PIECE : rien ne la désigne, à vérifier ; sur ONE PIECE HEROINES : titre repris', () => {
+    expect(isUnmatchedNamedSeason(named('HEROINES'), onePiece)).toBe(true);
+    expect(isUnmatchedNamedSeason(named('HEROINES'), { titles: ['ONE PIECE HEROINES'] })).toBe(false);
+  });
+
+  it('titre repris à l’article « the » près : « Attack on Titan: Last Attack » ↔ « Attack on Titan: THE LAST ATTACK »', () => {
+    const lastAttack = { animeTitle: 'Attack on Titan', seasonTitle: 'Attack on Titan: Last Attack', seasonNumber: null };
+    expect(isUnmatchedNamedSeason(lastAttack, { titles: ['Attack on Titan: THE LAST ATTACK'] })).toBe(false);
+    expect(isUnmatchedNamedSeason(lastAttack, { titles: ['Shingeki no Kyojin: The Final Season Part 2', 'Attack on Titan Final Season Part 2'] })).toBe(true);
+  });
+
+  it('saison numérotée, arc à plage d’épisodes, spéciale, au titre de la série ou absente : non concernée', () => {
+    expect(isUnmatchedNamedSeason(named('Elbaph', { seasonFirstEpisode: 1156 }), onePiece)).toBe(false);
+    expect(isUnmatchedNamedSeason(named('Elbaph', { seasonNumber: 24 }), onePiece)).toBe(false);
+    expect(isUnmatchedNamedSeason(named('Special'), onePiece)).toBe(false);
+    expect(isUnmatchedNamedSeason(named('One Piece Season 2'), onePiece)).toBe(false);
+    expect(isUnmatchedNamedSeason(named('ONE PIECE'), onePiece)).toBe(false);
+    expect(isUnmatchedNamedSeason(named(null), onePiece)).toBe(false);
   });
 });

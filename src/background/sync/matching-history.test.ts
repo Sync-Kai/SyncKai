@@ -72,6 +72,17 @@ describe('saisons spéciales (OVA, extras, saison 0) : jamais la N-ième saison 
     expect(isSpecialSeason({ animeTitle: 'Kaiju No. 8', seasonTitle: 'Season 2', seasonNumber: 3 })).toBe(false);
   });
 
+  it('saison réduite à une œuvre : épisode au nom de la saison (article « the » et titre de la série mis à part)', () => {
+    const lastAttack = { animeTitle: 'Attack on Titan', seasonTitle: 'Attack on Titan: Last Attack', seasonNumber: 1 };
+    expect(isSpecialSeason({ ...lastAttack, episodeTitle: 'Attack on Titan: The Last Attack' })).toBe(true);
+    expect(isSpecialSeason({ ...lastAttack, episodeTitle: 'The Last Attack' })).toBe(true);
+    // Page de série (pas d'épisode) ou épisode ordinaire d'une saison nommée : non concernée
+    expect(isSpecialSeason(lastAttack)).toBe(false);
+    expect(isSpecialSeason({ animeTitle: 'One Piece', seasonTitle: 'Egghead', seasonNumber: 23, episodeTitle: 'Adventure on the Island of the Future' })).toBe(false);
+    // Saison au titre de la série (Netflix : film publié seul) : jamais une œuvre dans la série
+    expect(isSpecialSeason({ animeTitle: 'Bubble', seasonTitle: 'Bubble', seasonNumber: 1, episodeTitle: 'Bubble' })).toBe(false);
+  });
+
   const slime = [
     candidate({ id: 101280, episodes: 24, startDate: 20181002, titles: ['Tensei Shitara Slime Datta Ken', 'That Time I Got Reincarnated as a Slime'] }),
     candidate({ id: 106509, format: 'OVA', episodes: 5, startDate: 20190703, titles: ['Tensei Shitara Slime Datta Ken OVA', 'That Time I Got Reincarnated as a Slime OAD'] }),

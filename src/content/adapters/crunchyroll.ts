@@ -191,9 +191,23 @@ const GENERIC_SEASON_LABEL_REGEX = /^(?:saison|season|staffel|temporada|stagione
 // - titre : <h1> du bandeau de la série ;
 // - saison : bouton du menu déroulant des saisons (texte "S2: …"), ou libellé seul s'il n'y a qu'une saison.
 // Interrogés dans l'ordre ; le premier texte reconnu comme libellé de saison est retenu.
+/** Boutons du menu des saisons : seuls éléments où un nom de saison seul (« HEROINES ») est lu, voir readSeasonMenu */
+// Menu réel (relevé le 2026-10-11 sur One Piece) : .seasons-select > .erc-seasons-select > div[role="button"] > .season-info,
+// texte affiché deux fois (« HEROINESHEROINES ») ; le tri (« Oldest ») et « Options » sont hors de .seasons-select
+const SEASON_BUTTON_SELECTORS = [
+  '.erc-seasons-select [role="button"]',
+  '.seasons-select [role="button"]',
+  '[data-t="seasons-select"]',
+  '[data-t="seasons-dropdown"] [aria-expanded]',
+  '[data-t="season-select"]',
+  '.seasons-select button',
+  '[class*="seasons-select"] button',
+] as const;
 const SERIES_SELECTORS = {
   title: ['[data-t="series-hero-title"]', '.hero-heading-line h1', 'main h1', 'h1'],
   season: [
+    '.erc-seasons-select [role="button"]',
+    '.seasons-select [role="button"]',
     '[data-t="seasons-select"]',
     '[data-t="seasons-dropdown"] [aria-expanded]',
     '[data-t="seasons-dropdown"]',
@@ -235,9 +249,14 @@ const SPECIALS_FAMILY = /^(?:sp[eé]ci|spezial|especial)/i;
  */
 const EPISODE_RANGE_REGEX = /\s*\((\d{1,5})\s*[-–—]\s*(?:\d{1,5}|[\p{L}. ]{0,20})\)\s*$/u;
 
+/** Libellé répété par le sélecteur réel (« Season 1Season 1 », « HEROINESHEROINES ») : moitié d'au moins 3 caractères */
+const REPEATED_LABEL_REGEX = /^(.{3,}?)\s*\1$/u;
+
 /** Libellé de saison → numéro, nom, et premier épisode absolu de la saison s'il est affiché (null si pas une saison) */
 export function parseCrunchyrollSeasonLabel(text: string | null): { number: number | null; title: string | null; firstEpisode?: number } | null {
-  const label = cleanText(text);
+  const raw = cleanText(text);
+  // Libellé affiché deux fois par le menu réel (« Elbaph (1156-current)Elbaph (1156-current) ») : une seule moitié
+  const label = raw ? (REPEATED_LABEL_REGEX.exec(raw)?.[1] ?? raw) : null;
   if (!label || label.length > 200) return null;
   // Arc numéroté en absolu : plage retirée du titre, premier épisode gardé comme indice de numérotation
   const range = EPISODE_RANGE_REGEX.exec(label);
@@ -257,6 +276,32 @@ export function parseCrunchyrollSeasonLabel(text: string | null): { number: numb
   if (!special) return null;
   return { number: null, title: SPECIALS_FAMILY.test(special) ? 'Special' : special };
 }
+
+/**
+ * Textes des contrôles voisins du menu des saisons (tri, options, langue, navigation, en-tête du menu), en FR / EN / DE :
+ * jamais un nom de saison
+ */
+const MENU_NOISE_REGEX =
+  /^(?:options?|optionen|newest|oldest|latest|earliest|(?:plus )?r[ée]cents?|(?:plus )?anciens?|neueste|[äa]lteste|sort(?: by)?|trier(?: par)?|sortieren(?: nach)?|filters?|filtres?|sous-titres?|subtitles?|untertitel|audio|dub|sub|doublage|languages?|langues?|sprachen?|seasons?|saisons?|staffeln?|(?:previous|prev|next) season|saison (?:pr[ée]c[ée]dente|suivante)|(?:vorherige|n[äa]chste) staffel|(?:show|load|see|view) (?:more|all)|(?:voir|afficher) (?:plus|tout)|mehr(?: anzeigen)?|alle anzeigen|more|plus|select (?:a )?season|choisir (?:une )?saison|staffel w[äa]hlen)$/i;
+
+const MAX_SEASON_NAME_LENGTH = 80;
+
+/**
+ * Nom de saison seul lu sur le bouton du menu (« HEROINES », spécial rangé en saison 30 de One Piece, relevé le
+ * 2026-10-11), quand le libellé n'est ni numéroté, ni un arc à plage d'épisodes, ni une saison spéciale
+ * (parseCrunchyrollSeasonLabel) : envoyé comme titre de saison, sans numéro. null pour un texte de contrôle voisin,
+ * un épisode, un nombre d'épisodes ou un texte sans lettre.
+ */
+export function parseCrunchyrollSeasonName(text: string | null): string | null {
+  const label = cleanText(text);
+  if (!label) return null;
+  const name = cleanText(stripAudioTag(REPEATED_LABEL_REGEX.exec(label)?.[1] ?? label));
+  if (!name || name.length > MAX_SEASON_NAME_LENGTH || !/\p{L}/u.test(name)) return null;
+  if (MENU_NOISE_REGEX.test(name) || EPISODE_LABEL_REGEX.test(name) || parseEpisodeCount(name) !== null || EPISODE_RANGE_REGEX.test(name)) return null;
+  return name;
+}
+
+type ParsedSeasonLabel = NonNullable<ReturnType<typeof parseCrunchyrollSeasonLabel>>;
 
 /**
  * Titre de la série dans le JSON-LD (TVSeries). Hypothèse non vérifiée hors ligne :
@@ -349,11 +394,36 @@ function firstText(selectors: readonly string[], accept: (text: string) => boole
   return firstElement(selectors, accept)?.text ?? null;
 }
 
+/** Libellé du menu des saisons : reconnu (numéro, arc, spécial), sinon nom seul sur un bouton du menu uniquement */
+function parseSeasonMenuText(text: string, isButton: boolean): ParsedSeasonLabel | null {
+  const parsed = parseCrunchyrollSeasonLabel(text);
+  if (parsed || !isButton) return parsed;
+  const name = parseCrunchyrollSeasonName(text);
+  return name ? { number: null, title: name } : null;
+}
+
+const BUTTON_SELECTORS: ReadonlySet<string> = new Set(SEASON_BUTTON_SELECTORS);
+
 /**
- * Élément du menu des saisons dont le libellé est lu (même règle que detectCrunchyrollSeries) : jamais un conteneur dont
- * le texte comprend la liste des épisodes (« erc-season-with-navigation », chargée au défilement)
+ * Élément du menu des saisons dont le libellé est lu, et saison lue (sélecteurs dans l'ordre de priorité) : jamais un
+ * conteneur dont le texte comprend la liste des épisodes (« erc-season-with-navigation », chargée au défilement). Un nom
+ * seul (« HEROINES ») n'est accepté que sur un bouton du menu : un conteneur ou un contrôle voisin (tri, options) ne
+ * devient jamais une saison.
  */
-const seasonMenuElement = (): Element | null => firstElement(SERIES_SELECTORS.season, (text) => parseCrunchyrollSeasonLabel(text) !== null)?.element ?? null;
+function readSeasonMenu(): { element: Element; season: ParsedSeasonLabel } | null {
+  for (const selector of SERIES_SELECTORS.season) {
+    const isButton = BUTTON_SELECTORS.has(selector);
+    for (const element of document.querySelectorAll(selector)) {
+      const text = cleanText(element.textContent);
+      const season = text ? parseSeasonMenuText(text, isButton) : null;
+      if (season) return { element, season };
+    }
+  }
+  return null;
+}
+
+/** Élément du menu des saisons suivi par le panneau (même règle que detectCrunchyrollSeries) */
+const seasonMenuElement = (): Element | null => readSeasonMenu()?.element ?? null;
 
 /** Page de série : titre (JSON-LD → <h1> → og:title → slug) et saison sélectionnée si lisible */
 function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
@@ -367,8 +437,7 @@ function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
     slugToTitle(path.seriesSlug);
   if (!seriesTitle) return null;
 
-  const seasonText = firstText(SERIES_SELECTORS.season, (text) => parseCrunchyrollSeasonLabel(text) !== null);
-  const season = parseCrunchyrollSeasonLabel(seasonText);
+  const season = readSeasonMenu()?.season ?? null;
   return {
     seriesId: path.seriesId,
     seriesSlug: path.seriesSlug,
