@@ -6,6 +6,10 @@ Ordre de priorité dans chaque version : 1) corruption de données (mauvaise fic
 
 Vérification avant chaque fusion (session principale) : `npx tsc --noEmit`, `npx vitest run`, `npm run build`, `npm run test:e2e` si le popup ou le panneau changent. À partir du lot 11, `npm run verify` remplace cette liste.
 
+## Avancement (au 2026-10-11)
+
+Lots 1 à 26, 28 et 29 traités et fusionnés dans `develop` (un commit par lot, de `3986fa6` à `5dac6f2`), avec `npm run verify`, les tests e2e et un chargement de l'extension dans Chrome à chaque fusion. **Lot 27 écarté** : l'Agenda hors des sites de streaming contredit la décision du 2026-10-07 (« je ne veux pas que l'extension soit intrusive » : panneau réservé à Crunchyroll, ADN et Netflix) ; UX-04 reste ouvert. Tests manuels dans le navigateur à faire avant la prochaine release (voir chaque lot).
+
 ## Synthèse
 
 | Ordre | Version | Branche | Cas | Effort |
@@ -36,7 +40,7 @@ Vérification avant chaque fusion (session principale) : `npx tsc --noEmit`, `np
 | 24 | 2.2.0 | `feature/durcissement-securite` | 3 | M |
 | 25 | 2.3.0 | `chore/registre-plateformes` | 1 | S |
 | 26 | 2.3.0 | `bugfix/reattachement-video` | 7 | L |
-| 27 | 2.3.0 | `feature/agenda-hors-cible` | 1 | M |
+| 27 | 2.3.0 | `feature/agenda-hors-cible` (écarté) | 1 | M |
 | 28 | plus tard | `chore/popup-controleurs` | 1 | L |
 | 29 | plus tard | `chore/i18n-contenu-leger` | 1 | M |
 
