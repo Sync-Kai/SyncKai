@@ -1,4 +1,4 @@
-import { getMalToken, getValidToken } from '../../shared/storage';
+import { hasMalToken, hasValidAniListToken } from '../../shared/storage';
 import type { TrackerId } from '../../shared/tracker.types';
 import { getMediaListInfo, getScoreFormat, saveListEntry, saveListStatus, saveProgress, saveScore } from '../api/list';
 import { getMalAnime, saveMalEntry, saveMalListStatus, saveMalProgress, saveMalScore } from '../api/mal';
@@ -31,7 +31,8 @@ function invalidatingComparison(tracker: TrackerService): TrackerService {
 
 export const anilistTracker: TrackerService = invalidatingComparison({
   id: 'anilist',
-  isConnected: async () => (await getValidToken()) !== null,
+  // Présence et expiration lues sans déchiffrement ; le token est déchiffré à la requête (api/client.ts)
+  isConnected: hasValidAniListToken,
   resolveId: (media) => media.mediaId,
   async getEntry(id) {
     const { title, episodes, entry } = await getMediaListInfo(id);
@@ -48,7 +49,7 @@ export const anilistTracker: TrackerService = invalidatingComparison({
 export const malTracker: TrackerService = invalidatingComparison({
   id: 'mal',
   // Token présent (même expiré) : il sera renouvelé à la première requête
-  isConnected: async () => (await getMalToken()) !== null,
+  isConnected: hasMalToken,
   resolveId: (media) => media.idMal,
   getEntry: (id) => getMalAnime(id),
   saveProgress: (id, progress, status, repeat) => saveMalProgress(id, progress, status, repeat),

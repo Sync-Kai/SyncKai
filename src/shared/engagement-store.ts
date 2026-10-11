@@ -4,6 +4,7 @@ import { isSessionEpochs } from './session-epochs';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './storage-keys';
 import { withStorageLock } from './storage-lock';
 import type { ServiceResult } from './sync.types';
+import { isSafeImageUrl } from './url';
 
 // Stockage de l'engagement (popup + service worker) : notes en attente et revisionnages refusés.
 // Écritures sous `withStorageLock` (src/shared/storage-lock.ts), clés dans storage-keys.ts.
@@ -13,7 +14,7 @@ export const MAX_PENDING_RATINGS = 30;
 
 /**
  * Seule garde des cartes « À noter » (popup, service worker, sauvegarde, purge de session) : identifiant cohérent avec
- * la fiche (`anilist:<id>` / `mal:<id>`), affiche en https (affichée telle quelle dans le popup), date valide.
+ * la fiche (`anilist:<id>` / `mal:<id>`), affiche d'un hôte d'images autorisé (SEC-02), date valide.
  */
 export function isPendingRating(value: unknown): value is PendingRating {
   return (
@@ -21,16 +22,11 @@ export function isPendingRating(value: unknown): value is PendingRating {
     isRecord(value) &&
     typeof value.id === 'string' &&
     value.id === mediaRefId(value) &&
-    (value.coverUrl === null || isSafeCoverUrl(value.coverUrl)) &&
+    (value.coverUrl === null || isSafeImageUrl(value.coverUrl)) &&
     typeof value.completedAt === 'number' &&
     Number.isFinite(value.completedAt) &&
     (value.epochs === undefined || isSessionEpochs(value.epochs))
   );
-}
-
-/** Affiche d'une carte : URL https de taille raisonnable (jamais `javascript:` ni `data:`) */
-export function isSafeCoverUrl(value: unknown): value is string {
-  return typeof value === 'string' && value.startsWith('https://') && value.length <= 2000;
 }
 
 /**

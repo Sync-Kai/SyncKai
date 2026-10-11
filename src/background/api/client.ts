@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { endSessionIfToken } from '../../shared/session-end';
-import { getValidToken } from '../../shared/storage';
+import { getValidToken } from '../../shared/token-access';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
 import { aniListBudget, MAX_RETRY_WAIT_MS, readRateLimitHeaders, retryDelayMs, sleep, type RequestLane } from './rate-limit';
 import { createLogger } from '../../shared/logger';

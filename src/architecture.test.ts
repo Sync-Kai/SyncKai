@@ -1,49 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { EDGES, type Edge } from './test/import-graph';
 
-// Frontières des modules (voir CLAUDE.md › « Frontières des modules ») : graphe des imports relatifs de src/,
-// tests compris, lu par Vite (sources brutes) sans dépendance. Imports de types inclus : un cycle de types finit
-// souvent en cycle de valeurs.
+// Frontières des modules (voir CLAUDE.md › « Frontières des modules ») : graphe des imports relatifs de src/, tests
+// compris (src/test/import-graph.ts).
 
-/** Sources de src/, clés relatives à src/ ("popup/popup.ts") */
-const SOURCES = new Map(
-  Object.entries(import.meta.glob<string>(['./**/*.ts', '!./**/*.d.ts'], { query: '?raw', import: 'default', eager: true })).map(([path, code]) => [
-    path.slice(2),
-    code,
-  ]),
-);
-
-/** Imports statiques (`import … from`, `export … from`, `import '…'`) et dynamiques (`import('…')`) */
-const IMPORT_RE = /(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\sfrom\s+)?['"]([^'"]+)['"]|\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
-
-interface Edge {
-  from: string;
-  to: string;
-  spec: string;
-}
-
-/** Chemin relatif à src/ visé par un spécifieur relatif (`?script` retiré, extension ou index.ts implicites), sinon null */
-function resolveImport(from: string, spec: string): string | null {
-  const parts = from.split('/').slice(0, -1);
-  for (const segment of (spec.split('?')[0] ?? spec).split('/')) {
-    if (segment === '..') parts.pop();
-    else if (segment !== '.') parts.push(segment);
-  }
-  const base = parts.join('/');
-  return [base, `${base}.ts`, `${base}/index.ts`].find((path) => SOURCES.has(path)) ?? null;
-}
-
-function buildEdges(): Edge[] {
-  return [...SOURCES].flatMap(([file, code]) =>
-    [...code.matchAll(IMPORT_RE)].flatMap((match): Edge[] => {
-      const spec = match[1] ?? match[2];
-      if (spec === undefined || !spec.startsWith('.')) return [];
-      const target = resolveImport(file, spec);
-      return target ? [{ from: file, to: target, spec }] : [];
-    }),
-  );
-}
-
-const edges = buildEdges();
+const edges = EDGES;
 const layerOf = (path: string): string => path.split('/')[0] ?? path;
 const describeEdge = (e: Edge): string => `${e.from} → ${e.spec}`;
 

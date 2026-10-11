@@ -15,7 +15,7 @@ SyncKai automatically updates the user's anime list on AniList and/or MyAnimeLis
 ### storage
 
 ```
-Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens. Everything is kept in chrome.storage.local on the user's device, except short-lived caches (the entry shown for the current page, the side panel data, Netflix series recognized as not anime) kept in chrome.storage.session, in memory and cleared when the browser closes. Nothing is sent to the developer.
+Stores the user's settings, the remembered matches between streaming series and AniList/MyAnimeList entries, excluded series, recent syncs, the retry queue for failed syncs, the last 50 technical errors (redacted, no tokens or account names; only shared if the user copies the diagnostic report), and the AniList/MyAnimeList OAuth tokens, encrypted with AES-GCM (non-extractable key kept in the extension's IndexedDB, out of reach of content scripts). Everything is kept in chrome.storage.local on the user's device, except short-lived caches (the entry shown for the current page, the side panel data, Netflix series recognized as not anime) kept in chrome.storage.session, in memory and cleared when the browser closes. Nothing is sent to the developer.
 ```
 
 ### identity
@@ -118,7 +118,7 @@ No. All JavaScript is bundled in the extension package. The extension only fetch
 | Personally identifiable information | No | No name, email, address or ID is requested. The AniList/MAL username and avatar returned by those services are only cached locally to display the connected account. |
 | Health information | No | — |
 | Financial and payment information | No | — |
-| **Authentication information** | **Yes** | AniList and MyAnimeList OAuth access tokens (and MAL refresh token), obtained via `chrome.identity`, stored in `chrome.storage.local` on the device and sent only to AniList / MyAnimeList to authorize API calls. No password is ever seen by the extension. |
+| **Authentication information** | **Yes** | AniList and MyAnimeList OAuth access tokens (and MAL refresh token), obtained via `chrome.identity`, stored encrypted (AES-GCM) in `chrome.storage.local` on the device and sent only to AniList / MyAnimeList to authorize API calls. No password is ever seen by the extension. |
 | Personal communications | No | — |
 | Location | No | — |
 | **Web history** | **Yes (conservative)** | Not browsing history: the extension never reads history or pages outside Crunchyroll/ADN (and Netflix player pages, only if the user turns Netflix on). It keeps a local list of recently synced episodes (title, episode, platform link) and sends the watched episode's progress to the user's own AniList/MAL list. Only when the user starts "Import from Crunchyroll", it reads their Crunchyroll watch history in their own Crunchyroll tab to update their lists (the reduced history is kept only until the analysis ends; afterwards only the import preview is kept). Checked so the disclosure covers these records of watched episodes. |

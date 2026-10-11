@@ -1,10 +1,11 @@
 import { isAniListViewer, type AniListViewer } from './anilist.types';
 import { isAniListToken, type AniListToken } from './auth.types';
 import { isRecord } from './guards';
+import { isSealedToken, openToken, sealToken, type SealedToken } from './token-crypto';
 import { isMalToken, isMalViewer, type MalToken, type MalViewer } from './mal.types';
 import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } from './review.types';
 import { isMediaMapping, type MediaMapping } from './sync.types';
-import type { TrackerId } from './tracker.types';
+import { TRACKER_IDS, type TrackerId } from './tracker.types';
 import { isPendingRating } from './engagement-store';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from './storage-keys';
 import { isSyncQueueItem, restrictToSession } from './queue.types';
@@ -37,23 +38,120 @@ async function setSessionExpired(service: TrackerId, expired: boolean): Promise<
 /** Import Crunchyroll : propre au compte (aperçu = état des listes), effacé à toute déconnexion */
 const CR_IMPORT_STORAGE_KEYS = [STORAGE_KEYS.crImportJob, STORAGE_KEYS.crImportInput, STORAGE_KEYS.crImportResolutions, STORAGE_KEYS.crImportPlan];
 
-/** Retourne le token AniList s'il existe et n'a pas expiré. */
-export async function getValidToken(): Promise<AniListToken | null> {
-  const stored = await chrome.storage.local.get(STORAGE_KEYS.anilistToken);
-  const token: unknown = stored[STORAGE_KEYS.anilistToken];
-  return isAniListToken(token) && token.expiresAt > Date.now() ? token : null;
+// ─── Tokens OAuth (chiffrés au repos, SEC-01) ─────────────────────────────
+// Enregistrés chiffrés (token-crypto.ts) : seul un contexte de l'origine de l'extension peut les lire. Le service
+// worker les déchiffre (token-access.ts) ; les pages de l'extension n'ont besoin que de leur présence et de leur
+// expiration, lisibles sans déchiffrement. Un token en clair (avant la 2.2.0) est chiffré au premier accès ou à la
+// mise à jour (encryptLegacyTokens).
+
+/** Token déchiffré de chaque service */
+export interface TokenOf {
+  anilist: AniListToken;
+  mal: MalToken;
+}
+
+const TOKEN_STORAGE: { [S in TrackerId]: { key: string; guard: (value: unknown) => value is TokenOf[S] } } = {
+  anilist: { key: STORAGE_KEYS.anilistToken, guard: isAniListToken },
+  mal: { key: STORAGE_KEYS.malToken, guard: isMalToken },
+};
+
+/** Lecture d'un token enregistré */
+export type StoredTokenRead<T> =
+  | { kind: 'none' }
+  /** Ancien format en clair, à chiffrer */
+  | { kind: 'plain'; token: T }
+  | { kind: 'sealed'; token: T; sealed: SealedToken }
+  /** Chiffré indéchiffrable (clé perdue, contenu altéré) : session inutilisable */
+  | { kind: 'unreadable'; sealed: SealedToken };
+
+/** Un token est enregistré (chiffré ou ancien format en clair), sans le déchiffrer */
+export function isStoredToken(service: TrackerId, value: unknown): boolean {
+  return isSealedToken(value) || TOKEN_STORAGE[service].guard(value);
+}
+
+/** Expiration d'un token enregistré, sans le déchiffrer ; null si absent */
+function storedExpiry(service: TrackerId, value: unknown): number | null {
+  if (isSealedToken(value)) return value.expiresAt;
+  const guard = TOKEN_STORAGE[service].guard;
+  return guard(value) ? value.expiresAt : null;
+}
+
+async function readRawToken(service: TrackerId): Promise<unknown> {
+  const key = TOKEN_STORAGE[service].key;
+  return (await chrome.storage.local.get(key))[key];
+}
+
+/**
+ * Token du service, déchiffré, sans verrou ni effet de bord (ni migration, ni déconnexion : voir token-access.ts).
+ * Lève une erreur seulement si la clé est inaccessible (IndexedDB indisponible).
+ */
+export async function readStoredToken<S extends TrackerId>(service: S): Promise<StoredTokenRead<TokenOf[S]>> {
+  const { guard } = TOKEN_STORAGE[service];
+  const raw = await readRawToken(service);
+  if (guard(raw)) return { kind: 'plain', token: raw };
+  if (!isSealedToken(raw)) return { kind: 'none' };
+  const opened = await openToken(service, raw);
+  return opened.ok && guard(opened.value) ? { kind: 'sealed', token: opened.value, sealed: raw } : { kind: 'unreadable', sealed: raw };
+}
+
+/** Token lisible d'une lecture (déchiffré ou ancien format), sinon null */
+function tokenOf<T>(read: StoredTokenRead<T>): T | null {
+  return read.kind === 'plain' || read.kind === 'sealed' ? read.token : null;
 }
 
 /** Token AniList enregistré, même expiré (« Reconnecter ») : la session reste ouverte jusqu'à la déconnexion. */
 export async function hasAniListToken(): Promise<boolean> {
-  const stored = await chrome.storage.local.get(STORAGE_KEYS.anilistToken);
-  return isAniListToken(stored[STORAGE_KEYS.anilistToken]);
+  return isStoredToken('anilist', await readRawToken('anilist'));
 }
 
-/** Connexion AniList réussie : nouveau token, indicateur « Session expirée » retiré */
+/** Token AniList enregistré et non expiré (pages de l'extension : connecté, sans déchiffrement) */
+export async function hasValidAniListToken(): Promise<boolean> {
+  const expiresAt = storedExpiry('anilist', await readRawToken('anilist'));
+  return expiresAt !== null && expiresAt > Date.now();
+}
+
+/** Token MAL enregistré, même expiré : le refresh token permet de le renouveler. */
+export async function hasMalToken(): Promise<boolean> {
+  return isStoredToken('mal', await readRawToken('mal'));
+}
+
+/** Connexion AniList réussie : nouveau token (chiffré), indicateur « Session expirée » retiré */
 export async function saveToken(token: AniListToken): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.anilistToken]: token });
+  await chrome.storage.local.set({ [STORAGE_KEYS.anilistToken]: await sealToken('anilist', token) });
   await setSessionExpired('anilist', false);
+}
+
+/**
+ * Migration (mise à jour vers la 2.2.0, ou premier accès) : chiffre les tokens encore en clair, sous le verrou du
+ * stockage. Lève une erreur si la clé est inaccessible (les tokens restent alors lisibles en clair, nouvel essai au
+ * prochain accès). Retourne le nombre de tokens chiffrés.
+ */
+export function encryptLegacyTokens(): Promise<number> {
+  return withStorageLock(async () => {
+    let sealed = 0;
+    for (const service of TRACKER_IDS) {
+      const { key, guard } = TOKEN_STORAGE[service];
+      const raw = await readRawToken(service);
+      if (!guard(raw)) continue;
+      await chrome.storage.local.set({ [key]: await sealToken(service, raw) });
+      sealed++;
+    }
+    return sealed;
+  });
+}
+
+/**
+ * Token indéchiffrable (clé perdue : IndexedDB vidée) : ferme la session avec l'indicateur « Session expirée », comme
+ * un token refusé, seulement si `sealed` est toujours le token enregistré (une reconnexion entre-temps est conservée).
+ * Retourne true si la session a été fermée.
+ */
+export function clearUnreadableSession(service: TrackerId, sealed: SealedToken): Promise<boolean> {
+  return withStorageLock(async () => {
+    const raw = await readRawToken(service);
+    if (!isSealedToken(raw) || raw.iv !== sealed.iv || raw.data !== sealed.data) return false;
+    await (service === 'anilist' ? removeAniListSession(true) : removeMalSession(true));
+    return true;
+  });
 }
 
 export async function getCachedViewer(): Promise<AniListViewer | null> {
@@ -201,8 +299,8 @@ async function removeAniListSession(expired: boolean): Promise<void> {
  */
 export function clearAniListSessionIfToken(accessToken: string): Promise<boolean> {
   return withStorageLock(async () => {
-    const stored: unknown = (await chrome.storage.local.get(STORAGE_KEYS.anilistToken))[STORAGE_KEYS.anilistToken];
-    if (!isAniListToken(stored) || stored.accessToken !== accessToken) return false;
+    // Comparaison sur le token déchiffré (chaque écriture change l'IV, donc le chiffré)
+    if (tokenOf(await readStoredToken('anilist'))?.accessToken !== accessToken) return false;
     await removeAniListSession(true);
     return true;
   });
@@ -266,16 +364,9 @@ export function clearUserSyncDataIfNoSession(): Promise<boolean> {
 
 // ─── Session MyAnimeList ──────────────────────────────────────────────────
 
-/** Token MAL stocké, même expiré : le refresh token permet de le renouveler. */
-export async function getMalToken(): Promise<MalToken | null> {
-  const stored = await chrome.storage.local.get(STORAGE_KEYS.malToken);
-  const token: unknown = stored[STORAGE_KEYS.malToken];
-  return isMalToken(token) ? token : null;
-}
-
-/** Connexion MAL (nouvelle session), indicateur « Session expirée » retiré. Un renouvellement passe par saveRefreshedMalToken. */
+/** Connexion MAL (nouvelle session, token chiffré), indicateur « Session expirée » retiré. Un renouvellement passe par saveRefreshedMalToken. */
 export async function saveMalToken(token: MalToken): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.malToken]: token });
+  await chrome.storage.local.set({ [STORAGE_KEYS.malToken]: await sealToken('mal', token) });
   await setSessionExpired('mal', false);
 }
 
@@ -284,10 +375,12 @@ export async function saveMalToken(token: MalToken): Promise<void> {
  * et que `previous` est toujours le token enregistré (AUTH-01). Sinon (déconnexion, autre compte), le token est
  * abandonné : retourne false.
  */
-export function saveRefreshedMalToken(previous: string, token: MalToken, epoch: number): Promise<boolean> {
+export async function saveRefreshedMalToken(previous: string, token: MalToken, epoch: number): Promise<boolean> {
+  // Chiffré avant le verrou ; comparaison sur le token déchiffré
+  const sealed = await sealToken('mal', token);
   return withStorageLock(async () => {
-    if (!(await sessionsStillOpen({ mal: epoch })) || (await getMalToken())?.accessToken !== previous) return false;
-    await chrome.storage.local.set({ [STORAGE_KEYS.malToken]: token });
+    if (!(await sessionsStillOpen({ mal: epoch })) || tokenOf(await readStoredToken('mal'))?.accessToken !== previous) return false;
+    await chrome.storage.local.set({ [STORAGE_KEYS.malToken]: sealed });
     return true;
   });
 }
@@ -329,7 +422,7 @@ async function removeMalSession(expired: boolean): Promise<void> {
 /** Comme clearAniListSessionIfToken : la session MAL n'est fermée que si `accessToken` est toujours le token enregistré. */
 export function clearMalSessionIfToken(accessToken: string): Promise<boolean> {
   return withStorageLock(async () => {
-    if ((await getMalToken())?.accessToken !== accessToken) return false;
+    if (tokenOf(await readStoredToken('mal'))?.accessToken !== accessToken) return false;
     await removeMalSession(true);
     return true;
   });
@@ -379,8 +472,9 @@ export async function getOpenSessions(): Promise<SessionEpochs> {
     return typeof epoch === 'number' && Number.isFinite(epoch) ? epoch : 0;
   };
   return {
-    ...(isAniListToken(stored[STORAGE_KEYS.anilistToken]) ? { anilist: epochOf('anilist') } : {}),
-    ...(isMalToken(stored[STORAGE_KEYS.malToken]) ? { mal: epochOf('mal') } : {}),
+    // Présence seule (chiffré ou ancien format) : aucun déchiffrement
+    ...(isStoredToken('anilist', stored[STORAGE_KEYS.anilistToken]) ? { anilist: epochOf('anilist') } : {}),
+    ...(isStoredToken('mal', stored[STORAGE_KEYS.malToken]) ? { mal: epochOf('mal') } : {}),
   };
 }
 

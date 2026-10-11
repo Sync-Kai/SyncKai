@@ -43,7 +43,7 @@ Quelques caches de courte durée sont gardés en mémoire, dans le stockage de s
 ### Comptes AniList et MyAnimeList
 
 - La connexion passe par la fenêtre d’authentification officielle d’AniList ou de MyAnimeList (`chrome.identity`). SyncKai ne voit jamais ton mot de passe.
-- Les jetons d’accès (tokens OAuth) sont stockés localement et servent **uniquement** à appeler l’API du service concerné (lire ta liste, mettre à jour ta progression, ta note ou ton revisionnage).
+- Les jetons d’accès (tokens OAuth) sont stockés localement, **chiffrés** (AES-GCM, avec une clé non exportable propre à l’extension, que les pages web ne peuvent pas lire), et servent **uniquement** à appeler l’API du service concerné (lire ta liste, mettre à jour ta progression, ta note ou ton revisionnage).
 - MyAnimeList utilise le flux OAuth2 avec **PKCE**, sans secret client embarqué dans l’extension.
 
 ### Connexions réseau
@@ -59,7 +59,7 @@ SyncKai ne contacte que ces adresses :
 | `www.crunchyroll.com` | Import de l’historique, uniquement quand tu le lances, depuis ton onglet Crunchyroll |
 | `www.netflix.com` | Métadonnées de l’épisode en cours (titre, saison, numéro), uniquement si Netflix est activé, depuis ton onglet Netflix |
 
-Le popup et le panneau latéral affichent aussi les images (couvertures, bannières) et l’avatar fournis par AniList et MyAnimeList, chargés depuis leurs serveurs d’images.
+Le popup et le panneau latéral affichent aussi les images (couvertures, bannières) et l’avatar fournis par AniList et MyAnimeList, chargés depuis leurs serveurs d’images (`s4.anilist.co`, `cdn.myanimelist.net`, `api-cdn.myanimelist.net`) ; toute autre adresse d’image est bloquée, même venant d’un fichier de sauvegarde importé.
 
 ### Sauvegarde (export / import)
 
@@ -113,7 +113,7 @@ A few short-lived caches are kept in memory, in the extension’s session storag
 ### AniList and MyAnimeList accounts
 
 - Sign-in uses the official AniList or MyAnimeList authorization window (`chrome.identity`). SyncKai never sees your password.
-- Access tokens (OAuth) are stored locally and used **only** to call the corresponding service’s API (read your list, update your progress, score or rewatch).
+- Access tokens (OAuth) are stored locally, **encrypted** (AES-GCM, with a non-exportable key specific to the extension that web pages cannot read), and used **only** to call the corresponding service’s API (read your list, update your progress, score or rewatch).
 - MyAnimeList uses the OAuth2 flow with **PKCE**, with no client secret embedded in the extension.
 
 ### Network connections
@@ -129,7 +129,7 @@ SyncKai only contacts these hosts:
 | `www.crunchyroll.com` | History import, only when you start it, from your Crunchyroll tab |
 | `www.netflix.com` | Current episode metadata (title, season, number), only if Netflix is turned on, from your Netflix tab |
 
-The popup and the side panel also display images (covers, banners) and avatars provided by AniList and MyAnimeList, loaded from their image servers.
+The popup and the side panel also display images (covers, banners) and avatars provided by AniList and MyAnimeList, loaded from their image servers (`s4.anilist.co`, `cdn.myanimelist.net`, `api-cdn.myanimelist.net`); any other image address is blocked, even from an imported backup file.
 
 ### Backup (export / import)
 
@@ -183,7 +183,7 @@ Einige kurzlebige Caches werden im Arbeitsspeicher gehalten, im Sitzungsspeicher
 ### AniList- und MyAnimeList-Konten
 
 - Die Anmeldung erfolgt über das offizielle Autorisierungsfenster von AniList bzw. MyAnimeList (`chrome.identity`). SyncKai sieht dein Passwort nie.
-- Zugriffstoken (OAuth) werden lokal gespeichert und **nur** verwendet, um die API des jeweiligen Dienstes aufzurufen (Liste lesen, Fortschritt, Bewertung oder Rewatch aktualisieren).
+- Zugriffstoken (OAuth) werden lokal **verschlüsselt** gespeichert (AES-GCM, mit einem nicht exportierbaren Schlüssel der Erweiterung, den Webseiten nicht lesen können) und **nur** verwendet, um die API des jeweiligen Dienstes aufzurufen (Liste lesen, Fortschritt, Bewertung oder Rewatch aktualisieren).
 - MyAnimeList nutzt den OAuth2-Ablauf mit **PKCE**, ohne in der Erweiterung eingebettetes Client-Secret.
 
 ### Netzwerkverbindungen
@@ -199,7 +199,7 @@ SyncKai kontaktiert nur diese Hosts:
 | `www.crunchyroll.com` | Verlaufsimport, nur wenn du ihn startest, aus deinem Crunchyroll-Tab |
 | `www.netflix.com` | Metadaten der aktuellen Episode (Titel, Staffel, Nummer), nur wenn Netflix aktiviert ist, aus deinem Netflix-Tab |
 
-Das Popup und die Seitenleiste zeigen außerdem Bilder (Cover, Banner) und Avatare von AniList und MyAnimeList an, die von deren Bildservern geladen werden.
+Das Popup und die Seitenleiste zeigen außerdem Bilder (Cover, Banner) und Avatare von AniList und MyAnimeList an, die von deren Bildservern geladen werden (`s4.anilist.co`, `cdn.myanimelist.net`, `api-cdn.myanimelist.net`); jede andere Bildadresse wird blockiert, auch aus einer importierten Sicherungsdatei.
 
 ### Sicherung (Export / Import)
 

@@ -24,7 +24,7 @@ import { sendMessage, type MessageResponse } from '../../shared/messages';
 import { hasNetflixAccess } from '../../shared/netflix-access';
 import { platformSearchUrl } from '../../shared/platform-links';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, parseOffsetInput, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
-import { getCachedWatching, getMalToken, getValidToken } from '../../shared/storage';
+import { getCachedWatching, hasMalToken, hasValidAniListToken } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../shared/storage-keys';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../../ui/dom';
@@ -163,11 +163,11 @@ export function createAgenda(): AgendaView {
     /** GET_AGENDA envoyé : son échec est retenu pour la semaine */
     let requested = false;
     try {
-      const [nextSettings, netflixGranted, anilistToken, malToken, anilist, mal, excluded, cache] = await Promise.all([
+      const [nextSettings, netflixGranted, anilistConnected, malConnected, anilist, mal, excluded, cache] = await Promise.all([
         getSettings(),
         hasNetflixAccess(),
-        getValidToken(),
-        getMalToken(),
+        hasValidAniListToken(),
+        hasMalToken(),
         getCachedWatching('anilist'),
         getCachedWatching('mal'),
         getExcludedSeries(),
@@ -176,14 +176,14 @@ export function createAgenda(): AgendaView {
       if (current !== run) return;
       settings = nextSettings;
       player = effectivePlayer(nextSettings.preferredPlayer, netflixGranted);
-      const connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistToken : malToken) !== null);
+      const connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistConnected : malConnected));
       if (connected.length === 0) {
         status = { kind: 'not-connected' };
         draw();
         return;
       }
       requestMissingWatching(connected, { anilist: anilist !== null, mal: mal !== null });
-      const entries = [...(anilistToken ? (anilist?.entries ?? []) : []), ...(malToken ? (mal?.entries ?? []) : [])];
+      const entries = [...(anilistConnected ? (anilist?.entries ?? []) : []), ...(malConnected ? (mal?.entries ?? []) : [])];
       series = mergeWatchingSeries(entries, excluded, player);
       if (series.size === 0) {
         status = { kind: 'no-series', netflix: netflixGranted };

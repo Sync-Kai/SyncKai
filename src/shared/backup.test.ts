@@ -68,7 +68,8 @@ describe('BACKUP_STORAGE_KEYS', () => {
   });
 
   it('sectionsFromStorage ignore les clés non sauvegardées', () => {
-    const sections = sectionsFromStorage({ anilistToken: 'secret', malToken: 'secret', watchingCache: {}, settings: { autoSync: false } });
+    const sealed = { v: 1, iv: 'secret', data: 'secret', expiresAt: 1 };
+    const sections = sectionsFromStorage({ anilistToken: sealed, malToken: { accessToken: 'secret' }, watchingCache: {}, settings: { autoSync: false } });
     expect(JSON.stringify(sections)).not.toContain('secret');
     expect(sections.settings).toEqual({ autoSync: false });
   });
@@ -203,6 +204,24 @@ describe('parseBackup', () => {
     const result = parseBackup(fileText({ pendingReviews: [correction] }));
     if (!result.ok) throw new Error(result.message);
     expect(result.data.backup.data.pendingReviews).toEqual([{ ...correction, previous: null }]);
+  });
+
+  it('affiche hors de la liste des hôtes d’images : rejetée (null, affiche de remplacement), élément conservé (SEC-02)', () => {
+    const tracker = 'http://tracker.example/p?id=victime';
+    const lookalike = 'https://s4.anilist.co.tracker.example/x.jpg';
+    const safe = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/x.jpg';
+    const candidate = { id: 1, title: 'T', format: null, episodes: null, year: null, coverUrl: lookalike };
+    const result = parseBackup(
+      fileText({
+        pendingRatings: [{ ...rating(1, 2), coverUrl: tracker }, { ...rating(2, 1), coverUrl: safe }],
+        pendingReviews: [{ ...review('k', 1), candidates: [candidate, { ...candidate, id: 2, coverUrl: safe }] }],
+      }),
+    );
+    if (!result.ok) throw new Error(result.message);
+    expect(result.data.invalidCount).toBe(0);
+    expect(result.data.backup.data.pendingRatings.map((r) => r.coverUrl)).toEqual([null, safe]);
+    expect(result.data.backup.data.pendingReviews[0]?.candidates.map((c) => c.coverUrl)).toEqual([null, safe]);
+    expect(JSON.stringify(result.data.backup)).not.toContain('tracker.example');
   });
 
   it('sections absentes : vides, sans erreur', () => {

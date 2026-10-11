@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { isViewerQueryData, type AniListViewer, type ViewerResult } from '../../shared/anilist.types';
 import { getSessionEpoch, saveCachedViewer } from '../../shared/storage';
-import { toSafeUrl } from '../../shared/url';
+import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistQuery } from './client';
 import { ApiError } from './errors';
 import { createLogger } from '../../shared/logger';
@@ -29,7 +29,7 @@ export async function getViewer(): Promise<ViewerResult> {
       id: Viewer.id,
       name: Viewer.name,
       siteUrl: toSafeUrl(Viewer.siteUrl, 'anilist.co') ?? `https://anilist.co/user/${Viewer.id}`,
-      avatarUrl: toSafeUrl(Viewer.avatar?.medium),
+      avatarUrl: toSafeImageUrl(Viewer.avatar?.medium),
     };
     if (!(await saveCachedViewer(viewer, epoch))) {
       // Ni profil de l'ancien compte en cache, ni renvoyé à l'interface

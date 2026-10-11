@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   NETFLIX_PATTERN,
   checkAccessDeclarations,
+  checkContentSecurityPolicy,
   checkWebAccessibleResources,
   fileReferences,
   hasDynamicImport,
@@ -90,6 +91,21 @@ describe('checkAccessDeclarations', () => {
     );
     expect(errors).toHaveLength(7);
     expect(errors[0]).toMatch(/^permissions :/);
+  });
+});
+
+describe('checkContentSecurityPolicy', () => {
+  const csp = { extension_pages: "script-src 'self'; object-src 'self'; img-src 'self' https://s4.anilist.co" };
+
+  it('identique au manifeste source', () => {
+    expect(checkContentSecurityPolicy({ content_security_policy: csp }, { content_security_policy: csp })).toEqual([]);
+  });
+
+  it('retirée ou élargie par le build, absente du manifeste source', () => {
+    expect(checkContentSecurityPolicy({}, { content_security_policy: csp })).toHaveLength(1);
+    const wider = { extension_pages: `${csp.extension_pages} https:` };
+    expect(checkContentSecurityPolicy({ content_security_policy: wider }, { content_security_policy: csp })[0]).toMatch(/^content_security_policy/);
+    expect(checkContentSecurityPolicy({}, {})).toEqual(['content_security_policy.extension_pages absente du manifeste source']);
   });
 });
 

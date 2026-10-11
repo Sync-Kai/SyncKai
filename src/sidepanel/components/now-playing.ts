@@ -8,6 +8,7 @@ import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types
 import { isLongDescription, malForumUrl, redditSearchUrl } from '../../shared/panel-media';
 import type { PanelMedia, PanelRelation } from '../../shared/panel-media.types';
 import type { ListStatusChange } from '../../shared/sync.types';
+import { toImageSrc } from '../../shared/url';
 import { choosePlatformLink } from '../../shared/watching';
 import { busyAttrs, h, nodes, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';
@@ -118,8 +119,9 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       class: 'relative h-24 overflow-hidden rounded-card bg-raised',
       attrs: { style: `background-image: linear-gradient(135deg, ${color} 0%, rgba(22,19,31,.9) 100%)`, 'aria-hidden': 'true' },
     });
-    if (panel?.bannerUrl) {
-      const img = h('img', { class: 'absolute inset-0 h-full w-full object-cover', attrs: { src: panel.bannerUrl, alt: '', referrerpolicy: 'no-referrer', decoding: 'async' } });
+    const bannerSrc = toImageSrc(panel?.bannerUrl);
+    if (bannerSrc) {
+      const img = h('img', { class: 'absolute inset-0 h-full w-full object-cover', attrs: { src: bannerSrc, alt: '', referrerpolicy: 'no-referrer', decoding: 'async' } });
       img.addEventListener('error', () => img.remove(), { once: true });
       box.append(img);
     }

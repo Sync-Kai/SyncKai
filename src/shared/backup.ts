@@ -10,6 +10,7 @@ import type { SessionEpochs } from './session-epochs';
 import { normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from './settings';
 import { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } from './storage';
 import { isImportableMapping, isMediaMapping, type MediaMapping } from './sync.types';
+import { isSafeImageUrl } from './url';
 
 // Sauvegarde exportable / importable (module pur, testable). Ne contient JAMAIS les tokens,
 // profils, caches, file de relance ni préférences d'affichage du popup.
@@ -115,6 +116,20 @@ function validateRecord<T>(raw: unknown, guard: (v: unknown, key: string) => v i
 
 const isTimestamp = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
+/** Affiche hors des hôtes d'images autorisés (fichier importé, ancienne version) : remplacée par null, élément gardé (SEC-02) */
+function withSafeCover(item: unknown): unknown {
+  if (!isRecord(item) || Array.isArray(item) || typeof item.coverUrl !== 'string' || isSafeImageUrl(item.coverUrl)) return item;
+  return { ...item, coverUrl: null };
+}
+
+/** Vérification : affiches des fiches proposées filtrées comme withSafeCover */
+function withSafeCandidateCovers(review: unknown): unknown {
+  if (!isRecord(review) || Array.isArray(review) || !Array.isArray(review.candidates)) return review;
+  return { ...review, candidates: review.candidates.map(withSafeCover) };
+}
+
+const mapList = (raw: unknown, map: (item: unknown) => unknown): unknown => (Array.isArray(raw) ? raw.map(map) : raw);
+
 /** Plus récents d'abord, bornés aux maximums de l'application */
 function sortDesc<T>(list: T[], at: (item: T) => number, max: number): T[] {
   return [...list].sort((a, b) => at(b) - at(a)).slice(0, max);
@@ -128,10 +143,10 @@ function validateData(raw: Record<string, unknown>, fromFile: boolean): Validate
   const rawSettings = raw.settings;
   const settingsValid = isRecord(rawSettings) && !Array.isArray(rawSettings);
   const mappings = validateRecord(raw.mediaMappings, (v, key): v is MediaMapping => (fromFile ? isImportableMapping(key, v) : isMediaMapping(v)));
-  const reviews = validateList(raw.pendingReviews, isPendingReview, (r) => r.key);
+  const reviews = validateList(mapList(raw.pendingReviews, withSafeCandidateCovers), isPendingReview, (r) => r.key);
   const syncs = validateList(raw.recentSyncs, isRecentSync, (s) => s.key);
   const exclusions = validateList(raw.excludedSeries, isExcludedSeries, (e) => e.id);
-  const ratings = validateList(raw.pendingRatings, isPendingRating, (r) => r.id);
+  const ratings = validateList(mapList(raw.pendingRatings, withSafeCover), isPendingRating, (r) => r.id);
   const declines = validateRecord(raw.rewatchDeclined, isTimestamp);
 
   return {

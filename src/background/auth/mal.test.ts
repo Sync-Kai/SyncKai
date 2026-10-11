@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { MalToken } from '../../shared/mal.types';
+import { revealToken } from '../../test/tokens';
 
 // Renouvellement du token MyAnimeList (AUTH-01, AUTH-05, AUTH-07, AUTH-08, TEST-02) et connexion (AUTH-10) :
 // chrome.storage.local simulé par une Map, verrous Web Locks en file par nom (comme navigator.locks), endpoint de
@@ -53,7 +54,8 @@ const FAR = Number.MAX_SAFE_INTEGER;
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const tokenBody = (n: number): Record<string, unknown> => ({ access_token: `T${n}`, refresh_token: `R${n}`, expires_in: 3600 });
 const isUser = (data: unknown): data is { id: number } => typeof data === 'object' && data !== null && 'id' in data;
-const storedToken = (): MalToken | undefined => store.get('malToken') as MalToken | undefined;
+/** Token MAL enregistré, déchiffré */
+const storedToken = async (): Promise<MalToken | undefined> => (await revealToken('mal', store.get('malToken'))) as MalToken | undefined;
 
 /** Réponse retenue jusqu'à ce que le test la libère */
 function deferred(): { promise: Promise<Response>; resolve: (response: Response) => void } {
@@ -137,7 +139,7 @@ describe('renouvellement du token MAL', () => {
 
     await expect(Promise.all(requests)).resolves.toEqual([{ id: 1 }, { id: 1 }, { id: 1 }]);
     expect(refreshes).toBe(1);
-    expect(storedToken()?.accessToken).toBe('T1');
+    expect((await storedToken())?.accessToken).toBe('T1');
   });
 });
 
@@ -165,7 +167,7 @@ describe('renouvellement du token MAL : verrou et erreurs (TEST-02)', () => {
     await expect(Promise.all(calls)).resolves.toEqual(['T1', 'T1']);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(TOKEN_URL);
-    expect(storedToken()).toMatchObject({ accessToken: 'T1', refreshToken: 'R1' });
+    expect((await storedToken())).toMatchObject({ accessToken: 'T1', refreshToken: 'R1' });
   });
 
   it('400 au renouvellement : session fermée et marquée expirée (AUTH-03)', async () => {
@@ -185,7 +187,7 @@ describe('renouvellement du token MAL : verrou et erreurs (TEST-02)', () => {
     const error = await rejection(getMalAccessToken());
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ code: 'API_ERROR', httpStatus: 503 });
-    expect(storedToken()?.accessToken).toBe('X');
+    expect((await storedToken())?.accessToken).toBe('X');
     expect(store.has('sessionExpired:mal')).toBe(false);
   });
 
@@ -194,7 +196,7 @@ describe('renouvellement du token MAL : verrou et erreurs (TEST-02)', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 429 }))));
 
     expect(await rejection(getMalAccessToken())).toMatchObject({ code: 'RATE_LIMITED' });
-    expect(storedToken()?.accessToken).toBe('X');
+    expect((await storedToken())?.accessToken).toBe('X');
   });
 
   it('endpoint de token muet : abandon après le délai, verrou libéré, session intacte (AUTH-05)', async () => {
@@ -223,7 +225,7 @@ describe('renouvellement du token MAL : verrou et erreurs (TEST-02)', () => {
     timeouts[0]?.controller.abort();
 
     expect(await rejection(pending)).toMatchObject({ code: 'NETWORK', timedOut: true });
-    expect(storedToken()?.accessToken).toBe('X');
+    expect((await storedToken())?.accessToken).toBe('X');
     // Verrou libéré : l'appel suivant renouvelle
     await expect(getMalAccessToken()).resolves.toBe('T1');
   });
@@ -235,7 +237,7 @@ describe('renouvellement du token MAL : verrou et erreurs (TEST-02)', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(response)));
 
     expect(await rejection(getMalAccessToken())).toMatchObject({ code: 'NETWORK', timedOut: true });
-    expect(storedToken()?.accessToken).toBe('X');
+    expect((await storedToken())?.accessToken).toBe('X');
   });
 
   it('déconnexion volontaire : indicateur « Session expirée » retiré (AUTH-03)', async () => {
@@ -285,7 +287,7 @@ describe('connexion MyAnimeList (TEST-02, AUTH-10)', () => {
     const params = body instanceof URLSearchParams ? body : new URLSearchParams();
     expect(params.get('grant_type')).toBe('authorization_code');
     expect(params.get('code_verifier')).toBe(authParams().get('code_challenge'));
-    expect(storedToken()?.accessToken).toBe('T1');
+    expect((await storedToken())?.accessToken).toBe('T1');
     expect(store.has('sessionExpired:mal')).toBe(false);
   });
 });

@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
     environment: 'node',
+    // Clé des tokens en mémoire (pas d'IndexedDB dans Node) : voir src/test/setup.ts
+    setupFiles: ['src/test/setup.ts'],
     // `npm run coverage` : rapport seulement (aucun seuil bloquant), code de l'extension hors tests et aides de test
     coverage: {
       provider: 'v8',

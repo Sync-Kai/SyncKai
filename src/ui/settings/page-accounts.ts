@@ -3,6 +3,7 @@ import { t } from '../../i18n';
 import type { AniListViewer } from '../../shared/anilist.types';
 import type { MalViewer } from '../../shared/mal.types';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
+import { toImageSrc } from '../../shared/url';
 import { renderAlert } from '../alert';
 import { BTN_GHOST, CARD, serviceAvatar } from '../kit';
 import type { AccountState } from '../state';
@@ -13,8 +14,9 @@ import type { SettingsContext, SettingsPageView } from './context';
 import { DIVIDER } from './rows';
 
 function viewerAvatar(service: TrackerId, url: string | null): HTMLElement {
-  if (!url) return serviceAvatar(service, 'ok');
-  const img = h('img', { class: 'h-8 w-8 rounded-full object-cover', attrs: { src: url, alt: '', referrerpolicy: 'no-referrer' } });
+  const src = toImageSrc(url);
+  if (!src) return serviceAvatar(service, 'ok');
+  const img = h('img', { class: 'h-8 w-8 rounded-full object-cover', attrs: { src, alt: '', referrerpolicy: 'no-referrer' } });
   img.addEventListener('error', () => img.replaceWith(serviceIcon(service, 'h-5 w-5 rounded-[4px]', { decorative: true })), { once: true });
   return serviceAvatar(service, 'ok', img);
 }

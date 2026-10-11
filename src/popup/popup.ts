@@ -57,6 +57,7 @@ import { createStore, type AccountState, type ExclusionsState, type InlineFeedba
 import { createLogger } from '../shared/logger';
 import { openSidePanel, sidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
+import { toSafeImageUrl } from '../shared/url';
 import { AUTH_ERRORS, createAccountsController } from '../ui/accounts';
 import { isSettingsPage, type SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView } from '../ui/settings/settings-view';
@@ -832,8 +833,8 @@ async function setEntryStatus(entry: WatchingEntry, status: ListStatusChange): P
 
   let outcome: SyncOutcome;
   try {
-    // Affiche de la carte « À noter » : https uniquement (refusée sinon par la validation du message)
-    const coverUrl = entry.coverUrl?.startsWith('https://') && entry.coverUrl.length <= 2000 ? entry.coverUrl : null;
+    // Affiche de la carte « À noter » : hôte d'images autorisé uniquement (refusée sinon par la validation du message)
+    const coverUrl = toSafeImageUrl(entry.coverUrl);
     outcome = await sendMessage('SET_LIST_STATUS', { mediaId: entry.mediaId, malId: entry.malId, status, coverUrl });
   } catch (error: unknown) {
     log.error('Service worker injoignable :', error);

@@ -44,7 +44,20 @@ describe('isPendingRating', () => {
     expect(isPendingRating({ ...rating, coverUrl: 'https://s4.anilist.co/x.jpg' })).toBe(true);
     expect(isPendingRating({ ...rating, coverUrl: 'javascript:alert(1)' })).toBe(false);
     expect(isPendingRating({ ...rating, coverUrl: 'http://s4.anilist.co/x.jpg' })).toBe(false);
-    expect(isPendingRating({ ...rating, coverUrl: `https://${'a'.repeat(2000)}` })).toBe(false);
+    expect(isPendingRating({ ...rating, coverUrl: `https://s4.anilist.co/${'a'.repeat(2000)}` })).toBe(false);
+  });
+
+  it('affiche hors de la liste des hôtes d’images rejetée (SEC-02)', () => {
+    expect(isPendingRating({ ...rating, coverUrl: 'https://cdn.myanimelist.net/images/anime/1/1.jpg' })).toBe(true);
+    for (const coverUrl of [
+      'https://tracker.example/p?id=victime',
+      'https://s4.anilist.co.tracker.example/x.jpg',
+      'https://user:pass@s4.anilist.co/x.jpg',
+      'https://s4.anilist.co:8443/x.jpg',
+      'data:image/png;base64,AAAA',
+    ]) {
+      expect(isPendingRating({ ...rating, coverUrl }), coverUrl).toBe(false);
+    }
   });
 
   it('une seule définition dans le code : la copie du popup a disparu', () => {

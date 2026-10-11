@@ -6,6 +6,8 @@ import type { PendingReview, RecentSync } from './review.types';
 import type { SessionEpochs } from './session-epochs';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from './storage-keys';
 import type { MediaMapping } from './sync.types';
+import { forgetTokenKey } from '../test/memory-key-store';
+import { revealToken } from '../test/tokens';
 
 // Effacements de session, données liées au compte, écritures sous session et plafonds de storage.ts
 // (TEST-10, DATA-01, DATA-06, AUTH-01, AUTH-02, ARCH-17) :
@@ -30,8 +32,10 @@ vi.stubGlobal('chrome', {
   },
 });
 vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
+vi.mock('./badge', () => ({ refreshReviewBadge: async () => undefined }));
 
 const storage = await import('./storage');
+const tokenAccess = await import('./token-access');
 const { getSyncQueue, saveQueueItem } = await import('./sync-queue-store');
 const { PLATFORM_LINKS_KEY } = await import('./platform-links');
 const { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } = storage;
@@ -321,7 +325,7 @@ describe('écritures sous session (ARCH-17, AUTH-04, DATA-05)', () => {
     expect(await storage.saveRefreshedMalToken('autre', next, 0)).toBe(false);
     expect(store.get(STORAGE_KEYS.malToken)).toEqual(MAL_TOKEN);
     expect(await storage.saveRefreshedMalToken('mal', next, 0)).toBe(true);
-    expect(store.get(STORAGE_KEYS.malToken)).toEqual(next);
+    expect(await revealToken('mal', store.get(STORAGE_KEYS.malToken))).toEqual(next);
 
     await storage.clearMalSession();
     expect(await storage.saveRefreshedMalToken('mal2', { ...next, accessToken: 'mal3' }, 0)).toBe(false);
@@ -416,5 +420,127 @@ describe('correspondances : écritures non destructives (ARCH-15)', () => {
   it('une correspondance au mediaId non entier, au décalage non entier ou sans épisode n’est jamais lue (BAK-02)', async () => {
     store.set(STORAGE_KEYS.mediaMappings, { a: { ...valid(1), mediaId: 1.5 }, b: { ...valid(2), offset: 0.5 }, c: { ...valid(3), episodes: 0 }, d: valid(4) });
     expect(Object.keys(await storage.getMediaMappings())).toEqual(['d']);
+  });
+});
+
+describe('tokens chiffrés au repos (SEC-01)', () => {
+  beforeEach(() => forgetTokenKey());
+
+  it('saveToken / saveMalToken : AES-GCM versionné, aucun secret lisible dans le stockage, IV neuf à chaque écriture', async () => {
+    await storage.saveToken(ANILIST_TOKEN);
+    await storage.saveMalToken(MAL_TOKEN);
+    const anilist = store.get(STORAGE_KEYS.anilistToken);
+    const mal = store.get(STORAGE_KEYS.malToken);
+    expect(anilist).toEqual({ v: 1, iv: expect.any(String), data: expect.any(String), expiresAt: FAR });
+    expect(mal).toEqual({ v: 1, iv: expect.any(String), data: expect.any(String), expiresAt: FAR });
+    // Aucun token en clair : ni la valeur, ni les champs du token
+    expect(JSON.stringify([anilist, mal])).not.toMatch(/accessToken|refreshToken|"anilist"|"mal"|"refresh"/);
+    expect(await revealToken('anilist', anilist)).toEqual(ANILIST_TOKEN);
+    expect(await revealToken('mal', mal)).toEqual(MAL_TOKEN);
+
+    await storage.saveMalToken(MAL_TOKEN);
+    const again = store.get(STORAGE_KEYS.malToken);
+    expect(again).not.toEqual(mal);
+    expect(await revealToken('mal', again)).toEqual(MAL_TOKEN);
+  });
+
+  it('déchiffrement : lecture du service worker identique au token enregistré ; chiffré d’un autre service refusé', async () => {
+    await storage.saveToken(ANILIST_TOKEN);
+    await storage.saveMalToken(MAL_TOKEN);
+    expect(await tokenAccess.getValidToken()).toEqual(ANILIST_TOKEN);
+    expect(await tokenAccess.getMalToken()).toEqual(MAL_TOKEN);
+    // Chiffré AniList recopié sous la clé MAL : données authentifiées différentes, illisible
+    expect((await storage.readStoredToken('mal')).kind).toBe('sealed');
+    store.set(STORAGE_KEYS.malToken, store.get(STORAGE_KEYS.anilistToken));
+    expect((await storage.readStoredToken('mal')).kind).toBe('unreadable');
+  });
+
+  it('présence et expiration lues sans déchiffrement (pages de l’extension, sessions ouvertes)', async () => {
+    expect(await storage.hasValidAniListToken()).toBe(false);
+    expect(await storage.hasMalToken()).toBe(false);
+    await storage.saveToken({ accessToken: 'expire', expiresAt: 1 });
+    await storage.saveMalToken(MAL_TOKEN);
+    // Clé perdue : la présence reste lisible (la session n'est fermée qu'au déchiffrement)
+    forgetTokenKey();
+    expect(await storage.hasAniListToken()).toBe(true);
+    expect(await storage.hasValidAniListToken()).toBe(false);
+    expect(await storage.hasMalToken()).toBe(true);
+    expect(await storage.getOpenSessions()).toEqual({ anilist: 0, mal: 0 });
+  });
+
+  it('ancien token en clair : chiffré au premier accès du service worker, même valeur renvoyée', async () => {
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    store.set(STORAGE_KEYS.malToken, MAL_TOKEN);
+    expect(await tokenAccess.getMalToken()).toEqual(MAL_TOKEN);
+    // Les deux tokens chiffrés en une fois, sous le verrou
+    expect(store.get(STORAGE_KEYS.malToken)).toMatchObject({ v: 1 });
+    expect(store.get(STORAGE_KEYS.anilistToken)).toMatchObject({ v: 1 });
+    expect(await tokenAccess.getValidToken()).toEqual(ANILIST_TOKEN);
+    expect(await tokenAccess.getMalToken()).toEqual(MAL_TOKEN);
+  });
+
+  it('encryptLegacyTokens (mise à jour) : chiffre les seuls tokens en clair, sans changer de session', async () => {
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    await storage.saveMalToken(MAL_TOKEN);
+    const sealedMal = store.get(STORAGE_KEYS.malToken);
+    expect(await storage.encryptLegacyTokens()).toBe(1);
+    expect(store.get(STORAGE_KEYS.malToken)).toEqual(sealedMal);
+    expect(await revealToken('anilist', store.get(STORAGE_KEYS.anilistToken))).toEqual(ANILIST_TOKEN);
+    expect(await storage.encryptLegacyTokens()).toBe(0);
+    expect(await storage.getOpenSessions()).toEqual({ anilist: 0, mal: 0 });
+  });
+
+  it('clé perdue (IndexedDB vidée) : déconnexion propre avec « Session expirée », une seule fois', async () => {
+    seedEverything();
+    await storage.saveToken(ANILIST_TOKEN);
+    await storage.saveMalToken(MAL_TOKEN);
+    forgetTokenKey();
+
+    expect(await tokenAccess.getMalToken()).toBeNull();
+    expect(store.has(STORAGE_KEYS.malToken)).toBe(false);
+    expect(store.has(STORAGE_KEYS.malViewer)).toBe(false);
+    expect(await storage.isSessionExpired('mal')).toBe(true);
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 0, mal: 1 });
+    // Aucune boucle : la lecture suivante ne trouve plus rien à fermer
+    expect(await tokenAccess.getMalToken()).toBeNull();
+    expect(store.get(STORAGE_KEYS.sessionEpoch)).toEqual({ anilist: 0, mal: 1 });
+
+    expect(await tokenAccess.getValidToken()).toBeNull();
+    expect(await storage.isSessionExpired('anilist')).toBe(true);
+    // Plus aucune session : données de l'utilisateur effacées comme après un token refusé
+    expect(store.has(SYNC_QUEUE_KEY)).toBe(false);
+    expect(store.has(STORAGE_KEYS.recentSyncs)).toBe(false);
+  });
+
+  it('clé perdue mais reconnexion entre-temps : la nouvelle session est conservée', async () => {
+    await storage.saveMalToken(MAL_TOKEN);
+    forgetTokenKey();
+    const read = await storage.readStoredToken('mal');
+    if (read.kind !== 'unreadable') throw new Error('attendu : unreadable');
+    await storage.saveMalToken({ ...MAL_TOKEN, accessToken: 'neuf' });
+    expect(await storage.clearUnreadableSession('mal', read.sealed)).toBe(false);
+    expect(await tokenAccess.getMalToken()).toMatchObject({ accessToken: 'neuf' });
+  });
+
+  it('tokens chiffrés : refus (AUTH-02) et renouvellement (AUTH-01) comparés sur le token déchiffré', async () => {
+    await storage.saveToken(ANILIST_TOKEN);
+    await storage.saveMalToken(MAL_TOKEN);
+    expect(await storage.clearAniListSessionIfToken('autre')).toBe(false);
+    expect(await storage.saveRefreshedMalToken('autre', { ...MAL_TOKEN, accessToken: 'mal2' }, 0)).toBe(false);
+    expect(await storage.saveRefreshedMalToken('mal', { ...MAL_TOKEN, accessToken: 'mal2' }, 0)).toBe(true);
+    expect(await storage.clearMalSessionIfToken('mal')).toBe(false);
+    expect(await storage.clearMalSessionIfToken('mal2')).toBe(true);
+    expect(await storage.clearAniListSessionIfToken('anilist')).toBe(true);
+    expect(store.has(STORAGE_KEYS.anilistToken)).toBe(false);
+  });
+
+  it('readTokenSecrets (rapport de diagnostic) : valeurs déchiffrées, rien si la clé est perdue', async () => {
+    await storage.saveToken(ANILIST_TOKEN);
+    await storage.saveMalToken(MAL_TOKEN);
+    expect(await tokenAccess.readTokenSecrets()).toEqual(['anilist', 'mal', 'refresh']);
+    forgetTokenKey();
+    expect(await tokenAccess.readTokenSecrets()).toEqual([]);
+    // Sans effet de bord : aucune déconnexion
+    expect(store.has(STORAGE_KEYS.malToken)).toBe(true);
   });
 });

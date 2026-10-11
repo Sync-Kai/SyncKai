@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
-import { getValidToken } from '../../shared/storage';
+import { getValidToken } from '../../shared/token-access';
 import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
 import { isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from '../sync/score';

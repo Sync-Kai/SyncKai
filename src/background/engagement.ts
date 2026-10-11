@@ -1,7 +1,8 @@
 import { t } from '../i18n';
 import type { AniListErrorCode } from '../shared/anilist.types';
 import { refreshReviewBadge } from '../shared/badge';
-import { addPendingRating, getPendingRatings, isRatingSettled, isSafeCoverUrl, recordRewatchDecline, removePendingRating } from '../shared/engagement-store';
+import { addPendingRating, getPendingRatings, isRatingSettled, recordRewatchDecline, removePendingRating } from '../shared/engagement-store';
+import { toSafeImageUrl } from '../shared/url';
 import { mediaRefId, type MediaRef, type Score10 } from '../shared/engagement.types';
 import type { Result } from '../shared/result';
 import { sessionsOf, type SessionEpochs } from '../shared/session-epochs';
@@ -111,7 +112,7 @@ export async function deferRating(media: MediaRef, coverUrl: string | null): Pro
   try {
     const epochs = await getOpenSessions();
     // Affiche hors https : carte sans image plutôt qu'illisible (isPendingRating)
-    const cover = isSafeCoverUrl(coverUrl) ? coverUrl : null;
+    const cover = toSafeImageUrl(coverUrl);
     await addPendingRating({ mediaId: media.mediaId, malId: media.malId, title: media.title, id: mediaRefId(media), coverUrl: cover, completedAt: Date.now(), epochs });
     await refreshReviewBadge();
     return { ok: true, data: null };

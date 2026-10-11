@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 import type { AiringSchedule } from '../shared/agenda';
 import { isRecord } from '../shared/guards';
+import { toSafeImageUrl } from '../shared/url';
 
 // Règles pures des alertes de sortie d'épisodes (testées sans chrome.*).
 
@@ -130,7 +131,7 @@ export function toAiringItems(data: AiringPageData): AiringItem[] {
     episode: node.episode,
     airingAt: node.airingAt,
     title: node.media.title.userPreferred ?? `Anime #${node.media.id}`,
-    coverUrl: node.media.coverImage?.medium ?? null,
+    coverUrl: toSafeImageUrl(node.media.coverImage?.medium),
   }));
 }
 

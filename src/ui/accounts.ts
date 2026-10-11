@@ -8,7 +8,7 @@ import { createLogger } from '../shared/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
 import { sendMessage } from '../shared/messages';
 import { endSession } from '../shared/session-end';
-import { getCachedMalViewer, getCachedViewer, getMalToken, getValidToken, getViewerFetchedAt, hasAniListToken, isSessionExpired } from '../shared/storage';
+import { getCachedMalViewer, getCachedViewer, getViewerFetchedAt, hasAniListToken, hasMalToken, hasValidAniListToken, isSessionExpired } from '../shared/storage';
 import { STORAGE_KEYS } from '../shared/storage-keys';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { createStore, LOGGED_OUT, type AccountState, type AniListState, type MalState, type Store } from './state';
@@ -131,9 +131,9 @@ export function createAccountsController(): AccountsController {
   async function bootstrap(service: TrackerId): Promise<void> {
     const target = store(service);
     try {
-      // MAL : token présent, même expiré (le service worker le renouvellera)
-      const token = service === 'anilist' ? await getValidToken() : await getMalToken();
-      if (!token) {
+      // MAL : token présent, même expiré (le service worker le renouvellera). Présence seule : jamais déchiffré ici
+      const connected = service === 'anilist' ? await hasValidAniListToken() : await hasMalToken();
+      if (!connected) {
         // Token AniList présent mais expiré, ou session invalidée en arrière-plan (AUTH-03) : « Reconnecter » plutôt que l'accueil
         const expired = (service === 'anilist' && (await hasAniListToken())) || (await isSessionExpired(service));
         target.set({ ...LOGGED_OUT, expired });

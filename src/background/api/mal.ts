@@ -4,7 +4,7 @@ import type { MalViewer, MalViewerResult } from '../../shared/mal.types';
 import { endSessionIfToken } from '../../shared/session-end';
 import { getSessionEpoch, saveCachedMalViewer } from '../../shared/storage';
 import type { ManualListStatus } from '../../shared/sync.types';
-import { toSafeUrl } from '../../shared/url';
+import { toSafeImageUrl } from '../../shared/url';
 import { getMalAccessToken } from '../auth/mal';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
 import { malScoreFrom, type EntryWrite } from '../../shared/compare';
@@ -181,7 +181,7 @@ export async function getMalViewer(): Promise<MalViewerResult> {
     const viewer: MalViewer = {
       id: user.id,
       name: user.name,
-      pictureUrl: toSafeUrl(typeof user.picture === 'string' ? user.picture : null),
+      pictureUrl: toSafeImageUrl(user.picture),
     };
     if (!(await saveCachedMalViewer(viewer, epoch))) {
       return { ok: false, code: 'NOT_AUTHENTICATED', message: t('api.notAuthenticated', { service: 'MyAnimeList' }) };

@@ -16,7 +16,7 @@ import { learnedLinksFor, mergePlatformLinks, type PlatformLinkStore } from '../
 import { getPlatformLinks } from '../../shared/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
 import { getRecentSyncs } from '../../shared/storage';
-import { toSafeUrl } from '../../shared/url';
+import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
 import { ApiError } from './errors';
 import { buildPlatforms, parseNextEpisode, toAiringStatus } from './watching';
@@ -70,7 +70,7 @@ function parseRelation(edge: unknown): PanelRelation | null {
     mediaId: node.id,
     title: title ?? `#${node.id}`,
     format: str(node.format),
-    coverUrl: toSafeUrl(str(cover.medium)),
+    coverUrl: toSafeImageUrl(str(cover.medium)),
     siteUrl: anilistUrl(node.siteUrl) ?? `https://anilist.co/anime/${node.id}`,
     platforms: buildPlatforms(node.externalLinks, []),
   };
@@ -94,8 +94,8 @@ export function parsePanelMedia(media: unknown): PanelMedia | null {
     title: str(title.userPreferred) ?? str(title.romaji) ?? str(title.english) ?? `#${media.id}`,
     romajiTitle: str(title.romaji),
     englishTitle: str(title.english),
-    bannerUrl: toSafeUrl(str(media.bannerImage)),
-    coverUrl: toSafeUrl(str(cover.extraLarge) ?? str(cover.large)),
+    bannerUrl: toSafeImageUrl(str(media.bannerImage)),
+    coverUrl: toSafeImageUrl(str(cover.extraLarge) ?? str(cover.large)),
     coverColor: color !== null && /^#[0-9a-f]{6}$/i.test(color) ? color : null,
     description: sanitizeDescription(str(media.description)),
     genres: arr(media.genres)

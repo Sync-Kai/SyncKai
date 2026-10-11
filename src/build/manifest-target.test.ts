@@ -57,6 +57,14 @@ describe('targetManifest', () => {
   });
 });
 
+describe('CSP des pages de l’extension (SEC-02)', () => {
+  // Aussi sous `npm run dev` : le service worker de crxjs charge ses modules depuis Vite (localhost) malgré `script-src 'self'`
+  it('recopiée telle quelle pour Chrome et Firefox', () => {
+    expect(targetManifest(manifest, 'chrome').content_security_policy).toEqual(manifest.content_security_policy);
+    expect(targetManifest(manifest, 'firefox').content_security_policy).toEqual(manifest.content_security_policy);
+  });
+});
+
 describe('parseBuildTarget', () => {
   it('chrome par défaut', () => {
     expect(parseBuildTarget(undefined)).toBe('chrome');

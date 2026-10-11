@@ -11,6 +11,7 @@ import { isAddListStatus, isListStatusChange, type AddListStatus, type ListStatu
 import { isPageMediaInfo, type PageMediaResult, type ResolvePageMediaPayload } from './page-media.types';
 import type { PanelMediaResult } from './panel-media.types';
 import { isTrackerId, type TrackerId } from './tracker.types';
+import { isSafeImageUrl } from './url';
 import type { WatchingResult } from './watching.types';
 import { isApplyDiffsPayload, type ApplyDiffsPayload, type ApplyResult, type CancelJobResult, type CompareResult } from './compare';
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from './engagement.types';
@@ -45,7 +46,7 @@ export interface SetListStatusPayload {
   mediaId: number | null;
   malId: number | null;
   status: ListStatusChange;
-  /** Affiche de la carte « À noter » créée après « Terminé » (https uniquement) */
+  /** Affiche de la carte « À noter » créée après « Terminé » (hôte d'images autorisé, url.ts › IMAGE_HOSTS) */
   coverUrl: string | null;
 }
 
@@ -128,31 +129,6 @@ export interface MessageMap {
   CR_IMPORT_REVIEWS: { payload: CrImportReviewsPayload; response: CrImportReviewsResult };
 }
 
-/** Messages réservés aux pages de l'extension (popup) : refusés s'ils viennent d'un content script */
-export const EXTENSION_PAGE_ONLY: ReadonlySet<MessageType> = new Set([
-  'LOGIN_ANILIST',
-  'LOGIN_MAL',
-  'SEARCH_ANIME',
-  'RESOLVE_REVIEW',
-  'REOPEN_REVIEW',
-  'GET_WATCHING',
-  'ADJUST_PROGRESS',
-  'SET_LIST_STATUS',
-  'RETRY_QUEUED',
-  'CHECK_AIRING',
-  'RESOLVE_PAGE_MEDIA',
-  'ADD_TO_LIST',
-  'COMPARE_LISTS',
-  'APPLY_DIFFS',
-  'CANCEL_COMPARE_JOB',
-  'GET_PANEL_MEDIA',
-  'GET_AGENDA',
-  'CR_IMPORT_ANALYZE',
-  'CR_IMPORT_APPLY',
-  'CR_IMPORT_CANCEL',
-  'CR_IMPORT_REVIEWS',
-]);
-
 export type MessageType = keyof MessageMap;
 export type MessagePayload<K extends MessageType> = MessageMap[K]['payload'];
 export type MessageResponse<K extends MessageType> = MessageMap[K]['response'];
@@ -160,6 +136,54 @@ export type MessageResponse<K extends MessageType> = MessageMap[K]['response'];
 export interface RuntimeMessage<K extends MessageType = MessageType> {
   type: K;
   payload: MessagePayload<K>;
+}
+
+/** Expéditeur d'un message : page de l'extension (popup, panneau, réglages, pages d'import) ou script de contenu */
+export type MessageOrigin = 'content' | 'extension';
+
+/**
+ * Expéditeurs autorisés de chaque message (ARCH-07) : liste d'autorisation exhaustive, imposée par le compilateur comme
+ * PAYLOAD_GUARDS. Un nouveau type doit choisir son origine ; le service worker refuse tout message venu d'ailleurs.
+ * Les scripts de contenu tournent sur des pages tierces (Crunchyroll, ADN, Netflix) : seuls les messages de lecture
+ * et d'engagement leur sont ouverts (types envoyés depuis src/content, vérifiés par messages.test.ts).
+ */
+export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
+  LOGIN_ANILIST: 'extension',
+  GET_VIEWER: 'extension',
+  LOGIN_MAL: 'extension',
+  GET_MAL_VIEWER: 'extension',
+  EPISODE_COMPLETED: 'content',
+  SEARCH_ANIME: 'extension',
+  RESOLVE_REVIEW: 'extension',
+  REOPEN_REVIEW: 'extension',
+  GET_WATCHING: 'extension',
+  ADJUST_PROGRESS: 'extension',
+  SET_LIST_STATUS: 'extension',
+  RETRY_QUEUED: 'extension',
+  // Popup (carte « À noter », « Sur cette page ») et invite de fin d'épisode
+  RATE_MEDIA: 'both',
+  DEFER_RATING: 'content',
+  START_REWATCH: 'content',
+  DECLINE_REWATCH: 'content',
+  CHECK_AIRING: 'extension',
+  RESOLVE_PAGE_MEDIA: 'extension',
+  ADD_TO_LIST: 'extension',
+  COMPARE_LISTS: 'extension',
+  APPLY_DIFFS: 'extension',
+  CANCEL_COMPARE_JOB: 'extension',
+  PANEL_AVAILABLE: 'content',
+  GET_PANEL_MEDIA: 'extension',
+  GET_AGENDA: 'extension',
+  CR_IMPORT_ANALYZE: 'extension',
+  CR_IMPORT_APPLY: 'extension',
+  CR_IMPORT_CANCEL: 'extension',
+  CR_IMPORT_REVIEWS: 'extension',
+};
+
+/** Le message `type` est accepté depuis cet expéditeur */
+export function isAllowedOrigin(type: MessageType, origin: MessageOrigin): boolean {
+  const allowed = MESSAGE_ORIGINS[type];
+  return allowed === 'both' || allowed === origin;
 }
 
 /** Union discriminée de tous les messages possibles */
@@ -203,12 +227,12 @@ const isSetListStatusPayload = (p: unknown): p is SetListStatusPayload =>
   (p.malId === null || isPositiveInt(p.malId)) &&
   (p.mediaId !== null || p.malId !== null) &&
   isListStatusChange(p.status) &&
-  (p.coverUrl === null || (typeof p.coverUrl === 'string' && p.coverUrl.length <= 2000 && p.coverUrl.startsWith('https://')));
+  (p.coverUrl === null || isSafeImageUrl(p.coverUrl));
 const isRetryQueuedPayload =(p: unknown): p is { id: string } => isRecord(p) && isKey(p.id);
 const isRatePayload = (p: unknown): p is { media: MediaRef; score: Score10; fromCard?: boolean } =>
   isRecord(p) && isMediaRef(p.media) && isScore10(p.score) && (p.fromCard === undefined || typeof p.fromCard === 'boolean');
 const isDeferRatingPayload = (p: unknown): p is { media: MediaRef; coverUrl: string | null } =>
-  isRecord(p) && isMediaRef(p.media) && (p.coverUrl === null || (typeof p.coverUrl === 'string' && p.coverUrl.length <= 2000));
+  isRecord(p) && isMediaRef(p.media) && (p.coverUrl === null || isSafeImageUrl(p.coverUrl));
 const isRewatchPayload = (p: unknown): p is { media: MediaRef; progress: number } => isRecord(p) && isMediaRef(p.media) && isPositiveInt(p.progress);
 const isMediaPayload = (p: unknown): p is { media: MediaRef } => isRecord(p) && isMediaRef(p.media);
 const isReopenReviewPayload = (p: unknown): p is { key: string } => isRecord(p) && isKey(p.key);
@@ -271,7 +295,7 @@ export async function sendMessage<K extends MessageType>(type: K, payload: Messa
 
 /**
  * Expéditeur = page de l'extension (popup, panneau, pages d'import ouvertes dans un onglet) et non un
- * content script. `sender.tab` ne suffit pas : une page de l'extension ouverte dans un onglet en a un.
+ * content script (voir MESSAGE_ORIGINS). `sender.tab` ne suffit pas : une page de l'extension ouverte dans un onglet en a un.
  * `extensionOrigin` : chrome.runtime.getURL('') (chrome-extension://<id>/ ou moz-extension://<uuid>/).
  */
 export function isExtensionPageSender(sender: { url?: string }, extensionOrigin: string): boolean {

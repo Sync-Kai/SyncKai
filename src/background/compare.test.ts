@@ -32,8 +32,8 @@ vi.mock('./api/mal', async (importOriginal) => ({
 // Deux comptes connectés
 vi.mock('../shared/storage', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../shared/storage')>()),
-  getValidToken: async () => ({ accessToken: 'al' }),
-  getMalToken: async () => ({ accessToken: 'mal' }),
+  hasValidAniListToken: async () => true,
+  hasMalToken: async () => true,
 }));
 // Espacement des écritures et budget AniList sans attente réelle
 const slots = vi.hoisted(() => ({ waitWriteSlot: vi.fn(async () => undefined), waitReadSlot: vi.fn(async () => undefined) }));

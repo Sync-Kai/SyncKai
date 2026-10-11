@@ -1,7 +1,7 @@
 import type { AniListListEntry, MalListEntry } from '../shared/compare';
 import { isListStatus } from '../shared/compare';
 import { isRecord } from '../shared/guards';
-import { toSafeUrl } from '../shared/url';
+import { toSafeImageUrl } from '../shared/url';
 import { fromMalStatus } from './api/mal';
 
 // Lecture défensive des listes complètes (réponses externes) : une entrée illisible est ignorée.
@@ -36,7 +36,7 @@ export function parseAniListCollection(collection: unknown): AniListListEntry[] 
           mediaId,
           malId: num(media.idMal),
           title: title ?? `#${mediaId}`,
-          coverUrl: toSafeUrl(cover),
+          coverUrl: toSafeImageUrl(cover),
           status: raw.status,
           progress: count(raw.progress),
           score: score(raw.score),
@@ -61,7 +61,7 @@ export function parseMalListPage(data: readonly unknown[]): MalListEntry[] {
         malId,
         mediaId: null,
         title: str(item.node.title) ?? `#${malId}`,
-        coverUrl: toSafeUrl(picture),
+        coverUrl: toSafeImageUrl(picture),
         status,
         progress: count(ls.num_episodes_watched),
         score: score(ls.score),

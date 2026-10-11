@@ -31,10 +31,10 @@ import type { SessionEpochs } from '../shared/session-epochs';
 import { getSettings } from '../shared/settings';
 import {
   getCachedWatching,
-  getMalToken,
   getOpenSessions,
   getRecentSyncs,
-  getValidToken,
+  hasMalToken,
+  hasValidAniListToken,
   sessionsStillOpen,
 } from '../shared/storage';
 import { withStorageLock } from '../shared/storage-lock';
@@ -75,12 +75,12 @@ export async function getCachedEntries(): Promise<WatchingEntry[]> {
   return (await getCachedLists()).flatMap((list) => list.entries);
 }
 
-/** Services connectés : token AniList valide, token MAL présent (renouvelé à la demande) */
+/** Services connectés : token AniList valide, token MAL présent (renouvelé à la demande) ; sans déchiffrement */
 async function connectedServices(): Promise<TrackerId[]> {
-  const [anilist, mal] = await Promise.all([getValidToken(), getMalToken()]);
+  const [anilist, mal] = await Promise.all([hasValidAniListToken(), hasMalToken()]);
   const services: TrackerId[] = [];
-  if (anilist !== null) services.push('anilist');
-  if (mal !== null) services.push('mal');
+  if (anilist) services.push('anilist');
+  if (mal) services.push('mal');
   return services;
 }
 

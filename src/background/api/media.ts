@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
-import { toSafeUrl } from '../../shared/url';
+import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
 import type { RequestLane } from './rate-limit';
 import { ApiError } from './errors';
@@ -76,7 +76,7 @@ function parseMedia(value: unknown): AniListMedia | null {
     startDate: start ? { year: num(start.year), month: num(start.month), day: num(start.day) } : null,
     displayTitle: str(title.userPreferred) ?? str(title.romaji) ?? str(title.english) ?? `#${value.id}`,
     year: num(value.seasonYear) ?? (start ? num(start.year) : null),
-    coverUrl: toSafeUrl(str(cover.medium)),
+    coverUrl: toSafeImageUrl(str(cover.medium)),
     titles: [...new Set(titles.filter((t): t is string => typeof t === 'string' && t.length > 0))],
     externalLinkUrls: arr(value.externalLinks).flatMap((l) => (isRecord(l) && typeof l.url === 'string' ? [l.url] : [])),
     relations: arr(isRecord(value.relations) ? value.relations.edges : []).flatMap((edge) => {
@@ -181,7 +181,7 @@ export async function getPageMediaDetails(id: number): Promise<PageMediaDetails>
     mediaId: media.id,
     idMal: num(media.idMal),
     title: str(title.userPreferred) ?? str(title.romaji) ?? str(title.english) ?? `#${media.id}`,
-    coverUrl: toSafeUrl(str(cover.large) ?? str(cover.medium)),
+    coverUrl: toSafeImageUrl(str(cover.large) ?? str(cover.medium)),
     episodes: num(media.episodes),
     format: str(media.format),
     year: num(media.seasonYear) ?? num(start.year),

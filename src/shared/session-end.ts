@@ -1,5 +1,6 @@
 import { refreshReviewBadge } from './badge';
-import { clearAniListSession, clearAniListSessionIfToken, clearMalSession, clearMalSessionIfToken, clearUserSyncDataIfNoSession } from './storage';
+import { clearAniListSession, clearAniListSessionIfToken, clearMalSession, clearMalSessionIfToken, clearUnreadableSession, clearUserSyncDataIfNoSession } from './storage';
+import type { SealedToken } from './token-crypto';
 import type { TrackerId } from './tracker.types';
 
 /** Après la fermeture d'une session : données de l'utilisateur si plus aucun service n'est connecté, badge de l'icône */
@@ -24,6 +25,17 @@ export async function endSession(service: TrackerId): Promise<void> {
  */
 export async function endSessionIfToken(service: TrackerId, accessToken: string): Promise<boolean> {
   const ended = await (service === 'anilist' ? clearAniListSessionIfToken(accessToken) : clearMalSessionIfToken(accessToken));
+  if (ended) await afterSessionEnd();
+  return ended;
+}
+
+/**
+ * Token `sealed` indéchiffrable (clé perdue) : session fermée avec « Session expirée » s'il est toujours le token
+ * enregistré, comme un token refusé. Le token est retiré : la lecture suivante ne recommence pas. Retourne true si la
+ * session a été fermée.
+ */
+export async function endSessionIfUnreadable(service: TrackerId, sealed: SealedToken): Promise<boolean> {
+  const ended = await clearUnreadableSession(service, sealed);
   if (ended) await afterSessionEnd();
   return ended;
 }

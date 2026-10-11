@@ -36,6 +36,7 @@ export interface BuiltManifest {
   sidebar_action?: { default_panel?: string; default_icon?: Record<string, string> };
   options_page?: string;
   options_ui?: { page?: string };
+  content_security_policy?: { extension_pages?: string };
 }
 
 /** Champs d'accès comparés au manifeste source (après adaptation à la cible) */
@@ -112,6 +113,18 @@ export function checkAccessDeclarations(built: BuiltManifest, expected: BuiltMan
   if ((built.content_scripts ?? []).some((script) => script.matches?.includes(NETFLIX_PATTERN))) errors.push(`${NETFLIX_PATTERN} dans content_scripts`);
   if (!built.optional_host_permissions?.includes(NETFLIX_PATTERN)) errors.push(`${NETFLIX_PATTERN} absent de optional_host_permissions`);
   return errors;
+}
+
+/**
+ * CSP des pages de l'extension (SEC-02) : présente et identique au manifeste source (le build ne doit ni la retirer ni
+ * l'élargir). Ce n'est pas une permission : rien à justifier sur le Chrome Web Store.
+ */
+export function checkContentSecurityPolicy(built: BuiltManifest, expected: BuiltManifest): string[] {
+  const wanted = expected.content_security_policy?.extension_pages;
+  if (wanted === undefined) return ['content_security_policy.extension_pages absente du manifeste source'];
+  const actual = built.content_security_policy?.extension_pages;
+  if (actual !== wanted) return [`content_security_policy.extension_pages : ${JSON.stringify(actual ?? null)} ≠ manifeste source ${JSON.stringify(wanted)}`];
+  return [];
 }
 
 /** Chemins du paquet cités dans des chaînes (`chrome.runtime.getURL("assets/…")`, scripts Netflix, pages) */

@@ -20,9 +20,10 @@ import { refreshReviewBadge } from '../shared/badge';
 import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { STORAGE_KEYS } from '../shared/storage-keys';
 import {
-  EXTENSION_PAGE_ONLY,
+  isAllowedOrigin,
   isExtensionPageSender,
   isRuntimeMessage,
+  type MessageOrigin,
   type MessagePayload,
   type MessageResponse,
   type MessageType,
@@ -166,10 +167,11 @@ chrome.runtime.onMessage.addListener(
   ): boolean => {
     // N'accepte que les messages provenant de l'extension elle-même (popup ou content scripts)
     if (sender.id !== chrome.runtime.id || !isRuntimeMessage(message)) return false;
-    // Les actions sur le compte ne viennent que des pages de l'extension (popup, panneau, onglets d'import) :
-    // un content script est refusé, même s'il tourne dans un onglet comme une page de l'extension
-    if (EXTENSION_PAGE_ONLY.has(message.type) && !isExtensionPageSender(sender, chrome.runtime.getURL(''))) {
-      log.warn('Message refusé depuis un onglet :', message.type);
+    // Liste d'autorisation par type (MESSAGE_ORIGINS, ARCH-07) : un content script n'envoie que les messages de
+    // lecture et d'engagement, même s'il tourne dans un onglet comme une page de l'extension
+    const origin: MessageOrigin = isExtensionPageSender(sender, chrome.runtime.getURL('')) ? 'extension' : 'content';
+    if (!isAllowedOrigin(message.type, origin)) {
+      log.warn(`Message refusé (expéditeur ${origin === 'content' ? 'script de contenu' : 'page de l’extension'}) :`, message.type);
       return false;
     }
 

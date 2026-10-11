@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
+import { revealToken } from '../../test/tokens';
 
 // Connexion AniList par-dessus un token expiré (AUTH-06) : la session de l'ancien compte est fermée avant la nouvelle.
 
@@ -59,7 +60,7 @@ describe('loginWithAniList (AUTH-06)', () => {
       platformLinks: { '1': [] },
     };
     expect(await loginWithAniList()).toEqual({ ok: true, data: null });
-    expect(store.anilistToken).toMatchObject({ accessToken: 'NEW' });
+    expect(await revealToken('anilist', store.anilistToken)).toMatchObject({ accessToken: 'NEW' });
     expect(store.sessionEpoch).toEqual({ anilist: 3 });
     for (const key of ['anilistViewer', 'compare:last', 'crImport:plan', 'syncQueue']) expect(store, key).not.toHaveProperty(key);
     expect(store.watchingCache).toEqual({});
@@ -70,6 +71,6 @@ describe('loginWithAniList (AUTH-06)', () => {
     store = { sessionEpoch: { anilist: 2 } };
     expect(await loginWithAniList()).toEqual({ ok: true, data: null });
     expect(store.sessionEpoch).toEqual({ anilist: 2 });
-    expect(store.anilistToken).toMatchObject({ accessToken: 'NEW' });
+    expect(await revealToken('anilist', store.anilistToken)).toMatchObject({ accessToken: 'NEW' });
   });
 });

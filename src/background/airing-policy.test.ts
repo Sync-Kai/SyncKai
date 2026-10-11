@@ -176,7 +176,7 @@ describe('fenêtre élargie à la semaine (agenda)', () => {
 });
 
 describe('réponse airingSchedules', () => {
-  const node = { id: 7, episode: 3, airingAt: NOW, media: { id: 1, title: { userPreferred: 'Frieren' }, coverImage: { medium: 'https://img/1.jpg' } } };
+  const node = { id: 7, episode: 3, airingAt: NOW, media: { id: 1, title: { userPreferred: 'Frieren' }, coverImage: { medium: 'https://s4.anilist.co/file/1.jpg' } } };
 
   it('valide une page et ses nœuds', () => {
     expect(isAiringPageData({ Page: { pageInfo: { hasNextPage: true }, airingSchedules: [node] } })).toBe(true);
@@ -188,10 +188,13 @@ describe('réponse airingSchedules', () => {
   });
 
   it('convertit en sorties (titre et jaquette de repli)', () => {
-    const data = { Page: { pageInfo: null, airingSchedules: [node, { ...node, id: 8, media: { id: 2, title: { userPreferred: null }, coverImage: null } }] } };
+    const offList = { ...node, id: 9, media: { ...node.media, coverImage: { medium: 'https://img.example/1.jpg' } } };
+    const data = { Page: { pageInfo: null, airingSchedules: [node, { ...node, id: 8, media: { id: 2, title: { userPreferred: null }, coverImage: null } }, offList] } };
     expect(toAiringItems(data)).toEqual([
-      { scheduleId: 7, mediaId: 1, episode: 3, airingAt: NOW, title: 'Frieren', coverUrl: 'https://img/1.jpg' },
+      { scheduleId: 7, mediaId: 1, episode: 3, airingAt: NOW, title: 'Frieren', coverUrl: 'https://s4.anilist.co/file/1.jpg' },
       { scheduleId: 8, mediaId: 2, episode: 3, airingAt: NOW, title: 'Anime #2', coverUrl: null },
+      // Hôte hors de la liste des images (SEC-02) : jaquette de repli
+      { scheduleId: 9, mediaId: 1, episode: 3, airingAt: NOW, title: 'Frieren', coverUrl: null },
     ]);
   });
 });

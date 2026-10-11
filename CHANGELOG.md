@@ -14,6 +14,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Accessibilité : un bouton dont l’action est en cours (*+1*, *Réessayer*, *Garder AniList*, *Analyser*, *Se connecter*, *Copier le rapport*, *Enregistrer*…) reste sélectionnable au clavier et est annoncé « indisponible » par les lecteurs d’écran, au lieu d’être désactivé ; un second appui est sans effet.
 - Accessibilité : les messages d’erreur sont annoncés par une zone unique de la page, une seule fois tant qu’ils restent affichés ; les résultats série par série de l’import Crunchyroll et de l’alignement AniList ↔ MAL ne sont plus lus à voix haute (le bilan l’est).
 
+### Sécurité
+
+- Les jetons de connexion AniList et MyAnimeList sont chiffrés (AES-GCM) dans le stockage de l’extension, avec une clé non exportable que les pages web et les scripts de contenu ne peuvent pas lire. Ceux des versions précédentes sont chiffrés à la mise à jour : tu restes connecté. Si la clé est perdue (données de l’extension effacées), le compte affiche *Session expirée* et il suffit de se reconnecter.
+- Les images (couvertures, bannières, avatars) ne sont chargées que depuis les serveurs d’images d’AniList et de MyAnimeList : une autre adresse, venue par exemple d’un fichier de sauvegarde importé, est remplacée par l’affiche de repli et bloquée par la politique de sécurité des pages de l’extension.
+- Le service worker n’accepte d’un script de contenu que les messages de lecture et d’engagement (fin d’épisode, note, revisionnage, panneau) ; tout le reste est réservé aux pages de l’extension.
+
 ### Corrigé
 
 - Les synchros en attente, les cartes *À noter* et *Corriger* d’un compte ne sont plus rejouées sur un autre compte : après une déconnexion (ou un accès révoqué) puis la connexion d’un autre compte AniList ou MyAnimeList, rien de l’ancien compte n’est écrit sur le nouveau, et la part du service déconnecté est retirée de la file.

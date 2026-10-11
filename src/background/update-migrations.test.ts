@@ -8,6 +8,7 @@ import type { EpisodeInfo } from '../shared/episode.types';
 import type { SyncQueueItem } from '../shared/queue.types';
 import type { PendingReview, RecentSync } from '../shared/review.types';
 import type { MediaMapping } from '../shared/sync.types';
+import { revealToken } from '../test/tokens';
 import { compareVersions, runUpdateMigrations } from './update-migrations';
 
 // chrome.storage.local minimal et verrou Web Locks en file (comme navigator.locks : une tâche à la fois)
@@ -165,5 +166,28 @@ describe('runUpdateMigrations : délais par série datés (DATA-03)', () => {
     const before = store;
     await runUpdateMigrations('2.2.0');
     expect(store).toBe(before);
+  });
+});
+
+describe('runUpdateMigrations : tokens chiffrés (SEC-01)', () => {
+  const ANILIST = { accessToken: 'secret-anilist', expiresAt: 1 };
+  const MAL = { accessToken: 'secret-mal', refreshToken: 'secret-refresh', expiresAt: 2 };
+
+  beforeEach(() => {
+    store = { anilistToken: ANILIST, malToken: MAL };
+  });
+
+  it('depuis la 2.1.x : tokens en clair chiffrés sous le verrou, même contenu une fois déchiffrés', async () => {
+    await runUpdateMigrations('2.1.1');
+    expect(store.anilistToken).toEqual({ v: 1, iv: expect.any(String), data: expect.any(String), expiresAt: 1 });
+    expect(JSON.stringify(store)).not.toContain('secret');
+    expect(await revealToken('anilist', store.anilistToken)).toEqual(ANILIST);
+    expect(await revealToken('mal', store.malToken)).toEqual(MAL);
+    expect(request).toHaveBeenCalledWith(STORAGE_LOCK, expect.any(Function));
+  });
+
+  it('depuis la 2.2.0 : rien n’est réécrit', async () => {
+    await runUpdateMigrations('2.2.0');
+    expect(store).toEqual({ anilistToken: ANILIST, malToken: MAL });
   });
 });

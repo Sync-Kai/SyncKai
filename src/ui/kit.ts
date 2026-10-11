@@ -1,5 +1,6 @@
 import type { StreamingPlatform } from '../shared/episode.types';
 import type { TrackerId } from '../shared/tracker.types';
+import { toImageSrc } from '../shared/url';
 import { platformIcon, serviceIcon } from './brand-icons';
 import { h, type Child } from './dom';
 
@@ -110,10 +111,12 @@ export function renderCover(title: string, coverUrl: string | null, size: string
     { class: `relative shrink-0 rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)] ${coverColor(title)} ${size}` },
     fallback,
   );
-  if (coverUrl) {
+  // Hôte hors liste (cache d'une version précédente, sauvegarde) : initiales, aucune requête (SEC-02)
+  const src = toImageSrc(coverUrl);
+  if (src) {
     const img = h('img', {
       class: 'absolute inset-0 h-full w-full rounded-lg object-cover',
-      attrs: { src: coverUrl, alt: '', referrerpolicy: 'no-referrer', loading: 'lazy', decoding: 'async' },
+      attrs: { src, alt: '', referrerpolicy: 'no-referrer', loading: 'lazy', decoding: 'async' },
     });
     img.addEventListener('error', () => img.remove(), { once: true });
     box.append(img);

@@ -5,7 +5,7 @@ import { getPlatformLinks } from '../../shared/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
 import { getCachedViewer, getCachedWatching, getRecentSyncs, getSessionEpoch, saveCachedWatching } from '../../shared/storage';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
-import { toSafeUrl } from '../../shared/url';
+import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import type {
   AiringStatus,
   NextEpisode,
@@ -135,7 +135,7 @@ async function fetchAniListEntries(syncs: readonly RecentSync[], learned: Platfo
         mediaId: id,
         malId: num(media.idMal),
         title: title ?? `#${id}`,
-        coverUrl: toSafeUrl(cover),
+        coverUrl: toSafeImageUrl(cover),
         progress: num(raw.progress) ?? 0,
         totalEpisodes: num(media.episodes),
         updatedAt: updatedAt ? updatedAt * 1000 : null,
@@ -220,7 +220,7 @@ async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLi
       mediaId,
       malId: id,
       title,
-      coverUrl: toSafeUrl(picture),
+      coverUrl: toSafeImageUrl(picture),
       progress: num(listStatus.num_episodes_watched) ?? 0,
       // 0 = nombre d'épisodes inconnu côté MAL
       totalEpisodes: malEpisodes && malEpisodes > 0 ? malEpisodes : media ? num(media.episodes) : null,

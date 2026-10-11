@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   getValidToken: vi.fn<() => Promise<AniListToken | null>>(async () => null),
   endSessionIfToken: vi.fn<(service: string, accessToken: string) => Promise<boolean>>(async () => true),
 }));
-vi.mock('../../shared/storage', () => ({ getValidToken: mocks.getValidToken }));
+vi.mock('../../shared/token-access', () => ({ getValidToken: mocks.getValidToken }));
 vi.mock('../../shared/session-end', () => ({ endSessionIfToken: mocks.endSessionIfToken }));
 
 import { anilistPublicQuery, anilistQuery } from './client';

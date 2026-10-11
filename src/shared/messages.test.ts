@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { EXTENSION_PAGE_ONLY, isExtensionPageSender, isRuntimeMessage } from './messages';
+import { layerFiles, reachableFrom, SOURCES } from '../test/import-graph';
+import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, MESSAGE_ORIGINS, type MessageType } from './messages';
 
 describe('GET_AGENDA', () => {
   it('clé de semaine validée, réservé aux pages de l’extension', () => {
     expect(isRuntimeMessage({ type: 'GET_AGENDA', payload: { weekStart: '2026-10-05' } })).toBe(true);
     expect(isRuntimeMessage({ type: 'GET_AGENDA', payload: { weekStart: '2026-10-32' } })).toBe(false);
     expect(isRuntimeMessage({ type: 'GET_AGENDA', payload: null })).toBe(false);
-    expect(EXTENSION_PAGE_ONLY.has('GET_AGENDA')).toBe(true);
+    expect(MESSAGE_ORIGINS['GET_AGENDA']).toBe('extension');
   });
 });
 
@@ -47,7 +48,7 @@ describe('SET_LIST_STATUS', () => {
   });
 
   it('est réservé aux pages de l’extension', () => {
-    expect(EXTENSION_PAGE_ONLY.has('SET_LIST_STATUS')).toBe(true);
+    expect(MESSAGE_ORIGINS['SET_LIST_STATUS']).toBe('extension');
   });
 });
 
@@ -98,7 +99,7 @@ describe('RESOLVE_PAGE_MEDIA', () => {
   });
 
   it('est réservé aux pages de l’extension', () => {
-    expect(EXTENSION_PAGE_ONLY.has('RESOLVE_PAGE_MEDIA')).toBe(true);
+    expect(MESSAGE_ORIGINS['RESOLVE_PAGE_MEDIA']).toBe('extension');
   });
 });
 
@@ -119,7 +120,7 @@ describe('ADD_TO_LIST', () => {
   });
 
   it('est réservé aux pages de l’extension', () => {
-    expect(EXTENSION_PAGE_ONLY.has('ADD_TO_LIST')).toBe(true);
+    expect(MESSAGE_ORIGINS['ADD_TO_LIST']).toBe('extension');
   });
 });
 
@@ -129,8 +130,8 @@ describe('COMPARE_LISTS / APPLY_DIFFS', () => {
     expect(isRuntimeMessage({ type: 'COMPARE_LISTS', payload: {} })).toBe(false);
     expect(isRuntimeMessage({ type: 'APPLY_DIFFS', payload: { items: [{ mediaId: 1, malId: 2 }], source: 'anilist' } })).toBe(true);
     expect(isRuntimeMessage({ type: 'APPLY_DIFFS', payload: { items: [{ mediaId: 1, malId: 2 }] } })).toBe(false);
-    expect(EXTENSION_PAGE_ONLY.has('COMPARE_LISTS')).toBe(true);
-    expect(EXTENSION_PAGE_ONLY.has('APPLY_DIFFS')).toBe(true);
+    expect(MESSAGE_ORIGINS['COMPARE_LISTS']).toBe('extension');
+    expect(MESSAGE_ORIGINS['APPLY_DIFFS']).toBe('extension');
   });
 });
 
@@ -148,7 +149,7 @@ describe('GET_PANEL_MEDIA', () => {
   });
 
   it('est réservé aux pages de l’extension', () => {
-    expect(EXTENSION_PAGE_ONLY.has('GET_PANEL_MEDIA')).toBe(true);
+    expect(MESSAGE_ORIGINS['GET_PANEL_MEDIA']).toBe('extension');
   });
 });
 
@@ -162,7 +163,7 @@ describe('import Crunchyroll', () => {
     expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: [21] } })).toBe(false);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_CANCEL', payload: null })).toBe(true);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_REVIEWS', payload: { keys: ['crunchyroll:GR:s1'] } })).toBe(true);
-    for (const type of ['CR_IMPORT_ANALYZE', 'CR_IMPORT_APPLY', 'CR_IMPORT_CANCEL', 'CR_IMPORT_REVIEWS'] as const) expect(EXTENSION_PAGE_ONLY.has(type)).toBe(true);
+    for (const type of ['CR_IMPORT_ANALYZE', 'CR_IMPORT_APPLY', 'CR_IMPORT_CANCEL', 'CR_IMPORT_REVIEWS'] as const) expect(MESSAGE_ORIGINS[type]).toBe('extension');
   });
 });
 
@@ -179,5 +180,65 @@ describe('isExtensionPageSender', () => {
     expect(isExtensionPageSender({ url: 'https://www.crunchyroll.com/watch/X' }, origin)).toBe(false);
     expect(isExtensionPageSender({ url: 'chrome-extension://autre-extension/page.html' }, origin)).toBe(false);
     expect(isExtensionPageSender({}, origin)).toBe(false);
+  });
+});
+
+describe('DEFER_RATING', () => {
+  const message = (coverUrl: unknown): unknown => ({ type: 'DEFER_RATING', payload: { media: { mediaId: 21, malId: null, title: 'One Piece' }, coverUrl } });
+
+  it('affiche d’un hôte d’images autorisé ou null (SEC-02)', () => {
+    expect(isRuntimeMessage(message(null))).toBe(true);
+    expect(isRuntimeMessage(message('https://s4.anilist.co/file/x.jpg'))).toBe(true);
+    expect(isRuntimeMessage(message('https://tracker.example/p?id=victime'))).toBe(false);
+    expect(isRuntimeMessage(message('http://s4.anilist.co/file/x.jpg'))).toBe(false);
+  });
+});
+
+describe('expéditeurs autorisés (MESSAGE_ORIGINS, ARCH-07)', () => {
+  /** Appels `sendMessage('TYPE', …)` (type littéral) ; ni la déclaration, ni `chrome.runtime.sendMessage` */
+  const SEND_RE = /(?<!function |\.)\bsendMessage(?:<[^>]*>)?\(\s*'([A-Z_]+)'/g;
+  const CALL_RE = /(?<!function |\.)\bsendMessage(?:<[^>]*>)?\(/g;
+  const sentTypes = (files: Iterable<string>): Set<string> =>
+    new Set([...files].flatMap((file) => [...(SOURCES.get(file) ?? '').matchAll(SEND_RE)].map((match) => match[1] ?? '')));
+  const typesWith = (origins: readonly string[]): string[] =>
+    Object.entries(MESSAGE_ORIGINS)
+      .filter(([, origin]) => origins.includes(origin))
+      .map(([type]) => type)
+      .sort();
+
+  /** Code des scripts de contenu : src/content et tout ce qu'il importe (kit d'interface, shared…) */
+  const contentCode = reachableFrom(layerFiles('content'));
+  /** Code des pages de l'extension */
+  const pageCode = reachableFrom(['popup', 'sidepanel', 'import', 'import-cr'].flatMap(layerFiles));
+
+  it('exhaustif : chaque type de message a une origine', () => {
+    const types = Object.keys(MESSAGE_ORIGINS);
+    expect(types.length).toBeGreaterThan(25);
+    for (const type of types) expect(['content', 'extension', 'both'], type).toContain(MESSAGE_ORIGINS[type as MessageType]);
+  });
+
+  it('les types ouverts aux scripts de contenu sont exactement ceux qu’envoie src/content', () => {
+    // Appels avec un type littéral seulement : sinon la lecture statique ne verrait pas le message
+    const calls = [...contentCode].reduce((total, file) => total + [...(SOURCES.get(file) ?? '').matchAll(CALL_RE)].length, 0);
+    const literal = [...contentCode].reduce((total, file) => total + [...(SOURCES.get(file) ?? '').matchAll(SEND_RE)].length, 0);
+    expect(literal).toBe(calls);
+    expect([...sentTypes(contentCode)].sort()).toEqual(typesWith(['content', 'both']));
+    expect([...contentCode].some((file) => /chrome\.runtime\.sendMessage\(/.test(SOURCES.get(file) ?? '') && file.startsWith('content/'))).toBe(false);
+  });
+
+  it('les pages de l’extension n’envoient que des types qui leur sont ouverts ; « both » envoyé des deux côtés', () => {
+    const sent = sentTypes(pageCode);
+    expect([...sent].filter((type) => !isAllowedOrigin(type as MessageType, 'extension'))).toEqual([]);
+    for (const type of typesWith(['both'])) expect(sent, type).toContain(type);
+  });
+
+  it('isAllowedOrigin : refus croisés', () => {
+    expect(isAllowedOrigin('EPISODE_COMPLETED', 'content')).toBe(true);
+    expect(isAllowedOrigin('EPISODE_COMPLETED', 'extension')).toBe(false);
+    expect(isAllowedOrigin('GET_VIEWER', 'content')).toBe(false);
+    expect(isAllowedOrigin('GET_MAL_VIEWER', 'content')).toBe(false);
+    expect(isAllowedOrigin('LOGIN_ANILIST', 'content')).toBe(false);
+    expect(isAllowedOrigin('RATE_MEDIA', 'content')).toBe(true);
+    expect(isAllowedOrigin('RATE_MEDIA', 'extension')).toBe(true);
   });
 });
