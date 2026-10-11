@@ -26,6 +26,9 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Plus de bulle *Noter* en fin de série si la série a déjà une note sur AniList ou MyAnimeList, à la fin d’un revisionnage, ni quand seule la fiche MyAnimeList, découpée plus court, se termine.
 - Une saison mise en correspondance pendant sa diffusion (nombre d’épisodes encore inconnu) n’est plus bloquée quand AniList publie la suite dans une fiche séparée (*Part 2*) : les épisodes suivants vont sur la bonne fiche au lieu d’être ignorés.
 - Une fiche introuvable (supprimée ou fusionnée sur AniList, absente de MyAnimeList) n’est plus renvoyée en boucle pendant 24 h : l’erreur est affichée tout de suite, et une correspondance vers une fiche AniList supprimée est oubliée puis recalculée.
+- Panneau latéral, *En lecture* : la fiche ne reste plus bloquée sur le chargement, ni grisée avec ses boutons désactivés, quand l’onglet finit de se charger pendant la recherche de la fiche (panneau ouvert sur un épisode qui démarre, épisode suivant, après un +1).
+- Panneau latéral : une action (+1/−1, statut, note) qui se termine après un changement d’onglet ou d’épisode n’affiche plus la fiche de la page quittée ni son retour sur la nouvelle page.
+- Agenda du panneau : une erreur de chargement (AniList saturé, réseau) reste affichée avec *Réessayer* au lieu de disparaître au rafraîchissement suivant du panneau, et la même semaine n’est plus demandée deux fois de suite.
 
 ## [2.1.0] - 2026-10-10
 

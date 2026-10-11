@@ -20,13 +20,14 @@ import { agendaFirstDay, readWeekCache, saveSeriesOffset } from '../../shared/ag
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
-import { sendMessage } from '../../shared/messages';
+import { sendMessage, type MessageResponse } from '../../shared/messages';
 import { platformSearchUrl } from '../../shared/platform-links';
 import { getSettings, OFFSET_RANGE, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getCachedWatching, getMalToken, getValidToken, STORAGE_KEYS } from '../../shared/storage';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { h, nodes, preserveFocus, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';
+import { decideAgendaLoad } from '../agenda-load';
 
 // Onglet « Agenda » du panneau latéral : sorties de la semaine pour les séries en cours.
 // Le cache `airingWeek:<date>` (alarme horaire ou requête précédente) est lu d'abord ;
@@ -38,8 +39,6 @@ const log = createLogger('agenda');
 const NAV_DEBOUNCE_MS = 300;
 /** Changements du stockage regroupés */
 const STORAGE_DEBOUNCE_MS = 250;
-/** Après une requête, pas de nouvelle requête automatique pour la même semaine avant ce délai (évite toute boucle) */
-const REFETCH_GUARD_MS = 60_000;
 
 const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', adn: 'ADN', netflix: 'NF' };
 
@@ -96,6 +95,12 @@ export function createAgenda(): AgendaView {
   let midnightTimer: ReturnType<typeof setTimeout> | undefined;
   /** Semaine → horodatage de la dernière requête GET_AGENDA de ce panneau */
   const lastFetch = new Map<string, number>();
+  /** Semaine → échec de la dernière requête GET_AGENDA (absente si elle a réussi) */
+  const lastError = new Map<string, string>();
+  /** Requête GET_AGENDA en cours (semaine, chargement qui l'a lancée) */
+  let inFlight: { key: string; run: number } | null = null;
+  /** Chargement demandé pendant cette requête : rejoué une fois sa réponse affichée */
+  let reloadQueued = false;
   /** Services dont la liste « En cours » a déjà été demandée (cache vide à l'ouverture du panneau) */
   const watchingRequested = new Set<TrackerId>();
 
@@ -128,9 +133,29 @@ export function createAgenda(): AgendaView {
     }
   }
 
+  /**
+   * Charge la semaine affichée. Une requête déjà en cours pour cette semaine n'est jamais jetée par un
+   * chargement automatique (stockage, langue) : sa réponse, erreur comprise, reste affichée, et le chargement
+   * demandé entre-temps est rejoué ensuite. Seul « Réessayer » (`force`) la remplace.
+   */
   async function load(force: boolean): Promise<void> {
+    if (!force && inFlight?.key === range.key) {
+      reloadQueued = true;
+      return;
+    }
+    reloadQueued = false;
     const current = ++run;
+    await loadWeek(current, force);
+    if (current === run && reloadQueued) {
+      reloadQueued = false;
+      scheduleLoad(STORAGE_DEBOUNCE_MS);
+    }
+  }
+
+  async function loadWeek(current: number, force: boolean): Promise<void> {
     const target = range;
+    /** GET_AGENDA envoyé : son échec est retenu pour la semaine */
+    let requested = false;
     try {
       const [nextSettings, anilistToken, malToken, anilist, mal, excluded, cache] = await Promise.all([
         getSettings(),
@@ -159,28 +184,49 @@ export function createAgenda(): AgendaView {
       }
 
       const now = Date.now();
-      const fresh = cache !== null && isWeekCacheFresh(cache, target, now, series.keys());
-      const recentlyFetched = now - (lastFetch.get(target.key) ?? 0) < REFETCH_GUARD_MS;
-      if (cache && (fresh || (recentlyFetched && !force))) {
-        status = { kind: 'ready', cache, refreshing: false, error: null };
+      const decision = decideAgendaLoad({
+        hasCache: cache !== null,
+        fresh: cache !== null && isWeekCacheFresh(cache, target, now, series.keys()),
+        force,
+        lastFetchAt: lastFetch.get(target.key) ?? null,
+        now,
+        lastError: lastError.get(target.key) ?? null,
+        showingResult: status.kind === 'error' || (status.kind === 'ready' && status.cache.weekStart === target.key),
+      });
+      if (decision.kind === 'show' && cache) {
+        status = { kind: 'ready', cache, refreshing: false, error: decision.error };
         draw();
         return;
       }
-      if (recentlyFetched && !force && status.kind === 'error') return;
+      if (decision.kind === 'keep') {
+        draw();
+        return;
+      }
 
       // Cache expiré : affiché tout de suite, rafraîchi en arrière-plan
       status = cache ? { kind: 'ready', cache, refreshing: true, error: null } : { kind: 'loading' };
       draw();
       lastFetch.set(target.key, now);
-      const result = await sendMessage('GET_AGENDA', { weekStart: target.key });
+      inFlight = { key: target.key, run: current };
+      requested = true;
+      let result: MessageResponse<'GET_AGENDA'>;
+      try {
+        result = await sendMessage('GET_AGENDA', { weekStart: target.key });
+      } finally {
+        if (inFlight?.run === current) inFlight = null;
+      }
+      // Échec retenu pour la semaine, même si un chargement plus récent a pris le relais (sauf déconnexion)
+      if (!result.ok && result.code !== 'NOT_AUTHENTICATED') lastError.set(target.key, result.message);
+      else lastError.delete(target.key);
       if (current !== run) return;
       if (result.ok) status = { kind: 'ready', cache: result.data, refreshing: false, error: null };
       else if (result.code === 'NOT_AUTHENTICATED') status = { kind: 'not-connected' };
       else status = cache ? { kind: 'ready', cache, refreshing: false, error: result.message } : { kind: 'error', message: result.message };
     } catch (error: unknown) {
+      const message = error instanceof Error && error.message ? error.message : t('error.unexpected');
+      if (requested) lastError.set(target.key, message);
       if (current !== run) return;
       log.warn('Agenda illisible :', error);
-      const message = error instanceof Error && error.message ? error.message : t('error.unexpected');
       status = status.kind === 'ready' ? { ...status, refreshing: false, error: message } : { kind: 'error', message };
     }
     draw();

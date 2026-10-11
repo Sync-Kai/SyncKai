@@ -61,6 +61,12 @@ export interface ChromeMockOptions {
   sidePanel?: boolean;
 }
 
+/** Événements d'onglet déclenchés par les tests (navigation, fin de chargement) */
+export interface ChromeMockControls {
+  /** chrome.tabs.onUpdated (ex. `{ status: 'complete' }` ou `{ url }`) */
+  emitTabUpdated: (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo) => void;
+}
+
 /** Port simulé : `emit` pousse un message vers l'extension (script de contenu → page) */
 export interface MockPort {
   port: chrome.runtime.Port;
@@ -114,13 +120,15 @@ function restoreStorage(key: string): StorageItems | null {
   }
 }
 
-export function installChromeMock(options: ChromeMockOptions): void {
+export function installChromeMock(options: ChromeMockOptions): ChromeMockControls {
   const { persistKey } = options;
   const initial = (persistKey ? restoreStorage(persistKey) : null) ?? clone(options.storage);
   const store = new Map<string, unknown>(Object.entries(initial));
   const listeners = new Set<ChangeListener>();
   const noop = (): void => undefined;
   const event = { addListener: noop, removeListener: noop, hasListener: () => false };
+  type TabUpdatedListener = (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => void;
+  const tabUpdatedListeners = new Set<TabUpdatedListener>();
 
   const persist = (): void => {
     if (persistKey) sessionStorage.setItem(persistKey, JSON.stringify(Object.fromEntries(store)));
@@ -228,7 +236,11 @@ export function installChromeMock(options: ChromeMockOptions): void {
         if (!options.connect) throw new Error('Aucun script de contenu');
         return options.connect(tabId, info?.name ?? '');
       },
-      onUpdated: event,
+      onUpdated: {
+        addListener: (listener: TabUpdatedListener) => void tabUpdatedListeners.add(listener),
+        removeListener: (listener: TabUpdatedListener) => void tabUpdatedListeners.delete(listener),
+        hasListener: (listener: TabUpdatedListener) => tabUpdatedListeners.has(listener),
+      },
       onActivated: event,
     },
     windows: { getCurrent: () => Promise.resolve({ id: 1 }) },
@@ -243,4 +255,11 @@ export function installChromeMock(options: ChromeMockOptions): void {
 
   // Seules les méthodes réellement appelées par les vues sont simulées
   (globalThis as { chrome?: unknown }).chrome = mock;
+
+  return {
+    emitTabUpdated: (tabId, changeInfo) => {
+      const tab = { id: tabId, active: true, status: changeInfo.status ?? 'complete', ...options.tab } as chrome.tabs.Tab;
+      tabUpdatedListeners.forEach((listener) => listener(tabId, clone(changeInfo), tab));
+    },
+  };
 }

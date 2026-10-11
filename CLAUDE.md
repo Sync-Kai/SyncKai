@@ -109,7 +109,7 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - le script de contenu affiche l'horodatage de son build dans la console ;
   - le service worker écrit des lignes `[SyncKai:sync]` ;
   - logs info/debug visibles seulement avec `npm run build:dev` (ou `npm run dev`) ; `npm run build`/`package` ne gardent que warn/error ;
-  - tests de bout en bout du popup : `npm run test:e2e` (Vitest + Puppeteer, Chrome headless ; `scripts/e2e/`). Le vrai popup tourne sur l'API chrome simulée des captures (`scripts/screenshots/mock-chrome.ts`) ; les messages envoyés au service worker, les demandes d'accès et le presse-papiers sont relevés dans `window.__e2e`. Job `e2e` de la CI ; en local, Chrome via `npx puppeteer browsers install chrome-headless-shell` si absent.
+  - tests de bout en bout du popup, du panneau latéral et de la page d'import : `npm run test:e2e` (Vitest + Puppeteer, Chrome headless ; `scripts/e2e/`, relevés du panneau dans `window.__e2ePanel`). Le vrai popup tourne sur l'API chrome simulée des captures (`scripts/screenshots/mock-chrome.ts`) ; les messages envoyés au service worker, les demandes d'accès et le presse-papiers sont relevés dans `window.__e2e`. Job `e2e` de la CI ; en local, Chrome via `npx puppeteer browsers install chrome-headless-shell` si absent.
 
 ### Publication
 

@@ -53,3 +53,36 @@ export interface FrameParams {
 export const E2E_WATCHING_TIMEOUT_MS = 300;
 /** Réponse tardive au premier GET_WATCHING avec `watching=slow` (après le délai d'attente) */
 export const E2E_WATCHING_SLOW_MS = 1_500;
+
+/** Commandes du panneau latéral de test (sidepanel-frame.ts), appelées par les tests via `window.__e2ePanel` */
+export interface E2EPanelControls {
+  /** Les messages de ce type restent sans réponse jusqu'à `release` */
+  hold: (type: string) => void;
+  /** Répond aux messages retenus de ce type (et ne retient plus les suivants) */
+  release: (type: string) => void;
+  /** Navigation dans l'onglet suivi : la page lue devient l'épisode de démo `series` */
+  navigate: (series: 'frieren' | 'dandadan') => void;
+  /** chrome.tabs.onUpdated sur l'onglet suivi (fin de chargement, ou nouvelle URL après `navigate`) */
+  emitUpdated: (change: 'complete' | 'url') => void;
+  /** Lectures de la page par le panneau (GET_PAGE_MEDIA envoyés à l'onglet) */
+  pageReads: () => number;
+}
+
+/** Paramètres d'URL de sidepanel.html */
+export interface PanelFrameParams {
+  locale?: 'fr' | 'en' | 'de';
+  /** Onglet ouvert au démarrage */
+  tab?: 'nowPlaying' | 'agenda';
+  /** `none` : fiche de l'onglet absente du cache de session (RESOLVE_PAGE_MEDIA envoyé au démarrage) */
+  cache?: 'none';
+  /** `error` : GET_AGENDA échoue ; les sorties de la semaine en cache sont expirées */
+  agenda?: 'error';
+  /** Types de messages retenus dès le démarrage, séparés par des virgules (voir `hold`) */
+  hold?: string;
+}
+
+declare global {
+  interface Window {
+    __e2ePanel?: E2EPanelControls;
+  }
+}

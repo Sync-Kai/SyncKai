@@ -10,7 +10,7 @@ import { icon, kai, type IconName } from '../ui/icons';
 import { createNowPlaying } from './components/now-playing';
 import { createAgenda, type AgendaView } from './components/agenda';
 import { watchPanelContext, type PanelContext } from './presence';
-import { initialPanelTab, nextTabIndex, PANEL_LAST_TAB_KEY, PANEL_TABS, type PanelTab } from './tabs';
+import { initialPanelTab, isTabEntering, nextTabIndex, PANEL_LAST_TAB_KEY, PANEL_TABS, type PanelTab } from './tabs';
 
 const log = createLogger('sidepanel');
 
@@ -153,11 +153,12 @@ const scrollByTab: Partial<Record<PanelTab, number>> = {};
 let shownTab: PanelTab | null = null;
 
 function fillTabPanel(): void {
-  if (shownTab !== null && shownTab !== selected) scrollByTab[shownTab] = tabPanel.scrollTop;
+  const entering = isTabEntering(shownTab, selected);
+  if (shownTab !== null && entering) scrollByTab[shownTab] = tabPanel.scrollTop;
   tabPanel.id = `sk-tabpanel-${selected}`;
   tabPanel.setAttribute('aria-labelledby', `sk-tab-${selected}`);
-  tabPanel.replaceChildren(renderTabContent());
-  if (shownTab !== selected) tabPanel.scrollTop = scrollByTab[selected] ?? 0;
+  tabPanel.replaceChildren(renderTabContent(entering));
+  if (entering) tabPanel.scrollTop = scrollByTab[selected] ?? 0;
   shownTab = selected;
 }
 
@@ -168,13 +169,13 @@ function mount(container: HTMLElement, children: readonly HTMLElement[]): void {
   container.replaceChildren(...children);
 }
 
-/** Contenu de l'onglet sélectionné */
-function renderTabContent(): HTMLElement {
+/** Contenu de l'onglet sélectionné ; `entering` : l'onglet devient visible (pas un simple nouveau rendu) */
+function renderTabContent(entering: boolean): HTMLElement {
   const copy = TAB_COPY[selected];
   return selected === 'nowPlaying'
     ? nowPlaying.render()
     : selected === 'agenda'
-      ? mountAgenda()
+      ? mountAgenda(entering)
     : h(
         'div',
         { class: 'flex flex-col items-center gap-2 rounded-card bg-surface px-4 py-6 text-center' },
@@ -184,11 +185,15 @@ function renderTabContent(): HTMLElement {
       );
 }
 
-/** Onglet « Agenda » : créé au premier affichage puis conservé (semaine affichée, cache en mémoire) */
+/**
+ * Onglet « Agenda » : créé au premier affichage puis conservé (semaine affichée, cache en mémoire).
+ * Activé seulement quand il devient visible : les rendus dus à « En lecture » (détection, relecture, réglage)
+ * relançaient le chargement et jetaient la réponse GET_AGENDA en cours, erreur comprise.
+ */
 let agenda: AgendaView | null = null;
-function mountAgenda(): HTMLElement {
+function mountAgenda(entering: boolean): HTMLElement {
   agenda ??= createAgenda();
-  agenda.activate();
+  if (entering) agenda.activate();
   return agenda.element;
 }
 
@@ -241,7 +246,11 @@ async function loadInitialTab(): Promise<void> {
 
 async function main(): Promise<void> {
   await Promise.all([initI18n(), loadInitialTab()]);
-  onLocaleChange(render);
+  onLocaleChange(() => {
+    // Agenda affiché : textes et premier jour de la semaine à jour (il n'est plus réactivé à chaque rendu)
+    if (shownTab === 'agenda') agenda?.activate();
+    render();
+  });
   render();
   const kind = sidePanelKind();
   if (!kind) {

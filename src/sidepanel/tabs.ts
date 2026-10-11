@@ -28,6 +28,14 @@ export function nextTabIndex(current: number, key: string, count: number): numbe
   }
 }
 
+/**
+ * L'onglet sélectionné devient-il visible ? (autre onglet que celui affiché, retour des Réglages ou d'une page
+ * hors cible : `shown` null). Un simple nouveau rendu de l'onglet déjà affiché ne compte pas.
+ */
+export function isTabEntering(shown: PanelTab | null, selected: PanelTab): boolean {
+  return shown !== selected;
+}
+
 /** Dernier onglet consulté (stockage local) : rouvert quand le réglage vaut « Dernier onglet ouvert » */
 export const PANEL_LAST_TAB_KEY = 'panelLastTab';
 
