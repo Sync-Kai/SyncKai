@@ -1,4 +1,4 @@
-import { lowerFirst, t } from '../../i18n';
+import { lowerFirst, t } from '../../i18n/content';
 import type { NotificationLevel } from '../../shared/settings';
 import { describeOutcome, describeServiceOutcome } from '../../shared/sync-feedback';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../../shared/sync.types';

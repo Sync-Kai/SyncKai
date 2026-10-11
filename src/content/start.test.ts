@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   stopUrl: [] as ReturnType<typeof vi.fn>[],
 }));
 
-vi.mock('../i18n', () => ({ initI18n: () => Promise.resolve(), t: (key: string) => key }));
+vi.mock('../i18n/content', () => ({ initI18n: () => Promise.resolve(), t: (key: string) => key }));
 vi.mock('../shared/logger', () => {
   const noop = (): void => undefined;
   return { createLogger: () => ({ debug: noop, info: noop, warn: noop, error: noop }) };

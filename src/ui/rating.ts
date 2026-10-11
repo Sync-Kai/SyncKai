@@ -1,4 +1,4 @@
-import { getLocale, t } from '../i18n';
+import { getLocale, t } from '../i18n/core';
 
 // Notation 10 étoiles avec demi-étoiles : 20 valeurs (0,5 → 10), envoyées telles quelles comme Score10
 

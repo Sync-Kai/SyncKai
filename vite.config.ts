@@ -5,8 +5,12 @@ import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import manifest from './manifest.json';
 import { GIT_COMMIT_EPOCH_ARGS, resolveBuildStamp } from './src/build/build-stamp';
+import { contentCatalogsDefine } from './src/build/content-catalog';
 import { parseBuildTarget, targetManifest, targetOutDir } from './src/build/manifest-target';
 import { jsFileNames, sortWebAccessibleResources } from './src/build/output-names';
+import de from './src/i18n/locales/de.json';
+import en from './src/i18n/locales/en.json';
+import fr from './src/i18n/locales/fr.json';
 
 // Navigateur cible : `SYNCKAI_TARGET=firefox` (npm run build:firefox), chrome par défaut.
 // Pas de `--mode firefox` : le mode pilote __SYNCKAI_DEBUG__ et livrerait les logs de debug.
@@ -68,5 +72,8 @@ export default defineConfig(({ mode }) => ({
     __SYNCKAI_DEBUG__: JSON.stringify(mode !== 'production'),
     // Navigateur cible (chrome | firefox) : différences d'API (boutons de notification…)
     __SYNCKAI_TARGET__: JSON.stringify(target),
+    // Textes des scripts de contenu (src/i18n/content.ts) : leurs seules clés, pas les catalogues complets (PERF-01).
+    // Hérité par le build séparé des scripts Netflix (`*.iife.ts`), contrairement aux plugins
+    __SYNCKAI_CONTENT_CATALOGS__: contentCatalogsDefine({ en, fr, de }),
   },
 }));

@@ -1,4 +1,4 @@
-import { lowerFirst, t } from '../i18n';
+import { lowerFirst, t } from '../i18n/core';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from './sync.types';
 import { TRACKER_LABELS } from './tracker.types';
 

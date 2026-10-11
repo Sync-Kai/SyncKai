@@ -1,4 +1,4 @@
-import { applyLanguageSetting, t } from '../../i18n';
+import { applyLanguageSetting, t } from '../../i18n/content';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isExcluded, platformSeriesKey } from '../../shared/exclusions';
 import { sendMessage } from '../../shared/messages';

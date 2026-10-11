@@ -1,4 +1,4 @@
-import { t } from '../../i18n';
+import { t } from '../../i18n/content';
 import { kai } from '../../ui/icons';
 
 export type ToastTone = 'info' | 'success' | 'warning' | 'error';

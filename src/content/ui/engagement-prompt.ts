@@ -1,4 +1,4 @@
-import { t } from '../../i18n';
+import { t } from '../../i18n/content';
 import type { MediaRef } from '../../shared/engagement.types';
 import { sendMessage } from '../../shared/messages';
 import type { SyncOutcome } from '../../shared/sync.types';

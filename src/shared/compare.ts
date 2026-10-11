@@ -6,7 +6,7 @@ import type { Result } from './result';
 import { aniListScoreOn10, isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from './score';
 import type { ListStatus } from './sync.types';
 import { isTrackerId, TRACKER_LABELS, type TrackerId } from './tracker.types';
-import { t } from '../i18n';
+import { t } from '../i18n/core';
 
 // Comparaison des listes AniList ↔ MyAnimeList (Activité › Écarts) : logique pure, testée.
 // Rien n'est corrigé automatiquement : l'utilisateur choisit le service de référence.

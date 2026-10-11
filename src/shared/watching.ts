@@ -1,4 +1,4 @@
-import { getLocale, t, tl, type Locale } from '../i18n';
+import { getLocale, t, tl, type Locale } from '../i18n/core';
 import type { StreamingPlatform } from './episode.types';
 import { STREAMING_PLATFORMS } from './platforms';
 import type { NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingList, WatchingSort } from './watching.types';

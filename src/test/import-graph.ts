@@ -1,6 +1,7 @@
 // Graphe des imports relatifs de src/, tests compris, lu par Vite (sources brutes) sans dépendance. Partagé par le
-// test des frontières des modules (src/architecture.test.ts) et celui des expéditeurs de messages (messages.test.ts).
-// Imports de types inclus : un cycle de types finit souvent en cycle de valeurs.
+// test des frontières des modules (src/architecture.test.ts), celui des expéditeurs de messages (messages.test.ts) et
+// celui des traductions des scripts de contenu (i18n/content.test.ts).
+// Imports de types inclus (marqués `typeOnly`) : un cycle de types finit souvent en cycle de valeurs.
 
 /** Sources de src/, clés relatives à src/ ("popup/popup.ts") */
 export const SOURCES = new Map(
@@ -11,12 +12,14 @@ export const SOURCES = new Map(
 );
 
 /** Imports statiques (`import … from`, `export … from`, `import '…'`) et dynamiques (`import('…')`) */
-const IMPORT_RE = /(?:^|[\n;])\s*(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\sfrom\s+)?['"]([^'"]+)['"]|\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
+const IMPORT_RE = /(?:^|[\n;])\s*(?:import|export)\s+(type\s+)?(?:[^'";]*?\sfrom\s+)?['"]([^'"]+)['"]|\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 export interface Edge {
   from: string;
   to: string;
   spec: string;
+  /** `import type` / `export type` : effacé à la compilation, absent du bundle */
+  typeOnly: boolean;
 }
 
 /** Chemin relatif à src/ visé par un spécifieur relatif (`?script` retiré, extension ou index.ts implicites), sinon null */
@@ -33,10 +36,10 @@ function resolveImport(from: string, spec: string): string | null {
 function buildEdges(): Edge[] {
   return [...SOURCES].flatMap(([file, code]) =>
     [...code.matchAll(IMPORT_RE)].flatMap((match): Edge[] => {
-      const spec = match[1] ?? match[2];
+      const spec = match[2] ?? match[3];
       if (spec === undefined || !spec.startsWith('.')) return [];
       const target = resolveImport(file, spec);
-      return target ? [{ from: file, to: target, spec }] : [];
+      return target ? [{ from: file, to: target, spec, typeOnly: match[1] !== undefined }] : [];
     }),
   );
 }
@@ -45,13 +48,16 @@ export const EDGES: readonly Edge[] = buildEdges();
 
 const isTest = (path: string): boolean => path.endsWith('.test.ts') || path.startsWith('test/');
 
-/** Modules du code de l'extension (hors tests) atteignables depuis `roots`, racines comprises */
-export function reachableFrom(roots: readonly string[]): Set<string> {
+/**
+ * Modules du code de l'extension (hors tests) atteignables depuis `roots`, racines comprises. `valuesOnly` : sans
+ * suivre les `import type` / `export type`, soit les modules réellement embarqués dans le bundle.
+ */
+export function reachableFrom(roots: readonly string[], { valuesOnly = false }: { valuesOnly?: boolean } = {}): Set<string> {
   const seen = new Set(roots.filter((root) => !isTest(root)));
   const pending = [...seen];
   for (let file = pending.pop(); file !== undefined; file = pending.pop()) {
     for (const edge of EDGES) {
-      if (edge.from !== file || isTest(edge.to) || seen.has(edge.to)) continue;
+      if (edge.from !== file || (valuesOnly && edge.typeOnly) || isTest(edge.to) || seen.has(edge.to)) continue;
       seen.add(edge.to);
       pending.push(edge.to);
     }

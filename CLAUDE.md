@@ -44,6 +44,7 @@ Vérifiées par `src/architecture.test.ts` (imports de types compris) :
 - **`popup/`, `sidepanel/`, `import/`, `import-cr/`** : écrans propres, qui dépendent de `ui/` et `shared/` sans s'importer entre eux.
 - **`content/`** n'importe jamais `background/` (messages typés de `shared/` seulement).
 - **`background/`** n'importe jamais `content/`, sauf les imports `?script` de `netflix-access.ts`. Une logique pure utile aux deux va dans `shared/` (ex. `shared/page-media.ts`).
+- **`i18n/`** : les catalogues complets (`i18n/index.ts`) n'entrent jamais dans les scripts de contenu. Le code qu'ils atteignent importe `i18n/content` (modules de `content/`) ou `i18n/core` (modules partagés) ; toute clé qu'il cite va dans `i18n/content-keys.ts`, injectée au build par `define` (vérifié par `src/i18n/content.test.ts`).
 
 ### Style et UI
 
