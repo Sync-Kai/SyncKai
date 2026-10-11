@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import puppeteer, { type Browser } from 'puppeteer';
-import { createServer } from 'vite';
+import { createServer, runnerImport } from 'vite';
 
 export const ROOT: string = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -16,13 +16,22 @@ export interface HarnessServer {
 
 /** Démarre Vite à la racine du dépôt ; `build` est l'horodatage affiché par les scripts (__SYNCKAI_BUILD__) */
 export async function startHarnessServer(build: string): Promise<HarnessServer> {
+  const { module: catalogs } = await runnerImport<{ CONTENT_CATALOGS_DEFINE: string }>(
+    path.join(ROOT, 'scripts/screenshots/content-catalogs.ts'),
+    { configFile: false, logLevel: 'error' },
+  );
   const server = await createServer({
     configFile: false,
     root: ROOT,
     logLevel: 'warn',
     plugins: [tailwindcss()],
     // Mêmes constantes que vite.config.ts (build de production : logs info/debug coupés)
-    define: { __SYNCKAI_BUILD__: JSON.stringify(build), __SYNCKAI_DEBUG__: JSON.stringify(false), __SYNCKAI_TARGET__: JSON.stringify('chrome') },
+    define: {
+      __SYNCKAI_BUILD__: JSON.stringify(build),
+      __SYNCKAI_DEBUG__: JSON.stringify(false),
+      __SYNCKAI_TARGET__: JSON.stringify('chrome'),
+      __SYNCKAI_CONTENT_CATALOGS__: catalogs.CONTENT_CATALOGS_DEFINE,
+    },
     server: { port: 5199, strictPort: false, host: '127.0.0.1' },
   });
   await server.listen();
