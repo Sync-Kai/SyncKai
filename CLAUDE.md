@@ -103,6 +103,7 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - métadonnées via `/nq/website/memberapi/release/metadata?movieid=…` en monde MAIN (`page-bridge.iife.ts`, `window.netflix` et la session n'y sont visibles que là), réduites avant de passer au script isolé par un `MessageChannel` privé (ouverture par `CustomEvent` + nonce, port transféré par `window.postMessage`, premier port « trusted » seul accepté ; charges utiles en chaînes JSON) ;
   - aucun genre dans les métadonnées → filtre anime par lien AniList `netflix.com/title/{showId}` ; titre seul → carte « À vérifier » (jamais mise en cache) ; sinon statut `ignored` silencieux (ni journal, ni carte, popup/panneau neutres `NOT_TRACKED`) ;
   - numérotation absolue entre saisons (`displayedEpisodeNumber` = épisodes des saisons précédentes + `seq`) ; correspondance par saison `netflix:{showId}:s{seq}` ;
+  - sans la permission, le service worker refuse `EPISODE_COMPLETED` et `RESOLVE_PAGE_MEDIA` Netflix (scripts encore actifs dans les onglets ouverts) ; ne jamais lire `preferredPlayer` directement : passer par `effectivePlayer` / `effectivePreferredPlayer` (repli si Netflix est retiré) ;
   - Netflix ouvre d'abord `/watch/{showId}` puis redirige vers `/watch/{episodeId}` : identifiant absent des épisodes → pas d'avertissement.
 - **Débogage** :
   - après le rechargement de l'extension, rouvrir l'onglet, sinon le script de contenu orphelin reste actif ;

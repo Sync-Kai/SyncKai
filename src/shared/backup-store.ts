@@ -2,6 +2,8 @@ import { refreshReviewBadge } from './badge';
 import { BACKUP_STORAGE_KEYS, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type ImportMode } from './backup';
 import { withStorageLock } from './storage';
 import { createLogger } from './logger';
+import { hasNetflixAccess } from './netflix-access';
+import { effectivePlayer } from './settings';
 
 const log = createLogger('backup');
 
@@ -17,14 +19,19 @@ export function exportBackup(): Promise<Backup> {
   return readCurrent(chrome.runtime.getManifest().version);
 }
 
-/** Applique une sauvegarde importée sous verrou, puis met à jour le badge de l'icône. */
+/**
+ * Applique une sauvegarde importée sous verrou, puis met à jour le badge de l'icône.
+ * Lecteur préféré « Netflix » importé sur un profil sans l'accès Netflix : remplacé par le lecteur par défaut.
+ */
 export async function applyBackup(incoming: BackupData, mode: ImportMode, includeSettings: boolean): Promise<void> {
+  const netflixGranted = await hasNetflixAccess();
   await withStorageLock(async () => {
     const current = await readCurrent(chrome.runtime.getManifest().version);
     const next = mergeBackup(current.data, incoming, mode, includeSettings);
+    const settings = next.settings && { ...next.settings, preferredPlayer: effectivePlayer(next.settings.preferredPlayer, netflixGranted) };
     const k = BACKUP_STORAGE_KEYS;
     await chrome.storage.local.set({
-      ...(next.settings !== null ? { [k.settings]: next.settings } : {}),
+      ...(settings !== null ? { [k.settings]: settings } : {}),
       [k.mediaMappings]: next.mediaMappings,
       [k.pendingReviews]: next.pendingReviews,
       [k.recentSyncs]: next.recentSyncs,

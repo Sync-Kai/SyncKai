@@ -59,8 +59,12 @@ export type SyncOutcome =
   | { status: 'not-connected' }
   /** Série exclue par l'utilisateur (Réglages › Séries exclues) : rien n'a été écrit */
   | { status: 'excluded'; mediaTitle: string }
-  /** Série hors du périmètre de la plateforme (Netflix sans fiche AniList liée : probablement pas un anime), ignorée en silence */
-  | { status: 'ignored' }
+  /**
+   * Série hors du périmètre de la plateforme (Netflix sans fiche AniList liée : probablement pas un anime), ignorée en
+   * silence. `noAccess` : accès Netflix retiré, l'onglet ouvert avant le retrait envoie encore ses épisodes (refusés
+   * sans rien écrire, la série n'est pas retenue comme ignorée : l'accès peut être accordé de nouveau)
+   */
+  | { status: 'ignored'; noAccess?: true }
   | { status: 'error'; message: string; code?: SyncErrorCode; httpStatus?: number; queued?: boolean };
 
 /** Services à relancer après un échec partiel ("Réessayer" ne réécrit pas les services déjà à jour) */

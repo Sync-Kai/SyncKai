@@ -21,8 +21,9 @@ import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions'
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { sendMessage, type MessageResponse } from '../../shared/messages';
+import { hasNetflixAccess } from '../../shared/netflix-access';
 import { platformSearchUrl } from '../../shared/platform-links';
-import { getSettings, OFFSET_RANGE, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getCachedWatching, getMalToken, getValidToken, STORAGE_KEYS } from '../../shared/storage';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { h, nodes, preserveFocus, type Child } from '../../ui/dom';
@@ -86,6 +87,8 @@ export function createAgenda(): AgendaView {
   let range: WeekRange = weekRange(Date.now(), firstDay);
   let status: Status = { kind: 'loading' };
   let settings: SyncSettings | null = null;
+  /** Lecteur préféré effectif (Netflix seulement avec l'accès) : lien « Ouvrir » et ordre des recherches */
+  let player: StreamingPlatform = DEFAULT_SETTINGS.preferredPlayer;
   let series = new Map<number, AgendaSeries>();
   let menuFor: number | null = null;
   let editing: Editing | null = null;
@@ -157,8 +160,9 @@ export function createAgenda(): AgendaView {
     /** GET_AGENDA envoyé : son échec est retenu pour la semaine */
     let requested = false;
     try {
-      const [nextSettings, anilistToken, malToken, anilist, mal, excluded, cache] = await Promise.all([
+      const [nextSettings, netflixGranted, anilistToken, malToken, anilist, mal, excluded, cache] = await Promise.all([
         getSettings(),
+        hasNetflixAccess(),
         getValidToken(),
         getMalToken(),
         getCachedWatching('anilist'),
@@ -168,6 +172,7 @@ export function createAgenda(): AgendaView {
       ]);
       if (current !== run) return;
       settings = nextSettings;
+      player = effectivePlayer(nextSettings.preferredPlayer, netflixGranted);
       const connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistToken : malToken) !== null);
       if (connected.length === 0) {
         status = { kind: 'not-connected' };
@@ -176,7 +181,7 @@ export function createAgenda(): AgendaView {
       }
       requestMissingWatching(connected, { anilist: anilist !== null, mal: mal !== null });
       const entries = [...(anilistToken ? (anilist?.entries ?? []) : []), ...(malToken ? (mal?.entries ?? []) : [])];
-      series = mergeWatchingSeries(entries, excluded, nextSettings.preferredPlayer);
+      series = mergeWatchingSeries(entries, excluded, player);
       if (series.size === 0) {
         status = { kind: 'no-series' };
         draw();
@@ -499,7 +504,7 @@ export function createAgenda(): AgendaView {
       ),
       // Plateformes sans lien connu : « Ouvrir » reste sur l'autre plateforme, la recherche est proposée ici
       ...[...row.searchPlatforms]
-        .sort((a, b) => Number(b === settings?.preferredPlayer) - Number(a === settings?.preferredPlayer))
+        .sort((a, b) => Number(b === player) - Number(a === player))
         .map((platform) =>
           h(
             'a',

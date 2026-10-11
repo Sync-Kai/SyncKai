@@ -29,6 +29,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Panneau latéral, *En lecture* : la fiche ne reste plus bloquée sur le chargement, ni grisée avec ses boutons désactivés, quand l’onglet finit de se charger pendant la recherche de la fiche (panneau ouvert sur un épisode qui démarre, épisode suivant, après un +1).
 - Panneau latéral : une action (+1/−1, statut, note) qui se termine après un changement d’onglet ou d’épisode n’affiche plus la fiche de la page quittée ni son retour sur la nouvelle page.
 - Agenda du panneau : une erreur de chargement (AniList saturé, réseau) reste affichée avec *Réessayer* au lieu de disparaître au rafraîchissement suivant du panneau, et la même semaine n’est plus demandée deux fois de suite.
+- Netflix désactivé (dans les Réglages, `chrome://extensions` ou `about:addons`) : un onglet Netflix resté ouvert ne synchronise plus rien, même sans être rechargé, et le popup comme le panneau y affichent *Netflix est désactivé*.
+- Netflix désactivé hors des Réglages, ou sauvegarde importée sur un navigateur où Netflix n’est pas activé : le lecteur préféré *Netflix* repasse sur Crunchyroll, et les boutons *Ouvrir*, l’agenda et les notifications de nouvel épisode n’ouvrent plus Netflix.
 
 ## [2.1.0] - 2026-10-10
 

@@ -73,6 +73,15 @@ export const DEFAULT_SETTINGS: SyncSettings = {
 
 export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
 
+/**
+ * Lecteur préféré effectif : Netflix seulement avec l'accès accordé (permission optionnelle). Sans accès, ou état
+ * encore inconnu (`undefined`), repli sur le lecteur par défaut. Seule lecture autorisée de `preferredPlayer`
+ * pour choisir un lien (popup, panneau, agenda, notifications) ou l'afficher (Réglages).
+ */
+export function effectivePlayer(preferred: StreamingPlatform, netflixGranted: boolean | undefined): StreamingPlatform {
+  return preferred === 'netflix' && netflixGranted !== true ? DEFAULT_SETTINGS.preferredPlayer : preferred;
+}
+
 const SETTINGS_KEY = 'settings';
 const NOTIFICATION_LEVELS: readonly NotificationLevel[] = ['discreet', 'detailed', 'alerts-only'];
 const PLAYERS: readonly StreamingPlatform[] = ['crunchyroll', 'adn', 'netflix'];

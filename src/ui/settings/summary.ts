@@ -2,7 +2,7 @@
 // Fonctions pures (langue active de l'i18n) : testées en fr, en et de.
 import { t, tp, type Locale } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
-import { DEFAULT_SETTINGS, type LanguageSetting, type SyncSettings } from '../../shared/settings';
+import { effectivePlayer, type LanguageSetting, type SyncSettings } from '../../shared/settings';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import type { AccountState } from '../../popup/state';
 
@@ -34,14 +34,6 @@ export function accountsSummary(links: Readonly<Record<TrackerId, AccountLink>>)
   return { text: parts.join(' · '), tone: expired ? 'danger' : 'muted' };
 }
 
-/**
- * Lecteur préféré affiché : Netflix n'est proposé qu'avec l'accès accordé (Réglages › Lecture & synchro) ;
- * sans accès (ou état encore inconnu), repli d'affichage sur le lecteur par défaut, le réglage enregistré est conservé.
- */
-export function displayedPlayer(preferred: StreamingPlatform, netflixAccess: boolean | undefined): StreamingPlatform {
-  return preferred === 'netflix' && netflixAccess !== true ? DEFAULT_SETTINGS.preferredPlayer : preferred;
-}
-
 /** « Crunchyroll · au générique », « ADN · à 85 % », « Crunchyroll · en pause » */
 export function syncSummary(
   settings: Pick<SyncSettings, 'autoSync' | 'completionTrigger' | 'completionPercentage' | 'preferredPlayer'>,
@@ -52,7 +44,7 @@ export function syncSummary(
     : settings.completionTrigger === 'credits'
       ? t('settings.summary.credits')
       : t('settings.summary.percentage', { percent: t('settings.percent', { value: settings.completionPercentage }) });
-  return `${PLAYER_NAMES[displayedPlayer(settings.preferredPlayer, netflixAccess)]} · ${trigger}`;
+  return `${PLAYER_NAMES[effectivePlayer(settings.preferredPlayer, netflixAccess)]} · ${trigger}`;
 }
 
 const LEVEL_TITLES = {

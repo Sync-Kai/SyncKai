@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale } from '../../i18n';
-import { DEFAULT_SETTINGS } from '../../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer } from '../../shared/settings';
 import { LOGGED_OUT } from '../../popup/state';
-import { accountLink, accountsSummary, dataSummary, displayedPlayer, helpSummary, languageSummary, notificationsSummary, syncSummary } from './summary';
+import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, syncSummary } from './summary';
 
 const initial = getLocale();
 afterEach(() => setLocale(initial));
@@ -60,7 +60,29 @@ describe('syncSummary', () => {
     expect(syncSummary(netflix, true)).toBe('Netflix · au générique');
     expect(syncSummary(netflix, false)).toBe('Crunchyroll · au générique');
     expect(syncSummary(netflix)).toBe('Crunchyroll · au générique');
-    expect(displayedPlayer('adn', false)).toBe('adn');
+    expect(effectivePlayer('adn', false)).toBe('adn');
+  });
+});
+
+describe('effectivePlayer : lecteur préféré effectif, partout où il est lu', () => {
+  it('Netflix seulement avec l’accès accordé ; sinon, ou état inconnu, lecteur par défaut', () => {
+    expect(effectivePlayer('netflix', true)).toBe('netflix');
+    expect(effectivePlayer('netflix', false)).toBe(DEFAULT_SETTINGS.preferredPlayer);
+    expect(effectivePlayer('netflix', undefined)).toBe(DEFAULT_SETTINGS.preferredPlayer);
+    expect(effectivePlayer('adn', undefined)).toBe('adn');
+    expect(effectivePlayer('crunchyroll', false)).toBe('crunchyroll');
+  });
+
+  it('popup, panneau, agenda et alertes de sortie ne lisent jamais `preferredPlayer` sans passer par lui', () => {
+    // Sources de l'extension (hors tests) : chaque lecture du réglage passe par effectivePlayer / effectivePreferredPlayer
+    const sources = import.meta.glob<string>(['../../**/*.ts', '!../../**/*.test.ts'], { query: '?raw', import: 'default', eager: true });
+    const readers = Object.entries(sources)
+      .filter(([path, text]) => !path.endsWith('/shared/settings.ts') && /\.preferredPlayer\b/.test(text))
+      .map(([path, text]) => ({ path: path.replace(/^(\.\.\/)+/, ''), helper: /\beffective(Preferred)?Player\(/.test(text) }));
+    expect(readers.map((r) => r.path)).toEqual(
+      expect.arrayContaining(['popup/popup.ts', 'sidepanel/components/now-playing-controller.ts', 'sidepanel/components/agenda.ts', 'background/airing.ts']),
+    );
+    expect(readers.filter((r) => !r.helper).map((r) => r.path)).toEqual([]);
   });
 });
 

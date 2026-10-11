@@ -6,6 +6,8 @@ import type { PageMediaInfo } from '../shared/page-media.types';
 // Fiche de la page sur une série ignorée par la synchro (Netflix, pas un anime) : résolution simulée.
 const resolver = vi.hoisted(() => ({ resolveEpisode: vi.fn(), findSeriesSeasons: vi.fn(), toCandidateSummary: vi.fn() }));
 vi.mock('./sync/resolver', () => resolver);
+const access = vi.hoisted(() => ({ hasNetflixAccess: vi.fn() }));
+vi.mock('../shared/netflix-access', () => access);
 
 const { resolvePageMedia } = await import('./page-media');
 
@@ -31,6 +33,15 @@ function page(overrides: Partial<EpisodeInfo> = {}): PageMediaInfo {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  access.hasNetflixAccess.mockResolvedValue(true);
+});
+
+describe('resolvePageMedia — accès Netflix retiré', () => {
+  it('onglet Netflix ouvert avant le retrait → NOT_TRACKED (Netflix désactivé), sans aucune recherche', async () => {
+    access.hasNetflixAccess.mockResolvedValue(false);
+    expect(await resolvePageMedia({ page: page({ episodeId: '81991799' }), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.netflixOff') });
+    expect(resolver.resolveEpisode).not.toHaveBeenCalled();
+  });
 });
 
 describe('resolvePageMedia — série ignorée', () => {

@@ -20,6 +20,7 @@ import { agendaFirstDay, writeWeekCache } from '../shared/agenda-store';
 import { AIRING_RESULT_KEY, type AiringCheckResult, type AiringSkipReason } from '../shared/airing.types';
 import { getExcludedSeries } from '../shared/exclusions';
 import { isRecord } from '../shared/guards';
+import { effectivePreferredPlayer } from '../shared/netflix-access';
 import { getSettings } from '../shared/settings';
 import { getCachedWatching, getMalToken, getValidToken, withStorageLock } from '../shared/storage';
 import { choosePlatformLink } from '../shared/watching';
@@ -188,12 +189,13 @@ export async function checkNewEpisodes(): Promise<AiringCheckResult> {
   return result;
 }
 
-/** URL d'ouverture : plateforme préférée du cache, sinon la fiche du service, sinon AniList. */
+/** URL d'ouverture : plateforme préférée du cache (Netflix seulement avec l'accès), sinon la fiche du service, sinon AniList. */
 async function resolveUrl(mediaId: number): Promise<string> {
   const [entries, settings] = await Promise.all([getCachedEntries(), getSettings()]);
+  const preferred = await effectivePreferredPlayer(settings.preferredPlayer);
   const matches = entries.filter((entry) => entry.mediaId === mediaId);
   for (const entry of matches) {
-    const link = choosePlatformLink(entry, settings.preferredPlayer);
+    const link = choosePlatformLink(entry, preferred);
     if (link) return link.url;
   }
   return matches[0]?.siteUrl ?? `https://anilist.co/anime/${mediaId}`;

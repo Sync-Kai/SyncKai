@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../shared/messages';
+import { effectivePreferredPlayer } from '../../shared/netflix-access';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import type { PanelMedia } from '../../shared/panel-media.types';
@@ -96,10 +97,12 @@ export function createNowPlayingController(onChange: () => void): NowPlayingCont
 
   const loadSettings = (): void => {
     getSettings()
-      .then((settings) => {
-        const playerChanged = settings.preferredPlayer !== preferred;
+      .then(async (settings) => {
+        // Lecteur « Netflix » sans l'accès accordé : lecteur par défaut
+        const player = await effectivePreferredPlayer(settings.preferredPlayer);
+        const playerChanged = player !== preferred;
         const liveChanged = settings.panelLiveProgress !== liveEnabled;
-        preferred = settings.preferredPlayer;
+        preferred = player;
         liveEnabled = settings.panelLiveProgress;
         if (liveChanged) live.follow(liveTarget());
         if (liveChanged || (playerChanged && content.status === 'ready' && content.panel?.relations.some((r) => r.platforms.length > 1))) onChange();

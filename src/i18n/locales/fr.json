@@ -451,6 +451,7 @@
   "page.minusOneAria": "Retirer un épisode vu : {title}",
   "page.notFound": "Aucune fiche AniList trouvée pour « {title} ».",
   "page.notTracked": "Rien à suivre ici : sur Netflix, SyncKai ne suit que les animes reconnus par AniList.",
+  "page.netflixOff": "Netflix est désactivé : SyncKai ne suit rien ici. Pour le réactiver : Réglages › Lecture & synchro.",
   "page.notInList": "Pas dans ta liste",
   "page.openOn": "Ouvrir la fiche sur {service}",
   "page.seasonOption": "Saison {season} — {title}",

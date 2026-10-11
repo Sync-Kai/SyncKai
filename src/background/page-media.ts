@@ -10,6 +10,7 @@ import type {
   SeasonSource,
 } from '../shared/page-media.types';
 import type { EpisodeInfo } from '../shared/episode.types';
+import { hasNetflixAccess } from '../shared/netflix-access';
 import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { learnPlatformLink } from '../shared/platform-links-store';
 import { pageMediaFromEpisode } from '../content/lib/page-media';
@@ -264,6 +265,8 @@ async function readLists(media: PageMediaDetails): Promise<PageListState[]> {
  */
 export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayload): Promise<PageMediaResult> {
   try {
+    // Accès Netflix retiré, onglet ouvert avant le retrait (son script répond encore) : rien à suivre, comme la synchro
+    if (page.platform === 'netflix' && !(await hasNetflixAccess())) return { ok: false, code: 'NOT_TRACKED', message: t('page.netflixOff') };
     const seasonKey = pageSeasonKey(page);
     if (mediaId !== null) manualChoices.set(seasonKey, mediaId);
     const resolution = await resolveSeason(page, mediaId ?? manualChoices.get(seasonKey) ?? null);

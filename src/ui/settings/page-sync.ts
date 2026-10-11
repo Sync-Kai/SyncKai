@@ -4,13 +4,12 @@ import { t } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { removeNetflixAccess, requestNetflixAccess } from '../../shared/netflix-access';
-import { DEFAULT_SETTINGS, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../../popup/components/alert';
 import { CARD, LINK, segmented } from '../../popup/components/ui';
 import { h } from '../dom';
 import type { SettingsContext, SettingsPageView } from './context';
 import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, toggleRow } from './rows';
-import { displayedPlayer } from './summary';
 
 const log = createLogger('settings');
 
@@ -207,7 +206,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
               control: segmented({
                 // Netflix proposé seulement avec l'accès accordé
                 options: ctx.data.netflixAccess === true ? PLAYER_OPTIONS : PLAYER_OPTIONS.filter((option) => option.value !== 'netflix'),
-                current: displayedPlayer(s.preferredPlayer, ctx.data.netflixAccess),
+                current: effectivePlayer(s.preferredPlayer, ctx.data.netflixAccess),
                 onPick: (value) => void ctx.update({ preferredPlayer: value }, true),
                 attrs: { 'aria-labelledby': 'sk-player-label' },
                 focusKey: 'player',

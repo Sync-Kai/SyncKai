@@ -8,14 +8,15 @@ import { loginWithMal } from './auth/mal';
 import { getAgendaWeek } from './agenda';
 import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
-import { forgetPageResolutions, refreshTabPageMedia, resolvePageMedia } from './page-media';
+import { handleEpisodeCompleted } from './episode-completed';
+import { forgetPageResolutions, resolvePageMedia } from './page-media';
 import { applyDiffs, cancelCompareJob, compareServiceLists, resumeCompareJob } from './compare';
 import { COMPARE_JOB_ALARM } from '../shared/compare-job';
 import { cancelCrImport, createCrReviews, resumeCrImport, startCrAnalyze, startCrApply } from './cr-import';
 import { CR_IMPORT_ALARM } from '../shared/cr-import';
 import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } from './sync/queue';
-import { reopenReview, resolveReview, searchCandidates, syncEpisode } from './sync/sync-service';
+import { reopenReview, resolveReview, searchCandidates } from './sync/sync-service';
 import { refreshReviewBadge } from '../shared/badge';
 import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { STORAGE_KEYS } from '../shared/storage';
@@ -112,18 +113,8 @@ const handlers: MessageHandlers = {
     return result;
   },
   GET_MAL_VIEWER: () => getMalViewer(),
-  // Échec passager → mise en file de relance automatique (le résultat porte alors `queued: true`)
-  EPISODE_COMPLETED: async ({ episode, services }, sender) => {
-    const outcome = await syncEpisode(episode, services);
-    // Correspondance saison → fiche peut-être apprise : les résolutions en mémoire sont oubliées
-    forgetPageResolutions();
-    const tabId = sender.tab?.id;
-    if (outcome.status === 'synced' && tabId !== undefined) {
-      // Fiche de l'onglet recalculée sans retarder le toast de la page (panneau et popup la lisent dans le cache)
-      refreshTabPageMedia(tabId, episode).catch((error: unknown) => log.warn('Fiche de l’onglet non mise à jour :', error));
-    }
-    return recordSyncOutcome(episode, services, outcome);
-  },
+  // Accès Netflix retiré → ignoré ; échec passager → mise en file de relance automatique (`queued: true`)
+  EPISODE_COMPLETED: (payload, sender) => handleEpisodeCompleted(payload, sender.tab?.id),
   ADJUST_PROGRESS: (payload) => adjustProgress(payload),
   SET_LIST_STATUS: (payload) => setListStatus(payload),
   RETRY_QUEUED: ({ id }) => retryQueued(id),

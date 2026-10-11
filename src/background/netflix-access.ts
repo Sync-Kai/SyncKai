@@ -1,10 +1,11 @@
 // Netflix activé à la demande : seule source de vérité de l'enregistrement des scripts Netflix.
 // L'état = la permission optionnelle `*://*.netflix.com/*` (aucun stockage). Le service worker ne se réveille
-// que pour permissions.onAdded / onRemoved et runtime.onInstalled.
-// Les imports `?script` (chemins des scripts produits par crxjs) n'existent qu'ici : module jamais importé par Vitest.
+// que pour permissions.onAdded / onRemoved, runtime.onInstalled et runtime.onStartup.
+// Les imports `?script` (chemins des scripts produits par crxjs) n'existent qu'ici (simulés dans netflix-access.test.ts).
 import bridgePath from '../content/netflix/page-bridge.iife.ts?script';
 import contentPath from '../content/netflix/content-netflix.iife.ts?script';
 import { createLogger } from '../shared/logger';
+import { resetRevokedNetflixPlayer } from '../shared/netflix-access';
 import { NETFLIX_MATCHES } from '../shared/target-pages';
 import {
   injectIntoOpenNetflixTabs,
@@ -51,14 +52,31 @@ function reconcile(reregister: boolean, injectOpenTabs = false): void {
     .catch((error: unknown) => log.warn('Enregistrement des scripts Netflix impossible :', error));
 }
 
+/** Lecteur préféré « Netflix » sans l'accès : remis à la valeur par défaut (popup, panneau et alertes le lisent) */
+function resetPlayer(): void {
+  resetRevokedNetflixPlayer()
+    .then((reset) => {
+      if (reset) log.info('Accès Netflix absent : lecteur préféré remis à la valeur par défaut');
+    })
+    .catch((error: unknown) => log.warn('Lecteur préféré non corrigé :', error));
+}
+
 /** Écouteurs posés au chargement du service worker (niveau supérieur de background.ts) */
 export function listenNetflixAccess(): void {
   chrome.permissions.onAdded.addListener((permissions) => {
     if (touchesNetflix(permissions)) reconcile(false, true);
   });
+  // Retrait (Réglages, chrome://extensions, about:addons) : scripts retirés et lecteur préféré corrigé à la source
   chrome.permissions.onRemoved.addListener((permissions) => {
-    if (touchesNetflix(permissions)) reconcile(false);
+    if (!touchesNetflix(permissions)) return;
+    reconcile(false);
+    resetPlayer();
   });
-  // Installation et mise à jour : chemins des scripts propres au build → réenregistrement si l'accès est accordé
-  chrome.runtime.onInstalled.addListener(() => reconcile(true));
+  // Installation et mise à jour : chemins des scripts propres au build → réenregistrement si l'accès est accordé.
+  // Accès perdu hors de la vue du service worker (navigateur fermé, version antérieure) : lecteur corrigé au démarrage
+  chrome.runtime.onInstalled.addListener(() => {
+    reconcile(true);
+    resetPlayer();
+  });
+  chrome.runtime.onStartup.addListener(resetPlayer);
 }

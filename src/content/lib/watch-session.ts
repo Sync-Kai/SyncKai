@@ -212,9 +212,10 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     try {
       const outcome = await sendMessage('EPISODE_COMPLETED', { episode, services });
       log.info('Résultat de la synchronisation :', outcome);
-      // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, épisodes suivants non renvoyés
+      // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, épisodes suivants non renvoyés.
+      // Accès Netflix retiré : rien d'affiché non plus, mais la série n'est pas retenue (accès accordé de nouveau)
       if (outcome.status === 'ignored') {
-        ignoredSeries.add(platformSeriesKey(episode));
+        if (outcome.noAccess !== true) ignoredSeries.add(platformSeriesKey(episode));
         toast?.dismiss();
         setState('idle');
         return;

@@ -8,7 +8,8 @@ import type { EpisodeInfo } from '../shared/episode.types';
 import { EXCLUDED_SERIES_KEY, excludeSeries, getExcludedSeries, includeSeries, platformSeriesKey } from '../shared/exclusions';
 import { sendMessage } from '../shared/messages';
 import type { RecentSync } from '../shared/review.types';
-import { DEFAULT_SETTINGS, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
+import { hasNetflixAccess } from '../shared/netflix-access';
 import { deletePendingReview, getCachedWatching, getPendingReviews, getRecentSyncs, STORAGE_KEYS } from '../shared/storage';
 import { getSyncQueue, removeQueueItem, SYNC_QUEUE_KEY } from '../shared/sync-queue-store';
 import type { AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
@@ -133,6 +134,8 @@ const pageCardStore = createStore<PageCardState>({ media: { status: 'none' }, bu
 const compareStore = createStore<CompareState>({ result: null, job: null, requesting: null, error: null, confirm: null, filter: 'all', shown: COMPARE_PAGE_SIZE });
 /** Accès à Crunchyroll / ADN et aux API (bandeau « Autoriser l'accès » si Firefox l'a retiré) */
 const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
+/** Accès Netflix (permission optionnelle) : lecteur préféré « Netflix » ignoré sans lui ; undefined = pas encore lu */
+const netflixAccessStore = createStore<boolean | undefined>(undefined);
 const version = chrome.runtime.getManifest().version;
 /** Lues au démarrage (synchrone) : la demande d'accès doit partir sans `await` dans le clic */
 const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
@@ -406,7 +409,7 @@ let watchingMemo: readonly unknown[] = [];
 function renderWatching(): void {
   const preferredPlayer = (() => {
     const state = settingsStore.get();
-    return state.status === 'ready' ? state.settings.preferredPlayer : DEFAULT_SETTINGS.preferredPlayer;
+    return state.status === 'ready' ? effectivePlayer(state.settings.preferredPlayer, netflixAccessStore.get()) : DEFAULT_SETTINGS.preferredPlayer;
   })();
   const services = connectedServices();
   const { sort, sortMenuOpen, rowMenu, rowConfirm } = uiStore.get();
@@ -587,9 +590,11 @@ function render(): void {
   });
 }
 
-// ─── Accès aux sites (Firefox) ──────────────────────────────────────────────
+// ─── Accès aux sites (Firefox) et accès Netflix (optionnel) ─────────────────
 
 async function checkHostAccess(): Promise<void> {
+  const netflix = await hasNetflixAccess();
+  if (netflixAccessStore.get() !== netflix) netflixAccessStore.set(netflix);
   const granted = await hasHostAccess(hostOrigins);
   const current = hostAccessStore.get();
   hostAccessStore.set(granted ? { status: 'granted' } : { status: 'missing', denied: current.status === 'missing' && current.denied });
@@ -1349,7 +1354,7 @@ anilistStore.subscribe(syncWatchingSource);
 malStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncMenuListeners);
-for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore, compareStore, hostAccessStore]) store.subscribe(render);
+for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore, compareStore, hostAccessStore, netflixAccessStore]) store.subscribe(render);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre)
 chrome.permissions?.onAdded?.addListener(() => void checkHostAccess());
 chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());

@@ -183,6 +183,19 @@ describe('startWatchSession — adapter asynchrone', () => {
     await watchToEnd(other, '1041');
     expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
   });
+
+  it('accès Netflix retiré : rien d’affiché, mais la série n’est pas retenue (accès accordé de nouveau sans recharger)', async () => {
+    const catalog = { '1051': episode('105', '1051'), '1052': episode('105', '1052', { seasonEpisodeNumber: 2, displayedEpisodeNumber: 2 }) };
+    const adapter = asyncAdapter(catalog);
+    mocks.sendMessage.mockResolvedValue({ status: 'ignored', noAccess: true } satisfies SyncOutcome);
+    await watchToEnd(adapter, '1051');
+    expect(mocks.sendMessage).toHaveBeenCalledOnce();
+    expect(mocks.showToast).not.toHaveBeenCalled();
+
+    mocks.sendMessage.mockResolvedValue({ status: 'needs-review', reason: 'x' } satisfies SyncOutcome);
+    await watchToEnd(adapter, '1052');
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('startWatchSession — adapter synchrone (inchangé)', () => {
