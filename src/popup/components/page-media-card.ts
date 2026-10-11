@@ -23,6 +23,8 @@ export interface PageMediaCardProps extends MediaActionHandlers {
   /** Comptes connectés et fiche préférée : lien du titre et de la jaquette */
   entryLinks: EntryLinkContext;
   onRetry: () => void;
+  /** Commentaire de l'entrée (éditeur repliable partagé avec le panneau), sous la note ; null sans compte connecté */
+  notesFor: (view: PageMediaView, refreshing: boolean) => HTMLElement | null;
 }
 
 const CARD_CLASS = 'flex shrink-0 flex-col gap-2 rounded-card bg-raised p-3 shadow-pop';
@@ -129,6 +131,7 @@ function renderReady(view: PageMediaView, refreshing: boolean, props: PageMediaC
       ),
     ),
     ...nodes(renderMediaActions({ view, state: actions, refreshing, handlers: props, lines: 'auto' })),
+    props.notesFor(view, refreshing),
   );
 }
 

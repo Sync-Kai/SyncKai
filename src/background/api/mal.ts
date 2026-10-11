@@ -8,6 +8,7 @@ import { toSafeImageUrl } from '../../shared/url';
 import { getMalAccessToken } from '../auth/mal';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
 import { malScoreFrom, type EntryWrite } from '../../shared/compare';
+import { readListNotes } from '../../shared/list-notes';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
 import { retryDelayMs, sleep } from './rate-limit';
 import { createLogger } from '../../shared/logger';
@@ -85,7 +86,7 @@ export function malProgressBody(progress: number, status: WriteStatus, repeat?: 
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'PATCH';
+  method?: 'GET' | 'PATCH' | 'DELETE';
   body?: URLSearchParams;
   /** Token refusé par le 401 précédent : renouvelé s'il est toujours enregistré (voir getMalAccessToken) */
   rejected?: string;
@@ -200,19 +201,24 @@ export interface MalAnimeInfo {
   title: string;
   episodes: number | null;
   entry: ListEntryState | null;
+  /** Commentaire de l'entrée (my_list_status.comments), null s'il est vide ou hors liste */
+  notes: string | null;
 }
 
 function isRawMalAnime(data: unknown): data is { id: number; title: string; num_episodes?: unknown; my_list_status?: unknown } {
   return isRecord(data) && typeof data.id === 'number' && typeof data.title === 'string';
 }
 
-// Champs imbriqués : num_times_rewatched n'est pas renvoyé par défaut dans my_list_status
-const MY_LIST_FIELDS = 'my_list_status{status,score,num_episodes_watched,is_rewatching,num_times_rewatched}';
+// Champs imbriqués : num_times_rewatched et comments ne sont pas renvoyés par défaut dans my_list_status (comments :
+// détail d'un anime seulement, « You cannot contain this field in a list » sur /users/{user}/animelist)
+const MY_LIST_FIELDS = 'my_list_status{status,score,num_episodes_watched,is_rewatching,num_times_rewatched,comments}';
 
 export async function getMalAnime(malId: number): Promise<MalAnimeInfo> {
   const anime = await malRequest(`/anime/${malId}?fields=num_episodes,${MY_LIST_FIELDS}`, isRawMalAnime);
   const episodes = typeof anime.num_episodes === 'number' && anime.num_episodes > 0 ? anime.num_episodes : null; // 0 = inconnu
-  return { title: anime.title, episodes, entry: parseMalListStatus(anime.my_list_status) };
+  const entry = parseMalListStatus(anime.my_list_status);
+  const notes = entry && isRecord(anime.my_list_status) ? readListNotes(anime.my_list_status.comments) : null;
+  return { title: anime.title, episodes, entry, notes };
 }
 
 async function patchMalListStatus(malId: number, body: URLSearchParams): Promise<ListEntryState> {
@@ -235,6 +241,27 @@ export function saveMalListStatus(malId: number, status: ManualListStatus, progr
 /** `score` déjà converti (entier 1 à 10, voir toMalScore) */
 export function saveMalScore(malId: number, score: number): Promise<ListEntryState> {
   return patchMalListStatus(malId, new URLSearchParams({ score: String(score) }));
+}
+
+/** Commentaire de l'entrée (texte déjà normalisé, "" l'efface) : seul champ écrit */
+export function saveMalNotes(malId: number, notes: string): Promise<ListEntryState> {
+  return patchMalListStatus(malId, new URLSearchParams({ comments: notes }));
+}
+
+/** Corps de la réponse au DELETE ignoré (`null` ou vide selon la doc) */
+const anyBody = (_data: unknown): _data is unknown => true;
+
+/**
+ * Retire l'anime de la liste MAL. Doc MAL v2 : « If the specified anime does not exist in user's anime list, this
+ * endpoint does nothing and returns 404 Not Found » : un 404 veut dire déjà absent, donc succès.
+ */
+export async function deleteMalEntry(malId: number): Promise<void> {
+  try {
+    await malRequest(`/anime/${malId}/my_list_status`, anyBody, { method: 'DELETE' });
+  } catch (error: unknown) {
+    if (error instanceof ApiError && error.httpStatus === 404) return;
+    throw error;
+  }
 }
 
 // ─── Alignement depuis la comparaison des listes ──────────────────────────

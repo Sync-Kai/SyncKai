@@ -5,6 +5,7 @@ import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
 import { isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from '../sync/score';
 import type { EntryWrite } from '../../shared/compare';
+import { readListNotes } from '../../shared/list-notes';
 import { anilistQuery } from './client';
 import { ApiError } from './errors';
 
@@ -14,6 +15,10 @@ export interface MediaListInfo {
   episodes: number | null;
   /** Entrée de la liste de l'utilisateur, null si l'anime n'y est pas */
   entry: ListEntryState | null;
+  /** Identifiant de l'entrée de liste (MediaList.id, requis pour la retirer), null hors liste */
+  entryId: number | null;
+  /** Commentaire de l'entrée (MediaList.notes), null s'il est vide */
+  notes: string | null;
 }
 
 const MEDIA_ENTRY_QUERY = /* GraphQL */ `
@@ -22,7 +27,7 @@ const MEDIA_ENTRY_QUERY = /* GraphQL */ `
       id
       episodes
       title { userPreferred }
-      mediaListEntry { status progress repeat score }
+      mediaListEntry { id status progress repeat score notes }
     }
   }
 `;
@@ -106,11 +111,15 @@ function isScoreFormatData(data: unknown): data is ScoreFormatData {
 export async function getMediaListInfo(mediaId: number): Promise<MediaListInfo> {
   const { Media } = await anilistQuery(MEDIA_ENTRY_QUERY, isMediaEntryData, { id: mediaId });
   const title = isRecord(Media.title) && typeof Media.title.userPreferred === 'string' ? Media.title.userPreferred : `#${mediaId}`;
+  const entry = parseEntry(Media.mediaListEntry);
+  const raw = entry && isRecord(Media.mediaListEntry) ? Media.mediaListEntry : null;
   return {
     mediaId,
     title,
     episodes: typeof Media.episodes === 'number' ? Media.episodes : null,
-    entry: parseEntry(Media.mediaListEntry),
+    entry,
+    entryId: raw && typeof raw.id === 'number' ? raw.id : null,
+    notes: raw ? readListNotes(raw.notes) : null,
   };
 }
 
@@ -191,4 +200,49 @@ export function anilistEntryWriteVariables(mediaId: number, write: EntryWrite, f
 export async function saveListEntry(mediaId: number, write: EntryWrite): Promise<ListEntryState> {
   const format = write.score !== undefined ? await getScoreFormat() : 'POINT_10_DECIMAL';
   return parseSaved(await anilistQuery(SAVE_ENTRY_MUTATION, isSaveProgressData, anilistEntryWriteVariables(mediaId, write, format)));
+}
+
+// ─── Commentaire et retrait de la liste ───────────────────────────────────
+
+const SAVE_NOTES_MUTATION = /* GraphQL */ `
+  mutation SaveNotes($mediaId: Int!, $notes: String) {
+    SaveMediaListEntry(mediaId: $mediaId, notes: $notes) {
+      status
+      progress
+      repeat
+      notes
+    }
+  }
+`;
+
+/** Commentaire de l'entrée (texte déjà normalisé, "" l'efface) : seul champ écrit */
+export async function saveListNotes(mediaId: number, notes: string): Promise<ListEntryState> {
+  return parseSaved(await anilistQuery(SAVE_NOTES_MUTATION, isSaveProgressData, { mediaId, notes }));
+}
+
+const DELETE_ENTRY_MUTATION = /* GraphQL */ `
+  mutation DeleteEntry($id: Int!) {
+    DeleteMediaListEntry(id: $id) {
+      deleted
+    }
+  }
+`;
+
+interface DeleteEntryData {
+  DeleteMediaListEntry: { deleted?: unknown };
+}
+
+function isDeleteEntryData(data: unknown): data is DeleteEntryData {
+  return isRecord(data) && isRecord(data.DeleteMediaListEntry);
+}
+
+/**
+ * Retire l'anime de la liste AniList. DeleteMediaListEntry prend l'identifiant de l'ENTRÉE (MediaList.id), pas celui de
+ * la fiche : relu juste avant. Anime déjà absent de la liste : rien à faire (succès).
+ */
+export async function deleteListEntry(mediaId: number): Promise<void> {
+  const { entryId } = await getMediaListInfo(mediaId);
+  if (entryId === null) return;
+  const { DeleteMediaListEntry } = await anilistQuery(DELETE_ENTRY_MUTATION, isDeleteEntryData, { id: entryId });
+  if (DeleteMediaListEntry.deleted !== true) throw new ApiError('INVALID_RESPONSE', t('api.invalidAfterUpdate.anilist'));
 }

@@ -62,6 +62,7 @@ const ICON_PATHS = {
   help: ['M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0', 'M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14', 'M12 17.2v.1'],
   // Clavier : touches en segments nuls (disques), barre d'espace
   keyboard: ['M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z', 'M6 10h.01', 'M10 10h.01', 'M14 10h.01', 'M18 10h.01', 'M8 14h8'],
+  pencil: ['M12 20h9', 'M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z'],
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

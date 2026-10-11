@@ -15,6 +15,7 @@ import type { TrackerId } from './tracker.types';
 import type { WatchingResult } from './watching.types';
 import type { ApplyDiffsPayload, ApplyResult, CancelJobResult, CompareResult } from './compare';
 import type { MediaRef, Score10 } from './engagement.types';
+import type { ListNotesResult } from './list-notes';
 import type {
   CrImportAnalyzePayload,
   CrImportApplyPayload,
@@ -94,6 +95,12 @@ export interface MessageMap {
    * `fromCard` : depuis la carte, écrite seulement sur les sessions où elle a été créée.
    */
   RATE_MEDIA: { payload: { media: MediaRef; score: Score10; fromCard?: boolean }; response: SyncOutcome };
+  /** « Retirer de la liste » (popup, panneau) : retire la série de chaque service connecté où elle est */
+  REMOVE_FROM_LIST: { payload: { media: MediaRef }; response: SyncOutcome };
+  /** Éditeur de commentaire du popup : commentaire d'AniList si la série y est, sinon de MyAnimeList */
+  GET_LIST_NOTES: { payload: { media: MediaRef }; response: ListNotesResult };
+  /** Commentaire écrit sur chaque service connecté où la série est dans la liste ("" l'efface ; absente : jamais ajoutée) */
+  SET_LIST_NOTES: { payload: { media: MediaRef; notes: string }; response: SyncOutcome };
   /** « Plus tard » : crée la carte « À noter » */
   DEFER_RATING: { payload: { media: MediaRef; coverUrl: string | null }; response: Result<null, AniListErrorCode> };
   /** « Oui » au revisionnage : REPEATING + progression sur chaque service */

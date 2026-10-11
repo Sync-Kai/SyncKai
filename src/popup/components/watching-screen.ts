@@ -13,7 +13,7 @@ import { entryCover, entryTitle } from '../../ui/entry-link';
 import { icon, kai, playIcon, sparkIcon } from '../../ui/icons';
 import { TONE_CHIP } from '../../ui/feedback';
 import type { ListStatusChange } from '../../shared/sync.types';
-import type { EntryAction, WatchingState } from '../state';
+import type { EntryAction, RowConfirm, WatchingState } from '../state';
 import type { InlineFeedback } from '../../ui/state';
 import { renderRetryButton } from '../../ui/media-actions';
 import { renderAlert } from '../../ui/alert';
@@ -21,6 +21,8 @@ import { renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from '../../ui/statu
 import { CARD, kanaLabel, PLATFORM_LABELS, platformChip, renderCover, sectionTitle, segmented } from '../../ui/kit';
 import { formatPlatformList } from '../../ui/platform-list';
 import { settingsPath } from '../../ui/settings/navigation';
+import { onMenuKeyDown } from '../../ui/menu';
+import { removeIcon, renderRemoveConfirm } from '../../ui/list-entry-tools';
 
 /** Actions par série (+1, menu « … ») : état fourni par le popup, il survit aux nouveaux rendus */
 export interface EntryControls {
@@ -28,14 +30,20 @@ export interface EntryControls {
   /** Fiches AniList exclues de la synchronisation */
   excludedMediaIds: ReadonlySet<number>;
   rowMenu: string | null;
-  /** Confirmation affichée dans le menu ouvert (Abandonner, Terminé) */
-  rowConfirm: ListStatusChange | null;
+  /** Confirmation affichée dans le menu ouvert (Abandonner, Terminé, Retirer de la liste) */
+  rowConfirm: RowConfirm | null;
   onRowMenu: (key: string | null) => void;
-  onRowConfirm: (status: ListStatusChange | null) => void;
+  onRowConfirm: (confirm: RowConfirm | null) => void;
   onAdjust: (entry: WatchingEntry, delta: 1 | -1) => void;
   onSetStatus: (entry: WatchingEntry, status: ListStatusChange) => void;
   onExclude: (entry: WatchingEntry) => void;
   onInclude: (entry: WatchingEntry) => void;
+  /** « Retirer de la liste » confirmé : retirée de chaque service connecté */
+  onRemove: (entry: WatchingEntry) => void;
+  /** « Commentaire… » : ouvre l'éditeur sous la série */
+  onNotes: (entry: WatchingEntry) => void;
+  /** Éditeur de commentaire ouvert sous cette série (élément persistant), sinon null */
+  notesFor: (entry: WatchingEntry) => HTMLElement | null;
   /** Comptes connectés et fiche préférée : lien du titre, de la jaquette et de « Ouvrir la fiche » */
   entryLinks: EntryLinkContext;
 }
@@ -142,7 +150,10 @@ function searchPlatforms(entry: WatchingEntry, preferred: StreamingPlatform): St
   return platformsWithoutLink(entry.platforms).sort((a, b) => Number(b === preferred) - Number(a === preferred));
 }
 
-/** Menu « … » d'une série : −1, statut (pause, abandon, terminé), exclusion / réactivation, recherche sur une plateforme, fiche du service */
+/**
+ * Menu « … » d'une série : −1, statut (pause, abandon, terminé), commentaire, exclusion / réactivation, recherche sur une
+ * plateforme, fiche du service, retrait de la liste (confirmé en ligne)
+ */
 function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred: StreamingPlatform): HTMLElement {
   const key = entryKey(entry);
   const pending = controls.actions.get(key)?.phase === 'pending';
@@ -191,6 +202,10 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred:
         : item(status, t(STATUS_LABELS[status]), STATUS_ICONS[status](), () => controls.onRowConfirm(status), pending),
     ),
     h('div', { class: 'mx-1 my-0.5 h-px bg-line', attrs: { role: 'separator' } }),
+    item('notes', t('notes.menu'), icon('pencil', 'h-3.5 w-3.5 text-lavender'), () => {
+      close();
+      controls.onNotes(entry);
+    }, pending),
     excluded
       ? item('include', t('watching.resumeSync'), icon('retry', 'h-3.5 w-3.5 text-mint'), () => {
           close();
@@ -230,6 +245,19 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred:
       icon('external', 'h-3.5 w-3.5 text-muted'),
       t('page.openOn', { service: TRACKER_LABELS[site.service] }),
     ),
+    h('div', { class: 'mx-1 my-0.5 h-px bg-line', attrs: { role: 'separator' } }),
+    controls.rowConfirm === 'REMOVE' && !pending
+      ? renderRemoveConfirm({
+          focusKey: key,
+          title: entry.title,
+          inMenu: true,
+          onYes: () => {
+            close();
+            controls.onRemove(entry);
+          },
+          onNo: () => controls.onRowConfirm(null),
+        })
+      : item('REMOVE', t('list.remove'), removeIcon(), () => controls.onRowConfirm('REMOVE'), pending, true),
   );
   return menu;
 }
@@ -464,6 +492,13 @@ function renderRow(entry: WatchingEntry, now: number, preferred: StreamingPlatfo
   );
 }
 
+/** Éditeur de commentaire ouvert sous la série (carte compacte, élément persistant fourni par le popup) */
+function renderNotesPanel(entry: WatchingEntry, controls: EntryControls, tag: 'li' | 'div'): HTMLElement | null {
+  const editor = controls.notesFor(entry);
+  if (!editor) return null;
+  return h(tag, { class: 'rounded-lg border border-line bg-surface p-2', attrs: { 'aria-label': t('notes.editAria', { title: entry.title }), 'data-notes-row': entryKey(entry) } }, editor);
+}
+
 // ─── Tri « Mes séries » ───────────────────────────────────────────────────
 
 const SORT_LABELS: Record<WatchingSort, MessageKey> = {
@@ -482,27 +517,6 @@ const SORT_ARIA: Record<WatchingSort, MessageKey> = {
 };
 
 const SORT_MENU_ID = 'sk-sort-menu';
-const MENU_NAV_KEYS: ReadonlySet<string> = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
-
-/** Déplace le focus clavier entre les options du menu (flèches en boucle, Début, Fin) */
-function moveMenuFocus(menu: HTMLElement, key: string): void {
-  const items = [...menu.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)')];
-  const index = items.findIndex((item) => item === document.activeElement);
-  const last = items.length - 1;
-  const next = key === 'Home' ? 0 : key === 'End' ? last : key === 'ArrowDown' ? (index >= last ? 0 : index + 1) : index <= 0 ? last : index - 1;
-  items[next]?.focus();
-}
-
-/** Clavier d'un menu : flèches / Début / Fin entre les options, Tab ferme (focus rendu au bouton) */
-function onMenuKeyDown(menu: HTMLElement, event: KeyboardEvent, onClose: () => void): void {
-  if (MENU_NAV_KEYS.has(event.key)) {
-    event.preventDefault();
-    moveMenuFocus(menu, event.key);
-  } else if (event.key === 'Tab') {
-    event.preventDefault();
-    onClose();
-  }
-}
 
 function renderSortMenu(sort: WatchingSort, onClose: () => void, onPick: (sort: WatchingSort) => void): HTMLElement {
   const menu: HTMLElement = h(
@@ -702,6 +716,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
       errorAlert,
       notice,
       props.pageCard ?? (hero && renderHero(hero, now, preferredPlayer, props.controls)),
+      !props.pageCard && hero && renderNotesPanel(hero, props.controls, 'div'),
       h(
         'div',
         { class: 'flex shrink-0 items-center justify-between gap-2' },
@@ -719,7 +734,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
               class: 'm-0 flex list-none flex-col gap-1 p-0',
               attrs: { 'aria-label': t('watching.listAria', { service: TRACKER_LABELS[state.service], sort: t(SORT_ARIA[props.sort]) }) },
             },
-            ...rows.map((entry) => renderRow(entry, now, preferredPlayer, props.controls)),
+            ...rows.flatMap((entry) => nodes([renderRow(entry, now, preferredPlayer, props.controls), renderNotesPanel(entry, props.controls, 'li')])),
           )
         : h('p', { class: `${CARD} m-0 p-3 text-[12px] text-muted` }, t('watching.noOther')),
     ]),

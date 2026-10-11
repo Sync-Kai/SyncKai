@@ -195,6 +195,36 @@ describe('DEFER_RATING', () => {
   });
 });
 
+describe('REMOVE_FROM_LIST / GET_LIST_NOTES / SET_LIST_NOTES', () => {
+  const media = { mediaId: 21, malId: null, title: 'One Piece' };
+
+  it('fiche validée (AniList ou MAL seule), jamais sans identifiant', () => {
+    expect(isRuntimeMessage({ type: 'REMOVE_FROM_LIST', payload: { media } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'REMOVE_FROM_LIST', payload: { media: { mediaId: null, malId: 20, title: 'Naruto' } } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'REMOVE_FROM_LIST', payload: { media: { mediaId: null, malId: null, title: 'X' } } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'REMOVE_FROM_LIST', payload: null })).toBe(false);
+    expect(isRuntimeMessage({ type: 'GET_LIST_NOTES', payload: { media } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'GET_LIST_NOTES', payload: { media: { mediaId: -1, malId: null, title: 'X' } } })).toBe(false);
+  });
+
+  it('commentaire : chaîne de 6000 caractères au plus, vide accepté (effacement)', () => {
+    const notes = (value: unknown): unknown => ({ type: 'SET_LIST_NOTES', payload: { media, notes: value } });
+    expect(isRuntimeMessage(notes(''))).toBe(true);
+    expect(isRuntimeMessage(notes('À revoir'))).toBe(true);
+    expect(isRuntimeMessage(notes('x'.repeat(6000)))).toBe(true);
+    expect(isRuntimeMessage(notes('x'.repeat(6001)))).toBe(false);
+    expect(isRuntimeMessage(notes(null))).toBe(false);
+    expect(isRuntimeMessage(notes(42))).toBe(false);
+  });
+
+  it('réservés aux pages de l’extension (popup, panneau) : jamais depuis une page tierce', () => {
+    for (const type of ['REMOVE_FROM_LIST', 'GET_LIST_NOTES', 'SET_LIST_NOTES'] as const) {
+      expect(isAllowedOrigin(type, 'extension')).toBe(true);
+      expect(isAllowedOrigin(type, 'content')).toBe(false);
+    }
+  });
+});
+
 describe('expéditeurs autorisés (MESSAGE_ORIGINS, ARCH-07)', () => {
   /** Appels `sendMessage('TYPE', …)` (type littéral) ; ni la déclaration, ni `chrome.runtime.sendMessage` */
   const SEND_RE = /(?<!function |\.)\bsendMessage(?:<[^>]*>)?\(\s*'([A-Z_]+)'/g;

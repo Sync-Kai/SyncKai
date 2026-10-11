@@ -20,6 +20,8 @@ export interface TrackerEntry {
   episodes: number | null;
   /** Entrée de la liste de l'utilisateur, null si l'anime n'y est pas */
   entry: ListEntryState | null;
+  /** Commentaire de l'entrée (AniList `notes`, MAL `comments`), null s'il est vide ou si l'anime n'est pas dans la liste */
+  notes: string | null;
 }
 
 /**
@@ -45,4 +47,8 @@ export interface TrackerService {
   saveStatus(id: number, status: ManualListStatus, progress: number, repeat?: number): Promise<ListEntryState>;
   /** Alignement (comparaison des listes) : écrit ou crée l'entrée avec les seuls champs fournis, en une requête */
   saveEntry(id: number, write: EntryWrite): Promise<ListEntryState>;
+  /** Retire l'anime de la liste ; déjà absent = succès (rien à retirer) */
+  deleteEntry(id: number): Promise<void>;
+  /** Commentaire de l'entrée (déjà normalisé, "" l'efface) ; l'appelant vérifie que l'anime est dans la liste */
+  saveNotes(id: number, notes: string): Promise<ListEntryState>;
 }

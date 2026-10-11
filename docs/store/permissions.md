@@ -57,9 +57,9 @@ Declared in `host_permissions` (exactly as in manifest.json):
 | Host pattern | Justification |
 |---|---|
 | `*://*.crunchyroll.com/*` | Content script on Crunchyroll episode pages. Also lets it fetch `static.crunchyroll.com/skip-events/production/…`, the public JSON that gives the credits start time (same source the Crunchyroll player uses), to detect the end of an episode. On explicit request only (Settings › Import from Crunchyroll), the content script running in the user's own Crunchyroll tab reads their watch history from Crunchyroll's API (same origin, the site's own session) so the user can bring AniList/MyAnimeList up to date after a preview. To do so, it requests a short-lived token from Crunchyroll's token endpoint (`/auth/v1/token`) with the public client ID of Crunchyroll's own website, exactly as the site does, using the user's existing session cookie (no password, no secret); the token never leaves the tab and is never stored. The reduced history is kept in `chrome.storage.local` only during the analysis and erased once the preview is built, or if the analysis is stopped or fails. |
-| `https://graphql.anilist.co/*` | AniList GraphQL API: find the matching entry (public catalog, also used when only MyAnimeList is connected), read the user's list, save progress, rating and rewatch, read the airing schedule for new-episode alerts. |
+| `https://graphql.anilist.co/*` | AniList GraphQL API: find the matching entry (public catalog, also used when only MyAnimeList is connected), read the user's list, save progress, rating, rewatch and the entry's comment, remove an anime from the list when the user asks (confirmed in the popup or the side panel), read the airing schedule for new-episode alerts. |
 | `https://myanimelist.net/*` | MyAnimeList OAuth2 token endpoint (`/v1/oauth2/token`): exchange the authorization code and refresh the access token. |
-| `https://api.myanimelist.net/*` | MyAnimeList REST API v2: read the user's list and profile, save progress, rating and rewatch status. |
+| `https://api.myanimelist.net/*` | MyAnimeList REST API v2: read the user's list and profile, save progress, rating, rewatch status and the entry's comment, remove an anime from the list when the user asks (confirmed in the popup or the side panel). |
 
 Declared in `optional_host_permissions` (requested at runtime, never at install):
 

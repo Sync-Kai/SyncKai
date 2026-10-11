@@ -2,7 +2,8 @@ import { t } from '../i18n';
 import { sendMessage, type AdjustProgressPayload } from '../shared/messages';
 import type { PageMediaView } from '../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
-import { addFeedback, adjustFeedback, ratingFeedback, statusFeedback } from './feedback';
+import { addFeedback, adjustFeedback, notesFeedback, ratingFeedback, removeFeedback, statusFeedback } from './feedback';
+import { normalizeListNotes } from '../shared/list-notes';
 import type { InlineFeedback } from './state';
 import type { MediaAction } from './media-actions';
 import { formatStarValue } from './rating';
@@ -14,7 +15,11 @@ export type MediaActionRequest =
   /** `retry` : nouvel essai après un échec partiel (progression absolue sur les seuls services en échec) */
   | { kind: 'adjust'; delta: 1 | -1; retry?: AdjustRetry }
   | { kind: 'status'; status: ListStatusChange }
-  | { kind: 'rate'; value: number };
+  | { kind: 'rate'; value: number }
+  /** Retire la série de chaque liste connectée où elle est (après confirmation) */
+  | { kind: 'remove' }
+  /** Commentaire de l'entrée ("" l'efface) */
+  | { kind: 'notes'; notes: string };
 
 /** Action affichée comme « en cours » (spinner sur le bouton concerné) */
 export function mediaActionKey(request: MediaActionRequest): MediaAction {
@@ -27,6 +32,10 @@ export function mediaActionKey(request: MediaActionRequest): MediaAction {
       return `status-${request.status}`;
     case 'rate':
       return 'rate';
+    case 'remove':
+      return 'remove';
+    case 'notes':
+      return 'notes';
   }
 }
 
@@ -48,6 +57,10 @@ function send(request: MediaActionRequest, { media }: PageMediaView): Promise<Sy
     }
     case 'rate':
       return sendMessage('RATE_MEDIA', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) }, score: request.value });
+    case 'remove':
+      return sendMessage('REMOVE_FROM_LIST', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) } });
+    case 'notes':
+      return sendMessage('SET_LIST_NOTES', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) }, notes: request.notes });
   }
 }
 
@@ -63,6 +76,10 @@ function toFeedback(request: MediaActionRequest, outcome: SyncOutcome, view: Pag
       const { tone, text, detail } = ratingFeedback(outcome, formatStarValue(request.value), view.media.title);
       return { tone, text, detail };
     }
+    case 'remove':
+      return removeFeedback(outcome);
+    case 'notes':
+      return notesFeedback(outcome, normalizeListNotes(request.notes) === '');
   }
 }
 

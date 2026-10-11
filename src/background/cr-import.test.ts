@@ -78,7 +78,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
       tracker.reads++;
       const entry = tracker.entries.get(entryId);
-      return { title: `#${entryId}`, episodes: 24, entry: entry ? { ...entry } : null };
+      return { title: `#${entryId}`, episodes: 24, entry: entry ? { ...entry } : null, notes: null };
     },
     saveProgress: async (entryId, progress, status) => {
       tracker.attempts++;
@@ -93,6 +93,8 @@ function fakeTracker(id: TrackerId): FakeTracker {
     saveScore: () => Promise.reject(new Error('hors test')),
     startRewatch: () => Promise.reject(new Error('hors test')),
     saveEntry: () => Promise.reject(new Error('hors test')),
+    deleteEntry: () => Promise.reject(new Error('hors test')),
+    saveNotes: () => Promise.reject(new Error('hors test')),
   };
   return tracker;
 }

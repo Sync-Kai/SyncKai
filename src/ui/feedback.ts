@@ -130,3 +130,47 @@ export function addFeedback(outcome: SyncOutcome, status: AddListStatus): Inline
   if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
   return { tone: 'success', text, detail };
 }
+
+/** Premier service en échec d'un résultat « synced » : texte de l'erreur, préfixé du service (session expirée, limite…) */
+function firstFailure(outcome: Extract<SyncOutcome, { status: 'synced' }>): string | null {
+  const failed = outcome.results.find((r) => r.outcome.status === 'error');
+  return failed?.outcome.status === 'error' ? t('common.serviceMessage', { service: TRACKER_LABELS[failed.service], message: failed.outcome.message }) : null;
+}
+
+/**
+ * Résultat de « Retirer de la liste » : « {titre} : retirée de ta liste », échec partiel nommé, ou absente partout.
+ * Sans aucun retrait, l'erreur du service est affichée telle quelle (réseau, session expirée, limite de requêtes).
+ */
+export function removeFeedback(outcome: SyncOutcome): InlineFeedback {
+  const detail = detailOf(outcome);
+  if (outcome.status !== 'synced') return adjustFeedback(outcome, 1);
+  const removed = outcome.results.some((r) => r.outcome.status === 'updated');
+  const failed = outcome.results.filter((r) => r.outcome.status === 'error').map((r) => TRACKER_LABELS[r.service]);
+  if (!removed) {
+    const failure = firstFailure(outcome);
+    if (failure) return { tone: 'error', text: failure, detail };
+    return { tone: 'warning', text: t('engagement.notInList'), detail };
+  }
+  const text = t('inline.removed', { title: outcome.mediaTitle });
+  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+  return { tone: 'success', text, detail };
+}
+
+/**
+ * Résultat de l'enregistrement du commentaire (`cleared` : texte vide envoyé). Enregistré (ou déjà identique) partout
+ * où la série est : succès ; absente de toutes les listes : rien n'est ajouté ; échec : erreur du service affichée.
+ */
+export function notesFeedback(outcome: SyncOutcome, cleared: boolean): InlineFeedback {
+  const detail = detailOf(outcome);
+  if (outcome.status !== 'synced') return adjustFeedback(outcome, 1);
+  const written = outcome.results.some((r) => r.outcome.status === 'updated' || r.outcome.status === 'up-to-date');
+  const failed = outcome.results.filter((r) => r.outcome.status === 'error').map((r) => TRACKER_LABELS[r.service]);
+  if (!written) {
+    const failure = firstFailure(outcome);
+    if (failure) return { tone: 'error', text: failure, detail };
+    return { tone: 'warning', text: t('notes.notInList'), detail };
+  }
+  const text = t(cleared ? 'inline.notesCleared' : 'inline.notesSaved');
+  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+  return { tone: 'success', text, detail };
+}

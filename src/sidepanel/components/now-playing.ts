@@ -5,7 +5,10 @@ import { renderAlert } from '../../ui/alert';
 import { renderAiring } from '../../ui/airing-badge';
 import { kanaLabel, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { platformIcon } from '../../ui/brand-icons';
-import { mediaMetaParts } from '../../ui/page-media-view';
+import { mediaMetaParts, primaryList } from '../../ui/page-media-view';
+import { renderCardMenu } from '../../ui/list-entry-tools';
+import { createMenuDismiss } from '../../ui/menu';
+import { createNotesEditor } from '../../ui/notes-editor';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import { isLongDescription, malForumUrl, redditSearchUrl } from '../../shared/panel-media';
 import type { PanelMedia, PanelRelation } from '../../shared/panel-media.types';
@@ -72,6 +75,76 @@ export interface NowPlaying {
 /** Onglet « En lecture » : `onChange` redessine le panneau */
 export function createNowPlaying(onChange: () => void): NowPlaying {
   const ctl = createNowPlayingController(onChange);
+
+  // ─── Menu « ⋯ » de « Ta progression » (Retirer de la liste) et commentaire ───
+
+  /** Menu ouvert, et confirmation du retrait affichée dedans */
+  let menu: { open: boolean; confirming: boolean } = { open: false, confirming: false };
+
+  const focusPanel = (key: string): void => document.querySelector<HTMLElement>(`[data-focus="${key}"]`)?.focus({ preventScroll: true });
+
+  /** Ouverture : focus sur la première action ; fermeture : retour au bouton « ⋯ » (sauf clic ailleurs) */
+  function setMenu(open: boolean, restoreFocus = true): void {
+    if (menu.open === open) return;
+    menu = { open, confirming: false };
+    menuDismiss.setOpen(open);
+    onChange();
+    if (open) focusPanel('REMOVE-panel');
+    else if (restoreFocus) focusPanel('more-panel');
+  }
+
+  /** Confirmation du retrait : focus sur « Annuler » (une action irréversible ne se valide pas d'un double Entrée) */
+  function setRemoveConfirm(confirming: boolean): void {
+    if (!menu.open || menu.confirming === confirming) return;
+    menu = { open: true, confirming };
+    onChange();
+    focusPanel(confirming ? 'confirm-no-panel' : 'REMOVE-panel');
+  }
+
+  const menuDismiss = createMenuDismiss({
+    onPointerDown(target) {
+      if (menu.open && !target?.closest('[data-menu-root="panel"]')) setMenu(false, false);
+    },
+    onEscape() {
+      if (menu.confirming) setRemoveConfirm(false);
+      else setMenu(false);
+    },
+  });
+
+  function removeFromList(): void {
+    menu = { open: false, confirming: false };
+    menuDismiss.setOpen(false);
+    void ctl.runAction({ kind: 'remove' });
+  }
+
+  /** Commentaire de l'entrée : éditeur persistant (brouillon gardé entre deux rendus), remis à zéro sur une autre fiche */
+  const notesEditor = createNotesEditor({
+    focusKey: 'panel-notes',
+    collapsible: true,
+    onSave: async (notes) => (await ctl.runAction({ kind: 'notes', notes }))?.tone === 'success',
+  });
+  /** Fiche de « Ta progression » : une autre fiche ferme le menu et oublie le brouillon du commentaire */
+  let shownMediaId: number | null = null;
+
+  function followMedia(mediaId: number): void {
+    if (shownMediaId === mediaId) return;
+    shownMediaId = mediaId;
+    menu = { open: false, confirming: false };
+    menuDismiss.setOpen(false);
+    notesEditor.reset();
+  }
+
+  function renderNotes(view: PageMediaView, refreshing: boolean): HTMLElement {
+    const primary = primaryList(view.lists);
+    notesEditor.update({
+      notes: primary?.notes ?? null,
+      loading: false,
+      unavailable: primary ? null : t('notes.notInList'),
+      busy: ctl.actions.busy !== null || refreshing,
+      title: view.media.title,
+    });
+    return notesEditor.element;
+  }
 
   /** Confirmation Abandonner / Terminé : focus sur « Non » à l'ouverture, rendu au bouton à l'annulation */
   function setConfirm(status: ListStatusChange | null): void {
@@ -204,14 +277,28 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
   function renderProgress(view: PageMediaView, page: PageMediaInfo, refreshing: boolean): HTMLElement {
     const { actions, live } = ctl;
     const line = episodeLine(view.episodeProgress, view.media.episodes);
+    followMedia(view.media.mediaId);
     return h(
       'section',
       { class: SECTION, attrs: { 'aria-label': t('panel.nowPlaying.progress'), 'aria-busy': String(refreshing || actions.busy !== null) } },
       h(
         'div',
-        { class: 'flex items-baseline justify-between gap-2' },
-        h('h3', { class: SECTION_TITLE }, t('panel.nowPlaying.progress')),
+        { class: 'flex min-h-7 items-center justify-between gap-2' },
+        h('h3', { class: `${SECTION_TITLE} flex-1` }, t('panel.nowPlaying.progress')),
         line && h('span', { class: 'text-[13px] font-extrabold text-sakura tabular-nums' }, line),
+        // « ⋯ » : seulement si la série est dans au moins une liste (rien à retirer sinon)
+        primaryList(view.lists) !== null &&
+          renderCardMenu({
+            open: menu.open,
+            confirming: menu.confirming,
+            busy: actions.busy !== null || refreshing,
+            removing: actions.busy === 'remove',
+            title: view.media.title,
+            focusKey: 'panel',
+            onToggle: (open) => setMenu(open),
+            onConfirm: setRemoveConfirm,
+            onRemove: removeFromList,
+          }),
       ),
       // Position de lecture en direct et compte à rebours (page de lecture uniquement)
       page.kind === 'episode' && ctl.liveEnabled && live.element,
@@ -234,6 +321,8 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
           },
         }),
       ),
+      // Commentaire : avec au moins un compte connecté (désactivé, avec l'explication, hors liste)
+      view.lists.length > 0 && renderNotes(view, refreshing),
     );
   }
 

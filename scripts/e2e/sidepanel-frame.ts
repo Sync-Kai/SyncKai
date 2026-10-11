@@ -5,7 +5,7 @@ import '../../src/sidepanel/sidepanel.css';
 import manifest from '../../manifest.json';
 import { airingWeekKey, weekRange, type IsoWeekday } from '../../src/shared/agenda';
 import { isRecord } from '../../src/shared/guards';
-import type { PageMediaInfo, PageMediaResult } from '../../src/shared/page-media.types';
+import type { PageListState, PageMediaInfo, PageMediaResult } from '../../src/shared/page-media.types';
 import { isPanelTab } from '../../src/sidepanel/tabs';
 import { agendaWeek, PANEL_PAGE, panelChrome, panelView } from '../screenshots/demo-panel';
 import { installChromeMock, type SentMessage } from '../screenshots/mock-chrome';
@@ -34,9 +34,23 @@ const DANDADAN_PAGE: PageMediaInfo = {
 let shownPage: PageMediaInfo = PANEL_PAGE;
 let pageReads = 0;
 
+/** Frieren retirée des listes (« Retirer de la liste ») et commentaire enregistré : relus par RESOLVE_PAGE_MEDIA */
+let removed = false;
+let savedNotes: string | null = null;
+
+/** Listes de la fiche après les actions du test (retrait, commentaire) */
+function withActions(lists: PageListState[]): PageListState[] {
+  return lists.map((list): PageListState => {
+    if (list.state !== 'in-list') return list;
+    if (removed) return { service: list.service, state: 'not-in-list', siteUrl: list.siteUrl };
+    return { ...list, notes: savedNotes };
+  });
+}
+
 /** Fiche de la page demandée (titre de la page : Frieren ou Dandadan) */
 function resolvePage(payload: unknown): PageMediaResult {
-  const base = panelView();
+  const demo = panelView();
+  const base = { ...demo, lists: withActions(demo.lists) };
   const page = isRecord(payload) && isRecord(payload.page) ? payload.page : null;
   if (page?.seriesTitle !== 'Dandadan') return { ok: true, data: base };
   return { ok: true, data: { ...base, media: { ...base.media, mediaId: 185660, idMal: 60543, title: 'Dandadan', episodes: 12 }, episodeProgress: 7 } };
@@ -103,6 +117,15 @@ const controls = installChromeMock({
       mediaTitle: 'Frieren',
       results: [{ service: 'anilist', outcome: { status: 'updated', progress: 27, completed: false } }],
     })),
+    REMOVE_FROM_LIST: holdable('REMOVE_FROM_LIST', () => {
+      removed = true;
+      return { status: 'synced', mediaTitle: 'Frieren', results: [{ service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } }, { service: 'mal', outcome: { status: 'updated', progress: 0, completed: false } }] };
+    }),
+    SET_LIST_NOTES: holdable('SET_LIST_NOTES', (payload) => {
+      const text = isRecord(payload) && typeof payload.notes === 'string' ? payload.notes.trim() : '';
+      savedNotes = text || null;
+      return { status: 'synced', mediaTitle: 'Frieren', results: [{ service: 'anilist', outcome: { status: 'updated', progress: 26, completed: false } }, { service: 'mal', outcome: { status: 'updated', progress: 26, completed: false } }] };
+    }),
     GET_AGENDA: holdable(
       'GET_AGENDA',
       agendaError ? () => ({ ok: false, code: 'API_ERROR', message: 'AniList 429 (e2e)' }) : (base.handlers.GET_AGENDA ?? (() => undefined)),

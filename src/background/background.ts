@@ -13,7 +13,7 @@ import { forgetPageResolutions, resolvePageMedia } from './page-media';
 import { applyDiffs, cancelCompareJob, compareServiceLists } from './compare';
 import { cancelCrImport, createCrReviews, startCrAnalyze, startCrApply } from './cr-import';
 import { listenJobResume } from './job-resume';
-import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
+import { declineRewatch, deferRating, getListNotes, rateMedia, removeFromList, setListNotes, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, retryQueued } from './sync/queue';
 import { reopenReview, searchCandidates } from './sync/sync-service';
 import { confirmReview, ignoreReview } from './sync/review-decision';
@@ -75,6 +75,9 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     DISMISS_REVIEW: { ok: false, code: 'API_ERROR', message },
     GET_WATCHING: { ok: false, code: 'API_ERROR', message },
     RATE_MEDIA: { status: 'error', message: t('error.unexpectedRating') },
+    REMOVE_FROM_LIST: { status: 'error', message: t('error.unexpectedRemove') },
+    GET_LIST_NOTES: { ok: false, code: 'API_ERROR', message },
+    SET_LIST_NOTES: { status: 'error', message: t('error.unexpectedNotes') },
     DEFER_RATING: { ok: false, code: 'API_ERROR', message },
     START_REWATCH: { status: 'error', message: t('error.unexpectedRewatch') },
     DECLINE_REWATCH: { ok: false, code: 'API_ERROR', message },
@@ -133,6 +136,14 @@ const handlers: MessageHandlers = {
   },
   GET_WATCHING: ({ service, force }) => getWatchingList(service, force === true),
   RATE_MEDIA: ({ media, score, fromCard }) => rateMedia(media, score, fromCard === true),
+  // Retrait : la saison choisie sur une page de série (« première non terminée ») dépend des listes, résolution oubliée
+  REMOVE_FROM_LIST: async ({ media }) => {
+    const outcome = await removeFromList(media);
+    forgetPageResolutions();
+    return outcome;
+  },
+  GET_LIST_NOTES: ({ media }) => getListNotes(media),
+  SET_LIST_NOTES: ({ media, notes }) => setListNotes(media, notes),
   DEFER_RATING: ({ media, coverUrl }) => deferRating(media, coverUrl),
   START_REWATCH: ({ media, progress }) => startRewatch(media, progress),
   DECLINE_REWATCH: ({ media }) => declineRewatch(media),

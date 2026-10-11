@@ -30,9 +30,12 @@ export interface UiState {
   sortMenuOpen: boolean;
   /** Menu « … » ouvert sur une série de « En cours » (clé d'entrée) : un seul à la fois */
   rowMenu: string | null;
-  /** Confirmation affichée dans le menu « … » ouvert (Abandonner, Terminé), null sinon */
-  rowConfirm: ListStatusChange | null;
+  /** Confirmation affichée dans le menu « … » ouvert (Abandonner, Terminé, Retirer de la liste), null sinon */
+  rowConfirm: RowConfirm | null;
 }
+
+/** Action confirmée dans le menu « … » d'une série : statut (Abandonner, Terminé) ou retrait de la liste */
+export type RowConfirm = ListStatusChange | 'REMOVE';
 
 /** Préférences de « En cours », enregistrées dans le stockage (`popupPrefs`) */
 export interface WatchingPrefs {

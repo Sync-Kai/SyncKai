@@ -106,7 +106,8 @@ export interface PageMediaDetails {
 
 /** État de la série dans la liste d'un service connecté */
 export type PageListState =
-  | { service: TrackerId; state: 'in-list'; status: ListStatus; progress: number; score: Score10 | null; siteUrl: string }
+  /** `notes` : commentaire de l'entrée (AniList `notes`, MAL `comments`), null s'il est vide */
+  | { service: TrackerId; state: 'in-list'; status: ListStatus; progress: number; score: Score10 | null; notes: string | null; siteUrl: string }
   | { service: TrackerId; state: 'not-in-list'; siteUrl: string }
   /** Pas d'équivalent sur ce service (ex : fiche AniList sans idMal) */
   | { service: TrackerId; state: 'unavailable' }

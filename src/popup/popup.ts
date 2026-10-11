@@ -11,10 +11,10 @@ import { grantedOptionalPlatforms } from '../shared/platform-access';
 import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../shared/storage';
 import { STORAGE_KEYS } from '../shared/storage-keys';
 import type { ListStatusChange } from '../shared/sync.types';
-import type { PageMediaInfo } from '../shared/page-media.types';
+import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
 import { TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
-import type { WatchingSort } from '../shared/watching.types';
+import type { WatchingEntry, WatchingSort } from '../shared/watching.types';
 import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../ui/dom';
 import { tickJobPause } from '../ui/job-pause';
 import { createMenuDismiss } from '../ui/menu';
@@ -35,8 +35,10 @@ import { renderRecentSyncs } from './components/recent-syncs';
 import type { ReviewActions } from './components/review-card';
 import { createReviewSection } from './components/review-section';
 import { renderPageMediaCard } from './components/page-media-card';
-import { renderWatchingScreen } from './components/watching-screen';
-import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, UiState } from './state';
+import { entryKey, renderWatchingScreen } from './components/watching-screen';
+import type { HostAccessState, PageCardState, RowConfirm, Screen, SettingsState, SyncData, UiState } from './state';
+import { createNotesEditor, type NotesEditor } from '../ui/notes-editor';
+import { primaryList } from '../ui/page-media-view';
 import { createStore, patchStore, type AccountState, type ExclusionsState, type Store } from '../ui/state';
 import { createLogger } from '../shared/logger';
 import { openSidePanel, sidePanelKind } from '../shared/side-panel';
@@ -286,16 +288,89 @@ function setRowMenu(key: string | null, restoreFocus = true): void {
 }
 
 /**
- * Confirmation dans le menu ouvert (Abandonner, Terminé). Ouverture : focus sur « Non » (une action
- * irréversible ne se valide pas d'un double Entrée) ; annulation : focus rendu à l'option d'origine.
+ * Confirmation dans le menu ouvert (Abandonner, Terminé, Retirer de la liste). Ouverture : focus sur « Non » / « Annuler »
+ * (une action irréversible ne se valide pas d'un double Entrée) ; annulation : focus rendu à l'option d'origine.
  */
-function setRowConfirm(status: ListStatusChange | null): void {
+function setRowConfirm(status: RowConfirm | null): void {
   const ui = uiStore.get();
   if (ui.rowMenu === null || ui.rowConfirm === status) return;
   const previous = ui.rowConfirm;
   uiStore.set({ ...ui, rowConfirm: status });
-  if (status !== null) focusInWatching(`[data-focus="confirm-no-${ui.rowMenu}"]`);
-  else if (previous !== null) focusInWatching(`[data-focus="${previous}-${ui.rowMenu}"]`);
+  if (status !== null) {
+    focusInWatching(`[data-focus="confirm-no-${ui.rowMenu}"]`);
+    // Confirmation plus haute que l'option (retrait : deux lignes) : ramenée dans la zone visible en bas de liste
+    watchingSlot.querySelector(`[data-menu-root="${ui.rowMenu}"] [role="group"]`)?.scrollIntoView({ block: 'nearest' });
+  } else if (previous !== null) focusInWatching(`[data-focus="${previous}-${ui.rowMenu}"]`);
+}
+
+// ─── Commentaire d'une série (« Commentaire… » du menu « … ») ──────────────
+
+/** Éditeur ouvert : élément persistant (brouillon et curseur gardés entre deux rendus), recréé pour une autre série */
+let notesEditor: { key: string; editor: NotesEditor } | null = null;
+
+function openNotes(entry: WatchingEntry): void {
+  // Nouvelle ouverture : brouillon d'une ouverture précédente oublié (déjà ouvert : gardé)
+  if (watching.notes.get()?.key !== entryKey(entry)) notesEditor = null;
+  watching.openNotes(entry);
+  // Focus dans la zone de texte (lecture seule le temps de lire le commentaire)
+  focusInWatching(`[data-focus="notes-${entryKey(entry)}-input"]`);
+  watchingSlot.querySelector(`[data-notes-row="${entryKey(entry)}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+
+/** Fermeture (Annuler, Échap, enregistré) : focus rendu au bouton « … » de la série */
+function closeNotes(): void {
+  const key = watching.notes.get()?.key;
+  watching.closeNotes();
+  if (key !== undefined) focusInWatching(`[data-focus="more-${key}"]`);
+}
+
+function notesEditorFor(entry: WatchingEntry): HTMLElement | null {
+  const session = watching.notes.get();
+  if (!session || session.key !== entryKey(entry)) return null;
+  if (notesEditor?.key !== session.key) {
+    const { entry: target } = session;
+    notesEditor = {
+      key: session.key,
+      editor: createNotesEditor({ focusKey: `notes-${session.key}`, collapsible: false, onSave: (text) => watching.saveNotes(target, text), onClose: closeNotes }),
+    };
+  }
+  notesEditor.editor.update({
+    notes: session.phase === 'ready' ? session.notes : null,
+    loading: session.phase === 'loading',
+    unavailable: session.phase === 'error' ? session.message : session.phase === 'ready' && !session.inList ? t('notes.notInList') : null,
+    busy: watching.entryActions.get().get(session.key)?.phase === 'pending',
+    title: session.entry.title,
+  });
+  return notesEditor.editor.element;
+}
+
+/**
+ * Commentaire de la carte « Sur cette page », sous la note (même éditeur repliable que le panneau) : élément persistant,
+ * brouillon oublié quand la carte change de fiche
+ */
+const pageNotesEditor = createNotesEditor({
+  focusKey: 'page-notes',
+  collapsible: true,
+  onSave: async (notes) => (await pageCtl.runAction({ kind: 'notes', notes }))?.tone === 'success',
+});
+let pageNotesMediaId: number | null = null;
+
+function pageNotesFor(view: PageMediaView, refreshing: boolean): HTMLElement | null {
+  // Aucun compte connecté : rien à commenter (la carte invite déjà à se connecter)
+  if (view.lists.length === 0) return null;
+  if (pageNotesMediaId !== view.media.mediaId) {
+    pageNotesMediaId = view.media.mediaId;
+    pageNotesEditor.reset();
+  }
+  const primary = primaryList(view.lists);
+  pageNotesEditor.update({
+    notes: primary?.notes ?? null,
+    loading: false,
+    unavailable: primary ? null : t('notes.notInList'),
+    busy: pageCtl.actions.busy !== null || refreshing,
+    title: view.media.title,
+  });
+  return pageNotesEditor.element;
 }
 
 /** Écouteurs globaux (clic extérieur, Échap) présents seulement pendant qu'un menu est ouvert */
@@ -372,10 +447,11 @@ function renderWatching(): void {
   const exclusions = exclusionsStore.get();
   const actions = watching.entryActions.get();
   const notice = watching.notice.get();
+  const notesSession = watching.notes.get();
   const pageCard = pageCardStore.get();
   const optionalPlatforms = platformAccessStore.get() ?? [];
   const entryLinks = entryLinkContext();
-  if (!watchingChanged([watching.store.get(), now, preferredPlayer, optionalPlatforms.join(), services.join(), entryLinks.preferred, sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
+  if (!watchingChanged([watching.store.get(), now, preferredPlayer, optionalPlatforms.join(), services.join(), entryLinks.preferred, sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, notesSession, pageCard])) return;
 
   preserveFocus(watchingSlot, () =>
     watchingSlot.replaceChildren(
@@ -406,6 +482,7 @@ function renderWatching(): void {
           onSetStatus: (status) => void pageCtl.runAction({ kind: 'status', status }),
           onRate: (value) => void pageCtl.runAction({ kind: 'rate', value }),
           onPickSeason: (mediaId) => pageCtl.pickSeason(mediaId),
+          notesFor: pageNotesFor,
         }),
         controls: {
           actions,
@@ -418,6 +495,9 @@ function renderWatching(): void {
           onAdjust: (entry, delta) => void watching.adjust(entry, delta),
           onExclude: (entry) => void watching.exclude(entry),
           onInclude: (entry) => void watching.include(entry),
+          onRemove: (entry) => void watching.remove(entry),
+          onNotes: (entry) => openNotes(entry),
+          notesFor: notesEditorFor,
           entryLinks,
         },
       }),
@@ -774,7 +854,7 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 
 watching.start();
 uiStore.subscribe(({ sortMenuOpen, rowMenu }) => menuDismiss.setOpen(sortMenuOpen || rowMenu !== null));
-for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, watching.prefs, watching.entryActions, watching.notice, queue.store, ratings.store, pageCardStore, compare.store, hostAccessStore, platformAccessStore]) store.subscribe(renderer.schedule);
+for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, watching.prefs, watching.entryActions, watching.notice, watching.notes, queue.store, ratings.store, pageCardStore, compare.store, hostAccessStore, platformAccessStore]) store.subscribe(renderer.schedule);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre)
 chrome.permissions?.onAdded?.addListener(() => void checkHostAccess());
 chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());

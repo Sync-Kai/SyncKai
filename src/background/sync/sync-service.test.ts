@@ -90,7 +90,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     resolveId: (media: CatalogMedia) => (id === 'anilist' ? media.mediaId : media.idMal),
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
       const entry = tracker.entries.get(entryId);
-      return { title: `#${entryId}`, episodes: tracker.totals.get(entryId) ?? null, entry: entry ? { ...entry } : null };
+      return { title: `#${entryId}`, episodes: tracker.totals.get(entryId) ?? null, entry: entry ? { ...entry } : null, notes: null };
     },
     saveProgress: async (entryId, progress, status, repeat) => {
       if (tracker.failWith) throw tracker.failWith;
@@ -103,6 +103,8 @@ function fakeTracker(id: TrackerId): FakeTracker {
     saveScore: () => Promise.reject(new Error('hors test')),
     startRewatch: () => Promise.reject(new Error('hors test')),
     saveEntry: () => Promise.reject(new Error('hors test')),
+    deleteEntry: () => Promise.reject(new Error('hors test')),
+    saveNotes: () => Promise.reject(new Error('hors test')),
   };
   return tracker;
 }

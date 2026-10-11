@@ -245,6 +245,73 @@ describe('popup (bout en bout)', () => {
     expect((await watchingRows(page)).map((r) => r.title)).not.toContain('Solo Leveling');
   });
 
+  it('menu « ⋯ » : « Retirer de la liste » demande confirmation (focus sur « Annuler »), « Retirer » envoie REMOVE_FROM_LIST et retire la série', async () => {
+    const page = await openPopup();
+    await click(page, `more-${SOLO}`);
+    await page.waitForSelector('[role="menu"]');
+    expect(await text(page, sel(`REMOVE-${SOLO}`))).toBe(fr('list.remove'));
+
+    await click(page, `REMOVE-${SOLO}`);
+    await page.waitForSelector(sel(`confirm-no-${SOLO}`));
+    expect(await focused(page)).toBe(`confirm-no-${SOLO}`);
+    expect(await text(page, '[role="menu"] [role="group"]')).toContain(fr('list.remove.confirm'));
+    // « Annuler » : rien n'est envoyé, le focus revient sur l'option
+    await click(page, `confirm-no-${SOLO}`);
+    await page.waitForSelector(sel(`REMOVE-${SOLO}`));
+    expect(await focused(page)).toBe(`REMOVE-${SOLO}`);
+    expect(await sent(page, 'REMOVE_FROM_LIST')).toEqual([]);
+
+    await click(page, `REMOVE-${SOLO}`);
+    await click(page, `confirm-yes-${SOLO}`);
+    const message = await waitForMessage(page, 'REMOVE_FROM_LIST');
+    expect(message.payload).toEqual({ media: { mediaId: 176496, malId: 58567, title: 'Solo Leveling' } });
+    await page.waitForSelector(sel(`more-${SOLO}`), { hidden: true });
+    await page.waitForSelector('[data-watching-notice]');
+    expect(await text(page, '[data-watching-notice]')).toContain(fr('inline.removed', { title: 'Solo Leveling' }));
+
+    // Revalidation de la liste (~1 s) : la série ne revient pas
+    const revalidations = (await sent(page, 'GET_WATCHING')).length + 1;
+    await waitForMessage(page, 'GET_WATCHING', revalidations);
+    await page.waitForFunction(() => document.querySelector('main [aria-busy="false"]') !== null);
+    expect((await watchingRows(page)).map((r) => r.title)).not.toContain('Solo Leveling');
+  });
+
+  it('menu « ⋯ » : « Commentaire… » ouvre l’éditeur sous la série, lit le commentaire, « Enregistrer » envoie SET_LIST_NOTES ; Échap annule', async () => {
+    const page = await openPopup();
+    const input = sel(`notes-${SOLO}-input`);
+    await click(page, `more-${SOLO}`);
+    await click(page, `notes-${SOLO}`);
+    await waitForMessage(page, 'GET_LIST_NOTES');
+    expect((await sent(page, 'GET_LIST_NOTES'))[0]?.payload).toEqual({ media: { mediaId: 176496, malId: 58567, title: 'Solo Leveling' } });
+    // Commentaire relu dans la zone de texte, qui a le focus ; rien à enregistrer tant qu'il n'a pas changé
+    await page.waitForFunction((s: string) => document.querySelector<HTMLTextAreaElement>(s)?.value === 'Combat final à revoir', {}, input);
+    expect(await focused(page)).toBe(`notes-${SOLO}-input`);
+    expect(await page.$eval(sel(`notes-${SOLO}-save`), (el) => (el as HTMLButtonElement).disabled)).toBe(true);
+    expect(await page.$eval(`[data-notes-row="${SOLO}"]`, (el) => el.textContent ?? '')).toContain('21 / 6000');
+
+    await page.type(input, ' (épisode 12)');
+    expect(await page.$eval(sel(`notes-${SOLO}-save`), (el) => (el as HTMLButtonElement).disabled)).toBe(false);
+    // Aucun envoi à la frappe
+    expect(await sent(page, 'SET_LIST_NOTES')).toEqual([]);
+    await click(page, `notes-${SOLO}-save`);
+    const message = await waitForMessage(page, 'SET_LIST_NOTES');
+    expect(message.payload).toEqual({ media: { mediaId: 176496, malId: 58567, title: 'Solo Leveling' }, notes: 'Combat final à revoir (épisode 12)' });
+    // Enregistré : éditeur fermé, focus rendu au bouton « ⋯ », pastille de retour sur la ligne
+    await page.waitForSelector(`[data-notes-row="${SOLO}"]`, { hidden: true });
+    expect(await focused(page)).toBe(`more-${SOLO}`);
+    await page.waitForFunction((label: string) => document.body.textContent?.includes(label) === true, {}, fr('inline.notesSaved'));
+
+    // Rouvert : nouveau commentaire relu ; Échap ferme sans rien envoyer
+    await click(page, `more-${SOLO}`);
+    await click(page, `notes-${SOLO}`);
+    await page.waitForFunction((s: string) => document.querySelector<HTMLTextAreaElement>(s)?.value === 'Combat final à revoir (épisode 12)', {}, input);
+    await page.type(input, ' brouillon');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector(`[data-notes-row="${SOLO}"]`, { hidden: true });
+    expect(await sent(page, 'SET_LIST_NOTES')).toHaveLength(1);
+    expect(await shownScreen(page)).toBe(0);
+  });
+
   it('« +1 » envoie ADJUST_PROGRESS (delta 1) et met la progression à jour', async () => {
     const page = await openPopup();
     await click(page, `plus-${SOLO}`);
@@ -351,6 +418,20 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(sel('page-add-PLANNING'))).toBeNull();
     // La carte « Sur cette page » remplace « Reprendre »
     expect(await page.$(`section[aria-label="${fr('watching.resume')}"]`)).toBeNull();
+  });
+
+  it('« Sur cette page » : commentaire replié sous la note, « Enregistrer » envoie SET_LIST_NOTES (rien à la frappe)', async () => {
+    const page = await openPopup({ scenario: 'page' });
+    const card = `section[aria-label="${fr('page.title')}"]`;
+    const toggle = `${card} [data-focus="page-notes-toggle"]`;
+    await page.waitForSelector(toggle);
+    await page.locator(toggle).click();
+    await page.waitForSelector('[data-focus="page-notes-input"]');
+    await page.type('[data-focus="page-notes-input"]', 'Superbe arc');
+    expect(await sent(page, 'SET_LIST_NOTES')).toEqual([]);
+    await page.locator('[data-focus="page-notes-save"]').click();
+    const message = await waitForMessage(page, 'SET_LIST_NOTES');
+    expect(message.payload).toMatchObject({ notes: 'Superbe arc' });
   });
 
   it('« Sur cette page » : série ignorée (Netflix, pas un anime) → mention neutre, sans « Réessayer »', async () => {

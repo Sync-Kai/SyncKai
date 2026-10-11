@@ -8,6 +8,7 @@ import type { CompareJob } from '../../src/shared/compare-job';
 import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../src/shared/error-journal';
 import { isRecord } from '../../src/shared/guards';
 import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
+import type { ListNotesResult } from '../../src/shared/list-notes';
 import { STORAGE_KEYS } from '../../src/shared/storage-keys';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
@@ -116,6 +117,34 @@ function setListStatus(payload: unknown): SyncOutcome {
   return synced(entry.title, { status: 'updated', progress: entry.progress, completed: false });
 }
 
+/** Série d'un payload { media: { mediaId } } (retrait, commentaire) */
+const mediaOf = (payload: unknown): WatchingEntry | undefined => findEntry(isRecord(payload) ? numberField(payload.media, 'mediaId') : null);
+
+/** « Retirer de la liste » : la série quitte les deux listes (la revalidation ne la ramène pas) */
+function removeFromList(payload: unknown): SyncOutcome {
+  const entry = mediaOf(payload);
+  if (!entry || entry.mediaId === null) return { status: 'error', message: 'Série inconnue (e2e)' };
+  patchEntry(entry.mediaId, () => null);
+  return synced(entry.title, { status: 'updated', progress: 0, completed: false });
+}
+
+/** Commentaires enregistrés (identifiant AniList → texte) : Solo Leveling en a un au départ */
+const notes = new Map<number, string>([[176496, 'Combat final à revoir']]);
+
+function getListNotes(payload: unknown): ListNotesResult {
+  const entry = mediaOf(payload);
+  return { ok: true, data: { inList: entry !== undefined, notes: entry?.mediaId ? (notes.get(entry.mediaId) ?? null) : null } };
+}
+
+function setListNotes(payload: unknown): SyncOutcome {
+  const entry = mediaOf(payload);
+  const text = isRecord(payload) && typeof payload.notes === 'string' ? payload.notes.trim() : '';
+  if (!entry || entry.mediaId === null) return { status: 'error', message: 'Série inconnue (e2e)' };
+  if (text) notes.set(entry.mediaId, text);
+  else notes.delete(entry.mediaId);
+  return synced(entry.title, { status: 'updated', progress: entry.progress, completed: false });
+}
+
 /** Fiche de la page ; `pageList=missing` : absente des deux listes (boutons « Ajouter ») */
 function resolvePage(): PageMediaView {
   const view = pageView();
@@ -193,6 +222,9 @@ installChromeMock({
     ADJUST_PROGRESS: (payload) =>
       param('adjust') === 'slow' ? new Promise<SyncOutcome>((resolve) => setTimeout(() => resolve(adjustProgress(payload)), E2E_ADJUST_SLOW_MS)) : adjustProgress(payload),
     SET_LIST_STATUS: setListStatus,
+    REMOVE_FROM_LIST: removeFromList,
+    GET_LIST_NOTES: getListNotes,
+    SET_LIST_NOTES: setListNotes,
     ADD_TO_LIST: () => synced(pageView().media.title, { status: 'updated', progress: 0, completed: false }),
     RESOLVE_PAGE_MEDIA: (): PageMediaResult =>
       // `pageMedia=untracked` : série ignorée par la synchro (Netflix, pas un anime)

@@ -6,6 +6,7 @@ import { isApplyDiffsPayload } from '../shared/compare';
 import { isCrImportAnalyzePayload, isCrImportApplyPayload, isCrImportReviewsPayload } from '../shared/cr-import';
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from '../shared/engagement.types';
 import { isEpisodeInfo } from '../shared/episode.types';
+import { isListNotesText } from '../shared/list-notes';
 import { isRecord } from '../shared/guards';
 import type {
   AddToListPayload,
@@ -48,6 +49,10 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   RETRY_QUEUED: 'extension',
   // Popup (carte « À noter », « Sur cette page ») et invite de fin d'épisode
   RATE_MEDIA: 'both',
+  // Popup (menu « ⋯ » de « En cours ») et panneau (« Ta progression ») uniquement : jamais depuis une page tierce
+  REMOVE_FROM_LIST: 'extension',
+  GET_LIST_NOTES: 'extension',
+  SET_LIST_NOTES: 'extension',
   DEFER_RATING: 'content',
   START_REWATCH: 'content',
   DECLINE_REWATCH: 'content',
@@ -118,6 +123,7 @@ const isDeferRatingPayload = (p: unknown): p is { media: MediaRef; coverUrl: str
   isRecord(p) && isMediaRef(p.media) && (p.coverUrl === null || isSafeImageUrl(p.coverUrl));
 const isRewatchPayload = (p: unknown): p is { media: MediaRef; progress: number } => isRecord(p) && isMediaRef(p.media) && isPositiveInt(p.progress);
 const isMediaPayload = (p: unknown): p is { media: MediaRef } => isRecord(p) && isMediaRef(p.media);
+const isListNotesPayload = (p: unknown): p is { media: MediaRef; notes: string } => isRecord(p) && isMediaRef(p.media) && isListNotesText(p.notes);
 /** Payload { key } d'une carte « À vérifier » (REOPEN_REVIEW, DISMISS_REVIEW) */
 const isReopenReviewPayload = (p: unknown): p is { key: string } => isRecord(p) && isKey(p.key);
 const isResolvePageMediaPayload = (p: unknown): p is ResolvePageMediaPayload =>
@@ -143,6 +149,9 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   SET_LIST_STATUS: isSetListStatusPayload,
   RETRY_QUEUED: isRetryQueuedPayload,
   RATE_MEDIA: isRatePayload,
+  REMOVE_FROM_LIST: isMediaPayload,
+  GET_LIST_NOTES: isMediaPayload,
+  SET_LIST_NOTES: isListNotesPayload,
   DEFER_RATING: isDeferRatingPayload,
   START_REWATCH: isRewatchPayload,
   DECLINE_REWATCH: isMediaPayload,

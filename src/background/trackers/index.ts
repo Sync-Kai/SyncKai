@@ -1,7 +1,7 @@
 import { hasMalToken, hasValidAniListToken } from '../../shared/storage';
 import type { TrackerId } from '../../shared/tracker.types';
-import { getMediaListInfo, getScoreFormat, saveListEntry, saveListStatus, saveProgress, saveScore } from '../api/list';
-import { getMalAnime, saveMalEntry, saveMalListStatus, saveMalProgress, saveMalScore } from '../api/mal';
+import { deleteListEntry, getMediaListInfo, getScoreFormat, saveListEntry, saveListNotes, saveListStatus, saveProgress, saveScore } from '../api/list';
+import { deleteMalEntry, getMalAnime, saveMalEntry, saveMalListStatus, saveMalNotes, saveMalProgress, saveMalScore } from '../api/mal';
 import { markSeriesStale } from '../compare-snapshot';
 import type { ListEntryState } from '../sync/rules';
 import { toAniListScore, toMalScore } from '../sync/score';
@@ -26,6 +26,11 @@ function invalidatingComparison(tracker: TrackerService): TrackerService {
     saveScore: then(tracker.saveScore),
     startRewatch: then(tracker.startRewatch),
     saveStatus: then(tracker.saveStatus),
+    // Retrait de la liste : l'écart change aussi (série présente d'un seul côté). Le commentaire n'entre pas dans la comparaison.
+    deleteEntry: async (id: number): Promise<void> => {
+      await tracker.deleteEntry(id);
+      await markSeriesStale(tracker.id, id);
+    },
   };
 }
 
@@ -35,8 +40,8 @@ export const anilistTracker: TrackerService = invalidatingComparison({
   isConnected: hasValidAniListToken,
   resolveId: (media) => media.mediaId,
   async getEntry(id) {
-    const { title, episodes, entry } = await getMediaListInfo(id);
-    return { title, episodes, entry };
+    const { title, episodes, entry, notes } = await getMediaListInfo(id);
+    return { title, episodes, entry, notes };
   },
   saveProgress: (id, progress, status, repeat) => saveProgress(id, progress, status, repeat),
   // Le score d'AniList s'exprime dans le format choisi par l'utilisateur (sur 100, 10, 5, 3…)
@@ -44,6 +49,8 @@ export const anilistTracker: TrackerService = invalidatingComparison({
   startRewatch: (id, progress) => saveProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveListStatus(id, status, progress, repeat),
   saveEntry: (id, write) => saveListEntry(id, write),
+  deleteEntry: (id) => deleteListEntry(id),
+  saveNotes: (id, notes) => saveListNotes(id, notes),
 });
 
 export const malTracker: TrackerService = invalidatingComparison({
@@ -57,6 +64,8 @@ export const malTracker: TrackerService = invalidatingComparison({
   startRewatch: (id, progress) => saveMalProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveMalListStatus(id, status, progress, repeat),
   saveEntry: (id, write) => saveMalEntry(id, write),
+  deleteEntry: (id) => deleteMalEntry(id),
+  saveNotes: (id, notes) => saveMalNotes(id, notes),
 });
 
 const TRACKERS: readonly TrackerService[] = [anilistTracker, malTracker];

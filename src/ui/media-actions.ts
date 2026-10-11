@@ -16,7 +16,7 @@ import { createStarRating } from './star-rating';
 // « Sur cette page » du popup et l'onglet « En lecture » du panneau latéral.
 
 /** Action en cours (une seule à la fois) */
-export type MediaAction = `add-${AddListStatus}` | 'minus' | 'plus' | `status-${ListStatusChange}` | 'rate' | 'season';
+export type MediaAction = `add-${AddListStatus}` | 'minus' | 'plus' | `status-${ListStatusChange}` | 'rate' | 'season' | 'remove' | 'notes';
 
 export interface MediaActionsState {
   busy: MediaAction | null;

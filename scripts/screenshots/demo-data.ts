@@ -174,8 +174,8 @@ export function pageView(): PageMediaView {
       siteUrl: 'https://anilist.co/anime/146065',
     },
     lists: [
-      { service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 7, score: 8, siteUrl: 'https://anilist.co/anime/146065' },
-      { service: 'mal', state: 'in-list', status: 'CURRENT', progress: 7, score: 8, siteUrl: 'https://myanimelist.net/anime/51179' },
+      { service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 7, score: 8, notes: null, siteUrl: 'https://anilist.co/anime/146065' },
+      { service: 'mal', state: 'in-list', status: 'CURRENT', progress: 7, score: 8, notes: null, siteUrl: 'https://myanimelist.net/anime/51179' },
     ],
     confidence: 'certain',
     source: 'page',

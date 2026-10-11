@@ -309,9 +309,9 @@ async function readLists(media: PageMediaDetails): Promise<PageListState[]> {
       if (id === null) return { service, state: 'unavailable' };
       const siteUrl = service === 'anilist' ? media.siteUrl : `https://myanimelist.net/anime/${id}`;
       try {
-        const { entry } = await tracker.getEntry(id);
+        const { entry, notes } = await tracker.getEntry(id);
         if (!entry) return { service, state: 'not-in-list', siteUrl };
-        return { service, state: 'in-list', status: entry.status, progress: entry.progress, score: await toScore10(tracker, entry.score), siteUrl };
+        return { service, state: 'in-list', status: entry.status, progress: entry.progress, score: await toScore10(tracker, entry.score), notes, siteUrl };
       } catch (error: unknown) {
         log.warn(`${service} : liste illisible`, error);
         return { service, state: 'error', message: error instanceof ApiError ? error.message : t('error.unexpected') };

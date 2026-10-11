@@ -577,6 +577,25 @@ export function saveCachedWatching(list: WatchingList, epoch: number): Promise<b
   });
 }
 
+/**
+ * Retire une série de la liste « en cours » en cache (retrait de la liste du service), si la session n'a pas changé
+ * depuis `epoch` (relevée avant la requête). Sous le verrou de la déconnexion, comme saveCachedWatching. Retourne
+ * true si une entrée a été retirée.
+ */
+export function dropCachedWatchingEntry(service: TrackerId, epoch: number, match: (entry: WatchingList['entries'][number]) => boolean): Promise<boolean> {
+  return withStorageLock(async () => {
+    if ((await getSessionEpoch(service)) !== epoch) return false;
+    const list = await getCachedWatching(service);
+    if (!list) return false;
+    const entries = list.entries.filter((entry) => !match(entry));
+    if (entries.length === list.entries.length) return false;
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.watchingCache);
+    const cache: unknown = stored[STORAGE_KEYS.watchingCache];
+    await chrome.storage.local.set({ [STORAGE_KEYS.watchingCache]: { ...(isRecord(cache) ? cache : {}), [service]: { ...list, entries } } });
+    return true;
+  });
+}
+
 // ─── Données liées au compte (file, notes, synchros récentes, corrections) ──
 
 /** Tableau d'une clé, sans les éléments illisibles */

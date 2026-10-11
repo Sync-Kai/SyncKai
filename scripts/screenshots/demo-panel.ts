@@ -54,8 +54,8 @@ export function panelView(): PageMediaView {
       siteUrl: `https://anilist.co/anime/${FRIEREN.id}`,
     },
     lists: [
-      { service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 26, score: 9, siteUrl: `https://anilist.co/anime/${FRIEREN.id}` },
-      { service: 'mal', state: 'in-list', status: 'CURRENT', progress: 26, score: 9, siteUrl: `https://myanimelist.net/anime/${FRIEREN.malId}` },
+      { service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 26, score: 9, notes: null, siteUrl: `https://anilist.co/anime/${FRIEREN.id}` },
+      { service: 'mal', state: 'in-list', status: 'CURRENT', progress: 26, score: 9, notes: null, siteUrl: `https://myanimelist.net/anime/${FRIEREN.malId}` },
     ],
     confidence: 'certain',
     source: 'page',

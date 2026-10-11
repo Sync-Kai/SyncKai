@@ -58,3 +58,17 @@ Tip to simulate a service outage: developer tools of the popup (right-click › 
 
 - [ ] Title and poster open the entry from the popup (*On this page*, *Watching*, *Recent syncs*, *To rate*, *Differences*) and the side panel (*Now playing*, sequels, *Schedule*).
 - [ ] Settings › Accounts › *Default entry page* set to MAL: links open myanimelist.net; with only one account connected, the row disappears and the link follows that account.
+
+## 9. Remove from list and comment (in development)
+
+**These checks write to your real AniList and MyAnimeList lists.** Use a throwaway anime that is in both lists (add it first with *On this page* › *Add to Plan to watch*, or on the sites), never a series you track.
+
+- [ ] **Remove from the popup**: *Watching* › ⋯ on the throwaway series › *Remove from list*. Expected: inline *Remove from your list?* with focus on *Cancel*; *Cancel* (or Escape) sends nothing. *Remove*: the row disappears, banner *{title}: removed from your list*; anilist.co and myanimelist.net no longer list it. Reopen the popup within 90 s: it doesn't come back.
+- [ ] **Remove from the side panel**: on a playback page of the throwaway series, *Your progress* › ⋯ › *Remove from list* › *Remove*. Expected: the card switches to *Add to Plan to watch / Watching*, no ⋯ button, *Comment* disabled with *Add the series to your list to comment on it.*
+- [ ] **Only on one service**: remove the series on myanimelist.net only, then *Remove from list* in SyncKai. Expected: removed from AniList, MAL skipped (no error).
+- [ ] **Failure**: block `api.myanimelist.net`, *Remove from list*. Expected: banner *… removed from your list · failed MyAnimeList* (AniList removed, MAL kept); unblock and remove again: MAL is removed.
+- [ ] **Watched again later**: after removing, finish an episode of that series. Expected: the sync adds it back to both lists (same AniList entry, the match was kept).
+- [ ] **Comment in the side panel**: *Your progress* › *Comment* › type a few lines › *Save* (or Ctrl+Enter). Expected: nothing is sent while typing; *Comment saved*; the collapsed row previews the first line; anilist.co (entry › Notes) and myanimelist.net (Edit › Comments) show the text. Clear the text and save: *Comment cleared* on both sites.
+- [ ] **Comment in the popup**: ⋯ › *Comment…*. Expected: editor under the row, focus in the text box, existing comment loaded (AniList's when the series is on AniList, else MAL's); Escape closes without saving; the counter stops at 6000 characters.
+- [ ] **Not in the list**: on a series in neither list, the panel's *Comment* is disabled with its explanation; in the popup (MAL-only series with AniList connected, or removed meanwhile), saving shows *Add the series to your list to comment on it.* and nothing is added.
+- [ ] **Firefox**: same remove and comment checks in the sidebar and the popup.

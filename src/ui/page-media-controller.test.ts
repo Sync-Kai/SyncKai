@@ -122,7 +122,7 @@ function view(target: PageMediaInfo, mediaId: number = MEDIA_IDS[target.seriesId
       nextEpisode: null,
       siteUrl: `https://anilist.co/anime/${mediaId}`,
     },
-    lists: [{ service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 26, score: null, siteUrl: `https://anilist.co/anime/${mediaId}` }],
+    lists: [{ service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 26, score: null, notes: null, siteUrl: `https://anilist.co/anime/${mediaId}` }],
     confidence: 'certain',
     source: 'page',
     seasons: [],
@@ -365,6 +365,21 @@ describe('anti-écho du cache de l’onglet', () => {
     expect(fake.reads).toBe(reads + 1);
     // Fiche réécrite : rechargée (cache d'abord) même si la page n'a pas changé
     expect(ctl.content.status === 'ready' && ctl.content.refreshing).toBe(true);
+  });
+
+  it('fiche effacée par l’autre écran (commentaire enregistré dans le popup) : la page est relue', async () => {
+    await readyOnFrieren();
+    await settle();
+    const reads = fake.reads;
+    const oldValue = toCachedPageMedia(FRIEREN, view(FRIEREN), 'resolve', 9_999, {});
+    for (const listener of fake.listeners) listener({ [pageMediaCacheKey(1)]: { oldValue } }, 'session');
+    await settle();
+    expect(fake.reads).toBe(reads + 1);
+    // Effacement d'un autre onglet, ou clé sans ancienne fiche : ignorés
+    for (const listener of fake.listeners) listener({ [pageMediaCacheKey(2)]: { oldValue } }, 'session');
+    for (const listener of fake.listeners) listener({ [pageMediaCacheKey(1)]: {} }, 'session');
+    await settle();
+    expect(fake.reads).toBe(reads + 1);
   });
 
   it('écriture pour un autre onglet : ignorée', async () => {

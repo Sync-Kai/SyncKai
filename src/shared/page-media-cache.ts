@@ -124,3 +124,32 @@ export async function storeCachedPageMedia(
   if (written) await purgeStaleSessionCaches().catch(() => 0);
   return written;
 }
+
+/** Fiche visée par une écriture hors de l'écran (retrait de la liste, commentaire) : identifiants AniList et MAL */
+export interface PageMediaTarget {
+  mediaId: number | null;
+  malId: number | null;
+}
+
+/** Clés des fiches d'onglets qui affichent cette série (pur, testable) */
+export function cachedPageMediaKeysFor(items: Record<string, unknown>, target: PageMediaTarget): string[] {
+  return Object.entries(items)
+    .filter(([key, value]) => {
+      if (!key.startsWith(PAGE_MEDIA_CACHE_PREFIX) || !isCachedPageMedia(value)) return false;
+      const { mediaId, idMal } = value.view.media;
+      return (target.mediaId !== null && mediaId === target.mediaId) || (target.malId !== null && idMal === target.malId);
+    })
+    .map(([key]) => key);
+}
+
+/**
+ * Oublie les fiches d'onglets de cette série (états des listes devenus faux) : l'écran qui a fait l'action la relit
+ * aussitôt, les autres onglets la relisent à leur prochain affichage. Retourne le nombre de fiches retirées.
+ */
+export async function forgetCachedPageMedia(target: PageMediaTarget): Promise<number> {
+  const area = sessionArea();
+  if (!area) return 0;
+  const keys = cachedPageMediaKeysFor(await area.get(null), target);
+  if (keys.length > 0) await area.remove(keys);
+  return keys.length;
+}

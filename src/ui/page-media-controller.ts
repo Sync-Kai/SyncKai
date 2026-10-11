@@ -79,7 +79,8 @@ export interface PageMediaController<D> {
   redetect(reresolve: boolean): Promise<void>;
   /** Recharge la fiche de la page affichée sans cache (« Réessayer ») */
   retry(): void;
-  runAction(request: MediaActionRequest): Promise<void>;
+  /** Retour affiché (null : action refusée, une autre est en cours, ou page quittée pendant l'envoi) */
+  runAction(request: MediaActionRequest): Promise<InlineFeedback | null>;
   /** Ouvre / ferme la confirmation Abandonner / Terminé ; false si rien n'a changé */
   setConfirm(status: ListStatusChange | null): boolean;
   /** Saison choisie dans le sélecteur : enregistrée comme correspondance par le service worker (ARCH-20) */
@@ -179,11 +180,16 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
   let autoDeferred: boolean | null = null;
   let autoSuspended = false;
 
-  // Fiche de l'onglet réécrite ailleurs (synchro par le service worker, action dans l'autre écran) : appliquée tout de suite
+  // Fiche de l'onglet réécrite ailleurs (synchro par le service worker, action dans l'autre écran) : appliquée tout de suite.
+  // Fiche effacée (commentaire ou retrait depuis l'autre écran : forgetCachedPageMedia) : relue aussi, sinon l'écran
+  // garde l'état des listes d'avant l'action.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'session' || tabId === null) return;
-    const entry: unknown = changes[pageMediaCacheKey(tabId)]?.newValue;
-    if (!isCachedPageMedia(entry) || ownWrites.includes(entry.resolvedAt)) return;
+    const change = changes[pageMediaCacheKey(tabId)];
+    if (!change) return;
+    const entry: unknown = change.newValue;
+    const forgotten = entry === undefined && isCachedPageMedia(change.oldValue);
+    if (!forgotten && (!isCachedPageMedia(entry) || ownWrites.includes(entry.resolvedAt))) return;
     autoRedetect(true);
   });
 
@@ -444,25 +450,26 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
 
   // ─── Actions (mêmes messages dans les deux écrans) ────────────────────
 
-  async function runAction(request: MediaActionRequest): Promise<void> {
-    if (actions.busy !== null || content.status !== 'ready') return;
+  async function runAction(request: MediaActionRequest): Promise<InlineFeedback | null> {
+    if (actions.busy !== null || content.status !== 'ready') return null;
     const { page, view } = content;
     const epoch = actionEpoch;
     patchActions({ busy: mediaActionKey(request), confirm: null });
     const feedback = await runMediaAction(request, view, (error) => log.warn('Service worker injoignable :', error));
     onActionDone?.();
     // Onglet ou page changés pendant l'envoi : la fiche affichée n'est plus celle de l'action, son retour est ignoré
-    if (epoch !== actionEpoch) return;
+    if (epoch !== actionEpoch) return null;
     patchActions({ busy: null });
     showFeedback(feedback);
     // Relecture de la page en cours (navigation dans l'onglet) : c'est elle qui rechargera la fiche, sans cache.
     // Une résolution de l'ancienne page l'annulerait et afficherait la fiche quittée.
     if (detectingRun === run) {
       pendingReload = 'fresh';
-      return;
+      return feedback;
     }
     // Même onglet et même épisode (sinon `actionEpoch` aurait changé) : page affichée, éventuellement relue entre-temps
     await resolve(pageOf(content) ?? page, true, true);
+    return feedback;
   }
 
   return {

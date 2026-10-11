@@ -300,3 +300,77 @@ describe('createWatchingController : actions sur une série', () => {
     expect(sw.calls.length).toBe(before);
   });
 });
+
+describe('createWatchingController : retrait de la liste et commentaire', () => {
+  async function showList(): Promise<void> {
+    connect('anilist');
+    await settle();
+    lastCall('GET_WATCHING').resolve({ ok: true, data: list('anilist', [FRIEREN, DANDADAN]) });
+    await settle();
+  }
+  const key = `${FRIEREN.mediaId}:${FRIEREN.malId}`;
+  const media = { mediaId: FRIEREN.mediaId, malId: FRIEREN.malId, title: 'Frieren' };
+  const shownTitles = (): string[] | false => {
+    const shown = ctl.store.get();
+    return shown.status === 'ready' && shown.list.entries.map((e) => e.title);
+  };
+
+  it('retrait : REMOVE_FROM_LIST, la série quitte la liste, bandeau « retirée de ta liste », éditeur de cette série fermé', async () => {
+    await showList();
+    ctl.openNotes(FRIEREN);
+    void ctl.remove(FRIEREN);
+    expect(ctl.notes.get()).toBeNull();
+    expect(ctl.entryActions.get().get(key)).toEqual({ phase: 'pending', kind: 'status' });
+    expect(lastCall('REMOVE_FROM_LIST').payload).toEqual({ media });
+    lastCall('REMOVE_FROM_LIST').resolve({
+      status: 'synced',
+      mediaTitle: 'Frieren',
+      results: [
+        { service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } },
+        { service: 'mal', outcome: { status: 'skipped', reason: 'Absente de ta liste', code: 'not-in-list' } },
+      ],
+    } satisfies SyncOutcome);
+    await settle();
+    expect(shownTitles()).toEqual(['Dandadan']);
+    expect(ctl.notice.get()?.feedback).toMatchObject({ tone: 'success', text: 'Frieren : retirée de ta liste' });
+  });
+
+  it('retrait en échec (session expirée) : la série reste, erreur du service en bandeau', async () => {
+    await showList();
+    void ctl.remove(FRIEREN);
+    lastCall('REMOVE_FROM_LIST').resolve({
+      status: 'synced',
+      mediaTitle: 'Frieren',
+      results: [{ service: 'anilist', outcome: { status: 'error', message: 'Session AniList expirée.', code: 'TOKEN_INVALID' } }],
+    } satisfies SyncOutcome);
+    await settle();
+    expect(shownTitles()).toEqual(['Frieren', 'Dandadan']);
+    expect(ctl.notice.get()?.feedback).toMatchObject({ tone: 'error', text: 'AniList : Session AniList expirée.' });
+  });
+
+  it('commentaire : lu à l’ouverture (réponse tardive d’une autre série ignorée), enregistré sans fermer en cas d’échec', async () => {
+    await showList();
+    ctl.openNotes(FRIEREN);
+    expect(ctl.notes.get()).toMatchObject({ key, phase: 'loading' });
+    expect(lastCall('GET_LIST_NOTES').payload).toEqual({ media });
+    const first = lastCall('GET_LIST_NOTES');
+    ctl.openNotes(DANDADAN);
+    first.resolve({ ok: true, data: { inList: true, notes: 'Pas pour cette série' } });
+    await settle();
+    expect(ctl.notes.get()).toMatchObject({ entry: { title: 'Dandadan' }, phase: 'loading' });
+    lastCall('GET_LIST_NOTES').resolve({ ok: true, data: { inList: true, notes: 'À revoir' } });
+    await settle();
+    expect(ctl.notes.get()).toMatchObject({ phase: 'ready', inList: true, notes: 'À revoir' });
+
+    const failed = ctl.saveNotes(DANDADAN, 'Nouveau');
+    expect(lastCall('SET_LIST_NOTES').payload).toEqual({ media: { mediaId: DANDADAN.mediaId, malId: DANDADAN.malId, title: 'Dandadan' }, notes: 'Nouveau' });
+    lastCall('SET_LIST_NOTES').resolve({ status: 'synced', mediaTitle: 'Dandadan', results: [{ service: 'anilist', outcome: { status: 'error', message: 'Hors ligne', code: 'NETWORK' } }] } satisfies SyncOutcome);
+    await expect(failed).resolves.toBe(false);
+    expect(ctl.notice.get()?.feedback).toMatchObject({ tone: 'error', text: 'Dandadan · AniList : Hors ligne' });
+
+    const saved = ctl.saveNotes(DANDADAN, 'Nouveau');
+    lastCall('SET_LIST_NOTES').resolve({ status: 'synced', mediaTitle: 'Dandadan', results: [{ service: 'anilist', outcome: { status: 'updated', progress: 4, completed: false } }] } satisfies SyncOutcome);
+    await expect(saved).resolves.toBe(true);
+    expect(ctl.entryActions.get().get(`${DANDADAN.mediaId}:${DANDADAN.malId}`)).toMatchObject({ phase: 'done', feedback: { tone: 'success', text: 'Commentaire enregistré' } });
+  });
+});

@@ -101,6 +101,60 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await page.$(`[aria-label="${fr('panel.nowPlaying.loading')}"]`)).toBeNull();
   });
 
+  it('« Ta progression » : commentaire replié, « Enregistrer » envoie SET_LIST_NOTES (rien à la frappe), aperçu du texte relu', async () => {
+    const page = await openPanel({ hold: 'SET_LIST_NOTES' });
+    const toggle = '[data-focus="panel-notes-toggle"]';
+    await page.waitForSelector(toggle);
+    expect(await page.$eval(toggle, (el) => el.textContent ?? '')).toContain(fr('notes.add'));
+
+    await page.locator(toggle).click();
+    await page.waitForSelector('[data-focus="panel-notes-input"]');
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('panel-notes-input');
+    await page.type('[data-focus="panel-notes-input"]', 'Superbe arc');
+    expect(await messages(page, 'SET_LIST_NOTES')).toEqual([]);
+
+    await page.locator('[data-focus="panel-notes-save"]').click();
+    await waitForMessages(page, 'SET_LIST_NOTES', 1);
+    const [message] = await messages(page, 'SET_LIST_NOTES');
+    expect(message?.payload).toMatchObject({ media: { mediaId: 154587 }, notes: 'Superbe arc' });
+    // Enregistrement en cours : bouton occupé, la saisie reste en place
+    expect(await page.$eval('[data-focus="panel-notes-save"]', (el) => el.getAttribute('aria-busy'))).toBe('true');
+    await hold.release(page, 'SET_LIST_NOTES');
+
+    // Enregistré : éditeur replié, aperçu du commentaire relu (RESOLVE_PAGE_MEDIA sans cache), retour affiché
+    await page.waitForFunction((s: string) => document.querySelector(s)?.textContent?.includes('Superbe arc') === true, {}, toggle);
+    await page.waitForFunction((label: string) => document.body.textContent?.includes(label) === true, {}, fr('inline.notesSaved'));
+  });
+
+  it('« Ta progression » : menu « ⋯ » → « Retirer de la liste » confirmé → REMOVE_FROM_LIST, la carte propose l’ajout', async () => {
+    const page = await openPanel({});
+    await page.waitForSelector('[data-focus="more-panel"]');
+    await page.locator('[data-focus="more-panel"]').click();
+    await page.waitForSelector('[data-focus="REMOVE-panel"]');
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('REMOVE-panel');
+
+    await page.locator('[data-focus="REMOVE-panel"]').click();
+    await page.waitForSelector('[data-focus="confirm-no-panel"]');
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('confirm-no-panel');
+    // Échap annule la confirmation, le menu reste ouvert
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-focus="REMOVE-panel"]');
+    expect(await messages(page, 'REMOVE_FROM_LIST')).toEqual([]);
+
+    await page.locator('[data-focus="REMOVE-panel"]').click();
+    await page.locator('[data-focus="confirm-yes-panel"]').click();
+    await waitForMessages(page, 'REMOVE_FROM_LIST', 1);
+    const [message] = await messages(page, 'REMOVE_FROM_LIST');
+    expect(message?.payload).toMatchObject({ media: { mediaId: 154587, title: 'Frieren: Beyond Journey’s End' } });
+
+    // Fiche relue : absente des listes → boutons d'ajout, plus de menu « ⋯ », commentaire indisponible (expliqué)
+    await page.waitForSelector('[data-focus="page-add-PLANNING"]');
+    expect(await page.$('[data-focus="more-panel"]')).toBeNull();
+    expect(await page.$eval('[data-focus="panel-notes-toggle"]', (el) => (el as HTMLButtonElement).disabled)).toBe(true);
+    expect(await page.evaluate(() => document.body.textContent ?? '')).toContain(fr('notes.notInList'));
+    await page.waitForFunction((label: string) => document.body.textContent?.includes(label) === true, {}, fr('inline.removed', { title: 'Frieren' }));
+  });
+
   it('UI-02 : +1 puis épisode d’une autre série avant la réponse → la fiche de la nouvelle page reste affichée', async () => {
     const page = await openPanel({ hold: 'ADJUST_PROGRESS' });
     await page.waitForSelector('[data-focus="page-plus"]:not([disabled])');

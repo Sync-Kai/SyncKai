@@ -41,6 +41,7 @@ const inList = (progress: number, score: number | null = null): PageListState =>
   status: 'CURRENT',
   progress,
   score,
+  notes: null,
   siteUrl: 'https://anilist.co/anime/2',
 });
 const malMissing: PageListState = { service: 'mal', state: 'not-in-list', siteUrl: 'https://myanimelist.net/anime/20' };
