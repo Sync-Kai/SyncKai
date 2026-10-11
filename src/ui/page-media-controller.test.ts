@@ -4,6 +4,8 @@ import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
 import type { PageMediaResponse } from '../shared/content-messages';
 import type { CachedPageMedia } from '../shared/page-media-cache';
 import type { PanelMedia } from '../shared/panel-media.types';
+import type { SessionEpochs } from '../shared/session-epochs';
+import { STORAGE_KEYS } from '../shared/storage-keys';
 import type { PageMediaController } from './page-media-controller';
 
 // Contrôleur « fiche de la page » (popup et panneau) avec un faux service worker (sendMessage) et un faux script de
@@ -29,6 +31,9 @@ const fake = vi.hoisted(() => ({
   /** Fiche en cache de l'onglet (lecture) et horodatage de la prochaine écriture */
   cached: null as CachedPageMedia | null,
   writtenAt: 1_000,
+  /** Sessions passées à chaque écriture du cache, et stockage local lu par getOpenSessions */
+  storedEpochs: [] as SessionEpochs[],
+  local: {} as Record<string, unknown>,
   listeners: [] as ChangeListener[],
 }));
 
@@ -51,13 +56,16 @@ vi.mock('../shared/page-media-cache', async (importOriginal) => {
   return {
     ...original,
     readCachedPageMedia: () => Promise.resolve(fake.cached),
-    storeCachedPageMedia: (_tabId: number, page: PageMediaInfo, view: PageMediaView) => Promise.resolve(original.toCachedPageMedia(page, view, 'resolve', fake.writtenAt)),
+    storeCachedPageMedia: (_tabId: number, page: PageMediaInfo, view: PageMediaView, _source: string, epochs: SessionEpochs) => {
+      fake.storedEpochs.push(epochs);
+      return Promise.resolve(original.toCachedPageMedia(page, view, 'resolve', fake.writtenAt, epochs));
+    },
   };
 });
 
 vi.stubGlobal('chrome', {
   storage: {
-    local: { get: () => Promise.resolve({}) },
+    local: { get: () => Promise.resolve({ ...fake.local }) },
     onChanged: { addListener: (listener: ChangeListener) => void fake.listeners.push(listener) },
   },
 });
@@ -168,7 +176,7 @@ async function readyOnFrieren(): Promise<ReturnType<typeof panelController>> {
 
 /** Fiche de l'onglet réécrite dans le cache de session (synchro, autre écran, ou écho de sa propre écriture) */
 function emitCacheWrite(tabId: number, resolvedAt: number): void {
-  const entry = { ...toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', resolvedAt) };
+  const entry = { ...toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', resolvedAt, {}) };
   for (const listener of fake.listeners) listener({ [pageMediaCacheKey(tabId)]: { newValue: entry } }, 'session');
 }
 
@@ -179,6 +187,8 @@ beforeEach(() => {
   fake.reads = 0;
   fake.cached = null;
   fake.writtenAt = 1_000;
+  fake.storedEpochs.length = 0;
+  fake.local = {};
   fake.listeners.length = 0;
 });
 
@@ -215,7 +225,7 @@ describe('états alignés (popup et panneau)', () => {
     await settle();
     expect(ctl.content).toEqual({ status: 'error', page: FRIEREN, message: 'AniList injoignable' });
 
-    fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'resolve', Date.now());
+    fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'resolve', Date.now(), {});
     ctl.retry();
     await settle();
     expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(1);
@@ -232,7 +242,7 @@ describe('états alignés (popup et panneau)', () => {
   });
 
   it('fiche en cache de l’onglet : affichée sans RESOLVE_PAGE_MEDIA', async () => {
-    fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', Date.now());
+    fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', Date.now(), {});
     const ctl = createPageMediaController({ onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await settle();
@@ -289,7 +299,7 @@ describe('choix de la saison', () => {
   });
 
   it('saison choisie dans l’autre écran (fiche en cache `manual`) : reprise pour les relectures', async () => {
-    fake.cached = toCachedPageMedia(FRIEREN, { ...view(FRIEREN, 777), source: 'manual' }, 'resolve', Date.now());
+    fake.cached = toCachedPageMedia(FRIEREN, { ...view(FRIEREN, 777), source: 'manual' }, 'resolve', Date.now(), {});
     const ctl = createPageMediaController({ onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await settle();
@@ -513,5 +523,23 @@ describe('UI-02 / CTRL-05 : retour d’une action après un changement de page o
     answer(pending('ADJUST_PROGRESS')[0], SYNCED);
     await settle();
     expect(done).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('cache de l’onglet lié aux sessions (DATA-04, SEC-03)', () => {
+  const TOKEN = { accessToken: 'a', expiresAt: Number.MAX_SAFE_INTEGER };
+
+  it('sessions relevées AVANT RESOLVE_PAGE_MEDIA : une déconnexion pendant la résolution ne passe pas pour la session courante', async () => {
+    fake.local = { [STORAGE_KEYS.anilistToken]: TOKEN };
+    const ctl = createPageMediaController({ onChange: () => undefined });
+    ctl.open(1, FRIEREN);
+    await settle();
+    const [call] = pending('RESOLVE_PAGE_MEDIA');
+    // Déconnexion pendant la résolution : la fiche porte toujours la session de départ (écriture refusée par le cache)
+    fake.local = {};
+    answer(call, { ok: true, data: view(FRIEREN) });
+    await settle();
+    expect(ctl.content.status).toBe('ready');
+    expect(fake.storedEpochs).toEqual([{ anilist: 0 }]);
   });
 });

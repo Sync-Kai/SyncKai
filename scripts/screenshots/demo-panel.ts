@@ -170,8 +170,8 @@ export function panelChrome(locale: Locale, tab: PanelTab, now: number = Date.no
   return {
     ...base,
     storage: { ...base.storage, [PANEL_LAST_TAB_KEY]: tab },
-    // Fiche de l'onglet déjà résolue (cache de session partagé avec le popup et la synchro)
-    session: { [pageMediaCacheKey(TAB_ID)]: toCachedPageMedia(PANEL_PAGE, view, 'resolve', now - 60_000) },
+    // Fiche de l'onglet déjà résolue (cache de session partagé avec le popup et la synchro), sessions AniList et MAL de la démo
+    session: { [pageMediaCacheKey(TAB_ID)]: toCachedPageMedia(PANEL_PAGE, view, 'resolve', now - 60_000, { anilist: 0, mal: 0 }) },
     manifest: { host_permissions: manifest.host_permissions, content_scripts: manifest.content_scripts },
     tab: { url: WATCH_URL, title: FRIEREN_TITLE },
     sidePanel: true,

@@ -14,7 +14,7 @@ import { hasNetflixAccess } from '../shared/netflix-access';
 import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { learnPlatformLink } from '../shared/platform-links-store';
 import { pageMediaFromEpisode } from '../shared/page-media';
-import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../shared/storage';
+import { getMediaMapping, getMediaMappings, getOpenSessions, saveMediaMapping } from '../shared/storage';
 import type { ListStatus } from '../shared/sync.types';
 import { createLogger } from '../shared/logger';
 import { getScoreFormat } from './api/list';
@@ -341,6 +341,8 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
 export async function refreshTabPageMedia(tabId: number, episode: EpisodeInfo): Promise<void> {
   if (!(await readCachedPageMedia(tabId))) return;
   const page = pageMediaFromEpisode(episode);
+  // Sessions relevées avant la résolution : la fiche n'est pas écrite si un compte est déconnecté entre-temps
+  const epochs = await getOpenSessions();
   const result = await resolvePageMedia({ page, mediaId: null });
-  if (result.ok) await storeCachedPageMedia(tabId, page, result.data, 'sync');
+  if (result.ok) await storeCachedPageMedia(tabId, page, result.data, 'sync', epochs);
 }

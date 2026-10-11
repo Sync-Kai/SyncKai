@@ -11,6 +11,8 @@ import {
   storeCachedPageMedia,
 } from '../shared/page-media-cache';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
+import type { SessionEpochs } from '../shared/session-epochs';
+import { getOpenSessions } from '../shared/storage';
 import type { ListStatusChange } from '../shared/sync.types';
 import { errorFeedback } from './feedback';
 import { mediaActionKey, runMediaAction, type MediaActionRequest } from './media-action-requests';
@@ -311,6 +313,16 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     }
   }
 
+  /** Sessions ouvertes, null si illisibles (la fiche n'est alors pas mise en cache) */
+  async function openSessions(): Promise<SessionEpochs | null> {
+    try {
+      return await getOpenSessions();
+    } catch (error: unknown) {
+      log.debug('Sessions illisibles :', error);
+      return null;
+    }
+  }
+
   async function requestView(page: PageMediaInfo, mediaId: number | null): Promise<PageMediaResult> {
     try {
       return await sendMessage('RESOLVE_PAGE_MEDIA', { page, mediaId });
@@ -343,11 +355,14 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
         return;
       }
     }
+    // Sessions relevées AVANT la résolution : fiche non mise en cache si un compte est déconnecté entre-temps
+    const epochs = id !== null ? await openSessions() : null;
+    if (current !== run) return;
     const result = await requestView(page, manualId);
     if (current !== run) return;
     if (result.ok) {
-      if (id !== null) {
-        storeCachedPageMedia(id, page, result.data, 'resolve')
+      if (id !== null && epochs !== null) {
+        storeCachedPageMedia(id, page, result.data, 'resolve', epochs)
           .then((entry) => {
             if (entry) lastWrittenAt = entry.resolvedAt;
           })
