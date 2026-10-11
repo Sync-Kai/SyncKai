@@ -162,7 +162,7 @@ Le module n'existe pas encore sur AMO : c'est le premier tag poussé qui le cré
 
 1. Le job `firefox` envoie la fiche de `docs/store/amo-metadata.json` (nom, résumé et description en en-US/fr/de, catégories, licence MIT, page d'accueil, support, notes pour les relecteurs) avec le paquet et l'archive des sources.
 2. Compléter ensuite la fiche à la main dans le Developer Hub (icône, captures, politique de confidentialité, e-mail de support) : voir [docs/store/amo.md](store/amo.md).
-3. **Examen** : les versions *listed* passent une validation automatique puis, selon le cas, un examen humain (souvent quelques heures à quelques jours ; plus long pour un nouveau module ou un code minifié). Le relecteur reconstruit le paquet depuis l'archive des sources avec `BUILD.md` (`npm ci && npm run build:firefox`) : le build doit être identique, d'où le `.source-date-epoch` ajouté par `npm run package:source`.
+3. **Examen** : les versions *listed* passent une validation automatique puis, selon le cas, un examen humain (souvent quelques heures à quelques jours ; plus long pour un nouveau module ou un code minifié). Le relecteur reconstruit le paquet depuis l'archive des sources avec `BUILD.md` (`npm ci --ignore-scripts && npm run build:firefox`) : le build doit être identique, d'où le `.source-date-epoch` ajouté par `npm run package:source`.
 4. Les redirections OAuth Firefox ne dépendent que de l'ID Gecko : aucune modification AniList/MAL après la publication (voir *Clients OAuth par navigateur*, section 4).
 
 ### Routine de release

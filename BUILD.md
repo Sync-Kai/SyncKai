@@ -10,8 +10,20 @@ These instructions reproduce the exact extension package submitted to addons.moz
 ## Build
 
 ```sh
-npm ci
+npm ci --ignore-scripts
 npm run build:firefox
+```
+
+`--ignore-scripts` skips the install scripts of the dependencies. The build needs none of them, and the release workflow (`.github/workflows/release.yml`) builds the submitted package exactly this way. Without it, `npm ci` runs the install script of `puppeteer` (a dev dependency used only by the end-to-end tests), which downloads Chrome and Chrome Headless Shell (several hundred MB) into `~/.cache/puppeteer`.
+
+To keep the other install scripts and only skip that download, use instead:
+
+```sh
+PUPPETEER_SKIP_DOWNLOAD=true npm ci                 # macOS, Linux, Git Bash
+```
+
+```powershell
+$env:PUPPETEER_SKIP_DOWNLOAD = 'true'; npm ci       # Windows PowerShell
 ```
 
 The Firefox extension is written to `dist-firefox/`. Its contents are the AMO package (`npm run package:firefox` zips the same folder into `release/synckai-<version>-firefox.zip`).

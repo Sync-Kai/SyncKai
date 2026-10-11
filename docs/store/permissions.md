@@ -90,7 +90,14 @@ Netflix is **not** in `content_scripts`: its two scripts are registered at runti
 | `src/content/netflix/content-netflix.iife.ts` | isolated | Netflix adapter: detects the episode and the end of the credits, shows on-page notifications |
 | `src/content/netflix/page-bridge.iife.ts` | `MAIN` | Short bridge with no `chrome.*` API: fetches Netflix's metadata for the current video (`/nq/website/memberapi/release/metadata`, same origin) and returns only title, seasons, episode numbers and credits timing to the isolated script |
 
-`web_accessible_resources` exposes these scripts to `*://*.netflix.com/*` only.
+`web_accessible_resources` has two entries in the built manifest (`dist/manifest.json`, `dist-firefox/manifest.json`), each limited to the sites where SyncKai runs a content script:
+
+| Matches | Resources | Origin |
+|---|---|---|
+| `*://*.netflix.com/*` | the two Netflix scripts above (`src/content/netflix/*.iife.js`) | `manifest.json` (`<dynamic_resource>`, filled in at build time) |
+| `*://*.crunchyroll.com/*`, `*://animationdigitalnetwork.com/*`, `*://*.animationdigitalnetwork.com/*` | the chunks of the main content script (`assets/*.js`) | added by `@crxjs/vite-plugin`: the content script declared in the manifest is a small loader that imports the bundled script as an ES module (`import(chrome.runtime.getURL(…))`) |
+
+Both entries expose only the extension's own code, never user data. In the Chrome build they use a fixed URL (`use_dynamic_url: false`): a page on those sites can request one of these files at `chrome-extension://khokcmigioggannjoojambdgioigdceb/…` and so tell that SyncKai is installed. Firefox serves them from a `moz-extension://` UUID drawn at random for each installation.
 
 The content script runs on these sites only. It reads the current episode page (series title, season, episode number and title, platform episode/series ID from the URL and JSON-LD) and listens to the `<video>` element's playback progress to detect the end of the episode. It also displays SyncKai's on-page notifications. It does not read anything else on the page and does not run on any other site.
 

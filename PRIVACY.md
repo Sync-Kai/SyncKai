@@ -1,6 +1,6 @@
 # Politique de confidentialité · Privacy Policy · Datenschutzerklärung
 
-**SyncKai** · Date d’effet / Effective date / Gültig ab : **2026-10-01**
+**SyncKai** · Date d’effet / Effective date / Gültig ab : **2026-10-10**
 
 - [Français](#français)
 - [English](#english)
@@ -29,7 +29,7 @@ Il ne lit ni tes identifiants Crunchyroll/ADN, ni ton historique de navigation.
 
 ### Données stockées
 
-Tout est enregistré **localement** dans le stockage de l’extension (`chrome.storage.local`), sur ton appareil :
+Sont enregistrés **localement** sur ton appareil, dans le stockage de l’extension (`chrome.storage.local`) :
 
 - tes réglages (déclenchement, notifications, lecteur préféré, langue…) ;
 - les correspondances mémorisées entre séries et fiches AniList/MAL, les séries exclues ;
@@ -37,6 +37,8 @@ Tout est enregistré **localement** dans le stockage de l’extension (`chrome.s
 - la file des synchros en attente (nouvel essai hors ligne) ;
 - des caches (liste « En cours », profil, calendrier des sorties) ;
 - les 50 dernières erreurs techniques (sans jetons ni noms de compte), pour aider à diagnostiquer un problème : elles ne quittent jamais le navigateur, sauf si tu copies toi-même le rapport de diagnostic (Réglages › Aide).
+
+Quelques caches de courte durée sont gardés en mémoire, dans le stockage de session de l’extension (`chrome.storage.session`) : la fiche affichée pour la page en cours, les données du panneau latéral (fiche AniList de l’épisode, suites) et les séries Netflix reconnues comme non-animes. Ils ne sont jamais écrits sur le disque et sont effacés à la fermeture du navigateur.
 
 ### Comptes AniList et MyAnimeList
 
@@ -57,7 +59,7 @@ SyncKai ne contacte que ces adresses :
 | `www.crunchyroll.com` | Import de l’historique, uniquement quand tu le lances, depuis ton onglet Crunchyroll |
 | `www.netflix.com` | Métadonnées de l’épisode en cours (titre, saison, numéro), uniquement si Netflix est activé, depuis ton onglet Netflix |
 
-Le popup affiche aussi les images de couverture et l’avatar fournis par AniList et MyAnimeList, chargés depuis leurs serveurs d’images.
+Le popup et le panneau latéral affichent aussi les images (couvertures, bannières) et l’avatar fournis par AniList et MyAnimeList, chargés depuis leurs serveurs d’images.
 
 ### Sauvegarde (export / import)
 
@@ -65,7 +67,7 @@ Le fichier d’export est un fichier JSON téléchargé sur ton appareil. Il n�
 
 ### Supprimer tes données
 
-- **Déconnecter** un compte dans Réglages › Comptes supprime son jeton et son profil ; à la déconnexion du dernier compte, l’historique, les vérifications, la file d’attente et les caches sont effacés.
+- **Déconnecter** un compte dans Réglages › Comptes supprime son jeton et son profil ; à la déconnexion du dernier compte, l’historique, les vérifications, la file d’attente et les caches de `chrome.storage.local` sont effacés (ceux de la session le sont à la fermeture du navigateur).
 - Réglages › Correspondances › « Tout réinitialiser » efface les correspondances.
 - **Désinstaller l’extension** supprime toutes les données stockées.
 - Les données enregistrées sur AniList ou MyAnimeList (ta liste) se gèrent directement sur ces services.
@@ -97,7 +99,7 @@ It does not read your Crunchyroll/ADN credentials or your browsing history.
 
 ### Stored data
 
-Everything is stored **locally** in the extension storage (`chrome.storage.local`) on your device:
+Stored **locally** on your device, in the extension storage (`chrome.storage.local`):
 
 - your settings (trigger, notifications, preferred player, language…);
 - remembered matches between series and AniList/MAL entries, excluded series;
@@ -105,6 +107,8 @@ Everything is stored **locally** in the extension storage (`chrome.storage.local
 - the queue of pending syncs (offline retry);
 - caches (“Watching” list, profile, airing schedule);
 - the last 50 technical errors (without tokens or account names), to help diagnose problems: they never leave your browser unless you copy the diagnostic report yourself (Settings › Help).
+
+A few short-lived caches are kept in memory, in the extension’s session storage (`chrome.storage.session`): the entry shown for the current page, the side panel data (the episode’s AniList entry, sequels) and the Netflix series recognized as not anime. They are never written to disk and are cleared when the browser closes.
 
 ### AniList and MyAnimeList accounts
 
@@ -125,7 +129,7 @@ SyncKai only contacts these hosts:
 | `www.crunchyroll.com` | History import, only when you start it, from your Crunchyroll tab |
 | `www.netflix.com` | Current episode metadata (title, season, number), only if Netflix is turned on, from your Netflix tab |
 
-The popup also displays cover images and avatars provided by AniList and MyAnimeList, loaded from their image servers.
+The popup and the side panel also display images (covers, banners) and avatars provided by AniList and MyAnimeList, loaded from their image servers.
 
 ### Backup (export / import)
 
@@ -133,7 +137,7 @@ The export file is a JSON file downloaded to your device. It is not sent anywher
 
 ### Deleting your data
 
-- **Log out** of an account in Settings › Accounts to delete its token and profile; logging out of the last account also clears history, reviews, the pending queue and caches.
+- **Log out** of an account in Settings › Accounts to delete its token and profile; logging out of the last account also clears history, reviews, the pending queue and the `chrome.storage.local` caches (session caches are cleared when the browser closes).
 - Settings › Matches › “Reset all” clears the remembered matches.
 - **Uninstalling the extension** deletes all stored data.
 - Data saved on AniList or MyAnimeList (your list) is managed directly on those services.
@@ -165,7 +169,7 @@ Es liest weder deine Crunchyroll-/ADN-Zugangsdaten noch deinen Browserverlauf.
 
 ### Gespeicherte Daten
 
-Alles wird **lokal** im Erweiterungsspeicher (`chrome.storage.local`) auf deinem Gerät gespeichert:
+**Lokal** auf deinem Gerät gespeichert, im Erweiterungsspeicher (`chrome.storage.local`):
 
 - deine Einstellungen (Auslöser, Benachrichtigungen, bevorzugter Player, Sprache…);
 - gespeicherte Zuordnungen zwischen Serien und AniList-/MAL-Einträgen, ausgeschlossene Serien;
@@ -173,6 +177,8 @@ Alles wird **lokal** im Erweiterungsspeicher (`chrome.storage.local`) auf deinem
 - die Warteschlange ausstehender Synchronisierungen (Offline-Wiederholung);
 - Caches (Liste „Schaue ich“, Profil, Ausstrahlungsplan);
 - die letzten 50 technischen Fehler (ohne Tokens und Kontonamen) zur Fehlerdiagnose: Sie verlassen den Browser nie, außer du kopierst selbst den Diagnosebericht (Einstellungen › Hilfe).
+
+Einige kurzlebige Caches werden im Arbeitsspeicher gehalten, im Sitzungsspeicher der Erweiterung (`chrome.storage.session`): der für die aktuelle Seite angezeigte Eintrag, die Daten der Seitenleiste (AniList-Eintrag der Folge, Fortsetzungen) und die als Nicht-Anime erkannten Netflix-Serien. Sie werden nie auf die Festplatte geschrieben und beim Schließen des Browsers gelöscht.
 
 ### AniList- und MyAnimeList-Konten
 
@@ -193,7 +199,7 @@ SyncKai kontaktiert nur diese Hosts:
 | `www.crunchyroll.com` | Verlaufsimport, nur wenn du ihn startest, aus deinem Crunchyroll-Tab |
 | `www.netflix.com` | Metadaten der aktuellen Episode (Titel, Staffel, Nummer), nur wenn Netflix aktiviert ist, aus deinem Netflix-Tab |
 
-Das Popup zeigt außerdem Coverbilder und Avatare von AniList und MyAnimeList an, die von deren Bildservern geladen werden.
+Das Popup und die Seitenleiste zeigen außerdem Bilder (Cover, Banner) und Avatare von AniList und MyAnimeList an, die von deren Bildservern geladen werden.
 
 ### Sicherung (Export / Import)
 
@@ -201,7 +207,7 @@ Die Exportdatei ist eine JSON-Datei, die auf dein Gerät heruntergeladen wird. S
 
 ### Daten löschen
 
-- **Abmelden** eines Kontos unter Einstellungen › Konten löscht dessen Token und Profil; beim Abmelden des letzten Kontos werden auch Verlauf, Prüfungen, Warteschlange und Caches gelöscht.
+- **Abmelden** eines Kontos unter Einstellungen › Konten löscht dessen Token und Profil; beim Abmelden des letzten Kontos werden auch Verlauf, Prüfungen, Warteschlange und die Caches in `chrome.storage.local` gelöscht (die Sitzungs-Caches beim Schließen des Browsers).
 - Einstellungen › Zuordnungen › „Alles zurücksetzen“ löscht die Zuordnungen.
 - **Deinstallieren der Erweiterung** löscht alle gespeicherten Daten.
 - Auf AniList oder MyAnimeList gespeicherte Daten (deine Liste) verwaltest du direkt bei diesen Diensten.
