@@ -9,6 +9,7 @@ import { launchBrowser, startHarnessServer, type HarnessServer } from '../screen
 import type { SentMessage } from '../screenshots/mock-chrome';
 import { PLATFORM_LINKS_KEY } from '../../src/shared/platform-links';
 import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
+import { STORAGE_KEYS } from '../../src/shared/storage-keys';
 import { COMPARE_JOB_KEY, type CompareJob } from '../../src/shared/compare-job';
 import { PLANTED_SECRETS, type E2EState, type FrameParams } from './protocol';
 
@@ -115,6 +116,24 @@ async function compareRows(page: Page): Promise<string[]> {
     const section = [...document.querySelectorAll('section')].find((s) => s.getAttribute('aria-label') === label);
     return [...(section?.querySelectorAll('ul > li span[title]') ?? [])].map((span) => span.getAttribute('title') ?? '');
   }, fr('compare.section'));
+}
+
+/** Change un réglage directement dans le stockage (comme une autre vue ouverte) */
+async function setSetting(page: Page, patch: Record<string, unknown>): Promise<void> {
+  await page.evaluate(
+    async (key: string, values: Record<string, unknown>) => {
+      const stored = await chrome.storage.local.get(key);
+      const current: unknown = stored[key];
+      await chrome.storage.local.set({ [key]: { ...(typeof current === 'object' && current !== null ? current : {}), ...values } });
+    },
+    SETTINGS_STORAGE_KEY,
+    patch,
+  );
+}
+
+/** Attend que le lien `selector` pointe vers `href` */
+async function waitForHref(page: Page, selector: string, href: string): Promise<void> {
+  await page.waitForFunction((s: string, url: string) => document.querySelector(s)?.getAttribute('href') === url, {}, selector, href);
 }
 
 /** Ouvre une sous-page depuis l'accueil des Réglages */
@@ -608,6 +627,87 @@ describe('popup (bout en bout)', () => {
     expect(new URL(opened ?? '').searchParams.has('export')).toBe(true);
     // Aucun lien de téléchargement créé dans le popup
     expect(await page.$('a[download]')).toBeNull();
+  });
+
+  it('titre et jaquette de « En cours » : fiche AniList par défaut, MyAnimeList selon le réglage, seul compte MAL → MAL', async () => {
+    const page = await openPopup();
+    const title = sel(`title-${SOLO}`);
+    await page.waitForSelector(title);
+    const anilist = 'https://anilist.co/anime/176496';
+    const mal = 'https://myanimelist.net/anime/58567';
+    expect(await attr(page, title, 'href')).toBe(anilist);
+    expect(await attr(page, title, 'target')).toBe('_blank');
+    expect(await attr(page, title, 'rel')).toBe('noopener noreferrer');
+    expect(await attr(page, title, 'aria-label')).toBe(fr('entry.openAria', { title: 'Solo Leveling', service: 'AniList' }));
+    // Jaquette : même lien, hors tabulation (doublon du titre)
+    const cover = await page.$eval(title, (a) => {
+      const link = a.closest('li')?.querySelector('a[aria-hidden="true"]');
+      return link ? { href: link.getAttribute('href'), tabindex: link.getAttribute('tabindex'), img: link.querySelector('div') !== null } : null;
+    });
+    expect(cover).toEqual({ href: anilist, tabindex: '-1', img: true });
+    // « Ouvrir la fiche » du menu : même règle, service nommé
+    await click(page, `more-${SOLO}`);
+    await page.waitForSelector(sel(`site-${SOLO}`));
+    expect(await attr(page, sel(`site-${SOLO}`), 'href')).toBe(anilist);
+    expect(await text(page, sel(`site-${SOLO}`))).toBe(fr('page.openOn', { service: 'AniList' }));
+    await page.keyboard.press('Escape');
+    await page.waitForSelector(sel(`site-${SOLO}`), { hidden: true });
+
+    // Réglages › Comptes : « Fiche ouverte par défaut » (deux comptes connectés) → MyAnimeList
+    await click(page, 'gear');
+    await openCategory(page, 'accounts');
+    await page.waitForSelector(sel('entry-service-mal'));
+    expect(await attr(page, sel('entry-service-anilist'), 'aria-pressed')).toBe('true');
+    await click(page, 'entry-service-mal');
+    await page.waitForSelector(`${sel('entry-service-mal')}[aria-pressed="true"]`);
+    const saved = await page.evaluate(async (key: string) => (await chrome.storage.local.get(key))[key] as { entryService?: string } | undefined, SETTINGS_STORAGE_KEY);
+    expect(saved?.entryService).toBe('mal');
+    await click(page, 'settings-home');
+    await click(page, 'back');
+    await waitForHref(page, title, mal);
+    expect(await attr(page, title, 'aria-label')).toBe(fr('entry.openAria', { title: 'Solo Leveling', service: 'MyAnimeList' }));
+    // Le lien n'est qu'un lien : aucun message au service worker, aucun menu ouvert
+    const before = (await trace(page)).messages.length;
+    await page.$eval(title, (a) => a.addEventListener('click', (event) => event.preventDefault(), { once: true }));
+    await page.locator(title).click();
+    expect((await trace(page)).messages.length).toBe(before);
+    expect(await page.$('[role="menu"]')).toBeNull();
+
+    // AniList déconnecté : MyAnimeList seul, quel que soit le réglage ; le choix disparaît des Réglages
+    await setSetting(page, { entryService: 'anilist' });
+    await page.evaluate(async (key: string) => chrome.storage.local.remove(key), STORAGE_KEYS.anilistToken);
+    await waitForHref(page, title, mal);
+    await click(page, 'gear');
+    await openCategory(page, 'accounts');
+    await page.waitForSelector(sel('logout-mal'));
+    expect(await page.$(sel('entry-service-mal'))).toBeNull();
+  });
+
+  it('« Sur cette page » : titre et jaquette ouvrent la fiche, MyAnimeList avec le réglage', async () => {
+    const page = await openPopup({ scenario: 'page' });
+    const title = sel('page-entry');
+    await page.waitForSelector(title);
+    expect(await attr(page, title, 'href')).toBe('https://anilist.co/anime/146065');
+    expect(await page.$eval(title, (a) => a.closest('section')?.querySelector('a[aria-hidden="true"]')?.getAttribute('href') ?? null)).toBe('https://anilist.co/anime/146065');
+
+    await setSetting(page, { entryService: 'mal' });
+    await waitForHref(page, title, 'https://myanimelist.net/anime/51179');
+    expect(await attr(page, title, 'aria-label')).toBe(fr('entry.openAria', { title: 'Mushoku Tensei: Jobless Reincarnation Season 2', service: 'MyAnimeList' }));
+    // Liens AniList ↗ / MAL ↗ de la carte conservés
+    expect(await page.$(`a[aria-label="${fr('page.openOn', { service: 'AniList' })}"]`)).not.toBeNull();
+  });
+
+  it('« Dernières synchros » : titre vers la fiche MyAnimeList quand elle est préférée et connue, AniList sinon', async () => {
+    const page = await openPopup({ scenario: 'activity' });
+    const dandadan = sel('recent-entry-cr:dandadan');
+    const onePiece = sel('recent-entry-adn:op');
+    await page.waitForSelector(dandadan);
+    expect(await attr(page, dandadan, 'href')).toBe('https://anilist.co/anime/185660');
+
+    await setSetting(page, { entryService: 'mal' });
+    await waitForHref(page, dandadan, 'https://myanimelist.net/anime/60543');
+    // Synchro enregistrée sans fiche MAL (version précédente) : repli sur AniList
+    expect(await attr(page, onePiece, 'href')).toBe('https://anilist.co/anime/21');
   });
 
   it('UX-05 / UX-06 : état vide, astuce avec le vrai chemin « Réglages › Lecture & synchro », cliquable', async () => {

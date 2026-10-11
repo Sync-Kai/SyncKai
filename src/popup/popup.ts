@@ -1,5 +1,6 @@
 import { initI18n, onLocaleChange, t } from '../i18n';
 import { refreshReviewBadge } from '../shared/badge';
+import type { EntryLinkContext } from '../shared/entry-link';
 import type { EpisodeInfo } from '../shared/episode.types';
 import { EXCLUDED_SERIES_KEY, excludeSeries, getExcludedSeries, platformSeriesKey } from '../shared/exclusions';
 import { sendMessage } from '../shared/messages';
@@ -125,6 +126,12 @@ function accountStore(service: TrackerId): Store<AccountState<unknown>> {
 
 function connectedServices(): TrackerId[] {
   return TRACKER_IDS.filter((service) => accountStore(service).get().status === 'logged-in');
+}
+
+/** Fiche ouverte au clic sur un titre ou une jaquette : comptes connectés et réglage « Fiche ouverte par défaut » */
+function entryLinkContext(): EntryLinkContext {
+  const state = settingsStore.get();
+  return { connected: connectedServices(), preferred: state.status === 'ready' ? state.settings.entryService : DEFAULT_SETTINGS.entryService };
 }
 
 // ─── Actions des cartes "À vérifier" ────────────────────────────────────────
@@ -356,7 +363,8 @@ function renderWatching(): void {
   const notice = watching.notice.get();
   const pageCard = pageCardStore.get();
   const netflixAccess = netflixAccessStore.get() === true;
-  if (!watchingChanged([watching.store.get(), now, preferredPlayer, netflixAccess, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
+  const entryLinks = entryLinkContext();
+  if (!watchingChanged([watching.store.get(), now, preferredPlayer, netflixAccess, services.join(), entryLinks.preferred, sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
 
   preserveFocus(watchingSlot, () =>
     watchingSlot.replaceChildren(
@@ -378,6 +386,7 @@ function renderWatching(): void {
         pageCard: renderPageMediaCard({
           card: pageCard,
           now,
+          entryLinks,
           onRetry: () => pageCtl.retry(),
           onAdd: (status) => void pageCtl.runAction({ kind: 'add', status }),
           onAdjust: (delta) => void pageCtl.runAction({ kind: 'adjust', delta }),
@@ -398,6 +407,7 @@ function renderWatching(): void {
           onAdjust: (entry, delta) => void watching.adjust(entry, delta),
           onExclude: (entry) => void watching.exclude(entry),
           onInclude: (entry) => void watching.include(entry),
+          entryLinks,
         },
       }),
     ),
@@ -412,7 +422,8 @@ const ratingsChanged = createMemo();
 
 function renderRatings(): void {
   const connected = connectedServices().length > 0;
-  if (!ratingsChanged([ratings.store.get(), connected, now])) return;
+  const entryLinks = entryLinkContext();
+  if (!ratingsChanged([ratings.store.get(), connected, now, entryLinks.connected.join(), entryLinks.preferred])) return;
   ratingSlot.replaceChildren(
     ...nodes([
       connected &&
@@ -421,6 +432,7 @@ function renderRatings(): void {
           now,
           onRate: (item, value) => void ratings.rate(item, value),
           onIgnore: (item) => void ratings.ignore(item),
+          entryLinks,
         }),
     ]),
   );
@@ -434,7 +446,8 @@ const compareChanged = createMemo();
 
 function renderCompare(): void {
   const both = connectedServices().length === 2;
-  if (!compareChanged([compare.store.get(), both, now])) return;
+  const entryLinks = entryLinkContext();
+  if (!compareChanged([compare.store.get(), both, now, entryLinks.preferred])) return;
   compareSlot.replaceChildren(
     ...nodes([
       both &&
@@ -449,6 +462,7 @@ function renderCompare(): void {
           onDismissJob: () => void compare.dismissJob(),
           onRetryFailed: (diffs, source) => void compare.apply(diffs, source),
           onShowMore: () => compare.showMore(),
+          entryLinks,
         }),
     ]),
   );
@@ -521,7 +535,8 @@ function render(): void {
     renderRatings();
     renderCompare();
     reviewSection.update(connected ? data.reviews : []);
-    if (recentChanged([data.recentSyncs, data.reviews, data.busyKey, data.recentError, exclusionsStore.get()])) {
+    const entryLinks = entryLinkContext();
+    if (recentChanged([data.recentSyncs, data.reviews, data.busyKey, data.recentError, exclusionsStore.get(), entryLinks.connected.join(), entryLinks.preferred])) {
       recentSlot.replaceChildren(
         renderRecentSyncs({
           syncs: data.recentSyncs,
@@ -531,6 +546,7 @@ function render(): void {
           onCorrect: (key) => void handleCorrect(key),
           isExcluded: isRecentExcluded,
           onExclude: (sync) => void excludeRecent(sync),
+          entryLinks,
         }),
       );
     }

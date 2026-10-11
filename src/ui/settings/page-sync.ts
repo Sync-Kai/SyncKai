@@ -1,5 +1,5 @@
 // Réglages › Lecture & synchro : synchro automatique, moment de la synchro, raccourci clavier,
-// lecteur préféré, accès à Netflix (permission optionnelle) et options du panneau latéral.
+// lecteur préféré, fiche ouverte par défaut, accès à Netflix (permission optionnelle) et options du panneau latéral.
 import { t } from '../../i18n';
 import { createLogger } from '../../shared/logger';
 import { removeNetflixAccess, requestNetflixAccess } from '../../shared/netflix-access';
@@ -33,6 +33,7 @@ export function formatPercent(value: number | string): string {
   return t('settings.percent', { value });
 }
 
+/** Services proposés pour la fiche ouverte par défaut (libellé court, nom complet pour les lecteurs d'écran) */
 function panelTabOptions(): { value: PanelDefaultTab; label: string }[] {
   return [
     { value: 'last', label: t('settings.panel.tab.last') },

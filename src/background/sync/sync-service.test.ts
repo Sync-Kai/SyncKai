@@ -418,6 +418,13 @@ describe('écritures liées au compte (DATA-01)', () => {
     expect(fake.local.peek('recentSyncs')).toBeUndefined();
   });
 
+  it('synchro récente : fiche MyAnimeList du catalogue mémorisée (lien du titre dans « Dernières synchros »)', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    fakes.resolutions = [resolved(PART1, 6)];
+    await syncEpisode(episode(6));
+    expect(fake.local.peek('recentSyncs')).toMatchObject([{ mediaId: PART1, malId: MAL_PART1, progress: 6 }]);
+  });
+
   it('déconnexion puis autre compte pendant la lecture : la décision n’est pas écrite', async () => {
     connect({ status: 'CURRENT', progress: 5 });
     const read = anilist.getEntry;

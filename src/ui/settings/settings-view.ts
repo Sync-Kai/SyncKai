@@ -381,7 +381,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
       if (!data.settings || JSON.stringify(normalizeSettings(data.settings)) !== JSON.stringify(next)) {
         data.settings = next;
         data.settingsError = false;
-        redraw(['home', 'sync', 'notifications', 'language']);
+        redraw(['home', 'accounts', 'sync', 'notifications', 'language']);
       }
     }
     if (changes[STORAGE_KEYS.mediaMappings]) void refreshMappings();
@@ -397,9 +397,9 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     chrome.permissions.onRemoved.addListener(() => void loadNetflixAccess());
   }
 
-  // Comptes connectés ou déconnectés (ici ou ailleurs) : carte Comptes et résumé de l'accueil
-  host.accounts.anilist.subscribe(() => redraw(['home', 'accounts']));
-  host.accounts.mal.subscribe(() => redraw(['home', 'accounts']));
+  // Comptes connectés ou déconnectés (ici ou ailleurs) : carte Comptes, résumé de l'accueil et « Fiche ouverte par défaut »
+  host.accounts.anilist.subscribe(() => redraw(['home', 'accounts', 'sync']));
+  host.accounts.mal.subscribe(() => redraw(['home', 'accounts', 'sync']));
 
   // Langue changée sans rechargement (panneau latéral) : tout est retraduit
   onLocaleChange(() => {

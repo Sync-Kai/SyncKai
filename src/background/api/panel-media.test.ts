@@ -29,6 +29,7 @@ const full = {
         relationType: 'SEQUEL',
         node: {
           id: 182255,
+          idMal: 59978,
           type: 'ANIME',
           format: 'TV',
           title: { userPreferred: 'Frieren 2' },
@@ -85,6 +86,15 @@ describe('parsePanelMedia (GET_PANEL_MEDIA)', () => {
     expect(relations[2].siteUrl).toBe('https://anilist.co/anime/3'); // domaine étranger remplacé
   });
 
+  it('relations : fiche MyAnimeList équivalente si connue (lien du titre), sinon null', () => {
+    const relations = parsePanelMedia(full)?.relations ?? [];
+    expect(relations.map((r) => [r.mediaId, r.idMal])).toEqual([
+      [2, null],
+      [182255, 59978],
+      [3, null],
+    ]);
+  });
+
   it('champs absents ou invalides → null / []', () => {
     const media = parsePanelMedia({ id: 7, coverImage: { color: 'red;background:url(x)' }, season: 'MONSOON', genres: [1, null, 'Action'], studios: { nodes: [{}] } });
     expect(media).toEqual({
@@ -125,6 +135,9 @@ describe('parsePanelMedia (GET_PANEL_MEDIA)', () => {
   it('cache de session : une fiche d’un autre format est rejetée', () => {
     expect(isPanelMedia({ mediaId: 7 })).toBe(false);
     expect(isPanelMedia({ ...parsePanelMedia(full), relations: [{ relationType: 'ADAPTATION' }] })).toBe(false);
+    // Relation d'avant l'ajout de idMal (cache v2) : rejetée
+    const relations = (parsePanelMedia(full)?.relations ?? []).map(({ idMal: _idMal, ...rest }) => rest);
+    expect(isPanelMedia({ ...parsePanelMedia(full), relations })).toBe(false);
   });
 });
 

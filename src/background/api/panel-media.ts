@@ -44,7 +44,7 @@ const PANEL_MEDIA_QUERY = /* GraphQL */ `
       nextAiringEpisode { episode airingAt }
       studios(isMain: true) { nodes { name siteUrl } }
       title { romaji english userPreferred }
-      relations { edges { relationType node { id type format title { userPreferred } coverImage { medium } siteUrl externalLinks { url } } } }
+      relations { edges { relationType node { id idMal type format title { userPreferred } coverImage { medium } siteUrl externalLinks { url } } } }
     }
   }
 `;
@@ -65,9 +65,11 @@ function parseRelation(edge: unknown): PanelRelation | null {
   if (typeof node.id !== 'number' || node.type !== 'ANIME') return null;
   const title = isRecord(node.title) ? str(node.title.userPreferred) : null;
   const cover = isRecord(node.coverImage) ? node.coverImage : {};
+  const idMal = num(node.idMal);
   return {
     relationType: edge.relationType,
     mediaId: node.id,
+    idMal: idMal !== null && Number.isInteger(idMal) && idMal > 0 ? idMal : null,
     title: title ?? `#${node.id}`,
     format: str(node.format),
     coverUrl: toSafeImageUrl(str(cover.medium)),

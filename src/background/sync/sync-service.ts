@@ -237,7 +237,7 @@ async function writeToServices(
   const results = writes.map((w) => w.result);
 
   if (results.some((r) => r.outcome.status === 'updated')) {
-    await addRecentSync({ key, episode, mediaId: catalog.mediaId, mediaTitle: catalog.title, progress, syncedAt: Date.now(), epochs: options.epochs });
+    await addRecentSync({ key, episode, mediaId: catalog.mediaId, malId: catalog.idMal, mediaTitle: catalog.title, progress, syncedAt: Date.now(), epochs: options.epochs });
     // Synchro réussie (correspondance sûre ou confirmée) : page de la série mémorisée au-delà des 5 synchros de l'historique
     const seriesUrl = platformSeriesUrl(episode.platform, episode.seriesId, episode.seriesSlug);
     if (seriesUrl) await learnPlatformLink(catalog.mediaId, { platform: episode.platform, url: seriesUrl });

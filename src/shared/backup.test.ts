@@ -248,6 +248,32 @@ describe('parseBackup', () => {
     if (!result.ok) throw new Error(result.message);
     expect(result.data.backup.data.settings).toEqual({ ...DEFAULT_SETTINGS, autoSync: false });
   });
+
+  it('dernières synchros : fiche MyAnimeList facultative (entrées antérieures sans le champ acceptées), type invalide rejeté', () => {
+    const result = parseBackup(fileText({ recentSyncs: [recent('old', 1), { ...recent('mal', 2), malId: 52991 }, { ...recent('none', 3), malId: null }, { ...recent('bad', 4), malId: 'x' }] }));
+    if (!result.ok) throw new Error(result.message);
+    const syncs = result.data.backup.data.recentSyncs;
+    expect(syncs.map((s) => s.key).sort()).toEqual(['mal', 'none', 'old']);
+    expect(syncs.find((s) => s.key === 'mal')?.malId).toBe(52991);
+    expect(syncs.find((s) => s.key === 'none')?.malId).toBeNull();
+    expect(syncs.find((s) => s.key === 'old')).not.toHaveProperty('malId');
+  });
+
+  it('fiche ouverte par défaut : MyAnimeList conservée, valeur inconnue ou absente (sauvegarde antérieure) → AniList', () => {
+    const kept = parseBackup(fileText({ settings: { entryService: 'mal' } }));
+    if (!kept.ok) throw new Error(kept.message);
+    expect(kept.data.backup.data.settings?.entryService).toBe('mal');
+    const invalid = parseBackup(fileText({ settings: { entryService: 'kitsu' } }));
+    if (!invalid.ok) throw new Error(invalid.message);
+    expect(invalid.data.backup.data.settings?.entryService).toBe('anilist');
+    const legacy = parseBackup(fileText({ settings: { autoSync: false } }));
+    if (!legacy.ok) throw new Error(legacy.message);
+    expect(legacy.data.backup.data.settings?.entryService).toBe('anilist');
+  });
+
+  it('export : le réglage part avec les autres', () => {
+    expect(buildBackup({ settings: { ...DEFAULT_SETTINGS, entryService: 'mal' } }, '2.2.0', NOW).data.settings?.entryService).toBe('mal');
+  });
 });
 
 describe('mergeBackup', () => {

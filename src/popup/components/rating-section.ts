@@ -1,7 +1,9 @@
 import { t } from '../../i18n';
 import type { PendingRating } from '../../shared/engagement.types';
+import { entryLink, type EntryLinkContext } from '../../shared/entry-link';
 import { formatRelativeTime } from '../../shared/watching';
 import { h, nodes } from '../../ui/dom';
+import { entryCover, entryTitle } from '../../ui/entry-link';
 import { icon } from '../../ui/icons';
 import { createStarRating } from '../../ui/star-rating';
 import { TONE_CHIP } from '../../ui/feedback';
@@ -15,9 +17,11 @@ interface RatingSectionProps {
   now: number;
   onRate: (item: PendingRating, value: number) => void;
   onIgnore: (item: PendingRating) => void;
+  /** Comptes connectés et fiche préférée : lien du titre et de la jaquette */
+  entryLinks: EntryLinkContext;
 }
 
-function renderItem(item: PendingRating, { ratings, now, onRate, onIgnore }: RatingSectionProps): HTMLElement {
+function renderItem(item: PendingRating, { ratings, now, onRate, onIgnore, entryLinks }: RatingSectionProps): HTMLElement {
   const busy = ratings.busyIds.has(item.id);
   const error = ratings.errors.get(item.id);
   const stars = createStarRating({
@@ -28,15 +32,16 @@ function renderItem(item: PendingRating, { ratings, now, onRate, onIgnore }: Rat
     onConfirm: (value) => onRate(item, value),
   });
   if (busy) stars.classList.add('opacity-50');
+  const site = entryLink(item, entryLinks);
 
   return h(
     'li',
     { class: `${CARD} flex items-center gap-3 px-3 py-2 shadow-[inset_3px_0_0_var(--color-sakura)]`, attrs: { 'aria-busy': String(busy) } },
-    renderCover(item.title, item.coverUrl, 'h-14 w-10', 'text-[12px]'),
+    entryCover(site, renderCover(item.title, item.coverUrl, 'h-14 w-10', 'text-[12px]')),
     h(
       'div',
       { class: 'flex min-w-0 flex-1 flex-col gap-0.5' },
-      h('span', { class: 'truncate text-[13px] font-bold', attrs: { title: item.title } }, item.title),
+      h('span', { class: 'truncate text-[13px] font-bold', attrs: { title: item.title } }, entryTitle(site, item.title, `rate-entry-${item.id}`)),
       h('span', { class: 'truncate text-[11px] font-semibold text-muted' }, t('ratings.completed', { relative: formatRelativeTime(item.completedAt, now) })),
       h(
         'div',

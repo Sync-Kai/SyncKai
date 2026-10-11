@@ -1,5 +1,6 @@
 import { t, tp, type MessageKey } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
+import { entryLink, type EntryLink, type EntryLinkContext } from '../../shared/entry-link';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsWithoutLink } from '../../shared/platform-links';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../../shared/platforms';
@@ -7,6 +8,7 @@ import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry
 import { WATCHING_SORTS, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import { BADGE_CLASSES } from '../../ui/airing-badge';
 import { busyAttrs, h, nodes } from '../../ui/dom';
+import { entryCover, entryTitle } from '../../ui/entry-link';
 import { icon, kai, playIcon, sparkIcon } from '../../ui/icons';
 import { TONE_CHIP } from '../../ui/feedback';
 import type { ListStatusChange } from '../../shared/sync.types';
@@ -32,6 +34,8 @@ export interface EntryControls {
   onSetStatus: (entry: WatchingEntry, status: ListStatusChange) => void;
   onExclude: (entry: WatchingEntry) => void;
   onInclude: (entry: WatchingEntry) => void;
+  /** Comptes connectés et fiche préférée : lien du titre, de la jaquette et de « Ouvrir la fiche » */
+  entryLinks: EntryLinkContext;
 }
 
 interface WatchingScreenProps {
@@ -84,6 +88,14 @@ export function entryKey(entry: WatchingEntry): string {
   return `${entry.mediaId ?? '-'}:${entry.malId ?? '-'}`;
 }
 
+/**
+ * Fiche ouverte par le titre, la jaquette et « Ouvrir la fiche » ; sans identifiant exploitable (cas théorique),
+ * la page de la fiche sur le service affiché.
+ */
+function entrySite(entry: WatchingEntry, controls: EntryControls): EntryLink {
+  return entryLink(entry, controls.entryLinks) ?? { service: entry.siteUrl.startsWith('https://myanimelist.net/') ? 'mal' : 'anilist', url: entry.siteUrl };
+}
+
 function isExcludedEntry(entry: WatchingEntry, controls: EntryControls): boolean {
   return entry.mediaId !== null && controls.excludedMediaIds.has(entry.mediaId);
 }
@@ -133,6 +145,7 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred:
   const key = entryKey(entry);
   const pending = controls.actions.get(key)?.phase === 'pending';
   const excluded = isExcludedEntry(entry, controls);
+  const site = entrySite(entry, controls);
   const close = (): void => controls.onRowMenu(null);
   const item = (focus: string, label: string, iconEl: SVGSVGElement, onClick: () => void, disabled = false, danger = false): HTMLElement =>
     h(
@@ -209,11 +222,11 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred:
       'a',
       {
         class: MENU_ITEM,
-        attrs: { href: entry.siteUrl, target: '_blank', rel: 'noopener noreferrer', role: 'menuitem', tabindex: '-1', 'data-focus': `site-${key}` },
+        attrs: { href: site.url, target: '_blank', rel: 'noopener noreferrer', role: 'menuitem', tabindex: '-1', 'data-focus': `site-${key}` },
         on: { click: close },
       },
       icon('external', 'h-3.5 w-3.5 text-muted'),
-      t('watching.openEntry'),
+      t('page.openOn', { service: TRACKER_LABELS[site.service] }),
     ),
   );
   return menu;
@@ -301,6 +314,7 @@ function renderHero(entry: WatchingEntry, now: number, preferred: StreamingPlatf
   const link = choosePlatformLink(entry, preferred);
   const platform = displayPlatform(entry, preferred);
   const pct = progressPercent(entry);
+  const site = entrySite(entry, controls);
   const meta = [platform && PLATFORM_LABELS[platform], entry.lastSync && formatRelativeTime(entry.lastSync.at, now)].filter(
     (part): part is string => typeof part === 'string' && part.length > 0,
   );
@@ -308,7 +322,7 @@ function renderHero(entry: WatchingEntry, now: number, preferred: StreamingPlatf
   return h(
     'section',
     { class: 'flex shrink-0 gap-3 rounded-card bg-raised p-3 shadow-pop', attrs: { 'aria-label': t('watching.resume') } },
-    renderCover(entry.title, entry.coverUrl, 'h-[78px] w-14', 'text-[16px]', platform && platformChip(platform, 'right-[3px] bottom-[3px]')),
+    entryCover(site, renderCover(entry.title, entry.coverUrl, 'h-[78px] w-14', 'text-[16px]', platform && platformChip(platform, 'right-[3px] bottom-[3px]')), 'self-start'),
     h(
       'div',
       { class: 'flex min-w-0 flex-1 flex-col gap-1' },
@@ -340,7 +354,7 @@ function renderHero(entry: WatchingEntry, now: number, preferred: StreamingPlatf
             ),
           ),
       ),
-      h('span', { class: 'truncate text-[15px] leading-5 font-bold', attrs: { title: entry.title } }, entry.title),
+      h('span', { class: 'truncate text-[15px] leading-5 font-bold', attrs: { title: entry.title } }, entryTitle(site, entry.title, `title-${entryKey(entry)}`)),
       h(
         'div',
         { class: 'relative mt-1 h-2 rounded-full bg-surface', attrs: { 'aria-hidden': 'true' } },
@@ -382,16 +396,17 @@ function renderRow(entry: WatchingEntry, now: number, preferred: StreamingPlatfo
   const platform = displayPlatform(entry, preferred);
   const pct = progressPercent(entry);
   const excluded = isExcludedEntry(entry, controls);
+  const site = entrySite(entry, controls);
 
   // Pas d'overflow-hidden sur la ligne : le menu « … » doit pouvoir déborder (la barre est rognée par son propre calque)
   return h(
     'li',
     { class: 'relative flex h-16 items-center gap-2 rounded-lg bg-surface px-2' },
-    renderCover(entry.title, entry.coverUrl, 'h-11 w-8', 'text-[11px]', platform && platformChip(platform, '-right-[3px] -bottom-[3px]')),
+    entryCover(site, renderCover(entry.title, entry.coverUrl, 'h-11 w-8', 'text-[11px]', platform && platformChip(platform, '-right-[3px] -bottom-[3px]'))),
     h(
       'div',
       { class: 'ml-1 flex min-w-0 flex-1 flex-col items-start gap-1' },
-      h('span', { class: 'max-w-full truncate text-[13px] leading-[17px] font-bold', attrs: { title: entry.title } }, entry.title),
+      h('span', { class: 'max-w-full truncate text-[13px] leading-[17px] font-bold', attrs: { title: entry.title } }, entryTitle(site, entry.title, `title-${entryKey(entry)}`)),
       h(
         'span',
         { class: 'flex max-w-full min-w-0 items-center gap-1' },

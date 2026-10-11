@@ -13,10 +13,12 @@ import {
   type ListDiff,
 } from '../../shared/compare';
 import { isJobActive, type CompareJob } from '../../shared/compare-job';
+import { entryLink, type EntryLinkContext } from '../../shared/entry-link';
 import type { ListStatus } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { formatRelativeTime } from '../../shared/watching';
 import { busyAttrs, h, nodes } from '../../ui/dom';
+import { entryCover, entryTitle } from '../../ui/entry-link';
 import { icon } from '../../ui/icons';
 import { formatStarValue } from '../../ui/rating';
 import { TONE_CHIP } from '../../ui/feedback';
@@ -40,6 +42,8 @@ interface CompareSectionProps {
   onDismissJob: () => void;
   /** « Réessayer les échecs » : séries en erreur, sur le même service de référence */
   onRetryFailed: (diffs: readonly ListDiff[], source: TrackerId) => void;
+  /** Comptes connectés et fiche préférée : lien du titre et de la jaquette */
+  entryLinks: EntryLinkContext;
 }
 
 const SIDES: readonly TrackerId[] = ['anilist', 'mal'];
@@ -114,17 +118,18 @@ function keepButton(diff: ListDiff, source: TrackerId, busy: boolean, onApply: C
   );
 }
 
-function renderRow(diff: ListDiff, { state, onApply }: CompareSectionProps, busy: boolean): HTMLElement {
+function renderRow(diff: ListDiff, { state, onApply, entryLinks }: CompareSectionProps, busy: boolean): HTMLElement {
   const current = currentMalId(state.job) === diff.malId;
   const error = state.result?.errors[diff.key];
+  const site = entryLink(diff, entryLinks);
   return h(
     'li',
     { class: `flex gap-2.5 rounded-lg bg-surface px-2.5 py-2 ${error ? 'shadow-[inset_3px_0_0_var(--color-danger)]' : ''}`, attrs: current ? { 'aria-busy': 'true' } : {} },
-    renderCover(diff.title, diff.coverUrl, 'h-12 w-9', 'text-[11px]'),
+    entryCover(site, renderCover(diff.title, diff.coverUrl, 'h-12 w-9', 'text-[11px]'), 'self-start'),
     h(
       'div',
       { class: 'flex min-w-0 flex-1 flex-col gap-1' },
-      h('span', { class: 'truncate text-[12px] font-bold', attrs: { title: diff.title } }, diff.title),
+      h('span', { class: 'truncate text-[12px] font-bold', attrs: { title: diff.title } }, entryTitle(site, diff.title, `compare-entry-${diff.key}`)),
       h('div', { class: 'flex flex-wrap gap-1' }, ...renderChips(diff)),
       // Erreur d'une ligne : texte simple (le bilan de l'alignement annonce les échecs, sans relecture à chaque rendu)
       error && h('span', { class: 'line-clamp-2 text-[11px] font-semibold text-danger', attrs: { title: error } }, error),

@@ -4,6 +4,7 @@
 import type { Browser, Page } from 'puppeteer';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
+import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
 import { launchBrowser, startHarnessServer, type HarnessServer } from '../screenshots/harness';
 import type { SentMessage } from '../screenshots/mock-chrome';
 import type { PanelFrameParams } from './protocol';
@@ -121,6 +122,30 @@ describe('panneau latéral (bout en bout)', () => {
     expect((await messages(page, 'RESOLVE_PAGE_MEDIA')).slice(resolvedBefore).map(seriesOf)).toEqual([]);
     expect(await shownTitle(page)).toBe('Dandadan');
     expect(await page.$('[data-focus="page-plus"][aria-busy="true"]')).toBeNull();
+  });
+
+  it('« En lecture » : titre, jaquette et relations ouvrent la fiche (AniList par défaut, MyAnimeList avec le réglage)', async () => {
+    const page = await openPanel({});
+    const title = '[role="tabpanel"] h2 a[data-focus="panel-entry"]';
+    const href = (selector: string): Promise<string | null> => page.$eval(selector, (a) => a.getAttribute('href'));
+    await page.waitForSelector(title);
+    await page.waitForSelector('[data-focus="relation-entry-182255"]');
+    expect(await href(title)).toBe('https://anilist.co/anime/154587');
+    expect(await page.$eval(title, (a) => a.getAttribute('aria-label'))).toBe(fr('entry.openAria', { title: 'Frieren: Beyond Journey’s End', service: 'AniList' }));
+    // Jaquette : même lien, hors tabulation
+    expect(await page.$eval('[role="tabpanel"] a[aria-hidden="true"][tabindex="-1"]', (a) => a.getAttribute('href'))).toBe('https://anilist.co/anime/154587');
+    expect(await href('[data-focus="relation-entry-182255"]')).toBe('https://anilist.co/anime/182255');
+
+    await page.evaluate(async (key: string) => {
+      const current: unknown = (await chrome.storage.local.get(key))[key];
+      await chrome.storage.local.set({ [key]: { ...(typeof current === 'object' && current !== null ? current : {}), entryService: 'mal' } });
+    }, SETTINGS_STORAGE_KEY);
+    await page.waitForFunction((s: string) => document.querySelector(s)?.getAttribute('href') === 'https://myanimelist.net/anime/52991', {}, title);
+    expect(await href('[data-focus="relation-entry-182255"]')).toBe('https://myanimelist.net/anime/59978');
+    // Relation sans fiche MyAnimeList connue : repli sur AniList
+    expect(await href('[data-focus="relation-entry-170068"]')).toBe('https://anilist.co/anime/170068');
+    // Lien AniList de « Discussion » conservé
+    expect(await page.$('[role="tabpanel"] a[href="https://anilist.co/anime/154587"]')).not.toBeNull();
   });
 
   it('UI-03 : GET_AGENDA en échec pendant un rendu du panneau → « données périmées » et Réessayer restent affichés', async () => {

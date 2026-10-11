@@ -12,8 +12,8 @@ export const PAGE_MEDIA_CACHE_PREFIX = 'pageMedia:';
 export const PAGE_MEDIA_CACHE_TTL_MS = 10 * 60_000;
 
 export const PANEL_MEDIA_CACHE_PREFIX = 'panelMedia:';
-/** Versionnée : une fiche d'un format précédent (relations sans liens de plateformes) n'est jamais relue */
-export const PANEL_MEDIA_CACHE_VERSION = 2;
+/** Versionnée : une fiche d'un format précédent (relations sans liens de plateformes ou sans idMal) n'est jamais relue */
+export const PANEL_MEDIA_CACHE_VERSION = 3;
 export const PANEL_MEDIA_CACHE_TTL_MS = 6 * 3_600_000;
 const PANEL_MEDIA_CURRENT_PREFIX = `${PANEL_MEDIA_CACHE_PREFIX}v${PANEL_MEDIA_CACHE_VERSION}:`;
 export const panelMediaCacheKey = (mediaId: number): string => `${PANEL_MEDIA_CURRENT_PREFIX}${mediaId}`;

@@ -1,6 +1,7 @@
 import { AIRING_DELAYS, type AiringDelayHours } from './engagement.types';
 import { isRecord } from './guards';
 import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platforms';
+import { TRACKER_IDS, type TrackerId } from './tracker.types';
 
 export type CompletionTrigger = 'credits' | 'percentage';
 
@@ -31,6 +32,8 @@ export interface SyncSettings {
   notificationLevel: NotificationLevel;
   /** Plateforme ouverte par « Ouvrir » quand l'anime est disponible sur plusieurs plateformes */
   preferredPlayer: StreamingPlatform;
+  /** Fiche ouverte au clic sur un titre ou une jaquette quand les deux comptes sont connectés */
+  entryService: TrackerId;
   /** Proposer une note quand une série passe en Terminé */
   ratingPrompt: boolean;
   /** Notifications Chrome à la sortie d'un nouvel épisode d'une série en cours */
@@ -67,6 +70,7 @@ export const DEFAULT_SETTINGS: SyncSettings = {
   completionPercentage: 85,
   notificationLevel: 'discreet',
   preferredPlayer: 'crunchyroll',
+  entryService: 'anilist',
   ratingPrompt: true,
   airingAlerts: true,
   airingDelayHours: 0,
@@ -166,6 +170,8 @@ export function normalizeSettings(raw: unknown): SyncSettings {
     completionPercentage: percentage,
     notificationLevel,
     preferredPlayer: STREAMING_PLATFORMS.find((p) => p === value.preferredPlayer) ?? DEFAULT_SETTINGS.preferredPlayer,
+    // Réglage récent : absent des réglages plus anciens → AniList
+    entryService: TRACKER_IDS.find((service) => service === value.entryService) ?? DEFAULT_SETTINGS.entryService,
     ratingPrompt: typeof value.ratingPrompt === 'boolean' ? value.ratingPrompt : DEFAULT_SETTINGS.ratingPrompt,
     airingAlerts: typeof value.airingAlerts === 'boolean' ? value.airingAlerts : DEFAULT_SETTINGS.airingAlerts,
     airingDelayHours: AIRING_DELAYS.find((d) => d === value.airingDelayHours) ?? DEFAULT_SETTINGS.airingDelayHours,

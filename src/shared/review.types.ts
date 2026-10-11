@@ -32,6 +32,8 @@ export interface RecentSync {
   key: string;
   episode: EpisodeInfo;
   mediaId: number;
+  /** Fiche MyAnimeList de la fiche AniList (lien du titre), null sans équivalent ; absent : antérieure à son ajout */
+  malId?: number | null;
   mediaTitle: string;
   progress: number;
   syncedAt: number;
@@ -83,6 +85,7 @@ export function isRecentSync(value: unknown): value is RecentSync {
     typeof value.key === 'string' &&
     isEpisodeInfo(value.episode) &&
     typeof value.mediaId === 'number' &&
+    (value.malId === undefined || isNullableNumber(value.malId)) &&
     typeof value.mediaTitle === 'string' &&
     typeof value.progress === 'number' &&
     typeof value.syncedAt === 'number' &&

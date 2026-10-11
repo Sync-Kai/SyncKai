@@ -109,10 +109,19 @@ function review(locale: Locale, now: number): PendingReview {
 }
 
 function recentSyncs(now: number): RecentSync[] {
-  const sync = (key: string, ep: EpisodeInfo, mediaId: number, mediaTitle: string, progress: number, ago: number): RecentSync => ({ key, episode: ep, mediaId, mediaTitle, progress, syncedAt: now - ago });
+  const sync = (key: string, ep: EpisodeInfo, mediaId: number, mediaTitle: string, progress: number, ago: number, malId?: number): RecentSync => ({
+    key,
+    episode: ep,
+    mediaId,
+    ...(malId !== undefined ? { malId } : {}),
+    mediaTitle,
+    progress,
+    syncedAt: now - ago,
+  });
   return [
-    sync('cr:dandadan', episode('Dandadan', 2, 7), 185660, 'Dandadan Season 2', 7, 3 * MIN),
-    sync('cr:solo', episode('Solo Leveling', 2, 2), 176496, 'Solo Leveling Season 2', 2, 1 * DAY),
+    sync('cr:dandadan', episode('Dandadan', 2, 7), 185660, 'Dandadan Season 2', 7, 3 * MIN, 60543),
+    sync('cr:solo', episode('Solo Leveling', 2, 2), 176496, 'Solo Leveling Season 2', 2, 1 * DAY, 58567),
+    // Synchro antérieure à la mémorisation de la fiche MAL (lien du titre : repli sur AniList)
     sync('adn:op', episode('One Piece', null, 1122, 'adn'), 21, 'One Piece', 1122, 4 * DAY),
   ];
 }
@@ -230,6 +239,7 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
     completionPercentage: 85,
     notificationLevel: 'detailed',
     preferredPlayer: 'crunchyroll',
+    entryService: 'anilist',
     ratingPrompt: true,
     airingAlerts: true,
     airingDelayHours: 0,

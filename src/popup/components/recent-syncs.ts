@@ -1,6 +1,8 @@
 import { t } from '../../i18n';
+import { entryLink, type EntryLinkContext } from '../../shared/entry-link';
 import type { RecentSync } from '../../shared/review.types';
 import { busyAttrs, h, nodes } from '../../ui/dom';
+import { entryTitle } from '../../ui/entry-link';
 import { icon } from '../../ui/icons';
 import { renderAlert } from '../../ui/alert';
 import { BTN_GHOST, CARD, sectionTitle } from '../../ui/kit';
@@ -15,6 +17,8 @@ interface RecentSyncsProps {
   /** Série exclue de la synchronisation (pastille « Exclue » à la place du bouton) */
   isExcluded: (sync: RecentSync) => boolean;
   onExclude: (sync: RecentSync) => void;
+  /** Comptes connectés et fiche préférée : lien du titre (synchro antérieure sans fiche MAL mémorisée : repli sur AniList) */
+  entryLinks: EntryLinkContext;
 }
 
 function episodeNumber(sync: RecentSync): string {
@@ -22,7 +26,7 @@ function episodeNumber(sync: RecentSync): string {
   return n !== null ? ` · E${n}` : '';
 }
 
-export function renderRecentSyncs({ syncs, pendingKeys, busyKey, error, onCorrect, isExcluded, onExclude }: RecentSyncsProps): HTMLElement {
+export function renderRecentSyncs({ syncs, pendingKeys, busyKey, error, onCorrect, isExcluded, onExclude, entryLinks }: RecentSyncsProps): HTMLElement {
   const rows = syncs.map((sync) => {
     const isPending = pendingKeys.has(sync.key);
     const isBusy = busyKey === sync.key;
@@ -35,7 +39,7 @@ export function renderRecentSyncs({ syncs, pendingKeys, busyKey, error, onCorrec
       h(
         'div',
         { class: 'flex min-w-0 flex-1 flex-col gap-0.5' },
-        h('span', { class: 'truncate text-[13px] font-bold', attrs: { title } }, title),
+        h('span', { class: 'truncate text-[13px] font-bold', attrs: { title } }, entryTitle(entryLink({ mediaId: sync.mediaId, malId: sync.malId ?? null }, entryLinks), title, `recent-entry-${sync.key}`)),
         h('span', { class: 'truncate text-[11px] font-semibold text-muted', attrs: { title: sync.mediaTitle } }, t('recent.line', { title: sync.mediaTitle, progress: sync.progress })),
       ),
       h(

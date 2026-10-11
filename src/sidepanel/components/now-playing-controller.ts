@@ -4,6 +4,7 @@ import { effectivePreferredPlayer } from '../../shared/netflix-access';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PanelMedia } from '../../shared/panel-media.types';
 import { DEFAULT_SETTINGS, getSettings, SETTINGS_STORAGE_KEY } from '../../shared/settings';
+import type { TrackerId } from '../../shared/tracker.types';
 import { createPageMediaController, type PageMediaContent, type PageMediaController } from '../../ui/page-media-controller';
 import { shouldRedetect } from '../now-playing-view';
 import { createLiveProgress, type LiveProgress, type LiveTarget } from './live-progress';
@@ -11,13 +12,16 @@ import { createLiveProgress, type LiveProgress, type LiveTarget } from './live-p
 const log = createLogger('sidepanel');
 
 // Onglet « En lecture » : fiche de l'onglet suivi par le contrôleur commun (ui/page-media-controller.ts), complétée
-// des extras du panneau : détails AniList (GET_PANEL_MEDIA), progression en direct, lecteur préféré, synopsis.
+// des extras du panneau : détails AniList (GET_PANEL_MEDIA), progression en direct, lecteur préféré, fiche ouverte par
+// défaut, synopsis.
 
 export type NowPlayingContent = PageMediaContent<PanelMedia>;
 
 export interface NowPlayingController extends Omit<PageMediaController<PanelMedia>, 'open' | 'redetect'> {
   /** Lecteur préféré (réglages) : plateforme du bouton « Regarder » des relations */
   readonly preferred: StreamingPlatform;
+  /** Réglage « Fiche ouverte par défaut » (avec les deux comptes connectés) : lien du titre, de la jaquette et des relations */
+  readonly entryService: TrackerId;
   /** Réglage « Afficher la progression en direct » */
   readonly liveEnabled: boolean;
   readonly live: LiveProgress;
@@ -30,6 +34,7 @@ export function createNowPlayingController(onChange: () => void): NowPlayingCont
   let tabId: number | null = null;
   let expanded = false;
   let preferred: StreamingPlatform = DEFAULT_SETTINGS.preferredPlayer;
+  let entryService: TrackerId = DEFAULT_SETTINGS.entryService;
   /** Désactivé, aucun port n'est ouvert vers l'onglet (faux jusqu'à la lecture du réglage) */
   let liveEnabled = false;
 
@@ -63,11 +68,14 @@ export function createNowPlayingController(onChange: () => void): NowPlayingCont
         const player = await effectivePreferredPlayer(settings.preferredPlayer);
         const playerChanged = player !== preferred;
         const liveChanged = settings.panelLiveProgress !== liveEnabled;
+        const entryChanged = settings.entryService !== entryService;
         preferred = player;
+        entryService = settings.entryService;
         liveEnabled = settings.panelLiveProgress;
         if (liveChanged) live.follow(liveTarget());
         const { content } = ctl;
-        if (liveChanged || (playerChanged && content.status === 'ready' && content.details?.relations.some((r) => r.platforms.length > 1))) onChange();
+        const ready = content.status === 'ready';
+        if (liveChanged || (entryChanged && ready) || (playerChanged && ready && content.details?.relations.some((r) => r.platforms.length > 1))) onChange();
       })
       .catch((error: unknown) => {
         log.debug('Réglages illisibles :', error);
@@ -92,6 +100,9 @@ export function createNowPlayingController(onChange: () => void): NowPlayingCont
     },
     get preferred() {
       return preferred;
+    },
+    get entryService() {
+      return entryService;
     },
     get liveEnabled() {
       return liveEnabled;

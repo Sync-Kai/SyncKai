@@ -17,6 +17,7 @@ import {
   type WeekRange,
 } from '../../shared/agenda';
 import { agendaFirstDay, readWeekCache, saveSeriesOffset } from '../../shared/agenda-store';
+import { entryLink } from '../../shared/entry-link';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
@@ -28,6 +29,7 @@ import { getCachedWatching, hasMalToken, hasValidAniListToken } from '../../shar
 import { STORAGE_KEYS } from '../../shared/storage-keys';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../../ui/dom';
+import { entryCover, entryTitle } from '../../ui/entry-link';
 import { createMenuDismiss } from '../../ui/menu';
 import { alertAttrs } from '../../ui/live-region';
 import { icon } from '../../ui/icons';
@@ -94,6 +96,8 @@ export function createAgenda(): AgendaView {
   /** Lecteur préféré effectif (Netflix seulement avec l'accès) : lien « Ouvrir » et ordre des recherches */
   let player: StreamingPlatform = DEFAULT_SETTINGS.preferredPlayer;
   let series = new Map<number, AgendaSeries>();
+  /** Comptes connectés (lus à chaque chargement) : fiche ouverte par le titre et la jaquette */
+  let connected: TrackerId[] = [];
   let menuFor: number | null = null;
   let editing: Editing | null = null;
   let started = false;
@@ -187,7 +191,7 @@ export function createAgenda(): AgendaView {
       if (current !== run) return;
       settings = nextSettings;
       player = effectivePlayer(nextSettings.preferredPlayer, netflixGranted);
-      const connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistConnected : malConnected));
+      connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistConnected : malConnected));
       if (connected.length === 0) {
         status = { kind: 'not-connected' };
         draw();
@@ -429,6 +433,7 @@ export function createAgenda(): AgendaView {
   function renderRow(row: AgendaRow, first: boolean): HTMLElement {
     const menuOpen = menuFor === row.scheduleId;
     const edit = editing?.scheduleId === row.scheduleId ? editing : null;
+    const site = entryLink(row, { connected, preferred: settings?.entryService ?? DEFAULT_SETTINGS.entryService });
     const watchedMark =
       row.watched &&
       h(
@@ -443,11 +448,11 @@ export function createAgenda(): AgendaView {
       h(
         'div',
         { class: 'flex items-center gap-2.5' },
-        renderCover(row.title, row.coverUrl, `h-12 w-9 ${row.watched ? 'opacity-60' : ''}`, 'text-[11px]'),
+        entryCover(site, renderCover(row.title, row.coverUrl, `h-12 w-9 ${row.watched ? 'opacity-60' : ''}`, 'text-[11px]')),
         h(
           'div',
           { class: 'flex min-w-0 flex-1 flex-col gap-0.5' },
-          h('span', { class: `truncate text-[13px] font-bold ${row.watched ? 'text-muted' : ''}`, attrs: { title: row.title } }, row.title),
+          h('span', { class: `truncate text-[13px] font-bold ${row.watched ? 'text-muted' : ''}`, attrs: { title: row.title } }, entryTitle(site, row.title, `agenda-entry-${row.scheduleId}`)),
           h(
             'span',
             { class: 'flex items-center gap-1.5 text-[12px] font-bold' },

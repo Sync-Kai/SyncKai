@@ -24,6 +24,8 @@ export function isMediaSeason(value: unknown): value is MediaSeason {
 export interface PanelRelation {
   relationType: PanelRelationType;
   mediaId: number;
+  /** Fiche MyAnimeList équivalente (lien du titre quand MyAnimeList est préférée), null si inconnue */
+  idMal: number | null;
   title: string;
   format: string | null;
   coverUrl: string | null;
@@ -75,6 +77,7 @@ function isPanelRelation(value: unknown): value is PanelRelation {
     isRecord(value) &&
     isPanelRelationType(value.relationType) &&
     isPositiveInt(value.mediaId) &&
+    (value.idMal === null || isPositiveInt(value.idMal)) &&
     typeof value.title === 'string' &&
     isNullableString(value.format) &&
     isNullableString(value.coverUrl) &&

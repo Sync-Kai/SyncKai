@@ -90,6 +90,7 @@ export function panelMedia(): PanelMedia {
       {
         relationType: 'SEQUEL',
         mediaId: 182255,
+        idMal: 59978,
         title: 'Frieren: Beyond Journey’s End Season 2',
         format: 'TV',
         coverUrl: coverUrl({ from: '#24506E', to: '#9FD8F0', accent: '#FFF6D8', motif: 'peaks' }),
@@ -99,6 +100,7 @@ export function panelMedia(): PanelMedia {
       {
         relationType: 'SIDE_STORY',
         mediaId: 170068,
+        idMal: null,
         title: 'Frieren: Beyond Journey’s End Mini Anime',
         format: 'ONA',
         coverUrl: coverUrl({ from: '#5A4A1E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }),

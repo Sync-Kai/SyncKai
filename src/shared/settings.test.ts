@@ -15,6 +15,7 @@ describe('normalizeSettings', () => {
       completionPercentage: 90,
       notificationLevel: 'detailed',
       preferredPlayer: 'adn',
+      entryService: 'mal',
       ratingPrompt: false,
       airingAlerts: false,
       airingDelayHours: 3,
@@ -117,6 +118,18 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings({ panelDefaultTab: 'settings', panelLiveProgress: 'oui' })).toMatchObject({ panelDefaultTab: 'last', panelLiveProgress: true });
     expect(normalizeSettings({ panelDefaultTab: 'nowPlaying' }).panelDefaultTab).toBe('nowPlaying');
     expect(normalizeSettings({ panelLiveProgress: false }).panelLiveProgress).toBe(false);
+  });
+});
+
+describe('normalizeSettings › fiche ouverte par défaut', () => {
+  it('réglages antérieurs (sans le champ) : AniList', () => {
+    expect(normalizeSettings({ autoSync: false, preferredPlayer: 'adn' }).entryService).toBe('anilist');
+  });
+
+  it('conserve MyAnimeList, rejette un service inconnu', () => {
+    expect(normalizeSettings({ entryService: 'mal' }).entryService).toBe('mal');
+    expect(normalizeSettings({ entryService: 'kitsu' }).entryService).toBe('anilist');
+    expect(normalizeSettings({ entryService: 42 }).entryService).toBe('anilist');
   });
 });
 
