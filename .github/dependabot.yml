@@ -22,7 +22,8 @@ updates:
       # TypeScript 6.1+ / 7 : bloqué par le peer de typescript-eslint (<6.1.0), migration à part
       - dependency-name: typescript
         update-types: [version-update:semver-major, version-update:semver-minor]
-      # web-ext épinglé (release.yml) : passage en 10.x sur une branche chore/ dédiée
+      # web-ext épinglé (release.yml, 10.x) : une majeure se valide sur une branche chore/ dédiée
+      # (web-ext lint, options de web-ext sign, override de shell-quote dans package.json à revoir)
       - dependency-name: web-ext
         update-types: [version-update:semver-major]
       # Types alignés sur Node 24 (.nvmrc, CI) : une majeure décrirait des API absentes du runtime
