@@ -5,6 +5,8 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    # Gitflow : les dépendances passent par develop (main ne reçoit que des releases)
+    target-branch: develop
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
@@ -23,9 +25,13 @@ updates:
       # web-ext épinglé (release.yml) : passage en 10.x sur une branche chore/ dédiée
       - dependency-name: web-ext
         update-types: [version-update:semver-major]
+      # Types alignés sur Node 24 (.nvmrc, CI) : une majeure décrirait des API absentes du runtime
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
