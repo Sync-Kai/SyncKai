@@ -26,16 +26,20 @@ export interface UiState {
   screen: Screen;
   /** Écran à retrouver en quittant les réglages */
   previous: Exclude<Screen, 'settings'>;
-  /** Source préférée de la liste « En cours » (utilisée seulement si les deux services sont connectés) */
-  source: TrackerId;
-  /** Tri de « Mes séries » (persisté avec la source) */
-  sort: WatchingSort;
   /** Menu de tri ouvert : conservé dans l'état pour survivre aux nouveaux rendus */
   sortMenuOpen: boolean;
   /** Menu « … » ouvert sur une série de « En cours » (clé d'entrée) : un seul à la fois */
   rowMenu: string | null;
   /** Confirmation affichée dans le menu « … » ouvert (Abandonner, Terminé), null sinon */
   rowConfirm: ListStatusChange | null;
+}
+
+/** Préférences de « En cours », enregistrées dans le stockage (`popupPrefs`) */
+export interface WatchingPrefs {
+  /** Source préférée (utilisée seulement si les deux services sont connectés) */
+  source: TrackerId;
+  /** Tri de « Mes séries » */
+  sort: WatchingSort;
 }
 
 /** Action en cours ou terminée sur une série de « En cours » */

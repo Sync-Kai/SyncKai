@@ -57,3 +57,24 @@ export function createStore<T>(initial: T): Store<T> {
     },
   };
 }
+
+/** Fusionne `patch` dans l'état d'un store-objet (une seule notification) */
+export function patchStore<T extends object>(store: Store<T>, patch: Partial<T>): void {
+  store.set({ ...store.get(), ...patch });
+}
+
+/** Copie de `set` avec `id` ajouté (`present`) ou retiré : un état n'est jamais modifié en place */
+export function withMember<T>(set: ReadonlySet<T>, id: T, present: boolean): ReadonlySet<T> {
+  const next = new Set(set);
+  if (present) next.add(id);
+  else next.delete(id);
+  return next;
+}
+
+/** Copie de `map` avec `key` associé à `value`, ou retiré (null) */
+export function withEntry<K, V>(map: ReadonlyMap<K, V>, key: K, value: V | null): ReadonlyMap<K, V> {
+  const next = new Map(map);
+  if (value !== null) next.set(key, value);
+  else next.delete(key);
+  return next;
+}

@@ -1,64 +1,45 @@
 import { initI18n, onLocaleChange, t } from '../i18n';
-import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type ListDiff } from '../shared/compare';
-import { COMPARE_JOB_KEY, isCompareJob } from '../shared/compare-job';
-import { withStorageLock } from '../shared/storage-lock';
 import { refreshReviewBadge } from '../shared/badge';
-import type { PendingRating } from '../shared/engagement.types';
 import type { EpisodeInfo } from '../shared/episode.types';
-import { EXCLUDED_SERIES_KEY, excludeSeries, getExcludedSeries, includeSeries, platformSeriesKey } from '../shared/exclusions';
+import { EXCLUDED_SERIES_KEY, excludeSeries, getExcludedSeries, platformSeriesKey } from '../shared/exclusions';
 import { sendMessage } from '../shared/messages';
 import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { hasNetflixAccess } from '../shared/netflix-access';
-import { deletePendingReview, getCachedWatching, getPendingReviews, getRecentSyncs } from '../shared/storage';
-import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../shared/storage-keys';
-import { getSyncQueue, removeQueueItem } from '../shared/sync-queue-store';
-import type { AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../shared/storage';
+import { STORAGE_KEYS } from '../shared/storage-keys';
+import type { ListStatusChange } from '../shared/sync.types';
 import type { PageMediaInfo } from '../shared/page-media.types';
-import { isTrackerId, TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
+import { TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
-import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../shared/platform-links';
-import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingList, type WatchingResult, type WatchingSort } from '../shared/watching.types';
+import type { WatchingSort } from '../shared/watching.types';
 import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../ui/dom';
 import { tickJobPause } from '../ui/job-pause';
-import { formatStarValue } from '../ui/rating';
-import { adjustPayload } from '../ui/media-action-requests';
+import { createMenuDismiss } from '../ui/menu';
 import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../shared/host-access';
 import { renderFooter, type FooterStatus } from './components/footer';
 import { renderHostAccessBanner } from './components/host-access-banner';
 import { renderHeader, renderNav } from './components/header';
 import { renderOnboarding } from './components/onboarding';
-import { COMPARE_PAGE_SIZE, renderCompareSection } from './components/compare-section';
+import { renderCompareSection } from './components/compare-section';
+import { createCompareController } from './controllers/compare';
+import { createQueueController } from './controllers/queue';
+import { createRatingsController } from './controllers/ratings';
+import { createWatchingController } from './controllers/watching';
 import { renderQueueSection } from './components/queue-section';
 import { renderRatingSection } from './components/rating-section';
 import { renderRecentSyncs } from './components/recent-syncs';
 import type { ReviewActions } from './components/review-card';
 import { createReviewSection } from './components/review-section';
 import { renderPageMediaCard } from './components/page-media-card';
-import { entryKey, renderWatchingScreen } from './components/watching-screen';
-import { adjustFeedback, errorFeedback, ratingFeedback, retryFeedback, statusFeedback } from '../ui/feedback';
-import { getPendingRatings, removePendingRating } from '../shared/engagement-store';
-import { popupTimeouts } from './timeouts';
-import type {
-  CompareState,
-  EntryAction,
-  HostAccessState,
-  QueueState,
-  RatingsState,
-  PageCardState,
-  Screen,
-  SettingsState,
-  SyncData,
-  UiState,
-  WatchingState,
-} from './state';
-import { createStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
+import { renderWatchingScreen } from './components/watching-screen';
+import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, UiState } from './state';
+import { createStore, patchStore, type AccountState, type ExclusionsState, type Store } from '../ui/state';
 import { createLogger } from '../shared/logger';
 import { openSidePanel, sidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
-import { toSafeImageUrl } from '../shared/url';
-import { AUTH_ERRORS, createAccountsController } from '../ui/accounts';
+import { createAccountsController } from '../ui/accounts';
 import { isSettingsPage, type SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView } from '../ui/settings/settings-view';
 
@@ -70,16 +51,7 @@ await initI18n();
 const swUnreachable = (): string => t('popup.swUnreachable');
 /** Écran (et défilement) à rouvrir après le rechargement provoqué par un changement de langue */
 const REOPEN_KEY = 'synckai:reopen';
-const PREFS_KEY = 'popupPrefs';
 const CLOCK_TICK_MS = 60_000;
-/** Durée d'affichage du retour d'une action sur une série (+1, −1, exclusion) */
-const ENTRY_FEEDBACK_MS = 3_000;
-const QUEUE_NOTICE_MS = 5_000;
-
-interface PopupPrefs {
-  source: TrackerId;
-  sort: WatchingSort;
-}
 
 interface ReopenState {
   screen: Screen;
@@ -117,19 +89,27 @@ const accounts = createAccountsController();
 const anilistStore = accounts.anilist;
 const malStore = accounts.mal;
 const syncStore = createStore<SyncData>({ reviews: [], recentSyncs: [], busyKey: null, recentError: null });
-const uiStore = createStore<UiState>({ screen: reopen?.screen ?? 'watching', previous: 'watching', source: 'anilist', sort: DEFAULT_WATCHING_SORT, sortMenuOpen: false, rowMenu: null, rowConfirm: null });
-const watchingStore = createStore<WatchingState>({ status: 'idle' });
+const uiStore = createStore<UiState>({ screen: reopen?.screen ?? 'watching', previous: 'watching', sortMenuOpen: false, rowMenu: null, rowConfirm: null });
 const settingsStore = createStore<SettingsState>({ status: 'loading' });
-const entryActionsStore = createStore<ReadonlyMap<string, EntryAction>>(new Map());
-/** Bandeau de retour d'un changement de statut sur « En cours » (la série a quitté la liste) */
-const watchingNoticeStore = createStore<InlineFeedback | null>(null);
 const exclusionsStore = createStore<ExclusionsState>({ status: 'loading' });
-const queueStore = createStore<QueueState>({ items: [], busyIds: new Set(), notice: null, error: null });
-const ratingsStore = createStore<RatingsState>({ items: [], busyIds: new Set(), errors: new Map(), notice: null, error: null });
+/** Liste « En cours » (source, tri, actions sur une série, bandeau de retour) */
+const watching = createWatchingController({
+  accounts,
+  exclusions: exclusionsStore,
+  reloadExclusions: () => loadExclusions(),
+  onServiceShown: () => startPageMedia(),
+  // Bandeau en haut de la liste : ramené dans la zone visible si la série était plus bas
+  onNoticeShown: () => {
+    renderer.flush();
+    watchingSlot.querySelector('[data-watching-notice]')?.scrollIntoView({ block: 'nearest' });
+  },
+});
+/** Activité › « Synchros en attente » */
+const queue = createQueueController();
+/** Activité › « À noter » */
+const ratings = createRatingsController();
 /** Carte « Sur cette page » (série de l'onglet actif) */
 const pageCardStore = createStore<PageCardState>({ content: { status: 'idle' }, actions: { busy: null, confirm: null, feedback: null } });
-/** Activité › « Écarts AniList ↔ MAL » */
-const compareStore = createStore<CompareState>({ result: null, job: null, requesting: null, error: null, confirm: null, filter: 'all', shown: COMPARE_PAGE_SIZE });
 /** Accès à Crunchyroll / ADN et aux API (bandeau « Autoriser l'accès » si Firefox l'a retiré) */
 const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
 /** Accès Netflix (permission optionnelle) : lecteur préféré « Netflix » ignoré sans lui ; undefined = pas encore lu */
@@ -192,6 +172,11 @@ const queueSlot = h('div', { class: 'contents' });
 const ratingSlot = h('div', { class: 'contents' });
 const recentSlot = h('div', { class: 'contents' });
 const compareSlot = h('div', { class: 'contents' });
+/** Activité › « Écarts AniList ↔ MAL » */
+const compare = createCompareController({
+  onApplied: () => void watching.reload(),
+  onPauseTick: (job, at) => tickJobPause(compareSlot, job, at),
+});
 const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot, compareSlot);
 const settingsView = createSettingsView({
   navigateBack: () => goBack(),
@@ -233,37 +218,6 @@ function toggleSettings(): void {
   else navigate('settings');
 }
 
-async function savePrefs(): Promise<void> {
-  const { source, sort } = uiStore.get();
-  try {
-    await chrome.storage.local.set({ [PREFS_KEY]: { source, sort } satisfies PopupPrefs });
-  } catch (error: unknown) {
-    log.warn('Préférences du popup non enregistrées :', error);
-  }
-}
-
-async function pickSource(source: TrackerId): Promise<void> {
-  uiStore.set({ ...uiStore.get(), source, sortMenuOpen: false, rowMenu: null, rowConfirm: null });
-  await savePrefs();
-}
-
-async function loadPrefs(): Promise<void> {
-  try {
-    const stored = await chrome.storage.local.get(PREFS_KEY);
-    const raw: unknown = stored[PREFS_KEY];
-    if (typeof raw !== 'object' || raw === null) return;
-    // Chaque champ est validé séparément : une valeur inconnue retombe sur la valeur par défaut
-    const ui = uiStore.get();
-    uiStore.set({
-      ...ui,
-      source: 'source' in raw && isTrackerId(raw.source) ? raw.source : ui.source,
-      sort: 'sort' in raw && isWatchingSort(raw.sort) ? raw.sort : DEFAULT_WATCHING_SORT,
-    });
-  } catch (error: unknown) {
-    log.warn('Préférences du popup illisibles :', error);
-  }
-}
-
 // ─── Menu de tri « Mes séries » ─────────────────────────────────────────────
 // Ouvert/fermé dans uiStore (survit aux nouveaux rendus) ; les écouteurs globaux
 // (clic extérieur, Échap) n'existent que pendant l'ouverture.
@@ -284,10 +238,16 @@ function setSortMenu(open: boolean, restoreFocus = true): void {
   else if (restoreFocus) focusInWatching('[data-focus="sort-trigger"]');
 }
 
-async function pickSort(sort: WatchingSort): Promise<void> {
-  uiStore.set({ ...uiStore.get(), sort, sortMenuOpen: false });
+/** Choix de source : les menus ouverts se ferment, la liste du service choisi est chargée */
+function pickSource(source: TrackerId): void {
+  patchStore(uiStore, { sortMenuOpen: false, rowMenu: null, rowConfirm: null });
+  void watching.pickSource(source);
+}
+
+function pickSort(sort: WatchingSort): void {
+  patchStore(uiStore, { sortMenuOpen: false });
+  void watching.pickSort(sort);
   focusInWatching('[data-focus="sort-trigger"]');
-  await savePrefs();
 }
 
 /** Menu « … » d'une série : ouverture = focus sur la première action, fermeture = retour au bouton */
@@ -320,44 +280,25 @@ function setRowConfirm(status: ListStatusChange | null): void {
   else if (previous !== null) focusInWatching(`[data-focus="${previous}-${ui.rowMenu}"]`);
 }
 
-function onMenuPointerDown(event: PointerEvent): void {
-  const target = event.target instanceof Element ? event.target : null;
-  const ui = uiStore.get();
-  if (ui.sortMenuOpen && !target?.closest('[data-sort-root]')) setSortMenu(false, false);
-  const rowRoot = target?.closest<HTMLElement>('[data-menu-root]');
-  if (ui.rowMenu !== null && rowRoot?.dataset.menuRoot !== ui.rowMenu) setRowMenu(null, false);
-}
-
-function onMenuKeyDown(event: KeyboardEvent): void {
-  if (event.key !== 'Escape') return;
-  // Échap ferme le menu sans fermer le popup
-  event.preventDefault();
-  event.stopPropagation();
-  const ui = uiStore.get();
-  if (ui.sortMenuOpen) setSortMenu(false);
-  if (ui.rowConfirm !== null) {
-    // Échap annule d'abord la confirmation en cours, le menu reste ouvert
-    setRowConfirm(null);
-    return;
-  }
-  if (ui.rowMenu !== null) setRowMenu(null);
-}
-
-let menuListening = false;
-
 /** Écouteurs globaux (clic extérieur, Échap) présents seulement pendant qu'un menu est ouvert */
-function syncMenuListeners({ sortMenuOpen, rowMenu }: UiState): void {
-  const open = sortMenuOpen || rowMenu !== null;
-  if (open === menuListening) return;
-  menuListening = open;
-  if (open) {
-    document.addEventListener('pointerdown', onMenuPointerDown, true);
-    document.addEventListener('keydown', onMenuKeyDown, true);
-  } else {
-    document.removeEventListener('pointerdown', onMenuPointerDown, true);
-    document.removeEventListener('keydown', onMenuKeyDown, true);
-  }
-}
+const menuDismiss = createMenuDismiss({
+  onPointerDown(target) {
+    const ui = uiStore.get();
+    if (ui.sortMenuOpen && !target?.closest('[data-sort-root]')) setSortMenu(false, false);
+    const rowRoot = target?.closest<HTMLElement>('[data-menu-root]');
+    if (ui.rowMenu !== null && rowRoot?.dataset.menuRoot !== ui.rowMenu) setRowMenu(null, false);
+  },
+  onEscape() {
+    const ui = uiStore.get();
+    if (ui.sortMenuOpen) setSortMenu(false);
+    if (ui.rowConfirm !== null) {
+      // Échap annule d'abord la confirmation en cours, le menu reste ouvert
+      setRowConfirm(null);
+      return;
+    }
+    if (ui.rowMenu !== null) setRowMenu(null);
+  },
+});
 
 // ─── Rendu ────────────────────────────────────────────────────────────────
 
@@ -368,7 +309,7 @@ function footerStatus(): FooterStatus {
     return state.status === 'logged-out' && state.expired;
   });
   const { reviews, recentSyncs } = syncStore.get();
-  const { failed, pending } = queueCounts();
+  const { failed, pending } = queue.counts();
 
   // Priorité : synchros abandonnées, vérifications, relances en attente, session expirée
   if (connected.length > 0 && failed > 0) return { kind: 'queue-failed', count: failed };
@@ -377,16 +318,10 @@ function footerStatus(): FooterStatus {
   if (expired) return { kind: 'expired', service: expired };
   if (connected.length === 0) return { kind: 'none' };
   // Priorité la plus basse : une note reportée n'empêche rien de fonctionner
-  const toRate = ratingsStore.get().items.length;
+  const toRate = ratings.store.get().items.length;
   if (toRate > 0) return { kind: 'to-rate', count: toRate };
   const latest = recentSyncs[0];
   return { kind: 'ok', relative: latest ? formatRelativeTime(latest.syncedAt, now) : null };
-}
-
-function queueCounts(): { failed: number; pending: number } {
-  const { items } = queueStore.get();
-  const failed = items.filter((item) => item.status === 'failed').length;
-  return { failed, pending: items.length - failed };
 }
 
 type FooterChip = { service: TrackerId; state: 'ok' | 'expired' };
@@ -414,29 +349,30 @@ function renderWatching(): void {
     return state.status === 'ready' ? effectivePlayer(state.settings.preferredPlayer, netflixAccessStore.get()) : DEFAULT_SETTINGS.preferredPlayer;
   })();
   const services = connectedServices();
-  const { sort, sortMenuOpen, rowMenu, rowConfirm } = uiStore.get();
+  const { sortMenuOpen, rowMenu, rowConfirm } = uiStore.get();
+  const { sort } = watching.prefs.get();
   const exclusions = exclusionsStore.get();
-  const actions = entryActionsStore.get();
-  const notice = watchingNoticeStore.get();
+  const actions = watching.entryActions.get();
+  const notice = watching.notice.get();
   const pageCard = pageCardStore.get();
   const netflixAccess = netflixAccessStore.get() === true;
-  if (!watchingChanged([watchingStore.get(), now, preferredPlayer, netflixAccess, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
+  if (!watchingChanged([watching.store.get(), now, preferredPlayer, netflixAccess, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
 
   preserveFocus(watchingSlot, () =>
     watchingSlot.replaceChildren(
       renderWatchingScreen({
-        state: watchingStore.get(),
-        notice,
-        onNoticeRetry: watchingNoticeRetry,
+        state: watching.store.get(),
+        notice: notice?.feedback ?? null,
+        onNoticeRetry: notice?.retry ?? null,
         now,
         preferredPlayer,
         services,
-        onPickSource: (source) => void pickSource(source),
+        onPickSource: (source) => pickSource(source),
         sort,
         sortMenuOpen,
         onSortMenu: (open) => setSortMenu(open),
-        onPickSort: (value) => void pickSort(value),
-        onRetry: () => void reloadWatching(),
+        onPickSort: (value) => pickSort(value),
+        onRetry: () => void watching.reload(),
         netflixAccess,
         onOpenSyncSettings: () => navigate('settings', 'sync'),
         pageCard: renderPageMediaCard({
@@ -457,11 +393,11 @@ function renderWatching(): void {
           rowMenu,
           rowConfirm,
           onRowConfirm: (status) => setRowConfirm(status),
-          onSetStatus: (entry, status) => void setEntryStatus(entry, status),
+          onSetStatus: (entry, status) => void watching.setStatus(entry, status),
           onRowMenu: (key) => setRowMenu(key),
-          onAdjust: (entry, delta) => void adjustProgress(entry, delta),
-          onExclude: (entry) => void excludeEntry(entry),
-          onInclude: (entry) => void includeEntry(entry),
+          onAdjust: (entry, delta) => void watching.adjust(entry, delta),
+          onExclude: (entry) => void watching.exclude(entry),
+          onInclude: (entry) => void watching.include(entry),
         },
       }),
     ),
@@ -476,15 +412,15 @@ const ratingsChanged = createMemo();
 
 function renderRatings(): void {
   const connected = connectedServices().length > 0;
-  if (!ratingsChanged([ratingsStore.get(), connected, now])) return;
+  if (!ratingsChanged([ratings.store.get(), connected, now])) return;
   ratingSlot.replaceChildren(
     ...nodes([
       connected &&
         renderRatingSection({
-          ratings: ratingsStore.get(),
+          ratings: ratings.store.get(),
           now,
-          onRate: (item, value) => void rateMedia(item, value),
-          onIgnore: (item) => void ignoreRating(item),
+          onRate: (item, value) => void ratings.rate(item, value),
+          onIgnore: (item) => void ratings.ignore(item),
         }),
     ]),
   );
@@ -498,21 +434,21 @@ const compareChanged = createMemo();
 
 function renderCompare(): void {
   const both = connectedServices().length === 2;
-  if (!compareChanged([compareStore.get(), both, now])) return;
+  if (!compareChanged([compare.store.get(), both, now])) return;
   compareSlot.replaceChildren(
     ...nodes([
       both &&
         renderCompareSection({
-          state: compareStore.get(),
+          state: compare.store.get(),
           now,
-          onAnalyze: () => void analyzeLists(),
-          onApply: (diffs, source) => void applyDiffs(diffs, source),
-          onConfirm: (source) => patchCompare({ confirm: source }),
-          onFilter: (filter) => patchCompare({ filter, shown: COMPARE_PAGE_SIZE, confirm: null }),
-          onCancel: () => void cancelCompareJob(),
-          onDismissJob: () => void dismissCompareJob(),
-          onRetryFailed: (diffs, source) => void applyDiffs(diffs, source),
-          onShowMore: () => patchCompare({ shown: compareStore.get().shown + COMPARE_PAGE_SIZE }),
+          onAnalyze: () => void compare.analyze(),
+          onApply: (diffs, source) => void compare.apply(diffs, source),
+          onConfirm: (source) => compare.setConfirm(source),
+          onFilter: (filter) => compare.setFilter(filter),
+          onCancel: () => void compare.cancel(),
+          onDismissJob: () => void compare.dismissJob(),
+          onRetryFailed: (diffs, source) => void compare.apply(diffs, source),
+          onShowMore: () => compare.showMore(),
         }),
     ]),
   );
@@ -535,7 +471,7 @@ function render(): void {
   const data = syncStore.get();
   const connected = connectedServices().length > 0;
   // Pastille « Activité » : vérifications + synchros abandonnées + séries à noter (à traiter par l'utilisateur)
-  const pending = connected ? data.reviews.length + queueCounts().failed + ratingsStore.get().items.length : 0;
+  const pending = connected ? data.reviews.length + queue.counts().failed + ratings.store.get().items.length : 0;
   const hostAccess = hostAccessStore.get();
 
   preserveFocus(root, () => {
@@ -569,15 +505,15 @@ function render(): void {
       );
     }
 
-    if (queueChanged([connected, queueStore.get(), now])) {
+    if (queueChanged([connected, queue.store.get(), now])) {
       queueSlot.replaceChildren(
         ...nodes([
           connected &&
             renderQueueSection({
-              queue: queueStore.get(),
+              queue: queue.store.get(),
               now,
-              onRetry: (id) => void retryQueued(id),
-              onAbandon: (id) => void abandonQueued(id),
+              onRetry: (id) => void queue.retry(id),
+              onAbandon: (id) => void queue.abandon(id),
             }),
         ]),
       );
@@ -644,242 +580,7 @@ function allowHostAccess(): void {
   );
 }
 
-// ─── Liste « En cours » ─────────────────────────────────────────────────────
-
-/** Service affiché : la source choisie si elle est connectée, sinon le seul service connecté */
-function activeService(): TrackerId | null {
-  const connected = connectedServices();
-  const { source } = uiStore.get();
-  return connected.includes(source) ? source : (connected[0] ?? null);
-}
-
-let loadedService: TrackerId | null = null;
-/** Jeton de requête : une réponse arrivée après un changement de source est ignorée */
-let watchingRequest = 0;
-
-/** `force` : relit la liste même si le service worker en a une de moins de 90 s (« Réessayer », synchro, import) */
-async function loadWatching(service: TrackerId, force = false): Promise<void> {
-  const request = ++watchingRequest;
-  const current = watchingStore.get();
-
-  // 1. Cache immédiat (ou liste déjà affichée pour ce service), sinon skeleton
-  const cached = current.status === 'ready' && current.service === service ? current.list : await getCachedWatching(service).catch(() => null);
-  if (request !== watchingRequest) return;
-  watchingStore.set(cached ? { status: 'ready', service, list: cached, refreshing: true, error: null } : { status: 'loading', service });
-
-  // 2. Revalidation par le service worker
-  const response = sendMessage('GET_WATCHING', force ? { service, force } : { service }).catch((error: unknown): WatchingResult => {
-    log.error('Service worker injoignable :', error);
-    return { ok: false, code: 'NETWORK', message: swUnreachable() };
-  });
-  // Service worker lent ou bloqué (verrou du stockage…) : erreur affichée au bout du délai, mais la réponse
-  // reste attendue et s'applique si elle arrive (sauf requête plus récente : « Réessayer », autre source)
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timedOut = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), popupTimeouts.watchingMs);
-  });
-  const first = await Promise.race([response, timedOut]);
-  clearTimeout(timer);
-  if (first) {
-    applyWatchingResult(request, service, cached, first);
-    return;
-  }
-  log.warn('GET_WATCHING sans réponse après', popupTimeouts.watchingMs, 'ms');
-  applyWatchingResult(request, service, cached, { ok: false, code: 'NETWORK', message: t('popup.swTimeout') });
-  applyWatchingResult(request, service, cached, await response);
-}
-
-/** Affiche une réponse GET_WATCHING (ou l'erreur du délai), sauf si une requête plus récente est partie */
-function applyWatchingResult(request: number, service: TrackerId, cached: WatchingList | null, result: WatchingResult): void {
-  if (request !== watchingRequest) return;
-
-  if (result.ok) {
-    watchingStore.set({ status: 'ready', service, list: result.data, refreshing: false, error: null });
-    return;
-  }
-  if (AUTH_ERRORS.has(result.code)) {
-    // markExpired re-résout la source (nouvelle requête) : cette réponse devient obsolète
-    accounts.markExpired(service);
-    if (request !== watchingRequest) return;
-  }
-  watchingStore.set(cached ? { status: 'ready', service, list: cached, refreshing: false, error: result.message } : { status: 'error', service, message: result.message });
-}
-
-function reloadWatching(): Promise<void> {
-  const service = activeService();
-  return service ? loadWatching(service, true) : Promise.resolve();
-}
-
-/** Recharge la liste quand le service affiché change (connexion, déconnexion, choix de source) */
-function syncWatchingSource(): void {
-  // Comptes encore en lecture : attendre les deux évite de charger (et d'afficher) la mauvaise liste
-  if (TRACKER_IDS.some((id) => accountStore(id).get().status === 'loading')) return;
-  const service = activeService();
-  if (service === loadedService) return;
-  loadedService = service;
-  if (service) startPageMedia();
-  if (service) {
-    void loadWatching(service);
-  } else {
-    watchingRequest++;
-    watchingStore.set({ status: 'idle' });
-  }
-}
-
-// ─── Actions sur une série (+1, −1, exclusion) ──────────────────────────────
-
-const entryFeedbackTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-function setEntryAction(key: string, action: EntryAction | null): void {
-  const next = new Map(entryActionsStore.get());
-  if (action) next.set(key, action);
-  else next.delete(key);
-  entryActionsStore.set(next);
-}
-
-/** Retour bref (~3 s) à la place de la pastille d'état de la série */
-function flashEntryFeedback(key: string, feedback: InlineFeedback): void {
-  clearTimeout(entryFeedbackTimers.get(key));
-  setEntryAction(key, { phase: 'done', feedback });
-  entryFeedbackTimers.set(
-    key,
-    setTimeout(() => {
-      entryFeedbackTimers.delete(key);
-      setEntryAction(key, null);
-    }, ENTRY_FEEDBACK_MS),
-  );
-}
-
-/** Liens de séries appris pendant que le popup est ouvert : ajoutés aux séries affichées */
-function applyLearnedLinks(value: unknown): void {
-  const shown = watchingStore.get();
-  if (shown.status !== 'ready') return;
-  const entries = withLearnedLinks(shown.list.entries, parsePlatformLinkStore(value));
-  if (entries) watchingStore.set({ ...shown, list: { ...shown.list, entries } });
-}
-
-/** Mise à jour optimiste de la progression affichée (avant la revalidation de la liste) */
-function patchWatchingProgress(entry: WatchingEntry, outcome: SyncOutcome): void {
-  const shown = watchingStore.get();
-  if (shown.status !== 'ready' || outcome.status !== 'synced') return;
-  const result = outcome.results.find((r) => r.service === shown.service)?.outcome;
-  if (result?.status !== 'updated' && result?.status !== 'up-to-date') return;
-  const key = entryKey(entry);
-  const entries = shown.list.entries.map((e) => (entryKey(e) === key ? { ...e, progress: result.progress } : e));
-  watchingStore.set({ ...shown, list: { ...shown.list, entries } });
-}
-
-/**
- * +1 / −1 sur une série de « En cours ». `retry` : nouvel essai après un échec partiel (progression absolue sur les
- * seuls services en échec). Un échec partiel ouvre le bandeau avec « Réessayer » : la pastille seule disparaît trop vite.
- */
-async function adjustProgress(entry: WatchingEntry, delta: 1 | -1, retry?: AdjustRetry): Promise<void> {
-  const key = entryKey(entry);
-  if (entryActionsStore.get().get(key)?.phase === 'pending') return;
-  clearTimeout(entryFeedbackTimers.get(key));
-  setEntryAction(key, { phase: 'pending', kind: 'adjust' });
-  if (retry) hideWatchingNotice();
-
-  let outcome: SyncOutcome;
-  try {
-    outcome = await sendMessage('ADJUST_PROGRESS', adjustPayload(entry.mediaId, entry.malId, delta, retry));
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    outcome = { status: 'error', message: swUnreachable() };
-  }
-  patchWatchingProgress(entry, outcome);
-  const feedback = adjustFeedback(outcome, delta, retry);
-  flashEntryFeedback(key, feedback);
-  const next = feedback.retry;
-  if (next) showWatchingNotice({ ...feedback, text: `${entry.title} · ${feedback.text}` }, () => void adjustProgress(entry, next.delta, next));
-  // Revalidation silencieuse : la liste reflète ensuite l'état réel des services
-  scheduleWatchingRevalidation();
-}
-
-let watchingNoticeTimer: ReturnType<typeof setTimeout> | undefined;
-/** « Réessayer » du bandeau (+1 / −1 en échec partiel) ; null pour les autres retours */
-let watchingNoticeRetry: (() => void) | null = null;
-
-function hideWatchingNotice(): void {
-  clearTimeout(watchingNoticeTimer);
-  watchingNoticeRetry = null;
-  watchingNoticeStore.set(null);
-}
-
-function showWatchingNotice(notice: InlineFeedback, onRetry: (() => void) | null = null): void {
-  clearTimeout(watchingNoticeTimer);
-  watchingNoticeRetry = onRetry;
-  watchingNoticeStore.set(notice);
-  // Bandeau en haut de la liste : ramené dans la zone visible si la série était plus bas
-  renderer.flush();
-  watchingSlot.querySelector('[data-watching-notice]')?.scrollIntoView({ block: 'nearest' });
-  // Un échec reste affiché plus longtemps (texte à lire)
-  watchingNoticeTimer = setTimeout(hideWatchingNotice, notice.tone === 'success' ? QUEUE_NOTICE_MS : QUEUE_NOTICE_MS * 2);
-}
-
-/** Retire la série de la liste affichée (elle n'est plus « en cours » sur ce service) */
-function removeFromWatching(key: string): void {
-  const shown = watchingStore.get();
-  if (shown.status !== 'ready') return;
-  watchingStore.set({ ...shown, list: { ...shown.list, entries: shown.list.entries.filter((e) => entryKey(e) !== key) } });
-}
-
-/** En pause / Abandonner / Terminé : écrit sur tous les services connectés, la série quitte « En cours » */
-async function setEntryStatus(entry: WatchingEntry, status: ListStatusChange): Promise<void> {
-  const key = entryKey(entry);
-  if (entryActionsStore.get().get(key)?.phase === 'pending') return;
-  clearTimeout(entryFeedbackTimers.get(key));
-  setEntryAction(key, { phase: 'pending', kind: 'status' });
-
-  let outcome: SyncOutcome;
-  try {
-    // Affiche de la carte « À noter » : hôte d'images autorisé uniquement (refusée sinon par la validation du message)
-    const coverUrl = toSafeImageUrl(entry.coverUrl);
-    outcome = await sendMessage('SET_LIST_STATUS', { mediaId: entry.mediaId, malId: entry.malId, status, coverUrl });
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    outcome = { status: 'error', message: swUnreachable() };
-  }
-
-  const feedback = statusFeedback(outcome, status);
-  // La série quitte la liste si le service affiché a bien changé de statut (ou l'avait déjà)
-  const shown = watchingStore.get();
-  const shownResult = outcome.status === 'synced' && shown.status === 'ready' ? outcome.results.find((r) => r.service === shown.service)?.outcome : undefined;
-  if (shownResult?.status === 'updated' || shownResult?.status === 'up-to-date') removeFromWatching(key);
-  // Bandeau en haut de l'écran (texte complet, y compris les erreurs) : la ligne a pu disparaître
-  setEntryAction(key, null);
-  showWatchingNotice(feedback);
-  scheduleWatchingRevalidation();
-}
-
-async function excludeEntry(entry: WatchingEntry): Promise<void> {
-  if (entry.mediaId === null) return;
-  const key = entryKey(entry);
-  try {
-    // Aucune clé plateforme dérivable depuis la liste : l'exclusion porte sur la fiche AniList
-    await excludeSeries({ platformKey: null, mediaId: entry.mediaId, label: entry.title });
-    flashEntryFeedback(key, { tone: 'info', text: t('popup.syncDisabled'), detail: t('popup.syncDisabledDetail') });
-  } catch (error: unknown) {
-    log.error('Exclusion de la série impossible :', error);
-    flashEntryFeedback(key, errorFeedback(t('popup.excludeFailed')));
-  }
-  await loadExclusions();
-}
-
-async function includeEntry(entry: WatchingEntry): Promise<void> {
-  const exclusions = exclusionsStore.get();
-  if (exclusions.status !== 'ready' || entry.mediaId === null) return;
-  const key = entryKey(entry);
-  try {
-    const matches = exclusions.items.filter((e) => e.mediaId === entry.mediaId);
-    for (const match of matches) await includeSeries(match.id);
-    flashEntryFeedback(key, { tone: 'success', text: t('popup.syncEnabled'), detail: t('popup.syncEnabledDetail') });
-  } catch (error: unknown) {
-    log.error('Réactivation de la série impossible :', error);
-    flashEntryFeedback(key, errorFeedback(t('popup.includeFailed')));
-  }
-  await loadExclusions();
-}
+// ─── Exclusions (pastille « Exclue » des dernières synchros et de « En cours ») ───
 
 /** Clé de série plateforme, sans faire échouer le rendu si elle est incalculable */
 function seriesKeyOrNull(episode: EpisodeInfo): string | null {
@@ -905,7 +606,7 @@ async function excludeRecent(sync: RecentSync): Promise<void> {
     log.error('Exclusion de la série impossible :', e);
     error = t('common.excludeFailed');
   }
-  syncStore.set({ ...syncStore.get(), recentError: error });
+  patchStore(syncStore, { recentError: error });
   await loadExclusions();
 }
 
@@ -945,7 +646,7 @@ const activePage: Promise<PageMediaInfo | null> = activeTab.then(async ({ tabId 
 
 const pageCtl = createPageMediaController({
   onChange: () => pageCardStore.set({ content: pageCtl.content, actions: pageCtl.actions }),
-  onActionDone: () => scheduleWatchingRevalidation(),
+  onActionDone: () => watching.scheduleRevalidation(),
 });
 
 // ─── Panneau latéral : bouton d'en-tête, seulement sur Crunchyroll / ADN ───
@@ -995,220 +696,11 @@ function setPageConfirm(status: ListStatusChange | null): void {
   else if (previous !== null) focusInWatching(`[data-focus="page-status-${previous}"]`);
 }
 
-// ─── File de synchro (Activité › Synchros en attente) ──────────────────────
-
-let queueNoticeTimer: ReturnType<typeof setTimeout> | undefined;
-
-function setQueueBusy(id: string, busy: boolean): void {
-  const current = queueStore.get();
-  const busyIds = new Set(current.busyIds);
-  if (busy) busyIds.add(id);
-  else busyIds.delete(id);
-  queueStore.set({ ...current, busyIds });
-}
-
-function showQueueNotice(notice: InlineFeedback): void {
-  clearTimeout(queueNoticeTimer);
-  queueStore.set({ ...queueStore.get(), notice });
-  queueNoticeTimer = setTimeout(() => queueStore.set({ ...queueStore.get(), notice: null }), QUEUE_NOTICE_MS);
-}
-
-async function retryQueued(id: string): Promise<void> {
-  if (queueStore.get().busyIds.has(id)) return;
-  setQueueBusy(id, true);
-  let outcome: SyncOutcome;
-  try {
-    outcome = await sendMessage('RETRY_QUEUED', { id });
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    outcome = { status: 'error', message: swUnreachable() };
-  }
-  setQueueBusy(id, false);
-  showQueueNotice(retryFeedback(outcome));
-  await loadQueue();
-}
-
-async function abandonQueued(id: string): Promise<void> {
-  if (queueStore.get().busyIds.has(id)) return;
-  setQueueBusy(id, true);
-  let error: string | null = null;
-  try {
-    await removeQueueItem(id);
-  } catch (e: unknown) {
-    log.error('Suppression de la synchro en attente impossible :', e);
-    error = t('popup.abandonFailed');
-  }
-  setQueueBusy(id, false);
-  await loadQueue();
-  if (error) queueStore.set({ ...queueStore.get(), error });
-}
-
-async function loadQueue(): Promise<void> {
-  try {
-    const items = await getSyncQueue();
-    queueStore.set({ ...queueStore.get(), items, error: null });
-  } catch (error: unknown) {
-    log.error('Lecture de la file de synchro impossible :', error);
-    queueStore.set({ ...queueStore.get(), error: t('popup.queueReadFailed') });
-  }
-}
-
-// ─── Notes reportées (Activité › À noter) ──────────────────────────────────
-
-let ratingNoticeTimer: ReturnType<typeof setTimeout> | undefined;
-
-function patchRatings(patch: Partial<RatingsState>): void {
-  ratingsStore.set({ ...ratingsStore.get(), ...patch });
-}
-
-function withBusy(id: string, busy: boolean): ReadonlySet<string> {
-  const next = new Set(ratingsStore.get().busyIds);
-  if (busy) next.add(id);
-  else next.delete(id);
-  return next;
-}
-
-function withError(id: string, error: string | null): ReadonlyMap<string, string> {
-  const next = new Map(ratingsStore.get().errors);
-  if (error) next.set(id, error);
-  else next.delete(id);
-  return next;
-}
-
-async function rateMedia(item: PendingRating, value: number): Promise<void> {
-  if (ratingsStore.get().busyIds.has(item.id)) return;
-  patchRatings({ busyIds: withBusy(item.id, true), errors: withError(item.id, null) });
-  let outcome: SyncOutcome;
-  try {
-    outcome = await sendMessage('RATE_MEDIA', { media: { mediaId: item.mediaId, malId: item.malId, title: item.title }, score: value, fromCard: true });
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    outcome = { status: 'error', message: swUnreachable() };
-  }
-  const feedback = ratingFeedback(outcome, formatStarValue(value), item.title);
-  if (!feedback.ok) {
-    patchRatings({ busyIds: withBusy(item.id, false), errors: withError(item.id, feedback.text) });
-    return;
-  }
-  // Le service worker retire la carte du stockage ; elle disparaît tout de suite de l'affichage
-  clearTimeout(ratingNoticeTimer);
-  const current = ratingsStore.get();
-  patchRatings({ items: current.items.filter((i) => i.id !== item.id), busyIds: withBusy(item.id, false), notice: feedback });
-  ratingNoticeTimer = setTimeout(() => patchRatings({ notice: null }), QUEUE_NOTICE_MS);
-}
-
-async function ignoreRating(item: PendingRating): Promise<void> {
-  try {
-    await removePendingRating(item.id);
-    patchRatings({ error: null });
-  } catch (error: unknown) {
-    log.error('Suppression de la note en attente impossible :', error);
-    patchRatings({ error: t('popup.ignoreFailed') });
-  }
-}
-
-async function loadRatings(): Promise<void> {
-  try {
-    const items = await getPendingRatings();
-    const current = ratingsStore.get();
-    // Cartes en cours d'envoi conservées : le service worker les retire seulement après l'écriture
-    const busy = current.items.filter((i) => current.busyIds.has(i.id) && !items.some((n) => n.id === i.id));
-    patchRatings({ items: [...busy, ...items], error: null });
-  } catch (error: unknown) {
-    log.error('Lecture des notes en attente impossible :', error);
-    patchRatings({ error: t('popup.ratingsReadFailed') });
-  }
-}
-
-// ─── Écarts AniList ↔ MAL (Activité) ───────────────────────────────────────
-
-function patchCompare(patch: Partial<CompareState>): void {
-  compareStore.set({ ...compareStore.get(), ...patch });
-}
-
-/** Dernière analyse (stockage) : affichée à la réouverture du popup */
-function setComparison(value: unknown): void {
-  patchCompare({ result: isComparisonResult(value) ? value : null });
-}
-
-/** Tâche en cours (progression) ou bilan du dernier alignement ; un alignement qui se termine relit « En cours » */
-function setCompareJob(value: unknown): void {
-  const previous = compareStore.get().job;
-  const job = isCompareJob(value) ? value : null;
-  patchCompare({ job });
-  const finished = previous?.status === 'running' && job !== null && job.kind === 'apply' && job.status !== 'running';
-  if (finished && job.updated > 0) void reloadWatching();
-}
-
-async function loadComparison(): Promise<void> {
-  try {
-    const stored = await chrome.storage.local.get([COMPARE_STORAGE_KEY, COMPARE_JOB_KEY]);
-    setComparison(stored[COMPARE_STORAGE_KEY]);
-    setCompareJob(stored[COMPARE_JOB_KEY]);
-  } catch (error: unknown) {
-    log.warn('Lecture de la dernière comparaison impossible :', error);
-  }
-}
-
-async function analyzeLists(): Promise<void> {
-  if (compareStore.get().requesting !== null) return;
-  patchCompare({ requesting: 'analyze', error: null, confirm: null });
-  let result: CompareResult;
-  try {
-    result = await sendMessage('COMPARE_LISTS', null);
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    result = { ok: false, code: 'NETWORK', message: swUnreachable() };
-  }
-  if (result.ok) patchCompare({ requesting: null, result: result.data, shown: COMPARE_PAGE_SIZE });
-  else patchCompare({ requesting: null, error: result.message });
-}
-
-/** Lance l'alignement (une série ou un lot) : le service worker le traite en arrière-plan, la progression arrive par le stockage */
-async function applyDiffs(diffs: readonly ListDiff[], source: TrackerId): Promise<void> {
-  if (diffs.length === 0 || compareStore.get().requesting !== null) return;
-  patchCompare({ requesting: 'apply', confirm: null, error: null });
-  let result: ApplyResult;
-  try {
-    result = await sendMessage('APPLY_DIFFS', { items: diffs.map((d) => ({ mediaId: d.mediaId, malId: d.malId })), source });
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    result = { ok: false, code: 'NETWORK', message: swUnreachable() };
-  }
-  // Tâche acceptée : affichée tout de suite (le changement du stockage suit)
-  if (result.ok) patchCompare({ requesting: null, job: result.data });
-  else patchCompare({ requesting: null, error: result.message });
-}
-
-async function cancelCompareJob(): Promise<void> {
-  const job = compareStore.get().job;
-  if (job) patchCompare({ job: { ...job, cancelled: true } });
-  try {
-    await sendMessage('CANCEL_COMPARE_JOB', null);
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    patchCompare({ error: swUnreachable() });
-  }
-}
-
-/** « OK » sur le bilan : la tâche terminée est retirée du stockage (jamais une tâche en cours) */
-async function dismissCompareJob(): Promise<void> {
-  try {
-    await withStorageLock(async () => {
-      const stored = await chrome.storage.local.get(COMPARE_JOB_KEY);
-      const job: unknown = stored[COMPARE_JOB_KEY];
-      if (!isCompareJob(job) || job.status !== 'running') await chrome.storage.local.remove(COMPARE_JOB_KEY);
-    });
-  } catch (error: unknown) {
-    log.warn('Suppression du bilan d’alignement impossible :', error);
-  }
-}
-
 // ─── Données de synchro ───────────────────────────────────────────────────
 
 /** "Corriger" : le service worker recharge les fiches candidates et rouvre une carte. */
 async function handleCorrect(key: string): Promise<void> {
-  syncStore.set({ ...syncStore.get(), busyKey: key, recentError: null });
+  patchStore(syncStore, { busyKey: key, recentError: null });
   let error: string | null = null;
   try {
     const result = await sendMessage('REOPEN_REVIEW', { key });
@@ -1218,12 +710,12 @@ async function handleCorrect(key: string): Promise<void> {
     log.error('Service worker injoignable :', e);
     error = swUnreachable();
   }
-  syncStore.set({ ...syncStore.get(), busyKey: null, recentError: error });
+  patchStore(syncStore, { busyKey: null, recentError: error });
 }
 
 async function loadSyncData(): Promise<void> {
   const [reviews, recentSyncs] = await Promise.all([getPendingReviews(), getRecentSyncs()]);
-  syncStore.set({ ...syncStore.get(), reviews, recentSyncs });
+  patchStore(syncStore, { reviews, recentSyncs });
 }
 
 async function loadSettings(): Promise<void> {
@@ -1244,46 +736,18 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
   // Sessions et profils : suivis par le contrôleur des comptes (ui/accounts.ts)
 
   if (changes[STORAGE_KEYS.pendingReviews] || changes[STORAGE_KEYS.recentSyncs]) void loadSyncData();
-  if (changes[PENDING_RATINGS_KEY]) void loadRatings();
-  const compareChange = changes[COMPARE_STORAGE_KEY];
-  if (compareChange) setComparison(compareChange.newValue);
-  const compareJobChange = changes[COMPARE_JOB_KEY];
-  if (compareJobChange) setCompareJob(compareJobChange.newValue);
 
   const settingsChange = changes[SETTINGS_STORAGE_KEY];
   if (settingsChange) settingsStore.set({ status: 'ready', settings: normalizeSettings(settingsChange.newValue) });
 
   if (changes[EXCLUDED_SERIES_KEY]) void loadExclusions();
-  if (changes[SYNC_QUEUE_KEY]) void loadQueue();
-
-  // Lien de série appris (page visitée) : « Ouvrir » et la pastille de plateforme suivent sans requête
-  const linksChange = changes[PLATFORM_LINKS_KEY];
-  if (linksChange) applyLearnedLinks(linksChange.newValue);
-
-  // Synchro dans un onglet : le service worker ne met pas le cache « En cours » à jour → revalidation
-  if (changes[STORAGE_KEYS.recentSyncs]) scheduleWatchingRevalidation();
 });
-
-const REVALIDATE_DEBOUNCE_MS = 1_000;
-let revalidateTimer: ReturnType<typeof setTimeout> | undefined;
-
-/** Revalidation silencieuse (liste actuelle conservée, pas de skeleton), regroupée sur ~1 s */
-function scheduleWatchingRevalidation(): void {
-  clearTimeout(revalidateTimer);
-  revalidateTimer = setTimeout(() => {
-    revalidateTimer = undefined;
-    const shown = watchingStore.get();
-    if (shown.status === 'ready' && shown.service === activeService()) void loadWatching(shown.service, true);
-  }, REVALIDATE_DEBOUNCE_MS);
-}
 
 // ─── Démarrage ────────────────────────────────────────────────────────────
 
-anilistStore.subscribe(syncWatchingSource);
-malStore.subscribe(syncWatchingSource);
-uiStore.subscribe(syncWatchingSource);
-uiStore.subscribe(syncMenuListeners);
-for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore, compareStore, hostAccessStore, netflixAccessStore]) store.subscribe(renderer.schedule);
+watching.start();
+uiStore.subscribe(({ sortMenuOpen, rowMenu }) => menuDismiss.setOpen(sortMenuOpen || rowMenu !== null));
+for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, watching.prefs, watching.entryActions, watching.notice, queue.store, ratings.store, pageCardStore, compare.store, hostAccessStore, netflixAccessStore]) store.subscribe(renderer.schedule);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre)
 chrome.permissions?.onAdded?.addListener(() => void checkHostAccess());
 chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());
@@ -1309,13 +773,6 @@ onLocaleChange(() => {
   location.reload();
 });
 
-// Pause d'alignement (limite de requêtes, service lent) : seul le texte du compte à rebours change chaque seconde,
-// sans nouveau rendu du popup
-setInterval(() => {
-  const job = compareStore.get().job;
-  if (job?.status === 'running' && job.pausedUntil !== null && job.pauseReason !== 'resume') tickJobPause(compareSlot, job, Date.now());
-}, 1_000);
-
 // Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert
 setInterval(() => {
   now = Date.now();
@@ -1326,8 +783,8 @@ void checkHostAccess();
 void loadSettings();
 void loadSyncData();
 void loadExclusions();
-void loadQueue();
-void loadRatings();
-void loadComparison();
+void queue.load();
+void ratings.load();
+void compare.load();
 // La source préférée est lue avant les comptes : évite de charger la mauvaise liste puis de basculer
-void loadPrefs().then(() => accounts.bootstrapAll());
+void watching.loadPrefs().then(() => accounts.bootstrapAll());

@@ -28,6 +28,7 @@ import { getCachedWatching, hasMalToken, hasValidAniListToken } from '../../shar
 import { STORAGE_KEYS } from '../../shared/storage-keys';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../../ui/dom';
+import { createMenuDismiss } from '../../ui/menu';
 import { alertAttrs } from '../../ui/live-region';
 import { icon } from '../../ui/icons';
 import { decideAgendaLoad } from '../agenda-load';
@@ -110,8 +111,18 @@ export function createAgenda(): AgendaView {
   /** Services dont la liste « En cours » a déjà été demandée (cache vide à l'ouverture du panneau) */
   const watchingRequested = new Set<TrackerId>();
 
+  /** Clic hors du menu « ⋯ » : fermeture (écouteur présent seulement pendant l'ouverture) */
+  const menuDismiss = createMenuDismiss({
+    onClick(target) {
+      if (menuFor === null || target?.closest('[data-agenda-menu]')) return;
+      menuFor = null;
+      draw();
+    },
+  });
+
   function draw(): void {
     preserveFocus(element, () => element.replaceChildren(...nodes([renderNav(), ...renderBody()])));
+    menuDismiss.setOpen(menuFor !== null);
   }
 
   function scheduleLoad(delay: number): void {
@@ -654,14 +665,6 @@ export function createAgenda(): AgendaView {
   // ─── Écouteurs ─────────────────────────────────────────────────────────
 
   function start(): void {
-    // Clic hors du menu : fermeture
-    document.addEventListener('click', (event) => {
-      if (menuFor === null) return;
-      const target = event.target;
-      if (target instanceof Element && target.closest('[data-agenda-menu]')) return;
-      menuFor = null;
-      draw();
-    });
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
       const relevant = [
