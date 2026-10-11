@@ -7,6 +7,7 @@ import {
   createLabelGuard,
   labelKey,
   readJsonLdNodes,
+  type LabelGuard,
   readMetaContent,
   slugToTitle,
   stripAudioTag,
@@ -46,14 +47,15 @@ const SELECTORS = {
   episodeHeading: 'h1.title, [data-t="episode-title"], h1',
 } as const;
 
-type ExtractedFields = Omit<EpisodeInfo, 'platform' | 'episodeId' | 'url'>;
+/** Champs lus sur la page de lecture (l'adapter ajoute plateforme, identifiant et URL) */
+export type CrunchyrollEpisodeFields = Omit<EpisodeInfo, 'platform' | 'episodeId' | 'url'>;
 
 /** Évite d'attribuer au nouvel épisode le DOM de l'épisode précédent (voir createLabelGuard) */
 const labels = createLabelGuard();
 
 // ─── Helpers de parsing ────────────────────────────────────────────────────
 
-function parseEpisodeLabel(label: string | null): { number: number | null; title: string | null } {
+export function parseEpisodeLabel(label: string | null): { number: number | null; title: string | null } {
   const match = label ? EPISODE_LABEL_REGEX.exec(label) : null;
   return match ? { number: toNumber(match[1]), title: cleanText(match[2]) } : { number: null, title: label };
 }
@@ -65,24 +67,51 @@ function parseSeries(url: unknown): { seriesId: string | null; seriesSlug: strin
 
 // ─── Stratégies d'extraction (de la plus fiable à la moins fiable) ─────────
 
+/** Ce que la page affiche à côté du JSON-LD : sert à reconnaître un JSON-LD resté sur l'épisode précédent */
+export interface WatchPageContext {
+  /** Texte du <h1> de l'épisode ("E1181 - …"), null s'il n'est pas encore rendu */
+  heading: string | null;
+  /** Garde-fou SPA : libellé déjà attribué à un autre épisode */
+  guard: LabelGuard;
+}
+
+/**
+ * Un nœud sans `url` ni `@id` ne désigne aucun épisode : après une navigation SPA, il peut décrire
+ * l'épisode précédent (CONT-04). On le compare donc au <h1> ; sans <h1>, au libellé déjà attribué.
+ * Un <h1> d'accord suffit : une autre version audio du même épisode (autre identifiant, même libellé)
+ * doit rester reconnue. S'il est lui aussi périmé, la relecture à la complétion corrige l'épisode.
+ */
+function isStaleAnonymousNode(label: { number: number | null; title: string | null }, episodeId: string, context: WatchPageContext): boolean {
+  if (context.heading === null) return context.guard.isStale(episodeId, labelKey(label.number, label.title));
+  const shown = parseEpisodeLabel(context.heading).number;
+  // Seuls les numéros sont comparés : le titre du <h1> peut différer du nom JSON-LD (film, mise en forme)
+  return shown !== null && label.number !== null && shown !== label.number;
+}
+
 /**
  * 1. Données structurées schema.org (TVEpisode). Structure vérifiée le 2026-09-29 :
  *    { name: "Elbaph | E1180 - …", episodeNumber: 25,
  *      partOfSeason: { name: "Elbaph", seasonNumber: 24 },
  *      partOfSeries: { name: "One Piece", "@id": ".../series/GRMG8ZQZR/one-piece" } }
+ * `episodeNumber` est relatif à la saison Crunchyroll (25), le numéro affiché (1180) vient du nom.
  */
-function extractFromJsonLd(episodeId: string): ExtractedFields | null {
-  for (const node of readJsonLdNodes('TVEpisode')) {
+export function episodeFromJsonLdNodes(
+  nodes: readonly Record<string, unknown>[],
+  episodeId: string,
+  context: WatchPageContext,
+): CrunchyrollEpisodeFields | null {
+  for (const node of nodes) {
+    if (node['@type'] !== 'TVEpisode') continue;
+    const label = parseEpisodeLabel(cleanText(node.name));
     // En SPA, le JSON-LD peut rester celui de l'épisode précédent : on vérifie qu'il correspond
     const nodeUrl = cleanText(node.url) ?? cleanText(node['@id']);
-    if (nodeUrl && !nodeUrl.includes(episodeId)) continue;
+    if (nodeUrl ? !nodeUrl.includes(episodeId) : isStaleAnonymousNode(label, episodeId, context)) continue;
 
     const series = isRecord(node.partOfSeries) ? node.partOfSeries : {};
     const season = isRecord(node.partOfSeason) ? node.partOfSeason : {};
     const animeTitle = cleanText(series.name);
     if (!animeTitle) continue;
 
-    const label = parseEpisodeLabel(cleanText(node.name));
     return {
       ...parseSeries(series['@id']),
       animeTitle,
@@ -96,17 +125,25 @@ function extractFromJsonLd(episodeId: string): ExtractedFields | null {
   return null;
 }
 
-/** 2. DOM de la page de lecture (moins riche : pas de saison ni de numéro relatif). */
-function extractFromDom(episodeId: string): ExtractedFields | null {
-  const seriesLink = document.querySelector<HTMLElement>(SELECTORS.seriesLink);
-  const animeTitle = cleanText(seriesLink?.textContent);
-  if (!animeTitle) return null;
+/** Éléments du DOM utiles au repli : lien vers la série et <h1> de l'épisode */
+export interface WatchPageDom {
+  seriesTitle: string | null;
+  seriesHref: string | null;
+  heading: string | null;
+}
 
-  const label = parseEpisodeLabel(cleanText(document.querySelector(SELECTORS.episodeHeading)?.textContent));
-  if (labels.isStale(episodeId, labelKey(label.number, label.title))) return null; // DOM de l'épisode précédent
+/** 2. DOM de la page de lecture (moins riche : pas de saison ni de numéro relatif). */
+export function episodeFromWatchDom(dom: WatchPageDom, episodeId: string, guard: LabelGuard): CrunchyrollEpisodeFields | null {
+  const animeTitle = cleanText(dom.seriesTitle);
+  const heading = cleanText(dom.heading);
+  // Sans <h1> (rendu en cours après une navigation), rien n'identifie l'épisode : on attend
+  if (!animeTitle || !heading) return null;
+
+  const label = parseEpisodeLabel(heading);
+  if (guard.isStale(episodeId, labelKey(label.number, label.title))) return null; // DOM de l'épisode précédent
 
   return {
-    ...parseSeries(seriesLink?.closest('a')?.href),
+    ...parseSeries(dom.seriesHref),
     animeTitle,
     seasonNumber: null,
     seasonTitle: null,
@@ -114,6 +151,18 @@ function extractFromDom(episodeId: string): ExtractedFields | null {
     displayedEpisodeNumber: label.number,
     episodeTitle: label.title,
   };
+}
+
+const readHeading = (): string | null => cleanText(document.querySelector(SELECTORS.episodeHeading)?.textContent);
+
+function extractFromJsonLd(episodeId: string): CrunchyrollEpisodeFields | null {
+  return episodeFromJsonLdNodes(readJsonLdNodes('TVEpisode'), episodeId, { heading: readHeading(), guard: labels });
+}
+
+function extractFromDom(episodeId: string): CrunchyrollEpisodeFields | null {
+  const seriesLink = document.querySelector<HTMLElement>(SELECTORS.seriesLink);
+  const dom = { seriesTitle: seriesLink?.textContent ?? null, seriesHref: seriesLink?.closest('a')?.href ?? null, heading: readHeading() };
+  return episodeFromWatchDom(dom, episodeId, labels);
 }
 
 // document.title volontairement exclu : en FR il contient le nom de la saison ("Elbaph …"),

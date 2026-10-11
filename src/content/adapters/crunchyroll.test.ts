@@ -1,14 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { EpisodeInfo } from '../../shared/episode.types';
+import { installFakeDocument, type FakeDocument } from '../../test/fake-document';
+import { ONE_PIECE_E1180, ONE_PIECE_E1180_WITH_URL, ONE_PIECE_E1181, type CrunchyrollWatchFixture } from './__fixtures__/crunchyroll-watch';
+import type { StreamingAdapter } from './adapter';
 import {
   crunchyrollAdapter,
+  episodeFromJsonLdNodes,
+  episodeFromWatchDom,
+  parseEpisodeLabel,
   parseCrunchyrollSeasonLabel,
   parseCrunchyrollSeriesPath,
   parseEpisodeCount,
   parseSeasonOption,
   seasonEpisodeCountFromJsonLd,
   seriesTitleFromJsonLd,
+  type WatchPageContext,
 } from './crunchyroll';
-import { flattenJsonLd } from './parsing';
+import { createLabelGuard, flattenJsonLd, labelKey, type LabelGuard } from './parsing';
 
 // Fixture JSON-LD d'une page de série (structure supposée, à vérifier sur le site réel)
 const SERIES_JSON_LD = `{
@@ -112,5 +120,149 @@ describe('seriesTitleFromJsonLd', () => {
 
   it('accepte un nœud sans URL', () => {
     expect(seriesTitleFromJsonLd([{ '@type': 'TVSeries', name: 'Frieren' }], 'ANY')).toBe('Frieren');
+  });
+});
+
+// ─── Page de lecture (TEST-04, CONT-04) ─────────────────────────────────────
+
+const nodesOf = (fixture: CrunchyrollWatchFixture): Record<string, unknown>[] => flattenJsonLd(JSON.parse(fixture.jsonLd));
+
+describe('parseEpisodeLabel', () => {
+  it('lit le <h1> et le nom JSON-LD préfixé de la saison', () => {
+    expect(parseEpisodeLabel('E1180 - Le désespoir envahit Elbaph !')).toEqual({ number: 1180, title: 'Le désespoir envahit Elbaph !' });
+    expect(parseEpisodeLabel('Elbaph | E1180 - Le désespoir envahit Elbaph !')).toEqual({ number: 1180, title: 'Le désespoir envahit Elbaph !' });
+  });
+
+  it('accepte les tirets – et — et un numéro décimal', () => {
+    expect(parseEpisodeLabel('E12 – Titre')).toEqual({ number: 12, title: 'Titre' });
+    expect(parseEpisodeLabel('Saison | E7.5 — Récapitulatif')).toEqual({ number: 7.5, title: 'Récapitulatif' });
+  });
+
+  it('garde le libellé tel quel sans numéro (film)', () => {
+    expect(parseEpisodeLabel('ONE PIECE FILM RED')).toEqual({ number: null, title: 'ONE PIECE FILM RED' });
+    expect(parseEpisodeLabel(null)).toEqual({ number: null, title: null });
+  });
+});
+
+describe('getEpisodeId (page de lecture)', () => {
+  it('lit l’identifiant avec ou sans préfixe de langue', () => {
+    expect(crunchyrollAdapter.getEpisodeId(new URL(ONE_PIECE_E1180.url))).toBe('GE00376431JAJP');
+    expect(crunchyrollAdapter.getEpisodeId(new URL('https://www.crunchyroll.com/es-es/watch/GE00376431JAJP/slug'))).toBe('GE00376431JAJP');
+    expect(crunchyrollAdapter.getEpisodeId(new URL('https://www.crunchyroll.com/watch/GE00376431JAJP'))).toBe('GE00376431JAJP');
+  });
+});
+
+describe('episodeFromJsonLdNodes', () => {
+  const fresh = (heading: string | null = ONE_PIECE_E1180.heading): WatchPageContext => ({ heading, guard: createLabelGuard() });
+  /** Garde-fou ayant déjà vu E1180 sous son propre identifiant */
+  const afterE1180 = (): LabelGuard => {
+    const guard = createLabelGuard();
+    guard.remember(ONE_PIECE_E1180.episodeId, labelKey(1180, 'Le désespoir envahit Elbaph !'));
+    return guard;
+  };
+
+  it('sépare le numéro relatif à la saison (25) du numéro affiché (1180) : One Piece', () => {
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), ONE_PIECE_E1180.episodeId, fresh())).toEqual({
+      seriesId: 'GRMG8ZQZR',
+      seriesSlug: 'one-piece',
+      animeTitle: 'One Piece',
+      seasonNumber: 24,
+      seasonTitle: 'Elbaph',
+      seasonEpisodeNumber: 25,
+      displayedEpisodeNumber: 1180,
+      episodeTitle: 'Le désespoir envahit Elbaph !',
+    });
+  });
+
+  it('rejette un nœud sans url resté sur E1180 quand le <h1> annonce E1181', () => {
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), ONE_PIECE_E1181.episodeId, fresh(ONE_PIECE_E1181.heading))).toBeNull();
+  });
+
+  it('rejette un nœud sans url déjà attribué à un autre épisode tant que le <h1> n’est pas rendu', () => {
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), ONE_PIECE_E1181.episodeId, { heading: null, guard: afterE1180() })).toBeNull();
+    // Même épisode (rechargement, popup) : accepté
+    const same = episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), ONE_PIECE_E1180.episodeId, { heading: null, guard: afterE1180() });
+    expect(same?.displayedEpisodeNumber).toBe(1180);
+  });
+
+  it('accepte un nœud sans url d’accord avec le <h1> (autre version audio du même épisode)', () => {
+    const dub = episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), 'GRDUB0001180', { heading: ONE_PIECE_E1180.heading, guard: afterE1180() });
+    expect(dub?.seasonEpisodeNumber).toBe(25);
+  });
+
+  it('accepte un nœud sans url quand le <h1> n’affiche pas de numéro', () => {
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), ONE_PIECE_E1180.episodeId, fresh('One Piece'))?.displayedEpisodeNumber).toBe(1180);
+  });
+
+  it('se fie à l’url du nœud quand elle existe', () => {
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180_WITH_URL), ONE_PIECE_E1180.episodeId, fresh(ONE_PIECE_E1181.heading))?.displayedEpisodeNumber).toBe(1180);
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180_WITH_URL), ONE_PIECE_E1181.episodeId, fresh())).toBeNull();
+  });
+
+  it('ignore les nœuds d’un autre type ou sans série', () => {
+    expect(episodeFromJsonLdNodes([{ '@type': 'Organization', name: 'Crunchyroll' }], 'X', fresh())).toBeNull();
+    expect(episodeFromJsonLdNodes([{ '@type': 'TVEpisode', name: 'E1 - Titre', episodeNumber: 1 }], 'X', fresh())).toBeNull();
+  });
+});
+
+describe('episodeFromWatchDom', () => {
+  const dom = { seriesTitle: ' One Piece ', seriesHref: ONE_PIECE_E1181.seriesLink.href, heading: ONE_PIECE_E1181.heading };
+
+  it('lit la série et le numéro affiché, sans numéro relatif', () => {
+    expect(episodeFromWatchDom(dom, ONE_PIECE_E1181.episodeId, createLabelGuard())).toEqual({
+      seriesId: 'GRMG8ZQZR',
+      seriesSlug: 'one-piece',
+      animeTitle: 'One Piece',
+      seasonNumber: null,
+      seasonTitle: null,
+      seasonEpisodeNumber: null,
+      displayedEpisodeNumber: 1181,
+      episodeTitle: 'Titre de l’épisode suivant',
+    });
+  });
+
+  it('rejette le <h1> d’un autre épisode, une page sans lien vers la série ou sans <h1>', () => {
+    const guard = createLabelGuard();
+    guard.remember(ONE_PIECE_E1180.episodeId, labelKey(1181, 'Titre de l’épisode suivant'));
+    expect(episodeFromWatchDom(dom, ONE_PIECE_E1181.episodeId, guard)).toBeNull();
+    expect(episodeFromWatchDom({ ...dom, seriesTitle: null }, ONE_PIECE_E1181.episodeId, createLabelGuard())).toBeNull();
+    expect(episodeFromWatchDom({ ...dom, heading: null }, ONE_PIECE_E1181.episodeId, createLabelGuard())).toBeNull();
+  });
+});
+
+describe('crunchyrollAdapter.extractEpisodeInfo : lecture automatique E1180 → E1181 (SPA)', () => {
+  let page: FakeDocument;
+  let adapter: StreamingAdapter;
+
+  const show = (fixture: CrunchyrollWatchFixture, parts: { jsonLd?: boolean } = {}): void => {
+    if (parts.jsonLd !== false) page.setJsonLd(fixture.jsonLd);
+    page.set('h1', { text: fixture.heading });
+    page.set('a.show-title-link', { text: fixture.seriesLink.text, href: fixture.seriesLink.href });
+  };
+  const extract = (fixture: CrunchyrollWatchFixture): EpisodeInfo | null => adapter.extractEpisodeInfo(new URL(fixture.url));
+
+  beforeEach(async () => {
+    page = installFakeDocument();
+    // Module neuf : le garde-fou des libellés est propre à chaque test
+    vi.resetModules();
+    ({ crunchyrollAdapter: adapter } = await import('./crunchyroll'));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('n’attribue jamais à E1181 les numéros de E1180', () => {
+    show(ONE_PIECE_E1180);
+    expect(extract(ONE_PIECE_E1180)).toMatchObject({ episodeId: ONE_PIECE_E1180.episodeId, seasonEpisodeNumber: 25, displayedEpisodeNumber: 1180 });
+
+    // Navigation : JSON-LD inchangé, <h1> en cours de rendu → rien plutôt que l'épisode précédent
+    page.set('h1', null);
+    expect(extract(ONE_PIECE_E1181)).toBeNull();
+
+    // <h1> à jour, JSON-LD toujours périmé → repli DOM (numéro affiché seul)
+    show(ONE_PIECE_E1181, { jsonLd: false });
+    expect(extract(ONE_PIECE_E1181)).toMatchObject({ episodeId: ONE_PIECE_E1181.episodeId, seasonEpisodeNumber: null, displayedEpisodeNumber: 1181 });
+
+    // JSON-LD à jour → numéros complets
+    show(ONE_PIECE_E1181);
+    expect(extract(ONE_PIECE_E1181)).toMatchObject({ seasonNumber: 24, seasonEpisodeNumber: 26, displayedEpisodeNumber: 1181 });
   });
 });

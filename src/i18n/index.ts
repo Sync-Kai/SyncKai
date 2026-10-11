@@ -17,6 +17,8 @@ const CATALOGS: Record<Locale, Readonly<Record<string, string>>> = { en, fr, de 
 
 let current: Locale = detectUiLocale();
 const listeners = new Set<(locale: Locale) => void>();
+/** `<html lang>` suit la langue active : pages de l'extension seulement, jamais la page d'un site (ARCH-01) */
+let ownsDocumentLang = false;
 
 /** Langue du navigateur : fr*, de*, en* ; toute autre langue → anglais */
 export function detectUiLocale(): Locale {
@@ -35,6 +37,11 @@ export function resolveLocale(setting: LanguageSetting): Locale {
   return setting === 'auto' ? detectUiLocale() : setting;
 }
 
+/** Applique la langue des réglages ; sert aux scripts de contenu, qui relisent les réglages au lieu de les suivre */
+export function applyLanguageSetting(setting: LanguageSetting): void {
+  setLocale(resolveLocale(setting));
+}
+
 export function getLocale(): Locale {
   return current;
 }
@@ -43,7 +50,7 @@ export function getLocale(): Locale {
 export function setLocale(locale: Locale): void {
   if (locale === current) return;
   current = locale;
-  if (typeof document !== 'undefined') document.documentElement.lang = locale;
+  if (ownsDocumentLang && typeof document !== 'undefined') document.documentElement.lang = locale;
   for (const listener of listeners) listener(locale);
 }
 
@@ -83,22 +90,35 @@ export function tp(key: PluralKey, count: number, params?: MessageParams): strin
 
 let ready: Promise<Locale> | null = null;
 
+export interface InitI18nOptions {
+  /** Écrit la langue dans `<html lang>` (défaut). Faux dans un script de contenu : la page appartient au site (ARCH-01) */
+  setDocumentLang?: boolean;
+  /**
+   * Suit les changements de langue des réglages (défaut). Faux dans un script de contenu : un écouteur de
+   * `storage.local.onChanged` y recevrait chaque écriture du stockage, imports compris (PERF-03)
+   */
+  follow?: boolean;
+}
+
 /**
- * Lit la langue choisie dans les réglages puis suit ses changements (storage.onChanged).
- * Mémoïsé : popup, page d'import, content script et service worker peuvent l'attendre plusieurs fois.
+ * Lit la langue choisie dans les réglages puis, sauf `follow: false`, suit ses changements.
+ * Mémoïsé : popup, page d'import, content script et service worker peuvent l'attendre plusieurs fois
+ * (les options du premier appel s'appliquent).
  */
-export function initI18n(): Promise<Locale> {
+export function initI18n({ setDocumentLang = true, follow = true }: InitI18nOptions = {}): Promise<Locale> {
   ready ??= (async () => {
-    if (typeof document !== 'undefined') document.documentElement.lang = current;
+    ownsDocumentLang = setDocumentLang;
+    if (ownsDocumentLang && typeof document !== 'undefined') document.documentElement.lang = current;
     try {
-      setLocale(resolveLocale((await getSettings()).language));
+      applyLanguageSetting((await getSettings()).language);
     } catch {
       // Stockage illisible : la langue du navigateur reste active
     }
+    if (!follow) return current;
     // Zone locale seule : une écriture dans `storage.session` ne réveille pas le service worker (ARCH-18)
     chrome.storage.local.onChanged.addListener((changes) => {
       const change = changes[SETTINGS_STORAGE_KEY];
-      if (change) setLocale(resolveLocale(normalizeSettings(change.newValue).language));
+      if (change) applyLanguageSetting(normalizeSettings(change.newValue).language);
     });
     return current;
   })();

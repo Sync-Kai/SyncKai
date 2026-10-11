@@ -72,6 +72,9 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Agenda du panneau : une erreur de chargement (AniList saturé, réseau) reste affichée avec *Réessayer* au lieu de disparaître au rafraîchissement suivant du panneau, et la même semaine n’est plus demandée deux fois de suite.
 - Netflix désactivé (dans les Réglages, `chrome://extensions` ou `about:addons`) : un onglet Netflix resté ouvert ne synchronise plus rien, même sans être rechargé, et le popup comme le panneau y affichent *Netflix est désactivé*.
 - Netflix désactivé hors des Réglages, ou sauvegarde importée sur un navigateur où Netflix n’est pas activé : le lecteur préféré *Netflix* repasse sur Crunchyroll, et les boutons *Ouvrir*, l’agenda et les notifications de nouvel épisode n’ouvrent plus Netflix.
+- Crunchyroll, lecture automatique (One Piece E1180 puis E1181, par exemple) : le nouvel épisode n’est plus identifié avec le titre et le numéro du précédent quand la page tarde à se mettre à jour. Le popup et le panneau affichent le bon épisode, et c’est lui qui est synchronisé.
+- SyncKai ne modifie plus la langue déclarée par les pages Crunchyroll, ADN et Netflix. Chrome ne propose plus de traduire la page à tort, les lecteurs d’écran gardent la bonne langue, et l’import de l’historique Crunchyroll récupère les titres dans la langue de ton compte Crunchyroll (espagnol, par exemple) même si SyncKai est dans une autre langue.
+- Les onglets Crunchyroll, ADN et Netflix ne reçoivent plus chaque écriture des données de SyncKai (import, alignement, journal) : moins de travail en arrière-plan pendant la lecture. Un changement de langue de SyncKai s’applique aux messages de la page sans la recharger, au plus tard à l’épisode suivant.
 
 ## [2.1.0] - 2026-10-10
 

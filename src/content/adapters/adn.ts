@@ -12,6 +12,7 @@ import {
   readMetaContent,
   slugToTitle,
   toNumber,
+  type LabelGuard,
 } from './parsing';
 
 const log = createLogger('adn');
@@ -37,7 +38,8 @@ const SELECTORS = {
   episodeSubtitle: '.vjs-meta-subtitle',
 } as const;
 
-type ExtractedFields = Omit<EpisodeInfo, 'platform' | 'episodeId' | 'url' | 'seriesId' | 'seriesSlug'>;
+/** Champs lus sur la page de lecture (l'adapter ajoute plateforme, identifiants tirés de l'URL et URL) */
+export type AdnEpisodeFields = Omit<EpisodeInfo, 'platform' | 'episodeId' | 'url' | 'seriesId' | 'seriesSlug'>;
 
 const labels = createLabelGuard();
 
@@ -66,8 +68,9 @@ export function parseAdnEpisodeLabel(label: string | null): { number: number | n
  *      video: { url: ".../29344-episode-1" }, partOfSeries: { name: "TOUGEN ANKI" },
  *      partOfSeason: { name: "Saison 1", seasonNumber: "1" } }
  */
-function extractFromJsonLd(episodeId: string): ExtractedFields | null {
-  for (const node of readJsonLdNodes('TVEpisode')) {
+export function adnEpisodeFromJsonLdNodes(nodes: readonly Record<string, unknown>[], episodeId: string): AdnEpisodeFields | null {
+  for (const node of nodes) {
+    if (node['@type'] !== 'TVEpisode') continue;
     // Navigation SPA : le JSON-LD peut encore décrire l'épisode précédent, vérifié via ses URLs
     const video = isRecord(node.video) ? node.video : {};
     const urls = [node.url, node['@id'], video.url].map(cleanText).filter((u): u is string => u !== null);
@@ -92,13 +95,19 @@ function extractFromJsonLd(episodeId: string): ExtractedFields | null {
   return null;
 }
 
-/** 2. Surcouche du lecteur video.js (titre de la série + "Épisode 1 : …"). */
-function extractFromPlayer(episodeId: string): ExtractedFields | null {
-  const animeTitle = cleanText(document.querySelector(SELECTORS.seriesTitle)?.textContent);
+/** Textes de la surcouche du lecteur video.js : titre de la série et "Épisode 1 : …" */
+export interface AdnPlayerOverlay {
+  seriesTitle: string | null;
+  subtitle: string | null;
+}
+
+/** 2. Surcouche du lecteur (pas de saison ni de numéro relatif). */
+export function adnEpisodeFromPlayer(overlay: AdnPlayerOverlay, episodeId: string, guard: LabelGuard): AdnEpisodeFields | null {
+  const animeTitle = cleanText(overlay.seriesTitle);
   if (!animeTitle) return null;
 
-  const label = parseAdnEpisodeLabel(cleanText(document.querySelector(SELECTORS.episodeSubtitle)?.textContent));
-  if (labels.isStale(episodeId, labelKey(label.number, label.title))) return null; // Épisode précédent encore affiché
+  const label = parseAdnEpisodeLabel(cleanText(overlay.subtitle));
+  if (guard.isStale(episodeId, labelKey(label.number, label.title))) return null; // Épisode précédent encore affiché
 
   return {
     animeTitle,
@@ -108,6 +117,18 @@ function extractFromPlayer(episodeId: string): ExtractedFields | null {
     displayedEpisodeNumber: label.number,
     episodeTitle: label.title,
   };
+}
+
+function extractFromJsonLd(episodeId: string): AdnEpisodeFields | null {
+  return adnEpisodeFromJsonLdNodes(readJsonLdNodes('TVEpisode'), episodeId);
+}
+
+function extractFromPlayer(episodeId: string): AdnEpisodeFields | null {
+  const overlay = {
+    seriesTitle: document.querySelector(SELECTORS.seriesTitle)?.textContent ?? null,
+    subtitle: document.querySelector(SELECTORS.episodeSubtitle)?.textContent ?? null,
+  };
+  return adnEpisodeFromPlayer(overlay, episodeId, labels);
 }
 
 const STRATEGIES = [

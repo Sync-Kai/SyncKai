@@ -1,4 +1,4 @@
-import { t } from '../../i18n';
+import { applyLanguageSetting, t } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isExcluded, platformSeriesKey } from '../../shared/exclusions';
 import { sendMessage } from '../../shared/messages';
@@ -28,10 +28,15 @@ const log = createLogger('session');
  */
 const ignoredSeries = new Set<string>();
 
-/** Réglages de la page d'options ; valeurs par défaut si le stockage est illisible */
+/**
+ * Réglages de la page d'options ; valeurs par défaut si le stockage est illisible. Applique au passage la
+ * langue choisie : le script de contenu ne suit pas les réglages (PERF-03), il la relit à chaque lecture.
+ */
 async function loadSettings(): Promise<SyncSettings> {
   try {
-    return await getSettings();
+    const settings = await getSettings();
+    applyLanguageSetting(settings.language);
+    return settings;
   } catch (error: unknown) {
     log.warn('Réglages illisibles, valeurs par défaut utilisées :', error);
     return DEFAULT_SETTINGS;
