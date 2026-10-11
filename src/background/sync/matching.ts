@@ -225,6 +225,38 @@ function isSameCrunchyrollSlug(linkedSlug: string, slug: string): boolean {
 }
 
 /**
+ * Slug de série d'un ancien lien sans identifiant : crunchyroll.com/{slug} ou /{langue}/{slug} (page de série de
+ * l'ancien site uniquement, pas /{slug}/episode-…, /series/…, /watch/…), animationdigitalnetwork.fr/video/{slug}.
+ * null pour un autre site, un lien avec identifiant ou une page d'épisode.
+ */
+export function legacySeriesSlugInLink(url: string, platform: StreamingPlatform): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const segments = parsed.pathname.toLowerCase().split('/').filter(Boolean);
+  switch (platform) {
+    case 'crunchyroll': {
+      if (!PLATFORMS.crunchyroll.matchesHost(parsed.hostname)) return null;
+      const isSeriesPage = segments.length === 1 || (segments.length === 2 && /^[a-z]{2}(?:-[a-z]{2})?$/.test(segments[0] ?? ''));
+      const linkedSlug = segments.at(-1);
+      return isSeriesPage && linkedSlug !== undefined && !['series', 'watch'].includes(linkedSlug) ? linkedSlug : null;
+    }
+    case 'adn': {
+      if (!PLATFORMS.adn.matchesHost(parsed.hostname)) return null;
+      const index = segments.indexOf('video');
+      const linkedSlug = index === -1 ? undefined : segments[index + 1];
+      // Avec identifiant (/video/{id}-{slug}) : signal fort, traité par linksToOtherSeries
+      return linkedSlug !== undefined && !/^\d+-/.test(linkedSlug) ? linkedSlug : null;
+    }
+    case 'netflix':
+      return null;
+  }
+}
+
+/**
  * Ancien lien sans identifiant vers une AUTRE série de la plateforme : crunchyroll.com/{slug} (ou /{langue}/{slug}),
  * animationdigitalnetwork.fr/video/{slug}, slug différent de celui de la série. Signal faible (slug renommé ou
  * ancienne page par saison possible) : la fiche est écartée, mais la confiance du résultat est plafonnée
@@ -232,32 +264,10 @@ function isSameCrunchyrollSlug(linkedSlug: string, slug: string): boolean {
  */
 export function linksToOtherSeriesBySlug(url: string, platform: StreamingPlatform, seriesSlug: string | null): boolean {
   if (!seriesSlug) return false;
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return false;
-  }
-  const segments = parsed.pathname.toLowerCase().split('/').filter(Boolean);
+  const linkedSlug = legacySeriesSlugInLink(url, platform);
+  if (linkedSlug === null) return false;
   const slug = seriesSlug.toLowerCase();
-  switch (platform) {
-    case 'crunchyroll': {
-      if (!PLATFORMS.crunchyroll.matchesHost(parsed.hostname)) return false;
-      // Page de série de l'ancien site uniquement : /{slug} ou /{langue}/{slug} (pas /{slug}/episode-…, /series/…, /watch/…)
-      const isSeriesPage = segments.length === 1 || (segments.length === 2 && /^[a-z]{2}(?:-[a-z]{2})?$/.test(segments[0] ?? ''));
-      const linkedSlug = segments.at(-1);
-      return isSeriesPage && linkedSlug !== undefined && !['series', 'watch'].includes(linkedSlug) && !isSameCrunchyrollSlug(linkedSlug, slug);
-    }
-    case 'adn': {
-      if (!PLATFORMS.adn.matchesHost(parsed.hostname)) return false;
-      const index = segments.indexOf('video');
-      const linkedSlug = index === -1 ? undefined : segments[index + 1];
-      // Avec identifiant (/video/{id}-{slug}) : signal fort, traité par linksToOtherSeries
-      return linkedSlug !== undefined && !/^\d+-/.test(linkedSlug) && linkedSlug !== slug;
-    }
-    case 'netflix':
-      return false;
-  }
+  return platform === 'crunchyroll' ? !isSameCrunchyrollSlug(linkedSlug, slug) : linkedSlug !== slug;
 }
 
 /** Clé de cache d'une saison : "crunchyroll:GRMG8ZQZR:s24" */

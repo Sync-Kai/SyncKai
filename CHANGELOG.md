@@ -9,6 +9,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 - Un clic sur le titre ou la jaquette d’un anime ouvre sa fiche AniList ou MyAnimeList dans un nouvel onglet, partout où il apparaît : *Sur cette page*, *En cours*, *Dernières synchros*, *À noter*, *Écarts*, et dans le panneau la fiche *En lecture*, ses suites et préquelles et l’*Agenda*. Avec un seul compte connecté, c’est la fiche de ce service ; avec les deux, le nouveau réglage *Fiche ouverte par défaut* (*Réglages › Comptes*, AniList par défaut) choisit, et l’autre service prend le relais si l’anime n’y a pas de fiche connue. *Ouvrir la fiche* du menu ⋯ de *En cours* suit la même règle et nomme le service.
 
+### Corrigé
+
+- Les correspondances enregistrées avant la 2.2.0 qui envoyaient la progression d’une suite publiée à part sur Crunchyroll ou ADN vers la série précédente (Naruto Shippuden vers Naruto, Bleach TYBW vers Bleach…) sont vérifiées sur AniList à la mise à jour et oubliées : elles sont recalculées au prochain épisode. Si AniList ne répond pas, la vérification est retentée au prochain démarrage du navigateur. Une correspondance que SyncKai ne peut pas juger fausse avec certitude est gardée : si une suite reçoit encore la progression de la mauvaise série, utilise *Réglages › Mes données › Correspondances › Oublier*. La progression déjà écrite sur la mauvaise série reste à corriger à la main.
+
 ## [2.2.0] - 2026-10-11
 
 Version fiabilité : après un audit complet de l’extension, ta progression ne recule plus jamais, chaque compte garde ses propres données et les jetons de connexion sont chiffrés.

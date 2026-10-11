@@ -35,6 +35,7 @@ import { enablePanelForSender, resetSidePanel } from './side-panel';
 import { listenContentReinjection } from './content-reinjection';
 import { listenNetflixAccess } from './netflix-access';
 import { runUpdateMigrations } from './update-migrations';
+import { runPendingOtherSeriesPurge } from './sync/mapping-purge';
 
 const log = createLogger('background');
 
@@ -47,9 +48,11 @@ chrome.runtime.onInstalled.addListener((details): void => {
   }
 });
 
-// Le texte du badge n'est pas conservé au redémarrage du navigateur
+// Le texte du badge n'est pas conservé au redémarrage du navigateur. Purge des correspondances restée en échec à la
+// mise à jour (AniList injoignable) : retentée à chaque démarrage, une lecture du stockage sinon.
 chrome.runtime.onStartup.addListener((): void => {
   void refreshReviewBadge();
+  void runPendingOtherSeriesPurge();
 });
 
 // Langue de l'interface (messages d'erreur, notifications) : lue au réveil, attendue avant chaque traitement

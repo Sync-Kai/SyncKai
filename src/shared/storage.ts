@@ -230,6 +230,25 @@ export function deleteMediaMappingsByPrefix(prefix: string): Promise<number> {
   });
 }
 
+/**
+ * Supprime les correspondances jugées fausses après une vérification réseau faite hors verrou : seulement celles dont
+ * la fiche et le libellé n'ont pas changé depuis leur lecture (une correspondance réécrite entre-temps est gardée).
+ * Entrées illisibles conservées (ARCH-15). Retourne le nombre supprimé.
+ */
+export function deleteMediaMappingsIfUnchanged(expected: Readonly<Record<string, Pick<MediaMapping, 'mediaId' | 'seriesLabel'>>>): Promise<number> {
+  return withStorageLock(async () => {
+    const raw = await readRawMappings();
+    const removed = Object.entries(expected).filter(([key, read]) => {
+      const current = raw[key];
+      return isMediaMapping(current) && current.mediaId === read.mediaId && current.seriesLabel === read.seriesLabel;
+    });
+    if (removed.length === 0) return 0;
+    for (const [key] of removed) delete raw[key];
+    await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: raw });
+    return removed.length;
+  });
+}
+
 export function clearMediaMappings(): Promise<void> {
   return withStorageLock(() => chrome.storage.local.remove(STORAGE_KEYS.mediaMappings));
 }
