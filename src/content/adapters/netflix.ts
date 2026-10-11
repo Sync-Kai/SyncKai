@@ -2,6 +2,7 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { createNetflixBridgeClient, type NetflixBridgeClient } from '../netflix/bridge-client';
 import type { NetflixSeasonMetadata, NetflixShowMetadata } from '../netflix/bridge-protocol';
+import { findPlayerVideo } from '../lib/find-video';
 import type { StreamingAdapter } from './adapter';
 import { meaningfulSeasonTitle } from './parsing';
 
@@ -12,7 +13,6 @@ const WATCH_PATH_REGEX = /^\/watch\/(\d{1,12})\/?$/;
 
 const SELECTORS = {
   playerVideo: '.watch-video video',
-  anyVideo: 'video',
 } as const;
 
 export function parseNetflixWatchId(pathname: string): string | null {
@@ -114,9 +114,7 @@ export const netflixAdapter: StreamingAdapter = {
   },
 
   findVideo() {
-    return (
-      document.querySelector<HTMLVideoElement>(SELECTORS.playerVideo) ?? document.querySelector<HTMLVideoElement>(SELECTORS.anyVideo)
-    );
+    return findPlayerVideo(SELECTORS.playerVideo);
   },
 
   // Même requête que loadEpisodeInfo (cache ou requête en vol partagée)

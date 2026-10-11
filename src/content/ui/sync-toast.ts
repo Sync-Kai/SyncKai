@@ -9,6 +9,8 @@ import type { ToastContent, ToastLine, ToastLineTone, ToastVariant } from './toa
 export const PILL_TOAST_MS = 3_000;
 export const SUCCESS_TOAST_MS = 5_000;
 export const ALERT_TOAST_MS = 9_000;
+/** Explication du raccourci « valider l'épisode » quand il n'envoie rien (aucune lecture, pause…) */
+export const NOTICE_TOAST_MS = 5_000;
 /** Toast d'erreur avec "Réessayer" : laissé plus longtemps pour avoir le temps de cliquer */
 export const RETRY_TOAST_MS = 15_000;
 

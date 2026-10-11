@@ -32,6 +32,7 @@ import {
 import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
 import { enablePanelForSender, resetSidePanel } from './side-panel';
+import { listenContentReinjection } from './content-reinjection';
 import { listenNetflixAccess } from './netflix-access';
 import { runUpdateMigrations } from './update-migrations';
 
@@ -246,6 +247,11 @@ if (__SYNCKAI_TARGET__ === 'chrome') {
   chrome.runtime.onInstalled.addListener(resetSidePanel);
   chrome.runtime.onStartup.addListener(resetSidePanel);
 }
+
+// ─── Onglets Crunchyroll / ADN déjà ouverts : script de contenu réinjecté à l'installation et à la mise à jour ───
+// Chrome seulement (comportement de Firefox à la mise à jour non vérifié) : un script orphelin y prévient dès la lecture
+
+if (__SYNCKAI_TARGET__ === 'chrome') listenContentReinjection();
 
 // ─── Netflix (accès optionnel) : scripts enregistrés quand l'accès est accordé, retirés sinon ───
 

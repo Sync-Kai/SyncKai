@@ -22,6 +22,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 ### Corrigé
 
+- La fin de l’épisode est de nouveau détectée quand le lecteur remplace sa vidéo (lecture automatique de l’épisode suivant sur Crunchyroll ou Netflix) ou quand une bande-annonce précède le lecteur dans la page.
+- Un épisode ouvert dans un onglet en arrière-plan, ou dont le lecteur met plus de 30 secondes à apparaître (publicité, avertissement de contenu, connexion lente), est de nouveau suivi dès le début de la lecture.
+- Après une mise à jour de SyncKai, les onglets Crunchyroll et ADN déjà ouverts sont repris tout seuls dans Chrome : l’épisode en cours est synchronisé sans recharger la page. Sinon, l’avertissement *Recharge la page* s’affiche dès l’ouverture de l’épisode ou le début de la lecture, et plus seulement à la fin.
+- SyncKai injoignable à la fin d’un épisode : la bulle propose *Réessayer*. Le raccourci de validation renvoie aussi un épisode qui n’a rien écrit (synchro en pause, série exclue, *À vérifier*, échec).
+- Netflix : plusieurs clics sur *Réessayer* n’envoient plus l’épisode plusieurs fois.
+- Le raccourci de validation (Alt+Maj+S) répond toujours à l’écran : *Aucun épisode en lecture*, *Épisode déjà synchronisé*, *Synchro automatique en pause* ou *Série exclue de la synchronisation*.
 - Les synchros en attente, les cartes *À noter* et *Corriger* d’un compte ne sont plus rejouées sur un autre compte : après une déconnexion (ou un accès révoqué) puis la connexion d’un autre compte AniList ou MyAnimeList, rien de l’ancien compte n’est écrit sur le nouveau, et la part du service déconnecté est retirée de la file.
 - Accès révoqué sur AniList ou MyAnimeList alors qu’aucun autre service n’est connecté : tes vérifications, synchros en attente, notes, liens de séries et agenda sont effacés comme après une déconnexion.
 - Se déconnecter de MyAnimeList quand le token AniList a seulement expiré (*Reconnecter*) n’efface plus tes vérifications, synchros en attente, notes, liens de séries ni l’agenda.

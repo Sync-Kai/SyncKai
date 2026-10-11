@@ -1,15 +1,25 @@
-import { initI18n } from '../i18n';
+import { initI18n, t } from '../i18n';
 import { isContentMessage, type PageMediaResponse } from '../shared/content-messages';
 import { isLivePanelMessage, LIVE_PORT_NAME, type LiveContentMessage } from '../shared/live.types';
 import { createLogger } from '../shared/logger';
 import { sendMessage } from '../shared/messages';
 import type { StreamingAdapter } from './adapters/adapter';
+import { isExtensionContextInvalidated } from './lib/extension-context';
 import { createLiveStream, type LiveStream } from './lib/live-stream';
 import { detectPageMedia } from './lib/page-media';
 import { watchUrl } from './lib/url-watcher';
 import { startWatchSession, type WatchSession } from './lib/watch-session';
+import { NOTICE_TOAST_MS } from './ui/sync-toast';
+import { showToast } from './ui/toast';
 
 const log = createLogger('content');
+
+/**
+ * Émis sur `document` au démarrage d'une instance : les instances orphelines de la page (extension rechargée
+ * ou mise à jour, script réinjecté par le service worker) se retirent. Une instance valide l'ignore, même si
+ * la page l'émet elle-même.
+ */
+const CONTENT_STARTED_EVENT = 'synckai:content-started';
 
 export interface StartContentOptions {
   /** Écouteurs propres à une plateforme, posés une fois l'adapter choisi (ex : historique Crunchyroll) */
@@ -33,6 +43,10 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
     return;
   }
   log.info(`Adapter "${adapter.platform}" chargé (build ${__SYNCKAI_BUILD__})`);
+
+  // Écouteurs DOM de la page : retirés si cette instance devient orpheline et qu'une nouvelle prend le relais
+  const page = new AbortController();
+  document.dispatchEvent(new Event(CONTENT_STARTED_EVENT));
 
   let session: WatchSession | null = null;
   // Progression en direct vers le panneau latéral : rien ne tourne tant qu'aucun panneau n'est connecté
@@ -60,6 +74,7 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
     sendResponse(); // Accusé de réception : le service worker n'attend rien de plus
     if (!session) {
       log.info('Raccourci « valider l’épisode » ignoré : aucune lecture en cours');
+      showToast({ tone: 'info', title: t('content.shortcut.noPlayback.title'), message: t('content.shortcut.noPlayback.message') }, { autoHideMs: NOTICE_TOAST_MS });
       return;
     }
     session.forceComplete();
@@ -68,12 +83,29 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
   listenLivePorts(live);
   options.onAdapter?.(adapter);
   handleUrl(new URL(location.href));
-  watchUrl(handleUrl);
+  const stopWatchingUrl = watchUrl(handleUrl);
+  page.signal.addEventListener('abort', stopWatchingUrl, { once: true });
   announcePanel();
   // Retour arrière depuis le cache (bfcache) : le script ne redémarre pas, mais le panneau a pu être retiré
-  window.addEventListener('pageshow', (event) => {
-    if (event.persisted) announcePanel();
-  });
+  window.addEventListener(
+    'pageshow',
+    (event) => {
+      if (event.persisted) announcePanel();
+    },
+    { signal: page.signal },
+  );
+  // Nouvelle instance après une mise à jour de l'extension : celle-ci, orpheline, s'arrête sans rien afficher
+  document.addEventListener(
+    CONTENT_STARTED_EVENT,
+    () => {
+      if (!isExtensionContextInvalidated()) return;
+      log.info('Extension rechargée : instance orpheline arrêtée, la nouvelle prend le relais');
+      session?.destroy();
+      session = null;
+      page.abort();
+    },
+    { signal: page.signal },
+  );
 }
 
 /**

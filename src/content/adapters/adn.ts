@@ -1,6 +1,7 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
+import { findPlayerVideo } from '../lib/find-video';
 import type { StreamingAdapter } from './adapter';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import {
@@ -34,7 +35,6 @@ const EPISODE_LABEL_REGEX = /(?:^|\s[-–—]\s)(?:Épisode|Episode|Folge)\s+(\d
 // Classes du lecteur video.js d'ADN (plus stables que les classes générées styled-components)
 const SELECTORS = {
   playerVideo: 'video.vjs-tech',
-  anyVideo: 'video',
   seriesTitle: '.vjs-meta-title',
   episodeSubtitle: '.vjs-meta-subtitle',
 } as const;
@@ -219,9 +219,7 @@ export const adnAdapter: StreamingAdapter = {
   },
 
   findVideo() {
-    return (
-      document.querySelector<HTMLVideoElement>(SELECTORS.playerVideo) ?? document.querySelector<HTMLVideoElement>(SELECTORS.anyVideo)
-    );
+    return findPlayerVideo(SELECTORS.playerVideo);
   },
 
   // Pas de données de générique connues chez ADN : complétion au pourcentage (réglable dans les options)

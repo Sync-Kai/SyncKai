@@ -47,7 +47,7 @@ Shows SyncKai's companion side panel (episode being watched, release schedule) o
 ### scripting
 
 ```
-Used only for the optional Netflix support, and only after the user turns it on in Settings and grants access to netflix.com (optional host permission). The service worker then registers SyncKai's two Netflix content scripts with chrome.scripting.registerContentScripts, and runs them once with chrome.scripting.executeScript in Netflix tabs that are already open, so the user does not have to reload them. Both scripts are files of the extension package; no remote code is loaded. If the user turns Netflix off or removes the access, the scripts are unregistered. Without that consent, the scripting API is never used and nothing runs on Netflix.
+Runs only SyncKai's own content scripts, which are files of the extension package; no remote code is loaded. 1) When SyncKai is installed or updated, its Crunchyroll/ADN content script is run once with chrome.scripting.executeScript in Crunchyroll and ADN tabs that are already open, so the episode being watched is still detected without reloading the tab. 2) Optional Netflix support, only after the user turns it on in Settings and grants access to netflix.com (optional host permission): the service worker registers SyncKai's two Netflix content scripts with chrome.scripting.registerContentScripts and runs them once in Netflix tabs that are already open. If the user turns Netflix off or removes the access, the scripts are unregistered and nothing runs on Netflix.
 ```
 
 ### Host permissions

@@ -1,9 +1,9 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SyncOutcome } from '../../shared/sync.types';
 import type { StreamingAdapter } from '../adapters/adapter';
 
-// Session de lecture avec un adapter asynchrone (Netflix) : DOM, toasts, service worker et lecteur simulés.
+// Session de lecture (adapters synchrone et asynchrone) : DOM, toasts, service worker et lecteur simulés.
 
 const toastHandle = vi.hoisted(() => ({ update: vi.fn(), dismiss: vi.fn() }));
 const mocks = vi.hoisted(() => ({
@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   /** Fin de lecture du lecteur simulé (onCompleted du suivi vidéo) */
   completions: [] as (() => void)[],
+  /** <video> suivies, dans l'ordre, avec le signal de leur tracker */
+  tracked: [] as { video: HTMLVideoElement; signal: AbortSignal }[],
   /** Messages warn/error : consignés au journal de diagnostic en production */
   journaled: [] as unknown[][],
 }));
@@ -34,8 +36,9 @@ vi.mock('../../shared/settings', async (importOriginal) => ({
   getSettings: mocks.getSettings,
 }));
 vi.mock('./video-tracker', () => ({
-  trackVideoProgress: (_video: HTMLVideoElement, options: { onCompleted: () => void }) => {
+  trackVideoProgress: (video: HTMLVideoElement, options: { onCompleted: () => void; signal: AbortSignal }) => {
     mocks.completions.push(options.onCompleted);
+    mocks.tracked.push({ video, signal: options.signal });
     return { completionPoint: () => null };
   },
 }));
@@ -43,7 +46,20 @@ vi.mock('./video-tracker', () => ({
 const { DEFAULT_SETTINGS } = await import('../../shared/settings');
 const { startWatchSession } = await import('./watch-session');
 
-const fakeVideo = { id: '', paused: true, duration: Number.NaN, currentTime: 0 } as unknown as HTMLVideoElement;
+/** Fausse <video> : seules les propriétés lues par la session */
+function makeVideo(id = ''): HTMLVideoElement & { isConnected: boolean } {
+  return { id, paused: true, duration: Number.NaN, currentTime: 0, isConnected: true } as unknown as HTMLVideoElement & { isConnected: boolean };
+}
+
+const fakeVideo = makeVideo();
+
+/** Faux `document` : cible des écouteurs capturés (événements média) */
+let doc: EventTarget & { fullscreenElement: null; documentElement: object };
+
+function installDocument(): void {
+  doc = Object.assign(new EventTarget(), { fullscreenElement: null, documentElement: {} });
+  vi.stubGlobal('document', doc);
+}
 
 function episode(showId: string, watchId: string, overrides: Partial<EpisodeInfo> = {}): EpisodeInfo {
   return {
@@ -112,8 +128,11 @@ async function watchToEnd(adapter: StreamingAdapter, watchId: string): Promise<v
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.journaled.length = 0;
+  mocks.tracked.length = 0;
   vi.stubGlobal('chrome', { runtime: { id: 'test' } });
-  vi.stubGlobal('document', { fullscreenElement: null });
+  installDocument();
+  // waitFor (métadonnées absentes du DOM) : MutationObserver simulé, jamais déclenché
+  vi.stubGlobal('MutationObserver', class { observe(): void {} disconnect(): void {} });
   mocks.showToast.mockReturnValue(toastHandle);
   mocks.isExcluded.mockResolvedValue(false);
   mocks.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoSync: true, notificationLevel: 'detailed', completionTrigger: 'percentage' });
@@ -211,9 +230,6 @@ describe('startWatchSession — adapter synchrone (inchangé)', () => {
     const adapter: StreamingAdapter = { ...syncAdapter(episode('X', 'GE002')), extractEpisodeInfo: () => null };
     navigate('/watch/GE002');
     mocks.completions.length = 0;
-    // Sans métadonnées, waitFor observe le DOM : MutationObserver simulé (jamais déclenché)
-    vi.stubGlobal('MutationObserver', class { observe(): void {} disconnect(): void {} });
-    vi.stubGlobal('document', { fullscreenElement: null, documentElement: {} });
     const session = startWatchSession(adapter, 'GE002');
     await flush();
     mocks.completions.at(-1)?.();
@@ -223,5 +239,213 @@ describe('startWatchSession — adapter synchrone (inchangé)', () => {
     // Plateforme d'animes : un épisode non identifié reste une anomalie consignée
     expect(mocks.journaled.length).toBeGreaterThan(0);
     session.destroy();
+  });
+});
+
+/** Adapter synchrone dont le lecteur peut changer pendant la session */
+function playerAdapter(info: EpisodeInfo, player: { current: HTMLVideoElement | null }): StreamingAdapter {
+  return { ...syncAdapter(info), findVideo: () => player.current };
+}
+
+/** Résultat « synchronisé partout » */
+const synced: SyncOutcome = { status: 'synced', mediaTitle: 'Série', results: [] };
+
+/** Action « Réessayer » du dernier toast (bulle créée ou toast de progression mis à jour) */
+function lastRetryAction(): (() => void) | null {
+  const calls = [...mocks.showToast.mock.calls, ...toastHandle.update.mock.calls] as [{ action?: { onClick: () => void } }][];
+  const actions = calls.map(([content]) => content.action).filter((action) => action !== undefined);
+  return actions.at(-1)?.onClick ?? null;
+}
+
+describe('startWatchSession — lecteur suivi (CONT-01, CONT-02)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('<video> détachée puis remplacée : tracker recréé sur la nouvelle, l’ancien annulé', async () => {
+    const info = episode('GRMG8ZQZR', 'GE010', { platform: 'crunchyroll' });
+    const first = makeVideo('first');
+    const player: { current: HTMLVideoElement | null } = { current: first };
+    navigate('/watch/GE010');
+    const session = startWatchSession(playerAdapter(info, player), 'GE010');
+    await flush();
+    expect(mocks.tracked.map((t) => t.video)).toEqual([first]);
+
+    // Lecture automatique : le lecteur détruit sa <video> et en crée une autre, qui charge sa source
+    const second = makeVideo('second');
+    first.isConnected = false;
+    player.current = second;
+    doc.dispatchEvent(new Event('loadstart'));
+    expect(mocks.tracked.map((t) => t.video)).toEqual([first, second]);
+    expect(mocks.tracked[0]?.signal.aborted).toBe(true);
+    expect(mocks.tracked[1]?.signal.aborted).toBe(false);
+
+    // Même lecteur : aucun nouveau tracker
+    doc.dispatchEvent(new Event('play'));
+    expect(mocks.tracked).toHaveLength(2);
+
+    // Remplacé sans événement capté : rattaché à la lecture de la position (panneau ouvert)
+    const third = makeVideo('third');
+    second.isConnected = false;
+    player.current = third;
+    session.snapshot();
+    expect(mocks.tracked.map((t) => t.video)).toEqual([first, second, third]);
+
+    session.destroy();
+    expect(mocks.tracked[2]?.signal.aborted).toBe(true);
+  });
+
+  it('lecteur apparu après 35 s (onglet en arrière-plan) : capté au premier play, épisode envoyé', async () => {
+    vi.useFakeTimers();
+    const info = episode('GRMG8ZQZR', 'GE011', { platform: 'crunchyroll' });
+    const player: { current: HTMLVideoElement | null } = { current: null };
+    const states: string[] = [];
+    mocks.sendMessage.mockResolvedValue(synced);
+    navigate('/watch/GE011');
+    const session = startWatchSession(playerAdapter(info, player), 'GE011');
+    session.onStateChange((state) => states.push(state));
+    await flush();
+    vi.advanceTimersByTime(35_000);
+    await flush();
+    expect(states).toContain('no-video');
+    expect(mocks.tracked).toHaveLength(0);
+
+    player.current = makeVideo('late');
+    doc.dispatchEvent(new Event('play'));
+    expect(mocks.tracked).toHaveLength(1);
+    expect(states.at(-1)).toBe('watching');
+
+    mocks.completions.at(-1)?.();
+    await flush();
+    expect(mocks.sendMessage).toHaveBeenCalledOnce();
+    session.destroy();
+  });
+
+  it('session détruite : plus aucun écouteur capté ni minuteur', async () => {
+    vi.useFakeTimers();
+    const player: { current: HTMLVideoElement | null } = { current: null };
+    navigate('/watch/GE012');
+    const session = startWatchSession(playerAdapter(episode('X', 'GE012', { platform: 'crunchyroll' }), player), 'GE012');
+    await flush();
+    session.destroy();
+    player.current = makeVideo();
+    doc.dispatchEvent(new Event('loadstart'));
+    vi.advanceTimersByTime(60_000);
+    expect(mocks.tracked).toHaveLength(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('startWatchSession — envoi et raccourci (CONT-05, CONT-07, CTRL-07)', () => {
+  it('service worker injoignable : bulle avec « Réessayer », qui renvoie l’épisode', async () => {
+    const info = episode('GRMG8ZQZR', 'GE020', { platform: 'crunchyroll' });
+    mocks.sendMessage.mockRejectedValueOnce(new Error('Aucune réponse du service worker')).mockResolvedValue(synced);
+    await watchToEnd(syncAdapter(info), 'GE020');
+    expect(toastHandle.update).toHaveBeenCalledWith(expect.objectContaining({ tone: 'error' }), expect.anything());
+    const retry = lastRetryAction();
+    expect(retry).not.toBeNull();
+    retry?.();
+    await flush();
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('synchro en pause à la fin de l’épisode, puis réactivée : le raccourci renvoie l’épisode', async () => {
+    const info = episode('GRMG8ZQZR', 'GE021', { platform: 'crunchyroll' });
+    mocks.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoSync: false, completionTrigger: 'percentage' });
+    mocks.sendMessage.mockResolvedValue(synced);
+    navigate('/watch/GE021');
+    const session = startWatchSession(syncAdapter(info), 'GE021');
+    await flush();
+    mocks.completions.at(-1)?.();
+    await flush();
+    expect(mocks.sendMessage).not.toHaveBeenCalled();
+
+    // Raccourci encore en pause : explication à l'écran, rien d'envoyé
+    session.forceComplete();
+    await flush();
+    expect(mocks.sendMessage).not.toHaveBeenCalled();
+    expect(mocks.showToast).toHaveBeenLastCalledWith(expect.objectContaining({ tone: 'info' }), expect.anything());
+
+    mocks.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoSync: true, notificationLevel: 'detailed', completionTrigger: 'percentage' });
+    session.forceComplete();
+    await flush();
+    expect(mocks.sendMessage).toHaveBeenCalledOnce();
+    session.destroy();
+  });
+
+  it('Netflix : clics répétés sur « Réessayer » pendant l’envoi → un seul nouvel envoi', async () => {
+    const info = episode('106', '1061');
+    mocks.sendMessage.mockResolvedValueOnce({ status: 'error', message: 'AniList indisponible' } satisfies SyncOutcome);
+    await watchToEnd(asyncAdapter({ '1061': info }), '1061');
+    expect(mocks.sendMessage).toHaveBeenCalledOnce();
+    const retry = lastRetryAction();
+    expect(retry).not.toBeNull();
+
+    // Envoi en cours (jamais résolu) : sans toast de progression, la bulle reste cliquable
+    mocks.sendMessage.mockReturnValue(new Promise<SyncOutcome>(() => undefined));
+    retry?.();
+    retry?.();
+    retry?.();
+    await flush();
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('raccourci sur un épisode déjà synchronisé : toast explicatif, rien de renvoyé', async () => {
+    const info = episode('GRMG8ZQZR', 'GE022', { platform: 'crunchyroll' });
+    mocks.sendMessage.mockResolvedValue(synced);
+    navigate('/watch/GE022');
+    const session = startWatchSession(syncAdapter(info), 'GE022');
+    await flush();
+    mocks.completions.at(-1)?.();
+    await flush();
+    expect(mocks.sendMessage).toHaveBeenCalledOnce();
+    mocks.showToast.mockClear();
+
+    session.forceComplete();
+    await flush();
+    expect(mocks.sendMessage).toHaveBeenCalledOnce();
+    expect(mocks.showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'success' }), expect.objectContaining({ variant: 'pill' }));
+    session.destroy();
+  });
+
+  it('série ignorée (Netflix) : le raccourci reste silencieux', async () => {
+    mocks.sendMessage.mockResolvedValue({ status: 'ignored' } satisfies SyncOutcome);
+    navigate('/watch/1071');
+    const session = startWatchSession(asyncAdapter({ '1071': episode('107', '1071') }), '1071');
+    await flush();
+    mocks.completions.at(-1)?.();
+    await flush();
+    session.forceComplete();
+    await flush();
+    expect(mocks.sendMessage).toHaveBeenCalledOnce();
+    expect(mocks.showToast).not.toHaveBeenCalled();
+    session.destroy();
+  });
+});
+
+describe('startWatchSession — extension mise à jour (CONT-06)', () => {
+  it('contexte invalidé dès l’ouverture de l’épisode : averti tout de suite, rien n’est suivi', async () => {
+    vi.stubGlobal('chrome', { runtime: {} });
+    const adapter = asyncAdapter({ '1081': episode('108', '1081') });
+    navigate('/watch/1081');
+    startWatchSession(adapter, '1081');
+    await flush();
+    expect(mocks.showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'warning' }), expect.anything());
+    expect(adapter.loadEpisodeInfo).not.toHaveBeenCalled();
+    expect(mocks.tracked).toHaveLength(0);
+  });
+
+  it('extension rechargée pendant la lecture : averti au premier événement média, session arrêtée', async () => {
+    const info = episode('GRMG8ZQZR', 'GE030', { platform: 'crunchyroll' });
+    navigate('/watch/GE030');
+    startWatchSession(syncAdapter(info), 'GE030');
+    await flush();
+    expect(mocks.tracked).toHaveLength(1);
+    expect(mocks.showToast).not.toHaveBeenCalled();
+
+    vi.stubGlobal('chrome', { runtime: {} });
+    doc.dispatchEvent(new Event('play'));
+    expect(mocks.showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'warning' }), expect.anything());
+    expect(mocks.tracked[0]?.signal.aborted).toBe(true);
   });
 });
