@@ -1,6 +1,6 @@
 import type { AniListErrorCode } from './anilist.types';
 import type { Score10 } from './engagement.types';
-import { isEpisodeInfo, isStreamingPlatform, type EpisodeInfo, type StreamingPlatform } from './episode.types';
+import { isEpisodeInfo, isPlatformSeasons, isStreamingPlatform, type EpisodeInfo, type StreamingPlatform } from './episode.types';
 import { isRecord } from './guards';
 import type { Result } from './result';
 import type { CandidateSummary } from './review.types';
@@ -8,7 +8,7 @@ import type { ListStatus } from './sync.types';
 import type { TrackerId } from './tracker.types';
 import type { AiringStatus, NextEpisode } from './watching.types';
 
-// Fiche de la page (#23) : série ou épisode Crunchyroll / ADN ouvert dans l'onglet actif.
+// Fiche de la page (#23) : série ou épisode (Crunchyroll, ADN, Netflix, Disney+) ouvert dans l'onglet actif.
 
 /**
  * Série détectée par le content script sur la page de l'onglet actif.
@@ -29,6 +29,18 @@ export interface PageMediaInfo {
    * "Season 2 · 25 Episodes"). Sert uniquement à signaler une saison AniList douteuse.
    */
   seasonEpisodeCount?: number | null;
+  /**
+   * Plateforme généraliste (Disney+) : la page de série classe la série en anime (genre « Anime »). Absent si la page
+   * ne le dit pas (Crunchyroll, ADN, Netflix). `false` : seul un lien AniList vers la série elle-même la fait suivre.
+   */
+  catalogAnime?: boolean;
+  /** Épisodes par saison de la série sur la plateforme (Netflix), voir EpisodeInfo.platformSeasons */
+  platformSeasons?: number[];
+  /**
+   * Premier épisode, en numérotation absolue, de la saison affichée (arcs de One Piece sur Crunchyroll : « Elbaph
+   * (1156-current) »). Indice de numérotation pour choisir la fiche (One Piece : fiche unique, certaine).
+   */
+  seasonFirstEpisode?: number;
   episode: EpisodeInfo | null;
 }
 
@@ -47,7 +59,7 @@ const isOptionalCount = (v: unknown): v is number | null | undefined =>
 
 export function isPageMediaInfo(value: unknown): value is PageMediaInfo {
   if (!isRecord(value)) return false;
-  const { platform, kind, seriesId, seriesSlug, seriesTitle, seasonNumber, seasonTitle, seasonEpisodeCount, episode } = value;
+  const { platform, kind, seriesId, seriesSlug, seriesTitle, seasonNumber, seasonTitle, seasonEpisodeCount, catalogAnime, platformSeasons, seasonFirstEpisode, episode } = value;
   return (
     isStreamingPlatform(platform) &&
     (kind === 'series' || kind === 'episode') &&
@@ -57,6 +69,9 @@ export function isPageMediaInfo(value: unknown): value is PageMediaInfo {
     isNullableSeason(seasonNumber) &&
     isNullableShortString(seasonTitle) &&
     isOptionalCount(seasonEpisodeCount) &&
+    (catalogAnime === undefined || typeof catalogAnime === 'boolean') &&
+    (platformSeasons === undefined || isPlatformSeasons(platformSeasons)) &&
+    (seasonFirstEpisode === undefined || (typeof seasonFirstEpisode === 'number' && Number.isInteger(seasonFirstEpisode) && seasonFirstEpisode >= 1 && seasonFirstEpisode < 100_000)) &&
     // Une page d'épisode porte toujours son épisode, une page de série jamais
     (kind === 'episode' ? isEpisodeInfo(episode) && episode.platform === platform : episode === null)
   );

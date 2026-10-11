@@ -48,7 +48,12 @@ export interface LiveSyncMessage {
   outcome?: LiveOutcome;
 }
 
-export type LiveContentMessage = LivePageMessage | LiveTickMessage | LiveSyncMessage;
+/** Saison choisie dans le menu d'une page de série (sans changement d'URL) : le panneau relit la page */
+export interface LiveSeasonMessage {
+  type: 'season';
+}
+
+export type LiveContentMessage = LivePageMessage | LiveTickMessage | LiveSyncMessage | LiveSeasonMessage;
 
 /** Panneau → page : demande l'état complet (connexion ou reprise) */
 export interface LiveHelloMessage {
@@ -94,6 +99,8 @@ export function isLiveContentMessage(value: unknown): value is LiveContentMessag
       );
     case 'sync':
       return isLiveState(value.state) && (value.outcome === undefined || isLiveOutcome(value.outcome));
+    case 'season':
+      return true;
     default:
       return false;
   }

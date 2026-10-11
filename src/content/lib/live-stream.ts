@@ -30,6 +30,8 @@ export interface LiveStream {
   notifySync(state: LiveState, outcome?: LiveOutcome): void;
   /** Changement de session (navigation SPA) : identité de page et position relues tout de suite */
   refresh(): void;
+  /** Saison choisie dans le menu d'une page de série : les panneaux relisent la page */
+  notifySeason(): void;
   readonly peerCount: number;
 }
 
@@ -149,6 +151,9 @@ export function createLiveStream(getSnapshot: () => LiveSnapshot | null, interva
       evaluate();
     },
     refresh: evaluate,
+    notifySeason(): void {
+      if (peers.size > 0) broadcast({ type: 'season' });
+    },
     get peerCount(): number {
       return peers.size;
     },

@@ -28,7 +28,7 @@ Features
 • Season matching, including absolute numbering (e.g. One Piece) and seasons split across several entries.
 • "To check": when a match is uncertain, you pick the right entry from the popup. Nothing is sent blindly.
 • "Watching": your series in progress, the next episode's date ("Ep. 5 in 18 h"), +1 / −1, and "Open" on Crunchyroll or ADN (SyncKai remembers the ADN series pages you visit; otherwise "Search on ADN").
-• "On this page": on a Crunchyroll / ADN series or episode page, the AniList entry of what you are watching; add it to your list or change progress, status and score without leaving the page.
+• "On this page": on a series or episode page (Crunchyroll, ADN, and Netflix or Disney+ if turned on), the AniList entry of what you are watching; add it to your list or change progress, status and score without leaving the page.
 • One-click status: put on hold, drop or mark as completed, on AniList and MyAnimeList.
 • Compare AniList ↔ MyAnimeList: spots differences (progress, status, score, missing series) and aligns them in one click, never automatically.
 • Rating at the end of a series (out of 10, converted to your AniList score format) and rewatch support.

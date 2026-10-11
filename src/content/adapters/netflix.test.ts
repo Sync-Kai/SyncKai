@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { reduceNetflixMetadata, type NetflixShowMetadata } from '../netflix/bridge-protocol';
 import { mushokuEpisodeId, mushokuRawResponse } from '../netflix/fixtures';
-import { absoluteEpisodeNumber, creditsStartFromMetadata, episodeInfoFromMetadata, netflixAdapter, parseNetflixWatchId } from './netflix';
+import {
+  absoluteEpisodeNumber,
+  creditsStartFromMetadata,
+  episodeInfoFromMetadata,
+  netflixAdapter,
+  parseNetflixSeriesId,
+  parseNetflixWatchId,
+  pickNetflixSeason,
+  seasonNumberFromLabel,
+  seriesInfoFromMetadata,
+} from './netflix';
 
 const reduced = reduceNetflixMetadata(mushokuRawResponse());
 if (!reduced) throw new Error('fixture invalide');
@@ -32,9 +42,64 @@ describe('getEpisodeId / supportsHost', () => {
     expect(netflixAdapter.supportsHost('notnetflix.com')).toBe(false);
   });
 
-  it('plateforme discrète, pas de page de série', () => {
+  it('plateforme discrète ; hors page de série, aucune lecture du pont', () => {
     expect(netflixAdapter.quiet).toBe(true);
-    expect(netflixAdapter.detectSeries(new URL('https://www.netflix.com/title/80987039'))).toBeNull();
+    expect(netflixAdapter.detectSeries(new URL('https://www.netflix.com/browse'))).toBeNull();
+    expect(netflixAdapter.loadSeries).toBeTypeOf('function');
+  });
+});
+
+describe('parseNetflixSeriesId (pages de série)', () => {
+  it.each([
+    ['/title/80987039', '80987039'],
+    ['/be-fr/title/80987039/', '80987039'],
+    ['/browse?jbv=80987039', '80987039'],
+    ['/search?q=mushoku&jbv=80987039', '80987039'],
+    // Fenêtre de détail d'une autre série ouverte sur une page de série : la fenêtre l'emporte
+    ['/title/80000001?jbv=80987039', '80987039'],
+  ])('%s → %s', (path, id) => {
+    expect(parseNetflixSeriesId(new URL(`https://www.netflix.com${path}`))).toBe(id);
+  });
+
+  it.each(['/browse', '/watch/81402901?jbv=80987039', '/browse?jbv=abc', '/title/', '/title/abc', '/fr/watch/1'])('pas une page de série : %s', (path) => {
+    expect(parseNetflixSeriesId(new URL(`https://www.netflix.com${path}`))).toBeNull();
+  });
+});
+
+describe('seriesInfoFromMetadata (page de série)', () => {
+  it('série à plusieurs saisons, menu « Saison 2 » (libellé localisé) : saison 2, numéros de la lecture (seq)', () => {
+    expect(seriesInfoFromMetadata(MUSHOKU, 'Saison 2')).toEqual({
+      seriesId: '80987039',
+      seriesSlug: null,
+      seriesTitle: 'Mushoku Tensei: Jobless Reincarnation',
+      seasonNumber: 2,
+      seasonTitle: null,
+      seasonEpisodeCount: 25,
+      platformSeasons: [23, 25],
+    });
+  });
+
+  it('menu absent ou illisible : toute la série (saison choisie par la fiche)', () => {
+    expect(seriesInfoFromMetadata(MUSHOKU, null)).toMatchObject({ seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null });
+    expect(seriesInfoFromMetadata(MUSHOKU, 'Épisodes')).toMatchObject({ seasonNumber: null });
+    expect(seriesInfoFromMetadata(MUSHOKU, 'Saison 7')).toMatchObject({ seasonNumber: null });
+  });
+
+  it('une seule saison : retenue sans menu', () => {
+    const single: NetflixShowMetadata = { ...MUSHOKU, seasons: MUSHOKU.seasons.slice(0, 1) };
+    expect(seriesInfoFromMetadata(single, null)).toMatchObject({ seasonNumber: 1, seasonEpisodeCount: 23 });
+  });
+
+  it('film : ni saison ni nombre d’épisodes', () => {
+    expect(seriesInfoFromMetadata(MOVIE, 'Saison 1')).toEqual({ seriesId: '81000001', seriesSlug: null, seriesTitle: 'Suzume', seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null });
+  });
+
+  it('pickNetflixSeason : nom exact de la saison, sinon numéro du libellé', () => {
+    const named: NetflixShowMetadata = { ...MUSHOKU, seasons: MUSHOKU.seasons.map((season, i) => ({ ...season, title: i === 1 ? 'Part 2: The Labyrinth' : season.title })) };
+    expect(pickNetflixSeason(named.seasons, 'part 2: the labyrinth')?.seq).toBe(2);
+    expect(pickNetflixSeason(named.seasons, 'Staffel 1')?.seq).toBe(1);
+    expect(seasonNumberFromLabel('Season 12')).toBe(12);
+    expect(seasonNumberFromLabel('Saison')).toBeNull();
   });
 });
 
@@ -66,6 +131,8 @@ describe('episodeInfoFromMetadata', () => {
       displayedEpisodeNumber: 15,
       episodeTitle: 'Episode 15 title',
       url: 'https://www.netflix.com/watch/81402901',
+      // Épisodes de chaque saison : rapprochement des saisons Netflix avec les fiches AniList
+      platformSeasons: [23, 25],
     });
   });
 

@@ -25,8 +25,9 @@ const ENCRYPTED_TOKENS_IN = '2.2.0';
 
 /**
  * Correspondances Crunchyroll et ADN apprises avant le correctif SYNC-01 : une suite publiée comme une autre série de la
- * plateforme (Naruto Shippuden) a pu être mise en cache vers la série précédente (Naruto). Vérifiées sur le catalogue
- * AniList, une seule fois (voir mapping-purge.ts).
+ * plateforme (Naruto Shippuden) a pu être mise en cache vers la série précédente (Naruto). Correspondances Netflix de la
+ * même époque vers une suite (Ranma1/2 : saison 1 envoyée sur la saison 3). Vérifiées sur le catalogue AniList, une seule
+ * fois (voir mapping-purge.ts).
  */
 const OTHER_SERIES_MAPPINGS_FIXED_IN = '2.3.0';
 

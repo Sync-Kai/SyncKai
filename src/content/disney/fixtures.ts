@@ -128,3 +128,132 @@ export const PLAY_PAGE_VIDEOS: readonly { className: string; paused: boolean; cu
   { className: 'btm-media-client-element', paused: true, currentTime: 0, duration: Number.NaN, videoWidth: 0, readyState: 0 },
   { className: 'hive-video', paused: false, currentTime: 23, duration: Number.POSITIVE_INFINITY, videoWidth: 1280, readyState: 4 },
 ];
+
+// ─── Page de série (relevée le 2026-10-11, compte belge, profil fr-FR) ───────
+// `GET disney.api.edge.bamgrid.com/explore/v1.21/page/entity-{uuid}` (XMLHttpRequest du site), page /fr-fr/browse/entity-{uuid}.
+// Forme réelle, champs utiles conservés ; images, descriptions et infoBlock retirés, quelques champs à écarter ajoutés.
+
+/** Undead Unluck : uuid de l'entité (URL /browse/entity-{uuid}, `partnerFeed.evaSeriesEntityId`) */
+export const UNDEAD_UNLUCK_ENTITY_ID = '9a14d04d-01f2-40d0-be62-a6c8ffe24137';
+/** Saison 1 (24 épisodes, `focus` de la page) et arc « Winter Arc » (1 épisode, aucun épisode dans la page) */
+export const UNDEAD_UNLUCK_S1_ID = 'ce983a33-c432-4579-80e0-f7afade9c484';
+export const WINTER_ARC_SEASON_ID = 'dd2dc681-e151-483c-ad6f-4ea876e27e53';
+
+export function seriesPageUrl(entityId: string, version = '21'): string {
+  return `https://disney.api.edge.bamgrid.com/explore/v1.${version}/page/entity-${entityId}?enhancedContainersLimit=15&limit=15`;
+}
+
+export function seasonUrl(seasonId: string, version = '21'): string {
+  return `https://disney.api.edge.bamgrid.com/explore/v1.${version}/season/${seasonId}?limit=15&offset=0`;
+}
+
+/** Épisode de la liste des saisons (forme réelle des `items`) */
+function seasonItem(season: number, episode: number, internalSeason = season): Record<string, unknown> {
+  const id = `539f8e74-65f6-4c6e-a689-${String(episode).padStart(12, '0')}`;
+  return {
+    type: 'view',
+    id,
+    actions: [
+      {
+        type: 'playback',
+        availId: `eaccaafa-cf43-4d6a-b85f-${String(episode).padStart(12, '0')}`,
+        deeplinkId: id,
+        partnerFeed: { evaSeriesEntityId: UNDEAD_UNLUCK_ENTITY_ID, dmcContentId: 'd2ec3225-0000-4000-8000-000000000000' },
+        internalTitle: `Undead Unluck - s${internalSeason}e${episode} - mediaId:1986b4d2-f9b8-4382-8059-${String(episode).padStart(12, '0')}`,
+      },
+    ],
+    visuals: { title: 'Undead Unluck', episodeTitle: `Épisode ${episode}`, seasonNumber: String(season), episodeNumber: String(episode), durationMs: 1459917 },
+  };
+}
+
+interface SeriesPageOptions {
+  entityId?: string;
+  title?: string;
+  genres?: string[];
+  /** Sans titre interne (actions et épisodes) : titre anglais inconnu */
+  internalTitles?: boolean;
+}
+
+/** Réponse brute de la page de série Undead Unluck (`{ data: { page } }`) */
+export function undeadUnluckSeriesPage({ entityId = UNDEAD_UNLUCK_ENTITY_ID, title = 'Undead Unluck', genres = ['Action et aventure', 'Animation', 'Anime', 'Science-fiction', 'Fantastique'], internalTitles = true }: SeriesPageOptions = {}): Record<string, unknown> {
+  const strip = (item: Record<string, unknown>): Record<string, unknown> => (internalTitles ? item : { ...item, actions: [] });
+  return {
+    data: {
+      page: {
+        type: 'page',
+        id: `entity-${entityId}`,
+        deeplinkId: `entity-${entityId}`,
+        visuals: {
+          title,
+          featuredTitle: 'S1:E1 Undead et Unluck',
+          description: { full: 'Description à ne jamais transmettre' },
+          artwork: { standard: { tile: { '1.78': { imageId: 'abc' } } } },
+          metastringParts: { genres: { values: genres }, releaseYearRange: { startYear: '2023', endYear: '2025' }, seasonsAvailable: '2 saisons' },
+        },
+        actions: internalTitles
+          ? [
+              {
+                type: 'playback',
+                availId: 'eaccaafa-cf43-4d6a-b85f-f9add5b6cf41',
+                deeplinkId: '539f8e74-65f6-4c6e-a689-c91d125b6c61',
+                partnerFeed: { evaSeriesEntityId: entityId },
+                internalTitle: 'Undead Unluck - s1e1 - mediaId:1986b4d2-f9b8-4382-8059-e067b887c911',
+                resumeToken: 'jeton-à-ne-jamais-transmettre',
+              },
+            ]
+          : [],
+        containers: [
+          {
+            type: 'episodes',
+            focus: { seasonId: UNDEAD_UNLUCK_S1_ID, itemId: '539f8e74-65f6-4c6e-a689-c91d125b6c61' },
+            seasons: [
+              {
+                type: 'season',
+                id: UNDEAD_UNLUCK_S1_ID,
+                visuals: { name: 'Saison 1', episodeCountDisplayText: '24 épisodes' },
+                pagination: { hasMore: true, currentOffset: 0, totalCount: 24 },
+                items: Array.from({ length: 15 }, (_, i) => strip(seasonItem(1, i + 1))),
+              },
+              {
+                type: 'season',
+                id: WINTER_ARC_SEASON_ID,
+                visuals: { name: 'Undead Unluck: Winter Arc', episodeCountDisplayText: '1 épisode' },
+                pagination: { hasMore: true, currentOffset: 0, totalCount: 1 },
+                items: [],
+              },
+            ],
+          },
+          {
+            type: 'set',
+            visuals: { name: 'SUGGESTIONS' },
+            items: [{ type: 'view', actions: [{ type: 'playback', internalTitle: 'Summer Time Rendering - s1e1 - mediaId:3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b' }] }],
+          },
+          { type: 'details', visuals: { title, genres: { values: genres } } },
+        ],
+      },
+    },
+  };
+}
+
+/**
+ * Réponse `season/{id}` de l'arc (forme NON relevée, supposée `{ data: { season } }` avec les mêmes épisodes que la page) :
+ * titre interne « s99e1 » (arc).
+ */
+export function winterArcSeasonResponse(): Record<string, unknown> {
+  return {
+    data: {
+      season: {
+        type: 'season',
+        id: WINTER_ARC_SEASON_ID,
+        visuals: { name: 'Undead Unluck: Winter Arc' },
+        pagination: { hasMore: false, currentOffset: 0, totalCount: 1 },
+        items: [{ ...seasonItem(1, 1, 99), visuals: { title: 'Undead Unluck', episodeTitle: 'Undead Unluck: Winter Arc', episodeNumber: '1' } }],
+      },
+    },
+  };
+}
+
+/** Série qui n'est pas un anime (genres sans « Anime ») */
+export function nonAnimeSeriesPage(): Record<string, unknown> {
+  return undeadUnluckSeriesPage({ entityId: '11111111-2222-4333-8444-000000000001', title: 'Andor', genres: ['Science-fiction', 'Action et aventure'], internalTitles: false });
+}

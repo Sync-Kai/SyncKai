@@ -149,9 +149,9 @@ describe('purgeOtherSeriesMappings', () => {
     );
   });
 
-  it('fiches demandées une seule fois, par lots de 50, sur la file de fond ; Netflix et clés par titre ignorées', async () => {
+  it('fiches demandées une seule fois, par lots de 50, sur la file de fond ; clés par titre ignorées', async () => {
     const mappings: Record<string, MediaMapping> = {
-      'netflix:80987039:s1': mapping(1),
+      'disney:title:undead unluck:s1': mapping(1),
       'crunchyroll:title:frieren:s1': mapping(2),
     };
     for (let id = 1000; id < 1120; id++) mappings[`crunchyroll:GR${id}:s1`] = mapping(id, `Série ${id} · S1`);
@@ -215,9 +215,23 @@ describe('purgeOtherSeriesMappings', () => {
   });
 
   it('aucune correspondance vérifiable : aucune requête', async () => {
-    fake.local.seed({ [STORAGE_KEYS.mediaMappings]: { 'netflix:80987039:s1': mapping(1) } });
+    fake.local.seed({ [STORAGE_KEYS.mediaMappings]: { 'disney:title:undead unluck:s1': mapping(1), 'adn:title:tougen anki:s1': mapping(2) } });
     expect(await purgeOtherSeriesMappings()).toBe(0);
     expect(api.getAnimeByIds).not.toHaveBeenCalled();
+  });
+});
+
+describe('purgeOtherSeriesMappings — Netflix (série en plusieurs saisons, Ranma1/2)', () => {
+  it('correspondance vers une suite (saison 3 retenue pour la saison 1) : oubliée ; vers une 1re saison : gardée', async () => {
+    const sequelOf = (id: number, prequel: number): AniListMedia => ({ ...media(id), relations: [{ relationType: 'PREQUEL', id: prequel, type: 'ANIME', format: 'TV' }] });
+    api.getAnimeByIds.mockImplementation(async (ids) =>
+      ids.flatMap((id) => (id === 209872 ? [sequelOf(209872, 185731)] : id === 178533 ? [{ ...media(178533), relations: [{ relationType: 'SEQUEL', id: 185731, type: 'ANIME', format: 'TV' }] }] : [])),
+    );
+    fake.local.seed({
+      [STORAGE_KEYS.mediaMappings]: { 'netflix:81171925:s1': mapping(209872, 'Ranma1/2 · S1'), 'netflix:80000001:s1': mapping(178533, 'Autre · S1') },
+    });
+    expect(await purgeOtherSeriesMappings()).toBe(1);
+    expect(Object.keys(storedMappings())).toEqual(['netflix:80000001:s1']);
   });
 });
 

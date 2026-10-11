@@ -35,6 +35,11 @@ describe('fiche du panneau : lecture partielle et suivi en direct', () => {
     expect(pageKey(pageMediaFromEpisode(fromDom))).not.toBe(pageKey(pageMediaFromEpisode(complete)));
   });
 
+  it('saison choisie dans le menu d’une page de série : page relue, comme une navigation', () => {
+    expect(shouldRedetect(pageMediaFromEpisode(complete), { type: 'season' })).toBe(true);
+    expect(shouldRedetect(null, { type: 'season' })).toBe(true);
+  });
+
   it('synchro terminée : page relue (la fiche arrive par le cache de l’onglet)', () => {
     expect(shouldRedetect(pageMediaFromEpisode(complete), { type: 'synced' })).toBe(true);
     expect(shouldRedetect(pageMediaFromEpisode(fromDom), { type: 'synced' })).toBe(true);

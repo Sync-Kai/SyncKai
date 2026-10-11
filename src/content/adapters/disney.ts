@@ -1,8 +1,13 @@
 import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
+import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createDisneyBridgeClient, type DisneyBridgeClient } from '../disney/bridge-client';
-import { hasDisneyId, type DisneyPlayerExperience } from '../disney/bridge-protocol';
+import { hasDisneyId, parseInternalTitle, type DisneyPlayerExperience, type DisneySeason, type DisneySeriesPage } from '../disney/bridge-protocol';
+import { watchElementText } from '../lib/season-watch';
 import type { PlaybackTime, StreamingAdapter } from './adapter';
+import { meaningfulSeasonTitle } from './parsing';
+
+export { parseInternalTitle, type DisneyInternalTitle } from '../disney/bridge-protocol';
 
 const log = createLogger('disney');
 
@@ -12,6 +17,8 @@ const log = createLogger('disney');
  * /fr-fr/play/539f8e74-65f6-4c6e-a689-c91d125b6c61?contextId=… (availId eaccaafa-…).
  */
 const PLAY_PATH_REGEX = /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?play\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+/** Page de série : /{langue}/browse/entity-{uuid} (langue facultative). Relevé le 2026-10-11 : /fr-fr/browse/entity-9a14d04d-… */
+const ENTITY_PATH_REGEX = /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?browse\/entity-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
 
 const SELECTORS = {
   /**
@@ -25,40 +32,28 @@ const SELECTORS = {
   progressHost: 'progress-bar',
   /** Plage de la barre : aria-valuenow (s écoulées), aria-valuemax (durée en s) */
   progressRange: '.progress-bar__seekable-range',
+  /**
+   * Bouton du menu des saisons d'une page de série, dans le DOM de la page (relevé le 2026-10-11 sur Undead Unluck, arc
+   * choisi) : `<button data-testid="dropdown-button" aria-haspopup="listbox">Undead Unluck: Winter Arc</button>`. Son
+   * texte est le nom de la saison choisie (`visuals.name` de la réponse de la page).
+   */
+  seasonButton: 'button[data-testid="dropdown-button"][aria-haspopup="listbox"]',
+  /** Repli si ce bouton change : élément ouvrant une liste ou un menu (retenu seulement s'il est visible et sans ambiguïté) */
+  seasonToggle: 'button[aria-haspopup], [role="combobox"]',
 } as const;
 
 export function parseDisneyPlayId(pathname: string): string | null {
   return PLAY_PATH_REGEX.exec(pathname)?.[1]?.toLowerCase() ?? null;
 }
 
+/** uuid de l'entité d'une page de série /browse/entity-{uuid} (minuscules), sinon null */
+export function parseDisneyEntityId(pathname: string): string | null {
+  return ENTITY_PATH_REGEX.exec(pathname)?.[1]?.toLowerCase() ?? null;
+}
+
 const playUrl = (urlId: string): string => `https://www.disneyplus.com/play/${urlId}`;
 
-// ─── Titre interne et sous-titre ──────────────────────────────────────────
-
-export type DisneyInternalTitle = { kind: 'episode'; series: string; season: number; episode: number } | { kind: 'movie'; title: string };
-
-/**
- * « Undead Unluck - s1e1 - mediaId:{uuid} » → série (anglais, quelle que soit la langue du profil), saison, épisode.
- * Ancré sur la fin : le titre de la série peut lui-même contenir « - » (« Disney Twisted-Wonderland: The Animation -
- * Episode of Heartslabyul »). Sans « sNeN » : film (« Suzume - mediaId:{uuid} »).
- */
-const INTERNAL_EPISODE = /^(.+?)\s+-\s+s(\d{1,3})e(\d{1,4})\s+-\s+mediaId:[0-9a-f-]{36}$/i;
-const INTERNAL_MOVIE = /^(.+?)\s+-\s+mediaId:[0-9a-f-]{36}$/i;
-const EPISODE_CODE = /(?:^|\s)s\d{1,3}e\d{1,4}(?:\s|$)/i;
-
-export function parseInternalTitle(internalTitle: string | null): DisneyInternalTitle | null {
-  if (!internalTitle) return null;
-  const episode = INTERNAL_EPISODE.exec(internalTitle);
-  if (episode) {
-    const [, series = '', season, number] = episode;
-    const title = series.trim();
-    return title ? { kind: 'episode', series: title, season: Number(season), episode: Number(number) } : null;
-  }
-  // Repère « sNeN » présent mais forme illisible : ni épisode ni film
-  if (EPISODE_CODE.test(internalTitle)) return null;
-  const title = INTERNAL_MOVIE.exec(internalTitle)?.[1]?.trim();
-  return title ? { kind: 'movie', title } : null;
-}
+// ─── Sous-titre ───────────────────────────────────────────────────────────
 
 /**
  * Repère d'épisode du sous-titre localisé : « S1:E1 Titre », « Undead Unluck: Winter Arc : E1 Titre » (fr : espace
@@ -126,6 +121,120 @@ export function episodeInfoFromPlayerExperience(entry: DisneyPlayerExperience, u
     displayedEpisodeNumber: episode,
     episodeTitle: episodeTitleFromSubtitle(entry.subtitle, episode),
   };
+}
+
+// ─── Page de série ────────────────────────────────────────────────────────
+
+/** Genre « Anime » (libellé identique en français, anglais et allemand ; casse et accents ignorés) */
+export function hasAnimeGenre(genres: readonly string[]): boolean {
+  return genres.some((genre) => genre.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase() === 'anime');
+}
+
+/** Libellé comparable : casse, espaces multiples et espace avant les deux-points (typographie française) ignorés */
+const labelKey = (text: string): string => text.replace(/\s+/g, ' ').replace(/ :/g, ':').trim().toLowerCase();
+
+/** Élément du DOM lu pour le menu des saisons (Element en production, faux élément dans les tests) */
+export interface MenuElement {
+  textContent: string | null;
+  getClientRects(): { length: number };
+}
+
+/** Racine de recherche (document en production) */
+export interface MenuRoot {
+  querySelectorAll(selectors: string): Iterable<MenuElement>;
+}
+
+/**
+ * Saisons désignées par un élément : celles dont le nom est exactement son texte affiché (`innerText`, sans le texte
+ * masqué) ou son `textContent`
+ */
+function seasonsNamedBy(element: MenuElement, seasons: readonly DisneySeason[]): string[] {
+  const rendered: unknown = Reflect.get(element, 'innerText');
+  const labels = new Set([rendered, element.textContent].flatMap((text) => (typeof text === 'string' && text.length <= 200 ? [labelKey(text)] : [])));
+  return seasons.filter((season) => season.name !== null && labels.has(labelKey(season.name))).map((season) => season.id);
+}
+
+/** Identifiant de la seule saison désignée par ces éléments, null si aucune ou plusieurs */
+function onlySeason(elements: Iterable<MenuElement>, seasons: readonly DisneySeason[], limit = 200): string | null {
+  const matched = new Set<string>();
+  let read = 0;
+  for (const element of elements) {
+    if (++read > limit) break;
+    for (const id of seasonsNamedBy(element, seasons)) matched.add(id);
+  }
+  return matched.size === 1 ? ([...matched][0] ?? null) : null;
+}
+
+/**
+ * Saison choisie dans le menu des saisons, relue à chaque demande (le site ne change pas l'URL) : texte du bouton du
+ * menu (`seasonButton`), sinon d'un bouton ouvrant un menu, VISIBLE, qui désigne une seule saison. null si rien ne
+ * désigne une saison sans ambiguïté (la dernière requête `season/{id}`, puis `focus`, prennent le relais).
+ */
+export function seasonFromMenu(root: MenuRoot, seasons: readonly DisneySeason[]): { id: string; source: 'menu' | 'generic' } | null {
+  const button = onlySeason(root.querySelectorAll(SELECTORS.seasonButton), seasons);
+  if (button) return { id: button, source: 'menu' };
+  const visible = [...root.querySelectorAll(SELECTORS.seasonToggle)].filter((element) => element.getClientRects().length > 0);
+  const generic = onlySeason(visible, seasons);
+  return generic ? { id: generic, source: 'generic' } : null;
+}
+
+/**
+ * Saison affichée sur la page de série : la seule saison ; sinon celle du menu des saisons (`menuSeasonId`, lu dans le
+ * DOM) ; sinon la dernière demandée par le site (`season/{id}`) ; sinon celle affichée au chargement (`focus`) ; sinon null.
+ */
+export function pickDisneySeason(page: DisneySeriesPage, menuSeasonId: string | null): DisneySeason | null {
+  const { seasons } = page;
+  if (seasons.length === 1) return seasons[0] ?? null;
+  for (const id of [menuSeasonId, page.selectedSeasonId, page.focusSeasonId]) {
+    const season = id !== null ? seasons.find((s) => s.id === id) : undefined;
+    if (season) return season;
+  }
+  return null;
+}
+
+/** « Saison 2 », « Staffel 10 » (nom générique) → 2, 10 */
+const numberInName = (name: string): number | null => {
+  const match = /\d{1,3}/.exec(name);
+  return match ? Number(match[0]) : null;
+};
+
+/**
+ * Page de série Disney+ : uuid de l'entité (série), titre anglais (titre interne des épisodes, sinon titre localisé),
+ * genre « Anime » (inconnu sans genre), saison affichée. Mêmes règles que la lecture : numérotation par saison, arc
+ * (saison 99) désigné par son nom (fiche AniList distincte), arc sans nom lisible : saison spéciale (0). Saison dont aucun
+ * épisode n'a été lu : numéro du nom générique (« Saison 2 »), sinon son nom (« … Winter Arc »).
+ */
+export function seriesInfoFromDisneyPage(page: DisneySeriesPage, season: DisneySeason | null): SeriesPageInfo {
+  const internal = parseInternalTitle(page.internalTitle);
+  const base = {
+    seriesId: page.entityId,
+    seriesSlug: null,
+    seriesTitle: internal?.kind === 'episode' ? internal.series : (internal?.title ?? page.title),
+    ...(page.genres.length > 0 ? { catalogAnime: hasAnimeGenre(page.genres) } : {}),
+  };
+  if (!season) return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null };
+  const named = meaningfulSeasonTitle(season.name);
+  const seasonEpisodeCount = season.episodeCount;
+  if (season.seasonNumber === DISNEY_ARC_SEASON) return { ...base, seasonNumber: named ? DISNEY_ARC_SEASON : 0, seasonTitle: named, seasonEpisodeCount };
+  if (season.seasonNumber !== null) return { ...base, seasonNumber: season.seasonNumber, seasonTitle: null, seasonEpisodeCount };
+  return { ...base, seasonNumber: named || !season.name ? null : numberInName(season.name), seasonTitle: named, seasonEpisodeCount };
+}
+
+/** Page de série affichée, avec la saison choisie au moment de la demande (menu relu à chaque appel, rien en cache) */
+function seriesInfo(page: DisneySeriesPage): SeriesPageInfo {
+  const menu = page.seasons.length > 1 ? seasonFromMenu(document, page.seasons) : null;
+  const season = pickDisneySeason(page, menu?.id ?? null);
+  const info = seriesInfoFromDisneyPage(page, season);
+  // Diagnostic (build de développement seulement : retiré du script publié, budget de taille)
+  if (__SYNCKAI_DEBUG__) {
+    const buttons = [...document.querySelectorAll(SELECTORS.seasonButton)].map((element) => `« ${element.textContent?.trim() ?? ''} »`);
+    log.debug(`Menu des saisons : bouton ${buttons.join(', ') || 'introuvable'} ; saisons ${page.seasons.map((s) => `« ${s.name ?? '?'} »`).join(', ')}`);
+    const origin = menu ? (menu.source === 'menu' ? 'menu' : 'menu (repli)') : season?.id === page.selectedSeasonId ? 'requête season' : season?.id === page.focusSeasonId ? 'focus' : 'seule saison';
+    log.debug(
+      `Page de série « ${info.seriesTitle} » (${page.entityId}, genres : ${page.genres.join(', ') || '?'}) : ${season ? `saison « ${season.name ?? '?'} » (${origin}) → S${info.seasonNumber ?? '?'}${info.seasonTitle ? ` « ${info.seasonTitle} »` : ''}` : 'saison non déterminée'}`,
+    );
+  }
+  return info;
 }
 
 // ─── Lecteur ──────────────────────────────────────────────────────────────
@@ -312,7 +421,7 @@ function reportProgressHost(found: boolean): void {
   if (hostReports.key !== key) hostReports = { key, seen: new Set() };
   if (hostReports.seen.has(found)) return;
   hostReports.seen.add(found);
-  log.debug(found ? 'Barre de progression du lecteur trouvée' : 'Barre de progression du lecteur introuvable pour l’instant');
+  if (__SYNCKAI_DEBUG__) log.debug(found ? 'Barre de progression du lecteur trouvée' : 'Barre de progression du lecteur introuvable pour l’instant');
 }
 
 /** Dernier lecteur signalé (diagnostic : « trouvé » / « introuvable » journalisé à chaque changement) */
@@ -341,29 +450,46 @@ export const disneyAdapter: StreamingAdapter = {
   },
 
   async loadEpisodeInfo(episodeId, signal) {
-    log.debug(`Page de lecture Disney+ : identifiant de l’URL ${episodeId}`);
+    if (__SYNCKAI_DEBUG__) log.debug(`Page de lecture Disney+ : identifiant de l’URL ${episodeId}`);
     const entry = await bridge().load(episodeId, signal, urlChangedAt(episodeId));
     if (!entry) {
       // Onglet ouvert avant l'activation ou la mise à jour : la requête du site a précédé le pont (épisode suivant suivi)
-      if (!signal.aborted) log.debug(`Aucune fiche Disney+ pour ${episodeId} : vidéo non suivie`);
+      if (__SYNCKAI_DEBUG__ && !signal.aborted) log.debug(`Aucune fiche Disney+ pour ${episodeId} : vidéo non suivie`);
       return null;
     }
-    // Pas un anime, ou titre interne illisible : rien de journalisé hors debug (catalogue généraliste)
+    // Pas un anime, ou titre interne illisible : rien de journalisé hors debug (catalogue généraliste ; messages retirés du
+    // script publié, budget de taille)
     const episode = episodeInfoFromPlayerExperience(entry, episodeId);
+    if (!__SYNCKAI_DEBUG__) return episode;
     if (episode) log.debug(`Anime retenu (langue originale ${entry.originalLanguage ?? '?'}) : « ${episode.animeTitle} » S${episode.seasonNumber ?? '?'} E${episode.seasonEpisodeNumber ?? '?'}`);
     else if (!isJapaneseOriginal(entry)) log.debug(`Pas un anime (langue originale ${entry.originalLanguage ?? 'inconnue'}) : vidéo ${episodeId} ignorée`);
     else log.debug(`Titre interne illisible (« ${entry.internalTitle ?? ''} », ${entry.programType ?? '?'}) : vidéo ${episodeId} non suivie`);
     return episode;
   },
 
-  // Pages de série Disney+ (/browse/entity-…) non gérées : Disney+ reste limité aux pages de lecture
-  detectSeries() {
-    return null;
+  // Synchrone : lecture du cache rempli par le pont (réponse `page/entity-{uuid}` du site)
+  detectSeries(url) {
+    const entityId = parseDisneyEntityId(url.pathname);
+    const page = entityId ? bridge().peekPage(entityId) : null;
+    return page ? seriesInfo(page) : null;
+  },
+
+  // Bouton du menu des saisons (son texte est la saison choisie)
+  watchSeason(url, onChange) {
+    return parseDisneyEntityId(url.pathname) ? watchElementText(SELECTORS.seasonButton, onChange) : null;
+  },
+
+  async loadSeries(url, signal) {
+    const entityId = parseDisneyEntityId(url.pathname);
+    if (!entityId) return null;
+    const page = await bridge().loadPage(entityId, signal);
+    if (__SYNCKAI_DEBUG__ && !page) log.debug(`Aucune page de série reçue du pont pour l’entité ${entityId}`);
+    return page ? seriesInfo(page) : null;
   },
 
   findVideo() {
     const video = chooseDisneyVideo(document);
-    if (video !== reportedVideo) {
+    if (__SYNCKAI_DEBUG__ && video !== reportedVideo) {
       reportedVideo = video;
       log.debug(
         video

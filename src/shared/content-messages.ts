@@ -13,6 +13,13 @@ export { CR_HISTORY_PORT_NAME, isCrHistoryPortMessage, isCrHistoryRequest, type 
  */
 export type ContentMessage = { type: 'FORCE_COMPLETE' } | { type: 'GET_PAGE_MEDIA' };
 
+/**
+ * Délai maximal de la réponse asynchrone du script de contenu à GET_PAGE_MEDIA : page de série Netflix / Disney+, dont
+ * les métadonnées arrivent du pont du monde MAIN. Au-delà, il répond null (rien sur cette page). Les écrans attendent un
+ * peu plus (ui/page-media-request.ts). Crunchyroll et ADN répondent aussitôt (lecture du DOM).
+ */
+export const PAGE_MEDIA_ASYNC_TIMEOUT_MS = 3_000;
+
 /** Réponse du content script à GET_PAGE_MEDIA : null hors page de série / d'épisode reconnue */
 export type PageMediaResponse = PageMediaInfo | null;
 

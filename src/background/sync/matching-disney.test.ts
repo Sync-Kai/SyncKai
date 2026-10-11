@@ -10,8 +10,8 @@ const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }))
 vi.mock('../../shared/storage', () => storage);
 vi.mock('../api/media', () => api);
 
-const { resolveEpisode } = await import('./resolver');
-const { hasSeriesTitle, isTitleBoundLink, mappingKey, matchDisneyLink, matchPlatformLink } = await import('./matching');
+const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
+const { disneyEntityInLink, hasSeriesTitle, isDisneyEntityLink, isTitleBoundLink, mappingKey, matchDisneyLink, matchPlatformLink, platformLinkVerdict } = await import('./matching');
 
 setLocale('fr');
 
@@ -171,5 +171,51 @@ describe('resolveEpisode — Disney+', () => {
     const { result } = await resolveEpisode(episode);
     expect(result).toMatchObject({ ok: true, target: { mediaId: 185000, progress: 1, confidence: 'high' } });
     expect(storage.saveMediaMapping).toHaveBeenCalledWith('disney:title:undead unluck winter arc:s99', expect.objectContaining({ mediaId: 185000 }));
+  });
+});
+
+// ─── Page de série (/browse/entity-{uuid}) : uuid de l'entité connu ───────
+
+describe('page de série Disney+ : lien vers l’entité', () => {
+  const ENTITY = '5e2c1a3b-0000-4000-8000-0123456789ab';
+  const OTHER_ENTITY_LINK = 'https://www.disneyplus.com/browse/entity-00000000-0000-4000-8000-000000000000';
+
+  it('disneyEntityInLink / isDisneyEntityLink : uuid de /browse/entity-{uuid} (préfixe de langue, casse ignorés)', () => {
+    expect(disneyEntityInLink(ENTITY_LINK)).toBe(ENTITY);
+    expect(disneyEntityInLink(ENTITY_LINK.toUpperCase().replace('HTTPS://WWW.DISNEYPLUS.COM', 'https://www.disneyplus.com'))).toBe(ENTITY);
+    expect(disneyEntityInLink(LEGACY_LINK)).toBeNull();
+    expect(disneyEntityInLink(`https://evil.example/browse/entity-${ENTITY}`)).toBeNull();
+    expect(isDisneyEntityLink(ENTITY_LINK, ENTITY)).toBe(true);
+    expect(isDisneyEntityLink(ENTITY_LINK, null)).toBe(false);
+    expect(isDisneyEntityLink(OTHER_ENTITY_LINK, ENTITY)).toBe(false);
+  });
+
+  it('matchDisneyLink : lien vers une autre entité refusé sur la page de série, accepté en lecture (uuid inconnu)', () => {
+    expect(matchDisneyLink(OTHER_ENTITY_LINK, ENTITY)).toBeNull();
+    expect(matchDisneyLink(OTHER_ENTITY_LINK)).toBe('id');
+    expect(matchDisneyLink(ENTITY_LINK, ENTITY)).toBe('id');
+    expect(matchDisneyLink(LEGACY_LINK, ENTITY)).toBe('id');
+  });
+
+  it('fiche liée à l’entité : saison de la série même sans titre identique (titre localisé ou différent)', async () => {
+    searchResults({ 'Time Shadows': [media({ id: 1, titles: ['Summer Time Rendering', 'Summertime Render'], externalLinkUrls: [ENTITY_LINK] })] });
+    const { candidates, seasons } = await findSeriesSeasons({ platform: 'disney', seriesId: ENTITY, seriesSlug: null, animeTitle: 'Time Shadows', seasonTitle: null });
+    expect(candidates.map((c) => c.link)).toEqual(['id']);
+    expect(seasons.map((m) => m.id)).toEqual([1]);
+    expect(platformLinkVerdict({ platform: 'disney', animeTitle: 'Time Shadows' }, candidates)).toBe('linked');
+  });
+
+  it('fiche au même titre liée à une AUTRE entité : non rattachée ; même fiche en lecture (sans uuid) : rattachée par le titre', async () => {
+    searchResults({ Ishura: [media({ id: 2, titles: ['Ishura'], externalLinkUrls: [OTHER_ENTITY_LINK] })] });
+    const series = await findSeriesSeasons({ platform: 'disney', seriesId: ENTITY, seriesSlug: null, animeTitle: 'Ishura', seasonTitle: null });
+    expect(series.candidates.map((c) => c.link)).toEqual([null]);
+    expect(platformLinkVerdict({ platform: 'disney', animeTitle: 'Ishura' }, series.candidates)).toBe('title');
+    const playback = await findSeriesSeasons({ platform: 'disney', seriesId: null, seriesSlug: null, animeTitle: 'Ishura', seasonTitle: null });
+    expect(playback.candidates.map((c) => c.link)).toEqual(['id']);
+  });
+
+  it('platformLinkVerdict : rien de lié ni au même titre → none ; plateforme spécialisée → open', () => {
+    expect(platformLinkVerdict({ platform: 'disney', animeTitle: 'Andor' }, [{ id: 3, format: 'TV', episodes: 12, startDate: null, titles: ['Ishura'], link: null }])).toBe('none');
+    expect(platformLinkVerdict({ platform: 'crunchyroll', animeTitle: 'Andor' }, [])).toBe('open');
   });
 });

@@ -58,6 +58,29 @@ describe('parseCrunchyrollSeasonLabel', () => {
     expect(parseCrunchyrollSeasonLabel('Staffel 2')).toEqual({ number: 2, title: null });
   });
 
+  it('saison spéciale sans numéro (« Special », relevé le 2026-10-11 sur « I Got a Cheat Skill… ») : titre de saison seul', () => {
+    expect(parseCrunchyrollSeasonLabel('Special')).toEqual({ number: null, title: 'Special' });
+    expect(parseCrunchyrollSeasonLabel('SpecialSpecial')).toEqual({ number: null, title: 'Special' });
+    expect(parseCrunchyrollSeasonLabel('Specials')).toEqual({ number: null, title: 'Special' });
+    expect(parseCrunchyrollSeasonLabel('Spécial')).toEqual({ number: null, title: 'Special' });
+    expect(parseCrunchyrollSeasonLabel('Spezial')).toEqual({ number: null, title: 'Special' });
+    expect(parseCrunchyrollSeasonLabel('OVA')).toEqual({ number: null, title: 'OVA' });
+    expect(parseCrunchyrollSeasonLabel('Movie')).toEqual({ number: null, title: 'Movie' });
+    // Autres textes des éléments voisins du menu : jamais une saison
+    for (const text of ['Options', 'Newest', 'Special Edition Trailer', 'E1 - The Legendary Dragon—Awakens']) expect(parseCrunchyrollSeasonLabel(text)).toBeNull();
+  });
+
+  it('arc de One Piece avec sa plage d’épisodes absolus (relevé le 2026-10-11 : « Elbaph (1156-current) »)', () => {
+    expect(parseCrunchyrollSeasonLabel('Elbaph (1156-current)')).toEqual({ number: null, title: 'Elbaph', firstEpisode: 1156 });
+    expect(parseCrunchyrollSeasonLabel('Egghead (1086-1155)')).toEqual({ number: null, title: 'Egghead', firstEpisode: 1086 });
+    expect(parseCrunchyrollSeasonLabel('Elbaph (1156–actuel)')).toEqual({ number: null, title: 'Elbaph', firstEpisode: 1156 });
+    expect(parseCrunchyrollSeasonLabel('Elbaph (1156-aktuell)')).toEqual({ number: null, title: 'Elbaph', firstEpisode: 1156 });
+    expect(parseCrunchyrollSeasonLabel('Elbaph (1156-)')).toEqual({ number: null, title: 'Elbaph', firstEpisode: 1156 });
+    expect(parseCrunchyrollSeasonLabel('S43: Elbaph (1156-current)')).toEqual({ number: 43, title: 'Elbaph', firstEpisode: 1156 });
+    // Parenthèse sans plage d'épisodes : pas un libellé de saison à elle seule
+    expect(parseCrunchyrollSeasonLabel('Elbaph (VF)')).toBeNull();
+  });
+
   it('lit le libellé répété du sélecteur réel ("Season 1Season 1")', () => {
     expect(parseCrunchyrollSeasonLabel('Season 1Season 1')).toEqual({ number: 1, title: null });
     expect(parseCrunchyrollSeasonLabel('Season 12Season 12')).toEqual({ number: 12, title: null });

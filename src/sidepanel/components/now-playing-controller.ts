@@ -53,12 +53,16 @@ export function createNowPlayingController(onChange: () => void): NowPlayingCont
     if (shouldRedetect('page' in content ? content.page : null, event)) void ctl.redetect(false);
   });
 
-  /** Épisode de la fiche à suivre en direct (page de lecture uniquement, réglage actif) */
+  /**
+   * Port vers la page : épisode de la fiche à suivre en direct (page de lecture, réglage actif), ou page de série (saison
+   * choisie dans le menu de la page, quel que soit le réglage : aucune progression n'y est affichée)
+   */
   const liveTarget = (): LiveTarget | null => {
-    if (!liveEnabled) return null;
     const { content } = ctl;
     const page = 'page' in content ? content.page : null;
-    return tabId !== null && page?.kind === 'episode' && page.episode ? { tabId, episodeId: page.episode.episodeId } : null;
+    if (tabId === null || !page) return null;
+    if (page.kind === 'series') return { tabId, episodeId: null };
+    return liveEnabled && page.episode ? { tabId, episodeId: page.episode.episodeId } : null;
   };
 
   const loadSettings = (): void => {

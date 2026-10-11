@@ -4,7 +4,7 @@ import { platformSeriesUrl } from '../shared/platform-links';
 import type { CandidateSummary } from '../shared/review.types';
 import type { ListStatus, MediaMapping } from '../shared/sync.types';
 import type { PlatformLink } from '../shared/watching.types';
-import { mappingKey } from './sync/matching';
+import { mappingKey, type PlatformLinkVerdict } from './sync/matching';
 
 // Règles pures de la fiche de la page (#23) : choix de la saison affichée. Testables sans API.
 
@@ -14,9 +14,29 @@ export interface SeasonChoice {
   confidence: 'certain' | 'uncertain';
 }
 
-/** Préfixe des clés de correspondance d'une série, toutes saisons : "crunchyroll:GRMG8ZQZR:" */
+/**
+ * Préfixe des clés de correspondance d'une série, toutes saisons : "crunchyroll:GRMG8ZQZR:". Disney+ : par titre
+ * ("disney:title:undead unluck:"), comme les clés de la lecture (aucun identifiant de série sur la page de lecture),
+ * même si la page de série connaît l'uuid de l'entité.
+ */
 export function seriesMappingPrefix(page: Pick<PageMediaInfo, 'platform' | 'seriesId' | 'seriesTitle'>): string {
-  return mappingKey({ platform: page.platform, seriesId: page.seriesId, animeTitle: page.seriesTitle, seasonNumber: 0 }).replace(/s0$/, '');
+  const seriesId = page.platform === 'disney' ? null : page.seriesId;
+  return mappingKey({ platform: page.platform, seriesId, animeTitle: page.seriesTitle, seasonNumber: 0 }).replace(/s0$/, '');
+}
+
+/**
+ * Filtre « anime » d'une page de série (plateforme généraliste : Netflix, Disney+), mêmes règles que la lecture :
+ * - `open` : plateforme spécialisée, fiche liée à la série (lien plateforme, suite/préquelle), ou lien AniList vers
+ *   l'entité de la page elle-même (`ownLink`, Disney+ : certain même sans genre « Anime ») ;
+ * - `title` : fiches au titre de la série seulement : saison toujours à vérifier ;
+ * - `ignored` : rien de lié ni au même titre, ou série classée hors anime par la page (Disney+ sans genre « Anime »)
+ *   sans lien vers l'entité : rien à afficher (NOT_TRACKED).
+ */
+export function seriesPageGate(page: Pick<PageMediaInfo, 'catalogAnime'>, verdict: PlatformLinkVerdict, ownLink: boolean): 'open' | 'title' | 'ignored' {
+  if (verdict === 'open' || ownLink) return 'open';
+  if (page.catalogAnime === false) return 'ignored';
+  if (verdict === 'linked') return 'open';
+  return verdict === 'title' ? 'title' : 'ignored';
 }
 
 /**

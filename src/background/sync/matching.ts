@@ -42,7 +42,12 @@ export interface MediaCandidate {
   startDate: number | null;
   titles: string[];
   link: LinkKind;
+  /** Suite d'une fiche série (relation PREQUEL vers une fiche TV / ONA) : jamais la 1re saison de la franchise */
+  hasPrequel?: boolean;
 }
+
+/** Écart toléré entre le nombre d'épisodes d'une saison de la plateforme et celui d'AniList (épisode 0, récapitulatif…) */
+const SEASON_COUNT_TOLERANCE = 2;
 
 export type EpisodeNumbers = Pick<
   EpisodeInfo,
@@ -136,19 +141,68 @@ export function matchNetflixLink(url: string, seriesId: string | null): LinkKind
   return match?.[1] === seriesId ? 'id' : null;
 }
 
-/**
- * Lien Disney+ (source « Disney Plus » d'AniList, toutes formes : /series/{slug}/{id}, /browse/entity-{uuid}…) :
- * la page de lecture ne donne aucun identifiant de série, le lien prouve seulement que la fiche est sur Disney+.
- * Retenu comme lien de la série uniquement si un titre de la fiche est celui de la série (voir isTitleBoundLink).
- */
-export function matchDisneyLink(url: string): LinkKind {
+/** Lien Disney+ vers une page de série : /browse/entity-{uuid}, éventuellement précédé de la langue */
+const DISNEY_ENTITY_PATH = /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?browse\/entity-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+
+/** uuid de l'entité d'un lien Disney+ /browse/entity-{uuid} (minuscules), null pour une autre forme ou un autre site */
+export function disneyEntityInLink(url: string): string | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     return null;
   }
-  return PLATFORMS.disney.matchesHost(parsed.hostname) ? 'id' : null;
+  if (!PLATFORMS.disney.matchesHost(parsed.hostname)) return null;
+  return DISNEY_ENTITY_PATH.exec(parsed.pathname)?.[1]?.toLowerCase() ?? null;
+}
+
+/** Ancien lien Disney+ vers une série : /series/{slug}/{id}, éventuellement précédé de la langue */
+const DISNEY_LEGACY_SERIES_PATH = /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?series\/[^/]+\/([a-z0-9]{6,20})\/?$/i;
+
+/**
+ * Série Disney+ désignée par un lien AniList : « series:{id} » (ancien lien /series/{slug}/{id}) ou « entity:{uuid} »
+ * (/browse/entity-{uuid}). Deux liens de même forme et de clés différentes désignent deux séries Disney+ distinctes ;
+ * deux formes différentes ne se comparent pas. null pour une autre forme ou un autre site.
+ */
+export function disneySeriesKey(url: string): string | null {
+  const entity = disneyEntityInLink(url);
+  if (entity) return `entity:${entity}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!PLATFORMS.disney.matchesHost(parsed.hostname)) return null;
+  const id = DISNEY_LEGACY_SERIES_PATH.exec(parsed.pathname)?.[1];
+  return id ? `series:${id.toLowerCase()}` : null;
+}
+
+/**
+ * Lien de la fiche vers la série Disney+ elle-même (page de série : `seriesId` = uuid de l'entité) : correspondance
+ * certaine, sans condition de titre. Faux sur une page de lecture (aucun identifiant de série).
+ */
+export function isDisneyEntityLink(url: string, seriesId: string | null): boolean {
+  return seriesId !== null && disneyEntityInLink(url) === seriesId.toLowerCase();
+}
+
+/**
+ * Lien Disney+ (source « Disney Plus » d'AniList, toutes formes : /series/{slug}/{id}, /browse/entity-{uuid}…) :
+ * la page de lecture ne donne aucun identifiant de série, le lien prouve seulement que la fiche est sur Disney+.
+ * Retenu comme lien de la série uniquement si un titre de la fiche est celui de la série (voir isTitleBoundLink), ou
+ * s'il désigne l'entité de la page de série (isDisneyEntityLink). Page de série : un lien vers une AUTRE entité ne
+ * rattache pas la fiche (sans l'exclure pour autant : une saison peut être publiée comme série à part).
+ */
+export function matchDisneyLink(url: string, seriesId: string | null = null): LinkKind {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!PLATFORMS.disney.matchesHost(parsed.hostname)) return null;
+  const entity = seriesId !== null ? disneyEntityInLink(url) : null;
+  return entity !== null && entity !== seriesId?.toLowerCase() ? null : 'id';
 }
 
 /**
@@ -188,7 +242,7 @@ const LINK_MATCHERS: Record<StreamingPlatform, LinkMatcher> = {
     matchCrunchyrollEpisodeLink(url, episodeId) ? 'episode' : matchCrunchyrollLink(url, seriesId, seriesSlug),
   adn: (url, seriesId, seriesSlug) => matchAdnLink(url, seriesId, seriesSlug),
   netflix: (url, seriesId) => matchNetflixLink(url, seriesId),
-  disney: (url) => matchDisneyLink(url),
+  disney: (url, seriesId) => matchDisneyLink(url, seriesId),
 };
 
 /**
@@ -380,11 +434,13 @@ function walkSeasons(seasons: MediaCandidate[], startIndex: number, episode: num
 /** Titre (normalisé) terminé par un mot de spécial : « … season 5 ova », « … specials », « … recap » */
 const SPECIAL_TITLE_END = / (?:ovas?|oads?|specials?|recaps?)$/;
 
+/** ONA titrée comme un spécial (« My Hero Academia Season 5 OVA ») : pas une saison, elle décalerait les suivantes */
+const isSpecialTitled = (c: Pick<MediaCandidate, 'titles'>): boolean => c.titles.some((title) => SPECIAL_TITLE_END.test(normalizeTitle(title)));
+
 export function seasonPool(candidates: readonly MediaCandidate[], animeTitle: string): MediaCandidate[] {
   // Fiche liée à une autre série de la plateforme (préquelle Naruto de Naruto Shippuden) : jamais une saison
   const formats = candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format) && !isOtherSeries(c));
-  // ONA titrée comme un spécial (« My Hero Academia Season 5 OVA ») : pas une saison, elle décalerait les suivantes
-  const regular = formats.filter((c) => !c.titles.some((title) => SPECIAL_TITLE_END.test(normalizeTitle(title))));
+  const regular = formats.filter((c) => !isSpecialTitled(c));
   const seasons = (regular.length > 0 ? regular : formats).sort(byStartDate);
   const linked = seasons.filter(isLinked);
   if (linked.length > 0) return linked;
@@ -754,22 +810,141 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
  * 2. sinon, des fiches au titre de la série → correspondance jamais fiable (carte « à vérifier »), échec inchangé ;
  * 3. sinon → série ignorée (probablement pas un anime : ni carte de vérification ni toast).
  */
+/**
+ * Verdict du filtre « anime » d'une plateforme généraliste : `open` (plateforme spécialisée, rien à filtrer), `linked`
+ * (fiche liée à la série), `title` (fiches au titre de la série seulement : jamais fiable), `none` (série ignorée).
+ */
+export type PlatformLinkVerdict = 'open' | 'linked' | 'title' | 'none';
+
+// ─── Saisons de la plateforme ↔ fiches AniList de la franchise ────────────
+
+/**
+ * Saisons de la série sur la plateforme (épisodes par saison, Netflix) rapprochées des fiches AniList de la franchise,
+ * quand AniList lie certaines saisons à un AUTRE titre de la plateforme (Ranma1/2 : saisons 1 et 2 liées à
+ * /title/81301833, saison 3 à /title/81171925, la série affichée) : ces fiches sont marquées `other` et la saison 3
+ * resterait seule (« Fiche unique », épisodes de la saison 1 envoyés sur la saison 3).
+ * Franchise : fiches séries (TV, TV court, ONA, hors spéciaux) reliées par suite / préquelle aux fiches liées
+ * directement (`id`), dans l'ordre de diffusion, regroupées par saison (parties « Part 2 », voir groupSeasons).
+ * Alignement retenu si les saisons 1..S de la plateforme correspondent à S groupes consécutifs, à ±2 épisodes près
+ * (dernière saison : en cours de diffusion, moins d'épisodes ou total AniList inconnu), qui contiennent toutes les fiches
+ * liées directement, et qu'un seul départ convient. Retourne les fiches des saisons alignées, null sinon (rien ne change :
+ * une suite publiée à part, Naruto pour Naruto Shippuden, ne s'aligne pas sur les épisodes de la plateforme).
+ */
+export function alignPlatformSeasons(
+  platformSeasons: readonly number[],
+  candidates: readonly MediaCandidate[],
+  neighbors: ReadonlyMap<number, readonly number[]>,
+): number[] | null {
+  const count = platformSeasons.length;
+  const byId = new Map(candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format) && !isSpecialTitled(c)).map((c) => [c.id, c]));
+  const directIds = new Set([...byId.values()].filter((c) => c.link === 'id').map((c) => c.id));
+  if (count === 0 || directIds.size === 0) return null;
+
+  const chain = new Map<number, MediaCandidate>();
+  const queue = [...directIds];
+  for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+    const candidate = byId.get(id);
+    if (!candidate || chain.has(id)) continue;
+    chain.set(id, candidate);
+    queue.push(...(neighbors.get(id) ?? []));
+  }
+  const groups = groupSeasons([...chain.values()].sort(byStartDate));
+  const total = (group: readonly MediaCandidate[]): number | null =>
+    group.every((c) => c.episodes !== null) ? group.reduce((sum, c) => sum + (c.episodes ?? 0), 0) : null;
+  const fitsFrom = (start: number): boolean =>
+    platformSeasons.every((episodes, i) => {
+      const group = groups[start + i];
+      const anilist = group ? total(group) : null;
+      if (!group) return false;
+      if (i === count - 1) return anilist === null || episodes <= anilist + SEASON_COUNT_TOLERANCE;
+      return anilist !== null && Math.abs(anilist - episodes) <= SEASON_COUNT_TOLERANCE;
+    });
+  const coversLinked = (start: number): boolean => groups.every((group, index) => (index >= start && index < start + count) || !group.some((c) => directIds.has(c.id)));
+  const starts = Array.from({ length: Math.max(0, groups.length - count + 1) }, (_, start) => start).filter((start) => fitsFrom(start) && coversLinked(start));
+  const [start] = starts;
+  if (starts.length !== 1 || start === undefined) return null;
+  return groups.slice(start, start + count).flatMap((group) => group.map((c) => c.id));
+}
+
+/**
+ * Plateforme généraliste : fiche retenue seule saison de la série (« Fiche unique ») alors qu'elle est la suite d'une
+ * autre fiche série et que rien ne montre qu'elle couvre toutes les saisons de la plateforme. Le choix devient à
+ * vérifier : une saison 1 pourrait sinon être envoyée sur la saison 3 (voir alignPlatformSeasons).
+ * - Nombre d'épisodes connu : doute s'il est inférieur au total des saisons de la plateforme (ou total inconnu) ; une
+ *   fiche qui les couvre toutes (Naruto Shippuden, 500 épisodes) reste certaine.
+ * - Fiche en cours de diffusion (épisodes inconnus) : doute seulement si une autre fiche série de la recherche est
+ *   sortie avant elle (saison précédente possible : Ranma1/2 2024 et sa 2e saison avant la 3e). One Piece (1999), dont
+ *   la « préquelle » MONSTERS (ONA, 2024) est sortie après, reste certaine.
+ */
+export function singleEntryDoubt(
+  episode: Pick<EpisodeInfo, 'platform' | 'animeTitle' | 'platformSeasons'>,
+  candidates: readonly MediaCandidate[],
+  mediaId: number,
+): boolean {
+  if (!PLATFORMS[episode.platform].linkRequired) return false;
+  const pool = seasonPool(candidates, episode.animeTitle);
+  const [only] = pool;
+  if (pool.length !== 1 || only?.id !== mediaId || only.hasPrequel !== true) return false;
+  const seasons = episode.platformSeasons;
+  if (seasons !== undefined && seasons.length <= 1) return false;
+  return !spansPlatformSeasons(only, candidates, seasons);
+}
+
+/**
+ * La fiche couvre-t-elle toutes les saisons de la plateforme ? Épisodes connus : au moins leur total (±2) ; total
+ * inconnu : non. En cours de diffusion (épisodes inconnus) : oui, sauf si une autre fiche série de la recherche est
+ * sortie avant elle (saison précédente possible).
+ */
+function spansPlatformSeasons(only: MediaCandidate, candidates: readonly MediaCandidate[], seasons: readonly number[] | undefined): boolean {
+  if (only.episodes === null) {
+    const start = only.startDate;
+    return start !== null && !candidates.some((c) => c.id !== only.id && c.format !== null && SERIES_FORMATS.has(c.format) && !isSpecialTitled(c) && c.startDate !== null && c.startDate < start);
+  }
+  if (seasons === undefined) return false;
+  return only.episodes + SEASON_COUNT_TOLERANCE >= seasons.reduce((sum, value) => sum + value, 0);
+}
+
+/**
+ * Page de série d'une plateforme dont la série compte plusieurs saisons (Netflix : arcs de One Piece) rattachée à UNE
+ * fiche AniList liée directement à la série, qui couvre toutes ces saisons (voir spansPlatformSeasons) : la fiche est
+ * la série entière, certaine quelle que soit la saison affichée (« Saison 40 mais une seule fiche » n'est pas un doute ici).
+ */
+export function representsWholeShow(
+  page: { animeTitle: string; platformSeasons?: readonly number[] | undefined },
+  candidates: readonly MediaCandidate[],
+  mediaId: number,
+): boolean {
+  const seasons = page.platformSeasons;
+  if (seasons === undefined || seasons.length < 2) return false;
+  const pool = seasonPool(candidates, page.animeTitle);
+  const [only] = pool;
+  return pool.length === 1 && only?.id === mediaId && only.link === 'id' && spansPlatformSeasons(only, candidates, seasons);
+}
+
+export function platformLinkVerdict(episode: Pick<EpisodeInfo, 'platform' | 'animeTitle'>, candidates: readonly MediaCandidate[]): PlatformLinkVerdict {
+  if (!PLATFORMS[episode.platform].linkRequired) return 'open';
+  if (candidates.some(isLinked)) return 'linked';
+  const animeKey = normalizeTitle(episode.animeTitle);
+  const isTitleMatch = seasonPool(candidates, episode.animeTitle).length > 0 || candidates.some((c) => c.titles.some((title) => normalizeTitle(title) === animeKey));
+  return isTitleMatch ? 'title' : 'none';
+}
+
 export function gateByPlatformLink(
-  episode: Pick<EpisodeInfo, 'platform' | 'animeTitle'>,
+  episode: Pick<EpisodeInfo, 'platform' | 'animeTitle' | 'platformSeasons'>,
   candidates: readonly MediaCandidate[],
   result: ResolveResult,
 ): ResolveResult {
-  if (!PLATFORMS[episode.platform].linkRequired) return result;
-  if (candidates.some(isLinked)) {
+  const verdict = platformLinkVerdict(episode, candidates);
+  if (verdict === 'open') return result;
+  if (verdict === 'linked') {
     if (!result.ok || result.target.confidence !== 'high') return result;
     const { mediaId } = result.target;
+    const platform = PLATFORMS[episode.platform].label;
+    if (singleEntryDoubt(episode, candidates, mediaId)) return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformSeasonsSingle', { platform }) } };
     if (candidates.some((c) => c.id === mediaId && isLinked(c))) return result;
     return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformUnlinkedEntry', { platform: PLATFORMS[episode.platform].label }) } };
   }
-
-  const animeKey = normalizeTitle(episode.animeTitle);
-  const isTitleMatch = seasonPool(candidates, episode.animeTitle).length > 0 || candidates.some((c) => c.titles.some((title) => normalizeTitle(title) === animeKey));
-  if (isTitleMatch) {
+  if (verdict === 'title') {
     return result.ok ? { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformTitleOnly', { platform: PLATFORMS[episode.platform].label }) } } : result;
   }
   return ignoredResult(episode);

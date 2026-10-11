@@ -8,14 +8,18 @@ import {
   encodeDisneyPortOffer,
   encodeDisneyPush,
   reduceDisneyPlayerExperience,
+  reduceDisneySeriesPage,
   type DisneyPlayerExperience,
+  type DisneySeriesPage,
 } from './bridge-protocol';
 import {
   nonAnimeEpisode,
   SEEN_AT,
   UNDEAD_UNLUCK_S1E1_AVAIL_ID,
   UNDEAD_UNLUCK_S1E1_PLAY_ID,
+  UNDEAD_UNLUCK_ENTITY_ID,
   undeadUnluckS1E1,
+  undeadUnluckSeriesPage,
   WINTER_ARC_E1_AVAIL_ID,
   winterArcE1,
 } from './fixtures';
@@ -54,6 +58,8 @@ afterEach(() => {
 interface FakeBridge {
   /** Fiches poussées à chaque client connecté (et instantané pour les suivants) */
   push(...entries: DisneyPlayerExperience[]): void;
+  /** Pages de série poussées à chaque client connecté */
+  pushPages(...pages: DisneySeriesPage[]): void;
   handshakes: number;
 }
 
@@ -76,6 +82,9 @@ function setup(options: { bridge?: boolean; seen?: DisneyPlayerExperience[]; for
     push(...entries) {
       seen.push(...entries);
       for (const port of ports) port.postMessage(encodeDisneyPush({ v: V, entries }));
+    },
+    pushPages(...pages) {
+      for (const port of ports) port.postMessage(encodeDisneyPush({ v: V, entries: [], pages }));
     },
   };
   if (options.bridge !== false) {
@@ -230,5 +239,33 @@ describe('createDisneyBridgeClient — pont et sécurité', () => {
     await delay(5);
     bridge.push({ ...S1E1, ids: ['pas-un-uuid'] });
     expect(await pending).toBeNull();
+  });
+});
+
+describe('createDisneyBridgeClient — pages de série', () => {
+  const PAGE = reduceDisneySeriesPage(undeadUnluckSeriesPage(), UNDEAD_UNLUCK_ENTITY_ID, SEEN_AT);
+  if (!PAGE) throw new Error('fixture invalide');
+
+  it('page arrivée après la demande : attendue puis servie, puis lue en cache (casse de l’uuid ignorée)', async () => {
+    const { client, bridge } = setup();
+    const loading = client.loadPage(UNDEAD_UNLUCK_ENTITY_ID.toUpperCase(), signal());
+    await delay(10);
+    bridge.pushPages(PAGE);
+    expect(await loading).toEqual(PAGE);
+    expect(client.peekPage(UNDEAD_UNLUCK_ENTITY_ID)).toEqual(PAGE);
+    // Saison choisie ensuite : la page mise à jour remplace la précédente
+    bridge.pushPages({ ...PAGE, selectedSeasonId: PAGE.focusSeasonId });
+    await delay(10);
+    expect(client.peekPage(UNDEAD_UNLUCK_ENTITY_ID)?.selectedSeasonId).toBe(PAGE.focusSeasonId);
+  });
+
+  it('aucune page (délai de l’appelant) : null à l’annulation ; pont absent : null sans attendre', async () => {
+    const controller = new AbortController();
+    const loading = setup().client.loadPage(UNDEAD_UNLUCK_ENTITY_ID, controller.signal);
+    await delay(20);
+    controller.abort();
+    expect(await loading).toBeNull();
+    expect(await setup({ bridge: false }).client.loadPage(UNDEAD_UNLUCK_ENTITY_ID, signal())).toBeNull();
+    expect(await setup().client.loadPage('x', signal())).toBeNull();
   });
 });

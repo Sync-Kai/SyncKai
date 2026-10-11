@@ -8,6 +8,7 @@ import {
   pickPartInGroup,
   rememberedSeason,
   seriesMappingPrefix,
+  seriesPageGate,
   toPageSeasons,
 } from './page-media-rules';
 import type { CandidateSummary } from '../shared/review.types';
@@ -19,6 +20,26 @@ describe('seriesMappingPrefix', () => {
   it('reprend le format des clés de correspondance (toutes saisons)', () => {
     expect(seriesMappingPrefix({ platform: 'crunchyroll', seriesId: 'GRMG8ZQZR', seriesTitle: 'One Piece' })).toBe('crunchyroll:GRMG8ZQZR:');
     expect(seriesMappingPrefix({ platform: 'adn', seriesId: null, seriesTitle: 'Tougen Anki' })).toBe('adn:title:tougen anki:');
+  });
+
+  it('Netflix : par série (clés de la lecture `netflix:{showId}:s{seq}`) ; Disney+ : par titre, même avec l’uuid de l’entité', () => {
+    expect(seriesMappingPrefix({ platform: 'netflix', seriesId: '80987039', seriesTitle: 'Mushoku Tensei' })).toBe('netflix:80987039:');
+    expect(seriesMappingPrefix({ platform: 'disney', seriesId: '9a14d04d-01f2-40d0-be62-a6c8ffe24137', seriesTitle: 'Undead Unluck' })).toBe('disney:title:undead unluck:');
+  });
+});
+
+describe('seriesPageGate (filtre « anime » d’une page de série)', () => {
+  it.each<[string, Parameters<typeof seriesPageGate>, ReturnType<typeof seriesPageGate>]>([
+    ['plateforme spécialisée', [{}, 'open', false], 'open'],
+    ['fiche liée', [{}, 'linked', false], 'open'],
+    ['titre seul', [{}, 'title', false], 'title'],
+    ['rien', [{}, 'none', false], 'ignored'],
+    ['lien vers l’entité, hors anime', [{ catalogAnime: false }, 'none', true], 'open'],
+    ['hors anime, fiche liée par le titre', [{ catalogAnime: false }, 'linked', false], 'ignored'],
+    ['hors anime, titre seul', [{ catalogAnime: false }, 'title', false], 'ignored'],
+    ['anime, titre seul', [{ catalogAnime: true }, 'title', false], 'title'],
+  ])('%s', (_label, args, expected) => {
+    expect(seriesPageGate(...args)).toBe(expected);
   });
 });
 

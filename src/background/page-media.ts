@@ -30,11 +30,13 @@ import {
   pickPartInGroup,
   rememberedSeason,
   seriesMappingPrefix,
+  seriesPageGate,
   toPageSeasons,
   type SeasonChoice,
 } from './page-media-rules';
-import { mappingFromManualChoice, mappingKey, resolveTarget, seasonLabel } from './sync/matching';
-import { findSeriesSeasons, resolveEpisode, toCandidateSummary } from './sync/resolver';
+import { isSeriesIgnored, rememberIgnoredSeries } from './sync/ignored-series';
+import { isDisneyEntityLink, mappingFromManualChoice, mappingKey, platformLinkVerdict, representsWholeShow, resolveTarget, seasonLabel, singleEntryDoubt } from './sync/matching';
+import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from './sync/resolver';
 import { fromAniListScore, fromMalScore } from './sync/score';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
@@ -141,24 +143,52 @@ async function resolveEpisodePage(
   return first ? { mediaId: first.id, source: 'page', confidence: 'uncertain', seasons, episodeProgress: null } : null;
 }
 
-/** Page de série : saison lue sur la page, correspondance mémorisée, puis première saison non terminée */
-async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Promise<Resolution | null> {
-  const query = { platform: page.platform, seriesId: page.seriesId, seriesSlug: page.seriesSlug, animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle };
-  const { candidates, seasons, others, seasonGroups } = await findSeriesSeasons(query);
+/**
+ * Page de série : filtre « anime » des plateformes généralistes (Netflix, Disney+ : mêmes règles que la lecture, verdict
+ * « série ignorée » mémorisé et partagé avec elle), puis choix de la saison (pickSeriesSeason). Correspondance par le
+ * titre seul : saison toujours à vérifier.
+ */
+async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Promise<Resolution | typeof IGNORED | null> {
+  const series = { platform: page.platform, seriesId: page.seriesId, animeTitle: page.seriesTitle };
+  const linkRequired = PLATFORMS[page.platform].linkRequired;
+  if (linkRequired && manual === null && (await isSeriesIgnored(series))) {
+    log.info('Page de série déjà ignorée (verdict mémorisé) :', page.seriesTitle);
+    return IGNORED;
+  }
+  const query = { platform: page.platform, seriesId: page.seriesId, seriesSlug: page.seriesSlug, animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, platformSeasons: page.platformSeasons };
+  const found = await findSeriesSeasons(query);
+  const ownLink = page.platform === 'disney' && found.others.some((media) => media.externalLinkUrls.some((url) => isDisneyEntityLink(url, page.seriesId)));
+  const gate = seriesPageGate(page, platformLinkVerdict({ platform: page.platform, animeTitle: page.seriesTitle }, found.candidates), ownLink);
+  if (linkRequired) log.info(`Page de série ${page.platform} « ${page.seriesTitle} » : filtre anime ${gate}${ownLink ? ' (lien vers l’entité)' : ''}${page.catalogAnime === false ? ' (pas de genre Anime)' : ''}`);
+  if (gate === 'ignored') {
+    await rememberIgnoredSeries(series);
+    return IGNORED;
+  }
+  const resolution = await pickSeriesSeason(page, manual, found);
+  return gate === 'title' && resolution && resolution.source !== 'manual' ? { ...resolution, confidence: 'uncertain' } : resolution;
+}
+
+/** Saison de la page de série : saison lue sur la page, correspondance mémorisée, puis première saison non terminée */
+async function pickSeriesSeason(page: PageMediaInfo, manual: number | null, { candidates, seasons, others, seasonGroups }: SeriesSeasons): Promise<Resolution | null> {
   const shown = (seasons.length > 0 ? seasons : others).slice(0, MAX_PICKER_SEASONS);
   const summaries = toPageSeasons(shown.map(toCandidateSummary), seasonGroups);
   if (shown.length === 0) return null;
 
   // (a) Saison de la page : même règle que la synchro, appliquée à son premier épisode
-  const hasSeasonInfo = page.seasonNumber !== null || page.seasonTitle !== null;
+  const hasSeasonInfo = page.seasonNumber !== null || page.seasonTitle !== null || page.seasonFirstEpisode !== undefined;
   const target =
     hasSeasonInfo || seasons.length <= 1
       ? resolveTarget(
-          { animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 },
+          // Arc numéroté en absolu (One Piece « Elbaph (1156-current) ») : son premier épisode, comme sur la page de lecture
+          { animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonEpisodeNumber: 1, displayedEpisodeNumber: page.seasonFirstEpisode ?? 1 },
           candidates,
         )
       : null;
-  const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: target.target.confidence === 'high' } : null;
+  // Fiche unique, suite d'une autre fiche, qui ne couvre pas toutes les saisons de la plateforme : à vérifier (comme la synchro)
+  const doubt = target?.ok ? singleEntryDoubt({ platform: page.platform, animeTitle: page.seriesTitle, platformSeasons: page.platformSeasons }, candidates, target.target.mediaId) : false;
+  // Fiche unique liée qui couvre toutes les saisons de la plateforme (One Piece, arcs Netflix) : la série entière, certaine
+  const wholeShow = target?.ok ? representsWholeShow({ animeTitle: page.seriesTitle, platformSeasons: page.platformSeasons }, candidates, target.target.mediaId) : false;
+  const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: (target.target.confidence === 'high' && !doubt) || wholeShow } : null;
 
   if (seasons.length === 0) {
     if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons: summaries, episodeProgress: null };

@@ -5,6 +5,7 @@ import type { PageMediaDetails, PageMediaInfo } from '../shared/page-media.types
 import type { CandidateSummary } from '../shared/review.types';
 import { STORAGE_KEYS } from '../shared/storage-keys';
 import { installFakeChrome } from '../test/fake-chrome';
+import type { AniListMedia } from './api/media';
 
 // Fiche de la page : résolution simulée (séries ignorées, accès Netflix), et saison choisie dans le sélecteur
 // enregistrée comme correspondance (ARCH-20), relue par la vraie résolution de la synchro.
@@ -198,5 +199,191 @@ describe('resolvePageMedia — saison choisie (ARCH-20)', () => {
     const result = await resolvePageMedia({ page: series, mediaId: PART2 });
     expect(result).toMatchObject({ ok: true, data: { media: { mediaId: PART2 }, source: 'manual', confidence: 'certain' } });
     expect(storedMappings()).toBeUndefined();
+  });
+});
+
+// ─── Pages de série Netflix / Disney+ : filtre « anime » ────────────────────
+
+describe('resolvePageMedia — page de série Netflix / Disney+', () => {
+  const ANIME = 170000;
+  const ENTITY = '9a14d04d-01f2-40d0-be62-a6c8ffe24137';
+
+  function anime(links: string[], title = 'Undead Unluck'): AniListMedia {
+    return {
+      id: ANIME,
+      idMal: null,
+      format: 'TV',
+      episodes: 24,
+      startDate: { year: 2023, month: 10, day: 7 },
+      displayTitle: title,
+      titles: [title],
+      year: 2023,
+      coverUrl: null,
+      externalLinkUrls: links,
+      relations: [],
+    };
+  }
+
+  /** Recherche AniList simulée : une fiche, lien plateforme `link` (null : titre seul) */
+  function found(link: 'id' | null, links: string[] = [], title = 'Undead Unluck'): void {
+    const media = anime(links, title);
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [{ id: ANIME, format: 'TV', episodes: 24, startDate: 20231007, titles: [title], link }],
+      seasons: link ? [media] : [],
+      others: [media],
+      seasonGroups: link ? [[ANIME]] : [],
+    });
+  }
+
+  function seriesPage(overrides: Partial<PageMediaInfo> = {}): PageMediaInfo {
+    return { platform: 'netflix', kind: 'series', seriesId: '80987039', seriesSlug: null, seriesTitle: 'Undead Unluck', seasonNumber: 1, seasonTitle: null, seasonEpisodeCount: 24, episode: null, ...overrides };
+  }
+
+  beforeEach(() => {
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'Undead Unluck' }));
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'Undead Unluck'));
+  });
+
+  it('Netflix, fiche liée à /title/{showId} : saison de la page, certaine', async () => {
+    found('id', ['https://www.netflix.com/title/80987039']);
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME }, confidence: 'certain' } });
+  });
+
+  it('Netflix, titre seul : fiche proposée, toujours à vérifier', async () => {
+    found(null);
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME }, confidence: 'uncertain' } });
+  });
+
+  it('Netflix, ni fiche liée ni même titre : NOT_TRACKED, verdict mémorisé (pas de nouvelle recherche)', async () => {
+    found(null, [], 'Autre chose');
+    const expected = { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Netflix' }) };
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toEqual(expected);
+    forgetPageResolutions();
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toEqual(expected);
+    expect(resolver.findSeriesSeasons).toHaveBeenCalledTimes(1);
+  });
+
+  it('Disney+, fiche liée à l’entité de la page : certaine, même sans genre « Anime »', async () => {
+    found('id', [`https://www.disneyplus.com/fr-fr/browse/entity-${ENTITY}`]);
+    const page = seriesPage({ platform: 'disney', seriesId: ENTITY, catalogAnime: false });
+    expect(await resolvePageMedia({ page, mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME }, confidence: 'certain' } });
+  });
+
+  it('Disney+ hors anime (pas de genre « Anime ») : NOT_TRACKED sans lien vers l’entité, même au même titre lié à Disney+', async () => {
+    found('id', ['https://www.disneyplus.com/series/undead-unluck/4hmBWOLvAqm2']);
+    const page = seriesPage({ platform: 'disney', seriesId: ENTITY, catalogAnime: false });
+    expect(await resolvePageMedia({ page, mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Disney+' }) });
+  });
+
+  it('Disney+ anime, titre anglais + lien Disney+ (règle de la lecture) : retenue', async () => {
+    found('id', ['https://www.disneyplus.com/series/undead-unluck/4hmBWOLvAqm2']);
+    const page = seriesPage({ platform: 'disney', seriesId: ENTITY, catalogAnime: true });
+    expect(await resolvePageMedia({ page, mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME } } });
+  });
+});
+
+describe('resolvePageMedia — page de série Crunchyroll sur la saison « Special »', () => {
+  const TV = 153845;
+  const SPECIAL = 170110;
+  const TITLE = 'I Got a Cheat Skill in Another World and Became Unrivaled in The Real World, Too';
+
+  function entry(id: number, format: string, episodes: number, titles: string[]): AniListMedia {
+    return { id, idMal: null, format, episodes, startDate: null, displayTitle: titles[0] ?? '', titles, year: 2023, coverUrl: null, externalLinkUrls: [], relations: [] };
+  }
+
+  beforeEach(() => {
+    const tv = entry(TV, 'TV', 13, [TITLE]);
+    const special = entry(SPECIAL, 'SPECIAL', 1, [`${TITLE} (Special) - The Legendary Dragon—Awakens`]);
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [
+        { id: TV, format: 'TV', episodes: 13, startDate: 20230406, titles: [TITLE], link: 'id' },
+        { id: SPECIAL, format: 'SPECIAL', episodes: 1, startDate: 20240301, titles: special.titles, link: 'relation' },
+      ],
+      seasons: [tv],
+      others: [tv, special],
+      seasonGroups: [[TV]],
+    });
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'x'));
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id }));
+  });
+
+  const special = (overrides: Partial<PageMediaInfo>): PageMediaInfo => ({
+    platform: 'crunchyroll',
+    kind: 'series',
+    seriesId: 'GEXH3W49E',
+    seriesSlug: null,
+    seriesTitle: TITLE,
+    seasonNumber: null,
+    seasonTitle: 'Special',
+    episode: null,
+    ...overrides,
+  });
+
+  it('saison « Special » lue sur la page : fiche spéciale, certaine', async () => {
+    expect(await resolvePageMedia({ page: special({}), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: SPECIAL }, confidence: 'certain' } });
+  });
+});
+
+describe('resolvePageMedia — One Piece sur Netflix, page de série de l’arc « Elbaph Arc » (saison 40)', () => {
+  const ONE_PIECE = 21;
+  const MONSTERS = 167404;
+
+  function entry(id: number, format: string, episodes: number | null, titles: string[]): AniListMedia {
+    return { id, idMal: null, format, episodes, startDate: null, displayTitle: titles[0] ?? '', titles, year: 1999, coverUrl: null, externalLinkUrls: [], relations: [] };
+  }
+
+  beforeEach(() => {
+    const onePiece = entry(ONE_PIECE, 'TV', null, ['ONE PIECE', 'One Piece']);
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [
+        { id: ONE_PIECE, format: 'TV', episodes: null, startDate: 19991020, titles: ['ONE PIECE', 'One Piece'], link: 'id', hasPrequel: true },
+        { id: MONSTERS, format: 'ONA', episodes: 1, startDate: 20240121, titles: ['MONSTERS: Ippaku Sanjou Hiryuu Jigoku'], link: 'other' },
+        { id: 141902, format: 'MOVIE', episodes: 1, startDate: 20220806, titles: ['ONE PIECE FILM: RED'], link: 'other' },
+      ],
+      seasons: [onePiece],
+      others: [onePiece, entry(MONSTERS, 'ONA', 1, ['MONSTERS']), entry(141902, 'MOVIE', 1, ['ONE PIECE FILM: RED'])],
+      seasonGroups: [[ONE_PIECE]],
+    });
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'One Piece'));
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'One Piece', episodes: null }));
+  });
+
+  it('fiche unique liée, en cours de diffusion, qui couvre tous les arcs : certaine (pas « Saison devinée »)', async () => {
+    const page: PageMediaInfo = {
+      platform: 'netflix',
+      kind: 'series',
+      seriesId: '80107103',
+      seriesSlug: null,
+      seriesTitle: 'One Piece',
+      seasonNumber: 40,
+      seasonTitle: 'Elbaph Arc',
+      seasonEpisodeCount: 25,
+      platformSeasons: [61, 70, 25],
+      episode: null,
+    };
+    expect(await resolvePageMedia({ page, mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'certain' } });
+  });
+});
+
+describe('resolvePageMedia — One Piece sur Crunchyroll, arc « Elbaph (1156-current) »', () => {
+  const ONE_PIECE = 21;
+
+  beforeEach(() => {
+    const onePiece: AniListMedia = { id: ONE_PIECE, idMal: 21, format: 'TV', episodes: null, startDate: { year: 1999, month: 10, day: 20 }, displayTitle: 'ONE PIECE', titles: ['ONE PIECE', 'One Piece'], year: 1999, coverUrl: null, externalLinkUrls: [], relations: [] };
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [{ id: ONE_PIECE, format: 'TV', episodes: null, startDate: 19991020, titles: ['ONE PIECE', 'One Piece'], link: 'id', hasPrequel: true }],
+      seasons: [onePiece],
+      others: [onePiece],
+      seasonGroups: [[ONE_PIECE]],
+    });
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'ONE PIECE'));
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'ONE PIECE', episodes: null }));
+  });
+
+  it('fiche unique One Piece, certaine, sans sélecteur (un seul choix)', async () => {
+    const page: PageMediaInfo = { platform: 'crunchyroll', kind: 'series', seriesId: 'GRMG8ZQZR', seriesSlug: 'one-piece', seriesTitle: 'One Piece', seasonNumber: null, seasonTitle: 'Elbaph', seasonFirstEpisode: 1156, episode: null };
+    const result = await resolvePageMedia({ page, mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'certain' } });
+    expect(result.ok && result.data.seasons.length).toBeLessThan(2);
   });
 });

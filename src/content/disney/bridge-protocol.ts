@@ -16,6 +16,10 @@
 // 3. Le client n'accepte que le PREMIER port reçu pour son nonce, par un vrai postMessage (`isTrusted`).
 // Ensuite, le pont pousse sur port1 les fiches déjà vues (instantané), puis chaque nouvelle fiche (lecture
 // automatique de l'épisode suivant, navigation dans le site). Charges utiles en CHAÎNES JSON (Xray wrappers de Firefox).
+//
+// Pages de série (/browse/entity-{uuid}) : le pont observe aussi les réponses `page/entity-{uuid}` (série, genres,
+// saisons) et `season/{id}` (saison choisie dans le menu, pagination des épisodes), réduites à `DisneySeriesPage` et
+// poussées dans le même message (`pages`), indexées par l'uuid de l'entité.
 import { isRecord } from '../../shared/guards';
 
 /**
@@ -23,7 +27,7 @@ import { isRecord } from '../../shared/guards';
  * version précédente reste dans les onglets ouverts après une mise à jour (code de la page, jamais invalidé).
  * Chaque côté ignore les messages d'une autre version.
  */
-export const DISNEY_BRIDGE_VERSION = 2;
+export const DISNEY_BRIDGE_VERSION = 3;
 /** Ouverture du canal (client isolé → pont), detail = DisneyHandshake en chaîne JSON */
 export const DISNEY_HANDSHAKE_EVENT = 'synckai:disney:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
@@ -41,6 +45,13 @@ const ENTITY_URN = /urn:ds:cmp:eva:[a-z]+\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-
 /** Bornes de la réduction : textes tronqués, fiches gardées et poussées en une fois */
 export const DISNEY_MAX_TEXT = 300;
 export const DISNEY_MAX_ENTRIES = 20;
+/** Pages de série gardées et poussées en une fois, saisons et genres par page */
+export const DISNEY_MAX_PAGES = 10;
+export const DISNEY_MAX_SEASONS = 50;
+export const DISNEY_MAX_GENRES = 12;
+const MAX_GENRE_LENGTH = 60;
+/** Nombre d'épisodes plausible d'une saison */
+const MAX_EPISODE_COUNT = 10_000;
 const MAX_ID_LENGTH = 64;
 /** Durée maximale plausible d'un programme (ms) : 12 h */
 const MAX_RUNTIME_MS = 12 * 3_600_000;
@@ -81,10 +92,48 @@ export interface DisneyPortOffer {
   nonce: string;
 }
 
-/** Pont → client : fiches connues (instantané à l'ouverture du canal, puis chaque nouvelle fiche) */
+/** Saison d'une page de série */
+export interface DisneySeason {
+  /** Identifiant de la saison (minuscules) */
+  id: string;
+  /** Nom affiché, localisé : « Saison 1 », ou nom de l'arc (« Undead Unluck: Winter Arc ») */
+  name: string | null;
+  /** Numéro tiré des épisodes (internalTitle « sNeM », sinon `visuals.seasonNumber`) ; 99 = arc ; null sans épisode lu */
+  seasonNumber: number | null;
+  /** `pagination.totalCount` */
+  episodeCount: number | null;
+}
+
+/**
+ * Page de série réduite (réponse `page/entity-{uuid}`, complétée par les réponses `season/{id}`) : seuls ces champs
+ * quittent le monde MAIN. Jamais d'image, de description, d'identifiant de flux ni de suggestion d'autres séries.
+ */
+export interface DisneySeriesPage {
+  /** uuid de l'entité (URL /browse/entity-{uuid}), minuscules */
+  entityId: string;
+  /** Réception de la réponse par le pont (ms depuis l'epoch) */
+  seenAt: number;
+  /** Titre localisé (langue du profil) */
+  title: string;
+  /**
+   * Premier `internalTitle` des actions de la page et des épisodes (« Undead Unluck - s1e1 - mediaId:… ») : titre anglais
+   * de la série, lu côté isolé par parseInternalTitle
+   */
+  internalTitle: string | null;
+  /** Genres localisés, seulement pour reconnaître « Anime » */
+  genres: string[];
+  /** Saison affichée au chargement (`focus.seasonId`) */
+  focusSeasonId: string | null;
+  /** Dernière saison demandée par le site (`season/{id}` : menu des saisons, pagination), null sinon */
+  selectedSeasonId: string | null;
+  seasons: DisneySeason[];
+}
+
+/** Pont → client : fiches et pages de série connues (instantané à l'ouverture du canal, puis chaque nouveauté) */
 export interface DisneyBridgePush {
   v: typeof DISNEY_BRIDGE_VERSION;
   entries: DisneyPlayerExperience[];
+  pages?: DisneySeriesPage[];
 }
 
 // ─── Installation du pont (une fois par version de protocole) ─────────────
@@ -115,13 +164,17 @@ function isApiHost(hostname: string): boolean {
   return ['bamgrid.com', 'disneyplus.com'].some((domain) => host === domain || host.endsWith(`.${domain}`));
 }
 
-const PLAYER_EXPERIENCE_PATH = /^\/explore\/v1(?:\.\d{1,3})?\/playerExperience\/([0-9a-f-]{36})\/?$/i;
+/** Requêtes lues : fiche d'une vidéo, page de série (entité), saison d'une page de série */
+const OBSERVED_PATH = /^\/explore\/v1(?:\.\d{1,3})?\/(playerExperience|page|season)\/(entity-)?([0-9a-f-]{36})\/?$/i;
+
+export type DisneyRequestKind = 'player' | 'page' | 'season';
 
 /**
- * URL d'une requête `GET …/explore/v1.21/playerExperience/{id}` → identifiant du chemin (minuscules), sinon null
- * (availId ou épisode : non garanti). Toute autre requête (flux, upNext, images…) est ignorée sans être lue.
+ * URL d'une requête de l'API du site lue par le pont → nature et identifiant du chemin (minuscules), sinon null :
+ * `…/explore/v1.21/playerExperience/{id}` (availId ou épisode : non garanti), `…/page/entity-{uuid}` (page de série),
+ * `…/season/{id}` (saison). Toute autre requête (flux, upNext, images, autres pages…) est ignorée sans être lue.
  */
-export function playerExperienceRequestId(url: string, base = 'https://www.disneyplus.com/'): string | null {
+export function observedRequest(url: string, base = 'https://www.disneyplus.com/'): { kind: DisneyRequestKind; id: string } | null {
   let parsed: URL;
   try {
     parsed = new URL(url, base);
@@ -129,8 +182,18 @@ export function playerExperienceRequestId(url: string, base = 'https://www.disne
     return null;
   }
   if (parsed.protocol !== 'https:' || !isApiHost(parsed.hostname)) return null;
-  const id = PLAYER_EXPERIENCE_PATH.exec(parsed.pathname)?.[1];
-  return id !== undefined && DISNEY_ID_REGEX.test(id) ? id.toLowerCase() : null;
+  const [, type = '', entity, id] = OBSERVED_PATH.exec(parsed.pathname) ?? [];
+  if (id === undefined || !DISNEY_ID_REGEX.test(id)) return null;
+  const kind: DisneyRequestKind = /^playerExperience$/i.test(type) ? 'player' : /^page$/i.test(type) ? 'page' : 'season';
+  // Une page n'est lue que pour une entité (entity-{uuid}) ; les autres chemins n'en portent jamais
+  if ((kind === 'page') !== (entity !== undefined)) return null;
+  return { kind, id: id.toLowerCase() };
+}
+
+/** `playerExperience/{id}` → identifiant du chemin (minuscules), sinon null */
+export function playerExperienceRequestId(url: string, base = 'https://www.disneyplus.com/'): string | null {
+  const request = observedRequest(url, base);
+  return request?.kind === 'player' ? request.id : null;
 }
 
 /** Texte nettoyé et tronqué ; null si absent ou vide */
@@ -202,6 +265,139 @@ export function reduceDisneyPlayerExperience(raw: unknown, requestId: string, se
   };
 }
 
+// ─── Titre interne (anglais, stable) ──────────────────────────────────────
+
+export type DisneyInternalTitle = { kind: 'episode'; series: string; season: number; episode: number } | { kind: 'movie'; title: string };
+
+/**
+ * « Undead Unluck - s1e1 - mediaId:{uuid} » → série (anglais, quelle que soit la langue du profil), saison, épisode.
+ * Ancré sur la fin : le titre de la série peut lui-même contenir « - » (« Disney Twisted-Wonderland: The Animation -
+ * Episode of Heartslabyul »). Sans « sNeN » : film (« Suzume - mediaId:{uuid} »).
+ */
+const INTERNAL_EPISODE = /^(.+?)\s+-\s+s(\d{1,3})e(\d{1,4})\s+-\s+mediaId:[0-9a-f-]{36}$/i;
+const INTERNAL_MOVIE = /^(.+?)\s+-\s+mediaId:[0-9a-f-]{36}$/i;
+const EPISODE_CODE = /(?:^|\s)s\d{1,3}e\d{1,4}(?:\s|$)/i;
+
+export function parseInternalTitle(internalTitle: string | null): DisneyInternalTitle | null {
+  if (!internalTitle) return null;
+  const episode = INTERNAL_EPISODE.exec(internalTitle);
+  if (episode) {
+    const [, series = '', season, number] = episode;
+    const title = series.trim();
+    return title ? { kind: 'episode', series: title, season: Number(season), episode: Number(number) } : null;
+  }
+  // Repère « sNeN » présent mais forme illisible : ni épisode ni film
+  if (EPISODE_CODE.test(internalTitle)) return null;
+  const title = INTERNAL_MOVIE.exec(internalTitle)?.[1]?.trim();
+  return title ? { kind: 'movie', title } : null;
+}
+
+// ─── Pages de série (monde MAIN) ──────────────────────────────────────────
+
+const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
+const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+function lowerId(value: unknown): string | null {
+  return typeof value === 'string' && DISNEY_ID_REGEX.test(value) ? value.toLowerCase() : null;
+}
+
+/** Entier positif plausible (nombre ou chaîne de chiffres), sinon null */
+function positiveInt(value: unknown, max: number): number | null {
+  const n = typeof value === 'string' && /^\d{1,5}$/.test(value) ? Number(value) : value;
+  return typeof n === 'number' && Number.isSafeInteger(n) && n >= 1 && n <= max ? n : null;
+}
+
+/** Titres internes des actions des nœuds donnés (actions de la page, épisodes), dans l'ordre */
+function internalTitles(nodes: readonly unknown[]): string[] {
+  return nodes.flatMap((node) => list(record(node).actions).flatMap((action) => text(record(action).internalTitle) ?? []));
+}
+
+/** Repère « sNeM » d'un titre interne d'épisode (« Undead Unluck - s99e1 - mediaId:… ») */
+const INTERNAL_SEASON = /\s-\s+s(\d{1,3})e\d{1,4}\s+-\s+mediaId:/i;
+
+/** Numéro de saison d'après ses premiers épisodes : titre interne (« s99e1 » : arc), sinon `visuals.seasonNumber` */
+function seasonNumberOf(items: readonly unknown[]): number | null {
+  const sample = items.slice(0, 5);
+  for (const title of internalTitles(sample)) {
+    const season = INTERNAL_SEASON.exec(title)?.[1];
+    if (season !== undefined) return Number(season);
+  }
+  for (const item of sample) {
+    const n = positiveInt(record(record(item).visuals).seasonNumber, 999);
+    if (n !== null) return n;
+  }
+  return null;
+}
+
+function reduceSeason(raw: unknown, id: string | null = lowerId(record(raw).id)): DisneySeason | null {
+  if (!id || !isRecord(raw)) return null;
+  return {
+    id,
+    name: text(record(raw.visuals).name),
+    seasonNumber: seasonNumberOf(list(raw.items)),
+    episodeCount: positiveInt(record(raw.pagination).totalCount, MAX_EPISODE_COUNT),
+  };
+}
+
+function genresOf(values: unknown): string[] {
+  return list(values)
+    .flatMap((value) => {
+      const genre = text(value);
+      return genre && genre.length <= MAX_GENRE_LENGTH ? [genre] : [];
+    })
+    .slice(0, DISNEY_MAX_GENRES);
+}
+
+/**
+ * Réduit la réponse `page/entity-{uuid}` (`{ data: { page: {…} } }`) à `DisneySeriesPage`. Seuls la page, ses actions
+ * et les conteneurs `episodes` (saisons) et `details` (titre, genres) sont lus ; les suggestions (`set`) jamais. Null si
+ * la forme est inattendue.
+ */
+export function reduceDisneySeriesPage(raw: unknown, entityId: string, seenAt: number): DisneySeriesPage | null {
+  const page = record(record(record(raw).data).page);
+  const containers = list(page.containers).filter(isRecord);
+  const episodes = containers.find((container) => container.type === 'episodes') ?? {};
+  const details = record(containers.find((container) => container.type === 'details')?.visuals);
+  const visuals = record(page.visuals);
+  const title = text(visuals.title) ?? text(details.title);
+  if (!title || !DISNEY_ID_REGEX.test(entityId) || !isTimestamp(seenAt)) return null;
+  const rawSeasons = list(episodes.seasons).slice(0, DISNEY_MAX_SEASONS);
+  const genres = genresOf(record(record(visuals.metastringParts).genres).values);
+  return {
+    entityId: entityId.toLowerCase(),
+    seenAt,
+    title,
+    internalTitle: internalTitles([page, ...rawSeasons.flatMap((season) => list(record(season).items))])[0] ?? null,
+    genres: genres.length > 0 ? genres : genresOf(record(details.genres).values),
+    focusSeasonId: lowerId(record(episodes.focus).seasonId),
+    selectedSeasonId: null,
+    seasons: rawSeasons.flatMap((season) => reduceSeason(season) ?? []),
+  };
+}
+
+/**
+ * Réponse `season/{id}` (forme non relevée : `{ data: { season: {…} } }` supposée, `{ data: {…} }` accepté) appliquée à
+ * la page qui contient cette saison : saison retenue comme choisie, numéro et nombre d'épisodes complétés s'ils sont
+ * lisibles, titre interne complété. Null si la page ne contient pas cette saison.
+ */
+export function applyDisneySeason(page: DisneySeriesPage, seasonId: string, raw: unknown): DisneySeriesPage | null {
+  const id = seasonId.toLowerCase();
+  if (!page.seasons.some((season) => season.id === id)) return null;
+  const data = record(record(raw).data);
+  const body = isRecord(data.season) ? data.season : data;
+  const update = reduceSeason(body, id);
+  return {
+    ...page,
+    internalTitle: page.internalTitle ?? internalTitles(list(body.items))[0] ?? null,
+    selectedSeasonId: id,
+    seasons: page.seasons.map((season) =>
+      season.id === id && update
+        ? { ...season, name: season.name ?? update.name, seasonNumber: update.seasonNumber ?? season.seasonNumber, episodeCount: update.episodeCount ?? season.episodeCount }
+        : season,
+    ),
+  };
+}
+
 /** Vrai si la fiche décrit la vidéo `id` (identifiant de l'URL, de la requête ou de la réponse) */
 export function hasDisneyId(entry: Pick<DisneyPlayerExperience, 'ids'>, id: string): boolean {
   return entry.ids.includes(id.toLowerCase());
@@ -226,6 +422,31 @@ export function isDisneyPlayerExperience(value: unknown): value is DisneyPlayerE
     (value.originalLanguage === null || language(value.originalLanguage) !== null) &&
     (value.runtimeMs === null || runtime(value.runtimeMs) === value.runtimeMs) &&
     (value.programType === null || programType(value.programType) === value.programType)
+  );
+}
+
+const isNullableLowerId = (v: unknown): v is string | null => v === null || isLowerId(v);
+const isNullableCount = (v: unknown, max: number): v is number | null => v === null || positiveInt(v, max) === v;
+
+function isDisneySeason(value: unknown): value is DisneySeason {
+  return isRecord(value) && isLowerId(value.id) && isNullableText(value.name) && isNullableCount(value.seasonNumber, 999) && isNullableCount(value.episodeCount, MAX_EPISODE_COUNT);
+}
+
+export function isDisneySeriesPage(value: unknown): value is DisneySeriesPage {
+  return (
+    isRecord(value) &&
+    isLowerId(value.entityId) &&
+    isTimestamp(value.seenAt) &&
+    isBoundedText(value.title) &&
+    isNullableText(value.internalTitle) &&
+    Array.isArray(value.genres) &&
+    value.genres.length <= DISNEY_MAX_GENRES &&
+    value.genres.every((genre) => isBoundedText(genre) && genre.length <= MAX_GENRE_LENGTH) &&
+    isNullableLowerId(value.focusSeasonId) &&
+    isNullableLowerId(value.selectedSeasonId) &&
+    Array.isArray(value.seasons) &&
+    value.seasons.length <= DISNEY_MAX_SEASONS &&
+    value.seasons.every(isDisneySeason)
   );
 }
 
@@ -269,10 +490,14 @@ export function encodeDisneyPush(push: DisneyBridgePush): string {
   return JSON.stringify(push);
 }
 
-/** Fiches poussées par le pont, revalidées une à une (une fiche invalide est écartée, pas le message) */
+/** Fiches et pages poussées par le pont, revalidées une à une (une fiche invalide est écartée, pas le message) */
 export function decodeDisneyPush(data: unknown): DisneyBridgePush | null {
-  const value = parseJson(data, 200_000);
+  const value = parseJson(data, 400_000);
   if (!isRecord(value) || value.v !== DISNEY_BRIDGE_VERSION || !Array.isArray(value.entries) || value.entries.length > DISNEY_MAX_ENTRIES) return null;
   const entries: unknown[] = value.entries;
-  return { v: DISNEY_BRIDGE_VERSION, entries: entries.filter(isDisneyPlayerExperience) };
+  const push: DisneyBridgePush = { v: DISNEY_BRIDGE_VERSION, entries: entries.filter(isDisneyPlayerExperience) };
+  if (value.pages === undefined) return push;
+  if (!Array.isArray(value.pages) || value.pages.length > DISNEY_MAX_PAGES) return null;
+  const pages: unknown[] = value.pages;
+  return { ...push, pages: pages.filter(isDisneySeriesPage) };
 }

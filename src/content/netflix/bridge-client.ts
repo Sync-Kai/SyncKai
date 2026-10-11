@@ -4,6 +4,8 @@
 // reçue par la tentative qui l'a demandée. 2 nouvelles tentatives (pont muet ou pas encore prêt, réseau, 5xx,
 // 429), une seule requête en vol par vidéo, cache LRU des 5 dernières séries (la réponse décrit toute la série :
 // l'épisode suivant de la lecture automatique est servi sans nouvelle requête).
+// Page de série (/title/{id}, fenêtre de détail ?jbv={id}) : même requête avec l'identifiant de la série (`loadShow`),
+// réponse acceptée seulement si elle décrit cette série ; même cache et même requête en vol.
 import {
   decodeNetflixPortOffer,
   decodeNetflixResponse,
@@ -44,6 +46,10 @@ export interface NetflixBridgeClient {
   load(movieId: string, signal: AbortSignal): Promise<NetflixShowMetadata | null>;
   /** Lecture synchrone du cache, sans requête */
   peek(movieId: string): NetflixShowMetadata | null;
+  /** Métadonnées de la série (ou du film) `showId` elle-même (page de série) ; null si indisponibles ou annulé */
+  loadShow(showId: string, signal: AbortSignal): Promise<NetflixShowMetadata | null>;
+  /** Lecture synchrone du cache pour une page de série, sans requête */
+  peekShow(showId: string): NetflixShowMetadata | null;
 }
 
 const DEFAULTS = { timeoutMs: NETFLIX_ATTEMPT_TIMEOUT_MS, retries: 2, retryDelayMs: 500, cacheSize: 5 } as const;
@@ -56,6 +62,11 @@ export function containsMovie(show: NetflixShowMetadata, movieId: string): boole
   if (show.type === 'movie') return show.showId === movieId;
   return show.seasons.some((season) => season.episodes.some((episode) => episode.id === movieId));
 }
+
+/** Réponse attendue : la série contenant la vidéo (lecture), ou la série elle-même (page de série) */
+type Wanted = 'movie' | 'show';
+
+const accepts = (show: NetflixShowMetadata, id: string, wanted: Wanted): boolean => (wanted === 'show' ? show.showId === id : containsMovie(show, id));
 
 function retryable(response: Extract<NetflixBridgeResponse, { ok: false }>): boolean {
   if (response.error === 'network') return true;
@@ -105,7 +116,8 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
 
   function peek(movieId: string): NetflixShowMetadata | null {
     const direct = cache.get(movieId);
-    if (direct) {
+    // Entrée d'une page de série (clé = identifiant de la série) : ne vaut pas pour la lecture de /watch/{id de série}
+    if (direct && containsMovie(direct, movieId)) {
       remember(movieId, direct);
       return direct;
     }
@@ -117,6 +129,12 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
       }
     }
     return null;
+  }
+
+  function peekShow(showId: string): NetflixShowMetadata | null {
+    const show = [...cache.values()].findLast((known) => known.showId === showId) ?? null;
+    if (show) remember(showId, show);
+    return show;
   }
 
   // Le port transféré est aussi visible des écouteurs `message` de la page : un MessageEvent synthétique
@@ -169,7 +187,7 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
   }
 
   /** Une demande au script MAIN ; l'attente de la réponse est toujours retirée */
-  function attempt(movieId: string): Promise<Attempt> {
+  function attempt(movieId: string, wanted: Wanted): Promise<Attempt> {
     const id = newId();
     return new Promise((resolve) => {
       let settled = false;
@@ -184,7 +202,7 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
       pending.set(id, (response) => {
         if (!response.ok) return finish({ ok: false, retry: retryable(response) });
         // Réponse décrivant une autre série ou un autre film (bande-annonce, /watch/{id de série}…) : rejetée
-        finish(containsMovie(response.data, movieId) ? { ok: true, data: response.data } : { ok: false, retry: false });
+        finish(accepts(response.data, movieId, wanted) ? { ok: true, data: response.data } : { ok: false, retry: false });
       });
       void connect().then((channel) => {
         if (settled) return;
@@ -194,10 +212,10 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
     });
   }
 
-  async function fetchShow(movieId: string): Promise<NetflixShowMetadata | null> {
+  async function fetchShow(movieId: string, wanted: Wanted): Promise<NetflixShowMetadata | null> {
     for (let index = 0; index <= retries; index++) {
       if (index > 0) await new Promise((resolve) => setTimeout(resolve, retryDelayMs * index));
-      const result = await attempt(movieId);
+      const result = await attempt(movieId, wanted);
       if (result.ok) {
         remember(movieId, result.data);
         return result.data;
@@ -207,17 +225,23 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
     return null;
   }
 
-  function load(movieId: string, signal: AbortSignal): Promise<NetflixShowMetadata | null> {
-    if (!NETFLIX_MOVIE_ID_REGEX.test(movieId)) return Promise.resolve(null);
-    const cached = peek(movieId);
+  function request(id: string, wanted: Wanted, signal: AbortSignal): Promise<NetflixShowMetadata | null> {
+    if (!NETFLIX_MOVIE_ID_REGEX.test(id)) return Promise.resolve(null);
+    const cached = wanted === 'show' ? peekShow(id) : peek(id);
     if (cached) return Promise.resolve(cached);
-    let pendingShow = inFlight.get(movieId);
+    const key = `${wanted}:${id}`;
+    let pendingShow = inFlight.get(key);
     if (!pendingShow) {
-      pendingShow = fetchShow(movieId).finally(() => inFlight.delete(movieId));
-      inFlight.set(movieId, pendingShow);
+      pendingShow = fetchShow(id, wanted).finally(() => inFlight.delete(key));
+      inFlight.set(key, pendingShow);
     }
     return untilAborted(pendingShow, signal);
   }
 
-  return { load, peek };
+  return {
+    load: (movieId, signal) => request(movieId, 'movie', signal),
+    peek,
+    loadShow: (showId, signal) => request(showId, 'show', signal),
+    peekShow,
+  };
 }

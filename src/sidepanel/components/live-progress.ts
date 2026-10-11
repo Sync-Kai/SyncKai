@@ -10,10 +10,10 @@ const log = createLogger('sidepanel');
 // Progression en direct : port ouvert directement vers le script de contenu de l'onglet suivi
 // (le service worker reste endormi). Le bloc est mis à jour sur place : un tick ne redessine pas le panneau.
 
-/** Onglet et épisode affichés par la fiche */
+/** Onglet et épisode affichés par la fiche ; `episodeId` null : page de série (seulement la saison choisie, aucune progression) */
 export interface LiveTarget {
   tabId: number;
-  episodeId: string;
+  episodeId: string | null;
 }
 
 export interface LiveProgress {
@@ -131,6 +131,9 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
         // Synchro automatique terminée : la fiche relit la page puis recalcule saison et listes.
         // Pas de comparaison avec l'épisode de la fiche : c'est justement elle qui peut être en retard.
         if (msg.state === 'synced' && liveEpisode !== null) onEvent({ type: 'synced' });
+        return;
+      case 'season':
+        onEvent({ type: 'season' });
         return;
     }
     update();

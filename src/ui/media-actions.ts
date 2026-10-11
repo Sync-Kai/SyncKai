@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import type { PageListState, PageMediaView } from '../shared/page-media.types';
+import type { PageListState, PageMediaView, PageSeason } from '../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, ListStatusChange } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { TONE_CHIP } from './feedback';
@@ -73,13 +73,21 @@ export function renderListLines(view: PageMediaView, withScore = false): HTMLEle
   );
 }
 
-/** Sélecteur de saison (plusieurs saisons) et avertissement si la fiche a été devinée */
-export function renderSeasonPicker(view: PageMediaView, disabled: boolean, onPick: (mediaId: number) => void): HTMLElement | null {
-  const uncertain = view.confidence === 'uncertain';
-  if (view.seasons.length < 2 && !uncertain) return null;
-  const options = view.seasons.some((s) => s.id === view.media.mediaId)
+/**
+ * Choix du sélecteur de saison : saisons proposées, la fiche affichée en tête si elle n'en fait pas partie (spécial…).
+ * Moins de deux choix : pas de sélecteur, et donc pas d'avertissement « vérifiez ci-dessous » (rien à vérifier).
+ */
+export function seasonPickerOptions(view: PageMediaView): Pick<PageSeason, 'id' | 'title' | 'year' | 'slot'>[] {
+  return view.seasons.some((s) => s.id === view.media.mediaId)
     ? view.seasons
     : [{ id: view.media.mediaId, title: view.media.title, year: view.media.year, slot: null }, ...view.seasons];
+}
+
+/** Sélecteur de saison (plusieurs choix), avec l'avertissement si la fiche a été devinée ; null avec un seul choix */
+export function renderSeasonPicker(view: PageMediaView, disabled: boolean, onPick: (mediaId: number) => void): HTMLElement | null {
+  const uncertain = view.confidence === 'uncertain';
+  const options = seasonPickerOptions(view);
+  if (options.length < 2) return null;
 
   const select = h(
     'select',
@@ -108,7 +116,7 @@ export function renderSeasonPicker(view: PageMediaView, disabled: boolean, onPic
           icon('alert', 'h-3 w-3 shrink-0'),
           t(view.source === 'manual' ? 'page.manualNotSaved' : 'page.uncertain'),
         ),
-      options.length > 1 && h('label', { class: 'flex min-w-0 items-center gap-2 text-[11px] font-semibold text-muted' }, t('page.seasonPicker'), select),
+      h('label', { class: 'flex min-w-0 items-center gap-2 text-[11px] font-semibold text-muted' }, t('page.seasonPicker'), select),
     ]),
   );
 }

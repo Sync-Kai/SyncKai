@@ -253,6 +253,39 @@ describe('createNetflixBridgeClient', () => {
   });
 });
 
+describe('createNetflixBridgeClient — page de série (loadShow)', () => {
+  it('métadonnées demandées avec l’identifiant de la série : acceptées, puis servies à la lecture d’un épisode', async () => {
+    const { requests, ...page } = setup(() => ({ ok: true, data: SHOW }));
+    const client = createNetflixBridgeClient({ ...page, newId });
+    expect(client.peekShow(SHOW.showId)).toBeNull();
+    expect(await client.loadShow(SHOW.showId, signal())).toEqual(SHOW);
+    expect(requests.map((r) => r.movieId)).toEqual([SHOW.showId]);
+    expect(client.peekShow(SHOW.showId)).toEqual(SHOW);
+    // Lecture d'un épisode de la série : même cache, aucune nouvelle requête
+    expect(await client.load(mushokuEpisodeId(1, 3), signal())).toEqual(SHOW);
+    expect(requests).toHaveLength(1);
+    // /watch/{id de la série} reste refusé à la lecture (la série ne « contient » pas son propre identifiant)
+    expect(client.peek(SHOW.showId)).toBeNull();
+  });
+
+  it('série déjà chargée par la lecture : servie sans requête', async () => {
+    const { requests, ...page } = setup(() => ({ ok: true, data: SHOW }));
+    const client = createNetflixBridgeClient({ ...page, newId });
+    await client.load(mushokuEpisodeId(2, 1), signal());
+    expect(await client.loadShow(SHOW.showId, signal())).toEqual(SHOW);
+    expect(requests).toHaveLength(1);
+  });
+
+  it('réponse décrivant une autre série : rejetée', async () => {
+    const { requests, ...page } = setup(() => ({ ok: true, data: SHOW }));
+    const client = createNetflixBridgeClient({ ...page, newId });
+    const result = client.loadShow('80000001', signal());
+    await advance(20_000);
+    expect(await result).toBeNull();
+    expect(requests).toHaveLength(1);
+  });
+});
+
 describe('createNetflixBridgeClient — canal privé face à un script de la page', () => {
   it('réponse forgée sur un événement du document ou injectée sur le port : ignorée', async () => {
     const { requests, ...page } = setup(() => ({ ok: true, data: SHOW }), 6_000);

@@ -1,13 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { decodeDisneyPush, DISNEY_BRIDGE_VERSION, DISNEY_HANDSHAKE_EVENT, encodeDisneyHandshake, type DisneyPlayerExperience } from './bridge-protocol';
+import { decodeDisneyPush, DISNEY_BRIDGE_VERSION, DISNEY_HANDSHAKE_EVENT, encodeDisneyHandshake, type DisneyPlayerExperience, type DisneySeriesPage } from './bridge-protocol';
 import {
   nonAnimeEpisode,
   playerExperienceUrl,
+  seasonUrl,
+  seriesPageUrl,
+  UNDEAD_UNLUCK_ENTITY_ID,
+  UNDEAD_UNLUCK_S1_ID,
+  undeadUnluckSeriesPage,
   UNDEAD_UNLUCK_S1E1_AVAIL_ID,
   UNDEAD_UNLUCK_S1E1_PLAY_ID,
   undeadUnluckS1E1,
   WINTER_ARC_E1_AVAIL_ID,
+  WINTER_ARC_SEASON_ID,
   winterArcE1,
+  winterArcSeasonResponse,
 } from './fixtures';
 
 // Pont MAIN de Disney+ : observateur passif des réponses `playerExperience` du site (XMLHttpRequest, fetch),
@@ -52,14 +59,23 @@ async function runBridge(): Promise<void> {
   await import('./page-bridge.iife');
 }
 
+/** Pages de série reçues par le dernier client connecté, dans l'ordre */
+let receivedPages: DisneySeriesPage[] = [];
+
 /** Ouvre le canal comme le client isolé ; fiches reçues sur le port, dans l'ordre */
 function connect(nonce = 'n1'): DisneyPlayerExperience[] {
   const entries: DisneyPlayerExperience[] = [];
+  const pages: DisneySeriesPage[] = [];
+  receivedPages = pages;
   page.dispatchEvent(new CustomEvent(DISNEY_HANDSHAKE_EVENT, { detail: encodeDisneyHandshake({ v: DISNEY_BRIDGE_VERSION, nonce }) }));
   const port = page.postMessage.mock.calls.at(-1)?.[2][0];
   if (!port) throw new Error('aucune offre de port');
   received.push(port);
-  port.addEventListener('message', (event) => entries.push(...(decodeDisneyPush((event as MessageEvent).data)?.entries ?? [])));
+  port.addEventListener('message', (event) => {
+    const push = decodeDisneyPush((event as MessageEvent).data);
+    entries.push(...(push?.entries ?? []));
+    pages.push(...(push?.pages ?? []));
+  });
   port.start();
   return entries;
 }
@@ -158,5 +174,27 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     expect(FakeXhr.prototype.open).toBe(patchedOpen);
     connect();
     expect(page.postMessage).toHaveBeenCalledOnce();
+  });
+
+  it('page de série observée avant l’ouverture : instantané ; saison choisie ensuite (season/{id}) : page mise à jour poussée', async () => {
+    await runBridge();
+    siteXhr(seriesPageUrl(UNDEAD_UNLUCK_ENTITY_ID), undeadUnluckSeriesPage());
+    await flush();
+    const entries = connect();
+    await flush();
+    expect(entries).toEqual([]);
+    expect(receivedPages.map((p) => [p.entityId, p.title, p.focusSeasonId, p.selectedSeasonId])).toEqual([[UNDEAD_UNLUCK_ENTITY_ID, 'Undead Unluck', UNDEAD_UNLUCK_S1_ID, null]]);
+    expect(JSON.stringify(receivedPages)).not.toMatch(/Description|imageId|jeton|Summer Time/);
+
+    siteXhr(seasonUrl(WINTER_ARC_SEASON_ID), winterArcSeasonResponse(), { responseType: 'json' });
+    await flush();
+    expect(receivedPages).toHaveLength(2);
+    expect(receivedPages[1]?.selectedSeasonId).toBe(WINTER_ARC_SEASON_ID);
+    expect(receivedPages[1]?.seasons[1]?.seasonNumber).toBe(99);
+    // Saison d'une page jamais vue : ignorée ; aucune requête ajoutée par le pont
+    siteXhr(seasonUrl('00000000-0000-4000-8000-000000000000'), winterArcSeasonResponse());
+    await flush();
+    expect(receivedPages).toHaveLength(2);
+    expect(FakeXhr.sent).toBe(3);
   });
 });

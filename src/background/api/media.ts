@@ -101,25 +101,41 @@ function parsePage(data: PageData): AniListMedia[] {
 // ─── API ──────────────────────────────────────────────────────────────────
 
 /**
- * Résultats des requêtes de fond gardés quelques minutes : l'analyse de l'historique Crunchyroll interroge la
- * même série pour chacune de ses saisons (One Piece : 20 saisons → une seule recherche « One Piece »).
- * Les requêtes interactives restent toujours fraîches.
+ * Fiches du catalogue (recherche, fiches par identifiant, avec leurs liens et relations) gardées quelques minutes dans le
+ * service worker, et une seule requête en vol par clé : l'analyse de l'historique Crunchyroll interroge la même série
+ * pour chacune de ses saisons (One Piece : 20 saisons → une seule recherche « One Piece ») ; la fiche de la page
+ * (popup, panneau, arcs de One Piece parcourus sur Netflix), la lecture puis la synchro d'un épisode relisent les mêmes
+ * fiches. Données publiques du catalogue uniquement (jamais les listes de l'utilisateur, toujours lues fraîches).
+ * Requêtes interactives : 5 min (un lien AniList ajouté est vu au plus tard 5 min après) ; de fond : 10 min.
  */
-const BACKGROUND_CACHE_TTL_MS = 10 * 60_000;
-const BACKGROUND_CACHE_MAX = 300;
-const backgroundCache = new Map<string, { at: number; media: AniListMedia[] }>();
+export const CATALOG_CACHE_TTL_MS: Readonly<Record<RequestLane, number>> = { interactive: 5 * 60_000, background: 10 * 60_000 };
+const CATALOG_CACHE_MAX = 300;
+const catalogCache = new Map<string, { at: number; media: AniListMedia[] }>();
+const catalogInFlight = new Map<string, Promise<AniListMedia[]>>();
+
+/** Vide le cache du catalogue (tests) */
+export function clearCatalogCache(): void {
+  catalogCache.clear();
+  catalogInFlight.clear();
+}
 
 async function cachedPage(key: string, lane: RequestLane, load: () => Promise<AniListMedia[]>): Promise<AniListMedia[]> {
-  if (lane !== 'background') return load();
   const now = Date.now();
-  const hit = backgroundCache.get(key);
-  if (hit && now - hit.at < BACKGROUND_CACHE_TTL_MS) return hit.media;
-  const media = await load();
-  backgroundCache.delete(key);
-  backgroundCache.set(key, { at: now, media });
-  // Plus ancienne entrée retirée au-delà de la limite (ordre d'insertion de la Map)
-  if (backgroundCache.size > BACKGROUND_CACHE_MAX) backgroundCache.delete(backgroundCache.keys().next().value ?? '');
-  return media;
+  const hit = catalogCache.get(key);
+  if (hit && now - hit.at < CATALOG_CACHE_TTL_MS[lane]) return hit.media;
+  const pending = catalogInFlight.get(key);
+  if (pending) return pending;
+  const request = load()
+    .then((media) => {
+      catalogCache.delete(key);
+      catalogCache.set(key, { at: Date.now(), media });
+      // Plus ancienne entrée retirée au-delà de la limite (ordre d'insertion de la Map)
+      if (catalogCache.size > CATALOG_CACHE_MAX) catalogCache.delete(catalogCache.keys().next().value ?? '');
+      return media;
+    })
+    .finally(() => catalogInFlight.delete(key));
+  catalogInFlight.set(key, request);
+  return request;
 }
 
 /** `lane` : 'background' pour les tâches de fond (budget limité et cache court, voir rate-limit.ts) */

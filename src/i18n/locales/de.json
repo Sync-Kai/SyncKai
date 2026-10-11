@@ -416,6 +416,7 @@
   "match.dedicatedSeries": "Einziger AniList-Eintrag mit dem Serientitel",
   "match.episodeLink": "AniList-Eintrag mit dieser Folge verknüpft",
   "match.linkedEntry": "Mit diesem Titel verknüpfter AniList-Eintrag (Film, Special)",
+  "match.platformSeasonsSingle": "Nur ein verknüpfter AniList-Eintrag, der nicht alle {platform}-Staffeln abdeckt: Staffel prüfen",
   "match.platformTitleOnly": "Nur über den Titel gefunden (kein AniList-Eintrag mit dieser {platform}-Serie verknüpft)",
   "match.otherSeriesExcluded": "Ein mit einer anderen Serie der Plattform verknüpfter Eintrag wurde ausgeschlossen: Staffel prüfen",
   "match.platformUnlinkedEntry": "Über den Titel gefunden, obwohl ein anderer AniList-Eintrag mit diesem {platform}-Titel verknüpft ist",

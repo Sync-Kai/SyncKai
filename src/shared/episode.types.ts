@@ -29,6 +29,25 @@ export interface EpisodeInfo {
   displayedEpisodeNumber: number | null;
   episodeTitle: string | null;
   url: string;
+  /**
+   * Nombre d'épisodes de chaque saison de la série sur la plateforme, dans l'ordre des saisons (Netflix : métadonnées de
+   * la série). Sert à rapprocher les saisons de la plateforme des fiches AniList de la franchise (alignPlatformSeasons).
+   * Absent si inconnu (Crunchyroll, ADN, Disney+, épisodes enregistrés avant la 2.3.0).
+   */
+  platformSeasons?: number[];
+}
+
+/** Saisons par série au plus, épisodes par saison au plus (validation d'un message ou du stockage) */
+export const MAX_PLATFORM_SEASONS = 200;
+const MAX_SEASON_EPISODES = 10_000;
+
+/** Nombres d'épisodes par saison plausibles (entiers ≥ 0, bornés) */
+export function isPlatformSeasons(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_PLATFORM_SEASONS &&
+    value.every((count) => typeof count === 'number' && Number.isSafeInteger(count) && count >= 0 && count <= MAX_SEASON_EPISODES)
+  );
 }
 
 /**
@@ -58,6 +77,7 @@ export function isEpisodeInfo(value: unknown): value is EpisodeInfo {
     isNullableNumber(value.seasonEpisodeNumber) &&
     isNullableNumber(value.displayedEpisodeNumber) &&
     isNullableString(value.episodeTitle) &&
-    typeof value.url === 'string'
+    typeof value.url === 'string' &&
+    (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons))
   );
 }

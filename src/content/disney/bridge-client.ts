@@ -6,6 +6,9 @@
 // L'URL (/play/{id}) porte l'identifiant de l'épisode, que la fiche contient en général (décodé de `infoBlock`). À
 // défaut de correspondance après `matchWaitMs`, la seule fiche reçue depuis le changement d'URL est retenue ; plusieurs
 // fiches (ambiguïté) ou aucune : vidéo non suivie.
+//
+// Pages de série : `loadPage` attend la page de l'entité de l'URL (/browse/entity-{uuid}), sans délai propre (borné par
+// l'appelant au moyen de `signal`) ; les réponses `season/{id}` observées ensuite la mettent à jour.
 import {
   decodeDisneyPortOffer,
   decodeDisneyPush,
@@ -14,9 +17,11 @@ import {
   DISNEY_ID_REGEX,
   DISNEY_MAX_ENTRIES,
   DISNEY_MAX_IDS,
+  DISNEY_MAX_PAGES,
   encodeDisneyHandshake,
   hasDisneyId,
   type DisneyPlayerExperience,
+  type DisneySeriesPage,
 } from './bridge-protocol';
 
 export interface DisneyBridgeClientOptions {
@@ -40,7 +45,10 @@ export interface DisneyBridgeClientOptions {
    * Défaut : `event.isTrusted` ; remplacé dans les tests (Node : toujours faux).
    */
   isTrusted?: (event: Event) => boolean;
-  /** Journal de diagnostic (debug, build de développement) */
+  /**
+   * Journal de diagnostic (debug, build de développement) : appels retirés du script publié (`__SYNCKAI_DEBUG__`, budget
+   * de taille), messages construits seulement en développement
+   */
   log?: (message: string) => void;
 }
 
@@ -53,6 +61,10 @@ export interface DisneyBridgeClient {
   load(urlId: string, signal: AbortSignal, since: number): Promise<DisneyPlayerExperience | null>;
   /** Lecture synchrone du cache, sans attente */
   peek(urlId: string): DisneyPlayerExperience | null;
+  /** Page de série de l'entité `entityId` : en cache, sinon attendue jusqu'à son arrivée ; null si pont absent ou `signal` annulé */
+  loadPage(entityId: string, signal: AbortSignal): Promise<DisneySeriesPage | null>;
+  /** Page de série en cache, sans attente */
+  peekPage(entityId: string): DisneySeriesPage | null;
 }
 
 const DEFAULTS = { connectTimeoutMs: 3_000, matchWaitMs: 5_000, waitMs: 20_000, cacheSize: DISNEY_MAX_ENTRIES } as const;
@@ -69,6 +81,8 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
 
   /** Fiches reçues, une par vidéo, de la plus ancienne à la plus récente */
   let entries: DisneyPlayerExperience[] = [];
+  /** Pages de série reçues, une par entité (la plus récente remplace la précédente) */
+  let pages: DisneySeriesPage[] = [];
   /** Attentes en cours : relues à chaque fiche reçue */
   const listeners = new Set<() => void>();
   let port: MessagePort | null = null;
@@ -85,14 +99,23 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     return entries.findLast((entry) => hasDisneyId(entry, urlId)) ?? null;
   }
 
+  function peekPage(entityId: string): DisneySeriesPage | null {
+    const id = entityId.toLowerCase();
+    return pages.find((page) => page.entityId === id) ?? null;
+  }
+
   // Le port transféré est aussi visible des écouteurs `message` de la page : un MessageEvent synthétique qu'elle
   // déclencherait sur ce port (dispatchEvent) n'est pas « trusted » et reste ignoré
   function onPortMessage(event: Event): void {
     if (!(event instanceof MessageEvent) || !isTrusted(event)) return;
-    const received = decodeDisneyPush(event.data)?.entries ?? [];
-    if (received.length === 0) return;
+    const push = decodeDisneyPush(event.data);
+    const received = push?.entries ?? [];
+    const receivedPages = push?.pages ?? [];
+    if (received.length === 0 && receivedPages.length === 0) return;
     for (const entry of received) remember(entry);
-    log(`Fiches reçues du pont : ${received.map((entry) => `[${entry.ids.join(', ')}]`).join(' ')}`);
+    for (const page of receivedPages) pages = [...pages.filter((known) => known.entityId !== page.entityId), page].slice(-DISNEY_MAX_PAGES);
+    if (__SYNCKAI_DEBUG__ && received.length > 0) log(`Fiches reçues du pont : ${received.map((entry) => `[${entry.ids.join(', ')}]`).join(' ')}`);
+    if (__SYNCKAI_DEBUG__ && receivedPages.length > 0) log(`Pages de série reçues du pont : ${receivedPages.map((page) => page.entityId).join(', ')}`);
     for (const listener of [...listeners]) listener();
   }
 
@@ -130,9 +153,9 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
         port = offered;
         offered.addEventListener('message', onPortMessage);
         offered.start(); // Obligatoire avec addEventListener (onmessage le ferait implicitement)
-        log('Pont Disney+ connecté');
+        if (__SYNCKAI_DEBUG__) log('Pont Disney+ connecté');
       } else {
-        log('Pont Disney+ absent (onglet ouvert avant l’activation ou la mise à jour ?)');
+        if (__SYNCKAI_DEBUG__) log('Pont Disney+ absent (onglet ouvert avant l’activation ou la mise à jour ?)');
       }
       return offered;
     });
@@ -143,18 +166,18 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
   function decide(id: string, since: number, matchExpired: boolean): DisneyPlayerExperience | null | undefined {
     const match = peek(id);
     if (match) {
-      log(`Fiche trouvée pour l’URL ${id}`);
+      if (__SYNCKAI_DEBUG__) log(`Fiche trouvée pour l’URL ${id}`);
       return match;
     }
     if (!matchExpired) return undefined;
     const fresh = entries.filter((entry) => entry.seenAt >= since);
     if (fresh.length > 1) {
-      log(`Aucune fiche ne porte l’identifiant ${id}, ${fresh.length} fiches reçues depuis le changement d’URL : vidéo non suivie`);
+      if (__SYNCKAI_DEBUG__) log(`Aucune fiche ne porte l’identifiant ${id}, ${fresh.length} fiches reçues depuis le changement d’URL : vidéo non suivie`);
       return null;
     }
     const [only] = fresh;
     if (!only) return undefined;
-    log(`Aucune fiche ne porte l’identifiant ${id} : seule fiche reçue depuis le changement d’URL retenue [${only.ids.join(', ')}]`);
+    if (__SYNCKAI_DEBUG__) log(`Aucune fiche ne porte l’identifiant ${id} : seule fiche reçue depuis le changement d’URL retenue [${only.ids.join(', ')}]`);
     // Retenue pour cet identifiant : les relectures (popup, fin de l'épisode) la retrouvent directement
     remember({ ...only, ids: [...only.ids.slice(0, DISNEY_MAX_IDS - 1), id] });
     return peek(id);
@@ -186,7 +209,7 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
         check();
       }, matchWaitMs);
       const timer = setTimeout(() => {
-        log(`Aucune fiche reçue pour l’URL ${id} : vidéo non suivie`);
+        if (__SYNCKAI_DEBUG__) log(`Aucune fiche reçue pour l’URL ${id} : vidéo non suivie`);
         finish(null);
       }, waitMs);
       signal.addEventListener('abort', onAbort, { once: true });
@@ -195,5 +218,28 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     });
   }
 
-  return { load, peek };
+  async function loadPage(entityId: string, signal: AbortSignal): Promise<DisneySeriesPage | null> {
+    if (!DISNEY_ID_REGEX.test(entityId) || signal.aborted) return null;
+    const cached = peekPage(entityId);
+    if (cached) return cached;
+    const channel = await connect();
+    if (!channel || signal.aborted) return peekPage(entityId);
+    return new Promise((resolve) => {
+      const finish = (page: DisneySeriesPage | null): void => {
+        listeners.delete(check);
+        signal.removeEventListener('abort', onAbort);
+        resolve(page);
+      };
+      const check = (): void => {
+        const page = peekPage(entityId);
+        if (page) finish(page);
+      };
+      const onAbort = (): void => finish(null);
+      signal.addEventListener('abort', onAbort, { once: true });
+      listeners.add(check);
+      check();
+    });
+  }
+
+  return { load, peek, loadPage, peekPage };
 }

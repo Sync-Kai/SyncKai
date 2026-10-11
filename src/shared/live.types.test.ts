@@ -11,6 +11,10 @@ describe('messages de progression en direct', () => {
     expect(isLiveContentMessage({ type: 'page' })).toBe(false);
   });
 
+  it('accepte un changement de saison (page de série)', () => {
+    expect(isLiveContentMessage({ type: 'season' })).toBe(true);
+  });
+
   it('accepte un tick complet, lecteur prêt ou non', () => {
     expect(isLiveContentMessage(tick)).toBe(true);
     expect(isLiveContentMessage({ ...tick, t: null, duration: null, point: null, state: 'idle' })).toBe(true);

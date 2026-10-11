@@ -15,6 +15,7 @@ import {
   toNumber,
 } from './parsing';
 import { findPlayerVideo } from '../lib/find-video';
+import { watchElementText } from '../lib/season-watch';
 import type { StreamingAdapter } from './adapter';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 
@@ -221,14 +222,40 @@ export function parseCrunchyrollSeriesPath(pathname: string): { seriesId: string
   return match ? { seriesId: match[1], seriesSlug: match[2]?.toLowerCase() ?? null } : null;
 }
 
-/** Libellé de saison → numéro + nom (null si le texte n'est pas un libellé de saison) */
-export function parseCrunchyrollSeasonLabel(text: string | null): { number: number | null; title: string | null } | null {
+/**
+ * Saison spéciale sans numéro, libellé seul du menu (« Special », relevé le 2026-10-11 ; éventuellement répété comme
+ * « Season 1Season 1 ») : spéciaux (toutes langues, ramenés à « Special »), OVA, OAD, film, extras, récapitulatif
+ */
+const SPECIAL_SEASON_LABEL_REGEX = /^(sp[eé]ci(?:al|aux|ale)s?|spezial|especial(?:es)?|ovas?|oads?|movies?|films?|extras?|recaps?)(?:\s*\1)?$/i;
+const SPECIALS_FAMILY = /^(?:sp[eé]ci|spezial|especial)/i;
+
+/**
+ * Plage d'épisodes absolus en fin de libellé d'un arc de One Piece : « Elbaph (1156-current) », « Egghead (1086-1155) »,
+ * « (1156–actuel) », « (1156-aktuell) », « (1156-) » (relevé le 2026-10-11 sur /series/GRMG8ZQZR)
+ */
+const EPISODE_RANGE_REGEX = /\s*\((\d{1,5})\s*[-–—]\s*(?:\d{1,5}|[\p{L}. ]{0,20})\)\s*$/u;
+
+/** Libellé de saison → numéro, nom, et premier épisode absolu de la saison s'il est affiché (null si pas une saison) */
+export function parseCrunchyrollSeasonLabel(text: string | null): { number: number | null; title: string | null; firstEpisode?: number } | null {
   const label = cleanText(text);
   if (!label || label.length > 200) return null;
+  // Arc numéroté en absolu : plage retirée du titre, premier épisode gardé comme indice de numérotation
+  const range = EPISODE_RANGE_REGEX.exec(label);
+  const first = range ? toNumber(range[1]) : null;
+  if (range && first !== null && first >= 1) {
+    const rest = label.slice(0, range.index);
+    const parsed = parseCrunchyrollSeasonLabel(rest);
+    const title = cleanText(stripAudioTag(rest));
+    return parsed ? { ...parsed, firstEpisode: first } : title ? { number: null, title, firstEpisode: first } : null;
+  }
   const named = SEASON_LABEL_REGEX.exec(label);
   if (named) return { number: toNumber(named[1]), title: cleanText(stripAudioTag(named[2])) };
   const generic = GENERIC_SEASON_LABEL_REGEX.exec(label);
-  return generic ? { number: toNumber(generic[1]), title: null } : null;
+  if (generic) return { number: toNumber(generic[1]), title: null };
+  // Saison spéciale : titre seul (le service worker la reconnaît comme saison spéciale, voir isSpecialSeason)
+  const special = SPECIAL_SEASON_LABEL_REGEX.exec(label)?.[1];
+  if (!special) return null;
+  return { number: null, title: SPECIALS_FAMILY.test(special) ? 'Special' : special };
 }
 
 /**
@@ -307,15 +334,26 @@ function readSeasonEpisodeCount(seasonNumber: number | null): number | null {
   return null;
 }
 
-function firstText(selectors: readonly string[], accept: (text: string) => boolean): string | null {
+/** Premier élément (sélecteurs dans l'ordre de priorité, puis ordre du document) dont le texte est accepté */
+function firstElement(selectors: readonly string[], accept: (text: string) => boolean): { element: Element; text: string } | null {
   for (const selector of selectors) {
-    for (const el of document.querySelectorAll<HTMLElement>(selector)) {
-      const text = cleanText(el.textContent);
-      if (text && accept(text)) return text;
+    for (const element of document.querySelectorAll(selector)) {
+      const text = cleanText(element.textContent);
+      if (text && accept(text)) return { element, text };
     }
   }
   return null;
 }
+
+function firstText(selectors: readonly string[], accept: (text: string) => boolean): string | null {
+  return firstElement(selectors, accept)?.text ?? null;
+}
+
+/**
+ * Élément du menu des saisons dont le libellé est lu (même règle que detectCrunchyrollSeries) : jamais un conteneur dont
+ * le texte comprend la liste des épisodes (« erc-season-with-navigation », chargée au défilement)
+ */
+const seasonMenuElement = (): Element | null => firstElement(SERIES_SELECTORS.season, (text) => parseCrunchyrollSeasonLabel(text) !== null)?.element ?? null;
 
 /** Page de série : titre (JSON-LD → <h1> → og:title → slug) et saison sélectionnée si lisible */
 function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
@@ -338,6 +376,7 @@ function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
     seasonNumber: season?.number ?? null,
     seasonTitle: season?.title ?? null,
     seasonEpisodeCount: readSeasonEpisodeCount(season?.number ?? null),
+    ...(season?.firstEpisode !== undefined ? { seasonFirstEpisode: season.firstEpisode } : {}),
   };
 }
 
@@ -371,6 +410,11 @@ export const crunchyrollAdapter: StreamingAdapter = {
 
   detectSeries(url) {
     return detectCrunchyrollSeries(url);
+  },
+
+  // Menu des saisons de la page de série (choix sans changement d'URL) : mêmes éléments que la lecture de la saison
+  watchSeason(url, onChange) {
+    return parseCrunchyrollSeriesPath(url.pathname) ? watchElementText(seasonMenuElement, onChange) : null;
   },
 
   findVideo() {

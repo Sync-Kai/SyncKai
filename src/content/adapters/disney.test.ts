@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { reduceDisneyPlayerExperience, type DisneyPlayerExperience } from '../disney/bridge-protocol';
+import { applyDisneySeason, reduceDisneyPlayerExperience, reduceDisneySeriesPage, type DisneyPlayerExperience, type DisneySeriesPage } from '../disney/bridge-protocol';
 import {
   nonAnimeEpisode,
+  nonAnimeSeriesPage,
   PLAY_PAGE_VIDEOS,
   SEEN_AT,
   UNDEAD_UNLUCK_S1E1_AVAIL_ID,
+  UNDEAD_UNLUCK_ENTITY_ID,
+  UNDEAD_UNLUCK_S1_ID,
   UNDEAD_UNLUCK_S1E1_PLAY_ID,
   undeadUnluckS1E1,
+  undeadUnluckSeriesPage,
   UP_NEXT_TITLES,
   WINTER_ARC_E1_AVAIL_ID,
+  WINTER_ARC_SEASON_ID,
   winterArcE1,
+  winterArcSeasonResponse,
 } from '../disney/fixtures';
 import {
   arcTitleFromSubtitle,
@@ -18,10 +24,16 @@ import {
   disneyAdapter,
   episodeInfoFromPlayerExperience,
   episodeTitleFromSubtitle,
+  hasAnimeGenre,
   isJapaneseOriginal,
+  parseDisneyEntityId,
   parseDisneyPlayId,
   parseInternalTitle,
+  pickDisneySeason,
   pickPlayingVideo,
+  seasonFromMenu,
+  seriesInfoFromDisneyPage,
+  type MenuElement,
   readProgressRange,
   type ProgressContext,
 } from './disney';
@@ -310,4 +322,138 @@ describe('chooseDisneyVideo (lecteur de la page)', () => {
     Object.assign(video, { currentTime: 33 });
     expect(read(video, ctx(1460))).toEqual({ currentTime: 610, duration: 1460 });
   });
+});
+
+// ─── Page de série (/browse/entity-{uuid}) ────────────────────────────────
+
+function seriesPage(raw: unknown = undeadUnluckSeriesPage(), entityId = UNDEAD_UNLUCK_ENTITY_ID): DisneySeriesPage {
+  const page = reduceDisneySeriesPage(raw, entityId, SEEN_AT);
+  if (!page) throw new Error('fixture invalide');
+  return page;
+}
+
+describe('parseDisneyEntityId', () => {
+  it.each([
+    [`/fr-fr/browse/entity-${UNDEAD_UNLUCK_ENTITY_ID}`, UNDEAD_UNLUCK_ENTITY_ID],
+    [`/browse/entity-${UNDEAD_UNLUCK_ENTITY_ID.toUpperCase()}/`, UNDEAD_UNLUCK_ENTITY_ID],
+    [`/es-419/browse/entity-${UNDEAD_UNLUCK_ENTITY_ID}`, UNDEAD_UNLUCK_ENTITY_ID],
+  ])('%s → %s', (path, id) => {
+    expect(parseDisneyEntityId(path)).toBe(id);
+  });
+
+  it.each([`/fr-fr/play/${UNDEAD_UNLUCK_ENTITY_ID}`, '/fr-fr/browse/entity-1234', `/fr-fr/browse/${UNDEAD_UNLUCK_ENTITY_ID}`, '/fr-fr/home', `/a/b/browse/entity-${UNDEAD_UNLUCK_ENTITY_ID}`])(
+    'pas une page de série : %s',
+    (path) => {
+      expect(parseDisneyEntityId(path)).toBeNull();
+    },
+  );
+});
+
+describe('seriesInfoFromDisneyPage', () => {
+  it('Undead Unluck, saison affichée au chargement (focus) : uuid, titre anglais, anime, saison 1 (24 épisodes)', () => {
+    const page = seriesPage();
+    expect(seriesInfoFromDisneyPage(page, pickDisneySeason(page, null))).toEqual({
+      seriesId: UNDEAD_UNLUCK_ENTITY_ID,
+      seriesSlug: null,
+      seriesTitle: 'Undead Unluck',
+      catalogAnime: true,
+      seasonNumber: 1,
+      seasonTitle: null,
+      seasonEpisodeCount: 24,
+    });
+  });
+
+  it('arc choisi (réponse season/{id} : s99) : saison 99 et nom de l’arc, comme la lecture', () => {
+    const page = applyDisneySeason(seriesPage(), WINTER_ARC_SEASON_ID, winterArcSeasonResponse());
+    if (!page) throw new Error('saison absente');
+    expect(seriesInfoFromDisneyPage(page, pickDisneySeason(page, null))).toMatchObject({ seasonNumber: 99, seasonTitle: 'Undead Unluck: Winter Arc', seasonEpisodeCount: 1 });
+  });
+
+  it('arc choisi dans le menu, aucun épisode lu : désigné par son nom', () => {
+    const page = seriesPage();
+    const season = pickDisneySeason(page, seasonFromMenu(menuRoot([menuButton('Undead Unluck:  Winter Arc ')]), page.seasons)?.id ?? null);
+    expect(seriesInfoFromDisneyPage(page, season)).toMatchObject({ seasonNumber: null, seasonTitle: 'Undead Unluck: Winter Arc' });
+  });
+
+  it('saison générique sans épisode lu (« Saison 2 ») : numéro du nom', () => {
+    const page = seriesPage();
+    expect(seriesInfoFromDisneyPage(page, { id: UNDEAD_UNLUCK_S1_ID, name: 'Saison 2', seasonNumber: null, episodeCount: 12 })).toMatchObject({ seasonNumber: 2, seasonTitle: null, seasonEpisodeCount: 12 });
+  });
+
+  it('titre localisé (« Time Shadows ») : titre anglais du titre interne', () => {
+    const page = seriesPage(undeadUnluckSeriesPage({ title: 'Time Shadows' }));
+    expect(seriesInfoFromDisneyPage(page, null).seriesTitle).toBe('Undead Unluck');
+  });
+
+  it('pas un anime (aucun genre « Anime ») : signalé ; titre localisé faute de titre interne', () => {
+    const page = seriesPage(nonAnimeSeriesPage(), '11111111-2222-4333-8444-000000000001');
+    expect(seriesInfoFromDisneyPage(page, pickDisneySeason(page, null))).toMatchObject({ seriesTitle: 'Andor', catalogAnime: false, seasonNumber: 1 });
+  });
+
+  it('genres inconnus : rien n’est affirmé sur le genre', () => {
+    const page = { ...seriesPage(), genres: [] };
+    expect(seriesInfoFromDisneyPage(page, null)).not.toHaveProperty('catalogAnime');
+  });
+
+  it('hasAnimeGenre : casse et accents ignorés', () => {
+    expect(hasAnimeGenre(['Animation', 'ANIME'])).toBe(true);
+    expect(hasAnimeGenre(['Animé'])).toBe(true);
+    expect(hasAnimeGenre(['Animation', 'Anime-Serie'])).toBe(false);
+  });
+});
+
+/** Élément simulé : texte affiché et texte complet (textContent), visible ou non */
+function element(text: string, { visible = true, textContent = text }: { visible?: boolean; textContent?: string } = {}): MenuElement & { innerText: string } {
+  return { innerText: text, textContent, getClientRects: () => ({ length: visible ? 1 : 0 }) };
+}
+
+/** Bouton du menu des saisons relevé : button[data-testid="dropdown-button"][aria-haspopup="listbox"] */
+const menuButton = (text: string, options?: { visible?: boolean; textContent?: string }): { selector: 'button'; element: MenuElement } => ({ selector: 'button', element: element(text, options) });
+const toggle = (text: string, options?: { visible?: boolean; textContent?: string }): { selector: 'toggle'; element: MenuElement } => ({ selector: 'toggle', element: element(text, options) });
+
+/** Document simulé : le bouton du menu répond à son sélecteur exact, les autres au sélecteur générique */
+function menuRoot(nodes: readonly { selector: 'button' | 'toggle'; element: MenuElement }[]): { querySelectorAll(selector: string): MenuElement[] } {
+  return {
+    querySelectorAll: (selector) =>
+      nodes.filter((node) => (selector.includes('data-testid="dropdown-button"') ? node.selector === 'button' : node.selector === 'toggle')).map((node) => node.element),
+  };
+}
+
+describe('seasonFromMenu (menu des saisons, relevé du 2026-10-11)', () => {
+  const page = seriesPage();
+
+  it('Winter Arc choisi : bouton dropdown-button, même si un autre élément (masqué, pas à jour) affiche « Saison 1 »', () => {
+    const root = menuRoot([menuButton('Undead Unluck: Winter Arc'), toggle('Saison 1', { visible: false })]);
+    expect(seasonFromMenu(root, page.seasons)).toEqual({ id: WINTER_ARC_SEASON_ID, source: 'menu' });
+  });
+
+  it('texte masqué dans le bouton (icône, libellé d’accessibilité) : le texte affiché fait foi', () => {
+    const root = menuRoot([menuButton('Undead Unluck: Winter Arc', { textContent: 'Undead Unluck: Winter ArcOuvrir la liste' })]);
+    expect(seasonFromMenu(root, page.seasons)?.id).toBe(WINTER_ARC_SEASON_ID);
+  });
+
+  it('casse, espaces et typographie française ignorés', () => {
+    expect(seasonFromMenu(menuRoot([menuButton('  undead unluck : WINTER   arc ')]), page.seasons)?.id).toBe(WINTER_ARC_SEASON_ID);
+    expect(seasonFromMenu(menuRoot([menuButton('SAISON 1')]), page.seasons)?.id).toBe(UNDEAD_UNLUCK_S1_ID);
+  });
+
+  it('bouton absent : repli sur un élément visible et sans ambiguïté, jamais sur un élément masqué', () => {
+    expect(seasonFromMenu(menuRoot([toggle('Undead Unluck: Winter Arc')]), page.seasons)).toEqual({ id: WINTER_ARC_SEASON_ID, source: 'generic' });
+    expect(seasonFromMenu(menuRoot([toggle('Saison 1', { visible: false })]), page.seasons)).toBeNull();
+    expect(seasonFromMenu(menuRoot([toggle('Saison 1'), toggle('Undead Unluck: Winter Arc')]), page.seasons)).toBeNull();
+    expect(seasonFromMenu(menuRoot([toggle('Profil')]), page.seasons)).toBeNull();
+  });
+});
+
+describe('pickDisneySeason', () => {
+  const page = seriesPage();
+
+  it('priorité : menu (DOM), puis dernière requête season/{id}, puis focus', () => {
+    expect(pickDisneySeason(page, null)?.id).toBe(UNDEAD_UNLUCK_S1_ID);
+    expect(pickDisneySeason({ ...page, selectedSeasonId: WINTER_ARC_SEASON_ID }, null)?.id).toBe(WINTER_ARC_SEASON_ID);
+    expect(pickDisneySeason({ ...page, selectedSeasonId: WINTER_ARC_SEASON_ID }, UNDEAD_UNLUCK_S1_ID)?.id).toBe(UNDEAD_UNLUCK_S1_ID);
+    expect(pickDisneySeason({ ...page, focusSeasonId: null }, null)).toBeNull();
+    expect(pickDisneySeason({ ...page, focusSeasonId: null, seasons: page.seasons.slice(0, 1) }, null)?.id).toBe(UNDEAD_UNLUCK_S1_ID);
+  });
+
 });

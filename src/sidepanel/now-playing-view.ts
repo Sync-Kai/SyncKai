@@ -39,8 +39,8 @@ export function episodeLine(episode: number | null, total: number | null): strin
 // Identité et lecture partielle d'une page : partagées avec le popup et le service worker (cache par onglet)
 export { isPartialEpisodePage, pageKey } from '../shared/page-media-cache';
 
-/** Événement utile à la fiche : épisode annoncé par la page (port de lecture), synchro terminée */
-export type LiveEvent = { type: 'page'; episodeId: string | null } | { type: 'synced' };
+/** Événement utile à la fiche : épisode annoncé par la page (port de lecture), synchro terminée, saison choisie dans le menu */
+export type LiveEvent = { type: 'page'; episodeId: string | null } | { type: 'synced' } | { type: 'season' };
 
 /**
  * Relire la page de l'onglet ? Synchro terminée : oui (la page a pu se compléter depuis ; la fiche elle-même
@@ -48,7 +48,8 @@ export type LiveEvent = { type: 'page'; episodeId: string | null } | { type: 'sy
  * (navigation SPA) ou si la fiche vient d'une lecture partielle.
  */
 export function shouldRedetect(shown: PageMediaInfo | null, event: LiveEvent): boolean {
-  if (event.type === 'synced') return true;
+  // Saison choisie dans le menu d'une page de série (sans changement d'URL) : relue comme une navigation
+  if (event.type === 'synced' || event.type === 'season') return true;
   if (event.episodeId === null) return false;
   return !shown || shown.episode?.episodeId !== event.episodeId || isPartialEpisodePage(shown);
 }

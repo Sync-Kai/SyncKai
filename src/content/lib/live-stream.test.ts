@@ -54,6 +54,16 @@ describe('createLiveStream', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('saison choisie dans le menu d’une page de série : diffusée aux panneaux connectés, rien sans panneau', () => {
+    const stream = createLiveStream(() => null);
+    stream.notifySeason();
+    const peer = collect();
+    stream.addPeer(peer.send);
+    peer.received.length = 0;
+    stream.notifySeason();
+    expect(peer.received).toEqual([{ type: 'season' }]);
+  });
+
   it('envoie l’état complet à la connexion, puis au plus un tick par seconde', () => {
     const stream = createLiveStream(() => snapshot);
     const peer = collect();

@@ -4,11 +4,13 @@ import { STORAGE_KEYS } from '../../shared/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
 import { createLogger } from '../../shared/logger';
 import { getAnimeByIds, type AniListMedia } from '../api/media';
-import { legacySeriesSlugInLink, linksToOtherSeries, linksToOtherSeriesBySlug, matchPlatformLink } from './matching';
+import { legacySeriesSlugInLink, linksToOtherSeries, linksToOtherSeriesBySlug, matchPlatformLink, SERIES_FORMATS } from './matching';
 
 // Purge unique des correspondances apprises avant le correctif SYNC-01 (2.3.0) : une suite publiée comme une autre
 // série de la plateforme (Naruto Shippuden) pouvait être mise en cache vers la fiche de la série précédente (Naruto).
-// Le résolveur ne refait plus l'erreur, mais une correspondance en cache est réutilisée telle quelle.
+// Netflix, même version : une série en plusieurs saisons dont AniList lie les premières à un autre titre Netflix
+// (Ranma1/2) pouvait être mise en cache vers la fiche de la DERNIÈRE saison (« Fiche unique », S1E1 → saison 3).
+// Le résolveur ne refait plus ces erreurs, mais une correspondance en cache est réutilisée telle quelle.
 
 const log = createLogger('sync');
 
@@ -16,13 +18,13 @@ const log = createLogger('sync');
 const IDS_PER_REQUEST = 50;
 const PENDING = 'pending';
 
-/** Clés vérifiables : saison d'une série Crunchyroll ou ADN désignée par son identifiant (pas `title:…`, pas Netflix) */
-const MAPPING_KEY = /^(crunchyroll|adn):([^:]+):s(\d+)$/;
+/** Clés vérifiables : saison d'une série Crunchyroll, ADN ou Netflix désignée par son identifiant (pas `title:…`) */
+const MAPPING_KEY = /^(crunchyroll|adn|netflix):([^:]+):s(\d+)$/;
 
 interface MappingCheck {
   key: string;
   mapping: MediaMapping;
-  platform: Extract<StreamingPlatform, 'crunchyroll' | 'adn'>;
+  platform: Extract<StreamingPlatform, 'crunchyroll' | 'adn' | 'netflix'>;
   seriesId: string;
   /** Slug de la page déduit du libellé enregistré (null : inconnu ou indéductible) */
   seriesSlug: string | null;
@@ -82,17 +84,27 @@ export function belongsToOtherSeries(
   });
 }
 
+/**
+ * Netflix : fiche suite d'une autre fiche série (relation PREQUEL vers une fiche TV / ONA). Seul ce cas a pu être mis en
+ * cache à tort (fiche unique retenue pour une saison antérieure) ; une correspondance juste vers une suite est simplement
+ * recalculée au prochain épisode (épisodes par saison de Netflix, voir alignPlatformSeasons).
+ */
+export function isSequelEntry(media: Pick<AniListMedia, 'relations'>): boolean {
+  return media.relations.some((rel) => rel.type === 'ANIME' && rel.relationType === 'PREQUEL' && rel.format !== null && SERIES_FORMATS.has(rel.format));
+}
+
 function toCheck(key: string, mapping: MediaMapping): MappingCheck | null {
   const match = MAPPING_KEY.exec(key);
   if (!match) return null;
   const [, platform, seriesId, season] = match;
-  if ((platform !== 'crunchyroll' && platform !== 'adn') || !seriesId || season === undefined) return null;
+  if ((platform !== 'crunchyroll' && platform !== 'adn' && platform !== 'netflix') || !seriesId || season === undefined) return null;
   return { key, mapping, platform, seriesId, seriesSlug: seriesSlugFromLabel(mapping.seriesLabel, Number(season)) };
 }
 
 /**
  * Supprime les correspondances Crunchyroll et ADN dont la fiche appartient à une autre série de la plateforme
- * (voir belongsToOtherSeries) ; elles seront recalculées au prochain épisode. Lecture, puis catalogue AniList hors du
+ * (voir belongsToOtherSeries), et les correspondances Netflix vers une suite (voir isSequelEntry) ; elles seront
+ * recalculées au prochain épisode. Lecture, puis catalogue AniList hors du
  * verrou du stockage, puis suppression sous le verrou des seules entrées inchangées. Une erreur réseau remonte
  * avant toute suppression. Retourne le nombre supprimé.
  */
@@ -109,7 +121,8 @@ export async function purgeOtherSeriesMappings(): Promise<number> {
   // Fiche absente de la réponse (supprimée d'AniList) : aucune preuve, correspondance gardée
   const wrong = checks.filter((check) => {
     const media = mediaById.get(check.mapping.mediaId);
-    return media !== undefined && belongsToOtherSeries(media, check.platform, check.seriesId, check.seriesSlug);
+    if (media === undefined) return false;
+    return check.platform === 'netflix' ? isSequelEntry(media) : belongsToOtherSeries(media, check.platform, check.seriesId, check.seriesSlug);
   });
   if (wrong.length === 0) return 0;
   return deleteMediaMappingsIfUnchanged(Object.fromEntries(wrong.map(({ key, mapping }) => [key, mapping])));

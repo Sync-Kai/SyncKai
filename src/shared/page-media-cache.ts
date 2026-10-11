@@ -105,10 +105,15 @@ export async function storeCachedPageMedia(
   view: PageMediaView,
   source: PageMediaSource,
   epochs: SessionEpochs,
+  /**
+   * Horodatage de l'entrée (`resolvedAt`). Fourni par l'écran qui écrit, connu AVANT l'écriture : storage.onChanged est
+   * émis pendant l'écriture, avant que cette fonction ne rende la main, et l'écran doit y reconnaître son propre écho.
+   */
+  now: number = Date.now(),
 ): Promise<CachedPageMedia | null> {
   const area = sessionArea();
   if (!area) return null;
-  const next = toCachedPageMedia(page, view, source, Date.now(), epochs);
+  const next = toCachedPageMedia(page, view, source, now, epochs);
   const written = await withStorageLock(async () => {
     if (!sameSessions(epochs, await getOpenSessions())) return null;
     if (!shouldReplaceCachedPageMedia(await readCachedPageMedia(tabId), next)) return null;

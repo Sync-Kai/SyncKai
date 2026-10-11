@@ -29,6 +29,20 @@ export interface StreamingAdapter {
    */
   detectSeries(url: URL): SeriesPageInfo | null;
 
+  /**
+   * Page de série dont les métadonnées arrivent de façon asynchrone (pont du monde MAIN : Netflix, Disney+) ; null hors
+   * page de série, si elles sont indisponibles ou si `signal` est annulé. Optionnel : appelé par la réponse à
+   * GET_PAGE_MEDIA seulement quand `detectSeries` (lecture du cache) ne donne rien, dans un délai borné.
+   */
+  loadSeries?(url: URL, signal: AbortSignal): Promise<SeriesPageInfo | null>;
+
+  /**
+   * Page de série : surveille la saison choisie dans le menu de la page (le site ne change pas l'URL) et appelle
+   * `onChange` à chaque changement ; retourne l'arrêt, null hors page de série. Posé seulement tant qu'un panneau latéral
+   * est connecté (voir lib/season-watch.ts). Optionnel : sans implémentation, le panneau suit les changements d'URL.
+   */
+  watchSeason?(url: URL, onChange: () => void): (() => void) | null;
+
   /** Retourne l'élément <video> du lecteur s'il est présent */
   findVideo(): HTMLVideoElement | null;
 

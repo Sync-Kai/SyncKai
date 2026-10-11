@@ -416,6 +416,7 @@
   "match.dedicatedSeries": "Only AniList entry with the series title",
   "match.episodeLink": "AniList entry linked to this episode",
   "match.linkedEntry": "AniList entry (movie, special) linked to this title",
+  "match.platformSeasonsSingle": "Only one linked AniList entry, which doesn’t cover every {platform} season: season to check",
   "match.platformTitleOnly": "Found by title only (no AniList entry links to this {platform} series)",
   "match.otherSeriesExcluded": "An entry linked to another series on the platform was set aside: season to check",
   "match.platformUnlinkedEntry": "Found by title, while another AniList entry links to this {platform} title",

@@ -35,6 +35,13 @@ const fake = vi.hoisted(() => ({
   storedEpochs: [] as SessionEpochs[],
   local: {} as Record<string, unknown>,
   listeners: [] as ChangeListener[],
+  /**
+   * Comme Chrome : storage.onChanged émis PENDANT l'écriture, avant que storeCachedPageMedia ne rende la main (l'écriture
+   * attend encore le ménage des fiches périmées). Horodatage de l'entrée écrite : `now` fourni, sinon `writtenAt`, + `writes`.
+   */
+  echoDuringWrite: false,
+  writes: 0,
+  lastStoredAt: null as number | null,
 }));
 
 vi.mock('../shared/messages', () => ({
@@ -56,9 +63,12 @@ vi.mock('../shared/page-media-cache', async (importOriginal) => {
   return {
     ...original,
     readCachedPageMedia: () => Promise.resolve(fake.cached),
-    storeCachedPageMedia: (_tabId: number, page: PageMediaInfo, view: PageMediaView, _source: string, epochs: SessionEpochs) => {
+    storeCachedPageMedia: (tabId: number, page: PageMediaInfo, view: PageMediaView, _source: string, epochs: SessionEpochs, now?: number) => {
       fake.storedEpochs.push(epochs);
-      return Promise.resolve(original.toCachedPageMedia(page, view, 'resolve', fake.writtenAt, epochs));
+      const entry = original.toCachedPageMedia(page, view, 'resolve', now ?? fake.writtenAt + fake.writes++, epochs);
+      fake.lastStoredAt = entry.resolvedAt;
+      if (fake.echoDuringWrite) for (const listener of fake.listeners) listener({ [original.pageMediaCacheKey(tabId)]: { newValue: entry } }, 'session');
+      return Promise.resolve(entry);
     },
   };
 });
@@ -70,7 +80,7 @@ vi.stubGlobal('chrome', {
   },
 });
 
-const { createPageMediaController } = await import('./page-media-controller');
+const { AUTO_REDETECT_MAX_PER_MINUTE, createPageMediaController } = await import('./page-media-controller');
 const { sendMessage } = await import('../shared/messages');
 const { pageMediaCacheKey, toCachedPageMedia } = await import('../shared/page-media-cache');
 
@@ -190,6 +200,9 @@ beforeEach(() => {
   fake.storedEpochs.length = 0;
   fake.local = {};
   fake.listeners.length = 0;
+  fake.echoDuringWrite = false;
+  fake.writes = 0;
+  fake.lastStoredAt = null;
 });
 
 describe('états alignés (popup et panneau)', () => {
@@ -311,13 +324,39 @@ describe('choix de la saison', () => {
 });
 
 describe('anti-écho du cache de l’onglet', () => {
+  it('saison choisie dans le panneau, écho émis pendant l’écriture (Chrome) : aucune boucle de relectures', async () => {
+    fake.echoDuringWrite = true;
+    const ctl = await readyOnFrieren();
+    const resolves = (): number => fake.calls.filter((call) => call.type === 'RESOLVE_PAGE_MEDIA').length;
+    vi.useFakeTimers();
+    try {
+      ctl.pickSeason(999);
+      let answered = 0;
+      // Une minute simulée : relectures reportées (1 s) comprises
+      for (let i = 0; i < 60; i++) {
+        await vi.advanceTimersByTimeAsync(1_000);
+        // Détails AniList du panneau (fiche changée) : chargés, la fiche devient stable
+        for (const details of pending('GET_PANEL_MEDIA')) answer(details, { ok: false, code: 'API_ERROR', message: 'détails indisponibles' });
+        const [call] = pending('RESOLVE_PAGE_MEDIA');
+        if (!call) continue;
+        answered++;
+        answer(call, { ok: true, data: { ...view(payloadPage(call), payloadOf(call).mediaId ?? undefined), source: 'manual' } });
+      }
+      // Une seule résolution : celle du choix (avant le correctif, chaque écho relançait RESOLVE_PAGE_MEDIA, sans fin)
+      expect(answered).toBe(1);
+      expect(resolves()).toBe(0);
+      expect(ctl.content.status === 'ready' && ctl.content.view.media.mediaId).toBe(999);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sa propre écriture est ignorée ; une fiche réécrite ailleurs (synchro) fait relire la page', async () => {
-    fake.writtenAt = 4_242;
     const ctl = await readyOnFrieren();
     await settle();
     const reads = fake.reads;
 
-    emitCacheWrite(1, 4_242);
+    emitCacheWrite(1, fake.lastStoredAt ?? -1);
     await settle();
     expect(fake.reads).toBe(reads);
 
@@ -334,6 +373,63 @@ describe('anti-écho du cache de l’onglet', () => {
     emitCacheWrite(2, 9_999);
     await settle();
     expect(fake.reads).toBe(reads);
+  });
+});
+
+describe('plafond des relectures automatiques (AniList jamais saturé, quelle qu’en soit la cause)', () => {
+  /** Popup prêt sur Frieren ; répond à chaque résolution pendant `seconds` en émettant `emit` à chaque seconde */
+  async function run(ctl: PageMediaController<never>, seconds: number, emit: (second: number) => void): Promise<void> {
+    for (let second = 0; second < seconds; second++) {
+      emit(second);
+      await vi.advanceTimersByTimeAsync(1_000);
+      for (const call of pending('RESOLVE_PAGE_MEDIA')) answer(call, { ok: true, data: view(payloadPage(call)) });
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ctl.content.status).toBe('ready');
+  }
+
+  async function readyPopup(): Promise<PageMediaController<never>> {
+    fake.pages.set(1, FRIEREN);
+    const ctl = createPageMediaController({ onChange: () => undefined });
+    ctl.open(1, FRIEREN);
+    await answerAll();
+    return ctl;
+  }
+
+  it('rafale de déclencheurs : une relecture tout de suite, les suivantes regroupées en une seule 2 s plus tard', async () => {
+    const ctl = await readyPopup();
+    vi.useFakeTimers();
+    try {
+      const reads = fake.reads;
+      for (let i = 0; i < 10; i++) emitCacheWrite(1, 50_000 + i);
+      await run(ctl, 4, () => undefined);
+      expect(fake.reads - reads).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('boucle (déclencheur toutes les 2,5 s) : 5 relectures au plus par minute, puis plus rien jusqu’à « Actualiser »', async () => {
+    const ctl = await readyPopup();
+    vi.useFakeTimers();
+    try {
+      const reads = fake.reads;
+      let n = 0;
+      await run(ctl, 120, (second) => {
+        if (second % 5 === 0 || second % 5 === 2) emitCacheWrite(1, 60_000 + n++);
+      });
+      expect(fake.reads - reads).toBe(AUTO_REDETECT_MAX_PER_MINUTE);
+      // Actualisation demandée : plafond remis à zéro, les déclencheurs sont de nouveau suivis
+      void ctl.refresh(true);
+      await run(ctl, 1, () => undefined);
+      const afterRefresh = fake.reads;
+      await run(ctl, 3, (second) => {
+        if (second === 0) emitCacheWrite(1, 90_000);
+      });
+      expect(fake.reads).toBe(afterRefresh + 1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

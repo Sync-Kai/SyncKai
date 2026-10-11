@@ -1,7 +1,8 @@
 // Script Disney+ du monde principal (MAIN), enregistré à `document_start` : observateur PASSIF des réponses
-// `playerExperience` que le site demande lui-même (XMLHttpRequest ; fetch couvert par précaution). Il n'émet
-// aucune requête, ne lit aucun en-tête ni jeton, ne touche à aucune URL de flux : seule la forme réduite
-// (`reduceDisneyPlayerExperience`, identifiants compris) des 20 dernières fiches est gardée et transmise au script isolé.
+// `playerExperience`, `page/entity-{uuid}` et `season/{id}` que le site demande lui-même (XMLHttpRequest ; fetch couvert
+// par précaution). Il n'émet aucune requête, ne lit aucun en-tête ni jeton, ne touche à aucune URL de flux : seules les
+// formes réduites (`reduceDisneyPlayerExperience` des 20 dernières fiches, `reduceDisneySeriesPage` des 10 dernières pages
+// de série) sont gardées et transmises au script isolé.
 // Aucun chrome.*. Format IIFE (suffixe .iife.ts) : un chargeur ESM ne fonctionne pas dans le monde MAIN.
 //
 // Le relevé ne voit que les requêtes émises APRÈS son installation : dans un onglet déjà ouvert à l'activation ou à
@@ -11,17 +12,22 @@
 // fermeture ; les fiches ne partent que sur ces ports, jamais sur un événement que la page pourrait imiter.
 // Le monde MAIN appartient à la page (JSON, XHR… redéfinissables) : le client isolé revalide toujours les fiches.
 import {
+  applyDisneySeason,
   decodeDisneyHandshake,
   DISNEY_BRIDGE_VERSION,
   DISNEY_HANDSHAKE_EVENT,
   DISNEY_MAX_ENTRIES,
+  DISNEY_MAX_PAGES,
   DISNEY_PORT_OFFER,
   encodeDisneyPortOffer,
   encodeDisneyPush,
   installDisneyBridgeOnce,
-  playerExperienceRequestId,
+  observedRequest,
   reduceDisneyPlayerExperience,
+  reduceDisneySeriesPage,
   type DisneyPlayerExperience,
+  type DisneyRequestKind,
+  type DisneySeriesPage,
 } from './bridge-protocol';
 
 /** Clients isolés connectés au plus (réinjections successives) : le plus ancien port est fermé au-delà */
@@ -37,16 +43,53 @@ const postToWindow = window.postMessage.bind(window);
 
 /** Fiches vues, par identifiant du chemin de la requête ; ordre d'insertion = ancienneté */
 const entries = new Map<string, DisneyPlayerExperience>();
+/** Pages de série vues, par uuid de l'entité ; ordre d'insertion = ancienneté */
+const pages = new Map<string, DisneySeriesPage>();
 const ports: MessagePort[] = [];
 
-function push(list: DisneyPlayerExperience[], targets: readonly MessagePort[]): void {
-  if (list.length === 0) return;
-  const message = encodeDisneyPush({ v: DISNEY_BRIDGE_VERSION, entries: list.slice(-DISNEY_MAX_ENTRIES) });
+function push(list: DisneyPlayerExperience[], targets: readonly MessagePort[], pageList: DisneySeriesPage[] = []): void {
+  if (list.length === 0 && pageList.length === 0) return;
+  const message = encodeDisneyPush({ v: DISNEY_BRIDGE_VERSION, entries: list.slice(-DISNEY_MAX_ENTRIES), pages: pageList.slice(-DISNEY_MAX_PAGES) });
   for (const port of targets) port.postMessage(message);
 }
 
-/** Réponse reçue pour la requête `requestId` : réduite, gardée (remplace une fiche de la même vidéo) et poussée aux clients */
-function onPayload(requestId: string, raw: unknown): void {
+/** Garde la page (la plus récente en dernier, 10 au plus) et la pousse aux clients */
+function keepPage(page: DisneySeriesPage): void {
+  pages.delete(page.entityId);
+  pages.set(page.entityId, page);
+  while (pages.size > DISNEY_MAX_PAGES) {
+    const oldest = pages.keys().next();
+    if (oldest.done) break;
+    pages.delete(oldest.value);
+  }
+  push([], ports, [page]);
+}
+
+/**
+ * Réponse reçue pour une requête observée : page de série (réduite), saison (appliquée à la page qui la contient) ou
+ * fiche de vidéo (voir onPlayerExperience)
+ */
+function onPayload(kind: DisneyRequestKind, id: string, raw: unknown): void {
+  if (kind === 'player') {
+    onPlayerExperience(id, raw);
+    return;
+  }
+  if (kind === 'page') {
+    const page = reduceDisneySeriesPage(raw, id, Date.now());
+    if (page) keepPage(page);
+    return;
+  }
+  for (const page of [...pages.values()].reverse()) {
+    const updated = applyDisneySeason(page, id, raw);
+    if (updated) {
+      keepPage(updated);
+      return;
+    }
+  }
+}
+
+/** Fiche de vidéo reçue pour la requête `requestId` : réduite, gardée (remplace une fiche de la même vidéo) et poussée aux clients */
+function onPlayerExperience(requestId: string, raw: unknown): void {
   const entry = reduceDisneyPlayerExperience(raw, requestId, Date.now());
   if (!entry) return;
   for (const [key, known] of entries) if (known.ids.some((id) => entry.ids.includes(id))) entries.delete(key);
@@ -76,31 +119,33 @@ function urlOf(input: unknown): string | null {
   return null;
 }
 
-/** XMLHttpRequest : `open` repère les requêtes playerExperience, `send` attend leur réponse (lecture seule) */
+type Observed = { kind: DisneyRequestKind; id: string };
+
+/** XMLHttpRequest : `open` repère les requêtes lues (voir observedRequest), `send` attend leur réponse (lecture seule) */
 function observeXhr(): void {
   const proto = XMLHttpRequest.prototype;
   const open = proto.open;
   const send = proto.send;
-  const observed = new WeakMap<XMLHttpRequest, string>();
+  const observed = new WeakMap<XMLHttpRequest, Observed>();
 
   // Arguments transmis tels quels (même nombre) : `open(m, u, undefined)` rendrait la requête synchrone
   proto.open = function patchedOpen(this: XMLHttpRequest, ...args: unknown[]): void {
     const url = urlOf(args[1]);
-    const requestId = url !== null ? playerExperienceRequestId(url, location.href) : null;
-    if (requestId) observed.set(this, requestId);
+    const request = url !== null ? observedRequest(url, location.href) : null;
+    if (request) observed.set(this, request);
     else observed.delete(this);
     Reflect.apply(open, this, args);
   };
 
   proto.send = function patchedSend(this: XMLHttpRequest, ...args: unknown[]): void {
-    const requestId = observed.get(this);
-    if (requestId) {
+    const request = observed.get(this);
+    if (request) {
       this.addEventListener(
         'load',
         () => {
           if (this.status !== 200) return;
-          if (this.responseType === '' || this.responseType === 'text') onPayload(requestId, parseText(this.responseText));
-          else if (this.responseType === 'json') onPayload(requestId, this.response as unknown);
+          if (this.responseType === '' || this.responseType === 'text') onPayload(request.kind, request.id, parseText(this.responseText));
+          else if (this.responseType === 'json') onPayload(request.kind, request.id, this.response as unknown);
         },
         { once: true },
       );
@@ -115,11 +160,11 @@ function observeFetch(): void {
   window.fetch = function patchedFetch(this: unknown, ...args: Parameters<typeof fetch>): Promise<Response> {
     const result = originalFetch.apply(this, args);
     const url = urlOf(args[0]);
-    const requestId = url !== null ? playerExperienceRequestId(url, location.href) : null;
-    if (requestId) {
+    const request = url !== null ? observedRequest(url, location.href) : null;
+    if (request) {
       result
         .then((response) => (response.ok ? response.clone().text() : ''))
-        .then((body) => onPayload(requestId, parseText(body)))
+        .then((body) => onPayload(request.kind, request.id, parseText(body)))
         .catch(() => undefined);
     }
     return result;
@@ -136,7 +181,7 @@ function onHandshake(event: Event): void {
   while (ports.length > MAX_PORTS) ports.shift()?.close();
   postToWindow(encodeDisneyPortOffer({ v: DISNEY_BRIDGE_VERSION, type: DISNEY_PORT_OFFER, nonce: handshake.nonce }), location.origin, [port2]);
   // Instantané : la requête de l'épisode précède en général l'ouverture du canal (file du port jusqu'à son démarrage)
-  push([...entries.values()], [port1]);
+  push([...entries.values()], [port1], [...pages.values()]);
 }
 
 // Garde par version (réenregistrement du script, bfcache, réinjection après une mise à jour : voir

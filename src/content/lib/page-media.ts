@@ -1,3 +1,4 @@
+import { PAGE_MEDIA_ASYNC_TIMEOUT_MS } from '../../shared/content-messages';
 import type { PageMediaInfo } from '../../shared/page-media.types';
 import { pageMediaFromEpisode, pageMediaFromSeries } from '../../shared/page-media';
 import type { StreamingAdapter } from '../adapters/adapter';
@@ -13,4 +14,33 @@ export function detectPageMedia(adapter: StreamingAdapter, url: URL): PageMediaI
   }
   const series = adapter.detectSeries(url);
   return series ? pageMediaFromSeries(adapter.platform, series) : null;
+}
+
+/** Vrai si la réponse à GET_PAGE_MEDIA doit attendre `loadSeries` (page de série d'une plateforme à pont, hors cache) */
+export function needsAsyncPageMedia(adapter: StreamingAdapter, url: URL, immediate: PageMediaInfo | null): boolean {
+  return immediate === null && adapter.loadSeries !== undefined && adapter.getEpisodeId(url) === null;
+}
+
+/**
+ * Page de série chargée de façon asynchrone (Netflix, Disney+), bornée à `timeoutMs` : null au-delà (rien sur cette
+ * page), le chargement étant annulé. Le pont garde ce qu'il reçoit ensuite : une nouvelle demande le trouve en cache.
+ */
+export async function loadPageMedia(adapter: StreamingAdapter, url: URL, timeoutMs: number = PAGE_MEDIA_ASYNC_TIMEOUT_MS): Promise<PageMediaInfo | null> {
+  if (!adapter.loadSeries) return null;
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve(null);
+    }, timeoutMs);
+  });
+  try {
+    const series = await Promise.race([adapter.loadSeries(url, controller.signal), timeout]);
+    return series ? pageMediaFromSeries(adapter.platform, series) : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
