@@ -117,6 +117,20 @@ export function saveMediaMapping(key: string, mapping: MediaMapping): Promise<vo
   });
 }
 
+/**
+ * Enregistre en une seule écriture les correspondances dont la clé n'en a pas encore (import : jamais d'écrasement
+ * d'une correspondance existante, apprise ou corrigée par l'utilisateur). Retourne le nombre ajouté.
+ */
+export function saveMediaMappingsIfAbsent(entries: readonly { key: string; mapping: MediaMapping }[]): Promise<number> {
+  if (entries.length === 0) return Promise.resolve(0);
+  return withStorageLock(async () => {
+    const mappings = await getMediaMappings();
+    const added = entries.filter(({ key }, i) => !Object.hasOwn(mappings, key) && entries.findIndex((e) => e.key === key) === i);
+    if (added.length > 0) await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: { ...mappings, ...Object.fromEntries(added.map(({ key, mapping }) => [key, mapping])) } });
+    return added.length;
+  });
+}
+
 export function deleteMediaMapping(key: string): Promise<void> {
   return withStorageLock(async () => {
     const { [key]: _removed, ...rest } = await getMediaMappings();

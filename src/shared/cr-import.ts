@@ -193,6 +193,11 @@ export interface CrPlanItem {
   mappings: { key: string; mapping: MediaMapping }[];
   /** Résultat de l'application (null : pas encore appliqué) */
   result: CrItemResult | null;
+  /**
+   * Services déjà écrits par un essai précédent de l'élément (un autre service a échoué pour une raison passagère) :
+   * la nouvelle tentative ne retente que les autres et compte ceux-ci « mis à jour ». Retiré avec le résultat.
+   */
+  written?: TrackerId[];
 }
 
 export interface CrReviewItem {
@@ -334,9 +339,28 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
 /** Élément qui modifierait au moins une liste (coché par défaut dans l'aperçu) */
 export const hasUpdate = (item: CrPlanItem): boolean => item.services.some((s) => s.action === 'update');
 
+/** Résultats d'éléments appliqués (identifiant → résultat), inscrits dans le plan en une fois ; `written` retiré */
+export function withItemResults(plan: CrImportPlan, results: ReadonlyMap<string, CrItemResult>): CrImportPlan {
+  if (results.size === 0) return plan;
+  return {
+    ...plan,
+    items: plan.items.map((item) => {
+      const result = results.get(item.id);
+      if (result === undefined) return item;
+      const { written: _written, ...rest } = item;
+      return { ...rest, result };
+    }),
+  };
+}
+
 /** Résultat d'un élément appliqué, inscrit dans le plan */
 export function withItemResult(plan: CrImportPlan, id: string, result: CrItemResult): CrImportPlan {
-  return { ...plan, items: plan.items.map((item) => (item.id === id ? { ...item, result } : item)) };
+  return withItemResults(plan, new Map([[id, result]]));
+}
+
+/** Services déjà écrits d'un élément dont un autre service sera retenté */
+export function withItemWritten(plan: CrImportPlan, id: string, written: readonly TrackerId[]): CrImportPlan {
+  return { ...plan, items: plan.items.map((item) => (item.id === id ? { ...item, written: [...written] } : item)) };
 }
 
 export function withReviewsCreated(plan: CrImportPlan, keys: ReadonlySet<string>): CrImportPlan {
@@ -378,7 +402,8 @@ function isPlanItem(value: unknown): value is CrPlanItem {
     value.services.every(isServicePlan) &&
     Array.isArray(value.mappings) &&
     value.mappings.every((m) => isRecord(m) && typeof m.key === 'string' && isMediaMapping(m.mapping)) &&
-    isItemResult(value.result)
+    isItemResult(value.result) &&
+    (value.written === undefined || (Array.isArray(value.written) && value.written.every(isTrackerId)))
   );
 }
 

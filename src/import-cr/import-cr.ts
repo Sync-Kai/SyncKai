@@ -59,6 +59,9 @@ interface PageState {
   selected: Set<string>;
   selectionFor: number | null;
   reviewSelected: Set<string>;
+  /** Blocs repliables de l'aperçu ouverts : choix de l'utilisateur gardé d'un rendu à l'autre (UI-06) */
+  reviewOpen: boolean;
+  upToDateOpen: boolean;
   busy: boolean;
   error: string | null;
   notice: string | null;
@@ -75,6 +78,8 @@ const state: PageState = {
   selected: new Set(),
   selectionFor: null,
   reviewSelected: new Set(),
+  reviewOpen: true,
+  upToDateOpen: false,
   busy: false,
   error: null,
   notice: null,
@@ -108,6 +113,8 @@ function setPlan(plan: CrImportPlan | null): void {
     state.selectionFor = plan.builtAt;
     state.selected = new Set(defaultSelection(plan));
     state.reviewSelected = new Set(plan.review.filter((r) => !r.created).map((r) => r.key));
+    state.reviewOpen = true;
+    state.upToDateOpen = false;
   } else if (plan) {
     for (const item of plan.items) if (item.result?.outcome === 'updated') state.selected.delete(item.id);
     for (const review of plan.review) if (review.created) state.reviewSelected.delete(review.key);
@@ -723,12 +730,20 @@ function renderPreview(plan: CrImportPlan, running: boolean): Child[] {
         ),
     ),
 
-    // À vérifier
+    // À vérifier (ouvert par défaut)
     plan.review.length > 0 &&
       h(
         'details',
-        { class: 'flex flex-col gap-2 rounded-lg border border-line px-3 py-2', attrs: { open: '' } },
-        h('summary', { class: 'cursor-pointer text-[12px] font-bold' }, tp('crImport.review.title', plan.review.length)),
+        {
+          class: 'flex flex-col gap-2 rounded-lg border border-line px-3 py-2',
+          attrs: state.reviewOpen ? { open: '' } : {},
+          on: {
+            toggle: (event) => {
+              if (event.target instanceof HTMLDetailsElement) state.reviewOpen = event.target.open;
+            },
+          },
+        },
+        h('summary', { class: 'cursor-pointer text-[12px] font-bold', attrs: { 'data-focus': 'cr-review-toggle' } }, tp('crImport.review.title', plan.review.length)),
         h('p', { class: 'm-0 mt-1 text-[11px] text-muted' }, t('crImport.review.help')),
         h('ul', { class: 'm-0 flex list-none flex-col p-0' }, ...reviewGroups(plan.review).map((g) => renderReviewGroup(g, disabled))),
         counts.reviewPending > 0 &&
@@ -739,12 +754,20 @@ function renderPreview(plan: CrImportPlan, running: boolean): Child[] {
           ),
       ),
 
-    // Déjà à jour (replié)
+    // Déjà à jour (replié par défaut)
     upToDate.length > 0 &&
       h(
         'details',
-        { class: 'rounded-lg border border-line px-3 py-2' },
-        h('summary', { class: 'cursor-pointer text-[12px] font-bold text-muted' }, tp('crImport.preview.upToDateTitle', upToDate.length)),
+        {
+          class: 'rounded-lg border border-line px-3 py-2',
+          attrs: state.upToDateOpen ? { open: '' } : {},
+          on: {
+            toggle: (event) => {
+              if (event.target instanceof HTMLDetailsElement) state.upToDateOpen = event.target.open;
+            },
+          },
+        },
+        h('summary', { class: 'cursor-pointer text-[12px] font-bold text-muted', attrs: { 'data-focus': 'cr-uptodate-toggle' } }, tp('crImport.preview.upToDateTitle', upToDate.length)),
         h('ul', { class: 'm-0 mt-2 flex list-none flex-col gap-1.5 p-0' }, ...upToDate.map((item) => renderItem(item, false, true))),
       ),
 

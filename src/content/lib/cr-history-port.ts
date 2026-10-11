@@ -40,6 +40,19 @@ function isExtensionPage(sender: chrome.runtime.MessageSender | undefined): bool
   return sender.url === undefined || sender.url.startsWith(chrome.runtime.getURL(''));
 }
 
+/** Attente interrompue dès la fermeture du port (une attente avant nouvel essai peut durer jusqu'à une minute) */
+function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const done = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener('abort', done, { once: true });
+  });
+}
+
 async function read(signal: AbortSignal, post: (message: CrHistoryPortMessage) => void): Promise<void> {
   if (location.hostname !== HISTORY_HOST) {
     post({ type: 'error', code: 'wrong-page' });
@@ -53,7 +66,7 @@ async function read(signal: AbortSignal, post: (message: CrHistoryPortMessage) =
         origin: location.origin,
         locale: pageLocale(document.documentElement.lang),
         deviceId: crypto.randomUUID(),
-        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+        sleep: (ms) => abortableSleep(ms, signal),
         now: () => Date.now(),
         signal,
       },

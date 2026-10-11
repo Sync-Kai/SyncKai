@@ -82,6 +82,21 @@ Les mises à jour sont publiées automatiquement par GitHub Actions (section 7).
 
 L'ID ne change plus : aucune modification OAuth n'est nécessaire pour les mises à jour.
 
+### Identifiant client Crunchyroll (import de l'historique)
+
+L'import de l'historique demande à Crunchyroll un jeton temporaire (`POST /auth/v1/token`, `grant_type=etp_rt_cookie`, cookie de session du site) avec l'identifiant client **public** du site web de Crunchyroll : `CR_WEB_CLIENT_ID` dans `src/content/lib/crunchyroll-history.ts`. Ce n'est pas un secret (il figure dans le code du site), mais Crunchyroll peut le changer. La synchro en direct n'en dépend pas.
+
+**Symptôme** : l'import affiche « Import indisponible » à un utilisateur connecté à Crunchyroll ; dans la console de l'onglet Crunchyroll, `Lecture de l’historique impossible (unavailable)`, et dans l'onglet Réseau, `/auth/v1/token` répond 400 ou 401 avec `invalid_client`, `unauthorized_client` ou `invalid_request`. (`invalid_grant` ou un 401 sans motif signifient « déconnecté » : ce n'est pas une rotation.)
+
+**Mise à jour** (branche `hotfix/cr-client-id`, version corrective) :
+
+1. Ouvrir `https://www.crunchyroll.com/` connecté, outils de développement › **Réseau**, recharger la page et filtrer sur `auth/v1/token`.
+2. Dans la requête POST du site, lire l'en-tête `Authorization: Basic …` et le décoder (`atob('…')` dans la console) : la partie avant `:` est le nouvel identifiant (le secret est vide). Vérifier que le corps utilise toujours `grant_type=etp_rt_cookie`.
+3. Remplacer `CR_WEB_CLIENT_ID`, puis `npx vitest run src/content/lib/crunchyroll-history.test.ts`.
+4. Tester un import réel dans Chrome et Firefox (onglet Crunchyroll connecté), puis publier la version corrective.
+
+Aucune permission ni justification du Store ne change : `docs/store/permissions.md` et `PRIVACY.md` décrivent l'identifiant public sans le citer.
+
 ## 7. Publication automatique (GitHub Actions)
 
 ### Workflows

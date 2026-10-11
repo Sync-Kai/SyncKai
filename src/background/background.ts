@@ -10,10 +10,9 @@ import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationBu
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
 import { handleEpisodeCompleted } from './episode-completed';
 import { forgetPageResolutions, resolvePageMedia } from './page-media';
-import { applyDiffs, cancelCompareJob, compareServiceLists, resumeCompareJob } from './compare';
-import { COMPARE_JOB_ALARM } from '../shared/compare-job';
-import { cancelCrImport, createCrReviews, resumeCrImport, startCrAnalyze, startCrApply } from './cr-import';
-import { CR_IMPORT_ALARM } from '../shared/cr-import';
+import { applyDiffs, cancelCompareJob, compareServiceLists } from './compare';
+import { cancelCrImport, createCrReviews, startCrAnalyze, startCrApply } from './cr-import';
+import { listenJobResume } from './job-resume';
 import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } from './sync/queue';
 import { reopenReview, resolveReview, searchCandidates } from './sync/sync-service';
@@ -231,23 +230,10 @@ chrome.storage.onChanged.addListener((changes, area): void => {
   }
 });
 
-// ─── Comparaison AniList ↔ MAL : reprise d'un alignement interrompu ───────
+// ─── Tâches de fond (alignement AniList ↔ MAL, import Crunchyroll) : reprise après une interruption ───
+// Par leur alarme, au démarrage du navigateur et après une mise à jour de l'extension (voir job-resume.ts)
 
-chrome.alarms.onAlarm.addListener((alarm): void => {
-  if (alarm.name === COMPARE_JOB_ALARM) afterI18n(resumeCompareJob);
-});
-chrome.runtime.onStartup.addListener((): void => {
-  afterI18n(resumeCompareJob);
-});
-
-// ─── Import de l'historique Crunchyroll : reprise d'une analyse ou d'un import interrompu ───
-
-chrome.alarms.onAlarm.addListener((alarm): void => {
-  if (alarm.name === CR_IMPORT_ALARM) afterI18n(resumeCrImport);
-});
-chrome.runtime.onStartup.addListener((): void => {
-  afterI18n(resumeCrImport);
-});
+listenJobResume(afterI18n);
 
 // ─── Panneau latéral (Chrome) : indisponible hors Crunchyroll / ADN ───────
 // Activé onglet par onglet via PANEL_AVAILABLE (script de contenu) ou le bouton du popup.

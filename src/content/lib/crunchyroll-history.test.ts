@@ -5,6 +5,7 @@ import {
   CrHistoryError,
   isWatched,
   MAX_HISTORY_PAGES,
+  MAX_LOOKUP_FAILURES_IN_A_ROW,
   needsSeasonLookup,
   nextPagePath,
   pageLocale,
@@ -14,6 +15,8 @@ import {
   readHistoryPages,
   reduceHistory,
   relativeEpisodeNumber,
+  RETRY_DELAYS_MS,
+  retryAfterMs,
   type FetchLike,
   type ReaderDeps,
 } from './crunchyroll-history';
@@ -172,7 +175,8 @@ interface FakeCall {
   init: RequestInit | undefined;
 }
 
-const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+const json = (status: number, body: unknown, headers: Record<string, string> = {}): Response =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 
 function deps(fetch: FetchLike, signal: AbortSignal = new AbortController().signal): ReaderDeps {
   let now = 1_000_000;
@@ -251,24 +255,72 @@ describe('lecture de l’historique (faux fetch)', () => {
     expect(calls.at(-1)?.init?.headers).toMatchObject({ Authorization: 'Bearer jwt-2' });
   });
 
-  it('401 persistant → déconnecté ; 403 / 429 → bloqué (arrêt immédiat)', async () => {
+  it('401 persistant → déconnecté ; 403 → bloqué (arrêt immédiat) ; 429 persistant → bloqué après les nouvelles tentatives', async () => {
     const always401 = fakeCrunchyroll(1, { historyStatus: () => 401 });
     await expect(readHistoryPages(createCrClient(deps(always401.fetch)), { origin: ORIGIN, locale: 'fr-FR' }, () => undefined)).rejects.toMatchObject({ code: 'logged-out' });
-    for (const status of [403, 429]) {
+    for (const [status, calls] of [
+      [403, 1],
+      [429, 1 + RETRY_DELAYS_MS.length],
+    ] as const) {
       const blocked = fakeCrunchyroll(2, { historyStatus: () => status });
       await expect(readHistoryPages(createCrClient(deps(blocked.fetch)), { origin: ORIGIN, locale: 'fr-FR' }, () => undefined)).rejects.toMatchObject({ code: 'blocked' });
-      expect(blocked.calls.filter((c) => c.url.includes('watch-history'))).toHaveLength(1);
+      expect(blocked.calls.filter((c) => c.url.includes('watch-history'))).toHaveLength(calls);
     }
   });
 
-  it('jeton refusé : pas de session → déconnecté ; client refusé → indisponible ; réseau → network', async () => {
+  it('jeton refusé : pas de session → déconnecté ; client refusé ou requête invalide → indisponible ; réseau → network', async () => {
     const tokenFail = (status: number, body: unknown): FetchLike => () => Promise.resolve(json(status, body));
     const read = (fetch: FetchLike): Promise<unknown> => readHistoryPages(createCrClient(deps(fetch)), { origin: ORIGIN, locale: 'fr-FR' }, () => undefined);
     await expect(read(tokenFail(400, { error: 'invalid_grant' }))).rejects.toMatchObject({ code: 'logged-out' });
+    await expect(read(tokenFail(401, {}))).rejects.toMatchObject({ code: 'logged-out' });
     await expect(read(tokenFail(401, { error: 'invalid_client' }))).rejects.toMatchObject({ code: 'unavailable' });
     await expect(read(tokenFail(200, { access_token: 'x' }))).rejects.toMatchObject({ code: 'unavailable' });
     await expect(read(() => Promise.reject(new TypeError('Failed to fetch')))).rejects.toBeInstanceOf(CrHistoryError);
     await expect(read(() => Promise.reject(new TypeError('Failed to fetch')))).rejects.toMatchObject({ code: 'network' });
+  });
+
+  it('CRI-06 : 400 invalid_request (identifiant client changé) → indisponible, pas « déconnecté »', async () => {
+    const fetch: FetchLike = () => Promise.resolve(json(400, { error: 'invalid_request' }));
+    await expect(readHistoryPages(createCrClient(deps(fetch)), { origin: ORIGIN, locale: 'fr-FR' }, () => undefined)).rejects.toMatchObject({ code: 'unavailable' });
+    await expect(readHistoryPages(createCrClient(deps(() => Promise.resolve(json(400, {})))), { origin: ORIGIN, locale: 'fr-FR' }, () => undefined)).rejects.toMatchObject({
+      code: 'unavailable',
+    });
+  });
+
+  it('CRI-01 : 429 avec Retry-After puis succès → attente respectée, la lecture continue', async () => {
+    const sleeps: number[] = [];
+    let historyCalls = 0;
+    const fetch: FetchLike = (url) => {
+      const path = new URL(url).pathname;
+      if (path === '/auth/v1/token') return Promise.resolve(token());
+      historyCalls++;
+      if (historyCalls === 1) return Promise.resolve(json(429, {}, { 'Retry-After': '7' }));
+      return Promise.resolve(json(200, { data: [item({})], meta: { next_page: '' } }));
+    };
+    const reader = deps(fetch);
+    const sleep = reader.sleep;
+    reader.sleep = (ms) => {
+      sleeps.push(ms);
+      return sleep(ms);
+    };
+    const result = await readHistoryPages(createCrClient(reader), { origin: ORIGIN, locale: 'fr-FR' }, () => undefined);
+    expect(result).toMatchObject({ pages: 1, partial: false });
+    expect(historyCalls).toBe(2);
+    expect(sleeps).toContain(7_000);
+  });
+
+  it('CRI-01 : coupure réseau ou 503 passagers sur une page → nouvelle tentative, la lecture continue', async () => {
+    for (const fail of [() => Promise.reject(new TypeError('Failed to fetch')), () => Promise.resolve(json(503, {}))]) {
+      let historyCalls = 0;
+      const fetch: FetchLike = (url) => {
+        if (new URL(url).pathname === '/auth/v1/token') return Promise.resolve(token());
+        historyCalls++;
+        return historyCalls <= 2 ? fail() : Promise.resolve(json(200, { data: [item({})], meta: { next_page: '' } }));
+      };
+      const result = await readHistoryPages(createCrClient(deps(fetch)), { origin: ORIGIN, locale: 'fr-FR' }, () => undefined);
+      expect(result.pages).toBe(1);
+      expect(historyCalls).toBe(3);
+    }
   });
 
   it('lecture complète : position dans la saison établie pour un numéro absolu', async () => {
@@ -307,6 +359,50 @@ describe('lecture de l’historique (faux fetch)', () => {
     };
     const result = await readCrunchyrollHistory(deps(fetch), 85, () => undefined);
     expect(result.seasons[0]?.seasonEpisodeNumber).toBeNull();
+  });
+
+  /** Historique de saisons à numéro absolu (S2 E25…) : chaque saison est lue, `seasonResponse` décide de sa réponse */
+  function lookupFetch(seasonIds: string[], seasonResponse: (seasonId: string) => Promise<Response>): FetchLike {
+    return (url) => {
+      const path = new URL(url).pathname;
+      if (path === '/auth/v1/token') return Promise.resolve(token());
+      if (path.includes('/watch-history')) {
+        const data = seasonIds.map((seasonId, i) => item({ id: `E${seasonId}`, series: `GR${seasonId}`, seasonId, season: 2, episode: 26, played: `2026-10-0${i + 1}T00:00:00Z` }));
+        return Promise.resolve(json(200, { data, meta: { next_page: '' } }));
+      }
+      const seasonId = /\/seasons\/([^/]+)\//.exec(path)?.[1] ?? '';
+      return seasonResponse(seasonId);
+    };
+  }
+  const seasonOk = (): Promise<Response> => Promise.resolve(json(200, { data: Array.from({ length: 14 }, (_, i) => ({ episode_number: 13 + i })) }));
+
+  it('CRI-01 : échec persistant d’une recherche de saison (503, réseau) → position inconnue, la lecture continue', async () => {
+    for (const fail of [() => Promise.resolve(json(503, {})), () => Promise.reject(new TypeError('Failed to fetch'))]) {
+      const fetch = lookupFetch(['GSA', 'GSB'], (seasonId) => (seasonId === 'GSA' ? fail() : seasonOk()));
+      const result = await readCrunchyrollHistory(deps(fetch), 85, () => undefined);
+      expect(result.seasons.find((s) => s.seasonId === 'GSA')?.seasonEpisodeNumber).toBeNull();
+      expect(result.seasons.find((s) => s.seasonId === 'GSB')?.seasonEpisodeNumber).toBe(14);
+    }
+  });
+
+  it('CRI-01 : panne durable pendant les recherches de saison (plusieurs saisons d’affilée) → arrêt « réseau »', async () => {
+    const ids = Array.from({ length: MAX_LOOKUP_FAILURES_IN_A_ROW + 2 }, (_, i) => `GS${i}`);
+    const fetch = lookupFetch(ids, () => Promise.reject(new TypeError('Failed to fetch')));
+    await expect(readCrunchyrollHistory(deps(fetch), 85, () => undefined)).rejects.toMatchObject({ code: 'network' });
+  });
+
+  it('CRI-01 : session perdue pendant les recherches de saison → arrêt « déconnecté »', async () => {
+    let tokens = 0;
+    const base = lookupFetch(['GSA', 'GSB'], () => Promise.resolve(json(401, {})));
+    const fetch: FetchLike = (url, init) => (new URL(url).pathname === '/auth/v1/token' && ++tokens > 1 ? Promise.resolve(json(400, { error: 'invalid_grant' })) : base(url, init));
+    await expect(readCrunchyrollHistory(deps(fetch), 85, () => undefined)).rejects.toMatchObject({ code: 'logged-out' });
+  });
+
+  it('Retry-After : secondes ou date HTTP', () => {
+    expect(retryAfterMs('7', 0)).toBe(7_000);
+    expect(retryAfterMs(new Date(60_000).toUTCString(), 0)).toBe(60_000);
+    expect(retryAfterMs(null, 0)).toBeNull();
+    expect(retryAfterMs('bientôt', 0)).toBeNull();
   });
 
   it('lecture abandonnée (port fermé) : aucune requête de plus', async () => {

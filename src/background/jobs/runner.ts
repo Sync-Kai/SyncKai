@@ -38,6 +38,17 @@ export function createJobStore<J>(key: string, isJob: (value: unknown) => value 
   };
 }
 
+/** Période de l'alarme de reprise d'une tâche (30 s) */
+export const RESUME_ALARM_PERIOD_MIN = 0.5;
+
+/**
+ * Recrée l'alarme de reprise d'une tâche en cours si elle a disparu : Chrome ne garantit pas les alarmes après une
+ * mise à jour de l'extension (ARCH-14). Une alarme existante est gardée (son échéance n'est pas repoussée).
+ */
+export async function ensureResumeAlarm(name: string): Promise<void> {
+  if (!(await chrome.alarms.get(name))) await chrome.alarms.create(name, { periodInMinutes: RESUME_ALARM_PERIOD_MIN });
+}
+
 // ─── Espacement des écritures et erreurs passagères ───────────────────────
 
 /** Espacement minimal entre deux écritures MyAnimeList (pas de limite publiée : ~60 écritures/min) */

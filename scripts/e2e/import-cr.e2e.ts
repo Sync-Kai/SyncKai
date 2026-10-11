@@ -74,6 +74,33 @@ describe('page d’import Crunchyroll (bout en bout)', () => {
     expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('crImport.apply.running', { done: 0, total: 1 }));
   });
 
+  it('UI-06 : « Déjà à jour » ouvert et « À vérifier » replié restent ainsi après un nouveau rendu', async () => {
+    const page = await openPage();
+    await page.locator(sel('cr-read')).click();
+    await page.waitForSelector(sel('cr-apply'));
+    const titles = [tl('fr', 'crImport.preview.upToDateTitle_one', { count: 1 }), tl('fr', 'crImport.review.title_one', { count: 1 })];
+    /** Ouverture des blocs « Déjà à jour » puis « À vérifier » (null : bloc absent) */
+    const openState = (): Promise<(boolean | null)[]> =>
+      page.evaluate(
+        (wanted: string[]) =>
+          wanted.map((title) => [...document.querySelectorAll('details')].find((el) => el.querySelector('summary')?.textContent?.includes(title))?.open ?? null),
+        titles,
+      );
+    expect(await openState()).toEqual([false, true]);
+
+    // L'utilisateur ouvre « Déjà à jour » et replie « À vérifier »
+    for (const summary of await page.$$('summary')) await summary.click();
+    expect(await openState()).toEqual([true, false]);
+
+    // Nouveau rendu de la page (case décochée) : les choix sont gardés
+    await page.locator(sel('cr-item-300')).click();
+    await page.waitForFunction(() => {
+      const box = document.querySelector('[data-focus="cr-item-300"]');
+      return box instanceof HTMLInputElement && !box.checked;
+    });
+    expect(await openState()).toEqual([true, false]);
+  });
+
   it('« Créer 1 vérification » envoie la saison incertaine', async () => {
     const page = await openPage();
     await page.locator(sel('cr-read')).click();

@@ -43,6 +43,7 @@ import { readComparison, updateComparison } from './compare-snapshot';
 import {
   createJobLoop,
   createJobStore,
+  ensureResumeAlarm,
   isFatalError,
   trackBudgetWaits,
   transientKind,
@@ -353,12 +354,14 @@ export async function cancelCompareJob(): Promise<CancelJobResult> {
 }
 
 /**
- * Alarme de reprise (et démarrage du navigateur) : relance un alignement interrompu,
- * abandonne une analyse interrompue (l'utilisateur la relance), puis retire l'alarme si plus rien ne tourne.
+ * Alarme de reprise, démarrage du navigateur et mise à jour de l'extension : relance un alignement interrompu (alarme
+ * recréée si elle a disparu), abandonne une analyse interrompue (l'utilisateur la relance), puis retire l'alarme si
+ * plus rien ne tourne.
  */
 export async function resumeCompareJob(): Promise<void> {
   const job = await readJob();
   if (job?.kind === 'apply' && job.status === 'running') {
+    await ensureResumeAlarm(COMPARE_JOB_ALARM);
     ensureApplyLoop();
     return;
   }

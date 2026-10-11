@@ -3,14 +3,15 @@ import { isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHist
 import { cleanText, stripAudioTag } from '../adapters/parsing';
 
 // Lecture de l'historique de visionnage Crunchyroll, DANS l'onglet Crunchyroll de l'utilisateur (même origine :
-// la session du site, cookie httpOnly `etp_rt`, sert à obtenir un jeton de courte durée). Le jeton reste en
-// mémoire le temps de la lecture : jamais stocké, jamais journalisé, jamais transmis au service worker.
+// la session du site, cookie httpOnly `etp_rt`, sert à demander à Crunchyroll un jeton de courte durée avec
+// l'identifiant client public du site). Le jeton reste en mémoire le temps de la lecture : jamais stocké, jamais
+// journalisé, jamais transmis au service worker. Erreurs passagères (coupure, 429, 5xx) : nouvelles tentatives.
 // API vérifiée le 2026-10-08 (voir la structure des réponses dans les parseurs ci-dessous).
 
 /**
- * Identifiant client PUBLIC du site web Crunchyroll (aucun secret : il figure dans le code du site).
- * Il peut changer : le jeton est alors refusé et l'import affiche « indisponible » ; la synchro en direct
- * (lecture de la page) n'en dépend pas.
+ * Identifiant client PUBLIC du site web Crunchyroll (aucun secret : il figure dans le code du site). L'import demande
+ * avec lui un jeton temporaire à Crunchyroll, comme le site. Il peut changer : le jeton est alors refusé et l'import
+ * affiche « indisponible » ; la synchro en direct (lecture de la page) n'en dépend pas. Mise à jour : docs/STORE.md.
  */
 export const CR_WEB_CLIENT_ID = 'noaihdevm_6iyg0a8l0q';
 
@@ -22,6 +23,19 @@ export const MAX_HISTORY_PAGES = 100;
 export const REQUEST_GAP_MS = 300;
 /** Marge avant l'expiration du jeton (5 min) : renouvelé avant de servir une requête */
 const TOKEN_MARGIN_MS = 30_000;
+/**
+ * Attentes avant de renvoyer une requête après une erreur passagère (coupure réseau, 429, 5xx) : la longueur fixe le
+ * nombre de nouvelles tentatives. Un 429 attend au moins son Retry-After (plafonné à MAX_RETRY_AFTER_MS).
+ */
+export const RETRY_DELAYS_MS: readonly number[] = [2_000, 5_000, 15_000];
+const MAX_RETRY_AFTER_MS = 60_000;
+/** Statuts passagers : nouvelle tentative avant de conclure */
+const TRANSIENT_STATUSES: ReadonlySet<number> = new Set([429, 500, 502, 503, 504]);
+/**
+ * Recherches de saison en échec passager (réseau, refus) d'affilée au-delà desquelles la lecture s'arrête : une saison
+ * isolée en échec devient « position inconnue » (à vérifier), une panne durable n'est pas subie saison après saison.
+ */
+export const MAX_LOOKUP_FAILURES_IN_A_ROW = 3;
 
 export class CrHistoryError extends Error {
   readonly code: CrHistoryErrorCode;
@@ -63,11 +77,25 @@ export function parseTokenResponse(value: unknown, now: number): CrToken | null 
   return { accessToken: value.access_token, accountId: value.account_id, expiresAt: now + expiresIn * 1000 };
 }
 
-/** Client OAuth refusé (identifiant changé) : import indisponible ; sinon pas de session (déconnecté) */
-function tokenFailureCode(status: number, body: unknown): CrHistoryErrorCode {
+/**
+ * Refus du jeton → cause. Seules les erreurs de session explicites (`invalid_grant` : cookie de session absent ou
+ * expiré, ou 401 sans autre motif) signifient « déconnecté ». Client refusé (identifiant changé) ou tout autre 400
+ * (`invalid_request`…) : import indisponible, l'utilisateur ne peut rien y faire.
+ */
+export function tokenFailureCode(status: number, body: unknown): CrHistoryErrorCode {
   const error = isRecord(body) && typeof body.error === 'string' ? body.error : '';
   if (error === 'invalid_client' || error === 'unauthorized_client') return 'unavailable';
-  return status === 400 || status === 401 ? 'logged-out' : status === 403 || status === 429 ? 'blocked' : 'unavailable';
+  if (error === 'invalid_grant' || status === 401) return 'logged-out';
+  return status === 403 || status === 429 ? 'blocked' : 'unavailable';
+}
+
+/** Retry-After (secondes ou date HTTP) → attente en ms, null si absent ou illisible */
+export function retryAfterMs(value: string | null, now: number): number | null {
+  if (value === null || value.trim() === '') return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - now) : null;
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -100,8 +128,28 @@ export function createCrClient(deps: ReaderDeps): CrClient {
     }
   }
 
+  /**
+   * Requête espacée, renvoyée après une erreur passagère (coupure, 429, 5xx) avec des attentes croissantes. Après la
+   * dernière tentative : la coupure lève 'network', le statut passager est rendu à l'appelant qui le classe.
+   */
+  async function send(run: () => Promise<Response>): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+      const last = attempt >= RETRY_DELAYS_MS.length;
+      let response: Response | null = null;
+      try {
+        response = await paced(run);
+      } catch (error: unknown) {
+        if (last || !(error instanceof CrHistoryError) || error.code !== 'network') throw error;
+      }
+      if (response !== null && (last || !TRANSIENT_STATUSES.has(response.status))) return response;
+      const delay = RETRY_DELAYS_MS[attempt] ?? 0;
+      const asked = response?.status === 429 ? retryAfterMs(response.headers.get('Retry-After'), deps.now()) : null;
+      await deps.sleep(asked === null ? delay : Math.min(MAX_RETRY_AFTER_MS, Math.max(delay, asked)));
+    }
+  }
+
   async function refreshToken(): Promise<CrToken> {
-    const response = await paced(() =>
+    const response = await send(() =>
       deps.fetch(`${deps.origin}${TOKEN_PATH}`, {
         method: 'POST',
         credentials: 'include',
@@ -124,7 +172,7 @@ export function createCrClient(deps: ReaderDeps): CrClient {
 
   async function get(path: string, isRetry = false): Promise<unknown> {
     const { accessToken } = await validToken();
-    const response = await paced(() =>
+    const response = await send(() =>
       deps.fetch(`${deps.origin}${path}`, { credentials: 'include', headers: { Authorization: `Bearer ${accessToken}` }, signal: deps.signal }),
     );
     if (response.status === 401 && !isRetry) {
@@ -133,6 +181,7 @@ export function createCrClient(deps: ReaderDeps): CrClient {
       return get(path, true);
     }
     if (response.status === 401) throw new CrHistoryError('logged-out');
+    // 429 encore là après les nouvelles tentatives, ou refus (403) : Crunchyroll limite les requêtes
     if (response.status === 403 || response.status === 429) throw new CrHistoryError('blocked');
     if (!response.ok) throw new CrHistoryError('unavailable', `HTTP ${response.status}`);
     const body = await readJson(response);
@@ -387,6 +436,7 @@ export async function readCrunchyrollHistory(deps: ReaderDeps, completionPercent
 
   // Une requête par saison (VO / VF d'une même saison partagent la numérotation) ; saisons déjà lues mémorisées
   const seasonEpisodes = new Map<string, unknown>();
+  let failuresInARow = 0;
   for (const season of seasons) {
     if (!needsSeasonLookup(season)) {
       season.seasonEpisodeNumber = season.episodeNumber;
@@ -396,9 +446,14 @@ export async function readCrunchyrollHistory(deps: ReaderDeps, completionPercent
     if (episodes === undefined) {
       try {
         episodes = await client.get(`/content/v2/cms/seasons/${encodeURIComponent(season.seasonId)}/episodes?locale=${encodeURIComponent(deps.locale)}`);
+        failuresInARow = 0;
       } catch (error: unknown) {
-        // Saison introuvable (retirée du catalogue) : position inconnue → à vérifier ; refus / déconnexion : arrêt
-        if (!(error instanceof CrHistoryError) || error.code !== 'unavailable') throw error;
+        // Lecture abandonnée, session perdue ou erreur imprévue : arrêt
+        if (deps.signal.aborted || !(error instanceof CrHistoryError) || error.code === 'logged-out') throw error;
+        // Échec passager persistant (réseau, refus) : position inconnue → à vérifier, sauf panne durable (plusieurs
+        // saisons d'affilée). Saison introuvable (retirée du catalogue) : position inconnue, sans compter d'échec.
+        failuresInARow = error.code === 'unavailable' ? 0 : failuresInARow + 1;
+        if (failuresInARow >= MAX_LOOKUP_FAILURES_IN_A_ROW) throw error;
         episodes = null;
       }
       seasonEpisodes.set(season.seasonId, episodes);
