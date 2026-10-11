@@ -164,13 +164,13 @@ Chaque job n'a que les droits nécessaires (`contents: write` uniquement pour la
 
 ### Réglages GitHub (une seule fois, à la main)
 
-Le workflow fonctionne sans ces réglages (GitHub crée l'environnement `stores` au premier run, sans restriction), mais ce sont eux qui réservent les secrets des stores aux tags de version :
+Appliqués le 2026-10-11 (vérifiés par l'API GitHub). Le workflow fonctionnerait sans ces réglages (GitHub crée l'environnement `stores` au premier run, sans restriction), mais ce sont eux qui réservent les secrets des stores aux tags de version :
 
-- [ ] **Environnement `stores`** : *Settings › Environments › New environment* → `stores` → *Deployment branches and tags* → **Selected branches and tags** → *Add deployment branch or tag rule* → type **Tag**, motif `v*`, aucune branche. Facultatif : *Required reviewers* (soi-même) pour approuver chaque envoi aux stores.
-- [ ] **Secrets dans l'environnement** : recréer les six secrets (`CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, `CWS_PUBLISHER_ID`, `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`) dans *Environments › stores › Environment secrets*, puis supprimer les secrets de dépôt (*Settings › Secrets and variables › Actions › Repository secrets*). Tant qu'ils sont au niveau du dépôt, n'importe quel workflow peut les lire.
-- [ ] **Ruleset sur les tags** : *Settings › Rules › Rulesets › New ruleset › New tag ruleset* → nom « Tags de version », *Enforcement status* **Active**, cible *Include by pattern* `v*` → **Restrict creations**, **Restrict updates**, **Restrict deletions**, **Block force pushes** → *Bypass list* : **Repository admin** (le propriétaire tague et peut supprimer un tag raté).
-- [ ] **Ruleset sur `main`** (recommandé : le contrôle `merge-base` s'appuie sur `main`) : *New branch ruleset* → cible `main` → **Restrict deletions**, **Block force pushes**, sans exiger de pull request (la routine pousse en fast-forward).
-- [ ] **Releases v2.0.0 et v2.1.0** : créées à la main avec « Chrome Web Store : soumis pour examen » alors que le job `chrome` avait échoué. Si ces versions n'ont pas été soumises ensuite depuis le tableau de bord, corriger la ligne de statut (`gh release edit vx.y.z --notes-file …`).
+- [x] **Environnement `stores`** : *Settings › Environments › New environment* → `stores` → *Deployment branches and tags* → **Selected branches and tags** → *Add deployment branch or tag rule* → type **Tag**, motif `v*`, aucune branche. Facultatif : *Required reviewers* (soi-même) pour approuver chaque envoi aux stores.
+- [x] **Secrets dans l'environnement** : recréer les six secrets (`CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, `CWS_PUBLISHER_ID`, `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`) dans *Environments › stores › Environment secrets*, puis supprimer les secrets de dépôt (*Settings › Secrets and variables › Actions › Repository secrets*). Tant qu'ils sont au niveau du dépôt, n'importe quel workflow peut les lire.
+- [x] **Ruleset sur les tags** : *Settings › Rules › Rulesets › New ruleset › New tag ruleset* → nom « Tags de version », *Enforcement status* **Active**, cible *Include by pattern* `v*` → **Restrict creations**, **Restrict updates**, **Restrict deletions**, **Block force pushes** → *Bypass list* : **Repository admin** (le propriétaire tague et peut supprimer un tag raté).
+- [x] **Ruleset sur `main`** (recommandé : le contrôle `merge-base` s'appuie sur `main`) : *New branch ruleset* → cible `main` → **Restrict deletions**, **Block force pushes**, sans exiger de pull request (la routine pousse en fast-forward).
+- [x] **Releases v2.0.0 et v2.1.0** : créées à la main avec « Chrome Web Store : soumis pour examen » alors que le job `chrome` avait échoué. Si ces versions n'ont pas été soumises ensuite depuis le tableau de bord, corriger la ligne de statut (`gh release edit vx.y.z --notes-file …`).
 
 ### Première soumission Firefox (AMO)
 
