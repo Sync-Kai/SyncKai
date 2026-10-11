@@ -9,6 +9,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 - La file des synchros en attente, les cartes *À noter*, les dernières synchros et les corrections sont liées au compte connecté au moment de leur création : elles ne valent plus que pour lui. À la mise à jour, celles qui existent déjà sont rattachées au compte connecté ; une sauvegarde importée les rattache au compte connecté à l’import.
 - Après une déconnexion, même suivie d’une reconnexion au même compte, les synchros en attente, notes et corrections créées avant ne sont plus écrites sur ce service.
+- La saison choisie dans le sélecteur du panneau ou du popup, sur une page de lecture, est mémorisée comme correspondance de la saison : la fin de l’épisode (et des suivants) est synchronisée sur cette fiche. Pour revenir au choix automatique : *Oublier* dans Réglages › Mes données. Si l’épisode n’existe pas dans la saison choisie, la carte le signale et rien n’est mémorisé.
+- Popup et panneau partagent la même fiche « Sur cette page » : mêmes états et mêmes messages sur une même page, la carte du popup se met à jour quand une synchro réécrit la fiche de l’onglet, et une relecture en échec garde la fiche affichée avec l’erreur en retour d’action.
 
 ### Corrigé
 

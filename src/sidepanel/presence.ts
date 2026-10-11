@@ -1,7 +1,7 @@
-import { isPageMediaResponse, type ContentMessage, type PageMediaResponse } from '../shared/content-messages';
 import { createLogger } from '../shared/logger';
 import { disableSidePanelForTab, type SidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
+import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from '../ui/page-media-request';
 
 const log = createLogger('sidepanel');
 
@@ -19,33 +19,8 @@ export function classifyTabUrl(url: string | undefined, patterns?: readonly stri
   return isTargetPage(url, patterns) ? 'target' : 'other';
 }
 
-/** Délai de réponse du script de contenu, puis délais des nouvelles tentatives (page encore en chargement) */
-const PING_TIMEOUT_MS = 800;
-export const PING_RETRY_DELAYS_MS: readonly number[] = [0, 600, 1_500];
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Demande au script de contenu SyncKai la série / l'épisode affiché (GET_PAGE_MEDIA).
- * `unreachable` : pas de script de contenu (autre site) ou pas de réponse à temps.
- */
-export async function requestPageMedia(tabId: number): Promise<PageMediaResponse | 'unreachable'> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const message: ContentMessage = { type: 'GET_PAGE_MEDIA' };
-    const timeout = new Promise<'timeout'>((resolve) => {
-      timer = setTimeout(() => resolve('timeout'), PING_TIMEOUT_MS);
-    });
-    const response: unknown = await Promise.race([chrome.tabs.sendMessage(tabId, message), timeout]);
-    return response !== 'timeout' && isPageMediaResponse(response) ? response : 'unreachable';
-  } catch {
-    // « Receiving end does not exist » : pas de script de contenu dans cet onglet
-    return 'unreachable';
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 /** true si le script de contenu SyncKai répond dans l'onglet (il ne tourne que sur Crunchyroll / ADN) */
@@ -53,11 +28,11 @@ async function pingContentScript(tabId: number): Promise<boolean> {
   return (await requestPageMedia(tabId)) !== 'unreachable';
 }
 
-/** URL visible : réponse immédiate ; URL masquée : le script de contenu fait foi (quelques essais pendant le chargement) */
+/** URL visible : réponse immédiate ; URL masquée : le script de contenu fait foi (mêmes essais que la fiche de la page) */
 async function isTargetTab(tab: chrome.tabs.Tab): Promise<boolean> {
   const verdict = classifyTabUrl(tab.url ?? tab.pendingUrl);
   if (verdict !== 'unknown' || tab.id === undefined) return verdict === 'target';
-  for (const wait of PING_RETRY_DELAYS_MS) {
+  for (const wait of PAGE_MEDIA_RETRY_DELAYS_MS) {
     if (wait > 0) await delay(wait);
     if (await pingContentScript(tab.id)) return true;
   }

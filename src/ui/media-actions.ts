@@ -100,8 +100,14 @@ export function renderSeasonPicker(view: PageMediaView, disabled: boolean, onPic
     'div',
     { class: 'flex flex-col gap-1' },
     ...nodes([
+      // Saison choisie mais épisode hors de cette saison : choix affiché, pas enregistré comme correspondance (ARCH-20)
       uncertain &&
-        h('p', { class: 'm-0 flex items-center gap-1 text-[11px] font-bold text-butter', attrs: { role: 'note' } }, icon('alert', 'h-3 w-3 shrink-0'), t('page.uncertain')),
+        h(
+          'p',
+          { class: 'm-0 flex items-center gap-1 text-[11px] font-bold text-butter', attrs: { role: 'note' } },
+          icon('alert', 'h-3 w-3 shrink-0'),
+          t(view.source === 'manual' ? 'page.manualNotSaved' : 'page.uncertain'),
+        ),
       options.length > 1 && h('label', { class: 'flex min-w-0 items-center gap-2 text-[11px] font-semibold text-muted' }, t('page.seasonPicker'), select),
     ]),
   );

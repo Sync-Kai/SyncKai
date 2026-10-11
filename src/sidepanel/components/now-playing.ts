@@ -328,14 +328,14 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
   }
 
   function renderReady(state: Extract<NowPlayingContent, { status: 'ready' }>): HTMLElement {
-    const { view, panel, page } = state;
+    const { view, details: panel, page } = state;
     return h(
       'div',
       { class: 'flex flex-col gap-3', attrs: { 'aria-label': t('panel.nowPlaying.aria') } },
       renderHero(view, panel),
       ...nodes([
-        state.panelError !== null &&
-          renderAlert({ message: `${t('panel.nowPlaying.detailsError')} ${state.panelError}`, action: { label: t('common.retry'), onClick: () => ctl.retry() } }),
+        state.detailsError !== null &&
+          renderAlert({ message: `${t('panel.nowPlaying.detailsError')} ${state.detailsError}`, action: { label: t('common.retry'), onClick: () => ctl.retry() } }),
         renderProgress(view, page, state.refreshing),
         panel?.description && renderSynopsis(panel.description),
         renderDiscussion(view, panel, page),

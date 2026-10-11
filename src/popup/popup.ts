@@ -14,16 +14,15 @@ import { deletePendingReview, getCachedWatching, getPendingReviews, getRecentSyn
 import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../shared/storage-keys';
 import { getSyncQueue, removeQueueItem } from '../shared/sync-queue-store';
 import type { AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
-import { isPageMediaResponse, type ContentMessage } from '../shared/content-messages';
-import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
-import { matchCachedPageMedia, readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
+import type { PageMediaInfo } from '../shared/page-media.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../shared/platform-links';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingList, type WatchingResult, type WatchingSort } from '../shared/watching.types';
 import { h, nodes, preserveFocus } from '../ui/dom';
 import { formatStarValue } from '../ui/rating';
-import { adjustPayload, mediaActionKey, runMediaAction, type MediaActionRequest } from '../ui/media-action-requests';
+import { adjustPayload } from '../ui/media-action-requests';
+import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../shared/host-access';
 import { renderFooter, type FooterStatus } from './components/footer';
 import { renderHostAccessBanner } from './components/host-access-banner';
@@ -126,7 +125,7 @@ const exclusionsStore = createStore<ExclusionsState>({ status: 'loading' });
 const queueStore = createStore<QueueState>({ items: [], busyIds: new Set(), notice: null, error: null });
 const ratingsStore = createStore<RatingsState>({ items: [], busyIds: new Set(), errors: new Map(), notice: null, error: null });
 /** Carte « Sur cette page » (série de l'onglet actif) */
-const pageCardStore = createStore<PageCardState>({ media: { status: 'none' }, busy: null, confirm: null, feedback: null });
+const pageCardStore = createStore<PageCardState>({ content: { status: 'idle' }, actions: { busy: null, confirm: null, feedback: null } });
 /** Activité › « Écarts AniList ↔ MAL » */
 const compareStore = createStore<CompareState>({ result: null, job: null, requesting: null, error: null, confirm: null, filter: 'all', shown: COMPARE_PAGE_SIZE });
 /** Accès à Crunchyroll / ADN et aux API (bandeau « Autoriser l'accès » si Firefox l'a retiré) */
@@ -436,14 +435,14 @@ function renderWatching(): void {
         pageCard: renderPageMediaCard({
           card: pageCard,
           now,
-          onRetry: () => void loadPageMedia(false, true),
-          onAdd: (status) => void runPageAction({ kind: 'add', status }),
-          onAdjust: (delta) => void runPageAction({ kind: 'adjust', delta }),
-          onRetryAdjust: (retry) => void runPageAction({ kind: 'adjust', delta: retry.delta, retry }),
+          onRetry: () => pageCtl.retry(),
+          onAdd: (status) => void pageCtl.runAction({ kind: 'add', status }),
+          onAdjust: (delta) => void pageCtl.runAction({ kind: 'adjust', delta }),
+          onRetryAdjust: (retry) => void pageCtl.runAction({ kind: 'adjust', delta: retry.delta, retry }),
           onConfirm: (status) => setPageConfirm(status),
-          onSetStatus: (status) => void runPageAction({ kind: 'status', status }),
-          onRate: (value) => void runPageAction({ kind: 'rate', value }),
-          onPickSeason: (mediaId) => pickPageSeason(mediaId),
+          onSetStatus: (status) => void pageCtl.runAction({ kind: 'status', status }),
+          onRate: (value) => void pageCtl.runAction({ kind: 'rate', value }),
+          onPickSeason: (mediaId) => pageCtl.pickSeason(mediaId),
         }),
         controls: {
           actions,
@@ -885,61 +884,49 @@ async function loadExclusions(): Promise<void> {
 }
 
 // ─── Carte « Sur cette page » (série de l'onglet actif) ────────────────────
-// Le content script de l'onglet actif décrit la page ; le service worker résout la fiche AniList.
-// Tout est asynchrone : sans réponse (autre site, onglet ouvert avant le rechargement de
-// l'extension), la carte « Reprendre » reste affichée.
+// Le content script de l'onglet actif décrit la page ; le service worker résout la fiche AniList. Machine d'état
+// commune avec le panneau (ui/page-media-controller.ts). Tout est asynchrone : sans réponse (autre site, onglet
+// ouvert avant le rechargement de l'extension), la carte « Reprendre » reste affichée.
 
-/** Délai maximal de réponse du content script (un script orphelin ne répond jamais) */
-const PAGE_DETECT_TIMEOUT_MS = 1_500;
-const PAGE_FEEDBACK_MS = 4_000;
-
-/** Onglet actif vu par le popup : page reconnue et présence du script de contenu (donc Crunchyroll / ADN) */
-interface ActiveTabProbe {
-  tabId: number | null;
-  /** Le script de contenu a répondu : l'onglet est une page Crunchyroll / ADN */
-  reachable: boolean;
-  /** URL visible seulement avec une permission d'hôte sur le site */
-  url: string | undefined;
-  page: PageMediaInfo | null;
-}
-
-/** Série ou épisode de l'onglet actif (null hors page reconnue ou content script injoignable) */
-async function probeActiveTab(): Promise<ActiveTabProbe> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let tab: chrome.tabs.Tab | undefined;
+/** Onglet actif (l'id ne requiert pas la permission "tabs" ; l'URL, seulement visible avec une permission d'hôte) */
+async function queryActiveTab(): Promise<{ tabId: number | null; url: string | undefined }> {
   try {
-    // L'id de l'onglet ne requiert pas la permission "tabs"
-    [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id === undefined) return { tabId: null, reachable: false, url: undefined, page: null };
-    const message: ContentMessage = { type: 'GET_PAGE_MEDIA' };
-    const timeout = new Promise<undefined>((resolve) => {
-      timer = setTimeout(() => resolve(undefined), PAGE_DETECT_TIMEOUT_MS);
-    });
-    const response: unknown = await Promise.race([chrome.tabs.sendMessage(tab.id, message), timeout]);
-    const reachable = isPageMediaResponse(response);
-    return { tabId: tab.id, reachable, url: tab.url, page: reachable ? response : null };
-  } catch {
-    // « Receiving end does not exist » : onglet hors Crunchyroll/ADN, ou script de contenu absent
-    return { tabId: tab?.id ?? null, reachable: false, url: tab?.url, page: null };
-  } finally {
-    clearTimeout(timer);
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return { tabId: tab?.id ?? null, url: tab?.url };
+  } catch (error: unknown) {
+    log.debug('Onglet actif illisible :', error);
+    return { tabId: null, url: undefined };
   }
 }
 
-/** Lancée dès l'ouverture du popup, en parallèle de la lecture des comptes */
-const activeTab: Promise<ActiveTabProbe> = probeActiveTab();
-const activePage: Promise<PageMediaInfo | null> = activeTab.then((probe) => probe.page);
+/** Lancées dès l'ouverture du popup, en parallèle de la lecture des comptes */
+const activeTab = queryActiveTab();
+/** Série ou épisode de l'onglet actif (mêmes essais et délais que le panneau) */
+const activePage: Promise<PageMediaInfo | null> = activeTab.then(async ({ tabId }) => {
+  if (tabId === null) return null;
+  const page = await detectPageMedia(tabId, { onReached: () => offerPanel(tabId) });
+  return page === 'unreachable' ? null : page;
+});
+
+const pageCtl = createPageMediaController({
+  onChange: () => pageCardStore.set({ content: pageCtl.content, actions: pageCtl.actions }),
+  onActionDone: () => scheduleWatchingRevalidation(),
+});
 
 // ─── Panneau latéral : bouton d'en-tête, seulement sur Crunchyroll / ADN ───
 
 /** Onglet Crunchyroll / ADN actif pour lequel le bouton « Ouvrir le panneau » est proposé */
 let panelTabId: number | null = null;
 
-void activeTab.then((probe) => {
-  // Script de contenu joignable, ou URL reconnue (onglet ouvert avant l'installation : script absent)
-  if (probe.tabId === null || sidePanelKind() === null || !(probe.reachable || isTargetPage(probe.url))) return;
-  panelTabId = probe.tabId;
+/** Script de contenu joignable, ou URL reconnue (onglet ouvert avant l'installation : script absent) */
+function offerPanel(tabId: number): void {
+  if (panelTabId === tabId || sidePanelKind() === null) return;
+  panelTabId = tabId;
   render();
+}
+
+void activeTab.then(({ tabId, url }) => {
+  if (tabId !== null && isTargetPage(url)) offerPanel(tabId);
 });
 
 /** Clic : aucun `await` avant l'ouverture (geste utilisateur requis par sidePanel.open / sidebarAction.open) */
@@ -950,118 +937,27 @@ function openPanel(): void {
     (error: unknown) => log.warn('Ouverture du panneau impossible :', error),
   );
 }
-let pageRequest = 0;
+
 let pageStarted = false;
-/** Saison choisie dans le sélecteur : conservée pour les relectures après une action */
-let pageManualId: number | null = null;
-let pageFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
-
-function patchPageCard(patch: Partial<PageCardState>): void {
-  pageCardStore.set({ ...pageCardStore.get(), ...patch });
-}
-
-/** Fiche de l'onglet en cache (panneau, synchro, popup précédent) valable pour cette page */
-async function cachedPageView(tabId: number | null, page: PageMediaInfo): Promise<PageMediaView | null> {
-  if (tabId === null) return null;
-  try {
-    return matchCachedPageMedia(await readCachedPageMedia(tabId), page, Date.now())?.view ?? null;
-  } catch (error: unknown) {
-    log.debug('Cache de la fiche illisible :', error);
-    return null;
-  }
-}
-
-/**
- * Résout la fiche de la page : cache de l'onglet d'abord (même fiche que le panneau et la synchro), sinon
- * RESOLVE_PAGE_MEDIA. `silent` : relecture sans skeleton (après une action, choix de saison) ;
- * `fresh` : cache ignoré (après une action, « Réessayer »).
- */
-async function loadPageMedia(silent = false, fresh = silent): Promise<void> {
-  const page = await activePage;
-  if (!page) return;
-  const { tabId } = await activeTab;
-  const request = ++pageRequest;
-  const current = pageCardStore.get().media;
-  if (silent && current.status === 'ready') patchPageCard({ media: { ...current, refreshing: true } });
-  else patchPageCard({ media: { status: 'loading', page } });
-
-  const cached = !fresh && pageManualId === null ? await cachedPageView(tabId, page) : null;
-  if (request !== pageRequest) return;
-  if (cached) {
-    patchPageCard({ media: { status: 'ready', page, view: cached, refreshing: false } });
-    return;
-  }
-
-  let result: PageMediaResult;
-  try {
-    result = await sendMessage('RESOLVE_PAGE_MEDIA', { page, mediaId: pageManualId });
-  } catch (error: unknown) {
-    log.error('Service worker injoignable :', error);
-    result = { ok: false, code: 'NETWORK', message: swUnreachable() };
-  }
-  if (request !== pageRequest) return;
-  if (result.ok && tabId !== null) {
-    storeCachedPageMedia(tabId, page, result.data, 'resolve').catch((error: unknown) => log.debug('Fiche non mise en cache :', error));
-  }
-
-  if (result.ok) {
-    patchPageCard({ media: { status: 'ready', page, view: result.data, refreshing: false } });
-  } else if (result.code === 'NOT_TRACKED') {
-    patchPageCard({ media: { status: 'untracked', page, message: result.message } });
-  } else if (silent && current.status === 'ready') {
-    // Relecture en échec : la fiche précédente reste affichée, l'erreur passe en retour d'action
-    patchPageCard({ media: { ...current, refreshing: false } });
-    showPageFeedback(errorFeedback(result.message));
-  } else {
-    patchPageCard({ media: { status: 'error', page, message: result.message } });
-  }
-}
 
 /** Premier chargement, dès qu'un service est connecté (l'écran « En cours » devient visible) */
 function startPageMedia(): void {
   if (pageStarted) return;
   pageStarted = true;
-  void loadPageMedia();
+  void Promise.all([activeTab, activePage]).then(([{ tabId }, page]) => {
+    if (tabId !== null && page) pageCtl.open(tabId, page);
+  });
 }
-
-function showPageFeedback(feedback: InlineFeedback): void {
-  clearTimeout(pageFeedbackTimer);
-  patchPageCard({ feedback });
-  // Un échec reste affiché plus longtemps (texte à lire)
-  pageFeedbackTimer = setTimeout(() => patchPageCard({ feedback: null }), feedback.tone === 'success' ? PAGE_FEEDBACK_MS : PAGE_FEEDBACK_MS * 2);
-}
-
-/** Exécute une action de la carte (une à la fois), affiche son retour puis relit la fiche et « En cours » */
-async function runPageAction(request: MediaActionRequest): Promise<void> {
-  const card = pageCardStore.get();
-  if (card.busy !== null || card.media.status !== 'ready') return;
-  patchPageCard({ busy: mediaActionKey(request), confirm: null });
-  const feedback = await runMediaAction(request, card.media.view, (error) => log.error('Service worker injoignable :', error));
-  patchPageCard({ busy: null });
-  showPageFeedback(feedback);
-  scheduleWatchingRevalidation();
-  await loadPageMedia(true);
-}
-
 
 /**
  * Confirmation Abandonner / Terminé de la carte. Ouverture : focus sur « Non » (une action
  * irréversible ne se valide pas d'un double Entrée) ; annulation : focus rendu au bouton d'origine.
  */
 function setPageConfirm(status: ListStatusChange | null): void {
-  const card = pageCardStore.get();
-  if (card.busy !== null || card.confirm === status) return;
-  const previous = card.confirm;
-  patchPageCard({ confirm: status });
+  const previous = pageCtl.actions.confirm;
+  if (!pageCtl.setConfirm(status)) return;
   if (status !== null) focusInWatching('[data-focus="confirm-no-page"]');
   else if (previous !== null) focusInWatching(`[data-focus="page-status-${previous}"]`);
-}
-
-function pickPageSeason(mediaId: number): void {
-  if (pageCardStore.get().busy !== null) return;
-  pageManualId = mediaId;
-  patchPageCard({ confirm: null, feedback: null });
-  void loadPageMedia(true);
 }
 
 // ─── File de synchro (Activité › Synchros en attente) ──────────────────────

@@ -1,3 +1,4 @@
+import type { EpisodeInfo } from '../shared/episode.types';
 import type { PageMediaInfo, PageSeason, SeasonSlot, SeasonSource } from '../shared/page-media.types';
 import { platformSeriesUrl } from '../shared/platform-links';
 import type { CandidateSummary } from '../shared/review.types';
@@ -80,6 +81,31 @@ export function firstUnfinishedSeason(seasonIds: readonly number[], statuses: re
   // Lectures tronquées (toutes terminées jusque-là) : la saison suivante, ou la dernière
   const pick = index !== -1 ? index : Math.min(statuses.length, seasonIds.length - 1);
   return { mediaId: seasonIds[pick] ?? seasonIds[0], source: 'progress', confidence: 'uncertain' };
+}
+
+/**
+ * Épisode de la page rapporté à une saison choisie dans le sélecteur (ARCH-20) quand ce n'est pas celle que retient
+ * la synchro : numéro dans la saison de la plateforme, moins les épisodes des parties précédentes si la saison est
+ * découpée en plusieurs fiches (Mushoku Tensei S2 E14 → « II Part 2 », épisode 2). null : numéro absent, ou total
+ * d'une partie précédente inconnu. La validité pour la fiche choisie est vérifiée par l'appelant (mappingFromManualChoice).
+ */
+export function manualSeasonProgress(
+  episode: Pick<EpisodeInfo, 'seasonEpisodeNumber' | 'displayedEpisodeNumber'>,
+  mediaId: number,
+  groups: readonly (readonly number[])[],
+  episodesOf: ReadonlyMap<number, number | null>,
+): number | null {
+  const base = episode.seasonEpisodeNumber ?? episode.displayedEpisodeNumber;
+  if (base === null) return null;
+  const group = groups.find((ids) => ids.includes(mediaId)) ?? [mediaId];
+  let offset = 0;
+  for (const id of group) {
+    if (id === mediaId) break;
+    const count = episodesOf.get(id);
+    if (count === null || count === undefined) return null;
+    offset += count;
+  }
+  return base - offset;
 }
 
 // ─── Saisons découpées en parties (cours) ─────────────────────────────────

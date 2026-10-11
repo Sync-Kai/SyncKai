@@ -451,6 +451,7 @@
   "page.episodes_other": "{count} Folgen",
   "page.listsAria": "Status in deinen Listen",
   "page.loading": "Eintrag wird geladen: {title}",
+  "page.manualNotSaved": "Diese Folge gehört nicht zu dieser Staffel: Die Synchronisierung übernimmt diese Wahl nicht.",
   "page.minusOneAria": "Eine gesehene Folge entfernen: {title}",
   "page.notFound": "Kein AniList-Eintrag für „{title}“ gefunden.",
   "page.notTracked": "Hier gibt es nichts zu verfolgen: Auf Netflix verfolgt SyncKai nur Animes, die AniList kennt.",

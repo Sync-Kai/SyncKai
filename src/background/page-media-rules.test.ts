@@ -3,6 +3,7 @@ import {
   episodeCountMismatch,
   firstUnfinishedSeason,
   learnableSeriesLink,
+  manualSeasonProgress,
   pickKnownSeason,
   pickPartInGroup,
   rememberedSeason,
@@ -159,5 +160,33 @@ describe('learnableSeriesLink', () => {
   it('correspondance à confirmer ou identifiant inconnu : rien n’est appris', () => {
     expect(learnableSeriesLink(adn, 'uncertain')).toBeNull();
     expect(learnableSeriesLink({ platform: 'crunchyroll', seriesId: null, seriesSlug: 'one-piece' }, 'certain')).toBeNull();
+  });
+});
+
+describe('manualSeasonProgress (ARCH-20)', () => {
+  const groups = [[10], [21, 22]];
+  const totals = new Map<number, number | null>([[10, 25], [21, 12], [22, 12]]);
+  const ep = (season: number | null, displayed: number | null): { seasonEpisodeNumber: number | null; displayedEpisodeNumber: number | null } => ({
+    seasonEpisodeNumber: season,
+    displayedEpisodeNumber: displayed,
+  });
+
+  it('saison en une fiche ou première partie : numéro dans la saison de la plateforme', () => {
+    expect(manualSeasonProgress(ep(5, 30), 10, groups, totals)).toBe(5);
+    expect(manualSeasonProgress(ep(5, 30), 21, groups, totals)).toBe(5);
+  });
+
+  it('partie suivante : épisodes des parties précédentes retirés', () => {
+    expect(manualSeasonProgress(ep(14, 39), 22, groups, totals)).toBe(2);
+  });
+
+  it('fiche hors des saisons de la série : numéro dans la saison, sans décalage', () => {
+    expect(manualSeasonProgress(ep(3, 3), 99, groups, totals)).toBe(3);
+  });
+
+  it('sans numéro dans la saison : numéro affiché ; total d’une partie précédente inconnu ou aucun numéro → null', () => {
+    expect(manualSeasonProgress(ep(null, 7), 10, groups, totals)).toBe(7);
+    expect(manualSeasonProgress(ep(14, 14), 22, groups, new Map([[21, null]]))).toBeNull();
+    expect(manualSeasonProgress(ep(null, null), 10, groups, totals)).toBeNull();
   });
 });

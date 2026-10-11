@@ -2,13 +2,13 @@ import type { PendingRating } from '../shared/engagement.types';
 import type { PendingReview, RecentSync } from '../shared/review.types';
 import type { SyncQueueItem } from '../shared/queue.types';
 import type { SyncSettings } from '../shared/settings';
-import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
 import type { ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
 import type { ComparisonResult, DiffFilter } from '../shared/compare';
 import type { CompareJob } from '../shared/compare-job';
-import type { MediaAction } from '../ui/media-actions';
+import type { MediaActionsState } from '../ui/media-actions';
+import type { PageMediaContent } from '../ui/page-media-controller';
 import type { InlineFeedback } from '../ui/state';
 
 /** Données de synchronisation lues depuis le stockage (vérifications, dernières synchros). */
@@ -74,27 +74,10 @@ export interface RatingsState {
   error: string | null;
 }
 
-/** Fiche de la page de l'onglet actif (carte « Sur cette page ») */
-export type PageMediaState =
-  /** Onglet hors page de série / d'épisode reconnue : carte « Reprendre » habituelle */
-  | { status: 'none' }
-  | { status: 'loading'; page: PageMediaInfo }
-  /** `refreshing` : relecture après une action (la fiche reste affichée) */
-  | { status: 'ready'; page: PageMediaInfo; view: PageMediaView; refreshing: boolean }
-  | { status: 'error'; page: PageMediaInfo; message: string }
-  /** Série ignorée (Netflix, pas un anime) : mention neutre, sans « Réessayer » */
-  | { status: 'untracked'; page: PageMediaInfo; message: string };
-
-/** Action en cours sur la carte « Sur cette page » (une seule à la fois) */
-export type PageCardAction = MediaAction;
-
+/** Carte « Sur cette page » : fiche de l'onglet actif (contrôleur partagé avec le panneau) et actions en cours */
 export interface PageCardState {
-  media: PageMediaState;
-  busy: PageCardAction | null;
-  /** Confirmation affichée (Abandonner, Terminé), null sinon */
-  confirm: ListStatusChange | null;
-  /** Retour de la dernière action (affiché quelques secondes) */
-  feedback: InlineFeedback | null;
+  content: PageMediaContent<never>;
+  actions: MediaActionsState;
 }
 
 /** Activité › « Écarts AniList ↔ MAL » (dernière analyse et tâche en cours, lues du stockage) */

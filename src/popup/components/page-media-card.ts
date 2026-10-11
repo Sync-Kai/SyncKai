@@ -103,12 +103,13 @@ function renderLinks(view: PageMediaView): HTMLElement {
 
 function renderReady(view: PageMediaView, refreshing: boolean, props: PageMediaCardProps): HTMLElement {
   const { card, now } = props;
+  const { actions } = card;
   const { media } = view;
   const meta = mediaMetaParts(view);
 
   return h(
     'section',
-    { class: CARD_CLASS, attrs: { 'aria-label': t('page.title'), 'aria-busy': String(refreshing || card.busy !== null) } },
+    { class: CARD_CLASS, attrs: { 'aria-label': t('page.title'), 'aria-busy': String(refreshing || actions.busy !== null) } },
     h(
       'div',
       { class: 'flex gap-3' },
@@ -122,23 +123,26 @@ function renderReady(view: PageMediaView, refreshing: boolean, props: PageMediaC
         renderAiring(view, now),
       ),
     ),
-    ...nodes(renderMediaActions({ view, state: card, refreshing, handlers: props, lines: 'auto' })),
+    ...nodes(renderMediaActions({ view, state: actions, refreshing, handlers: props, lines: 'auto' })),
   );
 }
 
-/** Carte « Sur cette page », ou null hors page de série / d'épisode reconnue */
+/** Carte « Sur cette page », ou null hors page de série / d'épisode reconnue (carte « Reprendre » affichée) */
 export function renderPageMediaCard(props: PageMediaCardProps): HTMLElement | null {
-  const { media } = props.card;
-  switch (media.status) {
-    case 'none':
+  const { content } = props.card;
+  switch (content.status) {
+    case 'idle':
+    case 'detecting':
+    case 'no-page':
       return null;
     case 'loading':
-      return renderSkeleton(media.page);
+      return renderSkeleton(content.page);
+    case 'not-found':
+      // Fiche introuvable : alerte avec « Réessayer » ; série ignorée : mention neutre (même message que le panneau)
+      return content.untracked ? renderUntracked(content.page, content.message) : renderError(content.page, content.message, props.onRetry);
     case 'error':
-      return renderError(media.page, media.message, props.onRetry);
-    case 'untracked':
-      return renderUntracked(media.page, media.message);
+      return renderError(content.page, content.message, props.onRetry);
     case 'ready':
-      return renderReady(media.view, media.refreshing, props);
+      return renderReady(content.view, content.refreshing, props);
   }
 }

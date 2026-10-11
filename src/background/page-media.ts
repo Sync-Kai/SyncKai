@@ -14,7 +14,7 @@ import { hasNetflixAccess } from '../shared/netflix-access';
 import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { learnPlatformLink } from '../shared/platform-links-store';
 import { pageMediaFromEpisode } from '../shared/page-media';
-import { getMediaMappings } from '../shared/storage';
+import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../shared/storage';
 import type { ListStatus } from '../shared/sync.types';
 import { createLogger } from '../shared/logger';
 import { getScoreFormat } from './api/list';
@@ -24,6 +24,7 @@ import {
   episodeCountMismatch,
   firstUnfinishedSeason,
   learnableSeriesLink,
+  manualSeasonProgress,
   pickKnownSeason,
   pickPartInGroup,
   rememberedSeason,
@@ -31,15 +32,16 @@ import {
   toPageSeasons,
   type SeasonChoice,
 } from './page-media-rules';
-import { resolveTarget } from './sync/matching';
+import { mappingFromManualChoice, mappingKey, resolveTarget, seasonLabel } from './sync/matching';
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary } from './sync/resolver';
 import { fromAniListScore, fromMalScore } from './sync/score';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
 
 // Fiche de la page (#23) : série ou épisode de l'onglet actif → fiche AniList + état dans les listes.
-// Lecture seule côté services et correspondances ; seul le lien de la série est mémorisé localement
-// (correspondance certaine uniquement) pour le bouton « Ouvrir » sur la plateforme préférée.
+// Lecture seule côté services. Écrits localement : le lien de la série (correspondance certaine uniquement) pour le
+// bouton « Ouvrir » sur la plateforme préférée, et la saison choisie dans le sélecteur sur une page de lecture,
+// enregistrée comme correspondance de la saison (ARCH-20) : la synchro de l'épisode part sur la fiche affichée.
 
 const log = createLogger('page-media');
 
@@ -56,7 +58,10 @@ interface Resolution {
   source: SeasonSource;
   confidence: 'certain' | 'uncertain';
   seasons: PageSeason[];
-  /** Page de lecture : épisode rapporté à la fiche retenue (SyncTarget.progress), sinon null */
+  /**
+   * Page de lecture : épisode rapporté à la fiche retenue (SyncTarget.progress, ou saison choisie : voir
+   * manualSeasonProgress), sinon null
+   */
   episodeProgress: number | null;
 }
 
@@ -71,8 +76,6 @@ interface Cached<T> {
 /** Caches mémoire du service worker (perdus à sa mise en veille : simple accélération) */
 const resolutions = new Map<string, Cached<Resolution | typeof IGNORED>>();
 const details = new Map<number, Cached<PageMediaDetails>>();
-/** Saison choisie dans le sélecteur, par série/saison de la page (durée de vie du service worker) */
-const manualChoices = new Map<string, number>();
 
 function readCache<K, T>(cache: Map<K, Cached<T>>, key: K): T | null {
   const hit = cache.get(key);
@@ -122,7 +125,11 @@ async function resolveEpisodePage(
   const seasons = toPageSeasons(pool.length > 0 ? pool.slice(0, MAX_PICKER_SEASONS) : candidates, seasonGroups);
   // Épisode de la page sur la fiche retenue par la synchro (valable seulement si c'est la fiche affichée)
   const target = result.ok ? result.target : null;
-  if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons, episodeProgress: target?.mediaId === manual ? target.progress : null };
+  if (manual !== null) {
+    // Saison choisie : épisode de la synchro si c'est sa fiche, sinon rapporté à la saison choisie (parties comprises)
+    const progress = target?.mediaId === manual ? target.progress : manualSeasonProgress(page.episode, manual, seasonGroups, new Map(pool.map((s) => [s.id, s.episodes])));
+    return { mediaId: manual, source: 'manual', confidence: 'certain', seasons, episodeProgress: progress };
+  }
   // Série ignorée (Netflix, probablement pas un anime) : aucune fiche proposée, même à confirmer
   if (!result.ok && result.ignored) return IGNORED;
   if (target) {
@@ -198,8 +205,10 @@ async function refinePageSeason(
   return { ...choice, mediaId, confidence: mismatch ? 'uncertain' : choice.confidence };
 }
 
+const resolutionKey = (page: PageMediaInfo, manual: number | null): string => JSON.stringify([pageSeasonKey(page), page.episode?.episodeId ?? null, manual]);
+
 async function resolveSeason(page: PageMediaInfo, manual: number | null): Promise<Resolution | typeof IGNORED | null> {
-  const key = JSON.stringify([pageSeasonKey(page), page.episode?.episodeId ?? null, manual]);
+  const key = resolutionKey(page, manual);
   const cached = readCache(resolutions, key);
   if (cached) return cached;
   const resolution = page.kind === 'episode' && page.episode ? await resolveEpisodePage({ ...page, episode: page.episode }, manual) : await resolveSeriesPage(page, manual);
@@ -213,6 +222,24 @@ async function resolveSeason(page: PageMediaInfo, manual: number | null): Promis
  */
 export function forgetPageResolutions(): void {
   resolutions.clear();
+}
+
+/**
+ * Saison choisie dans le sélecteur d'une page de lecture (ARCH-20) : enregistrée comme correspondance de la saison
+ * (mêmes règles qu'un choix confirmé dans « À vérifier »), pour que la synchro de l'épisode (EPISODE_COMPLETED) parte
+ * sur la fiche affichée. « Oublier » (Réglages › Mes données) la retire. `false` : épisode hors de la fiche choisie
+ * (numéro au-delà de ses épisodes, ou inconnu) : rien n'est enregistré, la carte le signale.
+ */
+async function rememberManualSeason(episode: EpisodeInfo, media: PageMediaDetails, progress: number | null): Promise<boolean> {
+  const mapping = progress !== null ? mappingFromManualChoice(episode, media.mediaId, progress, media.episodes) : null;
+  if (!mapping) return false;
+  const key = mappingKey(episode);
+  const stored = await getMediaMapping(key);
+  // Relecture avec la même saison (après une action) : correspondance déjà enregistrée, rien à réécrire
+  if (stored && !stored.unverified && stored.mediaId === mapping.mediaId && stored.numbering === mapping.numbering && stored.offset === mapping.offset) return true;
+  await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(episode), mediaTitle: media.title });
+  log.info(`Saison choisie enregistrée pour ${key} :`, mapping);
+  return true;
 }
 
 // ─── Fiche et listes ──────────────────────────────────────────────────────
@@ -261,15 +288,15 @@ async function readLists(media: PageMediaDetails): Promise<PageListState[]> {
 
 /**
  * Fiche AniList de la série affichée dans l'onglet actif, avec l'état de chaque liste connectée.
- * `mediaId` : saison choisie dans le sélecteur (mémorisée pour cette page le temps du service worker).
+ * `mediaId` : saison choisie dans le sélecteur ; sur une page de lecture, enregistrée comme correspondance de la
+ * saison (rememberManualSeason). Sur une page de série (aucun épisode pour fixer la numérotation), elle ne vaut que
+ * pour l'affichage : l'écran la renvoie à chaque relecture (cache de l'onglet compris).
  */
 export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayload): Promise<PageMediaResult> {
   try {
     // Accès Netflix retiré, onglet ouvert avant le retrait (son script répond encore) : rien à suivre, comme la synchro
     if (page.platform === 'netflix' && !(await hasNetflixAccess())) return { ok: false, code: 'NOT_TRACKED', message: t('page.netflixOff') };
-    const seasonKey = pageSeasonKey(page);
-    if (mediaId !== null) manualChoices.set(seasonKey, mediaId);
-    const resolution = await resolveSeason(page, mediaId ?? manualChoices.get(seasonKey) ?? null);
+    const resolution = await resolveSeason(page, mediaId);
     if (resolution === IGNORED) {
       // Info seulement (aucune entrée au journal d'erreurs) : comme la synchro, qui ignore la série
       log.info('Fiche de la page : série ignorée (aucune fiche AniList liée) :', page.seriesTitle);
@@ -277,14 +304,27 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
     }
     if (!resolution) return { ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: page.seriesTitle }) };
 
+    const media = await getDetails(resolution.mediaId);
+    let { confidence, episodeProgress } = resolution;
+    if (mediaId !== null && page.episode) {
+      if (await rememberManualSeason(page.episode, media, episodeProgress)) {
+        // Saisons résolues avant le choix (cet épisode et les suivants) : la correspondance prime désormais.
+        // Résolution du choix gardée : le sélecteur reste proposé aux relectures de la fiche.
+        forgetPageResolutions();
+        writeCache(resolutions, resolutionKey(page, mediaId), resolution);
+      } else {
+        confidence = 'uncertain';
+        episodeProgress = null;
+      }
+    }
+
     // Page de série visitée, fiche certaine : lien mémorisé (AniList ne référence presque jamais ADN)
-    const learnable = learnableSeriesLink(page, resolution.confidence);
+    const learnable = learnableSeriesLink(page, confidence);
     if (learnable) await learnPlatformLink(resolution.mediaId, learnable);
 
-    const media = await getDetails(resolution.mediaId);
     const lists = await readLists(media);
-    log.info(`Fiche de la page : ${media.title} (#${media.mediaId}, ${resolution.source}, ${resolution.confidence})`);
-    const { confidence, source, seasons, episodeProgress } = resolution;
+    log.info(`Fiche de la page : ${media.title} (#${media.mediaId}, ${resolution.source}, ${confidence})`);
+    const { source, seasons } = resolution;
     return { ok: true, data: { media, lists, confidence, source, seasons, episodeProgress } };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, code: error.code, message: error.message };

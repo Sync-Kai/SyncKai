@@ -451,6 +451,7 @@
   "page.episodes_other": "{count} ép.",
   "page.listsAria": "État dans tes listes",
   "page.loading": "Chargement de la fiche : {title}",
+  "page.manualNotSaved": "Cet épisode n’est pas dans cette saison : la synchro ne retiendra pas ce choix.",
   "page.minusOneAria": "Retirer un épisode vu : {title}",
   "page.notFound": "Aucune fiche AniList trouvée pour « {title} ».",
   "page.notTracked": "Rien à suivre ici : sur Netflix, SyncKai ne suit que les animes reconnus par AniList.",
