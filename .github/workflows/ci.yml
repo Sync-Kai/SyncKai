@@ -29,11 +29,13 @@ jobs:
       # Aucun script d'installation : pas de navigateur téléchargé par puppeteer, versions du lockfile uniquement
       - run: npm ci --ignore-scripts
 
-      - name: Types (extension)
-        run: npx tsc --noEmit
+      # Mêmes vérifications que `npm run verify` en local, en étapes séparées
+      - name: Types (extension, scripts, captures, e2e)
+        run: npm run typecheck
 
-      - name: Types (scripts)
-        run: npx tsc --noEmit -p scripts
+      # Lint typé : promesses non gérées, async mal placées, switch non exhaustifs, any
+      - name: Lint
+        run: npm run lint
 
       - name: Tests
         run: npx vitest run

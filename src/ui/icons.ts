@@ -253,7 +253,7 @@ function largeFace(url: (name: string) => string, expression: KaiExpression | un
       return [...largeOpenEye(url, '106'), LARGE_ARC_GLOW('214'), largeArc(ARC_R_UP), ...LARGE_BLUSH, ...LARGE_MOUTH];
     case 'sleep':
       return [largeArc(ARC_L_DOWN, '0.75'), largeArc(ARC_R_DOWN, '0.75'), ...LARGE_SOFT_BLUSH, LARGE_WAVY_MOUTH];
-    default:
+    case undefined: // yeux ouverts (expression par défaut)
       return [...largeOpenEye(url, '106'), ...largeOpenEye(url, '214'), ...LARGE_BLUSH, ...LARGE_MOUTH];
   }
 }
@@ -320,7 +320,7 @@ function smallFace(expression: KaiExpression | undefined): Shape[] {
       return [...smallOpenEye('106'), smallArc(ARC_R_UP), ...SMALL_BLUSH, SMALL_MOUTH];
     case 'sleep':
       return [smallArc(ARC_L_DOWN, '0.75'), smallArc(ARC_R_DOWN, '0.75'), ...SMALL_SOFT_BLUSH, SMALL_WAVY_MOUTH];
-    default:
+    case undefined: // yeux ouverts (expression par défaut)
       return [...smallOpenEye('106'), ...smallOpenEye('214'), ...SMALL_BLUSH, SMALL_MOUTH];
   }
 }

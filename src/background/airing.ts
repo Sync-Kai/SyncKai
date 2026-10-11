@@ -72,7 +72,7 @@ export async function ensureAiringAlarm(): Promise<void> {
       return;
     }
     const existing = await chrome.alarms.get(AIRING_ALARM);
-    if (!existing) chrome.alarms.create(AIRING_ALARM, { delayInMinutes: 1, periodInMinutes: 60 });
+    if (!existing) await chrome.alarms.create(AIRING_ALARM, { delayInMinutes: 1, periodInMinutes: 60 });
   } catch (error) {
     log.error('Alarme impossible à configurer :', error);
   }

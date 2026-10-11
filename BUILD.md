@@ -52,6 +52,7 @@ diff -r submitted dist-firefox      # no output: identical
 ```sh
 npx tsc --noEmit     # type check
 npx vitest run       # unit tests
+npm run lint         # typed lint (typescript-eslint) on src/ and scripts/
 npm run lint:firefox # web-ext lint on dist-firefox/
 npm run verify:build -- --target firefox  # checks on dist-firefox/: referenced files, web_accessible_resources, permissions, sizes
 ```

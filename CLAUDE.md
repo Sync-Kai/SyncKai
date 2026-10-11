@@ -80,7 +80,7 @@ Section maintenue par Claude pour reprendre le projet sur n'importe quelle machi
   - avant de taguer, lancer `npm run test:e2e` : le job `build` de `release.yml` l'exécute et un échec bloque l'envoi aux stores ;
   - permissions : `scripts/store-permissions.test.ts` exige une section dans `docs/store/permissions.md` par permission ou hôte du manifeste ; si ce fichier a changé depuis le dernier tag, coller les blocs dans l'onglet Confidentialité du Chrome Web Store **avant** le tag (sinon soumission refusée, reprise : `docs/STORE.md` › 7) ;
   - `release.yml` refuse un tag hors de `main` et n'exécute que les CLI du lockfile (`chrome-webstore-upload-cli`, `web-ext` à version exacte, `npx --no-install`).
-- **Organisation** : le travail est confié à des sous-agents spécialisés, avec un brief précis. La session principale orchestre, vérifie (`npx tsc --noEmit`, `npx vitest run`, `npm run test:e2e` si le popup change, `npm run build`), gère Git et fait le compte rendu.
+- **Organisation** : le travail est confié à des sous-agents spécialisés, avec un brief précis. La session principale orchestre, vérifie avant chaque fusion (`npm run verify` : types, tests, builds Chrome et Firefox, paquets, `web-ext lint`, lint typé ; plus `npm run test:e2e` si le popup ou le panneau change), gère Git et fait le compte rendu.
 - L'utilisateur teste dans Chrome avant chaque merge important. Signale ce qui n'a pas été testé.
 
 ### Authentification (identifiants publics, aucun secret)

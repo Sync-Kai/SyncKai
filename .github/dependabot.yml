@@ -1,0 +1,35 @@
+# Mises à jour de version, mensuelles et groupées (développeur seul : peu de PR).
+# Les alertes et mises à jour de sécurité s'activent à part, dans Settings › Code security
+# (Dependabot alerts + Dependabot security updates) : elles ne suivent pas ce calendrier.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Tout l'outillage (le paquet n'a aucune dépendance de production) : une PR pour les mineures et correctifs
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      # TypeScript 6.1+ / 7 : bloqué par le peer de typescript-eslint (<6.1.0), migration à part
+      - dependency-name: typescript
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      # web-ext épinglé (release.yml) : passage en 10.x sur une branche chore/ dédiée
+      - dependency-name: web-ext
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ['*']
