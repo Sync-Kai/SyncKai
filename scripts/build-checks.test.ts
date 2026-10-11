@@ -135,8 +135,8 @@ describe('checkContentSecurityPolicy', () => {
 });
 
 describe('checkCommands', () => {
-  const episode = { suggested_key: { default: 'Alt+Shift+S' }, description: '__MSG_cmdCompleteEpisode__' };
-  const panel = { suggested_key: { default: 'Alt+Shift+P' }, description: '__MSG_cmdOpenSidePanel__' };
+  const episode = { suggested_key: { default: 'Alt+Shift+K' }, description: '__MSG_cmdCompleteEpisode__' };
+  const panel = { suggested_key: { default: 'Alt+Shift+1' }, description: '__MSG_cmdOpenSidePanel__' };
   const chromeBuilt: BuiltManifest = { side_panel: { default_path: 'src/sidepanel/sidepanel.html' }, commands: { 'complete-episode': episode, 'open-side-panel': panel } };
   const firefoxBuilt: BuiltManifest = {
     sidebar_action: { default_panel: 'src/sidepanel/sidepanel.html' },
@@ -158,6 +158,22 @@ describe('checkCommands', () => {
     ]);
   });
 
+  it('Firefox : touche suggérée sur une lettre d’accès des menus (EN, FR, DE) refusée, macOS exclu ; Chrome non concerné', () => {
+    const commands = {
+      'complete-episode': { suggested_key: { default: 'Alt+Shift+S', windows: 'Alt+H', mac: 'Alt+Shift+F' } },
+      _execute_sidebar_action: { suggested_key: { default: 'Alt+Shift+P', linux: 'Alt+Shift+9' } },
+    };
+    const built: BuiltManifest = { ...firefoxBuilt, commands };
+    expect(checkCommands(built, built, 'firefox')).toEqual([
+      'commands : Alt+Shift+S (complete-episode) ouvre un menu de Firefox (lettre d’accès)',
+      'commands : Alt+H (complete-episode) ouvre un menu de Firefox (lettre d’accès)',
+      'commands : Alt+Shift+P (_execute_sidebar_action) ouvre un menu de Firefox (lettre d’accès)',
+    ]);
+    // Alt+Shift+chiffre accepté (Alt+Shift+1 : panneau latéral)
+    expect(checkCommands(firefoxBuilt, firefoxBuilt, 'firefox')).toEqual([]);
+    expect(checkCommands(chromeBuilt, chromeBuilt, 'chrome')).toEqual([]);
+  });
+
   it('commandes retirées par le build', () => {
     expect(checkCommands({ side_panel: chromeBuilt.side_panel }, chromeBuilt, 'chrome')).toEqual([
       expect.stringMatching(/^commands : \{\} ≠/),
@@ -171,12 +187,12 @@ describe('checkCommands', () => {
       'open-side-panel': panel,
       a: { suggested_key: { default: 'Alt+Shift+A' } },
       b: { suggested_key: { default: 'Alt+Shift+B' } },
-      c: { suggested_key: { default: 'alt+shift+s' } },
+      c: { suggested_key: { default: 'alt+shift+k' } },
     };
     const built: BuiltManifest = { ...chromeBuilt, commands };
     expect(checkCommands(built, built, 'chrome')).toEqual([
       'commands : 5 touches suggérées (Chrome en accepte 4 au plus)',
-      'commands : alt+shift+s (default) suggérée pour complete-episode et c',
+      'commands : alt+shift+k (default) suggérée pour complete-episode et c',
     ]);
   });
 });

@@ -24,7 +24,7 @@ Tip to simulate a service outage: developer tools of the popup (right-click › 
 
 - [ ] **Autoplay** on Crunchyroll (and Netflix): let the next episode start on its own. Expected: both episodes sync, the popup shows the right number.
 - [ ] **Background tab**: open an episode in a background tab, wait more than a minute, then watch it. Expected: normal sync at the end.
-- [ ] **Alt+Shift+S shortcut**: on a series page → *No episode playing*; on an already synced episode → *Episode already synced*; sync paused → explanatory message.
+- [ ] **Alt+Shift+K shortcut**: on a series page → *No episode playing*; on an already synced episode → *Episode already synced*; sync paused → explanatory message.
 - [ ] **Page language**: Crunchyroll in a different language than SyncKai; page console → `document.documentElement.lang`. Expected: the site's language, not SyncKai's.
 - [ ] **ADN**: an ADN episode is detected and synced; the entry shows in the popup and the side panel.
 
@@ -38,7 +38,9 @@ Tip to simulate a service outage: developer tools of the popup (right-click › 
 - [ ] **Panel while loading**: open the side panel while an episode is loading. Expected: the entry shows (no endless skeleton).
 - [ ] **Action, then episode change**: *+1* in the side panel, then immediately start another episode. Expected: the new episode's entry stays displayed.
 - [ ] **Schedule error**: block AniList, open the Schedule. Expected: the error message and *Retry* stay visible.
-- [ ] **Alt+Shift+P shortcut** (set it first in `brave://extensions/shortcuts` or `about:addons` › *Manage Extension Shortcuts* on an existing install): on a Crunchyroll or ADN episode → the panel opens, even right after the page loads, and a second press closes it (also after leaving the panel open for more than a minute: service worker asleep); with two windows each showing a panel, only the focused window's panel closes; on another site → nothing (Brave/Chrome); Firefox → the sidebar shows, a second press hides it.
+- [ ] **Alt+Shift+1 shortcut** (Alt+Shift+& on AZERTY; if *Settings › Shortcuts* shows it as *Not set*, set it first): on a Crunchyroll or ADN episode → the panel opens, even right after the page loads, and a second press closes it (also after leaving the panel open for more than a minute: service worker asleep); with two windows each showing a panel, only the focused window's panel closes; on another site → nothing (Brave/Chrome); Firefox → the sidebar shows, a second press hides it.
+- [ ] **Settings › Shortcuts** (popup and side panel): the home row shows both keys (French: *Alt+Maj+K · Alt+Maj+1 (touche &)*; English and German without the AZERTY hint); the page shows each key or *Not set*; *Change* / *Set* opens `chrome://extensions/shortcuts` (Brave: `brave://extensions/shortcuts`) or Firefox's *Manage Extension Shortcuts*. Change a key there, come back to the side panel (still open): the new key shows without reopening it. *Playback & sync* shows no key any more, only the *Keyboard shortcuts* link.
+- [ ] **Default keys** (Chrome, Brave, Firefox): on a fresh install (new profile), Alt+Shift+K marks the episode as watched and Alt+Shift+1 (AZERTY: Alt+Shift+&) toggles the panel, without opening any browser menu (Firefox in French, English and German; Firefox with the new profile manager on, whose *Profiles* menu took Alt+Shift+P) and without creating a tab group (Chrome). Update an existing install: a key changed by hand is kept; note whether an untouched Alt+Shift+S / Alt+Shift+P switched to the new keys or stayed (expected from the browsers' source: switches when the new key is free).
 - [ ] **Season choice**: on an episode of a series with split seasons, pick another season in the side panel, finish the episode. Expected: the progress goes to the chosen season; Settings › My data lists the match.
 
 ## 6. Alerts, import, backup

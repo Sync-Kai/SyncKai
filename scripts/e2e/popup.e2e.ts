@@ -630,30 +630,69 @@ describe('popup (bout en bout)', () => {
     expect(await sent(page, 'GET_MAL_VIEWER')).toHaveLength(2);
   });
 
-  it('BRW-02 : « Modifier » le raccourci ouvre chrome://extensions/shortcuts (libellé neutre vis-à-vis du navigateur)', async () => {
+  it('Réglages › Raccourcis : résumé de l’accueil, touches actuelles, « Modifier » ouvre chrome://extensions/shortcuts (BRW-02)', async () => {
     const page = await openPopup();
     await click(page, 'gear');
-    await openCategory(page, 'sync');
-    await page.waitForSelector(sel('shortcut'));
+    // Accueil : catégorie avec les deux touches (Shift → Maj)
+    await page.waitForFunction((s: string) => document.querySelector(s)?.textContent?.includes('Alt+Maj+K · Alt+Maj+1 (touche &)') ?? false, {}, sel('settings-cat-shortcuts'));
+    expect(await text(page, sel('settings-cat-shortcuts'))).toContain(fr('settings.cat.shortcuts'));
+
+    await openCategory(page, 'shortcuts');
+    expect(await text(page, 'h1')).toBe(fr('settings.cat.shortcuts'));
+    await page.waitForSelector('[data-shortcut-key="episode"]');
+    expect(await text(page, 'kbd[data-shortcut-key="episode"]')).toBe('Alt+Maj+K');
+    expect(await text(page, 'kbd[data-shortcut-key="panel"]')).toBe('Alt+Maj+1');
+    // Alt+Shift+1 se tape Alt+Maj+& en AZERTY : indication discrète, touche K sans indication
+    expect(await text(page, '[data-shortcut-hint="panel"]')).toBe(fr('settings.shortcut.azertyKey', { char: '&' }));
+    expect(await page.$('[data-shortcut-hint="episode"]')).toBeNull();
+    expect(await text(page, '#sk-shortcut-episode')).toBe(fr('settings.shortcuts.episode'));
+    expect(await text(page, '#sk-shortcut-panel')).toBe(fr('settings.shortcuts.panel'));
+    expect(await text(page, '[data-shortcuts-help]')).toBe(fr('settings.shortcuts.help'));
+    // Libellé neutre vis-à-vis du navigateur
     expect(await attr(page, sel('shortcut'), 'aria-label')).toBe(fr('settings.shortcut.editAria'));
+    expect(await attr(page, sel('panel-shortcut'), 'aria-label')).toBe(fr('settings.shortcut.panelEditAria'));
+    expect(await text(page, sel('shortcut'))).toBe(fr('settings.shortcut.edit'));
+
     await click(page, 'shortcut');
     await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 0);
-    expect((await trace(page)).openedTabs).toEqual(['chrome://extensions/shortcuts']);
+    await click(page, 'panel-shortcut');
+    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 1);
+    expect((await trace(page)).openedTabs).toEqual(['chrome://extensions/shortcuts', 'chrome://extensions/shortcuts']);
     expect(await page.$('[data-shortcut-manual]')).toBeNull();
+
+    // Retour : focus rendu à la ligne de la catégorie
+    await click(page, 'settings-home');
+    await page.waitForSelector(sel('back'));
+    expect(await focused(page)).toBe('settings-cat-shortcuts');
   });
 
-  it('raccourci du panneau latéral : affiché dans la section Panneau latéral, « Modifier » ouvre chrome://extensions/shortcuts', async () => {
+  it('Réglages › Raccourcis : touche du panneau non définie → « Non défini », « Définir », résumé qui la nomme', async () => {
+    const page = await openPopup({ shortcuts: 'panel-unset' });
+    await click(page, 'gear');
+    const summary = `Alt+Maj+K · ${fr('settings.summary.panelUnset')}`;
+    await page.waitForFunction((s: string, want: string) => document.querySelector(s)?.textContent?.includes(want) ?? false, {}, sel('settings-cat-shortcuts'), summary);
+
+    await openCategory(page, 'shortcuts');
+    await page.waitForSelector('[data-shortcut-key="panel"]');
+    expect(await page.$('kbd[data-shortcut-key="panel"]')).toBeNull();
+    expect(await text(page, '[data-shortcut-key="panel"]')).toBe(fr('settings.shortcuts.unset'));
+    expect(await text(page, sel('panel-shortcut'))).toBe(fr('settings.shortcut.set'));
+    expect(await text(page, 'kbd[data-shortcut-key="episode"]')).toBe('Alt+Maj+K');
+  });
+
+  it('Lecture & synchro : plus aucune touche affichée, un lien mène à Réglages › Raccourcis', async () => {
     const page = await openPopup();
     await click(page, 'gear');
     await openCategory(page, 'sync');
-    await page.waitForSelector(sel('panel-shortcut'));
-    expect(await attr(page, sel('panel-shortcut'), 'aria-label')).toBe(fr('settings.shortcut.panelEditAria'));
-    // Touche mise en forme dans la phrase traduite (Shift → Maj)
-    const hint = await page.$eval(sel('panel-shortcut'), (button) => button.previousElementSibling?.textContent ?? '');
-    expect(hint).toBe(fr('settings.shortcut.panelHint').replace('{key}', 'Alt+Maj+P'));
-    await click(page, 'panel-shortcut');
-    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 0);
-    expect((await trace(page)).openedTabs).toEqual(['chrome://extensions/shortcuts']);
+    await page.waitForSelector(sel('shortcuts-link'));
+    expect(await page.$(sel('shortcut'))).toBeNull();
+    expect(await page.$(sel('panel-shortcut'))).toBeNull();
+    expect(await page.$('kbd')).toBeNull();
+    expect(await text(page, sel('shortcuts-link'))).toBe(fr('settings.shortcuts.pointer'));
+
+    await click(page, 'shortcuts-link');
+    await page.waitForSelector('[data-shortcut-key="episode"]');
+    expect(await text(page, 'h1')).toBe(fr('settings.cat.shortcuts'));
   });
 
   it('BAK-05 : « Exporter » depuis le popup ouvre la page Sauvegarde, qui lance l’export (pas de téléchargement dans le popup)', async () => {

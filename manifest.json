@@ -73,13 +73,13 @@
   "commands": {
     "complete-episode": {
       "suggested_key": {
-        "default": "Alt+Shift+S"
+        "default": "Alt+Shift+K"
       },
       "description": "__MSG_cmdCompleteEpisode__"
     },
     "open-side-panel": {
       "suggested_key": {
-        "default": "Alt+Shift+P"
+        "default": "Alt+Shift+1"
       },
       "description": "__MSG_cmdOpenSidePanel__"
     }

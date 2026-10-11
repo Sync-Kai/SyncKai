@@ -1,6 +1,6 @@
-// Réglages › Lecture & synchro : synchro automatique, moment de la synchro, raccourci clavier,
-// lecteur préféré, fiche ouverte par défaut, accès à Netflix et à Disney+ (permissions optionnelles) et options du panneau
-// latéral (dont son raccourci).
+// Réglages › Lecture & synchro : synchro automatique, moment de la synchro, lecteur préféré, fiche ouverte par défaut,
+// accès à Netflix et à Disney+ (permissions optionnelles) et options du panneau latéral. Les raccourcis clavier ont leur
+// propre catégorie (page-shortcuts.ts) : un lien y mène.
 import { t, type MessageKey } from '../../i18n';
 import { createLogger } from '../../shared/logger';
 import { removePlatformAccess, requestPlatformAccess } from '../../shared/platform-access';
@@ -9,8 +9,8 @@ import { DEFAULT_SETTINGS, effectivePlayer, isPreferredPlayerOption, PERCENTAGE_
 import { renderAlert } from '../alert';
 import { alertAttrs } from '../live-region';
 import { CARD, LINK, segmented } from '../kit';
-import { openShortcutSettings } from '../shortcut-settings';
 import { h } from '../dom';
+import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
 import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, toggleRow } from './rows';
 
@@ -25,25 +25,6 @@ function playerOptions(netflixAccess: boolean): { value: StreamingPlatform; labe
     label: PLATFORMS[platform].label,
   }));
 }
-
-/** "Alt+Shift+S" → "Alt+Maj+S" (nom de la touche Maj dans la langue active) */
-function formatShortcut(shortcut: string): string {
-  return shortcut.replace(/Shift/g, t('settings.shortcut.shiftKey'));
-}
-
-/** Raccourcis affichés : « valider l'épisode » (Lecture & synchro) et « ouvrir le panneau » (Panneau latéral) */
-type ShortcutKind = 'episode' | 'panel';
-
-/** Textes et repère de focus de chaque raccourci. Firefox : la commande native affiche ou masque la barre latérale */
-const SHORTCUT_TEXTS: Readonly<Record<ShortcutKind, { hint: MessageKey; none: MessageKey; editAria: MessageKey; focus: string }>> = {
-  episode: { hint: 'settings.shortcut.hint', none: 'settings.shortcut.none', editAria: 'settings.shortcut.editAria', focus: 'shortcut' },
-  panel: {
-    hint: __SYNCKAI_TARGET__ === 'firefox' ? 'settings.shortcut.panelHintFirefox' : 'settings.shortcut.panelHint',
-    none: 'settings.shortcut.panelNone',
-    editAria: 'settings.shortcut.panelEditAria',
-    focus: 'panel-shortcut',
-  },
-};
 
 /** "85 %" (fr, de) / "85%" (en) */
 export function formatPercent(value: number | string): string {
@@ -101,8 +82,6 @@ type AccessNotice = 'denied' | 'error' | 'disabled' | null;
 
 export function createSyncPage(ctx: SettingsContext): SettingsPageView {
   const notices: Record<ToggledPlatform, AccessNotice> = { netflix: null, disney: null };
-  /** Ouverture de la page des raccourcis en échec : la marche à suivre reste affichée sous le bouton utilisé */
-  let shortcutManual: ShortcutKind | null = null;
 
   function settle(platform: ToggledPlatform, notice: AccessNotice): void {
     notices[platform] = notice;
@@ -165,47 +144,18 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
     );
   }
 
-  function renderShortcutHint(kind: ShortcutKind): HTMLElement {
-    const texts = SHORTCUT_TEXTS[kind];
-    const shortcut = kind === 'episode' ? ctx.data.shortcut : ctx.data.panelShortcut;
-    // Touche mise en forme (<kbd>) au milieu de la phrase traduite
-    const [before = '', after = ''] = t(texts.hint).split('{key}');
-    const text =
-      shortcut === undefined
-        ? t('settings.shortcut.loading')
-        : shortcut
-          ? h('span', {}, before, h('kbd', { class: 'font-body font-bold text-ink' }, formatShortcut(shortcut)), after)
-          : t(texts.none);
-    const manual = t(__SYNCKAI_TARGET__ === 'firefox' ? 'settings.shortcut.manualFirefox' : 'settings.shortcut.manual');
+  /** Lien vers Réglages › Raccourcis (touches de « valider l'épisode » et du panneau, autrefois affichées ici) */
+  function renderShortcutsLink(): HTMLElement {
     return h(
-      'div',
-      { class: DIVIDER },
-      h(
-        'div',
-        { class: 'flex items-center justify-between gap-2 px-3 py-1' },
-        h('span', { class: `min-w-0 ${HELP_TEXT}` }, text),
-        h(
-          'button',
-          {
-            class: `${LINK} inline-flex min-h-8 shrink-0 cursor-pointer items-center bg-transparent px-1 text-[12px] font-bold`,
-            attrs: { type: 'button', 'aria-label': t(texts.editAria), 'data-focus': texts.focus },
-            on: { click: () => onEditShortcut(kind) },
-          },
-          shortcut ? t('settings.shortcut.edit') : t('settings.shortcut.set'),
-        ),
-      ),
-      // Page des raccourcis impossible à ouvrir : marche à suivre (au lieu d'un clic sans effet)
-      shortcutManual === kind && h('p', { class: `m-0 px-3 pb-2 ${HELP_TEXT}`, attrs: { role: 'status', 'data-shortcut-manual': kind } }, manual),
+      'button',
+      {
+        class: `${LINK} ${DIVIDER} flex min-h-9 w-full cursor-pointer items-center justify-between gap-2 bg-transparent px-3 text-left text-[12px] font-bold`,
+        attrs: { type: 'button', 'data-focus': 'shortcuts-link' },
+        on: { click: () => ctx.openCategory('shortcuts') },
+      },
+      t('settings.shortcuts.pointer'),
+      icon('chevronRight', 'h-3.5 w-3.5', '2.6'),
     );
-  }
-
-  /** Chrome : onglet chrome://extensions/shortcuts ; Firefox : commands.openShortcutSettings() (BRW-02) */
-  function onEditShortcut(kind: ShortcutKind): void {
-    openShortcutSettings().catch((error: unknown) => {
-      log.warn('Page des raccourcis impossible à ouvrir :', error);
-      shortcutManual = kind;
-      ctx.redraw(['sync']);
-    });
   }
 
   function renderTrigger(s: SyncSettings): HTMLElement[] {
@@ -267,7 +217,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
           rowsCard(
             toggleRow({ id: 'sk-auto', label: t('settings.autoSync.label'), help: t(s.autoSync ? 'settings.autoSync.helpOn' : 'settings.autoSync.helpOff'), checked: s.autoSync, onChange: (checked) => void ctx.update({ autoSync: checked }) }),
             ...renderTrigger(s),
-            renderShortcutHint('episode'),
+            renderShortcutsLink(),
           ),
         ),
         settingsSection(
@@ -314,7 +264,6 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
               onChange: (checked) => void ctx.update({ panelLiveProgress: checked }),
               divider: true,
             }),
-            renderShortcutHint('panel'),
           ),
         ),
       ];

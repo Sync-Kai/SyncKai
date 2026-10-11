@@ -199,4 +199,20 @@ describe('panneau latéral (bout en bout)', () => {
     });
     expect(offsets).toEqual({});
   });
+
+  it('Réglages › Raccourcis (vue partagée avec le popup) : résumé de l’accueil et touches actuelles', async () => {
+    const page = await openPanel({});
+    await page.locator('[data-focus="gear"]').click();
+    const row = '[data-focus="settings-cat-shortcuts"]';
+    await page.waitForFunction((s: string) => document.querySelector(s)?.textContent?.includes('Alt+Maj+K · Alt+Maj+1 (touche &)') ?? false, {}, row);
+    expect(await page.$eval(row, (el) => el.textContent ?? '')).toContain(fr('settings.cat.shortcuts'));
+
+    await page.locator(row).click();
+    await page.waitForSelector('kbd[data-shortcut-key="panel"]');
+    expect(await page.$eval('kbd[data-shortcut-key="episode"]', (el) => el.textContent?.trim())).toBe('Alt+Maj+K');
+    expect(await page.$eval('kbd[data-shortcut-key="panel"]', (el) => el.textContent?.trim())).toBe('Alt+Maj+1');
+    expect(await page.$eval('#sk-shortcut-panel', (el) => el.textContent?.trim())).toBe(fr('settings.shortcuts.panel'));
+    expect(await page.$('[data-focus="shortcut"]')).not.toBeNull();
+    expect(await page.$('[data-focus="panel-shortcut"]')).not.toBeNull();
+  });
 });

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale } from '../../i18n';
 import { DEFAULT_SETTINGS, effectivePlayer } from '../../shared/settings';
 import { LOGGED_OUT } from '../state';
-import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, syncSummary } from './summary';
+import { accountLink, accountsSummary, azertyKeyHint, dataSummary, formatShortcut, helpSummary, languageSummary, notificationsSummary, shortcutsSummary, syncSummary } from './summary';
 
 const initial = getLocale();
 afterEach(() => setLocale(initial));
@@ -139,5 +139,49 @@ describe('helpSummary', () => {
     expect(helpSummary('1.9.0', 1)).toBe('1 error · v1.9.0');
     setLocale('de');
     expect(helpSummary('1.9.0', 3)).toBe('3 Fehler · v1.9.0');
+  });
+});
+
+describe('shortcutsSummary', () => {
+  it('deux touches définies : valider l’épisode puis panneau, touche Maj traduite, touche & en AZERTY (français)', () => {
+    setLocale('fr');
+    expect(shortcutsSummary('Alt+Shift+K', 'Alt+Shift+1')).toBe('Alt+Maj+K · Alt+Maj+1 (touche &)');
+    setLocale('en');
+    expect(shortcutsSummary('Alt+Shift+K', 'Alt+Shift+1')).toBe('Alt+Shift+K · Alt+Shift+1');
+    setLocale('de');
+    expect(shortcutsSummary('Alt+Shift+K', 'Ctrl+Shift+Y')).toBe('Alt+Umschalt+K · Ctrl+Umschalt+Y');
+  });
+
+  it('touche absente nommée, aucune touche, lecture en cours', () => {
+    setLocale('fr');
+    expect(shortcutsSummary('Alt+Shift+K', '')).toBe('Alt+Maj+K · panneau : non défini');
+    expect(shortcutsSummary('', 'Alt+Shift+1')).toBe('épisode : non défini · Alt+Maj+1 (touche &)');
+    expect(shortcutsSummary('', '')).toBe('Aucun raccourci défini');
+    expect(shortcutsSummary(undefined, 'Alt+Shift+1')).toBe('Chargement…');
+    setLocale('en');
+    expect(shortcutsSummary('Alt+Shift+K', '')).toBe('Alt+Shift+K · panel: not set');
+    expect(shortcutsSummary('', '')).toBe('No shortcut set');
+    setLocale('de');
+    expect(shortcutsSummary('', 'Alt+Shift+1')).toBe('Folge: nicht festgelegt · Alt+Umschalt+1');
+    expect(shortcutsSummary('', '')).toBe('Keine Tastenkürzel festgelegt');
+  });
+
+  it('formatShortcut : seule la touche Maj est traduite', () => {
+    setLocale('fr');
+    expect(formatShortcut('Ctrl+Shift+F5')).toBe('Ctrl+Maj+F5');
+    expect(formatShortcut('Alt+K')).toBe('Alt+K');
+  });
+
+  it('azertyKeyHint : chiffres communs aux AZERTY français et belge, en français seulement', () => {
+    setLocale('fr');
+    expect(azertyKeyHint('Alt+Shift+1')).toBe('touche &');
+    expect(azertyKeyHint('Alt+Shift+2')).toBe('touche é');
+    expect(azertyKeyHint('Alt+Shift+0')).toBe('touche à');
+    // 6 et 8 diffèrent entre France et Belgique ; lettres, touches de fonction et pavé numérique : rien
+    expect(azertyKeyHint('Alt+Shift+6')).toBeNull();
+    expect(azertyKeyHint('Alt+Shift+K')).toBeNull();
+    expect(azertyKeyHint('Ctrl+Shift+F1')).toBeNull();
+    setLocale('en');
+    expect(azertyKeyHint('Alt+Shift+1')).toBeNull();
   });
 });

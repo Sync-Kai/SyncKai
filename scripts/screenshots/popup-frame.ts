@@ -50,7 +50,7 @@ switch (scenario) {
     scrollToTop((await find('[data-focus^="compare-anilist-"]')).closest('section'));
     break;
   case 'settings': {
-    // Accueil des Réglages, ou sous-page via `settingsPage` (accounts, sync, notifications, data, language, help)
+    // Accueil des Réglages, ou sous-page via `settingsPage` (accounts, sync, notifications, shortcuts, data, language, help)
     await click('[data-focus="gear"]');
     await waitFor(() => document.querySelector('[data-focus="settings-cat-accounts"]')?.textContent?.includes('✓') && document.querySelector('#sk-quick-auto'));
     const settingsPage = param('settingsPage');

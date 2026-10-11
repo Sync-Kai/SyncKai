@@ -523,7 +523,7 @@ The HIDIVE adapter (`feature/hidive-adapter`, outside the audit) plugs into this
 - **Effort:** L.
 - **Dependencies:** batch 19 (fixtures and content i18n), batch 15 for the fake timers.
 - **Tests:** new `src/content/lib/video-tracker.test.ts` (fake video based on `EventTarget`): a single `onCompleted`; rearming on `loadstart`; duration under 120 s ignored; no more calls after `abort`. `watch-session.test.ts`: `<video>` detached then replaced, so tracker recreated; player appearing after 35 s (`play` captured on `document`); `sendMessage` throwing gives a toast with Retry; sync paused, then `forceComplete` resends the episode; double click on Retry gives a single send; invalidated context detected at session start. Test of the `onInstalled` reinjection with the `STARTED_FLAG` guard.
-- **Manual check (Chrome + Brave + Firefox):** Crunchyroll and Netflix autoplay through to the next episode; episode opened in a background tab then watched more than a minute later; reload the extension with a Crunchyroll tab open: immediate warning or reinjected script; Alt+Shift+S on an already synced episode shows a toast.
+- **Manual check (Chrome + Brave + Firefox):** Crunchyroll and Netflix autoplay through to the next episode; episode opened in a background tab then watched more than a minute later; reload the extension with a Crunchyroll tab open: immediate warning or reinjected script; Alt+Shift+K (formerly Alt+Shift+S) on an already synced episode shows a toast.
 - **Migration:** none. Reinjection uses the `scripting` permission already declared (2.1.0): no new justification.
 
 ### Batch 27 · `feature/agenda-hors-cible`

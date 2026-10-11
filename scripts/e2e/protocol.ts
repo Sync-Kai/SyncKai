@@ -54,6 +54,8 @@ export interface FrameParams {
   pageMedia?: 'untracked';
   /** `missing` : profil MyAnimeList absent du cache, premier GET_MAL_VIEWER en échec réseau (UI-04) */
   viewer?: 'missing';
+  /** `panel-unset` : raccourci du panneau latéral non défini (commands.getAll) */
+  shortcuts?: 'panel-unset';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */

@@ -3,7 +3,7 @@
 import { t, type MessageKey } from '../../i18n';
 
 /** Catégories de l'accueil, dans l'ordre d'affichage */
-export const SETTINGS_CATEGORIES = ['accounts', 'sync', 'notifications', 'data', 'language', 'help'] as const;
+export const SETTINGS_CATEGORIES = ['accounts', 'sync', 'notifications', 'shortcuts', 'data', 'language', 'help'] as const;
 export type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
 export type SettingsPage = 'home' | SettingsCategory;
 
@@ -12,6 +12,7 @@ export const SETTINGS_CATEGORY_TITLES: Record<SettingsCategory, MessageKey> = {
   accounts: 'settings.section.accounts',
   sync: 'settings.cat.sync',
   notifications: 'settings.cat.notifications',
+  shortcuts: 'settings.cat.shortcuts',
   data: 'settings.cat.data',
   language: 'settings.section.language',
   help: 'settings.cat.help',

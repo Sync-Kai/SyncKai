@@ -37,6 +37,7 @@ describe('isSettingsPage', () => {
   it('accepte l’accueil et les catégories, rejette le reste', () => {
     expect(SETTINGS_CATEGORIES.every(isSettingsPage)).toBe(true);
     expect(isSettingsPage('home')).toBe(true);
+    expect(isSettingsPage('shortcuts')).toBe(true);
     expect(isSettingsPage('activity')).toBe(false);
     expect(isSettingsPage(null)).toBe(false);
   });
@@ -54,5 +55,10 @@ describe('settingsPath (UX-06)', () => {
     setLocale('de');
     expect(settingsPath('sync')).toBe(`${t('nav.settings')} › ${t('settings.cat.sync')}`);
     expect(settingsPath('data')).toBe('Einstellungen › Meine Daten');
+    expect(settingsPath('shortcuts')).toBe('Einstellungen › Tastenkürzel');
+    setLocale('fr');
+    expect(settingsPath('shortcuts')).toBe('Réglages › Raccourcis');
+    setLocale('en');
+    expect(settingsPath('shortcuts')).toBe('Settings › Shortcuts');
   });
 });

@@ -34,7 +34,7 @@ Fonctionnalités
 • Note en fin de série (sur 10, convertie selon ton format de note AniList) et prise en charge du revisionnage.
 • Alertes de nouveaux épisodes : notification Chrome à la sortie, avec un délai réglable.
 • Synchros en attente : en cas de coupure réseau, la synchro est relancée automatiquement.
-• Raccourcis clavier : Alt+Maj+S pour valider l'épisode en cours, Alt+Maj+P pour ouvrir ou fermer le panneau latéral.
+• Raccourcis clavier : Alt+Maj+K pour valider l'épisode en cours, Alt+Maj+1 (touche & en AZERTY) pour ouvrir ou fermer le panneau latéral, à retrouver et modifier dans Réglages › Raccourcis.
 • Séries exclues et notifications sur la page (Discrètes, Détaillées, Alertes seulement), compatibles plein écran.
 • Réglages par catégories, avec un résumé de chaque réglage et des interrupteurs rapides, dans le popup comme dans le panneau latéral.
 • Sauvegarde : export / import de tes réglages, correspondances et historique (jamais tes connexions AniList/MAL).

@@ -5,7 +5,7 @@
  * permissions réellement livrées, poids des scripts de contenu.
  */
 import { posix } from 'node:path';
-import { FIREFOX_PANEL_COMMAND, SOURCE_PANEL_COMMAND, type BuildTarget, type ManifestCommand } from '../src/build/manifest-target.ts';
+import { FIREFOX_PANEL_COMMAND, firefoxMenuKeyConflicts, SOURCE_PANEL_COMMAND, type BuildTarget, type ManifestCommand } from '../src/build/manifest-target.ts';
 
 /** Netflix : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
 export const NETFLIX_PATTERN = '*://*.netflix.com/*';
@@ -69,7 +69,8 @@ export const MAX_SUGGESTED_KEYS = 4;
 /**
  * Commandes clavier : identiques au manifeste source adapté à la cible, au plus 4 touches suggérées, sans doublon par
  * plateforme. Panneau : `open-side-panel` + `side_panel` sur Chrome (service worker), `_execute_sidebar_action` +
- * `sidebar_action` sur Firefox (bascule native de la barre latérale), jamais l'une à la place de l'autre.
+ * `sidebar_action` sur Firefox (bascule native de la barre latérale), jamais l'une à la place de l'autre. Firefox : aucune
+ * touche suggérée sur une lettre d’accès de ses menus (Alt+Maj+S ouvrait Historique, Alt+Maj+P Profils, voir manifest-target.ts).
  */
 export function checkCommands(built: BuiltManifest, expected: BuiltManifest, target: BuildTarget): string[] {
   const errors: string[] = [];
@@ -95,6 +96,9 @@ export function checkCommands(built: BuiltManifest, expected: BuiltManifest, tar
   if (otherPanel in commands) errors.push(`commands : ${otherPanel} inattendue sur ${target}`);
   const panelDeclared = target === 'firefox' ? built.sidebar_action !== undefined : built.side_panel !== undefined;
   if (!panelDeclared) errors.push(`commands : ${wantedPanel} sans ${target === 'firefox' ? 'sidebar_action' : 'side_panel'}`);
+  if (target === 'firefox') {
+    for (const { command, key } of firefoxMenuKeyConflicts(commands)) errors.push(`commands : ${key} (${command}) ouvre un menu de Firefox (lettre d’accès)`);
+  }
   return errors;
 }
 

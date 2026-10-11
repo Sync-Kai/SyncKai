@@ -34,7 +34,7 @@ Features
 • Rating at the end of a series (out of 10, converted to your AniList score format) and rewatch support.
 • New episode alerts: a Chrome notification when an episode is out, with an adjustable delay.
 • Pending syncs: if the network drops, the sync is retried automatically.
-• Keyboard shortcuts: Alt+Shift+S to mark the current episode as watched, Alt+Shift+P to open or close the side panel.
+• Keyboard shortcuts: Alt+Shift+K to mark the current episode as watched, Alt+Shift+1 to open or close the side panel, shown and changed in Settings › Shortcuts.
 • Excluded series and on-page notifications (Discreet, Detailed, Alerts only), fullscreen-friendly.
 • Settings by category, with a summary of each setting and quick toggles, in the popup and the side panel.
 • Backup: export / import your settings, matches and history (never your AniList/MAL sign-ins).

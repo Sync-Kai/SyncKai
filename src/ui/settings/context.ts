@@ -4,7 +4,7 @@ import type { SyncSettings } from '../../shared/settings';
 import type { MediaMapping } from '../../shared/sync.types';
 import type { ExclusionsState } from '../state';
 import type { AccountsController } from '../accounts';
-import type { SettingsPage } from './navigation';
+import type { SettingsCategory, SettingsPage } from './navigation';
 
 /** Ce que l'hôte fournit : tout comportement propre au popup ou au panneau passe par ici */
 export interface SettingsHost {
@@ -57,6 +57,8 @@ export interface SettingsContext {
   refreshJournal(): Promise<void>;
   /** Relit l'accès à Netflix et à Disney+ (après une demande ou un retrait de permission) */
   refreshPlatformAccess(): Promise<void>;
+  /** Ouvre une autre catégorie (lien d'une page vers une autre, ex. Lecture & synchro → Raccourcis) */
+  openCategory(category: SettingsCategory): void;
 }
 
 /** Une sous-page : rendu à la demande, état local conservé entre deux visites */

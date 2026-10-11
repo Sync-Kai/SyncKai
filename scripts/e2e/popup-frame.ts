@@ -169,6 +169,7 @@ const demoStorage = Object.fromEntries(Object.entries(demo.storage).filter(([key
 
 installChromeMock({
   ...demo,
+  ...(param('shortcuts') === 'panel-unset' ? { shortcuts: { episode: 'Alt+Shift+K', panel: '' } } : {}),
   storage: {
     ...demoStorage,
     ...(emptyWatching ? { [STORAGE_KEYS.watchingCache]: lists } : {}),

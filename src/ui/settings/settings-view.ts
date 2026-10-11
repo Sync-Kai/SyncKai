@@ -20,9 +20,10 @@ import { createAccountsPage } from './page-accounts';
 import { createDataPage } from './page-data';
 import { createHelpPage } from './page-help';
 import { createNotificationsPage } from './page-notifications';
+import { createShortcutsPage } from './page-shortcuts';
 import { createSyncPage, settingsPlaceholder } from './page-sync';
 import { HELP_TEXT, navRow, rowsCard, settingsSection, toggleRow, type RowTint } from './rows';
-import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, syncSummary } from './summary';
+import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, shortcutsSummary, syncSummary } from './summary';
 
 const log = createLogger('settings');
 
@@ -51,6 +52,7 @@ const CATEGORY_COPY: Record<SettingsCategory, CategoryCopy> = {
   accounts: { icon: 'user', tint: 'anilist' },
   sync: { icon: 'sync', tint: 'sakura' },
   notifications: { icon: 'bell', tint: 'butter' },
+  shortcuts: { icon: 'keyboard', tint: 'mint' },
   data: { icon: 'folder', tint: 'lavender' },
   language: { icon: 'globe', tint: 'mint' },
   help: { icon: 'help', tint: 'muted' },
@@ -186,7 +188,10 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     redraw(['home', 'data']);
   }
 
-  /** Raccourcis « valider l'épisode » et « ouvrir le panneau » (nom propre à la cible : voir shared/commands.ts) */
+  /**
+   * Raccourcis « valider l'épisode » et « ouvrir le panneau » (nom propre à la cible : voir shared/commands.ts). Relus
+   * quand la vue reprend le focus : la touche a pu être changée dans la page des raccourcis du navigateur (panneau resté ouvert).
+   */
   async function loadShortcuts(): Promise<void> {
     try {
       const commands = await chrome.commands.getAll();
@@ -198,7 +203,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
       data.shortcut = '';
       data.panelShortcut = '';
     }
-    redraw(['sync']);
+    redraw(['home', 'shortcuts']);
   }
 
   /** Accès Netflix et Disney+ relus (ouverture, ou permission changée ici ou dans chrome://extensions) */
@@ -232,7 +237,16 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     notifications.drawAiring(Date.now());
   }
 
-  const ctx: SettingsContext = { host, data, update, redraw, refreshMappings, refreshJournal, refreshPlatformAccess: loadPlatformAccess };
+  const ctx: SettingsContext = {
+    host,
+    data,
+    update,
+    redraw,
+    refreshMappings,
+    refreshJournal,
+    refreshPlatformAccess: loadPlatformAccess,
+    openCategory: (category) => dispatch({ type: 'open', category }),
+  };
 
   // ─── Pages ───
 
@@ -241,6 +255,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     accounts: createAccountsPage(ctx),
     sync: createSyncPage(ctx),
     notifications,
+    shortcuts: createShortcutsPage(ctx),
     data: createDataPage(ctx),
     language: { render: renderLanguage },
     help: createHelpPage(ctx),
@@ -317,6 +332,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
         rowsCard(
           categoryRow('sync', muted(s ? syncSummary(s, data.netflixAccess) : loading), false),
           categoryRow('notifications', muted(s ? notificationsSummary(s) : loading), true),
+          categoryRow('shortcuts', muted(shortcutsSummary(data.shortcut, data.panelShortcut)), true),
         ),
       ),
       settingsSection(
@@ -428,6 +444,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   void loadAiring();
   void loadShortcuts();
   void loadPlatformAccess();
+  window.addEventListener('focus', () => void loadShortcuts());
 
   return {
     bar,

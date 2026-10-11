@@ -63,6 +63,8 @@ export interface ChromeMockOptions {
   onCreateTab?: (url: string) => void;
   /** Expose chrome.sidePanel (le panneau latéral se croit sur Chrome) */
   sidePanel?: boolean;
+  /** Touches renvoyées par chrome.commands.getAll ('' : non définie) ; absent = Alt+Shift+K et Alt+Shift+1 */
+  shortcuts?: { episode: string; panel: string };
 }
 
 /** Événements d'onglet déclenchés par les tests (navigation, fin de chargement) */
@@ -243,8 +245,8 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
     commands: {
       getAll: () =>
         Promise.resolve([
-          { name: 'complete-episode', shortcut: 'Alt+Shift+S', description: '' },
-          { name: 'open-side-panel', shortcut: 'Alt+Shift+P', description: '' },
+          { name: 'complete-episode', shortcut: options.shortcuts?.episode ?? 'Alt+Shift+K', description: '' },
+          { name: 'open-side-panel', shortcut: options.shortcuts?.panel ?? 'Alt+Shift+1', description: '' },
         ]),
     },
     tabs: {
