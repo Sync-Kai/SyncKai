@@ -11,6 +11,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Après une déconnexion, même suivie d’une reconnexion au même compte, les synchros en attente, notes et corrections créées avant ne sont plus écrites sur ce service.
 - La saison choisie dans le sélecteur du panneau ou du popup, sur une page de lecture, est mémorisée comme correspondance de la saison : la fin de l’épisode (et des suivants) est synchronisée sur cette fiche. Pour revenir au choix automatique : *Oublier* dans Réglages › Mes données. Si l’épisode n’existe pas dans la saison choisie, la carte le signale et rien n’est mémorisé.
 - Popup et panneau partagent la même fiche « Sur cette page » : mêmes états et mêmes messages sur une même page, la carte du popup se met à jour quand une synchro réécrit la fiche de l’onglet, et une relecture en échec garde la fiche affichée avec l’erreur en retour d’action.
+- Accessibilité : un bouton dont l’action est en cours (*+1*, *Réessayer*, *Garder AniList*, *Analyser*, *Se connecter*, *Copier le rapport*, *Enregistrer*…) reste sélectionnable au clavier et est annoncé « indisponible » par les lecteurs d’écran, au lieu d’être désactivé ; un second appui est sans effet.
+- Accessibilité : les messages d’erreur sont annoncés par une zone unique de la page, une seule fois tant qu’ils restent affichés ; les résultats série par série de l’import Crunchyroll et de l’alignement AniList ↔ MAL ne sont plus lus à voix haute (le bilan l’est).
 
 ### Corrigé
 
@@ -77,6 +79,9 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 - Crunchyroll, lecture automatique (One Piece E1180 puis E1181, par exemple) : le nouvel épisode n’est plus identifié avec le titre et le numéro du précédent quand la page tarde à se mettre à jour. Le popup et le panneau affichent le bon épisode, et c’est lui qui est synchronisé.
 - SyncKai ne modifie plus la langue déclarée par les pages Crunchyroll, ADN et Netflix. Chrome ne propose plus de traduire la page à tort, les lecteurs d’écran gardent la bonne langue, et l’import de l’historique Crunchyroll récupère les titres dans la langue de ton compte Crunchyroll (espagnol, par exemple) même si SyncKai est dans une autre langue.
 - Les onglets Crunchyroll, ADN et Netflix ne reçoivent plus chaque écriture des données de SyncKai (import, alignement, journal) : moins de travail en arrière-plan pendant la lecture. Un changement de langue de SyncKai s’applique aux messages de la page sans la recharger, au plus tard à l’épisode suivant.
+- Clavier : après *+1*, *Réessayer*, *Oublier*, *Réactiver*, *Ignorer* ou *Fermer* sur une vérification, le focus reste sur le bouton ou passe à l’élément voisin (ou au titre de la section) au lieu de repartir du haut du popup ; même chose sur le lien *Ouvrir* d’une série quand la liste se met à jour.
+- Lecteurs d’écran (NVDA, VoiceOver, Narrateur) : le bandeau *Pas d’accès à Crunchyroll / ADN* et les messages d’erreur du popup, du panneau et des pages d’import ne sont plus relus à chaque mise à jour de l’affichage, ni chaque minute.
+- Pause d’un alignement AniList ↔ MAL ou d’un import Crunchyroll : seul le compte à rebours change chaque seconde ; le popup et la page d’import ne sont plus redessinés en entier (le survol et le focus clavier ne sautent plus), et les mises à jour simultanées du popup sont regroupées en un seul affichage.
 
 ## [2.1.0] - 2026-10-10
 

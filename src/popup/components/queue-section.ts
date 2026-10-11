@@ -2,7 +2,7 @@ import { t, tp } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SyncQueueItem } from '../../shared/queue.types';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
-import { h, nodes } from '../../ui/dom';
+import { busyAttrs, h, nodes } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { TONE_CHIP } from '../../ui/feedback';
 import type { QueueState } from '../state';
@@ -75,7 +75,7 @@ function renderItem(item: SyncQueueItem, { queue, now, onRetry, onAbandon }: Que
           'button',
           {
             class: `${BTN_GHOST} px-2.5 text-muted`,
-            attrs: { type: 'button', 'aria-label': t('queue.abandonAria', { title }), 'data-focus': `queue-drop-${item.id}`, ...(busy ? { disabled: '' } : {}) },
+            attrs: { type: 'button', 'aria-label': t('queue.abandonAria', { title }), 'data-focus': `queue-drop-${item.id}`, ...busyAttrs(busy) },
             on: { click: () => onAbandon(item.id) },
           },
           t('queue.abandon'),
@@ -84,7 +84,7 @@ function renderItem(item: SyncQueueItem, { queue, now, onRetry, onAbandon }: Que
           'button',
           {
             class: `${BTN_GHOST} px-2.5 text-sakura`,
-            attrs: { type: 'button', 'aria-label': t('queue.retryAria', { title }), 'data-focus': `queue-retry-${item.id}`, ...(busy ? { disabled: '', 'aria-busy': 'true' } : {}) },
+            attrs: { type: 'button', 'aria-label': t('queue.retryAria', { title }), 'data-focus': `queue-retry-${item.id}`, ...busyAttrs(busy, true) },
             on: { click: () => onRetry(item.id) },
           },
           busy ? icon('spinner', 'h-3 w-3 motion-safe:animate-spin') : icon('retry', 'h-3 w-3', '2.4'),

@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import type { RecentSync } from '../../shared/review.types';
-import { h, nodes } from '../../ui/dom';
+import { busyAttrs, h, nodes } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { renderAlert } from '../../ui/alert';
 import { BTN_GHOST, CARD, sectionTitle } from '../../ui/kit';
@@ -46,7 +46,7 @@ export function renderRecentSyncs({ syncs, pendingKeys, busyKey, error, onCorrec
             type: 'button',
             'aria-label': t(isPending ? 'recent.alreadyPendingAria' : 'recent.correctAria', { title }),
             'data-focus': `correct-${sync.key}`,
-            ...(isPending || busyKey !== null ? { disabled: '' } : {}),
+            ...(isPending ? { disabled: '' } : busyAttrs(busyKey !== null)),
           },
           on: { click: () => onCorrect(sync.key) },
         },

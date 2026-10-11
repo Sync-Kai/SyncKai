@@ -19,7 +19,8 @@ import { isTrackerId, TRACKER_IDS, type TrackerId } from '../shared/tracker.type
 import { formatRelativeTime } from '../shared/watching';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../shared/platform-links';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingList, type WatchingResult, type WatchingSort } from '../shared/watching.types';
-import { h, nodes, preserveFocus } from '../ui/dom';
+import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../ui/dom';
+import { tickJobPause } from '../ui/job-pause';
 import { formatStarValue } from '../ui/rating';
 import { adjustPayload } from '../ui/media-action-requests';
 import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
@@ -266,6 +267,8 @@ async function loadPrefs(): Promise<void> {
 // (clic extérieur, Échap) n'existent que pendant l'ouverture.
 
 function focusInWatching(selector: string): void {
+  // Rendu en attente dessiné d'abord : l'élément visé doit déjà exister
+  renderer.flush();
   watchingSlot.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
 }
 
@@ -274,7 +277,7 @@ function setSortMenu(open: boolean, restoreFocus = true): void {
   if (ui.sortMenuOpen === open) return;
   // Un seul menu ouvert à la fois
   uiStore.set({ ...ui, sortMenuOpen: open, rowMenu: open ? null : ui.rowMenu, rowConfirm: open ? null : ui.rowConfirm });
-  // Le rendu est synchrone : à l'ouverture, focus sur l'option cochée ; à la fermeture, retour au bouton
+  // focusInWatching dessine d'abord le rendu en attente : à l'ouverture, focus sur l'option cochée ; à la fermeture, retour au bouton
   if (open) focusInWatching('[role="menuitemradio"][aria-checked="true"]');
   else if (restoreFocus) focusInWatching('[data-focus="sort-trigger"]');
 }
@@ -292,6 +295,7 @@ function setRowMenu(key: string | null, restoreFocus = true): void {
   const previous = ui.rowMenu;
   uiStore.set({ ...ui, rowMenu: key, rowConfirm: null, sortMenuOpen: false });
   if (key !== null) {
+    renderer.flush();
     const root = watchingSlot.querySelector<HTMLElement>(`[data-menu-root="${key}"]`);
     root?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus({ preventScroll: true });
     // Dernières lignes : le menu déborde vers le bas, on le ramène dans la zone visible
@@ -399,8 +403,8 @@ function isOnboarding(): boolean {
   return TRACKER_IDS.every((service) => accountStore(service).get().status === 'logged-out');
 }
 
-/** Dernières entrées du rendu de « En cours » : on ne redessine la liste que si elles changent */
-let watchingMemo: readonly unknown[] = [];
+/** Entrées du rendu de « En cours » : on ne redessine la liste que si elles changent */
+const watchingChanged = createMemo();
 
 function renderWatching(): void {
   const preferredPlayer = (() => {
@@ -413,9 +417,7 @@ function renderWatching(): void {
   const actions = entryActionsStore.get();
   const notice = watchingNoticeStore.get();
   const pageCard = pageCardStore.get();
-  const inputs = [watchingStore.get(), now, preferredPlayer, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard];
-  if (inputs.length === watchingMemo.length && inputs.every((value, i) => value === watchingMemo[i])) return;
-  watchingMemo = inputs;
+  if (!watchingChanged([watchingStore.get(), now, preferredPlayer, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
 
   preserveFocus(watchingSlot, () =>
     watchingSlot.replaceChildren(
@@ -465,13 +467,11 @@ function renderWatching(): void {
 }
 
 /** Section « À noter » redessinée seulement si son état change (préserve le survol des étoiles) */
-let ratingsMemo: readonly unknown[] = [];
+const ratingsChanged = createMemo();
 
 function renderRatings(): void {
   const connected = connectedServices().length > 0;
-  const inputs = [ratingsStore.get(), connected, now];
-  if (inputs.every((value, i) => value === ratingsMemo[i])) return;
-  ratingsMemo = inputs;
+  if (!ratingsChanged([ratingsStore.get(), connected, now])) return;
   ratingSlot.replaceChildren(
     ...nodes([
       connected &&
@@ -485,16 +485,15 @@ function renderRatings(): void {
   );
 }
 
-/** Section « Écarts » redessinée seulement si son état change (jusqu'à 30+ lignes) */
-let compareMemo: readonly unknown[] = [];
-/** Compte à rebours d'une pause d'alignement : avance chaque seconde tant que la pause dure */
-let compareClock = 0;
+/**
+ * Section « Écarts » redessinée seulement si son état change (jusqu'à 30+ lignes). Le compte à rebours d'une pause
+ * d'alignement n'en fait pas partie : il est mis à jour en place chaque seconde (tickJobPause).
+ */
+const compareChanged = createMemo();
 
 function renderCompare(): void {
   const both = connectedServices().length === 2;
-  const inputs = [compareStore.get(), both, now, compareClock];
-  if (inputs.every((value, i) => value === compareMemo[i])) return;
-  compareMemo = inputs;
+  if (!compareChanged([compareStore.get(), both, now])) return;
   compareSlot.replaceChildren(
     ...nodes([
       both &&
@@ -514,26 +513,44 @@ function renderCompare(): void {
   );
 }
 
+// Chaque zone n'est redessinée que si ses entrées changent : focus, survol et régions live (bandeau d'accès,
+// barre d'état) restent en place entre deux rendus
+const headerChanged = createMemo();
+const navChanged = createMemo();
+const hostAccessChanged = createMemo();
+const onboardingChanged = createMemo();
+const queueChanged = createMemo();
+const recentChanged = createMemo();
+const footerChanged = createMemo();
+
 function render(): void {
   const ui = uiStore.get();
   const onboarding = isOnboarding();
   const isSettings = ui.screen === 'settings';
   const data = syncStore.get();
+  const connected = connectedServices().length > 0;
   // Pastille « Activité » : vérifications + synchros abandonnées + séries à noter (à traiter par l'utilisateur)
-  const pending = connectedServices().length > 0 ? data.reviews.length + queueCounts().failed + ratingsStore.get().items.length : 0;
+  const pending = connected ? data.reviews.length + queueCounts().failed + ratingsStore.get().items.length : 0;
+  const hostAccess = hostAccessStore.get();
 
   preserveFocus(root, () => {
-    headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTabId === null ? null : openPanel }));
+    if (headerChanged([isSettings, panelTabId])) {
+      headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTabId === null ? null : openPanel }));
+    }
+    const navStale = navChanged([isSettings, onboarding, ui.screen, pending]);
     // Barre des Réglages persistante (gérée par la vue) : jamais retirée puis réinsérée, le focus y resterait perdu
     if (isSettings) {
       if (barSlot.firstChild !== settingsView.bar || barSlot.childNodes.length !== 1) barSlot.replaceChildren(settingsView.bar);
-    } else {
+    } else if (navStale) {
       barSlot.replaceChildren(
         ...nodes([!onboarding && renderNav({ screen: ui.screen === 'activity' ? 'activity' : 'watching', pending, onNavigate: (screen) => navigate(screen) })]),
       );
     }
 
-    hostAccessSlot.replaceChildren(...nodes([renderHostAccessBanner({ state: hostAccessStore.get(), onAllow: allowHostAccess })]));
+    // Bandeau d'accès : même nœud tant que son contenu ne change pas (pas de nouvelle annonce à chaque rendu)
+    if (hostAccessChanged([hostAccess.status, hostAccess.status === 'missing' && hostAccess.denied])) {
+      hostAccessSlot.replaceChildren(...nodes([renderHostAccessBanner({ state: hostAccess, onAllow: allowHostAccess })]));
+    }
 
     watchingSlot.hidden = isSettings || onboarding || ui.screen !== 'watching';
     activityScreen.hidden = isSettings || onboarding || ui.screen !== 'activity';
@@ -541,50 +558,62 @@ function render(): void {
     onboardingSlot.hidden = isSettings || !onboarding;
 
     if (!watchingSlot.hidden) renderWatching();
-    if (!onboardingSlot.hidden) {
+    if (!onboardingSlot.hidden && onboardingChanged([anilistStore.get(), malStore.get()])) {
       onboardingSlot.replaceChildren(
         renderOnboarding({ anilist: anilistStore.get(), mal: malStore.get(), onLogin: (service) => void accounts.login(service) }),
       );
     }
 
-    queueSlot.replaceChildren(
-      ...nodes([
-        connectedServices().length > 0 &&
-          renderQueueSection({
-            queue: queueStore.get(),
-            now,
-            onRetry: (id) => void retryQueued(id),
-            onAbandon: (id) => void abandonQueued(id),
-          }),
-      ]),
-    );
+    if (queueChanged([connected, queueStore.get(), now])) {
+      queueSlot.replaceChildren(
+        ...nodes([
+          connected &&
+            renderQueueSection({
+              queue: queueStore.get(),
+              now,
+              onRetry: (id) => void retryQueued(id),
+              onAbandon: (id) => void abandonQueued(id),
+            }),
+        ]),
+      );
+    }
     renderRatings();
     renderCompare();
-    reviewSection.update(connectedServices().length > 0 ? data.reviews : []);
-    recentSlot.replaceChildren(
-      renderRecentSyncs({
-        syncs: data.recentSyncs,
-        pendingKeys: new Set(data.reviews.map((r) => r.key)),
-        busyKey: data.busyKey,
-        error: data.recentError,
-        onCorrect: (key) => void handleCorrect(key),
-        isExcluded: isRecentExcluded,
-        onExclude: (sync) => void excludeRecent(sync),
-      }),
-    );
+    reviewSection.update(connected ? data.reviews : []);
+    if (recentChanged([data.recentSyncs, data.reviews, data.busyKey, data.recentError, exclusionsStore.get()])) {
+      recentSlot.replaceChildren(
+        renderRecentSyncs({
+          syncs: data.recentSyncs,
+          pendingKeys: new Set(data.reviews.map((r) => r.key)),
+          busyKey: data.busyKey,
+          error: data.recentError,
+          onCorrect: (key) => void handleCorrect(key),
+          isExcluded: isRecentExcluded,
+          onExclude: (sync) => void excludeRecent(sync),
+        }),
+      );
+    }
 
-    footerSlot.replaceChildren(
-      renderFooter({
-        version,
-        chips: footerChips(),
-        status: footerStatus(),
-        onOpenSettings: () => navigate('settings', 'accounts'),
-        onOpenActivity: () => navigate('activity'),
-        onReconnect: (service) => void accounts.login(service),
-      }),
-    );
+    // Barre d'état (role="status") : comparée sur son contenu, pas sur l'identité des objets recalculés
+    const chips = footerChips();
+    const status = footerStatus();
+    if (footerChanged([JSON.stringify(chips), JSON.stringify(status)])) {
+      footerSlot.replaceChildren(
+        renderFooter({
+          version,
+          chips,
+          status,
+          onOpenSettings: () => navigate('settings', 'accounts'),
+          onOpenActivity: () => navigate('activity'),
+          onReconnect: (service) => void accounts.login(service),
+        }),
+      );
+    }
   });
 }
+
+/** Rendus regroupés : plusieurs stores modifiés dans le même tour (chargements parallèles, job) = un seul rendu */
+const renderer = createRenderScheduler(render);
 
 // ─── Accès aux sites (Firefox) et accès Netflix (optionnel) ─────────────────
 
@@ -777,6 +806,7 @@ function showWatchingNotice(notice: InlineFeedback, onRetry: (() => void) | null
   watchingNoticeRetry = onRetry;
   watchingNoticeStore.set(notice);
   // Bandeau en haut de la liste : ramené dans la zone visible si la série était plus bas
+  renderer.flush();
   watchingSlot.querySelector('[data-watching-notice]')?.scrollIntoView({ block: 'nearest' });
   // Un échec reste affiché plus longtemps (texte à lire)
   watchingNoticeTimer = setTimeout(hideWatchingNotice, notice.tone === 'success' ? QUEUE_NOTICE_MS : QUEUE_NOTICE_MS * 2);
@@ -922,7 +952,7 @@ let panelTabId: number | null = null;
 function offerPanel(tabId: number): void {
   if (panelTabId === tabId || sidePanelKind() === null) return;
   panelTabId = tabId;
-  render();
+  renderer.schedule();
 }
 
 void activeTab.then(({ tabId, url }) => {
@@ -1248,12 +1278,12 @@ anilistStore.subscribe(syncWatchingSource);
 malStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncWatchingSource);
 uiStore.subscribe(syncMenuListeners);
-for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore, compareStore, hostAccessStore, netflixAccessStore]) store.subscribe(render);
+for (const store of [anilistStore, malStore, syncStore, uiStore, watchingStore, entryActionsStore, watchingNoticeStore, queueStore, ratingsStore, pageCardStore, compareStore, hostAccessStore, netflixAccessStore]) store.subscribe(renderer.schedule);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre)
 chrome.permissions?.onAdded?.addListener(() => void checkHostAccess());
 chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());
-exclusionsStore.subscribe(render);
-settingsStore.subscribe(render);
+exclusionsStore.subscribe(renderer.schedule);
+settingsStore.subscribe(renderer.schedule);
 
 // Après un changement de langue : même sous-page des Réglages, défilement restauré une fois les réglages dessinés
 if (reopen?.screen === 'settings') {
@@ -1274,19 +1304,17 @@ onLocaleChange(() => {
   location.reload();
 });
 
-// Pause d'alignement (limite de requêtes, service lent) : compte à rebours rafraîchi chaque seconde
+// Pause d'alignement (limite de requêtes, service lent) : seul le texte du compte à rebours change chaque seconde,
+// sans nouveau rendu du popup
 setInterval(() => {
   const job = compareStore.get().job;
-  if (job?.status === 'running' && job.pausedUntil !== null && job.pauseReason !== 'resume') {
-    compareClock++;
-    render();
-  }
+  if (job?.status === 'running' && job.pausedUntil !== null && job.pauseReason !== 'resume') tickJobPause(compareSlot, job, Date.now());
 }, 1_000);
 
 // Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert
 setInterval(() => {
   now = Date.now();
-  render();
+  renderer.schedule();
 }, CLOCK_TICK_MS);
 
 void checkHostAccess();

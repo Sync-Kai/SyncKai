@@ -7,7 +7,7 @@ import { renderAlert } from '../alert';
 import { BTN_GHOST, CARD, serviceAvatar } from '../kit';
 import type { AccountState } from '../state';
 import { serviceIcon } from '../brand-icons';
-import { h, nodes, type Child } from '../dom';
+import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
 import { DIVIDER } from './rows';
@@ -58,7 +58,7 @@ function accountRow(ctx: SettingsContext, service: TrackerId, state: AccountStat
               type: 'button',
               'aria-label': t(state.expired ? 'common.reconnectService' : 'common.connectService', { service: label }),
               'data-focus': `login-${service}`,
-              ...(state.pending ? { disabled: '' } : {}),
+              ...busyAttrs(state.pending, true),
             },
             on: { click: () => void accounts.login(service) },
           },

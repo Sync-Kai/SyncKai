@@ -9,6 +9,7 @@ import { launchBrowser, startHarnessServer, type HarnessServer } from '../screen
 import type { SentMessage } from '../screenshots/mock-chrome';
 import { PLATFORM_LINKS_KEY } from '../../src/shared/platform-links';
 import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
+import { COMPARE_JOB_KEY, type CompareJob } from '../../src/shared/compare-job';
 import { PLANTED_SECRETS, type E2EState, type FrameParams } from './protocol';
 
 let server: HarnessServer;
@@ -254,6 +255,33 @@ describe('popup (bout en bout)', () => {
     await page.waitForSelector(sel('watching-retry'), { hidden: true });
   });
 
+  it('« +1 » au clavier : le focus reste sur le bouton pendant l’envoi (aria-disabled) et après les nouveaux rendus', async () => {
+    const page = await openPopup({ adjust: 'slow' });
+    const plus = `plus-${SOLO}`;
+    await page.waitForSelector(sel(plus));
+    // Tabulation depuis le début du popup jusqu'au « +1 » de Solo Leveling
+    for (let i = 0; i < 80 && (await focused(page)) !== plus; i++) await page.keyboard.press('Tab');
+    expect(await focused(page)).toBe(plus);
+    const revalidations = (await sent(page, 'GET_WATCHING')).length + 1;
+
+    await page.keyboard.press('Enter');
+    await waitForMessage(page, 'ADJUST_PROGRESS');
+    // Envoi en cours : bouton recréé avec aria-disabled (pas disabled), toujours focalisé
+    expect(await attr(page, sel(plus), 'aria-disabled')).toBe('true');
+    expect(await attr(page, sel(plus), 'disabled')).toBeNull();
+    expect(await focused(page)).toBe(plus);
+    // Entrée pendant l'envoi : ignorée
+    await page.keyboard.press('Enter');
+
+    // Réponse, retour « Épisode 3 vu », puis revalidation de la liste : le focus n'a pas quitté le « +1 »
+    await page.waitForFunction((key: string) => document.querySelector(`[data-focus="${key}"]`)?.hasAttribute('aria-disabled') === false, {}, plus);
+    expect(await focused(page)).toBe(plus);
+    await waitForMessage(page, 'GET_WATCHING', revalidations);
+    await page.waitForFunction(() => document.querySelector('main [aria-busy="false"]') !== null);
+    expect(await focused(page)).toBe(plus);
+    expect(await sent(page, 'ADJUST_PROGRESS')).toHaveLength(1);
+  });
+
   it('lecteur ADN : « Ouvrir » reste sur Crunchyroll sans lien ADN, le menu propose « Chercher sur ADN », un lien appris bascule « Ouvrir »', async () => {
     const page = await openPopup();
     const openOn = (platform: string): string => `a[aria-label="${fr('watching.openOnAria', { title: 'Solo Leveling', platform })}"]`;
@@ -336,6 +364,54 @@ describe('popup (bout en bout)', () => {
     expect(message.payload).toEqual({ items: [{ mediaId: 137822, malId: 49596 }], source: 'anilist' });
     // Tâche acceptée : barre de progression
     await page.waitForSelector('[role="progressbar"]');
+  });
+
+  it('pause d’alignement : seul le compte à rebours change chaque seconde, sans nouveau rendu du popup', async () => {
+    const page = await openPopup({ scenario: 'compare' });
+    await click(page, 'nav-activity');
+    await page.waitForSelector(sel('compare-filter-all'));
+    const at = Date.now();
+    const job: CompareJob = {
+      kind: 'apply',
+      source: 'anilist',
+      status: 'running',
+      total: 3,
+      done: 1,
+      updated: 1,
+      skipped: 0,
+      failed: 0,
+      pending: [{ mediaId: 150672, malId: 52034 }, { mediaId: 176496, malId: 58567 }],
+      cancelled: false,
+      startedAt: at,
+      updatedAt: at,
+      message: null,
+      messages: [],
+      pausedUntil: at + 120_000,
+      pauseReason: 'rate-limit',
+      pauseService: 'anilist',
+    };
+    await page.evaluate(async (key: string, value: CompareJob) => chrome.storage.local.set({ [key]: value }), COMPARE_JOB_KEY, job);
+    await page.waitForSelector('[data-job-pause]');
+
+    // Nœuds de référence : une ligne d'écart, l'en-tête du popup et la ligne de pause
+    const first = await page.evaluate((label: string) => {
+      const w = window as Window & { __nodes?: Element[] };
+      const section = [...document.querySelectorAll('section')].find((s) => s.getAttribute('aria-label') === label);
+      w.__nodes = [section?.querySelector('ul > li'), document.querySelector('header'), document.querySelector('[data-job-pause]')].filter((n): n is Element => n instanceof Element);
+      return document.querySelector('[data-job-pause]')?.textContent ?? '';
+    }, fr('compare.section'));
+    expect(first).toContain('AniList');
+
+    // Deux secondes plus tard : le compte à rebours a avancé, mais aucun nœud n'a été recréé
+    await page.waitForFunction((text: string) => document.querySelector('[data-job-pause]')?.textContent !== text, { timeout: 3_000 }, first);
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+    const same = await page.evaluate((label: string) => {
+      const w = window as Window & { __nodes?: Element[] };
+      const section = [...document.querySelectorAll('section')].find((s) => s.getAttribute('aria-label') === label);
+      const now = [section?.querySelector('ul > li'), document.querySelector('header'), document.querySelector('[data-job-pause]')];
+      return w.__nodes?.length === 3 && w.__nodes.every((node, i) => node === now[i] && node.isConnected);
+    }, fr('compare.section'));
+    expect(same).toBe(true);
   });
 
   it('Réglages › Aide : « Copier le rapport » copie un rapport sans token ni nom de compte', async () => {
@@ -426,10 +502,40 @@ describe('popup (bout en bout)', () => {
     expect(statuses).toContain(fr('settings.netflix.disabled'));
   });
 
+  it('accès aux sites retiré : bandeau annoncé une seule fois, même nœud entre deux rendus', async () => {
+    const page = await openPopup({ hostAccess: 'missing' });
+    await page.waitForSelector(sel('host-access'));
+    // Annonce par la région live unique de la page (role="alert"), le bandeau ne porte que data-alert
+    await page.waitForFunction((message: string) => document.querySelector('[data-live-region][role="alert"]')?.textContent?.includes(message) ?? false, {}, fr('popup.hostAccessMissing'));
+    await page.evaluate(() => {
+      const w = window as Window & { __banner?: Element | null; __announces?: number };
+      w.__banner = document.querySelector('[data-alert]');
+      w.__announces = 0;
+      const region = document.querySelector('[data-live-region]');
+      if (region) new MutationObserver(() => (w.__announces = (w.__announces ?? 0) + 1)).observe(region, { childList: true, characterData: true, subtree: true });
+    });
+
+    // Nouveaux rendus : réglage modifié dans le stockage, changements d'écran
+    await page.evaluate(async (key: string) => {
+      const stored = await chrome.storage.local.get(key);
+      const current: unknown = stored[key];
+      await chrome.storage.local.set({ [key]: { ...(typeof current === 'object' && current !== null ? current : {}), preferredPlayer: 'adn' } });
+    }, SETTINGS_STORAGE_KEY);
+    await click(page, 'nav-activity');
+    await click(page, 'nav-watching');
+    await page.waitForFunction(() => document.querySelector('[data-focus="nav-watching"]')?.getAttribute('aria-pressed') === 'true');
+
+    const result = await page.evaluate(() => {
+      const w = window as Window & { __banner?: Element | null; __announces?: number };
+      return { same: w.__banner !== null && w.__banner === document.querySelector('[data-alert]') && w.__banner?.isConnected === true, announces: w.__announces };
+    });
+    expect(result).toEqual({ same: true, announces: 0 });
+  });
+
   it('accès aux sites retiré : bandeau, « Autoriser l’accès » appelle permissions.request', async () => {
     const page = await openPopup({ hostAccess: 'missing' });
     await page.waitForSelector(sel('host-access'));
-    expect(await text(page, '[role="alert"]')).toContain(fr('popup.hostAccessMissing'));
+    expect(await text(page, '[data-alert]')).toContain(fr('popup.hostAccessMissing'));
     expect(await text(page, sel('host-access'))).toBe(fr('popup.hostAccessAllow'));
 
     await click(page, 'host-access');
@@ -442,23 +548,23 @@ describe('popup (bout en bout)', () => {
 
   it('service worker muet sur GET_WATCHING : erreur et « Réessayer » au bout du délai, puis la liste', async () => {
     const page = await openPopup({ watching: 'hang' });
-    await page.waitForFunction((message: string) => document.querySelector('main [role="alert"]')?.textContent?.includes(message) ?? false, {}, fr('popup.swTimeout'));
+    await page.waitForFunction((message: string) => document.querySelector('main [data-alert]')?.textContent?.includes(message) ?? false, {}, fr('popup.swTimeout'));
     expect(await watchingRows(page)).toEqual([]);
 
-    const retry = await page.waitForSelector(`::-p-xpath(//main//*[@role="alert"]//button[normalize-space()="${fr('common.retry')}"])`);
+    const retry = await page.waitForSelector(`::-p-xpath(//main//*[@data-alert]//button[normalize-space()="${fr('common.retry')}"])`);
     await retry?.click();
     await waitForMessage(page, 'GET_WATCHING', 2);
     await page.waitForSelector(sel(`more-${SOLO}`));
-    expect(await page.$('main [role="alert"]')).toBeNull();
+    expect(await page.$('main [data-alert]')).toBeNull();
   });
 
   it('service worker lent sur GET_WATCHING : erreur au bout du délai, puis la réponse tardive affiche la liste sans « Réessayer »', async () => {
     const page = await openPopup({ watching: 'slow' });
-    await page.waitForFunction((message: string) => document.querySelector('main [role="alert"]')?.textContent?.includes(message) ?? false, {}, fr('popup.swTimeout'));
+    await page.waitForFunction((message: string) => document.querySelector('main [data-alert]')?.textContent?.includes(message) ?? false, {}, fr('popup.swTimeout'));
     expect(await watchingRows(page)).toEqual([]);
 
     await page.waitForSelector(sel(`more-${SOLO}`));
-    expect(await page.$('main [role="alert"]')).toBeNull();
+    expect(await page.$('main [data-alert]')).toBeNull();
     expect(await sent(page, 'GET_WATCHING')).toHaveLength(1);
   });
 });

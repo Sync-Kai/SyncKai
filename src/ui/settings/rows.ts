@@ -166,7 +166,7 @@ export function linkRow({ label, href, trailing, divider = false }: LinkRowProps
 
 /** Bouton d'action destructive (contour rouge) */
 export const BTN_DANGER =
-  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full border border-danger px-3.5 text-[12px] font-bold text-danger transition-colors hover:bg-raised disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent';
+  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full border border-danger px-3.5 text-[12px] font-bold text-danger transition-colors hover:bg-raised disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent';
 /** Confirmation d'une action destructive (fond rouge) */
 export const BTN_DANGER_FILL =
   'inline-flex h-8 shrink-0 cursor-pointer items-center rounded-full bg-danger px-3.5 text-[12px] font-bold text-on-fill transition hover:brightness-105';

@@ -5,7 +5,7 @@ import { platformSearchUrl, platformsWithoutLink } from '../../shared/platform-l
 import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import { BADGE_CLASSES } from '../../ui/airing-badge';
-import { h, nodes } from '../../ui/dom';
+import { busyAttrs, h, nodes } from '../../ui/dom';
 import { icon, kai, playIcon, sparkIcon } from '../../ui/icons';
 import { TONE_CHIP } from '../../ui/feedback';
 import type { ListStatusChange } from '../../shared/sync.types';
@@ -83,7 +83,7 @@ function isExcludedEntry(entry: WatchingEntry, controls: EntryControls): boolean
 }
 
 const ICON_BTN =
-  'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition hover:brightness-125 disabled:cursor-default disabled:opacity-60 disabled:hover:brightness-100';
+  'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition hover:brightness-125 disabled:cursor-default disabled:opacity-60 disabled:hover:brightness-100 aria-disabled:cursor-default aria-disabled:opacity-60 aria-disabled:hover:brightness-100';
 
 /** « +1 » : marque l'épisode suivant comme vu (spinner pendant l'envoi) */
 function renderPlusOne(entry: WatchingEntry, controls: EntryControls, bgClass: string): HTMLElement {
@@ -98,8 +98,8 @@ function renderPlusOne(entry: WatchingEntry, controls: EntryControls, bgClass: s
         'aria-label': t('watching.plusOneAria', { title: entry.title }),
         title: atEnd ? t('watching.allWatched') : t('watching.nextWatched'),
         'data-focus': `plus-${entryKey(entry)}`,
-        ...(pending ? { 'aria-busy': 'true' } : {}),
-        ...(pending || atEnd ? { disabled: '' } : {}),
+        // Envoi en cours : aria-disabled, le bouton garde le focus clavier ; tout vu : rien à faire (disabled)
+        ...(atEnd ? { disabled: '' } : busyAttrs(pending, true)),
       },
       on: { click: () => controls.onAdjust(entry, 1) },
     },
@@ -320,6 +320,7 @@ function renderHero(entry: WatchingEntry, now: number, preferred: StreamingPlatf
                 target: '_blank',
                 rel: 'noopener noreferrer',
                 'aria-label': t('watching.openOnAria', { title: entry.title, platform: PLATFORM_LABELS[link.platform] }),
+                'data-focus': `open-${entryKey(entry)}`,
               },
             },
             h(
@@ -419,6 +420,7 @@ function renderRow(entry: WatchingEntry, now: number, preferred: StreamingPlatfo
             rel: 'noopener noreferrer',
             title: t('common.open'),
             'aria-label': t('watching.openOnAria', { title: entry.title, platform: PLATFORM_LABELS[link.platform] }),
+            'data-focus': `open-${entryKey(entry)}`,
           },
         },
         icon('screen', 'h-4 w-4'),

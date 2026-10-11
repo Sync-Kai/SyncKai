@@ -3,7 +3,7 @@ import type { Result } from '../../shared/result';
 import type { CandidateSummary, PendingReview } from '../../shared/review.types';
 import { describeOutcome, type SyncFeedback } from '../../shared/sync-feedback';
 import type { SyncOutcome } from '../../shared/sync.types';
-import { h, nodes, preserveFocus } from '../../ui/dom';
+import { busyAttrs, h, nodes, preserveFocus } from '../../ui/dom';
 import { icon, warnIcon } from '../../ui/icons';
 import { BTN_GHOST, BTN_PRIMARY, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { createLogger } from '../../shared/logger';
@@ -85,7 +85,8 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
   let note: string | null = null;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const element = h('article', { class: 'flex flex-col gap-3 rounded-card bg-raised p-3 shadow-pop' });
+  // Carte traitée : le focus passe sur « Fermer » (les boutons d'édition disparaissent)
+  const element = h('article', { class: 'flex flex-col gap-3 rounded-card bg-raised p-3 shadow-pop', attrs: { 'data-focus-fallback': 'review-close' } });
 
   function reset(next: PendingReview): void {
     review = next;
@@ -157,8 +158,8 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
       h(
         'button',
         {
-          class: 'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-ink disabled:opacity-50',
-          attrs: { type: 'submit', 'aria-label': t('review.search'), 'data-focus': 'search-btn', ...(isSearching ? { disabled: '' } : {}) },
+          class: 'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-ink aria-disabled:opacity-50',
+          attrs: { type: 'submit', 'aria-label': t('review.search'), 'data-focus': 'search-btn', ...busyAttrs(isSearching, true) },
         },
         isSearching ? icon('spinner', 'h-3.5 w-3.5 motion-safe:animate-spin') : icon('search', 'h-3.5 w-3.5'),
       ),
@@ -210,7 +211,7 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
       element.replaceChildren(...nodes([
         header,
         renderFeedback(),
-        h('button', { class: `${BTN_GHOST} self-end text-muted`, attrs: { type: 'button' }, on: { click: close } }, t('common.close')),
+        h('button', { class: `${BTN_GHOST} self-end text-muted`, attrs: { type: 'button', 'data-focus': 'review-close' }, on: { click: close } }, t('common.close')),
       ]));
       return;
     }
@@ -248,7 +249,7 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
               'aria-label': t('common.stopSyncAria', { title: review.episode.animeTitle }),
               title: t('review.excludeTitle'),
               'data-focus': 'exclude',
-              ...(isSubmitting ? { disabled: '' } : {}),
+              ...busyAttrs(isSubmitting),
             },
             on: { click: () => void exclude() },
           },
@@ -259,7 +260,7 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
           'button',
           {
             class: `${BTN_GHOST} text-muted`,
-            attrs: { type: 'button', 'data-focus': 'dismiss', ...(isSubmitting ? { disabled: '' } : {}) },
+            attrs: { type: 'button', 'data-focus': 'dismiss', ...busyAttrs(isSubmitting) },
             on: { click: () => void dismiss() },
           },
           t('common.ignore'),
@@ -268,7 +269,7 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
           'button',
           {
             class: BTN_PRIMARY,
-            attrs: { type: 'button', 'data-focus': 'confirm', ...(isSubmitting || !selected ? { disabled: '' } : {}) },
+            attrs: { type: 'button', 'data-focus': 'confirm', ...(selected ? busyAttrs(isSubmitting, true) : { disabled: '' }) },
             on: { click: () => void submit() },
           },
           isSubmitting && icon('spinner', 'h-3.5 w-3.5 motion-safe:animate-spin'),

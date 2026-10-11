@@ -6,7 +6,7 @@ import { buildCurrentReport, currentBrowser } from '../../shared/diagnostics-sto
 import { clearJournal } from '../../shared/error-journal';
 import { createLogger } from '../../shared/logger';
 import { BTN_GHOST, CARD } from '../kit';
-import { h, nodes, type Child } from '../dom';
+import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
 import { BTN_DANGER, dangerRow, dangerZone, DIVIDER, HELP_TEXT, linkRow, rowsCard, settingsSection } from './rows';
@@ -82,7 +82,7 @@ export function createHelpPage(ctx: SettingsContext): SettingsPageView {
           'button',
           {
             class: `${BTN_GHOST} border border-line px-3.5 text-ink`,
-            attrs: { type: 'button', 'data-focus': 'help-copy', title: t('settings.help.copyTitle'), ...(busy ? { disabled: '' } : {}) },
+            attrs: { type: 'button', 'data-focus': 'help-copy', title: t('settings.help.copyTitle'), ...busyAttrs(busy !== null, busy === 'copy') },
             on: { click: () => void copyReport() },
           },
           busy === 'copy' && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),
@@ -139,7 +139,7 @@ export function createHelpPage(ctx: SettingsContext): SettingsPageView {
               'button',
               {
                 class: BTN_DANGER,
-                attrs: { type: 'button', 'data-focus': 'help-clear', ...(busy !== null || ctx.data.journalCount === 0 ? { disabled: '' } : {}) },
+                attrs: { type: 'button', 'data-focus': 'help-clear', ...(ctx.data.journalCount === 0 ? { disabled: '' } : busyAttrs(busy !== null, busy === 'clear')) },
                 on: { click: () => void clearLog() },
               },
               busy === 'clear' && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),

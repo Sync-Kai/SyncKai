@@ -111,7 +111,8 @@ export function createStarRating({ label, classes, focusKey, disabled = false, v
       button.className = classes.half;
       button.setAttribute('aria-label', rateAriaLabel(value));
       if (focusKey) button.dataset.focus = `${focusKey}-${value}`;
-      button.disabled = disabled;
+      // Envoi en cours : aria-disabled (le bouton garde le focus clavier), clic ignoré
+      if (disabled) button.setAttribute('aria-disabled', 'true');
       // Moitié d'étoile cliquable : positionnement par CSSOM (indépendant des classes de l'appelant)
       Object.assign(button.style, { position: 'absolute', top: '0', bottom: '0', width: '50%', margin: '0', padding: '0', border: '0', background: 'transparent' });
       button.style[side] = '0';
@@ -120,7 +121,9 @@ export function createStarRating({ label, classes, focusKey, disabled = false, v
         setAnchor(value);
         preview(value);
       });
-      button.addEventListener('click', () => onConfirm(value));
+      button.addEventListener('click', () => {
+        if (!disabled) onConfirm(value);
+      });
       buttons.set(value, button);
       star.append(button);
     }

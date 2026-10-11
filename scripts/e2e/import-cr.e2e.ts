@@ -112,8 +112,10 @@ describe('page d’import Crunchyroll (bout en bout)', () => {
   it('session Crunchyroll absente : message clair, aucune analyse lancée', async () => {
     const page = await openPage({ history: 'logged-out' });
     await page.locator(sel('cr-read')).click();
-    await page.waitForSelector('[role="alert"]');
-    expect(await page.$eval('[role="alert"]', (el) => el.textContent ?? '')).toContain(fr('crImport.read.error.logged-out'));
+    await page.waitForSelector('[data-alert]');
+    expect(await page.$eval('[data-alert]', (el) => el.textContent ?? '')).toContain(fr('crImport.read.error.logged-out'));
+    // Annoncé par la région live unique de la page (role="alert", créée une fois)
+    await page.waitForFunction((message: string) => document.querySelector('[data-live-region][role="alert"]')?.textContent?.includes(message) ?? false, {}, fr('crImport.read.error.logged-out'));
     expect((await trace(page)).messages.some((m) => m.type === 'CR_IMPORT_ANALYZE')).toBe(false);
   });
 });

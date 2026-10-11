@@ -7,9 +7,9 @@ import { h, type Child } from './dom';
 
 export const CARD = 'rounded-card bg-surface';
 export const BTN_GHOST =
-  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full px-3 text-[12px] font-bold transition-colors hover:bg-raised disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent';
+  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full px-3 text-[12px] font-bold transition-colors hover:bg-raised disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent';
 export const BTN_PRIMARY =
-  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-sakura px-4 text-[12px] font-bold text-on-fill shadow-pop transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-sakura px-4 text-[12px] font-bold text-on-fill shadow-pop transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
 export const LINK = 'text-sakura hover:underline';
 
 // 10 étoiles de 16 px (zone cliquable de 24 px de haut), demi-étoiles cliquables, libellé "8,5/10"
@@ -20,7 +20,7 @@ export const STAR_CLASSES = {
   star: 'h-6 w-4',
   outline: 'fill-none stroke-muted stroke-[1.6]',
   fill: 'fill-butter stroke-butter stroke-[1.6]',
-  half: 'cursor-pointer rounded-[4px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-lavender disabled:cursor-default',
+  half: 'cursor-pointer rounded-[4px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-lavender disabled:cursor-default aria-disabled:cursor-default',
 };
 
 export const PLATFORM_LABELS: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix' };

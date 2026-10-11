@@ -136,7 +136,7 @@ describe('panneau latéral (bout en bout)', () => {
 
     await hold.release(page, 'GET_AGENDA');
     await page.waitForSelector('[data-focus="agenda-retry"]', { timeout: 3_000 });
-    const alert = await page.$eval('[role="tabpanel"] [role="alert"]', (el) => el.textContent ?? '');
+    const alert = await page.$eval('[role="tabpanel"] [data-alert]', (el) => el.textContent ?? '');
     expect(alert).toContain(fr('agenda.stale', { error: 'AniList 429 (e2e)' }));
     expect(await messages(page, 'GET_AGENDA')).toHaveLength(1);
   });

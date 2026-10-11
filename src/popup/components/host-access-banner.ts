@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { h } from '../../ui/dom';
 import { warnIcon } from '../../ui/icons';
+import { alertAttrs } from '../../ui/live-region';
 import type { HostAccessState } from '../state';
 
 interface HostAccessBannerProps {
@@ -11,11 +12,13 @@ interface HostAccessBannerProps {
 /** Bandeau compact « pas d'accès à Crunchyroll / ADN » (Firefox : accès aux sites retiré) ; null si l'accès est accordé */
 export function renderHostAccessBanner({ state, onAllow }: HostAccessBannerProps): HTMLElement | null {
   if (state.status !== 'missing') return null;
+  const message = state.denied ? `${t('popup.hostAccessMissing')} ${t('popup.hostAccessDenied')}` : t('popup.hostAccessMissing');
   return h(
     'div',
     {
       class: 'mx-4 mt-1 flex items-start gap-2 rounded-lg border border-butter/40 bg-butter/10 px-3 py-2 text-[12px] text-butter',
-      attrs: { role: 'alert' },
+      // Bandeau mémoïsé par le popup : annoncé une fois, puis à nouveau seulement si son texte change
+      attrs: alertAttrs(message),
     },
     warnIcon('mt-px h-3.5 w-3.5 text-butter'),
     h(

@@ -1,6 +1,6 @@
 import { t, type MessageKey } from '../../i18n';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
-import { h, nodes } from '../../ui/dom';
+import { busyAttrs, h, nodes } from '../../ui/dom';
 import { icon, kai } from '../../ui/icons';
 import type { AccountState } from '../../ui/state';
 import { renderAlert } from '../../ui/alert';
@@ -24,8 +24,8 @@ function renderConnect(service: TrackerId, state: AccountState<unknown>, onLogin
     'button',
     {
       class:
-        'flex h-14 w-full cursor-pointer items-center gap-3 rounded-card border border-line bg-surface px-3 text-left text-ink transition hover:bg-raised hover:shadow-pop motion-safe:hover:-translate-px disabled:cursor-wait disabled:opacity-70',
-      attrs: { type: 'button', 'data-focus': `connect-${service}`, ...(pending ? { disabled: '', 'aria-busy': 'true' } : {}) },
+        'flex h-14 w-full cursor-pointer items-center gap-3 rounded-card border border-line bg-surface px-3 text-left text-ink transition hover:bg-raised hover:shadow-pop motion-safe:hover:-translate-px aria-disabled:cursor-wait aria-disabled:opacity-70',
+      attrs: { type: 'button', 'data-focus': `connect-${service}`, ...busyAttrs(pending, true) },
       on: { click: () => onLogin(service) },
     },
     serviceAvatar(service, expired ? 'expired' : null),

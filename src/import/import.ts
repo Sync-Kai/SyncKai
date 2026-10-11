@@ -1,9 +1,10 @@
 import { getLocale, initI18n, onLocaleChange, t, tp, type PluralKey } from '../i18n';
 import { BACKUP_MAX_BYTES, parseBackup, summarizeBackup, type BackupSummary, type ImportMode, type ParsedBackup } from '../shared/backup';
 import { applyBackup } from '../shared/backup-store';
-import { h, nodes, preserveFocus, type Child } from '../ui/dom';
+import { busyAttrs, h, nodes, preserveFocus, type Child } from '../ui/dom';
 import { icon, kai } from '../ui/icons';
 import { renderAlert } from '../ui/alert';
+import { alertAttrs } from '../ui/live-region';
 import { BTN_GHOST, BTN_PRIMARY, CARD } from '../ui/kit';
 import { createLogger } from '../shared/logger';
 
@@ -18,7 +19,7 @@ type ImportState =
   | { kind: 'done' };
 
 const BTN_DANGER =
-  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-danger px-4 text-[12px] font-bold text-on-fill shadow-pop transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-danger px-4 text-[12px] font-bold text-on-fill shadow-pop transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
 
 const SUMMARY_LABELS: { key: Exclude<keyof BackupSummary, 'settings'>; label: PluralKey }[] = [
   { key: 'mediaMappings', label: 'import.summary.mediaMappings' },
@@ -170,7 +171,7 @@ function renderActions(s: Extract<ImportState, { kind: 'ready' }>): Child {
     return h(
       'div',
       { class: 'flex flex-col gap-2 rounded-lg border border-danger/40 bg-danger/10 p-3' },
-      h('p', { class: 'm-0 text-[12px] font-bold text-danger', attrs: { role: 'alert' } }, t('import.replaceWarning')),
+      h('p', { class: 'm-0 text-[12px] font-bold text-danger', attrs: alertAttrs(t('import.replaceWarning')) }, t('import.replaceWarning')),
       h(
         'div',
         { class: 'flex justify-end gap-2' },
@@ -178,14 +179,14 @@ function renderActions(s: Extract<ImportState, { kind: 'ready' }>): Child {
           'button',
           {
             class: `${BTN_GHOST} text-muted`,
-            attrs: { type: 'button', 'data-focus': 'cancel', ...(s.applying ? { disabled: '' } : {}) },
+            attrs: { type: 'button', 'data-focus': 'cancel', ...busyAttrs(s.applying) },
             on: { click: () => setState({ ...s, confirming: false }) },
           },
           t('common.cancel'),
         ),
         h(
           'button',
-          { class: BTN_DANGER, attrs: { type: 'button', 'data-focus': 'confirm', ...(s.applying ? { disabled: '' } : {}) }, on: { click: () => void runImport() } },
+          { class: BTN_DANGER, attrs: { type: 'button', 'data-focus': 'confirm', ...busyAttrs(s.applying, true) }, on: { click: () => void runImport() } },
           ...(busy ?? [t('import.eraseAndImport')]),
         ),
       ),
@@ -198,7 +199,7 @@ function renderActions(s: Extract<ImportState, { kind: 'ready' }>): Child {
       'button',
       {
         class: s.mode === 'replace' ? BTN_DANGER : BTN_PRIMARY,
-        attrs: { type: 'button', 'data-focus': 'import', ...(s.applying ? { disabled: '' } : {}) },
+        attrs: { type: 'button', 'data-focus': 'import', ...busyAttrs(s.applying, true) },
         on: { click: () => (s.mode === 'replace' ? setState({ ...s, confirming: true }) : void runImport()) },
       },
       ...(busy ?? [t('import.import')]),

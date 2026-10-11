@@ -8,7 +8,7 @@ import type { InlineFeedback } from './state';
 import { STAR_CLASSES } from './kit';
 import { needsConfirm, renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from './status-actions';
 import { serviceIcon } from './brand-icons';
-import { h, nodes, type Child } from './dom';
+import { busyAttrs, h, nodes, type Child } from './dom';
 import { icon, playIcon } from './icons';
 import { createStarRating } from './star-rating';
 
@@ -39,9 +39,9 @@ export interface MediaActionHandlers {
 }
 
 const ICON_BTN =
-  'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface text-[12px] font-extrabold tabular-nums transition hover:brightness-125 disabled:cursor-default disabled:opacity-50 disabled:hover:brightness-100';
+  'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface text-[12px] font-extrabold tabular-nums transition hover:brightness-125 disabled:cursor-default disabled:opacity-50 disabled:hover:brightness-100 aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:brightness-100';
 const SMALL_BTN =
-  'inline-flex h-7 min-w-0 cursor-pointer items-center justify-center gap-1 rounded-full border border-line bg-surface px-2 text-[11px] font-bold text-ink transition-colors hover:border-lavender disabled:cursor-default disabled:opacity-50 disabled:hover:border-line';
+  'inline-flex h-7 min-w-0 cursor-pointer items-center justify-center gap-1 rounded-full border border-line bg-surface px-2 text-[11px] font-bold text-ink transition-colors hover:border-lavender disabled:cursor-default disabled:opacity-50 disabled:hover:border-line aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:border-line';
 
 const spinner = (): SVGSVGElement => icon('spinner', 'h-3.5 w-3.5 shrink-0 motion-safe:animate-spin');
 
@@ -119,8 +119,8 @@ function renderAddButtons(busy: MediaAction | null, disabled: boolean, onAdd: (s
     h(
       'button',
       {
-        class: `inline-flex h-8 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-[11px] font-bold transition hover:brightness-110 disabled:cursor-default disabled:opacity-50 disabled:hover:brightness-100 ${tone}`,
-        attrs: { type: 'button', title: label, 'data-focus': `page-add-${status}`, ...(disabled ? { disabled: '' } : {}), ...(busy === `add-${status}` ? { 'aria-busy': 'true' } : {}) },
+        class: `inline-flex h-8 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-[11px] font-bold transition hover:brightness-110 aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:brightness-100 ${tone}`,
+        attrs: { type: 'button', title: label, 'data-focus': `page-add-${status}`, ...busyAttrs(disabled, busy === `add-${status}`) },
         on: { click: () => onAdd(status) },
       },
       busy === `add-${status}` ? spinner() : iconEl,
@@ -140,7 +140,8 @@ function renderStepper(view: PageMediaView, primary: InListState, busy: MediaAct
   const atEnd = total !== null && primary.progress >= total;
   const step = (delta: 1 | -1): HTMLElement => {
     const action: MediaAction = delta === 1 ? 'plus' : 'minus';
-    const off = disabled || (delta === -1 ? primary.progress <= 0 : atEnd);
+    // Rien à faire (début, fin) : disabled ; action en cours : aria-disabled (le focus clavier reste sur le bouton)
+    const off = delta === -1 ? primary.progress <= 0 : atEnd;
     return h(
       'button',
       {
@@ -150,8 +151,7 @@ function renderStepper(view: PageMediaView, primary: InListState, busy: MediaAct
           'data-focus': `page-${action}`,
           'aria-label': t(delta === 1 ? 'watching.plusOneAria' : 'page.minusOneAria', { title: view.media.title }),
           title: delta === 1 ? (atEnd ? t('watching.allWatched') : t('watching.nextWatched')) : t('watching.minusOne'),
-          ...(off ? { disabled: '' } : {}),
-          ...(busy === action ? { 'aria-busy': 'true' } : {}),
+          ...(off ? { disabled: '' } : busyAttrs(disabled, busy === action)),
         },
         on: { click: () => onAdjust(delta) },
       },
@@ -189,7 +189,7 @@ function renderStatusRow(primary: InListState, state: MediaActionsState, disable
             'data-focus': `page-status-${status}`,
             'aria-label': t(STATUS_LABELS[status]),
             title: t(STATUS_LABELS[status]),
-            ...(disabled || primary.status === status ? { disabled: '' } : {}),
+            ...(primary.status === status ? { disabled: '' } : busyAttrs(disabled, state.busy === `status-${status}`)),
           },
           on: { click: () => (needsConfirm(status) ? handlers.onConfirm(status) : handlers.onSetStatus(status)) },
         },
@@ -205,12 +205,12 @@ export function renderRetryButton(retry: AdjustRetry, disabled: boolean, onRetry
   return h(
     'button',
     {
-      class: 'shrink-0 cursor-pointer rounded-full border border-current px-2 py-0.5 text-[11px] font-bold transition hover:brightness-125 disabled:cursor-default disabled:opacity-50',
+      class: 'shrink-0 cursor-pointer rounded-full border border-current px-2 py-0.5 text-[11px] font-bold transition hover:brightness-125 aria-disabled:cursor-default aria-disabled:opacity-50',
       attrs: {
         type: 'button',
         'data-focus': focusKey,
         'aria-label': t('inline.retryOn', { services: retry.services.map((s) => TRACKER_LABELS[s]).join(', ') }),
-        ...(disabled ? { disabled: '' } : {}),
+        ...busyAttrs(disabled),
       },
       on: { click: () => onRetry(retry) },
     },

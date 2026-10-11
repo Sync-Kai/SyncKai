@@ -21,10 +21,10 @@ import { createLogger } from '../shared/logger';
 import { sendMessage } from '../shared/messages';
 import { STORAGE_KEYS } from '../shared/storage-keys';
 import { TRACKER_LABELS } from '../shared/tracker.types';
-import { h, nodes, preserveFocus, type Child } from '../ui/dom';
+import { busyAttrs, h, nodes, preserveFocus, type Child } from '../ui/dom';
 import { icon, kai } from '../ui/icons';
 import { renderAlert } from '../ui/alert';
-import { jobPauseText } from '../ui/job-pause';
+import { jobPauseText, renderJobPause, tickJobPause } from '../ui/job-pause';
 import { TONE_CHIP } from '../ui/feedback';
 import { BTN_GHOST, BTN_PRIMARY, CARD, renderCover, SERVICE_CHIPS } from '../ui/kit';
 
@@ -350,11 +350,16 @@ function scheduleTimers(): void {
   if (waitingTab && !document.hidden) pollTimer = setTimeout(() => void refreshTab(), TAB_POLL_MS);
 
   const paused = state.job?.status === 'running' && state.job.pausedUntil !== null;
-  if (paused && tickTimer === undefined) tickTimer = setInterval(draw, 1_000);
+  // Compte à rebours mis à jour en place (pas de nouveau rendu de la page chaque seconde)
+  if (paused && tickTimer === undefined) tickTimer = setInterval(tickPause, 1_000);
   if (!paused && tickTimer !== undefined) {
     clearInterval(tickTimer);
     tickTimer = undefined;
   }
+}
+
+function tickPause(): void {
+  if (app && state.job) tickJobPause(app, state.job, Date.now(), 'AniList');
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -461,7 +466,7 @@ function renderConnect(step: Extract<Step, { kind: 'connect' }>): Child[] {
       { class: 'flex flex-wrap items-center justify-end gap-2' },
       tabId !== null
         ? h('button', { class: BTN_PRIMARY, attrs: { type: 'button', 'data-focus': 'cr-read' }, on: { click: () => startReading(tabId) } }, t('crImport.connect.read'))
-        : h('button', { class: BTN_PRIMARY, attrs: { type: 'button', 'data-focus': 'cr-open', ...(step.opening ? { disabled: '' } : {}) }, on: { click: () => void openCrunchyroll() } }, t('crImport.connect.open')),
+        : h('button', { class: BTN_PRIMARY, attrs: { type: 'button', 'data-focus': 'cr-open', ...busyAttrs(step.opening, true) }, on: { click: () => void openCrunchyroll() } }, t('crImport.connect.open')),
     ),
   ];
 }
@@ -503,12 +508,12 @@ function renderRunningJob(job: CrImportJob): Child[] {
         statusLine(text),
         h(
           'button',
-          { class: `${BTN_GHOST} h-7 px-2.5 text-[11px] text-danger`, attrs: { type: 'button', 'data-focus': 'cr-job-stop', ...(job.cancelled ? { disabled: '' } : {}) }, on: { click: () => void cancelJob() } },
+          { class: `${BTN_GHOST} h-7 px-2.5 text-[11px] text-danger`, attrs: { type: 'button', 'data-focus': 'cr-job-stop', ...busyAttrs(job.cancelled) }, on: { click: () => void cancelJob() } },
           job.cancelled ? t('compare.job.stopping') : t('compare.job.stop'),
         ),
       ),
       progressBar(done, total, analyzing ? t('crImport.analyze.progressAria') : t('crImport.apply.progressAria')),
-      pause && h('p', { class: 'm-0 flex items-center gap-1.5 text-[11px] font-bold text-butter', attrs: { role: 'status' } }, icon('clock', 'h-3 w-3 shrink-0'), pause),
+      pause && renderJobPause(pause, 'm-0 flex items-center gap-1.5 text-[11px] font-bold text-butter'),
       h('p', { class: 'm-0 text-[11px] text-muted' }, analyzing ? t('crImport.analyze.hint') : t('crImport.apply.hint')),
     ),
   ];
@@ -596,8 +601,8 @@ function renderItem(item: CrPlanItem, selectable: boolean, disabled: boolean): H
         h(
           'span',
           {
+            // Résultat d'un élément : texte simple, pas de role="alert" relu à chaque avancée du job (le bilan annonce les échecs)
             class: `text-[11px] font-bold ${item.result.outcome === 'updated' ? 'text-mint' : item.result.outcome === 'failed' ? 'text-danger' : 'text-muted'}`,
-            attrs: item.result.outcome === 'failed' ? { role: 'alert' } : {},
           },
           item.result.outcome === 'updated' ? t('crImport.result.updated') : (item.result.message ?? t(`crImport.result.${item.result.outcome}` satisfies MessageKey)),
         ),

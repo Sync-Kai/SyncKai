@@ -7,6 +7,7 @@ import { createStarRating } from '../../ui/star-rating';
 import { TONE_CHIP } from '../../ui/feedback';
 import type { RatingsState } from '../state';
 import { renderAlert } from '../../ui/alert';
+import { alertAttrs } from '../../ui/live-region';
 import { BTN_GHOST, CARD, renderCover, sectionTitle, STAR_CLASSES } from '../../ui/kit';
 
 interface RatingSectionProps {
@@ -53,7 +54,7 @@ function renderItem(item: PendingRating, { ratings, now, onRate, onIgnore }: Rat
               t('common.ignore'),
             ),
       ),
-      error && h('span', { class: 'flex items-start gap-1 text-[11px] font-bold text-danger', attrs: { role: 'alert' } }, icon('alert', 'mt-px h-3 w-3'), error),
+      error && h('span', { class: 'flex items-start gap-1 text-[11px] font-bold text-danger', attrs: alertAttrs(error) }, icon('alert', 'mt-px h-3 w-3'), error),
     ),
   );
 }

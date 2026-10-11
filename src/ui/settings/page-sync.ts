@@ -6,6 +6,7 @@ import { createLogger } from '../../shared/logger';
 import { removeNetflixAccess, requestNetflixAccess } from '../../shared/netflix-access';
 import { DEFAULT_SETTINGS, effectivePlayer, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../alert';
+import { alertAttrs } from '../live-region';
 import { CARD, LINK, segmented } from '../kit';
 import { h } from '../dom';
 import type { SettingsContext, SettingsPageView } from './context';
@@ -88,10 +89,11 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
 
   function renderNetflix(): HTMLElement {
     const granted = ctx.data.netflixAccess === true;
+    const errorText = netflixNotice === 'denied' ? t('settings.netflix.denied') : netflixNotice === 'error' ? t('settings.netflix.error') : null;
     const notice =
       netflixNotice === 'disabled'
         ? !granted && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-muted', attrs: { role: 'status' } }, t('settings.netflix.disabled'))
-        : netflixNotice && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-danger', attrs: { role: 'alert' } }, t(netflixNotice === 'denied' ? 'settings.netflix.denied' : 'settings.netflix.error'));
+        : errorText && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-danger', attrs: alertAttrs(errorText) }, errorText);
     return settingsSection(
       t('settings.netflix.section'),
       rowsCard(

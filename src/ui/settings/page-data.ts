@@ -10,7 +10,7 @@ import type { MediaMapping } from '../../shared/sync.types';
 import { renderAlert } from '../alert';
 import { BTN_GHOST, CARD, LINK } from '../kit';
 import { platformIcon } from '../brand-icons';
-import { h, nodes, type Child } from '../dom';
+import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
 import { BTN_DANGER, BTN_DANGER_FILL, dangerRow, dangerZone, DIVIDER, HELP_TEXT, settingsSection } from './rows';
@@ -141,7 +141,7 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
         'button',
         {
           class: `${BTN_GHOST} text-sakura`,
-          attrs: { type: 'button', 'aria-label': t('settings.exclusions.reactivateAria', { title: item.label }), 'data-focus': `include-${item.id}`, ...(reactivatingId !== null ? { disabled: '' } : {}) },
+          attrs: { type: 'button', 'aria-label': t('settings.exclusions.reactivateAria', { title: item.label }), 'data-focus': `include-${item.id}`, ...busyAttrs(reactivatingId !== null, busy) },
           on: { click: () => void reactivate(item.id) },
         },
         busy && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),
@@ -219,7 +219,7 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
           'button',
           {
             class: `${BTN_GHOST} border border-line px-3.5 text-ink`,
-            attrs: { type: 'button', 'data-focus': 'backup-export', title: t('settings.backup.exportTitle'), ...(exporting ? { disabled: '' } : {}) },
+            attrs: { type: 'button', 'data-focus': 'backup-export', title: t('settings.backup.exportTitle'), ...busyAttrs(exporting, true) },
             on: { click: () => void runExport() },
           },
           exporting && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),

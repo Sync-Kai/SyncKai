@@ -16,7 +16,7 @@ import { demoChrome, pageView, watchingList, type Scenario } from '../screenshot
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { localeParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
-import { E2E_PERSIST_KEY, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
+import { E2E_ADJUST_SLOW_MS, E2E_PERSIST_KEY, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
@@ -173,7 +173,9 @@ installChromeMock({
       const result = { ok: true, data: lists[service] };
       return slowWatching && first ? new Promise((resolve) => setTimeout(() => resolve(result), E2E_WATCHING_SLOW_MS)) : result;
     },
-    ADJUST_PROGRESS: adjustProgress,
+    // `adjust=slow` : réponse retardée (le +1 reste en cours d'envoi un moment)
+    ADJUST_PROGRESS: (payload) =>
+      param('adjust') === 'slow' ? new Promise<SyncOutcome>((resolve) => setTimeout(() => resolve(adjustProgress(payload)), E2E_ADJUST_SLOW_MS)) : adjustProgress(payload),
     SET_LIST_STATUS: setListStatus,
     ADD_TO_LIST: () => synced(pageView().media.title, { status: 'updated', progress: 0, completed: false }),
     RESOLVE_PAGE_MEDIA: (): PageMediaResult =>

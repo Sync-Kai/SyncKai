@@ -9,7 +9,7 @@ import { isLongDescription, malForumUrl, redditSearchUrl } from '../../shared/pa
 import type { PanelMedia, PanelRelation } from '../../shared/panel-media.types';
 import type { ListStatusChange } from '../../shared/sync.types';
 import { choosePlatformLink } from '../../shared/watching';
-import { h, nodes, type Child } from '../../ui/dom';
+import { busyAttrs, h, nodes, type Child } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { renderMediaActions } from '../../ui/media-actions';
 import { airedLabel, episodeLine, relationLabel } from '../now-playing-view';
@@ -133,8 +133,8 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     return h(
       'button',
       {
-        class: 'flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ground/70 text-muted transition-colors hover:text-ink disabled:cursor-default disabled:opacity-50',
-        attrs: { type: 'button', 'data-focus': 'panel-refresh', 'aria-label': t('panel.nowPlaying.refresh'), title: t('panel.nowPlaying.refresh'), ...(actions.busy !== null || refreshing ? { disabled: '' } : {}) },
+        class: 'flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ground/70 text-muted transition-colors hover:text-ink aria-disabled:cursor-default aria-disabled:opacity-50',
+        attrs: { type: 'button', 'data-focus': 'panel-refresh', 'aria-label': t('panel.nowPlaying.refresh'), title: t('panel.nowPlaying.refresh'), ...busyAttrs(actions.busy !== null || refreshing, refreshing) },
         on: { click: () => void ctl.refresh(true) },
       },
       icon('retry', `h-3.5 w-3.5 ${refreshing ? 'motion-safe:animate-spin' : ''}`),

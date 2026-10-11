@@ -27,7 +27,8 @@ import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, SETTINGS_
 import { getCachedWatching, getMalToken, getValidToken } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../shared/storage-keys';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
-import { h, nodes, preserveFocus, type Child } from '../../ui/dom';
+import { busyAttrs, h, nodes, preserveFocus, type Child } from '../../ui/dom';
+import { alertAttrs } from '../../ui/live-region';
 import { icon } from '../../ui/icons';
 import { decideAgendaLoad } from '../agenda-load';
 
@@ -293,7 +294,7 @@ export function createAgenda(): AgendaView {
   function message(text: string, tone: 'muted' | 'danger', action: Child = null): HTMLElement {
     return h(
       'div',
-      { class: `${CARD} flex flex-col items-center gap-2 px-4 py-6 text-center`, attrs: { role: tone === 'danger' ? 'alert' : 'status' } },
+      { class: `${CARD} flex flex-col items-center gap-2 px-4 py-6 text-center`, attrs: tone === 'danger' ? alertAttrs(text) : { role: 'status' } },
       icon(tone === 'danger' ? 'alert' : 'calendar', `h-6 w-6 ${tone === 'danger' ? 'text-danger' : 'text-lavender'}`),
       h('p', { class: 'm-0 max-w-[280px] text-[12px] font-semibold text-muted' }, text),
       action,
@@ -341,7 +342,7 @@ export function createAgenda(): AgendaView {
           status.error !== null &&
           h(
             'div',
-            { class: 'flex items-center justify-between gap-2 rounded-card bg-surface px-3 py-1.5', attrs: { role: 'alert' } },
+            { class: 'flex items-center justify-between gap-2 rounded-card bg-surface px-3 py-1.5', attrs: alertAttrs(t('agenda.stale', { error: status.error })) },
             h('span', { class: 'min-w-0 text-[11px] font-semibold text-danger' }, t('agenda.stale', { error: status.error })),
             retryButton(),
           );
@@ -607,7 +608,7 @@ export function createAgenda(): AgendaView {
           'button',
           {
             class: `${BTN_GHOST} bg-sakura text-on-fill hover:bg-sakura`,
-            attrs: { type: 'button', 'data-focus': `agenda-save-${row.scheduleId}`, ...(edit.saving ? { disabled: '' } : {}) },
+            attrs: { type: 'button', 'data-focus': `agenda-save-${row.scheduleId}`, ...busyAttrs(edit.saving, true) },
             on: { click: () => void saveOffset({ ...edit, value: input.value }, input.value.trim() === '' ? Number.NaN : Number(input.value)) },
           },
           edit.saving && icon('spinner', 'h-3 w-3 motion-safe:animate-spin'),
@@ -618,7 +619,7 @@ export function createAgenda(): AgendaView {
             'button',
             {
               class: BTN_GHOST,
-              attrs: { type: 'button', 'data-focus': `agenda-reset-${row.scheduleId}`, ...(edit.saving ? { disabled: '' } : {}) },
+              attrs: { type: 'button', 'data-focus': `agenda-reset-${row.scheduleId}`, ...busyAttrs(edit.saving) },
               on: { click: () => void saveOffset(edit, null) },
             },
             t('agenda.adjust.reset'),
@@ -640,7 +641,7 @@ export function createAgenda(): AgendaView {
       ),
       h(
         'span',
-        { class: `text-[11px] font-semibold ${edit.invalid || edit.failed ? 'text-danger' : 'text-muted'}`, attrs: { id: helpId, role: edit.failed ? 'alert' : 'note' } },
+        { class: `text-[11px] font-semibold ${edit.invalid || edit.failed ? 'text-danger' : 'text-muted'}`, attrs: { id: helpId, ...(edit.failed ? alertAttrs(t('agenda.adjust.saveFailed')) : { role: 'note' }) } },
         edit.failed ? t('agenda.adjust.saveFailed') : t('agenda.adjust.help', { min: OFFSET_RANGE.min, max: OFFSET_RANGE.max }),
       ),
     );

@@ -43,8 +43,11 @@ export interface FrameParams {
    * `slow` répond après le délai (E2E_WATCHING_SLOW_MS)
    */
   watching?: 'hang' | 'slow';
-  /** +1 / −1 : `partial` = MyAnimeList échoue, le nouvel essai (`retry`) n'écrit que MAL à la progression absolue */
-  adjust?: 'partial';
+  /**
+   * +1 / −1 : `partial` = MyAnimeList échoue, le nouvel essai (`retry`) n'écrit que MAL à la progression absolue ;
+   * `slow` = réponse après E2E_ADJUST_SLOW_MS (état « envoi en cours » observable)
+   */
+  adjust?: 'partial' | 'slow';
   /** Carte « Sur cette page » : série ignorée (Netflix, pas un anime) */
   pageMedia?: 'untracked';
 }
@@ -53,6 +56,8 @@ export interface FrameParams {
 export const E2E_WATCHING_TIMEOUT_MS = 300;
 /** Réponse tardive au premier GET_WATCHING avec `watching=slow` (après le délai d'attente) */
 export const E2E_WATCHING_SLOW_MS = 1_500;
+/** Réponse à ADJUST_PROGRESS avec `adjust=slow` */
+export const E2E_ADJUST_SLOW_MS = 800;
 
 /** Commandes du panneau latéral de test (sidepanel-frame.ts), appelées par les tests via `window.__e2ePanel` */
 export interface E2EPanelControls {

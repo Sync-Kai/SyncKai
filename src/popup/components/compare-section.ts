@@ -16,13 +16,13 @@ import { isJobActive, type CompareJob } from '../../shared/compare-job';
 import type { ListStatus } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { formatRelativeTime } from '../../shared/watching';
-import { h, nodes } from '../../ui/dom';
+import { busyAttrs, h, nodes } from '../../ui/dom';
 import { icon } from '../../ui/icons';
 import { formatStarValue } from '../../ui/rating';
 import { TONE_CHIP } from '../../ui/feedback';
 import type { CompareState } from '../state';
 import { renderAlert } from '../../ui/alert';
-import { jobPauseText } from '../../ui/job-pause';
+import { jobPauseText, renderJobPause } from '../../ui/job-pause';
 import { BTN_GHOST, BTN_PRIMARY, renderCover, sectionTitle } from '../../ui/kit';
 
 /** Lignes affichées d'emblée, puis par tranche (« Afficher plus ») : le popup reste rapide sur de longues listes */
@@ -94,7 +94,8 @@ function renderChips(diff: ListDiff): HTMLElement[] {
 function keepButton(diff: ListDiff, source: TrackerId, busy: boolean, onApply: CompareSectionProps['onApply']): HTMLElement {
   const plan = planApply(diff, source);
   const target = otherService(source);
-  const disabled = busy || plan.action === 'skip';
+  // Sans objet (skip) : disabled ; tâche en cours : aria-disabled (le focus clavier reste sur le bouton)
+  const unavailable = plan.action === 'skip' ? { disabled: '' } : busyAttrs(busy);
   const hint = plan.action === 'skip' ? skipReasonText(plan.reason, source) : t('compare.keepTitle', { source: TRACKER_LABELS[source], target: TRACKER_LABELS[target] });
   return h(
     'button',
@@ -105,7 +106,7 @@ function keepButton(diff: ListDiff, source: TrackerId, busy: boolean, onApply: C
         title: hint,
         'aria-label': t('compare.keepAria', { title: diff.title, source: TRACKER_LABELS[source], target: TRACKER_LABELS[target] }),
         'data-focus': `compare-${source}-${diff.key}`,
-        ...(disabled ? { disabled: '' } : {}),
+        ...unavailable,
       },
       on: { click: () => onApply([diff], source) },
     },
@@ -125,7 +126,8 @@ function renderRow(diff: ListDiff, { state, onApply }: CompareSectionProps, busy
       { class: 'flex min-w-0 flex-1 flex-col gap-1' },
       h('span', { class: 'truncate text-[12px] font-bold', attrs: { title: diff.title } }, diff.title),
       h('div', { class: 'flex flex-wrap gap-1' }, ...renderChips(diff)),
-      error && h('span', { class: 'line-clamp-2 text-[11px] font-semibold text-danger', attrs: { role: 'alert', title: error } }, error),
+      // Erreur d'une ligne : texte simple (le bilan de l'alignement annonce les échecs, sans relecture à chaque rendu)
+      error && h('span', { class: 'line-clamp-2 text-[11px] font-semibold text-danger', attrs: { title: error } }, error),
       // Modifiée depuis l'analyse (synchro, contrôle) : valeurs affichées périmées, boutons désactivés (planApply)
       diff.stale === true && h('span', { class: 'line-clamp-2 text-[11px] font-semibold text-butter' }, t('compare.skip.changed')),
       h(
@@ -141,7 +143,7 @@ function renderRow(diff: ListDiff, { state, onApply }: CompareSectionProps, busy
 // ─── Tâche en cours / bilan ───────────────────────────────────────────────
 
 /** Barre de progression de l'alignement (restaurée à la réouverture du popup) + « Arrêter » */
-/** Texte de la pause en cours (compte à rebours recalculé chaque seconde par le popup) */
+/** Texte de la pause en cours (compte à rebours ensuite mis à jour en place chaque seconde : tickJobPause) */
 function pauseText(job: CompareJob): string | null {
   return jobPauseText(job, Date.now());
 }
@@ -150,7 +152,7 @@ function renderJob(job: CompareJob, { state, onCancel, onDismissJob, onRetryFail
   if (job.kind === 'analyze') {
     // Analyse en attente du quota AniList : expliquée sous le bouton (sinon le spinner semble figé)
     const pause = job.status === 'running' ? pauseText(job) : null;
-    return pause ? h('p', { class: 'm-0 text-[11px] font-semibold text-butter', attrs: { role: 'status' } }, pause) : null;
+    return pause ? renderJobPause(pause, 'm-0 text-[11px] font-semibold text-butter', false) : null;
   }
   if (job.kind !== 'apply') return null;
   if (job.status === 'running') {
@@ -172,7 +174,7 @@ function renderJob(job: CompareJob, { state, onCancel, onDismissJob, onRetryFail
           'button',
           {
             class: `${BTN_GHOST} h-7 px-2.5 text-[11px] text-danger`,
-            attrs: { type: 'button', 'data-focus': 'compare-cancel', ...(job.cancelled ? { disabled: '' } : {}) },
+            attrs: { type: 'button', 'data-focus': 'compare-cancel', ...busyAttrs(job.cancelled) },
             on: { click: onCancel },
           },
           job.cancelled ? t('compare.job.stopping') : t('compare.job.stop'),
@@ -186,7 +188,7 @@ function renderJob(job: CompareJob, { state, onCancel, onDismissJob, onRetryFail
         },
         h('div', { class: 'h-full rounded-full bg-lavender transition-[width]', attrs: { style: `width:${percent}%` } }),
       ),
-      pause && h('p', { class: 'm-0 flex items-center gap-1.5 text-[11px] font-bold text-butter', attrs: { role: 'status' } }, icon('clock', 'h-3 w-3 shrink-0'), pause),
+      pause && renderJobPause(pause, 'm-0 flex items-center gap-1.5 text-[11px] font-bold text-butter'),
     );
   }
 
@@ -311,7 +313,7 @@ function renderBulk(filtered: readonly ListDiff[], busy: boolean, props: Compare
             type: 'button',
             'data-focus': `compare-bulk-${source}`,
             ...(count === 0 ? { title: t('compare.bulk.empty', { source: TRACKER_LABELS[source] }) } : {}),
-            ...(count === 0 || busy ? { disabled: '' } : {}),
+            ...(count === 0 ? { disabled: '' } : busyAttrs(busy)),
           },
           on: { click: () => onConfirm(source) },
         },
@@ -327,7 +329,7 @@ function analyzeButton(state: CompareState, onAnalyze: () => void, label: string
     'button',
     {
       class: primary ? `${BTN_PRIMARY} self-start` : `${BTN_GHOST} h-7 px-2.5 text-[11px] text-sakura`,
-      attrs: { type: 'button', 'data-focus': 'compare-analyze', ...(isBusy(state) ? { disabled: '' } : {}), ...(analyzing ? { 'aria-busy': 'true' } : {}) },
+      attrs: { type: 'button', 'data-focus': 'compare-analyze', ...busyAttrs(isBusy(state)), ...(analyzing ? { 'aria-busy': 'true' } : {}) },
       on: { click: onAnalyze },
     },
     analyzing ? icon('spinner', 'h-3 w-3 motion-safe:animate-spin') : !primary && icon('retry', 'h-3 w-3', '2.4'),

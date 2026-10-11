@@ -16,7 +16,7 @@ export interface ReviewSection {
  */
 export function createReviewSection(actions: ReviewActions): ReviewSection {
   const cards = new Map<string, ReviewCard>();
-  const title = h('h2', { class: 'm-0 text-[13px] font-bold' });
+  const title = h('h2', { class: 'm-0 text-[13px] font-bold outline-none', attrs: { tabindex: '-1' } });
   const list = h('div', { class: 'flex flex-col gap-2' });
   const empty = h(
     'div',
@@ -46,12 +46,16 @@ export function createReviewSection(actions: ReviewActions): ReviewSection {
     pendingCount = reviews.length;
 
     // Cartes disparues du stockage (ignorées, résolues ailleurs) — sauf celles qui affichent un résultat
+    let focusLost = false;
     for (const [key, card] of cards) {
       if (!keys.has(key) && !card.isBusy()) {
+        focusLost ||= card.element.contains(document.activeElement);
         card.element.remove();
         cards.delete(key);
       }
     }
+    // Carte fermée au clavier (« Fermer ») : le focus passe au titre de la section plutôt que sur <body>
+    if (focusLost) title.focus({ preventScroll: true });
 
     // Nouvelles cartes en tête (reviews est trié du plus récent au plus ancien)
     for (const review of [...reviews].reverse()) {
