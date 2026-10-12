@@ -9,3 +9,10 @@ export function normalizeTitle(title: string): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
+
+const GENERIC_SEASON_REGEX = /^(?:season|saison|staffel|part|partie|volume)\s+\d+$/i;
+
+/** Nom de saison exploitable pour la correspondance AniList, null s'il est générique ("Saison 1") */
+export function meaningfulSeasonTitle(name: string | null): string | null {
+  return name && !GENERIC_SEASON_REGEX.test(name) ? name : null;
+}

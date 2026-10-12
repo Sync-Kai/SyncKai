@@ -1,6 +1,6 @@
 // Liste « En cours » : source et tri (préférences du popup), cache affiché puis revalidé par le service worker
-// (délai d'attente, réponse tardive, requête obsolète ignorée), actions sur une série (+1, −1, statut, exclusion)
-// et bandeau de retour.
+// (délai d'attente, réponse tardive, requête obsolète ignorée), actions sur une série (+1, −1, statut, exclusion,
+// retrait de la liste, commentaire) et bandeau de retour.
 import { t } from '../../i18n';
 import { excludeSeries, includeSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
@@ -13,7 +13,9 @@ import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../shared/tracker.t
 import { toSafeImageUrl } from '../../shared/url';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingList, type WatchingResult, type WatchingSort } from '../../shared/watching.types';
 import { AUTH_ERRORS, type AccountsController } from '../../ui/accounts';
-import { adjustFeedback, errorFeedback, statusFeedback } from '../../ui/feedback';
+import { adjustFeedback, errorFeedback, notesFeedback, removeFeedback, statusFeedback } from '../../ui/feedback';
+import type { MediaRef } from '../../shared/engagement.types';
+import { normalizeListNotes, type ListNotesResult } from '../../shared/list-notes';
 import { adjustPayload } from '../../ui/media-action-requests';
 import { createStore, patchStore, withEntry, type ExclusionsState, type InlineFeedback, type Store } from '../../ui/state';
 import { entryKey } from '../components/watching-screen';
@@ -34,6 +36,13 @@ export interface WatchingNotice {
   retry: (() => void) | null;
 }
 
+/** Éditeur de commentaire ouvert sous une série (un seul à la fois) : lecture du commentaire, puis édition */
+export type NotesSession =
+  | { key: string; entry: WatchingEntry; phase: 'loading' }
+  /** `inList` faux : série absente de toutes les listes connectées (rien ne peut être écrit) */
+  | { key: string; entry: WatchingEntry; phase: 'ready'; inList: boolean; notes: string | null }
+  | { key: string; entry: WatchingEntry; phase: 'error'; message: string };
+
 export interface WatchingControllerDeps {
   accounts: Pick<AccountsController, 'store' | 'markExpired'>;
   /** Séries exclues (pastille « Exclue », réactivation) et leur relecture après une exclusion */
@@ -51,6 +60,8 @@ export interface WatchingController {
   /** Action en cours ou retour bref, par série (entryKey) */
   readonly entryActions: Store<ReadonlyMap<string, EntryAction>>;
   readonly notice: Store<WatchingNotice | null>;
+  /** Éditeur de commentaire ouvert (null : aucun) */
+  readonly notes: Store<NotesSession | null>;
   /** Suit les comptes et la source : la liste est chargée dès que le service affiché est connu */
   start(): void;
   /** Service affiché : la source choisie si elle est connectée, sinon le seul service connecté */
@@ -69,6 +80,13 @@ export interface WatchingController {
   setStatus(entry: WatchingEntry, status: ListStatusChange): Promise<void>;
   exclude(entry: WatchingEntry): Promise<void>;
   include(entry: WatchingEntry): Promise<void>;
+  /** « Retirer de la liste » (confirmé) : retirée de chaque service connecté, la série quitte « En cours » */
+  remove(entry: WatchingEntry): Promise<void>;
+  /** « Commentaire… » : ouvre l'éditeur sous la série et lit le commentaire (AniList d'abord) */
+  openNotes(entry: WatchingEntry): void;
+  closeNotes(): void;
+  /** Enregistre le commentaire ; true si c'est fait partout où la série est (l'éditeur se ferme) */
+  saveNotes(entry: WatchingEntry, text: string): Promise<boolean>;
   dispose(): void;
 }
 
@@ -78,6 +96,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
   const prefs = createStore<WatchingPrefs>({ source: 'anilist', sort: DEFAULT_WATCHING_SORT });
   const entryActions = createStore<ReadonlyMap<string, EntryAction>>(new Map());
   const notice = createStore<WatchingNotice | null>(null);
+  const notes = createStore<NotesSession | null>(null);
   const swUnreachable = (): string => t('popup.swUnreachable');
   const unsubscribers: (() => void)[] = [];
 
@@ -266,11 +285,15 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
     if (changes[STORAGE_KEYS.recentSyncs]) scheduleRevalidation();
   };
 
+  /** Série telle que le service worker l'attend (titre borné par la validation du message) */
+  const mediaRef = (entry: WatchingEntry): MediaRef => ({ mediaId: entry.mediaId, malId: entry.malId, title: entry.title.slice(0, 300) });
+
   const controller: WatchingController = {
     store,
     prefs,
     entryActions,
     notice,
+    notes,
     activeService,
     reload,
     scheduleRevalidation,
@@ -383,6 +406,70 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
         flashEntryFeedback(key, errorFeedback(t('popup.includeFailed')));
       }
       await deps.reloadExclusions();
+    },
+
+    async remove(entry) {
+      const key = entryKey(entry);
+      if (!beginEntryAction(key, 'status')) return;
+      if (notes.get()?.key === key) notes.set(null);
+
+      let outcome: SyncOutcome;
+      try {
+        outcome = await sendMessage('REMOVE_FROM_LIST', { media: mediaRef(entry) });
+      } catch (error: unknown) {
+        log.error('Service worker injoignable :', error);
+        outcome = { status: 'error', message: swUnreachable() };
+      }
+
+      // La série quitte la liste si le service affiché l'a retirée (ou ne l'avait déjà plus)
+      const shown = store.get();
+      const shownResult = outcome.status === 'synced' && shown.status === 'ready' ? outcome.results.find((r) => r.service === shown.service)?.outcome : undefined;
+      if (shownResult?.status === 'updated' || (shownResult?.status === 'skipped' && shownResult.code === 'not-in-list')) removeEntry(key);
+      // Bandeau en haut de l'écran (texte complet, y compris les erreurs : session expirée, limite…) : la ligne a pu disparaître
+      setEntryAction(key, null);
+      showNotice(removeFeedback(outcome));
+      scheduleRevalidation();
+    },
+
+    openNotes(entry) {
+      const key = entryKey(entry);
+      if (notes.get()?.key === key) return;
+      notes.set({ key, entry, phase: 'loading' });
+      // Une réponse arrivée après la fermeture (ou l'ouverture sur une autre série) est ignorée
+      const apply = (result: ListNotesResult): void => {
+        if (notes.get()?.key !== key) return;
+        notes.set(result.ok ? { key, entry, phase: 'ready', inList: result.data.inList, notes: result.data.notes } : { key, entry, phase: 'error', message: result.message });
+      };
+      sendMessage('GET_LIST_NOTES', { media: mediaRef(entry) })
+        .catch((error: unknown): ListNotesResult => {
+          log.error('Service worker injoignable :', error);
+          return { ok: false, code: 'NETWORK', message: swUnreachable() };
+        })
+        .then(apply)
+        .catch((error: unknown) => log.error('Commentaire non affiché :', error));
+    },
+
+    closeNotes() {
+      notes.set(null);
+    },
+
+    async saveNotes(entry, text) {
+      const key = entryKey(entry);
+      let outcome: SyncOutcome;
+      try {
+        outcome = await sendMessage('SET_LIST_NOTES', { media: mediaRef(entry), notes: text });
+      } catch (error: unknown) {
+        log.error('Service worker injoignable :', error);
+        outcome = { status: 'error', message: swUnreachable() };
+      }
+      const feedback = notesFeedback(outcome, normalizeListNotes(text) === '');
+      if (feedback.tone !== 'success') {
+        // Échec ou échec partiel : bandeau (texte complet), l'éditeur reste ouvert pour réessayer
+        showNotice({ ...feedback, text: `${entry.title} · ${feedback.text}` });
+        return false;
+      }
+      flashEntryFeedback(key, feedback);
+      return true;
     },
 
     dispose() {

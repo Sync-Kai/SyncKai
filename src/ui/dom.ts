@@ -101,8 +101,14 @@ export function preserveFocus(container: HTMLElement, draw: () => void): void {
     if (el.dataset.focusFallback) fallbacks.push(el.dataset.focusFallback);
   }
   draw();
-  // Élément toujours présent (non recréé) : le focus n'a pas bougé
-  if (!key || active?.isConnected) return;
+  // Élément toujours présent (non recréé) : le focus n'a pas bougé, sauf s'il a été déplacé (élément persistant
+  // réinséré, ex : la zone de texte du commentaire) : il le retrouve, curseur compris
+  if (active?.isConnected) {
+    const lost = document.activeElement === null || document.activeElement === document.body;
+    if (key && lost && active instanceof HTMLElement && container.contains(active)) active.focus({ preventScroll: true });
+    return;
+  }
+  if (!key) return;
   // Focus déjà rendu dans le conteneur (preserveFocus imbriqué)
   const current = document.activeElement;
   if (current instanceof HTMLElement && current !== document.body && container.contains(current)) return;

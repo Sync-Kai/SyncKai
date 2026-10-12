@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../shared/episode.types';
 import type { SyncOutcome } from '../shared/sync.types';
 
-// Routage de EPISODE_COMPLETED : synchro, file de relance et fiche de l'onglet simulées, accès Netflix piloté.
+// Routage de EPISODE_COMPLETED : synchro, file de relance et fiche de l'onglet simulées, accès Netflix / Disney+ piloté.
 const mocks = vi.hoisted(() => ({
-  hasNetflixAccess: vi.fn(),
+  hasPlatformAccess: vi.fn(),
   syncEpisode: vi.fn(),
   recordSyncOutcome: vi.fn(),
   forgetPageResolutions: vi.fn(),
@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 /** Sessions ouvertes au début de la synchro : transmises à la file avec l'épisode */
 const SESSIONS = { anilist: 2, mal: 0 };
 vi.mock('../shared/storage', () => ({ getOpenSessions: async () => SESSIONS }));
-vi.mock('../shared/netflix-access', () => ({ hasNetflixAccess: mocks.hasNetflixAccess }));
+vi.mock('../shared/platform-access', () => ({ hasPlatformAccess: mocks.hasPlatformAccess }));
 vi.mock('./sync/sync-service', () => ({ syncEpisode: mocks.syncEpisode }));
 vi.mock('./sync/queue', () => ({ recordSyncOutcome: mocks.recordSyncOutcome }));
 vi.mock('./page-media', () => ({ forgetPageResolutions: mocks.forgetPageResolutions, refreshTabPageMedia: mocks.refreshTabPageMedia }));
@@ -47,7 +47,7 @@ beforeEach(() => {
 
 describe('EPISODE_COMPLETED — accès Netflix', () => {
   it('Netflix sans la permission (onglet ouvert avant le retrait) → ignoré, sans synchro, file ni fiche', async () => {
-    mocks.hasNetflixAccess.mockResolvedValue(false);
+    mocks.hasPlatformAccess.mockResolvedValue(false);
     expect(await handleEpisodeCompleted({ episode: episode('netflix'), services: null }, 7)).toEqual({ status: 'ignored', noAccess: true });
     expect(mocks.syncEpisode).not.toHaveBeenCalled();
     expect(mocks.recordSyncOutcome).not.toHaveBeenCalled();
@@ -55,7 +55,7 @@ describe('EPISODE_COMPLETED — accès Netflix', () => {
   });
 
   it('Netflix avec la permission → synchronisé et passé à la file', async () => {
-    mocks.hasNetflixAccess.mockResolvedValue(true);
+    mocks.hasPlatformAccess.mockResolvedValue(true);
     const ep = episode('netflix');
     expect(await handleEpisodeCompleted({ episode: ep, services: ['mal'] }, 7)).toEqual(SYNCED);
     expect(mocks.syncEpisode).toHaveBeenCalledWith(ep, ['mal'], SESSIONS);
@@ -63,11 +63,19 @@ describe('EPISODE_COMPLETED — accès Netflix', () => {
     expect(mocks.refreshTabPageMedia).toHaveBeenCalledWith(7, ep);
   });
 
+  it('Disney+ sans la permission → ignoré de même ; la permission lue est celle de Disney+', async () => {
+    mocks.hasPlatformAccess.mockResolvedValue(false);
+    expect(await handleEpisodeCompleted({ episode: episode('disney'), services: null }, 7)).toEqual({ status: 'ignored', noAccess: true });
+    expect(mocks.hasPlatformAccess).toHaveBeenCalledWith('disney');
+    expect(mocks.syncEpisode).not.toHaveBeenCalled();
+    expect(mocks.recordSyncOutcome).not.toHaveBeenCalled();
+  });
+
   it('Crunchyroll et ADN : la permission Netflix n’est jamais lue', async () => {
     for (const platform of ['crunchyroll', 'adn'] as const) {
       expect(await handleEpisodeCompleted({ episode: episode(platform), services: null }, undefined)).toEqual(SYNCED);
     }
-    expect(mocks.hasNetflixAccess).not.toHaveBeenCalled();
+    expect(mocks.hasPlatformAccess).not.toHaveBeenCalled();
     expect(mocks.syncEpisode).toHaveBeenCalledTimes(2);
   });
 });

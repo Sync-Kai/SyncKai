@@ -1,6 +1,6 @@
 // Résumés d'une ligne affichés sous chaque catégorie de l'accueil des Réglages.
 // Fonctions pures (langue active de l'i18n) : testées en fr, en et de.
-import { t, tp, type Locale } from '../../i18n';
+import { getLocale, t, tp, type Locale } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { effectivePlayer, type LanguageSetting, type SyncSettings } from '../../shared/settings';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
@@ -15,7 +15,7 @@ export interface SettingsSummary {
   tone: 'muted' | 'danger';
 }
 
-const PLAYER_NAMES: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix' };
+const PLAYER_NAMES: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix', disney: 'Disney+' };
 /** Langues affichées dans leur propre langue (comme le sélecteur) */
 const LANGUAGE_NAMES: Record<Locale, string> = { fr: 'Français', en: 'English', de: 'Deutsch' };
 /** Libellé court des services (« AniList ✓ · MAL ✓ ») */
@@ -74,6 +74,46 @@ export function dataSummary(mappings: number | null, excluded: number | null): s
 /** « Automatique (Français) » ou le nom de la langue choisie */
 export function languageSummary(setting: LanguageSetting, active: Locale): string {
   return setting === 'auto' ? t('settings.summary.languageAuto', { language: LANGUAGE_NAMES[active] }) : LANGUAGE_NAMES[setting];
+}
+
+/** "Alt+Shift+K" → "Alt+Maj+K" (nom de la touche Maj dans la langue active) */
+export function formatShortcut(shortcut: string): string {
+  return shortcut.replace(/Shift/g, t('settings.shortcut.shiftKey'));
+}
+
+/**
+ * Caractère imprimé sur les touches chiffres en AZERTY (sans Maj), identique en France et en Belgique ; 6 et 8
+ * diffèrent entre les deux (« - » / « § », « _ » / « ! ») : pas d'indication.
+ */
+const AZERTY_DIGIT_CHARS: Readonly<Record<string, string>> = { '1': '&', '2': 'é', '3': '"', '4': "'", '5': '(', '7': 'è', '9': 'ç', '0': 'à' };
+
+/**
+ * Français uniquement : « touche & » pour un raccourci qui se termine par un chiffre (Alt+Shift+1 se tape Alt+Maj+&
+ * en AZERTY, même touche physique). null : autre langue, autre touche.
+ */
+export function azertyKeyHint(shortcut: string): string | null {
+  if (getLocale() !== 'fr') return null;
+  const key = shortcut.split('+').pop() ?? '';
+  const char = AZERTY_DIGIT_CHARS[key];
+  return char === undefined ? null : t('settings.shortcut.azertyKey', { char });
+}
+
+/** Touche mise en forme suivie de son indication AZERTY : « Alt+Maj+1 (touche &) » */
+function formatShortcutWithHint(shortcut: string): string {
+  const hint = azertyKeyHint(shortcut);
+  return hint ? `${formatShortcut(shortcut)} (${hint})` : formatShortcut(shortcut);
+}
+
+/**
+ * « Alt+Maj+K · Alt+Maj+1 (touche &) » (valider l'épisode, puis panneau) ; touche absente nommée (« épisode : non défini ») ;
+ * undefined = en lecture, '' = non défini (voir SettingsData)
+ */
+export function shortcutsSummary(episode: string | undefined, panel: string | undefined): string {
+  if (episode === undefined || panel === undefined) return t('settings.summary.loading');
+  if (!episode && !panel) return t('settings.summary.shortcutsNone');
+  const episodeText = episode ? formatShortcutWithHint(episode) : t('settings.summary.episodeUnset');
+  const panelText = panel ? formatShortcutWithHint(panel) : t('settings.summary.panelUnset');
+  return `${episodeText} · ${panelText}`;
 }
 
 /** « v2.0.0 », précédé du nombre d'erreurs enregistrées s'il y en a */

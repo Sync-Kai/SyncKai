@@ -1,9 +1,9 @@
 import { t } from '../i18n';
-import type { LivePoint, LiveTickMessage } from '../shared/live.types';
+import type { LivePoint, LiveState, LiveTickMessage } from '../shared/live.types';
 
 // Progression en direct (onglet « En lecture ») : fonctions pures dérivées du dernier tick de la page.
 
-export type LiveTone = 'info' | 'success' | 'muted' | 'error';
+export type LiveTone = 'info' | 'success' | 'muted' | 'warning' | 'error';
 
 export interface LiveDisplay {
   /** Ligne principale : compte à rebours ou état */
@@ -43,6 +43,11 @@ export function pointLabel(point: LivePoint, duration: number): string {
   return point.source === 'credits' ? t('panel.live.pointCredits') : t('panel.live.pointRatio', { percent: Math.round((point.seconds / duration) * 100) });
 }
 
+/** États dont le message de la page (raison, erreur) reste affiché tant qu'ils durent */
+export function liveStateKeepsMessage(state: LiveState): boolean {
+  return state === 'error' || state === 'review' || state === 'not-connected';
+}
+
 const clampPercent = (value: number): number => Math.min(100, Math.max(0, value));
 
 export function liveDisplay(tick: LiveTickMessage, message: string | null): LiveDisplay {
@@ -70,6 +75,11 @@ export function liveDisplay(tick: LiveTickMessage, message: string | null): Live
       return status(t('panel.live.excluded'), 'muted');
     case 'no-video':
       return { text: t('panel.live.noVideo'), tone: 'muted', detail: null, announce: t('panel.live.noVideo'), bar: null };
+    case 'review':
+      // Correspondance par titre seul : rien d'écrit, l'utilisateur choisit la fiche (pas un échec)
+      return status(t('panel.live.review'), 'warning', message ?? t('panel.live.reviewHint'));
+    case 'not-connected':
+      return status(t('feedback.notConnected.title'), 'warning', message ?? t('feedback.notConnected.message'));
     case 'error':
       return status(t('panel.live.error'), 'error', message);
     case 'idle':

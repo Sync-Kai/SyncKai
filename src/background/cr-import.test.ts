@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t } from '../i18n';
+import { ADN_HISTORY_VIDEOS } from '../shared/__fixtures__/adn-history';
+import { reduceAdnHistory } from '../shared/adn-import';
+import { onePieceShow, ranmaShow } from '../shared/__fixtures__/netflix-history';
+import { reduceNetflixShow } from '../shared/netflix-import';
 import type { HistorySeason } from '../shared/cr-history';
 import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../shared/cr-import';
 import type { EpisodeInfo } from '../shared/episode.types';
@@ -78,7 +82,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
       tracker.reads++;
       const entry = tracker.entries.get(entryId);
-      return { title: `#${entryId}`, episodes: 24, entry: entry ? { ...entry } : null };
+      return { title: `#${entryId}`, episodes: 24, entry: entry ? { ...entry } : null, notes: null };
     },
     saveProgress: async (entryId, progress, status) => {
       tracker.attempts++;
@@ -93,6 +97,8 @@ function fakeTracker(id: TrackerId): FakeTracker {
     saveScore: () => Promise.reject(new Error('hors test')),
     startRewatch: () => Promise.reject(new Error('hors test')),
     saveEntry: () => Promise.reject(new Error('hors test')),
+    deleteEntry: () => Promise.reject(new Error('hors test')),
+    saveNotes: () => Promise.reject(new Error('hors test')),
   };
   return tracker;
 }
@@ -412,5 +418,103 @@ describe('application (TEST-05, CRI-05)', () => {
     expect(planReads.length).toBeLessThanOrEqual(1 + planWrites.length);
     expect(storedPlan().items.every((i) => i.result?.outcome === 'updated')).toBe(true);
     expect(keysOf(fake.local.peek(STORAGE_KEYS.mediaMappings))).toHaveLength(count + 1);
+  });
+});
+
+// ─── Import ADN (même pipeline) ───────────────────────────────────────────
+
+describe('import ADN', () => {
+  const adnHistory = reduceAdnHistory({ videos: ADN_HISTORY_VIDEOS, stats: { items: ADN_HISTORY_VIDEOS.length, pages: 1, partial: false } }, 85);
+
+  it('analyse avec le résolveur de la synchro ADN : épisode équivalent, clé de saison adn:{série}:s{n}, aperçu ADN', async () => {
+    // Manhwa (série 1290) : aucune fiche sûre → à vérifier, jamais appliquée
+    fakes.resolve.mockImplementation(async (episode) =>
+      episode.seriesId === '1290'
+        ? { result: { ok: false, reason: 'Aucune fiche trouvée' }, candidates: [], seasons: [], seasonGroups: [] }
+        : { result: { ok: true, target: { ...mapping(Number(episode.seriesId)), progress: episode.displayedEpisodeNumber ?? 1, confidence: 'high', reason: 'Lien ADN' } }, candidates: [], seasons: [], seasonGroups: [] },
+    );
+    expect((await startCrAnalyze({ history: adnHistory, platform: 'adn' })).ok).toBe(true);
+    expect(await untilEnded()).toMatchObject({ status: 'done' });
+
+    const episodes = fakes.resolve.mock.calls.map(([episode]) => episode);
+    expect(episodes.map((e) => [e.platform, e.seriesId, e.seriesSlug, e.seasonNumber, e.seasonEpisodeNumber, e.displayedEpisodeNumber])).toEqual([
+      ['adn', '1428', 'even-the-student-council-has-its-holes', 1, 1, 1],
+      ['adn', '1331', 'hero-without-a-class-who-even-needs-skills', 1, 1, 1],
+      ['adn', '1290', 'the-girl-downstairs', 1, 3, 3],
+    ]);
+    const plan = storedPlan();
+    expect(plan.platform).toBe('adn');
+    // Triés par titre de fiche (« Fiche 1331 », « Fiche 1428 »)
+    expect(plan.items.map((i) => [i.mediaId, i.progress, i.mappings.map((m) => m.key)])).toEqual([
+      [1331, 1, ['adn:1331:s1']],
+      [1428, 1, ['adn:1428:s1']],
+    ]);
+    expect(plan.review.map((r) => [r.key, r.episode.platform, r.episode.url])).toEqual([['adn:1290:s1', 'adn', 'https://animationdigitalnetwork.com/video/1290-the-girl-downstairs/27003']]);
+  });
+
+  it('historique ADN vide : message citant ADN, aucune analyse', async () => {
+    const result = await startCrAnalyze({ history: { seasons: [], stats: { items: 2, pages: 1, partial: false } }, platform: 'adn' });
+    expect(result).toEqual({ ok: false, code: 'EMPTY', message: t('crImport.error.empty', { platform: 'ADN' }) });
+    expect(storedJob()).toBeNull();
+  });
+
+  it('entrée sans plateforme (analyse lancée avant l’import ADN) : Crunchyroll', async () => {
+    await startCrAnalyze(history([season(1)]));
+    await untilEnded();
+    expect(fakes.resolve.mock.calls[0]?.[0]).toMatchObject({ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/watch/GE1' });
+    expect(storedPlan().platform).toBe('crunchyroll');
+  });
+});
+
+// ─── Import Netflix (même pipeline, filtre « anime » de la synchro en direct) ─
+
+describe('import Netflix', () => {
+  /** Série qui n'est pas un anime mais porte un titre AniList identique (« À vérifier » en direct), et une ignorée */
+  const other = (showId: string, title: string): HistorySeason => ({
+    seriesId: showId,
+    seriesTitle: title,
+    seriesSlug: null,
+    seasonId: `${showId}-s1`,
+    seasonNumber: 1,
+    seasonTitle: null,
+    episodeId: `${showId}1`,
+    episodeTitle: null,
+    episodeNumber: 2,
+    seasonEpisodeNumber: 2,
+    watchedCount: 2,
+    lastPlayedAt: null,
+    platformSeasons: [8],
+  });
+  const seasons = [...reduceNetflixShow(ranmaShow(), 85), ...reduceNetflixShow(onePieceShow(true), 85), other('81231974', 'Wednesday'), other('80057281', 'Stranger Things')];
+
+  it('épisodes de la page de lecture (clé netflix:{série}:s{n}, numéros absolus, épisodes par saison) ; ignorés comptés, jamais listés', async () => {
+    fakes.resolve.mockImplementation(async (episode) => {
+      if (episode.seriesId === '81231974') return { result: { ok: true, target: { ...mapping(900), progress: 2, confidence: 'low', reason: 'Trouvée par le titre seul' } }, candidates: [], seasons: [], seasonGroups: [] };
+      if (episode.seriesId === '80057281') return { result: { ok: false, reason: 'Aucune fiche', ignored: true }, candidates: [], seasons: [], seasonGroups: [] };
+      return { result: { ok: true, target: { ...mapping(Number(episode.seriesId)), progress: episode.displayedEpisodeNumber ?? 1, confidence: 'high', reason: 'Lien Netflix' } }, candidates: [], seasons: [], seasonGroups: [] };
+    });
+    const input = { seasons, stats: { items: 1901, pages: 95, partial: false, ignored: 110 } };
+    expect((await startCrAnalyze({ history: input, platform: 'netflix' })).ok).toBe(true);
+    expect(await untilEnded()).toMatchObject({ status: 'done' });
+
+    const episodes = fakes.resolve.mock.calls.map(([episode]) => episode);
+    expect(episodes.map((e) => [e.platform, e.seriesId, e.seasonNumber, e.seasonEpisodeNumber, e.displayedEpisodeNumber, e.platformSeasons, e.url])).toEqual([
+      ['netflix', '81301833', 1, 5, 5, [12, 12], 'https://www.netflix.com/watch/81301838'],
+      ['netflix', '80107103', 40, 15, 1170, [61, 25], 'https://www.netflix.com/watch/82000014'],
+      ['netflix', '81231974', 1, 2, 2, [8], 'https://www.netflix.com/watch/812319741'],
+      ['netflix', '80057281', 1, 2, 2, [8], 'https://www.netflix.com/watch/800572811'],
+    ]);
+    const plan = storedPlan();
+    expect(plan.platform).toBe('netflix');
+    expect(plan.items.map((i) => [i.mediaId, i.progress, i.mappings.map((m) => m.key)])).toEqual([
+      [80107103, 1170, ['netflix:80107103:s40']],
+      [81301833, 5, ['netflix:81301833:s1']],
+    ]);
+    // Trouvée par le titre seul : à vérifier (jamais écrite), comme en lecture
+    expect(plan.review.map((r) => r.key)).toEqual(['netflix:81231974:s1']);
+    // 110 titres écartés avant l'analyse + 1 série écartée par le résolveur
+    expect(plan.ignored).toBe(111);
+    expect(plan.excluded).toBe(0);
+    expect(plan.failed).toBe(0);
   });
 });

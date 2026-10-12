@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyMapping,
   linksToOtherSeries,
+  legacySeriesSlugInLink,
   linksToOtherSeriesBySlug,
   mappingFromManualChoice,
   mappingKey,
@@ -324,6 +325,24 @@ describe('fiche écartée sur un ancien slug différent (« other-slug », signa
       ok: true,
       target: { mediaId: 3, confidence: 'low', reason: 'Une fiche liée à une autre série de la plateforme a été écartée : saison à vérifier' },
     });
+  });
+});
+
+describe('legacySeriesSlugInLink', () => {
+  it('slug d’une ancienne page de série, en minuscules', () => {
+    expect(legacySeriesSlugInLink('http://www.crunchyroll.com/Naruto', 'crunchyroll')).toBe('naruto');
+    expect(legacySeriesSlugInLink('https://www.crunchyroll.com/fr/naruto-shippuden-dubs/', 'crunchyroll')).toBe('naruto-shippuden-dubs');
+    expect(legacySeriesSlugInLink('https://animationdigitalnetwork.fr/video/tougen-anki', 'adn')).toBe('tougen-anki');
+  });
+
+  it('null pour un lien avec identifiant, une page d’épisode ou de lecture, un autre site ou Netflix', () => {
+    expect(legacySeriesSlugInLink('https://www.crunchyroll.com/series/GY9VWW3XY/naruto', 'crunchyroll')).toBeNull();
+    expect(legacySeriesSlugInLink('https://www.crunchyroll.com/watch/GR3VWXP96', 'crunchyroll')).toBeNull();
+    expect(legacySeriesSlugInLink('http://www.crunchyroll.com/naruto/episode-1-enter-naruto-uzumaki-123', 'crunchyroll')).toBeNull();
+    expect(legacySeriesSlugInLink('https://animationdigitalnetwork.com/video/999-autre', 'adn')).toBeNull();
+    expect(legacySeriesSlugInLink('https://www.netflix.com/naruto', 'crunchyroll')).toBeNull();
+    expect(legacySeriesSlugInLink('https://www.netflix.com/title/1', 'netflix')).toBeNull();
+    expect(legacySeriesSlugInLink('pas une url', 'crunchyroll')).toBeNull();
   });
 });
 

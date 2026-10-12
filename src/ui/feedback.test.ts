@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { addFeedback, adjustFeedback, ratingFeedback, statusFeedback } from './feedback';
+import { addFeedback, adjustFeedback, notesFeedback, ratingFeedback, removeFeedback, statusFeedback } from './feedback';
 import { setLocale } from '../i18n';
+import type { SyncOutcome } from '../shared/sync.types';
 
 // Textes attendus en français
 setLocale('fr');
@@ -114,5 +115,54 @@ describe('adjustFeedback', () => {
     expect(adjustFeedback({ status: 'error', message: 'Hors ligne' }, 1, again)).toMatchObject({ tone: 'error', retry: again });
     // Succès complet : plus de bouton
     expect(adjustFeedback({ status: 'synced', mediaTitle: 'F', results: [{ service: 'mal', outcome: { status: 'updated', progress: 8, completed: false } }] }, 1, again)).not.toHaveProperty('retry');
+  });
+});
+
+describe('removeFeedback (« Retirer de la liste »)', () => {
+  const removed = { status: 'updated', progress: 0, completed: false } as const;
+  const absent = { status: 'skipped', reason: 'Absente de ta liste', code: 'not-in-list' } as const;
+
+  it('retirée : titre nommé ; échec partiel : service nommé', () => {
+    expect(removeFeedback({ status: 'synced', mediaTitle: 'Frieren', results: [{ service: 'anilist', outcome: removed }, { service: 'mal', outcome: absent }] })).toMatchObject({
+      tone: 'success',
+      text: 'Frieren : retirée de ta liste',
+    });
+    expect(
+      removeFeedback({ status: 'synced', mediaTitle: 'Frieren', results: [{ service: 'anilist', outcome: removed }, { service: 'mal', outcome: { status: 'error', message: 'Réseau' } }] }),
+    ).toMatchObject({ tone: 'warning', text: 'Frieren : retirée de ta liste · échec MyAnimeList' });
+  });
+
+  it('rien retiré : erreur du service affichée telle quelle (session expirée, limite), sinon « Absente de ta liste »', () => {
+    const expired = { status: 'error', message: 'Session AniList expirée.', code: 'TOKEN_INVALID' } as const;
+    expect(removeFeedback({ status: 'synced', mediaTitle: 'Frieren', results: [{ service: 'anilist', outcome: expired }] })).toMatchObject({
+      tone: 'error',
+      text: 'AniList : Session AniList expirée.',
+    });
+    expect(removeFeedback({ status: 'synced', mediaTitle: 'Frieren', results: [{ service: 'anilist', outcome: absent }] })).toMatchObject({ tone: 'warning', text: 'Absente de ta liste' });
+    expect(removeFeedback({ status: 'error', message: 'Service worker injoignable' })).toMatchObject({ tone: 'error', text: 'Service worker injoignable' });
+  });
+});
+
+describe('notesFeedback (commentaire)', () => {
+  it('enregistré ou effacé ; déjà identique compte comme enregistré', () => {
+    const synced = (status: 'updated' | 'up-to-date'): SyncOutcome => ({
+      status: 'synced',
+      mediaTitle: 'Frieren',
+      results: [{ service: 'anilist', outcome: status === 'updated' ? { status, progress: 3, completed: false } : { status, progress: 3 } }],
+    });
+    expect(notesFeedback(synced('updated'), false)).toMatchObject({ tone: 'success', text: 'Commentaire enregistré' });
+    expect(notesFeedback(synced('up-to-date'), true)).toMatchObject({ tone: 'success', text: 'Commentaire effacé' });
+  });
+
+  it('absente de toutes les listes : rien n’est ajouté ; échec : erreur du service', () => {
+    const absent = { status: 'skipped', reason: 'Absente de ta liste', code: 'not-in-list' } as const;
+    expect(notesFeedback({ status: 'synced', mediaTitle: 'Frieren', results: [{ service: 'mal', outcome: absent }] }, false)).toMatchObject({
+      tone: 'warning',
+      text: 'Ajoute la série à ta liste pour la commenter.',
+    });
+    expect(notesFeedback({ status: 'synced', mediaTitle: 'Frieren', results: [{ service: 'mal', outcome: { status: 'error', message: 'Trop de requêtes.' } }] }, false)).toMatchObject({
+      tone: 'error',
+      text: 'MyAnimeList : Trop de requêtes.',
+    });
   });
 });

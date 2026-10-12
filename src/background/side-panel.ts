@@ -1,43 +1,63 @@
-import { disableSidePanelGlobally, enableSidePanelForTab } from '../shared/side-panel';
+import { enableSidePanelGlobally, getChromeSidePanel, openSidePanel } from '../shared/side-panel';
 import { createLogger } from '../shared/logger';
-import { isTargetPage } from '../shared/target-pages';
+import { PANEL_TOGGLE_MESSAGE, type PanelToggleMessage } from '../shared/panel-toggle';
 
 const log = createLogger('side-panel');
 
-/** Expéditeur minimal d'un message (sous-ensemble de chrome.runtime.MessageSender, testable) */
-export interface PanelSender {
-  url?: string;
-  frameId?: number;
-  tab?: { id?: number };
+/** Onglet transmis par `commands.onCommand` (sous-ensemble de chrome.tabs.Tab, testable) */
+export interface CommandTab {
+  windowId?: number;
 }
 
 /**
- * Onglet à équiper du panneau : cadre principal d'une page Crunchyroll / ADN, sinon null.
- * `sender.url` est fourni pour un script de contenu sans permission "tabs".
+ * Suite donnée au raccourci du panneau :
+ * - `opened` : panneau ouvert dans la fenêtre de l'onglet (ou laissé ouvert, puis fermé par lui-même) ;
+ * - `unavailable` : pas d'onglet (donc pas de fenêtre), ou pas d'API `chrome.sidePanel`.
  */
-export function panelTabFromSender(sender: PanelSender, patterns?: readonly string[]): number | null {
-  const tabId = sender.tab?.id;
-  if (tabId === undefined || tabId < 0 || sender.frameId !== 0) return null;
-  return isTargetPage(sender.url, patterns) ? tabId : null;
+export type PanelCommandResult = 'opened' | 'unavailable';
+
+export interface PanelCommandOptions {
+  /** Instant de la commande, pris à l'entrée du gestionnaire */
+  commandAt?: number;
+  /** Diffusion de l'avis aux pages de l'extension (tests) */
+  notify?: (message: PanelToggleMessage) => void;
+}
+
+/** Avis aux pages : aucun destinataire (panneau fermé) → rejet ignoré */
+function broadcastToggle(message: PanelToggleMessage): void {
+  chrome.runtime.sendMessage(message).catch((error: unknown) => log.debug('Raccourci du panneau : aucun panneau ouvert', error));
 }
 
 /**
- * PANEL_AVAILABLE : le script de contenu se signale une fois par chargement de page (pas à chaque
- * navigation SPA : l'option par onglet reste en place tant que l'onglet existe ou qu'on ne la retire pas).
+ * Raccourci « Ouvrir ou fermer le panneau latéral » (Chrome, Brave), sur n'importe quel onglet. Ouverture entièrement
+ * synchrone : `sidePanel.open()` exige le geste utilisateur de la commande, perdu au premier `await` (Chrome refuse
+ * alors l'ouverture). Panneau global : il s'ouvre dans la fenêtre de l'onglet et la page suit l'onglet actif.
+ *
+ * Fermeture : le service worker ne sait pas si le panneau est ouvert (état perdu à chaque mise en veille). `open()` sur un
+ * panneau ouvert ne fait rien ; une fois `open()` terminé (ou refusé), l'avis SIDE_PANEL_TOGGLE est diffusé avec la
+ * fenêtre visée et le panneau de cette fenêtre qui existait avant la commande se ferme lui-même (sidepanel/toggle.ts).
+ * Aucun état, aucune course : la fermeture suit toujours l'ouverture, jamais l'inverse.
  */
-export async function enablePanelForSender(sender: chrome.runtime.MessageSender): Promise<null> {
-  const tabId = panelTabFromSender(sender);
-  if (tabId === null) return null;
-  try {
-    await enableSidePanelForTab(tabId);
-  } catch (error: unknown) {
-    // Onglet fermé entre-temps : rien à faire
-    log.debug('Panneau non activé pour l’onglet', tabId, error);
+export function togglePanelFromCommand(tab: CommandTab | undefined, options: PanelCommandOptions = {}): PanelCommandResult {
+  const { commandAt = Date.now(), notify = broadcastToggle } = options;
+  const windowId = tab?.windowId;
+  if (!getChromeSidePanel() || windowId === undefined || windowId < 0) {
+    log.debug('Raccourci du panneau : aucune fenêtre ou panneau indisponible');
+    return 'unavailable';
   }
-  return null;
+  const settled = (): void => notify({ type: PANEL_TOGGLE_MESSAGE, windowId, commandAt });
+  const refused = (error: unknown): void => {
+    log.debug('Raccourci du panneau : ouverture refusée pour la fenêtre', windowId, error);
+    settled();
+  };
+  openSidePanel({ windowId }).then(settled, refused);
+  return 'opened';
 }
 
-/** Installation / démarrage : panneau du manifeste indisponible partout (activé ensuite onglet par onglet) */
+/**
+ * Installation, mise à jour, démarrage : panneau disponible partout (option globale). Annule la désactivation globale
+ * des versions qui le réservaient aux pages de streaming.
+ */
 export function resetSidePanel(): void {
-  disableSidePanelGlobally().catch((error: unknown) => log.warn('Désactivation globale du panneau impossible :', error));
+  enableSidePanelGlobally().catch((error: unknown) => log.warn('Activation globale du panneau impossible :', error));
 }

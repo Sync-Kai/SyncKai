@@ -213,6 +213,8 @@ export function weekKeysToPrune(keys: readonly string[], now: number): string[] 
 /** Série en cours, fusionnée entre AniList et MyAnimeList par fiche AniList */
 export interface AgendaSeries {
   mediaId: number;
+  /** Fiche MyAnimeList (lien du titre quand MyAnimeList est préférée), null si inconnue */
+  malId: number | null;
   /** Progression la plus avancée des deux services */
   progress: number;
   title: string;
@@ -242,6 +244,7 @@ export function mergeWatchingSeries(
     const platforms = mergePlatformLinks(previous?.platforms ?? [], entry.platforms);
     series.set(mediaId, {
       mediaId,
+      malId: previous?.malId ?? entry.malId,
       progress: Math.max(entry.progress, previous?.progress ?? 0),
       title: previous?.title ?? entry.title,
       coverUrl: previous?.coverUrl ?? entry.coverUrl,
@@ -283,6 +286,7 @@ export function estimateRelease(airingAt: number, platform: StreamingPlatform | 
 export interface AgendaRow {
   scheduleId: number;
   mediaId: number;
+  malId: number | null;
   episode: number;
   /** Diffusion japonaise (UNIX secondes) */
   airingAt: number;
@@ -334,6 +338,7 @@ export function buildAgendaDays(
     day.rows.push({
       scheduleId: schedule.scheduleId,
       mediaId: schedule.mediaId,
+      malId: info.malId,
       episode: schedule.episode,
       airingAt: schedule.airingAt,
       title: schedule.title || info.title,

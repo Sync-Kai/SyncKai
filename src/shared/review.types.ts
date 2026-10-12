@@ -24,7 +24,15 @@ export interface PendingReview {
   previous: { mediaId: number; title: string; progress: number } | null;
   /** Correction : sessions de la synchro corrigée, seules à pouvoir être corrigées (absent : vérification simple) */
   epochs?: SessionEpochs;
+  /** Correction : épisode vu pendant que la carte attend, appliqué après la décision (validée ou ignorée) */
+  deferred?: DeferredEpisode;
   createdAt: number;
+}
+
+/** Épisode mis de côté pendant une correction, avec les sessions de sa synchro (rejoué seulement sur elles) */
+export interface DeferredEpisode {
+  episode: EpisodeInfo;
+  epochs: SessionEpochs;
 }
 
 /** Synchronisation effectuée, corrigeable depuis le popup. */
@@ -32,6 +40,8 @@ export interface RecentSync {
   key: string;
   episode: EpisodeInfo;
   mediaId: number;
+  /** Fiche MyAnimeList de la fiche AniList (lien du titre), null sans équivalent ; absent : antérieure à son ajout */
+  malId?: number | null;
   mediaTitle: string;
   progress: number;
   syncedAt: number;
@@ -58,6 +68,26 @@ function isMediaProgress(value: unknown): value is { mediaId: number; progress: 
   return isRecord(value) && typeof value.mediaId === 'number' && typeof value.progress === 'number';
 }
 
+function isDeferredEpisode(value: unknown): value is DeferredEpisode {
+  return isRecord(value) && isEpisodeInfo(value.episode) && isSessionEpochs(value.epochs);
+}
+
+/** Numéro de l'épisode mis de côté (affiché, sinon dans la saison) ; null si inconnu */
+function deferredNumber({ episode }: DeferredEpisode): number | null {
+  return episode.displayedEpisodeNumber ?? episode.seasonEpisodeNumber;
+}
+
+/**
+ * Épisode à garder de côté sur une correction (pur) : le plus avancé ; à numéro égal ou inconnu, le plus récent.
+ * Revoir un épisode antérieur pendant l'attente ne remplace donc pas l'épisode le plus loin.
+ */
+export function keepDeferred(current: DeferredEpisode | undefined, next: DeferredEpisode): DeferredEpisode {
+  if (current === undefined) return next;
+  const before = deferredNumber(current);
+  const after = deferredNumber(next);
+  return before !== null && after !== null && before > after ? current : next;
+}
+
 function isPreviousSync(value: unknown): value is { mediaId: number; title: string; progress: number } {
   return isRecord(value) && typeof value.mediaId === 'number' && typeof value.progress === 'number' && typeof value.title === 'string';
 }
@@ -73,6 +103,7 @@ export function isPendingReview(value: unknown): value is PendingReview {
     value.candidates.every(isCandidateSummary) &&
     (value.previous === null || isPreviousSync(value.previous)) &&
     (value.epochs === undefined || isSessionEpochs(value.epochs)) &&
+    (value.deferred === undefined || isDeferredEpisode(value.deferred)) &&
     typeof value.createdAt === 'number'
   );
 }
@@ -83,6 +114,7 @@ export function isRecentSync(value: unknown): value is RecentSync {
     typeof value.key === 'string' &&
     isEpisodeInfo(value.episode) &&
     typeof value.mediaId === 'number' &&
+    (value.malId === undefined || isNullableNumber(value.malId)) &&
     typeof value.mediaTitle === 'string' &&
     typeof value.progress === 'number' &&
     typeof value.syncedAt === 'number' &&

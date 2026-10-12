@@ -38,6 +38,9 @@ export function pageMediaFromSeries(platform: StreamingPlatform, series: SeriesP
     seasonNumber: seasonOrNull(series.seasonNumber),
     seasonTitle: clamp(series.seasonTitle),
     seasonEpisodeCount: countOrNull(series.seasonEpisodeCount ?? null),
+    ...(series.catalogAnime !== undefined ? { catalogAnime: series.catalogAnime } : {}),
+    ...(series.platformSeasons !== undefined ? { platformSeasons: series.platformSeasons } : {}),
+    ...(series.seasonFirstEpisode !== undefined ? { seasonFirstEpisode: series.seasonFirstEpisode } : {}),
     episode: null,
   };
 }

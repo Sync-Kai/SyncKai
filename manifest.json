@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_extName__",
   "default_locale": "en",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "__MSG_extDescription__",
   "minimum_chrome_version": "116",
   "icons": {
@@ -22,12 +22,15 @@
   ],
   "host_permissions": [
     "*://*.crunchyroll.com/*",
+    "*://animationdigitalnetwork.com/*",
+    "*://*.animationdigitalnetwork.com/*",
     "https://graphql.anilist.co/*",
     "https://myanimelist.net/*",
     "https://api.myanimelist.net/*"
   ],
   "optional_host_permissions": [
-    "*://*.netflix.com/*"
+    "*://*.netflix.com/*",
+    "*://*.disneyplus.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https://s4.anilist.co https://cdn.myanimelist.net https://api-cdn.myanimelist.net"
@@ -54,7 +57,8 @@
         "<dynamic_resource>"
       ],
       "matches": [
-        "*://*.netflix.com/*"
+        "*://*.netflix.com/*",
+        "*://*.disneyplus.com/*"
       ]
     }
   ],
@@ -71,9 +75,15 @@
   "commands": {
     "complete-episode": {
       "suggested_key": {
-        "default": "Alt+Shift+S"
+        "default": "Alt+Shift+K"
       },
       "description": "__MSG_cmdCompleteEpisode__"
+    },
+    "open-side-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+1"
+      },
+      "description": "__MSG_cmdOpenSidePanel__"
     }
   }
 }

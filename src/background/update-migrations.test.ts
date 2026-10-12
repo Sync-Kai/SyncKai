@@ -11,6 +11,10 @@ import type { MediaMapping } from '../shared/sync.types';
 import { revealToken } from '../test/tokens';
 import { compareVersions, runUpdateMigrations } from './update-migrations';
 
+// Purge des correspondances vers une autre série (réseau) : testée dans sync/mapping-purge.test.ts
+const purge = vi.hoisted(() => ({ markOtherSeriesPurgePending: vi.fn(async () => undefined), runPendingOtherSeriesPurge: vi.fn(async () => undefined) }));
+vi.mock('./sync/mapping-purge', () => purge);
+
 // chrome.storage.local minimal et verrou Web Locks en file (comme navigator.locks : une tâche à la fois)
 let store: Record<string, unknown> = {};
 vi.stubGlobal('chrome', {
@@ -39,6 +43,8 @@ const mappingKeys = (): string[] => {
 
 beforeEach(() => {
   request.mockClear();
+  purge.markOtherSeriesPurgePending.mockClear();
+  purge.runPendingOtherSeriesPurge.mockClear();
   store = {
     [STORAGE_KEYS.mediaMappings]: {
       'netflix:80987039:s1': mapping(1),
@@ -189,5 +195,26 @@ describe('runUpdateMigrations : tokens chiffrés (SEC-01)', () => {
   it('depuis la 2.2.0 : rien n’est réécrit', async () => {
     await runUpdateMigrations('2.2.0');
     expect(store).toEqual({ anilistToken: ANILIST, malToken: MAL });
+  });
+});
+
+describe('runUpdateMigrations : correspondances vers une autre série (SYNC-01)', () => {
+  it('depuis la 2.2.x : purge marquée en attente, puis lancée', async () => {
+    await runUpdateMigrations('2.2.0');
+    expect(purge.markOtherSeriesPurgePending).toHaveBeenCalledOnce();
+    expect(purge.runPendingOtherSeriesPurge).toHaveBeenCalledOnce();
+    expect(purge.markOtherSeriesPurgePending.mock.invocationCallOrder[0]).toBeLessThan(purge.runPendingOtherSeriesPurge.mock.invocationCallOrder[0] ?? 0);
+  });
+
+  it('depuis la 2.3.0 : pas de nouvelle purge, mais une purge restée en échec est retentée', async () => {
+    await runUpdateMigrations('2.3.0');
+    expect(purge.markOtherSeriesPurgePending).not.toHaveBeenCalled();
+    expect(purge.runPendingOtherSeriesPurge).toHaveBeenCalledOnce();
+  });
+
+  it('version précédente inconnue : rien', async () => {
+    await runUpdateMigrations(undefined);
+    expect(purge.markOtherSeriesPurgePending).not.toHaveBeenCalled();
+    expect(purge.runPendingOtherSeriesPurge).not.toHaveBeenCalled();
   });
 });

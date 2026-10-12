@@ -1,6 +1,12 @@
 import type { EpisodeInfo, StreamingPlatform } from '../../shared/episode.types';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 
+/** Position et durée de lecture (s) */
+export interface PlaybackTime {
+  currentTime: number;
+  duration: number;
+}
+
 /**
  * Contrat commun à toutes les plateformes (Crunchyroll, ADN…).
  * Toute la logique spécifique au DOM/URL d'un site est isolée dans son adapter.
@@ -23,6 +29,20 @@ export interface StreamingAdapter {
    */
   detectSeries(url: URL): SeriesPageInfo | null;
 
+  /**
+   * Page de série dont les métadonnées arrivent de façon asynchrone (pont du monde MAIN : Netflix, Disney+) ; null hors
+   * page de série, si elles sont indisponibles ou si `signal` est annulé. Optionnel : appelé par la réponse à
+   * GET_PAGE_MEDIA seulement quand `detectSeries` (lecture du cache) ne donne rien, dans un délai borné.
+   */
+  loadSeries?(url: URL, signal: AbortSignal): Promise<SeriesPageInfo | null>;
+
+  /**
+   * Page de série : surveille la saison choisie dans le menu de la page (le site ne change pas l'URL) et appelle
+   * `onChange` à chaque changement ; retourne l'arrêt, null hors page de série. Posé seulement tant qu'un panneau latéral
+   * est connecté (voir lib/season-watch.ts). Optionnel : sans implémentation, le panneau suit les changements d'URL.
+   */
+  watchSeason?(url: URL, onChange: () => void): (() => void) | null;
+
   /** Retourne l'élément <video> du lecteur s'il est présent */
   findVideo(): HTMLVideoElement | null;
 
@@ -40,7 +60,15 @@ export interface StreamingAdapter {
   loadEpisodeInfo?(episodeId: string, signal: AbortSignal): Promise<EpisodeInfo | null>;
 
   /**
-   * Catalogue généraliste (Netflix) : la plupart des vidéos ne sont pas des animes. Ni toast
+   * Position et durée de lecture (s) si la <video> ne les donne pas de façon fiable (Disney+ : `duration` vaut
+   * Infinity ou NaN, la position est lue dans la barre de progression du lecteur). Null si indisponibles pour
+   * l'instant. Optionnel : sans implémentation, `currentTime` et `duration` de la <video> font foi.
+   * Lue à chaque `timeupdate` de la <video> (et par la progression en direct du panneau) : doit rester légère.
+   */
+  readPlayback?(video: HTMLVideoElement): PlaybackTime | null;
+
+  /**
+   * Catalogue généraliste (Netflix, Disney+) : la plupart des vidéos ne sont pas des animes. Ni toast
    * « Synchronisation… » ni toast « épisode non identifié » ; une série ignorée n'est plus renvoyée.
    */
   readonly quiet?: boolean;

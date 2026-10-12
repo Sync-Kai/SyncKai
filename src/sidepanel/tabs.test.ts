@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialPanelTab, isPanelTab, isTabEntering, nextTabIndex, PANEL_TABS, type PanelTab } from './tabs';
+import { followPageContext, initialPanelTab, isPanelTab, isTabEntering, nextTabIndex, PANEL_TABS, type PanelTab } from './tabs';
 
 describe('nextTabIndex', () => {
   it('flèches en boucle', () => {
@@ -59,5 +59,24 @@ describe('isTabEntering', () => {
     expect(isTabEntering('agenda', 'agenda')).toBe(false);
     expect(isTabEntering('nowPlaying', 'agenda')).toBe(true);
     expect(isTabEntering(null, 'agenda')).toBe(true);
+  });
+});
+
+describe('followPageContext', () => {
+  it('hors page de streaming : « En lecture » cède la place à l’Agenda (choix automatique)', () => {
+    expect(followPageContext({ tab: 'nowPlaying', auto: false }, false)).toEqual({ tab: 'agenda', auto: true });
+  });
+
+  it('retour sur une page de streaming : « En lecture » revient si l’Agenda était automatique', () => {
+    expect(followPageContext({ tab: 'agenda', auto: true }, true)).toEqual({ tab: 'nowPlaying', auto: false });
+  });
+
+  it('Agenda choisi par l’utilisateur ou par le réglage : conservé partout', () => {
+    expect(followPageContext({ tab: 'agenda', auto: false }, true)).toEqual({ tab: 'agenda', auto: false });
+    expect(followPageContext({ tab: 'agenda', auto: false }, false)).toEqual({ tab: 'agenda', auto: false });
+  });
+
+  it('page de streaming sur « En lecture » : inchangé', () => {
+    expect(followPageContext({ tab: 'nowPlaying', auto: false }, true)).toEqual({ tab: 'nowPlaying', auto: false });
   });
 });

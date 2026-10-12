@@ -7,7 +7,7 @@ import { kanaLabel } from '../../ui/kit';
 interface HeaderProps {
   isSettings: boolean;
   onSettings: () => void;
-  /** « Ouvrir le panneau » : null hors Crunchyroll / ADN ou navigateur sans panneau latéral */
+  /** « Ouvrir le panneau » : null sans panneau latéral (navigateur) ou onglet actif inconnu */
   onOpenPanel: (() => void) | null;
 }
 

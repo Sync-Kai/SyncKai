@@ -4,6 +4,7 @@
 import type { Browser, Page } from 'puppeteer';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
+import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
 import { launchBrowser, startHarnessServer, type HarnessServer } from '../screenshots/harness';
 import type { SentMessage } from '../screenshots/mock-chrome';
 import type { PanelFrameParams } from './protocol';
@@ -100,6 +101,60 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await page.$(`[aria-label="${fr('panel.nowPlaying.loading')}"]`)).toBeNull();
   });
 
+  it('« Ta progression » : commentaire replié, « Enregistrer » envoie SET_LIST_NOTES (rien à la frappe), aperçu du texte relu', async () => {
+    const page = await openPanel({ hold: 'SET_LIST_NOTES' });
+    const toggle = '[data-focus="panel-notes-toggle"]';
+    await page.waitForSelector(toggle);
+    expect(await page.$eval(toggle, (el) => el.textContent ?? '')).toContain(fr('notes.add'));
+
+    await page.locator(toggle).click();
+    await page.waitForSelector('[data-focus="panel-notes-input"]');
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('panel-notes-input');
+    await page.type('[data-focus="panel-notes-input"]', 'Superbe arc');
+    expect(await messages(page, 'SET_LIST_NOTES')).toEqual([]);
+
+    await page.locator('[data-focus="panel-notes-save"]').click();
+    await waitForMessages(page, 'SET_LIST_NOTES', 1);
+    const [message] = await messages(page, 'SET_LIST_NOTES');
+    expect(message?.payload).toMatchObject({ media: { mediaId: 154587 }, notes: 'Superbe arc' });
+    // Enregistrement en cours : bouton occupé, la saisie reste en place
+    expect(await page.$eval('[data-focus="panel-notes-save"]', (el) => el.getAttribute('aria-busy'))).toBe('true');
+    await hold.release(page, 'SET_LIST_NOTES');
+
+    // Enregistré : éditeur replié, aperçu du commentaire relu (RESOLVE_PAGE_MEDIA sans cache), retour affiché
+    await page.waitForFunction((s: string) => document.querySelector(s)?.textContent?.includes('Superbe arc') === true, {}, toggle);
+    await page.waitForFunction((label: string) => document.body.textContent?.includes(label) === true, {}, fr('inline.notesSaved'));
+  });
+
+  it('« Ta progression » : menu « ⋯ » → « Retirer de la liste » confirmé → REMOVE_FROM_LIST, la carte propose l’ajout', async () => {
+    const page = await openPanel({});
+    await page.waitForSelector('[data-focus="more-panel"]');
+    await page.locator('[data-focus="more-panel"]').click();
+    await page.waitForSelector('[data-focus="REMOVE-panel"]');
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('REMOVE-panel');
+
+    await page.locator('[data-focus="REMOVE-panel"]').click();
+    await page.waitForSelector('[data-focus="confirm-no-panel"]');
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('confirm-no-panel');
+    // Échap annule la confirmation, le menu reste ouvert
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-focus="REMOVE-panel"]');
+    expect(await messages(page, 'REMOVE_FROM_LIST')).toEqual([]);
+
+    await page.locator('[data-focus="REMOVE-panel"]').click();
+    await page.locator('[data-focus="confirm-yes-panel"]').click();
+    await waitForMessages(page, 'REMOVE_FROM_LIST', 1);
+    const [message] = await messages(page, 'REMOVE_FROM_LIST');
+    expect(message?.payload).toMatchObject({ media: { mediaId: 154587, title: 'Frieren: Beyond Journey’s End' } });
+
+    // Fiche relue : absente des listes → boutons d'ajout, plus de menu « ⋯ », commentaire indisponible (expliqué)
+    await page.waitForSelector('[data-focus="page-add-PLANNING"]');
+    expect(await page.$('[data-focus="more-panel"]')).toBeNull();
+    expect(await page.$eval('[data-focus="panel-notes-toggle"]', (el) => (el as HTMLButtonElement).disabled)).toBe(true);
+    expect(await page.evaluate(() => document.body.textContent ?? '')).toContain(fr('notes.notInList'));
+    await page.waitForFunction((label: string) => document.body.textContent?.includes(label) === true, {}, fr('inline.removed', { title: 'Frieren' }));
+  });
+
   it('UI-02 : +1 puis épisode d’une autre série avant la réponse → la fiche de la nouvelle page reste affichée', async () => {
     const page = await openPanel({ hold: 'ADJUST_PROGRESS' });
     await page.waitForSelector('[data-focus="page-plus"]:not([disabled])');
@@ -123,6 +178,30 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await page.$('[data-focus="page-plus"][aria-busy="true"]')).toBeNull();
   });
 
+  it('« En lecture » : titre, jaquette et relations ouvrent la fiche (AniList par défaut, MyAnimeList avec le réglage)', async () => {
+    const page = await openPanel({});
+    const title = '[role="tabpanel"] h2 a[data-focus="panel-entry"]';
+    const href = (selector: string): Promise<string | null> => page.$eval(selector, (a) => a.getAttribute('href'));
+    await page.waitForSelector(title);
+    await page.waitForSelector('[data-focus="relation-entry-182255"]');
+    expect(await href(title)).toBe('https://anilist.co/anime/154587');
+    expect(await page.$eval(title, (a) => a.getAttribute('aria-label'))).toBe(fr('entry.openAria', { title: 'Frieren: Beyond Journey’s End', service: 'AniList' }));
+    // Jaquette : même lien, hors tabulation
+    expect(await page.$eval('[role="tabpanel"] a[aria-hidden="true"][tabindex="-1"]', (a) => a.getAttribute('href'))).toBe('https://anilist.co/anime/154587');
+    expect(await href('[data-focus="relation-entry-182255"]')).toBe('https://anilist.co/anime/182255');
+
+    await page.evaluate(async (key: string) => {
+      const current: unknown = (await chrome.storage.local.get(key))[key];
+      await chrome.storage.local.set({ [key]: { ...(typeof current === 'object' && current !== null ? current : {}), entryService: 'mal' } });
+    }, SETTINGS_STORAGE_KEY);
+    await page.waitForFunction((s: string) => document.querySelector(s)?.getAttribute('href') === 'https://myanimelist.net/anime/52991', {}, title);
+    expect(await href('[data-focus="relation-entry-182255"]')).toBe('https://myanimelist.net/anime/59978');
+    // Relation sans fiche MyAnimeList connue : repli sur AniList
+    expect(await href('[data-focus="relation-entry-170068"]')).toBe('https://anilist.co/anime/170068');
+    // Lien AniList de « Discussion » conservé
+    expect(await page.$('[role="tabpanel"] a[href="https://anilist.co/anime/154587"]')).not.toBeNull();
+  });
+
   it('UI-03 : GET_AGENDA en échec pendant un rendu du panneau → « données périmées » et Réessayer restent affichés', async () => {
     const page = await openPanel({ tab: 'agenda', agenda: 'error', hold: 'GET_AGENDA' });
     await waitForMessages(page, 'GET_AGENDA', 1);
@@ -141,14 +220,48 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await messages(page, 'GET_AGENDA')).toHaveLength(1);
   });
 
-  it('UX-05 : hors page cible, la ligne neutre cite Netflix selon l’accès (et le vrai chemin des Réglages)', async () => {
-    const off = await openPanel({ site: 'other' });
-    const offText = fr('panel.offTarget', { path: `${fr('nav.settings')} › ${fr('settings.cat.sync')}` });
+  it('hors page de streaming : onglets affichés, Agenda par défaut, « En lecture » montre la ligne neutre et « Activer … »', async () => {
+    const page = await openPanel({ site: 'other' });
+    await page.waitForSelector('[role="tablist"]');
+    await page.waitForSelector('#sk-tab-agenda[aria-selected="true"]');
+    expect(await page.$eval('#sk-tab-nowPlaying', (el) => el.getAttribute('aria-selected'))).toBe('false');
+    expect(await page.$eval('[role="tabpanel"]', (el) => el.id)).toBe('sk-tabpanel-agenda');
+    expect(await page.$('[data-off-target]')).toBeNull();
+    // Choix automatique, jamais mémorisé comme « dernier onglet » (« En lecture » revient sur une page de streaming)
+    expect(await page.evaluate(async () => (await chrome.storage.local.get('panelLastTab')).panelLastTab)).toBe('nowPlaying');
+
+    await page.locator('#sk-tab-nowPlaying').click();
+    await page.waitForSelector('[role="tabpanel"] [data-off-target]');
+    const notice = await page.$eval('[data-off-target]', (el) => el.textContent ?? '');
+    expect(notice).toContain(fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' }));
+    expect(await page.$$eval('[data-off-target] [data-enable-platform]', (buttons) => buttons.map((button) => button.getAttribute('data-enable-platform')))).toEqual([
+      'netflix',
+      'disney',
+    ]);
+    // Aucune fiche demandée hors page de streaming
+    expect(await messages(page, 'RESOLVE_PAGE_MEDIA')).toEqual([]);
+  });
+
+  it('UX-05 : hors page cible, la ligne neutre cite les plateformes suivies, puis celles à activer (et le vrai chemin des Réglages)', async () => {
+    const path = `${fr('nav.settings')} › ${fr('settings.cat.sync')}`;
+    const off = await openPanel({ site: 'other', tab: 'nowPlaying' });
+    await off.locator('#sk-tab-nowPlaying').click();
+    const offText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' })} ${fr('panel.offTargetEnable', { platforms: 'Netflix et Disney+', path })}`;
     await off.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, offText);
 
     const granted = await openPanel({ site: 'other', netflix: 'granted' });
-    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetNetflix'));
+    // Agenda par défaut hors page de streaming : la ligne neutre est dans l'onglet « En lecture »
+    await granted.locator('#sk-tab-nowPlaying').click();
+    // Netflix accordé, Disney+ non : Netflix rejoint les plateformes suivies, Disney+ reste cité comme à activer
+    const grantedText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' })} ${fr('panel.offTargetEnable', { platforms: 'Disney+', path })}`;
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, grantedText);
     expect(await granted.evaluate(() => document.body.textContent ?? '')).not.toContain(offText);
+
+    // Bouton « Activer Disney+ » : demande d'accès directe, la ligne cite ensuite les quatre plateformes, sans bouton
+    expect(await granted.$$eval('[data-enable-platform]', (buttons) => buttons.map((button) => button.getAttribute('data-enable-platform')))).toEqual(['disney']);
+    await granted.locator('[data-enable-platform="disney"]').click();
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN, Netflix et Disney+' }));
+    expect(await granted.$$('[data-enable-platform]')).toHaveLength(0);
   });
 
   it('UI-05 : Entrée sur un délai vide ne l’enregistre pas (0 min) : champ signalé invalide, éditeur ouvert', async () => {
@@ -172,5 +285,21 @@ describe('panneau latéral (bout en bout)', () => {
       return typeof settings === 'object' && settings !== null && 'seriesOffsets' in settings ? settings.seriesOffsets : null;
     });
     expect(offsets).toEqual({});
+  });
+
+  it('Réglages › Raccourcis (vue partagée avec le popup) : résumé de l’accueil et touches actuelles', async () => {
+    const page = await openPanel({});
+    await page.locator('[data-focus="gear"]').click();
+    const row = '[data-focus="settings-cat-shortcuts"]';
+    await page.waitForFunction((s: string) => document.querySelector(s)?.textContent?.includes('Alt+Maj+K · Alt+Maj+1 (touche &)') ?? false, {}, row);
+    expect(await page.$eval(row, (el) => el.textContent ?? '')).toContain(fr('settings.cat.shortcuts'));
+
+    await page.locator(row).click();
+    await page.waitForSelector('kbd[data-shortcut-key="panel"]');
+    expect(await page.$eval('kbd[data-shortcut-key="episode"]', (el) => el.textContent?.trim())).toBe('Alt+Maj+K');
+    expect(await page.$eval('kbd[data-shortcut-key="panel"]', (el) => el.textContent?.trim())).toBe('Alt+Maj+1');
+    expect(await page.$eval('#sk-shortcut-panel', (el) => el.textContent?.trim())).toBe(fr('settings.shortcuts.panel'));
+    expect(await page.$('[data-focus="shortcut"]')).not.toBeNull();
+    expect(await page.$('[data-focus="panel-shortcut"]')).not.toBeNull();
   });
 });

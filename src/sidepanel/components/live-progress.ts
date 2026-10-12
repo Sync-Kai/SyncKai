@@ -2,7 +2,7 @@ import { t } from '../../i18n';
 import { isLiveContentMessage, LIVE_PORT_NAME, type LiveContentMessage, type LivePanelMessage, type LiveTickMessage } from '../../shared/live.types';
 import { createLogger } from '../../shared/logger';
 import { h } from '../../ui/dom';
-import { formatClock, liveDisplay, type LiveTone } from '../live-view';
+import { formatClock, liveDisplay, liveStateKeepsMessage, type LiveTone } from '../live-view';
 import type { LiveEvent } from '../now-playing-view';
 
 const log = createLogger('sidepanel');
@@ -10,10 +10,10 @@ const log = createLogger('sidepanel');
 // Progression en direct : port ouvert directement vers le script de contenu de l'onglet suivi
 // (le service worker reste endormi). Le bloc est mis à jour sur place : un tick ne redessine pas le panneau.
 
-/** Onglet et épisode affichés par la fiche */
+/** Onglet et épisode affichés par la fiche ; `episodeId` null : page de série (seulement la saison choisie, aucune progression) */
 export interface LiveTarget {
   tabId: number;
-  episodeId: string;
+  episodeId: string | null;
 }
 
 export interface LiveProgress {
@@ -32,6 +32,7 @@ const TONE_CLASS: Record<LiveTone, string> = {
   info: 'text-ink',
   success: 'text-mint',
   muted: 'text-muted',
+  warning: 'text-butter',
   error: 'text-danger',
 };
 
@@ -81,7 +82,8 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
     text.className = `min-w-0 truncate text-[12px] font-bold ${TONE_CLASS[view.tone]}`;
     detail.textContent = view.detail ?? '';
     detail.hidden = view.detail === null;
-    detail.className = `min-w-0 text-[11px] ${view.tone === 'error' ? 'text-danger' : 'truncate text-muted'}`;
+    // Erreur ou fiche à vérifier : message complet sur plusieurs lignes (raison, marche à suivre)
+    detail.className = `min-w-0 text-[11px] ${view.tone === 'error' ? 'text-danger' : view.tone === 'warning' ? 'text-muted' : 'truncate text-muted'}`;
     bar.hidden = view.bar === null;
     clock.hidden = view.bar === null;
     if (view.bar) {
@@ -122,7 +124,7 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
       case 'tick':
         if (liveEpisode === null) return;
         tick = msg;
-        if (msg.state !== 'error') message = null;
+        if (!liveStateKeepsMessage(msg.state)) message = null;
         break;
       case 'sync':
         message = msg.outcome?.message ?? null;
@@ -131,6 +133,9 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
         // Synchro automatique terminée : la fiche relit la page puis recalcule saison et listes.
         // Pas de comparaison avec l'épisode de la fiche : c'est justement elle qui peut être en retard.
         if (msg.state === 'synced' && liveEpisode !== null) onEvent({ type: 'synced' });
+        return;
+      case 'season':
+        onEvent({ type: 'season' });
         return;
     }
     update();

@@ -59,6 +59,7 @@ const OPEN_SESSIONS = {
 
 const { resolveReview, shouldPromptRating, syncEpisode } = await import('./sync-service');
 const { recordSyncOutcome } = await import('./queue');
+const { confirmReview, ignoreReview } = await import('./review-decision');
 const { mappingKey } = await import('./matching');
 const { getMediaMapping, getPendingReviews, saveMediaMapping, savePendingReview } = await import('../../shared/storage');
 const { getSyncQueue } = await import('../../shared/sync-queue-store');
@@ -89,7 +90,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     resolveId: (media: CatalogMedia) => (id === 'anilist' ? media.mediaId : media.idMal),
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
       const entry = tracker.entries.get(entryId);
-      return { title: `#${entryId}`, episodes: tracker.totals.get(entryId) ?? null, entry: entry ? { ...entry } : null };
+      return { title: `#${entryId}`, episodes: tracker.totals.get(entryId) ?? null, entry: entry ? { ...entry } : null, notes: null };
     },
     saveProgress: async (entryId, progress, status, repeat) => {
       if (tracker.failWith) throw tracker.failWith;
@@ -102,6 +103,8 @@ function fakeTracker(id: TrackerId): FakeTracker {
     saveScore: () => Promise.reject(new Error('hors test')),
     startRewatch: () => Promise.reject(new Error('hors test')),
     saveEntry: () => Promise.reject(new Error('hors test')),
+    deleteEntry: () => Promise.reject(new Error('hors test')),
+    saveNotes: () => Promise.reject(new Error('hors test')),
   };
   return tracker;
 }
@@ -278,26 +281,26 @@ describe('correction (« Corriger ») : jamais sur une valeur périmée (BAK-01)
 });
 
 describe('synchro suivante pendant une carte « Corriger » (SYNC-07)', () => {
-  it('la carte reste et rien n’est écrit sur la fiche contestée', async () => {
+  it('la carte reste, rien n’est écrit sur la fiche contestée, l’épisode est mis de côté sur la carte', async () => {
     connect({ status: 'CURRENT', progress: 5 });
     const card = review({ episode: episode(5), previous: { mediaId: PART1, title: 'Fiche 1001', progress: 5 } });
     await savePendingReview(card);
     fakes.resolutions = [resolved(PART1, 6, { fromCache: true })];
 
     const outcome = await syncEpisode(episode(6));
-    expect(outcome).toEqual({ status: 'needs-review', reason: expect.stringContaining('Correction en attente') });
+    expect(outcome).toEqual({ status: 'needs-review', reason: expect.stringContaining('appliqué après ta décision') });
     expect(anilist.writes).toEqual([]);
     expect(mal.writes).toEqual([]);
-    expect(await getPendingReviews()).toEqual([card]);
+    expect(await getPendingReviews()).toEqual([{ ...card, deferred: { episode: episode(6), epochs: { anilist: 0, mal: 0 } } }]);
   });
 
-  it('une vérification incertaine ne remplace pas la carte de correction', async () => {
+  it('une vérification incertaine ne remplace pas la carte de correction (épisode mis de côté)', async () => {
     connect({ status: 'CURRENT', progress: 5 });
     const card = review({ episode: episode(5), previous: { mediaId: PART1, title: 'Fiche 1001', progress: 5 } });
     await savePendingReview(card);
     fakes.resolutions = [{ ...resolved(PART2, 6), result: { ok: false, reason: 'Aucune fiche' } }];
     await syncEpisode(episode(6));
-    expect(await getPendingReviews()).toEqual([card]);
+    expect(await getPendingReviews()).toEqual([{ ...card, deferred: { episode: episode(6), epochs: { anilist: 0, mal: 0 } } }]);
   });
 
   it('une vérification simple reste caduque après une synchro réussie', async () => {
@@ -393,6 +396,118 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
   });
 });
 
+describe('épisode mis de côté pendant une carte « Corriger », appliqué après la décision (SYNC-07)', () => {
+  const correction = review({
+    episode: episode(5),
+    suggestion: { mediaId: PART1, progress: 5 },
+    previous: { mediaId: PART1, title: 'Fiche 1001', progress: 5 },
+    epochs: { anilist: 0, mal: 0 },
+  });
+
+  /** Carte de correction ouverte, puis épisode `n` vu pendant l'attente (mis de côté) */
+  async function deferWhileCorrecting(n: number): Promise<void> {
+    await savePendingReview(correction);
+    fakes.resolutions = [resolved(PART1, n, { fromCache: true })];
+    expect(await syncEpisode(episode(n))).toMatchObject({ status: 'needs-review' });
+  }
+
+  it('épisode le plus avancé gardé : un épisode antérieur revu ne le remplace pas', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(7);
+    fakes.resolutions = [resolved(PART1, 6, { fromCache: true })];
+    await syncEpisode(episode(6));
+    expect((await getPendingReviews())[0]?.deferred?.episode).toEqual(episode(7));
+    fakes.resolutions = [resolved(PART1, 8, { fromCache: true })];
+    await syncEpisode(episode(8));
+    expect((await getPendingReviews())[0]?.deferred?.episode).toEqual(episode(8));
+    expect(anilist.writes).toEqual([]);
+  });
+
+  it('correction validée : correction écrite, puis épisode mis de côté synchronisé', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(6);
+
+    const outcome = await confirmReview({ key: KEY, mediaId: PART1, progress: 3 });
+    expect(resultOf(outcome, 'anilist')).toEqual({ status: 'updated', progress: 3, completed: false });
+    expect(anilist.writes.map((w) => w.progress)).toEqual([3, 6]);
+    expect(mal.writes.map((w) => w.progress)).toEqual([3, 6]);
+    expect(anilist.entries.get(PART1)?.progress).toBe(6);
+    expect(await getPendingReviews()).toEqual([]);
+    expect(await getSyncQueue()).toEqual([]);
+  });
+
+  it('correction validée plus loin que l’épisode mis de côté : aucun recul', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(6);
+
+    await confirmReview({ key: KEY, mediaId: PART1, progress: 8 });
+    expect(anilist.writes.map((w) => w.progress)).toEqual([8]);
+    expect(anilist.entries.get(PART1)?.progress).toBe(8);
+    expect(mal.entries.get(MAL_PART1)?.progress).toBe(8);
+  });
+
+  it('correction ignorée : carte retirée, épisode mis de côté synchronisé avec les règles normales', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(6);
+
+    expect(await ignoreReview(KEY)).toEqual({ ok: true, data: null });
+    expect(await getPendingReviews()).toEqual([]);
+    expect(anilist.entries.get(PART1)?.progress).toBe(6);
+    expect(mal.entries.get(MAL_PART1)?.progress).toBe(6);
+  });
+
+  it('épisode mis de côté antérieur à la progression actuelle : aucun recul', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(4);
+
+    await ignoreReview(KEY);
+    expect(anilist.writes).toEqual([]);
+    expect(mal.writes).toEqual([]);
+    expect(anilist.entries.get(PART1)?.progress).toBe(5);
+  });
+
+  it('échec passager au rejeu : épisode confié à la file de relance', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(6);
+    mal.failWith = new ApiError('API_ERROR', 'MyAnimeList : erreur 504', { httpStatus: 504 });
+
+    await ignoreReview(KEY);
+    expect(anilist.entries.get(PART1)?.progress).toBe(6);
+    expect(await getSyncQueue()).toMatchObject([{ status: 'pending', services: ['mal'], episode: episode(6) }]);
+  });
+
+  it('correction en échec sur un service : la carte reste avec son épisode, rien n’est rejoué', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(6);
+    mal.failWith = new ApiError('NETWORK', 'Connexion impossible.');
+
+    await confirmReview({ key: KEY, mediaId: PART1, progress: 3 });
+    expect(anilist.writes.map((w) => w.progress)).toEqual([3]);
+    expect((await getPendingReviews())[0]?.deferred?.episode).toEqual(episode(6));
+  });
+
+  it('compte changé depuis (sessions fermées) : épisode mis de côté non rejoué', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(6);
+    fake.local.data.set('sessionEpoch', { anilist: 1, mal: 1 });
+
+    await ignoreReview(KEY);
+    expect(anilist.writes).toEqual([]);
+    expect(mal.writes).toEqual([]);
+    expect(await getSyncQueue()).toEqual([]);
+  });
+
+  it('compte AniList changé, MAL inchangé : épisode rejoué sur MAL seulement', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    await deferWhileCorrecting(6);
+    fake.local.data.set('sessionEpoch', { anilist: 1, mal: 0 });
+
+    await ignoreReview(KEY);
+    expect(anilist.writes).toEqual([]);
+    expect(mal.entries.get(MAL_PART1)?.progress).toBe(6);
+  });
+});
+
 describe('écritures liées au compte (DATA-01)', () => {
   it('correction ouverte sous le compte AniList A, compte B connecté depuis : seul MAL est corrigé', async () => {
     connect({ status: 'CURRENT', progress: 5 });
@@ -416,6 +531,13 @@ describe('écritures liées au compte (DATA-01)', () => {
     expect(mal.writes).toEqual([]);
     // Aucune synchro récente enregistrée : rien n'a été écrit
     expect(fake.local.peek('recentSyncs')).toBeUndefined();
+  });
+
+  it('synchro récente : fiche MyAnimeList du catalogue mémorisée (lien du titre dans « Dernières synchros »)', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    fakes.resolutions = [resolved(PART1, 6)];
+    await syncEpisode(episode(6));
+    expect(fake.local.peek('recentSyncs')).toMatchObject([{ mediaId: PART1, malId: MAL_PART1, progress: 6 }]);
   });
 
   it('déconnexion puis autre compte pendant la lecture : la décision n’est pas écrite', async () => {

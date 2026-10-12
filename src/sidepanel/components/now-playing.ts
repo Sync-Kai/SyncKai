@@ -1,9 +1,14 @@
 import { t } from '../../i18n';
+import { entryLink, type EntryLinkContext } from '../../shared/entry-link';
+import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { renderAlert } from '../../ui/alert';
 import { renderAiring } from '../../ui/airing-badge';
 import { kanaLabel, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { platformIcon } from '../../ui/brand-icons';
-import { mediaMetaParts } from '../../ui/page-media-view';
+import { mediaMetaParts, primaryList } from '../../ui/page-media-view';
+import { renderCardMenu } from '../../ui/list-entry-tools';
+import { createMenuDismiss } from '../../ui/menu';
+import { createNotesEditor } from '../../ui/notes-editor';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import { isLongDescription, malForumUrl, redditSearchUrl } from '../../shared/panel-media';
 import type { PanelMedia, PanelRelation } from '../../shared/panel-media.types';
@@ -11,6 +16,7 @@ import type { ListStatusChange } from '../../shared/sync.types';
 import { toImageSrc } from '../../shared/url';
 import { choosePlatformLink } from '../../shared/watching';
 import { busyAttrs, h, nodes, type Child } from '../../ui/dom';
+import { entryCover, entryTitle } from '../../ui/entry-link';
 import { icon } from '../../ui/icons';
 import { renderMediaActions } from '../../ui/media-actions';
 import { airedLabel, episodeLine, relationLabel } from '../now-playing-view';
@@ -70,12 +76,87 @@ export interface NowPlaying {
 export function createNowPlaying(onChange: () => void): NowPlaying {
   const ctl = createNowPlayingController(onChange);
 
+  // ─── Menu « ⋯ » de « Ta progression » (Retirer de la liste) et commentaire ───
+
+  /** Menu ouvert, et confirmation du retrait affichée dedans */
+  let menu: { open: boolean; confirming: boolean } = { open: false, confirming: false };
+
+  const focusPanel = (key: string): void => document.querySelector<HTMLElement>(`[data-focus="${key}"]`)?.focus({ preventScroll: true });
+
+  /** Ouverture : focus sur la première action ; fermeture : retour au bouton « ⋯ » (sauf clic ailleurs) */
+  function setMenu(open: boolean, restoreFocus = true): void {
+    if (menu.open === open) return;
+    menu = { open, confirming: false };
+    menuDismiss.setOpen(open);
+    onChange();
+    if (open) focusPanel('REMOVE-panel');
+    else if (restoreFocus) focusPanel('more-panel');
+  }
+
+  /** Confirmation du retrait : focus sur « Annuler » (une action irréversible ne se valide pas d'un double Entrée) */
+  function setRemoveConfirm(confirming: boolean): void {
+    if (!menu.open || menu.confirming === confirming) return;
+    menu = { open: true, confirming };
+    onChange();
+    focusPanel(confirming ? 'confirm-no-panel' : 'REMOVE-panel');
+  }
+
+  const menuDismiss = createMenuDismiss({
+    onPointerDown(target) {
+      if (menu.open && !target?.closest('[data-menu-root="panel"]')) setMenu(false, false);
+    },
+    onEscape() {
+      if (menu.confirming) setRemoveConfirm(false);
+      else setMenu(false);
+    },
+  });
+
+  function removeFromList(): void {
+    menu = { open: false, confirming: false };
+    menuDismiss.setOpen(false);
+    void ctl.runAction({ kind: 'remove' });
+  }
+
+  /** Commentaire de l'entrée : éditeur persistant (brouillon gardé entre deux rendus), remis à zéro sur une autre fiche */
+  const notesEditor = createNotesEditor({
+    focusKey: 'panel-notes',
+    collapsible: true,
+    onSave: async (notes) => (await ctl.runAction({ kind: 'notes', notes }))?.tone === 'success',
+  });
+  /** Fiche de « Ta progression » : une autre fiche ferme le menu et oublie le brouillon du commentaire */
+  let shownMediaId: number | null = null;
+
+  function followMedia(mediaId: number): void {
+    if (shownMediaId === mediaId) return;
+    shownMediaId = mediaId;
+    menu = { open: false, confirming: false };
+    menuDismiss.setOpen(false);
+    notesEditor.reset();
+  }
+
+  function renderNotes(view: PageMediaView, refreshing: boolean): HTMLElement {
+    const primary = primaryList(view.lists);
+    notesEditor.update({
+      notes: primary?.notes ?? null,
+      loading: false,
+      unavailable: primary ? null : t('notes.notInList'),
+      busy: ctl.actions.busy !== null || refreshing,
+      title: view.media.title,
+    });
+    return notesEditor.element;
+  }
+
   /** Confirmation Abandonner / Terminé : focus sur « Non » à l'ouverture, rendu au bouton à l'annulation */
   function setConfirm(status: ListStatusChange | null): void {
     const previous = ctl.actions.confirm;
     if (!ctl.setConfirm(status)) return;
     const selector = status !== null ? '[data-focus="confirm-no-page"]' : previous !== null ? `[data-focus="page-status-${previous}"]` : null;
     if (selector) document.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+  }
+
+  /** Fiche ouverte par le titre, la jaquette et les relations : comptes connectés (un état de liste par compte) et réglage */
+  function entryLinks(view: PageMediaView): EntryLinkContext {
+    return { connected: view.lists.map((list) => list.service), preferred: ctl.entryService };
   }
 
   // ─── Rendu ────────────────────────────────────────────────────────────
@@ -146,6 +227,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
   function renderHero(view: PageMediaView, panel: PanelMedia | null): HTMLElement {
     const { media } = view;
     const meta = mediaMetaParts(view);
+    const site = entryLink({ mediaId: media.mediaId, malId: media.idMal }, entryLinks(view));
     const facts = nodes([
       panel?.averageScore !== null && panel?.averageScore !== undefined &&
         h(
@@ -169,11 +251,11 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       h(
         'div',
         { class: '-mt-12 flex gap-3 px-2' },
-        renderCover(media.title, panel?.coverUrl ?? media.coverUrl, 'h-[104px] w-[74px] shadow-pop', 'text-[20px]'),
+        entryCover(site, renderCover(media.title, panel?.coverUrl ?? media.coverUrl, 'h-[104px] w-[74px] shadow-pop', 'text-[20px]'), 'self-start'),
         h(
           'div',
           { class: 'flex min-w-0 flex-1 flex-col justify-end gap-1 pt-12' },
-          h('h2', { class: 'm-0 line-clamp-3 font-display text-[15px] leading-[19px] font-extrabold break-words', attrs: { title: media.title } }, media.title),
+          h('h2', { class: 'm-0 line-clamp-3 font-display text-[15px] leading-[19px] font-extrabold break-words', attrs: { title: media.title } }, entryTitle(site, media.title, 'panel-entry')),
           meta.length > 0 && h('span', { class: 'text-[11px] font-semibold text-muted' }, meta.join(' · ')),
         ),
       ),
@@ -195,14 +277,28 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
   function renderProgress(view: PageMediaView, page: PageMediaInfo, refreshing: boolean): HTMLElement {
     const { actions, live } = ctl;
     const line = episodeLine(view.episodeProgress, view.media.episodes);
+    followMedia(view.media.mediaId);
     return h(
       'section',
       { class: SECTION, attrs: { 'aria-label': t('panel.nowPlaying.progress'), 'aria-busy': String(refreshing || actions.busy !== null) } },
       h(
         'div',
-        { class: 'flex items-baseline justify-between gap-2' },
-        h('h3', { class: SECTION_TITLE }, t('panel.nowPlaying.progress')),
+        { class: 'flex min-h-7 items-center justify-between gap-2' },
+        h('h3', { class: `${SECTION_TITLE} flex-1` }, t('panel.nowPlaying.progress')),
         line && h('span', { class: 'text-[13px] font-extrabold text-sakura tabular-nums' }, line),
+        // « ⋯ » : seulement si la série est dans au moins une liste (rien à retirer sinon)
+        primaryList(view.lists) !== null &&
+          renderCardMenu({
+            open: menu.open,
+            confirming: menu.confirming,
+            busy: actions.busy !== null || refreshing,
+            removing: actions.busy === 'remove',
+            title: view.media.title,
+            focusKey: 'panel',
+            onToggle: (open) => setMenu(open),
+            onConfirm: setRemoveConfirm,
+            onRemove: removeFromList,
+          }),
       ),
       // Position de lecture en direct et compte à rebours (page de lecture uniquement)
       page.kind === 'episode' && ctl.liveEnabled && live.element,
@@ -225,6 +321,8 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
           },
         }),
       ),
+      // Commentaire : avec au moins un compte connecté (désactivé, avec l'explication, hors liste)
+      view.lists.length > 0 && renderNotes(view, refreshing),
     );
   }
 
@@ -279,25 +377,29 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     );
   }
 
-  function renderRelation(relation: PanelRelation): HTMLElement {
+  function renderRelation(relation: PanelRelation, links: EntryLinkContext): HTMLElement {
     const label = relationLabel(relation.relationType);
     const watch = choosePlatformLink(relation, ctl.preferred);
+    // Fiche AniList toujours connue : repli sur sa page si MyAnimeList est préférée sans équivalent
+    const site = entryLink({ mediaId: relation.mediaId, malId: relation.idMal }, links) ?? { service: 'anilist' as const, url: relation.siteUrl };
+    const link = externalLink(
+      site.url,
+      t('common.labelValue', { label, value: t('entry.openAria', { title: relation.title, service: TRACKER_LABELS[site.service] }) }),
+      'group flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1 text-ink no-underline transition-colors hover:bg-raised',
+      renderCover(relation.title, relation.coverUrl, 'h-12 w-[34px]', 'text-[10px]'),
+      h(
+        'span',
+        { class: 'flex min-w-0 flex-1 flex-col' },
+        h('span', { class: 'text-[10px] font-bold text-lavender uppercase' }, [label, relation.format].filter(Boolean).join(' · ')),
+        h('span', { class: 'line-clamp-2 text-[12px] leading-4 font-bold break-words underline-offset-2 group-hover:underline' }, relation.title),
+      ),
+      icon('external', 'h-3 w-3 shrink-0 text-muted'),
+    );
+    link.dataset.focus = `relation-entry-${relation.mediaId}`;
     return h(
       'li',
       { class: 'flex min-w-0 items-center gap-1' },
-      externalLink(
-        relation.siteUrl,
-        t('common.labelValue', { label, value: relation.title }),
-        'flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1 text-ink no-underline transition-colors hover:bg-raised',
-        renderCover(relation.title, relation.coverUrl, 'h-12 w-[34px]', 'text-[10px]'),
-        h(
-          'span',
-          { class: 'flex min-w-0 flex-1 flex-col' },
-          h('span', { class: 'text-[10px] font-bold text-lavender uppercase' }, [label, relation.format].filter(Boolean).join(' · ')),
-          h('span', { class: 'line-clamp-2 text-[12px] leading-4 font-bold break-words' }, relation.title),
-        ),
-        icon('external', 'h-3 w-3 shrink-0 text-muted'),
-      ),
+      link,
       watch &&
         h(
           'a',
@@ -319,13 +421,13 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
     );
   }
 
-  function renderRelations(relations: readonly PanelRelation[]): HTMLElement | null {
+  function renderRelations(relations: readonly PanelRelation[], links: EntryLinkContext): HTMLElement | null {
     if (relations.length === 0) return null;
     return h(
       'section',
       { class: SECTION, attrs: { 'aria-labelledby': 'sk-relations' } },
       h('h3', { class: SECTION_TITLE, attrs: { id: 'sk-relations' } }, t('panel.nowPlaying.relations')),
-      h('ul', { class: 'm-0 flex list-none flex-col gap-1 p-0' }, ...relations.map(renderRelation)),
+      h('ul', { class: 'm-0 flex list-none flex-col gap-1 p-0' }, ...relations.map((relation) => renderRelation(relation, links))),
     );
   }
 
@@ -341,7 +443,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
         renderProgress(view, page, state.refreshing),
         panel?.description && renderSynopsis(panel.description),
         renderDiscussion(view, panel, page),
-        panel && renderRelations(panel.relations),
+        panel && renderRelations(panel.relations, entryLinks(view)),
       ]),
     );
   }

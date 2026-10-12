@@ -10,6 +10,7 @@ import { isRecord } from '../src/shared/guards.ts';
 interface AmoMetadata {
   summary: Record<string, string>;
   description: Record<string, string>;
+  version?: unknown;
 }
 
 /** Langue de la fiche du Chrome Web Store → locale AMO et intertitre « plateformes » commun aux deux fiches */
@@ -43,6 +44,15 @@ const amo: unknown = JSON.parse(readFileSync(new URL('../docs/store/amo-metadata
 describe('docs/store/amo-metadata.json', () => {
   it('a la forme attendue par l’API AMO (summary, description)', () => {
     expect(isAmoMetadata(amo)).toBe(true);
+  });
+
+  it('respecte les limites de l’API AMO (notes de relecture ≤ 3000, résumé ≤ 250 caractères)', () => {
+    // Dépassement refusé à l'envoi (« Ensure this field has no more than 3000 characters », 2.2.0)
+    if (!isAmoMetadata(amo)) throw new Error('amo-metadata.json invalide');
+    const notes = isRecord(amo.version) && typeof amo.version.approval_notes === 'string' ? amo.version.approval_notes : '';
+    expect(notes.length).toBeGreaterThan(0);
+    expect([...notes].length).toBeLessThanOrEqual(3000);
+    for (const summary of Object.values(amo.summary)) expect([...String(summary)].length).toBeLessThanOrEqual(250);
   });
 
   for (const { listing, amo: locale, heading } of LOCALES) {

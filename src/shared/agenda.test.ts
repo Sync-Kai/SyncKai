@@ -108,7 +108,7 @@ describe('weekRange', () => {
   });
 });
 
-const settings: OffsetSettings = { platformOffsets: { crunchyroll: 60, adn: 90, netflix: 60 }, seriesOffsets: { '42': { minutes: -30, at: 1 } } };
+const settings: OffsetSettings = { platformOffsets: { crunchyroll: 60, adn: 90, netflix: 60, disney: 60 }, seriesOffsets: { '42': { minutes: -30, at: 1 } } };
 
 describe('estimateRelease', () => {
   it('diffusion + délai de la plateforme', () => {
@@ -174,6 +174,14 @@ describe('séries suivies', () => {
     expect(series.get(1)).toMatchObject({ progress: 5, title: 'Un (AL)', link: { platform: 'crunchyroll' } });
     expect(mergeWatchingSeries(entries, [], 'adn').get(1)?.link?.platform).toBe('adn');
     expect(series.get(2)?.link).toBeNull();
+  });
+
+  it('fiche MyAnimeList reprise de l’une ou l’autre liste (lien du titre de l’agenda)', () => {
+    const series = mergeWatchingSeries([entry({ mediaId: 1 }), entry({ mediaId: 1, malId: 7 }), entry({ mediaId: 2 })], [], 'crunchyroll');
+    expect(series.get(1)?.malId).toBe(7);
+    expect(series.get(2)?.malId).toBeNull();
+    const row = buildAgendaDays([schedule(5, 1, 3, local(2026, 10, 7, 9))], series, weekRange(local(2026, 10, 7), 1), settings, 0).flatMap((d) => d.rows)[0];
+    expect(row).toMatchObject({ mediaId: 1, malId: 7 });
   });
 
   it('watchingProgress (alertes) : même règle', () => {

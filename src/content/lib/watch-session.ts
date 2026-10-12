@@ -1,6 +1,6 @@
 import { applyLanguageSetting, t } from '../../i18n/content';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { isExcluded, platformSeriesKey } from '../../shared/exclusions';
+import { isExcluded, platformSeriesKey } from '../../shared/exclusions-core';
 import { sendMessage } from '../../shared/messages';
 import type { LiveOutcome, LiveState } from '../../shared/live.types';
 import { failedServices } from '../../shared/sync.types';
@@ -20,6 +20,11 @@ import { waitFor } from './wait-for';
 const MIN_EPISODE_DURATION_S = 120;
 /** Sans lecteur après ce délai, le panneau affiche « pas de vidéo » ; l'attente passive continue */
 const VIDEO_WAIT_TIMEOUT_MS = 30_000;
+/**
+ * Recherche du lecteur tant qu'aucune <video> connectée n'est suivie : un lecteur créé hors du document puis inséré
+ * (Netflix) n'émet plus aucun événement média visible depuis `document`.
+ */
+export const VIDEO_POLL_MS = 1_000;
 const METADATA_WAIT_TIMEOUT_MS = 15_000;
 /**
  * Événements média captés sur `document` (ils ne remontent pas, mais la phase de capture les voit passer) :
@@ -27,6 +32,7 @@ const METADATA_WAIT_TIMEOUT_MS = 15_000;
  */
 const MEDIA_EVENTS = ['loadstart', 'loadedmetadata', 'play', 'playing'] as const;
 
+// Journal info/debug : appels entourés de `if (__SYNCKAI_DEBUG__)`, retirés des scripts publiés (budget de taille)
 const log = createLogger('session');
 
 /**
@@ -115,7 +121,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     for (const listener of [...stateListeners]) listener(next, outcome);
   };
 
-  log.info(`▶ Page de lecture détectée (${adapter.platform}, épisode ${episodeId})`);
+  if (__SYNCKAI_DEBUG__) log.info(`▶ Page de lecture détectée (${adapter.platform}, épisode ${episodeId})`);
 
   const isCurrentEpisode = (): boolean => adapter.getEpisodeId(new URL(location.href)) === episodeId;
   const extract = (): EpisodeInfo | null => (isCurrentEpisode() ? adapter.extractEpisodeInfo(new URL(location.href)) : null);
@@ -138,7 +144,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     video = null;
     tracker = null;
     trackerController = null;
-    log.info(`■ Session terminée (épisode ${episodeId})`);
+    if (__SYNCKAI_DEBUG__) log.info(`■ Session terminée (épisode ${episodeId})`);
   }
 
   /** Script orphelin (extension rechargée ou mise à jour) : averti tout de suite, plutôt qu'à la fin de l'épisode */
@@ -175,7 +181,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       // Catalogue généraliste : une vidéo non identifiée (bande-annonce, bonus…) n'est généralement pas un anime,
       // cas normal → rien d'affiché ni consigné au journal (info, pas warn)
       if (adapter.quiet) {
-        log.info('Épisode terminé mais métadonnées introuvables : complétion non envoyée (plateforme discrète)');
+        if (__SYNCKAI_DEBUG__) log.info('Épisode terminé mais métadonnées introuvables : complétion non envoyée (plateforme discrète)');
         setState('idle');
         return;
       }
@@ -185,27 +191,27 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       return;
     }
 
-    log.info(`✔ Épisode terminé : ${formatEpisode(episode)}`, episode);
+    if (__SYNCKAI_DEBUG__) log.info(`✔ Épisode terminé : ${formatEpisode(episode)}`, episode);
 
     // Relus maintenant : une pause activée pendant l'épisode s'applique immédiatement.
     // Rien d'écrit (pause, série exclue) : le raccourci pourra renvoyer l'épisode après réactivation
     const settings = await loadSettings();
     if (!settings.autoSync) {
-      log.info('Synchronisation en pause (options) : épisode non envoyé');
+      if (__SYNCKAI_DEBUG__) log.info('Synchronisation en pause (options) : épisode non envoyé');
       delivery = 'retryable';
       setState('idle');
       if (trigger === 'shortcut') showShortcutNotice({ tone: 'info', title: t('content.shortcut.paused.title'), message: t('content.shortcut.paused.message') });
       return;
     }
     if (await isSeriesExcluded(episode)) {
-      log.info(`Série exclue (Réglages › Séries exclues) : épisode non envoyé (${platformSeriesKey(episode)})`);
+      if (__SYNCKAI_DEBUG__) log.info(`Série exclue (Réglages › Séries exclues) : épisode non envoyé (${platformSeriesKey(episode)})`);
       delivery = 'retryable';
       setState('excluded', { status: 'excluded', message: null });
       if (trigger === 'shortcut') showShortcutNotice({ tone: 'info', title: t('common.excludedTitle'), message: t('popup.syncDisabledDetail') });
       return;
     }
     if (ignoredSeries.has(platformSeriesKey(episode))) {
-      log.info(`Série déjà ignorée par SyncKai (pas un anime) : épisode non envoyé (${platformSeriesKey(episode)})`);
+      if (__SYNCKAI_DEBUG__) log.info(`Série déjà ignorée par SyncKai (pas un anime) : épisode non envoyé (${platformSeriesKey(episode)})`);
       delivery = 'ignored';
       setState('idle');
       return;
@@ -227,10 +233,10 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     if (signal.aborted) return;
     switch (delivery) {
       case 'sending':
-        log.info('Raccourci « valider l’épisode » : envoi déjà en cours');
+        if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : envoi déjà en cours');
         return;
       case 'synced':
-        log.info('Raccourci « valider l’épisode » : épisode déjà synchronisé');
+        if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : épisode déjà synchronisé');
         showToast(
           { tone: 'success', title: t('content.shortcut.alreadySynced'), message: sentEpisode ? formatEpisodeShort(sentEpisode) : undefined },
           { variant: 'pill', autoHideMs: PILL_TOAST_MS },
@@ -238,12 +244,12 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
         return;
       case 'ignored':
         // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, comme à la fin de l'épisode
-        log.info('Raccourci « valider l’épisode » : série ignorée par SyncKai');
+        if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : série ignorée par SyncKai');
         return;
       case 'none':
       case 'retryable':
         // Pas encore envoyé, ou rien d'écrit la dernière fois (pause, exclusion, à vérifier, échec) : envoi
-        log.info('Raccourci « valider l’épisode » : complétion immédiate');
+        if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : complétion immédiate');
         void reportCompletion('shortcut');
     }
   }
@@ -283,7 +289,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
 
     try {
       const outcome = await sendMessage('EPISODE_COMPLETED', { episode, services });
-      log.info('Résultat de la synchronisation :', outcome);
+      if (__SYNCKAI_DEBUG__) log.info('Résultat de la synchronisation :', outcome);
       sentEpisode = episode;
       // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, épisodes suivants non renvoyés.
       // Accès Netflix retiré : rien d'affiché non plus, mais la série n'est pas retenue (accès accordé de nouveau)
@@ -338,15 +344,16 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     // Adapter asynchrone (Netflix) : métadonnées demandées à la plateforme plutôt qu'attendues dans le DOM
     metadata = adapter.loadEpisodeInfo ? await load() : await waitFor(extract, { signal, timeoutMs: METADATA_WAIT_TIMEOUT_MS });
     if (signal.aborted) return;
-    if (metadata) log.info(`Épisode identifié : ${formatEpisode(metadata)}`, metadata);
+    if (metadata) {
+      if (__SYNCKAI_DEBUG__) log.info(`Épisode identifié : ${formatEpisode(metadata)}`, metadata);
+    } else if (!adapter.quiet) log.warn('Métadonnées indisponibles pour l’instant, nouvel essai à la fin de l’épisode');
     // Catalogue généraliste (Netflix) : /watch/{id de série} avant redirection, bande-annonce… → cas normal, hors journal
-    else if (adapter.quiet) log.info('Métadonnées indisponibles pour l’instant, nouvel essai à la fin de l’épisode');
-    else log.warn('Métadonnées indisponibles pour l’instant, nouvel essai à la fin de l’épisode');
+    else if (__SYNCKAI_DEBUG__) log.info('Métadonnées indisponibles pour l’instant, nouvel essai à la fin de l’épisode');
   }
 
   /** Suit `found` : le tracker précédent (lecteur remplacé) est annulé avec tous ses écouteurs */
   function attach(found: HTMLVideoElement, settings: SyncSettings): void {
-    log.info(video ? 'Lecteur vidéo remplacé, suivi rattaché :' : 'Lecteur vidéo trouvé :', found.id || '(sans id)');
+    if (__SYNCKAI_DEBUG__) log.info(video ? 'Lecteur vidéo remplacé, suivi rattaché :' : 'Lecteur vidéo trouvé :', found.id || '(sans id)');
     trackerController?.abort();
     trackerController = new AbortController();
     video = found;
@@ -355,6 +362,8 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       getCreditsStart: () => creditsStart,
       minDurationSeconds: MIN_EPISODE_DURATION_S,
       onCompleted: () => void reportCompletion('auto'),
+      // Disney+ : position et durée lues dans le lecteur (la <video> n'en donne pas de fiables)
+      ...(adapter.readPlayback ? { readPlayback: (target: HTMLVideoElement) => adapter.readPlayback?.(target) ?? null } : {}),
       signal: AbortSignal.any([signal, trackerController.signal]),
       logger: log,
     });
@@ -373,8 +382,9 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   }
 
   /**
-   * Attente passive du lecteur, sans limite de durée : chaque événement média capté sur `document` relit
-   * `findVideo()`. Les écouteurs vivent autant que la session (retirés par son signal).
+   * Attente du lecteur, sans limite de durée : chaque événement média capté sur `document` relit `findVideo()`, et
+   * `findVideo()` est aussi relu chaque seconde tant qu'aucune <video> connectée n'est suivie (lecteur inséré sans
+   * événement visible, ou retiré du DOM). Écouteurs et minuterie vivent autant que la session (retirés par son signal).
    */
   function watchVideo(): void {
     const onMediaEvent = (): void => {
@@ -383,6 +393,13 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       else refreshVideo();
     };
     for (const type of MEDIA_EVENTS) document.addEventListener(type, onMediaEvent, { capture: true, signal });
+    // Lecteur suivi et connecté : simple test de `isConnected`, findVideo() n'est relu que sans lecteur
+    // (instance orpheline : rien, l'avertissement part au premier événement média, comme avant)
+    const poll = setInterval(() => {
+      if (video?.isConnected || isExtensionContextInvalidated()) return;
+      refreshVideo();
+    }, VIDEO_POLL_MS);
+    signal.addEventListener('abort', () => clearInterval(poll), { once: true });
     refreshVideo();
     if (video) return;
     const timer = setTimeout(() => {
@@ -396,10 +413,12 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   function snapshot(): LiveSnapshot {
     // Panneau ouvert : lecteur détaché du DOM sans nouvel événement capté → suivi rattaché au lecteur actuel
     if (video && !video.isConnected) refreshVideo();
-    const duration = video && Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+    // Position et durée de la plateforme si elle les fournit (Disney+), sinon celles de la <video>
+    const time = video ? (adapter.readPlayback ? adapter.readPlayback(video) : { currentTime: video.currentTime, duration: video.duration }) : null;
+    const duration = time && Number.isFinite(time.duration) && time.duration > 0 ? time.duration : null;
     return {
       episodeId,
-      t: video && duration !== null ? video.currentTime : null,
+      t: time && duration !== null ? time.currentTime : null,
       duration,
       paused: video?.paused ?? true,
       point: tracker?.completionPoint() ?? null,
@@ -417,11 +436,13 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     // Déclenchement fixé pour l'épisode : un changement de réglage s'applique au suivant
     const settings = await loadSettings();
     if (signal.aborted) return;
-    log.info(
-      settings.completionTrigger === 'credits'
-        ? `Déclenchement : générique de fin (repli à ${settings.completionPercentage} %)`
-        : `Déclenchement : ${settings.completionPercentage} % de la vidéo`,
-    );
+    if (__SYNCKAI_DEBUG__) {
+      log.info(
+        settings.completionTrigger === 'credits'
+          ? `Déclenchement : générique de fin (repli à ${settings.completionPercentage} %)`
+          : `Déclenchement : ${settings.completionPercentage} % de la vidéo`,
+      );
+    }
     if (settings.completionTrigger === 'credits') {
       void adapter.getCreditsStart?.(episodeId, signal).then((start) => {
         creditsStart = start;

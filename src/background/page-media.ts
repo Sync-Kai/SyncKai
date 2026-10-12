@@ -10,11 +10,12 @@ import type {
   SeasonSource,
 } from '../shared/page-media.types';
 import type { EpisodeInfo } from '../shared/episode.types';
-import { hasNetflixAccess } from '../shared/netflix-access';
+import { hasPlatformAccess } from '../shared/platform-access';
+import { isOptionalPlatform, PLATFORMS } from '../shared/platforms';
 import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { learnPlatformLink } from '../shared/platform-links-store';
 import { pageMediaFromEpisode } from '../shared/page-media';
-import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../shared/storage';
+import { getMediaMapping, getMediaMappings, getOpenSessions, saveMediaMapping } from '../shared/storage';
 import type { ListStatus } from '../shared/sync.types';
 import { createLogger } from '../shared/logger';
 import { getScoreFormat } from './api/list';
@@ -29,11 +30,13 @@ import {
   pickPartInGroup,
   rememberedSeason,
   seriesMappingPrefix,
+  seriesPageGate,
   toPageSeasons,
   type SeasonChoice,
 } from './page-media-rules';
-import { mappingFromManualChoice, mappingKey, resolveTarget, seasonLabel } from './sync/matching';
-import { findSeriesSeasons, resolveEpisode, toCandidateSummary } from './sync/resolver';
+import { isSeriesIgnored, rememberIgnoredSeries } from './sync/ignored-series';
+import { isDisneyEntityLink, isUnmatchedNamedSeason, mappingFromManualChoice, mappingKey, platformLinkVerdict, representsWholeShow, resolveTarget, seasonLabel, singleEntryDoubt } from './sync/matching';
+import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from './sync/resolver';
 import { fromAniListScore, fromMalScore } from './sync/score';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
@@ -140,24 +143,55 @@ async function resolveEpisodePage(
   return first ? { mediaId: first.id, source: 'page', confidence: 'uncertain', seasons, episodeProgress: null } : null;
 }
 
-/** Page de série : saison lue sur la page, correspondance mémorisée, puis première saison non terminée */
-async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Promise<Resolution | null> {
-  const query = { platform: page.platform, seriesId: page.seriesId, seriesSlug: page.seriesSlug, animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle };
-  const { candidates, seasons, others, seasonGroups } = await findSeriesSeasons(query);
+/**
+ * Page de série : filtre « anime » des plateformes généralistes (Netflix, Disney+ : mêmes règles que la lecture, verdict
+ * « série ignorée » mémorisé et partagé avec elle), puis choix de la saison (pickSeriesSeason). Correspondance par le
+ * titre seul : saison toujours à vérifier.
+ */
+async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Promise<Resolution | typeof IGNORED | null> {
+  const series = { platform: page.platform, seriesId: page.seriesId, animeTitle: page.seriesTitle };
+  const linkRequired = PLATFORMS[page.platform].linkRequired;
+  if (linkRequired && manual === null && (await isSeriesIgnored(series))) {
+    log.info('Page de série déjà ignorée (verdict mémorisé) :', page.seriesTitle);
+    return IGNORED;
+  }
+  const query = { platform: page.platform, seriesId: page.seriesId, seriesSlug: page.seriesSlug, animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, platformSeasons: page.platformSeasons };
+  const found = await findSeriesSeasons(query);
+  const ownLink = page.platform === 'disney' && found.others.some((media) => media.externalLinkUrls.some((url) => isDisneyEntityLink(url, page.seriesId)));
+  const gate = seriesPageGate(page, platformLinkVerdict({ platform: page.platform, animeTitle: page.seriesTitle }, found.candidates), ownLink);
+  if (linkRequired) log.info(`Page de série ${page.platform} « ${page.seriesTitle} » : filtre anime ${gate}${ownLink ? ' (lien vers l’entité)' : ''}${page.catalogAnime === false ? ' (pas de genre Anime)' : ''}`);
+  if (gate === 'ignored') {
+    await rememberIgnoredSeries(series);
+    return IGNORED;
+  }
+  const resolution = await pickSeriesSeason(page, manual, found);
+  return gate === 'title' && resolution && resolution.source !== 'manual' ? { ...resolution, confidence: 'uncertain' } : resolution;
+}
+
+/** Saison de la page de série : saison lue sur la page, correspondance mémorisée, puis première saison non terminée */
+async function pickSeriesSeason(page: PageMediaInfo, manual: number | null, { candidates, seasons, others, seasonGroups }: SeriesSeasons): Promise<Resolution | null> {
   const shown = (seasons.length > 0 ? seasons : others).slice(0, MAX_PICKER_SEASONS);
   const summaries = toPageSeasons(shown.map(toCandidateSummary), seasonGroups);
   if (shown.length === 0) return null;
 
   // (a) Saison de la page : même règle que la synchro, appliquée à son premier épisode
-  const hasSeasonInfo = page.seasonNumber !== null || page.seasonTitle !== null;
+  const hasSeasonInfo = page.seasonNumber !== null || page.seasonTitle !== null || page.seasonFirstEpisode !== undefined;
   const target =
     hasSeasonInfo || seasons.length <= 1
       ? resolveTarget(
-          { animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 },
+          // Arc numéroté en absolu (One Piece « Elbaph (1156-current) ») : son premier épisode, comme sur la page de lecture
+          { animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonEpisodeNumber: 1, displayedEpisodeNumber: page.seasonFirstEpisode ?? 1 },
           candidates,
         )
       : null;
-  const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: target.target.confidence === 'high' } : null;
+  // Fiche unique, suite d'une autre fiche, qui ne couvre pas toutes les saisons de la plateforme : à vérifier (comme la synchro)
+  const doubt = target?.ok ? singleEntryDoubt({ platform: page.platform, animeTitle: page.seriesTitle, platformSeasons: page.platformSeasons }, candidates, target.target.mediaId) : false;
+  // Fiche unique liée qui couvre toutes les saisons de la plateforme (One Piece, arcs Netflix) : la série entière, certaine
+  const wholeShow = target?.ok ? representsWholeShow({ animeTitle: page.seriesTitle, platformSeasons: page.platformSeasons }, candidates, target.target.mediaId) : false;
+  // Saison nommée (« HEROINES ») sans fiche à son titre : la fiche retenue (série principale) reste à vérifier
+  const chosen = target?.ok ? candidates.find((c) => c.id === target.target.mediaId) : undefined;
+  const unmatchedName = chosen !== undefined && isUnmatchedNamedSeason({ animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonFirstEpisode: page.seasonFirstEpisode }, chosen);
+  const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: ((target.target.confidence === 'high' && !doubt) || wholeShow) && !unmatchedName } : null;
 
   if (seasons.length === 0) {
     if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons: summaries, episodeProgress: null };
@@ -275,9 +309,9 @@ async function readLists(media: PageMediaDetails): Promise<PageListState[]> {
       if (id === null) return { service, state: 'unavailable' };
       const siteUrl = service === 'anilist' ? media.siteUrl : `https://myanimelist.net/anime/${id}`;
       try {
-        const { entry } = await tracker.getEntry(id);
+        const { entry, notes } = await tracker.getEntry(id);
         if (!entry) return { service, state: 'not-in-list', siteUrl };
-        return { service, state: 'in-list', status: entry.status, progress: entry.progress, score: await toScore10(tracker, entry.score), siteUrl };
+        return { service, state: 'in-list', status: entry.status, progress: entry.progress, score: await toScore10(tracker, entry.score), notes, siteUrl };
       } catch (error: unknown) {
         log.warn(`${service} : liste illisible`, error);
         return { service, state: 'error', message: error instanceof ApiError ? error.message : t('error.unexpected') };
@@ -294,13 +328,14 @@ async function readLists(media: PageMediaDetails): Promise<PageListState[]> {
  */
 export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayload): Promise<PageMediaResult> {
   try {
-    // Accès Netflix retiré, onglet ouvert avant le retrait (son script répond encore) : rien à suivre, comme la synchro
-    if (page.platform === 'netflix' && !(await hasNetflixAccess())) return { ok: false, code: 'NOT_TRACKED', message: t('page.netflixOff') };
+    // Accès Netflix / Disney+ retiré, onglet ouvert avant le retrait (son script répond encore) : rien à suivre, comme la synchro
+    const platform = PLATFORMS[page.platform].label;
+    if (isOptionalPlatform(page.platform) && !(await hasPlatformAccess(page.platform))) return { ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform }) };
     const resolution = await resolveSeason(page, mediaId);
     if (resolution === IGNORED) {
       // Info seulement (aucune entrée au journal d'erreurs) : comme la synchro, qui ignore la série
       log.info('Fiche de la page : série ignorée (aucune fiche AniList liée) :', page.seriesTitle);
-      return { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked') };
+      return { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform }) };
     }
     if (!resolution) return { ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: page.seriesTitle }) };
 
@@ -341,6 +376,8 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
 export async function refreshTabPageMedia(tabId: number, episode: EpisodeInfo): Promise<void> {
   if (!(await readCachedPageMedia(tabId))) return;
   const page = pageMediaFromEpisode(episode);
+  // Sessions relevées avant la résolution : la fiche n'est pas écrite si un compte est déconnecté entre-temps
+  const epochs = await getOpenSessions();
   const result = await resolvePageMedia({ page, mediaId: null });
-  if (result.ok) await storeCachedPageMedia(tabId, page, result.data, 'sync');
+  if (result.ok) await storeCachedPageMedia(tabId, page, result.data, 'sync', epochs);
 }

@@ -1,6 +1,7 @@
 import { migrateLegacySeriesOffsets } from '../shared/agenda-store';
 import { bindLegacyDataToSession, deleteMediaMappingsByPrefix, encryptLegacyTokens } from '../shared/storage';
 import { createLogger } from '../shared/logger';
+import { markOtherSeriesPurgePending, runPendingOtherSeriesPurge } from './sync/mapping-purge';
 
 const log = createLogger('background');
 
@@ -21,6 +22,14 @@ const DATED_SERIES_OFFSETS_IN = '2.2.0';
 
 /** Tokens OAuth chiffrés depuis la 2.2.0 (SEC-01) : ceux des versions précédentes, en clair, sont chiffrés à la mise à jour */
 const ENCRYPTED_TOKENS_IN = '2.2.0';
+
+/**
+ * Correspondances Crunchyroll et ADN apprises avant le correctif SYNC-01 : une suite publiée comme une autre série de la
+ * plateforme (Naruto Shippuden) a pu être mise en cache vers la série précédente (Naruto). Correspondances Netflix de la
+ * même époque vers une suite (Ranma1/2 : saison 1 envoyée sur la saison 3). Vérifiées sur le catalogue AniList, une seule
+ * fois (voir mapping-purge.ts).
+ */
+const OTHER_SERIES_MAPPINGS_FIXED_IN = '2.3.0';
 
 /** Compare deux versions « x.y.z » ; négatif si a < b, NaN si l'une est illisible. */
 export function compareVersions(a: string, b: string): number {
@@ -62,4 +71,7 @@ export async function runUpdateMigrations(previousVersion: string | undefined): 
       log.warn('Tokens non chiffrés à la mise à jour :', error);
     }
   }
+  if (before(OTHER_SERIES_MAPPINGS_FIXED_IN)) await markOtherSeriesPurgePending();
+  // Purge en attente, de cette mise à jour ou d'une précédente restée en échec (réseau) : jamais bloquante
+  await runPendingOtherSeriesPurge();
 }

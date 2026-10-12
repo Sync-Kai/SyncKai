@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DISNEY_PATTERN,
   NETFLIX_PATTERN,
+  registeredScriptPlatform,
   checkAccessDeclarations,
+  checkCommands,
   checkContentSecurityPolicy,
   checkWebAccessibleResources,
   fileReferences,
@@ -13,6 +16,7 @@ import {
 
 const CR = ['*://*.crunchyroll.com/*'];
 const netflixEntry = { matches: [NETFLIX_PATTERN], resources: ['src/content/netflix/a.iife.js', 'src/content/netflix/b.iife.js'] };
+const disneyEntry = { matches: [DISNEY_PATTERN], resources: ['src/content/disney/a.iife.js', 'src/content/disney/b.iife.js'] };
 const crEntry = { matches: CR, resources: ['assets/start-x.js'] };
 
 const base: BuiltManifest = {
@@ -21,10 +25,10 @@ const base: BuiltManifest = {
   icons: { '16': 'icons/icon-16.png' },
   permissions: ['storage', 'scripting'],
   host_permissions: CR,
-  optional_host_permissions: [NETFLIX_PATTERN],
+  optional_host_permissions: [NETFLIX_PATTERN, DISNEY_PATTERN],
   background: { service_worker: 'service-worker-loader.js' },
   content_scripts: [{ matches: CR, js: ['assets/content.ts-loader-x.js'] }],
-  web_accessible_resources: [crEntry, netflixEntry],
+  web_accessible_resources: [crEntry, netflixEntry, disneyEntry],
   action: { default_popup: 'src/popup/popup.html', default_icon: { '16': 'icons/icon-16.png' } },
 };
 
@@ -39,6 +43,8 @@ describe('manifestReferences', () => {
       'assets/start-x.js',
       'src/content/netflix/a.iife.js',
       'src/content/netflix/b.iife.js',
+      'src/content/disney/a.iife.js',
+      'src/content/disney/b.iife.js',
       '_locales/en/messages.json',
     ]);
   });
@@ -55,7 +61,7 @@ describe('checkWebAccessibleResources', () => {
   });
 
   it('scripts Netflix exposés à tous les sites (exposition par défaut de crxjs)', () => {
-    const errors = checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, matches: ['http://*/*', 'https://*/*'] }] });
+    const errors = checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, matches: ['http://*/*', 'https://*/*'] }, disneyEntry] });
     expect(errors).toHaveLength(2);
     expect(errors.join('\n')).toMatch(/tous les sites/);
     expect(errors.join('\n')).toMatch(/hors de/);
@@ -65,11 +71,30 @@ describe('checkWebAccessibleResources', () => {
     expect(checkWebAccessibleResources({ web_accessible_resources: [{ matches: ['<all_urls>'], resources: ['assets/x.js'] }] })).toEqual([
       'web_accessible_resources ["<all_urls>"] : ressources exposées à tous les sites',
       'web_accessible_resources : scripts Netflix (*.iife.js) absents',
+      'web_accessible_resources : scripts Disney+ (*.iife.js) absents',
     ]);
-    expect(checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, resources: [...netflixEntry.resources, '<dynamic_resource>'] }] })).toEqual([
+    expect(checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, resources: [...netflixEntry.resources, '<dynamic_resource>'] }, disneyEntry] })).toEqual([
       'web_accessible_resources ["*://*.netflix.com/*"] : ressource non résolue « <dynamic_resource> »',
       'web_accessible_resources ["*://*.netflix.com/*"] : entrée Netflix mêlée à d\'autres ressources',
     ]);
+  });
+
+  it('scripts de deux plateformes réunis sous l’union des motifs (sortie brute de crxjs)', () => {
+    const merged = { matches: [NETFLIX_PATTERN, DISNEY_PATTERN], resources: [...netflixEntry.resources, ...disneyEntry.resources] };
+    const errors = checkWebAccessibleResources({ web_accessible_resources: [merged] });
+    expect(errors).toEqual([
+      expect.stringMatching(/scripts Netflix .* exposés hors de \*:\/\/\*\.netflix\.com/),
+      expect.stringMatching(/entrée Netflix mêlée/),
+      expect.stringMatching(/scripts Disney\+ .* exposés hors de \*:\/\/\*\.disneyplus\.com/),
+      expect.stringMatching(/entrée Disney\+ mêlée/),
+    ]);
+  });
+
+  it('plateforme d’un script enregistré : dossier connu uniquement', () => {
+    expect(registeredScriptPlatform('src/content/disney/page-bridge.iife.js')).toBe('disney');
+    expect(registeredScriptPlatform('src/content/netflix/content-netflix.iife.js')).toBe('netflix');
+    expect(registeredScriptPlatform('src/content/hidive/a.iife.js')).toBeNull();
+    expect(registeredScriptPlatform('assets/a.js')).toBeNull();
   });
 });
 
@@ -89,7 +114,7 @@ describe('checkAccessDeclarations', () => {
       },
       base,
     );
-    expect(errors).toHaveLength(7);
+    expect(errors).toHaveLength(8);
     expect(errors[0]).toMatch(/^permissions :/);
   });
 });
@@ -106,6 +131,69 @@ describe('checkContentSecurityPolicy', () => {
     const wider = { extension_pages: `${csp.extension_pages} https:` };
     expect(checkContentSecurityPolicy({ content_security_policy: wider }, { content_security_policy: csp })[0]).toMatch(/^content_security_policy/);
     expect(checkContentSecurityPolicy({}, {})).toEqual(['content_security_policy.extension_pages absente du manifeste source']);
+  });
+});
+
+describe('checkCommands', () => {
+  const episode = { suggested_key: { default: 'Alt+Shift+K' }, description: '__MSG_cmdCompleteEpisode__' };
+  const panel = { suggested_key: { default: 'Alt+Shift+1' }, description: '__MSG_cmdOpenSidePanel__' };
+  const chromeBuilt: BuiltManifest = { side_panel: { default_path: 'src/sidepanel/sidepanel.html' }, commands: { 'complete-episode': episode, 'open-side-panel': panel } };
+  const firefoxBuilt: BuiltManifest = {
+    sidebar_action: { default_panel: 'src/sidepanel/sidepanel.html' },
+    commands: { 'complete-episode': episode, _execute_sidebar_action: panel },
+  };
+
+  it('Chrome : open-side-panel ; Firefox : _execute_sidebar_action', () => {
+    expect(checkCommands(chromeBuilt, chromeBuilt, 'chrome')).toEqual([]);
+    expect(checkCommands(firefoxBuilt, firefoxBuilt, 'firefox')).toEqual([]);
+  });
+
+  it('Firefox livré avec la commande Chrome (non transformée) : refusé', () => {
+    const errors = checkCommands(chromeBuilt, firefoxBuilt, 'firefox');
+    expect(errors).toEqual([
+      expect.stringMatching(/^commands : .* ≠ manifeste source/),
+      'commands : _execute_sidebar_action absente (raccourci du panneau latéral, firefox)',
+      'commands : open-side-panel inattendue sur firefox',
+      'commands : _execute_sidebar_action sans sidebar_action',
+    ]);
+  });
+
+  it('Firefox : touche suggérée sur une lettre d’accès des menus (EN, FR, DE) refusée, macOS exclu ; Chrome non concerné', () => {
+    const commands = {
+      'complete-episode': { suggested_key: { default: 'Alt+Shift+S', windows: 'Alt+H', mac: 'Alt+Shift+F' } },
+      _execute_sidebar_action: { suggested_key: { default: 'Alt+Shift+P', linux: 'Alt+Shift+9' } },
+    };
+    const built: BuiltManifest = { ...firefoxBuilt, commands };
+    expect(checkCommands(built, built, 'firefox')).toEqual([
+      'commands : Alt+Shift+S (complete-episode) ouvre un menu de Firefox (lettre d’accès)',
+      'commands : Alt+H (complete-episode) ouvre un menu de Firefox (lettre d’accès)',
+      'commands : Alt+Shift+P (_execute_sidebar_action) ouvre un menu de Firefox (lettre d’accès)',
+    ]);
+    // Alt+Shift+chiffre accepté (Alt+Shift+1 : panneau latéral)
+    expect(checkCommands(firefoxBuilt, firefoxBuilt, 'firefox')).toEqual([]);
+    expect(checkCommands(chromeBuilt, chromeBuilt, 'chrome')).toEqual([]);
+  });
+
+  it('commandes retirées par le build', () => {
+    expect(checkCommands({ side_panel: chromeBuilt.side_panel }, chromeBuilt, 'chrome')).toEqual([
+      expect.stringMatching(/^commands : \{\} ≠/),
+      'commands : open-side-panel absente (raccourci du panneau latéral, chrome)',
+    ]);
+  });
+
+  it('plus de 4 touches suggérées, touche en double', () => {
+    const commands = {
+      'complete-episode': episode,
+      'open-side-panel': panel,
+      a: { suggested_key: { default: 'Alt+Shift+A' } },
+      b: { suggested_key: { default: 'Alt+Shift+B' } },
+      c: { suggested_key: { default: 'alt+shift+k' } },
+    };
+    const built: BuiltManifest = { ...chromeBuilt, commands };
+    expect(checkCommands(built, built, 'chrome')).toEqual([
+      'commands : 5 touches suggérées (Chrome en accepte 4 au plus)',
+      'commands : alt+shift+k (default) suggérée pour complete-episode et c',
+    ]);
   });
 });
 

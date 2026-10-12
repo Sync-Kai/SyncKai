@@ -7,7 +7,7 @@ import manifest from './manifest.json';
 import { GIT_COMMIT_EPOCH_ARGS, resolveBuildStamp } from './src/build/build-stamp';
 import { contentCatalogsDefine } from './src/build/content-catalog';
 import { parseBuildTarget, targetManifest, targetOutDir } from './src/build/manifest-target';
-import { jsFileNames, sortWebAccessibleResources } from './src/build/output-names';
+import { jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
 import de from './src/i18n/locales/de.json';
 import en from './src/i18n/locales/en.json';
 import fr from './src/i18n/locales/fr.json';
@@ -37,12 +37,15 @@ function buildStamp(mode: string): string {
   });
 }
 
-/** Manifeste généré identique d'un build à l'autre (ordre des scripts `?script`) : voir src/build/output-names.ts */
+/**
+ * Manifeste généré identique d'un build à l'autre (ordre des scripts `?script`), et scripts enregistrés de chaque plateforme
+ * optionnelle exposés à cette seule plateforme (crxjs les réunit sous l'union des motifs) : voir src/build/output-names.ts
+ */
 const sortedWebAccessibleResources: CrxPlugin = {
   name: 'synckai:sorted-web-accessible-resources',
   enforce: 'post',
   renderCrxManifest(generated) {
-    if (generated.web_accessible_resources) generated.web_accessible_resources = sortWebAccessibleResources(generated.web_accessible_resources);
+    if (generated.web_accessible_resources) generated.web_accessible_resources = sortWebAccessibleResources(splitRegisteredScripts(generated.web_accessible_resources));
     return generated;
   },
 };
@@ -73,7 +76,7 @@ export default defineConfig(({ mode }) => ({
     // Navigateur cible (chrome | firefox) : différences d'API (boutons de notification…)
     __SYNCKAI_TARGET__: JSON.stringify(target),
     // Textes des scripts de contenu (src/i18n/content.ts) : leurs seules clés, pas les catalogues complets (PERF-01).
-    // Hérité par le build séparé des scripts Netflix (`*.iife.ts`), contrairement aux plugins
+    // Hérité par le build séparé des scripts Netflix et Disney+ (`*.iife.ts`), contrairement aux plugins
     __SYNCKAI_CONTENT_CATALOGS__: contentCatalogsDefine({ en, fr, de }),
   },
 }));

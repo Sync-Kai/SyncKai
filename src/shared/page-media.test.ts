@@ -47,3 +47,18 @@ describe('fiche de la page', () => {
     expect(isPageMediaInfo({ ...page, seasonEpisodeCount: '25' })).toBe(false);
   });
 });
+
+describe('épisodes par saison de la plateforme (Netflix)', () => {
+  it('validés dans l’épisode et la page de série : facultatifs, entiers bornés', async () => {
+    const { isEpisodeInfo, MAX_PLATFORM_SEASONS } = await import('./episode.types');
+    expect(isEpisodeInfo({ ...episode, platformSeasons: [12, 12, 2] })).toBe(true);
+    expect(isEpisodeInfo(episode)).toBe(true);
+    expect(isEpisodeInfo({ ...episode, platformSeasons: [12, -1] })).toBe(false);
+    expect(isEpisodeInfo({ ...episode, platformSeasons: [1.5] })).toBe(false);
+    expect(isEpisodeInfo({ ...episode, platformSeasons: Array.from({ length: MAX_PLATFORM_SEASONS + 1 }, () => 1) })).toBe(false);
+    const series = pageMediaFromSeries('netflix', { seriesId: '81171925', seriesSlug: null, seriesTitle: 'Ranma1/2', seasonNumber: 1, seasonTitle: null, platformSeasons: [12, 12, 2] });
+    expect(series.platformSeasons).toEqual([12, 12, 2]);
+    expect(isPageMediaInfo(series)).toBe(true);
+    expect(isPageMediaInfo({ ...series, platformSeasons: 'x' })).toBe(false);
+  });
+});

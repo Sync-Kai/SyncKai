@@ -12,29 +12,25 @@ import { handleEpisodeCompleted } from './episode-completed';
 import { forgetPageResolutions, resolvePageMedia } from './page-media';
 import { applyDiffs, cancelCompareJob, compareServiceLists } from './compare';
 import { cancelCrImport, createCrReviews, startCrAnalyze, startCrApply } from './cr-import';
+import { checkNetflixTitles } from './netflix-import';
 import { listenJobResume } from './job-resume';
-import { declineRewatch, deferRating, rateMedia, startRewatch } from './engagement';
-import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } from './sync/queue';
-import { reopenReview, resolveReview, searchCandidates } from './sync/sync-service';
+import { declineRewatch, deferRating, getListNotes, rateMedia, removeFromList, setListNotes, startRewatch } from './engagement';
+import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, retryQueued } from './sync/queue';
+import { reopenReview, searchCandidates } from './sync/sync-service';
+import { confirmReview, ignoreReview } from './sync/review-decision';
 import { refreshReviewBadge } from '../shared/badge';
 import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { STORAGE_KEYS } from '../shared/storage-keys';
-import {
-  isAllowedOrigin,
-  isExtensionPageSender,
-  isRuntimeMessage,
-  type MessageOrigin,
-  type MessagePayload,
-  type MessageResponse,
-  type MessageType,
-  type RuntimeMessage,
-} from '../shared/messages';
+import type { MessagePayload, MessageResponse, MessageType, RuntimeMessage } from '../shared/messages';
+import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, type MessageOrigin } from './message-guards';
 import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
-import { enablePanelForSender, resetSidePanel } from './side-panel';
+import { resetSidePanel, togglePanelFromCommand } from './side-panel';
+import { OPEN_SIDE_PANEL_COMMAND } from '../shared/commands';
 import { listenContentReinjection } from './content-reinjection';
-import { listenNetflixAccess } from './netflix-access';
+import { listenPlatformAccess } from './platform-access';
 import { runUpdateMigrations } from './update-migrations';
+import { runPendingOtherSeriesPurge } from './sync/mapping-purge';
 
 const log = createLogger('background');
 
@@ -47,9 +43,11 @@ chrome.runtime.onInstalled.addListener((details): void => {
   }
 });
 
-// Le texte du badge n'est pas conservé au redémarrage du navigateur
+// Le texte du badge n'est pas conservé au redémarrage du navigateur. Purge des correspondances restée en échec à la
+// mise à jour (AniList injoignable) : retentée à chaque démarrage, une lecture du stockage sinon.
 chrome.runtime.onStartup.addListener((): void => {
   void refreshReviewBadge();
+  void runPendingOtherSeriesPurge();
 });
 
 // Langue de l'interface (messages d'erreur, notifications) : lue au réveil, attendue avant chaque traitement
@@ -75,8 +73,12 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     SEARCH_ANIME: { ok: false, code: 'API_ERROR', message },
     RESOLVE_REVIEW: { status: 'error', message: t('error.unexpectedSync') },
     REOPEN_REVIEW: { ok: false, code: 'API_ERROR', message },
+    DISMISS_REVIEW: { ok: false, code: 'API_ERROR', message },
     GET_WATCHING: { ok: false, code: 'API_ERROR', message },
     RATE_MEDIA: { status: 'error', message: t('error.unexpectedRating') },
+    REMOVE_FROM_LIST: { status: 'error', message: t('error.unexpectedRemove') },
+    GET_LIST_NOTES: { ok: false, code: 'API_ERROR', message },
+    SET_LIST_NOTES: { status: 'error', message: t('error.unexpectedNotes') },
     DEFER_RATING: { ok: false, code: 'API_ERROR', message },
     START_REWATCH: { status: 'error', message: t('error.unexpectedRewatch') },
     DECLINE_REWATCH: { ok: false, code: 'API_ERROR', message },
@@ -86,13 +88,13 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     COMPARE_LISTS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
     APPLY_DIFFS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
     CANCEL_COMPARE_JOB: { ok: false, code: 'NOT_FOUND', message },
-    PANEL_AVAILABLE: null,
     GET_PANEL_MEDIA: { ok: false, code: 'API_ERROR', message },
     GET_AGENDA: { ok: false, code: 'API_ERROR', message },
     CR_IMPORT_ANALYZE: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
     CR_IMPORT_APPLY: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
     CR_IMPORT_CANCEL: { ok: false, code: 'NOT_FOUND', message },
     CR_IMPORT_REVIEWS: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
+    NETFLIX_IMPORT_TITLES: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
   };
 }
 
@@ -114,21 +116,35 @@ const handlers: MessageHandlers = {
     return result;
   },
   GET_MAL_VIEWER: () => getMalViewer(),
-  // Accès Netflix retiré → ignoré ; échec passager → mise en file de relance automatique (`queued: true`)
+  // Accès Netflix / Disney+ retiré → ignoré ; échec passager → mise en file de relance automatique (`queued: true`)
   EPISODE_COMPLETED: (payload, sender) => handleEpisodeCompleted(payload, sender.tab?.id),
   ADJUST_PROGRESS: (payload) => adjustProgress(payload),
   SET_LIST_STATUS: (payload) => setListStatus(payload),
   RETRY_QUEUED: ({ id }) => retryQueued(id),
   SEARCH_ANIME: ({ query }) => searchCandidates(query),
-  // Échec passager d'un service après une vérification confirmée : mis en file comme une synchro en direct
+  // Échec passager d'un service après une vérification confirmée : mis en file comme une synchro en direct ; épisode
+  // mis de côté pendant une correction rejoué ensuite (review-decision.ts)
   RESOLVE_REVIEW: async (payload) => {
-    const { outcome, episode, epochs } = await resolveReview(payload);
+    const outcome = await confirmReview(payload);
     forgetPageResolutions();
-    return episode !== null ? recordSyncOutcome(episode, null, outcome, epochs) : outcome;
+    return outcome;
   },
   REOPEN_REVIEW: ({ key }) => reopenReview(key),
+  DISMISS_REVIEW: async ({ key }) => {
+    const result = await ignoreReview(key);
+    forgetPageResolutions();
+    return result;
+  },
   GET_WATCHING: ({ service, force }) => getWatchingList(service, force === true),
   RATE_MEDIA: ({ media, score, fromCard }) => rateMedia(media, score, fromCard === true),
+  // Retrait : la saison choisie sur une page de série (« première non terminée ») dépend des listes, résolution oubliée
+  REMOVE_FROM_LIST: async ({ media }) => {
+    const outcome = await removeFromList(media);
+    forgetPageResolutions();
+    return outcome;
+  },
+  GET_LIST_NOTES: ({ media }) => getListNotes(media),
+  SET_LIST_NOTES: ({ media, notes }) => setListNotes(media, notes),
   DEFER_RATING: ({ media, coverUrl }) => deferRating(media, coverUrl),
   START_REWATCH: ({ media, progress }) => startRewatch(media, progress),
   DECLINE_REWATCH: ({ media }) => declineRewatch(media),
@@ -137,13 +153,13 @@ const handlers: MessageHandlers = {
   COMPARE_LISTS: () => compareServiceLists(),
   APPLY_DIFFS: (payload) => applyDiffs(payload),
   CANCEL_COMPARE_JOB: () => cancelCompareJob(),
-  PANEL_AVAILABLE: (_payload, sender) => enablePanelForSender(sender),
   GET_PANEL_MEDIA: ({ mediaId }) => getPanelMedia(mediaId),
   GET_AGENDA: ({ weekStart }) => getAgendaWeek(weekStart),
   CR_IMPORT_ANALYZE: (payload) => startCrAnalyze(payload),
   CR_IMPORT_APPLY: (payload) => startCrApply(payload),
   CR_IMPORT_CANCEL: () => cancelCrImport(),
   CR_IMPORT_REVIEWS: (payload) => createCrReviews(payload),
+  NETFLIX_IMPORT_TITLES: (payload) => checkNetflixTitles(payload),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();
@@ -198,7 +214,14 @@ chrome.alarms.onAlarm.addListener((alarm): void => {
   if (alarm.name === QUEUE_ALARM) afterI18n(processSyncQueue);
 });
 
-chrome.commands.onCommand.addListener((command): void => {
+chrome.commands.onCommand.addListener((command, tab): void => {
+  // Panneau latéral (Chrome) : ouverture synchrone, sans attendre la langue (geste utilisateur perdu au premier await) ;
+  // un panneau déjà ouvert se ferme lui-même ensuite (bascule). Firefox : `_execute_sidebar_action` (manifest-target.ts),
+  // bascule native du navigateur, n'arrive jamais ici.
+  if (__SYNCKAI_TARGET__ === 'chrome' && command === OPEN_SIDE_PANEL_COMMAND) {
+    togglePanelFromCommand(tab);
+    return;
+  }
   void handleCommand(command);
 });
 
@@ -239,9 +262,9 @@ chrome.storage.local.onChanged.addListener((changes): void => {
 
 listenJobResume(afterI18n);
 
-// ─── Panneau latéral (Chrome) : indisponible hors Crunchyroll / ADN ───────
-// Activé onglet par onglet via PANEL_AVAILABLE (script de contenu) ou le bouton du popup.
-// Pas de tabs.onUpdated ici : sans filtre sur Chrome, il réveillerait le service worker à chaque navigation.
+// ─── Panneau latéral (Chrome) : disponible sur tous les onglets, ouvert seulement par l'utilisateur ───
+// Option globale (un seul panneau, partagé par les onglets de la fenêtre) ; la page du panneau suit elle-même l'onglet
+// actif. Pas de tabs.onUpdated ici : sans filtre sur Chrome, il réveillerait le service worker à chaque navigation.
 
 if (__SYNCKAI_TARGET__ === 'chrome') {
   chrome.runtime.onInstalled.addListener(resetSidePanel);
@@ -249,10 +272,11 @@ if (__SYNCKAI_TARGET__ === 'chrome') {
 }
 
 // ─── Onglets Crunchyroll / ADN déjà ouverts : script de contenu réinjecté à l'installation et à la mise à jour ───
-// Chrome seulement (comportement de Firefox à la mise à jour non vérifié) : un script orphelin y prévient dès la lecture
+// Chrome seulement : Firefox exécute lui-même les scripts du manifeste dans les onglets ouverts (content-reinjection.ts).
+// Netflix, Disney+ (accès accordé) : repris sur les deux navigateurs par platform-access.ts
 
-if (__SYNCKAI_TARGET__ === 'chrome') listenContentReinjection();
+listenContentReinjection();
 
-// ─── Netflix (accès optionnel) : scripts enregistrés quand l'accès est accordé, retirés sinon ───
+// ─── Netflix, Disney+ (accès optionnel) : scripts enregistrés quand l'accès est accordé, retirés sinon ───
 
-listenNetflixAccess();
+listenPlatformAccess();

@@ -1,7 +1,51 @@
 # Changelog
 
-Toutes les évolutions notables de SyncKai sont documentées ici.
-Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions selon [SemVer](https://semver.org/lang/fr/).
+All notable changes to SyncKai are documented here.
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
+
+## [Unreleased]
+
+## [2.3.0] - 2026-10-12
+
+### Added
+
+- **Keyboard shortcut** `Alt+Shift+1` (`Alt+Shift+&` on AZERTY, same key): opens or closes the side panel, on any page. On Firefox it shows or hides the SyncKai sidebar. Shown with its *Change* button in *Settings › Shortcuts*. Already installed: the browser doesn't assign new suggested shortcuts on update, set it in `chrome://extensions/shortcuts` (Firefox: `about:addons` › gear icon › *Manage Extension Shortcuts*).
+- **Disney+ (optional, Japanese anime only)**: turn it on in *Settings › Playback & sync*; the browser then asks for access to disneyplus.com, and turning it off removes that access. Titles whose original language is not Japanese are ignored silently, in the page (nothing sent, no notification, neutral popup and panel). The English series title is matched against AniList and trusted only when that entry links to Disney+; a title-only match goes through *To check*. Per-season numbering, season 99 arcs (*Undead Unluck: Winter Arc*) matched to their own AniList entry, sync at the start of the end credits like on Netflix and Crunchyroll (the credits time comes from the response the player receives when an episode starts; without it, or with the percentage trigger, at the chosen percentage). SyncKai sends no request to Disney+: a small script reads the responses the player already receives, keeping only what it needs (never stream addresses or tokens), and the position comes from the player's progress bar. Side panel, page entry and live progress on Disney+ playback pages; Disney+ logo in the popup and the panel. In a Disney+ tab opened before turning it on or before an update, tracking starts with the next episode.
+- *On this page* and the side panel's *Now playing* tab now also work on Netflix and Disney+ series pages (when turned on), not only on playback pages: on Netflix, a series page (`/title/…`) or the details window opened from the catalog or search; on Disney+, a series page (`/browse/entity-…`). The season shown is the one selected on the page when it can be read (Netflix: the only season, or the season menu of the details window; Disney+: the season menu, otherwise the season displayed on load), otherwise SyncKai picks it as on Crunchyroll. Same anime filter as playback: an AniList entry linked to that Netflix title or that Disney+ series page is certain; on Disney+, a series without the *Anime* genre is ignored silently unless AniList links to it; a title-only match is shown as a season to check. As for playback, SyncKai sends no request to Disney+ (it reads the page data the site already receives). On series pages (Crunchyroll included), the side panel follows the season chosen in the page's season menu by itself.
+- Clicking an anime's title or cover opens its AniList or MyAnimeList entry in a new tab, wherever it appears: *On this page*, *Watching*, *Recent syncs*, *To rate*, *AniList ↔ MAL differences*, and in the side panel the *Now playing* entry, its sequels and prequels, and the *Schedule*. With a single account connected, it opens that service's entry; with both, the new *Default entry page* setting (*Settings › Accounts*, AniList by default) decides, and the other service takes over if the anime has no known entry there. *Open the entry* in the ⋯ menu of *Watching* follows the same rule and names the service.
+
+- **Remove from list**: the ⋯ menu of *Watching* (popup) and a new ⋯ menu on the side panel's *Your progress* card remove an anime from your AniList and MyAnimeList lists, after an inline confirmation (*Remove from your list?*). It is removed from every connected account where it is listed; a service where it isn't is skipped, and a failure on one service is named. The match with the streaming series is kept: if you watch an episode later, the sync adds it back as usual.
+- **Comment on an entry** (AniList notes, MyAnimeList comments): a *Comment* field in the side panel's *Your progress* card (collapsed to a one-line preview) and *Comment…* in the ⋯ menu of *Watching* open a small editor; nothing is sent while typing, only on *Save* (Ctrl+Enter), and Escape cancels. The comment is saved on every connected account where the anime is in the list (never added to a list just for a comment); the one shown is AniList's, or MyAnimeList's if the anime is only there. Up to 6,000 characters (AniList's limit).
+- **ADN history import**: *Settings › My data › Import a watch history* now offers Crunchyroll and ADN (the import page also lets you switch). SyncKai reads your ADN watch history in your own ADN tab, with the same request as the ADN website and the session it keeps in that tab (the access token never leaves the tab and is never saved), then uses the same preview, analysis and review as the Crunchyroll import: one line per season, last finished episode, matched with the same rules as the live ADN sync. Only finished episodes count (marked as watched by ADN, or past your end-of-episode percentage); an episode you only started is never imported. Nothing is filtered by genre (ADN also has Chinese and Korean animation): an uncertain match is never written, it goes to *To check*. If ADN refuses the request (signed out or expired session), the page asks you to sign in on ADN and reload the page, then try again.
+- **Netflix history import** (anime only): *Settings › My data › Import a watch history* now also offers Netflix (and the import page lets you switch to it). If Netflix isn't turned on yet, the import page asks for access to netflix.com, which also turns on syncing while you watch on Netflix (same access as *Settings › Playback & sync*). SyncKai reads the *Viewing activity* page of the profile open in your Netflix tab: it clicks that page's own *Show more* button until the end of the history (at most once per second, nothing else is ever clicked), then looks each distinct title up on AniList (10 titles per request) and keeps only the series an AniList entry links to Netflix, or with the same title. Only for those, it reads your last playback position on each episode: an episode counts as watched only if it was played to the end Netflix marks (or the credits), never one you only started; Netflix keeps only the last position of each episode, so the highest watched episode of each season sets the progress. Same numbering and matching as the live Netflix sync (absolute numbering of One Piece arcs, seasons linked to another Netflix title), then the usual preview: a title-only match goes to *To check*, other titles are only counted (*N titles skipped (not anime)*), never listed. Analysis progress is shown at each step and can be stopped.
+- **Settings › Shortcuts**: a new settings category gathers the extension's keyboard shortcuts (*Mark the current episode as watched*, *Open or close the side panel*). Each one shows its current key, or *Not set*, with a *Change* / *Set* button that opens the browser's shortcuts page (if it can't open, the steps to follow are shown). The settings home shows both keys at a glance, in the popup and in the side panel; a key changed in the browser shows up as soon as you come back to an open side panel. The keys are no longer shown in *Playback & sync*, which links to the new category.
+
+### Changed
+
+- **Side panel on every page** (Chrome, Brave), like the Firefox sidebar: it is no longer limited to Crunchyroll, ADN, Netflix and Disney+ tabs. It still never opens by itself, only from the popup's *Open the side panel* button (now shown on any page), the `Alt+Shift+1` shortcut or Chrome's side panel menu. It is now one panel per window, shared by its tabs: it stays open when you switch tabs and follows the active one. On a streaming page it shows *Now playing* as before (or the tab set in *Tab on opening*); elsewhere it opens on *Schedule*, and *Now playing* lists the supported platforms with a button to turn Netflix or Disney+ on. When the active tab leaves a streaming page while *Now playing* is shown, the panel switches to *Schedule*, and back to *Now playing* on the next streaming page; a tab you picked yourself is kept.
+- `PRIVACY.md`: the AniList catalog search that checks Netflix and Disney+ titles is no longer described as made “without your account”; it is read-only, but carries your AniList token when you are signed in, like every AniList request.
+- ADN (`animationdigitalnetwork.com`) is now declared in `host_permissions`, like Crunchyroll, so the import page can find the open ADN tab. Same sites as before: no new install warning.
+- **Default keyboard shortcuts** are now `Alt+Shift+K` (mark the current episode as watched) and `Alt+Shift+1` (side panel; `Alt+Shift+&` on AZERTY), the same on Chrome, Brave and Firefox: `Alt+Shift+S` and `Alt+Shift+P` opened Firefox menus (*History*, *Profiles*), and `Alt+Shift+P` is also Chrome's *New tab group* shortcut. Existing installs keep a key you changed yourself; a missing key can be set in *Settings › Shortcuts*. In French, the settings show `Alt+Maj+1 (touche &)`.
+- On Crunchyroll and ADN, the script SyncKai loads into the page is almost half the size (15% smaller on Netflix): nothing changes in use.
+
+### Fixed
+
+- The side panel outside supported pages now also names the optional platforms that are still off (e.g. “Disney+: can be turned on in Settings › Playback & sync”), instead of listing only the active ones, with a button to turn each one on right away (same browser permission prompt as in Settings).
+- Changing the language no longer makes the popup look zoomed in: it is re-translated in place instead of being reloaded, staying on the same screen.
+- Crunchyroll series pages recognize named seasons (e.g. One Piece « HEROINES »), and a season that is a single movie/special never matches a TV season by its number.
+- Crunchyroll One Piece series page: arcs shown with their episode range (*Elbaph (1156-current)*) now resolve to ONE PIECE with certainty, and MONSTERS (a 2024 one-shot AniList lists as a prequel, on Netflix only) is no longer offered as "Season 2". A prequel released after the series, or an entry available only on another platform, is never treated as one of its seasons.
+- Netflix: on a One Piece arc page (the single AniList entry covering every arc), the entry is no longer marked *Season guessed*. *Season guessed: check it below* is now only shown when there is a season selector to check.
+- Fewer AniList requests: the AniList catalog (search results, linked entries) is kept for 5 minutes, and a long series whose entry already covers the episode (One Piece) no longer looks up its related entries. Browsing One Piece arcs on Netflix with the side panel open no longer runs into *Too many requests to AniList*.
+- Crunchyroll: on a series page showing a special season (*Special*, *OVA*, *Movie*…), *On this page* and the side panel now show that special's AniList entry instead of season 1 marked *Season guessed*.
+- Choosing the season in *On this page* or in the side panel no longer makes the entry reload in a loop until AniList refuses requests (*Too many requests to AniList*). The popup and the panel now reload the entry by themselves at most once every 2 seconds and 5 times a minute, then wait for a page change or *Refresh*.
+- Netflix: a series published in several seasons, whose first seasons AniList links to another Netflix title (Ranma1/2), no longer syncs season 1 episodes to the last season's entry. SyncKai now matches each Netflix season to the AniList entry of the same season of the franchise (sequels and prequels, checked against the number of episodes of each Netflix season). When this can't be confirmed, the match goes to *To check* instead of being written. Netflix matches pointing to a sequel are checked once on update and forgotten: they are recomputed at the next episode. Progress already written to the wrong entry has to be fixed by hand.
+- Disney+: a series that Disney+ publishes separately from its prequel (BLEACH: Thousand-Year Blood War) is no longer matched to the prequel's entry (BLEACH) for its first season.
+- Netflix: the player is found again when it appears without any visible playback event (*No video detected* in the panel, end of episode never synced); SyncKai now looks for it every second until it shows up.
+- Matches saved before 2.2.0 that sent the progress of a sequel published separately on Crunchyroll or ADN to the previous series (Naruto Shippuden to Naruto, Bleach TYBW to Bleach…) are checked against AniList on update and forgotten: they are recomputed at the next episode. If AniList doesn't respond, the check is retried at the next browser startup. A match that SyncKai can't be certain is wrong is kept: if a sequel still receives the wrong series' progress, use *Settings › My data › Matches › Forget*. Progress already written to the wrong series has to be fixed by hand.
+- An episode watched while a correction (*Correct*) awaits your decision is no longer lost: it is set aside on the card (*Episode N on hold, applied after your decision*), then synced as soon as you confirm or ignore the correction, without ever moving your progress backwards. No more manual +1. It only applies to the account that was connected when you watched it.
+- After disconnecting an account, *On this page* and the *Now playing* panel no longer show that account's list status, even if the entry was still loading when you disconnected. After connecting an account, the entry is no longer taken from an earlier cache that lacked its list.
+- After a SyncKai update, Netflix tabs that are already open (with access granted) are picked up automatically, in Chrome and Firefox, without reloading the page: previously, the current episode was no longer tracked there. In Firefox, Crunchyroll and ADN tabs already were.
+- Side panel: an episode waiting for you to confirm its AniList entry (found by title only) is shown as *To check* in the live progress, with the reason and what to do, instead of *Sync failed* in red; with no account connected, it shows *No account connected*. A real failure still shows *Sync failed*.
 
 ## [2.2.1] - 2026-10-11
 
@@ -11,299 +55,300 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), ver
 
 ## [2.2.0] - 2026-10-11
 
-Version fiabilité : après un audit complet de l’extension, ta progression ne recule plus jamais, chaque compte garde ses propres données et les jetons de connexion sont chiffrés.
+Reliability release: after a full audit of the extension, your progress never goes backwards, each account keeps its own data, and sign-in tokens are encrypted.
 
-### Ajouté
+### Added
 
-- La saison choisie dans le sélecteur du popup ou du panneau, sur une page de lecture, est mémorisée : l’épisode en cours et les suivants sont synchronisés sur cette fiche. Pour revenir au choix automatique : *Oublier* dans *Réglages › Mes données*. Si l’épisode n’existe pas dans cette saison, la carte le signale et rien n’est mémorisé.
-- Après une mise à jour de SyncKai, les onglets Crunchyroll et ADN déjà ouverts sont repris tout seuls dans Chrome, sans recharger la page. Sinon, l’avertissement *Recharge la page* s’affiche dès l’ouverture de l’épisode ou le début de la lecture, et plus seulement à la fin.
-- SyncKai injoignable à la fin d’un épisode : la bulle propose *Réessayer* (un seul envoi, même après plusieurs clics). Le raccourci de validation (Alt+Maj+S) renvoie aussi un épisode qui n’a rien écrit et répond toujours à l’écran : *Aucun épisode en lecture*, *Épisode déjà synchronisé*, *Synchro automatique en pause* ou *Série exclue de la synchronisation*.
-- +1 / −1 réussi sur un service et en échec sur l’autre : un bouton *Réessayer* écrit le même épisode sur le seul service en échec, au lieu de recliquer +1 et de décaler celui qui avait réussi.
-- Accessibilité : après une action (*+1*, *Réessayer*, *Oublier*, *Ignorer*, *Fermer*…), le focus clavier reste sur le bouton ou passe à l’élément voisin au lieu de repartir du haut du popup ; un bouton dont l’action est en cours reste sélectionnable et est annoncé « indisponible » ; les messages d’erreur ne sont lus qu’une fois par les lecteurs d’écran (NVDA, VoiceOver, Narrateur), et les résultats série par série de l’import et de l’alignement ne le sont plus (le bilan l’est).
+- The season picked in the popup or panel selector, on a playback page, is remembered: the current episode and the following ones are synced to that entry. To go back to automatic selection: *Forget* in *Settings › My data*. If the episode doesn't exist in that season, the card says so and nothing is remembered.
+- After a SyncKai update, Crunchyroll and ADN tabs that are already open are picked up automatically in Chrome, without reloading the page. Otherwise, the *Reload the page* warning shows as soon as the episode opens or playback starts, not only at the end.
+- SyncKai unreachable at the end of an episode: the bubble offers *Retry* (sent only once, even after several clicks). The confirm shortcut (Alt+Shift+S) also resends an episode that wrote nothing, and always answers on screen: *No episode playing*, *Episode already synced*, *Auto sync paused* or *Series excluded from sync*.
+- +1 / −1 succeeded on one service and failed on the other: a *Retry* button writes the same episode to the failed service only, instead of clicking +1 again and shifting the one that succeeded.
+- Accessibility: after an action (*+1*, *Retry*, *Forget*, *Ignore*, *Close*…), keyboard focus stays on the button or moves to the neighboring element instead of jumping back to the top of the popup; a button whose action is in progress stays focusable and is announced as "unavailable"; error messages are read only once by screen readers (NVDA, VoiceOver, Narrator), and the per-series results of the import and of list alignment no longer are (the summary is).
 
-### Modifié
+### Changed
 
-- Les synchros en attente, les cartes *À noter*, les dernières synchros et les corrections sont liées au compte connecté à leur création et ne valent que pour lui : après une déconnexion, même suivie d’une reconnexion au même compte, elles ne sont plus écrites. À la mise à jour, celles qui existent déjà sont rattachées au compte connecté (pour une sauvegarde importée, au compte connecté à l’import).
-- Écarts AniList ↔ MAL : *Garder AniList*, *Garder MAL* et *Tout aligner* relisent les deux listes juste avant d’écrire. Une série modifiée ou synchronisée depuis l’analyse est marquée *Modifiée depuis l’analyse* et laissée telle quelle, au lieu d’être réécrite avec d’anciennes valeurs : l’alignement ne fait plus reculer la progression ni le statut.
-- Les écritures sur une même série passent l’une après l’autre (synchro, synchros en attente, +1/−1, statut, note, revisionnage, import, alignement) : deux +1 cliqués en même temps depuis le popup et le panneau comptent bien pour deux, et un ancien épisode renvoyé plus tard ne fait plus reculer la progression.
-- +1 / −1 n’ajoutent plus la série à l’épisode 1 sur le service où elle est absente de ta liste : ce service est laissé tel quel et le retour l’indique (*Ép. 8 vu · absente de MyAnimeList*). L’ajout reste réservé aux boutons *Ajouter*.
-- Popup et panneau partagent la même fiche « Sur cette page » : mêmes états et mêmes messages, la carte du popup se met à jour quand une synchro réécrit la fiche, et une relecture en échec garde la fiche affichée avec l’erreur.
-- Moins de requêtes et de travail en arrière-plan : le profil est relu au plus toutes les 6 heures et la liste *En cours* gardée 90 secondes (*Réessayer* et chaque synchro la relisent toujours), le service worker n’est plus réveillé par les caches du popup et du panneau, et les scripts des pages de lecture, jusqu’à trois fois plus légers, ne reçoivent plus chaque écriture des données de SyncKai. Un changement de langue s’applique aux messages de la page sans la recharger, au plus tard à l’épisode suivant.
-- Sauvegarde : le fichier exporté porte un nom dans la langue de l’interface (*synckai-backup-…*, *synckai-sicherung-…*), et *Exporter* depuis le popup ouvre la page *Sauvegarde*, qui lance le téléchargement : la boîte *Enregistrer sous* ne ferme plus le popup en plein export.
-- Textes : Netflix est cité dans l’accueil, dans *Rien en cours* (avec un bouton *Ouvrir Netflix* quand il est activé), dans l’Agenda vide et dans le panneau hors Crunchyroll / ADN ; l’astuce de *Rien en cours* indique le vrai chemin *Réglages › Lecture & synchro* et l’ouvre d’un clic.
-- Chaque version est vérifiée avant publication : paquet reconstruit à l’identique depuis les sources, permissions contrôlées, analyse du code et tests élargis.
+- Pending syncs, *To rate* cards, recent syncs and corrections are tied to the account connected when they were created and only apply to it: after disconnecting, even if you reconnect the same account, they are no longer written. On update, existing ones are attached to the connected account (for an imported backup, to the account connected at import time).
+- AniList ↔ MAL differences: *Keep AniList*, *Keep MAL* and *Match all to…* re-read both lists right before writing. A series changed or synced since the analysis is marked *Changed since the analysis* and left as is, instead of being rewritten with old values: alignment no longer moves progress or status backwards.
+- Writes to the same series run one after another (sync, pending syncs, +1/−1, status, rating, rewatch, import, alignment): two +1 clicked at the same time from the popup and the panel really count as two, and an old episode resent later no longer moves progress backwards.
+- +1 / −1 no longer add the series at episode 1 on a service where it isn't in your list: that service is left as is and the feedback says so (*Ep. 8 watched · not in your MyAnimeList list*). Adding stays reserved for the *Add* buttons.
+- Popup and panel share the same "On this page" entry: same states and same messages, the popup card updates when a sync rewrites the entry, and a failed refresh keeps the entry displayed with the error.
+- Fewer requests and less background work: the profile is re-read at most every 6 hours and the *Watching* list is kept for 90 seconds (*Retry* and every sync still re-read it), the service worker is no longer woken up by the popup and panel caches, and the playback page scripts, up to three times lighter, no longer receive every write to SyncKai's data. A language change applies to on-page messages without reloading, at the latest at the next episode.
+- Backup: the exported file is named in the interface language (*synckai-backup-…*, *synckai-sicherung-…*), and *Export* from the popup opens the *Backup* page, which starts the download: the *Save as* dialog no longer closes the popup mid-export.
+- Text: Netflix is mentioned on the welcome screen, in *Nothing in progress yet* (with an *Open Netflix* button when it's enabled), in the empty Schedule and in the panel outside Crunchyroll / ADN; the *Nothing in progress yet* tip shows the real path *Settings › Playback & sync* and opens it in one click.
+- Every release is verified before publishing: package rebuilt identically from source, permissions checked, code analysis and broader tests.
 
-### Corrigé
+### Fixed
 
-- Fin d’épisode de nouveau détectée quand le lecteur remplace sa vidéo (lecture automatique sur Crunchyroll ou Netflix), quand une bande-annonce précède le lecteur, dans un onglet en arrière-plan ou quand le lecteur met plus de 30 secondes à apparaître (publicité, avertissement de contenu, connexion lente). Sur Crunchyroll, en lecture automatique (One Piece E1180 puis E1181), le nouvel épisode n’est plus identifié avec le titre et le numéro du précédent.
-- Une préquelle ou une suite publiée comme une autre série sur la plateforme (Naruto pour Naruto Shippuden, Bleach pour Bleach TYBW…) n’est plus comptée comme une saison de la série regardée. **Si tu regardes une telle suite sur Crunchyroll, vérifie dans AniList et MAL que la série précédente n’a pas reçu ta progression**, et utilise *Réglages › Mes données › Correspondances › Oublier* si une correspondance est fausse.
-- Comptes : rien d’un ancien compte n’est plus écrit sur un nouveau (synchros en attente, cartes *À noter* et *Corriger*, import Crunchyroll en cours), ni réenregistré après une déconnexion (profil, liste *En cours*, comparaison AniList ↔ MAL, agenda, alertes de sortie). *Reconnecter* AniList efface d’abord les données de l’ancien compte, et la fiche de la page comme le panneau latéral sont vidés dès la déconnexion.
-- Accès révoqué alors qu’aucun autre service n’est connecté : tes données de suivi sont effacées comme après une déconnexion ; à l’inverse, se déconnecter de MyAnimeList quand AniList a seulement expiré ne les efface plus. Un accès révoqué ou une session impossible à renouveler pendant une synchro en arrière-plan affiche *Session expirée* avec *Reconnecter*, au lieu de *Non connecté*.
-- Connexions : plusieurs requêtes MyAnimeList refusées ne renouvellent la session qu’une fois (moins de déconnexions intempestives) ; abandon après 20 secondes si MyAnimeList ne répond pas ; session gardée en cas de limite de requêtes (429) ; plus de reconnexion fantôme après une déconnexion pendant un renouvellement, ni de reconnexion effacée par une réponse tardive ; une première connexion MyAnimeList refusée en donne la cause et l’URL de redirection attendue ; une réponse trop lente affiche *délai dépassé* au lieu de *réponse inattendue*, et les tâches de fond réessaient.
-- Import de l’historique Crunchyroll : une coupure réseau, une limite de requêtes ou une erreur passagère ne fait plus perdre la lecture (nouvel essai après une courte attente, saison illisible passée *À vérifier*) ; une réponse inattendue à la demande d’accès affiche *Import indisponible* ; une série écrite sur AniList alors que MyAnimeList était indisponible n’est plus comptée en échec (seul MyAnimeList est retenté).
-- Import Crunchyroll et alignement AniList ↔ MAL : un traitement en cours pendant une mise à jour de l’extension reprend tout seul ; un gros historique s’analyse et s’applique bien plus légèrement ; l’historique réduit n’est plus conservé après un arrêt ou un échec de l’analyse (celui d’une version précédente est effacé) ; les blocs *Déjà à jour* et *À vérifier* restent ouverts ou repliés ; *Recommencer* n’efface plus une analyse lancée depuis un autre onglet.
-- Revisionnage : +1 sur le dernier épisode le termine comme la synchro automatique (*Terminé* avec un revisionnage de plus, MyAnimeList quitte *Re-watching*), et *Corriger* laisse la série en revisionnage. **Les séries laissées en *Re-watching* sur MyAnimeList par l’ancien comportement sont à corriger à la main sur MyAnimeList.**
-- *Corriger* est refusé avec un message si la progression a changé depuis la synchro (une série terminée entre-temps reste terminée), et l’épisode suivant de la même saison est signalé *À vérifier* tant que la correction n’est pas validée ou ignorée. **Les corrections importées depuis une sauvegarde deviennent de simples vérifications.**
-- Cartes : une carte *À noter* reste dans Activité tant qu’un service n’a pas enregistré la note (ou si la série n’est dans aucune de tes listes) et n’est plus effacée par une autre série qui se termine ; une carte *À vérifier* validée pendant une panne d’un service met l’épisode en attente au lieu de le perdre. Plus de bulle *Noter* si la série a déjà une note, à la fin d’un revisionnage, ni quand seule la fiche MyAnimeList se termine.
-- Correspondances : une saison suivie pendant sa diffusion n’est plus bloquée quand AniList publie la suite dans une fiche *Part 2* ; une fiche introuvable (supprimée, fusionnée, absente de MyAnimeList) affiche l’erreur tout de suite au lieu d’être renvoyée en boucle pendant 24 h ; une correspondance d’une autre version de SyncKai n’est plus effacée. Celles d’une sauvegarde importée sont refusées si elles sont suspectes et revérifiées sur AniList à leur premier usage, au lieu d’envoyer une progression fausse.
-- Alertes de sortie : la liste *En cours* est rechargée toutes les 12 heures même sans ouvrir le popup (séries ajoutées ailleurs alertées, séries terminées ou abandonnées plus alertées, épisode tout juste synchronisé plus annoncé) ; une notification non affichée est retentée ; baisser le délai d’alerte ne fait plus sauter d’épisodes ; les sorties récentes ne sont plus perdues avec beaucoup de séries quotidiennes ; une série exclue n’apparaît plus dans l’agenda ni dans les alertes.
-- Agenda : une erreur de chargement reste affichée avec *Réessayer* et la même semaine n’est plus demandée deux fois de suite ; *Ajuster l’heure* avec 200 délais déjà réglés garde le nouveau réglage et retire le plus ancien ; *Entrée* dans un champ de délai vide n’enregistre plus 0 minute.
-- Panneau *En lecture* : la fiche ne reste plus bloquée sur le chargement ni grisée quand l’onglet finit de se charger pendant la recherche, et une action terminée après un changement d’onglet ou d’épisode ne s’affiche plus sur la nouvelle page.
-- Netflix : un film l’emporte sur une série TV au même titre (une fiche trouvée par son seul titre passe par *À vérifier*), et les correspondances enregistrées par la 2.1.0 sont recalculées au prochain épisode. Netflix désactivé (Réglages, `chrome://extensions` ou `about:addons`) : un onglet resté ouvert ne synchronise plus rien et affiche *Netflix est désactivé*, le lecteur préféré repasse sur Crunchyroll (aussi après l’import d’une sauvegarde), et *Ouvrir*, l’agenda et les notifications n’ouvrent plus Netflix.
-- SyncKai ne modifie plus la langue déclarée par les pages Crunchyroll, ADN et Netflix : plus de proposition de traduction à tort, bonne langue pour les lecteurs d’écran, et l’import Crunchyroll récupère les titres dans la langue de ton compte Crunchyroll.
-- Interface : pendant la pause d’un alignement ou d’un import, seul le compte à rebours change (le survol et le focus ne sautent plus) ; un compte dont le profil n’a jamais pu être chargé affiche l’erreur avec *Réessayer* et *Déconnecter* au lieu d’un chargement sans fin ; la page *Sauvegarde* ne laisse plus choisir un autre fichier pendant un import ; sous Firefox, *Modifier* le raccourci ouvre la page des raccourcis (ou affiche la marche à suivre) ; en anglais et en allemand, plus d’espace avant les deux-points.
+- End of episode detected again when the player replaces its video (autoplay on Crunchyroll or Netflix), when a trailer precedes the player, in a background tab, or when the player takes more than 30 seconds to appear (ad, content warning, slow connection). On Crunchyroll, with autoplay (One Piece E1180 then E1181), the new episode is no longer identified with the previous one's title and number.
+- A prequel or sequel published as a separate series on the platform (Naruto for Naruto Shippuden, Bleach for Bleach TYBW…) is no longer counted as a season of the series being watched. **If you watch such a sequel on Crunchyroll, check in AniList and MAL that the previous series didn't receive your progress**, and use *Settings › My data › Matches › Forget* if a match is wrong.
+- Accounts: nothing from an old account is written to a new one any more (pending syncs, *To rate* and *Correct* cards, Crunchyroll import in progress), nor saved again after disconnecting (profile, *Watching* list, AniList ↔ MAL comparison, schedule, release alerts). *Reconnect* AniList first clears the old account's data, and both the page entry and the side panel are emptied as soon as you disconnect.
+- Access revoked while no other service is connected: your tracking data is cleared, as after disconnecting; conversely, disconnecting MyAnimeList while AniList has merely expired no longer clears it. Revoked access or a session that can't be renewed during a background sync shows *Session expired* with *Reconnect*, instead of *Not connected*.
+- Connections: several rejected MyAnimeList requests renew the session only once (fewer unexpected sign-outs); gives up after 20 seconds if MyAnimeList doesn't respond; session kept when hitting the rate limit (429); no more ghost reconnection after disconnecting during a renewal, nor a reconnection wiped out by a late response; a rejected first MyAnimeList connection gives the cause and the expected redirect URL; a response that's too slow shows *timed out* instead of *unexpected response*, and background tasks retry.
+- Crunchyroll history import: a network drop, a rate limit or a transient error no longer loses the reading (new attempt after a short wait, unreadable season moved to *To check*); an unexpected response to the access request shows *Import unavailable*; a series written to AniList while MyAnimeList was unavailable is no longer counted as failed (only MyAnimeList is retried).
+- Crunchyroll import and AniList ↔ MAL alignment: a job running during an extension update resumes on its own; a large history is analyzed and applied much more lightly; the reduced history is no longer kept after the analysis is stopped or fails (one left by a previous version is cleared); the *Already up to date* and *To check* blocks stay expanded or collapsed; *Start over* no longer clears an analysis started from another tab.
+- Rewatch: +1 on the last episode completes it the same way auto sync does (*Completed* with one more rewatch, MyAnimeList leaves *Re-watching*), and *Correct* keeps the series in rewatch. **Series left in *Re-watching* on MyAnimeList by the old behavior must be fixed by hand on MyAnimeList.**
+- *Correct* is refused with a message if progress changed since the sync (a series completed in the meantime stays completed), and the next episode of the same season is flagged *To check* until the correction is confirmed or ignored. **Corrections imported from a backup become simple checks.**
+- Cards: a *To rate* card stays in Activity until a service has saved the rating (or if the series is in none of your lists) and is no longer cleared by another series being completed; a *To check* card confirmed during a service outage puts the episode on hold instead of losing it. No more rating bubble if the series already has a rating, at the end of a rewatch, or when only the MyAnimeList entry gets completed.
+- Matches: a season followed while airing is no longer stuck when AniList publishes the continuation as a *Part 2* entry; an entry that can't be found (deleted, merged, not on MyAnimeList) shows the error right away instead of being resent in a loop for 24 h; a match from another SyncKai version is no longer cleared. Those from an imported backup are rejected if they look suspicious and re-checked against AniList on first use, instead of sending wrong progress.
+- Release alerts: the *Watching* list is reloaded every 12 hours even without opening the popup (series added elsewhere get alerts, completed or dropped series no longer do, an episode that was just synced is no longer announced); a notification that failed to show is retried; lowering the alert delay no longer skips episodes; recent releases are no longer lost with many daily series; an excluded series no longer appears in the schedule or in alerts.
+- Schedule: a loading error stays displayed with *Retry* and the same week is no longer requested twice in a row; *Adjust time* with 200 delays already set keeps the new setting and removes the oldest one; *Enter* in an empty delay field no longer saves 0 minutes.
+- *Now playing* panel: the entry no longer stays stuck loading or grayed out when the tab finishes loading during the lookup, and an action that finishes after switching tab or episode no longer shows on the new page.
+- Netflix: a movie now takes priority over a TV series with the same title (an entry found by its title alone goes through *To check*), and matches saved by 2.1.0 are recomputed at the next episode. Netflix turned off (Settings, `chrome://extensions` or `about:addons`): a tab left open no longer syncs anything and shows *Netflix is turned off*, the preferred player switches back to Crunchyroll (also after importing a backup), and *Open*, the schedule and notifications no longer open Netflix.
+- SyncKai no longer changes the language declared by Crunchyroll, ADN and Netflix pages: no more unwanted translation prompts, correct language for screen readers, and the Crunchyroll import gets titles in your Crunchyroll account's language.
+- Interface: while an alignment or import is paused, only the countdown changes (hover and focus no longer jump); an account whose profile could never be loaded shows the error with *Retry* and *Disconnect* instead of loading forever; the *Backup* page no longer lets you pick another file during an import; on Firefox, *Change* next to the shortcut opens the shortcuts page (or shows the steps to follow); in English and German, no more space before colons.
 
-### Sécurité
+### Security
 
-- Les jetons de connexion AniList et MyAnimeList sont chiffrés (AES-GCM) avec une clé non exportable que les pages web et les scripts de contenu ne peuvent pas lire. Ceux des versions précédentes sont chiffrés à la mise à jour : tu restes connecté. Si la clé est perdue (données de l’extension effacées), le compte affiche *Session expirée* et il suffit de se reconnecter.
-- Les images (couvertures, bannières, avatars) ne sont chargées que depuis les serveurs d’AniList et de MyAnimeList : une autre adresse, venue par exemple d’une sauvegarde importée, est remplacée par l’affiche de repli et bloquée par la politique de sécurité des pages de l’extension.
-- Depuis les pages Crunchyroll, ADN et Netflix, SyncKai n’accepte plus que les messages de lecture (fin d’épisode, note, revisionnage, panneau) ; tout le reste est réservé aux pages de l’extension.
+- AniList and MyAnimeList sign-in tokens are encrypted (AES-GCM) with a non-exportable key that web pages and content scripts can't read. Tokens from previous versions are encrypted on update: you stay signed in. If the key is lost (extension data cleared), the account shows *Session expired* and you just need to reconnect.
+- Images (covers, banners, avatars) are only loaded from AniList and MyAnimeList servers: any other address, for example from an imported backup, is replaced with the fallback poster and blocked by the extension pages' security policy.
+- From Crunchyroll, ADN and Netflix pages, SyncKai now only accepts playback messages (end of episode, rating, rewatch, panel); everything else is reserved for the extension's own pages.
 
 ## [2.1.0] - 2026-10-10
 
-Netflix rejoint Crunchyroll et ADN, en option et pour les animes uniquement.
+Netflix joins Crunchyroll and ADN, as an option and for anime only.
 
-### Ajouté
+### Added
 
-- **Netflix (facultatif)** : à activer dans *Réglages › Lecture & synchro* ; le navigateur demande alors l’accès à netflix.com, et les onglets Netflix déjà ouverts fonctionnent sans les recharger. Désactiver Netflix retire cet accès.
-- Netflix ne distinguant pas les animes, seules les séries dont la fiche AniList contient un lien vers le titre Netflix sont synchronisées ; une série trouvée par son seul titre passe par une carte *À vérifier*, les autres titres sont ignorés sans bruit (ni notification, ni journal, popup et panneau neutres).
-- Numérotation des épisodes continue d’une saison Netflix à l’autre, synchro au début du générique (repli au pourcentage, comme sur Crunchyroll).
-- Panneau latéral, fiche de la page et progression en direct sur les pages de lecture Netflix ; logo Netflix dans le popup et le panneau, Netflix proposé comme lecteur préféré et dans les réglages de l’agenda.
+- **Netflix (optional)**: turn it on in *Settings › Playback & sync*; the browser then asks for access to netflix.com, and Netflix tabs that are already open work without reloading. Turning Netflix off removes that access.
+- Since Netflix doesn't tell anime apart, only series whose AniList entry contains a link to the Netflix title are synced; a series found by its title alone goes through a *To check* card, and other titles are silently ignored (no notification, no log, neutral popup and panel).
+- Continuous episode numbering from one Netflix season to the next, sync at the start of the credits (percentage fallback, as on Crunchyroll).
+- Side panel, page entry and live progress on Netflix playback pages; Netflix logo in the popup and the panel, Netflix offered as preferred player and in the schedule settings.
 
-### Modifié
+### Changed
 
-- Moins de requêtes AniList sur Netflix : une série reconnue comme hors animes est mémorisée 24 h.
+- Fewer AniList requests on Netflix: a series identified as not being anime is remembered for 24 h.
 
-### Corrigé
+### Fixed
 
-- Liste « En cours » bloquée sur le chargement : après 25 s, un message d’erreur et un bouton *Réessayer* s’affichent ; une réponse arrivée en retard est tout de même affichée.
-- Rapport de diagnostic : un stockage local bloqué plus de 10 s est désormais signalé dans les erreurs récentes.
+- "Watching" list stuck loading: after 25 s, an error message and a *Retry* button appear; a late response is still displayed.
+- Diagnostic report: local storage blocked for more than 10 s is now reported in recent errors.
 
 ## [2.0.0] - 2026-10-08
 
-Panneau latéral, import de l’historique Crunchyroll et réglages repensés.
+Side panel, Crunchyroll history import and redesigned settings.
 
-### Ajouté
+### Added
 
-- **Panneau latéral** (Crunchyroll et ADN) : onglet *En lecture* avec la fiche AniList complète (synopsis, genres, studio, suites avec un bouton *Regarder* quand elles sont sur Crunchyroll / ADN), ta progression et tes actions, et un lien vers la discussion de l'épisode.
-- Progression en direct dans le panneau (position, synchro au générique dans X min, synchronisé) ; la fiche se met à jour après la synchro.
-- **Agenda** (panneau latéral) : les sorties de la semaine pour tes séries en cours, avec l'heure estimée sur Crunchyroll / ADN (réglable) et les épisodes déjà vus.
-- **Import de l'historique Crunchyroll** (Réglages) : lit ton historique dans ton navigateur et met à jour AniList / MyAnimeList (aperçu avant import, jamais de recul, vérification en cas de doute).
-- Tests de bout en bout du popup dans l'intégration continue (bloquent une release en cas d'échec).
-- Réglages du panneau latéral : onglet ouvert par défaut, affichage de la progression en direct.
+- **Side panel** (Crunchyroll and ADN): *Now playing* tab with the full AniList entry (synopsis, genres, studio, sequels with a *Watch* button when they're on Crunchyroll / ADN), your progress and actions, and a link to the episode discussion.
+- Live progress in the panel (position, sync at the credits in X min, synced); the entry updates after the sync.
+- **Schedule** (side panel): this week's releases for the series you're watching, with the estimated time on Crunchyroll / ADN (adjustable) and the episodes already watched.
+- **Crunchyroll history import** (Settings): reads your history in your browser and updates AniList / MyAnimeList (preview before importing, never goes backwards, review when in doubt).
+- End-to-end popup tests in continuous integration (a failure blocks the release).
+- Side panel settings: tab opened by default, live progress display.
 
-### Modifié
+### Changed
 
-- **Réglages réorganisés** : accueil par catégories avec un résumé de chaque réglage, interrupteurs rapides (synchro, alertes), sous-pages et zones de danger ; aussi accessibles depuis le panneau latéral.
-- Logos de Crunchyroll, ADN, AniList et MyAnimeList à la place des pastilles texte CR / ADN / AL / MAL (popup, panneau latéral), embarqués dans l’extension.
-- Firefox : version minimale 142 (supprime l’avertissement de validation AMO lié à Firefox pour Android).
+- **Reorganized settings**: home screen by category with a summary of each setting, quick toggles (sync, alerts), subpages and danger zones; also reachable from the side panel.
+- Crunchyroll, ADN, AniList and MyAnimeList logos instead of the CR / ADN / AL / MAL text badges (popup, side panel), bundled with the extension.
+- Firefox: minimum version 142 (removes the AMO validation warning about Firefox for Android).
 
-### Corrigé
+### Fixed
 
-- Fiche de la page : popup et panneau affichent la même fiche pour un onglet, mise à jour juste après la synchro ; une page de lecture lue avant son chargement complet ne donne plus une saison devinée sur le seul titre (ex : *Black Butler -Public School Arc-* affiché comme *Kuroshitsuji* 2008).
-- Lecteur préféré ADN : SyncKai retient les pages de séries ADN que tu visites (AniList ne les référence presque jamais) ; sinon « Ouvrir » reste sur Crunchyroll et le menu ⋯ propose « Chercher sur ADN ».
-- Correspondance des saisons : saisons spéciales (OVA, extras, saison 0) jamais confondues avec la N-ième saison (film ou OVA unique au titre exact reconnu, sinon fiche à choisir) ; numéro de saison du titre (« Season 2 ») prioritaire ; saison Crunchyroll découpée en « Part 2 » sur AniList reconnue sans lien ; numérotation absolue sur une fiche unique (One Piece) jugée sûre.
-- Limite de requêtes AniList : les tâches de fond (import, comparaison des listes) se limitent à ~20 requêtes/min et laissent passer le popup et la synchro en priorité ; après un refus, attente d’au moins 5 s (plus de « réessaie dans 0 s »).
+- Page entry: popup and panel show the same entry for a tab, updated right after the sync; a playback page read before it has fully loaded no longer yields a season guessed from the title alone (e.g. *Black Butler -Public School Arc-* shown as *Kuroshitsuji* 2008).
+- ADN preferred player: SyncKai remembers the ADN series pages you visit (AniList almost never lists them); otherwise "Open" stays on Crunchyroll and the ⋯ menu offers "Search on ADN".
+- Season matching: special seasons (OVA, extras, season 0) are never confused with the Nth season (a single movie or OVA with the exact title is recognized, otherwise you pick the entry); the season number in the title ("Season 2") takes precedence; a Crunchyroll season split into a "Part 2" on AniList is recognized without a link; absolute numbering on a single entry (One Piece) is considered safe.
+- AniList rate limit: background tasks (import, list comparison) limit themselves to ~20 requests/min and let the popup and sync go first; after a refusal, waits at least 5 s (no more "try again in 0 s").
 
 ## [1.9.0] - 2026-10-07
 
-SyncKai arrive sur Firefox.
+SyncKai comes to Firefox.
 
-### Ajouté
+### Added
 
-- **Version Firefox** (Firefox 140 ou plus récent, ordinateur) : mêmes fonctionnalités que sur Chrome, publiée sur Firefox Add-ons (AMO).
-- Bandeau « Autoriser l’accès » dans le popup si l’accès à Crunchyroll / ADN a été retiré (Firefox).
-- Publication automatique sur le Chrome Web Store et Firefox Add-ons à chaque version.
+- **Firefox version** (Firefox 140 or later, desktop): same features as on Chrome, published on Firefox Add-ons (AMO).
+- "Allow access" banner in the popup if access to Crunchyroll / ADN has been removed (Firefox).
+- Automatic publishing to the Chrome Web Store and Firefox Add-ons for every release.
 
-### Modifié
+### Changed
 
-- Connexions AniList / MyAnimeList configurées par navigateur.
-- Firefox : notifications de nouvel épisode sans bouton (un clic ouvre l’épisode).
+- AniList / MyAnimeList sign-in configured per browser.
+- Firefox: new episode notifications without buttons (a click opens the episode).
 
 ## [1.8.0] - 2026-10-05
 
-### Ajouté
+### Added
 
-- **Statut depuis le popup** : *Mettre en pause*, *Abandonner* ou *Marquer comme terminé* une série depuis le menu « … » de *En cours*, sur tous les services connectés (confirmation pour Abandonner et Terminé ; la note de fin de série est proposée après Terminé).
-- **Fiche de la page** : sur une page de série ou d'épisode Crunchyroll / ADN, le popup affiche la fiche AniList correspondante ; ajout à « À regarder » ou « En cours » si elle n'est pas dans ta liste, sinon progression, statut et note modifiables.
-- **Comparer AniList ↔ MyAnimeList** (Activité) : repère les écarts de progression, de statut, de note et les séries absentes d'un côté, puis aligne une série ou toute la liste sur le service de ton choix (rien n'est corrigé automatiquement).
-- **Rapport de diagnostic** (Réglages › Aide) : copie un rapport technique sans données sensibles (version, navigateur, réglages, dernières erreurs) et ouvre un signalement GitHub prérempli. Les 50 dernières erreurs sont conservées localement.
+- **Status from the popup**: *Put on hold*, *Drop* or *Mark as completed* a series from the "…" menu in *Watching*, on all connected services (confirmation for Drop and Completed; the end-of-series rating is offered after Completed).
+- **On this page**: on a Crunchyroll / ADN series or episode page, the popup shows the matching AniList entry; add it to "Plan to watch" or "Watching" if it isn't in your list, otherwise edit its progress, status and rating.
+- **Compare AniList ↔ MyAnimeList** (Activity): spots differences in progress, status and rating, and series missing on one side, then aligns one series or the whole list to the service of your choice (nothing is fixed automatically).
+- **Diagnostic report** (Settings › Help): copies a technical report with no sensitive data (version, browser, settings, latest errors) and opens a prefilled GitHub issue. The last 50 errors are kept locally.
 
-### Modifié
+### Changed
 
-- Requêtes AniList / MyAnimeList limitées à 20 s ; erreurs passagères de MyAnimeList (502, 503, 504, délai dépassé) retentées automatiquement pendant un alignement.
-- Visuels du Chrome Web Store renouvelés (fiche de la page, statuts, comparateur) et tuile promo 1400×560.
+- AniList / MyAnimeList requests capped at 20 s; transient MyAnimeList errors (502, 503, 504, timeout) retried automatically during an alignment.
+- Refreshed Chrome Web Store visuals (page entry, statuses, comparison) and a 1400×560 promo tile.
 
-### Corrigé
+### Fixed
 
-- Saisons découpées en plusieurs fiches AniList (« Part 2 », « Cour 2 ») : la saison Crunchyroll est associée au bon groupe de fiches (fiche de la page, et repli de la synchro par numéro de saison).
-- Épisode spécial rangé dans une saison de la série (ex. *ONE PIECE HEROINES*, saison 30 de One Piece sur Crunchyroll) : la synchro et la fiche de la page retrouvent sa fiche AniList dédiée au lieu de compter l'épisode 1 de la série principale ; le sélecteur de saison de la fiche de la page ne propose plus de films ni de spéciaux.
+- Seasons split into several AniList entries ("Part 2", "Cour 2"): the Crunchyroll season is matched to the right group of entries (page entry, and the sync fallback by season number).
+- Special episode filed under a season of the series (e.g. *ONE PIECE HEROINES*, season 30 of One Piece on Crunchyroll): sync and the page entry find its dedicated AniList entry instead of counting episode 1 of the main series; the page entry's season picker no longer offers movies or specials.
 
 ## [1.7.3] - 2026-10-03
 
-### Ajouté
+### Added
 
-- Intégration continue (GitHub Actions) et publication automatique sur le Chrome Web Store à chaque tag de version.
+- Continuous integration (GitHub Actions) and automatic publishing to the Chrome Web Store on every version tag.
 
-### Modifié
+### Changed
 
-- Console silencieuse en production : seuls les avertissements et erreurs sont affichés ; les journaux détaillés sont réservés aux builds de développement (`npm run build:dev`).
+- Quiet console in production: only warnings and errors are shown; detailed logs are reserved for development builds (`npm run build:dev`).
 
 ## [1.7.2] - 2026-10-01
 
-### Corrigé
+### Fixed
 
-- Carte « À vérifier » : les boutons passent à la ligne au lieu de déborder (interface en allemand).
+- "To check" card: buttons wrap to the next line instead of overflowing (German interface).
 
-### Modifié
+### Changed
 
-- Liens « Code source » et « Signaler un problème » vers le nouveau dépôt [Sync-Kai/SyncKai](https://github.com/Sync-Kai/SyncKai).
+- "Source code" and "Report a problem" links point to the new repository [Sync-Kai/SyncKai](https://github.com/Sync-Kai/SyncKai).
 
 ## [1.7.1] - 2026-10-01
 
-### Modifié
+### Changed
 
-- Nouvelle identité : la mascotte **Kai** remplace Mochi (icônes de l’extension, en-tête du popup, écran d’accueil, liste vide, bulles sur la page, onglet d’import).
-- README orienté utilisateur, licence MIT et politique de confidentialité (FR/EN/DE) ; préparation de la publication sur le Chrome Web Store.
+- New identity: the mascot **Kai** replaces Mochi (extension icons, popup header, welcome screen, empty list, on-page bubbles, import tab).
+- User-oriented README, MIT license and privacy policy (FR/EN/DE); groundwork for publishing on the Chrome Web Store.
 
 ## [1.7.0] - 2026-10-01
 
-Sauvegarde et interface multilingue.
+Backup and multilingual interface.
 
-### Ajouté
+### Added
 
-- **Export / import** (Réglages › Sauvegarde) : fichier JSON avec réglages, correspondances, séries exclues, séries à noter, refus de revisionnage, vérifications en attente et historique — jamais les connexions AniList/MAL. Import dans un onglet dédié : validation complète, aperçu, mode **Fusionner** (par défaut) ou **Remplacer** (avec confirmation), option « Importer aussi les réglages ».
-- **Interface en français, anglais et allemand** (Réglages › Langue : Automatique, Français, English, Deutsch). Nom et description de l’extension traduits (`_locales`). Pluriels, dates et délais localisés (`Intl`). Anglais par défaut pour les autres langues de Chrome.
+- **Export / import** (Settings › Backup): JSON file with settings, matches, excluded series, series to rate, declined rewatches, pending checks and history — never the AniList/MAL sign-ins. Import in a dedicated tab: full validation, preview, **Merge** mode (default) or **Replace** (with confirmation), "Also import settings" option.
+- **Interface in French, English and German** (Settings › Language: Automatic, Français, English, Deutsch). Extension name and description translated (`_locales`). Localized plurals, dates and durations (`Intl`). English by default for other Chrome languages.
 
 ## [1.6.0] - 2026-10-01
 
-Note, revisionnage et alertes de nouveaux épisodes.
+Rating, rewatch and new episode alerts.
 
-### Ajouté
+### Added
 
-- **Note en fin de série** : quand une série passe en Terminé, une bulle propose une note sur 10 (10 étoiles, demi-points). Convertie selon le format de note AniList du profil (sur 100, sur 10 décimal, sur 10, sur 5, smileys) ; arrondie à l’entier inférieur pour MyAnimeList. « Plus tard » crée une carte dans Activité › À noter.
-- **Revisionnage** : un épisode vu sur une série déjà terminée propose un revisionnage (AniList REPEATING, MAL `is_rewatching`) ; les épisodes suivants avancent et le compteur de revisionnages augmente à la fin. « Non » : plus de question pendant 30 jours. Pas de proposition pour le seul dernier épisode.
-- **Alertes de nouveaux épisodes** : vérification horaire (une requête AniList groupée) et notification Chrome avec « Ouvrir » sur le lecteur préféré ; délai réglable (0, 1, 3, 6 h) ; état de la dernière vérification et bouton « Vérifier maintenant » dans Réglages.
+- **End-of-series rating**: when a series moves to Completed, a bubble offers a rating out of 10 (10 stars, half points). Converted to the AniList score format of your profile (out of 100, out of 10 with decimals, out of 10, out of 5, smileys); rounded down to a whole number for MyAnimeList. "Later" creates a card in Activity › To rate.
+- **Rewatch**: an episode watched on an already completed series offers a rewatch (AniList REPEATING, MAL `is_rewatching`); the following episodes move progress forward and the rewatch count goes up at the end. "No": no more asking for 30 days. Not offered for the last episode alone.
+- **New episode alerts**: hourly check (a single batched AniList request) and a Chrome notification with "Open" on the preferred player; adjustable delay (0, 1, 3, 6 h); status of the last check and a "Check now" button in Settings.
 
-### Modifié
+### Changed
 
-- +1 / −1 conserve un revisionnage en cours.
-- Le badge de l’icône compte aussi les séries à noter.
+- +1 / −1 keeps an ongoing rewatch.
+- The icon badge also counts series to rate.
 
 ## [1.5.0] - 2026-10-01
 
-Fiabilité et contrôle manuel.
+Reliability and manual control.
 
-### Ajouté
+### Added
 
-- **File de synchro hors ligne** : une synchro en échec passager (réseau, limite de requêtes, erreur serveur) est mise en file et relancée automatiquement (1 min, 5 min, 15 min, 1 h, 6 h), abandonnée après ~24 h. Section « Synchros en attente » dans Activité avec « Réessayer » / « Abandonner ».
-- **+1 / −1** sur chaque série de « En cours », écrit sur tous les services connectés.
-- **Raccourci clavier** `Alt+Maj+S` : valide immédiatement l’épisode en cours (modifiable dans `chrome://extensions/shortcuts`).
-- **Exclusion par série** (« Ne plus synchroniser cette série ») depuis En cours, les cartes À vérifier et les dernières synchros ; gestion dans Réglages › Séries exclues.
+- **Offline sync queue**: a sync that fails temporarily (network, rate limit, server error) is queued and retried automatically (1 min, 5 min, 15 min, 1 h, 6 h), and abandoned after ~24 h. "Pending syncs" section in Activity with "Retry" / "Abandon".
+- **+1 / −1** on each series in "Watching", written to all connected services.
+- **Keyboard shortcut** `Alt+Shift+S`: immediately marks the current episode as watched (can be changed in `chrome://extensions/shortcuts`).
+- **Per-series exclusion** ("Stop syncing this series") from Watching, To check cards and recent syncs; managed in Settings › Excluded series.
 
-### Modifié
+### Changed
 
-- Barre d’état : synchros en échec ou en attente signalées en priorité.
-- Le badge de l’icône compte aussi les synchros abandonnées.
+- Status bar: failed or pending syncs shown first.
+- The icon badge also counts abandoned syncs.
 
 ## [1.4.0] - 2026-10-01
 
-Refonte complète du popup (direction « Yoru Mochi · Kotatsu ») : tout se gère désormais depuis le popup.
+Complete popup redesign ("Yoru Mochi · Kotatsu" direction): everything is now managed from the popup.
 
-### Ajouté
+### Added
 
-- **En cours** : liste des animes en cours (AniList ou MyAnimeList, sélecteur si les deux sont connectés), avec carte « Reprendre » pour la dernière série synchronisée.
-- **Prochain épisode** : « Ép. 3 disponible », « Ép. 5 dans 18 h », « Prochain épisode bientôt » ou « Série terminée » (catalogue AniList, y compris pour MyAnimeList).
-- **Tri** de la liste : prochaine sortie (par défaut), dernière mise à jour, titre, épisodes restants — choix mémorisé.
-- **Ouvrir** chaque anime sur sa plateforme (Crunchyroll, ADN), avec un réglage **Lecteur préféré** quand il est disponible sur les deux.
-- **Barre d'état** : « Tout est synchronisé · il y a … », éléments à vérifier, session expirée avec « Reconnecter ».
-- **Notifications sur la page** à 3 niveaux : *Discrètes* (par défaut : petite pastille, rien en plein écran), *Détaillées*, *Alertes seulement*. Les alertes restent toujours affichées.
-- Coche sur l'icône de l'extension après chaque synchronisation réussie.
-- Écrans de premier lancement et de liste vide avec la mascotte Mochi.
+- **Watching**: list of the anime you're watching (AniList or MyAnimeList, with a picker if both are connected), with a "Continue" card for the last synced series.
+- **Next episode**: "Ep. 3 available", "Ep. 5 in 18 h", "Next episode soon" or "Series finished" (AniList catalog, MyAnimeList included).
+- **Sorting** the list: next release (default), last updated, title, episodes left — choice remembered.
+- **Open** each anime on its platform (Crunchyroll, ADN), with a **Preferred player** setting when it's available on both.
+- **Status bar**: "Everything is synced · … ago", items to check, expired session with "Reconnect".
+- **On-page notifications** with 3 levels: *Discreet* (default: small pill, nothing in fullscreen), *Detailed*, *Alerts only*. Alerts are always shown.
+- Checkmark on the extension icon after each successful sync.
+- First-launch and empty-list screens with the Mochi mascot.
 
-### Modifié
+### Changed
 
-- La page d'options est supprimée : ses réglages sont dans l'onglet Réglages du popup (comptes, lecture, synchronisation, notifications, correspondances).
-- Nouveau style visuel : thème sombre chaleureux, polices M PLUS Rounded 1c et Nunito embarquées (sous-ensembles latins), toasts en bulle.
-- L'ancien réglage « toasts activés / désactivés » est migré vers le niveau de notification équivalent.
+- The options page is removed: its settings are now in the popup's Settings tab (accounts, playback, sync, notifications, matches).
+- New visual style: warm dark theme, bundled M PLUS Rounded 1c and Nunito fonts (Latin subsets), bubble-style toasts.
+- The old "toasts on / off" setting is migrated to the equivalent notification level.
 
-### Corrigé
+### Fixed
 
-- La liste « En cours » se met à jour après une synchronisation même si le popup est ouvert.
-- MyAnimeList : les séries classées adultes et les listes de plus de 100 séries sont incluses.
-- Le cache d'une liste est effacé à la déconnexion du compte correspondant.
+- The "Watching" list updates after a sync even while the popup is open.
+- MyAnimeList: series rated for adults and lists of more than 100 series are included.
+- A list's cache is cleared when the matching account is disconnected.
 
 ## [1.3.0] - 2026-09-30
 
-### Ajouté
+### Added
 
-- **MyAnimeList** : connexion (OAuth2 + PKCE, sans secret, renouvellement automatique du token), carte de compte dans le popup, synchronisation de la progression en parallèle d'AniList.
-- Chaque compte est facultatif : MyAnimeList fonctionne sans compte AniList (catalogue AniList public pour la correspondance, puis `idMal`).
-- Résultat par service dans le toast, et « Réessayer » limité aux services en échec.
+- **MyAnimeList**: sign-in (OAuth2 + PKCE, no secret, automatic token renewal), account card in the popup, progress sync alongside AniList.
+- Each account is optional: MyAnimeList works without an AniList account (public AniList catalog for matching, then `idMal`).
+- Per-service result in the toast, and "Retry" limited to the services that failed.
 
-### Modifié
+### Changed
 
-- Déconnexion par service depuis sa carte ; les vérifications et l'historique ne sont effacés qu'à la déconnexion du dernier compte.
-- Services de suivi derrière une interface commune (pattern Adapter, `src/background/trackers/`).
+- Disconnect each service from its own card; checks and history are only cleared when the last account is disconnected.
+- Tracking services behind a common interface (Adapter pattern, `src/background/trackers/`).
 
 ## [1.2.0] - 2026-09-30
 
-### Ajouté
+### Added
 
-- **Adapter ADN** (animationdigitalnetwork.com) : détection des épisodes (JSON-LD, repli sur le lecteur video.js), navigation entre épisodes sans rechargement, complétion au pourcentage réglé (ADN ne fournit pas le début du générique).
-- Correspondance AniList via les liens ADN des fiches (`/video/{id}-{slug}`, ancien format par slug).
-- Correspondance automatique par titre quand une seule fiche AniList (série) porte exactement ce titre et qu'il s'agit de la saison 1 ; les autres cas sans lien plateforme restent à vérifier.
+- **ADN adapter** (animationdigitalnetwork.com): episode detection (JSON-LD, fallback to the video.js player), navigation between episodes without reloading, completion at the configured percentage (ADN doesn't provide the start of the credits).
+- AniList matching via the ADN links on entries (`/video/{id}-{slug}`, old slug-based format).
+- Automatic matching by title when a single AniList entry (series) has exactly that title and it's season 1; other cases without a platform link still need to be checked.
 
-### Modifié
+### Changed
 
-- Helpers de lecture (JSON-LD, texte, garde-fou anti-données périmées) partagés entre les adapters.
-- Raison « à vérifier » explicite quand la fiche AniList n'a été trouvée que par son titre (aucun lien vers la plateforme).
+- Playback helpers (JSON-LD, text, stale-data guard) shared between adapters.
+- Explicit "to check" reason when the AniList entry was only found by its title (no link to the platform).
 
 ## [1.1.0] - 2026-09-30
 
-### Ajouté
+### Added
 
-- **Icônes de l'extension** (16 à 128 px), générées par `npm run icons`.
-- **Page d'options** (lien « Options » dans le popup) :
-  - pause de la synchronisation automatique ;
-  - déclenchement au générique de fin ou à un pourcentage réglable (70–98 %) ;
-  - activation des toasts de confirmation (les alertes restent affichées) ;
-  - liste des correspondances mémorisées, avec « Oublier » par saison et réinitialisation complète.
-- **Bouton « Réessayer »** dans le toast quand une synchronisation échoue (réseau, AniList indisponible) : l'épisode n'est plus perdu.
+- **Extension icons** (16 to 128 px), generated by `npm run icons`.
+- **Options page** ("Options" link in the popup):
+  - pause automatic sync;
+  - trigger at the end credits or at an adjustable percentage (70–98%);
+  - turn confirmation toasts on or off (alerts are still shown);
+  - list of remembered matches, with "Forget" per season and a full reset.
+- **"Retry" button** in the toast when a sync fails (network, AniList unavailable): the episode is no longer lost.
 
-### Modifié
+### Changed
 
-- Limite de requêtes AniList (429) : nouvelle tentative automatique si AniList demande une attente courte (≤ 20 s).
-- Version minimale de Chrome : 116.
+- AniList rate limit (429): automatic retry if AniList asks for a short wait (≤ 20 s).
+- Minimum Chrome version: 116.
 
-### Corrigé
+### Fixed
 
-- L'épisode suivant pouvait être marqué comme vu dès la navigation (derniers instants de l'épisode précédent pris en compte).
-- Une correction sur la même fiche AniList ne pouvait pas faire baisser la progression.
-- Une vérification arrivée pendant l'affichage d'un résultat n'apparaissait qu'à la réouverture du popup.
-- Écritures concurrentes du stockage (popup, options, synchronisation) pouvant s'écraser mutuellement.
-- Les alertes n'apparaissaient plus si le toast « Synchronisation… » avait été fermé.
-- Le lecteur Crunchyroll n'était pas prioritaire sur une autre balise `<video>` de la page.
-- Erreurs silencieuses : réponse de secours du service worker, échec d'enregistrement des réglages ou de « Ignorer » désormais affichés.
+- The next episode could be marked as watched as soon as you navigated to it (last moments of the previous episode were counted).
+- A correction on the same AniList entry couldn't lower progress.
+- A check arriving while a result was displayed only appeared when the popup was reopened.
+- Concurrent storage writes (popup, options, sync) could overwrite each other.
+- Alerts no longer appeared if the "Syncing…" toast had been closed.
+- The Crunchyroll player didn't take priority over another `<video>` tag on the page.
+- Silent errors: the service worker fallback response and failures to save settings or "Ignore" are now shown.
 
 ## [1.0.0] - 2026-09-30
 
-Première version : synchronisation automatique Crunchyroll → AniList.
+First release: automatic Crunchyroll → AniList sync.
 
-### Ajouté
+### Added
 
-- **Connexion AniList** (OAuth2 Implicit Grant via `chrome.identity`), déconnexion et affichage du profil (avatar, pseudo, lien vers le profil).
-- **Adapter Crunchyroll** : détection des pages de lecture (navigation SPA incluse), extraction de l'anime, de la saison et des numéros d'épisode (JSON-LD, repli DOM avec détection des données périmées).
-- **Détection de fin d'épisode** au début du générique de fin (données « skip events » de Crunchyroll), avec repli à 85 % de la vidéo. Les publicités (vidéos de moins de 2 min) sont ignorées.
-- **Synchronisation AniList** :
-  - recherche de la fiche via les liens Crunchyroll des fiches AniList, puis ordre des saisons (suites/préquelles) ;
-  - gestion de la numérotation absolue (ex : One Piece E1180) et relative par saison, y compris les saisons découpées en plusieurs fiches ;
-  - règles de mise à jour : jamais de recul, passage en « En cours » puis « Terminé », fiches terminées et revisionnages laissés intacts ;
-  - correspondances mémorisées par saison.
-- **Toast dans la page** (compatible plein écran) indiquant le résultat de chaque synchronisation.
-- **Vérification manuelle** des correspondances incertaines depuis le popup (fiches suggérées, recherche, numéro d'épisode), avec badge sur l'icône de l'extension.
-- **Dernières synchros** dans le popup, avec correction a posteriori d'une correspondance.
+- **AniList sign-in** (OAuth2 Implicit Grant via `chrome.identity`), sign-out and profile display (avatar, username, link to the profile).
+- **Crunchyroll adapter**: detection of playback pages (including SPA navigation), extraction of the anime, season and episode numbers (JSON-LD, DOM fallback with stale-data detection).
+- **End-of-episode detection** at the start of the end credits (Crunchyroll "skip events" data), with a fallback at 85% of the video. Ads (videos under 2 min) are ignored.
+- **AniList sync**:
+  - entry lookup via the Crunchyroll links on AniList entries, then season order (sequels/prequels);
+  - handling of absolute numbering (e.g. One Piece E1180) and per-season relative numbering, including seasons split into several entries;
+  - update rules: never backwards, moves to "Watching" then "Completed", completed entries and rewatches left untouched;
+  - matches remembered per season.
+- **In-page toast** (works in fullscreen) showing the result of each sync.
+- **Manual review** of uncertain matches from the popup (suggested entries, search, episode number), with a badge on the extension icon.
+- **Recent syncs** in the popup, with after-the-fact correction of a match.
 
+[2.3.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.3.0
 [2.2.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.2.1
 [2.2.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.2.0
 [2.1.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.1.0

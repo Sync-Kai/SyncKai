@@ -46,7 +46,7 @@ jobs:
         run: |
           commit="$(git rev-parse "$GITHUB_REF^{commit}")"
           if ! git merge-base --is-ancestor "$commit" origin/main; then
-            echo "::error::Le tag $GITHUB_REF_NAME ($commit) n'est pas sur main : publication refusée (voir docs/STORE.md › 7)."
+            echo "::error::Tag $GITHUB_REF_NAME ($commit) is not on main: publishing refused (see docs/STORE.md › 7)."
             exit 1
           fi
           echo "Tag $GITHUB_REF_NAME ($commit) contenu dans origin/main."
@@ -64,7 +64,7 @@ jobs:
           manifest_version="$(node -p "require('./manifest.json').version")"
           echo "Tag : $tag_version · package.json : $pkg_version · manifest.json : $manifest_version"
           if [ "$tag_version" != "$pkg_version" ] || [ "$tag_version" != "$manifest_version" ]; then
-            echo "::error::Versions incohérentes (tag $tag_version, package.json $pkg_version, manifest.json $manifest_version)."
+            echo "::error::Version mismatch (tag $tag_version, package.json $pkg_version, manifest.json $manifest_version)."
             exit 1
           fi
           echo "version=$tag_version" >> "$GITHUB_OUTPUT"
@@ -162,7 +162,7 @@ jobs:
           [ -n "$REFRESH_TOKEN" ] || missing="$missing CWS_REFRESH_TOKEN"
           [ -n "$PUBLISHER_ID" ] || missing="$missing CWS_PUBLISHER_ID"
           if [ -n "$missing" ]; then
-            echo "::error::Secrets manquants :$missing (Settings › Secrets and variables › Actions, voir docs/STORE.md)."
+            echo "::error::Missing secrets:$missing (environment stores › Environment secrets, see docs/STORE.md)."
             exit 1
           fi
 
@@ -220,7 +220,7 @@ jobs:
           [ -n "$AMO_JWT_ISSUER" ] || missing="$missing AMO_JWT_ISSUER"
           [ -n "$AMO_JWT_SECRET" ] || missing="$missing AMO_JWT_SECRET"
           if [ -n "$missing" ]; then
-            echo "::error::Secrets manquants :$missing (Settings › Secrets and variables › Actions, voir docs/STORE.md)."
+            echo "::error::Missing secrets:$missing (environment stores › Environment secrets, see docs/STORE.md)."
             exit 1
           fi
 
@@ -242,7 +242,7 @@ jobs:
               cp docs/store/amo-metadata.json amo-metadata.json
               echo "Module absent ou non public sur AMO (HTTP $status) : fiche complète envoyée." ;;
             *)
-              echo "::error::Statut AMO indéterminé (HTTP $status) : envoi annulé, relancer le job (Re-run failed jobs)."
+              echo "::error::Unknown AMO status (HTTP $status): upload cancelled, re-run the job (Re-run failed jobs)."
               exit 1 ;;
           esac
 
@@ -285,13 +285,13 @@ jobs:
           FIREFOX_RESULT: ${{ needs.firefox.result }}
         run: |
           case "$FIREFOX_RESULT" in
-            success) firefox="soumis pour examen" ;;
-            failure) firefox="échec, nouvel envoi à venir" ;;
-            *) firefox="non soumis" ;;
+            success) firefox="submitted for review" ;;
+            failure) firefox="failed, will be resubmitted" ;;
+            *) firefox="not submitted" ;;
           esac
-          printf '\n---\n\nChrome Web Store : soumis pour examen · Firefox (AMO) : %s\n' "$firefox" >> release/notes.md
+          printf '\n---\n\nChrome Web Store: submitted for review · Firefox (AMO): %s\n' "$firefox" >> release/notes.md
           if [ "$FIREFOX_RESULT" != "success" ]; then
-            echo "::warning::Firefox (AMO) : $FIREFOX_RESULT. La release GitHub est créée quand même (voir docs/STORE.md › 7)."
+            echo "::warning::Firefox (AMO): $FIREFOX_RESULT. The GitHub release is created anyway (see docs/STORE.md › 7)."
           fi
 
       # Idempotent : une release existante (créée à la main, ou run relancé) est mise à jour
@@ -315,6 +315,6 @@ jobs:
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" \
               --title "SyncKai $VERSION" --notes-file release/notes.md --verify-tag
           else
-            echo "::error::gh release view a échoué : $view_error"
+            echo "::error::gh release view failed: $view_error"
             exit 1
           fi

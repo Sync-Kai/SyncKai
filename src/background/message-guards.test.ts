@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { MessageType } from '../shared/messages';
 import { layerFiles, reachableFrom, SOURCES } from '../test/import-graph';
-import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, MESSAGE_ORIGINS, type MessageType } from './messages';
+import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, MESSAGE_ORIGINS } from './message-guards';
 
 describe('GET_AGENDA', () => {
   it('clé de semaine validée, réservé aux pages de l’extension', () => {
@@ -159,11 +160,20 @@ describe('import Crunchyroll', () => {
   it('payloads validés, réservés aux pages de l’extension', () => {
     expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history } })).toBe(true);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history: { seasons: 'x', stats: history.stats } } })).toBe(false);
+    // Import ADN : même message, plateforme précisée (absente : Crunchyroll)
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'adn' } })).toBe(true);
+    // Import Netflix : même message (platformSeasons des saisons revalidé), titres filtrés par NETFLIX_IMPORT_TITLES
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'netflix' } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'disney' } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'NETFLIX_IMPORT_TITLES', payload: { titles: ['Ranma ½', 'One Piece'] } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'NETFLIX_IMPORT_TITLES', payload: { titles: [] } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'NETFLIX_IMPORT_TITLES', payload: { titles: Array.from({ length: 11 }, (_, i) => `T${i}`) } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'NETFLIX_IMPORT_TITLES', payload: { titles: ['  '] } })).toBe(false);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: ['m:21'] } })).toBe(true);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: [21] } })).toBe(false);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_CANCEL', payload: null })).toBe(true);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_REVIEWS', payload: { keys: ['crunchyroll:GR:s1'] } })).toBe(true);
-    for (const type of ['CR_IMPORT_ANALYZE', 'CR_IMPORT_APPLY', 'CR_IMPORT_CANCEL', 'CR_IMPORT_REVIEWS'] as const) expect(MESSAGE_ORIGINS[type]).toBe('extension');
+    for (const type of ['CR_IMPORT_ANALYZE', 'CR_IMPORT_APPLY', 'CR_IMPORT_CANCEL', 'CR_IMPORT_REVIEWS', 'NETFLIX_IMPORT_TITLES'] as const) expect(MESSAGE_ORIGINS[type]).toBe('extension');
   });
 });
 
@@ -191,6 +201,36 @@ describe('DEFER_RATING', () => {
     expect(isRuntimeMessage(message('https://s4.anilist.co/file/x.jpg'))).toBe(true);
     expect(isRuntimeMessage(message('https://tracker.example/p?id=victime'))).toBe(false);
     expect(isRuntimeMessage(message('http://s4.anilist.co/file/x.jpg'))).toBe(false);
+  });
+});
+
+describe('REMOVE_FROM_LIST / GET_LIST_NOTES / SET_LIST_NOTES', () => {
+  const media = { mediaId: 21, malId: null, title: 'One Piece' };
+
+  it('fiche validée (AniList ou MAL seule), jamais sans identifiant', () => {
+    expect(isRuntimeMessage({ type: 'REMOVE_FROM_LIST', payload: { media } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'REMOVE_FROM_LIST', payload: { media: { mediaId: null, malId: 20, title: 'Naruto' } } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'REMOVE_FROM_LIST', payload: { media: { mediaId: null, malId: null, title: 'X' } } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'REMOVE_FROM_LIST', payload: null })).toBe(false);
+    expect(isRuntimeMessage({ type: 'GET_LIST_NOTES', payload: { media } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'GET_LIST_NOTES', payload: { media: { mediaId: -1, malId: null, title: 'X' } } })).toBe(false);
+  });
+
+  it('commentaire : chaîne de 6000 caractères au plus, vide accepté (effacement)', () => {
+    const notes = (value: unknown): unknown => ({ type: 'SET_LIST_NOTES', payload: { media, notes: value } });
+    expect(isRuntimeMessage(notes(''))).toBe(true);
+    expect(isRuntimeMessage(notes('À revoir'))).toBe(true);
+    expect(isRuntimeMessage(notes('x'.repeat(6000)))).toBe(true);
+    expect(isRuntimeMessage(notes('x'.repeat(6001)))).toBe(false);
+    expect(isRuntimeMessage(notes(null))).toBe(false);
+    expect(isRuntimeMessage(notes(42))).toBe(false);
+  });
+
+  it('réservés aux pages de l’extension (popup, panneau) : jamais depuis une page tierce', () => {
+    for (const type of ['REMOVE_FROM_LIST', 'GET_LIST_NOTES', 'SET_LIST_NOTES'] as const) {
+      expect(isAllowedOrigin(type, 'extension')).toBe(true);
+      expect(isAllowedOrigin(type, 'content')).toBe(false);
+    }
   });
 });
 
@@ -240,5 +280,33 @@ describe('expéditeurs autorisés (MESSAGE_ORIGINS, ARCH-07)', () => {
     expect(isAllowedOrigin('LOGIN_ANILIST', 'content')).toBe(false);
     expect(isAllowedOrigin('RATE_MEDIA', 'content')).toBe(true);
     expect(isAllowedOrigin('RATE_MEDIA', 'extension')).toBe(true);
+  });
+});
+
+describe('Disney+ (EPISODE_COMPLETED, RESOLVE_PAGE_MEDIA)', () => {
+  /** Épisode tel que le produit l'adapter Disney+ : aucun identifiant de série, arc en saison 99 */
+  const disneyEpisode = {
+    platform: 'disney',
+    episodeId: '0580a81e-2408-48e8-a6e0-14da8ca0e87f',
+    seriesId: null,
+    seriesSlug: null,
+    animeTitle: 'Undead Unluck',
+    seasonNumber: 99,
+    seasonTitle: 'Undead Unluck: Winter Arc',
+    seasonEpisodeNumber: 1,
+    displayedEpisodeNumber: 1,
+    episodeTitle: 'Undead Unluck: Winter Arc',
+    url: 'https://www.disneyplus.com/play/0580a81e-2408-48e8-a6e0-14da8ca0e87f',
+  };
+
+  it('épisode Disney+ accepté depuis un script de contenu', () => {
+    expect(isRuntimeMessage({ type: 'EPISODE_COMPLETED', payload: { episode: disneyEpisode, services: null } })).toBe(true);
+    expect(isAllowedOrigin('EPISODE_COMPLETED', 'content')).toBe(true);
+  });
+
+  it('fiche de la page d’un épisode Disney+ acceptée depuis les pages de l’extension', () => {
+    const page = { platform: 'disney', kind: 'episode', seriesId: null, seriesSlug: null, seriesTitle: 'Undead Unluck', seasonNumber: 99, seasonTitle: 'Undead Unluck: Winter Arc', episode: disneyEpisode };
+    expect(isRuntimeMessage({ type: 'RESOLVE_PAGE_MEDIA', payload: { page, mediaId: null } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'RESOLVE_PAGE_MEDIA', payload: { page: { ...page, platform: 'netflix' }, mediaId: null } })).toBe(false);
   });
 });

@@ -5,15 +5,30 @@ import type { PageMediaDetails, PageMediaInfo } from '../shared/page-media.types
 import type { CandidateSummary } from '../shared/review.types';
 import { STORAGE_KEYS } from '../shared/storage-keys';
 import { installFakeChrome } from '../test/fake-chrome';
+import type { AniListMedia } from './api/media';
+import {
+  AOT_SEASON_IDS,
+  AOT_SERIES,
+  ATTACK_ON_TITAN_SEARCH,
+  LAST_ATTACK_MOVIE,
+  LAST_ATTACK_MOVIE_ID,
+  LAST_ATTACK_SEASON,
+} from './sync/__fixtures__/attack-on-titan-search';
 
 // Fiche de la page : résolution simulée (séries ignorées, accès Netflix), et saison choisie dans le sélecteur
 // enregistrée comme correspondance (ARCH-20), relue par la vraie résolution de la synchro.
 const resolver = vi.hoisted(() => ({ resolveEpisode: vi.fn(), findSeriesSeasons: vi.fn(), toCandidateSummary: vi.fn() }));
 vi.mock('./sync/resolver', () => resolver);
-const access = vi.hoisted(() => ({ hasNetflixAccess: vi.fn() }));
-vi.mock('../shared/netflix-access', () => access);
-const api = vi.hoisted(() => ({ getPageMediaDetails: vi.fn() }));
-vi.mock('./api/media', async (importOriginal) => ({ ...(await importOriginal<typeof import('./api/media')>()), getPageMediaDetails: api.getPageMediaDetails }));
+const access = vi.hoisted(() => ({ hasPlatformAccess: vi.fn() }));
+vi.mock('../shared/platform-access', () => access);
+// Recherches du catalogue simulées : la vraie résolution (sync, ci-dessous) ne part jamais sur le réseau
+const api = vi.hoisted(() => ({ getPageMediaDetails: vi.fn(), searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
+vi.mock('./api/media', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./api/media')>()),
+  getPageMediaDetails: api.getPageMediaDetails,
+  searchAnime: api.searchAnime,
+  getAnimeByIds: api.getAnimeByIds,
+}));
 // Aucun service connecté : pas de lecture des listes
 vi.mock('./trackers', () => ({ getConnectedTrackers: async () => [] }));
 
@@ -48,13 +63,22 @@ beforeEach(() => {
   vi.clearAllMocks();
   fake.reset();
   forgetPageResolutions();
-  access.hasNetflixAccess.mockResolvedValue(true);
+  access.hasPlatformAccess.mockResolvedValue(true);
+  api.searchAnime.mockResolvedValue([]);
+  api.getAnimeByIds.mockResolvedValue([]);
 });
 
 describe('resolvePageMedia — accès Netflix retiré', () => {
   it('onglet Netflix ouvert avant le retrait → NOT_TRACKED (Netflix désactivé), sans aucune recherche', async () => {
-    access.hasNetflixAccess.mockResolvedValue(false);
-    expect(await resolvePageMedia({ page: page({ episodeId: '81991799' }), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.netflixOff') });
+    access.hasPlatformAccess.mockResolvedValue(false);
+    expect(await resolvePageMedia({ page: page({ episodeId: '81991799' }), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform: 'Netflix' }) });
+    expect(resolver.resolveEpisode).not.toHaveBeenCalled();
+  });
+
+  it('onglet Disney+ ouvert avant le retrait → NOT_TRACKED (Disney+ désactivé)', async () => {
+    access.hasPlatformAccess.mockImplementation((platform: string) => Promise.resolve(platform !== 'disney'));
+    const result = await resolvePageMedia({ page: page({ platform: 'disney', episodeId: '0580a81e-2408-48e8-a6e0-14da8ca0e87f', seriesId: null }), mediaId: null });
+    expect(result).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform: 'Disney+' }) });
     expect(resolver.resolveEpisode).not.toHaveBeenCalled();
   });
 });
@@ -62,7 +86,7 @@ describe('resolvePageMedia — accès Netflix retiré', () => {
 describe('resolvePageMedia — série ignorée', () => {
   it('Netflix sans fiche liée ni même titre → NOT_TRACKED, message neutre (pas « introuvable »)', async () => {
     resolver.resolveEpisode.mockResolvedValue({ result: { ok: false, reason: 'x', ignored: true }, candidates: [], seasons: [], seasonGroups: [] });
-    expect(await resolvePageMedia({ page: page(), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.notTracked') });
+    expect(await resolvePageMedia({ page: page(), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Netflix' }) });
     // Résultat mémorisé : une relecture du panneau ne relance pas la recherche
     await resolvePageMedia({ page: page(), mediaId: null });
     expect(resolver.resolveEpisode).toHaveBeenCalledTimes(1);
@@ -191,5 +215,291 @@ describe('resolvePageMedia — saison choisie (ARCH-20)', () => {
     const result = await resolvePageMedia({ page: series, mediaId: PART2 });
     expect(result).toMatchObject({ ok: true, data: { media: { mediaId: PART2 }, source: 'manual', confidence: 'certain' } });
     expect(storedMappings()).toBeUndefined();
+  });
+});
+
+// ─── Pages de série Netflix / Disney+ : filtre « anime » ────────────────────
+
+describe('resolvePageMedia — page de série Netflix / Disney+', () => {
+  const ANIME = 170000;
+  const ENTITY = '9a14d04d-01f2-40d0-be62-a6c8ffe24137';
+
+  function anime(links: string[], title = 'Undead Unluck'): AniListMedia {
+    return {
+      id: ANIME,
+      idMal: null,
+      format: 'TV',
+      episodes: 24,
+      startDate: { year: 2023, month: 10, day: 7 },
+      displayTitle: title,
+      titles: [title],
+      year: 2023,
+      coverUrl: null,
+      externalLinkUrls: links,
+      relations: [],
+    };
+  }
+
+  /** Recherche AniList simulée : une fiche, lien plateforme `link` (null : titre seul) */
+  function found(link: 'id' | null, links: string[] = [], title = 'Undead Unluck'): void {
+    const media = anime(links, title);
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [{ id: ANIME, format: 'TV', episodes: 24, startDate: 20231007, titles: [title], link }],
+      seasons: link ? [media] : [],
+      others: [media],
+      seasonGroups: link ? [[ANIME]] : [],
+    });
+  }
+
+  function seriesPage(overrides: Partial<PageMediaInfo> = {}): PageMediaInfo {
+    return { platform: 'netflix', kind: 'series', seriesId: '80987039', seriesSlug: null, seriesTitle: 'Undead Unluck', seasonNumber: 1, seasonTitle: null, seasonEpisodeCount: 24, episode: null, ...overrides };
+  }
+
+  beforeEach(() => {
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'Undead Unluck' }));
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'Undead Unluck'));
+  });
+
+  it('Netflix, fiche liée à /title/{showId} : saison de la page, certaine', async () => {
+    found('id', ['https://www.netflix.com/title/80987039']);
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME }, confidence: 'certain' } });
+  });
+
+  it('Netflix, titre seul : fiche proposée, toujours à vérifier', async () => {
+    found(null);
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME }, confidence: 'uncertain' } });
+  });
+
+  it('Netflix, ni fiche liée ni même titre : NOT_TRACKED, verdict mémorisé (pas de nouvelle recherche)', async () => {
+    found(null, [], 'Autre chose');
+    const expected = { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Netflix' }) };
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toEqual(expected);
+    forgetPageResolutions();
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toEqual(expected);
+    expect(resolver.findSeriesSeasons).toHaveBeenCalledTimes(1);
+  });
+
+  it('Disney+, fiche liée à l’entité de la page : certaine, même sans genre « Anime »', async () => {
+    found('id', [`https://www.disneyplus.com/fr-fr/browse/entity-${ENTITY}`]);
+    const page = seriesPage({ platform: 'disney', seriesId: ENTITY, catalogAnime: false });
+    expect(await resolvePageMedia({ page, mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME }, confidence: 'certain' } });
+  });
+
+  it('Disney+ hors anime (pas de genre « Anime ») : NOT_TRACKED sans lien vers l’entité, même au même titre lié à Disney+', async () => {
+    found('id', ['https://www.disneyplus.com/series/undead-unluck/4hmBWOLvAqm2']);
+    const page = seriesPage({ platform: 'disney', seriesId: ENTITY, catalogAnime: false });
+    expect(await resolvePageMedia({ page, mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Disney+' }) });
+  });
+
+  it('Disney+ anime, titre anglais + lien Disney+ (règle de la lecture) : retenue', async () => {
+    found('id', ['https://www.disneyplus.com/series/undead-unluck/4hmBWOLvAqm2']);
+    const page = seriesPage({ platform: 'disney', seriesId: ENTITY, catalogAnime: true });
+    expect(await resolvePageMedia({ page, mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME } } });
+  });
+});
+
+describe('resolvePageMedia — page de série Crunchyroll sur la saison « Special »', () => {
+  const TV = 153845;
+  const SPECIAL = 170110;
+  const TITLE = 'I Got a Cheat Skill in Another World and Became Unrivaled in The Real World, Too';
+
+  function entry(id: number, format: string, episodes: number, titles: string[]): AniListMedia {
+    return { id, idMal: null, format, episodes, startDate: null, displayTitle: titles[0] ?? '', titles, year: 2023, coverUrl: null, externalLinkUrls: [], relations: [] };
+  }
+
+  beforeEach(() => {
+    const tv = entry(TV, 'TV', 13, [TITLE]);
+    const special = entry(SPECIAL, 'SPECIAL', 1, [`${TITLE} (Special) - The Legendary Dragon—Awakens`]);
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [
+        { id: TV, format: 'TV', episodes: 13, startDate: 20230406, titles: [TITLE], link: 'id' },
+        { id: SPECIAL, format: 'SPECIAL', episodes: 1, startDate: 20240301, titles: special.titles, link: 'relation' },
+      ],
+      seasons: [tv],
+      others: [tv, special],
+      seasonGroups: [[TV]],
+    });
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'x'));
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id }));
+  });
+
+  const special = (overrides: Partial<PageMediaInfo>): PageMediaInfo => ({
+    platform: 'crunchyroll',
+    kind: 'series',
+    seriesId: 'GEXH3W49E',
+    seriesSlug: null,
+    seriesTitle: TITLE,
+    seasonNumber: null,
+    seasonTitle: 'Special',
+    episode: null,
+    ...overrides,
+  });
+
+  it('saison « Special » lue sur la page : fiche spéciale, certaine', async () => {
+    expect(await resolvePageMedia({ page: special({}), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: SPECIAL }, confidence: 'certain' } });
+  });
+});
+
+describe('resolvePageMedia — One Piece sur Netflix, page de série de l’arc « Elbaph Arc » (saison 40)', () => {
+  const ONE_PIECE = 21;
+  const MONSTERS = 167404;
+
+  function entry(id: number, format: string, episodes: number | null, titles: string[]): AniListMedia {
+    return { id, idMal: null, format, episodes, startDate: null, displayTitle: titles[0] ?? '', titles, year: 1999, coverUrl: null, externalLinkUrls: [], relations: [] };
+  }
+
+  beforeEach(() => {
+    const onePiece = entry(ONE_PIECE, 'TV', null, ['ONE PIECE', 'One Piece']);
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [
+        { id: ONE_PIECE, format: 'TV', episodes: null, startDate: 19991020, titles: ['ONE PIECE', 'One Piece'], link: 'id', hasPrequel: true },
+        { id: MONSTERS, format: 'ONA', episodes: 1, startDate: 20240121, titles: ['MONSTERS: Ippaku Sanjou Hiryuu Jigoku'], link: 'other' },
+        { id: 141902, format: 'MOVIE', episodes: 1, startDate: 20220806, titles: ['ONE PIECE FILM: RED'], link: 'other' },
+      ],
+      seasons: [onePiece],
+      others: [onePiece, entry(MONSTERS, 'ONA', 1, ['MONSTERS']), entry(141902, 'MOVIE', 1, ['ONE PIECE FILM: RED'])],
+      seasonGroups: [[ONE_PIECE]],
+    });
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'One Piece'));
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'One Piece', episodes: null }));
+  });
+
+  it('fiche unique liée, en cours de diffusion, qui couvre tous les arcs : certaine (pas « Saison devinée »)', async () => {
+    const page: PageMediaInfo = {
+      platform: 'netflix',
+      kind: 'series',
+      seriesId: '80107103',
+      seriesSlug: null,
+      seriesTitle: 'One Piece',
+      seasonNumber: 40,
+      seasonTitle: 'Elbaph Arc',
+      seasonEpisodeCount: 25,
+      platformSeasons: [61, 70, 25],
+      episode: null,
+    };
+    expect(await resolvePageMedia({ page, mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'certain' } });
+  });
+});
+
+describe('resolvePageMedia — One Piece sur Crunchyroll, arc « Elbaph (1156-current) »', () => {
+  const ONE_PIECE = 21;
+
+  beforeEach(() => {
+    const onePiece: AniListMedia = { id: ONE_PIECE, idMal: 21, format: 'TV', episodes: null, startDate: { year: 1999, month: 10, day: 20 }, displayTitle: 'ONE PIECE', titles: ['ONE PIECE', 'One Piece'], year: 1999, coverUrl: null, externalLinkUrls: [], relations: [] };
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [{ id: ONE_PIECE, format: 'TV', episodes: null, startDate: 19991020, titles: ['ONE PIECE', 'One Piece'], link: 'id', hasPrequel: true }],
+      seasons: [onePiece],
+      others: [onePiece],
+      seasonGroups: [[ONE_PIECE]],
+    });
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'ONE PIECE'));
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'ONE PIECE', episodes: null }));
+  });
+
+  it('fiche unique One Piece, certaine, sans sélecteur (un seul choix)', async () => {
+    const page: PageMediaInfo = { platform: 'crunchyroll', kind: 'series', seriesId: 'GRMG8ZQZR', seriesSlug: 'one-piece', seriesTitle: 'One Piece', seasonNumber: null, seasonTitle: 'Elbaph', seasonFirstEpisode: 1156, episode: null };
+    const result = await resolvePageMedia({ page, mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'certain' } });
+    expect(result.ok && result.data.seasons.length).toBeLessThan(2);
+  });
+});
+
+describe('resolvePageMedia — One Piece sur Crunchyroll, saison nommée « HEROINES » (spécial rangé en saison 30)', () => {
+  // Identifiants AniList réels : ONE PIECE (21), ONE PIECE HEROINES (197178, voir matching-seasons.test.ts), MONSTERS (167404)
+  const ONE_PIECE = 21;
+  const HEROINES = 197178;
+  const MONSTERS = 167404;
+
+  const onePieceCandidate = { id: ONE_PIECE, format: 'TV', episodes: null, startDate: 19991020, titles: ['ONE PIECE', 'One Piece'], link: 'id', hasPrequel: true } as const;
+  const monstersCandidate = { id: MONSTERS, format: 'ONA', episodes: 1, startDate: 20240121, titles: ['MONSTERS: Ippaku Sanjou Hiryuu Jigoku'], link: 'other' } as const;
+  const heroinesCandidate = { id: HEROINES, format: 'SPECIAL', episodes: 1, startDate: 20260705, titles: ['ONE PIECE HEROINES'], link: null } as const;
+
+  function entry(id: number, format: string, episodes: number | null, titles: string[]): AniListMedia {
+    return { id, idMal: null, format, episodes, startDate: null, displayTitle: titles[0] ?? '', titles, year: 1999, coverUrl: null, externalLinkUrls: [], relations: [] };
+  }
+
+  function found(withHeroines: boolean): void {
+    const onePiece = entry(ONE_PIECE, 'TV', null, ['ONE PIECE', 'One Piece']);
+    const others = [onePiece, entry(MONSTERS, 'ONA', 1, ['MONSTERS']), ...(withHeroines ? [entry(HEROINES, 'SPECIAL', 1, ['ONE PIECE HEROINES'])] : [])];
+    resolver.findSeriesSeasons.mockResolvedValue({
+      candidates: [onePieceCandidate, monstersCandidate, ...(withHeroines ? [heroinesCandidate] : [])],
+      seasons: [onePiece],
+      others,
+      seasonGroups: [[ONE_PIECE]],
+    });
+  }
+
+  const seriesPage = (season: Partial<PageMediaInfo>): PageMediaInfo => ({
+    platform: 'crunchyroll',
+    kind: 'series',
+    seriesId: 'GRMG8ZQZR',
+    seriesSlug: 'one-piece',
+    seriesTitle: 'One Piece',
+    seasonNumber: null,
+    seasonTitle: null,
+    episode: null,
+    ...season,
+  });
+
+  beforeEach(() => {
+    resolver.toCandidateSummary.mockImplementation((m: { id: number }) => summary(m.id, 'ONE PIECE'));
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'ONE PIECE', episodes: null }));
+  });
+
+  it('fiche ONE PIECE HEROINES trouvée (recherche « One Piece HEROINES ») : retenue, certaine, plutôt que la fiche principale', async () => {
+    found(true);
+    const result = await resolvePageMedia({ page: seriesPage({ seasonTitle: 'HEROINES' }), mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { media: { mediaId: HEROINES }, confidence: 'certain' } });
+    expect(resolver.findSeriesSeasons).toHaveBeenCalledWith(expect.objectContaining({ animeTitle: 'One Piece', seasonTitle: 'HEROINES' }));
+  });
+
+  it('fiche de la saison absente des résultats : la fiche principale n’est jamais certaine pour une saison nommée', async () => {
+    found(false);
+    expect(await resolvePageMedia({ page: seriesPage({ seasonTitle: 'HEROINES' }), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'uncertain' } });
+  });
+
+  it('non-régression : arc « Elbaph (1156-current) » → ONE PIECE certaine, même avec HEROINES dans les résultats', async () => {
+    found(true);
+    expect(await resolvePageMedia({ page: seriesPage({ seasonTitle: 'Elbaph', seasonFirstEpisode: 1156 }), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ONE_PIECE }, confidence: 'certain' } });
+  });
+});
+
+describe('resolvePageMedia — Attack on Titan sur Crunchyroll, saison nommée « Attack on Titan: Last Attack » (film)', () => {
+  // Vraie résolution (findSeriesSeasons) sur les résultats AniList réels, voir sync/__fixtures__/attack-on-titan-search.ts
+  const seriesPage: PageMediaInfo = {
+    platform: 'crunchyroll',
+    kind: 'series',
+    seriesId: AOT_SERIES.seriesId,
+    seriesSlug: AOT_SERIES.seriesSlug,
+    seriesTitle: AOT_SERIES.animeTitle,
+    seasonNumber: null,
+    seasonTitle: LAST_ATTACK_SEASON,
+    episode: null,
+  };
+
+  function searchResults(bySeason: AniListMedia[]): void {
+    api.searchAnime.mockImplementation(async (search: string) => (search === AOT_SERIES.animeTitle ? ATTACK_ON_TITAN_SEARCH : search === LAST_ATTACK_SEASON ? bySeason : []));
+  }
+
+  beforeEach(() => {
+    resolver.findSeriesSeasons.mockImplementation(sync.findSeriesSeasons);
+    resolver.toCandidateSummary.mockImplementation(sync.toCandidateSummary);
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: `#${id}`, episodes: 1, format: id === LAST_ATTACK_MOVIE_ID ? 'MOVIE' : 'TV' }));
+  });
+
+  it('AniList sans fiche du film (réel) : saison devinée parmi les saisons TV, jamais certaine ; 2 recherches seulement', async () => {
+    searchResults([]);
+    const result = await resolvePageMedia({ page: seriesPage, mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { confidence: 'uncertain', source: 'progress' } });
+    expect(result.ok && (AOT_SEASON_IDS as readonly number[]).includes(result.data.media.mediaId)).toBe(true);
+    expect(api.searchAnime).toHaveBeenCalledTimes(2);
+    expect(api.getAnimeByIds).not.toHaveBeenCalled();
+  });
+
+  it('fiche du film trouvée (fiche fictive) : retenue, certaine ; le sélecteur garde les saisons TV (la carte y ajoute le film)', async () => {
+    searchResults([LAST_ATTACK_MOVIE]);
+    const result = await resolvePageMedia({ page: seriesPage, mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { media: { mediaId: LAST_ATTACK_MOVIE_ID }, confidence: 'certain', source: 'page' } });
+    expect(result.ok && result.data.seasons.map((s) => s.id)).toEqual([...AOT_SEASON_IDS]);
   });
 });

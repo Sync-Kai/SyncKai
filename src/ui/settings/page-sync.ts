@@ -1,31 +1,29 @@
-// Réglages › Lecture & synchro : synchro automatique, moment de la synchro, raccourci clavier,
-// lecteur préféré, accès à Netflix (permission optionnelle) et options du panneau latéral.
-import { t } from '../../i18n';
+// Réglages › Lecture & synchro : synchro automatique, moment de la synchro, lecteur préféré, fiche ouverte par défaut,
+// accès à Netflix et à Disney+ (permissions optionnelles) et options du panneau latéral. Les raccourcis clavier ont leur
+// propre catégorie (page-shortcuts.ts) : un lien y mène.
+import { t, type MessageKey } from '../../i18n';
 import { createLogger } from '../../shared/logger';
-import { removeNetflixAccess, requestNetflixAccess } from '../../shared/netflix-access';
+import { removePlatformAccess, requestPlatformAccess } from '../../shared/platform-access';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
-import { DEFAULT_SETTINGS, effectivePlayer, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer, isPreferredPlayerOption, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../alert';
 import { alertAttrs } from '../live-region';
 import { CARD, LINK, segmented } from '../kit';
-import { openShortcutSettings } from '../shortcut-settings';
 import { h } from '../dom';
+import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
 import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, toggleRow } from './rows';
 
 const log = createLogger('settings');
 
-/** Lecteurs proposés : une plateforme à accès optionnel (Netflix) seulement avec l'accès accordé */
+/** Lecteurs proposés : Netflix seulement avec l'accès accordé ; jamais Disney+ (voir isPreferredPlayerOption) */
 function playerOptions(netflixAccess: boolean): { value: StreamingPlatform; label: string }[] {
-  return STREAMING_PLATFORMS.filter((platform) => netflixAccess || !isOptionalPlatform(platform)).map((platform) => ({
+  const offered = (platform: StreamingPlatform): boolean =>
+    isPreferredPlayerOption(platform) && (!isOptionalPlatform(platform) || (platform === 'netflix' && netflixAccess));
+  return STREAMING_PLATFORMS.filter(offered).map((platform) => ({
     value: platform,
     label: PLATFORMS[platform].label,
   }));
-}
-
-/** "Alt+Shift+S" → "Alt+Maj+S" (nom de la touche Maj dans la langue active) */
-function formatShortcut(shortcut: string): string {
-  return shortcut.replace(/Shift/g, t('settings.shortcut.shiftKey'));
 }
 
 /** "85 %" (fr, de) / "85%" (en) */
@@ -33,6 +31,7 @@ export function formatPercent(value: number | string): string {
   return t('settings.percent', { value });
 }
 
+/** Services proposés pour la fiche ouverte par défaut (libellé court, nom complet pour les lecteurs d'écran) */
 function panelTabOptions(): { value: PanelDefaultTab; label: string }[] {
   return [
     { value: 'last', label: t('settings.panel.tab.last') },
@@ -47,111 +46,116 @@ export function settingsPlaceholder(ctx: SettingsContext): Node[] {
   return [h('div', { class: `${CARD} h-40 motion-safe:animate-pulse`, attrs: { 'aria-busy': 'true', 'aria-label': t('settings.loading') } })];
 }
 
+/** Plateformes activées par un interrupteur (permission d'hôte optionnelle) */
+type ToggledPlatform = 'netflix' | 'disney';
+const TOGGLED_PLATFORMS: readonly ToggledPlatform[] = ['netflix', 'disney'];
+
+type AccessText = 'section' | 'label' | 'helpOff' | 'helpOn' | 'denied' | 'disabled' | 'error';
+
+/** Textes de l'interrupteur de chaque plateforme */
+const ACCESS_TEXTS: Readonly<Record<ToggledPlatform, Readonly<Record<AccessText, MessageKey>>>> = {
+  netflix: {
+    section: 'settings.netflix.section',
+    label: 'settings.netflix.label',
+    helpOff: 'settings.netflix.helpOff',
+    helpOn: 'settings.netflix.helpOn',
+    denied: 'settings.netflix.denied',
+    disabled: 'settings.netflix.disabled',
+    error: 'settings.netflix.error',
+  },
+  disney: {
+    section: 'settings.disney.section',
+    label: 'settings.disney.label',
+    helpOff: 'settings.disney.helpOff',
+    helpOn: 'settings.disney.helpOn',
+    denied: 'settings.disney.denied',
+    disabled: 'settings.disney.disabled',
+    error: 'settings.disney.error',
+  },
+};
+
 /**
- * Retour de la dernière demande d'accès Netflix (affiché sous l'interrupteur jusqu'au prochain changement).
+ * Retour de la dernière demande d'accès (affiché sous l'interrupteur jusqu'au prochain changement).
  * `disabled` : accès retiré, le script déjà exécuté dans un onglet ouvert tourne jusqu'à son rechargement.
  */
-type NetflixNotice = 'denied' | 'error' | 'disabled' | null;
+type AccessNotice = 'denied' | 'error' | 'disabled' | null;
 
 export function createSyncPage(ctx: SettingsContext): SettingsPageView {
-  let netflixNotice: NetflixNotice = null;
-  /** Ouverture de la page des raccourcis en échec : la marche à suivre reste affichée */
-  let shortcutManual = false;
+  const notices: Record<ToggledPlatform, AccessNotice> = { netflix: null, disney: null };
 
-  function settleNetflix(notice: NetflixNotice): void {
-    netflixNotice = notice;
-    void ctx.refreshNetflixAccess();
+  function settle(platform: ToggledPlatform, notice: AccessNotice): void {
+    notices[platform] = notice;
+    void ctx.refreshPlatformAccess();
+  }
+
+  function isGranted(platform: ToggledPlatform): boolean {
+    return (platform === 'netflix' ? ctx.data.netflixAccess : ctx.data.disneyAccess) === true;
   }
 
   /**
-   * Interrupteur Netflix. Activation : permissions.request appelé directement dans le gestionnaire (geste
-   * utilisateur exigé, aucun await avant). Retrait : le lecteur préféré Netflix repasse sur le lecteur par défaut.
+   * Interrupteur d'une plateforme. Activation : permissions.request appelé directement dans le gestionnaire (geste
+   * utilisateur exigé, aucun await avant). Retrait de Netflix : le lecteur préféré Netflix repasse sur le lecteur par défaut.
    */
-  function onNetflixToggle(checked: boolean): void {
+  function onAccessToggle(platform: ToggledPlatform, checked: boolean): void {
+    const { label } = PLATFORMS[platform];
     if (checked) {
-      requestNetflixAccess().then(
-        (granted) => settleNetflix(granted ? null : 'denied'),
+      requestPlatformAccess(platform).then(
+        (granted) => settle(platform, granted ? null : 'denied'),
         (error: unknown) => {
-          log.warn('Demande d’accès à Netflix impossible :', error);
-          settleNetflix('error');
+          log.warn(`Demande d’accès à ${label} impossible :`, error);
+          settle(platform, 'error');
         },
       );
       return;
     }
-    removeNetflixAccess().then(
+    removePlatformAccess(platform).then(
       (removed) => {
-        if (removed && ctx.data.settings?.preferredPlayer === 'netflix') void ctx.update({ preferredPlayer: DEFAULT_SETTINGS.preferredPlayer }, true);
-        settleNetflix(removed ? 'disabled' : 'error');
+        if (removed && platform === 'netflix' && ctx.data.settings?.preferredPlayer === 'netflix') void ctx.update({ preferredPlayer: DEFAULT_SETTINGS.preferredPlayer }, true);
+        settle(platform, removed ? 'disabled' : 'error');
       },
       (error: unknown) => {
-        log.warn('Retrait de l’accès à Netflix impossible :', error);
-        settleNetflix('error');
+        log.warn(`Retrait de l’accès à ${label} impossible :`, error);
+        settle(platform, 'error');
       },
     );
   }
 
-  function renderNetflix(): HTMLElement {
-    const granted = ctx.data.netflixAccess === true;
-    const errorText = netflixNotice === 'denied' ? t('settings.netflix.denied') : netflixNotice === 'error' ? t('settings.netflix.error') : null;
+  function renderAccess(platform: ToggledPlatform): HTMLElement {
+    const texts = ACCESS_TEXTS[platform];
+    const granted = isGranted(platform);
+    const state = notices[platform];
+    const errorText = state === 'denied' ? t(texts.denied) : state === 'error' ? t(texts.error) : null;
     const notice =
-      netflixNotice === 'disabled'
-        ? !granted && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-muted', attrs: { role: 'status' } }, t('settings.netflix.disabled'))
+      state === 'disabled'
+        ? !granted && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-muted', attrs: { role: 'status' } }, t(texts.disabled))
         : errorText && h('p', { class: 'm-0 px-3 pb-2 text-[11px] font-semibold text-danger', attrs: alertAttrs(errorText) }, errorText);
     return settingsSection(
-      t('settings.netflix.section'),
+      t(texts.section),
       rowsCard(
         toggleRow({
-          id: 'sk-netflix',
-          label: t('settings.netflix.label'),
-          help: t(granted ? 'settings.netflix.helpOn' : 'settings.netflix.helpOff'),
+          id: `sk-${platform}`,
+          label: t(texts.label),
+          help: t(granted ? texts.helpOn : texts.helpOff),
           checked: granted,
-          onChange: onNetflixToggle,
+          onChange: (checked) => onAccessToggle(platform, checked),
         }),
         notice,
       ),
     );
   }
 
-  function renderShortcutHint(): HTMLElement {
-    const { shortcut } = ctx.data;
-    // Touche mise en forme (<kbd>) au milieu de la phrase traduite
-    const [before = '', after = ''] = t('settings.shortcut.hint').split('{key}');
-    const text =
-      shortcut === undefined
-        ? t('settings.shortcut.loading')
-        : shortcut
-          ? h('span', {}, before, h('kbd', { class: 'font-body font-bold text-ink' }, formatShortcut(shortcut)), after)
-          : t('settings.shortcut.none');
-    const manual = t(__SYNCKAI_TARGET__ === 'firefox' ? 'settings.shortcut.manualFirefox' : 'settings.shortcut.manual');
+  /** Lien vers Réglages › Raccourcis (touches de « valider l'épisode » et du panneau, autrefois affichées ici) */
+  function renderShortcutsLink(): HTMLElement {
     return h(
-      'div',
-      { class: DIVIDER },
-      h(
-        'div',
-        { class: 'flex items-center justify-between gap-2 px-3 py-1' },
-        h('span', { class: `min-w-0 ${HELP_TEXT}` }, text),
-        h(
-          'button',
-          {
-            class: `${LINK} inline-flex min-h-8 shrink-0 cursor-pointer items-center bg-transparent px-1 text-[12px] font-bold`,
-            attrs: { type: 'button', 'aria-label': t('settings.shortcut.editAria'), 'data-focus': 'shortcut' },
-            on: { click: onEditShortcut },
-          },
-          shortcut ? t('settings.shortcut.edit') : t('settings.shortcut.set'),
-        ),
-      ),
-      // Page des raccourcis impossible à ouvrir : marche à suivre (au lieu d'un clic sans effet)
-      shortcutManual && h('p', { class: `m-0 px-3 pb-2 ${HELP_TEXT}`, attrs: { role: 'status', 'data-shortcut-manual': '' } }, manual),
+      'button',
+      {
+        class: `${LINK} ${DIVIDER} flex min-h-9 w-full cursor-pointer items-center justify-between gap-2 bg-transparent px-3 text-left text-[12px] font-bold`,
+        attrs: { type: 'button', 'data-focus': 'shortcuts-link' },
+        on: { click: () => ctx.openCategory('shortcuts') },
+      },
+      t('settings.shortcuts.pointer'),
+      icon('chevronRight', 'h-3.5 w-3.5', '2.6'),
     );
-  }
-
-  /** Chrome : onglet chrome://extensions/shortcuts ; Firefox : commands.openShortcutSettings() (BRW-02) */
-  function onEditShortcut(): void {
-    openShortcutSettings().catch((error: unknown) => {
-      log.warn('Page des raccourcis impossible à ouvrir :', error);
-      shortcutManual = true;
-      ctx.redraw(['sync']);
-    });
   }
 
   function renderTrigger(s: SyncSettings): HTMLElement[] {
@@ -213,7 +217,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
           rowsCard(
             toggleRow({ id: 'sk-auto', label: t('settings.autoSync.label'), help: t(s.autoSync ? 'settings.autoSync.helpOn' : 'settings.autoSync.helpOff'), checked: s.autoSync, onChange: (checked) => void ctx.update({ autoSync: checked }) }),
             ...renderTrigger(s),
-            renderShortcutHint(),
+            renderShortcutsLink(),
           ),
         ),
         settingsSection(
@@ -235,7 +239,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
             }),
           ),
         ),
-        renderNetflix(),
+        ...TOGGLED_PLATFORMS.map(renderAccess),
         settingsSection(
           t('settings.section.panel'),
           rowsCard(

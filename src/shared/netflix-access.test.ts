@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // Verrou du stockage immédiat (Web Locks absent sous Node)
 vi.mock('./storage-lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise<T> => task() }));
 
-const { effectivePreferredPlayer, hasNetflixAccess, removeNetflixAccess, requestNetflixAccess, resetRevokedNetflixPlayer } = await import('./netflix-access');
+const { effectivePreferredPlayer, hasNetflixAccess, resetRevokedNetflixPlayer } = await import('./netflix-access');
 const { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } = await import('./settings');
 
 afterEach(() => {
@@ -11,19 +11,11 @@ afterEach(() => {
 });
 
 describe('accès Netflix (permission optionnelle)', () => {
-  it('lit, demande et retire la seule origine netflix.com', async () => {
+  it('lit la seule origine netflix.com', async () => {
     const contains = vi.fn(() => Promise.resolve(true));
-    const request = vi.fn(() => Promise.resolve(false));
-    const remove = vi.fn(() => Promise.resolve(true));
-    vi.stubGlobal('chrome', { permissions: { contains, request, remove } });
-    const origins = { origins: ['*://*.netflix.com/*'] };
-
+    vi.stubGlobal('chrome', { permissions: { contains } });
     expect(await hasNetflixAccess()).toBe(true);
-    expect(contains).toHaveBeenCalledWith(origins);
-    expect(await requestNetflixAccess()).toBe(false);
-    expect(request).toHaveBeenCalledWith(origins);
-    expect(await removeNetflixAccess()).toBe(true);
-    expect(remove).toHaveBeenCalledWith(origins);
+    expect(contains).toHaveBeenCalledWith({ origins: ['*://*.netflix.com/*'] });
   });
 
   it('API absente ou en échec : accès considéré comme non accordé', async () => {
@@ -61,6 +53,12 @@ describe('lecteur préféré « Netflix » et accès retiré', () => {
     expect(contains).toHaveBeenCalledOnce();
     fakeBrowser(true, {});
     expect(await effectivePreferredPlayer('netflix')).toBe('netflix');
+  });
+
+  it('Disney+ n’est jamais lecteur préféré (sauvegarde importée…) : lecteur par défaut, sans lire de permission', async () => {
+    const { contains } = fakeBrowser(true, {});
+    expect(await effectivePreferredPlayer('disney')).toBe(DEFAULT_SETTINGS.preferredPlayer);
+    expect(contains).not.toHaveBeenCalled();
   });
 
   it('accès retiré (permissions.onRemoved, démarrage) : lecteur Netflix remis à la valeur par défaut, autres réglages gardés', async () => {

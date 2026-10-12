@@ -1,7 +1,7 @@
 import { isRecord } from './guards';
-import { PLATFORMS, type StreamingPlatform } from './platforms';
+import { STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
 
-export type { StreamingPlatform } from './platforms';
+export type { StreamingPlatform } from './platform-ids';
 
 /**
  * Épisode détecté sur une plateforme de streaming.
@@ -29,11 +29,36 @@ export interface EpisodeInfo {
   displayedEpisodeNumber: number | null;
   episodeTitle: string | null;
   url: string;
+  /**
+   * Nombre d'épisodes de chaque saison de la série sur la plateforme, dans l'ordre des saisons (Netflix : métadonnées de
+   * la série). Sert à rapprocher les saisons de la plateforme des fiches AniList de la franchise (alignPlatformSeasons).
+   * Absent si inconnu (Crunchyroll, ADN, Disney+, épisodes enregistrés avant la 2.3.0).
+   */
+  platformSeasons?: number[];
 }
+
+/** Saisons par série au plus, épisodes par saison au plus (validation d'un message ou du stockage) */
+export const MAX_PLATFORM_SEASONS = 200;
+const MAX_SEASON_EPISODES = 10_000;
+
+/** Nombres d'épisodes par saison plausibles (entiers ≥ 0, bornés) */
+export function isPlatformSeasons(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_PLATFORM_SEASONS &&
+    value.every((count) => typeof count === 'number' && Number.isSafeInteger(count) && count >= 0 && count <= MAX_SEASON_EPISODES)
+  );
+}
+
+/**
+ * Disney+ : saison 99 = arc ou spécial publié comme une saison de la série (« Undead Unluck - s99e1 »), plusieurs
+ * par série. L'épisode porte alors le titre de l'arc dans `seasonTitle` (voir mappingKey).
+ */
+export const DISNEY_ARC_SEASON = 99;
 
 /** Plateforme de streaming connue de SyncKai (valeur venant d'un message ou du stockage) */
 export function isStreamingPlatform(value: unknown): value is StreamingPlatform {
-  return typeof value === 'string' && Object.hasOwn(PLATFORMS, value);
+  return typeof value === 'string' && (STREAMING_PLATFORMS as readonly string[]).includes(value);
 }
 
 const isNullableNumber = (v: unknown): v is number | null => v === null || typeof v === 'number';
@@ -52,6 +77,7 @@ export function isEpisodeInfo(value: unknown): value is EpisodeInfo {
     isNullableNumber(value.seasonEpisodeNumber) &&
     isNullableNumber(value.displayedEpisodeNumber) &&
     isNullableString(value.episodeTitle) &&
-    typeof value.url === 'string'
+    typeof value.url === 'string' &&
+    (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons))
   );
 }

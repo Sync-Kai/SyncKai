@@ -54,8 +54,8 @@ export function panelView(): PageMediaView {
       siteUrl: `https://anilist.co/anime/${FRIEREN.id}`,
     },
     lists: [
-      { service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 26, score: 9, siteUrl: `https://anilist.co/anime/${FRIEREN.id}` },
-      { service: 'mal', state: 'in-list', status: 'CURRENT', progress: 26, score: 9, siteUrl: `https://myanimelist.net/anime/${FRIEREN.malId}` },
+      { service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 26, score: 9, notes: null, siteUrl: `https://anilist.co/anime/${FRIEREN.id}` },
+      { service: 'mal', state: 'in-list', status: 'CURRENT', progress: 26, score: 9, notes: null, siteUrl: `https://myanimelist.net/anime/${FRIEREN.malId}` },
     ],
     confidence: 'certain',
     source: 'page',
@@ -90,6 +90,7 @@ export function panelMedia(): PanelMedia {
       {
         relationType: 'SEQUEL',
         mediaId: 182255,
+        idMal: 59978,
         title: 'Frieren: Beyond Journey’s End Season 2',
         format: 'TV',
         coverUrl: coverUrl({ from: '#24506E', to: '#9FD8F0', accent: '#FFF6D8', motif: 'peaks' }),
@@ -99,6 +100,7 @@ export function panelMedia(): PanelMedia {
       {
         relationType: 'SIDE_STORY',
         mediaId: 170068,
+        idMal: null,
         title: 'Frieren: Beyond Journey’s End Mini Anime',
         format: 'ONA',
         coverUrl: coverUrl({ from: '#5A4A1E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }),
@@ -168,8 +170,8 @@ export function panelChrome(locale: Locale, tab: PanelTab, now: number = Date.no
   return {
     ...base,
     storage: { ...base.storage, [PANEL_LAST_TAB_KEY]: tab },
-    // Fiche de l'onglet déjà résolue (cache de session partagé avec le popup et la synchro)
-    session: { [pageMediaCacheKey(TAB_ID)]: toCachedPageMedia(PANEL_PAGE, view, 'resolve', now - 60_000) },
+    // Fiche de l'onglet déjà résolue (cache de session partagé avec le popup et la synchro), sessions AniList et MAL de la démo
+    session: { [pageMediaCacheKey(TAB_ID)]: toCachedPageMedia(PANEL_PAGE, view, 'resolve', now - 60_000, { anilist: 0, mal: 0 }) },
     manifest: { host_permissions: manifest.host_permissions, content_scripts: manifest.content_scripts },
     tab: { url: WATCH_URL, title: FRIEREN_TITLE },
     sidePanel: true,

@@ -1,4 +1,4 @@
-// Modules `*?script` de crxjs : chemins des scripts Netflix enregistrés à la demande (background/netflix-access.ts)
+// Modules `*?script` de crxjs : chemins des scripts Netflix et Disney+ enregistrés à la demande (background/platform-access.ts)
 /// <reference types="@crxjs/vite-plugin/client" />
 /** Injecté par Vite (voir `define` dans vite.config.ts) */
 declare const __SYNCKAI_BUILD__: string;

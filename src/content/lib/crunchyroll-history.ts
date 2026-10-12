@@ -1,6 +1,7 @@
 import { isRecord } from '../../shared/guards';
 import { isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistorySeason } from '../../shared/cr-history';
 import { cleanText, stripAudioTag } from '../adapters/parsing';
+import type { FetchLike } from './page-fetch';
 
 // Lecture de l'historique de visionnage Crunchyroll, DANS l'onglet Crunchyroll de l'utilisateur (même origine :
 // la session du site, cookie httpOnly `etp_rt`, sert à demander à Crunchyroll un jeton de courte durée avec
@@ -45,8 +46,7 @@ export class CrHistoryError extends Error {
   }
 }
 
-/** Requête HTTP (fetch de la page, injectable pour les tests) */
-export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
+export type { FetchLike } from './page-fetch';
 
 export interface ReaderDeps {
   fetch: FetchLike;
@@ -466,21 +466,6 @@ export async function readCrunchyrollHistory(deps: ReaderDeps, completionPercent
 }
 
 // ─── Contexte de la page ──────────────────────────────────────────────────
-
-declare global {
-  // Firefox : `content.fetch` exécute la requête au nom de la page (cookies et origine du site)
-  var content: { fetch?: typeof fetch } | undefined;
-}
-
-/** fetch de la page : `content.fetch` sur Firefox, sinon fetch du script de contenu (origine de la page sur Chrome) */
-export function pageFetch(): FetchLike {
-  const scoped = globalThis.content;
-  if (scoped && typeof scoped.fetch === 'function') {
-    const contentFetch = scoped.fetch;
-    return (input, init) => contentFetch.call(scoped, input, init);
-  }
-  return (input, init) => window.fetch(input, init);
-}
 
 /** Langue des titres : celle de la page Crunchyroll (`<html lang>`), au format attendu par l'API */
 export function pageLocale(lang: string | null | undefined): string {

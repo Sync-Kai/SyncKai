@@ -100,13 +100,15 @@ function fakeTracker(id: TrackerId, writeDelay: (progress: number) => number = (
       slots.calls.push(`read:${id}`);
       await sleep(1);
       const entry = entries.get(entryId);
-      return { title: 'Frieren', episodes: fakes.episodes, entry: entry ? { ...entry } : null };
+      return { title: 'Frieren', episodes: fakes.episodes, entry: entry ? { ...entry } : null, notes: null };
     },
     saveProgress: (entryId, progress, status) => save(entryId, progress, status),
     saveStatus: (entryId, status, progress) => save(entryId, progress, status),
     saveScore: unused,
     startRewatch: unused,
     saveEntry: unused,
+    deleteEntry: () => Promise.reject(new Error('hors test')),
+    saveNotes: () => Promise.reject(new Error('hors test')),
   };
 }
 

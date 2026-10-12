@@ -1,5 +1,5 @@
 import { t } from '../../i18n/content';
-import { kai } from '../../ui/icons';
+import { smallKai } from '../../ui/kai-small';
 
 export type ToastTone = 'info' | 'success' | 'warning' | 'error';
 /** bubble : bulle complète (Kai, titre, détail, action) ; pill : pastille compacte de succès */
@@ -160,7 +160,7 @@ function icon(size: number, viewBox: string, children: SVGElement[], extra: SvgA
 
 /** Mascotte Kai ravie (24 px, dessin simplifié) — taille fixée en attributs : pas de Tailwind dans le Shadow DOM */
 function kaiIcon(): SVGElement {
-  const mascot = kai('', { expression: 'happy', size: 'small' });
+  const mascot = smallKai('', { expression: 'happy' });
   mascot.setAttribute('width', '24');
   mascot.setAttribute('height', '24');
   return mascot;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isContentMessage, isCrHistoryPortMessage, isCrHistoryRequest, isPageMediaResponse } from './content-messages';
+import { isAdnHistoryRequest, isContentMessage, isCrHistoryPortMessage, isCrHistoryRequest, isPageMediaResponse } from './content-messages';
 
 describe('messages au content script', () => {
   it('reconnaît FORCE_COMPLETE et GET_PAGE_MEDIA uniquement', () => {
@@ -39,6 +39,12 @@ describe('port de lecture de l’historique Crunchyroll', () => {
     expect(isCrHistoryRequest({ type: 'READ_CR_HISTORY' })).toBe(true);
     expect(isCrHistoryRequest({ type: 'FORCE_COMPLETE' })).toBe(false);
     expect(isCrHistoryRequest(null)).toBe(false);
+  });
+
+  it('port ADN : seule la demande READ_ADN_HISTORY est acceptée', () => {
+    expect(isAdnHistoryRequest({ type: 'READ_ADN_HISTORY' })).toBe(true);
+    expect(isAdnHistoryRequest({ type: 'READ_CR_HISTORY' })).toBe(false);
+    expect(isCrHistoryRequest({ type: 'READ_ADN_HISTORY' })).toBe(false);
   });
 
   it('valide progression, résultat et erreur renvoyés par le script de contenu', () => {

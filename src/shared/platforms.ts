@@ -1,12 +1,13 @@
 // Registre des plateformes de streaming : tout ce que SyncKai sait d'une plateforme hors de son adaptateur de contenu
-// (libellé, logo, hôtes, liens, accès optionnel, filtre « anime »). Module feuille : aucun import, pour rester
-// utilisable partout (shared, ui, background, content) sans cycle. Ajouter une plateforme : l'ajouter à
-// STREAMING_PLATFORMS, puis le compilateur exige son descripteur (Record exhaustif) et les Record qui en dépendent.
+// (libellé, logo, hôtes, liens, accès optionnel, filtre « anime »). Seul import : platform-ids.ts
+// (feuille), pour rester utilisable partout (shared, ui, background, content) sans cycle. Ajouter une plateforme :
+// l'ajouter à STREAMING_PLATFORMS (platform-ids.ts), puis le compilateur exige son descripteur (Record exhaustif)
+// et les Record qui en dépendent.
 
-/** Ordre fixe des plateformes (liens, réglages, repli de « Ouvrir ») */
-export const STREAMING_PLATFORMS = ['crunchyroll', 'adn', 'netflix'] as const;
+import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
 
-export type StreamingPlatform = (typeof STREAMING_PLATFORMS)[number];
+// Identifiants (liste, type, platformRecord) : platform-ids.ts, repris ici
+export { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
 
 export interface PlatformDescriptor {
   /** Nom affiché (marque, non traduit) */
@@ -48,6 +49,7 @@ function domainOrSubdomain(...domains: readonly string[]): (hostname: string) =>
 const CRUNCHYROLL_ID = /^[A-Z0-9]{4,20}$/i;
 const ADN_ID = /^\d{1,9}$/;
 const NETFLIX_ID = /^\d{1,12}$/;
+const DISNEY_ENTITY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> = {
   crunchyroll: {
@@ -93,6 +95,20 @@ export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> 
     seriesUrl: (seriesId) => (seriesId !== null && NETFLIX_ID.test(seriesId) ? `https://www.netflix.com/title/${seriesId}` : null),
     searchUrl: (query) => `https://www.netflix.com/search?q=${query}`,
   },
+  disney: {
+    label: 'Disney+',
+    icon: '/brands/disney.png',
+    homeUrl: 'https://www.disneyplus.com',
+    matchesHost: domainOrSubdomain('disneyplus.com'),
+    // Catalogue généraliste : seuls les animes (langue originale japonaise) liés à Disney+ sur AniList sont suivis
+    linkRequired: true,
+    searchable: false,
+    optionalMatches: ['*://*.disneyplus.com/*'],
+    // Page de série actuelle : /{langue}/browse/entity-{uuid} (les anciens liens /series/{slug}/{id} n'ont pas de clé)
+    seriesIdInPath: /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?browse\/entity-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i,
+    seriesUrl: (seriesId) => (seriesId !== null && DISNEY_ENTITY_ID.test(seriesId) ? `https://www.disneyplus.com/browse/entity-${seriesId.toLowerCase()}` : null),
+    searchUrl: (query) => `https://www.disneyplus.com/search?q=${query}`,
+  },
 };
 
 /** Plateforme dont l'hôte correspond, null sinon */
@@ -111,8 +127,3 @@ export const OPTIONAL_PLATFORM_MATCHES: readonly string[] = STREAMING_PLATFORMS.
 /** Libellés des plateformes (même forme que TRACKER_LABELS) */
 export const PLATFORM_LABELS: Readonly<Record<StreamingPlatform, string>> = platformRecord((platform) => PLATFORMS[platform].label);
 
-/** Record exhaustif construit plateforme par plateforme (ex : délais par défaut de l'agenda) */
-export function platformRecord<T>(value: (platform: StreamingPlatform) => T): Record<StreamingPlatform, T> {
-  // Construit sur STREAMING_PLATFORMS, donc complet : la conversion de type est sûre
-  return Object.fromEntries(STREAMING_PLATFORMS.map((platform) => [platform, value(platform)])) as Record<StreamingPlatform, T>;
-}

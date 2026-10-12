@@ -5,25 +5,25 @@ const CHANGELOG = `# Changelog
 
 ## [Unreleased]
 
-### Modifié
+### Changed
 
-- En cours.
+- In progress.
 
 ## [1.2.0] - 2026-10-02
 
-### Ajouté
+### Added
 
-- Nouveauté.
+- New feature.
 
 ## [1.1.0] - 2026-10-01
 
-### Corrigé
+### Fixed
 
-- Correctif.
+- Fix.
 
 ## [1.0.0] - 2026-09-01
 
-Première version.
+First release.
 
 ## [0.9.0] - 2026-08-01
 
@@ -34,14 +34,14 @@ Première version.
 describe('extractReleaseNotes', () => {
   it('extrait le corps de la section et la version précédente', () => {
     expect(extractReleaseNotes(CHANGELOG, '1.2.0')).toEqual({
-      body: '### Ajouté\n\n- Nouveauté.',
+      body: '### Added\n\n- New feature.',
       previousVersion: '1.1.0',
     });
   });
 
   it('accepte les fins de ligne CRLF', () => {
     const notes = extractReleaseNotes(CHANGELOG.replace(/\n/g, '\r\n'), '1.1.0');
-    expect(notes).toEqual({ body: '### Corrigé\n\n- Correctif.', previousVersion: '1.0.0' });
+    expect(notes).toEqual({ body: '### Fixed\n\n- Fix.', previousVersion: '1.0.0' });
   });
 
   it('ignore les définitions de liens après la dernière section', () => {
@@ -50,22 +50,22 @@ describe('extractReleaseNotes', () => {
   });
 
   it('ne confond pas une version avec un préfixe commun', () => {
-    expect(() => extractReleaseNotes(CHANGELOG, '1.2')).toThrow(/introuvable/);
+    expect(() => extractReleaseNotes(CHANGELOG, '1.2')).toThrow(/not found/);
   });
 
   it('échoue si la section est absente', () => {
-    expect(() => extractReleaseNotes(CHANGELOG, '9.9.9')).toThrow(/introuvable/);
+    expect(() => extractReleaseNotes(CHANGELOG, '9.9.9')).toThrow(/not found/);
   });
 
   it('échoue si la section est vide', () => {
-    expect(() => extractReleaseNotes(CHANGELOG, '0.9.0')).toThrow(/vide/);
+    expect(() => extractReleaseNotes(CHANGELOG, '0.9.0')).toThrow(/is empty/);
   });
 });
 
 describe('formatReleaseNotes', () => {
   it('ajoute le lien de comparaison avec la version précédente', () => {
     expect(formatReleaseNotes({ body: '- A.', previousVersion: '1.1.0' }, '1.2.0')).toBe(
-      '- A.\n\n**Changelog complet** : https://github.com/Sync-Kai/SyncKai/compare/v1.1.0...v1.2.0\n',
+      '- A.\n\n**Full changelog**: https://github.com/Sync-Kai/SyncKai/compare/v1.1.0...v1.2.0\n',
     );
   });
 

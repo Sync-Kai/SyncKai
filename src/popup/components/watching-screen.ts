@@ -1,22 +1,28 @@
 import { t, tp, type MessageKey } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
+import { entryLink, type EntryLink, type EntryLinkContext } from '../../shared/entry-link';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsWithoutLink } from '../../shared/platform-links';
-import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../../shared/platforms';
+import { activePlatforms } from '../../shared/platform-access';
+import { PLATFORMS } from '../../shared/platforms';
 import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import { BADGE_CLASSES } from '../../ui/airing-badge';
 import { busyAttrs, h, nodes } from '../../ui/dom';
+import { entryCover, entryTitle } from '../../ui/entry-link';
 import { icon, kai, playIcon, sparkIcon } from '../../ui/icons';
 import { TONE_CHIP } from '../../ui/feedback';
 import type { ListStatusChange } from '../../shared/sync.types';
-import type { EntryAction, WatchingState } from '../state';
+import type { EntryAction, RowConfirm, WatchingState } from '../state';
 import type { InlineFeedback } from '../../ui/state';
 import { renderRetryButton } from '../../ui/media-actions';
 import { renderAlert } from '../../ui/alert';
 import { renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from '../../ui/status-actions';
 import { CARD, kanaLabel, PLATFORM_LABELS, platformChip, renderCover, sectionTitle, segmented } from '../../ui/kit';
+import { formatPlatformList } from '../../ui/platform-list';
 import { settingsPath } from '../../ui/settings/navigation';
+import { onMenuKeyDown } from '../../ui/menu';
+import { removeIcon, renderRemoveConfirm } from '../../ui/list-entry-tools';
 
 /** Actions par série (+1, menu « … ») : état fourni par le popup, il survit aux nouveaux rendus */
 export interface EntryControls {
@@ -24,14 +30,22 @@ export interface EntryControls {
   /** Fiches AniList exclues de la synchronisation */
   excludedMediaIds: ReadonlySet<number>;
   rowMenu: string | null;
-  /** Confirmation affichée dans le menu ouvert (Abandonner, Terminé) */
-  rowConfirm: ListStatusChange | null;
+  /** Confirmation affichée dans le menu ouvert (Abandonner, Terminé, Retirer de la liste) */
+  rowConfirm: RowConfirm | null;
   onRowMenu: (key: string | null) => void;
-  onRowConfirm: (status: ListStatusChange | null) => void;
+  onRowConfirm: (confirm: RowConfirm | null) => void;
   onAdjust: (entry: WatchingEntry, delta: 1 | -1) => void;
   onSetStatus: (entry: WatchingEntry, status: ListStatusChange) => void;
   onExclude: (entry: WatchingEntry) => void;
   onInclude: (entry: WatchingEntry) => void;
+  /** « Retirer de la liste » confirmé : retirée de chaque service connecté */
+  onRemove: (entry: WatchingEntry) => void;
+  /** « Commentaire… » : ouvre l'éditeur sous la série */
+  onNotes: (entry: WatchingEntry) => void;
+  /** Éditeur de commentaire ouvert sous cette série (élément persistant), sinon null */
+  notesFor: (entry: WatchingEntry) => HTMLElement | null;
+  /** Comptes connectés et fiche préférée : lien du titre, de la jaquette et de « Ouvrir la fiche » */
+  entryLinks: EntryLinkContext;
 }
 
 interface WatchingScreenProps {
@@ -53,8 +67,8 @@ interface WatchingScreenProps {
   onRetry: () => void;
   /** Carte « Sur cette page » (onglet actif sur une série reconnue) : remplace la carte « Reprendre » */
   pageCard: HTMLElement | null;
-  /** Accès Netflix accordé : l'état vide cite Netflix parmi les plateformes */
-  netflixAccess: boolean;
+  /** Plateformes à accès optionnel accordées (Netflix, Disney+) : l'état vide les cite parmi les plateformes */
+  optionalPlatforms: readonly StreamingPlatform[];
   /** Lien de l'astuce de l'état vide : Réglages › Lecture & synchro */
   onOpenSyncSettings: () => void;
 }
@@ -82,6 +96,14 @@ function displayPlatform(entry: WatchingEntry, preferred: StreamingPlatform): St
 /** Clé stable d'une série de la liste (une fiche MAL peut ne pas avoir d'identifiant AniList) */
 export function entryKey(entry: WatchingEntry): string {
   return `${entry.mediaId ?? '-'}:${entry.malId ?? '-'}`;
+}
+
+/**
+ * Fiche ouverte par le titre, la jaquette et « Ouvrir la fiche » ; sans identifiant exploitable (cas théorique),
+ * la page de la fiche sur le service affiché.
+ */
+function entrySite(entry: WatchingEntry, controls: EntryControls): EntryLink {
+  return entryLink(entry, controls.entryLinks) ?? { service: entry.siteUrl.startsWith('https://myanimelist.net/') ? 'mal' : 'anilist', url: entry.siteUrl };
 }
 
 function isExcludedEntry(entry: WatchingEntry, controls: EntryControls): boolean {
@@ -128,11 +150,15 @@ function searchPlatforms(entry: WatchingEntry, preferred: StreamingPlatform): St
   return platformsWithoutLink(entry.platforms).sort((a, b) => Number(b === preferred) - Number(a === preferred));
 }
 
-/** Menu « … » d'une série : −1, statut (pause, abandon, terminé), exclusion / réactivation, recherche sur une plateforme, fiche du service */
+/**
+ * Menu « … » d'une série : −1, statut (pause, abandon, terminé), commentaire, exclusion / réactivation, recherche sur une
+ * plateforme, fiche du service, retrait de la liste (confirmé en ligne)
+ */
 function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred: StreamingPlatform): HTMLElement {
   const key = entryKey(entry);
   const pending = controls.actions.get(key)?.phase === 'pending';
   const excluded = isExcludedEntry(entry, controls);
+  const site = entrySite(entry, controls);
   const close = (): void => controls.onRowMenu(null);
   const item = (focus: string, label: string, iconEl: SVGSVGElement, onClick: () => void, disabled = false, danger = false): HTMLElement =>
     h(
@@ -176,6 +202,10 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred:
         : item(status, t(STATUS_LABELS[status]), STATUS_ICONS[status](), () => controls.onRowConfirm(status), pending),
     ),
     h('div', { class: 'mx-1 my-0.5 h-px bg-line', attrs: { role: 'separator' } }),
+    item('notes', t('notes.menu'), icon('pencil', 'h-3.5 w-3.5 text-lavender'), () => {
+      close();
+      controls.onNotes(entry);
+    }, pending),
     excluded
       ? item('include', t('watching.resumeSync'), icon('retry', 'h-3.5 w-3.5 text-mint'), () => {
           close();
@@ -209,12 +239,25 @@ function renderRowMenu(entry: WatchingEntry, controls: EntryControls, preferred:
       'a',
       {
         class: MENU_ITEM,
-        attrs: { href: entry.siteUrl, target: '_blank', rel: 'noopener noreferrer', role: 'menuitem', tabindex: '-1', 'data-focus': `site-${key}` },
+        attrs: { href: site.url, target: '_blank', rel: 'noopener noreferrer', role: 'menuitem', tabindex: '-1', 'data-focus': `site-${key}` },
         on: { click: close },
       },
       icon('external', 'h-3.5 w-3.5 text-muted'),
-      t('watching.openEntry'),
+      t('page.openOn', { service: TRACKER_LABELS[site.service] }),
     ),
+    h('div', { class: 'mx-1 my-0.5 h-px bg-line', attrs: { role: 'separator' } }),
+    controls.rowConfirm === 'REMOVE' && !pending
+      ? renderRemoveConfirm({
+          focusKey: key,
+          title: entry.title,
+          inMenu: true,
+          onYes: () => {
+            close();
+            controls.onRemove(entry);
+          },
+          onNo: () => controls.onRowConfirm(null),
+        })
+      : item('REMOVE', t('list.remove'), removeIcon(), () => controls.onRowConfirm('REMOVE'), pending, true),
   );
   return menu;
 }
@@ -301,6 +344,7 @@ function renderHero(entry: WatchingEntry, now: number, preferred: StreamingPlatf
   const link = choosePlatformLink(entry, preferred);
   const platform = displayPlatform(entry, preferred);
   const pct = progressPercent(entry);
+  const site = entrySite(entry, controls);
   const meta = [platform && PLATFORM_LABELS[platform], entry.lastSync && formatRelativeTime(entry.lastSync.at, now)].filter(
     (part): part is string => typeof part === 'string' && part.length > 0,
   );
@@ -308,7 +352,7 @@ function renderHero(entry: WatchingEntry, now: number, preferred: StreamingPlatf
   return h(
     'section',
     { class: 'flex shrink-0 gap-3 rounded-card bg-raised p-3 shadow-pop', attrs: { 'aria-label': t('watching.resume') } },
-    renderCover(entry.title, entry.coverUrl, 'h-[78px] w-14', 'text-[16px]', platform && platformChip(platform, 'right-[3px] bottom-[3px]')),
+    entryCover(site, renderCover(entry.title, entry.coverUrl, 'h-[78px] w-14', 'text-[16px]', platform && platformChip(platform, 'right-[3px] bottom-[3px]')), 'self-start'),
     h(
       'div',
       { class: 'flex min-w-0 flex-1 flex-col gap-1' },
@@ -340,7 +384,7 @@ function renderHero(entry: WatchingEntry, now: number, preferred: StreamingPlatf
             ),
           ),
       ),
-      h('span', { class: 'truncate text-[15px] leading-5 font-bold', attrs: { title: entry.title } }, entry.title),
+      h('span', { class: 'truncate text-[15px] leading-5 font-bold', attrs: { title: entry.title } }, entryTitle(site, entry.title, `title-${entryKey(entry)}`)),
       h(
         'div',
         { class: 'relative mt-1 h-2 rounded-full bg-surface', attrs: { 'aria-hidden': 'true' } },
@@ -382,16 +426,17 @@ function renderRow(entry: WatchingEntry, now: number, preferred: StreamingPlatfo
   const platform = displayPlatform(entry, preferred);
   const pct = progressPercent(entry);
   const excluded = isExcludedEntry(entry, controls);
+  const site = entrySite(entry, controls);
 
   // Pas d'overflow-hidden sur la ligne : le menu « … » doit pouvoir déborder (la barre est rognée par son propre calque)
   return h(
     'li',
     { class: 'relative flex h-16 items-center gap-2 rounded-lg bg-surface px-2' },
-    renderCover(entry.title, entry.coverUrl, 'h-11 w-8', 'text-[11px]', platform && platformChip(platform, '-right-[3px] -bottom-[3px]')),
+    entryCover(site, renderCover(entry.title, entry.coverUrl, 'h-11 w-8', 'text-[11px]', platform && platformChip(platform, '-right-[3px] -bottom-[3px]'))),
     h(
       'div',
       { class: 'ml-1 flex min-w-0 flex-1 flex-col items-start gap-1' },
-      h('span', { class: 'max-w-full truncate text-[13px] leading-[17px] font-bold', attrs: { title: entry.title } }, entry.title),
+      h('span', { class: 'max-w-full truncate text-[13px] leading-[17px] font-bold', attrs: { title: entry.title } }, entryTitle(site, entry.title, `title-${entryKey(entry)}`)),
       h(
         'span',
         { class: 'flex max-w-full min-w-0 items-center gap-1' },
@@ -447,6 +492,13 @@ function renderRow(entry: WatchingEntry, now: number, preferred: StreamingPlatfo
   );
 }
 
+/** Éditeur de commentaire ouvert sous la série (carte compacte, élément persistant fourni par le popup) */
+function renderNotesPanel(entry: WatchingEntry, controls: EntryControls, tag: 'li' | 'div'): HTMLElement | null {
+  const editor = controls.notesFor(entry);
+  if (!editor) return null;
+  return h(tag, { class: 'rounded-lg border border-line bg-surface p-2', attrs: { 'aria-label': t('notes.editAria', { title: entry.title }), 'data-notes-row': entryKey(entry) } }, editor);
+}
+
 // ─── Tri « Mes séries » ───────────────────────────────────────────────────
 
 const SORT_LABELS: Record<WatchingSort, MessageKey> = {
@@ -465,27 +517,6 @@ const SORT_ARIA: Record<WatchingSort, MessageKey> = {
 };
 
 const SORT_MENU_ID = 'sk-sort-menu';
-const MENU_NAV_KEYS: ReadonlySet<string> = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
-
-/** Déplace le focus clavier entre les options du menu (flèches en boucle, Début, Fin) */
-function moveMenuFocus(menu: HTMLElement, key: string): void {
-  const items = [...menu.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)')];
-  const index = items.findIndex((item) => item === document.activeElement);
-  const last = items.length - 1;
-  const next = key === 'Home' ? 0 : key === 'End' ? last : key === 'ArrowDown' ? (index >= last ? 0 : index + 1) : index <= 0 ? last : index - 1;
-  items[next]?.focus();
-}
-
-/** Clavier d'un menu : flèches / Début / Fin entre les options, Tab ferme (focus rendu au bouton) */
-function onMenuKeyDown(menu: HTMLElement, event: KeyboardEvent, onClose: () => void): void {
-  if (MENU_NAV_KEYS.has(event.key)) {
-    event.preventDefault();
-    moveMenuFocus(menu, event.key);
-  } else if (event.key === 'Tab') {
-    event.preventDefault();
-    onClose();
-  }
-}
 
 function renderSortMenu(sort: WatchingSort, onClose: () => void, onPick: (sort: WatchingSort) => void): HTMLElement {
   const menu: HTMLElement = h(
@@ -563,7 +594,7 @@ function renderSkeleton(): HTMLElement {
   );
 }
 
-function renderEmpty(netflixAccess: boolean, onOpenSyncSettings: () => void): HTMLElement {
+function renderEmpty(optionalPlatforms: readonly StreamingPlatform[], onOpenSyncSettings: () => void): HTMLElement {
   const pill = 'inline-flex h-9 items-center rounded-full px-4 text-[13px] font-bold transition';
   const secondary = `${pill} border border-line text-ink hover:bg-surface`;
   // Chemin « Réglages › Lecture & synchro » (titres réels des Réglages) cliquable au milieu de la phrase traduite
@@ -576,12 +607,14 @@ function renderEmpty(netflixAccess: boolean, onOpenSyncSettings: () => void): HT
       { class: 'flex flex-1 flex-col items-center justify-center gap-2 text-center', attrs: { 'aria-labelledby': 'sk-empty-title' } },
       kai('h-12 w-12', { expression: 'sleep', size: 'large' }),
       h('h2', { class: 'm-0 mt-1 text-[15px] leading-5 font-bold', attrs: { id: 'sk-empty-title' } }, t('watching.empty.title')),
-      h('p', { class: 'm-0 max-w-[300px] text-[12px] leading-[18px] font-semibold text-muted' }, t(netflixAccess ? 'watching.empty.textNetflix' : 'watching.empty.text')),
+      h('p', { class: 'm-0 max-w-[300px] text-[12px] leading-[18px] font-semibold text-muted' }, optionalPlatforms.length > 0
+        ? t('watching.empty.textPlatforms', { platforms: formatPlatformList(activePlatforms(optionalPlatforms), 'disjunction') })
+        : t('watching.empty.text')),
       h(
         'div',
         { class: 'mt-2 flex flex-wrap justify-center gap-2' },
-        // Première plateforme mise en avant ; plateforme à accès optionnel (Netflix) seulement avec l'accès accordé
-        ...STREAMING_PLATFORMS.filter((platform) => netflixAccess || !isOptionalPlatform(platform)).map((platform, index) =>
+        // Première plateforme mise en avant ; plateforme à accès optionnel (Netflix, Disney+) seulement avec l'accès accordé
+        ...activePlatforms(optionalPlatforms).map((platform, index) =>
           h(
             'a',
             {
@@ -667,7 +700,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
     return h(
       'div',
       { class: 'flex min-h-full flex-col gap-3' },
-      ...nodes([errorAlert, notice, switchRow(), props.pageCard, renderEmpty(props.netflixAccess, props.onOpenSyncSettings)]),
+      ...nodes([errorAlert, notice, switchRow(), props.pageCard, renderEmpty(props.optionalPlatforms, props.onOpenSyncSettings)]),
     );
   }
 
@@ -683,6 +716,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
       errorAlert,
       notice,
       props.pageCard ?? (hero && renderHero(hero, now, preferredPlayer, props.controls)),
+      !props.pageCard && hero && renderNotesPanel(hero, props.controls, 'div'),
       h(
         'div',
         { class: 'flex shrink-0 items-center justify-between gap-2' },
@@ -700,7 +734,7 @@ export function renderWatchingScreen(props: WatchingScreenProps): HTMLElement {
               class: 'm-0 flex list-none flex-col gap-1 p-0',
               attrs: { 'aria-label': t('watching.listAria', { service: TRACKER_LABELS[state.service], sort: t(SORT_ARIA[props.sort]) }) },
             },
-            ...rows.map((entry) => renderRow(entry, now, preferredPlayer, props.controls)),
+            ...rows.flatMap((entry) => nodes([renderRow(entry, now, preferredPlayer, props.controls), renderNotesPanel(entry, props.controls, 'li')])),
           )
         : h('p', { class: `${CARD} m-0 p-3 text-[12px] text-muted` }, t('watching.noOther')),
     ]),

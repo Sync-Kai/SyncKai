@@ -3,10 +3,11 @@
 // tout comportement propre à l'hôte passe par `SettingsHost`.
 import { getLocale, onLocaleChange, t } from '../../i18n';
 import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.types';
+import { COMPLETE_EPISODE_COMMAND, panelCommandName } from '../../shared/commands';
 import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
-import { hasNetflixAccess } from '../../shared/netflix-access';
+import { hasPlatformAccess } from '../../shared/platform-access';
 import { getSettings, normalizeSettings, saveSettings, SETTINGS_STORAGE_KEY, type LanguageSetting, type SyncSettings } from '../../shared/settings';
 import { getMediaMappings } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../shared/storage-keys';
@@ -19,9 +20,10 @@ import { createAccountsPage } from './page-accounts';
 import { createDataPage } from './page-data';
 import { createHelpPage } from './page-help';
 import { createNotificationsPage } from './page-notifications';
+import { createShortcutsPage } from './page-shortcuts';
 import { createSyncPage, settingsPlaceholder } from './page-sync';
 import { HELP_TEXT, navRow, rowsCard, settingsSection, toggleRow, type RowTint } from './rows';
-import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, syncSummary } from './summary';
+import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, shortcutsSummary, syncSummary } from './summary';
 
 const log = createLogger('settings');
 
@@ -33,12 +35,8 @@ export interface SettingsView {
   readonly bar: HTMLElement;
   /** Contenu de la page affichée : placé par l'hôte dans sa zone défilante */
   readonly element: HTMLElement;
-  /** Page affichée */
-  page(): SettingsPage;
-  /** Entrée dans les Réglages : accueil, ou directement une sous-page (pastille de compte, rechargement) */
-  show(page?: SettingsPage, options?: { focus?: boolean }): void;
-  /** Réglages lus et page dessinée (restauration du défilement après un rechargement) */
-  readonly ready: Promise<void>;
+  /** Entrée dans les Réglages : accueil, ou directement une sous-page (pastille de compte) */
+  show(page?: SettingsPage): void;
 }
 
 interface CategoryCopy {
@@ -50,6 +48,7 @@ const CATEGORY_COPY: Record<SettingsCategory, CategoryCopy> = {
   accounts: { icon: 'user', tint: 'anilist' },
   sync: { icon: 'sync', tint: 'sakura' },
   notifications: { icon: 'bell', tint: 'butter' },
+  shortcuts: { icon: 'keyboard', tint: 'mint' },
   data: { icon: 'folder', tint: 'lavender' },
   language: { icon: 'globe', tint: 'mint' },
   help: { icon: 'help', tint: 'muted' },
@@ -80,7 +79,9 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     journalCount: null,
     airing: null,
     shortcut: undefined,
+    panelShortcut: undefined,
     netflixAccess: undefined,
+    disneyAccess: undefined,
   };
 
   // ─── Coque : barre + contenu ───
@@ -183,20 +184,27 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     redraw(['home', 'data']);
   }
 
-  async function loadShortcut(): Promise<void> {
+  /**
+   * Raccourcis « valider l'épisode » et « ouvrir le panneau » (nom propre à la cible : voir shared/commands.ts). Relus
+   * quand la vue reprend le focus : la touche a pu être changée dans la page des raccourcis du navigateur (panneau resté ouvert).
+   */
+  async function loadShortcuts(): Promise<void> {
     try {
       const commands = await chrome.commands.getAll();
-      data.shortcut = commands.find((c) => c.name === 'complete-episode')?.shortcut ?? '';
+      const shortcutOf = (name: string): string => commands.find((c) => c.name === name)?.shortcut ?? '';
+      data.shortcut = shortcutOf(COMPLETE_EPISODE_COMMAND);
+      data.panelShortcut = shortcutOf(panelCommandName(__SYNCKAI_TARGET__));
     } catch (error: unknown) {
-      log.warn('Lecture du raccourci impossible :', error);
+      log.warn('Lecture des raccourcis impossible :', error);
       data.shortcut = '';
+      data.panelShortcut = '';
     }
-    redraw(['sync']);
+    redraw(['home', 'shortcuts']);
   }
 
-  /** Accès Netflix relu (ouverture, ou permission changée ici ou dans chrome://extensions) */
-  async function loadNetflixAccess(): Promise<void> {
-    data.netflixAccess = await hasNetflixAccess();
+  /** Accès Netflix et Disney+ relus (ouverture, ou permission changée ici ou dans chrome://extensions) */
+  async function loadPlatformAccess(): Promise<void> {
+    [data.netflixAccess, data.disneyAccess] = await Promise.all([hasPlatformAccess('netflix'), hasPlatformAccess('disney')]);
     redraw(['home', 'sync']);
   }
 
@@ -225,7 +233,16 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     notifications.drawAiring(Date.now());
   }
 
-  const ctx: SettingsContext = { host, data, update, redraw, refreshMappings, refreshJournal, refreshNetflixAccess: loadNetflixAccess };
+  const ctx: SettingsContext = {
+    host,
+    data,
+    update,
+    redraw,
+    refreshMappings,
+    refreshJournal,
+    refreshPlatformAccess: loadPlatformAccess,
+    openCategory: (category) => dispatch({ type: 'open', category }),
+  };
 
   // ─── Pages ───
 
@@ -234,6 +251,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     accounts: createAccountsPage(ctx),
     sync: createSyncPage(ctx),
     notifications,
+    shortcuts: createShortcutsPage(ctx),
     data: createDataPage(ctx),
     language: { render: renderLanguage },
     help: createHelpPage(ctx),
@@ -310,6 +328,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
         rowsCard(
           categoryRow('sync', muted(s ? syncSummary(s, data.netflixAccess) : loading), false),
           categoryRow('notifications', muted(s ? notificationsSummary(s) : loading), true),
+          categoryRow('shortcuts', muted(shortcutsSummary(data.shortcut, data.panelShortcut)), true),
         ),
       ),
       settingsSection(
@@ -337,7 +356,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     return element.closest<HTMLElement>('.sk-scroll');
   }
 
-  function dispatch(action: SettingsNavAction, focus = true): void {
+  function dispatch(action: SettingsNavAction): void {
     const from = nav.page;
     const { state, effect } = settingsNavReducer(nav, action);
     if (effect.kind === 'exit') {
@@ -351,7 +370,6 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     drawBar();
     drawPage();
     if (container) container.scrollTop = state.page === 'home' ? homeScroll : 0;
-    if (!focus) return;
     if (effect.kind === 'focus-heading') bar.querySelector<HTMLElement>('[data-focus="settings-heading"]')?.focus({ preventScroll: true });
     if (effect.kind === 'focus-row') {
       const row = element.querySelector<HTMLElement>(`[data-focus="settings-cat-${effect.category}"]`);
@@ -381,7 +399,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
       if (!data.settings || JSON.stringify(normalizeSettings(data.settings)) !== JSON.stringify(next)) {
         data.settings = next;
         data.settingsError = false;
-        redraw(['home', 'sync', 'notifications', 'language']);
+        redraw(['home', 'accounts', 'sync', 'notifications', 'language']);
       }
     }
     if (changes[STORAGE_KEYS.mediaMappings]) void refreshMappings();
@@ -391,17 +409,17 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     if (airingChange) setAiring(airingChange.newValue);
   });
 
-  // Accès Netflix accordé ou retiré ailleurs (chrome://extensions, autre vue) : interrupteur et lecteur préféré suivent
+  // Accès Netflix / Disney+ accordé ou retiré ailleurs (chrome://extensions, autre vue) : interrupteurs et lecteur préféré suivent
   if (typeof chrome.permissions?.onAdded?.addListener === 'function') {
-    chrome.permissions.onAdded.addListener(() => void loadNetflixAccess());
-    chrome.permissions.onRemoved.addListener(() => void loadNetflixAccess());
+    chrome.permissions.onAdded.addListener(() => void loadPlatformAccess());
+    chrome.permissions.onRemoved.addListener(() => void loadPlatformAccess());
   }
 
-  // Comptes connectés ou déconnectés (ici ou ailleurs) : carte Comptes et résumé de l'accueil
-  host.accounts.anilist.subscribe(() => redraw(['home', 'accounts']));
-  host.accounts.mal.subscribe(() => redraw(['home', 'accounts']));
+  // Comptes connectés ou déconnectés (ici ou ailleurs) : carte Comptes, résumé de l'accueil et « Fiche ouverte par défaut »
+  host.accounts.anilist.subscribe(() => redraw(['home', 'accounts', 'sync']));
+  host.accounts.mal.subscribe(() => redraw(['home', 'accounts', 'sync']));
 
-  // Langue changée sans rechargement (panneau latéral) : tout est retraduit
+  // Langue changée (popup, panneau latéral) : tout est retraduit en place, sans rechargement
   onLocaleChange(() => {
     drawBar();
     drawPage();
@@ -414,27 +432,26 @@ export function createSettingsView(host: SettingsHost): SettingsView {
 
   drawBar();
   drawPage();
-  const ready = loadSettings();
+  void loadSettings();
   void refreshMappings();
   void loadExclusions();
   void refreshJournal();
   void loadAiring();
-  void loadShortcut();
-  void loadNetflixAccess();
+  void loadShortcuts();
+  void loadPlatformAccess();
+  window.addEventListener('focus', () => void loadShortcuts());
 
   return {
     bar,
     element,
-    page: () => nav.page,
-    show(page = 'home', options = {}) {
+    show(page = 'home') {
       // Nouvelle entrée : l'accueil repart du haut
       homeScroll = 0;
       dispatch({ type: 'reset' });
       // Le reset ne redessine pas si l'on était déjà sur l'accueil : rendu explicite
       drawBar();
       drawPage();
-      if (page !== 'home') dispatch({ type: 'open', category: page }, options.focus ?? true);
+      if (page !== 'home') dispatch({ type: 'open', category: page });
     },
-    ready,
   };
 }

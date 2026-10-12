@@ -13,6 +13,8 @@ export interface E2EState {
   clipboard: string[];
   /** URL de chaque onglet ouvert (chrome.tabs.create) */
   openedTabs: string[];
+  /** Fenêtre de chaque ouverture du panneau latéral (chrome.sidePanel.open, popup avec `panel=chrome`) */
+  sidePanelOpens?: (number | null)[];
 }
 
 declare global {
@@ -20,9 +22,6 @@ declare global {
     __e2e?: E2EState;
   }
 }
-
-/** Clé sessionStorage du stockage simulé : il survit au rechargement provoqué par un changement de langue */
-export const E2E_PERSIST_KEY = 'synckai:e2e-storage';
 
 /** Faux secrets semés dans le stockage : le rapport de diagnostic ne doit jamais les contenir */
 export const PLANTED_SECRETS = {
@@ -54,6 +53,10 @@ export interface FrameParams {
   pageMedia?: 'untracked';
   /** `missing` : profil MyAnimeList absent du cache, premier GET_MAL_VIEWER en échec réseau (UI-04) */
   viewer?: 'missing';
+  /** `panel-unset` : raccourci du panneau latéral non défini (commands.getAll) */
+  shortcuts?: 'panel-unset';
+  /** `chrome` : chrome.sidePanel exposé (bouton « Ouvrir le panneau ») ; onglet actif hors plateformes de streaming */
+  panel?: 'chrome';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */
@@ -97,5 +100,17 @@ export interface PanelFrameParams {
 declare global {
   interface Window {
     __e2ePanel?: E2EPanelControls;
+  }
+}
+
+/** Page Activité de visionnage Netflix simulée par import-cr-frame.ts (lignes affichées, clics sur « Voir plus ») */
+export interface E2ENetflixPage {
+  rows: number;
+  clicks: number;
+}
+
+declare global {
+  interface Window {
+    __e2eNetflix?: E2ENetflixPage;
   }
 }

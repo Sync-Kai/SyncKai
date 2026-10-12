@@ -11,6 +11,10 @@ const mocks = vi.hoisted(() => ({
   sessions: [] as { destroy: ReturnType<typeof vi.fn>; forceComplete: ReturnType<typeof vi.fn> }[],
   /** Arrêt du suivi d'URL, un par instance */
   stopUrl: [] as ReturnType<typeof vi.fn>[],
+  /** Réponse à GET_PAGE_MEDIA : lecture synchrone, besoin d'un chargement asynchrone, chargement */
+  detectPageMedia: vi.fn((): unknown => null),
+  needsAsyncPageMedia: vi.fn(() => false),
+  loadPageMedia: vi.fn((): Promise<unknown> => Promise.resolve(null)),
 }));
 
 vi.mock('../i18n/content', () => ({ initI18n: () => Promise.resolve(), t: (key: string) => key }));
@@ -21,7 +25,7 @@ vi.mock('../shared/logger', () => {
 vi.mock('../shared/messages', () => ({ sendMessage: vi.fn(() => Promise.resolve()) }));
 vi.mock('./ui/toast', () => ({ showToast: mocks.showToast }));
 vi.mock('./ui/sync-toast', () => ({ NOTICE_TOAST_MS: 5_000 }));
-vi.mock('./lib/page-media', () => ({ detectPageMedia: () => null }));
+vi.mock('./lib/page-media', () => ({ detectPageMedia: mocks.detectPageMedia, needsAsyncPageMedia: mocks.needsAsyncPageMedia, loadPageMedia: mocks.loadPageMedia }));
 vi.mock('./lib/live-stream', () => ({ createLiveStream: () => ({ addPeer: vi.fn(), notifySync: vi.fn(), refresh: vi.fn(), peerCount: 0 }) }));
 vi.mock('./lib/url-watcher', () => ({
   watchUrl: () => {
@@ -34,7 +38,7 @@ vi.mock('./lib/watch-session', () => ({ startWatchSession: mocks.startWatchSessi
 
 const { startContent } = await import('./start');
 
-type MessageListener = (message: unknown, sender: { id?: string }, sendResponse: (response?: unknown) => void) => void;
+type MessageListener = (message: unknown, sender: { id?: string }, sendResponse: (response?: unknown) => void) => boolean | undefined;
 let messageListeners: MessageListener[] = [];
 
 /** chrome.runtime simulé ; sans `id` : contexte invalidé (extension rechargée) */
@@ -69,6 +73,9 @@ async function start(path: string): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.detectPageMedia.mockReturnValue(null);
+  mocks.needsAsyncPageMedia.mockReturnValue(false);
+  mocks.loadPageMedia.mockResolvedValue(null);
   mocks.sessions.length = 0;
   mocks.stopUrl.length = 0;
   messageListeners = [];
@@ -98,6 +105,39 @@ describe('startContent — raccourci « valider l’épisode »', () => {
     messageListeners[0]?.({ type: 'FORCE_COMPLETE' }, { id: 'synckai' }, vi.fn());
     expect(mocks.sessions[0]?.forceComplete).toHaveBeenCalledOnce();
     expect(mocks.showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe('startContent — GET_PAGE_MEDIA (popup, panneau)', () => {
+  const SERIES = { platform: 'netflix', kind: 'series', seriesTitle: 'Mushoku Tensei' };
+
+  it('lecture synchrone (Crunchyroll, ADN, cache du pont) : réponse immédiate, canal fermé', async () => {
+    await start('/fr/series/GRMG8ZQZR/one-piece');
+    mocks.detectPageMedia.mockReturnValue(SERIES);
+    const sendResponse = vi.fn();
+    expect(messageListeners[0]?.({ type: 'GET_PAGE_MEDIA' }, { id: 'synckai' }, sendResponse)).toBeUndefined();
+    expect(sendResponse).toHaveBeenCalledWith(SERIES);
+    expect(mocks.loadPageMedia).not.toHaveBeenCalled();
+  });
+
+  it('page de série d’une plateforme à pont, hors cache : canal gardé ouvert, réponse à l’arrivée des métadonnées', async () => {
+    await start('/browse');
+    mocks.needsAsyncPageMedia.mockReturnValue(true);
+    let resolve: (value: unknown) => void = () => undefined;
+    mocks.loadPageMedia.mockReturnValue(new Promise((done) => (resolve = done)));
+    const sendResponse = vi.fn();
+    expect(messageListeners[0]?.({ type: 'GET_PAGE_MEDIA' }, { id: 'synckai' }, sendResponse)).toBe(true);
+    expect(sendResponse).not.toHaveBeenCalled();
+    resolve(SERIES);
+    await flush();
+    expect(sendResponse).toHaveBeenCalledWith(SERIES);
+  });
+
+  it('autre extension : ignoré', async () => {
+    await start('/browse');
+    const sendResponse = vi.fn();
+    expect(messageListeners[0]?.({ type: 'GET_PAGE_MEDIA' }, { id: 'autre' }, sendResponse)).toBeUndefined();
+    expect(sendResponse).not.toHaveBeenCalled();
   });
 });
 

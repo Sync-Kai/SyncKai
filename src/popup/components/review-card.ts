@@ -24,6 +24,8 @@ export interface ReviewCard {
   update(review: PendingReview): void;
   /** Vrai pendant l'envoi ou l'affichage du résultat : la carte ne doit pas disparaître */
   isBusy(): boolean;
+  /** Changement de langue : libellés redessinés en place (sélection, saisie et résultat affiché conservés) */
+  relabel(): void;
 }
 
 const RESULT_VISIBLE_MS = 5_000;
@@ -56,6 +58,13 @@ function episodeLabel({ episode }: PendingReview): string {
   if (displayed !== null && displayed !== episode.seasonEpisodeNumber) parts.push(t('review.displayed', { number: displayed }));
   parts.push(PLATFORM_LABELS[episode.platform]);
   return parts.join(' · ');
+}
+
+/** Mention de l'épisode mis de côté pendant une correction (appliqué après la décision), null sans épisode */
+function deferredNote({ deferred }: PendingReview): string | null {
+  if (!deferred) return null;
+  const number = deferred.episode.displayedEpisodeNumber ?? deferred.episode.seasonEpisodeNumber;
+  return t('review.deferredNote', { number: number ?? '?' });
 }
 
 function candidateMeta(c: CandidateSummary): string {
@@ -217,6 +226,7 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
     }
 
     const isSubmitting = phase === 'submitting';
+    const deferred = deferredNote(review);
     const listItems = review.candidates.map(renderCandidate);
     const searchItems = searchResults?.map(renderCandidate) ?? [];
 
@@ -226,6 +236,7 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
         { class: 'flex flex-col gap-1' },
         header,
         h('p', { class: 'm-0 flex items-start gap-1.5 text-[12px] font-semibold text-butter' }, warnIcon('mt-px h-3.5 w-3.5 text-butter'), h('span', {}, review.reason)),
+        deferred && h('p', { class: 'm-0 text-[11px] font-semibold text-muted' }, deferred),
       ),
       h(
         'div',
@@ -358,10 +369,17 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
   return {
     element,
     update(next) {
-      if (phase !== 'editing' || next.createdAt === review.createdAt) return;
-      reset(next);
+      if (phase !== 'editing') return;
+      if (next.createdAt === review.createdAt) {
+        // Même carte, épisode mis de côté entre-temps : seule la mention change (sélection et saisie conservées)
+        if (deferredNote(next) === deferredNote(review)) return;
+        review = next;
+      } else {
+        reset(next);
+      }
       render();
     },
     isBusy: () => phase !== 'editing',
+    relabel: render,
   };
 }

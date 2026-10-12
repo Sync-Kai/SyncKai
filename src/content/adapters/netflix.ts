@@ -1,18 +1,34 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
+import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createLogger } from '../../shared/logger';
 import { createNetflixBridgeClient, type NetflixBridgeClient } from '../netflix/bridge-client';
-import type { NetflixEpisodeMetadata, NetflixSeasonMetadata, NetflixShowMetadata } from '../netflix/bridge-protocol';
+import { episodeNumbers, platformSeasonsOf, type NetflixSeasonMetadata, type NetflixShowMetadata } from '../../shared/netflix-metadata';
 import { findPlayerVideo } from '../lib/find-video';
+import { watchElementText } from '../lib/season-watch';
 import type { StreamingAdapter } from './adapter';
 import { meaningfulSeasonTitle } from './parsing';
+
+// Numérotation partagée avec l'import de l'historique (shared/netflix-metadata.ts) : mêmes numéros des deux côtés
+export { absoluteEpisodeNumber, episodeNumbers, platformSeasonsOf } from '../../shared/netflix-metadata';
 
 const log = createLogger('netflix');
 
 /** /watch/{id} (le paramètre trackId de la query est ignoré). Vérifié le 2026-10-09 : /watch/81402901 */
 const WATCH_PATH_REGEX = /^\/watch\/(\d{1,12})\/?$/;
 
+/** Page de série : /title/{id}, éventuellement précédé du pays (/be-fr/title/{id}) */
+const TITLE_PATH_REGEX = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d{1,12})\/?$/i;
+/** Fenêtre de détail ouverte sur n'importe quelle page (accueil, recherche…) : ?jbv={id} */
+const JBV_REGEX = /^\d{1,12}$/;
+
 const SELECTORS = {
   playerVideo: '.watch-video video',
+  /**
+   * Menu des saisons de la fenêtre de détail (série à plusieurs saisons) : bouton affichant la saison choisie,
+   * libellé localisé (« Season 2 », « Saison 2 », « Staffel 2 » ou nom de la saison). Non relevé sur une page réelle.
+   */
+  seasonToggle:
+    '.episodeSelector-dropdown [data-uia="dropdown-toggle"], .episodeSelector [data-uia="dropdown-toggle"], .previewModal--container [data-uia="dropdown-toggle"], [data-uia="season-selector"]',
 } as const;
 
 export function parseNetflixWatchId(pathname: string): string | null {
@@ -20,40 +36,14 @@ export function parseNetflixWatchId(pathname: string): string | null {
 }
 
 /**
- * Numéro « absolu » de l'épisode : épisodes des saisons précédentes (seq inférieur) + numéro dans la saison.
- * Null si une saison précédente est vide (liste incomplète : le total serait faux).
+ * Série affichée hors page de lecture : fenêtre de détail `?jbv={id}` (prioritaire : ouverte par-dessus la page,
+ * /title/{id} compris), sinon page /title/{id}. Null ailleurs, et sur une page de lecture (qui l'emporte).
  */
-export function absoluteEpisodeNumber(seasons: readonly NetflixSeasonMetadata[], seasonSeq: number, episodeSeq: number): number | null {
-  let before = 0;
-  for (const season of seasons) {
-    if (season.seq >= seasonSeq) continue;
-    if (season.episodes.length === 0) return null;
-    before += season.episodes.length;
-  }
-  return before + episodeSeq;
-}
-
-/**
- * Numéros de l'épisode : numéro dans la saison, et numéro « absolu » affiché.
- * - Numérotation par saison (chaque saison repart de 1 : Ranma1/2, Mushoku Tensei) : `seq` dans la saison, numéro absolu
- *   = épisodes des saisons précédentes + `seq` (absoluteEpisodeNumber).
- * - Numérotation déjà absolue (One Piece : saison 40 « Elbaph Arc » = E1156…E1180) : la saison ne commence pas à 1 et
- *   son premier numéro dépasse le nombre d'épisodes des saisons précédentes (Netflix n'en propose souvent qu'une
- *   partie). `seq` EST le numéro absolu (il ne faut rien y ajouter : 1180 devenait 1377) ; numéro dans la saison = rang
- *   de l'épisode dans la saison. Une saison qui commence à 2 (1er épisode absent) reste relative.
- */
-export function episodeNumbers(
-  seasons: readonly NetflixSeasonMetadata[],
-  season: NetflixSeasonMetadata,
-  episode: NetflixEpisodeMetadata,
-): { seasonEpisodeNumber: number; displayedEpisodeNumber: number | null } {
-  const first = Math.min(...season.episodes.map((e) => e.seq));
-  const before = seasons.filter((s) => s.seq < season.seq).reduce((sum, s) => sum + s.episodes.length, 0);
-  if (first > 1 && first > before) {
-    const rank = season.episodes.filter((e) => e.seq <= episode.seq).length;
-    return { seasonEpisodeNumber: rank, displayedEpisodeNumber: episode.seq };
-  }
-  return { seasonEpisodeNumber: episode.seq, displayedEpisodeNumber: absoluteEpisodeNumber(seasons, season.seq, episode.seq) };
+export function parseNetflixSeriesId(url: URL): string | null {
+  if (parseNetflixWatchId(url.pathname) !== null) return null;
+  const jbv = url.searchParams.get('jbv');
+  if (jbv !== null && JBV_REGEX.test(jbv)) return jbv;
+  return TITLE_PATH_REGEX.exec(url.pathname)?.[1] ?? null;
 }
 
 const watchUrl = (movieId: string): string => `https://www.netflix.com/watch/${movieId}`;
@@ -77,9 +67,59 @@ export function episodeInfoFromMetadata(show: NetflixShowMetadata, movieId: stri
       seasonTitle: meaningfulSeasonTitle(season.title),
       ...episodeNumbers(show.seasons, season, episode),
       episodeTitle: episode.title,
+      platformSeasons: platformSeasonsOf(show),
     };
   }
   return null;
+}
+
+/** Numéro du libellé du menu des saisons (« Saison 2 » → 2, « Staffel 10 » → 10), null sans nombre */
+export function seasonNumberFromLabel(label: string | null): number | null {
+  const match = label ? /(?:^|\D)(\d{1,3})(?!\d)/.exec(label) : null;
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Saison affichée sur la page de série : la seule saison ; sinon celle du menu des saisons (libellé identique au nom de
+ * la saison, sinon son numéro rapproché de `seq`) ; sinon null (toute la série : la fiche choisit la saison).
+ */
+export function pickNetflixSeason(seasons: readonly NetflixSeasonMetadata[], label: string | null): NetflixSeasonMetadata | null {
+  if (seasons.length === 1) return seasons[0] ?? null;
+  if (!label) return null;
+  const key = label.trim().toLowerCase();
+  const named = seasons.find((season) => season.title?.toLowerCase() === key);
+  if (named) return named;
+  const number = seasonNumberFromLabel(label);
+  return number === null ? null : (seasons.find((season) => season.seq === number) ?? null);
+}
+
+/**
+ * Page de série (ou de film) Netflix à partir des métadonnées de la série : identifiant et titre (anglais) de la série,
+ * saison affichée (voir pickNetflixSeason). Numéro de saison = `seq`, comme les clés de correspondance de la lecture
+ * (`netflix:{showId}:s{seq}`). Film : ni saison ni nombre d'épisodes.
+ */
+export function seriesInfoFromMetadata(show: NetflixShowMetadata, seasonLabel: string | null): SeriesPageInfo {
+  const base = { seriesId: show.showId, seriesSlug: null, seriesTitle: show.title } as const;
+  if (show.type === 'movie') return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null };
+  const platformSeasons = platformSeasonsOf(show);
+  const season = pickNetflixSeason(show.seasons, seasonLabel);
+  if (!season) return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null, platformSeasons };
+  return { ...base, seasonNumber: season.seq, seasonTitle: meaningfulSeasonTitle(season.title), seasonEpisodeCount: season.episodes.length || null, platformSeasons };
+}
+
+/** Libellé du menu des saisons de la fenêtre de détail, null s'il est absent (une saison, film, DOM différent) */
+function readSeasonLabel(): string | null {
+  const text = document.querySelector(SELECTORS.seasonToggle)?.textContent?.replace(/\s+/g, ' ').trim();
+  return text ? text.slice(0, 100) : null;
+}
+
+/** Page de série affichée, avec la saison choisie dans le menu au moment de la demande */
+function seriesInfo(show: NetflixShowMetadata): SeriesPageInfo {
+  const label = show.type === 'show' && show.seasons.length > 1 ? readSeasonLabel() : null;
+  const info = seriesInfoFromMetadata(show, label);
+  // Diagnostic (build de développement seulement : retiré du script publié, budget de taille)
+  if (__SYNCKAI_DEBUG__) log.debug(`Page de série « ${show.title} » (${show.showId}) : saison ${info.seasonNumber ?? 'non déterminée'}${label ? ` (menu « ${label} »)` : ''}`);
+  return info;
 }
 
 /** Début du générique de fin (s) : creditsOffset s'il est > 0 et antérieur à la fin, sinon null */
@@ -95,9 +135,9 @@ export function creditsStartFromMetadata(show: NetflixShowMetadata | null, movie
   return timing.creditsOffset > 0 && timing.creditsOffset < timing.runtime ? timing.creditsOffset : null;
 }
 
-/** Créé à la première utilisation : le module est aussi importé hors navigateur (tests) */
+/** Créé à la première utilisation : le module est aussi importé hors navigateur (tests). Partagé avec l'import (history.ts) */
 let client: NetflixBridgeClient | null = null;
-function bridge(): NetflixBridgeClient {
+export function bridge(): NetflixBridgeClient {
   client ??= createNetflixBridgeClient({ target: document, messages: window, origin: location.origin });
   return client;
 }
@@ -130,9 +170,25 @@ export const netflixAdapter: StreamingAdapter = {
     return episode;
   },
 
-  // Pages de série Netflix (/title/…) non gérées en v1
-  detectSeries() {
-    return null;
+  // Synchrone : lecture du cache rempli par loadSeries (ou par une lecture de la même série)
+  detectSeries(url) {
+    const showId = parseNetflixSeriesId(url);
+    const show = showId ? bridge().peekShow(showId) : null;
+    return show ? seriesInfo(show) : null;
+  },
+
+  // Menu des saisons de la fenêtre de détail (son texte est la saison choisie)
+  watchSeason(url, onChange) {
+    return parseNetflixSeriesId(url) ? watchElementText(SELECTORS.seasonToggle, onChange) : null;
+  },
+
+  // Même requête que la lecture, avec l'identifiant de la série (cache et requête en vol partagés)
+  async loadSeries(url, signal) {
+    const showId = parseNetflixSeriesId(url);
+    if (!showId) return null;
+    const show = await bridge().loadShow(showId, signal);
+    if (__SYNCKAI_DEBUG__ && !show) log.debug(`Métadonnées de la série ${showId} indisponibles`);
+    return show ? seriesInfo(show) : null;
   },
 
   findVideo() {

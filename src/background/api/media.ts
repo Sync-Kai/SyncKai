@@ -101,30 +101,92 @@ function parsePage(data: PageData): AniListMedia[] {
 // ─── API ──────────────────────────────────────────────────────────────────
 
 /**
- * Résultats des requêtes de fond gardés quelques minutes : l'analyse de l'historique Crunchyroll interroge la
- * même série pour chacune de ses saisons (One Piece : 20 saisons → une seule recherche « One Piece »).
- * Les requêtes interactives restent toujours fraîches.
+ * Fiches du catalogue (recherche, fiches par identifiant, avec leurs liens et relations) gardées quelques minutes dans le
+ * service worker, et une seule requête en vol par clé : l'analyse de l'historique Crunchyroll interroge la même série
+ * pour chacune de ses saisons (One Piece : 20 saisons → une seule recherche « One Piece ») ; la fiche de la page
+ * (popup, panneau, arcs de One Piece parcourus sur Netflix), la lecture puis la synchro d'un épisode relisent les mêmes
+ * fiches. Données publiques du catalogue uniquement (jamais les listes de l'utilisateur, toujours lues fraîches).
+ * Requêtes interactives : 5 min (un lien AniList ajouté est vu au plus tard 5 min après) ; de fond : 10 min.
  */
-const BACKGROUND_CACHE_TTL_MS = 10 * 60_000;
-const BACKGROUND_CACHE_MAX = 300;
-const backgroundCache = new Map<string, { at: number; media: AniListMedia[] }>();
+export const CATALOG_CACHE_TTL_MS: Readonly<Record<RequestLane, number>> = { interactive: 5 * 60_000, background: 10 * 60_000 };
+const CATALOG_CACHE_MAX = 300;
+const catalogCache = new Map<string, { at: number; media: AniListMedia[] }>();
+const catalogInFlight = new Map<string, Promise<AniListMedia[]>>();
+
+/** Vide le cache du catalogue (tests) */
+export function clearCatalogCache(): void {
+  catalogCache.clear();
+  catalogInFlight.clear();
+}
 
 async function cachedPage(key: string, lane: RequestLane, load: () => Promise<AniListMedia[]>): Promise<AniListMedia[]> {
-  if (lane !== 'background') return load();
   const now = Date.now();
-  const hit = backgroundCache.get(key);
-  if (hit && now - hit.at < BACKGROUND_CACHE_TTL_MS) return hit.media;
-  const media = await load();
-  backgroundCache.delete(key);
-  backgroundCache.set(key, { at: now, media });
-  // Plus ancienne entrée retirée au-delà de la limite (ordre d'insertion de la Map)
-  if (backgroundCache.size > BACKGROUND_CACHE_MAX) backgroundCache.delete(backgroundCache.keys().next().value ?? '');
-  return media;
+  const hit = catalogCache.get(key);
+  if (hit && now - hit.at < CATALOG_CACHE_TTL_MS[lane]) return hit.media;
+  const pending = catalogInFlight.get(key);
+  if (pending) return pending;
+  const request = load()
+    .then((media) => {
+      catalogCache.delete(key);
+      catalogCache.set(key, { at: Date.now(), media });
+      // Plus ancienne entrée retirée au-delà de la limite (ordre d'insertion de la Map)
+      if (catalogCache.size > CATALOG_CACHE_MAX) catalogCache.delete(catalogCache.keys().next().value ?? '');
+      return media;
+    })
+    .finally(() => catalogInFlight.delete(key));
+  catalogInFlight.set(key, request);
+  return request;
 }
 
 /** `lane` : 'background' pour les tâches de fond (budget limité et cache court, voir rate-limit.ts) */
 export async function searchAnime(search: string, lane: RequestLane = 'interactive'): Promise<AniListMedia[]> {
   return cachedPage(`search:${search.toLowerCase()}`, lane, async () => parsePage(await anilistPublicQuery(SEARCH_QUERY, isPageData, { search }, lane)));
+}
+
+/**
+ * Recherches réunies dans UNE requête GraphQL (un alias `s{i}` par titre, mêmes champs et même page de 20 résultats que
+ * searchAnime) : import de l'historique Netflix, une recherche par titre de l'historique. Complexité mesurée le 2026-10-12 :
+ * 28 par recherche, plafond AniList 500 (18 alias refusés : « Max query complexity should be 500 but got 504 ») → 10 au plus.
+ */
+export const MAX_SEARCH_BATCH = 10;
+
+function batchQuery(count: number): string {
+  const variables = Array.from({ length: count }, (_, i) => `$s${i}: String!`).join(', ');
+  const pages = Array.from({ length: count }, (_, i) => `s${i}: Page(perPage: 20) { media(search: $s${i}, type: ANIME) { ${MEDIA_FIELDS} } }`).join('\n');
+  return `query SearchAnimeBatch(${variables}) {\n${pages}\n}`;
+}
+
+function batchGuard(count: number): (data: unknown) => data is Record<string, PageData['Page']> {
+  return (data: unknown): data is Record<string, PageData['Page']> =>
+    isRecord(data) && Array.from({ length: count }, (_, i) => data[`s${i}`]).every((page) => isRecord(page) && Array.isArray(page.media));
+}
+
+/**
+ * Résultats de searchAnime pour chaque titre (clé : titre tel que demandé), servis par le même cache : un titre déjà
+ * cherché ne coûte rien, les autres partent par paquets de MAX_SEARCH_BATCH, et l'analyse qui recherche ensuite le même
+ * titre (searchAnime) trouve le résultat en cache.
+ */
+export async function searchAnimeBatch(searches: readonly string[], lane: RequestLane = 'background'): Promise<Map<string, AniListMedia[]>> {
+  const keyOf = (search: string): string => `search:${search.toLowerCase()}`;
+  const now = Date.now();
+  const unique = [...new Map(searches.map((search) => [keyOf(search), search])).values()];
+  const missing = unique.filter((search) => {
+    const hit = catalogCache.get(keyOf(search));
+    return !(hit && now - hit.at < CATALOG_CACHE_TTL_MS[lane]) && !catalogInFlight.has(keyOf(search));
+  });
+  const pending = new Map<string, Promise<AniListMedia[]>>();
+  for (let start = 0; start < missing.length; start += MAX_SEARCH_BATCH) {
+    const chunk = missing.slice(start, start + MAX_SEARCH_BATCH);
+    const variables = Object.fromEntries(chunk.map((search, i) => [`s${i}`, search]));
+    const batch = anilistPublicQuery(batchQuery(chunk.length), batchGuard(chunk.length), variables, lane);
+    chunk.forEach((search, i) => {
+      // Même entrée de cache (et même requête en vol) que searchAnime(search)
+      pending.set(keyOf(search), cachedPage(keyOf(search), lane, async () => parsePage({ Page: (await batch)[`s${i}`] ?? { media: [] } })));
+    });
+  }
+  const results = await Promise.all(unique.map(async (search) => [keyOf(search), await (pending.get(keyOf(search)) ?? searchAnime(search, lane))] as const));
+  const byKey = new Map(results);
+  return new Map(searches.map((search) => [search, byKey.get(keyOf(search)) ?? []]));
 }
 
 export async function getAnimeByIds(ids: readonly number[], lane: RequestLane = 'interactive'): Promise<AniListMedia[]> {

@@ -1,5 +1,6 @@
 import { canComplete, formatTimecode, resolveCompletionPoint, type CompletionPoint } from './completion';
 import type { Logger } from '../../shared/logger';
+import type { PlaybackTime } from '../adapters/adapter';
 
 interface VideoTrackerOptions {
   /** Seuil de repli (0 à 1) si le début du générique de fin est inconnu */
@@ -9,10 +10,18 @@ interface VideoTrackerOptions {
   /** Durée minimale (s) pour considérer la vidéo comme un épisode : ignore pubs et bandes-annonces */
   minDurationSeconds: number;
   onCompleted: () => void;
+  /**
+   * Position et durée propres à la plateforme (StreamingAdapter.readPlayback), lues à chaque tick ; null : inconnues
+   * pour l'instant. Absente : `currentTime` et `duration` de la vidéo.
+   */
+  readPlayback?: (video: HTMLVideoElement) => PlaybackTime | null;
   /** Annuler ce signal retire tous les écouteurs posés sur la vidéo */
   signal: AbortSignal;
   logger: Logger;
 }
+
+/** Relecture de la position fournie par la plateforme (readPlayback), en plus de `timeupdate` */
+export const PLAYBACK_POLL_MS = 1_000;
 
 export interface VideoProgressTracker {
   /** Point de complétion pour la durée actuelle ; null si la vidéo n'est pas (encore) un épisode */
@@ -26,7 +35,7 @@ export interface VideoProgressTracker {
  * si le lecteur charge une nouvelle source (`loadstart`, ex : épisode suivant en autoplay).
  */
 export function trackVideoProgress(video: HTMLVideoElement, options: VideoTrackerOptions): VideoProgressTracker {
-  const { fallbackRatio, getCreditsStart, minDurationSeconds, onCompleted, signal, logger } = options;
+  const { fallbackRatio, getCreditsStart, minDurationSeconds, onCompleted, readPlayback, signal, logger } = options;
   let progressController: AbortController | null = null;
   let lastLoggedDecile = -1;
   let lastLoggedPoint = '';
@@ -35,18 +44,27 @@ export function trackVideoProgress(video: HTMLVideoElement, options: VideoTracke
   /** Source chargée (loadstart) après le début du suivi : elle appartient forcément à cet épisode */
   let hasFreshSource = false;
 
-  /** Même calcul que la complétion : relu par le panneau (progression en direct), sans écouteur supplémentaire */
-  const completionPoint = (): CompletionPoint | null => {
-    const { duration } = video;
+  /** Position et durée : celles de la plateforme si elle les fournit (Disney+), sinon celles de la vidéo */
+  const readTime = (): PlaybackTime | null => (readPlayback ? readPlayback(video) : { currentTime: video.currentTime, duration: video.duration });
+
+  /** Point de complétion pour une durée donnée ; null si la vidéo n'est pas (encore) un épisode */
+  const pointFor = (duration: number): CompletionPoint | null => {
     if (!Number.isFinite(duration) || duration <= 0) return null; // Métadonnées pas encore chargées
     if (duration < minDurationSeconds) return null; // Pub ou vidéo trop courte pour être un épisode
     return resolveCompletionPoint(duration, getCreditsStart(), fallbackRatio);
   };
 
+  /** Même calcul que la complétion : relu par le panneau (progression en direct), sans écouteur supplémentaire */
+  const completionPoint = (): CompletionPoint | null => {
+    const time = readTime();
+    return time ? pointFor(time.duration) : null;
+  };
+
   const onTimeUpdate = (): void => {
-    const point = completionPoint();
-    if (!point) return;
-    const { currentTime, duration } = video;
+    const time = readTime();
+    const point = time ? pointFor(time.duration) : null;
+    if (!time || !point) return;
+    const { currentTime, duration } = time;
     const pointLabel =
       point.source === 'credits'
         ? `générique de fin à ${formatTimecode(point.seconds)}`
@@ -79,6 +97,12 @@ export function trackVideoProgress(video: HTMLVideoElement, options: VideoTracke
     // Le signal combiné garantit le nettoyage même si la session est détruite
     const combined = AbortSignal.any([signal, progressController.signal]);
     video.addEventListener('timeupdate', onTimeUpdate, { signal: combined });
+    // Position fournie par la plateforme (Disney+) : la <video> suivie peut ne jamais émettre `timeupdate`, la position
+    // est donc aussi relue chaque seconde, tant que le suivi est armé (même calcul que `timeupdate`)
+    if (readPlayback) {
+      const timer = setInterval(onTimeUpdate, PLAYBACK_POLL_MS);
+      combined.addEventListener('abort', () => clearInterval(timer), { once: true });
+    }
   };
 
   const disarm = (): void => {

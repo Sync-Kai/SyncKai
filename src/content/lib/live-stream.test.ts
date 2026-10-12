@@ -54,6 +54,16 @@ describe('createLiveStream', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('saison choisie dans le menu d’une page de série : diffusée aux panneaux connectés, rien sans panneau', () => {
+    const stream = createLiveStream(() => null);
+    stream.notifySeason();
+    const peer = collect();
+    stream.addPeer(peer.send);
+    peer.received.length = 0;
+    stream.notifySeason();
+    expect(peer.received).toEqual([{ type: 'season' }]);
+  });
+
   it('envoie l’état complet à la connexion, puis au plus un tick par seconde', () => {
     const stream = createLiveStream(() => snapshot);
     const peer = collect();
@@ -167,7 +177,17 @@ describe('liveOutcomeOf', () => {
     expect(partial.outcome?.message).toContain('MAL indisponible');
     expect(liveOutcomeOf({ status: 'excluded', mediaTitle: 'X' }).state).toBe('excluded');
     expect(liveOutcomeOf({ status: 'error', message: 'Réseau' })).toEqual({ state: 'error', outcome: { status: 'error', message: 'Réseau' } });
-    expect(liveOutcomeOf({ status: 'not-connected' }).outcome?.status).toBe('not-connected');
     expect(liveOutcomeOf({ status: 'ignored' })).toEqual({ state: 'idle' });
+  });
+
+  it('fiche à vérifier et compte absent : états propres, pas une erreur', () => {
+    setLocale('fr');
+    const review = liveOutcomeOf({ status: 'needs-review', reason: 'Trouvé par le titre seulement' });
+    expect(review.state).toBe('review');
+    expect(review.outcome).toEqual({ status: 'needs-review', message: 'Trouvé par le titre seulement. Clique sur l’icône SyncKai pour choisir la fiche.' });
+    expect(liveOutcomeOf({ status: 'not-connected' })).toEqual({
+      state: 'not-connected',
+      outcome: { status: 'not-connected', message: 'Clique sur l’icône SyncKai pour connecter AniList ou MyAnimeList.' },
+    });
   });
 });

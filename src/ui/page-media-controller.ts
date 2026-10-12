@@ -11,6 +11,8 @@ import {
   storeCachedPageMedia,
 } from '../shared/page-media-cache';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
+import type { SessionEpochs } from '../shared/session-epochs';
+import { getOpenSessions } from '../shared/storage';
 import type { ListStatusChange } from '../shared/sync.types';
 import { errorFeedback } from './feedback';
 import { mediaActionKey, runMediaAction, type MediaActionRequest } from './media-action-requests';
@@ -71,12 +73,14 @@ export interface PageMediaController<D> {
   refresh(force: boolean): Promise<void>;
   /**
    * Relit la page sans repasser par le squelette ; recalcule la fiche si la page a changé, ou toujours avec
-   * `reresolve` (synchro terminée : la correspondance mémorisée prime sur la saison devinée).
+   * `reresolve` (synchro terminée : la correspondance mémorisée prime sur la saison devinée). Relecture automatique,
+   * plafonnée (AUTO_REDETECT_*) : au-delà, ignorée jusqu'à `refresh` (changement d'URL, Actualiser).
    */
   redetect(reresolve: boolean): Promise<void>;
   /** Recharge la fiche de la page affichée sans cache (« Réessayer ») */
   retry(): void;
-  runAction(request: MediaActionRequest): Promise<void>;
+  /** Retour affiché (null : action refusée, une autre est en cours, ou page quittée pendant l'envoi) */
+  runAction(request: MediaActionRequest): Promise<InlineFeedback | null>;
   /** Ouvre / ferme la confirmation Abandonner / Terminé ; false si rien n'a changé */
   setConfirm(status: ListStatusChange | null): boolean;
   /** Saison choisie dans le sélecteur : enregistrée comme correspondance par le service worker (ARCH-20) */
@@ -89,6 +93,16 @@ export const PAGE_FEEDBACK_MS = 4_000;
 const PARTIAL_RECHECK_MS: readonly number[] = [2_500, 5_000, 10_000];
 /** Relecture demandée pendant un chargement ou une action : réessayée après ce délai */
 const FOLLOW_UP_RETRY_MS = 1_000;
+/**
+ * Relectures AUTOMATIQUES de la page (fiche réécrite ailleurs, événement du port de lecture : synchro, saison choisie
+ * dans la page) : au plus une toutes les 2 s (les suivantes sont regroupées et reportées) et 5 par minute. Au-delà, plus
+ * aucune jusqu'à un changement d'URL de l'onglet ou une actualisation demandée : quelle qu'en soit la cause, une boucle
+ * ne peut jamais épuiser le quota de requêtes AniList (chaque résolution relit les listes).
+ */
+export const AUTO_REDETECT_MIN_INTERVAL_MS = 2_000;
+export const AUTO_REDETECT_MAX_PER_MINUTE = 5;
+/** Horodatages de ses propres écritures gardés pour reconnaître leur écho */
+const OWN_WRITES_KEPT = 8;
 
 const NO_ACTIONS: MediaActionsState = { busy: null, confirm: null, feedback: null };
 
@@ -99,8 +113,6 @@ function delay(ms: number): Promise<void> {
 export interface DetectOptions {
   /** Faux : détection abandonnée (autre onglet, relecture plus récente) */
   isCurrent?: () => boolean;
-  /** Premier signe de vie du script de contenu (popup : bouton « Ouvrir le panneau » sans attendre la fin) */
-  onReached?: () => void;
 }
 
 /**
@@ -108,7 +120,7 @@ export interface DetectOptions {
  * sans ses données structurées (JSON-LD pas encore là) n'est gardée qu'en dernier recours. null : script joignable
  * mais page sans série (accueil, catalogue) ou détection abandonnée ; `unreachable` : script muet à chaque essai.
  */
-export async function detectPageMedia(tabId: number, { isCurrent = () => true, onReached }: DetectOptions = {}): Promise<PageMediaInfo | null | 'unreachable'> {
+export async function detectPageMedia(tabId: number, { isCurrent = () => true }: DetectOptions = {}): Promise<PageMediaInfo | null | 'unreachable'> {
   let reached = false;
   let partial: PageMediaInfo | null = null;
   for (const wait of PAGE_MEDIA_RETRY_DELAYS_MS) {
@@ -116,10 +128,7 @@ export async function detectPageMedia(tabId: number, { isCurrent = () => true, o
     if (!isCurrent()) return null;
     const response = await requestPageMedia(tabId);
     if (response === 'unreachable') continue;
-    if (!reached) {
-      reached = true;
-      onReached?.();
-    }
+    reached = true;
     if (response === null) continue;
     if (!isPartialEpisodePage(response)) return response;
     partial = response;
@@ -153,16 +162,74 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
   let recheck: { episodeId: string | null; count: number } = { episodeId: null, count: 0 };
   let recheckTimer: ReturnType<typeof setTimeout> | undefined;
   let followUpTimer: ReturnType<typeof setTimeout> | undefined;
-  /** Horodatage de la dernière fiche écrite par cet écran dans le cache de l'onglet (son propre écho est ignoré) */
-  let lastWrittenAt: number | null = null;
+  /**
+   * Horodatages des fiches écrites par cet écran dans le cache de l'onglet, retenus AVANT l'écriture : storage.onChanged
+   * est émis pendant l'écriture, avant son retour. Retenus après coup, l'écho de sa propre écriture passait pour une
+   * fiche réécrite ailleurs : après un choix de saison (cache ignoré), chaque écho relançait RESOLVE_PAGE_MEDIA, qui
+   * réécrivait le cache… boucle sans fin, jusqu'à la limite de requêtes AniList.
+   */
+  const ownWrites: number[] = [];
+  /** Relectures automatiques : horodatages de la dernière minute, relecture reportée, suspension (voir AUTO_REDETECT_*) */
+  let autoTimes: number[] = [];
+  let autoTimer: ReturnType<typeof setTimeout> | undefined;
+  let autoDeferred: boolean | null = null;
+  let autoSuspended = false;
 
-  // Fiche de l'onglet réécrite ailleurs (synchro par le service worker, action dans l'autre écran) : appliquée tout de suite
+  // Fiche de l'onglet réécrite ailleurs (synchro par le service worker, action dans l'autre écran) : appliquée tout de suite.
+  // Fiche effacée (commentaire ou retrait depuis l'autre écran : forgetCachedPageMedia) : relue aussi, sinon l'écran
+  // garde l'état des listes d'avant l'action.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'session' || tabId === null) return;
-    const entry: unknown = changes[pageMediaCacheKey(tabId)]?.newValue;
-    if (!isCachedPageMedia(entry) || entry.resolvedAt === lastWrittenAt) return;
-    void redetect(true);
+    const change = changes[pageMediaCacheKey(tabId)];
+    if (!change) return;
+    const entry: unknown = change.newValue;
+    const forgotten = entry === undefined && isCachedPageMedia(change.oldValue);
+    if (!forgotten && (!isCachedPageMedia(entry) || ownWrites.includes(entry.resolvedAt))) return;
+    autoRedetect(true);
   });
+
+  /** Écriture à venir dans le cache de l'onglet : horodatage retenu pour en ignorer l'écho */
+  function ownWrite(): number {
+    let at = Date.now();
+    while (ownWrites.includes(at)) at++;
+    ownWrites.push(at);
+    if (ownWrites.length > OWN_WRITES_KEPT) ownWrites.shift();
+    return at;
+  }
+
+  /** Relecture automatique, plafonnée (voir AUTO_REDETECT_*) ; `reresolve` des demandes regroupées cumulé */
+  function autoRedetect(reresolve: boolean): void {
+    if (tabId === null || autoSuspended) return;
+    const now = Date.now();
+    autoTimes = autoTimes.filter((at) => now - at < 60_000);
+    const last = autoTimes.at(-1);
+    if (last !== undefined && now - last < AUTO_REDETECT_MIN_INTERVAL_MS) {
+      autoDeferred = (autoDeferred ?? false) || reresolve;
+      autoTimer ??= setTimeout(() => {
+        autoTimer = undefined;
+        const deferred = autoDeferred ?? false;
+        autoDeferred = null;
+        autoRedetect(deferred);
+      }, last + AUTO_REDETECT_MIN_INTERVAL_MS - now);
+      return;
+    }
+    if (autoTimes.length >= AUTO_REDETECT_MAX_PER_MINUTE) {
+      autoSuspended = true;
+      log.warn(`Relectures automatiques de la page suspendues (${AUTO_REDETECT_MAX_PER_MINUTE} en une minute) jusqu’au prochain changement d’URL ou à « Actualiser »`);
+      return;
+    }
+    autoTimes.push(now);
+    void redetect(reresolve);
+  }
+
+  /** Changement d'URL de l'onglet, autre onglet ou actualisation demandée : plafond remis à zéro */
+  function resetAutoRedetect(): void {
+    clearTimeout(autoTimer);
+    autoTimer = undefined;
+    autoDeferred = null;
+    autoTimes = [];
+    autoSuspended = false;
+  }
 
   const set = (next: PageMediaContent<D>): void => {
     content = next;
@@ -255,6 +322,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
   async function refresh(force: boolean): Promise<void> {
     const id = tabId;
     if (id === null) return;
+    resetAutoRedetect();
     // Annule toute résolution en cours : relancée plus bas si la page n'a pas changé
     const current = ++run;
     const known = pageOf(content);
@@ -311,6 +379,16 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     }
   }
 
+  /** Sessions ouvertes, null si illisibles (la fiche n'est alors pas mise en cache) */
+  async function openSessions(): Promise<SessionEpochs | null> {
+    try {
+      return await getOpenSessions();
+    } catch (error: unknown) {
+      log.debug('Sessions illisibles :', error);
+      return null;
+    }
+  }
+
   async function requestView(page: PageMediaInfo, mediaId: number | null): Promise<PageMediaResult> {
     try {
       return await sendMessage('RESOLVE_PAGE_MEDIA', { page, mediaId });
@@ -343,15 +421,14 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
         return;
       }
     }
+    // Sessions relevées AVANT la résolution : fiche non mise en cache si un compte est déconnecté entre-temps
+    const epochs = id !== null ? await openSessions() : null;
+    if (current !== run) return;
     const result = await requestView(page, manualId);
     if (current !== run) return;
     if (result.ok) {
-      if (id !== null) {
-        storeCachedPageMedia(id, page, result.data, 'resolve')
-          .then((entry) => {
-            if (entry) lastWrittenAt = entry.resolvedAt;
-          })
-          .catch((error: unknown) => log.debug('Fiche non mise en cache :', error));
+      if (id !== null && epochs !== null) {
+        storeCachedPageMedia(id, page, result.data, 'resolve', epochs, ownWrite()).catch((error: unknown) => log.debug('Fiche non mise en cache :', error));
       }
       await showReady(current, page, result.data);
     } else if (result.code === 'NOT_FOUND' || result.code === 'NOT_TRACKED') {
@@ -368,25 +445,26 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
 
   // ─── Actions (mêmes messages dans les deux écrans) ────────────────────
 
-  async function runAction(request: MediaActionRequest): Promise<void> {
-    if (actions.busy !== null || content.status !== 'ready') return;
+  async function runAction(request: MediaActionRequest): Promise<InlineFeedback | null> {
+    if (actions.busy !== null || content.status !== 'ready') return null;
     const { page, view } = content;
     const epoch = actionEpoch;
     patchActions({ busy: mediaActionKey(request), confirm: null });
     const feedback = await runMediaAction(request, view, (error) => log.warn('Service worker injoignable :', error));
     onActionDone?.();
     // Onglet ou page changés pendant l'envoi : la fiche affichée n'est plus celle de l'action, son retour est ignoré
-    if (epoch !== actionEpoch) return;
+    if (epoch !== actionEpoch) return null;
     patchActions({ busy: null });
     showFeedback(feedback);
     // Relecture de la page en cours (navigation dans l'onglet) : c'est elle qui rechargera la fiche, sans cache.
     // Une résolution de l'ancienne page l'annulerait et afficherait la fiche quittée.
     if (detectingRun === run) {
       pendingReload = 'fresh';
-      return;
+      return feedback;
     }
     // Même onglet et même épisode (sinon `actionEpoch` aurait changé) : page affichée, éventuellement relue entre-temps
     await resolve(pageOf(content) ?? page, true, true);
+    return feedback;
   }
 
   return {
@@ -406,6 +484,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
       // Autre onglet : l'action en cours sur l'onglet quitté ne doit rien afficher ici
       if (changed) resetActions();
       if (next === null) {
+        resetAutoRedetect();
         run++;
         content = { status: 'idle' };
         onContent?.(content);
@@ -415,6 +494,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     },
     open(next: number, page: PageMediaInfo): void {
       tabId = next;
+      resetAutoRedetect();
       clearTimeout(recheckTimer);
       clearTimeout(followUpTimer);
       leavePage();
@@ -422,7 +502,10 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
       void resolve(page, false);
     },
     refresh,
-    redetect,
+    redetect(reresolve: boolean): Promise<void> {
+      autoRedetect(reresolve);
+      return Promise.resolve();
+    },
     retry(): void {
       const page = pageOf(content);
       if (!page) return;

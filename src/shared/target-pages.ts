@@ -2,7 +2,7 @@ import { OPTIONAL_PLATFORM_MATCHES, PLATFORMS } from './platforms';
 
 /**
  * Pages ciblées par SyncKai (Crunchyroll, ADN) : exactement les `matches` du script de contenu.
- * Sert à n'activer le panneau latéral et le bouton « Ouvrir le panneau » que sur ces pages.
+ * Sert au panneau latéral (disponible partout) à choisir entre « En lecture » et la ligne neutre hors de ces pages.
  */
 
 interface ManifestContentScripts {
@@ -16,7 +16,7 @@ export function contentScriptMatches(source: ManifestContentScripts): string[] {
 
 /**
  * Netflix : accès optionnel (optional_host_permissions), scripts enregistrés à la demande par le service worker
- * (background/netflix-access.ts) et absents de `content_scripts`.
+ * (background/platform-access.ts) et absents de `content_scripts`.
  */
 export const NETFLIX_MATCHES: readonly string[] = PLATFORMS.netflix.optionalMatches;
 

@@ -105,7 +105,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     resolveId: (media: CatalogMedia) => (id === 'anilist' ? media.mediaId : media.idMal),
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
       const entry = tracker.entries.get(entryId);
-      return { title: 'Frieren', episodes: fakes.episodes, entry: entry ? { ...entry } : null };
+      return { title: 'Frieren', episodes: fakes.episodes, entry: entry ? { ...entry } : null, notes: null };
     },
     saveProgress: async (entryId, progress, status, repeat) => {
       if (tracker.failNext > 0) {
@@ -123,6 +123,8 @@ function fakeTracker(id: TrackerId): FakeTracker {
     startRewatch: unused,
     saveStatus: unused,
     saveEntry: unused,
+    deleteEntry: () => Promise.reject(new Error('hors test')),
+    saveNotes: () => Promise.reject(new Error('hors test')),
   };
   return tracker;
 }

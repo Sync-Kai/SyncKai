@@ -10,5 +10,9 @@
   "cmdCompleteEpisode": {
     "message": "Valider l’épisode en cours",
     "description": "Keyboard shortcut description"
+  },
+  "cmdOpenSidePanel": {
+    "message": "Ouvrir ou fermer le panneau latéral",
+    "description": "Keyboard shortcut description (side panel on Chrome, sidebar on Firefox)"
   }
 }

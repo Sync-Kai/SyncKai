@@ -3,7 +3,7 @@ import { isAniListToken, type AniListToken } from './auth.types';
 import { isRecord } from './guards';
 import { isSealedToken, openToken, sealToken, type SealedToken } from './token-crypto';
 import { isMalToken, isMalViewer, type MalToken, type MalViewer } from './mal.types';
-import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } from './review.types';
+import { isPendingReview, isRecentSync, keepDeferred, type DeferredEpisode, type PendingReview, type RecentSync } from './review.types';
 import { isMediaMapping, type MediaMapping } from './sync.types';
 import { TRACKER_IDS, type TrackerId } from './tracker.types';
 import { isPendingRating } from './engagement-store';
@@ -230,6 +230,25 @@ export function deleteMediaMappingsByPrefix(prefix: string): Promise<number> {
   });
 }
 
+/**
+ * Supprime les correspondances jugées fausses après une vérification réseau faite hors verrou : seulement celles dont
+ * la fiche et le libellé n'ont pas changé depuis leur lecture (une correspondance réécrite entre-temps est gardée).
+ * Entrées illisibles conservées (ARCH-15). Retourne le nombre supprimé.
+ */
+export function deleteMediaMappingsIfUnchanged(expected: Readonly<Record<string, Pick<MediaMapping, 'mediaId' | 'seriesLabel'>>>): Promise<number> {
+  return withStorageLock(async () => {
+    const raw = await readRawMappings();
+    const removed = Object.entries(expected).filter(([key, read]) => {
+      const current = raw[key];
+      return isMediaMapping(current) && current.mediaId === read.mediaId && current.seriesLabel === read.seriesLabel;
+    });
+    if (removed.length === 0) return 0;
+    for (const [key] of removed) delete raw[key];
+    await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: raw });
+    return removed.length;
+  });
+}
+
 export function clearMediaMappings(): Promise<void> {
   return withStorageLock(() => chrome.storage.local.remove(STORAGE_KEYS.mediaMappings));
 }
@@ -255,6 +274,31 @@ export function deletePendingReview(key: string): Promise<void> {
   return withStorageLock(async () => {
     const remaining = (await getPendingReviews()).filter((r) => r.key !== key);
     await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: remaining });
+  });
+}
+
+/** Retire la carte d'une saison et la renvoie (null : déjà retirée), en une seule opération sous le verrou */
+export function takePendingReview(key: string): Promise<PendingReview | null> {
+  return withStorageLock(async () => {
+    const reviews = await getPendingReviews();
+    const taken = reviews.find((r) => r.key === key) ?? null;
+    if (taken !== null) await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: reviews.filter((r) => r.key !== key) });
+    return taken;
+  });
+}
+
+/**
+ * Met un épisode de côté sur la correction (« Corriger ») en attente pour la saison : il sera appliqué après la
+ * décision. false si la carte n'est plus une correction (validée ou ignorée entre-temps) : rien n'est enregistré.
+ */
+export function deferOnCorrection(key: string, deferred: DeferredEpisode): Promise<boolean> {
+  return withStorageLock(async () => {
+    const reviews = await getPendingReviews();
+    const card = reviews.find((r) => r.key === key);
+    if (card === undefined || card.previous === null) return false;
+    const updated: PendingReview = { ...card, deferred: keepDeferred(card.deferred, deferred) };
+    await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: reviews.map((r) => (r.key === key ? updated : r)) });
+    return true;
   });
 }
 
@@ -529,6 +573,25 @@ export function saveCachedWatching(list: WatchingList, epoch: number): Promise<b
     const stored = await chrome.storage.local.get(STORAGE_KEYS.watchingCache);
     const cache: unknown = stored[STORAGE_KEYS.watchingCache];
     await chrome.storage.local.set({ [STORAGE_KEYS.watchingCache]: { ...(isRecord(cache) ? cache : {}), [list.service]: list } });
+    return true;
+  });
+}
+
+/**
+ * Retire une série de la liste « en cours » en cache (retrait de la liste du service), si la session n'a pas changé
+ * depuis `epoch` (relevée avant la requête). Sous le verrou de la déconnexion, comme saveCachedWatching. Retourne
+ * true si une entrée a été retirée.
+ */
+export function dropCachedWatchingEntry(service: TrackerId, epoch: number, match: (entry: WatchingList['entries'][number]) => boolean): Promise<boolean> {
+  return withStorageLock(async () => {
+    if ((await getSessionEpoch(service)) !== epoch) return false;
+    const list = await getCachedWatching(service);
+    if (!list) return false;
+    const entries = list.entries.filter((entry) => !match(entry));
+    if (entries.length === list.entries.length) return false;
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.watchingCache);
+    const cache: unknown = stored[STORAGE_KEYS.watchingCache];
+    await chrome.storage.local.set({ [STORAGE_KEYS.watchingCache]: { ...(isRecord(cache) ? cache : {}), [service]: { ...list, entries } } });
     return true;
   });
 }

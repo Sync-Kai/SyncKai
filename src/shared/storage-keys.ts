@@ -28,6 +28,8 @@ export const STORAGE_KEYS = {
   crImportInput: 'crImport:input',
   crImportResolutions: 'crImport:resolutions',
   crImportPlan: 'crImport:plan',
+  /** Purge des correspondances vers une autre série de la plateforme (SYNC-01) à faire : 'pending', absente sinon */
+  otherSeriesPurge: 'migrations:purgeOtherSeries',
 } as const;
 
 /**

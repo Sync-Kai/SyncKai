@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLocale } from '../i18n';
-import type { LiveTickMessage } from '../shared/live.types';
-import { formatClock, formatCountdown, liveDisplay, pointLabel } from './live-view';
+import type { LiveState, LiveTickMessage } from '../shared/live.types';
+import { formatClock, formatCountdown, liveDisplay, liveStateKeepsMessage, pointLabel } from './live-view';
 
 const tick = (extra: Partial<LiveTickMessage> = {}): LiveTickMessage => ({
   type: 'tick',
@@ -59,6 +59,33 @@ describe('progression en direct (panneau)', () => {
     expect(liveDisplay(tick({ state: 'error' }), 'AniList indisponible')).toMatchObject({ text: 'Échec de la synchro', detail: 'AniList indisponible', tone: 'error' });
     expect(liveDisplay(tick({ state: 'no-video', t: null, duration: null, point: null }), null)).toMatchObject({ text: 'Aucune vidéo détectée', bar: null });
     expect(liveDisplay(tick({ t: 1300 }), null).text).toBe('Point de synchro dépassé');
+  });
+
+  it('fiche à vérifier, compte absent, échec : libellé et ton distincts', () => {
+    setLocale('fr');
+    const reason = 'Trouvé par le titre seulement. Clique sur l’icône SyncKai pour choisir la fiche.';
+    expect(liveDisplay(tick({ state: 'review' }), reason)).toMatchObject({ text: 'À vérifier', tone: 'warning', detail: reason, announce: 'À vérifier' });
+    // Panneau ouvert après la synchro (tick sans message) : marche à suivre seule
+    expect(liveDisplay(tick({ state: 'review' }), null)).toMatchObject({ text: 'À vérifier', tone: 'warning', detail: 'Clique sur l’icône SyncKai pour choisir la fiche.' });
+    expect(liveDisplay(tick({ state: 'not-connected' }), null)).toMatchObject({
+      text: 'Aucun compte connecté',
+      tone: 'warning',
+      detail: 'Clique sur l’icône SyncKai pour connecter AniList ou MyAnimeList.',
+    });
+    expect(liveDisplay(tick({ state: 'error' }), null)).toMatchObject({ text: 'Échec de la synchro', tone: 'error', detail: null });
+    setLocale('en');
+    expect(liveDisplay(tick({ state: 'review' }), null)).toMatchObject({ text: 'To check', detail: 'Click the SyncKai icon to pick the entry.' });
+    expect(liveDisplay(tick({ state: 'not-connected' }), null).text).toBe('No account connected');
+    setLocale('de');
+    expect(liveDisplay(tick({ state: 'review' }), null).text).toBe('Zu prüfen');
+    expect(liveDisplay(tick({ state: 'not-connected' }), null).text).toBe('Kein Konto verbunden');
+  });
+
+  it('message conservé seulement par les états qui en portent un', () => {
+    const keeping: LiveState[] = ['review', 'not-connected', 'error'];
+    const clearing: LiveState[] = ['watching', 'syncing', 'synced', 'idle', 'excluded', 'no-video'];
+    expect(keeping.every(liveStateKeepsMessage)).toBe(true);
+    expect(clearing.some(liveStateKeepsMessage)).toBe(false);
   });
 
   it('lecteur pas prêt, synchro automatique en pause', () => {

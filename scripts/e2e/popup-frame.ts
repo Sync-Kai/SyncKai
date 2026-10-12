@@ -8,6 +8,7 @@ import type { CompareJob } from '../../src/shared/compare-job';
 import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../src/shared/error-journal';
 import { isRecord } from '../../src/shared/guards';
 import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
+import type { ListNotesResult } from '../../src/shared/list-notes';
 import { STORAGE_KEYS } from '../../src/shared/storage-keys';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
@@ -16,7 +17,7 @@ import { demoChrome, pageView, watchingList, type Scenario } from '../screenshot
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { localeParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
-import { E2E_ADJUST_SLOW_MS, E2E_PERSIST_KEY, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
+import { E2E_ADJUST_SLOW_MS, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
@@ -45,10 +46,6 @@ Object.defineProperty(navigator, 'clipboard', {
     },
   },
 });
-
-// Nouvelle navigation : on repart des données de démo ; rechargement (changement de langue) : stockage conservé
-const [navigation] = performance.getEntriesByType('navigation');
-if (!(navigation instanceof PerformanceNavigationTiming && navigation.type === 'reload')) sessionStorage.removeItem(E2E_PERSIST_KEY);
 
 // ─── Service worker simulé (à état) ─────────────────────────────────────────
 
@@ -116,6 +113,34 @@ function setListStatus(payload: unknown): SyncOutcome {
   return synced(entry.title, { status: 'updated', progress: entry.progress, completed: false });
 }
 
+/** Série d'un payload { media: { mediaId } } (retrait, commentaire) */
+const mediaOf = (payload: unknown): WatchingEntry | undefined => findEntry(isRecord(payload) ? numberField(payload.media, 'mediaId') : null);
+
+/** « Retirer de la liste » : la série quitte les deux listes (la revalidation ne la ramène pas) */
+function removeFromList(payload: unknown): SyncOutcome {
+  const entry = mediaOf(payload);
+  if (!entry || entry.mediaId === null) return { status: 'error', message: 'Série inconnue (e2e)' };
+  patchEntry(entry.mediaId, () => null);
+  return synced(entry.title, { status: 'updated', progress: 0, completed: false });
+}
+
+/** Commentaires enregistrés (identifiant AniList → texte) : Solo Leveling en a un au départ */
+const notes = new Map<number, string>([[176496, 'Combat final à revoir']]);
+
+function getListNotes(payload: unknown): ListNotesResult {
+  const entry = mediaOf(payload);
+  return { ok: true, data: { inList: entry !== undefined, notes: entry?.mediaId ? (notes.get(entry.mediaId) ?? null) : null } };
+}
+
+function setListNotes(payload: unknown): SyncOutcome {
+  const entry = mediaOf(payload);
+  const text = isRecord(payload) && typeof payload.notes === 'string' ? payload.notes.trim() : '';
+  if (!entry || entry.mediaId === null) return { status: 'error', message: 'Série inconnue (e2e)' };
+  if (text) notes.set(entry.mediaId, text);
+  else notes.delete(entry.mediaId);
+  return synced(entry.title, { status: 'updated', progress: entry.progress, completed: false });
+}
+
 /** Fiche de la page ; `pageList=missing` : absente des deux listes (boutons « Ajouter ») */
 function resolvePage(): PageMediaView {
   const view = pageView();
@@ -167,8 +192,20 @@ const journal: JournalEntry[] = [
 
 const demoStorage = Object.fromEntries(Object.entries(demo.storage).filter(([key]) => !(missingViewer && key === STORAGE_KEYS.malViewer)));
 
+/** `panel=chrome` : panneau latéral Chrome disponible, onglet actif sur un site quelconque (pas de script de contenu) */
+const chromePanel =
+  param('panel') === 'chrome'
+    ? {
+        sidePanel: true,
+        tab: { url: 'https://example.com/', title: 'Example' },
+        onOpenSidePanel: (options: chrome.sidePanel.OpenOptions) => (trace.sidePanelOpens ??= []).push(options.windowId ?? null),
+      }
+    : {};
+
 installChromeMock({
   ...demo,
+  ...chromePanel,
+  ...(param('shortcuts') === 'panel-unset' ? { shortcuts: { episode: 'Alt+Shift+K', panel: '' } } : {}),
   storage: {
     ...demoStorage,
     ...(emptyWatching ? { [STORAGE_KEYS.watchingCache]: lists } : {}),
@@ -192,10 +229,13 @@ installChromeMock({
     ADJUST_PROGRESS: (payload) =>
       param('adjust') === 'slow' ? new Promise<SyncOutcome>((resolve) => setTimeout(() => resolve(adjustProgress(payload)), E2E_ADJUST_SLOW_MS)) : adjustProgress(payload),
     SET_LIST_STATUS: setListStatus,
+    REMOVE_FROM_LIST: removeFromList,
+    GET_LIST_NOTES: getListNotes,
+    SET_LIST_NOTES: setListNotes,
     ADD_TO_LIST: () => synced(pageView().media.title, { status: 'updated', progress: 0, completed: false }),
     RESOLVE_PAGE_MEDIA: (): PageMediaResult =>
       // `pageMedia=untracked` : série ignorée par la synchro (Netflix, pas un anime)
-      param('pageMedia') === 'untracked' ? { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked') } : { ok: true, data: resolvePage() },
+      param('pageMedia') === 'untracked' ? { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Netflix' }) } : { ok: true, data: resolvePage() },
     APPLY_DIFFS: applyDiffs,
   },
   onSendMessage: (message) => trace.messages.push(message),
@@ -206,12 +246,11 @@ installChromeMock({
       trace.permissionRequests.push(origins);
       return true;
     },
-    // Netflix : accès optionnel, non accordé au départ
+    // Netflix, Disney+ : accès optionnels, non accordés au départ
     optional: manifest.optional_host_permissions,
     onRemove: (origins) => trace.permissionRemovals.push(origins),
   },
   manifest: { host_permissions: manifest.host_permissions, content_scripts: manifest.content_scripts },
-  persistKey: E2E_PERSIST_KEY,
 });
 
 await import('../../src/popup/popup.ts');

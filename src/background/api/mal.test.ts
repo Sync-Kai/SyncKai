@@ -8,7 +8,7 @@ const auth = vi.hoisted(() => ({
 vi.mock('../auth/mal', () => ({ getMalAccessToken: auth.getMalAccessToken }));
 vi.mock('../../shared/session-end', () => ({ endSessionIfToken: auth.endSessionIfToken }));
 
-import { fromMalStatus, malProgressBody, malRequest, malStatusBody, parseMalListStatus, toMalStatus } from './mal';
+import { deleteMalEntry, fromMalStatus, getMalAnime, malProgressBody, malRequest, malStatusBody, parseMalListStatus, saveMalNotes, toMalStatus } from './mal';
 
 describe('statuts MyAnimeList', () => {
   it('convertit les statuts MAL vers les statuts communs', () => {
@@ -161,5 +161,53 @@ describe('malRequest : 401, 429 et délai (TEST-03)', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response('<html>', { status: 200 })));
 
     await expect(malRequest('/users/@me', isUser)).rejects.toMatchObject({ code: 'INVALID_RESPONSE', timedOut: false });
+  });
+});
+
+describe('commentaire et retrait (MyAnimeList)', () => {
+  const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  beforeEach(() => {
+    auth.getMalAccessToken.mockReset();
+    auth.getMalAccessToken.mockResolvedValue('A');
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('lit `comments` (champ demandé explicitement, vide = aucun)', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      json(200, { id: 52991, title: 'Frieren', num_episodes: 28, my_list_status: { status: 'watching', num_episodes_watched: 3, comments: 'À revoir' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await getMalAnime(52991)).toMatchObject({ notes: 'À revoir', entry: { status: 'CURRENT', progress: 3 } });
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('my_list_status{status,score,num_episodes_watched,is_rewatching,num_times_rewatched,comments}');
+  });
+
+  it('PATCH my_list_status avec le seul champ comments', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => json(200, { status: 'watching', num_episodes_watched: 3, comments: 'Top' }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(saveMalNotes(52991, 'Top')).resolves.toMatchObject({ status: 'CURRENT', progress: 3 });
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toBe('https://api.myanimelist.net/v2/anime/52991/my_list_status');
+    expect(init?.method).toBe('PATCH');
+    expect(String(init?.body)).toBe('comments=Top');
+  });
+
+  it('DELETE my_list_status ; 404 (déjà absente, doc MAL) = succès ; autre erreur propagée', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => json(200, null));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(deleteMalEntry(52991)).resolves.toBeUndefined();
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toBe('https://api.myanimelist.net/v2/anime/52991/my_list_status');
+    expect(init?.method).toBe('DELETE');
+    expect(init?.body).toBeUndefined();
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response('', { status: 200 })));
+    await expect(deleteMalEntry(52991)).resolves.toBeUndefined();
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json(404, { error: 'not_found' })));
+    await expect(deleteMalEntry(52991)).resolves.toBeUndefined();
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json(500, { error: 'boom' })));
+    await expect(deleteMalEntry(52991)).rejects.toMatchObject({ code: 'API_ERROR', httpStatus: 500 });
   });
 });

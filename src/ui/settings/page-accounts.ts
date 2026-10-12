@@ -5,13 +5,13 @@ import type { MalViewer } from '../../shared/mal.types';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { toImageSrc } from '../../shared/url';
 import { renderAlert } from '../alert';
-import { BTN_GHOST, CARD, serviceAvatar } from '../kit';
+import { BTN_GHOST, CARD, segmented, serviceAvatar } from '../kit';
 import type { AccountState } from '../state';
 import { serviceIcon } from '../brand-icons';
 import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
-import { DIVIDER } from './rows';
+import { choiceRow, DIVIDER, rowsCard } from './rows';
 
 function viewerAvatar(service: TrackerId, url: string | null): HTMLElement {
   const src = toImageSrc(url);
@@ -117,14 +117,44 @@ function accountRow(ctx: SettingsContext, service: TrackerId, state: AccountStat
   ];
 }
 
+const ENTRY_OPTIONS = [
+  { value: 'anilist', label: 'AniList' },
+  { value: 'mal', label: 'MAL', aria: 'MyAnimeList' },
+] as const satisfies readonly { value: TrackerId; label: string; aria?: string }[];
+
+/** « Fiche ouverte par défaut » (clic sur un titre ou une affiche) : choix utile seulement avec les deux comptes connectés */
+function renderEntryService(ctx: SettingsContext): HTMLElement | null {
+  const s = ctx.data.settings;
+  const { accounts } = ctx.host;
+  if (!s || accounts.anilist.get().status !== 'logged-in' || accounts.mal.get().status !== 'logged-in') return null;
+  return rowsCard(
+    choiceRow({
+      labelId: 'sk-entry-label',
+      label: t('settings.entry.label'),
+      help: t('settings.entry.help'),
+      control: segmented({
+        options: ENTRY_OPTIONS,
+        current: s.entryService,
+        onPick: (value) => void ctx.update({ entryService: value }, true),
+        attrs: { 'aria-labelledby': 'sk-entry-label' },
+        focusKey: 'entry-service',
+        activeClass: 'bg-sakura',
+        trackClass: 'bg-ground',
+      }),
+    }),
+  );
+}
+
 export function createAccountsPage(ctx: SettingsContext): SettingsPageView {
   return {
-    render: () => [
-      h(
-        'div',
-        { class: `${CARD} flex flex-col py-1 pr-1 pl-3` },
-        ...nodes(TRACKER_IDS.flatMap((service, i) => accountRow(ctx, service, (service === 'anilist' ? ctx.host.accounts.anilist : ctx.host.accounts.mal).get(), i === 0))),
-      ),
-    ],
+    render: (): Node[] =>
+      [
+        h(
+          'div',
+          { class: `${CARD} flex flex-col py-1 pr-1 pl-3` },
+          ...nodes(TRACKER_IDS.flatMap((service, i) => accountRow(ctx, service, (service === 'anilist' ? ctx.host.accounts.anilist : ctx.host.accounts.mal).get(), i === 0))),
+        ),
+        renderEntryService(ctx),
+      ].filter((node): node is HTMLElement => node !== null),
   };
 }

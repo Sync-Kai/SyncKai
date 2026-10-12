@@ -1,7 +1,7 @@
 /**
  * Sortie du build indépendante du dossier du projet (relecture AMO : le relecteur construit ailleurs que la CI).
  *
- * Cause : crxjs remplace chaque import `?script` (src/background/netflix-access.ts) par un repère
+ * Cause : crxjs remplace chaque import `?script` (src/background/platform-access.ts) par un repère
  * `import.meta.CRX_DYNAMIC_SCRIPT_<id>`, où `<id>` est un hash du chemin absolu du script. Le hash du chunk est
  * calculé sur ce code intermédiaire, avant que crxjs n'y écrive le chemin final : contenu identique, mais nom
  * `background.ts-<hash>.js` (et donc `service-worker-loader.js`) différent d'un dossier à l'autre.
@@ -40,4 +40,43 @@ export interface WebAccessibleResourceEntry {
  */
 export function sortWebAccessibleResources<E extends WebAccessibleResourceEntry>(entries: readonly E[]): E[] {
   return entries.map((entry) => ({ ...entry, resources: [...entry.resources].sort() }));
+}
+
+/**
+ * Motifs d'accès de chaque plateforme optionnelle, par dossier de ses scripts enregistrés (`src/content/{dossier}/`).
+ * Copie de PLATFORMS[…].optionalMatches (src/shared/platforms.ts, vérifiée par output-names.test.ts) : la configuration
+ * de Vite n'importe pas le registre.
+ */
+export const REGISTERED_SCRIPT_MATCHES: Readonly<Record<string, readonly string[]>> = {
+  netflix: ['*://*.netflix.com/*'],
+  disney: ['*://*.disneyplus.com/*'],
+};
+
+/** Script enregistré d'une plateforme optionnelle (`src/content/{dossier}/….iife.js`) : son dossier, sinon null */
+function registeredScriptDir(resource: string, matchesByDir: Readonly<Record<string, readonly string[]>>): string | null {
+  const dir = /^src\/content\/([a-z0-9-]+)\/[^/]+\.iife\.js$/.exec(resource)?.[1];
+  return dir !== undefined && Object.hasOwn(matchesByDir, dir) ? dir : null;
+}
+
+/**
+ * crxjs réunit tous les scripts `?script` (`<dynamic_resource>`) dans une seule entrée, exposée à l'union des motifs :
+ * les scripts Netflix seraient accessibles depuis Disney+ et inversement. Chaque plateforme reçoit ici sa propre
+ * entrée, limitée à ses motifs ; les autres ressources restent dans leur entrée d'origine.
+ */
+export function splitRegisteredScripts<E extends WebAccessibleResourceEntry & { matches?: string[] }>(
+  entries: readonly E[],
+  matchesByDir: Readonly<Record<string, readonly string[]>> = REGISTERED_SCRIPT_MATCHES,
+): E[] {
+  return entries.flatMap((entry) => {
+    const byDir = new Map<string, string[]>();
+    const others: string[] = [];
+    for (const resource of entry.resources) {
+      const dir = registeredScriptDir(resource, matchesByDir);
+      if (dir === null) others.push(resource);
+      else byDir.set(dir, [...(byDir.get(dir) ?? []), resource]);
+    }
+    if (byDir.size === 0) return [entry];
+    const split = [...byDir.entries()].map(([dir, resources]) => ({ ...entry, matches: [...(matchesByDir[dir] ?? [])], resources }));
+    return others.length > 0 ? [{ ...entry, resources: others }, ...split] : split;
+  });
 }

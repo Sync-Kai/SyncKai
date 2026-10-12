@@ -4,6 +4,8 @@ import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
 import type { PageMediaResponse } from '../shared/content-messages';
 import type { CachedPageMedia } from '../shared/page-media-cache';
 import type { PanelMedia } from '../shared/panel-media.types';
+import type { SessionEpochs } from '../shared/session-epochs';
+import { STORAGE_KEYS } from '../shared/storage-keys';
 import type { PageMediaController } from './page-media-controller';
 
 // Contrôleur « fiche de la page » (popup et panneau) avec un faux service worker (sendMessage) et un faux script de
@@ -29,7 +31,17 @@ const fake = vi.hoisted(() => ({
   /** Fiche en cache de l'onglet (lecture) et horodatage de la prochaine écriture */
   cached: null as CachedPageMedia | null,
   writtenAt: 1_000,
+  /** Sessions passées à chaque écriture du cache, et stockage local lu par getOpenSessions */
+  storedEpochs: [] as SessionEpochs[],
+  local: {} as Record<string, unknown>,
   listeners: [] as ChangeListener[],
+  /**
+   * Comme Chrome : storage.onChanged émis PENDANT l'écriture, avant que storeCachedPageMedia ne rende la main (l'écriture
+   * attend encore le ménage des fiches périmées). Horodatage de l'entrée écrite : `now` fourni, sinon `writtenAt`, + `writes`.
+   */
+  echoDuringWrite: false,
+  writes: 0,
+  lastStoredAt: null as number | null,
 }));
 
 vi.mock('../shared/messages', () => ({
@@ -51,18 +63,24 @@ vi.mock('../shared/page-media-cache', async (importOriginal) => {
   return {
     ...original,
     readCachedPageMedia: () => Promise.resolve(fake.cached),
-    storeCachedPageMedia: (_tabId: number, page: PageMediaInfo, view: PageMediaView) => Promise.resolve(original.toCachedPageMedia(page, view, 'resolve', fake.writtenAt)),
+    storeCachedPageMedia: (tabId: number, page: PageMediaInfo, view: PageMediaView, _source: string, epochs: SessionEpochs, now?: number) => {
+      fake.storedEpochs.push(epochs);
+      const entry = original.toCachedPageMedia(page, view, 'resolve', now ?? fake.writtenAt + fake.writes++, epochs);
+      fake.lastStoredAt = entry.resolvedAt;
+      if (fake.echoDuringWrite) for (const listener of fake.listeners) listener({ [original.pageMediaCacheKey(tabId)]: { newValue: entry } }, 'session');
+      return Promise.resolve(entry);
+    },
   };
 });
 
 vi.stubGlobal('chrome', {
   storage: {
-    local: { get: () => Promise.resolve({}) },
+    local: { get: () => Promise.resolve({ ...fake.local }) },
     onChanged: { addListener: (listener: ChangeListener) => void fake.listeners.push(listener) },
   },
 });
 
-const { createPageMediaController } = await import('./page-media-controller');
+const { AUTO_REDETECT_MAX_PER_MINUTE, createPageMediaController } = await import('./page-media-controller');
 const { sendMessage } = await import('../shared/messages');
 const { pageMediaCacheKey, toCachedPageMedia } = await import('../shared/page-media-cache');
 
@@ -104,7 +122,7 @@ function view(target: PageMediaInfo, mediaId: number = MEDIA_IDS[target.seriesId
       nextEpisode: null,
       siteUrl: `https://anilist.co/anime/${mediaId}`,
     },
-    lists: [{ service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 26, score: null, siteUrl: `https://anilist.co/anime/${mediaId}` }],
+    lists: [{ service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 26, score: null, notes: null, siteUrl: `https://anilist.co/anime/${mediaId}` }],
     confidence: 'certain',
     source: 'page',
     seasons: [],
@@ -168,7 +186,7 @@ async function readyOnFrieren(): Promise<ReturnType<typeof panelController>> {
 
 /** Fiche de l'onglet réécrite dans le cache de session (synchro, autre écran, ou écho de sa propre écriture) */
 function emitCacheWrite(tabId: number, resolvedAt: number): void {
-  const entry = { ...toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', resolvedAt) };
+  const entry = { ...toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', resolvedAt, {}) };
   for (const listener of fake.listeners) listener({ [pageMediaCacheKey(tabId)]: { newValue: entry } }, 'session');
 }
 
@@ -179,7 +197,12 @@ beforeEach(() => {
   fake.reads = 0;
   fake.cached = null;
   fake.writtenAt = 1_000;
+  fake.storedEpochs.length = 0;
+  fake.local = {};
   fake.listeners.length = 0;
+  fake.echoDuringWrite = false;
+  fake.writes = 0;
+  fake.lastStoredAt = null;
 });
 
 describe('états alignés (popup et panneau)', () => {
@@ -215,7 +238,7 @@ describe('états alignés (popup et panneau)', () => {
     await settle();
     expect(ctl.content).toEqual({ status: 'error', page: FRIEREN, message: 'AniList injoignable' });
 
-    fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'resolve', Date.now());
+    fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'resolve', Date.now(), {});
     ctl.retry();
     await settle();
     expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(1);
@@ -232,7 +255,7 @@ describe('états alignés (popup et panneau)', () => {
   });
 
   it('fiche en cache de l’onglet : affichée sans RESOLVE_PAGE_MEDIA', async () => {
-    fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', Date.now());
+    fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', Date.now(), {});
     const ctl = createPageMediaController({ onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await settle();
@@ -289,7 +312,7 @@ describe('choix de la saison', () => {
   });
 
   it('saison choisie dans l’autre écran (fiche en cache `manual`) : reprise pour les relectures', async () => {
-    fake.cached = toCachedPageMedia(FRIEREN, { ...view(FRIEREN, 777), source: 'manual' }, 'resolve', Date.now());
+    fake.cached = toCachedPageMedia(FRIEREN, { ...view(FRIEREN, 777), source: 'manual' }, 'resolve', Date.now(), {});
     const ctl = createPageMediaController({ onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await settle();
@@ -301,13 +324,39 @@ describe('choix de la saison', () => {
 });
 
 describe('anti-écho du cache de l’onglet', () => {
+  it('saison choisie dans le panneau, écho émis pendant l’écriture (Chrome) : aucune boucle de relectures', async () => {
+    fake.echoDuringWrite = true;
+    const ctl = await readyOnFrieren();
+    const resolves = (): number => fake.calls.filter((call) => call.type === 'RESOLVE_PAGE_MEDIA').length;
+    vi.useFakeTimers();
+    try {
+      ctl.pickSeason(999);
+      let answered = 0;
+      // Une minute simulée : relectures reportées (1 s) comprises
+      for (let i = 0; i < 60; i++) {
+        await vi.advanceTimersByTimeAsync(1_000);
+        // Détails AniList du panneau (fiche changée) : chargés, la fiche devient stable
+        for (const details of pending('GET_PANEL_MEDIA')) answer(details, { ok: false, code: 'API_ERROR', message: 'détails indisponibles' });
+        const [call] = pending('RESOLVE_PAGE_MEDIA');
+        if (!call) continue;
+        answered++;
+        answer(call, { ok: true, data: { ...view(payloadPage(call), payloadOf(call).mediaId ?? undefined), source: 'manual' } });
+      }
+      // Une seule résolution : celle du choix (avant le correctif, chaque écho relançait RESOLVE_PAGE_MEDIA, sans fin)
+      expect(answered).toBe(1);
+      expect(resolves()).toBe(0);
+      expect(ctl.content.status === 'ready' && ctl.content.view.media.mediaId).toBe(999);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sa propre écriture est ignorée ; une fiche réécrite ailleurs (synchro) fait relire la page', async () => {
-    fake.writtenAt = 4_242;
     const ctl = await readyOnFrieren();
     await settle();
     const reads = fake.reads;
 
-    emitCacheWrite(1, 4_242);
+    emitCacheWrite(1, fake.lastStoredAt ?? -1);
     await settle();
     expect(fake.reads).toBe(reads);
 
@@ -318,12 +367,84 @@ describe('anti-écho du cache de l’onglet', () => {
     expect(ctl.content.status === 'ready' && ctl.content.refreshing).toBe(true);
   });
 
+  it('fiche effacée par l’autre écran (commentaire enregistré dans le popup) : la page est relue', async () => {
+    await readyOnFrieren();
+    await settle();
+    const reads = fake.reads;
+    const oldValue = toCachedPageMedia(FRIEREN, view(FRIEREN), 'resolve', 9_999, {});
+    for (const listener of fake.listeners) listener({ [pageMediaCacheKey(1)]: { oldValue } }, 'session');
+    await settle();
+    expect(fake.reads).toBe(reads + 1);
+    // Effacement d'un autre onglet, ou clé sans ancienne fiche : ignorés
+    for (const listener of fake.listeners) listener({ [pageMediaCacheKey(2)]: { oldValue } }, 'session');
+    for (const listener of fake.listeners) listener({ [pageMediaCacheKey(1)]: {} }, 'session');
+    await settle();
+    expect(fake.reads).toBe(reads + 1);
+  });
+
   it('écriture pour un autre onglet : ignorée', async () => {
     await readyOnFrieren();
     const reads = fake.reads;
     emitCacheWrite(2, 9_999);
     await settle();
     expect(fake.reads).toBe(reads);
+  });
+});
+
+describe('plafond des relectures automatiques (AniList jamais saturé, quelle qu’en soit la cause)', () => {
+  /** Popup prêt sur Frieren ; répond à chaque résolution pendant `seconds` en émettant `emit` à chaque seconde */
+  async function run(ctl: PageMediaController<never>, seconds: number, emit: (second: number) => void): Promise<void> {
+    for (let second = 0; second < seconds; second++) {
+      emit(second);
+      await vi.advanceTimersByTimeAsync(1_000);
+      for (const call of pending('RESOLVE_PAGE_MEDIA')) answer(call, { ok: true, data: view(payloadPage(call)) });
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ctl.content.status).toBe('ready');
+  }
+
+  async function readyPopup(): Promise<PageMediaController<never>> {
+    fake.pages.set(1, FRIEREN);
+    const ctl = createPageMediaController({ onChange: () => undefined });
+    ctl.open(1, FRIEREN);
+    await answerAll();
+    return ctl;
+  }
+
+  it('rafale de déclencheurs : une relecture tout de suite, les suivantes regroupées en une seule 2 s plus tard', async () => {
+    const ctl = await readyPopup();
+    vi.useFakeTimers();
+    try {
+      const reads = fake.reads;
+      for (let i = 0; i < 10; i++) emitCacheWrite(1, 50_000 + i);
+      await run(ctl, 4, () => undefined);
+      expect(fake.reads - reads).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('boucle (déclencheur toutes les 2,5 s) : 5 relectures au plus par minute, puis plus rien jusqu’à « Actualiser »', async () => {
+    const ctl = await readyPopup();
+    vi.useFakeTimers();
+    try {
+      const reads = fake.reads;
+      let n = 0;
+      await run(ctl, 120, (second) => {
+        if (second % 5 === 0 || second % 5 === 2) emitCacheWrite(1, 60_000 + n++);
+      });
+      expect(fake.reads - reads).toBe(AUTO_REDETECT_MAX_PER_MINUTE);
+      // Actualisation demandée : plafond remis à zéro, les déclencheurs sont de nouveau suivis
+      void ctl.refresh(true);
+      await run(ctl, 1, () => undefined);
+      const afterRefresh = fake.reads;
+      await run(ctl, 3, (second) => {
+        if (second === 0) emitCacheWrite(1, 90_000);
+      });
+      expect(fake.reads).toBe(afterRefresh + 1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -513,5 +634,23 @@ describe('UI-02 / CTRL-05 : retour d’une action après un changement de page o
     answer(pending('ADJUST_PROGRESS')[0], SYNCED);
     await settle();
     expect(done).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('cache de l’onglet lié aux sessions (DATA-04, SEC-03)', () => {
+  const TOKEN = { accessToken: 'a', expiresAt: Number.MAX_SAFE_INTEGER };
+
+  it('sessions relevées AVANT RESOLVE_PAGE_MEDIA : une déconnexion pendant la résolution ne passe pas pour la session courante', async () => {
+    fake.local = { [STORAGE_KEYS.anilistToken]: TOKEN };
+    const ctl = createPageMediaController({ onChange: () => undefined });
+    ctl.open(1, FRIEREN);
+    await settle();
+    const [call] = pending('RESOLVE_PAGE_MEDIA');
+    // Déconnexion pendant la résolution : la fiche porte toujours la session de départ (écriture refusée par le cache)
+    fake.local = {};
+    answer(call, { ok: true, data: view(FRIEREN) });
+    await settle();
+    expect(ctl.content.status).toBe('ready');
+    expect(fake.storedEpochs).toEqual([{ anilist: 0 }]);
   });
 });

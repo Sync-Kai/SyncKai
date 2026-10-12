@@ -5,10 +5,13 @@ import { isRecord } from './guards';
 
 export const LIVE_PORT_NAME = 'synckai:live';
 
-/** État du suivi de l'épisode côté page */
-export type LiveState = 'idle' | 'watching' | 'syncing' | 'synced' | 'error' | 'excluded' | 'no-video';
+/**
+ * État du suivi de l'épisode côté page.
+ * `review` : fiche AniList à confirmer (correspondance par titre seul) ; `not-connected` : aucun compte connecté.
+ */
+export type LiveState = 'idle' | 'watching' | 'syncing' | 'synced' | 'review' | 'not-connected' | 'error' | 'excluded' | 'no-video';
 
-export const LIVE_STATES: readonly LiveState[] = ['idle', 'watching', 'syncing', 'synced', 'error', 'excluded', 'no-video'];
+export const LIVE_STATES: readonly LiveState[] = ['idle', 'watching', 'syncing', 'synced', 'review', 'not-connected', 'error', 'excluded', 'no-video'];
 
 /** Point de synchronisation : début du générique de fin, ou seuil en % de la durée */
 export interface LivePoint {
@@ -48,7 +51,12 @@ export interface LiveSyncMessage {
   outcome?: LiveOutcome;
 }
 
-export type LiveContentMessage = LivePageMessage | LiveTickMessage | LiveSyncMessage;
+/** Saison choisie dans le menu d'une page de série (sans changement d'URL) : le panneau relit la page */
+export interface LiveSeasonMessage {
+  type: 'season';
+}
+
+export type LiveContentMessage = LivePageMessage | LiveTickMessage | LiveSyncMessage | LiveSeasonMessage;
 
 /** Panneau → page : demande l'état complet (connexion ou reprise) */
 export interface LiveHelloMessage {
@@ -94,6 +102,8 @@ export function isLiveContentMessage(value: unknown): value is LiveContentMessag
       );
     case 'sync':
       return isLiveState(value.state) && (value.outcome === undefined || isLiveOutcome(value.outcome));
+    case 'season':
+      return true;
     default:
       return false;
   }

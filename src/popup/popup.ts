@@ -1,18 +1,20 @@
-import { initI18n, onLocaleChange, t } from '../i18n';
+import { getLocale, initI18n, onLocaleChange, t } from '../i18n';
 import { refreshReviewBadge } from '../shared/badge';
+import type { EntryLinkContext } from '../shared/entry-link';
 import type { EpisodeInfo } from '../shared/episode.types';
 import { EXCLUDED_SERIES_KEY, excludeSeries, getExcludedSeries, platformSeriesKey } from '../shared/exclusions';
 import { sendMessage } from '../shared/messages';
 import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
-import { hasNetflixAccess } from '../shared/netflix-access';
+import type { StreamingPlatform } from '../shared/episode.types';
+import { grantedOptionalPlatforms } from '../shared/platform-access';
 import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../shared/storage';
 import { STORAGE_KEYS } from '../shared/storage-keys';
 import type { ListStatusChange } from '../shared/sync.types';
-import type { PageMediaInfo } from '../shared/page-media.types';
+import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
 import { TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
-import type { WatchingSort } from '../shared/watching.types';
+import type { WatchingEntry, WatchingSort } from '../shared/watching.types';
 import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../ui/dom';
 import { tickJobPause } from '../ui/job-pause';
 import { createMenuDismiss } from '../ui/menu';
@@ -33,14 +35,15 @@ import { renderRecentSyncs } from './components/recent-syncs';
 import type { ReviewActions } from './components/review-card';
 import { createReviewSection } from './components/review-section';
 import { renderPageMediaCard } from './components/page-media-card';
-import { renderWatchingScreen } from './components/watching-screen';
-import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, UiState } from './state';
+import { entryKey, renderWatchingScreen } from './components/watching-screen';
+import type { HostAccessState, PageCardState, RowConfirm, Screen, SettingsState, SyncData, UiState } from './state';
+import { createNotesEditor, type NotesEditor } from '../ui/notes-editor';
+import { primaryList } from '../ui/page-media-view';
 import { createStore, patchStore, type AccountState, type ExclusionsState, type Store } from '../ui/state';
 import { createLogger } from '../shared/logger';
-import { openSidePanel, sidePanelKind } from '../shared/side-panel';
-import { isTargetPage } from '../shared/target-pages';
+import { openSidePanel, sidePanelKind, type PanelTarget } from '../shared/side-panel';
 import { createAccountsController } from '../ui/accounts';
-import { isSettingsPage, type SettingsPage } from '../ui/settings/navigation';
+import type { SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView } from '../ui/settings/settings-view';
 
 const log = createLogger('popup');
@@ -49,34 +52,16 @@ const log = createLogger('popup');
 await initI18n();
 
 const swUnreachable = (): string => t('popup.swUnreachable');
-/** Écran (et défilement) à rouvrir après le rechargement provoqué par un changement de langue */
-const REOPEN_KEY = 'synckai:reopen';
 const CLOCK_TICK_MS = 60_000;
 
-interface ReopenState {
-  screen: Screen;
-  /** Sous-page des Réglages affichée (changement de langue depuis Réglages › Langue) */
-  settingsPage: SettingsPage;
-  scroll: number;
+/**
+ * Mémo d'une zone dont la langue fait partie des entrées : un changement de langue la redessine (retraduite en place,
+ * sans recharger le popup : un rechargement recrée la vue auto-dimensionnée de Chrome, qui s'affiche alors zoomée)
+ */
+function createLocaleMemo(): (inputs: readonly unknown[]) => boolean {
+  const changed = createMemo();
+  return (inputs) => changed([getLocale(), ...inputs]);
 }
-
-/** Écran mémorisé avant un changement de langue (lu une seule fois) */
-function takeReopenState(): ReopenState | null {
-  try {
-    const raw = sessionStorage.getItem(REOPEN_KEY);
-    sessionStorage.removeItem(REOPEN_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : null;
-    if (typeof parsed !== 'object' || parsed === null || !('screen' in parsed) || !('scroll' in parsed)) return null;
-    const { screen, scroll } = parsed;
-    const settingsPage = 'settingsPage' in parsed && isSettingsPage(parsed.settingsPage) ? parsed.settingsPage : 'home';
-    const valid = screen === 'watching' || screen === 'activity' || screen === 'settings';
-    return valid && typeof scroll === 'number' ? { screen, settingsPage, scroll } : null;
-  } catch {
-    return null;
-  }
-}
-
-const reopen = takeReopenState();
 
 function getRoot(): HTMLDivElement {
   const el = document.querySelector<HTMLDivElement>('#app');
@@ -89,7 +74,7 @@ const accounts = createAccountsController();
 const anilistStore = accounts.anilist;
 const malStore = accounts.mal;
 const syncStore = createStore<SyncData>({ reviews: [], recentSyncs: [], busyKey: null, recentError: null });
-const uiStore = createStore<UiState>({ screen: reopen?.screen ?? 'watching', previous: 'watching', sortMenuOpen: false, rowMenu: null, rowConfirm: null });
+const uiStore = createStore<UiState>({ screen: 'watching', previous: 'watching', sortMenuOpen: false, rowMenu: null, rowConfirm: null });
 const settingsStore = createStore<SettingsState>({ status: 'loading' });
 const exclusionsStore = createStore<ExclusionsState>({ status: 'loading' });
 /** Liste « En cours » (source, tri, actions sur une série, bandeau de retour) */
@@ -112,8 +97,16 @@ const ratings = createRatingsController();
 const pageCardStore = createStore<PageCardState>({ content: { status: 'idle' }, actions: { busy: null, confirm: null, feedback: null } });
 /** Accès à Crunchyroll / ADN et aux API (bandeau « Autoriser l'accès » si Firefox l'a retiré) */
 const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
-/** Accès Netflix (permission optionnelle) : lecteur préféré « Netflix » ignoré sans lui ; undefined = pas encore lu */
-const netflixAccessStore = createStore<boolean | undefined>(undefined);
+/**
+ * Plateformes à accès optionnel accordées (Netflix, Disney+) : lecteur préféré « Netflix » ignoré sans son accès ;
+ * undefined = pas encore lu
+ */
+const platformAccessStore = createStore<readonly StreamingPlatform[] | undefined>(undefined);
+
+/** Accès Netflix : undefined tant que les accès ne sont pas lus (voir effectivePlayer) */
+function netflixGranted(): boolean | undefined {
+  return platformAccessStore.get()?.includes('netflix');
+}
 const version = chrome.runtime.getManifest().version;
 /** Lues au démarrage (synchrone) : la demande d'accès doit partir sans `await` dans le clic */
 const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
@@ -125,6 +118,12 @@ function accountStore(service: TrackerId): Store<AccountState<unknown>> {
 
 function connectedServices(): TrackerId[] {
   return TRACKER_IDS.filter((service) => accountStore(service).get().status === 'logged-in');
+}
+
+/** Fiche ouverte au clic sur un titre ou une jaquette : comptes connectés et réglage « Fiche ouverte par défaut » */
+function entryLinkContext(): EntryLinkContext {
+  const state = settingsStore.get();
+  return { connected: connectedServices(), preferred: state.status === 'ready' ? state.settings.entryService : DEFAULT_SETTINGS.entryService };
 }
 
 // ─── Actions des cartes "À vérifier" ────────────────────────────────────────
@@ -146,15 +145,17 @@ const reviewActions: ReviewActions = {
       return { status: 'error', message: swUnreachable() };
     }
   },
-  // Pas besoin du service worker : simple suppression dans le stockage
+  // Service worker : l'épisode mis de côté pendant une correction est rejoué après le retrait de la carte
   async dismiss(key) {
-    await deletePendingReview(key);
-    await refreshReviewBadge();
+    const result = await sendMessage('DISMISS_REVIEW', { key });
+    if (!result.ok) throw new Error(result.message);
   },
   async exclude(review) {
     // Fiche suggérée volontairement ignorée (par définition incertaine) : seule une fiche déjà écrite est reprise
     await excludeSeries({ platformKey: platformSeriesKey(review.episode), mediaId: review.previous?.mediaId ?? null, label: review.episode.animeTitle });
-    await reviewActions.dismiss(review.key);
+    // Série exclue : simple suppression, aucun épisode mis de côté n'est rejoué
+    await deletePendingReview(review.key);
+    await refreshReviewBadge();
   },
 };
 
@@ -268,16 +269,89 @@ function setRowMenu(key: string | null, restoreFocus = true): void {
 }
 
 /**
- * Confirmation dans le menu ouvert (Abandonner, Terminé). Ouverture : focus sur « Non » (une action
- * irréversible ne se valide pas d'un double Entrée) ; annulation : focus rendu à l'option d'origine.
+ * Confirmation dans le menu ouvert (Abandonner, Terminé, Retirer de la liste). Ouverture : focus sur « Non » / « Annuler »
+ * (une action irréversible ne se valide pas d'un double Entrée) ; annulation : focus rendu à l'option d'origine.
  */
-function setRowConfirm(status: ListStatusChange | null): void {
+function setRowConfirm(status: RowConfirm | null): void {
   const ui = uiStore.get();
   if (ui.rowMenu === null || ui.rowConfirm === status) return;
   const previous = ui.rowConfirm;
   uiStore.set({ ...ui, rowConfirm: status });
-  if (status !== null) focusInWatching(`[data-focus="confirm-no-${ui.rowMenu}"]`);
-  else if (previous !== null) focusInWatching(`[data-focus="${previous}-${ui.rowMenu}"]`);
+  if (status !== null) {
+    focusInWatching(`[data-focus="confirm-no-${ui.rowMenu}"]`);
+    // Confirmation plus haute que l'option (retrait : deux lignes) : ramenée dans la zone visible en bas de liste
+    watchingSlot.querySelector(`[data-menu-root="${ui.rowMenu}"] [role="group"]`)?.scrollIntoView({ block: 'nearest' });
+  } else if (previous !== null) focusInWatching(`[data-focus="${previous}-${ui.rowMenu}"]`);
+}
+
+// ─── Commentaire d'une série (« Commentaire… » du menu « … ») ──────────────
+
+/** Éditeur ouvert : élément persistant (brouillon et curseur gardés entre deux rendus), recréé pour une autre série */
+let notesEditor: { key: string; editor: NotesEditor } | null = null;
+
+function openNotes(entry: WatchingEntry): void {
+  // Nouvelle ouverture : brouillon d'une ouverture précédente oublié (déjà ouvert : gardé)
+  if (watching.notes.get()?.key !== entryKey(entry)) notesEditor = null;
+  watching.openNotes(entry);
+  // Focus dans la zone de texte (lecture seule le temps de lire le commentaire)
+  focusInWatching(`[data-focus="notes-${entryKey(entry)}-input"]`);
+  watchingSlot.querySelector(`[data-notes-row="${entryKey(entry)}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+
+/** Fermeture (Annuler, Échap, enregistré) : focus rendu au bouton « … » de la série */
+function closeNotes(): void {
+  const key = watching.notes.get()?.key;
+  watching.closeNotes();
+  if (key !== undefined) focusInWatching(`[data-focus="more-${key}"]`);
+}
+
+function notesEditorFor(entry: WatchingEntry): HTMLElement | null {
+  const session = watching.notes.get();
+  if (!session || session.key !== entryKey(entry)) return null;
+  if (notesEditor?.key !== session.key) {
+    const { entry: target } = session;
+    notesEditor = {
+      key: session.key,
+      editor: createNotesEditor({ focusKey: `notes-${session.key}`, collapsible: false, onSave: (text) => watching.saveNotes(target, text), onClose: closeNotes }),
+    };
+  }
+  notesEditor.editor.update({
+    notes: session.phase === 'ready' ? session.notes : null,
+    loading: session.phase === 'loading',
+    unavailable: session.phase === 'error' ? session.message : session.phase === 'ready' && !session.inList ? t('notes.notInList') : null,
+    busy: watching.entryActions.get().get(session.key)?.phase === 'pending',
+    title: session.entry.title,
+  });
+  return notesEditor.editor.element;
+}
+
+/**
+ * Commentaire de la carte « Sur cette page », sous la note (même éditeur repliable que le panneau) : élément persistant,
+ * brouillon oublié quand la carte change de fiche
+ */
+const pageNotesEditor = createNotesEditor({
+  focusKey: 'page-notes',
+  collapsible: true,
+  onSave: async (notes) => (await pageCtl.runAction({ kind: 'notes', notes }))?.tone === 'success',
+});
+let pageNotesMediaId: number | null = null;
+
+function pageNotesFor(view: PageMediaView, refreshing: boolean): HTMLElement | null {
+  // Aucun compte connecté : rien à commenter (la carte invite déjà à se connecter)
+  if (view.lists.length === 0) return null;
+  if (pageNotesMediaId !== view.media.mediaId) {
+    pageNotesMediaId = view.media.mediaId;
+    pageNotesEditor.reset();
+  }
+  const primary = primaryList(view.lists);
+  pageNotesEditor.update({
+    notes: primary?.notes ?? null,
+    loading: false,
+    unavailable: primary ? null : t('notes.notInList'),
+    busy: pageCtl.actions.busy !== null || refreshing,
+    title: view.media.title,
+  });
+  return pageNotesEditor.element;
 }
 
 /** Écouteurs globaux (clic extérieur, Échap) présents seulement pendant qu'un menu est ouvert */
@@ -341,12 +415,12 @@ function isOnboarding(): boolean {
 }
 
 /** Entrées du rendu de « En cours » : on ne redessine la liste que si elles changent */
-const watchingChanged = createMemo();
+const watchingChanged = createLocaleMemo();
 
 function renderWatching(): void {
   const preferredPlayer = (() => {
     const state = settingsStore.get();
-    return state.status === 'ready' ? effectivePlayer(state.settings.preferredPlayer, netflixAccessStore.get()) : DEFAULT_SETTINGS.preferredPlayer;
+    return state.status === 'ready' ? effectivePlayer(state.settings.preferredPlayer, netflixGranted()) : DEFAULT_SETTINGS.preferredPlayer;
   })();
   const services = connectedServices();
   const { sortMenuOpen, rowMenu, rowConfirm } = uiStore.get();
@@ -354,9 +428,11 @@ function renderWatching(): void {
   const exclusions = exclusionsStore.get();
   const actions = watching.entryActions.get();
   const notice = watching.notice.get();
+  const notesSession = watching.notes.get();
   const pageCard = pageCardStore.get();
-  const netflixAccess = netflixAccessStore.get() === true;
-  if (!watchingChanged([watching.store.get(), now, preferredPlayer, netflixAccess, services.join(), sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, pageCard])) return;
+  const optionalPlatforms = platformAccessStore.get() ?? [];
+  const entryLinks = entryLinkContext();
+  if (!watchingChanged([watching.store.get(), now, preferredPlayer, optionalPlatforms.join(), services.join(), entryLinks.preferred, sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, notesSession, pageCard])) return;
 
   preserveFocus(watchingSlot, () =>
     watchingSlot.replaceChildren(
@@ -373,11 +449,12 @@ function renderWatching(): void {
         onSortMenu: (open) => setSortMenu(open),
         onPickSort: (value) => pickSort(value),
         onRetry: () => void watching.reload(),
-        netflixAccess,
+        optionalPlatforms,
         onOpenSyncSettings: () => navigate('settings', 'sync'),
         pageCard: renderPageMediaCard({
           card: pageCard,
           now,
+          entryLinks,
           onRetry: () => pageCtl.retry(),
           onAdd: (status) => void pageCtl.runAction({ kind: 'add', status }),
           onAdjust: (delta) => void pageCtl.runAction({ kind: 'adjust', delta }),
@@ -386,6 +463,7 @@ function renderWatching(): void {
           onSetStatus: (status) => void pageCtl.runAction({ kind: 'status', status }),
           onRate: (value) => void pageCtl.runAction({ kind: 'rate', value }),
           onPickSeason: (mediaId) => pageCtl.pickSeason(mediaId),
+          notesFor: pageNotesFor,
         }),
         controls: {
           actions,
@@ -398,6 +476,10 @@ function renderWatching(): void {
           onAdjust: (entry, delta) => void watching.adjust(entry, delta),
           onExclude: (entry) => void watching.exclude(entry),
           onInclude: (entry) => void watching.include(entry),
+          onRemove: (entry) => void watching.remove(entry),
+          onNotes: (entry) => openNotes(entry),
+          notesFor: notesEditorFor,
+          entryLinks,
         },
       }),
     ),
@@ -408,11 +490,12 @@ function renderWatching(): void {
 }
 
 /** Section « À noter » redessinée seulement si son état change (préserve le survol des étoiles) */
-const ratingsChanged = createMemo();
+const ratingsChanged = createLocaleMemo();
 
 function renderRatings(): void {
   const connected = connectedServices().length > 0;
-  if (!ratingsChanged([ratings.store.get(), connected, now])) return;
+  const entryLinks = entryLinkContext();
+  if (!ratingsChanged([ratings.store.get(), connected, now, entryLinks.connected.join(), entryLinks.preferred])) return;
   ratingSlot.replaceChildren(
     ...nodes([
       connected &&
@@ -421,6 +504,7 @@ function renderRatings(): void {
           now,
           onRate: (item, value) => void ratings.rate(item, value),
           onIgnore: (item) => void ratings.ignore(item),
+          entryLinks,
         }),
     ]),
   );
@@ -430,11 +514,12 @@ function renderRatings(): void {
  * Section « Écarts » redessinée seulement si son état change (jusqu'à 30+ lignes). Le compte à rebours d'une pause
  * d'alignement n'en fait pas partie : il est mis à jour en place chaque seconde (tickJobPause).
  */
-const compareChanged = createMemo();
+const compareChanged = createLocaleMemo();
 
 function renderCompare(): void {
   const both = connectedServices().length === 2;
-  if (!compareChanged([compare.store.get(), both, now])) return;
+  const entryLinks = entryLinkContext();
+  if (!compareChanged([compare.store.get(), both, now, entryLinks.preferred])) return;
   compareSlot.replaceChildren(
     ...nodes([
       both &&
@@ -449,6 +534,7 @@ function renderCompare(): void {
           onDismissJob: () => void compare.dismissJob(),
           onRetryFailed: (diffs, source) => void compare.apply(diffs, source),
           onShowMore: () => compare.showMore(),
+          entryLinks,
         }),
     ]),
   );
@@ -456,13 +542,13 @@ function renderCompare(): void {
 
 // Chaque zone n'est redessinée que si ses entrées changent : focus, survol et régions live (bandeau d'accès,
 // barre d'état) restent en place entre deux rendus
-const headerChanged = createMemo();
-const navChanged = createMemo();
-const hostAccessChanged = createMemo();
-const onboardingChanged = createMemo();
-const queueChanged = createMemo();
-const recentChanged = createMemo();
-const footerChanged = createMemo();
+const headerChanged = createLocaleMemo();
+const navChanged = createLocaleMemo();
+const hostAccessChanged = createLocaleMemo();
+const onboardingChanged = createLocaleMemo();
+const queueChanged = createLocaleMemo();
+const recentChanged = createLocaleMemo();
+const footerChanged = createLocaleMemo();
 
 function render(): void {
   const ui = uiStore.get();
@@ -475,8 +561,8 @@ function render(): void {
   const hostAccess = hostAccessStore.get();
 
   preserveFocus(root, () => {
-    if (headerChanged([isSettings, panelTabId])) {
-      headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTabId === null ? null : openPanel }));
+    if (headerChanged([isSettings, panelTarget])) {
+      headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTarget === null ? null : openPanel }));
     }
     const navStale = navChanged([isSettings, onboarding, ui.screen, pending]);
     // Barre des Réglages persistante (gérée par la vue) : jamais retirée puis réinsérée, le focus y resterait perdu
@@ -521,7 +607,8 @@ function render(): void {
     renderRatings();
     renderCompare();
     reviewSection.update(connected ? data.reviews : []);
-    if (recentChanged([data.recentSyncs, data.reviews, data.busyKey, data.recentError, exclusionsStore.get()])) {
+    const entryLinks = entryLinkContext();
+    if (recentChanged([data.recentSyncs, data.reviews, data.busyKey, data.recentError, exclusionsStore.get(), entryLinks.connected.join(), entryLinks.preferred])) {
       recentSlot.replaceChildren(
         renderRecentSyncs({
           syncs: data.recentSyncs,
@@ -531,6 +618,7 @@ function render(): void {
           onCorrect: (key) => void handleCorrect(key),
           isExcluded: isRecentExcluded,
           onExclude: (sync) => void excludeRecent(sync),
+          entryLinks,
         }),
       );
     }
@@ -556,11 +644,11 @@ function render(): void {
 /** Rendus regroupés : plusieurs stores modifiés dans le même tour (chargements parallèles, job) = un seul rendu */
 const renderer = createRenderScheduler(render);
 
-// ─── Accès aux sites (Firefox) et accès Netflix (optionnel) ─────────────────
+// ─── Accès aux sites (Firefox) et accès Netflix / Disney+ (optionnels) ─────
 
 async function checkHostAccess(): Promise<void> {
-  const netflix = await hasNetflixAccess();
-  if (netflixAccessStore.get() !== netflix) netflixAccessStore.set(netflix);
+  const optional = await grantedOptionalPlatforms();
+  if (platformAccessStore.get()?.join() !== optional.join()) platformAccessStore.set(optional);
   const granted = await hasHostAccess(hostOrigins);
   const current = hostAccessStore.get();
   hostAccessStore.set(granted ? { status: 'granted' } : { status: 'missing', denied: current.status === 'missing' && current.denied });
@@ -624,14 +712,14 @@ async function loadExclusions(): Promise<void> {
 // commune avec le panneau (ui/page-media-controller.ts). Tout est asynchrone : sans réponse (autre site, onglet
 // ouvert avant le rechargement de l'extension), la carte « Reprendre » reste affichée.
 
-/** Onglet actif (l'id ne requiert pas la permission "tabs" ; l'URL, seulement visible avec une permission d'hôte) */
-async function queryActiveTab(): Promise<{ tabId: number | null; url: string | undefined }> {
+/** Onglet actif et sa fenêtre (ni l'un ni l'autre ne requiert la permission "tabs") */
+async function queryActiveTab(): Promise<{ tabId: number | null; windowId: number | null }> {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    return { tabId: tab?.id ?? null, url: tab?.url };
+    return { tabId: tab?.id ?? null, windowId: tab?.windowId ?? null };
   } catch (error: unknown) {
     log.debug('Onglet actif illisible :', error);
-    return { tabId: null, url: undefined };
+    return { tabId: null, windowId: null };
   }
 }
 
@@ -640,7 +728,7 @@ const activeTab = queryActiveTab();
 /** Série ou épisode de l'onglet actif (mêmes essais et délais que le panneau) */
 const activePage: Promise<PageMediaInfo | null> = activeTab.then(async ({ tabId }) => {
   if (tabId === null) return null;
-  const page = await detectPageMedia(tabId, { onReached: () => offerPanel(tabId) });
+  const page = await detectPageMedia(tabId);
   return page === 'unreachable' ? null : page;
 });
 
@@ -649,26 +737,22 @@ const pageCtl = createPageMediaController({
   onActionDone: () => watching.scheduleRevalidation(),
 });
 
-// ─── Panneau latéral : bouton d'en-tête, seulement sur Crunchyroll / ADN ───
+// ─── Panneau latéral : bouton d'en-tête, sur toutes les pages ───
+// Le panneau suit l'onglet actif : « En lecture » sur une page de streaming, Agenda ailleurs.
 
-/** Onglet Crunchyroll / ADN actif pour lequel le bouton « Ouvrir le panneau » est proposé */
-let panelTabId: number | null = null;
+/** Onglet actif (et sa fenêtre) pour lequel le bouton « Ouvrir le panneau » est proposé ; null sans API de panneau */
+let panelTarget: PanelTarget | null = null;
 
-/** Script de contenu joignable, ou URL reconnue (onglet ouvert avant l'installation : script absent) */
-function offerPanel(tabId: number): void {
-  if (panelTabId === tabId || sidePanelKind() === null) return;
-  panelTabId = tabId;
+void activeTab.then(({ tabId, windowId }) => {
+  if (sidePanelKind() === null || (tabId === null && windowId === null)) return;
+  panelTarget = { tabId: tabId ?? undefined, windowId: windowId ?? undefined };
   renderer.schedule();
-}
-
-void activeTab.then(({ tabId, url }) => {
-  if (tabId !== null && isTargetPage(url)) offerPanel(tabId);
 });
 
 /** Clic : aucun `await` avant l'ouverture (geste utilisateur requis par sidePanel.open / sidebarAction.open) */
 function openPanel(): void {
-  if (panelTabId === null) return;
-  openSidePanel(panelTabId).then(
+  if (panelTarget === null) return;
+  openSidePanel(panelTarget).then(
     () => window.close(),
     (error: unknown) => log.warn('Ouverture du panneau impossible :', error),
   );
@@ -747,31 +831,16 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 
 watching.start();
 uiStore.subscribe(({ sortMenuOpen, rowMenu }) => menuDismiss.setOpen(sortMenuOpen || rowMenu !== null));
-for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, watching.prefs, watching.entryActions, watching.notice, queue.store, ratings.store, pageCardStore, compare.store, hostAccessStore, netflixAccessStore]) store.subscribe(renderer.schedule);
+for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, watching.prefs, watching.entryActions, watching.notice, watching.notes, queue.store, ratings.store, pageCardStore, compare.store, hostAccessStore, platformAccessStore]) store.subscribe(renderer.schedule);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre)
 chrome.permissions?.onAdded?.addListener(() => void checkHostAccess());
 chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());
 exclusionsStore.subscribe(renderer.schedule);
 settingsStore.subscribe(renderer.schedule);
 
-// Après un changement de langue : même sous-page des Réglages, défilement restauré une fois les réglages dessinés
-if (reopen?.screen === 'settings') {
-  settingsView.show(reopen.settingsPage, { focus: false });
-  void settingsView.ready.then(() => {
-    main.scrollTop = reopen.scroll;
-  });
-}
-
-// Nouvelle langue : le popup est rechargé (toutes les vues reconstruites) en revenant au même écran
-onLocaleChange(() => {
-  try {
-    const state: ReopenState = { screen: uiStore.get().screen, settingsPage: settingsView.page(), scroll: main.scrollTop };
-    sessionStorage.setItem(REOPEN_KEY, JSON.stringify(state));
-  } catch {
-    // Stockage de session indisponible : retour à l'écran d'accueil du popup
-  }
-  location.reload();
-});
+// Nouvelle langue : retraduction en place (écran, sous-page des Réglages et défilement conservés). Chaque zone a la
+// langue dans son mémo ; les Réglages se retraduisent eux-mêmes (settings-view.ts)
+onLocaleChange(() => renderer.schedule());
 
 // Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert
 setInterval(() => {

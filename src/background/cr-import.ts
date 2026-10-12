@@ -6,6 +6,7 @@ import {
   CR_IMPORT_KEYS,
   decideImport,
   FINALIZE_ITEM,
+  importPlatformOf,
   isCrImportInput,
   isCrImportJob,
   isCrImportPlan,
@@ -31,6 +32,7 @@ import {
   type CrItemResult,
   type CrListState,
   type CrPlanItem,
+  type ImportPlatform,
   type SeasonResolution,
 } from '../shared/cr-import';
 import type { HistorySeason } from '../shared/cr-history';
@@ -51,6 +53,7 @@ import {
 import { withStorageLock } from '../shared/storage-lock';
 import type { MediaMapping } from '../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
+import { PLATFORMS } from '../shared/platforms';
 import { ApiError } from './api/errors';
 import { getAnimeByIds } from './api/media';
 import { fetchAniListFullList, fetchMalFullList } from './compare';
@@ -72,9 +75,9 @@ import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
 import type { TrackerService } from './trackers/tracker';
 
-// Import de l'historique Crunchyroll : analyse (correspondance de chaque saison, sans rien écrire) puis
+// Import de l'historique Crunchyroll, ADN ou Netflix : analyse (correspondance de chaque saison, sans rien écrire) puis
 // application des éléments choisis dans l'aperçu. Deux tâches reprenables (src/background/jobs/runner.ts).
-// L'historique lui-même est lu par le script de contenu de l'onglet Crunchyroll : aucun jeton Crunchyroll ici.
+// L'historique lui-même est lu par le script de contenu de l'onglet de la plateforme : aucun jeton de la plateforme ici.
 
 const log = createLogger('cr-import');
 
@@ -212,8 +215,8 @@ const itemMappings = (item: CrPlanItem): { key: string; mapping: MediaMapping }[
  * Correspondance d'une saison, sans rien écrire (cache des correspondances lu, jamais modifié).
  * Même résolveur que la synchro en direct : une saison sûre ici l'aurait été sur la page de lecture.
  */
-async function resolveSeason(season: HistorySeason): Promise<SeasonResolution> {
-  const episode = toEpisodeInfo(season);
+async function resolveSeason(season: HistorySeason, platform: ImportPlatform): Promise<SeasonResolution> {
+  const episode = toEpisodeInfo(season, platform);
   const key = mappingKey(episode);
   if (await isExcluded({ platformKey: platformSeriesKey(episode) })) return { kind: 'excluded', key };
 
@@ -221,6 +224,8 @@ async function resolveSeason(season: HistorySeason): Promise<SeasonResolution> {
   // Requêtes de fond : budget AniList partagé (popup et synchro en direct prioritaires, voir api/rate-limit.ts)
   const { result, candidates } = await resolveEpisode(episode, { persist: false, lane: 'background' });
   if (result.ok && (await isExcluded({ mediaId: result.target.mediaId }))) return { kind: 'excluded', key };
+  // Netflix : pas un anime (ni fiche liée à la série, ni fiche au même titre), comme en lecture : écarté en silence
+  if (!result.ok && result.ignored === true) return { kind: 'ignored', key };
 
   // Position dans la saison inconnue (saison retirée du catalogue) : seul un numéro affiché déjà appris est fiable
   const numbersKnown = season.seasonEpisodeNumber !== null || cached?.numbering === 'displayed';
@@ -244,7 +249,7 @@ function errorStep(error: unknown, service: TrackerId | null, isLastAttempt: (re
   const message = error instanceof ApiError ? error.message : t('error.unexpected');
   const transient = transientKind(error);
   if (transient !== null && !isLastAttempt(transient)) return { retry: { kind: 'retry', reason: transient, service, error: message } };
-  if (!(error instanceof ApiError)) log.error('Erreur inattendue (import Crunchyroll) :', error);
+  if (!(error instanceof ApiError)) log.error('Erreur inattendue (import de l’historique) :', error);
   return { message, fatal: isFatalError(error) };
 }
 
@@ -261,14 +266,14 @@ async function analyzeSeason(job: CrImportJob, index: number, isLastAttempt: (re
   const season = input.seasons[index];
   if (!season) return itemEvent('skipped');
   try {
-    const resolution = await resolveSeason(season);
+    const resolution = await resolveSeason(season, importPlatformOf(input));
     await keepResolution(memory, index, resolution);
     return itemEvent(resolution.kind === 'certain' ? 'updated' : 'skipped');
   } catch (error: unknown) {
     const step = errorStep(error, 'anilist', isLastAttempt);
     if ('retry' in step) return step.retry;
     log.warn(`Recherche impossible pour ${season.seriesTitle} :`, step.message);
-    await keepResolution(memory, index, { kind: 'failed', key: mappingKey(toEpisodeInfo(season)), message: step.message });
+    await keepResolution(memory, index, { kind: 'failed', key: mappingKey(toEpisodeInfo(season, importPlatformOf(input))), message: step.message });
     return { kind: 'event', event: { type: 'item', outcome: 'failed', message: step.message, at: Date.now() }, stop: step.fatal ? step.message : null };
   }
 }
@@ -286,10 +291,10 @@ async function allResolutions(memory: AnalyzeMemory, input: CrImportInput): Prom
     if (resolutions[key]) continue;
     let resolution: SeasonResolution;
     try {
-      resolution = await resolveSeason(season);
+      resolution = await resolveSeason(season, importPlatformOf(input));
     } catch (error: unknown) {
       if (transientKind(error) !== null || isFatalError(error) || !(error instanceof ApiError)) throw error;
-      resolution = { kind: 'failed', key: mappingKey(toEpisodeInfo(season)), message: error.message };
+      resolution = { kind: 'failed', key: mappingKey(toEpisodeInfo(season, importPlatformOf(input))), message: error.message };
     }
     resolutions[key] = resolution;
     memory.pending[key] = resolution;
@@ -348,7 +353,7 @@ async function finalize(job: CrImportJob, isLastAttempt: (reason: TransientKind)
     const lists: Partial<Record<TrackerId, Map<number, CrListState>>> = {};
     for (const service of services) lists[service] = await readList(service);
     const excludedMediaIds = new Set((await getExcludedSeries()).flatMap((e) => (e.mediaId !== null ? [e.mediaId] : [])));
-    const plan = buildCrImportPlan({ seasons: input.seasons, resolutions, catalog, lists, services, excludedMediaIds, stats: input.stats }, Date.now());
+    const plan = buildCrImportPlan({ platform: importPlatformOf(input), seasons: input.seasons, resolutions, catalog, lists, services, excludedMediaIds, stats: input.stats }, Date.now());
     if (!(await savePlanIfSession(plan, epochs))) {
       log.warn('Compte déconnecté ou changé pendant l’analyse : aperçu abandonné');
       return stopStep(t('crImport.error.sessionClosed'));
@@ -367,7 +372,7 @@ async function finalize(job: CrImportJob, isLastAttempt: (reason: TransientKind)
 }
 
 const analyzeLoop = createJobLoop<CrImportJob>({
-  label: 'analyse de l’historique Crunchyroll',
+  label: 'analyse de l’historique',
   log,
   store: jobStore,
   alarm: CR_IMPORT_ALARM,
@@ -477,7 +482,7 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
         outcomes.push({ service: planned.service, result: 'skipped', message: t('common.serviceMessage', { service: label, message: t(`crImport.skipReason.${decision.reason}`) }) });
         continue;
       }
-      log.info(`${label} : ${item.title} → épisode ${decision.progress} (${decision.status}, import Crunchyroll)`);
+      log.info(`${label} : ${item.title} → épisode ${decision.progress} (${decision.status}, import ${PLATFORMS[importPlatformOf(plan)].label})`);
       outcomes.push({ service: planned.service, result: 'updated', message: null });
       written.add(planned.service);
     } catch (error: unknown) {
@@ -511,7 +516,7 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
 }
 
 const applyLoop = createJobLoop<CrImportJob>({
-  label: 'import Crunchyroll',
+  label: 'import de l’historique',
   log,
   store: jobStore,
   alarm: CR_IMPORT_ALARM,
@@ -536,7 +541,11 @@ function ensureLoop(job: CrImportJob | null): void {
 
 // ─── Messages de la page d'import ─────────────────────────────────────────
 
-const failure = (code: CrImportErrorCode, key: Parameters<typeof t>[0]): { ok: false; code: CrImportErrorCode; message: string } => ({ ok: false, code, message: t(key) });
+const failure = (code: CrImportErrorCode, key: Parameters<typeof t>[0], params?: Parameters<typeof t>[1]): { ok: false; code: CrImportErrorCode; message: string } => ({
+  ok: false,
+  code,
+  message: t(key, params),
+});
 
 /** Réserve la tâche sous verrou : une seule analyse ou application à la fois */
 async function reserveJob(start: () => CrImportJob): Promise<CrImportJob | null> {
@@ -549,20 +558,20 @@ async function reserveJob(start: () => CrImportJob): Promise<CrImportJob | null>
   return started;
 }
 
-/** CR_IMPORT_ANALYZE : historique lu dans l'onglet Crunchyroll → tâche d'analyse en arrière-plan */
-export async function startCrAnalyze({ history }: CrImportAnalyzePayload): Promise<CrImportJobResult> {
+/** CR_IMPORT_ANALYZE : historique lu dans l'onglet Crunchyroll, ADN ou Netflix → tâche d'analyse en arrière-plan */
+export async function startCrAnalyze({ history, platform = 'crunchyroll' }: CrImportAnalyzePayload): Promise<CrImportJobResult> {
   try {
     if ((await getConnectedTrackers()).length === 0) return failure('NOT_CONNECTED', 'crImport.error.notConnected');
-    if (history.seasons.length === 0) return failure('EMPTY', 'crImport.error.empty');
+    if (history.seasons.length === 0) return failure('EMPTY', 'crImport.error.empty', { platform: PLATFORMS[platform].label });
     const job = await reserveJob(() => startAnalyzeJob(history.seasons.length, Date.now()));
     if (job === null) return failure('BUSY', 'crImport.error.busy');
-    const input: CrImportInput = { ...history, createdAt: Date.now() };
+    const input: CrImportInput = { ...history, createdAt: Date.now(), platform };
     await chrome.storage.local.set({ [CR_IMPORT_KEYS.input]: input, [CR_IMPORT_KEYS.resolutions]: {} });
     await chrome.storage.local.remove(CR_IMPORT_KEYS.plan);
     analyzeMemory = { jobId: job.startedAt, input, pending: {}, since: Date.now() };
     applyMemory = null;
     await chrome.alarms.create(CR_IMPORT_ALARM, { periodInMinutes: RESUME_ALARM_PERIOD_MIN });
-    log.info(`Analyse de l’historique Crunchyroll : ${history.seasons.length} saisons (${history.stats.items} éléments lus)`);
+    log.info(`Analyse de l’historique ${PLATFORMS[platform].label} : ${history.seasons.length} saisons (${history.stats.items} éléments lus)`);
     analyzeLoop.ensure();
     return { ok: true, data: job };
   } catch (error: unknown) {
@@ -584,7 +593,7 @@ export async function startCrApply({ ids }: CrImportApplyPayload): Promise<CrImp
     if (job === null) return failure('BUSY', 'crImport.error.busy');
     applyMemory = { jobId: job.startedAt, plan, results: new Map(), mappings: [], since: Date.now() };
     await chrome.alarms.create(CR_IMPORT_ALARM, { periodInMinutes: RESUME_ALARM_PERIOD_MIN });
-    log.info(`Import Crunchyroll : ${selected.length} séries`);
+    log.info(`Import ${PLATFORMS[importPlatformOf(plan)].label} : ${selected.length} séries`);
     applyLoop.ensure();
     return { ok: true, data: job };
   } catch (error: unknown) {

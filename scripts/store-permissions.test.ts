@@ -202,9 +202,9 @@ describe('justifications Chrome Web Store (docs/store/permissions.md)', () => {
   });
 
   it('échoue sur un hôte optionnel ajouté', () => {
-    const manifest = withField('optional_host_permissions', [...(MANIFEST.optional_host_permissions ?? []), '*://*.disneyplus.com/*']);
+    const manifest = withField('optional_host_permissions', [...(MANIFEST.optional_host_permissions ?? []), '*://*.hidive.com/*']);
     const problems = checkStorePermissions(manifest, DOC);
-    expect(problems).toContain('optional_host_permissions « *://*.disneyplus.com/* » absent du tableau « Declared in `optional_host_permissions` ».');
+    expect(problems).toContain('optional_host_permissions « *://*.hidive.com/* » absent du tableau « Declared in `optional_host_permissions` ».');
     expect(problems).toHaveLength(2);
   });
 

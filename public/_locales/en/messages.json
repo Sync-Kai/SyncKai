@@ -10,5 +10,9 @@
   "cmdCompleteEpisode": {
     "message": "Mark the current episode as watched",
     "description": "Keyboard shortcut description"
+  },
+  "cmdOpenSidePanel": {
+    "message": "Open or close the side panel",
+    "description": "Keyboard shortcut description (side panel on Chrome, sidebar on Firefox)"
   }
 }

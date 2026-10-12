@@ -11,10 +11,15 @@ describe('messages de progression en direct', () => {
     expect(isLiveContentMessage({ type: 'page' })).toBe(false);
   });
 
+  it('accepte un changement de saison (page de série)', () => {
+    expect(isLiveContentMessage({ type: 'season' })).toBe(true);
+  });
+
   it('accepte un tick complet, lecteur prêt ou non', () => {
     expect(isLiveContentMessage(tick)).toBe(true);
     expect(isLiveContentMessage({ ...tick, t: null, duration: null, point: null, state: 'idle' })).toBe(true);
     for (const state of LIVE_STATES) expect(isLiveContentMessage({ ...tick, state })).toBe(true);
+    expect(LIVE_STATES).toEqual(expect.arrayContaining(['review', 'not-connected']));
   });
 
   it('refuse un tick mal formé', () => {
@@ -30,6 +35,9 @@ describe('messages de progression en direct', () => {
     expect(isLiveContentMessage({ type: 'sync', state: 'syncing' })).toBe(true);
     expect(isLiveContentMessage({ type: 'sync', state: 'synced', outcome: { status: 'synced', message: null } })).toBe(true);
     expect(isLiveContentMessage({ type: 'sync', state: 'error', outcome: { status: 'error', message: 'AniList indisponible' } })).toBe(true);
+    expect(isLiveContentMessage({ type: 'sync', state: 'review', outcome: { status: 'needs-review', message: 'Trouvé par le titre seulement' } })).toBe(true);
+    expect(isLiveContentMessage({ type: 'sync', state: 'not-connected', outcome: { status: 'not-connected', message: null } })).toBe(true);
+    expect(isLiveContentMessage({ type: 'sync', state: 'needs-review' })).toBe(false);
     expect(isLiveContentMessage({ type: 'sync', state: 'error', outcome: { status: 'boom', message: null } })).toBe(false);
     expect(isLiveContentMessage({ type: 'sync', state: 'error', outcome: { status: 'error' } })).toBe(false);
   });

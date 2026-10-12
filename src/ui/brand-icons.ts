@@ -8,6 +8,7 @@ import { h } from './dom';
 // - crunchyroll.png : https://crunchyroll.com/build/assets/img/pwa/v2/512.png (manifest.json du site)
 // - adn.png : https://animationdigitalnetwork.com/images/favicon/adn-logo-512x512.webp (manifest.json du site)
 // - netflix.png : « N » rouge (#E50914) dessiné en SVG géométrique et rastérisé avec resvg (pas de fichier officiel)
+// - disney.png : arc blanc au-dessus d'un « + » sur fond bleu nuit, dessiné en SVG et rastérisé avec resvg (pas de fichier officiel)
 // - anilist.png : https://anilist.co/img/icons/android-chrome-512x512.png (manifest.json du site)
 // - myanimelist.svg : https://cdn.myanimelist.net/images/favicon.svg (favicon du site, nettoyé)
 // Marques de leurs propriétaires respectifs ; SyncKai n'est affilié à aucun de ces services.
@@ -37,7 +38,7 @@ function brandIcon(icon: { src: string; alt: string }, size: string, options: Br
   });
 }
 
-/** Logo Crunchyroll / ADN / Netflix ; `size` : classes Tailwind de taille (ex : 'h-3.5 w-3.5') */
+/** Logo Crunchyroll / ADN / Netflix / Disney+ ; `size` : classes Tailwind de taille (ex : 'h-3.5 w-3.5') */
 export function platformIcon(platform: StreamingPlatform, size: string, options: BrandIconOptions = {}): HTMLImageElement {
   const { icon, label } = PLATFORMS[platform];
   return brandIcon({ src: icon, alt: label }, size, options);

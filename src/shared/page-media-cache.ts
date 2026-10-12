@@ -1,11 +1,16 @@
 import { isRecord } from './guards';
 import type { PageMediaInfo, PageMediaView } from './page-media.types';
 import { PAGE_MEDIA_CACHE_PREFIX, PAGE_MEDIA_CACHE_TTL_MS, purgeStaleSessionCaches, sessionArea } from './session-cache';
+import { isSessionEpochs, sameSessions, type SessionEpochs } from './session-epochs';
+import { getOpenSessions } from './storage';
+import { withStorageLock } from './storage-lock';
 
 // Fiche de la page par onglet : source de vérité unique pour le popup (carte « Sur cette page ») et le panneau.
 // Écrite après chaque RESOLVE_PAGE_MEDIA (popup, panneau) et après la synchro d'un épisode de l'onglet
 // (service worker, fiche certaine). `storage.session` : en mémoire, vidée à la fermeture du navigateur et à la
 // déconnexion d'un compte, entrées expirées purgées à l'écriture (voir session-cache.ts).
+// Liée aux sessions ouvertes avant la résolution (états des listes de ces comptes) : jamais écrite si elles ont changé
+// entre-temps (résolution en vol pendant une déconnexion), jamais relue sous d'autres sessions (DATA-04, SEC-03).
 
 export { PAGE_MEDIA_CACHE_PREFIX, PAGE_MEDIA_CACHE_TTL_MS };
 
@@ -20,6 +25,8 @@ export interface CachedPageMedia {
   view: PageMediaView;
   resolvedAt: number;
   source: PageMediaSource;
+  /** Sessions ouvertes avant la résolution (getOpenSessions) : la fiche ne vaut que pour elles */
+  epochs: SessionEpochs;
 }
 
 export const pageMediaCacheKey = (tabId: number): string => `${PAGE_MEDIA_CACHE_PREFIX}${tabId}`;
@@ -39,8 +46,8 @@ export function isPartialEpisodePage(page: PageMediaInfo): boolean {
   return page.kind === 'episode' && episode !== null && episode.seasonNumber === null && episode.seasonTitle === null && episode.seasonEpisodeNumber === null;
 }
 
-export function toCachedPageMedia(page: PageMediaInfo, view: PageMediaView, source: PageMediaSource, now: number): CachedPageMedia {
-  return { pageKey: pageKey(page), episodeId: page.episode?.episodeId ?? null, partial: isPartialEpisodePage(page), view, resolvedAt: now, source };
+export function toCachedPageMedia(page: PageMediaInfo, view: PageMediaView, source: PageMediaSource, now: number, epochs: SessionEpochs): CachedPageMedia {
+  return { pageKey: pageKey(page), episodeId: page.episode?.episodeId ?? null, partial: isPartialEpisodePage(page), view, resolvedAt: now, source, epochs };
 }
 
 /**
@@ -67,6 +74,7 @@ export function isCachedPageMedia(value: unknown): value is CachedPageMedia {
     typeof value.partial === 'boolean' &&
     typeof value.resolvedAt === 'number' &&
     (value.source === 'sync' || value.source === 'resolve') &&
+    isSessionEpochs(value.epochs) &&
     isRecord(value.view) &&
     isRecord(value.view.media) &&
     typeof value.view.media.mediaId === 'number' &&
@@ -76,23 +84,72 @@ export function isCachedPageMedia(value: unknown): value is CachedPageMedia {
 
 // `storage.session` absent : pas de cache, tout passe par RESOLVE_PAGE_MEDIA
 
+/** Fiche de l'onglet ; null si elle a été écrite sous d'autres sessions (compte déconnecté, ou connecté depuis) */
 export async function readCachedPageMedia(tabId: number): Promise<CachedPageMedia | null> {
   const area = sessionArea();
   if (!area) return null;
   const key = pageMediaCacheKey(tabId);
   const stored = await area.get(key);
   const value: unknown = stored[key];
-  return isCachedPageMedia(value) ? value : null;
+  return isCachedPageMedia(value) && sameSessions(value.epochs, await getOpenSessions()) ? value : null;
 }
 
-/** Écrit la fiche de l'onglet (sauf lecture partielle face à une fiche complète) ; retourne l'entrée écrite */
-export async function storeCachedPageMedia(tabId: number, page: PageMediaInfo, view: PageMediaView, source: PageMediaSource): Promise<CachedPageMedia | null> {
+/**
+ * Écrit la fiche de l'onglet (sauf lecture partielle face à une fiche complète) ; retourne l'entrée écrite.
+ * `epochs` : sessions relevées AVANT la résolution. Vérifiées et écrites sous le verrou du stockage, celui de la
+ * déconnexion (qui efface ce cache) : une résolution en vol pendant une déconnexion ne recrée jamais la fiche.
+ */
+export async function storeCachedPageMedia(
+  tabId: number,
+  page: PageMediaInfo,
+  view: PageMediaView,
+  source: PageMediaSource,
+  epochs: SessionEpochs,
+  /**
+   * Horodatage de l'entrée (`resolvedAt`). Fourni par l'écran qui écrit, connu AVANT l'écriture : storage.onChanged est
+   * émis pendant l'écriture, avant que cette fonction ne rende la main, et l'écran doit y reconnaître son propre écho.
+   */
+  now: number = Date.now(),
+): Promise<CachedPageMedia | null> {
   const area = sessionArea();
   if (!area) return null;
-  const next = toCachedPageMedia(page, view, source, Date.now());
-  if (!shouldReplaceCachedPageMedia(await readCachedPageMedia(tabId), next)) return null;
-  await area.set({ [pageMediaCacheKey(tabId)]: next });
-  // Fiches des onglets fermés ou expirées : retirées en passant (jamais d'échec de l'écriture pour autant)
-  await purgeStaleSessionCaches().catch(() => 0);
-  return next;
+  const next = toCachedPageMedia(page, view, source, now, epochs);
+  const written = await withStorageLock(async () => {
+    if (!sameSessions(epochs, await getOpenSessions())) return null;
+    if (!shouldReplaceCachedPageMedia(await readCachedPageMedia(tabId), next)) return null;
+    await area.set({ [pageMediaCacheKey(tabId)]: next });
+    return next;
+  });
+  // Fiches des onglets fermés ou expirées : retirées en passant, hors verrou (jamais d'échec de l'écriture pour autant)
+  if (written) await purgeStaleSessionCaches().catch(() => 0);
+  return written;
+}
+
+/** Fiche visée par une écriture hors de l'écran (retrait de la liste, commentaire) : identifiants AniList et MAL */
+export interface PageMediaTarget {
+  mediaId: number | null;
+  malId: number | null;
+}
+
+/** Clés des fiches d'onglets qui affichent cette série (pur, testable) */
+export function cachedPageMediaKeysFor(items: Record<string, unknown>, target: PageMediaTarget): string[] {
+  return Object.entries(items)
+    .filter(([key, value]) => {
+      if (!key.startsWith(PAGE_MEDIA_CACHE_PREFIX) || !isCachedPageMedia(value)) return false;
+      const { mediaId, idMal } = value.view.media;
+      return (target.mediaId !== null && mediaId === target.mediaId) || (target.malId !== null && idMal === target.malId);
+    })
+    .map(([key]) => key);
+}
+
+/**
+ * Oublie les fiches d'onglets de cette série (états des listes devenus faux) : l'écran qui a fait l'action la relit
+ * aussitôt, les autres onglets la relisent à leur prochain affichage. Retourne le nombre de fiches retirées.
+ */
+export async function forgetCachedPageMedia(target: PageMediaTarget): Promise<number> {
+  const area = sessionArea();
+  if (!area) return 0;
+  const keys = cachedPageMediaKeysFor(await area.get(null), target);
+  if (keys.length > 0) await area.remove(keys);
+  return keys.length;
 }

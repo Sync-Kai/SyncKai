@@ -1,13 +1,14 @@
+import { isPlatformSeasons } from './episode.types';
 import { isRecord } from './guards';
 
-// Historique de visionnage Crunchyroll réduit à une ligne par saison (import Réglages › Importer depuis Crunchyroll).
+// Historique de visionnage Crunchyroll réduit à une ligne par saison (Réglages › Importer un historique › Crunchyroll).
 // Lu par le script de contenu dans l'onglet Crunchyroll de l'utilisateur (src/content/lib/crunchyroll-history.ts),
 // transmis à la page d'import par un port, puis au service worker pour l'analyse. Rien d'autre n'est conservé.
 
 /** Saisons transmises au plus (au-delà : historique tronqué, signalé comme partiel) */
 export const MAX_HISTORY_SEASONS = 2000;
 
-/** Dernier épisode vu d'une saison Crunchyroll */
+/** Dernier épisode vu d'une saison Crunchyroll (ou ADN : même forme, voir adn-import.ts) */
 export interface HistorySeason {
   seriesId: string;
   seriesTitle: string;
@@ -28,6 +29,8 @@ export interface HistorySeason {
   watchedCount: number;
   /** Dernier visionnage dans la saison (ms), null si inconnu */
   lastPlayedAt: number | null;
+  /** Netflix : épisodes de chaque saison de la série (rapprochement des saisons, comme en lecture) */
+  platformSeasons?: number[];
 }
 
 export interface HistoryStats {
@@ -36,6 +39,8 @@ export interface HistoryStats {
   pages: number;
   /** Limite de pages atteinte ou trop de saisons : l'historique le plus ancien n'a pas été lu */
   partial: boolean;
+  /** Netflix : titres écartés avant l'analyse (pas des animes d'après AniList, ou métadonnées introuvables) */
+  ignored?: number;
 }
 
 export interface CrHistoryResult {
@@ -95,12 +100,13 @@ export function isHistorySeason(value: unknown): value is HistorySeason {
     isPositive(value.episodeNumber) &&
     (value.seasonEpisodeNumber === null || isPositive(value.seasonEpisodeNumber)) &&
     isPositive(value.watchedCount) &&
-    (value.lastPlayedAt === null || (typeof value.lastPlayedAt === 'number' && Number.isFinite(value.lastPlayedAt)))
+    (value.lastPlayedAt === null || (typeof value.lastPlayedAt === 'number' && Number.isFinite(value.lastPlayedAt))) &&
+    (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons))
   );
 }
 
 export function isHistoryStats(value: unknown): value is HistoryStats {
-  return isRecord(value) && isCount(value.items) && isCount(value.pages) && typeof value.partial === 'boolean';
+  return isRecord(value) && isCount(value.items) && isCount(value.pages) && typeof value.partial === 'boolean' && (value.ignored === undefined || isCount(value.ignored));
 }
 
 export function isCrHistoryResult(value: unknown): value is CrHistoryResult {

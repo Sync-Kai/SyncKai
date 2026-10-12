@@ -15,11 +15,12 @@ describe('normalizeSettings', () => {
       completionPercentage: 90,
       notificationLevel: 'detailed',
       preferredPlayer: 'adn',
+      entryService: 'mal',
       ratingPrompt: false,
       airingAlerts: false,
       airingDelayHours: 3,
       language: 'de',
-      platformOffsets: { crunchyroll: 30, adn: -15, netflix: 90 },
+      platformOffsets: { crunchyroll: 30, adn: -15, netflix: 90, disney: 60 },
       seriesOffsets: { '21': { minutes: 120, at: 5 } },
       panelDefaultTab: 'agenda',
       panelLiveProgress: false,
@@ -39,9 +40,9 @@ describe('normalizeSettings', () => {
   });
 
   it('borne et arrondit les délais de plateforme, rejette les valeurs invalides', () => {
-    expect(normalizeSettings({ platformOffsets: { crunchyroll: 99_999, adn: -5000, netflix: 7.4 } }).platformOffsets).toEqual({ crunchyroll: 10080, adn: -1440, netflix: 7 });
-    expect(normalizeSettings({ platformOffsets: { crunchyroll: 12.6, adn: 'tard' } }).platformOffsets).toEqual({ crunchyroll: 13, adn: 60, netflix: 60 });
-    expect(normalizeSettings({ platformOffsets: [1, 2] }).platformOffsets).toEqual({ crunchyroll: 60, adn: 60, netflix: 60 });
+    expect(normalizeSettings({ platformOffsets: { crunchyroll: 99_999, adn: -5000, netflix: 7.4 } }).platformOffsets).toEqual({ crunchyroll: 10080, adn: -1440, netflix: 7, disney: 60 });
+    expect(normalizeSettings({ platformOffsets: { crunchyroll: 12.6, adn: 'tard' } }).platformOffsets).toEqual({ crunchyroll: 13, adn: 60, netflix: 60, disney: 60 });
+    expect(normalizeSettings({ platformOffsets: [1, 2] }).platformOffsets).toEqual({ crunchyroll: 60, adn: 60, netflix: 60, disney: 60 });
   });
 
   it('ne garde que les délais de série valides', () => {
@@ -117,6 +118,18 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings({ panelDefaultTab: 'settings', panelLiveProgress: 'oui' })).toMatchObject({ panelDefaultTab: 'last', panelLiveProgress: true });
     expect(normalizeSettings({ panelDefaultTab: 'nowPlaying' }).panelDefaultTab).toBe('nowPlaying');
     expect(normalizeSettings({ panelLiveProgress: false }).panelLiveProgress).toBe(false);
+  });
+});
+
+describe('normalizeSettings › fiche ouverte par défaut', () => {
+  it('réglages antérieurs (sans le champ) : AniList', () => {
+    expect(normalizeSettings({ autoSync: false, preferredPlayer: 'adn' }).entryService).toBe('anilist');
+  });
+
+  it('conserve MyAnimeList, rejette un service inconnu', () => {
+    expect(normalizeSettings({ entryService: 'mal' }).entryService).toBe('mal');
+    expect(normalizeSettings({ entryService: 'kitsu' }).entryService).toBe('anilist');
+    expect(normalizeSettings({ entryService: 42 }).entryService).toBe('anilist');
   });
 });
 

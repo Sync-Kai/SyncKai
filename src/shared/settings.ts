@@ -1,6 +1,7 @@
 import { AIRING_DELAYS, type AiringDelayHours } from './engagement.types';
 import { isRecord } from './guards';
-import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platforms';
+import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
+import { TRACKER_IDS, type TrackerId } from './tracker.types';
 
 export type CompletionTrigger = 'credits' | 'percentage';
 
@@ -31,6 +32,8 @@ export interface SyncSettings {
   notificationLevel: NotificationLevel;
   /** Plateforme ouverte par « Ouvrir » quand l'anime est disponible sur plusieurs plateformes */
   preferredPlayer: StreamingPlatform;
+  /** Fiche ouverte au clic sur un titre ou une jaquette quand les deux comptes sont connectés */
+  entryService: TrackerId;
   /** Proposer une note quand une série passe en Terminé */
   ratingPrompt: boolean;
   /** Notifications Chrome à la sortie d'un nouvel épisode d'une série en cours */
@@ -67,6 +70,7 @@ export const DEFAULT_SETTINGS: SyncSettings = {
   completionPercentage: 85,
   notificationLevel: 'discreet',
   preferredPlayer: 'crunchyroll',
+  entryService: 'anilist',
   ratingPrompt: true,
   airingAlerts: true,
   airingDelayHours: 0,
@@ -85,7 +89,16 @@ export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
  * pour choisir un lien (popup, panneau, agenda, notifications) ou l'afficher (Réglages).
  */
 export function effectivePlayer(preferred: StreamingPlatform, netflixGranted: boolean | undefined): StreamingPlatform {
-  return preferred === 'netflix' && netflixGranted !== true ? DEFAULT_SETTINGS.preferredPlayer : preferred;
+  if (preferred === 'netflix') return netflixGranted === true ? preferred : DEFAULT_SETTINGS.preferredPlayer;
+  return isPreferredPlayerOption(preferred) ? preferred : DEFAULT_SETTINGS.preferredPlayer;
+}
+
+/**
+ * Plateforme proposable comme lecteur préféré. Disney+ ne l'est pas : ses liens AniList (anciennes pages /series/…,
+ * pages /browse/entity-…) ne sont pas fiables pour « Ouvrir » en priorité ; il reste ouvert en repli (seul lien connu).
+ */
+export function isPreferredPlayerOption(platform: StreamingPlatform): boolean {
+  return platform !== 'disney';
 }
 
 const SETTINGS_KEY = 'settings';
@@ -166,6 +179,8 @@ export function normalizeSettings(raw: unknown): SyncSettings {
     completionPercentage: percentage,
     notificationLevel,
     preferredPlayer: STREAMING_PLATFORMS.find((p) => p === value.preferredPlayer) ?? DEFAULT_SETTINGS.preferredPlayer,
+    // Réglage récent : absent des réglages plus anciens → AniList
+    entryService: TRACKER_IDS.find((service) => service === value.entryService) ?? DEFAULT_SETTINGS.entryService,
     ratingPrompt: typeof value.ratingPrompt === 'boolean' ? value.ratingPrompt : DEFAULT_SETTINGS.ratingPrompt,
     airingAlerts: typeof value.airingAlerts === 'boolean' ? value.airingAlerts : DEFAULT_SETTINGS.airingAlerts,
     airingDelayHours: AIRING_DELAYS.find((d) => d === value.airingDelayHours) ?? DEFAULT_SETTINGS.airingDelayHours,

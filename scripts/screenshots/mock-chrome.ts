@@ -48,11 +48,6 @@ export interface ChromeMockOptions {
   /** chrome.permissions simulé ; absent = API absente (accès considéré comme accordé par le popup) */
   permissions?: PermissionsMock;
   manifest?: ManifestExtras;
-  /**
-   * Clé sessionStorage : le stockage y est recopié à chaque écriture et relu à l'installation.
-   * Il survit ainsi au rechargement du popup (changement de langue) ; l'appelant efface la clé pour repartir des données de démo.
-   */
-  persistKey?: string;
   /** Contenu initial de chrome.storage.session (absent = zone vide) */
   session?: StorageItems;
   /** Port ouvert par chrome.tabs.connect (script de contenu simulé) ; absent = connexion refusée */
@@ -63,6 +58,10 @@ export interface ChromeMockOptions {
   onCreateTab?: (url: string) => void;
   /** Expose chrome.sidePanel (le panneau latéral se croit sur Chrome) */
   sidePanel?: boolean;
+  /** Appelé à chaque chrome.sidePanel.open (tests : ouvertures demandées) */
+  onOpenSidePanel?: (options: chrome.sidePanel.OpenOptions) => void;
+  /** Touches renvoyées par chrome.commands.getAll ('' : non définie) ; absent = Alt+Shift+K et Alt+Shift+1 */
+  shortcuts?: { episode: string; panel: string };
 }
 
 /** Événements d'onglet déclenchés par les tests (navigation, fin de chargement) */
@@ -113,41 +112,22 @@ function pick(store: Map<string, unknown>, keys: unknown): StorageItems {
   return {};
 }
 
-/** Stockage conservé par un chargement précédent de la page, null s'il n'y en a pas (ou s'il est illisible) */
-function restoreStorage(key: string): StorageItems | null {
-  try {
-    const raw = sessionStorage.getItem(key);
-    const parsed: unknown = raw ? JSON.parse(raw) : null;
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as StorageItems) : null;
-  } catch {
-    return null;
-  }
-}
-
 export function installChromeMock(options: ChromeMockOptions): ChromeMockControls {
-  const { persistKey } = options;
-  const initial = (persistKey ? restoreStorage(persistKey) : null) ?? clone(options.storage);
-  const store = new Map<string, unknown>(Object.entries(initial));
+  const store = new Map<string, unknown>(Object.entries(clone(options.storage)));
   const listeners = new Set<ChangeListener>();
   const noop = (): void => undefined;
   const event = { addListener: noop, removeListener: noop, hasListener: () => false };
   type TabUpdatedListener = (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => void;
   const tabUpdatedListeners = new Set<TabUpdatedListener>();
 
-  const persist = (): void => {
-    if (persistKey) sessionStorage.setItem(persistKey, JSON.stringify(Object.fromEntries(store)));
-  };
-  persist();
-
   /** Écouteurs propres à une zone (chrome.storage.local.onChanged / session.onChanged) */
   type AreaListener = (changes: StorageChanges) => void;
   const areaListeners = { local: new Set<AreaListener>(), session: new Set<AreaListener>() };
 
   const emitFor =
-    (area: 'local' | 'session', save: boolean) =>
+    (area: 'local' | 'session') =>
     (changes: StorageChanges): void => {
       if (Object.keys(changes).length === 0) return;
-      if (save) persist();
       // Asynchrone, comme dans Chrome
       queueMicrotask(() => {
         areaListeners[area].forEach((listener) => listener(changes));
@@ -184,8 +164,8 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
     },
   });
 
-  const local = storageArea(store, emitFor('local', true), areaListeners.local);
-  const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session', false), areaListeners.session);
+  const local = storageArea(store, emitFor('local'), areaListeners.local);
+  const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session'), areaListeners.session);
 
   const access = options.permissions;
   const optional = new Set(access?.optional ?? []);
@@ -240,15 +220,21 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
       onMessage: event,
     },
     i18n: { getUILanguage: () => options.locale },
-    commands: { getAll: () => Promise.resolve([{ name: 'complete-episode', shortcut: 'Alt+Shift+S', description: '' }]) },
+    commands: {
+      getAll: () =>
+        Promise.resolve([
+          { name: 'complete-episode', shortcut: options.shortcuts?.episode ?? 'Alt+Shift+K', description: '' },
+          { name: 'open-side-panel', shortcut: options.shortcuts?.panel ?? 'Alt+Shift+1', description: '' },
+        ]),
+    },
     tabs: {
       create: (info: { url?: string }) => {
         options.onCreateTab?.(info.url ?? '');
         return Promise.resolve({});
       },
       // Onglet actif fictif : sa page (Crunchyroll / ADN) est décrite par `tabMessage`
-      query: () => Promise.resolve([{ id: 1, active: true, status: 'complete', ...options.tab }]),
-      get: (id: number) => Promise.resolve({ id, active: true, status: 'complete', ...options.tab }),
+      query: () => Promise.resolve([{ id: 1, windowId: 1, active: true, status: 'complete', ...options.tab }]),
+      get: (id: number) => Promise.resolve({ id, windowId: 1, active: true, status: 'complete', ...options.tab }),
       update: () => Promise.resolve({}),
       sendMessage: (_tabId: number, message: unknown) => Promise.resolve(clone(options.tabMessage?.(message))),
       connect: (tabId: number, info?: { name?: string }) => {
@@ -269,7 +255,17 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
       setBadgeTextColor: () => Promise.resolve(),
     },
     ...(permissions ? { permissions } : {}),
-    ...(options.sidePanel ? { sidePanel: { open: () => Promise.resolve(), setOptions: () => Promise.resolve() } } : {}),
+    ...(options.sidePanel
+      ? {
+          sidePanel: {
+            open: (openOptions: chrome.sidePanel.OpenOptions) => {
+              options.onOpenSidePanel?.(openOptions);
+              return Promise.resolve();
+            },
+            setOptions: () => Promise.resolve(),
+          },
+        }
+      : {}),
   };
 
   // Seules les méthodes réellement appelées par les vues sont simulées

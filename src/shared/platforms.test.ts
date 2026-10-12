@@ -19,7 +19,7 @@ const BRAND_FILES = Object.keys(import.meta.glob('/public/brands/*', { query: '?
 describe('registre des plateformes', () => {
   it('un descripteur par plateforme, dans l’ordre de STREAMING_PLATFORMS', () => {
     expect(Object.keys(PLATFORMS)).toEqual([...STREAMING_PLATFORMS]);
-    expect(STREAMING_PLATFORMS).toEqual(['crunchyroll', 'adn', 'netflix']);
+    expect(STREAMING_PLATFORMS).toEqual(['crunchyroll', 'adn', 'netflix', 'disney']);
   });
 
   it('isStreamingPlatform suit le registre', () => {
@@ -28,7 +28,7 @@ describe('registre des plateformes', () => {
   });
 
   it('libellés et logos embarqués', () => {
-    expect(PLATFORM_LABELS).toEqual({ crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix' });
+    expect(PLATFORM_LABELS).toEqual({ crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix', disney: 'Disney+' });
     for (const platform of STREAMING_PLATFORMS) {
       const { icon, label } = PLATFORMS[platform];
       expect(PLATFORM_LABELS[platform]).toBe(label);
@@ -45,10 +45,10 @@ describe('registre des plateformes', () => {
     }
   });
 
-  it('Netflix : catalogue généraliste (lien AniList requis, jamais proposé en recherche, accès optionnel)', () => {
-    expect(STREAMING_PLATFORMS.filter((p) => PLATFORMS[p].linkRequired)).toEqual(['netflix']);
-    expect(STREAMING_PLATFORMS.filter((p) => !PLATFORMS[p].searchable)).toEqual(['netflix']);
-    expect(STREAMING_PLATFORMS.filter(isOptionalPlatform)).toEqual(['netflix']);
+  it('Netflix, Disney+ : catalogues généralistes (lien AniList requis, jamais proposés en recherche, accès optionnel)', () => {
+    expect(STREAMING_PLATFORMS.filter((p) => PLATFORMS[p].linkRequired)).toEqual(['netflix', 'disney']);
+    expect(STREAMING_PLATFORMS.filter((p) => !PLATFORMS[p].searchable)).toEqual(['netflix', 'disney']);
+    expect(STREAMING_PLATFORMS.filter(isOptionalPlatform)).toEqual(['netflix', 'disney']);
   });
 });
 
@@ -63,6 +63,8 @@ describe('hôtes', () => {
     ['www.animationdigitalnetwork.de', 'adn'],
     ['netflix.com', 'netflix'],
     ['www.netflix.com', 'netflix'],
+    ['disneyplus.com', 'disney'],
+    ['www.disneyplus.com', 'disney'],
   ])('%s → %s', (host, platform) => {
     expect(platformFromHost(host)).toBe(platform);
     expect(PLATFORMS[platform].matchesHost(host)).toBe(true);
@@ -78,6 +80,9 @@ describe('hôtes', () => {
     'animationdigitalnetwork.es',
     'notnetflix.com',
     'netflix.com.evil.example',
+    'notdisneyplus.com',
+    'disneyplus.com.evil.example',
+    'disney.com',
     'netflix.co',
     'anilist.co',
     '',
@@ -109,8 +114,18 @@ describe('URL de série et de recherche', () => {
     expect(seriesUrl('8140x', null)).toBeNull();
   });
 
+  it('Disney+ : page /browse/entity-{uuid}, identifiant en minuscules', () => {
+    const { seriesUrl, seriesIdInPath } = PLATFORMS.disney;
+    expect(seriesUrl('5E2C1A3B-0000-4000-8000-0123456789AB', null)).toBe('https://www.disneyplus.com/browse/entity-5e2c1a3b-0000-4000-8000-0123456789ab');
+    expect(seriesUrl('1234', null)).toBeNull();
+    expect(seriesUrl(null, null)).toBeNull();
+    expect(seriesIdInPath.exec('/fr-fr/browse/entity-5e2c1a3b-0000-4000-8000-0123456789ab')?.[1]).toBe('5e2c1a3b-0000-4000-8000-0123456789ab');
+    // Ancien lien AniList : pas d'identifiant de série exploitable
+    expect(seriesIdInPath.exec('/series/undead-unluck/2Sfd2YX6Ce6O')).toBeNull();
+  });
+
   it('URL de série reconnues par seriesIdInPath et par l’hôte', () => {
-    const ids: Record<StreamingPlatform, string> = { crunchyroll: 'GRMG8ZQZR', adn: '1234', netflix: '81402901' };
+    const ids: Record<StreamingPlatform, string> = { crunchyroll: 'GRMG8ZQZR', adn: '1234', netflix: '81402901', disney: '5e2c1a3b-0000-4000-8000-0123456789ab' };
     for (const platform of STREAMING_PLATFORMS) {
       const url = new URL(PLATFORMS[platform].seriesUrl(ids[platform], 'slug') ?? '');
       expect(platformFromHost(url.hostname)).toBe(platform);
@@ -122,6 +137,7 @@ describe('URL de série et de recherche', () => {
     expect(PLATFORMS.crunchyroll.searchUrl('One%20Piece')).toBe('https://www.crunchyroll.com/search?q=One%20Piece');
     expect(PLATFORMS.adn.searchUrl('Frieren')).toBe('https://animationdigitalnetwork.com/video?search=Frieren');
     expect(PLATFORMS.netflix.searchUrl('Frieren')).toBe('https://www.netflix.com/search?q=Frieren');
+    expect(PLATFORMS.disney.searchUrl('Ishura')).toBe('https://www.disneyplus.com/search?q=Ishura');
   });
 });
 
@@ -141,6 +157,6 @@ describe('manifeste', () => {
 
 describe('platformRecord', () => {
   it('Record complet, une valeur par plateforme', () => {
-    expect(platformRecord((platform) => platform.length)).toEqual({ crunchyroll: 11, adn: 3, netflix: 7 });
+    expect(platformRecord((platform) => platform.length)).toEqual({ crunchyroll: 11, adn: 3, netflix: 7, disney: 6 });
   });
 });

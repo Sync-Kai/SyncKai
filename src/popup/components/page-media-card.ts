@@ -1,7 +1,9 @@
 import { t } from '../../i18n';
+import { entryLink, type EntryLinkContext } from '../../shared/entry-link';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { h, nodes, type Child } from '../../ui/dom';
+import { entryCover, entryTitle } from '../../ui/entry-link';
 import { icon } from '../../ui/icons';
 import { renderMediaActions, type MediaActionHandlers } from '../../ui/media-actions';
 import { mediaMetaParts } from '../../ui/page-media-view';
@@ -18,7 +20,11 @@ import { serviceIcon } from '../../ui/brand-icons';
 export interface PageMediaCardProps extends MediaActionHandlers {
   card: PageCardState;
   now: number;
+  /** Comptes connectés et fiche préférée : lien du titre et de la jaquette */
+  entryLinks: EntryLinkContext;
   onRetry: () => void;
+  /** Commentaire de l'entrée (éditeur repliable partagé avec le panneau), sous la note ; null sans compte connecté */
+  notesFor: (view: PageMediaView, refreshing: boolean) => HTMLElement | null;
 }
 
 const CARD_CLASS = 'flex shrink-0 flex-col gap-2 rounded-card bg-raised p-3 shadow-pop';
@@ -106,6 +112,7 @@ function renderReady(view: PageMediaView, refreshing: boolean, props: PageMediaC
   const { actions } = card;
   const { media } = view;
   const meta = mediaMetaParts(view);
+  const site = entryLink({ mediaId: media.mediaId, malId: media.idMal }, props.entryLinks);
 
   return h(
     'section',
@@ -113,17 +120,18 @@ function renderReady(view: PageMediaView, refreshing: boolean, props: PageMediaC
     h(
       'div',
       { class: 'flex gap-3' },
-      renderCover(media.title, media.coverUrl, 'h-[78px] w-14', 'text-[16px]'),
+      entryCover(site, renderCover(media.title, media.coverUrl, 'h-[78px] w-14', 'text-[16px]'), 'self-start'),
       h(
         'div',
         { class: 'flex min-w-0 flex-1 flex-col gap-1' },
         cardHeader(renderLinks(view)),
-        h('span', { class: 'line-clamp-2 text-[14px] leading-[18px] font-bold break-words', attrs: { title: media.title } }, media.title),
+        h('span', { class: 'line-clamp-2 text-[14px] leading-[18px] font-bold break-words', attrs: { title: media.title } }, entryTitle(site, media.title, 'page-entry')),
         meta.length > 0 && h('span', { class: 'truncate text-[11px] font-semibold text-muted', attrs: { title: meta.join(' · ') } }, meta.join(' · ')),
         renderAiring(view, now),
       ),
     ),
     ...nodes(renderMediaActions({ view, state: actions, refreshing, handlers: props, lines: 'auto' })),
+    props.notesFor(view, refreshing),
   );
 }
 

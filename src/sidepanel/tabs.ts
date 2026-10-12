@@ -44,3 +44,23 @@ export function initialPanelTab(setting: PanelDefaultTab, lastTab: unknown): Pan
   if (setting !== 'last') return setting;
   return isPanelTab(lastTab) ? lastTab : PANEL_TABS[0];
 }
+
+/**
+ * Onglet affiché selon la page suivie. `auto` : l'Agenda a été choisi par le panneau (page hors streaming), pas par
+ * l'utilisateur ; « En lecture » revient alors dès que l'onglet suivi redevient une page de streaming.
+ */
+export interface TabSelection {
+  tab: PanelTab;
+  auto: boolean;
+}
+
+/**
+ * Passage sur une page de streaming (`target`) ou ailleurs, appelé seulement quand ce statut change :
+ * - hors streaming, « En lecture » n'a rien à montrer : Agenda (choix automatique) ;
+ * - de retour sur une page de streaming, « En lecture » revient si l'Agenda avait été choisi automatiquement ;
+ * - un onglet choisi par l'utilisateur (ou par le réglage « Onglet à l'ouverture ») n'est jamais changé autrement.
+ */
+export function followPageContext(current: TabSelection, target: boolean): TabSelection {
+  if (!target) return current.tab === 'nowPlaying' ? { tab: 'agenda', auto: true } : current;
+  return current.auto ? { tab: 'nowPlaying', auto: false } : current;
+}

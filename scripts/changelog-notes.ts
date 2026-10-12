@@ -32,7 +32,7 @@ export function extractReleaseNotes(changelog: string, version: string): Release
   const lines = changelog.replace(/\r\n?/g, '\n').split('\n');
   const start = lines.findIndex((line) => VERSION_HEADING.exec(line)?.[1] === version);
   if (start === -1) {
-    throw new Error(`Section « ## [${version}] » introuvable dans CHANGELOG.md.`);
+    throw new Error(`Section "## [${version}]" not found in CHANGELOG.md.`);
   }
 
   const bodyLines: string[] = [];
@@ -49,22 +49,22 @@ export function extractReleaseNotes(changelog: string, version: string): Release
 
   const body = bodyLines.join('\n').trim();
   if (body === '') {
-    throw new Error(`Section « ## [${version}] » vide dans CHANGELOG.md.`);
+    throw new Error(`Section "## [${version}]" is empty in CHANGELOG.md.`);
   }
   return { body, previousVersion };
 }
 
-/** Notes prêtes pour une release GitHub : corps + lien « Changelog complet ». */
+/** Notes prêtes pour une release GitHub : corps + lien « Full changelog ». */
 export function formatReleaseNotes(notes: ReleaseNotes, version: string): string {
   if (notes.previousVersion === null) return `${notes.body}\n`;
   const compare = `${REPO_URL}/compare/v${notes.previousVersion}...v${version}`;
-  return `${notes.body}\n\n**Changelog complet** : ${compare}\n`;
+  return `${notes.body}\n\n**Full changelog**: ${compare}\n`;
 }
 
 function main(): void {
   const version = process.argv[2]?.replace(/^v/, '');
   if (!version) {
-    console.error('✖ Usage : node scripts/changelog-notes.ts <version>');
+    console.error('✖ Usage: node scripts/changelog-notes.ts <version>');
     process.exit(1);
   }
 

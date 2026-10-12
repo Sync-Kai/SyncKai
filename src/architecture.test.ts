@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDGES, type Edge } from './test/import-graph';
+import { EDGES, layerFiles, reachableFrom, type Edge } from './test/import-graph';
 
 // Frontières des modules (voir CLAUDE.md › « Frontières des modules ») : graphe des imports relatifs de src/, tests
 // compris (src/test/import-graph.ts).
@@ -63,8 +63,38 @@ describe('frontières des modules', () => {
     expect(violations('content', ['background'])).toEqual([]);
   });
 
-  it('background/ ne dépend du contenu que pour les scripts Netflix enregistrés (`?script`)', () => {
-    const netflixScripts = (e: Edge): boolean => e.from === 'background/netflix-access.ts' && e.spec.endsWith('.iife.ts?script');
-    expect(violations('background', ['content'], netflixScripts)).toEqual([]);
+  it('background/ ne dépend du contenu que pour les scripts enregistrés de Netflix et Disney+ (`?script`)', () => {
+    const registeredScripts = (e: Edge): boolean => e.from === 'background/platform-access.ts' && e.spec.endsWith('.iife.ts?script');
+    expect(violations('background', ['content'], registeredScripts)).toEqual([]);
+  });
+});
+
+describe('scripts de contenu légers (PERF-01)', () => {
+  /** Modules réellement embarqués par les scripts de contenu (Crunchyroll, ADN, Netflix, Disney+) : imports de valeurs seuls */
+  const contentModules = reachableFrom(layerFiles('content'), { valuesOnly: true });
+
+  it('aucun module réservé au service worker ni aux pages de l’extension', () => {
+    const heavy = [
+      // Gardes des payloads de tous les messages (et leurs dépendances : import, comparaison, agenda)
+      'background/message-guards.ts',
+      'shared/agenda.ts',
+      'shared/compare.ts',
+      'shared/cr-import.ts',
+      // Réduction de l'historique ADN : faite dans la page d'import, le script de contenu ne lit que l'API
+      'shared/adn-import.ts',
+      // Icônes et grand dessin de Kai (kai-small.ts suffit à la bulle)
+      'ui/icons.ts',
+      // Écritures des exclusions et rapprochement des liens (exclusions-core.ts suffit à la lecture)
+      'shared/exclusions.ts',
+      'shared/platform-links.ts',
+      // Descripteurs des plateformes (logos, hôtes, liens) : platform-ids.ts suffit
+      'shared/platforms.ts',
+    ];
+    expect(contentModules.has('shared/messages.ts')).toBe(true);
+    expect(heavy.filter((path) => contentModules.has(path))).toEqual([]);
+  });
+
+  it('shared/messages.ts n’importe que des types (sendMessage seul y est du code)', () => {
+    expect(edges.filter((e) => e.from === 'shared/messages.ts' && !e.typeOnly).map(describeEdge)).toEqual([]);
   });
 });

@@ -1,23 +1,46 @@
 /**
  * Contrôles du paquet construit (dist/ ou dist-firefox/), lancés par scripts/verify-build.ts après le build.
  * Fonctions pures (aucun accès disque), testées par build-checks.test.ts. Elles couvrent les pièges propres au
- * build que les tests sur les sources ne voient pas : chargeurs crxjs, `web_accessible_resources`, IIFE Netflix,
+ * build que les tests sur les sources ne voient pas : chargeurs crxjs, `web_accessible_resources`, IIFE Netflix et Disney+,
  * permissions réellement livrées, poids des scripts de contenu.
  */
 import { posix } from 'node:path';
+import { FIREFOX_PANEL_COMMAND, firefoxMenuKeyConflicts, SOURCE_PANEL_COMMAND, type BuildTarget, type ManifestCommand } from '../src/build/manifest-target.ts';
 
-/** Netflix : accès optionnel uniquement (voir src/shared/target-pages.ts › NETFLIX_MATCHES) */
+/** Netflix : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
 export const NETFLIX_PATTERN = '*://*.netflix.com/*';
+/** Disney+ : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
+export const DISNEY_PATTERN = '*://*.disneyplus.com/*';
+
+/** Plateformes à accès optionnel : dossier de leurs scripts enregistrés (`src/content/{dossier}/*.iife.js`), libellé, motif */
+export const OPTIONAL_PLATFORMS: readonly { dir: string; label: string; pattern: string }[] = [
+  { dir: 'netflix', label: 'Netflix', pattern: NETFLIX_PATTERN },
+  { dir: 'disney', label: 'Disney+', pattern: DISNEY_PATTERN },
+];
 
 /**
  * Budget du script de contenu Crunchyroll / ADN : chargeur + tous les chunks qu'il charge (imports statiques et
- * dynamiques). Mesuré à 128,8 Ko au 2026-10-11, avec les seules clés i18n du contenu (src/i18n/content-keys.ts,
- * PERF-01 ; 267 Ko avec les catalogues complets) : ~10 % de marge.
+ * dynamiques). Mesuré à 75,6 Ko au 2026-10-11 (PERF-01 : 267 Ko avec les catalogues i18n complets, 129,5 Ko avec
+ * les seules clés du contenu, puis gardes des messages, icônes, écritures des exclusions et descripteurs des plateformes
+ * sortis du graphe du contenu, voir architecture.test.ts) : ~10 % de marge.
  */
-export const CONTENT_SCRIPT_BUDGET_BYTES = 142 * 1024;
+export const CONTENT_SCRIPT_BUDGET_BYTES = 83 * 1024;
 
-/** Budget des deux scripts Netflix (IIFE autonomes, clés i18n du contenu comprises) : 69,5 Ko mesurés au 2026-10-11, ~10 % de marge */
-export const NETFLIX_SCRIPTS_BUDGET_BYTES = 77 * 1024;
+/** Budget des deux scripts Netflix (IIFE autonomes, clés i18n du contenu comprises) : 59,4 Ko mesurés au 2026-10-11, ~10 % de marge */
+export const NETFLIX_SCRIPTS_BUDGET_BYTES = 65 * 1024;
+
+/**
+ * Budget des deux scripts Disney+ (IIFE autonomes, clés i18n du contenu comprises) : 70,0 Ko mesurés au 2026-10-11
+ * (lecture, pages de série, générique de fin), ~7 % de marge. Relevé de 70 à 75 Ko le 2026-10-11 : trois fonctions
+ * portées par un seul script ; au-delà, alléger (code des pages de série ou du pont) plutôt que relever encore.
+ */
+export const DISNEY_SCRIPTS_BUDGET_BYTES = 75 * 1024;
+
+/** Plateforme (dossier) d'un script enregistré `src/content/{dossier}/….iife.js`, null sinon */
+export function registeredScriptPlatform(file: string): string | null {
+  const dir = /^src\/content\/([a-z0-9-]+)\/[^/]+\.iife\.js$/.exec(file)?.[1];
+  return OPTIONAL_PLATFORMS.find((platform) => platform.dir === dir)?.dir ?? null;
+}
 
 /** Champs du manifeste généré lus par les contrôles */
 export interface BuiltManifest {
@@ -37,6 +60,46 @@ export interface BuiltManifest {
   options_page?: string;
   options_ui?: { page?: string };
   content_security_policy?: { extension_pages?: string };
+  commands?: Record<string, ManifestCommand>;
+}
+
+/** Chrome refuse de charger une extension qui suggère plus de 4 raccourcis */
+export const MAX_SUGGESTED_KEYS = 4;
+
+/**
+ * Commandes clavier : identiques au manifeste source adapté à la cible, au plus 4 touches suggérées, sans doublon par
+ * plateforme. Panneau : `open-side-panel` + `side_panel` sur Chrome (service worker), `_execute_sidebar_action` +
+ * `sidebar_action` sur Firefox (bascule native de la barre latérale), jamais l'une à la place de l'autre. Firefox : aucune
+ * touche suggérée sur une lettre d’accès de ses menus (Alt+Maj+S ouvrait Historique, Alt+Maj+P Profils, voir manifest-target.ts).
+ */
+export function checkCommands(built: BuiltManifest, expected: BuiltManifest, target: BuildTarget): string[] {
+  const errors: string[] = [];
+  const commands = built.commands ?? {};
+  const actual = JSON.stringify(commands);
+  const wanted = JSON.stringify(expected.commands ?? {});
+  if (actual !== wanted) errors.push(`commands : ${actual} ≠ manifeste source ${wanted}`);
+
+  const suggested = Object.entries(commands).filter(([, command]) => command.suggested_key !== undefined);
+  if (suggested.length > MAX_SUGGESTED_KEYS) errors.push(`commands : ${suggested.length} touches suggérées (Chrome en accepte ${MAX_SUGGESTED_KEYS} au plus)`);
+  const seen = new Map<string, string>();
+  for (const [name, command] of suggested) {
+    for (const [platform, key] of Object.entries(command.suggested_key ?? {})) {
+      const id = `${platform}:${key.toLowerCase()}`;
+      const other = seen.get(id);
+      if (other !== undefined) errors.push(`commands : ${key} (${platform}) suggérée pour ${other} et ${name}`);
+      seen.set(id, name);
+    }
+  }
+
+  const [wantedPanel, otherPanel] = target === 'firefox' ? [FIREFOX_PANEL_COMMAND, SOURCE_PANEL_COMMAND] : [SOURCE_PANEL_COMMAND, FIREFOX_PANEL_COMMAND];
+  if (!(wantedPanel in commands)) errors.push(`commands : ${wantedPanel} absente (raccourci du panneau latéral, ${target})`);
+  if (otherPanel in commands) errors.push(`commands : ${otherPanel} inattendue sur ${target}`);
+  const panelDeclared = target === 'firefox' ? built.sidebar_action !== undefined : built.side_panel !== undefined;
+  if (!panelDeclared) errors.push(`commands : ${wantedPanel} sans ${target === 'firefox' ? 'sidebar_action' : 'side_panel'}`);
+  if (target === 'firefox') {
+    for (const { command, key } of firefoxMenuKeyConflicts(commands)) errors.push(`commands : ${key} (${command}) ouvre un menu de Firefox (lettre d’accès)`);
+  }
+  return errors;
 }
 
 /** Champs d'accès comparés au manifeste source (après adaptation à la cible) */
@@ -71,8 +134,9 @@ function isAllSites(pattern: string): boolean {
 }
 
 /**
- * `web_accessible_resources` : aucune ressource exposée à tous les sites, aucun repère crxjs restant, et les deux
- * scripts Netflix (`*.iife.js`) exposés à Netflix seul, dans une entrée qui ne contient qu'eux.
+ * `web_accessible_resources` : aucune ressource exposée à tous les sites, aucun repère crxjs restant, et les scripts
+ * enregistrés de chaque plateforme optionnelle (`src/content/{netflix,disney}/*.iife.js`) exposés à cette seule
+ * plateforme, dans une entrée qui ne contient qu'eux.
  */
 export function checkWebAccessibleResources(manifest: BuiltManifest): string[] {
   const errors: string[] = [];
@@ -85,18 +149,28 @@ export function checkWebAccessibleResources(manifest: BuiltManifest): string[] {
     }
     const iife = entry.resources.filter(isIife);
     if (iife.length === 0) continue;
-    if (JSON.stringify(entry.matches ?? []) !== JSON.stringify([NETFLIX_PATTERN])) {
-      errors.push(`web_accessible_resources ${label} : scripts Netflix (${iife.join(', ')}) exposés hors de ${NETFLIX_PATTERN}`);
+    for (const platform of OPTIONAL_PLATFORMS) {
+      const own = iife.filter((file) => registeredScriptPlatform(file) === platform.dir);
+      if (own.length === 0) continue;
+      if (JSON.stringify(entry.matches ?? []) !== JSON.stringify([platform.pattern])) {
+        errors.push(`web_accessible_resources ${label} : scripts ${platform.label} (${own.join(', ')}) exposés hors de ${platform.pattern}`);
+      }
+      if (own.length !== entry.resources.length) errors.push(`web_accessible_resources ${label} : entrée ${platform.label} mêlée à d'autres ressources`);
     }
-    if (iife.length !== entry.resources.length) errors.push(`web_accessible_resources ${label} : entrée Netflix mêlée à d'autres ressources`);
+    const unknown = iife.filter((file) => registeredScriptPlatform(file) === null);
+    if (unknown.length > 0) errors.push(`web_accessible_resources ${label} : scripts sans plateforme connue (${unknown.join(', ')})`);
   }
-  if (!entries.some((entry) => entry.resources.some(isIife))) errors.push('web_accessible_resources : scripts Netflix (*.iife.js) absents');
+  for (const platform of OPTIONAL_PLATFORMS) {
+    if (!entries.some((entry) => entry.resources.some((file) => registeredScriptPlatform(file) === platform.dir))) {
+      errors.push(`web_accessible_resources : scripts ${platform.label} (*.iife.js) absents`);
+    }
+  }
   return errors;
 }
 
 /**
  * Permissions et motifs livrés identiques au manifeste source adapté à la cible (aucun ajout par le plugin),
- * Netflix en accès optionnel uniquement (jamais dans host_permissions ni content_scripts : Chrome désactiverait
+ * Netflix et Disney+ en accès optionnel uniquement (jamais dans host_permissions ni content_scripts : Chrome désactiverait
  * l'extension à la mise à jour).
  */
 export function checkAccessDeclarations(built: BuiltManifest, expected: BuiltManifest): string[] {
@@ -109,9 +183,11 @@ export function checkAccessDeclarations(built: BuiltManifest, expected: BuiltMan
   const matches = (manifest: BuiltManifest): string => JSON.stringify((manifest.content_scripts ?? []).map((script) => script.matches ?? []));
   if (matches(built) !== matches(expected)) errors.push(`content_scripts.matches : ${matches(built)} ≠ manifeste source ${matches(expected)}`);
 
-  if (built.host_permissions?.includes(NETFLIX_PATTERN)) errors.push(`${NETFLIX_PATTERN} dans host_permissions`);
-  if ((built.content_scripts ?? []).some((script) => script.matches?.includes(NETFLIX_PATTERN))) errors.push(`${NETFLIX_PATTERN} dans content_scripts`);
-  if (!built.optional_host_permissions?.includes(NETFLIX_PATTERN)) errors.push(`${NETFLIX_PATTERN} absent de optional_host_permissions`);
+  for (const { pattern } of OPTIONAL_PLATFORMS) {
+    if (built.host_permissions?.includes(pattern)) errors.push(`${pattern} dans host_permissions`);
+    if ((built.content_scripts ?? []).some((script) => script.matches?.includes(pattern))) errors.push(`${pattern} dans content_scripts`);
+    if (!built.optional_host_permissions?.includes(pattern)) errors.push(`${pattern} absent de optional_host_permissions`);
+  }
   return errors;
 }
 
@@ -127,7 +203,7 @@ export function checkContentSecurityPolicy(built: BuiltManifest, expected: Built
   return [];
 }
 
-/** Chemins du paquet cités dans des chaînes (`chrome.runtime.getURL("assets/…")`, scripts Netflix, pages) */
+/** Chemins du paquet cités dans des chaînes (`chrome.runtime.getURL("assets/…")`, scripts Netflix et Disney+, pages) */
 const PACKAGE_PATH = /(["'`])\/?((?:assets|src|icons|brands|_locales)\/[\w.@/-]*\.(?:js|css|html|json|png|svg|woff2?))\1/g;
 /** Imports relatifs ES (`from"./x.js"`, `import"./x.js"`, `import("./x.js")`) */
 const RELATIVE_IMPORT = /\b(?:from|import)\s*\(?\s*(["'`])(\.{1,2}\/[^"'`\s]+)\1/g;
