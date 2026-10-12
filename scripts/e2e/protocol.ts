@@ -13,6 +13,8 @@ export interface E2EState {
   clipboard: string[];
   /** URL de chaque onglet ouvert (chrome.tabs.create) */
   openedTabs: string[];
+  /** Fenêtre de chaque ouverture du panneau latéral (chrome.sidePanel.open, popup avec `panel=chrome`) */
+  sidePanelOpens?: (number | null)[];
 }
 
 declare global {
@@ -53,6 +55,8 @@ export interface FrameParams {
   viewer?: 'missing';
   /** `panel-unset` : raccourci du panneau latéral non défini (commands.getAll) */
   shortcuts?: 'panel-unset';
+  /** `chrome` : chrome.sidePanel exposé (bouton « Ouvrir le panneau ») ; onglet actif hors plateformes de streaming */
+  panel?: 'chrome';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */

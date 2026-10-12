@@ -2,10 +2,12 @@ import { isRecord } from './guards';
 import { SIDE_PANEL_PATH } from './target-pages';
 
 /**
- * Panneau latéral, deux API selon le navigateur :
- * - Chrome : `chrome.sidePanel`, désactivé globalement et activé onglet par onglet sur Crunchyroll / ADN ;
- * - Firefox : `sidebarAction` (barre latérale par fenêtre, impossible à masquer par onglet) : la page
- *   s'adapte à l'onglet actif et n'affiche qu'une ligne neutre hors Crunchyroll / ADN.
+ * Panneau latéral, deux API selon le navigateur, même comportement :
+ * - Chrome : `chrome.sidePanel`, un seul panneau global (aucune option par onglet) : il reste ouvert d'un onglet à
+ *   l'autre de sa fenêtre ;
+ * - Firefox : `sidebarAction` (barre latérale par fenêtre).
+ * Disponible sur toutes les pages, il ne s'ouvre jamais seul (menu du navigateur, raccourci, bouton du popup). La page
+ * suit l'onglet actif de sa fenêtre : « En lecture » sur les pages de streaming, Agenda par défaut ailleurs.
  */
 
 /** Sous-ensemble de `browser.sidebarAction` (Firefox), absent de @types/chrome */
@@ -45,33 +47,38 @@ export function sidePanelKind(): SidePanelKind | null {
   return null;
 }
 
+/** Fenêtre (de préférence) ou onglet où ouvrir le panneau : `sidePanel.open` exige l'un des deux */
+export interface PanelTarget {
+  windowId?: number;
+  tabId?: number;
+}
+
+/** Options d'ouverture de `chrome.sidePanel.open` : la fenêtre si connue, sinon l'onglet (panneau global ouvert dans sa fenêtre) */
+export function panelOpenOptions(target: PanelTarget): chrome.sidePanel.OpenOptions | null {
+  if (target.windowId !== undefined && target.windowId >= 0) return { windowId: target.windowId };
+  if (target.tabId !== undefined && target.tabId >= 0) return { tabId: target.tabId };
+  return null;
+}
+
 /**
- * Ouvre le panneau pour l'onglet. À appeler directement dans le gestionnaire du clic : `open()` exige
- * un geste utilisateur, perdu après un `await`. Sur Chrome, `setOptions` (non attendu) part avant `open`
- * dans la même file IPC : un onglet ouvert avant l'installation (script de contenu absent) est couvert.
+ * Ouvre le panneau. À appeler directement dans le gestionnaire du clic ou de la commande : `open()` exige un geste
+ * utilisateur, perdu après un `await`. Sur Chrome, `setOptions` global (non attendu) part avant `open` dans la même file
+ * IPC : le panneau est disponible même si l'activation de l'installation n'a pas encore eu lieu.
  */
-export function openSidePanel(tabId: number): Promise<void> {
+export function openSidePanel(target: PanelTarget): Promise<void> {
   const sidePanel = getChromeSidePanel();
   if (sidePanel) {
-    void sidePanel.setOptions({ tabId, path: SIDE_PANEL_PATH, enabled: true });
-    return sidePanel.open({ tabId });
+    const options = panelOpenOptions(target);
+    if (!options) return Promise.reject(new Error('Aucune fenêtre où ouvrir le panneau'));
+    void sidePanel.setOptions({ path: SIDE_PANEL_PATH, enabled: true }).catch(() => undefined);
+    return sidePanel.open(options);
   }
   const sidebar = getSidebarAction();
   if (sidebar) return sidebar.open();
   return Promise.reject(new Error('Panneau latéral indisponible dans ce navigateur'));
 }
 
-/** Chrome : panneau disponible pour cet onglet uniquement (reste actif pendant la navigation SPA de l'onglet) */
-export async function enableSidePanelForTab(tabId: number): Promise<void> {
-  await getChromeSidePanel()?.setOptions({ tabId, path: SIDE_PANEL_PATH, enabled: true });
-}
-
-/** Chrome : retire le panneau de cet onglet (le ferme s'il est ouvert) */
-export async function disableSidePanelForTab(tabId: number): Promise<void> {
-  await getChromeSidePanel()?.setOptions({ tabId, enabled: false });
-}
-
-/** Chrome : le panneau du manifeste (`side_panel.default_path`) n'est disponible sur aucun onglet par défaut */
-export async function disableSidePanelGlobally(): Promise<void> {
-  await getChromeSidePanel()?.setOptions({ enabled: false });
+/** Chrome : panneau du manifeste disponible sur tous les onglets (option globale, sans tabId) */
+export async function enableSidePanelGlobally(): Promise<void> {
+  await getChromeSidePanel()?.setOptions({ path: SIDE_PANEL_PATH, enabled: true });
 }

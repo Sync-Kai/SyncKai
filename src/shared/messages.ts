@@ -120,8 +120,6 @@ export interface MessageMap {
   APPLY_DIFFS: { payload: ApplyDiffsPayload; response: ApplyResult };
   /** « Arrêter » l'alignement en cours (la série en cours se termine) */
   CANCEL_COMPARE_JOB: { payload: null; response: CancelJobResult };
-  /** Chrome : script de contenu chargé sur Crunchyroll / ADN → panneau latéral activé pour cet onglet seulement */
-  PANEL_AVAILABLE: { payload: null; response: null };
   /** Panneau latéral › « En lecture » : fiche AniList complète (synopsis, genres, studio, relations), cache de session */
   GET_PANEL_MEDIA: { payload: { mediaId: number }; response: PanelMediaResult };
   /** Agenda (panneau latéral) : sorties d'une semaine, lues sur AniList quand le cache du panneau manque ou a expiré */

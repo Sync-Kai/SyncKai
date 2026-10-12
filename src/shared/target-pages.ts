@@ -2,7 +2,7 @@ import { OPTIONAL_PLATFORM_MATCHES, PLATFORMS } from './platforms';
 
 /**
  * Pages ciblées par SyncKai (Crunchyroll, ADN) : exactement les `matches` du script de contenu.
- * Sert à n'activer le panneau latéral et le bouton « Ouvrir le panneau » que sur ces pages.
+ * Sert au panneau latéral (disponible partout) à choisir entre « En lecture » et la ligne neutre hors de ces pages.
  */
 
 interface ManifestContentScripts {

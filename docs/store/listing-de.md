@@ -22,8 +22,8 @@ SyncKai hält deine Anime-Liste automatisch aktuell. Starte eine Folge auf Crunc
 Funktionen
 • Automatische Synchronisierung zu Beginn des Abspanns (Crunchyroll) oder bei einem einstellbaren Prozentsatz (70–98 %).
 • AniList und MyAnimeList, zusammen oder einzeln: Jedes Konto ist optional.
-• Seitenleiste auf Crunchyroll und ADN, Bereich „Läuft gerade“: der AniList-Eintrag der Folge (Genres, Studio, Durchschnittswertung), dein Live-Fortschritt („Sync in 2 Min. 10“), deine Aktionen, Fortsetzungen mit „Ansehen“-Button und ein Link zur Diskussion der Folge.
-• „Zeitplan“ in der Seitenleiste: die Folgen dieser Woche für deine laufenden Serien, mit geschätzter Uhrzeit auf Crunchyroll oder ADN (einstellbare Verzögerung, auch pro Serie) und abgehakten, bereits gesehenen Folgen.
+• Seitenleiste, auf jeder Seite über das Popup oder ein Tastenkürzel zu öffnen; Bereich „Läuft gerade“ auf den unterstützten Streaming-Seiten: der AniList-Eintrag der Folge (Genres, Studio, Durchschnittswertung), dein Live-Fortschritt („Sync in 2 Min. 10“), deine Aktionen, Fortsetzungen mit „Ansehen“-Button und ein Link zur Diskussion der Folge.
+• „Zeitplan“ in der Seitenleiste, auf jeder Seite: die Folgen dieser Woche für deine laufenden Serien, mit geschätzter Uhrzeit auf Crunchyroll oder ADN (einstellbare Verzögerung, auch pro Serie) und abgehakten, bereits gesehenen Folgen.
 • Import des Crunchyroll-, ADN- oder Netflix-Verlaufs (Einstellungen; Netflix: nur Animes): SyncKai liest deinen Verlauf in deinem Browser, zeigt dir eine Vorschau und aktualisiert dann AniList und MyAnimeList im Hintergrund. Nie rückwärts; im Zweifel eine Prüfung statt eines Eintrags.
 • Zuordnung der Staffeln, auch bei absoluter Nummerierung (z. B. One Piece) und bei Staffeln, die auf mehrere Einträge verteilt sind.
 • „Zu prüfen“: Ist eine Zuordnung unsicher, wählst du den richtigen Eintrag im Popup. Nichts wird blind gesendet.

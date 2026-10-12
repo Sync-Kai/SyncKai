@@ -25,7 +25,7 @@ import type { MessagePayload, MessageResponse, MessageType, RuntimeMessage } fro
 import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, type MessageOrigin } from './message-guards';
 import { createLogger } from '../shared/logger';
 import { describeFailedResponse } from './response-errors';
-import { enablePanelForSender, resetSidePanel, togglePanelFromCommand } from './side-panel';
+import { resetSidePanel, togglePanelFromCommand } from './side-panel';
 import { OPEN_SIDE_PANEL_COMMAND } from '../shared/commands';
 import { listenContentReinjection } from './content-reinjection';
 import { listenPlatformAccess } from './platform-access';
@@ -88,7 +88,6 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     COMPARE_LISTS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
     APPLY_DIFFS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
     CANCEL_COMPARE_JOB: { ok: false, code: 'NOT_FOUND', message },
-    PANEL_AVAILABLE: null,
     GET_PANEL_MEDIA: { ok: false, code: 'API_ERROR', message },
     GET_AGENDA: { ok: false, code: 'API_ERROR', message },
     CR_IMPORT_ANALYZE: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
@@ -154,7 +153,6 @@ const handlers: MessageHandlers = {
   COMPARE_LISTS: () => compareServiceLists(),
   APPLY_DIFFS: (payload) => applyDiffs(payload),
   CANCEL_COMPARE_JOB: () => cancelCompareJob(),
-  PANEL_AVAILABLE: (_payload, sender) => enablePanelForSender(sender),
   GET_PANEL_MEDIA: ({ mediaId }) => getPanelMedia(mediaId),
   GET_AGENDA: ({ weekStart }) => getAgendaWeek(weekStart),
   CR_IMPORT_ANALYZE: (payload) => startCrAnalyze(payload),
@@ -264,9 +262,9 @@ chrome.storage.local.onChanged.addListener((changes): void => {
 
 listenJobResume(afterI18n);
 
-// ─── Panneau latéral (Chrome) : indisponible hors Crunchyroll / ADN ───────
-// Activé onglet par onglet via PANEL_AVAILABLE (script de contenu) ou le bouton du popup.
-// Pas de tabs.onUpdated ici : sans filtre sur Chrome, il réveillerait le service worker à chaque navigation.
+// ─── Panneau latéral (Chrome) : disponible sur tous les onglets, ouvert seulement par l'utilisateur ───
+// Option globale (un seul panneau, partagé par les onglets de la fenêtre) ; la page du panneau suit elle-même l'onglet
+// actif. Pas de tabs.onUpdated ici : sans filtre sur Chrome, il réveillerait le service worker à chaque navigation.
 
 if (__SYNCKAI_TARGET__ === 'chrome') {
   chrome.runtime.onInstalled.addListener(resetSidePanel);

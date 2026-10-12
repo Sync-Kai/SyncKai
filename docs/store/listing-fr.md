@@ -22,8 +22,8 @@ SyncKai met à jour ta liste d'animes tout seul. Lance un épisode sur Crunchyro
 Fonctionnalités
 • Synchronisation automatique au début du générique (Crunchyroll) ou à un pourcentage réglable (70–98 %).
 • AniList et MyAnimeList, ensemble ou séparément : chaque compte est facultatif.
-• Panneau latéral sur Crunchyroll et ADN, onglet « En lecture » : la fiche AniList de l'épisode (genres, studio, note moyenne), ta progression en direct (« Synchro dans 2 min 10 »), tes actions, les suites avec un bouton « Regarder » et un lien vers la discussion de l'épisode.
-• « Agenda » dans le panneau latéral : les sorties de la semaine de tes séries en cours, avec l’heure estimée sur Crunchyroll ou ADN (délai réglable, par série si besoin) et les épisodes déjà vus cochés.
+• Panneau latéral, ouvert sur n'importe quelle page depuis le popup ou un raccourci ; onglet « En lecture » sur les sites de streaming pris en charge : la fiche AniList de l'épisode (genres, studio, note moyenne), ta progression en direct (« Synchro dans 2 min 10 »), tes actions, les suites avec un bouton « Regarder » et un lien vers la discussion de l'épisode.
+• « Agenda » dans le panneau latéral, sur toutes les pages : les sorties de la semaine de tes séries en cours, avec l’heure estimée sur Crunchyroll ou ADN (délai réglable, par série si besoin) et les épisodes déjà vus cochés.
 • Import de l'historique Crunchyroll, ADN ou Netflix (Réglages ; Netflix : animes seulement) : SyncKai lit ton historique dans ton navigateur, t'en montre un aperçu, puis met AniList et MyAnimeList à jour en tâche de fond. Jamais de recul ; au moindre doute, une vérification plutôt qu'une écriture.
 • Correspondance des saisons, y compris la numérotation absolue (ex. One Piece) et les saisons découpées en plusieurs fiches.
 • « À vérifier » : quand une correspondance est incertaine, tu choisis la bonne fiche depuis le popup. Rien n'est envoyé au hasard.

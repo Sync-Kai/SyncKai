@@ -1,12 +1,11 @@
 import { createLogger } from '../shared/logger';
-import { disableSidePanelForTab, type SidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
 import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from '../ui/page-media-request';
 
 const log = createLogger('sidepanel');
 
 /**
- * Onglet suivi par le panneau : Crunchyroll / ADN (contenu affiché) ou autre site (ligne neutre).
+ * Onglet suivi par le panneau : page de streaming reconnue (« En lecture ») ou autre site (Agenda par défaut).
  * Tout est fait ici, dans la page du panneau ouverte : le service worker n'écoute aucun événement d'onglet.
  */
 export type PanelContext = { status: 'checking' } | { status: 'target'; tabId: number } | { status: 'off' };
@@ -28,25 +27,30 @@ async function pingContentScript(tabId: number): Promise<boolean> {
   return (await requestPageMedia(tabId)) !== 'unreachable';
 }
 
-/** URL visible : réponse immédiate ; URL masquée : le script de contenu fait foi (mêmes essais que la fiche de la page) */
-async function isTargetTab(tab: chrome.tabs.Tab): Promise<boolean> {
+/**
+ * URL visible : réponse immédiate ; URL masquée : le script de contenu fait foi (mêmes essais que la fiche de la page).
+ * `onFirstMiss` : script muet au premier essai. URL masquée = presque toujours un site sans permission d'hôte (le panneau
+ * est disponible partout) : le panneau n'attend pas les essais suivants pour s'afficher.
+ */
+async function isTargetTab(tab: chrome.tabs.Tab, onFirstMiss: () => void): Promise<boolean> {
   const verdict = classifyTabUrl(tab.url ?? tab.pendingUrl);
   if (verdict !== 'unknown' || tab.id === undefined) return verdict === 'target';
-  for (const wait of PAGE_MEDIA_RETRY_DELAYS_MS) {
+  for (const [index, wait] of PAGE_MEDIA_RETRY_DELAYS_MS.entries()) {
     if (wait > 0) await delay(wait);
     if (await pingContentScript(tab.id)) return true;
+    if (index === 0) onFirstMiss();
   }
   return false;
 }
 
 /**
- * Suit l'onglet du panneau et signale son contexte.
- * - Chrome : panneau propre à un onglet. Hors Crunchyroll / ADN, il est retiré de l'onglet (ce qui le ferme).
- * - Firefox : barre latérale par fenêtre, impossible à masquer sans geste utilisateur : on suit l'onglet
- *   actif et la page n'affiche qu'une ligne neutre ailleurs.
+ * Suit l'onglet actif de la fenêtre du panneau et signale son contexte. Même règle sur Chrome (panneau global, partagé
+ * par les onglets de la fenêtre) et Firefox (barre latérale par fenêtre) : le panneau n'est jamais retiré ni fermé ici.
  */
-export async function watchPanelContext(kind: SidePanelKind, onChange: (context: PanelContext) => void): Promise<void> {
+export async function watchPanelContext(onChange: (context: PanelContext) => void): Promise<void> {
   let trackedTabId: number | null = null;
+  /** Dernier onglet signalé comme page de streaming (sa navigation ne repasse pas par « hors page » le temps des essais) */
+  let targetTabId: number | null = null;
   let run = 0;
   let debounce: ReturnType<typeof setTimeout> | undefined;
 
@@ -55,15 +59,15 @@ export async function watchPanelContext(kind: SidePanelKind, onChange: (context:
     trackedTabId = tabId;
     let target = false;
     try {
-      target = await isTargetTab(await chrome.tabs.get(tabId));
+      target = await isTargetTab(await chrome.tabs.get(tabId), () => {
+        if (current === run && targetTabId !== tabId) onChange({ status: 'off' });
+      });
     } catch (error: unknown) {
       log.debug('Onglet illisible :', error);
     }
     if (current !== run) return; // Une évaluation plus récente a pris le relais
+    targetTabId = target ? tabId : null;
     onChange(target ? { status: 'target', tabId } : { status: 'off' });
-    if (!target && kind === 'chrome') {
-      disableSidePanelForTab(tabId).catch((error: unknown) => log.debug('Panneau non retiré :', error));
-    }
   };
 
   const schedule = (tabId: number): void => {
@@ -78,15 +82,13 @@ export async function watchPanelContext(kind: SidePanelKind, onChange: (context:
     schedule(tabId);
   });
 
-  if (kind === 'firefox') {
-    const { id: windowId } = await chrome.windows.getCurrent();
-    // Changement d'onglet dans la fenêtre de la barre latérale
-    chrome.tabs.onActivated.addListener((info) => {
-      if (info.windowId !== windowId) return;
-      trackedTabId = info.tabId;
-      schedule(info.tabId);
-    });
-  }
+  const { id: windowId } = await chrome.windows.getCurrent();
+  // Changement d'onglet dans la fenêtre du panneau
+  chrome.tabs.onActivated.addListener((info) => {
+    if (info.windowId !== windowId) return;
+    trackedTabId = info.tabId;
+    schedule(info.tabId);
+  });
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id === undefined) {

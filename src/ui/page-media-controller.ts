@@ -113,8 +113,6 @@ function delay(ms: number): Promise<void> {
 export interface DetectOptions {
   /** Faux : détection abandonnée (autre onglet, relecture plus récente) */
   isCurrent?: () => boolean;
-  /** Premier signe de vie du script de contenu (popup : bouton « Ouvrir le panneau » sans attendre la fin) */
-  onReached?: () => void;
 }
 
 /**
@@ -122,7 +120,7 @@ export interface DetectOptions {
  * sans ses données structurées (JSON-LD pas encore là) n'est gardée qu'en dernier recours. null : script joignable
  * mais page sans série (accueil, catalogue) ou détection abandonnée ; `unreachable` : script muet à chaque essai.
  */
-export async function detectPageMedia(tabId: number, { isCurrent = () => true, onReached }: DetectOptions = {}): Promise<PageMediaInfo | null | 'unreachable'> {
+export async function detectPageMedia(tabId: number, { isCurrent = () => true }: DetectOptions = {}): Promise<PageMediaInfo | null | 'unreachable'> {
   let reached = false;
   let partial: PageMediaInfo | null = null;
   for (const wait of PAGE_MEDIA_RETRY_DELAYS_MS) {
@@ -130,10 +128,7 @@ export async function detectPageMedia(tabId: number, { isCurrent = () => true, o
     if (!isCurrent()) return null;
     const response = await requestPageMedia(tabId);
     if (response === 'unreachable') continue;
-    if (!reached) {
-      reached = true;
-      onReached?.();
-    }
+    reached = true;
     if (response === null) continue;
     if (!isPartialEpisodePage(response)) return response;
     partial = response;

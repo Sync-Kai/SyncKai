@@ -192,8 +192,19 @@ const journal: JournalEntry[] = [
 
 const demoStorage = Object.fromEntries(Object.entries(demo.storage).filter(([key]) => !(missingViewer && key === STORAGE_KEYS.malViewer)));
 
+/** `panel=chrome` : panneau latéral Chrome disponible, onglet actif sur un site quelconque (pas de script de contenu) */
+const chromePanel =
+  param('panel') === 'chrome'
+    ? {
+        sidePanel: true,
+        tab: { url: 'https://example.com/', title: 'Example' },
+        onOpenSidePanel: (options: chrome.sidePanel.OpenOptions) => (trace.sidePanelOpens ??= []).push(options.windowId ?? null),
+      }
+    : {};
+
 installChromeMock({
   ...demo,
+  ...chromePanel,
   ...(param('shortcuts') === 'panel-unset' ? { shortcuts: { episode: 'Alt+Shift+K', panel: '' } } : {}),
   storage: {
     ...demoStorage,

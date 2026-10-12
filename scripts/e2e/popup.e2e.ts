@@ -183,6 +183,21 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(sel('host-access'))).toBeNull();
   });
 
+  it('panneau latéral (Chrome) : bouton « Ouvrir le panneau » sur un site quelconque, ouvert dans la fenêtre de l’onglet', async () => {
+    const page = await openPopup({ panel: 'chrome' });
+    await page.waitForSelector(sel('panel'));
+    expect(await attr(page, sel('panel'), 'aria-label')).toBe(fr('panel.open'));
+    await click(page, 'panel');
+    await page.waitForFunction(() => (window.__e2e?.sidePanelOpens?.length ?? 0) > 0);
+    expect((await trace(page)).sidePanelOpens).toEqual([1]);
+  });
+
+  it('sans API de panneau latéral : pas de bouton « Ouvrir le panneau »', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    expect(await page.$(sel('panel'))).toBeNull();
+  });
+
   it('navigue entre En cours, Activité et Réglages, et change de langue', async () => {
     const page = await openPopup();
     await page.waitForSelector(sel('nav-activity'));

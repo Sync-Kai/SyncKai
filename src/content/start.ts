@@ -2,7 +2,6 @@ import { initI18n, t } from '../i18n/content';
 import { isContentMessage, type PageMediaResponse } from '../shared/content-messages';
 import { isLivePanelMessage, LIVE_PORT_NAME, type LiveContentMessage } from '../shared/live.types';
 import { createLogger } from '../shared/logger';
-import { sendMessage } from '../shared/messages';
 import type { StreamingAdapter } from './adapters/adapter';
 import { isExtensionContextInvalidated } from './lib/extension-context';
 import { createLiveStream, type LiveStream } from './lib/live-stream';
@@ -102,15 +101,6 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
   handleUrl(new URL(location.href));
   const stopWatchingUrl = watchUrl(handleUrl);
   page.signal.addEventListener('abort', stopWatchingUrl, { once: true });
-  announcePanel();
-  // Retour arrière depuis le cache (bfcache) : le script ne redémarre pas, mais le panneau a pu être retiré
-  window.addEventListener(
-    'pageshow',
-    (event) => {
-      if (event.persisted) announcePanel();
-    },
-    { signal: page.signal },
-  );
   // Nouvelle instance après une mise à jour de l'extension : celle-ci, orpheline, s'arrête sans rien afficher
   document.addEventListener(
     CONTENT_STARTED_EVENT,
@@ -146,13 +136,4 @@ function listenLivePorts(live: LiveStream, onPeersChange: () => void): void {
       onPeersChange();
     });
   });
-}
-
-/**
- * Chrome : panneau latéral activé pour cet onglet (désactivé partout ailleurs). Un seul message par
- * chargement de page : l'option reste valable pendant la navigation SPA du site.
- */
-function announcePanel(): void {
-  if (__SYNCKAI_TARGET__ !== 'chrome' || window !== window.top) return;
-  sendMessage('PANEL_AVAILABLE', null).catch((error: unknown) => log.debug('Panneau non signalé :', error));
 }

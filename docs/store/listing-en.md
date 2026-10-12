@@ -22,8 +22,8 @@ SyncKai keeps your anime list up to date on its own. Start an episode on Crunchy
 Features
 • Auto sync at the start of the credits (Crunchyroll) or at an adjustable percentage (70–98%).
 • AniList and MyAnimeList, together or separately: each account is optional.
-• Side panel on Crunchyroll and ADN, "Now playing" tab: the episode's AniList entry (genres, studio, average score), your live progress ("Sync in 2 min 10"), your actions, sequels with a "Watch" button and a link to the episode discussion.
-• "Schedule" in the side panel: this week's releases for the series you're watching, with the estimated time on Crunchyroll or ADN (adjustable delay, per series if needed) and the episodes you've already seen ticked off.
+• Side panel, opened on any page from the popup or a shortcut; "Now playing" tab on supported streaming sites: the episode's AniList entry (genres, studio, average score), your live progress ("Sync in 2 min 10"), your actions, sequels with a "Watch" button and a link to the episode discussion.
+• "Schedule" in the side panel, on any page: this week's releases for the series you're watching, with the estimated time on Crunchyroll or ADN (adjustable delay, per series if needed) and the episodes you've already seen ticked off.
 • Crunchyroll, ADN and Netflix history import (Settings; Netflix: anime only): SyncKai reads your history in your browser, shows you a preview, then updates AniList and MyAnimeList in the background. It never goes backwards; when in doubt, it asks you to review instead of writing.
 • Season matching, including absolute numbering (e.g. One Piece) and seasons split across several entries.
 • "To check": when a match is uncertain, you pick the right entry from the popup. Nothing is sent blindly.

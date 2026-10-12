@@ -220,13 +220,38 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await messages(page, 'GET_AGENDA')).toHaveLength(1);
   });
 
+  it('hors page de streaming : onglets affichés, Agenda par défaut, « En lecture » montre la ligne neutre et « Activer … »', async () => {
+    const page = await openPanel({ site: 'other' });
+    await page.waitForSelector('[role="tablist"]');
+    await page.waitForSelector('#sk-tab-agenda[aria-selected="true"]');
+    expect(await page.$eval('#sk-tab-nowPlaying', (el) => el.getAttribute('aria-selected'))).toBe('false');
+    expect(await page.$eval('[role="tabpanel"]', (el) => el.id)).toBe('sk-tabpanel-agenda');
+    expect(await page.$('[data-off-target]')).toBeNull();
+    // Choix automatique, jamais mémorisé comme « dernier onglet » (« En lecture » revient sur une page de streaming)
+    expect(await page.evaluate(async () => (await chrome.storage.local.get('panelLastTab')).panelLastTab)).toBe('nowPlaying');
+
+    await page.locator('#sk-tab-nowPlaying').click();
+    await page.waitForSelector('[role="tabpanel"] [data-off-target]');
+    const notice = await page.$eval('[data-off-target]', (el) => el.textContent ?? '');
+    expect(notice).toContain(fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' }));
+    expect(await page.$$eval('[data-off-target] [data-enable-platform]', (buttons) => buttons.map((button) => button.getAttribute('data-enable-platform')))).toEqual([
+      'netflix',
+      'disney',
+    ]);
+    // Aucune fiche demandée hors page de streaming
+    expect(await messages(page, 'RESOLVE_PAGE_MEDIA')).toEqual([]);
+  });
+
   it('UX-05 : hors page cible, la ligne neutre cite les plateformes suivies, puis celles à activer (et le vrai chemin des Réglages)', async () => {
     const path = `${fr('nav.settings')} › ${fr('settings.cat.sync')}`;
-    const off = await openPanel({ site: 'other' });
+    const off = await openPanel({ site: 'other', tab: 'nowPlaying' });
+    await off.locator('#sk-tab-nowPlaying').click();
     const offText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' })} ${fr('panel.offTargetEnable', { platforms: 'Netflix et Disney+', path })}`;
     await off.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, offText);
 
     const granted = await openPanel({ site: 'other', netflix: 'granted' });
+    // Agenda par défaut hors page de streaming : la ligne neutre est dans l'onglet « En lecture »
+    await granted.locator('#sk-tab-nowPlaying').click();
     // Netflix accordé, Disney+ non : Netflix rejoint les plateformes suivies, Disney+ reste cité comme à activer
     const grantedText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' })} ${fr('panel.offTargetEnable', { platforms: 'Disney+', path })}`;
     await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, grantedText);

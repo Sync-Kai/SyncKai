@@ -7,12 +7,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const toggle = (tabId: number, commandAt: number): unknown => ({ type: PANEL_TOGGLE_MESSAGE, tabId, commandAt });
+const toggle = (windowId: number, commandAt: number): unknown => ({ type: PANEL_TOGGLE_MESSAGE, windowId, commandAt });
 
 describe('shouldCloseOnToggle', () => {
-  const self = { tabId: 4, loadedAt: 1_000 };
+  const self = { windowId: 4, loadedAt: 1_000 };
 
-  it('panneau de l’onglet visé, chargé avant la commande : se ferme', () => {
+  it('panneau de la fenêtre visée, chargé avant la commande : se ferme', () => {
     expect(shouldCloseOnToggle(toggle(4, 2_000), self)).toBe(true);
   });
 
@@ -20,28 +20,30 @@ describe('shouldCloseOnToggle', () => {
     expect(shouldCloseOnToggle(toggle(4, 900), self)).toBe(false);
   });
 
-  it('autre onglet (autre fenêtre, ou panneau d’un autre onglet de la même fenêtre) : ignoré', () => {
+  it('autre fenêtre (chaque fenêtre a sa page de panneau) : ignoré', () => {
     expect(shouldCloseOnToggle(toggle(5, 2_000), self)).toBe(false);
   });
 
-  it('onglet du panneau encore inconnu, autres messages : ignorés', () => {
-    expect(shouldCloseOnToggle(toggle(4, 2_000), { tabId: null, loadedAt: 1_000 })).toBe(false);
-    expect(shouldCloseOnToggle({ type: 'PANEL_AVAILABLE', payload: null }, self)).toBe(false);
-    expect(shouldCloseOnToggle({ type: PANEL_TOGGLE_MESSAGE, tabId: '4', commandAt: 2_000 }, self)).toBe(false);
+  it('fenêtre du panneau encore inconnue, autres messages : ignorés', () => {
+    expect(shouldCloseOnToggle(toggle(4, 2_000), { windowId: null, loadedAt: 1_000 })).toBe(false);
+    expect(shouldCloseOnToggle({ type: 'GET_AGENDA', payload: null }, self)).toBe(false);
+    // Ancien format (onglet) : ignoré
+    expect(shouldCloseOnToggle({ type: PANEL_TOGGLE_MESSAGE, tabId: 4, commandAt: 2_000 }, self)).toBe(false);
+    expect(shouldCloseOnToggle({ type: PANEL_TOGGLE_MESSAGE, windowId: '4', commandAt: 2_000 }, self)).toBe(false);
     expect(shouldCloseOnToggle(null, self)).toBe(false);
   });
 });
 
 type Listener = (message: unknown, sender: chrome.runtime.MessageSender) => unknown;
 
-/** Panneau chargé à t = 1 000 dans la fenêtre dont l'onglet actif est `activeTabId` */
-async function mountPanel(activeTabId: number): Promise<{ deliver: Listener; close: ReturnType<typeof vi.fn> }> {
+/** Panneau chargé à t = 1 000 dans la fenêtre `windowId` */
+async function mountPanel(windowId: number): Promise<{ deliver: Listener; close: ReturnType<typeof vi.fn> }> {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(1_000);
   let listener: Listener = () => undefined;
   vi.stubGlobal('chrome', {
     runtime: { id: 'synckai', onMessage: { addListener: (fn: Listener) => (listener = fn) } },
-    tabs: { query: () => Promise.resolve([{ id: activeTabId }]) },
+    windows: { getCurrent: () => Promise.resolve({ id: windowId }) },
   });
   const close = vi.fn();
   listenPanelToggle(close);
@@ -52,13 +54,13 @@ async function mountPanel(activeTabId: number): Promise<{ deliver: Listener; clo
 const fromWorker: chrome.runtime.MessageSender = { id: 'synckai' };
 
 describe('listenPanelToggle', () => {
-  it('avis du service worker pour son onglet : ferme le panneau, sans garder le canal ouvert', async () => {
+  it('avis du service worker pour sa fenêtre : ferme le panneau, sans garder le canal ouvert', async () => {
     const { deliver, close } = await mountPanel(4);
     expect(deliver(toggle(4, 2_000), fromWorker)).toBe(false);
     expect(close).toHaveBeenCalledExactlyOnceWith(4);
   });
 
-  it('autre onglet ou autre fenêtre, commande antérieure au chargement : ignorés', async () => {
+  it('autre fenêtre, commande antérieure au chargement : ignorés', async () => {
     const { deliver, close } = await mountPanel(4);
     deliver(toggle(8, 2_000), fromWorker);
     deliver(toggle(4, 500), fromWorker);
@@ -74,13 +76,13 @@ describe('listenPanelToggle', () => {
 });
 
 describe('closeSidePanel', () => {
-  it('sidePanel.close (Chrome 141+) pour l’onglet du panneau', () => {
+  it('sidePanel.close (Chrome 141+) pour la fenêtre du panneau', () => {
     const close = vi.fn(() => Promise.resolve());
     vi.stubGlobal('chrome', { sidePanel: { open: vi.fn(), setOptions: vi.fn(), close } });
     const windowClose = vi.fn();
     vi.stubGlobal('window', { close: windowClose });
     closeSidePanel(4);
-    expect(close).toHaveBeenCalledExactlyOnceWith({ tabId: 4 });
+    expect(close).toHaveBeenCalledExactlyOnceWith({ windowId: 4 });
     expect(windowClose).not.toHaveBeenCalled();
   });
 

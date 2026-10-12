@@ -16,7 +16,7 @@ import { createNowPlaying } from './components/now-playing';
 import { createAgenda, type AgendaView } from './components/agenda';
 import { watchPanelContext, type PanelContext } from './presence';
 import { listenPanelToggle } from './toggle';
-import { initialPanelTab, isTabEntering, nextTabIndex, PANEL_LAST_TAB_KEY, PANEL_TABS, type PanelTab } from './tabs';
+import { followPageContext, initialPanelTab, isTabEntering, nextTabIndex, PANEL_LAST_TAB_KEY, PANEL_TABS, type PanelTab } from './tabs';
 
 const log = createLogger('sidepanel');
 
@@ -36,13 +36,17 @@ const TAB_COPY: Record<PanelTab, TabCopy> = {
 
 let context: PanelContext = { status: 'checking' };
 let selected: PanelTab = 'nowPlaying';
+/** Agenda choisi par le panneau lui-même (onglet suivi hors streaming) : « En lecture » revient sur une page de streaming */
+let autoSelected = false;
 
 const app = document.getElementById('app');
 const nowPlaying = createNowPlaying(() => render());
 
+/** Choix de l'utilisateur (clic, clavier) : seul mémorisé comme « dernier onglet » */
 function selectTab(tab: PanelTab, focus: boolean): void {
   const changed = tab !== selected;
   selected = tab;
+  autoSelected = false;
   render();
   if (focus) document.getElementById(`sk-tab-${tab}`)?.focus();
   // Mémorisé pour le réglage « Onglet à l'ouverture : Dernier ouvert »
@@ -180,7 +184,9 @@ function mount(container: HTMLElement, children: readonly HTMLElement[]): void {
 function renderTabContent(entering: boolean): HTMLElement {
   const copy = TAB_COPY[selected];
   return selected === 'nowPlaying'
-    ? nowPlaying.render()
+    ? context.status === 'off'
+      ? renderNotice(offTargetText(), false, disabledPlatforms().map(renderEnableButton), true)
+      : nowPlaying.render()
     : selected === 'agenda'
       ? mountAgenda(entering)
     : h(
@@ -204,11 +210,14 @@ function mountAgenda(entering: boolean): HTMLElement {
   return agenda.element;
 }
 
-/** Hors Crunchyroll / ADN (Firefox, ou Chrome juste avant la fermeture) : une seule ligne neutre */
-function renderNotice(text: string, busy: boolean, actions: readonly HTMLElement[] = []): HTMLElement {
+/**
+ * Ligne neutre : vérification de l'onglet à l'ouverture (panneau entier), ou « En lecture » hors page de streaming
+ * (`inTab` : dans l'onglet, sous la barre d'onglets)
+ */
+function renderNotice(text: string, busy: boolean, actions: readonly HTMLElement[] = [], inTab = false): HTMLElement {
   return h(
     'div',
-    { class: 'flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center text-muted' },
+    { class: `flex flex-col items-center gap-3 text-center text-muted ${inTab ? 'rounded-card bg-surface px-4 py-6' : 'flex-1 justify-center px-4'}`, attrs: inTab ? { 'data-off-target': '' } : {} },
     h(
       'div',
       { class: 'flex items-center justify-center gap-2', attrs: { role: 'status' } },
@@ -228,15 +237,15 @@ function render(): void {
       if (shownTab !== null) scrollByTab[shownTab] = tabPanel.scrollTop;
       shownTab = null;
       mount(app, [header, settingsView.bar, settingsScroll]);
-    } else if (context.status === 'target') {
+    } else if (context.status !== 'checking') {
+      // Page de streaming ou non : mêmes onglets ; hors streaming, « En lecture » affiche la ligne neutre
       mount(app, [header, tabBar, tabPanel]);
       tabBar.replaceChildren(renderTabList());
       fillTabPanel();
     } else {
-      // Le panneau d'onglet quitte le DOM : sa position sera perdue, on repartira du haut
+      // Première vérification de l'onglet (l'onglet affiché en dépend) ; le panneau d'onglet quitte le DOM
       shownTab = null;
-      const checking = context.status === 'checking';
-      app.replaceChildren(header, renderNotice(checking ? t('panel.checking') : offTargetText(), checking, checking ? [] : disabledPlatforms().map(renderEnableButton)));
+      app.replaceChildren(header, renderNotice(t('panel.checking'), true));
     }
   });
 }
@@ -244,7 +253,7 @@ function render(): void {
 /** Plateformes à accès optionnel accordées (Netflix, Disney+), relues à chaque passage hors page cible */
 let optionalPlatforms: readonly StreamingPlatform[] = [];
 
-/** Ligne hors page cible : plateformes réellement suivies (UX-05), puis celles qui restent à activer (ex. Disney+ si seul Netflix l'est) */
+/** Ligne hors page cible (onglet « En lecture ») : plateformes réellement suivies (UX-05), puis celles qui restent à activer (ex. Disney+ si seul Netflix l'est) */
 function offTargetText(): string {
   const active = t('panel.offTargetPlatforms', { platforms: formatPlatformList(activePlatforms(optionalPlatforms), 'conjunction') });
   const disabled = disabledPlatforms();
@@ -289,13 +298,22 @@ function refreshOptionalPlatforms(): void {
 }
 
 function setContext(next: PanelContext): void {
+  // Statut de la page changé (ouverture, ou passage d'une page de streaming à une autre page) : l'onglet suit
+  if (next.status !== 'checking' && next.status !== context.status) {
+    const follow = followPageContext({ tab: selected, auto: autoSelected }, next.status === 'target');
+    selected = follow.tab;
+    autoSelected = follow.auto;
+  }
   context = next;
   nowPlaying.setTab(next.status === 'target' ? next.tabId : null);
   render();
   refreshOptionalPlatforms();
 }
 
-/** Onglet à l'ouverture : réglage « Onglet à l'ouverture » (dernier onglet consulté par défaut) */
+/**
+ * Onglet à l'ouverture : réglage « Onglet à l'ouverture » (dernier onglet consulté par défaut). Hors page de streaming,
+ * « En lecture » cède ensuite la place à l'Agenda (setContext).
+ */
 async function loadInitialTab(): Promise<void> {
   try {
     const [settings, stored] = await Promise.all([getSettings(), chrome.storage.local.get(PANEL_LAST_TAB_KEY)]);
@@ -318,13 +336,12 @@ async function main(): Promise<void> {
     render();
   });
   render();
-  const kind = sidePanelKind();
-  if (!kind) {
+  if (!sidePanelKind()) {
     setContext({ status: 'off' });
     return;
   }
   try {
-    await watchPanelContext(kind, setContext);
+    await watchPanelContext(setContext);
   } catch (error: unknown) {
     log.warn('Onglet du panneau illisible :', error);
     setContext({ status: 'off' });

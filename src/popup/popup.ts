@@ -41,8 +41,7 @@ import { createNotesEditor, type NotesEditor } from '../ui/notes-editor';
 import { primaryList } from '../ui/page-media-view';
 import { createStore, patchStore, type AccountState, type ExclusionsState, type Store } from '../ui/state';
 import { createLogger } from '../shared/logger';
-import { openSidePanel, sidePanelKind } from '../shared/side-panel';
-import { isTargetPage } from '../shared/target-pages';
+import { openSidePanel, sidePanelKind, type PanelTarget } from '../shared/side-panel';
 import { createAccountsController } from '../ui/accounts';
 import type { SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView } from '../ui/settings/settings-view';
@@ -562,8 +561,8 @@ function render(): void {
   const hostAccess = hostAccessStore.get();
 
   preserveFocus(root, () => {
-    if (headerChanged([isSettings, panelTabId])) {
-      headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTabId === null ? null : openPanel }));
+    if (headerChanged([isSettings, panelTarget])) {
+      headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTarget === null ? null : openPanel }));
     }
     const navStale = navChanged([isSettings, onboarding, ui.screen, pending]);
     // Barre des Réglages persistante (gérée par la vue) : jamais retirée puis réinsérée, le focus y resterait perdu
@@ -713,14 +712,14 @@ async function loadExclusions(): Promise<void> {
 // commune avec le panneau (ui/page-media-controller.ts). Tout est asynchrone : sans réponse (autre site, onglet
 // ouvert avant le rechargement de l'extension), la carte « Reprendre » reste affichée.
 
-/** Onglet actif (l'id ne requiert pas la permission "tabs" ; l'URL, seulement visible avec une permission d'hôte) */
-async function queryActiveTab(): Promise<{ tabId: number | null; url: string | undefined }> {
+/** Onglet actif et sa fenêtre (ni l'un ni l'autre ne requiert la permission "tabs") */
+async function queryActiveTab(): Promise<{ tabId: number | null; windowId: number | null }> {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    return { tabId: tab?.id ?? null, url: tab?.url };
+    return { tabId: tab?.id ?? null, windowId: tab?.windowId ?? null };
   } catch (error: unknown) {
     log.debug('Onglet actif illisible :', error);
-    return { tabId: null, url: undefined };
+    return { tabId: null, windowId: null };
   }
 }
 
@@ -729,7 +728,7 @@ const activeTab = queryActiveTab();
 /** Série ou épisode de l'onglet actif (mêmes essais et délais que le panneau) */
 const activePage: Promise<PageMediaInfo | null> = activeTab.then(async ({ tabId }) => {
   if (tabId === null) return null;
-  const page = await detectPageMedia(tabId, { onReached: () => offerPanel(tabId) });
+  const page = await detectPageMedia(tabId);
   return page === 'unreachable' ? null : page;
 });
 
@@ -738,26 +737,22 @@ const pageCtl = createPageMediaController({
   onActionDone: () => watching.scheduleRevalidation(),
 });
 
-// ─── Panneau latéral : bouton d'en-tête, seulement sur Crunchyroll / ADN ───
+// ─── Panneau latéral : bouton d'en-tête, sur toutes les pages ───
+// Le panneau suit l'onglet actif : « En lecture » sur une page de streaming, Agenda ailleurs.
 
-/** Onglet Crunchyroll / ADN actif pour lequel le bouton « Ouvrir le panneau » est proposé */
-let panelTabId: number | null = null;
+/** Onglet actif (et sa fenêtre) pour lequel le bouton « Ouvrir le panneau » est proposé ; null sans API de panneau */
+let panelTarget: PanelTarget | null = null;
 
-/** Script de contenu joignable, ou URL reconnue (onglet ouvert avant l'installation : script absent) */
-function offerPanel(tabId: number): void {
-  if (panelTabId === tabId || sidePanelKind() === null) return;
-  panelTabId = tabId;
+void activeTab.then(({ tabId, windowId }) => {
+  if (sidePanelKind() === null || (tabId === null && windowId === null)) return;
+  panelTarget = { tabId: tabId ?? undefined, windowId: windowId ?? undefined };
   renderer.schedule();
-}
-
-void activeTab.then(({ tabId, url }) => {
-  if (tabId !== null && isTargetPage(url)) offerPanel(tabId);
 });
 
 /** Clic : aucun `await` avant l'ouverture (geste utilisateur requis par sidePanel.open / sidebarAction.open) */
 function openPanel(): void {
-  if (panelTabId === null) return;
-  openSidePanel(panelTabId).then(
+  if (panelTarget === null) return;
+  openSidePanel(panelTarget).then(
     () => window.close(),
     (error: unknown) => log.warn('Ouverture du panneau impossible :', error),
   );

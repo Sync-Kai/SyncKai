@@ -41,7 +41,7 @@ Shows a Chrome notification when a new episode of a series the user is watching 
 Chrome only: the Firefox build has no `sidePanel` permission (it declares a `sidebar_action` instead).
 
 ```
-Shows SyncKai's companion side panel (episode being watched, release schedule) on Crunchyroll and ADN pages only (and on Netflix or Disney+ pages, only if the user has turned that platform on). The panel is disabled by default and enabled per tab only on those sites; it opens only when the user clicks "Open the side panel" in the popup. It reads no browsing data and sends nothing anywhere.
+Shows SyncKai's companion side panel: the episode being watched on Crunchyroll, ADN and, if the user turned them on, Netflix or Disney+, and the week's release schedule. The panel is available on any tab but never opens by itself: only when the user clicks "Open the side panel" in the popup, uses the keyboard shortcut or picks it in Chrome's side panel menu. On other sites it shows the schedule only. It reads no browsing data (no page content, no history) and sends nothing anywhere.
 ```
 
 ### scripting

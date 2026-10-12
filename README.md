@@ -69,8 +69,9 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 
 **Side panel and schedule**
 
-- Side panel on Crunchyroll, ADN, Netflix and Disney+ (sidebar on Firefox), opened or closed with <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>.
-- *Now playing*: the episode's AniList entry, live progress ("Sync in 2 min 10"), your actions, sequels with a *Watch* button, and the episode discussion.
+- Side panel (sidebar on Firefox) available on any page, opened only by you: from the popup or with <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> (press again to close). On Chrome and Brave it stays open across tabs and follows the active tab.
+- Off the streaming sites it opens on *Schedule*; *Now playing* shows the supported platforms and turns Netflix or Disney+ on in one click.
+- *Now playing* (Crunchyroll, ADN, Netflix, Disney+): the episode's AniList entry, live progress ("Sync in 2 min 10"), your actions, sequels with a *Watch* button, and the episode discussion.
 - *Schedule*: this week's releases for the series you're watching, with the estimated time on each platform (adjustable delay, per series if needed) and watched episodes ticked off.
 - New episode alerts as browser notifications, with an adjustable delay.
 

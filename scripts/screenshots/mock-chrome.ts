@@ -58,6 +58,8 @@ export interface ChromeMockOptions {
   onCreateTab?: (url: string) => void;
   /** Expose chrome.sidePanel (le panneau latéral se croit sur Chrome) */
   sidePanel?: boolean;
+  /** Appelé à chaque chrome.sidePanel.open (tests : ouvertures demandées) */
+  onOpenSidePanel?: (options: chrome.sidePanel.OpenOptions) => void;
   /** Touches renvoyées par chrome.commands.getAll ('' : non définie) ; absent = Alt+Shift+K et Alt+Shift+1 */
   shortcuts?: { episode: string; panel: string };
 }
@@ -231,8 +233,8 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
         return Promise.resolve({});
       },
       // Onglet actif fictif : sa page (Crunchyroll / ADN) est décrite par `tabMessage`
-      query: () => Promise.resolve([{ id: 1, active: true, status: 'complete', ...options.tab }]),
-      get: (id: number) => Promise.resolve({ id, active: true, status: 'complete', ...options.tab }),
+      query: () => Promise.resolve([{ id: 1, windowId: 1, active: true, status: 'complete', ...options.tab }]),
+      get: (id: number) => Promise.resolve({ id, windowId: 1, active: true, status: 'complete', ...options.tab }),
       update: () => Promise.resolve({}),
       sendMessage: (_tabId: number, message: unknown) => Promise.resolve(clone(options.tabMessage?.(message))),
       connect: (tabId: number, info?: { name?: string }) => {
@@ -253,7 +255,17 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
       setBadgeTextColor: () => Promise.resolve(),
     },
     ...(permissions ? { permissions } : {}),
-    ...(options.sidePanel ? { sidePanel: { open: () => Promise.resolve(), setOptions: () => Promise.resolve() } } : {}),
+    ...(options.sidePanel
+      ? {
+          sidePanel: {
+            open: (openOptions: chrome.sidePanel.OpenOptions) => {
+              options.onOpenSidePanel?.(openOptions);
+              return Promise.resolve();
+            },
+            setOptions: () => Promise.resolve(),
+          },
+        }
+      : {}),
   };
 
   // Seules les méthodes réellement appelées par les vues sont simulées
