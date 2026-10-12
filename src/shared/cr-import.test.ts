@@ -53,6 +53,7 @@ function input(over: Partial<PlanInput> = {}): PlanInput {
     [300, { mediaId: 300, idMal: null, title: 'Sans MAL', coverUrl: null, episodes: 24 }],
   ]);
   return {
+    platform: 'crunchyroll',
     seasons: [season()],
     resolutions: { '0': certain('crunchyroll:GRMG8ZQZR:s24', 21, 1180) },
     catalog,

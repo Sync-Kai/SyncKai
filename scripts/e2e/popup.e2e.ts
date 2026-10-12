@@ -789,6 +789,23 @@ describe('popup (bout en bout)', () => {
     expect(await page.$('a[download]')).toBeNull();
   });
 
+  it('« Importer un historique » : un bouton par plateforme, page d’import ouverte sur Crunchyroll ou ADN', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'data');
+    expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('settings.backup.crImport'));
+    expect(await attr(page, sel('adn-import'), 'aria-label')).toBe(fr('settings.crImport.openAria', { platform: 'ADN' }));
+    await click(page, 'cr-import');
+    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 0);
+    await click(page, 'adn-import');
+    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 1);
+    const opened = (await trace(page)).openedTabs.map((url) => new URL(url));
+    expect(opened.map((url) => [url.pathname, url.searchParams.get('platform')])).toEqual([
+      ['/src/import-cr/import-cr.html', 'crunchyroll'],
+      ['/src/import-cr/import-cr.html', 'adn'],
+    ]);
+  });
+
   it('titre et jaquette de « En cours » : fiche AniList par défaut, MyAnimeList selon le réglage, seul compte MAL → MAL', async () => {
     const page = await openPopup();
     const title = sel(`title-${SOLO}`);

@@ -24,7 +24,7 @@ Funktionen
 • AniList und MyAnimeList, zusammen oder einzeln: Jedes Konto ist optional.
 • Seitenleiste auf Crunchyroll und ADN, Bereich „Läuft gerade“: der AniList-Eintrag der Folge (Genres, Studio, Durchschnittswertung), dein Live-Fortschritt („Sync in 2 Min. 10“), deine Aktionen, Fortsetzungen mit „Ansehen“-Button und ein Link zur Diskussion der Folge.
 • „Zeitplan“ in der Seitenleiste: die Folgen dieser Woche für deine laufenden Serien, mit geschätzter Uhrzeit auf Crunchyroll oder ADN (einstellbare Verzögerung, auch pro Serie) und abgehakten, bereits gesehenen Folgen.
-• Import des Crunchyroll-Verlaufs (Einstellungen): SyncKai liest deinen Verlauf in deinem Browser, zeigt dir eine Vorschau und aktualisiert dann AniList und MyAnimeList im Hintergrund. Nie rückwärts; im Zweifel eine Prüfung statt eines Eintrags.
+• Import des Crunchyroll- oder ADN-Verlaufs (Einstellungen): SyncKai liest deinen Verlauf in deinem Browser, zeigt dir eine Vorschau und aktualisiert dann AniList und MyAnimeList im Hintergrund. Nie rückwärts; im Zweifel eine Prüfung statt eines Eintrags.
 • Zuordnung der Staffeln, auch bei absoluter Nummerierung (z. B. One Piece) und bei Staffeln, die auf mehrere Einträge verteilt sind.
 • „Zu prüfen“: Ist eine Zuordnung unsicher, wählst du den richtigen Eintrag im Popup. Nichts wird blind gesendet.
 • „Schaue ich“: deine laufenden Serien, das Datum der nächsten Folge („Folge 5 in 18 h“), +1 / −1 und „Öffnen“ auf Crunchyroll oder ADN (SyncKai merkt sich besuchte ADN-Serienseiten; sonst „Auf ADN suchen“).
@@ -52,7 +52,7 @@ Tracking-Dienste
 • MyAnimeList
 
 Datenschutz
-SyncKai hat keinen Server. Deine Daten (Einstellungen, Zuordnungen, Verlauf, Anmeldungen) bleiben im lokalen Speicher deines Browsers. Die Erweiterung liest die Seite der aktuellen Folge auf Crunchyroll/ADN (und Netflix oder Disney+, nur wenn du sie aktivierst: Der Zugriff auf netflix.com oder disneyplus.com wird dann angefragt), deinen Crunchyroll-Verlauf nur, wenn du den Import startest, und teilt deine Daten nur mit AniList und MyAnimeList. Nichts wird an den Entwickler gesendet.
+SyncKai hat keinen Server. Deine Daten (Einstellungen, Zuordnungen, Verlauf, Anmeldungen) bleiben im lokalen Speicher deines Browsers. Die Erweiterung liest die Seite der aktuellen Folge auf Crunchyroll/ADN (und Netflix oder Disney+, nur wenn du sie aktivierst: Der Zugriff auf netflix.com oder disneyplus.com wird dann angefragt), deinen Crunchyroll- oder ADN-Verlauf nur, wenn du einen Import startest, und teilt deine Daten nur mit AniList und MyAnimeList. Nichts wird an den Entwickler gesendet.
 
 Quellcode und Fehlermeldungen: https://github.com/Sync-Kai/SyncKai
 ```

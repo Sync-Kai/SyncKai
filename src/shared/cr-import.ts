@@ -10,11 +10,21 @@ import { isListStatus } from './compare';
 import { STORAGE_KEYS } from './storage-keys';
 import { isTrackerId, type TrackerId } from './tracker.types';
 
-// Import de l'historique Crunchyroll (Réglages › Importer depuis Crunchyroll) : types, stockage et planification
-// (pur, testé). Déroulé : lecture de l'historique dans l'onglet Crunchyroll (script de contenu) → analyse en
+// Import de l'historique Crunchyroll ou ADN (Réglages › Importer un historique) : types, stockage et planification
+// (pur, testé). Le préfixe « Cr » est historique : le pipeline est commun aux deux plateformes (ImportPlatform, absente
+// des données enregistrées avant l'import ADN : Crunchyroll). Déroulé : lecture de l'historique dans l'onglet de la
+// plateforme (script de contenu ; ADN : réduit par saison dans la page, adn-import.ts) → analyse en
 // tâche de fond (correspondance saison → fiche AniList, sans rien écrire) → aperçu → application en tâche de fond.
 // Règles : jamais de recul, une série terminée ou en revisionnage n'est pas touchée, une correspondance
 // incertaine n'est jamais appliquée (« À vérifier » : cartes de vérification créées à la demande).
+
+/**
+ * Plateformes dont l'historique peut être importé (même page, même analyse). Hors du module du protocole (cr-history.ts,
+ * embarqué par le script de contenu) : seules les pages et le service worker s'en servent.
+ */
+export const IMPORT_PLATFORMS = ['crunchyroll', 'adn'] as const;
+export type ImportPlatform = (typeof IMPORT_PLATFORMS)[number];
+export const isImportPlatform = (value: unknown): value is ImportPlatform => value === 'crunchyroll' || value === 'adn';
 
 /** Clés de chrome.storage.local (effacées à la déconnexion d'un compte) */
 export const CR_IMPORT_KEYS = {
@@ -63,10 +73,16 @@ export function isCrImportJob(value: unknown): value is CrImportJob {
 
 export interface CrImportInput extends CrHistoryResult {
   createdAt: number;
+  /** Absente avant l'import ADN : Crunchyroll */
+  platform?: ImportPlatform;
 }
 
+/** Plateforme d'une entrée ou d'un aperçu (Crunchyroll s'il a été enregistré avant l'import ADN) */
+export const importPlatformOf = (value: { platform?: ImportPlatform }): ImportPlatform => value.platform ?? 'crunchyroll';
+const isOptionalPlatform = (v: unknown): boolean => v === undefined || isImportPlatform(v);
+
 export function isCrImportInput(value: unknown): value is CrImportInput {
-  return isRecord(value) && typeof value.createdAt === 'number' && isCrHistoryResult(value);
+  return isRecord(value) && typeof value.createdAt === 'number' && isOptionalPlatform(value.platform) && isCrHistoryResult(value);
 }
 
 export type SeasonResolution =
@@ -109,10 +125,16 @@ export function readResolutions(value: unknown): Record<string, SeasonResolution
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, SeasonResolution] => /^\d+$/.test(entry[0]) && isSeasonResolution(entry[1])));
 }
 
+/** Page de l'épisode sur la plateforme (ADN : /video/{série}-{slug}/{épisode}, comme les URL du site) */
+function episodeUrl(season: HistorySeason, platform: ImportPlatform): string {
+  if (platform === 'crunchyroll') return `https://www.crunchyroll.com/watch/${season.episodeId}`;
+  return `https://animationdigitalnetwork.com/video/${season.seriesId}${season.seriesSlug ? `-${season.seriesSlug}` : ''}/${season.episodeId}`;
+}
+
 /** Épisode équivalent à celui que lirait le script de contenu sur la page de lecture (même clé de saison, mêmes numéros) */
-export function toEpisodeInfo(season: HistorySeason): EpisodeInfo {
+export function toEpisodeInfo(season: HistorySeason, platform: ImportPlatform = 'crunchyroll'): EpisodeInfo {
   return {
-    platform: 'crunchyroll',
+    platform,
     episodeId: season.episodeId,
     seriesId: season.seriesId,
     seriesSlug: season.seriesSlug,
@@ -122,7 +144,7 @@ export function toEpisodeInfo(season: HistorySeason): EpisodeInfo {
     seasonEpisodeNumber: season.seasonEpisodeNumber,
     displayedEpisodeNumber: season.episodeNumber,
     episodeTitle: season.episodeTitle,
-    url: `https://www.crunchyroll.com/watch/${season.episodeId}`,
+    url: episodeUrl(season, platform),
   };
 }
 
@@ -177,7 +199,7 @@ export interface CrItemResult {
   message: string | null;
 }
 
-/** Une fiche AniList à mettre à jour (plusieurs saisons Crunchyroll peuvent y mener : progression maximale) */
+/** Une fiche AniList à mettre à jour (plusieurs saisons de la plateforme peuvent y mener : progression maximale) */
 export interface CrPlanItem {
   id: string;
   mediaId: number;
@@ -186,7 +208,7 @@ export interface CrPlanItem {
   coverUrl: string | null;
   episodes: number | null;
   progress: number;
-  /** Saisons Crunchyroll à l'origine de l'élément (libellés) */
+  /** Saisons de la plateforme à l’origine de l'élément (libellés) */
   seasons: string[];
   services: CrServicePlan[];
   /** Correspondances saison → fiche, mémorisées à l'application si absentes (synchro en direct plus rapide) */
@@ -203,7 +225,7 @@ export interface CrPlanItem {
 export interface CrReviewItem {
   key: string;
   label: string;
-  /** Saisons Crunchyroll réunies dans cette vérification (numérotation absolue menant à la même fiche) */
+  /** Saisons réunies dans cette vérification (numérotation absolue menant à la même fiche) */
   seasons: string[];
   episode: EpisodeInfo;
   reason: string;
@@ -215,6 +237,8 @@ export interface CrReviewItem {
 
 export interface CrImportPlan {
   builtAt: number;
+  /** Plateforme de l'historique (absente avant l'import ADN : Crunchyroll) */
+  platform?: ImportPlatform;
   /** Services connectés au moment de l'analyse */
   services: TrackerId[];
   stats: HistoryStats;
@@ -237,6 +261,7 @@ export interface CrCatalogEntry {
 }
 
 export interface PlanInput {
+  platform: ImportPlatform;
   seasons: readonly HistorySeason[];
   resolutions: Readonly<Record<string, SeasonResolution>>;
   catalog: ReadonlyMap<number, CrCatalogEntry>;
@@ -271,7 +296,7 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
         failed++;
         return;
       case 'review': {
-        const item: CrReviewItem = { key: resolution.key, label, seasons: [label], episode: toEpisodeInfo(season), reason: resolution.reason, suggestion: resolution.suggestion, candidates: resolution.candidates, created: false };
+        const item: CrReviewItem = { key: resolution.key, label, seasons: [label], episode: toEpisodeInfo(season, input.platform), reason: resolution.reason, suggestion: resolution.suggestion, candidates: resolution.candidates, created: false };
         // Numérotation absolue (One Piece E1180) : toutes les saisons mènent à la même fiche → une seule vérification,
         // celle de l'épisode le plus avancé
         const mergeKey = isAbsoluteSeason(season) && resolution.suggestion ? `${season.seriesId}:${resolution.suggestion.mediaId}` : null;
@@ -333,7 +358,7 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
   const uniqueReview = review
     .filter((r, i) => review.findIndex((o) => o.key === r.key) === i)
     .sort((a, b) => a.episode.animeTitle.localeCompare(b.episode.animeTitle, undefined, { sensitivity: 'base' }) || (a.episode.seasonNumber ?? 0) - (b.episode.seasonNumber ?? 0));
-  return { builtAt: now, services: [...input.services], stats: input.stats, seasonCount: input.seasons.length, items, review: uniqueReview, excluded, failed };
+  return { builtAt: now, platform: input.platform, services: [...input.services], stats: input.stats, seasonCount: input.seasons.length, items, review: uniqueReview, excluded, failed };
 }
 
 /** Élément qui modifierait au moins une liste (coché par défaut dans l'aperçu) */
@@ -427,6 +452,7 @@ export function isCrImportPlan(value: unknown): value is CrImportPlan {
   return (
     isRecord(value) &&
     typeof value.builtAt === 'number' &&
+    isOptionalPlatform(value.platform) &&
     Array.isArray(value.services) &&
     value.services.every(isTrackerId) &&
     isHistoryStats(value.stats) &&
@@ -448,6 +474,8 @@ export type CrImportReviewsResult = Result<{ created: number; limited: boolean }
 
 export interface CrImportAnalyzePayload {
   history: CrHistoryResult;
+  /** Absente : Crunchyroll */
+  platform?: ImportPlatform;
 }
 export interface CrImportApplyPayload {
   ids: string[];
@@ -460,7 +488,7 @@ export interface CrImportReviewsPayload {
 export const MAX_APPLY_IDS = 2000;
 export const MAX_REVIEW_KEYS = 200;
 
-export const isCrImportAnalyzePayload = (p: unknown): p is CrImportAnalyzePayload => isRecord(p) && isCrHistoryResult(p.history);
+export const isCrImportAnalyzePayload = (p: unknown): p is CrImportAnalyzePayload => isRecord(p) && isOptionalPlatform(p.platform) && isCrHistoryResult(p.history);
 export const isCrImportApplyPayload = (p: unknown): p is CrImportApplyPayload =>
   isRecord(p) && Array.isArray(p.ids) && p.ids.length > 0 && p.ids.length <= MAX_APPLY_IDS && p.ids.every((id) => typeof id === 'string' && /^m:\d{1,10}$/.test(id));
 export const isCrImportReviewsPayload = (p: unknown): p is CrImportReviewsPayload =>

@@ -160,6 +160,9 @@ describe('import Crunchyroll', () => {
   it('payloads validés, réservés aux pages de l’extension', () => {
     expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history } })).toBe(true);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history: { seasons: 'x', stats: history.stats } } })).toBe(false);
+    // Import ADN : même message, plateforme précisée (absente : Crunchyroll)
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'adn' } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'netflix' } })).toBe(false);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: ['m:21'] } })).toBe(true);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: [21] } })).toBe(false);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_CANCEL', payload: null })).toBe(true);

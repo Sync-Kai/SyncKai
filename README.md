@@ -76,7 +76,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 
 **Import and backup**
 
-- Crunchyroll history import: reads your history in your own browser tab, shows a preview, then updates AniList and MyAnimeList in the background. It never moves progress backwards, and asks for a review when in doubt.
+- Crunchyroll and ADN history import: reads your history in your own browser tab, shows a preview, then updates AniList and MyAnimeList in the background. It never moves progress backwards, only counts finished episodes, and asks for a review when in doubt.
 - Backup: export and import your settings, matches and history (never your sign-ins).
 
 **Privacy and reliability**
@@ -104,7 +104,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 | Streaming platform | End of episode detected at | Notes |
 | --- | --- | --- |
 | [Crunchyroll](https://www.crunchyroll.com) | Start of the credits (percentage fallback) | History import available |
-| [ADN](https://animationdigitalnetwork.com) | Adjustable percentage | |
+| [ADN](https://animationdigitalnetwork.com) | Adjustable percentage | History import available |
 | [Netflix](https://www.netflix.com) | Start of the credits (percentage fallback) | Optional, anime only |
 | [Disney+](https://www.disneyplus.com) | Adjustable percentage | Optional, Japanese anime only |
 
@@ -168,7 +168,7 @@ src/
 ├── content/      content scripts: one adapter per platform (adapters/), Netflix and Disney+ page bridges (netflix/, disney/)
 ├── popup/        extension popup
 ├── sidepanel/    side panel (Now playing, Schedule)
-├── import-cr/    Crunchyroll history import page
+├── import-cr/    history import page (Crunchyroll, ADN)
 ├── import/       backup page
 ├── ui/           UI components shared by the popup and the side panel
 ├── shared/       types, storage, settings and logic shared by all contexts

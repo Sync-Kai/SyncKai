@@ -80,6 +80,8 @@ describe('scripts de contenu légers (PERF-01)', () => {
       'shared/agenda.ts',
       'shared/compare.ts',
       'shared/cr-import.ts',
+      // Réduction de l'historique ADN : faite dans la page d'import, le script de contenu ne lit que l'API
+      'shared/adn-import.ts',
       // Icônes et grand dessin de Kai (kai-small.ts suffit à la bulle)
       'ui/icons.ts',
       // Écritures des exclusions et rapprochement des liens (exclusions-core.ts suffit à la lecture)

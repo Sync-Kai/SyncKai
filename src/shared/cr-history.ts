@@ -1,13 +1,13 @@
 import { isRecord } from './guards';
 
-// Historique de visionnage Crunchyroll réduit à une ligne par saison (import Réglages › Importer depuis Crunchyroll).
+// Historique de visionnage Crunchyroll réduit à une ligne par saison (Réglages › Importer un historique › Crunchyroll).
 // Lu par le script de contenu dans l'onglet Crunchyroll de l'utilisateur (src/content/lib/crunchyroll-history.ts),
 // transmis à la page d'import par un port, puis au service worker pour l'analyse. Rien d'autre n'est conservé.
 
 /** Saisons transmises au plus (au-delà : historique tronqué, signalé comme partiel) */
 export const MAX_HISTORY_SEASONS = 2000;
 
-/** Dernier épisode vu d'une saison Crunchyroll */
+/** Dernier épisode vu d'une saison Crunchyroll (ou ADN : même forme, voir adn-import.ts) */
 export interface HistorySeason {
   seriesId: string;
   seriesTitle: string;

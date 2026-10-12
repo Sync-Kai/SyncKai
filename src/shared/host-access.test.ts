@@ -6,11 +6,11 @@ describe('requiredOrigins', () => {
   it('host_permissions + sites des scripts de contenu, sans doublon', () => {
     expect(requiredOrigins(manifest)).toEqual([
       '*://*.crunchyroll.com/*',
+      '*://animationdigitalnetwork.com/*',
+      '*://*.animationdigitalnetwork.com/*',
       'https://graphql.anilist.co/*',
       'https://myanimelist.net/*',
       'https://api.myanimelist.net/*',
-      '*://animationdigitalnetwork.com/*',
-      '*://*.animationdigitalnetwork.com/*',
     ]);
   });
 

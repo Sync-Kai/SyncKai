@@ -22,6 +22,8 @@
   ],
   "host_permissions": [
     "*://*.crunchyroll.com/*",
+    "*://animationdigitalnetwork.com/*",
+    "*://*.animationdigitalnetwork.com/*",
     "https://graphql.anilist.co/*",
     "https://myanimelist.net/*",
     "https://api.myanimelist.net/*"

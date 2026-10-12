@@ -1,4 +1,4 @@
-// Réglages › Mes données : correspondances mémorisées, séries exclues, import Crunchyroll,
+// Réglages › Mes données : correspondances mémorisées, séries exclues, import d'un historique (Crunchyroll, ADN),
 // sauvegarde (export / import) et zone de danger (réinitialisation des correspondances).
 import { t, tp } from '../../i18n';
 import { includeSeries, type ExcludedSeries } from '../../shared/exclusions';
@@ -9,6 +9,8 @@ import { renderAlert } from '../alert';
 import { BACKUP_EXPORT_PARAM, BACKUP_PAGE, downloadBackup } from '../backup-download';
 import { BTN_GHOST, CARD, LINK } from '../kit';
 import { platformIcon } from '../brand-icons';
+import type { ImportPlatform } from '../../shared/cr-import';
+import { PLATFORMS } from '../../shared/platforms';
 import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
@@ -16,8 +18,8 @@ import { BTN_DANGER, BTN_DANGER_FILL, dangerRow, dangerZone, DIVIDER, HELP_TEXT,
 
 const log = createLogger('settings');
 
-/** Import de l'historique Crunchyroll (onglet dédié : lecture, analyse et aperçu durent plusieurs minutes) */
-const CR_IMPORT_PAGE = 'src/import-cr/import-cr.html';
+/** Import d'un historique Crunchyroll ou ADN (onglet dédié : lecture, analyse et aperçu durent plusieurs minutes) */
+const IMPORT_PAGE = 'src/import-cr/import-cr.html';
 const EXPORTED_BADGE_MS = 2_000;
 
 type ExportState = 'idle' | 'exporting' | 'exported' | 'error';
@@ -178,29 +180,35 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
     redraw();
   }
 
-  // ─── Import Crunchyroll et sauvegarde ───
+  // ─── Import d'un historique et sauvegarde ───
+
+  /** Bouton d'ouverture de la page d'import sur une plateforme (choix modifiable ensuite dans la page) */
+  function importButton(platform: ImportPlatform, focus: string): HTMLElement {
+    const label = PLATFORMS[platform].label;
+    return h(
+      'button',
+      {
+        class: `${BTN_GHOST} border border-line px-3 text-sakura`,
+        attrs: { type: 'button', 'data-focus': focus, title: t('settings.backup.crImportTitle', { platform: label }), 'aria-label': t('settings.crImport.openAria', { platform: label }) },
+        on: { click: () => ctx.host.openTab(chrome.runtime.getURL(`${IMPORT_PAGE}?platform=${platform}`)) },
+      },
+      platformIcon(platform, 'h-4 w-4 rounded-[4px]', { decorative: true }),
+      label,
+      icon('external', 'h-3 w-3'),
+    );
+  }
 
   function renderCrImport(): HTMLElement {
     return h(
       'div',
-      { class: `${CARD} flex items-center gap-3 border border-line bg-linear-135 from-raised from-0% to-surface to-70% px-3 py-2.5` },
-      platformIcon('crunchyroll', 'h-8 w-8 rounded-[9px]', { decorative: true }),
+      { class: `${CARD} flex flex-wrap items-center gap-x-3 gap-y-2 border border-line bg-linear-135 from-raised from-0% to-surface to-70% px-3 py-2.5` },
       h(
         'span',
-        { class: 'flex min-w-0 flex-1 flex-col gap-px' },
+        { class: 'flex min-w-[10rem] flex-1 flex-col gap-px' },
         h('span', { class: 'text-[13px] font-bold' }, t('settings.backup.crImport')),
         h('span', { class: HELP_TEXT }, t('settings.crImport.help')),
       ),
-      h(
-        'button',
-        {
-          class: `${BTN_GHOST} border border-line px-3.5 text-sakura`,
-          attrs: { type: 'button', 'data-focus': 'cr-import', title: t('settings.backup.crImportTitle'), 'aria-label': t('settings.crImport.openAria') },
-          on: { click: () => ctx.host.openTab(chrome.runtime.getURL(CR_IMPORT_PAGE)) },
-        },
-        t('settings.crImport.open'),
-        icon('external', 'h-3 w-3'),
-      ),
+      h('span', { class: 'flex shrink-0 gap-1.5' }, importButton('crunchyroll', 'cr-import'), importButton('adn', 'adn-import')),
     );
   }
 

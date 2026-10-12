@@ -46,7 +46,10 @@ Tip to simulate a service outage: developer tools of the popup (right-click › 
 ## 6. Alerts, import, backup
 
 - [ ] **Alerts without the popup**: leave the popup closed for more than 12 h with a series in progress that airs. Expected: the notification arrives.
-- [ ] **Crunchyroll import**: Settings › My data › Import from Crunchyroll; turn Wi-Fi off for 5 s during "Checking episode numbering". Expected: reading resumes and completes. Reload the extension while applying: it resumes on its own.
+- [ ] **Crunchyroll import**: Settings › My data › Import a watch history › Crunchyroll; turn Wi-Fi off for 5 s during "Checking episode numbering". Expected: reading resumes and completes. Reload the extension while applying: it resumes on its own.
+- [ ] **ADN import** (Brave and Firefox, signed in on ADN): *Settings › My data › Import a watch history › ADN* (or the *ADN* switch on the import page). Expected: "ADN tab ready", *Read my history* shows the pages read, then the analysis and the preview; series labelled "ADN: …"; an episode only started (a few seconds) never raises the progress; a donghua / manhwa (e.g. *The Girl Downstairs*) is either matched with certainty or listed in *To check*, never written blindly. ⚠️ *Update N series* writes to the real AniList / MyAnimeList lists: check the preview first, uncheck what you don't want, or stop at the preview and *Start over*.
+- [ ] **ADN import, signed out**: sign out of ADN (or wait for an expired session), read again. Expected: "Open ADN in that tab and sign in (reload the page if you already are)", no analysis. Sign in, reload the ADN tab, read again: it works.
+- [ ] **ADN import, privacy**: DevTools of the ADN tab › Network: one `viewing/history?offset=…&limit=100&onlyNext=false` request per 100 episodes, no cookies sent, the same headers as the site; Console: no token printed. DevTools of the import page: the port messages carry episodes only.
 - [ ] **Backup**: *Export* from the popup (opens the *Backup* page, file name in the interface language), then import it again. Expected: settings and matches are kept.
 
 ## 7. Accessibility (quick)
