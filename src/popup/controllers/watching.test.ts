@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SyncOutcome } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../shared/watching.types';
+import { setLocale } from '../../i18n';
 import { installFakeChrome } from '../../test/fake-chrome';
 import { createStore, LOGGED_OUT, type AccountState, type ExclusionsState, type Store } from '../../ui/state';
 import type { WatchingController } from './watching';
@@ -81,6 +82,8 @@ function connect(...services: TrackerId[]): void {
 }
 
 beforeEach(() => {
+  // Textes attendus en français, quelle que soit la langue de la machine (CI en anglais)
+  setLocale('fr');
   fake.reset();
   sw.calls.length = 0;
   markExpired.mockReset();

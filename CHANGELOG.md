@@ -5,6 +5,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-10-12
+
+First published version of the 2.3 line: 2.3.0 was tagged but never published (the release workflow stopped at the tests, before any upload). Same extension code as 2.3.0.
+
+### Fixed
+
+- Popup controller tests now pin the French locale: they compared French texts and failed on an English machine (GitHub Actions), which blocked the 2.3.0 release.
+
 ## [2.3.0] - 2026-10-12
 
 ### Added
@@ -348,6 +356,7 @@ First release: automatic Crunchyroll → AniList sync.
 - **Manual review** of uncertain matches from the popup (suggested entries, search, episode number), with a badge on the extension icon.
 - **Recent syncs** in the popup, with after-the-fact correction of a match.
 
+[2.3.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.3.1
 [2.3.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.3.0
 [2.2.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.2.1
 [2.2.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.2.0
