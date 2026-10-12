@@ -35,12 +35,8 @@ export interface SettingsView {
   readonly bar: HTMLElement;
   /** Contenu de la page affichée : placé par l'hôte dans sa zone défilante */
   readonly element: HTMLElement;
-  /** Page affichée */
-  page(): SettingsPage;
-  /** Entrée dans les Réglages : accueil, ou directement une sous-page (pastille de compte, rechargement) */
-  show(page?: SettingsPage, options?: { focus?: boolean }): void;
-  /** Réglages lus et page dessinée (restauration du défilement après un rechargement) */
-  readonly ready: Promise<void>;
+  /** Entrée dans les Réglages : accueil, ou directement une sous-page (pastille de compte) */
+  show(page?: SettingsPage): void;
 }
 
 interface CategoryCopy {
@@ -360,7 +356,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     return element.closest<HTMLElement>('.sk-scroll');
   }
 
-  function dispatch(action: SettingsNavAction, focus = true): void {
+  function dispatch(action: SettingsNavAction): void {
     const from = nav.page;
     const { state, effect } = settingsNavReducer(nav, action);
     if (effect.kind === 'exit') {
@@ -374,7 +370,6 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     drawBar();
     drawPage();
     if (container) container.scrollTop = state.page === 'home' ? homeScroll : 0;
-    if (!focus) return;
     if (effect.kind === 'focus-heading') bar.querySelector<HTMLElement>('[data-focus="settings-heading"]')?.focus({ preventScroll: true });
     if (effect.kind === 'focus-row') {
       const row = element.querySelector<HTMLElement>(`[data-focus="settings-cat-${effect.category}"]`);
@@ -424,7 +419,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   host.accounts.anilist.subscribe(() => redraw(['home', 'accounts', 'sync']));
   host.accounts.mal.subscribe(() => redraw(['home', 'accounts', 'sync']));
 
-  // Langue changée sans rechargement (panneau latéral) : tout est retraduit
+  // Langue changée (popup, panneau latéral) : tout est retraduit en place, sans rechargement
   onLocaleChange(() => {
     drawBar();
     drawPage();
@@ -437,7 +432,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
 
   drawBar();
   drawPage();
-  const ready = loadSettings();
+  void loadSettings();
   void refreshMappings();
   void loadExclusions();
   void refreshJournal();
@@ -449,16 +444,14 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   return {
     bar,
     element,
-    page: () => nav.page,
-    show(page = 'home', options = {}) {
+    show(page = 'home') {
       // Nouvelle entrée : l'accueil repart du haut
       homeScroll = 0;
       dispatch({ type: 'reset' });
       // Le reset ne redessine pas si l'on était déjà sur l'accueil : rendu explicite
       drawBar();
       drawPage();
-      if (page !== 'home') dispatch({ type: 'open', category: page }, options.focus ?? true);
+      if (page !== 'home') dispatch({ type: 'open', category: page });
     },
-    ready,
   };
 }

@@ -26,6 +26,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Fixed
 
+- Changing the language no longer makes the popup look zoomed in: it is re-translated in place instead of being reloaded, staying on the same screen.
 - Crunchyroll series pages recognize named seasons (e.g. One Piece « HEROINES »), and a season that is a single movie/special never matches a TV season by its number.
 - Crunchyroll One Piece series page: arcs shown with their episode range (*Elbaph (1156-current)*) now resolve to ONE PIECE with certainty, and MONSTERS (a 2024 one-shot AniList lists as a prequel, on Netflix only) is no longer offered as "Season 2". A prequel released after the series, or an entry available only on another platform, is never treated as one of its seasons.
 - Netflix: on a One Piece arc page (the single AniList entry covering every arc), the entry is no longer marked *Season guessed*. *Season guessed: check it below* is now only shown when there is a season selector to check.

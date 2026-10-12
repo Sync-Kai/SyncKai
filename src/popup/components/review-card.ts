@@ -24,6 +24,8 @@ export interface ReviewCard {
   update(review: PendingReview): void;
   /** Vrai pendant l'envoi ou l'affichage du résultat : la carte ne doit pas disparaître */
   isBusy(): boolean;
+  /** Changement de langue : libellés redessinés en place (sélection, saisie et résultat affiché conservés) */
+  relabel(): void;
 }
 
 const RESULT_VISIBLE_MS = 5_000;
@@ -378,5 +380,6 @@ export function createReviewCard(initial: PendingReview, actions: ReviewActions,
       render();
     },
     isBusy: () => phase !== 'editing',
+    relabel: render,
   };
 }

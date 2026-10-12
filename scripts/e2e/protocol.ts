@@ -21,9 +21,6 @@ declare global {
   }
 }
 
-/** Clé sessionStorage du stockage simulé : il survit au rechargement provoqué par un changement de langue */
-export const E2E_PERSIST_KEY = 'synckai:e2e-storage';
-
 /** Faux secrets semés dans le stockage : le rapport de diagnostic ne doit jamais les contenir */
 export const PLANTED_SECRETS = {
   anilistAccess: 'e2e-anilist-access-7d3f9c1b2a',

@@ -48,11 +48,6 @@ export interface ChromeMockOptions {
   /** chrome.permissions simulé ; absent = API absente (accès considéré comme accordé par le popup) */
   permissions?: PermissionsMock;
   manifest?: ManifestExtras;
-  /**
-   * Clé sessionStorage : le stockage y est recopié à chaque écriture et relu à l'installation.
-   * Il survit ainsi au rechargement du popup (changement de langue) ; l'appelant efface la clé pour repartir des données de démo.
-   */
-  persistKey?: string;
   /** Contenu initial de chrome.storage.session (absent = zone vide) */
   session?: StorageItems;
   /** Port ouvert par chrome.tabs.connect (script de contenu simulé) ; absent = connexion refusée */
@@ -115,41 +110,22 @@ function pick(store: Map<string, unknown>, keys: unknown): StorageItems {
   return {};
 }
 
-/** Stockage conservé par un chargement précédent de la page, null s'il n'y en a pas (ou s'il est illisible) */
-function restoreStorage(key: string): StorageItems | null {
-  try {
-    const raw = sessionStorage.getItem(key);
-    const parsed: unknown = raw ? JSON.parse(raw) : null;
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as StorageItems) : null;
-  } catch {
-    return null;
-  }
-}
-
 export function installChromeMock(options: ChromeMockOptions): ChromeMockControls {
-  const { persistKey } = options;
-  const initial = (persistKey ? restoreStorage(persistKey) : null) ?? clone(options.storage);
-  const store = new Map<string, unknown>(Object.entries(initial));
+  const store = new Map<string, unknown>(Object.entries(clone(options.storage)));
   const listeners = new Set<ChangeListener>();
   const noop = (): void => undefined;
   const event = { addListener: noop, removeListener: noop, hasListener: () => false };
   type TabUpdatedListener = (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => void;
   const tabUpdatedListeners = new Set<TabUpdatedListener>();
 
-  const persist = (): void => {
-    if (persistKey) sessionStorage.setItem(persistKey, JSON.stringify(Object.fromEntries(store)));
-  };
-  persist();
-
   /** Écouteurs propres à une zone (chrome.storage.local.onChanged / session.onChanged) */
   type AreaListener = (changes: StorageChanges) => void;
   const areaListeners = { local: new Set<AreaListener>(), session: new Set<AreaListener>() };
 
   const emitFor =
-    (area: 'local' | 'session', save: boolean) =>
+    (area: 'local' | 'session') =>
     (changes: StorageChanges): void => {
       if (Object.keys(changes).length === 0) return;
-      if (save) persist();
       // Asynchrone, comme dans Chrome
       queueMicrotask(() => {
         areaListeners[area].forEach((listener) => listener(changes));
@@ -186,8 +162,8 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
     },
   });
 
-  const local = storageArea(store, emitFor('local', true), areaListeners.local);
-  const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session', false), areaListeners.session);
+  const local = storageArea(store, emitFor('local'), areaListeners.local);
+  const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session'), areaListeners.session);
 
   const access = options.permissions;
   const optional = new Set(access?.optional ?? []);

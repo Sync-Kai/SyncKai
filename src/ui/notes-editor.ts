@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { getLocale, t } from '../i18n';
 import { LIST_NOTES_MAX, normalizeListNotes, notesPreview } from '../shared/list-notes';
 import { busyAttrs, h, nodes } from './dom';
 import { icon } from './icons';
@@ -6,7 +6,7 @@ import { icon } from './icons';
 // Éditeur du commentaire d'une entrée (AniList `notes`, MAL `comments`) : panneau (« Ta progression », repliable) et
 // popup (sous la ligne de « En cours », ouvert depuis le menu « ⋯ »). Élément PERSISTANT : l'écran le réinsère à chaque
 // rendu, la zone de texte (brouillon, curseur) n'est jamais recréée. Rien n'est écrit à la frappe, seulement sur
-// « Enregistrer » (Ctrl+Entrée) ; Échap annule.
+// « Enregistrer » (Ctrl+Entrée) ; Échap annule. Changement de langue : redessiné au prochain `update`.
 
 export interface NotesEditorView {
   /** Commentaire enregistré (aperçu replié, valeur de départ du brouillon) */
@@ -53,6 +53,8 @@ export function createNotesEditor(options: NotesEditorOptions): NotesEditor {
   /** Dernier texte enregistré ici, affiché replié jusqu'à la relecture de la fiche */
   let savedHere: string | null | undefined;
   let lastKey = '';
+  /** Clé de rendu : la langue en fait partie (libellés retraduits en place après un changement de langue) */
+  const drawKey = (): string => JSON.stringify([view, expanded, saving, savedHere, getLocale()]);
 
   const element = h('div', { class: 'flex min-w-0 flex-col gap-1.5', attrs: { 'data-notes-editor': focusKey } });
   const counter = h('span', { class: 'min-w-0 flex-1 text-[10px] font-semibold text-muted tabular-nums', attrs: { id: `${id}-count`, 'aria-live': 'off' } });
@@ -204,7 +206,7 @@ export function createNotesEditor(options: NotesEditorOptions): NotesEditor {
   }
 
   function draw(): void {
-    lastKey = JSON.stringify([view, expanded, saving, savedHere]);
+    lastKey = drawKey();
     const showEditor = expanded && view.unavailable === null;
     if (!showEditor) saveButton = null;
     // Zone de texte déplacée par replaceChildren : elle perd le focus, rendu aussitôt (le curseur est conservé)
@@ -233,7 +235,7 @@ export function createNotesEditor(options: NotesEditorOptions): NotesEditor {
       if (notesChanged) savedHere = undefined;
       // Brouillon repris du commentaire relu tant que rien n'a été saisi
       if (expanded && !dirty && (notesChanged || loaded)) loadDraft();
-      if (JSON.stringify([view, expanded, saving, savedHere]) !== lastKey) draw();
+      if (drawKey() !== lastKey) draw();
     },
     reset() {
       expanded = !collapsible;

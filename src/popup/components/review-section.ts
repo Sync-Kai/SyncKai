@@ -1,4 +1,4 @@
-import { t } from '../../i18n';
+import { getLocale, t } from '../../i18n';
 import type { PendingReview } from '../../shared/review.types';
 import { h } from '../../ui/dom';
 import { icon } from '../../ui/icons';
@@ -18,12 +18,8 @@ export function createReviewSection(actions: ReviewActions): ReviewSection {
   const cards = new Map<string, ReviewCard>();
   const title = h('h2', { class: 'm-0 text-[13px] font-bold outline-none', attrs: { tabindex: '-1' } });
   const list = h('div', { class: 'flex flex-col gap-2' });
-  const empty = h(
-    'div',
-    { class: `${CARD} flex items-center gap-2 p-3 text-[12px] text-muted` },
-    icon('check', 'h-3.5 w-3.5 text-mint', '3'),
-    t('review.empty'),
-  );
+  const emptyText = h('span', {});
+  const empty = h('div', { class: `${CARD} flex items-center gap-2 p-3 text-[12px] text-muted` }, icon('check', 'h-3.5 w-3.5 text-mint', '3'), emptyText);
   const element = h(
     'section',
     { class: 'flex flex-col gap-2' },
@@ -34,9 +30,12 @@ export function createReviewSection(actions: ReviewActions): ReviewSection {
   let pendingCount = 0;
   /** Dernière liste reçue : réappliquée quand une carte occupée se ferme (une vérification a pu arriver entre-temps) */
   let lastReviews: PendingReview[] = [];
+  /** Langue des libellés dessinés : un changement retraduit la section et ses cartes en place */
+  let locale = getLocale();
 
   function refreshChrome(): void {
     title.textContent = t('review.title', { count: pendingCount });
+    emptyText.textContent = t('review.empty');
     empty.hidden = cards.size > 0;
   }
 
@@ -44,6 +43,10 @@ export function createReviewSection(actions: ReviewActions): ReviewSection {
     lastReviews = reviews;
     const keys = new Set(reviews.map((r) => r.key));
     pendingCount = reviews.length;
+    if (locale !== getLocale()) {
+      locale = getLocale();
+      for (const card of cards.values()) card.relabel();
+    }
 
     // Cartes disparues du stockage (ignorées, résolues ailleurs) — sauf celles qui affichent un résultat
     let focusLost = false;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale, t } from '../../i18n';
-import { INITIAL_SETTINGS_NAV, isSettingsPage, settingsNavReducer, settingsPath, SETTINGS_CATEGORIES } from './navigation';
+import { INITIAL_SETTINGS_NAV, settingsNavReducer, settingsPath } from './navigation';
 
 describe('settingsNavReducer', () => {
   it('ouvre une sous-page et demande le focus sur son titre', () => {
@@ -30,16 +30,6 @@ describe('settingsNavReducer', () => {
 
   it('reset : accueil sans effet de focus', () => {
     expect(settingsNavReducer({ page: 'help', origin: 'help' }, { type: 'reset' })).toEqual({ state: INITIAL_SETTINGS_NAV, effect: { kind: 'none' } });
-  });
-});
-
-describe('isSettingsPage', () => {
-  it('accepte l’accueil et les catégories, rejette le reste', () => {
-    expect(SETTINGS_CATEGORIES.every(isSettingsPage)).toBe(true);
-    expect(isSettingsPage('home')).toBe(true);
-    expect(isSettingsPage('shortcuts')).toBe(true);
-    expect(isSettingsPage('activity')).toBe(false);
-    expect(isSettingsPage(null)).toBe(false);
   });
 });
 

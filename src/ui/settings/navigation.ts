@@ -52,10 +52,6 @@ export function isSettingsCategory(value: unknown): value is SettingsCategory {
   return SETTINGS_CATEGORIES.some((category) => category === value);
 }
 
-export function isSettingsPage(value: unknown): value is SettingsPage {
-  return value === 'home' || isSettingsCategory(value);
-}
-
 export function settingsNavReducer(state: SettingsNavState, action: SettingsNavAction): { state: SettingsNavState; effect: SettingsNavEffect } {
   switch (action.type) {
     case 'open':

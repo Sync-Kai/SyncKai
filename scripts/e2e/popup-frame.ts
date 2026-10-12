@@ -17,7 +17,7 @@ import { demoChrome, pageView, watchingList, type Scenario } from '../screenshot
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { localeParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
-import { E2E_ADJUST_SLOW_MS, E2E_PERSIST_KEY, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
+import { E2E_ADJUST_SLOW_MS, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
@@ -46,10 +46,6 @@ Object.defineProperty(navigator, 'clipboard', {
     },
   },
 });
-
-// Nouvelle navigation : on repart des données de démo ; rechargement (changement de langue) : stockage conservé
-const [navigation] = performance.getEntriesByType('navigation');
-if (!(navigation instanceof PerformanceNavigationTiming && navigation.type === 'reload')) sessionStorage.removeItem(E2E_PERSIST_KEY);
 
 // ─── Service worker simulé (à état) ─────────────────────────────────────────
 
@@ -244,7 +240,6 @@ installChromeMock({
     onRemove: (origins) => trace.permissionRemovals.push(origins),
   },
   manifest: { host_permissions: manifest.host_permissions, content_scripts: manifest.content_scripts },
-  persistKey: E2E_PERSIST_KEY,
 });
 
 await import('../../src/popup/popup.ts');

@@ -1,4 +1,4 @@
-import { initI18n, onLocaleChange, t } from '../i18n';
+import { getLocale, initI18n, onLocaleChange, t } from '../i18n';
 import { refreshReviewBadge } from '../shared/badge';
 import type { EntryLinkContext } from '../shared/entry-link';
 import type { EpisodeInfo } from '../shared/episode.types';
@@ -44,7 +44,7 @@ import { createLogger } from '../shared/logger';
 import { openSidePanel, sidePanelKind } from '../shared/side-panel';
 import { isTargetPage } from '../shared/target-pages';
 import { createAccountsController } from '../ui/accounts';
-import { isSettingsPage, type SettingsPage } from '../ui/settings/navigation';
+import type { SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView } from '../ui/settings/settings-view';
 
 const log = createLogger('popup');
@@ -53,34 +53,16 @@ const log = createLogger('popup');
 await initI18n();
 
 const swUnreachable = (): string => t('popup.swUnreachable');
-/** Écran (et défilement) à rouvrir après le rechargement provoqué par un changement de langue */
-const REOPEN_KEY = 'synckai:reopen';
 const CLOCK_TICK_MS = 60_000;
 
-interface ReopenState {
-  screen: Screen;
-  /** Sous-page des Réglages affichée (changement de langue depuis Réglages › Langue) */
-  settingsPage: SettingsPage;
-  scroll: number;
+/**
+ * Mémo d'une zone dont la langue fait partie des entrées : un changement de langue la redessine (retraduite en place,
+ * sans recharger le popup : un rechargement recrée la vue auto-dimensionnée de Chrome, qui s'affiche alors zoomée)
+ */
+function createLocaleMemo(): (inputs: readonly unknown[]) => boolean {
+  const changed = createMemo();
+  return (inputs) => changed([getLocale(), ...inputs]);
 }
-
-/** Écran mémorisé avant un changement de langue (lu une seule fois) */
-function takeReopenState(): ReopenState | null {
-  try {
-    const raw = sessionStorage.getItem(REOPEN_KEY);
-    sessionStorage.removeItem(REOPEN_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : null;
-    if (typeof parsed !== 'object' || parsed === null || !('screen' in parsed) || !('scroll' in parsed)) return null;
-    const { screen, scroll } = parsed;
-    const settingsPage = 'settingsPage' in parsed && isSettingsPage(parsed.settingsPage) ? parsed.settingsPage : 'home';
-    const valid = screen === 'watching' || screen === 'activity' || screen === 'settings';
-    return valid && typeof scroll === 'number' ? { screen, settingsPage, scroll } : null;
-  } catch {
-    return null;
-  }
-}
-
-const reopen = takeReopenState();
 
 function getRoot(): HTMLDivElement {
   const el = document.querySelector<HTMLDivElement>('#app');
@@ -93,7 +75,7 @@ const accounts = createAccountsController();
 const anilistStore = accounts.anilist;
 const malStore = accounts.mal;
 const syncStore = createStore<SyncData>({ reviews: [], recentSyncs: [], busyKey: null, recentError: null });
-const uiStore = createStore<UiState>({ screen: reopen?.screen ?? 'watching', previous: 'watching', sortMenuOpen: false, rowMenu: null, rowConfirm: null });
+const uiStore = createStore<UiState>({ screen: 'watching', previous: 'watching', sortMenuOpen: false, rowMenu: null, rowConfirm: null });
 const settingsStore = createStore<SettingsState>({ status: 'loading' });
 const exclusionsStore = createStore<ExclusionsState>({ status: 'loading' });
 /** Liste « En cours » (source, tri, actions sur une série, bandeau de retour) */
@@ -434,7 +416,7 @@ function isOnboarding(): boolean {
 }
 
 /** Entrées du rendu de « En cours » : on ne redessine la liste que si elles changent */
-const watchingChanged = createMemo();
+const watchingChanged = createLocaleMemo();
 
 function renderWatching(): void {
   const preferredPlayer = (() => {
@@ -509,7 +491,7 @@ function renderWatching(): void {
 }
 
 /** Section « À noter » redessinée seulement si son état change (préserve le survol des étoiles) */
-const ratingsChanged = createMemo();
+const ratingsChanged = createLocaleMemo();
 
 function renderRatings(): void {
   const connected = connectedServices().length > 0;
@@ -533,7 +515,7 @@ function renderRatings(): void {
  * Section « Écarts » redessinée seulement si son état change (jusqu'à 30+ lignes). Le compte à rebours d'une pause
  * d'alignement n'en fait pas partie : il est mis à jour en place chaque seconde (tickJobPause).
  */
-const compareChanged = createMemo();
+const compareChanged = createLocaleMemo();
 
 function renderCompare(): void {
   const both = connectedServices().length === 2;
@@ -561,13 +543,13 @@ function renderCompare(): void {
 
 // Chaque zone n'est redessinée que si ses entrées changent : focus, survol et régions live (bandeau d'accès,
 // barre d'état) restent en place entre deux rendus
-const headerChanged = createMemo();
-const navChanged = createMemo();
-const hostAccessChanged = createMemo();
-const onboardingChanged = createMemo();
-const queueChanged = createMemo();
-const recentChanged = createMemo();
-const footerChanged = createMemo();
+const headerChanged = createLocaleMemo();
+const navChanged = createLocaleMemo();
+const hostAccessChanged = createLocaleMemo();
+const onboardingChanged = createLocaleMemo();
+const queueChanged = createLocaleMemo();
+const recentChanged = createLocaleMemo();
+const footerChanged = createLocaleMemo();
 
 function render(): void {
   const ui = uiStore.get();
@@ -861,24 +843,9 @@ chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());
 exclusionsStore.subscribe(renderer.schedule);
 settingsStore.subscribe(renderer.schedule);
 
-// Après un changement de langue : même sous-page des Réglages, défilement restauré une fois les réglages dessinés
-if (reopen?.screen === 'settings') {
-  settingsView.show(reopen.settingsPage, { focus: false });
-  void settingsView.ready.then(() => {
-    main.scrollTop = reopen.scroll;
-  });
-}
-
-// Nouvelle langue : le popup est rechargé (toutes les vues reconstruites) en revenant au même écran
-onLocaleChange(() => {
-  try {
-    const state: ReopenState = { screen: uiStore.get().screen, settingsPage: settingsView.page(), scroll: main.scrollTop };
-    sessionStorage.setItem(REOPEN_KEY, JSON.stringify(state));
-  } catch {
-    // Stockage de session indisponible : retour à l'écran d'accueil du popup
-  }
-  location.reload();
-});
+// Nouvelle langue : retraduction en place (écran, sous-page des Réglages et défilement conservés). Chaque zone a la
+// langue dans son mémo ; les Réglages se retraduisent eux-mêmes (settings-view.ts)
+onLocaleChange(() => renderer.schedule());
 
 // Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert
 setInterval(() => {

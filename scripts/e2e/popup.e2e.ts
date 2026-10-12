@@ -142,10 +142,16 @@ async function openCategory(page: Page, category: string): Promise<void> {
   await page.waitForSelector(sel('settings-home'));
 }
 
-/** Change la langue dans Réglages › Langue : le popup se recharge sur la même sous-page */
+/**
+ * Change la langue dans Réglages › Langue : le popup est retraduit en place, sans rechargement (un rechargement recrée
+ * la vue auto-dimensionnée de Chrome, qui s'affiche zoomée) ; un marqueur posé sur `window` doit survivre
+ */
 async function switchLanguage(page: Page, locale: Locale): Promise<void> {
-  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), click(page, `language-${locale}`)]);
+  await page.evaluate(() => Object.assign(window, { __e2eNoReload: true }));
+  await click(page, `language-${locale}`);
+  await page.waitForFunction((l: string) => document.documentElement.lang === l, {}, locale);
   await page.waitForSelector(sel(`language-${locale}`));
+  expect(await page.evaluate(() => '__e2eNoReload' in window)).toBe(true);
 }
 
 // ─── Scénarios ────────────────────────────────────────────────────────────
@@ -198,7 +204,7 @@ describe('popup (bout en bout)', () => {
     expect(await shownScreen(page)).toBe(0);
     expect(await text(page, sel('nav-activity'))).toBe(fr('nav.activity'));
 
-    // Langue : rechargement du popup, toujours sur Réglages › Langue, libellés traduits
+    // Langue : popup retraduit en place, toujours sur Réglages › Langue
     await click(page, 'gear');
     await openCategory(page, 'language');
     for (const locale of ['en', 'de', 'fr'] as const) {
@@ -432,6 +438,39 @@ describe('popup (bout en bout)', () => {
     await page.locator('[data-focus="page-notes-save"]').click();
     const message = await waitForMessage(page, 'SET_LIST_NOTES');
     expect(message.payload).toMatchObject({ notes: 'Superbe arc' });
+  });
+
+  it('changement de langue : en-tête, onglets, carte « Sur cette page », commentaire et barre d’état retraduits sans rechargement', async () => {
+    const page = await openPopup({ scenario: 'page' });
+    const en = (key: MessageKey, params?: MessageParams): string => tl('en', key, params);
+    const notesToggle = '[data-focus="page-notes-toggle"]';
+    await page.waitForSelector(notesToggle);
+    expect(await text(page, notesToggle)).toContain(fr('notes.title'));
+    const footer = await text(page, 'footer');
+
+    await click(page, 'gear');
+    await openCategory(page, 'language');
+    await switchLanguage(page, 'en');
+    // Même sous-page des Réglages, retraduite
+    expect(await text(page, 'h1')).toBe(en('settings.section.language'));
+    expect(await attr(page, sel('gear'), 'aria-label')).toBe(en('nav.settings'));
+
+    await click(page, 'settings-home');
+    await click(page, 'back');
+    await page.waitForSelector(sel('nav-watching'));
+    expect(await shownScreen(page)).toBe(0);
+    expect(await text(page, sel('nav-watching'))).toBe(en('nav.watching'));
+    expect(await text(page, sel('nav-activity'))).toBe(en('nav.activity'));
+    expect(await page.$(`section[aria-label="${en('page.title')}"]`)).not.toBeNull();
+    // Éditeur persistant du commentaire : redessiné dans la nouvelle langue
+    expect(await text(page, notesToggle)).toContain(en('notes.title'));
+    expect(await text(page, 'footer')).not.toBe(footer);
+    // Activité : section « À vérifier » (élément persistant) retraduite
+    await click(page, 'nav-activity');
+    const mainText = await page.$eval('main', (el) => el.textContent ?? '');
+    expect(mainText).toContain(en('review.empty'));
+    expect(mainText).not.toContain(fr('review.empty'));
+    expect(await page.evaluate(() => '__e2eNoReload' in window)).toBe(true);
   });
 
   it('« Sur cette page » : série ignorée (Netflix, pas un anime) → mention neutre, sans « Réessayer »', async () => {
