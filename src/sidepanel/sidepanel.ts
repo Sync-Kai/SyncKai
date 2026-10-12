@@ -2,7 +2,8 @@ import { initI18n, onLocaleChange, t, type MessageKey } from '../i18n';
 import { kanaLabel } from '../ui/kit';
 import { createLogger } from '../shared/logger';
 import type { StreamingPlatform } from '../shared/episode.types';
-import { activePlatforms, grantedOptionalPlatforms } from '../shared/platform-access';
+import { activePlatforms, grantedOptionalPlatforms, requestPlatformAccess } from '../shared/platform-access';
+import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../shared/platforms';
 import { getSettings } from '../shared/settings';
 import { sidePanelKind } from '../shared/side-panel';
 import { createAccountsController } from '../ui/accounts';
@@ -204,12 +205,17 @@ function mountAgenda(entering: boolean): HTMLElement {
 }
 
 /** Hors Crunchyroll / ADN (Firefox, ou Chrome juste avant la fermeture) : une seule ligne neutre */
-function renderNotice(text: string, busy: boolean): HTMLElement {
+function renderNotice(text: string, busy: boolean, actions: readonly HTMLElement[] = []): HTMLElement {
   return h(
     'div',
-    { class: 'flex flex-1 items-center justify-center gap-2 px-4 text-center text-muted', attrs: { role: 'status' } },
-    busy && icon('spinner', 'h-3.5 w-3.5 shrink-0 motion-safe:animate-spin'),
-    h('p', { class: 'm-0' }, text),
+    { class: 'flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center text-muted' },
+    h(
+      'div',
+      { class: 'flex items-center justify-center gap-2', attrs: { role: 'status' } },
+      busy && icon('spinner', 'h-3.5 w-3.5 shrink-0 motion-safe:animate-spin'),
+      h('p', { class: 'm-0' }, text),
+    ),
+    actions.length > 0 && h('div', { class: 'flex flex-wrap justify-center gap-2' }, ...actions),
   );
 }
 
@@ -229,7 +235,8 @@ function render(): void {
     } else {
       // Le panneau d'onglet quitte le DOM : sa position sera perdue, on repartira du haut
       shownTab = null;
-      app.replaceChildren(header, renderNotice(context.status === 'checking' ? t('panel.checking') : offTargetText(), context.status === 'checking'));
+      const checking = context.status === 'checking';
+      app.replaceChildren(header, renderNotice(checking ? t('panel.checking') : offTargetText(), checking, checking ? [] : disabledPlatforms().map(renderEnableButton)));
     }
   });
 }
@@ -237,23 +244,55 @@ function render(): void {
 /** Plateformes à accès optionnel accordées (Netflix, Disney+), relues à chaque passage hors page cible */
 let optionalPlatforms: readonly StreamingPlatform[] = [];
 
-/** Ligne hors page cible : plateformes réellement suivies, Netflix et Disney+ cités seulement s'ils sont activés (UX-05) */
+/** Ligne hors page cible : plateformes réellement suivies (UX-05), puis celles qui restent à activer (ex. Disney+ si seul Netflix l'est) */
 function offTargetText(): string {
-  return optionalPlatforms.length > 0
-    ? t('panel.offTargetPlatforms', { platforms: formatPlatformList(activePlatforms(optionalPlatforms), 'conjunction') })
-    : t('panel.offTarget', { path: settingsPath('sync') });
+  const active = t('panel.offTargetPlatforms', { platforms: formatPlatformList(activePlatforms(optionalPlatforms), 'conjunction') });
+  const disabled = disabledPlatforms();
+  if (disabled.length === 0) return active;
+  return `${active} ${t('panel.offTargetEnable', { platforms: formatPlatformList(disabled, 'conjunction'), path: settingsPath('sync') })}`;
+}
+
+/** Plateformes à accès optionnel encore désactivées (ordre de STREAMING_PLATFORMS) */
+function disabledPlatforms(): StreamingPlatform[] {
+  return STREAMING_PLATFORMS.filter((platform) => isOptionalPlatform(platform) && !optionalPlatforms.includes(platform));
+}
+
+/**
+ * Bouton « Activer Disney+ » : même demande d'accès que l'interrupteur des Réglages. permissions.request est appelé
+ * directement dans le gestionnaire (geste utilisateur exigé, aucun await avant) ; le panneau est redessiné à la réponse.
+ */
+function renderEnableButton(platform: StreamingPlatform): HTMLElement {
+  const { label } = PLATFORMS[platform];
+  return h(
+    'button',
+    {
+      class: 'inline-flex h-9 cursor-pointer items-center rounded-full border border-line px-4 text-[13px] font-bold text-ink transition hover:bg-surface',
+      attrs: { type: 'button', 'data-enable-platform': platform },
+      on: {
+        click: () => {
+          requestPlatformAccess(platform).then(refreshOptionalPlatforms, (error: unknown) => log.warn(`Demande d’accès à ${label} impossible :`, error));
+        },
+      },
+    },
+    t('panel.enablePlatform', { platform: label }),
+  );
+}
+
+/** Accès optionnels relus (hors page cible seulement) ; redessine si la liste a changé */
+function refreshOptionalPlatforms(): void {
+  if (context.status !== 'off') return;
+  void grantedOptionalPlatforms().then((granted) => {
+    if (granted.join() === optionalPlatforms.join()) return;
+    optionalPlatforms = granted;
+    render();
+  });
 }
 
 function setContext(next: PanelContext): void {
   context = next;
   nowPlaying.setTab(next.status === 'target' ? next.tabId : null);
   render();
-  if (next.status !== 'off') return;
-  void grantedOptionalPlatforms().then((granted) => {
-    if (granted.join() === optionalPlatforms.join()) return;
-    optionalPlatforms = granted;
-    render();
-  });
+  refreshOptionalPlatforms();
 }
 
 /** Onglet à l'ouverture : réglage « Onglet à l'ouverture » (dernier onglet consulté par défaut) */
@@ -270,6 +309,9 @@ async function main(): Promise<void> {
   // Raccourci « ouvrir ou fermer » (Chrome) : écoute posée avant tout await (instant de chargement au plus tôt)
   if (sidePanelKind() === 'chrome') listenPanelToggle();
   await Promise.all([initI18n(), loadInitialTab()]);
+  // Accès accordé ou retiré (bouton ci-dessous, Réglages, about:addons) : la ligne hors page cible suit
+  chrome.permissions?.onAdded?.addListener(refreshOptionalPlatforms);
+  chrome.permissions?.onRemoved?.addListener(refreshOptionalPlatforms);
   onLocaleChange(() => {
     // Agenda affiché : textes et premier jour de la semaine à jour (il n'est plus réactivé à chaque rendu)
     if (shownTab === 'agenda') agenda?.activate();

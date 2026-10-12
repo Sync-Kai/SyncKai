@@ -220,15 +220,23 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await messages(page, 'GET_AGENDA')).toHaveLength(1);
   });
 
-  it('UX-05 : hors page cible, la ligne neutre cite Netflix selon l’accès (et le vrai chemin des Réglages)', async () => {
+  it('UX-05 : hors page cible, la ligne neutre cite les plateformes suivies, puis celles à activer (et le vrai chemin des Réglages)', async () => {
+    const path = `${fr('nav.settings')} › ${fr('settings.cat.sync')}`;
     const off = await openPanel({ site: 'other' });
-    const offText = fr('panel.offTarget', { path: `${fr('nav.settings')} › ${fr('settings.cat.sync')}` });
+    const offText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' })} ${fr('panel.offTargetEnable', { platforms: 'Netflix et Disney+', path })}`;
     await off.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, offText);
 
     const granted = await openPanel({ site: 'other', netflix: 'granted' });
-    // Netflix accordé, Disney+ non : seules les plateformes réellement suivies sont citées
-    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' }));
+    // Netflix accordé, Disney+ non : Netflix rejoint les plateformes suivies, Disney+ reste cité comme à activer
+    const grantedText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' })} ${fr('panel.offTargetEnable', { platforms: 'Disney+', path })}`;
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, grantedText);
     expect(await granted.evaluate(() => document.body.textContent ?? '')).not.toContain(offText);
+
+    // Bouton « Activer Disney+ » : demande d'accès directe, la ligne cite ensuite les quatre plateformes, sans bouton
+    expect(await granted.$$eval('[data-enable-platform]', (buttons) => buttons.map((button) => button.getAttribute('data-enable-platform')))).toEqual(['disney']);
+    await granted.locator('[data-enable-platform="disney"]').click();
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN, Netflix et Disney+' }));
+    expect(await granted.$$('[data-enable-platform]')).toHaveLength(0);
   });
 
   it('UI-05 : Entrée sur un délai vide ne l’enregistre pas (0 min) : champ signalé invalide, éditeur ouvert', async () => {
