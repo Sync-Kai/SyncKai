@@ -61,7 +61,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 
 - *Watching*: series in progress with the next episode's date ("Ep. 5 in 18 h"), sorting, +1 / −1, and *Open* on your preferred player.
 - *On this page*: the AniList entry of the series or episode you are on, with editable progress, status and score.
-- One-click status changes (on hold, dropped, completed) on both services.
+- One-click status changes (on hold, dropped, completed) on both services; remove an anime from your list or edit its comment, from the popup or the side panel.
 - Remove a series from your list (confirmed first) and write a comment on its entry (AniList notes, MyAnimeList comments), from the ⋯ menu of *Watching* or the *Your progress* card of the side panel.
 - Click a title or cover to open its AniList or MyAnimeList page (*Default entry page* setting when both accounts are connected).
 - Compare AniList and MyAnimeList: spots differences in progress, status, score and missing series, and aligns them on demand, never automatically.
