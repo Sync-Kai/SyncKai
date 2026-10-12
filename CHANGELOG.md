@@ -20,6 +20,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Changed
 
+- `PRIVACY.md`: the AniList catalog search that checks Netflix and Disney+ titles is no longer described as made “without your account”; it is read-only, but carries your AniList token when you are signed in, like every AniList request.
 - ADN (`animationdigitalnetwork.com`) is now declared in `host_permissions`, like Crunchyroll, so the import page can find the open ADN tab. Same sites as before: no new install warning.
 - **Default keyboard shortcuts** are now `Alt+Shift+K` (mark the current episode as watched) and `Alt+Shift+1` (side panel; `Alt+Shift+&` on AZERTY), the same on Chrome, Brave and Firefox: `Alt+Shift+S` and `Alt+Shift+P` opened Firefox menus (*History*, *Profiles*), and `Alt+Shift+P` is also Chrome's *New tab group* shortcut. Existing installs keep a key you changed yourself; a missing key can be set in *Settings › Shortcuts*. In French, the settings show `Alt+Maj+1 (touche &)`.
 - On Crunchyroll and ADN, the script SyncKai loads into the page is almost half the size (15% smaller on Netflix): nothing changes in use.
