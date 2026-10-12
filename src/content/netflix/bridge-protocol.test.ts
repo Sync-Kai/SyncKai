@@ -40,6 +40,21 @@ describe('reduceNetflixMetadata', () => {
     expect(isNetflixShowMetadata(show)).toBe(true);
   });
 
+  it('import de l’historique (`bookmarks`) : point de lecture et fin de visionnage joints, date jamais gardée', () => {
+    const show = reduceNetflixMetadata(mushokuRawResponse(), true);
+    const episode = show?.seasons[0]?.episodes[0];
+    expect(episode).toEqual({ id: '81402887', seq: 1, title: 'Episode 1 title', runtime: 1422, creditsOffset: 1329, bookmark: { offset: 120, watchedToEndOffset: null } });
+    expect(JSON.stringify(show)).not.toContain('watchedDate');
+    expect(isNetflixShowMetadata(show)).toBe(true);
+    // Jamais regardé (offset -1) : null ; film : point de lecture au niveau de la vidéo
+    const raw = { video: { id: 2, type: 'show', title: 'T', seasons: [{ seq: 1, episodes: [{ id: 3, seq: 1, bookmark: { offset: -1, watchedDate: 0 }, watchedToEndOffset: 1269 }] }] } };
+    expect(reduceNetflixMetadata(raw, true)?.seasons[0]?.episodes[0]?.bookmark).toBeNull();
+    const movie = reduceNetflixMetadata({ video: { id: '81000001', type: 'movie', title: 'Suzume', runtime: 7320, creditsOffset: 7010, bookmark: { offset: 7100, watchedDate: 1 }, watchedToEndOffset: 7000, seasons: [] } }, true);
+    expect(movie?.bookmark).toEqual({ offset: 7100, watchedToEndOffset: 7000 });
+    // Synchro en direct : aucun point de lecture, même si la réponse en contient
+    expect(reduceNetflixMetadata({ video: { id: '81000001', type: 'movie', title: 'Suzume', bookmark: { offset: 7100 }, seasons: [] } })).not.toHaveProperty('bookmark');
+  });
+
   it('film : durée et générique au niveau de la vidéo, aucune saison', () => {
     const show = reduceNetflixMetadata({ video: { id: '81000001', type: 'movie', title: 'Suzume', runtime: 7320, creditsOffset: 7010, seasons: [] } });
     expect(show).toEqual({ showId: '81000001', type: 'movie', title: 'Suzume', runtime: 7320, creditsOffset: 7010, seasons: [] });
@@ -120,48 +135,52 @@ describe('messages du pont (chaînes JSON)', () => {
   const show = reduceNetflixMetadata(mushokuRawResponse());
 
   it('requête : aller-retour et validation', () => {
-    const detail = encodeNetflixRequest({ v: 1, id: 'abc', movieId: '81402901' });
+    const detail = encodeNetflixRequest({ v: 2, id: 'abc', movieId: '81402901' });
     expect(typeof detail).toBe('string');
-    expect(decodeNetflixRequest(detail)).toEqual({ v: 1, id: 'abc', movieId: '81402901' });
+    expect(decodeNetflixRequest(detail)).toEqual({ v: 2, id: 'abc', movieId: '81402901' });
     // Objet : refusé (detail toujours en chaîne, Xray Firefox)
-    expect(decodeNetflixRequest({ v: 1, id: 'abc', movieId: '81402901' })).toBeNull();
-    expect(decodeNetflixRequest(JSON.stringify({ v: 2, id: 'abc', movieId: '1' }))).toBeNull();
-    expect(decodeNetflixRequest(JSON.stringify({ v: 1, id: 'abc', movieId: '../1' }))).toBeNull();
-    expect(decodeNetflixRequest(JSON.stringify({ v: 1, id: 'abc', movieId: '1234567890123' }))).toBeNull();
+    expect(decodeNetflixRequest({ v: 2, id: 'abc', movieId: '81402901' })).toBeNull();
+    // Autre version du protocole (pont v1 resté dans un onglet après une mise à jour) : ignorée
+    expect(decodeNetflixRequest(JSON.stringify({ v: 1, id: 'abc', movieId: '1' }))).toBeNull();
+    // Points de lecture (import de l'historique, v2) : seul `true` est relu
+    expect(decodeNetflixRequest(encodeNetflixRequest({ v: 2, id: 'abc', movieId: '81402901', bookmarks: true }))).toEqual({ v: 2, id: 'abc', movieId: '81402901', bookmarks: true });
+    expect(decodeNetflixRequest(JSON.stringify({ v: 2, id: 'abc', movieId: '81402901', bookmarks: 'oui' }))).toEqual({ v: 2, id: 'abc', movieId: '81402901' });
+    expect(decodeNetflixRequest(JSON.stringify({ v: 2, id: 'abc', movieId: '../1' }))).toBeNull();
+    expect(decodeNetflixRequest(JSON.stringify({ v: 2, id: 'abc', movieId: '1234567890123' }))).toBeNull();
     expect(decodeNetflixRequest('{pas du json')).toBeNull();
   });
 
   it('réponse : succès revalidé, erreurs typées', () => {
     if (!show) throw new Error('fixture invalide');
-    expect(decodeNetflixResponse(encodeNetflixResponse({ v: 1, id: 'r1', ok: true, data: show }))).toEqual({ v: 1, id: 'r1', ok: true, data: show });
-    expect(decodeNetflixResponse(encodeNetflixResponse({ v: 1, id: 'r2', ok: false, error: 'http', status: 404 }))).toEqual({
-      v: 1,
+    expect(decodeNetflixResponse(encodeNetflixResponse({ v: 2, id: 'r1', ok: true, data: show }))).toEqual({ v: 2, id: 'r1', ok: true, data: show });
+    expect(decodeNetflixResponse(encodeNetflixResponse({ v: 2, id: 'r2', ok: false, error: 'http', status: 404 }))).toEqual({
+      v: 2,
       id: 'r2',
       ok: false,
       error: 'http',
       status: 404,
     });
-    expect(decodeNetflixResponse(encodeNetflixResponse({ v: 1, id: 'r3', ok: false, error: 'network' }))).toEqual({ v: 1, id: 'r3', ok: false, error: 'network' });
+    expect(decodeNetflixResponse(encodeNetflixResponse({ v: 2, id: 'r3', ok: false, error: 'network' }))).toEqual({ v: 2, id: 'r3', ok: false, error: 'network' });
     // Données forgées par la page : rejetées
-    expect(decodeNetflixResponse(JSON.stringify({ v: 1, id: 'r4', ok: true, data: { showId: 'x' } }))).toBeNull();
-    expect(decodeNetflixResponse(JSON.stringify({ v: 1, id: 'r5', ok: false, error: 'autre' }))).toBeNull();
+    expect(decodeNetflixResponse(JSON.stringify({ v: 2, id: 'r4', ok: true, data: { showId: 'x' } }))).toBeNull();
+    expect(decodeNetflixResponse(JSON.stringify({ v: 2, id: 'r5', ok: false, error: 'autre' }))).toBeNull();
     expect(decodeNetflixResponse(42)).toBeNull();
   });
 
   it('ouverture du canal : demande et offre de port en chaînes JSON, revalidées', () => {
-    const handshake = encodeNetflixHandshake({ v: 1, nonce: 'n1' });
+    const handshake = encodeNetflixHandshake({ v: 2, nonce: 'n1' });
     expect(typeof handshake).toBe('string');
-    expect(decodeNetflixHandshake(handshake)).toEqual({ v: 1, nonce: 'n1' });
-    expect(decodeNetflixHandshake({ v: 1, nonce: 'n1' })).toBeNull();
-    expect(decodeNetflixHandshake(JSON.stringify({ v: 1, nonce: '' }))).toBeNull();
-    expect(decodeNetflixHandshake(JSON.stringify({ v: 2, nonce: 'n1' }))).toBeNull();
+    expect(decodeNetflixHandshake(handshake)).toEqual({ v: 2, nonce: 'n1' });
+    expect(decodeNetflixHandshake({ v: 2, nonce: 'n1' })).toBeNull();
+    expect(decodeNetflixHandshake(JSON.stringify({ v: 2, nonce: '' }))).toBeNull();
+    expect(decodeNetflixHandshake(JSON.stringify({ v: 1, nonce: 'n1' }))).toBeNull();
 
-    const offer = encodeNetflixPortOffer({ v: 1, type: NETFLIX_PORT_OFFER, nonce: 'n1' });
-    expect(decodeNetflixPortOffer(offer)).toEqual({ v: 1, type: NETFLIX_PORT_OFFER, nonce: 'n1' });
+    const offer = encodeNetflixPortOffer({ v: 2, type: NETFLIX_PORT_OFFER, nonce: 'n1' });
+    expect(decodeNetflixPortOffer(offer)).toEqual({ v: 2, type: NETFLIX_PORT_OFFER, nonce: 'n1' });
     // Autres messages postMessage de la page : ignorés
-    expect(decodeNetflixPortOffer({ v: 1, type: NETFLIX_PORT_OFFER, nonce: 'n1' })).toBeNull();
-    expect(decodeNetflixPortOffer(JSON.stringify({ v: 1, type: 'autre', nonce: 'n1' }))).toBeNull();
-    expect(decodeNetflixPortOffer(JSON.stringify({ v: 1, type: NETFLIX_PORT_OFFER, nonce: 'x'.repeat(65) }))).toBeNull();
+    expect(decodeNetflixPortOffer({ v: 2, type: NETFLIX_PORT_OFFER, nonce: 'n1' })).toBeNull();
+    expect(decodeNetflixPortOffer(JSON.stringify({ v: 2, type: 'autre', nonce: 'n1' }))).toBeNull();
+    expect(decodeNetflixPortOffer(JSON.stringify({ v: 2, type: NETFLIX_PORT_OFFER, nonce: 'x'.repeat(65) }))).toBeNull();
     expect(decodeNetflixPortOffer(`${NETFLIX_PORT_OFFER}{`)).toBeNull();
   });
 });

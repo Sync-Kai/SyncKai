@@ -10,6 +10,7 @@ import {
   isCrImportJob,
   isCrImportPlan,
   isCrImportReviewsPayload,
+  isImportPlatform,
   planCounts,
   readResolutions,
   seasonIndexOf,
@@ -140,6 +141,25 @@ describe('aperçu', () => {
     expect(plan.review).toHaveLength(1);
     expect(plan.review[0]).toMatchObject({ key: 'crunchyroll:GRX:s2', reason: 'Saison 2 ?', created: false, episode: { platform: 'crunchyroll', seriesId: 'GRX', displayedEpisodeNumber: 1180, seasonEpisodeNumber: 25 } });
     expect(plan).toMatchObject({ excluded: 2, failed: 1, seasonCount: 5 });
+  });
+
+  it('Netflix : séries écartées (pas des animes) comptées une fois par série, en plus des titres écartés avant l’analyse', () => {
+    const plan = buildCrImportPlan(
+      input({
+        platform: 'netflix',
+        seasons: [season({ seriesId: '80057281', seasonNumber: 1 }), season({ seriesId: '80057281', seasonNumber: 2 }), season({ seriesId: '81231974' })],
+        resolutions: { '0': { kind: 'ignored', key: 'netflix:80057281:s1' }, '1': { kind: 'ignored', key: 'netflix:80057281:s2' }, '2': { kind: 'ignored', key: 'netflix:81231974:s24' } },
+        stats: { items: 120, pages: 6, partial: false, ignored: 40 },
+      }),
+      0,
+    );
+    expect(plan).toMatchObject({ platform: 'netflix', items: [], review: [], excluded: 0, failed: 0, ignored: 42 });
+    expect(isCrImportPlan(plan)).toBe(true);
+    expect(isCrImportPlan({ ...plan, ignored: -1 })).toBe(false);
+    // Crunchyroll / ADN : aucun compteur
+    expect(buildCrImportPlan(input(), 0)).not.toHaveProperty('ignored');
+    expect(readResolutions({ '0': { kind: 'ignored', key: 'k' }, '1': { kind: 'autre', key: 'k' } })).toEqual({ '0': { kind: 'ignored', key: 'k' } });
+    expect(['crunchyroll', 'adn', 'netflix', 'disney'].map(isImportPlatform)).toEqual([true, true, true, false]);
   });
 
   it('One Piece : saisons sûres en numérotation absolue → UNE ligne, épisode le plus avancé (1180)', () => {

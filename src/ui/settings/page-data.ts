@@ -1,4 +1,4 @@
-// Réglages › Mes données : correspondances mémorisées, séries exclues, import d'un historique (Crunchyroll, ADN),
+// Réglages › Mes données : correspondances mémorisées, séries exclues, import d'un historique (Crunchyroll, ADN, Netflix),
 // sauvegarde (export / import) et zone de danger (réinitialisation des correspondances).
 import { t, tp } from '../../i18n';
 import { includeSeries, type ExcludedSeries } from '../../shared/exclusions';
@@ -18,7 +18,7 @@ import { BTN_DANGER, BTN_DANGER_FILL, dangerRow, dangerZone, DIVIDER, HELP_TEXT,
 
 const log = createLogger('settings');
 
-/** Import d'un historique Crunchyroll ou ADN (onglet dédié : lecture, analyse et aperçu durent plusieurs minutes) */
+/** Import d'un historique Crunchyroll, ADN ou Netflix (onglet dédié : lecture, analyse et aperçu durent plusieurs minutes) */
 const IMPORT_PAGE = 'src/import-cr/import-cr.html';
 const EXPORTED_BADGE_MS = 2_000;
 
@@ -208,7 +208,8 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
         h('span', { class: 'text-[13px] font-bold' }, t('settings.backup.crImport')),
         h('span', { class: HELP_TEXT }, t('settings.crImport.help')),
       ),
-      h('span', { class: 'flex shrink-0 gap-1.5' }, importButton('crunchyroll', 'cr-import'), importButton('adn', 'adn-import')),
+      // Netflix : accès optionnel demandé sur la page d'import s'il n'est pas encore accordé
+      h('span', { class: 'flex shrink-0 flex-wrap gap-1.5' }, importButton('crunchyroll', 'cr-import'), importButton('adn', 'adn-import'), importButton('netflix', 'netflix-import')),
     );
   }
 

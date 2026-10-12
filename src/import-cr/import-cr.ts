@@ -1,7 +1,7 @@
 import { getLocale, initI18n, onLocaleChange, t, tp, type MessageKey } from '../i18n';
 import { isAdnHistoryPortMessage, reduceAdnHistory } from '../shared/adn-import';
 import { ADN_HISTORY_PORT_NAME, CR_HISTORY_PORT_NAME, isCrHistoryPortMessage } from '../shared/content-messages';
-import type { CrHistoryErrorCode, CrHistoryResult } from '../shared/cr-history';
+import { MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult } from '../shared/cr-history';
 import {
   CR_IMPORT_KEYS,
   defaultSelection,
@@ -21,6 +21,22 @@ import {
 } from '../shared/cr-import';
 import { dismissCrImportJob, resetCrImport } from '../shared/cr-import-store';
 import { hasHostAccess, requestHostAccess } from '../shared/host-access';
+import { NETFLIX_HISTORY_HOOK } from '../shared/netflix-history';
+import {
+  groupNetflixRows,
+  keepsShow,
+  needsMetadata,
+  NETFLIX_TITLES_PER_REQUEST,
+  netflixTabOp,
+  readNetflixHistory,
+  reduceNetflixShow,
+  type NetflixTab,
+  type NetflixTabOp,
+  type NetflixTitleGroup,
+  type NetflixTitleVerdict,
+} from '../shared/netflix-import';
+import { isNetflixShowMetadata, type NetflixShowMetadata } from '../shared/netflix-metadata';
+import { hasPlatformAccess, requestPlatformAccess } from '../shared/platform-access';
 import { isJobActive } from '../shared/job';
 import { createLogger } from '../shared/logger';
 import { sendMessage } from '../shared/messages';
@@ -37,9 +53,10 @@ import { BTN_GHOST, BTN_PRIMARY, CARD, renderCover, segmented, SERVICE_CHIPS } f
 
 const log = createLogger('import-cr');
 
-// Page « Importer un historique » (onglet ouvert depuis Réglages › Mes données), Crunchyroll ou ADN (?platform=adn) :
-// a) plateforme choisie, onglet trouvé (ou ouvert), b) lecture de l'historique par son script de contenu (port ;
-// ADN : réduit ici par saison), c) analyse en tâche de fond, d) aperçu, e) application en tâche de fond. Les tâches et
+// Page « Importer un historique » (onglet ouvert depuis Réglages › Mes données), Crunchyroll, ADN (?platform=adn) ou
+// Netflix (?platform=netflix) : a) plateforme choisie, onglet trouvé (ou ouvert), b) lecture de l'historique par son script
+// de contenu (port ; ADN : réduit ici par saison ; Netflix : onglet piloté d'ici, filtre « anime » puis points de lecture,
+// voir shared/netflix-import.ts), c) analyse en tâche de fond, d) aperçu, e) application en tâche de fond. Les tâches et
 // l'aperçu vivent dans chrome.storage.local : la page peut être fermée puis rouverte, elle reprend où en est l'import.
 // Une seule analyse ou un seul aperçu à la fois, toutes plateformes confondues (« Recommencer » pour changer).
 
@@ -61,7 +78,24 @@ const SOURCES: Record<ImportPlatform, PlatformSource> = {
     site: 'animationdigitalnetwork.com',
     origins: ['*://animationdigitalnetwork.com/*', '*://*.animationdigitalnetwork.com/*'],
   },
+  // Page Activité de visionnage du profil (l'historique n'est lisible que là) ; accès optionnel, comme dans Réglages
+  netflix: {
+    tabPatterns: ['https://www.netflix.com/viewingactivity*', 'https://www.netflix.com/*/viewingactivity*'],
+    home: 'https://www.netflix.com/viewingactivity',
+    site: 'netflix.com/viewingactivity',
+    origins: [...PLATFORMS.netflix.optionalMatches],
+  },
 };
+/** Netflix : accès optionnel (permission de la plateforme, voir shared/platform-access.ts) ; autres : accès du manifeste */
+const hasSourceAccess = (platform: ImportPlatform): Promise<boolean> => (platform === 'netflix' ? hasPlatformAccess('netflix') : hasHostAccess(SOURCES[platform].origins));
+/** À appeler directement dans le clic (Firefox : geste utilisateur sans await préalable) */
+const requestSourceAccess = (platform: ImportPlatform): Promise<boolean> => (platform === 'netflix' ? requestPlatformAccess('netflix') : requestHostAccess(SOURCES[platform].origins));
+/** Netflix : métadonnées d'une série demandées une à une, espacées (requête du site, avec sa session) */
+const NETFLIX_SHOW_GAP_MS = 700;
+/** Réponse nulle après ce délai : pont du monde MAIN muet (onglet ouvert avant une mise à jour) → recharger l'onglet */
+const NETFLIX_SILENT_MS = 20_000;
+/** Nouvelles tentatives du filtre AniList (quota, réseau) avant d'abandonner */
+const NETFLIX_TITLES_RETRY_MS = [5_000, 15_000] as const;
 const TAB_POLL_MS = 2_000;
 /** Script de contenu pas encore prêt (onglet en chargement) : nouvelles tentatives avant de proposer de recharger */
 const CONNECT_RETRY_MS = [1_000, 2_000, 3_000] as const;
@@ -69,6 +103,8 @@ const CONNECT_RETRY_MS = [1_000, 2_000, 3_000] as const;
 type Step =
   | { kind: 'connect'; tabId: number | null; tabTitle: string | null; opening: boolean; error: string | null; reloadTabId: number | null }
   | { kind: 'reading'; tabId: number; pages: number; items: number; lookups: number; lookupsTotal: number }
+  /** Netflix : lignes chargées (« Voir plus »), puis titres filtrés sur AniList, puis séries lues sur Netflix */
+  | { kind: 'netflix'; tabId: number; phase: 'rows' | 'titles' | 'shows'; done: number; total: number }
   | { kind: 'starting' };
 
 interface PageState {
@@ -113,6 +149,8 @@ const state: PageState = {
 };
 
 let port: chrome.runtime.Port | null = null;
+/** Lecture Netflix en cours (pilotée d'ici) : `stopped` l'arrête à la prochaine étape */
+let netflixRun: { stopped: boolean } | null = null;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let tickTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -219,7 +257,7 @@ async function choosePlatform(platform: ImportPlatform): Promise<void> {
   url.searchParams.set('platform', platform);
   window.history.replaceState(null, '', url);
   draw();
-  state.hostAccess = await hasHostAccess(SOURCES[platform].origins);
+  state.hostAccess = await hasSourceAccess(platform);
   draw();
   await refreshTab();
 }
@@ -241,6 +279,7 @@ const READ_ERRORS: Record<CrHistoryErrorCode, MessageKey> = {
 /** Message d'échec de lecture ; ADN : jeton absent ou expiré → se connecter puis recharger la page du site */
 function readErrorText(platform: ImportPlatform, code: CrHistoryErrorCode): string {
   if (platform === 'adn' && code === 'logged-out') return t('crImport.read.error.adnLoggedOut');
+  if (platform === 'netflix' && code === 'logged-out') return t('crImport.read.error.netflixLoggedOut');
   return t(READ_ERRORS[code], platformParams(platform));
 }
 
@@ -266,6 +305,7 @@ function readEvent(platform: ImportPlatform, raw: unknown): ReadEvent | null {
 
 function backToConnect(tabId: number | null, error: string | null, reloadTabId: number | null = null): void {
   port = null;
+  netflixRun = null;
   state.step = { kind: 'connect', tabId, tabTitle: null, opening: false, error, reloadTabId };
   draw();
   void refreshTab();
@@ -273,6 +313,10 @@ function backToConnect(tabId: number | null, error: string | null, reloadTabId: 
 
 function startReading(tabId: number, attempt = 0): void {
   const platform = state.platform;
+  if (platform === 'netflix') {
+    void readNetflix(tabId);
+    return;
+  }
   state.error = null;
   state.notice = null;
   state.step = { kind: 'reading', tabId, pages: 0, items: 0, lookups: 0, lookupsTotal: 0 };
@@ -333,10 +377,161 @@ function startReading(tabId: number, attempt = 0): void {
 
 function stopReading(): void {
   const current = port;
-  const tabId = state.step.kind === 'reading' ? state.step.tabId : null;
+  const tabId = state.step.kind === 'reading' || state.step.kind === 'netflix' ? state.step.tabId : null;
   port = null;
+  if (netflixRun) netflixRun.stopped = true;
   current?.disconnect();
   backToConnect(tabId, null);
+}
+
+// ─── b') Netflix : onglet piloté d'ici (voir shared/netflix-import.ts) ────
+
+/**
+ * Onglet Netflix piloté par scripting.executeScript (fonction autonome netflixTabOp, monde isolé de l'extension) : aucun
+ * code de lecture de l'historique dans le script de contenu Netflix, qui n'expose que la demande des points de lecture.
+ */
+function netflixTab(tabId: number): NetflixTab & { show: (movieId: string) => Promise<unknown> } {
+  const run = async (op: NetflixTabOp, movieId = ''): Promise<unknown> => {
+    const [first] = await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, func: netflixTabOp, args: [op, NETFLIX_HISTORY_HOOK, movieId] });
+    return first?.result;
+  };
+  return { state: () => run('state'), clickMore: () => run('click'), rows: () => run('rows'), show: (movieId) => run('show', movieId) };
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Filtre « anime » d'un paquet de titres (service worker), retenté après une erreur passagère (quota, réseau, réveil) */
+async function checkTitles(titles: string[], stopped: () => boolean): Promise<{ ok: true; data: NetflixTitleVerdict[] } | { ok: false; message: string } | null> {
+  for (let attempt = 0; ; attempt++) {
+    let failure = t('crImport.error.unexpected');
+    try {
+      const result = await sendMessage('NETFLIX_IMPORT_TITLES', { titles });
+      if (stopped()) return null;
+      if (result.ok && result.data.length === titles.length) return { ok: true, data: result.data };
+      if (!result.ok && result.code === 'NOT_CONNECTED') return { ok: false, message: result.message };
+      if (!result.ok) failure = result.message;
+    } catch (error: unknown) {
+      log.warn('Filtre Netflix non transmis :', error instanceof Error ? error.message : String(error));
+    }
+    const wait = NETFLIX_TITLES_RETRY_MS[attempt];
+    if (wait === undefined) return { ok: false, message: failure };
+    await sleep(wait);
+    if (stopped()) return null;
+  }
+}
+
+/** Métadonnées (avec points de lecture) d'une série : ses vidéos essayées tour à tour ; 'absent' / 'silent' : recharger l'onglet */
+async function loadNetflixShow(tab: ReturnType<typeof netflixTab>, group: NetflixTitleGroup): Promise<NetflixShowMetadata | null | 'absent' | 'silent'> {
+  for (const movieId of group.movieIds) {
+    const started = Date.now();
+    const raw = await tab.show(movieId);
+    if (raw === 'absent') return 'absent';
+    if (isNetflixShowMetadata(raw)) return raw;
+    if (Date.now() - started >= NETFLIX_SILENT_MS) return 'silent';
+  }
+  return null;
+}
+
+/**
+ * Lecture Netflix : a) lignes (bouton « Voir plus » du site), b) filtre « anime » des titres distincts (AniList, paquets de
+ * NETFLIX_TITLES_PER_REQUEST), c) points de lecture des seules séries gardées (une requête Netflix chacune, espacées),
+ * d) une ligne par saison vue → même analyse que Crunchyroll et ADN. Les titres écartés sont seulement comptés.
+ */
+async function readNetflix(tabId: number): Promise<void> {
+  const run = { stopped: false };
+  netflixRun = run;
+  const stopped = (): boolean => run.stopped || netflixRun !== run;
+  const update = (patch: Partial<Extract<Step, { kind: 'netflix' }>>): void => {
+    if (stopped() || state.step.kind !== 'netflix') return;
+    state.step = { ...state.step, ...patch };
+    draw();
+  };
+  state.error = null;
+  state.notice = null;
+  state.step = { kind: 'netflix', tabId, phase: 'rows', done: 0, total: 0 };
+  draw();
+  const tab = netflixTab(tabId);
+  try {
+    const read = await readNetflixHistory(tab, { sleep, stopped }, (rows) => update({ done: rows }));
+    if (read === null || stopped()) return;
+    if (!read.ok) {
+      backToConnect(tabId, readErrorText('netflix', read.code), read.code === 'unavailable' ? tabId : null);
+      return;
+    }
+    const { rows, clicks, partial } = read.read;
+    const groups = groupNetflixRows(rows);
+    if (groups.length === 0) {
+      backToConnect(tabId, null);
+      state.notice = t('crImport.netflix.empty');
+      draw();
+      return;
+    }
+
+    update({ phase: 'titles', done: 0, total: groups.length });
+    const verdicts = new Map<NetflixTitleGroup, NetflixTitleVerdict>();
+    for (let start = 0; start < groups.length; start += NETFLIX_TITLES_PER_REQUEST) {
+      const chunk = groups.slice(start, start + NETFLIX_TITLES_PER_REQUEST);
+      const result = await checkTitles(
+        chunk.map((group) => group.title),
+        stopped,
+      );
+      if (result === null || stopped()) return;
+      if (!result.ok) {
+        backToConnect(tabId, result.message);
+        return;
+      }
+      chunk.forEach((group, index) => {
+        const verdict = result.data[index];
+        if (verdict) verdicts.set(group, verdict);
+      });
+      update({ done: start + chunk.length });
+    }
+
+    const kept = groups.filter((group) => {
+      const verdict = verdicts.get(group);
+      return verdict !== undefined && needsMetadata(verdict);
+    });
+    update({ phase: 'shows', done: 0, total: kept.length });
+    const shows = new Map<string, NetflixShowMetadata>();
+    let ignored = groups.length - kept.length;
+    for (const [index, group] of kept.entries()) {
+      if (index > 0) await sleep(NETFLIX_SHOW_GAP_MS);
+      if (stopped()) return;
+      const show = await loadNetflixShow(tab, group);
+      if (stopped()) return;
+      if (show === 'absent' || show === 'silent') {
+        backToConnect(tabId, t('crImport.read.error.noScript', platformParams('netflix')), tabId);
+        return;
+      }
+      const verdict = verdicts.get(group);
+      // Série lue liée sur AniList (ou au même titre) ; deux titres de l'historique peuvent mener à la même série
+      if (show && verdict && keepsShow(verdict, show)) shows.set(show.showId, show);
+      else ignored++;
+      update({ done: index + 1 });
+    }
+
+    const { completionPercentage } = await getSettings();
+    if (stopped()) return;
+    const seasons = [...shows.values()].flatMap((show) => reduceNetflixShow(show, completionPercentage));
+    // Chiffres seulement : jamais de titre de l'historique dans le journal
+    log.info(`Historique Netflix : ${rows.length} lignes, ${groups.length} titres, ${shows.size} séries gardées, ${seasons.length} saisons vues`);
+    if (seasons.length === 0) {
+      backToConnect(tabId, null);
+      state.notice = tp('crImport.netflix.noAnime', groups.length);
+      draw();
+      return;
+    }
+    netflixRun = null;
+    await startAnalysis(
+      { seasons: seasons.slice(0, MAX_HISTORY_SEASONS), stats: { items: rows.length, pages: clicks + 1, partial: partial || seasons.length > MAX_HISTORY_SEASONS, ignored } },
+      'netflix',
+    );
+  } catch (error: unknown) {
+    if (stopped()) return;
+    // Onglet fermé, rechargé ou parti de netflix.com : executeScript échoue
+    log.warn('Lecture de l’historique Netflix interrompue :', error instanceof Error ? error.message : String(error));
+    backToConnect(tabId, t('crImport.read.error.interrupted'));
+  }
 }
 
 // ─── c) Analyse, e) application ───────────────────────────────────────────
@@ -511,11 +706,12 @@ function renderConnect(step: Extract<Step, { kind: 'connect' }>): Child[] {
   const choice = renderPlatformChoice();
   if (!state.connected) return [choice, intro, renderAlert({ message: t('crImport.error.notConnected') })];
   if (!state.hostAccess) {
-    const origins = SOURCES[state.platform].origins;
+    const platform = state.platform;
     return [
       choice,
       intro,
-      h('p', { class: 'm-0 text-[12px] font-bold text-butter' }, t('crImport.connect.access', params)),
+      // Netflix : plateforme optionnelle, l'autorisation active aussi la synchro en direct (même accès que dans Réglages)
+      h('p', { class: 'm-0 text-[12px] font-bold text-butter' }, platform === 'netflix' ? t('crImport.connect.netflixAccess') : t('crImport.connect.access', params)),
       h(
         'div',
         { class: 'flex justify-end' },
@@ -527,11 +723,14 @@ function renderConnect(step: Extract<Step, { kind: 'connect' }>): Child[] {
             on: {
               // Demande directe dans le clic : Firefox exige un geste utilisateur sans await préalable
               click: () =>
-                void requestHostAccess(origins).then((granted) => {
-                  state.hostAccess = granted;
-                  draw();
-                  void refreshTab();
-                }),
+                void requestSourceAccess(platform).then(
+                  (granted) => {
+                    state.hostAccess = granted;
+                    draw();
+                    void refreshTab();
+                  },
+                  (error: unknown) => log.warn('Demande d’accès impossible :', error),
+                ),
             },
           },
           t('crImport.connect.allow'),
@@ -554,7 +753,14 @@ function renderConnect(step: Extract<Step, { kind: 'connect' }>): Child[] {
   return [
     choice,
     intro,
-    h('ul', { class: 'm-0 flex list-disc flex-col gap-1 pl-5 text-[12px] text-muted' }, h('li', {}, t('crImport.rule.never')), h('li', {}, t('crImport.rule.preview')), h('li', {}, t('crImport.rule.privacy'))),
+    h(
+      'ul',
+      { class: 'm-0 flex list-disc flex-col gap-1 pl-5 text-[12px] text-muted' },
+      h('li', {}, t('crImport.rule.never')),
+      h('li', {}, t('crImport.rule.preview')),
+      h('li', {}, t('crImport.rule.privacy')),
+      state.platform === 'netflix' && h('li', {}, t('crImport.netflix.rule')),
+    ),
     tabRow,
     step.error &&
       renderAlert({
@@ -586,6 +792,24 @@ function renderReading(step: Extract<Step, { kind: 'reading' }>): Child[] {
     statusLine(text),
     step.lookupsTotal > 0 && progressBar(step.lookups, step.lookupsTotal, t('crImport.read.progressAria')),
     h('p', { class: 'm-0 text-[11px] text-muted' }, t('crImport.read.keepTab', platformParams(state.platform))),
+    h('div', { class: 'flex justify-end' }, ghostButton(t('compare.job.stop'), 'cr-read-stop', stopReading, 'text-danger')),
+  ];
+}
+
+/** Lecture Netflix : lignes chargées, puis titres filtrés (AniList), puis séries lues (Netflix) */
+function renderNetflix(step: Extract<Step, { kind: 'netflix' }>): Child[] {
+  const text =
+    step.phase === 'rows'
+      ? step.done > 0
+        ? t('crImport.netflix.rows', { rows: step.done })
+        : t('crImport.read.starting', platformParams('netflix'))
+      : step.phase === 'titles'
+        ? t('crImport.netflix.titles', { done: step.done, total: step.total })
+        : t('crImport.netflix.shows', { done: step.done, total: step.total });
+  return [
+    statusLine(text),
+    step.phase !== 'rows' && progressBar(step.done, step.total, t('crImport.read.progressAria')),
+    h('p', { class: 'm-0 text-[11px] text-muted' }, t('crImport.netflix.keepTab')),
     h('div', { class: 'flex justify-end' }, ghostButton(t('compare.job.stop'), 'cr-read-stop', stopReading, 'text-danger')),
   ];
 }
@@ -794,6 +1018,7 @@ function renderPreview(plan: CrImportPlan, running: boolean): Child[] {
     counts.review > 0 && tp('crImport.preview.review', counts.review),
     counts.upToDate > 0 && tp('crImport.preview.upToDate', counts.upToDate),
     plan.excluded > 0 && tp('crImport.preview.excluded', plan.excluded),
+    (plan.ignored ?? 0) > 0 && tp('crImport.preview.ignored', plan.ignored ?? 0),
     plan.failed > 0 && tp('crImport.preview.failed', plan.failed),
   ].filter((p): p is string => typeof p === 'string');
 
@@ -905,6 +1130,8 @@ function render(): HTMLElement {
     body = renderAnalyzeEnded(job);
   } else if (state.step.kind === 'reading') {
     body = renderReading(state.step);
+  } else if (state.step.kind === 'netflix') {
+    body = renderNetflix(state.step);
   } else if (state.step.kind === 'starting') {
     body = [statusLine(t('crImport.analyze.starting'))];
   } else {
@@ -931,7 +1158,7 @@ onLocaleChange(() => {
 draw();
 try {
   await loadStored();
-  state.hostAccess = await hasHostAccess(SOURCES[state.platform].origins);
+  state.hostAccess = await hasSourceAccess(state.platform);
 } catch (error: unknown) {
   log.error('Lecture de l’état de l’import impossible :', error);
   state.error = t('crImport.error.unexpected');

@@ -1,10 +1,11 @@
 // Page de test : monte la VRAIE page d'import (src/import-cr/import-cr.ts) sur l'API chrome simulée.
-// Onglets Crunchyroll et ADN fictifs (tabs.query) et scripts de contenu simulés derrière chrome.tabs.connect ; le
-// service worker simulé construit un aperçu fixe (Crunchyroll ou ADN) dès que l'analyse est demandée. Traces lues
-// via `window.__e2e`.
+// Onglets Crunchyroll, ADN et Netflix fictifs (tabs.query) et scripts de contenu simulés derrière chrome.tabs.connect
+// (Netflix : chrome.scripting.executeScript simulé, page Activité de 45 lignes, « Voir plus » par 20) ; le service worker
+// simulé filtre les titres Netflix et construit un aperçu fixe dès que l'analyse est demandée. Traces lues via `window.__e2e`.
 import '../../src/import-cr/import-cr.css';
 import manifest from '../../manifest.json';
 import { ADN_HISTORY_VIDEOS } from '../../src/shared/__fixtures__/adn-history';
+import { movieShow, NETFLIX_ROWS, onePieceShow, ranmaShow } from '../../src/shared/__fixtures__/netflix-history';
 import type { AdnHistoryPortMessage } from '../../src/shared/adn-history';
 import type { CrHistoryPortMessage } from '../../src/shared/cr-history';
 import { CR_IMPORT_KEYS, startAnalyzeJob, startApplyJob, type CrImportJob, type CrImportPlan } from '../../src/shared/cr-import';
@@ -21,6 +22,9 @@ const now = Date.now();
 
 /** Lecture simulée : `history=logged-out` → session absente (Crunchyroll) ou jeton ADN absent / refusé */
 const historyMode = param('history');
+/** `netflix=denied` : accès optionnel à netflix.com pas encore accordé */
+const netflixMode = param('netflix');
+const NETFLIX_PATTERN = '*://*.netflix.com/*';
 
 const season = (seriesId: string, seriesTitle: string, seasonNumber: number, episodeNumber: number) => ({
   seriesId,
@@ -173,6 +177,62 @@ const ADN_PLAN: CrImportPlan = {
   failed: 0,
 };
 
+/** Aperçu de l'historique Netflix (Ranma ½ S1E5) */
+const NETFLIX_PLAN: CrImportPlan = {
+  builtAt: now + 2,
+  platform: 'netflix',
+  services: ['anilist', 'mal'],
+  stats: { items: 45, pages: 3, partial: false, ignored: 39 },
+  seasonCount: 3,
+  items: [
+    {
+      id: 'm:178533',
+      mediaId: 178533,
+      malId: 58936,
+      title: 'Ranma1/2 (2024)',
+      coverUrl: null,
+      episodes: 12,
+      progress: 5,
+      seasons: ['Ranma1/2 · S1'],
+      services: [
+        { service: 'anilist', current: { status: 'CURRENT', progress: 3 }, action: 'update', progress: 5, status: 'CURRENT' },
+        { service: 'mal', current: null, action: 'update', progress: 5, status: 'CURRENT' },
+      ],
+      mappings: [],
+      result: null,
+    },
+  ],
+  review: [],
+  excluded: 0,
+  failed: 0,
+  ignored: 40,
+};
+
+/** Page Activité de visionnage simulée : 20 lignes au chargement, 20 de plus par clic sur « Voir plus », 45 en tout */
+const netflixPage = { rows: 20, clicks: 0 };
+const NETFLIX_TOTAL = 45;
+const netflixRows = (): { href: string; text: string }[] =>
+  Array.from({ length: netflixPage.rows }, (_, i) => {
+    const row = NETFLIX_ROWS[i];
+    return row ? { href: `/title/${row.id}`, text: row.text } : { href: `/title/${70000000 + i}`, text: `Série ${i} : Saison 1 : "Épisode 1"` };
+  });
+
+/** chrome.scripting.executeScript simulé : la fonction injectée (netflixTabOp) est identifiée par son opération */
+function netflixScript(op: unknown, movieId: unknown): unknown {
+  if (op === 'state') return { path: '/viewingactivity', rows: netflixPage.rows, more: netflixPage.rows < NETFLIX_TOTAL, gate: false, list: true };
+  if (op === 'click') {
+    netflixPage.clicks++;
+    netflixPage.rows = Math.min(NETFLIX_TOTAL, netflixPage.rows + 20);
+    return true;
+  }
+  if (op === 'rows') return netflixRows();
+  const shows = [ranmaShow(), onePieceShow(true), movieShow(7300)];
+  return shows.find((show) => show.showId === movieId || show.seasons.some((season) => season.episodes.some((episode) => episode.id === movieId))) ?? null;
+}
+
+/** Filtre « anime » simulé : Ranma ½, One Piece et le film liés à Netflix ; le reste n'est pas un anime */
+const NETFLIX_LINKS: Record<string, string[]> = { 'Ranma ½': ['81301833'], 'One Piece': ['80107103'], 'Le Voyage de Chihiro': ['60023642'] };
+
 /** Port vers le script de contenu simulé : progression puis historique (ou erreur) */
 function fakePort(name: string): chrome.runtime.Port {
   const messageListeners = new Set<(message: unknown) => void>();
@@ -220,14 +280,18 @@ installChromeMock({
   handlers: {
     // Analyse simulée : tâche lancée puis, peu après, aperçu prêt (comme le service worker en fin d'analyse)
     CR_IMPORT_ANALYZE: (payload) => {
-      const adn = isRecord(payload) && payload.platform === 'adn';
+      const platform = isRecord(payload) ? payload.platform : undefined;
       const job = startAnalyzeJob(2, Date.now());
       setTimeout(() => {
         let done: CrImportJob = job;
         for (let i = 0; i < 3; i++) done = reduceJob(done, { type: 'item', outcome: 'updated', at: Date.now() });
-        void storageSet?.({ [CR_IMPORT_KEYS.job]: done, [CR_IMPORT_KEYS.plan]: adn ? ADN_PLAN : PLAN });
+        void storageSet?.({ [CR_IMPORT_KEYS.job]: done, [CR_IMPORT_KEYS.plan]: platform === 'adn' ? ADN_PLAN : platform === 'netflix' ? NETFLIX_PLAN : PLAN });
       }, 80);
       return { ok: true, data: job };
+    },
+    NETFLIX_IMPORT_TITLES: (payload) => {
+      const titles = isRecord(payload) && Array.isArray(payload.titles) ? payload.titles.filter((title): title is string => typeof title === 'string') : [];
+      return { ok: true, data: titles.map((title) => ({ title, showIds: NETFLIX_LINKS[title] ?? [], titleMatch: false })) };
     },
     CR_IMPORT_APPLY: (payload) => {
       const ids = isRecord(payload) && Array.isArray(payload.ids) ? payload.ids.filter((id): id is string => typeof id === 'string') : [];
@@ -238,12 +302,23 @@ installChromeMock({
   },
   onSendMessage: (message) => trace.messages.push(message),
   manifest: { host_permissions: manifest.host_permissions, content_scripts: manifest.content_scripts },
+  // Accès du manifeste accordé ; Netflix (optionnel) accordé sauf `netflix=denied`, accordé à la demande
+  permissions: {
+    granted: true,
+    optional: [NETFLIX_PATTERN],
+    optionalGranted: netflixMode === 'denied' ? [] : [NETFLIX_PATTERN],
+    onRequest: (origins) => {
+      trace.permissionRequests.push(origins);
+      return true;
+    },
+  },
 });
 
 // Onglets Crunchyroll et ADN ouverts, scripts de contenu à l'écoute
 const TABS = [
   { id: 7, status: 'complete', title: 'Crunchyroll', url: 'https://www.crunchyroll.com/' },
   { id: 8, status: 'complete', title: 'ADN', url: 'https://animationdigitalnetwork.com/' },
+  { id: 9, status: 'complete', title: 'Netflix', url: 'https://www.netflix.com/viewingactivity' },
 ];
 Object.assign(chrome.tabs, {
   query: (info: { url?: string | string[] }) => {
@@ -254,6 +329,16 @@ Object.assign(chrome.tabs, {
   update: () => Promise.resolve({}),
   reload: () => Promise.resolve(),
 });
+Object.assign(chrome, {
+  scripting: {
+    executeScript: (injection: { target: { tabId: number }; args?: unknown[] }) => {
+      if (injection.target.tabId !== 9) return Promise.reject(new Error('Onglet hors de netflix.com'));
+      const [op, , movieId] = injection.args ?? [];
+      return Promise.resolve([{ frameId: 0, result: structuredClone(netflixScript(op, movieId)) }]);
+    },
+  },
+});
+window.__e2eNetflix = netflixPage;
 storageSet = (items) => chrome.storage.local.set(items);
 
 await import('../../src/import-cr/import-cr.ts');

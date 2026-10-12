@@ -262,6 +262,21 @@ export function matchPlatformLink(
 }
 
 /**
+ * Série Netflix d'un lien AniList : /title/{id}, éventuellement précédé du pays (/be-fr/title/{id}) ; null pour un autre
+ * site ou une autre page (filtre « anime » de l'import de l'historique Netflix, liens des fiches)
+ */
+export function netflixShowIdInLink(url: string | URL): string | null {
+  let parsed: URL;
+  try {
+    parsed = typeof url === 'string' ? new URL(url) : url;
+  } catch {
+    return null;
+  }
+  if (!PLATFORMS.netflix.matchesHost(parsed.hostname)) return null;
+  return /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)\/?$/i.exec(parsed.pathname)?.[1] ?? null;
+}
+
+/**
  * Identifiant de série explicite d'un lien de la plateforme : /series/{id} (Crunchyroll), /video/{id}-{slug} (ADN),
  * /title/{id} (Netflix). null pour un autre site, une page de lecture ou l'ancien format Crunchyroll par slug.
  */
@@ -284,10 +299,8 @@ function seriesIdInLink(url: string, platform: StreamingPlatform): string | null
       const index = segments.indexOf('video');
       return index === -1 ? null : (/^(\d+)-/.exec(segments[index + 1] ?? '')?.[1] ?? null);
     }
-    case 'netflix': {
-      if (!PLATFORMS.netflix.matchesHost(parsed.hostname)) return null;
-      return /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)\/?$/i.exec(parsed.pathname)?.[1] ?? null;
-    }
+    case 'netflix':
+      return netflixShowIdInLink(parsed);
     // Aucun identifiant de série côté lecture : une autre série Disney+ n'est pas reconnaissable à son lien
     case 'disney':
       return null;

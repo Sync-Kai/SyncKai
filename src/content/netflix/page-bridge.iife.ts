@@ -1,8 +1,9 @@
 // Script Netflix du monde principal (MAIN) : seul endroit où la session Netflix est utilisable.
 // Il répond aux demandes du script de contenu isolé en interrogeant l'API de métadonnées de Netflix
 // (même origine, cookies de la session) et ne renvoie que la forme réduite (`reduceNetflixMetadata`).
-// Aucun chrome.*, aucune donnée de compte (authURL…) lue ni transmise. Format IIFE (suffixe .iife.ts) :
-// un chargeur ESM `import(chrome.runtime.getURL(…))` ne fonctionne pas dans le monde MAIN.
+// Aucun chrome.*, aucune donnée de compte (authURL…) lue ni transmise. Points de lecture du profil (`bookmark`)
+// seulement pour une demande `bookmarks` de l'import de l'historique (Réglages › Importer un historique › Netflix).
+// Format IIFE (suffixe .iife.ts) : un chargeur ESM `import(chrome.runtime.getURL(…))` ne fonctionne pas dans le monde MAIN.
 //
 // Canal privé (voir bridge-protocol.ts) : à chaque demande d'ouverture, un MessageChannel dont port1 reste dans
 // cette fermeture ; les réponses ne partent que sur port1, jamais sur un événement que la page pourrait imiter.
@@ -37,7 +38,7 @@ const postToWindow = window.postMessage.bind(window);
 
 type ResponseBody = Omit<Extract<NetflixBridgeResponse, { ok: true }>, 'v' | 'id'> | Omit<Extract<NetflixBridgeResponse, { ok: false }>, 'v' | 'id'>;
 
-async function fetchMetadata(movieId: string): Promise<ResponseBody> {
+async function fetchMetadata(movieId: string, bookmarks: boolean): Promise<ResponseBody> {
   // Titres en anglais (en-US) quelle que soit la langue du profil : meilleure correspondance AniList
   const query = new URLSearchParams({ movieid: movieId, languages: 'en-US' });
   let response: Response;
@@ -53,7 +54,8 @@ async function fetchMetadata(movieId: string): Promise<ResponseBody> {
   } catch {
     return { ok: false, error: 'shape' };
   }
-  const data = reduceNetflixMetadata(raw);
+  // Points de lecture joints seulement à la demande de l'import de l'historique (jamais en synchro en direct)
+  const data = reduceNetflixMetadata(raw, bookmarks);
   return data ? { ok: true, data } : { ok: false, error: 'shape' };
 }
 
@@ -62,7 +64,7 @@ function onRequest(port: MessagePort, event: Event): void {
   if (!(event instanceof MessageEventType)) return;
   const request = decodeNetflixRequest(event.data);
   if (!request) return;
-  void fetchMetadata(request.movieId).then((body) => {
+  void fetchMetadata(request.movieId, request.bookmarks === true).then((body) => {
     const response: NetflixBridgeResponse = { v: NETFLIX_BRIDGE_VERSION, id: request.id, ...body };
     port.postMessage(encodeNetflixResponse(response));
   });

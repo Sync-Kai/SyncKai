@@ -3,8 +3,9 @@
 // dans les onglets Netflix déjà ouverts, ainsi qu'après une mise à jour de l'extension (accès accordé).
 // Les métadonnées viennent du script du monde MAIN (page-bridge.iife.ts) via le pont d'événements.
 // Format IIFE (suffixe .iife.ts) : script enregistré dynamiquement, sans chargeur ESM.
-import { netflixAdapter } from '../adapters/netflix';
+import { bridge, netflixAdapter } from '../adapters/netflix';
 import { claimContentInstance } from '../lib/instance-guard';
+import { NETFLIX_HISTORY_HOOK } from '../../shared/netflix-history';
 import { startContent } from '../start';
 
 /**
@@ -15,4 +16,9 @@ import { startContent } from '../start';
  */
 const STARTED_FLAG = Symbol.for('synckai.netflix.content.runtime');
 
-if (claimContentInstance(STARTED_FLAG)) startContent([netflixAdapter]);
+if (claimContentInstance(STARTED_FLAG)) {
+  startContent([netflixAdapter]);
+  // Import de l'historique : la page d'import (scripting.executeScript, même monde isolé, jamais la page Netflix) demande
+  // les points de lecture d'une série au pont MAIN. Rien ne tourne tant qu'elle ne l'appelle pas.
+  Reflect.set(globalThis, Symbol.for(NETFLIX_HISTORY_HOOK), (movieId: string) => bridge().loadHistory(movieId, new AbortController().signal));
+}

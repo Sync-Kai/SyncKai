@@ -40,7 +40,7 @@ function fakePage(): Pick<NetflixBridgeClientOptions, 'target' | 'messages' | 'o
 
 /** Offre de port telle que postMessage la livre (asynchrone) ; `synthetic` : dispatchEvent d'un script de la page */
 function offerPort(window: EventTarget, nonce: string, port: MessagePort, { synthetic = false, origin = ORIGIN } = {}): void {
-  const event = new MessageEvent('message', { data: encodeNetflixPortOffer({ v: 1, type: NETFLIX_PORT_OFFER, nonce }), origin, ports: [port] });
+  const event = new MessageEvent('message', { data: encodeNetflixPortOffer({ v: 2, type: NETFLIX_PORT_OFFER, nonce }), origin, ports: [port] });
   if (synthetic) {
     forged.add(event);
     window.dispatchEvent(event);
@@ -63,9 +63,9 @@ function serve(reply: Reply, requests: NetflixBridgeRequest[], delayMs?: number)
     const respond = delayMs === undefined ? queueMicrotask : (callback: () => void): void => void setTimeout(callback, delayMs);
     respond(() => {
       // Bruit : réponse d'une autre demande, puis message illisible
-      port1.postMessage(encodeNetflixResponse({ v: 1, id: 'autre', ok: false, error: 'shape' }));
+      port1.postMessage(encodeNetflixResponse({ v: 2, id: 'autre', ok: false, error: 'shape' }));
       port1.postMessage('{oops');
-      port1.postMessage(encodeNetflixResponse({ v: 1, id: request.id, ...body }));
+      port1.postMessage(encodeNetflixResponse({ v: 2, id: request.id, ...body }));
     });
   });
   port1.start();
@@ -146,6 +146,20 @@ describe('createNetflixBridgeClient', () => {
     expect([a, b, c]).toEqual([SHOW, SHOW, SHOW]);
     expect(requests).toHaveLength(2);
     expect(handshakes).toHaveBeenCalledOnce();
+  });
+
+  it('import de l’historique : demande `bookmarks`, jamais servie par le cache ni mise en cache', async () => {
+    const { requests, ...page } = setup(() => ({ ok: true, data: SHOW }));
+    const client = createNetflixBridgeClient({ ...page, newId });
+    const episode = mushokuEpisodeId(1, 15);
+    await client.load(episode, signal());
+    expect(await client.loadHistory(episode, signal())).toEqual(SHOW);
+    expect(await client.loadHistory(episode, signal())).toEqual(SHOW);
+    expect(requests.map((r) => r.bookmarks ?? false)).toEqual([false, true, true]);
+    // La synchro en direct garde sa propre entrée (sans points de lecture), relue sans requête
+    expect(await client.load(episode, signal())).toEqual(SHOW);
+    expect(requests).toHaveLength(3);
+    expect(await client.loadHistory('../1', signal())).toBeNull();
   });
 
   it('le délai d’une tentative dépasse celui du fetch côté MAIN', () => {
@@ -299,7 +313,7 @@ describe('createNetflixBridgeClient — canal privé face à un script de la pag
     await advance(0);
     const [request] = requests;
     expect(request).toBeDefined();
-    const forgedBody = encodeNetflixResponse({ v: 1, id: request.id, ok: true, data: FORGED });
+    const forgedBody = encodeNetflixResponse({ v: 2, id: request.id, ok: true, data: FORGED });
     page.document.dispatchEvent(new CustomEvent('synckai:netflix:response', { detail: forgedBody }));
     expect(snooped.port).not.toBeNull();
     const injected = new MessageEvent('message', { data: forgedBody });

@@ -7,6 +7,7 @@ import { isCrImportAnalyzePayload, isCrImportApplyPayload, isCrImportReviewsPayl
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from '../shared/engagement.types';
 import { isEpisodeInfo } from '../shared/episode.types';
 import { isListNotesText } from '../shared/list-notes';
+import { isNetflixTitlesPayload } from '../shared/netflix-import';
 import { isRecord } from '../shared/guards';
 import type {
   AddToListPayload,
@@ -69,6 +70,7 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   CR_IMPORT_APPLY: 'extension',
   CR_IMPORT_CANCEL: 'extension',
   CR_IMPORT_REVIEWS: 'extension',
+  NETFLIX_IMPORT_TITLES: 'extension',
 };
 
 /** Le message `type` est accepté depuis cet expéditeur */
@@ -168,6 +170,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   CR_IMPORT_APPLY: isCrImportApplyPayload,
   CR_IMPORT_CANCEL: isNull,
   CR_IMPORT_REVIEWS: isCrImportReviewsPayload,
+  NETFLIX_IMPORT_TITLES: isNetflixTitlesPayload,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */

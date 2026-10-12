@@ -101,3 +101,15 @@ declare global {
     __e2ePanel?: E2EPanelControls;
   }
 }
+
+/** Page Activité de visionnage Netflix simulée par import-cr-frame.ts (lignes affichées, clics sur « Voir plus ») */
+export interface E2ENetflixPage {
+  rows: number;
+  clicks: number;
+}
+
+declare global {
+  interface Window {
+    __e2eNetflix?: E2ENetflixPage;
+  }
+}

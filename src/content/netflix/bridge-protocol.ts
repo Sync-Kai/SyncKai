@@ -11,13 +11,40 @@
 // Toutes les charges utiles sont des CHAÎNES JSON (Firefox : un objet créé dans un monde n'est pas lisible tel
 // quel dans l'autre, à cause des Xray wrappers ; une chaîne est copiée).
 import { isRecord } from '../../shared/guards';
+import {
+  isNetflixShowMetadata,
+  NETFLIX_MAX_EPISODES,
+  NETFLIX_MAX_SEASONS,
+  NETFLIX_MAX_TEXT,
+  NETFLIX_MOVIE_ID_REGEX,
+  seconds,
+  sequence,
+  type NetflixBookmark,
+  type NetflixEpisodeMetadata,
+  type NetflixSeasonMetadata,
+  type NetflixShowMetadata,
+} from '../../shared/netflix-metadata';
+
+// Types et revalidation de la forme réduite : shared/netflix-metadata.ts (la page d'import les relit aussi)
+export {
+  isNetflixShowMetadata,
+  NETFLIX_MAX_EPISODES,
+  NETFLIX_MAX_SEASONS,
+  NETFLIX_MAX_TEXT,
+  NETFLIX_MOVIE_ID_REGEX,
+  type NetflixBookmark,
+  type NetflixEpisodeMetadata,
+  type NetflixSeasonMetadata,
+  type NetflixShowMetadata,
+} from '../../shared/netflix-metadata';
 
 /**
  * Version du protocole, à incrémenter à tout changement des messages ou de la forme réduite : le pont MAIN d'une
  * version précédente reste dans les onglets ouverts après une mise à jour (code de la page, jamais invalidé) et
  * répondrait au nouveau client. Chaque côté ignore les messages d'une autre version.
+ * v2 (2026-10-12) : demande `bookmarks` et points de lecture `bookmark` (import de l'historique).
  */
-export const NETFLIX_BRIDGE_VERSION = 1;
+export const NETFLIX_BRIDGE_VERSION = 2;
 /** Ouverture du canal (client isolé → pont), detail = NetflixHandshake en chaîne JSON */
 export const NETFLIX_HANDSHAKE_EVENT = 'synckai:netflix:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
@@ -31,48 +58,7 @@ export const NETFLIX_FETCH_TIMEOUT_MS = 10_000;
  */
 export const NETFLIX_ATTEMPT_TIMEOUT_MS = NETFLIX_FETCH_TIMEOUT_MS + 2_000;
 
-/** Identifiant de vidéo Netflix (/watch/{id}) */
-export const NETFLIX_MOVIE_ID_REGEX = /^\d{1,12}$/;
-
-/** Bornes de la réduction : textes tronqués, nombre total d'épisodes et de saisons limité */
-export const NETFLIX_MAX_TEXT = 300;
-export const NETFLIX_MAX_EPISODES = 2000;
-export const NETFLIX_MAX_SEASONS = 200;
 const MAX_ID_LENGTH = 64;
-
-export interface NetflixEpisodeMetadata {
-  /** Identifiant de lecture (/watch/{id}) */
-  id: string;
-  /** Numéro dans la saison */
-  seq: number;
-  title: string | null;
-  /** Durée (s) */
-  runtime: number | null;
-  /** Début du générique de fin (s) */
-  creditsOffset: number | null;
-}
-
-export interface NetflixSeasonMetadata {
-  seq: number;
-  title: string | null;
-  episodes: NetflixEpisodeMetadata[];
-}
-
-/**
- * Métadonnées réduites d'une série ou d'un film : seuls ces champs quittent le monde MAIN.
- * Jamais d'authURL, d'artwork, de synopsis, de skipMarkers ni de donnée de compte.
- */
-export interface NetflixShowMetadata {
-  showId: string;
-  type: 'show' | 'movie';
-  title: string;
-  /** Film : durée (s) ; série : null */
-  runtime: number | null;
-  /** Film : début du générique (s) ; série : null */
-  creditsOffset: number | null;
-  /** Film : [] */
-  seasons: NetflixSeasonMetadata[];
-}
 
 export interface NetflixHandshake {
   v: typeof NETFLIX_BRIDGE_VERSION;
@@ -91,6 +77,11 @@ export interface NetflixBridgeRequest {
   /** Corrélation requête ↔ réponse (crypto.randomUUID) */
   id: string;
   movieId: string;
+  /**
+   * Import de l'historique seulement (v2) : points de lecture du profil joints à chaque épisode (`bookmark`).
+   * Jamais envoyé par la synchro en direct.
+   */
+  bookmarks?: true;
 }
 
 export type NetflixBridgeError = 'http' | 'network' | 'shape';
@@ -138,21 +129,21 @@ function numericId(value: unknown): string | null {
   return typeof id === 'string' && NETFLIX_MOVIE_ID_REGEX.test(id) ? id : null;
 }
 
-/** Durée en secondes (> 0), sinon null */
-function seconds(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
-}
-
-/** Numéro d'ordre (entier ≥ 0), sinon null */
-function sequence(value: unknown): number | null {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+/**
+ * Point de lecture brut (`bookmark: { offset, watchedDate }`, `watchedToEndOffset` à côté) → NetflixBookmark ;
+ * null si jamais regardé (`offset` -1 ou absent). La date du visionnage n'est pas gardée.
+ */
+function bookmarkOf(owner: Record<string, unknown>): NetflixBookmark | null {
+  const offset = isRecord(owner.bookmark) ? owner.bookmark.offset : null;
+  return typeof offset === 'number' && Number.isFinite(offset) && offset >= 0 ? { offset, watchedToEndOffset: seconds(owner.watchedToEndOffset) } : null;
 }
 
 /**
  * Réduit la réponse de `/nq/website/memberapi/release/metadata` (`{ video: {…} }`) à `NetflixShowMetadata`.
  * Null si la forme est inattendue. Les épisodes au-delà de NETFLIX_MAX_EPISODES (au total) sont ignorés.
+ * `bookmarks` (import de l'historique seulement) : point de lecture joint à chaque épisode (au film).
  */
-export function reduceNetflixMetadata(raw: unknown): NetflixShowMetadata | null {
+export function reduceNetflixMetadata(raw: unknown, bookmarks = false): NetflixShowMetadata | null {
   const video = isRecord(raw) ? raw.video : null;
   if (!isRecord(video)) return null;
   const showId = numericId(video.id);
@@ -161,7 +152,7 @@ export function reduceNetflixMetadata(raw: unknown): NetflixShowMetadata | null 
   if (!showId || !title || !type) return null;
 
   if (type === 'movie') {
-    return { showId, type, title, runtime: seconds(video.runtime), creditsOffset: seconds(video.creditsOffset), seasons: [] };
+    return { showId, type, title, runtime: seconds(video.runtime), creditsOffset: seconds(video.creditsOffset), seasons: [], ...(bookmarks ? { bookmark: bookmarkOf(video) } : {}) };
   }
 
   if (!Array.isArray(video.seasons)) return null;
@@ -182,52 +173,13 @@ export function reduceNetflixMetadata(raw: unknown): NetflixShowMetadata | null 
         title: text(rawEpisode.title),
         runtime: seconds(rawEpisode.runtime),
         creditsOffset: seconds(rawEpisode.creditsOffset),
+        ...(bookmarks ? { bookmark: bookmarkOf(rawEpisode) } : {}),
       });
       episodeCount++;
     }
     seasons.push({ seq: sequence(rawSeason.seq) ?? seasonIndex + 1, title: text(rawSeason.title) ?? text(rawSeason.longName), episodes });
   }
   return { showId, type, title, runtime: null, creditsOffset: null, seasons };
-}
-
-// ─── Revalidation (monde isolé : la page peut émettre n'importe quoi) ─────
-
-const isBoundedText = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= NETFLIX_MAX_TEXT;
-const isNullableText = (v: unknown): v is string | null => v === null || isBoundedText(v);
-const isNullableSeconds = (v: unknown): v is number | null => v === null || seconds(v) !== null;
-const isId = (v: unknown): v is string => typeof v === 'string' && NETFLIX_MOVIE_ID_REGEX.test(v);
-
-function isEpisodeMetadata(value: unknown): value is NetflixEpisodeMetadata {
-  return (
-    isRecord(value) &&
-    isId(value.id) &&
-    sequence(value.seq) !== null &&
-    isNullableText(value.title) &&
-    isNullableSeconds(value.runtime) &&
-    isNullableSeconds(value.creditsOffset)
-  );
-}
-
-function isSeasonMetadata(value: unknown): value is NetflixSeasonMetadata {
-  return isRecord(value) && sequence(value.seq) !== null && isNullableText(value.title) && Array.isArray(value.episodes) && value.episodes.every(isEpisodeMetadata);
-}
-
-export function isNetflixShowMetadata(value: unknown): value is NetflixShowMetadata {
-  if (
-    !isRecord(value) ||
-    !isId(value.showId) ||
-    (value.type !== 'show' && value.type !== 'movie') ||
-    !isBoundedText(value.title) ||
-    !isNullableSeconds(value.runtime) ||
-    !isNullableSeconds(value.creditsOffset) ||
-    !Array.isArray(value.seasons) ||
-    value.seasons.length > NETFLIX_MAX_SEASONS ||
-    !value.seasons.every(isSeasonMetadata)
-  ) {
-    return false;
-  }
-  const seasons: NetflixSeasonMetadata[] = value.seasons;
-  return seasons.reduce((total, season) => total + season.episodes.length, 0) <= NETFLIX_MAX_EPISODES;
 }
 
 // ─── Messages (chaînes JSON) ──────────────────────────────────────────────
@@ -241,6 +193,7 @@ function parseJson(detail: unknown): unknown {
   }
 }
 
+const isId = (v: unknown): v is string => typeof v === 'string' && NETFLIX_MOVIE_ID_REGEX.test(v);
 const isCorrelationId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= MAX_ID_LENGTH;
 
 export function encodeNetflixHandshake(handshake: NetflixHandshake): string {
@@ -273,7 +226,7 @@ export function encodeNetflixRequest(request: NetflixBridgeRequest): string {
 export function decodeNetflixRequest(detail: unknown): NetflixBridgeRequest | null {
   const value = parseJson(detail);
   if (!isRecord(value) || value.v !== NETFLIX_BRIDGE_VERSION || !isCorrelationId(value.id) || !isId(value.movieId)) return null;
-  return { v: NETFLIX_BRIDGE_VERSION, id: value.id, movieId: value.movieId };
+  return { v: NETFLIX_BRIDGE_VERSION, id: value.id, movieId: value.movieId, ...(value.bookmarks === true ? { bookmarks: true } : {}) };
 }
 
 export function encodeNetflixResponse(response: NetflixBridgeResponse): string {

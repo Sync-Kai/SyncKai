@@ -76,7 +76,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 
 **Import and backup**
 
-- Crunchyroll and ADN history import: reads your history in your own browser tab, shows a preview, then updates AniList and MyAnimeList in the background. It never moves progress backwards, only counts finished episodes, and asks for a review when in doubt.
+- Crunchyroll, ADN and Netflix history import: reads your history in your own browser tab, shows a preview, then updates AniList and MyAnimeList in the background. It never moves progress backwards, only counts finished episodes, and asks for a review when in doubt. On Netflix, it loads the *Viewing activity* page with the site's own *Show more* button and keeps only anime (series linked to Netflix on AniList, or with the same title, which go to *To check*).
 - Backup: export and import your settings, matches and history (never your sign-ins).
 
 **Privacy and reliability**
@@ -105,7 +105,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 | --- | --- | --- |
 | [Crunchyroll](https://www.crunchyroll.com) | Start of the credits (percentage fallback) | History import available |
 | [ADN](https://animationdigitalnetwork.com) | Adjustable percentage | History import available |
-| [Netflix](https://www.netflix.com) | Start of the credits (percentage fallback) | Optional, anime only |
+| [Netflix](https://www.netflix.com) | Start of the credits (percentage fallback) | Optional, anime only; history import available |
 | [Disney+](https://www.disneyplus.com) | Adjustable percentage | Optional, Japanese anime only |
 
 | Tracker | Sign-in |
@@ -130,7 +130,7 @@ SyncKai has no server and collects no usage data.
 
 - Settings, matches and history stay in the extension's local storage.
 - OAuth tokens are stored encrypted (AES-GCM, non-exportable key) and only sent back to the service that issued them.
-- The extension only contacts AniList, MyAnimeList and the streaming sites you use (Crunchyroll credit markers, your Crunchyroll history when you start an import, Netflix episode metadata when Netflix is turned on). On Disney+, nothing is requested: SyncKai only reads what the player already receives.
+- The extension only contacts AniList, MyAnimeList and the streaming sites you use (Crunchyroll credit markers, your Crunchyroll, ADN or Netflix history when you start an import, Netflix episode metadata when Netflix is turned on). On Disney+, nothing is requested: SyncKai only reads what the player already receives.
 
 Permissions: `storage`, `identity` (sign-in), `alarms` (release alerts, retries), `notifications`, `sidePanel`, `scripting`, host access to Crunchyroll, ADN, AniList and MyAnimeList, and optional access to Netflix and Disney+.
 
@@ -168,7 +168,7 @@ src/
 ├── content/      content scripts: one adapter per platform (adapters/), Netflix and Disney+ page bridges (netflix/, disney/)
 ├── popup/        extension popup
 ├── sidepanel/    side panel (Now playing, Schedule)
-├── import-cr/    history import page (Crunchyroll, ADN)
+├── import-cr/    history import page (Crunchyroll, ADN, Netflix)
 ├── import/       backup page
 ├── ui/           UI components shared by the popup and the side panel
 ├── shared/       types, storage, settings and logic shared by all contexts

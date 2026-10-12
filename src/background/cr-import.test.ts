@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t } from '../i18n';
 import { ADN_HISTORY_VIDEOS } from '../shared/__fixtures__/adn-history';
 import { reduceAdnHistory } from '../shared/adn-import';
+import { onePieceShow, ranmaShow } from '../shared/__fixtures__/netflix-history';
+import { reduceNetflixShow } from '../shared/netflix-import';
 import type { HistorySeason } from '../shared/cr-history';
 import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../shared/cr-import';
 import type { EpisodeInfo } from '../shared/episode.types';
@@ -461,5 +463,58 @@ describe('import ADN', () => {
     await untilEnded();
     expect(fakes.resolve.mock.calls[0]?.[0]).toMatchObject({ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/watch/GE1' });
     expect(storedPlan().platform).toBe('crunchyroll');
+  });
+});
+
+// ─── Import Netflix (même pipeline, filtre « anime » de la synchro en direct) ─
+
+describe('import Netflix', () => {
+  /** Série qui n'est pas un anime mais porte un titre AniList identique (« À vérifier » en direct), et une ignorée */
+  const other = (showId: string, title: string): HistorySeason => ({
+    seriesId: showId,
+    seriesTitle: title,
+    seriesSlug: null,
+    seasonId: `${showId}-s1`,
+    seasonNumber: 1,
+    seasonTitle: null,
+    episodeId: `${showId}1`,
+    episodeTitle: null,
+    episodeNumber: 2,
+    seasonEpisodeNumber: 2,
+    watchedCount: 2,
+    lastPlayedAt: null,
+    platformSeasons: [8],
+  });
+  const seasons = [...reduceNetflixShow(ranmaShow(), 85), ...reduceNetflixShow(onePieceShow(true), 85), other('81231974', 'Wednesday'), other('80057281', 'Stranger Things')];
+
+  it('épisodes de la page de lecture (clé netflix:{série}:s{n}, numéros absolus, épisodes par saison) ; ignorés comptés, jamais listés', async () => {
+    fakes.resolve.mockImplementation(async (episode) => {
+      if (episode.seriesId === '81231974') return { result: { ok: true, target: { ...mapping(900), progress: 2, confidence: 'low', reason: 'Trouvée par le titre seul' } }, candidates: [], seasons: [], seasonGroups: [] };
+      if (episode.seriesId === '80057281') return { result: { ok: false, reason: 'Aucune fiche', ignored: true }, candidates: [], seasons: [], seasonGroups: [] };
+      return { result: { ok: true, target: { ...mapping(Number(episode.seriesId)), progress: episode.displayedEpisodeNumber ?? 1, confidence: 'high', reason: 'Lien Netflix' } }, candidates: [], seasons: [], seasonGroups: [] };
+    });
+    const input = { seasons, stats: { items: 1901, pages: 95, partial: false, ignored: 110 } };
+    expect((await startCrAnalyze({ history: input, platform: 'netflix' })).ok).toBe(true);
+    expect(await untilEnded()).toMatchObject({ status: 'done' });
+
+    const episodes = fakes.resolve.mock.calls.map(([episode]) => episode);
+    expect(episodes.map((e) => [e.platform, e.seriesId, e.seasonNumber, e.seasonEpisodeNumber, e.displayedEpisodeNumber, e.platformSeasons, e.url])).toEqual([
+      ['netflix', '81301833', 1, 5, 5, [12, 12], 'https://www.netflix.com/watch/81301838'],
+      ['netflix', '80107103', 40, 15, 1170, [61, 25], 'https://www.netflix.com/watch/82000014'],
+      ['netflix', '81231974', 1, 2, 2, [8], 'https://www.netflix.com/watch/812319741'],
+      ['netflix', '80057281', 1, 2, 2, [8], 'https://www.netflix.com/watch/800572811'],
+    ]);
+    const plan = storedPlan();
+    expect(plan.platform).toBe('netflix');
+    expect(plan.items.map((i) => [i.mediaId, i.progress, i.mappings.map((m) => m.key)])).toEqual([
+      [80107103, 1170, ['netflix:80107103:s40']],
+      [81301833, 5, ['netflix:81301833:s1']],
+    ]);
+    // Trouvée par le titre seul : à vérifier (jamais écrite), comme en lecture
+    expect(plan.review.map((r) => r.key)).toEqual(['netflix:81231974:s1']);
+    // 110 titres écartés avant l'analyse + 1 série écartée par le résolveur
+    expect(plan.ignored).toBe(111);
+    expect(plan.excluded).toBe(0);
+    expect(plan.failed).toBe(0);
   });
 });

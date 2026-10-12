@@ -162,12 +162,18 @@ describe('import Crunchyroll', () => {
     expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history: { seasons: 'x', stats: history.stats } } })).toBe(false);
     // Import ADN : même message, plateforme précisée (absente : Crunchyroll)
     expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'adn' } })).toBe(true);
-    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'netflix' } })).toBe(false);
+    // Import Netflix : même message (platformSeasons des saisons revalidé), titres filtrés par NETFLIX_IMPORT_TITLES
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'netflix' } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'CR_IMPORT_ANALYZE', payload: { history, platform: 'disney' } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'NETFLIX_IMPORT_TITLES', payload: { titles: ['Ranma ½', 'One Piece'] } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'NETFLIX_IMPORT_TITLES', payload: { titles: [] } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'NETFLIX_IMPORT_TITLES', payload: { titles: Array.from({ length: 11 }, (_, i) => `T${i}`) } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'NETFLIX_IMPORT_TITLES', payload: { titles: ['  '] } })).toBe(false);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: ['m:21'] } })).toBe(true);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_APPLY', payload: { ids: [21] } })).toBe(false);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_CANCEL', payload: null })).toBe(true);
     expect(isRuntimeMessage({ type: 'CR_IMPORT_REVIEWS', payload: { keys: ['crunchyroll:GR:s1'] } })).toBe(true);
-    for (const type of ['CR_IMPORT_ANALYZE', 'CR_IMPORT_APPLY', 'CR_IMPORT_CANCEL', 'CR_IMPORT_REVIEWS'] as const) expect(MESSAGE_ORIGINS[type]).toBe('extension');
+    for (const type of ['CR_IMPORT_ANALYZE', 'CR_IMPORT_APPLY', 'CR_IMPORT_CANCEL', 'CR_IMPORT_REVIEWS', 'NETFLIX_IMPORT_TITLES'] as const) expect(MESSAGE_ORIGINS[type]).toBe('extension');
   });
 });
 

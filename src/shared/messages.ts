@@ -23,6 +23,7 @@ import type {
   CrImportReviewsPayload,
   CrImportReviewsResult,
 } from './cr-import';
+import type { NetflixTitlesPayload, NetflixTitlesResult } from './netflix-import';
 
 export interface AdjustProgressPayload {
   /** Fiche AniList (catalogue) ; null pour une entrée MAL sans équivalent AniList */
@@ -133,6 +134,8 @@ export interface MessageMap {
   CR_IMPORT_CANCEL: { payload: null; response: Result<null, 'NOT_FOUND'> };
   /** Crée les cartes « À vérifier » des saisons incertaines choisies */
   CR_IMPORT_REVIEWS: { payload: CrImportReviewsPayload; response: CrImportReviewsResult };
+  /** Import Netflix : filtre « anime » de titres de l'historique (recherches AniList, rien n'est écrit) */
+  NETFLIX_IMPORT_TITLES: { payload: NetflixTitlesPayload; response: NetflixTitlesResult };
 }
 
 export type MessageType = keyof MessageMap;

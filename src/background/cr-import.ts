@@ -75,7 +75,7 @@ import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
 import type { TrackerService } from './trackers/tracker';
 
-// Import de l'historique Crunchyroll ou ADN : analyse (correspondance de chaque saison, sans rien écrire) puis
+// Import de l'historique Crunchyroll, ADN ou Netflix : analyse (correspondance de chaque saison, sans rien écrire) puis
 // application des éléments choisis dans l'aperçu. Deux tâches reprenables (src/background/jobs/runner.ts).
 // L'historique lui-même est lu par le script de contenu de l'onglet de la plateforme : aucun jeton de la plateforme ici.
 
@@ -224,6 +224,8 @@ async function resolveSeason(season: HistorySeason, platform: ImportPlatform): P
   // Requêtes de fond : budget AniList partagé (popup et synchro en direct prioritaires, voir api/rate-limit.ts)
   const { result, candidates } = await resolveEpisode(episode, { persist: false, lane: 'background' });
   if (result.ok && (await isExcluded({ mediaId: result.target.mediaId }))) return { kind: 'excluded', key };
+  // Netflix : pas un anime (ni fiche liée à la série, ni fiche au même titre), comme en lecture : écarté en silence
+  if (!result.ok && result.ignored === true) return { kind: 'ignored', key };
 
   // Position dans la saison inconnue (saison retirée du catalogue) : seul un numéro affiché déjà appris est fiable
   const numbersKnown = season.seasonEpisodeNumber !== null || cached?.numbering === 'displayed';
@@ -556,7 +558,7 @@ async function reserveJob(start: () => CrImportJob): Promise<CrImportJob | null>
   return started;
 }
 
-/** CR_IMPORT_ANALYZE : historique lu dans l'onglet Crunchyroll ou ADN → tâche d'analyse en arrière-plan */
+/** CR_IMPORT_ANALYZE : historique lu dans l'onglet Crunchyroll, ADN ou Netflix → tâche d'analyse en arrière-plan */
 export async function startCrAnalyze({ history, platform = 'crunchyroll' }: CrImportAnalyzePayload): Promise<CrImportJobResult> {
   try {
     if ((await getConnectedTrackers()).length === 0) return failure('NOT_CONNECTED', 'crImport.error.notConnected');

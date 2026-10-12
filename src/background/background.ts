@@ -12,6 +12,7 @@ import { handleEpisodeCompleted } from './episode-completed';
 import { forgetPageResolutions, resolvePageMedia } from './page-media';
 import { applyDiffs, cancelCompareJob, compareServiceLists } from './compare';
 import { cancelCrImport, createCrReviews, startCrAnalyze, startCrApply } from './cr-import';
+import { checkNetflixTitles } from './netflix-import';
 import { listenJobResume } from './job-resume';
 import { declineRewatch, deferRating, getListNotes, rateMedia, removeFromList, setListNotes, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, retryQueued } from './sync/queue';
@@ -94,6 +95,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     CR_IMPORT_APPLY: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
     CR_IMPORT_CANCEL: { ok: false, code: 'NOT_FOUND', message },
     CR_IMPORT_REVIEWS: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
+    NETFLIX_IMPORT_TITLES: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
   };
 }
 
@@ -159,6 +161,7 @@ const handlers: MessageHandlers = {
   CR_IMPORT_APPLY: (payload) => startCrApply(payload),
   CR_IMPORT_CANCEL: () => cancelCrImport(),
   CR_IMPORT_REVIEWS: (payload) => createCrReviews(payload),
+  NETFLIX_IMPORT_TITLES: (payload) => checkNetflixTitles(payload),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();

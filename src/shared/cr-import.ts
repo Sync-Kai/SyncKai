@@ -10,10 +10,11 @@ import { isListStatus } from './compare';
 import { STORAGE_KEYS } from './storage-keys';
 import { isTrackerId, type TrackerId } from './tracker.types';
 
-// Import de l'historique Crunchyroll ou ADN (Réglages › Importer un historique) : types, stockage et planification
+// Import de l'historique Crunchyroll, ADN ou Netflix (Réglages › Importer un historique) : types, stockage et planification
 // (pur, testé). Le préfixe « Cr » est historique : le pipeline est commun aux deux plateformes (ImportPlatform, absente
 // des données enregistrées avant l'import ADN : Crunchyroll). Déroulé : lecture de l'historique dans l'onglet de la
-// plateforme (script de contenu ; ADN : réduit par saison dans la page, adn-import.ts) → analyse en
+// plateforme (script de contenu ; ADN : réduit par saison dans la page, adn-import.ts ; Netflix : filtre « anime » puis
+// points de lecture, netflix-import.ts) → analyse en
 // tâche de fond (correspondance saison → fiche AniList, sans rien écrire) → aperçu → application en tâche de fond.
 // Règles : jamais de recul, une série terminée ou en revisionnage n'est pas touchée, une correspondance
 // incertaine n'est jamais appliquée (« À vérifier » : cartes de vérification créées à la demande).
@@ -22,9 +23,9 @@ import { isTrackerId, type TrackerId } from './tracker.types';
  * Plateformes dont l'historique peut être importé (même page, même analyse). Hors du module du protocole (cr-history.ts,
  * embarqué par le script de contenu) : seules les pages et le service worker s'en servent.
  */
-export const IMPORT_PLATFORMS = ['crunchyroll', 'adn'] as const;
+export const IMPORT_PLATFORMS = ['crunchyroll', 'adn', 'netflix'] as const;
 export type ImportPlatform = (typeof IMPORT_PLATFORMS)[number];
-export const isImportPlatform = (value: unknown): value is ImportPlatform => value === 'crunchyroll' || value === 'adn';
+export const isImportPlatform = (value: unknown): value is ImportPlatform => IMPORT_PLATFORMS.some((platform) => platform === value);
 
 /** Clés de chrome.storage.local (effacées à la déconnexion d'un compte) */
 export const CR_IMPORT_KEYS = {
@@ -92,6 +93,8 @@ export type SeasonResolution =
   | { kind: 'review'; key: string; reason: string; suggestion: { mediaId: number; progress: number } | null; candidates: CandidateSummary[] }
   /** Série exclue par l'utilisateur (Réglages › Séries exclues) */
   | { kind: 'excluded'; key: string }
+  /** Plateforme généraliste (Netflix) : pas un anime d'après AniList (ni fiche liée, ni même titre), écartée en silence */
+  | { kind: 'ignored'; key: string }
   /** Erreur définitive pendant la recherche (la saison est simplement ignorée) */
   | { kind: 'failed'; key: string; message: string };
 
@@ -111,6 +114,7 @@ export function isSeasonResolution(value: unknown): value is SeasonResolution {
         value.candidates.every(isCandidateSummary)
       );
     case 'excluded':
+    case 'ignored':
       return true;
     case 'failed':
       return typeof value.message === 'string';
@@ -128,6 +132,7 @@ export function readResolutions(value: unknown): Record<string, SeasonResolution
 /** Page de l'épisode sur la plateforme (ADN : /video/{série}-{slug}/{épisode}, comme les URL du site) */
 function episodeUrl(season: HistorySeason, platform: ImportPlatform): string {
   if (platform === 'crunchyroll') return `https://www.crunchyroll.com/watch/${season.episodeId}`;
+  if (platform === 'netflix') return `https://www.netflix.com/watch/${season.episodeId}`;
   return `https://animationdigitalnetwork.com/video/${season.seriesId}${season.seriesSlug ? `-${season.seriesSlug}` : ''}/${season.episodeId}`;
 }
 
@@ -145,6 +150,7 @@ export function toEpisodeInfo(season: HistorySeason, platform: ImportPlatform = 
     displayedEpisodeNumber: season.episodeNumber,
     episodeTitle: season.episodeTitle,
     url: episodeUrl(season, platform),
+    ...(season.platformSeasons ? { platformSeasons: [...season.platformSeasons] } : {}),
   };
 }
 
@@ -249,6 +255,8 @@ export interface CrImportPlan {
   excluded: number;
   /** Saisons dont la recherche a échoué */
   failed: number;
+  /** Netflix : titres écartés (pas des animes, avant ou pendant l'analyse) ; absent pour les autres plateformes */
+  ignored?: number;
 }
 
 /** Fiche du catalogue AniList (titre, jaquette, nombre d'épisodes, équivalent MAL) */
@@ -283,6 +291,8 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
   const reviewByMedia = new Map<string, CrReviewItem>();
   let excluded = 0;
   let failed = 0;
+  /** Séries écartées par le filtre « anime » de l'analyse (une par série, comme les titres écartés avant) */
+  const ignoredSeries = new Set<string>();
 
   input.seasons.forEach((season, index) => {
     const resolution = input.resolutions[String(index)];
@@ -294,6 +304,9 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
         return;
       case 'failed':
         failed++;
+        return;
+      case 'ignored':
+        ignoredSeries.add(season.seriesId);
         return;
       case 'review': {
         const item: CrReviewItem = { key: resolution.key, label, seasons: [label], episode: toEpisodeInfo(season, input.platform), reason: resolution.reason, suggestion: resolution.suggestion, candidates: resolution.candidates, created: false };
@@ -358,7 +371,19 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
   const uniqueReview = review
     .filter((r, i) => review.findIndex((o) => o.key === r.key) === i)
     .sort((a, b) => a.episode.animeTitle.localeCompare(b.episode.animeTitle, undefined, { sensitivity: 'base' }) || (a.episode.seasonNumber ?? 0) - (b.episode.seasonNumber ?? 0));
-  return { builtAt: now, platform: input.platform, services: [...input.services], stats: input.stats, seasonCount: input.seasons.length, items, review: uniqueReview, excluded, failed };
+  const ignored = (input.stats.ignored ?? 0) + ignoredSeries.size;
+  return {
+    builtAt: now,
+    platform: input.platform,
+    services: [...input.services],
+    stats: input.stats,
+    seasonCount: input.seasons.length,
+    items,
+    review: uniqueReview,
+    excluded,
+    failed,
+    ...(ignored > 0 ? { ignored } : {}),
+  };
 }
 
 /** Élément qui modifierait au moins une liste (coché par défaut dans l'aperçu) */
@@ -462,7 +487,8 @@ export function isCrImportPlan(value: unknown): value is CrImportPlan {
     Array.isArray(value.review) &&
     value.review.every(isReviewItem) &&
     isCount(value.excluded) &&
-    isCount(value.failed)
+    isCount(value.failed) &&
+    (value.ignored === undefined || isCount(value.ignored))
   );
 }
 

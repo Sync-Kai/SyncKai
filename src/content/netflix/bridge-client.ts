@@ -50,6 +50,11 @@ export interface NetflixBridgeClient {
   loadShow(showId: string, signal: AbortSignal): Promise<NetflixShowMetadata | null>;
   /** Lecture synchrone du cache pour une page de série, sans requête */
   peekShow(showId: string): NetflixShowMetadata | null;
+  /**
+   * Import de l'historique : série (ou film) contenant cette vidéo AVEC les points de lecture du profil (`bookmark`).
+   * Jamais mise en cache ni partagée avec la synchro en direct ; null si indisponible ou annulé.
+   */
+  loadHistory(movieId: string, signal: AbortSignal): Promise<NetflixShowMetadata | null>;
 }
 
 const DEFAULTS = { timeoutMs: NETFLIX_ATTEMPT_TIMEOUT_MS, retries: 2, retryDelayMs: 500, cacheSize: 5 } as const;
@@ -187,7 +192,7 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
   }
 
   /** Une demande au script MAIN ; l'attente de la réponse est toujours retirée */
-  function attempt(movieId: string, wanted: Wanted): Promise<Attempt> {
+  function attempt(movieId: string, wanted: Wanted, bookmarks: boolean): Promise<Attempt> {
     const id = newId();
     return new Promise((resolve) => {
       let settled = false;
@@ -207,17 +212,18 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
       void connect().then((channel) => {
         if (settled) return;
         if (!channel) return finish({ ok: false, retry: true });
-        channel.postMessage(encodeNetflixRequest({ v: NETFLIX_BRIDGE_VERSION, id, movieId }));
+        channel.postMessage(encodeNetflixRequest({ v: NETFLIX_BRIDGE_VERSION, id, movieId, ...(bookmarks ? { bookmarks: true } : {}) }));
       });
     });
   }
 
-  async function fetchShow(movieId: string, wanted: Wanted): Promise<NetflixShowMetadata | null> {
+  async function fetchShow(movieId: string, wanted: Wanted, bookmarks = false): Promise<NetflixShowMetadata | null> {
     for (let index = 0; index <= retries; index++) {
       if (index > 0) await new Promise((resolve) => setTimeout(resolve, retryDelayMs * index));
-      const result = await attempt(movieId, wanted);
+      const result = await attempt(movieId, wanted, bookmarks);
       if (result.ok) {
-        remember(movieId, result.data);
+        // Points de lecture (import) : jamais dans le cache de la synchro en direct
+        if (!bookmarks) remember(movieId, result.data);
         return result.data;
       }
       if (!result.retry) return null;
@@ -243,5 +249,6 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
     peek,
     loadShow: (showId, signal) => request(showId, 'show', signal),
     peekShow,
+    loadHistory: (movieId, signal) => (NETFLIX_MOVIE_ID_REGEX.test(movieId) ? untilAborted(fetchShow(movieId, 'movie', true), signal) : Promise.resolve(null)),
   };
 }

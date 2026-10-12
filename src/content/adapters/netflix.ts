@@ -2,11 +2,14 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createLogger } from '../../shared/logger';
 import { createNetflixBridgeClient, type NetflixBridgeClient } from '../netflix/bridge-client';
-import type { NetflixEpisodeMetadata, NetflixSeasonMetadata, NetflixShowMetadata } from '../netflix/bridge-protocol';
+import { episodeNumbers, platformSeasonsOf, type NetflixSeasonMetadata, type NetflixShowMetadata } from '../../shared/netflix-metadata';
 import { findPlayerVideo } from '../lib/find-video';
 import { watchElementText } from '../lib/season-watch';
 import type { StreamingAdapter } from './adapter';
 import { meaningfulSeasonTitle } from './parsing';
+
+// Numérotation partagée avec l'import de l'historique (shared/netflix-metadata.ts) : mêmes numéros des deux côtés
+export { absoluteEpisodeNumber, episodeNumbers, platformSeasonsOf } from '../../shared/netflix-metadata';
 
 const log = createLogger('netflix');
 
@@ -43,49 +46,7 @@ export function parseNetflixSeriesId(url: URL): string | null {
   return TITLE_PATH_REGEX.exec(url.pathname)?.[1] ?? null;
 }
 
-/**
- * Numéro « absolu » de l'épisode : épisodes des saisons précédentes (seq inférieur) + numéro dans la saison.
- * Null si une saison précédente est vide (liste incomplète : le total serait faux).
- */
-export function absoluteEpisodeNumber(seasons: readonly NetflixSeasonMetadata[], seasonSeq: number, episodeSeq: number): number | null {
-  let before = 0;
-  for (const season of seasons) {
-    if (season.seq >= seasonSeq) continue;
-    if (season.episodes.length === 0) return null;
-    before += season.episodes.length;
-  }
-  return before + episodeSeq;
-}
-
-/**
- * Numéros de l'épisode : numéro dans la saison, et numéro « absolu » affiché.
- * - Numérotation par saison (chaque saison repart de 1 : Ranma1/2, Mushoku Tensei) : `seq` dans la saison, numéro absolu
- *   = épisodes des saisons précédentes + `seq` (absoluteEpisodeNumber).
- * - Numérotation déjà absolue (One Piece : saison 40 « Elbaph Arc » = E1156…E1180) : la saison ne commence pas à 1 et
- *   son premier numéro dépasse le nombre d'épisodes des saisons précédentes (Netflix n'en propose souvent qu'une
- *   partie). `seq` EST le numéro absolu (il ne faut rien y ajouter : 1180 devenait 1377) ; numéro dans la saison = rang
- *   de l'épisode dans la saison. Une saison qui commence à 2 (1er épisode absent) reste relative.
- */
-export function episodeNumbers(
-  seasons: readonly NetflixSeasonMetadata[],
-  season: NetflixSeasonMetadata,
-  episode: NetflixEpisodeMetadata,
-): { seasonEpisodeNumber: number; displayedEpisodeNumber: number | null } {
-  const first = Math.min(...season.episodes.map((e) => e.seq));
-  const before = seasons.filter((s) => s.seq < season.seq).reduce((sum, s) => sum + s.episodes.length, 0);
-  if (first > 1 && first > before) {
-    const rank = season.episodes.filter((e) => e.seq <= episode.seq).length;
-    return { seasonEpisodeNumber: rank, displayedEpisodeNumber: episode.seq };
-  }
-  return { seasonEpisodeNumber: episode.seq, displayedEpisodeNumber: absoluteEpisodeNumber(seasons, season.seq, episode.seq) };
-}
-
 const watchUrl = (movieId: string): string => `https://www.netflix.com/watch/${movieId}`;
-
-/** Épisodes de chaque saison, dans l'ordre des saisons (seq) : rapprochement des saisons avec les fiches AniList */
-export function platformSeasonsOf(show: NetflixShowMetadata): number[] {
-  return [...show.seasons].sort((a, b) => a.seq - b.seq).map((season) => season.episodes.length);
-}
 
 /**
  * Épisode correspondant à la vidéo `movieId` dans les métadonnées réduites, null s'il n'y figure pas.
@@ -174,9 +135,9 @@ export function creditsStartFromMetadata(show: NetflixShowMetadata | null, movie
   return timing.creditsOffset > 0 && timing.creditsOffset < timing.runtime ? timing.creditsOffset : null;
 }
 
-/** Créé à la première utilisation : le module est aussi importé hors navigateur (tests) */
+/** Créé à la première utilisation : le module est aussi importé hors navigateur (tests). Partagé avec l'import (history.ts) */
 let client: NetflixBridgeClient | null = null;
-function bridge(): NetflixBridgeClient {
+export function bridge(): NetflixBridgeClient {
   client ??= createNetflixBridgeClient({ target: document, messages: window, origin: location.origin });
   return client;
 }

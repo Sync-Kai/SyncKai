@@ -789,7 +789,7 @@ describe('popup (bout en bout)', () => {
     expect(await page.$('a[download]')).toBeNull();
   });
 
-  it('« Importer un historique » : un bouton par plateforme, page d’import ouverte sur Crunchyroll ou ADN', async () => {
+  it('« Importer un historique » : un bouton par plateforme, page d’import ouverte sur Crunchyroll, ADN ou Netflix', async () => {
     const page = await openPopup();
     await click(page, 'gear');
     await openCategory(page, 'data');
@@ -799,10 +799,14 @@ describe('popup (bout en bout)', () => {
     await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 0);
     await click(page, 'adn-import');
     await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 1);
+    // Netflix : bouton proposé même sans l'accès (la page d'import le demande)
+    await click(page, 'netflix-import');
+    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 2);
     const opened = (await trace(page)).openedTabs.map((url) => new URL(url));
     expect(opened.map((url) => [url.pathname, url.searchParams.get('platform')])).toEqual([
       ['/src/import-cr/import-cr.html', 'crunchyroll'],
       ['/src/import-cr/import-cr.html', 'adn'],
+      ['/src/import-cr/import-cr.html', 'netflix'],
     ]);
   });
 
