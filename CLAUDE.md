@@ -96,6 +96,7 @@ Section maintained by Claude so the project can be picked up on any machine afte
   - the version is bumped in `manifest.json`, `package.json` and `package-lock.json` (`npm version x.y.z --no-git-tag-version`);
   - an entry in `CHANGELOG.md` (in English, Keep a Changelog: Added / Changed / Fixed / Security / Removed) and a `chore(release): x.y.z` commit;
   - fast-forward onto `main`, annotated tag `vx.y.z` ("SyncKai x.y.z"), `develop` aligned, push;
+  - hotfix (`hotfix/x.y.z` from `main`): after the tag, bring `develop` onto `main` (rebase `develop` on `main`, or fast-forward when possible), never cherry-pick the hotfix commits into `develop`: the 2.2.1 hotfix was cherry-picked, `main` and `develop` diverged and 2.3.0 needed a one-off `--no-ff` merge into `main` (2026-10-12);
   - pushing the tag triggers `.github/workflows/release.yml`: Chrome, Firefox and source archives, upload and submission to the Chrome Web Store and Firefox Add-ons (AMO) in parallel, then a GitHub release with the three zips if the Chrome Web Store accepted the version (see `docs/STORE.md` › 7);
   - before tagging, run `npm run test:e2e`: the `build` job of `release.yml` runs it and a failure blocks the upload to the stores;
   - permissions: `scripts/store-permissions.test.ts` requires one section in `docs/store/permissions.md` per manifest permission or host; if that file has changed since the last tag, paste the blocks into the Privacy tab of the Chrome Web Store **before** the tag (otherwise the submission is rejected; recovery: `docs/STORE.md` › 7);
