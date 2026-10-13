@@ -208,8 +208,9 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
         h('span', { class: 'text-[13px] font-bold' }, t('settings.backup.crImport')),
         h('span', { class: HELP_TEXT }, t('settings.crImport.help')),
       ),
-      // Netflix : accès optionnel demandé sur la page d'import s'il n'est pas encore accordé
-      h('span', { class: 'flex shrink-0 flex-wrap gap-1.5' }, importButton('crunchyroll', 'cr-import'), importButton('adn', 'adn-import'), importButton('netflix', 'netflix-import')),
+      // Netflix : accès optionnel demandé sur la page d'import s'il n'est pas encore accordé ; boutons repliés à la ligne
+      // dans un panneau étroit (pas de shrink-0 : l'élément garderait sa largeur sur une ligne et déborderait)
+      h('span', { class: 'flex min-w-0 max-w-full flex-wrap gap-1.5' }, importButton('crunchyroll', 'cr-import'), importButton('adn', 'adn-import'), importButton('netflix', 'netflix-import')),
     );
   }
 
