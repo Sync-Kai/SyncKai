@@ -64,4 +64,6 @@ export interface SettingsContext {
 /** Une sous-page : rendu à la demande, état local conservé entre deux visites */
 export interface SettingsPageView {
   render(): Node[];
+  /** Repère `data-focus` à focaliser à l'ouverture de la page à la place de son titre (null : le titre) */
+  initialFocus?(): string | null;
 }

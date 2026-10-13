@@ -5,6 +5,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Changed
+
+- *Settings › Language*: the language picker is now a list of radio buttons instead of a segmented control. *Automatic* stays first, with the language it resolves to ("Browser language · Français"), then every language in its own name, sorted alphabetically (Deutsch, English, Français) with its name in the interface language below. Language names come from the browser, so new languages need no translated names. Ready for more languages: a search field (accents and case ignored, also matches language codes) appears from 8 languages, and a *Help translate SyncKai* link can be turned on. Arrow keys move the selection; the group is a single tab stop.
+
 ### Fixed
 
 - *Settings › My data*: the Crunchyroll / ADN / Netflix import buttons wrap onto a new line in a narrow side panel instead of overflowing the card.

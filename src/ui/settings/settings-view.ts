@@ -8,10 +8,10 @@ import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
 import { hasPlatformAccess } from '../../shared/platform-access';
-import { getSettings, normalizeSettings, saveSettings, SETTINGS_STORAGE_KEY, type LanguageSetting, type SyncSettings } from '../../shared/settings';
+import { getSettings, normalizeSettings, saveSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getMediaMappings } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../shared/storage-keys';
-import { CARD, kanaLabel, segmented } from '../kit';
+import { kanaLabel } from '../kit';
 import { h, nodes, preserveFocus } from '../dom';
 import { icon, type IconName } from '../icons';
 import type { SettingsContext, SettingsData, SettingsHost, SettingsPageView } from './context';
@@ -19,10 +19,11 @@ import { INITIAL_SETTINGS_NAV, SETTINGS_CATEGORY_TITLES, settingsNavReducer, typ
 import { createAccountsPage } from './page-accounts';
 import { createDataPage } from './page-data';
 import { createHelpPage } from './page-help';
+import { createLanguagePage } from './page-language';
 import { createNotificationsPage } from './page-notifications';
 import { createShortcutsPage } from './page-shortcuts';
 import { createSyncPage, settingsPlaceholder } from './page-sync';
-import { HELP_TEXT, navRow, rowsCard, settingsSection, toggleRow, type RowTint } from './rows';
+import { navRow, rowsCard, settingsSection, toggleRow, type RowTint } from './rows';
 import { accountLink, accountsSummary, dataSummary, helpSummary, languageSummary, notificationsSummary, shortcutsSummary, syncSummary } from './summary';
 
 const log = createLogger('settings');
@@ -53,16 +54,6 @@ const CATEGORY_COPY: Record<SettingsCategory, CategoryCopy> = {
   language: { icon: 'globe', tint: 'mint' },
   help: { icon: 'help', tint: 'muted' },
 };
-
-/** Langues proposées : chacune dans sa propre langue, sauf « Automatique » (langue active) */
-function languageOptions(): { value: LanguageSetting; label: string }[] {
-  return [
-    { value: 'auto', label: t('settings.language.auto') },
-    { value: 'fr', label: 'Français' },
-    { value: 'en', label: 'English' },
-    { value: 'de', label: 'Deutsch' },
-  ];
-}
 
 export function createSettingsView(host: SettingsHost): SettingsView {
   const version = chrome.runtime.getManifest().version;
@@ -253,36 +244,9 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     notifications,
     shortcuts: createShortcutsPage(ctx),
     data: createDataPage(ctx),
-    language: { render: renderLanguage },
+    language: createLanguagePage(ctx),
     help: createHelpPage(ctx),
   };
-
-  function renderLanguage(): Node[] {
-    const s = data.settings;
-    if (!s) return settingsPlaceholder(ctx);
-    return [
-      h(
-        'section',
-        { class: 'flex flex-col gap-2' },
-        h('h2', { class: 'm-0 text-[11px] font-bold tracking-[0.06em] text-muted uppercase', attrs: { id: 'sk-language-label' } }, t('settings.section.language')),
-        h(
-          'div',
-          { class: `${CARD} flex flex-col gap-2 p-3` },
-          segmented({
-            options: languageOptions(),
-            current: s.language,
-            // Enregistré tout de suite : la vue se redessine dans la nouvelle langue (storage.onChanged)
-            onPick: (value) => void update({ language: value }, true),
-            attrs: { 'aria-labelledby': 'sk-language-label', 'aria-describedby': 'sk-language-help' },
-            focusKey: 'language',
-            activeClass: 'bg-sakura',
-            trackClass: 'bg-ground self-start',
-          }),
-          h('span', { class: HELP_TEXT, attrs: { id: 'sk-language-help' } }, t('settings.language.help')),
-        ),
-      ),
-    ];
-  }
 
   function categoryRow(category: SettingsCategory, summary: { text: string; tone: 'muted' | 'danger' }, divider: boolean): HTMLElement {
     const copy = CATEGORY_COPY[category];
@@ -370,12 +334,19 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     drawBar();
     drawPage();
     if (container) container.scrollTop = state.page === 'home' ? homeScroll : 0;
-    if (effect.kind === 'focus-heading') bar.querySelector<HTMLElement>('[data-focus="settings-heading"]')?.focus({ preventScroll: true });
+    if (effect.kind === 'focus-heading') focusOpenedPage(state.page);
     if (effect.kind === 'focus-row') {
       const row = element.querySelector<HTMLElement>(`[data-focus="settings-cat-${effect.category}"]`);
       row?.focus({ preventScroll: true });
       row?.scrollIntoView({ block: 'nearest' });
     }
+  }
+
+  /** Page ouverte : focus sur l'élément qu'elle désigne (champ de recherche), sinon sur son titre */
+  function focusOpenedPage(page: SettingsPage): void {
+    const key = page === 'home' ? null : (pages[page].initialFocus?.() ?? null);
+    const target = key === null ? null : element.querySelector<HTMLElement>(`[data-focus="${key}"]`);
+    (target ?? bar.querySelector<HTMLElement>('[data-focus="settings-heading"]'))?.focus({ preventScroll: true });
   }
 
   /** Échap : retour (sous-page → accueil, accueil → sortie des Réglages) sans fermer le popup */

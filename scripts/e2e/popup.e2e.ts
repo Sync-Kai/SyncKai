@@ -143,15 +143,36 @@ async function openCategory(page: Page, category: string): Promise<void> {
 }
 
 /**
- * Change la langue dans Réglages › Langue : le popup est retraduit en place, sans rechargement (un rechargement recrée
- * la vue auto-dimensionnée de Chrome, qui s'affiche zoomée) ; un marqueur posé sur `window` doit survivre
+ * Change la langue dans Réglages › Langue (clic sur la ligne de la langue, bouton radio) : le popup est retraduit en
+ * place, sans rechargement (un rechargement recrée la vue auto-dimensionnée de Chrome, qui s'affiche zoomée) ; un
+ * marqueur posé sur `window` doit survivre
  */
 async function switchLanguage(page: Page, locale: Locale): Promise<void> {
   await page.evaluate(() => Object.assign(window, { __e2eNoReload: true }));
-  await click(page, `language-${locale}`);
+  await page.locator(`[data-language-row="${locale}"]`).click();
   await page.waitForFunction((l: string) => document.documentElement.lang === l, {}, locale);
-  await page.waitForSelector(sel(`language-${locale}`));
+  await page.waitForSelector(`${sel(`language-${locale}`)}:checked`);
   expect(await page.evaluate(() => '__e2eNoReload' in window)).toBe(true);
+}
+
+interface LanguageRowInfo {
+  value: string;
+  label: string;
+  checked: boolean;
+}
+
+/** Lignes de Réglages › Langue, dans l'ordre : valeur, libellé principal et état du bouton radio */
+async function languageRows(page: Page): Promise<LanguageRowInfo[]> {
+  return page.$$eval('[role="radiogroup"] [data-language-row]', (rows) =>
+    rows.map((row) => {
+      const input = row.querySelector('input[type="radio"]');
+      return {
+        value: row.getAttribute('data-language-row') ?? '',
+        label: row.querySelector('span > span')?.textContent?.trim() ?? '',
+        checked: input instanceof HTMLInputElement && input.checked,
+      };
+    }),
+  );
 }
 
 // ─── Scénarios ────────────────────────────────────────────────────────────
@@ -219,17 +240,49 @@ describe('popup (bout en bout)', () => {
     expect(await shownScreen(page)).toBe(0);
     expect(await text(page, sel('nav-activity'))).toBe(fr('nav.activity'));
 
-    // Langue : popup retraduit en place, toujours sur Réglages › Langue
+    // Langue : liste de boutons radio, « Automatique » en tête et coché par défaut, puis les langues par endonyme ;
+    // 3 langues : pas de champ de recherche ni (adresse absente) de ligne « Aider à traduire ». Réglage par défaut
+    // (« auto ») remis en place : les données de démo choisissent la langue du popup ; navigateur en français
+    await setSetting(page, { language: 'auto' });
     await click(page, 'gear');
     await openCategory(page, 'language');
+    expect(await attr(page, '[role="radiogroup"]', 'aria-labelledby')).toBe('sk-language-label');
+    expect(await languageRows(page)).toEqual([
+      { value: 'auto', label: fr('settings.language.auto'), checked: true },
+      { value: 'de', label: 'Deutsch', checked: false },
+      { value: 'en', label: 'English', checked: false },
+      { value: 'fr', label: 'Français', checked: false },
+    ]);
+    expect(await text(page, '[data-language-row="auto"]')).toContain(fr('settings.language.autoDetail', { language: 'Français' }));
+    expect(await text(page, '[data-language-row="de"]')).toContain('Allemand');
+    expect(await page.$(sel('language-search'))).toBeNull();
+    expect(await page.$(sel('language-translate'))).toBeNull();
+    // Sans champ de recherche : focus sur le titre de la page
+    expect(await focused(page)).toBe('settings-heading');
+    // Popup retraduit en place, toujours sur Réglages › Langue
     for (const locale of ['en', 'de', 'fr'] as const) {
       await switchLanguage(page, locale);
       expect(await page.evaluate(() => document.documentElement.lang)).toBe(locale);
       expect(await shownScreen(page)).toBe(2);
       expect(await text(page, 'h1')).toBe(tl(locale, 'settings.section.language'));
       expect(await text(page, sel('settings-home'))).toBe(tl(locale, 'nav.settings'));
-      expect(await text(page, '#sk-language-label')).toBe(tl(locale, 'settings.section.language'));
+      expect(await text(page, '#sk-language-label')).toBe(tl(locale, 'settings.language.groupLabel'));
+      // Même ordre (endonymes) dans toutes les langues ; une seule langue cochée
+      expect((await languageRows(page)).map((row) => [row.value, row.checked])).toEqual(['auto', 'de', 'en', 'fr'].map((value) => [value, value === locale]));
     }
+    // Clavier : un seul arrêt de tabulation (boutons radio d'un même nom), flèches pour choisir ; le focus suit
+    await page.focus(sel('language-fr'));
+    await page.keyboard.press('ArrowUp');
+    await page.waitForFunction(() => document.documentElement.lang === 'en');
+    expect(await focused(page)).toBe('language-en');
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction(() => document.documentElement.lang === 'fr');
+    expect(await focused(page)).toBe('language-fr');
+    // Maj+Tab quitte le groupe d'un coup (pas d'arrêt sur « Automatique » ni sur les autres langues)
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('Tab');
+    await page.keyboard.up('Shift');
+    expect(await focused(page)).toBe('settings-home');
     // Retour à l'accueil des Réglages (résumés traduits), puis à l'écran principal
     await click(page, 'settings-home');
     await page.waitForSelector(sel('back'));

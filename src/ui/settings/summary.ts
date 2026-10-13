@@ -1,6 +1,7 @@
 // Résumés d'une ligne affichés sous chaque catégorie de l'accueil des Réglages.
 // Fonctions pures (langue active de l'i18n) : testées en fr, en et de.
 import { getLocale, t, tp, type Locale } from '../../i18n';
+import { endonym } from '../../i18n/language-list';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { effectivePlayer, type LanguageSetting, type SyncSettings } from '../../shared/settings';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
@@ -16,8 +17,6 @@ export interface SettingsSummary {
 }
 
 const PLAYER_NAMES: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix', disney: 'Disney+' };
-/** Langues affichées dans leur propre langue (comme le sélecteur) */
-const LANGUAGE_NAMES: Record<Locale, string> = { fr: 'Français', en: 'English', de: 'Deutsch' };
 /** Libellé court des services (« AniList ✓ · MAL ✓ ») */
 const SHORT_LABELS: Record<TrackerId, string> = { anilist: 'AniList', mal: 'MAL' };
 
@@ -71,9 +70,9 @@ export function dataSummary(mappings: number | null, excluded: number | null): s
   return parts.length > 0 ? parts.join(' · ') : t('settings.summary.loading');
 }
 
-/** « Automatique (Français) » ou le nom de la langue choisie */
+/** « Automatique (Français) » ou le nom de la langue choisie, chacune dans sa propre langue (comme le sélecteur) */
 export function languageSummary(setting: LanguageSetting, active: Locale): string {
-  return setting === 'auto' ? t('settings.summary.languageAuto', { language: LANGUAGE_NAMES[active] }) : LANGUAGE_NAMES[setting];
+  return setting === 'auto' ? t('settings.summary.languageAuto', { language: endonym(active) }) : endonym(setting);
 }
 
 /** "Alt+Shift+K" → "Alt+Maj+K" (nom de la touche Maj dans la langue active) */
