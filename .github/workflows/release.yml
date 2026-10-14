@@ -7,6 +7,7 @@ name: Release
 #   chrome → envoi + soumission au Chrome Web Store
 #   firefox → envoi + soumission sur Firefox Add-ons (AMO), en parallèle
 #   github-release → release GitHub avec les trois archives, si le Chrome Web Store a accepté la version
+#   discord → annonce de la version dans #🆕・updates (webhook DISCORD_RELEASE_WEBHOOK, facultatif)
 # Chaque store publie automatiquement la version après son examen. Voir docs/STORE.md › 7.
 on:
   push:
@@ -318,3 +319,91 @@ jobs:
             echo "::error::gh release view failed: $view_error"
             exit 1
           fi
+
+  # Annonce de la version sur Discord (#🆕・updates), une fois la release GitHub publiée.
+  # Un job de ce workflow, pas un workflow séparé : une release créée avec GITHUB_TOKEN ne déclenche
+  # aucun autre workflow. Aucun checkout : seul release/notes.md (artefact du build) est lu.
+  # Secret DISCORD_RELEASE_WEBHOOK absent → avertissement, jamais d'échec de la release.
+  # Variable DISCORD_UPDATES_ROLE_ID (facultative) : rôle « 🔔 Updates » à notifier.
+  discord:
+    name: Annonce Discord
+    needs: [build, github-release]
+    if: always() && needs.github-release.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
+
+      - name: Message dans #updates
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          ROLE_ID: ${{ vars.DISCORD_UPDATES_ROLE_ID }}
+          VERSION: ${{ needs.build.outputs.version }}
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "::warning::Secret DISCORD_RELEASE_WEBHOOK missing: Discord announcement skipped."
+            exit 0
+          fi
+          node > payload.json <<'JS'
+          // Construit le message Discord d'une release à partir de release/notes.md
+          // Entrées (env) : VERSION, RELEASE_URL, ROLE_ID (facultatif). Sortie : JSON sur stdout.
+          const fs = require('node:fs');
+          const { VERSION, RELEASE_URL, ROLE_ID } = process.env;
+          const notes = fs.readFileSync('release/notes.md', 'utf8').replace(/\r\n?/g, '\n');
+          const MAX = 3600;
+          const clean = (s) => s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+          const PER_SECTION = 8;
+          const firstSentence = (t) => {
+            const m = t.match(/^(.+?(?<!\b(?:e\.g|i\.e|etc|vs))[.!?])\s+(?=[A-Z*`(])/);
+            return m ? m[1] : t;
+          };
+          const summarize = (t) => {
+            const bold = t.match(/^\*\*(.+?)\*\*/);                          // « **Titre** : détails » → Titre
+            if (bold) return bold[1];
+            t = clean(t);
+            const colon = t.indexOf(': ');
+            let s = colon >= 20 ? t.slice(0, colon) : firstSentence(t);     // « Netflix: … » trop court → phrase entière
+            s = s.replace(/[:;,]$/, '');
+            return s.length > 140 ? s.slice(0, 137).trimEnd() + '…' : s;
+          };
+          const lines = [];
+          let inSection = 0, hidden = 0;
+          const flush = () => { if (hidden) lines.push(`• …and ${hidden} more`); hidden = 0; };
+          for (const raw of notes.split('\n')) {
+            const line = raw.trim();
+            if (!line || /^(-{3,}|\*\*Full Changelog\*\*|https?:\/\/\S+$)/i.test(line) || /compare\/v?\d/.test(line)) continue;
+            const h = line.match(/^#{2,4}\s+(.*)/);
+            if (h) { flush(); inSection = 0; lines.push(`\n**${clean(h[1])}**`); continue; }
+            const b = line.match(/^[-*]\s+(.*)/);
+            if (b) {
+              if (++inSection > PER_SECTION) { hidden++; continue; }
+              lines.push(`• ${summarize(b[1])}`);
+              continue;
+            }
+            if (!lines.length) lines.push(firstSentence(clean(line)).slice(0, 300));   // introduction éventuelle
+          }
+          flush();
+          let desc = '';
+          for (const l of lines) {
+            if ((desc + '\n' + l).length > MAX) { desc += '\n…'; break; }
+            desc += (desc ? '\n' : '') + l;
+          }
+          desc = desc.trim() + `\n\n📄 [Full release notes](${RELEASE_URL})`;
+          const payload = {
+            username: 'SyncKai',
+            content: ROLE_ID ? `<@&${ROLE_ID}>` : undefined,
+            allowed_mentions: { parse: [], roles: ROLE_ID ? [ROLE_ID] : [] },
+            embeds: [{ title: `🆕 SyncKai ${VERSION} is out!`, url: RELEASE_URL, color: 0x5b6cff, description: desc,
+              footer: { text: 'Chrome Web Store and Firefox Add-ons roll out updates automatically after review.' } }],
+          };
+          process.stdout.write(JSON.stringify(payload));
+          JS
+          curl -fsS --max-time 30 --retry 3 --retry-delay 5 \
+            -H 'Content-Type: application/json' --data @payload.json \
+            "$WEBHOOK?wait=true" > /dev/null
+          echo "Announced SyncKai $VERSION on Discord."
