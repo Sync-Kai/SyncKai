@@ -189,3 +189,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | Asocierea memorată nu corespunde cu platforma: {signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | Diagnosticul asocierilor |
+| `settings.matchDiag.text` | Doar în build-urile de dezvoltare: ultimele 50 de decizii de asociere cu AniList, de la cea mai recentă, păstrate până la închiderea browserului. Copiază una ca JSON ca s-o adaugi în corpusul de teste. |
+| `settings.matchDiag.empty` | Nicio decizie înregistrată încă |
+| `settings.matchDiag.copy` | Copiază |
+| `settings.matchDiag.copyTitle` | Copiază decizia ca JSON |
+| `settings.matchDiag.copied` | Copiată |
+| `settings.matchDiag.copyFailed` | Decizia nu a putut fi copiată. |
+| `settings.matchDiag.clear` | Golește |
+| `settings.matchDiag.candidates` | Candidați: {count} |
+| `settings.matchDiag.noEntry` | Nicio fișă |

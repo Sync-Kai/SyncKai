@@ -188,3 +188,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | Pencocokan tersimpan tidak cocok dengan platform: {signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | Diagnostik pencocokan |
+| `settings.matchDiag.text` | Hanya di build pengembangan: 50 keputusan pencocokan AniList terakhir, terbaru di atas, disimpan sampai browser ditutup. Salin satu sebagai JSON untuk menambahkannya ke korpus pengujian. |
+| `settings.matchDiag.empty` | Belum ada keputusan yang tercatat |
+| `settings.matchDiag.copy` | Salin |
+| `settings.matchDiag.copyTitle` | Salin keputusan ini sebagai JSON |
+| `settings.matchDiag.copied` | Disalin |
+| `settings.matchDiag.copyFailed` | Gagal menyalin keputusan. |
+| `settings.matchDiag.clear` | Hapus |
+| `settings.matchDiag.candidates` | Kandidat: {count} |
+| `settings.matchDiag.noEntry` | Tidak ada entri |

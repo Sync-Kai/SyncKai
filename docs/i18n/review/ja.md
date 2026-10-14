@@ -197,3 +197,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | 保存した紐付けが配信サービスの情報と不一致：{signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | 紐付けの診断 |
+| `settings.matchDiag.text` | 開発ビルドのみ：AniListとの照合で行われた直近50件の判定を新しい順に表示します。ブラウザを閉じるまで保持されます。1件をJSONとしてコピーすると、テスト用のコーパスに追加できます。 |
+| `settings.matchDiag.empty` | 記録された判定はまだありません |
+| `settings.matchDiag.copy` | コピー |
+| `settings.matchDiag.copyTitle` | この判定をJSONとしてコピー |
+| `settings.matchDiag.copied` | コピー済み |
+| `settings.matchDiag.copyFailed` | 判定をコピーできませんでした。 |
+| `settings.matchDiag.clear` | 消去 |
+| `settings.matchDiag.candidates` | 候補：{count} |
+| `settings.matchDiag.noEntry` | 作品ページなし |

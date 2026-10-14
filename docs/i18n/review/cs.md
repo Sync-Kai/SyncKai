@@ -160,3 +160,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | Zapamatované přiřazení neodpovídá platformě: {signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | Diagnostika přiřazení |
+| `settings.matchDiag.text` | Jen ve vývojových buildech: posledních 50 rozhodnutí o přiřazení na AniListu, od nejnovějšího, uložených do zavření prohlížeče. Zkopíruj jedno jako JSON a přidej ho do testovacího korpusu. |
+| `settings.matchDiag.empty` | Zatím žádné zaznamenané rozhodnutí |
+| `settings.matchDiag.copy` | Kopírovat |
+| `settings.matchDiag.copyTitle` | Zkopírovat toto rozhodnutí jako JSON |
+| `settings.matchDiag.copied` | Zkopírováno |
+| `settings.matchDiag.copyFailed` | Rozhodnutí se nepodařilo zkopírovat. |
+| `settings.matchDiag.clear` | Vymazat |
+| `settings.matchDiag.candidates` | Kandidáti: {count} |
+| `settings.matchDiag.noEntry` | Žádný záznam |

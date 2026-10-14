@@ -43,6 +43,7 @@ import {
 import { normalizeTitle, slugSearchTitle, withoutDiacritics } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './season-groups';
+import { recordMatchDecision } from './match-diagnostic';
 import type { SignalName } from './concordance';
 import { createLogger } from '../../shared/logger';
 
@@ -216,17 +217,7 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
     if (!changed) break;
   }
 
-  const toCandidates = (): MediaCandidate[] =>
-    [...mediaById.values()].map((m) => ({
-      id: m.id,
-      format: m.format,
-      episodes: m.episodes,
-      startDate: toSortableDate(m.startDate),
-      titles: m.titles,
-      link: links.get(m.id) ?? null,
-      hasPrequel: m.relations.some((rel) => rel.type === 'ANIME' && rel.relationType === 'PREQUEL' && rel.format !== null && SERIES_FORMATS.has(rel.format)),
-      ...candidateSignals(m),
-    }));
+  const toCandidates = (): MediaCandidate[] => [...mediaById.values()].map((m) => asCandidate(m, links.get(m.id) ?? null));
 
   // Saisons de la plateforme (Netflix : épisodes par saison) rapprochées des fiches de la franchise : une saison liée à
   // un autre titre de la plateforme (`other`) devient une saison de la série si les nombres d'épisodes concordent
@@ -251,6 +242,20 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
 }
 
 const sortableStart = (media: AniListMedia): number | null => toSortableDate(media.startDate);
+
+/** Fiche AniList comparée par les règles et la concordance */
+function asCandidate(m: AniListMedia, link: LinkKind): MediaCandidate {
+  return {
+    id: m.id,
+    format: m.format,
+    episodes: m.episodes,
+    startDate: toSortableDate(m.startDate),
+    titles: m.titles,
+    link,
+    hasPrequel: m.relations.some((rel) => rel.type === 'ANIME' && rel.relationType === 'PREQUEL' && rel.format !== null && SERIES_FORMATS.has(rel.format)),
+    ...candidateSignals(m),
+  };
+}
 
 /** Signaux AniList d'une fiche, comparés à ceux de la plateforme (concordance.ts) */
 function candidateSignals(media: AniListMedia): Pick<MediaCandidate, 'endYear' | 'status' | 'duration' | 'country' | 'relations'> {
@@ -408,7 +413,9 @@ async function doubtedMapping(
   // La fiche en cache reste sélectionnable (choix possible de l'utilisateur), même absente de la recherche
   const candidates = summaries.some((c) => c.id === media.id) ? summaries : [...summaries.slice(0, 1), toCandidateSummary(media), ...summaries.slice(1)].slice(0, MAX_REVIEW_CANDIDATES);
   const { seasons, seasonGroups } = poolOf(collected, episode.animeTitle);
-  return { result: { ok: true, target }, candidates, seasons: seasons.map(toCandidateSummary), seasonGroups };
+  const result: ResolveResult = { ok: true, target };
+  if (__SYNCKAI_DEBUG__) recordMatchDecision({ episode, key, lane, source: 'doubted', candidates: collected.candidates, result, mapping: { mapping: cached, verdict: 'doubt' } });
+  return { result, candidates, seasons: seasons.map(toCandidateSummary), seasonGroups };
 }
 
 /** Résout la fiche AniList d'un épisode : cache d'abord, recherche sinon (et mise en cache si fiable). */
@@ -428,8 +435,13 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
     const progress = applyMapping(episode, cached);
     if (progress !== null) {
       if (verdict.kind === 'doubt' && question?.media) return doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict.signals, lane);
+      const result: ResolveResult = { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } };
+      if (__SYNCKAI_DEBUG__) {
+        const candidates = question?.media ? [asCandidate(question.media, null)] : [];
+        recordMatchDecision({ episode, key, lane, source: 'cache', candidates, result, mapping: { mapping: cached, verdict: verdict.kind } });
+      }
       return {
-        result: { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } },
+        result,
         candidates: [],
         seasons: [],
         seasonGroups: [],
@@ -441,6 +453,7 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
 
   // Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu) : ignoré sans recherche
   if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) {
+    if (__SYNCKAI_DEBUG__) recordMatchDecision({ episode, key, lane, source: 'ignored', candidates: [], result: ignoredResult(episode) });
     return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
   }
   // Plateforme généraliste (ou Prime Video hors genre anime) : série déjà ignorée (moins de 24 h) → aucune recherche
@@ -448,6 +461,7 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   // série est un anime.
   if (filtersAnime(episode) && !stored && (await isSeriesIgnored(episode))) {
     log.info('Série déjà ignorée (verdict mémorisé) : pas de nouvelle recherche', episode.animeTitle);
+    if (__SYNCKAI_DEBUG__) recordMatchDecision({ episode, key, lane, source: 'ignored', candidates: [], result: ignoredResult(episode) });
     return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
   }
 
@@ -471,6 +485,10 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
     const { mediaId, numbering, offset, episodes } = result.target;
     const mediaTitle = collected.media.find((m) => m.id === mediaId)?.displayTitle;
     await saveMediaMapping(key, { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...(mediaTitle ? { mediaTitle } : {}), learned: true });
+  }
+  if (__SYNCKAI_DEBUG__) {
+    // Correspondance en cache oubliée (apprise et contredite) ou qui ne s'applique plus : gardée dans la décision
+    recordMatchDecision({ episode, key, lane, source: 'resolved', candidates, result, mapping: stored ? { mapping: stored, verdict: verdict.kind } : null });
   }
   const { seasons, seasonGroups } = poolOf(collected, episode.animeTitle);
   return { result, candidates: summarize(collected, result.ok ? result.target.mediaId : null), seasons: seasons.map(toCandidateSummary), seasonGroups };

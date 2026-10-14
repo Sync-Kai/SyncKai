@@ -956,6 +956,27 @@ export function provenBySignals(episode: EpisodeNumbers, candidates: readonly Me
   return verdict.proven && group !== undefined && group.entries.some((c) => c.id === mediaId);
 }
 
+/**
+ * Diagnostic (builds de dev, voir match-diagnostic.ts) : signaux comparés à chaque candidat (verdicts de son groupe de
+ * saison, sinon de la fiche seule) et candidats gardés par la concordance. Sans signal : rien de comparé, tout gardé.
+ */
+export function candidateSignalChecks(episode: EpisodeNumbers, candidates: readonly MediaCandidate[]): Map<number, { checks: SignalChecks; kept: boolean }> {
+  const result = new Map<number, { checks: SignalChecks; kept: boolean }>();
+  if (!hasSignals(episode.signals)) {
+    for (const c of candidates) result.set(c.id, { checks: {}, kept: true });
+    return result;
+  }
+  const signals = episode.signals;
+  const concordance = signalConcordance(episode, candidates, signals);
+  const kept = new Set(concordance.candidates.map((c) => c.id));
+  const context = { absolute: isAbsoluteNumbering(episode) };
+  for (const c of candidates) {
+    const group = concordance.verdict.groups.find((g) => g.entries.some((e) => e.id === c.id));
+    result.set(c.id, { checks: group?.checks ?? checkGroup({ entries: [c], chain: -1, first: true }, signals, context), kept: kept.has(c.id) });
+  }
+  return result;
+}
+
 /** Raison « À vérifier » d'une correspondance en cache contredite par la plateforme (verdict `doubt`) */
 export const savedMappingDoubt = (names: readonly SignalName[]): string => t('match.savedContradicted', { signals: signalList(names) });
 

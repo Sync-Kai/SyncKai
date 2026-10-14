@@ -143,3 +143,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | A correspondência memorizada não confere com a plataforma: {signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | Diagnóstico de correspondências |
+| `settings.matchDiag.text` | Só em builds de desenvolvimento: as últimas 50 decisões de correspondência com o AniList, da mais recente para a mais antiga, guardadas até fechar o navegador. Copie uma em JSON para adicioná-la ao corpus de testes. |
+| `settings.matchDiag.empty` | Nenhuma decisão registrada ainda |
+| `settings.matchDiag.copy` | Copiar |
+| `settings.matchDiag.copyTitle` | Copiar esta decisão em JSON |
+| `settings.matchDiag.copied` | Copiada |
+| `settings.matchDiag.copyFailed` | Não foi possível copiar a decisão. |
+| `settings.matchDiag.clear` | Limpar |
+| `settings.matchDiag.candidates` | Candidatos: {count} |
+| `settings.matchDiag.noEntry` | Nenhuma ficha |

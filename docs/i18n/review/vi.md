@@ -181,3 +181,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | Ghép nối đã lưu không khớp với nền tảng: {signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | Chẩn đoán ghép nối |
+| `settings.matchDiag.text` | Chỉ có trong bản build phát triển: 50 quyết định ghép nối AniList gần nhất, mới nhất trước, được giữ đến khi đóng trình duyệt. Hãy sao chép một quyết định dạng JSON để thêm vào bộ dữ liệu kiểm thử. |
+| `settings.matchDiag.empty` | Chưa có quyết định nào được ghi lại |
+| `settings.matchDiag.copy` | Sao chép |
+| `settings.matchDiag.copyTitle` | Sao chép quyết định này dạng JSON |
+| `settings.matchDiag.copied` | Đã sao chép |
+| `settings.matchDiag.copyFailed` | Không sao chép được quyết định. |
+| `settings.matchDiag.clear` | Xóa |
+| `settings.matchDiag.candidates` | Ứng viên: {count} |
+| `settings.matchDiag.noEntry` | Không có mục |

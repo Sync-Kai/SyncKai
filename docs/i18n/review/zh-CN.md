@@ -166,3 +166,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | 已保存的匹配记录与平台信息不符：{signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | 匹配诊断 |
+| `settings.matchDiag.text` | 仅限开发版本：按时间倒序列出最近 50 条 AniList 匹配决策，保留到浏览器关闭。可将其中一条复制为 JSON，加入测试语料库。 |
+| `settings.matchDiag.empty` | 尚未记录任何决策 |
+| `settings.matchDiag.copy` | 复制 |
+| `settings.matchDiag.copyTitle` | 将此决策复制为 JSON |
+| `settings.matchDiag.copied` | 已复制 |
+| `settings.matchDiag.copyFailed` | 无法复制此决策。 |
+| `settings.matchDiag.clear` | 清空 |
+| `settings.matchDiag.candidates` | 候选：{count} |
+| `settings.matchDiag.noEntry` | 无条目 |

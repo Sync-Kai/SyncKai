@@ -193,3 +193,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | De onthouden koppeling komt niet overeen met het platform: {signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | Diagnose van koppelingen |
+| `settings.matchDiag.text` | Alleen in ontwikkelbuilds: de laatste 50 koppelingsbeslissingen met AniList, nieuwste eerst, bewaard tot de browser sluit. Kopieer er een als JSON om hem aan het testcorpus toe te voegen. |
+| `settings.matchDiag.empty` | Nog geen beslissing vastgelegd |
+| `settings.matchDiag.copy` | Kopiëren |
+| `settings.matchDiag.copyTitle` | Deze beslissing als JSON kopiëren |
+| `settings.matchDiag.copied` | Gekopieerd |
+| `settings.matchDiag.copyFailed` | Kon de beslissing niet kopiëren. |
+| `settings.matchDiag.clear` | Wissen |
+| `settings.matchDiag.candidates` | Kandidaten: {count} |
+| `settings.matchDiag.noEntry` | Geen pagina |

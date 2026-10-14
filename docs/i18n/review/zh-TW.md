@@ -183,3 +183,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | 已儲存的對應記錄與平台資訊不符：{signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | 對應診斷 |
+| `settings.matchDiag.text` | 僅限開發版本：依時間由新到舊列出最近 50 筆 AniList 對應判定，保留到瀏覽器關閉為止。可將其中一筆複製為 JSON，加入測試語料庫。 |
+| `settings.matchDiag.empty` | 尚未記錄任何判定 |
+| `settings.matchDiag.copy` | 複製 |
+| `settings.matchDiag.copyTitle` | 將這筆判定複製為 JSON |
+| `settings.matchDiag.copied` | 已複製 |
+| `settings.matchDiag.copyFailed` | 無法複製這筆判定。 |
+| `settings.matchDiag.clear` | 清除 |
+| `settings.matchDiag.candidates` | 候選：{count} |
+| `settings.matchDiag.noEntry` | 無條目 |

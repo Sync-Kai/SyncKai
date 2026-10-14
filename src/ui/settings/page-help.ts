@@ -9,6 +9,7 @@ import { BTN_GHOST, CARD } from '../kit';
 import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
+import { createMatchDiagnosticSection } from './match-diagnostic';
 import { BTN_DANGER, dangerRow, dangerZone, DIVIDER, HELP_TEXT, linkRow, rowsCard, settingsSection } from './rows';
 
 const log = createLogger('settings');
@@ -28,6 +29,8 @@ export function createHelpPage(ctx: SettingsContext): SettingsPageView {
   let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
   const redraw = (): void => ctx.redraw(['help']);
+  // Builds de dev seulement (`npm run build:dev`) : section absente des bundles publiés
+  const matchDiagnostic = __SYNCKAI_DEBUG__ ? createMatchDiagnosticSection(redraw) : null;
 
   function showFeedback(next: HelpFeedback): void {
     clearTimeout(feedbackTimer);
@@ -128,6 +131,7 @@ export function createHelpPage(ctx: SettingsContext): SettingsPageView {
           linkRow({ label: t('settings.about.source'), href: REPO_URL, divider: true }),
         ),
       ),
+      ...(matchDiagnostic ? [matchDiagnostic.render()] : []),
       dangerZone(
         dangerRow({
           title: t('settings.help.journal'),

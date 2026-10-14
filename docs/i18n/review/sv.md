@@ -187,3 +187,20 @@ New key `match.savedContradicted` (reason shown in 'To check' cards, the history
 | Key | Text |
 |---|---|
 | `match.savedContradicted` | Den sparade kopplingen stämmer inte med plattformen: {signals} |
+
+## 2026-10-14 · Matching diagnostic (development builds only)
+
+New keys `settings.matchDiag.*` (Settings › Help & about, section shown only in development builds, never in the published extension): the last 50 AniList matching decisions, a « Copy » button per row (one decision as JSON, for the test corpus) and a « Clear » button. `{count}` follows a label and a colon (no plural form); `JSON` is a format name. Terms from this language's term sheet (match, entry). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.title` | Diagnostik för kopplingar |
+| `settings.matchDiag.text` | Endast i utvecklingsbyggen: de senaste 50 kopplingsbesluten mot AniList, nyaste först, sparade tills webbläsaren stängs. Kopiera ett som JSON för att lägga till det i testkorpusen. |
+| `settings.matchDiag.empty` | Inga beslut registrerade än |
+| `settings.matchDiag.copy` | Kopiera |
+| `settings.matchDiag.copyTitle` | Kopiera det här beslutet som JSON |
+| `settings.matchDiag.copied` | Kopierat |
+| `settings.matchDiag.copyFailed` | Det gick inte att kopiera beslutet. |
+| `settings.matchDiag.clear` | Rensa |
+| `settings.matchDiag.candidates` | Kandidater: {count} |
+| `settings.matchDiag.noEntry` | Ingen titel |

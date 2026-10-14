@@ -47,3 +47,9 @@ export const SYNC_QUEUE_KEY = 'syncQueue';
 /** Cartes « À noter » et revisionnages refusés (voir engagement-store.ts) */
 export const PENDING_RATINGS_KEY = 'pendingRatings';
 export const REWATCH_DECLINED_KEY = 'rewatchDeclined';
+
+/**
+ * Diagnostic des correspondances (builds de dev seulement, voir background/sync/match-diagnostic.ts) : 50 dernières
+ * décisions, dans chrome.storage.session (jamais local). Constante à part (pas dans STORAGE_KEYS) : absente des bundles publiés.
+ */
+export const MATCH_DIAGNOSTIC_KEY = 'debug:matchDiagnostic';
