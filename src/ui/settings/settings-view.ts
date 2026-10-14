@@ -113,12 +113,13 @@ export function createSettingsView(host: SettingsHost): SettingsView {
             h(
               'h1',
               {
-                class: `m-0 truncate font-display font-extrabold outline-none ${home ? 'text-[15px]' : 'text-[14px]'}`,
+                class: `m-0 max-w-full shrink-0 truncate font-display font-extrabold outline-none ${home ? 'text-[15px]' : 'text-[14px]'}`,
                 attrs: { id: 'sk-settings-title', tabindex: '-1', 'data-focus': 'settings-heading' },
               },
               title,
             ),
-            home && kanaLabel('セッテイ', 'shrink-0 text-sakura max-[360px]:hidden'),
+            // Le kana décoratif cède la place avant le titre (police de secours plus large : ukrainien, suédois)
+            home && kanaLabel('セッテイ', 'min-w-0 truncate text-sakura max-[360px]:hidden'),
           ),
           // Accueil : espace symétrique du bouton Retour (titre centré). Sous-page : le titre prend toute la place,
           // l'état d'enregistrement s'affiche par-dessus le temps de sa présence (panneau étroit, allemand)

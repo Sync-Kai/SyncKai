@@ -101,6 +101,15 @@ Section maintained by Claude so the project can be picked up on any machine afte
   - before tagging, run `npm run test:e2e`: the `build` job of `release.yml` runs it and a failure blocks the upload to the stores;
   - permissions: `scripts/store-permissions.test.ts` requires one section in `docs/store/permissions.md` per manifest permission or host; if that file has changed since the last tag, paste the blocks into the Privacy tab of the Chrome Web Store **before** the tag (otherwise the submission is rejected; recovery: `docs/STORE.md` › 7);
   - `release.yml` rejects a tag outside `main` and only runs the CLIs from the lockfile (`chrome-webstore-upload-cli`, `web-ext` at an exact version, `npx --no-install`).
+- **Code style and tooling**:
+  - no formatter in the project (no Prettier, no Biome): never run `npx prettier` or any other formatter, it rewrites whole files (double quotes, wrapped lines). Edit by hand in the surrounding style: single quotes, semicolons, long lines (up to ~150 characters), Tailwind classes inline. The only style checker is ESLint (`npm run lint`, `eslint.config.js`), run by `npm run verify`;
+  - targeted edits only (Edit tool or exact string replacements), never a whole-file rewrite of an existing file; check `git diff --stat` before committing: a few lines changed for a few lines intended.
+- **Cloud sessions (fresh Linux container)**:
+  - run `npm ci` first (`node_modules` is missing: `tsc` fails on `chrome` / `vite/client` types);
+  - the container runs as root: Puppeteer's Chrome refuses to start without `--no-sandbox`, so run `CI=1 npm run test:e2e` and `CI=1 npm run test:i18n-layout` (`scripts/screenshots/harness.ts` adds `--no-sandbox` when `CI` is set);
+  - write logs and reports to the session scratchpad, never next to the repository (`SYNCKAI_I18N_LAYOUT_DIR=<scratchpad>/layout`);
+  - the display font (`--font-display` in `src/ui/theme.css`: « M PLUS Rounded 1c », « Yu Gothic UI », then the system font) is not bundled: on Linux the fallback is wider than on the owner's Windows, so `test:i18n-layout` can find truncations the owner never sees. They are real for Linux / macOS users: fix them in the component (2026-10-14: settings title vs. the « セッテイ » kana, live countdown in Russian at 320 px);
+  - deleting a remote branch other than the session's own can be refused by the Git proxy (« remote end hung up »): leave the command to the owner.
 - **Organization**: work is delegated to specialized subagents, with a precise brief. The main session orchestrates, verifies before each merge (`npm run verify`: types, tests, Chrome and Firefox builds, packages, `web-ext lint`, typed lint; plus `npm run test:e2e` if the popup or the panel changes), handles Git and reports back.
 - **Progress reports**: when running multi-step work, post a short progress message to the owner at each step (e.g. started, ready, merged).
 - The user tests in Chrome before each significant merge. Point out what has not been tested.
@@ -182,6 +191,7 @@ Section maintained by Claude so the project can be picked up on any machine afte
 ### Publication
 
 - **Repository**: https://github.com/Sync-Kai/SyncKai (organization `Sync-Kai`).
+- **Landing page**: https://synckai.app/ (presentation site), repository https://github.com/Sync-Kai/synckai.app.
 - **Chrome Web Store**: item `khokcmigioggannjoojambdgioigdceb`. Latest published version: 2.2.1 (published on 2026-10-12); 2.3.1 submitted by `release.yml` on 2026-10-12 (2.3.0 tagged but never published: the workflow stopped at a locale-dependent test); visibility "Public" since 2026-10-03: https://chromewebstore.google.com/detail/synckai/khokcmigioggannjoojambdgioigdceb
   - Listing texts: `docs/store/listing-{fr,en,de}.md`.
   - Privacy tab: `docs/store/permissions.md`.

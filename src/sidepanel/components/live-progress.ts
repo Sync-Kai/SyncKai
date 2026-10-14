@@ -53,8 +53,8 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
   let announced: string | null = null;
 
   // ─── Bloc (créé une fois) ─────────────────────────────────────────────
-  const text = h('span', { class: 'min-w-0 truncate text-[12px] font-bold' });
-  const clock = h('span', { class: 'shrink-0 text-[11px] font-semibold text-muted tabular-nums' });
+  const text = h('span', { class: 'max-w-full shrink-0 truncate text-[12px] font-bold' });
+  const clock = h('span', { class: 'ml-auto shrink-0 text-[11px] font-semibold text-muted tabular-nums' });
   const fill = h('div', {
     class: 'absolute inset-y-0 left-0 rounded-full bg-sakura transition-[width] duration-1000 ease-linear motion-reduce:transition-none',
   });
@@ -64,7 +64,8 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
   // Région annoncée : changements d'état uniquement (pause, synchro, erreur), jamais le compte à rebours
   const announcer = h('span', { class: 'sr-only', attrs: { 'aria-live': 'polite', 'aria-atomic': 'true' } });
   const hint = h('p', { class: 'm-0 text-[11px] text-muted' });
-  const body = h('div', { class: 'flex flex-col gap-1.5' }, h('div', { class: 'flex items-baseline justify-between gap-2' }, text, clock), bar, detail);
+  // Texte long (russe à 320 px) : l'horloge passe à la ligne plutôt que de tronquer le texte
+  const body = h('div', { class: 'flex flex-col gap-1.5' }, h('div', { class: 'flex flex-wrap items-baseline justify-between gap-x-2' }, text, clock), bar, detail);
   const element = h('div', { class: 'flex flex-col gap-1.5', attrs: { hidden: '' } }, body, hint, announcer);
 
   function update(): void {
@@ -79,7 +80,7 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
     }
     const view = liveDisplay(tick, message);
     text.textContent = view.text;
-    text.className = `min-w-0 truncate text-[12px] font-bold ${TONE_CLASS[view.tone]}`;
+    text.className = `max-w-full shrink-0 truncate text-[12px] font-bold ${TONE_CLASS[view.tone]}`;
     detail.textContent = view.detail ?? '';
     detail.hidden = view.detail === null;
     // Erreur ou fiche à vérifier : message complet sur plusieurs lignes (raison, marche à suivre)

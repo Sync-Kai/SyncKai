@@ -19,6 +19,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Fixed
 
+- Long translations with a wider system font (Linux, macOS without the display font): the *Settings* title is no longer cut in the side panel (Ukrainian, Swedish), the decorative « セッテイ » gives way first; in *Now playing*, a long live-sync message (Russian, 320 px panel) stays whole and the playback clock moves to the next line.
 - *Settings › My data*: the Crunchyroll / ADN / Netflix import buttons wrap onto a new line in a narrow side panel instead of overflowing the card.
 - Netflix history import with a Netflix profile in Italian, Spanish, Portuguese, Dutch, Swedish, Polish, Czech, Romanian, Russian, Ukrainian, Turkish, Indonesian, Vietnamese, Japanese or Traditional Chinese: the page's *Show more* button is now recognized in that language. Before, only the first ~20 rows of the history were read and the import reported them as the whole history. The label of other profile languages (Simplified Chinese, Korean…) is still unknown. Episode titles in the quotation marks of any language (« », „ “, 「 」…) are now recognized in the rows.
 - Side panel, *Now playing*: the airing season and its year follow the order of the language (« 2024年秋 » in Japanese and Chinese, « 2024년 가을 » in Korean) instead of always putting the year last.
