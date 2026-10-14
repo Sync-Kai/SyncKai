@@ -57,3 +57,18 @@ npm run lint         # typed lint (typescript-eslint) on src/ and scripts/
 npm run lint:firefox # web-ext lint on dist-firefox/
 npm run verify:build -- --target firefox  # checks on dist-firefox/: referenced files, web_accessible_resources, permissions, sizes
 ```
+
+## Extension end-to-end tests (optional)
+
+```sh
+npm run test:ext     # builds dist/, then runs scripts/ext-e2e/*.ext.ts
+```
+
+These tests load the real built extension (`dist/`) in a real Chromium and drive it through its own pages (popup, a bare extension page for messages and `chrome.storage.local`, a fake Crunchyroll tab for content-script messages). The service worker's network is intercepted with the DevTools `Fetch` domain and answered by stateful fakes of the AniList GraphQL API and the MyAnimeList v2 API (`scripts/ext-e2e/fake-anilist.ts`, `fake-mal.ts`), which check the `Authorization: Bearer` token. Nothing reaches the real network: unexpected requests are refused and fail the test, and DNS resolution is disabled in the browser. Accounts are signed in without OAuth by writing legacy plaintext tokens, which the extension encrypts on first access (`scripts/ext-e2e/seed.ts`).
+
+- **Browser**: a full Chromium or Chrome build is required (`chrome-headless-shell`, used by `test:e2e`, cannot load extensions). Set `SYNCKAI_EXT_CHROME` to its executable; by default the tests use `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` when it exists, otherwise Puppeteer's own Chrome. Running as root adds `--no-sandbox` automatically.
+- **Output**: profiles, the copy of the extension under test and failure screenshots go to `SYNCKAI_EXT_E2E_DIR` (default: `synckai-ext-e2e` in the system temp directory), never into the repository. They are deleted after a passing test, kept after a failure (or with `SYNCKAI_EXT_E2E_KEEP=1`).
+- **Other build**: `SYNCKAI_EXT_DIST=<dir>` tests another Chrome build directory (the script still rebuilds `dist/`).
+- **Extension update**: `chrome.runtime.reload()` leaves an extension loaded with `--load-extension` unloaded in headless Chromium, so the update test relaunches the browser on the same profile with a newer manifest version.
+
+The tests are not part of `npm run verify` (which only type-checks them) nor of `npm run test:e2e`.

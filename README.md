@@ -149,6 +149,7 @@ npm run build:firefox   # production build for Firefox, in dist-firefox/
 npm run build:dev       # Chrome build with info/debug logs in the console
 npm test                # unit tests (Vitest)
 npm run test:e2e        # popup end-to-end tests (Puppeteer, headless Chrome)
+npm run test:ext        # end-to-end tests of the built extension in Chromium, fake AniList / MAL (see BUILD.md)
 npm run verify          # type check, tests, both builds, build checks and lint
 ```
 

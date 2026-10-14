@@ -1,23 +1,23 @@
 # Manual tests (2.2.0 and later)
 
-What the automated tests don't cover: run through in **Brave/Chrome** and **Firefox**, with the `dist/` build (`npm run build`, or `npm run dev`), extension reloaded, then tabs reopened. Tick items as you go; on failure, note the browser and attach the console (F12) of the page and of the service worker.
+What the automated tests don't cover (items marked *automated* run in `npm run test:ext`, see [BUILD.md](../../BUILD.md)): run through in **Brave/Chrome** and **Firefox**, with the `dist/` build (`npm run build`, or `npm run dev`), extension reloaded, then tabs reopened. Tick items as you go; on failure, note the browser and attach the console (F12) of the page and of the service worker.
 
 Tip to simulate a service outage: developer tools of the popup (right-click › Inspect) or of the service worker (`chrome://extensions` › SyncKai › "service worker") › **Network** tab › right-click a request › **Block request URL** (`api.myanimelist.net` or `graphql.anilist.co`). Unblock afterwards.
 
 ## 1. Update and accounts
 
-- [ ] **Update from the Store version** (the most important one): install the published version, sign in to AniList and MAL, leave a Crunchyroll tab open, then load the new build (*Reload*). Expected: both accounts stay connected, the open tab keeps working without reloading it (Chrome), or shows *Reload the page* as soon as playback starts (Firefox).
-- [ ] **Encrypted tokens**: service worker console → `chrome.storage.local.get(['anilistToken','malToken'], console.log)`. Expected: `{ v: 1, iv, data, expiresAt }`, never the plain-text token.
-- [ ] **Expired session**: revoke SyncKai on anilist.co (Settings › Apps), start a sync. Expected: *Session expired* in red with *Reconnect* (not *Not connected*); *Reconnect* restores everything.
-- [ ] **Account switch**: block AniList, finish an episode (it goes to *Pending syncs*), disconnect AniList, sign in with another account, unblock. Expected: nothing is written to the new account.
+- [ ] **Update from the Store version** (the most important one): install the published version, sign in to AniList and MAL, leave a Crunchyroll tab open, then load the new build (*Reload*). Expected: both accounts stay connected, the open tab keeps working without reloading it (Chrome), or shows *Reload the page* as soon as playback starts (Firefox). — automated (accounts kept and data kept across an update from 2.3.0, Chrome only; the open tab and the Store version are not): `scripts/ext-e2e/accounts.ext.ts`
+- [ ] **Encrypted tokens**: service worker console → `chrome.storage.local.get(['anilistToken','malToken'], console.log)`. Expected: `{ v: 1, iv, data, expiresAt }`, never the plain-text token. — automated: `scripts/ext-e2e/accounts.ext.ts`
+- [ ] **Expired session**: revoke SyncKai on anilist.co (Settings › Apps), start a sync. Expected: *Session expired* in red with *Reconnect* (not *Not connected*); *Reconnect* restores everything. — automated, except *Reconnect* (OAuth): `scripts/ext-e2e/accounts.ext.ts`
+- [ ] **Account switch**: block AniList, finish an episode (it goes to *Pending syncs*), disconnect AniList, sign in with another account, unblock. Expected: nothing is written to the new account. — automated: `scripts/ext-e2e/accounts.ext.ts`
 
 ## 2. Sync and controls
 
-- [ ] **Partial failure, then Retry**: block MAL, press *+1* on a series. Expected: banner *Ep. N watched · failed on MyAnimeList* with *Retry*; unblock, click: MAL catches up, AniList doesn't change.
-- [ ] **Simultaneous +1**: *+1* on the same series in the side panel and in the popup, within the same second. Expected: +2 in total on AniList and MAL.
-- [ ] **Rewatch** (if a series lends itself to it): series being rewatched at 11/12, *+1*. Expected: *Completed* with one more rewatch; MAL is no longer in *Re-watching*.
+- [ ] **Partial failure, then Retry**: block MAL, press *+1* on a series. Expected: banner *Ep. N watched · failed on MyAnimeList* with *Retry*; unblock, click: MAL catches up, AniList doesn't change. — automated (popup): `scripts/ext-e2e/sync.ext.ts`
+- [ ] **Simultaneous +1**: *+1* on the same series in the side panel and in the popup, within the same second. Expected: +2 in total on AniList and MAL. — automated (two extension pages, messages): `scripts/ext-e2e/sync.ext.ts`
+- [ ] **Rewatch** (if a series lends itself to it): series being rewatched at 11/12, *+1*. Expected: *Completed* with one more rewatch; MAL is no longer in *Re-watching*. — automated: `scripts/ext-e2e/sync.ext.ts`
 - [ ] **Correct**: Activity › *Recent syncs* › *Correct* on a series, then start the next episode without confirming. Expected: the card stays, nothing is written (after the batch 5 fix: the episode is remembered and applied after the decision).
-- [ ] **No duplicate rating**: finish the last episode of an already rated series. Expected: no *Rate* bubble.
+- [ ] **No duplicate rating**: finish the last episode of an already rated series. Expected: no *Rate* bubble. — automated (sync result and storage, not the bubble itself): `scripts/ext-e2e/sync.ext.ts`
 - [ ] **AniList ↔ MAL differences**: *Analyze*, press *+1* on a series with a difference, come back. Expected: *Changed since the analysis*, *Keep* buttons greyed out; an unchanged difference is matched normally.
 
 ## 3. Playback detection
