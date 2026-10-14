@@ -770,7 +770,7 @@ describe('popup (bout en bout)', () => {
     expect(statuses).toContain(fr('settings.disney.disabled'));
   });
 
-  it('Réglages › Lecture & synchro : activer Prime Video demande l’accès à primevideo.com, jamais proposé comme lecteur préféré', async () => {
+  it('Réglages › Lecture & synchro : activer Prime Video demande l’accès à primevideo.com, proposé comme lecteur préféré tant qu’il est activé', async () => {
     const page = await openPopup();
     await click(page, 'gear');
     await openCategory(page, 'sync');
@@ -784,8 +784,9 @@ describe('popup (bout en bout)', () => {
     expect((await trace(page)).permissionRequests).toEqual([['*://*.primevideo.com/*']]);
     await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-prime')?.checked === true);
     expect(await text(page, '#sk-prime-help')).toBe(fr('settings.prime.helpOn'));
-    // Lecteur préféré inchangé : Prime Video n'y est jamais proposé, les interrupteurs Netflix et Disney+ restent éteints
-    expect(await page.$(sel('player-prime'))).toBeNull();
+    // Prime Video proposé comme lecteur préféré (comme Netflix), les interrupteurs Netflix et Disney+ restent éteints
+    await page.waitForSelector(sel('player-prime'));
+    expect(await page.$(sel('player-netflix'))).toBeNull();
     expect(await page.$eval('#sk-netflix', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
     expect(await page.$eval('#sk-disney', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
 
@@ -795,6 +796,7 @@ describe('popup (bout en bout)', () => {
     await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-prime')?.checked === false);
     const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
     expect(statuses).toContain(fr('settings.prime.disabled'));
+    expect(await page.$(sel('player-prime'))).toBeNull();
   });
 
   it('accès aux sites retiré : bandeau annoncé une seule fois, même nœud entre deux rendus', async () => {

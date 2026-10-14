@@ -1,5 +1,6 @@
 // Contrat entre la vue Réglages, ses pages et l'hôte qui la monte (popup ou panneau latéral).
 import type { AiringCheckResult } from '../../shared/airing.types';
+import type { StreamingPlatform } from '../../shared/platforms';
 import type { SyncSettings } from '../../shared/settings';
 import type { MediaMapping } from '../../shared/sync.types';
 import type { ExclusionsState } from '../state';
@@ -43,6 +44,13 @@ export interface SettingsData {
   disneyAccess: boolean | undefined;
   /** Accès à Prime Video (permission optionnelle) : undefined = en lecture */
   primeAccess: boolean | undefined;
+}
+
+/** Plateformes optionnelles accordées (lecteur préféré Netflix ou Prime Video) ; undefined tant que les accès sont en lecture */
+export function grantedPlatforms(data: Pick<SettingsData, 'netflixAccess' | 'disneyAccess' | 'primeAccess'>): StreamingPlatform[] | undefined {
+  const access = { netflix: data.netflixAccess, disney: data.disneyAccess, prime: data.primeAccess } as const;
+  if (Object.values(access).some((value) => value === undefined)) return undefined;
+  return (['netflix', 'disney', 'prime'] as const).filter((platform) => access[platform] === true);
 }
 
 /** Contexte passé aux pages */

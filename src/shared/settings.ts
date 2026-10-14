@@ -85,22 +85,30 @@ export const DEFAULT_SETTINGS: SyncSettings = {
 export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
 
 /**
- * Lecteur préféré effectif : Netflix seulement avec l'accès accordé (permission optionnelle). Sans accès, ou état
- * encore inconnu (`undefined`), repli sur le lecteur par défaut. Seule lecture autorisée de `preferredPlayer`
- * pour choisir un lien (popup, panneau, agenda, notifications) ou l'afficher (Réglages).
+ * Lecteurs préférés à accès optionnel (permission d'hôte) : écrits ici plutôt que lus dans le registre (platforms.ts,
+ * absent des scripts de contenu qui lisent les réglages) ; égalité vérifiée par settings.test.ts
  */
-export function effectivePlayer(preferred: StreamingPlatform, netflixGranted: boolean | undefined): StreamingPlatform {
-  if (preferred === 'netflix') return netflixGranted === true ? preferred : DEFAULT_SETTINGS.preferredPlayer;
-  return isPreferredPlayerOption(preferred) ? preferred : DEFAULT_SETTINGS.preferredPlayer;
+export const ACCESS_PLAYERS: readonly StreamingPlatform[] = ['netflix', 'prime'];
+
+/**
+ * Lecteur préféré effectif : une plateforme à accès optionnel (Netflix, Prime Video) seulement avec son accès accordé
+ * (`granted` : plateformes optionnelles accordées). Sans accès, ou état encore inconnu (`undefined`), repli sur le
+ * lecteur par défaut. Seule lecture autorisée de `preferredPlayer` pour choisir un lien (popup, panneau, agenda,
+ * notifications) ou l'afficher (Réglages).
+ */
+export function effectivePlayer(preferred: StreamingPlatform, granted: readonly StreamingPlatform[] | undefined): StreamingPlatform {
+  if (!isPreferredPlayerOption(preferred)) return DEFAULT_SETTINGS.preferredPlayer;
+  if (ACCESS_PLAYERS.includes(preferred)) return granted?.includes(preferred) === true ? preferred : DEFAULT_SETTINGS.preferredPlayer;
+  return preferred;
 }
 
 /**
  * Plateforme proposable comme lecteur préféré. Disney+ ne l'est pas : ses liens AniList (anciennes pages /series/…,
  * pages /browse/entity-…) ne sont pas fiables pour « Ouvrir » en priorité ; il reste ouvert en repli (seul lien connu).
- * Prime Video non plus (hors v1 : liens AniList rares, souvent d'anciens ASIN américains).
+ * Prime Video l'est, comme Netflix (décision du 2026-10-14) : liens AniList primevideo.com et amazon.<tld>.
  */
 export function isPreferredPlayerOption(platform: StreamingPlatform): boolean {
-  return platform !== 'disney' && platform !== 'prime';
+  return platform !== 'disney';
 }
 
 const SETTINGS_KEY = 'settings';

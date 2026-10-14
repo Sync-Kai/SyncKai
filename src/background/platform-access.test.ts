@@ -7,7 +7,7 @@ vi.mock('../content/disney/page-bridge.iife.ts?script', () => ({ default: 'disne
 vi.mock('../content/disney/content-disney.iife.ts?script', () => ({ default: 'disney-content.js' }));
 vi.mock('../content/prime/page-bridge.iife.ts?script', () => ({ default: 'prime-bridge.js' }));
 vi.mock('../content/prime/content-prime.iife.ts?script', () => ({ default: 'prime-content.js' }));
-const mocks = vi.hoisted(() => ({ resetRevokedNetflixPlayer: vi.fn() }));
+const mocks = vi.hoisted(() => ({ resetRevokedPlayer: vi.fn() }));
 vi.mock('../shared/netflix-access', () => mocks);
 
 const NETFLIX = '*://*.netflix.com/*';
@@ -54,7 +54,7 @@ const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.resetRevokedNetflixPlayer.mockResolvedValue(true);
+  mocks.resetRevokedPlayer.mockResolvedValue(true);
   granted = [];
   registered = ALL_IDS;
 });
@@ -63,21 +63,21 @@ describe('listenPlatformAccess', () => {
   it('accès Netflix retiré (chrome://extensions, about:addons) : scripts retirés et lecteur préféré corrigé', async () => {
     for (const listener of listeners.removed) listener({ origins: [NETFLIX] });
     await flush();
-    expect(mocks.resetRevokedNetflixPlayer).toHaveBeenCalledOnce();
+    expect(mocks.resetRevokedPlayer).toHaveBeenCalledOnce();
     expect(unregister).toHaveBeenCalledWith({ ids: ['synckai-netflix-bridge', 'synckai-netflix-content'] });
   });
 
   it('accès Disney+ retiré : seuls ses scripts sont retirés, lecteur préféré non concerné', async () => {
     for (const listener of listeners.removed) listener({ origins: [DISNEY] });
     await flush();
-    expect(mocks.resetRevokedNetflixPlayer).not.toHaveBeenCalled();
+    expect(mocks.resetRevokedPlayer).not.toHaveBeenCalled();
     expect(unregister.mock.calls).toEqual([[{ ids: ['synckai-disney-bridge', 'synckai-disney-content'] }]]);
   });
 
   it('autre permission retirée : rien', async () => {
     for (const listener of listeners.removed) listener({ origins: ['*://*.crunchyroll.com/*'] });
     await flush();
-    expect(mocks.resetRevokedNetflixPlayer).not.toHaveBeenCalled();
+    expect(mocks.resetRevokedPlayer).not.toHaveBeenCalled();
     expect(unregister).not.toHaveBeenCalled();
   });
 
@@ -85,7 +85,7 @@ describe('listenPlatformAccess', () => {
     for (const listener of listeners.startup) listener();
     for (const listener of listeners.installed) listener({ reason: 'update' });
     await flush();
-    expect(mocks.resetRevokedNetflixPlayer).toHaveBeenCalledTimes(2);
+    expect(mocks.resetRevokedPlayer).toHaveBeenCalledTimes(2);
   });
 
   it('accès Disney+ accordé : ses scripts réenregistrés puis exécutés dans les onglets Disney+ ouverts', async () => {
@@ -115,7 +115,8 @@ describe('listenPlatformAccess', () => {
     for (const listener of listeners.removed) listener({ origins: [PRIME] });
     await flush();
     expect(unregister.mock.calls.at(-1)).toEqual([{ ids: ['synckai-prime-bridge', 'synckai-prime-content'] }]);
-    expect(mocks.resetRevokedNetflixPlayer).not.toHaveBeenCalled();
+    // Prime Video peut être le lecteur préféré, comme Netflix : réglage corrigé s'il le désignait
+    expect(mocks.resetRevokedPlayer).toHaveBeenCalledOnce();
   });
 });
 

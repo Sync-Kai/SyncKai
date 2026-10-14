@@ -11,15 +11,14 @@ import { alertAttrs } from '../live-region';
 import { CARD, LINK, segmented } from '../kit';
 import { h } from '../dom';
 import { icon } from '../icons';
-import type { SettingsContext, SettingsPageView } from './context';
+import { grantedPlatforms, type SettingsContext, type SettingsPageView } from './context';
 import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, toggleRow } from './rows';
 
 const log = createLogger('settings');
 
-/** Lecteurs proposés : Netflix seulement avec l'accès accordé ; jamais Disney+ ni Prime Video (voir isPreferredPlayerOption) */
-function playerOptions(netflixAccess: boolean): { value: StreamingPlatform; label: string }[] {
-  const offered = (platform: StreamingPlatform): boolean =>
-    isPreferredPlayerOption(platform) && (!isOptionalPlatform(platform) || (platform === 'netflix' && netflixAccess));
+/** Lecteurs proposés : Netflix et Prime Video seulement avec leur accès accordé ; jamais Disney+ (voir isPreferredPlayerOption) */
+function playerOptions(granted: readonly StreamingPlatform[]): { value: StreamingPlatform; label: string }[] {
+  const offered = (platform: StreamingPlatform): boolean => isPreferredPlayerOption(platform) && (!isOptionalPlatform(platform) || granted.includes(platform));
   return STREAMING_PLATFORMS.filter(offered).map((platform) => ({
     value: platform,
     label: PLATFORMS[platform].label,
@@ -104,7 +103,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
 
   /**
    * Interrupteur d'une plateforme. Activation : permissions.request appelé directement dans le gestionnaire (geste
-   * utilisateur exigé, aucun await avant). Retrait de Netflix : le lecteur préféré Netflix repasse sur le lecteur par défaut.
+   * utilisateur exigé, aucun await avant). Retrait de Netflix ou de Prime Video : ce lecteur préféré repasse sur le lecteur par défaut.
    */
   function onAccessToggle(platform: ToggledPlatform, checked: boolean): void {
     const { label } = PLATFORMS[platform];
@@ -120,7 +119,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
     }
     removePlatformAccess(platform).then(
       (removed) => {
-        if (removed && platform === 'netflix' && ctx.data.settings?.preferredPlayer === 'netflix') void ctx.update({ preferredPlayer: DEFAULT_SETTINGS.preferredPlayer }, true);
+        if (removed && ctx.data.settings?.preferredPlayer === platform) void ctx.update({ preferredPlayer: DEFAULT_SETTINGS.preferredPlayer }, true);
         settle(platform, removed ? 'disabled' : 'error');
       },
       (error: unknown) => {
@@ -221,6 +220,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
     render(): Node[] {
       const s = ctx.data.settings;
       if (!s) return settingsPlaceholder(ctx);
+      const players = playerOptions(grantedPlatforms(ctx.data) ?? []);
       return [
         settingsSection(
           t('settings.section.sync'),
@@ -238,8 +238,9 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
               label: t('settings.player.label'),
               help: t('settings.player.help'),
               control: segmented({
-                options: playerOptions(ctx.data.netflixAccess === true),
-                current: effectivePlayer(s.preferredPlayer, ctx.data.netflixAccess),
+                options: players,
+                current: effectivePlayer(s.preferredPlayer, grantedPlatforms(ctx.data)),
+                dense: players.length > 3,
                 onPick: (value) => void ctx.update({ preferredPlayer: value }, true),
                 attrs: { 'aria-labelledby': 'sk-player-label' },
                 focusKey: 'player',

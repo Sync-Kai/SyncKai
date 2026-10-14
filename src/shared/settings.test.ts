@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LOCALES } from '../i18n/locale-codes';
 import { seriesOffset, withSeriesOffset } from './agenda';
-import { DEFAULT_SETTINGS, MAX_SERIES_OFFSETS, normalizeSettings, parseOffsetInput } from './settings';
+import { isOptionalPlatform, STREAMING_PLATFORMS } from './platforms';
+import { ACCESS_PLAYERS, DEFAULT_SETTINGS, isPreferredPlayerOption, MAX_SERIES_OFFSETS, normalizeSettings, parseOffsetInput } from './settings';
 
 describe('normalizeSettings', () => {
   it('retourne les valeurs par défaut sans données', () => {
@@ -146,5 +147,11 @@ describe('parseOffsetInput (UI-05)', () => {
     expect(parseOffsetInput('0')).toBe(0);
     expect(parseOffsetInput('-30')).toBe(-30);
     expect(parseOffsetInput('12.5')).toBe(12.5);
+  });
+});
+
+describe('ACCESS_PLAYERS', () => {
+  it('= plateformes à accès optionnel proposables comme lecteur préféré (registre des plateformes)', () => {
+    expect(ACCESS_PLAYERS).toEqual(STREAMING_PLATFORMS.filter((platform) => isOptionalPlatform(platform) && isPreferredPlayerOption(platform)));
   });
 });

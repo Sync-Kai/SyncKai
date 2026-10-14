@@ -11,6 +11,8 @@ import {
   storeCachedPageMedia,
 } from '../shared/page-media-cache';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
+import { hasPlatformAccess } from '../shared/platform-access';
+import { isOptionalPlatform } from '../shared/platforms';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { getOpenSessions } from '../shared/storage';
 import type { ListStatusChange } from '../shared/sync.types';
@@ -194,6 +196,17 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     if (content.status === 'error' || content.status === 'not-found') void resolve(content.page, false);
   });
 
+  // Accès à Netflix, Disney+ ou Prime Video accordé ou retiré (Réglages, chrome://extensions) : fiche d'une page de ces
+  // plateformes redemandée sans cache. Accès retiré : le service worker répond « désactivé » (NOT_TRACKED) ; le script
+  // de contenu de l'onglet, lui, tourne encore jusqu'au rechargement et lit toujours la page
+  const onAccessChange = (): void => {
+    const page = pageOf(content);
+    if (tabId === null || !page || !isOptionalPlatform(page.platform)) return;
+    void resolve(page, content.status === 'ready', true);
+  };
+  chrome.permissions?.onAdded?.addListener(onAccessChange);
+  chrome.permissions?.onRemoved?.addListener(onAccessChange);
+
   /** Écriture à venir dans le cache de l'onglet : horodatage retenu pour en ignorer l'écho */
   function ownWrite(): number {
     let at = Date.now();
@@ -315,7 +328,16 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     // Rechargement dû même si cette relecture est annulée par une autre (refresh) : celle-ci le reprendra
     if (reresolve) pendingReload ??= 'cache';
     const page = await detectTracked(current, id);
-    if (current !== run || !page || page === 'unreachable') return;
+    if (current !== run || page === 'unreachable') return;
+    if (!page) {
+      // Script joignable, plus rien sur la page (titre ignoré lu après une navigation SPA, Prime Video) : état neutre,
+      // comme `refresh`. Ignorée, cette réponse laissait la fiche quittée affichée quand la relecture avait annulé celle
+      // du changement d'URL (`run` incrémenté), qui l'aurait remplacée
+      clearTimeout(recheckTimer);
+      leavePage();
+      set({ status: 'no-page', unreachable: false });
+      return;
+    }
     const known = pageOf(content);
     scheduleRecheck(page);
     const samePage = known !== null && pageKey(known) === pageKey(page);
@@ -378,6 +400,8 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
   /** Fiche de l'onglet en cache (popup, synchro, panneau) valable pour cette page */
   async function cachedView(id: number, page: PageMediaInfo): Promise<PageMediaView | null> {
     try {
+      // Plateforme désactivée depuis : la fiche en cache n'est plus valable (RESOLVE_PAGE_MEDIA répond « désactivé »)
+      if (isOptionalPlatform(page.platform) && !(await hasPlatformAccess(page.platform))) return null;
       return matchCachedPageMedia(await readCachedPageMedia(id), page, Date.now())?.view ?? null;
     } catch (error: unknown) {
       log.debug('Cache de la fiche illisible :', error);

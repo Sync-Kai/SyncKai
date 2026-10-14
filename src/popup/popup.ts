@@ -98,15 +98,11 @@ const pageCardStore = createStore<PageCardState>({ content: { status: 'idle' }, 
 /** Accès à Crunchyroll / ADN et aux API (bandeau « Autoriser l'accès » si Firefox l'a retiré) */
 const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
 /**
- * Plateformes à accès optionnel accordées (Netflix, Disney+) : lecteur préféré « Netflix » ignoré sans son accès ;
+ * Plateformes à accès optionnel accordées (Netflix, Disney+, Prime Video) : lecteur préféré « Netflix » ou « Prime Video » ignoré sans son accès ;
  * undefined = pas encore lu
  */
 const platformAccessStore = createStore<readonly StreamingPlatform[] | undefined>(undefined);
 
-/** Accès Netflix : undefined tant que les accès ne sont pas lus (voir effectivePlayer) */
-function netflixGranted(): boolean | undefined {
-  return platformAccessStore.get()?.includes('netflix');
-}
 const version = chrome.runtime.getManifest().version;
 /** Lues au démarrage (synchrone) : la demande d'accès doit partir sans `await` dans le clic */
 const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
@@ -420,7 +416,7 @@ const watchingChanged = createLocaleMemo();
 function renderWatching(): void {
   const preferredPlayer = (() => {
     const state = settingsStore.get();
-    return state.status === 'ready' ? effectivePlayer(state.settings.preferredPlayer, netflixGranted()) : DEFAULT_SETTINGS.preferredPlayer;
+    return state.status === 'ready' ? effectivePlayer(state.settings.preferredPlayer, platformAccessStore.get()) : DEFAULT_SETTINGS.preferredPlayer;
   })();
   const services = connectedServices();
   const { sortMenuOpen, rowMenu, rowConfirm } = uiStore.get();

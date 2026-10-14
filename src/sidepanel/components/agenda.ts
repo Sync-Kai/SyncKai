@@ -196,7 +196,7 @@ export function createAgenda(): AgendaView {
       ]);
       if (current !== run) return;
       settings = nextSettings;
-      player = effectivePlayer(nextSettings.preferredPlayer, optionalGranted.includes('netflix'));
+      player = effectivePlayer(nextSettings.preferredPlayer, optionalGranted);
       connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistConnected : malConnected));
       if (connected.length === 0) {
         status = { kind: 'not-connected' };

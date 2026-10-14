@@ -73,6 +73,10 @@ describe('épisode en lecture', () => {
     expect(titleForEpisode(unlisted, [unlisted.id], [], [], season)?.seasonGti).toBe(season.seasonGti);
     const otherShow = catalog(1, { seriesTitle: 'Another Show' });
     expect(titleForEpisode({ ...otherShow, seasonNumber: 2 }, ['B0ABCDEF12'], [], [], season)).toBeNull();
+    // Autre série lancée depuis le lecteur (URL inchangée), même numéro de saison : jamais la page affichée (son verdict « anime »)
+    expect(titleForEpisode({ ...otherShow, id: 'B0ABCDEF12' }, ['B0ABCDEF12'], [], [], season)).toBeNull();
+    // Titre de série inconnu dans le lecteur : même saison que la page affichée
+    expect(titleForEpisode({ ...unlisted, seriesTitle: null }, [unlisted.id], [], [], season)?.seasonGti).toBe(season.seasonGti);
     // Widgets de la même saison : épisodes complétés
     expect(titleForEpisode(entry, [entry.id], [title({ episodes: 2 })], [widgets(3)], null)?.episodes).toHaveLength(4);
   });

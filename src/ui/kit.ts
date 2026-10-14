@@ -137,10 +137,12 @@ interface SegmentedProps<T extends string> {
   trackClass?: string;
   /** Groupe inactif (réglage dépendant désactivé) */
   disabled?: boolean;
+  /** Marges réduites (4 options et plus : lecteur préféré avec Netflix et Prime Video, panneau à 320 px) */
+  dense?: boolean;
 }
 
 /** Contrôle segmenté (boutons aria-pressed) */
-export function segmented<T extends string>({ options, current, onPick, attrs, focusKey, activeClass, trackClass = 'bg-surface', disabled = false }: SegmentedProps<T>): HTMLElement {
+export function segmented<T extends string>({ options, current, onPick, attrs, focusKey, activeClass, trackClass = 'bg-surface', disabled = false, dense = false }: SegmentedProps<T>): HTMLElement {
   return h(
     'div',
     { class: `flex h-8 shrink-0 gap-0.5 rounded-full p-0.5 ${trackClass} ${disabled ? 'opacity-50' : ''}`, attrs: { role: 'group', ...attrs } },
@@ -149,7 +151,7 @@ export function segmented<T extends string>({ options, current, onPick, attrs, f
       return h(
         'button',
         {
-          class: `h-7 cursor-pointer rounded-full px-3 text-[11px] transition-colors disabled:cursor-default ${on ? `${activeClass} font-bold text-on-fill` : 'font-semibold text-muted hover:text-ink disabled:hover:text-muted'}`,
+          class: `h-7 cursor-pointer rounded-full ${dense ? 'px-2' : 'px-3'} text-[11px] transition-colors disabled:cursor-default ${on ? `${activeClass} font-bold text-on-fill` : 'font-semibold text-muted hover:text-ink disabled:hover:text-muted'}`,
           attrs: {
             type: 'button',
             'aria-pressed': String(on),

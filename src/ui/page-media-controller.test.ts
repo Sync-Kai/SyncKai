@@ -42,6 +42,9 @@ const fake = vi.hoisted(() => ({
   echoDuringWrite: false,
   writes: 0,
   lastStoredAt: null as number | null,
+  /** Accès aux plateformes optionnelles (chrome.permissions.contains) et écouteurs de onAdded / onRemoved */
+  optionalGranted: true,
+  accessListeners: [] as (() => void)[],
 }));
 
 vi.mock('../shared/messages', () => ({
@@ -77,6 +80,11 @@ vi.stubGlobal('chrome', {
   storage: {
     local: { get: () => Promise.resolve({ ...fake.local }) },
     onChanged: { addListener: (listener: ChangeListener) => void fake.listeners.push(listener) },
+  },
+  permissions: {
+    contains: () => Promise.resolve(fake.optionalGranted),
+    onAdded: { addListener: (listener: () => void) => void fake.accessListeners.push(listener) },
+    onRemoved: { addListener: (listener: () => void) => void fake.accessListeners.push(listener) },
   },
 });
 
@@ -204,6 +212,8 @@ beforeEach(() => {
   fake.echoDuringWrite = false;
   fake.writes = 0;
   fake.lastStoredAt = null;
+  fake.optionalGranted = true;
+  fake.accessListeners.length = 0;
 });
 
 describe('états alignés (popup et panneau)', () => {
@@ -551,6 +561,82 @@ describe('UI-01 : mise à jour de l’onglet pendant la résolution', () => {
     await settle();
     expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(0);
     expect(ctl.content.status).toBe('ready');
+  });
+});
+
+describe('accès à une plateforme optionnelle retiré (Prime Video désactivé dans les Réglages)', () => {
+  const PRIME: PageMediaInfo = { ...FRIEREN, platform: 'prime', seriesId: null, episode: FRIEREN.episode && { ...FRIEREN.episode, platform: 'prime', seriesId: null } };
+  const NOT_TRACKED = { ok: false, code: 'NOT_TRACKED', message: 'Prime Video est désactivé' };
+
+  it('fiche affichée : redemandée sans cache au retrait, « désactivé » affiché', async () => {
+    fake.pages.set(1, PRIME);
+    const ctl = panelController();
+    ctl.setTab(1);
+    await answerAll();
+    expect(ctl.content.status).toBe('ready');
+    fake.cached = toCachedPageMedia(PRIME, view(PRIME), 'resolve', Date.now(), {});
+
+    fake.optionalGranted = false;
+    for (const listener of fake.accessListeners) listener();
+    await settle();
+    answer(pending('RESOLVE_PAGE_MEDIA')[0], NOT_TRACKED);
+    await settle();
+    expect(ctl.content).toMatchObject({ status: 'not-found', untracked: true, message: 'Prime Video est désactivé' });
+  });
+
+  it('ouverture après le retrait (popup) : la fiche en cache n’est pas réutilisée', async () => {
+    fake.optionalGranted = false;
+    fake.cached = toCachedPageMedia(PRIME, view(PRIME), 'resolve', Date.now(), {});
+    const ctl = createPageMediaController({ onChange: () => undefined });
+    ctl.open(1, PRIME);
+    await settle();
+    expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(1);
+    answer(pending('RESOLVE_PAGE_MEDIA')[0], NOT_TRACKED);
+    await settle();
+    expect(ctl.content).toMatchObject({ status: 'not-found', untracked: true });
+  });
+
+  it('page d’une plateforme du manifeste : retrait sans effet', async () => {
+    const ctl = await readyOnFrieren();
+    for (const listener of fake.accessListeners) listener();
+    await settle();
+    expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(0);
+    expect(ctl.content.status).toBe('ready');
+  });
+});
+
+describe('navigation SPA vers une page sans fiche (titre ignoré, Prime Video)', () => {
+  it('relecture automatique pendant la lecture de la nouvelle page : la fiche quittée n’est pas gardée', async () => {
+    const ctl = await readyOnFrieren();
+    vi.useFakeTimers();
+    try {
+      // Nouvelle URL : la page ne répond plus rien (pas un anime) ; lecture lente (attente du pont)
+      fake.pages.set(1, null);
+      const release = holdDetection();
+      ctl.setTab(1);
+      await vi.advanceTimersByTimeAsync(0);
+      // Pendant cette lecture, le port annonce un nouvel épisode (vidéo de la page ignorée) : relecture automatique
+      void ctl.redetect(false);
+      await vi.advanceTimersByTimeAsync(0);
+      release();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(ctl.content).toEqual({ status: 'no-page', unreachable: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('relecture automatique seule (lecture d’un titre ignoré sans changement d’URL) : état neutre', async () => {
+    const ctl = await readyOnFrieren();
+    vi.useFakeTimers();
+    try {
+      fake.pages.set(1, null);
+      void ctl.redetect(false);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(ctl.content).toEqual({ status: 'no-page', unreachable: false });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

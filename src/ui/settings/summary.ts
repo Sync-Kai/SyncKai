@@ -36,14 +36,15 @@ export function accountsSummary(links: Readonly<Record<TrackerId, AccountLink>>)
 /** « Crunchyroll · au générique », « ADN · à 85 % », « Crunchyroll · en pause » */
 export function syncSummary(
   settings: Pick<SyncSettings, 'autoSync' | 'completionTrigger' | 'completionPercentage' | 'preferredPlayer'>,
-  netflixAccess?: boolean,
+  /** Plateformes optionnelles accordées (lecteur préféré Netflix ou Prime Video) ; absent = pas encore lues */
+  granted?: readonly StreamingPlatform[],
 ): string {
   const trigger = !settings.autoSync
     ? t('settings.summary.paused')
     : settings.completionTrigger === 'credits'
       ? t('settings.summary.credits')
       : t('settings.summary.percentage', { percent: t('settings.percent', { value: settings.completionPercentage }) });
-  return `${PLAYER_NAMES[effectivePlayer(settings.preferredPlayer, netflixAccess)]} · ${trigger}`;
+  return `${PLAYER_NAMES[effectivePlayer(settings.preferredPlayer, granted)]} · ${trigger}`;
 }
 
 const LEVEL_TITLES = {

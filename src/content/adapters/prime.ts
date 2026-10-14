@@ -10,7 +10,7 @@ import {
   withPrimeWidgets,
   type PrimeTitle,
 } from '../../shared/prime-metadata';
-import { normalizeTitle } from '../../shared/title';
+import { titleKey } from '../../shared/title';
 import { createPrimeBridgeClient, type PrimeBridgeClient, type ReceivedCatalog } from '../prime/bridge-client';
 import type { PrimeWidgetsEntry } from '../prime/bridge-protocol';
 import type { PlaybackTime, StreamingAdapter } from './adapter';
@@ -85,10 +85,13 @@ export function titleForEpisode(
   const listing = newest.find((title) => aliases.some((id) => title.episodes.some((episode) => episode.gti === id || episode.compactGTI === id)));
   const seasonGti = widgets.findLast((received) => received.widgets.bestSelf !== null && aliases.includes(received.widgets.bestSelf.gti))?.widgets.seasonGti;
   const bySeason = seasonGti ? newest.find((title) => title.seasonGti === seasonGti) : undefined;
+  // Numéro de saison seul : seulement sans titre de série dans le lecteur (une autre série lancée depuis le lecteur, URL
+  // inchangée, a souvent aussi une saison 1 : elle aurait repris le verdict « anime » de la page affichée)
   const sameShow =
     pageTitle &&
-    ((entry.seasonNumber !== null && entry.seasonNumber === pageTitle.seasonNumber) ||
-      (entry.seriesTitle !== null && normalizeTitle(entry.seriesTitle) === normalizeTitle(pageTitle.seriesTitle)))
+    (entry.seriesTitle !== null
+      ? titleKey(entry.seriesTitle) === titleKey(pageTitle.seriesTitle)
+      : entry.seasonNumber !== null && entry.seasonNumber === pageTitle.seasonNumber)
       ? pageTitle
       : null;
   const title = listing ?? bySeason ?? sameShow;

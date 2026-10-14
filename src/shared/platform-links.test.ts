@@ -210,6 +210,24 @@ describe('platformLinkFromExternal', () => {
     expect(platformLinkFromExternal('https://evilnetflix.com/title/1')).toBeNull();
   });
 
+  it('Prime Video : lien primevideo.com tel quel ; lien amazon.<tld> d’un ASIN B0… ouvert sur primevideo.com, sinon tel quel', () => {
+    expect(platformLinkFromExternal('https://www.primevideo.com/detail/0GMSR5WMNJ6EMYQRQ6Y2587WAF/ref=atv_sr')).toEqual({
+      platform: 'prime',
+      url: 'https://www.primevideo.com/detail/0GMSR5WMNJ6EMYQRQ6Y2587WAF/ref=atv_sr',
+    });
+    expect(platformLinkFromExternal('https://www.amazon.com/gp/video/detail/B015O6OK4G/ref=atv_dp')).toEqual({ platform: 'prime', url: 'https://www.primevideo.com/detail/B015O6OK4G' });
+    expect(platformLinkFromExternal('http://www.amazon.co.jp/dp/B0B6Q1MRPS')).toEqual({ platform: 'prime', url: 'https://www.primevideo.com/detail/B0B6Q1MRPS' });
+    // « Ouvrir » avec Prime Video en lecteur préféré
+    const prime = platformLinkFromExternal('https://www.amazon.com/gp/video/detail/B015O6OK4G');
+    expect(choosePlatformLink({ platforms: prime ? [CR, prime] : [CR] }, 'prime')).toEqual(prime);
+    // Autre identifiant (GTI) : lien Amazon d'origine, en https
+    const gti = 'https://www.amazon.de/gp/video/detail/x?gti=amzn1.dv.gti.18f4d5fa-bcfd-40d4-b51c-57b602387b37';
+    expect(platformLinkFromExternal(gti)).toEqual({ platform: 'prime', url: gti });
+    // Page Amazon sans identifiant Prime Video, faux domaine : écartés
+    expect(platformLinkFromExternal('https://www.amazon.com/s?k=frieren')).toBeNull();
+    expect(platformLinkFromExternal('https://www.amazon.evil.com/dp/B0B6Q1MRPS')).toBeNull();
+  });
+
   it('ignore les autres sites, les URL invalides et les schémas non web', () => {
     expect(platformLinkFromExternal('http://www.hulu.com/naruto-shippuden')).toBeNull();
     expect(platformLinkFromExternal('javascript:alert(1)')).toBeNull();

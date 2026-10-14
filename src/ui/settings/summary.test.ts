@@ -57,20 +57,23 @@ describe('syncSummary', () => {
   it('Netflix affiché seulement avec l’accès accordé (sinon lecteur par défaut)', () => {
     setLocale('fr');
     const netflix = { ...DEFAULT_SETTINGS, preferredPlayer: 'netflix' } as const;
-    expect(syncSummary(netflix, true)).toBe('Netflix · au générique');
-    expect(syncSummary(netflix, false)).toBe('Crunchyroll · au générique');
+    expect(syncSummary(netflix, ['netflix'])).toBe('Netflix · au générique');
+    expect(syncSummary(netflix, [])).toBe('Crunchyroll · au générique');
     expect(syncSummary(netflix)).toBe('Crunchyroll · au générique');
-    expect(effectivePlayer('adn', false)).toBe('adn');
+    expect(effectivePlayer('adn', [])).toBe('adn');
   });
 });
 
 describe('effectivePlayer : lecteur préféré effectif, partout où il est lu', () => {
-  it('Netflix seulement avec l’accès accordé ; sinon, ou état inconnu, lecteur par défaut', () => {
-    expect(effectivePlayer('netflix', true)).toBe('netflix');
-    expect(effectivePlayer('netflix', false)).toBe(DEFAULT_SETTINGS.preferredPlayer);
+  it('Netflix et Prime Video seulement avec leur accès accordé ; sinon, ou état inconnu, lecteur par défaut ; jamais Disney+', () => {
+    expect(effectivePlayer('netflix', ['netflix'])).toBe('netflix');
+    expect(effectivePlayer('netflix', ['prime'])).toBe(DEFAULT_SETTINGS.preferredPlayer);
     expect(effectivePlayer('netflix', undefined)).toBe(DEFAULT_SETTINGS.preferredPlayer);
+    expect(effectivePlayer('prime', ['prime'])).toBe('prime');
+    expect(effectivePlayer('prime', [])).toBe(DEFAULT_SETTINGS.preferredPlayer);
+    expect(effectivePlayer('disney', ['disney'])).toBe(DEFAULT_SETTINGS.preferredPlayer);
     expect(effectivePlayer('adn', undefined)).toBe('adn');
-    expect(effectivePlayer('crunchyroll', false)).toBe('crunchyroll');
+    expect(effectivePlayer('crunchyroll', [])).toBe('crunchyroll');
   });
 
   it('popup, panneau, agenda et alertes de sortie ne lisent jamais `preferredPlayer` sans passer par lui', () => {

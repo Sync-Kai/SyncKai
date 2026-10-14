@@ -4,7 +4,7 @@ import { isRecord } from './guards';
 import { getOpenSessions } from './storage';
 import { withStorageLock } from './storage-lock';
 import { createLogger } from './logger';
-import { hasNetflixAccess } from './netflix-access';
+import { grantedOptionalPlatforms } from './platform-access';
 import { effectivePlayer } from './settings';
 
 const log = createLogger('backup');
@@ -26,10 +26,10 @@ export function exportBackup(): Promise<Backup> {
 
 /**
  * Applique une sauvegarde importée sous verrou, puis met à jour le badge de l'icône.
- * Lecteur préféré « Netflix » importé sur un profil sans l'accès Netflix : remplacé par le lecteur par défaut.
+ * Lecteur préféré « Netflix » ou « Prime Video » importé sur un profil sans cet accès : remplacé par le lecteur par défaut.
  */
 export async function applyBackup(incoming: BackupData, mode: ImportMode, includeSettings: boolean): Promise<void> {
-  const netflixGranted = await hasNetflixAccess();
+  const granted = await grantedOptionalPlatforms();
   await withStorageLock(async () => {
     const stored = await readStored();
     const current = buildBackup(sectionsFromStorage(stored), chrome.runtime.getManifest().version, new Date());
@@ -38,7 +38,7 @@ export async function applyBackup(incoming: BackupData, mode: ImportMode, includ
     // Fusion : les correspondances que cette version ne sait pas lire sont gardées (ARCH-15), sauf clé importée
     const rawMappings: unknown = stored[BACKUP_STORAGE_KEYS.mediaMappings];
     const mediaMappings = mode === 'merge' && isRecord(rawMappings) ? { ...rawMappings, ...next.mediaMappings } : next.mediaMappings;
-    const settings = next.settings && { ...next.settings, preferredPlayer: effectivePlayer(next.settings.preferredPlayer, netflixGranted) };
+    const settings = next.settings && { ...next.settings, preferredPlayer: effectivePlayer(next.settings.preferredPlayer, granted) };
     const k = BACKUP_STORAGE_KEYS;
     await chrome.storage.local.set({
       ...(settings !== null ? { [k.settings]: settings } : {}),

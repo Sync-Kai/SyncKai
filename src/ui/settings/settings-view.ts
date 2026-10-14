@@ -14,7 +14,7 @@ import { STORAGE_KEYS } from '../../shared/storage-keys';
 import { kanaLabel } from '../kit';
 import { h, nodes, preserveFocus } from '../dom';
 import { icon, type IconName } from '../icons';
-import type { SettingsContext, SettingsData, SettingsHost, SettingsPageView } from './context';
+import { grantedPlatforms, type SettingsContext, type SettingsData, type SettingsHost, type SettingsPageView } from './context';
 import { INITIAL_SETTINGS_NAV, SETTINGS_CATEGORY_TITLES, settingsNavReducer, type SettingsCategory, type SettingsNavAction, type SettingsPage } from './navigation';
 import { createAccountsPage } from './page-accounts';
 import { createDataPage } from './page-data';
@@ -292,7 +292,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
       settingsSection(
         t('settings.group.daily'),
         rowsCard(
-          categoryRow('sync', muted(s ? syncSummary(s, data.netflixAccess) : loading), false),
+          categoryRow('sync', muted(s ? syncSummary(s, grantedPlatforms(data)) : loading), false),
           categoryRow('notifications', muted(s ? notificationsSummary(s) : loading), true),
           categoryRow('shortcuts', muted(shortcutsSummary(data.shortcut, data.panelShortcut)), true),
         ),

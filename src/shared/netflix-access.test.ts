@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // Verrou du stockage immédiat (Web Locks absent sous Node)
 vi.mock('./storage-lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise<T> => task() }));
 
-const { effectivePreferredPlayer, hasNetflixAccess, resetRevokedNetflixPlayer } = await import('./netflix-access');
+const { effectivePreferredPlayer, hasNetflixAccess, resetRevokedPlayer } = await import('./netflix-access');
 const { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } = await import('./settings');
 
 afterEach(() => {
@@ -55,6 +55,17 @@ describe('lecteur préféré « Netflix » et accès retiré', () => {
     expect(await effectivePreferredPlayer('netflix')).toBe('netflix');
   });
 
+  it('Prime Video : comme Netflix, seulement avec son accès (permission primevideo.com lue)', async () => {
+    const { contains } = fakeBrowser(false, {});
+    expect(await effectivePreferredPlayer('prime')).toBe(DEFAULT_SETTINGS.preferredPlayer);
+    expect(contains).toHaveBeenCalledWith({ origins: ['*://*.primevideo.com/*'] });
+    fakeBrowser(true, {});
+    expect(await effectivePreferredPlayer('prime')).toBe('prime');
+    const revoked = fakeBrowser(false, { ...DEFAULT_SETTINGS, preferredPlayer: 'prime' });
+    expect(await resetRevokedPlayer()).toBe(true);
+    expect(revoked.stored[SETTINGS_STORAGE_KEY]).toEqual({ ...DEFAULT_SETTINGS, preferredPlayer: DEFAULT_SETTINGS.preferredPlayer });
+  });
+
   it('Disney+ n’est jamais lecteur préféré (sauvegarde importée…) : lecteur par défaut, sans lire de permission', async () => {
     const { contains } = fakeBrowser(true, {});
     expect(await effectivePreferredPlayer('disney')).toBe(DEFAULT_SETTINGS.preferredPlayer);
@@ -63,16 +74,16 @@ describe('lecteur préféré « Netflix » et accès retiré', () => {
 
   it('accès retiré (permissions.onRemoved, démarrage) : lecteur Netflix remis à la valeur par défaut, autres réglages gardés', async () => {
     const { stored } = fakeBrowser(false, { ...DEFAULT_SETTINGS, preferredPlayer: 'netflix', completionPercentage: 90 });
-    expect(await resetRevokedNetflixPlayer()).toBe(true);
+    expect(await resetRevokedPlayer()).toBe(true);
     expect(stored[SETTINGS_STORAGE_KEY]).toEqual({ ...DEFAULT_SETTINGS, preferredPlayer: DEFAULT_SETTINGS.preferredPlayer, completionPercentage: 90 });
   });
 
   it('accès accordé, ou autre lecteur : rien n’est écrit', async () => {
     const granted = fakeBrowser(true, { ...DEFAULT_SETTINGS, preferredPlayer: 'netflix' });
-    expect(await resetRevokedNetflixPlayer()).toBe(false);
+    expect(await resetRevokedPlayer()).toBe(false);
     expect(granted.stored[SETTINGS_STORAGE_KEY]).toEqual({ ...DEFAULT_SETTINGS, preferredPlayer: 'netflix' });
     const other = fakeBrowser(false, { ...DEFAULT_SETTINGS, preferredPlayer: 'adn' });
-    expect(await resetRevokedNetflixPlayer()).toBe(false);
+    expect(await resetRevokedPlayer()).toBe(false);
     expect(other.stored[SETTINGS_STORAGE_KEY]).toEqual({ ...DEFAULT_SETTINGS, preferredPlayer: 'adn' });
     expect(other.contains).not.toHaveBeenCalled();
   });

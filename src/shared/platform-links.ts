@@ -1,5 +1,6 @@
 import { isRecord } from './guards';
 import { PLATFORMS, platformFromHost, STREAMING_PLATFORMS, type StreamingPlatform } from './platforms';
+import { primeIdInLink } from './prime-metadata';
 import { toSafeUrl } from './url';
 import type { PlatformLink, WatchingEntry } from './watching.types';
 
@@ -29,10 +30,23 @@ export function platformFromUrl(value: string): StreamingPlatform | null {
   return platformFromHost(new URL(safe).hostname);
 }
 
+/** ASIN vidéo d'Amazon (B0…) : sa page /detail/{ASIN} existe aussi sur primevideo.com */
+const AMAZON_VIDEO_ASIN = /^B0[0-9A-Z]{8}$/;
+
+/**
+ * Lien Prime Video d'AniList hébergé sur amazon.<tld> (/gp/video/detail/…, /dp/…, ?gti=…) : ouvert sur primevideo.com
+ * pour un ASIN B0…, sinon tel quel (autre forme d'identifiant : page primevideo.com non vérifiée). null hors Prime Video.
+ */
+function amazonPrimeLink(url: string): PlatformLink | null {
+  const id = primeIdInLink(url);
+  if (id === null) return null;
+  return { platform: 'prime', url: AMAZON_VIDEO_ASIN.test(id) ? `https://www.primevideo.com/detail/${id}` : url };
+}
+
 /**
  * Lien externe AniList → lien de plateforme. Les vieux liens AniList sont souvent en http
  * (« http://www.crunchyroll.com/naruto-shippuden ») : passés en https pour les plateformes SyncKai uniquement,
- * sinon le lien est écarté et « Ouvrir » ignore la plateforme.
+ * sinon le lien est écarté et « Ouvrir » ignore la plateforme. Prime Video : liens amazon.<tld> compris (amazonPrimeLink).
  */
 export function platformLinkFromExternal(raw: string | null): PlatformLink | null {
   if (!raw) return null;
@@ -47,8 +61,9 @@ export function platformLinkFromExternal(raw: string | null): PlatformLink | nul
     return null;
   }
   const url = toSafeUrl(candidate);
-  const platform = url ? platformFromUrl(url) : null;
-  return url && platform ? { platform, url } : null;
+  if (!url) return null;
+  const platform = platformFromUrl(url);
+  return platform ? { platform, url } : amazonPrimeLink(url);
 }
 
 /** Slug d'URL (minuscules, chiffres, tirets) : tout autre caractère rend le lien douteux */

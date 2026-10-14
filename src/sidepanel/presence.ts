@@ -1,4 +1,7 @@
 import { createLogger } from '../shared/logger';
+import type { PageMediaInfo } from '../shared/page-media.types';
+import { hasPlatformAccess } from '../shared/platform-access';
+import { isOptionalPlatform, type StreamingPlatform } from '../shared/platforms';
 import { isTargetPage } from '../shared/target-pages';
 import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from '../ui/page-media-request';
 
@@ -22,9 +25,19 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** true si le script de contenu SyncKai répond dans l'onglet (il ne tourne que sur Crunchyroll / ADN) */
-async function pingContentScript(tabId: number): Promise<boolean> {
-  return (await requestPageMedia(tabId)) !== 'unreachable';
+/**
+ * Réponse du script de contenu d'un onglet à l'URL masquée : page suivie, sauf celle d'une plateforme dont l'accès a été
+ * retiré (le script tourne encore jusqu'au rechargement, l'URL est masquée faute de permission) : hors page cible, comme
+ * si elle n'avait jamais été activée (« Activer Prime Video »)
+ */
+export async function answersAsTarget(page: PageMediaInfo | null, hasAccess: (platform: StreamingPlatform) => Promise<boolean> = hasPlatformAccess): Promise<boolean> {
+  return page === null || !isOptionalPlatform(page.platform) || (await hasAccess(page.platform));
+}
+
+/** 'unreachable' si le script de contenu SyncKai ne répond pas dans l'onglet, sinon s'il signale une page suivie */
+async function pingContentScript(tabId: number): Promise<boolean | 'unreachable'> {
+  const response = await requestPageMedia(tabId);
+  return response === 'unreachable' ? response : answersAsTarget(response);
 }
 
 /**
@@ -37,7 +50,8 @@ async function isTargetTab(tab: chrome.tabs.Tab, onFirstMiss: () => void): Promi
   if (verdict !== 'unknown' || tab.id === undefined) return verdict === 'target';
   for (const [index, wait] of PAGE_MEDIA_RETRY_DELAYS_MS.entries()) {
     if (wait > 0) await delay(wait);
-    if (await pingContentScript(tab.id)) return true;
+    const answer = await pingContentScript(tab.id);
+    if (answer !== 'unreachable') return answer;
     if (index === 0) onFirstMiss();
   }
   return false;
@@ -81,6 +95,13 @@ export async function watchPanelContext(onChange: (context: PanelContext) => voi
     if (tabId !== trackedTabId || (changeInfo.url === undefined && changeInfo.status !== 'complete')) return;
     schedule(tabId);
   });
+
+  // Accès à une plateforme optionnelle accordé ou retiré : l'URL de ses onglets devient visible ou masquée
+  const onAccessChange = (): void => {
+    if (trackedTabId !== null) schedule(trackedTabId);
+  };
+  chrome.permissions?.onAdded?.addListener(onAccessChange);
+  chrome.permissions?.onRemoved?.addListener(onAccessChange);
 
   const { id: windowId } = await chrome.windows.getCurrent();
   // Changement d'onglet dans la fenêtre du panneau

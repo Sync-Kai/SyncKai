@@ -9,8 +9,9 @@ import netflixContentPath from '../content/netflix/content-netflix.iife.ts?scrip
 import primeBridgePath from '../content/prime/page-bridge.iife.ts?script';
 import primeContentPath from '../content/prime/content-prime.iife.ts?script';
 import { createLogger } from '../shared/logger';
-import { resetRevokedNetflixPlayer } from '../shared/netflix-access';
+import { resetRevokedPlayer } from '../shared/netflix-access';
 import { PLATFORMS } from '../shared/platforms';
+import { isPreferredPlayerOption } from '../shared/settings';
 import { reinjectionPlan } from './content-reinjection';
 import {
   injectIntoOpenTabs,
@@ -73,11 +74,11 @@ function reconcile(platform: ScriptedPlatform, reregister: boolean, injectOpenTa
     .catch((error: unknown) => log.warn(`Enregistrement des scripts ${label} impossible :`, error));
 }
 
-/** Lecteur préféré « Netflix » sans l'accès : remis à la valeur par défaut (popup, panneau et alertes le lisent) */
+/** Lecteur préféré « Netflix » ou « Prime Video » sans l'accès : remis à la valeur par défaut (popup, panneau et alertes le lisent) */
 function resetPlayer(): void {
-  resetRevokedNetflixPlayer()
+  resetRevokedPlayer()
     .then((reset) => {
-      if (reset) log.info('Accès Netflix absent : lecteur préféré remis à la valeur par défaut');
+      if (reset) log.info('Accès au lecteur préféré absent : lecteur préféré remis à la valeur par défaut');
     })
     .catch((error: unknown) => log.warn('Lecteur préféré non corrigé :', error));
 }
@@ -92,13 +93,13 @@ export function listenPlatformAccess(): void {
     for (const platform of SCRIPTED_PLATFORMS) {
       if (!touchesPlatform(platform, permissions)) continue;
       reconcile(platform, false);
-      if (platform === 'netflix') resetPlayer();
+      if (isPreferredPlayerOption(platform)) resetPlayer();
     }
   });
   // Installation et mise à jour : chemins des scripts propres au build → réenregistrement si l'accès est accordé,
   // puis scripts exécutés dans les onglets ouverts (l'ancien script isolé est orphelin sur Chrome, détruit sur
   // Firefox ; aucun des deux ne réinjecte les scripts enregistrés, voir content-reinjection.ts).
-  // Accès Netflix perdu hors de la vue du service worker (navigateur fermé, version antérieure) : lecteur corrigé au démarrage
+  // Accès au lecteur préféré perdu hors de la vue du service worker (navigateur fermé, version antérieure) : lecteur corrigé au démarrage
   chrome.runtime.onInstalled.addListener((details) => {
     const { registered } = reinjectionPlan(details.reason, __SYNCKAI_TARGET__);
     for (const platform of SCRIPTED_PLATFORMS) reconcile(platform, true, registered);
