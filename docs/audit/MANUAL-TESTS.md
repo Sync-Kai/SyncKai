@@ -1,5 +1,7 @@
 # Manual tests (2.2.0 and later)
 
+**Automated coverage.** `npm run test:ext` (`scripts/ext-e2e/`, about 3 minutes, Chrome only) loads the built extension in a real Chromium against stateful fakes of AniList and MyAnimeList and fake Crunchyroll / ADN pages: accounts and token encryption, updates, sync and retries, playback detection with a real `<video>`, the side panel and its schedule, the Crunchyroll and ADN imports, backup, links to the entry, removal from the list and comments (32 scenarios, one known bug kept as an expected failure). What stays manual: anything that needs the real sites or services (real Crunchyroll / ADN / Netflix / Disney+ pages and players, real lists, real OAuth sign-in and *Reconnect*), Netflix and Disney+ (their optional host access needs the browser's native permission dialog), Firefox, the real side panel container and the global shortcuts (Alt+Shift+K, Alt+Shift+1), the Chrome Web Store update path, notifications after 12 h, screen readers, and visual checks.
+
 What the automated tests don't cover (items marked *automated* run in `npm run test:ext`, see [BUILD.md](../../BUILD.md)): run through in **Brave/Chrome** and **Firefox**, with the `dist/` build (`npm run build`, or `npm run dev`), extension reloaded, then tabs reopened. Tick items as you go; on failure, note the browser and attach the console (F12) of the page and of the service worker.
 
 Tip to simulate a service outage: developer tools of the popup (right-click › Inspect) or of the service worker (`chrome://extensions` › SyncKai › "service worker") › **Network** tab › right-click a request › **Block request URL** (`api.myanimelist.net` or `graphql.anilist.co`). Unblock afterwards.
@@ -31,7 +33,7 @@ Tip to simulate a service outage: developer tools of the popup (right-click › 
 ## 4. Netflix
 
 - [ ] **Access removed**: Netflix turned on, Netflix tab open; remove the access in `brave://extensions` (Firefox: `about:addons` › Permissions) without reloading the tab, finish the episode. Expected: nothing is synced, popup/side panel show *Netflix is turned off*; the preferred player switches back to Crunchyroll.
-- [ ] **Non-anime series**: nothing is shown, no error in Settings › Help.
+- [ ] **Non-anime series**: nothing is shown, no error in Settings › Help. — not automatable: granting the optional Netflix access needs the browser's native permission dialog, which automation cannot accept.
 
 ## 5. Side panel and schedule
 
@@ -61,21 +63,21 @@ Tip to simulate a service outage: developer tools of the popup (right-click › 
 - [ ] **Keyboard**: in *Watching*, Tab to *+1*, Enter. Expected: focus stays on the button during and after sending. — automated (popup in a tab, Tab presses from the top): `scripts/ext-e2e/panel.ext.ts`
 - [ ] **Screen reader** (NVDA/Narrator, optional): an error is announced only once.
 
-## 8. Link to the entry (in development)
+## 8. Link to the entry
 
-- [ ] Title and poster open the entry from the popup (*On this page*, *Watching*, *Recent syncs*, *To rate*, *Differences*) and the side panel (*Now playing*, sequels, *Schedule*).
-- [ ] Settings › Accounts › *Default entry page* set to MAL: links open myanimelist.net; with only one account connected, the row disappears and the link follows that account.
+- [ ] Title and poster open the entry from the popup (*On this page*, *Watching*, *Recent syncs*, *To rate*, *Differences*) and the side panel (*Now playing*, sequels, *Schedule*). — automated (new tab created at the entry URL, then closed without loading; popup and panel pages opened in tabs): `scripts/ext-e2e/lists.ext.ts`
+- [ ] Settings › Accounts › *Default entry page* set to MAL: links open myanimelist.net; with only one account connected, the row disappears and the link follows that account. — automated (popup: setting picked in Settings › Accounts, then MAL signed out; panel: setting changed while it is open): `scripts/ext-e2e/lists.ext.ts`
 
-## 9. Remove from list and comment (in development)
+## 9. Remove from list and comment
 
-**These checks write to your real AniList and MyAnimeList lists.** Use a throwaway anime that is in both lists (add it first with *On this page* › *Add to Plan to watch*, or on the sites), never a series you track.
+**These checks write to your real AniList and MyAnimeList lists.** Use a throwaway anime that is in both lists (add it first with *On this page* › *Add to Plan to watch*, or on the sites), never a series you track. The automated versions run against the fakes only.
 
-- [ ] **Remove from the popup**: *Watching* › ⋯ on the throwaway series › *Remove from list*. Expected: inline *Remove from your list?* with focus on *Cancel*; *Cancel* (or Escape) sends nothing. *Remove*: the row disappears, banner *{title}: removed from your list*; anilist.co and myanimelist.net no longer list it. Reopen the popup within 90 s: it doesn't come back.
-- [ ] **Remove from the side panel**: on a playback page of the throwaway series, *Your progress* › ⋯ › *Remove from list* › *Remove*. Expected: the card switches to *Add to Plan to watch / Watching*, no ⋯ button, *Comment* disabled with *Add the series to your list to comment on it.*
-- [ ] **Only on one service**: remove the series on myanimelist.net only, then *Remove from list* in SyncKai. Expected: removed from AniList, MAL skipped (no error).
-- [ ] **Failure**: block `api.myanimelist.net`, *Remove from list*. Expected: banner *… removed from your list · failed MyAnimeList* (AniList removed, MAL kept); unblock and remove again: MAL is removed.
-- [ ] **Watched again later**: after removing, finish an episode of that series. Expected: the sync adds it back to both lists (same AniList entry, the match was kept).
-- [ ] **Comment in the side panel**: *Your progress* › *Comment* › type a few lines › *Save* (or Ctrl+Enter). Expected: nothing is sent while typing; *Comment saved*; the collapsed row previews the first line; anilist.co (entry › Notes) and myanimelist.net (Edit › Comments) show the text. Clear the text and save: *Comment cleared* on both sites.
-- [ ] **Comment in the popup**: ⋯ › *Comment…*. Expected: editor under the row, focus in the text box, existing comment loaded (AniList's when the series is on AniList, else MAL's); Escape closes without saving; the counter stops at 6000 characters.
-- [ ] **Not in the list**: on a series in neither list, the panel's *Comment* is disabled with its explanation; in the popup (MAL-only series with AniList connected, or removed meanwhile), saving shows *Add the series to your list to comment on it.* and nothing is added.
+- [ ] **Remove from the popup**: *Watching* › ⋯ on the throwaway series › *Remove from list*. Expected: inline *Remove from your list?* with focus on *Cancel*; *Cancel* (or Escape) sends nothing. *Remove*: the row disappears, banner *{title}: removed from your list*; anilist.co and myanimelist.net no longer list it. Reopen the popup within 90 s: it doesn't come back. — automated: `scripts/ext-e2e/lists.ext.ts`
+- [ ] **Remove from the side panel**: on a playback page of the throwaway series, *Your progress* › ⋯ › *Remove from list* › *Remove*. Expected: the card switches to *Add to Plan to watch / Watching*, no ⋯ button, *Comment* disabled with *Add the series to your list to comment on it.* — automated: `scripts/ext-e2e/lists.ext.ts`
+- [ ] **Only on one service**: remove the series on myanimelist.net only, then *Remove from list* in SyncKai. Expected: removed from AniList, MAL skipped (no error). — automated (series absent from the MAL fake from the start): `scripts/ext-e2e/lists.ext.ts`
+- [ ] **Failure**: block `api.myanimelist.net`, *Remove from list*. Expected: banner *… removed from your list · failed MyAnimeList* (AniList removed, MAL kept); unblock and remove again: MAL is removed. — automated (MAL `DELETE` answering 500; the second removal from the popup's MAL list): `scripts/ext-e2e/lists.ext.ts`
+- [ ] **Watched again later**: after removing, finish an episode of that series. Expected: the sync adds it back to both lists (same AniList entry, the match was kept). — automated (real playback to the credits after removing from the side panel): `scripts/ext-e2e/lists.ext.ts`
+- [ ] **Comment in the side panel**: *Your progress* › *Comment* › type a few lines › *Save* (or Ctrl+Enter). Expected: nothing is sent while typing; *Comment saved*; the collapsed row previews the first line; anilist.co (entry › Notes) and myanimelist.net (Edit › Comments) show the text. Clear the text and save: *Comment cleared* on both sites. — automated (*Save* for the text, Ctrl+Enter for the clear): `scripts/ext-e2e/lists.ext.ts`
+- [ ] **Comment in the popup**: ⋯ › *Comment…*. Expected: editor under the row, focus in the text box, existing comment loaded (AniList's when the series is on AniList, else MAL's); Escape closes without saving; the counter stops at 6000 characters. — automated (6000 reached by typing past a 5998-character text): `scripts/ext-e2e/lists.ext.ts`
+- [ ] **Not in the list**: on a series in neither list, the panel's *Comment* is disabled with its explanation; in the popup (MAL-only series with AniList connected, or removed meanwhile), saving shows *Add the series to your list to comment on it.* and nothing is added. — automated: panel; popup with the series removed from both fakes while the editor is open. A series in the MAL list only (popup's MAL list, AniList connected) is commented on MAL and never added to AniList, with *Comment saved* (by design: `background/engagement.ts` › `setListNotes` writes wherever the series is): `scripts/ext-e2e/lists.ext.ts`
 - [ ] **Firefox**: same remove and comment checks in the sidebar and the popup.

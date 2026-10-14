@@ -91,6 +91,11 @@ export class FakeMal {
     return this.accounts.get(token)?.list.get(malId) ?? null;
   }
 
+  /** Anime retiré de la liste sur myanimelist.net (hors de l'extension) */
+  removeEntry(token: string, malId: number): void {
+    this.accounts.get(token)?.list.delete(malId);
+  }
+
   /** Écritures réussies (PATCH, DELETE), éventuellement pour un seul token */
   writes(token?: string): MalRequestLog[] {
     return this.requests.filter((r) => (r.method === 'PATCH' || r.method === 'DELETE') && r.status === 200 && (token === undefined || r.token === token));

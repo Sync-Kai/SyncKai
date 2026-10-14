@@ -126,6 +126,11 @@ export class FakeAniList {
     return this.accounts.get(token)?.entries.get(mediaId) ?? null;
   }
 
+  /** Série retirée de la liste sur anilist.co (hors de l'extension) */
+  removeEntry(token: string, mediaId: number): void {
+    this.accounts.get(token)?.entries.delete(mediaId);
+  }
+
   /** Mutations reçues (écritures), éventuellement pour un seul token */
   mutations(token?: string): AniListRequestLog[] {
     return this.requests.filter((r) => MUTATIONS.has(r.operation) && r.status === 200 && (token === undefined || r.token === token));
