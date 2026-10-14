@@ -222,6 +222,7 @@
   "crImport.netflix.titles": "正在 AniList 上搜尋動畫：{done} / {total} 個作品",
   "crImport.netflix.shows": "正在讀取你的 Netflix 進度：{done} / {total} 部",
   "crImport.netflix.keepTab": "請讓 Netflix 分頁停留在「觀影動態」頁面：讀取可能需要幾分鐘。",
+  "crImport.netflix.moreUnrecognized": "無法辨識你的 Netflix 使用者語言中的「顯示更多」按鈕：只讀取了最近的集數。請在 Netflix 將該使用者的語言設為與 SyncKai 相同，然後重新讀取。",
   "crImport.netflix.empty": "你的 Netflix 觀看記錄是空的。",
   "crImport.netflix.noAnime_other": "你的 Netflix 觀看記錄中沒有看完的動畫集數（已讀取 {count} 個作品）。",
   "crImport.analyze.starting": "正在啟動分析…",

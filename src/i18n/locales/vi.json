@@ -222,6 +222,7 @@
   "crImport.netflix.titles": "Đang tìm anime trên AniList: {done} / {total} tựa",
   "crImport.netflix.shows": "Đang đọc tiến độ Netflix của bạn: {done} / {total} bộ",
   "crImport.netflix.keepTab": "Hãy giữ thẻ Netflix mở ở trang Hoạt động xem: việc đọc có thể mất vài phút.",
+  "crImport.netflix.moreUnrecognized": "Không nhận ra nút “Hiển thị thêm” trong ngôn ngữ của hồ sơ Netflix: chỉ đọc được các tập gần đây nhất. Hãy đặt hồ sơ đó trên Netflix sang cùng ngôn ngữ với SyncKai, rồi đọc lại.",
   "crImport.netflix.empty": "Lịch sử Netflix của bạn trống.",
   "crImport.netflix.noAnime_other": "Lịch sử Netflix của bạn không có tập anime nào đã xem hết (đã đọc {count} tựa).",
   "crImport.analyze.starting": "Đang bắt đầu phân tích…",

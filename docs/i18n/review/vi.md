@@ -130,3 +130,11 @@ The count of the entry's episodes now chooses the plural form (before: « 1 epis
 | Key | Text |
 |---|---|
 | `sync.beyondEntry_other` | Tập {progress} vượt quá {count} tập của mục |
+
+## 2026-10-14 · Netflix import: unrecognized “Show more”
+
+New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instead of `crImport.read.partial` when no known “Show more” label was found on a full first page (Netflix profile in a language whose label is unknown); it suggests setting that profile to SyncKai's language. Button named as in this language's `crImport.netflix.rule`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.netflix.moreUnrecognized` | Không nhận ra nút “Hiển thị thêm” trong ngôn ngữ của hồ sơ Netflix: chỉ đọc được các tập gần đây nhất. Hãy đặt hồ sơ đó trên Netflix sang cùng ngôn ngữ với SyncKai, rồi đọc lại. |

@@ -240,6 +240,7 @@
   "crImport.netflix.titles": "Söker anime på AniList: titel {done} / {total}",
   "crImport.netflix.shows": "Läser dina framsteg på Netflix: serie {done} / {total}",
   "crImport.netflix.keepTab": "Håll Netflix-fliken öppen på sidan Streamingaktivitet: läsningen kan ta några minuter.",
+  "crImport.netflix.moreUnrecognized": "Knappen ”Visa mer” kändes inte igen på språket i din Netflix-profil: bara de senaste avsnitten lästes. Ställ in profilen på samma språk som SyncKai på Netflix och starta läsningen på nytt.",
   "crImport.netflix.empty": "Din Netflix-historik är tom.",
   "crImport.netflix.noAnime_one": "Inget färdigsett animeavsnitt i din Netflix-historik ({count} titel läst).",
   "crImport.netflix.noAnime_other": "Inget färdigsett animeavsnitt i din Netflix-historik ({count} titlar lästa).",

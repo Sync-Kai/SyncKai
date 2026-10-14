@@ -276,6 +276,7 @@
   "crImport.netflix.titles": "Поиск аниме на AniList: названия {done} / {total}",
   "crImport.netflix.shows": "Чтение прогресса Netflix: аниме {done} / {total}",
   "crImport.netflix.keepTab": "Не закрывай вкладку Netflix со страницей «История просмотра»: чтение может занять несколько минут.",
+  "crImport.netflix.moreUnrecognized": "Кнопка «Показать еще» не распознана на языке твоего профиля Netflix: прочитаны только последние эпизоды. Установи для этого профиля на Netflix тот же язык, что и в SyncKai, и повтори чтение.",
   "crImport.netflix.empty": "Твоя история Netflix пуста.",
   "crImport.netflix.noAnime_one": "В твоей истории Netflix нет досмотренных эпизодов аниме (прочитано {count} название).",
   "crImport.netflix.noAnime_few": "В твоей истории Netflix нет досмотренных эпизодов аниме (прочитано {count} названия).",

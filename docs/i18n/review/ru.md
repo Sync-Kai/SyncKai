@@ -114,3 +114,11 @@ The count of the entry's episodes now chooses the plural form (before: « 1 epis
 | `sync.beyondEntry_few` | Эпизод {progress} за пределами карточки (эпизодов: {count}) |
 | `sync.beyondEntry_many` | Эпизод {progress} за пределами карточки (эпизодов: {count}) |
 | `sync.beyondEntry_other` | Эпизод {progress} за пределами карточки (эпизодов: {count}) |
+
+## 2026-10-14 · Netflix import: unrecognized “Show more”
+
+New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instead of `crImport.read.partial` when no known “Show more” label was found on a full first page (Netflix profile in a language whose label is unknown); it suggests setting that profile to SyncKai's language. Button named as in this language's `crImport.netflix.rule`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.netflix.moreUnrecognized` | Кнопка «Показать еще» не распознана на языке твоего профиля Netflix: прочитаны только последние эпизоды. Установи для этого профиля на Netflix тот же язык, что и в SyncKai, и повтори чтение. |

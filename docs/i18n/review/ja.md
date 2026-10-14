@@ -146,3 +146,11 @@ The count of the entry's episodes now chooses the plural form (before: « 1 epis
 | Key | Text |
 |---|---|
 | `sync.beyondEntry_other` | 第{progress}話が、作品ページの全{count}話を超えています |
+
+## 2026-10-14 · Netflix import: unrecognized “Show more”
+
+New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instead of `crImport.read.partial` when no known “Show more” label was found on a full first page (Netflix profile in a language whose label is unknown); it suggests setting that profile to SyncKai's language. Button named as in this language's `crImport.netflix.rule`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.netflix.moreUnrecognized` | Netflixのプロフィールの言語では「その他を表示」ボタンを認識できなかったため、最近のエピソードのみ読み取りました。Netflixでそのプロフィールの言語をSyncKaiと同じにしてから、もう一度読み取ってください。 |

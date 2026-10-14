@@ -276,6 +276,7 @@
   "crImport.netflix.titles": "Szukanie anime na AniList, tytuły: {done} / {total}",
   "crImport.netflix.shows": "Odczytywanie Twojego postępu na Netflix, serie: {done} / {total}",
   "crImport.netflix.keepTab": "Zostaw kartę Netflix otwartą na stronie „Historia oglądania”: odczytywanie może potrwać kilka minut.",
+  "crImport.netflix.moreUnrecognized": "Nie rozpoznano przycisku „Pokaż więcej” w języku profilu Netflix: odczytano tylko najnowsze odcinki. Ustaw w Netflix ten profil na ten sam język co SyncKai i odczytaj historię jeszcze raz.",
   "crImport.netflix.empty": "Twoja historia Netflix jest pusta.",
   "crImport.netflix.noAnime_one": "Brak odcinków anime obejrzanych do końca w Twojej historii Netflix (odczytano {count} tytuł).",
   "crImport.netflix.noAnime_few": "Brak odcinków anime obejrzanych do końca w Twojej historii Netflix (odczytano {count} tytuły).",

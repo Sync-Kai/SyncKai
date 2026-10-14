@@ -100,3 +100,11 @@ The count of the entry's episodes now chooses the plural form (before: « 1 epis
 |---|---|
 | `sync.beyondEntry_one` | Bölüm {progress}, anime sayfasındaki tek bölümü aşıyor |
 | `sync.beyondEntry_other` | Bölüm {progress}, anime sayfasındaki {count} bölümü aşıyor |
+
+## 2026-10-14 · Netflix import: unrecognized “Show more”
+
+New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instead of `crImport.read.partial` when no known “Show more” label was found on a full first page (Netflix profile in a language whose label is unknown); it suggests setting that profile to SyncKai's language. Button named as in this language's `crImport.netflix.rule`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.netflix.moreUnrecognized` | “Daha Fazla Göster” düğmesi Netflix profilinin dilinde tanınmadı: Yalnızca en son bölümler okundu. Netflix'te bu profili SyncKai ile aynı dile ayarla, sonra tekrar oku. |

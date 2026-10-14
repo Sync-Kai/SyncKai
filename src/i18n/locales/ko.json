@@ -222,6 +222,7 @@
   "crImport.netflix.titles": "AniList에서 애니 찾는 중: 제목 {done} / {total}",
   "crImport.netflix.shows": "Netflix 진행도 읽는 중: 작품 {done} / {total}",
   "crImport.netflix.keepTab": "Netflix 탭을 ‘시청 기록’ 페이지에 열어 두세요. 읽는 데 몇 분 걸릴 수 있어요.",
+  "crImport.netflix.moreUnrecognized": "Netflix 프로필 언어에서 ‘더 보기’ 버튼을 인식하지 못해 최근 에피소드만 읽었어요. Netflix에서 그 프로필의 언어를 SyncKai와 같게 바꾼 다음 다시 읽으세요.",
   "crImport.netflix.empty": "Netflix 시청 기록이 비어 있어요.",
   "crImport.netflix.noAnime_other": "Netflix 시청 기록에 끝까지 본 애니 에피소드가 없어요(제목 {count}개 읽음).",
   "crImport.analyze.starting": "분석 시작 중…",

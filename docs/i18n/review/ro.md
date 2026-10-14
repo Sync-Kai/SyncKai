@@ -138,3 +138,11 @@ The count of the entry's episodes now chooses the plural form (before: « 1 epis
 | `sync.beyondEntry_one` | Episodul {progress} depășește numărul de episoade al fișei ({count}) |
 | `sync.beyondEntry_few` | Episodul {progress} depășește numărul de episoade al fișei ({count}) |
 | `sync.beyondEntry_other` | Episodul {progress} depășește numărul de episoade al fișei ({count}) |
+
+## 2026-10-14 · Netflix import: unrecognized “Show more”
+
+New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instead of `crImport.read.partial` when no known “Show more” label was found on a full first page (Netflix profile in a language whose label is unknown); it suggests setting that profile to SyncKai's language. Button named as in this language's `crImport.netflix.rule`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.netflix.moreUnrecognized` | Butonul „Mai multe” nu a fost recunoscut în limba profilului tău Netflix: au fost citite doar cele mai recente episoade. Setează pe Netflix acel profil în aceeași limbă ca SyncKai, apoi reia citirea. |

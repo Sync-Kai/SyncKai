@@ -240,6 +240,7 @@
   "crImport.netflix.titles": "Ricerca degli anime su AniList: titoli {done} / {total}",
   "crImport.netflix.shows": "Lettura del tuo progresso su Netflix: {done} / {total} serie",
   "crImport.netflix.keepTab": "Tieni aperta la scheda Netflix sulla pagina Attività di visione contenuti: la lettura può richiedere qualche minuto.",
+  "crImport.netflix.moreUnrecognized": "Il pulsante “Mostra altri” non è stato riconosciuto nella lingua del tuo profilo Netflix: sono stati letti solo gli episodi più recenti. Imposta quel profilo nella stessa lingua di SyncKai su Netflix, poi leggi di nuovo la cronologia.",
   "crImport.netflix.empty": "La tua cronologia Netflix è vuota.",
   "crImport.netflix.noAnime_one": "Nessun episodio di anime visto per intero nella tua cronologia Netflix ({count} titolo letto).",
   "crImport.netflix.noAnime_other": "Nessun episodio di anime visto per intero nella tua cronologia Netflix ({count} titoli letti).",

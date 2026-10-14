@@ -240,6 +240,7 @@
   "crImport.netflix.titles": "AniList'te anime aranıyor: {done} / {total} başlık",
   "crImport.netflix.shows": "Netflix ilerlemen okunuyor: {done} / {total} seri",
   "crImport.netflix.keepTab": "Netflix sekmesini İzleme etkinliği sayfasında açık tut: Okuma birkaç dakika sürebilir.",
+  "crImport.netflix.moreUnrecognized": "“Daha Fazla Göster” düğmesi Netflix profilinin dilinde tanınmadı: Yalnızca en son bölümler okundu. Netflix'te bu profili SyncKai ile aynı dile ayarla, sonra tekrar oku.",
   "crImport.netflix.empty": "Netflix geçmişin boş.",
   "crImport.netflix.noAnime_one": "Netflix geçmişinde sonuna kadar izlenmiş anime bölümü yok ({count} başlık okundu).",
   "crImport.netflix.noAnime_other": "Netflix geçmişinde sonuna kadar izlenmiş anime bölümü yok ({count} başlık okundu).",

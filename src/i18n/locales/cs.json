@@ -258,6 +258,7 @@
   "crImport.netflix.titles": "Hledám anime na AniListu: tituly {done} / {total}",
   "crImport.netflix.shows": "Čtu tvůj postup na Netflixu: seriály {done} / {total}",
   "crImport.netflix.keepTab": "Nech kartu Netflixu otevřenou na stránce „Divácká historie“: čtení může trvat pár minut.",
+  "crImport.netflix.moreUnrecognized": "Tlačítko „Zobrazit více“ se v jazyce tvého profilu Netflix nepodařilo rozpoznat: načetly se jen nejnovější epizody. Nastav na Netflixu tomuto profilu stejný jazyk jako v SyncKai a načti historii znovu.",
   "crImport.netflix.empty": "Tvoje historie na Netflixu je prázdná.",
   "crImport.netflix.noAnime_one": "V tvé historii na Netflixu není žádná dokoukaná epizoda anime (načten {count} titul).",
   "crImport.netflix.noAnime_few": "V tvé historii na Netflixu není žádná dokoukaná epizoda anime (načteny {count} tituly).",

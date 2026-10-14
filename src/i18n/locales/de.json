@@ -240,6 +240,7 @@
   "crImport.netflix.titles": "Animes werden auf AniList gesucht: {done} / {total} Titel",
   "crImport.netflix.shows": "Dein Netflix-Fortschritt wird gelesen: {done} / {total} Serien",
   "crImport.netflix.keepTab": "Lass den Netflix-Tab auf der Aktivitätsseite offen: Das Lesen kann einige Minuten dauern.",
+  "crImport.netflix.moreUnrecognized": "Die Schaltfläche „Mehr anzeigen“ wurde in der Sprache deines Netflix-Profils nicht erkannt: nur die neuesten Folgen wurden gelesen. Stelle dieses Profil auf Netflix auf dieselbe Sprache wie SyncKai um und lies erneut.",
   "crImport.netflix.empty": "Dein Netflix-Verlauf ist leer.",
   "crImport.netflix.noAnime_one": "Keine fertig geschaute Anime-Folge in deinem Netflix-Verlauf ({count} Titel gelesen).",
   "crImport.netflix.noAnime_other": "Keine fertig geschaute Anime-Folge in deinem Netflix-Verlauf ({count} Titel gelesen).",

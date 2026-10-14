@@ -276,6 +276,7 @@
   "crImport.netflix.titles": "Пошук аніме на AniList: назви {done} / {total}",
   "crImport.netflix.shows": "Читання прогресу на Netflix: аніме {done} / {total}",
   "crImport.netflix.keepTab": "Не закривай вкладку Netflix зі сторінкою «Переглянуте»: читання може тривати кілька хвилин.",
+  "crImport.netflix.moreUnrecognized": "Кнопку «Показати більше» не розпізнано мовою твого профілю Netflix: прочитано лише найновіші епізоди. Встанови для цього профілю на Netflix ту саму мову, що й у SyncKai, і прочитай історію ще раз.",
   "crImport.netflix.empty": "Твоя історія Netflix порожня.",
   "crImport.netflix.noAnime_one": "У твоїй історії Netflix немає епізодів аніме, переглянутих до кінця (прочитано {count} назву).",
   "crImport.netflix.noAnime_few": "У твоїй історії Netflix немає епізодів аніме, переглянутих до кінця (прочитано {count} назви).",

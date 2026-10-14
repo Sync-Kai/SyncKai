@@ -222,6 +222,7 @@
   "crImport.netflix.titles": "AniListでアニメを検索中：{done} / {total}タイトル",
   "crImport.netflix.shows": "Netflixの視聴進捗を読み取り中：{done} / {total}作品",
   "crImport.netflix.keepTab": "Netflixのタブで「視聴履歴」ページを開いたままにしてください。読み取りには数分かかることがあります。",
+  "crImport.netflix.moreUnrecognized": "Netflixのプロフィールの言語では「その他を表示」ボタンを認識できなかったため、最近のエピソードのみ読み取りました。Netflixでそのプロフィールの言語をSyncKaiと同じにしてから、もう一度読み取ってください。",
   "crImport.netflix.empty": "Netflixの視聴履歴は空です。",
   "crImport.netflix.noAnime_other": "Netflixの視聴履歴に、最後まで見たアニメのエピソードはありません（{count}タイトルを読み取り）。",
   "crImport.analyze.starting": "分析を開始しています…",

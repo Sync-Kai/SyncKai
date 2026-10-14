@@ -240,6 +240,7 @@
   "crImport.netflix.titles": "Buscando animes en AniList (títulos: {done} / {total})",
   "crImport.netflix.shows": "Leyendo tu progreso en Netflix (series: {done} / {total})",
   "crImport.netflix.keepTab": "Mantén abierta la pestaña de Netflix en la página Actividad de visualización: la lectura puede tardar unos minutos.",
+  "crImport.netflix.moreUnrecognized": "No se reconoció el botón “Mostrar más” en el idioma de tu perfil de Netflix: solo se leyeron los episodios más recientes. Configura ese perfil en el mismo idioma que SyncKai en Netflix y vuelve a leer el historial.",
   "crImport.netflix.empty": "Tu historial de Netflix está vacío.",
   "crImport.netflix.noAnime_one": "No hay episodios de anime vistos por completo en tu historial de Netflix ({count} título leído).",
   "crImport.netflix.noAnime_other": "No hay episodios de anime vistos por completo en tu historial de Netflix ({count} títulos leídos).",

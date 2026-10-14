@@ -129,3 +129,13 @@ The count of the entry's episodes now chooses the plural form (before: « 1 epis
 | Key | Text |
 |---|---|
 | `sync.beyondEntry_other` | {progress}화가 항목의 전체 {count}화를 넘음 |
+
+## 2026-10-14 · Netflix import: unrecognized “Show more”
+
+New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instead of `crImport.read.partial` when no known “Show more” label was found on a full first page (Netflix profile in a language whose label is unknown); it suggests setting that profile to SyncKai's language. Button named as in this language's `crImport.netflix.rule`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.netflix.moreUnrecognized` | Netflix 프로필 언어에서 ‘더 보기’ 버튼을 인식하지 못해 최근 에피소드만 읽었어요. Netflix에서 그 프로필의 언어를 SyncKai와 같게 바꾼 다음 다시 읽으세요. |
+
+Netflix history import: the “더 보기” button of a Netflix profile in Korean is now recognized (label from Netflix's help article 101917 in this language, same text as `crImport.netflix.rule`).

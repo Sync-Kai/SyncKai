@@ -240,6 +240,7 @@
   "crImport.netflix.titles": "Anime zoeken op AniList: titel {done} / {total}",
   "crImport.netflix.shows": "Je Netflix-voortgang lezen: serie {done} / {total}",
   "crImport.netflix.keepTab": "Houd het Netflix-tabblad open op de pagina Kijkactiviteit: het lezen kan een paar minuten duren.",
+  "crImport.netflix.moreUnrecognized": "De knop ‘Meer weergeven’ is niet herkend in de taal van je Netflix-profiel: alleen de recentste afleveringen zijn gelezen. Zet dat profiel op Netflix in dezelfde taal als SyncKai en lees de geschiedenis opnieuw.",
   "crImport.netflix.empty": "Je Netflix-geschiedenis is leeg.",
   "crImport.netflix.noAnime_one": "Geen volledig bekeken anime-aflevering in je Netflix-geschiedenis ({count} titel gelezen).",
   "crImport.netflix.noAnime_other": "Geen volledig bekeken anime-aflevering in je Netflix-geschiedenis ({count} titels gelezen).",

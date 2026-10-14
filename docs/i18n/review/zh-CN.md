@@ -113,3 +113,13 @@ The count of the entry's episodes now chooses the plural form (before: « 1 epis
 | Key | Text |
 |---|---|
 | `sync.beyondEntry_other` | 第 {progress} 集超出了条目的 {count} 集 |
+
+## 2026-10-14 · Netflix import: unrecognized “Show more”
+
+New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instead of `crImport.read.partial` when no known “Show more” label was found on a full first page (Netflix profile in a language whose label is unknown); it suggests setting that profile to SyncKai's language. Button named as in this language's `crImport.netflix.rule`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.netflix.moreUnrecognized` | 无法识别你的 Netflix 个人资料语言中的“显示更多”按钮：只读取了最近的剧集。请在 Netflix 上将该个人资料的语言设为与 SyncKai 相同，然后重新读取。 |
+
+Netflix history import: the “显示更多” button of a Netflix profile in Simplified Chinese is now recognized (label from Netflix's help article 101917 in this language, same text as `crImport.netflix.rule`).

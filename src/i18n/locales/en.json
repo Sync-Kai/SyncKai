@@ -240,6 +240,7 @@
   "crImport.netflix.titles": "Looking for anime on AniList: {done} / {total} titles",
   "crImport.netflix.shows": "Reading your Netflix progress: {done} / {total} series",
   "crImport.netflix.keepTab": "Keep the Netflix tab open on the Viewing activity page: reading can take a few minutes.",
+  "crImport.netflix.moreUnrecognized": "The “Show more” button wasn't recognized in your Netflix profile's language: only the most recent episodes were read. Set that profile to the same language as SyncKai on Netflix, then read again.",
   "crImport.netflix.empty": "Your Netflix history is empty.",
   "crImport.netflix.noAnime_one": "No finished anime episode in your Netflix history ({count} title read).",
   "crImport.netflix.noAnime_other": "No finished anime episode in your Netflix history ({count} titles read).",

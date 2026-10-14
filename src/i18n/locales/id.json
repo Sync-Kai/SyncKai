@@ -222,6 +222,7 @@
   "crImport.netflix.titles": "Mencari anime di AniList: {done} / {total} judul",
   "crImport.netflix.shows": "Membaca progresmu di Netflix: {done} / {total} anime",
   "crImport.netflix.keepTab": "Biarkan tab Netflix tetap terbuka di halaman “Aktivitas streaming”: pembacaan bisa memakan waktu beberapa menit.",
+  "crImport.netflix.moreUnrecognized": "Tombol “Tampilkan Lainnya” tidak dikenali dalam bahasa profil Netflix-mu: hanya episode terbaru yang dibaca. Atur profil itu di Netflix ke bahasa yang sama dengan SyncKai, lalu baca lagi.",
   "crImport.netflix.empty": "Riwayatmu di Netflix kosong.",
   "crImport.netflix.noAnime_other": "Tidak ada episode anime yang ditonton sampai selesai di riwayat Netflix ({count} judul dibaca).",
   "crImport.analyze.starting": "Memulai analisis…",

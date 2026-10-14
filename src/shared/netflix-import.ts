@@ -120,7 +120,7 @@ export type NetflixTabOp = 'state' | 'click' | 'rows' | 'show';
 export function netflixTabOp(op: NetflixTabOp, hook: string, movieId: string): unknown {
   const row = 'li.retableRow';
   // « Voir plus » en minuscules (NFC) : FR / EN / DE (site), puis it, es / es-419, pt-BR, nl, sv, pl, cs, ro, ru, uk, tr,
-  // id, vi, ja, zh-TW (help.netflix.com/<langue>/node/101917)
+  // id, vi, ja, zh-TW, zh-CN, ko (help.netflix.com/<langue>/node/101917)
   const labels = [
     'voir plus',
     'afficher plus',
@@ -146,6 +146,8 @@ export function netflixTabOp(op: NetflixTabOp, hook: string, movieId: string): u
     'hiển thị thêm',
     'その他を表示',
     '顯示更多',
+    '显示更多',
+    '더 보기',
   ].map((label) => label.normalize('NFC'));
   const text = (value: string | null | undefined): string => (value ?? '').replace(/\s+/g, ' ').trim();
   const more = (): HTMLButtonElement | undefined =>
@@ -211,6 +213,8 @@ export const NETFLIX_POLL_MS = 250;
 export const NETFLIX_MAX_STALLS = 3;
 /** Garde-fou : clics au plus (≈ 20 lignes par clic) */
 export const NETFLIX_MAX_CLICKS = 400;
+/** Lignes de la première page de l'historique : au-delà, Netflix affiche « Voir plus » */
+export const NETFLIX_PAGE_ROWS = 20;
 /** Attente des premières lignes (page en cours de chargement) */
 export const NETFLIX_READY_TIMEOUT_MS = 15_000;
 
@@ -232,6 +236,11 @@ export interface NetflixHistoryRead {
   clicks: number;
   /** Bouton toujours là après NETFLIX_MAX_STALLS clics sans effet, ou limite atteinte : historique le plus ancien non lu */
   partial: boolean;
+  /**
+   * Aucun bouton reconnu sur une première page pleine (≥ NETFLIX_PAGE_ROWS lignes) : profil Netflix dans une langue dont
+   * le libellé « Voir plus » est inconnu, historique sans doute plus long (ou exactement une page, sans moyen de le savoir)
+   */
+  moreUnrecognized: boolean;
 }
 
 /** Échec de lecture (code affiché par la page), ou null si la lecture a été arrêtée */
@@ -261,7 +270,7 @@ export async function readNetflixHistory(tab: NetflixTab, deps: NetflixReadDeps,
     if (state.rows > 0) break;
     if (waited >= NETFLIX_READY_TIMEOUT_MS) {
       // Liste présente mais vide : aucun visionnage ; sinon la page a changé
-      return state.list ? { ok: true, read: { rows: [], clicks: 0, partial: false } } : { ok: false, code: 'unavailable' };
+      return state.list ? { ok: true, read: { rows: [], clicks: 0, partial: false, moreUnrecognized: false } } : { ok: false, code: 'unavailable' };
     }
     await deps.sleep(NETFLIX_POLL_MS);
   }
@@ -303,7 +312,8 @@ export async function readNetflixHistory(tab: NetflixTab, deps: NetflixReadDeps,
   const raw = await tab.rows();
   const rows = (Array.isArray(raw) ? raw : []).flatMap((item) => parseNetflixRow(item) ?? []).slice(0, MAX_NETFLIX_HISTORY_ROWS);
   if (rows.length === 0 && state.rows > 0) return { ok: false, code: 'unavailable' };
-  return { ok: true, read: { rows, clicks, partial } };
+  const moreUnrecognized = clicks === 0 && !state.more && state.rows >= NETFLIX_PAGE_ROWS;
+  return { ok: true, read: { rows, clicks, partial: partial || moreUnrecognized, moreUnrecognized } };
 }
 
 // ─── Points de lecture → saisons ──────────────────────────────────────────

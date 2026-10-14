@@ -258,6 +258,7 @@
   "crImport.netflix.titles": "Se caută anime pe AniList — titluri: {done} / {total}",
   "crImport.netflix.shows": "Se citește progresul tău Netflix — serii: {done} / {total}",
   "crImport.netflix.keepTab": "Ține fila Netflix deschisă pe pagina „Activitate de vizionare”: citirea poate dura câteva minute.",
+  "crImport.netflix.moreUnrecognized": "Butonul „Mai multe” nu a fost recunoscut în limba profilului tău Netflix: au fost citite doar cele mai recente episoade. Setează pe Netflix acel profil în aceeași limbă ca SyncKai, apoi reia citirea.",
   "crImport.netflix.empty": "Istoricul tău Netflix este gol.",
   "crImport.netflix.noAnime_one": "Niciun episod anime văzut până la capăt în istoricul tău Netflix ({count} titlu citit).",
   "crImport.netflix.noAnime_few": "Niciun episod anime văzut până la capăt în istoricul tău Netflix ({count} titluri citite).",

@@ -137,3 +137,11 @@ The count of the entry's episodes now chooses the plural form (before: « 1 epis
 | Key | Text |
 |---|---|
 | `sync.beyondEntry_other` | Episode {progress} melebihi {count} episode di entri ini |
+
+## 2026-10-14 · Netflix import: unrecognized “Show more”
+
+New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instead of `crImport.read.partial` when no known “Show more” label was found on a full first page (Netflix profile in a language whose label is unknown); it suggests setting that profile to SyncKai's language. Button named as in this language's `crImport.netflix.rule`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.netflix.moreUnrecognized` | Tombol “Tampilkan Lainnya” tidak dikenali dalam bahasa profil Netflix-mu: hanya episode terbaru yang dibaca. Atur profil itu di Netflix ke bahasa yang sama dengan SyncKai, lalu baca lagi. |

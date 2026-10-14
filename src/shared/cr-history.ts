@@ -41,6 +41,8 @@ export interface HistoryStats {
   partial: boolean;
   /** Netflix : titres écartés avant l'analyse (pas des animes d'après AniList, ou métadonnées introuvables) */
   ignored?: number;
+  /** Netflix : « Voir plus » non reconnu (langue du profil), `partial` aussi vrai ; message dédié */
+  moreUnrecognized?: boolean;
 }
 
 export interface CrHistoryResult {
@@ -106,7 +108,7 @@ export function isHistorySeason(value: unknown): value is HistorySeason {
 }
 
 export function isHistoryStats(value: unknown): value is HistoryStats {
-  return isRecord(value) && isCount(value.items) && isCount(value.pages) && typeof value.partial === 'boolean' && (value.ignored === undefined || isCount(value.ignored));
+  return isRecord(value) && isCount(value.items) && isCount(value.pages) && typeof value.partial === 'boolean' && (value.ignored === undefined || isCount(value.ignored)) && (value.moreUnrecognized === undefined || typeof value.moreUnrecognized === 'boolean');
 }
 
 export function isCrHistoryResult(value: unknown): value is CrHistoryResult {

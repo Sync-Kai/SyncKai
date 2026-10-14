@@ -1,7 +1,7 @@
 import { getLocale, initI18n, onLocaleChange, t, tp, type MessageKey } from '../i18n';
 import { isAdnHistoryPortMessage, reduceAdnHistory } from '../shared/adn-import';
 import { ADN_HISTORY_PORT_NAME, CR_HISTORY_PORT_NAME, isCrHistoryPortMessage } from '../shared/content-messages';
-import { MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult } from '../shared/cr-history';
+import { MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistoryStats } from '../shared/cr-history';
 import {
   CR_IMPORT_KEYS,
   defaultSelection,
@@ -458,7 +458,7 @@ async function readNetflix(tabId: number): Promise<void> {
       backToConnect(tabId, readErrorText('netflix', read.code), read.code === 'unavailable' ? tabId : null);
       return;
     }
-    const { rows, clicks, partial } = read.read;
+    const { rows, clicks, partial, moreUnrecognized } = read.read;
     const groups = groupNetflixRows(rows);
     if (groups.length === 0) {
       backToConnect(tabId, null);
@@ -523,7 +523,7 @@ async function readNetflix(tabId: number): Promise<void> {
     }
     netflixRun = null;
     await startAnalysis(
-      { seasons: seasons.slice(0, MAX_HISTORY_SEASONS), stats: { items: rows.length, pages: clicks + 1, partial: partial || seasons.length > MAX_HISTORY_SEASONS, ignored } },
+      { seasons: seasons.slice(0, MAX_HISTORY_SEASONS), stats: { items: rows.length, pages: clicks + 1, partial: partial || seasons.length > MAX_HISTORY_SEASONS, ignored, ...(moreUnrecognized ? { moreUnrecognized } : {}) } },
       'netflix',
     );
   } catch (error: unknown) {
@@ -535,6 +535,11 @@ async function readNetflix(tabId: number): Promise<void> {
 }
 
 // ─── c) Analyse, e) application ───────────────────────────────────────────
+
+/** Historique incomplet : trop long, ou « Voir plus » de Netflix non reconnu dans la langue du profil */
+function partialNotice(stats: HistoryStats): string {
+  return t(stats.moreUnrecognized ? 'crImport.netflix.moreUnrecognized' : 'crImport.read.partial');
+}
 
 async function startAnalysis(history: CrHistoryResult, platform: ImportPlatform): Promise<void> {
   state.step = { kind: 'starting' };
@@ -548,7 +553,7 @@ async function startAnalysis(history: CrHistoryResult, platform: ImportPlatform)
     state.job = result.data;
     state.plan = null;
     state.step = { kind: 'connect', tabId: null, tabTitle: null, opening: false, error: null, reloadTabId: null };
-    if (history.stats.partial) state.notice = t('crImport.read.partial');
+    if (history.stats.partial) state.notice = partialNotice(history.stats);
   } catch (error: unknown) {
     log.error('Analyse non démarrée :', error);
     backToConnect(null, t('crImport.error.unexpected'));
@@ -1025,7 +1030,7 @@ function renderPreview(plan: CrImportPlan, running: boolean): Child[] {
   const allChecked = selectable.length > 0 && selectable.every((i) => state.selected.has(i.id));
   return [
     h('p', { class: 'm-0 text-[12px] text-muted' }, summary.join(' · ')),
-    plan.stats.partial && h('p', { class: 'm-0 text-[12px] font-bold text-butter' }, t('crImport.read.partial')),
+    plan.stats.partial && h('p', { class: 'm-0 text-[12px] font-bold text-butter' }, partialNotice(plan.stats)),
     plan.services.length < 2 && h('p', { class: 'm-0 text-[11px] text-muted' }, t('crImport.preview.oneService', { service: TRACKER_LABELS[plan.services[0] ?? 'anilist'] })),
 
     // À mettre à jour

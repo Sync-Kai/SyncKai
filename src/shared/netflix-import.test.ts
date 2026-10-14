@@ -14,6 +14,7 @@ import {
   NETFLIX_CLICK_GAP_MS,
   NETFLIX_GROWTH_TIMEOUT_MS,
   NETFLIX_MAX_STALLS,
+  NETFLIX_PAGE_ROWS,
   NETFLIX_READY_TIMEOUT_MS,
   netflixPageProblem,
   netflixTabOp,
@@ -168,6 +169,8 @@ describe('netflixTabOp (exécutée dans l’onglet Netflix)', () => {
       'Hiển thị thêm'.normalize('NFD'),
       'その他を表示',
       '顯示更多',
+      '显示更多',
+      '더 보기',
     ];
     for (const label of labels) {
       const page = fakeNetflixPage('/viewingactivity', label);
@@ -178,7 +181,8 @@ describe('netflixTabOp (exécutée dans l’onglet Netflix)', () => {
   });
 
   it('libellé inconnu (langue de profil non vérifiée) : bouton jamais cliqué', () => {
-    const page = fakeNetflixPage('/viewingactivity', '더 보기');
+    // Thaï : langue de profil dont le libellé n'est pas vérifié
+    const page = fakeNetflixPage('/viewingactivity', 'ดูเพิ่มเติม');
     expect(netflixTabOp('state', 'synckai.test.hook', '')).toMatchObject({ more: false });
     expect(netflixTabOp('click', 'synckai.test.hook', '')).toBe(false);
     expect(page.buttons.every((b) => b.clicks === 0)).toBe(true);
@@ -208,13 +212,13 @@ describe('netflixTabOp (exécutée dans l’onglet Netflix)', () => {
 // ─── Lecture pilotée (faux onglet) ────────────────────────────────────────
 
 /** Onglet simulé : `pages` lignes de plus par clic, `total` lignes au plus ; bouton présent tant qu'il en reste */
-function fakeTab(options: { initial?: number; perClick?: number; total?: number; path?: string; stuck?: boolean; list?: boolean } = {}) {
+function fakeTab(options: { initial?: number; perClick?: number; total?: number; path?: string; stuck?: boolean; list?: boolean; unknownLabel?: boolean } = {}) {
   const perClick = options.perClick ?? 20;
   const total = options.total ?? 70;
   let rows = options.initial ?? 20;
   let clicks = 0;
   const tab: NetflixTab = {
-    state: () => Promise.resolve({ path: options.path ?? '/viewingactivity', rows, more: rows < total, gate: false, list: options.list ?? true } satisfies NetflixPageState),
+    state: () => Promise.resolve({ path: options.path ?? '/viewingactivity', rows, more: !options.unknownLabel && rows < total, gate: false, list: options.list ?? true } satisfies NetflixPageState),
     clickMore: () => {
       clicks++;
       if (!options.stuck) rows = Math.min(total, rows + perClick);
@@ -259,6 +263,19 @@ describe('lecture de l’historique (« Voir plus » jusqu’à la fin)', () => 
     expect(result?.ok && result.read.rows).toHaveLength(MAX_NETFLIX_HISTORY_ROWS);
   });
 
+  it('profil dans une langue au « Voir plus » inconnu : première page pleine sans bouton reconnu → partiel, signalé', async () => {
+    const { tab, clicks } = fakeTab({ unknownLabel: true });
+    const result = await readNetflixHistory(tab, { sleep: clock().sleep, stopped: () => false }, () => undefined);
+    expect(result).toMatchObject({ ok: true, read: { clicks: 0, partial: true, moreUnrecognized: true } });
+    expect(result?.ok && result.read.rows).toHaveLength(NETFLIX_PAGE_ROWS);
+    expect(clicks()).toBe(0);
+  });
+
+  it('historique plus court qu’une page (aucun bouton) : complet, rien de signalé', async () => {
+    const result = await readNetflixHistory(fakeTab({ initial: 12, total: 12 }).tab, { sleep: clock().sleep, stopped: () => false }, () => undefined);
+    expect(result).toMatchObject({ ok: true, read: { clicks: 0, partial: false, moreUnrecognized: false } });
+  });
+
   it('« Arrêter » : null, aucun clic de plus', async () => {
     const { tab, clicks } = fakeTab();
     let stop = false;
@@ -283,7 +300,7 @@ describe('lecture de l’historique (« Voir plus » jusqu’à la fin)', () => 
 
   it('aucune ligne après NETFLIX_READY_TIMEOUT_MS : historique vide (liste présente) ou page modifiée', async () => {
     const empty = await readNetflixHistory(fakeTab({ initial: 0, total: 0 }).tab, { sleep: clock().sleep, stopped: () => false }, () => undefined);
-    expect(empty).toEqual({ ok: true, read: { rows: [], clicks: 0, partial: false } });
+    expect(empty).toEqual({ ok: true, read: { rows: [], clicks: 0, partial: false, moreUnrecognized: false } });
     const time = clock();
     const changed = await readNetflixHistory(fakeTab({ initial: 0, total: 0, list: false }).tab, { sleep: time.sleep, stopped: () => false }, () => undefined);
     expect(changed).toEqual({ ok: false, code: 'unavailable' });
@@ -338,6 +355,8 @@ describe('série Netflix → une ligne par saison vue', () => {
       },
     ]);
     expect(isCrHistoryResult({ seasons, stats: { items: 8, pages: 1, partial: false, ignored: 2 } })).toBe(true);
+    expect(isCrHistoryResult({ seasons, stats: { items: 20, pages: 1, partial: true, moreUnrecognized: true } })).toBe(true);
+    expect(isCrHistoryResult({ seasons, stats: { items: 20, pages: 1, partial: true, moreUnrecognized: 'yes' } })).toBe(false);
     // Même clé de correspondance et mêmes numéros que la page de lecture : netflix:{showId}:s{seq}
     const [s1] = seasons;
     if (!s1) throw new Error('saison absente');
