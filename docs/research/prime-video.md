@@ -295,7 +295,8 @@ Read-only console probe (fetch/XHR responses reduced to whitelisted leaf fields,
   - Also fetched: `pes/StartSession|UpdateSession|StopSession` (heartbeats, nothing useful), `drm-vod/GetWidevineLicense` (never read).
 - **Video** (VERIFIED, no ads): one main `<video>` without class, **reused across episodes** (on autoplay: `currentTime` 0, `duration` NaN and 0×0 for about 2 s, then 1448). Its `currentTime` equals program time and `duration` = `fullTitleDurationMs`/1000. A second `<video>` (trailer preview, 43 or 63 s) stays paused on the page: pick the playing video whose duration matches the episode.
 - **Next-up card**: an element with `nextup` in its class became visible at 1426.6 s (21 s before the end) and disappeared when E2 started.
-- **Still UNKNOWN**: genre (`av_genre_anime`), ads tier (time shift, `duration`), `entityId` = playing gti, a first play (not autoplay) from the detail page, Firefox.
+- **Genre** (VERIFIED in the hydration data of the detail page): the anime has `"genres"` with `av_genre_anime` (label "Anime", search link `/region/eu/search?phrase=Anime`); a non-anime series has `av_genre_action` / `av_genre_comedy` / `av_genre_drama` plus `categorizedGenres` / `primaryGenre` / `secondaryGenres`. Gate = `av_genre_anime` present. Not checked: the same field in the SPA `/detail/` JSON responses, and playback started outside a detail page (home row, *Continue watching*), where no genre may be in the page.
+- **Still UNKNOWN**: ads tier (time shift, `duration`), `entityId` = playing gti, a first play (not autoplay) from the detail page, Firefox.
 
 Consequences for the design (§7): identity from `catalogMetadataV2` (+ `entityId`), series pages from the `/detail/` JSON responses (not the hydration node after SPA navigation), completion on the ratio of `fullTitleDurationMs` (the `NEXT_UP` marker when it comes before the ratio point, since it is placed after any post-credits scene), intro skip markers ignored.
 
