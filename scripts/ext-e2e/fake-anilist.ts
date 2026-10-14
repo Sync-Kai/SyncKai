@@ -15,6 +15,10 @@ export interface AniListMediaSeed {
   episodes: number | null;
   /** Liens externes (ex. https://www.crunchyroll.com/series/GSERIES1) */
   externalLinks?: string[];
+  /** Titres alternatifs (titres localisés), trouvés par la recherche comme le titre */
+  synonyms?: string[];
+  /** FINISHED par défaut ; RELEASING pour une série en cours de diffusion (One Piece) */
+  status?: 'FINISHED' | 'RELEASING';
 }
 
 export interface AniListEntry {
@@ -68,6 +72,10 @@ interface Account {
   entries: Map<number, AniListEntry>;
   revoked: boolean;
 }
+
+/** Signes diacritiques combinants (après décomposition NFD) */
+const DIACRITICS = /\p{M}/u;
+const withoutDiacritics = (text: string): string => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -187,8 +195,11 @@ export class FakeAniList {
         return { ok: { Page: { media: found.map((m) => this.mediaFields(m, null)) } } };
       }
       case 'SearchAnime': {
-        const search = String(v.search ?? '').toLowerCase();
-        const found = [...this.media.values()].filter((m) => m.title.toLowerCase().includes(search));
+        // Comme le vrai AniList (observé le 2026-10-14) : une requête accentuée ne trouve rien, même un synonyme accentué ;
+        // sans accents, titre et synonymes sont comparés sans leurs accents
+        const search = String(v.search ?? '');
+        const titles = (m: AniListMediaSeed): string[] => [m.title, ...(m.synonyms ?? [])].map(withoutDiacritics);
+        const found = DIACRITICS.test(search.normalize('NFD')) ? [] : [...this.media.values()].filter((m) => titles(m).some((title) => title.includes(withoutDiacritics(search))));
         return { ok: { Page: { media: found.map((m) => this.mediaFields(m, null)) } } };
       }
       case 'Watching': {
@@ -242,12 +253,12 @@ export class FakeAniList {
       siteUrl: `https://anilist.co/anime/${media.id}`,
       format: 'TV',
       episodes: media.episodes,
-      status: 'FINISHED',
+      status: media.status ?? 'FINISHED',
       startDate: { year: 2023, month: 1, day: 6 },
       seasonYear: 2023,
       coverImage: { medium: null, large: null },
       title: { romaji: media.title, english: media.title, native: null, userPreferred: media.title },
-      synonyms: [],
+      synonyms: media.synonyms ?? [],
       nextAiringEpisode: null,
       externalLinks: (media.externalLinks ?? []).map((url) => ({ url })),
       relations: { edges: [] },

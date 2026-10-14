@@ -100,6 +100,8 @@ export interface LaunchOptions {
   routes: RequestHandler[];
   /** Version écrite dans le manifeste de la copie testée (mise à jour simulée : voir restart) */
   version?: string;
+  /** Routes des onglets (fausses pages de plateformes, données de générique…), essayées avant la page Crunchyroll vide */
+  pageRoutes?: RequestHandler[];
 }
 
 /** Navigateur lancé avec l'extension, et outils pour la piloter depuis ses propres pages */
@@ -119,6 +121,11 @@ export interface ExtensionHarness {
   setStorage(items: Record<string, unknown>): Promise<void>;
   /** Ouvre une page de l'extension dans un onglet (ex. src/popup/popup.html), réseau sous surveillance */
   openPage(relativePath: string, viewport?: { width: number; height: number }): Promise<Page>;
+  /**
+   * Ouvre `url` (fausse page servie par `pageRoutes`) dans un nouvel onglet, réseau sous surveillance. `background` :
+   * chargée en arrière-plan, un autre onglet vide restant au premier plan (document.visibilityState « hidden »)
+   */
+  openTab(url: string, options?: { background?: boolean }): Promise<Page>;
   /** Ferme puis relance le navigateur sur le même profil ; `version` change la version du manifeste (mise à jour) */
   restart(options?: { version?: string }): Promise<void>;
   /** Captures d'écran des pages ouvertes (échec d'un test) */
@@ -226,7 +233,18 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
     await attachWorker(await browser.waitForTarget(isOurWorker, { timeout: 15_000 }));
   }
 
-  /** Réseau d'une page : ressources de l'extension servies, pages Crunchyroll simulées, tout le reste refusé et relevé */
+  async function routePage(request: InterceptedRequest): Promise<FakeResponse | null> {
+    for (const handler of options.pageRoutes ?? []) {
+      const response = await handler(request);
+      if (response !== null) return response;
+    }
+    return null;
+  }
+
+  /**
+   * Réseau d'une page : ressources de l'extension servies, routes des onglets (pageRoutes), pages Crunchyroll vides,
+   * tout le reste refusé et relevé
+   */
   async function watchPage(page: Page): Promise<void> {
     pages.push(page);
     page.on('pageerror', (error: unknown) => pageErrors.push(`${page.url()} : ${String(error)}`));
@@ -235,12 +253,27 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
       const url = request.url();
       if (url.startsWith(`${EXTENSION_ORIGIN}/`) || url.startsWith('data:')) {
         void request.continue();
-      } else if (url.startsWith('https://www.crunchyroll.com/')) {
-        void request.respond({ status: 200, contentType: 'text/html', body: '<!doctype html><html lang="en"><head><title>Crunchyroll</title></head><body></body></html>' });
-      } else {
-        unexpected.push({ source: 'page', method: request.method(), url, headers: lowerKeys(request.headers()), body: request.postData() ?? null });
-        void request.abort('blockedbyclient');
+        return;
       }
+      const intercepted: InterceptedRequest = { source: 'page', method: request.method(), url, headers: lowerKeys(request.headers()), body: request.postData() ?? null };
+      void (async (): Promise<void> => {
+        try {
+          const response = await routePage(intercepted);
+          if (response !== null && 'network' in response) {
+            await request.abort('internetdisconnected');
+          } else if (response !== null) {
+            await request.respond({ status: response.status, headers: { 'Access-Control-Allow-Origin': '*', ...response.headers }, body: response.body ?? '' });
+          } else if (url.startsWith('https://www.crunchyroll.com/')) {
+            await request.respond({ status: 200, contentType: 'text/html', body: '<!doctype html><html lang="en"><head><title>Crunchyroll</title></head><body></body></html>' });
+          } else {
+            unexpected.push(intercepted);
+            await request.abort('blockedbyclient');
+          }
+        } catch (error: unknown) {
+          // Page fermée pendant la réponse : requête perdue avec elle
+          if (!closed && !page.isClosed()) console.warn('[ext-e2e] Réponse de page impossible :', url, error);
+        }
+      })();
     });
   }
 
@@ -249,6 +282,14 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
     await watchPage(page);
     await page.setViewport(viewport);
     await page.goto(`${EXTENSION_ORIGIN}/${relativePath}`, { waitUntil: 'load' });
+    return page;
+  }
+
+  async function openTab(url: string, tabOptions: { background?: boolean } = {}): Promise<Page> {
+    const page = await browser.newPage();
+    await watchPage(page);
+    if (tabOptions.background) await (await browser.newPage()).bringToFront();
+    await page.goto(url, { waitUntil: 'load' });
     return page;
   }
 
@@ -305,6 +346,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
       await (await bridge()).evaluate((raw: string) => chrome.storage.local.set(JSON.parse(raw)), JSON.stringify(items));
     },
     openPage,
+    openTab,
     async restart(restartOptions = {}) {
       closed = true;
       await browser.close();

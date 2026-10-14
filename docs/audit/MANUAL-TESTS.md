@@ -22,11 +22,11 @@ Tip to simulate a service outage: developer tools of the popup (right-click › 
 
 ## 3. Playback detection
 
-- [ ] **Autoplay** on Crunchyroll (and Netflix): let the next episode start on its own. Expected: both episodes sync, the popup shows the right number.
-- [ ] **Background tab**: open an episode in a background tab, wait more than a minute, then watch it. Expected: normal sync at the end.
-- [ ] **Alt+Shift+K shortcut**: on a series page → *No episode playing*; on an already synced episode → *Episode already synced*; sync paused → explanatory message.
-- [ ] **Page language**: Crunchyroll in a different language than SyncKai; page console → `document.documentElement.lang`. Expected: the site's language, not SyncKai's.
-- [ ] **ADN**: an ADN episode is detected and synced; the entry shows in the popup and the side panel.
+- [ ] **Autoplay** on Crunchyroll (and Netflix): let the next episode start on its own. Expected: both episodes sync, the popup shows the right number. — automated (Crunchyroll SPA autoplay: both writes, no duplicate, recent sync on the last episode; Netflix and the popup display are not): `scripts/ext-e2e/playback.ext.ts`
+- [ ] **Background tab**: open an episode in a background tab, wait more than a minute, then watch it. Expected: normal sync at the end. — automated (player created when the tab is shown, after the 30 s player timeout; Chrome's intensive throttling of tabs hidden for 5 minutes is not reproduced): `scripts/ext-e2e/playback.ext.ts`
+- [ ] **Alt+Shift+K shortcut**: on a series page → *No episode playing*; on an already synced episode → *Episode already synced*; sync paused → explanatory message. — automated (the command's `FORCE_COMPLETE` message sent to the tab; the key press itself cannot be simulated): `scripts/ext-e2e/playback.ext.ts`
+- [ ] **Page language**: Crunchyroll in a different language than SyncKai; page console → `document.documentElement.lang`. Expected: the site's language, not SyncKai's. — automated (fr page with SyncKai in English, en page with SyncKai in French, after the toast): `scripts/ext-e2e/playback.ext.ts`
+- [ ] **ADN**: an ADN episode is detected and synced; the entry shows in the popup and the side panel. — automated (detection, writes, recent sync, toast; not the popup and side panel display): `scripts/ext-e2e/playback.ext.ts`
 
 ## 4. Netflix
 
