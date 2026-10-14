@@ -31,6 +31,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - Lists of names (services in sync messages, titles of a grouped new-episode notification) use the language's own separators and conjunction (« AniList and MyAnimeList », 、 in Japanese and Chinese) instead of commas, and two sentences shown together are no longer separated by a Latin space in Japanese and Chinese.
 - The error shown when no connected account has an entry for the anime now says so (*No connected service has an entry for this series.*) instead of saying that no service tracks the series.
 - Long translations: in *Activity › Pending syncs*, the buttons go below a long status instead of cutting it; in *To rate*, *Ignore* goes below the stars when they don't fit; in a narrow side panel, the *Hold* / *Drop* / *Done* buttons hide their icons so that their labels fit; in *Watching*, a next-episode chip that doesn't fit is cut, with its full text in a tooltip, instead of overlapping the progress.
+- Side panel, *Now playing*: after a Crunchyroll autoplay, the card could keep the previous episode's number (« Episode 1180 » on episode 1181) until the page was reloaded or the next action, when Crunchyroll showed the new episode's details a moment after changing the address. It now waits for the new episode's details.
 
 ## [2.3.1] - 2026-10-12
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanPageTitle, cleanText, createLabelGuard, flattenJsonLd, labelKey, meaningfulSeasonTitle, slugToTitle, stripAudioTag, toNumber } from './parsing';
+import { cleanPageTitle, cleanText, createLabelGuard, flattenJsonLd, LABEL_SETTLE_MS, labelKey, meaningfulSeasonTitle, slugToTitle, stripAudioTag, toNumber } from './parsing';
 
 describe('toNumber / cleanText', () => {
   it('lit les nombres, y compris avec virgule décimale', () => {
@@ -31,6 +31,20 @@ describe('createLabelGuard', () => {
     expect(guard.isStale('ep-1180', labelKey(1179, 'Titre A'))).toBe(true);
     expect(guard.isStale('ep-1179', labelKey(1179, 'Titre A'))).toBe(false);
     expect(guard.isStale('ep-1180', labelKey(1180, 'Titre B'))).toBe(false);
+  });
+
+  it('isUnsettled : libellé d’un autre épisode suspect pendant LABEL_SETTLE_MS après la première lecture de l’épisode', () => {
+    let now = 1_000;
+    const guard = createLabelGuard(() => now);
+    guard.remember('ep-1180', labelKey(1180, 'Titre A'));
+    expect(guard.isUnsettled('ep-dub', labelKey(1180, 'Titre A'))).toBe(true);
+    now += LABEL_SETTLE_MS;
+    expect(guard.isUnsettled('ep-dub', labelKey(1180, 'Titre A'))).toBe(false);
+    expect(guard.isStale('ep-dub', labelKey(1180, 'Titre A'))).toBe(true);
+    // Autre épisode lu : délai recommencé ; libellé inconnu ou déjà le sien : jamais suspect
+    expect(guard.isUnsettled('ep-1181', labelKey(1180, 'Titre A'))).toBe(true);
+    expect(guard.isUnsettled('ep-1181', labelKey(1181, 'Titre B'))).toBe(false);
+    expect(guard.isUnsettled('ep-1180', labelKey(1180, 'Titre A'))).toBe(false);
   });
 
   it('ignore les libellés sans titre', () => {

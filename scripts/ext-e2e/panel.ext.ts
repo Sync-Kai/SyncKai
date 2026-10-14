@@ -73,14 +73,13 @@ describe('Panneau latéral', () => {
     expectCleanRun(run.h, run.anilist, run.mal);
   }, 90_000);
 
-  // BUG (à corriger dans le produit) : après une navigation SPA, Crunchyroll change l'URL avant de rendre le <h1> et le
-  // JSON-LD du nouvel épisode. Le panneau relit la page 250 ms après le changement d'URL (presence.ts) ; le script de
-  // contenu répond alors avec l'identifiant du NOUVEL épisode et les numéros de l'ANCIEN (adapters/crunchyroll.ts ›
-  // isStaleAnonymousNode : JSON-LD et <h1> encore d'accord entre eux, tous deux périmés ; le garde-fou LabelGuard n'est
-  // consulté que sans <h1>). La fiche « E1181 » affiche donc « Episode 1180 », et l'annonce du nouvel épisode par le port
-  // de lecture ne la corrige pas (même identifiant : shouldRedetect renvoie faux). Rendu en retard de 1,5 s ici (300 ms
-  // dans le scénario de lecture automatique de playback.ext.ts) pour que la lecture tombe à coup sûr dans la fenêtre.
-  it.fails('lecture automatique avec rendu en retard sur l’URL : la fiche passe au numéro du nouvel épisode (BUG : reste sur l’ancien)', async (context) => {
+  // Après une navigation SPA, Crunchyroll change l'URL avant de rendre le <h1> et le JSON-LD du nouvel épisode. Le
+  // panneau relit la page 250 ms après le changement d'URL (presence.ts) : <h1> et JSON-LD encore ceux de l'ancien
+  // épisode, d'accord entre eux. Le script de contenu ne répond rien tant que ce libellé, déjà attribué à E1180, est
+  // récent pour E1181 (parsing.ts › LabelGuard.isUnsettled) : les relectures suivantes trouvent la page rendue. Rendu en
+  // retard de 1,5 s ici (300 ms dans le scénario de lecture automatique de playback.ext.ts) pour que la première lecture
+  // tombe à coup sûr dans la fenêtre.
+  it('lecture automatique avec rendu en retard sur l’URL : la fiche passe au numéro du nouvel épisode, jamais celui de l’ancien', async (context) => {
     const sites = new FakeSites()
       .page(ONE_PIECE_E1180.url, crunchyrollWatchHtml(ONE_PIECE_E1180, { lang: 'fr' }))
       .creditsStart(ONE_PIECE_E1180.episodeId, CREDITS_START)
@@ -91,6 +90,8 @@ describe('Panneau latéral', () => {
     await waitForEntry(panel, 'ONE PIECE', en('panel.nowPlaying.episodeNoTotal', { episode: 1180 }));
     await autoplayNextCrunchyroll(tab, ONE_PIECE_E1181, { renderDelayMs: 1_500 });
     await waitForEntry(panel, 'ONE PIECE', en('panel.nowPlaying.episodeNoTotal', { episode: 1181 }), 10_000);
+    await stays('fiche de E1181 affichée', async () => (await nowPlayingText(panel)).includes(en('panel.nowPlaying.episodeNoTotal', { episode: 1181 })), 2_000);
+    expectCleanRun(run.h, run.anilist, run.mal);
   }, 60_000);
 
   it('choix de la saison dans le panneau, puis épisode terminé : progression écrite sur la saison choisie, correspondance listée dans Mes données', async (context) => {

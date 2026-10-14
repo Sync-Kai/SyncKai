@@ -17,7 +17,7 @@ import {
   seriesTitleFromJsonLd,
   type WatchPageContext,
 } from './crunchyroll';
-import { createLabelGuard, flattenJsonLd, labelKey, type LabelGuard } from './parsing';
+import { createLabelGuard, flattenJsonLd, LABEL_SETTLE_MS, labelKey, type LabelGuard } from './parsing';
 
 // Fixture JSON-LD d'une page de série (structure supposée, à vérifier sur le site réel)
 const SERIES_JSON_LD = `{
@@ -252,8 +252,8 @@ describe('getEpisodeId (page de lecture)', () => {
 describe('episodeFromJsonLdNodes', () => {
   const fresh = (heading: string | null = ONE_PIECE_E1180.heading): WatchPageContext => ({ heading, guard: createLabelGuard() });
   /** Garde-fou ayant déjà vu E1180 sous son propre identifiant */
-  const afterE1180 = (): LabelGuard => {
-    const guard = createLabelGuard();
+  const afterE1180 = (now?: () => number): LabelGuard => {
+    const guard = createLabelGuard(now);
     guard.remember(ONE_PIECE_E1180.episodeId, labelKey(1180, 'Le désespoir envahit Elbaph !'));
     return guard;
   };
@@ -282,9 +282,18 @@ describe('episodeFromJsonLdNodes', () => {
     expect(same?.displayedEpisodeNumber).toBe(1180);
   });
 
-  it('accepte un nœud sans url d’accord avec le <h1> (autre version audio du même épisode)', () => {
-    const dub = episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), 'GRDUB0001180', { heading: ONE_PIECE_E1180.heading, guard: afterE1180() });
-    expect(dub?.seasonEpisodeNumber).toBe(25);
+  it('<h1> d’accord mais libellé d’un autre épisode : refusé juste après le changement d’URL (rendu en retard), accepté ensuite (version audio)', () => {
+    let now = 0;
+    const context = { heading: ONE_PIECE_E1180.heading, guard: afterE1180(() => now) };
+    // Lecture automatique : URL d'un autre épisode, <h1> et JSON-LD encore ceux de E1180 → rien plutôt que le numéro 1180
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), 'GRDUB0001180', context)).toBeNull();
+    now = LABEL_SETTLE_MS - 1;
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), 'GRDUB0001180', context)).toBeNull();
+    // Libellé toujours le même passé le délai : autre version audio du même épisode, reconnue avec ses numéros
+    now = LABEL_SETTLE_MS;
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), 'GRDUB0001180', context)).toMatchObject({ seasonEpisodeNumber: 25, displayedEpisodeNumber: 1180 });
+    // Épisode qui possède déjà ce libellé : jamais retardé
+    expect(episodeFromJsonLdNodes(nodesOf(ONE_PIECE_E1180), ONE_PIECE_E1180.episodeId, context)?.displayedEpisodeNumber).toBe(1180);
   });
 
   it('accepte un nœud sans url quand le <h1> n’affiche pas de numéro', () => {
@@ -361,5 +370,20 @@ describe('crunchyrollAdapter.extractEpisodeInfo : lecture automatique E1180 → 
     // JSON-LD à jour → numéros complets
     show(ONE_PIECE_E1181);
     expect(extract(ONE_PIECE_E1181)).toMatchObject({ seasonNumber: 24, seasonEpisodeNumber: 26, displayedEpisodeNumber: 1181 });
+  });
+
+  it('URL changée avant le rendu (<h1> et JSON-LD encore ceux de E1180) : rien, puis E1181 une fois rendu', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      show(ONE_PIECE_E1180);
+      expect(extract(ONE_PIECE_E1180)).toMatchObject({ displayedEpisodeNumber: 1180 });
+      expect(extract(ONE_PIECE_E1181)).toBeNull();
+      vi.advanceTimersByTime(LABEL_SETTLE_MS / 2);
+      expect(extract(ONE_PIECE_E1181)).toBeNull();
+      show(ONE_PIECE_E1181);
+      expect(extract(ONE_PIECE_E1181)).toMatchObject({ episodeId: ONE_PIECE_E1181.episodeId, seasonEpisodeNumber: 26, displayedEpisodeNumber: 1181 });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

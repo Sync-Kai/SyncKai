@@ -35,9 +35,18 @@ export function readJsonLdNodes(type: string): Record<string, unknown>[] {
   return nodes;
 }
 
+/**
+ * Délai après la première lecture d'un épisode pendant lequel un libellé d'un autre épisode reste suspect même confirmé
+ * par le <h1> : le rendu SPA en retard sur l'URL est passager, une autre version audio (même libellé) est durable.
+ * Inférieur à la somme des relectures du panneau (PAGE_MEDIA_RETRY_DELAYS_MS : 2,5 s), dont la dernière l'accepte donc.
+ */
+export const LABEL_SETTLE_MS = 2_000;
+
 export interface LabelGuard {
   /** Vrai si ce libellé a déjà été attribué à un AUTRE épisode (DOM encore celui du précédent) */
   isStale(episodeId: string, key: string | null): boolean;
+  /** Comme isStale, mais seulement pendant LABEL_SETTLE_MS après la première lecture de cet épisode */
+  isUnsettled(episodeId: string, key: string | null): boolean;
   remember(episodeId: string, key: string | null): void;
 }
 
@@ -46,12 +55,19 @@ export interface LabelGuard {
  * affiche encore l'épisode précédent pendant un instant. Un libellé ("E1180|titre") déjà vu
  * pour un autre épisode signale donc des données périmées.
  */
-export function createLabelGuard(): LabelGuard {
+export function createLabelGuard(now: () => number = () => Date.now()): LabelGuard {
   const owners = new Map<string, string>();
+  // Épisode lu en dernier et heure de sa première lecture (une seule page de lecture par onglet)
+  let seen = { episodeId: '', at: 0 };
+  const isStale = (episodeId: string, key: string | null): boolean => {
+    if (seen.episodeId !== episodeId) seen = { episodeId, at: now() };
+    const owner = key ? owners.get(key) : undefined;
+    return owner !== undefined && owner !== episodeId;
+  };
   return {
-    isStale(episodeId, key) {
-      const owner = key ? owners.get(key) : undefined;
-      return owner !== undefined && owner !== episodeId;
+    isStale,
+    isUnsettled(episodeId, key) {
+      return isStale(episodeId, key) && now() - seen.at < LABEL_SETTLE_MS;
     },
     remember(episodeId, key) {
       if (key) owners.set(key, episodeId);

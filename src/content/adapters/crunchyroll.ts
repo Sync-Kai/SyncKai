@@ -79,14 +79,17 @@ export interface WatchPageContext {
 /**
  * Un nœud sans `url` ni `@id` ne désigne aucun épisode : après une navigation SPA, il peut décrire
  * l'épisode précédent (CONT-04). On le compare donc au <h1> ; sans <h1>, au libellé déjà attribué.
- * Un <h1> d'accord suffit : une autre version audio du même épisode (autre identifiant, même libellé)
- * doit rester reconnue. S'il est lui aussi périmé, la relecture à la complétion corrige l'épisode.
+ * Un <h1> d'accord ne suffit pas juste après le changement d'URL : lecture automatique, Crunchyroll change l'URL avant
+ * de rendre le <h1> et le JSON-LD, tous deux encore ceux de l'épisode précédent. Un libellé déjà attribué à un autre
+ * épisode est donc refusé pendant LABEL_SETTLE_MS (le panneau relit la page), puis accepté : une autre version audio du
+ * même épisode (autre identifiant, même libellé, durable) doit rester reconnue.
  */
 function isStaleAnonymousNode(label: { number: number | null; title: string | null }, episodeId: string, context: WatchPageContext): boolean {
-  if (context.heading === null) return context.guard.isStale(episodeId, labelKey(label.number, label.title));
+  const key = labelKey(label.number, label.title);
+  if (context.heading === null) return context.guard.isStale(episodeId, key);
   const shown = parseEpisodeLabel(context.heading).number;
   // Seuls les numéros sont comparés : le titre du <h1> peut différer du nom JSON-LD (film, mise en forme)
-  return shown !== null && label.number !== null && shown !== label.number;
+  return (shown !== null && label.number !== null && shown !== label.number) || context.guard.isUnsettled(episodeId, key);
 }
 
 /**
