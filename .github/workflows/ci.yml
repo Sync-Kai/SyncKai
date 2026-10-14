@@ -81,3 +81,57 @@ jobs:
 
       - name: Tests de bout en bout
         run: npm run test:e2e
+
+  # Mise en page des 21 langues (popup, panneau à 360 / 320 px, page d'import) : informatif, jamais bloquant.
+  # Une traduction trop longue ne doit ni bloquer une fusion ni une release (voir CLAUDE.md › i18n) : le job reste
+  # vert, un avertissement signale les anomalies, le rapport s'affiche dans le résumé du run et les captures annotées
+  # sont jointes en artefact. Police de secours de Linux plus large que celle de Windows : les anomalies trouvées ici
+  # sont réelles pour les utilisateurs Linux / macOS.
+  i18n-layout:
+    name: Mise en page des langues (informatif)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Chrome headless pour Puppeteer
+        run: npx --no-install puppeteer browsers install chrome-headless-shell@pinned
+
+      - name: Contrôle de mise en page
+        id: layout
+        continue-on-error: true
+        env:
+          SYNCKAI_I18N_LAYOUT_DIR: ${{ runner.temp }}/i18n-layout
+        run: npm run test:i18n-layout
+
+      - name: Rapport
+        if: always()
+        env:
+          SYNCKAI_I18N_LAYOUT_DIR: ${{ runner.temp }}/i18n-layout
+          OUTCOME: ${{ steps.layout.outcome }}
+        run: |
+          report="$SYNCKAI_I18N_LAYOUT_DIR/report.md"
+          if [ ! -f "$report" ]; then
+            echo "::warning::i18n layout report missing: the check did not run to the end."
+            exit 0
+          fi
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          summary=$(grep -m1 -E '^\*\*[0-9]+ findings?\*\*' "$report" | tr -d '*' || true)
+          if [ "$OUTCOME" != "success" ]; then
+            echo "::warning title=i18n layout::${summary:-findings} — see the run summary and the i18n-layout artifact."
+          fi
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: i18n-layout
+          path: ${{ runner.temp }}/i18n-layout
+          if-no-files-found: ignore
+          retention-days: 14
