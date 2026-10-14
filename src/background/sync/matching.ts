@@ -54,8 +54,8 @@ export type EpisodeNumbers = Pick<
   EpisodeInfo,
   'animeTitle' | 'seasonTitle' | 'seasonNumber' | 'seasonEpisodeNumber' | 'displayedEpisodeNumber'
 > &
-  // Page de lecture uniquement : reconnaît une saison réduite à une œuvre (voir isSpecialSeason)
-  Partial<Pick<EpisodeInfo, 'episodeTitle'>>;
+  // Page de lecture uniquement : reconnaît une saison réduite à une œuvre (voir isSpecialSeason) ; plateforme : texte de la raison
+  Partial<Pick<EpisodeInfo, 'episodeTitle' | 'platform'>>;
 
 export interface SyncTarget extends MediaMapping {
   progress: number;
@@ -786,8 +786,11 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
           : linked.length === 0 && !isLinked(candidate)
             ? confidence === 'high'
               ? trustedReason
-              : // Sans lien plateforme, c'est l'absence de lien (et non la règle appliquée) qui rend le choix incertain
-                t('match.titleOnly')
+              : // Sans lien plateforme, c'est l'absence de lien (et non la règle appliquée) qui rend le choix incertain ;
+                // le texte « Crunchyroll / ADN » ne vaut pas pour Prime Video, seule autre plateforme résolue par le titre seul
+                episode.platform === 'prime'
+                ? t('match.platformTitleOnly', { platform: PLATFORMS.prime.label })
+                : t('match.titleOnly')
             : reason,
       },
     };

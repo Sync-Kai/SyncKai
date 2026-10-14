@@ -171,6 +171,20 @@ describe('resolveEpisode — Prime Video', () => {
     expect(result).toMatchObject({ ok: true, target: { mediaId: 20850, progress: 3 } });
   });
 
+  it('genre anime, titre seul ambigu (Berserk 1997 / 2016) : à vérifier, raison sans « Crunchyroll / ADN »', async () => {
+    searchResults({
+      Berserk: [
+        media({ id: 33, titles: ['Kenpuu Denki Berserk', 'Berserk'], startDate: { year: 1997, month: 10, day: 8 }, episodes: 25 }),
+        media({ id: 21560, titles: ['Berserk'], startDate: { year: 2016, month: 7, day: 1 } }),
+      ],
+    });
+    const { result } = await resolveEpisode(primeEpisode({ animeTitle: 'Berserk', seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 }));
+    expect(result).toMatchObject({ ok: true, target: { confidence: 'low' } });
+    const reason = result.ok ? result.target.reason : '';
+    expect(reason).toContain('Prime Video');
+    expect(reason).not.toContain('Crunchyroll');
+  });
+
   it('genre anime, rien trouvé : échec ordinaire (« introuvable »), jamais ignoré', async () => {
     searchResults({});
     const { result } = await resolveEpisode(primeEpisode({ animeTitle: 'Titre inconnu' }));

@@ -197,7 +197,7 @@ async function pickSeriesSeason(page: PageMediaInfo, manual: number | null, { ca
     hasSeasonInfo || seasons.length <= 1
       ? resolveTarget(
           // Arc numéroté en absolu (One Piece « Elbaph (1156-current) ») : son premier épisode, comme sur la page de lecture
-          { animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonEpisodeNumber: 1, displayedEpisodeNumber: page.seasonFirstEpisode ?? 1 },
+          { platform: page.platform, animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonEpisodeNumber: 1, displayedEpisodeNumber: page.seasonFirstEpisode ?? 1 },
           candidates,
         )
       : null;
