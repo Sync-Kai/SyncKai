@@ -300,6 +300,20 @@ Read-only console probe (fetch/XHR responses reduced to whitelisted leaf fields,
   - `transitionTimecodes` carries **`END_CREDITS`** (no end time) besides `NEXT_UP` and `SKIP_INTRO`: E2 1311000 / 1417000 of 1440000, E3 1312000 / 1417000 of 1441000, E4 1312000 / 1417000 of 1441000. The owner saw E3's ending song start at about 21:52 (1312 s) and the next-up card at about 23:37 (1417 s): `END_CREDITS` is the credits start (91 %), `NEXT_UP` the card. *A Star Brighter Than the Sun* E2 had no `END_CREDITS` (the story goes on after its ending song).
   - The next episode's `GetVodPlaybackResources` is fetched about 1 s **before** the switch (at the next-up card, while the old episode still plays); its `catalogMetadataV2` and `getDetailWidgets` arrive 0.1–0.3 s after the switch. Entries must be keyed by the request's `titleId` / `entityId`, never taken as "the latest response".
   - `intraTitlePlaylist` has one split per episode (695361, 961377, 1155445 ms): probably the ad slot.
+- **Anonymous survey** (2026-10-14, headless Chromium from the container, `region/na`, English UI; detail pages are public): `av_genre_*` and `audioTracks` of the hydration data.
+
+  | Title | Genres | Audio tracks |
+  |---|---|---|
+  | Invincible S1, Hazbin Hotel S1, The Legend of Vox Machina S1, The Legend of Korra Book 1 (Western) | `animation_adult_interest` (+ action / adventure / comedy) | English only |
+  | Dororo, VINLAND SAGA | `anime`, `international` | 日本語 (Dororo also an AI Spanish dub) |
+  | Tokyo Ghoul S1 | `anime`, `animation_adult_interest` | English, es-419, pt-BR, 日本語 |
+  | Tokyo Ghoul √A S2 (Original Japanese Version) | `anime`, `animation_adult_interest` | English (sic) |
+  | Attack on Titan (English Dubbed) S1 P1 | `anime`, `animation_adult_interest` | English |
+  | VINLAND SAGA S2 Pt. 1 (Original Japanese Version) | `animation_adult_interest` (no `anime`) | 日本語 |
+  | VINLAND SAGA S2 Pt. 1 (Simuldub) | `animation_adult_interest` (no `anime`) | English |
+
+  - `animation_adult_interest` alone never separates anime from Western animation; the Japanese track does on this sample, but `audioTracks` is not reliable (√A "Original Japanese Version" lists only English) and a dub-only release has no Japanese track (VINLAND SAGA S2 Simuldub would be missed).
+  - Prime publishes the same season several times with a version tag in the title: "(Original Japanese Version)", "(English Dubbed)", "(Simuldub)", "- Uncut". Strip these tags for the AniList search and the mapping key, so the sub and the dub share one mapping.
 - **Still UNKNOWN**: ads tier (time shift, `duration`), `titleId` / `entityId` = playing episode gti (consistent with `nextUpV3.carouselItems[].titleId` then `bestSelf.gti`, values not recorded), a first play from the home page or *Continue watching* (genre), Firefox.
 
 Consequences for the design (§7): identity from `catalogMetadataV2` keyed by `entityId`, series pages from the `/detail/` JSON responses (not the hydration node after SPA navigation), credits start = `END_CREDITS` of the playing episode's `GetVodPlaybackResources` (keyed by `titleId`), else the ratio of `fullTitleDurationMs`; `NEXT_UP` and `SKIP_INTRO` ignored. Points (a) and (b) of the go / no-go: (a) VERIFIED; (b) open (no ads seen).
