@@ -19,6 +19,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Fixed
 
+- Popup and side panel: after switching the interface language, an error or "No AniList entry found" message shown on *On this page* stayed in the previous language; it is now requested again and shown in the new one.
 - Anime with an accented localized title (Crunchyroll in French: « Moi, quand je me réincarne en Slime ») were not found on AniList, whose search misses accented alternative titles; on a series page the card could show the right entry, then "No AniList entry found" a second later, once the page's localized title was read. When nothing linked is found, SyncKai now also searches the title without accents, then the English title from the page address.
 - Long translations with a wider system font (Linux, macOS without the display font): the *Settings* title is no longer cut in the side panel (Ukrainian, Swedish), the decorative « セッテイ » gives way first; in *Now playing*, a long live-sync message (Russian, 320 px panel) stays whole and the playback clock moves to the next line.
 - *Settings › My data*: the Crunchyroll / ADN / Netflix import buttons wrap onto a new line in a narrow side panel instead of overflowing the card.

@@ -83,6 +83,7 @@ vi.stubGlobal('chrome', {
 const { AUTO_REDETECT_MAX_PER_MINUTE, createPageMediaController } = await import('./page-media-controller');
 const { sendMessage } = await import('../shared/messages');
 const { pageMediaCacheKey, toCachedPageMedia } = await import('../shared/page-media-cache');
+const { getLocale, setLocale } = await import('../i18n');
 
 function episode(seriesId: string, title: string, number: number): EpisodeInfo {
   return {
@@ -242,6 +243,25 @@ describe('états alignés (popup et panneau)', () => {
     ctl.retry();
     await settle();
     expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(1);
+  });
+
+  it('nouvelle langue : erreur et « introuvable » redemandés (message du service worker traduit), fiche prête non', async () => {
+    const before = getLocale();
+    const forDandadan = (): PendingCall[] => pending('RESOLVE_PAGE_MEDIA').filter((call) => payloadPage(call).seriesId === 'DANDADAN');
+    const controllers = (['API_ERROR', 'NOT_FOUND', 'ready'] as const).map((outcome) => ({ outcome, ctl: createPageMediaController({ onChange: () => undefined }) }));
+    for (const { outcome, ctl } of controllers) {
+      ctl.open(1, DANDADAN);
+      await settle();
+      answer(forDandadan()[0], outcome === 'ready' ? { ok: true, data: view(DANDADAN) } : { ok: false, code: outcome, message: 'Too many requests' });
+      await settle();
+    }
+    expect(controllers.map(({ ctl }) => ctl.content.status)).toEqual(['error', 'not-found', 'ready']);
+
+    setLocale(before === 'de' ? 'fr' : 'de');
+    await settle();
+    expect(forDandadan()).toHaveLength(2);
+    expect(controllers.map(({ ctl }) => ctl.content.status)).toEqual(['loading', 'loading', 'ready']);
+    setLocale(before);
   });
 
   it('popup (`open`, sans détails) : fiche prête dès la réponse, sans relire la page', async () => {

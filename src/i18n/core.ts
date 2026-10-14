@@ -115,17 +115,36 @@ export function resolveLocale(setting: LanguageSetting): Locale {
 
 /** Numéro de la dernière demande de langue : une réponse arrivée après une demande plus récente est ignorée */
 let languageRequest = 0;
+/** Dernière demande de langue en cours (applyLanguageSetting) */
+let lastApplying: Promise<Locale> | null = null;
 
 /**
  * Applique la langue des réglages une fois son catalogue chargé (catalogue indisponible : anglais). Changements rapides :
  * la dernière demande l'emporte, quel que soit l'ordre d'arrivée des catalogues. Sert aussi aux scripts de contenu, qui
  * relisent les réglages au lieu de les suivre.
  */
-export async function applyLanguageSetting(setting: LanguageSetting): Promise<Locale> {
+export function applyLanguageSetting(setting: LanguageSetting): Promise<Locale> {
   const request = ++languageRequest;
   const locale = resolveLocale(setting);
-  const available = await loadLocale(locale);
-  if (request === languageRequest) setLocale(available ? locale : 'en');
+  const applying = loadLocale(locale).then((available) => {
+    if (request === languageRequest) setLocale(available ? locale : 'en');
+    return current;
+  });
+  lastApplying = applying;
+  return applying;
+}
+
+/**
+ * Langue active une fois la dernière demande appliquée, y compris une demande arrivée pendant l'attente. Service worker :
+ * une réponse traduite pendant un changement de langue serait encore dans l'ancienne (l'écran qui relance sa requête
+ * dès sa propre bascule l'afficherait).
+ */
+export async function languageSettled(): Promise<Locale> {
+  let seen: Promise<Locale> | null;
+  do {
+    seen = lastApplying;
+    await seen;
+  } while (seen !== lastApplying);
   return current;
 }
 

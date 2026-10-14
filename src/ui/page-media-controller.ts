@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { onLocaleChange, t } from '../i18n';
 import { createLogger } from '../shared/logger';
 import { sendMessage } from '../shared/messages';
 import {
@@ -186,6 +186,12 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     const forgotten = entry === undefined && isCachedPageMedia(change.oldValue);
     if (!forgotten && (!isCachedPageMedia(entry) || ownWrites.includes(entry.resolvedAt))) return;
     autoRedetect(true);
+  });
+
+  // Nouvelle langue : le message d'erreur ou « introuvable » vient du service worker, déjà traduit. Requête relancée
+  // pour l'avoir dans la nouvelle langue (limite AniList : refus local, sans requête réseau)
+  onLocaleChange(() => {
+    if (content.status === 'error' || content.status === 'not-found') void resolve(content.page, false);
   });
 
   /** Écriture à venir dans le cache de l'onglet : horodatage retenu pour en ignorer l'écho */

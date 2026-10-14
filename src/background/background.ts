@@ -1,4 +1,4 @@
-import { initI18n, t } from '../i18n';
+import { initI18n, languageSettled, t } from '../i18n';
 import { getMalViewer } from './api/mal';
 import { getPanelMedia } from './api/panel-media';
 import { getViewer } from './api/viewer';
@@ -196,7 +196,9 @@ chrome.runtime.onMessage.addListener(
       return false;
     }
 
+    // Langue en cours de changement (réglage modifié juste avant) : réponse traduite dans la nouvelle
     i18nReady
+      .then(languageSettled)
       .then(() => dispatch(message, sender))
       .then((response) => {
         // Erreurs prévues (réseau, API…) renvoyées sans log : consignées ici pour le rapport de diagnostic
