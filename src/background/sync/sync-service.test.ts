@@ -203,6 +203,14 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('resolveReview : échec passager d’un service (SYNC-03)', () => {
+  it('choix validé : correspondance marquée choisie par l’utilisateur (jamais remise en cause par les signaux)', async () => {
+    connect({ status: 'CURRENT', progress: 11 });
+    await savePendingReview(review());
+    await resolveReview({ key: KEY, mediaId: PART1, progress: 12 });
+    expect(await getMediaMapping(KEY)).toMatchObject({ mediaId: PART1, chosen: true });
+    expect(await getMediaMapping(KEY)).not.toHaveProperty('learned');
+  });
+
   it('MAL en 504 : AniList écrit, MAL mis en file via recordSyncOutcome, carte retirée', async () => {
     connect({ status: 'CURRENT', progress: 11 });
     mal.failWith = new ApiError('API_ERROR', 'MyAnimeList : erreur 504', { httpStatus: 504 });
@@ -371,6 +379,15 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
     expect(fakes.resolveCalls).toBe(1);
     expect(await getMediaMapping(KEY)).toEqual({ ...cachedMapping, episodes: 12 });
     expect(anilist.entries.get(PART1)?.progress).toBe(5);
+  });
+
+  it('total complété : origine de la correspondance (choisie) conservée', async () => {
+    connect({ status: 'CURRENT', progress: 4 });
+    await saveMediaMapping(KEY, { ...cachedMapping, chosen: true });
+    fakes.resolutions = [resolved(PART1, 5, { ...cachedMapping, chosen: true, fromCache: true })];
+
+    await syncEpisode(episode(5));
+    expect(await getMediaMapping(KEY)).toEqual({ ...cachedMapping, episodes: 12, chosen: true });
   });
 
   it('fiche en cache supprimée sur AniList (404) : correspondance oubliée puis nouvelle résolution', async () => {

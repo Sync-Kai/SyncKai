@@ -471,6 +471,7 @@
   "match.undetermined": "Passende AniList-Staffel konnte nicht ermittelt werden",
   "match.signalsAgree": "Stimmt mit der Plattform überein: {signals}",
   "match.signalsContradict": "Stimmt nicht mit der Plattform überein: {signals}",
+  "match.savedContradicted": "Gespeicherte Zuordnung stimmt nicht mit der Plattform überein: {signals}",
   "match.yearRemake": "Remake am Erscheinungsjahr erkannt ({year})",
   "match.signal.year": "Erscheinungsjahr",
   "match.signal.episodes": "Folgenanzahl",

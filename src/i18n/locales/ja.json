@@ -427,6 +427,7 @@
   "match.undetermined": "対応するAniListのシーズンを特定できません",
   "match.signalsAgree": "配信サービスの情報と一致：{signals}",
   "match.signalsContradict": "配信サービスの情報と不一致：{signals}",
+  "match.savedContradicted": "保存した紐付けが配信サービスの情報と不一致：{signals}",
   "match.yearRemake": "リメイク版を放送開始年（{year}年）で判別",
   "match.signal.year": "放送開始年",
   "match.signal.episodes": "話数",

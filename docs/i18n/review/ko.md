@@ -174,3 +174,11 @@ New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and
 | `match.signal.format` | 형식(극장판 또는 시리즈) |
 | `match.signal.country` | 제작 국가 |
 | `match.signal.originalTitle` | 원제 |
+
+## 2026-10-14 · Saved match contradicted by the platform
+
+New key `match.savedContradicted` (reason shown in 'To check' cards, the history import and logs): a match saved earlier for the season (season → AniList entry, possibly a choice of the user) is contradicted by data read on the streaming platform, so nothing is synced until the user confirms or picks the entry. Same structure as `match.signalsContradict` (colon before `{signals}`, no final period); terms from this language's term sheet (match, platform). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.savedContradicted` | 저장된 매칭이 플랫폼 정보와 불일치: {signals} |

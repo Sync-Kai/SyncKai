@@ -471,6 +471,7 @@
   "match.undetermined": "Karşılık gelen AniList sezonu belirlenemedi",
   "match.signalsAgree": "Platformla eşleşiyor: {signals}",
   "match.signalsContradict": "Platformla eşleşmiyor: {signals}",
+  "match.savedContradicted": "Kayıtlı eşleşme platformla uyuşmuyor: {signals}",
   "match.yearRemake": "Yeniden yapım, yayın yılından ayırt edildi ({year})",
   "match.signal.year": "yayın yılı",
   "match.signal.episodes": "bölüm sayısı",

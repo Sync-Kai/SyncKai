@@ -168,7 +168,7 @@ describe('resolvePageMedia — saison choisie (ARCH-20)', () => {
     expect(result).toMatchObject({ ok: true, data: { media: { mediaId: PART2 }, source: 'manual', confidence: 'certain', episodeProgress: 2 } });
     const key = mappingKey(e14);
     expect(storedMappings()).toEqual({
-      [key]: { mediaId: PART2, numbering: 'displayed', offset: 12, episodes: 12, seriesLabel: 'Mushoku Tensei: Jobless Reincarnation · S2 (Mushoku Tensei: Jobless Reincarnation Season 2)', mediaTitle: 'Mushoku Tensei II Part 2' },
+      [key]: { mediaId: PART2, numbering: 'displayed', offset: 12, episodes: 12, seriesLabel: 'Mushoku Tensei: Jobless Reincarnation · S2 (Mushoku Tensei: Jobless Reincarnation Season 2)', mediaTitle: 'Mushoku Tensei II Part 2', chosen: true },
     });
 
     // EPISODE_COMPLETED : la synchro résout l'épisode par la correspondance enregistrée, sans recherche

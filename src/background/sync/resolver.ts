@@ -10,6 +10,7 @@ import type { RequestLane } from '../api/rate-limit';
 import {
   alignPlatformSeasons,
   applyMapping,
+  cachedMappingVerdict,
   disneySeriesKey,
   filtersAnime,
   gateByPlatformLink,
@@ -26,19 +27,23 @@ import {
   seasonLabel,
   matchPlatformLink,
   primeOwnIds,
+  provenBySignals,
   seasonSearchQuery,
   resolveTarget,
+  savedMappingDoubt,
   seasonPool,
   SERIES_FORMATS,
   toSortableDate,
+  type CachedMappingVerdict,
   type LinkKind,
   type MediaCandidate,
   type ResolveResult,
+  type SyncTarget,
 } from './matching';
 import { normalizeTitle, slugSearchTitle, withoutDiacritics } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './season-groups';
-import { contradictingSignal } from './concordance';
+import type { SignalName } from './concordance';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('sync');
@@ -259,16 +264,16 @@ function candidateSignals(media: AniListMedia): Pick<MediaCandidate, 'endYear' |
 }
 
 /**
- * Correspondance apprise automatiquement (`learned`) que les signaux de la plateforme contredisent (année, format,
- * durée : fiche d'une autre saison ou d'un remake) : signal en cause, null si elle tient. Un choix de l'utilisateur
- * (sans `learned`) n'est jamais remis en cause. Une requête au catalogue (en cache quelques minutes), seulement avec des signaux.
+ * Correspondance en cache confrontée aux signaux de la plateforme (voir matching.ts › cachedMappingVerdict), avec sa
+ * fiche (proposée dans la carte « À vérifier » si elle est mise en doute). Une requête au catalogue (en cache quelques
+ * minutes), seulement avec des signaux et hors choix de l'utilisateur (`chosen`).
  */
-async function contradictedMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<string | null> {
-  if (mapping.learned !== true || !hasSignals(episode.signals)) return null;
-  const media = (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId);
-  if (!media) return null;
-  const candidate = { id: media.id, format: media.format, episodes: media.episodes, startDate: sortableStart(media), titles: media.titles, ...candidateSignals(media) };
-  return contradictingSignal(candidate, episode.signals);
+async function questionMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<{ verdict: CachedMappingVerdict; media: AniListMedia | null }> {
+  if (mapping.chosen === true || !hasSignals(episode.signals)) return { verdict: { kind: 'keep' }, media: null };
+  const media = (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId) ?? null;
+  if (!media) return { verdict: { kind: 'keep' }, media: null };
+  const entry = { id: media.id, format: media.format, episodes: media.episodes, startDate: sortableStart(media), titles: media.titles, ...candidateSignals(media) };
+  return { verdict: cachedMappingVerdict(mapping, entry, episode.signals), media };
 }
 
 /**
@@ -377,6 +382,35 @@ async function confirmImportedMapping(episode: EpisodeInfo, key: string, mapping
   return confirmed;
 }
 
+/**
+ * Correspondance en cache d'origine inconnue (ni `learned` ni `chosen` : enregistrée avant la 2.4.0, importée) que les
+ * signaux de la plateforme contredisent : peut-être un choix de l'utilisateur, donc jamais supprimée ni réécrite, mais
+ * jamais synchronisée d'office. Résultat « À vérifier » : fiche prouvée par les signaux (nouvelle résolution, groupe de
+ * saison unique et confirmé) proposée si elle diffère, sinon la fiche en cache ; celle-ci reste parmi les fiches
+ * proposées. Valider la carte enregistre le choix (`chosen`, voir sync-service.ts › resolveReview).
+ */
+async function doubtedMapping(
+  episode: EpisodeInfo,
+  key: string,
+  cached: MediaMapping & { progress: number },
+  media: AniListMedia,
+  signals: readonly SignalName[],
+  lane: RequestLane,
+): Promise<EpisodeResolution> {
+  const collected = await collectCandidates(episode, lane);
+  const fresh = gateByPlatformLink(episode, collected.candidates, resolveTarget(episode, collected.candidates));
+  const reason = savedMappingDoubt(signals);
+  const isProven = (target: SyncTarget): boolean => target.bySignals === true || provenBySignals(episode, collected.candidates, target.mediaId);
+  const proven = fresh.ok && fresh.target.confidence === 'high' && fresh.target.mediaId !== cached.mediaId && isProven(fresh.target) ? fresh.target : null;
+  const target: SyncTarget = proven ? { ...proven, confidence: 'low', reason } : { ...cached, confidence: 'low', reason };
+  log.info(`Correspondance ${key} (#${cached.mediaId}) contredite par la plateforme (${signals.join(', ')}) : à vérifier${proven ? `, #${proven.mediaId} proposée` : ''}`);
+  const summaries = summarize(collected, target.mediaId);
+  // La fiche en cache reste sélectionnable (choix possible de l'utilisateur), même absente de la recherche
+  const candidates = summaries.some((c) => c.id === media.id) ? summaries : [...summaries.slice(0, 1), toCandidateSummary(media), ...summaries.slice(1)].slice(0, MAX_REVIEW_CANDIDATES);
+  const { seasons, seasonGroups } = poolOf(collected, episode.animeTitle);
+  return { result: { ok: true, target }, candidates, seasons: seasons.map(toCandidateSummary), seasonGroups };
+}
+
 /** Résout la fiche AniList d'un épisode : cache d'abord, recherche sinon (et mise en cache si fiable). */
 export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lane = 'interactive' }: ResolveOptions = {}): Promise<EpisodeResolution> {
   const key = mappingKey(episode);
@@ -384,13 +418,16 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   const stored = await getMediaMapping(key);
   // Correspondance importée : revérifiée sur le catalogue avant d'être jugée sûre (BAK-02)
   const confirmed = stored?.unverified === true && applyMapping(episode, stored) !== null ? await confirmImportedMapping(episode, key, stored, persist, lane) : stored;
-  // Correspondance apprise que les signaux de la plateforme contredisent : oubliée, nouvelle résolution
-  const contradicted = confirmed ? await contradictedMapping(episode, confirmed, lane) : null;
-  if (contradicted !== null) log.info(`Correspondance ${key} contredite par la plateforme (${contradicted}) : nouvelle résolution`);
-  const cached = contradicted === null ? confirmed : null;
+  // Signaux de la plateforme contre la correspondance : apprise et contredite → oubliée, nouvelle résolution ; origine
+  // inconnue et contredite → « À vérifier » (doubtedMapping) ; choix de l'utilisateur → jamais remis en cause
+  const question = confirmed ? await questionMapping(episode, confirmed, lane) : null;
+  const { verdict } = question ?? { verdict: { kind: 'keep' } as const };
+  if (verdict.kind === 'drop') log.info(`Correspondance apprise ${key} contredite par la plateforme (${verdict.signals.join(', ')}) : nouvelle résolution`);
+  const cached = verdict.kind === 'drop' ? null : confirmed;
   if (cached) {
     const progress = applyMapping(episode, cached);
     if (progress !== null) {
+      if (verdict.kind === 'doubt' && question?.media) return doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict.signals, lane);
       return {
         result: { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } },
         candidates: [],

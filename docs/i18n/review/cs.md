@@ -152,3 +152,11 @@ New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and
 | `match.signal.format` | formát (film nebo seriál) |
 | `match.signal.country` | země původu |
 | `match.signal.originalTitle` | původní název |
+
+## 2026-10-14 · Saved match contradicted by the platform
+
+New key `match.savedContradicted` (reason shown in 'To check' cards, the history import and logs): a match saved earlier for the season (season → AniList entry, possibly a choice of the user) is contradicted by data read on the streaming platform, so nothing is synced until the user confirms or picks the entry. Same structure as `match.signalsContradict` (colon before `{signals}`, no final period); terms from this language's term sheet (match, platform). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.savedContradicted` | Zapamatované přiřazení neodpovídá platformě: {signals} |

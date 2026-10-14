@@ -515,6 +515,7 @@
   "match.undetermined": "Sezonul AniList corespunzător nu a putut fi determinat",
   "match.signalsAgree": "Corespunde cu platforma: {signals}",
   "match.signalsContradict": "Nu corespunde cu platforma: {signals}",
+  "match.savedContradicted": "Asocierea memorată nu corespunde cu platforma: {signals}",
   "match.yearRemake": "Remake deosebit după anul lansării ({year})",
   "match.signal.year": "anul lansării",
   "match.signal.episodes": "numărul de episoade",

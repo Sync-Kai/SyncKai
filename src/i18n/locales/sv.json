@@ -471,6 +471,7 @@
   "match.undetermined": "Det gick inte att avgöra motsvarande AniList-säsong",
   "match.signalsAgree": "Stämmer med plattformen: {signals}",
   "match.signalsContradict": "Stämmer inte med plattformen: {signals}",
+  "match.savedContradicted": "Den sparade kopplingen stämmer inte med plattformen: {signals}",
   "match.yearRemake": "Remake urskild genom utgivningsåret ({year})",
   "match.signal.year": "utgivningsår",
   "match.signal.episodes": "antal avsnitt",

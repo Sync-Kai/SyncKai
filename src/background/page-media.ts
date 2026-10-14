@@ -24,6 +24,7 @@ import { ApiError } from './api/errors';
 import { getPageMediaDetails, type AniListMedia } from './api/media';
 import {
   episodeCountMismatch,
+  exactRememberedMapping,
   firstUnfinishedSeason,
   learnableSeriesLink,
   manualSeasonProgress,
@@ -37,6 +38,7 @@ import {
 } from './page-media-rules';
 import { isSeriesIgnored, rememberIgnoredSeries } from './sync/ignored-series';
 import {
+  cachedMappingVerdict,
   filtersAnime,
   isDisneyEntityLink,
   isPrimeOwnLink,
@@ -239,8 +241,16 @@ async function pickSeriesSeason(page: PageMediaInfo, manual: number | null, { ca
     if (pageMatch) return { mediaId: pageMatch.mediaId, source: 'page', confidence: pageMatch.confident ? 'certain' : 'uncertain', seasons: summaries, episodeProgress: null };
     return { mediaId: summaries[0].id, source: 'page', confidence: 'uncertain', seasons: summaries, episodeProgress: null };
   }
-  // (b) Correspondance mémorisée (synchro précédente)
-  const remembered = rememberedSeason(await getMediaMappings(), seriesMappingPrefix(page), page.seasonNumber, signals?.seasonYear);
+  // (b) Correspondance mémorisée (synchro précédente), confrontée aux signaux comme pour la synchro (resolver.ts) : apprise
+  // et contredite → ignorée ; d'origine inconnue et contredite → ignorée, saison affichée « à vérifier » (jamais l'ancienne
+  // fiche donnée pour certaine) ; choix de l'utilisateur → gardé. Fiche absente des candidats : rien à comparer.
+  const mappings = await getMediaMappings();
+  const prefix = seriesMappingPrefix(page);
+  const exact = exactRememberedMapping(mappings, prefix, page.seasonNumber, signals?.seasonYear);
+  const verdict = exact ? cachedMappingVerdict(exact, candidates.find((c) => c.id === exact.mediaId) ?? null, signals) : { kind: 'keep' as const };
+  if (verdict.kind !== 'keep') log.info(`Correspondance mémorisée #${exact?.mediaId ?? '?'} contredite par la plateforme (${verdict.signals.join(', ')}) : ${verdict.kind}`);
+  const remembered = verdict.kind === 'keep' ? rememberedSeason(mappings, prefix, page.seasonNumber, signals?.seasonYear) : null;
+  const doubted = verdict.kind === 'doubt';
 
   const seasonIds = seasons.map((s) => s.id);
   const choice: SeasonChoice | null =
@@ -249,7 +259,8 @@ async function pickSeriesSeason(page: PageMediaInfo, manual: number | null, { ca
     firstUnfinishedSeason(seasonIds, await seasonStatuses(seasons));
   if (!choice) return null;
   const refined = choice.source === 'page' ? await refinePageSeason(page, choice, seasons, seasonGroups, remembered, proven && choice.mediaId === pageMatch?.mediaId) : choice;
-  return { ...refined, seasons: summaries, episodeProgress: null };
+  const confidence = doubted && refined.source !== 'manual' ? 'uncertain' : refined.confidence;
+  return { ...refined, confidence, seasons: summaries, episodeProgress: null };
 }
 
 /**
@@ -313,8 +324,9 @@ async function rememberManualSeason(episode: EpisodeInfo, media: PageMediaDetail
   const key = mappingKey(episode);
   const stored = await getMediaMapping(key);
   // Relecture avec la même saison (après une action) : correspondance déjà enregistrée, rien à réécrire
-  if (stored && !stored.unverified && stored.mediaId === mapping.mediaId && stored.numbering === mapping.numbering && stored.offset === mapping.offset) return true;
-  await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(episode), mediaTitle: media.title });
+  if (stored?.chosen && stored.mediaId === mapping.mediaId && stored.numbering === mapping.numbering && stored.offset === mapping.offset) return true;
+  // Choix de l'utilisateur (même fiche qu'une correspondance apprise ou d'origine inconnue : marquée choisie)
+  await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(episode), mediaTitle: media.title, chosen: true });
   log.info(`Saison choisie enregistrée pour ${key} :`, mapping);
   return true;
 }

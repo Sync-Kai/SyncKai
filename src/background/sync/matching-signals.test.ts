@@ -122,11 +122,40 @@ describe('correspondance en cache contredite par les signaux', () => {
     expect(result.ok && result.target).toMatchObject({ mediaId: 177474, confidence: 'high' });
   });
 
-  it('choisie par l’utilisateur (sans `learned`) : gardée, sans requête', async () => {
-    storage.getMediaMapping.mockResolvedValue(stored);
+  it('choisie par l’utilisateur (`chosen`) : gardée, sans requête', async () => {
+    storage.getMediaMapping.mockResolvedValue({ ...stored, chosen: true });
     const { result } = await resolveEpisode(adnEpisode({ signals: { seasonYear: 2025 } }));
     expect(api.getAnimeByIds).not.toHaveBeenCalled();
-    expect(result.ok && result.target).toMatchObject({ mediaId: 999, fromCache: true });
+    expect(result.ok && result.target).toMatchObject({ mediaId: 999, confidence: 'high', fromCache: true });
+  });
+
+  it('origine inconnue (ni `learned` ni `chosen`) : gardée en cache, à vérifier, fiche prouvée proposée', async () => {
+    storage.getMediaMapping.mockResolvedValue(stored);
+    api.getAnimeByIds.mockResolvedValue([wrong]);
+    const { result, candidates } = await resolveEpisode(adnEpisode({ signals: { seasonYear: 2025 } }));
+    expect(result.ok && result.target).toMatchObject({ mediaId: 177474, progress: 5, confidence: 'low', reason: 'Saved match contradicted by the platform: release year' });
+    expect(result.ok && result.target.fromCache).toBeFalsy();
+    // Fiche proposée d'abord, fiche en cache toujours sélectionnable
+    expect(candidates.map((c) => c.id)).toEqual([177474, 999]);
+    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+  });
+
+  it('origine inconnue contredite sans fiche prouvée : fiche en cache proposée, à vérifier', async () => {
+    storage.getMediaMapping.mockResolvedValue(stored);
+    api.getAnimeByIds.mockResolvedValue([wrong]);
+    api.searchAnime.mockResolvedValue([]);
+    const { result } = await resolveEpisode(adnEpisode({ signals: { seasonYear: 2025 } }));
+    expect(result.ok && result.target).toMatchObject({ mediaId: 999, progress: 5, confidence: 'low' });
+    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
+  });
+
+  it('origine inconnue et concordante : gardée, fiable', async () => {
+    storage.getMediaMapping.mockResolvedValue({ ...stored, mediaId: 177474 });
+    api.getAnimeByIds.mockResolvedValue([TOUGEN]);
+    const { result } = await resolveEpisode(adnEpisode({ signals: { seasonYear: 2025 } }));
+    expect(result.ok && result.target).toMatchObject({ mediaId: 177474, confidence: 'high', fromCache: true });
+    expect(api.searchAnime).not.toHaveBeenCalled();
   });
 
   it('apprise et concordante : gardée', async () => {

@@ -82,6 +82,7 @@ const fake = installFakeChrome();
 const { resolveEpisode } = await import('../resolver');
 const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media');
 const { clearCatalogCache } = await import('../../api/media');
+const { getMediaMapping, saveMediaMapping } = await import('../../../shared/storage');
 
 /** Saison affichée parmi les saisons relevées (`seq` = numéro de saison ; une seule saison relevée : celle-ci) */
 function shownSeason(captured: CapturedSignals, seasonNumber: number | null): PlatformSeasonSignal | undefined {
@@ -165,6 +166,7 @@ function signalsOf(platform: StreamingPlatform, captured: CapturedSignals | unde
 }
 
 async function outcomeOf(corpusCase: CorpusCase): Promise<CorpusOutcome> {
+  for (const [key, mapping] of Object.entries(corpusCase.mappings ?? {})) await saveMediaMapping(key, mapping);
   if (corpusCase.kind === 'episode') {
     const signals = signalsOf(corpusCase.episode.platform, corpusCase.signals, corpusCase.episode.seasonNumber);
     const { result } = await resolveEpisode(signals ? { ...corpusCase.episode, signals } : corpusCase.episode);
@@ -201,6 +203,8 @@ describe('corpus de correspondance : comportement actuel figé', () => {
     expect(sent.missing, `anilist/${corpusCase.anilist}.json ${JSON.stringify(sent.missing)}`).toEqual([]);
     expect(comparable(corpusCase, outcome)).toEqual(comparable(corpusCase, corpusCase.expected));
     expect(sent.searches).toEqual(corpusCase.searches);
+    // Correspondance qui peut être un choix de l'utilisateur (sans `learned`) : jamais supprimée ni réécrite
+    for (const [key, mapping] of Object.entries(corpusCase.mappings ?? {})) if (mapping.learned !== true) expect(await getMediaMapping(key), key).toEqual(mapping);
   });
 });
 

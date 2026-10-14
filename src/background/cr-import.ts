@@ -234,7 +234,9 @@ async function resolveSeason(season: HistorySeason, platform: ImportPlatform): P
     return { kind: 'review', key, reason, suggestion: result.ok ? { mediaId: result.target.mediaId, progress: result.target.progress } : null, candidates };
   }
   const { mediaId, numbering, offset, episodes, progress } = result.target;
-  return { kind: 'certain', key, mediaId, progress, mapping: { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode) } };
+  // Correspondance en cache : son origine reste (jamais écrasée, voir saveMediaMappingsIfAbsent) ; sinon apprise
+  const origin = result.target.fromCache ? { ...(cached?.learned ? { learned: true as const } : {}), ...(cached?.chosen ? { chosen: true as const } : {}) } : { learned: true as const };
+  return { kind: 'certain', key, mediaId, progress, mapping: { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...origin } };
 }
 
 const itemEvent = (outcome: 'updated' | 'skipped' | 'failed', message?: string): StepResult => ({

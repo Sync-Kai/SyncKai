@@ -198,9 +198,15 @@ export function sectionsFromStorage(stored: Record<string, unknown>): Record<Bac
   };
 }
 
-/** Correspondances marquées « à revérifier » (Object.fromEntries : une clé "__proto__" reste une simple donnée) */
+/**
+ * Correspondances marquées « à revérifier » (Object.fromEntries : une clé "__proto__" reste une simple donnée), sans leur
+ * origine (`learned`, `chosen` : fichier non fiable) : d'origine inconnue, jamais supprimées, mises en doute par les
+ * signaux de la plateforme comme celles d'avant la 2.4.0 (voir matching.ts › cachedMappingVerdict)
+ */
 function markUnverified(mappings: Record<string, MediaMapping>): Record<string, MediaMapping> {
-  return Object.fromEntries(Object.entries(mappings).map(([key, mapping]) => [key, { ...mapping, unverified: true as const }]));
+  return Object.fromEntries(
+    Object.entries(mappings).map(([key, { learned: _learned, chosen: _chosen, ...mapping }]) => [key, { ...mapping, unverified: true as const }]),
+  );
 }
 
 function fail(code: BackupErrorCode, message: string): Result<ParsedBackup, BackupErrorCode> {

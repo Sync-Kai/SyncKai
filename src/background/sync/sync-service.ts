@@ -308,7 +308,7 @@ async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<
     return null;
   }
   if (target.episodes === null && catalog.episodes !== null) {
-    const { mediaId, numbering, offset, seriesLabel, mediaTitle, learned } = target;
+    const { mediaId, numbering, offset, seriesLabel, mediaTitle, learned, chosen } = target;
     await saveMediaMapping(key, {
       mediaId,
       numbering,
@@ -317,6 +317,7 @@ async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<
       ...(seriesLabel !== undefined ? { seriesLabel } : {}),
       ...(mediaTitle !== undefined ? { mediaTitle } : {}),
       ...(learned !== undefined ? { learned } : {}),
+      ...(chosen !== undefined ? { chosen } : {}),
     });
   }
   return catalog;
@@ -442,7 +443,8 @@ export async function resolveReview({ key, mediaId, progress }: ResolveReviewPay
       };
     }
 
-    await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title });
+    // Choix de l'utilisateur : jamais remis en cause par les signaux de la plateforme (voir matching.ts › cachedMappingVerdict)
+    await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title, chosen: true });
     log.info(`Correspondance manuelle enregistrée pour ${key} :`, mapping);
     // Correction sur la fiche déjà utilisée : la valeur choisie remplace celle écrite (même plus basse), seulement
     // sur un service resté à la progression écrite par la synchro corrigée (voir writeEntry)

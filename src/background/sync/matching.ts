@@ -13,7 +13,9 @@ import {
   isApplicable,
   isConfirmed,
   checkGroup,
+  contradictingSignals,
   signalsWith,
+  type ConcordanceEntry,
   type ConcordanceVerdict,
   type GroupVerdict,
   type SignalChecks,
@@ -925,6 +927,37 @@ function checkedBySignals(episode: EpisodeNumbers, result: ResolveResult, concor
   if (proven) return { ok: true, target: { ...target, reason: agreeReason(concordance, checks) } };
   return low(episode.platform === 'prime' ? t('match.platformTitleOnly', { platform: PLATFORMS.prime.label }) : t('match.titleOnly'));
 }
+
+/**
+ * Correspondance en cache confrontée aux signaux de la plateforme (fiche de la correspondance seule, voir
+ * contradictingSignals) :
+ * - `keep` : elle tient, choix de l'utilisateur (`chosen`, jamais remis en cause), ou rien à comparer ;
+ * - `drop` : apprise automatiquement (`learned`) et contredite : oubliée, nouvelle résolution ;
+ * - `doubt` : origine inconnue (enregistrée avant la 2.4.0, importée) et contredite : jamais supprimée (peut-être un
+ *   choix de l'utilisateur), jamais synchronisée d'office : « À vérifier ».
+ */
+export type CachedMappingVerdict = { kind: 'keep' } | { kind: 'drop' | 'doubt'; signals: SignalName[] };
+
+export function cachedMappingVerdict(mapping: MediaMapping, entry: ConcordanceEntry | null, signals: PlatformSignals | undefined): CachedMappingVerdict {
+  if (mapping.chosen === true || entry === null || !hasSignals(signals)) return { kind: 'keep' };
+  const names = contradictingSignals(entry, signals);
+  if (names.length === 0) return { kind: 'keep' };
+  return { kind: mapping.learned === true ? 'drop' : 'doubt', signals: names };
+}
+
+/**
+ * Fiche dans le groupe de saison que les signaux de la plateforme prouvent (groupe unique sans contradiction, confirmé
+ * au-delà du titre, voir concordanceVerdict) : proposée à la place d'une correspondance en cache mise en doute.
+ */
+export function provenBySignals(episode: EpisodeNumbers, candidates: readonly MediaCandidate[], mediaId: number): boolean {
+  if (!hasSignals(episode.signals)) return false;
+  const { verdict } = signalConcordance(episode, candidates, episode.signals);
+  const [group] = verdict.kept;
+  return verdict.proven && group !== undefined && group.entries.some((c) => c.id === mediaId);
+}
+
+/** Raison « À vérifier » d'une correspondance en cache contredite par la plateforme (verdict `doubt`) */
+export const savedMappingDoubt = (names: readonly SignalName[]): string => t('match.savedContradicted', { signals: signalList(names) });
 
 /**
  * Choisit la fiche AniList et la progression correspondant à un épisode. Signaux de la plateforme (année, épisodes,

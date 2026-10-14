@@ -240,16 +240,20 @@ export function concordanceVerdict<T extends ConcordanceEntry>(groups: readonly 
 }
 
 /**
- * Correspondance en cache confrontée aux signaux (fiche seule, sans les autres candidats) : signal qui l'écarte
- * nettement (format, année à plus d'un an hors diffusion, année de série postérieure, durée), null sinon. Le nombre
- * d'épisodes n'est pas comparé : la fiche peut n'être qu'une partie de la saison (« II Part 2 »).
+ * Correspondance en cache confrontée aux signaux (fiche seule, sans les autres candidats) : signaux qui l'écartent
+ * nettement (format, année à plus d'un an hors diffusion, année de série postérieure, durée), dans cet ordre ; vide si
+ * elle tient. Le nombre d'épisodes n'est pas comparé : la fiche peut n'être qu'une partie de la saison (« II Part 2 »).
  */
-export function contradictingSignal(entry: ConcordanceEntry, signals: PlatformSignals): SignalName | null {
+export function contradictingSignals(entry: ConcordanceEntry, signals: PlatformSignals): SignalName[] {
   const entries = [entry];
-  if (signals.format !== undefined && formatCheck(signals.format, entries) === 'contradict') return 'format';
-  if (signals.seasonYear !== undefined && yearCheck(signals.seasonYear, entries) === 'contradict') return 'seasonYear';
+  const names: SignalName[] = [];
+  if (signals.format !== undefined && formatCheck(signals.format, entries) === 'contradict') names.push('format');
+  if (signals.seasonYear !== undefined && yearCheck(signals.seasonYear, entries) === 'contradict') names.push('seasonYear');
   const start = yearOf(entry);
-  if (signals.seriesYear !== undefined && start !== null && signals.seriesYear > start + 1) return 'seriesYear';
-  if (signals.episodeMinutes !== undefined && minutesCheck(signals.episodeMinutes, entries) === 'contradict') return 'episodeMinutes';
-  return null;
+  if (signals.seriesYear !== undefined && start !== null && signals.seriesYear > start + 1) names.push('seriesYear');
+  if (signals.episodeMinutes !== undefined && minutesCheck(signals.episodeMinutes, entries) === 'contradict') names.push('episodeMinutes');
+  return names;
 }
+
+/** Premier signal qui écarte la correspondance en cache (voir contradictingSignals), null si elle tient */
+export const contradictingSignal = (entry: ConcordanceEntry, signals: PlatformSignals): SignalName | null => contradictingSignals(entry, signals)[0] ?? null;

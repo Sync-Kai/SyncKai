@@ -427,6 +427,7 @@
   "match.undetermined": "대응하는 AniList 시즌을 판단하지 못함",
   "match.signalsAgree": "플랫폼 정보와 일치: {signals}",
   "match.signalsContradict": "플랫폼 정보와 불일치: {signals}",
+  "match.savedContradicted": "저장된 매칭이 플랫폼 정보와 불일치: {signals}",
   "match.yearRemake": "방영 연도({year}년)로 리메이크작 구분",
   "match.signal.year": "방영 연도",
   "match.signal.episodes": "에피소드 수",

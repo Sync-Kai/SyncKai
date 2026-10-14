@@ -471,6 +471,7 @@
   "match.undetermined": "Couldn't determine the matching AniList season",
   "match.signalsAgree": "Matches the platform: {signals}",
   "match.signalsContradict": "Doesn’t match the platform: {signals}",
+  "match.savedContradicted": "Saved match contradicted by the platform: {signals}",
   "match.yearRemake": "Remake told apart by its release year ({year})",
   "match.signal.year": "release year",
   "match.signal.episodes": "episode count",

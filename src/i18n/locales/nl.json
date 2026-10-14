@@ -471,6 +471,7 @@
   "match.undetermined": "Bijbehorend AniList-seizoen niet te bepalen",
   "match.signalsAgree": "Komt overeen met het platform: {signals}",
   "match.signalsContradict": "Komt niet overeen met het platform: {signals}",
+  "match.savedContradicted": "De onthouden koppeling komt niet overeen met het platform: {signals}",
   "match.yearRemake": "Remake herkend aan het jaar van verschijnen ({year})",
   "match.signal.year": "jaar van verschijnen",
   "match.signal.episodes": "aantal afleveringen",

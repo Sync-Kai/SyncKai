@@ -4,7 +4,7 @@
     "Mushoku Tensei: Jobless Reincarnation": [108465,146065,178789,127720,141534,166873,217434]
   },
   "byIds": {
-
+    "178789": [178789]
   },
   "media": [
     {"id":108465,"idMal":39535,"format":"TV","episodes":11,"startDate":{"year":2021,"month":1,"day":11},"seasonYear":2021,"title":{"romaji":"Mushoku Tensei: Isekai Ittara Honki Dasu","english":"Mushoku Tensei: Jobless Reincarnation","native":"無職転生 ～異世界行ったら本気だす～","userPreferred":"Mushoku Tensei: Isekai Ittara Honki Dasu"},"synonyms":["Jobless Reincarnation: I Will Seriously Try If I Go To Another World","无职转生 ~到了异世界就拿出真本事~","เกิดชาตินี้พี่ต้องเทพ","Thất nghiệp chuyển sinh"],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":127720,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.crunchyroll.com/mushoku-tensei-jobless-reincarnation"},{"url":"https://www.netflix.com/title/80987039"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2021,"endDate":{"year":2021,"month":3,"day":22}}},

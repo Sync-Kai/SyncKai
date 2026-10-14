@@ -40,6 +40,17 @@ export function seriesPageGate(page: Pick<PageMediaInfo, 'catalogAnime'>, verdic
   return verdict === 'title' ? 'title' : 'ignored';
 }
 
+/** Correspondance mémorisée pour la saison lue sur la page (clé avec l'année de la saison d'abord, voir mappingKey), null sinon */
+export function exactRememberedMapping(
+  mappings: Readonly<Record<string, MediaMapping>>,
+  prefix: string,
+  seasonNumber: number | null,
+  seasonYear?: number,
+): MediaMapping | null {
+  if (seasonNumber === null) return null;
+  return (seasonYear !== undefined ? mappings[`${prefix}y${seasonYear}:s${seasonNumber}`] : undefined) ?? mappings[`${prefix}s${seasonNumber}`] ?? null;
+}
+
 /**
  * Correspondance mémorisée pour la série (synchro précédente ou choix manuel d'une vérification) :
  * la saison lue sur la page si elle est connue (`exact`), sinon la plus avancée des saisons mémorisées
@@ -52,10 +63,8 @@ export function rememberedSeason(
   /** Année de la saison (clé par titre avec année, voir mappingKey) : correspondance de cette année d'abord */
   seasonYear?: number,
 ): { mediaId: number; exact: boolean } | null {
-  if (seasonNumber !== null) {
-    const exact = (seasonYear !== undefined ? mappings[`${prefix}y${seasonYear}:s${seasonNumber}`] : undefined) ?? mappings[`${prefix}s${seasonNumber}`];
-    if (exact) return { mediaId: exact.mediaId, exact: true };
-  }
+  const exact = exactRememberedMapping(mappings, prefix, seasonNumber, seasonYear);
+  if (exact) return { mediaId: exact.mediaId, exact: true };
   let best: { season: number; mediaId: number } | null = null;
   for (const [key, mapping] of Object.entries(mappings)) {
     if (!key.startsWith(prefix)) continue;

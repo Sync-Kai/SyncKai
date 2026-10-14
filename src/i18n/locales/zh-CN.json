@@ -427,6 +427,7 @@
   "match.undetermined": "无法确定对应的 AniList 季",
   "match.signalsAgree": "与平台信息一致：{signals}",
   "match.signalsContradict": "与平台信息不符：{signals}",
+  "match.savedContradicted": "已保存的匹配记录与平台信息不符：{signals}",
   "match.yearRemake": "通过首播年份（{year} 年）区分重制版",
   "match.signal.year": "首播年份",
   "match.signal.episodes": "集数",

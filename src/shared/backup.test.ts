@@ -119,6 +119,13 @@ describe('parseBackup', () => {
     expect(result).toEqual({ ok: true, data: { backup: expected, invalidCount: 0 } });
   });
 
+  it('origine des correspondances (`learned`, `chosen`) acceptée puis retirée : importées d’origine inconnue', () => {
+    const backup = buildBackup({ mediaMappings: { [KEY]: { ...mapping(1), learned: true }, 'crunchyroll:GRMG8ZQZR:s3': { ...mapping(2), chosen: true } } }, '2.4.0', NOW);
+    const result = parseBackup(JSON.stringify(backup));
+    expect(result.ok && result.data.backup.data.mediaMappings).toEqual({ [KEY]: { ...mapping(1), unverified: true }, 'crunchyroll:GRMG8ZQZR:s3': { ...mapping(2), unverified: true } });
+    expect(result.ok && result.data.invalidCount).toBe(0);
+  });
+
   it('rejette les correspondances suspectes : mediaId non entier ou négatif, décalage absurde, clé hors format (BAK-02)', () => {
     const result = parseBackup(
       fileText({

@@ -427,6 +427,7 @@
   "match.undetermined": "Season AniList yang sesuai tidak bisa ditentukan",
   "match.signalsAgree": "Cocok dengan platform: {signals}",
   "match.signalsContradict": "Tidak cocok dengan platform: {signals}",
+  "match.savedContradicted": "Pencocokan tersimpan tidak cocok dengan platform: {signals}",
   "match.yearRemake": "Remake dibedakan dari tahun rilisnya ({year})",
   "match.signal.year": "tahun rilis",
   "match.signal.episodes": "jumlah episode",

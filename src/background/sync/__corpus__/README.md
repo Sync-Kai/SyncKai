@@ -22,6 +22,10 @@ episode count, duration, format, country signals…) is measured against the sam
     pages send no signals yet, so their captured signals keep the assumed shape (displayed season: year and episode
     count; series start year; duration in minutes; format; airing). Rules in `src/background/sync/concordance.ts`. A
     case without `signals` shows the behaviour without signals (page without the data).
+  - `mappings`: matches already cached before the resolution (written to the fake storage): `learned` (saved
+    automatically: dropped and re-resolved when the signals contradict it), `chosen` (the user's choice: never
+    questioned) or neither (saved before 2.4.0 or restored from a backup: never deleted; contradicted by the signals,
+    it goes to « À vérifier » with the entry the signals prove). A match without `learned` must be left untouched.
 - `anilist/<franchise>.json`: AniList snapshots. `searches` / `byIds` map each request (exact search text; sorted ids
   joined by `,`) to the returned ids in API order; `media` holds the entries in the shape of `MEDIA_FIELDS`
   (`src/background/api/media.ts`), links reduced to the supported platforms, with `duration`, `countryOfOrigin`,

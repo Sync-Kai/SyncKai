@@ -471,6 +471,7 @@
   "match.undetermined": "Não foi possível determinar a temporada correspondente no AniList",
   "match.signalsAgree": "Confere com a plataforma: {signals}",
   "match.signalsContradict": "Não confere com a plataforma: {signals}",
+  "match.savedContradicted": "A correspondência memorizada não confere com a plataforma: {signals}",
   "match.yearRemake": "Remake identificado pelo ano de lançamento ({year})",
   "match.signal.year": "ano de lançamento",
   "match.signal.episodes": "número de episódios",

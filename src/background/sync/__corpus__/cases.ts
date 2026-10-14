@@ -1,5 +1,6 @@
 import type { EpisodeInfo, SentPrimeAnimeVerdict } from '../../../shared/episode.types';
 import type { PageMediaInfo } from '../../../shared/page-media.types';
+import type { MediaMapping } from '../../../shared/sync.types';
 import type { CorpusCase, CorpusOutcome } from './types';
 
 // Cas réels de correspondance (voir README.md). `expected` = comportement actuel, signaux du cas transmis (2026-10-14,
@@ -84,6 +85,8 @@ const MUSHOKU_NETFLIX_SEASONS = [
 ];
 const MUSHOKU_SIGNALS = { seasons: MUSHOKU_NETFLIX_SEASONS, source: 'fixture Netflix (2026-10-09) et capture du propriétaire (2026-10-14)' };
 const MUSHOKU_SEASONS = MUSHOKU_NETFLIX_SEASONS.map((s) => s.episodes);
+/** Correspondance Netflix S2 → « III » (S2 E14 = III épisode 1), en cache avant le marquage de son origine (cas réel du 2026-10-14) */
+const STALE_MUSHOKU_MAPPING: MediaMapping = { mediaId: 178789, numbering: 'season', offset: 13, episodes: 14, seriesLabel: 'Mushoku Tensei: Jobless Reincarnation · S2', mediaTitle: 'Mushoku Tensei III' };
 
 export const CASES: readonly CorpusCase[] = [
   // ─── Crunchyroll ────────────────────────────────────────────────────────
@@ -377,6 +380,41 @@ export const CASES: readonly CorpusCase[] = [
     expected: high(166873, 1),
   },
   {
+    id: 'nf-mushoku-s2e14-stale-mapping',
+    kind: 'episode',
+    note: 'Cas réel (2026-10-14) : correspondance Netflix S2 → « III » (178789) en cache, d’origine inconnue (enregistrée avant le marquage learned / chosen, peut-être un choix de l’utilisateur).',
+    anilist: 'mushoku-tensei',
+    episode: netflix('80987039', 'Mushoku Tensei: Jobless Reincarnation', '81691713', { seasonNumber: 2, seasonTitle: null, seasonEpisodeNumber: 14, displayedEpisodeNumber: 37, platformSeasons: MUSHOKU_SEASONS }),
+    signals: MUSHOKU_SIGNALS,
+    mappings: { 'netflix:80987039:s2': STALE_MUSHOKU_MAPPING },
+    searches: ['Mushoku Tensei: Jobless Reincarnation'],
+    // Année de la saison Netflix (2023) contre « III » (2026) : jamais supprimée ni synchronisée d’office, « À vérifier »
+    // avec II Part 2 (prouvée par les signaux) proposée
+    expected: low(166873, 1),
+  },
+  {
+    id: 'nf-mushoku-s2e14-chosen-mapping',
+    kind: 'episode',
+    note: 'Même correspondance vers « III » (178789), choisie par l’utilisateur (`chosen`) : jamais remise en cause.',
+    anilist: 'mushoku-tensei',
+    episode: netflix('80987039', 'Mushoku Tensei: Jobless Reincarnation', '81691713', { seasonNumber: 2, seasonTitle: null, seasonEpisodeNumber: 14, displayedEpisodeNumber: 37, platformSeasons: MUSHOKU_SEASONS }),
+    signals: MUSHOKU_SIGNALS,
+    mappings: { 'netflix:80987039:s2': { ...STALE_MUSHOKU_MAPPING, chosen: true } },
+    searches: [],
+    expected: high(178789, 1),
+  },
+  {
+    id: 'nf-mushoku-s2e14-learned-mapping',
+    kind: 'episode',
+    note: 'Même correspondance vers « III » (178789), apprise automatiquement (`learned`) : oubliée, nouvelle résolution.',
+    anilist: 'mushoku-tensei',
+    episode: netflix('80987039', 'Mushoku Tensei: Jobless Reincarnation', '81691713', { seasonNumber: 2, seasonTitle: null, seasonEpisodeNumber: 14, displayedEpisodeNumber: 37, platformSeasons: MUSHOKU_SEASONS }),
+    signals: MUSHOKU_SIGNALS,
+    mappings: { 'netflix:80987039:s2': { ...STALE_MUSHOKU_MAPPING, learned: true } },
+    searches: ['Mushoku Tensei: Jobless Reincarnation'],
+    expected: high(166873, 1),
+  },
+  {
     id: 'nf-mushoku-s2e14-with-s3',
     kind: 'episode',
     note: 'Même épisode (S2 E14) si Netflix publie la saison 3 (14 ép., 2026) sur le même titre : découpage 23 / 25 / 14 SUPPOSÉ (non relevé).',
@@ -407,6 +445,18 @@ export const CASES: readonly CorpusCase[] = [
     // Sans signaux : « Saison devinée » (25 épisodes sur la page contre 13 pour « II », seule fiche liée à Netflix) ;
     // l’année (2023) et le total de II + II Part 2 la prouvent
     expected: high(146065),
+  },
+  {
+    id: 'nf-mushoku-series-s2-stale-mapping',
+    kind: 'series',
+    note: 'Page de série Netflix, saison 2, avec la correspondance d’origine inconnue vers « III » (178789) en cache.',
+    anilist: 'mushoku-tensei',
+    page: seriesPage({ platform: 'netflix', seriesId: '80987039', seriesSlug: null, seriesTitle: 'Mushoku Tensei: Jobless Reincarnation', seasonNumber: 2, seasonTitle: null, seasonEpisodeCount: 25, platformSeasons: MUSHOKU_SEASONS }),
+    signals: MUSHOKU_SIGNALS,
+    mappings: { 'netflix:80987039:s2': STALE_MUSHOKU_MAPPING },
+    searches: ['Mushoku Tensei: Jobless Reincarnation'],
+    // Saison prouvée par les signaux affichée, mais « à vérifier » tant que l’utilisateur n’a pas tranché
+    expected: low(146065),
   },
   {
     id: 'nf-monsters',

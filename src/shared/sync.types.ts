@@ -28,11 +28,16 @@ export interface MediaMapping {
    */
   unverified?: true;
   /**
-   * Apprise automatiquement par la résolution (jamais un choix de l'utilisateur) : remise en cause si les signaux de la
-   * plateforme la contredisent (voir resolver.ts › contradictedMapping). Absent : choisie par l'utilisateur, importée, ou
-   * enregistrée avant la 2.4.0.
+   * Apprise automatiquement par la résolution (jamais un choix de l'utilisateur) : oubliée puis résolue de nouveau si les
+   * signaux de la plateforme la contredisent (voir matching.ts › cachedMappingVerdict).
    */
   learned?: true;
+  /**
+   * Choisie par l'utilisateur (carte « À vérifier » validée, saison choisie dans le sélecteur) : jamais remise en cause,
+   * même si les signaux de la plateforme la contredisent. Ni `learned` ni `chosen` (enregistrée avant la 2.4.0, importée
+   * d'une sauvegarde) : origine inconnue, jamais supprimée ; contredite par les signaux, elle passe par « À vérifier ».
+   */
+  chosen?: true;
 }
 
 const isPositiveInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
@@ -47,7 +52,8 @@ export function isMediaMapping(value: unknown): value is MediaMapping {
     (value.seriesLabel === undefined || typeof value.seriesLabel === 'string') &&
     (value.mediaTitle === undefined || typeof value.mediaTitle === 'string') &&
     (value.unverified === undefined || value.unverified === true) &&
-    (value.learned === undefined || value.learned === true)
+    (value.learned === undefined || value.learned === true) &&
+    (value.chosen === undefined || value.chosen === true)
   );
 }
 

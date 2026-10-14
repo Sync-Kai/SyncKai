@@ -515,6 +515,7 @@
   "match.undetermined": "Odpovídající řadu na AniListu se nepodařilo určit",
   "match.signalsAgree": "Odpovídá platformě: {signals}",
   "match.signalsContradict": "Neodpovídá platformě: {signals}",
+  "match.savedContradicted": "Zapamatované přiřazení neodpovídá platformě: {signals}",
   "match.yearRemake": "Remake rozlišený podle roku vydání ({year})",
   "match.signal.year": "rok vydání",
   "match.signal.episodes": "počet epizod",

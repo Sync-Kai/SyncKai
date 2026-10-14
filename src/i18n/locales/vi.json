@@ -427,6 +427,7 @@
   "match.undetermined": "Không xác định được mùa AniList tương ứng",
   "match.signalsAgree": "Khớp với nền tảng: {signals}",
   "match.signalsContradict": "Không khớp với nền tảng: {signals}",
+  "match.savedContradicted": "Ghép nối đã lưu không khớp với nền tảng: {signals}",
   "match.yearRemake": "Phân biệt bản làm lại nhờ năm phát hành ({year})",
   "match.signal.year": "năm phát hành",
   "match.signal.episodes": "số tập",

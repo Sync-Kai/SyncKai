@@ -2,6 +2,7 @@ import type { EpisodeInfo } from '../../../shared/episode.types';
 import type { PageMediaInfo } from '../../../shared/page-media.types';
 import { isRecord } from '../../../shared/guards';
 import type { PlatformFormat } from '../../../shared/match-signals';
+import type { MediaMapping } from '../../../shared/sync.types';
 
 // Corpus de cas réels de correspondance (voir README.md) : types des instantanés AniList et des cas.
 
@@ -80,6 +81,12 @@ interface CaseBase {
    * corpus.test.ts (EpisodeInfo.signals / PageMediaInfo.signals), comme le feront les plateformes (étapes 4 à 6)
    */
   signals?: CapturedSignals;
+  /**
+   * Correspondances déjà en cache avant la résolution (clé de mappingKey → correspondance), écrites dans le stockage
+   * simulé par corpus.test.ts : correspondance apprise (`learned`), choisie (`chosen`) ou d'origine inconnue (ni l'un ni
+   * l'autre : enregistrée avant la 2.4.0, importée)
+   */
+  mappings?: Record<string, MediaMapping>;
 }
 
 /** Saison de la plateforme telle que relevée (Netflix : `video.seasons[]` des métadonnées) */
