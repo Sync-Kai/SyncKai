@@ -281,6 +281,24 @@ Use Chrome or Brave, signed in to Prime Video, on **www.primevideo.com** in Fren
 
 Save the copied JSON fragments into a text file (no tokens) and share it: it becomes the fixtures (`src/content/prime/fixtures.ts`).
 
+## Owner captures (2026-10-14, Chrome, primevideo.com/region/eu, English UI)
+
+Read-only console probe (fetch/XHR responses reduced to whitelisted leaf fields, no headers, cookies, tokens or URLs). Title: *A Star Brighter Than the Sun* S1 (entitled, 12 episodes), E1 seeked near the end, then autoplay into E2 for 30 s. Tokyo Ghoul S1–S3 (not entitled) for the detail pages.
+
+- **No URL per episode, even on autoplay** (VERIFIED): the player is embedded in the detail page (`pageContext.playbackLaunchType: EMBEDDED`); `location` stayed on `/detail/<season compactGTI>` for E1 and E2. Identity must come from the bridge.
+- **Detail pages** (VERIFIED): hydration `atf/btf.state` holds the season (`pageTitleId`, `self.<gti>.compactGTI`, `titleType: season`, `seasonNumber`, `sequenceNumber`), `headerDetail.parentTitle` (series title; `title` can be "Tokyo Ghoul Season 1"), `metadata.episodeCount` ("12 episodes"), and every episode in `btf.state.detail.detail.<episode gti>` (`title`, `episodeNumber`, `duration` in s, `titleType: episode`). SPA navigation fetches `GET /region/eu/detail/<id>?dvWebAppClientVersion=…` as JSON with the same shape; **the `#dv-web-page-hydration-data` node is NOT updated on SPA navigation**, so the bridge must read those responses (the node is only the first page).
+- **Playing episode** (VERIFIED, after autoplay): `GET atv-ps-eu.primevideo.com/cdp/lumina/playerChromeResources/v1?entityId=…&desiredResources=…` answered 0.1 s into E2 with `resources.catalogMetadataV2.catalog = { type: EPISODE, title: "Call My Name", seriesTitle, seasonNumber: 1, episodeNumber: 2 }`. Another call returns `resources.nextUpV3.card.carouselItems[] = { titleId, isLogicalNextEpisode, catalog { title, seriesTitle, seasonNumber, episodeNumber } }` (the episode AFTER the playing one). No id inside `catalogMetadataV2` was captured: join by the request's `entityId` (assumed to be the playing episode's gti, UNKNOWN).
+- **Same-origin widgets** on autoplay: `GET /region/eu/api/getDetailWidgets?titleID=…&widgets=…` gives `buybox.bestSelf { gti, compactGTI, sequenceNumber, titleType: episode }` of the playing episode and `episodeList.episodes[] { titleID, self.gti, compactGTI, detail.episodeNumber, title, duration }`.
+- **Playback resources** (VERIFIED for E2): `GET atv-ps-eu…/playback/prs/GetVodPlaybackResources?titleId=…`:
+  - `transitionTimecodes.result.events[] = { eventType, startTimeMs, endTimeMs?, intervals[] }`: `SKIP_INTRO` 87000–172000, `NEXT_UP` 1443000 (of 1448000, 99.7 %). **No credits-start marker**: `NEXT_UP` marks the very end, after the ending song.
+  - `vodPlaylistedPlaybackUrls.result.playbackUrls.fullTitleDurationMs` = 1448000 and `intraTitlePlaylist[] { type: Main, startMs, endMs }` = 0–787453–1134508–1448000 (probably ad-break slots; no ad played). The bridge reads only `transitionTimecodes` and `fullTitleDurationMs`, never the URL fields of `playbackUrls`.
+  - Also fetched: `pes/StartSession|UpdateSession|StopSession` (heartbeats, nothing useful), `drm-vod/GetWidevineLicense` (never read).
+- **Video** (VERIFIED, no ads): one main `<video>` without class, **reused across episodes** (on autoplay: `currentTime` 0, `duration` NaN and 0×0 for about 2 s, then 1448). Its `currentTime` equals program time and `duration` = `fullTitleDurationMs`/1000. A second `<video>` (trailer preview, 43 or 63 s) stays paused on the page: pick the playing video whose duration matches the episode.
+- **Next-up card**: an element with `nextup` in its class became visible at 1426.6 s (21 s before the end) and disappeared when E2 started.
+- **Still UNKNOWN**: genre (`av_genre_anime`), ads tier (time shift, `duration`), `entityId` = playing gti, a first play (not autoplay) from the detail page, Firefox.
+
+Consequences for the design (§7): identity from `catalogMetadataV2` (+ `entityId`), series pages from the `/detail/` JSON responses (not the hydration node after SPA navigation), completion on the ratio of `fullTitleDurationMs` (the `NEXT_UP` marker is too late to be a credits start; use it only when it comes before the ratio point), intro skip markers ignored.
+
 ## Go / no-go
 
 **Conditional go for a v1 limited to `www.primevideo.com`**, after the checklist confirms two points:
