@@ -13,7 +13,7 @@ import path from 'node:path';
 import type { Page } from 'puppeteer';
 import type { AdnWatchFixture } from '../../src/content/adapters/__fixtures__/adn-watch';
 import type { CrunchyrollWatchFixture } from '../../src/content/adapters/__fixtures__/crunchyroll-watch';
-import { ROOT, json, type FakeResponse, type InterceptedRequest, type RequestHandler } from './harness';
+import { ROOT, json, sleep, type FakeResponse, type InterceptedRequest, type RequestHandler } from './harness';
 
 /** Durée de la vidéo de test (s) */
 export const VIDEO_SECONDS = 600;
@@ -38,6 +38,11 @@ export interface WatchPageOptions {
    * les vrais sites) ; sinon présent dès le chargement
    */
   deferPlayer?: boolean;
+  /**
+   * Données de l'épisode (JSON-LD, <h1>, lien vers la série) ajoutées par le site `jsonLdDelayMs` après le chargement
+   * (rendu tardif de l'application Crunchyroll) ; sinon présentes dans le HTML
+   */
+  jsonLdDelayMs?: number;
 }
 
 /** Lecteur : <video> muette (lecture sans geste de l'utilisateur), tout de suite ou à la première visibilité */
@@ -58,15 +63,27 @@ function playerMarkup(videoAttributes: string, deferPlayer: boolean | undefined)
 
 /** Page de lecture Crunchyroll : JSON-LD TVEpisode, <h1> de l'épisode, lien vers la série, lecteur Bitmovin */
 export function crunchyrollWatchHtml(fixture: CrunchyrollWatchFixture, options: WatchPageOptions): string {
+  const details = `<h1 class="title">${escapeHtml(fixture.heading)}</h1>
+<a data-t="show-title-link" href="${escapeHtml(fixture.seriesLink.href)}"><h4>${escapeHtml(fixture.seriesLink.text)}</h4></a>`;
+  const late = options.jsonLdDelayMs !== undefined;
+  const lateScript = `<div id="details"></div>
+<script>
+  setTimeout(() => {
+    const data = document.createElement('script');
+    data.type = 'application/ld+json';
+    data.textContent = ${JSON.stringify(fixture.jsonLd)};
+    document.head.append(data);
+    document.getElementById('details').innerHTML = ${JSON.stringify(details)};
+  }, ${options.jsonLdDelayMs ?? 0});
+</script>`;
   return `<!doctype html>
 <html lang="${options.lang}">
 <head><meta charset="utf-8"><title>Crunchyroll</title>
-<script type="application/ld+json">${fixture.jsonLd}</script>
+${late ? '' : `<script type="application/ld+json">${fixture.jsonLd}</script>`}
 </head>
 <body>
 ${playerMarkup('id="bitmovinplayer-video-e2e"', options.deferPlayer)}
-<h1 class="title">${escapeHtml(fixture.heading)}</h1>
-<a data-t="show-title-link" href="${escapeHtml(fixture.seriesLink.href)}"><h4>${escapeHtml(fixture.seriesLink.text)}</h4></a>
+${late ? lateScript : details}
 </body>
 </html>`;
 }
@@ -91,11 +108,12 @@ ${playerMarkup('class="vjs-tech"', options.deferPlayer)}
 export class FakeSites {
   /** Requêtes servies (pages et données de générique) */
   readonly requests: InterceptedRequest[] = [];
-  private readonly pages = new Map<string, string>();
+  private readonly pages = new Map<string, { html: string; delayMs: number }>();
   private readonly credits = new Map<string, number>();
 
-  page(url: string, html: string): this {
-    this.pages.set(url, html);
+  /** Page servie à `url` ; `delayMs` : réponse retardée d'autant (serveur lent, onglet encore en chargement) */
+  page(url: string, html: string, options: { delayMs?: number } = {}): this {
+    this.pages.set(url, { html, delayMs: options.delayMs ?? 0 });
     return this;
   }
 
@@ -110,7 +128,7 @@ export class FakeSites {
     return this.requests.filter((r) => r.url === `${SKIP_EVENTS_PREFIX}${episodeId}.json`).length;
   }
 
-  readonly handler: RequestHandler = (request: InterceptedRequest): FakeResponse | null => {
+  readonly handler: RequestHandler = (request: InterceptedRequest): FakeResponse | Promise<FakeResponse> | null => {
     const url = new URL(request.url);
     const bare = `${url.origin}${url.pathname}`;
     if (request.url.startsWith(SKIP_EVENTS_PREFIX)) {
@@ -121,10 +139,11 @@ export class FakeSites {
       if (start === undefined) return { status: 404, headers: { 'Content-Type': 'text/plain' }, body: 'Not Found' };
       return json(200, { intro: { start: 30, end: 120 }, credits: { start, end: VIDEO_SECONDS - 5 }, mediaId: episodeId });
     }
-    const html = this.pages.get(bare);
-    if (html !== undefined) {
+    const page = this.pages.get(bare);
+    if (page !== undefined) {
       this.requests.push(request);
-      return { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' }, body: html };
+      const response: FakeResponse = { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' }, body: page.html };
+      return page.delayMs > 0 ? sleep(page.delayMs).then(() => response) : response;
     }
     // Icône demandée par le navigateur sur les sites simulés
     if (url.pathname === '/favicon.ico' && (url.hostname.endsWith('crunchyroll.com') || url.hostname.endsWith('animationdigitalnetwork.com'))) return { status: 404 };
@@ -170,13 +189,14 @@ export async function pause(page: Page): Promise<void> {
 
 /**
  * Lecture automatique de l'épisode suivant, comme le lecteur Crunchyroll : URL changée par history.pushState (SPA),
- * <h1> et JSON-LD remplacés un instant plus tard, nouvelle source chargée dans la même <video>, lecture relancée
+ * <h1> et JSON-LD remplacés `renderDelayMs` plus tard (300 ms par défaut ; 0 : dans la même tâche, aucune lecture
+ * possible entre les deux), nouvelle source chargée dans la même <video>, lecture relancée
  */
-export async function autoplayNextCrunchyroll(page: Page, next: CrunchyrollWatchFixture): Promise<void> {
-  await page.evaluate(async (raw: string) => {
+export async function autoplayNextCrunchyroll(page: Page, next: CrunchyrollWatchFixture, options: { renderDelayMs?: number } = {}): Promise<void> {
+  await page.evaluate(async (raw: string, renderDelayMs: number) => {
     const fixture = JSON.parse(raw) as CrunchyrollWatchFixture;
     history.pushState({}, '', fixture.url);
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    if (renderDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, renderDelayMs));
     const heading = document.querySelector('h1');
     const jsonLd = document.querySelector('script[type="application/ld+json"]');
     const video = document.querySelector('video');
@@ -186,7 +206,7 @@ export async function autoplayNextCrunchyroll(page: Page, next: CrunchyrollWatch
     const loaded = new Promise((resolve) => video.addEventListener('loadedmetadata', resolve, { once: true }));
     video.src = video.currentSrc;
     await loaded;
-  }, JSON.stringify(next));
+  }, JSON.stringify(next), options.renderDelayMs ?? 300);
 }
 
 // ─── Toasts de SyncKai (Shadow DOM fermé) ────────────────────────────────

@@ -19,6 +19,19 @@ export interface AniListMediaSeed {
   synonyms?: string[];
   /** FINISHED par défaut ; RELEASING pour une série en cours de diffusion (One Piece) */
   status?: 'FINISHED' | 'RELEASING';
+  /** Relations (suites, préquelles) vers d'autres fiches du faux catalogue */
+  relations?: readonly { relationType: 'SEQUEL' | 'PREQUEL'; id: number }[];
+  /** Année de début (2023 par défaut) : ordre des saisons pour le résolveur */
+  startYear?: number;
+}
+
+/** Sortie d'un épisode au calendrier public (requête anonyme `airingSchedules` de background/airing.ts) */
+export interface AniListAiringSeed {
+  id: number;
+  mediaId: number;
+  episode: number;
+  /** UNIX secondes */
+  airingAt: number;
 }
 
 export interface AniListEntry {
@@ -86,6 +99,8 @@ export class FakeAniList {
   /** Latence de chaque réponse (ms), pour faire se chevaucher deux requêtes concurrentes */
   latencyMs = 0;
   failure: AniListFailure | null = null;
+  /** Calendrier des sorties (Agenda du panneau, alertes) */
+  airing: AniListAiringSeed[] = [];
   private readonly media = new Map<number, AniListMediaSeed>();
   private readonly accounts = new Map<string, Account>();
   private nextEntryId = 9000;
@@ -134,7 +149,8 @@ export class FakeAniList {
     const parsed: unknown = JSON.parse(request.body ?? 'null');
     const query = isRecord(parsed) && typeof parsed.query === 'string' ? parsed.query : '';
     const variables = isRecord(parsed) && isRecord(parsed.variables) ? parsed.variables : {};
-    const operation = /\b(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? '(anonyme)';
+    // Seule requête anonyme de l'extension : le calendrier des sorties (background/airing.ts), nommée ici AiringSchedules
+    const operation = /\b(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? (query.includes('airingSchedules(') ? 'AiringSchedules' : '(anonyme)');
     const auth = request.headers.authorization ?? null;
     const token = auth?.startsWith('Bearer ') ? auth.slice('Bearer '.length) : null;
 
@@ -213,6 +229,32 @@ export class FakeAniList {
           });
         return { ok: { MediaListCollection: { lists: [{ entries }] } } };
       }
+      case 'FullList': {
+        // Liste complète (import d'un historique, comparaison) : un seul bloc
+        if (!account) return needsAccount();
+        if (Number(v.userId) !== account.viewer.id) return { error: 400, message: 'Private list.' };
+        const entries = [...account.entries.entries()].flatMap(([mediaId, entry]) => {
+          const media = this.media.get(mediaId);
+          return media ? [{ status: entry.status, progress: entry.progress, score: entry.score, repeat: entry.repeat, media: this.mediaFields(media, null) }] : [];
+        });
+        return { ok: { MediaListCollection: { hasNextChunk: false, lists: [{ entries }] } } };
+      }
+      case 'PageMedia':
+      case 'PanelMedia': {
+        const media = this.media.get(Number(v.id));
+        if (!media) return { error: 404, message: 'Not Found.' };
+        return { ok: { Media: operation === 'PanelMedia' ? this.panelFields(media) : this.mediaFields(media, null) } };
+      }
+      case 'AiringSchedules': {
+        const ids = Array.isArray(v.ids) ? v.ids.map(Number) : [];
+        const from = Number(v.from);
+        const to = Number(v.to);
+        const schedules = this.airing
+          .filter((a) => ids.includes(a.mediaId) && a.airingAt > from && a.airingAt < to)
+          .sort((a, b) => a.airingAt - b.airingAt)
+          .map((a) => ({ id: a.id, episode: a.episode, airingAt: a.airingAt, media: { id: a.mediaId, title: { userPreferred: this.media.get(a.mediaId)?.title ?? null }, coverImage: { medium: null } } }));
+        return { ok: { Page: { pageInfo: { hasNextPage: false }, airingSchedules: schedules } } };
+      }
       case 'SaveProgress':
       case 'SaveScore':
       case 'SaveEntry':
@@ -254,15 +296,37 @@ export class FakeAniList {
       format: 'TV',
       episodes: media.episodes,
       status: media.status ?? 'FINISHED',
-      startDate: { year: 2023, month: 1, day: 6 },
-      seasonYear: 2023,
+      startDate: { year: media.startYear ?? 2023, month: 1, day: 6 },
+      seasonYear: media.startYear ?? 2023,
       coverImage: { medium: null, large: null },
       title: { romaji: media.title, english: media.title, native: null, userPreferred: media.title },
       synonyms: media.synonyms ?? [],
       nextAiringEpisode: null,
       externalLinks: (media.externalLinks ?? []).map((url) => ({ url })),
-      relations: { edges: [] },
+      relations: { edges: (media.relations ?? []).map((r) => ({ relationType: r.relationType, node: { id: r.id, type: 'ANIME', format: 'TV' } })) },
       mediaListEntry: entry && { id: entry.id, status: entry.status, progress: entry.progress, repeat: entry.repeat, score: entry.score, notes: entry.notes },
+    };
+  }
+
+  /** Fiche complète du panneau latéral (requête PanelMedia de api/panel-media.ts) */
+  private panelFields(media: AniListMediaSeed): Record<string, unknown> {
+    return {
+      ...this.mediaFields(media, null),
+      bannerImage: null,
+      coverImage: { extraLarge: null, large: null, color: null },
+      description: `Synopsis de ${media.title}.`,
+      genres: ['Adventure'],
+      averageScore: 80,
+      season: 'FALL',
+      studios: { nodes: [] },
+      relations: {
+        edges: (media.relations ?? []).flatMap((r) => {
+          const related = this.media.get(r.id);
+          if (!related) return [];
+          const node = { id: related.id, idMal: related.idMal, type: 'ANIME', format: 'TV', title: { userPreferred: related.title }, coverImage: { medium: null } };
+          return [{ relationType: r.relationType, node: { ...node, siteUrl: `https://anilist.co/anime/${related.id}`, externalLinks: (related.externalLinks ?? []).map((url) => ({ url })) } }];
+        }),
+      },
     };
   }
 }

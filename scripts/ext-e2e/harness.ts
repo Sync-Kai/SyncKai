@@ -111,6 +111,8 @@ export interface ExtensionHarness {
   readonly unexpected: InterceptedRequest[];
   /** Erreurs JavaScript des pages ouvertes par le test */
   readonly pageErrors: string[];
+  /** Messages de console des pages sous surveillance (« url : texte ») : rien de secret ne doit y paraître */
+  readonly consoleMessages: string[];
   /** Page pont (manifest.json de l'extension) : messages et stockage */
   bridge(): Promise<Page>;
   /** Message au service worker depuis une page de l'extension (expéditeur « extension ») */
@@ -125,7 +127,12 @@ export interface ExtensionHarness {
    * Ouvre `url` (fausse page servie par `pageRoutes`) dans un nouvel onglet, réseau sous surveillance. `background` :
    * chargée en arrière-plan, un autre onglet vide restant au premier plan (document.visibilityState « hidden »)
    */
-  openTab(url: string, options?: { background?: boolean }): Promise<Page>;
+  openTab(url: string, options?: { background?: boolean; wait?: boolean }): Promise<Page>;
+  /**
+   * Onglet ouvert par l'extension elle-même (chrome.tabs.create : page d'import, Sauvegarde…) dont l'URL commence par
+   * `prefix`, mis sous surveillance (réseau, erreurs, console) dès qu'il apparaît
+   */
+  waitForPage(prefix: string): Promise<Page>;
   /** Ferme puis relance le navigateur sur le même profil ; `version` change la version du manifeste (mise à jour) */
   restart(options?: { version?: string }): Promise<void>;
   /** Captures d'écran des pages ouvertes (échec d'un test) */
@@ -168,6 +175,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
 
   const unexpected: InterceptedRequest[] = [];
   const pageErrors: string[] = [];
+  const consoleMessages: string[] = [];
   const pages: Page[] = [];
   let browser: Browser;
   let bridgePage: Page | null = null;
@@ -248,6 +256,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
   async function watchPage(page: Page): Promise<void> {
     pages.push(page);
     page.on('pageerror', (error: unknown) => pageErrors.push(`${page.url()} : ${String(error)}`));
+    page.on('console', (message) => consoleMessages.push(`${page.url()} : ${message.text()}`));
     await page.setRequestInterception(true);
     page.on('request', (request: HTTPRequest): void => {
       const url = request.url();
@@ -285,11 +294,21 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
     return page;
   }
 
-  async function openTab(url: string, tabOptions: { background?: boolean } = {}): Promise<Page> {
+  async function openTab(url: string, tabOptions: { background?: boolean; wait?: boolean } = {}): Promise<Page> {
     const page = await browser.newPage();
     await watchPage(page);
     if (tabOptions.background) await (await browser.newPage()).bringToFront();
-    await page.goto(url, { waitUntil: 'load' });
+    // Sans attente : page encore en chargement au retour (réponse lente) ; navigation interrompue par la fermeture ignorée
+    if (tabOptions.wait === false) page.goto(url, { waitUntil: 'load' }).catch(() => undefined);
+    else await page.goto(url, { waitUntil: 'load' });
+    return page;
+  }
+
+  async function waitForPage(prefix: string): Promise<Page> {
+    const target = await browser.waitForTarget((t) => t.type() === 'page' && t.url().startsWith(prefix), { timeout: 10_000 });
+    const page = await target.page();
+    if (!page) throw new Error(`Onglet ${prefix} sans page`);
+    await watchPage(page);
     return page;
   }
 
@@ -317,6 +336,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
     },
     unexpected,
     pageErrors,
+    consoleMessages,
     bridge,
     async send(type, payload, page) {
       const target = page ?? (await bridge());
@@ -347,6 +367,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
     },
     openPage,
     openTab,
+    waitForPage,
     async restart(restartOptions = {}) {
       closed = true;
       await browser.close();
