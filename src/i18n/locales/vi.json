@@ -758,7 +758,7 @@
   "settings.trigger.legend": "Tập được tính là đã xem",
   "settings.trigger.percentage": "Khi đạt một tỷ lệ cố định",
   "sync.alreadyCompleted": "Đã đánh dấu xem xong từ trước",
-  "sync.beyondEntry": "Tập {progress} vượt quá {total} tập của mục",
+  "sync.beyondEntry_other": "Tập {progress} vượt quá {count} tập của mục",
   "sync.correctionOutdated": "Chưa áp dụng chỉnh sửa: tiến độ đã thay đổi kể từ lần đồng bộ (tập {progress})",
   "sync.correctionPending": "Mùa này đang chờ chỉnh sửa: tập sẽ được áp dụng sau khi bạn quyết định trong Hoạt động",
   "sync.correctionReason": "Chỉnh sửa: hiện đang đồng bộ với “{title}”",

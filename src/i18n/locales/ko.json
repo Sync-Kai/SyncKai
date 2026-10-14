@@ -758,7 +758,7 @@
   "settings.trigger.legend": "에피소드 시청 기준",
   "settings.trigger.percentage": "고정 비율 도달 시",
   "sync.alreadyCompleted": "이미 완료로 표시됨",
-  "sync.beyondEntry": "{progress}화가 항목의 전체 {total}화를 넘음",
+  "sync.beyondEntry_other": "{progress}화가 항목의 전체 {count}화를 넘음",
   "sync.correctionOutdated": "수정 미적용: 동기화 후 진행도가 바뀜({progress}화)",
   "sync.correctionPending": "이 시즌의 수정이 대기 중: 활동 탭의 카드에서 결정하면 에피소드가 적용됨",
   "sync.correctionReason": "수정: 현재 “{title}”에 동기화됨",

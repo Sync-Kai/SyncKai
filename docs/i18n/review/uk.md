@@ -113,3 +113,14 @@ Code fixes that change how this catalog is displayed:
 - Lists of names in `{services}` and `{titles}` use the language’s own conjunction (`Intl.ListFormat`) instead of “, ”.
 
 Layout (`npm run test:i18n-layout`), fixed in the components without changing the text: `queue.nextAttempt`, `queue.failed` (Activity › pending syncs): the buttons go below the status when it is long; the “–/10” value of the *To rate* stars: “Ignore” goes below the stars when they don’t fit; `page.action.PAUSED`, `page.action.DROPPED`, `page.action.COMPLETED` (side panel at 320 px): the icons are hidden when the side panel is narrow.
+
+## 2026-10-14 · `sync.beyondEntry` becomes a plural key
+
+The count of the entry's episodes now chooses the plural form (before: « 1 episodes » in English). Same text in every variant (the wording already avoided the noun agreement), `{total}` renamed `{count}`.
+
+| Key | Text |
+|---|---|
+| `sync.beyondEntry_one` | Епізод {progress} виходить за межі запису ({count} еп.) |
+| `sync.beyondEntry_few` | Епізод {progress} виходить за межі запису ({count} еп.) |
+| `sync.beyondEntry_many` | Епізод {progress} виходить за межі запису ({count} еп.) |
+| `sync.beyondEntry_other` | Епізод {progress} виходить за межі запису ({count} еп.) |

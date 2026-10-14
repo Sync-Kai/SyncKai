@@ -122,3 +122,11 @@ Code fixes that change how this catalog is displayed:
 - Lists of names in `{services}` and `{titles}` use the language’s own conjunction (`Intl.ListFormat`) instead of “, ”.
 
 Layout (`npm run test:i18n-layout`), fixed in the components without changing the text: `page.action.PAUSED`, `page.action.COMPLETED` (side panel at 320 px): the icons are hidden when the side panel is narrow.
+
+## 2026-10-14 · `sync.beyondEntry` becomes a plural key
+
+The count of the entry's episodes now chooses the plural form (before: « 1 episodes » in English). No plural forms in this language: one `_other` variant with the same text, `{total}` renamed `{count}`.
+
+| Key | Text |
+|---|---|
+| `sync.beyondEntry_other` | Tập {progress} vượt quá {count} tập của mục |

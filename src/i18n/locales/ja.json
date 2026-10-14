@@ -758,7 +758,7 @@
   "settings.trigger.legend": "視聴済みにするタイミング",
   "settings.trigger.percentage": "指定した割合に達したとき",
   "sync.alreadyCompleted": "すでに視聴完了になっています",
-  "sync.beyondEntry": "第{progress}話が、作品ページの全{total}話を超えています",
+  "sync.beyondEntry_other": "第{progress}話が、作品ページの全{count}話を超えています",
   "sync.correctionOutdated": "修正は適用されませんでした：同期後に進捗が変わっています（第{progress}話）",
   "sync.correctionPending": "このシーズンは修正の確認待ちです。アクティビティのカードで決定すると、エピソードが反映されます",
   "sync.correctionReason": "修正：現在「{title}」と同期中",

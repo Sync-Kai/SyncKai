@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import type { AniListErrorCode } from '../shared/anilist.types';
 import { refreshReviewBadge } from '../shared/badge';
 import { addPendingRating, getPendingRatings, isRatingSettled, recordRewatchDecline, removePendingRating } from '../shared/engagement-store';
@@ -145,7 +145,7 @@ export async function startRewatch(media: MediaRef, progress: number): Promise<S
         onService(target, (current) => {
           if (current.entry?.status !== 'COMPLETED') return t('engagement.notCompleted');
           if (current.episodes !== null && progress >= current.episodes) return t('engagement.lastEpisode', { progress });
-          if (current.episodes !== null && progress > current.episodes) return t('sync.beyondEntry', { progress, total: current.episodes });
+          if (current.episodes !== null && progress > current.episodes) return tp('sync.beyondEntry', current.episodes, { progress });
           return async () => {
             const saved = await target.tracker.startRewatch(target.id, progress);
             log.info(`✔ ${TRACKER_LABELS[target.tracker.id]} : revisionnage de ${current.title}, épisode ${saved.progress}`);

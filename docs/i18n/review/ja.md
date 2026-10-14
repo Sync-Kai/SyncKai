@@ -138,3 +138,11 @@ Code fixes that change how this catalog is displayed:
 - Netflix history import: the “その他を表示” button of a Netflix profile in this language is recognized (label checked by the reviewer on Netflix’s help article 101917 in this language): such an import no longer stops after the first rows as if the history were complete.
 
 Layout (`npm run test:i18n-layout`): no finding in this language.
+
+## 2026-10-14 · `sync.beyondEntry` becomes a plural key
+
+The count of the entry's episodes now chooses the plural form (before: « 1 episodes » in English). No plural forms in this language: one `_other` variant with the same text, `{total}` renamed `{count}`.
+
+| Key | Text |
+|---|---|
+| `sync.beyondEntry_other` | 第{progress}話が、作品ページの全{count}話を超えています |

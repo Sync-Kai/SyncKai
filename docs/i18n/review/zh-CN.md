@@ -105,3 +105,11 @@ Code fixes that change how this catalog is displayed:
 - Netflix history import: the zh-CN “Show more” label is still unverified and was NOT added; a zh-CN-profile import still reads only the first rows.
 
 Layout (`npm run test:i18n-layout`): `watching.badge.upcoming` (table above) was the only finding. The chip is now also truncated, with its full text in a tooltip, if a longer text ever overflows.
+
+## 2026-10-14 · `sync.beyondEntry` becomes a plural key
+
+The count of the entry's episodes now chooses the plural form (before: « 1 episodes » in English). No plural forms in this language: one `_other` variant with the same text, `{total}` renamed `{count}`.
+
+| Key | Text |
+|---|---|
+| `sync.beyondEntry_other` | 第 {progress} 集超出了条目的 {count} 集 |

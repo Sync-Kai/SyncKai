@@ -83,3 +83,12 @@ Code fixes that change how this catalog is displayed:
 - Lists of names in `{services}` and `{titles}` use the language’s own conjunction (`Intl.ListFormat`) instead of “, ”.
 
 Layout (`npm run test:i18n-layout`), fixed in the components without changing the text: `queue.nextAttempt` (Activity › pending syncs): the buttons go below the status when it is long; `page.action.DROPPED` (side panel at 320 px): the icons are hidden when the side panel is narrow.
+
+## 2026-10-14 · `sync.beyondEntry` becomes a plural key
+
+The count of the entry's episodes now chooses the plural form (before: « 1 episodes » in English). The singular `_one` names the entry's only episode.
+
+| Key | Text |
+|---|---|
+| `sync.beyondEntry_one` | Episódio {progress} ultrapassa o único episódio da ficha |
+| `sync.beyondEntry_other` | Episódio {progress} ultrapassa os {count} episódios da ficha |

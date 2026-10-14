@@ -758,7 +758,7 @@
   "settings.trigger.legend": "Episode dianggap ditonton",
   "settings.trigger.percentage": "Pada persentase tetap",
   "sync.alreadyCompleted": "Sudah ditandai selesai",
-  "sync.beyondEntry": "Episode {progress} melebihi {total} episode di entri ini",
+  "sync.beyondEntry_other": "Episode {progress} melebihi {count} episode di entri ini",
   "sync.correctionOutdated": "Koreksi tidak diterapkan: progres sudah berubah sejak sinkron (episode {progress})",
   "sync.correctionPending": "Koreksi untuk season ini masih menunggu: episode diterapkan setelah kamu memutuskan lewat kartunya di Aktivitas",
   "sync.correctionReason": "Koreksi: saat ini disinkronkan dengan “{title}”",

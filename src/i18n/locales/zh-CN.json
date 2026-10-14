@@ -758,7 +758,7 @@
   "settings.trigger.legend": "何时算看完一集",
   "settings.trigger.percentage": "播放到固定百分比时",
   "sync.alreadyCompleted": "已标记为看过",
-  "sync.beyondEntry": "第 {progress} 集超出了条目的 {total} 集",
+  "sync.beyondEntry_other": "第 {progress} 集超出了条目的 {count} 集",
   "sync.correctionOutdated": "未应用更正：同步后进度已有变化（第 {progress} 集）",
   "sync.correctionPending": "此季有待处理的更正：在“动态”中对相应卡片做出决定后，才会应用这一集",
   "sync.correctionReason": "更正：当前同步到《{title}》",

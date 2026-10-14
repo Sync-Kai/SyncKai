@@ -651,6 +651,15 @@ describe('écriture par service (TEST-01)', () => {
     expect(mal.entries.get(MAL_PART1)).toEqual({ status: 'CURRENT', progress: 9 });
   });
 
+  it('garde « au-delà de la fiche » : fiche MAL d’un seul épisode, texte au singulier', async () => {
+    connect({ status: 'CURRENT', progress: 1 }, { status: 'CURRENT', progress: 0 });
+    mal.totals.set(MAL_PART1, 1);
+    fakes.resolutions = [resolved(PART1, 2)];
+    const outcome = await syncEpisode(episode(2));
+    expect(resultOf(outcome, 'mal')).toEqual({ status: 'skipped', reason: 'Épisode 2 au-delà de l’unique épisode de la fiche' });
+    expect(mal.writes).toEqual([]);
+  });
+
   it('total inconnu sur le service : celui du catalogue décide de la fin (terminé à 12)', async () => {
     connect({ status: 'CURRENT', progress: 11 });
     mal.totals.set(MAL_PART1, null);

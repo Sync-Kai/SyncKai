@@ -1,4 +1,4 @@
-import { t, type MessageKey } from '../../i18n';
+import { t, tp, type MessageKey } from '../../i18n';
 import type { AniListErrorCode } from '../../shared/anilist.types';
 import { flashSyncBadge, refreshReviewBadge } from '../../shared/badge';
 import type { EpisodeInfo } from '../../shared/episode.types';
@@ -144,7 +144,7 @@ async function writeEntry(
   const current = await tracker.getEntry(id);
   // Découpage différent entre services : on n'écrit pas au-delà de la fiche de ce service
   if (current.episodes !== null && progress > current.episodes) {
-    return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.beyondEntry', { progress, total: current.episodes }) } }, current.entry);
+    return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: tp('sync.beyondEntry', current.episodes, { progress }) } }, current.entry);
   }
 
   // Une correction (écriture vers le bas permise) ne vaut que sur la valeur écrite par la synchro corrigée : si la

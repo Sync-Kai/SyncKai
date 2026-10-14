@@ -128,3 +128,13 @@ Code fixes that change how this catalog is displayed:
 - Lists of names in `{services}` and `{titles}` use the language’s own conjunction (`Intl.ListFormat`) instead of “, ”.
 
 Layout (`npm run test:i18n-layout`): no finding in this language.
+
+## 2026-10-14 · `sync.beyondEntry` becomes a plural key
+
+The count of the entry's episodes now chooses the plural form (before: « 1 episodes » in English). Same text in every variant (the wording already avoided the noun agreement), `{total}` renamed `{count}`.
+
+| Key | Text |
+|---|---|
+| `sync.beyondEntry_one` | Episodul {progress} depășește numărul de episoade al fișei ({count}) |
+| `sync.beyondEntry_few` | Episodul {progress} depășește numărul de episoade al fișei ({count}) |
+| `sync.beyondEntry_other` | Episodul {progress} depășește numărul de episoade al fișei ({count}) |

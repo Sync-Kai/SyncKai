@@ -127,3 +127,12 @@ Code fixes that change how this catalog is displayed:
 - Lists of names in `{services}` and `{titles}` use the language’s own conjunction (`Intl.ListFormat`) instead of “, ”.
 
 Layout (`npm run test:i18n-layout`), fixed in the components without changing the text: the “–/10” value of the *To rate* stars: “Ignore” goes below the stars when they don’t fit.
+
+## 2026-10-14 · `sync.beyondEntry` becomes a plural key
+
+The count of the entry's episodes now chooses the plural form (before: « 1 episodes » in English). The singular `_one` names the entry's only episode.
+
+| Key | Text |
+|---|---|
+| `sync.beyondEntry_one` | Avsnitt {progress} ligger utanför titelns enda avsnitt |
+| `sync.beyondEntry_other` | Avsnitt {progress} ligger utanför titelns {count} avsnitt |

@@ -91,3 +91,12 @@ Code fixes that change how this catalog is displayed:
 - Lists of names in `{services}` and `{titles}` use the language’s own conjunction (`Intl.ListFormat`) instead of “, ”.
 
 Layout (`npm run test:i18n-layout`): `queue.nextAttempt` (Activity › pending syncs) is fixed in the component (the buttons go below the status when it is long). `watching.badge.upcoming` is now truncated with its full text in a tooltip instead of overlapping the progress: only « Bölüm 1123: 4 gün sonra » next to « bölüm 1122 » (One Piece, 4-digit episode, no total) is cut. No shorter natural wording exists (no abbreviation for « bölüm », « gün » kept in full), so this case is allowlisted in `scripts/e2e/i18n-layout.allowlist.json`.
+
+## 2026-10-14 · `sync.beyondEntry` becomes a plural key
+
+The count of the entry's episodes now chooses the plural form (before: « 1 episodes » in English). The singular `_one` names the entry's only episode.
+
+| Key | Text |
+|---|---|
+| `sync.beyondEntry_one` | Bölüm {progress}, anime sayfasındaki tek bölümü aşıyor |
+| `sync.beyondEntry_other` | Bölüm {progress}, anime sayfasındaki {count} bölümü aşıyor |
