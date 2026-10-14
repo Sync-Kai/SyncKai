@@ -71,6 +71,16 @@ describe('EPISODE_COMPLETED — accès Netflix', () => {
     expect(mocks.recordSyncOutcome).not.toHaveBeenCalled();
   });
 
+  it('Prime Video sans la permission → ignoré de même ; avec : synchronisé', async () => {
+    mocks.hasPlatformAccess.mockResolvedValue(false);
+    expect(await handleEpisodeCompleted({ episode: episode('prime'), services: null }, 7)).toEqual({ status: 'ignored', noAccess: true });
+    expect(mocks.hasPlatformAccess).toHaveBeenCalledWith('prime');
+    expect(mocks.syncEpisode).not.toHaveBeenCalled();
+    expect(mocks.recordSyncOutcome).not.toHaveBeenCalled();
+    mocks.hasPlatformAccess.mockResolvedValue(true);
+    expect(await handleEpisodeCompleted({ episode: episode('prime'), services: null }, 7)).toEqual(SYNCED);
+  });
+
   it('Crunchyroll et ADN : la permission Netflix n’est jamais lue', async () => {
     for (const platform of ['crunchyroll', 'adn'] as const) {
       expect(await handleEpisodeCompleted({ episode: episode(platform), services: null }, undefined)).toEqual(SYNCED);

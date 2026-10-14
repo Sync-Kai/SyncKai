@@ -25,6 +25,8 @@ describe('seriesMappingPrefix', () => {
   it('Netflix : par série (clés de la lecture `netflix:{showId}:s{seq}`) ; Disney+ : par titre, même avec l’uuid de l’entité', () => {
     expect(seriesMappingPrefix({ platform: 'netflix', seriesId: '80987039', seriesTitle: 'Mushoku Tensei' })).toBe('netflix:80987039:');
     expect(seriesMappingPrefix({ platform: 'disney', seriesId: '9a14d04d-01f2-40d0-be62-a6c8ffe24137', seriesTitle: 'Undead Unluck' })).toBe('disney:title:undead unluck:');
+    // Prime Video : par titre, comme la lecture (`prime:title:{titre}:s{n}`), même avec le GTI compact de la saison
+    expect(seriesMappingPrefix({ platform: 'prime', seriesId: '0GMSR5LDQCKJ3B0DQAYCSQIR2W', seriesTitle: 'Tokyo Ghoul' })).toBe('prime:title:tokyo ghoul:');
   });
 });
 

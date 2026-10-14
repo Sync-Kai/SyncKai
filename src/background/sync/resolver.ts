@@ -1,4 +1,4 @@
-import type { EpisodeInfo } from '../../shared/episode.types';
+import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
 import type { CandidateSummary } from '../../shared/review.types';
 import { PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
 import { STREAMING_PLATFORMS } from '../../shared/platform-ids';
@@ -10,11 +10,13 @@ import {
   alignPlatformSeasons,
   applyMapping,
   disneySeriesKey,
+  filtersAnime,
   gateByPlatformLink,
   hasSeriesTitle,
   ignoredResult,
   isDisneyEntityLink,
   isLinked,
+  isPrimeOwnLink,
   isTitleBoundLink,
   isOtherSeries,
   linksToOtherSeries,
@@ -22,6 +24,7 @@ import {
   mappingKey,
   seasonLabel,
   matchPlatformLink,
+  primeOwnIds,
   seasonSearchQuery,
   resolveTarget,
   seasonPool,
@@ -53,9 +56,10 @@ interface CollectedCandidates {
 /**
  * Série à rechercher : un épisode, ou une page de série (titre et saison lus sur la page).
  * `episodeId` (page de lecture) : reconnaît une fiche AniList liée à l'épisode lui-même.
+ * `url` (page de lecture Prime Video) : page de détail de la saison, dont l'identifiant rend certain un lien AniList vers elle.
  */
 export type SeriesQuery = Pick<EpisodeInfo, 'platform' | 'seriesId' | 'seriesSlug' | 'animeTitle' | 'seasonTitle' | 'platformSeasons'> &
-  Partial<Pick<EpisodeInfo, 'seasonEpisodeNumber' | 'displayedEpisodeNumber'>> & { episodeId?: string | null };
+  Partial<Pick<EpisodeInfo, 'seasonEpisodeNumber' | 'displayedEpisodeNumber' | 'url'>> & { episodeId?: string | null };
 
 interface ResolveOptions {
   /** false : lecture seule (fiche de la page), le cache des correspondances n'est ni écrit ni purgé */
@@ -84,11 +88,14 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
   const links = new Map<number, LinkKind>();
 
   const episodeId = episode.episodeId ?? null;
-  // Disney+ : lien vers la plateforme sans identifiant de série, valable seulement pour une fiche au titre de la série,
-  // sauf lien vers l'entité de la page de série elle-même (/browse/entity-{uuid} : certain, quel que soit le titre)
+  // Disney+, Prime Video : lien vers la plateforme sans identifiant de série, valable seulement pour une fiche au titre de
+  // la série, sauf lien vers la page elle-même (Disney+ /browse/entity-{uuid} ; Prime Video : GTI compact de la saison,
+  // GTI de l'épisode) : certain, quel que soit le titre
   const titleBound = isTitleBoundLink(episode.platform);
+  const ownPrimeIds = episode.platform === 'prime' ? primeOwnIds({ seriesId: episode.seriesId, episodeId, ...(episode.url !== undefined ? { url: episode.url } : {}) }) : [];
+  const isOwnLink = (url: string): boolean => (episode.platform === 'prime' ? isPrimeOwnLink(url, ownPrimeIds) : isDisneyEntityLink(url, episode.seriesId));
   const linkOf = (media: AniListMedia): LinkKind => {
-    const isOwnEntity = titleBound && media.externalLinkUrls.some((url) => isDisneyEntityLink(url, episode.seriesId));
+    const isOwnEntity = titleBound && media.externalLinkUrls.some(isOwnLink);
     if (titleBound && !isOwnEntity && !hasSeriesTitle(media.titles, episode.animeTitle) && !(episode.seasonTitle && hasSeriesTitle(media.titles, episode.seasonTitle))) return null;
     const kinds = media.externalLinkUrls.map((url) => matchPlatformLink(url, episode.platform, episode.seriesId, episode.seriesSlug, episodeId));
     // Le lien vers l'épisode lui-même prime sur le lien vers la série
@@ -140,8 +147,9 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
    * par relation (sinon BLEACH, préquelle, deviendrait la saison 1). Même lien qu'une fiche retenue (« The Separation »,
    * suite publiée dans la même série Disney+) : fiche de la série.
    */
+  // Prime Video exclu : un lien par saison (identifiants différents d'une saison à l'autre de la même série)
   const settleTitleBoundLinks = (): void => {
-    if (!titleBound) return;
+    if (episode.platform !== 'disney') return;
     const ownKeys = new Set([...mediaById.values()].filter((m) => links.get(m.id) === 'id').flatMap((m) => m.externalLinkUrls.flatMap((url) => disneySeriesKey(url) ?? [])));
     if (ownKeys.size === 0) return;
     const ownForms = new Set([...ownKeys].map((key) => key.split(':')[0]));
@@ -236,8 +244,13 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
 
 const sortableStart = (media: AniListMedia): number | null => toSortableDate(media.startDate);
 
-/** Lien vers une AUTRE plateforme prise en charge, et aucun vers celle de la série (MONSTERS : Netflix seulement) */
+/**
+ * Lien vers une AUTRE plateforme prise en charge, et aucun vers celle de la série (MONSTERS : Netflix seulement).
+ * Prime Video n'entre pas en compte, ni d'un côté ni de l'autre : ses liens AniList sont rares (Vinland Saga, SPY×FAMILY…
+ * n'en ont aucun) et souvent vers d'anciennes pages amazon.com, leur absence ne prouve rien.
+ */
 function linksElsewhereOnly(media: AniListMedia, platform: StreamingPlatform): boolean {
+  if (platform === 'prime') return false;
   const hosts = media.externalLinkUrls.flatMap((url) => {
     try {
       return [new URL(url).hostname];
@@ -246,7 +259,7 @@ function linksElsewhereOnly(media: AniListMedia, platform: StreamingPlatform): b
     }
   });
   const onPlatform = (id: StreamingPlatform): boolean => hosts.some((host) => PLATFORMS[id].matchesHost(host));
-  return !onPlatform(platform) && STREAMING_PLATFORMS.some((other) => other !== platform && onPlatform(other));
+  return !onPlatform(platform) && STREAMING_PLATFORMS.some((other) => other !== platform && other !== 'prime' && onPlatform(other));
 }
 
 /**
@@ -358,9 +371,14 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution
   if (stored && persist) await deleteMediaMapping(key);
 
-  // Plateforme généraliste : série déjà ignorée (moins de 24 h) → aucune recherche AniList. Une correspondance
-  // enregistrée (choix manuel) l'emporte : vérifiée ci-dessus, et sa présence montre que la série est un anime.
-  if (PLATFORMS[episode.platform].linkRequired && !stored && (await isSeriesIgnored(episode))) {
+  // Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu) : ignoré sans recherche
+  if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) {
+    return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
+  }
+  // Plateforme généraliste (ou Prime Video hors genre anime) : série déjà ignorée (moins de 24 h) → aucune recherche
+  // AniList. Une correspondance enregistrée (choix manuel) l'emporte : vérifiée ci-dessus, et sa présence montre que la
+  // série est un anime.
+  if (filtersAnime(episode) && !stored && (await isSeriesIgnored(episode))) {
     log.info('Série déjà ignorée (verdict mémorisé) : pas de nouvelle recherche', episode.animeTitle);
     return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
   }

@@ -1,6 +1,6 @@
 import type { EpisodeInfo } from './episode.types';
 import { isRecord } from './guards';
-import { normalizeTitle } from './title';
+import { normalizeTitle, titleKey } from './title';
 
 // Séries exclues, lecture seule : ce qu'utilise le script de contenu avant tout envoi (clé de série, lecture du
 // stockage, correspondance). Écritures et rapprochement avec les liens « En cours » : exclusions.ts, hors des pages
@@ -38,7 +38,7 @@ export const normalizeSeriesTitle = normalizeTitle;
 export function platformSeriesKey(episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle'>): string {
   return episode.seriesId
     ? `${episode.platform}:${episode.seriesId}`
-    : `${episode.platform}:title:${normalizeSeriesTitle(episode.animeTitle)}`;
+    : `${episode.platform}:title:${titleKey(episode.animeTitle)}`;
 }
 
 /** Vrai si l'exclusion couvre la clé plateforme ou la fiche AniList demandée. */

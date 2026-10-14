@@ -10,6 +10,15 @@ export function normalizeTitle(title: string): string {
     .trim();
 }
 
+/**
+ * Titre d'une clé (correspondance, série ignorée ou exclue) : normalizeTitle, ou, si elle ne laisse rien (titre japonais
+ * de Prime Video en interface japonaise : « 進撃の巨人 »), le titre en minuscules, espaces réduits. Sans ce repli, toutes
+ * les séries au titre non latin partageraient la même clé (« prime:title::s1 »).
+ */
+export function titleKey(title: string): string {
+  return normalizeTitle(title) || title.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 const GENERIC_SEASON_REGEX = /^(?:season|saison|staffel|part|partie|volume)\s+\d+$/i;
 
 /** Nom de saison exploitable pour la correspondance AniList, null s'il est générique ("Saison 1") */

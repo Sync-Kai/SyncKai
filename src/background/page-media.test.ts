@@ -296,6 +296,37 @@ describe('resolvePageMedia — page de série Netflix / Disney+', () => {
     const page = seriesPage({ platform: 'disney', seriesId: ENTITY, catalogAnime: true });
     expect(await resolvePageMedia({ page, mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME } } });
   });
+
+  // Prime Video : filtre par le verdict de genre du script de contenu (aucun lien AniList exigé)
+  const SEASON_GTI = '0GMSR5LDQCKJ3B0DQAYCSQIR2W';
+  const primePage = (overrides: Partial<PageMediaInfo> = {}): PageMediaInfo => seriesPage({ platform: 'prime', seriesId: SEASON_GTI, primeAnime: 'anime', ...overrides });
+  const primeNotTracked = { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Prime Video' }) };
+
+  it('Prime Video, genre anime, titre seul : fiche retenue (résolution normale, comme Crunchyroll)', async () => {
+    found(null);
+    expect(await resolvePageMedia({ page: primePage(), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME } } });
+  });
+
+  it('Prime Video, animation sans piste japonaise : retenue sur un titre exact, sinon NOT_TRACKED (jamais « introuvable »)', async () => {
+    found(null, [], 'UNDEAD UNLUCK');
+    expect(await resolvePageMedia({ page: primePage({ primeAnime: 'animation-exact-only' }), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME } } });
+    forgetPageResolutions();
+    found(null, [], 'Undead Unluck Season 2');
+    expect(await resolvePageMedia({ page: primePage({ primeAnime: 'animation-exact-only', seriesId: '0ZZZZZZZZZZZZZZZZZZZZZZZZZ' }), mediaId: null })).toEqual(primeNotTracked);
+  });
+
+  it('Prime Video, animation sans piste japonaise : lien AniList vers le GTI compact de la page suffit', async () => {
+    found('id', [`https://www.primevideo.com/detail/${SEASON_GTI}`], 'Autre titre');
+    expect(await resolvePageMedia({ page: primePage({ primeAnime: 'animation-exact-only' }), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: ANIME } } });
+  });
+
+  it('Prime Video sans verdict (défensif) : NOT_TRACKED sans recherche ; sans la permission : Prime Video désactivé', async () => {
+    expect(await resolvePageMedia({ page: primePage({ primeAnime: undefined }), mediaId: null })).toEqual(primeNotTracked);
+    expect(resolver.findSeriesSeasons).not.toHaveBeenCalled();
+    access.hasPlatformAccess.mockImplementation((platform: string) => Promise.resolve(platform !== 'prime'));
+    expect(await resolvePageMedia({ page: primePage({ seriesTitle: 'Autre' }), mediaId: null })).toEqual({ ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform: 'Prime Video' }) });
+    expect(access.hasPlatformAccess).toHaveBeenCalledWith('prime');
+  });
 });
 
 describe('resolvePageMedia — page de série Crunchyroll sur la saison « Special »', () => {

@@ -9,7 +9,7 @@ import type {
   ResolvePageMediaPayload,
   SeasonSource,
 } from '../shared/page-media.types';
-import type { EpisodeInfo } from '../shared/episode.types';
+import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../shared/episode.types';
 import { hasPlatformAccess } from '../shared/platform-access';
 import { isOptionalPlatform, PLATFORMS } from '../shared/platforms';
 import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
@@ -35,7 +35,20 @@ import {
   type SeasonChoice,
 } from './page-media-rules';
 import { isSeriesIgnored, rememberIgnoredSeries } from './sync/ignored-series';
-import { isDisneyEntityLink, isUnmatchedNamedSeason, mappingFromManualChoice, mappingKey, platformLinkVerdict, representsWholeShow, resolveTarget, seasonLabel, singleEntryDoubt } from './sync/matching';
+import {
+  filtersAnime,
+  isDisneyEntityLink,
+  isPrimeOwnLink,
+  isUnmatchedNamedSeason,
+  mappingFromManualChoice,
+  mappingKey,
+  platformLinkVerdict,
+  primeOwnIds,
+  representsWholeShow,
+  resolveTarget,
+  seasonLabel,
+  singleEntryDoubt,
+} from './sync/matching';
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from './sync/resolver';
 import { fromAniListScore, fromMalScore } from './sync/score';
 import { getConnectedTrackers } from './trackers';
@@ -144,22 +157,26 @@ async function resolveEpisodePage(
 }
 
 /**
- * Page de série : filtre « anime » des plateformes généralistes (Netflix, Disney+ : mêmes règles que la lecture, verdict
- * « série ignorée » mémorisé et partagé avec elle), puis choix de la saison (pickSeriesSeason). Correspondance par le
- * titre seul : saison toujours à vérifier.
+ * Page de série : filtre « anime » des plateformes généralistes (Netflix, Disney+ ; Prime Video selon son verdict de genre :
+ * mêmes règles que la lecture, verdict « série ignorée » mémorisé et partagé avec elle), puis choix de la saison
+ * (pickSeriesSeason). Correspondance par le titre seul sur une plateforme généraliste : saison toujours à vérifier.
  */
 async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Promise<Resolution | typeof IGNORED | null> {
   const series = { platform: page.platform, seriesId: page.seriesId, animeTitle: page.seriesTitle };
-  const linkRequired = PLATFORMS[page.platform].linkRequired;
+  // Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu) : rien à afficher, sans recherche
+  if (page.platform === 'prime' && !isSentPrimeAnimeVerdict(page.primeAnime)) return IGNORED;
+  const linkRequired = filtersAnime(page);
   if (linkRequired && manual === null && (await isSeriesIgnored(series))) {
     log.info('Page de série déjà ignorée (verdict mémorisé) :', page.seriesTitle);
     return IGNORED;
   }
   const query = { platform: page.platform, seriesId: page.seriesId, seriesSlug: page.seriesSlug, animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, platformSeasons: page.platformSeasons };
   const found = await findSeriesSeasons(query);
-  const ownLink = page.platform === 'disney' && found.others.some((media) => media.externalLinkUrls.some((url) => isDisneyEntityLink(url, page.seriesId)));
-  const gate = seriesPageGate(page, platformLinkVerdict({ platform: page.platform, animeTitle: page.seriesTitle }, found.candidates), ownLink);
-  if (linkRequired) log.info(`Page de série ${page.platform} « ${page.seriesTitle} » : filtre anime ${gate}${ownLink ? ' (lien vers l’entité)' : ''}${page.catalogAnime === false ? ' (pas de genre Anime)' : ''}`);
+  const ownPrimeIds = page.platform === 'prime' ? primeOwnIds({ seriesId: page.seriesId }) : [];
+  const isOwnLink = (url: string): boolean => (page.platform === 'prime' ? isPrimeOwnLink(url, ownPrimeIds) : page.platform === 'disney' && isDisneyEntityLink(url, page.seriesId));
+  const ownLink = found.others.some((media) => media.externalLinkUrls.some(isOwnLink));
+  const gate = seriesPageGate(page, platformLinkVerdict({ platform: page.platform, animeTitle: page.seriesTitle, primeAnime: page.primeAnime }, found.candidates), ownLink);
+  if (linkRequired) log.info(`Page de série ${page.platform} « ${page.seriesTitle} » : filtre anime ${gate}${ownLink ? ' (lien vers la page)' : ''}${page.catalogAnime === false ? ' (pas de genre Anime)' : ''}`);
   if (gate === 'ignored') {
     await rememberIgnoredSeries(series);
     return IGNORED;

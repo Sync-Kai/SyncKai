@@ -25,12 +25,13 @@ export function seriesMappingPrefix(page: Pick<PageMediaInfo, 'platform' | 'seri
 }
 
 /**
- * Filtre « anime » d'une page de série (plateforme généraliste : Netflix, Disney+), mêmes règles que la lecture :
+ * Filtre « anime » d'une page de série (plateforme généraliste : Netflix, Disney+ ; Prime Video selon son verdict de genre,
+ * voir primeAnimeGate), mêmes règles que la lecture :
  * - `open` : plateforme spécialisée, fiche liée à la série (lien plateforme, suite/préquelle), ou lien AniList vers
- *   l'entité de la page elle-même (`ownLink`, Disney+ : certain même sans genre « Anime ») ;
+ *   la page elle-même (`ownLink` : entité Disney+, certaine même sans genre « Anime » ; GTI compact de la saison Prime Video) ;
  * - `title` : fiches au titre de la série seulement : saison toujours à vérifier ;
- * - `ignored` : rien de lié ni au même titre, ou série classée hors anime par la page (Disney+ sans genre « Anime »)
- *   sans lien vers l'entité : rien à afficher (NOT_TRACKED).
+ * - `ignored` : rien de lié ni au même titre, série classée hors anime par la page (Disney+ sans genre « Anime ») sans
+ *   lien vers l'entité, ou animation Prime Video sans fiche au titre exact : rien à afficher (NOT_TRACKED).
  */
 export function seriesPageGate(page: Pick<PageMediaInfo, 'catalogAnime'>, verdict: PlatformLinkVerdict, ownLink: boolean): 'open' | 'title' | 'ignored' {
   if (verdict === 'open' || ownLink) return 'open';

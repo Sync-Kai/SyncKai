@@ -1,8 +1,9 @@
 import { t } from '../../i18n';
-import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../../shared/episode.types';
+import { DISNEY_ARC_SEASON, isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
 import { PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
+import { parsePrimeDetailId, primeId, primeIdInLink } from '../../shared/prime-metadata';
 import type { MediaMapping, NumberingMode } from '../../shared/sync.types';
-import { normalizeTitle } from '../../shared/title';
+import { normalizeTitle, titleKey, withoutDiacritics } from '../../shared/title';
 import { groupSeasons, stripCourMarker } from './season-groups';
 
 /** Formats AniList considérés comme des "saisons" (exclut films, OVA, spéciaux, clips) */
@@ -65,7 +66,10 @@ export interface SyncTarget extends MediaMapping {
   fromCache?: true;
 }
 
-/** `ignored` : série hors du périmètre de la plateforme (Netflix, Disney+ : sans fiche AniList liée ni au même titre), ignorée en silence */
+/**
+ * `ignored` : série hors du périmètre de la plateforme (Netflix, Disney+ : sans fiche AniList liée ni au même titre ;
+ * Prime Video : animation sans fiche au titre exact), ignorée en silence
+ */
 export type ResolveResult = { ok: true; target: SyncTarget } | { ok: false; reason: string; ignored?: true };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -208,12 +212,44 @@ export function matchDisneyLink(url: string, seriesId: string | null = null): Li
 }
 
 /**
- * Plateforme sans identifiant de série sur la page de lecture (Disney+) : un lien vers la plateforme ne rattache une
- * fiche à la série que si l'un de ses titres est celui de la série (titre exact, partie « Part 2 » ou « Season N »).
- * Sans cette condition, toute fiche Disney+ des résultats de recherche deviendrait une saison de la série.
+ * Plateforme sans identifiant de série sur la page de lecture (Disney+, Prime Video) : un lien vers la plateforme ne
+ * rattache une fiche à la série que si l'un de ses titres est celui de la série (titre exact, partie « Part 2 » ou
+ * « Season N »), sauf lien vers la page elle-même (isDisneyEntityLink, isPrimeOwnLink). Sans cette condition, toute
+ * fiche Disney+ ou Prime Video des résultats de recherche deviendrait une saison de la série.
  */
 export function isTitleBoundLink(platform: StreamingPlatform): boolean {
-  return platform === 'disney';
+  return platform === 'disney' || platform === 'prime';
+}
+
+/**
+ * Lien Prime Video d'une fiche AniList (primevideo.com ou amazon.<tld> : /detail/{id}, /dp/{ASIN}, /gp/video/detail/{id},
+ * `?gti=`) : prouve seulement que la fiche est sur Prime Video (identifiants régionaux, une saison par lien). Retenu comme
+ * lien de la série si un titre de la fiche est celui de la série (isTitleBoundLink) ou s'il désigne la page elle-même
+ * (isPrimeOwnLink). null pour un autre site ou une autre page.
+ */
+export function matchPrimeLink(url: string): LinkKind {
+  return primeIdInLink(url) !== null ? 'id' : null;
+}
+
+/**
+ * Identifiants Prime Video de la page (forme canonique de primeId) : GTI compact de la saison (`seriesId` d'une page de
+ * détail), épisode en lecture (`episodeId`, GTI de l'épisode) et identifiant du chemin /detail/{id} de l'URL de l'épisode
+ * (GTI compact de sa saison).
+ */
+export function primeOwnIds(query: { seriesId: string | null; episodeId?: string | null; url?: string }): string[] {
+  let fromUrl: string | null = null;
+  try {
+    fromUrl = query.url ? parsePrimeDetailId(new URL(query.url).pathname) : null;
+  } catch {
+    fromUrl = null;
+  }
+  return [...new Set([query.seriesId, query.episodeId ?? null, fromUrl].flatMap((id) => primeId(id) ?? []))];
+}
+
+/** Lien Prime Video vers la page elle-même (saison ou épisode, voir primeOwnIds) : correspondance certaine, sans condition de titre */
+export function isPrimeOwnLink(url: string, ownIds: readonly string[]): boolean {
+  const id = primeIdInLink(url);
+  return id !== null && ownIds.includes(id);
 }
 
 /** Fiche dont l'un des titres est celui de la série (ou d'une de ses saisons / parties), voir titleSeasonOf */
@@ -245,8 +281,8 @@ const LINK_MATCHERS: Record<StreamingPlatform, LinkMatcher> = {
   adn: (url, seriesId, seriesSlug) => matchAdnLink(url, seriesId, seriesSlug),
   netflix: (url, seriesId) => matchNetflixLink(url, seriesId),
   disney: (url, seriesId) => matchDisneyLink(url, seriesId),
-  // Prime Video : liens AniList pas encore exploités (rapprochement par titre ; voir shared/prime-metadata.ts › primeIdInLink)
-  prime: () => null,
+  // Prime Video : tout lien vers la plateforme ; condition de titre ou lien vers la page appliqués par l'appelant (resolver.ts › linkOf)
+  prime: (url) => matchPrimeLink(url),
 };
 
 /**
@@ -383,7 +419,7 @@ export function linksToOtherSeriesBySlug(url: string, platform: StreamingPlatfor
  */
 export function mappingKey(episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle' | 'seasonNumber'> & { seasonTitle?: string | null }): string {
   const arcTitle = episode.platform === 'disney' && episode.seasonNumber === DISNEY_ARC_SEASON ? episode.seasonTitle : null;
-  const series = episode.seriesId ?? `title:${normalizeTitle(arcTitle ?? episode.animeTitle)}`;
+  const series = episode.seriesId ?? `title:${titleKey(arcTitle ?? episode.animeTitle)}`;
   return `${episode.platform}:${series}:s${episode.seasonNumber ?? 0}`;
 }
 
@@ -875,7 +911,8 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
 // ─── Plateformes généralistes ─────────────────────────────────────────────
 
 /**
- * Filtre « anime » d'une plateforme généraliste (PLATFORMS[…].linkRequired : Netflix, Disney+), appliqué au résultat de resolveTarget :
+ * Filtre « anime » d'une plateforme généraliste (PLATFORMS[…].linkRequired : Netflix, Disney+ ; Prime Video selon son
+ * verdict de genre, voir primeAnimeGate), appliqué au résultat de resolveTarget :
  * 1. une fiche liée à la série (lien plateforme ou suite/préquelle d'une fiche liée) → résultat inchangé, mais
  *    confiance basse si la fiche choisie n'est pas elle-même liée (série TV homonyme d'un film lié) ;
  * 2. sinon, des fiches au titre de la série → correspondance jamais fiable (carte « à vérifier »), échec inchangé ;
@@ -992,7 +1029,46 @@ export function representsWholeShow(
   return pool.length === 1 && only?.id === mediaId && only.link === 'id' && spansPlatformSeasons(only, candidates, seasons);
 }
 
-export function platformLinkVerdict(episode: Pick<EpisodeInfo, 'platform' | 'animeTitle'>, candidates: readonly MediaCandidate[]): PlatformLinkVerdict {
+/** Clés de comparaison exacte d'un titre : normalisé (accents, ponctuation, casse), et brut sans accents (titres non latins, que normalizeTitle vide) */
+function exactTitleKeys(title: string): string[] {
+  const raw = (withoutDiacritics(title) ?? title).normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+  return [normalizeTitle(title), raw].filter((key) => key.length > 0);
+}
+
+/** Fiche dont un titre (romaji, anglais, natif ou synonyme) est exactement celui de la série, après normalisation */
+export function hasExactTitle(candidate: Pick<MediaCandidate, 'titles'>, animeTitle: string): boolean {
+  const wanted = new Set(exactTitleKeys(animeTitle));
+  return wanted.size > 0 && candidate.titles.some((title) => exactTitleKeys(title).some((key) => wanted.has(key)));
+}
+
+/**
+ * Verdict « anime » de Prime Video (script de contenu, genres de la page de détail : voir EpisodeInfo.primeAnime) :
+ * - `anime`, `animation-ja` : résolution normale (`open`), comme Crunchyroll / ADN ;
+ * - `animation-exact-only` (animation sans piste japonaise : animation occidentale possible) : suivie seulement si une
+ *   fiche porte exactement le titre de la série, ou est liée à Prime Video (lien vers la page, ou lien au titre de la
+ *   série : voir isTitleBoundLink) ; sinon `none` (ignorée en silence, comme une série Netflix sans fiche liée) ;
+ * - verdict absent ou inconnu (ne devrait jamais arriver : `ignored` ne quitte pas le script de contenu) : `none`.
+ * Autres plateformes : `open` (rien à filtrer ici).
+ */
+export function primeAnimeGate(episode: Pick<EpisodeInfo, 'platform' | 'animeTitle' | 'primeAnime'>, candidates: readonly MediaCandidate[]): 'open' | 'none' {
+  if (episode.platform !== 'prime') return 'open';
+  const verdict: unknown = episode.primeAnime;
+  if (!isSentPrimeAnimeVerdict(verdict)) return 'none';
+  if (verdict !== 'animation-exact-only') return 'open';
+  return candidates.some((c) => isDirectlyLinked(c) || hasExactTitle(c, episode.animeTitle)) ? 'open' : 'none';
+}
+
+/**
+ * Série soumise à un filtre « anime » (verdict « série ignorée » possible, mémorisé : voir ignored-series.ts) : plateforme
+ * généraliste (`linkRequired`), ou Prime Video hors genre anime (`animation-exact-only`, verdict absent).
+ */
+export function filtersAnime(episode: Pick<EpisodeInfo, 'platform' | 'primeAnime'>): boolean {
+  if (PLATFORMS[episode.platform].linkRequired) return true;
+  return episode.platform === 'prime' && episode.primeAnime !== 'anime' && episode.primeAnime !== 'animation-ja';
+}
+
+export function platformLinkVerdict(episode: Pick<EpisodeInfo, 'platform' | 'animeTitle' | 'primeAnime'>, candidates: readonly MediaCandidate[]): PlatformLinkVerdict {
+  if (primeAnimeGate(episode, candidates) === 'none') return 'none';
   if (!PLATFORMS[episode.platform].linkRequired) return 'open';
   if (candidates.some(isLinked)) return 'linked';
   const animeKey = normalizeTitle(episode.animeTitle);
@@ -1001,7 +1077,7 @@ export function platformLinkVerdict(episode: Pick<EpisodeInfo, 'platform' | 'ani
 }
 
 export function gateByPlatformLink(
-  episode: Pick<EpisodeInfo, 'platform' | 'animeTitle' | 'platformSeasons'>,
+  episode: Pick<EpisodeInfo, 'platform' | 'animeTitle' | 'platformSeasons' | 'primeAnime'>,
   candidates: readonly MediaCandidate[],
   result: ResolveResult,
 ): ResolveResult {
