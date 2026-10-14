@@ -2,6 +2,7 @@ import type { AniListErrorCode } from './anilist.types';
 import type { Score10 } from './engagement.types';
 import { isEpisodeInfo, isPlatformSeasons, isSentPrimeAnimeVerdict, isStreamingPlatform, type EpisodeInfo, type SentPrimeAnimeVerdict, type StreamingPlatform } from './episode.types';
 import { isRecord } from './guards';
+import { isPlatformSignals, type PlatformSignals } from './match-signals';
 import type { Result } from './result';
 import type { CandidateSummary } from './review.types';
 import type { ListStatus } from './sync.types';
@@ -43,6 +44,8 @@ export interface PageMediaInfo {
   seasonFirstEpisode?: number;
   /** Prime Video : verdict « anime » de la page de détail (voir EpisodeInfo.primeAnime). Absent ailleurs. */
   primeAnime?: SentPrimeAnimeVerdict;
+  /** Signaux de la saison affichée (voir EpisodeInfo.signals) */
+  signals?: PlatformSignals;
   episode: EpisodeInfo | null;
 }
 
@@ -61,7 +64,7 @@ const isOptionalCount = (v: unknown): v is number | null | undefined =>
 
 export function isPageMediaInfo(value: unknown): value is PageMediaInfo {
   if (!isRecord(value)) return false;
-  const { platform, kind, seriesId, seriesSlug, seriesTitle, seasonNumber, seasonTitle, seasonEpisodeCount, catalogAnime, platformSeasons, seasonFirstEpisode, primeAnime, episode } = value;
+  const { platform, kind, seriesId, seriesSlug, seriesTitle, seasonNumber, seasonTitle, seasonEpisodeCount, catalogAnime, platformSeasons, seasonFirstEpisode, primeAnime, signals, episode } = value;
   return (
     isStreamingPlatform(platform) &&
     (kind === 'series' || kind === 'episode') &&
@@ -75,6 +78,7 @@ export function isPageMediaInfo(value: unknown): value is PageMediaInfo {
     (platformSeasons === undefined || isPlatformSeasons(platformSeasons)) &&
     (seasonFirstEpisode === undefined || (typeof seasonFirstEpisode === 'number' && Number.isInteger(seasonFirstEpisode) && seasonFirstEpisode >= 1 && seasonFirstEpisode < 100_000)) &&
     (primeAnime === undefined || isSentPrimeAnimeVerdict(primeAnime)) &&
+    (signals === undefined || isPlatformSignals(signals)) &&
     // Une page d'épisode porte toujours son épisode, une page de série jamais
     (kind === 'episode' ? isEpisodeInfo(episode) && episode.platform === platform : episode === null)
   );

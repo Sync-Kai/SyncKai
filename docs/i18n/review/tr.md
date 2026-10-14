@@ -127,3 +127,19 @@ New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), 
 |---|---|
 | `onboarding.intro` | Animelerini Crunchyroll veya ADN üzerinde izle (Netflix, Disney+ ve Prime Video isteğe bağlı): SyncKai her bölümün sonunda listeni günceller. |
 | `watching.tip` | Netflix, Disney+, Prime Video (isteğe bağlı) ve favori platformun şuradan ayarlanır: {path}. |
+
+## 2026-10-14 · Match signals (reason lines)
+
+New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and the six `match.signal.*` labels (reasons shown in 'To check' cards, the history import and logs): the AniList entry is confirmed, or contradicted, by data read on the streaming platform (release year, episode count, episode length, format, country of origin, original title). The labels are joined by the language's list format inside `{signals}`, after a colon so that nothing agrees with the list; `{year}` is a four-digit year. Terms from this language's term sheet (entry, platform, episode). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.signalsAgree` | Platformla eşleşiyor: {signals} |
+| `match.signalsContradict` | Platformla eşleşmiyor: {signals} |
+| `match.yearRemake` | Yeniden yapım, yayın yılından ayırt edildi ({year}) |
+| `match.signal.year` | yayın yılı |
+| `match.signal.episodes` | bölüm sayısı |
+| `match.signal.duration` | bölüm süresi |
+| `match.signal.format` | format (film veya dizi) |
+| `match.signal.country` | yapım ülkesi |
+| `match.signal.originalTitle` | orijinal ad |

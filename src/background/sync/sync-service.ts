@@ -308,7 +308,7 @@ async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<
     return null;
   }
   if (target.episodes === null && catalog.episodes !== null) {
-    const { mediaId, numbering, offset, seriesLabel, mediaTitle } = target;
+    const { mediaId, numbering, offset, seriesLabel, mediaTitle, learned } = target;
     await saveMediaMapping(key, {
       mediaId,
       numbering,
@@ -316,6 +316,7 @@ async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<
       episodes: catalog.episodes,
       ...(seriesLabel !== undefined ? { seriesLabel } : {}),
       ...(mediaTitle !== undefined ? { mediaTitle } : {}),
+      ...(learned !== undefined ? { learned } : {}),
     });
   }
   return catalog;

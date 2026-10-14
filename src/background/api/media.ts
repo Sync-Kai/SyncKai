@@ -22,6 +22,15 @@ export interface AniListMedia {
   coverUrl: string | null;
   externalLinkUrls: string[];
   relations: { relationType: string | null; id: number; type: string | null; format: string | null }[];
+  // Signaux comparés à ceux de la plateforme (concordance.ts) ; toujours renseignés par parseMedia (null si absents),
+  // facultatifs pour les fiches construites ailleurs (tests, anciennes données)
+  /** Durée d'un épisode (minutes), null si inconnue */
+  duration?: number | null;
+  /** Pays d'origine (JP, CN, KR, TW…) */
+  countryOfOrigin?: string | null;
+  /** FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED, HIATUS */
+  status?: string | null;
+  endDate?: { year: number | null; month: number | null; day: number | null } | null;
 }
 
 const MEDIA_FIELDS = /* GraphQL */ `
@@ -36,6 +45,10 @@ const MEDIA_FIELDS = /* GraphQL */ `
   synonyms
   externalLinks { url }
   relations { edges { relationType node { id type format } } }
+  duration
+  countryOfOrigin
+  status
+  endDate { year month day }
 `;
 
 const SEARCH_QUERY = /* GraphQL */ `
@@ -65,6 +78,7 @@ function parseMedia(value: unknown): AniListMedia | null {
 
   const title = isRecord(value.title) ? value.title : {};
   const start = isRecord(value.startDate) ? value.startDate : null;
+  const end = isRecord(value.endDate) ? value.endDate : null;
   const titles = [title.romaji, title.english, title.native, title.userPreferred, ...arr(value.synonyms)];
   const cover = isRecord(value.coverImage) ? value.coverImage : {};
 
@@ -83,6 +97,10 @@ function parseMedia(value: unknown): AniListMedia | null {
       if (!isRecord(edge) || !isRecord(edge.node) || typeof edge.node.id !== 'number') return [];
       return [{ relationType: str(edge.relationType), id: edge.node.id, type: str(edge.node.type), format: str(edge.node.format) }];
     }),
+    duration: num(value.duration),
+    countryOfOrigin: str(value.countryOfOrigin),
+    status: str(value.status),
+    endDate: end ? { year: num(end.year), month: num(end.month), day: num(end.day) } : null,
   };
 }
 
@@ -145,8 +163,9 @@ export async function searchAnime(search: string, lane: RequestLane = 'interacti
 
 /**
  * Recherches réunies dans UNE requête GraphQL (un alias `s{i}` par titre, mêmes champs et même page de 20 résultats que
- * searchAnime) : import de l'historique Netflix, une recherche par titre de l'historique. Complexité mesurée le 2026-10-12 :
- * 28 par recherche, plafond AniList 500 (18 alias refusés : « Max query complexity should be 500 but got 504 ») → 10 au plus.
+ * searchAnime) : import de l'historique Netflix, une recherche par titre de l'historique. Complexité mesurée le 2026-10-14
+ * (avec duration, countryOfOrigin, status, endDate) : 35 par recherche (28 avant), plafond AniList 500 (18 alias :
+ * « Max query complexity should be 500 but got 630 ») → 14 au plus, 10 gardé (350).
  */
 export const MAX_SEARCH_BATCH = 10;
 

@@ -4,7 +4,8 @@ import mediaSource from '../../api/media.ts?raw';
 import refreshScriptSource from '../../../../scripts/refresh-anilist-corpus.ts?raw';
 import { CASES } from './cases';
 import { byIdsKey, CATALOG, SNAPSHOTS } from './snapshots';
-import type { CorpusCase, CorpusMedia, CorpusOutcome } from './types';
+import type { PlatformSignals } from '../../../shared/match-signals';
+import type { CapturedSignals, CorpusCase, CorpusMedia, CorpusOutcome } from './types';
 
 // Corpus de cas réels (voir README.md) : chaque cas passe par la vraie résolution (resolveEpisode pour une page de
 // lecture, resolvePageMedia pour une page de série) ; seules les requêtes AniList sont servies par les instantanés
@@ -13,21 +14,23 @@ import type { CorpusCase, CorpusMedia, CorpusOutcome } from './types';
 /** Requêtes envoyées par le cas en cours, et celles absentes des instantanés (à relever) */
 const sent = { searches: [] as string[], missing: [] as string[] };
 
-/** Fiche brute telle que l'API la renverrait (signaux retirés : jamais demandés par MEDIA_FIELDS) */
-function raw(id: number): Omit<CorpusMedia, 'signals'> | null {
+/** Fiche brute telle que l'API la renvoie : champs de MEDIA_FIELDS, signaux (rangés à part dans l'instantané) remis en place */
+type RawMedia = Omit<CorpusMedia, 'signals'> & Omit<CorpusMedia['signals'], 'seasonYear'>;
+
+function raw(id: number): RawMedia | null {
   const entry = CATALOG.media.get(id);
   if (!entry) return null;
-  const { signals: _signals, ...fields } = entry;
-  return fields;
+  const { signals, ...fields } = entry;
+  return { ...fields, duration: signals.duration, countryOfOrigin: signals.countryOfOrigin, status: signals.status, endDate: signals.endDate };
 }
 
-function page(ids: readonly number[], what: string): { Page: { media: Omit<CorpusMedia, 'signals'>[] } } {
+function page(ids: readonly number[], what: string): { Page: { media: RawMedia[] } } {
   const media = ids.map((id) => {
     const entry = raw(id);
     if (!entry) sent.missing.push(`${what} : fiche #${id} absente`);
     return entry;
   });
-  return { Page: { media: media.filter((m): m is Omit<CorpusMedia, 'signals'> => m !== null) } };
+  return { Page: { media: media.filter((m): m is RawMedia => m !== null) } };
 }
 
 /** Réponse de l'API publique AniList (recherche, fiches par identifiants, fiche de la page) servie par les instantanés */
@@ -76,13 +79,34 @@ const { resolveEpisode } = await import('../resolver');
 const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media');
 const { clearCatalogCache } = await import('../../api/media');
 
+/**
+ * Signaux relevés du cas, sous la forme envoyée par une plateforme (EpisodeInfo.signals) : saison affichée (`seq` =
+ * numéro de saison ; une seule saison relevée : celle-ci), année de la série, durée en minutes, format, diffusion.
+ */
+function signalsOf(captured: CapturedSignals | undefined, seasonNumber: number | null): PlatformSignals | undefined {
+  if (!captured) return undefined;
+  const seasons = captured.seasons ?? [];
+  const season = seasons.find((s) => s.seq === seasonNumber) ?? (seasons.length === 1 ? seasons[0] : undefined);
+  const signals: PlatformSignals = {
+    ...(season ? { seasonYear: season.year } : {}),
+    ...(season?.episodes !== undefined ? { seasonEpisodeCount: season.episodes } : {}),
+    ...(captured.seriesStartYear !== undefined ? { seriesYear: captured.seriesStartYear } : {}),
+    ...(captured.episodeDurationS !== undefined ? { episodeMinutes: captured.episodeDurationS / 60 } : {}),
+    ...(captured.format !== undefined ? { format: captured.format } : {}),
+    ...(captured.airing !== undefined ? { airing: captured.airing } : {}),
+  };
+  return Object.keys(signals).length > 0 ? signals : undefined;
+}
+
 async function outcomeOf(corpusCase: CorpusCase): Promise<CorpusOutcome> {
   if (corpusCase.kind === 'episode') {
-    const { result } = await resolveEpisode(corpusCase.episode);
+    const signals = signalsOf(corpusCase.signals, corpusCase.episode.seasonNumber);
+    const { result } = await resolveEpisode(signals ? { ...corpusCase.episode, signals } : corpusCase.episode);
     if (result.ok) return { mediaId: result.target.mediaId, confidence: result.target.confidence, progress: result.target.progress };
     return { mediaId: null, confidence: result.ignored ? 'ignored' : 'not-found', progress: null };
   }
-  const result = await resolvePageMedia({ page: corpusCase.page, mediaId: null });
+  const signals = signalsOf(corpusCase.signals, corpusCase.page.seasonNumber);
+  const result = await resolvePageMedia({ page: signals ? { ...corpusCase.page, signals } : corpusCase.page, mediaId: null });
   if (result.ok) return { mediaId: result.data.media.mediaId, confidence: result.data.confidence === 'certain' ? 'high' : 'low' };
   if (result.code === 'NOT_TRACKED') return { mediaId: null, confidence: 'ignored' };
   if (result.code === 'NOT_FOUND') return { mediaId: null, confidence: 'not-found' };

@@ -165,3 +165,19 @@ New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), 
 |---|---|
 | `onboarding.intro` | Urmărește anime pe Crunchyroll sau ADN (opțional și pe Netflix, Disney+ sau Prime Video): SyncKai îți actualizează lista la finalul fiecărui episod. |
 | `watching.tip` | Găsești Netflix, Disney+, Prime Video (opționale) și platforma ta preferată în {path}. |
+
+## 2026-10-14 · Match signals (reason lines)
+
+New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and the six `match.signal.*` labels (reasons shown in 'To check' cards, the history import and logs): the AniList entry is confirmed, or contradicted, by data read on the streaming platform (release year, episode count, episode length, format, country of origin, original title). The labels are joined by the language's list format inside `{signals}`, after a colon so that nothing agrees with the list; `{year}` is a four-digit year. Terms from this language's term sheet (entry, platform, episode). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.signalsAgree` | Corespunde cu platforma: {signals} |
+| `match.signalsContradict` | Nu corespunde cu platforma: {signals} |
+| `match.yearRemake` | Remake deosebit după anul lansării ({year}) |
+| `match.signal.year` | anul lansării |
+| `match.signal.episodes` | numărul de episoade |
+| `match.signal.duration` | durata episoadelor |
+| `match.signal.format` | formatul (film sau serial) |
+| `match.signal.country` | țara de origine |
+| `match.signal.originalTitle` | titlul original |

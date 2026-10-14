@@ -151,3 +151,19 @@ New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), 
 |---|---|
 | `onboarding.intro` | Дивись аніме на Crunchyroll або ADN (Netflix, Disney+ і Prime Video — за бажанням): SyncKai оновлює твій список наприкінці кожного епізоду. |
 | `watching.tip` | Netflix, Disney+, Prime Video (необов’язково) і бажаний плеєр налаштовуються в розділі {path}. |
+
+## 2026-10-14 · Match signals (reason lines)
+
+New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and the six `match.signal.*` labels (reasons shown in 'To check' cards, the history import and logs): the AniList entry is confirmed, or contradicted, by data read on the streaming platform (release year, episode count, episode length, format, country of origin, original title). The labels are joined by the language's list format inside `{signals}`, after a colon so that nothing agrees with the list; `{year}` is a four-digit year. Terms from this language's term sheet (entry, platform, episode). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.signalsAgree` | Збігається з даними платформи: {signals} |
+| `match.signalsContradict` | Не збігається з даними платформи: {signals} |
+| `match.yearRemake` | Ремейк визначено за роком виходу ({year}) |
+| `match.signal.year` | рік виходу |
+| `match.signal.episodes` | кількість епізодів |
+| `match.signal.duration` | тривалість епізодів |
+| `match.signal.format` | формат (фільм або серіал) |
+| `match.signal.country` | країна виробництва |
+| `match.signal.originalTitle` | оригінальна назва |

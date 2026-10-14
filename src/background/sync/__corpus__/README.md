@@ -13,12 +13,16 @@ episode count, duration, format, country signals…) is measured against the sam
   - `ideal` + `gap`: only when the owner wants something else (right entry; `high` only when a link or signals prove it).
     These are the targets of the next steps; they are reported as `todo` tests and in the summary table
     (`npx vitest run src/background/sync/__corpus__ --silent=false`), never failing;
-  - `signals`: platform data captured on the real site but not sent to the resolver yet (Netflix season start years,
-    Disney+ series start year, episode durations), for the next steps.
+  - `signals`: platform data captured on the real site (Netflix season start years, Disney+ series start year, episode
+    durations…), or assumed (said in `source`, « SUPPOSÉ »). `corpus.test.ts` sends them to the resolver as
+    `EpisodeInfo.signals` / `PageMediaInfo.signals` (displayed season: its year and episode count; series start year;
+    duration in minutes; format; airing), as the platforms will (`src/shared/match-signals.ts`, rules in
+    `src/background/sync/concordance.ts`). A case without `signals` shows the behaviour without signals.
 - `anilist/<franchise>.json`: AniList snapshots. `searches` / `byIds` map each request (exact search text; sorted ids
   joined by `,`) to the returned ids in API order; `media` holds the entries in the shape of `MEDIA_FIELDS`
-  (`src/background/api/media.ts`), links reduced to the supported platforms, plus `signals` (`duration`,
-  `countryOfOrigin`, `status`, `seasonYear`, `endDate`) not read by the resolver yet. `fetchedAt` is the snapshot date.
+  (`src/background/api/media.ts`), links reduced to the supported platforms, with `duration`, `countryOfOrigin`,
+  `status`, `endDate` (and a copy of `seasonYear`) stored apart in `signals`; `corpus.test.ts` puts them back in the entry
+  it serves. `fetchedAt` is the snapshot date.
 - `corpus.test.ts`: mocks only `anilistPublicQuery` (the real `searchAnime` / `getAnimeByIds` / `parseMedia` run), with
   the fake chrome storage; no network. A request missing from the snapshots fails the case with its key.
 

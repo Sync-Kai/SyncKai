@@ -1,12 +1,13 @@
 import type { EpisodeInfo } from '../../../shared/episode.types';
 import type { PageMediaInfo } from '../../../shared/page-media.types';
 import { isRecord } from '../../../shared/guards';
+import type { PlatformFormat } from '../../../shared/match-signals';
 
 // Corpus de cas réels de correspondance (voir README.md) : types des instantanés AniList et des cas.
 
 /**
- * Signaux AniList pas encore lus par la résolution (étapes suivantes de feature/match-signals), relevés à part pour ne
- * rien changer à la forme lue par parseMedia.
+ * Signaux AniList (duration, countryOfOrigin, status, endDate de MEDIA_FIELDS), rangés à part dans l'instantané ;
+ * corpus.test.ts les remet dans la fiche servie à parseMedia.
  */
 export interface CorpusSignals {
   /** Durée d'un épisode (minutes) */
@@ -74,8 +75,11 @@ interface CaseBase {
   ideal?: CorpusOutcome;
   /** Pourquoi le résultat actuel n'est pas idéal (obligatoire avec `ideal`) */
   gap?: string;
-  /** Signaux de la plateforme relevés sur le site, pas encore transmis à la résolution (étapes suivantes) */
-  signals?: PlatformSignals;
+  /**
+   * Signaux de la plateforme relevés sur le site (ou supposés : dit dans `source`), transmis à la résolution par
+   * corpus.test.ts (EpisodeInfo.signals / PageMediaInfo.signals), comme le feront les plateformes (étapes 4 à 6)
+   */
+  signals?: CapturedSignals;
 }
 
 /** Saison de la plateforme telle que relevée (Netflix : `video.seasons[]` des métadonnées) */
@@ -84,11 +88,12 @@ export interface PlatformSeasonSignal {
   seq: number;
   /** Année de DÉBUT d'origine de la saison (Netflix `seasons[].year`, vérifiée le 2026-10-14 ; `video.year` absent pour une série) */
   year: number;
-  episodes: number;
+  /** Épisodes de la saison sur la plateforme (absent : non relevé) */
+  episodes?: number;
   title?: string;
 }
 
-export interface PlatformSignals {
+export interface CapturedSignals {
   seasons?: PlatformSeasonSignal[];
   /**
    * Année de début de la SÉRIE (pas de la saison) : Disney+ `page.visuals.metastringParts.releaseYearRange.startYear`
@@ -97,7 +102,11 @@ export interface PlatformSignals {
   seriesStartYear?: number;
   /** Durée d'un épisode (s) : Disney+ `items[].visuals.durationMs` / 1000, Netflix `runtime`, Prime `duration` */
   episodeDurationS?: number;
-  /** Origine du relevé (capture du propriétaire, fixture…) */
+  /** Nature de l'œuvre (Netflix `type`, Disney+ `programType`, Prime Video `titleType`) */
+  format?: PlatformFormat;
+  /** Saison encore en cours de diffusion sur la plateforme */
+  airing?: boolean;
+  /** Origine du relevé (capture du propriétaire, fixture…) ; « SUPPOSÉ » si la valeur n'a pas été relevée sur le site */
   source: string;
 }
 

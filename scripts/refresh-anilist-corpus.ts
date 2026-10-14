@@ -25,13 +25,14 @@ const MEDIA_FIELDS = /* GraphQL */ `
   synonyms
   externalLinks { url }
   relations { edges { relationType node { id type format } } }
+  duration
+  countryOfOrigin
+  status
+  endDate { year month day }
 `;
 
-/** Signaux relevés à part (pas encore lus par la résolution) */
-const SIGNAL_FIELDS = 'duration countryOfOrigin status endDate { year month day }';
-
-const SEARCH_QUERY = `query SearchAnime($search: String!) { Page(perPage: 20) { media(search: $search, type: ANIME) { ${MEDIA_FIELDS} ${SIGNAL_FIELDS} } } }`;
-const BY_IDS_QUERY = `query AnimeByIds($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { ${MEDIA_FIELDS} ${SIGNAL_FIELDS} } } }`;
+const SEARCH_QUERY = `query SearchAnime($search: String!) { Page(perPage: 20) { media(search: $search, type: ANIME) { ${MEDIA_FIELDS} } } }`;
+const BY_IDS_QUERY = `query AnimeByIds($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME) { ${MEDIA_FIELDS} } } }`;
 
 /** Hôtes des plateformes prises en charge : seuls liens lus par la résolution (les autres sont retirés de l'instantané) */
 const PLATFORM_HOSTS = /(^|\.)(crunchyroll\.com|animationdigitalnetwork\.(com|fr)|netflix\.com|disneyplus\.com|primevideo\.com|amazon\.[a-z.]+)$/;
@@ -72,7 +73,7 @@ async function query(text: string, variables: JsonObject): Promise<JsonObject[]>
   }
 }
 
-/** Fiche réduite aux champs lus (liens des plateformes seulement), signaux à part, sans image */
+/** Fiche réduite aux champs lus (liens des plateformes seulement), signaux (duration, countryOfOrigin, status, endDate) rangés à part, sans image */
 function reduce(raw: JsonObject): JsonObject {
   const { duration, countryOfOrigin, status, endDate, coverImage: _cover, externalLinks, ...fields } = raw;
   const links = (Array.isArray(externalLinks) ? externalLinks : []).filter((link): link is JsonObject => {

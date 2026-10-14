@@ -122,3 +122,19 @@ New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), 
 |---|---|
 | `onboarding.intro` | Mira tus animes en Crunchyroll o ADN (Netflix, Disney+ y Prime Video opcionales): SyncKai actualiza tu lista al final de cada episodio. |
 | `watching.tip` | Netflix, Disney+, Prime Video (opcionales) y tu plataforma preferida se configuran en {path}. |
+
+## 2026-10-14 · Match signals (reason lines)
+
+New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and the six `match.signal.*` labels (reasons shown in 'To check' cards, the history import and logs): the AniList entry is confirmed, or contradicted, by data read on the streaming platform (release year, episode count, episode length, format, country of origin, original title). The labels are joined by the language's list format inside `{signals}`, after a colon so that nothing agrees with the list; `{year}` is a four-digit year. Terms from this language's term sheet (entry, platform, episode). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.signalsAgree` | Coincide con la plataforma: {signals} |
+| `match.signalsContradict` | No coincide con la plataforma: {signals} |
+| `match.yearRemake` | Remake identificado por su año de estreno ({year}) |
+| `match.signal.year` | año de estreno |
+| `match.signal.episodes` | número de episodios |
+| `match.signal.duration` | duración de los episodios |
+| `match.signal.format` | formato (película o serie) |
+| `match.signal.country` | país de origen |
+| `match.signal.originalTitle` | título original |

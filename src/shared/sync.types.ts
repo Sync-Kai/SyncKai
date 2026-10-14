@@ -27,6 +27,12 @@ export interface MediaMapping {
    * dans la fiche) à son premier usage avant d'être jugée sûre. Absent : apprise ou choisie sur cette installation.
    */
   unverified?: true;
+  /**
+   * Apprise automatiquement par la résolution (jamais un choix de l'utilisateur) : remise en cause si les signaux de la
+   * plateforme la contredisent (voir resolver.ts › contradictedMapping). Absent : choisie par l'utilisateur, importée, ou
+   * enregistrée avant la 2.4.0.
+   */
+  learned?: true;
 }
 
 const isPositiveInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
@@ -40,7 +46,8 @@ export function isMediaMapping(value: unknown): value is MediaMapping {
     (value.episodes === null || isPositiveInteger(value.episodes)) &&
     (value.seriesLabel === undefined || typeof value.seriesLabel === 'string') &&
     (value.mediaTitle === undefined || typeof value.mediaTitle === 'string') &&
-    (value.unverified === undefined || value.unverified === true)
+    (value.unverified === undefined || value.unverified === true) &&
+    (value.learned === undefined || value.learned === true)
   );
 }
 

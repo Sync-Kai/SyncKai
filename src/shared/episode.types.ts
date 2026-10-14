@@ -1,4 +1,5 @@
 import { isRecord } from './guards';
+import { isPlatformSignals, type PlatformSignals } from './match-signals';
 import { STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
 
 export type { StreamingPlatform } from './platform-ids';
@@ -37,6 +38,8 @@ export interface EpisodeInfo {
   platformSeasons?: number[];
   /** Prime Video : verdict « anime » du script de contenu (voir PrimeAnimeVerdict). Absent ailleurs. */
   primeAnime?: SentPrimeAnimeVerdict;
+  /** Signaux de la plateforme (année, épisodes, durée…) pour choisir la fiche, voir shared/match-signals.ts. Absent si aucun. */
+  signals?: PlatformSignals;
 }
 
 /**
@@ -97,6 +100,7 @@ export function isEpisodeInfo(value: unknown): value is EpisodeInfo {
     isNullableString(value.episodeTitle) &&
     typeof value.url === 'string' &&
     (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons)) &&
-    (value.primeAnime === undefined || isSentPrimeAnimeVerdict(value.primeAnime))
+    (value.primeAnime === undefined || isSentPrimeAnimeVerdict(value.primeAnime)) &&
+    (value.signals === undefined || isPlatformSignals(value.signals))
   );
 }

@@ -1,4 +1,5 @@
 import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
+import { hasSignals } from '../../shared/match-signals';
 import type { CandidateSummary } from '../../shared/review.types';
 import { PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
 import { STREAMING_PLATFORMS } from '../../shared/platform-ids';
@@ -37,6 +38,7 @@ import {
 import { normalizeTitle, slugSearchTitle, withoutDiacritics } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './season-groups';
+import { contradictingSignal } from './concordance';
 import { createLogger } from '../../shared/logger';
 
 const log = createLogger('sync');
@@ -218,6 +220,7 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
       titles: m.titles,
       link: links.get(m.id) ?? null,
       hasPrequel: m.relations.some((rel) => rel.type === 'ANIME' && rel.relationType === 'PREQUEL' && rel.format !== null && SERIES_FORMATS.has(rel.format)),
+      ...candidateSignals(m),
     }));
 
   // Saisons de la plateforme (Netflix : épisodes par saison) rapprochées des fiches de la franchise : une saison liée à
@@ -243,6 +246,30 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
 }
 
 const sortableStart = (media: AniListMedia): number | null => toSortableDate(media.startDate);
+
+/** Signaux AniList d'une fiche, comparés à ceux de la plateforme (concordance.ts) */
+function candidateSignals(media: AniListMedia): Pick<MediaCandidate, 'endYear' | 'status' | 'duration' | 'country' | 'relations'> {
+  return {
+    endYear: media.endDate?.year ?? null,
+    status: media.status ?? null,
+    duration: media.duration ?? null,
+    country: media.countryOfOrigin ?? null,
+    relations: media.relations.flatMap((rel) => (rel.type === 'ANIME' && (rel.relationType === 'SEQUEL' || rel.relationType === 'PREQUEL') ? [{ id: rel.id, type: rel.relationType }] : [])),
+  };
+}
+
+/**
+ * Correspondance apprise automatiquement (`learned`) que les signaux de la plateforme contredisent (année, format,
+ * durée : fiche d'une autre saison ou d'un remake) : signal en cause, null si elle tient. Un choix de l'utilisateur
+ * (sans `learned`) n'est jamais remis en cause. Une requête au catalogue (en cache quelques minutes), seulement avec des signaux.
+ */
+async function contradictedMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<string | null> {
+  if (mapping.learned !== true || !hasSignals(episode.signals)) return null;
+  const media = (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId);
+  if (!media) return null;
+  const candidate = { id: media.id, format: media.format, episodes: media.episodes, startDate: sortableStart(media), titles: media.titles, ...candidateSignals(media) };
+  return contradictingSignal(candidate, episode.signals);
+}
 
 /**
  * Lien vers une AUTRE plateforme prise en charge, et aucun vers celle de la série (MONSTERS : Netflix seulement).
@@ -356,7 +383,11 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
 
   const stored = await getMediaMapping(key);
   // Correspondance importée : revérifiée sur le catalogue avant d'être jugée sûre (BAK-02)
-  const cached = stored?.unverified === true && applyMapping(episode, stored) !== null ? await confirmImportedMapping(episode, key, stored, persist, lane) : stored;
+  const confirmed = stored?.unverified === true && applyMapping(episode, stored) !== null ? await confirmImportedMapping(episode, key, stored, persist, lane) : stored;
+  // Correspondance apprise que les signaux de la plateforme contredisent : oubliée, nouvelle résolution
+  const contradicted = confirmed ? await contradictedMapping(episode, confirmed, lane) : null;
+  if (contradicted !== null) log.info(`Correspondance ${key} contredite par la plateforme (${contradicted}) : nouvelle résolution`);
+  const cached = contradicted === null ? confirmed : null;
   if (cached) {
     const progress = applyMapping(episode, cached);
     if (progress !== null) {
@@ -402,7 +433,7 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   if (persist && result.ok && result.target.confidence === 'high') {
     const { mediaId, numbering, offset, episodes } = result.target;
     const mediaTitle = collected.media.find((m) => m.id === mediaId)?.displayTitle;
-    await saveMediaMapping(key, { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...(mediaTitle ? { mediaTitle } : {}) });
+    await saveMediaMapping(key, { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...(mediaTitle ? { mediaTitle } : {}), learned: true });
   }
   const { seasons, seasonGroups } = poolOf(collected, episode.animeTitle);
   return { result, candidates: summarize(collected, result.ok ? result.target.mediaId : null), seasons: seasons.map(toCandidateSummary), seasonGroups };

@@ -49,15 +49,17 @@ export function rememberedSeason(
   mappings: Readonly<Record<string, MediaMapping>>,
   prefix: string,
   seasonNumber: number | null,
+  /** Année de la saison (clé par titre avec année, voir mappingKey) : correspondance de cette année d'abord */
+  seasonYear?: number,
 ): { mediaId: number; exact: boolean } | null {
   if (seasonNumber !== null) {
-    const exact = mappings[`${prefix}s${seasonNumber}`];
+    const exact = (seasonYear !== undefined ? mappings[`${prefix}y${seasonYear}:s${seasonNumber}`] : undefined) ?? mappings[`${prefix}s${seasonNumber}`];
     if (exact) return { mediaId: exact.mediaId, exact: true };
   }
   let best: { season: number; mediaId: number } | null = null;
   for (const [key, mapping] of Object.entries(mappings)) {
     if (!key.startsWith(prefix)) continue;
-    const season = Number.parseInt(key.slice(prefix.length).replace(/^s/, ''), 10);
+    const season = Number.parseInt(key.slice(prefix.length).replace(/^(?:y\d{4}:)?s/, ''), 10);
     if (Number.isInteger(season) && (best === null || season > best.season)) best = { season, mediaId: mapping.mediaId };
   }
   return best ? { mediaId: best.mediaId, exact: false } : null;

@@ -158,3 +158,19 @@ New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), 
 |---|---|
 | `onboarding.intro` | Crunchyroll이나 ADN에서 애니를 보세요(Netflix, Disney+, Prime Video는 선택 사항). 에피소드가 끝날 때마다 SyncKai가 내 목록을 업데이트해요. |
 | `watching.tip` | Netflix, Disney+, Prime Video(선택 사항), 선호 플랫폼은 {path}에서 설정해요. |
+
+## 2026-10-14 · Match signals (reason lines)
+
+New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and the six `match.signal.*` labels (reasons shown in 'To check' cards, the history import and logs): the AniList entry is confirmed, or contradicted, by data read on the streaming platform (release year, episode count, episode length, format, country of origin, original title). The labels are joined by the language's list format inside `{signals}`, after a colon so that nothing agrees with the list; `{year}` is a four-digit year. Terms from this language's term sheet (entry, platform, episode). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.signalsAgree` | 플랫폼 정보와 일치: {signals} |
+| `match.signalsContradict` | 플랫폼 정보와 불일치: {signals} |
+| `match.yearRemake` | 방영 연도({year}년)로 리메이크작 구분 |
+| `match.signal.year` | 방영 연도 |
+| `match.signal.episodes` | 에피소드 수 |
+| `match.signal.duration` | 에피소드 길이 |
+| `match.signal.format` | 형식(극장판 또는 시리즈) |
+| `match.signal.country` | 제작 국가 |
+| `match.signal.originalTitle` | 원제 |

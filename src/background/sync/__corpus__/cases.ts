@@ -2,7 +2,8 @@ import type { EpisodeInfo, SentPrimeAnimeVerdict } from '../../../shared/episode
 import type { PageMediaInfo } from '../../../shared/page-media.types';
 import type { CorpusCase, CorpusOutcome } from './types';
 
-// Cas réels de correspondance (voir README.md). `expected` = comportement actuel (2026-10-14, develop 2edff20) ;
+// Cas réels de correspondance (voir README.md). `expected` = comportement actuel, signaux du cas transmis (2026-10-14,
+// feature/match-signals) ;
 // `ideal` (+ `gap`) seulement là où le propriétaire attend autre chose. Les identifiants de série Crunchyroll / Netflix
 // viennent des pages relevées (fixtures, tests existants) ou, à défaut, du lien AniList de la fiche (noté dans `note`).
 
@@ -168,6 +169,17 @@ export const CASES: readonly CorpusCase[] = [
     expected: high(182255, 3),
   },
   {
+    id: 'cr-frieren-s2e3-airing',
+    kind: 'episode',
+    note: 'cr-frieren-s2e3 si Crunchyroll publiait la saison 2 (2026) en cours avec déjà 13 épisodes : plus que les 10 de la fiche AniList.',
+    anilist: 'frieren',
+    episode: crunchyroll(FRIEREN_CR, 'GFRIER0203', { seasonNumber: 2, seasonTitle: 'Frieren: Beyond Journey’s End Season 2', seasonEpisodeNumber: 3, displayedEpisodeNumber: 3 }),
+    signals: { seasons: [{ seq: 2, year: 2026, episodes: 13 }], airing: true, source: 'SUPPOSÉ : saison en cours sur la plateforme avec plus d’épisodes que la fiche AniList (situation construite)' },
+    searches: ['Frieren: Beyond Journey’s End', 'Frieren: Beyond Journey’s End Season 2'],
+    // Saison en cours : un total AniList plus court ne contredit rien ; l’année (2026) prouve la saison 2
+    expected: high(182255, 3),
+  },
+  {
     id: 'cr-aot-s1e5',
     kind: 'episode',
     note: 'Attack on Titan saison 1, E5 (GR751KNZY, liens AniList par ancien slug).',
@@ -262,6 +274,18 @@ export const CASES: readonly CorpusCase[] = [
     gap: 'bonne fiche mais « À vérifier » : saison 2 par le titre seul ; suite de « Reincarnated as a Sword » (2022), début 2026-10 comme la saison 2 ADN (2026-09-30)',
   },
 
+  {
+    id: 'adn-tougen-anki-s2e2-signals',
+    kind: 'episode',
+    note: 'Même épisode que adn-tougen-anki-s2e2, avec les signaux qu’ADN pourra transmettre (étape 5) : saison 2 commencée en 2026 (API ADN 2026-10-14), en cours, 4 vidéos (2 spéciaux + E1, E2), donc moins d’épisodes que les 12 d’AniList.',
+    anilist: 'tougen-anki',
+    episode: adn(TOUGEN_ADN, '32923', { seasonNumber: 2, seasonTitle: null, seasonEpisodeNumber: 2, displayedEpisodeNumber: 2 }),
+    signals: { seasons: [{ seq: 2, year: 2026, episodes: 4 }], airing: true, source: 'API ADN du 2026-10-14 (dates et nombre de vidéos de la saison 2) ; forme du signal SUPPOSÉE (ADN ne l’envoie pas encore)' },
+    searches: ['TOUGEN ANKI'],
+    // Saison en cours plus courte qu’AniList : aucune contradiction ; l’année (2026) écarte la saison 1 (2025) et prouve la suite
+    expected: high(204650, 2),
+  },
+
   // ─── Netflix ────────────────────────────────────────────────────────────
   {
     id: 'nf-one-piece-elbaph-e1180',
@@ -348,9 +372,9 @@ export const CASES: readonly CorpusCase[] = [
     episode: netflix('80987039', 'Mushoku Tensei: Jobless Reincarnation', '81691713', { seasonNumber: 2, seasonTitle: null, seasonEpisodeNumber: 14, displayedEpisodeNumber: 37, platformSeasons: MUSHOKU_SEASONS }),
     signals: MUSHOKU_SIGNALS,
     searches: ['Mushoku Tensei: Jobless Reincarnation'],
-    expected: high(178789, 1),
-    ideal: high(166873, 1),
-    gap: 'MAUVAISE fiche en confiance haute : Mushoku Tensei III (2026, lié au même titre Netflix) au lieu de « II Part 2 » (non liée à Netflix) ; l’année de la saison Netflix (2023) et le total 13 + 12 = 25 désignent II + II Part 2',
+    // Sans signaux : Mushoku Tensei III (2026, lié au même titre Netflix) en confiance haute ; l’année de la saison Netflix
+    // (2023) et le total 13 + 12 = 25 désignent II + II Part 2 (non liée à Netflix), seul groupe sans contradiction
+    expected: high(166873, 1),
   },
   {
     id: 'nf-mushoku-s2e14-with-s3',
@@ -369,9 +393,20 @@ export const CASES: readonly CorpusCase[] = [
     episode: netflix('80987039', 'Mushoku Tensei: Jobless Reincarnation', '81691724', { seasonNumber: 2, seasonTitle: null, seasonEpisodeNumber: 25, displayedEpisodeNumber: 48, platformSeasons: MUSHOKU_SEASONS }),
     signals: MUSHOKU_SIGNALS,
     searches: ['Mushoku Tensei: Jobless Reincarnation'],
-    expected: high(178789, 12),
-    ideal: high(166873, 12),
-    gap: 'MAUVAISE fiche en confiance haute : III épisode 12 au lieu de II Part 2 épisode 12 (même cause que S2 E14)',
+    // Sans signaux : III épisode 12 (même cause que S2 E14)
+    expected: high(166873, 12),
+  },
+  {
+    id: 'nf-mushoku-series-s2',
+    kind: 'series',
+    note: 'Page de série Netflix de Mushoku Tensei, saison 2 choisie dans la fenêtre de détails (25 épisodes).',
+    anilist: 'mushoku-tensei',
+    page: seriesPage({ platform: 'netflix', seriesId: '80987039', seriesSlug: null, seriesTitle: 'Mushoku Tensei: Jobless Reincarnation', seasonNumber: 2, seasonTitle: null, seasonEpisodeCount: 25, platformSeasons: MUSHOKU_SEASONS }),
+    signals: MUSHOKU_SIGNALS,
+    searches: ['Mushoku Tensei: Jobless Reincarnation'],
+    // Sans signaux : « Saison devinée » (25 épisodes sur la page contre 13 pour « II », seule fiche liée à Netflix) ;
+    // l’année (2023) et le total de II + II Part 2 la prouvent
+    expected: high(146065),
   },
   {
     id: 'nf-monsters',
@@ -403,6 +438,17 @@ export const CASES: readonly CorpusCase[] = [
     expected: low(159322, 1),
     ideal: high(159322, 1),
     gap: 'bonne fiche mais « À vérifier » : « The Separation » porte le même lien Disney+ que la saison 1 (même série) et suit la saison 1 dans l’ordre de diffusion',
+  },
+  {
+    id: 'dp-bleach-tybw-s2e1-series-year',
+    kind: 'episode',
+    note: 'Même épisode que dp-bleach-tybw-s2e1, avec l’année de début de la série Disney+ (2022) : antérieure à « The Separation » (2023), jamais une contradiction pour une saison suivante.',
+    anilist: 'bleach',
+    episode: disney('BLEACH: Thousand-Year Blood War', 'bleach-tybw-s2e1', { seasonNumber: 2, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 }),
+    signals: { seriesStartYear: 2022, source: 'SUPPOSÉ : releaseYearRange.startYear de la série Disney+ (non relevé), année de la saison 1' },
+    searches: ['BLEACH: Thousand-Year Blood War'],
+    // Aucune contradiction, aucune preuve de la saison (l’année de série ne désigne que la 1re saison) : inchangé
+    expected: low(159322, 1),
   },
   {
     id: 'dp-undead-unluck-s1e1',
@@ -474,6 +520,61 @@ export const CASES: readonly CorpusCase[] = [
     expected: low(21560, 1),
     ideal: high(97643, 1),
     gap: 'MAUVAISE fiche (Berserk 2016 au lieu de « Berserk 2 », 2017) : saisons de 1997 et 2016 mélangées, l’année de la saison Prime (2017) les sépare',
+  },
+  {
+    id: 'pv-berserk-1997-e1-year',
+    kind: 'episode',
+    note: 'pv-berserk-1997-e1 avec l’année de la saison Prime Video (releaseYear, lue à l’étape 6).',
+    anilist: 'berserk',
+    episode: prime('Berserk', 'anime', 1, 1),
+    signals: { seasons: [{ seq: 1, year: 1997 }], source: 'SUPPOSÉ : releaseYear de la saison Prime Video (non relevé), année de diffusion d’origine' },
+    searches: ['Berserk'],
+    expected: high(33, 1),
+  },
+  {
+    id: 'pv-berserk-2016-e1-year',
+    kind: 'episode',
+    note: 'pv-berserk-2016-e1 avec l’année de la saison Prime Video : 2016 écarte 1997 et « Berserk 2 » (2017, à un an près alors qu’une fiche tombe juste).',
+    anilist: 'berserk',
+    episode: prime('Berserk', 'anime', 1, 1, '0PRIMEBERSERK2016000000000'),
+    signals: { seasons: [{ seq: 1, year: 2016 }], source: 'SUPPOSÉ : releaseYear de la saison Prime Video (non relevé), année de diffusion d’origine' },
+    searches: ['Berserk'],
+    expected: high(21560, 1),
+  },
+  {
+    id: 'pv-berserk-2016-s2e1-year',
+    kind: 'episode',
+    note: 'pv-berserk-2016-s2e1 avec l’année de la saison Prime Video (2017) : « Berserk 2 », suite de Berserk 2016 qui ne porte pas le titre exact.',
+    anilist: 'berserk',
+    episode: prime('Berserk', 'anime', 2, 1, '0PRIMEBERSERK2017000000000'),
+    signals: { seasons: [{ seq: 2, year: 2017 }], source: 'SUPPOSÉ : releaseYear de la saison Prime Video (non relevé), année de diffusion d’origine' },
+    searches: ['Berserk'],
+    expected: high(97643, 1),
+  },
+  {
+    id: 'pv-fate-ubw-movie',
+    kind: 'episode',
+    note: 'Film « Fate/stay night: Unlimited Blade Works » (2010) publié sur Prime Video sous ce titre : la série TV de 2014 porte exactement ce titre, le film s’appelle « Fate/stay night Movie: UNLIMITED BLADE WORKS ».',
+    anilist: 'fate-ubw',
+    episode: {
+      platform: 'prime',
+      episodeId: 'amzn1.dv.gti.corpus-fate-ubw-movie',
+      seriesId: null,
+      seriesSlug: null,
+      animeTitle: 'Fate/stay night: Unlimited Blade Works',
+      seasonNumber: null,
+      seasonTitle: null,
+      seasonEpisodeNumber: 1,
+      displayedEpisodeNumber: 1,
+      episodeTitle: null,
+      url: 'https://www.primevideo.com/detail/0PRIMEFATEUBWMOVIE00000000',
+      primeAnime: 'anime',
+    },
+    signals: { format: 'movie', seasons: [{ seq: 1, year: 2010 }], source: 'SUPPOSÉ : titleType « movie » et releaseYear d’un film Prime Video (non relevés)' },
+    searches: ['Fate/stay night: Unlimited Blade Works'],
+    // Sans signaux : série TV de 2014 au titre exact, en confiance haute (mauvaise œuvre) ; le format « film » l’écarte, le
+    // film reste à confirmer (titre différent)
+    expected: low(6922, 1),
   },
   {
     id: 'pv-bumpkin-s1e3',

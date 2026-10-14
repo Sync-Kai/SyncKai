@@ -157,3 +157,19 @@ New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), 
 |---|---|
 | `onboarding.intro` | Bạn cứ xem anime trên Crunchyroll hoặc ADN (Netflix, Disney+ và Prime Video là tùy chọn): SyncKai sẽ cập nhật danh sách của bạn vào cuối mỗi tập. |
 | `watching.tip` | Netflix, Disney+, Prime Video (tùy chọn) và nền tảng ưu tiên của bạn được thiết lập trong {path}. |
+
+## 2026-10-14 · Match signals (reason lines)
+
+New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and the six `match.signal.*` labels (reasons shown in 'To check' cards, the history import and logs): the AniList entry is confirmed, or contradicted, by data read on the streaming platform (release year, episode count, episode length, format, country of origin, original title). The labels are joined by the language's list format inside `{signals}`, after a colon so that nothing agrees with the list; `{year}` is a four-digit year. Terms from this language's term sheet (entry, platform, episode). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.signalsAgree` | Khớp với nền tảng: {signals} |
+| `match.signalsContradict` | Không khớp với nền tảng: {signals} |
+| `match.yearRemake` | Phân biệt bản làm lại nhờ năm phát hành ({year}) |
+| `match.signal.year` | năm phát hành |
+| `match.signal.episodes` | số tập |
+| `match.signal.duration` | thời lượng tập |
+| `match.signal.format` | định dạng (phim điện ảnh hay phim bộ) |
+| `match.signal.country` | quốc gia sản xuất |
+| `match.signal.originalTitle` | tên gốc |

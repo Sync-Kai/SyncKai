@@ -142,3 +142,19 @@ New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), 
 |---|---|
 | `onboarding.intro` | 在 Crunchyroll 或 ADN（Netflix、Disney+ 和 Prime Video 可选）上看番：每集看完时，SyncKai 都会更新你的列表。 |
 | `watching.tip` | Netflix、Disney+、Prime Video（可选）以及你的首选播放平台，都可以在 {path} 中调整。 |
+
+## 2026-10-14 · Match signals (reason lines)
+
+New keys `match.signalsAgree`, `match.signalsContradict`, `match.yearRemake` and the six `match.signal.*` labels (reasons shown in 'To check' cards, the history import and logs): the AniList entry is confirmed, or contradicted, by data read on the streaming platform (release year, episode count, episode length, format, country of origin, original title). The labels are joined by the language's list format inside `{signals}`, after a colon so that nothing agrees with the list; `{year}` is a four-digit year. Terms from this language's term sheet (entry, platform, episode). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `match.signalsAgree` | 与平台信息一致：{signals} |
+| `match.signalsContradict` | 与平台信息不符：{signals} |
+| `match.yearRemake` | 通过首播年份（{year} 年）区分重制版 |
+| `match.signal.year` | 首播年份 |
+| `match.signal.episodes` | 集数 |
+| `match.signal.duration` | 单集时长 |
+| `match.signal.format` | 类型（剧场版或剧集） |
+| `match.signal.country` | 制作国家 |
+| `match.signal.originalTitle` | 原标题 |

@@ -42,6 +42,7 @@ export function pageMediaFromSeries(platform: StreamingPlatform, series: SeriesP
     ...(series.platformSeasons !== undefined ? { platformSeasons: series.platformSeasons } : {}),
     ...(series.seasonFirstEpisode !== undefined ? { seasonFirstEpisode: series.seasonFirstEpisode } : {}),
     ...(series.primeAnime !== undefined ? { primeAnime: series.primeAnime } : {}),
+    ...(series.signals !== undefined ? { signals: series.signals } : {}),
     episode: null,
   };
 }

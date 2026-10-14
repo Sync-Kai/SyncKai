@@ -1,10 +1,25 @@
-import { t } from '../../i18n';
+import { formatList, t } from '../../i18n';
 import { DISNEY_ARC_SEASON, isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
+import { hasSignals, type PlatformSignals } from '../../shared/match-signals';
 import { PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
 import { parsePrimeDetailId, primeId, primeIdInLink } from '../../shared/prime-metadata';
 import type { MediaMapping, NumberingMode } from '../../shared/sync.types';
 import { normalizeTitle, titleKey, withoutDiacritics } from '../../shared/title';
 import { groupSeasons, stripCourMarker } from './season-groups';
+import {
+  concordanceVerdict,
+  contradicts,
+  formatCheck,
+  isApplicable,
+  isConfirmed,
+  checkGroup,
+  signalsWith,
+  type ConcordanceVerdict,
+  type GroupVerdict,
+  type SignalChecks,
+  type SignalGroup,
+  type SignalName,
+} from './concordance';
 
 /** Formats AniList considérés comme des "saisons" (exclut films, OVA, spéciaux, clips) */
 export const SERIES_FORMATS: ReadonlySet<string> = new Set(['TV', 'TV_SHORT', 'ONA']);
@@ -45,6 +60,13 @@ export interface MediaCandidate {
   link: LinkKind;
   /** Suite d'une fiche série (relation PREQUEL vers une fiche TV / ONA) : jamais la 1re saison de la franchise */
   hasPrequel?: boolean;
+  /** Signaux AniList comparés à ceux de la plateforme (voir concordance.ts) : fin de diffusion (année), statut, minutes, pays */
+  endYear?: number | null;
+  status?: string | null;
+  duration?: number | null;
+  country?: string | null;
+  /** Suites / préquelles (fiches anime) : franchises distinguées par la concordance (remakes au même titre) */
+  relations?: readonly { id: number; type: 'SEQUEL' | 'PREQUEL' }[];
 }
 
 /** Écart toléré entre le nombre d'épisodes d'une saison de la plateforme et celui d'AniList (épisode 0, récapitulatif…) */
@@ -54,8 +76,9 @@ export type EpisodeNumbers = Pick<
   EpisodeInfo,
   'animeTitle' | 'seasonTitle' | 'seasonNumber' | 'seasonEpisodeNumber' | 'displayedEpisodeNumber'
 > &
-  // Page de lecture uniquement : reconnaît une saison réduite à une œuvre (voir isSpecialSeason) ; plateforme : texte de la raison
-  Partial<Pick<EpisodeInfo, 'episodeTitle' | 'platform'>>;
+  // Page de lecture uniquement : reconnaît une saison réduite à une œuvre (voir isSpecialSeason) ; plateforme : texte de la
+  // raison ; signaux de la plateforme (concordance avec les fiches)
+  Partial<Pick<EpisodeInfo, 'episodeTitle' | 'platform' | 'signals'>>;
 
 export interface SyncTarget extends MediaMapping {
   progress: number;
@@ -64,6 +87,8 @@ export interface SyncTarget extends MediaMapping {
   reason: string;
   /** Correspondance lue dans le cache (à revalider avec le catalogue avant d'écrire, voir syncEpisode) */
   fromCache?: true;
+  /** Fiche prouvée par les signaux de la plateforme (groupe de saison unique et confirmé, voir concordance.ts) */
+  bySignals?: true;
 }
 
 /**
@@ -415,12 +440,17 @@ export function linksToOtherSeriesBySlug(url: string, platform: StreamingPlatfor
 
 /**
  * Clé de cache d'une saison : "crunchyroll:GRMG8ZQZR:s24", "disney:title:undead unluck:s1". Arc Disney+ (saison 99,
- * plusieurs par série) : clé par titre de l'arc, "disney:title:undead unluck winter arc:s99".
+ * plusieurs par série) : clé par titre de l'arc, "disney:title:undead unluck winter arc:s99". Plateforme sans identifiant de
+ * série (clé par titre : Disney+, Prime Video) dont la saison donne son année : année dans la clé
+ * ("prime:title:berserk:y2016:s1"), deux remakes au même titre ne partagent pas leur correspondance ; sans année : inchangée.
  */
-export function mappingKey(episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle' | 'seasonNumber'> & { seasonTitle?: string | null }): string {
+export function mappingKey(
+  episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle' | 'seasonNumber'> & { seasonTitle?: string | null; signals?: PlatformSignals | undefined },
+): string {
   const arcTitle = episode.platform === 'disney' && episode.seasonNumber === DISNEY_ARC_SEASON ? episode.seasonTitle : null;
   const series = episode.seriesId ?? `title:${titleKey(arcTitle ?? episode.animeTitle)}`;
-  return `${episode.platform}:${series}:s${episode.seasonNumber ?? 0}`;
+  const year = episode.seriesId === null && episode.signals?.seasonYear !== undefined ? `:y${episode.signals.seasonYear}` : '';
+  return `${episode.platform}:${series}${year}:s${episode.seasonNumber ?? 0}`;
 }
 
 /** Applique une correspondance en cache ; null si elle ne s'applique plus (ex : saison suivante). */
@@ -729,8 +759,185 @@ function specialEntry(episode: EpisodeNumbers, candidates: readonly MediaCandida
   return matches.length === 1 && fits(matches[0], relative) ? matches[0] : null;
 }
 
-/** Choisit la fiche AniList et la progression correspondant à un épisode. */
+// ─── Signaux de la plateforme (concordance) ───────────────────────────────
+
+/**
+ * Groupes de saison comparés aux signaux : fiches séries (hors autre série de la plateforme et spéciaux titrés) liées à
+ * la série ou au titre de la série (saisons « Season N » et parties comprises), avec leurs suites / préquelles dans
+ * l'ordre de diffusion (« Berserk 2 », suite de Berserk 2016, ne porte pas le titre). Une franchise par composante
+ * reliée (deux remakes au même titre : deux franchises), chacune découpée en groupes (parties « Part 2 » réunies).
+ */
+export function signalGroups(candidates: readonly MediaCandidate[], animeTitle: string): SignalGroup<MediaCandidate>[] {
+  const animeKey = normalizeTitle(animeTitle);
+  const series = candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format) && !isOtherSeries(c) && !isSpecialTitled(c));
+  const byId = new Map(series.map((c) => [c.id, c]));
+  // Relation dans l'ordre de diffusion seulement (une « préquelle » sortie après, MONSTERS, n'est pas une saison)
+  const neighbors = (c: MediaCandidate): MediaCandidate[] =>
+    (c.relations ?? []).flatMap((rel) => {
+      const other = byId.get(rel.id);
+      if (!other) return [];
+      const outOfOrder = c.startDate !== null && other.startDate !== null && (rel.type === 'SEQUEL' ? other.startDate < c.startDate : other.startDate > c.startDate);
+      return outOfOrder ? [] : [other];
+    });
+  const seeds = series.filter((c) => isLinked(c) || titleSeasonOf(c.titles, animeKey) !== null);
+  const chainOf = new Map<number, number>();
+  const chains: MediaCandidate[][] = [];
+  for (const seed of seeds) {
+    if (chainOf.has(seed.id)) continue;
+    const members: MediaCandidate[] = [];
+    const queue = [seed];
+    chainOf.set(seed.id, chains.length);
+    for (let current = queue.shift(); current !== undefined; current = queue.shift()) {
+      members.push(current);
+      // Relations lues dans les deux sens (une fiche absente de la recherche n'a pas ses propres relations)
+      const linkedHere = [...neighbors(current), ...series.filter((other) => neighbors(other).includes(current))];
+      for (const next of linkedHere) {
+        if (chainOf.has(next.id)) continue;
+        chainOf.set(next.id, chains.length);
+        queue.push(next);
+      }
+    }
+    chains.push(members);
+  }
+  return chains
+    .map((members) => [...members].sort(byStartDate))
+    .sort((a, b) => byStartDate(a[0], b[0]))
+    .flatMap((members, chain) => groupSeasons(members).map((entries, index) => ({ entries, chain, first: index === 0 })));
+}
+
+/** Concordance d'un épisode avec ses candidats : candidats gardés, verdict, et ce qui rend le résultat jamais fiable */
+interface SignalConcordance {
+  signals: PlatformSignals;
+  /** Candidats après les filtres : format contredit, franchise entièrement contredite (si une autre concorde) */
+  candidates: MediaCandidate[];
+  verdict: ConcordanceVerdict<MediaCandidate>;
+  /** Tout se contredit (groupes, ou format de tous les candidats) : candidats inchangés, résultat à vérifier */
+  forceLow: boolean;
+  contradicting: SignalName[];
+  /** Année qui a écarté une autre franchise au même titre (remake), null sinon */
+  remakeYear: number | null;
+}
+
+const isAbsoluteNumbering = (episode: Pick<EpisodeNumbers, 'seasonEpisodeNumber' | 'displayedEpisodeNumber'>): boolean =>
+  episode.displayedEpisodeNumber !== null && episode.seasonEpisodeNumber !== null && episode.displayedEpisodeNumber > episode.seasonEpisodeNumber;
+
+function signalConcordance(episode: EpisodeNumbers, candidates: readonly MediaCandidate[], signals: PlatformSignals): SignalConcordance {
+  // 1. Format (film contre série) : candidats contredits écartés s'il en reste un autre
+  let kept = [...candidates];
+  let formatContradicts = false;
+  if (signals.format !== undefined) {
+    const isContradicted = (c: MediaCandidate): boolean => c.format !== 'MUSIC' && formatCheck(signals.format, [c]) === 'contradict';
+    const remaining = candidates.filter((c) => c.format !== 'MUSIC' && !isContradicted(c));
+    if (remaining.length > 0) kept = candidates.filter((c) => !isContradicted(c));
+    else formatContradicts = candidates.some(isContradicted);
+  }
+  // 2. Groupes de saison : franchise dont aucun groupe ne concorde écartée, si une autre concorde (remakes au même titre).
+  //    Les groupes contredits d'une franchise gardée restent : le rang des saisons ne bouge pas.
+  const verdict = concordanceVerdict(signalGroups(kept, episode.animeTitle), signals, { absolute: isAbsoluteNumbering(episode) });
+  const keptChains = new Set(verdict.kept.map((group) => group.chain));
+  const dropped = keptChains.size > 0 ? verdict.groups.filter((group) => !keptChains.has(group.chain)) : [];
+  const droppedIds = new Set(dropped.flatMap((group) => group.entries.map((c) => c.id)));
+  if (droppedIds.size > 0) kept = kept.filter((c) => !droppedIds.has(c.id));
+  const byYear = dropped.some((group) => group.checks.seasonYear === 'contradict' || group.checks.seriesYear === 'contradict');
+  const contradicting = formatContradicts ? ['format' as const] : [...new Set(verdict.groups.flatMap((group) => signalsWith(group.checks, 'contradict')))];
+  return {
+    signals,
+    candidates: kept,
+    verdict,
+    forceLow: formatContradicts || verdict.allContradict,
+    contradicting,
+    remakeYear: byYear ? (signals.seasonYear ?? signals.seriesYear ?? null) : null,
+  };
+}
+
+/** Libellés des signaux (raisons « À vérifier » et journal), année de saison et de série confondues */
+function signalList(names: readonly SignalName[]): string {
+  const labels: Record<SignalName, string> = {
+    seasonYear: t('match.signal.year'),
+    seriesYear: t('match.signal.year'),
+    episodeCount: t('match.signal.episodes'),
+    episodeMinutes: t('match.signal.duration'),
+    format: t('match.signal.format'),
+    country: t('match.signal.country'),
+    originalTitle: t('match.signal.originalTitle'),
+  };
+  return formatList([...new Set(names.map((name) => labels[name]))]);
+}
+
+const agreeReason = (concordance: SignalConcordance, checks: SignalChecks): string =>
+  concordance.remakeYear !== null
+    ? t('match.yearRemake', { year: String(concordance.remakeYear) })
+    : t('match.signalsAgree', { signals: signalList(signalsWith(checks, 'agree')) });
+
+/**
+ * Groupe prouvé par les signaux de la SAISON (année de début ou nombre d'épisodes) : épisode placé dans ce groupe par
+ * son numéro dans la saison, quel que soit le rang des saisons (Mushoku Tensei S2 Netflix = « II » + « II Part 2 », alors
+ * que « Part 2 », liée seulement à Crunchyroll, manque aux fiches liées à Netflix). null : pas de preuve, saison de la
+ * plateforme plus courte que le groupe (cours découpé autrement : position inconnue), ou épisode hors du groupe.
+ */
+function provenTarget(concordance: SignalConcordance, relative: number): ResolveResult | null {
+  const { verdict, signals } = concordance;
+  const [group] = verdict.kept;
+  if (!verdict.proven || !group || (group.checks.seasonYear !== 'agree' && group.checks.episodeCount !== 'agree')) return null;
+  const total = group.entries.every((c) => c.episodes !== null) ? group.entries.reduce((sum, c) => sum + (c.episodes ?? 0), 0) : null;
+  const count = signals.seasonEpisodeCount;
+  if (count !== undefined && total !== null && count < total - SEASON_COUNT_TOLERANCE && signals.airing !== true) return null;
+  const entries = [...group.entries];
+  const hit = walkSeasons(entries, 0, relative);
+  const chosen = hit ? entries[hit.index] : undefined;
+  if (!hit || !chosen || !fits(chosen, hit.progress)) return null;
+  return {
+    ok: true,
+    target: {
+      mediaId: chosen.id,
+      numbering: 'season',
+      offset: relative - hit.progress,
+      episodes: chosen.episodes,
+      progress: hit.progress,
+      confidence: 'high',
+      reason: agreeReason(concordance, group.checks),
+      bySignals: true,
+    },
+  };
+}
+
+/**
+ * Résultat des règles confronté aux signaux :
+ * - tout se contredit, ou fiche retenue dans un groupe contredit → à vérifier ;
+ * - fiche sans lien vers la plateforme (titre seul) jugée sûre par les règles : sûre seulement si les signaux la
+ *   prouvent (groupe unique confirmé, ou fiche hors saisons confirmée sans contradiction) ; aucun signal comparable
+ *   (données absentes) → inchangé, comme sans signaux.
+ */
+function checkedBySignals(episode: EpisodeNumbers, result: ResolveResult, concordance: SignalConcordance): ResolveResult {
+  if (!result.ok || result.target.bySignals) return result;
+  const { target } = result;
+  const low = (reason: string): ResolveResult => ({ ok: true, target: { ...target, confidence: 'low', reason } });
+  const disagree = (names: readonly SignalName[]): string => t('match.signalsContradict', { signals: signalList(names) });
+  if (concordance.forceLow) return low(disagree(concordance.contradicting));
+  const group: GroupVerdict<MediaCandidate> | undefined = concordance.verdict.groups.find((g) => g.entries.some((c) => c.id === target.mediaId));
+  if (group && contradicts(group.checks)) return low(disagree(signalsWith(group.checks, 'contradict')));
+  const chosen = concordance.candidates.find((c) => c.id === target.mediaId);
+  if (target.confidence !== 'high' || !chosen || isLinked(chosen)) return result;
+  const checks = group?.checks ?? checkGroup({ entries: [chosen], chain: -1, first: false }, concordance.signals, { absolute: isAbsoluteNumbering(episode) });
+  if (!isApplicable(checks)) return result;
+  if (!group && contradicts(checks)) return low(disagree(signalsWith(checks, 'contradict')));
+  const proven = group ? concordance.verdict.proven && concordance.verdict.kept[0] === group : isConfirmed(checks);
+  if (proven) return { ok: true, target: { ...target, reason: agreeReason(concordance, checks) } };
+  return low(episode.platform === 'prime' ? t('match.platformTitleOnly', { platform: PLATFORMS.prime.label }) : t('match.titleOnly'));
+}
+
+/**
+ * Choisit la fiche AniList et la progression correspondant à un épisode. Signaux de la plateforme (année, épisodes,
+ * durée…) : candidats filtrés et groupe prouvé d'abord (signalConcordance, provenTarget), résultat des règles vérifié
+ * ensuite (checkedBySignals). Sans signal : règles seules, comportement d'avant.
+ */
 export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidate[]): ResolveResult {
+  if (!hasSignals(episode.signals)) return resolveByRules(episode, candidates, null);
+  const concordance = signalConcordance(episode, candidates, episode.signals);
+  return checkedBySignals(episode, resolveByRules(episode, concordance.candidates, concordance), concordance);
+}
+
+function resolveByRules(episode: EpisodeNumbers, candidates: MediaCandidate[], concordance: SignalConcordance | null): ResolveResult {
   const linked = candidates.filter((c) => isLinked(c) && c.format !== null && SERIES_FORMATS.has(c.format));
   const animeKey = normalizeTitle(episode.animeTitle);
   const pool = seasonPool(candidates, episode.animeTitle);
@@ -810,10 +1017,13 @@ export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidat
   // 0. Fiche dédiée à l'épisode ou à sa saison (spécial rangé dans une saison de la série) : prime sur la
   //    fiche unique, qui avalerait sinon l'épisode 1 de « saison 30 » comme épisode 1 de One Piece.
   //    Jamais en numérotation absolue (One Piece E1180 reste sur la fiche principale).
+  //    Groupe prouvé par les signaux de la saison : prime sur le rang des saisons, pas sur une fiche dédiée fiable.
+  const bySignals = concordance ? provenTarget(concordance, relative) : null;
   if (!isAbsolute) {
     const own = dedicatedEntry(episode, candidates, pool, relative);
-    if (own) return target(own.candidate, relative, own.progress, 'season', own.confident ? 'high' : 'low', own.reason, undefined, own.exactTitle);
+    if (own && (own.confident || !bySignals)) return target(own.candidate, relative, own.progress, 'season', own.confident ? 'high' : 'low', own.reason, undefined, own.exactTitle);
   }
+  if (bySignals) return bySignals;
   if (pool.length === 0) return noEntry;
 
   // 1. Fiche unique (ex : One Piece, une seule entrée AniList)
@@ -1091,7 +1301,8 @@ export function gateByPlatformLink(
     const { mediaId } = result.target;
     const platform = PLATFORMS[episode.platform].label;
     if (singleEntryDoubt(episode, candidates, mediaId)) return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformSeasonsSingle', { platform }) } };
-    if (candidates.some((c) => c.id === mediaId && isLinked(c))) return result;
+    // Fiche prouvée par les signaux dans la franchise liée (« II Part 2 », liée seulement à Crunchyroll) : comme liée
+    if (result.target.bySignals || candidates.some((c) => c.id === mediaId && isLinked(c))) return result;
     return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformUnlinkedEntry', { platform: PLATFORMS[episode.platform].label }) } };
   }
   if (verdict === 'title') {
