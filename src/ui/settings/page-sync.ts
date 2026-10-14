@@ -1,5 +1,5 @@
 // Réglages › Lecture & synchro : synchro automatique, moment de la synchro, lecteur préféré, fiche ouverte par défaut,
-// accès à Netflix et à Disney+ (permissions optionnelles) et options du panneau latéral. Les raccourcis clavier ont leur
+// accès à Netflix, Disney+ et Prime Video (permissions optionnelles) et options du panneau latéral. Les raccourcis clavier ont leur
 // propre catégorie (page-shortcuts.ts) : un lien y mène.
 import { t, type MessageKey } from '../../i18n';
 import { createLogger } from '../../shared/logger';
@@ -16,7 +16,7 @@ import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, 
 
 const log = createLogger('settings');
 
-/** Lecteurs proposés : Netflix seulement avec l'accès accordé ; jamais Disney+ (voir isPreferredPlayerOption) */
+/** Lecteurs proposés : Netflix seulement avec l'accès accordé ; jamais Disney+ ni Prime Video (voir isPreferredPlayerOption) */
 function playerOptions(netflixAccess: boolean): { value: StreamingPlatform; label: string }[] {
   const offered = (platform: StreamingPlatform): boolean =>
     isPreferredPlayerOption(platform) && (!isOptionalPlatform(platform) || (platform === 'netflix' && netflixAccess));
@@ -47,8 +47,8 @@ export function settingsPlaceholder(ctx: SettingsContext): Node[] {
 }
 
 /** Plateformes activées par un interrupteur (permission d'hôte optionnelle) */
-type ToggledPlatform = 'netflix' | 'disney';
-const TOGGLED_PLATFORMS: readonly ToggledPlatform[] = ['netflix', 'disney'];
+type ToggledPlatform = 'netflix' | 'disney' | 'prime';
+const TOGGLED_PLATFORMS: readonly ToggledPlatform[] = ['netflix', 'disney', 'prime'];
 
 type AccessText = 'section' | 'label' | 'helpOff' | 'helpOn' | 'denied' | 'disabled' | 'error';
 
@@ -72,6 +72,15 @@ const ACCESS_TEXTS: Readonly<Record<ToggledPlatform, Readonly<Record<AccessText,
     disabled: 'settings.disney.disabled',
     error: 'settings.disney.error',
   },
+  prime: {
+    section: 'settings.prime.section',
+    label: 'settings.prime.label',
+    helpOff: 'settings.prime.helpOff',
+    helpOn: 'settings.prime.helpOn',
+    denied: 'settings.prime.denied',
+    disabled: 'settings.prime.disabled',
+    error: 'settings.prime.error',
+  },
 };
 
 /**
@@ -81,7 +90,7 @@ const ACCESS_TEXTS: Readonly<Record<ToggledPlatform, Readonly<Record<AccessText,
 type AccessNotice = 'denied' | 'error' | 'disabled' | null;
 
 export function createSyncPage(ctx: SettingsContext): SettingsPageView {
-  const notices: Record<ToggledPlatform, AccessNotice> = { netflix: null, disney: null };
+  const notices: Record<ToggledPlatform, AccessNotice> = { netflix: null, disney: null, prime: null };
 
   function settle(platform: ToggledPlatform, notice: AccessNotice): void {
     notices[platform] = notice;
@@ -89,7 +98,8 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
   }
 
   function isGranted(platform: ToggledPlatform): boolean {
-    return (platform === 'netflix' ? ctx.data.netflixAccess : ctx.data.disneyAccess) === true;
+    const access: Record<ToggledPlatform, boolean | undefined> = { netflix: ctx.data.netflixAccess, disney: ctx.data.disneyAccess, prime: ctx.data.primeAccess };
+    return access[platform] === true;
   }
 
   /**

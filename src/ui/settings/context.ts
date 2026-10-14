@@ -41,6 +41,8 @@ export interface SettingsData {
   netflixAccess: boolean | undefined;
   /** Accès à Disney+ (permission optionnelle) : undefined = en lecture */
   disneyAccess: boolean | undefined;
+  /** Accès à Prime Video (permission optionnelle) : undefined = en lecture */
+  primeAccess: boolean | undefined;
 }
 
 /** Contexte passé aux pages */
@@ -55,7 +57,7 @@ export interface SettingsContext {
   refreshMappings(): Promise<void>;
   /** Relit le nombre d'erreurs du journal */
   refreshJournal(): Promise<void>;
-  /** Relit l'accès à Netflix et à Disney+ (après une demande ou un retrait de permission) */
+  /** Relit l'accès à Netflix, Disney+ et Prime Video (après une demande ou un retrait de permission) */
   refreshPlatformAccess(): Promise<void>;
   /** Ouvre une autre catégorie (lien d'une page vers une autre, ex. Lecture & synchro → Raccourcis) */
   openCategory(category: SettingsCategory): void;

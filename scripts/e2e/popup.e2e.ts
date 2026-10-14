@@ -770,6 +770,33 @@ describe('popup (bout en bout)', () => {
     expect(statuses).toContain(fr('settings.disney.disabled'));
   });
 
+  it('Réglages › Lecture & synchro : activer Prime Video demande l’accès à primevideo.com, jamais proposé comme lecteur préféré', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'sync');
+    await page.waitForSelector('#sk-prime');
+    const checked = (): Promise<boolean> => page.$eval('#sk-prime', (input) => input instanceof HTMLInputElement && input.checked);
+    expect(await checked()).toBe(false);
+    expect(await text(page, '#sk-prime-help')).toBe(fr('settings.prime.helpOff'));
+
+    await click(page, 'sk-prime');
+    await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
+    expect((await trace(page)).permissionRequests).toEqual([['*://*.primevideo.com/*']]);
+    await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-prime')?.checked === true);
+    expect(await text(page, '#sk-prime-help')).toBe(fr('settings.prime.helpOn'));
+    // Lecteur préféré inchangé : Prime Video n'y est jamais proposé, les interrupteurs Netflix et Disney+ restent éteints
+    expect(await page.$(sel('player-prime'))).toBeNull();
+    expect(await page.$eval('#sk-netflix', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
+    expect(await page.$eval('#sk-disney', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
+
+    await click(page, 'sk-prime');
+    await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
+    expect((await trace(page)).permissionRemovals).toEqual([['*://*.primevideo.com/*']]);
+    await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-prime')?.checked === false);
+    const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
+    expect(statuses).toContain(fr('settings.prime.disabled'));
+  });
+
   it('accès aux sites retiré : bandeau annoncé une seule fois, même nœud entre deux rendus', async () => {
     const page = await openPopup({ hostAccess: 'missing' });
     await page.waitForSelector(sel('host-access'));

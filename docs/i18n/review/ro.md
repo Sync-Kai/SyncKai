@@ -146,3 +146,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | Key | Text |
 |---|---|
 | `crImport.netflix.moreUnrecognized` | Butonul „Mai multe” nu a fost recunoscut în limba profilului tău Netflix: au fost citite doar cele mai recente episoade. Setează pe Netflix acel profil în aceeași limbă ca SyncKai, apoi reia citirea. |
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video (doar anime) |
+| `settings.prime.label` | Sincronizează pe Prime Video |
+| `settings.prime.helpOff` | Se sincronizează doar titlurile anime (genul anime sau animație cu audio în japoneză ori cu titlul exact de pe AniList). Browserul îți va cere permisiunea de acces la primevideo.com |
+| `settings.prime.helpOn` | SyncKai citește doar ce primește deja pagina Prime Video. Într-o filă Prime Video deja deschisă, urmărirea începe de la episodul următor |
+| `settings.prime.denied` | Accesul la primevideo.com a fost refuzat: Prime Video rămâne dezactivat |
+| `settings.prime.disabled` | Prime Video dezactivat: reîncarcă filele Prime Video deschise ca să-l oprești complet |
+| `settings.prime.error` | Accesul la Prime Video nu a putut fi modificat, încearcă din nou |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | Urmărește anime pe Crunchyroll sau ADN (opțional și pe Netflix, Disney+ sau Prime Video): SyncKai îți actualizează lista la finalul fiecărui episod. |
+| `watching.tip` | Găsești Netflix, Disney+, Prime Video (opționale) și platforma ta preferată în {path}. |

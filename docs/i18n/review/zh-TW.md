@@ -140,3 +140,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | Key | Text |
 |---|---|
 | `crImport.netflix.moreUnrecognized` | 無法辨識你的 Netflix 使用者語言中的「顯示更多」按鈕：只讀取了最近的集數。請在 Netflix 將該使用者的語言設為與 SyncKai 相同，然後重新讀取。 |
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video（僅限動畫） |
+| `settings.prime.label` | 在 Prime Video 上同步 |
+| `settings.prime.helpOff` | 只會同步動畫（動漫類別，或有日語音軌、或標題與 AniList 完全相同的動畫作品）。瀏覽器會要求 primevideo.com 的存取權限 |
+| `settings.prime.helpOn` | SyncKai 只會讀取 Prime Video 頁面本來就會收到的資訊。在已開啟的 Prime Video 分頁中，會從下一集開始追蹤 |
+| `settings.prime.denied` | primevideo.com 的存取權限遭拒：Prime Video 維持停用 |
+| `settings.prime.disabled` | 已停用 Prime Video：請重新載入已開啟的 Prime Video 分頁，才會完全停止 |
+| `settings.prime.error` | 無法變更 Prime Video 存取權限，請再試一次 |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | 在 Crunchyroll 或 ADN 看動畫（Netflix、Disney+ 和 Prime Video 可選用）：每集看完時，SyncKai 都會更新你的清單。 |
+| `watching.tip` | Netflix、Disney+、Prime Video（選用）和你的偏好播放平台，都可以在「{path}」中調整。 |

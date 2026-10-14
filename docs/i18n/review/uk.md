@@ -132,3 +132,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | Key | Text |
 |---|---|
 | `crImport.netflix.moreUnrecognized` | Кнопку «Показати більше» не розпізнано мовою твого профілю Netflix: прочитано лише найновіші епізоди. Встанови для цього профілю на Netflix ту саму мову, що й у SyncKai, і прочитай історію ще раз. |
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video (лише аніме) |
+| `settings.prime.label` | Синхронізувати на Prime Video |
+| `settings.prime.helpOff` | Синхронізуються лише аніме (жанр «аніме» або анімація з японською аудіодоріжкою чи з точною назвою на AniList). Браузер попросить доступ до primevideo.com |
+| `settings.prime.helpOn` | SyncKai читає лише те, що сторінка Prime Video вже отримує. У вже відкритій вкладці Prime Video відстеження почнеться з наступного епізоду |
+| `settings.prime.denied` | Доступ до primevideo.com не надано: синхронізація на Prime Video лишається вимкненою |
+| `settings.prime.disabled` | Prime Video вимкнено: перезавантаж відкриті вкладки Prime Video, щоб повністю зупинити відстеження |
+| `settings.prime.error` | Не вдалося змінити доступ до Prime Video, спробуй ще раз |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | Дивись аніме на Crunchyroll або ADN (Netflix, Disney+ і Prime Video — за бажанням): SyncKai оновлює твій список наприкінці кожного епізоду. |
+| `watching.tip` | Netflix, Disney+, Prime Video (необов’язково) і бажаний плеєр налаштовуються в розділі {path}. |

@@ -7,7 +7,7 @@ Shared rules for every translation of the SyncKai interface. Each language also 
 - **Reference text**: `src/i18n/locales/en.json`. `fr.json` and `de.json` are reviewed, human-quality translations: read them when the English is ambiguous (French is the original language of the product).
 - **Context notes**: `docs/i18n/context.json`, one note per key (where the text appears, what it means, placeholders, length). Read the note of every key before translating it.
 - **Check**: `npm run i18n:check -- <code>` reports missing or extra keys, plural forms, placeholders and empty texts, and warns about short labels that became much longer.
-- **The product**: a browser extension that syncs the anime episodes watched on Crunchyroll, ADN, Netflix and Disney+ to the user's AniList and MyAnimeList lists. Users are anime fans. The popup is 400 px wide, the side panel is narrow: space is tight everywhere.
+- **The product**: a browser extension that syncs the anime episodes watched on Crunchyroll, ADN, Netflix, Disney+ and Prime Video to the user's AniList and MyAnimeList lists. Users are anime fans. The popup is 400 px wide, the side panel is narrow: space is tight everywhere.
 
 ## 2. Never translate
 

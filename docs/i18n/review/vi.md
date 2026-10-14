@@ -138,3 +138,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | Key | Text |
 |---|---|
 | `crImport.netflix.moreUnrecognized` | Không nhận ra nút “Hiển thị thêm” trong ngôn ngữ của hồ sơ Netflix: chỉ đọc được các tập gần đây nhất. Hãy đặt hồ sơ đó trên Netflix sang cùng ngôn ngữ với SyncKai, rồi đọc lại. |
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video (chỉ anime) |
+| `settings.prime.label` | Đồng bộ trên Prime Video |
+| `settings.prime.helpOff` | Chỉ đồng bộ anime (thể loại anime, hoặc hoạt hình có âm thanh tiếng Nhật hay có tên trùng khớp chính xác trên AniList). Trình duyệt sẽ hỏi quyền truy cập primevideo.com |
+| `settings.prime.helpOn` | SyncKai chỉ đọc những gì trang Prime Video vốn đã nhận. Trong thẻ Prime Video đã mở từ trước, việc theo dõi bắt đầu từ tập tiếp theo |
+| `settings.prime.denied` | Quyền truy cập primevideo.com bị từ chối: Prime Video vẫn tắt |
+| `settings.prime.disabled` | Đã tắt Prime Video: hãy tải lại các thẻ Prime Video đang mở để dừng hẳn |
+| `settings.prime.error` | Không thể thay đổi quyền truy cập Prime Video, hãy thử lại |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | Bạn cứ xem anime trên Crunchyroll hoặc ADN (Netflix, Disney+ và Prime Video là tùy chọn): SyncKai sẽ cập nhật danh sách của bạn vào cuối mỗi tập. |
+| `watching.tip` | Netflix, Disney+, Prime Video (tùy chọn) và nền tảng ưu tiên của bạn được thiết lập trong {path}. |

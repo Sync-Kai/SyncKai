@@ -139,3 +139,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | `crImport.netflix.moreUnrecognized` | Netflix 프로필 언어에서 ‘더 보기’ 버튼을 인식하지 못해 최근 에피소드만 읽었어요. Netflix에서 그 프로필의 언어를 SyncKai와 같게 바꾼 다음 다시 읽으세요. |
 
 Netflix history import: the “더 보기” button of a Netflix profile in Korean is now recognized (label from Netflix's help article 101917 in this language, same text as `crImport.netflix.rule`).
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video(애니만) |
+| `settings.prime.label` | Prime Video에서 동기화 |
+| `settings.prime.helpOff` | 애니만 동기화해요(애니 장르, 또는 일본어 음성이 있거나 AniList 제목과 정확히 같은 애니메이션). 켜면 브라우저가 primevideo.com 접근 권한을 요청해요 |
+| `settings.prime.helpOn` | SyncKai는 Prime Video 페이지가 이미 받는 정보만 읽어요. 이미 열려 있던 Prime Video 탭에서는 다음 에피소드부터 추적해요 |
+| `settings.prime.denied` | primevideo.com 접근이 거부되어 Prime Video는 꺼진 상태로 유지돼요 |
+| `settings.prime.disabled` | Prime Video 꺼짐: 완전히 멈추려면 열려 있는 Prime Video 탭을 새로고침하세요 |
+| `settings.prime.error` | Prime Video 접근 권한을 변경하지 못했어요. 다시 시도하세요 |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | Crunchyroll이나 ADN에서 애니를 보세요(Netflix, Disney+, Prime Video는 선택 사항). 에피소드가 끝날 때마다 SyncKai가 내 목록을 업데이트해요. |
+| `watching.tip` | Netflix, Disney+, Prime Video(선택 사항), 선호 플랫폼은 {path}에서 설정해요. |

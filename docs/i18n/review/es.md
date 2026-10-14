@@ -103,3 +103,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | Key | Text |
 |---|---|
 | `crImport.netflix.moreUnrecognized` | No se ha reconocido el botón «Mostrar más» en el idioma de tu perfil de Netflix: solo se han leído los episodios más recientes. Pon ese perfil en el mismo idioma que SyncKai en Netflix y vuelve a leer el historial. |
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video (solo anime) |
+| `settings.prime.label` | Sincronizar en Prime Video |
+| `settings.prime.helpOff` | Solo se sincronizan animes (género anime, o animación con audio japonés o con el título exacto de AniList). Tu navegador pedirá acceso a primevideo.com |
+| `settings.prime.helpOn` | SyncKai solo lee lo que la página de Prime Video ya recibe. En una pestaña de Prime Video que ya estuviera abierta, el seguimiento empieza en el siguiente episodio |
+| `settings.prime.denied` | Acceso a primevideo.com denegado: Prime Video sigue desactivado |
+| `settings.prime.disabled` | Prime Video desactivado: recarga las pestañas de Prime Video abiertas para detenerlo del todo |
+| `settings.prime.error` | No se ha podido cambiar el acceso a Prime Video, inténtalo de nuevo |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | Mira tus animes en Crunchyroll o ADN (Netflix, Disney+ y Prime Video opcionales): SyncKai actualiza tu lista al final de cada episodio. |
+| `watching.tip` | Netflix, Disney+, Prime Video (opcionales) y tu plataforma preferida se configuran en {path}. |

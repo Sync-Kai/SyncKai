@@ -108,3 +108,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | Key | Text |
 |---|---|
 | `crImport.netflix.moreUnrecognized` | “Daha Fazla Göster” düğmesi Netflix profilinin dilinde tanınmadı: Yalnızca en son bölümler okundu. Netflix'te bu profili SyncKai ile aynı dile ayarla, sonra tekrar oku. |
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video (yalnızca anime) |
+| `settings.prime.label` | Prime Video üzerinde eşitle |
+| `settings.prime.helpOff` | Yalnızca animeler eşitlenir (anime türü ya da Japonca sesli veya AniList'teki başlıkla birebir aynı animasyon). Tarayıcın primevideo.com için erişim izni isteyecek |
+| `settings.prime.helpOn` | SyncKai yalnızca Prime Video sayfasının zaten aldığı verileri okur. Zaten açık bir Prime Video sekmesinde takip sonraki bölümle başlar |
+| `settings.prime.denied` | primevideo.com erişimi reddedildi: Prime Video kapalı kalıyor |
+| `settings.prime.disabled` | Prime Video kapatıldı: Tamamen durdurmak için açık Prime Video sekmelerini yenile |
+| `settings.prime.error` | Prime Video erişimi değiştirilemedi, tekrar dene |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | Animelerini Crunchyroll veya ADN üzerinde izle (Netflix, Disney+ ve Prime Video isteğe bağlı): SyncKai her bölümün sonunda listeni günceller. |
+| `watching.tip` | Netflix, Disney+, Prime Video (isteğe bağlı) ve favori platformun şuradan ayarlanır: {path}. |

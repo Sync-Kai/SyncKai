@@ -123,3 +123,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | `crImport.netflix.moreUnrecognized` | 无法识别你的 Netflix 个人资料语言中的“显示更多”按钮：只读取了最近的剧集。请在 Netflix 上将该个人资料的语言设为与 SyncKai 相同，然后重新读取。 |
 
 Netflix history import: the “显示更多” button of a Netflix profile in Simplified Chinese is now recognized (label from Netflix's help article 101917 in this language, same text as `crImport.netflix.rule`).
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video（仅限动画） |
+| `settings.prime.label` | 在 Prime Video 上同步 |
+| `settings.prime.helpOff` | 只同步动画（动漫类型，或带日语音轨、或标题与 AniList 完全一致的动画作品）。浏览器会请求访问 primevideo.com 的权限 |
+| `settings.prime.helpOn` | SyncKai 只读取 Prime Video 页面本来就会收到的信息。在之前已打开的 Prime Video 标签页中，将从下一集开始追踪 |
+| `settings.prime.denied` | 访问 primevideo.com 的请求被拒绝：Prime Video 保持关闭 |
+| `settings.prime.disabled` | Prime Video 已关闭：请刷新所有已打开的 Prime Video 标签页以完全停止 |
+| `settings.prime.error` | 无法更改 Prime Video 访问权限，请重试 |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | 在 Crunchyroll 或 ADN（Netflix、Disney+ 和 Prime Video 可选）上看番：每集看完时，SyncKai 都会更新你的列表。 |
+| `watching.tip` | Netflix、Disney+、Prime Video（可选）以及你的首选播放平台，都可以在 {path} 中调整。 |

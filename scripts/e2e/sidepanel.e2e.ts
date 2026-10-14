@@ -237,6 +237,7 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await page.$$eval('[data-off-target] [data-enable-platform]', (buttons) => buttons.map((button) => button.getAttribute('data-enable-platform')))).toEqual([
       'netflix',
       'disney',
+      'prime',
     ]);
     // Aucune fiche demandée hors page de streaming
     expect(await messages(page, 'RESOLVE_PAGE_MEDIA')).toEqual([]);
@@ -246,21 +247,25 @@ describe('panneau latéral (bout en bout)', () => {
     const path = `${fr('nav.settings')} › ${fr('settings.cat.sync')}`;
     const off = await openPanel({ site: 'other', tab: 'nowPlaying' });
     await off.locator('#sk-tab-nowPlaying').click();
-    const offText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' })} ${fr('panel.offTargetEnable', { platforms: 'Netflix et Disney+', path })}`;
+    const offText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' })} ${fr('panel.offTargetEnable', { platforms: 'Netflix, Disney+ et Prime Video', path })}`;
     await off.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, offText);
 
     const granted = await openPanel({ site: 'other', netflix: 'granted' });
     // Agenda par défaut hors page de streaming : la ligne neutre est dans l'onglet « En lecture »
     await granted.locator('#sk-tab-nowPlaying').click();
-    // Netflix accordé, Disney+ non : Netflix rejoint les plateformes suivies, Disney+ reste cité comme à activer
-    const grantedText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' })} ${fr('panel.offTargetEnable', { platforms: 'Disney+', path })}`;
+    // Netflix accordé, Disney+ et Prime Video non : Netflix rejoint les plateformes suivies, les deux autres restent citées comme à activer
+    const grantedText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' })} ${fr('panel.offTargetEnable', { platforms: 'Disney+ et Prime Video', path })}`;
     await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, grantedText);
     expect(await granted.evaluate(() => document.body.textContent ?? '')).not.toContain(offText);
 
-    // Bouton « Activer Disney+ » : demande d'accès directe, la ligne cite ensuite les quatre plateformes, sans bouton
-    expect(await granted.$$eval('[data-enable-platform]', (buttons) => buttons.map((button) => button.getAttribute('data-enable-platform')))).toEqual(['disney']);
+    // Boutons « Activer Disney+ » puis « Activer Prime Video » : demande d'accès directe, la ligne cite ensuite les cinq plateformes, sans bouton
+    const enableButtons = (): Promise<(string | null)[]> => granted.$$eval('[data-enable-platform]', (buttons) => buttons.map((button) => button.getAttribute('data-enable-platform')));
+    expect(await enableButtons()).toEqual(['disney', 'prime']);
     await granted.locator('[data-enable-platform="disney"]').click();
     await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN, Netflix et Disney+' }));
+    expect(await enableButtons()).toEqual(['prime']);
+    await granted.locator('[data-enable-platform="prime"]').click();
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN, Netflix, Disney+ et Prime Video' }));
     expect(await granted.$$('[data-enable-platform]')).toHaveLength(0);
   });
 

@@ -145,3 +145,22 @@ New key `crImport.netflix.moreUnrecognized` (import page, Netflix): shown instea
 | Key | Text |
 |---|---|
 | `crImport.netflix.moreUnrecognized` | Tombol “Tampilkan Lainnya” tidak dikenali dalam bahasa profil Netflix-mu: hanya episode terbaru yang dibaca. Atur profil itu di Netflix ke bahasa yang sama dengan SyncKai, lalu baca lagi. |
+
+## 2026-10-14 · Prime Video (optional platform)
+
+New keys `settings.prime.*` (Settings › Playback & sync, Prime Video toggle), modelled on the `settings.disney.*` keys of this catalog (helpOff: Prime Video’s anime filter; helpOn: SyncKai only reads what the page already receives); “Prime Video” untranslated. The two texts listing the optional platforms now include Prime Video. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.prime.section` | Prime Video (khusus anime) |
+| `settings.prime.label` | Sinkron di Prime Video |
+| `settings.prime.helpOff` | Hanya anime yang disinkronkan (genre anime, atau animasi dengan audio Jepang atau judul AniList yang sama persis). Browser akan meminta akses ke primevideo.com |
+| `settings.prime.helpOn` | SyncKai hanya membaca data yang sudah diterima halaman Prime Video. Di tab Prime Video yang sudah terbuka, pelacakan dimulai dari episode berikutnya |
+| `settings.prime.denied` | Akses ke primevideo.com ditolak: Prime Video tetap nonaktif |
+| `settings.prime.disabled` | Prime Video dinonaktifkan: muat ulang tab Prime Video yang terbuka untuk menghentikannya sepenuhnya |
+| `settings.prime.error` | Gagal mengubah akses Prime Video, coba lagi |
+
+| Key | Text |
+|---|---|
+| `onboarding.intro` | Tonton anime di Crunchyroll atau ADN (Netflix, Disney+, dan Prime Video opsional): SyncKai memperbarui daftarmu di akhir setiap episode. |
+| `watching.tip` | Netflix, Disney+, Prime Video (opsional), dan platform pilihanmu diatur di {path}. |

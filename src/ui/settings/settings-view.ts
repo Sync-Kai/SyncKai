@@ -73,6 +73,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     panelShortcut: undefined,
     netflixAccess: undefined,
     disneyAccess: undefined,
+    primeAccess: undefined,
   };
 
   // ─── Coque : barre + contenu ───
@@ -194,9 +195,9 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     redraw(['home', 'shortcuts']);
   }
 
-  /** Accès Netflix et Disney+ relus (ouverture, ou permission changée ici ou dans chrome://extensions) */
+  /** Accès Netflix, Disney+ et Prime Video relus (ouverture, ou permission changée ici ou dans chrome://extensions) */
   async function loadPlatformAccess(): Promise<void> {
-    [data.netflixAccess, data.disneyAccess] = await Promise.all([hasPlatformAccess('netflix'), hasPlatformAccess('disney')]);
+    [data.netflixAccess, data.disneyAccess, data.primeAccess] = await Promise.all([hasPlatformAccess('netflix'), hasPlatformAccess('disney'), hasPlatformAccess('prime')]);
     redraw(['home', 'sync']);
   }
 
@@ -381,7 +382,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     if (airingChange) setAiring(airingChange.newValue);
   });
 
-  // Accès Netflix / Disney+ accordé ou retiré ailleurs (chrome://extensions, autre vue) : interrupteurs et lecteur préféré suivent
+  // Accès Netflix / Disney+ / Prime Video accordé ou retiré ailleurs (chrome://extensions, autre vue) : interrupteurs et lecteur préféré suivent
   if (typeof chrome.permissions?.onAdded?.addListener === 'function') {
     chrome.permissions.onAdded.addListener(() => void loadPlatformAccess());
     chrome.permissions.onRemoved.addListener(() => void loadPlatformAccess());
