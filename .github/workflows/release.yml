@@ -367,7 +367,11 @@ jobs:
             if (bold) return bold[1];
             t = clean(t);
             const colon = t.indexOf(': ');
-            let s = colon >= 20 ? t.slice(0, colon) : firstSentence(t);     // « Netflix: … » trop court → phrase entière
+            // Coupe au « : » seulement hors parenthèses et guillemets (« (e.g. “Disney+: …” » → phrase entière)
+            const head = colon >= 20 ? t.slice(0, colon) : '';
+            const open = (re) => (head.match(re) || []).length;
+            const balanced = open(/\(/g) === open(/\)/g) && open(/[“«]/g) === open(/[”»]/g);
+            let s = head && balanced ? head : firstSentence(t);              // « Netflix: … » trop court → phrase entière
             s = s.replace(/[:;,]$/, '');
             return s.length > 140 ? s.slice(0, 137).trimEnd() + '…' : s;
           };
