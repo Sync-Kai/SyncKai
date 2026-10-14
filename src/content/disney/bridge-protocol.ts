@@ -26,13 +26,16 @@
 // (`stream.editorial` : FFEC, up_next), réunis à la fiche de la même vidéo (`DisneyPlayerExperience.editorial`). Les
 // URL signées des flux et les jetons de droits (`playbackRightsContext`…) de cette réponse ne sont jamais lus.
 import { isRecord } from '../../shared/guards';
+import { isSignalYear, medianMinutes } from '../../shared/match-signals';
 
 /**
  * Version du protocole, à incrémenter à tout changement des messages ou de la forme réduite : le pont MAIN d'une
  * version précédente reste dans les onglets ouverts après une mise à jour (code de la page, jamais invalidé).
  * Chaque côté ignore les messages d'une autre version.
+ * v5 (2026-10-14) : année de début de la série (`startYear`) et durée médiane des épisodes de chaque saison
+ * (`episodeMinutes`), signaux de correspondance.
  */
-export const DISNEY_BRIDGE_VERSION = 4;
+export const DISNEY_BRIDGE_VERSION = 5;
 /** Ouverture du canal (client isolé → pont), detail = DisneyHandshake en chaîne JSON */
 export const DISNEY_HANDSHAKE_EVENT = 'synckai:disney:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
@@ -123,6 +126,8 @@ export interface DisneySeason {
   seasonNumber: number | null;
   /** `pagination.totalCount` */
   episodeCount: number | null;
+  /** Durée médiane (minutes) des épisodes lus de la saison (`items[].visuals.durationMs`), null sans durée */
+  episodeMinutes: number | null;
 }
 
 /**
@@ -143,6 +148,11 @@ export interface DisneySeriesPage {
   internalTitle: string | null;
   /** Genres localisés, seulement pour reconnaître « Anime » */
   genres: string[];
+  /**
+   * Année de début de la SÉRIE (`page.visuals.metastringParts.releaseYearRange.startYear`, chaîne « 2024 » relevée le
+   * 2026-10-14), jamais celle d'une saison ni des suggestions (`set`) ; null si absente
+   */
+  startYear: number | null;
   /** Saison affichée au chargement (`focus.seasonId`) */
   focusSeasonId: string | null;
   /** Dernière saison demandée par le site (`season/{id}` : menu des saisons, pagination), null sinon */
@@ -393,6 +403,8 @@ function reduceSeason(raw: unknown, id: string | null = lowerId(record(raw).id))
     name: text(record(raw.visuals).name),
     seasonNumber: seasonNumberOf(list(raw.items)),
     episodeCount: positiveInt(record(raw.pagination).totalCount, MAX_EPISODE_COUNT),
+    // Durée inconnue (0) ignorée par medianMinutes
+    episodeMinutes: medianMinutes(list(raw.items).map((item) => (runtime(record(record(item).visuals).durationMs) ?? 0) / 1000)) ?? null,
   };
 }
 
@@ -419,13 +431,16 @@ export function reduceDisneySeriesPage(raw: unknown, entityId: string, seenAt: n
   const title = text(visuals.title) ?? text(details.title);
   if (!title || !DISNEY_ID_REGEX.test(entityId) || !isTimestamp(seenAt)) return null;
   const rawSeasons = list(episodes.seasons).slice(0, DISNEY_MAX_SEASONS);
-  const genres = genresOf(record(record(visuals.metastringParts).genres).values);
+  const metastring = record(visuals.metastringParts);
+  const genres = genresOf(record(metastring.genres).values);
+  const startYear = positiveInt(record(metastring.releaseYearRange).startYear, 9_999);
   return {
     entityId: entityId.toLowerCase(),
     seenAt,
     title,
     internalTitle: internalTitles([page, ...rawSeasons.flatMap((season) => list(record(season).items))])[0] ?? null,
     genres: genres.length > 0 ? genres : genresOf(record(details.genres).values),
+    startYear: isSignalYear(startYear) ? startYear : null,
     focusSeasonId: lowerId(record(episodes.focus).seasonId),
     selectedSeasonId: null,
     seasons: rawSeasons.flatMap((season) => reduceSeason(season) ?? []),
@@ -449,7 +464,13 @@ export function applyDisneySeason(page: DisneySeriesPage, seasonId: string, raw:
     selectedSeasonId: id,
     seasons: page.seasons.map((season) =>
       season.id === id && update
-        ? { ...season, name: season.name ?? update.name, seasonNumber: update.seasonNumber ?? season.seasonNumber, episodeCount: update.episodeCount ?? season.episodeCount }
+        ? {
+            ...season,
+            name: season.name ?? update.name,
+            seasonNumber: update.seasonNumber ?? season.seasonNumber,
+            episodeCount: update.episodeCount ?? season.episodeCount,
+            episodeMinutes: update.episodeMinutes ?? season.episodeMinutes,
+          }
         : season,
     ),
   };
@@ -489,7 +510,14 @@ const isNullableLowerId = (v: unknown): v is string | null => v === null || isLo
 const isNullableCount = (v: unknown, max: number): v is number | null => v === null || positiveInt(v, max) === v;
 
 function isDisneySeason(value: unknown): value is DisneySeason {
-  return isRecord(value) && isLowerId(value.id) && isNullableText(value.name) && isNullableCount(value.seasonNumber, 999) && isNullableCount(value.episodeCount, MAX_EPISODE_COUNT);
+  return (
+    isRecord(value) &&
+    isLowerId(value.id) &&
+    isNullableText(value.name) &&
+    isNullableCount(value.seasonNumber, 999) &&
+    isNullableCount(value.episodeCount, MAX_EPISODE_COUNT) &&
+    (value.episodeMinutes === null || (typeof value.episodeMinutes === 'number' && value.episodeMinutes > 0 && value.episodeMinutes <= 720))
+  );
 }
 
 export function isDisneySeriesPage(value: unknown): value is DisneySeriesPage {
@@ -502,6 +530,7 @@ export function isDisneySeriesPage(value: unknown): value is DisneySeriesPage {
     Array.isArray(value.genres) &&
     value.genres.length <= DISNEY_MAX_GENRES &&
     value.genres.every((genre) => isBoundedText(genre) && genre.length <= MAX_GENRE_LENGTH) &&
+    (value.startYear === null || isSignalYear(value.startYear)) &&
     isNullableLowerId(value.focusSeasonId) &&
     isNullableLowerId(value.selectedSeasonId) &&
     Array.isArray(value.seasons) &&

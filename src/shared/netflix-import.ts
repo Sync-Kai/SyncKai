@@ -1,6 +1,6 @@
 import type { CrHistoryErrorCode, HistorySeason } from './cr-history';
 import { isRecord } from './guards';
-import { episodeNumbers, platformSeasonsOf, type NetflixBookmark, type NetflixShowMetadata } from './netflix-metadata';
+import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixBookmark, type NetflixShowMetadata } from './netflix-metadata';
 import type { Result } from './result';
 import { meaningfulSeasonTitle, normalizeTitle } from './title';
 
@@ -346,7 +346,8 @@ export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentag
   const base = { seriesId: show.showId, seriesTitle: show.title, seriesSlug: null, lastPlayedAt: null } as const;
   if (show.type === 'movie') {
     if (!isNetflixWatched(show, completionPercentage)) return [];
-    return [{ ...base, seasonId: `${show.showId}-s0`, seasonNumber: null, seasonTitle: null, episodeId: show.showId, episodeTitle: null, episodeNumber: 1, seasonEpisodeNumber: 1, watchedCount: 1 }];
+    const signals = netflixSignals(show, null);
+    return [{ ...base, seasonId: `${show.showId}-s0`, seasonNumber: null, seasonTitle: null, episodeId: show.showId, episodeTitle: null, episodeNumber: 1, seasonEpisodeNumber: 1, watchedCount: 1, ...(signals ? { signals } : {}) }];
   }
   const platformSeasons = platformSeasonsOf(show);
   return show.seasons.flatMap((season): HistorySeason[] => {
@@ -354,6 +355,8 @@ export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentag
     const best = watched.reduce<(typeof watched)[number] | null>((top, episode) => (top === null || episode.seq > top.seq ? episode : top), null);
     if (!best) return [];
     const { seasonEpisodeNumber, displayedEpisodeNumber } = episodeNumbers(show.seasons, season, best);
+    // Mêmes signaux que la synchro en direct (même résolution, même clé)
+    const signals = netflixSignals(show, season);
     return [
       {
         ...base,
@@ -367,6 +370,7 @@ export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentag
         seasonEpisodeNumber,
         watchedCount: watched.length,
         platformSeasons,
+        ...(signals ? { signals } : {}),
       },
     ];
   });

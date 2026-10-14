@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { encodeNetflixHandshake, installNetflixBridgeOnce, NETFLIX_HANDSHAKE_EVENT, netflixBridgeFlag } from './bridge-protocol';
+import { encodeNetflixHandshake, installNetflixBridgeOnce, NETFLIX_BRIDGE_VERSION, NETFLIX_HANDSHAKE_EVENT, netflixBridgeFlag } from './bridge-protocol';
 
 // Garde d'installation du pont MAIN : le pont reste dans la page après une mise à jour de l'extension (code de la
 // page, jamais invalidé) et le service worker le réexécute dans les onglets Netflix ouverts.
@@ -40,7 +40,7 @@ describe('page-bridge.iife.ts — une installation par version de protocole', ()
     await runBridge(1);
     await runBridge(1);
     expect(handshakeListeners()).toBe(1);
-    page.dispatchEvent(new CustomEvent(NETFLIX_HANDSHAKE_EVENT, { detail: encodeNetflixHandshake({ v: 2, nonce: 'n1' }) }));
+    page.dispatchEvent(new CustomEvent(NETFLIX_HANDSHAKE_EVENT, { detail: encodeNetflixHandshake({ v: NETFLIX_BRIDGE_VERSION, nonce: 'n1' }) }));
     expect(page.postMessage).toHaveBeenCalledOnce();
     for (const port of page.postMessage.mock.calls[0]?.[2] ?? []) port.close();
   });

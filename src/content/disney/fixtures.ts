@@ -190,6 +190,8 @@ export function undeadUnluckSeriesPage({ entityId = UNDEAD_UNLUCK_ENTITY_ID, tit
           artwork: { standard: { tile: { '1.78': { imageId: 'abc' } } } },
           metastringParts: { genres: { values: genres }, releaseYearRange: { startYear: '2023', endYear: '2025' }, seasonsAvailable: '2 saisons' },
         },
+        // État du profil (progression, liste) : jamais lu
+        personalization: { userState: { inWatchlist: true, progress: { percentWatched: 42 }, releaseYearRange: { startYear: '2001' } } },
         actions: internalTitles
           ? [
               {
@@ -226,7 +228,14 @@ export function undeadUnluckSeriesPage({ entityId = UNDEAD_UNLUCK_ENTITY_ID, tit
           {
             type: 'set',
             visuals: { name: 'SUGGESTIONS' },
-            items: [{ type: 'view', actions: [{ type: 'playback', internalTitle: 'Summer Time Rendering - s1e1 - mediaId:3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b' }] }],
+            // Suggestions : années et durées d'autres séries, jamais lues
+            items: [
+              {
+                type: 'view',
+                actions: [{ type: 'playback', internalTitle: 'Summer Time Rendering - s1e1 - mediaId:3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b' }],
+                visuals: { title: 'Summer Time Rendering', durationMs: 60_000, metastringParts: { releaseYearRange: { startYear: '1999' } } },
+              },
+            ],
           },
           { type: 'details', visuals: { title, genres: { values: genres } } },
         ],

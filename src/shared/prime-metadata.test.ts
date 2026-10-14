@@ -18,6 +18,7 @@ import {
   parsePrimeDetailId,
   primeAnimeVerdict,
   primeIdInLink,
+  primeSignals,
   primeTitleHas,
   reducePrimeDetail,
   reducePrimeDetailWidgets,
@@ -34,6 +35,7 @@ describe('reducePrimeDetail', () => {
       titleType: 'season',
       seasonNumber: 1,
       episodeCount: 4,
+      releaseYear: 2025,
       seasons: [
         { gti: BUMPKIN_S1_GTI, compactGTI: BUMPKIN_S1_COMPACT, seasonNumber: 1 },
         { gti: BUMPKIN_S2_GTI, compactGTI: BUMPKIN_S2_COMPACT, seasonNumber: 2 },
@@ -74,6 +76,29 @@ describe('reducePrimeDetail', () => {
     expect(anime?.japaneseAudio).toBe(false);
     const unscoped = reducePrimeDetail(hydrationDocument(bumpkinDetailBody({ genres: [] })));
     expect(unscoped?.genres).toEqual(['av_genre_anime']);
+  });
+
+  it('année de la saison : nombre `releaseYear` de headerDetail, sinon du détail btf ; jamais une chaîne ni les suggestions', () => {
+    const body = bumpkinDetailBody({ releaseYear: null });
+    // Suggestions (containers) : années en chaîne d'autres titres, jamais retenues
+    expect(reducePrimeDetail(hydrationDocument(body))?.releaseYear).toBeNull();
+    const detail = Reflect.get(Reflect.get(Reflect.get(Reflect.get(body, 'btf') as object, 'state') as object, 'detail') as object, 'detail') as Record<string, Record<string, unknown>>;
+    const own = detail[BUMPKIN_S1_GTI];
+    if (!own) throw new Error('fixture invalide');
+    own.releaseYear = 2016;
+    expect(reducePrimeDetail(hydrationDocument(body))?.releaseYear).toBe(2016);
+    own.releaseYear = '2016';
+    expect(reducePrimeDetail(hydrationDocument(body))?.releaseYear).toBeNull();
+    expect(reducePrimeDetail(hydrationDocument(bumpkinDetailBody({ releaseYear: 1997 })))?.releaseYear).toBe(1997);
+  });
+
+  it('signaux : saison (année, épisodes, durée médiane, série) ; film : année et format', () => {
+    const season = reducePrimeDetail(hydrationDocument(bumpkinDetailBody({ releaseYear: 2016 })));
+    if (!season) throw new Error('fixture invalide');
+    expect(primeSignals(season)).toEqual({ seasonYear: 2016, seasonEpisodeCount: 4, episodeMinutes: 24, format: 'series' });
+    const movie = reducePrimeDetail(hydrationDocument(bumpkinDetailBody({ releaseYear: 2010, titleType: 'movie', episodes: 0 })));
+    if (!movie) throw new Error('fixture invalide');
+    expect(primeSignals(movie)).toEqual({ seasonYear: 2010, format: 'movie' });
   });
 
   it('forme inconnue : null, sans exception', () => {

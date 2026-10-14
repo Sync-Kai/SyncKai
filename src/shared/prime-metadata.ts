@@ -13,6 +13,7 @@
 // dans tout le document.
 import type { PrimeAnimeVerdict } from './episode.types';
 import { isRecord } from './guards';
+import { isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from './match-signals';
 import { stripVersionTags } from './title';
 
 /** GTI complet (« amzn1.dv.gti.{uuid} »), minuscules */
@@ -64,6 +65,12 @@ export interface PrimeTitle {
   seasonNumber: number | null;
   /** `metadata.{gti}.episodeCount` (« 12 episodes »), sinon nombre d'épisodes lus */
   episodeCount: number | null;
+  /**
+   * Année de sortie de CETTE saison (ou du film) : nombre `releaseYear` de `atf.state.detail.headerDetail.{gti}` (ou
+   * `btf.state.detail.detail.{gti}`), relevé le 2026-10-14. Jamais les années en chaîne des suggestions
+   * (`btf.state.containers.*.entities[]`). null si absente.
+   */
+  releaseYear: number | null;
   seasons: PrimeSeason[];
   episodes: PrimeEpisode[];
   /** Identifiants de genre (`av_genre_anime`, `av_genre_animation_adult_interest`…) */
@@ -311,6 +318,7 @@ export function reducePrimeDetail(raw: unknown): PrimeTitle | null {
     titleType: titleType && /^[a-z_]{1,32}$/.test(titleType) ? titleType : null,
     seasonNumber: integer(header.seasonNumber ?? ownDetail.seasonNumber, 999) ?? (titleType === 'season' ? integer(self.sequenceNumber, 999) : null),
     episodeCount: episodeCountOf(record(record(atf.metadata)[seasonGti]).episodeCount) ?? (episodes.length > 0 ? episodes.length : null),
+    releaseYear: [header.releaseYear, ownDetail.releaseYear].find(isSignalYear) ?? null,
     seasons: seasonsOf(record(atf.seasons)[seasonGti], 'seasonId'),
     episodes,
     genres: genres.length > 0 ? genres : genresUnder(body),
@@ -362,6 +370,21 @@ export function primeTitleHas(title: PrimeTitle, id: string): boolean {
   return title.seasonGti === id || title.compactGTI === id || title.episodes.some((episode) => episode.gti === id || episode.compactGTI === id);
 }
 
+// ─── Signaux de correspondance ────────────────────────────────────────────
+
+/**
+ * Signaux de la page de détail (saison ou film) : année de sortie de la saison, nombre et durée médiane de ses épisodes,
+ * format (`season` → série, `movie` → film). Ceux d'une saison ne valent que pour un épisode de cette saison.
+ */
+export function primeSignals(title: PrimeTitle): PlatformSignals | undefined {
+  const movie = title.titleType === 'movie';
+  return toPlatformSignals({
+    seasonYear: title.releaseYear,
+    ...(movie ? {} : { seasonEpisodeCount: title.episodeCount, episodeMinutes: medianMinutes(title.episodes.map((episode) => episode.durationS)) }),
+    format: movie ? 'movie' : title.titleType === 'season' ? 'series' : undefined,
+  });
+}
+
 // ─── Filtre « anime » ─────────────────────────────────────────────────────
 
 /**
@@ -411,6 +434,7 @@ export function isPrimeTitle(value: unknown): value is PrimeTitle {
     (value.titleType === null || (typeof value.titleType === 'string' && /^[a-z_]{1,32}$/.test(value.titleType))) &&
     isNullableInt(value.seasonNumber, 999) &&
     (value.episodeCount === null || integer(value.episodeCount, 10_000, 1) === value.episodeCount) &&
+    (value.releaseYear === null || isSignalYear(value.releaseYear)) &&
     Array.isArray(value.seasons) &&
     value.seasons.length <= PRIME_MAX_SEASONS &&
     value.seasons.every(isPrimeSeason) &&

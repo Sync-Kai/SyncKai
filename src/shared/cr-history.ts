@@ -1,5 +1,6 @@
 import { isPlatformSeasons } from './episode.types';
 import { isRecord } from './guards';
+import { isPlatformSignals, type PlatformSignals } from './match-signals';
 
 // Historique de visionnage Crunchyroll réduit à une ligne par saison (Réglages › Importer un historique › Crunchyroll).
 // Lu par le script de contenu dans l'onglet Crunchyroll de l'utilisateur (src/content/lib/crunchyroll-history.ts),
@@ -31,6 +32,8 @@ export interface HistorySeason {
   lastPlayedAt: number | null;
   /** Netflix : épisodes de chaque saison de la série (rapprochement des saisons, comme en lecture) */
   platformSeasons?: number[];
+  /** Netflix : signaux de la saison (année, épisodes, durée), comme en lecture (voir EpisodeInfo.signals) */
+  signals?: PlatformSignals;
 }
 
 export interface HistoryStats {
@@ -103,7 +106,8 @@ export function isHistorySeason(value: unknown): value is HistorySeason {
     (value.seasonEpisodeNumber === null || isPositive(value.seasonEpisodeNumber)) &&
     isPositive(value.watchedCount) &&
     (value.lastPlayedAt === null || (typeof value.lastPlayedAt === 'number' && Number.isFinite(value.lastPlayedAt))) &&
-    (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons))
+    (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons)) &&
+    (value.signals === undefined || isPlatformSignals(value.signals))
   );
 }
 

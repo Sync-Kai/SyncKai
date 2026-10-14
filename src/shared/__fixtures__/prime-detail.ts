@@ -34,6 +34,11 @@ export interface DetailOptions {
   title?: string;
   parentTitle?: string;
   episodes?: number;
+  /** Année de sortie de la saison (`releaseYear`, nombre) ; null : absente */
+  releaseYear?: number | null;
+  seasonNumber?: number;
+  /** « season » (défaut) ou « movie » */
+  titleType?: string;
 }
 
 /** Corps `{ atf, btf }` d'une page de saison (hydratation `init.preparations.body`, ou réponse SPA `/detail/{id}`) */
@@ -42,13 +47,15 @@ export function bumpkinDetailBody(options: DetailOptions = {}): Record<string, u
   const audioTracks = options.audioTracks ?? ['English', 'Deutsch', 'Español (España)', 'Español (Latinoamérica)', 'Français', 'Italiano', 'Português (Brasil)', 'ไทย', '日本語'];
   const count = options.episodes ?? 4;
   const numbers = Array.from({ length: count }, (_, i) => i + 1);
+  const releaseYear = options.releaseYear === undefined ? 2025 : options.releaseYear;
   const season = {
     title: options.title ?? BUMPKIN_TITLE,
     parentTitle: options.parentTitle ?? BUMPKIN_TITLE,
     entityType: 'TV Show',
-    seasonNumber: 1,
-    titleType: 'season',
+    seasonNumber: options.seasonNumber ?? 1,
+    titleType: options.titleType ?? 'season',
     runtime: '',
+    ...(releaseYear !== null ? { releaseYear } : {}),
   };
   return {
     routingType: 'VOD_DP',
@@ -89,6 +96,10 @@ export function bumpkinDetailBody(options: DetailOptions = {}): Record<string, u
         },
         // Suggestions : genres d'autres titres, jamais retenus pour la saison
         collections: [{ titles: [{ gti: 'amzn1.dv.gti.99999999-0000-4000-8000-000000000001', genres: [{ id: 'av_genre_anime' }], audioTracks: ['日本語'] }] }],
+        // Suggestions (« Customers also watched ») : années en CHAÎNE d'autres titres, jamais l'année de la saison
+        containers: {
+          related: { entities: [{ gti: 'amzn1.dv.gti.99999999-0000-4000-8000-000000000002', title: 'Berserk', releaseYear: '1997' }, { title: 'Other', releaseYear: '2016' }] },
+        },
       },
     },
   };

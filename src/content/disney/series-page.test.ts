@@ -61,18 +61,27 @@ describe('reduceDisneySeriesPage', () => {
       title: 'Undead Unluck',
       internalTitle: 'Undead Unluck - s1e1 - mediaId:1986b4d2-f9b8-4382-8059-e067b887c911',
       genres: ['Action et aventure', 'Animation', 'Anime', 'Science-fiction', 'Fantastique'],
+      // Année de début de la série (chaîne « 2023 » de releaseYearRange), jamais celle des suggestions ni du profil
+      startYear: 2023,
       focusSeasonId: UNDEAD_UNLUCK_S1_ID,
       selectedSeasonId: null,
       seasons: [
-        { id: UNDEAD_UNLUCK_S1_ID, name: 'Saison 1', seasonNumber: 1, episodeCount: 24 },
-        { id: WINTER_ARC_SEASON_ID, name: 'Undead Unluck: Winter Arc', seasonNumber: null, episodeCount: 1 },
+        // Durée médiane des épisodes lus (durationMs 1459917)
+        { id: UNDEAD_UNLUCK_S1_ID, name: 'Saison 1', seasonNumber: 1, episodeCount: 24, episodeMinutes: 24.3 },
+        { id: WINTER_ARC_SEASON_ID, name: 'Undead Unluck: Winter Arc', seasonNumber: null, episodeCount: 1, episodeMinutes: null },
       ],
     });
   });
 
+  it('année de la série : chaîne ou nombre plausible, sinon null', () => {
+    const page = (startYear: unknown): unknown => ({ data: { page: { visuals: { title: 'T', metastringParts: { releaseYearRange: { startYear } } } } } });
+    expect(reduceDisneySeriesPage(page(2024), UNDEAD_UNLUCK_ENTITY_ID, SEEN_AT)?.startYear).toBe(2024);
+    for (const year of ['20xx', '', 12, null]) expect(reduceDisneySeriesPage(page(year), UNDEAD_UNLUCK_ENTITY_ID, SEEN_AT)?.startYear).toBeNull();
+  });
+
   it('aucun champ écarté ne passe (description, images, jetons, suggestions)', () => {
     const json = JSON.stringify(reduced());
-    for (const leak of ['Description', 'imageId', 'jeton', 'Summer Time Rendering', 'partnerFeed']) expect(json).not.toContain(leak);
+    for (const leak of ['Description', 'imageId', 'jeton', 'Summer Time Rendering', 'partnerFeed', 'userState', 'percentWatched', '1999', '2001']) expect(json).not.toContain(leak);
   });
 
   it('titre localisé différent du titre anglais : titre interne gardé (titre anglais)', () => {
@@ -101,7 +110,7 @@ describe('applyDisneySeason (réponse season/{id})', () => {
   it('arc choisi dans le menu : saison retenue, numéro 99 lu dans le titre interne', () => {
     const page = applyDisneySeason(reduced(), WINTER_ARC_SEASON_ID, winterArcSeasonResponse());
     expect(page?.selectedSeasonId).toBe(WINTER_ARC_SEASON_ID);
-    expect(page?.seasons[1]).toEqual({ id: WINTER_ARC_SEASON_ID, name: 'Undead Unluck: Winter Arc', seasonNumber: 99, episodeCount: 1 });
+    expect(page?.seasons[1]).toEqual({ id: WINTER_ARC_SEASON_ID, name: 'Undead Unluck: Winter Arc', seasonNumber: 99, episodeCount: 1, episodeMinutes: null });
     expect(page?.seasons[0]).toEqual(reduced().seasons[0]);
   });
 

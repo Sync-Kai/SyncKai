@@ -4,8 +4,12 @@ import mediaSource from '../../api/media.ts?raw';
 import refreshScriptSource from '../../../../scripts/refresh-anilist-corpus.ts?raw';
 import { CASES } from './cases';
 import { byIdsKey, CATALOG, SNAPSHOTS } from './snapshots';
-import type { PlatformSignals } from '../../../shared/match-signals';
-import type { CapturedSignals, CorpusCase, CorpusMedia, CorpusOutcome } from './types';
+import { bumpkinDetailBody, spaDetailResponse } from '../../../shared/__fixtures__/prime-detail';
+import type { StreamingPlatform } from '../../../shared/episode.types';
+import { medianMinutes, toPlatformSignals, type PlatformSignals } from '../../../shared/match-signals';
+import { isNetflixShowMetadata, netflixSignals, type NetflixShowMetadata } from '../../../shared/netflix-metadata';
+import { primeSignals, reducePrimeDetail } from '../../../shared/prime-metadata';
+import type { CapturedSignals, CorpusCase, CorpusMedia, CorpusOutcome, PlatformSeasonSignal } from './types';
 
 // Corpus de cas réels (voir README.md) : chaque cas passe par la vraie résolution (resolveEpisode pour une page de
 // lecture, resolvePageMedia pour une page de série) ; seules les requêtes AniList sont servies par les instantanés
@@ -79,14 +83,76 @@ const { resolveEpisode } = await import('../resolver');
 const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media');
 const { clearCatalogCache } = await import('../../api/media');
 
-/**
- * Signaux relevés du cas, sous la forme envoyée par une plateforme (EpisodeInfo.signals) : saison affichée (`seq` =
- * numéro de saison ; une seule saison relevée : celle-ci), année de la série, durée en minutes, format, diffusion.
- */
-function signalsOf(captured: CapturedSignals | undefined, seasonNumber: number | null): PlatformSignals | undefined {
-  if (!captured) return undefined;
+/** Saison affichée parmi les saisons relevées (`seq` = numéro de saison ; une seule saison relevée : celle-ci) */
+function shownSeason(captured: CapturedSignals, seasonNumber: number | null): PlatformSeasonSignal | undefined {
   const seasons = captured.seasons ?? [];
-  const season = seasons.find((s) => s.seq === seasonNumber) ?? (seasons.length === 1 ? seasons[0] : undefined);
+  return seasons.find((s) => s.seq === seasonNumber) ?? (seasons.length === 1 ? seasons[0] : undefined);
+}
+
+const withAiring = (signals: PlatformSignals | undefined, captured: CapturedSignals): PlatformSignals | undefined =>
+  signals && captured.airing !== undefined ? { ...signals, airing: captured.airing } : signals;
+
+/**
+ * Netflix : métadonnées réduites reconstruites des saisons relevées (`video.seasons[]` : seq, year, épisodes), passées
+ * par netflixSignals, comme le script de contenu (adapters/netflix.ts › episodeInfoFromMetadata).
+ */
+function netflixCaseSignals(captured: CapturedSignals, seasonNumber: number | null): PlatformSignals | undefined {
+  const runtime = captured.episodeDurationS ?? null;
+  const show: NetflixShowMetadata = {
+    showId: '1',
+    type: captured.format === 'movie' ? 'movie' : 'show',
+    title: 'corpus',
+    runtime: captured.format === 'movie' ? runtime : null,
+    creditsOffset: null,
+    seasons: (captured.seasons ?? []).map((s) => ({
+      seq: s.seq,
+      title: s.title ?? null,
+      year: s.year,
+      episodes: Array.from({ length: s.episodes ?? 0 }, (_, i) => ({ id: String(s.seq * 10_000 + i + 1), seq: i + 1, title: null, runtime, creditsOffset: null })),
+    })),
+  };
+  if (!isNetflixShowMetadata(show)) throw new Error('saisons Netflix relevées illisibles');
+  const season = show.seasons.find((s) => s.seq === shownSeason(captured, seasonNumber)?.seq) ?? null;
+  return withAiring(netflixSignals(show, season), captured);
+}
+
+/**
+ * Prime Video : page de détail (forme relevée le 2026-10-14) portant le `releaseYear` de la saison, réduite par
+ * reducePrimeDetail puis primeSignals, comme le script de contenu (adapters/prime.ts)
+ */
+function primeCaseSignals(captured: CapturedSignals, seasonNumber: number | null): PlatformSignals | undefined {
+  const season = shownSeason(captured, seasonNumber);
+  const body = bumpkinDetailBody({ releaseYear: season?.year ?? null, seasonNumber: season?.seq ?? 1, titleType: captured.format === 'movie' ? 'movie' : 'season', episodes: season?.episodes ?? 0 });
+  const title = reducePrimeDetail(spaDetailResponse(body));
+  if (!title) throw new Error('page de détail Prime Video illisible');
+  return withAiring(primeSignals(title), captured);
+}
+
+/**
+ * Disney+ (page de lecture, adapters/disney.ts › playbackSignals) : année de début de la SÉRIE et épisodes de la saison
+ * (page de série vue dans l'onglet), durée de la fiche, format d'après `programType`. Jamais d'année de saison.
+ */
+function disneyCaseSignals(captured: CapturedSignals, seasonNumber: number | null): PlatformSignals | undefined {
+  const signals = toPlatformSignals({
+    seriesYear: captured.seriesStartYear,
+    seasonEpisodeCount: shownSeason(captured, seasonNumber)?.episodes,
+    episodeMinutes: medianMinutes([captured.episodeDurationS]),
+    format: captured.format ?? 'series',
+  });
+  return withAiring(signals, captured);
+}
+
+/**
+ * Signaux relevés du cas, sous la forme envoyée par la plateforme (EpisodeInfo.signals) : Netflix, Prime Video et
+ * Disney+ par les règles de leur script de contenu ; Crunchyroll et ADN (lecture : aucun signal envoyé aujourd'hui) sous
+ * la forme supposée : saison affichée, année de la série, durée en minutes, format, diffusion.
+ */
+function signalsOf(platform: StreamingPlatform, captured: CapturedSignals | undefined, seasonNumber: number | null): PlatformSignals | undefined {
+  if (!captured) return undefined;
+  if (platform === 'netflix') return netflixCaseSignals(captured, seasonNumber);
+  if (platform === 'prime') return primeCaseSignals(captured, seasonNumber);
+  if (platform === 'disney') return disneyCaseSignals(captured, seasonNumber);
+  const season = shownSeason(captured, seasonNumber);
   const signals: PlatformSignals = {
     ...(season ? { seasonYear: season.year } : {}),
     ...(season?.episodes !== undefined ? { seasonEpisodeCount: season.episodes } : {}),
@@ -100,12 +166,12 @@ function signalsOf(captured: CapturedSignals | undefined, seasonNumber: number |
 
 async function outcomeOf(corpusCase: CorpusCase): Promise<CorpusOutcome> {
   if (corpusCase.kind === 'episode') {
-    const signals = signalsOf(corpusCase.signals, corpusCase.episode.seasonNumber);
+    const signals = signalsOf(corpusCase.episode.platform, corpusCase.signals, corpusCase.episode.seasonNumber);
     const { result } = await resolveEpisode(signals ? { ...corpusCase.episode, signals } : corpusCase.episode);
     if (result.ok) return { mediaId: result.target.mediaId, confidence: result.target.confidence, progress: result.target.progress };
     return { mediaId: null, confidence: result.ignored ? 'ignored' : 'not-found', progress: null };
   }
-  const signals = signalsOf(corpusCase.signals, corpusCase.page.seasonNumber);
+  const signals = signalsOf(corpusCase.page.platform, corpusCase.signals, corpusCase.page.seasonNumber);
   const result = await resolvePageMedia({ page: signals ? { ...corpusCase.page, signals } : corpusCase.page, mediaId: null });
   if (result.ok) return { mediaId: result.data.media.mediaId, confidence: result.data.confidence === 'certain' ? 'high' : 'low' };
   if (result.code === 'NOT_TRACKED') return { mediaId: null, confidence: 'ignored' };

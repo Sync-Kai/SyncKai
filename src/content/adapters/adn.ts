@@ -1,6 +1,7 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
+import { toPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
 import { findPlayerVideo } from '../lib/find-video';
 import type { StreamingAdapter } from './adapter';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
@@ -154,36 +155,67 @@ export function parseAdnSeriesPath(pathname: string): { seriesId: string; series
 }
 
 /**
- * Titre de la série dans le JSON-LD (TVSeries). Hypothèse non vérifiée hors ligne :
+ * Nœud JSON-LD de la série (TVSeries, ou Movie pour un film) de la page de série. Hypothèse non vérifiée hors ligne :
  * { "@type": "TVSeries", name: "TOUGEN ANKI", url: ".../video/1311-tougen-anki" }.
- * Un nœud dont l'URL désigne une autre série (navigation SPA) est ignoré.
+ * Un nœud dont l'URL désigne une autre série (navigation SPA) est ignoré ; un nœud sans nom aussi.
  */
-export function adnSeriesTitleFromJsonLd(nodes: readonly Record<string, unknown>[], seriesId: string): string | null {
+export function adnSeriesNode(nodes: readonly Record<string, unknown>[], seriesId: string): Record<string, unknown> | null {
   for (const node of nodes) {
-    if (node['@type'] !== 'TVSeries') continue;
+    if (node['@type'] !== 'TVSeries' && node['@type'] !== 'Movie') continue;
     const urls = [node.url, node['@id']].map(cleanText).filter((u): u is string => u !== null);
     if (urls.length > 0 && !urls.some((u) => u.includes(`/video/${seriesId}-`))) continue;
-    const name = cleanText(node.name);
-    if (name) return name;
+    if (cleanText(node.name)) return node;
   }
   return null;
 }
 
-/** Page de série : titre (JSON-LD → <h1> → og:title → slug). Saison non lisible : choisie par le service worker. */
+/** Titre de la série dans le JSON-LD (voir adnSeriesNode) */
+export function adnSeriesTitleFromJsonLd(nodes: readonly Record<string, unknown>[], seriesId: string): string | null {
+  return cleanText(adnSeriesNode(nodes, seriesId)?.name);
+}
+
+/** Pays d'origine du JSON-LD ADN (`countryOfOrigin.name` « Japon », relevé le 2026-10-14) → code ISO ; autres : ignorés */
+const COUNTRIES: Readonly<Record<string, string>> = { japon: 'JP', japan: 'JP', 'corée du sud': 'KR', 'south korea': 'KR', südkorea: 'KR', chine: 'CN', china: 'CN' };
+
+/**
+ * Signaux de la série d'après son JSON-LD (page de série seulement : la page de lecture n'en porte pas, son
+ * `partOfSeries` n'a que le nom ; relevé le 2026-10-14) : `@type` (série ou film), `datePublished` (« 2025 ») = année de
+ * début de la SÉRIE, `alternativeHeadline` = titre original (« 桃源暗鬼 »), `countryOfOrigin.name`, et `numberOfEpisodes`
+ * de la seule saison de `containsSeason` (aucune saison choisie sur la page ; plusieurs saisons : nombre non envoyé).
+ * Saison en cours : nombre partiel, plus court qu'AniList, jamais une contradiction (aucun indice « en cours » lu).
+ */
+export function adnSeriesSignals(node: Record<string, unknown>): PlatformSignals | undefined {
+  const published = node.datePublished;
+  const year = /^\d{4}/.exec(typeof published === 'string' || typeof published === 'number' ? String(published).trim() : '')?.[0];
+  const country = cleanText(isRecord(node.countryOfOrigin) ? node.countryOfOrigin.name : node.countryOfOrigin)?.toLowerCase();
+  const seasons = Array.isArray(node.containsSeason) ? node.containsSeason : [];
+  const [only] = seasons;
+  return toPlatformSignals({
+    format: node['@type'] === 'Movie' ? 'movie' : 'series',
+    seriesYear: year !== undefined ? Number(year) : undefined,
+    originalTitle: cleanText(node.alternativeHeadline),
+    country: country !== undefined ? COUNTRIES[country] : undefined,
+    seasonEpisodeCount: seasons.length === 1 && isRecord(only) ? toNumber(only.numberOfEpisodes) : undefined,
+  });
+}
+
+/** Page de série : titre (JSON-LD → <h1> → og:title → slug) et signaux du JSON-LD. Saison non lisible : choisie par le service worker. */
 function detectAdnSeries(url: URL): SeriesPageInfo | null {
   const path = parseAdnSeriesPath(url.pathname);
   if (!path) return null;
 
+  const node = adnSeriesNode([...readJsonLdNodes('TVSeries'), ...readJsonLdNodes('Movie')], path.seriesId);
+  const signals = node ? adnSeriesSignals(node) : undefined;
   const heading = SERIES_TITLE_SELECTORS.map((s) => cleanText(document.querySelector(s)?.textContent)).find(
     (text): text is string => text !== null && text.length <= 200,
   );
   const seriesTitle =
-    adnSeriesTitleFromJsonLd(readJsonLdNodes('TVSeries'), path.seriesId) ??
+    cleanText(node?.name) ??
     heading ??
     cleanPageTitle(readMetaContent('og:title'), PLATFORM_NAME) ??
     slugToTitle(path.seriesSlug);
   if (!seriesTitle) return null;
-  return { seriesId: path.seriesId, seriesSlug: path.seriesSlug, seriesTitle, seasonNumber: null, seasonTitle: null };
+  return { seriesId: path.seriesId, seriesSlug: path.seriesSlug, seriesTitle, seasonNumber: null, seasonTitle: null, ...(signals ? { signals } : {}) };
 }
 
 // ─── Adapter ──────────────────────────────────────────────────────────────

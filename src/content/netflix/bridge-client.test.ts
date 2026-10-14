@@ -6,6 +6,7 @@ import {
   encodeNetflixPortOffer,
   encodeNetflixResponse,
   NETFLIX_ATTEMPT_TIMEOUT_MS,
+  NETFLIX_BRIDGE_VERSION,
   NETFLIX_FETCH_TIMEOUT_MS,
   NETFLIX_HANDSHAKE_EVENT,
   NETFLIX_PORT_OFFER,
@@ -40,7 +41,7 @@ function fakePage(): Pick<NetflixBridgeClientOptions, 'target' | 'messages' | 'o
 
 /** Offre de port telle que postMessage la livre (asynchrone) ; `synthetic` : dispatchEvent d'un script de la page */
 function offerPort(window: EventTarget, nonce: string, port: MessagePort, { synthetic = false, origin = ORIGIN } = {}): void {
-  const event = new MessageEvent('message', { data: encodeNetflixPortOffer({ v: 2, type: NETFLIX_PORT_OFFER, nonce }), origin, ports: [port] });
+  const event = new MessageEvent('message', { data: encodeNetflixPortOffer({ v: NETFLIX_BRIDGE_VERSION, type: NETFLIX_PORT_OFFER, nonce }), origin, ports: [port] });
   if (synthetic) {
     forged.add(event);
     window.dispatchEvent(event);
@@ -63,9 +64,9 @@ function serve(reply: Reply, requests: NetflixBridgeRequest[], delayMs?: number)
     const respond = delayMs === undefined ? queueMicrotask : (callback: () => void): void => void setTimeout(callback, delayMs);
     respond(() => {
       // Bruit : réponse d'une autre demande, puis message illisible
-      port1.postMessage(encodeNetflixResponse({ v: 2, id: 'autre', ok: false, error: 'shape' }));
+      port1.postMessage(encodeNetflixResponse({ v: NETFLIX_BRIDGE_VERSION, id: 'autre', ok: false, error: 'shape' }));
       port1.postMessage('{oops');
-      port1.postMessage(encodeNetflixResponse({ v: 2, id: request.id, ...body }));
+      port1.postMessage(encodeNetflixResponse({ v: NETFLIX_BRIDGE_VERSION, id: request.id, ...body }));
     });
   });
   port1.start();
@@ -313,7 +314,7 @@ describe('createNetflixBridgeClient — canal privé face à un script de la pag
     await advance(0);
     const [request] = requests;
     expect(request).toBeDefined();
-    const forgedBody = encodeNetflixResponse({ v: 2, id: request.id, ok: true, data: FORGED });
+    const forgedBody = encodeNetflixResponse({ v: NETFLIX_BRIDGE_VERSION, id: request.id, ok: true, data: FORGED });
     page.document.dispatchEvent(new CustomEvent('synckai:netflix:response', { detail: forgedBody }));
     expect(snooped.port).not.toBeNull();
     const injected = new MessageEvent('message', { data: forgedBody });

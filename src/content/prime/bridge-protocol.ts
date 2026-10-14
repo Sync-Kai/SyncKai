@@ -32,8 +32,9 @@ import { stripVersionTags } from '../../shared/title';
 /**
  * Version du protocole, à incrémenter à tout changement des messages ou des formes réduites : le pont MAIN d'une
  * version précédente reste dans les onglets ouverts après une mise à jour. Chaque côté ignore les messages d'une autre version.
+ * v2 (2026-10-14) : année de sortie de la saison (`PrimeTitle.releaseYear`, signaux de correspondance).
  */
-export const PRIME_BRIDGE_VERSION = 1;
+export const PRIME_BRIDGE_VERSION = 2;
 /** Ouverture du canal (client isolé → pont), detail = PrimeHandshake en chaîne JSON */
 export const PRIME_HANDSHAKE_EVENT = 'synckai:prime:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */

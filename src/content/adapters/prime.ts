@@ -5,6 +5,7 @@ import {
   parsePrimeDetailId,
   primeAnimeVerdict,
   primeCompactGti,
+  primeSignals,
   primeTitleHas,
   reducePrimeDetail,
   withPrimeWidgets,
@@ -102,22 +103,35 @@ export function titleForEpisode(
 const detailUrl = (title: PrimeTitle | null, fallback: string): string => (title?.compactGTI ? `https://www.primevideo.com/detail/${title.compactGTI}` : fallback);
 
 /**
+ * Signaux de la page de détail, seulement si elle décrit la saison de l'épisode (elle le liste, ou même numéro de saison)
+ * ou le film : après une lecture automatique vers la saison suivante (URL inchangée), la page affichée est celle de la
+ * saison précédente, son année ne vaut pas pour l'épisode.
+ */
+function titleSignals(entry: ReceivedCatalog, listed: boolean, title: PrimeTitle): Pick<EpisodeInfo, 'signals'> {
+  const own = entry.type === 'movie' ? title.titleType === 'movie' : listed || (entry.seasonNumber !== null && entry.seasonNumber === title.seasonNumber);
+  const signals = own ? primeSignals(title) : undefined;
+  return signals ? { signals } : {};
+}
+
+/**
  * Épisode à synchroniser : métadonnées du lecteur (série sans mention de version, saison, numéro dans la saison) et
  * filtre « anime » de la page de détail. null si ce n'est pas un anime (`ignored` : genres d'une autre catégorie ou
  * illisibles, page de détail inconnue), ou sans numéro d'épisode. Film : saison inconnue, épisode 1 (comme Netflix).
- * Clé de correspondance par titre (`seriesId` null) : « prime:title:{titre normalisé}:s{saison} ».
+ * Clé de correspondance par titre (`seriesId` null) : « prime:title:{titre normalisé}:s{saison} » (année de la saison
+ * ajoutée par mappingKey si elle est connue).
  */
 export function episodeInfoFromPrime(entry: ReceivedCatalog, aliases: readonly string[], title: PrimeTitle | null, pageUrl: string): EpisodeInfo | null {
   const verdict = title ? primeAnimeVerdict(title.genres, title.japaneseAudio) : 'ignored';
   if (verdict === 'ignored' || !title) return null;
   const animeTitle = entry.seriesTitle ?? title.seriesTitle;
   const base = { platform: 'prime', episodeId: entry.id, seriesId: null, seriesSlug: null, animeTitle, seasonTitle: null, url: detailUrl(title, pageUrl), primeAnime: verdict } as const;
-  if (entry.type === 'movie') return { ...base, seasonNumber: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: null };
+  if (entry.type === 'movie') return { ...base, seasonNumber: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: null, ...titleSignals(entry, false, title) };
   const listed = title.episodes.find((episode) => aliases.includes(episode.gti));
   const number = entry.episodeNumber ?? listed?.episodeNumber ?? null;
   if (number === null) return null;
   return {
     ...base,
+    ...titleSignals(entry, listed !== undefined, title),
     seasonNumber: entry.seasonNumber ?? title.seasonNumber,
     seasonEpisodeNumber: number,
     displayedEpisodeNumber: number,
@@ -129,7 +143,9 @@ export function episodeInfoFromPrime(entry: ReceivedCatalog, aliases: readonly s
 export function seriesInfoFromPrime(title: PrimeTitle, urlId: string | null): SeriesPageInfo | null {
   const verdict = primeAnimeVerdict(title.genres, title.japaneseAudio);
   if (verdict === 'ignored') return null;
+  const signals = primeSignals(title);
   return {
+    ...(signals ? { signals } : {}),
     seriesId: title.compactGTI ?? primeCompactGti(urlId),
     seriesSlug: null,
     seriesTitle: title.seriesTitle,

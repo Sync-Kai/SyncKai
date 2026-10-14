@@ -1,5 +1,6 @@
 import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
+import { medianMinutes, toPlatformSignals, type PlatformFormat, type PlatformSignals } from '../../shared/match-signals';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createDisneyBridgeClient, type DisneyBridgeClient } from '../disney/bridge-client';
 import { hasDisneyId, parseInternalTitle, type DisneyPlayerExperience, type DisneySeason, type DisneySeriesPage } from '../disney/bridge-protocol';
@@ -89,6 +90,33 @@ export function isJapaneseOriginal(entry: Pick<DisneyPlayerExperience, 'original
   return entry.originalLanguage !== null && /^ja(?:-|$)/i.test(entry.originalLanguage);
 }
 
+/** Libellé comparable : casse, espaces multiples et espace avant les deux-points (typographie française) ignorés */
+const labelKey = (text: string): string => text.replace(/\s+/g, ' ').replace(/ :/g, ':').trim().toLowerCase();
+
+/** Titre anglais de la série d'une page (titre interne de ses épisodes), null sans titre interne lisible */
+function englishTitleOf(page: DisneySeriesPage): string | null {
+  const internal = parseInternalTitle(page.internalTitle);
+  return internal ? (internal.kind === 'episode' ? internal.series : internal.title) : null;
+}
+
+/** Format d'après `programType` (épisode → série, film → film), undefined sinon */
+const formatOf = (programType: string | null): PlatformFormat | undefined => (programType === 'movie' ? 'movie' : programType === 'episode' ? 'series' : undefined);
+
+/**
+ * Signaux d'une page de lecture : format et durée de la fiche, et, si la page de série de la même série (titre anglais)
+ * a été vue dans l'onglet, année de début de la série et nombre d'épisodes de la saison (arc : par son nom).
+ */
+export function playbackSignals(entry: DisneyPlayerExperience, title: string, season: number | null, arc: string | null, pages: readonly DisneySeriesPage[]): PlatformSignals | undefined {
+  const page = pages.findLast((known) => englishTitleOf(known)?.toLowerCase() === title.toLowerCase());
+  const shown = arc !== null ? page?.seasons.find((s) => s.name !== null && labelKey(s.name) === labelKey(arc)) : page?.seasons.find((s) => season !== null && s.seasonNumber === season);
+  return toPlatformSignals({
+    seriesYear: page?.startYear,
+    seasonEpisodeCount: shown?.episodeCount,
+    episodeMinutes: medianMinutes([entry.runtimeMs === null ? null : entry.runtimeMs / 1000]),
+    format: formatOf(entry.programType),
+  });
+}
+
 /**
  * Épisode de l'URL `urlId` correspondant à la fiche `playerExperience` (identifiant de l'épisode = celui de l'URL), null si
  * ce n'est pas un anime (langue originale non japonaise), si la fiche ne porte pas cet identifiant (voir le repli du
@@ -96,9 +124,9 @@ export function isJapaneseOriginal(entry: Pick<DisneyPlayerExperience, 'original
  * (S2:E1 = premier épisode de la saison 2) : `displayedEpisodeNumber` = numéro dans la saison.
  * Saison 99 : arc publié dans la série (« Undead Unluck: Winter Arc »), titre de l'arc en `seasonTitle` (fiche AniList
  * distincte, clé de correspondance par arc) ; arc illisible : saison spéciale (0).
- * Film : saison inconnue, épisode 1, comme sur Netflix.
+ * Film : saison inconnue, épisode 1, comme sur Netflix. Signaux : voir playbackSignals (`pages` : pages de série en cache).
  */
-export function episodeInfoFromPlayerExperience(entry: DisneyPlayerExperience, urlId: string): EpisodeInfo | null {
+export function episodeInfoFromPlayerExperience(entry: DisneyPlayerExperience, urlId: string, pages: readonly DisneySeriesPage[] = []): EpisodeInfo | null {
   if (!hasDisneyId(entry, urlId) || !isJapaneseOriginal(entry)) return null;
   const parsed = parseInternalTitle(entry.internalTitle);
   if (!parsed) return null;
@@ -107,13 +135,16 @@ export function episodeInfoFromPlayerExperience(entry: DisneyPlayerExperience, u
 
   if (parsed.kind === 'movie') {
     if (entry.programType !== 'movie') return null;
-    return { ...base, animeTitle: parsed.title, seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: null };
+    const signals = playbackSignals(entry, parsed.title, null, null, pages);
+    return { ...base, animeTitle: parsed.title, seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: null, ...(signals ? { signals } : {}) };
   }
 
   const { series, season, episode } = parsed;
   const arc = season === DISNEY_ARC_SEASON ? arcTitleFromSubtitle(entry.subtitle, episode) : null;
+  const signals = playbackSignals(entry, series, season === DISNEY_ARC_SEASON ? null : season, arc, pages);
   return {
     ...base,
+    ...(signals ? { signals } : {}),
     animeTitle: series,
     seasonNumber: season === DISNEY_ARC_SEASON ? (arc ? DISNEY_ARC_SEASON : 0) : season,
     seasonTitle: arc,
@@ -129,9 +160,6 @@ export function episodeInfoFromPlayerExperience(entry: DisneyPlayerExperience, u
 export function hasAnimeGenre(genres: readonly string[]): boolean {
   return genres.some((genre) => genre.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase() === 'anime');
 }
-
-/** Libellé comparable : casse, espaces multiples et espace avant les deux-points (typographie française) ignorés */
-const labelKey = (text: string): string => text.replace(/\s+/g, ' ').replace(/ :/g, ':').trim().toLowerCase();
 
 /** Élément du DOM lu pour le menu des saisons (Element en production, faux élément dans les tests) */
 export interface MenuElement {
@@ -206,11 +234,19 @@ const numberInName = (name: string): number | null => {
  */
 export function seriesInfoFromDisneyPage(page: DisneySeriesPage, season: DisneySeason | null): SeriesPageInfo {
   const internal = parseInternalTitle(page.internalTitle);
+  // Année de la SÉRIE (jamais celle de la saison), épisodes et durée médiane de la saison affichée
+  const signals = toPlatformSignals({
+    seriesYear: page.startYear,
+    seasonEpisodeCount: season?.episodeCount,
+    episodeMinutes: season?.episodeMinutes,
+    format: internal ? (internal.kind === 'episode' ? 'series' : 'movie') : undefined,
+  });
   const base = {
     seriesId: page.entityId,
     seriesSlug: null,
     seriesTitle: internal?.kind === 'episode' ? internal.series : (internal?.title ?? page.title),
     ...(page.genres.length > 0 ? { catalogAnime: hasAnimeGenre(page.genres) } : {}),
+    ...(signals ? { signals } : {}),
   };
   if (!season) return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null };
   const named = meaningfulSeasonTitle(season.name);
@@ -446,7 +482,7 @@ export const disneyAdapter: StreamingAdapter = {
   extractEpisodeInfo(url) {
     const urlId = parseDisneyPlayId(url.pathname);
     const entry = urlId ? bridge().peek(urlId) : null;
-    return urlId && entry ? episodeInfoFromPlayerExperience(entry, urlId) : null;
+    return urlId && entry ? episodeInfoFromPlayerExperience(entry, urlId, bridge().pages()) : null;
   },
 
   async loadEpisodeInfo(episodeId, signal) {
@@ -459,7 +495,7 @@ export const disneyAdapter: StreamingAdapter = {
     }
     // Pas un anime, ou titre interne illisible : rien de journalisé hors debug (catalogue généraliste ; messages retirés du
     // script publié, budget de taille)
-    const episode = episodeInfoFromPlayerExperience(entry, episodeId);
+    const episode = episodeInfoFromPlayerExperience(entry, episodeId, bridge().pages());
     if (!__SYNCKAI_DEBUG__) return episode;
     if (episode) log.debug(`Anime retenu (langue originale ${entry.originalLanguage ?? '?'}) : « ${episode.animeTitle} » S${episode.seasonNumber ?? '?'} E${episode.seasonEpisodeNumber ?? '?'}`);
     else if (!isJapaneseOriginal(entry)) log.debug(`Pas un anime (langue originale ${entry.originalLanguage ?? 'inconnue'}) : vidéo ${episodeId} ignorée`);

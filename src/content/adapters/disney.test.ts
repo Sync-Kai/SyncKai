@@ -124,9 +124,23 @@ describe('episodeInfoFromPlayerExperience', () => {
       displayedEpisodeNumber: 1,
       episodeTitle: 'Undead et Unluck',
       url: `https://www.disneyplus.com/play/${UNDEAD_UNLUCK_S1E1_PLAY_ID}`,
+      // Sans page de série vue : format et durée de la fiche seulement
+      signals: { episodeMinutes: 24.3, format: 'series' },
     });
     // Identifiant de la réponse (requête par availId) : reconnu aussi
     expect(episodeInfoFromPlayerExperience(S1E1, UNDEAD_UNLUCK_S1E1_AVAIL_ID)?.episodeId).toBe(UNDEAD_UNLUCK_S1E1_AVAIL_ID);
+  });
+
+  it('page de série de la même série vue dans l’onglet : année de la série et épisodes de la saison', () => {
+    const page = reduceDisneySeriesPage(undeadUnluckSeriesPage(), UNDEAD_UNLUCK_ENTITY_ID, SEEN_AT);
+    const other = reduceDisneySeriesPage(undeadUnluckSeriesPage({ entityId: '11111111-2222-4333-8444-000000000002', title: 'Andor', internalTitles: false }), '11111111-2222-4333-8444-000000000002', SEEN_AT);
+    if (!page || !other) throw new Error('fixture invalide');
+    expect(episodeInfoFromPlayerExperience(S1E1, UNDEAD_UNLUCK_S1E1_PLAY_ID, [page, other])?.signals).toEqual({ seriesYear: 2023, seasonEpisodeCount: 24, episodeMinutes: 24.3, format: 'series' });
+    // Page d'une autre série (sans titre interne) : jamais rapprochée
+    expect(episodeInfoFromPlayerExperience(S1E1, UNDEAD_UNLUCK_S1E1_PLAY_ID, [other])?.signals).toEqual({ episodeMinutes: 24.3, format: 'series' });
+    // Arc : saison désignée par son nom
+    const arc = episodeInfoFromPlayerExperience(WINTER_ARC, WINTER_ARC_E1_AVAIL_ID, [page]);
+    expect(arc?.signals).toMatchObject({ seriesYear: 2023, seasonEpisodeCount: 1 });
   });
 
   it('saison 99 : arc en titre de saison (fiche AniList distincte)', () => {
@@ -360,6 +374,8 @@ describe('seriesInfoFromDisneyPage', () => {
       seasonNumber: 1,
       seasonTitle: null,
       seasonEpisodeCount: 24,
+      // Année de début de la SÉRIE (releaseYearRange.startYear « 2023 »), saison 1 : 24 épisodes de 1459917 ms
+      signals: { seriesYear: 2023, seasonEpisodeCount: 24, episodeMinutes: 24.3, format: 'series' },
     });
   });
 
@@ -377,7 +393,7 @@ describe('seriesInfoFromDisneyPage', () => {
 
   it('saison générique sans épisode lu (« Saison 2 ») : numéro du nom', () => {
     const page = seriesPage();
-    expect(seriesInfoFromDisneyPage(page, { id: UNDEAD_UNLUCK_S1_ID, name: 'Saison 2', seasonNumber: null, episodeCount: 12 })).toMatchObject({ seasonNumber: 2, seasonTitle: null, seasonEpisodeCount: 12 });
+    expect(seriesInfoFromDisneyPage(page, { id: UNDEAD_UNLUCK_S1_ID, name: 'Saison 2', seasonNumber: null, episodeCount: 12, episodeMinutes: null })).toMatchObject({ seasonNumber: 2, seasonTitle: null, seasonEpisodeCount: 12 });
   });
 
   it('titre localisé (« Time Shadows ») : titre anglais du titre interne', () => {

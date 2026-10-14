@@ -2,7 +2,8 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createLogger } from '../../shared/logger';
 import { createNetflixBridgeClient, type NetflixBridgeClient } from '../netflix/bridge-client';
-import { episodeNumbers, platformSeasonsOf, type NetflixSeasonMetadata, type NetflixShowMetadata } from '../../shared/netflix-metadata';
+import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixSeasonMetadata, type NetflixShowMetadata } from '../../shared/netflix-metadata';
+import type { PlatformSignals } from '../../shared/match-signals';
 import { findPlayerVideo } from '../lib/find-video';
 import { watchElementText } from '../lib/season-watch';
 import type { StreamingAdapter } from './adapter';
@@ -48,15 +49,18 @@ export function parseNetflixSeriesId(url: URL): string | null {
 
 const watchUrl = (movieId: string): string => `https://www.netflix.com/watch/${movieId}`;
 
+/** Signaux de la saison (ou du film), propriété absente sans signal */
+const withSignals = (signals: PlatformSignals | undefined): { signals?: PlatformSignals } => (signals ? { signals } : {});
+
 /**
  * Épisode correspondant à la vidéo `movieId` dans les métadonnées réduites, null s'il n'y figure pas.
- * Film : saison inconnue, épisode 1 (clé de correspondance `s0`).
+ * Film : saison inconnue, épisode 1 (clé de correspondance `s0`). Signaux de la saison en lecture (netflixSignals).
  */
 export function episodeInfoFromMetadata(show: NetflixShowMetadata, movieId: string): EpisodeInfo | null {
   const base = { platform: 'netflix', episodeId: movieId, seriesId: show.showId, seriesSlug: null, animeTitle: show.title, url: watchUrl(movieId) } as const;
   if (show.type === 'movie') {
     if (show.showId !== movieId) return null;
-    return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: null };
+    return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: null, ...withSignals(netflixSignals(show, null)) };
   }
   for (const season of show.seasons) {
     const episode = season.episodes.find((e) => e.id === movieId);
@@ -68,6 +72,7 @@ export function episodeInfoFromMetadata(show: NetflixShowMetadata, movieId: stri
       ...episodeNumbers(show.seasons, season, episode),
       episodeTitle: episode.title,
       platformSeasons: platformSeasonsOf(show),
+      ...withSignals(netflixSignals(show, season)),
     };
   }
   return null;
@@ -100,11 +105,18 @@ export function pickNetflixSeason(seasons: readonly NetflixSeasonMetadata[], lab
  */
 export function seriesInfoFromMetadata(show: NetflixShowMetadata, seasonLabel: string | null): SeriesPageInfo {
   const base = { seriesId: show.showId, seriesSlug: null, seriesTitle: show.title } as const;
-  if (show.type === 'movie') return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null };
+  if (show.type === 'movie') return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null, ...withSignals(netflixSignals(show, null)) };
   const platformSeasons = platformSeasonsOf(show);
   const season = pickNetflixSeason(show.seasons, seasonLabel);
   if (!season) return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null, platformSeasons };
-  return { ...base, seasonNumber: season.seq, seasonTitle: meaningfulSeasonTitle(season.title), seasonEpisodeCount: season.episodes.length || null, platformSeasons };
+  return {
+    ...base,
+    seasonNumber: season.seq,
+    seasonTitle: meaningfulSeasonTitle(season.title),
+    seasonEpisodeCount: season.episodes.length || null,
+    platformSeasons,
+    ...withSignals(netflixSignals(show, season)),
+  };
 }
 
 /** Libellé du menu des saisons de la fenêtre de détail, null s'il est absent (une saison, film, DOM différent) */

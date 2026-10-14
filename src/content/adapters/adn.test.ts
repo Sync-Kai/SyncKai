@@ -6,6 +6,8 @@ import type { StreamingAdapter } from './adapter';
 import {
   adnEpisodeFromJsonLdNodes,
   adnEpisodeFromPlayer,
+  adnSeriesNode,
+  adnSeriesSignals,
   adnSeriesTitleFromJsonLd,
   parseAdnEpisodeLabel,
   parseAdnSeriesPath,
@@ -77,6 +79,41 @@ describe('adnSeriesTitleFromJsonLd', () => {
 
   it('ignore une autre série', () => {
     expect(adnSeriesTitleFromJsonLd(nodes, '999')).toBeNull();
+  });
+});
+
+describe('adnSeriesSignals (JSON-LD de la page de série)', () => {
+  // Champs relevés sur le site le 2026-10-14 (TOUGEN ANKI, Reincarnated as a Sword) ; nœud réduit aux champs utiles
+  const series = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
+    '@type': 'TVSeries',
+    name: 'TOUGEN ANKI',
+    url: 'https://animationdigitalnetwork.com/video/1311-tougen-anki',
+    datePublished: '2025',
+    alternativeHeadline: '桃源暗鬼',
+    countryOfOrigin: { '@type': 'Country', name: 'Japon' },
+    containsSeason: [{ '@type': 'TVSeason', seasonNumber: '1', numberOfEpisodes: '24' }],
+    ...over,
+  });
+
+  it('année de début de la série, titre original, pays, format, épisodes de la seule saison', () => {
+    expect(adnSeriesSignals(series())).toEqual({ seriesYear: 2025, seasonEpisodeCount: 24, format: 'series', originalTitle: '桃源暗鬼', country: 'JP' });
+  });
+
+  it('plusieurs saisons (aucune choisie sur la page) : nombre d’épisodes non envoyé ; pays inconnu ignoré', () => {
+    const two = series({ containsSeason: [{ seasonNumber: 1, numberOfEpisodes: 24 }, { seasonNumber: 2, numberOfEpisodes: 4 }], countryOfOrigin: { name: 'Atlantide' } });
+    expect(adnSeriesSignals(two)).toEqual({ seriesYear: 2025, format: 'series', originalTitle: '桃源暗鬼' });
+    expect(adnSeriesSignals(series({ countryOfOrigin: { name: 'Corée du Sud' } }))?.country).toBe('KR');
+  });
+
+  it('film (`Movie`) ; valeurs illisibles écartées une à une', () => {
+    expect(adnSeriesSignals(series({ '@type': 'Movie', containsSeason: undefined }))).toMatchObject({ format: 'movie', seriesYear: 2025 });
+    expect(adnSeriesSignals(series({ datePublished: 'bientôt', alternativeHeadline: '', containsSeason: [{ numberOfEpisodes: 'x' }] }))).toEqual({ format: 'series', country: 'JP' });
+  });
+
+  it('nœud de la série : TVSeries ou Movie de cette série seulement', () => {
+    const nodes = [series({ url: 'https://animationdigitalnetwork.com/video/970-reincarnated-as-a-sword' }), series({ '@type': 'Movie' })];
+    expect(adnSeriesNode(nodes, '1311')?.['@type']).toBe('Movie');
+    expect(adnSeriesNode([series({ '@type': 'TVEpisode' })], '1311')).toBeNull();
   });
 });
 
@@ -177,5 +214,37 @@ describe('adnAdapter.extractEpisodeInfo : épisode 1 → épisode 2 (SPA)', () =
 
     show(TOUGEN_ANKI_E2);
     expect(extract(TOUGEN_ANKI_E2)).toMatchObject({ episodeId: '29345', seasonEpisodeNumber: 2, displayedEpisodeNumber: 2 });
+  });
+});
+
+describe('adnAdapter.detectSeries : page de série avec son JSON-LD', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('titre et signaux de la série (année, titre original, pays, épisodes)', async () => {
+    const page = installFakeDocument();
+    vi.resetModules();
+    const { adnAdapter: adapter } = await import('./adn');
+    const node = {
+      '@context': 'https://schema.org',
+      '@type': 'TVSeries',
+      name: 'Reincarnated as a Sword',
+      url: 'https://animationdigitalnetwork.com/video/970-reincarnated-as-a-sword',
+      datePublished: '2022',
+      alternativeHeadline: 'Tensei Shitara Ken Deshita',
+      countryOfOrigin: { '@type': 'Country', name: 'Japon' },
+      containsSeason: [
+        { '@type': 'TVSeason', seasonNumber: 1, numberOfEpisodes: 12 },
+        { '@type': 'TVSeason', seasonNumber: 2, numberOfEpisodes: 3 },
+      ],
+    };
+    page.setJsonLd(JSON.stringify([{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'ADN' }, node]));
+    expect(adapter.detectSeries?.(new URL('https://animationdigitalnetwork.com/video/970-reincarnated-as-a-sword'))).toEqual({
+      seriesId: '970',
+      seriesSlug: 'reincarnated-as-a-sword',
+      seriesTitle: 'Reincarnated as a Sword',
+      seasonNumber: null,
+      seasonTitle: null,
+      signals: { seriesYear: 2022, format: 'series', originalTitle: 'Tensei Shitara Ken Deshita', country: 'JP' },
+    });
   });
 });

@@ -76,6 +76,8 @@ describe('seriesInfoFromMetadata (page de série)', () => {
       seasonTitle: null,
       seasonEpisodeCount: 25,
       platformSeasons: [23, 25],
+      // Saison 2 : début d'origine 2023, 25 épisodes de 1422 s
+      signals: { seasonYear: 2023, seasonEpisodeCount: 25, episodeMinutes: 23.7, format: 'series' },
     });
   });
 
@@ -91,7 +93,19 @@ describe('seriesInfoFromMetadata (page de série)', () => {
   });
 
   it('film : ni saison ni nombre d’épisodes', () => {
-    expect(seriesInfoFromMetadata(MOVIE, 'Saison 1')).toEqual({ seriesId: '81000001', seriesSlug: null, seriesTitle: 'Suzume', seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null });
+    expect(seriesInfoFromMetadata(MOVIE, 'Saison 1')).toEqual({
+      seriesId: '81000001',
+      seriesSlug: null,
+      seriesTitle: 'Suzume',
+      seasonNumber: null,
+      seasonTitle: null,
+      seasonEpisodeCount: null,
+      signals: { format: 'movie', episodeMinutes: 122 },
+    });
+  });
+
+  it('toute la série (aucune saison) : aucun signal (l’année la plus ancienne n’est pas forcément celle de la série)', () => {
+    expect(seriesInfoFromMetadata(MUSHOKU, null)).not.toHaveProperty('signals');
   });
 
   it('pickNetflixSeason : nom exact de la saison, sinon numéro du libellé', () => {
@@ -133,7 +147,14 @@ describe('episodeInfoFromMetadata', () => {
       url: 'https://www.netflix.com/watch/81402901',
       // Épisodes de chaque saison : rapprochement des saisons Netflix avec les fiches AniList
       platformSeasons: [23, 25],
+      // Signaux de la saison en lecture : année de début d'origine (2021), épisodes, durée médiane
+      signals: { seasonYear: 2021, seasonEpisodeCount: 23, episodeMinutes: 23.7, format: 'series' },
     });
+  });
+
+  it('année de saison absente des métadonnées : les autres signaux restent', () => {
+    const withoutYear: NetflixShowMetadata = { ...MUSHOKU, seasons: MUSHOKU.seasons.map(({ year: _year, ...season }) => season) };
+    expect(episodeInfoFromMetadata(withoutYear, '81402901')?.signals).toEqual({ seasonEpisodeCount: 23, episodeMinutes: 23.7, format: 'series' });
   });
 
   it('Mushoku Tensei S2E1 : numéro affiché 24', () => {

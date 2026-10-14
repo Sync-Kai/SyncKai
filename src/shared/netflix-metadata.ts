@@ -2,6 +2,7 @@
 // revalidation et numérotation des épisodes. Module PUR partagé par la synchro en direct (script de contenu Netflix)
 // et l'import de l'historique (page d'import) : même numérotation, mêmes clés de correspondance des deux côtés.
 import { isRecord } from './guards';
+import { isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from './match-signals';
 
 /** Identifiant de vidéo Netflix (/watch/{id}, /title/{id}) */
 export const NETFLIX_MOVIE_ID_REGEX = /^\d{1,12}$/;
@@ -40,6 +41,11 @@ export interface NetflixEpisodeMetadata {
 export interface NetflixSeasonMetadata {
   seq: number;
   title: string | null;
+  /**
+   * `seasons[].year` : année de DÉBUT d'origine de la saison (vérifié le 2026-10-14 : One Piece East Blue 1999, Alabasta
+   * 2001, Elbaph 2026 ; Mushoku Tensei S1 2021, S2 2023). Absente si illisible (protocole v3).
+   */
+  year?: number;
   episodes: NetflixEpisodeMetadata[];
 }
 
@@ -93,7 +99,14 @@ function isEpisodeMetadata(value: unknown): value is NetflixEpisodeMetadata {
 }
 
 function isSeasonMetadata(value: unknown): value is NetflixSeasonMetadata {
-  return isRecord(value) && sequence(value.seq) !== null && isNullableText(value.title) && Array.isArray(value.episodes) && value.episodes.every(isEpisodeMetadata);
+  return (
+    isRecord(value) &&
+    sequence(value.seq) !== null &&
+    isNullableText(value.title) &&
+    (value.year === undefined || isSignalYear(value.year)) &&
+    Array.isArray(value.episodes) &&
+    value.episodes.every(isEpisodeMetadata)
+  );
 }
 
 export function isNetflixShowMetadata(value: unknown): value is NetflixShowMetadata {
@@ -160,4 +173,20 @@ export function episodeNumbers(
 /** Épisodes de chaque saison, dans l'ordre des saisons (seq) : rapprochement des saisons avec les fiches AniList */
 export function platformSeasonsOf(show: Pick<NetflixShowMetadata, 'seasons'>): number[] {
   return [...show.seasons].sort((a, b) => a.seq - b.seq).map((season) => season.episodes.length);
+}
+
+/**
+ * Signaux de la saison `season` (lecture ou page de série) : année de début d'origine, nombre d'épisodes, durée médiane,
+ * format. Film : format et durée. Saison inconnue (page de série sans saison) : aucun (l'année la plus ancienne des
+ * saisons n'est pas celle de la série quand Netflix n'en propose qu'une partie).
+ */
+export function netflixSignals(show: Pick<NetflixShowMetadata, 'type' | 'runtime'>, season: Pick<NetflixSeasonMetadata, 'year' | 'episodes'> | null): PlatformSignals | undefined {
+  if (show.type === 'movie') return toPlatformSignals({ format: 'movie', episodeMinutes: medianMinutes([show.runtime]) });
+  if (!season) return undefined;
+  return toPlatformSignals({
+    seasonYear: season.year,
+    seasonEpisodeCount: season.episodes.length,
+    episodeMinutes: medianMinutes(season.episodes.map((episode) => episode.runtime)),
+    format: 'series',
+  });
 }

@@ -74,6 +74,8 @@ export interface DisneyBridgeClient {
   loadPage(entityId: string, signal: AbortSignal): Promise<DisneySeriesPage | null>;
   /** Page de série en cache, sans attente */
   peekPage(entityId: string): DisneySeriesPage | null;
+  /** Pages de série en cache (les plus récentes en dernier) : signaux de la série d'une page de lecture */
+  pages(): readonly DisneySeriesPage[];
 }
 
 const DEFAULTS = { connectTimeoutMs: 3_000, matchWaitMs: 5_000, waitMs: 20_000, cacheSize: DISNEY_MAX_ENTRIES } as const;
@@ -254,5 +256,5 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     return until(() => peekPage(entityId) ?? undefined, signal);
   }
 
-  return { load, peek, loadEditorial, loadPage, peekPage };
+  return { load, peek, loadEditorial, loadPage, peekPage, pages: () => pages };
 }

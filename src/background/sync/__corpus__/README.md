@@ -14,10 +14,14 @@ episode count, duration, format, country signals…) is measured against the sam
     These are the targets of the next steps; they are reported as `todo` tests and in the summary table
     (`npx vitest run src/background/sync/__corpus__ --silent=false`), never failing;
   - `signals`: platform data captured on the real site (Netflix season start years, Disney+ series start year, episode
-    durations…), or assumed (said in `source`, « SUPPOSÉ »). `corpus.test.ts` sends them to the resolver as
-    `EpisodeInfo.signals` / `PageMediaInfo.signals` (displayed season: its year and episode count; series start year;
-    duration in minutes; format; airing), as the platforms will (`src/shared/match-signals.ts`, rules in
-    `src/background/sync/concordance.ts`). A case without `signals` shows the behaviour without signals.
+    durations…), or assumed (said in `source`, « SUPPOSÉ »). `corpus.test.ts` turns them into
+    `EpisodeInfo.signals` / `PageMediaInfo.signals` the way each content script does: Netflix through the shared
+    `netflixSignals` (reduced metadata rebuilt from the captured `seasons[]`), Prime Video through `reducePrimeDetail` +
+    `primeSignals` (a detail page carrying the season's `releaseYear`), Disney+ with the playback rules (series start
+    year and season episode count of the series page, duration, format; never a season year); Crunchyroll and ADN watch
+    pages send no signals yet, so their captured signals keep the assumed shape (displayed season: year and episode
+    count; series start year; duration in minutes; format; airing). Rules in `src/background/sync/concordance.ts`. A
+    case without `signals` shows the behaviour without signals (page without the data).
 - `anilist/<franchise>.json`: AniList snapshots. `searches` / `byIds` map each request (exact search text; sorted ids
   joined by `,`) to the returned ids in API order; `media` holds the entries in the shape of `MEDIA_FIELDS`
   (`src/background/api/media.ts`), links reduced to the supported platforms, with `duration`, `countryOfOrigin`,

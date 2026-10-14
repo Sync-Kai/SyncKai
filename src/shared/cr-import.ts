@@ -151,6 +151,7 @@ export function toEpisodeInfo(season: HistorySeason, platform: ImportPlatform = 
     episodeTitle: season.episodeTitle,
     url: episodeUrl(season, platform),
     ...(season.platformSeasons ? { platformSeasons: [...season.platformSeasons] } : {}),
+    ...(season.signals ? { signals: { ...season.signals } } : {}),
   };
 }
 

@@ -11,6 +11,7 @@
 // Toutes les charges utiles sont des CHAÎNES JSON (Firefox : un objet créé dans un monde n'est pas lisible tel
 // quel dans l'autre, à cause des Xray wrappers ; une chaîne est copiée).
 import { isRecord } from '../../shared/guards';
+import { isSignalYear } from '../../shared/match-signals';
 import {
   isNetflixShowMetadata,
   NETFLIX_MAX_EPISODES,
@@ -43,8 +44,9 @@ export {
  * version précédente reste dans les onglets ouverts après une mise à jour (code de la page, jamais invalidé) et
  * répondrait au nouveau client. Chaque côté ignore les messages d'une autre version.
  * v2 (2026-10-12) : demande `bookmarks` et points de lecture `bookmark` (import de l'historique).
+ * v3 (2026-10-14) : année de début d'origine de chaque saison (`year`, signaux de correspondance).
  */
-export const NETFLIX_BRIDGE_VERSION = 2;
+export const NETFLIX_BRIDGE_VERSION = 3;
 /** Ouverture du canal (client isolé → pont), detail = NetflixHandshake en chaîne JSON */
 export const NETFLIX_HANDSHAKE_EVENT = 'synckai:netflix:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
@@ -177,7 +179,8 @@ export function reduceNetflixMetadata(raw: unknown, bookmarks = false): NetflixS
       });
       episodeCount++;
     }
-    seasons.push({ seq: sequence(rawSeason.seq) ?? seasonIndex + 1, title: text(rawSeason.title) ?? text(rawSeason.longName), episodes });
+    const year = isSignalYear(rawSeason.year) ? rawSeason.year : undefined;
+    seasons.push({ seq: sequence(rawSeason.seq) ?? seasonIndex + 1, title: text(rawSeason.title) ?? text(rawSeason.longName), ...(year !== undefined ? { year } : {}), episodes });
   }
   return { showId, type, title, runtime: null, creditsOffset: null, seasons };
 }

@@ -98,7 +98,18 @@ describe('episodeInfoFromPrime', () => {
       episodeTitle: 'The Old Country Bumpkin is Astounded by a Wizard',
       url: `https://www.primevideo.com/detail/${BUMPKIN_S1_COMPACT}`,
       primeAnime: 'animation-ja',
+      // Signaux de la saison : releaseYear (nombre), 4 épisodes de 1440 s
+      signals: { seasonYear: 2025, seasonEpisodeCount: 4, episodeMinutes: 24, format: 'series' },
     });
+  });
+
+  it('signaux de la page seulement pour un épisode de cette saison (lecture automatique vers la saison 2, URL inchangée)', () => {
+    const next = catalog(1, { id: 'amzn1.dv.gti.e860c26c-0000-4000-8000-000000000201' });
+    const s2 = { ...next, seasonNumber: 2 };
+    // Page affichée = saison 1 (même série) : verdict repris, signaux de la saison 1 jamais attribués à la saison 2
+    expect(episodeInfoFromPrime(s2, [s2.id], title(), PAGE_URL)).not.toHaveProperty('signals');
+    // Saison 1 sans année : les autres signaux restent
+    expect(episodeInfoFromPrime(catalog(2), [bumpkinEpisodeGti(2)], title({ releaseYear: null }), PAGE_URL)?.signals).toEqual({ seasonEpisodeCount: 4, episodeMinutes: 24, format: 'series' });
   });
 
   it('verdict transmis ; pas d’animation, genres illisibles ou page inconnue : rien (silencieux)', () => {
@@ -132,6 +143,7 @@ describe('seriesInfoFromPrime', () => {
       seasonTitle: null,
       seasonEpisodeCount: 4,
       primeAnime: 'animation-ja',
+      signals: { seasonYear: 2025, seasonEpisodeCount: 4, episodeMinutes: 24, format: 'series' },
     });
   });
 

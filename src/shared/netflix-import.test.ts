@@ -352,6 +352,8 @@ describe('série Netflix → une ligne par saison vue', () => {
         watchedCount: 4,
         lastPlayedAt: null,
         platformSeasons: [12, 12],
+        // Mêmes signaux que la lecture (relevé sans année de saison : aucune)
+        signals: { seasonEpisodeCount: 12, episodeMinutes: 24.4, format: 'series' },
       },
     ]);
     expect(isCrHistoryResult({ seasons, stats: { items: 8, pages: 1, partial: false, ignored: 2 } })).toBe(true);
@@ -375,7 +377,7 @@ describe('série Netflix → une ligne par saison vue', () => {
 
   it('film vu : épisode 1 sans saison ; film commencé : rien', () => {
     expect(reduceNetflixShow(movieShow(7300), 85)).toEqual([
-      { seriesId: '60023642', seriesTitle: 'Spirited Away', seriesSlug: null, seasonId: '60023642-s0', seasonNumber: null, seasonTitle: null, episodeId: '60023642', episodeTitle: null, episodeNumber: 1, seasonEpisodeNumber: 1, watchedCount: 1, lastPlayedAt: null },
+      { seriesId: '60023642', seriesTitle: 'Spirited Away', seriesSlug: null, seasonId: '60023642-s0', seasonNumber: null, seasonTitle: null, episodeId: '60023642', episodeTitle: null, episodeNumber: 1, seasonEpisodeNumber: 1, watchedCount: 1, lastPlayedAt: null, signals: { format: 'movie', episodeMinutes: 124.8 } },
     ]);
     expect(reduceNetflixShow(movieShow(600), 85)).toEqual([]);
   });

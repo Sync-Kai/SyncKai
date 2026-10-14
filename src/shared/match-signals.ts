@@ -60,6 +60,43 @@ export function isPlatformSignals(value: unknown): value is PlatformSignals {
   );
 }
 
+/** Année plausible (entier de 1900 à 2100) : formes réduites des plateformes */
+export const isSignalYear = isYear;
+
+/** Valeurs lues sur la page (absentes : undefined ou null), avant contrôle */
+export type RawSignals = { [K in keyof PlatformSignals]?: PlatformSignals[K] | null | undefined };
+
+const GUARDS: { [K in keyof PlatformSignals]-?: (v: unknown) => boolean } = {
+  seasonYear: isYear,
+  seriesYear: isYear,
+  seasonEpisodeCount: isCount,
+  airing: isBoolean,
+  episodeMinutes: isMinutes,
+  format: isFormat,
+  originalTitle: isTitle,
+  country: isCountry,
+};
+
+/**
+ * Signaux à envoyer : valeurs absentes ou hors bornes retirées une à une (une seule valeur invalide ferait refuser tout le
+ * message par isEpisodeInfo) ; undefined sans signal comparable.
+ */
+export function toPlatformSignals(raw: RawSignals): PlatformSignals | undefined {
+  const signals: Record<string, unknown> = {};
+  for (const [name, guard] of Object.entries(GUARDS)) {
+    const value: unknown = Reflect.get(raw, name);
+    if (guard(value)) signals[name] = value;
+  }
+  return isPlatformSignals(signals) && hasSignals(signals) ? signals : undefined;
+}
+
+/** Durée médiane (minutes, au dixième) de durées en secondes ; les valeurs absentes ou nulles sont ignorées */
+export function medianMinutes(seconds: readonly (number | null | undefined)[]): number | undefined {
+  const sorted = seconds.filter((s): s is number => typeof s === 'number' && Number.isFinite(s) && s > 0).sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  return median === undefined ? undefined : Math.round(median / 6) / 10;
+}
+
 /** Au moins un signal comparable (`airing` seul ne dit rien de la fiche) */
 export function hasSignals(signals: PlatformSignals | undefined): signals is PlatformSignals {
   if (!signals) return false;
