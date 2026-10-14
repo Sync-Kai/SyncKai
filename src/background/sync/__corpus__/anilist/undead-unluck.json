@@ -1,0 +1,15 @@
+{
+  "fetchedAt": "2026-10-14",
+  "searches": {
+    "Undead Unluck": [154116,179930,204604],
+    "Undead Unluck: Winter Arc": [179930]
+  },
+  "byIds": {
+
+  },
+  "media": [
+    {"id":154116,"idMal":52741,"format":"TV","episodes":24,"startDate":{"year":2023,"month":10,"day":7},"seasonYear":2023,"title":{"romaji":"Undead Unluck","english":"Undead Unluck","native":"アンデッドアンラック","userPreferred":"Undead Unluck"},"synonyms":["אל-מת ובלי מזל"],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":179930,"type":"ANIME","format":"SPECIAL"}}]},"externalLinks":[{"url":"https://www.disneyplus.com/en-gb/series/undead-unluck/6yBbjezPBwNW"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2023,"endDate":{"year":2024,"month":3,"day":23}}},
+    {"id":179930,"idMal":59435,"format":"SPECIAL","episodes":1,"startDate":{"year":2025,"month":12,"day":26},"seasonYear":2025,"title":{"romaji":"Undead Unluck: Winter-hen","english":"Undead Unluck: Winter Arc","native":"アンデッドアンラック Winter編","userPreferred":"Undead Unluck: Winter-hen"},"synonyms":["アンデッドアンラック スペシャル","Undead Unluck Special","アンデッドアンラック ウィンター編","Undead Unluck: Arco do Inverno"],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":154116,"type":"ANIME","format":"TV"}},{"relationType":"SEQUEL","node":{"id":204604,"type":"ANIME","format":"TV"}}]},"externalLinks":[],"signals":{"duration":48,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2025,"endDate":{"year":2025,"month":12,"day":26}}},
+    {"id":204604,"idMal":63177,"format":"TV","episodes":null,"startDate":{"year":null,"month":null,"day":null},"seasonYear":null,"title":{"romaji":"Undead Unluck 2nd Season","english":null,"native":"アンデッドアンラック 第2期","userPreferred":"Undead Unluck 2nd Season"},"synonyms":[],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":179930,"type":"ANIME","format":"SPECIAL"}}]},"externalLinks":[],"signals":{"duration":null,"countryOfOrigin":"JP","status":"NOT_YET_RELEASED","seasonYear":null,"endDate":{"year":null,"month":null,"day":null}}}
+  ]
+}

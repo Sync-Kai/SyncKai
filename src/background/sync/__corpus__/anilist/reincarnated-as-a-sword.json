@@ -1,0 +1,13 @@
+{
+  "fetchedAt": "2026-10-14",
+  "searches": {
+    "Reincarnated as a Sword": [139587,159042]
+  },
+  "byIds": {
+
+  },
+  "media": [
+    {"id":139587,"idMal":49891,"format":"ONA","episodes":12,"startDate":{"year":2022,"month":9,"day":28},"seasonYear":2022,"title":{"romaji":"Tensei Shitara Ken Deshita","english":"Reincarnated as a Sword","native":"転生したら剣でした","userPreferred":"Tensei Shitara Ken Deshita"},"synonyms":["I Became the Sword by Transmigrating","TenKen","ซวยเหลือหลาย เกิดใหม่กลายเป็นดาบ","TENKEN - Reincarnato in una spada","轉生就是劍"],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":159042,"type":"ANIME","format":"ONA"}}]},"externalLinks":[{"url":"https://www.primevideo.com/detail/Reincarnated-as-a-Sword/0SMRJS9YUTPHZO3CHCX2OX9AIX"},{"url":"https://www.netflix.com/title/81642998"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2022,"endDate":{"year":2022,"month":12,"day":14}}},
+    {"id":159042,"idMal":53913,"format":"ONA","episodes":12,"startDate":{"year":2026,"month":10,"day":1},"seasonYear":2026,"title":{"romaji":"Tensei Shitara Ken Deshita 2nd Season","english":"Reincarnated as a Sword Season 2","native":"転生したら剣でした 第2期","userPreferred":"Tensei Shitara Ken Deshita 2nd Season"},"synonyms":["Reincarnated as a Sword II","I Became the Sword by Transmigrating 2","TenKen 2","ซวยเหลือหลาย เกิดใหม่กลายเป็นดาบ ภาค 2","TENKEN - Reincarnato in una spada"],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":139587,"type":"ANIME","format":"ONA"}}]},"externalLinks":[{"url":"https://www.amazon.com/gp/video/detail/B0HLCHQS6T"}],"signals":{"duration":23,"countryOfOrigin":"JP","status":"RELEASING","seasonYear":2026,"endDate":{"year":null,"month":null,"day":null}}}
+  ]
+}

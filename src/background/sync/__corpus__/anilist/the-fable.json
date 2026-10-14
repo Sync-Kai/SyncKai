@@ -1,0 +1,13 @@
+{
+  "fetchedAt": "2026-10-14",
+  "searches": {
+    "The Fable": [166910,210199]
+  },
+  "byIds": {
+
+  },
+  "media": [
+    {"id":166910,"idMal":55911,"format":"TV","episodes":25,"startDate":{"year":2024,"month":4,"day":7},"seasonYear":2024,"title":{"romaji":"The Fable","english":"The Fable","native":"ザ・ファブル","userPreferred":"The Fable"},"synonyms":[],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":210199,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.disneyplus.com/series/the-fable/5lo11H9f2Cg4"}],"signals":{"duration":23,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2024,"endDate":{"year":2024,"month":9,"day":29}}},
+    {"id":210199,"idMal":63885,"format":"TV","episodes":null,"startDate":{"year":2027,"month":1,"day":null},"seasonYear":2027,"title":{"romaji":"The Fable 2nd Season","english":null,"native":"ザ・ファブル 第2期","userPreferred":"The Fable 2nd Season"},"synonyms":["The Fable Season 2"],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":166910,"type":"ANIME","format":"TV"}}]},"externalLinks":[],"signals":{"duration":null,"countryOfOrigin":"JP","status":"NOT_YET_RELEASED","seasonYear":2027,"endDate":{"year":null,"month":null,"day":null}}}
+  ]
+}

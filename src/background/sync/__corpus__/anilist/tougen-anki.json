@@ -1,0 +1,14 @@
+{
+  "fetchedAt": "2026-10-14",
+  "searches": {
+    "TOUGEN ANKI": [177474,204650,194835]
+  },
+  "byIds": {
+
+  },
+  "media": [
+    {"id":177474,"idMal":58811,"format":"TV","episodes":24,"startDate":{"year":2025,"month":7,"day":11},"seasonYear":2025,"title":{"romaji":"Tougen Anki","english":"TOUGEN ANKI","native":"桃源暗鬼","userPreferred":"Tougen Anki"},"synonyms":["Tougen Anki: Legend of the Cursed Blood","Tougen Anki: Dark Demon of Paradise"],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":204650,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.netflix.com/title/81969861"},{"url":"https://www.crunchyroll.com/series/GP5HJ84D2/tougen-anki"},{"url":"https://www.amazon.com/dp/B0FG7S42LF"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2025,"endDate":{"year":2025,"month":12,"day":26}}},
+    {"id":194835,"idMal":61891,"format":"ONA","episodes":25,"startDate":{"year":2025,"month":6,"day":21},"seasonYear":null,"title":{"romaji":"Onimomomomo","english":"TOUGEN ANKI Mini Anime","native":"おにもももも","userPreferred":"Onimomomomo"},"synonyms":["Tougen Anki Original Mini Anime"],"relations":{"edges":[]},"externalLinks":[],"signals":{"duration":5,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":null,"endDate":{"year":2025,"month":12,"day":28}}},
+    {"id":204650,"idMal":63181,"format":"TV","episodes":12,"startDate":{"year":2026,"month":10,"day":2},"seasonYear":2026,"title":{"romaji":"Tougen Anki: Nikko・Kegon no Taki-hen","english":"TOUGEN ANKI: Nikko Kegon Falls Arc","native":"桃源暗鬼 日光・華厳の滝編","userPreferred":"Tougen Anki: Nikko・Kegon no Taki-hen"},"synonyms":["桃源暗鬼 2期","Tougen Anki Season 2"],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":177474,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.crunchyroll.com/series/GP5HJ84D2/tougen-anki"},{"url":"https://www.amazon.com/dp/B0FCM3YGCQ"},{"url":"https://www.netflix.com/title/81969861"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"RELEASING","seasonYear":2026,"endDate":{"year":null,"month":null,"day":null}}}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "fetchedAt": "2026-10-14",
+  "searches": {
+    "From Old Country Bumpkin to Master Swordsman": [179955,194829,217232]
+  },
+  "byIds": {
+
+  },
+  "media": [
+    {"id":179955,"idMal":59452,"format":"TV","episodes":12,"startDate":{"year":2025,"month":4,"day":5},"seasonYear":2025,"title":{"romaji":"Katainaka no Ossan, Kensei ni Naru","english":"From Old Country Bumpkin to Master Swordsman","native":"片田舎のおっさん、剣聖になる","userPreferred":"Katainaka no Ossan, Kensei ni Naru"},"synonyms":["Katainaka no Ossan, Kensei ni Naru: Tada no Inaka no Kenjutsu Shihan datta noni, Taisei Shita Deshitachi ga Ore wo Houttekurenai Ken","片田舎のおっさん、剣聖になる ～ただの田舎の剣術師範だったのに、大成した弟子たちが俺を放ってくれない件～","Wieśniak mistrzem miecza","De Caipira a Mestre Espadachim","Pria Tua Pedesaan Menjadi Pendekar Pedang Elite","Daripada Orang Kampung Biasa kepada Mahaguru Pedang","Vom Landei zum Schwertheiligen","De campesino cuarentón a espadachín legendario","Da campagnolo stagionato a gran maestro di spada","Sıradan Bir Köylü Hünerli Bir Kılıç Ustası Oluyor","من ريفي كهل إلى معلّم مبارزة","सामान्य ग्रामवासी से अज़ीम तलवारबाज़ तक","ปรมาจารย์ดาบชั้นเซียนมาตบเกรียนถึงเมืองกรุง","乡下大叔成为剑圣","鄉下大叔成為劍聖","촌구석 아저씨, 검성이 되다"],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":194829,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.amazon.com/dp/B0D8Z7S2G4"}],"signals":{"duration":23,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2025,"endDate":{"year":2025,"month":6,"day":22}}},
+    {"id":194829,"idMal":61897,"format":"TV","episodes":12,"startDate":{"year":2026,"month":7,"day":8},"seasonYear":2026,"title":{"romaji":"Katainaka no Ossan, Kensei ni Naru II","english":"From Old Country Bumpkin to Master Swordsman II","native":"片田舎のおっさん、剣聖になるII","userPreferred":"Katainaka no Ossan, Kensei ni Naru II"},"synonyms":["Katainaka no Ossan, Kensei ni Naru 2nd Season","De Caipira a Mestre Espadachim 2ª Temporada"],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":179955,"type":"ANIME","format":"TV"}},{"relationType":"SEQUEL","node":{"id":217232,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.amazon.com/dp/B0H1QXXRG1"}],"signals":{"duration":23,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2026,"endDate":{"year":2026,"month":9,"day":23}}},
+    {"id":217232,"idMal":null,"format":"TV","episodes":null,"startDate":{"year":null,"month":null,"day":null},"seasonYear":null,"title":{"romaji":"Katainaka no Ossan, Kensei ni Naru III","english":null,"native":"片田舎のおっさん、剣聖になる 第三期","userPreferred":"Katainaka no Ossan, Kensei ni Naru III"},"synonyms":["From Old Country Bumpkin to Master Swordsman III"],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":194829,"type":"ANIME","format":"TV"}}]},"externalLinks":[],"signals":{"duration":null,"countryOfOrigin":"JP","status":"NOT_YET_RELEASED","seasonYear":null,"endDate":{"year":null,"month":null,"day":null}}}
+  ]
+}

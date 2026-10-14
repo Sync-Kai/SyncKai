@@ -1,0 +1,17 @@
+{
+  "fetchedAt": "2026-10-14",
+  "searches": {
+    "VINLAND SAGA": [101348,136430,145902,161923,165056],
+    "VINLAND SAGA Season 2": [136430,161923,165056]
+  },
+  "byIds": {
+
+  },
+  "media": [
+    {"id":101348,"idMal":37521,"format":"TV","episodes":24,"startDate":{"year":2019,"month":7,"day":8},"seasonYear":2019,"title":{"romaji":"VINLAND SAGA","english":"Vinland Saga","native":"ヴィンランド・サガ","userPreferred":"VINLAND SAGA"},"synonyms":["סאגת וינלנד","فينلاند ساغا","สงครามคนทมิฬ","Сага о Винланде"],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":136430,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.netflix.com/title/81249833"},{"url":"https://www.crunchyroll.com/series/GEXH3WKK0/vinland-saga"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2019,"endDate":{"year":2019,"month":12,"day":30}}},
+    {"id":136430,"idMal":49387,"format":"TV","episodes":24,"startDate":{"year":2023,"month":1,"day":10},"seasonYear":2023,"title":{"romaji":"VINLAND SAGA SEASON 2","english":"Vinland Saga Season 2","native":"ヴィンランド・サガ SEASON2","userPreferred":"VINLAND SAGA SEASON 2"},"synonyms":["Сага о Винланде 2"],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":101348,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.crunchyroll.com/series/GEXH3WKK0/vinland-saga"},{"url":"https://www.netflix.com/title/81249833"}],"signals":{"duration":26,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2023,"endDate":{"year":2023,"month":6,"day":20}}},
+    {"id":145902,"idMal":31647,"format":"ONA","episodes":3,"startDate":{"year":2015,"month":10,"day":23},"seasonYear":2015,"title":{"romaji":"Ponkotsuland Saga","english":null,"native":"ポンコツランド・サガ","userPreferred":"Ponkotsuland Saga"},"synonyms":["Ponkotsu Quest × Vinland Saga","ヴィンランド・サガ×ポンコツクエスト"],"relations":{"edges":[]},"externalLinks":[],"signals":{"duration":4,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2015,"endDate":{"year":2019,"month":10,"day":1}}},
+    {"id":161923,"idMal":54463,"format":"ONA","episodes":1,"startDate":{"year":2023,"month":2,"day":14},"seasonYear":2023,"title":{"romaji":"VINLAND SAGA SEASON 2: Drowning in the Shadow","english":null,"native":"ヴィンランド・サガ SEASON2 Drowning in the Shadow","userPreferred":"VINLAND SAGA SEASON 2: Drowning in the Shadow"},"synonyms":["VINLAND SAGA SEASON 2 Episode 6.5 \"Drowning in the Shadow\"","ヴィンランド・サガ SEASON2 第6.5話 \"Drowning in the Shadow\""],"relations":{"edges":[]},"externalLinks":[],"signals":{"duration":3,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2023,"endDate":{"year":2023,"month":2,"day":14}}},
+    {"id":165056,"idMal":55272,"format":"ONA","episodes":1,"startDate":{"year":2023,"month":5,"day":12},"seasonYear":2023,"title":{"romaji":"VINLAND SAGA SEASON 2: Same old story","english":null,"native":"ヴィンランド・サガ SEASON2 Same old story","userPreferred":"VINLAND SAGA SEASON 2: Same old story"},"synonyms":["VINLAND SAGA SEASON 2 Episode 18.5 \"Same old story\"","ヴィンランド・サガ SEASON2 第18.5話 \"Same old story\""],"relations":{"edges":[]},"externalLinks":[],"signals":{"duration":2,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2023,"endDate":{"year":2023,"month":5,"day":12}}}
+  ]
+}
