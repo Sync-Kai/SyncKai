@@ -31,7 +31,7 @@ import {
   type MediaCandidate,
   type ResolveResult,
 } from './matching';
-import { normalizeTitle } from '../../shared/title';
+import { normalizeTitle, slugSearchTitle, withoutDiacritics } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './season-groups';
 import { createLogger } from '../../shared/logger';
@@ -120,6 +120,17 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
   const hasLinked = [...links.values()].some((link) => isLinked({ link }));
   if (!hasLinked && episode.seasonTitle && normalizeTitle(episode.seasonTitle) !== normalizeTitle(episode.animeTitle) && episode.seasonTitle !== seasonQuery) {
     add(await searchAnime(episode.seasonTitle, lane));
+  }
+
+  // Toujours rien de lié : titre sans accents (AniList ne trouve pas les synonymes accentués, titres localisés de
+  // Crunchyroll /fr/), puis slug de l'URL (titre anglais sur Crunchyroll). Mêmes résultats à chaque relecture de la page
+  // (requête exacte comparée : normalizeTitle retire déjà les accents)
+  const searched = new Set([episode.animeTitle.toLowerCase()]);
+  for (const query of [withoutDiacritics(episode.animeTitle), slugSearchTitle(episode.seriesSlug)]) {
+    if (!query || searched.has(query.toLowerCase())) continue;
+    if ([...links.values()].some((link) => isLinked({ link }))) break;
+    searched.add(query.toLowerCase());
+    add(await searchAnime(query, lane));
   }
 
   /**

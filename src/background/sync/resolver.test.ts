@@ -432,3 +432,51 @@ describe('resolveEpisode — propagation des relations SEQUEL / PREQUEL', () => 
     expect(api.getAnimeByIds).not.toHaveBeenCalled();
   });
 });
+
+describe('resolveEpisode — recherches de repli (titre accentué, slug)', () => {
+  const SLIME = 'Moi, quand je me réincarne en Slime';
+  const slime = media({
+    id: 101280,
+    titles: ['Tensei Shitara Slime Datta Ken', 'That Time I Got Reincarnated as a Slime', SLIME],
+    externalLinkUrls: ['https://www.crunchyroll.com/series/GYZJ43JMR'],
+  });
+  const slimeEpisode = (overrides: Partial<EpisodeInfo> = {}): EpisodeInfo =>
+    crunchyrollEpisode({ seriesId: 'GYZJ43JMR', seriesSlug: 'that-time-i-got-reincarnated-as-a-slime', animeTitle: SLIME, ...overrides });
+  /** AniList : aucun résultat pour une recherche accentuée (comportement observé le 2026-10-14) */
+  const accentBlindSearch = (results: Record<string, AniListMedia[]>) => (query: string): Promise<AniListMedia[]> =>
+    Promise.resolve(results[query] ?? []);
+
+  it('titre localisé accentué sans résultat : recherche sans accents, fiche liée trouvée', async () => {
+    api.searchAnime.mockImplementation(accentBlindSearch({ 'Moi, quand je me reincarne en Slime': [slime] }));
+    const { result } = await resolveEpisode(slimeEpisode());
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 101280 } });
+    expect(api.searchAnime.mock.calls.map(([query]) => query)).toEqual([SLIME, 'Moi, quand je me reincarne en Slime']);
+  });
+
+  it('toujours rien sans accents : slug de l’URL (titre anglais)', async () => {
+    api.searchAnime.mockImplementation(accentBlindSearch({ 'that time i got reincarnated as a slime': [slime] }));
+    const { result } = await resolveEpisode(slimeEpisode());
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 101280 } });
+    expect(api.searchAnime.mock.calls.map(([query]) => query)).toEqual([SLIME, 'Moi, quand je me reincarne en Slime', 'that time i got reincarnated as a slime']);
+  });
+
+  it('page de série (même recherche) : la saison liée est proposée, à chaque relecture', async () => {
+    api.searchAnime.mockImplementation(accentBlindSearch({ 'Moi, quand je me reincarne en Slime': [slime] }));
+    for (let read = 0; read < 2; read++) {
+      const { seasons } = await findSeriesSeasons(slimeEpisode());
+      expect(seasons.map((s) => s.id)).toEqual([101280]);
+    }
+  });
+
+  it('fiche liée dès la première recherche : aucune recherche de repli', async () => {
+    api.searchAnime.mockResolvedValue([slime]);
+    await resolveEpisode(slimeEpisode());
+    expect(api.searchAnime).toHaveBeenCalledOnce();
+  });
+
+  it('titre sans accents et slug identique au titre : aucune recherche en double', async () => {
+    api.searchAnime.mockResolvedValue([]);
+    await resolveEpisode(slimeEpisode({ animeTitle: 'Black Clover', seriesSlug: 'black-clover' }));
+    expect(api.searchAnime).toHaveBeenCalledOnce();
+  });
+});
