@@ -161,3 +161,39 @@ describe('startContent — instance orpheline (extension rechargée)', () => {
     expect(mocks.stopUrl[0]).not.toHaveBeenCalled();
   });
 });
+
+describe('startContent — épisode changé sans changement d’URL (Prime Video)', () => {
+  it('chaque nouvel épisode du lecteur relance le suivi ; le même épisode ne le relance pas', async () => {
+    let playing: string | null = null;
+    let onEpisode: () => void = () => undefined;
+    const stopEpisode = vi.fn();
+    const prime: StreamingAdapter = {
+      ...adapter,
+      platform: 'prime',
+      getEpisodeId: () => playing,
+      watchEpisode: (onChange) => {
+        onEpisode = onChange;
+        return stopEpisode;
+      },
+    };
+    vi.stubGlobal('location', { hostname: 'www.primevideo.com', href: 'https://www.primevideo.com/region/eu/detail/0GMSR5WMNJ6EMYQRQ6Y2587WAF' });
+    startContent([prime]);
+    await flush();
+    expect(mocks.sessions).toHaveLength(0);
+    playing = 'amzn1.dv.gti.e860c26c-0000-4000-8000-000000000002';
+    onEpisode();
+    onEpisode();
+    playing = 'amzn1.dv.gti.e860c26c-0000-4000-8000-000000000003';
+    onEpisode();
+    expect(mocks.startWatchSession.mock.calls.map(([, episodeId]: unknown[]) => episodeId)).toEqual([
+      'amzn1.dv.gti.e860c26c-0000-4000-8000-000000000002',
+      'amzn1.dv.gti.e860c26c-0000-4000-8000-000000000003',
+    ]);
+    expect(mocks.sessions[0]?.destroy).toHaveBeenCalledOnce();
+    // Instance orpheline : suivi des épisodes arrêté avec le reste
+    stubRuntime(undefined);
+    startContent([prime]);
+    await flush();
+    expect(stopEpisode).toHaveBeenCalledOnce();
+  });
+});

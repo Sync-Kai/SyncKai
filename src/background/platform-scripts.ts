@@ -1,10 +1,10 @@
-// Enregistrement des scripts des plateformes à accès optionnel (Netflix, Disney+) : logique pure, API du navigateur
+// Enregistrement des scripts des plateformes à accès optionnel (Netflix, Disney+, Prime Video) : logique pure, API du navigateur
 // injectée (testable sans chrome.*). Branché sur chrome.scripting et chrome.permissions par platform-access.ts.
 // Chaque plateforme a deux scripts : un pont dans le monde MAIN de la page et le script de contenu isolé.
 import { PLATFORMS, type StreamingPlatform } from '../shared/platforms';
 
 /** Plateformes dont les scripts sont enregistrés à la demande (`optionalMatches` non vide dans le registre) */
-export const SCRIPTED_PLATFORMS = ['netflix', 'disney'] as const satisfies readonly StreamingPlatform[];
+export const SCRIPTED_PLATFORMS = ['netflix', 'disney', 'prime'] as const satisfies readonly StreamingPlatform[];
 
 export type ScriptedPlatform = (typeof SCRIPTED_PLATFORMS)[number];
 
@@ -25,7 +25,7 @@ export interface PlatformScriptPaths {
 }
 
 /**
- * - Pont MAIN à `document_start` : son écouteur (Netflix) ou son observateur de requêtes (Disney+) est posé avant
+ * - Pont MAIN à `document_start` : son écouteur (Netflix) ou son observateur de requêtes (Disney+, Prime Video) est posé avant
  *   que la page ne s'exécute et bien avant toute demande du script isolé.
  * - Script isolé à `document_idle`, comme les scripts du manifeste (Crunchyroll / ADN) : DOM prêt, chargement
  *   de la page non ralenti. Tout le site (pas seulement le lecteur) : SPA, on arrive au lecteur depuis l'accueil

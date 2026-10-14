@@ -15,12 +15,12 @@ export interface SeasonChoice {
 }
 
 /**
- * Préfixe des clés de correspondance d'une série, toutes saisons : "crunchyroll:GRMG8ZQZR:". Disney+ : par titre
- * ("disney:title:undead unluck:"), comme les clés de la lecture (aucun identifiant de série sur la page de lecture),
- * même si la page de série connaît l'uuid de l'entité.
+ * Préfixe des clés de correspondance d'une série, toutes saisons : "crunchyroll:GRMG8ZQZR:". Disney+ et Prime Video : par
+ * titre ("disney:title:undead unluck:", "prime:title:tokyo ghoul:"), comme les clés de la lecture (aucun identifiant de
+ * série sur la page de lecture), même si la page de série connaît l'uuid de l'entité ou le GTI compact de la saison.
  */
 export function seriesMappingPrefix(page: Pick<PageMediaInfo, 'platform' | 'seriesId' | 'seriesTitle'>): string {
-  const seriesId = page.platform === 'disney' ? null : page.seriesId;
+  const seriesId = page.platform === 'disney' || page.platform === 'prime' ? null : page.seriesId;
   return mappingKey({ platform: page.platform, seriesId, animeTitle: page.seriesTitle, seasonNumber: 0 }).replace(/s0$/, '');
 }
 

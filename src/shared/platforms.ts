@@ -50,6 +50,8 @@ const CRUNCHYROLL_ID = /^[A-Z0-9]{4,20}$/i;
 const ADN_ID = /^\d{1,9}$/;
 const NETFLIX_ID = /^\d{1,12}$/;
 const DISNEY_ENTITY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** GTI compact de Prime Video (26 caractères, chemin /detail/{id} d'une page de saison) */
+const PRIME_COMPACT_GTI = /^[0-9A-Z]{26}$/i;
 
 export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> = {
   crunchyroll: {
@@ -108,6 +110,22 @@ export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> 
     seriesIdInPath: /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?browse\/entity-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i,
     seriesUrl: (seriesId) => (seriesId !== null && DISNEY_ENTITY_ID.test(seriesId) ? `https://www.disneyplus.com/browse/entity-${seriesId.toLowerCase()}` : null),
     searchUrl: (query) => `https://www.disneyplus.com/search?q=${query}`,
+  },
+  prime: {
+    label: 'Prime Video',
+    icon: '/brands/prime.png',
+    homeUrl: 'https://www.primevideo.com',
+    // primevideo.com seulement : les sites amazon.<tld> (boutique) ne sont ni lus ni ciblés (hors v1)
+    matchesHost: domainOrSubdomain('primevideo.com'),
+    // Catalogue généraliste, mais filtre par genre (av_genre_anime…) côté script de contenu : résolution normale
+    linkRequired: false,
+    searchable: false,
+    optionalMatches: ['*://*.primevideo.com/*'],
+    // Page de détail : /[region/{xx}/][-/{langue}/]detail/{id} ; id = ASIN (10), GTI compact (26) ou GTI complet
+    seriesIdInPath: /^\/(?:region\/[a-z]{2}\/)?(?:-\/[a-z]{2}(?:-[a-z]{2})?\/)?detail\/([A-Z0-9]{10}|[0-9A-Z]{26}|amzn1\.dv\.gti\.[0-9a-f-]{36})(?:\/|$)/i,
+    // Page canonique d'une saison : GTI compact seulement (un ASIN régional ou un GTI complet n'y mène pas toujours)
+    seriesUrl: (seriesId) => (seriesId !== null && PRIME_COMPACT_GTI.test(seriesId) ? `https://www.primevideo.com/detail/${seriesId.toUpperCase()}` : null),
+    searchUrl: (query) => `https://www.primevideo.com/search?phrase=${query}`,
   },
 };
 

@@ -245,6 +245,8 @@ const LINK_MATCHERS: Record<StreamingPlatform, LinkMatcher> = {
   adn: (url, seriesId, seriesSlug) => matchAdnLink(url, seriesId, seriesSlug),
   netflix: (url, seriesId) => matchNetflixLink(url, seriesId),
   disney: (url, seriesId) => matchDisneyLink(url, seriesId),
+  // Prime Video : liens AniList pas encore exploités (rapprochement par titre ; voir shared/prime-metadata.ts › primeIdInLink)
+  prime: () => null,
 };
 
 /**
@@ -301,8 +303,9 @@ function seriesIdInLink(url: string, platform: StreamingPlatform): string | null
     }
     case 'netflix':
       return netflixShowIdInLink(parsed);
-    // Aucun identifiant de série côté lecture : une autre série Disney+ n'est pas reconnaissable à son lien
+    // Aucun identifiant de série côté lecture : une autre série Disney+ (ou Prime Video) n'est pas reconnaissable à son lien
     case 'disney':
+    case 'prime':
       return null;
   }
 }
@@ -355,6 +358,7 @@ export function legacySeriesSlugInLink(url: string, platform: StreamingPlatform)
     }
     case 'netflix':
     case 'disney':
+    case 'prime':
       return null;
   }
 }

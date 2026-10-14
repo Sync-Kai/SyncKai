@@ -21,6 +21,7 @@ import { LOCALES } from '../src/i18n/locale-codes.ts';
 import {
   CONTENT_SCRIPT_BUDGET_BYTES,
   DISNEY_SCRIPTS_BUDGET_BYTES,
+  PRIME_SCRIPTS_BUDGET_BYTES,
   NETFLIX_SCRIPTS_BUDGET_BYTES,
   registeredScriptPlatform,
   checkAccessDeclarations,
@@ -115,11 +116,13 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   const platformBytes = (dir: string): number => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).reduce((total, file) => total + size(file), 0);
   const netflixBytes = platformBytes('netflix');
   const disneyBytes = platformBytes('disney');
+  const primeBytes = platformBytes('prime');
   if (contentBytes > CONTENT_SCRIPT_BUDGET_BYTES) {
     errors.push(`script de contenu Crunchyroll/ADN : ${kib(contentBytes)} > budget ${kib(CONTENT_SCRIPT_BUDGET_BYTES)}`);
   }
   if (netflixBytes > NETFLIX_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Netflix : ${kib(netflixBytes)} > budget ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)}`);
   if (disneyBytes > DISNEY_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Disney+ : ${kib(disneyBytes)} > budget ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)}`);
+  if (primeBytes > PRIME_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Prime Video : ${kib(primeBytes)} > budget ${kib(PRIME_SCRIPTS_BUDGET_BYTES)}`);
 
   // 6. Catalogues de traduction : référencés par le code des pages et du service worker (chemins émis par Vite)
   const used = reachableFiles(['manifest.json', ...roots], referencesOf);
@@ -139,6 +142,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   const listOf = (dir: string): string => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).join(', ');
   console.log(`  scripts Netflix : ${kib(netflixBytes)} / ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)} (${listOf('netflix')})`);
   console.log(`  scripts Disney+ : ${kib(disneyBytes)} / ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)} (${listOf('disney')})`);
+  console.log(`  scripts Prime Video : ${kib(primeBytes)} / ${kib(PRIME_SCRIPTS_BUDGET_BYTES)} (${listOf('prime')})`);
   console.log(`  catalogues de traduction : ${catalogSources.size} langues lues à la demande, ${catalogFiles.length} fichiers (${LOCALE_CATALOG_DIR}/, ${kib(catalogBytes)} ; contenus identiques regroupés), anglais embarqué`);
   if (unused.length > 0) console.log(`  non référencés (${unused.length}) : ${unused.join(', ')}`);
   return errors;

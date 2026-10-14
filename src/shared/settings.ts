@@ -97,9 +97,10 @@ export function effectivePlayer(preferred: StreamingPlatform, netflixGranted: bo
 /**
  * Plateforme proposable comme lecteur préféré. Disney+ ne l'est pas : ses liens AniList (anciennes pages /series/…,
  * pages /browse/entity-…) ne sont pas fiables pour « Ouvrir » en priorité ; il reste ouvert en repli (seul lien connu).
+ * Prime Video non plus (hors v1 : liens AniList rares, souvent d'anciens ASIN américains).
  */
 export function isPreferredPlayerOption(platform: StreamingPlatform): boolean {
-  return platform !== 'disney';
+  return platform !== 'disney' && platform !== 'prime';
 }
 
 const SETTINGS_KEY = 'settings';

@@ -72,6 +72,7 @@ export function sortWebAccessibleResources<E extends WebAccessibleResourceEntry>
 export const REGISTERED_SCRIPT_MATCHES: Readonly<Record<string, readonly string[]>> = {
   netflix: ['*://*.netflix.com/*'],
   disney: ['*://*.disneyplus.com/*'],
+  prime: ['*://*.primevideo.com/*'],
 };
 
 /** Script enregistré d'une plateforme optionnelle (`src/content/{dossier}/….iife.js`) : son dossier, sinon null */

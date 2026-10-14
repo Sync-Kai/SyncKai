@@ -12,11 +12,14 @@ import { LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
 export const NETFLIX_PATTERN = '*://*.netflix.com/*';
 /** Disney+ : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
 export const DISNEY_PATTERN = '*://*.disneyplus.com/*';
+/** Prime Video : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
+export const PRIME_PATTERN = '*://*.primevideo.com/*';
 
 /** Plateformes à accès optionnel : dossier de leurs scripts enregistrés (`src/content/{dossier}/*.iife.js`), libellé, motif */
 export const OPTIONAL_PLATFORMS: readonly { dir: string; label: string; pattern: string }[] = [
   { dir: 'netflix', label: 'Netflix', pattern: NETFLIX_PATTERN },
   { dir: 'disney', label: 'Disney+', pattern: DISNEY_PATTERN },
+  { dir: 'prime', label: 'Prime Video', pattern: PRIME_PATTERN },
 ];
 
 /**
@@ -36,6 +39,12 @@ export const NETFLIX_SCRIPTS_BUDGET_BYTES = 65 * 1024;
  * portées par un seul script ; au-delà, alléger (code des pages de série ou du pont) plutôt que relever encore.
  */
 export const DISNEY_SCRIPTS_BUDGET_BYTES = 75 * 1024;
+
+/**
+ * Budget des deux scripts Prime Video (IIFE autonomes, clés i18n du contenu comprises) : même ordre de grandeur que
+ * Disney+ (pont MAIN, lecture, pages de série, générique de fin). Au-delà, alléger plutôt que relever.
+ */
+export const PRIME_SCRIPTS_BUDGET_BYTES = 75 * 1024;
 
 /** Plateforme (dossier) d'un script enregistré `src/content/{dossier}/….iife.js`, null sinon */
 export function registeredScriptPlatform(file: string): string | null {

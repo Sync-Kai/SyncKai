@@ -9,6 +9,7 @@ import { h } from './dom';
 // - adn.png : https://animationdigitalnetwork.com/images/favicon/adn-logo-512x512.webp (manifest.json du site)
 // - netflix.png : « N » rouge (#E50914) dessiné en SVG géométrique et rastérisé avec resvg (pas de fichier officiel)
 // - disney.png : arc blanc au-dessus d'un « + » sur fond bleu nuit, dessiné en SVG et rastérisé avec resvg (pas de fichier officiel)
+// - prime.png : pastille NEUTRE provisoire (triangle « lecture » bleu sur fond bleu nuit, SVG rastérisé avec resvg), aucun logo de marque
 // - anilist.png : https://anilist.co/img/icons/android-chrome-512x512.png (manifest.json du site)
 // - myanimelist.svg : https://cdn.myanimelist.net/images/favicon.svg (favicon du site, nettoyé)
 // Marques de leurs propriétaires respectifs ; SyncKai n'est affilié à aucun de ces services.

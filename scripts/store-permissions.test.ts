@@ -194,10 +194,11 @@ describe('justifications Chrome Web Store (docs/store/permissions.md)', () => {
   });
 
   it('échoue sur un hôte ajouté (tableau et bloc du champ unique)', () => {
-    const manifest = withField('host_permissions', [...(MANIFEST.host_permissions ?? []), 'https://*.primevideo.com/*']);
+    // Hôte fictif, jamais cité par la documentation (primevideo.com l'est depuis l'accès optionnel à Prime Video)
+    const manifest = withField('host_permissions', [...(MANIFEST.host_permissions ?? []), 'https://*.hidive.com/*']);
     expect(checkStorePermissions(manifest, DOC)).toEqual([
-      'host_permissions « https://*.primevideo.com/* » absent du tableau « Declared in `host_permissions` ».',
-      'Bloc « Host permission justification » : « primevideo.com » (https://*.primevideo.com/*) n\'est pas cité.',
+      'host_permissions « https://*.hidive.com/* » absent du tableau « Declared in `host_permissions` ».',
+      'Bloc « Host permission justification » : « hidive.com » (https://*.hidive.com/*) n\'est pas cité.',
     ]);
   });
 

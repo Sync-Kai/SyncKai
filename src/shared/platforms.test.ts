@@ -19,7 +19,7 @@ const BRAND_FILES = Object.keys(import.meta.glob('/public/brands/*', { query: '?
 describe('registre des plateformes', () => {
   it('un descripteur par plateforme, dans l’ordre de STREAMING_PLATFORMS', () => {
     expect(Object.keys(PLATFORMS)).toEqual([...STREAMING_PLATFORMS]);
-    expect(STREAMING_PLATFORMS).toEqual(['crunchyroll', 'adn', 'netflix', 'disney']);
+    expect(STREAMING_PLATFORMS).toEqual(['crunchyroll', 'adn', 'netflix', 'disney', 'prime']);
   });
 
   it('isStreamingPlatform suit le registre', () => {
@@ -28,7 +28,7 @@ describe('registre des plateformes', () => {
   });
 
   it('libellés et logos embarqués', () => {
-    expect(PLATFORM_LABELS).toEqual({ crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix', disney: 'Disney+' });
+    expect(PLATFORM_LABELS).toEqual({ crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix', disney: 'Disney+', prime: 'Prime Video' });
     for (const platform of STREAMING_PLATFORMS) {
       const { icon, label } = PLATFORMS[platform];
       expect(PLATFORM_LABELS[platform]).toBe(label);
@@ -45,10 +45,11 @@ describe('registre des plateformes', () => {
     }
   });
 
-  it('Netflix, Disney+ : catalogues généralistes (lien AniList requis, jamais proposés en recherche, accès optionnel)', () => {
+  it('Netflix, Disney+, Prime Video : catalogues généralistes (jamais proposés en recherche, accès optionnel)', () => {
+    // Prime Video : filtre par genre dans le script de contenu, pas de lien AniList requis
     expect(STREAMING_PLATFORMS.filter((p) => PLATFORMS[p].linkRequired)).toEqual(['netflix', 'disney']);
-    expect(STREAMING_PLATFORMS.filter((p) => !PLATFORMS[p].searchable)).toEqual(['netflix', 'disney']);
-    expect(STREAMING_PLATFORMS.filter(isOptionalPlatform)).toEqual(['netflix', 'disney']);
+    expect(STREAMING_PLATFORMS.filter((p) => !PLATFORMS[p].searchable)).toEqual(['netflix', 'disney', 'prime']);
+    expect(STREAMING_PLATFORMS.filter(isOptionalPlatform)).toEqual(['netflix', 'disney', 'prime']);
   });
 });
 
@@ -65,6 +66,8 @@ describe('hôtes', () => {
     ['www.netflix.com', 'netflix'],
     ['disneyplus.com', 'disney'],
     ['www.disneyplus.com', 'disney'],
+    ['primevideo.com', 'prime'],
+    ['www.primevideo.com', 'prime'],
   ])('%s → %s', (host, platform) => {
     expect(platformFromHost(host)).toBe(platform);
     expect(PLATFORMS[platform].matchesHost(host)).toBe(true);
@@ -83,6 +86,11 @@ describe('hôtes', () => {
     'notdisneyplus.com',
     'disneyplus.com.evil.example',
     'disney.com',
+    'notprimevideo.com',
+    'primevideo.com.evil.example',
+    // Sites Amazon : hors v1 (boutique), jamais ciblés
+    'www.amazon.com',
+    'www.amazon.de',
     'netflix.co',
     'anilist.co',
     '',
@@ -124,8 +132,28 @@ describe('URL de série et de recherche', () => {
     expect(seriesIdInPath.exec('/series/undead-unluck/2Sfd2YX6Ce6O')).toBeNull();
   });
 
+  it('Prime Video : page /detail/{GTI compact}, préfixe de région facultatif', () => {
+    const { seriesUrl, seriesIdInPath } = PLATFORMS.prime;
+    expect(seriesUrl('0gmsr5wmnj6emyqrq6y2587waf', null)).toBe('https://www.primevideo.com/detail/0GMSR5WMNJ6EMYQRQ6Y2587WAF');
+    // ASIN ou GTI complet : pas de page canonique sûre
+    expect(seriesUrl('B0ABCDEF12', null)).toBeNull();
+    expect(seriesUrl('amzn1.dv.gti.18f4d5fa-bcfd-40d4-b51c-57b602387b37', null)).toBeNull();
+    expect(seriesUrl(null, null)).toBeNull();
+    expect(seriesIdInPath.exec('/region/eu/detail/0GMSR5WMNJ6EMYQRQ6Y2587WAF')?.[1]).toBe('0GMSR5WMNJ6EMYQRQ6Y2587WAF');
+    expect(seriesIdInPath.exec('/detail/0GMSR5WMNJ6EMYQRQ6Y2587WAF/ref=atv_dp')?.[1]).toBe('0GMSR5WMNJ6EMYQRQ6Y2587WAF');
+    expect(seriesIdInPath.exec('/-/fr/detail/B0ABCDEF12')?.[1]).toBe('B0ABCDEF12');
+    expect(seriesIdInPath.exec('/region/eu/storefront')).toBeNull();
+    expect(PLATFORMS.prime.searchUrl('Dororo')).toBe('https://www.primevideo.com/search?phrase=Dororo');
+  });
+
   it('URL de série reconnues par seriesIdInPath et par l’hôte', () => {
-    const ids: Record<StreamingPlatform, string> = { crunchyroll: 'GRMG8ZQZR', adn: '1234', netflix: '81402901', disney: '5e2c1a3b-0000-4000-8000-0123456789ab' };
+    const ids: Record<StreamingPlatform, string> = {
+      crunchyroll: 'GRMG8ZQZR',
+      adn: '1234',
+      netflix: '81402901',
+      disney: '5e2c1a3b-0000-4000-8000-0123456789ab',
+      prime: '0GMSR5WMNJ6EMYQRQ6Y2587WAF',
+    };
     for (const platform of STREAMING_PLATFORMS) {
       const url = new URL(PLATFORMS[platform].seriesUrl(ids[platform], 'slug') ?? '');
       expect(platformFromHost(url.hostname)).toBe(platform);
@@ -157,6 +185,6 @@ describe('manifeste', () => {
 
 describe('platformRecord', () => {
   it('Record complet, une valeur par plateforme', () => {
-    expect(platformRecord((platform) => platform.length)).toEqual({ crunchyroll: 11, adn: 3, netflix: 7, disney: 6 });
+    expect(platformRecord((platform) => platform.length)).toEqual({ crunchyroll: 11, adn: 3, netflix: 7, disney: 6, prime: 5 });
   });
 });

@@ -43,6 +43,13 @@ export interface StreamingAdapter {
    */
   watchSeason?(url: URL, onChange: () => void): (() => void) | null;
 
+  /**
+   * Épisode qui change sans changement d'URL (Prime Video : lecteur intégré à la page de détail, lecture automatique) :
+   * `onChange` à chaque changement de `getEpisodeId` pour l'URL courante ; posé une fois au démarrage, retourne l'arrêt.
+   * Optionnel : sans implémentation, seuls les changements d'URL relancent le suivi.
+   */
+  watchEpisode?(onChange: () => void): () => void;
+
   /** Retourne l'élément <video> du lecteur s'il est présent */
   findVideo(): HTMLVideoElement | null;
 

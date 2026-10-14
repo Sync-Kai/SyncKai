@@ -123,7 +123,7 @@ describe('weekRange', () => {
   });
 });
 
-const settings: OffsetSettings = { platformOffsets: { crunchyroll: 60, adn: 90, netflix: 60, disney: 60 }, seriesOffsets: { '42': { minutes: -30, at: 1 } } };
+const settings: OffsetSettings = { platformOffsets: { crunchyroll: 60, adn: 90, netflix: 60, disney: 60, prime: 60 }, seriesOffsets: { '42': { minutes: -30, at: 1 } } };
 
 describe('estimateRelease', () => {
   it('diffusion + délai de la plateforme', () => {

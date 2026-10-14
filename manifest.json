@@ -30,7 +30,8 @@
   ],
   "optional_host_permissions": [
     "*://*.netflix.com/*",
-    "*://*.disneyplus.com/*"
+    "*://*.disneyplus.com/*",
+    "*://*.primevideo.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https://s4.anilist.co https://cdn.myanimelist.net https://api-cdn.myanimelist.net"
@@ -58,7 +59,8 @@
       ],
       "matches": [
         "*://*.netflix.com/*",
-        "*://*.disneyplus.com/*"
+        "*://*.disneyplus.com/*",
+        "*://*.primevideo.com/*"
       ]
     }
   ],

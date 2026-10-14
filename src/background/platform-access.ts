@@ -1,4 +1,4 @@
-// Plateformes activées à la demande (Netflix, Disney+) : seule source de vérité de l'enregistrement de leurs scripts.
+// Plateformes activées à la demande (Netflix, Disney+, Prime Video) : seule source de vérité de l'enregistrement de leurs scripts.
 // L'état = la permission optionnelle de chaque plateforme (aucun stockage). Le service worker ne se réveille que pour
 // permissions.onAdded / onRemoved, runtime.onInstalled et runtime.onStartup.
 // Les imports `?script` (chemins des scripts produits par crxjs) n'existent qu'ici (simulés dans platform-access.test.ts).
@@ -6,6 +6,8 @@ import disneyBridgePath from '../content/disney/page-bridge.iife.ts?script';
 import disneyContentPath from '../content/disney/content-disney.iife.ts?script';
 import netflixBridgePath from '../content/netflix/page-bridge.iife.ts?script';
 import netflixContentPath from '../content/netflix/content-netflix.iife.ts?script';
+import primeBridgePath from '../content/prime/page-bridge.iife.ts?script';
+import primeContentPath from '../content/prime/content-prime.iife.ts?script';
 import { createLogger } from '../shared/logger';
 import { resetRevokedNetflixPlayer } from '../shared/netflix-access';
 import { PLATFORMS } from '../shared/platforms';
@@ -27,6 +29,7 @@ const log = createLogger('platform-access');
 const PATHS: Readonly<Record<ScriptedPlatform, PlatformScriptPaths>> = {
   netflix: { bridge: netflixBridgePath, content: netflixContentPath },
   disney: { bridge: disneyBridgePath, content: disneyContentPath },
+  prime: { bridge: primeBridgePath, content: primeContentPath },
 };
 
 const hasAccess = (platform: ScriptedPlatform) => (): Promise<boolean> => chrome.permissions.contains({ origins: platformMatches(platform) });

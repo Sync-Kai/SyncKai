@@ -35,6 +35,24 @@ export interface EpisodeInfo {
    * Absent si inconnu (Crunchyroll, ADN, Disney+, épisodes enregistrés avant la 2.3.0).
    */
   platformSeasons?: number[];
+  /** Prime Video : verdict « anime » du script de contenu (voir PrimeAnimeVerdict). Absent ailleurs. */
+  primeAnime?: SentPrimeAnimeVerdict;
+}
+
+/**
+ * Prime Video, filtre « anime » du script de contenu (genres `av_genre_*` et pistes audio de la page de détail, voir
+ * shared/prime-metadata.ts › primeAnimeVerdict) :
+ * - `anime` : genre `av_genre_anime` ;
+ * - `animation-ja` : autre genre `av_genre_animation*` avec une piste audio japonaise (résolution normale) ;
+ * - `animation-exact-only` : autre genre d'animation sans piste japonaise : suivi seulement sur un titre AniList exact ;
+ * - `ignored` : pas d'animation, ou genres illisibles : rien n'est envoyé (jamais dans un message).
+ */
+export type PrimeAnimeVerdict = 'anime' | 'animation-ja' | 'animation-exact-only' | 'ignored';
+/** Verdict transmis au service worker (`ignored` ne quitte jamais le script de contenu) */
+export type SentPrimeAnimeVerdict = Exclude<PrimeAnimeVerdict, 'ignored'>;
+
+export function isSentPrimeAnimeVerdict(value: unknown): value is SentPrimeAnimeVerdict {
+  return value === 'anime' || value === 'animation-ja' || value === 'animation-exact-only';
 }
 
 /** Saisons par série au plus, épisodes par saison au plus (validation d'un message ou du stockage) */
@@ -78,6 +96,7 @@ export function isEpisodeInfo(value: unknown): value is EpisodeInfo {
     isNullableNumber(value.displayedEpisodeNumber) &&
     isNullableString(value.episodeTitle) &&
     typeof value.url === 'string' &&
-    (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons))
+    (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons)) &&
+    (value.primeAnime === undefined || isSentPrimeAnimeVerdict(value.primeAnime))
   );
 }

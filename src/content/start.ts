@@ -103,6 +103,9 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
   handleUrl(new URL(location.href));
   const stopWatchingUrl = watchUrl(handleUrl);
   page.signal.addEventListener('abort', stopWatchingUrl, { once: true });
+  // Épisode suivant sans changement d'URL (Prime Video) : même traitement qu'un changement d'URL
+  const stopWatchingEpisode = adapter.watchEpisode?.(() => handleUrl(new URL(location.href)));
+  if (stopWatchingEpisode) page.signal.addEventListener('abort', stopWatchingEpisode, { once: true });
   // Nouvelle instance après une mise à jour de l'extension : celle-ci, orpheline, s'arrête sans rien afficher
   document.addEventListener(
     CONTENT_STARTED_EVENT,

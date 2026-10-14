@@ -16,7 +16,7 @@ export interface SettingsSummary {
   tone: 'muted' | 'danger';
 }
 
-const PLAYER_NAMES: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix', disney: 'Disney+' };
+const PLAYER_NAMES: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix', disney: 'Disney+', prime: 'Prime Video' };
 /** Libellé court des services (« AniList ✓ · MAL ✓ ») */
 const SHORT_LABELS: Record<TrackerId, string> = { anilist: 'AniList', mal: 'MAL' };
 

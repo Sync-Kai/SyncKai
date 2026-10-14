@@ -38,3 +38,20 @@ export function slugSearchTitle(slug: string | null): string | null {
   const text = decoded.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
   return text || null;
 }
+
+/**
+ * Mentions de version qu'une plateforme ajoute au titre d'une même saison publiée plusieurs fois (Prime Video : VO, VF,
+ * doublage simultané…). Relevées le 2026-10-14 : « (Original Japanese Version) », « (English Dubbed) », « (Simuldub) »,
+ * « - Uncut » ; probables, non relevées : « (Dubbed) », « (Subtitled) », « (Uncut) », « (VF) », « (VOSTFR) », « (OmU) ».
+ */
+const VERSION_TAG = /\s*[([]\s*(?:original japanese version|english dub(?:bed)?|simuldub|dubbed|subtitled|uncut|vf|vostfr|omu)\s*[)\]]/giu;
+const UNCUT_SUFFIX = /\s+[-–—]\s+uncut\s*$/iu;
+
+/**
+ * Titre sans mention de version (« VINLAND SAGA Season 2 (Simuldub) » → « VINLAND SAGA Season 2 ») : la VO et le doublage
+ * partagent ainsi la recherche AniList et la clé de correspondance. Titre inchangé s'il ne resterait rien.
+ */
+export function stripVersionTags(title: string): string {
+  const stripped = title.replace(VERSION_TAG, '').replace(UNCUT_SUFFIX, '').replace(/\s+/g, ' ').trim();
+  return stripped || title.trim();
+}

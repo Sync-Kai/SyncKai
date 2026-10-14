@@ -51,6 +51,7 @@ describe('SCRIPTED_PLATFORMS', () => {
   it('identifiants historiques de Netflix conservés (scripts déjà enregistrés retrouvés après mise à jour)', () => {
     expect(NETFLIX_SCRIPT_IDS).toEqual({ bridge: 'synckai-netflix-bridge', content: 'synckai-netflix-content' });
     expect(DISNEY_SCRIPT_IDS).toEqual({ bridge: 'synckai-disney-bridge', content: 'synckai-disney-content' });
+    expect(platformScriptIds('prime')).toEqual({ bridge: 'synckai-prime-bridge', content: 'synckai-prime-content' });
   });
 });
 
@@ -127,6 +128,16 @@ describe('reconcilePlatformScripts — Disney+', () => {
     const revoked = fakeApi(false, [...BOTH, ...DISNEY]);
     expect(await reconcilePlatformScripts(revoked, 'disney', DISNEY_PATHS, true)).toBe('unregistered');
     expect([...revoked.ids].sort()).toEqual([...BOTH].sort());
+  });
+
+  it('Prime Video : pont MAIN à document_start et script isolé sur primevideo.com uniquement', () => {
+    const paths = { bridge: 'src/content/prime/page-bridge.iife.js', content: 'src/content/prime/content-prime.iife.js' };
+    expect(platformContentScripts('prime', paths).map((script) => [script.id, script.matches, script.runAt, script.world])).toEqual([
+      ['synckai-prime-bridge', ['*://*.primevideo.com/*'], 'document_start', 'MAIN'],
+      ['synckai-prime-content', ['*://*.primevideo.com/*'], 'document_idle', undefined],
+    ]);
+    expect(touchesPlatform('prime', { origins: ['*://*.primevideo.com/*'] })).toBe(true);
+    expect(touchesPlatform('prime', { origins: ['*://*.disneyplus.com/*'] })).toBe(false);
   });
 
   it('ne réagit qu’à l’origine Disney+', () => {

@@ -5,11 +5,14 @@ vi.mock('../content/netflix/page-bridge.iife.ts?script', () => ({ default: 'brid
 vi.mock('../content/netflix/content-netflix.iife.ts?script', () => ({ default: 'content.js' }));
 vi.mock('../content/disney/page-bridge.iife.ts?script', () => ({ default: 'disney-bridge.js' }));
 vi.mock('../content/disney/content-disney.iife.ts?script', () => ({ default: 'disney-content.js' }));
+vi.mock('../content/prime/page-bridge.iife.ts?script', () => ({ default: 'prime-bridge.js' }));
+vi.mock('../content/prime/content-prime.iife.ts?script', () => ({ default: 'prime-content.js' }));
 const mocks = vi.hoisted(() => ({ resetRevokedNetflixPlayer: vi.fn() }));
 vi.mock('../shared/netflix-access', () => mocks);
 
 const NETFLIX = '*://*.netflix.com/*';
 const DISNEY = '*://*.disneyplus.com/*';
+const PRIME = '*://*.primevideo.com/*';
 
 type Listener = (permissions: { origins?: string[] }) => void;
 type InstalledListener = (details: { reason: string }) => void;
@@ -18,11 +21,11 @@ const unregister = vi.fn((_filter: { ids: string[] }) => Promise.resolve());
 const register = vi.fn((_scripts: { id: string }[]) => Promise.resolve());
 /** Origines accordées (permission optionnelle de chaque plateforme) */
 let granted: string[] = [];
-const ALL_IDS = ['synckai-netflix-bridge', 'synckai-netflix-content', 'synckai-disney-bridge', 'synckai-disney-content'];
+const ALL_IDS = ['synckai-netflix-bridge', 'synckai-netflix-content', 'synckai-disney-bridge', 'synckai-disney-content', 'synckai-prime-bridge', 'synckai-prime-content'];
 /** Scripts déjà enregistrés */
 let registered: string[] = ALL_IDS;
 const contains = vi.fn((query: { origins: string[] }) => Promise.resolve(query.origins.every((origin) => granted.includes(origin))));
-const query = vi.fn((filter: { url: string[] }) => Promise.resolve(filter.url.includes(DISNEY) ? [{ id: 8 }] : [{ id: 7 }]));
+const query = vi.fn((filter: { url: string[] }) => Promise.resolve(filter.url.includes(DISNEY) ? [{ id: 8 }] : filter.url.includes(PRIME) ? [{ id: 9 }] : [{ id: 7 }]));
 const executeScript = vi.fn((_injection: { target: { tabId: number }; files: string[]; world?: string }) => Promise.resolve([]));
 
 vi.stubGlobal('chrome', {
@@ -87,7 +90,7 @@ describe('listenPlatformAccess', () => {
 
   it('accès Disney+ accordé : ses scripts réenregistrés puis exécutés dans les onglets Disney+ ouverts', async () => {
     granted = [DISNEY];
-    registered = ALL_IDS.slice(0, 2);
+    registered = [...ALL_IDS.slice(0, 2), ...ALL_IDS.slice(4)];
     for (const listener of listeners.added) listener({ origins: [DISNEY] });
     await flush();
     expect(register.mock.calls.map(([scripts]) => scripts.map((script) => script.id))).toEqual([['synckai-disney-bridge', 'synckai-disney-content']]);
@@ -95,6 +98,24 @@ describe('listenPlatformAccess', () => {
       [8, 'disney-bridge.js', 'MAIN'],
       [8, 'disney-content.js', 'ISOLATED'],
     ]);
+  });
+
+  it('accès Prime Video accordé puis retiré : seuls ses scripts, dans ses onglets', async () => {
+    granted = [PRIME];
+    registered = ALL_IDS.slice(0, 4);
+    for (const listener of listeners.added) listener({ origins: [PRIME] });
+    await flush();
+    expect(register.mock.calls.map(([scripts]) => scripts.map((script) => script.id))).toEqual([['synckai-prime-bridge', 'synckai-prime-content']]);
+    expect(executeScript.mock.calls.map(([injection]) => [injection.target.tabId, injection.files[0], injection.world])).toEqual([
+      [9, 'prime-bridge.js', 'MAIN'],
+      [9, 'prime-content.js', 'ISOLATED'],
+    ]);
+    granted = [];
+    registered = ALL_IDS;
+    for (const listener of listeners.removed) listener({ origins: [PRIME] });
+    await flush();
+    expect(unregister.mock.calls.at(-1)).toEqual([{ ids: ['synckai-prime-bridge', 'synckai-prime-content'] }]);
+    expect(mocks.resetRevokedNetflixPlayer).not.toHaveBeenCalled();
   });
 });
 

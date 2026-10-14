@@ -3,6 +3,7 @@ import manifest from '../../manifest.json';
 import { contentScriptMatches, isTargetPage, matchesPattern, NETFLIX_MATCHES, SIDE_PANEL_PATH, targetPagePatterns } from './target-pages';
 
 const DISNEY_MATCHES = ['*://*.disneyplus.com/*'];
+const PRIME_MATCHES = ['*://*.primevideo.com/*'];
 
 const patterns = contentScriptMatches(manifest);
 
@@ -66,15 +67,17 @@ describe('SIDE_PANEL_PATH', () => {
   });
 });
 
-describe('targetPagePatterns (Netflix, Disney+)', () => {
+describe('targetPagePatterns (Netflix, Disney+, Prime Video)', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('ajoute Netflix et Disney+ (accès optionnels) aux scripts de contenu du manifeste', () => {
+  it('ajoute Netflix, Disney+ et Prime Video (accès optionnels) aux scripts de contenu du manifeste', () => {
     vi.stubGlobal('chrome', { runtime: { getManifest: () => manifest } });
     const all = targetPagePatterns();
-    expect(all).toEqual([...patterns, ...NETFLIX_MATCHES, ...DISNEY_MATCHES]);
+    expect(all).toEqual([...patterns, ...NETFLIX_MATCHES, ...DISNEY_MATCHES, ...PRIME_MATCHES]);
+    expect(isTargetPage('https://www.primevideo.com/region/eu/detail/0GMSR5WMNJ6EMYQRQ6Y2587WAF', all)).toBe(true);
+    expect(isTargetPage('https://www.amazon.de/gp/video/detail/B0ABCDEF12', all)).toBe(false);
     expect(isTargetPage('https://www.disneyplus.com/fr-fr/play/eaccaafa-cf43-4d6a-b85f-f9add5b6cf41', all)).toBe(true);
     expect(isTargetPage('https://disneyplus.com.evil.example/play/1', all)).toBe(false);
     expect(isTargetPage('https://www.netflix.com/watch/81402901', all)).toBe(true);
@@ -83,9 +86,10 @@ describe('targetPagePatterns (Netflix, Disney+)', () => {
     expect(isTargetPage(undefined, all)).toBe(false);
   });
 
-  it('Netflix et Disney+ absents des scripts de contenu et des origines requises du manifeste', () => {
-    expect(patterns.some((p) => p.includes('netflix') || p.includes('disneyplus'))).toBe(false);
-    expect(manifest.host_permissions.some((p) => p.includes('netflix') || p.includes('disneyplus'))).toBe(false);
-    expect(manifest.optional_host_permissions).toEqual([...NETFLIX_MATCHES, ...DISNEY_MATCHES]);
+  it('Netflix, Disney+ et Prime Video absents des scripts de contenu et des origines requises du manifeste', () => {
+    const optional = (p: string): boolean => p.includes('netflix') || p.includes('disneyplus') || p.includes('primevideo');
+    expect(patterns.some(optional)).toBe(false);
+    expect(manifest.host_permissions.some(optional)).toBe(false);
+    expect(manifest.optional_host_permissions).toEqual([...NETFLIX_MATCHES, ...DISNEY_MATCHES, ...PRIME_MATCHES]);
   });
 });

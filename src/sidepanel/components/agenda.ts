@@ -47,7 +47,7 @@ const NAV_DEBOUNCE_MS = 300;
 /** Changements du stockage regroupés */
 const STORAGE_DEBOUNCE_MS = 250;
 
-const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', adn: 'ADN', netflix: 'NF', disney: 'D+' };
+const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', adn: 'ADN', netflix: 'NF', disney: 'D+', prime: 'PV' };
 
 type Status =
   | { kind: 'loading' }
