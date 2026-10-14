@@ -32,7 +32,9 @@ export async function startHarnessServer(build: string): Promise<HarnessServer> 
       __SYNCKAI_TARGET__: JSON.stringify('chrome'),
       __SYNCKAI_CONTENT_CATALOGS__: catalogs.CONTENT_CATALOGS_DEFINE,
     },
-    server: { port: 5199, strictPort: false, host: '127.0.0.1' },
+    // Sans rechargement à chaud : un fichier modifié pendant le passage (catalogue en cours de relecture, éditeur)
+    // rechargerait la page au milieu d'un test (« Execution context was destroyed »)
+    server: { port: 5199, strictPort: false, host: '127.0.0.1', hmr: false },
   });
   await server.listen();
   return { base: server.resolvedUrls?.local[0] ?? 'http://127.0.0.1:5199/', close: () => server.close() };

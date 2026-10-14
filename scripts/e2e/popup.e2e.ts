@@ -4,7 +4,7 @@
 import type { Browser, Page } from 'puppeteer';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import manifest from '../../manifest.json';
-import { tl, type Locale, type MessageKey, type MessageParams } from '../../src/i18n';
+import { LOCALES, tl, type Locale, type MessageKey, type MessageParams } from '../../src/i18n';
 import { launchBrowser, startHarnessServer, type HarnessServer } from '../screenshots/harness';
 import type { SentMessage } from '../screenshots/mock-chrome';
 import { PLATFORM_LINKS_KEY } from '../../src/shared/platform-links';
@@ -15,8 +15,11 @@ import { PLANTED_SECRETS, type E2EState, type FrameParams } from './protocol';
 
 let server: HarnessServer;
 let browser: Browser;
-/** Pages ouvertes par le test en cours et erreurs JavaScript relevées (un test échoue sur toute erreur de page) */
-const opened: { page: Page; errors: string[] }[] = [];
+/**
+ * Pages ouvertes par le test en cours, erreurs JavaScript relevées (un test échoue sur toute erreur de page) et langues
+ * dont le catalogue a été demandé au serveur (chargement à la demande, src/i18n/index.ts)
+ */
+const opened: { page: Page; errors: string[]; catalogs: string[] }[] = [];
 
 beforeAll(async () => {
   server = await startHarnessServer('e2e');
@@ -41,8 +44,15 @@ const fr = (key: MessageKey, params?: MessageParams): string => tl('fr', key, pa
 async function openPopup(params: FrameParams = {}): Promise<Page> {
   const page = await browser.newPage();
   const errors: string[] = [];
-  opened.push({ page, errors });
+  const catalogs: string[] = [];
+  opened.push({ page, errors, catalogs });
   page.on('pageerror', (error) => errors.push(String(error)));
+  page.on('request', (request) => {
+    // Lecture du fichier par le chargeur, sans requête de module de Vite (`?url` des adresses, `?import` de l'anglais)
+    const url = new URL(request.url());
+    const locale = url.search === '' ? /\/src\/i18n\/locales\/([\w-]+)\.json$/.exec(url.pathname)?.[1] : undefined;
+    if (locale !== undefined) catalogs.push(locale);
+  });
   // Dimensions du popup (src/popup/popup.css)
   await page.setViewport({ width: 400, height: 580 });
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
@@ -161,6 +171,11 @@ interface LanguageRowInfo {
   checked: boolean;
 }
 
+/** Langues dont la page a demandé le catalogue au serveur, dans l'ordre */
+function catalogRequests(page: Page): string[] {
+  return [...(opened.find((entry) => entry.page === page)?.catalogs ?? [])];
+}
+
 /** Lignes de Réglages › Langue, dans l'ordre : valeur, libellé principal et état du bouton radio */
 async function languageRows(page: Page): Promise<LanguageRowInfo[]> {
   return page.$$eval('[role="radiogroup"] [data-language-row]', (rows) =>
@@ -240,27 +255,44 @@ describe('popup (bout en bout)', () => {
     expect(await shownScreen(page)).toBe(0);
     expect(await text(page, sel('nav-activity'))).toBe(fr('nav.activity'));
 
-    // Langue : liste de boutons radio, « Automatique » en tête et coché par défaut, puis les langues par endonyme ;
-    // 3 langues : pas de champ de recherche ni (adresse absente) de ligne « Aider à traduire ». Réglage par défaut
-    // (« auto ») remis en place : les données de démo choisissent la langue du popup ; navigateur en français
+    // Langue : liste de boutons radio, « Automatique » en tête et coché par défaut, puis les 21 langues par endonyme ;
+    // champ de recherche (au moins LANGUAGE_SEARCH_MIN langues), pas de ligne « Aider à traduire » (adresse absente).
+    // Réglage par défaut (« auto ») remis en place : les données de démo choisissent la langue du popup ; navigateur en
+    // français. Seul le catalogue français a été lu (anglais embarqué, autres langues à la demande)
     await setSetting(page, { language: 'auto' });
     await click(page, 'gear');
     await openCategory(page, 'language');
     expect(await attr(page, '[role="radiogroup"]', 'aria-labelledby')).toBe('sk-language-label');
-    expect(await languageRows(page)).toEqual([
-      { value: 'auto', label: fr('settings.language.auto'), checked: true },
-      { value: 'de', label: 'Deutsch', checked: false },
-      { value: 'en', label: 'English', checked: false },
-      { value: 'fr', label: 'Français', checked: false },
-    ]);
+    const rows = await languageRows(page);
+    expect(rows[0]).toEqual({ value: 'auto', label: fr('settings.language.auto'), checked: true });
+    const order = rows.slice(1).map((row) => row.value);
+    expect([...order].sort()).toEqual([...LOCALES].sort());
+    expect(rows.filter((row) => row.checked).map((row) => row.value)).toEqual(['auto']);
+    const labelOf = (value: string): string | undefined => rows.find((row) => row.value === value)?.label;
+    expect(['de', 'en', 'fr', 'zh-CN', 'zh-TW'].map(labelOf)).toEqual(['Deutsch', 'English', 'Français', '简体中文', '繁體中文']);
+    expect(labelOf('es')).not.toBe(labelOf('es-419'));
+    // Endonymes triés selon la collation du navigateur (racine de CLDR, sans casse ni accents)
+    const labels = rows.slice(1).map((row) => row.label);
+    expect(await page.evaluate((list: string[]) => list.every((label, i) => i === 0 || (list[i - 1] ?? '').localeCompare(label, 'en', { sensitivity: 'base' }) <= 0), labels)).toBe(true);
     expect(await text(page, '[data-language-row="auto"]')).toContain(fr('settings.language.autoDetail', { language: 'Français' }));
     expect(await text(page, '[data-language-row="de"]')).toContain('Allemand');
-    expect(await page.$(sel('language-search'))).toBeNull();
     expect(await page.$(sel('language-translate'))).toBeNull();
-    // Sans champ de recherche : focus sur le titre de la page
-    expect(await focused(page)).toBe('settings-heading');
-    // Popup retraduit en place, toujours sur Réglages › Langue
-    for (const locale of ['en', 'de', 'fr'] as const) {
+    expect(catalogRequests(page)).toEqual(['fr']);
+    // Champ de recherche : focus à l'ouverture de la page ; il filtre les langues (par endonyme, nom traduit ou code),
+    // jamais « Automatique »
+    expect(await focused(page)).toBe('language-search');
+    const listed = async (): Promise<string[]> => (await languageRows(page)).map((row) => row.value);
+    await page.type(sel('language-search'), 'zh');
+    await page.waitForFunction(() => document.querySelectorAll('#sk-language-list [data-language-row]').length === 2);
+    expect(await listed()).toEqual(['auto', 'zh-CN', 'zh-TW']);
+    await page.type(sel('language-search'), 'xx');
+    await page.waitForSelector('[data-language-empty]');
+    expect(await text(page, '[data-language-empty]')).toBe(fr('settings.language.noResult'));
+    for (let i = 0; i < 4; i++) await page.keyboard.press('Backspace');
+    await page.waitForFunction((count: number) => document.querySelectorAll('#sk-language-list [data-language-row]').length === count, {}, LOCALES.length);
+    // Popup retraduit en place, toujours sur Réglages › Langue ; allemand et japonais lus à la demande au premier
+    // choix, une seule fois chacun
+    for (const locale of ['en', 'de', 'ja', 'de', 'fr'] as const) {
       await switchLanguage(page, locale);
       expect(await page.evaluate(() => document.documentElement.lang)).toBe(locale);
       expect(await shownScreen(page)).toBe(2);
@@ -268,21 +300,24 @@ describe('popup (bout en bout)', () => {
       expect(await text(page, sel('settings-home'))).toBe(tl(locale, 'nav.settings'));
       expect(await text(page, '#sk-language-label')).toBe(tl(locale, 'settings.language.groupLabel'));
       // Même ordre (endonymes) dans toutes les langues ; une seule langue cochée
-      expect((await languageRows(page)).map((row) => [row.value, row.checked])).toEqual(['auto', 'de', 'en', 'fr'].map((value) => [value, value === locale]));
+      expect((await languageRows(page)).map((row) => [row.value, row.checked])).toEqual(['auto', ...order].map((value) => [value, value === locale]));
     }
-    // Clavier : un seul arrêt de tabulation (boutons radio d'un même nom), flèches pour choisir ; le focus suit
+    expect(catalogRequests(page)).toEqual(['fr', 'de', 'ja']);
+    // Clavier : un seul arrêt de tabulation (boutons radio d'un même nom), flèches pour choisir ; le focus suit, y compris
+    // vers une langue dont le catalogue n'est pas encore chargé (celle qui précède le français dans l'ordre affiché)
+    const previous = order[order.indexOf('fr') - 1] ?? '';
     await page.focus(sel('language-fr'));
     await page.keyboard.press('ArrowUp');
-    await page.waitForFunction(() => document.documentElement.lang === 'en');
-    expect(await focused(page)).toBe('language-en');
+    await page.waitForFunction((l: string) => document.documentElement.lang === l, {}, previous);
+    expect(await focused(page)).toBe(`language-${previous}`);
     await page.keyboard.press('ArrowDown');
     await page.waitForFunction(() => document.documentElement.lang === 'fr');
     expect(await focused(page)).toBe('language-fr');
-    // Maj+Tab quitte le groupe d'un coup (pas d'arrêt sur « Automatique » ni sur les autres langues)
+    // Maj+Tab quitte le groupe d'un coup vers le champ de recherche (pas d'arrêt sur « Automatique » ni sur les langues)
     await page.keyboard.down('Shift');
     await page.keyboard.press('Tab');
     await page.keyboard.up('Shift');
-    expect(await focused(page)).toBe('settings-home');
+    expect(await focused(page)).toBe('language-search');
     // Retour à l'accueil des Réglages (résumés traduits), puis à l'écran principal
     await click(page, 'settings-home');
     await page.waitForSelector(sel('back'));

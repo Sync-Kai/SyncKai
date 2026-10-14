@@ -39,7 +39,7 @@ Funktionen
 • Einstellungen nach Kategorien, mit Zusammenfassung jeder Einstellung und Schnellschaltern, im Popup wie in der Seitenleiste.
 • Sicherung: Export / Import deiner Einstellungen, Zuordnungen und deines Verlaufs (niemals deine AniList-/MAL-Anmeldungen).
 • Diagnosebericht (Einstellungen › Hilfe): für Fehlermeldungen, ohne sensible Daten.
-• Oberfläche auf Deutsch, Englisch und Französisch.
+• Oberfläche in 21 Sprachen: Deutsch, Englisch, Französisch, Spanisch (Spanien und Lateinamerika), brasilianisches Portugiesisch, Italienisch, Niederländisch, Russisch, Ukrainisch, Polnisch, Tschechisch, Rumänisch, Schwedisch, Türkisch, Indonesisch, Vietnamesisch, Chinesisch (vereinfacht und traditionell), Koreanisch und Japanisch.
 
 Unterstützte Plattformen
 • Crunchyroll

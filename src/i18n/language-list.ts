@@ -29,10 +29,21 @@ function capitalize(text: string, locale: string): string {
   }
 }
 
+/**
+ * Étiquette nommée à la place du code : chinois par l'écriture (« 简体中文 », « 繁體中文 » plutôt que « 中文（中国） »),
+ * espagnol d'Espagne explicite face à celui d'Amérique latine (« Español de España » / « Español latinoamericano »,
+ * deux noms distincts dans toutes les langues de l'interface)
+ */
+const DISPLAY_TAGS: ReadonlyMap<string, string> = new Map([
+  ['es', 'es-ES'],
+  ['zh-CN', 'zh-Hans'],
+  ['zh-TW', 'zh-Hant'],
+]);
+
 /** Nom de la langue `code` dans la langue `display` ; repli sur le code si Intl ne sait pas le nommer */
 export function languageName(code: string, display: string): string {
   try {
-    const name = new Intl.DisplayNames([display], { type: 'language' }).of(code);
+    const name = new Intl.DisplayNames([display], { type: 'language' }).of(DISPLAY_TAGS.get(code) ?? code);
     return name ? capitalize(name, display) : code;
   } catch {
     return code;

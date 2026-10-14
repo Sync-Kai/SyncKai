@@ -1,0 +1,18 @@
+{
+  "extName": {
+    "message": "SyncKai",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "Sincronizează automat episoadele anime văzute pe Crunchyroll și ADN cu AniList și MyAnimeList.",
+    "description": "Extension description (Chrome Web Store, chrome://extensions)"
+  },
+  "cmdCompleteEpisode": {
+    "message": "Marchează episodul curent ca văzut",
+    "description": "Keyboard shortcut description"
+  },
+  "cmdOpenSidePanel": {
+    "message": "Deschide sau închide panoul lateral",
+    "description": "Keyboard shortcut description (side panel on Chrome, sidebar on Firefox)"
+  }
+}

@@ -143,7 +143,14 @@ describe('planNotifications', () => {
   it('regroupe au-delà de 3', () => {
     const plan = planNotifications([item(1, 1, 2, 'A'), item(2, 2, 2, 'B'), item(3, 3, 2, 'C'), item(4, 3, 3, 'C')]);
     expect(plan).toHaveLength(1);
-    expect(plan[0]).toMatchObject({ id: 'synckai-airing:group:4', title: '4 nouveaux épisodes : A, B, C', mediaIds: [1, 2, 3], scheduleIds: [1, 2, 3, 4] });
+    expect(plan[0]).toMatchObject({ id: 'synckai-airing:group:4', title: '4 nouveaux épisodes : A, B et C', mediaIds: [1, 2, 3], scheduleIds: [1, 2, 3, 4] });
+  });
+
+  it('titres regroupés : liste de la langue (« 、 » en japonais)', () => {
+    setLocale('ja');
+    const plan = planNotifications([item(1, 1, 2, 'フリーレン'), item(2, 2, 2, 'ダンダダン'), item(3, 3, 2, 'ONE PIECE'), item(4, 4, 3, '薬屋のひとりごと')]);
+    expect(plan[0]?.title).toBe('新エピソード4件：フリーレン、ダンダダン、ONE PIECE、薬屋のひとりごと');
+    setLocale('fr');
   });
 
   it('rien à notifier', () => {

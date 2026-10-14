@@ -1,0 +1,18 @@
+{
+  "extName": {
+    "message": "SyncKai",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "CrunchyrollやADNで見たアニメを、AniListとMyAnimeListに自動で同期します。",
+    "description": "Extension description (Chrome Web Store, chrome://extensions)"
+  },
+  "cmdCompleteEpisode": {
+    "message": "再生中のエピソードを視聴済みにする",
+    "description": "Keyboard shortcut description"
+  },
+  "cmdOpenSidePanel": {
+    "message": "サイドパネルを開く／閉じる",
+    "description": "Keyboard shortcut description (side panel on Chrome, sidebar on Firefox)"
+  }
+}

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LOCALES } from '../i18n/locale-codes';
 import { seriesOffset, withSeriesOffset } from './agenda';
 import { DEFAULT_SETTINGS, MAX_SERIES_OFFSETS, normalizeSettings, parseOffsetInput } from './settings';
 
@@ -95,9 +96,11 @@ describe('normalizeSettings', () => {
     });
   });
 
-  it('rejette une langue inconnue (auto par défaut)', () => {
-    expect(normalizeSettings({ language: 'es' }).language).toBe('auto');
+  it('accepte chaque langue proposée, rejette une langue inconnue (auto par défaut)', () => {
+    for (const language of LOCALES) expect(normalizeSettings({ language }).language).toBe(language);
     expect(normalizeSettings({ language: 'fr' }).language).toBe('fr');
+    // Code exact seulement : ni région inconnue, ni casse différente, ni langue non proposée
+    for (const language of ['es-MX', 'pt-br', 'zh', 'he', 'klingon', 3, null]) expect(normalizeSettings({ language }).language).toBe('auto');
     expect(normalizeSettings({}).language).toBe('auto');
   });
 

@@ -1,4 +1,4 @@
-import { getLocale } from '../i18n';
+import { formatList } from '../i18n';
 import { PLATFORMS, type StreamingPlatform } from '../shared/platforms';
 
 /**
@@ -6,10 +6,5 @@ import { PLATFORMS, type StreamingPlatform } from '../shared/platforms';
  * « Crunchyroll, ADN ou Disney+ » (`disjunction`). Les plateformes optionnelles ne sont citées qu'activées.
  */
 export function formatPlatformList(platforms: readonly StreamingPlatform[], type: 'conjunction' | 'disjunction'): string {
-  const labels = platforms.map((platform) => PLATFORMS[platform].label);
-  try {
-    return new Intl.ListFormat(getLocale(), { style: 'long', type }).format(labels);
-  } catch {
-    return labels.join(', ');
-  }
+  return formatList(platforms.map((platform) => PLATFORMS[platform].label), type);
 }

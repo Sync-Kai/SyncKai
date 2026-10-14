@@ -9,7 +9,7 @@ import type { PageListState, PageMediaInfo, PageMediaResult } from '../../src/sh
 import { isPanelTab } from '../../src/sidepanel/tabs';
 import { agendaWeek, PANEL_PAGE, panelChrome, panelView } from '../screenshots/demo-panel';
 import { installChromeMock, type SentMessage } from '../screenshots/mock-chrome';
-import { localeParam, param } from '../screenshots/params';
+import { loadedUiLocaleParam, param } from '../screenshots/params';
 import type { E2EPanelControls, E2EState } from './protocol';
 
 const tabParam = param('tab');
@@ -75,7 +75,7 @@ function holdable(type: string, handler: (payload: unknown) => unknown): (payloa
 
 // ─── Installation ─────────────────────────────────────────────────────────
 
-const base = panelChrome(localeParam(), tab, now);
+const base = panelChrome(await loadedUiLocaleParam(), tab, now);
 const agendaError = param('agenda') === 'error';
 /** Sorties de la semaine en cache mais expirées, quel que soit le premier jour de la semaine de la langue */
 const expiredWeeks = agendaError

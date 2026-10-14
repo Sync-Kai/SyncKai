@@ -1,4 +1,4 @@
-import type { Locale } from '../../src/i18n';
+import type { StoreLocale } from './params';
 
 // Légendes des captures (docs/store/screenshots.md). `*mot*` = mot mis en valeur (dégradé Kai).
 
@@ -29,7 +29,7 @@ export const MARQUEE = {
   sub: 'Watch on Crunchyroll or ADN. SyncKai updates AniList and MyAnimeList by the credits.',
 } as const;
 
-export const CAPTIONS: Record<Locale, Record<ShotId, Caption>> = {
+export const CAPTIONS: Record<StoreLocale, Record<ShotId, Caption>> = {
   fr: {
     1: { eyebrow: 'Synchro automatique', title: 'Ta liste à jour dès le *générique*', sub: 'Regarde sur Crunchyroll ou ADN : l’épisode est enregistré sur AniList et MyAnimeList, sans un clic.' },
     2: { eyebrow: 'Panneau latéral', title: 'Tout l’épisode, *à côté de la vidéo*', sub: 'Fiche AniList, progression en direct, suites à regarder et discussion de l’épisode.' },

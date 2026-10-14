@@ -1,6 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../shared/platforms';
-import { BACKGROUND_CHUNK_FILE, DEFAULT_CHUNK_FILE, jsFileNames, REGISTERED_SCRIPT_MATCHES, sortWebAccessibleResources, splitRegisteredScripts } from './output-names';
+import {
+  assetFileName,
+  BACKGROUND_CHUNK_FILE,
+  DEFAULT_ASSET_FILE,
+  DEFAULT_CHUNK_FILE,
+  jsFileNames,
+  REGISTERED_SCRIPT_MATCHES,
+  sortWebAccessibleResources,
+  splitRegisteredScripts,
+} from './output-names';
+
+describe('assetFileName', () => {
+  it('catalogues de traduction : nom fixe assets/locales/<code>.json (chemin absolu ou relatif, POSIX ou Windows)', () => {
+    expect(assetFileName({ originalFileNames: ['src/i18n/locales/pt-BR.json'] })).toBe('assets/locales/[name][extname]');
+    expect(assetFileName({ originalFileNames: ['/home/runner/work/SyncKai/SyncKai/src/i18n/locales/es-419.json'] })).toBe('assets/locales/[name][extname]');
+    expect(assetFileName({ originalFileNames: ['C:\\Users\\x\\SyncKai\\src\\i18n\\locales\\ja.json'] })).toBe('assets/locales/[name][extname]');
+  });
+
+  it('autres fichiers : nom haché par défaut', () => {
+    expect(assetFileName({ originalFileNames: ['src/popup/popup.css'] })).toBe(DEFAULT_ASSET_FILE);
+    expect(assetFileName({ originalFileNames: ['src/i18n/locales/notes/ja.json'] })).toBe(DEFAULT_ASSET_FILE);
+    expect(assetFileName({ originalFileNames: ['public/_locales/fr/messages.json'] })).toBe(DEFAULT_ASSET_FILE);
+    expect(assetFileName({ originalFileNames: [] })).toBe(DEFAULT_ASSET_FILE);
+  });
+});
 
 describe('jsFileNames', () => {
   const name = jsFileNames('src/background/background.ts');

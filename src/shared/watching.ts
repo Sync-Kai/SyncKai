@@ -1,4 +1,4 @@
-import { getLocale, t, tl, type Locale } from '../i18n/core';
+import { getLocale, t, tl, tpl, type Locale } from '../i18n/core';
 import type { StreamingPlatform } from './episode.types';
 import { STREAMING_PLATFORMS } from './platforms';
 import type { NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingList, WatchingSort } from './watching.types';
@@ -174,5 +174,5 @@ export function formatRelativeTime(timestamp: number, now: number, locale: Local
   if (diff < HOUR) return tl(locale, 'time.minutesAgo', { count: Math.floor(diff / MINUTE) });
   if (diff < DAY) return tl(locale, 'time.hoursAgo', { count: Math.floor(diff / HOUR) });
   if (diff < 2 * DAY) return tl(locale, 'time.yesterday');
-  return tl(locale, 'time.daysAgo', { count: Math.floor(diff / DAY) });
+  return tpl(locale, 'time.daysAgo', Math.floor(diff / DAY));
 }

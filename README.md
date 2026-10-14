@@ -87,7 +87,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 - On-page notifications in three levels (Discreet, Detailed, Alerts only), fullscreen-friendly.
 - Keyboard shortcuts, the same on Chrome, Brave and Firefox: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> to mark the current episode as watched, <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> to open or close the side panel (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>&</kbd> on AZERTY: same key). *Settings › Shortcuts* shows the current keys and opens the browser's shortcuts page to change them (`chrome://extensions/shortcuts`; Firefox: `about:addons` › gear icon › *Manage Extension Shortcuts*). Already installed? A key you changed is kept on update; if a key is missing, set it there.
 - Per-series exclusion, settings grouped by category with quick toggles.
-- Interface in English, French and German.
+- Interface in 21 languages: English, French, German, Spanish (Spain and Latin America), Brazilian Portuguese, Italian, Dutch, Russian, Ukrainian, Polish, Czech, Romanian, Swedish, Turkish, Indonesian, Vietnamese, Chinese (Simplified and Traditional), Korean and Japanese; the browser language is used by default, or the one chosen in *Settings › Language*.
 
 <table>
   <tr>

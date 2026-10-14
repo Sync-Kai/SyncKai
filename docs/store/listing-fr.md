@@ -39,7 +39,7 @@ Fonctionnalités
 • Réglages par catégories, avec un résumé de chaque réglage et des interrupteurs rapides, dans le popup comme dans le panneau latéral.
 • Sauvegarde : export / import de tes réglages, correspondances et historique (jamais tes connexions AniList/MAL).
 • Rapport de diagnostic (Réglages › Aide) : à joindre à un signalement, sans aucune donnée sensible.
-• Interface en français, anglais et allemand.
+• Interface en 21 langues : français, anglais, allemand, espagnol (Espagne et Amérique latine), portugais du Brésil, italien, néerlandais, russe, ukrainien, polonais, tchèque, roumain, suédois, turc, indonésien, vietnamien, chinois (simplifié et traditionnel), coréen et japonais.
 
 Plateformes prises en charge
 • Crunchyroll

@@ -440,10 +440,14 @@ function renderRow(entry: WatchingEntry, now: number, preferred: StreamingPlatfo
       h(
         'span',
         { class: 'flex max-w-full min-w-0 items-center gap-1' },
+        // Pastille rognée (texte entier en infobulle) plutôt que de chevaucher la progression (« Bölüm 1123: 4 gün sonra »)
         feedbackChip(controls, entry) ??
           h(
             'span',
-            { class: `inline-flex h-[18px] items-center rounded-full border px-2 text-[11px] leading-4 font-bold whitespace-nowrap ${BADGE_CLASSES[badge.kind]}` },
+            {
+              class: `inline-block h-[18px] min-w-0 max-w-full truncate rounded-full border px-2 text-[11px] leading-4 font-bold ${BADGE_CLASSES[badge.kind]}`,
+              attrs: { title: badge.label },
+            },
             badge.label,
           ),
         excluded && excludedChip(),

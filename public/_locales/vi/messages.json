@@ -1,0 +1,18 @@
+{
+  "extName": {
+    "message": "SyncKai",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "Tự động đồng bộ anime bạn xem (Crunchyroll, ADN) lên AniList và MyAnimeList.",
+    "description": "Extension description (Chrome Web Store, chrome://extensions)"
+  },
+  "cmdCompleteEpisode": {
+    "message": "Đánh dấu đã xem tập hiện tại",
+    "description": "Keyboard shortcut description"
+  },
+  "cmdOpenSidePanel": {
+    "message": "Mở hoặc đóng bảng điều khiển bên",
+    "description": "Keyboard shortcut description (side panel on Chrome, sidebar on Firefox)"
+  }
+}

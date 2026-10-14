@@ -5,6 +5,8 @@ import {
   registeredScriptPlatform,
   checkAccessDeclarations,
   checkCommands,
+  checkLocaleCatalogs,
+  localeCatalogFiles,
   checkContentSecurityPolicy,
   checkWebAccessibleResources,
   fileReferences,
@@ -233,5 +235,39 @@ describe('hasDynamicImport', () => {
   it('chargeur crxjs détecté, textes i18n ignorés', () => {
     expect(hasDynamicImport('(async()=>{await import(\n/* @vite-ignore */\nchrome.runtime.getURL("x.js"))})()')).toBe(true);
     expect(hasDynamicImport('(function(){var t={"a":`Open the Crunchyroll import (new tab)`}})()')).toBe(false);
+  });
+});
+
+describe('checkLocaleCatalogs', () => {
+  const FR = '{\n  "common.close": "Fermer"\n}\n';
+  const PLACEHOLDER = '{\n  "common.close": "Close"\n}\n';
+  /** Catalogues sources hors anglais : fr traduit, pt-BR et ja provisoires (copies identiques de l'anglais) */
+  const sources = new Map([
+    ['fr', FR],
+    ['pt-BR', PLACEHOLDER],
+    ['ja', PLACEHOLDER],
+  ]);
+  const reader = (contents: Record<string, string>) => (file: string): string => contents[file] ?? '';
+
+  it('chaque langue dans un fichier référencé, contenus identiques regroupés en un seul fichier', () => {
+    const files = new Set(['assets/locales/fr.json', 'assets/locales/ja.json', 'assets/background.js']);
+    const read = reader({ 'assets/locales/fr.json': FR, 'assets/locales/ja.json': PLACEHOLDER });
+    expect(checkLocaleCatalogs(files, files, sources, read)).toEqual([]);
+    expect(localeCatalogFiles(files)).toEqual(['assets/locales/fr.json', 'assets/locales/ja.json']);
+  });
+
+  it('langue absente ou jamais référencée ; anglais dupliqué ; fichier sans catalogue source', () => {
+    const files = new Set(['assets/locales/fr.json', 'assets/locales/en.json', 'assets/locales/xx.json']);
+    const read = reader({ 'assets/locales/fr.json': FR, 'assets/locales/en.json': PLACEHOLDER, 'assets/locales/xx.json': '{}' });
+    expect(checkLocaleCatalogs(files, new Set(['assets/locales/en.json']), sources, read)).toEqual([
+      'catalogue fr (assets/locales/fr.json) jamais référencé par le code',
+      'assets/locales/en.json : anglais dupliqué (déjà embarqué dans le code)',
+      'assets/locales/xx.json : aucun catalogue source de ce contenu',
+    ]);
+    // Traduction modifiée après le build : le fichier du paquet ne correspond plus à la source
+    expect(checkLocaleCatalogs(new Set(['assets/locales/fr.json']), new Set(['assets/locales/fr.json']), new Map([['fr', FR.replace('Fermer', 'Clore')]]), read)).toEqual([
+      'catalogue fr absent de assets/locales/ (contenu de src/i18n/locales/fr.json)',
+      'assets/locales/fr.json : aucun catalogue source de ce contenu',
+    ]);
   });
 });

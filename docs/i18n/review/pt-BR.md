@@ -1,0 +1,85 @@
+# Portuguese (Brazil) (`pt-BR`) review log
+
+Independent native review of `src/i18n/locales/pt-BR.json` (934 keys) and `public/_locales/pt_BR/messages.json`, 2026-10-14. Inputs: `docs/i18n/GLOSSARY.md`, `docs/i18n/glossary/pt-BR.md`, `docs/i18n/context.json`, `en.json`, `fr.json`, `de.json`.
+
+Method: terminology audit (for each core English term, every key whose translation does not use the term-sheet word), key-by-key reading of all 934 keys with their context notes (meaning, grammar, register, placeholders, composed texts, cross-references, lengths), plural rendering for 0, 1, 2, 3, 5, 11, 21, 22, 25 and 101, a typography scan (straight quotes, `...`, spacing before punctuation, European-Portuguese vocabulary, *estar a* + infinitive, *excluir*, leftover English), and an audit of every article or contraction placed before `{platform}`, `{platforms}`, `{service}`, `{source}`, `{target}` against the values each key can receive. External names re-checked: Netflix “O que foi assistido” and “Mostrar mais” (help.netflix.com/pt-br/node/101917), Firefox “Gerenciar atalhos de extensões” and “Exibir/ocultar o painel lateral” (mozilla-l10n `pt-BR/toolkit/toolkit/about/aboutAddons.ftl`).
+
+Result: the translation was already solid (consistent terms, correct *você* register, Brazilian spelling and vocabulary, no *excluir*, correct crase and platform genders). 28 keys changed in `pt-BR.json`; `messages.json` unchanged (`extDescription` 88 characters, both command texts identical to `settings.shortcuts.episode` / `settings.shortcuts.panel`). `npm run i18n:check -- pt-BR`: 0 errors, 48 length warnings (3 new ones from this review: `watching.resume`, which wraps instead of overflowing; `prompt.rewatch.failed`, a wrapping bubble title; `ratings.ignoreAria`, screen readers only).
+
+## Changes
+
+| Key | Before | After | Category | Reason |
+|---|---|---|---|---|
+| `agenda.empty.noSeries` | Ainda não há animes em andamento. Comece um na Crunchyroll ou na ADN e os lançamentos dele vão aparecer aqui. | Você ainda não está assistindo nenhum anime. Comece um na Crunchyroll ou na ADN e os lançamentos dele vão aparecer aqui. | meaning | “Animes em andamento” is the airing status on Brazilian anime sites (“currently airing anime”); the note means the user's Watching list is empty |
+| `agenda.empty.noSeriesPlatforms` | Ainda não há animes em andamento. Comece um em {platforms} e os lançamentos dele vão aparecer aqui. | Você ainda não está assistindo nenhum anime. Comece um em {platforms} e os lançamentos dele vão aparecer aqui. | meaning | Same ambiguity |
+| `agenda.empty.week` | Nenhum episódio dos seus animes em andamento nesta semana. | Nenhum episódio nesta semana dos animes que você está assistindo. | meaning | Same ambiguity; “nesta semana” moved so it cannot attach to “assistindo” |
+| `airing.skip.noSeries` | nenhum anime em andamento no cache — abra a aba Assistindo | nenhum anime sendo assistido no cache — abra a aba Assistindo | meaning | The cached Watching list, not airing anime |
+| `watching.noOther` | Nenhum outro anime em andamento. | Você não está assistindo nenhum outro anime. | meaning | Same ambiguity |
+| `engagement.notCompleted` | Ficha não concluída: sem reassistir | Anime não concluído: sem reassistir | meaning | The user's list status is not Completed; “ficha não concluída” read as an unfinished record |
+| `list.remove.detail` | Removido de todas as contas conectadas (AniList, MyAnimeList). | Será removido de todas as contas conectadas (AniList, MyAnimeList). | meaning | Tooltip of the confirmation box, before anything is removed: the bare participle read as already done |
+| `watching.resume` | Continuar | Continuar assistindo | meaning | The note says heading, not a button; a bare “Continuar” reads as a button. Netflix Brasil row title. Small 11 px caption that wraps (no truncation) |
+| `compare.job.retryFailed` | Repetir as falhas | Refazer os com falha | meaning | “Repetir as falhas” literally says “repeat the failures”; “com falha” is the Brazilian UI idiom (GitHub pt-BR); 20 characters (≤ 22) |
+| `review.deferredNote` | Episódio {number} em espera, aplicado após a sua decisão | Episódio {number} em espera: será aplicado após sua decisão | meaning | The episode is applied later; the bare participle read as already applied |
+| `crImport.read.error.logged-out` | Faça login na {platform} nessa aba e depois leia de novo. | Faça login na {platform} nessa aba e depois refaça a leitura. | style | “Leia de novo” tells the user to read something themselves; the meaning is “run the reading again”, parallel to “refaça a análise” |
+| `crImport.read.error.adnLoggedOut` | Abra a ADN nessa aba e faça login (recarregue a página se já tiver feito login), depois leia de novo. | Abra a ADN nessa aba e faça login (recarregue a página se já tiver feito login), depois refaça a leitura. | style | Same |
+| `crImport.read.error.netflixLoggedOut` | Faça login na Netflix nessa aba e escolha seu perfil, depois abra novamente a página “O que foi assistido” e leia de novo. | Faça login na Netflix nessa aba e escolha seu perfil, depois abra novamente a página “O que foi assistido” e refaça a leitura. | style | Same |
+| `crImport.error.noHistory` | Histórico não encontrado: leia de novo. | Histórico não encontrado: refaça a leitura. | style | Same; parallel to `crImport.error.noPlan` “refaça a análise” |
+| `panel.live.pointPassed` | Ponto de sincronização passou | Após o ponto de sincronização | style | Awkward predicate; natural status line, 29 characters (≤ 30) |
+| `watching.seenOf_other` | {count} episódios assistidos de {total} | {count} de {total} episódios assistidos | style | Natural Brazilian word order (“5 de 12 episódios assistidos”) |
+| `crImport.review.createdLimited_one` | {count} verificação criada (no máximo 20 pendentes): resolva essas e depois crie as próximas. | {count} verificação criada (no máximo 20 pendentes): resolva-as e depois crie as próximas. | style | “Resolva essas” is spoken shorthand; written UI uses the enclitic pronoun (cf. “recarregue-a” elsewhere) |
+| `crImport.review.createdLimited_other` | {count} verificações criadas (no máximo 20 pendentes): resolva essas e depois crie as próximas. | {count} verificações criadas (no máximo 20 pendentes): resolva-as e depois crie as próximas. | style | Same |
+| `settings.percentage.fallbackLabel` | Porcentagem de reserva | Porcentagem alternativa | style | “De reserva” suggests a reserve amount; the value is the alternative used when the credits are unknown (23 characters, ≤ 24) |
+| `engagement.lastEpisode` | Episódio {progress} é o último: sem reassistir | O episódio {progress} é o último: sem reassistir | grammar | A full clause needs the article (“AniList · o episódio 12 é o último…” once lowercased) |
+| `prompt.rewatch.failed` | Reassistindo não salvo | Status Reassistindo não salvo | grammar | A bare gerund cannot be the subject of “não salvo”; naming the status makes it grammatical and parallel to “Nota não salva” |
+| `inline.ratingFailedOn` | Falhou no {services}, tente de novo | {services}: falhou, tente de novo | grammar | `{services}` can be “AniList, MyAnimeList” (both failed): a singular “no” before a list; the “{service}: …” pattern works for one or two names |
+| `page.notTracked` | Nada para acompanhar aqui: em {platform}, o SyncKai só acompanha animes reconhecidos pelo AniList. | {platform}: nada para acompanhar aqui. Nesta plataforma, o SyncKai só acompanha animes reconhecidos pelo AniList. | grammar | “Em Netflix” without article is unnatural in a full sentence; a “{platform}:” prefix needs neither the article nor the Netflix/Disney+ gender |
+| `page.platformOff` | A sincronização em {platform} está desativada: o SyncKai não acompanha nada aqui. Para reativar: Configurações › Reprodução e sincronização. | {platform}: sincronização desativada. O SyncKai não acompanha nada aqui. Para reativar: Configurações › Reprodução e sincronização. | grammar | Same article-less “em Netflix / em Disney+”; same prefix solution, path unchanged |
+| `ratings.ignoreAria` | Pular a avaliação de {title} | Dispensar a avaliação de {title} | consistency | The visible button is “Dispensar” (`common.ignore`): the accessible name now contains it (voice control) and matches `review.dismissFailed` |
+| `settings.exclusions.reactivateAria` | Voltar a sincronizar {title} | Reativar a sincronização de {title} | consistency | The visible button is “Reativar”: the accessible name now contains it, as in French |
+| `watching.seenOf_one` | {count} episódio assistido de {total} | {count} de {total} episódios assistidos | plural | `_one` also serves 0: “0 de 12 episódios assistidos” and “1 de 12 episódios assistidos” both read naturally |
+| `settings.cat.help` | Ajuda e sobre | Ajuda e informações | terminology | A dangling “sobre” is not idiomatic as a category name; 19 characters (≤ 22). The sections inside stay “Ajuda” and “Sobre”, so the GitHub template path is unchanged |
+
+Changes per category: meaning 10, style 9, grammar 5, consistency 2, plural 1, terminology 1.
+
+## Term sheet changes (`docs/i18n/glossary/pt-BR.md`)
+
+- New row “series in progress”: *animes que você está assistindo* / *anime sendo assistido*, never *animes em andamento* (kept for running jobs and the empty-state heading).
+- Settings category *Ajuda e informações* (was *Ajuda e sobre*).
+- Rewatch phrasing *Status Reassistindo não salvo*.
+- *entry* row: the user's list status is phrased with *anime* (*Anime não concluído*).
+- New rows: *Refazer os com falha*, *refaça a leitura*, *Porcentagem alternativa*; screen-reader labels contain the visible button word.
+- Conventions: *{platform}:* prefix in prominent full sentences where the platform can be Netflix or Disney+; `{services}` lists before a colon; number-neutral `_one` wording when possible.
+
+## Debatable, left unchanged
+
+- `settings.summary.mappings_one`, `settings.summary.excluded_one`, `settings.delay.aria_one`, `watching.seen_one`: pt-BR plural rules send 0 to `_one`, so a new user sees “0 correspondência · 0 ignorado” on the Settings home. Kept: the term sheet documents the choice, `{count}` is mandatory and there is no `_zero` form; many natives would still write the plural with zero.
+- `compare.breakdown.progress_other`, `compare.impact.progress_other`: “30 progressos”, “30 progressos alterados” (countable *progresso* is unusual). Alternatives (“30 de progresso”, “Progresso alterado em 30 animes”) break the parallel with *status* and *notas*.
+- `panel.tab.nowPlaying` “Em reprodução” (13 for ≤ 12) and `settings.panel.tab.last` “Última aberta” (13 for ≤ 12): no shorter natural label; the translator measured the space.
+- `settings.cat.sync` “Reprodução e sincronização” (26 for ≤ 24), `settings.airing.checkNow` “Verificar agora” (15 for ≤ 14), `common.retry` “Tentar de novo” (14 for about 12): natural, slightly over the hints.
+- `review.format.tvShort` “TV curta”: fans read “TV Short” in English on AniList; kept as a readable translation.
+- `panel.nowPlaying.relation.PREQUEL` “Prequela”: used in Brazil (translations, Skoob), though the pop-culture press often keeps “prequel”; pairs with “Sequência”.
+- `common.excludedTitle`, `feedback.excluded` “Anime ignorado pela sincronização”: understandable and tied to the “Ignorado” chip; “Sincronização desativada para este anime” would be smoother but breaks the term.
+- `page.addCurrent` “Estou assistindo”: the note asks for the status name; the button pair “Quero assistir / Estou assistindo” is idiomatic and the feedback “Adicionado a Assistindo” names the status.
+- `compare.job.cancelled`, `crImport.apply.cancelled`, `crImport.analyze.cancelled` “cancelado/cancelada” for a user stop with partial results: the usual Brazilian UI word; “interrompido” is reserved for the error variants.
+- `match.platformSeasonsSingle`, `match.platformTitleOnly`, `match.platformUnlinkedEntry`, `agenda.estimate.title`, `panel.offTargetPlatforms`, `watching.empty.textPlatforms`, `agenda.empty.noSeriesPlatforms`: article-less “em/de {platform(s)}” kept in reason lines, labels and name lists (Netflix/Disney+ genders differ).
+- `watching.empty.title` “Nada em andamento ainda”: no *anime* noun and shown inside the Watching tab, so it does not read as airing.
+- `import.summary.rewatchDeclined_*` “recusa(s) de reassistir”, `crImport.skipReason.beyond` “além da ficha”, `settings.mappings.count_*` “animes memorizados”: terse but understandable; no better natural noun.
+- `settings.help.reportTitle` “relato” for a GitHub issue (GitHub pt-BR says “problema”): kept per the term sheet.
+- `popup.hostAccessMissing` “acessar Crunchyroll / ADN” without article: acceptable in a banner title.
+
+## Final pass (2026-10-14)
+
+Last changes before the release, made with the code fixes of the same pass.
+
+| Key | Before | After | Reason |
+|---|---|---|---|
+| `panel.nowPlaying.season.WINTER` / `SPRING` / `SUMMER` / `FALL` | Inverno / Primavera / Verão / Outono | Inverno {year} / Primavera {year} / Verão {year} / Outono {year} | The code no longer appends “ {year}”: the year is a placeholder, placed where the language writes it |
+| `sync.noServiceFollows` | Nenhum serviço conectado acompanha este anime. | Nenhum serviço conectado tem uma ficha deste anime. | Meaning: shown when no connected service has an entry for the anime (no AniList / MyAnimeList ID), not when none “tracks” it; English, French and German fixed the same way. Term sheet: entry = *ficha* |
+
+Code fixes that change how this catalog is displayed:
+
+- Netflix history import: the “Mostrar mais” button of a Netflix profile in this language is recognized (label checked by the reviewer on Netflix’s help article 101917 in this language): such an import no longer stops after the first rows as if the history were complete.
+- The signed delays of the Schedule tooltips (`agenda.estimate.*`) now use `time.countdown.*`: “+1 h 30 min”.
+- Lists of names in `{services}` and `{titles}` use the language’s own conjunction (`Intl.ListFormat`) instead of “, ”.
+
+Layout (`npm run test:i18n-layout`), fixed in the components without changing the text: `queue.nextAttempt` (Activity › pending syncs): the buttons go below the status when it is long; `page.action.DROPPED` (side panel at 320 px): the icons are hidden when the side panel is narrow.

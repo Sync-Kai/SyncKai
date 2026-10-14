@@ -43,12 +43,13 @@ const ignoredSeries = new Set<string>();
 
 /**
  * Réglages de la page d'options ; valeurs par défaut si le stockage est illisible. Applique au passage la
- * langue choisie : le script de contenu ne suit pas les réglages (PERF-03), il la relit à chaque lecture.
+ * langue choisie : le script de contenu ne suit pas les réglages (PERF-03), il la relit à chaque lecture. Attendue
+ * avant tout toast : textes d'une autre langue que l'anglais demandés au service worker la première fois.
  */
 async function loadSettings(): Promise<SyncSettings> {
   try {
     const settings = await getSettings();
-    applyLanguageSetting(settings.language);
+    await applyLanguageSetting(settings.language);
     return settings;
   } catch (error: unknown) {
     log.warn('Réglages illisibles, valeurs par défaut utilisées :', error);

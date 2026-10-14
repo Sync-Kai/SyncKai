@@ -48,6 +48,37 @@ describe('lignes de l’historique Netflix', () => {
     expect(splitNetflixTitle('Cyberpunk Edgerunners : "Révolution"')).toEqual({ series: 'Cyberpunk Edgerunners', season: null, episode: 'Révolution' });
   });
 
+  it('guillemets de toutes les langues de profil, ouvrants comme fermants', () => {
+    const quoted: readonly (readonly [string, string])[] = [
+      ['“', '”'], // anglais, espagnol d'Amérique latine, portugais du Brésil, chinois
+      ['”', '”'], // suédois
+      ['„', '“'], // allemand, tchèque
+      ['„', '”'], // polonais, roumain
+      ['«', '»'], // français, italien, espagnol, russe, ukrainien
+      ['»', '«'], // allemand (variante)
+      ['‹', '›'], // guillemets simples français
+      ['›', '‹'],
+      ['‚', '‘'], // guillemets simples allemands
+      ['‘', '’'], // guillemets simples anglais
+      ['「', '」'], // japonais, chinois traditionnel
+      ['『', '』'],
+      ['"', '"'],
+    ];
+    for (const [open, close] of quoted) {
+      expect(splitNetflixTitle(`Ranma ½: Season 1: ${open}Episode 5${close}`)).toEqual({ series: 'Ranma ½', season: 'Season 1', episode: 'Episode 5' });
+    }
+    // Apostrophe typographique dans le titre de la série : pas un guillemet hors d'un début de segment
+    expect(splitNetflixTitle('JoJo’s Bizarre Adventure: Season 5: “Golden Wind”')).toEqual({ series: 'JoJo’s Bizarre Adventure', season: 'Season 5', episode: 'Golden Wind' });
+  });
+
+  it('deux-points pleine chasse (chinois, japonais) avec ou sans espace', () => {
+    expect(splitNetflixTitle('鬼灭之刃：第 1 季：“残酷”')).toEqual({ series: '鬼灭之刃', season: '第 1 季', episode: '残酷' });
+    expect(splitNetflixTitle('ONE PIECE： シーズン1： 「第1話」')).toEqual({ series: 'ONE PIECE', season: 'シーズン1', episode: '第1話' });
+    expect(splitNetflixTitle('サイバーパンク エッジランナーズ：「革命」')).toEqual({ series: 'サイバーパンク エッジランナーズ', season: null, episode: '革命' });
+    // Sans guillemets : film, deux-points pleine chasse compris
+    expect(splitNetflixTitle('ゴジラ-1.0：マイナスカラー')).toEqual({ series: 'ゴジラ-1.0：マイナスカラー', season: null, episode: null });
+  });
+
   it('film : titre entier, deux-points compris', () => {
     expect(splitNetflixTitle('Le Voyage de Chihiro')).toEqual({ series: 'Le Voyage de Chihiro', season: null, episode: null });
     expect(splitNetflixTitle('Godzilla Minus One: Minus Color')).toEqual({ series: 'Godzilla Minus One: Minus Color', season: null, episode: null });
@@ -74,7 +105,7 @@ interface FakeButton {
   click(): void;
 }
 
-function fakeNetflixPage(path = '/viewingactivity'): { buttons: FakeButton[]; rows: { href: string; text: string }[] } {
+function fakeNetflixPage(path = '/viewingactivity', more = '  Voir plus '): { buttons: FakeButton[]; rows: { href: string; text: string }[] } {
   const rows = [
     { href: '/title/81301838', text: 'Ranma ½ : Saison 1 : "Épisode 5"' },
     { href: '/title/60023642', text: 'Le Voyage de Chihiro' },
@@ -83,7 +114,7 @@ function fakeNetflixPage(path = '/viewingactivity'): { buttons: FakeButton[]; ro
     const b: FakeButton = { textContent, disabled: false, inRow, clicks: 0, closest: (selector) => (b.inRow && selector === 'li.retableRow' ? {} : null), click: () => void b.clicks++ };
     return b;
   };
-  const buttons = [button('Masquer dans l’historique', true), button('Signaler un problème', true), button('Masquer tout'), button('  Voir plus ')];
+  const buttons = [button('Masquer dans l’historique', true), button('Signaler un problème', true), button('Masquer tout'), button(more)];
   vi.stubGlobal('location', { pathname: path });
   vi.stubGlobal('document', {
     querySelectorAll: (selector: string) =>
@@ -113,6 +144,44 @@ describe('netflixTabOp (exécutée dans l’onglet Netflix)', () => {
       ['Masquer tout', 0],
       ['Voir plus', 1],
     ]);
+  });
+
+  it('« Voir plus » dans la langue du profil Netflix (libellés de l’aide Netflix), casse et normalisation ignorées', () => {
+    const labels = [
+      'Show more',
+      'Mehr anzeigen',
+      'Mostra altri',
+      'Mostrar más',
+      'Mostrar mais',
+      'Meer weergeven',
+      'Visa mer',
+      'Pokaż więcej',
+      'Zobrazit více',
+      'Mai multe',
+      'Показать еще',
+      'Показать ещё',
+      'Показати більше',
+      'Daha Fazla Göster',
+      'Tampilkan lainnya',
+      'Hiển thị thêm',
+      // Vietnamien décomposé (NFD) : comparé après normalisation
+      'Hiển thị thêm'.normalize('NFD'),
+      'その他を表示',
+      '顯示更多',
+    ];
+    for (const label of labels) {
+      const page = fakeNetflixPage('/viewingactivity', label);
+      expect(netflixTabOp('state', 'synckai.test.hook', ''), label).toMatchObject({ more: true });
+      expect(netflixTabOp('click', 'synckai.test.hook', ''), label).toBe(true);
+      expect(page.buttons.map((b) => b.clicks), label).toEqual([0, 0, 0, 1]);
+    }
+  });
+
+  it('libellé inconnu (langue de profil non vérifiée) : bouton jamais cliqué', () => {
+    const page = fakeNetflixPage('/viewingactivity', '더 보기');
+    expect(netflixTabOp('state', 'synckai.test.hook', '')).toMatchObject({ more: false });
+    expect(netflixTabOp('click', 'synckai.test.hook', '')).toBe(false);
+    expect(page.buttons.every((b) => b.clicks === 0)).toBe(true);
   });
 
   it('bouton absent ou désactivé : aucun clic', () => {

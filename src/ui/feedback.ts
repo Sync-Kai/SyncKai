@@ -1,4 +1,4 @@
-import { t, type MessageKey } from '../i18n';
+import { formatList, t, type MessageKey } from '../i18n';
 import { describeOutcome, type FeedbackTone } from '../shared/sync-feedback';
 import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
@@ -38,10 +38,10 @@ export function adjustFeedback(outcome: SyncOutcome, delta: 1 | -1, retried?: Ad
       const text = t(delta === 1 ? 'inline.watched' : 'inline.backTo', { progress });
       // Succès partiel : le service en échec est nommé, « Réessayer » y écrit la même progression
       if (failed.length > 0) {
-        const services = failed.map((s) => TRACKER_LABELS[s]).join(', ');
+        const services = formatList(failed.map((s) => TRACKER_LABELS[s]));
         return { tone: 'warning', text: t('inline.partial', { text, services }), detail, retry: { delta, services: failed, progress } };
       }
-      if (absent.length > 0) return { tone: 'info', text: t('inline.notInListOn', { text, services: absent.join(', ') }), detail };
+      if (absent.length > 0) return { tone: 'info', text: t('inline.notInListOn', { text, services: formatList(absent) }), detail };
       return { tone: 'success', text, detail };
     }
     case 'excluded':
@@ -78,7 +78,7 @@ export function statusFeedback(outcome: SyncOutcome, status: ListStatusChange): 
   }
   const done = t(STATUS_DONE[status], { title: outcome.mediaTitle });
   const text = outcome.prompts?.rate ? `${done} · ${t('inline.rateInActivity')}` : done;
-  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: formatList(failed) }), detail };
   return { tone: 'success', text, detail };
 }
 
@@ -102,7 +102,7 @@ export function ratingFeedback(outcome: SyncOutcome, stars: string, title: strin
     const failed = outcome.results.filter((r) => r.outcome.status === 'error').map((r) => TRACKER_LABELS[r.service]);
     const written = outcome.results.some((r) => r.outcome.status === 'updated' || r.outcome.status === 'up-to-date');
     if (failed.length === 0 && written) return { ok: true, tone: 'success', text: t('inline.ratingSaved', { stars, title }), detail };
-    if (failed.length > 0) return { ok: false, tone: 'error', text: t('inline.ratingFailedOn', { services: failed.join(', ') }), detail };
+    if (failed.length > 0) return { ok: false, tone: 'error', text: t('inline.ratingFailedOn', { services: formatList(failed) }), detail };
     return { ok: false, tone: 'warning', text: t('inline.nothingSaved'), detail };
   }
   if (outcome.status === 'error') return { ok: false, tone: 'error', text: outcome.message, detail };
@@ -127,7 +127,7 @@ export function addFeedback(outcome: SyncOutcome, status: AddListStatus): Inline
     return failed.length > 0 ? { tone: 'error', text: t('inline.updateFailed'), detail } : { tone: 'info', text: t('page.alreadyInList'), detail };
   }
   const text = t(ADDED[status]);
-  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: formatList(failed) }), detail };
   return { tone: 'success', text, detail };
 }
 
@@ -152,7 +152,7 @@ export function removeFeedback(outcome: SyncOutcome): InlineFeedback {
     return { tone: 'warning', text: t('engagement.notInList'), detail };
   }
   const text = t('inline.removed', { title: outcome.mediaTitle });
-  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: formatList(failed) }), detail };
   return { tone: 'success', text, detail };
 }
 
@@ -171,6 +171,6 @@ export function notesFeedback(outcome: SyncOutcome, cleared: boolean): InlineFee
     return { tone: 'warning', text: t('notes.notInList'), detail };
   }
   const text = t(cleared ? 'inline.notesCleared' : 'inline.notesSaved');
-  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: failed.join(', ') }), detail };
+  if (failed.length > 0) return { tone: 'warning', text: t('inline.partial', { text, services: formatList(failed) }), detail };
   return { tone: 'success', text, detail };
 }

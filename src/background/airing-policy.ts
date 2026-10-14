@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { formatList, t, tp } from '../i18n';
 import type { AiringSchedule } from '../shared/agenda';
 import { isRecord } from '../shared/guards';
 import { toSafeImageUrl } from '../shared/url';
@@ -193,7 +193,7 @@ export function planNotifications(items: readonly AiringItem[]): PlannedNotifica
   return [
     {
       id: `${AIRING_NOTIFICATION_PREFIX}group:${Math.max(...items.map((item) => item.scheduleId))}`,
-      title: t('airing.notification.group', { count: items.length, titles: titles.join(', ') }),
+      title: tp('airing.notification.group', items.length, { titles: formatList(titles) }),
       message: t('airing.notification.message'),
       mediaIds: [...new Set(items.map((item) => item.mediaId))],
       scheduleIds: items.map((item) => item.scheduleId),

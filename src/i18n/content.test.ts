@@ -1,16 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import manifest from '../../manifest.json';
+import { catalogOf } from '../test/catalogs';
 import { installFakeChrome } from '../test/fake-chrome';
 import { reachableFrom, SOURCES } from '../test/import-graph';
 import { CONTENT_KEYS } from './content-keys';
-import de from './locales/de.json';
+import { LOCALES, type Locale } from './locale-codes';
 import en from './locales/en.json';
-import fr from './locales/fr.json';
 
 // Traductions des scripts de contenu (PERF-01) : sous-ensemble des catalogues (content-keys.ts), jamais les
-// catalogues complets, et toutes les clés citées par le code de contenu présentes dans ce sous-ensemble.
-
-const CATALOGS: Readonly<Record<'fr' | 'en' | 'de', Readonly<Record<string, string>>>> = { fr, en, de };
+// catalogues complets, et toutes les clés citées par le code de contenu présentes dans ce sous-ensemble. Seul l'anglais
+// est embarqué ; une autre langue est demandée au service worker (GET_CONTENT_CATALOG).
 
 /** Entrées des scripts de contenu : manifeste (Crunchyroll, ADN) et scripts Netflix enregistrés à la demande */
 const CONTENT_ENTRIES = [
@@ -99,16 +98,44 @@ describe('traductions des scripts de contenu', () => {
     expect(dynamicKeyCalls("t(`content.${kind}.title`); t(cond ? 'a.b' : 'c.d'); tl(locale, 'e.f');")).toHaveLength(1);
   });
 
-  it('chaque clé de contenu existe dans les 3 langues', () => {
-    for (const [locale, catalog] of Object.entries(CATALOGS)) {
+  it('chaque clé de contenu existe dans toutes les langues', () => {
+    for (const locale of LOCALES) {
+      const catalog = catalogOf(locale);
       expect({ locale, missing: CONTENT_KEYS.filter((key) => typeof catalog[key] !== 'string') }).toEqual({ locale, missing: [] });
     }
+  });
+
+  it('aucun pluriel (tp, tpl) dans le code de contenu : ses variantes varient selon la langue, hors du sous-ensemble', () => {
+    const plurals = scanned.filter((path) => /(?<![\w.$])tpl?\(/.test(SOURCES.get(path) ?? ''));
+    expect(plurals).toEqual([]);
   });
 });
 
 describe('t du module léger (i18n/content)', () => {
-  const fake = installFakeChrome({ language: 'fr' });
-  beforeEach(() => fake.reset());
+  /** Langues demandées au service worker (GET_CONTENT_CATALOG), dans l'ordre */
+  const requested: string[] = [];
+  /** Réponse du service worker simulé : textes des clés de contenu (comme background/content-catalog.ts) */
+  let respond: (locale: Locale) => Promise<unknown> = (locale) => Promise.resolve(contentSubset(locale));
+  const fake = installFakeChrome({
+    language: 'fr',
+    extra: {
+      runtime: {
+        id: 'synckai-test',
+        sendMessage: (message: { type: string; payload: { locale: Locale } }) => {
+          if (message.type !== 'GET_CONTENT_CATALOG') return Promise.reject(new Error(`message inattendu ${message.type}`));
+          requested.push(message.payload.locale);
+          return respond(message.payload.locale);
+        },
+      },
+    },
+  });
+
+  beforeEach(() => {
+    fake.reset();
+    requested.length = 0;
+    respond = (locale) => Promise.resolve(contentSubset(locale));
+  });
+  afterEach(() => vi.useRealTimers());
 
   /** Moteur neuf, sans les catalogues complets enregistrés par src/test/setup.ts */
   async function freshContentI18n(): Promise<typeof import('./content')> {
@@ -116,16 +143,43 @@ describe('t du module léger (i18n/content)', () => {
     return import('./content');
   }
 
-  it('rend les vrais textes fr / en / de', async () => {
+  it('anglais embarqué ; autre langue demandée une fois au service worker, puis les vrais textes', async () => {
     const i18n = await freshContentI18n();
-    for (const locale of ['fr', 'en', 'de'] as const) {
-      i18n.setLocale(locale);
-      expect(i18n.t('common.retry')).toBe(CATALOGS[locale]['common.retry']);
-      expect(i18n.t('content.unreachable.title')).toBe(CATALOGS[locale]['content.unreachable.title']);
+    expect(i18n.t('common.retry')).toBe(en['common.retry']);
+    for (const locale of ['fr', 'de', 'ja', 'fr'] as const) {
+      await expect(i18n.applyLanguageSetting(locale)).resolves.toBe(locale);
+      expect(i18n.t('common.retry')).toBe(catalogOf(locale)['common.retry']);
       expect(i18n.t('content.episodeShort', { title: 'Frieren', number: 3 })).toBe(
-        (CATALOGS[locale]['content.episodeShort'] ?? '').replace('{title}', 'Frieren').replace('{number}', '3'),
+        (catalogOf(locale)['content.episodeShort'] ?? '').replace('{title}', 'Frieren').replace('{number}', '3'),
       );
     }
+    await i18n.applyLanguageSetting('en');
+    expect(i18n.getLocale()).toBe('en');
+    // Anglais embarqué, chaque autre langue demandée une seule fois
+    expect(requested).toEqual(['fr', 'de', 'ja']);
+  });
+
+  it('service worker injoignable, catalogue introuvable ou sans réponse : anglais, nouvel essai à la lecture suivante', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const i18n = await freshContentI18n();
+    respond = () => Promise.reject(new Error('Could not establish connection. Receiving end does not exist.'));
+    await expect(i18n.applyLanguageSetting('fr')).resolves.toBe('en');
+    respond = () => Promise.resolve(null);
+    await expect(i18n.applyLanguageSetting('fr')).resolves.toBe('en');
+    // Service worker muet : abandon après CONTENT_CATALOG_TIMEOUT_MS
+    vi.useFakeTimers();
+    respond = () => new Promise(() => undefined);
+    const silent = i18n.applyLanguageSetting('fr');
+    await vi.advanceTimersByTimeAsync(i18n.CONTENT_CATALOG_TIMEOUT_MS);
+    await expect(silent).resolves.toBe('en');
+    vi.useRealTimers();
+    expect(i18n.t('common.close')).toBe(en['common.close']);
+    expect(warn).toHaveBeenCalledTimes(3);
+    warn.mockRestore();
+
+    respond = (locale) => Promise.resolve(contentSubset(locale));
+    await expect(i18n.applyLanguageSetting('fr')).resolves.toBe('fr');
+    expect(requested).toEqual(['fr', 'fr', 'fr', 'fr']);
   });
 
   it('une clé hors du sous-ensemble retombe sur la clé brute, comme une clé inconnue', async () => {
@@ -133,7 +187,7 @@ describe('t du module léger (i18n/content)', () => {
     const outside = Object.keys(en).find((key): key is keyof typeof en => !(CONTENT_KEYS as readonly string[]).includes(key));
     expect(outside).toBeDefined();
     if (outside === undefined) return;
-    i18n.setLocale('de');
+    await i18n.applyLanguageSetting('de');
     expect(i18n.t(outside)).toBe(outside);
   });
 
@@ -141,13 +195,19 @@ describe('t du module léger (i18n/content)', () => {
     fake.reset({ settings: { language: 'de' } });
     let i18n = await freshContentI18n();
     await expect(i18n.initI18n({ setDocumentLang: false, follow: false })).resolves.toBe('de');
-    expect(i18n.t('common.close')).toBe(de['common.close']);
+    expect(i18n.t('common.close')).toBe(catalogOf('de')['common.close']);
     expect(fake.local.onChanged.hasListeners()).toBe(false);
 
     // auto → langue du navigateur (fr)
     fake.reset({ settings: { language: 'auto' } });
     i18n = await freshContentI18n();
     await expect(i18n.initI18n({ setDocumentLang: false, follow: false })).resolves.toBe('fr');
-    expect(i18n.t('common.close')).toBe(fr['common.close']);
+    expect(i18n.t('common.close')).toBe(catalogOf('fr')['common.close']);
+    expect(fake.local.onChanged.hasListeners()).toBe(false);
   });
 });
+
+/** Textes des clés de contenu d'une langue, tels que les renvoie le service worker */
+function contentSubset(locale: Locale): Record<string, string> {
+  return Object.fromEntries(CONTENT_KEYS.map((key) => [key, catalogOf(locale)[key] ?? '']));
+}

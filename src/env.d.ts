@@ -6,5 +6,5 @@ declare const __SYNCKAI_BUILD__: string;
 declare const __SYNCKAI_DEBUG__: boolean;
 /** Injecté par Vite : navigateur ciblé par le build (`SYNCKAI_TARGET`, chrome par défaut) */
 declare const __SYNCKAI_TARGET__: 'chrome' | 'firefox';
-/** Injecté par Vite : textes des scripts de contenu dans les 3 langues (src/build/content-catalog.ts, PERF-01) */
+/** Injecté par Vite : textes des scripts de contenu en anglais (src/build/content-catalog.ts, PERF-01) */
 declare const __SYNCKAI_CONTENT_CATALOGS__: import('./i18n/content-keys').ContentCatalogs;

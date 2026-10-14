@@ -1,3 +1,5 @@
+import { joinSentences } from '../i18n';
+
 // Annonces des messages d'erreur aux lecteurs d'écran. Les vues sont recréées à chaque rendu : un élément
 // role="alert" réinséré serait relu à chaque fois. Les alertes visibles portent donc seulement `data-alert`
 // (leur texte) et une région live unique, créée une fois par page, annonce chaque message nouvellement affiché.
@@ -16,7 +18,8 @@ export interface AnnouncerState {
 export function nextAnnouncement(state: AnnouncerState, visible: readonly string[]): AnnouncerState {
   const shown = new Set(visible.filter((message) => message.length > 0));
   const fresh = [...shown].filter((message) => !state.shown.has(message));
-  if (fresh.length > 0) return { shown, text: fresh.join(' ') };
+  // Plusieurs messages : phrases à la suite selon la langue (point ajouté au besoin, pas d'espace en japonais et chinois)
+  if (fresh.length > 0) return { shown, text: joinSentences(fresh) };
   const stillShown = state.text.length > 0 && [...state.shown].some((message) => shown.has(message) && state.text.includes(message));
   return { shown, text: stillShown ? state.text : '' };
 }

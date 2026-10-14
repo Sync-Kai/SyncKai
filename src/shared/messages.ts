@@ -24,6 +24,8 @@ import type {
   CrImportReviewsResult,
 } from './cr-import';
 import type { NetflixTitlesPayload, NetflixTitlesResult } from './netflix-import';
+import type { ContentCatalog } from '../i18n/content-keys';
+import type { Locale } from '../i18n/locale-codes';
 
 export interface AdjustProgressPayload {
   /** Fiche AniList (catalogue) ; null pour une entrée MAL sans équivalent AniList */
@@ -134,6 +136,11 @@ export interface MessageMap {
   CR_IMPORT_REVIEWS: { payload: CrImportReviewsPayload; response: CrImportReviewsResult };
   /** Import Netflix : filtre « anime » de titres de l'historique (recherches AniList, rien n'est écrit) */
   NETFLIX_IMPORT_TITLES: { payload: NetflixTitlesPayload; response: NetflixTitlesResult };
+  /**
+   * Script de contenu (anglais seul embarqué) : textes de ses clés (CONTENT_KEYS) dans `locale`, tirés du catalogue chargé
+   * par le service worker ; null si le catalogue est introuvable (le script reste en anglais)
+   */
+  GET_CONTENT_CATALOG: { payload: { locale: Locale }; response: ContentCatalog | null };
 }
 
 export type MessageType = keyof MessageMap;

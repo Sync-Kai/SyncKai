@@ -5,13 +5,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Added
+
+- **Interface in 18 more languages**, 21 in all: Spanish (Spain), Latin American Spanish, Brazilian Portuguese, Italian, Dutch, Russian, Ukrainian, Polish, Czech, Romanian, Swedish, Turkish, Indonesian, Vietnamese, Simplified Chinese, Traditional Chinese, Korean and Japanese, besides English, French and German. The extension's description and the names of its shortcuts in the browser (`_locales`) follow the browser's language too. Each language was translated with a shared glossary and its own term sheet, then reviewed independently.
+- *Automatic* language: the browser's language is matched to the closest one. An exact match wins (`pt-BR`, `es-419`, `zh-TW`…); Spanish from Spain or without a region → Spanish (Spain), any other Spanish (`es-MX`, `es-AR`, `es-US`…) → Latin American Spanish; any Portuguese, `pt-PT` included → Brazilian Portuguese; Chinese in Traditional script or from Taiwan, Hong Kong or Macao (`zh-HK`…) → Traditional Chinese, any other Chinese → Simplified Chinese; otherwise the base language (`fr-CA` → French), and English when the language isn't offered.
+- *Settings › Language*: with 21 languages, the picker now shows its search field (a language's own name or its name in the interface language, accents and case ignored, language codes too).
+
 ### Changed
 
 - *Settings › Language*: the language picker is now a list of radio buttons instead of a segmented control. *Automatic* stays first, with the language it resolves to ("Browser language · Français"), then every language in its own name, sorted alphabetically (Deutsch, English, Français) with its name in the interface language below. Language names come from the browser, so new languages need no translated names. Ready for more languages: a search field (accents and case ignored, also matches language codes) appears from 8 languages, and a *Help translate SyncKai* link can be turned on. Arrow keys move the selection; the group is a single tab stop.
+- Translations are loaded on demand: the popup, the side panel, the import pages and the service worker only embed English (the fallback) and read the chosen language from the extension package when needed, so the 21 languages don't slow them down (about 110 KB less code to load than with the three languages embedded before).
+- The scripts SyncKai loads into Crunchyroll, ADN, Netflix and Disney+ pages only embed their own texts in English and get them in another language from the service worker: they are smaller (Crunchyroll / ADN 81.4 → 78.2 KB, Netflix 62.7 → 58.4 KB, Disney+ 69.8 → 65.5 KB), whatever the number of languages.
 
 ### Fixed
 
 - *Settings › My data*: the Crunchyroll / ADN / Netflix import buttons wrap onto a new line in a narrow side panel instead of overflowing the card.
+- Netflix history import with a Netflix profile in Italian, Spanish, Portuguese, Dutch, Swedish, Polish, Czech, Romanian, Russian, Ukrainian, Turkish, Indonesian, Vietnamese, Japanese or Traditional Chinese: the page's *Show more* button is now recognized in that language. Before, only the first ~20 rows of the history were read and the import reported them as the whole history. The label of other profile languages (Simplified Chinese, Korean…) is still unknown. Episode titles in the quotation marks of any language (« », „ “, 「 」…) are now recognized in the rows.
+- Side panel, *Now playing*: the airing season and its year follow the order of the language (« 2024年秋 » in Japanese and Chinese, « 2024년 가을 » in Korean) instead of always putting the year last.
+- *Schedule* tooltips: the delay after the Japanese broadcast uses the units and minus sign of the language (« +1 Std. 30 Min. », « +1時間30分 ») instead of English "h" and "min"; the range of the per-series delay editor is written in the language's number format (« -1,440 to 10,080 »).
+- No more doubled punctuation (« .. », « 。。 ») when a sync failure is followed by *Retrying automatically soon*.
+- Lists of names (services in sync messages, titles of a grouped new-episode notification) use the language's own separators and conjunction (« AniList and MyAnimeList », 、 in Japanese and Chinese) instead of commas, and two sentences shown together are no longer separated by a Latin space in Japanese and Chinese.
+- The error shown when no connected account has an entry for the anime now says so (*No connected service has an entry for this series.*) instead of saying that no service tracks the series.
+- Long translations: in *Activity › Pending syncs*, the buttons go below a long status instead of cutting it; in *To rate*, *Ignore* goes below the stars when they don't fit; in a narrow side panel, the *Hold* / *Drop* / *Done* buttons hide their icons so that their labels fit; in *Watching*, a next-episode chip that doesn't fit is cut, with its full text in a tooltip, instead of overlapping the progress.
 
 ## [2.3.1] - 2026-10-12
 

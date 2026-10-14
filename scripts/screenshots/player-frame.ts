@@ -1,21 +1,21 @@
 // Lecteur simulé + VRAIE bulle de la page (src/content/ui) : résultat de synchro ou note de fin de série ;
 // `kind=watch` : lecture en cours, sans bulle (scène de la capture du panneau latéral).
-import { initI18n, type Locale } from '../../src/i18n';
+import { initI18n } from '../../src/i18n';
 import { showEngagementPrompt } from '../../src/content/ui/engagement-prompt';
 import { bubbleForOutcome } from '../../src/content/ui/sync-toast';
 import { showToast } from '../../src/content/ui/toast';
 import type { SyncOutcome } from '../../src/shared/sync.types';
 import { demoChrome } from './demo-data';
 import { installChromeMock } from './mock-chrome';
-import { localeParam, markReady, param, waitFor } from './params';
+import { loadedLocaleParam, markReady, param, waitFor, type StoreLocale } from './params';
 
 type Kind = 'sync' | 'rate' | 'watch';
 const KINDS: readonly Kind[] = ['sync', 'rate', 'watch'];
 const kind: Kind = KINDS.find((k) => k === param('kind')) ?? 'sync';
-const locale: Locale = localeParam();
+const locale: StoreLocale = await loadedLocaleParam();
 
-const CREDITS_TITLE: Record<Locale, string> = { fr: 'GÉNÉRIQUE DE FIN', en: 'ENDING', de: 'ABSPANN' };
-const ROLES: Record<Locale, readonly string[]> = {
+const CREDITS_TITLE: Record<StoreLocale, string> = { fr: 'GÉNÉRIQUE DE FIN', en: 'ENDING', de: 'ABSPANN' };
+const ROLES: Record<StoreLocale, readonly string[]> = {
   fr: ['Œuvre originale', 'Réalisation', 'Musique', 'Animation'],
   en: ['Original work', 'Director', 'Music', 'Animation'],
   de: ['Original', 'Regie', 'Musik', 'Animation'],

@@ -15,7 +15,7 @@ import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/track
 import type { WatchingEntry, WatchingList } from '../../src/shared/watching.types';
 import { demoChrome, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
 import { installChromeMock } from '../screenshots/mock-chrome';
-import { localeParam, param } from '../screenshots/params';
+import { loadedUiLocaleParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
 import { E2E_ADJUST_SLOW_MS, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
 
@@ -184,7 +184,7 @@ function applyDiffs(payload: unknown): { ok: true; data: CompareJob } | { ok: fa
 
 // ─── Installation ───────────────────────────────────────────────────────────
 
-const demo = demoChrome(localeParam(), scenario, now);
+const demo = demoChrome(await loadedUiLocaleParam(), scenario, now);
 const journal: JournalEntry[] = [
   // Fuite simulée : le rapport doit masquer le token même s'il apparaît dans un message d'erreur
   { at: now - 5 * 60_000, level: 'error', scope: 'sync', message: `AniList 401 (Bearer ${PLANTED_SECRETS.anilistAccess})` },

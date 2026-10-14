@@ -4,7 +4,8 @@
  * - `web_accessible_resources` : scripts Netflix et Disney+ limités à leur plateforme, rien d'exposé à tous les sites ;
  * - `*.iife.js` : scripts classiques (aucun import ni export, aucun `import(`) ;
  * - permissions, motifs, CSP des pages et commandes clavier identiques au manifeste source adapté à la cible ;
- * - budgets de taille des scripts de contenu (Crunchyroll / ADN, Netflix, Disney+).
+ * - budgets de taille des scripts de contenu (Crunchyroll / ADN, Netflix, Disney+) ;
+ * - catalogues de traduction chargés à la demande : chaque langue hors anglais dans assets/locales/, référencée par le code.
  *
  * Usage : npm run verify:build                        (dist/ et dist-firefox/)
  *         node scripts/verify-build.ts --target chrome|firefox
@@ -15,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { Script } from 'node:vm';
 import { BUILD_TARGETS, parseBuildTarget, targetManifest, targetOutDir, type BuildTarget } from '../src/build/manifest-target.ts';
+import { LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
+import { LOCALES } from '../src/i18n/locale-codes.ts';
 import {
   CONTENT_SCRIPT_BUDGET_BYTES,
   DISNEY_SCRIPTS_BUDGET_BYTES,
@@ -23,6 +26,8 @@ import {
   checkAccessDeclarations,
   checkCommands,
   checkContentSecurityPolicy,
+  checkLocaleCatalogs,
+  localeCatalogFiles,
   checkWebAccessibleResources,
   fileReferences,
   hasDynamicImport,
@@ -116,8 +121,16 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   if (netflixBytes > NETFLIX_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Netflix : ${kib(netflixBytes)} > budget ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)}`);
   if (disneyBytes > DISNEY_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Disney+ : ${kib(disneyBytes)} > budget ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)}`);
 
-  // Informatif : fichiers que rien ne référence (les autres langues de _locales sont lues par le navigateur)
+  // 6. Catalogues de traduction : référencés par le code des pages et du service worker (chemins émis par Vite)
   const used = reachableFiles(['manifest.json', ...roots], referencesOf);
+  const catalogSources = new Map(
+    LOCALES.filter((locale) => locale !== 'en').map((locale) => [locale, readFileSync(join(ROOT, 'src/i18n/locales', `${locale}.json`), 'utf8')]),
+  );
+  errors.push(...checkLocaleCatalogs(files, used, catalogSources, read));
+  const catalogFiles = localeCatalogFiles(files);
+  const catalogBytes = catalogFiles.reduce((total, file) => total + size(file), 0);
+
+  // Informatif : fichiers que rien ne référence (les autres langues de _locales sont lues par le navigateur)
   const unused = [...files].filter((file) => !used.has(file) && !file.startsWith('_locales/')).sort();
 
   const status = errors.length === 0 ? '✔' : '✖';
@@ -126,6 +139,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   const listOf = (dir: string): string => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).join(', ');
   console.log(`  scripts Netflix : ${kib(netflixBytes)} / ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)} (${listOf('netflix')})`);
   console.log(`  scripts Disney+ : ${kib(disneyBytes)} / ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)} (${listOf('disney')})`);
+  console.log(`  catalogues de traduction : ${catalogSources.size} langues lues à la demande, ${catalogFiles.length} fichiers (${LOCALE_CATALOG_DIR}/, ${kib(catalogBytes)} ; contenus identiques regroupés), anglais embarqué`);
   if (unused.length > 0) console.log(`  non référencés (${unused.length}) : ${unused.join(', ')}`);
   return errors;
 }

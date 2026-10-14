@@ -13,7 +13,7 @@ import { isRecord } from '../../src/shared/guards';
 import { reduceJob } from '../../src/shared/job';
 import { STORAGE_KEYS } from '../../src/shared/storage-keys';
 import { installChromeMock } from '../screenshots/mock-chrome';
-import { localeParam, param } from '../screenshots/params';
+import { loadedUiLocaleParam, param } from '../screenshots/params';
 import type { E2EState } from './protocol';
 
 const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [], openedTabs: [] };
@@ -274,7 +274,7 @@ function fakePort(name: string): chrome.runtime.Port {
 let storageSet: ((items: Record<string, unknown>) => Promise<void>) | null = null;
 
 installChromeMock({
-  locale: localeParam(),
+  locale: await loadedUiLocaleParam(),
   version: manifest.version,
   storage: { [STORAGE_KEYS.anilistToken]: { accessToken: 'e2e-anilist', expiresAt: now + 86_400_000 } },
   handlers: {

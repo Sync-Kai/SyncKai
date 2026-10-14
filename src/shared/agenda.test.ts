@@ -23,6 +23,7 @@ import {
   type AiringWeekCache,
   type OffsetSettings,
 } from './agenda';
+import { setLocale } from '../i18n/core';
 import type { ExcludedSeries } from './exclusions';
 import type { WatchingEntry } from './watching.types';
 
@@ -54,6 +55,20 @@ describe('premier jour de la semaine', () => {
     expect(weekLocaleTag('fr', 'en-US')).toBe('fr');
     expect(weekLocaleTag('de', '')).toBe('de');
     expect(weekLocaleTag('fr', 'fr-CA')).toBe('fr-CA');
+  });
+
+  it('compare les langues de base : interface régionale (es-419, pt-BR, zh-TW) comprise', () => {
+    expect(weekLocaleTag('es-419', 'es-MX')).toBe('es-MX');
+    expect(weekLocaleTag('es', 'es-AR')).toBe('es-AR');
+    expect(weekLocaleTag('pt-BR', 'pt-BR')).toBe('pt-BR');
+    expect(weekLocaleTag('pt-BR', 'pt_PT')).toBe('pt-PT');
+    expect(weekLocaleTag('zh-TW', 'zh-HK')).toBe('zh-HK');
+    expect(weekLocaleTag('es-419', 'en-US')).toBe('es-419');
+    expect(weekLocaleTag('es-419', '')).toBe('es-419');
+    // Dimanche au Mexique et au Brésil, lundi en Espagne
+    expect(firstDayOfWeek(weekLocaleTag('es-419', 'es-MX'))).toBe(7);
+    expect(firstDayOfWeek(weekLocaleTag('pt-BR', 'pt-BR'))).toBe(7);
+    expect(firstDayOfWeek(weekLocaleTag('es', 'es-ES'))).toBe(1);
   });
 });
 
@@ -131,12 +146,27 @@ describe('estimateRelease', () => {
     expect(withSeriesOffset(settings, 42, null).seriesOffsets).toEqual({});
   });
 
-  it('formatOffset', () => {
+  it('formatOffset : unités abrégées et signe de la langue active', () => {
+    setLocale('en');
     expect(formatOffset(60)).toBe('+1 h');
-    expect(formatOffset(90)).toBe('+1 h 30');
+    expect(formatOffset(90)).toBe('+1 h 30 min');
     expect(formatOffset(45)).toBe('+45 min');
-    expect(formatOffset(-125)).toBe('−2 h 05');
+    expect(formatOffset(-125)).toBe('-2 h 5 min');
+    expect(formatOffset(-30)).toBe('-30 min');
     expect(formatOffset(0)).toBe('+0 min');
+    setLocale('de');
+    expect(formatOffset(90)).toBe('+1 Std. 30 Min.');
+    setLocale('tr');
+    expect(formatOffset(-45)).toBe('-45 dk');
+    // Signe moins typographique de la langue (suédois)
+    setLocale('sv');
+    expect(formatOffset(-125)).toBe('−2 h 5 min');
+    // Japonais sans espace ; chinois avec une espace entre caractères chinois et chiffres
+    setLocale('ja');
+    expect(formatOffset(90)).toBe('+1時間30分');
+    setLocale('zh-CN');
+    expect(formatOffset(90)).toBe('+1 小时 30 分钟');
+    setLocale('en');
   });
 });
 

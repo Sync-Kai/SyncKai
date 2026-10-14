@@ -1,3 +1,4 @@
+import { getLocale, joinQuantities, t } from '../i18n/core';
 import type { AniListErrorCode } from './anilist.types';
 import type { StreamingPlatform } from './episode.types';
 import { isEntryExcluded, type ExcludedSeries } from './exclusions';
@@ -39,13 +40,18 @@ export function firstDayOfWeek(localeTag: string): IsoWeekday {
   }
 }
 
+/** Langue de base d'une étiquette (« es-419 » → « es », « pt_BR » → « pt ») */
+const baseLanguage = (tag: string): string => tag.toLowerCase().split(/[-_]/)[0] ?? '';
+
 /**
- * Locale utilisée pour le premier jour de la semaine : la langue complète du navigateur (« en-GB ») si elle
- * correspond à la langue de l'interface, sinon la langue de l'interface seule (« en » → dimanche, comme en-US).
+ * Locale utilisée pour le premier jour de la semaine : la langue complète du navigateur (« en-GB », « es-MX ») si sa
+ * langue de base est celle de l'interface (« en », « es-419 »), sinon la langue de l'interface seule (« en » → dimanche,
+ * comme en-US).
  */
 export function weekLocaleTag(uiLocale: string, browserLanguage: string): string {
-  const base = browserLanguage.toLowerCase().split(/[-_]/)[0];
-  return base === uiLocale && /^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$/.test(browserLanguage) ? browserLanguage.replace(/_/g, '-') : uiLocale;
+  return baseLanguage(browserLanguage) === baseLanguage(uiLocale) && /^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$/.test(browserLanguage)
+    ? browserLanguage.replace(/_/g, '-')
+    : uiLocale;
 }
 
 /** Semaine affichée : 7 minuits locaux (changement d'heure compris), bornes en ms */
@@ -360,14 +366,21 @@ export function withSeriesOffset<T extends OffsetSettings>(settings: T, mediaId:
   return { ...settings, seriesOffsets: offset === null ? rest : { ...rest, [String(mediaId)]: { minutes: offset, at: now } } };
 }
 
-/** Délai lisible et signé : « +1 h », « +1 h 30 », « +45 min », « −2 h » */
+/**
+ * Délai lisible et signé, dans la langue active : « +1 h », « +1 h 30 min », « +45 min », « -2 h » (unités abrégées des
+ * comptes à rebours `time.countdown.*`, signe et chiffres d'Intl.NumberFormat ; « +1時間30分 » en japonais)
+ */
 export function formatOffset(minutes: number): string {
-  const sign = minutes < 0 ? '−' : '+';
-  const abs = Math.abs(Math.round(minutes));
+  const total = Math.round(minutes);
+  const abs = Math.abs(total);
   const hours = Math.floor(abs / 60);
   const rest = abs % 60;
-  if (hours === 0) return `${sign}${rest} min`;
-  return rest === 0 ? `${sign}${hours} h` : `${sign}${hours} h ${pad(rest)}`;
+  const locale = getLocale();
+  // Signe sur la première quantité seulement (« -2 h 5 min ») ; « +0 min » pour un délai nul
+  const signed = (value: number): string => new Intl.NumberFormat(locale, { signDisplay: 'always' }).format(total < 0 ? -value : value);
+  if (hours === 0) return t('time.countdown.minutes', { count: signed(rest) });
+  const hoursText = t('time.countdown.hours', { count: signed(hours) });
+  return rest === 0 ? hoursText : joinQuantities([hoursText, t('time.countdown.minutes', { count: new Intl.NumberFormat(locale).format(rest) })]);
 }
 
 // ─── Message GET_AGENDA ───────────────────────────────────────────────────

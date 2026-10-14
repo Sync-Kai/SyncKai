@@ -2,13 +2,13 @@
 import '../../src/popup/popup.css';
 import { demoChrome, type Scenario } from './demo-data';
 import { installChromeMock } from './mock-chrome';
-import { localeParam, markReady, param, waitFor } from './params';
+import { loadedLocaleParam, markReady, param, waitFor } from './params';
 import { isSettingsCategory } from '../../src/ui/settings/navigation';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'menu', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
 
-installChromeMock(demoChrome(localeParam(), scenario));
+installChromeMock(demoChrome(await loadedLocaleParam(), scenario));
 await import('../../src/popup/popup.ts');
 
 // Zoom appliqué avant la navigation : les défilements se calculent à l'échelle finale

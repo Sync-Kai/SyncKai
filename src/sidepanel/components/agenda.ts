@@ -1,4 +1,4 @@
-import { getLocale, t } from '../../i18n';
+import { getLocale, joinSentences, t } from '../../i18n';
 import { BTN_GHOST, CARD, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { platformIcon } from '../../ui/brand-icons';
 import {
@@ -74,6 +74,11 @@ export interface AgendaView {
 
 function timeFormat(): Intl.DateTimeFormat {
   return new Intl.DateTimeFormat(getLocale(), { hour: 'numeric', minute: '2-digit' });
+}
+
+/** Entier dans le format de la langue : signe moins et séparateur de milliers (« -1,440 », « 10 080 ») */
+function formatInteger(value: number): string {
+  return new Intl.NumberFormat(getLocale()).format(value);
 }
 
 function sameLocalDay(a: number, b: number): boolean {
@@ -428,7 +433,7 @@ export function createAgenda(): AgendaView {
         'span',
         {
           class: `inline-flex cursor-help items-center gap-1 ${row.customOffset !== null ? 'text-lavender' : 'text-ink'}`,
-          attrs: { title, 'aria-label': `${t('agenda.estimate', { platform: platformLabel, time })}. ${title}`.replace(/ {2,}/g, ' ') },
+          attrs: { title, 'aria-label': joinSentences([t('agenda.estimate', { platform: platformLabel, time }).replace(/ {2,}/g, ' '), title]) },
         },
         before.trim(),
         row.platform && platformIcon(row.platform, 'h-3 w-3 rounded-[3px]', { title: SHORT_PLATFORM[row.platform] }),
@@ -670,7 +675,7 @@ export function createAgenda(): AgendaView {
       h(
         'span',
         { class: `text-[11px] font-semibold ${edit.invalid || edit.failed ? 'text-danger' : 'text-muted'}`, attrs: { id: helpId, ...(edit.failed ? alertAttrs(t('agenda.adjust.saveFailed')) : { role: 'note' }) } },
-        edit.failed ? t('agenda.adjust.saveFailed') : t('agenda.adjust.help', { min: OFFSET_RANGE.min, max: OFFSET_RANGE.max }),
+        edit.failed ? t('agenda.adjust.saveFailed') : t('agenda.adjust.help', { min: formatInteger(OFFSET_RANGE.min), max: formatInteger(OFFSET_RANGE.max) }),
       ),
     );
   }

@@ -39,7 +39,7 @@ Features
 • Settings by category, with a summary of each setting and quick toggles, in the popup and the side panel.
 • Backup: export / import your settings, matches and history (never your AniList/MAL sign-ins).
 • Diagnostic report (Settings › Help): attach it to a bug report, with no sensitive data.
-• Interface in English, French and German.
+• Interface in 21 languages: English, French, German, Spanish (Spain and Latin America), Brazilian Portuguese, Italian, Dutch, Russian, Ukrainian, Polish, Czech, Romanian, Swedish, Turkish, Indonesian, Vietnamese, Chinese (Simplified and Traditional), Korean and Japanese.
 
 Supported platforms
 • Crunchyroll

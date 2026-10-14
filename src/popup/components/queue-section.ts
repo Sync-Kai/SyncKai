@@ -57,20 +57,21 @@ function renderItem(item: SyncQueueItem, { queue, now, onRetry, onAbandon }: Que
       h('span', { class: 'truncate text-[11px] font-semibold text-muted' }, `${PLATFORM_LABELS[item.episode.platform]} → ${servicesLabel(item)}`),
       item.lastError && h('span', { class: 'line-clamp-2 text-[11px] text-muted/80', attrs: { title: item.lastError } }, item.lastError),
     ),
+    // État et boutons sur une ligne quand ils tiennent ; sinon les boutons passent dessous, à droite (libellé traduit long)
     h(
       'div',
-      { class: 'flex items-center justify-between gap-2' },
+      { class: 'flex flex-wrap items-center justify-between gap-x-2 gap-y-1' },
       failed
-        ? h('span', { class: 'flex min-w-0 items-center gap-1 text-[11px] font-bold text-danger' }, icon('alert', 'h-3 w-3'), h('span', { class: 'truncate' }, t('queue.failed')))
+        ? h('span', { class: 'flex min-w-0 items-center gap-1 text-[11px] font-bold text-danger' }, icon('alert', 'h-3 w-3 shrink-0'), h('span', { class: 'min-w-0 break-words' }, t('queue.failed')))
         : h(
             'span',
             { class: 'flex min-w-0 items-center gap-1 text-[11px] font-bold text-lavender' },
-            icon('clock', 'h-3 w-3'),
-            h('span', { class: 'truncate' }, t('queue.nextAttempt', { when: formatUntil(item.nextAttemptAt, now) })),
+            icon('clock', 'h-3 w-3 shrink-0'),
+            h('span', { class: 'min-w-0 break-words' }, t('queue.nextAttempt', { when: formatUntil(item.nextAttemptAt, now) })),
           ),
       h(
         'div',
-        { class: 'flex shrink-0 items-center gap-1' },
+        { class: 'ml-auto flex shrink-0 items-center gap-1' },
         h(
           'button',
           {

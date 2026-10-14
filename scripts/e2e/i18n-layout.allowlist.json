@@ -1,0 +1,12 @@
+{
+  "$comment": "Findings accepted by npm run test:i18n-layout (scripts/e2e/i18n-layout.e2e.ts). Each entry of `allow` needs a non-empty `reason` and accepts every finding that matches ALL of its other fields: `locale` (code, or \"*\"), `screen` (exact, e.g. \"popup/settings-sync\", or prefix ending with *, e.g. \"panel-320/*\"), `kind` (truncated, clipped, spill, overflow, offscreen, placeholder, scroll), `key` (one of the finding's catalog keys), `text` (substring of the finding's text). Example: { \"locale\": \"de\", \"screen\": \"panel-320/*\", \"key\": \"panel.tab.agenda\", \"reason\": \"tab label ellipsized at 320 px, accepted\" }. Entries that match nothing are listed as stale in the report.",
+  "allow": [
+    {
+      "locale": "tr",
+      "screen": "popup/watching",
+      "kind": "truncated",
+      "key": "watching.badge.upcoming",
+      "reason": "Next-episode chip of a Watching row, truncated by design (full text in its tooltip) when it doesn't fit: only a 4-digit episode with no known total (One Piece: « Bölüm 1123: 4 gün sonra » next to « bölüm 1122 ») reaches the limit. Turkish has no abbreviation for « bölüm » and « gün » stays in full (docs/i18n/glossary/tr.md), so no shorter natural wording exists."
+    }
+  ]
+}

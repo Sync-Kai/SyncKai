@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { formatList, t } from '../i18n';
 import type { PageListState, PageMediaView, PageSeason } from '../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, ListStatusChange } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
@@ -184,9 +184,16 @@ function renderStatusRow(primary: InListState, state: MediaActionsState, disable
     return renderStatusConfirm({ status, focusKey: 'page', inMenu: false, onYes: () => handlers.onSetStatus(status), onNo: () => handlers.onConfirm(null) });
   }
   const statuses: readonly ListStatusChange[] = ['PAUSED', 'DROPPED', 'COMPLETED'];
+  // Rangée étroite (panneau latéral de moins de ≈ 355 px) : icônes masquées, la place va aux libellés traduits
+  // (« Відкласти », « Abandonar ») ; l'indicateur de chargement reste affiché
+  const statusIcon = (status: ListStatusChange): SVGSVGElement => {
+    const svg = STATUS_ICONS[status]();
+    svg.classList.add('@max-[300px]:hidden');
+    return svg;
+  };
   return h(
     'div',
-    { class: 'grid grid-cols-3 gap-1.5' },
+    { class: '@container grid grid-cols-3 gap-1.5' },
     ...statuses.map((status) =>
       h(
         'button',
@@ -201,7 +208,7 @@ function renderStatusRow(primary: InListState, state: MediaActionsState, disable
           },
           on: { click: () => (needsConfirm(status) ? handlers.onConfirm(status) : handlers.onSetStatus(status)) },
         },
-        state.busy === `status-${status}` ? spinner() : STATUS_ICONS[status](),
+        state.busy === `status-${status}` ? spinner() : statusIcon(status),
         h('span', { class: 'truncate' }, t(`page.action.${status}`)),
       ),
     ),
@@ -217,7 +224,7 @@ export function renderRetryButton(retry: AdjustRetry, disabled: boolean, onRetry
       attrs: {
         type: 'button',
         'data-focus': focusKey,
-        'aria-label': t('inline.retryOn', { services: retry.services.map((s) => TRACKER_LABELS[s]).join(', ') }),
+        'aria-label': t('inline.retryOn', { services: formatList(retry.services.map((s) => TRACKER_LABELS[s])) }),
         ...busyAttrs(disabled),
       },
       on: { click: () => onRetry(retry) },

@@ -69,6 +69,12 @@ describe('onglet « En lecture »', () => {
     expect(airedLabel({ season: 'SPRING', seasonYear: 2023 })).toBe('Printemps 2023');
     expect(airedLabel({ season: null, seasonYear: 2023 })).toBe('2023');
     expect(airedLabel({ season: 'FALL', seasonYear: null })).toBeNull();
+    // Année placée par la langue : avant la saison en japonais, chinois et coréen
+    setLocale('ja');
+    expect(airedLabel({ season: 'FALL', seasonYear: 2024 })).toBe('2024年秋');
+    setLocale('ko');
+    expect(airedLabel({ season: 'FALL', seasonYear: 2024 })).toBe('2024년 가을');
+    setLocale('fr');
   });
 
   it('épisode de la page (relatif à la fiche AniList)', () => {

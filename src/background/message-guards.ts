@@ -1,6 +1,7 @@
 // Contrôle des messages reçus par le service worker (seul importateur) : expéditeurs autorisés et validation des
 // payloads. Hors du graphe des scripts de contenu, qui n'ont besoin que de `sendMessage` et des types
 // (shared/messages.ts) : les gardes de tous les payloads (import, comparaison, agenda…) n'alourdissent pas les pages.
+import { isLocale, type Locale } from '../i18n/locale-codes';
 import { isAgendaPayload } from '../shared/agenda';
 import { isApplyDiffsPayload } from '../shared/compare';
 import { isCrImportAnalyzePayload, isCrImportApplyPayload, isCrImportReviewsPayload } from '../shared/cr-import';
@@ -70,6 +71,8 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   CR_IMPORT_CANCEL: 'extension',
   CR_IMPORT_REVIEWS: 'extension',
   NETFLIX_IMPORT_TITLES: 'extension',
+  // Textes d'une langue pour les toasts : les pages de l'extension chargent elles-mêmes les catalogues complets
+  GET_CONTENT_CATALOG: 'content',
 };
 
 /** Le message `type` est accepté depuis cet expéditeur */
@@ -133,6 +136,8 @@ const isAddToListPayload = (p: unknown): p is AddToListPayload =>
   isRecord(p) && isPositiveInt(p.mediaId) && (p.malId === null || isPositiveInt(p.malId)) && isAddListStatus(p.status);
 
 const isPanelMediaPayload = (p: unknown): p is { mediaId: number } => isRecord(p) && isPositiveInt(p.mediaId);
+/** Langue proposée seulement (i18n/locale-codes.ts) : toute autre valeur est refusée, le script reste en anglais */
+const isContentCatalogPayload = (p: unknown): p is { locale: Locale } => isRecord(p) && isLocale(p.locale);
 
 // Record exhaustif : TypeScript impose un validateur de payload pour chaque MessageType
 const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is MessagePayload<K> } = {
@@ -169,6 +174,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   CR_IMPORT_CANCEL: isNull,
   CR_IMPORT_REVIEWS: isCrImportReviewsPayload,
   NETFLIX_IMPORT_TITLES: isNetflixTitlesPayload,
+  GET_CONTENT_CATALOG: isContentCatalogPayload,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */

@@ -37,10 +37,15 @@ export function parseNetflixRow(raw: unknown): NetflixHistoryRow | null {
   return id && text ? { id, text } : null;
 }
 
-/** Fin de ligne entre guillemets (titre de l'épisode : "…", “…”, „…“, «…»), après le DERNIER « : » qui la précède */
-const QUOTED_EPISODE = /^(.*)\s*:\s+["“”„«](.*)$/s;
-/** Dernier séparateur « : » (espace après les deux-points : « Re:ZERO » n'est pas coupé) */
-const LAST_SEPARATOR = /^(.+)\s*:\s+(.+)$/s;
+// Guillemets des titres d'épisode, quelle que soit la langue du profil Netflix (ouvrants comme fermants) : "…", “…”,
+// ”…”, „…“, „…”, «…», »…«, ‹…›, ‚…‘, ‘…’, 「…」, 『…』. Séparateur : « : » suivi d'une espace (« Re:ZERO » n'est pas
+// coupé) ou deux-points pleine chasse « ： » (chinois, japonais ; format de ces profils non relevé)
+/** Fin de ligne entre guillemets (titre de l'épisode), après le DERNIER séparateur qui la précède */
+const QUOTED_EPISODE = /^(.*)\s*(?::\s+|：\s*)[«»„“”‚‘’"「」『』‹›](.*)$/s;
+/** Guillemets fermants en fin de titre d'épisode */
+const CLOSING_QUOTES = /[«»„“”‚‘’"「」『』‹›]+$/;
+/** Dernier séparateur « : » ou « ： » */
+const LAST_SEPARATOR = /^(.+)\s*(?::\s+|：\s*)(.+)$/s;
 
 export interface NetflixRowTitle {
   series: string;
@@ -51,8 +56,9 @@ export interface NetflixRowTitle {
 }
 
 /**
- * Texte du lien d'une ligne → série, saison, épisode. Formats (FR « : », EN / DE « : ») :
- * « Ranma ½ : Saison 1 : "Épisode 1" », « One Piece: Elbaph Arc: "Episode 1180" », « Le Voyage de Chihiro » (film).
+ * Texte du lien d'une ligne → série, saison, épisode. Formats relevés (FR « : », EN / DE « : ») :
+ * « Ranma ½ : Saison 1 : "Épisode 1" », « One Piece: Elbaph Arc: "Episode 1180" », « Le Voyage de Chihiro » (film) ;
+ * guillemets des autres langues acceptés (voir QUOTED_EPISODE).
  * L'épisode est la partie finale entre guillemets ; la saison, le dernier segment avant lui ; la série, tout le reste
  * (un titre qui contient « : » sans saison perd son dernier segment : la recherche AniList le retrouve quand même).
  * Sans guillemets : film (titre entier, deux-points compris).
@@ -62,7 +68,7 @@ export function splitNetflixTitle(text: string): NetflixRowTitle {
   const quoted = QUOTED_EPISODE.exec(value);
   if (!quoted) return { series: value, season: null, episode: null };
   const head = clean(quoted[1] ?? '');
-  const episode = clean((quoted[2] ?? '').replace(/["“”»]+$/, '')) || null;
+  const episode = clean((quoted[2] ?? '').replace(CLOSING_QUOTES, '')) || null;
   const split = LAST_SEPARATOR.exec(head);
   const series = split ? clean(split[1] ?? '') : head;
   return series ? { series, season: split ? clean(split[2] ?? '') : null, episode } : { series: value, season: null, episode: null };
@@ -102,6 +108,9 @@ export type NetflixTabOp = 'state' | 'click' | 'rows' | 'show';
  * ni à une constante de ce module). Hypothèses sur le DOM relevées le 2026-10-12 (profil français) : lignes
  * `li.retableRow`, lien du titre `a[href="/title/{id}"]`, bouton « Voir plus » (« Show more », « Mehr anzeigen ») hors des
  * lignes. Ne clique JAMAIS sur autre chose que ce bouton (ni « Masquer dans l'historique », ni « Signaler un problème »).
+ * Libellé du bouton dans la langue du PROFIL Netflix (pas celle de SyncKai) : FR / EN / DE relevés sur le site, les autres
+ * d'après l'article d'aide officiel de Netflix (help.netflix.com/<langue>/node/101917) ; langue absente (chinois
+ * simplifié, coréen : libellé non vérifié) → bouton jamais trouvé, seules les premières lignes sont lues.
  * - state : chemin, lignes affichées, bouton présent, choix du profil affiché, liste présente ;
  * - click : un clic sur « Voir plus » (true s'il existait) ;
  * - rows  : { href, text } du lien de chaque ligne ;
@@ -110,10 +119,39 @@ export type NetflixTabOp = 'state' | 'click' | 'rows' | 'show';
  */
 export function netflixTabOp(op: NetflixTabOp, hook: string, movieId: string): unknown {
   const row = 'li.retableRow';
-  const labels = ['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden'];
+  // « Voir plus » en minuscules (NFC) : FR / EN / DE (site), puis it, es / es-419, pt-BR, nl, sv, pl, cs, ro, ru, uk, tr,
+  // id, vi, ja, zh-TW (help.netflix.com/<langue>/node/101917)
+  const labels = [
+    'voir plus',
+    'afficher plus',
+    'show more',
+    'see more',
+    'load more',
+    'mehr anzeigen',
+    'weitere anzeigen',
+    'mehr laden',
+    'mostra altri',
+    'mostrar más',
+    'mostrar mais',
+    'meer weergeven',
+    'visa mer',
+    'pokaż więcej',
+    'zobrazit více',
+    'mai multe',
+    'показать еще',
+    'показать ещё',
+    'показати більше',
+    'daha fazla göster',
+    'tampilkan lainnya',
+    'hiển thị thêm',
+    'その他を表示',
+    '顯示更多',
+  ].map((label) => label.normalize('NFC'));
   const text = (value: string | null | undefined): string => (value ?? '').replace(/\s+/g, ' ').trim();
   const more = (): HTMLButtonElement | undefined =>
-    [...document.querySelectorAll('button')].find((button) => !button.disabled && !button.closest(row) && labels.includes(text(button.textContent).toLowerCase()));
+    [...document.querySelectorAll('button')].find(
+      (button) => !button.disabled && !button.closest(row) && labels.includes(text(button.textContent).normalize('NFC').toLowerCase()),
+    );
   if (op === 'state') {
     return {
       path: location.pathname,

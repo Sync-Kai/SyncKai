@@ -1,4 +1,5 @@
 // Contrat entre la page de test (popup-frame.ts, dans le navigateur) et les tests (popup.e2e.ts, dans Node).
+import type { Locale } from '../../src/i18n';
 import type { SentMessage } from '../screenshots/mock-chrome';
 
 /** Traces relevées par la page de test, lues par les tests via `window.__e2e` */
@@ -34,7 +35,7 @@ export const PLANTED_SECRETS = {
 export interface FrameParams {
   /** Écran de démo (voir scripts/screenshots/demo-data.ts) */
   scenario?: 'watching' | 'page' | 'activity' | 'compare' | 'settings';
-  locale?: 'fr' | 'en' | 'de';
+  locale?: Locale;
   /** Accès aux sites retiré (bandeau « Autoriser l'accès ») */
   hostAccess?: 'missing';
   /** Carte « Sur cette page » : série absente des deux listes */
@@ -82,7 +83,7 @@ export interface E2EPanelControls {
 
 /** Paramètres d'URL de sidepanel.html */
 export interface PanelFrameParams {
-  locale?: 'fr' | 'en' | 'de';
+  locale?: Locale;
   /** Onglet ouvert au démarrage */
   tab?: 'nowPlaying' | 'agenda';
   /** `none` : fiche de l'onglet absente du cache de session (RESOLVE_PAGE_MEDIA envoyé au démarrage) */

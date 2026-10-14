@@ -2,9 +2,9 @@
 import '../../src/import-cr/import-cr.css';
 import { importChrome } from './demo-panel';
 import { installChromeMock } from './mock-chrome';
-import { localeParam, markReady, param, waitFor } from './params';
+import { loadedLocaleParam, markReady, param, waitFor } from './params';
 
-installChromeMock(importChrome(localeParam()));
+installChromeMock(importChrome(await loadedLocaleParam()));
 
 const zoom = Number(param('zoom') ?? '1');
 if (zoom !== 1) document.documentElement.style.zoom = String(zoom);

@@ -16,6 +16,7 @@ import { parseArgs } from 'node:util';
 import { crc32, deflateRawSync } from 'node:zlib';
 import { GIT_COMMIT_EPOCH_ARGS } from '../src/build/build-stamp.ts';
 import { FIREFOX_GECKO_ID, parseBuildTarget, targetOutDir, type BuildTarget } from '../src/build/manifest-target.ts';
+import { chromeLocaleFolder, LOCALES } from '../src/i18n/locale-codes.ts';
 
 interface PackageJson {
   version: string;
@@ -37,7 +38,8 @@ interface ZipEntry {
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const RELEASE = join(ROOT, 'release');
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const REQUIRED_LOCALES = ['en', 'fr', 'de'] as const;
+/** Dossiers `_locales` attendus : un par langue de l'interface (`es_419`, `pt_BR`, `zh_CN`…) */
+const REQUIRED_LOCALES = LOCALES.map(chromeLocaleFolder);
 
 function fail(message: string): never {
   console.error(`✖ ${message}`);

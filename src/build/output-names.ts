@@ -15,6 +15,28 @@ export const BACKGROUND_CHUNK_FILE = 'assets/background.js';
 /** Nom par défaut de Vite pour les autres chunks */
 export const DEFAULT_CHUNK_FILE = 'assets/[name]-[hash].js';
 
+/** Nom par défaut de Vite pour les autres fichiers émis (styles, polices, images) */
+export const DEFAULT_ASSET_FILE = 'assets/[name]-[hash][extname]';
+
+/** Dossier des catalogues de traduction chargés à la demande : `assets/locales/<code>.json` */
+export const LOCALE_CATALOG_DIR = 'assets/locales';
+
+/** Sous-ensemble de PreRenderedAsset utilisé ici (chemins des fichiers sources de l'asset) */
+export interface AssetInfo {
+  originalFileNames: readonly string[];
+}
+
+/**
+ * `build.rollupOptions.output.assetFileNames` : catalogues `src/i18n/locales/<code>.json` (lus par i18n/index.ts via
+ * l'URL émise) à nom lisible `assets/locales/<code>.json`, sans hash : aucun cache à invalider dans une extension (voir
+ * plus haut). Rolldown regroupe les fichiers de contenu identique (deux catalogues identiques) sous le nom du
+ * premier : scripts/verify-build.ts vérifie chaque langue par son contenu. Autres fichiers : nom haché de Vite.
+ */
+export function assetFileName(asset: AssetInfo): string {
+  const catalog = asset.originalFileNames.some((file) => /(?:^|\/)src\/i18n\/locales\/[^/]+\.json$/.test(file.replaceAll('\\', '/')));
+  return catalog ? `${LOCALE_CATALOG_DIR}/[name][extname]` : DEFAULT_ASSET_FILE;
+}
+
 /** Sous-ensemble de PreRenderedChunk utilisé ici */
 export interface ChunkInfo {
   facadeModuleId: string | null;

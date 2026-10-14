@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setLocale } from '../i18n';
 import { nextAnnouncement, type AnnouncerState } from './live-region';
 
 const EMPTY: AnnouncerState = { shown: new Set(), text: '' };
@@ -29,8 +30,15 @@ describe('nextAnnouncement', () => {
 
   it('annonce conservée tant qu’un de ses messages reste affiché', () => {
     const both = nextAnnouncement(EMPTY, ['A', 'B']);
-    expect(both.text).toBe('A B');
-    expect(nextAnnouncement(both, ['B']).text).toBe('A B');
+    // Messages à la suite : point ajouté à celui qui n'en a pas (pause du lecteur d'écran)
+    expect(both.text).toBe('A. B');
+    expect(nextAnnouncement(both, ['B']).text).toBe('A. B');
+  });
+
+  it('plusieurs messages en japonais : ni espace ni point latin entre eux', () => {
+    setLocale('ja');
+    expect(nextAnnouncement(EMPTY, ['接続できません。', '再試行してください']).text).toBe('接続できません。再試行してください');
+    setLocale('en');
   });
 
   it('textes vides ignorés', () => {

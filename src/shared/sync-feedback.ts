@@ -1,4 +1,4 @@
-import { lowerFirst, t } from '../i18n/core';
+import { appendSuffix, lowerFirst, t } from '../i18n/core';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from './sync.types';
 import { TRACKER_LABELS } from './tracker.types';
 
@@ -36,13 +36,14 @@ export function describeOutcome(outcome: SyncOutcome): SyncFeedback {
   switch (outcome.status) {
     case 'synced': {
       const isCompleted = outcome.results.some((r) => r.outcome.status === 'updated' && r.outcome.completed);
+      const results = outcome.results
+        .map((r) => t('common.serviceMessage', { service: TRACKER_LABELS[r.service], message: describeServiceOutcome(r.outcome) }))
+        .join(' · ');
       return {
         tone: toneOf(outcome.results),
         title: isCompleted ? t('feedback.completedTitle', { title: outcome.mediaTitle }) : outcome.mediaTitle,
-        message:
-          outcome.results
-            .map((r) => t('common.serviceMessage', { service: TRACKER_LABELS[r.service], message: describeServiceOutcome(r.outcome) }))
-            .join(' · ') + (outcome.queued ? t('feedback.queuedSuffix') : ''),
+        // « … Vérifie ta connexion. » + « . Nouvel essai… » : point du complément retiré (jamais « .. » ni « 。。 »)
+        message: outcome.queued ? appendSuffix(results, t('feedback.queuedSuffix')) : results,
       };
     }
     case 'needs-review':

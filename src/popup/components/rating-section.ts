@@ -43,16 +43,17 @@ function renderItem(item: PendingRating, { ratings, now, onRate, onIgnore, entry
       { class: 'flex min-w-0 flex-1 flex-col gap-0.5' },
       h('span', { class: 'truncate text-[13px] font-bold', attrs: { title: item.title } }, entryTitle(site, item.title, `rate-entry-${item.id}`)),
       h('span', { class: 'truncate text-[11px] font-semibold text-muted' }, t('ratings.completed', { relative: formatRelativeTime(item.completedAt, now) })),
+      // Étoiles et « Ignorer » sur une ligne quand ils tiennent ; sinon « Ignorer » passe dessous, à droite (libellé long)
       h(
         'div',
-        { class: 'flex items-center justify-between gap-1' },
+        { class: 'flex flex-wrap items-center justify-between gap-1' },
         stars,
         busy
-          ? h('span', { class: 'flex h-8 items-center px-2 text-muted', attrs: { role: 'status', 'aria-label': t('prompt.rating.saving') } }, icon('spinner', 'h-3.5 w-3.5 motion-safe:animate-spin'))
+          ? h('span', { class: 'ml-auto flex h-8 items-center px-2 text-muted', attrs: { role: 'status', 'aria-label': t('prompt.rating.saving') } }, icon('spinner', 'h-3.5 w-3.5 motion-safe:animate-spin'))
           : h(
               'button',
               {
-                class: `${BTN_GHOST} px-2.5 text-muted`,
+                class: `${BTN_GHOST} ml-auto px-2.5 text-muted`,
                 attrs: { type: 'button', 'aria-label': t('ratings.ignoreAria', { title: item.title }), 'data-focus': `rate-ignore-${item.id}` },
                 on: { click: () => onIgnore(item) },
               },

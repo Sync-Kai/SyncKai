@@ -1,3 +1,4 @@
+import { LANGUAGE_SETTINGS, type LanguageSetting } from '../i18n/locale-codes';
 import { AIRING_DELAYS, type AiringDelayHours } from './engagement.types';
 import { isRecord } from './guards';
 import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
@@ -14,9 +15,9 @@ export type CompletionTrigger = 'credits' | 'percentage';
  */
 export type NotificationLevel = 'discreet' | 'detailed' | 'alerts-only';
 
-/** Langue de l'interface : 'auto' suit la langue du navigateur (fr, de, en ; anglais sinon) */
-export type LanguageSetting = 'auto' | 'fr' | 'en' | 'de';
-export const LANGUAGE_SETTINGS: readonly LanguageSetting[] = ['auto', 'fr', 'en', 'de'];
+// Langue de l'interface : 'auto' ou une langue proposée (liste dans i18n/locale-codes.ts, module feuille : le moteur
+// i18n importe ces réglages, un import du moteur ici ferait un cycle)
+export { LANGUAGE_SETTINGS, type LanguageSetting };
 
 /** Onglet affiché à l'ouverture du panneau latéral : 'last' = dernier onglet consulté */
 export type PanelDefaultTab = 'last' | 'nowPlaying' | 'agenda';

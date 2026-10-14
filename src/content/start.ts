@@ -31,9 +31,11 @@ export interface StartContentOptions {
  * Un bundle par groupe de plateformes (content.ts : Crunchyroll / ADN ; netflix/content-netflix.iife.ts : Netflix).
  */
 export function startContent(adapters: readonly StreamingAdapter[], options: StartContentOptions = {}): void {
-  // Langue des toasts lue avant le démarrage, puis relue à chaque lecture (watch-session) : ni `<html lang>`
-  // du site réécrit (ARCH-01, l'import Crunchyroll le lit), ni écouteur de storage.onChanged (PERF-03)
-  void initI18n({ setDocumentLang: false, follow: false }).then(() => main(adapters, options));
+  // Langue des toasts lue au démarrage, puis relue à chaque lecture (watch-session, qui l'attend avant tout toast) : ni
+  // `<html lang>` du site réécrit (ARCH-01, l'import Crunchyroll le lit), ni écouteur de storage.onChanged (PERF-03).
+  // Suivi de la page lancé sans l'attendre : les textes d'une autre langue que l'anglais viennent du service worker
+  void initI18n({ setDocumentLang: false, follow: false });
+  main(adapters, options);
 }
 
 function main(adapters: readonly StreamingAdapter[], options: StartContentOptions): void {

@@ -24,10 +24,10 @@ const SEASON_LABELS: Record<MediaSeason, MessageKey> = {
   FALL: 'panel.nowPlaying.season.FALL',
 };
 
-/** Saison de diffusion : "Printemps 2023", "2023", ou null */
+/** Saison de diffusion : "Printemps 2023" ("2023年春" : l'année à la place que lui donne la langue), "2023", ou null */
 export function airedLabel(media: Pick<PanelMedia, 'season' | 'seasonYear'>): string | null {
   if (media.seasonYear === null) return null;
-  return media.season ? `${t(SEASON_LABELS[media.season])} ${media.seasonYear}` : String(media.seasonYear);
+  return media.season ? t(SEASON_LABELS[media.season], { year: media.seasonYear }) : String(media.seasonYear);
 }
 
 /** "Épisode 5 / 12", "Épisode 5" (total inconnu), null sans épisode */

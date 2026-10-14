@@ -15,4 +15,13 @@ describe('formatPlatformList', () => {
     setLocale('en');
     expect(formatPlatformList(['crunchyroll', 'adn'], 'conjunction')).toBe('Crunchyroll and ADN');
   });
+
+  it('japonais et chinois : « 、 », espace entre « 和 / 或 » et un nom latin en chinois seulement', () => {
+    setLocale('ja');
+    expect(formatPlatformList(['crunchyroll', 'adn', 'netflix'], 'conjunction')).toBe('Crunchyroll、ADN、Netflix');
+    setLocale('zh-TW');
+    expect(formatPlatformList(['crunchyroll', 'adn', 'netflix'], 'disjunction')).toBe('Crunchyroll、ADN 或 Netflix');
+    setLocale('zh-CN');
+    expect(formatPlatformList(['netflix', 'disney'], 'conjunction')).toBe('Netflix 和 Disney+');
+  });
 });

@@ -2,10 +2,11 @@
  * Contrôles du paquet construit (dist/ ou dist-firefox/), lancés par scripts/verify-build.ts après le build.
  * Fonctions pures (aucun accès disque), testées par build-checks.test.ts. Elles couvrent les pièges propres au
  * build que les tests sur les sources ne voient pas : chargeurs crxjs, `web_accessible_resources`, IIFE Netflix et Disney+,
- * permissions réellement livrées, poids des scripts de contenu.
+ * permissions réellement livrées, poids des scripts de contenu, catalogues de traduction émis.
  */
 import { posix } from 'node:path';
 import { FIREFOX_PANEL_COMMAND, firefoxMenuKeyConflicts, SOURCE_PANEL_COMMAND, type BuildTarget, type ManifestCommand } from '../src/build/manifest-target.ts';
+import { LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
 
 /** Netflix : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
 export const NETFLIX_PATTERN = '*://*.netflix.com/*';
@@ -246,6 +247,41 @@ export function reachableFiles(starts: readonly string[], referencesOf: (file: s
     queue.push(...referencesOf(file));
   }
   return seen;
+}
+
+/** Catalogues de traduction du paquet (`assets/locales/*.json`), triés */
+export function localeCatalogFiles(files: ReadonlySet<string>): string[] {
+  return [...files].filter((file) => file.startsWith(`${LOCALE_CATALOG_DIR}/`) && file.endsWith('.json')).sort();
+}
+
+/**
+ * Catalogues de traduction chargés à la demande (src/i18n/index.ts) : chaque catalogue source hors anglais (`sources` :
+ * langue → contenu de src/i18n/locales/<langue>.json) est dans `assets/locales/`, octet pour octet, dans un fichier
+ * référencé par le code (chemin émis par Vite). Rolldown regroupe les fichiers de contenu identique (deux catalogues
+ * identiques) : une langue peut être servie par le fichier d'une autre. Ni `en.json` (anglais embarqué dans le code),
+ * ni fichier sans catalogue source.
+ */
+export function checkLocaleCatalogs(
+  files: ReadonlySet<string>,
+  referenced: ReadonlySet<string>,
+  sources: ReadonlyMap<string, string>,
+  read: (file: string) => string,
+): string[] {
+  const errors: string[] = [];
+  const emitted = localeCatalogFiles(files);
+  const byContent = new Map<string, string[]>();
+  for (const file of emitted) byContent.set(read(file), [...(byContent.get(read(file)) ?? []), file]);
+  for (const [locale, source] of sources) {
+    const matches = byContent.get(source) ?? [];
+    if (matches.length === 0) errors.push(`catalogue ${locale} absent de ${LOCALE_CATALOG_DIR}/ (contenu de src/i18n/locales/${locale}.json)`);
+    else if (!matches.some((file) => referenced.has(file))) errors.push(`catalogue ${locale} (${matches.join(', ')}) jamais référencé par le code`);
+  }
+  const contents = new Set(sources.values());
+  for (const file of emitted) {
+    if (file === `${LOCALE_CATALOG_DIR}/en.json`) errors.push(`${file} : anglais dupliqué (déjà embarqué dans le code)`);
+    else if (!contents.has(read(file))) errors.push(`${file} : aucun catalogue source de ce contenu`);
+  }
+  return errors;
 }
 
 /**

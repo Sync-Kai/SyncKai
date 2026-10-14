@@ -7,10 +7,8 @@ import manifest from './manifest.json';
 import { GIT_COMMIT_EPOCH_ARGS, resolveBuildStamp } from './src/build/build-stamp';
 import { contentCatalogsDefine } from './src/build/content-catalog';
 import { parseBuildTarget, targetManifest, targetOutDir } from './src/build/manifest-target';
-import { jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
-import de from './src/i18n/locales/de.json';
+import { assetFileName, jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
 import en from './src/i18n/locales/en.json';
-import fr from './src/i18n/locales/fr.json';
 
 // Navigateur cible : `SYNCKAI_TARGET=firefox` (npm run build:firefox), chrome par défaut.
 // Pas de `--mode firefox` : le mode pilote __SYNCKAI_DEBUG__ et livrerait les logs de debug.
@@ -64,8 +62,9 @@ export default defineConfig(({ mode }) => ({
         ...(target === 'firefox' ? { sidepanel: 'src/sidepanel/sidepanel.html' } : {}),
       },
       // Chunk du service worker à nom fixe : son hash dépendait du chemin absolu du projet (src/build/output-names.ts).
-      // Les deux options : Rolldown nomme les entrées émises par crxjs (service worker, scripts) via chunkFileNames
-      output: { entryFileNames: jsFileName, chunkFileNames: jsFileName },
+      // Les deux options : Rolldown nomme les entrées émises par crxjs (service worker, scripts) via chunkFileNames.
+      // Catalogues de traduction chargés à la demande (i18n/index.ts) : assets/locales/<code>.json
+      output: { entryFileNames: jsFileName, chunkFileNames: jsFileName, assetFileNames: assetFileName },
     },
   },
   define: {
@@ -75,8 +74,9 @@ export default defineConfig(({ mode }) => ({
     __SYNCKAI_DEBUG__: JSON.stringify(mode !== 'production'),
     // Navigateur cible (chrome | firefox) : différences d'API (boutons de notification…)
     __SYNCKAI_TARGET__: JSON.stringify(target),
-    // Textes des scripts de contenu (src/i18n/content.ts) : leurs seules clés, pas les catalogues complets (PERF-01).
-    // Hérité par le build séparé des scripts Netflix et Disney+ (`*.iife.ts`), contrairement aux plugins
-    __SYNCKAI_CONTENT_CATALOGS__: contentCatalogsDefine({ en, fr, de }),
+    // Textes des scripts de contenu (src/i18n/content.ts) : leurs seules clés, en anglais (autres langues demandées au
+    // service worker), pas les catalogues complets (PERF-01). Hérité par le build séparé des scripts Netflix et Disney+
+    // (`*.iife.ts`), contrairement aux plugins
+    __SYNCKAI_CONTENT_CATALOGS__: contentCatalogsDefine(en),
   },
 }));

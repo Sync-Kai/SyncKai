@@ -1,4 +1,4 @@
-import { t } from '../../i18n';
+import { joinSentences, t } from '../../i18n';
 import { entryLink, type EntryLinkContext } from '../../shared/entry-link';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { renderAlert } from '../../ui/alert';
@@ -439,7 +439,7 @@ export function createNowPlaying(onChange: () => void): NowPlaying {
       renderHero(view, panel),
       ...nodes([
         state.detailsError !== null &&
-          renderAlert({ message: `${t('panel.nowPlaying.detailsError')} ${state.detailsError}`, action: { label: t('common.retry'), onClick: () => ctl.retry() } }),
+          renderAlert({ message: joinSentences([t('panel.nowPlaying.detailsError'), state.detailsError]), action: { label: t('common.retry'), onClick: () => ctl.retry() } }),
         renderProgress(view, page, state.refreshing),
         panel?.description && renderSynopsis(panel.description),
         renderDiscussion(view, panel, page),

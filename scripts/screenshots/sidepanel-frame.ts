@@ -4,12 +4,12 @@ import '../../src/sidepanel/sidepanel.css';
 import { isPanelTab } from '../../src/sidepanel/tabs';
 import { panelChrome } from './demo-panel';
 import { installChromeMock } from './mock-chrome';
-import { localeParam, markReady, param, waitFor } from './params';
+import { loadedLocaleParam, markReady, param, waitFor } from './params';
 
 const tabParam = param('tab');
 const tab = isPanelTab(tabParam) ? tabParam : 'nowPlaying';
 
-installChromeMock(panelChrome(localeParam(), tab));
+installChromeMock(panelChrome(await loadedLocaleParam(), tab));
 
 const zoom = Number(param('zoom') ?? '1');
 if (zoom !== 1) document.documentElement.style.zoom = String(zoom);

@@ -1,4 +1,4 @@
-import { initI18n, onLocaleChange, t, type MessageKey } from '../i18n';
+import { initI18n, joinSentences, onLocaleChange, t, type MessageKey } from '../i18n';
 import { kanaLabel } from '../ui/kit';
 import { createLogger } from '../shared/logger';
 import type { StreamingPlatform } from '../shared/episode.types';
@@ -258,7 +258,7 @@ function offTargetText(): string {
   const active = t('panel.offTargetPlatforms', { platforms: formatPlatformList(activePlatforms(optionalPlatforms), 'conjunction') });
   const disabled = disabledPlatforms();
   if (disabled.length === 0) return active;
-  return `${active} ${t('panel.offTargetEnable', { platforms: formatPlatformList(disabled, 'conjunction'), path: settingsPath('sync') })}`;
+  return joinSentences([active, t('panel.offTargetEnable', { platforms: formatPlatformList(disabled, 'conjunction'), path: settingsPath('sync') })]);
 }
 
 /** Plateformes à accès optionnel encore désactivées (ordre de STREAMING_PLATFORMS) */
