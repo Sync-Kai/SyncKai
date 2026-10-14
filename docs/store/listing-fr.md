@@ -28,7 +28,7 @@ Fonctionnalités
 • Correspondance des saisons, y compris la numérotation absolue (ex. One Piece) et les saisons découpées en plusieurs fiches.
 • « À vérifier » : quand une correspondance est incertaine, tu choisis la bonne fiche depuis le popup. Rien n'est envoyé au hasard.
 • « En cours » : tes séries en cours, la date du prochain épisode (« Ép. 5 dans 18 h »), +1 / −1, et « Ouvrir » sur Crunchyroll ou ADN (SyncKai retient les pages de séries ADN que tu visites ; sinon « Chercher sur ADN »).
-• « Sur cette page » : sur une page de série ou d'épisode (Crunchyroll, ADN, et Netflix ou Disney+ si activés), la fiche AniList de ce que tu regardes ; ajoute-la à ta liste ou change progression, statut et note sans quitter la page.
+• « Sur cette page » : sur une page de série ou d'épisode (Crunchyroll, ADN, et Netflix, Disney+ ou Prime Video si activés), la fiche AniList de ce que tu regardes ; ajoute-la à ta liste ou change progression, statut et note sans quitter la page.
 • Statut en un clic : mettre en pause, abandonner ou marquer comme terminé, sur AniList et MyAnimeList ; retirer un anime de ta liste ou y ajouter un commentaire, depuis le popup comme depuis le panneau latéral.
 • Comparer AniList ↔ MyAnimeList : repère les écarts (progression, statut, note, séries absentes) et aligne-les en un clic, jamais automatiquement.
 • Note en fin de série (sur 10, convertie selon ton format de note AniList) et prise en charge du revisionnage.
@@ -46,13 +46,14 @@ Plateformes prises en charge
 • ADN (Animation Digital Network)
 • Netflix, en option (Réglages › Lecture & synchro) : animes liés à Netflix sur AniList uniquement, les autres titres sont ignorés
 • Disney+, en option (Réglages › Lecture & synchro) : animes japonais liés à Disney+ sur AniList uniquement, les autres titres sont ignorés
+• Prime Video, en option (Réglages › Lecture & synchro) : animes uniquement (primevideo.com), les autres titres sont ignorés
 
 Services de suivi
 • AniList
 • MyAnimeList
 
 Confidentialité
-SyncKai n'a pas de serveur. Tes données (réglages, correspondances, historique, connexions) restent dans le stockage local de ton navigateur. L'extension lit la page de l'épisode en cours sur Crunchyroll/ADN (et Netflix ou Disney+, seulement si tu les actives : l'accès à netflix.com ou disneyplus.com t'est alors demandé), ton historique Crunchyroll, ADN ou Netflix seulement si tu lances un import, et n'échange tes données qu'avec AniList et MyAnimeList. Rien n'est envoyé au développeur.
+SyncKai n'a pas de serveur. Tes données (réglages, correspondances, historique, connexions) restent dans le stockage local de ton navigateur. L'extension lit la page de l'épisode en cours sur Crunchyroll/ADN (et Netflix, Disney+ ou Prime Video, seulement si tu les actives : l'accès à netflix.com, disneyplus.com ou primevideo.com t'est alors demandé), ton historique Crunchyroll, ADN ou Netflix seulement si tu lances un import, et n'échange tes données qu'avec AniList et MyAnimeList. Rien n'est envoyé au développeur.
 
 Code source et signalement de problèmes : https://github.com/Sync-Kai/SyncKai
 ```

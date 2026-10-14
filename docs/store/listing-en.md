@@ -28,7 +28,7 @@ Features
 • Season matching, including absolute numbering (e.g. One Piece) and seasons split across several entries.
 • "To check": when a match is uncertain, you pick the right entry from the popup. Nothing is sent blindly.
 • "Watching": your series in progress, the next episode's date ("Ep. 5 in 18 h"), +1 / −1, and "Open" on Crunchyroll or ADN (SyncKai remembers the ADN series pages you visit; otherwise "Search on ADN").
-• "On this page": on a series or episode page (Crunchyroll, ADN, and Netflix or Disney+ if turned on), the AniList entry of what you are watching; add it to your list or change progress, status and score without leaving the page.
+• "On this page": on a series or episode page (Crunchyroll, ADN, and Netflix, Disney+ or Prime Video if turned on), the AniList entry of what you are watching; add it to your list or change progress, status and score without leaving the page.
 • One-click status: put on hold, drop or mark as completed, on AniList and MyAnimeList; remove an anime from your list or add a comment to it, from the popup or the side panel.
 • Compare AniList ↔ MyAnimeList: spots differences (progress, status, score, missing series) and aligns them in one click, never automatically.
 • Rating at the end of a series (out of 10, converted to your AniList score format) and rewatch support.
@@ -46,13 +46,14 @@ Supported platforms
 • ADN (Animation Digital Network)
 • Netflix, optional (Settings › Playback & sync): only anime linked to Netflix on AniList, other titles are ignored
 • Disney+, optional (Settings › Playback & sync): only Japanese anime linked to Disney+ on AniList, other titles are ignored
+• Prime Video, optional (Settings › Playback & sync): anime only (primevideo.com), other titles are ignored
 
 Tracking services
 • AniList
 • MyAnimeList
 
 Privacy
-SyncKai has no server. Your data (settings, matches, history, sign-ins) stays in your browser's local storage. The extension reads the current episode page on Crunchyroll/ADN (and Netflix or Disney+, only if you turn them on: access to netflix.com or disneyplus.com is then requested), your Crunchyroll, ADN or Netflix history only if you start an import, and only shares your data with AniList and MyAnimeList. Nothing is sent to the developer.
+SyncKai has no server. Your data (settings, matches, history, sign-ins) stays in your browser's local storage. The extension reads the current episode page on Crunchyroll/ADN (and Netflix, Disney+ or Prime Video, only if you turn them on: access to netflix.com, disneyplus.com or primevideo.com is then requested), your Crunchyroll, ADN or Netflix history only if you start an import, and only shares your data with AniList and MyAnimeList. Nothing is sent to the developer.
 
 Source code and issue reports: https://github.com/Sync-Kai/SyncKai
 ```
