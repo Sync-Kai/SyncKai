@@ -9,6 +9,7 @@ import type { StreamingPlatform } from '../../../shared/episode.types';
 import { medianMinutes, toPlatformSignals, type PlatformSignals } from '../../../shared/match-signals';
 import { isNetflixShowMetadata, netflixSignals, type NetflixShowMetadata } from '../../../shared/netflix-metadata';
 import { primeSignals, reducePrimeDetail } from '../../../shared/prime-metadata';
+import { crunchyrollSignals, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../../shared/crunchyroll-metadata';
 import type { CapturedSignals, CorpusCase, CorpusMedia, CorpusOutcome, PlatformSeasonSignal } from './types';
 
 // Corpus de cas réels (voir README.md) : chaque cas passe par la vraie résolution (resolveEpisode pour une page de
@@ -144,8 +145,23 @@ function disneyCaseSignals(captured: CapturedSignals, seasonNumber: number | nul
 }
 
 /**
+ * Crunchyroll (adapters/crunchyroll.ts, via le pont MAIN) : réponses `seasons` et `episodes` reconstruites des saisons
+ * relevées (version originale japonaise, premier épisode diffusé l'année relevée), passées par les réductions et
+ * crunchyrollSignals. Crunchyroll n'envoie pas `airing`.
+ */
+function crunchyrollCaseSignals(captured: CapturedSignals, seasonNumber: number | null): PlatformSignals | undefined {
+  const seasons = captured.seasons ?? [];
+  const rows = reduceCrunchyrollSeasons({ data: seasons.map((s) => ({ id: `GCORPUS${s.seq}`, season_number: s.seq, season_sequence_number: s.seq, number_of_episodes: s.episodes, audio_locale: 'ja-JP', is_dubbed: false })) }) ?? [];
+  const series = mergeCrunchyrollSeries('GCORPUS', captured.seriesStartYear ?? null, rows, (id) => {
+    const s = seasons.find((x) => `GCORPUS${x.seq}` === id);
+    return s ? (reduceCrunchyrollEpisodes({ data: [{ id: `GCORPUSE${s.seq}`, episode_air_date: `${s.year}-01-01T00:00:00Z`, duration_ms: captured.episodeDurationS === undefined ? undefined : captured.episodeDurationS * 1000, media_type: 'episode' }] }) ?? undefined) : undefined;
+  });
+  return crunchyrollSignals(series, { seasonNumber });
+}
+
+/**
  * Signaux relevés du cas, sous la forme envoyée par la plateforme (EpisodeInfo.signals) : Netflix, Prime Video et
- * Disney+ par les règles de leur script de contenu ; Crunchyroll et ADN (lecture : aucun signal envoyé aujourd'hui) sous
+ * Disney+ et Crunchyroll par les règles de leur script de contenu ; ADN (lecture : aucun signal envoyé aujourd'hui) sous
  * la forme supposée : saison affichée, année de la série, durée en minutes, format, diffusion.
  */
 function signalsOf(platform: StreamingPlatform, captured: CapturedSignals | undefined, seasonNumber: number | null): PlatformSignals | undefined {
@@ -153,6 +169,7 @@ function signalsOf(platform: StreamingPlatform, captured: CapturedSignals | unde
   if (platform === 'netflix') return netflixCaseSignals(captured, seasonNumber);
   if (platform === 'prime') return primeCaseSignals(captured, seasonNumber);
   if (platform === 'disney') return disneyCaseSignals(captured, seasonNumber);
+  if (platform === 'crunchyroll') return crunchyrollCaseSignals(captured, seasonNumber);
   const season = shownSeason(captured, seasonNumber);
   const signals: PlatformSignals = {
     ...(season ? { seasonYear: season.year } : {}),

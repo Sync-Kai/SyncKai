@@ -179,8 +179,9 @@ export const CASES: readonly CorpusCase[] = [
     episode: crunchyroll(FRIEREN_CR, 'GFRIER0203', { seasonNumber: 2, seasonTitle: 'Frieren: Beyond Journey’s End Season 2', seasonEpisodeNumber: 3, displayedEpisodeNumber: 3 }),
     signals: { seasons: [{ seq: 2, year: 2026, episodes: 13 }], airing: true, source: 'SUPPOSÉ : saison en cours sur la plateforme avec plus d’épisodes que la fiche AniList (situation construite)' },
     searches: ['Frieren: Beyond Journey’s End', 'Frieren: Beyond Journey’s End Season 2'],
-    // Saison en cours : un total AniList plus court ne contredit rien ; l’année (2026) prouve la saison 2
-    expected: high(182255, 3),
+    // Crunchyroll n'envoie pas `airing` : 13 épisodes contre 10 sur la fiche terminée contredit, donc « À vérifier »
+    // (jamais une synchro automatique sur un total incohérent)
+    expected: low(182255, 3),
   },
   {
     id: 'cr-aot-s1e5',

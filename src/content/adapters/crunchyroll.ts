@@ -1,3 +1,4 @@
+import { crunchyrollTableSignals, type CrunchyrollSeasonPick } from '../../shared/crunchyroll-metadata';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
@@ -18,6 +19,7 @@ import { findPlayerVideo } from '../lib/find-video';
 import { watchElementText } from '../lib/season-watch';
 import type { StreamingAdapter } from './adapter';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
+import { connectCrunchyrollBridge, type CrunchyrollTables } from '../crunchyroll/bridge-client';
 
 const log = createLogger('crunchyroll');
 
@@ -53,6 +55,20 @@ export type CrunchyrollEpisodeFields = Omit<EpisodeInfo, 'platform' | 'episodeId
 
 /** Évite d'attribuer au nouvel épisode le DOM de l'épisode précédent (voir createLabelGuard) */
 const labels = createLabelGuard();
+
+let bridgeTables: CrunchyrollTables | null = null;
+
+/** Pont du monde MAIN (crunchyroll/page-bridge.iife.ts), connecté au premier appel : tables des signaux des séries vues */
+export function crunchyrollBridge(): CrunchyrollTables {
+  bridgeTables ??= connectCrunchyrollBridge();
+  return bridgeTables;
+}
+
+/** Signaux de correspondance de la saison affichée, si le pont a vu la série (sinon aucun : comportement d'avant) */
+function bridgeSignals(seriesId: string | null, pick: CrunchyrollSeasonPick): Pick<EpisodeInfo, 'signals'> {
+  const signals = seriesId ? crunchyrollTableSignals(crunchyrollBridge()(seriesId), pick) : undefined;
+  return signals ? { signals } : {};
+}
 
 // ─── Helpers de parsing ────────────────────────────────────────────────────
 
@@ -208,16 +224,16 @@ const SEASON_BUTTON_SELECTORS = [
 ] as const;
 const SERIES_SELECTORS = {
   title: ['[data-t="series-hero-title"]', '.hero-heading-line h1', 'main h1', 'h1'],
+  // Boutons (SEASON_BUTTON_SELECTORS, sans répéter leurs chaînes : budget du script) entrecoupés des conteneurs, dans l'ordre :
+  // '.erc-seasons-select [role="button"]', '.seasons-select [role="button"]', '[data-t="seasons-select"]',
+  // '[data-t="seasons-dropdown"] [aria-expanded]', '[data-t="seasons-dropdown"]', '[data-t="season-select"]',
+  // '.seasons-select button', '.seasons-select', '[class*="seasons-select"] button', puis les libellés seuls
   season: [
-    '.erc-seasons-select [role="button"]',
-    '.seasons-select [role="button"]',
-    '[data-t="seasons-select"]',
-    '[data-t="seasons-dropdown"] [aria-expanded]',
+    ...SEASON_BUTTON_SELECTORS.slice(0, 4),
     '[data-t="seasons-dropdown"]',
-    '[data-t="season-select"]',
-    '.seasons-select button',
+    ...SEASON_BUTTON_SELECTORS.slice(4, 6),
     '.seasons-select',
-    '[class*="seasons-select"] button',
+    ...SEASON_BUTTON_SELECTORS.slice(6),
     '[class*="season-info"]',
     '.season-info',
   ],
@@ -449,6 +465,7 @@ function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
     seasonTitle: season?.title ?? null,
     seasonEpisodeCount: readSeasonEpisodeCount(season?.number ?? null),
     ...(season?.firstEpisode !== undefined ? { seasonFirstEpisode: season.firstEpisode } : {}),
+    ...bridgeSignals(path.seriesId, { seasonNumber: season?.number ?? null }),
   };
 }
 
@@ -474,7 +491,7 @@ export const crunchyrollAdapter: StreamingAdapter = {
       if (fields) {
         labels.remember(episodeId, labelKey(fields.displayedEpisodeNumber, fields.episodeTitle));
         log.info(`Métadonnées extraites via ${strategy.name}`);
-        return { platform: 'crunchyroll', episodeId, url: url.href, ...fields };
+        return { platform: 'crunchyroll', episodeId, url: url.href, ...fields, ...bridgeSignals(fields.seriesId, { episodeId, seasonNumber: fields.seasonNumber }) };
       }
     }
     return null;

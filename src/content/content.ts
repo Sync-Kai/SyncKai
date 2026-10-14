@@ -3,7 +3,7 @@
 // ouverts à l'installation et à la mise à jour sur Chrome (background/content-reinjection.ts) ; Firefox le fait seul.
 import type { StreamingAdapter } from './adapters/adapter';
 import { adnAdapter } from './adapters/adn';
-import { crunchyrollAdapter } from './adapters/crunchyroll';
+import { crunchyrollAdapter, crunchyrollBridge } from './adapters/crunchyroll';
 import { listenAdnHistoryPorts } from './lib/adn-history';
 import { listenCrHistoryPorts } from './lib/cr-history-port';
 import { claimContentInstance } from './lib/instance-guard';
@@ -16,10 +16,12 @@ const STARTED_FLAG = Symbol.for('synckai.content');
 
 if (claimContentInstance(STARTED_FLAG)) {
   startContent(ADAPTERS, {
-    // Import de l'historique (onglet d'import ↔ page Crunchyroll ou ADN)
+    // Import de l'historique (onglet d'import ↔ page Crunchyroll ou ADN) ; pont MAIN de Crunchyroll (signaux de correspondance)
     onAdapter: (adapter) => {
-      if (adapter.platform === 'crunchyroll') listenCrHistoryPorts();
-      else if (adapter.platform === 'adn') listenAdnHistoryPorts();
+      if (adapter.platform === 'crunchyroll') {
+        listenCrHistoryPorts();
+        crunchyrollBridge();
+      } else if (adapter.platform === 'adn') listenAdnHistoryPorts();
     },
   });
 }

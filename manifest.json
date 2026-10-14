@@ -43,6 +43,16 @@
   "content_scripts": [
     {
       "matches": [
+        "*://*.crunchyroll.com/*"
+      ],
+      "js": [
+        "src/content/crunchyroll/page-bridge.iife.ts"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
         "*://*.crunchyroll.com/*",
         "*://animationdigitalnetwork.com/*",
         "*://*.animationdigitalnetwork.com/*"

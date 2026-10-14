@@ -13,6 +13,7 @@ import {
   fileReferences,
   hasDynamicImport,
   manifestReferences,
+  manifestScriptFiles,
   reachableFiles,
   type BuiltManifest,
 } from './build-checks.ts';
@@ -58,6 +59,21 @@ describe('manifestReferences', () => {
   it('Firefox : scripts d’arrière-plan et barre latérale', () => {
     const refs = manifestReferences({ background: { scripts: ['service-worker-loader.js'] }, sidebar_action: { default_panel: 'src/sidepanel/sidepanel.html' } });
     expect(refs).toEqual(['src/sidepanel/sidepanel.html', 'service-worker-loader.js']);
+  });
+});
+
+describe('manifestScriptFiles', () => {
+  it('sépare le pont du monde MAIN (budget à part) des scripts isolés', () => {
+    const manifest: BuiltManifest = {
+      content_scripts: [
+        { matches: CR, js: ['src/content/crunchyroll/page-bridge.iife.js'], world: 'MAIN' },
+        { matches: CR, js: ['assets/content.ts-loader-x.js'] },
+        { matches: CR, js: ['assets/other.js'], world: 'ISOLATED' },
+      ],
+    };
+    expect(manifestScriptFiles(manifest, 'MAIN')).toEqual(['src/content/crunchyroll/page-bridge.iife.js']);
+    expect(manifestScriptFiles(manifest, 'ISOLATED')).toEqual(['assets/content.ts-loader-x.js', 'assets/other.js']);
+    expect(manifestScriptFiles({}, 'MAIN')).toEqual([]);
   });
 });
 

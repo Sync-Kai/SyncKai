@@ -36,19 +36,25 @@ export function reinjectionPlan(reason: string, target: ReinjectionTarget): Rein
 export interface ManifestContentScript {
   js?: string[];
   matches?: string[];
+  /** `MAIN` : pont de page (Crunchyroll), réexécuté dans le monde de la page ; absent : monde isolé */
+  world?: string;
 }
+
+/** Monde d'exécution d'un script du manifeste */
+export type ScriptWorld = 'MAIN' | 'ISOLATED';
 
 /** Sous-ensemble de chrome.runtime / chrome.tabs / chrome.scripting utilisé par la réinjection */
 export interface ContentReinjectionApi {
   contentScripts(): readonly ManifestContentScript[];
   /** Onglets ouverts sur ces motifs (tabs.query par URL : permissions d'hôte suffisantes, sans `tabs`) */
   tabIds(matches: string[]): Promise<number[]>;
-  /** Exécute les fichiers du paquet dans la frame principale de l'onglet (monde isolé) */
-  inject(tabId: number, files: string[]): Promise<void>;
+  /** Exécute les fichiers du paquet dans la frame principale de l'onglet, dans le monde du script */
+  inject(tabId: number, files: string[], world: ScriptWorld): Promise<void>;
 }
 
 /**
- * Exécute chaque script de contenu du manifeste dans les onglets ouverts qui lui correspondent.
+ * Exécute chaque script de contenu du manifeste dans les onglets ouverts qui lui correspondent, dans l'ordre du manifeste
+ * (pont MAIN de Crunchyroll avant le script isolé, qui lui demande aussitôt son canal).
  * Un onglet en échec (déchargé, page d'erreur, accès non accordé…) n'empêche pas les autres : `onError`,
  * jamais d'exception. Retourne le nombre d'injections réussies.
  */
@@ -60,6 +66,7 @@ export async function reinjectContentScripts(
   for (const script of api.contentScripts()) {
     const files = script.js ?? [];
     const matches = script.matches ?? [];
+    const world: ScriptWorld = script.world === 'MAIN' ? 'MAIN' : 'ISOLATED';
     if (files.length === 0 || matches.length === 0) continue;
     let tabIds: number[];
     try {
@@ -71,7 +78,7 @@ export async function reinjectContentScripts(
     const results = await Promise.all(
       tabIds.map(async (tabId) => {
         try {
-          await api.inject(tabId, files);
+          await api.inject(tabId, files, world);
           return true;
         } catch (error: unknown) {
           onError(tabId, error);
@@ -87,8 +94,8 @@ export async function reinjectContentScripts(
 const api: ContentReinjectionApi = {
   contentScripts: () => chrome.runtime.getManifest().content_scripts ?? [],
   tabIds: async (matches) => (await chrome.tabs.query({ url: matches })).flatMap((tab) => (tab.id !== undefined ? [tab.id] : [])),
-  inject: async (tabId, files) => {
-    await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, files });
+  inject: async (tabId, files, world) => {
+    await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, files, world });
   },
 };
 

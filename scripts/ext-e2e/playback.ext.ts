@@ -391,4 +391,49 @@ describe('Détection de la lecture', () => {
     expect(writtenProgress(run)).toEqual({ anilist: [1180], mal: ['1180'] });
     expectCleanRun(run.h, run.anilist, run.mal);
   });
+
+  it('Crunchyroll : pont du monde MAIN (manifeste), données de saison lues sur les réponses de la page, jamais son jeton', async (context) => {
+    const cms = 'https://www.crunchyroll.com/content/v2/cms';
+    const elbaph = 'GYELBAPH24';
+    // L'application Crunchyroll demande elle-même la série, ses saisons et les épisodes de la saison, jeton en en-tête
+    const siteRequests = `<script>
+  const headers = { authorization: 'Bearer E2E-SECRET-TOKEN' };
+  fetch('${cms}/series/GRMG8ZQZR/seasons?locale=fr-FR', { headers });
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', '${cms}/seasons/${elbaph}/episodes?locale=fr-FR');
+  xhr.setRequestHeader('authorization', headers.authorization);
+  xhr.send();
+</script>`;
+    const sites = new FakeSites()
+      .page(ONE_PIECE_E1180.url, crunchyrollWatchHtml(ONE_PIECE_E1180, { lang: 'fr' }).replace('</body>', `${siteRequests}</body>`))
+      .api(`${cms}/series/GRMG8ZQZR/seasons`, {
+        data: [
+          { id: elbaph, title: 'Elbaph', season_number: 24, season_sequence_number: 24, number_of_episodes: 26, audio_locale: 'ja-JP', is_dubbed: false },
+          { id: 'GYELBAPH24FR', title: 'Elbaph (VF)', season_number: 24, season_sequence_number: 24, number_of_episodes: 10, audio_locale: 'fr-FR', is_dubbed: true },
+        ],
+      })
+      .api(`${cms}/seasons/${elbaph}/episodes`, {
+        data: [ONE_PIECE_E1180.episodeId, ONE_PIECE_E1181.episodeId].map((id, i) => ({ id, duration_ms: 1_420_000, episode_air_date: `2025-10-0${5 + i}T00:00:00Z`, media_type: 'episode' })),
+      });
+    const run = await launch(context, ONE_PIECE, sites);
+    await run.h.openTab(ONE_PIECE_E1180.url);
+    const signals = await waitFor('signaux de la saison dans la fiche de la page', async () => {
+      const media: unknown = await (await run.h.bridge()).evaluate(async (pattern: string) => {
+        const [tab] = await chrome.tabs.query({ url: pattern });
+        if (tab?.id === undefined) return null;
+        try {
+          return (await chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_MEDIA' })) as unknown;
+        } catch {
+          return null;
+        }
+      }, CRUNCHYROLL_TABS);
+      const episode = (media as { episode?: { signals?: unknown } } | null)?.episode;
+      return episode?.signals;
+    });
+    // Saison originale (26 épisodes, 2025), jamais le doublage (10 épisodes)
+    expect(signals).toEqual({ seasonYear: 2025, seasonEpisodeCount: 26, episodeMinutes: 23.7, format: 'series', country: 'JP' });
+    expect(sites.requests.filter((r) => r.url.startsWith(cms)).map((r) => r.headers.authorization)).toEqual(['Bearer E2E-SECRET-TOKEN', 'Bearer E2E-SECRET-TOKEN']);
+    expect(run.h.consoleMessages.join('\n')).not.toContain('E2E-SECRET');
+    expectCleanRun(run.h, run.anilist, run.mal);
+  });
 });

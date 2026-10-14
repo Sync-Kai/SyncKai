@@ -135,7 +135,7 @@ SyncKai has no server and collects no usage data.
 
 - Settings, matches and history stay in the extension's local storage.
 - OAuth tokens are stored encrypted (AES-GCM, non-exportable key) and only sent back to the service that issued them.
-- The extension only contacts AniList, MyAnimeList and the streaming sites you use (Crunchyroll credit markers, your Crunchyroll, ADN or Netflix history when you start an import, Netflix episode metadata when Netflix is turned on). On Disney+ and Prime Video, nothing is requested: SyncKai only reads what the page and the player already receive.
+- The extension only contacts AniList, MyAnimeList and the streaming sites you use (Crunchyroll credit markers, your Crunchyroll, ADN or Netflix history when you start an import, Netflix episode metadata when Netflix is turned on). On Disney+ and Prime Video, nothing is requested: SyncKai only reads what the page and the player already receive. The same goes for the Crunchyroll season data (year, episode count, runtime) used to tell same-title series apart: read from the site's own responses, never its request headers or your token.
 
 Permissions: `storage`, `identity` (sign-in), `alarms` (release alerts, retries), `notifications`, `sidePanel`, `scripting`, host access to Crunchyroll, ADN, AniList and MyAnimeList, and optional access to Netflix, Disney+ and Prime Video.
 
@@ -171,7 +171,7 @@ The repository manifest keeps the Chrome Web Store public key and the Firefox ad
 ```
 src/
 ├── background/   service worker: OAuth, AniList/MAL API, matching, sync queue, alerts
-├── content/      content scripts: one adapter per platform (adapters/), Netflix, Disney+ and Prime Video page bridges (netflix/, disney/, prime/)
+├── content/      content scripts: one adapter per platform (adapters/), Crunchyroll, Netflix, Disney+ and Prime Video page bridges (crunchyroll/, netflix/, disney/, prime/)
 ├── popup/        extension popup
 ├── sidepanel/    side panel (Now playing, Schedule)
 ├── import-cr/    history import page (Crunchyroll, ADN, Netflix)

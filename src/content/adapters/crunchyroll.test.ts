@@ -18,6 +18,11 @@ import {
   type WatchPageContext,
 } from './crunchyroll';
 import { createLabelGuard, flattenJsonLd, LABEL_SETTLE_MS, labelKey, type LabelGuard } from './parsing';
+import { crunchyrollSignalTable, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../shared/crunchyroll-metadata';
+
+// Pont du monde MAIN remplacé : tables des signaux servies par le test (aucune par défaut, comme un onglet ouvert avant l'extension)
+const bridge = vi.hoisted(() => ({ tables: new Map<string, Record<string, unknown>>() }));
+vi.mock('../crunchyroll/bridge-client', () => ({ connectCrunchyrollBridge: () => (seriesId: string) => bridge.tables.get(seriesId) ?? null }));
 
 // Fixture JSON-LD d'une page de série (structure supposée, à vérifier sur le site réel)
 const SERIES_JSON_LD = `{
@@ -385,5 +390,65 @@ describe('crunchyrollAdapter.extractEpisodeInfo : lecture automatique E1180 → 
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('crunchyrollAdapter : signaux de correspondance du pont MAIN', () => {
+  const ONE_PIECE_ID = 'GRMG8ZQZR';
+  const ELBAPH = 'GYELBAPH24';
+  const ELBAPH_DUB = 'GYELBAPH24FR';
+  let page: FakeDocument;
+
+  /** Saison 24 « Elbaph » (originale japonaise, 26 épisodes listés), son doublage français (même numéro, 10 épisodes), « HEROINES » */
+  function serveOnePiece({ episodes = true } = {}): void {
+    const rows = reduceCrunchyrollSeasons({
+      data: [
+        { id: ELBAPH, title: 'Elbaph (1156-current)', season_number: 24, season_sequence_number: 24, number_of_episodes: 26, audio_locale: 'ja-JP', is_dubbed: false },
+        { id: ELBAPH_DUB, title: 'Elbaph (VF)', season_number: 24, season_sequence_number: 24, number_of_episodes: 10, audio_locale: 'fr-FR', is_dubbed: true },
+        { id: 'GYHEROINES', title: 'HEROINES', season_number: 30, season_sequence_number: 30, number_of_episodes: 2, audio_locale: 'ja-JP', is_dubbed: false },
+      ],
+    }) ?? [];
+    const stats = reduceCrunchyrollEpisodes({
+      data: [ONE_PIECE_E1180.episodeId, ONE_PIECE_E1181.episodeId].map((id, i) => ({ id, duration_ms: 1_420_000, episode_air_date: `2025-10-0${5 + i}T00:00:00Z`, media_type: 'episode' })),
+    }) ?? undefined;
+    const series = mergeCrunchyrollSeries(ONE_PIECE_ID, 1999, rows, (id) => (episodes && id === ELBAPH ? stats : undefined));
+    bridge.tables.set(ONE_PIECE_ID, JSON.parse(JSON.stringify(crunchyrollSignalTable(series))) as Record<string, unknown>);
+  }
+
+  beforeEach(() => {
+    page = installFakeDocument();
+    bridge.tables.clear();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('lecture : signaux de la saison de l’épisode (version originale)', async () => {
+    vi.resetModules();
+    const { crunchyrollAdapter: adapter } = await import('./crunchyroll');
+    serveOnePiece();
+    page.setJsonLd(ONE_PIECE_E1180.jsonLd);
+    page.set('h1', { text: ONE_PIECE_E1180.heading });
+    expect(adapter.extractEpisodeInfo(new URL(ONE_PIECE_E1180.url))?.signals).toEqual({ seasonYear: 2025, seasonEpisodeCount: 26, episodeMinutes: 23.7, format: 'series', country: 'JP' });
+  });
+
+  it('pont sans donnée pour la série : aucun signal (comportement d’avant)', async () => {
+    vi.resetModules();
+    const { crunchyrollAdapter: adapter } = await import('./crunchyroll');
+    page.setJsonLd(ONE_PIECE_E1180.jsonLd);
+    page.set('h1', { text: ONE_PIECE_E1180.heading });
+    const info = adapter.extractEpisodeInfo(new URL(ONE_PIECE_E1180.url));
+    expect(info).toMatchObject({ displayedEpisodeNumber: 1180 });
+    expect(info).not.toHaveProperty('signals');
+  });
+
+  it('page de série : saison du menu par son numéro, jamais le nombre d’épisodes du doublage ; sans numéro (plusieurs saisons originales), année de la série', () => {
+    const url = new URL(`https://www.crunchyroll.com/fr/series/${ONE_PIECE_ID}/one-piece`);
+    page.set('h1', { text: 'One Piece' });
+    serveOnePiece({ episodes: false });
+    page.set('[data-t="seasons-select"]', { text: 'S24: Elbaph (VF)' });
+    expect(crunchyrollAdapter.detectSeries(url)?.signals).toEqual({ seriesYear: 1999, seasonEpisodeCount: 26, format: 'series', country: 'JP' });
+    page.set('[data-t="seasons-select"]', { text: 'HEROINES' });
+    expect(crunchyrollAdapter.detectSeries(url)?.signals).toEqual({ seriesYear: 1999 });
+    page.set('[data-t="seasons-select"]', { text: 'S7: Inconnue' });
+    expect(crunchyrollAdapter.detectSeries(url)?.signals).toEqual({ seriesYear: 1999 });
   });
 });

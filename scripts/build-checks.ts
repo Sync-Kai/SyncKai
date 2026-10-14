@@ -46,6 +46,17 @@ export const DISNEY_SCRIPTS_BUDGET_BYTES = 75 * 1024;
  */
 export const PRIME_SCRIPTS_BUDGET_BYTES = 75 * 1024;
 
+/**
+ * Budget du pont Crunchyroll du monde MAIN (`content_scripts` à `world: "MAIN"`, IIFE autonome hors du budget du script de
+ * contenu) : 7,1 Ko mesurés au 2026-10-14 (relevé passif, réductions et table des signaux), ~25 % de marge.
+ */
+export const CRUNCHYROLL_BRIDGE_BUDGET_BYTES = 9 * 1024;
+
+/** Fichiers des scripts du manifeste d'un monde : `MAIN` (ponts de page) ou isolé (`world` absent ou `ISOLATED`) */
+export function manifestScriptFiles(manifest: BuiltManifest, world: 'MAIN' | 'ISOLATED'): string[] {
+  return (manifest.content_scripts ?? []).filter((script) => (script.world === 'MAIN') === (world === 'MAIN')).flatMap((script) => script.js ?? []);
+}
+
 /** Plateforme (dossier) d'un script enregistré `src/content/{dossier}/….iife.js`, null sinon */
 export function registeredScriptPlatform(file: string): string | null {
   const dir = /^src\/content\/([a-z0-9-]+)\/[^/]+\.iife\.js$/.exec(file)?.[1];
@@ -62,7 +73,7 @@ export interface BuiltManifest {
   host_permissions?: string[];
   optional_host_permissions?: string[];
   background?: { service_worker?: string; scripts?: string[] };
-  content_scripts?: { matches?: string[]; js?: string[]; css?: string[] }[];
+  content_scripts?: { matches?: string[]; js?: string[]; css?: string[]; world?: string }[];
   web_accessible_resources?: { matches?: string[]; extension_ids?: string[]; resources: string[] }[];
   action?: { default_popup?: string; default_icon?: Record<string, string> };
   side_panel?: { default_path?: string };

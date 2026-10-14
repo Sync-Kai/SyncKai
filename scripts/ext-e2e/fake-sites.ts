@@ -110,6 +110,7 @@ export class FakeSites {
   readonly requests: InterceptedRequest[] = [];
   private readonly pages = new Map<string, { html: string; delayMs: number }>();
   private readonly credits = new Map<string, number>();
+  private readonly apis = new Map<string, unknown>();
 
   /** Page servie à `url` ; `delayMs` : réponse retardée d'autant (serveur lent, onglet encore en chargement) */
   page(url: string, html: string, options: { delayMs?: number } = {}): this {
@@ -120,6 +121,12 @@ export class FakeSites {
   /** Début du générique de fin d'un épisode Crunchyroll (s) ; sans appel, l'épisode n'a pas de données (404) */
   creditsStart(episodeId: string, start: number): this {
     this.credits.set(episodeId, start);
+    return this;
+  }
+
+  /** Réponse JSON servie à `url` (chemin sans paramètres) : API demandée par la page elle-même (CMS de Crunchyroll) */
+  api(url: string, body: unknown): this {
+    this.apis.set(url, body);
     return this;
   }
 
@@ -138,6 +145,10 @@ export class FakeSites {
       // Structure relevée le 2026-09-29 (voir crunchyrollAdapter.getCreditsStart) ; épisode sans données : 404
       if (start === undefined) return { status: 404, headers: { 'Content-Type': 'text/plain' }, body: 'Not Found' };
       return json(200, { intro: { start: 30, end: 120 }, credits: { start, end: VIDEO_SECONDS - 5 }, mediaId: episodeId });
+    }
+    if (this.apis.has(bare)) {
+      this.requests.push(request);
+      return json(200, this.apis.get(bare));
     }
     const page = this.pages.get(bare);
     if (page !== undefined) {

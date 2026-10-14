@@ -4,7 +4,7 @@
  * - `web_accessible_resources` : scripts Netflix et Disney+ limités à leur plateforme, rien d'exposé à tous les sites ;
  * - `*.iife.js` : scripts classiques (aucun import ni export, aucun `import(`) ;
  * - permissions, motifs, CSP des pages et commandes clavier identiques au manifeste source adapté à la cible ;
- * - budgets de taille des scripts de contenu (Crunchyroll / ADN, Netflix, Disney+) ;
+ * - budgets de taille des scripts de contenu (Crunchyroll / ADN, pont Crunchyroll du monde MAIN, Netflix, Disney+, Prime Video) ;
  * - catalogues de traduction chargés à la demande : chaque langue hors anglais dans assets/locales/, référencée par le code.
  *
  * Usage : npm run verify:build                        (dist/ et dist-firefox/)
@@ -20,6 +20,7 @@ import { LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
 import { LOCALES } from '../src/i18n/locale-codes.ts';
 import {
   CONTENT_SCRIPT_BUDGET_BYTES,
+  CRUNCHYROLL_BRIDGE_BUDGET_BYTES,
   DISNEY_SCRIPTS_BUDGET_BYTES,
   PRIME_SCRIPTS_BUDGET_BYTES,
   NETFLIX_SCRIPTS_BUDGET_BYTES,
@@ -33,6 +34,7 @@ import {
   fileReferences,
   hasDynamicImport,
   manifestReferences,
+  manifestScriptFiles,
   reachableFiles,
   type BuiltManifest,
 } from './build-checks.ts';
@@ -108,11 +110,11 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   errors.push(...checkCommands(manifest, targetManifest(source, target), target));
 
   // 5. Budgets : chargeur du script de contenu + chunks atteignables ; scripts de chaque plateforme optionnelle
-  const contentFiles = reachableFiles(
-    (manifest.content_scripts ?? []).flatMap((script) => script.js ?? []),
-    referencesOf,
-  );
+  // Pont Crunchyroll du monde MAIN (manifeste) : budget à part, comme les scripts des plateformes optionnelles
+  const contentFiles = reachableFiles(manifestScriptFiles(manifest, 'ISOLATED'), referencesOf);
   const contentBytes = [...contentFiles].reduce((total, file) => total + size(file), 0);
+  const bridgeFiles = reachableFiles(manifestScriptFiles(manifest, 'MAIN'), referencesOf);
+  const bridgeBytes = [...bridgeFiles].reduce((total, file) => total + size(file), 0);
   const platformBytes = (dir: string): number => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).reduce((total, file) => total + size(file), 0);
   const netflixBytes = platformBytes('netflix');
   const disneyBytes = platformBytes('disney');
@@ -120,6 +122,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   if (contentBytes > CONTENT_SCRIPT_BUDGET_BYTES) {
     errors.push(`script de contenu Crunchyroll/ADN : ${kib(contentBytes)} > budget ${kib(CONTENT_SCRIPT_BUDGET_BYTES)}`);
   }
+  if (bridgeBytes > CRUNCHYROLL_BRIDGE_BUDGET_BYTES) errors.push(`pont Crunchyroll (monde MAIN) : ${kib(bridgeBytes)} > budget ${kib(CRUNCHYROLL_BRIDGE_BUDGET_BYTES)}`);
   if (netflixBytes > NETFLIX_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Netflix : ${kib(netflixBytes)} > budget ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)}`);
   if (disneyBytes > DISNEY_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Disney+ : ${kib(disneyBytes)} > budget ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)}`);
   if (primeBytes > PRIME_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Prime Video : ${kib(primeBytes)} > budget ${kib(PRIME_SCRIPTS_BUDGET_BYTES)}`);
@@ -139,6 +142,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   const status = errors.length === 0 ? '✔' : '✖';
   console.log(`${status} ${outDir}/ : ${files.size} fichiers, ${roots.length} références du manifeste`);
   console.log(`  script de contenu Crunchyroll/ADN : ${kib(contentBytes)} / ${kib(CONTENT_SCRIPT_BUDGET_BYTES)} (${contentFiles.size} fichiers)`);
+  console.log(`  pont Crunchyroll (monde MAIN) : ${kib(bridgeBytes)} / ${kib(CRUNCHYROLL_BRIDGE_BUDGET_BYTES)} (${[...bridgeFiles].join(', ')})`);
   const listOf = (dir: string): string => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).join(', ');
   console.log(`  scripts Netflix : ${kib(netflixBytes)} / ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)} (${listOf('netflix')})`);
   console.log(`  scripts Disney+ : ${kib(disneyBytes)} / ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)} (${listOf('disney')})`);

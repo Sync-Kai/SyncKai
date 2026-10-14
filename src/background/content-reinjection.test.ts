@@ -22,8 +22,18 @@ describe('reinjectContentScripts', () => {
     const api = fakeApi([{ js: [LOADER], matches: MATCHES }], [11, 12]);
     expect(await reinjectContentScripts(api, vi.fn())).toBe(2);
     expect(api.tabIds).toHaveBeenCalledWith(MATCHES);
-    expect(api.inject).toHaveBeenCalledWith(11, [LOADER]);
-    expect(api.inject).toHaveBeenCalledWith(12, [LOADER]);
+    expect(api.inject).toHaveBeenCalledWith(11, [LOADER], 'ISOLATED');
+    expect(api.inject).toHaveBeenCalledWith(12, [LOADER], 'ISOLATED');
+  });
+
+  it('pont Crunchyroll du monde MAIN : réexécuté dans la page, avant le script isolé qui lui demande son canal', async () => {
+    const bridge = 'src/content/crunchyroll/page-bridge.iife.js';
+    const api = fakeApi([{ js: [bridge], matches: ['*://*.crunchyroll.com/*'], world: 'MAIN' }, { js: [LOADER], matches: MATCHES }], [11]);
+    expect(await reinjectContentScripts(api, vi.fn())).toBe(2);
+    expect(api.inject.mock.calls).toEqual([
+      [11, [bridge], 'MAIN'],
+      [11, [LOADER], 'ISOLATED'],
+    ]);
   });
 
   it('un onglet en échec (déchargé, page d’erreur) n’empêche pas les autres, sans exception', async () => {
