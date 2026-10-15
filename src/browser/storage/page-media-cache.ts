@@ -61,6 +61,16 @@ export function matchCachedPageMedia(entry: CachedPageMedia | null, page: PageMe
   return episodeId !== null && entry.episodeId === episodeId && !entry.partial && isPartialEpisodePage(page) ? entry : null;
 }
 
+/**
+ * Fiche en cache valable (moins de 10 min) qu'un écran peut encore afficher pour cet épisode : même page, ou même
+ * épisode lu en entier ou partiellement (la synchro, qui connaît l'épisode en entier, la remplace alors)
+ */
+export function isCachedEpisodeShown(entry: CachedPageMedia | null, page: PageMediaInfo, now: number): boolean {
+  if (!entry || now - entry.resolvedAt > PAGE_MEDIA_CACHE_TTL_MS || now < entry.resolvedAt - 60_000) return false;
+  const episodeId = page.episode?.episodeId ?? null;
+  return entry.pageKey === pageKey(page) || (episodeId !== null && entry.episodeId === episodeId);
+}
+
 /** Une lecture partielle n'écrase jamais la fiche complète du même épisode */
 export function shouldReplaceCachedPageMedia(existing: CachedPageMedia | null, next: CachedPageMedia): boolean {
   return !(existing && next.partial && !existing.partial && existing.episodeId !== null && existing.episodeId === next.episodeId);
@@ -123,6 +133,13 @@ export async function storeCachedPageMedia(
   // Fiches des onglets fermés ou expirées : retirées en passant, hors verrou (jamais d'échec de l'écriture pour autant)
   if (written) await purgeStaleSessionCaches().catch(() => 0);
   return written;
+}
+
+/** Oublie la fiche de cet onglet (fiche devenue fausse et personne pour la recalculer) : le prochain écran la relit */
+export async function forgetTabPageMedia(tabId: number): Promise<void> {
+  const area = sessionArea();
+  if (!area) return;
+  await withStorageLock(() => area.remove(pageMediaCacheKey(tabId)));
 }
 
 /** Fiche visée par une écriture hors de l'écran (retrait de la liste, commentaire) : identifiants AniList et MAL */

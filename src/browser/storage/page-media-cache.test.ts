@@ -4,6 +4,8 @@ import { installFakeChrome } from '../../test/fake-chrome';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { PageMediaView } from '../../shared/page-media.types';
 import {
+  forgetTabPageMedia,
+  isCachedEpisodeShown,
   isCachedPageMedia,
   matchCachedPageMedia,
   PAGE_MEDIA_CACHE_TTL_MS,
@@ -70,6 +72,17 @@ describe('cache de la fiche par onglet', () => {
     expect(matchCachedPageMedia(synced, pageMediaFromEpisode({ ...complete, episodeId: 'GOTHER' }), NOW)).toBeNull();
     expect(matchCachedPageMedia(synced, completePage, NOW + PAGE_MEDIA_CACHE_TTL_MS + 1)).toBeNull();
     expect(matchCachedPageMedia(null, completePage, NOW)).toBeNull();
+  });
+
+  it('fiche qu’un écran peut afficher : même page, ou même épisode lu partiellement ; jamais expirée ni d’un autre épisode', () => {
+    const synced = toCachedPageMedia(completePage, SCHOOL, 'sync', NOW, OPEN);
+    expect(isCachedEpisodeShown(synced, completePage, NOW)).toBe(true);
+    expect(isCachedEpisodeShown(synced, partialPage, NOW)).toBe(true);
+    // Fiche devinée sur une lecture partielle : la synchro (page complète) la remplace
+    expect(isCachedEpisodeShown(toCachedPageMedia(partialPage, GUESS, 'resolve', NOW, OPEN), completePage, NOW)).toBe(true);
+    expect(isCachedEpisodeShown(synced, pageMediaFromEpisode({ ...complete, episodeId: 'GOTHER' }), NOW)).toBe(false);
+    expect(isCachedEpisodeShown(synced, completePage, NOW + PAGE_MEDIA_CACHE_TTL_MS + 1)).toBe(false);
+    expect(isCachedEpisodeShown(null, completePage, NOW)).toBe(false);
   });
 
   it('une lecture partielle n’écrase jamais la fiche complète du même épisode', () => {
@@ -201,5 +214,16 @@ describe('fiche de la page liée aux sessions (DATA-04, SEC-03)', () => {
     expect(await readCachedPageMedia(1)).not.toBeNull();
     fake.session.seed({ 'pageMedia:1': epochs === undefined ? legacy : { ...legacy, epochs } });
     expect(await readCachedPageMedia(1)).toBeNull();
+  });
+});
+
+describe('forgetTabPageMedia', () => {
+  it('retire la fiche de cet onglet seulement', async () => {
+    fake.reset();
+    fake.session.seed({ [pageMediaCacheKey(1)]: toCachedPageMedia(completePage, SCHOOL, 'sync', NOW, OPEN), [pageMediaCacheKey(2)]: toCachedPageMedia(completePage, SCHOOL, 'sync', NOW, OPEN) });
+    await forgetTabPageMedia(1);
+    expect([...fake.session.data.keys()]).toEqual([pageMediaCacheKey(2)]);
+    await forgetTabPageMedia(9);
+    expect(fake.session.data.size).toBe(1);
   });
 });

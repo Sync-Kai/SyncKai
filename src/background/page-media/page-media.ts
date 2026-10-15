@@ -13,7 +13,8 @@ import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.
 import { hasSignals, type PlatformSignals } from '../../shared/match-signals';
 import { hasPlatformAccess } from '../../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS } from '../../platforms/registry';
-import { readCachedPageMedia, storeCachedPageMedia } from '../../browser/storage/page-media-cache';
+import { hasOpenScreen } from '../../browser/open-screens';
+import { forgetTabPageMedia, isCachedEpisodeShown, readCachedPageMedia, storeCachedPageMedia } from '../../browser/storage/page-media-cache';
 import { learnPlatformLink } from '../../browser/storage/platform-links-store';
 import { pageMediaFromEpisode } from '../../shared/page-media';
 import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../../browser/storage/mappings';
@@ -427,11 +428,17 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
 /**
  * Après la synchro d'un épisode : fiche de son onglet recalculée (correspondance tout juste apprise, listes à jour)
  * et écrite dans le cache de l'onglet, que le panneau suit (storage.onChanged). Rien si aucune vue n'affiche
- * cet onglet (pas d'entrée en cache) : aucune requête inutile.
+ * cet onglet : aucune requête inutile. Une vue l'affiche si son entrée en cache est valable (moins de 10 min, même page :
+ * sans cela elle est inutilisable) et, là où `runtime.getContexts` existe, si un popup ou un panneau est ouvert ; sinon
+ * l'entrée, devenue fausse (listes d'avant la synchro), est oubliée et le prochain écran résout la fiche.
  */
 export async function refreshTabPageMedia(tabId: number, episode: EpisodeInfo): Promise<void> {
-  if (!(await readCachedPageMedia(tabId))) return;
   const page = pageMediaFromEpisode(episode);
+  if (!isCachedEpisodeShown(await readCachedPageMedia(tabId), page, Date.now())) return;
+  if ((await hasOpenScreen()) === false) {
+    await forgetTabPageMedia(tabId);
+    return;
+  }
   // Sessions relevées avant la résolution : la fiche n'est pas écrite si un compte est déconnecté entre-temps
   const epochs = await getOpenSessions();
   const result = await resolvePageMedia({ page, mediaId: null });

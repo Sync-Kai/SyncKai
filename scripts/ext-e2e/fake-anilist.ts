@@ -207,11 +207,10 @@ export class FakeAniList {
       case 'ScoreFormat':
         if (!account) return needsAccount();
         return { ok: { Viewer: { mediaListOptions: { scoreFormat: account.scoreFormat } } } };
-      case 'AnimeById':
       case 'MediaEntry': {
         const media = this.media.get(Number(v.id));
         if (!media) return { error: 404, message: 'Not Found.' };
-        if (operation === 'MediaEntry' && !account) return needsAccount();
+        if (!account) return needsAccount();
         return { ok: { Media: this.mediaFields(media, account) } };
       }
       case 'AnimeByIds':

@@ -38,7 +38,7 @@ vi.mock('./resolver', () => ({
   toCandidateSummary: () => null,
 }));
 vi.mock('../anilist/media', () => ({
-  getAnimeById: async (id: number) => ({ id, idMal: MAL_ID, displayTitle: 'Frieren', episodes: fakes.episodes }),
+  getAnimeByIds: async (ids: readonly number[]) => ids.map((id) => ({ id, idMal: MAL_ID, displayTitle: 'Frieren', episodes: fakes.episodes })),
   searchAnime: async () => [],
 }));
 vi.mock('../../browser/badge', () => ({ flashSyncBadge: async () => undefined, refreshReviewBadge: async () => undefined }));

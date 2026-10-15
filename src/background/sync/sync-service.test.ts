@@ -25,7 +25,7 @@ const fakes = vi.hoisted(() => ({
   /** Résolutions successives renvoyées par resolveEpisode (la dernière se répète) */
   resolutions: [] as EpisodeResolution[],
   resolveCalls: 0,
-  getAnimeById: async (_id: number): Promise<AniListMedia> => Promise.reject(new Error('non configuré')),
+  getAnimeByIds: async (_ids: readonly number[]): Promise<AniListMedia[]> => Promise.reject(new Error('non configuré')),
 }));
 
 vi.mock('../trackers', () => ({
@@ -43,7 +43,7 @@ vi.mock('./resolver', () => ({
   toCandidateSummary: () => null,
 }));
 vi.mock('../anilist/media', () => ({
-  getAnimeById: (id: number) => fakes.getAnimeById(id),
+  getAnimeByIds: (ids: readonly number[]) => fakes.getAnimeByIds(ids),
   searchAnime: async () => [],
 }));
 vi.mock('../../browser/badge', () => ({ flashSyncBadge: async () => undefined, refreshReviewBadge: async () => undefined }));
@@ -116,7 +116,7 @@ let catalog: Map<number, [number | null, number | null]>;
 
 function media(id: number): AniListMedia {
   const known = catalog.get(id);
-  if (!known) throw new ApiError('API_ERROR', 'AniList : erreur 404', { httpStatus: 404 });
+  if (!known) throw new Error(`fiche ${id} absente du catalogue de test`);
   return {
     id,
     idMal: known[0],
@@ -195,7 +195,8 @@ beforeEach(() => {
   ]);
   fakes.resolutions = [];
   fakes.resolveCalls = 0;
-  fakes.getAnimeById = async (id) => media(id);
+  // Comme AniList : une fiche supprimée est absente de la réponse (le 404 est reconstitué par getCatalogMedia)
+  fakes.getAnimeByIds = async (ids) => ids.filter((id) => catalog.has(id)).map(media);
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'debug').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -396,11 +397,11 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
     connect({ status: 'CURRENT', progress: 4 });
     await saveMediaMapping(KEY, cachedMapping);
     const choice: MediaMapping = { mediaId: PART2, numbering: 'season', offset: 0, episodes: 12, chosen: true };
-    const fetchCatalog = fakes.getAnimeById;
-    fakes.getAnimeById = async (id: number): Promise<AniListMedia> => {
+    const fetchCatalog = fakes.getAnimeByIds;
+    fakes.getAnimeByIds = async (ids: readonly number[]): Promise<AniListMedia[]> => {
       // L'utilisateur choisit une autre saison dans le sélecteur pendant la requête
       await saveMediaMapping(KEY, choice);
-      return fetchCatalog(id);
+      return fetchCatalog(ids);
     };
     fakes.resolutions = [resolved(PART1, 5, { ...cachedMapping, fromCache: true })];
 

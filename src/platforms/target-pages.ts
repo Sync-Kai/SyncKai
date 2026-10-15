@@ -33,6 +33,9 @@ export function targetPagePatterns(): string[] {
 /** Page du panneau latéral (chemin conservé tel quel par le build, comme le popup) */
 export const SIDE_PANEL_PATH = 'src/sidepanel/sidepanel.html';
 
+/** Page du popup (`default_popup` du manifeste) */
+export const POPUP_PATH = 'src/popup/popup.html';
+
 const MATCH_PATTERN = /^(\*|https?):\/\/(\*|\*\.[^/*]+|[^/*]+)(\/.*)$/;
 
 function escapeRegExp(text: string): string {

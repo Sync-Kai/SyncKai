@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import type { PageMediaDetails, PageMediaInfo } from '../../shared/page-media.types';
+import type { PageMediaDetails, PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import type { CandidateSummary } from '../../shared/review.types';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { installFakeChrome } from '../../test/fake-chrome';
@@ -34,7 +34,9 @@ vi.mock('../trackers', () => ({ getConnectedTrackers: async () => [] }));
 
 const fake = installFakeChrome();
 
-const { resolvePageMedia, forgetPageResolutions } = await import('./page-media');
+const { resolvePageMedia, forgetPageResolutions, refreshTabPageMedia } = await import('./page-media');
+const { pageMediaCacheKey, toCachedPageMedia, PAGE_MEDIA_CACHE_TTL_MS } = await import('../../browser/storage/page-media-cache');
+const { pageMediaFromEpisode } = await import('../../shared/page-media');
 const { mappingKey } = await import('../sync/matching/matching');
 // Résolution réelle de la synchro (EPISODE_COMPLETED → syncEpisode → resolveEpisode), hors du simulacre ci-dessus
 const sync = await vi.importActual<typeof import('../sync/resolver')>('../sync/resolver');
@@ -532,5 +534,104 @@ describe('resolvePageMedia — Attack on Titan sur Crunchyroll, saison nommée �
     const result = await resolvePageMedia({ page: seriesPage, mediaId: null });
     expect(result).toMatchObject({ ok: true, data: { media: { mediaId: LAST_ATTACK_MOVIE_ID }, confidence: 'certain', source: 'page' } });
     expect(result.ok && result.data.seasons.map((s) => s.id)).toEqual([...AOT_SEASON_IDS]);
+  });
+});
+
+describe('refreshTabPageMedia — fiche de l’onglet après la synchro (PERF-07)', () => {
+  const TAB = 7;
+  const episode: EpisodeInfo = {
+    platform: 'crunchyroll',
+    episodeId: 'GG1U2Q5VK',
+    seriesId: 'GG5H5XQX4',
+    seriesSlug: 'frieren',
+    animeTitle: 'Frieren',
+    seasonNumber: 1,
+    seasonTitle: null,
+    seasonEpisodeNumber: 3,
+    displayedEpisodeNumber: 3,
+    episodeTitle: null,
+    url: 'https://www.crunchyroll.com/watch/GG1U2Q5VK/killing-magic',
+  };
+  const cached = (resolvedAt: number, override: Partial<EpisodeInfo> = {}): unknown =>
+    toCachedPageMedia(
+      pageMediaFromEpisode({ ...episode, ...override }),
+      { media: { mediaId: 154587, title: 'Frieren' }, lists: [], confidence: 'certain', source: 'page', seasons: [], episodeProgress: 2 } as unknown as PageMediaView,
+      'resolve',
+      resolvedAt,
+      {},
+    );
+  const NOW = 1_800_000_000_000;
+  const runtime = chrome.runtime as unknown as { getContexts?: unknown };
+  const withContexts = (contexts: { contextType: string; documentUrl?: string }[] | Error | null): void => {
+    runtime.getContexts = contexts === null ? undefined : vi.fn(() => (contexts instanceof Error ? Promise.reject(contexts) : Promise.resolve(contexts)));
+  };
+  const entryKept = (): boolean => fake.session.data.has(pageMediaCacheKey(TAB));
+  /** La fiche est recalculée : la résolution de l'épisode (simulée) est interrogée */
+  const resolved = (): boolean => resolver.resolveEpisode.mock.calls.length > 0;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    withContexts(null);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    delete runtime.getContexts;
+  });
+
+  it('aucune fiche en cache pour l’onglet : rien n’est recalculé', async () => {
+    await refreshTabPageMedia(TAB, episode);
+    expect(resolved()).toBe(false);
+  });
+
+  it('fiche valable et un popup ouvert : recalculée, entrée gardée jusqu’à sa réécriture', async () => {
+    fake.session.seed({ [pageMediaCacheKey(TAB)]: cached(NOW - 60_000) });
+    withContexts([{ contextType: 'POPUP', documentUrl: 'chrome-extension://x/src/popup/popup.html' }]);
+    await refreshTabPageMedia(TAB, episode);
+    expect(resolved()).toBe(true);
+    expect(entryKept()).toBe(true);
+  });
+
+  it('page du panneau ouverte dans un onglet : compte comme un écran ouvert ; autre page de l’extension : non', async () => {
+    fake.session.seed({ [pageMediaCacheKey(TAB)]: cached(NOW - 60_000) });
+    withContexts([{ contextType: 'TAB', documentUrl: 'chrome-extension://x/src/sidepanel/sidepanel.html' }]);
+    await refreshTabPageMedia(TAB, episode);
+    expect(resolved()).toBe(true);
+
+    vi.clearAllMocks();
+    forgetPageResolutions();
+    withContexts([{ contextType: 'TAB', documentUrl: 'chrome-extension://x/src/import-cr/import-cr.html' }]);
+    await refreshTabPageMedia(TAB, episode);
+    expect(resolved()).toBe(false);
+    expect(entryKept()).toBe(false);
+  });
+
+  it('aucun écran ouvert : rien n’est recalculé, la fiche devenue fausse est oubliée (le prochain écran la résout)', async () => {
+    fake.session.seed({ [pageMediaCacheKey(TAB)]: cached(NOW - 60_000) });
+    withContexts([]);
+    await refreshTabPageMedia(TAB, episode);
+    expect(resolved()).toBe(false);
+    expect(entryKept()).toBe(false);
+  });
+
+  it('écrans inconnus (runtime.getContexts absent, ou en échec) : comportement d’avant, fiche recalculée', async () => {
+    fake.session.seed({ [pageMediaCacheKey(TAB)]: cached(NOW - 60_000) });
+    await refreshTabPageMedia(TAB, episode);
+    expect(resolved()).toBe(true);
+
+    vi.clearAllMocks();
+    forgetPageResolutions();
+    withContexts(new Error('indisponible'));
+    await refreshTabPageMedia(TAB, episode);
+    expect(resolved()).toBe(true);
+  });
+
+  it('fiche expirée (plus de 10 min) ou d’une autre page : personne ne l’affiche, rien n’est recalculé même si un écran est ouvert', async () => {
+    withContexts([{ contextType: 'SIDE_PANEL' }]);
+    fake.session.seed({ [pageMediaCacheKey(TAB)]: cached(NOW - PAGE_MEDIA_CACHE_TTL_MS - 1) });
+    await refreshTabPageMedia(TAB, episode);
+    fake.session.seed({ [pageMediaCacheKey(TAB)]: cached(NOW - 1_000, { episodeId: 'GOTHER', url: 'https://www.crunchyroll.com/watch/GOTHER/x' }) });
+    await refreshTabPageMedia(TAB, episode);
+    expect(resolved()).toBe(false);
   });
 });

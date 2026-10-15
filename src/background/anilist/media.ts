@@ -214,21 +214,8 @@ export async function getAnimeByIds(ids: readonly number[], lane: RequestLane = 
   return cachedPage(key, lane, async () => parsePage(await anilistPublicQuery(BY_IDS_QUERY, isPageData, { ids }, lane)));
 }
 
-const BY_ID_QUERY = /* GraphQL */ `
-  query AnimeById($id: Int!) {
-    Media(id: $id, type: ANIME) { ${MEDIA_FIELDS} }
-  }
-`;
-
 function isMediaData(data: unknown): data is { Media: unknown } {
   return isRecord(data) && isRecord(data.Media);
-}
-
-/** Fiche du catalogue par identifiant AniList (sans compte requis). */
-export async function getAnimeById(id: number): Promise<AniListMedia> {
-  const media = parseMedia((await anilistPublicQuery(BY_ID_QUERY, isMediaData, { id })).Media);
-  if (!media) throw new ApiError('INVALID_RESPONSE', t('api.invalidResponse.anilist'));
-  return media;
 }
 
 // ─── Fiche de la page (carte « Sur cette page ») ──────────────────────────

@@ -32,7 +32,7 @@ import { getSettings } from '../../browser/storage/settings-access';
 import type { ServiceResult, SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { ApiError } from '../errors';
-import { getAnimeById, searchAnime } from '../anilist/media';
+import { getAnimeByIds, searchAnime } from '../anilist/media';
 import { getConnectedTrackers } from '../trackers';
 import type { CatalogMedia, TrackerService } from '../ports/tracker';
 import { mappingFromManualChoice, mappingKey, seasonLabel, type ResolveResult, type SyncTarget } from './matching/matching';
@@ -80,9 +80,14 @@ async function queueReview(review: PendingReview): Promise<void> {
   await refreshReviewBadge();
 }
 
-/** Fiche du catalogue AniList (titre, nombre d'épisodes, identifiant MAL) : aucun compte requis. */
+/**
+ * Fiche du catalogue AniList (titre, nombre d'épisodes, identifiant MAL) : aucun compte requis. Lue par le même chemin
+ * (et le même cache) que la vérification de la correspondance (resolver.ts › questionMapping) : une fiche déjà lue
+ * ne coûte pas une seconde requête. Une fiche absente de la réponse est un 404 (supprimée ou fusionnée sur AniList).
+ */
 export async function getCatalogMedia(mediaId: number): Promise<CatalogMedia> {
-  const media = await getAnimeById(mediaId);
+  const media = (await getAnimeByIds([mediaId])).find((m) => m.id === mediaId);
+  if (!media) throw new ApiError('API_ERROR', t('api.httpError', { service: 'AniList', status: 404 }), { httpStatus: 404 });
   return { mediaId, idMal: media.idMal, title: media.displayTitle, episodes: media.episodes };
 }
 
