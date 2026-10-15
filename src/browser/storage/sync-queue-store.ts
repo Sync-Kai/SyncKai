@@ -1,10 +1,10 @@
-import { isSyncQueueItem, restrictToSession, type SyncQueueItem } from './queue.types';
-import { getOpenSessions } from './storage';
-import { SYNC_QUEUE_KEY } from '../protocol/storage-keys';
-import { withStorageLock } from './storage-lock';
+import { isSyncQueueItem, restrictToSession, type SyncQueueItem } from '../../shared/queue.types';
+import { getOpenSessions } from '../../shared/storage';
+import { SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
+import { withStorageLock } from './lock';
 
 // Accès au stockage de la file de synchro (popup + service worker).
-// Écritures sous `withStorageLock` (src/shared/storage-lock.ts), clé `SYNC_QUEUE_KEY` (storage-keys.ts).
+// Écritures sous `withStorageLock` (src/browser/storage/lock.ts), clé `SYNC_QUEUE_KEY` (storage-keys.ts).
 
 /** Lecture brute, entrées invalides ignorées */
 async function readQueue(): Promise<SyncQueueItem[]> {

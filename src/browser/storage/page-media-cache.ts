@@ -1,9 +1,9 @@
-import { isRecord } from './guards';
-import type { PageMediaInfo, PageMediaView } from './page-media.types';
+import { isRecord } from '../../shared/guards';
+import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import { PAGE_MEDIA_CACHE_PREFIX, PAGE_MEDIA_CACHE_TTL_MS, purgeStaleSessionCaches, sessionArea } from './session-cache';
-import { isSessionEpochs, sameSessions, type SessionEpochs } from './session-epochs';
-import { getOpenSessions } from './storage';
-import { withStorageLock } from './storage-lock';
+import { isSessionEpochs, sameSessions, type SessionEpochs } from '../../shared/session-epochs';
+import { getOpenSessions } from '../../shared/storage';
+import { withStorageLock } from './lock';
 
 // Fiche de la page par onglet : source de vérité unique pour le popup (carte « Sur cette page ») et le panneau.
 // Écrite après chaque RESOLVE_PAGE_MEDIA (popup, panneau) et après la synchro d'un épisode de l'onglet

@@ -1,5 +1,5 @@
 import { isRecord } from './guards';
-import { requestStorageLock } from './storage-lock-core';
+import { requestStorageLock } from '../browser/storage/lock-core';
 
 // Journal local des warn/error (rapport de diagnostic). Règle absolue : ce module ne logue jamais
 // (le logger l'appelle, tout log ici bouclerait) et ne lève jamais.

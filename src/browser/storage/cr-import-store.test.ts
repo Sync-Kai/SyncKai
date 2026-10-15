@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { installFakeChrome } from '../test/fake-chrome';
+import { installFakeChrome } from '../../test/fake-chrome';
 
 // Écritures de la page d'import Crunchyroll (ARCH-18) : sous le verrou du stockage, tâche relue sous ce verrou.
 
 const fake = installFakeChrome();
-const { CR_IMPORT_KEYS, startAnalyzeJob } = await import('./cr-import');
-const { reduceJob } = await import('./job');
+const { CR_IMPORT_KEYS, startAnalyzeJob } = await import('../../shared/cr-import');
+const { reduceJob } = await import('../../shared/job');
 const { dismissCrImportJob, resetCrImport } = await import('./cr-import-store');
-const { STORAGE_LOCK } = await import('./storage-lock-core');
+const { STORAGE_LOCK } = await import('./lock-core');
 
 const NOW = 1_800_000_000_000;
 const running = startAnalyzeJob(3, NOW);

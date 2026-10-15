@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import type { MalViewer, MalViewerResult } from '../../shared/mal.types';
-import { endSessionIfToken } from '../../shared/session-end';
+import { endSessionIfToken } from '../../browser/storage/session-end';
 import { getSessionEpoch, saveCachedMalViewer } from '../../shared/storage';
 import type { ManualListStatus } from '../../shared/sync.types';
 import { toSafeImageUrl } from '../../shared/url';

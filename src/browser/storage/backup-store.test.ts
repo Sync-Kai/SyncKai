@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // Import d'une sauvegarde : stockage en mémoire, verrou immédiat, accès Netflix piloté.
-vi.mock('./storage-lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise<T> => task() }));
-vi.mock('./badge', () => ({ refreshReviewBadge: () => Promise.resolve() }));
+vi.mock('./lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise<T> => task() }));
+vi.mock('../../shared/badge', () => ({ refreshReviewBadge: () => Promise.resolve() }));
 
 const { applyBackup } = await import('./backup-store');
-const { buildBackup } = await import('./backup');
-const { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } = await import('./settings');
+const { buildBackup } = await import('../../shared/backup');
+const { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } = await import('../../shared/settings');
 
 afterEach(() => {
   vi.unstubAllGlobals();

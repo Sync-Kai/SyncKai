@@ -6,7 +6,7 @@ const auth = vi.hoisted(() => ({
   endSessionIfToken: vi.fn<(service: string, accessToken: string) => Promise<boolean>>(),
 }));
 vi.mock('../auth/mal', () => ({ getMalAccessToken: auth.getMalAccessToken }));
-vi.mock('../../shared/session-end', () => ({ endSessionIfToken: auth.endSessionIfToken }));
+vi.mock('../../browser/storage/session-end', () => ({ endSessionIfToken: auth.endSessionIfToken }));
 
 import { deleteMalEntry, fromMalStatus, getMalAnime, malProgressBody, malRequest, malStatusBody, parseMalListStatus, saveMalNotes, toMalStatus } from './mal';
 

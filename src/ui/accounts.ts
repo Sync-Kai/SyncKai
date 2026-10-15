@@ -7,7 +7,7 @@ import type { AuthResult } from '../shared/auth.types';
 import { createLogger } from '../shared/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
 import { sendMessage } from '../protocol/messages';
-import { endSession } from '../shared/session-end';
+import { endSession } from '../browser/storage/session-end';
 import { getCachedMalViewer, getCachedViewer, getViewerFetchedAt, hasAniListToken, hasMalToken, hasValidAniListToken, isSessionExpired } from '../shared/storage';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';

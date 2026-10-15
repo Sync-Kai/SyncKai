@@ -1,6 +1,6 @@
 // Export de la sauvegarde : fichier .json téléchargé par un lien temporaire (aucune permission « downloads »).
 import { backupFileName } from '../shared/backup';
-import { exportBackup } from '../shared/backup-store';
+import { exportBackup } from '../browser/storage/backup-store';
 import { h } from './dom';
 
 /** Page Sauvegarde (onglet) : import, et export depuis le popup (`?export`) */

@@ -1,15 +1,15 @@
-import { getLocale } from '../i18n';
-import { AIRING_RESULT_KEY, isAiringCheckResult } from './airing.types';
+import { getLocale } from '../../i18n';
+import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.types';
 import { getPendingRatings } from './engagement-store';
-import { readJournal } from './error-journal';
-import { getExcludedSeries } from './exclusions';
-import { isRecord } from './guards';
-import { buildDiagnosticsReport, describeBrowser, type BuildMode } from './diagnostics';
-import { getSettings } from './settings';
-import { getMediaMappings, getPendingReviews, getRecentSyncs, isStoredToken } from './storage';
-import { STORAGE_KEYS } from '../protocol/storage-keys';
+import { readJournal } from '../../shared/error-journal';
+import { getExcludedSeries } from '../../shared/exclusions';
+import { isRecord } from '../../shared/guards';
+import { buildDiagnosticsReport, describeBrowser, type BuildMode } from '../../shared/diagnostics';
+import { getSettings } from '../../shared/settings';
+import { getMediaMappings, getPendingReviews, getRecentSyncs, isStoredToken } from '../../shared/storage';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { getSyncQueue } from './sync-queue-store';
-import { readTokenSecrets } from './token-access';
+import { readTokenSecrets } from '../tokens/access';
 
 // Collecte des données du rapport de diagnostic (popup) : lecture directe de chrome.storage.local.
 

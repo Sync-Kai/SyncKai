@@ -1,5 +1,5 @@
-import { recordUnlocked } from './error-journal';
-import { requestStorageLock, STORAGE_LOCK } from './storage-lock-core';
+import { recordUnlocked } from '../../shared/error-journal';
+import { requestStorageLock, STORAGE_LOCK } from './lock-core';
 
 const SCOPE = 'lock';
 

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { installFakeChrome } from '../test/fake-chrome';
-import { REWATCH_DECLINE_MS, type PendingRating } from './engagement.types';
-import { PENDING_RATINGS_KEY } from '../protocol/storage-keys';
-import type { ServiceResult } from './sync.types';
+import { installFakeChrome } from '../../test/fake-chrome';
+import { REWATCH_DECLINE_MS, type PendingRating } from '../../shared/engagement.types';
+import { PENDING_RATINGS_KEY } from '../../protocol/storage-keys';
+import type { ServiceResult } from '../../shared/sync.types';
 
 const fake = installFakeChrome();
 const { addPendingRating, getPendingRatings, isDeclineActive, isPendingRating, isRatingSettled, purgeExpiredDeclines, removePendingRating } = await import(
   './engagement-store'
 );
-const { STORAGE_LOCK } = await import('./storage-lock-core');
+const { STORAGE_LOCK } = await import('./lock-core');
 
 const NOW = 1_800_000_000_000;
 
@@ -61,7 +61,7 @@ describe('isPendingRating', () => {
   });
 
   it('une seule définition dans le code : la copie du popup a disparu', () => {
-    const sources = import.meta.glob<string>(['../**/*.ts', '!../**/*.test.ts'], { query: '?raw', import: 'default', eager: true });
+    const sources = import.meta.glob<string>(['../../**/*.ts', '!../../**/*.test.ts'], { query: '?raw', import: 'default', eager: true });
     const owners = Object.entries(sources)
       .filter(([, code]) => /function isPendingRating\b|const isPendingRating\b/.test(code))
       .map(([path]) => path);

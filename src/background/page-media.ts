@@ -13,8 +13,8 @@ import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../shared/episode.typ
 import { hasSignals, type PlatformSignals } from '../shared/match-signals';
 import { hasPlatformAccess } from '../shared/platform-access';
 import { isOptionalPlatform, PLATFORMS } from '../platforms/registry';
-import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
-import { learnPlatformLink } from '../shared/platform-links-store';
+import { readCachedPageMedia, storeCachedPageMedia } from '../browser/storage/page-media-cache';
+import { learnPlatformLink } from '../browser/storage/platform-links-store';
 import { pageMediaFromEpisode } from '../shared/page-media';
 import { getMediaMapping, getMediaMappings, getOpenSessions, saveMediaMapping } from '../shared/storage';
 import type { ListStatus } from '../shared/sync.types';

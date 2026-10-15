@@ -1,7 +1,7 @@
-import { refreshReviewBadge } from './badge';
-import { clearAniListSession, clearAniListSessionIfToken, clearMalSession, clearMalSessionIfToken, clearUnreadableSession, clearUserSyncDataIfNoSession } from './storage';
-import type { SealedToken } from './token-crypto';
-import type { TrackerId } from './tracker.types';
+import { refreshReviewBadge } from '../../shared/badge';
+import { clearAniListSession, clearAniListSessionIfToken, clearMalSession, clearMalSessionIfToken, clearUnreadableSession, clearUserSyncDataIfNoSession } from '../../shared/storage';
+import type { SealedToken } from '../tokens/crypto';
+import type { TrackerId } from '../../shared/tracker.types';
 
 /** Après la fermeture d'une session : données de l'utilisateur si plus aucun service n'est connecté, badge de l'icône */
 async function afterSessionEnd(): Promise<void> {

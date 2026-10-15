@@ -19,7 +19,7 @@ import {
   type CrServicePlan,
   type ImportPlatform,
 } from '../shared/cr-import';
-import { dismissCrImportJob, resetCrImport } from '../shared/cr-import-store';
+import { dismissCrImportJob, resetCrImport } from '../browser/storage/cr-import-store';
 import { hasHostAccess, requestHostAccess } from '../shared/host-access';
 import { NETFLIX_HISTORY_HOOK } from '../protocol/netflix-history';
 import {

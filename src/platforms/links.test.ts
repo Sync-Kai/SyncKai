@@ -13,7 +13,7 @@ import {
   withLearnedLinks,
   type PlatformLinkStore,
 } from './links';
-import { learnPlatformLink } from '../shared/platform-links-store';
+import { learnPlatformLink } from '../browser/storage/platform-links-store';
 import { choosePlatformLink } from '../shared/watching';
 import type { PlatformLink, WatchingEntry } from '../shared/watching.types';
 

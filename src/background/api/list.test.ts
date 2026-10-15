@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AniListToken } from '../../shared/auth.types';
 
 // Token AniList simulé : requêtes authentifiées (retrait, commentaire) envoyées sur un fetch simulé
-vi.mock('../../shared/token-access', () => ({ getValidToken: async (): Promise<AniListToken> => ({ accessToken: 'A', expiresAt: Number.MAX_SAFE_INTEGER }) }));
-vi.mock('../../shared/session-end', () => ({ endSessionIfToken: async () => true }));
+vi.mock('../../browser/tokens/access', () => ({ getValidToken: async (): Promise<AniListToken> => ({ accessToken: 'A', expiresAt: Number.MAX_SAFE_INTEGER }) }));
+vi.mock('../../browser/storage/session-end', () => ({ endSessionIfToken: async () => true }));
 
 import { anilistEntryVariables, deleteListEntry, getMediaListInfo, saveListNotes } from './list';
 

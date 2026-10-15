@@ -1,6 +1,6 @@
 import { getLocale, initI18n, onLocaleChange, t, tp, type PluralKey } from '../i18n';
 import { BACKUP_MAX_BYTES, parseBackup, summarizeBackup, type BackupSummary, type ImportMode, type ParsedBackup } from '../shared/backup';
-import { applyBackup } from '../shared/backup-store';
+import { applyBackup } from '../browser/storage/backup-store';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../ui/dom';
 import { icon, kai } from '../ui/icons';
 import { renderAlert } from '../ui/alert';

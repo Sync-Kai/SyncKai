@@ -62,7 +62,7 @@ const { recordSyncOutcome } = await import('./queue');
 const { confirmReview, ignoreReview } = await import('./review-decision');
 const { mappingKey } = await import('./matching');
 const { getMediaMapping, getPendingReviews, saveMediaMapping, savePendingReview } = await import('../../shared/storage');
-const { getSyncQueue } = await import('../../shared/sync-queue-store');
+const { getSyncQueue } = await import('../../browser/storage/sync-queue-store');
 const { excludeSeries, platformSeriesKey } = await import('../../shared/exclusions');
 const { PLATFORM_LINKS_KEY } = await import('../../platforms/links');
 

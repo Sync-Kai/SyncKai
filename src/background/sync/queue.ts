@@ -4,7 +4,7 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import { queueItemId, restrictToSession, type SyncQueueItem } from '../../shared/queue.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
 import { getOpenSessions } from '../../shared/storage';
-import { getSyncQueue, removeQueueItem, saveQueueItem } from '../../shared/sync-queue-store';
+import { getSyncQueue, removeQueueItem, saveQueueItem } from '../../browser/storage/sync-queue-store';
 import type { SyncOutcome } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import { classifyOutcome, decideAfterRetry, dueItems, nextAlarmTime, upsertFailure, withoutServices } from './queue-policy';

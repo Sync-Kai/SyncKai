@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { pageMediaFromEpisode } from './page-media';
-import { installFakeChrome } from '../test/fake-chrome';
-import type { EpisodeInfo } from './episode.types';
-import type { PageMediaView } from './page-media.types';
+import { pageMediaFromEpisode } from '../../shared/page-media';
+import { installFakeChrome } from '../../test/fake-chrome';
+import type { EpisodeInfo } from '../../shared/episode.types';
+import type { PageMediaView } from '../../shared/page-media.types';
 import {
   isCachedPageMedia,
   matchCachedPageMedia,
@@ -13,12 +13,12 @@ import {
   storeCachedPageMedia,
   toCachedPageMedia,
 } from './page-media-cache';
-import { STORAGE_KEYS } from '../protocol/storage-keys';
-import type { SessionEpochs } from './session-epochs';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
+import type { SessionEpochs } from '../../shared/session-epochs';
 import { PANEL_MEDIA_CACHE_TTL_MS, panelMediaCacheKey, purgeStaleSessionCaches } from './session-cache';
 
 const fake = installFakeChrome();
-const { clearAniListSession, clearMalSession, clearUserSyncData, getOpenSessions } = await import('./storage');
+const { clearAniListSession, clearMalSession, clearUserSyncData, getOpenSessions } = await import('../../shared/storage');
 
 // Régression : Black Butler -Public School Arc- E1. Le panneau lisait la page avant son JSON-LD (repli DOM sans
 // saison) et devinait « Kuroshitsuji » (2008) ; la synchro et le popup retenaient « Kishuku Gakkou-hen » (2024).

@@ -5,7 +5,7 @@ import type { Page } from 'puppeteer';
 import { describe, expect, it } from 'vitest';
 import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
 import { SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
-import { isSealedToken } from '../../src/shared/token-crypto';
+import { isSealedToken } from '../../src/browser/tokens/crypto';
 import { FakeAniList } from './fake-anilist';
 import { FakeMal } from './fake-mal';
 import { startExtension, waitFor, type ExtensionHarness } from './harness';

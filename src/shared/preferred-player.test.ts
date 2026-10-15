@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // Verrou du stockage immédiat (Web Locks absent sous Node)
-vi.mock('./storage-lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise<T> => task() }));
+vi.mock('../browser/storage/lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise<T> => task() }));
 
 const { effectivePreferredPlayer, hasNetflixAccess, resetRevokedPlayer } = await import('./preferred-player');
 const { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } = await import('./settings');

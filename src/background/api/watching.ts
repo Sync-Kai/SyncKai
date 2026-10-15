@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { learnedLinksFor, mergePlatformLinks, platformFromUrl, platformLinkFromExternal, withLearnedLinks, type PlatformLinkStore } from '../../platforms/links';
-import { getPlatformLinks } from '../../shared/platform-links-store';
+import { getPlatformLinks } from '../../browser/storage/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
 import { getCachedViewer, getCachedWatching, getRecentSyncs, getSessionEpoch, saveCachedWatching } from '../../shared/storage';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';

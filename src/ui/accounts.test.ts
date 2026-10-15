@@ -65,7 +65,7 @@ vi.stubGlobal('navigator', {
 });
 
 const { createAccountsController, isProfileFresh, PROFILE_TTL_MS } = await import('./accounts');
-const { endSessionIfToken } = await import('../shared/session-end');
+const { endSessionIfToken } = await import('../browser/storage/session-end');
 
 /** Session MAL ouverte (token X), profil renvoyé par le service worker */
 function openMalSession(): void {

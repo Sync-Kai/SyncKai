@@ -1,9 +1,9 @@
-import { isRecord } from './guards';
-import { createLogger } from './logger';
-import { mergePlatformLinks, parsePlatformLinkStore, PLATFORM_LINKS_KEY, rememberPlatformLink, type PlatformLinkStore } from '../platforms/links';
-import { STORAGE_KEYS } from '../protocol/storage-keys';
-import { withStorageLock } from './storage-lock';
-import { isWatchingList, type PlatformLink, type WatchingList } from './watching.types';
+import { isRecord } from '../../shared/guards';
+import { createLogger } from '../../shared/logger';
+import { mergePlatformLinks, parsePlatformLinkStore, PLATFORM_LINKS_KEY, rememberPlatformLink, type PlatformLinkStore } from '../../platforms/links';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
+import { withStorageLock } from './lock';
+import { isWatchingList, type PlatformLink, type WatchingList } from '../../shared/watching.types';
 
 // Accès chrome.storage des liens de séries appris (service worker uniquement).
 

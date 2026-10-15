@@ -1,6 +1,6 @@
-import { isRecord } from './guards';
-import { getTokenKey } from './token-key-store';
-import type { TrackerId } from './tracker.types';
+import { isRecord } from '../../shared/guards';
+import { getTokenKey } from './key-store';
+import type { TrackerId } from '../../shared/tracker.types';
 
 // Chiffrement des tokens OAuth au repos (SEC-01) : AES-GCM 256 bits, IV aléatoire de 96 bits à chaque écriture, clé non
 // extractible de token-key-store.ts. Le service (anilist / mal) est lié au chiffré (données authentifiées) : un token

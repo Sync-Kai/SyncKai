@@ -1,7 +1,7 @@
 import { isRecord } from './guards';
 import type { PlatformSignals } from './match-signals';
 import type { StreamingPlatform } from '../platforms/registry';
-import { sessionArea } from './session-cache';
+import { sessionArea } from '../browser/storage/session-cache';
 import { MATCH_DIAGNOSTIC_KEY } from '../protocol/storage-keys';
 
 // Diagnostic des correspondances (builds de dev seulement) : décisions de la résolution AniList écrites par le service

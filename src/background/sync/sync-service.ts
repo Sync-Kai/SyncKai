@@ -5,7 +5,7 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import { isExcluded, platformSeriesKey } from '../../shared/exclusions';
 import type { ResolveReviewPayload } from '../../protocol/messages';
 import { platformSeriesUrl } from '../../platforms/links';
-import { learnPlatformLink } from '../../shared/platform-links-store';
+import { learnPlatformLink } from '../../browser/storage/platform-links-store';
 import type { Result } from '../../shared/result';
 import type { CandidateSummary, DeferredEpisode, PendingReview } from '../../shared/review.types';
 import { pickSessions, sessionsOf, type SessionEpochs } from '../../shared/session-epochs';
@@ -22,7 +22,7 @@ import {
   savePendingReview,
   takePendingReview,
 } from '../../shared/storage';
-import { isRewatchDeclined } from '../../shared/engagement-store';
+import { isRewatchDeclined } from '../../browser/storage/engagement-store';
 import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
 import { getSettings } from '../../shared/settings';
 import type { ServiceResult, SyncOutcome } from '../../shared/sync.types';

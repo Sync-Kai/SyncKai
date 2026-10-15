@@ -9,7 +9,7 @@ import {
   pageMediaCacheKey,
   readCachedPageMedia,
   storeCachedPageMedia,
-} from '../shared/page-media-cache';
+} from '../browser/storage/page-media-cache';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
 import { hasPlatformAccess } from '../shared/platform-access';
 import { isOptionalPlatform } from '../platforms/registry';

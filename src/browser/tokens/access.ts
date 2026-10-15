@@ -1,9 +1,9 @@
-import type { AniListToken } from './auth.types';
-import { createLogger } from './logger';
-import type { MalToken } from './mal.types';
-import { endSessionIfUnreadable } from './session-end';
-import { encryptLegacyTokens, readStoredToken, type TokenOf } from './storage';
-import { TRACKER_IDS, type TrackerId } from './tracker.types';
+import type { AniListToken } from '../../shared/auth.types';
+import { createLogger } from '../../shared/logger';
+import type { MalToken } from '../../shared/mal.types';
+import { endSessionIfUnreadable } from '../storage/session-end';
+import { encryptLegacyTokens, readStoredToken, type TokenOf } from '../../shared/storage';
+import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 
 // Lecture des tokens OAuth déchiffrés (SEC-01), réservée au service worker (requêtes AniList / MAL). Les pages de
 // l'extension se contentent de la présence (storage.ts : hasValidAniListToken, hasMalToken). À ne jamais appeler sous

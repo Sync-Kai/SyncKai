@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import { STORAGE_LOCK } from '../../shared/storage-lock-core';
+import { STORAGE_LOCK } from '../../browser/storage/lock-core';
 import type { MediaMapping } from '../../shared/sync.types';
 import { installFakeChrome } from '../../test/fake-chrome';
 import type { AniListMedia } from '../api/media';

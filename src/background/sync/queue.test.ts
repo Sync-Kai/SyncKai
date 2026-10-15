@@ -17,7 +17,7 @@ const fake = installFakeChrome();
 
 const { processSyncQueue, QUEUE_ALARM, recordSyncOutcome, retryQueued } = await import('./queue');
 const { BACKOFF_MS } = await import('./queue-policy');
-const { getSyncQueue } = await import('../../shared/sync-queue-store');
+const { getSyncQueue } = await import('../../browser/storage/sync-queue-store');
 
 setLocale('fr');
 

@@ -21,7 +21,7 @@ import {
   type PlannedNotification,
 } from './airing-policy';
 import { watchingProgress, weekRange } from '../shared/agenda';
-import { agendaFirstDay, writeWeekCache } from '../shared/agenda-store';
+import { agendaFirstDay, writeWeekCache } from '../browser/storage/agenda-store';
 import { AIRING_COVERED_KEY, AIRING_LAST_CHECK_KEY, AIRING_NOTIFIED_KEY, AIRING_RESULT_KEY, AIRING_TARGETS_KEY } from '../shared/airing-keys';
 import type { AiringCheckResult, AiringSkipReason } from '../shared/airing.types';
 import { getExcludedSeries } from '../shared/exclusions';
@@ -37,7 +37,7 @@ import {
   hasValidAniListToken,
   sessionsStillOpen,
 } from '../shared/storage';
-import { withStorageLock } from '../shared/storage-lock';
+import { withStorageLock } from '../browser/storage/lock';
 import type { TrackerId } from '../shared/tracker.types';
 import { choosePlatformLink, isWatchingFresh, WATCHING_MAX_AGE_MS } from '../shared/watching';
 import type { WatchingEntry, WatchingList } from '../shared/watching.types';

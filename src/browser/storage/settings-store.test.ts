@@ -31,7 +31,7 @@ vi.stubGlobal('navigator', {
 
 const { updateSettings } = await import('./settings-store');
 const { saveSeriesOffset } = await import('./agenda-store');
-const { DEFAULT_SETTINGS, getSettings, SETTINGS_STORAGE_KEY } = await import('./settings');
+const { DEFAULT_SETTINGS, getSettings, SETTINGS_STORAGE_KEY } = await import('../../shared/settings');
 
 beforeEach(() => {
   store = { [SETTINGS_STORAGE_KEY]: { ...DEFAULT_SETTINGS, preferredPlayer: 'netflix' } };

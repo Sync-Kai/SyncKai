@@ -5,7 +5,7 @@ import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type Compare
 import { COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../../shared/compare-job';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../protocol/messages';
-import { withStorageLock } from '../../shared/storage-lock';
+import { withStorageLock } from '../../browser/storage/lock';
 import type { TrackerId } from '../../shared/tracker.types';
 import { createStore, patchStore, type Store } from '../../ui/state';
 import { COMPARE_PAGE_SIZE } from '../components/compare-section';

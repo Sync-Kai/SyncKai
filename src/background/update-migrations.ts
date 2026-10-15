@@ -1,4 +1,4 @@
-import { migrateLegacySeriesOffsets } from '../shared/agenda-store';
+import { migrateLegacySeriesOffsets } from '../browser/storage/agenda-store';
 import { bindLegacyDataToSession, deleteMediaMappingsByPrefix, encryptLegacyTokens } from '../shared/storage';
 import { createLogger } from '../shared/logger';
 import { markOtherSeriesPurgePending, runPendingOtherSeriesPurge } from './sync/mapping-purge';

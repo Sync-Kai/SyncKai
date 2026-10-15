@@ -9,7 +9,7 @@ import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions'
 import { createLogger } from '../../shared/logger';
 import { hasPlatformAccess } from '../../shared/platform-access';
 import { getSettings, normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
-import { updateSettings } from '../../shared/settings-store';
+import { updateSettings } from '../../browser/storage/settings-store';
 import { getMediaMappings } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { kanaLabel } from '../kit';

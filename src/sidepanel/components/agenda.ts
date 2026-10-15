@@ -16,7 +16,7 @@ import {
   type IsoWeekday,
   type WeekRange,
 } from '../../shared/agenda';
-import { agendaFirstDay, readWeekCache, saveSeriesOffset } from '../../shared/agenda-store';
+import { agendaFirstDay, readWeekCache, saveSeriesOffset } from '../../browser/storage/agenda-store';
 import { entryLink } from '../../shared/entry-link';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import type { StreamingPlatform } from '../../shared/episode.types';

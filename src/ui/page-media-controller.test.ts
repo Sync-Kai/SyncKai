@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../shared/episode.types';
 import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
 import type { PageMediaResponse } from '../protocol/content-messages';
-import type { CachedPageMedia } from '../shared/page-media-cache';
+import type { CachedPageMedia } from '../browser/storage/page-media-cache';
 import type { PanelMedia } from '../shared/panel-media.types';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
@@ -61,8 +61,8 @@ vi.mock('./page-media-request', async (importOriginal) => ({
   },
 }));
 
-vi.mock('../shared/page-media-cache', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../shared/page-media-cache')>();
+vi.mock('../browser/storage/page-media-cache', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../browser/storage/page-media-cache')>();
   return {
     ...original,
     readCachedPageMedia: () => Promise.resolve(fake.cached),
@@ -90,7 +90,7 @@ vi.stubGlobal('chrome', {
 
 const { AUTO_REDETECT_MAX_PER_MINUTE, createPageMediaController } = await import('./page-media-controller');
 const { sendMessage } = await import('../protocol/messages');
-const { pageMediaCacheKey, toCachedPageMedia } = await import('../shared/page-media-cache');
+const { pageMediaCacheKey, toCachedPageMedia } = await import('../browser/storage/page-media-cache');
 const { getLocale, setLocale } = await import('../i18n');
 
 function episode(seriesId: string, title: string, number: number): EpisodeInfo {

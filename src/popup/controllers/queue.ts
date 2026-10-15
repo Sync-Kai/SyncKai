@@ -4,7 +4,7 @@ import { t } from '../../i18n';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../protocol/messages';
 import { SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
-import { getSyncQueue, removeQueueItem } from '../../shared/sync-queue-store';
+import { getSyncQueue, removeQueueItem } from '../../browser/storage/sync-queue-store';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { retryFeedback } from '../../ui/feedback';
 import { createStore, patchStore, withMember, type Store } from '../../ui/state';

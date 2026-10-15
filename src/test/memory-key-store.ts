@@ -1,4 +1,4 @@
-// Clé des tokens en mémoire pour les tests unitaires (Node n'a pas d'IndexedDB) : remplace src/shared/token-key-store.ts
+// Clé des tokens en mémoire pour les tests unitaires (Node n'a pas d'IndexedDB) : remplace src/browser/tokens/key-store.ts
 // dans tous les tests (vi.mock de src/test/setup.ts). Même contrat : `create` génère la clé si elle manque.
 
 let key: CryptoKey | null = null;

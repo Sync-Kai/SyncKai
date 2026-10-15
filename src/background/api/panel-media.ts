@@ -2,7 +2,7 @@ import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
 import { sanitizeDescription } from '../../shared/panel-media';
-import { PANEL_MEDIA_CACHE_TTL_MS, PANEL_MEDIA_CACHE_VERSION, panelMediaCacheKey, purgeStaleSessionCaches, sessionArea } from '../../shared/session-cache';
+import { PANEL_MEDIA_CACHE_TTL_MS, PANEL_MEDIA_CACHE_VERSION, panelMediaCacheKey, purgeStaleSessionCaches, sessionArea } from '../../browser/storage/session-cache';
 import {
   isMediaSeason,
   isPanelMedia,
@@ -13,7 +13,7 @@ import {
   type PanelRelation,
 } from '../../shared/panel-media.types';
 import { learnedLinksFor, mergePlatformLinks, type PlatformLinkStore } from '../../platforms/links';
-import { getPlatformLinks } from '../../shared/platform-links-store';
+import { getPlatformLinks } from '../../browser/storage/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
 import { getRecentSyncs } from '../../shared/storage';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
@@ -125,7 +125,7 @@ function isMediaData(data: unknown): data is { Media: unknown } {
 }
 
 // ─── Cache de session (6 h) ───────────────────────────────────────────────
-// `storage.session` (voir shared/session-cache.ts) : vidé à la fermeture du navigateur et à la déconnexion, entrées
+// `storage.session` (voir browser/storage/session-cache.ts) : vidé à la fermeture du navigateur et à la déconnexion, entrées
 // expirées purgées à l'écriture. Indisponible : cache mémoire du service worker (perdu à sa mise en veille).
 
 export { PANEL_MEDIA_CACHE_VERSION, panelMediaCacheKey };

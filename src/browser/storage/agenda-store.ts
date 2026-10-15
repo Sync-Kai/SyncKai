@@ -1,4 +1,4 @@
-import { getLocale } from '../i18n';
+import { getLocale } from '../../i18n';
 import {
   airingWeekKey,
   firstDayOfWeek,
@@ -8,12 +8,12 @@ import {
   withSeriesOffset,
   type AiringWeekCache,
   type IsoWeekday,
-} from './agenda';
-import type { SessionEpochs } from './session-epochs';
-import { isRecord } from './guards';
-import { getSettings, normalizeSeriesOffsets, saveSettings, SETTINGS_STORAGE_KEY } from './settings';
-import { writeIfSessions } from './storage';
-import { withStorageLock } from './storage-lock';
+} from '../../shared/agenda';
+import type { SessionEpochs } from '../../shared/session-epochs';
+import { isRecord } from '../../shared/guards';
+import { getSettings, normalizeSeriesOffsets, saveSettings, SETTINGS_STORAGE_KEY } from '../../shared/settings';
+import { writeIfSessions } from '../../shared/storage';
+import { withStorageLock } from './lock';
 
 // Accès chrome.storage de l'agenda (panneau latéral et service worker).
 

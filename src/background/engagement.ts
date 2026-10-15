@@ -1,14 +1,14 @@
 import { t } from '../i18n';
 import type { AniListErrorCode } from '../shared/anilist.types';
 import { refreshReviewBadge } from '../shared/badge';
-import { addPendingRating, getPendingRatings, isRatingSettled, recordRewatchDecline, removePendingRating } from '../shared/engagement-store';
+import { addPendingRating, getPendingRatings, isRatingSettled, recordRewatchDecline, removePendingRating } from '../browser/storage/engagement-store';
 import { toSafeImageUrl } from '../shared/url';
 import { mediaRefId, type MediaRef, type Score10 } from '../shared/engagement.types';
 import type { Result } from '../shared/result';
 import { sessionsOf, type SessionEpochs } from '../shared/session-epochs';
 import { dropCachedWatchingEntry, getOpenSessions, isSessionOpen } from '../shared/storage';
 import { normalizeListNotes, type ListNotesResult } from '../shared/list-notes';
-import { forgetCachedPageMedia } from '../shared/page-media-cache';
+import { forgetCachedPageMedia } from '../browser/storage/page-media-cache';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import type { WatchingEntry } from '../shared/watching.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';

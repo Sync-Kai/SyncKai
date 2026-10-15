@@ -1,4 +1,4 @@
-import { isRecord } from './guards';
+import { isRecord } from '../../shared/guards';
 
 // Caches de `storage.session` (Chrome 102+, Firefox 115+) : en mémoire, jamais écrits sur disque, vidés à la fermeture
 // du navigateur. Quota commun d'environ 10 Mo (avec `ignoredSeries`, voir background/sync/ignored-series.ts) :

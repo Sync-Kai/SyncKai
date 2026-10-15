@@ -1,6 +1,6 @@
 import { seriesKeyFromLink } from '../platforms/links';
-import { withStorageLock } from './storage-lock';
-import { EXCLUDED_SERIES_KEY, matchesExclusion, readExcludedSeries, type ExcludedSeries } from './exclusions-core';
+import { withStorageLock } from '../browser/storage/lock';
+import { EXCLUDED_SERIES_KEY, matchesExclusion, readExcludedSeries, type ExcludedSeries } from '../browser/storage/exclusions-read';
 import type { PlatformLink } from './watching.types';
 
 // Séries exclues de la synchronisation (toutes saisons) — lues par le content script
@@ -16,7 +16,7 @@ export {
   normalizeSeriesTitle,
   platformSeriesKey,
   type ExcludedSeries,
-} from './exclusions-core';
+} from '../browser/storage/exclusions-read';
 
 /** Identifiant stable : la clé plateforme si connue, sinon la fiche AniList. */
 function exclusionId(platformKey: string | null, mediaId: number | null): string | null {

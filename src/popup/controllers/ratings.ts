@@ -1,7 +1,7 @@
 // Activité › « À noter » : notes de fin de série reportées (stockage, suivi par storage.onChanged), envoi d'une
 // note au service worker et retrait d'une carte.
 import { t } from '../../i18n';
-import { getPendingRatings, removePendingRating } from '../../shared/engagement-store';
+import { getPendingRatings, removePendingRating } from '../../browser/storage/engagement-store';
 import type { PendingRating } from '../../shared/engagement.types';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../protocol/messages';

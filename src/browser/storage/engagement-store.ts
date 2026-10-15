@@ -1,13 +1,13 @@
-import { isMediaRef, mediaRefId, REWATCH_DECLINE_MS, type MediaRef, type PendingRating } from './engagement.types';
-import { isRecord } from './guards';
-import { isSessionEpochs } from './session-epochs';
-import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from '../protocol/storage-keys';
-import { withStorageLock } from './storage-lock';
-import type { ServiceResult } from './sync.types';
-import { isSafeImageUrl } from './url';
+import { isMediaRef, mediaRefId, REWATCH_DECLINE_MS, type MediaRef, type PendingRating } from '../../shared/engagement.types';
+import { isRecord } from '../../shared/guards';
+import { isSessionEpochs } from '../../shared/session-epochs';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from '../../protocol/storage-keys';
+import { withStorageLock } from './lock';
+import type { ServiceResult } from '../../shared/sync.types';
+import { isSafeImageUrl } from '../../shared/url';
 
 // Stockage de l'engagement (popup + service worker) : notes en attente et revisionnages refusés.
-// Écritures sous `withStorageLock` (src/shared/storage-lock.ts), clés dans storage-keys.ts.
+// Écritures sous `withStorageLock` (src/browser/storage/lock.ts), clés dans storage-keys.ts.
 
 /** Cartes « À noter » conservées au maximum (les plus anciennes sont abandonnées) */
 export const MAX_PENDING_RATINGS = 30;

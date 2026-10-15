@@ -1,20 +1,20 @@
 import { isAniListViewer, type AniListViewer } from './anilist.types';
 import { isAniListToken, type AniListToken } from './auth.types';
 import { isRecord } from './guards';
-import { isSealedToken, openToken, sealToken, type SealedToken } from './token-crypto';
+import { isSealedToken, openToken, sealToken, type SealedToken } from '../browser/tokens/crypto';
 import { isMalToken, isMalViewer, type MalToken, type MalViewer } from './mal.types';
 import { isPendingReview, isRecentSync, keepDeferred, type DeferredEpisode, type PendingReview, type RecentSync } from './review.types';
 import { isMediaMapping, type MediaMapping } from './sync.types';
 import { TRACKER_IDS, type TrackerId } from './tracker.types';
-import { isPendingRating } from './engagement-store';
+import { isPendingRating } from '../browser/storage/engagement-store';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../protocol/storage-keys';
 import { isSyncQueueItem, restrictToSession } from './queue.types';
 import { liveServices, stillOpen, type SessionEpochs } from './session-epochs';
 import { isWatchingList, type WatchingList } from './watching.types';
 import { PLATFORM_LINKS_KEY } from '../platforms/links';
-import { withStorageLock } from './storage-lock';
+import { withStorageLock } from '../browser/storage/lock';
 import { AIRING_USER_KEYS } from './airing-keys';
-import { clearSessionCaches } from './session-cache';
+import { clearSessionCaches } from '../browser/storage/session-cache';
 import { createLogger } from './logger';
 
 const log = createLogger('storage');

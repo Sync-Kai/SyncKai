@@ -35,8 +35,8 @@ vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, task: () => Pr
 vi.mock('./badge', () => ({ refreshReviewBadge: async () => undefined }));
 
 const storage = await import('./storage');
-const tokenAccess = await import('./token-access');
-const { getSyncQueue, saveQueueItem } = await import('./sync-queue-store');
+const tokenAccess = await import('../browser/tokens/access');
+const { getSyncQueue, saveQueueItem } = await import('../browser/storage/sync-queue-store');
 const { PLATFORM_LINKS_KEY } = await import('../platforms/links');
 const { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } = storage;
 

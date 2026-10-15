@@ -1,5 +1,5 @@
-import { getSettings, saveSettings, type SyncSettings } from './settings';
-import { withStorageLock } from './storage-lock';
+import { getSettings, saveSettings, type SyncSettings } from '../../shared/settings';
+import { withStorageLock } from './lock';
 
 // Écriture des réglages par champs, sous le verrou du stockage (hors du module settings, lu par les scripts de page).
 

@@ -2,7 +2,7 @@
 // et zone de danger (effacement du journal d'erreurs).
 import { getLocale, t, tp } from '../../i18n';
 import { buildIssueUrl } from '../../shared/diagnostics';
-import { buildCurrentReport, currentBrowser } from '../../shared/diagnostics-store';
+import { buildCurrentReport, currentBrowser } from '../../browser/storage/diagnostics-store';
 import { clearJournal } from '../../shared/error-journal';
 import { createLogger } from '../../shared/logger';
 import { BTN_GHOST, CARD } from '../kit';

@@ -126,7 +126,7 @@ const episode = (n: number): EpisodeInfo => ({
   url: `https://www.crunchyroll.com/watch/EP${n}`,
 });
 
-const storageLock = await import('../../shared/storage-lock');
+const storageLock = await import('../../browser/storage/lock');
 const { withEntryLock } = await import('./entry-lock');
 const { syncEpisode } = await import('./sync-service');
 const { adjustProgress } = await import('../controls');

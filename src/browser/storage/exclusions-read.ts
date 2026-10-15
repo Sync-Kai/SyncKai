@@ -1,6 +1,6 @@
-import type { EpisodeInfo } from './episode.types';
-import { isRecord } from './guards';
-import { normalizeTitle, titleKey } from './title';
+import type { EpisodeInfo } from '../../shared/episode.types';
+import { isRecord } from '../../shared/guards';
+import { normalizeTitle, titleKey } from '../../shared/title';
 
 // Séries exclues, lecture seule : ce qu'utilise le script de contenu avant tout envoi (clé de série, lecture du
 // stockage, correspondance). Écritures et rapprochement avec les liens « En cours » : exclusions.ts, hors des pages

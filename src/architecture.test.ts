@@ -54,6 +54,10 @@ describe('frontières des modules', () => {
     expect(violations('platforms', ['ui', 'popup', 'sidepanel', 'content', 'background', 'import', 'import-cr'])).toEqual([]);
   });
 
+  it('browser/ (accès aux API du navigateur) ne dépend d’aucune couche applicative', () => {
+    expect(violations('browser', ['ui', 'popup', 'sidepanel', 'content', 'background', 'import', 'import-cr'])).toEqual([]);
+  });
+
   it('protocol/ (contrats entre contextes d’exécution) ne dépend d’aucune couche applicative', () => {
     expect(violations('protocol', ['ui', 'popup', 'sidepanel', 'content', 'background', 'import', 'import-cr'])).toEqual([]);
   });
@@ -151,9 +155,9 @@ describe('monde MAIN des ponts de page', () => {
 });
 
 describe('déchiffrement des jetons (token-access)', () => {
-  const TOKEN_ACCESS = 'shared/token-access.ts';
+  const TOKEN_ACCESS = 'browser/tokens/access.ts';
   /** Exception connue : le rapport de diagnostic des pages masque les jetons (lecture seule des secrets, pour les expurger) */
-  const DIAGNOSTICS_EXCEPTION = 'shared/diagnostics-store.ts';
+  const DIAGNOSTICS_EXCEPTION = 'browser/storage/diagnostics-store.ts';
 
   it('seul le service worker importe token-access (et l’exception du diagnostic)', () => {
     const importers = edges.filter((e) => e.to === TOKEN_ACCESS && !e.typeOnly && !isTestFile(e.from)).map((e) => e.from);
@@ -185,26 +189,14 @@ describe('content/ n’embarque que le kit d’interface sûr', () => {
 describe('shared/ : cliquet des modules qui appellent une API du navigateur', () => {
   /** Modules de `shared/` qui font de vrais appels `chrome.*` (hors commentaires), IndexedDB ou `navigator.locks` : la liste ne fait que baisser */
   const BROWSER_API_MODULES: readonly string[] = [
-    'shared/agenda-store.ts',
-    'shared/backup-store.ts',
     'shared/badge.ts',
-    'shared/cr-import-store.ts',
-    'shared/diagnostics-store.ts',
-    'shared/engagement-store.ts',
     'shared/error-journal.ts',
-    'shared/exclusions-core.ts',
     'shared/exclusions.ts',
     'shared/host-access.ts',
     'shared/platform-access.ts',
-    'shared/platform-links-store.ts',
-    'shared/session-cache.ts',
     'shared/settings.ts',
     'shared/side-panel.ts',
-    'shared/storage-lock-core.ts',
-    'shared/storage-lock.ts',
     'shared/storage.ts',
-    'shared/sync-queue-store.ts',
-    'shared/token-key-store.ts',
   ];
   const BROWSER_API = /\b(?:chrome|browser)\.(?:storage|runtime|permissions|action|sidePanel|tabs|scripting|commands|alarms|windows|i18n|identity|notifications)\b|\bindexedDB\b|\bnavigator\.locks\b/;
 

@@ -1,5 +1,5 @@
 import { t, type MessageKey } from '../i18n';
-import { isPartialEpisodePage } from '../shared/page-media-cache';
+import { isPartialEpisodePage } from '../browser/storage/page-media-cache';
 import type { PageMediaInfo } from '../shared/page-media.types';
 import type { MediaSeason, PanelMedia, PanelRelationType } from '../shared/panel-media.types';
 
@@ -37,7 +37,7 @@ export function episodeLine(episode: number | null, total: number | null): strin
 }
 
 // Identité et lecture partielle d'une page : partagées avec le popup et le service worker (cache par onglet)
-export { isPartialEpisodePage, pageKey } from '../shared/page-media-cache';
+export { isPartialEpisodePage, pageKey } from '../browser/storage/page-media-cache';
 
 /** Événement utile à la fiche : épisode annoncé par la page (port de lecture), synchro terminée, saison choisie dans le menu */
 export type LiveEvent = { type: 'page'; episodeId: string | null } | { type: 'synced' } | { type: 'season' };

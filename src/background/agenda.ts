@@ -3,7 +3,7 @@ import { AGENDA_SCHEDULE_PAGES, itemsInWindow } from './airing-policy';
 import { fetchAiring, getCachedEntries, hasConnectedService } from './airing';
 import { ApiError } from './api/errors';
 import { mergeWatchingSeries, weekRangeFromKey, type AgendaResult, type AiringWeekCache } from '../shared/agenda';
-import { writeWeekCache } from '../shared/agenda-store';
+import { writeWeekCache } from '../browser/storage/agenda-store';
 import { getExcludedSeries } from '../shared/exclusions';
 import { getOpenSessions } from '../shared/storage';
 import { createLogger } from '../shared/logger';

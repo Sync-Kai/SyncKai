@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { platformSeriesKey } from '../../shared/exclusions-core';
+import { platformSeriesKey } from '../../browser/storage/exclusions-read';
 import type { AniListMedia } from '../api/media';
 import type { MediaCandidate } from './matching';
 
