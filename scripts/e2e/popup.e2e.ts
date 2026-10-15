@@ -1012,6 +1012,12 @@ describe('popup (bout en bout)', () => {
     expect(await attr(page, sel('entry-service-anilist'), 'aria-pressed')).toBe('true');
     await click(page, 'entry-service-mal');
     await page.waitForSelector(`${sel('entry-service-mal')}[aria-pressed="true"]`);
+    // Enregistrement sous le verrou du stockage (lecture puis écriture) : terminé après l'affichage du choix
+    await page.waitForFunction(
+      async (key: string) => ((await chrome.storage.local.get(key))[key] as { entryService?: string } | undefined)?.entryService === 'mal',
+      { timeout: 5_000 },
+      SETTINGS_STORAGE_KEY,
+    );
     const saved = await page.evaluate(async (key: string) => (await chrome.storage.local.get(key))[key] as { entryService?: string } | undefined, SETTINGS_STORAGE_KEY);
     expect(saved?.entryService).toBe('mal');
     await click(page, 'settings-home');

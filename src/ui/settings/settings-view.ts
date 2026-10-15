@@ -8,7 +8,8 @@ import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
 import { hasPlatformAccess } from '../../shared/platform-access';
-import { getSettings, normalizeSettings, saveSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
+import { getSettings, normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
+import { updateSettings } from '../../shared/settings-store';
 import { getMediaMappings } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../shared/storage-keys';
 import { kanaLabel } from '../kit';
@@ -139,7 +140,8 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     // Accueil : les résumés suivent chaque changement
     if (redrawPage || nav.page === 'home') drawPage();
     try {
-      await saveSettings(data.settings);
+      // Champs modifiés seulement, sous verrou : une écriture concurrente (service worker, Agenda) n'est pas écrasée
+      await updateSettings(patch);
       showStatus(true);
     } catch (error: unknown) {
       log.error('Enregistrement des réglages impossible :', error);
