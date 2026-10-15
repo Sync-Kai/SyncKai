@@ -70,7 +70,7 @@ Term sheet updated: entry ("AniList sayfası" / "anime sayfası" wherever bare "
 ## Issues outside the catalogs (code, not changed)
 
 1. `src/shared/agenda.ts` › `formatOffset` hard-codes English units ("+1 h", "+45 min", "+1 h 30"): the Turkish tooltips `agenda.estimate.title` / `agenda.estimate.custom` show "Japonya yayını +1 h". Turkish units are "sa" and "dk".
-2. `src/shared/netflix-import.ts` › `netflixTabOp` › `labels` has no Turkish entry: add `daha fazla göster` (Netflix TR "Daha Fazla Göster"), otherwise the Netflix import stops after the first rows on a Turkish profile.
+2. `src/platforms/netflix/tab-op.ts` › `netflixTabOp` › `labels` has no Turkish entry: add `daha fazla göster` (Netflix TR "Daha Fazla Göster"), otherwise the Netflix import stops after the first rows on a Turkish profile.
 3. The Netflix viewing-activity row parser splits titles on FR/EN/DE quote styles; the Turkish row format is unverified.
 4. `compare.pause.network` / `.server` / `.rate-limit` with an empty fallback service (popup compare section) would render "'e ulaşılamıyor…" in Turkish; the job runner always sets a service for these reasons (only `resume` uses none), so the apostrophe form was kept.
 

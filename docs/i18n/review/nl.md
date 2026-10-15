@@ -115,7 +115,7 @@ Reviewed, unchanged: `extDescription` is natural and 84 characters (≤ 132); `c
 
 ## For developers (outside the catalogs)
 
-The Netflix history import clicks only buttons whose text is in the `labels` list of `netflixTabOp` (`src/shared/netflix-import.ts`: French, English and German labels). Netflix shows “Meer weergeven” to Dutch profiles, so reading stops after the first rows and `readNetflixHistory` reports a complete (non-partial) history. Adding `'meer weergeven'` (and the labels of the other new locales) fixes it; the Dutch label still needs checking on the live site.
+The Netflix history import clicks only buttons whose text is in the `labels` list of `netflixTabOp` (`src/platforms/netflix/tab-op.ts`: French, English and German labels). Netflix shows “Meer weergeven” to Dutch profiles, so reading stops after the first rows and `readNetflixHistory` reports a complete (non-partial) history. Adding `'meer weergeven'` (and the labels of the other new locales) fixes it; the Dutch label still needs checking on the live site.
 
 ## Final pass (2026-10-14)
 

@@ -59,7 +59,7 @@ The ID assigned by the store differs from the local build's: the OAuth redirects
 
 ### OAuth clients per browser
 
-Each browser assigns its own extension ID, hence its own redirect URL. An AniList client accepts a single Redirect URL (and SyncKai never sends `redirect_uri`): you need **one AniList client and one MAL app per browser**. The ID → clients mapping lives in `src/background/auth/oauth-clients.ts`; an ID missing from the table shows "Sign-in isn't configured for this browser" with the URL to register (also logged as a warning).
+Each browser assigns its own extension ID, hence its own redirect URL. An AniList client accepts a single Redirect URL (and SyncKai never sends `redirect_uri`): you need **one AniList client and one MAL app per browser**. The ID → clients mapping lives in `src/background/trackers/oauth-clients.ts`; an ID missing from the table shows "Sign-in isn't configured for this browser" with the URL to register (also logged as a warning).
 
 | Browser | Extension ID | Redirect URL | AniList client | MAL app |
 | --- | --- | --- | --- | --- |
@@ -84,7 +84,7 @@ The ID no longer changes: no OAuth change is needed for updates.
 
 ### Crunchyroll client ID (history import)
 
-The history import asks Crunchyroll for a temporary token (`POST /auth/v1/token`, `grant_type=etp_rt_cookie`, the site's session cookie) with the **public** client ID of Crunchyroll's website: `CR_WEB_CLIENT_ID` in `src/content/lib/crunchyroll-history.ts`. It is not a secret (it appears in the site's code), but Crunchyroll may change it. Live sync does not depend on it.
+The history import asks Crunchyroll for a temporary token (`POST /auth/v1/token`, `grant_type=etp_rt_cookie`, the site's session cookie) with the **public** client ID of Crunchyroll's website: `CR_WEB_CLIENT_ID` in `src/content/crunchyroll/history.ts`. It is not a secret (it appears in the site's code), but Crunchyroll may change it. Live sync does not depend on it.
 
 **Symptom**: the import shows "Import unavailable" to a user signed in to Crunchyroll; in the Crunchyroll tab's console, `Lecture de l’historique impossible (unavailable)` (logged in French), and in the Network tab, `/auth/v1/token` returns 400 or 401 with `invalid_client`, `unauthorized_client` or `invalid_request`. (`invalid_grant` or a 401 with no reason means "signed out": that is not a rotation.)
 
@@ -92,7 +92,7 @@ The history import asks Crunchyroll for a temporary token (`POST /auth/v1/token`
 
 1. Open `https://www.crunchyroll.com/` signed in, developer tools › **Network**, reload the page and filter on `auth/v1/token`.
 2. In the site's POST request, read the `Authorization: Basic …` header and decode it (`atob('…')` in the console): the part before `:` is the new client ID (the secret is empty). Check that the body still uses `grant_type=etp_rt_cookie`.
-3. Replace `CR_WEB_CLIENT_ID`, then `npx vitest run src/content/lib/crunchyroll-history.test.ts`.
+3. Replace `CR_WEB_CLIENT_ID`, then `npx vitest run src/content/crunchyroll/history.test.ts`.
 4. Test a real import in Chrome and Firefox (signed-in Crunchyroll tab), then publish the patch version.
 
 No permission or store justification changes: `docs/store/permissions.md` and `PRIVACY.md` describe the public client ID without quoting it.

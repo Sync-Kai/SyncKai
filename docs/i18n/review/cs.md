@@ -82,7 +82,7 @@ The 47 warnings compare characters, placeholders included. Checked against each 
 
 ## Outside the catalog (code)
 
-`src/shared/netflix-import.ts` › `netflixTabOp` finds Netflix's "Show more" button by its text, among `['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden']`. A Netflix profile set to Czech shows **„Zobrazit více“**, which is not in the list, so a Czech-profile Netflix history import would stop after the first rows (read as a short or partial history). The label depends on the Netflix profile language, not on SyncKai's UI language, so every Netflix UI language needs its label (or a language-independent selector). Not changed here: outside the files of this review.
+`src/platforms/netflix/tab-op.ts` › `netflixTabOp` finds Netflix's "Show more" button by its text, among `['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden']`. A Netflix profile set to Czech shows **„Zobrazit více“**, which is not in the list, so a Czech-profile Netflix history import would stop after the first rows (read as a short or partial history). The label depends on the Netflix profile language, not on SyncKai's UI language, so every Netflix UI language needs its label (or a language-independent selector). Not changed here: outside the files of this review.
 
 ## Final pass (2026-10-14)
 

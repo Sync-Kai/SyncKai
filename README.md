@@ -124,7 +124,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 
 ## How it works
 
-1. A content script, with one adapter per platform (`src/content/adapters/`), reads the series, season and episode number from the playback page and watches the video position.
+1. A content script, with one adapter per platform (`src/content/<platform>/adapter.ts`), reads the series, season and episode number from the playback page and watches the video position.
 2. The service worker matches the episode to an AniList entry, mapping platform seasons to AniList entries and converting per-season or absolute numbering. The MyAnimeList entry is resolved from the AniList one.
 3. When the credits start (or the threshold is reached), the new progress is written to each connected service. It never goes backwards, and failed writes wait in a retry queue.
 4. If the match is uncertain, nothing is written: a *To check* card lets you choose the entry, and the choice is remembered.
@@ -170,15 +170,18 @@ The repository manifest keeps the Chrome Web Store public key and the Firefox ad
 
 ```
 src/
-├── background/   service worker: OAuth, AniList/MAL API, matching, sync queue, alerts
-├── content/      content scripts: one adapter per platform (adapters/), Crunchyroll, Netflix, Disney+ and Prime Video page bridges (crunchyroll/, netflix/, disney/, prime/)
+├── background/   service worker: OAuth, AniList/MAL clients (anilist/, mal/), matching (sync/), sync queue, imports, alerts
+├── content/      content scripts: one folder per platform (crunchyroll/, adn/, netflix/, disney/, prime/) with its adapter and, for the bridged ones, its page bridge
 ├── popup/        extension popup
 ├── sidepanel/    side panel (Now playing, Schedule)
 ├── import-cr/    history import page (Crunchyroll, ADN, Netflix)
 ├── import/       backup page
 ├── ui/           UI components shared by the popup and the side panel
-├── shared/       types, storage, settings and logic shared by all contexts
-└── i18n/         translations (locales/en.json, fr.json, de.json)
+├── shared/       types, guards and pure logic shared by all contexts (no browser API)
+├── protocol/     contracts between contexts (messages, ports, storage keys)
+├── platforms/    what is known about each platform (registry, links, metadata reducers)
+├── browser/      everything that calls chrome.* (storage/, tokens/, permissions, side panel, logger)
+└── i18n/         translations (locales/en.json, fr.json, de.json…)
 ```
 
 Store names and descriptions live in `public/_locales/`.

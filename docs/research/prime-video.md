@@ -201,8 +201,8 @@ Sources used:
 Reuse the Disney+ blueprint end to end:
 
 1. **Registry**:
-   - `prime` in `STREAMING_PLATFORMS` (`src/shared/platform-ids.ts`);
-   - descriptor in `src/shared/platforms.ts`:
+   - `prime` in `STREAMING_PLATFORMS` (`src/platforms/ids.ts`);
+   - descriptor in `src/platforms/registry.ts`:
      - `matchesHost('primevideo.com')`; later also `amazon.com|co.uk|de|co.jp`, but only for **link parsing**, never for scripts;
      - `linkRequired: false` with the genre gate below, `searchable: false`;
      - `optionalMatches: ['*://*.primevideo.com/*']`;
@@ -218,7 +218,7 @@ Reuse the Disney+ blueprint end to end:
      - `{ ids: [catalog.id, request asin], entityType, episodeNumber, seasonNumber, showTitle (version tag stripped), skipElements[] (type, start/end ms), endCredits? }`.
      - Never read or relay `PlaybackUrls`, licences, headers, tokens or `playbackUrls` / `audioVideoUrls`.
      - This is what identifies the episode actually playing, including after autoplay (each new episode triggers a new request).
-   - **Adapter** `adapters/prime.ts`:
+   - **Adapter** `content/prime/adapter.ts`:
      - `getEpisodeId`: no per-episode URL. Use the episode id from the last bridge entry (the request asin), falling back to the play button or episode card ids on the detail page.
      - `extractEpisodeInfo` and `loadEpisodeInfo`: the bridge entry, joined to the hydration episode list by id for the title and duration. Fallback: parse `.atvwebplayersdk-subtitle-text` with localized patterns (S1 E3, Season/Saison/Staffel/シーズン… + Ep./ép./Folge/エピソード).
      - Gate: `av_genre_anime` from the hydration data, else nothing is sent (silent, `quiet: true`).

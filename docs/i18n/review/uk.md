@@ -93,7 +93,7 @@ The 65 warnings flag English texts of 24 characters or fewer translated more tha
 
 ## Outside the catalog (code)
 
-- `src/shared/netflix-import.ts` › `netflixTabOp` recognizes Netflix's "Show more" button by its text among `['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden']`. A Netflix profile set to Ukrainian shows **«Показати більше»** (help.netflix.com/uk/node/101917), which is not in the list: the Netflix history import would stop after the first ~20 rows (read as a short history). Adding `'показати більше'` (lowercase, as compared) fixes it for Ukrainian; the label depends on the Netflix profile language, not on SyncKai's. Not changed here: outside the files of this review.
+- `src/platforms/netflix/tab-op.ts` › `netflixTabOp` recognizes Netflix's "Show more" button by its text among `['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden']`. A Netflix profile set to Ukrainian shows **«Показати більше»** (help.netflix.com/uk/node/101917), which is not in the list: the Netflix history import would stop after the first ~20 rows (read as a short history). Adding `'показати більше'` (lowercase, as compared) fixes it for Ukrainian; the label depends on the Netflix profile language, not on SyncKai's. Not changed here: outside the files of this review.
 - Netflix history rows are split on the episode title in quotes (FR/EN/DE quotes handled); a Ukrainian profile probably uses «…» like French, but this is untested.
 
 ## Final pass (2026-10-14)

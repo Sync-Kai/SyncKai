@@ -111,7 +111,7 @@ Totals: meaning 14, terminology 10, style 8 (7 in `ro.json`, 1 in `messages.json
 
 ## Outside the catalog (code, not changed)
 
-`src/shared/netflix-import.ts` › `netflixTabOp` finds Netflix's "Show more" button by its text among `['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden']`. A Netflix profile in Romanian shows „Mai multe”, so the Netflix history import would stop after the first rows (read as a short or partial history). The label follows the Netflix profile language, not SyncKai's: add "mai multe" (or use a language-independent selector). The row parser of the same file already accepts Romanian „…” episode quotes.
+`src/platforms/netflix/tab-op.ts` › `netflixTabOp` finds Netflix's "Show more" button by its text among `['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden']`. A Netflix profile in Romanian shows „Mai multe”, so the Netflix history import would stop after the first rows (read as a short or partial history). The label follows the Netflix profile language, not SyncKai's: add "mai multe" (or use a language-independent selector). The row parser of the same file already accepts Romanian „…” episode quotes.
 
 ## Final pass (2026-10-14)
 

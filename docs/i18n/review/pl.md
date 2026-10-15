@@ -110,7 +110,7 @@ The 65 warnings compare characters (placeholders included) with short English te
 
 ## Outside the catalog (code)
 
-`src/shared/netflix-import.ts` › `netflixTabOp` finds Netflix's "Show more" button by its text, among `['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden']`. A Netflix profile in Polish shows **„Pokaż więcej”** (help.netflix.com/pl/node/101917), which is not in the list, so a Polish-profile Netflix history import stops after the first rows (read as a short or partial history). The label follows the Netflix profile language, not SyncKai's UI language. Not changed here: outside the files of this review.
+`src/platforms/netflix/tab-op.ts` › `netflixTabOp` finds Netflix's "Show more" button by its text, among `['voir plus', 'afficher plus', 'show more', 'see more', 'load more', 'mehr anzeigen', 'weitere anzeigen', 'mehr laden']`. A Netflix profile in Polish shows **„Pokaż więcej”** (help.netflix.com/pl/node/101917), which is not in the list, so a Polish-profile Netflix history import stops after the first rows (read as a short or partial history). The label follows the Netflix profile language, not SyncKai's UI language. Not changed here: outside the files of this review.
 
 ## Final pass (2026-10-14)
 
