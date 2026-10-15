@@ -8,6 +8,8 @@
  *   références) est remplacé par `CHUNK` ; les fichiers sont donc comparés par contenu normalisé, sans leur nom ;
  * - l'horodatage du build (`__SYNCKAI_BUILD__`, date ISO avec millisecondes) est remplacé par `STAMP`
  *   (sans cela, une empreinte exigerait `SOURCE_DATE_EPOCH` fixe) ;
+ * - l'ordre des entrées de `web_accessible_resources` du manifeste (crxjs les liste dans l'ordre de résolution des
+ *   imports `?script`, variable d'un build à l'autre, sans effet pour le navigateur : voir src/build/output-names.ts) ;
  * - les fichiers binaires (polices, icônes) sont hachés tels quels.
  * Les fichiers qui ne sont pas des chunks gardent leur chemin (manifest.json, pages HTML, _locales/…, assets/locales/…,
  * assets/background.js) : un fichier ajouté, supprimé ou renommé est signalé.
@@ -15,6 +17,7 @@
  * Usage : node scripts/dist-fingerprint.ts                    (affiche l'empreinte de chaque cible)
  *         node scripts/dist-fingerprint.ts --write <fichier>   (enregistre l'empreinte détaillée en JSON)
  *         node scripts/dist-fingerprint.ts --compare <fichier> (compare à une empreinte enregistrée ; code 1 si différente)
+ *         --from <dossier>  lit <dossier>/chrome et <dossier>/firefox (copies de dist/ et dist-firefox/) au lieu des paquets du dépôt
  */
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -58,14 +61,23 @@ export function normalizeText(content: string): string {
   return content.replace(CHUNK_NAME, 'CHUNK$1').replace(BUILD_STAMP, 'STAMP');
 }
 
-export function fingerprintTarget(target: BuildTarget): TargetFingerprint {
-  const dist = join(ROOT, targetOutDir(target));
+/** manifest.json avec les entrées de `web_accessible_resources` dans un ordre canonique (texte normalisé, sérialisé sans mise en forme) */
+function canonicalManifest(text: string): string {
+  const manifest = JSON.parse(text) as { web_accessible_resources?: unknown[] };
+  if (Array.isArray(manifest.web_accessible_resources)) {
+    manifest.web_accessible_resources = manifest.web_accessible_resources.sort((a, b) => normalizeText(JSON.stringify(a)).localeCompare(normalizeText(JSON.stringify(b))));
+  }
+  return JSON.stringify(manifest);
+}
+
+export function fingerprintTarget(target: BuildTarget, from?: string): TargetFingerprint {
+  const dist = from === undefined ? join(ROOT, targetOutDir(target)) : join(from, target);
   const entries = listFiles(dist).map((file): FingerprintEntry => {
     const rel = relative(dist, file).split(sep).join('/');
     const raw = readFileSync(file);
     const path = normalizeText(rel);
     if (!TEXT_FILE.test(rel)) return { path, sha: sha256(raw), size: raw.length };
-    const text = normalizeText(raw.toString('utf8'));
+    const text = normalizeText(rel === 'manifest.json' ? canonicalManifest(raw.toString('utf8')) : raw.toString('utf8'));
     return { path, sha: sha256(text), size: Buffer.byteLength(text) };
   });
   entries.sort((a, b) => (a.path + a.sha).localeCompare(b.path + b.sha));
@@ -86,8 +98,8 @@ export function diffFingerprints(before: TargetFingerprint, after: TargetFingerp
 }
 
 function main(): number {
-  const { values } = parseArgs({ options: { write: { type: 'string' }, compare: { type: 'string' } }, strict: true });
-  const current = BUILD_TARGETS.map(fingerprintTarget);
+  const { values } = parseArgs({ options: { write: { type: 'string' }, compare: { type: 'string' }, from: { type: 'string' } }, strict: true });
+  const current = BUILD_TARGETS.map((target) => fingerprintTarget(target, values.from));
   for (const fp of current) console.log(`${fp.target}: ${fp.entries.length} fichiers, empreinte ${fp.digest.slice(0, 16)}`);
   if (values.write !== undefined) writeFileSync(values.write, `${JSON.stringify(current, null, 1)}\n`);
   if (values.compare === undefined) return 0;
