@@ -1,4 +1,4 @@
-import { applyLanguageSetting, t } from '../../i18n/content';
+import { ensureContentLanguage, t } from '../../i18n/content';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isExcluded, platformSeriesKey } from '../../browser/storage/exclusions-read';
 import { sendMessage } from '../../protocol/messages';
@@ -42,20 +42,24 @@ const log = createLogger('session');
  */
 const ignoredSeries = new Set<string>();
 
-/**
- * Réglages de la page d'options ; valeurs par défaut si le stockage est illisible. Applique au passage la
- * langue choisie : le script de contenu ne suit pas les réglages (PERF-03), il la relit à chaque lecture. Attendue
- * avant tout toast : textes d'une autre langue que l'anglais demandés au service worker la première fois.
- */
-async function loadSettings(): Promise<ContentSettings> {
+/** Réglages de la page d'options, relus à chaque usage (PERF-03) ; valeurs par défaut si le stockage est illisible */
+async function readSettings(): Promise<ContentSettings> {
   try {
-    const settings = await getContentSettings();
-    await applyLanguageSetting(settings.language);
-    return settings;
+    return await getContentSettings();
   } catch (error: unknown) {
     log.warn('Réglages illisibles, valeurs par défaut utilisées :', error);
     return DEFAULT_CONTENT_SETTINGS;
   }
+}
+
+/**
+ * Réglages relus à la fin de l'épisode, langue choisie assurée au passage : attendue avant tout toast (textes d'une
+ * autre langue que l'anglais demandés au service worker au premier besoin de la page, jamais au démarrage, PERF-12).
+ */
+async function loadSettings(): Promise<ContentSettings> {
+  const settings = await readSettings();
+  await ensureContentLanguage(settings.language);
+  return settings;
 }
 
 /** Résumé lisible sur une ligne (la console tronque les objets) : "One Piece · S24 E25 (affiché E1180) · GE00376431JAJP" */
@@ -149,7 +153,10 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     if (__SYNCKAI_DEBUG__) log.info(`■ Session terminée (épisode ${episodeId})`);
   }
 
-  /** Script orphelin (extension rechargée ou mise à jour) : averti tout de suite, plutôt qu'à la fin de l'épisode */
+  /**
+   * Script orphelin (extension rechargée ou mise à jour) : averti tout de suite, plutôt qu'à la fin de l'épisode. Service
+   * worker et stockage injoignables : langue déjà chargée sur la page, sinon anglais
+   */
   function stopOrphan(): void {
     log.warn('Extension rechargée depuis l’ouverture de la page : recharge l’onglet pour réactiver SyncKai');
     showToast({ tone: 'warning', title: t('content.updated.title'), message: t('content.updated.message') }, { autoHideMs: ALERT_TOAST_MS });
@@ -188,6 +195,9 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
         return;
       }
       log.error('Épisode terminé mais métadonnées introuvables : complétion non envoyée');
+      // Premier texte de la session : langue assurée avant de le calculer
+      await ensureContentLanguage();
+      if (signal.aborted) return;
       setState('error', { status: 'error', message: t('content.unidentified.message') });
       showToast({ tone: 'error', title: t('content.unidentified.title'), message: t('content.unidentified.message') }, { autoHideMs: ALERT_TOAST_MS });
       return;
@@ -239,9 +249,12 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
         return;
       case 'synced':
         if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : épisode déjà synchronisé');
-        showToast(
-          { tone: 'success', title: t('content.shortcut.alreadySynced'), message: sentEpisode ? formatEpisodeShort(sentEpisode) : undefined },
-          { variant: 'pill', autoHideMs: PILL_TOAST_MS },
+        // Langue déjà assurée par l'envoi (nouvel essai s'il avait échoué)
+        void ensureContentLanguage().then(() =>
+          showToast(
+            { tone: 'success', title: t('content.shortcut.alreadySynced'), message: sentEpisode ? formatEpisodeShort(sentEpisode) : undefined },
+            { variant: 'pill', autoHideMs: PILL_TOAST_MS },
+          ),
         );
         return;
       case 'ignored':
@@ -435,8 +448,9 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   }
 
   async function init(): Promise<void> {
-    // Déclenchement fixé pour l'épisode : un changement de réglage s'applique au suivant
-    const settings = await loadSettings();
+    // Déclenchement fixé pour l'épisode : un changement de réglage s'applique au suivant. Rien d'affiché ici : langue
+    // non demandée (PERF-12)
+    const settings = await readSettings();
     if (signal.aborted) return;
     if (__SYNCKAI_DEBUG__) {
       log.info(

@@ -1,4 +1,4 @@
-import { initI18n, t } from '../i18n/content';
+import { ensureContentLanguage, t } from '../i18n/content';
 import { isContentMessage, type PageMediaResponse } from '../protocol/content-messages';
 import { isLivePanelMessage, LIVE_PORT_NAME, type LiveContentMessage } from '../protocol/live';
 import { createLogger } from '../browser/logger';
@@ -31,10 +31,8 @@ export interface StartContentOptions {
  * Un bundle par plateforme (crunchyroll/content-crunchyroll.iife.ts, adn/content-adn.iife.ts, netflix/content-netflix.iife.ts…).
  */
 export function startContent(adapters: readonly StreamingAdapter[], options: StartContentOptions = {}): void {
-  // Langue des toasts lue au démarrage, puis relue à chaque lecture (watch-session, qui l'attend avant tout toast) : ni
-  // `<html lang>` du site réécrit (ARCH-01, l'import Crunchyroll le lit), ni écouteur de storage.onChanged (PERF-03).
-  // Suivi de la page lancé sans l'attendre : les textes d'une autre langue que l'anglais viennent du service worker
-  void initI18n({ setDocumentLang: false, follow: false });
+  // Aucune langue lue au démarrage (PERF-12) : chaque texte affiché l'assure d'abord (ensureContentLanguage, réglage relu
+  // à chaque besoin, sans écouteur de storage.onChanged, PERF-03), jamais `<html lang>` du site réécrit (ARCH-01)
   main(adapters, options);
 }
 
@@ -91,7 +89,10 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
     sendResponse(); // Accusé de réception : le service worker n'attend rien de plus
     if (!session) {
       if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » ignoré : aucune lecture en cours');
-      showToast({ tone: 'info', title: t('content.shortcut.noPlayback.title'), message: t('content.shortcut.noPlayback.message') }, { autoHideMs: NOTICE_TOAST_MS });
+      // Textes calculés une fois la langue assurée (demandée au service worker au premier besoin de la page)
+      void ensureContentLanguage().then(() =>
+        showToast({ tone: 'info', title: t('content.shortcut.noPlayback.title'), message: t('content.shortcut.noPlayback.message') }, { autoHideMs: NOTICE_TOAST_MS }),
+      );
       return undefined;
     }
     session.forceComplete();

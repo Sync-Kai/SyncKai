@@ -196,16 +196,51 @@ describe('t du module léger (i18n/content)', () => {
   it('langue des réglages (explicite ou auto) comme avant, sans écouteur', async () => {
     fake.reset({ settings: { language: 'de' } });
     let i18n = await freshContentI18n();
-    await expect(i18n.initI18n({ setDocumentLang: false, follow: false })).resolves.toBe('de');
+    await expect(i18n.ensureContentLanguage()).resolves.toBe('de');
     expect(i18n.t('common.close')).toBe(catalogOf('de')['common.close']);
     expect(fake.local.onChanged.hasListeners()).toBe(false);
 
     // auto → langue du navigateur (fr)
     fake.reset({ settings: { language: 'auto' } });
     i18n = await freshContentI18n();
-    await expect(i18n.initI18n({ setDocumentLang: false, follow: false })).resolves.toBe('fr');
+    await expect(i18n.ensureContentLanguage()).resolves.toBe('fr');
     expect(i18n.t('common.close')).toBe(catalogOf('fr')['common.close']);
     expect(fake.local.onChanged.hasListeners()).toBe(false);
+  });
+
+  it('langue assurée à la demande (PERF-12) : rien à l’import, une seule demande par page, réglage relu à chaque besoin', async () => {
+    fake.reset({ settings: { language: 'de' } });
+    const i18n = await freshContentI18n();
+    // Premier texte (anglais embarqué) : aucune demande tant que la langue n'est pas assurée
+    expect(i18n.t('common.close')).toBe(en['common.close']);
+    expect(requested).toEqual([]);
+    // Deux besoins simultanés (toast du raccourci, fin d'épisode) puis un troisième : une seule demande
+    await expect(Promise.all([i18n.ensureContentLanguage(), i18n.ensureContentLanguage()])).resolves.toEqual(['de', 'de']);
+    await expect(i18n.ensureContentLanguage()).resolves.toBe('de');
+    expect(i18n.t('common.close')).toBe(catalogOf('de')['common.close']);
+    expect(requested).toEqual(['de']);
+    // Réglage déjà lu par l'appelant (watch-session) : appliqué sans relecture
+    await expect(i18n.ensureContentLanguage('ja')).resolves.toBe('ja');
+    // Langue changée dans les réglages : suivie au besoin suivant, sans écouteur ; anglais : aucune demande
+    fake.reset({ settings: { language: 'en' } });
+    await expect(i18n.ensureContentLanguage()).resolves.toBe('en');
+    expect(i18n.t('common.close')).toBe(en['common.close']);
+    expect(requested).toEqual(['de', 'ja']);
+    expect(fake.local.onChanged.hasListeners()).toBe(false);
+  });
+
+  it('langue assurée à la demande : échec → anglais, nouvel essai au besoin suivant', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    fake.reset({ settings: { language: 'de' } });
+    const i18n = await freshContentI18n();
+    respond = () => Promise.reject(new Error('Could not establish connection. Receiving end does not exist.'));
+    await expect(i18n.ensureContentLanguage()).resolves.toBe('en');
+    expect(i18n.t('common.close')).toBe(en['common.close']);
+    respond = (locale) => Promise.resolve(contentSubset(locale));
+    await expect(i18n.ensureContentLanguage()).resolves.toBe('de');
+    expect(i18n.t('common.close')).toBe(catalogOf('de')['common.close']);
+    expect(requested).toEqual(['de', 'de']);
+    warn.mockRestore();
   });
 });
 

@@ -1,18 +1,19 @@
 // Traductions des scripts de contenu : seules les clés de `content-keys.ts`, en anglais, extraites du catalogue au build
 // (`define` de vite.config.ts, voir src/build/content-catalog.ts) au lieu des catalogues complets (PERF-01). Une autre
-// langue est demandée au service worker au premier usage (GET_CONTENT_CATALOG : les mêmes clés, dans cette langue).
-// Importé par les modules de `content/` ; les modules partagés qu'ils utilisent importent `./core`.
+// langue est demandée au service worker juste avant le premier texte affiché (ensureContentLanguage, GET_CONTENT_CATALOG :
+// les mêmes clés, dans cette langue). Importé par les modules de `content/` ; les modules partagés qu'ils utilisent
+// importent `./core`.
 import { sendMessage } from '../protocol/messages';
 import {
   applyLanguageSetting as applyCore,
   hasCatalogLoader,
-  initI18n as initCore,
+  languageSettled,
+  readLanguageSetting,
   registerCatalogs,
   setCatalogLoader,
   t as translate,
   tl as translateIn,
   tp as translatePlural,
-  type InitI18nOptions,
   type LanguageSetting,
   type Locale,
   type MessageKey,
@@ -59,10 +60,17 @@ export function ensureContentCatalogs(): void {
   registered = true;
 }
 
-/** Lit la langue des réglages (textes de la langue demandés au service worker), sans écouteur (voir InitI18nOptions) */
-export async function initI18n(options?: InitI18nOptions): Promise<Locale> {
+/**
+ * Langue des réglages appliquée juste avant un texte affiché (toast, bulle, état du panneau), jamais au démarrage du
+ * script : une page parcourue sans rien afficher ne réveille pas le service worker (PERF-12). Réglage relu à chaque
+ * appel (sauf s'il est fourni, déjà lu par l'appelant), sans écouteur (PERF-03). Une seule demande par langue et par
+ * page (loadLocale : appels simultanés regroupés, catalogue gardé) ; échec : anglais, nouvel essai à l'appel suivant.
+ */
+export async function ensureContentLanguage(setting?: LanguageSetting): Promise<Locale> {
   ensureContentCatalogs();
-  return initCore(options);
+  void applyCore(setting ?? (await readLanguageSetting()));
+  // Besoins simultanés : langue de la dernière demande, une fois appliquée (pas celle de la demande dépassée)
+  return languageSettled();
 }
 
 /** Applique la langue des réglages, relue à chaque lecture : textes demandés au service worker si besoin, anglais sinon */

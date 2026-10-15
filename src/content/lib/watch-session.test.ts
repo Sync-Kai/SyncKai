@@ -1,4 +1,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CONTENT_KEYS } from '../../i18n/content-keys';
+import type { Locale } from '../../i18n/locale-codes';
+import en from '../../i18n/locales/en.json';
+import { catalogOf } from '../../test/catalogs';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SyncOutcome } from '../../shared/sync.types';
 import type { StreamingAdapter } from './adapter';
@@ -267,6 +271,85 @@ describe('startWatchSession — adapter synchrone (inchangé)', () => {
     expect(mocks.showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'error' }), expect.anything());
     // Plateforme d'animes : un épisode non identifié reste une anomalie consignée
     expect(mocks.journaled.length).toBeGreaterThan(0);
+    session.destroy();
+  });
+});
+
+describe('startWatchSession — langue des textes chargée à la demande (PERF-12)', () => {
+  /** Session d'un script de contenu neuf : seul l'anglais embarqué, les autres langues demandées au service worker */
+  async function freshSession(): Promise<typeof startWatchSession> {
+    vi.resetModules();
+    return (await import('./watch-session')).startWatchSession;
+  }
+
+  /** Service worker simulé : textes de contenu d'une langue (`catalog`), résultat de la synchronisation */
+  function stubWorker(outcome: SyncOutcome, catalog: (locale: Locale) => Promise<unknown> = (locale) => Promise.resolve(contentSubset(locale))): void {
+    mocks.sendMessage.mockImplementation((type: string, payload: { locale: Locale }) => (type === 'GET_CONTENT_CATALOG' ? catalog(payload.locale) : Promise.resolve(outcome)));
+  }
+
+  const catalogRequests = (): unknown[] => mocks.sendMessage.mock.calls.filter(([type]) => type === 'GET_CONTENT_CATALOG').map(([, payload]) => (payload as { locale: Locale }).locale);
+  const toastTitles = (): unknown[] => mocks.showToast.mock.calls.map(([content]) => (content as ToastTitle).title);
+  type ToastTitle = { title: string };
+
+  beforeEach(() => {
+    mocks.getContentSettings.mockResolvedValue({ ...DEFAULT_CONTENT_SETTINGS, autoSync: true, notificationLevel: 'detailed', completionTrigger: 'percentage', language: 'de' });
+  });
+
+  it('rien demandé au démarrage de la session ; à la fin de l’épisode, une demande et des toasts traduits', async () => {
+    stubWorker(synced);
+    const start = await freshSession();
+    const info = episode('GRMG8ZQZR', 'GE040', { platform: 'crunchyroll' });
+    navigate('/watch/GE040');
+    mocks.completions.length = 0;
+    const session = start(syncAdapter(info), 'GE040');
+    await flush();
+    expect(mocks.tracked).toHaveLength(1);
+    expect(catalogRequests()).toEqual([]);
+
+    mocks.completions.at(-1)?.();
+    await flush();
+    expect(toastTitles()).toEqual([catalogOf('de')['common.syncing']]);
+    // Raccourci sur l'épisode synchronisé : deuxième besoin, aucune nouvelle demande
+    session.forceComplete();
+    await flush();
+    expect(toastTitles()).toEqual([catalogOf('de')['common.syncing'], catalogOf('de')['content.shortcut.alreadySynced']]);
+    expect(catalogRequests()).toEqual(['de']);
+    session.destroy();
+  });
+
+  it('épisode non identifié : toast d’erreur traduit (langue assurée avant le texte)', async () => {
+    stubWorker(synced);
+    const start = await freshSession();
+    const adapter: StreamingAdapter = { ...syncAdapter(episode('X', 'GE041')), extractEpisodeInfo: () => null };
+    navigate('/watch/GE041');
+    mocks.completions.length = 0;
+    const session = start(adapter, 'GE041');
+    await flush();
+    expect(catalogRequests()).toEqual([]);
+    mocks.completions.at(-1)?.();
+    await flush();
+    expect(toastTitles()).toEqual([catalogOf('de')['content.unidentified.title']]);
+    expect(catalogRequests()).toEqual(['de']);
+    session.destroy();
+  });
+
+  it('service worker sans catalogue : anglais, nouvel essai au besoin suivant (raccourci)', async () => {
+    let available = false;
+    stubWorker({ status: 'needs-review', reason: 'x' }, (locale) => (available ? Promise.resolve(contentSubset(locale)) : Promise.resolve(null)));
+    const start = await freshSession();
+    const info = episode('GRMG8ZQZR', 'GE042', { platform: 'crunchyroll' });
+    navigate('/watch/GE042');
+    mocks.completions.length = 0;
+    const session = start(syncAdapter(info), 'GE042');
+    await flush();
+    mocks.completions.at(-1)?.();
+    await flush();
+    available = true;
+    // À vérifier : rien d'écrit, le raccourci renvoie l'épisode
+    session.forceComplete();
+    await flush();
+    expect(toastTitles()).toEqual([en['common.syncing'], catalogOf('de')['common.syncing']]);
+    expect(catalogRequests()).toEqual(['de', 'de']);
     session.destroy();
   });
 });
@@ -540,3 +623,8 @@ describe('startWatchSession — extension mise à jour (CONT-06)', () => {
     expect(mocks.tracked[0]?.signal.aborted).toBe(true);
   });
 });
+
+/** Textes des clés de contenu d'une langue, tels que les renvoie le service worker (background/content-catalog.ts) */
+function contentSubset(locale: Locale): Record<string, string> {
+  return Object.fromEntries(CONTENT_KEYS.map((key) => [key, catalogOf(locale)[key] ?? '']));
+}

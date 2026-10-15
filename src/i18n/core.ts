@@ -301,6 +301,16 @@ export function tp(key: PluralKey, count: number, params?: MessageParams): strin
 
 let ready: Promise<Locale> | null = null;
 
+/** Langue choisie dans les réglages ; stockage illisible : `auto` (langue du navigateur) */
+export async function readLanguageSetting(): Promise<LanguageSetting> {
+  try {
+    // Lecteur léger des scripts de contenu, jamais getSettings : ce module est embarqué par eux
+    return (await getContentSettings()).language;
+  } catch {
+    return 'auto';
+  }
+}
+
 export interface InitI18nOptions {
   /** Écrit la langue dans `<html lang>` (défaut). Faux dans un script de contenu : la page appartient au site (ARCH-01) */
   setDocumentLang?: boolean;
@@ -320,14 +330,7 @@ export function initI18n({ setDocumentLang = true, follow = true }: InitI18nOpti
   ready ??= (async () => {
     ownsDocumentLang = setDocumentLang;
     if (ownsDocumentLang && typeof document !== 'undefined') document.documentElement.lang = current;
-    let setting: LanguageSetting = 'auto';
-    try {
-      // Lecteur léger des scripts de contenu, jamais getSettings : ce module est embarqué par eux
-      setting = (await getContentSettings()).language;
-    } catch {
-      // Stockage illisible : langue du navigateur
-    }
-    const applied = applyLanguageSetting(setting);
+    const applied = applyLanguageSetting(await readLanguageSetting());
     // Écouteur posé avant la fin du chargement : un changement pendant celui-ci l'emporte (dernière demande)
     if (follow) {
       // Zone locale seule : une écriture dans `storage.session` ne réveille pas le service worker (ARCH-18)
