@@ -46,7 +46,7 @@ import { createLogger } from '../browser/logger';
 import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
 import type { SettingsPage } from '../ui/settings/navigation';
-import { createSettingsView } from '../ui/settings/settings-view';
+import { createSettingsView, type SettingsView } from '../ui/settings/settings-view';
 
 const log = createLogger('popup');
 
@@ -177,20 +177,27 @@ const compare = createCompareController({
   onPauseTick: (job, at) => tickJobPause(compareSlot, job, at),
 });
 const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot, compareSlot);
-const settingsView = createSettingsView({
-  navigateBack: () => goBack(),
-  // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
-  openTab: (url) => void chrome.tabs.create({ url }),
-  closesOnBlur: true,
-  accounts,
-});
+/** Créée à la première ouverture des Réglages (comme dans le panneau) : mappings, journal, raccourcis et accès ne sont lus qu'alors */
+let settingsView: SettingsView | null = null;
+function getSettingsView(): SettingsView {
+  if (settingsView) return settingsView;
+  settingsView = createSettingsView({
+    navigateBack: () => goBack(),
+    // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
+    openTab: (url) => void chrome.tabs.create({ url }),
+    closesOnBlur: true,
+    accounts,
+  });
+  // Même place dans le DOM que lorsqu'elle était créée au démarrage (avant l'accueil de première utilisation)
+  main.insertBefore(settingsView.element, onboardingSlot);
+  return settingsView;
+}
 const footerSlot = h('div', { class: 'contents' });
 const main = h(
   'main',
   { class: 'sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3' },
   watchingSlot,
   activityScreen,
-  settingsView.element,
   onboardingSlot,
 );
 const root = getRoot();
@@ -202,7 +209,7 @@ function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
   const ui = uiStore.get();
   if (ui.screen === screen) return;
   // Entrée dans les Réglages : accueil, ou sous-page demandée (pastille de compte → Comptes)
-  if (screen === 'settings') settingsView.show(settingsPage);
+  if (screen === 'settings') getSettingsView().show(settingsPage);
   // Changement d'écran : les menus éventuellement ouverts se ferment
   uiStore.set({ ...ui, screen, previous: ui.screen === 'settings' ? ui.previous : ui.screen, sortMenuOpen: false, rowMenu: null, rowConfirm: null });
   main.scrollTop = 0;
@@ -565,7 +572,8 @@ function render(): void {
     const navStale = navChanged([isSettings, onboarding, ui.screen, pending]);
     // Barre des Réglages persistante (gérée par la vue) : jamais retirée puis réinsérée, le focus y resterait perdu
     if (isSettings) {
-      if (barSlot.firstChild !== settingsView.bar || barSlot.childNodes.length !== 1) barSlot.replaceChildren(settingsView.bar);
+      const { bar } = getSettingsView();
+      if (barSlot.firstChild !== bar || barSlot.childNodes.length !== 1) barSlot.replaceChildren(bar);
     } else if (navStale) {
       barSlot.replaceChildren(
         ...nodes([!onboarding && renderNav({ screen: ui.screen === 'activity' ? 'activity' : 'watching', pending, onNavigate: (screen) => navigate(screen) })]),
@@ -579,7 +587,7 @@ function render(): void {
 
     watchingSlot.hidden = isSettings || onboarding || ui.screen !== 'watching';
     activityScreen.hidden = isSettings || onboarding || ui.screen !== 'activity';
-    settingsView.element.hidden = !isSettings;
+    if (settingsView) settingsView.element.hidden = !isSettings;
     onboardingSlot.hidden = isSettings || !onboarding;
 
     if (!watchingSlot.hidden) renderWatching();
