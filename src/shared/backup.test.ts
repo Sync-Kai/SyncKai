@@ -371,6 +371,18 @@ describe('bindBackupToSession (DATA-01)', () => {
     expect(bound.recentSyncs).toEqual([{ ...recent('k1', 1), epochs }, { ...recent('k2', 2), epochs }]);
     expect(bound.pendingRatings).toEqual([{ ...rating(1, 1), epochs }]);
   });
+
+  it('import avant toute connexion : notes et synchros laissées sans session (valent pour les comptes connectés ensuite)', () => {
+    const data: BackupData = {
+      ...emptyData(),
+      recentSyncs: [{ ...recent('k1', 1), epochs: { anilist: 9 } }],
+      pendingRatings: [{ ...rating(1, 1), epochs: { mal: 3 } }],
+    };
+    const bound = bindBackupToSession(data, {});
+    expect(bound.recentSyncs).toEqual([recent('k1', 1)]);
+    expect(bound.pendingRatings).toEqual([rating(1, 1)]);
+    expect(bound.pendingRatings[0]).not.toHaveProperty('epochs');
+  });
 });
 
 describe('backupFileName (BAK-05)', () => {

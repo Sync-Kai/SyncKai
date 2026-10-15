@@ -275,13 +275,19 @@ export function summarizeBackup(backup: Backup): BackupSummary {
  * Données importées rattachées aux sessions ouvertes (`epochs`) : celles du fichier viennent d'une autre installation
  * ou d'une autre date (générations sans rapport). Les notes et synchros importées valent pour les comptes connectés,
  * qui reçoivent l'import ; une vérification importée est toujours simple (sans session).
+ * Aucun compte connecté (import avant la connexion) : notes et synchros laissées sans session, comme les données
+ * antérieures à la 2.2.0 (sessionsOf) ; elles valent pour les comptes connectés ensuite, jusqu'à la première
+ * déconnexion qui les purge. Rattachées à `{}`, elles restaient bloquées sur « session fermée ».
  */
 export function bindBackupToSession(data: BackupData, epochs: SessionEpochs): BackupData {
+  const bound = Object.keys(epochs).length > 0;
+  const bind = <T extends { epochs?: SessionEpochs }>({ epochs: _ignored, ...item }: T): Omit<T, 'epochs'> & { epochs?: SessionEpochs } =>
+    bound ? { ...item, epochs } : item;
   return {
     ...data,
     pendingReviews: data.pendingReviews.map(({ epochs: _ignored, deferred: _deferred, ...review }) => review),
-    recentSyncs: data.recentSyncs.map((sync) => ({ ...sync, epochs })),
-    pendingRatings: data.pendingRatings.map((rating) => ({ ...rating, epochs })),
+    recentSyncs: data.recentSyncs.map(bind),
+    pendingRatings: data.pendingRatings.map(bind),
   };
 }
 

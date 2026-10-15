@@ -38,6 +38,8 @@ vi.stubGlobal('navigator', { language: 'fr', locks: { request: <T>(_name: string
 const { deferRating, getListNotes, rateMedia, removeFromList, setListNotes } = await import('./engagement');
 const { getPendingRatings } = await import('../shared/engagement-store');
 const { STORAGE_KEYS } = await import('../shared/storage-keys');
+const { bindBackupToSession } = await import('../shared/backup');
+const { DEFAULT_SETTINGS } = await import('../shared/settings');
 
 setLocale('fr');
 
@@ -127,6 +129,17 @@ describe('carte « À noter » (DATA-01)', () => {
     const outcome = await rateMedia(MEDIA, 8, true);
     expect(outcome).toMatchObject({ status: 'synced', results: [{ service: 'anilist', outcome: { status: 'skipped' } }, { service: 'mal', outcome: { status: 'updated' } }] });
     expect(anilist.scores).toEqual([]);
+    expect(mal.scores).toEqual([8]);
+    expect(await getPendingRatings()).toEqual([]);
+  });
+
+  it('carte importée d’une sauvegarde avant toute connexion : notée sur les comptes connectés ensuite, puis retirée', async () => {
+    const card = { id: 'anilist:1001', mediaId: 1001, malId: 2001, title: 'Frieren', coverUrl: null, completedAt: 1 };
+    const data = { settings: DEFAULT_SETTINGS, mediaMappings: {}, pendingReviews: [], recentSyncs: [], excludedSeries: [], pendingRatings: [card], rewatchDeclined: {} };
+    store.pendingRatings = bindBackupToSession(data, {}).pendingRatings;
+    const outcome = await rateMedia(MEDIA, 8, true);
+    expect(outcome).toMatchObject({ status: 'synced', results: [{ service: 'anilist', outcome: { status: 'updated' } }, { service: 'mal', outcome: { status: 'updated' } }] });
+    expect(anilist.scores).toEqual([8]);
     expect(mal.scores).toEqual([8]);
     expect(await getPendingRatings()).toEqual([]);
   });
