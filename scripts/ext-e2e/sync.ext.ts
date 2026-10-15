@@ -184,7 +184,7 @@ describe('Requêtes AniList par action', () => {
     ]);
   });
 
-  it('épisode terminé, panneau ouvert sur l’onglet : fiche recalculée (une lecture de liste en plus) et progression à jour dans le cache', async (context) => {
+  it('épisode terminé, panneau ouvert sur l’onglet : fiche recalculée (une lecture des listes en plus) et progression à jour dans le cache', async (context) => {
     const sites = new FakeSites().page(FRIEREN_E3.url, crunchyrollWatchHtml(FRIEREN_E3, { lang: 'en' })).creditsStart(FRIEREN_E3.episodeId, CREDITS_START);
     const run = await launch(context, [FRIEREN_S1, FRIEREN_S2], sites);
     const panel = await openPanel(run.h);
@@ -196,8 +196,9 @@ describe('Requêtes AniList par action', () => {
     await play(tab);
     await seek(tab, CREDITS_START + 1);
     await waitFor('progression écrite', () => run.anilist.mutations().length === 1);
-    // Panneau ouvert : la fiche est recalculée (MediaEntry en plus) et affiche l'épisode synchronisé
-    expect(await settledOperations(run.anilist, from)).toEqual({ MediaEntry: 2, SaveProgress: 1 });
+    // Panneau ouvert : la fiche est recalculée (entrées oubliées par l'écriture, relues en une requête : PageMediaBatch) et
+    // affiche l'épisode synchronisé ; la synchro, elle, relit toujours l'entrée fraîche avant d'écrire (MediaEntry)
+    expect(await settledOperations(run.anilist, from)).toEqual({ MediaEntry: 1, PageMediaBatch: 1, SaveProgress: 1 });
     expect(await cachedProgress(run.h)).toBe(3);
     expectCleanRun(run.h, run.anilist, run.mal);
   });
@@ -231,8 +232,9 @@ describe('Requêtes AniList par action', () => {
     const from = run.anilist.requests.length;
     await run.h.openTab(url);
     await waitFor('fiche de la série', async () => (await nowPlayingText(panel)).includes(FRIEREN_S1.anilist.title));
-    // La saison 1 est lue deux fois (MediaEntry : statut des saisons, puis listes de la fiche) : PERF-11
-    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, MediaEntry: 2, PageMedia: 1, PanelMedia: 1, SearchAnime: 1 });
+    // Fiches et entrées de liste de toutes les saisons en une requête (PageMediaBatch), relues ensuite sans requête (PERF-11 :
+    // avant, PageMedia + deux MediaEntry pour la même saison)
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, PageMediaBatch: 1, PanelMedia: 1, SearchAnime: 1 });
     expectCleanRun(run.h, run.anilist, run.mal);
   });
 });

@@ -23,6 +23,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Fixed
 
+- Changing the season several times in a series page's menu with the side panel open no longer runs into "Too many requests to AniList": the card now reads every season of the series and your list entries for them in one AniList request, and a season already seen costs no request at all (Attack on Titan: 17 AniList requests for the first view and four season changes, now 5). The hourly new-episode check no longer uses the budget kept for the popup and the side panel.
 - "Episode 2 exceeds the entry's 1 episodes": the message shown when a service's entry has fewer episodes now uses the singular for a one-episode entry, in every language.
 - Popup and side panel: after switching the interface language, an error or "No AniList entry found" message shown on *On this page* stayed in the previous language; it is now requested again and shown in the new one.
 - Anime with an accented localized title (Crunchyroll in French: « Moi, quand je me réincarne en Slime ») were not found on AniList, whose search misses accented alternative titles; on a series page the card could show the right entry, then "No AniList entry found" a second later, once the page's localized title was read. When nothing linked is found, SyncKai now also searches the title without accents, then the English title from the page address.

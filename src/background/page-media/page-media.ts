@@ -18,12 +18,14 @@ import { forgetTabPageMedia, isCachedEpisodeShown, readCachedPageMedia, storeCac
 import { learnPlatformLink } from '../../browser/storage/platform-links-store';
 import { pageMediaFromEpisode } from '../../shared/page-media';
 import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../../browser/storage/mappings';
-import { getOpenSessions } from '../../browser/storage/sessions';
+import { accountFingerprint, getOpenSessions } from '../../browser/storage/sessions';
 import type { ListStatus } from '../../shared/sync.types';
 import { createLogger } from '../../browser/logger';
 import { getScoreFormat } from '../anilist/list';
 import { ApiError } from '../errors';
 import { getPageMediaDetails, type AniListMedia } from '../anilist/media';
+import { getPageMediaBatch } from '../anilist/page-batch';
+import { entryGeneration, readCachedEntry, storeCachedEntry } from '../trackers/entry-cache';
 import {
   episodeCountMismatch,
   exactRememberedMapping,
@@ -58,7 +60,7 @@ import {
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from '../sync/resolver';
 import { fromAniListScore, fromMalScore } from '../../shared/score';
 import { getConnectedTrackers } from '../trackers';
-import type { CatalogMedia, TrackerService } from '../ports/tracker';
+import type { CatalogMedia, TrackerEntry, TrackerService } from '../ports/tracker';
 
 // Fiche de la page (#23) : série ou épisode de l'onglet actif → fiche AniList + état dans les listes.
 // Lecture seule côté services. Écrits localement : le lien de la série (correspondance certaine uniquement) pour le
@@ -120,6 +122,50 @@ function pageSeasonKey(page: PageMediaInfo): string {
   return JSON.stringify([page.platform, page.seriesId, page.seriesSlug, page.seriesTitle, page.seasonNumber, page.seasonTitle]);
 }
 
+// ─── Lectures groupées et entrées de liste gardées (budget de requêtes) ───
+
+/**
+ * Entrée de liste pour l'affichage : gardée brièvement pour ce compte (trackers/entry-cache.ts : oubliée à toute écriture),
+ * sinon lue sur le service. Changer de saison sur une page de série relit les mêmes fiches.
+ */
+async function readEntry(tracker: TrackerService, id: number): Promise<TrackerEntry> {
+  const account = await accountFingerprint(tracker.id);
+  const cached = account !== null ? readCachedEntry(tracker.id, account, id) : undefined;
+  if (cached) return cached;
+  // Génération relevée avant la requête : une écriture pendant celle-ci la rend obsolète (non rangée)
+  const generation = entryGeneration(tracker.id);
+  const entry = await tracker.getEntry(id);
+  if (account !== null) storeCachedEntry(tracker.id, account, id, entry, generation);
+  return entry;
+}
+
+/** Lecture groupée en échec : pas de nouvel essai pendant ce délai (les lectures une à une prennent le relais) */
+const BATCH_RETRY_MS = 5_000;
+let batchFailedAt = Number.NEGATIVE_INFINITY;
+
+/**
+ * Fiches (carte) et entrées de liste AniList des saisons `ids` encore inconnues, en UNE requête (anilist/page-batch.ts) :
+ * première vue d'une série = une requête pour toutes ses saisons, choix de saison suivants = aucune. Échec (session
+ * refusée, réseau, limite) : sans conséquence, chaque lecture repart seule ensuite, avec ses erreurs habituelles.
+ */
+async function prefetchSeasons(ids: readonly number[]): Promise<void> {
+  // Lot refusé à l'instant (même résolution : choix de la saison, puis fiche) : pas de nouvel essai aussitôt
+  if (Date.now() - batchFailedAt < BATCH_RETRY_MS) return;
+  const anilist = (await getConnectedTrackers(['anilist'])).length > 0;
+  const account = anilist ? await accountFingerprint('anilist') : null;
+  const wanted = ids.filter((id) => readCache(details, id) === null || (account !== null && readCachedEntry('anilist', account, id) === undefined));
+  if (wanted.length === 0) return;
+  const generation = entryGeneration('anilist');
+  try {
+    const batch = await getPageMediaBatch(wanted, account !== null);
+    for (const media of batch.details) writeCache(details, media.mediaId, media);
+    if (account !== null) for (const [id, { title, episodes, entry, notes }] of batch.entries ?? []) storeCachedEntry('anilist', account, id, { title, episodes, entry, notes }, generation);
+  } catch (error: unknown) {
+    batchFailedAt = Date.now();
+    log.warn('Fiches de la page non lues en une requête :', error);
+  }
+}
+
 // ─── Choix de la saison ───────────────────────────────────────────────────
 
 /** Statuts des saisons dans la liste du premier service connecté, jusqu'à la première non terminée */
@@ -129,7 +175,7 @@ async function seasonStatuses(seasons: readonly AniListMedia[]): Promise<(ListSt
   const statuses: (ListStatus | null)[] = [];
   for (const season of seasons.slice(0, MAX_STATUS_LOOKUPS)) {
     const id = tracker.resolveId({ mediaId: season.id, idMal: season.idMal, title: season.displayTitle, episodes: season.episodes });
-    const status = id !== null ? ((await tracker.getEntry(id)).entry?.status ?? null) : null;
+    const status = id !== null ? ((await readEntry(tracker, id)).entry?.status ?? null) : null;
     statuses.push(status);
     if (status !== 'COMPLETED') break;
   }
@@ -209,6 +255,8 @@ async function pickSeriesSeason(shownPage: PageMediaInfo, manual: number | null,
   const shown = (seasons.length > 0 ? seasons : others).slice(0, MAX_PICKER_SEASONS);
   const summaries = toPageSeasons(shown.map(toCandidateSummary), seasonGroups);
   if (shown.length === 0) return null;
+  // Fiches et entrées de liste de toutes les saisons proposées, avant les statuts (c) : une requête pour la série
+  await prefetchSeasons(shown.map((media) => media.id));
 
   // (a) Saison de la page : même règle que la synchro, appliquée à son premier épisode
   const signals = pageSignals(page);
@@ -358,7 +406,7 @@ async function toScore10(tracker: TrackerService, score: number | undefined): Pr
   }
 }
 
-/** État de la série dans la liste de chaque service connecté (lecture fraîche, jamais mise en cache) */
+/** État de la série dans la liste de chaque service connecté (lecture gardée au plus ENTRY_CACHE_TTL_MS, oubliée à toute écriture) */
 async function readLists(media: PageMediaDetails): Promise<PageListState[]> {
   const trackers = await getConnectedTrackers();
   const catalog: CatalogMedia = { mediaId: media.mediaId, idMal: media.idMal, title: media.title, episodes: media.episodes };
@@ -369,7 +417,7 @@ async function readLists(media: PageMediaDetails): Promise<PageListState[]> {
       if (id === null) return { service, state: 'unavailable' };
       const siteUrl = service === 'anilist' ? media.siteUrl : `https://myanimelist.net/anime/${id}`;
       try {
-        const { entry, notes } = await tracker.getEntry(id);
+        const { entry, notes } = await readEntry(tracker, id);
         if (!entry) return { service, state: 'not-in-list', siteUrl };
         return { service, state: 'in-list', status: entry.status, progress: entry.progress, score: await toScore10(tracker, entry.score), notes, siteUrl };
       } catch (error: unknown) {
@@ -399,6 +447,7 @@ export async function resolvePageMedia({ page, mediaId }: ResolvePageMediaPayloa
     }
     if (!resolution) return { ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: page.seriesTitle }) };
 
+    await prefetchSeasons([resolution.mediaId, ...resolution.seasons.map((season) => season.id)]);
     const media = await getDetails(resolution.mediaId);
     let { confidence, episodeProgress } = resolution;
     if (mediaId !== null && page.episode) {

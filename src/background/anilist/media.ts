@@ -261,28 +261,26 @@ function isMediaData(data: unknown): data is { Media: unknown } {
 
 // ─── Fiche de la page (carte « Sur cette page ») ──────────────────────────
 
+/** Champs de la fiche de la carte « Sur cette page » (PageMedia, et lecture groupée : page-batch.ts) */
+export const PAGE_MEDIA_FIELDS = 'id idMal siteUrl format episodes status seasonYear startDate { year } title { userPreferred romaji english } coverImage { large medium } nextAiringEpisode { episode airingAt }';
+
 const DETAILS_QUERY = /* GraphQL */ `
   query PageMedia($id: Int!) {
-    Media(id: $id, type: ANIME) {
-      id
-      idMal
-      siteUrl
-      format
-      episodes
-      status
-      seasonYear
-      startDate { year }
-      title { userPreferred romaji english }
-      coverImage { large medium }
-      nextAiringEpisode { episode airingAt }
-    }
+    Media(id: $id, type: ANIME) { ${PAGE_MEDIA_FIELDS} }
   }
 `;
 
 /** Fiche détaillée pour la carte « Sur cette page » (catalogue public, sans compte requis). */
 export async function getPageMediaDetails(id: number): Promise<PageMediaDetails> {
   const { Media: media } = await anilistPublicQuery(DETAILS_QUERY, isMediaData, { id });
-  if (!isRecord(media) || typeof media.id !== 'number') throw new ApiError('INVALID_RESPONSE', t('api.invalidResponse.anilist'));
+  const details = toPageMediaDetails(media);
+  if (!details) throw new ApiError('INVALID_RESPONSE', t('api.invalidResponse.anilist'));
+  return details;
+}
+
+/** Fiche brute (PAGE_MEDIA_FIELDS) → fiche de la carte ; null si illisible */
+export function toPageMediaDetails(media: unknown): PageMediaDetails | null {
+  if (!isRecord(media) || typeof media.id !== 'number') return null;
   const title = isRecord(media.title) ? media.title : {};
   const cover = isRecord(media.coverImage) ? media.coverImage : {};
   const start = isRecord(media.startDate) ? media.startDate : {};

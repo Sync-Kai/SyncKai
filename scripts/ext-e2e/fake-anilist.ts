@@ -183,7 +183,7 @@ export class FakeAniList {
       return json(401, { data: null, errors: [{ message: 'Invalid token', status: 401 }] });
     }
 
-    const data = this.execute(operation, variables, account);
+    const data = this.execute(operation, variables, account, query);
     if (data === null) {
       this.unknownOperations.push(operation);
       this.log(operation, variables, token, 400);
@@ -198,7 +198,7 @@ export class FakeAniList {
   }
 
   /** Données de l'opération ; null si inconnue */
-  private execute(operation: string, v: Record<string, unknown>, account: Account | null): { ok: unknown } | { error: number; message: string } | null {
+  private execute(operation: string, v: Record<string, unknown>, account: Account | null, query: string): { ok: unknown } | { error: number; message: string } | null {
     const needsAccount = (): { error: number; message: string } => ({ error: 401, message: 'Unauthorized.' });
     switch (operation) {
       case 'Viewer':
@@ -247,6 +247,13 @@ export class FakeAniList {
           return media ? [{ status: entry.status, progress: entry.progress, score: entry.score, repeat: entry.repeat, media: this.mediaFields(media, null) }] : [];
         });
         return { ok: { MediaListCollection: { hasNextChunk: false, lists: [{ entries }] } } };
+      }
+      case 'PageMediaBatch': {
+        // Fiches de la page en une requête (anilist/page-batch.ts) : entrées de liste demandées seulement avec un compte
+        const ids = Array.isArray(v.ids) ? v.ids.map(Number) : [];
+        const found = ids.flatMap((id) => this.media.get(id) ?? []);
+        if (query.includes('mediaListEntry') && !account) return needsAccount();
+        return { ok: { Page: { media: found.map((m) => this.mediaFields(m, account)) } } };
       }
       case 'PageMedia':
       case 'PanelMedia': {

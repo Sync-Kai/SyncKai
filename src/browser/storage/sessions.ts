@@ -54,6 +54,20 @@ export async function getOpenSessions(): Promise<SessionEpochs> {
   };
 }
 
+/**
+ * Empreinte du compte connecté au service (génération + token enregistré tel quel, sans déchiffrement), null sans
+ * session. Change à la déconnexion, à toute reconnexion et à tout renouvellement du token (nouvel IV à chaque écriture) :
+ * une donnée du compte gardée en mémoire sous cette empreinte n'est jamais servie à un autre compte.
+ */
+export async function accountFingerprint(service: TrackerId): Promise<string | null> {
+  const key = service === 'anilist' ? STORAGE_KEYS.anilistToken : STORAGE_KEYS.malToken;
+  const stored = await chrome.storage.local.get([key, STORAGE_KEYS.sessionEpoch]);
+  if (!isStoredToken(service, stored[key])) return null;
+  const epochs: unknown = stored[STORAGE_KEYS.sessionEpoch];
+  const epoch: unknown = isRecord(epochs) ? epochs[service] : undefined;
+  return `${typeof epoch === 'number' ? epoch : 0}:${JSON.stringify(stored[key])}`;
+}
+
 /** La session `epoch` du service est toujours ouverte : aucune déconnexion depuis, token toujours enregistré. */
 export async function isSessionOpen(service: TrackerId, epoch: number | undefined): Promise<boolean> {
   return epoch !== undefined && (await getOpenSessions())[service] === epoch;

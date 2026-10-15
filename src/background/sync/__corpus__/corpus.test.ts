@@ -39,7 +39,12 @@ function page(ids: readonly number[], what: string): { Page: { media: RawMedia[]
 }
 
 /** Réponse de l'API publique AniList (recherche, fiches par identifiants, fiche de la page) servie par les instantanés */
-function answer(variables: Record<string, unknown>): unknown {
+function answer(query: string, variables: Record<string, unknown>): unknown {
+  // Fiches de la carte en une requête (page-media › prefetchSeasons) : mêmes fiches que PageMedia, aucune liste (aucun compte)
+  if (/query PageMediaBatch\b/.test(query) && Array.isArray(variables.ids)) {
+    const ids = variables.ids.filter((id): id is number => typeof id === 'number');
+    return { Page: { media: ids.flatMap((id) => { const entry = raw(id); return entry ? [{ ...entry, status: CATALOG.media.get(id)?.signals.status ?? null, siteUrl: `https://anilist.co/anime/${id}`, coverImage: null, nextAiringEpisode: null }] : []; }) } };
+  }
   if (typeof variables.search === 'string') {
     const { search } = variables;
     sent.searches.push(search);
@@ -69,8 +74,8 @@ function answer(variables: Record<string, unknown>): unknown {
 
 vi.mock('../../anilist/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../anilist/client')>()),
-  anilistPublicQuery: (_query: string, isData: (data: unknown) => boolean, variables: Record<string, unknown> = {}): Promise<unknown> => {
-    const data = answer(variables);
+  anilistPublicQuery: (query: string, isData: (data: unknown) => boolean, variables: Record<string, unknown> = {}): Promise<unknown> => {
+    const data = answer(query, variables);
     if (!isData(data)) return Promise.reject(new Error(`Réponse simulée refusée : ${JSON.stringify(variables)}`));
     return Promise.resolve(data);
   },

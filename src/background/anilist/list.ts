@@ -21,13 +21,16 @@ export interface MediaListInfo {
   notes: string | null;
 }
 
+/** Entrée de liste de l'utilisateur connecté (MediaEntry, et lecture groupée de la fiche de la page : page-batch.ts) */
+export const MEDIA_LIST_ENTRY_FIELDS = 'mediaListEntry { id status progress repeat score notes }';
+
 const MEDIA_ENTRY_QUERY = /* GraphQL */ `
   query MediaEntry($id: Int!) {
     Media(id: $id, type: ANIME) {
       id
       episodes
       title { userPreferred }
-      mediaListEntry { id status progress repeat score notes }
+      ${MEDIA_LIST_ENTRY_FIELDS}
     }
   }
 `;
@@ -79,7 +82,7 @@ function parseEntry(value: unknown): ListEntryState | null {
 }
 
 interface MediaEntryData {
-  Media: { id: number; episodes: unknown; title: unknown; mediaListEntry: unknown };
+  Media: { id: number; episodes: unknown; title: unknown; mediaListEntry: unknown } & Record<string, unknown>;
 }
 
 function isMediaEntryData(data: unknown): data is MediaEntryData {
@@ -110,6 +113,11 @@ function isScoreFormatData(data: unknown): data is ScoreFormatData {
 /** Lit la fiche et l'entrée de liste de l'utilisateur (juste avant d'écrire, pour une donnée fraîche). */
 export async function getMediaListInfo(mediaId: number): Promise<MediaListInfo> {
   const { Media } = await anilistQuery(MEDIA_ENTRY_QUERY, isMediaEntryData, { id: mediaId });
+  return toMediaListInfo(mediaId, Media);
+}
+
+/** Fiche brute portant `episodes`, `title { userPreferred }` et `mediaListEntry` (MEDIA_ENTRY_QUERY, lecture groupée) */
+export function toMediaListInfo(mediaId: number, Media: Record<string, unknown>): MediaListInfo {
   const title = isRecord(Media.title) && typeof Media.title.userPreferred === 'string' ? Media.title.userPreferred : `#${mediaId}`;
   const entry = parseEntry(Media.mediaListEntry);
   const raw = entry && isRecord(Media.mediaListEntry) ? Media.mediaListEntry : null;

@@ -6,6 +6,7 @@ import { markSeriesStale } from '../compare/compare-snapshot';
 import type { ListEntryState } from '../sync/rules';
 import { toAniListScore, toMalScore } from '../../shared/score';
 import type { TrackerService } from '../ports/tracker';
+import { forgetCachedEntries } from './entry-cache';
 
 /**
  * Toute écriture réussie hors alignement (synchro en direct ou en file, carte vérifiée, +1/−1, statut, note,
@@ -34,7 +35,33 @@ function invalidatingComparison(tracker: TrackerService): TrackerService {
   };
 }
 
-export const anilistTracker: TrackerService = invalidatingComparison({
+/**
+ * Toute écriture (réussie ou non : elle a pu être appliquée) oublie les entrées de ce service gardées pour l'affichage
+ * (entry-cache.ts) : la fiche de la page relue après une synchro ou une action montre la liste à jour.
+ */
+function forgettingEntries(tracker: TrackerService): TrackerService {
+  const forget =
+    <A extends unknown[], R>(write: (...args: A) => Promise<R>) =>
+    async (...args: A): Promise<R> => {
+      try {
+        return await write(...args);
+      } finally {
+        forgetCachedEntries(tracker.id);
+      }
+    };
+  return {
+    ...tracker,
+    saveProgress: forget(tracker.saveProgress),
+    saveScore: forget(tracker.saveScore),
+    startRewatch: forget(tracker.startRewatch),
+    saveStatus: forget(tracker.saveStatus),
+    saveEntry: forget(tracker.saveEntry),
+    deleteEntry: forget(tracker.deleteEntry),
+    saveNotes: forget(tracker.saveNotes),
+  };
+}
+
+export const anilistTracker: TrackerService = forgettingEntries(invalidatingComparison({
   id: 'anilist',
   // Présence et expiration lues sans déchiffrement ; le token est déchiffré à la requête (anilist/client.ts)
   isConnected: hasValidAniListToken,
@@ -51,9 +78,9 @@ export const anilistTracker: TrackerService = invalidatingComparison({
   saveEntry: (id, write) => saveListEntry(id, write),
   deleteEntry: (id) => deleteListEntry(id),
   saveNotes: (id, notes) => saveListNotes(id, notes),
-});
+}));
 
-export const malTracker: TrackerService = invalidatingComparison({
+export const malTracker: TrackerService = forgettingEntries(invalidatingComparison({
   id: 'mal',
   // Token présent (même expiré) : il sera renouvelé à la première requête
   isConnected: hasMalToken,
@@ -66,7 +93,7 @@ export const malTracker: TrackerService = invalidatingComparison({
   saveEntry: (id, write) => saveMalEntry(id, write),
   deleteEntry: (id) => deleteMalEntry(id),
   saveNotes: (id, notes) => saveMalNotes(id, notes),
-});
+}));
 
 const TRACKERS: readonly TrackerService[] = [anilistTracker, malTracker];
 
