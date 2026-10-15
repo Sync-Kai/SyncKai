@@ -1,0 +1,26 @@
+# refactor: move preferred-player and the content lib files (no code change)
+a4e5937fcefb99957e9f97c496e3d4a296a76ee7
+# refactor: move platform adapters and history readers into their content folders (no code change)
+5f8cc7edb00eb6fbd039c677fe7c4af1c18b98dc
+# refactor: move cross-runtime contracts into protocol/ (no code change)
+085d2e987ab04fb31e1da9fc69d5cfcd6f42920d
+# refactor: move per-platform knowledge into platforms/ (no code change)
+9875c57dc3256bd8bf7ac651f9b9c8b553c6abbe
+# refactor: extract netflixTabOp and the Disney+ reducers into their own files (no code change)
+77043565a3b621249d5682823ecab5a5a3fb2da7
+# refactor: move token, lock, cache and store modules into browser/ (no code change)
+93af6d1d3e16c316539e61c5b3efe67f2d84b7ff
+# refactor: split shared/storage.ts into browser/storage modules (no code change)
+a750ae762940eaf350b187acfeb3acef95b556ba
+# refactor: move badge, side panel, access, logger and error journal into browser/ (no code change)
+9f37bb754d1fdbb87ee913665f33cbe7a813c5b7
+# refactor: drop the background/sync/score re-export and import shared/score directly (no code change)
+91168f3d950e3ae03841a450c3e8cecdba322d25
+# refactor: move settings and exclusions storage access out of shared/ (no code change)
+b71eabde48d6a745bf83418080003d258cfe6b39
+# refactor: group AniList and MAL clients, auth and ports into their own backgrounds folders (no code change)
+a06efbc55ff815cbd4305b8da49bb89ce23af88a
+# refactor: extract the AniList and MAL full-list readers out of compare.ts (no code change)
+513cbb384ad45a79529272fe895bf3165e6948ea
+# refactor: group compare, history import, page media and matching modules in background folders (no code change)
+90ac4dd4808b912305bca878193c8a2f09d3441f
