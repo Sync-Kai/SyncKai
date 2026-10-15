@@ -27,14 +27,13 @@ import {
   keepsShow,
   needsMetadata,
   NETFLIX_TITLES_PER_REQUEST,
-  netflixTabOp,
   readNetflixHistory,
   reduceNetflixShow,
   type NetflixTab,
-  type NetflixTabOp,
   type NetflixTitleGroup,
   type NetflixTitleVerdict,
 } from '../platforms/netflix/history';
+import { netflixTabOp, type NetflixTabOp } from '../platforms/netflix/tab-op';
 import { isNetflixShowMetadata, type NetflixShowMetadata } from '../platforms/netflix/metadata';
 import { hasPlatformAccess, requestPlatformAccess } from '../shared/platform-access';
 import { isJobActive } from '../shared/job';

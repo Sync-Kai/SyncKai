@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyDisneySeason,
   decodeDisneyPush,
   DISNEY_BRIDGE_VERSION,
-  DISNEY_MAX_PAGES,
   encodeDisneyPush,
   isDisneySeriesPage,
+} from './bridge-protocol';
+import {
+  applyDisneySeason,
+  DISNEY_MAX_PAGES,
   observedRequest,
   playerExperienceRequestId,
   reduceDisneySeriesPage,
   type DisneySeriesPage,
-} from './bridge-protocol';
+} from '../../platforms/disney/metadata';
 import {
   nonAnimeSeriesPage,
   seasonUrl,

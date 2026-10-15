@@ -3,12 +3,18 @@ import { createLogger } from '../../shared/logger';
 import { medianMinutes, toPlatformSignals, type PlatformFormat, type PlatformSignals } from '../../shared/match-signals';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createDisneyBridgeClient, type DisneyBridgeClient } from './bridge-client';
-import { hasDisneyId, parseInternalTitle, type DisneyPlayerExperience, type DisneySeason, type DisneySeriesPage } from './bridge-protocol';
+import {
+  hasDisneyId,
+  parseInternalTitle,
+  type DisneyPlayerExperience,
+  type DisneySeason,
+  type DisneySeriesPage,
+} from '../../platforms/disney/metadata';
 import { watchElementText } from '../lib/season-watch';
 import type { PlaybackTime, StreamingAdapter } from '../lib/adapter';
 import { meaningfulSeasonTitle } from '../lib/parsing';
 
-export { parseInternalTitle, type DisneyInternalTitle } from './bridge-protocol';
+export { parseInternalTitle, type DisneyInternalTitle } from '../../platforms/disney/metadata';
 
 const log = createLogger('disney');
 

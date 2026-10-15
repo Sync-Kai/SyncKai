@@ -7,11 +7,13 @@ import {
   DISNEY_PORT_OFFER,
   encodeDisneyPortOffer,
   encodeDisneyPush,
+} from './bridge-protocol';
+import {
   reduceDisneyPlayback,
   reduceDisneyPlayerExperience,
   withDisneyPlayback,
   type DisneyPlayerExperience,
-} from './bridge-protocol';
+} from '../../platforms/disney/metadata';
 import {
   SEEN_AT,
   SYNDUALITY_S1E1_AVAIL_ID,

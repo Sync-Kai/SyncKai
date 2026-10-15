@@ -17,16 +17,18 @@ import {
   decodeDisneyPush,
   DISNEY_BRIDGE_VERSION,
   DISNEY_HANDSHAKE_EVENT,
+  encodeDisneyHandshake,
+} from './bridge-protocol';
+import {
   DISNEY_ID_REGEX,
   DISNEY_MAX_ENTRIES,
   DISNEY_MAX_IDS,
   DISNEY_MAX_PAGES,
-  encodeDisneyHandshake,
   hasDisneyId,
   type DisneyEditorial,
   type DisneyPlayerExperience,
   type DisneySeriesPage,
-} from './bridge-protocol';
+} from '../../platforms/disney/metadata';
 
 export interface DisneyBridgeClientOptions {
   /** Cible de la demande d'ouverture du canal (document en production, faux document dans les tests) */

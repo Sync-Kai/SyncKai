@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { decodeDisneyPush, DISNEY_BRIDGE_VERSION, DISNEY_HANDSHAKE_EVENT, encodeDisneyHandshake, type DisneyPlayerExperience, type DisneySeriesPage } from './bridge-protocol';
+import { decodeDisneyPush, DISNEY_BRIDGE_VERSION, DISNEY_HANDSHAKE_EVENT, encodeDisneyHandshake } from './bridge-protocol';
+import { type DisneyPlayerExperience, type DisneySeriesPage } from '../../platforms/disney/metadata';
 import {
   nonAnimeEpisode,
   PLAYBACK_URL,

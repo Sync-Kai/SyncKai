@@ -5,24 +5,26 @@ import {
   decodeDisneyPush,
   disneyBridgeFlag,
   DISNEY_BRIDGE_VERSION,
-  DISNEY_MAX_ENTRIES,
-  DISNEY_MAX_IDS,
-  DISNEY_MAX_TEXT,
   DISNEY_PORT_OFFER,
   encodeDisneyHandshake,
   encodeDisneyPortOffer,
   encodeDisneyPush,
-  hasDisneyId,
-  infoBlockEntityIds,
   installDisneyBridgeOnce,
   isDisneyPlayerExperience,
+} from './bridge-protocol';
+import {
+  DISNEY_MAX_ENTRIES,
+  DISNEY_MAX_IDS,
+  DISNEY_MAX_TEXT,
+  hasDisneyId,
+  infoBlockEntityIds,
   observedRequest,
   playerExperienceRequestId,
   reduceDisneyPlayback,
   reduceDisneyPlayerExperience,
   withDisneyPlayback,
   type DisneyPlayerExperience,
-} from './bridge-protocol';
+} from '../../platforms/disney/metadata';
 import {
   nonAnimeEpisode,
   PLAYBACK_URL,

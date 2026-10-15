@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { applyDisneySeason, reduceDisneyPlayerExperience, reduceDisneySeriesPage, type DisneyPlayerExperience, type DisneySeriesPage } from './bridge-protocol';
+import {
+  applyDisneySeason,
+  reduceDisneyPlayerExperience,
+  reduceDisneySeriesPage,
+  type DisneyPlayerExperience,
+  type DisneySeriesPage,
+} from '../../platforms/disney/metadata';
 import {
   nonAnimeEpisode,
   nonAnimeSeriesPage,

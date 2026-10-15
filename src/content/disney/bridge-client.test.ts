@@ -7,11 +7,13 @@ import {
   DISNEY_PORT_OFFER,
   encodeDisneyPortOffer,
   encodeDisneyPush,
+} from './bridge-protocol';
+import {
   reduceDisneyPlayerExperience,
   reduceDisneySeriesPage,
   type DisneyPlayerExperience,
   type DisneySeriesPage,
-} from './bridge-protocol';
+} from '../../platforms/disney/metadata';
 import {
   nonAnimeEpisode,
   SEEN_AT,

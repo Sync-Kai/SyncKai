@@ -17,16 +17,18 @@
 // et repères éditoriaux (`reduceDisneyPlayback`) ; URL signées et jetons de droits ne quittent jamais ce relevé. Les
 // repères rejoignent la fiche de la même vidéo, qu'elle soit arrivée avant (fiche repoussée) ou après (en attente).
 import {
-  applyDisneySeason,
   decodeDisneyHandshake,
   DISNEY_BRIDGE_VERSION,
   DISNEY_HANDSHAKE_EVENT,
-  DISNEY_MAX_ENTRIES,
-  DISNEY_MAX_PAGES,
   DISNEY_PORT_OFFER,
   encodeDisneyPortOffer,
   encodeDisneyPush,
   installDisneyBridgeOnce,
+} from './bridge-protocol';
+import {
+  applyDisneySeason,
+  DISNEY_MAX_ENTRIES,
+  DISNEY_MAX_PAGES,
   observedRequest,
   reduceDisneyPlayback,
   reduceDisneyPlayerExperience,
@@ -36,7 +38,7 @@ import {
   type DisneyPlayerExperience,
   type DisneyRequestKind,
   type DisneySeriesPage,
-} from './bridge-protocol';
+} from '../../platforms/disney/metadata';
 
 /** Clients isolés connectés au plus (réinjections successives) : le plus ancien port est fermé au-delà */
 const MAX_PORTS = 4;
