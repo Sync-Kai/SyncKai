@@ -211,11 +211,34 @@ describe('page de série Disney+ : lien vers l’entité', () => {
     expect(series.candidates.map((c) => c.link)).toEqual([null]);
     expect(platformLinkVerdict({ platform: 'disney', animeTitle: 'Ishura' }, series.candidates)).toBe('title');
     const playback = await findSeriesSeasons({ platform: 'disney', seriesId: null, seriesSlug: null, animeTitle: 'Ishura', seasonTitle: null });
-    expect(playback.candidates.map((c) => c.link)).toEqual(['id']);
+    expect(playback.candidates.map((c) => c.link)).toEqual(['platform']);
   });
 
   it('platformLinkVerdict : rien de lié ni au même titre → none ; plateforme spécialisée → open', () => {
     expect(platformLinkVerdict({ platform: 'disney', animeTitle: 'Andor' }, [{ id: 3, format: 'TV', episodes: 12, startDate: null, titles: ['Ishura'], link: null }])).toBe('none');
     expect(platformLinkVerdict({ platform: 'crunchyroll', animeTitle: 'Andor' }, [])).toBe('open');
+  });
+});
+
+describe('remakes au même titre liés chacun à Disney+ (audit H2)', () => {
+  const remakes = (): void =>
+    searchResults({
+      Foo: [
+        media({ id: 1, titles: ['Foo'], episodes: 25, startDate: { year: 1997, month: 10, day: 8 }, externalLinkUrls: ['https://www.disneyplus.com/series/foo/aaaaaaaa1'] }),
+        media({ id: 2, titles: ['Foo'], episodes: 12, startDate: { year: 2016, month: 7, day: 1 }, externalLinkUrls: ['https://www.disneyplus.com/series/foo-2016/bbbbbbbb2'] }),
+      ],
+    });
+
+  it('sans signal : à vérifier, jamais mis en cache', async () => {
+    remakes();
+    const { result } = await resolveEpisode(disneyEpisode({ animeTitle: 'Foo' }));
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 1, progress: 3, confidence: 'low' } });
+    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+  });
+
+  it('année de la série : le remake prouvé par les signaux, synchronisé', async () => {
+    remakes();
+    const { result } = await resolveEpisode(disneyEpisode({ animeTitle: 'Foo', signals: { seriesYear: 2016 } }));
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 2, progress: 3, confidence: 'high' } });
   });
 });

@@ -234,7 +234,7 @@ describe('resolveEpisode — Prime Video', () => {
     // √A : lié à Prime Video mais d'un autre titre, ni suite déclarée : pas une saison de la série
     expect(seasons.map((s) => s.id)).toEqual([20605]);
     const { candidates } = await findSeriesSeasons(primeEpisode());
-    expect(candidates.map((c) => [c.id, c.link])).toEqual([[20605, 'id'], [20850, null]]);
+    expect(candidates.map((c) => [c.id, c.link])).toEqual([[20605, 'platform'], [20850, null]]);
   });
 
   it('page de série : lien vers son GTI compact certain sans condition de titre', async () => {
@@ -252,5 +252,41 @@ describe('resolveEpisode — Prime Video', () => {
     });
     const { result } = await resolveEpisode(primeEpisode({ seasonNumber: 2, url: 'https://www.primevideo.com/detail/0ABCDEFGHIJKLMNOPQRSTUVWXY' }));
     expect(result).toMatchObject({ ok: true, target: { mediaId: 20850, progress: 3 } });
+  });
+});
+
+describe('remakes au même titre liés chacun à Prime Video (audit H2)', () => {
+  // Deux franchises sans relation entre elles : un lien Prime Video au titre de la série ne prouve que la présence sur la plateforme
+  const remakes = (): void =>
+    searchResults({
+      Foo: [
+        media({ id: 1, titles: ['Foo'], episodes: 25, startDate: { year: 1997, month: 10, day: 8 }, externalLinkUrls: ['https://www.amazon.com/dp/B0AAAAAAA1'] }),
+        media({ id: 2, titles: ['Foo'], episodes: 12, startDate: { year: 2016, month: 7, day: 1 }, externalLinkUrls: ['https://www.amazon.com/dp/B0BBBBBBB2'] }),
+      ],
+    });
+
+  it('sans signal : à vérifier, jamais mis en cache', async () => {
+    remakes();
+    const { result } = await resolveEpisode(primeEpisode({ animeTitle: 'Foo', seasonNumber: 1 }));
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 1, progress: 3, confidence: 'low' } });
+    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+  });
+
+  it('année de la saison : le remake prouvé par les signaux, synchronisé', async () => {
+    remakes();
+    const { result } = await resolveEpisode(primeEpisode({ animeTitle: 'Foo', seasonNumber: 1, signals: { seasonYear: 2016 } }));
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 2, progress: 3, confidence: 'high', bySignals: true } });
+    expect(storage.saveMediaMapping).toHaveBeenCalledWith('prime:title:foo:y2016:s1', expect.objectContaining({ mediaId: 2, learned: true }));
+  });
+
+  it('une seule franchise (suite déclarée) liée en plusieurs saisons : inchangé, fiable', async () => {
+    searchResults({
+      Foo: [
+        media({ id: 1, titles: ['Foo'], externalLinkUrls: ['https://www.amazon.com/dp/B0AAAAAAA1'], relations: [{ id: 2, type: 'ANIME', relationType: 'SEQUEL', format: 'TV' }] }),
+        media({ id: 2, titles: ['Foo'], startDate: { year: 2021, month: 1, day: 1 }, externalLinkUrls: ['https://www.amazon.com/dp/B0BBBBBBB2'], relations: [{ id: 1, type: 'ANIME', relationType: 'PREQUEL', format: 'TV' }] }),
+      ],
+    });
+    const { result } = await resolveEpisode(primeEpisode({ animeTitle: 'Foo', seasonNumber: 2 }));
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 2, progress: 3, confidence: 'high' } });
   });
 });

@@ -40,8 +40,11 @@ export const SPECIAL_FORMATS: ReadonlySet<string> = new Set(['OVA', 'ONA', 'SPEC
  *              jamais une saison de la série, ni un relais de propagation des relations (voir linksToOtherSeries)
  * - other-slug : comme `other`, mais désignée par un ancien slug différent (crunchyroll.com/naruto sur la page
  *              naruto-shippuden) : signal faible, un slug a pu être renommé (voir linksToOtherSeriesBySlug)
+ * - platform : Disney+ / Prime Video, lien vers la plateforme d'une fiche au titre de la série, sans désigner la page
+ *              elle-même (voir isTitleBoundLink) : prouve seulement la présence sur la plateforme. Comme `id` partout, sauf
+ *              pour la confiance : fiable seulement si ces fiches forment une seule franchise (voir hasTrustedLinks)
  */
-export type LinkKind = 'id' | 'slug' | 'relation' | 'episode' | 'other' | 'other-slug' | null;
+export type LinkKind = 'id' | 'slug' | 'relation' | 'episode' | 'platform' | 'other' | 'other-slug' | null;
 
 /** Fiche liée seulement à une autre série de la plateforme (identifiant ou ancien slug différent) */
 export const isOtherSeries = (candidate: Pick<MediaCandidate, 'link'>): boolean => candidate.link === 'other' || candidate.link === 'other-slug';
@@ -50,7 +53,8 @@ export const isOtherSeries = (candidate: Pick<MediaCandidate, 'link'>): boolean 
 export const isLinked = (candidate: Pick<MediaCandidate, 'link'>): boolean => candidate.link !== null && !isOtherSeries(candidate);
 
 /** Fiche liée directement à la série ou à l'épisode (hors rattachement par relation) */
-const isDirectlyLinked = (candidate: Pick<MediaCandidate, 'link'>): boolean => candidate.link === 'id' || candidate.link === 'slug' || candidate.link === 'episode';
+const isDirectlyLinked = (candidate: Pick<MediaCandidate, 'link'>): boolean =>
+  candidate.link === 'id' || candidate.link === 'slug' || candidate.link === 'episode' || candidate.link === 'platform';
 
 export interface MediaCandidate {
   id: number;
@@ -696,7 +700,7 @@ function dedicatedEntry(
   //     elle-même. Elle prime sur une série TV homonyme non liée (« Bubble » TV contre le film « Bubble »).
   const hasLinkedSeries = candidates.some((c) => isLinked(c) && c.format !== null && SERIES_FORMATS.has(c.format));
   if (episode.seasonNumber === null && !hasLinkedSeries) {
-    const direct = outside.filter((c) => (c.link === 'id' || c.link === 'slug') && c.format !== null && !SERIES_FORMATS.has(c.format));
+    const direct = outside.filter((c) => (c.link === 'id' || c.link === 'slug' || c.link === 'platform') && c.format !== null && !SERIES_FORMATS.has(c.format));
     if (direct.length === 1 && fits(direct[0], relative)) {
       return { candidate: direct[0], progress: relative, confident: true, exactTitle: false, reason: t('match.linkedEntry') };
     }
@@ -805,6 +809,20 @@ export function signalGroups(candidates: readonly MediaCandidate[], animeTitle: 
     .map((members) => [...members].sort(byStartDate))
     .sort((a, b) => byStartDate(a[0], b[0]))
     .flatMap((members, chain) => groupSeasons(members).map((entries, index) => ({ entries, chain, first: index === 0 })));
+}
+
+/**
+ * Liens vers la série dignes de confiance : sans lien `platform` (présence seule sur Disney+ / Prime Video), toujours ;
+ * sinon seulement si les fiches liées directement (`id`, `platform`…) qui portent le titre de la série comme 1re saison
+ * (titre exact ou ses parties, pas « Série Season 2 ») appartiennent à une seule franchise (suites / préquelles, voir
+ * signalGroups). Deux remakes au même titre liés chacun à la plateforme : non.
+ */
+export function hasTrustedLinks(candidates: readonly MediaCandidate[], animeTitle: string): boolean {
+  if (!candidates.some((c) => c.link === 'platform')) return true;
+  const animeKey = normalizeTitle(animeTitle);
+  const isFirstSeason = (c: MediaCandidate): boolean => isDirectlyLinked(c) && titleSeasonOf(c.titles, animeKey) === 1;
+  const chains = new Set(signalGroups(candidates, animeTitle).filter((group) => group.entries.some(isFirstSeason)).map((group) => group.chain));
+  return chains.size <= 1;
 }
 
 /** Concordance d'un épisode avec ses candidats : candidats gardés, verdict, et ce qui rend le résultat jamais fiable */
@@ -1004,7 +1022,10 @@ function resolveByRules(episode: EpisodeNumbers, candidates: MediaCandidate[], c
   const basePool = linked.length > 0 ? pool : pool.filter((c) => titleSeasonOf(c.titles, animeKey) === 1);
   const isSoleSeason = basePool.length > 0 && groupSeasons(basePool).length === 1;
   const isTrustedTitleMatch = linked.length === 0 && isSoleSeason && (seasonNumber ?? 1) === 1;
-  const level = (isConfident: boolean): 'high' | 'low' => (isConfident && (linked.length > 0 || isTrustedTitleMatch) ? 'high' : 'low');
+  // Liens Disney+ / Prime Video au titre de la série répartis sur plusieurs franchises (remakes homonymes) : aucun ne
+  // désigne la série, choix jamais fiable (comme sans lien)
+  const untrustedLinks = linked.length > 0 && !hasTrustedLinks(candidates, episode.animeTitle);
+  const level = (isConfident: boolean): 'high' | 'low' => (isConfident && ((linked.length > 0 && !untrustedLinks) || isTrustedTitleMatch) ? 'high' : 'low');
 
   const displayed = episode.displayedEpisodeNumber;
   const relative = episode.seasonEpisodeNumber ?? displayed;
@@ -1044,7 +1065,9 @@ function resolveByRules(episode: EpisodeNumbers, candidates: MediaCandidate[], c
         confidence: isCapped ? 'low' : confidence,
         reason: isCapped
           ? t('match.otherSeriesExcluded')
-          : linked.length === 0 && !isLinked(candidate)
+          : untrustedLinks && confidence !== 'high' && episode.platform !== undefined
+            ? t('match.platformTitleOnly', { platform: PLATFORMS[episode.platform].label })
+            : linked.length === 0 && !isLinked(candidate)
             ? confidence === 'high'
               ? trustedReason
               : // Sans lien plateforme, c'est l'absence de lien (et non la règle appliquée) qui rend le choix incertain ;

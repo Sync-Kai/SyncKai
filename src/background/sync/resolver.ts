@@ -109,7 +109,8 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
     // Le lien vers l'épisode lui-même prime sur le lien vers la série
     if (kinds.includes('episode')) return 'episode';
     const own = kinds.find((k) => k !== null);
-    if (own) return own;
+    // Disney+, Prime Video : lien vers la plateforme sans désigner la page elle-même → présence seule (voir hasTrustedLinks)
+    if (own) return titleBound && !isOwnEntity ? 'platform' : own;
     // Liée seulement à une autre série de la plateforme : marquée pour ne jamais devenir une saison par relation
     // (identifiant différent : signal fort ; ancien slug différent : signal faible, voir resolveTarget)
     if (media.externalLinkUrls.some((url) => linksToOtherSeries(url, episode.platform, episode.seriesId))) return 'other';
@@ -158,14 +159,14 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
   // Prime Video exclu : un lien par saison (identifiants différents d'une saison à l'autre de la même série)
   const settleTitleBoundLinks = (): void => {
     if (episode.platform !== 'disney') return;
-    const ownKeys = new Set([...mediaById.values()].filter((m) => links.get(m.id) === 'id').flatMap((m) => m.externalLinkUrls.flatMap((url) => disneySeriesKey(url) ?? [])));
+    const ownKeys = new Set([...mediaById.values()].filter((m) => links.get(m.id) === 'id' || links.get(m.id) === 'platform').flatMap((m) => m.externalLinkUrls.flatMap((url) => disneySeriesKey(url) ?? [])));
     if (ownKeys.size === 0) return;
     const ownForms = new Set([...ownKeys].map((key) => key.split(':')[0]));
     for (const media of mediaById.values()) {
       const link = links.get(media.id);
       if (link !== null && link !== 'relation') continue;
       const keys = media.externalLinkUrls.flatMap((url) => disneySeriesKey(url) ?? []);
-      if (keys.some((key) => ownKeys.has(key))) links.set(media.id, 'id');
+      if (keys.some((key) => ownKeys.has(key))) links.set(media.id, 'platform');
       else if (keys.some((key) => ownForms.has(key.split(':')[0]))) links.set(media.id, 'other');
     }
   };
@@ -178,7 +179,7 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
   const isAbsolute = absolute !== null && episode.seasonEpisodeNumber !== undefined && episode.seasonEpisodeNumber !== null && absolute > episode.seasonEpisodeNumber;
   const coveredByLinkedEntry = (): boolean =>
     isAbsolute &&
-    [...mediaById.values()].some((m) => links.get(m.id) === 'id' && m.format !== null && SERIES_FORMATS.has(m.format) && (m.episodes === null || m.episodes >= absolute));
+    [...mediaById.values()].some((m) => (links.get(m.id) === 'id' || links.get(m.id) === 'platform') && m.format !== null && SERIES_FORMATS.has(m.format) && (m.episodes === null || m.episodes >= absolute));
 
   // Propagation du lien le long des relations SEQUEL/PREQUEL jusqu'à stabilisation
   let fetchRounds = 0;
