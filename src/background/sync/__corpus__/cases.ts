@@ -784,4 +784,22 @@ export const CASES: readonly CorpusCase[] = [
     searches: ['Tokyo Ghoul'],
     expected: high(20850, 1),
   },
+  {
+    id: 'nf-bubble-film',
+    kind: 'episode',
+    note: 'Film « Bubble » (2022) sur Netflix (/title/81345945, lié sur AniList à la fiche ONA 142455) : épisode 1, sans saison, comme tout film Netflix.',
+    anilist: 'bubble',
+    episode: netflix('81345945', 'Bubble', '81345945', { seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 }),
+    searches: ['Bubble'],
+    expected: high(142455, 1),
+  },
+  {
+    id: 'nf-bubble-series-page',
+    kind: 'series',
+    note: 'Page /title/81345945 du film « Bubble » : fiche liée à ce titre Netflix. Cas d’audit 1-M4, sur les VRAIES données : aucune série TV homonyme non liée dans le catalogue, donc le résultat est déjà l’idéal.',
+    anilist: 'bubble',
+    page: seriesPage({ platform: 'netflix', seriesId: '81345945', seriesSlug: null, seriesTitle: 'Bubble', seasonNumber: null, seasonTitle: null }),
+    searches: ['Bubble'],
+    expected: high(142455),
+  },
 ];

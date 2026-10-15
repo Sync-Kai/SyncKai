@@ -141,6 +141,27 @@ describe('primeAdapter — lecture automatique sans changement d’URL', () => {
     stop?.();
   });
 
+  // Audit 2-R6 (NON VÉRIFIÉ sur le site réel : seules les ressources de lecture de l'épisode suivant sont observées en
+  // avance, ~1 s avant la bascule, jamais ses métadonnées `playerChromeResources`). `latestCatalog()` retient la
+  // dernière métadonnée reçue : si celle de l'épisode suivant arrive AVANT la bascule, le suivi repart sur lui alors que
+  // l'épisode en cours n'est pas terminé (mode ratio, sans repère de générique), et son épisode n'est jamais synchronisé.
+  // À corriger par le propriétaire (arbitrage) : retirer alors `.fails`.
+  it.fails('métadonnées de l’épisode suivant reçues avant la bascule (mode ratio, sans repère de générique) : le suivi reste sur l’épisode en cours', async () => {
+    const adapter = await loadAdapter();
+    const changes: (string | null)[] = [];
+    const stop = adapter.watchEpisode?.(() => changes.push(adapter.getEpisodeId(pageUrl())));
+    await delay(20);
+    push({ catalog: [catalog(2)] });
+    await vi.waitFor(() => expect(changes).toEqual([bumpkinEpisodeGti(2)]));
+
+    // Le lecteur demande déjà les métadonnées de E3 alors que E2 joue encore (aucun repère de générique pour E2)
+    push({ catalog: [catalog(3)] });
+    await delay(50);
+    expect(adapter.getEpisodeId(pageUrl())).toBe(bumpkinEpisodeGti(2));
+    expect(changes).toEqual([bumpkinEpisodeGti(2)]);
+    stop?.();
+  });
+
   it('pas un anime (genres hors animation) : épisode jamais envoyé, page de détail non affichée', async () => {
     hydration = JSON.stringify(hydrationDocument(bumpkinDetailBody({ genres: ['av_genre_drama'] })));
     const adapter = await loadAdapter();

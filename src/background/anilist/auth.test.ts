@@ -1,16 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import { revealToken } from '../../test/tokens';
 
 // Connexion AniList par-dessus un token expiré (AUTH-06) : la session de l'ancien compte est fermée avant la nouvelle.
 
+const REDIRECT = 'https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/';
+const GRANTED = `${REDIRECT}#access_token=NEW&token_type=Bearer&expires_in=31536000`;
 let store: Record<string, unknown> = {};
+const runtime = { id: 'khokcmigioggannjoojambdgioigdceb' };
+const launchWebAuthFlow = vi.fn<(details: { url: string; interactive: boolean }) => Promise<string | undefined>>();
 vi.stubGlobal('chrome', {
-  runtime: { id: 'khokcmigioggannjoojambdgioigdceb' },
-  identity: {
-    getRedirectURL: () => 'https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/',
-    launchWebAuthFlow: async () => 'https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/#access_token=NEW&token_type=Bearer&expires_in=31536000',
-  },
+  runtime,
+  identity: { getRedirectURL: () => REDIRECT, launchWebAuthFlow },
   storage: {
     local: {
       get: async (keys: string | string[]): Promise<Record<string, unknown>> =>
@@ -44,6 +45,15 @@ const EPISODE = {
 
 beforeEach(() => {
   store = {};
+  runtime.id = 'khokcmigioggannjoojambdgioigdceb';
+  launchWebAuthFlow.mockReset();
+  launchWebAuthFlow.mockResolvedValue(GRANTED);
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('loginWithAniList (AUTH-06)', () => {
@@ -72,5 +82,95 @@ describe('loginWithAniList (AUTH-06)', () => {
     expect(await loginWithAniList()).toEqual({ ok: true, data: null });
     expect(store.sessionEpoch).toEqual({ anilist: 2 });
     expect(await revealToken('anilist', store.anilistToken)).toMatchObject({ accessToken: 'NEW' });
+  });
+});
+
+describe('loginWithAniList, branches d’échec', () => {
+  it('requête d’autorisation : client AniList du navigateur, Implicit Grant, jamais de redirect_uri', async () => {
+    await loginWithAniList();
+    const call = launchWebAuthFlow.mock.calls[0]?.[0];
+    expect(call?.interactive).toBe(true);
+    const url = new URL(call?.url ?? '');
+    expect(`${url.origin}${url.pathname}`).toBe('https://anilist.co/api/v2/oauth/authorize');
+    expect(url.searchParams.get('client_id')).toBe('52346');
+    expect(url.searchParams.get('response_type')).toBe('token');
+    expect(url.searchParams.has('redirect_uri')).toBe(false);
+  });
+
+  it('ID d’extension sans client enregistré : refusé avant toute fenêtre, URL à enregistrer affichée', async () => {
+    runtime.id = 'toString';
+    const result = await loginWithAniList();
+    expect(launchWebAuthFlow).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, code: 'AUTH_FLOW_FAILED', message: expect.stringContaining(REDIRECT) as unknown });
+    expect(store).not.toHaveProperty('anilistToken');
+  });
+
+  it('fenêtre fermée ou accès refusé (libellés Chrome et Firefox) : USER_CANCELLED', async () => {
+    for (const message of ['The user did not approve access.', 'User cancelled or denied access.']) {
+      launchWebAuthFlow.mockRejectedValueOnce(new Error(message));
+      expect(await loginWithAniList(), message).toMatchObject({ ok: false, code: 'USER_CANCELLED' });
+    }
+    expect(store).not.toHaveProperty('anilistToken');
+  });
+
+  it('page d’autorisation non chargée (client ou redirection invalide) : AUTH_FLOW_FAILED avec l’URL à vérifier', async () => {
+    launchWebAuthFlow.mockRejectedValueOnce(new Error('Authorization page could not be loaded.'));
+    expect(await loginWithAniList()).toEqual({ ok: false, code: 'AUTH_FLOW_FAILED', message: expect.stringContaining(REDIRECT) as unknown });
+  });
+
+  it('autre erreur du flux (ou valeur non Error) : AUTH_FLOW_FAILED avec le message', async () => {
+    launchWebAuthFlow.mockRejectedValueOnce(new Error('network down'));
+    expect(await loginWithAniList()).toEqual({ ok: false, code: 'AUTH_FLOW_FAILED', message: expect.stringContaining('network down') as unknown });
+    launchWebAuthFlow.mockRejectedValueOnce('chaîne');
+    expect(await loginWithAniList()).toMatchObject({ ok: false, code: 'AUTH_FLOW_FAILED', message: expect.stringContaining('chaîne') as unknown });
+  });
+
+  it('aucune URL de retour : INVALID_RESPONSE', async () => {
+    launchWebAuthFlow.mockResolvedValueOnce(undefined);
+    expect(await loginWithAniList()).toMatchObject({ ok: false, code: 'INVALID_RESPONSE' });
+    launchWebAuthFlow.mockResolvedValueOnce('');
+    expect(await loginWithAniList()).toMatchObject({ ok: false, code: 'INVALID_RESPONSE' });
+  });
+
+  it('refus d’AniList dans le fragment ou dans la query : ACCESS_DENIED, rien d’enregistré', async () => {
+    for (const response of [`${REDIRECT}#error=access_denied`, `${REDIRECT}?error=access_denied`]) {
+      launchWebAuthFlow.mockResolvedValueOnce(response);
+      expect(await loginWithAniList(), response).toMatchObject({ ok: false, code: 'ACCESS_DENIED' });
+    }
+    expect(store).not.toHaveProperty('anilistToken');
+  });
+
+  it('token ou durée manquants ou invalides : INVALID_RESPONSE, rien d’enregistré', async () => {
+    const responses = [
+      `${REDIRECT}#expires_in=3600`,
+      `${REDIRECT}#access_token=T`,
+      `${REDIRECT}#access_token=T&expires_in=abc`,
+      `${REDIRECT}#access_token=T&expires_in=0`,
+      `${REDIRECT}#access_token=T&expires_in=-5`,
+      `${REDIRECT}#access_token=&expires_in=3600`,
+      REDIRECT,
+    ];
+    for (const response of responses) {
+      launchWebAuthFlow.mockResolvedValueOnce(response);
+      expect(await loginWithAniList(), response).toMatchObject({ ok: false, code: 'INVALID_RESPONSE' });
+    }
+    expect(store).not.toHaveProperty('anilistToken');
+  });
+
+  it('une erreur dans la query ne masque pas un token valide absent : l’erreur prime', async () => {
+    launchWebAuthFlow.mockResolvedValueOnce(`${REDIRECT}?error=server_error#access_token=T&expires_in=3600`);
+    expect(await loginWithAniList()).toMatchObject({ ok: false, code: 'ACCESS_DENIED' });
+    expect(store).not.toHaveProperty('anilistToken');
+  });
+
+  it('stockage en échec : UNKNOWN, jamais d’exception', async () => {
+    const chromeStub = globalThis.chrome as unknown as { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } };
+    const set = chromeStub.storage.local.set;
+    chromeStub.storage.local.set = () => Promise.reject(new Error('quota'));
+    try {
+      expect(await loginWithAniList()).toMatchObject({ ok: false, code: 'UNKNOWN' });
+    } finally {
+      chromeStub.storage.local.set = set;
+    }
   });
 });
