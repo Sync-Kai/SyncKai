@@ -244,6 +244,8 @@ describe('page d’import, historique Netflix (bout en bout)', () => {
     await page.waitForFunction(() => (window.__e2e?.historyConnects ?? 0) >= 3, { timeout: 5_000 });
     await new Promise((resolve) => setTimeout(resolve, 600));
     expect(await connects()).toBe(3);
+    // Lecteurs de l'historique injectés avant chaque port (import-cr/history-reader.ts)
+    expect((await trace(page)).historyInjections).toEqual(Array.from({ length: 3 }, () => 'src/content/history/history.iife.js'));
   });
 
   it('« Arrêter » pendant le chargement de l’historique : aucun filtre ni analyse', async () => {

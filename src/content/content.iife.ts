@@ -4,8 +4,6 @@
 import type { StreamingAdapter } from './lib/adapter';
 import { adnAdapter } from './adn/adapter';
 import { crunchyrollAdapter, crunchyrollBridge } from './crunchyroll/adapter';
-import { listenAdnHistoryPorts } from './adn/history';
-import { listenCrHistoryPorts } from './crunchyroll/history-port';
 import { claimContentInstance } from './lib/instance-guard';
 import { startContent } from './start';
 
@@ -16,12 +14,10 @@ const STARTED_FLAG = Symbol.for('synckai.content');
 
 if (claimContentInstance(STARTED_FLAG)) {
   startContent(ADAPTERS, {
-    // Import de l'historique (onglet d'import ↔ page Crunchyroll ou ADN) ; pont MAIN de Crunchyroll (signaux de correspondance)
+    // Pont MAIN de Crunchyroll (signaux de correspondance). Lecteurs de l'historique : injectés à la demande par la page
+    // d'import (content/history/history.iife.ts)
     onAdapter: (adapter) => {
-      if (adapter.platform === 'crunchyroll') {
-        listenCrHistoryPorts();
-        crunchyrollBridge();
-      } else if (adapter.platform === 'adn') listenAdnHistoryPorts();
+      if (adapter.platform === 'crunchyroll') crunchyrollBridge();
     },
   });
 }

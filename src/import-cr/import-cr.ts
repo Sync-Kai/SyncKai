@@ -21,6 +21,7 @@ import {
 } from '../shared/cr-import';
 import { dismissCrImportJob, resetCrImport } from '../browser/storage/cr-import-store';
 import { hasHostAccess, requestHostAccess } from '../browser/host-access';
+import { injectHistoryReader } from './history-reader';
 import { NETFLIX_HISTORY_HOOK } from '../protocol/netflix-history';
 import {
   groupNetflixRows,
@@ -306,9 +307,12 @@ function readEvent(platform: ImportPlatform, raw: unknown): ReadEvent | null {
 
 /** Nouvelle tentative de connexion en attente (script de contenu pas encore à l'écoute) : annulée par tout retour à l'écran de connexion et par toute nouvelle lecture */
 let connectRetryTimer: ReturnType<typeof setTimeout> | undefined;
+/** Tentative de lecture en cours : une injection des lecteurs terminée après « Arrêter » ou une autre tentative n'ouvre aucun port */
+let readGeneration = 0;
 
 function backToConnect(tabId: number | null, error: string | null, reloadTabId: number | null = null): void {
   clearTimeout(connectRetryTimer);
+  readGeneration++;
   port = null;
   netflixRun = null;
   state.step = { kind: 'connect', tabId, tabTitle: null, opening: false, error, reloadTabId };
@@ -328,6 +332,23 @@ function startReading(tabId: number, attempt = 0): void {
   state.notice = null;
   state.step = { kind: 'reading', tabId, pages: 0, items: 0, lookups: 0, lookupsTotal: 0 };
   draw();
+  // Lecteurs injectés à chaque tentative (hors du script de contenu du manifeste, voir history-reader.ts), puis le port
+  const generation = ++readGeneration;
+  injectHistoryReader(tabId).then(
+    () => {
+      if (generation === readGeneration) connectReader(tabId, platform, attempt);
+    },
+    (error: unknown) => {
+      if (generation !== readGeneration) return;
+      // Onglet fermé, page d'erreur, accès au site retiré : même parcours qu'un port sans réponse
+      log.warn('Lecteur de l’historique non injecté :', error instanceof Error ? error.message : String(error));
+      retryReading(tabId, platform, attempt);
+    },
+  );
+}
+
+/** Port vers les lecteurs injectés : progression, puis historique ou erreur */
+function connectReader(tabId: number, platform: Exclude<ImportPlatform, 'netflix'>, attempt: number): void {
   let next: chrome.runtime.Port;
   try {
     next = chrome.tabs.connect(tabId, { name: platform === 'adn' ? ADN_HISTORY_PORT_NAME : CR_HISTORY_PORT_NAME, frameId: 0 });
@@ -369,17 +390,22 @@ function startReading(tabId: number, attempt = 0): void {
       backToConnect(tabId, t('crImport.read.error.interrupted'));
       return;
     }
-    // Aucun script de contenu à l'écoute : onglet en chargement (nouvelle tentative) ou ouvert avant l'extension (recharger)
-    const wait = CONNECT_RETRY_MS[attempt];
-    if (wait === undefined) {
-      backToConnect(tabId, t('crImport.read.error.noScript', platformParams(platform)), tabId);
-      return;
-    }
-    connectRetryTimer = setTimeout(() => {
-      if (state.step.kind === 'reading' && state.step.tabId === tabId) startReading(tabId, attempt + 1);
-    }, wait);
+    // Aucun lecteur à l'écoute : onglet en chargement (nouvelle tentative) ou sur une autre page (recharger)
+    retryReading(tabId, platform, attempt);
   });
   next.postMessage({ type: platform === 'adn' ? 'READ_ADN_HISTORY' : 'READ_CR_HISTORY' });
+}
+
+/** Nouvelle tentative (injection puis port) après CONNECT_RETRY_MS[attempt], sinon message « recharge l'onglet » */
+function retryReading(tabId: number, platform: ImportPlatform, attempt: number): void {
+  const wait = CONNECT_RETRY_MS[attempt];
+  if (wait === undefined) {
+    backToConnect(tabId, t('crImport.read.error.noScript', platformParams(platform)), tabId);
+    return;
+  }
+  connectRetryTimer = setTimeout(() => {
+    if (state.step.kind === 'reading' && state.step.tabId === tabId) startReading(tabId, attempt + 1);
+  }, wait);
 }
 
 function stopReading(): void {

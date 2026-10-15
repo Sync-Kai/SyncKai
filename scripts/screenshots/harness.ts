@@ -4,9 +4,23 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import puppeteer, { type Browser } from 'puppeteer';
-import { createServer, runnerImport } from 'vite';
+import { createServer, runnerImport, type Plugin } from 'vite';
 
 export const ROOT: string = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+/**
+ * Imports `?script` de crxjs (absent de ce serveur) : chemin du script dans le paquet, comme au build
+ * (`src/content/history/history.iife.js`), sans charger son code dans la page (import-cr/history-reader.ts)
+ */
+const scriptPathStub: Plugin = {
+  name: 'synckai:script-path-stub',
+  enforce: 'pre',
+  load(id) {
+    if (!id.endsWith('?script')) return null;
+    const file = path.relative(ROOT, id.slice(0, -'?script'.length)).split(path.sep).join('/');
+    return `export default ${JSON.stringify(file.replace(/\.ts$/, '.js'))};`;
+  },
+};
 
 export interface HarnessServer {
   /** URL de base (avec « / » final), ex. http://127.0.0.1:5199/ */
@@ -24,7 +38,7 @@ export async function startHarnessServer(build: string): Promise<HarnessServer> 
     configFile: false,
     root: ROOT,
     logLevel: 'warn',
-    plugins: [tailwindcss()],
+    plugins: [scriptPathStub, tailwindcss()],
     // Mêmes constantes que vite.config.ts (build de production : logs info/debug coupés)
     define: {
       __SYNCKAI_BUILD__: JSON.stringify(build),

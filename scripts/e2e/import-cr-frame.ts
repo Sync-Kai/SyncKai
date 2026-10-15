@@ -343,7 +343,12 @@ Object.assign(chrome.tabs, {
 });
 Object.assign(chrome, {
   scripting: {
-    executeScript: (injection: { target: { tabId: number }; args?: unknown[] }) => {
+    executeScript: (injection: { target: { tabId: number }; files?: string[]; args?: unknown[] }) => {
+      // Lecteurs de l'historique Crunchyroll / ADN (import-cr/history-reader.ts), simulés derrière chrome.tabs.connect
+      if (injection.files) {
+        trace.historyInjections = [...(trace.historyInjections ?? []), ...injection.files];
+        return injection.target.tabId === 7 || injection.target.tabId === 8 ? Promise.resolve([{ frameId: 0 }]) : Promise.reject(new Error('Onglet inaccessible'));
+      }
       if (injection.target.tabId !== 9) return Promise.reject(new Error('Onglet hors de netflix.com'));
       const [op, , movieId] = injection.args ?? [];
       return Promise.resolve([{ frameId: 0, result: structuredClone(netflixScript(op, movieId)) }]);

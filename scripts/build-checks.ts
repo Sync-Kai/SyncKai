@@ -6,7 +6,7 @@
  */
 import { posix } from 'node:path';
 import { FIREFOX_PANEL_COMMAND, firefoxMenuKeyConflicts, SOURCE_PANEL_COMMAND, type BuildTarget, type ManifestCommand } from '../src/build/manifest-target.ts';
-import { LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
+import { isExtensionInjectedScript, LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
 
 /** Netflix : accès optionnel uniquement (voir src/platforms/registry.ts › optionalMatches) */
 export const NETFLIX_PATTERN = '*://*.netflix.com/*';
@@ -51,6 +51,12 @@ export const PRIME_SCRIPTS_BUDGET_BYTES = 75 * 1024;
  * contenu) : 7,1 Ko mesurés au 2026-10-14 (relevé passif, réductions et table des signaux), ~25 % de marge.
  */
 export const CRUNCHYROLL_BRIDGE_BUDGET_BYTES = 9 * 1024;
+
+/**
+ * Budget des lecteurs de l'historique Crunchyroll / ADN (`src/content/history/history.iife.js`, IIFE autonome injectée
+ * par la page d'import, hors du budget du script de contenu) : 14,7 Ko mesurés au 2026-10-15, ~10 % de marge.
+ */
+export const HISTORY_READER_BUDGET_BYTES = 16 * 1024;
 
 /** Fichiers des scripts du manifeste d'un monde : `MAIN` (ponts de page) ou isolé (`world` absent ou `ISOLATED`) */
 export function manifestScriptFiles(manifest: BuiltManifest, world: 'MAIN' | 'ISOLATED'): string[] {
@@ -157,8 +163,9 @@ function isAllSites(pattern: string): boolean {
 /**
  * `web_accessible_resources` : aucune ressource exposée à tous les sites ni aux sites des scripts du manifeste (Crunchyroll,
  * ADN : leurs scripts sont des IIFE autonomes, sans chargeur ; une ressource exposée permettrait à la page de détecter
- * l'extension, SEC-09), aucun repère crxjs restant, et les scripts enregistrés de chaque plateforme optionnelle
- * (`src/content/{netflix,disney}/*.iife.js`) exposés à cette seule plateforme, dans une entrée qui ne contient qu'eux.
+ * l'extension, SEC-09), aucun repère crxjs restant, les scripts enregistrés de chaque plateforme optionnelle
+ * (`src/content/{netflix,disney}/*.iife.js`) exposés à cette seule plateforme, dans une entrée qui ne contient qu'eux, et
+ * jamais les scripts injectés par une page de l'extension (lecteurs de l'historique, `src/content/history/`).
  */
 export function checkWebAccessibleResources(manifest: BuiltManifest): string[] {
   const errors: string[] = [];
@@ -172,7 +179,9 @@ export function checkWebAccessibleResources(manifest: BuiltManifest): string[] {
     for (const resource of entry.resources) {
       if (resource.includes('<') || resource.includes('*')) errors.push(`web_accessible_resources ${label} : ressource non résolue « ${resource} »`);
     }
-    const iife = entry.resources.filter(isIife);
+    const injected = entry.resources.filter(isExtensionInjectedScript);
+    if (injected.length > 0) errors.push(`web_accessible_resources ${label} : scripts injectés par l'extension exposés aux sites (${injected.join(', ')})`);
+    const iife = entry.resources.filter((file) => isIife(file) && !isExtensionInjectedScript(file));
     if (iife.length === 0) continue;
     for (const platform of OPTIONAL_PLATFORMS) {
       const own = iife.filter((file) => registeredScriptPlatform(file) === platform.dir);

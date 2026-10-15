@@ -1,7 +1,7 @@
 /**
  * Sortie du build indépendante du dossier du projet (relecture AMO : le relecteur construit ailleurs que la CI).
  *
- * Cause : crxjs remplace chaque import `?script` (src/background/platform-access.ts) par un repère
+ * Cause : crxjs remplace chaque import `?script` (src/background/platform-access.ts, src/import-cr/history-reader.ts) par un repère
  * `import.meta.CRX_DYNAMIC_SCRIPT_<id>`, où `<id>` est un hash du chemin absolu du script. Le hash du chunk est
  * calculé sur ce code intermédiaire, avant que crxjs n'y écrive le chemin final : contenu identique, mais nom
  * `background.ts-<hash>.js` (et donc `service-worker-loader.js`) différent d'un dossier à l'autre.
@@ -11,6 +11,15 @@
 
 /** Nom fixe du chunk du service worker (importé par `service-worker-loader.js`) */
 export const BACKGROUND_CHUNK_FILE = 'assets/background.js';
+
+/**
+ * Nom fixe du chunk de la page d'import d'historique, même cause : il contient l'import `?script` des lecteurs de
+ * l'historique (src/import-cr/history-reader.ts), donc le même repère dépendant du dossier
+ */
+export const IMPORT_CR_CHUNK_FILE = 'assets/import-cr.js';
+
+/** Page d'entrée de ce chunk (`build.rollupOptions.input` de vite.config.ts) */
+const IMPORT_CR_PAGE = 'src/import-cr/import-cr.html';
 
 /** Nom par défaut de Vite pour les autres chunks */
 export const DEFAULT_CHUNK_FILE = 'assets/[name]-[hash].js';
@@ -48,7 +57,11 @@ export interface ChunkInfo {
  */
 export function jsFileNames(backgroundSource: string): (chunk: ChunkInfo) => string {
   const suffix = `/${backgroundSource.replace(/^\.?\//, '')}`;
-  return (chunk) => (chunk.facadeModuleId?.replaceAll('\\', '/').endsWith(suffix) ? BACKGROUND_CHUNK_FILE : DEFAULT_CHUNK_FILE);
+  return (chunk) => {
+    const id = chunk.facadeModuleId?.replaceAll('\\', '/') ?? '';
+    if (id.endsWith(suffix)) return BACKGROUND_CHUNK_FILE;
+    return id.endsWith(`/${IMPORT_CR_PAGE}`) ? IMPORT_CR_CHUNK_FILE : DEFAULT_CHUNK_FILE;
+  };
 }
 
 /** Entrée `web_accessible_resources` (Manifest V3, par motifs ou par ID d'extension) */
@@ -79,6 +92,26 @@ export const REGISTERED_SCRIPT_MATCHES: Readonly<Record<string, readonly string[
 function registeredScriptDir(resource: string, matchesByDir: Readonly<Record<string, readonly string[]>>): string | null {
   const dir = /^src\/content\/([a-z0-9-]+)\/[^/]+\.iife\.js$/.exec(resource)?.[1];
   return dir !== undefined && Object.hasOwn(matchesByDir, dir) ? dir : null;
+}
+
+/**
+ * Dossiers (`src/content/{dossier}/`) des scripts injectés par une page de l'extension avec `scripting.executeScript({ files })`,
+ * qui n'a pas besoin de `web_accessible_resources` : lecteurs de l'historique Crunchyroll / ADN (import-cr/history-reader.ts).
+ * crxjs les range avec les scripts `?script` exposés aux sites des plateformes optionnelles : retirés, jamais exposés à un site.
+ */
+export const EXTENSION_INJECTED_SCRIPT_DIRS: readonly string[] = ['history'];
+
+/** Script injecté par une page de l'extension (`src/content/{dossier}/….iife.js`, dossier de EXTENSION_INJECTED_SCRIPT_DIRS) */
+export function isExtensionInjectedScript(resource: string): boolean {
+  const dir = /^src\/content\/([a-z0-9-]+)\/[^/]+\.iife\.js$/.exec(resource)?.[1];
+  return dir !== undefined && EXTENSION_INJECTED_SCRIPT_DIRS.includes(dir);
+}
+
+/** Retire des ressources exposées les scripts injectés par une page de l'extension ; une entrée vidée disparaît */
+export function dropExtensionInjectedScripts<E extends WebAccessibleResourceEntry>(entries: readonly E[]): E[] {
+  return entries
+    .map((entry) => ({ ...entry, resources: entry.resources.filter((resource) => !isExtensionInjectedScript(resource)) }))
+    .filter((entry) => entry.resources.length > 0);
 }
 
 /**

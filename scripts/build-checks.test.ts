@@ -121,6 +121,19 @@ describe('checkWebAccessibleResources', () => {
     ]);
   });
 
+  it('lecteurs de l’historique (injectés par la page d’import) exposés aux sites : refusés (sortie brute de crxjs)', () => {
+    const history = 'src/content/history/history.iife.js';
+    expect(checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, resources: [...netflixEntry.resources, history] }, disneyEntry, primeEntry] })).toEqual([
+      `web_accessible_resources ["*://*.netflix.com/*"] : scripts injectés par l'extension exposés aux sites (${history})`,
+      'web_accessible_resources ["*://*.netflix.com/*"] : entrée Netflix mêlée à d\'autres ressources',
+    ]);
+    expect(checkWebAccessibleResources({ web_accessible_resources: [{ matches: [PRIME_PATTERN], resources: [history] }, netflixEntry, disneyEntry, primeEntry] })).toEqual([
+      `web_accessible_resources ["${PRIME_PATTERN}"] : scripts injectés par l'extension exposés aux sites (${history})`,
+    ]);
+    expect(registeredScriptPlatform(history)).toBeNull();
+    expect(isMainWorldBridge(history)).toBe(false);
+  });
+
   it('plateforme d’un script enregistré : dossier connu uniquement', () => {
     expect(registeredScriptPlatform('src/content/disney/page-bridge.iife.js')).toBe('disney');
     expect(registeredScriptPlatform('src/content/netflix/content-netflix.iife.js')).toBe('netflix');

@@ -7,7 +7,7 @@ import manifest from './manifest.json';
 import { GIT_COMMIT_EPOCH_ARGS, resolveBuildStamp } from './src/build/build-stamp';
 import { contentCatalogsDefine } from './src/build/content-catalog';
 import { parseBuildTarget, targetManifest, targetOutDir } from './src/build/manifest-target';
-import { assetFileName, jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
+import { assetFileName, dropExtensionInjectedScripts, jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
 import en from './src/i18n/locales/en.json';
 
 // Navigateur cible : `SYNCKAI_TARGET=firefox` (npm run build:firefox), chrome par défaut.
@@ -36,14 +36,17 @@ function buildStamp(mode: string): string {
 }
 
 /**
- * Manifeste généré identique d'un build à l'autre (ordre des scripts `?script`), et scripts enregistrés de chaque plateforme
- * optionnelle exposés à cette seule plateforme (crxjs les réunit sous l'union des motifs) : voir src/build/output-names.ts
+ * Manifeste généré identique d'un build à l'autre (ordre des scripts `?script`), scripts enregistrés de chaque plateforme
+ * optionnelle exposés à cette seule plateforme (crxjs les réunit sous l'union des motifs), et scripts injectés par une page
+ * de l'extension (lecteurs de l'historique) exposés à aucun site : voir src/build/output-names.ts
  */
 const sortedWebAccessibleResources: CrxPlugin = {
   name: 'synckai:sorted-web-accessible-resources',
   enforce: 'post',
   renderCrxManifest(generated) {
-    if (generated.web_accessible_resources) generated.web_accessible_resources = sortWebAccessibleResources(splitRegisteredScripts(generated.web_accessible_resources));
+    if (generated.web_accessible_resources) {
+      generated.web_accessible_resources = sortWebAccessibleResources(splitRegisteredScripts(dropExtensionInjectedScripts(generated.web_accessible_resources)));
+    }
     return generated;
   },
 };

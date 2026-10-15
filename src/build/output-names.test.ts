@@ -5,6 +5,9 @@ import {
   BACKGROUND_CHUNK_FILE,
   DEFAULT_ASSET_FILE,
   DEFAULT_CHUNK_FILE,
+  dropExtensionInjectedScripts,
+  IMPORT_CR_CHUNK_FILE,
+  isExtensionInjectedScript,
   jsFileNames,
   REGISTERED_SCRIPT_MATCHES,
   sortWebAccessibleResources,
@@ -40,6 +43,12 @@ describe('jsFileNames', () => {
     expect(name({ facadeModuleId: null })).toBe(DEFAULT_CHUNK_FILE);
   });
 
+  it('page d’import d’historique (import `?script` des lecteurs) : nom fixe, quel que soit le dossier', () => {
+    expect(name({ facadeModuleId: '/home/runner/work/SyncKai/SyncKai/src/import-cr/import-cr.html' })).toBe(IMPORT_CR_CHUNK_FILE);
+    expect(name({ facadeModuleId: 'C:\\Users\\x\\autre-dossier\\src\\import-cr\\import-cr.html' })).toBe(IMPORT_CR_CHUNK_FILE);
+    expect(name({ facadeModuleId: '/repo/src/import-cr/import-cr.ts' })).toBe(DEFAULT_CHUNK_FILE);
+  });
+
   it('chemin source préfixé par ./', () => {
     expect(jsFileNames('./src/background/background.ts')({ facadeModuleId: '/r/src/background/background.ts' })).toBe(BACKGROUND_CHUNK_FILE);
   });
@@ -56,6 +65,24 @@ describe('sortWebAccessibleResources', () => {
       { matches: ['*://*.crunchyroll.com/*'], resources: ['assets/m.js', 'assets/z.js'] },
     ]);
     expect(entries[0]?.resources).toEqual(['src/b.iife.js', 'src/a.iife.js']);
+  });
+});
+
+describe('dropExtensionInjectedScripts', () => {
+  const history = 'src/content/history/history.iife.js';
+
+  it('lecteurs de l’historique retirés de toute entrée ; entrée vidée supprimée ; reste inchangé', () => {
+    const merged = { matches: ['*://*.netflix.com/*', '*://*.disneyplus.com/*'], resources: ['src/content/netflix/page-bridge.iife.js', history], use_dynamic_url: false };
+    const alone = { matches: ['*://*.primevideo.com/*'], resources: [history] };
+    const other = { matches: ['*://*.netflix.com/*'], resources: ['assets/a.js'] };
+    expect(dropExtensionInjectedScripts([merged, alone, other])).toEqual([{ ...merged, resources: ['src/content/netflix/page-bridge.iife.js'] }, other]);
+  });
+
+  it('script injecté : dossier history/ de src/content seulement', () => {
+    expect(isExtensionInjectedScript(history)).toBe(true);
+    expect(isExtensionInjectedScript('src/content/netflix/content-netflix.iife.js')).toBe(false);
+    expect(isExtensionInjectedScript('src/content/history.iife.js')).toBe(false);
+    expect(isExtensionInjectedScript('assets/history.iife.ts-DB6mW7yU.js')).toBe(false);
   });
 });
 

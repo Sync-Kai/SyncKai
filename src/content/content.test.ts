@@ -5,8 +5,6 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const startContent = vi.hoisted(() => vi.fn());
 vi.mock('./start', () => ({ startContent }));
-vi.mock('./crunchyroll/history-port', () => ({ listenCrHistoryPorts: vi.fn() }));
-vi.mock('./adn/history', () => ({ listenAdnHistoryPorts: vi.fn() }));
 
 const STARTED_FLAG = Symbol.for('synckai.content');
 

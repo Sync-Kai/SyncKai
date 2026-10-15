@@ -1,4 +1,5 @@
 // Modules `*?script` de crxjs : chemins des scripts Netflix, Disney+ et Prime Video enregistrés à la demande (background/platform-access.ts)
+// et des lecteurs de l'historique injectés par la page d'import (import-cr/history-reader.ts)
 /// <reference types="@crxjs/vite-plugin/client" />
 /** Injecté par Vite (voir `define` dans vite.config.ts) */
 declare const __SYNCKAI_BUILD__: string;

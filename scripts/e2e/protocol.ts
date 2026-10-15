@@ -18,6 +18,8 @@ export interface E2EState {
   sidePanelOpens?: (number | null)[];
   /** Ports ouverts vers les scripts de contenu (chrome.tabs.connect), page d'import */
   historyConnects?: number;
+  /** Fichiers injectés par chrome.scripting.executeScript (lecteurs de l'historique), page d'import */
+  historyInjections?: string[];
 }
 
 declare global {

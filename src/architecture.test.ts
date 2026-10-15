@@ -79,6 +79,18 @@ describe('frontières des modules', () => {
     const registeredScripts = (e: Edge): boolean => e.from === 'background/platform-access.ts' && e.spec.endsWith('.iife.ts?script');
     expect(violations('background', ['content'], registeredScripts)).toEqual([]);
   });
+
+  it('imports `?script` (chemins des scripts produits par crxjs) dans platform-access.ts et history-reader.ts seulement', () => {
+    // Service worker : scripts des plateformes optionnelles enregistrés à la demande. Page d'import : lecteurs de l'historique
+    // Crunchyroll / ADN injectés dans l'onglet juste avant le port, pour les garder hors du script de contenu du manifeste
+    const SCRIPT_IMPORTERS: readonly string[] = ['background/platform-access.ts', 'import-cr/history-reader.ts'];
+    expect(edges.filter((e) => e.spec.includes('?script') && !isTestFile(e.from) && !SCRIPT_IMPORTERS.includes(e.from)).map(describeEdge)).toEqual([]);
+  });
+
+  it('les écrans ne dépendent du contenu que pour les lecteurs de l’historique (`?script` de history-reader.ts)', () => {
+    const historyReader = (e: Edge): boolean => e.from === 'import-cr/history-reader.ts' && e.spec === '../content/history/history.iife.ts?script';
+    expect(['popup', 'sidepanel', 'import', 'import-cr'].flatMap((screen) => violations(screen, ['content'], historyReader))).toEqual([]);
+  });
 });
 
 describe('scripts de contenu légers (PERF-01)', () => {
@@ -107,6 +119,13 @@ describe('scripts de contenu légers (PERF-01)', () => {
     ];
     expect(contentModules.has('protocol/messages.ts')).toBe(true);
     expect(heavy.filter((path) => contentModules.has(path))).toEqual([]);
+  });
+
+  it('le script du manifeste (Crunchyroll / ADN) n’embarque pas les lecteurs de l’historique (injectés à la demande)', () => {
+    const manifestScript = reachableFrom(['content/content.iife.ts'], { valuesOnly: true });
+    const readers = ['content/crunchyroll/history.ts', 'content/crunchyroll/history-port.ts', 'content/adn/history.ts', 'content/lib/history-port.ts', 'content/lib/page-fetch.ts'];
+    expect(readers.filter((path) => manifestScript.has(path))).toEqual([]);
+    expect(reachableFrom(['content/history/history.iife.ts'], { valuesOnly: true }).has('content/adn/history.ts')).toBe(true);
   });
 
   it('protocol/messages.ts n’importe que des types (sendMessage seul y est du code)', () => {

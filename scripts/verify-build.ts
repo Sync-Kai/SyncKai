@@ -4,7 +4,8 @@
  * - `web_accessible_resources` : scripts Netflix et Disney+ limités à leur plateforme, rien d'exposé à tous les sites ;
  * - `*.iife.js` : scripts classiques (aucun import ni export, aucun `import(`) ;
  * - permissions, motifs, CSP des pages et commandes clavier identiques au manifeste source adapté à la cible ;
- * - budgets de taille des scripts de contenu (Crunchyroll / ADN, pont Crunchyroll du monde MAIN, Netflix, Disney+, Prime Video) ;
+ * - budgets de taille des scripts de contenu (Crunchyroll / ADN, pont Crunchyroll du monde MAIN, Netflix, Disney+, Prime Video,
+ *   lecteurs de l'historique injectés par la page d'import) ;
  * - catalogues de traduction chargés à la demande : chaque langue hors anglais dans assets/locales/, référencée par le code ;
  * - ponts du monde MAIN : aucune API d'extension, aucun en-tête ni cookie (chaînes interdites) ; aucun marqueur de build de développement.
  *
@@ -17,12 +18,13 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { Script } from 'node:vm';
 import { BUILD_TARGETS, parseBuildTarget, targetManifest, targetOutDir, type BuildTarget } from '../src/build/manifest-target.ts';
-import { LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
+import { isExtensionInjectedScript, LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
 import { LOCALES } from '../src/i18n/locale-codes.ts';
 import {
   CONTENT_SCRIPT_BUDGET_BYTES,
   CRUNCHYROLL_BRIDGE_BUDGET_BYTES,
   DISNEY_SCRIPTS_BUDGET_BYTES,
+  HISTORY_READER_BUDGET_BYTES,
   PRIME_SCRIPTS_BUDGET_BYTES,
   NETFLIX_SCRIPTS_BUDGET_BYTES,
   registeredScriptPlatform,
@@ -123,6 +125,11 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   const netflixBytes = platformBytes('netflix');
   const disneyBytes = platformBytes('disney');
   const primeBytes = platformBytes('prime');
+  // Lecteurs de l'historique injectés par la page d'import (IIFE autonome, hors du script du manifeste)
+  const historyFiles = iifeFiles.filter(isExtensionInjectedScript);
+  const historyBytes = historyFiles.reduce((total, file) => total + size(file), 0);
+  if (historyFiles.length === 0) errors.push('lecteurs de l’historique (src/content/history/*.iife.js) absents');
+  if (historyBytes > HISTORY_READER_BUDGET_BYTES) errors.push(`lecteurs de l’historique : ${kib(historyBytes)} > budget ${kib(HISTORY_READER_BUDGET_BYTES)}`);
   if (contentBytes > CONTENT_SCRIPT_BUDGET_BYTES) {
     errors.push(`script de contenu Crunchyroll/ADN : ${kib(contentBytes)} > budget ${kib(CONTENT_SCRIPT_BUDGET_BYTES)}`);
   }
@@ -157,6 +164,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   console.log(`  scripts Netflix : ${kib(netflixBytes)} / ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)} (${listOf('netflix')})`);
   console.log(`  scripts Disney+ : ${kib(disneyBytes)} / ${kib(DISNEY_SCRIPTS_BUDGET_BYTES)} (${listOf('disney')})`);
   console.log(`  scripts Prime Video : ${kib(primeBytes)} / ${kib(PRIME_SCRIPTS_BUDGET_BYTES)} (${listOf('prime')})`);
+  console.log(`  lecteurs de l’historique (injectés par la page d’import) : ${kib(historyBytes)} / ${kib(HISTORY_READER_BUDGET_BYTES)} (${historyFiles.join(', ')})`);
   console.log(`  catalogues de traduction : ${catalogSources.size} langues lues à la demande, ${catalogFiles.length} fichiers (${LOCALE_CATALOG_DIR}/, ${kib(catalogBytes)} ; contenus identiques regroupés), anglais embarqué`);
   if (unused.length > 0) console.log(`  non référencés (${unused.length}) : ${unused.join(', ')}`);
   return errors;

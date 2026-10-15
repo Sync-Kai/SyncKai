@@ -48,16 +48,20 @@ export const EDGES: readonly Edge[] = buildEdges();
 
 const isTest = (path: string): boolean => path.endsWith('.test.ts') || path.startsWith('test/');
 
+/** Import `?script` de crxjs : le chemin du script produit (une chaîne), jamais son code, qui forme un bundle à part */
+const isScriptPath = (edge: Edge): boolean => edge.spec.endsWith('?script');
+
 /**
  * Modules du code de l'extension (hors tests) atteignables depuis `roots`, racines comprises. `valuesOnly` : sans
- * suivre les `import type` / `export type`, soit les modules réellement embarqués dans le bundle.
+ * suivre les `import type` / `export type`, soit les modules réellement embarqués dans le bundle. Les imports `?script`
+ * ne sont jamais suivis (le script visé est une entrée à part).
  */
 export function reachableFrom(roots: readonly string[], { valuesOnly = false }: { valuesOnly?: boolean } = {}): Set<string> {
   const seen = new Set(roots.filter((root) => !isTest(root)));
   const pending = [...seen];
   for (let file = pending.pop(); file !== undefined; file = pending.pop()) {
     for (const edge of EDGES) {
-      if (edge.from !== file || (valuesOnly && edge.typeOnly) || isTest(edge.to) || seen.has(edge.to)) continue;
+      if (edge.from !== file || (valuesOnly && edge.typeOnly) || isScriptPath(edge) || isTest(edge.to) || seen.has(edge.to)) continue;
       seen.add(edge.to);
       pending.push(edge.to);
     }
