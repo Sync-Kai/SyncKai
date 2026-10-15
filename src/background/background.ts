@@ -167,7 +167,7 @@ const handlers: MessageHandlers = {
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();
-    return checkNewEpisodes();
+    return checkNewEpisodes('interactive');
   },
 };
 
@@ -241,7 +241,7 @@ chrome.runtime.onInstalled.addListener((): void => {
 // ─── Alertes de nouveaux épisodes ──────────────────────────────────────────
 
 chrome.alarms.onAlarm.addListener((alarm): void => {
-  if (alarm.name === AIRING_ALARM) afterI18n(checkNewEpisodes);
+  if (alarm.name === AIRING_ALARM) afterI18n(() => checkNewEpisodes('background'));
 });
 chrome.notifications.onClicked.addListener((id): void => {
   void handleNotificationClick(id);

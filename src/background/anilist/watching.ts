@@ -18,6 +18,7 @@ import type {
 } from '../../shared/watching.types';
 import { isWatchingFresh, WATCHING_REVALIDATE_MS } from '../../shared/watching';
 import { anilistPublicQuery, anilistQuery } from './client';
+import type { RequestLane } from '../rate-limit';
 import { ApiError } from '../errors';
 import { malRequest } from '../mal/client';
 import { getAniListUserId } from './viewer';
@@ -108,9 +109,9 @@ const ANILIST_WATCHING_QUERY = /* GraphQL */ `
 const isCollectionData = (data: unknown): data is { MediaListCollection: Record<string, unknown> } =>
   isRecord(data) && isRecord(data.MediaListCollection);
 
-async function fetchAniListEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore): Promise<WatchingEntry[]> {
+async function fetchAniListEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore, lane: RequestLane): Promise<WatchingEntry[]> {
   const userId = await getAniListUserId();
-  const { MediaListCollection } = await anilistQuery(ANILIST_WATCHING_QUERY, isCollectionData, { userId });
+  const { MediaListCollection } = await anilistQuery(ANILIST_WATCHING_QUERY, isCollectionData, { userId }, lane);
 
   const entries = new Map<number, WatchingEntry>();
   // Une fiche peut apparaître dans plusieurs listes (listes personnalisées) : dédoublonnage par id
@@ -174,12 +175,12 @@ const isPageData = (data: unknown): data is { Page: { media: unknown[] } } =>
   isRecord(data) && isRecord(data.Page) && Array.isArray(data.Page.media);
 
 /** Fiches AniList indexées par id MAL. Enrichissement facultatif : en cas d'échec, liste MAL seule. */
-async function fetchCatalogByMalIds(malIds: readonly number[]): Promise<Map<number, Record<string, unknown>>> {
+async function fetchCatalogByMalIds(malIds: readonly number[], lane: RequestLane): Promise<Map<number, Record<string, unknown>>> {
   const catalog = new Map<number, Record<string, unknown>>();
   try {
     for (let i = 0; i < malIds.length; i += CATALOG_CHUNK) {
       const ids = malIds.slice(i, i + CATALOG_CHUNK);
-      const { Page } = await anilistPublicQuery(CATALOG_BY_MAL_QUERY, isPageData, { ids });
+      const { Page } = await anilistPublicQuery(CATALOG_BY_MAL_QUERY, isPageData, { ids }, lane);
       for (const media of Page.media) {
         const idMal = isRecord(media) ? num(media.idMal) : null;
         if (isRecord(media) && idMal !== null && num(media.id) !== null && !catalog.has(idMal)) catalog.set(idMal, media);
@@ -191,7 +192,7 @@ async function fetchCatalogByMalIds(malIds: readonly number[]): Promise<Map<numb
   return catalog;
 }
 
-async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore): Promise<WatchingEntry[]> {
+async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore, lane: RequestLane): Promise<WatchingEntry[]> {
   const { data } = await malRequest(MAL_WATCHING_PATH, isMalListData);
   const items = data.flatMap((item) => {
     if (!isRecord(item) || !isRecord(item.node)) return [];
@@ -200,7 +201,7 @@ async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLi
     return id !== null && title !== null ? [{ id, title, node: item.node, listStatus: isRecord(item.list_status) ? item.list_status : {} }] : [];
   });
 
-  const catalog = await fetchCatalogByMalIds(items.map((i) => i.id));
+  const catalog = await fetchCatalogByMalIds(items.map((i) => i.id), lane);
 
   return items.map(({ id, title, node, listStatus }): WatchingEntry => {
     const media = catalog.get(id);
@@ -233,9 +234,10 @@ async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLi
 /**
  * Liste « en cours » du service demandé, mise en cache pour le popup. Sans `force`, une liste en cache de moins de
  * 90 s, sans synchro depuis, est renvoyée sans requête (ouvertures rapprochées du popup ou du panneau, PERF-04).
+ * `lane` : 'background' pour la vérification horaire des sorties (airing.ts), qui ne doit pas entamer le budget des écrans.
  * Ne lève jamais.
  */
-export async function getWatchingList(service: TrackerId, force = false): Promise<WatchingResult> {
+export async function getWatchingList(service: TrackerId, force = false, lane: RequestLane = 'interactive'): Promise<WatchingResult> {
   try {
     if (!force) {
       const [cached, syncs] = await Promise.all([getCachedWatching(service), getRecentSyncs()]);
@@ -247,7 +249,7 @@ export async function getWatchingList(service: TrackerId, force = false): Promis
     // Génération capturée avant la requête : une déconnexion pendant celle-ci la rend obsolète
     const epoch = await getSessionEpoch(service);
     const [syncs, learned] = await Promise.all([getRecentSyncs(), getPlatformLinks()]);
-    const entries = service === 'anilist' ? await fetchAniListEntries(syncs, learned) : await fetchMalEntries(syncs, learned);
+    const entries = service === 'anilist' ? await fetchAniListEntries(syncs, learned, lane) : await fetchMalEntries(syncs, learned, lane);
     // Lien appris pendant la requête (popup ouvert sur une page de série) : pas écrasé par cette liste
     const list: WatchingList = { service, entries: withLearnedLinks(entries, await getPlatformLinks()) ?? entries, fetchedAt: Date.now() };
     if (!(await saveCachedWatching(list, epoch))) {

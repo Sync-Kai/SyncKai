@@ -1,5 +1,6 @@
 import { t } from '../i18n';
 import { anilistPublicQuery } from './anilist/client';
+import type { RequestLane } from './rate-limit';
 import { getWatchingList } from './anilist/watching';
 import {
   AIRING_NOTIFICATION_PREFIX,
@@ -120,14 +121,15 @@ export interface AiringFetch {
 
 /**
  * Sorties des séries `ids` entre `from` et `to` (UNIX secondes, bornes exclues) : lots de 50 séries,
- * au plus `maxPages` pages par lot. Lève une ApiError.
+ * au plus `maxPages` pages par lot. `lane` : 'background' pour la vérification horaire (budget des écrans préservé).
+ * Lève une ApiError.
  */
-export async function fetchAiring(ids: readonly number[], from: number, to: number, maxPages: number = MAX_SCHEDULE_PAGES): Promise<AiringFetch> {
+export async function fetchAiring(ids: readonly number[], from: number, to: number, maxPages: number = MAX_SCHEDULE_PAGES, lane: RequestLane = 'interactive'): Promise<AiringFetch> {
   const items: AiringItem[] = [];
   let truncatedAt: number | null = null;
   for (const ids50 of chunk(ids, MEDIA_CHUNK)) {
     for (let page = 1; page <= maxPages; page++) {
-      const data = await anilistPublicQuery(AIRING_QUERY, isAiringPageData, { ids: ids50, from, to, page });
+      const data = await anilistPublicQuery(AIRING_QUERY, isAiringPageData, { ids: ids50, from, to, page }, lane);
       const pageItems = toAiringItems(data);
       items.push(...pageItems);
       if (data.Page.pageInfo?.hasNextPage !== true) break;
@@ -147,10 +149,10 @@ export async function fetchAiring(ids: readonly number[], from: number, to: numb
  * elle n'était jamais relue (ALRT-01). Au plus une requête par service toutes les 12 h, dans le réveil horaire
  * existant ; un échec garde l'ancien cache. getWatchingList relève sa propre génération de session.
  */
-async function refreshStaleWatching(services: readonly TrackerId[]): Promise<void> {
+async function refreshStaleWatching(services: readonly TrackerId[], lane: RequestLane): Promise<void> {
   for (const service of services) {
     if (isWatchingFresh(await getCachedWatching(service), Date.now(), WATCHING_MAX_AGE_MS)) continue;
-    const result = await getWatchingList(service, true);
+    const result = await getWatchingList(service, true, lane);
     if (!result.ok) log.warn(`Liste « En cours » (${service}) non rechargée :`, result.code);
   }
 }
@@ -202,7 +204,7 @@ interface CheckOutcome {
 }
 
 /** Vérification proprement dite : nombre de notifications créées ou raison de l'abandon. Peut lever. */
-async function runCheck(): Promise<CheckOutcome> {
+async function runCheck(lane: RequestLane): Promise<CheckOutcome> {
   const settings = await getSettings();
   if (!settings.airingAlerts) return { notified: 0, skipped: 'disabled', error: null };
   const services = await connectedServices();
@@ -211,7 +213,7 @@ async function runCheck(): Promise<CheckOutcome> {
   // Sessions relevées avant la lecture des séries suivies : une déconnexion pendant la vérification abandonne la
   // semaine d'agenda et les notifications de l'ancien compte (ALRT-05)
   const epochs = await getOpenSessions();
-  await refreshStaleWatching(services);
+  await refreshStaleWatching(services, lane);
   const [lists, excluded, syncs] = await Promise.all([getCachedLists(), getExcludedSeries(), getRecentSyncs()]);
   // Progression par fiche AniList (la plus avancée si la série est sur les deux services), complétée par les synchros
   // faites depuis la lecture de la plus ancienne des listes
@@ -228,9 +230,9 @@ async function runCheck(): Promise<CheckOutcome> {
   const weekWindow = { from: Math.floor(week.start / 1000) - 1, to: Math.floor(week.end / 1000) };
   const mediaIds = [...progressByMedia.keys()];
   const fetchWindow = mergeWeekWindow(range, weekWindow.from + 1, weekWindow.to);
-  const fetched = await fetchAiring(mediaIds, fetchWindow.from, fetchWindow.to);
+  const fetched = await fetchAiring(mediaIds, fetchWindow.from, fetchWindow.to, MAX_SCHEDULE_PAGES, lane);
   // Semaine coupée avant la fin de la fenêtre des alertes : celle-ci, bien plus petite, est relue seule (ALRT-06)
-  const alertFetch = fetched.truncatedAt !== null && fetched.truncatedAt < range.to ? await fetchAiring(mediaIds, range.from, range.to) : fetched;
+  const alertFetch = fetched.truncatedAt !== null && fetched.truncatedAt < range.to ? await fetchAiring(mediaIds, range.from, range.to, MAX_SCHEDULE_PAGES, lane) : fetched;
   const coveredUntil = coveredEnd(range, alertFetch.truncatedAt);
   const items = itemsInWindow(alertFetch.items, { from: range.from, to: coveredUntil });
   log.info(`${items.length} diffusion(s) trouvée(s) dans la fenêtre`);
@@ -297,13 +299,15 @@ async function runCheck(): Promise<CheckOutcome> {
 
 /**
  * Notifie les épisodes sortis depuis la dernière vérification (alarme ou « Vérifier maintenant »).
- * Ne lève jamais ; le résumé est aussi enregistré sous `airingLastResult` pour le popup.
+ * Ne lève jamais ; le résumé est aussi enregistré sous `airingLastResult` pour le popup. Alarme horaire : file de fond
+ * (quota de fond, jamais au détriment d'un écran ouvert : 2026-10-15, la vérification partie 8 s avant quatre choix de
+ * saison sur une page de série avait contribué à la limite AniList) ; « Vérifier maintenant » : interactive.
  */
-export async function checkNewEpisodes(): Promise<AiringCheckResult> {
+export async function checkNewEpisodes(lane: RequestLane = 'background'): Promise<AiringCheckResult> {
   log.info('Début de la vérification des sorties');
   let result: AiringCheckResult;
   try {
-    const { notified, skipped, error } = await runCheck();
+    const { notified, skipped, error } = await runCheck(lane);
     result = { checkedAt: Date.now(), notified, skipped, error };
   } catch (error) {
     log.error('Vérification des sorties impossible :', error);

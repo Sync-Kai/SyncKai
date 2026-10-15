@@ -13,13 +13,17 @@ import { installFakeChrome } from '../test/fake-chrome';
 const fakes = vi.hoisted(() => ({
   /** Calendrier AniList : variables de la requête → page */
   schedule: vi.fn<(variables: { ids: number[]; from: number; to: number; page: number }) => unknown>(),
+  /** File de chaque requête du calendrier (B9 : vérification horaire en file de fond) */
+  lanes: [] as (string | undefined)[],
   getWatchingList: vi.fn<(service: TrackerId, force?: boolean) => Promise<WatchingResult>>(),
   create: vi.fn<(id: string, options: unknown) => Promise<string>>(),
 }));
 
 vi.mock('./anilist/client', () => ({
-  anilistPublicQuery: async (_query: string, _guard: unknown, variables: { ids: number[]; from: number; to: number; page: number }) =>
-    fakes.schedule(variables),
+  anilistPublicQuery: async (_query: string, _guard: unknown, variables: { ids: number[]; from: number; to: number; page: number }, lane?: string) => {
+    fakes.lanes.push(lane);
+    return fakes.schedule(variables);
+  },
 }));
 vi.mock('./anilist/watching', () => ({ getWatchingList: fakes.getWatchingList }));
 
@@ -68,6 +72,7 @@ const stored = (key: string): unknown => fake.local.peek(key);
 
 beforeEach(() => {
   fakes.schedule.mockReset();
+  fakes.lanes.length = 0;
   fakes.getWatchingList.mockReset();
   fakes.create.mockReset();
   fakes.create.mockImplementation(async (id) => id);
@@ -87,7 +92,9 @@ describe('liste « En cours » de plus de 12 h (ALRT-01)', () => {
 
     const result = await checkNewEpisodes();
 
-    expect(fakes.getWatchingList).toHaveBeenCalledWith('anilist', true);
+    // Vérification horaire : file de fond, jamais le budget des écrans ouverts (2026-10-15, limite AniList atteinte)
+    expect(fakes.getWatchingList).toHaveBeenCalledWith('anilist', true, 'background');
+    expect(fakes.lanes).toEqual(['background']);
     // Calendrier interrogé avec la liste relue (série 2 ajoutée depuis un autre appareil)
     expect(fakes.schedule.mock.calls[0]?.[0].ids).toEqual([1, 2]);
     expect(fakes.create).not.toHaveBeenCalled();
