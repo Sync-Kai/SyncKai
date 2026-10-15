@@ -6,7 +6,11 @@ import type { AniListMedia } from '../api/media';
 
 // Signaux de la plateforme dans la résolution : clé de cache avec l'année, correspondance apprise contredite, preuve
 // exigée pour une correspondance par le titre seul (stockage et API AniList simulés).
-const storage = vi.hoisted(() => ({ getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() }));
+const storage = vi.hoisted(() => {
+  const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
+  // Écritures conditionnelles (voir storage.ts) relayées aux simulations ci-dessus
+  return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
+});
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../shared/storage', () => storage);
 vi.mock('../api/media', () => api);

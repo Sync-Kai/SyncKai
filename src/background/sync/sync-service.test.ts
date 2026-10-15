@@ -361,7 +361,7 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
     anilist.entries.set(PART2, { status: 'CURRENT', progress: 0 });
     await saveMediaMapping(KEY, cachedMapping);
     // Cache (fiche Part 1, épisode 13), puis nouvelle résolution : Part 2, épisode 1
-    fakes.resolutions = [resolved(PART1, 13, { episodes: null, fromCache: true }), resolved(PART2, 1)];
+    fakes.resolutions = [resolved(PART1, 13, { ...cachedMapping, fromCache: true }), resolved(PART2, 1)];
 
     const outcome = await syncEpisode(episode(13));
     expect(fakes.resolveCalls).toBe(2);
@@ -390,6 +390,22 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
     expect(await getMediaMapping(KEY)).toEqual({ ...cachedMapping, episodes: 12, chosen: true });
   });
 
+  it('choix enregistré pendant la requête au catalogue : jamais remplacé par le total complété (écriture conditionnelle)', async () => {
+    connect({ status: 'CURRENT', progress: 4 });
+    await saveMediaMapping(KEY, cachedMapping);
+    const choice: MediaMapping = { mediaId: PART2, numbering: 'season', offset: 0, episodes: 12, chosen: true };
+    const fetchCatalog = fakes.getAnimeById;
+    fakes.getAnimeById = async (id: number): Promise<AniListMedia> => {
+      // L'utilisateur choisit une autre saison dans le sélecteur pendant la requête
+      await saveMediaMapping(KEY, choice);
+      return fetchCatalog(id);
+    };
+    fakes.resolutions = [resolved(PART1, 5, { ...cachedMapping, fromCache: true })];
+
+    await syncEpisode(episode(5));
+    expect(await getMediaMapping(KEY)).toEqual(choice);
+  });
+
   it('choix de l’utilisateur et « Part 2 » publiée : correspondance gardée (total corrigé), épisode résolu à nouveau', async () => {
     connect({ status: 'COMPLETED', progress: 12 });
     anilist.entries.set(PART2, { status: 'CURRENT', progress: 0 });
@@ -407,7 +423,7 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
     anilist.entries.set(PART2, { status: 'CURRENT', progress: 4 });
     catalog.delete(PART1);
     await saveMediaMapping(KEY, { ...cachedMapping, episodes: 12 });
-    fakes.resolutions = [resolved(PART1, 5, { episodes: 12, fromCache: true }), resolved(PART2, 5)];
+    fakes.resolutions = [resolved(PART1, 5, { ...cachedMapping, episodes: 12, fromCache: true }), resolved(PART2, 5)];
 
     const outcome = await syncEpisode(episode(5));
     expect(await getMediaMapping(KEY)).toBeNull();

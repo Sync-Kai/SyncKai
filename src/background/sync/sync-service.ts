@@ -12,12 +12,13 @@ import { pickSessions, sessionsOf, type SessionEpochs } from '../../shared/sessi
 import {
   addRecentSync,
   deferOnCorrection,
-  deleteMediaMapping,
+  deleteMediaMappingIf,
   getOpenSessions,
   getPendingReviews,
   getRecentSyncs,
   isSessionOpen,
   saveMediaMapping,
+  saveMediaMappingIf,
   savePendingReview,
   takePendingReview,
 } from '../../shared/storage';
@@ -294,25 +295,27 @@ function reliableTarget(result: ResolveResult): SyncTarget | null {
  * (`chosen`) qui s'arrête avant l'épisode : gardé avec le total du catalogue, null (l'épisode est résolu à nouveau).
  */
 async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<CatalogMedia | null> {
+  // Correspondance lue avant la requête au catalogue : écritures conditionnelles (un choix enregistré entre-temps est gardé)
+  const { progress: _progress, confidence: _confidence, reason: _reason, fromCache: _fromCache, bySignals: _bySignals, ...read } = target;
   let catalog: CatalogMedia;
   try {
     catalog = await getCatalogMedia(target.mediaId);
   } catch (error: unknown) {
     if (!isNotFound(error)) throw error;
     log.warn(`Fiche ${target.mediaId} introuvable sur AniList : correspondance ${key} oubliée`);
-    await deleteMediaMapping(key);
+    await deleteMediaMappingIf(key, read);
     return null;
   }
   const beyond = catalog.episodes !== null && target.progress > catalog.episodes;
   // Choix de l'utilisateur : jamais oublié, total corrigé (l'épisode, hors de la fiche, est résolu à nouveau sans l'écraser)
   if (beyond && target.chosen !== true) {
     log.warn(`Épisode ${target.progress} au-delà des ${catalog.episodes ?? '?'} épisodes de la fiche ${target.mediaId} : correspondance ${key} oubliée`);
-    await deleteMediaMapping(key);
+    await deleteMediaMappingIf(key, read);
     return null;
   }
   if (catalog.episodes !== null && (target.episodes === null || beyond)) {
     const { mediaId, numbering, offset, seriesLabel, mediaTitle, learned, chosen } = target;
-    await saveMediaMapping(key, {
+    await saveMediaMappingIf(key, read, {
       mediaId,
       numbering,
       offset,

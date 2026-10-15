@@ -195,6 +195,39 @@ export function saveMediaMapping(key: string, mapping: MediaMapping): Promise<vo
   });
 }
 
+/** Même correspondance, champ par champ (null : absente ou illisible) */
+function sameMapping(a: MediaMapping | null, b: MediaMapping | null): boolean {
+  if (a === null || b === null) return a === b;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof MediaMapping>;
+  return [...keys].every((key) => a[key] === b[key]);
+}
+
+/**
+ * Écriture automatique préparée hors verrou, après des requêtes réseau (correspondance apprise, total complété, import
+ * confirmé) : faite seulement si la correspondance de la clé est toujours celle lue (`expected`, null : absente), et
+ * jamais par-dessus un choix de l'utilisateur (`chosen`) quand `next` n'en est pas un. Retourne true si écrite.
+ */
+export function saveMediaMappingIf(key: string, expected: MediaMapping | null, next: MediaMapping): Promise<boolean> {
+  return withStorageLock(async () => {
+    const raw = await readRawMappings();
+    const current = readableMappings(raw)[key] ?? null;
+    if (!sameMapping(current, expected) || (current?.chosen === true && next.chosen !== true)) return false;
+    await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: { ...raw, [key]: next } });
+    return true;
+  });
+}
+
+/** Suppression automatique décidée hors verrou : seulement si la correspondance est toujours celle lue. Retourne true si supprimée. */
+export function deleteMediaMappingIf(key: string, expected: MediaMapping): Promise<boolean> {
+  return withStorageLock(async () => {
+    const raw = await readRawMappings();
+    if (!sameMapping(readableMappings(raw)[key] ?? null, expected)) return false;
+    const { [key]: _removed, ...rest } = raw;
+    await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: rest });
+    return true;
+  });
+}
+
 /**
  * Enregistre en une seule écriture les correspondances dont la clé n'en a pas encore de lisible (import : jamais
  * d'écrasement d'une correspondance existante, apprise ou corrigée par l'utilisateur). Retourne le nombre ajouté.

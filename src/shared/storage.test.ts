@@ -412,6 +412,25 @@ describe('correspondances : écritures non destructives (ARCH-15)', () => {
     expect(mappings()).toEqual({});
   });
 
+  it('saveMediaMappingIf : écrite si inchangée depuis sa lecture, jamais par-dessus un choix ou une correspondance réécrite', async () => {
+    const learned: MediaMapping = { ...valid(5), learned: true };
+    expect(await storage.saveMediaMappingIf('crunchyroll:B:s1', null, learned)).toBe(true);
+    expect(await storage.saveMediaMappingIf('crunchyroll:A:s1', null, learned)).toBe(false);
+    expect(await storage.saveMediaMappingIf('crunchyroll:A:s1', valid(1), { ...valid(1), episodes: 24 })).toBe(true);
+    // Choix enregistré pendant les requêtes réseau : ni l'apprentissage ni le total complété ne le remplacent
+    await storage.saveMediaMapping('crunchyroll:A:s1', { ...valid(2), chosen: true });
+    expect(await storage.saveMediaMappingIf('crunchyroll:A:s1', { ...valid(1), episodes: 24 }, { ...valid(1), episodes: 25 })).toBe(false);
+    expect(await storage.saveMediaMappingIf('crunchyroll:A:s1', { ...valid(2), chosen: true }, learned)).toBe(false);
+    expect(await storage.saveMediaMappingIf('crunchyroll:A:s1', { ...valid(2), chosen: true }, { ...valid(2), episodes: 24, chosen: true })).toBe(true);
+    expect(mappings()).toEqual({ 'adn:7:s1': unreadable, 'crunchyroll:A:s1': { ...valid(2), episodes: 24, chosen: true }, 'crunchyroll:B:s1': learned });
+  });
+
+  it('deleteMediaMappingIf : seulement si la correspondance est toujours celle lue', async () => {
+    expect(await storage.deleteMediaMappingIf('crunchyroll:A:s1', { ...valid(1), chosen: true })).toBe(false);
+    expect(await storage.deleteMediaMappingIf('crunchyroll:A:s1', valid(1))).toBe(true);
+    expect(mappings()).toEqual({ 'adn:7:s1': unreadable });
+  });
+
   it('deleteMediaMappingsByPrefix : les autres plateformes, même illisibles, restent', async () => {
     expect(await storage.deleteMediaMappingsByPrefix('crunchyroll:')).toBe(1);
     expect(mappings()).toEqual({ 'adn:7:s1': unreadable });

@@ -6,7 +6,11 @@ import type { AniListMedia } from '../api/media';
 // Série Netflix en plusieurs saisons, une fiche AniList par saison, liées à des titres Netflix DIFFÉRENTS (relevé le
 // 2026-10-11 : Ranma1/2, /title/81171925, 3 saisons ; AniList lie la saison 3 à 81171925 mais les saisons 1 et 2 à
 // 81301833). Avant le correctif, S1E1 était synchronisé sur la saison 3 (« Fiche unique »).
-const storage = vi.hoisted(() => ({ getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() }));
+const storage = vi.hoisted(() => {
+  const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
+  // Écritures conditionnelles (voir storage.ts) relayées aux simulations ci-dessus
+  return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
+});
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../shared/storage', () => storage);
 vi.mock('../api/media', () => api);
