@@ -2,6 +2,7 @@ import type { CrHistoryErrorCode, HistorySeason } from './cr-history';
 import { isRecord } from './guards';
 import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixBookmark, type NetflixShowMetadata } from './netflix-metadata';
 import type { Result } from './result';
+import type { CompletionTrigger } from './settings';
 import { meaningfulSeasonTitle, normalizeTitle } from './title';
 
 // Import de l'historique Netflix (pur, testé), dans la page d'import : lecture de la page Activité de visionnage du profil
@@ -323,16 +324,21 @@ export async function readNetflixHistory(tab: NetflixTab, deps: NetflixReadDeps,
  * marques de fin connues (`watchedToEndOffset`, début du générique `creditsOffset` ; absentes ou ≤ 0 ignorées) ; sans
  * aucune marque, position ≥ seuil de fin réglé dans SyncKai (pourcentage de la durée). Commencé seulement : jamais.
  * Ranma ½ S1 (relevé le 2026-10-12) : E1 1308 ≥ 1269 vu ; E6 1262 < min(1283, 1293) non vu.
+ * Déclencheur « pourcentage » (réglage, comme la synchro en direct) : seuil de la durée seulement, les marques ne servent
+ * que si la durée est inconnue.
  */
 export function isNetflixWatched(
   item: { bookmark?: NetflixBookmark | null; runtime: number | null; creditsOffset: number | null },
   completionPercentage: number,
+  completionTrigger: CompletionTrigger = 'credits',
 ): boolean {
   const bookmark = item.bookmark;
   if (!bookmark || bookmark.offset <= 0) return false;
+  const byPercentage = item.runtime !== null && item.runtime > 0 ? bookmark.offset / item.runtime >= completionPercentage / 100 : null;
+  if (completionTrigger === 'percentage' && byPercentage !== null) return byPercentage;
   const marks = [bookmark.watchedToEndOffset, item.creditsOffset].filter((mark): mark is number => mark !== null && mark > 0);
   if (marks.length > 0) return bookmark.offset >= Math.min(...marks);
-  return item.runtime !== null && item.runtime > 0 && bookmark.offset / item.runtime >= completionPercentage / 100;
+  return byPercentage ?? false;
 }
 
 /**
@@ -342,16 +348,16 @@ export function isNetflixWatched(
  * absolue des arcs de One Piece, saisons relatives de Ranma ½), épisodes par saison (`platformSeasons`) pour le résolveur.
  * Film vu : épisode 1, sans saison (clé `s0`), comme en lecture.
  */
-export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentage: number): HistorySeason[] {
+export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentage: number, completionTrigger: CompletionTrigger = 'credits'): HistorySeason[] {
   const base = { seriesId: show.showId, seriesTitle: show.title, seriesSlug: null, lastPlayedAt: null } as const;
   if (show.type === 'movie') {
-    if (!isNetflixWatched(show, completionPercentage)) return [];
+    if (!isNetflixWatched(show, completionPercentage, completionTrigger)) return [];
     const signals = netflixSignals(show, null);
     return [{ ...base, seasonId: `${show.showId}-s0`, seasonNumber: null, seasonTitle: null, episodeId: show.showId, episodeTitle: null, episodeNumber: 1, seasonEpisodeNumber: 1, watchedCount: 1, ...(signals ? { signals } : {}) }];
   }
   const platformSeasons = platformSeasonsOf(show);
   return show.seasons.flatMap((season): HistorySeason[] => {
-    const watched = season.episodes.filter((episode) => episode.seq >= 1 && isNetflixWatched(episode, completionPercentage));
+    const watched = season.episodes.filter((episode) => episode.seq >= 1 && isNetflixWatched(episode, completionPercentage, completionTrigger));
     const best = watched.reduce<(typeof watched)[number] | null>((top, episode) => (top === null || episode.seq > top.seq ? episode : top), null);
     if (!best) return [];
     const { seasonEpisodeNumber, displayedEpisodeNumber } = episodeNumbers(show.seasons, season, best);

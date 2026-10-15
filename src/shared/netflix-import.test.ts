@@ -332,6 +332,17 @@ describe('épisode vu d’après le dernier point de lecture', () => {
     expect(isNetflixWatched({ bookmark: { offset: 0, watchedToEndOffset: 1269 }, runtime: 1462, creditsOffset: 1302 }, 85)).toBe(false);
     expect(isNetflixWatched({ runtime: 1462, creditsOffset: 1302 }, 85)).toBe(false);
   });
+
+  it('déclencheur « pourcentage » (réglage) : seuil de la durée seulement, comme la synchro en direct', () => {
+    // 1262 / 1462 = 86 % : vu à 85 % bien qu'avant les marques de fin
+    expect(isNetflixWatched({ bookmark: { offset: 1262, watchedToEndOffset: 1283 }, runtime: 1462, creditsOffset: 1293 }, 85, 'percentage')).toBe(true);
+    // 1300 / 1462 = 89 % : non vu à 90 % bien qu'après le générique
+    expect(isNetflixWatched({ bookmark: { offset: 1300, watchedToEndOffset: null }, runtime: 1462, creditsOffset: 1293 }, 90, 'percentage')).toBe(false);
+    expect(isNetflixWatched({ bookmark: { offset: 1300, watchedToEndOffset: null }, runtime: 1462, creditsOffset: 1293 }, 90, 'credits')).toBe(true);
+    // Durée inconnue : les marques de fin servent de repli
+    expect(isNetflixWatched({ bookmark: { offset: 1300, watchedToEndOffset: 1269 }, runtime: null, creditsOffset: null }, 85, 'percentage')).toBe(true);
+    expect(isNetflixWatched({ bookmark: null, runtime: 1462, creditsOffset: null }, 85, 'percentage')).toBe(false);
+  });
 });
 
 describe('série Netflix → une ligne par saison vue', () => {
@@ -356,6 +367,8 @@ describe('série Netflix → une ligne par saison vue', () => {
         signals: { seasonEpisodeCount: 12, episodeMinutes: 24.4, format: 'series' },
       },
     ]);
+    // Déclencheur « pourcentage » : E6 (1262 s sur 1462, 86 %) compte comme vu à 85 %
+    expect(reduceNetflixShow(ranmaShow(), 85, 'percentage')).toMatchObject([{ seasonNumber: 1, episodeNumber: 6, seasonEpisodeNumber: 6, watchedCount: 5 }]);
     expect(isCrHistoryResult({ seasons, stats: { items: 8, pages: 1, partial: false, ignored: 2 } })).toBe(true);
     expect(isCrHistoryResult({ seasons, stats: { items: 20, pages: 1, partial: true, moreUnrecognized: true } })).toBe(true);
     expect(isCrHistoryResult({ seasons, stats: { items: 20, pages: 1, partial: true, moreUnrecognized: 'yes' } })).toBe(false);

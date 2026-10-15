@@ -510,9 +510,9 @@ async function readNetflix(tabId: number): Promise<void> {
       update({ done: index + 1 });
     }
 
-    const { completionPercentage } = await getSettings();
+    const { completionPercentage, completionTrigger } = await getSettings();
     if (stopped()) return;
-    const seasons = [...shows.values()].flatMap((show) => reduceNetflixShow(show, completionPercentage));
+    const seasons = [...shows.values()].flatMap((show) => reduceNetflixShow(show, completionPercentage, completionTrigger));
     // Chiffres seulement : jamais de titre de l'historique dans le journal
     log.info(`Historique Netflix : ${rows.length} lignes, ${groups.length} titres, ${shows.size} séries gardées, ${seasons.length} saisons vues`);
     if (seasons.length === 0) {
