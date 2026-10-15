@@ -33,6 +33,7 @@ import {
   type CrListState,
   type CrPlanItem,
   type ImportPlatform,
+  type PlanMapping,
   type SeasonResolution,
 } from '../../shared/cr-import';
 import type { HistorySeason } from '../../platforms/crunchyroll/history';
@@ -44,6 +45,7 @@ import type { Result } from '../../shared/result';
 import { sameSessions, type SessionEpochs } from '../../shared/session-epochs';
 import {
   getMediaMapping,
+  saveMediaMappingIf,
   saveMediaMappingsIfAbsent,
 } from '../../browser/storage/mappings';
 import {
@@ -56,7 +58,6 @@ import {
   savePendingReview,
 } from '../../browser/storage/reviews';
 import { withStorageLock } from '../../browser/storage/lock';
-import type { MediaMapping } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { PLATFORMS } from '../../platforms/registry';
 import { ApiError } from '../errors';
@@ -77,7 +78,7 @@ import {
   type TransientKind,
 } from '../jobs/runner';
 import { mappingKey, seasonLabel } from '../sync/matching/matching';
-import { prefetchCandidates, resolveEpisode } from '../sync/resolver';
+import { IMPORT_RESOLVE_OPTIONS, prefetchCandidates, resolveEpisode } from '../sync/resolver';
 import { withEntryLock } from '../sync/entry-lock';
 import { getConnectedTrackers } from '../trackers';
 import type { TrackerService } from '../ports/tracker';
@@ -153,8 +154,8 @@ interface ApplyMemory {
   plan: CrImportPlan | null;
   /** Résultats pas encore inscrits dans l'aperçu */
   results: Map<string, CrItemResult>;
-  /** Correspondances sûres à mémoriser (si la saison n'en a pas encore) */
-  mappings: { key: string; mapping: MediaMapping }[];
+  /** Correspondances sûres à mémoriser (si la saison n'en a pas encore, ou à la place de celle que l'analyse a contredite) */
+  mappings: PlanMapping[];
   since: number;
 }
 
@@ -212,17 +213,26 @@ async function flushApply(memory: ApplyMemory): Promise<void> {
       if (plan && plan.builtAt === builtAt) await chrome.storage.local.set({ [CR_IMPORT_KEYS.plan]: withItemResults(plan, results) });
     });
   }
-  await saveMediaMappingsIfAbsent(mappings);
+  await saveItemMappings(mappings);
+}
+
+/** Correspondances d'éléments appliqués : ajoutées si la clé n'en a pas, ou à la place de celle que l'analyse a contredite */
+async function saveItemMappings(mappings: readonly PlanMapping[]): Promise<void> {
+  await saveMediaMappingsIfAbsent(mappings.filter((m) => m.replaces === undefined));
+  // Correspondance apprise contredite par l'analyse (1-D10) : remplacée si elle n'a pas changé depuis, jamais un choix
+  for (const { key, mapping, replaces } of mappings) if (replaces) await saveMediaMappingIf(key, replaces, mapping);
 }
 
 /** Correspondances sûres de l'élément, avec le titre de la fiche (Réglages › Correspondances) */
-const itemMappings = (item: CrPlanItem): { key: string; mapping: MediaMapping }[] => item.mappings.map(({ key, mapping }) => ({ key, mapping: { ...mapping, mediaTitle: item.title } }));
+const itemMappings = (item: CrPlanItem): PlanMapping[] => item.mappings.map((m) => ({ ...m, mapping: { ...m.mapping, mediaTitle: item.title } }));
 
 // ─── Analyse : correspondance d'une saison ────────────────────────────────
 
 /**
  * Correspondance d'une saison, sans rien écrire (cache des correspondances lu, jamais modifié).
- * Même résolveur que la synchro en direct : une saison sûre ici l'aurait été sur la page de lecture.
+ * Même résolveur que la synchro en direct : une saison sûre ici l'aurait été sur la page de lecture. Une correspondance en cache
+ * y est en plus confrontée à une nouvelle résolution (IMPORT_RESOLVE_OPTIONS, audit 1-D10) : apprise et contredite, elle est
+ * remplacée à l'application (`replaces`) ; d'origine inconnue, la saison est « À vérifier » ; choisie, elle reste.
  */
 async function resolveSeason(season: HistorySeason, platform: ImportPlatform): Promise<SeasonResolution> {
   const episode = toEpisodeInfo(season, platform);
@@ -231,21 +241,25 @@ async function resolveSeason(season: HistorySeason, platform: ImportPlatform): P
 
   const cached = await getMediaMapping(key);
   // Requêtes de fond : budget AniList partagé (popup et synchro en direct prioritaires, voir rate-limit.ts)
-  const { result, candidates } = await resolveEpisode(episode, { persist: false, lane: 'background' });
+  const { result, candidates } = await resolveEpisode(episode, IMPORT_RESOLVE_OPTIONS);
   if (result.ok && (await isExcluded({ mediaId: result.target.mediaId }))) return { kind: 'excluded', key };
   // Netflix : pas un anime (ni fiche liée à la série, ni fiche au même titre), comme en lecture : écarté en silence
   if (!result.ok && result.ignored === true) return { kind: 'ignored', key };
 
   // Position dans la saison inconnue (saison retirée du catalogue) : seul un numéro affiché déjà appris est fiable
   const numbersKnown = season.seasonEpisodeNumber !== null || cached?.numbering === 'displayed';
-  if (!result.ok || result.target.confidence === 'low' || !numbersKnown) {
+  // Saison nommée placée par son seul rang (voir SyncTarget.byRank) : la plateforme peut compter un spécial comme saison
+  // (Dr. STONE « RYUSUI » en saison 3) ; la synchro en direct l'applique, l'import jamais sans vérification
+  if (!result.ok || result.target.confidence === 'low' || result.target.byRank === true || !numbersKnown) {
     const reason = !result.ok ? result.reason : numbersKnown ? result.target.reason : t('crImport.reason.numbering');
     return { kind: 'review', key, reason, suggestion: result.ok ? { mediaId: result.target.mediaId, progress: result.target.progress } : null, candidates };
   }
   const { mediaId, numbering, offset, episodes, progress } = result.target;
   // Correspondance en cache : son origine reste (jamais écrasée, voir saveMediaMappingsIfAbsent) ; sinon apprise
   const origin = result.target.fromCache ? { ...(cached?.learned ? { learned: true as const } : {}), ...(cached?.chosen ? { chosen: true as const } : {}) } : { learned: true as const };
-  return { kind: 'certain', key, mediaId, progress, mapping: { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...origin } };
+  // Correspondance apprise écartée par la résolution (contredite, ou qui ne s'applique plus) : remplacée à l'application
+  const replaces = !result.target.fromCache && cached?.learned === true ? { replaces: cached } : {};
+  return { kind: 'certain', key, mediaId, progress, mapping: { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...origin }, ...replaces };
 }
 
 // ─── Analyse : recherches pré-chargées par lots (PERF-10) ─────────────────
@@ -489,7 +503,7 @@ async function keepWritten(memory: ApplyMemory, item: CrPlanItem, written: Reado
   const builtAt = memory.plan?.builtAt;
   if (memory.plan) memory.plan = withItemWritten(memory.plan, item.id, services);
   await updatePlan((plan) => (plan.builtAt === builtAt ? withItemWritten(plan, item.id, services) : plan));
-  await saveMediaMappingsIfAbsent(itemMappings(item));
+  await saveItemMappings(itemMappings(item));
 }
 
 /** Écrit UN élément du plan sur chaque service prévu (état relu juste avant : jamais de recul). Ne lève jamais. */

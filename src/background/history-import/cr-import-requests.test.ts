@@ -4,15 +4,24 @@ import { CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, type CrImportJob, type C
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { installFakeChrome } from '../../test/fake-chrome';
 import type { TrackerService } from '../ports/tracker';
+import type { MediaMapping } from '../../shared/sync.types';
+import { mappingKey } from '../sync/matching/matching';
 
 // Requêtes AniList de l'analyse d'un historique Crunchyroll (PERF-10) : vraie analyse (cr-import), vrai résolveur, vrai
 // catalogue (cache, recherches groupées) ; seules les réponses d'AniList sont simulées, et comptées par opération.
 // Même analyse avec et sans pré-chargement des recherches : aperçus identiques, beaucoup moins de requêtes.
 
-const prefetch = vi.hoisted(() => ({ enabled: true }));
+const prefetch = vi.hoisted(() => ({ enabled: true, revalidate: true, cachedKeys: new Set<string>() }));
 vi.mock('../sync/resolver', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../sync/resolver')>();
-  return { ...actual, prefetchCandidates: (...args: Parameters<typeof actual.prefetchCandidates>) => (prefetch.enabled ? actual.prefetchCandidates(...args) : Promise.resolve()) };
+  return {
+    ...actual,
+    // Sans revalidation, les saisons à correspondance en cache ne sont pas pré-chargées (willSearch d'avant 1-D10)
+    prefetchCandidates: (...[episodes, lane]: Parameters<typeof actual.prefetchCandidates>) =>
+      prefetch.enabled ? actual.prefetchCandidates(prefetch.revalidate ? episodes : episodes.filter((e) => !prefetch.cachedKeys.has(mappingKey(e))), lane) : Promise.resolve(),
+    // Sans revalidation (comportement d'avant 1-D10) : correspondance en cache appliquée sans requête
+    resolveEpisode: (...[episode, options]: Parameters<typeof actual.resolveEpisode>) => actual.resolveEpisode(episode, prefetch.revalidate ? options : { ...options, revalidateCache: false }),
+  };
 });
 
 // ─── Faux catalogue AniList ───────────────────────────────────────────────
@@ -114,8 +123,8 @@ function storedJob(): CrImportJob | null {
   return isCrImportJob(value) ? value : null;
 }
 
-async function analyze(seasons: HistorySeason[]): Promise<{ plan: CrImportPlan; requests: Record<string, number> }> {
-  fake.reset({ ...OPEN_SESSIONS });
+async function analyze(seasons: HistorySeason[], mappings: Record<string, MediaMapping> = {}): Promise<{ plan: CrImportPlan; requests: Record<string, number> }> {
+  fake.reset({ ...OPEN_SESSIONS, ...(Object.keys(mappings).length > 0 ? { [STORAGE_KEYS.mediaMappings]: mappings } : {}) });
   clearCatalogCache();
   sent.length = 0;
   const started = await startCrAnalyze({ history: { seasons, stats: { items: seasons.length, pages: 1, partial: false } }, platform: 'crunchyroll' });
@@ -138,6 +147,8 @@ beforeEach(() => {
 
 afterEach(() => {
   prefetch.enabled = true;
+  prefetch.revalidate = true;
+  prefetch.cachedKeys = new Set();
   vi.restoreAllMocks();
 });
 
@@ -163,5 +174,29 @@ describe('analyse de l’historique Crunchyroll : recherches AniList groupées (
     expect(after.requests).toEqual(batched);
     expect(batched.SearchAnimeBatch).toBeLessThanOrEqual(Math.ceil(single.SearchAnime / 10) + 4);
     expect(total(after.requests)).toBeLessThan(total(before.requests) / 5);
+  }, 30_000);
+});
+
+describe('analyse avec correspondances en cache : revalidation (1-D10)', () => {
+  // Deuxième import du même historique : chaque saison sûre a sa correspondance apprise. Avant 1-D10 : appliquée sans aucune
+  // requête (seules les saisons sans correspondance cherchent) ; depuis : nouvelle résolution de chaque saison, recherches
+  // réunies par lots avec les autres, comme une première analyse.
+  it('30 séries déjà importées : même aperçu, coût d’une première analyse (8 requêtes au lieu de 7)', async () => {
+    const first = await analyze(history(30));
+    const mappings = Object.fromEntries(first.plan.items.flatMap((item) => item.mappings.map(({ key, mapping }) => [key, mapping] as const)));
+    expect(Object.keys(mappings).length).toBeGreaterThan(20);
+
+    prefetch.revalidate = false;
+    prefetch.cachedKeys = new Set(Object.keys(mappings));
+    const before = await analyze(history(30), mappings);
+    prefetch.revalidate = true;
+    const after = await analyze(history(30), mappings);
+
+    expect(after.plan).toEqual(before.plan);
+    expect(after.plan.items.flatMap((item) => item.mappings.filter((m) => m.replaces !== undefined))).toEqual([]);
+    // Saisons « À vérifier » (sans correspondance) cherchées dans les deux cas : la revalidation ajoute une requête par identifiants
+    expect(before.requests).toEqual({ SearchAnimeBatch: 6, AnimeByIds: 1 });
+    expect(after.requests).toEqual({ SearchAnimeBatch: 6, AnimeByIds: 2 });
+    expect(after.requests).toEqual(first.requests);
   }, 30_000);
 });

@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../../../i18n';
-import { isUnmatchedNamedSeason, matchCrunchyrollEpisodeLink, matchPlatformLink, resolveTarget, seasonSearchQuery, type EpisodeNumbers, type MediaCandidate } from './matching';
+import type { MediaMapping } from '../../../shared/sync.types';
+import {
+  cachedTitleVerdict,
+  carriesSeasonTitle,
+  isUnmatchedNamedSeason,
+  matchCrunchyrollEpisodeLink,
+  matchPlatformLink,
+  resolveTarget,
+  seasonSearchQuery,
+  type EpisodeNumbers,
+  type MediaCandidate,
+} from './matching';
 
 // Saisons découpées en parties (cours) et fiches dédiées à une saison. Textes attendus en français.
 setLocale('fr');
@@ -172,5 +183,101 @@ describe('isUnmatchedNamedSeason (page de série sur une saison nommée)', () =>
     expect(isUnmatchedNamedSeason(named('One Piece Season 2'), onePiece)).toBe(false);
     expect(isUnmatchedNamedSeason(named('ONE PIECE'), onePiece)).toBe(false);
     expect(isUnmatchedNamedSeason(named(null), onePiece)).toBe(false);
+  });
+});
+
+describe('resolveTarget : titre de saison avant numéro (spécial compté comme saison par la plateforme)', () => {
+  // Dr. STONE sur Crunchyroll (import du 2026-10-15) : le spécial « RYUSUI » est la saison 3, NEW WORLD (2 parties AniList) la saison 4
+  const drStone = [
+    candidate({ id: 1, episodes: 24, startDate: 20190705, titles: ['Dr. STONE'] }),
+    candidate({ id: 2, episodes: 11, startDate: 20210114, titles: ['Dr. STONE: STONE WARS'] }),
+    candidate({ id: 3, format: 'SPECIAL', episodes: 1, startDate: 20220710, titles: ['Dr. STONE: Ryuusui', 'Dr. STONE Special Episode – RYUSUI'] }),
+    candidate({ id: 4, episodes: 11, startDate: 20230406, titles: ['Dr. STONE: NEW WORLD', 'Dr.STONE Season 3'] }),
+    candidate({ id: 5, episodes: 11, startDate: 20231012, titles: ['Dr. STONE: NEW WORLD Part 2', 'Dr.STONE Season 3 Part 2'] }),
+    candidate({ id: 6, episodes: 12, startDate: 20250109, titles: ['Dr. STONE: SCIENCE FUTURE'] }),
+    candidate({ id: 7, episodes: 12, startDate: 20250710, titles: ['Dr. STONE: SCIENCE FUTURE Part 2'] }),
+    candidate({ id: 8, episodes: 13, startDate: 20260402, titles: ['Dr. STONE: SCIENCE FUTURE Part 3'] }),
+  ];
+  const ep = (seasonNumber: number, seasonTitle: string | null, n: number): EpisodeNumbers =>
+    episode({ animeTitle: 'Dr. STONE', seasonTitle, seasonNumber, seasonEpisodeNumber: n, displayedEpisodeNumber: n });
+
+  it('saison désignée par son titre : placée dans ce groupe, parties suivantes comprises, quel que soit son numéro', () => {
+    expect(resolveTarget(ep(4, 'Dr. STONE NEW WORLD', 5), drStone)).toMatchObject({ ok: true, target: { mediaId: 4, progress: 5, confidence: 'high' } });
+    expect(resolveTarget(ep(4, 'Dr. STONE NEW WORLD', 22), drStone)).toMatchObject({
+      ok: true,
+      target: { mediaId: 5, progress: 11, offset: 11, confidence: 'high', reason: 'Saison identifiée par son titre (« Dr. STONE NEW WORLD »)' },
+    });
+    expect(resolveTarget(ep(5, 'Dr. STONE SCIENCE FUTURE', 13), drStone)).toMatchObject({ ok: true, target: { mediaId: 7, progress: 1, confidence: 'high' } });
+  });
+
+  it('épisode au-delà du groupe désigné par le titre : le numéro ne tranche pas, à vérifier', () => {
+    const result = resolveTarget(ep(4, 'Dr. STONE NEW WORLD', 23), drStone);
+    expect(result.ok && result.target.confidence).toBe('low');
+  });
+
+  it('numérotation absolue répartie sur une fiche titrée d’une AUTRE saison (1re saison absente du cumul) : à vérifier', () => {
+    // Slime (2026-10-15) : saison 1 manquante, « Saison 3 » E72 (24e de la saison) tombait sur la saison 4, épisode 24
+    const slime = [
+      candidate({ id: 12, episodes: 12, startDate: 20210112, titles: ['Slime Season 2'] }),
+      candidate({ id: 13, episodes: 12, startDate: 20210706, titles: ['Slime Season 2 Part 2'] }),
+      candidate({ id: 14, episodes: 24, startDate: 20240405, titles: ['Slime Season 3'] }),
+      candidate({ id: 15, episodes: 24, startDate: 20260403, titles: ['Slime Season 4'] }),
+    ];
+    const s3e72 = episode({ animeTitle: 'Slime', seasonTitle: 'Season 3', seasonNumber: 3, seasonEpisodeNumber: 24, displayedEpisodeNumber: 72 });
+    expect(resolveTarget(s3e72, slime)).toMatchObject({ ok: true, target: { mediaId: 15, progress: 24, confidence: 'low' } });
+    // Saison 1 présente : cumul complet, fiche de la saison 3, sûre
+    const withFirst = [candidate({ id: 11, episodes: 24, startDate: 20181002, titles: ['Slime'] }), ...slime];
+    expect(resolveTarget(s3e72, withFirst)).toMatchObject({ ok: true, target: { mediaId: 14, progress: 24, confidence: 'high' } });
+  });
+
+  it('numérotation absolue sur une fiche titrée d’une saison PLUS PETITE (spécial compté par la plateforme) : inchangée', () => {
+    // Kaiju No. 8 (import du 2026-10-15) : 2e saison rangée en S3 par Crunchyroll, E23 = « Season 2 » E11
+    const kaiju = [
+      candidate({ id: 1, episodes: 12, startDate: 20240413, titles: ['Kaiju No. 8'] }),
+      candidate({ id: 2, episodes: 11, startDate: 20250719, titles: ['Kaiju No. 8 Season 2'] }),
+    ];
+    const s3e23 = episode({ animeTitle: 'Kaiju No. 8', seasonTitle: 'Kaiju No. 8', seasonNumber: 3, seasonEpisodeNumber: 11, displayedEpisodeNumber: 23 });
+    expect(resolveTarget(s3e23, kaiju)).toMatchObject({ ok: true, target: { mediaId: 2, progress: 11, confidence: 'high' } });
+  });
+
+  it('placement par le seul rang (titre propre qui ne désigne aucune fiche) : signalé `byRank`', () => {
+    expect(resolveTarget(ep(3, 'Dr. STONE NOUVEAU MONDE', 5), drStone)).toMatchObject({ ok: true, target: { mediaId: 4, progress: 5, confidence: 'high', byRank: true } });
+  });
+
+  it('pas `byRank` : titre désignant la saison, numéro écrit dans le titre, titre de la série, saison 1', () => {
+    const notByRank = (e: EpisodeNumbers): void => {
+      const result = resolveTarget(e, drStone);
+      expect(result.ok && result.target.byRank).toBeFalsy();
+    };
+    notByRank(ep(4, 'Dr. STONE NEW WORLD', 5));
+    notByRank(ep(4, 'Saison 3', 5));
+    notByRank(ep(3, 'Dr. STONE', 5));
+    notByRank(ep(3, null, 5));
+    notByRank(ep(1, 'Dr. STONE PREMIÈRE PARTIE', 5));
+  });
+
+  describe('cachedTitleVerdict : correspondance en cache contre le titre de saison', () => {
+    // Import fautif du 2026-10-15 : S4 « Dr. STONE NEW WORLD » → SCIENCE FUTURE Part 2 (7)
+    const wrong: MediaMapping = { mediaId: 7, numbering: 'season', offset: 12, episodes: 12 };
+    const newWorld = ep(4, 'Dr. STONE NEW WORLD', 22);
+
+    it('fiche hors du groupe désigné : apprise → oubliée, origine inconnue → à vérifier, choisie → gardée', () => {
+      expect(cachedTitleVerdict({ ...wrong, learned: true }, newWorld, drStone)).toEqual({ kind: 'drop', signals: [], titleGroup: [4, 5] });
+      expect(cachedTitleVerdict(wrong, newWorld, drStone)).toEqual({ kind: 'doubt', signals: [], titleGroup: [4, 5] });
+      expect(cachedTitleVerdict({ ...wrong, chosen: true }, newWorld, drStone)).toEqual({ kind: 'keep' });
+    });
+
+    it('gardée : fiche du groupe désigné, titre générique ou numéroté, aucun titre, numérotation absolue', () => {
+      expect(cachedTitleVerdict({ ...wrong, mediaId: 5, offset: 11 }, newWorld, drStone)).toEqual({ kind: 'keep' });
+      for (const title of ['Dr. STONE', 'Saison 4', 'Season 4', null, 'Dr. STONE NOUVEAU MONDE']) {
+        expect(cachedTitleVerdict({ ...wrong, learned: true }, ep(4, title, 22), drStone)).toEqual({ kind: 'keep' });
+      }
+      expect(cachedTitleVerdict({ ...wrong, learned: true, numbering: 'displayed' }, newWorld, drStone)).toEqual({ kind: 'keep' });
+    });
+
+    it('la fiche porte le titre de saison : rien à rechercher', () => {
+      expect(carriesSeasonTitle(['Dr. STONE: NEW WORLD Part 2'], 'Dr. STONE NEW WORLD')).toBe(true);
+      expect(carriesSeasonTitle(['Dr. STONE: SCIENCE FUTURE Part 2'], 'Dr. STONE NEW WORLD')).toBe(false);
+    });
   });
 });

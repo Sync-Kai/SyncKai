@@ -30,7 +30,7 @@ const fakes = vi.hoisted(() => ({
 }));
 
 // Pré-chargement des recherches (PERF-10) relevé sans effet ici : requêtes comptées avec le vrai résolveur dans cr-import-requests.test.ts
-vi.mock('../sync/resolver', () => ({ resolveEpisode: fakes.resolve, prefetchCandidates: fakes.prefetch }));
+vi.mock('../sync/resolver', () => ({ resolveEpisode: fakes.resolve, prefetchCandidates: fakes.prefetch, IMPORT_RESOLVE_OPTIONS: { persist: false, lane: 'background', revalidateCache: true } }));
 vi.mock('../trackers', () => ({ getConnectedTrackers: async (): Promise<TrackerService[]> => fakes.trackers }));
 vi.mock('../anilist/media', () => ({
   getAnimeByIds: async (ids: number[]) => ids.map((id) => ({ id, idMal: id + 1000, displayTitle: `Fiche ${id}`, coverUrl: null, episodes: 24 })),
@@ -212,11 +212,43 @@ describe('analyse de l’historique (TEST-05)', () => {
     expect(plan.items.map((i) => i.mediaId).sort()).toEqual([101, 102]);
   });
 
+  it('saison placée par son seul rang (`byRank`) : à vérifier avec la fiche proposée, jamais appliquée', async () => {
+    fakes.resolve.mockImplementation(async (episode) => {
+      const resolved = certain(episode);
+      if (episode.seriesId !== 'GR1' || !resolved.result.ok) return resolved;
+      return { ...resolved, result: { ok: true, target: { ...resolved.result.target, reason: 'Saison 2 = fiche AniList n° 2', byRank: true } } };
+    });
+    await startCrAnalyze(history([season(0), season(1)]));
+    await untilEnded();
+
+    const plan = storedPlan();
+    expect(plan.review.map((r) => [r.key, r.reason, r.suggestion])).toEqual([['crunchyroll:GR1:s2', 'Saison 2 = fiche AniList n° 2', { mediaId: 101, progress: 3 }]]);
+    expect(plan.items.map((i) => i.mediaId)).toEqual([100]);
+  });
+
+  it('1-D10 : correspondance en cache contredite par la nouvelle résolution (fiche différente) : sûre, remplace l’ancienne à l’application', async () => {
+    const stale = { ...mapping(555), learned: true as const };
+    fake.local.data.set(STORAGE_KEYS.mediaMappings, { 'crunchyroll:GR1:s2': stale, 'crunchyroll:GR0:s2': { ...mapping(100), learned: true } });
+    fakes.resolve.mockImplementation(async (episode) => {
+      const resolved = certain(episode);
+      // GR0 : la correspondance en cache tient (résultat du cache)
+      if (episode.seriesId !== 'GR0' || !resolved.result.ok) return resolved;
+      return { ...resolved, result: { ok: true, target: { ...resolved.result.target, fromCache: true } } };
+    });
+    await startCrAnalyze(history([season(0), season(1)]));
+    await untilEnded();
+
+    const plan = storedPlan();
+    const byMedia = new Map(plan.items.map((i) => [i.mediaId, i.mappings]));
+    expect(byMedia.get(101)).toEqual([{ key: 'crunchyroll:GR1:s2', mapping: expect.objectContaining({ mediaId: 101, learned: true }), replaces: stale }]);
+    expect(byMedia.get(100)).toEqual([{ key: 'crunchyroll:GR0:s2', mapping: expect.objectContaining({ mediaId: 100 }) }]);
+  });
+
   it('résolveur appelé en lecture seule (persist:false, budget de fond) : aucune correspondance écrite pendant l’analyse', async () => {
     await startCrAnalyze(history([season(0), season(1)]));
     await untilEnded();
     expect(fakes.resolve).toHaveBeenCalledTimes(2);
-    for (const [, options] of fakes.resolve.mock.calls) expect(options).toMatchObject({ persist: false, lane: 'background' });
+    for (const [, options] of fakes.resolve.mock.calls) expect(options).toMatchObject({ persist: false, lane: 'background', revalidateCache: true });
     expect(fake.local.peek(STORAGE_KEYS.mediaMappings)).toBeUndefined();
   });
 
@@ -408,6 +440,26 @@ describe('application (TEST-05, CRI-05)', () => {
       'crunchyroll:GRF:s1': { ...mapping(MEDIA_ID), mediaTitle: 'Frieren' },
       'crunchyroll:GRF:s2': mapping(999),
     });
+  });
+
+  it('1-D10 : correspondance apprise remplacée par l’analyse (`replaces`) : réécrite si elle n’a pas changé, jamais par-dessus un choix', async () => {
+    const stale = { ...mapping(999), learned: true as const };
+    const replaced = { key: 'crunchyroll:GRF:s2', mapping: { ...mapping(MEDIA_ID), learned: true as const }, replaces: stale };
+    fake.local.data.set(STORAGE_KEYS.mediaMappings, { 'crunchyroll:GRF:s2': stale });
+    seedPlan([planItem({ mappings: [replaced] })]);
+    await startCrApply({ ids: [`m:${MEDIA_ID}`] });
+    expect(await driveUntilEnded()).toMatchObject({ status: 'done', updated: 1 });
+    expect(fake.local.peek(STORAGE_KEYS.mediaMappings)).toEqual({ 'crunchyroll:GRF:s2': { ...mapping(MEDIA_ID), learned: true, mediaTitle: 'Frieren' } });
+
+    // Choix de l'utilisateur enregistré entre l'analyse et l'application : gardé
+    const chosen = { ...mapping(999), chosen: true as const };
+    fake.local.data.set(STORAGE_KEYS.mediaMappings, { 'crunchyroll:GRF:s2': chosen });
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 5 });
+    mal.entries.set(MAL_ID, { status: 'CURRENT', progress: 5 });
+    seedPlan([planItem({ mappings: [replaced] })]);
+    await startCrApply({ ids: [`m:${MEDIA_ID}`] });
+    await driveUntilEnded();
+    expect(fake.local.peek(STORAGE_KEYS.mediaMappings)).toEqual({ 'crunchyroll:GRF:s2': chosen });
   });
 
   it('AniList écrit puis MAL 503 persistant : AniList compté « mis à jour » (échec MAL signalé), correspondance apprise', async () => {

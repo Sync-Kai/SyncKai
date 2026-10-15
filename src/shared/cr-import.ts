@@ -86,9 +86,23 @@ export function isCrImportInput(value: unknown): value is CrImportInput {
   return isRecord(value) && typeof value.createdAt === 'number' && isOptionalPlatform(value.platform) && isCrHistoryResult(value);
 }
 
+/**
+ * Correspondance saison → fiche à mémoriser à l'application. `replaces` : correspondance apprise en cache que la nouvelle
+ * résolution de l'analyse contredit (audit 1-D10) : remplacée seulement si elle n'a pas changé depuis l'analyse, jamais un choix
+ * de l'utilisateur ; sans `replaces`, seulement si la clé n'en a pas encore.
+ */
+export interface PlanMapping {
+  key: string;
+  mapping: MediaMapping;
+  replaces?: MediaMapping;
+}
+
+const isPlanMapping = (m: unknown): m is PlanMapping =>
+  isRecord(m) && typeof m.key === 'string' && isMediaMapping(m.mapping) && (m.replaces === undefined || isMediaMapping(m.replaces));
+
 export type SeasonResolution =
-  /** Correspondance sûre (cache ou lien plateforme) : `progress` = épisode AniList à atteindre */
-  | { kind: 'certain'; key: string; mediaId: number; progress: number; mapping: MediaMapping }
+  /** Correspondance sûre (cache ou lien plateforme) : `progress` = épisode AniList à atteindre ; `replaces` : voir PlanMapping */
+  | { kind: 'certain'; key: string; mediaId: number; progress: number; mapping: MediaMapping; replaces?: MediaMapping }
   /** Correspondance incertaine ou introuvable : jamais appliquée, vérification à créer à la demande */
   | { kind: 'review'; key: string; reason: string; suggestion: { mediaId: number; progress: number } | null; candidates: CandidateSummary[] }
   /** Série exclue par l'utilisateur (Réglages › Séries exclues) */
@@ -105,7 +119,7 @@ export function isSeasonResolution(value: unknown): value is SeasonResolution {
   if (!isRecord(value) || typeof value.key !== 'string') return false;
   switch (value.kind) {
     case 'certain':
-      return isPositiveInt(value.mediaId) && isPositiveInt(value.progress) && isMediaMapping(value.mapping);
+      return isPositiveInt(value.mediaId) && isPositiveInt(value.progress) && isMediaMapping(value.mapping) && (value.replaces === undefined || isMediaMapping(value.replaces));
     case 'review':
       return (
         typeof value.reason === 'string' &&
@@ -219,7 +233,7 @@ export interface CrPlanItem {
   seasons: string[];
   services: CrServicePlan[];
   /** Correspondances saison → fiche, mémorisées à l'application si absentes (synchro en direct plus rapide) */
-  mappings: { key: string; mapping: MediaMapping }[];
+  mappings: PlanMapping[];
   /** Résultat de l'application (null : pas encore appliqué) */
   result: CrItemResult | null;
   /**
@@ -293,7 +307,7 @@ function isAheadOf(item: CrReviewItem, other: CrReviewItem): boolean {
  * de chaque liste → nouvelle valeur selon decideImport ; saisons incertaines listées à part.
  */
 export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
-  const byMedia = new Map<number, { progress: number; seasons: string[]; mappings: { key: string; mapping: MediaMapping }[] }>();
+  const byMedia = new Map<number, { progress: number; seasons: string[]; mappings: PlanMapping[] }>();
   const review: CrReviewItem[] = [];
   const reviewByMedia = new Map<string, CrReviewItem>();
   let excluded = 0;
@@ -340,7 +354,9 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
         const group = byMedia.get(resolution.mediaId) ?? { progress: 0, seasons: [], mappings: [] };
         group.progress = Math.max(group.progress, resolution.progress);
         group.seasons.push(label);
-        if (!group.mappings.some((m) => m.key === resolution.key)) group.mappings.push({ key: resolution.key, mapping: resolution.mapping });
+        if (!group.mappings.some((m) => m.key === resolution.key)) {
+          group.mappings.push({ key: resolution.key, mapping: resolution.mapping, ...(resolution.replaces ? { replaces: resolution.replaces } : {}) });
+        }
         byMedia.set(resolution.mediaId, group);
         return;
       }
@@ -468,7 +484,7 @@ function isPlanItem(value: unknown): value is CrPlanItem {
     Array.isArray(value.services) &&
     value.services.every(isServicePlan) &&
     Array.isArray(value.mappings) &&
-    value.mappings.every((m) => isRecord(m) && typeof m.key === 'string' && isMediaMapping(m.mapping)) &&
+    value.mappings.every(isPlanMapping) &&
     isItemResult(value.result) &&
     (value.written === undefined || (Array.isArray(value.written) && value.written.every(isTrackerId)))
   );

@@ -11,6 +11,8 @@ import {
   alignPlatformSeasons,
   applyMapping,
   cachedMappingVerdict,
+  cachedTitleVerdict,
+  carriesSeasonTitle,
   disneySeriesKey,
   filtersAnime,
   gateByPlatformLink,
@@ -28,9 +30,11 @@ import {
   matchPlatformLink,
   primeOwnIds,
   provenBySignals,
+  questionsByTitle,
   seasonSearchQuery,
   resolveTarget,
   savedMappingDoubt,
+  titleMappingDoubt,
   seasonPool,
   SERIES_FORMATS,
   toSortableDate,
@@ -52,6 +56,11 @@ const log = createLogger('sync');
 const FRANCHISE_RELATIONS: ReadonlySet<string> = new Set(['SEQUEL', 'PREQUEL']);
 /** Limite les requêtes supplémentaires pour récupérer les saisons absentes de la recherche */
 const MAX_FETCH_ROUNDS = 2;
+/**
+ * Tours de plus, numérotation absolue seulement : préquelles de la franchise (saisons séries, ou OVA / spécial qui les relie) pour
+ * que le cumul parte de la 1re saison (Slime : saison 2 → OVA « Coleus no Yume » → saison 1)
+ */
+const MAX_PREQUEL_ROUNDS = 4;
 /** Nombre de fiches proposées dans une carte de vérification */
 const MAX_REVIEW_CANDIDATES = 8;
 
@@ -74,7 +83,15 @@ interface ResolveOptions {
   persist?: boolean;
   /** 'background' : tâche de fond (import Crunchyroll), budget de requêtes limité */
   lane?: RequestLane;
+  /**
+   * Correspondance en cache confrontée à une nouvelle résolution (analyse d'un import d'historique, audit 1-D10 ; voir
+   * revalidatedMapping) : une correspondance apprise fausse n'est plus réappliquée import après import
+   */
+  revalidateCache?: boolean;
 }
+
+/** Analyse d'un import d'historique : lecture seule, file de fond, correspondances en cache revalidées */
+export const IMPORT_RESOLVE_OPTIONS: Readonly<ResolveOptions> = { persist: false, lane: 'background', revalidateCache: true };
 
 export interface EpisodeResolution {
   result: ResolveResult;
@@ -206,12 +223,19 @@ function* candidateSteps(episode: SeriesQuery): CandidateSteps {
   const coveredByLinkedEntry = (): boolean =>
     isAbsolute &&
     [...mediaById.values()].some((m) => (links.get(m.id) === 'id' || links.get(m.id) === 'platform') && m.format !== null && SERIES_FORMATS.has(m.format) && (m.episodes === null || m.episodes >= absolute));
+  // Numérotation absolue : le cumul part de la 1re saison TV. Préquelle série, ou préquelle d'une saison série publiée dans un
+  // autre format (Slime saison 2 → PREQUEL l'OVA « Coleus no Yume » → PREQUEL la saison 1) : demandée aussi, sinon la chaîne
+  // s'arrête et la saison 1 manque au cumul (Saison 3 E72 comptée sur la saison 4)
+  const bridgesToEarlierSeason = (media: AniListMedia, rel: AniListMedia['relations'][number]): boolean =>
+    rel.relationType === 'PREQUEL' && rel.format !== null && rel.format !== 'MUSIC' && (SERIES_FORMATS.has(rel.format) || (media.format !== null && SERIES_FORMATS.has(media.format)));
 
   // Propagation du lien le long des relations SEQUEL/PREQUEL jusqu'à stabilisation
   let fetchRounds = 0;
   for (;;) {
     let changed = false;
     const missing = new Set<number>();
+    /** Préquelles absentes (saison série, ou autre format qui y mène, voir bridgesToEarlierSeason) : tours en plus, numérotation absolue */
+    const prequels = new Set<number>();
 
     for (const media of mediaById.values()) {
       // Un lien vers un épisode précis (spécial, film) ne fait pas de ses suites des saisons de la série, ni une
@@ -227,8 +251,9 @@ function* candidateSteps(episode: SeriesQuery): CandidateSteps {
             links.set(rel.id, 'relation');
             changed = true;
           }
-        } else if (rel.format !== null && SERIES_FORMATS.has(rel.format)) {
-          missing.add(rel.id);
+        } else if (rel.format !== null) {
+          if (SERIES_FORMATS.has(rel.format)) missing.add(rel.id);
+          if (isAbsolute && bridgesToEarlierSeason(media, rel)) prequels.add(rel.id);
         }
       }
     }
@@ -238,6 +263,13 @@ function* candidateSteps(episode: SeriesQuery): CandidateSteps {
       // Fiches sans lien : rattachées au tour suivant si la relation tient (isSeasonRelation) ; une fiche liée à une autre
       // série reste 'other' / 'other-slug' (voir linkOf)
       add((yield { kind: 'ids', ids: [...missing] })[0] ?? []);
+      settleTitleBoundLinks();
+      changed = true;
+    } else if (prequels.size > 0 && fetchRounds < MAX_FETCH_ROUNDS + MAX_PREQUEL_ROUNDS && !coveredByLinkedEntry()) {
+      // Tours ordinaires épuisés (suites comprises), numérotation absolue : seule la chaîne des préquelles continue, une
+      // saison par tour, jusqu'à la 1re saison (cumul complet)
+      fetchRounds++;
+      add((yield { kind: 'ids', ids: [...prequels] })[0] ?? []);
       settleTitleBoundLinks();
       changed = true;
     }
@@ -296,16 +328,24 @@ function candidateSignals(media: AniListMedia): Pick<MediaCandidate, 'endYear' |
 }
 
 /**
- * Correspondance en cache confrontée aux signaux de la plateforme (voir matching.ts › cachedMappingVerdict), avec sa
- * fiche (proposée dans la carte « À vérifier » si elle est mise en doute). Une requête au catalogue (en cache quelques
- * minutes), seulement avec des signaux et hors choix de l'utilisateur (`chosen`).
+ * Correspondance en cache confrontée aux signaux de la plateforme (voir matching.ts › cachedMappingVerdict), puis au titre
+ * de saison (cachedTitleVerdict), avec sa fiche (proposée dans la carte « À vérifier » si elle est mise en doute). Hors choix
+ * de l'utilisateur (`chosen`) : une requête au catalogue (en cache quelques minutes) avec des signaux ou un titre de saison
+ * propre ; les recherches de la série seulement si la fiche ne porte pas ce titre.
  */
 async function questionMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<{ verdict: CachedMappingVerdict; media: AniListMedia | null }> {
-  if (mapping.chosen === true || !hasSignals(episode.signals)) return { verdict: { kind: 'keep' }, media: null };
+  const bySignals = mapping.chosen !== true && hasSignals(episode.signals);
+  const byTitle = questionsByTitle(episode, mapping);
+  if (!bySignals && !byTitle) return { verdict: { kind: 'keep' }, media: null };
   const media = (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId) ?? null;
   if (!media) return { verdict: { kind: 'keep' }, media: null };
   const entry = { id: media.id, format: media.format, episodes: media.episodes, startDate: sortableStart(media), titles: media.titles, ...candidateSignals(media) };
-  return { verdict: cachedMappingVerdict(mapping, entry, episode.signals), media };
+  const verdict = cachedMappingVerdict(mapping, entry, episode.signals);
+  // Titre de saison (sans signal, comme l'import de l'historique) : fiche qui le porte → tient sans recherche ; sinon les
+  // saisons de la série (catalogue en cache quelques minutes) disent si le titre désigne un autre groupe
+  if (verdict.kind !== 'keep' || !byTitle || carriesSeasonTitle(media.titles, episode.seasonTitle ?? '')) return { verdict, media };
+  const { candidates } = await collectCandidates(episode, lane);
+  return { verdict: cachedTitleVerdict(mapping, episode, candidates), media };
 }
 
 /**
@@ -417,26 +457,30 @@ async function confirmImportedMapping(episode: EpisodeInfo, key: string, mapping
 
 /**
  * Correspondance en cache d'origine inconnue (ni `learned` ni `chosen` : enregistrée avant la 2.4.0, importée) que les
- * signaux de la plateforme contredisent : peut-être un choix de l'utilisateur, donc jamais supprimée ni réécrite, mais
- * jamais synchronisée d'office. Résultat « À vérifier » : fiche prouvée par les signaux (nouvelle résolution, groupe de
- * saison unique et confirmé) proposée si elle diffère, sinon la fiche en cache ; celle-ci reste parmi les fiches
- * proposées. Valider la carte enregistre le choix (`chosen`, voir sync-service.ts › resolveReview).
+ * signaux de la plateforme (ou le titre de saison, voir matching.ts › cachedTitleVerdict) contredisent : peut-être un choix de
+ * l'utilisateur, donc jamais supprimée ni réécrite, mais jamais synchronisée d'office. Résultat « À vérifier » : fiche prouvée
+ * (nouvelle résolution : groupe de saison unique et confirmé par les signaux, ou dans le groupe désigné par le titre) proposée
+ * si elle diffère, sinon la fiche en cache ; celle-ci reste parmi les fiches proposées. Valider la carte enregistre le choix
+ * (`chosen`, voir sync-service.ts › resolveReview). `refreshed` : contredite par une nouvelle résolution sûre (import, voir
+ * revalidatedMapping), proposée avec sa raison.
  */
 async function doubtedMapping(
   episode: EpisodeInfo,
   key: string,
   cached: MediaMapping & { progress: number },
   media: AniListMedia,
-  signals: readonly SignalName[],
+  { signals, titleGroup, refreshed }: { signals: readonly SignalName[]; titleGroup?: readonly number[]; refreshed?: true },
   lane: RequestLane,
 ): Promise<EpisodeResolution> {
   const collected = await collectCandidates(episode, lane);
   const fresh = gateByPlatformLink(episode, collected.candidates, resolveTarget(episode, collected.candidates));
-  const reason = savedMappingDoubt(signals);
-  const isProven = (target: SyncTarget): boolean => target.bySignals === true || provenBySignals(episode, collected.candidates, target.mediaId);
+  const isProven = (target: SyncTarget): boolean =>
+    refreshed === true || (titleGroup ? titleGroup.includes(target.mediaId) : target.bySignals === true || provenBySignals(episode, collected.candidates, target.mediaId));
   const proven = fresh.ok && fresh.target.confidence === 'high' && fresh.target.mediaId !== cached.mediaId && isProven(fresh.target) ? fresh.target : null;
+  const reason = titleGroup ? titleMappingDoubt(episode.seasonTitle) : refreshed && proven ? proven.reason : savedMappingDoubt(signals);
   const target: SyncTarget = proven ? { ...proven, confidence: 'low', reason } : { ...cached, confidence: 'low', reason };
-  log.info(`Correspondance ${key} (#${cached.mediaId}) contredite par la plateforme (${signals.join(', ')}) : à vérifier${proven ? `, #${proven.mediaId} proposée` : ''}`);
+  const contradiction = titleGroup ? 'titre de saison' : refreshed ? 'nouvelle résolution' : signals.join(', ');
+  log.info(`Correspondance ${key} (#${cached.mediaId}) contredite par la plateforme (${contradiction}) : à vérifier${proven ? `, #${proven.mediaId} proposée` : ''}`);
   const summaries = summarize(collected, target.mediaId);
   // La fiche en cache reste sélectionnable (choix possible de l'utilisateur), même absente de la recherche
   const candidates = summaries.some((c) => c.id === media.id) ? summaries : [...summaries.slice(0, 1), toCandidateSummary(media), ...summaries.slice(1)].slice(0, MAX_REVIEW_CANDIDATES);
@@ -446,17 +490,35 @@ async function doubtedMapping(
   return { result, candidates, seasons: seasons.map(toCandidateSummary), seasonGroups };
 }
 
+/**
+ * Analyse d'un import d'historique (revalidateCache, audit 1-D10) : correspondance en cache applicable, hors choix de
+ * l'utilisateur, confrontée à une nouvelle résolution (recherches pré-chargées par lots avec les autres saisons, voir
+ * willSearch). Sans signal ni titre de saison propre, rien d'autre ne la remet en cause : une correspondance apprise fausse
+ * (Slime « Saison 3 » → 4th Season, écrite le 2026-10-15) serait réappliquée à chaque import. Nouvelle résolution sûre
+ * (`high`) vers une autre fiche → contredite : `freshId`, et la fiche en cache (`media`, sélectionnable dans la carte) ;
+ * sinon null (résolution incertaine ou introuvable : la correspondance en cache reste, comme avant).
+ */
+async function revalidatedMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<{ freshId: number; media: AniListMedia | null } | null> {
+  if (mapping.chosen === true || applyMapping(episode, mapping) === null) return null;
+  const collected = await collectCandidates(episode, lane);
+  const fresh = gateByPlatformLink(episode, collected.candidates, resolveTarget(episode, collected.candidates));
+  if (!fresh.ok || fresh.target.confidence !== 'high' || fresh.target.mediaId === mapping.mediaId) return null;
+  const media = collected.media.find((m) => m.id === mapping.mediaId) ?? (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId) ?? null;
+  return { freshId: fresh.target.mediaId, media };
+}
+
 /** Fiches par identifiant au plus par requête (AnimeByIds : Page(perPage: 50)) */
 const IDS_PER_REQUEST = 50;
 
 /**
  * La résolution de cet épisode cherchera-t-elle dans le catalogue ? Mêmes conditions que resolveEpisode : correspondance en
  * cache applicable, Prime Video sans verdict « anime », série déjà ignorée → non. Une correspondance en cache remise en
- * cause par les signaux (rare) cherche seule, sans pré-chargement.
+ * cause par les signaux (rare) cherche seule, sans pré-chargement. Analyse d'un import (seule appelante, revalidateCache) :
+ * une correspondance applicable non choisie par l'utilisateur est revalidée, ses recherches partent avec les autres.
  */
 async function willSearch(episode: EpisodeInfo): Promise<boolean> {
   const stored = await getMediaMapping(mappingKey(episode));
-  if (stored && applyMapping(episode, stored) !== null) return false;
+  if (stored && applyMapping(episode, stored) !== null) return stored.chosen !== true;
   if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) return false;
   return !(filtersAnime(episode) && !stored && (await isSeriesIgnored(episode)));
 }
@@ -489,22 +551,29 @@ export async function prefetchCandidates(episodes: readonly EpisodeInfo[], lane:
 }
 
 /** Résout la fiche AniList d'un épisode : cache d'abord, recherche sinon (et mise en cache si fiable). */
-export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lane = 'interactive' }: ResolveOptions = {}): Promise<EpisodeResolution> {
+export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lane = 'interactive', revalidateCache = false }: ResolveOptions = {}): Promise<EpisodeResolution> {
   const key = mappingKey(episode);
 
   const stored = await getMediaMapping(key);
   // Correspondance importée : revérifiée sur le catalogue avant d'être jugée sûre (BAK-02)
   const confirmed = stored?.unverified === true && applyMapping(episode, stored) !== null ? await confirmImportedMapping(episode, key, stored, persist, lane) : stored;
-  // Signaux de la plateforme contre la correspondance : apprise et contredite → oubliée, nouvelle résolution ; origine
-  // inconnue et contredite → « À vérifier » (doubtedMapping) ; choix de l'utilisateur → jamais remis en cause
+  // Signaux de la plateforme ou titre de saison contre la correspondance : apprise et contredite → oubliée, nouvelle
+  // résolution ; origine inconnue et contredite → « À vérifier » (doubtedMapping) ; choix de l'utilisateur → jamais remis en cause
   const question = confirmed ? await questionMapping(episode, confirmed, lane) : null;
   const { verdict } = question ?? { verdict: { kind: 'keep' } as const };
-  if (verdict.kind === 'drop') log.info(`Correspondance apprise ${key} contredite par la plateforme (${verdict.signals.join(', ')}) : nouvelle résolution`);
-  const cached = verdict.kind === 'drop' ? null : confirmed;
+  if (verdict.kind === 'drop') {
+    log.info(`Correspondance apprise ${key} contredite par la plateforme (${verdict.titleGroup ? 'titre de saison' : verdict.signals.join(', ')}) : nouvelle résolution`);
+  }
+  // Analyse d'un import : correspondance applicable confrontée à une nouvelle résolution (revalidatedMapping)
+  const revalidated = revalidateCache && verdict.kind === 'keep' && confirmed ? await revalidatedMapping(episode, confirmed, lane) : null;
+  if (revalidated && confirmed?.learned === true) log.info(`Correspondance apprise ${key} contredite par une nouvelle résolution (#${revalidated.freshId}) : écartée`);
+  // Fiche en cache introuvable sur AniList (rien à proposer à côté) : comme écartée, la nouvelle résolution l'emporte
+  const cached = verdict.kind === 'drop' || (revalidated && (confirmed?.learned === true || revalidated.media === null)) ? null : confirmed;
   if (cached) {
     const progress = applyMapping(episode, cached);
     if (progress !== null) {
-      if (verdict.kind === 'doubt' && question?.media) return doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict.signals, lane);
+      if (verdict.kind === 'doubt' && question?.media) return doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict, lane);
+      if (revalidated?.media) return doubtedMapping(episode, key, { ...cached, progress }, revalidated.media, { signals: [], refreshed: true }, lane);
       const result: ResolveResult = { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } };
       if (__SYNCKAI_DEBUG__) {
         const candidates = question?.media ? [asCandidate(question.media, null)] : [];

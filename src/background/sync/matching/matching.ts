@@ -95,6 +95,12 @@ export interface SyncTarget extends MediaMapping {
   fromCache?: true;
   /** Fiche prouvée par les signaux de la plateforme (groupe de saison unique et confirmé, voir concordance.ts) */
   bySignals?: true;
+  /**
+   * Saison placée par son seul rang sur la plateforme (numéro de saison ≥ 2 de la plateforme, sans numéro dans son titre ni
+   * signal), alors qu'elle porte un titre propre qui ne désigne aucune fiche : la plateforme peut compter un spécial comme
+   * saison (Dr. STONE « RYUSUI » en saison 3). L'import de l'historique ne l'applique jamais sans vérification.
+   */
+  byRank?: true;
 }
 
 /**
@@ -954,13 +960,66 @@ function checkedBySignals(episode: EpisodeNumbers, result: ResolveResult, concor
  * - `doubt` : origine inconnue (enregistrée avant la 2.4.0, importée) et contredite : jamais supprimée (peut-être un
  *   choix de l'utilisateur), jamais synchronisée d'office : « À vérifier ».
  */
-export type CachedMappingVerdict = { kind: 'keep' } | { kind: 'drop' | 'doubt'; signals: SignalName[] };
+export type CachedMappingVerdict =
+  | { kind: 'keep' }
+  /** `titleGroup` : contredite par le titre de saison (cachedTitleVerdict), fiches du groupe qu'il désigne ; `signals` alors vide */
+  | { kind: 'drop' | 'doubt'; signals: SignalName[]; titleGroup?: number[] };
 
 export function cachedMappingVerdict(mapping: MediaMapping, entry: ConcordanceEntry | null, signals: PlatformSignals | undefined): CachedMappingVerdict {
   if (mapping.chosen === true || entry === null || !hasSignals(signals)) return { kind: 'keep' };
   const names = contradictingSignals(entry, signals);
   if (names.length === 0) return { kind: 'keep' };
   return { kind: mapping.learned === true ? 'drop' : 'doubt', signals: names };
+}
+
+/**
+ * Groupe de saison désigné par le titre de saison de la plateforme (étape 3 de resolveByRules) : titre exact de fiches d'un
+ * même groupe, ou contenu dans le titre d'une seule fiche. `from` : fiches où placer l'épisode, depuis la fiche au titre
+ * exact (« Dr. STONE NEW WORLD » E22 = « NEW WORLD Part 2 » E11) ou depuis la première partie du groupe pour un titre
+ * seulement contenu (« L'Attaque des Titans Saison 3 » dans le synonyme « … Saison 3 Partie 2 »). null : titre absent, celui
+ * de la série, ambigu ou retrouvé dans aucune saison.
+ */
+export function titleSeasonGroup(
+  episode: Pick<EpisodeNumbers, 'animeTitle' | 'seasonTitle'>,
+  pool: readonly MediaCandidate[],
+  groups: readonly MediaCandidate[][] = groupSeasons(pool),
+): { group: MediaCandidate[]; from: MediaCandidate[] } | null {
+  const seasonKey = episode.seasonTitle ? normalizeTitle(episode.seasonTitle) : '';
+  if (!seasonKey || seasonKey === normalizeTitle(episode.animeTitle)) return null;
+  const exact = pool.filter((c) => c.titles.some((t) => normalizeTitle(t) === seasonKey));
+  const matches = exact.length > 0 ? exact : pool.filter((c) => c.titles.some((t) => normalizeTitle(t).includes(seasonKey)));
+  const group = groups.find((g) => g.includes(matches[0]));
+  if (!group || !(exact.length > 0 ? exact.every((c) => group.includes(c)) : matches.length === 1)) return null;
+  return { group, from: exact.length > 0 ? group.slice(group.indexOf(exact[0])) : group };
+}
+
+/**
+ * Titre de saison à confronter à une correspondance en cache (cachedTitleVerdict) : titre propre, sans numéro de saison
+ * (« Saison 2 » ne désigne aucun groupe : le numéro en décide), saison non spéciale. Correspondance en numérotation
+ * absolue (One Piece « Elbaph ») : le titre ne choisit pas la fiche, jamais confrontée.
+ */
+export function questionsByTitle(episode: Pick<EpisodeNumbers, 'animeTitle' | 'seasonTitle' | 'seasonNumber' | 'episodeTitle'>, mapping: MediaMapping): boolean {
+  if (mapping.chosen === true || mapping.numbering === 'displayed' || !episode.seasonTitle) return false;
+  const seasonKey = normalizeTitle(episode.seasonTitle);
+  return seasonKey !== '' && seasonKey !== normalizeTitle(episode.animeTitle) && seasonNumberFromTitle(episode.seasonTitle) === null && !isSpecialSeason(episode);
+}
+
+/** La fiche porte le titre de saison (titre normalisé qui le contient) : la correspondance en cache tient sans recherche */
+export function carriesSeasonTitle(titles: readonly string[], seasonTitle: string): boolean {
+  const seasonKey = normalizeTitle(seasonTitle);
+  return seasonKey !== '' && titles.some((title) => normalizeTitle(title).includes(seasonKey));
+}
+
+/**
+ * Correspondance en cache confrontée au titre de saison (Crunchyroll « Dr. STONE NEW WORLD » rangée en saison 4, spécial
+ * compté : l'import fautif du 2026-10-15 a enregistré S4 → SCIENCE FUTURE Part 2) : fiche hors du groupe que le titre
+ * désigne → apprise : oubliée (`drop`) ; origine inconnue : « À vérifier » (`doubt`) ; choix de l'utilisateur : `keep`.
+ */
+export function cachedTitleVerdict(mapping: MediaMapping, episode: EpisodeNumbers, candidates: readonly MediaCandidate[]): CachedMappingVerdict {
+  if (!questionsByTitle(episode, mapping)) return { kind: 'keep' };
+  const designated = titleSeasonGroup(episode, seasonPool(candidates, episode.animeTitle));
+  if (!designated || designated.group.some((c) => c.id === mapping.mediaId)) return { kind: 'keep' };
+  return { kind: mapping.learned === true ? 'drop' : 'doubt', signals: [], titleGroup: designated.group.map((c) => c.id) };
 }
 
 /**
@@ -997,6 +1056,8 @@ export function candidateSignalChecks(episode: EpisodeNumbers, candidates: reado
 
 /** Raison « À vérifier » d'une correspondance en cache contredite par la plateforme (verdict `doubt`) */
 export const savedMappingDoubt = (names: readonly SignalName[]): string => t('match.savedContradicted', { signals: signalList(names) });
+/** Raison « À vérifier » d'une correspondance en cache contredite par le titre de saison (voir cachedTitleVerdict) */
+export const titleMappingDoubt = (seasonTitle: string | null): string => t('match.seasonByTitle', { title: seasonTitle ?? '' });
 
 /**
  * Choisit la fiche AniList et la progression correspondant à un épisode. Signaux de la plateforme (année, épisodes,
@@ -1127,29 +1188,41 @@ function resolveByRules(episode: EpisodeNumbers, candidates: MediaCandidate[], c
     if (hit && fits(pool[hit.index], hit.progress)) {
       // Sans lien : sûr si la fiche atteinte porte le numéro de la saison (« Kaiju No. 8 Season 2 » pour « Season 2 ») :
       // la numérotation absolue et le titre concordent
-      const agrees = seasonNumber !== null && titleSeasonOf(pool[hit.index].titles, animeKey) === seasonNumber;
-      return target(pool[hit.index], displayed, hit.progress, 'displayed', agrees ? 'high' : level(true), t('match.absoluteSplit', { count: pool.length }), t('match.titleOnlySeason', { season: seasonNumber ?? '?' }));
+      const titled = titleSeasonOf(pool[hit.index].titles, animeKey);
+      const agrees = seasonNumber !== null && titled === seasonNumber;
+      // Fiche titrée d'une saison numérotée PLUS LOINTAINE que celle de la plateforme (« … Saison 4 » pour la saison 3) : cumul
+      // incomplet (1re saison absente des candidats), il déborde toujours vers une saison suivante ; jamais sûr. Numéro de titre
+      // plus petit (Kaiju No. 8 « Season 2 » rangée en S3) : la plateforme compte un spécial comme saison, cumul juste. Fiche au
+      // titre de la série (1) : peut couvrir toutes les saisons de la plateforme (One Piece E1180, saison 24), non concernée
+      const disagrees = seasonNumber !== null && titled !== null && titled >= 2 && titled > seasonNumber;
+      return target(pool[hit.index], displayed, hit.progress, 'displayed', disagrees ? 'low' : agrees ? 'high' : level(true), t('match.absoluteSplit', { count: pool.length }), t('match.titleOnlySeason', { season: seasonNumber ?? '?' }));
     }
   }
 
-  // 3. Numérotation relative : saison identifiée par son titre…
-  const seasonKey = episode.seasonTitle ? normalizeTitle(episode.seasonTitle) : '';
-  if (seasonKey && seasonKey !== animeKey) {
-    const exact = pool.filter((c) => c.titles.some((t) => normalizeTitle(t) === seasonKey));
-    const matches = exact.length > 0 ? exact : pool.filter((c) => c.titles.some((t) => normalizeTitle(t).includes(seasonKey)));
-    // Titre de la saison seulement contenu dans celui d'une partie suivante (« L'Attaque des Titans Saison 3 » dans le
-    // synonyme « … Saison 3 Partie 2 ») : la saison entière, épisode placé depuis sa première partie
-    const whole = exact.length === 0 && matches.length === 1 ? groupSeasons(pool).find((group) => group.includes(matches[0]) && group[0] !== matches[0]) : undefined;
-    const hit = whole ? walkSeasons(whole, 0, relative) : null;
-    if (whole && hit && fits(whole[hit.index], hit.progress)) {
-      return target(whole[hit.index], relative, hit.progress, 'season', level(true), t('match.seasonByTitle', { title: episode.seasonTitle ?? '' }));
-    }
-    if (!whole && matches.length === 1 && fits(matches[0], relative)) {
-      return target(matches[0], relative, relative, 'season', level(true), t('match.seasonByTitle', { title: episode.seasonTitle ?? '' }));
-    }
-  }
-
+  // 3. Numérotation relative : saison identifiée par son titre, prioritaire sur son numéro (la plateforme peut compter un
+  //    spécial comme saison : Dr. STONE « NEW WORLD » est la saison 4 de Crunchyroll, le 3e groupe de fiches AniList)…
   const groups = groupSeasons(pool);
+  const seasonKey = episode.seasonTitle ? normalizeTitle(episode.seasonTitle) : '';
+  /** Groupe de fiches désigné par le titre de saison sans que l'épisode y soit placé : le numéro seul ne tranche pas un désaccord */
+  let titleGroup: MediaCandidate[] | undefined;
+  const designated = titleSeasonGroup(episode, pool, groups);
+  if (designated) {
+    const hit = walkSeasons(designated.from, 0, relative);
+    if (hit && fits(designated.from[hit.index], hit.progress)) {
+      return target(designated.from[hit.index], relative, hit.progress, 'season', level(true), t('match.seasonByTitle', { title: episode.seasonTitle ?? '' }));
+    }
+    titleGroup = designated.group;
+  }
+  // Titre et numéro en désaccord (fiche retenue hors du groupe désigné par le titre) : jamais sûr
+  const outsideTitle = (candidate: MediaCandidate): boolean => titleGroup !== undefined && !titleGroup.includes(candidate);
+  const levelByNumber = (candidate: MediaCandidate, isConfident: boolean): 'high' | 'low' => (outsideTitle(candidate) ? 'low' : level(isConfident));
+  // Placement par le seul rang de la saison (voir SyncTarget.byRank) : numéro brut de la plateforme, saison nommée
+  const isNamedSeason = seasonKey !== '' && seasonKey !== animeKey;
+  const markByRank = (result: ResolveResult): ResolveResult =>
+    result.ok && concordance === null && isNamedSeason && seasonNumberFromTitle(episode.seasonTitle) === null && (episode.seasonNumber ?? 0) >= 2
+      ? { ok: true, target: { ...result.target, byRank: true } }
+      : result;
+
   const season = seasonNumber ?? (isSoleSeason ? 1 : null);
 
   // 3b. Numéro affiché au-delà de la saison N alors que la numérotation n'a pas été reconnue comme absolue
@@ -1161,7 +1234,7 @@ function resolveByRules(episode: EpisodeNumbers, candidates: MediaCandidate[], c
     const hit = displayed > groupTotal ? walkSeasons(pool, 0, displayed) : null;
     if (hit && group.includes(pool[hit.index]) && fits(pool[hit.index], hit.progress)) {
       const agrees = seasonNumber !== null && titleSeasonOf(pool[hit.index].titles, animeKey) === seasonNumber;
-      return target(pool[hit.index], displayed, hit.progress, 'displayed', agrees ? 'high' : level(true), t('match.absoluteSplit', { count: pool.length }), t('match.titleOnlySeason', { season: seasonNumber ?? '?' }));
+      return target(pool[hit.index], displayed, hit.progress, 'displayed', outsideTitle(pool[hit.index]) ? 'low' : agrees ? 'high' : level(true), t('match.absoluteSplit', { count: pool.length }), t('match.titleOnlySeason', { season: seasonNumber ?? '?' }));
     }
   }
 
@@ -1187,7 +1260,7 @@ function resolveByRules(episode: EpisodeNumbers, candidates: MediaCandidate[], c
           : group.length > 1
             ? t('match.seasonGroup', { season, part: part + 1, parts: group.length })
             : t('match.seasonExact', { season, index: start + 1 });
-      return target(pool[hit.index], relative, hit.progress, 'season', level(part !== -1), reason);
+      return markByRank(target(pool[hit.index], relative, hit.progress, 'season', levelByNumber(pool[hit.index], part !== -1), reason));
     }
 
     // Aucune partie regroupée (saison N = N-ième fiche), ou saison au-delà des groupes détectés :
@@ -1196,9 +1269,9 @@ function resolveByRules(episode: EpisodeNumbers, candidates: MediaCandidate[], c
     const hit = walkSeasons(pool, index, relative);
     if (hit && fits(pool[hit.index], hit.progress)) {
       const isExact = hit.index === index;
-      return target(pool[hit.index], relative, hit.progress, 'season', level(isExact && !isGrouped), isExact
+      return markByRank(target(pool[hit.index], relative, hit.progress, 'season', levelByNumber(pool[hit.index], isExact && !isGrouped), isExact
         ? t('match.seasonExact', { season, index: index + 1 })
-        : t('match.seasonSplit', { season }));
+        : t('match.seasonSplit', { season })));
     }
   }
 

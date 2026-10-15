@@ -56,6 +56,7 @@ function seriesPage(page: Omit<PageMediaInfo, 'kind' | 'episode'>): PageMediaInf
 
 const ONE_PIECE_CR = { seriesId: 'GRMG8ZQZR', seriesSlug: 'one-piece', animeTitle: 'One Piece' };
 const KAIJU_CR = { seriesId: 'GG5H5XQ7D', seriesSlug: 'kaiju-no-8', animeTitle: 'Kaiju No. 8' };
+const DR_STONE_CR = { seriesId: 'GYEXQKJG6', seriesSlug: 'dr-stone', animeTitle: 'Dr. STONE' };
 const SLIME_CR = { seriesId: 'GYZJ43JMR', seriesSlug: 'that-time-i-got-reincarnated-as-a-slime', animeTitle: 'Moi, quand je me réincarne en Slime' };
 const FRIEREN_CR = { seriesId: 'GG5H5XQX4', seriesSlug: 'frieren-beyond-journeys-end', animeTitle: 'Frieren: Beyond Journey’s End' };
 const AOT_CR = { seriesId: 'GR751KNZY', seriesSlug: 'attack-on-titan', animeTitle: 'Attack on Titan' };
@@ -102,6 +103,10 @@ const MUSHOKU_NETFLIX_SEASONS = [
 const MUSHOKU_SIGNALS = { seasons: MUSHOKU_NETFLIX_SEASONS, source: 'fixture Netflix (2026-10-09) et capture du propriétaire (2026-10-14)' };
 const MUSHOKU_SEASONS = MUSHOKU_NETFLIX_SEASONS.map((s) => s.episodes);
 /** Correspondance Netflix S2 → « III » (S2 E14 = III épisode 1), en cache avant le marquage de son origine (cas réel du 2026-10-14) */
+/** Correspondance écrite par l'import fautif du 2026-10-15 : Dr. STONE S4 « NEW WORLD » E22 → SCIENCE FUTURE Part 2 E10 */
+const WRONG_DR_STONE_MAPPING: MediaMapping = { mediaId: 189117, numbering: 'season', offset: 12, episodes: 12, seriesLabel: 'Dr. STONE · S4 (Dr. STONE NEW WORLD)', mediaTitle: 'Dr. STONE: SCIENCE FUTURE Part 2' };
+/** Correspondance d'où vient l'écriture fautive Slime du 2026-10-15 (S3 E24 → 4th Season = 24) ; forme SUPPOSÉE */
+const WRONG_SLIME_S3_MAPPING: MediaMapping = { mediaId: 182205, numbering: 'season', offset: 0, episodes: 24, seriesLabel: 'Moi, quand je me réincarne en Slime · S3 (Saison 3)', mediaTitle: 'Tensei Shitara Slime Datta Ken 4th Season Part 1 & 2' };
 const STALE_MUSHOKU_MAPPING: MediaMapping = { mediaId: 178789, numbering: 'season', offset: 13, episodes: 14, seriesLabel: 'Mushoku Tensei: Jobless Reincarnation · S2', mediaTitle: 'Mushoku Tensei III' };
 
 export const CASES: readonly CorpusCase[] = [
@@ -159,6 +164,201 @@ export const CASES: readonly CorpusCase[] = [
     episode: crunchyroll(KAIJU_CR, 'GKAIJU0105', { seasonNumber: 1, seasonTitle: 'Kaiju No. 8', seasonEpisodeNumber: 5, displayedEpisodeNumber: 5 }),
     searches: ['Kaiju No. 8'],
     expected: high(153288, 5),
+  },
+  {
+    id: 'cr-import-kaiju-s3e23',
+    kind: 'episode',
+    note: 'Import réel (2026-10-15) : ligne « Kaiju No. 8 · S3 · épisode 23 », sans titre de saison distinct (titre de saison SUPPOSÉ égal à celui de la série, que le libellé masque ; null donnerait le même résultat). Crunchyroll range la 2e saison en S3 (spécial compté) et la numérote en absolu : E23, 11e de la saison (relativeEpisodeNumber). Le cumul tombe sur « Season 2 » : numéro de titre plus PETIT que celui de la plateforme, spécial compté, pas un cumul incomplet.',
+    anilist: 'kaiju-no-8',
+    episode: crunchyroll(KAIJU_CR, 'GKAIJU0323', { seasonNumber: 3, seasonTitle: 'Kaiju No. 8', seasonEpisodeNumber: 11, displayedEpisodeNumber: 23 }),
+    searches: ['Kaiju No. 8'],
+    expected: high(178754, 11),
+  },
+  {
+    id: 'cr-import-kaiju-s3e23-no-title',
+    kind: 'episode',
+    note: 'Même ligne, saison sans titre (`season_title` absent de l’historique).',
+    anilist: 'kaiju-no-8',
+    episode: crunchyroll(KAIJU_CR, 'GKAIJU0323', { seasonNumber: 3, seasonTitle: null, seasonEpisodeNumber: 11, displayedEpisodeNumber: 23 }),
+    searches: ['Kaiju No. 8'],
+    expected: high(178754, 11),
+  },
+  {
+    id: 'cr-import-drstone-newworld-e22',
+    kind: 'episode',
+    note:
+      'Import de l’historique Crunchyroll (observé le 2026-10-15, sans signaux) : Crunchyroll compte le spécial « RYUSUI » comme saison 3, donc « Dr. STONE NEW WORLD » (22 ép. = les deux parties AniList) est la saison 4. Dernier épisode vu E22. Le numéro 4 désignait SCIENCE FUTURE (écrit à tort : Part 2 E10) ; le titre désigne NEW WORLD.',
+    anilist: 'dr-stone',
+    episode: crunchyroll(DR_STONE_CR, 'GDRST0422', { seasonNumber: 4, seasonTitle: 'Dr. STONE NEW WORLD', seasonEpisodeNumber: 22, displayedEpisodeNumber: 22 }),
+    searches: ['Dr. STONE', 'Dr. STONE NEW WORLD'],
+    expected: high(162670, 11),
+  },
+  {
+    id: 'cr-import-drstone-newworld-e22-learned-mapping',
+    kind: 'episode',
+    note: 'Cas réel (2026-10-15) : l’import fautif appliqué a enregistré `crunchyroll:GYEXQKJG6:s4` → SCIENCE FUTURE Part 2 (189117), apprise (`learned`). Le titre de saison désigne NEW WORLD : oubliée, nouvelle résolution.',
+    anilist: 'dr-stone',
+    episode: crunchyroll(DR_STONE_CR, 'GDRST0422', { seasonNumber: 4, seasonTitle: 'Dr. STONE NEW WORLD', seasonEpisodeNumber: 22, displayedEpisodeNumber: 22 }),
+    mappings: { 'crunchyroll:GYEXQKJG6:s4': { ...WRONG_DR_STONE_MAPPING, learned: true } },
+    searches: ['Dr. STONE', 'Dr. STONE NEW WORLD'],
+    expected: high(162670, 11),
+  },
+  {
+    id: 'cr-import-drstone-newworld-e22-stale-mapping',
+    kind: 'episode',
+    note: 'Même correspondance vers 189117, d’origine inconnue (peut-être un choix de l’utilisateur) : jamais supprimée ni synchronisée d’office, « À vérifier » avec NEW WORLD Part 2 proposée.',
+    anilist: 'dr-stone',
+    episode: crunchyroll(DR_STONE_CR, 'GDRST0422', { seasonNumber: 4, seasonTitle: 'Dr. STONE NEW WORLD', seasonEpisodeNumber: 22, displayedEpisodeNumber: 22 }),
+    mappings: { 'crunchyroll:GYEXQKJG6:s4': WRONG_DR_STONE_MAPPING },
+    searches: ['Dr. STONE', 'Dr. STONE NEW WORLD'],
+    expected: low(162670, 11),
+  },
+  {
+    id: 'cr-import-drstone-newworld-e22-chosen-mapping',
+    kind: 'episode',
+    note: 'Même correspondance vers 189117, choisie par l’utilisateur (`chosen`) : jamais remise en cause.',
+    anilist: 'dr-stone',
+    episode: crunchyroll(DR_STONE_CR, 'GDRST0422', { seasonNumber: 4, seasonTitle: 'Dr. STONE NEW WORLD', seasonEpisodeNumber: 22, displayedEpisodeNumber: 22 }),
+    mappings: { 'crunchyroll:GYEXQKJG6:s4': { ...WRONG_DR_STONE_MAPPING, chosen: true } },
+    searches: [],
+    expected: high(189117, 10),
+  },
+  {
+    id: 'cr-import-drstone-science-future-e13',
+    kind: 'episode',
+    note: 'Même série : « Dr. STONE SCIENCE FUTURE » (37 ép. = trois parties AniList), saison 5 chez Crunchyroll (le spécial compté), E13 = Part 2 E1. SUPPOSÉ : numéro et position non relevés, construits d’après l’ordre des saisons du site.',
+    anilist: 'dr-stone',
+    episode: crunchyroll(DR_STONE_CR, 'GDRST0513', { seasonNumber: 5, seasonTitle: 'Dr. STONE SCIENCE FUTURE', seasonEpisodeNumber: 13, displayedEpisodeNumber: 13 }),
+    searches: ['Dr. STONE', 'Dr. STONE SCIENCE FUTURE'],
+    expected: high(189117, 1),
+  },
+  {
+    id: 'cr-import-drstone-ryusui-e1',
+    kind: 'episode',
+    note: 'Même série : le spécial « Dr. STONE Special Episode - RYUSUI » rangé en saison 3 par Crunchyroll (numéro SUPPOSÉ d’après l’ordre du site), E1 : la fiche spéciale, jamais la 3e saison TV.',
+    anilist: 'dr-stone',
+    episode: crunchyroll(DR_STONE_CR, 'GDRST0301', { seasonNumber: 3, seasonTitle: 'Dr. STONE Special Episode - RYUSUI', seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 }),
+    searches: ['Dr. STONE', 'Dr. STONE Special Episode - RYUSUI'],
+    expected: high(142876, 1),
+  },
+  {
+    id: 'cr-import-slime-s4e3',
+    kind: 'episode',
+    note: 'Import de l’historique Crunchyroll (observé le 2026-10-15, sans signaux) : « Saison 4 », dernier épisode vu E3.',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIME0403', { seasonNumber: 4, seasonTitle: 'Saison 4', seasonEpisodeNumber: 3, displayedEpisodeNumber: 3 }),
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime Saison 4', 'Saison 4'],
+    expected: high(182205, 3),
+  },
+  {
+    id: 'cr-import-slime-s3e24',
+    kind: 'episode',
+    note: 'Import de l’historique Crunchyroll (observé le 2026-10-15, sans signaux) : « Saison 3 » vue jusqu’à E24.',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIME0324', { seasonNumber: 3, seasonTitle: 'Saison 3', seasonEpisodeNumber: 24, displayedEpisodeNumber: 24 }),
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime Saison 3', 'Saison 3'],
+    expected: high(156822, 24),
+  },
+  {
+    id: 'cr-import-slime-s3e72',
+    kind: 'episode',
+    note:
+      'Import réel (2026-10-15, sans signaux, correspondances en cache effacées) : Crunchyroll numérote « Saison 3 » en absolu (page de série relevée : E48.5, E49 … E72, E65.5 ; 26 éléments). Vue jusqu’à E72 ; position dans la saison 24 (relativeEpisodeNumber, décimales écartées). AniList ne relie la saison 2 à la saison 1 que par l’OVA « Coleus no Yume » (PREQUEL) : sans la saison 1, le cumul tombait sur la saison 4 (182205 = 24, terminé).',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIME0372', { seasonNumber: 3, seasonTitle: 'Saison 3', seasonEpisodeNumber: 24, displayedEpisodeNumber: 72 }),
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime Saison 3', 'Saison 3'],
+    expected: high(156822, 24),
+  },
+  {
+    id: 'cr-import-slime-s2e25-abs48',
+    kind: 'episode',
+    note: 'Diagnostic réel (2026-10-15) : « Saison 2 » numérotée en absolu (E25 … E48 et spéciaux, 26 éléments), S2E25 (48) placée sur la saison 3 (156822). 48 = 24 (saison 1) + 12 + 12 : fin de la saison 2 Part 2.',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIME0248', { seasonNumber: 2, seasonTitle: 'Saison 2', seasonEpisodeNumber: 25, displayedEpisodeNumber: 48 }),
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime Saison 2', 'Saison 2'],
+    expected: high(116742, 12),
+  },
+  {
+    id: 'cr-import-slime-s4e75-abs',
+    kind: 'episode',
+    note: 'SUPPOSÉ : « Saison 4 » numérotée en absolu comme les saisons 2 et 3 (E73…), E75 = 3e de la saison (la synchro en direct du 2026-10-15 affichait E3 : sans doute par saison, voir cr-import-slime-s4e3). Cumul complet : saison 4 E3.',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIME0475', { seasonNumber: 4, seasonTitle: 'Saison 4', seasonEpisodeNumber: 3, displayedEpisodeNumber: 75 }),
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime Saison 4', 'Saison 4'],
+    expected: high(182205, 3),
+  },
+  {
+    id: 'cr-import-slime-s3e24-learned-mapping',
+    kind: 'episode',
+    note: 'Cas réel (2026-10-15) : l’import a écrit 182205 (saison 4) = 24 depuis « Saison 3 » E24, donc d’une correspondance `crunchyroll:GYZJ43JMR:s3` → 182205 en cache (forme et origine SUPPOSÉES : apprise). Analyse d’import : nouvelle résolution sûre et différente → correspondance apprise écartée.',
+    anilist: 'slime',
+    import: true,
+    episode: crunchyroll(SLIME_CR, 'GSLIME0324', { seasonNumber: 3, seasonTitle: 'Saison 3', seasonEpisodeNumber: 24, displayedEpisodeNumber: 24 }),
+    mappings: { 'crunchyroll:GYZJ43JMR:s3': { ...WRONG_SLIME_S3_MAPPING, learned: true } },
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime Saison 3', 'Saison 3'],
+    expected: high(156822, 24),
+  },
+  {
+    id: 'cr-import-slime-s3e24-stale-mapping',
+    kind: 'episode',
+    note: 'Même correspondance S3 → 182205, d’origine inconnue (peut-être un choix de l’utilisateur) : « À vérifier » avec la saison 3 proposée, jamais supprimée.',
+    anilist: 'slime',
+    import: true,
+    episode: crunchyroll(SLIME_CR, 'GSLIME0324', { seasonNumber: 3, seasonTitle: 'Saison 3', seasonEpisodeNumber: 24, displayedEpisodeNumber: 24 }),
+    mappings: { 'crunchyroll:GYZJ43JMR:s3': WRONG_SLIME_S3_MAPPING },
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime Saison 3', 'Saison 3'],
+    expected: low(156822, 24),
+  },
+  {
+    id: 'cr-import-slime-s3e24-chosen-mapping',
+    kind: 'episode',
+    note: 'Même correspondance S3 → 182205, choisie par l’utilisateur (`chosen`) : jamais remise en cause, même à l’import.',
+    anilist: 'slime',
+    import: true,
+    episode: crunchyroll(SLIME_CR, 'GSLIME0324', { seasonNumber: 3, seasonTitle: 'Saison 3', seasonEpisodeNumber: 24, displayedEpisodeNumber: 24 }),
+    mappings: { 'crunchyroll:GYZJ43JMR:s3': { ...WRONG_SLIME_S3_MAPPING, chosen: true } },
+    searches: [],
+    expected: high(182205, 24),
+  },
+  {
+    id: 'cr-slime-s3e24-learned-mapping',
+    kind: 'episode',
+    note: 'Même correspondance apprise S3 → 182205, en synchro directe (page de lecture) : la synchro en direct ne refait pas la résolution d’une correspondance en cache (coût) ; corrigée à la prochaine analyse d’import.',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIME0324', { seasonNumber: 3, seasonTitle: 'Saison 3', seasonEpisodeNumber: 24, displayedEpisodeNumber: 24 }),
+    mappings: { 'crunchyroll:GYZJ43JMR:s3': { ...WRONG_SLIME_S3_MAPPING, learned: true } },
+    searches: [],
+    expected: high(182205, 24),
+    ideal: high(156822, 24),
+    gap: 'Correspondance en cache sans signal ni titre de saison propre : jamais remise en cause en lecture directe.',
+  },
+  {
+    id: 'cr-import-slime-oad-e5',
+    kind: 'episode',
+    note:
+      'Saison Crunchyroll « Moi, quand je me réincarne en Slime (OAD) » (5 ép.). SUPPOSÉ : numéro de saison 5 et épisodes numérotés en entiers ; numérotés en décimales (24.5…), ils sont écartés par la lecture de l’historique (parseHistoryItem) et n’arrivent jamais à l’analyse. Saison spéciale : la fiche OVA, jamais une saison TV.',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIMEOAD5', { seasonNumber: 5, seasonTitle: 'Moi, quand je me réincarne en Slime (OAD)', seasonEpisodeNumber: 5, displayedEpisodeNumber: 5 }),
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime (OAD)', 'Moi, quand je me reincarne en Slime'],
+    expected: high(106509, 5),
+  },
+  {
+    id: 'cr-slime-oad-e24-5',
+    kind: 'episode',
+    note: 'Page de lecture d’un OAD numéroté « E24.5 » (numérotation décimale SUPPOSÉE, saison 5 SUPPOSÉE) : jamais une progression entière sur une fiche TV (épisode spécial, non synchronisé).',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIMEOAD245', { seasonNumber: 5, seasonTitle: 'Moi, quand je me réincarne en Slime (OAD)', seasonEpisodeNumber: null, displayedEpisodeNumber: 24.5 }),
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime (OAD)', 'Moi, quand je me reincarne en Slime'],
+    expected: NOT_FOUND,
+  },
+  {
+    id: 'cr-import-slime-coleus-e3',
+    kind: 'episode',
+    note: 'Import de l’historique Crunchyroll (observé le 2026-10-15) : « Moi, quand je me réincarne en Slime : Le rêve de Coleus » (3 ép.) écrit sur l’OVA « Coleus no Yume » (3 ép.), la bonne fiche. Numéro de saison 6 SUPPOSÉ.',
+    anilist: 'slime',
+    episode: crunchyroll(SLIME_CR, 'GSLIMECOL3', { seasonNumber: 6, seasonTitle: 'Moi, quand je me réincarne en Slime : Le rêve de Coleus', seasonEpisodeNumber: 3, displayedEpisodeNumber: 3 }),
+    searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me réincarne en Slime : Le rêve de Coleus', 'Moi, quand je me reincarne en Slime'],
+    expected: high(161802, 3),
   },
   {
     id: 'cr-slime-fr-s1e5',

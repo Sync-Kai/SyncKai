@@ -121,6 +121,11 @@ export interface CapturedSignals {
 export interface EpisodeCase extends CaseBase {
   kind: 'episode';
   episode: EpisodeInfo;
+  /**
+   * Analyse d'un import d'historique (IMPORT_RESOLVE_OPTIONS : lecture seule, file de fond, correspondance en cache
+   * revalidée par une nouvelle résolution) au lieu de la synchro en direct
+   */
+  import?: true;
 }
 
 /** Page de série : fiche « Sur cette page » (resolvePageMedia) */

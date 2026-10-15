@@ -85,7 +85,7 @@ vi.mock('../../trackers', () => ({ getConnectedTrackers: () => Promise.resolve([
 vi.mock('../../../browser/platform-access', () => ({ hasPlatformAccess: () => Promise.resolve(true) }));
 
 const fake = installFakeChrome();
-const { resolveEpisode } = await import('../resolver');
+const { IMPORT_RESOLVE_OPTIONS, resolveEpisode } = await import('../resolver');
 const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media/page-media');
 const { clearCatalogCache } = await import('../../anilist/media');
 const { getMediaMapping, saveMediaMapping } = await import('../../../browser/storage/mappings');
@@ -192,7 +192,7 @@ async function outcomeOf(corpusCase: CorpusCase): Promise<CorpusOutcome> {
   for (const [key, mapping] of Object.entries(corpusCase.mappings ?? {})) await saveMediaMapping(key, mapping);
   if (corpusCase.kind === 'episode') {
     const signals = signalsOf(corpusCase.episode.platform, corpusCase.signals, corpusCase.episode.seasonNumber);
-    const { result } = await resolveEpisode(signals ? { ...corpusCase.episode, signals } : corpusCase.episode);
+    const { result } = await resolveEpisode(signals ? { ...corpusCase.episode, signals } : corpusCase.episode, corpusCase.import ? IMPORT_RESOLVE_OPTIONS : undefined);
     if (result.ok) return { mediaId: result.target.mediaId, confidence: result.target.confidence, progress: result.target.progress };
     return { mediaId: null, confidence: result.ignored ? 'ignored' : 'not-found', progress: null };
   }
