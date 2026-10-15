@@ -125,16 +125,36 @@ function parsePage(data: PageData): AniListMedia[] {
  * (popup, panneau, arcs de One Piece parcourus sur Netflix), la lecture puis la synchro d'un épisode relisent les mêmes
  * fiches. Données publiques du catalogue uniquement (jamais les listes de l'utilisateur, toujours lues fraîches).
  * Requêtes interactives : 5 min (un lien AniList ajouté est vu au plus tard 5 min après) ; de fond : 10 min.
+ *
+ * Deuxième niveau, par fiche (`mediaCache`) : toute fiche reçue, par une recherche comme par identifiant, y est rangée ;
+ * `getAnimeByIds` ne demande à AniList que les identifiants qui manquent (un id absent de la réponse, fiche supprimée
+ * ou fusionnée, est retenu comme absent pendant le même délai).
  */
 export const CATALOG_CACHE_TTL_MS: Readonly<Record<RequestLane, number>> = { interactive: 5 * 60_000, background: 10 * 60_000 };
 const CATALOG_CACHE_MAX = 300;
 const catalogCache = new Map<string, { at: number; media: AniListMedia[] }>();
 const catalogInFlight = new Map<string, Promise<AniListMedia[]>>();
+const MEDIA_CACHE_MAX = 1500;
+/** Fiches par identifiant ; `media: null` : identifiant absent du catalogue */
+const mediaCache = new Map<number, { at: number; media: AniListMedia | null }>();
+
+function rememberMedia(id: number, media: AniListMedia | null, at: number): void {
+  mediaCache.delete(id);
+  mediaCache.set(id, { at, media });
+  // Plus ancienne fiche retirée au-delà de la limite (ordre d'insertion de la Map)
+  if (mediaCache.size > MEDIA_CACHE_MAX) mediaCache.delete(mediaCache.keys().next().value ?? 0);
+}
+
+function isMediaCached(id: number, lane: RequestLane, now: number): boolean {
+  const hit = mediaCache.get(id);
+  return hit !== undefined && now - hit.at < CATALOG_CACHE_TTL_MS[lane];
+}
 
 /** Vide le cache du catalogue (tests) */
 export function clearCatalogCache(): void {
   catalogCache.clear();
   catalogInFlight.clear();
+  mediaCache.clear();
 }
 
 async function cachedPage(key: string, lane: RequestLane, load: () => Promise<AniListMedia[]>): Promise<AniListMedia[]> {
@@ -146,7 +166,9 @@ async function cachedPage(key: string, lane: RequestLane, load: () => Promise<An
   const request = load()
     .then((media) => {
       catalogCache.delete(key);
-      catalogCache.set(key, { at: Date.now(), media });
+      const at = Date.now();
+      catalogCache.set(key, { at, media });
+      for (const item of media) rememberMedia(item.id, item, at);
       // Plus ancienne entrée retirée au-delà de la limite (ordre d'insertion de la Map)
       if (catalogCache.size > CATALOG_CACHE_MAX) catalogCache.delete(catalogCache.keys().next().value ?? '');
       return media;
@@ -208,10 +230,29 @@ export async function searchAnimeBatch(searches: readonly string[], lane: Reques
   return new Map(searches.map((search) => [search, byKey.get(keyOf(search)) ?? []]));
 }
 
+/** Fiches par identifiant : celles déjà connues (recherches et lectures précédentes) ne sont pas redemandées */
 export async function getAnimeByIds(ids: readonly number[], lane: RequestLane = 'interactive'): Promise<AniListMedia[]> {
-  if (ids.length === 0) return [];
-  const key = `ids:${[...ids].sort((a, b) => a - b).join(',')}`;
-  return cachedPage(key, lane, async () => parsePage(await anilistPublicQuery(BY_IDS_QUERY, isPageData, { ids }, lane)));
+  const wanted = [...new Set(ids)];
+  if (wanted.length === 0) return [];
+  const now = Date.now();
+  const missing = wanted.filter((id) => !isMediaCached(id, lane, now));
+  const key = `ids:${[...missing].sort((a, b) => a - b).join(',')}`;
+  const fetched =
+    missing.length === 0
+      ? []
+      : await cachedPage(key, lane, async () => {
+          const media = parsePage(await anilistPublicQuery(BY_IDS_QUERY, isPageData, { ids: missing }, lane));
+          // Absents de la réponse : fiches supprimées ou fusionnées, retenues comme telles (pas de nouvelle requête à chaque lecture)
+          const found = new Set(media.map((item) => item.id));
+          const at = Date.now();
+          for (const id of missing) if (!found.has(id)) rememberMedia(id, null, at);
+          return media;
+        });
+  const byId = new Map(fetched.map((item) => [item.id, item]));
+  return wanted.flatMap((id) => {
+    const media = byId.get(id) ?? mediaCache.get(id)?.media ?? null;
+    return media ? [media] : [];
+  });
 }
 
 function isMediaData(data: unknown): data is { Media: unknown } {

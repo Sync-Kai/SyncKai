@@ -42,6 +42,65 @@ describe('cache du catalogue', () => {
   });
 });
 
+describe('cache par fiche (PERF-09)', () => {
+  const media = (id: number): Record<string, unknown> => ({ id, idMal: id + 1000, title: { romaji: `Fiche ${id}` } });
+  /** Catalogue simulé : recherches (fiches 1 à 3) et fiches par identifiant (les identifiants 1 à 9, sauf 7 supprimée) */
+  function catalog(): void {
+    client.anilistPublicQuery.mockImplementation((query: string, _guard: unknown, variables: Record<string, unknown>) => {
+      if (query.includes('AnimeByIds')) return Promise.resolve({ Page: { media: (variables.ids as number[]).filter((id) => id <= 9 && id !== 7).map(media) } });
+      return Promise.resolve({ Page: { media: [1, 2, 3].map(media) } });
+    });
+  }
+  const askedIds = (): number[][] => client.anilistPublicQuery.mock.calls.flatMap((call) => ((call[2] as { ids?: number[] }).ids ? [(call[2] as { ids: number[] }).ids] : []));
+
+  it('fiches reçues d’une recherche : servies ensuite par identifiant, sans requête', async () => {
+    catalog();
+    await searchAnime('Frieren');
+    expect((await getAnimeByIds([3, 1])).map((m) => m.id)).toEqual([3, 1]);
+    expect(client.anilistPublicQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('seuls les identifiants manquants sont demandés ; l’ordre demandé est rendu, les doublons réunis', async () => {
+    catalog();
+    await getAnimeByIds([1, 2, 3]);
+    expect((await getAnimeByIds([5, 2, 4, 2])).map((m) => m.id)).toEqual([5, 2, 4]);
+    expect(askedIds()).toEqual([[1, 2, 3], [5, 4]]);
+    // Tout est connu : aucune requête ; un sous-ensemble d'une demande précédente aussi
+    await getAnimeByIds([4, 1]);
+    expect(client.anilistPublicQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('fiche supprimée (absente de la réponse) : retenue comme absente, redemandée seulement à l’expiration', async () => {
+    vi.useFakeTimers();
+    catalog();
+    expect((await getAnimeByIds([6, 7])).map((m) => m.id)).toEqual([6]);
+    expect((await getAnimeByIds([7])).map((m) => m.id)).toEqual([]);
+    expect(client.anilistPublicQuery).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(CATALOG_CACHE_TTL_MS.interactive + 1);
+    expect(await getAnimeByIds([7])).toEqual([]);
+    expect(askedIds()).toEqual([[6, 7], [7]]);
+  });
+
+  it('délai de la voie de fond (10 min) : une fiche lue il y a 7 min sert le fond, pas l’interactif', async () => {
+    vi.useFakeTimers();
+    catalog();
+    await getAnimeByIds([1]);
+    vi.advanceTimersByTime(7 * 60_000);
+    await getAnimeByIds([1], 'background');
+    expect(client.anilistPublicQuery).toHaveBeenCalledTimes(1);
+    await getAnimeByIds([1]);
+    expect(client.anilistPublicQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('échec de la requête : rien retenu, ni fiche ni absence', async () => {
+    catalog();
+    client.anilistPublicQuery.mockRejectedValueOnce(new Error('réseau'));
+    await expect(getAnimeByIds([1, 7])).rejects.toThrow('réseau');
+    expect((await getAnimeByIds([1, 7])).map((m) => m.id)).toEqual([1]);
+    expect(askedIds()).toEqual([[1, 7], [1, 7]]);
+  });
+});
+
 describe('recherches réunies (import de l’historique Netflix)', () => {
   const media = (id: number, title: string) => ({ id, title: { romaji: title }, externalLinks: [{ url: `https://www.netflix.com/title/${id}` }] });
 

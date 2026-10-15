@@ -171,12 +171,12 @@ describe('Requêtes AniList par action', () => {
     const run = await launch(context, [FRIEREN_S1, FRIEREN_S2]);
     let from = run.anilist.requests.length;
     await run.h.sendFromContent('EPISODE_COMPLETED', { episode: crunchyrollEpisode(FRIEREN, 3), services: null });
-    // Recherche de la série, relations (AnimeByIds), fiche du catalogue (AnimeByIds : PERF-09 la servira depuis la recherche), entrée de la liste, écriture
-    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 2, MediaEntry: 1, SaveProgress: 1, SearchAnime: 1 });
+    // Recherche de la série, relations (AnimeByIds), entrée de la liste, écriture : la fiche du catalogue vient de la recherche
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, MediaEntry: 1, SaveProgress: 1, SearchAnime: 1 });
 
     from = run.anilist.requests.length;
     await run.h.sendFromContent('EPISODE_COMPLETED', { episode: crunchyrollEpisode(FRIEREN, 4), services: null });
-    // Fiche du catalogue déjà lue par la synchro précédente (cache de 5 min) : plus que la lecture de l'entrée et l'écriture
+    // Fiche du catalogue déjà connue (cache de 5 min) : plus que la lecture de l'entrée et l'écriture
     expect(await settledOperations(run.anilist, from)).toEqual({ MediaEntry: 1, SaveProgress: 1 });
     expect(run.anilist.mutations().map((m) => m.variables)).toEqual([
       { mediaId: FRIEREN.mediaId, progress: 3, status: 'CURRENT' },
@@ -197,7 +197,7 @@ describe('Requêtes AniList par action', () => {
     await seek(tab, CREDITS_START + 1);
     await waitFor('progression écrite', () => run.anilist.mutations().length === 1);
     // Panneau ouvert : la fiche est recalculée (MediaEntry en plus) et affiche l'épisode synchronisé
-    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, MediaEntry: 2, SaveProgress: 1 });
+    expect(await settledOperations(run.anilist, from)).toEqual({ MediaEntry: 2, SaveProgress: 1 });
     expect(await cachedProgress(run.h)).toBe(3);
     expectCleanRun(run.h, run.anilist, run.mal);
   });
@@ -217,7 +217,7 @@ describe('Requêtes AniList par action', () => {
     await seek(tab, CREDITS_START + 1);
     await waitFor('progression écrite', () => run.anilist.mutations().length === 1);
     // Aucun écran n'affiche l'onglet : la fiche n'est pas recalculée (pas de seconde lecture de liste), la fiche devenue fausse est oubliée
-    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, MediaEntry: 1, SaveProgress: 1 });
+    expect(await settledOperations(run.anilist, from)).toEqual({ MediaEntry: 1, SaveProgress: 1 });
     expect(await cachedProgress(run.h)).toBeNull();
     expectCleanRun(run.h, run.anilist, run.mal);
   });
