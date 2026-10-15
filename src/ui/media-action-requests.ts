@@ -4,6 +4,7 @@ import type { PageMediaView } from '../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { addFeedback, adjustFeedback, notesFeedback, ratingFeedback, removeFeedback, statusFeedback } from './feedback';
 import { normalizeListNotes } from '../shared/list-notes';
+import { toSafeImageUrl } from '../shared/url';
 import type { InlineFeedback } from './state';
 import type { MediaAction } from './media-actions';
 import { formatStarValue } from './rating';
@@ -51,9 +52,9 @@ function send(request: MediaActionRequest, { media }: PageMediaView): Promise<Sy
     case 'adjust':
       return sendMessage('ADJUST_PROGRESS', adjustPayload(media.mediaId, media.idMal, request.delta, request.retry));
     case 'status': {
-      // Affiche de la carte « À noter » : https uniquement (refusée sinon par la validation du message)
-      const coverUrl = media.coverUrl?.startsWith('https://') && media.coverUrl.length <= 2000 ? media.coverUrl : null;
-      return sendMessage('SET_LIST_STATUS', { mediaId: media.mediaId, malId: media.idMal, status: request.status, coverUrl });
+      // Affiche de la carte « À noter » : hôtes d'images autorisés seulement (IMAGE_HOSTS), sinon sans affiche ; une
+      // affiche refusée par la validation du message ferait échouer tout le changement de statut
+      return sendMessage('SET_LIST_STATUS', { mediaId: media.mediaId, malId: media.idMal, status: request.status, coverUrl: toSafeImageUrl(media.coverUrl) });
     }
     case 'rate':
       return sendMessage('RATE_MEDIA', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) }, score: request.value });
