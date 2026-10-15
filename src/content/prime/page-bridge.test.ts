@@ -34,7 +34,17 @@ class FakeXhr extends EventTarget {
     this.status = this.reply.status;
     if (this.responseType === 'json') this.response = this.reply.body;
     else this.responseText = typeof this.reply.body === 'string' ? this.reply.body : JSON.stringify(this.reply.body);
-    queueMicrotask(() => this.dispatchEvent(new Event('load')));
+    // Réponse annulée par `abort` avant son arrivée : jamais livrée (comme un vrai XMLHttpRequest)
+    const sent = this.aborts;
+    queueMicrotask(() => {
+      if (sent === this.aborts) this.dispatchEvent(new Event('load'));
+    });
+  }
+
+  aborts = 0;
+
+  abort(): void {
+    this.aborts++;
   }
 }
 
@@ -150,6 +160,20 @@ describe('page-bridge.iife.ts (Prime Video)', () => {
       [bumpkinEpisodeGti(4), 1_312_000],
     ]);
     expect(pushes.flatMap((push) => push.widgets).map((entry) => entry.widgets.bestSelf?.gti)).toEqual([bumpkinEpisodeGti(4)]);
+  });
+
+  it('XHR réutilisé (abort puis open) : repères rangés sous l’identifiant de la dernière requête, jamais de l’annulée', async () => {
+    await runBridge();
+    const pushes = connect();
+    const xhr = new XMLHttpRequest() as unknown as FakeXhr;
+    xhr.reply = { status: 200, body: bumpkinPlayback(4) };
+    xhr.open('GET', playbackUrl(bumpkinEpisodeGti(3)));
+    xhr.send();
+    xhr.abort();
+    xhr.open('GET', playbackUrl(bumpkinEpisodeGti(4)));
+    xhr.send();
+    await flush();
+    expect(pushes.flatMap((push) => push.playback).map((entry) => entry.id)).toEqual([bumpkinEpisodeGti(4)]);
   });
 
   it('erreurs HTTP, réponses illisibles, HTML de la page : ignorés', async () => {

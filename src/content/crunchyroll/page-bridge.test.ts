@@ -51,7 +51,17 @@ class FakeXhr extends EventTarget {
     this.status = this.reply.status;
     if (this.responseType === 'json') this.response = this.reply.body;
     else this.responseText = typeof this.reply.body === 'string' ? this.reply.body : JSON.stringify(this.reply.body);
-    queueMicrotask(() => this.dispatchEvent(new Event('load')));
+    // Réponse annulée par `abort` avant son arrivée : jamais livrée (comme un vrai XMLHttpRequest)
+    const sent = this.aborts;
+    queueMicrotask(() => {
+      if (sent === this.aborts) this.dispatchEvent(new Event('load'));
+    });
+  }
+
+  aborts = 0;
+
+  abort(): void {
+    this.aborts++;
   }
 }
 
@@ -219,6 +229,28 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     await flush();
     expect(pushes).toEqual([]);
     siteXhr(seasonsUrl('GOTHER1'), frierenSeasons());
+    await flush();
+    expect(pushes.flat().map((entry) => entry.seriesId)).toEqual(['GOTHER1']);
+  });
+
+  it('XHR réutilisé (abort puis open) : la réponse est attribuée à la dernière requête ouverte, jamais à l’annulée', async () => {
+    await runBridge();
+    const pushes = connect();
+    const xhr = new XMLHttpRequest() as unknown as FakeXhr;
+    xhr.reply = { status: 200, body: frierenSeries() };
+    xhr.open('GET', seriesUrl());
+    xhr.send();
+    xhr.abort();
+    xhr.open('GET', seriesUrl('GOTHER1'));
+    xhr.send();
+    await flush();
+    expect(pushes.flat().map((entry) => entry.seriesId)).toEqual(['GOTHER1']);
+    // Réutilisé pour une requête non lue : rien
+    xhr.open('GET', seriesUrl('GOTHER2'));
+    xhr.send();
+    xhr.abort();
+    xhr.open('GET', 'https://www.crunchyroll.com/auth/v1/token');
+    xhr.send();
     await flush();
     expect(pushes.flat().map((entry) => entry.seriesId)).toEqual(['GOTHER1']);
   });

@@ -46,7 +46,17 @@ class FakeXhr extends EventTarget {
     this.status = this.reply.status;
     if (this.responseType === 'json') this.response = this.reply.body;
     else this.responseText = typeof this.reply.body === 'string' ? this.reply.body : JSON.stringify(this.reply.body);
-    queueMicrotask(() => this.dispatchEvent(new Event('load')));
+    // Réponse annulée par `abort` avant son arrivée : jamais livrée (comme un vrai XMLHttpRequest)
+    const sent = this.aborts;
+    queueMicrotask(() => {
+      if (sent === this.aborts) this.dispatchEvent(new Event('load'));
+    });
+  }
+
+  aborts = 0;
+
+  abort(): void {
+    this.aborts++;
   }
 }
 
@@ -131,6 +141,22 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     // La requête du site part telle quelle (mêmes arguments, aucune requête ajoutée)
     expect(FakeXhr.opened).toEqual([['GET', playerExperienceUrl(UNDEAD_UNLUCK_S1E1_AVAIL_ID)]]);
     expect(FakeXhr.sent).toBe(1);
+  });
+
+  it('XHR réutilisé (abort puis open) : la fiche est rangée sous l’identifiant de la dernière requête, jamais de l’annulée', async () => {
+    await runBridge();
+    const entries = connect();
+    const xhr = new XMLHttpRequest() as unknown as FakeXhr;
+    xhr.reply = { status: 200, body: winterArcE1() };
+    xhr.open('GET', playerExperienceUrl(UNDEAD_UNLUCK_S1E1_AVAIL_ID));
+    xhr.send();
+    xhr.abort();
+    xhr.open('GET', playerExperienceUrl(WINTER_ARC_E1_AVAIL_ID));
+    xhr.send();
+    await flush();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.ids).toContain(WINTER_ARC_E1_AVAIL_ID);
+    expect(entries.flatMap((entry) => entry.ids)).not.toContain(UNDEAD_UNLUCK_S1E1_AVAIL_ID);
   });
 
   it('réponse observée après l’ouverture (épisode suivant) : poussée aussitôt', async () => {

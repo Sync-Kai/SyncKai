@@ -156,7 +156,8 @@ function observeXhr(): void {
       this.addEventListener(
         'load',
         () => {
-          if (this.status !== 200) return;
+          // XHR réutilisé (`abort` puis `open`) : cet écouteur ne s'est jamais déclenché, la réponse est celle du dernier `open`
+          if (observed.get(this) !== request || this.status !== 200) return;
           if (this.responseType === '' || this.responseType === 'text') onPayload(request.kind, request.id, parseText(this.responseText));
           else if (this.responseType === 'json') onPayload(request.kind, request.id, this.response as unknown);
         },
