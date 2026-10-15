@@ -23,7 +23,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - Crunchyroll and ADN pages now each load only their own script instead of one shared by both sites: 54.5 KB on Crunchyroll and 49.0 KB on ADN, instead of 58.3 KB on both.
 - Smaller extension package: fonts only in the format every supported browser reads (WOFF2), and leftover build files that nothing loaded removed.
 - Pages of streaming sites no longer wake the extension's background just to load the interface language: it is loaded when SyncKai first shows a message on the page (English needs nothing).
-- The extension's background no longer wakes up on every settings or page write, and the hourly new-episode check no longer reads all of SyncKai's stored data to tidy the *Schedule* cache.
+- The extension's background no longer wakes up on every settings or page write (it now reads the interface language when it needs it instead of following it), and the hourly new-episode check no longer reads all of SyncKai's stored data to tidy the *Schedule* cache.
 - A match found by the title only (no AniList link to the platform) is synced automatically only when the platform's data confirms it (release year, episode count or original title) and nothing contradicts it; otherwise it goes to *To check*, with the reason (« Doesn’t match the platform: release year »).
 - Matches saved before this version that the platform's data now contradicts are no longer synced automatically: they go to *To check*, with the entry that fits proposed first. They are never deleted, and a match you chose yourself (a validated *To check* card, a season picked in the selector) is never questioned.
 

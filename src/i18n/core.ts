@@ -316,9 +316,20 @@ export interface InitI18nOptions {
   setDocumentLang?: boolean;
   /**
    * Suit les changements de langue des réglages (défaut). Faux dans un script de contenu : un écouteur de
-   * `storage.local.onChanged` y recevrait chaque écriture du stockage, imports compris (PERF-03)
+   * `storage.local.onChanged` y recevrait chaque écriture du stockage, imports compris (PERF-03). Faux dans le service
+   * worker : même posé après un `await`, l'écouteur y est enregistré comme écouteur différé et le réveille à chaque
+   * écriture locale (mesuré le 2026-10-15) ; il relit la langue avant chaque traitement (refreshLanguageSetting)
    */
   follow?: boolean;
+}
+
+/**
+ * Relit la langue des réglages, l'applique (catalogue mémoïsé : une lecture du stockage) et attend qu'elle soit en
+ * place. Contextes qui ne suivent pas les réglages (`follow: false`) : avant chaque traitement qui produit du texte.
+ */
+export async function refreshLanguageSetting(): Promise<Locale> {
+  await applyLanguageSetting(await readLanguageSetting());
+  return languageSettled();
 }
 
 /**

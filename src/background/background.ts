@@ -1,4 +1,4 @@
-import { initI18n, languageSettled, t } from '../i18n';
+import { initI18n, refreshLanguageSetting, t } from '../i18n';
 import { getMalViewer } from './mal/client';
 import { getPanelMedia } from './anilist/panel-media';
 import { getViewer } from './anilist/viewer';
@@ -56,12 +56,20 @@ chrome.runtime.onStartup.addListener((): void => {
   void runPendingOtherSeriesPurge();
 });
 
-// Langue de l'interface (messages d'erreur, notifications) : lue au réveil, attendue avant chaque traitement
-const i18nReady = initI18n().catch((error: unknown) => log.warn('Langue des réglages illisible :', error));
+// Langue de l'interface (messages d'erreur, notifications) : lue au réveil, sans suivre les réglages. Un écouteur
+// storage.onChanged, même posé après un await, réveillait le service worker à chaque écriture locale d'une page ou d'un
+// script de contenu (mesuré le 2026-10-15, scripts/ext-e2e/worker-wake.ext.ts) : la langue est relue avant chaque
+// traitement qui produit du texte (messages, alarmes, reprise des tâches).
+const i18nReady = initI18n({ follow: false }).catch((error: unknown) => log.warn('Langue des réglages illisible :', error));
 
-/** Exécute `run` une fois la langue chargée */
+/** Langue des réglages relue et appliquée (changement fait pendant que le worker dormait ou tournait) */
+function languageReady(): Promise<unknown> {
+  return i18nReady.then(refreshLanguageSetting).catch((error: unknown) => log.warn('Langue des réglages illisible :', error));
+}
+
+/** Exécute `run` une fois la langue des réglages relue et chargée */
 function afterI18n(run: () => unknown): void {
-  void i18nReady.then(run);
+  void languageReady().then(run);
 }
 
 /** Réponse de secours par type de message si un handler lève une exception inattendue (traduite à la demande) */
@@ -204,9 +212,8 @@ chrome.runtime.onMessage.addListener(
     }
 
     const receivedAt = __SYNCKAI_DEBUG__ ? Date.now() : 0;
-    // Langue en cours de changement (réglage modifié juste avant) : réponse traduite dans la nouvelle
-    i18nReady
-      .then(languageSettled)
+    // Langue relue à chaque message (réglage modifié juste avant) : réponse traduite dans la nouvelle
+    languageReady()
       .then(() => dispatch(message, sender))
       .then((response) => {
         // Erreurs prévues (réseau, API…) renvoyées sans log : consignées ici pour le rapport de diagnostic
