@@ -23,7 +23,7 @@ export interface Edge {
 }
 
 /** Chemin relatif à src/ visé par un spécifieur relatif (`?script` retiré, extension ou index.ts implicites), sinon null */
-function resolveImport(from: string, spec: string): string | null {
+export function resolveImport(from: string, spec: string): string | null {
   const parts = from.split('/').slice(0, -1);
   for (const segment of (spec.split('?')[0] ?? spec).split('/')) {
     if (segment === '..') parts.pop();
