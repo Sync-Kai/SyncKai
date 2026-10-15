@@ -3,7 +3,7 @@ import { isRecord } from '../../shared/guards';
 // Caches de `storage.session` (Chrome 102+, Firefox 115+) : en mémoire, jamais écrits sur disque, vidés à la fermeture
 // du navigateur. Quota commun d'environ 10 Mo (avec `ignoredSeries`, voir background/sync/ignored-series.ts) :
 // - fiche de la page par onglet (`pageMedia:<tabId>`, voir page-media-cache.ts) : contient l'état des listes du compte ;
-// - fiche du panneau latéral (`panelMedia:v<n>:<mediaId>`, voir background/api/panel-media.ts) : catalogue public.
+// - fiche du panneau latéral (`panelMedia:v<n>:<mediaId>`, voir background/anilist/panel-media.ts) : catalogue public.
 // La TTL ne joue qu'à la lecture : les entrées expirées sont purgées à l'écriture (DATA-04, PERF-05), et les deux
 // caches sont effacés à la déconnexion d'un compte (SEC-03, voir storage.ts).
 

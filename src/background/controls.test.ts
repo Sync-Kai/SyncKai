@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../i18n';
 import type { TrackerId } from '../shared/tracker.types';
-import { ApiError } from './api/errors';
+import { ApiError } from './errors';
 import type { ListEntryState, WriteStatus } from './sync/rules';
-import type { CatalogMedia, TrackerEntry, TrackerService } from './trackers/tracker';
+import type { CatalogMedia, TrackerEntry, TrackerService } from './ports/tracker';
 
 const MEDIA_ID = 154587;
 const MAL_ID = 52991;

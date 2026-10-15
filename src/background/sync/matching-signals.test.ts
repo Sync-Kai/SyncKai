@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { MediaMapping } from '../../shared/sync.types';
-import type { AniListMedia } from '../api/media';
+import type { AniListMedia } from '../anilist/media';
 
 // Signaux de la plateforme dans la résolution : clé de cache avec l'année, correspondance apprise contredite, preuve
 // exigée pour une correspondance par le titre seul (stockage et API AniList simulés).
@@ -13,7 +13,7 @@ const storage = vi.hoisted(() => {
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../api/media', () => api);
+vi.mock('../anilist/media', () => api);
 
 const { resolveEpisode } = await import('./resolver');
 const { mappingKey } = await import('./matching');

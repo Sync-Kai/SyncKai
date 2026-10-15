@@ -10,7 +10,7 @@ vi.mock('../../browser/tokens/access', () => ({ getValidToken: mocks.getValidTok
 vi.mock('../../browser/storage/session-end', () => ({ endSessionIfToken: mocks.endSessionIfToken }));
 
 import { anilistPublicQuery, anilistQuery } from './client';
-import { aniListBudget, MAX_RETRY_WAIT_MS } from './rate-limit';
+import { aniListBudget, MAX_RETRY_WAIT_MS } from '../rate-limit';
 
 const isAny = (data: unknown): data is { ok: boolean } => typeof data === 'object' && data !== null;
 const json = (status: number, body: unknown, headers: Record<string, string> = {}): Response =>

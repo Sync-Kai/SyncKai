@@ -3,14 +3,14 @@ import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { STORAGE_LOCK } from '../../browser/storage/lock-core';
 import type { MediaMapping } from '../../shared/sync.types';
 import { installFakeChrome } from '../../test/fake-chrome';
-import type { AniListMedia } from '../api/media';
-import type { RequestLane } from '../api/rate-limit';
+import type { AniListMedia } from '../anilist/media';
+import type { RequestLane } from '../rate-limit';
 
 // Purge unique (2.3.0) des correspondances apprises avant SYNC-01 vers une autre série de la plateforme.
 // Catalogue AniList simulé ; stockage et verrou réels (fausse API chrome).
 
 const api = vi.hoisted(() => ({ getAnimeByIds: vi.fn<(ids: readonly number[], lane?: RequestLane) => Promise<AniListMedia[]>>() }));
-vi.mock('../api/media', () => api);
+vi.mock('../anilist/media', () => api);
 
 const fake = installFakeChrome();
 const { belongsToOtherSeries, markOtherSeriesPurgePending, purgeOtherSeriesMappings, runPendingOtherSeriesPurge, seriesSlugFromLabel, slugFromTitle } =

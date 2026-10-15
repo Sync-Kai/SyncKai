@@ -6,8 +6,8 @@ import { endSessionIfToken } from '../../browser/storage/session-end';
 import { getOpenSessions, saveRefreshedMalToken } from '../../browser/storage/sessions';
 import { saveMalToken } from '../../browser/storage/tokens';
 import { getMalToken } from '../../browser/tokens/access';
-import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../api/errors';
-import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
+import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../errors';
+import { classifyAuthFlowError, getOAuthClients } from '../trackers/oauth-clients';
 import { createCodeVerifier, createState } from './pkce';
 import { createLogger } from '../../browser/logger';
 

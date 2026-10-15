@@ -2,7 +2,7 @@ import type { AniListListEntry, MalListEntry } from '../shared/compare';
 import { isListStatus } from '../shared/compare';
 import { isRecord } from '../shared/guards';
 import { toSafeImageUrl } from '../shared/url';
-import { fromMalStatus } from './api/mal';
+import { fromMalStatus } from './mal/client';
 
 // Lecture défensive des listes complètes (réponses externes) : une entrée illisible est ignorée.
 

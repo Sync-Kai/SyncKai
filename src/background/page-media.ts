@@ -20,9 +20,9 @@ import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../browser/
 import { getOpenSessions } from '../browser/storage/sessions';
 import type { ListStatus } from '../shared/sync.types';
 import { createLogger } from '../browser/logger';
-import { getScoreFormat } from './api/list';
-import { ApiError } from './api/errors';
-import { getPageMediaDetails, type AniListMedia } from './api/media';
+import { getScoreFormat } from './anilist/list';
+import { ApiError } from './errors';
+import { getPageMediaDetails, type AniListMedia } from './anilist/media';
 import {
   episodeCountMismatch,
   exactRememberedMapping,
@@ -56,7 +56,7 @@ import {
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from './sync/resolver';
 import { fromAniListScore, fromMalScore } from '../shared/score';
 import { getConnectedTrackers } from './trackers';
-import type { CatalogMedia, TrackerService } from './trackers/tracker';
+import type { CatalogMedia, TrackerService } from './ports/tracker';
 
 // Fiche de la page (#23) : série ou épisode de l'onglet actif → fiche AniList + état dans les listes.
 // Lecture seule côté services. Écrits localement : le lien de la série (correspondance certaine uniquement) pour le

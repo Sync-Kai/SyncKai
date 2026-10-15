@@ -1,10 +1,10 @@
 import { initI18n, languageSettled, t } from '../i18n';
-import { getMalViewer } from './api/mal';
-import { getPanelMedia } from './api/panel-media';
-import { getViewer } from './api/viewer';
-import { getWatchingList } from './api/watching';
-import { loginWithAniList } from './auth/anilist';
-import { loginWithMal } from './auth/mal';
+import { getMalViewer } from './mal/client';
+import { getPanelMedia } from './anilist/panel-media';
+import { getViewer } from './anilist/viewer';
+import { getWatchingList } from './anilist/watching';
+import { loginWithAniList } from './anilist/auth';
+import { loginWithMal } from './mal/auth';
 import { getAgendaWeek } from './agenda';
 import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';

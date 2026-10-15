@@ -5,7 +5,7 @@ import type { PageMediaDetails, PageMediaInfo } from '../shared/page-media.types
 import type { CandidateSummary } from '../shared/review.types';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { installFakeChrome } from '../test/fake-chrome';
-import type { AniListMedia } from './api/media';
+import type { AniListMedia } from './anilist/media';
 import {
   AOT_SEASON_IDS,
   AOT_SERIES,
@@ -23,8 +23,8 @@ const access = vi.hoisted(() => ({ hasPlatformAccess: vi.fn() }));
 vi.mock('../browser/platform-access', () => access);
 // Recherches du catalogue simulées : la vraie résolution (sync, ci-dessous) ne part jamais sur le réseau
 const api = vi.hoisted(() => ({ getPageMediaDetails: vi.fn(), searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
-vi.mock('./api/media', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./api/media')>()),
+vi.mock('./anilist/media', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./anilist/media')>()),
   getPageMediaDetails: api.getPageMediaDetails,
   searchAnime: api.searchAnime,
   getAnimeByIds: api.getAnimeByIds,

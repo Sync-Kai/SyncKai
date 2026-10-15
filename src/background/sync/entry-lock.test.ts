@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { TrackerId } from '../../shared/tracker.types';
-import type { CatalogMedia, TrackerEntry, TrackerService } from '../trackers/tracker';
+import type { CatalogMedia, TrackerEntry, TrackerService } from '../ports/tracker';
 import type { ListEntryState } from './rules';
 import { installFakeChrome } from '../../test/fake-chrome';
 
@@ -37,7 +37,7 @@ vi.mock('./resolver', () => ({
   findReviewCandidates: async () => [],
   toCandidateSummary: () => null,
 }));
-vi.mock('../api/media', () => ({
+vi.mock('../anilist/media', () => ({
   getAnimeById: async (id: number) => ({ id, idMal: MAL_ID, displayTitle: 'Frieren', episodes: fakes.episodes }),
   searchAnime: async () => [],
 }));

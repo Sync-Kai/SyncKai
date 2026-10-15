@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { malProgressBody } from '../api/mal';
+import { malProgressBody } from '../mal/client';
 import { decideAddToList, decideListUpdate, decideStatusChange, type ListEntryState } from './rules';
 
 describe('decideListUpdate', () => {

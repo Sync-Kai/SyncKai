@@ -1,6 +1,6 @@
 // Faux AniList (API GraphQL https://graphql.anilist.co) : catalogue, comptes et listes en mémoire, avec état. Les
 // opérations sont reconnues par leur nom (`query Viewer`, `mutation SaveProgress`…), tel que les envoie
-// src/background/api/*.ts ; une opération inconnue est refusée et relevée. Le token (Authorization: Bearer) est vérifié
+// src/background/anilist/*.ts ; une opération inconnue est refusée et relevée. Le token (Authorization: Bearer) est vérifié
 // à chaque requête : un test prouve ainsi que le service worker envoie bien le token déchiffré.
 import type { AniListScoreFormat } from '../../src/shared/score';
 import type { ListStatus } from '../../src/shared/sync.types';
@@ -291,7 +291,7 @@ export class FakeAniList {
     }
   }
 
-  /** Fiche au format des requêtes de l'extension (MEDIA_FIELDS de api/media.ts, champs de watching.ts et list.ts) */
+  /** Fiche au format des requêtes de l'extension (MEDIA_FIELDS de anilist/media.ts, champs de watching.ts et list.ts) */
   private mediaFields(media: AniListMediaSeed, account: Account | null): Record<string, unknown> {
     const entry = account?.entries.get(media.id) ?? null;
     return {
@@ -313,7 +313,7 @@ export class FakeAniList {
     };
   }
 
-  /** Fiche complète du panneau latéral (requête PanelMedia de api/panel-media.ts) */
+  /** Fiche complète du panneau latéral (requête PanelMedia de anilist/panel-media.ts) */
   private panelFields(media: AniListMediaSeed): Record<string, unknown> {
     return {
       ...this.mediaFields(media, null),

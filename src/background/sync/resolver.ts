@@ -5,8 +5,8 @@ import { PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
 import { STREAMING_PLATFORMS } from '../../platforms/ids';
 import type { MediaMapping } from '../../shared/sync.types';
 import { deleteMediaMappingIf, getMediaMapping, saveMediaMappingIf } from '../../browser/storage/mappings';
-import { getAnimeByIds, searchAnime, type AniListMedia } from '../api/media';
-import type { RequestLane } from '../api/rate-limit';
+import { getAnimeByIds, searchAnime, type AniListMedia } from '../anilist/media';
+import type { RequestLane } from '../rate-limit';
 import {
   alignPlatformSeasons,
   applyMapping,

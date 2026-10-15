@@ -2,8 +2,8 @@ import { t } from '../i18n';
 import { createLogger } from '../browser/logger';
 import type { NetflixTitlesPayload, NetflixTitlesResult, NetflixTitleVerdict } from '../platforms/netflix/history';
 import { normalizeTitle } from '../shared/title';
-import { ApiError } from './api/errors';
-import { searchAnimeBatch, type AniListMedia } from './api/media';
+import { ApiError } from './errors';
+import { searchAnimeBatch, type AniListMedia } from './anilist/media';
 import { netflixShowIdInLink } from './sync/matching';
 import { getConnectedTrackers } from './trackers';
 

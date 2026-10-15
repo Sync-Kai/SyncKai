@@ -13,10 +13,10 @@ import { forgetCachedPageMedia } from '../browser/storage/page-media-cache';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import type { WatchingEntry } from '../shared/watching.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
-import { ApiError } from './api/errors';
+import { ApiError } from './errors';
 import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
-import type { TrackerEntry, TrackerService } from './trackers/tracker';
+import type { TrackerEntry, TrackerService } from './ports/tracker';
 import { createLogger } from '../browser/logger';
 
 // Engagement (service worker) : note de fin de série, revisionnage, commentaire et retrait de la liste, sur tous les

@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Token MAL et fermeture de session simulés : malRequest est testé seul (le renouvellement l'est dans auth/mal.test.ts)
+// Token MAL et fermeture de session simulés : malRequest est testé seul (le renouvellement l'est dans mal/auth.test.ts)
 const auth = vi.hoisted(() => ({
   getMalAccessToken: vi.fn<(options?: { rejected?: string }) => Promise<string | null>>(),
   endSessionIfToken: vi.fn<(service: string, accessToken: string) => Promise<boolean>>(),
 }));
-vi.mock('../auth/mal', () => ({ getMalAccessToken: auth.getMalAccessToken }));
+vi.mock('./auth', () => ({ getMalAccessToken: auth.getMalAccessToken }));
 vi.mock('../../browser/storage/session-end', () => ({ endSessionIfToken: auth.endSessionIfToken }));
 
-import { deleteMalEntry, fromMalStatus, getMalAnime, malProgressBody, malRequest, malStatusBody, parseMalListStatus, saveMalNotes, toMalStatus } from './mal';
+import { deleteMalEntry, fromMalStatus, getMalAnime, malProgressBody, malRequest, malStatusBody, parseMalListStatus, saveMalNotes, toMalStatus } from './client';
 
 describe('statuts MyAnimeList', () => {
   it('convertit les statuts MAL vers les statuts communs', () => {

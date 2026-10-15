@@ -1,6 +1,6 @@
 import { t } from '../i18n';
-import { anilistPublicQuery } from './api/client';
-import { getWatchingList } from './api/watching';
+import { anilistPublicQuery } from './anilist/client';
+import { getWatchingList } from './anilist/watching';
 import {
   AIRING_NOTIFICATION_PREFIX,
   chunk,

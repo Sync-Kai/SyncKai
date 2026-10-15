@@ -3,7 +3,7 @@ import type { AniListToken, AuthResult } from '../../shared/auth.types';
 import { clearAniListSession } from '../../browser/storage/account-data';
 import { hasAniListToken, saveToken } from '../../browser/storage/tokens';
 import { createLogger } from '../../browser/logger';
-import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
+import { classifyAuthFlowError, getOAuthClients } from '../trackers/oauth-clients';
 
 const log = createLogger('auth');
 

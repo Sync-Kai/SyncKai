@@ -7,7 +7,7 @@ import { isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from '.
 import type { EntryWrite } from '../../shared/compare';
 import { readListNotes } from '../../shared/list-notes';
 import { anilistQuery } from './client';
-import { ApiError } from './errors';
+import { ApiError } from '../errors';
 
 export interface MediaListInfo {
   mediaId: number;

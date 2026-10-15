@@ -17,11 +17,11 @@ const fakes = vi.hoisted(() => ({
   create: vi.fn<(id: string, options: unknown) => Promise<string>>(),
 }));
 
-vi.mock('./api/client', () => ({
+vi.mock('./anilist/client', () => ({
   anilistPublicQuery: async (_query: string, _guard: unknown, variables: { ids: number[]; from: number; to: number; page: number }) =>
     fakes.schedule(variables),
 }));
-vi.mock('./api/watching', () => ({ getWatchingList: fakes.getWatchingList }));
+vi.mock('./anilist/watching', () => ({ getWatchingList: fakes.getWatchingList }));
 
 const fake = installFakeChrome({ extra: { notifications: { create: fakes.create, clear: async () => true } } });
 const { checkNewEpisodes } = await import('./airing');

@@ -6,12 +6,12 @@ import { getSessionEpoch } from '../../browser/storage/sessions';
 import { saveCachedMalViewer } from '../../browser/storage/viewer-cache';
 import type { ManualListStatus } from '../../shared/sync.types';
 import { toSafeImageUrl } from '../../shared/url';
-import { getMalAccessToken } from '../auth/mal';
+import { getMalAccessToken } from './auth';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
 import { malScoreFrom, type EntryWrite } from '../../shared/compare';
 import { readListNotes } from '../../shared/list-notes';
-import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
-import { retryDelayMs, sleep } from './rate-limit';
+import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../errors';
+import { retryDelayMs, sleep } from '../rate-limit';
 import { createLogger } from '../../browser/logger';
 
 const log = createLogger('mal');

@@ -4,9 +4,9 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import type { PendingReview } from '../../shared/review.types';
 import type { MediaMapping, SyncOutcome } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
-import type { AniListMedia } from '../api/media';
-import { ApiError } from '../api/errors';
-import type { CatalogMedia, TrackerEntry, TrackerService } from '../trackers/tracker';
+import type { AniListMedia } from '../anilist/media';
+import { ApiError } from '../errors';
+import type { CatalogMedia, TrackerEntry, TrackerService } from '../ports/tracker';
 import type { SyncTarget } from './matching';
 import type { EpisodeResolution } from './resolver';
 import type { ListEntryState, WriteStatus } from './rules';
@@ -42,7 +42,7 @@ vi.mock('./resolver', () => ({
   findReviewCandidates: async () => [],
   toCandidateSummary: () => null,
 }));
-vi.mock('../api/media', () => ({
+vi.mock('../anilist/media', () => ({
   getAnimeById: (id: number) => fakes.getAnimeById(id),
   searchAnime: async () => [],
 }));

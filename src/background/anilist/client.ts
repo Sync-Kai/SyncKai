@@ -2,8 +2,8 @@ import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { endSessionIfToken } from '../../browser/storage/session-end';
 import { getValidToken } from '../../browser/tokens/access';
-import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
-import { aniListBudget, MAX_RETRY_WAIT_MS, readRateLimitHeaders, retryDelayMs, sleep, type RequestLane } from './rate-limit';
+import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../errors';
+import { aniListBudget, MAX_RETRY_WAIT_MS, readRateLimitHeaders, retryDelayMs, sleep, type RequestLane } from '../rate-limit';
 import { createLogger } from '../../browser/logger';
 
 const log = createLogger('anilist');

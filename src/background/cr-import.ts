@@ -58,8 +58,8 @@ import { withStorageLock } from '../browser/storage/lock';
 import type { MediaMapping } from '../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { PLATFORMS } from '../platforms/registry';
-import { ApiError } from './api/errors';
-import { getAnimeByIds } from './api/media';
+import { ApiError } from './errors';
+import { getAnimeByIds } from './anilist/media';
 import { fetchAniListFullList, fetchMalFullList } from './compare';
 import {
   createJobLoop,
@@ -77,7 +77,7 @@ import { mappingKey, seasonLabel } from './sync/matching';
 import { resolveEpisode } from './sync/resolver';
 import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
-import type { TrackerService } from './trackers/tracker';
+import type { TrackerService } from './ports/tracker';
 
 // Import de l'historique Crunchyroll, ADN ou Netflix : analyse (correspondance de chaque saison, sans rien écrire) puis
 // application des éléments choisis dans l'aperçu. Deux tâches reprenables (src/background/jobs/runner.ts).
@@ -225,7 +225,7 @@ async function resolveSeason(season: HistorySeason, platform: ImportPlatform): P
   if (await isExcluded({ platformKey: platformSeriesKey(episode) })) return { kind: 'excluded', key };
 
   const cached = await getMediaMapping(key);
-  // Requêtes de fond : budget AniList partagé (popup et synchro en direct prioritaires, voir api/rate-limit.ts)
+  // Requêtes de fond : budget AniList partagé (popup et synchro en direct prioritaires, voir rate-limit.ts)
   const { result, candidates } = await resolveEpisode(episode, { persist: false, lane: 'background' });
   if (result.ok && (await isExcluded({ mediaId: result.target.mediaId }))) return { kind: 'excluded', key };
   // Netflix : pas un anime (ni fiche liée à la série, ni fiche au même titre), comme en lecture : écarté en silence

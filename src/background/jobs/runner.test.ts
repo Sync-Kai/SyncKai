@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isJobOf, JOB_STALE_MS, reduceJob, startJob, type Job, type JobEvent } from '../../shared/job';
 import { createLoggerFor } from '../../browser/logger';
 import { installFakeChrome } from '../../test/fake-chrome';
-import { ApiError } from '../api/errors';
+import { ApiError } from '../errors';
 import { budgetWaitEvent, createJobLoop, createJobStore, isFatalError, RETRY_DELAYS_MS, type StepResult, type TransientKind } from './runner';
 
 describe('erreur définitive d’une tâche', () => {

@@ -4,7 +4,7 @@ import { COMPARE_STORAGE_KEY, isComparisonResult, planApply, type ComparisonResu
 import { COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../shared/compare-job';
 import type { ApplyDiffsPayload } from '../shared/compare';
 import type { ListEntryState } from './sync/rules';
-import { ApiError } from './api/errors';
+import { ApiError } from './errors';
 
 // Services simulés au niveau des clients d'API : les vrais adaptateurs (trackers) et la vraie boucle d'alignement tournent
 const api = vi.hoisted(() => ({
@@ -16,15 +16,15 @@ const api = vi.hoisted(() => ({
   saveMalEntry: vi.fn(),
   saveMalProgress: vi.fn(),
 }));
-vi.mock('./api/list', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./api/list')>()),
+vi.mock('./anilist/list', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./anilist/list')>()),
   getMediaListInfo: api.getMediaListInfo,
   saveListEntry: api.saveListEntry,
   saveProgress: api.saveProgress,
   saveListStatus: api.saveListStatus,
 }));
-vi.mock('./api/mal', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./api/mal')>()),
+vi.mock('./mal/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./mal/client')>()),
   getMalAnime: api.getMalAnime,
   saveMalEntry: api.saveMalEntry,
   saveMalProgress: api.saveMalProgress,

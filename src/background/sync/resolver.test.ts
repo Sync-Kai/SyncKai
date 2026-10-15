@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import type { AniListMedia } from '../api/media';
+import type { AniListMedia } from '../anilist/media';
 
 // Mise en cache des correspondances selon le filtre Netflix (stockage et API AniList simulés).
 const storage = vi.hoisted(() => {
@@ -12,7 +12,7 @@ const storage = vi.hoisted(() => {
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 
 vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../api/media', () => api);
+vi.mock('../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
 const { IGNORED_SERIES_TTL_MS } = await import('./ignored-series');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { anilistEntryWriteVariables } from './api/list';
-import { malEntryBody } from './api/mal';
+import { anilistEntryWriteVariables } from './anilist/list';
+import { malEntryBody } from './mal/client';
 import { parseAniListCollection, parseMalListPage } from './compare-parse';
 
 describe('parseAniListCollection', () => {

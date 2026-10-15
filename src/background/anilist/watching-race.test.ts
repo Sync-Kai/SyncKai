@@ -11,7 +11,7 @@ vi.mock('./client', () => ({
   anilistQuery: () => new Promise((resolve) => (network.anilist = resolve)),
   anilistPublicQuery: () => Promise.reject(new Error('catalogue hors test')),
 }));
-vi.mock('./mal', () => ({ malRequest: () => new Promise((resolve) => (network.mal = resolve)) }));
+vi.mock('../mal/client', () => ({ malRequest: () => new Promise((resolve) => (network.mal = resolve)) }));
 
 const ANILIST_DATA = {
   MediaListCollection: { lists: [{ entries: [{ progress: 3, updatedAt: 1, media: { id: 21, title: { userPreferred: 'One Piece' } } }] }] },

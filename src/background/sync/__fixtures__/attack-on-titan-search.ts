@@ -1,4 +1,4 @@
-import type { AniListMedia } from '../../api/media';
+import type { AniListMedia } from '../../anilist/media';
 
 // Recherche AniList « Attack on Titan » (20 résultats, relevée le 2026-10-11 sur https://graphql.anilist.co), réduite aux
 // champs lus par la résolution : format, épisodes, date de début, titres (romaji, anglais, quelques synonymes), liens vers

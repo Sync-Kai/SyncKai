@@ -1,7 +1,7 @@
 import { t } from '../i18n';
 import { AGENDA_SCHEDULE_PAGES, itemsInWindow } from './airing-policy';
 import { fetchAiring, getCachedEntries, hasConnectedService } from './airing';
-import { ApiError } from './api/errors';
+import { ApiError } from './errors';
 import { mergeWatchingSeries, weekRangeFromKey, type AgendaResult, type AiringWeekCache } from '../shared/agenda';
 import { writeWeekCache } from '../browser/storage/agenda-store';
 import { getExcludedSeries } from '../shared/exclusions';

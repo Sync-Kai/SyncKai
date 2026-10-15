@@ -34,11 +34,11 @@ import { getCachedViewer } from '../browser/storage/viewer-cache';
 import { getOpenSessions, writeIfSessions } from '../browser/storage/sessions';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
-import { anilistPublicQuery, anilistQuery } from './api/client';
-import { ApiError } from './api/errors';
-import { getScoreFormat } from './api/list';
-import { malRequest } from './api/mal';
-import { getViewer } from './api/viewer';
+import { anilistPublicQuery, anilistQuery } from './anilist/client';
+import { ApiError } from './errors';
+import { getScoreFormat } from './anilist/list';
+import { malRequest } from './mal/client';
+import { getViewer } from './anilist/viewer';
 import { parseAniListCollection, parseMalListPage } from './compare-parse';
 import { readComparison, updateComparison } from './compare-snapshot';
 import {

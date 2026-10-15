@@ -28,7 +28,7 @@ episode count, duration, format, country signals…) is measured against the sam
     it goes to « À vérifier » with the entry the signals prove). A match without `learned` must be left untouched.
 - `anilist/<franchise>.json`: AniList snapshots. `searches` / `byIds` map each request (exact search text; sorted ids
   joined by `,`) to the returned ids in API order; `media` holds the entries in the shape of `MEDIA_FIELDS`
-  (`src/background/api/media.ts`), links reduced to the supported platforms, with `duration`, `countryOfOrigin`,
+  (`src/background/anilist/media.ts`), links reduced to the supported platforms, with `duration`, `countryOfOrigin`,
   `status`, `endDate` (and a copy of `seasonYear`) stored apart in `signals`; `corpus.test.ts` puts them back in the entry
   it serves. `fetchedAt` is the snapshot date.
 - `corpus.test.ts`: mocks only `anilistPublicQuery` (the real `searchAnime` / `getAnimeByIds` / `parseMedia` run), with
@@ -53,4 +53,4 @@ Rule: **a real case reported by the owner becomes a corpus case** (with the page
 ones) from the public AniList API, anonymously, 2.5 s apart (about 24 requests per minute), and sets `fetchedAt` to
 today. Run it manually, never in `npm run verify`. AniList data moves (new seasons, links added): after a refresh,
 review each changed `expected` before accepting it, since a change can be a regression as well as a catalog update.
-The script keeps a copy of `MEDIA_FIELDS`; a test checks it is identical to the one in `api/media.ts`.
+The script keeps a copy of `MEDIA_FIELDS`; a test checks it is identical to the one in `anilist/media.ts`.

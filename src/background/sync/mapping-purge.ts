@@ -3,7 +3,7 @@ import { deleteMediaMappingsIfUnchanged, getMediaMappings } from '../../browser/
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
 import { createLogger } from '../../browser/logger';
-import { getAnimeByIds, type AniListMedia } from '../api/media';
+import { getAnimeByIds, type AniListMedia } from '../anilist/media';
 import { legacySeriesSlugInLink, linksToOtherSeries, linksToOtherSeriesBySlug, matchPlatformLink, SERIES_FORMATS } from './matching';
 
 // Purge unique des correspondances apprises avant le correctif SYNC-01 (2.3.0) : une suite publiée comme une autre

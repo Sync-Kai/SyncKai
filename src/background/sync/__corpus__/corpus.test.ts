@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeChrome } from '../../../test/fake-chrome';
-import mediaSource from '../../api/media.ts?raw';
+import mediaSource from '../../anilist/media.ts?raw';
 import refreshScriptSource from '../../../../scripts/refresh-anilist-corpus.ts?raw';
 import { CASES } from './cases';
 import { byIdsKey, CATALOG, SNAPSHOTS } from './snapshots';
@@ -67,8 +67,8 @@ function answer(variables: Record<string, unknown>): unknown {
   throw new Error(`Requête AniList inattendue : ${JSON.stringify(variables)}`);
 }
 
-vi.mock('../../api/client', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../api/client')>()),
+vi.mock('../../anilist/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../anilist/client')>()),
   anilistPublicQuery: (_query: string, isData: (data: unknown) => boolean, variables: Record<string, unknown> = {}): Promise<unknown> => {
     const data = answer(variables);
     if (!isData(data)) return Promise.reject(new Error(`Réponse simulée refusée : ${JSON.stringify(variables)}`));
@@ -82,7 +82,7 @@ vi.mock('../../../browser/platform-access', () => ({ hasPlatformAccess: () => Pr
 const fake = installFakeChrome();
 const { resolveEpisode } = await import('../resolver');
 const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media');
-const { clearCatalogCache } = await import('../../api/media');
+const { clearCatalogCache } = await import('../../anilist/media');
 const { getMediaMapping, saveMediaMapping } = await import('../../../browser/storage/mappings');
 
 /** Saison affichée parmi les saisons relevées (`seq` = numéro de saison ; une seule saison relevée : celle-ci) */
@@ -244,7 +244,7 @@ describe('corpus : cohérence', () => {
     }
   });
 
-  it('le script de relevé demande exactement les champs de la résolution (MEDIA_FIELDS de api/media.ts)', () => {
+  it('le script de relevé demande exactement les champs de la résolution (MEDIA_FIELDS de anilist/media.ts)', () => {
     const fieldsOf = (source: string): string | undefined => /const MEDIA_FIELDS = \/\* GraphQL \*\/ `([^`]*)`/.exec(source)?.[1];
     const fields = fieldsOf(mediaSource);
     expect(fields).toBeDefined();

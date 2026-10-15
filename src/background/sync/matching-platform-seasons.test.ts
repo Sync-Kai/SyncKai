@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import type { AniListMedia } from '../api/media';
+import type { AniListMedia } from '../anilist/media';
 
 // Série Netflix en plusieurs saisons, une fiche AniList par saison, liées à des titres Netflix DIFFÉRENTS (relevé le
 // 2026-10-11 : Ranma1/2, /title/81171925, 3 saisons ; AniList lie la saison 3 à 81171925 mais les saisons 1 et 2 à
@@ -13,7 +13,7 @@ const storage = vi.hoisted(() => {
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../api/media', () => api);
+vi.mock('../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
 const { resolveTarget } = await import('./matching');

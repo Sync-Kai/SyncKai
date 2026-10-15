@@ -3,9 +3,9 @@ import { setLocale } from '../i18n';
 import type { MediaRef } from '../shared/engagement.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../shared/watching.types';
-import { ApiError } from './api/errors';
+import { ApiError } from './errors';
 import type { ListEntryState } from './sync/rules';
-import type { TrackerEntry, TrackerService } from './trackers/tracker';
+import type { TrackerEntry, TrackerService } from './ports/tracker';
 
 // Cartes « À noter » liées au compte (DATA-01), retrait de la liste et commentaire : vrai engagement.ts, services et
 // stockage simulés.

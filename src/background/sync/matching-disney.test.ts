@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import type { AniListMedia } from '../api/media';
+import type { AniListMedia } from '../anilist/media';
 
 // Disney+ (catalogue généraliste, aucun identifiant de série sur la page de lecture) : correspondance par le titre
 // anglais de la série, fiable seulement si la fiche AniList au même titre est liée à Disney+ (toute forme de lien).
@@ -12,7 +12,7 @@ const storage = vi.hoisted(() => {
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../api/media', () => api);
+vi.mock('../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
 const { disneyEntityInLink, hasSeriesTitle, isDisneyEntityLink, isTitleBoundLink, mappingKey, matchDisneyLink, matchPlatformLink, platformLinkVerdict } = await import('./matching');

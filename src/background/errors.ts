@@ -1,4 +1,4 @@
-import type { AniListErrorCode } from '../../shared/anilist.types';
+import type { AniListErrorCode } from '../shared/anilist.types';
 
 /** Codes d'erreur communs aux API des services de suivi (AniList, MyAnimeList) */
 export type ApiErrorCode = AniListErrorCode;

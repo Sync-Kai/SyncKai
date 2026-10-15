@@ -42,9 +42,9 @@ vi.stubGlobal('navigator', {
   },
 });
 
-const { getMalAccessToken, loginWithMal } = await import('./mal');
-const { ApiError, REQUEST_TIMEOUT_MS } = await import('../api/errors');
-const { malRequest } = await import('../api/mal');
+const { getMalAccessToken, loginWithMal } = await import('./auth');
+const { ApiError, REQUEST_TIMEOUT_MS } = await import('../errors');
+const { malRequest } = await import('./client');
 const { endSession } = await import('../../browser/storage/session-end');
 
 setLocale('fr');

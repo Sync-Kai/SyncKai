@@ -24,7 +24,7 @@ vi.stubGlobal('chrome', {
 });
 vi.stubGlobal('navigator', { language: 'fr', locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
 
-const { loginWithAniList } = await import('./anilist');
+const { loginWithAniList } = await import('./auth');
 
 setLocale('fr');
 

@@ -11,7 +11,7 @@ import { createLogger } from '../../browser/logger';
 import { sessionArea } from '../../browser/storage/session-cache';
 import { MATCH_DIAGNOSTIC_KEY } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
-import type { RequestLane } from '../api/rate-limit';
+import type { RequestLane } from '../rate-limit';
 import { candidateSignalChecks, type CachedMappingVerdict, type MediaCandidate, type ResolveResult } from './matching';
 
 // Diagnostic des correspondances, builds de dev seulement (`npm run build:dev`) : chaque appel est placé sous

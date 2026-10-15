@@ -2,8 +2,8 @@ import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
-import type { RequestLane } from './rate-limit';
-import { ApiError } from './errors';
+import type { RequestLane } from '../rate-limit';
+import { ApiError } from '../errors';
 import { parseNextEpisode, toAiringStatus } from './watching';
 import type { PageMediaDetails } from '../../shared/page-media.types';
 

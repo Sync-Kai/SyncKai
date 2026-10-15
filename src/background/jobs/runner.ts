@@ -2,8 +2,8 @@ import { reduceJob, isJobStale, JOB_STALE_MS, type AnyJob, type JobEvent } from 
 import type { Logger } from '../../browser/logger';
 import { withStorageLock } from '../../browser/storage/lock';
 import type { TrackerId } from '../../shared/tracker.types';
-import { ApiError, type ApiErrorCode } from '../api/errors';
-import { aniListBudget, sleep, type BudgetWait } from '../api/rate-limit';
+import { ApiError, type ApiErrorCode } from '../errors';
+import { aniListBudget, sleep, type BudgetWait } from '../rate-limit';
 
 // Exécution des tâches de fond reprenables (src/shared/job.ts) : file traitée élément par élément,
 // signe de vie, pauses avec nouvelle tentative sur erreur passagère, « Arrêter », reprise par alarme

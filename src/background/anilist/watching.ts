@@ -19,8 +19,8 @@ import type {
 } from '../../shared/watching.types';
 import { isWatchingFresh, WATCHING_REVALIDATE_MS } from '../../shared/watching';
 import { anilistPublicQuery, anilistQuery } from './client';
-import { ApiError } from './errors';
-import { malRequest } from './mal';
+import { ApiError } from '../errors';
+import { malRequest } from '../mal/client';
 import { getViewer } from './viewer';
 import { createLogger } from '../../browser/logger';
 

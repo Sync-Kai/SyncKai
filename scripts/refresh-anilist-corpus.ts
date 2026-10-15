@@ -12,7 +12,7 @@ const ENDPOINT = 'https://graphql.anilist.co';
 /** 2,5 s entre deux requêtes : 24 par minute, sous la limite anonyme d'AniList */
 const REQUEST_GAP_MS = 2500;
 
-// Copie EXACTE de MEDIA_FIELDS (src/background/api/media.ts), vérifiée par corpus.test.ts
+// Copie EXACTE de MEDIA_FIELDS (src/background/anilist/media.ts), vérifiée par corpus.test.ts
 const MEDIA_FIELDS = /* GraphQL */ `
   id
   idMal

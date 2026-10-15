@@ -4,7 +4,7 @@ import { getSessionEpoch } from '../../browser/storage/sessions';
 import { saveCachedViewer } from '../../browser/storage/viewer-cache';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistQuery } from './client';
-import { ApiError } from './errors';
+import { ApiError } from '../errors';
 import { createLogger } from '../../browser/logger';
 
 const log = createLogger('anilist');

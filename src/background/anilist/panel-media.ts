@@ -18,7 +18,7 @@ import type { RecentSync } from '../../shared/review.types';
 import { getRecentSyncs } from '../../browser/storage/reviews';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
-import { ApiError } from './errors';
+import { ApiError } from '../errors';
 import { buildPlatforms, parseNextEpisode, toAiringStatus } from './watching';
 
 // Fiche complète de l'onglet « En lecture » (panneau latéral) : une requête AniList, cache de session 6 h.

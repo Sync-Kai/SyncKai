@@ -6,13 +6,13 @@ import type { MediaRef } from '../shared/engagement.types';
 import { getSettings } from '../browser/storage/settings-access';
 import type { AddListStatus, ListStatusChange, ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
-import { ApiError } from './api/errors';
+import { ApiError } from './errors';
 import { deferRating } from './engagement';
 import { withEntryLock } from './sync/entry-lock';
 import { decideAddToList, decideStatusChange, progressWrite, type ListEntryState, type WriteStatus } from './sync/rules';
 import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
-import type { CatalogMedia, TrackerService } from './trackers/tracker';
+import type { CatalogMedia, TrackerService } from './ports/tracker';
 import { createLogger } from '../browser/logger';
 
 // Contrôles manuels (service worker) : +1 / −1 depuis le popup et raccourci « valider l'épisode ».

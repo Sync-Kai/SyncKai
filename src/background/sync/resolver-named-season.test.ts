@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import type { AniListMedia } from '../api/media';
+import type { AniListMedia } from '../anilist/media';
 import {
   AOT_SEASON_IDS,
   AOT_SERIES,
@@ -22,7 +22,7 @@ const storage = vi.hoisted(() => {
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../api/media', () => api);
+vi.mock('../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
 const { isUnmatchedNamedSeason, resolveTarget } = await import('./matching');

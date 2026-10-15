@@ -1,11 +1,11 @@
 import { hasMalToken, hasValidAniListToken } from '../../browser/storage/tokens';
 import type { TrackerId } from '../../shared/tracker.types';
-import { deleteListEntry, getMediaListInfo, getScoreFormat, saveListEntry, saveListNotes, saveListStatus, saveProgress, saveScore } from '../api/list';
-import { deleteMalEntry, getMalAnime, saveMalEntry, saveMalListStatus, saveMalNotes, saveMalProgress, saveMalScore } from '../api/mal';
+import { deleteListEntry, getMediaListInfo, getScoreFormat, saveListEntry, saveListNotes, saveListStatus, saveProgress, saveScore } from '../anilist/list';
+import { deleteMalEntry, getMalAnime, saveMalEntry, saveMalListStatus, saveMalNotes, saveMalProgress, saveMalScore } from '../mal/client';
 import { markSeriesStale } from '../compare-snapshot';
 import type { ListEntryState } from '../sync/rules';
 import { toAniListScore, toMalScore } from '../../shared/score';
-import type { TrackerService } from './tracker';
+import type { TrackerService } from '../ports/tracker';
 
 /**
  * Toute écriture réussie hors alignement (synchro en direct ou en file, carte vérifiée, +1/−1, statut, note,
@@ -36,7 +36,7 @@ function invalidatingComparison(tracker: TrackerService): TrackerService {
 
 export const anilistTracker: TrackerService = invalidatingComparison({
   id: 'anilist',
-  // Présence et expiration lues sans déchiffrement ; le token est déchiffré à la requête (api/client.ts)
+  // Présence et expiration lues sans déchiffrement ; le token est déchiffré à la requête (anilist/client.ts)
   isConnected: hasValidAniListToken,
   resolveId: (media) => media.mediaId,
   async getEntry(id) {

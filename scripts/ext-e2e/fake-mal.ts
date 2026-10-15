@@ -1,5 +1,5 @@
 // Faux MyAnimeList (API REST v2 https://api.myanimelist.net/v2) : catalogue, comptes et listes en mémoire, avec état.
-// Chemins reconnus : ceux de src/background/api/mal.ts et api/watching.ts (profil, liste « watching », fiche avec
+// Chemins reconnus : ceux de src/background/mal/client.ts et anilist/watching.ts (profil, liste « watching », fiche avec
 // my_list_status, PATCH / DELETE my_list_status). Tout autre chemin est refusé et relevé. Token vérifié à chaque requête.
 import { json, sleep, type FakeResponse, type InterceptedRequest, type RequestHandler } from './harness';
 
