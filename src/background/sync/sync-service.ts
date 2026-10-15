@@ -71,7 +71,8 @@ function toErrorResult(error: unknown): { ok: false; code: AniListErrorCode; mes
 }
 
 async function queueReview(review: PendingReview): Promise<void> {
-  await savePendingReview(review);
+  // Refusée seulement si la place est prise par des corrections en attente (jamais évincées) ou par une correction de la saison
+  if (!(await savePendingReview(review))) log.warn(`Carte « À vérifier » non créée pour ${review.key} : corrections en attente prioritaires`);
   await refreshReviewBadge();
 }
 

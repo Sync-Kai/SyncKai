@@ -615,7 +615,8 @@ export async function cancelCrImport(): Promise<Result<null, 'NOT_FOUND'>> {
 
 /**
  * CR_IMPORT_REVIEWS : crée les cartes « À vérifier » (même flux que la synchro en direct) des saisons choisies.
- * Dans la limite des places libres (MAX_PENDING_REVIEWS) : les vérifications existantes ne sont jamais évincées.
+ * Dans la limite des places libres (MAX_PENDING_REVIEWS) : les vérifications existantes ne sont jamais évincées, et une
+ * correction en attente (« Corriger ») pour la même saison n'est jamais remplacée (voir savePendingReview).
  */
 export async function createCrReviews({ keys }: CrImportReviewsPayload): Promise<CrImportReviewsResult> {
   try {
@@ -634,8 +635,8 @@ export async function createCrReviews({ keys }: CrImportReviewsPayload): Promise
         if (free <= 0) continue;
         free--;
       }
-      await savePendingReview({ key: item.key, episode: item.episode, reason: item.reason, suggestion: item.suggestion, candidates: item.candidates, previous: null, createdAt: now - i });
-      created.add(item.key);
+      const saved = await savePendingReview({ key: item.key, episode: item.episode, reason: item.reason, suggestion: item.suggestion, candidates: item.candidates, previous: null, createdAt: now - i });
+      if (saved) created.add(item.key);
     }
     if (created.size > 0) {
       await updatePlan((p) => withReviewsCreated(p, created));

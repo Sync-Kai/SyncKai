@@ -295,11 +295,27 @@ export async function getPendingReviews(): Promise<PendingReview[]> {
   return (Array.isArray(raw) ? raw.filter(isPendingReview) : []).sort((a, b) => b.createdAt - a.createdAt);
 }
 
-/** Ajoute ou remplace la carte d'une saison (une seule par clé : le dernier épisode l'emporte). */
-export function savePendingReview(review: PendingReview): Promise<void> {
+/**
+ * Ajoute ou remplace la carte d'une saison (une seule par clé : le dernier épisode l'emporte), MAX_PENDING_REVIEWS au plus.
+ * Une correction (« Corriger », `previous`, épisode mis de côté) n'est jamais évincée ni remplacée par une vérification
+ * simple : la plus ancienne carte simple laisse sa place ; corrections seules → nouvelle carte simple refusée. Correction
+ * remplacée par une correction : épisode mis de côté gardé. Retourne false si la carte n'est pas enregistrée.
+ */
+export function savePendingReview(review: PendingReview): Promise<boolean> {
   return withStorageLock(async () => {
-    const others = (await getPendingReviews()).filter((r) => r.key !== review.key);
-    await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: [review, ...others].slice(0, MAX_PENDING_REVIEWS) });
+    const reviews = await getPendingReviews();
+    const isCorrection = (r: PendingReview): boolean => r.previous !== null;
+    const same = reviews.find((r) => r.key === review.key);
+    if (same && isCorrection(same) && !isCorrection(review)) return false;
+    const carried = same?.deferred !== undefined && isCorrection(review) ? (review.deferred === undefined ? same.deferred : keepDeferred(same.deferred, review.deferred)) : review.deferred;
+    const next: PendingReview = carried !== undefined ? { ...review, deferred: carried } : review;
+    const others = reviews.filter((r) => r.key !== review.key);
+    const corrections = others.filter(isCorrection).length + (isCorrection(next) ? 1 : 0);
+    if (!isCorrection(next) && corrections >= MAX_PENDING_REVIEWS) return false;
+    // Cartes simples gardées dans la place restante, les plus récentes d'abord (getPendingReviews : ordre décroissant)
+    const simpleKept = new Set(others.filter((r) => !isCorrection(r)).slice(0, Math.max(0, MAX_PENDING_REVIEWS - corrections - (isCorrection(next) ? 0 : 1))));
+    await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: [next, ...others.filter((r) => isCorrection(r) || simpleKept.has(r))] });
+    return true;
   });
 }
 

@@ -276,6 +276,32 @@ describe('plafonds (TEST-10)', () => {
     expect(reviews.map((r) => r.createdAt)).not.toContain(1);
   });
 
+  it('savePendingReview : une correction (épisode mis de côté) n’est jamais évincée ni remplacée par une vérification simple', async () => {
+    const deferred = { episode: episode(1), epochs: { anilist: 0 } };
+    const correction = review(1, { previous: { mediaId: 9, title: 'Fiche 9', progress: 1 }, deferred });
+    await storage.savePendingReview(correction);
+    for (let n = 2; n <= MAX_PENDING_REVIEWS + 3; n++) expect(await storage.savePendingReview(review(n))).toBe(true);
+    const reviews = await storage.getPendingReviews();
+    expect(reviews).toHaveLength(MAX_PENDING_REVIEWS);
+    // La plus ancienne carte est la correction : ce sont les cartes simples les plus anciennes qui laissent leur place
+    expect(reviews.find((r) => r.key === correction.key)).toEqual(correction);
+    expect(reviews.map((r) => r.createdAt)).not.toContain(2);
+    // Vérification simple de la même saison (import) : refusée, la correction reste
+    expect(await storage.savePendingReview(review(1, { createdAt: 500 }))).toBe(false);
+    expect((await storage.getPendingReviews()).find((r) => r.key === correction.key)).toEqual(correction);
+    // Correction rouverte : épisode mis de côté gardé
+    expect(await storage.savePendingReview({ ...correction, createdAt: 600, deferred: undefined })).toBe(true);
+    expect((await storage.getPendingReviews())[0]).toMatchObject({ key: correction.key, createdAt: 600, deferred });
+  });
+
+  it('savePendingReview : place prise par des corrections seules → nouvelle vérification simple refusée', async () => {
+    for (let n = 1; n <= MAX_PENDING_REVIEWS; n++) await storage.savePendingReview(review(n, { previous: { mediaId: n, title: `Fiche ${n}`, progress: 1 } }));
+    expect(await storage.savePendingReview(review(99))).toBe(false);
+    const reviews = await storage.getPendingReviews();
+    expect(reviews).toHaveLength(MAX_PENDING_REVIEWS);
+    expect(reviews.every((r) => r.previous !== null)).toBe(true);
+  });
+
   it('addRecentSync : une entrée par saison, 5 au plus, la plus récente en premier', async () => {
     for (let n = 1; n <= 7; n++) await storage.addRecentSync(recent(n, BOTH));
     await storage.addRecentSync(recent(6, BOTH, 50));
