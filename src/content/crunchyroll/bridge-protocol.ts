@@ -20,7 +20,7 @@ import type { CrunchyrollSignalTable } from '../../shared/crunchyroll-metadata';
  * Version du protocole, à incrémenter à tout changement des messages ou des formes réduites : le pont MAIN d'une
  * version précédente reste dans les onglets ouverts après une mise à jour. Chaque côté ignore les messages d'une autre version.
  */
-export const CRUNCHYROLL_BRIDGE_VERSION = 1;
+export const CRUNCHYROLL_BRIDGE_VERSION = 2;
 // Noms courts : chaînes chargées par le script de contenu Crunchyroll / ADN (budget de taille)
 export const CRUNCHYROLL_HANDSHAKE_EVENT = 'synckai:cr-hello';
 export const CRUNCHYROLL_PORT_OFFER = 'synckai:cr-port';

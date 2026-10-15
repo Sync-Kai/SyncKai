@@ -1114,7 +1114,14 @@ function resolveByRules(episode: EpisodeNumbers, candidates: MediaCandidate[], c
   if (seasonKey && seasonKey !== animeKey) {
     const exact = pool.filter((c) => c.titles.some((t) => normalizeTitle(t) === seasonKey));
     const matches = exact.length > 0 ? exact : pool.filter((c) => c.titles.some((t) => normalizeTitle(t).includes(seasonKey)));
-    if (matches.length === 1 && fits(matches[0], relative)) {
+    // Titre de la saison seulement contenu dans celui d'une partie suivante (« L'Attaque des Titans Saison 3 » dans le
+    // synonyme « … Saison 3 Partie 2 ») : la saison entière, épisode placé depuis sa première partie
+    const whole = exact.length === 0 && matches.length === 1 ? groupSeasons(pool).find((group) => group.includes(matches[0]) && group[0] !== matches[0]) : undefined;
+    const hit = whole ? walkSeasons(whole, 0, relative) : null;
+    if (whole && hit && fits(whole[hit.index], hit.progress)) {
+      return target(whole[hit.index], relative, hit.progress, 'season', level(true), t('match.seasonByTitle', { title: episode.seasonTitle ?? '' }));
+    }
+    if (!whole && matches.length === 1 && fits(matches[0], relative)) {
       return target(matches[0], relative, relative, 'season', level(true), t('match.seasonByTitle', { title: episode.seasonTitle ?? '' }));
     }
   }

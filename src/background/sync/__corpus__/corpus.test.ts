@@ -146,12 +146,13 @@ function disneyCaseSignals(captured: CapturedSignals, seasonNumber: number | nul
 
 /**
  * Crunchyroll (adapters/crunchyroll.ts, via le pont MAIN) : réponses `seasons` et `episodes` reconstruites des saisons
- * relevées (version originale japonaise, premier épisode diffusé l'année relevée), passées par les réductions et
- * crunchyrollSignals. Crunchyroll n'envoie pas `airing`.
+ * relevées dans la forme réelle du 2026-10-14 (une ligne par saison originale japonaise, `is_dubbed: true` dès qu'un
+ * doublage existe, sa propre entrée `original` dans `versions[]` ; premier épisode diffusé l'année relevée), passées par
+ * les réductions et crunchyrollSignals. Crunchyroll n'envoie pas `airing`.
  */
 function crunchyrollCaseSignals(captured: CapturedSignals, seasonNumber: number | null): PlatformSignals | undefined {
   const seasons = captured.seasons ?? [];
-  const rows = reduceCrunchyrollSeasons({ data: seasons.map((s) => ({ id: `GCORPUS${s.seq}`, season_number: s.seq, season_sequence_number: s.seq, number_of_episodes: s.episodes, audio_locale: 'ja-JP', is_dubbed: false })) }) ?? [];
+  const rows = reduceCrunchyrollSeasons({ data: seasons.map((s) => ({ id: `GCORPUS${s.seq}`, season_number: s.seq, season_sequence_number: s.seq, number_of_episodes: s.episodes, audio_locale: 'ja-JP', is_dubbed: true, is_subbed: true, versions: [{ audio_locale: 'ja-JP', guid: `GCORPUS${s.seq}`, original: true }, { audio_locale: 'en-US', guid: `GCORPUSDUB${s.seq}`, original: false }] })) }) ?? [];
   const series = mergeCrunchyrollSeries('GCORPUS', captured.seriesStartYear ?? null, rows, (id) => {
     const s = seasons.find((x) => `GCORPUS${x.seq}` === id);
     return s ? (reduceCrunchyrollEpisodes({ data: [{ id: `GCORPUSE${s.seq}`, episode_air_date: `${s.year}-01-01T00:00:00Z`, duration_ms: captured.episodeDurationS === undefined ? undefined : captured.episodeDurationS * 1000, media_type: 'episode' }] }) ?? undefined) : undefined;

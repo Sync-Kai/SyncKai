@@ -2,10 +2,14 @@
   "fetchedAt": "2026-10-14",
   "searches": {
     "Attack on Titan": [16498,110277,20958,99147,20811,18397,119113,19391,99634,21281,100465,139754,131681,20692,108942,162314,104578,120257,146984,20691],
-    "Attack on Titan: Last Attack": []
+    "Attack on Titan: Last Attack": [],
+    "Attack on Titan Season 3": [99147,104578,108942,120257,162314,146984],
+    "Attack on Titan Final Season": [110277,131681,162314,146984,139754],
+    "L'Attaque des Titans Saison 3": [104578],
+    "L'Attaque des Titans": [110277,104578,131681,16498]
   },
   "byIds": {
-
+    "20958,99147": [20958,99147]
   },
   "media": [
     {"id":16498,"idMal":16498,"format":"TV","episodes":25,"startDate":{"year":2013,"month":4,"day":7},"seasonYear":2013,"title":{"romaji":"Shingeki no Kyojin","english":"Attack on Titan","native":"進撃の巨人","userPreferred":"Shingeki no Kyojin"},"synonyms":["SnK","AoT","Ataque a los Titanes","Ataque dos Titãs","L'Attacco dei Giganti","מתקפת הטיטאנים","进击的巨人","L’Attaque des Titans","الهجوم على العمالقة","ผ่าพิภพไททัน","حمله به تایتان","Ataque de Titãs","Atak Tytanów","Атака титанов","Đại Chiến Titan"],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":20958,"type":"ANIME","format":"TV"}},{"relationType":"PREQUEL","node":{"id":20811,"type":"ANIME","format":"OVA"}}]},"externalLinks":[{"url":"http://www.crunchyroll.com/attack-on-titan"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2013,"endDate":{"year":2013,"month":9,"day":28}}},

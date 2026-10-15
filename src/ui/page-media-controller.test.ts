@@ -476,6 +476,26 @@ describe('plafond des relectures automatiques (AniList jamais saturé, quelle qu
       vi.useRealTimers();
     }
   });
+
+  it('saison choisie dans le menu de la page (navigation sans changement d’URL) : toujours suivie, même plafond atteint', async () => {
+    // Régression (2026-10-14, Attack on Titan) : après 5 saisons choisies en une minute, le panneau ne suivait plus le menu
+    const ctl = await readyPopup();
+    vi.useFakeTimers();
+    try {
+      const reads = fake.reads;
+      await run(ctl, 40, (second) => {
+        if (second % 4 === 0) ctl.navigated();
+      });
+      expect(fake.reads - reads).toBe(10);
+      // Choix en rafale : regroupés (une relecture tout de suite, la suivante 2 s plus tard)
+      const burst = fake.reads;
+      for (let i = 0; i < 5; i++) ctl.navigated();
+      await run(ctl, 4, () => undefined);
+      expect(fake.reads - burst).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('réponse tardive après un changement de page ou d’onglet', () => {

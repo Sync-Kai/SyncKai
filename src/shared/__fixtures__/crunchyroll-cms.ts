@@ -114,3 +114,81 @@ export function frierenUpNext(seasonId = FRIEREN_S2, episode = 3): unknown {
     meta: {},
   };
 }
+
+// ─── Attack on Titan (GR751KNZY) : forme réelle relevée le 2026-10-14 ─────
+// Réponses anonymes (`locale=en-US`, `meta.versions_considered: true`) : UNE ligne par saison, la version originale
+// (ja-JP), avec `is_dubbed: true` (des doublages EXISTENT) et ses doublages dans `versions[]` (`original: false`, autre
+// `guid`). Valeurs relevées (identifiants, titres, numéros, nombres d'épisodes, dates, durée) ; `versions` réduites à deux
+// entrées, épisodes de la saison 3 réduits aux trois premiers.
+
+export const AOT_SERIES_ID = 'GR751KNZY';
+export const AOT_S3 = 'GRG5GZZ3R';
+/** Doublage anglais de la saison 3 (`versions[].guid`, saison absente de la liste) */
+export const AOT_S3_DUB = 'GY19CP3JX';
+/** S3 E1 (« Smoke Signal », E38) en version originale et en doublage anglais */
+export const AOT_S3E1 = 'G60X9EZVR';
+export const AOT_S3E1_DUB = 'GVWU0Z0MG';
+
+const aotSeason = (id: string, title: string, number: number, episodes: number, dub: string): Record<string, unknown> => ({
+  id,
+  title,
+  series_id: AOT_SERIES_ID,
+  season_display_number: '',
+  season_sequence_number: number,
+  season_number: number,
+  is_subbed: true,
+  is_dubbed: true,
+  audio_locale: 'ja-JP',
+  audio_locales: ['ja-JP'],
+  versions: [
+    { audio_locale: 'ja-JP', guid: id, original: true, variant: '' },
+    { audio_locale: 'en-US', guid: dub, original: false, variant: '' },
+  ],
+  number_of_episodes: episodes,
+});
+
+export function aotSeasons(): unknown {
+  return {
+    total: 6,
+    data: [
+      aotSeason('GR9PXM286', 'Attack on Titan', 1, 27, 'GR5VCDJE3'),
+      aotSeason('GYE58GMXR', 'Attack on Titan: Season 2', 2, 12, 'GR49C7303'),
+      aotSeason(AOT_S3, 'Attack on Titan Season 3', 3, 22, AOT_S3_DUB),
+      aotSeason('G69PC2WV0', 'Attack on Titan Final Season', 4, 30, 'G65VCDJ23'),
+      aotSeason('G6JQC1E10', 'Attack on Titan: Last Attack', 5, 1, 'GYNQCJVJM'),
+      aotSeason('GY3VC2P34', 'Attack on Titan OADs', 6, 8, 'G6NQCJW12'),
+    ],
+    meta: { versions_considered: true },
+  };
+}
+
+export function aotSeason3Episodes(): unknown {
+  const episode = (id: string, dub: string, number: number, date: string): Record<string, unknown> => ({
+    id,
+    season_id: AOT_S3,
+    series_id: AOT_SERIES_ID,
+    season_title: 'Attack on Titan Season 3',
+    season_number: 3,
+    episode_number: number,
+    sequence_number: number - 37,
+    episode_air_date: date,
+    duration_ms: 1_435_123,
+    media_type: 'episode',
+    audio_locale: 'ja-JP',
+    is_subbed: true,
+    is_dubbed: true,
+    versions: [
+      { audio_locale: 'ja-JP', guid: id, original: true, variant: '', season_guid: AOT_S3 },
+      { audio_locale: 'en-US', guid: dub, original: false, variant: '', season_guid: AOT_S3_DUB },
+    ],
+  });
+  return {
+    total: 22,
+    data: [
+      episode(AOT_S3E1, AOT_S3E1_DUB, 38, '2018-07-22T15:35:00Z'),
+      episode('G6QW47G26', 'G31UX3XN5', 39, '2018-07-29T15:35:00Z'),
+      episode('GYEXXVWN6', 'GPWUK5K9W', 40, '2018-08-05T15:35:00Z'),
+    ],
+    meta: { versions_considered: true },
+  };
+}

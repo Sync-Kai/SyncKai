@@ -5,7 +5,8 @@ import { hasSignals, isPlatformSignals, isSignalYear, medianMinutes, toPlatformS
 // (anonyme, requêtes de la page elle-même) : l'application web demande
 // - `/content/v2/cms/series/{seriesId}` → `data[0]` `{ series_launch_year, episode_count, season_count… }` ;
 // - `/content/v2/cms/series/{seriesId}/seasons` → `data[]` `{ id, season_number, season_sequence_number,
-//   number_of_episodes, audio_locale, is_dubbed, is_subbed… }` (un doublage = une saison à part, même numéro) ;
+//   number_of_episodes, audio_locale, is_dubbed, is_subbed, versions[]… }` : une ligne par saison originale, ses doublages
+//   dans `versions[]` (`is_dubbed: true` dès qu'un doublage existe) ; ailleurs, un doublage peut être une saison à part ;
 // - `/content/v2/cms/seasons/{seasonId}/episodes` → `data[]` `{ id, season_number, duration_ms, episode_air_date,
 //   audio_locale, media_type… }` ;
 // - `/content/v2/discover/up_next/{seriesId}` → `data[0].panel` `{ id, episode_metadata: { season_id, duration_ms… } }`.
@@ -26,7 +27,10 @@ export interface CrunchyrollSeason {
   episodeCount: number | null;
   /** `audio_locale` (ja-JP, en-US…) */
   audioLocale: string | null;
-  /** `is_dubbed` : version doublée (saison à part, même numéro que l'originale) */
+  /**
+   * Version doublée (saison à part, même numéro que l'originale) : `versions[]`, entrée de la saison elle-même
+   * (`original`) ; sans elle, `is_dubbed` d'une saison non sous-titrée (voir dubbedSeason)
+   */
   dubbed: boolean | null;
   /** Année du premier `episode_air_date` des épisodes vus de la saison */
   firstAirYear: number | null;
@@ -82,6 +86,19 @@ export function reduceCrunchyrollSeries(raw: unknown): { launchYear: number | nu
   return { launchYear: isSignalYear(year) ? year : null };
 }
 
+/**
+ * Saison doublée ? Forme réelle (2026-10-14, `versions_considered`) : une ligne par saison ORIGINALE, `is_dubbed: true`
+ * dès qu'un doublage existe, chaque version dans `versions[]` (`guid`, `original`) : l'entrée de la saison elle-même fait
+ * foi. Sans elle : `is_dubbed` seulement pour une saison non sous-titrée (une originale doublée est aussi sous-titrée),
+ * inconnu sinon.
+ */
+function dubbedSeason(season: Record<string, unknown>, id: string): boolean | null {
+  const own = list(season.versions).map(record).find((version) => version.guid === id);
+  if (typeof own?.original === 'boolean') return !own.original;
+  if (season.is_dubbed === false) return false;
+  return season.is_dubbed === true && season.is_subbed !== true ? true : null;
+}
+
 /** Réponse `cms/series/{id}/seasons` → saisons réduites (une saison sans identifiant est écartée) ; null sans liste */
 export function reduceCrunchyrollSeasons(raw: unknown): CrunchyrollSeasonRow[] | null {
   const data = record(raw).data;
@@ -98,7 +115,7 @@ export function reduceCrunchyrollSeasons(raw: unknown): CrunchyrollSeasonRow[] |
         sequenceNumber: int(season.season_sequence_number),
         episodeCount: int(season.number_of_episodes) || null,
         audioLocale: typeof audio === 'string' && AUDIO_LOCALE.test(audio) ? audio : null,
-        dubbed: typeof season.is_dubbed === 'boolean' ? season.is_dubbed : null,
+        dubbed: dubbedSeason(season, id),
       },
     ];
   });

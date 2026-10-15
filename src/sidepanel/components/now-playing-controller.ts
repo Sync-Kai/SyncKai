@@ -6,7 +6,7 @@ import type { PanelMedia } from '../../shared/panel-media.types';
 import { DEFAULT_SETTINGS, getSettings, SETTINGS_STORAGE_KEY } from '../../shared/settings';
 import type { TrackerId } from '../../shared/tracker.types';
 import { createPageMediaController, type PageMediaContent, type PageMediaController } from '../../ui/page-media-controller';
-import { shouldRedetect } from '../now-playing-view';
+import { liveEventRead } from '../now-playing-view';
 import { createLiveProgress, type LiveProgress, type LiveTarget } from './live-progress';
 
 const log = createLogger('sidepanel');
@@ -17,7 +17,7 @@ const log = createLogger('sidepanel');
 
 export type NowPlayingContent = PageMediaContent<PanelMedia>;
 
-export interface NowPlayingController extends Omit<PageMediaController<PanelMedia>, 'open' | 'redetect'> {
+export interface NowPlayingController extends Omit<PageMediaController<PanelMedia>, 'open' | 'redetect' | 'navigated'> {
   /** Lecteur préféré (réglages) : plateforme du bouton « Regarder » des relations */
   readonly preferred: StreamingPlatform;
   /** Réglage « Fiche ouverte par défaut » (avec les deux comptes connectés) : lien du titre, de la jaquette et des relations */
@@ -47,10 +47,12 @@ export function createNowPlayingController(onChange: () => void): NowPlayingCont
     loadDetails: (mediaId) => sendMessage('GET_PANEL_MEDIA', { mediaId }),
   });
 
-  // Progression en direct : nouvel épisode annoncé ou synchro terminée → page relue
+  // Progression en direct : nouvel épisode annoncé, synchro terminée ou saison choisie dans la page → page relue
   const live = createLiveProgress((event) => {
     const { content } = ctl;
-    if (shouldRedetect('page' in content ? content.page : null, event)) void ctl.redetect(false);
+    const read = liveEventRead('page' in content ? content.page : null, event);
+    if (read === 'navigate') ctl.navigated();
+    else if (read === 'redetect') void ctl.redetect(false);
   });
 
   /**

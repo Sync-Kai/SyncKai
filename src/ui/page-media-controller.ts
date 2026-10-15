@@ -79,6 +79,12 @@ export interface PageMediaController<D> {
    * plafonnée (AUTO_REDETECT_*) : au-delà, ignorée jusqu'à `refresh` (changement d'URL, Actualiser).
    */
   redetect(reresolve: boolean): Promise<void>;
+  /**
+   * Page changée dans l'onglet sans changement d'URL (saison choisie dans le menu d'une page de série) : comme une
+   * navigation, plafond des relectures automatiques remis à zéro (le menu est suivi quel que soit le nombre de choix),
+   * puis relecture sans squelette ; les choix en rafale restent regroupés (une relecture toutes les 2 s au plus).
+   */
+  navigated(): void;
   /** Recharge la fiche de la page affichée sans cache (« Réessayer ») */
   retry(): void;
   /** Retour affiché (null : action refusée, une autre est en cours, ou page quittée pendant l'envoi) */
@@ -535,6 +541,11 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     redetect(reresolve: boolean): Promise<void> {
       autoRedetect(reresolve);
       return Promise.resolve();
+    },
+    navigated(): void {
+      autoTimes = autoTimes.slice(-1);
+      autoSuspended = false;
+      autoRedetect(autoDeferred ?? false);
     },
     retry(): void {
       const page = pageOf(content);

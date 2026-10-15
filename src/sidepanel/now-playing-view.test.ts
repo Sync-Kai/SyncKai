@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { setLocale } from '../i18n';
 import type { PageMediaInfo } from '../shared/page-media.types';
 import { PANEL_RELATION_TYPES } from '../shared/panel-media.types';
-import { airedLabel, episodeLine, isPartialEpisodePage, pageKey, relationLabel, shouldRedetect } from './now-playing-view';
-import { pageMediaFromEpisode } from '../shared/page-media';
+import { airedLabel, episodeLine, isPartialEpisodePage, liveEventRead, pageKey, relationLabel } from './now-playing-view';
+import { pageMediaFromEpisode, pageMediaFromSeries } from '../shared/page-media';
 import type { EpisodeInfo } from '../shared/episode.types';
 
 // Régression : Black Butler -Public School Arc- E1 (GJWU2W1N5). Lu avant le JSON-LD (repli DOM, sans saison),
@@ -35,22 +35,28 @@ describe('fiche du panneau : lecture partielle et suivi en direct', () => {
     expect(pageKey(pageMediaFromEpisode(fromDom))).not.toBe(pageKey(pageMediaFromEpisode(complete)));
   });
 
-  it('saison choisie dans le menu d’une page de série : page relue, comme une navigation', () => {
-    expect(shouldRedetect(pageMediaFromEpisode(complete), { type: 'season' })).toBe(true);
-    expect(shouldRedetect(null, { type: 'season' })).toBe(true);
+  it('saison choisie dans le menu d’une page de série : page relue comme une navigation (jamais suspendue par le plafond)', () => {
+    // Régression (2026-10-14) : plus de 5 saisons choisies en une minute, le panneau ne suivait plus le menu
+    expect(liveEventRead(pageMediaFromEpisode(complete), { type: 'season' })).toBe('navigate');
+    expect(liveEventRead(null, { type: 'season' })).toBe('navigate');
   });
 
   it('synchro terminée : page relue (la fiche arrive par le cache de l’onglet)', () => {
-    expect(shouldRedetect(pageMediaFromEpisode(complete), { type: 'synced' })).toBe(true);
-    expect(shouldRedetect(pageMediaFromEpisode(fromDom), { type: 'synced' })).toBe(true);
+    expect(liveEventRead(pageMediaFromEpisode(complete), { type: 'synced' })).toBe('redetect');
+    expect(liveEventRead(pageMediaFromEpisode(fromDom), { type: 'synced' })).toBe('redetect');
   });
 
   it('épisode annoncé par la page : relu s’il diffère ou si la fiche vient d’une lecture partielle', () => {
-    expect(shouldRedetect(pageMediaFromEpisode(complete), { type: 'page', episodeId: 'GJWU2W1N5' })).toBe(false);
-    expect(shouldRedetect(pageMediaFromEpisode(fromDom), { type: 'page', episodeId: 'GJWU2W1N5' })).toBe(true);
-    expect(shouldRedetect(pageMediaFromEpisode(complete), { type: 'page', episodeId: 'GOTHER' })).toBe(true);
-    expect(shouldRedetect(null, { type: 'page', episodeId: 'GJWU2W1N5' })).toBe(true);
-    expect(shouldRedetect(pageMediaFromEpisode(complete), { type: 'page', episodeId: null })).toBe(false);
+    expect(liveEventRead(pageMediaFromEpisode(complete), { type: 'page', episodeId: 'GJWU2W1N5' })).toBeNull();
+    expect(liveEventRead(pageMediaFromEpisode(fromDom), { type: 'page', episodeId: 'GJWU2W1N5' })).toBe('redetect');
+    expect(liveEventRead(pageMediaFromEpisode(complete), { type: 'page', episodeId: 'GOTHER' })).toBe('redetect');
+    expect(liveEventRead(null, { type: 'page', episodeId: 'GJWU2W1N5' })).toBe('redetect');
+    expect(liveEventRead(pageMediaFromEpisode(complete), { type: 'page', episodeId: null })).toBeNull();
+  });
+
+  it('port ouvert sur une page de série : page relue une fois (saison choisie entre la lecture de la page et la connexion)', () => {
+    const series = pageMediaFromSeries('crunchyroll', { seriesId: 'GR751KNZY', seriesSlug: 'attack-on-titan', seriesTitle: 'Attack on Titan', seasonNumber: null, seasonTitle: 'Attack on Titan', seasonEpisodeCount: null });
+    expect(liveEventRead(series, { type: 'page', episodeId: null })).toBe('redetect');
   });
 });
 describe('onglet « En lecture »', () => {

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AOT_S3,
+  AOT_S3E1,
+  AOT_S3E1_DUB,
+  AOT_SERIES_ID,
+  aotSeason3Episodes,
+  aotSeasons,
   FRIEREN_S1,
   FRIEREN_S1_DUB,
   FRIEREN_S2,
@@ -134,6 +140,31 @@ describe('crunchyrollSignals', () => {
   it('version originale dans une autre langue que le japonais : pas de pays', () => {
     const rows = reduceCrunchyrollSeasons(frierenSeasons([{ id: 'GDONGHUA1', number: 1, episodes: 12, audio: 'zh-CN', dubbed: false }])) ?? [];
     expect(crunchyrollSignals(mergeCrunchyrollSeries('GDONGHUA', 2020, rows, () => undefined), { seasonNumber: 1 })).not.toHaveProperty('country');
+  });
+});
+
+describe('forme réelle (Attack on Titan, 2026-10-14) : une ligne par saison originale, doublages dans `versions`', () => {
+  // Régression : `is_dubbed` vaut true sur la saison ORIGINALE (des doublages existent) ; lu comme « saison doublée »,
+  // aucune saison originale n'était trouvée et aucune page Crunchyroll n'envoyait les signaux de sa saison
+  const rows = reduceCrunchyrollSeasons(aotSeasons()) ?? [];
+  const s3Stats = reduceCrunchyrollEpisodes(aotSeason3Episodes()) ?? undefined;
+  const series = mergeCrunchyrollSeries(AOT_SERIES_ID, 2013, rows, (id) => (id === AOT_S3 ? s3Stats : undefined));
+
+  it('saison listée = version originale (`versions[]` : sa propre entrée est `original`)', () => {
+    expect(rows.map((r) => r.dubbed)).toEqual([false, false, false, false, false, false]);
+  });
+
+  it('page de série, saison 3 lue sur la page : signaux de la saison originale (2018, 22 épisodes, JP)', () => {
+    expect(crunchyrollSignals(series, { seasonNumber: 3 })).toEqual({ seasonYear: 2018, seasonEpisodeCount: 22, episodeMinutes: 23.9, format: 'series', country: 'JP' });
+  });
+
+  it('épisode en version originale ou doublée : signaux de la saison originale', () => {
+    expect(crunchyrollSignals(series, { episodeId: AOT_S3E1, seasonNumber: 3 })).toMatchObject({ seasonYear: 2018, seasonEpisodeCount: 22, country: 'JP' });
+    expect(crunchyrollSignals(series, { episodeId: AOT_S3E1_DUB, seasonNumber: 3 })).toMatchObject({ seasonYear: 2018, seasonEpisodeCount: 22, country: 'JP' });
+  });
+
+  it('saison inconnue (six saisons originales) : série seule', () => {
+    expect(crunchyrollSignals(series, { seasonNumber: null })).toEqual({ seriesYear: 2013 });
   });
 });
 

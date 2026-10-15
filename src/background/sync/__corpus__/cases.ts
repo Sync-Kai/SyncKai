@@ -59,6 +59,22 @@ const KAIJU_CR = { seriesId: 'GG5H5XQ7D', seriesSlug: 'kaiju-no-8', animeTitle: 
 const SLIME_CR = { seriesId: 'GYZJ43JMR', seriesSlug: 'that-time-i-got-reincarnated-as-a-slime', animeTitle: 'Moi, quand je me réincarne en Slime' };
 const FRIEREN_CR = { seriesId: 'GG5H5XQX4', seriesSlug: 'frieren-beyond-journeys-end', animeTitle: 'Frieren: Beyond Journey’s End' };
 const AOT_CR = { seriesId: 'GR751KNZY', seriesSlug: 'attack-on-titan', animeTitle: 'Attack on Titan' };
+/**
+ * Attack on Titan sur Crunchyroll, réponses CMS relevées le 2026-10-14 (anonyme, en-US) : saisons originales S1 (2013,
+ * 27 ép.), S3 (2018, 22 ép.), Final Season (2020, 30 ép.) parmi six (S2, Last Attack et OADs : années non relevées) ;
+ * lancement de la série 2013. Saison lue dans le menu de la page de série : titre seul, sans numéro (« Attack on Titan
+ * Season 3 », « L'Attaque des Titans Saison 3 ») : signaux de la série seule.
+ */
+const AOT_CR_SIGNALS = {
+  seasons: [
+    { seq: 1, year: 2013, episodes: 27 },
+    { seq: 3, year: 2018, episodes: 22 },
+    { seq: 4, year: 2020, episodes: 30 },
+  ],
+  seriesStartYear: 2013,
+  episodeDurationS: 1435,
+  source: 'réponses CMS de Crunchyroll relevées le 2026-10-14 (cms/series, …/seasons, cms/seasons/{id}/episodes)',
+};
 const SHIPPUDEN_CR = { seriesId: 'GYQ4MW246', seriesSlug: 'naruto-shippuden', animeTitle: 'Naruto Shippuden' };
 const BLACK_BUTLER_CR = { seriesId: 'GYQ43P3E6', seriesSlug: 'black-butler', animeTitle: 'Black Butler' };
 const TOUGEN_ADN = { seriesId: '1311', seriesSlug: 'tougen-anki', animeTitle: 'TOUGEN ANKI' };
@@ -200,6 +216,36 @@ export const CASES: readonly CorpusCase[] = [
     episode: crunchyroll(AOT_CR, 'GLASTATK1', { seasonNumber: 1, seasonTitle: 'Attack on Titan: Last Attack', seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: 'Attack on Titan: The Last Attack' }),
     searches: ['Attack on Titan', 'Attack on Titan: Last Attack'],
     expected: NOT_FOUND,
+  },
+  {
+    id: 'cr-aot-series-s3',
+    kind: 'series',
+    note: 'Page de série (relevé réel du 2026-10-14) : « Attack on Titan Season 3 » choisie dans le menu des saisons (libellé sans numéro). Cas du propriétaire : le panneau restait sur « Season 1 » après plusieurs choix dans le menu (relectures automatiques suspendues), la résolution elle-même est juste.',
+    anilist: 'attack-on-titan',
+    page: seriesPage({ platform: 'crunchyroll', ...AOT_CR, seriesTitle: 'Attack on Titan', seasonNumber: null, seasonTitle: 'Attack on Titan Season 3' }),
+    signals: AOT_CR_SIGNALS,
+    searches: ['Attack on Titan', 'Attack on Titan Season 3'],
+    expected: high(99147),
+  },
+  {
+    id: 'cr-aot-series-final',
+    kind: 'series',
+    note: 'Page de série, « Attack on Titan Final Season » choisie dans le menu (relevé réel du 2026-10-14).',
+    anilist: 'attack-on-titan',
+    page: seriesPage({ platform: 'crunchyroll', ...AOT_CR, seriesTitle: 'Attack on Titan', seasonNumber: null, seasonTitle: 'Attack on Titan Final Season' }),
+    signals: AOT_CR_SIGNALS,
+    searches: ['Attack on Titan', 'Attack on Titan Final Season'],
+    expected: high(110277),
+  },
+  {
+    id: 'cr-aot-series-s3-fr',
+    kind: 'series',
+    note: 'Même page en français (/fr/, relevé réel du 2026-10-14) : « L\'Attaque des Titans Saison 3 », titre de la saison 3 sur Crunchyroll (22 ép. = « Season 3 » + « Season 3 Part 2 »). AniList ne connaît ce titre que dans un synonyme de la partie 2 (« L\'Attaque des Titans Saison 3 Partie 2 »).',
+    anilist: 'attack-on-titan',
+    page: seriesPage({ platform: 'crunchyroll', ...AOT_CR, seriesTitle: "L'Attaque des Titans", seasonNumber: null, seasonTitle: "L'Attaque des Titans Saison 3" }),
+    signals: AOT_CR_SIGNALS,
+    searches: ["L'Attaque des Titans", "L'Attaque des Titans Saison 3"],
+    expected: high(99147),
   },
   {
     id: 'cr-naruto-shippuden-s2e3',
@@ -446,6 +492,31 @@ export const CASES: readonly CorpusCase[] = [
     // Sans signaux : « Saison devinée » (25 épisodes sur la page contre 13 pour « II », seule fiche liée à Netflix) ;
     // l’année (2023) et le total de II + II Part 2 la prouvent
     expected: high(146065),
+  },
+  {
+    id: 'nf-mushoku-series-s2-after-part2',
+    kind: 'series',
+    note: 'Page de série, saison 2 lue dans le menu, après la lecture de S2 E14+ (correspondance S2 → II Part 2 apprise) : page construite par l’adapter (seriesInfoFromMetadata, fixture réduite : 25 ép., 2023, 23,7 min).',
+    anilist: 'mushoku-tensei',
+    page: seriesPage({ platform: 'netflix', seriesId: '80987039', seriesSlug: null, seriesTitle: 'Mushoku Tensei: Jobless Reincarnation', seasonNumber: 2, seasonTitle: null, seasonEpisodeCount: 25, platformSeasons: MUSHOKU_SEASONS }),
+    signals: { ...MUSHOKU_SIGNALS, episodeDurationS: 1422 },
+    mappings: { 'netflix:80987039:s2': { mediaId: 166873, numbering: 'season', offset: 13, episodes: 12, seriesLabel: 'Mushoku Tensei: Jobless Reincarnation · S2', mediaTitle: 'Mushoku Tensei II: Isekai Ittara Honki Dasu Part 2', learned: true } },
+    searches: ['Mushoku Tensei: Jobless Reincarnation'],
+    // Saison prouvée par les signaux : sa première fiche, jamais la partie du dernier épisode synchronisé
+    expected: high(146065),
+  },
+  {
+    id: 'nf-mushoku-series-unread-season',
+    kind: 'series',
+    note: 'Cas du propriétaire (2026-10-14) : panneau sur « II Part 2 » (166873) en page de série, saison 2 choisie sur Netflix. Seule reproduction avec la page que construit l’adapter (fixture /watch/81402901 réduite, seriesInfoFromMetadata) : menu des saisons non lu (fenêtre de détail pas encore rendue, ou relecture perdue), donc ni saison ni signaux, et correspondance S2 → II Part 2 apprise en lecture de S2 E14+. Saison lue (« Season 2 » / « Saison 2 ») : 146065, certaine (nf-mushoku-series-s2).',
+    anilist: 'mushoku-tensei',
+    page: seriesPage({ platform: 'netflix', seriesId: '80987039', seriesSlug: null, seriesTitle: 'Mushoku Tensei: Jobless Reincarnation', seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null, platformSeasons: MUSHOKU_SEASONS }),
+    mappings: { 'netflix:80987039:s2': { mediaId: 166873, numbering: 'season', offset: 13, episodes: 12, seriesLabel: 'Mushoku Tensei: Jobless Reincarnation · S2', mediaTitle: 'Mushoku Tensei II: Isekai Ittara Honki Dasu Part 2', learned: true } },
+    searches: ['Mushoku Tensei: Jobless Reincarnation'],
+    // Dernière saison mémorisée (la partie du dernier épisode synchronisé), « Saison devinée »
+    expected: low(166873),
+    ideal: low(146065),
+    gap: 'saison non lue : la correspondance de S2 désigne la partie du dernier épisode synchronisé, la page de série devrait montrer la première fiche de la saison',
   },
   {
     id: 'nf-mushoku-series-s2-stale-mapping',
