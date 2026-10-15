@@ -38,6 +38,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - Side panel, *Now playing*: after a Crunchyroll autoplay, the card could keep the previous episode's number (« Episode 1180 » on episode 1181) until the page was reloaded or the next action, when Crunchyroll showed the new episode's details a moment after changing the address. It now waits for the new episode's details.
 - Netflix, *Mushoku Tensei: Jobless Reincarnation* season 2: its second half was synced to the season 3 entry (« III »). The Netflix season is now matched by its release year and episode count to « II » and « II Part 2 », and a wrong match already saved goes to *To check* with « II Part 2 » proposed.
 - Prime Video, « Berserk »: the 2016 series was proposed in *To check* with the 1997 entry (same title). The season's release year now picks the right entry, and each remake keeps its own saved match.
+- Ratings on an AniList profile scored out of 10 (or with 3 smileys): a half point (8.5) is now rounded down on AniList as on MyAnimeList, so both get 8 and *Activity › Differences* no longer lists a score gap you never created.
+- Backup imported before signing in: its *To rate* cards and recent syncs now apply to the accounts connected afterwards instead of answering *Session closed*.
+- History import preview: when the sub and dub versions of a Crunchyroll season land on the same *To check* card, the card proposes the most advanced one, not the last played.
+- Netflix history import: the *Percentage only* completion setting is honoured, as in live sync (the end marks are only used when the duration is unknown).
+- A *To rate* card created from the MyAnimeList list is removed once the series is rated from a screen that knows its AniList entry.
+- *Settings*: a change no longer overwrites a setting saved at the same time elsewhere (a series delay from the *Schedule*, the preferred player reset after removing a platform's access).
+- *On this page* / side panel: changing a status no longer fails when the entry's cover comes from an unexpected image host (the cover is left out of the *To rate* card).
 
 ## [2.3.1] - 2026-10-12
 
