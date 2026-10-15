@@ -144,6 +144,16 @@ describe('carte « À noter » (DATA-01)', () => {
     expect(await getPendingRatings()).toEqual([]);
   });
 
+  it('carte créée depuis la liste MAL (fiche AniList inconnue), notée avec son id AniList : sessions de la carte, puis retirée', async () => {
+    await deferRating({ ...MEDIA, mediaId: null }, null);
+    expect(await getPendingRatings()).toMatchObject([{ id: 'mal:2001' }]);
+    store.sessionEpoch = { anilist: 1, mal: 0 };
+    const outcome = await rateMedia(MEDIA, 8, true);
+    expect(outcome).toMatchObject({ status: 'synced', results: [{ service: 'anilist', outcome: { status: 'skipped' } }, { service: 'mal', outcome: { status: 'updated' } }] });
+    expect(anilist.scores).toEqual([]);
+    expect(await getPendingRatings()).toEqual([]);
+  });
+
   it('note depuis la page (bulle après la synchro) : tous les services connectés, la carte n’y fait rien', async () => {
     await deferRating(MEDIA, null);
     store.sessionEpoch = { anilist: 1, mal: 0 };

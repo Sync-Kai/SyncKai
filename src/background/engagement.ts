@@ -82,13 +82,26 @@ async function onService(
   }
 }
 
+/** Identifiants possibles de la carte « À noter » : créée depuis l'une ou l'autre fiche (liste MAL : fiche AniList inconnue) */
+function ratingCardIds(media: MediaRef): string[] {
+  return [...new Set([mediaRefId(media), ...(media.malId !== null ? [mediaRefId({ mediaId: null, malId: media.malId })] : [])])];
+}
+
+/** Retire la carte « À noter » sous chacun de ses identifiants ; true si une carte a été retirée */
+async function removeRatingCards(media: MediaRef): Promise<boolean> {
+  let removed = false;
+  for (const id of ratingCardIds(media)) removed = (await removePendingRating(id)) || removed;
+  return removed;
+}
+
 /**
  * Écrit la note sur chaque service où la série est dans la liste, puis retire la carte « À noter ». Depuis la carte
  * (`fromCard`) : seulement sur les sessions où elle a été créée, jamais sur un compte connecté depuis.
  */
 export async function rateMedia(media: MediaRef, score: Score10, fromCard = false): Promise<SyncOutcome> {
   try {
-    const card = fromCard ? (await getPendingRatings()).find((r) => r.id === mediaRefId(media)) : undefined;
+    const ids = ratingCardIds(media);
+    const card = fromCard ? (await getPendingRatings()).filter((r) => ids.includes(r.id)).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))[0] : undefined;
     const epochs = card ? sessionsOf(card.epochs, await getOpenSessions()) : null;
     const targets = await resolveTargets(media);
     if (targets === null) return { status: 'not-connected' };
@@ -109,7 +122,7 @@ export async function rateMedia(media: MediaRef, score: Score10, fromCard = fals
     );
 
     // Carte « À noter » conservée tant qu'un service est en erreur ou que personne n'a enregistré la note (nouvel essai possible)
-    if (isRatingSettled(results) && (await removePendingRating(mediaRefId(media)))) {
+    if (isRatingSettled(results) && (await removeRatingCards(media))) {
       await refreshReviewBadge();
     }
     return { status: 'synced', mediaTitle: media.title, results };
@@ -194,11 +207,7 @@ async function afterRemoval(media: MediaRef, results: readonly ServiceResult[], 
       if (epoch !== undefined) await dropCachedWatchingEntry(service, epoch, isSameSeries(media));
     }
     if (results.some((r) => r.outcome.status === 'error')) return;
-    // Carte créée depuis l'une ou l'autre fiche (popup sur la liste MAL : fiche AniList inconnue)
-    const ids = new Set([mediaRefId(media), ...(media.malId !== null ? [mediaRefId({ mediaId: null, malId: media.malId })] : [])]);
-    let cardRemoved = false;
-    for (const id of ids) cardRemoved = (await removePendingRating(id)) || cardRemoved;
-    if (cardRemoved) await refreshReviewBadge();
+    if (await removeRatingCards(media)) await refreshReviewBadge();
   } catch (error: unknown) {
     log.warn('Affichage non mis à jour après le retrait de la liste :', error);
   }
