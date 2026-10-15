@@ -539,6 +539,17 @@ export const CASES: readonly CorpusCase[] = [
     searches: ['MONSTERS: 103 Mercies Dragon Damnation'],
     expected: high(167404, 1),
   },
+  {
+    id: 'nf-berserk-linked-remake-contradicted',
+    kind: 'episode',
+    note: 'Titre Netflix « Berserk » (/title/80146743, lien AniList de Berserk 2016) dont la saison dit 1997 (25 ép.) : la franchise liée (2016, « Berserk 2 ») est contredite, Berserk 1997 (sans lien Netflix, aucune relation avec 2016) est prouvé par l’année. Audit H1.',
+    anilist: 'berserk',
+    episode: netflix('80146743', 'Berserk', '80146744', { seasonNumber: 1, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, platformSeasons: [25] }),
+    signals: { seasons: [{ seq: 1, year: 1997, episodes: 25 }], source: 'SUPPOSÉ : saison Netflix de 1997 sur le titre lié à Berserk 2016 (lien AniList erroné ou titre réutilisé)' },
+    searches: ['Berserk'],
+    // Titre seul (aucun lien Netflix sur la fiche de 1997) : « À vérifier », jamais synchronisé ni appris (avant : high)
+    expected: low(33, 1),
+  },
 
   // ─── Disney+ ────────────────────────────────────────────────────────────
   {

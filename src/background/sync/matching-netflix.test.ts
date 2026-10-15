@@ -130,6 +130,28 @@ describe('Mushoku Tensei sur Netflix (S1 23 ép., S2 25 ép., numérotation cont
   });
 });
 
+describe('signaux : groupe prouvé hors de la franchise liée à Netflix', () => {
+  // Fiche liée (2010) contredite par l'année de la saison Netflix ; homonyme de 2020 sans lien ni relation, prouvé par l'année
+  const linked = candidate({ id: 1, titles: ['Foo'], link: 'id', startDate: 20100401, endYear: 2010, status: 'FINISHED' });
+  const remake = candidate({ id: 2, titles: ['Foo'], startDate: 20200401, endYear: 2020, status: 'FINISHED' });
+  const episode = netflixEpisode({ animeTitle: 'Foo', seasonEpisodeNumber: 3, displayedEpisodeNumber: 3, platformSeasons: [12], signals: { seasonYear: 2020, seasonEpisodeCount: 12 } });
+
+  it('homonyme non lié prouvé par les signaux : à vérifier, jamais synchronisé d’office', () => {
+    expect(resolveTarget(episode, [linked, remake])).toMatchObject({ ok: true, target: { mediaId: 2, confidence: 'high', bySignals: true } });
+    expect(gateByPlatformLink(episode, [linked, remake], resolveTarget(episode, [linked, remake]))).toMatchObject({
+      ok: true,
+      target: { mediaId: 2, progress: 3, confidence: 'low', reason: 'Trouvée par le titre, alors qu’une autre fiche AniList est liée à ce titre Netflix' },
+    });
+  });
+
+  it('groupe prouvé relié à la fiche liée (suite) : comme lié', () => {
+    const sequel = { ...remake, titles: ['Foo 2'], relations: [{ id: 1, type: 'PREQUEL' as const }] };
+    const first = { ...linked, relations: [{ id: 2, type: 'SEQUEL' as const }] };
+    const s2 = { ...episode, seasonNumber: 2 };
+    expect(gateByPlatformLink(s2, [first, sequel], resolveTarget(s2, [first, sequel]))).toMatchObject({ ok: true, target: { mediaId: 2, confidence: 'high', bySignals: true } });
+  });
+});
+
 describe('film Netflix : la fiche liée l’emporte sur une série TV homonyme', () => {
   /** Film : pas de saison, épisode 1 (voir episodeInfoFromMetadata) */
   const movie = (animeTitle: string): EpisodeInfo => netflixEpisode({ animeTitle, seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 });

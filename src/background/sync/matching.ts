@@ -1362,14 +1362,26 @@ export function gateByPlatformLink(
     const { mediaId } = result.target;
     const platform = PLATFORMS[episode.platform].label;
     if (singleEntryDoubt(episode, candidates, mediaId)) return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformSeasonsSingle', { platform }) } };
-    // Fiche prouvée par les signaux dans la franchise liée (« II Part 2 », liée seulement à Crunchyroll) : comme liée
-    if (result.target.bySignals || candidates.some((c) => c.id === mediaId && isLinked(c))) return result;
+    // Fiche prouvée par les signaux dans la franchise liée (« II Part 2 », liée seulement à Crunchyroll) : comme liée.
+    // Prouvée hors de la franchise liée (homonyme sans lien ni relation avec la fiche liée) : titre seul, à vérifier
+    const provenInLinkedFranchise = result.target.bySignals === true && inLinkedFranchise(candidates, episode.animeTitle, mediaId);
+    if (provenInLinkedFranchise || candidates.some((c) => c.id === mediaId && isLinked(c))) return result;
     return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformUnlinkedEntry', { platform: PLATFORMS[episode.platform].label }) } };
   }
   if (verdict === 'title') {
     return result.ok ? { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformTitleOnly', { platform: PLATFORMS[episode.platform].label }) } } : result;
   }
   return ignoredResult(episode);
+}
+
+/**
+ * Fiche dont la franchise (fiches séries reliées par suite / préquelle, voir signalGroups) contient une fiche liée à la
+ * série de la plateforme : un groupe prouvé par les signaux n'y vaut un lien que dans ce cas (remake homonyme non lié).
+ */
+function inLinkedFranchise(candidates: readonly MediaCandidate[], animeTitle: string, mediaId: number): boolean {
+  const groups = signalGroups(candidates, animeTitle);
+  const chain = groups.find((group) => group.entries.some((c) => c.id === mediaId))?.chain;
+  return chain !== undefined && groups.some((group) => group.chain === chain && group.entries.some(isLinked));
 }
 
 /** Verdict « série ignorée » (filtre ci-dessus, ou verdict mémorisé : voir ignored-series.ts) */
