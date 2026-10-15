@@ -3,7 +3,7 @@ import type { AiringCheckResult } from '../../shared/airing.types';
 import type { StreamingPlatform } from '../../platforms/registry';
 import type { SyncSettings } from '../../shared/settings';
 import type { MediaMapping } from '../../shared/sync.types';
-import type { ExclusionsState } from '../state';
+import type { ExclusionsState, ReadonlyStore } from '../state';
 import type { AccountsController } from '../accounts';
 import type { PlatformAccessStore } from '../platform-access-store';
 import type { SettingsCategory, SettingsPage } from './navigation';
@@ -37,10 +37,6 @@ export interface SettingsData {
   /** Nombre d'entrées du journal ; null = en lecture ou illisible */
   journalCount: number | null;
   airing: AiringCheckResult | null;
-  /** Raccourci « valider l'épisode » : undefined = en lecture, '' = non défini */
-  shortcut: string | undefined;
-  /** Raccourci « ouvrir le panneau latéral » : undefined = en lecture, '' = non défini */
-  panelShortcut: string | undefined;
   /**
    * Plateformes optionnelles accordées (interrupteurs, lecteur préféré Netflix ou Prime Video), copie du store de
    * l'hôte (`SettingsHost.platformAccess`) : undefined tant que les accès sont en lecture
@@ -48,10 +44,20 @@ export interface SettingsData {
   platformAccess: readonly StreamingPlatform[] | undefined;
 }
 
+/** Touches des commandes de l'extension, lues par commands.getAll() */
+export interface ShortcutKeys {
+  /** Raccourci « valider l'épisode » : undefined = en lecture, '' = non défini */
+  shortcut: string | undefined;
+  /** Raccourci « ouvrir le panneau latéral » : undefined = en lecture, '' = non défini */
+  panelShortcut: string | undefined;
+}
+
 /** Contexte passé aux pages */
 export interface SettingsContext {
   readonly host: SettingsHost;
   readonly data: SettingsData;
+  /** Touches des raccourcis (relues quand la vue reprend le focus) : suivies par la page Raccourcis (Preact) */
+  readonly shortcuts: ReadonlyStore<ShortcutKeys>;
   /** Enregistre un changement de réglage ; `redraw` : la page dépend de la valeur (affichage conditionnel) */
   update(patch: Partial<SyncSettings>, redraw?: boolean): Promise<void>;
   /** Redessine la page affichée si elle fait partie de `pages` (toutes si absent) */
@@ -65,8 +71,24 @@ export interface SettingsContext {
 }
 
 /** Une sous-page : rendu à la demande, état local conservé entre deux visites */
-export interface SettingsPageView {
+export interface SettingsDomPage {
   render(): Node[];
   /** Repère `data-focus` à focaliser à l'ouverture de la page à la place de son titre (null : le titre) */
   initialFocus?(): string | null;
+}
+
+/**
+ * Sous-page Preact (pilote) : montée dans le conteneur de la vue à l'ouverture, elle suit ensuite seule ses sources
+ * (stores, langue) ; `mount` rend la fonction qui la démonte (page quittée). État à conserver entre deux visites : hors
+ * de l'arbre (store de la page), le démontage efface l'état des composants.
+ */
+export interface SettingsMountedPage {
+  mount(container: HTMLElement): () => void;
+  initialFocus?(): string | null;
+}
+
+export type SettingsPageView = SettingsDomPage | SettingsMountedPage;
+
+export function isMountedPage(page: SettingsPageView): page is SettingsMountedPage {
+  return 'mount' in page;
 }

@@ -13,9 +13,10 @@ import { updateSettings } from '../../browser/storage/settings-store';
 import { getMediaMappings } from '../../browser/storage/mappings';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { kanaLabel } from '../kit';
+import { createStore } from '../state';
 import { h, nodes, preserveFocus } from '../dom';
 import { icon, type IconName } from '../icons';
-import { type SettingsContext, type SettingsData, type SettingsHost, type SettingsPageView } from './context';
+import { isMountedPage, type SettingsContext, type SettingsData, type SettingsHost, type SettingsPageView, type ShortcutKeys } from './context';
 import { INITIAL_SETTINGS_NAV, SETTINGS_CATEGORY_TITLES, settingsNavReducer, type SettingsCategory, type SettingsNavAction, type SettingsPage } from './navigation';
 import { createAccountsPage } from './page-accounts';
 import { createDataPage } from './page-data';
@@ -72,10 +73,9 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     exclusions: { status: 'loading' },
     journalCount: null,
     airing: null,
-    shortcut: undefined,
-    panelShortcut: undefined,
     platformAccess: host.platformAccess.get(),
   };
+  const shortcuts = createStore<ShortcutKeys>({ shortcut: undefined, panelShortcut: undefined });
 
   // ─── Coque : barre + contenu ───
   const status = h('span', { class: 'flex h-9 items-center gap-1 bg-ground pl-2 text-[11px] font-bold opacity-0 transition-opacity', attrs: { 'aria-live': 'polite' } });
@@ -187,14 +187,13 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     try {
       const commands = await chrome.commands.getAll();
       const shortcutOf = (name: string): string => commands.find((c) => c.name === name)?.shortcut ?? '';
-      data.shortcut = shortcutOf(COMPLETE_EPISODE_COMMAND);
-      data.panelShortcut = shortcutOf(panelCommandName(__SYNCKAI_TARGET__));
+      shortcuts.set({ shortcut: shortcutOf(COMPLETE_EPISODE_COMMAND), panelShortcut: shortcutOf(panelCommandName(__SYNCKAI_TARGET__)) });
     } catch (error: unknown) {
       log.warn('Lecture des raccourcis impossible :', error);
-      data.shortcut = '';
-      data.panelShortcut = '';
+      shortcuts.set({ shortcut: '', panelShortcut: '' });
     }
-    redraw(['home', 'shortcuts']);
+    // La page Raccourcis (Preact) suit le store elle-même : seul l'accueil (résumé) est redessiné
+    redraw(['home']);
   }
 
   async function loadSettings(): Promise<void> {
@@ -225,6 +224,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   const ctx: SettingsContext = {
     host,
     data,
+    shortcuts,
     update,
     redraw,
     refreshMappings,
@@ -289,7 +289,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
         rowsCard(
           categoryRow('sync', muted(s ? syncSummary(s, data.platformAccess) : loading), false),
           categoryRow('notifications', muted(s ? notificationsSummary(s) : loading), true),
-          categoryRow('shortcuts', muted(shortcutsSummary(data.shortcut, data.panelShortcut)), true),
+          categoryRow('shortcuts', muted(shortcutsSummary(shortcuts.get().shortcut, shortcuts.get().panelShortcut)), true),
         ),
       ),
       settingsSection(
@@ -303,8 +303,25 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     ]).filter((child): child is Node => typeof child !== 'string');
   }
 
+  /** Page Preact montée dans `element` et sa fonction de démontage */
+  let mounted: { page: SettingsPageView; unmount: () => void } | null = null;
+
   function drawPage(): void {
-    preserveFocus(element, () => element.replaceChildren(...(nav.page === 'home' ? renderHome() : pages[nav.page].render())));
+    const page = nav.page === 'home' ? null : pages[nav.page];
+    if (mounted && mounted.page !== page) {
+      // Page Preact quittée : démontage (écouteurs et abonnements retirés) avant de remplacer le contenu
+      mounted.unmount();
+      mounted = null;
+    }
+    if (page && isMountedPage(page)) {
+      // Montée une seule fois par visite : elle se redessine ensuite seule (stores, langue), le focus reste en place
+      if (!mounted) {
+        element.replaceChildren();
+        mounted = { page, unmount: page.mount(element) };
+      }
+      return;
+    }
+    preserveFocus(element, () => element.replaceChildren(...(page ? page.render() : renderHome())));
   }
 
   function redraw(only?: readonly SettingsPage[]): void {
@@ -428,6 +445,9 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     dispose() {
       for (const cleanup of cleanups.splice(0)) cleanup();
       clearTimeout(badgeTimer);
+      // Page Preact encore montée (vue recréée par l'hôte) : ses abonnements (stores, langue) sont retirés aussi
+      mounted?.unmount();
+      mounted = null;
     },
     show(page = 'home') {
       // Nouvelle entrée : l'accueil repart du haut

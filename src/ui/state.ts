@@ -40,6 +40,9 @@ export interface Store<T> {
   subscribe(listener: Listener<T>): () => void;
 }
 
+/** Lecture seule d'un store (abonnés : pages Preact, voir ui/preact/hooks.ts) */
+export type ReadonlyStore<T> = Pick<Store<T>, 'get' | 'subscribe'>;
+
 export function createStore<T>(initial: T): Store<T> {
   let state = initial;
   const listeners = new Set<Listener<T>>();

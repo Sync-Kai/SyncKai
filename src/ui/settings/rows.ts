@@ -6,6 +6,8 @@ import { h, type Child } from '../dom';
 import { icon, type IconName } from '../icons';
 
 export const DIVIDER = 'border-t border-dotted border-line';
+/** Carte qui empile des lignes de réglage (rowsCard, et RowsCard des pages Preact) */
+export const ROWS_CARD = `${CARD} flex flex-col overflow-hidden`;
 export const HELP_TEXT = 'text-[11px] font-semibold text-muted';
 
 /** Interrupteur accessible (case à cocher role="switch") */
@@ -105,7 +107,7 @@ export function collapsibleSection({ label, count, disclosure, id }: Collapsible
 
 /** Carte de lignes séparées par des pointillés */
 export function rowsCard(...rows: Child[]): HTMLElement {
-  return h('div', { class: `${CARD} flex flex-col overflow-hidden` }, ...rows);
+  return h('div', { class: ROWS_CARD }, ...rows);
 }
 
 interface ToggleRowProps {

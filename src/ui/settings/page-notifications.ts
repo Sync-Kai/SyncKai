@@ -11,7 +11,7 @@ import { normalizeOffset, OFFSET_RANGE, parseOffsetInput, type NotificationLevel
 import { BTN_GHOST, CARD, PLATFORM_LABELS, segmented } from '../kit';
 import { h, nodes, preserveFocus, type Child } from '../dom';
 import { icon } from '../icons';
-import type { SettingsContext, SettingsPageView } from './context';
+import type { SettingsContext, SettingsDomPage } from './context';
 import { choiceRow, DIVIDER, HELP_TEXT, rowsCard, settingsSection, toggleRow } from './rows';
 import { settingsPlaceholder } from './page-sync';
 
@@ -67,7 +67,7 @@ function notifGlyph(glyph: NotifGlyph): SVGSVGElement {
   return svg;
 }
 
-export interface NotificationsPage extends SettingsPageView {
+export interface NotificationsPage extends SettingsDomPage {
   /** Redessine seulement la ligne d'état des alertes (tic d'horloge, résumé relu) sans toucher aux champs */
   drawAiring(now: number): void;
 }
