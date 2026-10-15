@@ -6,7 +6,7 @@ import { mergeWatchingSeries, weekRangeFromKey, type AgendaResult, type AiringWe
 import { writeWeekCache } from '../browser/storage/agenda-store';
 import { getExcludedSeries } from '../shared/exclusions';
 import { getOpenSessions } from '../browser/storage/sessions';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 
 // GET_AGENDA : sorties d'une semaine pour le panneau latéral, quand son cache manque ou a expiré.
 

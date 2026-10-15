@@ -20,7 +20,7 @@ import {
 const resolver = vi.hoisted(() => ({ resolveEpisode: vi.fn(), findSeriesSeasons: vi.fn(), toCandidateSummary: vi.fn() }));
 vi.mock('./sync/resolver', () => resolver);
 const access = vi.hoisted(() => ({ hasPlatformAccess: vi.fn() }));
-vi.mock('../shared/platform-access', () => access);
+vi.mock('../browser/platform-access', () => access);
 // Recherches du catalogue simulées : la vraie résolution (sync, ci-dessous) ne part jamais sur le réseau
 const api = vi.hoisted(() => ({ getPageMediaDetails: vi.fn(), searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('./api/media', async (importOriginal) => ({

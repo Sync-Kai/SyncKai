@@ -5,7 +5,7 @@ import '../../src/popup/popup.css';
 import manifest from '../../manifest.json';
 import { t } from '../../src/i18n';
 import type { CompareJob } from '../../src/shared/compare-job';
-import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../src/shared/error-journal';
+import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../src/browser/error-journal';
 import { isRecord } from '../../src/shared/guards';
 import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
 import type { ListNotesResult } from '../../src/shared/list-notes';

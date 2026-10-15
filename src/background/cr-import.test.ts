@@ -33,7 +33,7 @@ vi.mock('./api/media', () => ({
 }));
 // Listes vides : chaque saison sûre donne un élément à mettre à jour
 vi.mock('./compare', () => ({ fetchAniListFullList: async () => [], fetchMalFullList: async () => [] }));
-vi.mock('../shared/badge', () => ({ refreshReviewBadge: async () => undefined }));
+vi.mock('../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
 // Espacement des écritures et budget AniList sans attente
 vi.mock('./jobs/runner', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./jobs/runner')>()),

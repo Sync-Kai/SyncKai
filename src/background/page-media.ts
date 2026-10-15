@@ -11,7 +11,7 @@ import type {
 } from '../shared/page-media.types';
 import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../shared/episode.types';
 import { hasSignals, type PlatformSignals } from '../shared/match-signals';
-import { hasPlatformAccess } from '../shared/platform-access';
+import { hasPlatformAccess } from '../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS } from '../platforms/registry';
 import { readCachedPageMedia, storeCachedPageMedia } from '../browser/storage/page-media-cache';
 import { learnPlatformLink } from '../browser/storage/platform-links-store';
@@ -19,7 +19,7 @@ import { pageMediaFromEpisode } from '../shared/page-media';
 import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../browser/storage/mappings';
 import { getOpenSessions } from '../browser/storage/sessions';
 import type { ListStatus } from '../shared/sync.types';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import { getScoreFormat } from './api/list';
 import { ApiError } from './api/errors';
 import { getPageMediaDetails, type AniListMedia } from './api/media';

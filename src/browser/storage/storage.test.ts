@@ -32,7 +32,7 @@ vi.stubGlobal('chrome', {
   },
 });
 vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
-vi.mock('../../shared/badge', () => ({ refreshReviewBadge: async () => undefined }));
+vi.mock('../badge', () => ({ refreshReviewBadge: async () => undefined }));
 
 // Les modules de stockage (tokens, sessions, correspondances, vérifications, caches, données du compte), réunis comme avant leur découpage
 const storage = {

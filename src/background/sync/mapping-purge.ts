@@ -2,7 +2,7 @@ import type { StreamingPlatform } from '../../platforms/registry';
 import { deleteMediaMappingsIfUnchanged, getMediaMappings } from '../../browser/storage/mappings';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { getAnimeByIds, type AniListMedia } from '../api/media';
 import { legacySeriesSlugInLink, linksToOtherSeries, linksToOtherSeriesBySlug, matchPlatformLink, SERIES_FORMATS } from './matching';
 

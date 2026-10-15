@@ -8,7 +8,7 @@
 // `policy.injectContentScripts()` (ExtensionProcessScript.sys.mjs) exécute les scripts du manifeste dans les
 // pages déjà ouvertes. Les scripts enregistrés par scripting.registerContentScripts sont en revanche effacés à
 // la mise à jour (ExtensionScriptingStore.initExtension, ADDON_UPGRADE) : seuls Netflix et Disney+ sont donc à reprendre.
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 
 const log = createLogger('reinjection');
 

@@ -1,6 +1,6 @@
 import { tl, type Locale } from '../i18n';
 import type { AiringCheckResult } from './airing.types';
-import { redactSecrets, type JournalEntry } from './error-journal';
+import { redactSecrets, type JournalEntry } from '../browser/error-journal';
 import { isRecord } from './guards';
 import type { SyncSettings } from './settings';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from './tracker.types';

@@ -4,7 +4,7 @@ import { t, tp } from '../../i18n';
 import { formatAiringStatus } from '../../shared/airing.types';
 import { AIRING_DELAYS, type AiringDelayHours } from '../../shared/engagement.types';
 import type { StreamingPlatform } from '../../shared/episode.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
 import { STREAMING_PLATFORMS } from '../../platforms/registry';
 import { normalizeOffset, OFFSET_RANGE, parseOffsetInput, type NotificationLevel, type SyncSettings } from '../../shared/settings';

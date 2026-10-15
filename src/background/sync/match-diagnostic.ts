@@ -7,7 +7,7 @@ import {
   type MappingOrigin,
   type MatchDecision,
 } from '../../shared/match-diagnostic';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sessionArea } from '../../browser/storage/session-cache';
 import { MATCH_DIAGNOSTIC_KEY } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';

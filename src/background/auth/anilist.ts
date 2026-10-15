@@ -2,7 +2,7 @@ import { t } from '../../i18n';
 import type { AniListToken, AuthResult } from '../../shared/auth.types';
 import { clearAniListSession } from '../../browser/storage/account-data';
 import { hasAniListToken, saveToken } from '../../browser/storage/tokens';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
 
 const log = createLogger('auth');

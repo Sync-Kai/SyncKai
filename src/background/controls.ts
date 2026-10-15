@@ -13,7 +13,7 @@ import { decideAddToList, decideStatusChange, progressWrite, type ListEntryState
 import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 
 // Contrôles manuels (service worker) : +1 / −1 depuis le popup et raccourci « valider l'épisode ».
 

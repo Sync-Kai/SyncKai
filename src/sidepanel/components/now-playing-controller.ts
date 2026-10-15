@@ -1,4 +1,4 @@
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
 import { effectivePreferredPlayer } from '../../shared/preferred-player';
 import type { StreamingPlatform } from '../../shared/episode.types';

@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import type { NetflixTitlesPayload, NetflixTitlesResult, NetflixTitleVerdict } from '../platforms/netflix/history';
 import { normalizeTitle } from '../shared/title';
 import { ApiError } from './api/errors';

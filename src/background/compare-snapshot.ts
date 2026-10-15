@@ -1,5 +1,5 @@
 import { COMPARE_STORAGE_KEY, isComparisonResult, withStaleDiffs, type ComparisonResult } from '../shared/compare';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import { withStorageLock } from '../browser/storage/lock';
 import type { TrackerId } from '../shared/tracker.types';
 

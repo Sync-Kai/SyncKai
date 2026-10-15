@@ -41,7 +41,7 @@ vi.mock('../api/media', () => ({
   getAnimeById: async (id: number) => ({ id, idMal: MAL_ID, displayTitle: 'Frieren', episodes: fakes.episodes }),
   searchAnime: async () => [],
 }));
-vi.mock('../../shared/badge', () => ({ flashSyncBadge: async () => undefined, refreshReviewBadge: async () => undefined }));
+vi.mock('../../browser/badge', () => ({ flashSyncBadge: async () => undefined, refreshReviewBadge: async () => undefined }));
 vi.mock('../../shared/exclusions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../shared/exclusions')>()),
   isExcluded: async () => false,

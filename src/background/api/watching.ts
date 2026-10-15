@@ -22,7 +22,7 @@ import { anilistPublicQuery, anilistQuery } from './client';
 import { ApiError } from './errors';
 import { malRequest } from './mal';
 import { getViewer } from './viewer';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 
 const log = createLogger('watching');
 

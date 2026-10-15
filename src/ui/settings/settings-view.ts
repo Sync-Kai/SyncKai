@@ -4,10 +4,10 @@
 import { getLocale, onLocaleChange, t } from '../../i18n';
 import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.types';
 import { COMPLETE_EPISODE_COMMAND, panelCommandName } from '../../protocol/commands';
-import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
+import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../browser/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
-import { createLogger } from '../../shared/logger';
-import { hasPlatformAccess } from '../../shared/platform-access';
+import { createLogger } from '../../browser/logger';
+import { hasPlatformAccess } from '../../browser/platform-access';
 import { getSettings, normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { updateSettings } from '../../browser/storage/settings-store';
 import { getMediaMappings } from '../../browser/storage/mappings';

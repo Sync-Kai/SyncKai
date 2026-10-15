@@ -45,7 +45,7 @@ import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './season-groups';
 import { recordMatchDecision } from './match-diagnostic';
 import type { SignalName } from './concordance';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 
 const log = createLogger('sync');
 

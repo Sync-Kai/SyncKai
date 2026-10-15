@@ -47,7 +47,7 @@ import { withStorageLock } from '../browser/storage/lock';
 import type { TrackerId } from '../shared/tracker.types';
 import { choosePlatformLink, isWatchingFresh, WATCHING_MAX_AGE_MS } from '../shared/watching';
 import type { WatchingEntry, WatchingList } from '../shared/watching.types';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 
 // Alertes de sortie : une alarme horaire interroge le calendrier public AniList pour les séries en cours.
 

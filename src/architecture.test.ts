@@ -189,13 +189,8 @@ describe('content/ n’embarque que le kit d’interface sûr', () => {
 describe('shared/ : cliquet des modules qui appellent une API du navigateur', () => {
   /** Modules de `shared/` qui font de vrais appels `chrome.*` (hors commentaires), IndexedDB ou `navigator.locks` : la liste ne fait que baisser */
   const BROWSER_API_MODULES: readonly string[] = [
-    'shared/badge.ts',
-    'shared/error-journal.ts',
     'shared/exclusions.ts',
-    'shared/host-access.ts',
-    'shared/platform-access.ts',
     'shared/settings.ts',
-    'shared/side-panel.ts',
   ];
   const BROWSER_API = /\b(?:chrome|browser)\.(?:storage|runtime|permissions|action|sidePanel|tabs|scripting|commands|alarms|windows|i18n|identity|notifications)\b|\bindexedDB\b|\bnavigator\.locks\b/;
 

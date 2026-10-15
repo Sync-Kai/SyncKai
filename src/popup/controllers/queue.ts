@@ -1,7 +1,7 @@
 // Activité › « Synchros en attente » : file de relance (stockage, suivie par storage.onChanged), réessai par le
 // service worker et abandon d'un élément.
 import { t } from '../../i18n';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
 import { SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import { getSyncQueue, removeQueueItem } from '../../browser/storage/sync-queue-store';

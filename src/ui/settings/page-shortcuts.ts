@@ -1,7 +1,7 @@
 // Réglages › Raccourcis : touches actuelles des commandes de l'extension (lues par commands.getAll() dans la vue) et
 // bouton qui ouvre la page des raccourcis du navigateur. Seul endroit des Réglages qui affiche ces touches.
 import { t, type MessageKey } from '../../i18n';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { LINK } from '../kit';
 import { openShortcutSettings } from '../shortcut-settings';
 import { h } from '../dom';

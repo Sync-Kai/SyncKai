@@ -3,7 +3,7 @@
 import { t } from '../../i18n';
 import { getPendingRatings, removePendingRating } from '../../browser/storage/engagement-store';
 import type { PendingRating } from '../../shared/engagement.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
 import { PENDING_RATINGS_KEY } from '../../protocol/storage-keys';
 import type { SyncOutcome } from '../../shared/sync.types';

@@ -1,6 +1,6 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { createNetflixBridgeClient, type NetflixBridgeClient } from './bridge-client';
 import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixSeasonMetadata, type NetflixShowMetadata } from '../../platforms/netflix/metadata';
 import type { PlatformSignals } from '../../shared/match-signals';

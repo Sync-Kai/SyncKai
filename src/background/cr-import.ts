@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { refreshReviewBadge } from '../shared/badge';
+import { refreshReviewBadge } from '../browser/badge';
 import {
   buildCrImportPlan,
   CR_IMPORT_ALARM,
@@ -38,7 +38,7 @@ import {
 import type { HistorySeason } from '../platforms/crunchyroll/history';
 import { getExcludedSeries, isExcluded, platformSeriesKey } from '../shared/exclusions';
 import { isJobActive, reduceJob } from '../shared/job';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import type { Result } from '../shared/result';
 import { sameSessions, type SessionEpochs } from '../shared/session-epochs';
 import {

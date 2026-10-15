@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../ui/toast', () => ({ showToast: mocks.showToast }));
 vi.mock('../ui/engagement-prompt', () => ({ showEngagementPrompt: vi.fn() }));
 vi.mock('../../protocol/messages', () => ({ sendMessage: mocks.sendMessage }));
-vi.mock('../../shared/logger', () => {
+vi.mock('../../browser/logger', () => {
   const noop = (): void => undefined;
   const journal = (...args: unknown[]): void => void mocks.journaled.push(args);
   return { createLogger: () => ({ debug: noop, info: noop, warn: journal, error: journal }) };

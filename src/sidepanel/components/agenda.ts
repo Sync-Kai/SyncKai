@@ -20,9 +20,9 @@ import { agendaFirstDay, readWeekCache, saveSeriesOffset } from '../../browser/s
 import { entryLink } from '../../shared/entry-link';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import type { StreamingPlatform } from '../../shared/episode.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sendMessage, type MessageResponse } from '../../protocol/messages';
-import { activePlatforms, grantedOptionalPlatforms } from '../../shared/platform-access';
+import { activePlatforms, grantedOptionalPlatforms } from '../../browser/platform-access';
 import { platformSearchUrl } from '../../platforms/links';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, parseOffsetInput, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getCachedWatching } from '../../browser/storage/watching-cache';

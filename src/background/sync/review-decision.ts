@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import type { AniListErrorCode } from '../../shared/anilist.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import type { ResolveReviewPayload } from '../../protocol/messages';
 import type { Result } from '../../shared/result';
 import type { DeferredEpisode } from '../../shared/review.types';

@@ -4,7 +4,7 @@
  * Disney+) : ce module garde les règles de ce réglage (lecteur effectif, correction quand l'accès est retiré).
  */
 import type { StreamingPlatform } from './episode.types';
-import { hasPlatformAccess } from './platform-access';
+import { hasPlatformAccess } from '../browser/platform-access';
 import { ACCESS_PLAYERS, DEFAULT_SETTINGS, effectivePlayer, getSettings, saveSettings } from './settings';
 import { withStorageLock } from '../browser/storage/lock';
 

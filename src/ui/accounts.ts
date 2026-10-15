@@ -4,7 +4,7 @@
 import { t } from '../i18n';
 import { isAniListViewer, type ViewerErrorCode, type ViewerResult } from '../shared/anilist.types';
 import type { AuthResult } from '../shared/auth.types';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
 import { sendMessage } from '../protocol/messages';
 import { endSession } from '../browser/storage/session-end';

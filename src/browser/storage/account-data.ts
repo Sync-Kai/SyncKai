@@ -10,7 +10,7 @@ import { PLATFORM_LINKS_KEY } from '../../platforms/links';
 import { withStorageLock } from './lock';
 import { AIRING_USER_KEYS } from '../../shared/airing-keys';
 import { clearSessionCaches } from './session-cache';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../logger';
 import { getOpenSessions, bumpSessionEpoch } from './sessions';
 import { setSessionExpired, readRawToken, readStoredToken, tokenOf } from './tokens';
 import { removeCachedWatching } from './watching-cache';

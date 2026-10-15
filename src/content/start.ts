@@ -1,7 +1,7 @@
 import { initI18n, t } from '../i18n/content';
 import { isContentMessage, type PageMediaResponse } from '../protocol/content-messages';
 import { isLivePanelMessage, LIVE_PORT_NAME, type LiveContentMessage } from '../protocol/live';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import type { StreamingAdapter } from './lib/adapter';
 import { isExtensionContextInvalidated } from './lib/extension-context';
 import { createLiveStream, type LiveStream } from './lib/live-stream';

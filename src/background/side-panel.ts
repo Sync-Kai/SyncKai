@@ -1,5 +1,5 @@
-import { enableSidePanelGlobally, getChromeSidePanel, openSidePanel } from '../shared/side-panel';
-import { createLogger } from '../shared/logger';
+import { enableSidePanelGlobally, getChromeSidePanel, openSidePanel } from '../browser/side-panel';
+import { createLogger } from '../browser/logger';
 import { PANEL_TOGGLE_MESSAGE, type PanelToggleMessage } from '../protocol/panel-toggle';
 
 const log = createLogger('side-panel');

@@ -1,7 +1,7 @@
 import { getLocale } from '../../i18n';
 import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.types';
 import { getPendingRatings } from './engagement-store';
-import { readJournal } from '../../shared/error-journal';
+import { readJournal } from '../error-journal';
 import { getExcludedSeries } from '../../shared/exclusions';
 import { isRecord } from '../../shared/guards';
 import { buildDiagnosticsReport, describeBrowser, type BuildMode } from '../../shared/diagnostics';

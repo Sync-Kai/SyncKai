@@ -1,4 +1,4 @@
-import { isRecord } from './guards';
+import { isRecord } from '../shared/guards';
 import { SIDE_PANEL_PATH } from '../platforms/target-pages';
 
 /**

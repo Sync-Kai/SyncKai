@@ -7,7 +7,7 @@ import { renderAlert } from '../ui/alert';
 import { alertAttrs } from '../ui/live-region';
 import { BTN_GHOST, BTN_PRIMARY, CARD } from '../ui/kit';
 import { BACKUP_EXPORT_PARAM, downloadBackup } from '../ui/backup-download';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 
 const log = createLogger('import');
 

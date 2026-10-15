@@ -1,5 +1,5 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import {
   parsePrimeDetailId,

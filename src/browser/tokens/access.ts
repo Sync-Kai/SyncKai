@@ -1,5 +1,5 @@
 import type { AniListToken } from '../../shared/auth.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../logger';
 import type { MalToken } from '../../shared/mal.types';
 import { endSessionIfUnreadable } from '../storage/session-end';
 import { encryptLegacyTokens, readStoredToken, type TokenOf } from '../storage/tokens';

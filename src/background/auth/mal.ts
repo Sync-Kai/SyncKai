@@ -9,7 +9,7 @@ import { getMalToken } from '../../browser/tokens/access';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../api/errors';
 import { classifyAuthFlowError, getOAuthClients } from './oauth-clients';
 import { createCodeVerifier, createState } from './pkce';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 
 const log = createLogger('auth');
 

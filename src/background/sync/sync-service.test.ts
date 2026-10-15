@@ -46,7 +46,7 @@ vi.mock('../api/media', () => ({
   getAnimeById: (id: number) => fakes.getAnimeById(id),
   searchAnime: async () => [],
 }));
-vi.mock('../../shared/badge', () => ({ flashSyncBadge: async () => undefined, refreshReviewBadge: async () => undefined }));
+vi.mock('../../browser/badge', () => ({ flashSyncBadge: async () => undefined, refreshReviewBadge: async () => undefined }));
 
 // Stockage, verrous et alarmes : fausse API chrome partagée (exclusions réelles, lues dans le stockage)
 const fake = installFakeChrome();

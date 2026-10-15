@@ -1,4 +1,4 @@
-import { refreshReviewBadge } from '../../shared/badge';
+import { refreshReviewBadge } from '../badge';
 import {
   clearAniListSession,
   clearAniListSessionIfToken,

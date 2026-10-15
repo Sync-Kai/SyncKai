@@ -2,8 +2,8 @@
 // accès à Netflix, Disney+ et Prime Video (permissions optionnelles) et options du panneau latéral. Les raccourcis clavier ont leur
 // propre catégorie (page-shortcuts.ts) : un lien y mène.
 import { t, type MessageKey } from '../../i18n';
-import { createLogger } from '../../shared/logger';
-import { removePlatformAccess, requestPlatformAccess } from '../../shared/platform-access';
+import { createLogger } from '../../browser/logger';
+import { removePlatformAccess, requestPlatformAccess } from '../../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
 import { DEFAULT_SETTINGS, effectivePlayer, isPreferredPlayerOption, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../alert';

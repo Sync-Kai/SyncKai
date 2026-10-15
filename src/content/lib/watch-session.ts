@@ -11,7 +11,7 @@ import { showEngagementPrompt } from '../ui/engagement-prompt';
 import { isAlertTone, promptForOutcome, showsProgress } from '../ui/notification-policy';
 import { ALERT_TOAST_MS, NOTICE_TOAST_MS, PILL_TOAST_MS, RETRY_TOAST_MS, bubbleForOutcome, toastForOutcome } from '../ui/sync-toast';
 import { showToast, type ToastContent, type ToastHandle, type ToastOptions } from '../ui/toast';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { isExtensionContextInvalidated } from './extension-context';
 import { liveOutcomeOf, type LiveSnapshot } from './live-stream';
 import { trackVideoProgress, type VideoProgressTracker } from './video-tracker';

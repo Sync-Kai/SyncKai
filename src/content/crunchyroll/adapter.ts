@@ -1,7 +1,7 @@
 import { crunchyrollTableSignals, type CrunchyrollSeasonPick } from '../../platforms/crunchyroll/metadata';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import {
   cleanPageTitle,
   cleanText,

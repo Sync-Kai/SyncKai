@@ -2,7 +2,7 @@ import { migrateLegacySeriesOffsets } from '../browser/storage/agenda-store';
 import { bindLegacyDataToSession } from '../browser/storage/account-data';
 import { deleteMediaMappingsByPrefix } from '../browser/storage/mappings';
 import { encryptLegacyTokens } from '../browser/storage/tokens';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import { markOtherSeriesPurgePending, runPendingOtherSeriesPurge } from './sync/mapping-purge';
 
 const log = createLogger('background');

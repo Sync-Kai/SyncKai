@@ -1,6 +1,6 @@
 import { t, tp, type MessageKey } from '../../i18n';
 import type { AniListErrorCode } from '../../shared/anilist.types';
-import { flashSyncBadge, refreshReviewBadge } from '../../shared/badge';
+import { flashSyncBadge, refreshReviewBadge } from '../../browser/badge';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isExcluded, platformSeriesKey } from '../../shared/exclusions';
 import type { ResolveReviewPayload } from '../../protocol/messages';
@@ -39,7 +39,7 @@ import { mappingFromManualChoice, mappingKey, seasonLabel, type ResolveResult, t
 import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './resolver';
 import { withEntryLock } from './entry-lock';
 import { decideListUpdate, type ListEntryState } from './rules';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 
 const log = createLogger('sync');
 const MAX_SEARCH_RESULTS = 10;

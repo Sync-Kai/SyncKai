@@ -3,7 +3,7 @@
 // dans les onglets Disney+ déjà ouverts, ainsi qu'après une mise à jour de l'extension (accès accordé).
 // Les métadonnées viennent du script du monde MAIN (page-bridge.iife.ts), qui observe les réponses du site.
 // Format IIFE (suffixe .iife.ts) : script enregistré dynamiquement, sans chargeur ESM.
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { disneyAdapter } from './adapter';
 import { claimContentInstance } from '../lib/instance-guard';
 import { startContent } from '../start';

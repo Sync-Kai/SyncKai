@@ -19,12 +19,12 @@ import { declineRewatch, deferRating, getListNotes, rateMedia, removeFromList, s
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, retryQueued } from './sync/queue';
 import { reopenReview, searchCandidates } from './sync/sync-service';
 import { confirmReview, ignoreReview } from './sync/review-decision';
-import { refreshReviewBadge } from '../shared/badge';
+import { refreshReviewBadge } from '../browser/badge';
 import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { MessagePayload, MessageResponse, MessageType, RuntimeMessage } from '../protocol/messages';
 import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, type MessageOrigin } from './message-guards';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import { describeFailedResponse } from './response-errors';
 import { resetSidePanel, togglePanelFromCommand } from './side-panel';
 import { OPEN_SIDE_PANEL_COMMAND } from '../protocol/commands';

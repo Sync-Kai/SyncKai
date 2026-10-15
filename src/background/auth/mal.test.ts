@@ -7,7 +7,7 @@ import { revealToken } from '../../test/tokens';
 // chrome.storage.local simulé par une Map, verrous Web Locks en file par nom (comme navigator.locks), endpoint de
 // token et API MAL simulés par fetch, page d'autorisation par launchWebAuthFlow.
 
-vi.mock('../../shared/badge', () => ({ refreshReviewBadge: async () => undefined }));
+vi.mock('../../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
 
 const REDIRECT_URL = 'https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/';
 const store = new Map<string, unknown>();

@@ -12,7 +12,7 @@ import type { TrackerEntry, TrackerService } from './trackers/tracker';
 
 const fakes = vi.hoisted(() => ({ trackers: [] as TrackerService[] }));
 vi.mock('./trackers', () => ({ getConnectedTrackers: async (): Promise<TrackerService[]> => fakes.trackers }));
-vi.mock('../shared/badge', () => ({ refreshReviewBadge: async () => undefined }));
+vi.mock('../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
 
 let store: Record<string, unknown> = {};
 let session: Record<string, unknown> = {};

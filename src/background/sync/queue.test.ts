@@ -11,7 +11,7 @@ import { installFakeChrome } from '../../test/fake-chrome';
 
 const mocks = vi.hoisted(() => ({ syncEpisode: vi.fn<(...args: unknown[]) => Promise<SyncOutcome>>() }));
 vi.mock('./sync-service', () => ({ syncEpisode: mocks.syncEpisode }));
-vi.mock('../../shared/badge', () => ({ refreshReviewBadge: async () => undefined }));
+vi.mock('../../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
 
 const fake = installFakeChrome();
 

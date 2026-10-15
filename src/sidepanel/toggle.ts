@@ -1,6 +1,6 @@
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import { isPanelToggleMessage } from '../protocol/panel-toggle';
-import { getChromeSidePanel } from '../shared/side-panel';
+import { getChromeSidePanel } from '../browser/side-panel';
 
 // Raccourci « Ouvrir ou fermer le panneau latéral » (Chrome) : côté panneau, la fermeture.
 // Le service worker ouvre toujours (open() ne fait rien sur un panneau ouvert), puis diffuse SIDE_PANEL_TOGGLE ;

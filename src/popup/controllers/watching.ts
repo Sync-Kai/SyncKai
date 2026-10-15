@@ -3,7 +3,7 @@
 // retrait de la liste, commentaire) et bandeau de retour.
 import { t } from '../../i18n';
 import { excludeSeries, includeSeries } from '../../shared/exclusions';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../../platforms/links';
 import { getCachedWatching } from '../../browser/storage/watching-cache';

@@ -1,5 +1,5 @@
 import { canComplete, formatTimecode, resolveCompletionPoint, type CompletionPoint } from './completion';
-import type { Logger } from '../../shared/logger';
+import type { Logger } from '../../browser/logger';
 import type { PlaybackTime } from './adapter';
 
 interface VideoTrackerOptions {

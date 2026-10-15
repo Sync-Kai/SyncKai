@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Logger } from '../../shared/logger';
+import type { Logger } from '../../browser/logger';
 import { PLAYBACK_POLL_MS, trackVideoProgress } from './video-tracker';
 
 // Suivi de la progression sur une fausse <video> (EventTarget de Node) : déclenchement unique, réarmement,

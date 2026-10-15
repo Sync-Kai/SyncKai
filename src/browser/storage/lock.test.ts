@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../shared/error-journal';
+import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../error-journal';
 import { STORAGE_LOCK } from './lock-core';
 import { LOCK_WAIT_WARN_MS, withStorageLock } from './lock';
 

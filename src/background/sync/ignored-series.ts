@@ -1,7 +1,7 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { platformSeriesKey } from '../../shared/exclusions';
 import { isRecord } from '../../shared/guards';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 
 // Séries ignorées par le filtre « anime » des plateformes généralistes (Netflix : aucune fiche AniList liée ni au
 // même titre), par clé plateforme (`netflix:{showId}`). Évite de relancer la recherche AniList (budget de

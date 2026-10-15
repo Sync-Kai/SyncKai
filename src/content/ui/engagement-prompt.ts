@@ -4,7 +4,7 @@ import { sendMessage } from '../../protocol/messages';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { formatScoreLabel } from '../../ui/rating';
 import { createStarRating } from '../../ui/star-rating';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import type { EngagementPrompt } from './notification-policy';
 import { ALERT_TOAST_MS, engagementResultToast, RATING_PROMPT_MS, REWATCH_PROMPT_MS } from './sync-toast';
 import { showToast, type ToastHandle } from './toast';

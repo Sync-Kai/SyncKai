@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // Import d'une sauvegarde : stockage en mémoire, verrou immédiat, accès Netflix piloté.
 vi.mock('./lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise<T> => task() }));
-vi.mock('../../shared/badge', () => ({ refreshReviewBadge: () => Promise.resolve() }));
+vi.mock('../badge', () => ({ refreshReviewBadge: () => Promise.resolve() }));
 
 const { applyBackup } = await import('./backup-store');
 const { buildBackup } = await import('../../shared/backup');

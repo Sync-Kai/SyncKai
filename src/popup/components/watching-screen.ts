@@ -3,7 +3,7 @@ import type { StreamingPlatform } from '../../shared/episode.types';
 import { entryLink, type EntryLink, type EntryLinkContext } from '../../shared/entry-link';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsWithoutLink } from '../../platforms/links';
-import { activePlatforms } from '../../shared/platform-access';
+import { activePlatforms } from '../../browser/platform-access';
 import { PLATFORMS } from '../../platforms/registry';
 import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';

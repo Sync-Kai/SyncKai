@@ -1,5 +1,5 @@
 import { isRecord } from '../../shared/guards';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../logger';
 import { mergePlatformLinks, parsePlatformLinkStore, PLATFORM_LINKS_KEY, rememberPlatformLink, type PlatformLinkStore } from '../../platforms/links';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { withStorageLock } from './lock';

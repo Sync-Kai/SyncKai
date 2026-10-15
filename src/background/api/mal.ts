@@ -12,7 +12,7 @@ import { malScoreFrom, type EntryWrite } from '../../shared/compare';
 import { readListNotes } from '../../shared/list-notes';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from './errors';
 import { retryDelayMs, sleep } from './rate-limit';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 
 const log = createLogger('mal');
 

@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import { isLiveContentMessage, LIVE_PORT_NAME, type LiveContentMessage, type LivePanelMessage, type LiveTickMessage } from '../../protocol/live';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { h } from '../../ui/dom';
 import { formatClock, liveDisplay, liveStateKeepsMessage, type LiveTone } from '../live-view';
 import type { LiveEvent } from '../now-playing-view';

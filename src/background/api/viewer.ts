@@ -5,7 +5,7 @@ import { saveCachedViewer } from '../../browser/storage/viewer-cache';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistQuery } from './client';
 import { ApiError } from './errors';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 
 const log = createLogger('anilist');
 

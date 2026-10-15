@@ -1,6 +1,6 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { toPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
 import { findPlayerVideo } from '../lib/find-video';
 import type { StreamingAdapter } from '../lib/adapter';

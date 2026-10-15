@@ -7,7 +7,7 @@ import {
   type AdnHistoryRead,
 } from '../../protocol/content-messages';
 import { isRecord } from '../../shared/guards';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { CrHistoryError } from '../crunchyroll/history';
 import { abortableSleep, listenHistoryPort } from '../lib/history-port';
 import { pageFetch, type FetchLike } from '../lib/page-fetch';

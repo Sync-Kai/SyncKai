@@ -20,7 +20,7 @@ import {
   type ImportPlatform,
 } from '../shared/cr-import';
 import { dismissCrImportJob, resetCrImport } from '../browser/storage/cr-import-store';
-import { hasHostAccess, requestHostAccess } from '../shared/host-access';
+import { hasHostAccess, requestHostAccess } from '../browser/host-access';
 import { NETFLIX_HISTORY_HOOK } from '../protocol/netflix-history';
 import {
   groupNetflixRows,
@@ -35,9 +35,9 @@ import {
 } from '../platforms/netflix/history';
 import { netflixTabOp, type NetflixTabOp } from '../platforms/netflix/tab-op';
 import { isNetflixShowMetadata, type NetflixShowMetadata } from '../platforms/netflix/metadata';
-import { hasPlatformAccess, requestPlatformAccess } from '../shared/platform-access';
+import { hasPlatformAccess, requestPlatformAccess } from '../browser/platform-access';
 import { isJobActive } from '../shared/job';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import { sendMessage } from '../protocol/messages';
 import { PLATFORMS } from '../platforms/registry';
 import { getSettings } from '../shared/settings';
@@ -85,7 +85,7 @@ const SOURCES: Record<ImportPlatform, PlatformSource> = {
     origins: [...PLATFORMS.netflix.optionalMatches],
   },
 };
-/** Netflix : accès optionnel (permission de la plateforme, voir shared/platform-access.ts) ; autres : accès du manifeste */
+/** Netflix : accès optionnel (permission de la plateforme, voir browser/platform-access.ts) ; autres : accès du manifeste */
 const hasSourceAccess = (platform: ImportPlatform): Promise<boolean> => (platform === 'netflix' ? hasPlatformAccess('netflix') : hasHostAccess(SOURCES[platform].origins));
 /** À appeler directement dans le clic (Firefox : geste utilisateur sans await préalable) */
 const requestSourceAccess = (platform: ImportPlatform): Promise<boolean> => (platform === 'netflix' ? requestPlatformAccess('netflix') : requestHostAccess(SOURCES[platform].origins));

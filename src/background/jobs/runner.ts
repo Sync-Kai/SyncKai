@@ -1,5 +1,5 @@
 import { reduceJob, isJobStale, JOB_STALE_MS, type AnyJob, type JobEvent } from '../../shared/job';
-import type { Logger } from '../../shared/logger';
+import type { Logger } from '../../browser/logger';
 import { withStorageLock } from '../../browser/storage/lock';
 import type { TrackerId } from '../../shared/tracker.types';
 import { ApiError, type ApiErrorCode } from '../api/errors';

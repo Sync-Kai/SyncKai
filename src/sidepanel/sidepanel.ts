@@ -1,11 +1,11 @@
 import { initI18n, joinSentences, onLocaleChange, t, type MessageKey } from '../i18n';
 import { kanaLabel } from '../ui/kit';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import type { StreamingPlatform } from '../shared/episode.types';
-import { activePlatforms, grantedOptionalPlatforms, requestPlatformAccess } from '../shared/platform-access';
+import { activePlatforms, grantedOptionalPlatforms, requestPlatformAccess } from '../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../platforms/registry';
 import { getSettings } from '../shared/settings';
-import { sidePanelKind } from '../shared/side-panel';
+import { sidePanelKind } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
 import { formatPlatformList } from '../ui/platform-list';
 import { settingsPath } from '../ui/settings/navigation';

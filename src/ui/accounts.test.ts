@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Indicateur « Session expirée » (AUTH-03) : chrome.storage.local simulé par une Map qui émet storage.onChanged comme
 // Chrome, verrous Web Locks en file, service worker simulé par runtime.sendMessage.
 
-vi.mock('../shared/badge', () => ({ refreshReviewBadge: async () => undefined }));
+vi.mock('../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
 
 type Changes = Record<string, chrome.storage.StorageChange>;
 type ChangeListener = (changes: Changes, areaName: string) => void;

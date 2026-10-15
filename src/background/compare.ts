@@ -55,7 +55,7 @@ import {
 } from './jobs/runner';
 import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 
 // Comparaison AniList ↔ MyAnimeList (Activité › Écarts) : lecture des deux listes complètes,
 // puis alignement manuel, série par série ou en lot. Rien n'est corrigé automatiquement.

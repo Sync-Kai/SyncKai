@@ -2,7 +2,7 @@
 // sauvegarde (export / import) et zone de danger (réinitialisation des correspondances).
 import { t, tp } from '../../i18n';
 import { includeSeries, type ExcludedSeries } from '../../shared/exclusions';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { clearMediaMappings, deleteMediaMapping } from '../../browser/storage/mappings';
 import type { MediaMapping } from '../../shared/sync.types';
 import { renderAlert } from '../alert';

@@ -1,6 +1,6 @@
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import type { PageMediaInfo } from '../shared/page-media.types';
-import { hasPlatformAccess } from '../shared/platform-access';
+import { hasPlatformAccess } from '../browser/platform-access';
 import { isOptionalPlatform, type StreamingPlatform } from '../platforms/registry';
 import { isTargetPage } from '../platforms/target-pages';
 import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from '../ui/page-media-request';

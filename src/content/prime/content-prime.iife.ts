@@ -3,7 +3,7 @@
 // les onglets Prime Video déjà ouverts, ainsi qu'après une mise à jour de l'extension (accès accordé).
 // Les métadonnées viennent du nœud d'hydratation de la page et du script du monde MAIN (page-bridge.iife.ts).
 // Format IIFE (suffixe .iife.ts) : script enregistré dynamiquement, sans chargeur ESM.
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { primeAdapter } from './adapter';
 import { claimContentInstance } from '../lib/instance-guard';
 import { startContent } from '../start';

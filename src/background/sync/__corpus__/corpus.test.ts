@@ -77,7 +77,7 @@ vi.mock('../../api/client', async (importOriginal) => ({
 }));
 // Aucun service connecté (pas de lecture des listes), accès aux plateformes facultatives accordé
 vi.mock('../../trackers', () => ({ getConnectedTrackers: () => Promise.resolve([]) }));
-vi.mock('../../../shared/platform-access', () => ({ hasPlatformAccess: () => Promise.resolve(true) }));
+vi.mock('../../../browser/platform-access', () => ({ hasPlatformAccess: () => Promise.resolve(true) }));
 
 const fake = installFakeChrome();
 const { resolveEpisode } = await import('../resolver');

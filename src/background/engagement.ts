@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import type { AniListErrorCode } from '../shared/anilist.types';
-import { refreshReviewBadge } from '../shared/badge';
+import { refreshReviewBadge } from '../browser/badge';
 import { addPendingRating, getPendingRatings, isRatingSettled, recordRewatchDecline, removePendingRating } from '../browser/storage/engagement-store';
 import { toSafeImageUrl } from '../shared/url';
 import { mediaRefId, type MediaRef, type Score10 } from '../shared/engagement.types';
@@ -17,7 +17,7 @@ import { ApiError } from './api/errors';
 import { withEntryLock } from './sync/entry-lock';
 import { getConnectedTrackers } from './trackers';
 import type { TrackerEntry, TrackerService } from './trackers/tracker';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 
 // Engagement (service worker) : note de fin de série, revisionnage, commentaire et retrait de la liste, sur tous les
 // services connectés.

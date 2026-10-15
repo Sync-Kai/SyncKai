@@ -1,5 +1,5 @@
 import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../../shared/episode.types';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { medianMinutes, toPlatformSignals, type PlatformFormat, type PlatformSignals } from '../../shared/match-signals';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createDisneyBridgeClient, type DisneyBridgeClient } from './bridge-client';

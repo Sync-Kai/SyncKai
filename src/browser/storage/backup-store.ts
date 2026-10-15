@@ -1,10 +1,10 @@
-import { refreshReviewBadge } from '../../shared/badge';
+import { refreshReviewBadge } from '../badge';
 import { BACKUP_STORAGE_KEYS, bindBackupToSession, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type ImportMode } from '../../shared/backup';
 import { isRecord } from '../../shared/guards';
 import { getOpenSessions } from './sessions';
 import { withStorageLock } from './lock';
-import { createLogger } from '../../shared/logger';
-import { grantedOptionalPlatforms } from '../../shared/platform-access';
+import { createLogger } from '../logger';
+import { grantedOptionalPlatforms } from '../platform-access';
 import { effectivePlayer } from '../../shared/settings';
 
 const log = createLogger('backup');

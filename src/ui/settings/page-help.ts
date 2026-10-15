@@ -3,8 +3,8 @@
 import { getLocale, t, tp } from '../../i18n';
 import { buildIssueUrl } from '../../shared/diagnostics';
 import { buildCurrentReport, currentBrowser } from '../../browser/storage/diagnostics-store';
-import { clearJournal } from '../../shared/error-journal';
-import { createLogger } from '../../shared/logger';
+import { clearJournal } from '../../browser/error-journal';
+import { createLogger } from '../../browser/logger';
 import { BTN_GHOST, CARD } from '../kit';
 import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';

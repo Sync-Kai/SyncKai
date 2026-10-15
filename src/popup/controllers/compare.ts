@@ -3,7 +3,7 @@
 import { t } from '../../i18n';
 import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type DiffFilter, type ListDiff } from '../../shared/compare';
 import { COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../../shared/compare-job';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
 import { withStorageLock } from '../../browser/storage/lock';
 import type { TrackerId } from '../../shared/tracker.types';

@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 import { sanitizeDescription } from '../../shared/panel-media';
 import { PANEL_MEDIA_CACHE_TTL_MS, PANEL_MEDIA_CACHE_VERSION, panelMediaCacheKey, purgeStaleSessionCaches, sessionArea } from '../../browser/storage/session-cache';
 import {

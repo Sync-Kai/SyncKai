@@ -1,5 +1,5 @@
 import { getLocale, initI18n, onLocaleChange, t } from '../i18n';
-import { refreshReviewBadge } from '../shared/badge';
+import { refreshReviewBadge } from '../browser/badge';
 import type { EntryLinkContext } from '../shared/entry-link';
 import type { EpisodeInfo } from '../shared/episode.types';
 import { EXCLUDED_SERIES_KEY, excludeSeries, getExcludedSeries, platformSeriesKey } from '../shared/exclusions';
@@ -7,7 +7,7 @@ import { sendMessage } from '../protocol/messages';
 import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import type { StreamingPlatform } from '../shared/episode.types';
-import { grantedOptionalPlatforms } from '../shared/platform-access';
+import { grantedOptionalPlatforms } from '../browser/platform-access';
 import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../browser/storage/reviews';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { ListStatusChange } from '../shared/sync.types';
@@ -19,7 +19,7 @@ import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../u
 import { tickJobPause } from '../ui/job-pause';
 import { createMenuDismiss } from '../ui/menu';
 import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
-import { hasHostAccess, requestHostAccess, requiredOrigins } from '../shared/host-access';
+import { hasHostAccess, requestHostAccess, requiredOrigins } from '../browser/host-access';
 import { renderFooter, type FooterStatus } from './components/footer';
 import { renderHostAccessBanner } from './components/host-access-banner';
 import { renderHeader, renderNav } from './components/header';
@@ -40,8 +40,8 @@ import type { HostAccessState, PageCardState, RowConfirm, Screen, SettingsState,
 import { createNotesEditor, type NotesEditor } from '../ui/notes-editor';
 import { primaryList } from '../ui/page-media-view';
 import { createStore, patchStore, type AccountState, type ExclusionsState, type Store } from '../ui/state';
-import { createLogger } from '../shared/logger';
-import { openSidePanel, sidePanelKind, type PanelTarget } from '../shared/side-panel';
+import { createLogger } from '../browser/logger';
+import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
 import type { SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView } from '../ui/settings/settings-view';

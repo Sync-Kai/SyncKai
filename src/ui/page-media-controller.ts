@@ -1,5 +1,5 @@
 import { onLocaleChange, t } from '../i18n';
-import { createLogger } from '../shared/logger';
+import { createLogger } from '../browser/logger';
 import { sendMessage } from '../protocol/messages';
 import {
   isCachedPageMedia,
@@ -11,7 +11,7 @@ import {
   storeCachedPageMedia,
 } from '../browser/storage/page-media-cache';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
-import { hasPlatformAccess } from '../shared/platform-access';
+import { hasPlatformAccess } from '../browser/platform-access';
 import { isOptionalPlatform } from '../platforms/registry';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { getOpenSessions } from '../browser/storage/sessions';

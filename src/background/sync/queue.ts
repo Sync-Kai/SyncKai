@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import { refreshReviewBadge } from '../../shared/badge';
+import { refreshReviewBadge } from '../../browser/badge';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { queueItemId, restrictToSession, type SyncQueueItem } from '../../shared/queue.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
@@ -9,7 +9,7 @@ import type { SyncOutcome } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import { classifyOutcome, decideAfterRetry, dueItems, nextAlarmTime, upsertFailure, withoutServices } from './queue-policy';
 import { syncEpisode } from './sync-service';
-import { createLogger } from '../../shared/logger';
+import { createLogger } from '../../browser/logger';
 
 // File de synchro hors ligne (service worker).
 
