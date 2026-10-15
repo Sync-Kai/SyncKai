@@ -36,7 +36,10 @@ const SELECTORS = {
   adTimer: '.atvwebplayersdk-ad-timer-remaining-time',
 } as const;
 
-/** Bande-annonce : durée finie sous ce seuil (43, 63, 133 s relevées) et en pause */
+/**
+ * Bande-annonce : durée finie sous ce seuil (43, 63, 133 s relevées), en pause, ou en lecture automatique sur la fiche
+ * (Dororo, 32 s, 2026-10-15)
+ */
 const TRAILER_MAX_S = 180;
 /** Écart toléré entre la durée de la <video> et celle de l'épisode (1440 / 1441 s relevées) */
 const DURATION_TOLERANCE_S = 5;
@@ -162,8 +165,9 @@ export type PrimeVideoCandidate = Pick<HTMLVideoElement, 'paused' | 'duration' |
 
 /**
  * <video> du lecteur : celle dont la durée est celle de l'épisode (`expectedS`), sinon une <video> en lecture, sinon une
- * <video> en pause qui n'est pas une bande-annonce (durée inconnue pendant la bascule, ou longue). Une bande-annonce (en
- * pause, courte) n'est jamais retenue. null si aucune.
+ * <video> en pause qui n'est pas une bande-annonce (durée inconnue pendant la bascule, ou longue). Une bande-annonce
+ * (courte), en pause ou lancée seule par la fiche, n'est jamais retenue : en lecture, elle passait avant le lecteur
+ * principal encore sans durée, et le suivi y restait. null si aucune.
  */
 export function choosePrimeVideo<V extends PrimeVideoCandidate>(videos: Iterable<V>, expectedS: number | null): V | null {
   let best: { video: V; score: number } | null = null;
@@ -172,7 +176,7 @@ export function choosePrimeVideo<V extends PrimeVideoCandidate>(videos: Iterable
     const finite = Number.isFinite(video.duration) && video.duration > 0;
     let score: number;
     if (finite && expectedS !== null && Math.abs(video.duration - expectedS) <= DURATION_TOLERANCE_S) score = video.paused ? 3 : 4;
-    else if (video.paused && finite && video.duration < TRAILER_MAX_S) continue;
+    else if (finite && video.duration < TRAILER_MAX_S) continue;
     else score = video.paused ? 1 : 2;
     if (!best || score > best.score) best = { video, score };
   }

@@ -163,6 +163,18 @@ describe('choosePrimeVideo', () => {
     expect(choosePrimeVideo([video(false, 1441, false), trailer], 1441)).toBeNull();
   });
 
+  it('bande-annonce en lecture automatique sur la fiche (Dororo, 32 s) : jamais retenue, même face à un lecteur en chargement', () => {
+    const preview = video(false, 32.128);
+    const loading = video(true, Number.NaN);
+    expect(choosePrimeVideo([preview, loading], 1487)).toBe(loading);
+    expect(choosePrimeVideo([preview, loading], null)).toBe(loading);
+    expect(choosePrimeVideo([preview], 1487)).toBeNull();
+    expect(choosePrimeVideo([video(false, 133)], null)).toBeNull();
+    // Lecteur principal chargé ensuite : retenu par sa durée
+    const main = video(true, 1487);
+    expect(choosePrimeVideo([preview, main], 1487)).toBe(main);
+  });
+
   it('bascule de la lecture automatique (durée NaN) : lecteur principal retenu, en pause ou non', () => {
     const switching = video(false, Number.NaN);
     expect(choosePrimeVideo([trailer, switching], 1441)).toBe(switching);
