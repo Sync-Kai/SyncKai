@@ -1,3 +1,4 @@
+import { ensureAiringAlarm } from '../airing-alarm';
 import { refreshReviewBadge } from '../badge';
 import {
   clearAniListSession,
@@ -10,10 +11,14 @@ import {
 import type { SealedToken } from '../tokens/crypto';
 import type { TrackerId } from '../../shared/tracker.types';
 
-/** Après la fermeture d'une session : données de l'utilisateur si plus aucun service n'est connecté, badge de l'icône */
+/**
+ * Après la fermeture d'une session : données de l'utilisateur si plus aucun service n'est connecté, badge de l'icône,
+ * alarme des sorties supprimée s'il ne reste aucun service (PERF-17 : depuis la page comme depuis le service worker)
+ */
 async function afterSessionEnd(): Promise<void> {
   await clearUserSyncDataIfNoSession();
   await refreshReviewBadge();
+  await ensureAiringAlarm();
 }
 
 /**

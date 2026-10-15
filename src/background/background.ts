@@ -6,7 +6,8 @@ import { getWatchingList } from './anilist/watching';
 import { loginWithAniList } from './anilist/auth';
 import { loginWithMal } from './mal/auth';
 import { getAgendaWeek } from './agenda';
-import { AIRING_ALARM, checkNewEpisodes, ensureAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
+import { checkNewEpisodes, handleAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
+import { AIRING_ALARM, ensureAiringAlarm } from '../browser/airing-alarm';
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
 import { handleEpisodeCompleted } from './episode-completed';
 import { forgetPageResolutions, resolvePageMedia } from './page-media/page-media';
@@ -20,8 +21,6 @@ import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, retryQueued } from './
 import { reopenReview, searchCandidates } from './sync/sync-service';
 import { confirmReview, ignoreReview } from './sync/review-decision';
 import { refreshReviewBadge } from '../browser/badge';
-import { SETTINGS_STORAGE_KEY } from '../shared/settings';
-import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { MessagePayload, MessageResponse, MessageType, RuntimeMessage } from '../protocol/messages';
 import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, type MessageOrigin } from './message-guards';
 import { createLogger } from '../browser/logger';
@@ -241,7 +240,7 @@ chrome.runtime.onInstalled.addListener((): void => {
 // ─── Alertes de nouveaux épisodes ──────────────────────────────────────────
 
 chrome.alarms.onAlarm.addListener((alarm): void => {
-  if (alarm.name === AIRING_ALARM) afterI18n(() => checkNewEpisodes('background'));
+  if (alarm.name === AIRING_ALARM) afterI18n(handleAiringAlarm);
 });
 chrome.notifications.onClicked.addListener((id): void => {
   void handleNotificationClick(id);
@@ -255,13 +254,8 @@ chrome.runtime.onStartup.addListener((): void => {
 chrome.runtime.onInstalled.addListener((): void => {
   void ensureAiringAlarm();
 });
-// Réglage modifié ou compte (dé)connecté : l'alarme suit. Zone locale seule (ARCH-18) : les caches de
-// `storage.session` écrits par le popup et le panneau ne réveillent pas le service worker.
-chrome.storage.local.onChanged.addListener((changes): void => {
-  if (SETTINGS_STORAGE_KEY in changes || STORAGE_KEYS.anilistToken in changes || STORAGE_KEYS.malToken in changes) {
-    void ensureAiringAlarm();
-  }
-});
+// Réglage modifié ou compte (dé)connecté : pas d'écouteur storage.onChanged ici, il réveillait le service worker à
+// chaque écriture locale (PERF-17). L'alarme est tenue à jour là où ses conditions changent (browser/airing-alarm.ts).
 
 // ─── Tâches de fond (alignement AniList ↔ MAL, import Crunchyroll) : reprise après une interruption ───
 // Par leur alarme, au démarrage du navigateur et après une mise à jour de l'extension (voir job-resume.ts)

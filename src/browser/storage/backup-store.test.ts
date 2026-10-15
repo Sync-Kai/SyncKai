@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FakeAlarms } from '../../test/fake-chrome';
 
 // Import d'une sauvegarde : stockage en mémoire, verrou immédiat, accès Netflix piloté.
 vi.mock('./lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise<T> => task() }));
@@ -17,10 +18,11 @@ function fakeBrowser(netflixGranted: boolean, initial: Record<string, unknown> =
   const stored: Record<string, unknown> = { ...initial };
   vi.stubGlobal('chrome', {
     runtime: { getManifest: () => ({ version: '2.1.1' }) },
+    alarms: new FakeAlarms(),
     permissions: { contains: () => Promise.resolve(netflixGranted) },
     storage: {
       local: {
-        get: (keys: string[]) => Promise.resolve(Object.fromEntries(keys.filter((key) => key in stored).map((key) => [key, stored[key]]))),
+        get: (keys: string | string[]) => Promise.resolve(Object.fromEntries((Array.isArray(keys) ? keys : [keys]).filter((key) => key in stored).map((key) => [key, stored[key]]))),
         set: (items: Record<string, unknown>) => {
           Object.assign(stored, items);
           return Promise.resolve();

@@ -1,3 +1,4 @@
+import { ensureAiringAlarm } from '../airing-alarm';
 import { refreshReviewBadge } from '../badge';
 import { BACKUP_STORAGE_KEYS, bindBackupToSession, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type ImportMode } from '../../shared/backup';
 import { isRecord } from '../../shared/guards';
@@ -52,4 +53,6 @@ export async function applyBackup(incoming: BackupData, mode: ImportMode, includ
   });
   // Badge décoratif : son échec ne remet pas l'import en cause
   await refreshReviewBadge().catch((error: unknown) => log.warn('Badge non mis à jour après import :', error));
+  // Réglages importés (alertes de sortie comprises) : l'alarme suit (PERF-17)
+  if (includeSettings) await ensureAiringAlarm();
 }

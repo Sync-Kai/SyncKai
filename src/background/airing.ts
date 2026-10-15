@@ -40,19 +40,15 @@ import {
 import {
   getRecentSyncs,
 } from '../browser/storage/reviews';
-import {
-  hasMalToken,
-  hasValidAniListToken,
-} from '../browser/storage/tokens';
+import { connectedServices, ensureAiringAlarm } from '../browser/airing-alarm';
 import { withStorageLock } from '../browser/storage/lock';
 import type { TrackerId } from '../shared/tracker.types';
 import { choosePlatformLink, isWatchingFresh, WATCHING_MAX_AGE_MS } from '../shared/watching';
 import type { WatchingEntry, WatchingList } from '../shared/watching.types';
 import { createLogger } from '../browser/logger';
 
-// Alertes de sortie : une alarme horaire interroge le calendrier public AniList pour les séries en cours.
-
-export const AIRING_ALARM = 'synckai:airing';
+// Alertes de sortie : une alarme horaire interroge le calendrier public AniList pour les séries en cours. Alarme
+// créée et supprimée par browser/airing-alarm.ts.
 
 const MAX_TARGETS = 20;
 const log = createLogger('airing');
@@ -82,32 +78,8 @@ export async function getCachedEntries(): Promise<WatchingEntry[]> {
   return (await getCachedLists()).flatMap((list) => list.entries);
 }
 
-/** Services connectés : token AniList valide, token MAL présent (renouvelé à la demande) ; sans déchiffrement */
-async function connectedServices(): Promise<TrackerId[]> {
-  const [anilist, mal] = await Promise.all([hasValidAniListToken(), hasMalToken()]);
-  const services: TrackerId[] = [];
-  if (anilist) services.push('anilist');
-  if (mal) services.push('mal');
-  return services;
-}
-
 export async function hasConnectedService(): Promise<boolean> {
   return (await connectedServices()).length > 0;
-}
-
-/** Crée l'alarme horaire si les alertes sont actives et un service connecté, sinon la supprime. */
-export async function ensureAiringAlarm(): Promise<void> {
-  try {
-    const settings = await getSettings();
-    if (!settings.airingAlerts || !(await hasConnectedService())) {
-      await chrome.alarms.clear(AIRING_ALARM);
-      return;
-    }
-    const existing = await chrome.alarms.get(AIRING_ALARM);
-    if (!existing) await chrome.alarms.create(AIRING_ALARM, { delayInMinutes: 1, periodInMinutes: 60 });
-  } catch (error) {
-    log.error('Alarme impossible à configurer :', error);
-  }
 }
 
 export interface AiringFetch {
@@ -320,6 +292,15 @@ export async function checkNewEpisodes(lane: RequestLane = 'background'): Promis
     log.error('Enregistrement du résumé impossible :', error);
   }
   return result;
+}
+
+/**
+ * Déclenchement de l'alarme horaire : vérification en file de fond. Alertes coupées ou plus aucun service connecté
+ * (changement manqué, token AniList arrivé à expiration) : l'alarme est supprimée, plus de réveil horaire inutile (PERF-17).
+ */
+export async function handleAiringAlarm(): Promise<void> {
+  const { skipped } = await checkNewEpisodes('background');
+  if (skipped === 'disabled' || skipped === 'not-connected') await ensureAiringAlarm();
 }
 
 /** URL d'ouverture : plateforme préférée du cache (Netflix seulement avec l'accès), sinon la fiche du service, sinon AniList. */

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { MalToken } from '../../shared/mal.types';
+import { FakeAlarms } from '../../test/fake-chrome';
 import { revealToken } from '../../test/tokens';
 
 // Renouvellement du token MyAnimeList (AUTH-01, AUTH-05, AUTH-07, AUTH-08, TEST-02) et connexion (AUTH-10) :
@@ -12,8 +13,10 @@ vi.mock('../../browser/badge', () => ({ refreshReviewBadge: async () => undefine
 const REDIRECT_URL = 'https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/';
 const store = new Map<string, unknown>();
 const launchWebAuthFlow = vi.fn<(details: { url: string; interactive?: boolean }) => Promise<string | undefined>>();
+const alarms = new FakeAlarms();
 vi.stubGlobal('chrome', {
   runtime: { id: 'khokcmigioggannjoojambdgioigdceb' },
+  alarms,
   identity: { getRedirectURL: () => REDIRECT_URL, launchWebAuthFlow },
   storage: {
     local: {
@@ -69,6 +72,7 @@ function deferred(): { promise: Promise<Response>; resolve: (response: Response)
 beforeEach(() => {
   store.clear();
   queues.clear();
+  void alarms.clearAll();
   launchWebAuthFlow.mockReset();
 });
 
@@ -289,5 +293,19 @@ describe('connexion MyAnimeList (TEST-02, AUTH-10)', () => {
     expect(params.get('code_verifier')).toBe(authParams().get('code_challenge'));
     expect((await storedToken())?.accessToken).toBe('T1');
     expect(store.has('sessionExpired:mal')).toBe(false);
+  });
+
+  it('connexion réussie, alertes actives : alarme des sorties créée sans attendre un autre réveil (PERF-17)', async () => {
+    launchWebAuthFlow.mockImplementation(authorize);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(json(200, tokenBody(1)))));
+    await expect(loginWithMal()).resolves.toEqual({ ok: true, data: null });
+    expect(await alarms.get('synckai:airing')).toMatchObject({ periodInMinutes: 60 });
+  });
+
+  it('déconnexion du seul service : alarme des sorties supprimée (PERF-17)', async () => {
+    expiringSession();
+    await alarms.create('synckai:airing', { delayInMinutes: 1, periodInMinutes: 60 });
+    await endSession('mal');
+    expect(await alarms.get('synckai:airing')).toBeUndefined();
   });
 });

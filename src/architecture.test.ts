@@ -270,7 +270,9 @@ describe('service worker : pas de nouvel écouteur d’événement du navigateur
     'chrome.runtime.onInstalled': 7,
     'chrome.runtime.onMessage': 1,
     'chrome.runtime.onStartup': 6,
-    'chrome.storage.local.onChanged': 1,
+    // chrome.storage.local.onChanged : 0 depuis PERF-17 (décision du 2026-10-15). Il réveillait le service worker à chaque
+    // écriture locale d'une page ou d'un script de contenu ; l'alarme des sorties est tenue à jour là où ses conditions
+    // changent (browser/airing-alarm.ts)
   };
 
   it('aucun événement ni écouteur de plus que la liste figée', () => {
@@ -282,6 +284,11 @@ describe('service worker : pas de nouvel écouteur d’événement du navigateur
     }
     const added = [...counts].filter(([event, count]) => count > (LISTENERS[event] ?? 0)).map(([event, count]) => `${event} : ${count} (figé : ${LISTENERS[event] ?? 0})`);
     expect(added).toEqual([]);
+  });
+
+  it('aucun écouteur de storage.onChanged dans background/ : toute écriture locale réveillerait le service worker (PERF-17)', () => {
+    const found = layerFiles('background').filter((file) => /\bstorage(?:\.(?:local|session|sync))?\.onChanged\.addListener\(/.test(withoutComments(SOURCES.get(file) ?? '')));
+    expect(found).toEqual([]);
   });
 });
 

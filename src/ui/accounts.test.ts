@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FakeAlarms } from '../test/fake-chrome';
 
 // Indicateur « Session expirée » (AUTH-03) : chrome.storage.local simulé par une Map qui émet storage.onChanged comme
 // Chrome, verrous Web Locks en file, service worker simulé par runtime.sendMessage.
@@ -21,6 +22,7 @@ function write(apply: () => Changes): void {
 
 vi.stubGlobal('chrome', {
   runtime: { id: 'khokcmigioggannjoojambdgioigdceb', sendMessage },
+  alarms: new FakeAlarms(),
   storage: {
     local: {
       get: async (keys: string | string[] | null): Promise<Record<string, unknown>> => {

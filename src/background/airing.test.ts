@@ -28,7 +28,7 @@ vi.mock('./anilist/client', () => ({
 vi.mock('./anilist/watching', () => ({ getWatchingList: fakes.getWatchingList }));
 
 const fake = installFakeChrome({ extra: { notifications: { create: fakes.create, clear: async () => true } } });
-const { checkNewEpisodes } = await import('./airing');
+const { checkNewEpisodes, handleAiringAlarm } = await import('./airing');
 
 setLocale('fr');
 
@@ -187,5 +187,36 @@ describe('pagination tronquée (ALRT-06)', () => {
     expect(isAiringWeekCache(week) && week.truncated).toBe(true);
     // Fenêtre des alertes entièrement couverte par la seconde lecture
     expect(stored(AIRING_COVERED_KEY)).toBeGreaterThan(recent);
+  });
+});
+
+describe('alarme horaire (PERF-17) : vérifiée à son déclenchement, plus par storage.onChanged', () => {
+  const AIRING = 'synckai:airing';
+
+  it('alertes coupées : aucune requête ni notification, alarme supprimée', async () => {
+    fake.reset({ ...OPEN_SESSIONS, settings: { airingAlerts: false } });
+    await chrome.alarms.create(AIRING, { delayInMinutes: 1, periodInMinutes: 60 });
+    await handleAiringAlarm();
+    expect(fakes.schedule).not.toHaveBeenCalled();
+    expect(fakes.create).not.toHaveBeenCalled();
+    expect(await chrome.alarms.get(AIRING)).toBeUndefined();
+  });
+
+  it('aucun service connecté : aucune requête, alarme supprimée', async () => {
+    fake.reset({ settings: { airingAlerts: true } });
+    await chrome.alarms.create(AIRING, { delayInMinutes: 1, periodInMinutes: 60 });
+    await handleAiringAlarm();
+    expect(fakes.schedule).not.toHaveBeenCalled();
+    expect(fakes.getWatchingList).not.toHaveBeenCalled();
+    expect(await chrome.alarms.get(AIRING)).toBeUndefined();
+  });
+
+  it('alertes actives et un service connecté : vérification en file de fond, alarme gardée', async () => {
+    fake.reset({ ...OPEN_SESSIONS, [STORAGE_KEYS.watchingCache]: { anilist: list(Date.now(), [entry(1, 6)]) } });
+    await chrome.alarms.create(AIRING, { delayInMinutes: 1, periodInMinutes: 60 });
+    fakes.schedule.mockImplementation(() => page([]));
+    await handleAiringAlarm();
+    expect(fakes.lanes).toEqual(['background']);
+    expect(await chrome.alarms.get(AIRING)).toMatchObject({ periodInMinutes: 60 });
   });
 });

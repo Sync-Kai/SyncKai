@@ -11,6 +11,7 @@ import { withStorageLock } from './lock';
 import { clearSessionCaches } from './session-cache';
 import { createLogger } from '../logger';
 import { getOpenSessions, bumpSessionEpoch } from './sessions';
+import { storedKeysWithPrefix } from './stored-keys';
 import { setSessionExpired, readRawToken, readStoredToken, tokenOf } from './tokens';
 import { removeCachedWatching } from './watching-cache';
 
@@ -66,8 +67,7 @@ export function clearAniListSessionIfToken(accessToken: string): Promise<boolean
 /** Clés propres à l'utilisateur, sans verrou (voir clearUserSyncData) */
 async function removeUserSyncData(): Promise<void> {
   // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
-  const prefixes = prefixesClearedOnLastSession();
-  const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => prefixes.some((prefix) => key.startsWith(prefix)));
+  const weeks = await storedKeysWithPrefix(prefixesClearedOnLastSession());
   await chrome.storage.local.remove([...keysClearedOnLastSession(), ...weeks]);
   await removeSessionCaches();
 }

@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
 import type { AniListToken, AuthResult } from '../../shared/auth.types';
+import { ensureAiringAlarm } from '../../browser/airing-alarm';
 import { clearAniListSession } from '../../browser/storage/account-data';
 import { hasAniListToken, saveToken } from '../../browser/storage/tokens';
 import { createLogger } from '../../browser/logger';
@@ -82,6 +83,8 @@ export async function loginWithAniList(): Promise<AuthResult> {
     log.error('Échec de la sauvegarde du token :', storageError);
     return { ok: false, code: 'UNKNOWN', message: t('auth.saveFailed') };
   }
+  // Session ouverte : alarme des sorties créée si les alertes sont actives (PERF-17)
+  await ensureAiringAlarm();
 
   return { ok: true, data: null };
 }

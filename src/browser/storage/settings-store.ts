@@ -1,3 +1,4 @@
+import { ensureAiringAlarm } from '../airing-alarm';
 import { getSettings, saveSettings } from './settings-access';
 import { type SyncSettings } from '../../shared/settings';
 import { withStorageLock } from './lock';
@@ -9,10 +10,13 @@ import { withStorageLock } from './lock';
  * champ (délai d'une série depuis l'Agenda, lecteur préféré remis par défaut après un retrait d'accès) est conservée.
  * Retourne les réglages enregistrés.
  */
-export function updateSettings(patch: Partial<SyncSettings>): Promise<SyncSettings> {
-  return withStorageLock(async () => {
+export async function updateSettings(patch: Partial<SyncSettings>): Promise<SyncSettings> {
+  const saved = await withStorageLock(async () => {
     const next = { ...(await getSettings()), ...patch };
     await saveSettings(next);
     return next;
   });
+  // Alertes de sortie activées ou coupées : l'alarme suit tout de suite, depuis la page (PERF-17)
+  await ensureAiringAlarm();
+  return saved;
 }

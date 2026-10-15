@@ -2,6 +2,7 @@ import { t } from '../../i18n';
 import type { AuthResult } from '../../shared/auth.types';
 import { isRecord } from '../../shared/guards';
 import type { MalToken } from '../../shared/mal.types';
+import { ensureAiringAlarm } from '../../browser/airing-alarm';
 import { endSessionIfToken } from '../../browser/storage/session-end';
 import { getOpenSessions, saveRefreshedMalToken } from '../../browser/storage/sessions';
 import { saveMalToken } from '../../browser/storage/tokens';
@@ -133,6 +134,8 @@ export async function loginWithMal(): Promise<AuthResult> {
   try {
     const token = await requestToken({ grant_type: 'authorization_code', code, code_verifier: codeVerifier, redirect_uri: redirectUri });
     await saveMalToken(token);
+    // Session ouverte : alarme des sorties créée si les alertes sont actives (PERF-17)
+    await ensureAiringAlarm();
     return { ok: true, data: null };
   } catch (error: unknown) {
     log.error('Échange du code MyAnimeList impossible :', error, '| redirect_uri :', redirectUri);

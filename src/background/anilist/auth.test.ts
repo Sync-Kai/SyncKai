@@ -1,16 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
+import { FakeAlarms } from '../../test/fake-chrome';
 import { revealToken } from '../../test/tokens';
 
 // Connexion AniList par-dessus un token expiré (AUTH-06) : la session de l'ancien compte est fermée avant la nouvelle.
+// Alarme des sorties créée à la connexion (PERF-17).
 
 const REDIRECT = 'https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/';
 const GRANTED = `${REDIRECT}#access_token=NEW&token_type=Bearer&expires_in=31536000`;
 let store: Record<string, unknown> = {};
 const runtime = { id: 'khokcmigioggannjoojambdgioigdceb' };
 const launchWebAuthFlow = vi.fn<(details: { url: string; interactive: boolean }) => Promise<string | undefined>>();
+const alarms = new FakeAlarms();
 vi.stubGlobal('chrome', {
   runtime,
+  alarms,
   identity: { getRedirectURL: () => REDIRECT, launchWebAuthFlow },
   storage: {
     local: {
@@ -45,6 +49,7 @@ const EPISODE = {
 
 beforeEach(() => {
   store = {};
+  void alarms.clearAll();
   runtime.id = 'khokcmigioggannjoojambdgioigdceb';
   launchWebAuthFlow.mockReset();
   launchWebAuthFlow.mockResolvedValue(GRANTED);
@@ -82,6 +87,17 @@ describe('loginWithAniList (AUTH-06)', () => {
     expect(await loginWithAniList()).toEqual({ ok: true, data: null });
     expect(store.sessionEpoch).toEqual({ anilist: 2 });
     expect(await revealToken('anilist', store.anilistToken)).toMatchObject({ accessToken: 'NEW' });
+  });
+
+  it('connexion réussie, alertes actives : alarme des sorties créée sans attendre un autre réveil (PERF-17)', async () => {
+    expect(await loginWithAniList()).toEqual({ ok: true, data: null });
+    expect(await alarms.get('synckai:airing')).toMatchObject({ periodInMinutes: 60 });
+  });
+
+  it('connexion réussie, alertes coupées : aucune alarme', async () => {
+    store = { settings: { airingAlerts: false } };
+    expect(await loginWithAniList()).toEqual({ ok: true, data: null });
+    expect(await alarms.get('synckai:airing')).toBeUndefined();
   });
 });
 

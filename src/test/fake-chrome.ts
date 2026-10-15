@@ -49,6 +49,14 @@ export class FakeStorageArea {
     for (const [key, value] of Object.entries(items)) this.data.set(key, structuredClone(value));
   }
 
+  /** chrome.storage.*.getKeys (Chrome 130+) ; undefined après `supportGetKeys(false)` : navigateur qui ne l'a pas */
+  getKeys: (() => Promise<string[]>) | undefined = async (): Promise<string[]> => [...this.data.keys()];
+
+  /** Avec ou sans getKeys (rétabli par `reset()` de la fausse API) */
+  supportGetKeys(enabled: boolean): void {
+    this.getKeys = enabled ? async (): Promise<string[]> => [...this.data.keys()] : undefined;
+  }
+
   get = async (keys?: string | string[] | Items | null): Promise<Items> => {
     if (keys === null || keys === undefined) return Object.fromEntries([...this.data].map(([k, v]) => [k, structuredClone(v)]));
     if (typeof keys === 'string' || Array.isArray(keys)) {
@@ -322,6 +330,8 @@ export function installFakeChrome(options: FakeChromeOptions = {}): FakeChrome {
     reset(seed: Items = {}): void {
       local.seed(seed);
       session.seed();
+      local.supportGetKeys(true);
+      session.supportGetKeys(true);
       local.onChanged.clear();
       session.onChanged.clear();
       onStorageChanged.clear();

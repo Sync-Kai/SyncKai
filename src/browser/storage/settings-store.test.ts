@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FakeAlarms } from '../../test/fake-chrome';
 
 // Réglages écrits par champs sous verrou : vrai verrou sérialisé (file d'attente), stockage en mémoire asynchrone.
 
 let store: Record<string, unknown> = {};
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 vi.stubGlobal('chrome', {
+  alarms: new FakeAlarms(),
   storage: {
     local: {
       get: async (keys: string | string[]): Promise<Record<string, unknown>> => {

@@ -1,5 +1,6 @@
 import { getLocale } from '../../i18n';
 import {
+  AIRING_WEEK_PREFIX,
   airingWeekKey,
   firstDayOfWeek,
   isAiringWeekCache,
@@ -15,6 +16,7 @@ import { getSettings, saveSettings } from './settings-access';
 import { normalizeSeriesOffsets, SETTINGS_STORAGE_KEY } from '../../shared/settings';
 import { writeIfSessions } from './sessions';
 import { withStorageLock } from './lock';
+import { storedKeysWithPrefix } from './stored-keys';
 
 // Accès chrome.storage de l'agenda (panneau latéral et service worker).
 
@@ -46,8 +48,8 @@ export async function readWeekCache(weekStart: string): Promise<AiringWeekCache 
  */
 export async function writeWeekCache(cache: AiringWeekCache, epochs: SessionEpochs, now: number = Date.now()): Promise<boolean> {
   if (!(await writeIfSessions(epochs, { [airingWeekKey(cache.weekStart)]: cache }))) return false;
-  const all = await chrome.storage.local.get(null);
-  const stale = weekKeysToPrune(Object.keys(all), now);
+  // Noms des clés seuls : jamais tout le stockage (correspondances, plan d'import, journal…) à chaque vérification (PERF-14)
+  const stale = weekKeysToPrune(await storedKeysWithPrefix([AIRING_WEEK_PREFIX]), now);
   if (stale.length > 0) await chrome.storage.local.remove(stale);
   return true;
 }

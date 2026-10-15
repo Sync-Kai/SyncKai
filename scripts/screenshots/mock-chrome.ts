@@ -165,6 +165,7 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
   });
 
   const local = storageArea(store, emitFor('local'), areaListeners.local);
+  const alarms = new Map<string, { name: string; scheduledTime: number; periodInMinutes?: number }>();
   const session = storageArea(new Map<string, unknown>(Object.entries(clone(options.session ?? {}))), emitFor('session'), areaListeners.session);
 
   const access = options.permissions;
@@ -249,6 +250,15 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
       onActivated: event,
     },
     windows: { getCurrent: () => Promise.resolve({ id: 1 }) },
+    // Alarme des sorties tenue à jour par les pages (réglages, déconnexion : PERF-17)
+    alarms: {
+      get: (name: string) => Promise.resolve(alarms.get(name)),
+      create: (name: string, info: { periodInMinutes?: number }) => {
+        alarms.set(name, { name, scheduledTime: Date.now(), ...info });
+        return Promise.resolve();
+      },
+      clear: (name: string) => Promise.resolve(alarms.delete(name)),
+    },
     action: {
       setBadgeText: () => Promise.resolve(),
       setBadgeBackgroundColor: () => Promise.resolve(),

@@ -7,6 +7,7 @@ import type { SessionEpochs } from '../../shared/session-epochs';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
 import { forgetTokenKey } from '../../test/memory-key-store';
+import { FakeAlarms } from '../../test/fake-chrome';
 import { revealToken } from '../../test/tokens';
 
 // Effacements de session, données liées au compte, écritures sous session et plafonds de storage.ts
@@ -16,6 +17,7 @@ import { revealToken } from '../../test/tokens';
 const store = new Map<string, unknown>();
 
 vi.stubGlobal('chrome', {
+  alarms: new FakeAlarms(),
   storage: {
     local: {
       get: async (keys: string | string[] | null): Promise<Record<string, unknown>> => {

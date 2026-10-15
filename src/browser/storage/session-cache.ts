@@ -1,4 +1,5 @@
 import { isRecord } from '../../shared/guards';
+import { storedKeys } from './stored-keys';
 
 // Caches de `storage.session` (Chrome 102+, Firefox 115+) : en mémoire, jamais écrits sur disque, vidés à la fermeture
 // du navigateur. Quota commun d'environ 10 Mo (avec `ignoredSeries`, voir background/sync/ignored-series.ts) :
@@ -64,6 +65,6 @@ export async function purgeStaleSessionCaches(now: number = Date.now()): Promise
 export async function clearSessionCaches(): Promise<void> {
   const area = sessionArea();
   if (!area) return;
-  const keys = Object.keys(await area.get(null)).filter(isCacheKey);
+  const keys = (await storedKeys(area)).filter(isCacheKey);
   if (keys.length > 0) await area.remove(keys);
 }
