@@ -2,13 +2,13 @@ import { crx, type CrxPlugin } from '@crxjs/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import manifest from './manifest.json';
 import { GIT_COMMIT_EPOCH_ARGS, resolveBuildStamp } from './src/build/build-stamp';
 import { contentCatalogsDefine } from './src/build/content-catalog';
 import { devVersionName, GIT_DIRTY_ARGS, GIT_SHORT_SHA_ARGS } from './src/build/dev-version';
 import { parseBuildTarget, targetManifest, targetOutDir } from './src/build/manifest-target';
-import { assetFileName, dropExtensionInjectedScripts, jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
+import { assetFileName, crxIifeIntermediates, dropExtensionInjectedScripts, jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
 import en from './src/i18n/locales/en.json';
 
 // Navigateur cible : `SYNCKAI_TARGET=firefox` (npm run build:firefox), chrome par défaut.
@@ -62,9 +62,23 @@ const sortedWebAccessibleResources: CrxPlugin = {
   },
 };
 
+/**
+ * Intermédiaires de crxjs retirés du paquet (2-H) : chunk du build principal de chaque script `*.iife.ts`, construit à part en
+ * IIFE autonome, et chunks qu'il est seul à importer ; personne ne les charge (src/build/output-names.ts, verify-build refuse
+ * tout fichier que rien ne référence). Après le plugin IIFE de crxjs (`enforce: 'post'`, placé après crx())
+ */
+const dropCrxIifeIntermediates: Plugin = {
+  name: 'synckai:drop-crx-iife-intermediates',
+  apply: 'build',
+  enforce: 'post',
+  generateBundle(_options, bundle) {
+    for (const name of crxIifeIntermediates(bundle)) Reflect.deleteProperty(bundle, name);
+  },
+};
+
 export default defineConfig(({ mode }) => ({
   // Après crx() : renderCrxManifest est appelé dans l'ordre des plugins, une fois les ressources calculées
-  plugins: [tailwindcss(), crx({ manifest: withDevVersionName(targetManifest(manifest, target), mode), browser: target }), sortedWebAccessibleResources],
+  plugins: [tailwindcss(), crx({ manifest: withDevVersionName(targetManifest(manifest, target), mode), browser: target }), sortedWebAccessibleResources, dropCrxIifeIntermediates],
   build: {
     outDir: targetOutDir(target),
     rollupOptions: {

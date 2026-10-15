@@ -136,3 +136,36 @@ export function splitRegisteredScripts<E extends WebAccessibleResourceEntry & { 
     return others.length > 0 ? [{ ...entry, resources: others }, ...split] : split;
   });
 }
+
+/** Fichier du bundle de Rollup, réduit aux champs lus par `crxIifeIntermediates` */
+export interface BundleFileInfo {
+  type: 'chunk' | 'asset';
+  isEntry?: boolean;
+  facadeModuleId?: string | null;
+  imports?: readonly string[];
+  dynamicImports?: readonly string[];
+}
+
+/**
+ * Intermédiaires de crxjs (2-H) : il ajoute chaque script `*.iife.ts` (manifeste ou `?script`) aux entrées du build principal,
+ * puis le construit à part en IIFE autonome (`src/content/…/x.iife.js`). Le chunk `x.iife.ts-<hash>.js` du build principal, et
+ * les chunks qu'il est seul à importer, ne sont chargés par personne : leurs noms, à retirer du paquet (vite.config.ts).
+ * Les chunks atteints depuis une autre entrée (pages, service worker) sont conservés.
+ */
+export function crxIifeIntermediates(bundle: Readonly<Record<string, BundleFileInfo>>): string[] {
+  const isIifeFacade = (file: BundleFileInfo): boolean => file.type === 'chunk' && /\.iife\.ts$/.test((file.facadeModuleId ?? '').replaceAll('\\', '/'));
+  const reach = (starts: readonly string[]): Set<string> => {
+    const seen = new Set<string>();
+    for (let queue = [...starts], name = queue.pop(); name !== undefined; name = queue.pop()) {
+      const file = bundle[name];
+      if (seen.has(name) || file?.type !== 'chunk') continue;
+      seen.add(name);
+      queue.push(...(file.imports ?? []), ...(file.dynamicImports ?? []));
+    }
+    return seen;
+  };
+  const files = Object.entries(bundle);
+  const fromIife = reach(files.filter(([, file]) => isIifeFacade(file)).map(([name]) => name));
+  const fromOthers = reach(files.filter(([, file]) => file.isEntry === true && !isIifeFacade(file)).map(([name]) => name));
+  return [...fromIife].filter((name) => !fromOthers.has(name)).sort();
+}

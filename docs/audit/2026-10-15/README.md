@@ -20,6 +20,7 @@ Done since (see `git log` and `CHANGELOG.md`, which are authoritative):
 - bug fixes: matching H1, H2, M1, M2, M3, L5; B1, B2, B3, B4, B6, Settings write lock, `SET_LIST_STATUS` cover; bridges R1, R2, R4, R5; SEC-04;
 - phase (a) safety nets a1–a4, a6 and part of a5; phase (b) folder moves b1–b7b;
 - performance d1, d2, d4, plus grouped season reads on series pages and the hourly airing check on the background lane;
-- refactors e9, e12, f0, f2.
+- refactors e9, e12, f0, f2;
+- phase (c) bundle wins c1–c6 and c8 (2026-10-15: the shared Crunchyroll / ADN script went from 83.0 KB to 54.5 KB on Crunchyroll and 49.0 KB on ADN; package without crxjs intermediates nor `.woff` fonts). c7 dropped (decision 13: no, every content script now has about 10 % margin, and warnings must still reach the journal when the service worker is unreachable).
 
-Still open: phase (c) bundle wins (c1 first: the Crunchyroll / ADN content script is at its 83 KB budget), d3 and d5–d8, the business refactors e1–e8, e10, e11, the remaining fixes s1–s3, s5, s6, the Preact decision (`feature/ui-preact-pilot`) and the owner decisions listed in section 3 of the synthesis.
+Still open: d3 and d5–d8, the business refactors e1–e8, e10, e11, the remaining fixes s1–s3, s5, s6, the Preact decision (`feature/ui-preact-pilot`) and the owner decisions listed in section 3 of the synthesis.

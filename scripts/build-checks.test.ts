@@ -6,6 +6,8 @@ import {
   registeredScriptPlatform,
   checkAccessDeclarations,
   checkCommands,
+  checkFontFormats,
+  checkUnreferencedFiles,
   checkLocaleCatalogs,
   checkMainWorldBridge,
   checkManifestScriptBudgets,
@@ -310,6 +312,21 @@ describe('reachableFiles', () => {
   it('fermeture des références, cycles compris', () => {
     const graph: Record<string, string[]> = { a: ['b'], b: ['c', 'a'], c: [], d: ['a'] };
     expect([...reachableFiles(['a'], (file) => graph[file] ?? [])].sort()).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('checkUnreferencedFiles', () => {
+  it('intermédiaires de crxjs refusés, langues de _locales acceptées', () => {
+    const files = new Set(['manifest.json', 'assets/start-x.js', 'assets/page-bridge.iife.ts-y.js', '_locales/fr/messages.json']);
+    expect(checkUnreferencedFiles(files, new Set(['manifest.json', 'assets/start-x.js']))).toEqual(['assets/page-bridge.iife.ts-y.js : fichier du paquet que rien ne référence']);
+  });
+});
+
+describe('checkFontFormats', () => {
+  it('woff2 seul : .woff de repli de @fontsource refusé', () => {
+    expect(checkFontFormats(['assets/nunito-latin-400-normal-a.woff2', 'assets/nunito-latin-400-normal-b.woff', 'assets/x.css'])).toEqual([
+      'assets/nunito-latin-400-normal-b.woff : police hors woff2',
+    ]);
   });
 });
 

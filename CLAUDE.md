@@ -230,6 +230,7 @@ Section maintained by Claude so the project can be picked up on any machine afte
 - **Debugging**:
   - after reloading the extension, reopen the tab, otherwise the orphaned content script stays active;
   - the content script prints its build timestamp in the console;
+  - `npm run verify:build` refuses any packaged file that nothing references (crxjs builds each `*.iife.ts` again in the main build: `dropCrxIifeIntermediates` in `vite.config.ts` drops those chunks, `crxIifeIntermediates` in `src/build/output-names.ts`) and any font other than woff2 (`@font-face` declared in `src/ui/theme.css`, never the `@fontsource` CSS, which adds a `.woff` fallback);
   - dev builds (`npm run build:dev`, `npm run dev`) set the manifest `version_name` to « <version>-dev · <short sha> » (« + » when tracked files were modified), shown in `chrome://extensions` and the popup footer (`src/build/dev-version.ts`); production builds keep `version` only, so the published package is unchanged;
   - the service worker writes `[SyncKai:sync]` lines;
   - info/debug logs are visible only with `npm run build:dev` (or `npm run dev`); `npm run build`/`package` keep only warn/error;

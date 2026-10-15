@@ -31,6 +31,8 @@ import {
   checkAccessDeclarations,
   checkCommands,
   checkContentSecurityPolicy,
+  checkFontFormats,
+  checkUnreferencedFiles,
   checkLocaleCatalogs,
   checkManifestScriptBudgets,
   checkMainWorldBridge,
@@ -157,8 +159,8 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
     if (file.endsWith('.js')) errors.push(...checkNoDevMarkers(file, read(file)));
   }
 
-  // Informatif : fichiers que rien ne référence (les autres langues de _locales sont lues par le navigateur)
-  const unused = [...files].filter((file) => !used.has(file) && !file.startsWith('_locales/')).sort();
+  // 8. Aucun fichier que rien ne référence (intermédiaires de crxjs, 2-H) ; polices en woff2 seul (PERF-22)
+  errors.push(...checkUnreferencedFiles(files, used), ...checkFontFormats(files));
 
   const status = errors.length === 0 ? '✔' : '✖';
   console.log(`${status} ${outDir}/ : ${files.size} fichiers, ${roots.length} références du manifeste`);
@@ -170,7 +172,6 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   console.log(`  scripts Prime Video : ${kib(primeBytes)} / ${kib(PRIME_SCRIPTS_BUDGET_BYTES)} (${listOf('prime')})`);
   console.log(`  lecteurs de l’historique (injectés par la page d’import) : ${kib(historyBytes)} / ${kib(HISTORY_READER_BUDGET_BYTES)} (${historyFiles.join(', ')})`);
   console.log(`  catalogues de traduction : ${catalogSources.size} langues lues à la demande, ${catalogFiles.length} fichiers (${LOCALE_CATALOG_DIR}/, ${kib(catalogBytes)} ; contenus identiques regroupés), anglais embarqué`);
-  if (unused.length > 0) console.log(`  non référencés (${unused.length}) : ${unused.join(', ')}`);
   return errors;
 }
 

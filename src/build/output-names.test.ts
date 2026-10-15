@@ -3,6 +3,7 @@ import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../platforms
 import {
   assetFileName,
   BACKGROUND_CHUNK_FILE,
+  crxIifeIntermediates,
   DEFAULT_ASSET_FILE,
   DEFAULT_CHUNK_FILE,
   dropExtensionInjectedScripts,
@@ -115,5 +116,25 @@ describe('splitRegisteredScripts', () => {
     for (const platform of STREAMING_PLATFORMS.filter(isOptionalPlatform)) {
       expect(REGISTERED_SCRIPT_MATCHES[platform]).toEqual(PLATFORMS[platform].optionalMatches);
     }
+  });
+});
+
+describe('crxIifeIntermediates', () => {
+  it('chunk du build principal d’un script IIFE et chunks qu’il est seul à importer ; partagés avec une page conservés', () => {
+    const bundle = {
+      'assets/page-bridge.iife.ts-a.js': { type: 'chunk', isEntry: true, facadeModuleId: 'C:\\repo\\src\\content\\netflix\\page-bridge.iife.ts', imports: ['assets/bridge-protocol-b.js'] },
+      'assets/bridge-protocol-b.js': { type: 'chunk', imports: [] },
+      'assets/content-netflix.iife.ts-c.js': { type: 'chunk', isEntry: true, facadeModuleId: '/repo/src/content/netflix/content-netflix.iife.ts', imports: ['assets/start-d.js', 'assets/title-e.js'] },
+      'assets/start-d.js': { type: 'chunk', imports: ['assets/title-e.js'] },
+      'assets/title-e.js': { type: 'chunk', imports: [] },
+      'assets/popup-f.js': { type: 'chunk', isEntry: true, facadeModuleId: '/repo/src/popup/popup.html', imports: ['assets/title-e.js'] },
+      'src/content/netflix/page-bridge.iife.js': { type: 'asset' },
+      'assets/popup-g.css': { type: 'asset' },
+    } as const;
+    expect(crxIifeIntermediates(bundle)).toEqual(['assets/bridge-protocol-b.js', 'assets/content-netflix.iife.ts-c.js', 'assets/page-bridge.iife.ts-a.js', 'assets/start-d.js']);
+  });
+
+  it('aucun script IIFE : rien à retirer', () => {
+    expect(crxIifeIntermediates({ 'assets/popup-f.js': { type: 'chunk', isEntry: true, facadeModuleId: '/repo/src/popup/popup.html' } })).toEqual([]);
   });
 });

@@ -304,6 +304,25 @@ export function reachableFiles(starts: readonly string[], referencesOf: (file: s
   return seen;
 }
 
+/**
+ * Fichiers du paquet que rien ne référence (manifeste, pages, scripts, CSS), refusés (2-H) : intermédiaires de crxjs que
+ * personne ne charge mais que la relecture AMO reçoit. Les langues de `_locales/` sont lues par le navigateur.
+ */
+export function checkUnreferencedFiles(files: ReadonlySet<string>, used: ReadonlySet<string>): string[] {
+  return [...files]
+    .filter((file) => !used.has(file) && !file.startsWith('_locales/'))
+    .sort()
+    .map((file) => `${file} : fichier du paquet que rien ne référence`);
+}
+
+/** Polices en woff2 seul, lu par tous les navigateurs pris en charge (PERF-22 : le .woff de repli de @fontsource n'était jamais chargé) */
+export function checkFontFormats(files: Iterable<string>): string[] {
+  return [...files]
+    .filter((file) => /\.(woff|ttf|otf|eot)$/i.test(file))
+    .sort()
+    .map((file) => `${file} : police hors woff2`);
+}
+
 /** Catalogues de traduction du paquet (`assets/locales/*.json`), triés */
 export function localeCatalogFiles(files: ReadonlySet<string>): string[] {
   return [...files].filter((file) => file.startsWith(`${LOCALE_CATALOG_DIR}/`) && file.endsWith('.json')).sort();
