@@ -1,5 +1,5 @@
 import { isRecord } from '../../shared/guards';
-import { parseMalListPage } from '../compare-parse';
+import { parseMalListPage } from '../compare/compare-parse';
 import type { MalListEntry } from '../../shared/compare';
 import { malRequest } from './client';
 

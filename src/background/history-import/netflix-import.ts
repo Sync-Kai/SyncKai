@@ -1,11 +1,11 @@
-import { t } from '../i18n';
-import { createLogger } from '../browser/logger';
-import type { NetflixTitlesPayload, NetflixTitlesResult, NetflixTitleVerdict } from '../platforms/netflix/history';
-import { normalizeTitle } from '../shared/title';
-import { ApiError } from './errors';
-import { searchAnimeBatch, type AniListMedia } from './anilist/media';
-import { netflixShowIdInLink } from './sync/matching';
-import { getConnectedTrackers } from './trackers';
+import { t } from '../../i18n';
+import { createLogger } from '../../browser/logger';
+import type { NetflixTitlesPayload, NetflixTitlesResult, NetflixTitleVerdict } from '../../platforms/netflix/history';
+import { normalizeTitle } from '../../shared/title';
+import { ApiError } from '../errors';
+import { searchAnimeBatch, type AniListMedia } from '../anilist/media';
+import { netflixShowIdInLink } from '../sync/matching/matching';
+import { getConnectedTrackers } from '../trackers';
 
 // Import de l'historique Netflix : filtre « anime » des titres de l'historique, AVANT toute requête à Netflix. Une
 // recherche AniList par titre (plusieurs titres par requête GraphQL, file de fond, cache du catalogue) ; un titre n'est

@@ -3,7 +3,7 @@ import type { EpisodeInfo } from '../../shared/episode.types';
 import { clearMatchDecisions, MATCH_DIAGNOSTIC_MAX, readMatchDecisions } from '../../shared/match-diagnostic';
 import { installFakeChrome } from '../../test/fake-chrome';
 import { recordMatchDecision, toMatchDecision } from './match-diagnostic';
-import type { MediaCandidate, ResolveResult } from './matching';
+import type { MediaCandidate, ResolveResult } from './matching/matching';
 
 // Diagnostic des correspondances (builds de dev) : décision réduite et liste bornée dans storage.session.
 

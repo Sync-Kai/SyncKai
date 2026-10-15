@@ -1,10 +1,10 @@
-import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../shared/episode.types';
-import type { PageMediaInfo, PageSeason, SeasonSlot, SeasonSource } from '../shared/page-media.types';
-import { platformSeriesUrl } from '../platforms/links';
-import type { CandidateSummary } from '../shared/review.types';
-import type { ListStatus, MediaMapping } from '../shared/sync.types';
-import type { PlatformLink } from '../shared/watching.types';
-import { mappingKey, type PlatformLinkVerdict } from './sync/matching';
+import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../../shared/episode.types';
+import type { PageMediaInfo, PageSeason, SeasonSlot, SeasonSource } from '../../shared/page-media.types';
+import { platformSeriesUrl } from '../../platforms/links';
+import type { CandidateSummary } from '../../shared/review.types';
+import type { ListStatus, MediaMapping } from '../../shared/sync.types';
+import type { PlatformLink } from '../../shared/watching.types';
+import { mappingKey, type PlatformLinkVerdict } from '../sync/matching/matching';
 
 // Règles pures de la fiche de la page (#23) : choix de la saison affichée. Testables sans API.
 

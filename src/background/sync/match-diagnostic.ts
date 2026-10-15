@@ -12,7 +12,7 @@ import { sessionArea } from '../../browser/storage/session-cache';
 import { MATCH_DIAGNOSTIC_KEY } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
 import type { RequestLane } from '../rate-limit';
-import { candidateSignalChecks, type CachedMappingVerdict, type MediaCandidate, type ResolveResult } from './matching';
+import { candidateSignalChecks, type CachedMappingVerdict, type MediaCandidate, type ResolveResult } from './matching/matching';
 
 // Diagnostic des correspondances, builds de dev seulement (`npm run build:dev`) : chaque appel est placé sous
 // `if (__SYNCKAI_DEBUG__)` par resolver.ts, donc absent des bundles publiés (vérifié par une recherche de

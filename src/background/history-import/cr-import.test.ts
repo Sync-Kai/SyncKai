@@ -1,21 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale, t } from '../i18n';
-import { ADN_HISTORY_VIDEOS } from '../shared/__fixtures__/adn-history';
-import { reduceAdnHistory } from '../platforms/adn/history';
-import { onePieceShow, ranmaShow } from '../shared/__fixtures__/netflix-history';
-import { reduceNetflixShow } from '../platforms/netflix/history';
-import type { HistorySeason } from '../platforms/crunchyroll/history';
-import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../shared/cr-import';
-import type { EpisodeInfo } from '../shared/episode.types';
-import { isRecord } from '../shared/guards';
-import { STORAGE_KEYS } from '../protocol/storage-keys';
-import type { MediaMapping } from '../shared/sync.types';
-import type { TrackerId } from '../shared/tracker.types';
-import { installFakeChrome } from '../test/fake-chrome';
-import { ApiError } from './errors';
-import type { EpisodeResolution } from './sync/resolver';
-import type { ListEntryState, WriteStatus } from './sync/rules';
-import type { TrackerEntry, TrackerService } from './ports/tracker';
+import { setLocale, t } from '../../i18n';
+import { ADN_HISTORY_VIDEOS } from '../../shared/__fixtures__/adn-history';
+import { reduceAdnHistory } from '../../platforms/adn/history';
+import { onePieceShow, ranmaShow } from '../../shared/__fixtures__/netflix-history';
+import { reduceNetflixShow } from '../../platforms/netflix/history';
+import type { HistorySeason } from '../../platforms/crunchyroll/history';
+import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../../shared/cr-import';
+import type { EpisodeInfo } from '../../shared/episode.types';
+import { isRecord } from '../../shared/guards';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
+import type { MediaMapping } from '../../shared/sync.types';
+import type { TrackerId } from '../../shared/tracker.types';
+import { installFakeChrome } from '../../test/fake-chrome';
+import { ApiError } from '../errors';
+import type { EpisodeResolution } from '../sync/resolver';
+import type { ListEntryState, WriteStatus } from '../sync/rules';
+import type { TrackerEntry, TrackerService } from '../ports/tracker';
 
 // Import de l'historique Crunchyroll côté service worker (TEST-05) : vraies boucles d'analyse et d'application,
 // vrai stockage (fausse API chrome partagée), résolveur, catalogue, listes et services simulés.
@@ -26,18 +26,18 @@ const fakes = vi.hoisted(() => ({
   resolve: vi.fn<(episode: EpisodeInfo, options?: { persist?: boolean; lane?: string }) => Promise<EpisodeResolution>>(),
 }));
 
-vi.mock('./sync/resolver', () => ({ resolveEpisode: fakes.resolve }));
-vi.mock('./trackers', () => ({ getConnectedTrackers: async (): Promise<TrackerService[]> => fakes.trackers }));
-vi.mock('./anilist/media', () => ({
+vi.mock('../sync/resolver', () => ({ resolveEpisode: fakes.resolve }));
+vi.mock('../trackers', () => ({ getConnectedTrackers: async (): Promise<TrackerService[]> => fakes.trackers }));
+vi.mock('../anilist/media', () => ({
   getAnimeByIds: async (ids: number[]) => ids.map((id) => ({ id, idMal: id + 1000, displayTitle: `Fiche ${id}`, coverUrl: null, episodes: 24 })),
 }));
 // Listes vides : chaque saison sûre donne un élément à mettre à jour
-vi.mock('./anilist/full-list', () => ({ fetchAniListFullList: async () => [] }));
-vi.mock('./mal/full-list', () => ({ fetchMalFullList: async () => [] }));
-vi.mock('../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
+vi.mock('../anilist/full-list', () => ({ fetchAniListFullList: async () => [] }));
+vi.mock('../mal/full-list', () => ({ fetchMalFullList: async () => [] }));
+vi.mock('../../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
 // Espacement des écritures et budget AniList sans attente
-vi.mock('./jobs/runner', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./jobs/runner')>()),
+vi.mock('../jobs/runner', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../jobs/runner')>()),
   waitWriteSlot: async () => undefined,
   waitReadSlot: async () => undefined,
 }));
@@ -53,7 +53,7 @@ const OPEN_SESSIONS = {
 
 const crImport = await import('./cr-import');
 const { cancelCrImport, resumeCrImport, startCrAnalyze, startCrApply, WRITE_BATCH_SIZE } = crImport;
-const { RETRY_DELAYS_MS } = await import('./jobs/runner');
+const { RETRY_DELAYS_MS } = await import('../jobs/runner');
 
 setLocale('fr');
 

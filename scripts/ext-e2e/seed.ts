@@ -3,7 +3,7 @@
 // readStoredToken) ; le service worker les chiffre lui-même au premier accès (browser/tokens/access.ts), comme après une
 // mise à jour. Le profil est ensuite lu par les vrais messages GET_VIEWER / GET_MAL_VIEWER (mis en cache, lié à la session).
 import { expect } from 'vitest';
-import { mappingKey } from '../../src/background/sync/matching';
+import { mappingKey } from '../../src/background/sync/matching/matching';
 import type { EpisodeInfo } from '../../src/shared/episode.types';
 import { SETTINGS_STORAGE_KEY, type SyncSettings } from '../../src/shared/settings';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';

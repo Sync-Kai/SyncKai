@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale, t } from '../i18n';
-import type { AniListMedia } from './anilist/media';
-import { ApiError } from './errors';
+import { setLocale, t } from '../../i18n';
+import type { AniListMedia } from '../anilist/media';
+import { ApiError } from '../errors';
 
 // Filtre « anime » de l'import Netflix : une recherche AniList par titre (réunies par paquets), verdict par titre.
 
@@ -9,8 +9,8 @@ const fakes = vi.hoisted(() => ({
   connected: true,
   search: vi.fn<(titles: readonly string[], lane?: string) => Promise<Map<string, Pick<AniListMedia, 'titles' | 'externalLinkUrls'>[]>>>(),
 }));
-vi.mock('./anilist/media', () => ({ searchAnimeBatch: fakes.search }));
-vi.mock('./trackers', () => ({ getConnectedTrackers: async () => (fakes.connected ? [{ id: 'anilist' }] : []) }));
+vi.mock('../anilist/media', () => ({ searchAnimeBatch: fakes.search }));
+vi.mock('../trackers', () => ({ getConnectedTrackers: async () => (fakes.connected ? [{ id: 'anilist' }] : []) }));
 
 const { checkNetflixTitles, titleVerdict } = await import('./netflix-import');
 setLocale('fr');

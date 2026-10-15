@@ -5,7 +5,7 @@ import { isOptionalPlatform, PLATFORMS } from '../platforms/registry';
 import { getOpenSessions } from '../browser/storage/sessions';
 import { createLogger } from '../browser/logger';
 import type { SyncOutcome } from '../shared/sync.types';
-import { forgetPageResolutions, refreshTabPageMedia } from './page-media';
+import { forgetPageResolutions, refreshTabPageMedia } from './page-media/page-media';
 import { recordSyncOutcome } from './sync/queue';
 import { syncEpisode } from './sync/sync-service';
 

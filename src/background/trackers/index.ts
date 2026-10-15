@@ -2,7 +2,7 @@ import { hasMalToken, hasValidAniListToken } from '../../browser/storage/tokens'
 import type { TrackerId } from '../../shared/tracker.types';
 import { deleteListEntry, getMediaListInfo, getScoreFormat, saveListEntry, saveListNotes, saveListStatus, saveProgress, saveScore } from '../anilist/list';
 import { deleteMalEntry, getMalAnime, saveMalEntry, saveMalListStatus, saveMalNotes, saveMalProgress, saveMalScore } from '../mal/client';
-import { markSeriesStale } from '../compare-snapshot';
+import { markSeriesStale } from '../compare/compare-snapshot';
 import type { ListEntryState } from '../sync/rules';
 import { toAniListScore, toMalScore } from '../../shared/score';
 import type { TrackerService } from '../ports/tracker';

@@ -7,7 +7,7 @@ import type { TrackerId } from '../../shared/tracker.types';
 import type { AniListMedia } from '../anilist/media';
 import { ApiError } from '../errors';
 import type { CatalogMedia, TrackerEntry, TrackerService } from '../ports/tracker';
-import type { SyncTarget } from './matching';
+import type { SyncTarget } from './matching/matching';
 import type { EpisodeResolution } from './resolver';
 import type { ListEntryState, WriteStatus } from './rules';
 import { installFakeChrome } from '../../test/fake-chrome';
@@ -60,7 +60,7 @@ const OPEN_SESSIONS = {
 const { resolveReview, shouldPromptRating, syncEpisode } = await import('./sync-service');
 const { recordSyncOutcome } = await import('./queue');
 const { confirmReview, ignoreReview } = await import('./review-decision');
-const { mappingKey } = await import('./matching');
+const { mappingKey } = await import('./matching/matching');
 const { getMediaMapping, saveMediaMapping } = await import('../../browser/storage/mappings');
 const { getPendingReviews, savePendingReview } = await import('../../browser/storage/reviews');
 const { getSyncQueue } = await import('../../browser/storage/sync-queue-store');

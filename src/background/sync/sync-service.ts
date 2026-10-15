@@ -35,7 +35,7 @@ import { ApiError } from '../errors';
 import { getAnimeById, searchAnime } from '../anilist/media';
 import { getConnectedTrackers } from '../trackers';
 import type { CatalogMedia, TrackerService } from '../ports/tracker';
-import { mappingFromManualChoice, mappingKey, seasonLabel, type ResolveResult, type SyncTarget } from './matching';
+import { mappingFromManualChoice, mappingKey, seasonLabel, type ResolveResult, type SyncTarget } from './matching/matching';
 import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './resolver';
 import { withEntryLock } from './entry-lock';
 import { decideListUpdate, type ListEntryState } from './rules';

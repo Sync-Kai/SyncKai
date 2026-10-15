@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale, t } from '../i18n';
-import type { EpisodeInfo } from '../shared/episode.types';
-import type { PageMediaDetails, PageMediaInfo } from '../shared/page-media.types';
-import type { CandidateSummary } from '../shared/review.types';
-import { STORAGE_KEYS } from '../protocol/storage-keys';
-import { installFakeChrome } from '../test/fake-chrome';
-import type { AniListMedia } from './anilist/media';
+import { setLocale, t } from '../../i18n';
+import type { EpisodeInfo } from '../../shared/episode.types';
+import type { PageMediaDetails, PageMediaInfo } from '../../shared/page-media.types';
+import type { CandidateSummary } from '../../shared/review.types';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
+import { installFakeChrome } from '../../test/fake-chrome';
+import type { AniListMedia } from '../anilist/media';
 import {
   AOT_SEASON_IDS,
   AOT_SERIES,
@@ -13,31 +13,31 @@ import {
   LAST_ATTACK_MOVIE,
   LAST_ATTACK_MOVIE_ID,
   LAST_ATTACK_SEASON,
-} from './sync/__fixtures__/attack-on-titan-search';
+} from '../sync/__fixtures__/attack-on-titan-search';
 
 // Fiche de la page : résolution simulée (séries ignorées, accès Netflix), et saison choisie dans le sélecteur
 // enregistrée comme correspondance (ARCH-20), relue par la vraie résolution de la synchro.
 const resolver = vi.hoisted(() => ({ resolveEpisode: vi.fn(), findSeriesSeasons: vi.fn(), toCandidateSummary: vi.fn() }));
-vi.mock('./sync/resolver', () => resolver);
+vi.mock('../sync/resolver', () => resolver);
 const access = vi.hoisted(() => ({ hasPlatformAccess: vi.fn() }));
-vi.mock('../browser/platform-access', () => access);
+vi.mock('../../browser/platform-access', () => access);
 // Recherches du catalogue simulées : la vraie résolution (sync, ci-dessous) ne part jamais sur le réseau
 const api = vi.hoisted(() => ({ getPageMediaDetails: vi.fn(), searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
-vi.mock('./anilist/media', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./anilist/media')>()),
+vi.mock('../anilist/media', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../anilist/media')>()),
   getPageMediaDetails: api.getPageMediaDetails,
   searchAnime: api.searchAnime,
   getAnimeByIds: api.getAnimeByIds,
 }));
 // Aucun service connecté : pas de lecture des listes
-vi.mock('./trackers', () => ({ getConnectedTrackers: async () => [] }));
+vi.mock('../trackers', () => ({ getConnectedTrackers: async () => [] }));
 
 const fake = installFakeChrome();
 
 const { resolvePageMedia, forgetPageResolutions } = await import('./page-media');
-const { mappingKey } = await import('./sync/matching');
+const { mappingKey } = await import('../sync/matching/matching');
 // Résolution réelle de la synchro (EPISODE_COMPLETED → syncEpisode → resolveEpisode), hors du simulacre ci-dessus
-const sync = await vi.importActual<typeof import('./sync/resolver')>('./sync/resolver');
+const sync = await vi.importActual<typeof import('../sync/resolver')>('../sync/resolver');
 
 setLocale('fr');
 

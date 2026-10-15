@@ -20,7 +20,7 @@ episode count, duration, format, country signals…) is measured against the sam
     `primeSignals` (a detail page carrying the season's `releaseYear`), Disney+ with the playback rules (series start
     year and season episode count of the series page, duration, format; never a season year), Crunchyroll through the
     `crunchyroll-metadata` reducers (original-language season, no `airing`); ADN watch pages send no signals yet, so their captured signals keep the assumed shape (displayed season: year and episode
-    count; series start year; duration in minutes; format; airing). Rules in `src/background/sync/concordance.ts`. A
+    count; series start year; duration in minutes; format; airing). Rules in `src/background/sync/matching/concordance.ts`. A
     case without `signals` shows the behaviour without signals (page without the data).
   - `mappings`: matches already cached before the resolution (written to the fake storage): `learned` (saved
     automatically: dropped and re-resolved when the signals contradict it), `chosen` (the user's choice: never

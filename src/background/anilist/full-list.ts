@@ -1,6 +1,6 @@
 import { getCachedViewer } from '../../browser/storage/viewer-cache';
 import { isRecord } from '../../shared/guards';
-import { parseAniListCollection } from '../compare-parse';
+import { parseAniListCollection } from '../compare/compare-parse';
 import { ApiError } from '../errors';
 import { anilistQuery } from './client';
 import { getViewer } from './viewer';

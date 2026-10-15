@@ -16,8 +16,8 @@ import {
   type EpisodeNumbers,
   type MediaCandidate,
 } from './matching';
-import { normalizeTitle } from '../../shared/title';
-import { setLocale } from '../../i18n';
+import { normalizeTitle } from '../../../shared/title';
+import { setLocale } from '../../../i18n';
 
 // Textes attendus en français
 setLocale('fr');

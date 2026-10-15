@@ -1,7 +1,7 @@
 import { isRecord } from './guards';
 
 // Signaux de la plateforme pour choisir la fiche AniList (feature/match-signals) : données lues sur la page (année,
-// nombre d'épisodes, durée, format…), comparées aux fiches par background/sync/concordance.ts. Module pur, sans i18n :
+// nombre d'épisodes, durée, format…), comparées aux fiches par background/sync/matching/concordance.ts. Module pur, sans i18n :
 // importable par les scripts de contenu.
 
 /** Nature de l'œuvre selon la plateforme (Netflix `type`, Disney+ `programType`, Prime Video `titleType`) */

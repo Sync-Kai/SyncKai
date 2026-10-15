@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale } from '../../i18n';
-import type { EpisodeInfo } from '../../shared/episode.types';
-import type { AniListMedia } from '../anilist/media';
+import { setLocale } from '../../../i18n';
+import type { EpisodeInfo } from '../../../shared/episode.types';
+import type { AniListMedia } from '../../anilist/media';
 
 // Disney+ (catalogue généraliste, aucun identifiant de série sur la page de lecture) : correspondance par le titre
 // anglais de la série, fiable seulement si la fiche AniList au même titre est liée à Disney+ (toute forme de lien).
@@ -11,10 +11,10 @@ const storage = vi.hoisted(() => {
   return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
-vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../anilist/media', () => api);
+vi.mock('../../../browser/storage/mappings', () => storage);
+vi.mock('../../anilist/media', () => api);
 
-const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
+const { findSeriesSeasons, resolveEpisode } = await import('../resolver');
 const { disneyEntityInLink, hasSeriesTitle, isDisneyEntityLink, isTitleBoundLink, mappingKey, matchDisneyLink, matchPlatformLink, platformLinkVerdict } = await import('./matching');
 
 setLocale('fr');

@@ -81,7 +81,7 @@ vi.mock('../../../browser/platform-access', () => ({ hasPlatformAccess: () => Pr
 
 const fake = installFakeChrome();
 const { resolveEpisode } = await import('../resolver');
-const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media');
+const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media/page-media');
 const { clearCatalogCache } = await import('../../anilist/media');
 const { getMediaMapping, saveMediaMapping } = await import('../../../browser/storage/mappings');
 

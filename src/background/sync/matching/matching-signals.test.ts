@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale } from '../../i18n';
-import type { EpisodeInfo } from '../../shared/episode.types';
-import type { MediaMapping } from '../../shared/sync.types';
-import type { AniListMedia } from '../anilist/media';
+import { setLocale } from '../../../i18n';
+import type { EpisodeInfo } from '../../../shared/episode.types';
+import type { MediaMapping } from '../../../shared/sync.types';
+import type { AniListMedia } from '../../anilist/media';
 
 // Signaux de la plateforme dans la résolution : clé de cache avec l'année, correspondance apprise contredite, preuve
 // exigée pour une correspondance par le titre seul (stockage et API AniList simulés).
@@ -12,12 +12,12 @@ const storage = vi.hoisted(() => {
   return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
-vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../anilist/media', () => api);
+vi.mock('../../../browser/storage/mappings', () => storage);
+vi.mock('../../anilist/media', () => api);
 
-const { resolveEpisode } = await import('./resolver');
+const { resolveEpisode } = await import('../resolver');
 const { mappingKey } = await import('./matching');
-const { rememberedSeason } = await import('../page-media-rules');
+const { rememberedSeason } = await import('../../page-media/page-media-rules');
 
 setLocale('en');
 

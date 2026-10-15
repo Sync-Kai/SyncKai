@@ -11,8 +11,8 @@ import {
   seriesPageGate,
   toPageSeasons,
 } from './page-media-rules';
-import type { CandidateSummary } from '../shared/review.types';
-import type { MediaMapping } from '../shared/sync.types';
+import type { CandidateSummary } from '../../shared/review.types';
+import type { MediaMapping } from '../../shared/sync.types';
 
 const mapping = (mediaId: number): MediaMapping => ({ mediaId, numbering: 'season', offset: 0, episodes: 12 });
 

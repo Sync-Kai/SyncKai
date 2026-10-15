@@ -1,5 +1,5 @@
-import { t } from '../i18n';
-import { refreshReviewBadge } from '../browser/badge';
+import { t } from '../../i18n';
+import { refreshReviewBadge } from '../../browser/badge';
 import {
   buildCrImportPlan,
   CR_IMPORT_ALARM,
@@ -34,34 +34,34 @@ import {
   type CrPlanItem,
   type ImportPlatform,
   type SeasonResolution,
-} from '../shared/cr-import';
-import type { HistorySeason } from '../platforms/crunchyroll/history';
-import { getExcludedSeries, isExcluded, platformSeriesKey } from '../shared/exclusions';
-import { isJobActive, reduceJob } from '../shared/job';
-import { createLogger } from '../browser/logger';
-import type { Result } from '../shared/result';
-import { sameSessions, type SessionEpochs } from '../shared/session-epochs';
+} from '../../shared/cr-import';
+import type { HistorySeason } from '../../platforms/crunchyroll/history';
+import { getExcludedSeries, isExcluded, platformSeriesKey } from '../../shared/exclusions';
+import { isJobActive, reduceJob } from '../../shared/job';
+import { createLogger } from '../../browser/logger';
+import type { Result } from '../../shared/result';
+import { sameSessions, type SessionEpochs } from '../../shared/session-epochs';
 import {
   getMediaMapping,
   saveMediaMappingsIfAbsent,
-} from '../browser/storage/mappings';
+} from '../../browser/storage/mappings';
 import {
   getOpenSessions,
   isSessionOpen,
-} from '../browser/storage/sessions';
+} from '../../browser/storage/sessions';
 import {
   getPendingReviews,
   MAX_PENDING_REVIEWS,
   savePendingReview,
-} from '../browser/storage/reviews';
-import { withStorageLock } from '../browser/storage/lock';
-import type { MediaMapping } from '../shared/sync.types';
-import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
-import { PLATFORMS } from '../platforms/registry';
-import { ApiError } from './errors';
-import { getAnimeByIds } from './anilist/media';
-import { fetchAniListFullList } from './anilist/full-list';
-import { fetchMalFullList } from './mal/full-list';
+} from '../../browser/storage/reviews';
+import { withStorageLock } from '../../browser/storage/lock';
+import type { MediaMapping } from '../../shared/sync.types';
+import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
+import { PLATFORMS } from '../../platforms/registry';
+import { ApiError } from '../errors';
+import { getAnimeByIds } from '../anilist/media';
+import { fetchAniListFullList } from '../anilist/full-list';
+import { fetchMalFullList } from '../mal/full-list';
 import {
   createJobLoop,
   createJobStore,
@@ -73,12 +73,12 @@ import {
   waitWriteSlot,
   type StepResult,
   type TransientKind,
-} from './jobs/runner';
-import { mappingKey, seasonLabel } from './sync/matching';
-import { resolveEpisode } from './sync/resolver';
-import { withEntryLock } from './sync/entry-lock';
-import { getConnectedTrackers } from './trackers';
-import type { TrackerService } from './ports/tracker';
+} from '../jobs/runner';
+import { mappingKey, seasonLabel } from '../sync/matching/matching';
+import { resolveEpisode } from '../sync/resolver';
+import { withEntryLock } from '../sync/entry-lock';
+import { getConnectedTrackers } from '../trackers';
+import type { TrackerService } from '../ports/tracker';
 
 // Import de l'historique Crunchyroll, ADN ou Netflix : analyse (correspondance de chaque saison, sans rien écrire) puis
 // application des éléments choisis dans l'aperçu. Deux tâches reprenables (src/background/jobs/runner.ts).

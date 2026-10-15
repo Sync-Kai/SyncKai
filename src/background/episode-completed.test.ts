@@ -16,7 +16,7 @@ vi.mock('../browser/storage/sessions', () => ({ getOpenSessions: async () => SES
 vi.mock('../browser/platform-access', () => ({ hasPlatformAccess: mocks.hasPlatformAccess }));
 vi.mock('./sync/sync-service', () => ({ syncEpisode: mocks.syncEpisode }));
 vi.mock('./sync/queue', () => ({ recordSyncOutcome: mocks.recordSyncOutcome }));
-vi.mock('./page-media', () => ({ forgetPageResolutions: mocks.forgetPageResolutions, refreshTabPageMedia: mocks.refreshTabPageMedia }));
+vi.mock('./page-media/page-media', () => ({ forgetPageResolutions: mocks.forgetPageResolutions, refreshTabPageMedia: mocks.refreshTabPageMedia }));
 
 const { handleEpisodeCompleted } = await import('./episode-completed');
 

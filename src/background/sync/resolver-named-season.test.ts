@@ -25,7 +25,7 @@ vi.mock('../../browser/storage/mappings', () => storage);
 vi.mock('../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
-const { isUnmatchedNamedSeason, resolveTarget } = await import('./matching');
+const { isUnmatchedNamedSeason, resolveTarget } = await import('./matching/matching');
 
 setLocale('fr');
 

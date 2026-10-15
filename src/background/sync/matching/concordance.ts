@@ -1,5 +1,5 @@
-import type { PlatformSignals } from '../../shared/match-signals';
-import { normalizeTitle, withoutDiacritics } from '../../shared/title';
+import type { PlatformSignals } from '../../../shared/match-signals';
+import { normalizeTitle, withoutDiacritics } from '../../../shared/title';
 
 // Concordance entre les signaux de la plateforme (année, épisodes, durée, format, titre original, pays) et les fiches
 // AniList candidates, par groupe de saison (fiches consécutives qu'une saison de la plateforme peut réunir : Mushoku

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale, t } from '../i18n';
-import { COMPARE_STORAGE_KEY, isComparisonResult, planApply, type ComparisonResult, type DiffSide, type ListDiff } from '../shared/compare';
-import { COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../shared/compare-job';
-import type { ApplyDiffsPayload } from '../shared/compare';
-import type { ListEntryState } from './sync/rules';
-import { ApiError } from './errors';
+import { setLocale, t } from '../../i18n';
+import { COMPARE_STORAGE_KEY, isComparisonResult, planApply, type ComparisonResult, type DiffSide, type ListDiff } from '../../shared/compare';
+import { COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../../shared/compare-job';
+import type { ApplyDiffsPayload } from '../../shared/compare';
+import type { ListEntryState } from '../sync/rules';
+import { ApiError } from '../errors';
 
 // Services simulés au niveau des clients d'API : les vrais adaptateurs (trackers) et la vraie boucle d'alignement tournent
 const api = vi.hoisted(() => ({
@@ -16,28 +16,28 @@ const api = vi.hoisted(() => ({
   saveMalEntry: vi.fn(),
   saveMalProgress: vi.fn(),
 }));
-vi.mock('./anilist/list', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./anilist/list')>()),
+vi.mock('../anilist/list', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../anilist/list')>()),
   getMediaListInfo: api.getMediaListInfo,
   saveListEntry: api.saveListEntry,
   saveProgress: api.saveProgress,
   saveListStatus: api.saveListStatus,
 }));
-vi.mock('./mal/client', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./mal/client')>()),
+vi.mock('../mal/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../mal/client')>()),
   getMalAnime: api.getMalAnime,
   saveMalEntry: api.saveMalEntry,
   saveMalProgress: api.saveMalProgress,
 }));
 // Deux comptes connectés
-vi.mock('../browser/storage/tokens', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../browser/storage/tokens')>()),
+vi.mock('../../browser/storage/tokens', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../browser/storage/tokens')>()),
   hasValidAniListToken: async () => true,
   hasMalToken: async () => true,
 }));
 // Espacement des écritures et budget AniList sans attente réelle
 const slots = vi.hoisted(() => ({ waitWriteSlot: vi.fn(async () => undefined), waitReadSlot: vi.fn(async () => undefined) }));
-vi.mock('./jobs/runner', async (importOriginal) => ({ ...(await importOriginal<typeof import('./jobs/runner')>()), ...slots }));
+vi.mock('../jobs/runner', async (importOriginal) => ({ ...(await importOriginal<typeof import('../jobs/runner')>()), ...slots }));
 
 // chrome.storage.local, alarmes et verrous Web Locks en file (une tâche à la fois par nom, comme navigator.locks)
 let store: Record<string, unknown> = {};
@@ -72,7 +72,7 @@ vi.stubGlobal('navigator', {
 });
 
 const { applyDiffs, MAL_WRITE_GAP_MS, RETRY_DELAYS_MS, transientKind } = await import('./compare');
-const { anilistTracker, malTracker } = await import('./trackers');
+const { anilistTracker, malTracker } = await import('../trackers');
 
 setLocale('fr');
 

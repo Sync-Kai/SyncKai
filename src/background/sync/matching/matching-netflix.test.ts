@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { setLocale } from '../../i18n';
-import type { EpisodeInfo } from '../../shared/episode.types';
+import { setLocale } from '../../../i18n';
+import type { EpisodeInfo } from '../../../shared/episode.types';
 import { gateByPlatformLink, matchNetflixLink, matchPlatformLink, resolveTarget, type MediaCandidate, type ResolveResult } from './matching';
 
 // Netflix (catalogue généraliste) : correspondance par lien AniList → /title/{showId}, filtre « anime ».

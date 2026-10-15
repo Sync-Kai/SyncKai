@@ -7,8 +7,8 @@ import { FakeEvent, installFakeChrome } from '../test/fake-chrome';
 // démarrage du navigateur ou par leur alarme.
 
 const resume = vi.hoisted(() => ({ compare: vi.fn(async () => undefined), crImport: vi.fn(async () => undefined) }));
-vi.mock('./compare', () => ({ resumeCompareJob: resume.compare }));
-vi.mock('./cr-import', () => ({ resumeCrImport: resume.crImport }));
+vi.mock('./compare/compare', () => ({ resumeCompareJob: resume.compare }));
+vi.mock('./history-import/cr-import', () => ({ resumeCrImport: resume.crImport }));
 
 const onInstalled = new FakeEvent<[{ reason: string; previousVersion?: string }]>();
 const onStartup = new FakeEvent<[]>();

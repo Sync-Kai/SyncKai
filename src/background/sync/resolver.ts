@@ -39,12 +39,12 @@ import {
   type MediaCandidate,
   type ResolveResult,
   type SyncTarget,
-} from './matching';
+} from './matching/matching';
 import { normalizeTitle, slugSearchTitle, withoutDiacritics } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
-import { groupSeasons } from './season-groups';
+import { groupSeasons } from './matching/season-groups';
 import { recordMatchDecision } from './match-diagnostic';
-import type { SignalName } from './concordance';
+import type { SignalName } from './matching/concordance';
 import { createLogger } from '../../browser/logger';
 
 const log = createLogger('sync');

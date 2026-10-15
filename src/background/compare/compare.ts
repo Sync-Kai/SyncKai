@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { t } from '../../i18n';
 import {
   compareLists,
   COMPARE_STORAGE_KEY,
@@ -16,7 +16,7 @@ import {
   type CompareResult,
   type ComparisonResult,
   type MalListEntry,
-} from '../shared/compare';
+} from '../../shared/compare';
 import {
   COMPARE_JOB_ALARM,
   COMPARE_JOB_KEY,
@@ -28,16 +28,16 @@ import {
   startApplyJob,
   type ApplyDiffItem,
   type CompareJob,
-} from '../shared/compare-job';
-import { isRecord } from '../shared/guards';
-import { getOpenSessions, writeIfSessions } from '../browser/storage/sessions';
-import type { SessionEpochs } from '../shared/session-epochs';
-import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
-import { anilistPublicQuery } from './anilist/client';
-import { fetchAniListFullList } from './anilist/full-list';
-import { ApiError } from './errors';
-import { getScoreFormat } from './anilist/list';
-import { fetchMalFullList } from './mal/full-list';
+} from '../../shared/compare-job';
+import { isRecord } from '../../shared/guards';
+import { getOpenSessions, writeIfSessions } from '../../browser/storage/sessions';
+import type { SessionEpochs } from '../../shared/session-epochs';
+import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
+import { anilistPublicQuery } from '../anilist/client';
+import { fetchAniListFullList } from '../anilist/full-list';
+import { ApiError } from '../errors';
+import { getScoreFormat } from '../anilist/list';
+import { fetchMalFullList } from '../mal/full-list';
 import { readComparison, updateComparison } from './compare-snapshot';
 import {
   createJobLoop,
@@ -50,10 +50,10 @@ import {
   waitWriteSlot,
   type StepResult,
   type TransientKind,
-} from './jobs/runner';
-import { withEntryLock } from './sync/entry-lock';
-import { getConnectedTrackers } from './trackers';
-import { createLogger } from '../browser/logger';
+} from '../jobs/runner';
+import { withEntryLock } from '../sync/entry-lock';
+import { getConnectedTrackers } from '../trackers';
+import { createLogger } from '../../browser/logger';
 
 // Comparaison AniList ↔ MyAnimeList (Activité › Écarts) : lecture des deux listes complètes,
 // puis alignement manuel, série par série ou en lot. Rien n'est corrigé automatiquement.
@@ -158,7 +158,7 @@ export async function compareServiceLists(): Promise<CompareResult> {
 // ─── Alignement (tâche reprenable) ────────────────────────────────────────
 
 // Espacement des écritures, erreurs passagères et boucle reprenable : src/background/jobs/runner.ts
-export { ANILIST_WRITE_GAP_MS, MAL_WRITE_GAP_MS, RETRY_DELAYS_MS, transientKind, type TransientKind } from './jobs/runner';
+export { ANILIST_WRITE_GAP_MS, MAL_WRITE_GAP_MS, RETRY_DELAYS_MS, transientKind, type TransientKind } from '../jobs/runner';
 
 /**
  * Traite UNE série de la tâche : écrit les valeurs de `source` sur l'autre service. Ne lève jamais.

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale } from '../../i18n';
-import type { EpisodeInfo } from '../../shared/episode.types';
-import type { AniListMedia } from '../anilist/media';
+import { setLocale } from '../../../i18n';
+import type { EpisodeInfo } from '../../../shared/episode.types';
+import type { AniListMedia } from '../../anilist/media';
 
 // Série Netflix en plusieurs saisons, une fiche AniList par saison, liées à des titres Netflix DIFFÉRENTS (relevé le
 // 2026-10-11 : Ranma1/2, /title/81171925, 3 saisons ; AniList lie la saison 3 à 81171925 mais les saisons 1 et 2 à
@@ -12,10 +12,10 @@ const storage = vi.hoisted(() => {
   return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
-vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../anilist/media', () => api);
+vi.mock('../../../browser/storage/mappings', () => storage);
+vi.mock('../../anilist/media', () => api);
 
-const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
+const { findSeriesSeasons, resolveEpisode } = await import('../resolver');
 const { resolveTarget } = await import('./matching');
 
 setLocale('fr');

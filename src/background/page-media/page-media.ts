@@ -1,5 +1,5 @@
-import { t } from '../i18n';
-import type { Score10 } from '../shared/engagement.types';
+import { t } from '../../i18n';
+import type { Score10 } from '../../shared/engagement.types';
 import type {
   PageListState,
   PageMediaDetails,
@@ -8,21 +8,21 @@ import type {
   PageSeason,
   ResolvePageMediaPayload,
   SeasonSource,
-} from '../shared/page-media.types';
-import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../shared/episode.types';
-import { hasSignals, type PlatformSignals } from '../shared/match-signals';
-import { hasPlatformAccess } from '../browser/platform-access';
-import { isOptionalPlatform, PLATFORMS } from '../platforms/registry';
-import { readCachedPageMedia, storeCachedPageMedia } from '../browser/storage/page-media-cache';
-import { learnPlatformLink } from '../browser/storage/platform-links-store';
-import { pageMediaFromEpisode } from '../shared/page-media';
-import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../browser/storage/mappings';
-import { getOpenSessions } from '../browser/storage/sessions';
-import type { ListStatus } from '../shared/sync.types';
-import { createLogger } from '../browser/logger';
-import { getScoreFormat } from './anilist/list';
-import { ApiError } from './errors';
-import { getPageMediaDetails, type AniListMedia } from './anilist/media';
+} from '../../shared/page-media.types';
+import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
+import { hasSignals, type PlatformSignals } from '../../shared/match-signals';
+import { hasPlatformAccess } from '../../browser/platform-access';
+import { isOptionalPlatform, PLATFORMS } from '../../platforms/registry';
+import { readCachedPageMedia, storeCachedPageMedia } from '../../browser/storage/page-media-cache';
+import { learnPlatformLink } from '../../browser/storage/platform-links-store';
+import { pageMediaFromEpisode } from '../../shared/page-media';
+import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../../browser/storage/mappings';
+import { getOpenSessions } from '../../browser/storage/sessions';
+import type { ListStatus } from '../../shared/sync.types';
+import { createLogger } from '../../browser/logger';
+import { getScoreFormat } from '../anilist/list';
+import { ApiError } from '../errors';
+import { getPageMediaDetails, type AniListMedia } from '../anilist/media';
 import {
   episodeCountMismatch,
   exactRememberedMapping,
@@ -37,7 +37,7 @@ import {
   toPageSeasons,
   type SeasonChoice,
 } from './page-media-rules';
-import { isSeriesIgnored, rememberIgnoredSeries } from './sync/ignored-series';
+import { isSeriesIgnored, rememberIgnoredSeries } from '../sync/ignored-series';
 import {
   cachedMappingVerdict,
   filtersAnime,
@@ -52,11 +52,11 @@ import {
   resolveTarget,
   seasonLabel,
   singleEntryDoubt,
-} from './sync/matching';
-import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from './sync/resolver';
-import { fromAniListScore, fromMalScore } from '../shared/score';
-import { getConnectedTrackers } from './trackers';
-import type { CatalogMedia, TrackerService } from './ports/tracker';
+} from '../sync/matching/matching';
+import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from '../sync/resolver';
+import { fromAniListScore, fromMalScore } from '../../shared/score';
+import { getConnectedTrackers } from '../trackers';
+import type { CatalogMedia, TrackerService } from '../ports/tracker';
 
 // Fiche de la page (#23) : série ou épisode de l'onglet actif → fiche AniList + état dans les listes.
 // Lecture seule côté services. Écrits localement : le lien de la série (correspondance certaine uniquement) pour le

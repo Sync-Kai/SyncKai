@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { setLocale } from '../../i18n';
+import { setLocale } from '../../../i18n';
 import { isUnmatchedNamedSeason, matchCrunchyrollEpisodeLink, matchPlatformLink, resolveTarget, seasonSearchQuery, type EpisodeNumbers, type MediaCandidate } from './matching';
 
 // Saisons découpées en parties (cours) et fiches dédiées à une saison. Textes attendus en français.

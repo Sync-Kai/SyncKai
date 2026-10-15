@@ -1,7 +1,7 @@
 import { COMPARE_JOB_ALARM } from '../shared/compare-job';
 import { CR_IMPORT_ALARM } from '../shared/cr-import';
-import { resumeCompareJob } from './compare';
-import { resumeCrImport } from './cr-import';
+import { resumeCompareJob } from './compare/compare';
+import { resumeCrImport } from './history-import/cr-import';
 
 // Reprise des tâches de fond (alignement AniList ↔ MAL, import de l'historique Crunchyroll) : par leur alarme, au
 // démarrage du navigateur ET à l'installation ou la mise à jour de l'extension. Une mise à jour redémarre le service

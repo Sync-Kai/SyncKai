@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale } from '../../i18n';
-import type { EpisodeInfo } from '../../shared/episode.types';
-import { platformSeriesKey } from '../../browser/storage/exclusions-read';
-import type { AniListMedia } from '../anilist/media';
+import { setLocale } from '../../../i18n';
+import type { EpisodeInfo } from '../../../shared/episode.types';
+import { platformSeriesKey } from '../../../browser/storage/exclusions-read';
+import type { AniListMedia } from '../../anilist/media';
 import type { MediaCandidate } from './matching';
 
 // Prime Video (catalogue généraliste, filtre « anime » par genre côté script de contenu, liens AniList rares) :
@@ -13,10 +13,10 @@ const storage = vi.hoisted(() => {
   return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
-vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../anilist/media', () => api);
+vi.mock('../../../browser/storage/mappings', () => storage);
+vi.mock('../../anilist/media', () => api);
 
-const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
+const { findSeriesSeasons, resolveEpisode } = await import('../resolver');
 const { filtersAnime, hasExactTitle, isPrimeOwnLink, isTitleBoundLink, mappingKey, matchPlatformLink, matchPrimeLink, platformLinkVerdict, primeAnimeGate, primeOwnIds } = await import('./matching');
 
 setLocale('fr');
