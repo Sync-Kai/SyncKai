@@ -27,6 +27,8 @@ export const CRUNCHYROLL_PORT_OFFER = 'synckai:cr-port';
 /** Séries gardées et poussées en une fois */
 export const CRUNCHYROLL_MAX_SERIES = 10;
 const MAX_NONCE_LENGTH = 64;
+/** Message poussé au-delà duquel rien n'est lu (même borne que les fiches Disney+ ; une table fait quelques Ko) */
+export const CRUNCHYROLL_MAX_PUSH_LENGTH = 400_000;
 
 export interface CrunchyrollBridgePush {
   v: typeof CRUNCHYROLL_BRIDGE_VERSION;
@@ -117,9 +119,10 @@ export function encodeCrunchyrollPush(push: CrunchyrollBridgePush): string {
  * Seule lecture du protocole chargée par le script de contenu (au plus court : budget de taille).
  */
 export function decodeCrunchyrollPush(data: unknown): ReceivedCrunchyrollTable[] {
-  let value: unknown = null;
+  let value: unknown;
   try {
-    value = typeof data === 'string' ? JSON.parse(data) : null;
+    // Autre chose qu'une chaîne, ou message trop long : '' lève, rien n'est lu
+    value = JSON.parse(typeof data === 'string' && data.length <= CRUNCHYROLL_MAX_PUSH_LENGTH ? data : '');
   } catch {
     return [];
   }

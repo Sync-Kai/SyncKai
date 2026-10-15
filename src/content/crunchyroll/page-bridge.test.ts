@@ -17,6 +17,7 @@ import { crunchyrollTableSignals } from '../../shared/crunchyroll-metadata';
 import {
   CRUNCHYROLL_BRIDGE_VERSION,
   CRUNCHYROLL_HANDSHAKE_EVENT,
+  CRUNCHYROLL_MAX_PUSH_LENGTH,
   decodeCrunchyrollPush,
   encodeCrunchyrollHandshake,
   encodeCrunchyrollPortOffer,
@@ -156,6 +157,17 @@ describe('observedCrunchyrollRequest', () => {
     ]) {
       expect(observedCrunchyrollRequest(url)).toBeNull();
     }
+  });
+});
+
+describe('decodeCrunchyrollPush', () => {
+  it('message borné comme ceux des autres ponts : au-delà de la borne, rien n’est lu ; autre chose qu’une chaîne ignoré', () => {
+    const message = JSON.stringify({ v: CRUNCHYROLL_BRIDGE_VERSION, tables: [{ seriesId: 'GOTHER1' }] });
+    const padded = (length: number): string => message + ' '.repeat(length - message.length);
+    expect(decodeCrunchyrollPush(padded(CRUNCHYROLL_MAX_PUSH_LENGTH)).map((entry) => entry.seriesId)).toEqual(['GOTHER1']);
+    expect(decodeCrunchyrollPush(padded(CRUNCHYROLL_MAX_PUSH_LENGTH + 1))).toEqual([]);
+    expect(decodeCrunchyrollPush({ v: CRUNCHYROLL_BRIDGE_VERSION, tables: [{ seriesId: 'GOTHER1' }] })).toEqual([]);
+    expect(decodeCrunchyrollPush('{pas du json')).toEqual([]);
   });
 });
 
