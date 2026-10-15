@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ADN_HISTORY_VIDEOS, adnVideo, GIRL_DOWNSTAIRS, HERO_WITHOUT_A_CLASS, STUDENT_COUNCIL } from './__fixtures__/adn-history';
-import { adnSlugFromPath, isAdnHistoryPortMessage, isAdnWatched, parseAdnVideo, reduceAdnHistory } from './adn-import';
-import { isCrHistoryResult, MAX_HISTORY_SEASONS } from './cr-history';
-import { toEpisodeInfo } from './cr-import';
+import { ADN_HISTORY_VIDEOS, adnVideo, GIRL_DOWNSTAIRS, HERO_WITHOUT_A_CLASS, STUDENT_COUNCIL } from '../../shared/__fixtures__/adn-history';
+import { adnSlugFromPath, isAdnHistoryPortMessage, isAdnWatched, parseAdnVideo, reduceAdnHistory } from './history';
+import { isCrHistoryResult, MAX_HISTORY_SEASONS } from '../crunchyroll/history';
+import { toEpisodeInfo } from '../../shared/cr-import';
 
 const stats = { items: ADN_HISTORY_VIDEOS.length, pages: 1, partial: false };
 

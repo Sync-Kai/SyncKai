@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HistorySeason } from './cr-history';
+import type { HistorySeason } from '../platforms/crunchyroll/history';
 import {
   buildCrImportPlan,
   decideImport,

@@ -24,9 +24,9 @@ import {
   type NetflixEpisodeMetadata,
   type NetflixSeasonMetadata,
   type NetflixShowMetadata,
-} from '../../shared/netflix-metadata';
+} from '../../platforms/netflix/metadata';
 
-// Types et revalidation de la forme réduite : shared/netflix-metadata.ts (la page d'import les relit aussi)
+// Types et revalidation de la forme réduite : platforms/netflix/metadata.ts (la page d'import les relit aussi)
 export {
   isNetflixShowMetadata,
   NETFLIX_MAX_EPISODES,
@@ -37,7 +37,7 @@ export {
   type NetflixEpisodeMetadata,
   type NetflixSeasonMetadata,
   type NetflixShowMetadata,
-} from '../../shared/netflix-metadata';
+} from '../../platforms/netflix/metadata';
 
 /**
  * Version du protocole, à incrémenter à tout changement des messages ou de la forme réduite : le pont MAIN d'une

@@ -1,5 +1,5 @@
 import { isRecord } from '../../shared/guards';
-import { isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistorySeason } from '../../shared/cr-history';
+import { isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistorySeason } from '../../platforms/crunchyroll/history';
 import { cleanText, stripAudioTag } from '../lib/parsing';
 import type { FetchLike } from '../lib/page-fetch';
 

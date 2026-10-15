@@ -1,7 +1,7 @@
 import { LANGUAGE_SETTINGS, type LanguageSetting } from '../i18n/locale-codes';
 import { AIRING_DELAYS, type AiringDelayHours } from './engagement.types';
 import { isRecord } from './guards';
-import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
+import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from '../platforms/ids';
 import { TRACKER_IDS, type TrackerId } from './tracker.types';
 
 export type CompletionTrigger = 'credits' | 'percentage';
@@ -85,7 +85,7 @@ export const DEFAULT_SETTINGS: SyncSettings = {
 export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
 
 /**
- * Lecteurs préférés à accès optionnel (permission d'hôte) : écrits ici plutôt que lus dans le registre (platforms.ts,
+ * Lecteurs préférés à accès optionnel (permission d'hôte) : écrits ici plutôt que lus dans le registre (platforms/registry.ts,
  * absent des scripts de contenu qui lisent les réglages) ; égalité vérifiée par settings.test.ts
  */
 export const ACCESS_PLAYERS: readonly StreamingPlatform[] = ['netflix', 'prime'];

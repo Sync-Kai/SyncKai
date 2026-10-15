@@ -5,7 +5,7 @@ import type { TestContext } from 'vitest';
 import type { CrunchyrollWatchFixture } from '../../src/content/crunchyroll/__fixtures__/crunchyroll-watch';
 import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
-import { SIDE_PANEL_PATH } from '../../src/shared/target-pages';
+import { SIDE_PANEL_PATH } from '../../src/platforms/target-pages';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import { FakeAniList, type AniListEntrySeed, type AniListMediaSeed } from './fake-anilist';
 import { FakeMal, type MalAnimeSeed, type MalListStatusSeed } from './fake-mal';

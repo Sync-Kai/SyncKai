@@ -23,7 +23,7 @@ import type {
   CrImportReviewsPayload,
   CrImportReviewsResult,
 } from '../shared/cr-import';
-import type { NetflixTitlesPayload, NetflixTitlesResult } from '../shared/netflix-import';
+import type { NetflixTitlesPayload, NetflixTitlesResult } from '../platforms/netflix/history';
 import type { ContentCatalog } from '../i18n/content-keys';
 import type { Locale } from '../i18n/locale-codes';
 

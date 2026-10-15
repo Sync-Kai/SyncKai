@@ -3,7 +3,7 @@
 //
 // Le pont est PASSIF : il n'émet aucune requête. Il lit la réponse JSON de quatre requêtes que le site envoie lui-même
 // et n'en garde que la forme réduite, jamais les en-têtes, jetons, cookies, URL de flux, licences ni données de compte :
-// - `…primevideo.com/…/detail/{id}` (navigation SPA, JSON de la page de détail) → PrimeTitle (shared/prime-metadata.ts) ;
+// - `…primevideo.com/…/detail/{id}` (navigation SPA, JSON de la page de détail) → PrimeTitle (platforms/prime/metadata.ts) ;
 // - `…primevideo.com/…/api/getDetailWidgets?titleID=…` (à chaque changement d'épisode) → PrimeDetailWidgets ;
 // - `atv-ps-*.primevideo.com/cdp/lumina/playerChromeResources/v1?entityId=…` : `resources.catalogMetadataV2.catalog`
 //   SEUL (série, saison, épisode de la vidéo en lecture), indexé par `entityId` de la requête (l'épisode : supposé) ;
@@ -26,7 +26,7 @@ import {
   primeText,
   type PrimeDetailWidgets,
   type PrimeTitle,
-} from '../../shared/prime-metadata';
+} from '../../platforms/prime/metadata';
 import { stripVersionTags } from '../../shared/title';
 
 /**

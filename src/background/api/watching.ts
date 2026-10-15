@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
-import { learnedLinksFor, mergePlatformLinks, platformFromUrl, platformLinkFromExternal, withLearnedLinks, type PlatformLinkStore } from '../../shared/platform-links';
+import { learnedLinksFor, mergePlatformLinks, platformFromUrl, platformLinkFromExternal, withLearnedLinks, type PlatformLinkStore } from '../../platforms/links';
 import { getPlatformLinks } from '../../shared/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
 import { getCachedViewer, getCachedWatching, getRecentSyncs, getSessionEpoch, saveCachedWatching } from '../../shared/storage';
@@ -49,7 +49,7 @@ export function parseNextEpisode(value: unknown): NextEpisode | null {
   return episode !== null && airingAt !== null ? { episode, airingAt: airingAt * 1000 } : null;
 }
 
-// Déplacé dans shared/platform-links.ts, réexporté pour les modules existants
+// Déplacé dans platforms/links.ts, réexporté pour les modules existants
 export { platformFromUrl };
 
 /**

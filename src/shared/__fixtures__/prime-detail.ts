@@ -1,5 +1,5 @@
 // Données de détail Prime Video pour les tests, reconstruites à partir des chemins relevés le 2026-10-14 (Chrome,
-// primevideo.com/region/eu, interface anglaise ; voir shared/prime-metadata.ts). Fausses mais réalistes : identifiants
+// primevideo.com/region/eu, interface anglaise ; voir platforms/prime/metadata.ts). Fausses mais réalistes : identifiants
 // d'épisodes inventés, aucun jeton, cookie, URL de flux ni identifiant de compte. Les genres et pistes audio sont placés
 // dans le détail de la saison (chemin exact inconnu), plus un carrousel de suggestions que la réduction doit ignorer.
 

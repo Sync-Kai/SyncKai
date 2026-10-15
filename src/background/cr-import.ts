@@ -35,7 +35,7 @@ import {
   type ImportPlatform,
   type SeasonResolution,
 } from '../shared/cr-import';
-import type { HistorySeason } from '../shared/cr-history';
+import type { HistorySeason } from '../platforms/crunchyroll/history';
 import { getExcludedSeries, isExcluded, platformSeriesKey } from '../shared/exclusions';
 import { isJobActive, reduceJob } from '../shared/job';
 import { createLogger } from '../shared/logger';
@@ -53,7 +53,7 @@ import {
 import { withStorageLock } from '../shared/storage-lock';
 import type { MediaMapping } from '../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
-import { PLATFORMS } from '../shared/platforms';
+import { PLATFORMS } from '../platforms/registry';
 import { ApiError } from './api/errors';
 import { getAnimeByIds } from './api/media';
 import { fetchAniListFullList, fetchMalFullList } from './compare';

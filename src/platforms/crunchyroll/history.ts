@@ -1,6 +1,6 @@
-import { isPlatformSeasons } from './episode.types';
-import { isRecord } from './guards';
-import { isPlatformSignals, type PlatformSignals } from './match-signals';
+import { isPlatformSeasons } from '../../shared/episode.types';
+import { isRecord } from '../../shared/guards';
+import { isPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
 
 // Historique de visionnage Crunchyroll réduit à une ligne par saison (Réglages › Importer un historique › Crunchyroll).
 // Lu par le script de contenu dans l'onglet Crunchyroll de l'utilisateur (src/content/crunchyroll/history.ts),
@@ -9,7 +9,7 @@ import { isPlatformSignals, type PlatformSignals } from './match-signals';
 /** Saisons transmises au plus (au-delà : historique tronqué, signalé comme partiel) */
 export const MAX_HISTORY_SEASONS = 2000;
 
-/** Dernier épisode vu d'une saison Crunchyroll (ou ADN : même forme, voir adn-import.ts) */
+/** Dernier épisode vu d'une saison Crunchyroll (ou ADN : même forme, voir platforms/adn/history.ts) */
 export interface HistorySeason {
   seriesId: string;
   seriesTitle: string;

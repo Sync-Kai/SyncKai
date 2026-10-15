@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PANEL_TOGGLE_MESSAGE, type PanelToggleMessage } from '../protocol/panel-toggle';
-import { SIDE_PANEL_PATH } from '../shared/target-pages';
+import { SIDE_PANEL_PATH } from '../platforms/target-pages';
 import { resetSidePanel, togglePanelFromCommand } from './side-panel';
 
 afterEach(() => {

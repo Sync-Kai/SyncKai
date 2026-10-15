@@ -11,7 +11,7 @@ import {
   bumpkinEpisodeGti,
   hydrationDocument,
   spaDetailResponse,
-} from './__fixtures__/prime-detail';
+} from '../../shared/__fixtures__/prime-detail';
 import {
   isPrimeDetailWidgets,
   isPrimeTitle,
@@ -23,7 +23,7 @@ import {
   reducePrimeDetail,
   reducePrimeDetailWidgets,
   withPrimeWidgets,
-} from './prime-metadata';
+} from './metadata';
 
 describe('reducePrimeDetail', () => {
   it('hydratation du premier chargement : saison, épisodes, saisons, genres, piste japonaise', () => {

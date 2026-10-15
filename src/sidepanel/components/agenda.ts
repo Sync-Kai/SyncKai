@@ -23,7 +23,7 @@ import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
 import { sendMessage, type MessageResponse } from '../../protocol/messages';
 import { activePlatforms, grantedOptionalPlatforms } from '../../shared/platform-access';
-import { platformSearchUrl } from '../../shared/platform-links';
+import { platformSearchUrl } from '../../platforms/links';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, OFFSET_RANGE, parseOffsetInput, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getCachedWatching, hasMalToken, hasValidAniListToken } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';

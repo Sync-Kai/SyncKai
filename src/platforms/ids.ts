@@ -1,4 +1,4 @@
-// Identifiants des plateformes de streaming, sans leurs descripteurs (platforms.ts : libellés, logos, hôtes, liens).
+// Identifiants des plateformes de streaming, sans leurs descripteurs (platforms/registry.ts : libellés, logos, hôtes, liens).
 // Module feuille, seule partie du registre dont ont besoin les scripts de contenu (validation des épisodes, réglages).
 
 /** Ordre fixe des plateformes (liens, réglages, repli de « Ouvrir ») */

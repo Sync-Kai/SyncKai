@@ -13,7 +13,7 @@ import {
   seriesUrl,
   upNextUrl,
 } from '../../shared/__fixtures__/crunchyroll-cms';
-import { crunchyrollTableSignals } from '../../shared/crunchyroll-metadata';
+import { crunchyrollTableSignals } from '../../platforms/crunchyroll/metadata';
 import {
   CRUNCHYROLL_BRIDGE_VERSION,
   CRUNCHYROLL_HANDSHAKE_EVENT,

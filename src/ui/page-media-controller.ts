@@ -12,7 +12,7 @@ import {
 } from '../shared/page-media-cache';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
 import { hasPlatformAccess } from '../shared/platform-access';
-import { isOptionalPlatform } from '../shared/platforms';
+import { isOptionalPlatform } from '../platforms/registry';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { getOpenSessions } from '../shared/storage';
 import type { ListStatusChange } from '../shared/sync.types';

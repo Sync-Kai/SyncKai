@@ -1,4 +1,4 @@
-import type { StreamingPlatform } from '../../shared/platforms';
+import type { StreamingPlatform } from '../../platforms/registry';
 import { deleteMediaMappingsIfUnchanged, getMediaMappings } from '../../shared/storage';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';

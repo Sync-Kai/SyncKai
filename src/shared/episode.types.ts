@@ -1,8 +1,8 @@
 import { isRecord } from './guards';
 import { isPlatformSignals, type PlatformSignals } from './match-signals';
-import { STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
+import { STREAMING_PLATFORMS, type StreamingPlatform } from '../platforms/ids';
 
-export type { StreamingPlatform } from './platform-ids';
+export type { StreamingPlatform } from '../platforms/ids';
 
 /**
  * Épisode détecté sur une plateforme de streaming.
@@ -44,7 +44,7 @@ export interface EpisodeInfo {
 
 /**
  * Prime Video, filtre « anime » du script de contenu (genres `av_genre_*` et pistes audio de la page de détail, voir
- * shared/prime-metadata.ts › primeAnimeVerdict) :
+ * platforms/prime/metadata.ts › primeAnimeVerdict) :
  * - `anime` : genre `av_genre_anime` ;
  * - `animation-ja` : autre genre `av_genre_animation*` avec une piste audio japonaise (résolution normale) ;
  * - `animation-exact-only` : autre genre d'animation sans piste japonaise : suivi seulement sur un titre AniList exact ;

@@ -1,5 +1,5 @@
-import { isRecord } from './guards';
-import { hasSignals, isPlatformSignals, isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from './match-signals';
+import { isRecord } from '../../shared/guards';
+import { hasSignals, isPlatformSignals, isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
 
 // Métadonnées de série Crunchyroll pour les signaux de correspondance (feature/match-signals). Relevé du 2026-10-14
 // (anonyme, requêtes de la page elle-même) : l'application web demande

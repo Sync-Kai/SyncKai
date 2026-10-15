@@ -24,7 +24,7 @@ export const STAR_CLASSES = {
   half: 'cursor-pointer rounded-[4px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-lavender disabled:cursor-default aria-disabled:cursor-default',
 };
 
-export { PLATFORM_LABELS } from '../shared/platforms';
+export { PLATFORM_LABELS } from '../platforms/registry';
 
 export const SERVICE_CHIPS: Record<TrackerId, { short: string; class: string }> = {
   anilist: { short: 'AL', class: 'bg-anilist text-[11px]' },

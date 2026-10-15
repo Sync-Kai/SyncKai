@@ -3,7 +3,7 @@
 // série (`cms/series/{id}`, `…/seasons`), une saison (`cms/seasons/{id}/episodes`) et l'épisode suggéré
 // (`discover/up_next/{id}`). Il n'émet aucune requête et ne lit ni en-tête (ces requêtes portent le jeton de
 // l'utilisateur), ni cookie, ni identifiant de compte ou de profil, ni URL de flux : seules les formes réduites
-// (shared/crunchyroll-metadata.ts : années, nombres d'épisodes, durées, langue audio, identifiants de contenu) sont
+// (platforms/crunchyroll/metadata.ts : années, nombres d'épisodes, durées, langue audio, identifiants de contenu) sont
 // gardées, et seule leur table de signaux est transmise au script isolé. Aucun chrome.*. Format IIFE (suffixe .iife.ts) : un chargeur ESM ne
 // fonctionne pas dans le monde MAIN.
 //
@@ -19,7 +19,7 @@ import {
   type CrunchyrollEpisodeStats,
   type CrunchyrollSeasonRow,
   type CrunchyrollSignalTable,
-} from '../../shared/crunchyroll-metadata';
+} from '../../platforms/crunchyroll/metadata';
 import {
   CRUNCHYROLL_BRIDGE_VERSION,
   CRUNCHYROLL_HANDSHAKE_EVENT,
@@ -59,7 +59,7 @@ function keep<T>(map: Map<string, T>, key: string, value: T, max: number): void 
   for (const old of [...map.keys()].slice(0, Math.max(0, map.size - max))) map.delete(old);
 }
 
-/** Table des signaux de la série (règles des doublages et de la saison d'origine appliquées ici, voir crunchyroll-metadata.ts) */
+/** Table des signaux de la série (règles des doublages et de la saison d'origine appliquées ici, voir platforms/crunchyroll/metadata.ts) */
 function view(seriesId: string): CrunchyrollSignalTable {
   return crunchyrollSignalTable(mergeCrunchyrollSeries(seriesId, launchYears.get(seriesId) ?? null, seasonLists.get(seriesId) ?? [], (id) => seasonStats.get(id)?.stats));
 }

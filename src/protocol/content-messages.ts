@@ -1,7 +1,7 @@
 import { isRecord } from '../shared/guards';
 import { isPageMediaInfo, type PageMediaInfo } from '../shared/page-media.types';
 
-export { CR_HISTORY_PORT_NAME, isCrHistoryPortMessage, isCrHistoryRequest, type CrHistoryPortMessage, type CrHistoryRequest } from '../shared/cr-history';
+export { CR_HISTORY_PORT_NAME, isCrHistoryPortMessage, isCrHistoryRequest, type CrHistoryPortMessage, type CrHistoryRequest } from '../platforms/crunchyroll/history';
 export {
   ADN_HISTORY_PAGE_SIZE,
   ADN_HISTORY_PORT_NAME,
@@ -19,7 +19,7 @@ export {
  *
  * READ_CR_HISTORY / READ_ADN_HISTORY (page d'import) passent par un port dédié (CR_HISTORY_PORT_NAME / ADN_HISTORY_PORT_NAME,
  * chrome.tabs.connect) : la lecture dure, la progression remonte sur le port et sa fermeture l'abandonne. Protocoles dans
- * cr-history.ts et adn-history.ts.
+ * platforms/crunchyroll/history.ts et adn-history.ts.
  */
 export type ContentMessage = { type: 'FORCE_COMPLETE' } | { type: 'GET_PAGE_MEDIA' };
 

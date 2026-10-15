@@ -1,4 +1,4 @@
-import { OPTIONAL_PLATFORM_MATCHES, PLATFORMS } from './platforms';
+import { OPTIONAL_PLATFORM_MATCHES, PLATFORMS } from './registry';
 
 /**
  * Pages ciblées par SyncKai (Crunchyroll, ADN) : exactement les `matches` du script de contenu.

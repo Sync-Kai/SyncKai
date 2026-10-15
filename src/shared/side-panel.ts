@@ -1,5 +1,5 @@
 import { isRecord } from './guards';
-import { SIDE_PANEL_PATH } from './target-pages';
+import { SIDE_PANEL_PATH } from '../platforms/target-pages';
 
 /**
  * Panneau latéral, deux API selon le navigateur, même comportement :

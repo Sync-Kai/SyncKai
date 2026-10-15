@@ -1,13 +1,13 @@
 // Registre des plateformes de streaming : tout ce que SyncKai sait d'une plateforme hors de son adaptateur de contenu
-// (libellé, logo, hôtes, liens, accès optionnel, filtre « anime »). Seul import : platform-ids.ts
+// (libellé, logo, hôtes, liens, accès optionnel, filtre « anime »). Seul import : platforms/ids.ts
 // (feuille), pour rester utilisable partout (shared, ui, background, content) sans cycle. Ajouter une plateforme :
-// l'ajouter à STREAMING_PLATFORMS (platform-ids.ts), puis le compilateur exige son descripteur (Record exhaustif)
+// l'ajouter à STREAMING_PLATFORMS (platforms/ids.ts), puis le compilateur exige son descripteur (Record exhaustif)
 // et les Record qui en dépendent.
 
-import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
+import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './ids';
 
-// Identifiants (liste, type, platformRecord) : platform-ids.ts, repris ici
-export { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './platform-ids';
+// Identifiants (liste, type, platformRecord) : platforms/ids.ts, repris ici
+export { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './ids';
 
 export interface PlatformDescriptor {
   /** Nom affiché (marque, non traduit) */

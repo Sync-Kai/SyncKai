@@ -1,7 +1,7 @@
 // Enregistrement des scripts des plateformes à accès optionnel (Netflix, Disney+, Prime Video) : logique pure, API du navigateur
 // injectée (testable sans chrome.*). Branché sur chrome.scripting et chrome.permissions par platform-access.ts.
 // Chaque plateforme a deux scripts : un pont dans le monde MAIN de la page et le script de contenu isolé.
-import { PLATFORMS, type StreamingPlatform } from '../shared/platforms';
+import { PLATFORMS, type StreamingPlatform } from '../platforms/registry';
 
 /** Plateformes dont les scripts sont enregistrés à la demande (`optionalMatches` non vide dans le registre) */
 export const SCRIPTED_PLATFORMS = ['netflix', 'disney', 'prime'] as const satisfies readonly StreamingPlatform[];

@@ -2,7 +2,7 @@
 // le site demande lui-même (fetch et XMLHttpRequest) : page de détail après une navigation SPA (`/detail/{id}`),
 // `getDetailWidgets`, `playerChromeResources` (`catalogMetadataV2` seul) et `GetVodPlaybackResources` (début du générique
 // de fin et durée seuls). Il n'émet aucune requête, ne lit aucun en-tête, cookie ni jeton, ne touche à aucune URL de flux
-// ni licence : seules les formes réduites (bridge-protocol.ts, shared/prime-metadata.ts) sont gardées et transmises.
+// ni licence : seules les formes réduites (bridge-protocol.ts, platforms/prime/metadata.ts) sont gardées et transmises.
 // Aucun chrome.*. Format IIFE (suffixe .iife.ts) : un chargeur ESM ne fonctionne pas dans le monde MAIN.
 //
 // Le relevé ne voit que les requêtes émises APRÈS son installation : dans un onglet déjà ouvert à l'activation ou à une
@@ -10,7 +10,7 @@
 //
 // Indexation par identifiant de la requête, jamais « dernière réponse reçue » : la réponse de lecture de l'épisode
 // SUIVANT arrive environ 1 s avant la bascule, pendant que l'épisode précédent est encore à l'écran.
-import { reducePrimeDetail, reducePrimeDetailWidgets } from '../../shared/prime-metadata';
+import { reducePrimeDetail, reducePrimeDetailWidgets } from '../../platforms/prime/metadata';
 import {
   decodePrimeHandshake,
   encodePrimePortOffer,

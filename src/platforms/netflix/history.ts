@@ -1,14 +1,14 @@
-import type { CrHistoryErrorCode, HistorySeason } from './cr-history';
-import { isRecord } from './guards';
-import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixBookmark, type NetflixShowMetadata } from './netflix-metadata';
-import type { Result } from './result';
-import type { CompletionTrigger } from './settings';
-import { meaningfulSeasonTitle, normalizeTitle } from './title';
+import type { CrHistoryErrorCode, HistorySeason } from '../crunchyroll/history';
+import { isRecord } from '../../shared/guards';
+import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixBookmark, type NetflixShowMetadata } from './metadata';
+import type { Result } from '../../shared/result';
+import type { CompletionTrigger } from '../../shared/settings';
+import { meaningfulSeasonTitle, normalizeTitle } from '../../shared/title';
 
 // Import de l'historique Netflix (pur, testé), dans la page d'import : lecture de la page Activité de visionnage du profil
 // (netflix.com/viewingactivity) en pilotant l'onglet, regroupement des lignes par série, filtre « anime » (AniList, dans
 // le service worker), puis métadonnées des seules séries retenues → une ligne par saison (HistorySeason), analysée par le
-// même pipeline que Crunchyroll et ADN. Numérotation et clés identiques à la synchro en direct (netflix-metadata.ts).
+// même pipeline que Crunchyroll et ADN. Numérotation et clés identiques à la synchro en direct (platforms/netflix/metadata.ts).
 //
 // Budget de requêtes (≈ 300 titres distincts dans un historique de 1 900 lignes) :
 // 1. lignes : clics sur « Voir plus » du site (≈ 20 lignes par clic, au plus un par seconde), aucune requête de SyncKai ;

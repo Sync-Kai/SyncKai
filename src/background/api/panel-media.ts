@@ -12,7 +12,7 @@ import {
   type PanelMediaResult,
   type PanelRelation,
 } from '../../shared/panel-media.types';
-import { learnedLinksFor, mergePlatformLinks, type PlatformLinkStore } from '../../shared/platform-links';
+import { learnedLinksFor, mergePlatformLinks, type PlatformLinkStore } from '../../platforms/links';
 import { getPlatformLinks } from '../../shared/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
 import { getRecentSyncs } from '../../shared/storage';

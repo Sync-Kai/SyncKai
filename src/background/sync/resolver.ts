@@ -1,8 +1,8 @@
 import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
 import { hasSignals } from '../../shared/match-signals';
 import type { CandidateSummary } from '../../shared/review.types';
-import { PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
-import { STREAMING_PLATFORMS } from '../../shared/platform-ids';
+import { PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
+import { STREAMING_PLATFORMS } from '../../platforms/ids';
 import type { MediaMapping } from '../../shared/sync.types';
 import { deleteMediaMappingIf, getMediaMapping, saveMediaMappingIf } from '../../shared/storage';
 import { getAnimeByIds, searchAnime, type AniListMedia } from '../api/media';

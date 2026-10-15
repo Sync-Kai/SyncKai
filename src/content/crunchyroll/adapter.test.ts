@@ -18,7 +18,7 @@ import {
   type WatchPageContext,
 } from './adapter';
 import { createLabelGuard, flattenJsonLd, LABEL_SETTLE_MS, labelKey, type LabelGuard } from '../lib/parsing';
-import { crunchyrollSignalTable, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../shared/crunchyroll-metadata';
+import { crunchyrollSignalTable, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../platforms/crunchyroll/metadata';
 
 // Pont du monde MAIN remplacé : tables des signaux servies par le test (aucune par défaut, comme un onglet ouvert avant l'extension)
 const bridge = vi.hoisted(() => ({ tables: new Map<string, Record<string, unknown>>() }));

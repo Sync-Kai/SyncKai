@@ -66,7 +66,7 @@ export function sortWebAccessibleResources<E extends WebAccessibleResourceEntry>
 
 /**
  * Motifs d'accès de chaque plateforme optionnelle, par dossier de ses scripts enregistrés (`src/content/{dossier}/`).
- * Copie de PLATFORMS[…].optionalMatches (src/shared/platforms.ts, vérifiée par output-names.test.ts) : la configuration
+ * Copie de PLATFORMS[…].optionalMatches (src/platforms/registry.ts, vérifiée par output-names.test.ts) : la configuration
  * de Vite n'importe pas le registre.
  */
 export const REGISTERED_SCRIPT_MATCHES: Readonly<Record<string, readonly string[]>> = {

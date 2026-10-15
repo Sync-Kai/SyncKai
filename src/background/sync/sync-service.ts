@@ -4,7 +4,7 @@ import { flashSyncBadge, refreshReviewBadge } from '../../shared/badge';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isExcluded, platformSeriesKey } from '../../shared/exclusions';
 import type { ResolveReviewPayload } from '../../protocol/messages';
-import { platformSeriesUrl } from '../../shared/platform-links';
+import { platformSeriesUrl } from '../../platforms/links';
 import { learnPlatformLink } from '../../shared/platform-links-store';
 import type { Result } from '../../shared/result';
 import type { CandidateSummary, DeferredEpisode, PendingReview } from '../../shared/review.types';

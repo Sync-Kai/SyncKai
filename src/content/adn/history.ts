@@ -93,7 +93,7 @@ async function get(deps: AdnReaderDeps, url: string): Promise<unknown> {
   }
 }
 
-/** Champs utiles d'un épisode (réduit dans la page d'import par shared/adn-import.ts) ; rien du compte (user.id) */
+/** Champs utiles d'un épisode (réduit dans la page d'import par platforms/adn/history.ts) ; rien du compte (user.id) */
 function pickVideo(video: unknown): unknown {
   if (!isRecord(video)) return null;
   const { id, name, shortNumber, season, duration, urlPath, user, show } = video;

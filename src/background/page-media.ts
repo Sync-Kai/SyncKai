@@ -12,7 +12,7 @@ import type {
 import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../shared/episode.types';
 import { hasSignals, type PlatformSignals } from '../shared/match-signals';
 import { hasPlatformAccess } from '../shared/platform-access';
-import { isOptionalPlatform, PLATFORMS } from '../shared/platforms';
+import { isOptionalPlatform, PLATFORMS } from '../platforms/registry';
 import { readCachedPageMedia, storeCachedPageMedia } from '../shared/page-media-cache';
 import { learnPlatformLink } from '../shared/platform-links-store';
 import { pageMediaFromEpisode } from '../shared/page-media';

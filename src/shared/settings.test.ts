@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LOCALES } from '../i18n/locale-codes';
 import { seriesOffset, withSeriesOffset } from './agenda';
-import { isOptionalPlatform, STREAMING_PLATFORMS } from './platforms';
+import { isOptionalPlatform, STREAMING_PLATFORMS } from '../platforms/registry';
 import { ACCESS_PLAYERS, DEFAULT_SETTINGS, isPreferredPlayerOption, MAX_SERIES_OFFSETS, normalizeSettings, parseOffsetInput } from './settings';
 
 describe('normalizeSettings', () => {

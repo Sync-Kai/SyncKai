@@ -1,12 +1,12 @@
-import type { CrHistoryErrorCode, HistoryStats } from '../shared/cr-history';
+import type { CrHistoryErrorCode, HistoryStats } from '../platforms/crunchyroll/history';
 import { isRecord } from '../shared/guards';
 
 // Import de l'historique ADN : protocole du port entre la page d'import et le script de contenu de l'onglet ADN.
 // Le script de contenu lit l'API de visionnage d'ADN avec le jeton de la page (localStorage), qui ne quitte jamais
 // l'onglet : seuls les épisodes (champs utiles, voir content/adn/history.ts) remontent par le port. La page
-// d'import les réduit à une ligne par saison (adn-import.ts) puis lance la même analyse que pour Crunchyroll.
+// d'import les réduit à une ligne par saison (platforms/adn/history.ts) puis lance la même analyse que pour Crunchyroll.
 // Ce module n'a que ce qu'il faut au script de contenu (budget) ; la validation des messages reçus par la page
-// d'import est dans adn-import.ts.
+// d'import est dans platforms/adn/history.ts.
 
 /** Port ouvert par la page d'import vers l'onglet ADN (chrome.tabs.connect) ; fermé = lecture abandonnée */
 export const ADN_HISTORY_PORT_NAME = 'synckai:adn-history';
@@ -22,7 +22,7 @@ export interface AdnHistoryRequest {
   type: 'READ_ADN_HISTORY';
 }
 
-/** Épisodes lus (éléments bruts réduits aux champs utiles, revalidés par adn-import.ts) */
+/** Épisodes lus (éléments bruts réduits aux champs utiles, revalidés par platforms/adn/history.ts) */
 export interface AdnHistoryRead {
   videos: unknown[];
   stats: HistoryStats;

@@ -16,7 +16,7 @@ import {
   frierenSeasons,
   frierenSeries,
   frierenUpNext,
-} from './__fixtures__/crunchyroll-cms';
+} from '../../shared/__fixtures__/crunchyroll-cms';
 import {
   crunchyrollSignals,
   crunchyrollSignalTable,
@@ -29,7 +29,7 @@ import {
   reduceCrunchyrollUpNext,
   type CrunchyrollEpisodeStats,
   type CrunchyrollSeries,
-} from './crunchyroll-metadata';
+} from './metadata';
 
 // Métadonnées Crunchyroll (forme relevée le 2026-10-14) → signaux de correspondance, dont la règle des doublages.
 

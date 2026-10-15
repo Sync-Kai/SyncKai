@@ -64,7 +64,7 @@ const { mappingKey } = await import('./matching');
 const { getMediaMapping, getPendingReviews, saveMediaMapping, savePendingReview } = await import('../../shared/storage');
 const { getSyncQueue } = await import('../../shared/sync-queue-store');
 const { excludeSeries, platformSeriesKey } = await import('../../shared/exclusions');
-const { PLATFORM_LINKS_KEY } = await import('../../shared/platform-links');
+const { PLATFORM_LINKS_KEY } = await import('../../platforms/links');
 
 setLocale('fr');
 

@@ -50,6 +50,10 @@ describe('frontières des modules', () => {
     expect(violations('shared', ['ui', 'popup', 'sidepanel', 'content', 'background', 'import', 'import-cr'])).toEqual([]);
   });
 
+  it('platforms/ (savoir par plateforme) ne dépend d’aucune couche applicative', () => {
+    expect(violations('platforms', ['ui', 'popup', 'sidepanel', 'content', 'background', 'import', 'import-cr'])).toEqual([]);
+  });
+
   it('protocol/ (contrats entre contextes d’exécution) ne dépend d’aucune couche applicative', () => {
     expect(violations('protocol', ['ui', 'popup', 'sidepanel', 'content', 'background', 'import', 'import-cr'])).toEqual([]);
   });
@@ -85,14 +89,14 @@ describe('scripts de contenu légers (PERF-01)', () => {
       'shared/compare.ts',
       'shared/cr-import.ts',
       // Réduction de l'historique ADN : faite dans la page d'import, le script de contenu ne lit que l'API
-      'shared/adn-import.ts',
+      'platforms/adn/history.ts',
       // Icônes et grand dessin de Kai (kai-small.ts suffit à la bulle)
       'ui/icons.ts',
       // Écritures des exclusions et rapprochement des liens (exclusions-core.ts suffit à la lecture)
       'shared/exclusions.ts',
-      'shared/platform-links.ts',
-      // Descripteurs des plateformes (logos, hôtes, liens) : platform-ids.ts suffit
-      'shared/platforms.ts',
+      'platforms/links.ts',
+      // Descripteurs des plateformes (logos, hôtes, liens) : platforms/ids.ts suffit
+      'platforms/registry.ts',
     ];
     expect(contentModules.has('protocol/messages.ts')).toBe(true);
     expect(heavy.filter((path) => contentModules.has(path))).toEqual([]);
@@ -123,14 +127,7 @@ function modulesMatching(files: Iterable<string>, pattern: RegExp): string[] {
 
 describe('monde MAIN des ponts de page', () => {
   /** Modules purs que les ponts passifs peuvent embarquer (aucun accès aux API d'extension) */
-  const MAIN_SAFE_SHARED: readonly string[] = [
-    'shared/guards.ts',
-    'shared/match-signals.ts',
-    'shared/title.ts',
-    'shared/crunchyroll-metadata.ts',
-    'shared/netflix-metadata.ts',
-    'shared/prime-metadata.ts',
-  ];
+  const MAIN_SAFE_SHARED: readonly string[] = ['shared/guards.ts', 'shared/match-signals.ts', 'shared/title.ts'];
   const bridges = layerFiles('content').filter((file) => /^content\/[a-z0-9-]+\/page-bridge\.iife\.ts$/.test(file));
 
   it('les quatre ponts sont trouvés', () => {
@@ -140,7 +137,8 @@ describe('monde MAIN des ponts de page', () => {
   it('un pont n’atteint que son protocole et des modules purs de la liste blanche', () => {
     for (const bridge of bridges) {
       const platform = bridge.split('/')[1] ?? '';
-      const allowed = (file: string): boolean => file === bridge || file === `content/${platform}/bridge-protocol.ts` || MAIN_SAFE_SHARED.includes(file);
+      const allowed = (file: string): boolean =>
+        file === bridge || file === `content/${platform}/bridge-protocol.ts` || file.startsWith(`platforms/${platform}/`) || MAIN_SAFE_SHARED.includes(file);
       const reached = [...reachableFrom([bridge], { valuesOnly: true })];
       expect(reached.filter((file) => !allowed(file)), bridge).toEqual([]);
     }
@@ -206,7 +204,6 @@ describe('shared/ : cliquet des modules qui appellent une API du navigateur', ()
     'shared/storage-lock.ts',
     'shared/storage.ts',
     'shared/sync-queue-store.ts',
-    'shared/target-pages.ts',
     'shared/token-key-store.ts',
   ];
   const BROWSER_API = /\b(?:chrome|browser)\.(?:storage|runtime|permissions|action|sidePanel|tabs|scripting|commands|alarms|windows|i18n|identity|notifications)\b|\bindexedDB\b|\bnavigator\.locks\b/;

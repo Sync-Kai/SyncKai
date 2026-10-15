@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t } from '../i18n';
 import { ADN_HISTORY_VIDEOS } from '../shared/__fixtures__/adn-history';
-import { reduceAdnHistory } from '../shared/adn-import';
+import { reduceAdnHistory } from '../platforms/adn/history';
 import { onePieceShow, ranmaShow } from '../shared/__fixtures__/netflix-history';
-import { reduceNetflixShow } from '../shared/netflix-import';
-import type { HistorySeason } from '../shared/cr-history';
+import { reduceNetflixShow } from '../platforms/netflix/history';
+import type { HistorySeason } from '../platforms/crunchyroll/history';
 import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../shared/cr-import';
 import type { EpisodeInfo } from '../shared/episode.types';
 import { isRecord } from '../shared/guards';

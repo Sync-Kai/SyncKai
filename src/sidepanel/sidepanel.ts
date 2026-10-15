@@ -3,7 +3,7 @@ import { kanaLabel } from '../ui/kit';
 import { createLogger } from '../shared/logger';
 import type { StreamingPlatform } from '../shared/episode.types';
 import { activePlatforms, grantedOptionalPlatforms, requestPlatformAccess } from '../shared/platform-access';
-import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../shared/platforms';
+import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../platforms/registry';
 import { getSettings } from '../shared/settings';
 import { sidePanelKind } from '../shared/side-panel';
 import { createAccountsController } from '../ui/accounts';

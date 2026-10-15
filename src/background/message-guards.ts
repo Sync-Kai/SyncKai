@@ -8,7 +8,7 @@ import { isCrImportAnalyzePayload, isCrImportApplyPayload, isCrImportReviewsPayl
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from '../shared/engagement.types';
 import { isEpisodeInfo } from '../shared/episode.types';
 import { isListNotesText } from '../shared/list-notes';
-import { isNetflixTitlesPayload } from '../shared/netflix-import';
+import { isNetflixTitlesPayload } from '../platforms/netflix/history';
 import { isRecord } from '../shared/guards';
 import type {
   AddToListPayload,

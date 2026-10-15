@@ -10,7 +10,7 @@ import { BACKUP_EXPORT_PARAM, BACKUP_PAGE, downloadBackup } from '../backup-down
 import { BTN_GHOST, CARD, LINK } from '../kit';
 import { platformIcon } from '../brand-icons';
 import type { ImportPlatform } from '../../shared/cr-import';
-import { PLATFORMS } from '../../shared/platforms';
+import { PLATFORMS } from '../../platforms/registry';
 import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';

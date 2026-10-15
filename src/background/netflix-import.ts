@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import { createLogger } from '../shared/logger';
-import type { NetflixTitlesPayload, NetflixTitlesResult, NetflixTitleVerdict } from '../shared/netflix-import';
+import type { NetflixTitlesPayload, NetflixTitlesResult, NetflixTitleVerdict } from '../platforms/netflix/history';
 import { normalizeTitle } from '../shared/title';
 import { ApiError } from './api/errors';
 import { searchAnimeBatch, type AniListMedia } from './api/media';

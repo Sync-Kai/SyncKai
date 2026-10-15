@@ -1,8 +1,8 @@
 // Métadonnées Netflix réduites (forme qui quitte le monde MAIN, voir content/netflix/bridge-protocol.ts) : types,
 // revalidation et numérotation des épisodes. Module PUR partagé par la synchro en direct (script de contenu Netflix)
 // et l'import de l'historique (page d'import) : même numérotation, mêmes clés de correspondance des deux côtés.
-import { isRecord } from './guards';
-import { isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from './match-signals';
+import { isRecord } from '../../shared/guards';
+import { isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
 
 /** Identifiant de vidéo Netflix (/watch/{id}, /title/{id}) */
 export const NETFLIX_MOVIE_ID_REGEX = /^\d{1,12}$/;

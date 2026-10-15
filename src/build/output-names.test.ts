@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../shared/platforms';
+import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../platforms/registry';
 import {
   assetFileName,
   BACKGROUND_CHUNK_FILE,

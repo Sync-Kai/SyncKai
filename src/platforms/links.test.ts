@@ -12,10 +12,10 @@ import {
   rememberPlatformLink,
   withLearnedLinks,
   type PlatformLinkStore,
-} from './platform-links';
-import { learnPlatformLink } from './platform-links-store';
-import { choosePlatformLink } from './watching';
-import type { PlatformLink, WatchingEntry } from './watching.types';
+} from './links';
+import { learnPlatformLink } from '../shared/platform-links-store';
+import { choosePlatformLink } from '../shared/watching';
+import type { PlatformLink, WatchingEntry } from '../shared/watching.types';
 
 const NOW = 1_800_000_000_000;
 const ADN: PlatformLink = { platform: 'adn', url: 'https://animationdigitalnetwork.com/video/1311-tougen-anki' };

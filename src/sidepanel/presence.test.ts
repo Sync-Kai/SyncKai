@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import manifest from '../../manifest.json';
 import type { PageMediaInfo } from '../shared/page-media.types';
-import { contentScriptMatches } from '../shared/target-pages';
+import { contentScriptMatches } from '../platforms/target-pages';
 import { answersAsTarget, classifyTabUrl } from './presence';
 
 const patterns = contentScriptMatches(manifest);

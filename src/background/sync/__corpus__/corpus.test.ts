@@ -7,9 +7,9 @@ import { byIdsKey, CATALOG, SNAPSHOTS } from './snapshots';
 import { bumpkinDetailBody, spaDetailResponse } from '../../../shared/__fixtures__/prime-detail';
 import type { StreamingPlatform } from '../../../shared/episode.types';
 import { medianMinutes, toPlatformSignals, type PlatformSignals } from '../../../shared/match-signals';
-import { isNetflixShowMetadata, netflixSignals, type NetflixShowMetadata } from '../../../shared/netflix-metadata';
-import { primeSignals, reducePrimeDetail } from '../../../shared/prime-metadata';
-import { crunchyrollSignals, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../../shared/crunchyroll-metadata';
+import { isNetflixShowMetadata, netflixSignals, type NetflixShowMetadata } from '../../../platforms/netflix/metadata';
+import { primeSignals, reducePrimeDetail } from '../../../platforms/prime/metadata';
+import { crunchyrollSignals, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../../platforms/crunchyroll/metadata';
 import type { CapturedSignals, CorpusCase, CorpusMedia, CorpusOutcome, PlatformSeasonSignal } from './types';
 
 // Corpus de cas réels (voir README.md) : chaque cas passe par la vraie résolution (resolveEpisode pour une page de

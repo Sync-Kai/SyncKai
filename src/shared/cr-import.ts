@@ -1,4 +1,4 @@
-import { isCrHistoryResult, isHistoryStats, type CrHistoryResult, type HistorySeason, type HistoryStats } from './cr-history';
+import { isCrHistoryResult, isHistoryStats, type CrHistoryResult, type HistorySeason, type HistoryStats } from '../platforms/crunchyroll/history';
 import { isEpisodeInfo, type EpisodeInfo } from './episode.types';
 import { normalizeSeriesTitle } from './exclusions';
 import { isRecord } from './guards';
@@ -13,14 +13,14 @@ import { isTrackerId, type TrackerId } from './tracker.types';
 // Import de l'historique Crunchyroll, ADN ou Netflix (Réglages › Importer un historique) : types, stockage et planification
 // (pur, testé). Le préfixe « Cr » est historique : le pipeline est commun aux deux plateformes (ImportPlatform, absente
 // des données enregistrées avant l'import ADN : Crunchyroll). Déroulé : lecture de l'historique dans l'onglet de la
-// plateforme (script de contenu ; ADN : réduit par saison dans la page, adn-import.ts ; Netflix : filtre « anime » puis
-// points de lecture, netflix-import.ts) → analyse en
+// plateforme (script de contenu ; ADN : réduit par saison dans la page, platforms/adn/history.ts ; Netflix : filtre « anime » puis
+// points de lecture, platforms/netflix/history.ts) → analyse en
 // tâche de fond (correspondance saison → fiche AniList, sans rien écrire) → aperçu → application en tâche de fond.
 // Règles : jamais de recul, une série terminée ou en revisionnage n'est pas touchée, une correspondance
 // incertaine n'est jamais appliquée (« À vérifier » : cartes de vérification créées à la demande).
 
 /**
- * Plateformes dont l'historique peut être importé (même page, même analyse). Hors du module du protocole (cr-history.ts,
+ * Plateformes dont l'historique peut être importé (même page, même analyse). Hors du module du protocole (platforms/crunchyroll/history.ts,
  * embarqué par le script de contenu) : seules les pages et le service worker s'en servent.
  */
 export const IMPORT_PLATFORMS = ['crunchyroll', 'adn', 'netflix'] as const;

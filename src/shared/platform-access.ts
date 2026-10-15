@@ -3,7 +3,7 @@
  * d'hôte optionnelle (`optional_host_permissions`) ; l'état de l'accès EST la permission, rien n'est stocké. Le
  * service worker enregistre ou retire les scripts de la plateforme quand elle change (background/platform-access.ts).
  */
-import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from './platforms';
+import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../platforms/registry';
 
 /**
  * true si l'accès à la plateforme est accordé ; toujours true pour une plateforme du manifeste (Crunchyroll, ADN).

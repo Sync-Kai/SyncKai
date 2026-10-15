@@ -1,8 +1,8 @@
 import { formatList, t } from '../../i18n';
 import { DISNEY_ARC_SEASON, isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
 import { hasSignals, type PlatformSignals } from '../../shared/match-signals';
-import { PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
-import { parsePrimeDetailId, primeId, primeIdInLink } from '../../shared/prime-metadata';
+import { PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
+import { parsePrimeDetailId, primeId, primeIdInLink } from '../../platforms/prime/metadata';
 import type { MediaMapping, NumberingMode } from '../../shared/sync.types';
 import { normalizeTitle, titleKey, withoutDiacritics } from '../../shared/title';
 import { groupSeasons, stripCourMarker } from './season-groups';

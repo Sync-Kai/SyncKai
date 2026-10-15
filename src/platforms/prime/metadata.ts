@@ -11,10 +11,10 @@
 //   `widgets.seasonSelector[]`.
 // Genres (`av_genre_*`) et pistes audio (`audioTracks`) : chemin exact inconnu, cherchés dans le détail du titre, à défaut
 // dans tout le document.
-import type { PrimeAnimeVerdict } from './episode.types';
-import { isRecord } from './guards';
-import { isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from './match-signals';
-import { stripVersionTags } from './title';
+import type { PrimeAnimeVerdict } from '../../shared/episode.types';
+import { isRecord } from '../../shared/guards';
+import { isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
+import { stripVersionTags } from '../../shared/title';
 
 /** GTI complet (« amzn1.dv.gti.{uuid} »), minuscules */
 export const PRIME_GTI_REGEX = /^amzn1\.dv\.gti\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

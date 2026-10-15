@@ -1,7 +1,7 @@
 import { getLocale, initI18n, onLocaleChange, t, tp, type MessageKey } from '../i18n';
-import { isAdnHistoryPortMessage, reduceAdnHistory } from '../shared/adn-import';
+import { isAdnHistoryPortMessage, reduceAdnHistory } from '../platforms/adn/history';
 import { ADN_HISTORY_PORT_NAME, CR_HISTORY_PORT_NAME, isCrHistoryPortMessage } from '../protocol/content-messages';
-import { MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistoryStats } from '../shared/cr-history';
+import { MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistoryStats } from '../platforms/crunchyroll/history';
 import {
   CR_IMPORT_KEYS,
   defaultSelection,
@@ -34,13 +34,13 @@ import {
   type NetflixTabOp,
   type NetflixTitleGroup,
   type NetflixTitleVerdict,
-} from '../shared/netflix-import';
-import { isNetflixShowMetadata, type NetflixShowMetadata } from '../shared/netflix-metadata';
+} from '../platforms/netflix/history';
+import { isNetflixShowMetadata, type NetflixShowMetadata } from '../platforms/netflix/metadata';
 import { hasPlatformAccess, requestPlatformAccess } from '../shared/platform-access';
 import { isJobActive } from '../shared/job';
 import { createLogger } from '../shared/logger';
 import { sendMessage } from '../protocol/messages';
-import { PLATFORMS } from '../shared/platforms';
+import { PLATFORMS } from '../platforms/registry';
 import { getSettings } from '../shared/settings';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { TRACKER_LABELS } from '../shared/tracker.types';
@@ -56,7 +56,7 @@ const log = createLogger('import-cr');
 // Page « Importer un historique » (onglet ouvert depuis Réglages › Mes données), Crunchyroll, ADN (?platform=adn) ou
 // Netflix (?platform=netflix) : a) plateforme choisie, onglet trouvé (ou ouvert), b) lecture de l'historique par son script
 // de contenu (port ; ADN : réduit ici par saison ; Netflix : onglet piloté d'ici, filtre « anime » puis points de lecture,
-// voir shared/netflix-import.ts), c) analyse en tâche de fond, d) aperçu, e) application en tâche de fond. Les tâches et
+// voir platforms/netflix/history.ts), c) analyse en tâche de fond, d) aperçu, e) application en tâche de fond. Les tâches et
 // l'aperçu vivent dans chrome.storage.local : la page peut être fermée puis rouverte, elle reprend où en est l'import.
 // Une seule analyse ou un seul aperçu à la fois, toutes plateformes confondues (« Recommencer » pour changer).
 
@@ -384,7 +384,7 @@ function stopReading(): void {
   backToConnect(tabId, null);
 }
 
-// ─── b') Netflix : onglet piloté d'ici (voir shared/netflix-import.ts) ────
+// ─── b') Netflix : onglet piloté d'ici (voir platforms/netflix/history.ts) ────
 
 /**
  * Onglet Netflix piloté par scripting.executeScript (fonction autonome netflixTabOp, monde isolé de l'extension) : aucun

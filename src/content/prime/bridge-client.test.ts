@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { reducePrimeDetail, reducePrimeDetailWidgets } from '../../shared/prime-metadata';
+import { reducePrimeDetail, reducePrimeDetailWidgets } from '../../platforms/prime/metadata';
 import { createPrimeBridgeClient, type PrimeBridgeClient } from './bridge-client';
 import {
   decodePrimeHandshake,

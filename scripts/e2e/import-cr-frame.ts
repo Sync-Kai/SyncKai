@@ -7,7 +7,7 @@ import manifest from '../../manifest.json';
 import { ADN_HISTORY_VIDEOS } from '../../src/shared/__fixtures__/adn-history';
 import { movieShow, NETFLIX_ROWS, onePieceShow, ranmaShow } from '../../src/shared/__fixtures__/netflix-history';
 import type { AdnHistoryPortMessage } from '../../src/protocol/adn-history';
-import type { CrHistoryPortMessage } from '../../src/shared/cr-history';
+import type { CrHistoryPortMessage } from '../../src/platforms/crunchyroll/history';
 import { CR_IMPORT_KEYS, startAnalyzeJob, startApplyJob, type CrImportJob, type CrImportPlan } from '../../src/shared/cr-import';
 import { isRecord } from '../../src/shared/guards';
 import { reduceJob } from '../../src/shared/job';

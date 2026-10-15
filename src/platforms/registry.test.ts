@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import manifest from '../../manifest.json';
-import { isStreamingPlatform } from './episode.types';
+import { isStreamingPlatform } from '../shared/episode.types';
 import {
   isOptionalPlatform,
   OPTIONAL_PLATFORM_MATCHES,
@@ -10,7 +10,7 @@ import {
   PLATFORMS,
   STREAMING_PLATFORMS,
   type StreamingPlatform,
-} from './platforms';
+} from './registry';
 import { contentScriptMatches, matchesPattern } from './target-pages';
 
 // Logos réellement présents dans public/brands/ (clés : chemins depuis la racine du projet)

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { movieShow, NETFLIX_ROWS, ONE_PIECE_E1170, onePieceShow, RANMA_S1E5, ranmaShow } from './__fixtures__/netflix-history';
-import { isCrHistoryResult } from './cr-history';
-import { toEpisodeInfo } from './cr-import';
-import { isNetflixShowMetadata } from './netflix-metadata';
+import { movieShow, NETFLIX_ROWS, ONE_PIECE_E1170, onePieceShow, RANMA_S1E5, ranmaShow } from '../../shared/__fixtures__/netflix-history';
+import { isCrHistoryResult } from '../crunchyroll/history';
+import { toEpisodeInfo } from '../../shared/cr-import';
+import { isNetflixShowMetadata } from './metadata';
 import {
   groupNetflixRows,
   isNetflixPageState,
@@ -24,7 +24,7 @@ import {
   splitNetflixTitle,
   type NetflixPageState,
   type NetflixTab,
-} from './netflix-import';
+} from './history';
 
 describe('lignes de l’historique Netflix', () => {
   it('identifiant du lien /title/{id} et texte nettoyé ; ligne illisible ignorée', () => {

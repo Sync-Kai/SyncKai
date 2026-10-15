@@ -1,6 +1,6 @@
 import { isRecord } from './guards';
 import { createLogger } from './logger';
-import { mergePlatformLinks, parsePlatformLinkStore, PLATFORM_LINKS_KEY, rememberPlatformLink, type PlatformLinkStore } from './platform-links';
+import { mergePlatformLinks, parsePlatformLinkStore, PLATFORM_LINKS_KEY, rememberPlatformLink, type PlatformLinkStore } from '../platforms/links';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { withStorageLock } from './storage-lock';
 import { isWatchingList, type PlatformLink, type WatchingList } from './watching.types';

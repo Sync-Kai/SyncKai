@@ -1,5 +1,5 @@
 import { formatList } from '../i18n';
-import { PLATFORMS, type StreamingPlatform } from '../shared/platforms';
+import { PLATFORMS, type StreamingPlatform } from '../platforms/registry';
 
 /**
  * Plateformes citées dans une phrase, dans la langue active : « Crunchyroll, ADN et Netflix » (`conjunction`),

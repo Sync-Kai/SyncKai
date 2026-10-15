@@ -4,7 +4,7 @@
 import { getLocale, t } from '../../i18n';
 import { clearMatchDecisions, readMatchDecisions, type MatchDecision } from '../../shared/match-diagnostic';
 import { MATCH_DIAGNOSTIC_KEY } from '../../protocol/storage-keys';
-import { PLATFORMS } from '../../shared/platforms';
+import { PLATFORMS } from '../../platforms/registry';
 import { createLogger } from '../../shared/logger';
 import { BTN_GHOST, CARD } from '../kit';
 import { h, type Child } from '../dom';

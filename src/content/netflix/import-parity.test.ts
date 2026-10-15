@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { movieShow, ONE_PIECE_E1170, onePieceShow, RANMA_S1E5, ranmaShow } from '../../shared/__fixtures__/netflix-history';
 import { toEpisodeInfo } from '../../shared/cr-import';
-import { reduceNetflixShow } from '../../shared/netflix-import';
-import type { NetflixShowMetadata } from '../../shared/netflix-metadata';
+import { reduceNetflixShow } from '../../platforms/netflix/history';
+import type { NetflixShowMetadata } from '../../platforms/netflix/metadata';
 import { episodeInfoFromMetadata } from './adapter';
 
 // Import de l'historique Netflix ↔ synchro en direct : l'épisode qu'analyse l'import (saison réduite → toEpisodeInfo) est

@@ -1,4 +1,4 @@
-import { seriesKeyFromLink } from './platform-links';
+import { seriesKeyFromLink } from '../platforms/links';
 import { withStorageLock } from './storage-lock';
 import { EXCLUDED_SERIES_KEY, matchesExclusion, readExcludedSeries, type ExcludedSeries } from './exclusions-core';
 import type { PlatformLink } from './watching.types';

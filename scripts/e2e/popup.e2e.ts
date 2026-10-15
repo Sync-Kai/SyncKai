@@ -7,7 +7,7 @@ import manifest from '../../manifest.json';
 import { LOCALES, tl, type Locale, type MessageKey, type MessageParams } from '../../src/i18n';
 import { launchBrowser, startHarnessServer, type HarnessServer } from '../screenshots/harness';
 import type { SentMessage } from '../screenshots/mock-chrome';
-import { PLATFORM_LINKS_KEY } from '../../src/shared/platform-links';
+import { PLATFORM_LINKS_KEY } from '../../src/platforms/links';
 import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { COMPARE_JOB_KEY, type CompareJob } from '../../src/shared/compare-job';

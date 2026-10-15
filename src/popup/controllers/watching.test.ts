@@ -26,7 +26,7 @@ vi.mock('../../protocol/messages', () => ({
 const fake = installFakeChrome();
 const { createWatchingController } = await import('./watching');
 const { STORAGE_KEYS } = await import('../../protocol/storage-keys');
-const { PLATFORM_LINKS_KEY } = await import('../../shared/platform-links');
+const { PLATFORM_LINKS_KEY } = await import('../../platforms/links');
 const { popupTimeouts } = await import('../timeouts');
 const { t } = await import('../../i18n');
 

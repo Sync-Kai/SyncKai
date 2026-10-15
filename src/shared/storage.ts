@@ -11,7 +11,7 @@ import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAG
 import { isSyncQueueItem, restrictToSession } from './queue.types';
 import { liveServices, stillOpen, type SessionEpochs } from './session-epochs';
 import { isWatchingList, type WatchingList } from './watching.types';
-import { PLATFORM_LINKS_KEY } from './platform-links';
+import { PLATFORM_LINKS_KEY } from '../platforms/links';
 import { withStorageLock } from './storage-lock';
 import { AIRING_USER_KEYS } from './airing-keys';
 import { clearSessionCaches } from './session-cache';

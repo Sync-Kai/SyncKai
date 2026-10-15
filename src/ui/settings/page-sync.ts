@@ -4,7 +4,7 @@
 import { t, type MessageKey } from '../../i18n';
 import { createLogger } from '../../shared/logger';
 import { removePlatformAccess, requestPlatformAccess } from '../../shared/platform-access';
-import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../../shared/platforms';
+import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
 import { DEFAULT_SETTINGS, effectivePlayer, isPreferredPlayerOption, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../alert';
 import { alertAttrs } from '../live-region';

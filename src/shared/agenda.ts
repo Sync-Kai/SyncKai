@@ -4,7 +4,7 @@ import type { StreamingPlatform } from './episode.types';
 import { isEntryExcluded, type ExcludedSeries } from './exclusions';
 import { isRecord } from './guards';
 import type { SyncSettings } from './settings';
-import { mergePlatformLinks, platformsWithoutLink } from './platform-links';
+import { mergePlatformLinks, platformsWithoutLink } from '../platforms/links';
 import { choosePlatformLink } from './watching';
 import type { PlatformLink, WatchingEntry } from './watching.types';
 import type { Result } from './result';

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { tl, type Locale } from '../../src/i18n';
 import type { PendingRating } from '../../src/shared/engagement.types';
-import { PLATFORMS, STREAMING_PLATFORMS } from '../../src/shared/platforms';
+import { PLATFORMS, STREAMING_PLATFORMS } from '../../src/platforms/registry';
 import type { SyncQueueItem } from '../../src/shared/queue.types';
 import { TRACKER_IDS, TRACKER_LABELS } from '../../src/shared/tracker.types';
 import { demoChrome, episode } from '../screenshots/demo-data';

@@ -1,6 +1,6 @@
 import { isRecord } from './guards';
 import type { PlatformSignals } from './match-signals';
-import type { StreamingPlatform } from './platforms';
+import type { StreamingPlatform } from '../platforms/registry';
 import { sessionArea } from './session-cache';
 import { MATCH_DIAGNOSTIC_KEY } from '../protocol/storage-keys';
 

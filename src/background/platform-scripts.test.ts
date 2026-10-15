@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isOptionalPlatform, STREAMING_PLATFORMS } from '../shared/platforms';
+import { isOptionalPlatform, STREAMING_PLATFORMS } from '../platforms/registry';
 import {
   injectIntoOpenTabs,
   platformContentScripts,

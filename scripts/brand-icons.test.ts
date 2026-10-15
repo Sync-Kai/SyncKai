@@ -1,10 +1,10 @@
 import { readFileSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-// Les logos sont embarqués (public/brands/) et référencés par chemin absolu (plateformes : registre shared/platforms.ts,
+// Les logos sont embarqués (public/brands/) et référencés par chemin absolu (plateformes : registre platforms/registry.ts,
 // services : ui/brand-icons.ts) : chaque chemin doit exister, rester léger, et aucun ne doit pointer vers le réseau.
 describe('logos des plateformes et des services', () => {
-  const source = ['src/shared/platforms.ts', 'src/ui/brand-icons.ts'].map((file) => readFileSync(file, 'utf8')).join('\n');
+  const source = ['src/platforms/registry.ts', 'src/ui/brand-icons.ts'].map((file) => readFileSync(file, 'utf8')).join('\n');
   const paths = [...source.matchAll(/(?:src|icon): '(\/brands\/[\w.-]+)'/g)].map((m) => m[1]);
 
   it('sept logos locaux (Crunchyroll, ADN, Netflix, Disney+, Prime Video, AniList, MyAnimeList)', () => {

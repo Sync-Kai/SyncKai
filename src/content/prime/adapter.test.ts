@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reducePrimeDetail, reducePrimeDetailWidgets, type PrimeTitle } from '../../shared/prime-metadata';
+import { reducePrimeDetail, reducePrimeDetailWidgets, type PrimeTitle } from '../../platforms/prime/metadata';
 import type { ReceivedCatalog } from './bridge-client';
 import { reducePrimeCatalog, type PrimeWidgetsEntry } from './bridge-protocol';
 import {

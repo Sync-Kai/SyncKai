@@ -8,11 +8,11 @@ import { posix } from 'node:path';
 import { FIREFOX_PANEL_COMMAND, firefoxMenuKeyConflicts, SOURCE_PANEL_COMMAND, type BuildTarget, type ManifestCommand } from '../src/build/manifest-target.ts';
 import { LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
 
-/** Netflix : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
+/** Netflix : accès optionnel uniquement (voir src/platforms/registry.ts › optionalMatches) */
 export const NETFLIX_PATTERN = '*://*.netflix.com/*';
-/** Disney+ : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
+/** Disney+ : accès optionnel uniquement (voir src/platforms/registry.ts › optionalMatches) */
 export const DISNEY_PATTERN = '*://*.disneyplus.com/*';
-/** Prime Video : accès optionnel uniquement (voir src/shared/platforms.ts › optionalMatches) */
+/** Prime Video : accès optionnel uniquement (voir src/platforms/registry.ts › optionalMatches) */
 export const PRIME_PATTERN = '*://*.primevideo.com/*';
 
 /** Plateformes à accès optionnel : dossier de leurs scripts enregistrés (`src/content/{dossier}/*.iife.js`), libellé, motif */

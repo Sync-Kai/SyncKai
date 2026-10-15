@@ -1,6 +1,6 @@
-import { MAX_ADN_HISTORY_ITEMS, type AdnHistoryPortMessage, type AdnHistoryRead } from '../protocol/adn-history';
-import { CR_HISTORY_ERROR_CODES, isHistoryStats, isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryResult, type HistorySeason } from './cr-history';
-import { isRecord } from './guards';
+import { MAX_ADN_HISTORY_ITEMS, type AdnHistoryPortMessage, type AdnHistoryRead } from '../../protocol/adn-history';
+import { CR_HISTORY_ERROR_CODES, isHistoryStats, isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryResult, type HistorySeason } from '../crunchyroll/history';
+import { isRecord } from '../../shared/guards';
 
 // Historique ADN → une ligne par saison (pur, testé), dans la page d'import : même forme que l'historique Crunchyroll
 // (HistorySeason), analysée par le même pipeline. Mêmes clés et numéros que la synchro en direct d'ADN

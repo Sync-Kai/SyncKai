@@ -1,6 +1,6 @@
 // Contrat entre la vue Réglages, ses pages et l'hôte qui la monte (popup ou panneau latéral).
 import type { AiringCheckResult } from '../../shared/airing.types';
-import type { StreamingPlatform } from '../../shared/platforms';
+import type { StreamingPlatform } from '../../platforms/registry';
 import type { SyncSettings } from '../../shared/settings';
 import type { MediaMapping } from '../../shared/sync.types';
 import type { ExclusionsState } from '../state';

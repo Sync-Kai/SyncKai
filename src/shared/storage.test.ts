@@ -37,7 +37,7 @@ vi.mock('./badge', () => ({ refreshReviewBadge: async () => undefined }));
 const storage = await import('./storage');
 const tokenAccess = await import('./token-access');
 const { getSyncQueue, saveQueueItem } = await import('./sync-queue-store');
-const { PLATFORM_LINKS_KEY } = await import('./platform-links');
+const { PLATFORM_LINKS_KEY } = await import('../platforms/links');
 const { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } = storage;
 
 const FAR = Number.MAX_SAFE_INTEGER;

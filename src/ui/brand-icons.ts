@@ -1,4 +1,4 @@
-import { PLATFORMS, type StreamingPlatform } from '../shared/platforms';
+import { PLATFORMS, type StreamingPlatform } from '../platforms/registry';
 import type { TrackerId } from '../shared/tracker.types';
 import { h } from './dom';
 

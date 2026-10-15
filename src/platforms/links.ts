@@ -1,8 +1,8 @@
-import { isRecord } from './guards';
-import { PLATFORMS, platformFromHost, STREAMING_PLATFORMS, type StreamingPlatform } from './platforms';
-import { primeIdInLink } from './prime-metadata';
-import { toSafeUrl } from './url';
-import type { PlatformLink, WatchingEntry } from './watching.types';
+import { isRecord } from '../shared/guards';
+import { PLATFORMS, platformFromHost, STREAMING_PLATFORMS, type StreamingPlatform } from './registry';
+import { primeIdInLink } from './prime/metadata';
+import { toSafeUrl } from '../shared/url';
+import type { PlatformLink, WatchingEntry } from '../shared/watching.types';
 
 // Liens de séries appris en naviguant (fiche AniList → page de la série sur chaque plateforme).
 // AniList ne référence presque jamais ADN dans ses externalLinks : sans ces liens, « Ouvrir » ne connaît

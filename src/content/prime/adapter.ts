@@ -10,7 +10,7 @@ import {
   reducePrimeDetail,
   withPrimeWidgets,
   type PrimeTitle,
-} from '../../shared/prime-metadata';
+} from '../../platforms/prime/metadata';
 import { titleKey } from '../../shared/title';
 import { createPrimeBridgeClient, type PrimeBridgeClient, type ReceivedCatalog } from './bridge-client';
 import type { PrimeWidgetsEntry } from './bridge-protocol';

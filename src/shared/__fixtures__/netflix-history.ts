@@ -1,5 +1,5 @@
-import type { NetflixBookmark, NetflixEpisodeMetadata, NetflixShowMetadata } from '../netflix-metadata';
-import type { NetflixHistoryRow } from '../netflix-import';
+import type { NetflixBookmark, NetflixEpisodeMetadata, NetflixShowMetadata } from '../../platforms/netflix/metadata';
+import type { NetflixHistoryRow } from '../../platforms/netflix/history';
 
 // Historique Netflix réaliste (profil français, relevé le 2026-10-12 sur netflix.com/viewingactivity) et métadonnées
 // réduites AVEC points de lecture (réponse du pont pour une demande `bookmarks`). Ranma ½ S1 : valeurs relevées

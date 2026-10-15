@@ -1,6 +1,6 @@
 import { getLocale, t, tl, tpl, type Locale } from '../i18n/core';
 import type { StreamingPlatform } from './episode.types';
-import { STREAMING_PLATFORMS } from './platforms';
+import { STREAMING_PLATFORMS } from '../platforms/registry';
 import type { NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingList, WatchingSort } from './watching.types';
 
 // Fonctions pures partagées par le service worker (tri, liens) et le popup (affichage).

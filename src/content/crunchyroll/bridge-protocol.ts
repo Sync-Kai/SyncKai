@@ -3,7 +3,7 @@
 //
 // Le pont est PASSIF : il n'émet aucune requête. Il lit le corps JSON de quatre requêtes que l'application Crunchyroll
 // envoie elle-même (porteuses du jeton de l'utilisateur dans leurs EN-TÊTES, jamais lus) et n'en garde que la forme
-// réduite de shared/crunchyroll-metadata.ts : jamais d'en-tête, jeton, cookie, identifiant de compte ou de profil,
+// réduite de platforms/crunchyroll/metadata.ts : jamais d'en-tête, jeton, cookie, identifiant de compte ou de profil,
 // URL de flux.
 //
 // Canal privé (MessageChannel), même ouverture que les ponts Netflix, Disney+ et Prime Video :
@@ -14,7 +14,7 @@
 // Ensuite, le pont pousse sur port1 la table des signaux des séries déjà vues (instantané), puis de chaque série
 // modifiée. Charges utiles en CHAÎNES JSON (Xray wrappers de Firefox).
 import { isRecord } from '../../shared/guards';
-import type { CrunchyrollSignalTable } from '../../shared/crunchyroll-metadata';
+import type { CrunchyrollSignalTable } from '../../platforms/crunchyroll/metadata';
 
 /**
  * Version du protocole, à incrémenter à tout changement des messages ou des formes réduites : le pont MAIN d'une

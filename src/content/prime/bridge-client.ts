@@ -6,7 +6,7 @@
 //
 // Tout est indexé par identifiant (entityId, titleId, GTI de saison), jamais « dernière réponse reçue » : la réponse de
 // lecture de l'épisode suivant arrive avant la bascule.
-import { primeId, type PrimeTitle } from '../../shared/prime-metadata';
+import { primeId, type PrimeTitle } from '../../platforms/prime/metadata';
 import {
   decodePrimePortOffer,
   decodePrimePush,

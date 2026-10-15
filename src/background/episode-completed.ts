@@ -1,7 +1,7 @@
 // Épisode terminé envoyé par un script de contenu (EPISODE_COMPLETED) : garde d'accès, synchro, file de relance.
 import type { EpisodeCompletedPayload } from '../protocol/messages';
 import { hasPlatformAccess } from '../shared/platform-access';
-import { isOptionalPlatform, PLATFORMS } from '../shared/platforms';
+import { isOptionalPlatform, PLATFORMS } from '../platforms/registry';
 import { getOpenSessions } from '../shared/storage';
 import { createLogger } from '../shared/logger';
 import type { SyncOutcome } from '../shared/sync.types';
