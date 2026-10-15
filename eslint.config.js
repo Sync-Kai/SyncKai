@@ -31,7 +31,7 @@ export default defineConfig(
     ignores: ['dist/**', 'dist-firefox/**', 'release/**', 'node_modules/**'],
   },
   {
-    files: ['src/**/*.ts', 'scripts/**/*.ts'],
+    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {

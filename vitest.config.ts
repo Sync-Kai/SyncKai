@@ -12,7 +12,7 @@ export default defineConfig({
     __SYNCKAI_CONTENT_CATALOGS__: contentCatalogsDefine(en),
   },
   test: {
-    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
     environment: 'node',
     // Clé des tokens en mémoire (pas d'IndexedDB dans Node) : voir src/test/setup.ts
     setupFiles: ['src/test/setup.ts'],
@@ -22,8 +22,8 @@ export default defineConfig({
     // Sans --coverage (`vitest run`, `npm run verify`, release.yml), aucun seuil n'est vérifié.
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/test/**', 'src/**/*.d.ts'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts'],
       reporter: ['text-summary', 'html', 'json-summary'],
       reportsDirectory: 'coverage',
       thresholds: { branches: 80.3, statements: 85.8, functions: 85.6, lines: 87.4 },

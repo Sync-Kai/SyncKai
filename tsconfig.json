@@ -15,6 +15,10 @@
     "moduleDetection": "force",
     "noEmit": true,
 
+    /* JSX (pilote Preact) : transformation automatique, runtime `preact/jsx-runtime` */
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
