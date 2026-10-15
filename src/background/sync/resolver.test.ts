@@ -212,6 +212,15 @@ describe('resolveEpisode — correspondance en cache', () => {
     expect(storage.saveMediaMapping).toHaveBeenCalledWith(KEY, expect.objectContaining({ mediaId: 154587, episodes: 28 }));
   });
 
+  it('choix de l’utilisateur (Part 2 pour E13+) et épisode antérieur revu : correspondance gardée, résolution sans écriture', async () => {
+    storage.getMediaMapping.mockResolvedValue({ ...cached, offset: 12, chosen: true });
+    const { result } = await resolveEpisode(crunchyrollEpisode({ seasonEpisodeNumber: 3, displayedEpisodeNumber: 3 }));
+    expect(api.searchAnime).toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3 } });
+    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+  });
+
   it('même cas en lecture seule (persist: false) : ni suppression ni écriture', async () => {
     const { result } = await resolveEpisode(crunchyrollEpisode({ seasonEpisodeNumber: 13, displayedEpisodeNumber: 13 }), { persist: false });
     expect(api.searchAnime).toHaveBeenCalled();

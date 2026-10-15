@@ -390,6 +390,18 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
     expect(await getMediaMapping(KEY)).toEqual({ ...cachedMapping, episodes: 12, chosen: true });
   });
 
+  it('choix de l’utilisateur et « Part 2 » publiée : correspondance gardée (total corrigé), épisode résolu à nouveau', async () => {
+    connect({ status: 'COMPLETED', progress: 12 });
+    anilist.entries.set(PART2, { status: 'CURRENT', progress: 0 });
+    await saveMediaMapping(KEY, { ...cachedMapping, chosen: true });
+    fakes.resolutions = [resolved(PART1, 13, { ...cachedMapping, chosen: true, fromCache: true }), resolved(PART2, 1)];
+
+    const outcome = await syncEpisode(episode(13));
+    expect(fakes.resolveCalls).toBe(2);
+    expect(await getMediaMapping(KEY)).toEqual({ ...cachedMapping, episodes: 12, chosen: true });
+    expect(outcome).toMatchObject({ status: 'synced', mediaTitle: 'Fiche 1002' });
+  });
+
   it('fiche en cache supprimée sur AniList (404) : correspondance oubliée puis nouvelle résolution', async () => {
     connect({ status: 'CURRENT', progress: 4 });
     anilist.entries.set(PART2, { status: 'CURRENT', progress: 4 });

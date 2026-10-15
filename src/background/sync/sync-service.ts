@@ -290,7 +290,8 @@ function reliableTarget(result: ResolveResult): SyncTarget | null {
 /**
  * Correspondance en cache confrontée au catalogue AniList : null (correspondance oubliée) si la fiche n'existe plus
  * (404 : supprimée ou fusionnée) ou s'arrête avant l'épisode (total publié après la mise en cache, suite créée en
- * fiche séparée « Part 2 »). Un total inconnu à la mise en cache (fiche en diffusion) est complété.
+ * fiche séparée « Part 2 »). Un total inconnu à la mise en cache (fiche en diffusion) est complété. Choix de l'utilisateur
+ * (`chosen`) qui s'arrête avant l'épisode : gardé avec le total du catalogue, null (l'épisode est résolu à nouveau).
  */
 async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<CatalogMedia | null> {
   let catalog: CatalogMedia;
@@ -302,12 +303,14 @@ async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<
     await deleteMediaMapping(key);
     return null;
   }
-  if (catalog.episodes !== null && target.progress > catalog.episodes) {
-    log.warn(`Épisode ${target.progress} au-delà des ${catalog.episodes} épisodes de la fiche ${target.mediaId} : correspondance ${key} oubliée`);
+  const beyond = catalog.episodes !== null && target.progress > catalog.episodes;
+  // Choix de l'utilisateur : jamais oublié, total corrigé (l'épisode, hors de la fiche, est résolu à nouveau sans l'écraser)
+  if (beyond && target.chosen !== true) {
+    log.warn(`Épisode ${target.progress} au-delà des ${catalog.episodes ?? '?'} épisodes de la fiche ${target.mediaId} : correspondance ${key} oubliée`);
     await deleteMediaMapping(key);
     return null;
   }
-  if (target.episodes === null && catalog.episodes !== null) {
+  if (catalog.episodes !== null && (target.episodes === null || beyond)) {
     const { mediaId, numbering, offset, seriesLabel, mediaTitle, learned, chosen } = target;
     await saveMediaMapping(key, {
       mediaId,
@@ -320,7 +323,7 @@ async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<
       ...(chosen !== undefined ? { chosen } : {}),
     });
   }
-  return catalog;
+  return beyond ? null : catalog;
 }
 
 /** Résolution de la fiche, puis catalogue de la cible fiable ; une correspondance en cache caduque est résolue à nouveau (une fois). */

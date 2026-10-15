@@ -449,8 +449,12 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
       };
     }
   }
-  // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution
-  if (stored && persist) await deleteMediaMapping(key);
+  // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution.
+  // Choix de l'utilisateur hors de sa fiche (épisode d'une autre partie de la saison, revisionnage d'un épisode antérieur) :
+  // jamais supprimé ni remplacé, nouvelle résolution sans rien enregistrer
+  const keepsChoice = stored?.chosen === true && confirmed !== null;
+  if (keepsChoice) log.info(`Correspondance choisie ${key} hors de sa fiche pour cet épisode : conservée, résolution sans mise en cache`);
+  if (stored && persist && !keepsChoice) await deleteMediaMapping(key);
 
   // Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu) : ignoré sans recherche
   if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) {
@@ -482,7 +486,7 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   // Écrit aussi en lecture seule (persist: false, fiche de la page) : `persist` protège les correspondances
   // de l'utilisateur, alors que ce verdict ne dépend que du catalogue AniList (même calcul, même résultat)
   if (!result.ok && result.ignored) await rememberIgnoredSeries(episode);
-  if (persist && result.ok && result.target.confidence === 'high') {
+  if (persist && !keepsChoice && result.ok && result.target.confidence === 'high') {
     const { mediaId, numbering, offset, episodes } = result.target;
     const mediaTitle = collected.media.find((m) => m.id === mediaId)?.displayTitle;
     await saveMediaMapping(key, { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...(mediaTitle ? { mediaTitle } : {}), learned: true });
