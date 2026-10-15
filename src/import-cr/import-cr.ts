@@ -40,7 +40,7 @@ import { isJobActive } from '../shared/job';
 import { createLogger } from '../browser/logger';
 import { sendMessage } from '../protocol/messages';
 import { PLATFORMS } from '../platforms/registry';
-import { getSettings } from '../shared/settings';
+import { getSettings } from '../browser/storage/settings-access';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../ui/dom';

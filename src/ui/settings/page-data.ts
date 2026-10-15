@@ -1,7 +1,8 @@
 // Réglages › Mes données : correspondances mémorisées, séries exclues, import d'un historique (Crunchyroll, ADN, Netflix),
 // sauvegarde (export / import) et zone de danger (réinitialisation des correspondances).
 import { t, tp } from '../../i18n';
-import { includeSeries, type ExcludedSeries } from '../../shared/exclusions';
+import { includeSeries } from '../../browser/storage/exclusions-store';
+import { type ExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../browser/logger';
 import { clearMediaMappings, deleteMediaMapping } from '../../browser/storage/mappings';
 import type { MediaMapping } from '../../shared/sync.types';

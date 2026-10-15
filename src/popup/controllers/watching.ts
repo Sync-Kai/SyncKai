@@ -2,7 +2,7 @@
 // (délai d'attente, réponse tardive, requête obsolète ignorée), actions sur une série (+1, −1, statut, exclusion,
 // retrait de la liste, commentaire) et bandeau de retour.
 import { t } from '../../i18n';
-import { excludeSeries, includeSeries } from '../../shared/exclusions';
+import { excludeSeries, includeSeries } from '../../browser/storage/exclusions-store';
 import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../../platforms/links';

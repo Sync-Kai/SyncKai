@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EXCLUDED_SERIES_KEY,
-  excludeSeries,
   getExcludedSeries,
-  includeSeries,
   isExcluded,
   mergeExclusion,
   normalizeSeriesTitle,
   platformSeriesKey,
   type ExcludedSeries,
 } from './exclusions';
+import {
+  excludeSeries,
+  includeSeries,
+} from '../browser/storage/exclusions-store';
 
 // chrome.storage.local et Web Locks minimaux (environnement Node)
 let store: Record<string, unknown> = {};

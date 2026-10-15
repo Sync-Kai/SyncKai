@@ -1,5 +1,6 @@
 import { createLogger } from '../browser/logger';
-import { getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
+import { getSettings } from '../browser/storage/settings-access';
+import { normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { isCatalog, type Catalog } from './catalog-check';
 import { LOCALES, matchLocale, type LanguageSetting, type Locale } from './locale-codes';
 import type en from './locales/en.json';

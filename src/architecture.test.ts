@@ -186,22 +186,38 @@ describe('content/ n’embarque que le kit d’interface sûr', () => {
   });
 });
 
-describe('shared/ : cliquet des modules qui appellent une API du navigateur', () => {
-  /** Modules de `shared/` qui font de vrais appels `chrome.*` (hors commentaires), IndexedDB ou `navigator.locks` : la liste ne fait que baisser */
-  const BROWSER_API_MODULES: readonly string[] = [
-    'shared/exclusions.ts',
-    'shared/settings.ts',
-  ];
+describe('shared/ : pur, sans API du navigateur', () => {
+  /** Vrais appels `chrome.*` (hors commentaires), IndexedDB ou `navigator.locks` : tout cela vit dans browser/ */
   const BROWSER_API = /\b(?:chrome|browser)\.(?:storage|runtime|permissions|action|sidePanel|tabs|scripting|commands|alarms|windows|i18n|identity|notifications)\b|\bindexedDB\b|\bnavigator\.locks\b/;
+  /**
+   * Imports de `shared/` (et de i18n/) vers `browser/` encore en place (hors tests) : la liste ne fait que baisser.
+   * Chacun est une constante, un type ou un helper de stockage lu par une règle pure, à déplacer ou inverser un jour.
+   */
+  const SHARED_TO_BROWSER: readonly string[] = [
+    'i18n/core.ts → browser/logger.ts',
+    'i18n/core.ts → browser/storage/settings-access.ts',
+    'shared/backup.ts → browser/storage/engagement-store.ts',
+    'shared/backup.ts → browser/storage/reviews.ts',
+    'shared/diagnostics.ts → browser/error-journal.ts',
+    'shared/exclusions.ts → browser/storage/exclusions-read.ts',
+    'shared/match-diagnostic.ts → browser/storage/session-cache.ts',
+    'shared/preferred-player.ts → browser/platform-access.ts',
+    'shared/preferred-player.ts → browser/storage/lock.ts',
+    'shared/preferred-player.ts → browser/storage/settings-access.ts',
+  ];
 
-  it('aucun nouveau module de shared/ n’appelle une API du navigateur', () => {
-    const current = modulesMatching(layerFiles('shared'), BROWSER_API);
-    expect(current.filter((file) => !BROWSER_API_MODULES.includes(file))).toEqual([]);
+  it('aucun module de shared/ n’appelle une API du navigateur', () => {
+    expect(modulesMatching(layerFiles('shared'), BROWSER_API)).toEqual([]);
   });
 
-  it('la liste figée ne contient que des modules qui existent et appellent encore une API (elle baisse, elle ne ment pas)', () => {
-    const current = modulesMatching(layerFiles('shared'), BROWSER_API);
-    expect(BROWSER_API_MODULES.filter((file) => !current.includes(file))).toEqual([]);
+  it('shared/ et i18n/ n’importent de browser/ que les liens figés (valeurs et types)', () => {
+    const current = [...new Set(edges.filter((e) => ['shared', 'i18n'].includes(layerOf(e.from)) && !isTestFile(e.from) && layerOf(e.to) === 'browser').map((e) => `${e.from} → ${e.to}`))].sort();
+    expect(current.filter((link) => !SHARED_TO_BROWSER.includes(link))).toEqual([]);
+  });
+
+  it('la liste figée ne contient que des liens qui existent encore (elle baisse, elle ne ment pas)', () => {
+    const current = new Set(edges.map((e) => `${e.from} → ${e.to}`));
+    expect(SHARED_TO_BROWSER.filter((link) => !current.has(link))).toEqual([]);
   });
 });
 

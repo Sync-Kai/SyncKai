@@ -5,7 +5,7 @@ import { readJournal } from '../error-journal';
 import { getExcludedSeries } from '../../shared/exclusions';
 import { isRecord } from '../../shared/guards';
 import { buildDiagnosticsReport, describeBrowser, type BuildMode } from '../../shared/diagnostics';
-import { getSettings } from '../../shared/settings';
+import { getSettings } from './settings-access';
 import { getMediaMappings } from './mappings';
 import { getPendingReviews, getRecentSyncs } from './reviews';
 import { isStoredToken } from './tokens';

@@ -3,7 +3,7 @@ import { COMPLETE_EPISODE_COMMAND } from '../protocol/commands';
 import type { ContentMessage } from '../protocol/content-messages';
 import type { AddToListPayload, AdjustProgressPayload, AdjustRetryTarget, SetListStatusPayload } from '../protocol/messages';
 import type { MediaRef } from '../shared/engagement.types';
-import { getSettings } from '../shared/settings';
+import { getSettings } from '../browser/storage/settings-access';
 import type { AddListStatus, ListStatusChange, ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './api/errors';

@@ -4,7 +4,7 @@ import { createLogger } from '../browser/logger';
 import type { StreamingPlatform } from '../shared/episode.types';
 import { activePlatforms, grantedOptionalPlatforms, requestPlatformAccess } from '../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../platforms/registry';
-import { getSettings } from '../shared/settings';
+import { getSettings } from '../browser/storage/settings-access';
 import { sidePanelKind } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
 import { formatPlatformList } from '../ui/platform-list';

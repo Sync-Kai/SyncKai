@@ -28,7 +28,7 @@ import {
 } from '../../browser/storage/sessions';
 import { isRewatchDeclined } from '../../browser/storage/engagement-store';
 import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
-import { getSettings } from '../../shared/settings';
+import { getSettings } from '../../browser/storage/settings-access';
 import type { ServiceResult, SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { ApiError } from '../api/errors';

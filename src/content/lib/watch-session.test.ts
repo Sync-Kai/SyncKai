@@ -31,8 +31,8 @@ vi.mock('../../browser/storage/exclusions-read', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../browser/storage/exclusions-read')>()),
   isExcluded: mocks.isExcluded,
 }));
-vi.mock('../../shared/settings', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../shared/settings')>()),
+vi.mock('../../browser/storage/settings-access', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../browser/storage/settings-access')>()),
   getSettings: mocks.getSettings,
 }));
 vi.mock('./video-tracker', () => ({

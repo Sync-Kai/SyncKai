@@ -1,11 +1,10 @@
 import { seriesKeyFromLink } from '../platforms/links';
-import { withStorageLock } from '../browser/storage/lock';
-import { EXCLUDED_SERIES_KEY, matchesExclusion, readExcludedSeries, type ExcludedSeries } from '../browser/storage/exclusions-read';
+import { matchesExclusion, type ExcludedSeries } from '../browser/storage/exclusions-read';
 import type { PlatformLink } from './watching.types';
 
 // Séries exclues de la synchronisation (toutes saisons) — lues par le content script
 // (avant tout envoi, via exclusions-core.ts), le service worker (après résolution) et le popup (gestion).
-// Écritures sous `withStorageLock` (src/browser/storage/lock.ts), clé de stockage `excludedSeries`.
+// Écritures sous `withStorageLock` : browser/storage/exclusions-store.ts ; clé de stockage `excludedSeries`.
 
 export {
   EXCLUDED_SERIES_KEY,
@@ -54,19 +53,3 @@ export function mergeExclusion(
   };
   return list.map((e, i) => (i === index ? merged : e));
 }
-
-/** Exclut une série ; fusionne avec une exclusion existante qui partage la même platformKey ou le même mediaId. */
-export async function excludeSeries(input: { platformKey: string | null; mediaId: number | null; label: string }): Promise<void> {
-  await withStorageLock(async () => {
-    const list = mergeExclusion(await readExcludedSeries(), input, Date.now());
-    await chrome.storage.local.set({ [EXCLUDED_SERIES_KEY]: list });
-  });
-}
-
-export async function includeSeries(id: string): Promise<void> {
-  await withStorageLock(async () => {
-    const list = (await readExcludedSeries()).filter((e) => e.id !== id);
-    await chrome.storage.local.set({ [EXCLUDED_SERIES_KEY]: list });
-  });
-}
-

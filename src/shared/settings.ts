@@ -203,15 +203,4 @@ export function normalizeSettings(raw: unknown): SyncSettings {
   };
 }
 
-// Module volontairement séparé des modules de browser/storage/ : il est aussi chargé par le content script
-
-export async function getSettings(): Promise<SyncSettings> {
-  const stored = await chrome.storage.local.get(SETTINGS_KEY);
-  return normalizeSettings(stored[SETTINGS_KEY]);
-}
-
-export async function saveSettings(settings: SyncSettings): Promise<void> {
-  await chrome.storage.local.set({ [SETTINGS_KEY]: normalizeSettings(settings) });
-}
-
 export const SETTINGS_STORAGE_KEY = SETTINGS_KEY;

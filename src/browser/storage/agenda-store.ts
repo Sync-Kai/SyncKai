@@ -11,7 +11,8 @@ import {
 } from '../../shared/agenda';
 import type { SessionEpochs } from '../../shared/session-epochs';
 import { isRecord } from '../../shared/guards';
-import { getSettings, normalizeSeriesOffsets, saveSettings, SETTINGS_STORAGE_KEY } from '../../shared/settings';
+import { getSettings, saveSettings } from './settings-access';
+import { normalizeSeriesOffsets, SETTINGS_STORAGE_KEY } from '../../shared/settings';
 import { writeIfSessions } from './sessions';
 import { withStorageLock } from './lock';
 

@@ -5,7 +5,8 @@
  */
 import type { StreamingPlatform } from './episode.types';
 import { hasPlatformAccess } from '../browser/platform-access';
-import { ACCESS_PLAYERS, DEFAULT_SETTINGS, effectivePlayer, getSettings, saveSettings } from './settings';
+import { ACCESS_PLAYERS, DEFAULT_SETTINGS, effectivePlayer } from './settings';
+import { getSettings, saveSettings } from '../browser/storage/settings-access';
 import { withStorageLock } from '../browser/storage/lock';
 
 /** true si l'accès à netflix.com est accordé ; API absente ou en échec → false (l'interrupteur reste éteint) */

@@ -28,7 +28,7 @@ import { getExcludedSeries } from '../shared/exclusions';
 import { isRecord } from '../shared/guards';
 import { effectivePreferredPlayer } from '../shared/preferred-player';
 import type { SessionEpochs } from '../shared/session-epochs';
-import { getSettings } from '../shared/settings';
+import { getSettings } from '../browser/storage/settings-access';
 import {
   getCachedWatching,
 } from '../browser/storage/watching-cache';

@@ -1,6 +1,6 @@
 import { CR_HISTORY_PORT_NAME, isCrHistoryRequest, type CrHistoryPortMessage } from '../../protocol/content-messages';
 import { createLogger } from '../../browser/logger';
-import { getSettings } from '../../shared/settings';
+import { getSettings } from '../../browser/storage/settings-access';
 import { CrHistoryError, pageLocale, readCrunchyrollHistory } from './history';
 import { abortableSleep, listenHistoryPort } from '../lib/history-port';
 import { pageFetch } from '../lib/page-fetch';
