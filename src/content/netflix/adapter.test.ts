@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { reduceNetflixMetadata, type NetflixShowMetadata } from '../netflix/bridge-protocol';
-import { mushokuEpisodeId, mushokuRawResponse } from '../netflix/fixtures';
+import { reduceNetflixMetadata, type NetflixShowMetadata } from './bridge-protocol';
+import { mushokuEpisodeId, mushokuRawResponse } from './fixtures';
 import {
   absoluteEpisodeNumber,
   creditsStartFromMetadata,
@@ -11,7 +11,7 @@ import {
   pickNetflixSeason,
   seasonNumberFromLabel,
   seriesInfoFromMetadata,
-} from './netflix';
+} from './adapter';
 
 const reduced = reduceNetflixMetadata(mushokuRawResponse());
 if (!reduced) throw new Error('fixture invalide');

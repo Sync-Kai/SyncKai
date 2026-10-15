@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { DisneyBridgeClientOptions } from '../disney/bridge-client';
+import type { DisneyBridgeClientOptions } from './bridge-client';
 import {
   decodeDisneyHandshake,
   DISNEY_BRIDGE_VERSION,
@@ -11,7 +11,7 @@ import {
   reduceDisneyPlayerExperience,
   withDisneyPlayback,
   type DisneyPlayerExperience,
-} from '../disney/bridge-protocol';
+} from './bridge-protocol';
 import {
   SEEN_AT,
   SYNDUALITY_S1E1_AVAIL_ID,
@@ -22,9 +22,9 @@ import {
   UNDEAD_UNLUCK_S1E1_AVAIL_ID,
   UNDEAD_UNLUCK_S1E1_PLAY_ID,
   undeadUnluckS1E1,
-} from '../disney/fixtures';
+} from './fixtures';
 import { resolveCompletionPoint } from '../lib/completion';
-import { disneyAdapter } from './disney';
+import { disneyAdapter } from './adapter';
 
 // Début du générique de fin de Disney+ (StreamingAdapter.getCreditsStart) : client du pont réel, branché sur un faux
 // onglet (Node : ni DOM ni postMessage « trusted ») dont le pont MAIN simulé pousse les fiches.
@@ -35,8 +35,8 @@ const fakeWindow = new EventTarget();
 const channels: MessageChannel[] = [];
 
 // Client du pont de l'adapter : cibles du faux onglet, délais courts
-vi.mock('../disney/bridge-client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../disney/bridge-client')>();
+vi.mock('./bridge-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./bridge-client')>();
   return {
     ...actual,
     createDisneyBridgeClient: (options: DisneyBridgeClientOptions) =>

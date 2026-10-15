@@ -12,7 +12,7 @@ import {
   parseAdnEpisodeLabel,
   parseAdnSeriesPath,
   parseAdnWatchPath,
-} from './adn';
+} from './adapter';
 import { createLabelGuard, flattenJsonLd, labelKey } from '../lib/parsing';
 
 describe('parseAdnWatchPath', () => {
@@ -185,7 +185,7 @@ describe('adnAdapter.extractEpisodeInfo : épisode 1 → épisode 2 (SPA)', () =
   beforeEach(async () => {
     page = installFakeDocument();
     vi.resetModules();
-    ({ adnAdapter: adapter } = await import('./adn'));
+    ({ adnAdapter: adapter } = await import('./adapter'));
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -223,7 +223,7 @@ describe('adnAdapter.detectSeries : page de série avec son JSON-LD', () => {
   it('titre et signaux de la série (année, titre original, pays, épisodes)', async () => {
     const page = installFakeDocument();
     vi.resetModules();
-    const { adnAdapter: adapter } = await import('./adn');
+    const { adnAdapter: adapter } = await import('./adapter');
     const node = {
       '@context': 'https://schema.org',
       '@type': 'TVSeries',

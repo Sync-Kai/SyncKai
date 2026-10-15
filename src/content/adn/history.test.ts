@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ADN_HISTORY_VIDEOS } from '../../shared/__fixtures__/adn-history';
 import { ADN_HISTORY_PORT_NAME, MAX_ADN_HISTORY_PAGES, type AdnHistoryPortMessage } from '../../shared/adn-history';
 import { isAdnHistoryPortMessage } from '../../shared/adn-import';
-import { ADN_HISTORY_URL, ADN_RETRY_DELAYS_MS, adnHeaders, listenAdnHistoryPorts, readAdnHistory, type AdnReaderDeps } from './adn-history';
-import { CrHistoryError } from './crunchyroll-history';
-import type { FetchLike } from './page-fetch';
+import { ADN_HISTORY_URL, ADN_RETRY_DELAYS_MS, adnHeaders, listenAdnHistoryPorts, readAdnHistory, type AdnReaderDeps } from './history';
+import { CrHistoryError } from '../crunchyroll/history';
+import type { FetchLike } from '../lib/page-fetch';
 
 /** Jeton fictif au format JWT (jamais un vrai) */
 const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJlLWZpY3RpdmU';

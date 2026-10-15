@@ -19,7 +19,7 @@ import {
   retryAfterMs,
   type FetchLike,
   type ReaderDeps,
-} from './crunchyroll-history';
+} from './history';
 
 const ORIGIN = 'https://www.crunchyroll.com';
 

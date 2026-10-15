@@ -4,8 +4,8 @@
 // Lancement : npm run test:ext
 import type { Page } from 'puppeteer';
 import { describe, expect, it, type TestContext } from 'vitest';
-import { ONE_PIECE_E1180, ONE_PIECE_E1181, type CrunchyrollWatchFixture } from '../../src/content/adapters/__fixtures__/crunchyroll-watch';
-import { TOUGEN_ANKI_E1 } from '../../src/content/adapters/__fixtures__/adn-watch';
+import { ONE_PIECE_E1180, ONE_PIECE_E1181, type CrunchyrollWatchFixture } from '../../src/content/crunchyroll/__fixtures__/crunchyroll-watch';
+import { TOUGEN_ANKI_E1 } from '../../src/content/adn/__fixtures__/adn-watch';
 import type { ContentMessage } from '../../src/shared/content-messages';
 import { registerCatalogs, tl, type Locale, type MessageKey, type MessageParams } from '../../src/i18n';
 import { isLiveContentMessage, LIVE_PORT_NAME, type LiveContentMessage, type LiveState } from '../../src/shared/live.types';

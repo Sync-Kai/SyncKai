@@ -5,7 +5,7 @@
 // ne peut pas ouvrir le vrai panneau (sidePanel.open exige un geste de l'utilisateur dans le navigateur).
 // Lancement : npm run test:ext
 import { describe, expect, it } from 'vitest';
-import { ONE_PIECE_E1180, ONE_PIECE_E1181 } from '../../src/content/adapters/__fixtures__/crunchyroll-watch';
+import { ONE_PIECE_E1180, ONE_PIECE_E1181 } from '../../src/content/crunchyroll/__fixtures__/crunchyroll-watch';
 import { tl } from '../../src/i18n';
 import { FakeSites, autoplayNextCrunchyroll, crunchyrollWatchHtml, play, seek } from './fake-sites';
 import { waitFor } from './harness';

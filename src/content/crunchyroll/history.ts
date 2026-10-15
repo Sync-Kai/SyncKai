@@ -1,7 +1,7 @@
 import { isRecord } from '../../shared/guards';
 import { isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistorySeason } from '../../shared/cr-history';
-import { cleanText, stripAudioTag } from './parsing';
-import type { FetchLike } from './page-fetch';
+import { cleanText, stripAudioTag } from '../lib/parsing';
+import type { FetchLike } from '../lib/page-fetch';
 
 // Lecture de l'historique de visionnage Crunchyroll, DANS l'onglet Crunchyroll de l'utilisateur (même origine :
 // la session du site, cookie httpOnly `etp_rt`, sert à demander à Crunchyroll un jeton de courte durée avec
@@ -46,7 +46,7 @@ export class CrHistoryError extends Error {
   }
 }
 
-export type { FetchLike } from './page-fetch';
+export type { FetchLike } from '../lib/page-fetch';
 
 export interface ReaderDeps {
   fetch: FetchLike;

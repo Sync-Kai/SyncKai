@@ -4,7 +4,7 @@ import { isRecord } from './guards';
 
 // Historique ADN → une ligne par saison (pur, testé), dans la page d'import : même forme que l'historique Crunchyroll
 // (HistorySeason), analysée par le même pipeline. Mêmes clés et numéros que la synchro en direct d'ADN
-// (content/adapters/adn.ts : seriesId = identifiant de la série dans /video/{id}-{slug}, saison, numéro d'épisode).
+// (content/adn/adapter.ts : seriesId = identifiant de la série dans /video/{id}-{slug}, saison, numéro d'épisode).
 
 /**
  * Élément de GET gw.api.animationdigitalnetwork.com/viewing/history (structure vérifiée le 2026-10-12, réduite par

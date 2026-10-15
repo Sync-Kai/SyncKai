@@ -2,7 +2,7 @@
 // avec les comptes AniList A et MAL connectés, panneau latéral et popup ouverts dans des onglets.
 import type { Page } from 'puppeteer';
 import type { TestContext } from 'vitest';
-import type { CrunchyrollWatchFixture } from '../../src/content/adapters/__fixtures__/crunchyroll-watch';
+import type { CrunchyrollWatchFixture } from '../../src/content/crunchyroll/__fixtures__/crunchyroll-watch';
 import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
 import { STORAGE_KEYS } from '../../src/shared/storage-keys';
 import { SIDE_PANEL_PATH } from '../../src/shared/target-pages';

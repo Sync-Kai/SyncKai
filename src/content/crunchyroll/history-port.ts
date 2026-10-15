@@ -1,9 +1,9 @@
 import { CR_HISTORY_PORT_NAME, isCrHistoryRequest, type CrHistoryPortMessage } from '../../shared/content-messages';
 import { createLogger } from '../../shared/logger';
 import { getSettings } from '../../shared/settings';
-import { CrHistoryError, pageLocale, readCrunchyrollHistory } from './crunchyroll-history';
-import { abortableSleep, listenHistoryPort } from './history-port';
-import { pageFetch } from './page-fetch';
+import { CrHistoryError, pageLocale, readCrunchyrollHistory } from './history';
+import { abortableSleep, listenHistoryPort } from '../lib/history-port';
+import { pageFetch } from '../lib/page-fetch';
 
 const log = createLogger('cr-history');
 

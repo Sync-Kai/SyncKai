@@ -8,9 +8,9 @@ import {
 } from '../../shared/content-messages';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
-import { CrHistoryError } from './crunchyroll-history';
-import { abortableSleep, listenHistoryPort } from './history-port';
-import { pageFetch, type FetchLike } from './page-fetch';
+import { CrHistoryError } from '../crunchyroll/history';
+import { abortableSleep, listenHistoryPort } from '../lib/history-port';
+import { pageFetch, type FetchLike } from '../lib/page-fetch';
 
 // Lecture de l'historique de visionnage ADN, DANS l'onglet ADN de l'utilisateur, avec la même requête que le site
 // (vérifiée le 2026-10-12) : GET gw.api.animationdigitalnetwork.com/viewing/history, jeton de la page en en-tête.

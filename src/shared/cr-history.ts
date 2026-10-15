@@ -3,7 +3,7 @@ import { isRecord } from './guards';
 import { isPlatformSignals, type PlatformSignals } from './match-signals';
 
 // Historique de visionnage Crunchyroll réduit à une ligne par saison (Réglages › Importer un historique › Crunchyroll).
-// Lu par le script de contenu dans l'onglet Crunchyroll de l'utilisateur (src/content/lib/crunchyroll-history.ts),
+// Lu par le script de contenu dans l'onglet Crunchyroll de l'utilisateur (src/content/crunchyroll/history.ts),
 // transmis à la page d'import par un port, puis au service worker pour l'analyse. Rien d'autre n'est conservé.
 
 /** Saisons transmises au plus (au-delà : historique tronqué, signalé comme partiel) */

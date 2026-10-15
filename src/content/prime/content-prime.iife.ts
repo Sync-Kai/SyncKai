@@ -4,7 +4,7 @@
 // Les métadonnées viennent du nœud d'hydratation de la page et du script du monde MAIN (page-bridge.iife.ts).
 // Format IIFE (suffixe .iife.ts) : script enregistré dynamiquement, sans chargeur ESM.
 import { createLogger } from '../../shared/logger';
-import { primeAdapter } from '../adapters/prime';
+import { primeAdapter } from './adapter';
 import { claimContentInstance } from '../lib/instance-guard';
 import { startContent } from '../start';
 

@@ -3,7 +3,7 @@ import { isRecord } from './guards';
 
 // Import de l'historique ADN : protocole du port entre la page d'import et le script de contenu de l'onglet ADN.
 // Le script de contenu lit l'API de visionnage d'ADN avec le jeton de la page (localStorage), qui ne quitte jamais
-// l'onglet : seuls les épisodes (champs utiles, voir content/lib/adn-history.ts) remontent par le port. La page
+// l'onglet : seuls les épisodes (champs utiles, voir content/adn/history.ts) remontent par le port. La page
 // d'import les réduit à une ligne par saison (adn-import.ts) puis lance la même analyse que pour Crunchyroll.
 // Ce module n'a que ce qu'il faut au script de contenu (budget) ; la validation des messages reçus par la page
 // d'import est dans adn-import.ts.

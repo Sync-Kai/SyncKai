@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyDisneySeason, reduceDisneyPlayerExperience, reduceDisneySeriesPage, type DisneyPlayerExperience, type DisneySeriesPage } from '../disney/bridge-protocol';
+import { applyDisneySeason, reduceDisneyPlayerExperience, reduceDisneySeriesPage, type DisneyPlayerExperience, type DisneySeriesPage } from './bridge-protocol';
 import {
   nonAnimeEpisode,
   nonAnimeSeriesPage,
@@ -16,7 +16,7 @@ import {
   WINTER_ARC_SEASON_ID,
   winterArcE1,
   winterArcSeasonResponse,
-} from '../disney/fixtures';
+} from './fixtures';
 import {
   arcTitleFromSubtitle,
   chooseDisneyVideo,
@@ -36,7 +36,7 @@ import {
   type MenuElement,
   readProgressRange,
   type ProgressContext,
-} from './disney';
+} from './adapter';
 
 function reduced(raw: unknown, requestId: string): DisneyPlayerExperience {
   const entry = reduceDisneyPlayerExperience(raw, requestId, SEEN_AT);

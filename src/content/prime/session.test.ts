@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PrimeBridgeClientOptions } from '../prime/bridge-client';
+import type { PrimeBridgeClientOptions } from './bridge-client';
 import {
   decodePrimeHandshake,
   encodePrimePortOffer,
@@ -10,7 +10,7 @@ import {
   reducePrimeCatalog,
   reducePrimePlayback,
   type PrimeBridgePush,
-} from '../prime/bridge-protocol';
+} from './bridge-protocol';
 import {
   BUMPKIN_S1_COMPACT,
   BUMPKIN_TITLE,
@@ -20,7 +20,7 @@ import {
   bumpkinPlayback,
   hydrationDocument,
   SEEN_AT,
-} from '../prime/fixtures';
+} from './fixtures';
 import type { StreamingAdapter } from '../lib/adapter';
 
 // Adapter Prime Video branché sur le vrai client du pont et un faux onglet (Node : ni DOM ni postMessage « trusted ») :
@@ -53,8 +53,8 @@ const fakeDocument = Object.assign(new EventTarget(), {
   querySelectorAll: (selector: string): unknown[] => (selector === 'video' ? videos : []),
 });
 
-vi.mock('../prime/bridge-client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../prime/bridge-client')>();
+vi.mock('./bridge-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./bridge-client')>();
   return {
     ...actual,
     createPrimeBridgeClient: (options: PrimeBridgeClientOptions) =>
@@ -93,7 +93,7 @@ const pageUrl = (): URL => new URL(`${ORIGIN}${PAGE}`);
 
 async function loadAdapter(): Promise<StreamingAdapter> {
   vi.resetModules();
-  return (await import('./prime')).primeAdapter;
+  return (await import('./adapter')).primeAdapter;
 }
 
 beforeEach(() => {

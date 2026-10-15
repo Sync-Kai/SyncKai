@@ -16,13 +16,13 @@ import {
   seasonEpisodeCountFromJsonLd,
   seriesTitleFromJsonLd,
   type WatchPageContext,
-} from './crunchyroll';
+} from './adapter';
 import { createLabelGuard, flattenJsonLd, LABEL_SETTLE_MS, labelKey, type LabelGuard } from '../lib/parsing';
 import { crunchyrollSignalTable, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../shared/crunchyroll-metadata';
 
 // Pont du monde MAIN remplacé : tables des signaux servies par le test (aucune par défaut, comme un onglet ouvert avant l'extension)
 const bridge = vi.hoisted(() => ({ tables: new Map<string, Record<string, unknown>>() }));
-vi.mock('../crunchyroll/bridge-client', () => ({ connectCrunchyrollBridge: () => (seriesId: string) => bridge.tables.get(seriesId) ?? null }));
+vi.mock('./bridge-client', () => ({ connectCrunchyrollBridge: () => (seriesId: string) => bridge.tables.get(seriesId) ?? null }));
 
 // Fixture JSON-LD d'une page de série (structure supposée, à vérifier sur le site réel)
 const SERIES_JSON_LD = `{
@@ -356,7 +356,7 @@ describe('crunchyrollAdapter.extractEpisodeInfo : lecture automatique E1180 → 
     page = installFakeDocument();
     // Module neuf : le garde-fou des libellés est propre à chaque test
     vi.resetModules();
-    ({ crunchyrollAdapter: adapter } = await import('./crunchyroll'));
+    ({ crunchyrollAdapter: adapter } = await import('./adapter'));
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -423,7 +423,7 @@ describe('crunchyrollAdapter : signaux de correspondance du pont MAIN', () => {
 
   it('lecture : signaux de la saison de l’épisode (version originale)', async () => {
     vi.resetModules();
-    const { crunchyrollAdapter: adapter } = await import('./crunchyroll');
+    const { crunchyrollAdapter: adapter } = await import('./adapter');
     serveOnePiece();
     page.setJsonLd(ONE_PIECE_E1180.jsonLd);
     page.set('h1', { text: ONE_PIECE_E1180.heading });
@@ -432,7 +432,7 @@ describe('crunchyrollAdapter : signaux de correspondance du pont MAIN', () => {
 
   it('pont sans donnée pour la série : aucun signal (comportement d’avant)', async () => {
     vi.resetModules();
-    const { crunchyrollAdapter: adapter } = await import('./crunchyroll');
+    const { crunchyrollAdapter: adapter } = await import('./adapter');
     page.setJsonLd(ONE_PIECE_E1180.jsonLd);
     page.set('h1', { text: ONE_PIECE_E1180.heading });
     const info = adapter.extractEpisodeInfo(new URL(ONE_PIECE_E1180.url));

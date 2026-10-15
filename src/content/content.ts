@@ -2,10 +2,10 @@
 // enregistré à la demande par le service worker). Aussi réinjecté par le service worker dans les onglets déjà
 // ouverts à l'installation et à la mise à jour sur Chrome (background/content-reinjection.ts) ; Firefox le fait seul.
 import type { StreamingAdapter } from './lib/adapter';
-import { adnAdapter } from './adapters/adn';
-import { crunchyrollAdapter, crunchyrollBridge } from './adapters/crunchyroll';
-import { listenAdnHistoryPorts } from './lib/adn-history';
-import { listenCrHistoryPorts } from './lib/cr-history-port';
+import { adnAdapter } from './adn/adapter';
+import { crunchyrollAdapter, crunchyrollBridge } from './crunchyroll/adapter';
+import { listenAdnHistoryPorts } from './adn/history';
+import { listenCrHistoryPorts } from './crunchyroll/history-port';
 import { claimContentInstance } from './lib/instance-guard';
 import { startContent } from './start';
 

@@ -3,7 +3,7 @@ import { movieShow, ONE_PIECE_E1170, onePieceShow, RANMA_S1E5, ranmaShow } from 
 import { toEpisodeInfo } from '../../shared/cr-import';
 import { reduceNetflixShow } from '../../shared/netflix-import';
 import type { NetflixShowMetadata } from '../../shared/netflix-metadata';
-import { episodeInfoFromMetadata } from './netflix';
+import { episodeInfoFromMetadata } from './adapter';
 
 // Import de l'historique Netflix ↔ synchro en direct : l'épisode qu'analyse l'import (saison réduite → toEpisodeInfo) est
 // exactement celui que lirait le script de contenu sur la page de lecture de cet épisode (episodeInfoFromMetadata) :

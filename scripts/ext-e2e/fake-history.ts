@@ -1,6 +1,6 @@
 // Fausses API d'historique de visionnage, appelées par le script de contenu DANS l'onglet de la plateforme (import d'un
-// historique, src/import-cr) : Crunchyroll (content/lib/crunchyroll-history.ts : jeton de session puis pages de
-// /watch-history et épisodes des saisons) et ADN (content/lib/adn-history.ts : GET gw.api…/viewing/history avec le jeton
+// historique, src/import-cr) : Crunchyroll (content/crunchyroll/history.ts : jeton de session puis pages de
+// /watch-history et épisodes des saisons) et ADN (content/adn/history.ts : GET gw.api…/viewing/history avec le jeton
 // du localStorage du site). Mêmes chemins, en-têtes et structures de réponse que ceux relevés sur les sites (voir les
 // parseurs de ces fichiers). Toute autre requête vers ces API est refusée et relevée (`unknown`).
 import { json, type FakeResponse, type InterceptedRequest, type RequestHandler } from './harness';

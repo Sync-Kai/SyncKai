@@ -1,6 +1,6 @@
 // Fausses pages de lecture Crunchyroll et ADN, servies à leurs vraies URL (le script de contenu du manifeste s'y injecte
 // pour de vrai), avec une vraie <video> lisible par Chromium, et données de générique de static.crunchyroll.com.
-// Pages bâties sur les fixtures des adapters (src/content/adapters/__fixtures__) : mêmes JSON-LD, <h1>, liens et
+// Pages bâties sur les fixtures des adapters (src/content/{crunchyroll,adn}/__fixtures__) : mêmes JSON-LD, <h1>, liens et
 // surcouche du lecteur que ceux relevés sur les sites.
 //
 // Vidéo : assets/episode-600s.webm, 600 s, 32×18, 1 image/s, VP8, sans son (22 Ko). Produite par :
@@ -11,8 +11,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Page } from 'puppeteer';
-import type { AdnWatchFixture } from '../../src/content/adapters/__fixtures__/adn-watch';
-import type { CrunchyrollWatchFixture } from '../../src/content/adapters/__fixtures__/crunchyroll-watch';
+import type { AdnWatchFixture } from '../../src/content/adn/__fixtures__/adn-watch';
+import type { CrunchyrollWatchFixture } from '../../src/content/crunchyroll/__fixtures__/crunchyroll-watch';
 import { ROOT, json, sleep, type FakeResponse, type InterceptedRequest, type RequestHandler } from './harness';
 
 /** Durée de la vidéo de test (s) */

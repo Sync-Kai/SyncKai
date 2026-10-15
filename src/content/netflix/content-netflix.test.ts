@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const startContent = vi.hoisted(() => vi.fn());
 vi.mock('../start', () => ({ startContent }));
-vi.mock('../adapters/netflix', () => ({ netflixAdapter: { platform: 'netflix' } }));
+vi.mock('./adapter', () => ({ netflixAdapter: { platform: 'netflix' } }));
 
 const STARTED_FLAG = Symbol.for('synckai.netflix.content.runtime');
 /** Clé des versions jusqu'à la 2.2.0, posée à `true` non configurable */

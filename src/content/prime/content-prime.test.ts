@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const startContent = vi.hoisted(() => vi.fn());
 vi.mock('../start', () => ({ startContent }));
-vi.mock('../adapters/prime', () => ({ primeAdapter: { platform: 'prime' } }));
+vi.mock('./adapter', () => ({ primeAdapter: { platform: 'prime' } }));
 
 const STARTED_FLAG = Symbol.for('synckai.prime.content.runtime');
 

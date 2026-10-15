@@ -3,7 +3,7 @@
 // dans les onglets Netflix déjà ouverts, ainsi qu'après une mise à jour de l'extension (accès accordé).
 // Les métadonnées viennent du script du monde MAIN (page-bridge.iife.ts) via le pont d'événements.
 // Format IIFE (suffixe .iife.ts) : script enregistré dynamiquement, sans chargeur ESM.
-import { bridge, netflixAdapter } from '../adapters/netflix';
+import { bridge, netflixAdapter } from './adapter';
 import { claimContentInstance } from '../lib/instance-guard';
 import { NETFLIX_HISTORY_HOOK } from '../../shared/netflix-history';
 import { startContent } from '../start';

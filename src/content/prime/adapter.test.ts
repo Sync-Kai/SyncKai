@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { reducePrimeDetail, reducePrimeDetailWidgets, type PrimeTitle } from '../../shared/prime-metadata';
-import type { ReceivedCatalog } from '../prime/bridge-client';
-import { reducePrimeCatalog, type PrimeWidgetsEntry } from '../prime/bridge-protocol';
+import type { ReceivedCatalog } from './bridge-client';
+import { reducePrimeCatalog, type PrimeWidgetsEntry } from './bridge-protocol';
 import {
   BUMPKIN_S1_COMPACT,
   BUMPKIN_TITLE,
@@ -11,7 +11,7 @@ import {
   bumpkinEpisodeGti,
   hydrationDocument,
   SEEN_AT,
-} from '../prime/fixtures';
+} from './fixtures';
 import {
   choosePrimeVideo,
   episodeAliases,
@@ -22,7 +22,7 @@ import {
   seriesInfoFromPrime,
   titleForEpisode,
   type PrimeVideoCandidate,
-} from './prime';
+} from './adapter';
 
 const PAGE = `/region/eu/detail/${BUMPKIN_S1_COMPACT}`;
 const PAGE_URL = `https://www.primevideo.com${PAGE}`;
