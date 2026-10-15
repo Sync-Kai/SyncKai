@@ -37,7 +37,7 @@ import {
 } from '../../shared/cr-import';
 import type { HistorySeason } from '../../platforms/crunchyroll/history';
 import { getExcludedSeries, isExcluded, platformSeriesKey } from '../../shared/exclusions';
-import { isJobActive, reduceJob } from '../../shared/job';
+import { reduceJob } from '../../shared/job';
 import { createLogger } from '../../browser/logger';
 import type { Result } from '../../shared/result';
 import { sameSessions, type SessionEpochs } from '../../shared/session-epochs';
@@ -68,6 +68,7 @@ import {
   ensureResumeAlarm,
   isFatalError,
   RESUME_ALARM_PERIOD_MIN,
+  reserveJob,
   transientKind,
   waitReadSlot,
   waitWriteSlot,
@@ -554,23 +555,12 @@ const failure = (code: CrImportErrorCode, key: Parameters<typeof t>[0], params?:
   message: t(key, params),
 });
 
-/** Réserve la tâche sous verrou : une seule analyse ou application à la fois */
-async function reserveJob(start: () => CrImportJob): Promise<CrImportJob | null> {
-  let started: CrImportJob | null = null;
-  await jobStore.update((job) => {
-    if (isJobActive(job, Date.now())) return job;
-    started = start();
-    return started;
-  });
-  return started;
-}
-
 /** CR_IMPORT_ANALYZE : historique lu dans l'onglet Crunchyroll, ADN ou Netflix → tâche d'analyse en arrière-plan */
 export async function startCrAnalyze({ history, platform = 'crunchyroll' }: CrImportAnalyzePayload): Promise<CrImportJobResult> {
   try {
     if ((await getConnectedTrackers()).length === 0) return failure('NOT_CONNECTED', 'crImport.error.notConnected');
     if (history.seasons.length === 0) return failure('EMPTY', 'crImport.error.empty', { platform: PLATFORMS[platform].label });
-    const job = await reserveJob(() => startAnalyzeJob(history.seasons.length, Date.now()));
+    const job = await reserveJob(jobStore, () => startAnalyzeJob(history.seasons.length, Date.now()));
     if (job === null) return failure('BUSY', 'crImport.error.busy');
     const input: CrImportInput = { ...history, createdAt: Date.now(), platform };
     await chrome.storage.local.set({ [CR_IMPORT_KEYS.input]: input, [CR_IMPORT_KEYS.resolutions]: {} });
@@ -596,7 +586,7 @@ export async function startCrApply({ ids }: CrImportApplyPayload): Promise<CrImp
     const known = new Set(plan.items.map((i) => i.id));
     const selected = [...new Set(ids)].filter((id) => known.has(id));
     if (selected.length === 0) return failure('EMPTY', 'crImport.error.nothingSelected');
-    const job = await reserveJob(() => startApplyJob(selected, Date.now()));
+    const job = await reserveJob(jobStore, () => startApplyJob(selected, Date.now()));
     if (job === null) return failure('BUSY', 'crImport.error.busy');
     applyMemory = { jobId: job.startedAt, plan, results: new Map(), mappings: [], since: Date.now() };
     await chrome.alarms.create(CR_IMPORT_ALARM, { periodInMinutes: RESUME_ALARM_PERIOD_MIN });

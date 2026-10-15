@@ -1,8 +1,8 @@
-import { reduceJob, isJobStale, JOB_STALE_MS, type AnyJob, type JobEvent } from '../../shared/job';
+import { reduceJob, isJobActive, isJobStale, JOB_STALE_MS, type AnyJob, type JobEvent } from '../../shared/job';
 import type { Logger } from '../../browser/logger';
 import { withStorageLock } from '../../browser/storage/lock';
 import type { TrackerId } from '../../shared/tracker.types';
-import { ApiError, type ApiErrorCode } from '../errors';
+import { ApiError, isRetryableStatus, JOB_RETRY_STATUSES, type ApiErrorCode } from '../errors';
 import { aniListBudget, sleep, type BudgetWait } from '../rate-limit';
 
 // Exécution des tâches de fond reprenables (src/shared/job.ts) : file traitée élément par élément,
@@ -36,6 +36,20 @@ export function createJobStore<J>(key: string, isJob: (value: unknown) => value 
         return next;
       }),
   };
+}
+
+/**
+ * Réserve la tâche sous verrou : une seule tâche vivante à la fois (analyse, alignement, import). Retourne la tâche créée
+ * par `start`, ou null si une tâche vivante existe déjà (elle est alors laissée telle quelle).
+ */
+export async function reserveJob<J extends AnyJob>(store: JobStore<J>, start: () => J): Promise<J | null> {
+  let started: J | null = null;
+  await store.update((job) => {
+    if (isJobActive(job, Date.now())) return job;
+    started = start();
+    return started;
+  });
+  return started;
 }
 
 /** Période de l'alarme de reprise d'une tâche (30 s) */
@@ -102,6 +116,34 @@ export function trackBudgetWaits<J extends AnyJob>(store: JobStore<J>, onWait: (
 const HEARTBEAT_MS = 10_000;
 
 /**
+ * Entretient le signe de vie de la tâche stockée toutes les 10 s (`onBeat` : signe de vie en mémoire) et inscrit les
+ * attentes du budget AniList (quota de fond, pénalité 429) comme pauses visibles, levées dès que la requête part. Sans
+ * cela, une longue lecture (liste MAL de 20 pages) ferait passer la tâche pour interrompue (isJobStale). Renvoie l'arrêt
+ * du suivi, qui attend les dernières écritures.
+ */
+export function startHeartbeat<J extends AnyJob>(store: JobStore<J>, onBeat: () => void = () => undefined): () => Promise<void> {
+  const timer = setInterval(() => {
+    onBeat();
+    void store.update((job) => job && reduceJob(job, { type: 'touch', at: Date.now() }));
+  }, HEARTBEAT_MS);
+  const stopTracking = trackBudgetWaits(store, onBeat);
+  return async () => {
+    clearInterval(timer);
+    await stopTracking();
+  };
+}
+
+/** Exécute `task` en entretenant le signe de vie (voir startHeartbeat) */
+export async function withHeartbeat<J extends AnyJob, T>(store: JobStore<J>, task: () => Promise<T>, onBeat?: () => void): Promise<T> {
+  const stop = startHeartbeat(store, onBeat);
+  try {
+    return await task();
+  } finally {
+    await stop();
+  }
+}
+
+/**
  * Attentes avant de retenter le MÊME élément, par type d'erreur passagère (la longueur fixe le nombre d'essais) :
  * - rate-limit : 429 persistant (le client a déjà attendu Retry-After une fois) ;
  * - server : 502 / 503 / 504 ou délai dépassé (MAL surchargé répond 504 après une longue attente) ;
@@ -119,7 +161,7 @@ export type TransientKind = 'rate-limit' | 'server' | 'network';
 export function transientKind(error: unknown): TransientKind | null {
   if (!(error instanceof ApiError)) return null;
   if (error.code === 'RATE_LIMITED') return 'rate-limit';
-  if (error.timedOut || (error.httpStatus !== null && [500, 502, 503, 504].includes(error.httpStatus))) return 'server';
+  if (error.timedOut || (error.httpStatus !== null && isRetryableStatus(error.httpStatus, JOB_RETRY_STATUSES))) return 'server';
   if (error.code === 'NETWORK') return 'network';
   return null;
 }
@@ -172,23 +214,8 @@ export function createJobLoop<J extends AnyJob>(config: JobLoopConfig<J>): JobLo
 
   const touch = (): Promise<J | null> => store.update((job) => job && reduceJob(job, { type: 'touch', at: Date.now() }));
 
-  /**
-   * Exécute `task` en entretenant le signe de vie (mémoire + tâche stockée) toutes les 10 s. Une attente du budget
-   * AniList (quota de fond, pénalité 429) devient une pause visible, levée dès que la requête part.
-   */
-  async function withHeartbeat<T>(task: () => Promise<T>): Promise<T> {
-    const timer = setInterval(() => {
-      beat = Date.now();
-      void touch();
-    }, HEARTBEAT_MS);
-    const stopTracking = trackBudgetWaits(store, () => (beat = Date.now()));
-    try {
-      return await task();
-    } finally {
-      clearInterval(timer);
-      await stopTracking();
-    }
-  }
+  /** Exécute `task` en entretenant le signe de vie (mémoire + tâche stockée), voir withHeartbeat */
+  const beating = <T>(task: () => Promise<T>): Promise<T> => withHeartbeat(store, task, () => (beat = Date.now()));
 
   /** Attend la fin de la pause par tranches (signe de vie entretenu) ; s'interrompt sur « Arrêter » */
   async function waitPause(until: number, gen: number): Promise<void> {
@@ -234,7 +261,7 @@ export function createJobLoop<J extends AnyJob>(config: JobLoopConfig<J>): JobLo
       }
 
       await store.update((j) => j && reduceJob(j, { type: 'item-start', at: Date.now() }));
-      const step = await withHeartbeat(() => config.process(job, item, (reason) => attempts[reason] >= RETRY_DELAYS_MS[reason].length));
+      const step = await beating(() => config.process(job, item, (reason) => attempts[reason] >= RETRY_DELAYS_MS[reason].length));
       if (gen !== generation) break;
 
       if (step.kind === 'retry') {

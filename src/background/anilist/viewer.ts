@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { isViewerQueryData, type AniListViewer, type ViewerResult } from '../../shared/anilist.types';
 import { getSessionEpoch } from '../../browser/storage/sessions';
-import { saveCachedViewer } from '../../browser/storage/viewer-cache';
+import { getCachedViewer, saveCachedViewer } from '../../browser/storage/viewer-cache';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistQuery } from './client';
 import { ApiError } from '../errors';
@@ -44,4 +44,13 @@ export async function getViewer(): Promise<ViewerResult> {
     log.error('Erreur inattendue (getViewer) :', error);
     return { ok: false, code: 'API_ERROR', message: t('api.profileLoadFailed') };
   }
+}
+
+/** Identifiant AniList de l'utilisateur connecté : profil en cache, sinon lu sur le service. Lève une ApiError si la session est invalide. */
+export async function getAniListUserId(): Promise<number> {
+  const cached = await getCachedViewer();
+  if (cached) return cached.id;
+  const result = await getViewer();
+  if (!result.ok) throw new ApiError(result.code, result.message);
+  return result.data.id;
 }

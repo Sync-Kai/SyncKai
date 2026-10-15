@@ -1,9 +1,7 @@
-import { getCachedViewer } from '../../browser/storage/viewer-cache';
 import { isRecord } from '../../shared/guards';
 import { parseAniListCollection } from '../compare/compare-parse';
-import { ApiError } from '../errors';
 import { anilistQuery } from './client';
-import { getViewer } from './viewer';
+import { getAniListUserId } from './viewer';
 
 // Liste AniList complète de l'utilisateur (comparaison des services, import de l'historique).
 
@@ -35,14 +33,6 @@ const ANILIST_FULL_LIST_QUERY = /* GraphQL */ `
 
 const isCollectionData = (data: unknown): data is { MediaListCollection: Record<string, unknown> } =>
   isRecord(data) && isRecord(data.MediaListCollection);
-
-async function getAniListUserId(): Promise<number> {
-  const cached = await getCachedViewer();
-  if (cached) return cached.id;
-  const result = await getViewer();
-  if (!result.ok) throw new ApiError(result.code, result.message);
-  return result.data.id;
-}
 
 /** Liste complète : requêtes de fond (comparaison, import Crunchyroll), budget limité */
 export async function fetchAniListFullList(): Promise<ReturnType<typeof parseAniListCollection>> {

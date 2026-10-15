@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isJobOf, JOB_STALE_MS, reduceJob, startJob, type Job, type JobEvent } from '../../shared/job';
 import { createLoggerFor } from '../../browser/logger';
 import { installFakeChrome } from '../../test/fake-chrome';
-import { ApiError } from '../errors';
-import { budgetWaitEvent, createJobLoop, createJobStore, isFatalError, RETRY_DELAYS_MS, type StepResult, type TransientKind } from './runner';
+import { ApiError, isRetryableStatus, JOB_RETRY_STATUSES } from '../errors';
+import { budgetWaitEvent, createJobLoop, createJobStore, isFatalError, reserveJob, RETRY_DELAYS_MS, startHeartbeat, transientKind, withHeartbeat, type StepResult, type TransientKind } from './runner';
 
 describe('erreur définitive d’une tâche', () => {
   it('session expirée, réseau, limite persistante : arrêt ; service surchargé ou erreur ponctuelle : on continue', () => {
@@ -216,5 +216,83 @@ describe('createJobLoop (TEST-06)', () => {
     expect(h.calls.map((c) => c.item)).toEqual(['a', 'a', 'b', 'c']);
     expect(job()).toMatchObject({ status: 'done', done: 3, updated: 3, failed: 0, pending: [] });
     expect(h.onEnd).toHaveBeenCalledOnce();
+  });
+});
+
+describe('réservation de la tâche (reserveJob)', () => {
+  it('aucune tâche : créée ; tâche vivante : refusée et laissée telle quelle ; tâche muette depuis JOB_STALE_MS : remplacée', async () => {
+    fake.reset();
+    const first = await reserveJob(store, () => startJob('test', ['a'], Date.now()));
+    expect(first).toMatchObject({ kind: 'test', status: 'running', pending: ['a'] });
+    expect(job()).toEqual(first);
+
+    const start = vi.fn(() => startJob('test', ['b'], Date.now()));
+    expect(await reserveJob(store, start)).toBeNull();
+    expect(start).not.toHaveBeenCalled();
+    expect(job()).toEqual(first);
+
+    await vi.advanceTimersByTimeAsync(JOB_STALE_MS + 1);
+    const second = await reserveJob(store, start);
+    expect(second).toMatchObject({ pending: ['b'] });
+    expect(job()).toEqual(second);
+  });
+
+  it('tâche terminée : une nouvelle est réservée', async () => {
+    fake.reset({ [JOB_KEY]: { ...startJob('test', ['a'], T0), status: 'done' } });
+    expect(await reserveJob(store, () => startJob('test', ['z'], Date.now()))).toMatchObject({ pending: ['z'], status: 'running' });
+  });
+});
+
+describe('signe de vie d’une tâche (startHeartbeat, withHeartbeat)', () => {
+  it('la tâche stockée est touchée toutes les 10 s tant que le travail dure, plus après l’arrêt', async () => {
+    const onBeat = vi.fn();
+    const stop = startHeartbeat(store, onBeat);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await flush();
+    expect(job()?.updatedAt).toBe(T0 + 10_000);
+    await vi.advanceTimersByTimeAsync(25_000);
+    await flush();
+    expect(job()?.updatedAt).toBe(T0 + 30_000);
+    expect(onBeat).toHaveBeenCalledTimes(3);
+    await stop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    await flush();
+    expect(job()?.updatedAt).toBe(T0 + 30_000);
+    expect(onBeat).toHaveBeenCalledTimes(3);
+  });
+
+  it('une analyse plus longue que JOB_STALE_MS ne passe pas pour interrompue', async () => {
+    let finish: () => void = () => undefined;
+    const work = withHeartbeat(store, () => new Promise<string>((resolve) => (finish = () => resolve('fin'))));
+    await vi.advanceTimersByTimeAsync(JOB_STALE_MS * 2);
+    await flush();
+    expect(Date.now() - (job()?.updatedAt ?? 0)).toBeLessThan(JOB_STALE_MS);
+    finish();
+    expect(await work).toBe('fin');
+  });
+
+  it('le suivi s’arrête aussi quand le travail échoue', async () => {
+    await expect(withHeartbeat(store, () => Promise.reject(new Error('échec')))).rejects.toThrow('échec');
+    const at = job()?.updatedAt;
+    await vi.advanceTimersByTimeAsync(60_000);
+    await flush();
+    expect(job()?.updatedAt).toBe(at);
+  });
+});
+
+describe('statuts HTTP retentés : la file de synchro et les tâches de fond restent distinctes (audit 6-D8)', () => {
+  const jobsRetry = (status: number): boolean => transientKind(new ApiError('API_ERROR', 'x', { httpStatus: status })) === 'server';
+
+  it('tâches de fond : 500, 502, 503, 504 seulement', () => {
+    expect(JOB_RETRY_STATUSES).toEqual([500, 502, 503, 504]);
+    for (const status of [500, 502, 503, 504]) expect(jobsRetry(status), String(status)).toBe(true);
+    for (const status of [400, 404, 429, 501, 505, 599]) expect(jobsRetry(status), String(status)).toBe(false);
+  });
+
+  it('file de synchro : toute la plage 5xx (501 et 505 compris), jamais un 4xx', () => {
+    for (const status of [500, 501, 502, 503, 504, 505, 599]) expect(isRetryableStatus(status), String(status)).toBe(true);
+    for (const status of [200, 400, 404, 429]) expect(isRetryableStatus(status), String(status)).toBe(false);
+    expect(isRetryableStatus(501, JOB_RETRY_STATUSES)).toBe(false);
+    expect(isRetryableStatus(503, JOB_RETRY_STATUSES)).toBe(true);
   });
 });

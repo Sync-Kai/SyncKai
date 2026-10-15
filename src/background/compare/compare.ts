@@ -21,7 +21,6 @@ import {
   COMPARE_JOB_ALARM,
   COMPARE_JOB_KEY,
   isCompareJob,
-  isJobActive,
   isJobStale,
   reduceJob,
   startAnalyzeJob,
@@ -44,7 +43,8 @@ import {
   createJobStore,
   ensureResumeAlarm,
   isFatalError,
-  trackBudgetWaits,
+  reserveJob,
+  startHeartbeat,
   transientKind,
   waitReadSlot,
   waitWriteSlot,
@@ -119,16 +119,12 @@ const touchJob = (): Promise<CompareJob | null> => updateJob((job) => job && red
 export async function compareServiceLists(): Promise<CompareResult> {
   if (!(await bothConnected())) return notConnected();
   // Réservation de la tâche sous verrou : une seule analyse ou un seul alignement à la fois (filet de sécurité, le popup désactive les boutons)
-  let started: CompareJob | null = null;
-  await updateJob((job) => {
-    if (isJobActive(job, Date.now())) return job;
-    started = startAnalyzeJob(Date.now());
-    return started;
-  });
+  const started = await reserveJob(jobStore, () => startAnalyzeJob(Date.now()));
   if (started === null) return isBusy();
-  const startedAt = (started as CompareJob).startedAt;
-  // Attente du quota AniList (requêtes de fond) affichée sous le bouton d'analyse ; elle entretient aussi la tâche
-  const stopTracking = trackBudgetWaits(jobStore);
+  const startedAt = started.startedAt;
+  // Signe de vie pendant les lectures (listes MAL de plusieurs pages) ; l'attente du quota AniList (requêtes de fond) est affichée
+  // sous le bouton d'analyse
+  const stopTracking = startHeartbeat(jobStore);
 
   try {
     // Sessions relevées avant la lecture des listes : la comparaison décrit les listes de ces comptes
@@ -258,12 +254,7 @@ export async function applyDiffs({ items, source }: ApplyDiffsPayload): Promise<
   try {
     if (!(await bothConnected())) return notConnected();
     if (!(await readComparison())) return { ok: false, code: 'NO_COMPARISON', message: t('compare.error.noComparison') };
-    let started: CompareJob | null = null;
-    await updateJob((job) => {
-      if (isJobActive(job, Date.now())) return job;
-      started = startApplyJob(items, source, Date.now());
-      return started;
-    });
+    const started = await reserveJob(jobStore, () => startApplyJob(items, source, Date.now()));
     if (started === null) return isBusy();
     await chrome.alarms.create(COMPARE_JOB_ALARM, { periodInMinutes: 0.5 });
     log.info(`Alignement sur ${TRACKER_LABELS[source]} : ${items.length} séries`);

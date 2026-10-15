@@ -3,7 +3,6 @@ import { isRecord } from '../../shared/guards';
 import { learnedLinksFor, mergePlatformLinks, platformFromUrl, platformLinkFromExternal, withLearnedLinks, type PlatformLinkStore } from '../../platforms/links';
 import { getPlatformLinks } from '../../browser/storage/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
-import { getCachedViewer } from '../../browser/storage/viewer-cache';
 import { getCachedWatching, saveCachedWatching } from '../../browser/storage/watching-cache';
 import { getRecentSyncs } from '../../browser/storage/reviews';
 import { getSessionEpoch } from '../../browser/storage/sessions';
@@ -21,7 +20,7 @@ import { isWatchingFresh, WATCHING_REVALIDATE_MS } from '../../shared/watching';
 import { anilistPublicQuery, anilistQuery } from './client';
 import { ApiError } from '../errors';
 import { malRequest } from '../mal/client';
-import { getViewer } from './viewer';
+import { getAniListUserId } from './viewer';
 import { createLogger } from '../../browser/logger';
 
 const log = createLogger('watching');
@@ -108,14 +107,6 @@ const ANILIST_WATCHING_QUERY = /* GraphQL */ `
 
 const isCollectionData = (data: unknown): data is { MediaListCollection: Record<string, unknown> } =>
   isRecord(data) && isRecord(data.MediaListCollection);
-
-async function getAniListUserId(): Promise<number> {
-  const cached = await getCachedViewer();
-  if (cached) return cached.id;
-  const result = await getViewer();
-  if (!result.ok) throw new ApiError(result.code, result.message);
-  return result.data.id;
-}
 
 async function fetchAniListEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore): Promise<WatchingEntry[]> {
   const userId = await getAniListUserId();

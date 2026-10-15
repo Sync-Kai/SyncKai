@@ -98,6 +98,9 @@ describe('classifyOutcome', () => {
     expect(classifyOutcome({ status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 404 }, null).kind).toBe('final');
     expect(classifyOutcome({ status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 400 }, null).kind).toBe('final');
     expect(classifyOutcome({ status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 503 }, null).kind).toBe('retry');
+    // La file relance toute la plage 5xx, 501 et 505 compris (les tâches de fond non : voir runner.test.ts)
+    expect(classifyOutcome({ status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 501 }, null).kind).toBe('retry');
+    expect(classifyOutcome({ status: 'error', message: 'x', code: 'API_ERROR', httpStatus: 505 }, null).kind).toBe('retry');
     const malError = (httpStatus: number): SyncOutcome => ({
       status: 'synced',
       mediaTitle: 'x',

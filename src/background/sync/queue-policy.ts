@@ -4,6 +4,7 @@ import { queueItemId, restrictToSession, type SyncQueueItem } from '../../shared
 import type { SessionEpochs } from '../../shared/session-epochs';
 import type { SyncErrorCode, SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
+import { isRetryableStatus } from '../errors';
 
 // Règles pures de la file de relance (sans chrome.*) : testables unitairement.
 
@@ -26,7 +27,7 @@ const RETRYABLE_CODES: ReadonlySet<SyncErrorCode> = new Set<SyncErrorCode>(['NET
  */
 export function isRetryableError(code: SyncErrorCode | undefined, httpStatus?: number): boolean {
   if (code === undefined || !RETRYABLE_CODES.has(code)) return false;
-  return code !== 'API_ERROR' || httpStatus === undefined || httpStatus >= 500;
+  return code !== 'API_ERROR' || httpStatus === undefined || isRetryableStatus(httpStatus);
 }
 
 /**
