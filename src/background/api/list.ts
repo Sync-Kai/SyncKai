@@ -3,7 +3,7 @@ import { isRecord } from '../../shared/guards';
 import { getValidToken } from '../../browser/tokens/access';
 import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
-import { isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from '../sync/score';
+import { isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from '../../shared/score';
 import type { EntryWrite } from '../../shared/compare';
 import { readListNotes } from '../../shared/list-notes';
 import { anilistQuery } from './client';

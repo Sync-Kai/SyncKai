@@ -4,7 +4,7 @@ import { deleteListEntry, getMediaListInfo, getScoreFormat, saveListEntry, saveL
 import { deleteMalEntry, getMalAnime, saveMalEntry, saveMalListStatus, saveMalNotes, saveMalProgress, saveMalScore } from '../api/mal';
 import { markSeriesStale } from '../compare-snapshot';
 import type { ListEntryState } from '../sync/rules';
-import { toAniListScore, toMalScore } from '../sync/score';
+import { toAniListScore, toMalScore } from '../../shared/score';
 import type { TrackerService } from './tracker';
 
 /**

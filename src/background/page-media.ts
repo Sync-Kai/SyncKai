@@ -54,7 +54,7 @@ import {
   singleEntryDoubt,
 } from './sync/matching';
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from './sync/resolver';
-import { fromAniListScore, fromMalScore } from './sync/score';
+import { fromAniListScore, fromMalScore } from '../shared/score';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './trackers/tracker';
 
