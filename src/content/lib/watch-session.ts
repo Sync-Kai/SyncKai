@@ -445,9 +445,13 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       );
     }
     if (settings.completionTrigger === 'credits') {
-      void adapter.getCreditsStart?.(episodeId, signal).then((start) => {
-        creditsStart = start;
-      });
+      // Échec de la lecture du générique : traité comme un null (repli sur le ratio), jamais un rejet non géré
+      void adapter.getCreditsStart?.(episodeId, signal).then(
+        (start) => {
+          creditsStart = start;
+        },
+        () => undefined,
+      );
     }
     startSettings = settings;
     watchVideo();

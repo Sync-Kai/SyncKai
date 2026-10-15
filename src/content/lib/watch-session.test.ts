@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   /** Fin de lecture du lecteur simulé (onCompleted du suivi vidéo) */
   completions: [] as (() => void)[],
   /** <video> suivies, dans l'ordre, avec le signal de leur tracker et la lecture de position transmise */
-  tracked: [] as { video: HTMLVideoElement; signal: AbortSignal; readPlayback?: (video: HTMLVideoElement) => unknown }[],
+  tracked: [] as { video: HTMLVideoElement; signal: AbortSignal; readPlayback?: (video: HTMLVideoElement) => unknown; getCreditsStart: () => number | null }[],
   /** Messages warn/error : consignés au journal de diagnostic en production */
   journaled: [] as unknown[][],
 }));
@@ -36,9 +36,12 @@ vi.mock('../../shared/settings', async (importOriginal) => ({
   getSettings: mocks.getSettings,
 }));
 vi.mock('./video-tracker', () => ({
-  trackVideoProgress: (video: HTMLVideoElement, options: { onCompleted: () => void; signal: AbortSignal; readPlayback?: (video: HTMLVideoElement) => unknown }) => {
+  trackVideoProgress: (
+    video: HTMLVideoElement,
+    options: { onCompleted: () => void; signal: AbortSignal; readPlayback?: (video: HTMLVideoElement) => unknown; getCreditsStart: () => number | null },
+  ) => {
     mocks.completions.push(options.onCompleted);
-    mocks.tracked.push({ video, signal: options.signal, readPlayback: options.readPlayback });
+    mocks.tracked.push({ video, signal: options.signal, readPlayback: options.readPlayback, getCreditsStart: options.getCreditsStart });
     return { completionPoint: () => null };
   },
 }));
@@ -224,6 +227,32 @@ describe('startWatchSession — adapter synchrone (inchangé)', () => {
     await watchToEnd(syncAdapter(info), 'GE001');
     expect(mocks.sendMessage).toHaveBeenCalledWith('EPISODE_COMPLETED', { episode: info, services: null });
     expect(mocks.showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'info' }));
+  });
+
+  it('début du générique en échec (promesse rejetée) : repli sur le ratio comme un null, aucun rejet non géré', async () => {
+    mocks.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoSync: true, completionTrigger: 'credits' });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => void unhandled.push(reason);
+    // Process Node du lanceur de tests (types Node absents de src/)
+    const node = Reflect.get(globalThis, 'process') as { on(event: string, listener: (reason: unknown) => void): void; off(event: string, listener: (reason: unknown) => void): void };
+    node.on('unhandledRejection', onUnhandled);
+    try {
+      const failing: StreamingAdapter = { ...syncAdapter(episode('GRMG8ZQZR', 'GE003')), getCreditsStart: () => Promise.reject(new Error('pont absent')) };
+      navigate('/watch/GE003');
+      startWatchSession(failing, 'GE003');
+      await flush();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mocks.tracked.at(-1)?.getCreditsStart()).toBeNull();
+      expect(unhandled).toEqual([]);
+      // Témoin : une valeur obtenue est bien transmise au suivi
+      const working: StreamingAdapter = { ...syncAdapter(episode('GRMG8ZQZR', 'GE004')), getCreditsStart: () => Promise.resolve(1312) };
+      navigate('/watch/GE004');
+      startWatchSession(working, 'GE004');
+      await flush();
+      expect(mocks.tracked.at(-1)?.getCreditsStart()).toBe(1312);
+    } finally {
+      node.off('unhandledRejection', onUnhandled);
+    }
   });
 
   it('épisode non identifié : toast d’erreur', async () => {
