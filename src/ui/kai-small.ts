@@ -3,7 +3,7 @@ import { gradient, shapes, svgEl, type Shape, type Stops } from './svg';
 // ── Mascotte Kai (robot astronaute) ─────────────────────────────────────────
 // Tracés repris tels quels de assets/brand/kai-icon*.svg et du board « 3 · Expressions »
 // (repère 320×320). Aucun innerHTML : construit nœud par nœud (utilisable en Shadow DOM fermé).
-// Ce module porte le cadre commun et le petit dessin (16/32 px), seul utilisé par les scripts de contenu (bulle de
+// Ce module porte le cadre commun et le petit dessin (16/32 px) ; les scripts de contenu n'en prennent que `happyKai` (bulle de
 // synchro) : le grand dessin et les icônes restent dans icons.ts, hors des pages de streaming.
 
 export type KaiExpression = 'happy' | 'neutral' | 'wink' | 'sleep';
@@ -74,11 +74,12 @@ const SMALL_BLUSH: Shape[] = [
 const SMALL_SOFT_BLUSH: Shape[] = SMALL_BLUSH.map(([tag, attrs]) => [tag, { ...attrs, opacity: '0.6' }] as const);
 const SMALL_MOUTH: Shape = ['path', { d: 'M146 206 Q160 212 174 206 Q172 228 160 228 Q148 228 146 206 Z', fill: '#FF7FB0' }];
 const SMALL_WAVY_MOUTH: Shape = ['path', { d: WAVY_MOUTH_D, fill: 'none', stroke: '#FF7FB0', 'stroke-width': '8', ...ROUND, 'stroke-linejoin': 'round' }];
+const smallHappyFace = (): Shape[] => [smallArc(ARC_L_UP), smallArc(ARC_R_UP), ...SMALL_BLUSH, SMALL_MOUTH];
 
 function smallFace(expression: KaiExpression | undefined): Shape[] {
   switch (expression) {
     case 'happy':
-      return [smallArc(ARC_L_UP), smallArc(ARC_R_UP), ...SMALL_BLUSH, SMALL_MOUTH];
+      return smallHappyFace();
     case 'neutral':
       return [
         ['ellipse', { cx: '108', cy: '192', rx: '13', ry: '16', fill: EYE_CYAN }],
@@ -121,16 +122,15 @@ export const SMALL_KAI: KaiDrawing = {
 
 let kaiInstance = 0;
 
-/**
- * Mascotte Kai (viewBox 320) dessinée par `drawing`. Ids de dégradés suffixés par instance pour que plusieurs
- * Kai sur une même page ne se marchent pas dessus.
- */
-export function drawKai(className: string, options: Omit<KaiOptions, 'size'>, drawing: KaiDrawing): SVGSVGElement {
-  const { expression, tile = false, squish = false } = options;
+/** Ids de dégradés suffixés par instance, pour que plusieurs Kai sur une même page ne se marchent pas dessus */
+function kaiIds(): { id: (name: string) => string; url: (name: string) => string } {
   const prefix = `sk-kai${++kaiInstance}`;
   const id = (name: string): string => `${prefix}-${name}`;
-  const url = (name: string): string => `url(#${id(name)})`;
+  return { id, url: (name) => `url(#${id(name)})` };
+}
 
+/** Cadre commun (viewBox 320) et ses dégradés */
+function kaiFrame(className: string, gradients: SVGElement[]): SVGSVGElement {
   const svg = svgEl('svg', {
     viewBox: '0 0 320 320',
     'aria-hidden': 'true',
@@ -138,8 +138,16 @@ export function drawKai(className: string, options: Omit<KaiOptions, 'size'>, dr
     class: `shrink-0 overflow-visible ${className}`,
   });
   const defs = svgEl('defs', {});
-  defs.append(...drawing.defs(id));
+  defs.append(...gradients);
   svg.append(defs);
+  return svg;
+}
+
+/** Mascotte Kai (viewBox 320) dessinée par `drawing` */
+export function drawKai(className: string, options: Omit<KaiOptions, 'size'>, drawing: KaiDrawing): SVGSVGElement {
+  const { expression, tile = false, squish = false } = options;
+  const { id, url } = kaiIds();
+  const svg = kaiFrame(className, drawing.defs(id));
 
   if (tile) svg.append(...shapes(drawing.tile(url)));
 
@@ -153,4 +161,17 @@ export function drawKai(className: string, options: Omit<KaiOptions, 'size'>, dr
 /** Kai en petite taille (dessin simplifié 16/32 px), sans le grand dessin ni les icônes */
 export function smallKai(className: string, options: Omit<KaiOptions, 'size'> = {}): SVGSVGElement {
   return drawKai(className, options, SMALL_KAI);
+}
+
+/**
+ * Même dessin que `smallKai(className, { expression: 'happy' })`, sans tuile ni animation. Seule mascotte des scripts de
+ * contenu (bulle de synchro) : ils n'embarquent ainsi ni les autres expressions, ni la tuile, ni les « z z »
+ */
+export function happyKai(className: string): SVGSVGElement {
+  const { id, url } = kaiIds();
+  const svg = kaiFrame(className, smallDefs(id));
+  const body = svgEl('g', {});
+  body.append(...shapes([...smallHead(url, false), ...smallHappyFace()]));
+  svg.append(body);
+  return svg;
 }
