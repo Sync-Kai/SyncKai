@@ -53,12 +53,19 @@
     },
     {
       "matches": [
-        "*://*.crunchyroll.com/*",
+        "*://*.crunchyroll.com/*"
+      ],
+      "js": [
+        "src/content/crunchyroll/content-crunchyroll.iife.ts"
+      ]
+    },
+    {
+      "matches": [
         "*://animationdigitalnetwork.com/*",
         "*://*.animationdigitalnetwork.com/*"
       ],
       "js": [
-        "src/content/content.iife.ts"
+        "src/content/adn/content-adn.iife.ts"
       ]
     }
   ],

@@ -102,9 +102,12 @@ describe('splitRegisteredScripts', () => {
     ]);
   });
 
-  it('dossier inconnu ou fichier hors src/content/{dossier}/ : inchangé', () => {
+  it('dossier inconnu, fichier hors src/content/{dossier}/ ou script du manifeste (Crunchyroll, ADN) : inchangé', () => {
     const entry = { matches: ['*://*.netflix.com/*'], resources: ['src/content/hidive/a.iife.js', 'src/content/a.iife.js'] };
     expect(splitRegisteredScripts([entry])).toEqual([entry]);
+    const manifestScripts = { matches: ['*://*.netflix.com/*'], resources: ['src/content/crunchyroll/content-crunchyroll.iife.js', 'src/content/adn/content-adn.iife.js'] };
+    expect(splitRegisteredScripts([manifestScripts])).toEqual([manifestScripts]);
+    expect(isExtensionInjectedScript('src/content/adn/content-adn.iife.js')).toBe(false);
   });
 
   it('motifs identiques au registre des plateformes', () => {

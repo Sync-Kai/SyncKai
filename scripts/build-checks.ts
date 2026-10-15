@@ -23,12 +23,25 @@ export const OPTIONAL_PLATFORMS: readonly { dir: string; label: string; pattern:
 ];
 
 /**
- * Budget du script de contenu Crunchyroll / ADN : chargeur + tous les chunks qu'il charge (imports statiques et
- * dynamiques). Mesuré à 75,6 Ko au 2026-10-11 (PERF-01 : 267 Ko avec les catalogues i18n complets, 129,5 Ko avec
- * les seules clés du contenu, puis gardes des messages, icônes, écritures des exclusions et descripteurs des plateformes
- * sortis du graphe du contenu, voir architecture.test.ts) : ~10 % de marge.
+ * Budget du script de contenu Crunchyroll du manifeste (`src/content/crunchyroll/content-crunchyroll.iife.js`, IIFE autonome,
+ * plus tout fichier qu'il référencerait ; pont MAIN à part) : 54,5 Ko mesurés au 2026-10-15, ~10 % de marge. Historique :
+ * script commun Crunchyroll / ADN de 267 Ko (PERF-01, catalogues i18n complets) à 58,3 Ko (IIFE autonome, journaux de
+ * débogage retirés, lecteurs de l'historique injectés à la demande), puis séparé par plateforme : chaque page n'analyse
+ * plus que le code de la sienne.
  */
-export const CONTENT_SCRIPT_BUDGET_BYTES = 83 * 1024;
+export const CRUNCHYROLL_CONTENT_BUDGET_BYTES = 60 * 1024;
+
+/** Budget du script de contenu ADN du manifeste (`src/content/adn/content-adn.iife.js`) : 49,0 Ko mesurés au 2026-10-15, ~10 % de marge */
+export const ADN_CONTENT_BUDGET_BYTES = 54 * 1024;
+
+/**
+ * Scripts isolés du manifeste et leur budget, un par plateforme : scripts/verify-build.ts refuse un script isolé du manifeste
+ * absent de cette table, et une entrée de la table absente du manifeste.
+ */
+export const MANIFEST_SCRIPT_BUDGETS: readonly { file: string; label: string; bytes: number }[] = [
+  { file: 'src/content/crunchyroll/content-crunchyroll.iife.js', label: 'script de contenu Crunchyroll', bytes: CRUNCHYROLL_CONTENT_BUDGET_BYTES },
+  { file: 'src/content/adn/content-adn.iife.js', label: 'script de contenu ADN', bytes: ADN_CONTENT_BUDGET_BYTES },
+];
 
 /** Budget des deux scripts Netflix (IIFE autonomes, clés i18n du contenu comprises) : 59,4 Ko mesurés au 2026-10-11, ~10 % de marge */
 export const NETFLIX_SCRIPTS_BUDGET_BYTES = 65 * 1024;
@@ -48,19 +61,28 @@ export const PRIME_SCRIPTS_BUDGET_BYTES = 75 * 1024;
 
 /**
  * Budget du pont Crunchyroll du monde MAIN (`content_scripts` à `world: "MAIN"`, IIFE autonome hors du budget du script de
- * contenu) : 7,1 Ko mesurés au 2026-10-14 (relevé passif, réductions et table des signaux), ~25 % de marge.
+ * contenu Crunchyroll) : 7,1 Ko mesurés au 2026-10-14 (relevé passif, réductions et table des signaux), ~25 % de marge.
  */
 export const CRUNCHYROLL_BRIDGE_BUDGET_BYTES = 9 * 1024;
 
 /**
  * Budget des lecteurs de l'historique Crunchyroll / ADN (`src/content/history/history.iife.js`, IIFE autonome injectée
- * par la page d'import, hors du budget du script de contenu) : 14,7 Ko mesurés au 2026-10-15, ~10 % de marge.
+ * par la page d'import, hors des budgets des scripts de contenu) : 14,7 Ko mesurés au 2026-10-15, ~10 % de marge.
  */
 export const HISTORY_READER_BUDGET_BYTES = 16 * 1024;
 
 /** Fichiers des scripts du manifeste d'un monde : `MAIN` (ponts de page) ou isolé (`world` absent ou `ISOLATED`) */
 export function manifestScriptFiles(manifest: BuiltManifest, world: 'MAIN' | 'ISOLATED'): string[] {
   return (manifest.content_scripts ?? []).filter((script) => (script.world === 'MAIN') === (world === 'MAIN')).flatMap((script) => script.js ?? []);
+}
+
+/** Scripts isolés du manifeste sans budget dans MANIFEST_SCRIPT_BUDGETS, et budgets sans script du manifeste */
+export function checkManifestScriptBudgets(manifest: BuiltManifest): string[] {
+  const isolated = manifestScriptFiles(manifest, 'ISOLATED');
+  return [
+    ...isolated.filter((file) => !MANIFEST_SCRIPT_BUDGETS.some((budget) => budget.file === file)).map((file) => `${file} : script isolé du manifeste sans budget`),
+    ...MANIFEST_SCRIPT_BUDGETS.filter((budget) => !isolated.includes(budget.file)).map((budget) => `${budget.label} (${budget.file}) absent du manifeste`),
+  ];
 }
 
 /** Plateforme (dossier) d'un script enregistré `src/content/{dossier}/….iife.js`, null sinon */

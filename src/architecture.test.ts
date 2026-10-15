@@ -121,11 +121,26 @@ describe('scripts de contenu légers (PERF-01)', () => {
     expect(heavy.filter((path) => contentModules.has(path))).toEqual([]);
   });
 
-  it('le script du manifeste (Crunchyroll / ADN) n’embarque pas les lecteurs de l’historique (injectés à la demande)', () => {
-    const manifestScript = reachableFrom(['content/content.iife.ts'], { valuesOnly: true });
+  /** Scripts isolés du manifeste, un par plateforme (une page ne charge que le sien) */
+  const MANIFEST_SCRIPTS = { crunchyroll: 'content/crunchyroll/content-crunchyroll.iife.ts', adn: 'content/adn/content-adn.iife.ts' } as const;
+
+  it('les scripts du manifeste (Crunchyroll, ADN) n’embarquent pas les lecteurs de l’historique (injectés à la demande)', () => {
     const readers = ['content/crunchyroll/history.ts', 'content/crunchyroll/history-port.ts', 'content/adn/history.ts', 'content/lib/history-port.ts', 'content/lib/page-fetch.ts'];
-    expect(readers.filter((path) => manifestScript.has(path))).toEqual([]);
+    for (const entry of Object.values(MANIFEST_SCRIPTS)) {
+      const manifestScript = reachableFrom([entry], { valuesOnly: true });
+      expect(manifestScript.has('content/start.ts'), entry).toBe(true);
+      expect(readers.filter((path) => manifestScript.has(path)), entry).toEqual([]);
+    }
     expect(reachableFrom(['content/history/history.iife.ts'], { valuesOnly: true }).has('content/adn/history.ts')).toBe(true);
+  });
+
+  it('chaque script du manifeste n’embarque que l’adapter de sa plateforme', () => {
+    const crunchyroll = reachableFrom([MANIFEST_SCRIPTS.crunchyroll], { valuesOnly: true });
+    const adn = reachableFrom([MANIFEST_SCRIPTS.adn], { valuesOnly: true });
+    expect(crunchyroll.has('content/crunchyroll/adapter.ts')).toBe(true);
+    expect(adn.has('content/adn/adapter.ts')).toBe(true);
+    expect([...crunchyroll].filter((path) => path.startsWith('content/adn/'))).toEqual([]);
+    expect([...adn].filter((path) => path.startsWith('content/crunchyroll/'))).toEqual([]);
   });
 
   it('protocol/messages.ts n’importe que des types (sendMessage seul y est du code)', () => {

@@ -1,7 +1,7 @@
 // Client du pont Crunchyroll, côté script de contenu isolé : reçoit du script du monde MAIN (page-bridge.iife.ts), sur
 // un canal privé (MessageChannel, voir bridge-protocol.ts), la table des signaux de chaque série vue par la page.
 // Lecture synchrone du cache (revalidée par crunchyrollTableSignals) : sans pont ou sans donnée, aucun signal
-// (comportement d'avant). Volontairement minimal : il est chargé par le script de contenu Crunchyroll / ADN (budget).
+// (comportement d'avant). Volontairement minimal : il est chargé par le script de contenu Crunchyroll (budget).
 import { CRUNCHYROLL_HANDSHAKE_EVENT, CRUNCHYROLL_MAX_SERIES, decodeCrunchyrollPush, encodeCrunchyrollHandshake, encodeCrunchyrollPortOffer } from './bridge-protocol';
 
 export interface CrunchyrollBridgeOptions {

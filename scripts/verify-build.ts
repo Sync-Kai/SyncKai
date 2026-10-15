@@ -4,7 +4,7 @@
  * - `web_accessible_resources` : scripts Netflix et Disney+ limités à leur plateforme, rien d'exposé à tous les sites ;
  * - `*.iife.js` : scripts classiques (aucun import ni export, aucun `import(`) ;
  * - permissions, motifs, CSP des pages et commandes clavier identiques au manifeste source adapté à la cible ;
- * - budgets de taille des scripts de contenu (Crunchyroll / ADN, pont Crunchyroll du monde MAIN, Netflix, Disney+, Prime Video,
+ * - budgets de taille des scripts de contenu (Crunchyroll, ADN, pont Crunchyroll du monde MAIN, Netflix, Disney+, Prime Video,
  *   lecteurs de l'historique injectés par la page d'import) ;
  * - catalogues de traduction chargés à la demande : chaque langue hors anglais dans assets/locales/, référencée par le code ;
  * - ponts du monde MAIN : aucune API d'extension, aucun en-tête ni cookie (chaînes interdites) ; aucun marqueur de build de développement.
@@ -21,10 +21,10 @@ import { BUILD_TARGETS, parseBuildTarget, targetManifest, targetOutDir, type Bui
 import { isExtensionInjectedScript, LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
 import { LOCALES } from '../src/i18n/locale-codes.ts';
 import {
-  CONTENT_SCRIPT_BUDGET_BYTES,
   CRUNCHYROLL_BRIDGE_BUDGET_BYTES,
   DISNEY_SCRIPTS_BUDGET_BYTES,
   HISTORY_READER_BUDGET_BYTES,
+  MANIFEST_SCRIPT_BUDGETS,
   PRIME_SCRIPTS_BUDGET_BYTES,
   NETFLIX_SCRIPTS_BUDGET_BYTES,
   registeredScriptPlatform,
@@ -32,6 +32,7 @@ import {
   checkCommands,
   checkContentSecurityPolicy,
   checkLocaleCatalogs,
+  checkManifestScriptBudgets,
   checkMainWorldBridge,
   checkNoDevMarkers,
   isMainWorldBridge,
@@ -115,10 +116,13 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   errors.push(...checkContentSecurityPolicy(manifest, targetManifest(source, target)));
   errors.push(...checkCommands(manifest, targetManifest(source, target), target));
 
-  // 5. Budgets : chargeur du script de contenu + chunks atteignables ; scripts de chaque plateforme optionnelle
-  // Pont Crunchyroll du monde MAIN (manifeste) : budget à part, comme les scripts des plateformes optionnelles
-  const contentFiles = reachableFiles(manifestScriptFiles(manifest, 'ISOLATED'), referencesOf);
-  const contentBytes = [...contentFiles].reduce((total, file) => total + size(file), 0);
+  // 5. Budgets : chaque script isolé du manifeste (un par plateforme) + fichiers atteignables ; scripts de chaque plateforme
+  // optionnelle. Pont Crunchyroll du monde MAIN (manifeste) : budget à part, comme les scripts des plateformes optionnelles
+  errors.push(...checkManifestScriptBudgets(manifest));
+  const manifestScripts = MANIFEST_SCRIPT_BUDGETS.map((budget) => {
+    const reached = reachableFiles([budget.file], referencesOf);
+    return { ...budget, reached, total: [...reached].reduce((total, file) => total + size(file), 0) };
+  });
   const bridgeFiles = reachableFiles(manifestScriptFiles(manifest, 'MAIN'), referencesOf);
   const bridgeBytes = [...bridgeFiles].reduce((total, file) => total + size(file), 0);
   const platformBytes = (dir: string): number => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).reduce((total, file) => total + size(file), 0);
@@ -130,8 +134,8 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   const historyBytes = historyFiles.reduce((total, file) => total + size(file), 0);
   if (historyFiles.length === 0) errors.push('lecteurs de l’historique (src/content/history/*.iife.js) absents');
   if (historyBytes > HISTORY_READER_BUDGET_BYTES) errors.push(`lecteurs de l’historique : ${kib(historyBytes)} > budget ${kib(HISTORY_READER_BUDGET_BYTES)}`);
-  if (contentBytes > CONTENT_SCRIPT_BUDGET_BYTES) {
-    errors.push(`script de contenu Crunchyroll/ADN : ${kib(contentBytes)} > budget ${kib(CONTENT_SCRIPT_BUDGET_BYTES)}`);
+  for (const script of manifestScripts) {
+    if (script.total > script.bytes) errors.push(`${script.label} : ${kib(script.total)} > budget ${kib(script.bytes)}`);
   }
   if (bridgeBytes > CRUNCHYROLL_BRIDGE_BUDGET_BYTES) errors.push(`pont Crunchyroll (monde MAIN) : ${kib(bridgeBytes)} > budget ${kib(CRUNCHYROLL_BRIDGE_BUDGET_BYTES)}`);
   if (netflixBytes > NETFLIX_SCRIPTS_BUDGET_BYTES) errors.push(`scripts Netflix : ${kib(netflixBytes)} > budget ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)}`);
@@ -158,7 +162,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
 
   const status = errors.length === 0 ? '✔' : '✖';
   console.log(`${status} ${outDir}/ : ${files.size} fichiers, ${roots.length} références du manifeste`);
-  console.log(`  script de contenu Crunchyroll/ADN : ${kib(contentBytes)} / ${kib(CONTENT_SCRIPT_BUDGET_BYTES)} (${contentFiles.size} fichiers)`);
+  for (const script of manifestScripts) console.log(`  ${script.label} : ${kib(script.total)} / ${kib(script.bytes)} (${[...script.reached].filter((file) => files.has(file)).join(', ')})`);
   console.log(`  pont Crunchyroll (monde MAIN) : ${kib(bridgeBytes)} / ${kib(CRUNCHYROLL_BRIDGE_BUDGET_BYTES)} (${[...bridgeFiles].join(', ')})`);
   const listOf = (dir: string): string => iifeFiles.filter((file) => registeredScriptPlatform(file) === dir).join(', ');
   console.log(`  scripts Netflix : ${kib(netflixBytes)} / ${kib(NETFLIX_SCRIPTS_BUDGET_BYTES)} (${listOf('netflix')})`);

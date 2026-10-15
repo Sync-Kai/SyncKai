@@ -61,7 +61,9 @@ describe('constantes de build dans les scripts de contenu', () => {
 
 describe('traductions des scripts de contenu', () => {
   it('les entrées sont trouvées', () => {
-    expect(CONTENT_ENTRIES).toEqual(expect.arrayContaining(['content/content.iife.ts', 'content/netflix/content-netflix.iife.ts', 'content/netflix/page-bridge.iife.ts']));
+    expect(CONTENT_ENTRIES).toEqual(
+      expect.arrayContaining(['content/crunchyroll/content-crunchyroll.iife.ts', 'content/adn/content-adn.iife.ts', 'content/netflix/content-netflix.iife.ts', 'content/netflix/page-bridge.iife.ts']),
+    );
     expect(PAGE_ENTRIES).toEqual(expect.arrayContaining(['background/background.ts', 'popup/popup.ts', 'sidepanel/sidepanel.ts', 'import/import.ts', 'import-cr/import-cr.ts']));
   });
 

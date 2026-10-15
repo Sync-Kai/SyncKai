@@ -3,16 +3,19 @@ import { reinjectContentScripts, reinjectionPlan, type ContentReinjectionApi, ty
 
 // Réinjection des scripts de contenu du manifeste dans les onglets ouverts (installation, mise à jour).
 
-const SCRIPT = 'src/content/content.iife.js';
-const MATCHES = ['*://*.crunchyroll.com/*', '*://animationdigitalnetwork.com/*'];
+const SCRIPT = 'src/content/crunchyroll/content-crunchyroll.iife.js';
+const MATCHES = ['*://*.crunchyroll.com/*'];
+const ADN_SCRIPT = 'src/content/adn/content-adn.iife.js';
+const ADN_MATCHES = ['*://animationdigitalnetwork.com/*', '*://*.animationdigitalnetwork.com/*'];
 
-function fakeApi(scripts: ManifestContentScript[], tabs: number[], failing: number[] = []): ContentReinjectionApi & {
+/** `tabs` : onglets ouverts, les mêmes pour tous les motifs ou selon les motifs demandés */
+function fakeApi(scripts: ManifestContentScript[], tabs: number[] | ((matches: string[]) => number[]), failing: number[] = []): ContentReinjectionApi & {
   inject: ReturnType<typeof vi.fn>;
   tabIds: ReturnType<typeof vi.fn>;
 } {
   return {
     contentScripts: () => scripts,
-    tabIds: vi.fn(() => Promise.resolve(tabs)),
+    tabIds: vi.fn((matches: string[]) => Promise.resolve(typeof tabs === 'function' ? tabs(matches) : tabs)),
     inject: vi.fn((tabId: number) => (failing.includes(tabId) ? Promise.reject(new Error('Cannot access contents of the page')) : Promise.resolve())),
   };
 }
@@ -26,13 +29,16 @@ describe('reinjectContentScripts', () => {
     expect(api.inject).toHaveBeenCalledWith(12, [SCRIPT], 'ISOLATED');
   });
 
-  it('pont Crunchyroll du monde MAIN : réexécuté dans la page, avant le script isolé qui lui demande son canal', async () => {
+  it('manifeste réel : pont Crunchyroll du monde MAIN avant le script isolé qui lui demande son canal, script ADN dans ses seuls onglets', async () => {
     const bridge = 'src/content/crunchyroll/page-bridge.iife.js';
-    const api = fakeApi([{ js: [bridge], matches: ['*://*.crunchyroll.com/*'], world: 'MAIN' }, { js: [SCRIPT], matches: MATCHES }], [11]);
-    expect(await reinjectContentScripts(api, vi.fn())).toBe(2);
+    // Onglet 11 sur Crunchyroll, onglet 21 sur ADN
+    const scripts = [{ js: [bridge], matches: MATCHES, world: 'MAIN' }, { js: [SCRIPT], matches: MATCHES }, { js: [ADN_SCRIPT], matches: ADN_MATCHES }];
+    const api = fakeApi(scripts, (matches) => (matches === ADN_MATCHES ? [21] : [11]));
+    expect(await reinjectContentScripts(api, vi.fn())).toBe(3);
     expect(api.inject.mock.calls).toEqual([
       [11, [bridge], 'MAIN'],
       [11, [SCRIPT], 'ISOLATED'],
+      [21, [ADN_SCRIPT], 'ISOLATED'],
     ]);
   });
 

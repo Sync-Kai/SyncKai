@@ -8,9 +8,11 @@ import {
   checkCommands,
   checkLocaleCatalogs,
   checkMainWorldBridge,
+  checkManifestScriptBudgets,
   checkNoDevMarkers,
   isMainWorldBridge,
   localeCatalogFiles,
+  MANIFEST_SCRIPT_BUDGETS,
   checkContentSecurityPolicy,
   checkWebAccessibleResources,
   fileReferences,
@@ -20,8 +22,12 @@ import {
   reachableFiles,
   type BuiltManifest,
 } from './build-checks.ts';
+import { isExtensionInjectedScript } from '../src/build/output-names.ts';
 
 const CR = ['*://*.crunchyroll.com/*'];
+const ADN = ['*://animationdigitalnetwork.com/*', '*://*.animationdigitalnetwork.com/*'];
+const CR_SCRIPT = 'src/content/crunchyroll/content-crunchyroll.iife.js';
+const ADN_SCRIPT = 'src/content/adn/content-adn.iife.js';
 const netflixEntry = { matches: [NETFLIX_PATTERN], resources: ['src/content/netflix/a.iife.js', 'src/content/netflix/b.iife.js'] };
 const disneyEntry = { matches: [DISNEY_PATTERN], resources: ['src/content/disney/a.iife.js', 'src/content/disney/b.iife.js'] };
 const primeEntry = { matches: [PRIME_PATTERN], resources: ['src/content/prime/a.iife.js', 'src/content/prime/b.iife.js'] };
@@ -35,7 +41,10 @@ const base: BuiltManifest = {
   host_permissions: CR,
   optional_host_permissions: [NETFLIX_PATTERN, DISNEY_PATTERN, PRIME_PATTERN],
   background: { service_worker: 'service-worker-loader.js' },
-  content_scripts: [{ matches: CR, js: ['src/content/content.iife.js'] }],
+  content_scripts: [
+    { matches: CR, js: [CR_SCRIPT] },
+    { matches: ADN, js: [ADN_SCRIPT] },
+  ],
   web_accessible_resources: [netflixEntry, disneyEntry, primeEntry],
   action: { default_popup: 'src/popup/popup.html', default_icon: { '16': 'icons/icon-16.png' } },
 };
@@ -47,7 +56,8 @@ describe('manifestReferences', () => {
       'icons/icon-16.png',
       'src/popup/popup.html',
       'service-worker-loader.js',
-      'src/content/content.iife.js',
+      CR_SCRIPT,
+      ADN_SCRIPT,
       'src/content/netflix/a.iife.js',
       'src/content/netflix/b.iife.js',
       'src/content/disney/a.iife.js',
@@ -69,13 +79,36 @@ describe('manifestScriptFiles', () => {
     const manifest: BuiltManifest = {
       content_scripts: [
         { matches: CR, js: ['src/content/crunchyroll/page-bridge.iife.js'], world: 'MAIN' },
-        { matches: CR, js: ['src/content/content.iife.js'] },
+        { matches: CR, js: [CR_SCRIPT] },
         { matches: CR, js: ['assets/other.js'], world: 'ISOLATED' },
       ],
     };
     expect(manifestScriptFiles(manifest, 'MAIN')).toEqual(['src/content/crunchyroll/page-bridge.iife.js']);
-    expect(manifestScriptFiles(manifest, 'ISOLATED')).toEqual(['src/content/content.iife.js', 'assets/other.js']);
+    expect(manifestScriptFiles(manifest, 'ISOLATED')).toEqual([CR_SCRIPT, 'assets/other.js']);
     expect(manifestScriptFiles({}, 'MAIN')).toEqual([]);
+  });
+});
+
+describe('checkManifestScriptBudgets', () => {
+  it('un budget par script isolé du manifeste (Crunchyroll, ADN), le pont MAIN à part', () => {
+    const bridge = { matches: CR, js: ['src/content/crunchyroll/page-bridge.iife.js'], world: 'MAIN' };
+    expect(checkManifestScriptBudgets({ content_scripts: [bridge, ...(base.content_scripts ?? [])] })).toEqual([]);
+    expect(MANIFEST_SCRIPT_BUDGETS.map((budget) => budget.file)).toEqual([CR_SCRIPT, ADN_SCRIPT]);
+  });
+
+  it('script isolé sans budget, budget sans script', () => {
+    expect(checkManifestScriptBudgets({ content_scripts: [{ matches: CR, js: [CR_SCRIPT, 'src/content/content.iife.js'] }] })).toEqual([
+      'src/content/content.iife.js : script isolé du manifeste sans budget',
+      `script de contenu ADN (${ADN_SCRIPT}) absent du manifeste`,
+    ]);
+  });
+
+  it('scripts du manifeste : ni scripts enregistrés d’une plateforme optionnelle, ni scripts injectés par l’extension, ni ponts MAIN', () => {
+    for (const file of [CR_SCRIPT, ADN_SCRIPT]) {
+      expect(registeredScriptPlatform(file), file).toBeNull();
+      expect(isExtensionInjectedScript(file), file).toBe(false);
+      expect(isMainWorldBridge(file), file).toBe(false);
+    }
   });
 });
 
@@ -132,6 +165,12 @@ describe('checkWebAccessibleResources', () => {
     ]);
     expect(registeredScriptPlatform(history)).toBeNull();
     expect(isMainWorldBridge(history)).toBe(false);
+  });
+
+  it('scripts du manifeste (Crunchyroll, ADN) exposés à un site : refusés, aucune plateforme optionnelle ne les revendique', () => {
+    expect(checkWebAccessibleResources({ ...base, web_accessible_resources: [{ matches: [PRIME_PATTERN], resources: [CR_SCRIPT, ADN_SCRIPT] }, netflixEntry, disneyEntry, primeEntry] })).toEqual([
+      `web_accessible_resources ["${PRIME_PATTERN}"] : scripts sans plateforme connue (${CR_SCRIPT}, ${ADN_SCRIPT})`,
+    ]);
   });
 
   it('plateforme d’un script enregistré : dossier connu uniquement', () => {

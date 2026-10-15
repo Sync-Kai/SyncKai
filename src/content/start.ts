@@ -28,7 +28,7 @@ export interface StartContentOptions {
 
 /**
  * Point d'entrée commun des scripts de contenu : choisit l'adapter du site et suit les pages de lecture.
- * Un bundle par groupe de plateformes (content.iife.ts : Crunchyroll / ADN ; netflix/content-netflix.iife.ts : Netflix).
+ * Un bundle par plateforme (crunchyroll/content-crunchyroll.iife.ts, adn/content-adn.iife.ts, netflix/content-netflix.iife.ts…).
  */
 export function startContent(adapters: readonly StreamingAdapter[], options: StartContentOptions = {}): void {
   // Langue des toasts lue au démarrage, puis relue à chaque lecture (watch-session, qui l'attend avant tout toast) : ni

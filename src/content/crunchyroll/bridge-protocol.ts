@@ -1,5 +1,5 @@
 // Protocole du pont Crunchyroll entre le script de la page (monde MAIN, page-bridge.iife.ts, déclaré dans le manifeste) et
-// le script de contenu isolé (content.iife.ts). Module PUR : aucun accès au DOM ni à chrome.*, importé des deux côtés.
+// le script de contenu isolé (content-crunchyroll.iife.ts). Module PUR : aucun accès au DOM ni à chrome.*, importé des deux côtés.
 //
 // Le pont est PASSIF : il n'émet aucune requête. Il lit le corps JSON de quatre requêtes que l'application Crunchyroll
 // envoie elle-même (porteuses du jeton de l'utilisateur dans leurs EN-TÊTES, jamais lus) et n'en garde que la forme
@@ -21,7 +21,7 @@ import type { CrunchyrollSignalTable } from '../../platforms/crunchyroll/metadat
  * version précédente reste dans les onglets ouverts après une mise à jour. Chaque côté ignore les messages d'une autre version.
  */
 export const CRUNCHYROLL_BRIDGE_VERSION = 2;
-// Noms courts : chaînes chargées par le script de contenu Crunchyroll / ADN (budget de taille)
+// Noms courts : chaînes chargées par le script de contenu Crunchyroll (budget de taille)
 export const CRUNCHYROLL_HANDSHAKE_EVENT = 'synckai:cr-hello';
 export const CRUNCHYROLL_PORT_OFFER = 'synckai:cr-port';
 /** Séries gardées et poussées en une fois */
