@@ -1,4 +1,4 @@
-import { MAX_ADN_HISTORY_ITEMS, type AdnHistoryPortMessage, type AdnHistoryRead } from './adn-history';
+import { MAX_ADN_HISTORY_ITEMS, type AdnHistoryPortMessage, type AdnHistoryRead } from '../protocol/adn-history';
 import { CR_HISTORY_ERROR_CODES, isHistoryStats, isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryResult, type HistorySeason } from './cr-history';
 import { isRecord } from './guards';
 

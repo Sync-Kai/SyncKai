@@ -1,4 +1,4 @@
-import { PAGE_MEDIA_ASYNC_TIMEOUT_MS } from '../../shared/content-messages';
+import { PAGE_MEDIA_ASYNC_TIMEOUT_MS } from '../../protocol/content-messages';
 import type { PageMediaInfo } from '../../shared/page-media.types';
 import { pageMediaFromEpisode, pageMediaFromSeries } from '../../shared/page-media';
 import type { StreamingAdapter } from './adapter';

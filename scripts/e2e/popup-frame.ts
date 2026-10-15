@@ -9,7 +9,7 @@ import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../src/shared/error-j
 import { isRecord } from '../../src/shared/guards';
 import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
 import type { ListNotesResult } from '../../src/shared/list-notes';
-import { STORAGE_KEYS } from '../../src/shared/storage-keys';
+import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../src/shared/watching.types';

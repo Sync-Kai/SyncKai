@@ -6,10 +6,10 @@ import { isAniListViewer, type ViewerErrorCode, type ViewerResult } from '../sha
 import type { AuthResult } from '../shared/auth.types';
 import { createLogger } from '../shared/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
-import { sendMessage } from '../shared/messages';
+import { sendMessage } from '../protocol/messages';
 import { endSession } from '../shared/session-end';
 import { getCachedMalViewer, getCachedViewer, getViewerFetchedAt, hasAniListToken, hasMalToken, hasValidAniListToken, isSessionExpired } from '../shared/storage';
-import { STORAGE_KEYS } from '../shared/storage-keys';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { createStore, LOGGED_OUT, type AccountState, type AniListState, type MalState, type Store } from './state';
 

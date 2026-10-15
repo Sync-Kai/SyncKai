@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { installFakeChrome } from '../test/fake-chrome';
 import { REWATCH_DECLINE_MS, type PendingRating } from './engagement.types';
-import { PENDING_RATINGS_KEY } from './storage-keys';
+import { PENDING_RATINGS_KEY } from '../protocol/storage-keys';
 import type { ServiceResult } from './sync.types';
 
 const fake = installFakeChrome();

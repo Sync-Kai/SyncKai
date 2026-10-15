@@ -22,7 +22,7 @@ vi.mock('../shared/logger', () => {
   const noop = (): void => undefined;
   return { createLogger: () => ({ debug: noop, info: noop, warn: noop, error: noop }) };
 });
-vi.mock('../shared/messages', () => ({ sendMessage: vi.fn(() => Promise.resolve()) }));
+vi.mock('../protocol/messages', () => ({ sendMessage: vi.fn(() => Promise.resolve()) }));
 vi.mock('./ui/toast', () => ({ showToast: mocks.showToast }));
 vi.mock('./ui/sync-toast', () => ({ NOTICE_TOAST_MS: 5_000 }));
 vi.mock('./lib/page-media', () => ({ detectPageMedia: mocks.detectPageMedia, needsAsyncPageMedia: mocks.needsAsyncPageMedia, loadPageMedia: mocks.loadPageMedia }));

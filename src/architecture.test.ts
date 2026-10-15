@@ -50,6 +50,10 @@ describe('frontières des modules', () => {
     expect(violations('shared', ['ui', 'popup', 'sidepanel', 'content', 'background', 'import', 'import-cr'])).toEqual([]);
   });
 
+  it('protocol/ (contrats entre contextes d’exécution) ne dépend d’aucune couche applicative', () => {
+    expect(violations('protocol', ['ui', 'popup', 'sidepanel', 'content', 'background', 'import', 'import-cr'])).toEqual([]);
+  });
+
   it('ui/ ne dépend ni du popup ni du panneau latéral', () => {
     expect(violations('ui', ['popup', 'sidepanel'])).toEqual([]);
   });
@@ -90,12 +94,12 @@ describe('scripts de contenu légers (PERF-01)', () => {
       // Descripteurs des plateformes (logos, hôtes, liens) : platform-ids.ts suffit
       'shared/platforms.ts',
     ];
-    expect(contentModules.has('shared/messages.ts')).toBe(true);
+    expect(contentModules.has('protocol/messages.ts')).toBe(true);
     expect(heavy.filter((path) => contentModules.has(path))).toEqual([]);
   });
 
-  it('shared/messages.ts n’importe que des types (sendMessage seul y est du code)', () => {
-    expect(edges.filter((e) => e.from === 'shared/messages.ts' && !e.typeOnly).map(describeEdge)).toEqual([]);
+  it('protocol/messages.ts n’importe que des types (sendMessage seul y est du code)', () => {
+    expect(edges.filter((e) => e.from === 'protocol/messages.ts' && !e.typeOnly).map(describeEdge)).toEqual([]);
   });
 });
 
@@ -193,7 +197,6 @@ describe('shared/ : cliquet des modules qui appellent une API du navigateur', ()
     'shared/exclusions-core.ts',
     'shared/exclusions.ts',
     'shared/host-access.ts',
-    'shared/messages.ts',
     'shared/platform-access.ts',
     'shared/platform-links-store.ts',
     'shared/session-cache.ts',

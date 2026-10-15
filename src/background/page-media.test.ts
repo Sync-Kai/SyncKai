@@ -3,7 +3,7 @@ import { setLocale, t } from '../i18n';
 import type { EpisodeInfo } from '../shared/episode.types';
 import type { PageMediaDetails, PageMediaInfo } from '../shared/page-media.types';
 import type { CandidateSummary } from '../shared/review.types';
-import { STORAGE_KEYS } from '../shared/storage-keys';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { installFakeChrome } from '../test/fake-chrome';
 import type { AniListMedia } from './api/media';
 import {

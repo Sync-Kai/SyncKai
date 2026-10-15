@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
-import type { LiveContentMessage } from '../../shared/live.types';
+import type { LiveContentMessage } from '../../protocol/live';
 import { createLiveStream, liveOutcomeOf, sameTick, toTick, type LiveSnapshot } from './live-stream';
 
 const playing = (t: number, extra: Partial<LiveSnapshot> = {}): LiveSnapshot => ({

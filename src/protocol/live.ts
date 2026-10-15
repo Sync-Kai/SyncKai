@@ -1,4 +1,4 @@
-import { isRecord } from './guards';
+import { isRecord } from '../shared/guards';
 
 // Progression en direct : port longue durée entre le panneau latéral et le script de contenu de son onglet
 // (chrome.tabs.connect). Le service worker n'intervient pas : il reste endormi pendant la lecture.

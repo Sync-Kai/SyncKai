@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../shared/guards';
 import { saveMediaMapping } from '../shared/storage';
-import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../shared/storage-keys';
+import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../protocol/storage-keys';
 import { STORAGE_LOCK } from '../shared/storage-lock-core';
 import type { PendingRating } from '../shared/engagement.types';
 import type { EpisodeInfo } from '../shared/episode.types';

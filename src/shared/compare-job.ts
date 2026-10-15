@@ -1,6 +1,6 @@
 import { isRecord } from './guards';
 import { isJobOf, startJob, type Job } from './job';
-import { STORAGE_KEYS } from './storage-keys';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { isTrackerId, type TrackerId } from './tracker.types';
 
 // Tâche de comparaison (analyse ou alignement) persistée dans chrome.storage.local (`compare:job`) :

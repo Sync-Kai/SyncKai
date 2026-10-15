@@ -7,7 +7,7 @@ import { isRecord } from './guards';
 import { buildDiagnosticsReport, describeBrowser, type BuildMode } from './diagnostics';
 import { getSettings } from './settings';
 import { getMediaMappings, getPendingReviews, getRecentSyncs, isStoredToken } from './storage';
-import { STORAGE_KEYS } from './storage-keys';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { getSyncQueue } from './sync-queue-store';
 import { readTokenSecrets } from './token-access';
 

@@ -6,7 +6,7 @@ import { expect } from 'vitest';
 import { mappingKey } from '../../src/background/sync/matching';
 import type { EpisodeInfo } from '../../src/shared/episode.types';
 import { SETTINGS_STORAGE_KEY, type SyncSettings } from '../../src/shared/settings';
-import { STORAGE_KEYS } from '../../src/shared/storage-keys';
+import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import type { AniListAccountSeed, AniListEntrySeed, AniListMediaSeed, FakeAniList } from './fake-anilist';
 import type { FakeMal, MalAccountSeed, MalAnimeSeed, MalListStatusSeed } from './fake-mal';

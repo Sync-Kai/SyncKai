@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLiveContentMessage, isLivePanelMessage, LIVE_STATES } from './live.types';
+import { isLiveContentMessage, isLivePanelMessage, LIVE_STATES } from './live';
 
 describe('messages de progression en direct', () => {
   const tick = { type: 'tick', t: 125, duration: 1420, paused: false, point: { seconds: 1290, source: 'credits' }, state: 'watching' };

@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import type { AniListErrorCode } from '../../shared/anilist.types';
 import { createLogger } from '../../shared/logger';
-import type { ResolveReviewPayload } from '../../shared/messages';
+import type { ResolveReviewPayload } from '../../protocol/messages';
 import type { Result } from '../../shared/result';
 import type { DeferredEpisode } from '../../shared/review.types';
 import { liveServices, pickSessions } from '../../shared/session-epochs';

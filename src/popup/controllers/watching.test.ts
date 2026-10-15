@@ -19,13 +19,13 @@ interface PendingCall {
 
 const sw = vi.hoisted(() => ({ calls: [] as PendingCall[] }));
 
-vi.mock('../../shared/messages', () => ({
+vi.mock('../../protocol/messages', () => ({
   sendMessage: (type: string, payload: unknown) => new Promise((resolve, reject) => sw.calls.push({ type, payload, resolve, reject })),
 }));
 
 const fake = installFakeChrome();
 const { createWatchingController } = await import('./watching');
-const { STORAGE_KEYS } = await import('../../shared/storage-keys');
+const { STORAGE_KEYS } = await import('../../protocol/storage-keys');
 const { PLATFORM_LINKS_KEY } = await import('../../shared/platform-links');
 const { popupTimeouts } = await import('../timeouts');
 const { t } = await import('../../i18n');

@@ -1,7 +1,7 @@
 import { isMediaRef, mediaRefId, REWATCH_DECLINE_MS, type MediaRef, type PendingRating } from './engagement.types';
 import { isRecord } from './guards';
 import { isSessionEpochs } from './session-epochs';
-import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from './storage-keys';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY } from '../protocol/storage-keys';
 import { withStorageLock } from './storage-lock';
 import type { ServiceResult } from './sync.types';
 import { isSafeImageUrl } from './url';

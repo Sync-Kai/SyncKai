@@ -16,7 +16,7 @@ interface PendingCall {
 
 const sw = vi.hoisted(() => ({ calls: [] as PendingCall[] }));
 
-vi.mock('../../shared/messages', () => ({
+vi.mock('../../protocol/messages', () => ({
   sendMessage: (type: string, payload: unknown) => new Promise((resolve, reject) => sw.calls.push({ type, payload, resolve, reject })),
 }));
 

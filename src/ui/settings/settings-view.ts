@@ -3,7 +3,7 @@
 // tout comportement propre à l'hôte passe par `SettingsHost`.
 import { getLocale, onLocaleChange, t } from '../../i18n';
 import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.types';
-import { COMPLETE_EPISODE_COMMAND, panelCommandName } from '../../shared/commands';
+import { COMPLETE_EPISODE_COMMAND, panelCommandName } from '../../protocol/commands';
 import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../shared/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
@@ -11,7 +11,7 @@ import { hasPlatformAccess } from '../../shared/platform-access';
 import { getSettings, normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { updateSettings } from '../../shared/settings-store';
 import { getMediaMappings } from '../../shared/storage';
-import { STORAGE_KEYS } from '../../shared/storage-keys';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { kanaLabel } from '../kit';
 import { h, nodes, preserveFocus } from '../dom';
 import { icon, type IconName } from '../icons';
@@ -180,7 +180,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   }
 
   /**
-   * Raccourcis « valider l'épisode » et « ouvrir le panneau » (nom propre à la cible : voir shared/commands.ts). Relus
+   * Raccourcis « valider l'épisode » et « ouvrir le panneau » (nom propre à la cible : voir protocol/commands.ts). Relus
    * quand la vue reprend le focus : la touche a pu être changée dans la page des raccourcis du navigateur (panneau resté ouvert).
    */
   async function loadShortcuts(): Promise<void> {

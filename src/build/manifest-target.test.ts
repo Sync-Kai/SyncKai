@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import manifest from '../../manifest.json';
-import { COMPLETE_EPISODE_COMMAND, FIREFOX_SIDEBAR_COMMAND, OPEN_SIDE_PANEL_COMMAND, panelCommandName } from '../shared/commands';
+import { COMPLETE_EPISODE_COMMAND, FIREFOX_SIDEBAR_COMMAND, OPEN_SIDE_PANEL_COMMAND, panelCommandName } from '../protocol/commands';
 import {
   FIREFOX_GECKO_ID,
   FIREFOX_MENU_ACCESS_KEYS,
@@ -71,7 +71,7 @@ describe('targetManifest', () => {
 });
 
 describe('raccourcis clavier (commands)', () => {
-  it('noms partagés avec le service worker et les réglages (src/shared/commands.ts)', () => {
+  it('noms partagés avec le service worker et les réglages (src/protocol/commands.ts)', () => {
     expect(SOURCE_PANEL_COMMAND).toBe(OPEN_SIDE_PANEL_COMMAND);
     expect(FIREFOX_PANEL_COMMAND).toBe(FIREFOX_SIDEBAR_COMMAND);
     expect(panelCommandName('chrome')).toBe(OPEN_SIDE_PANEL_COMMAND);

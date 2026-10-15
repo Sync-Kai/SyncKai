@@ -5,7 +5,7 @@ import {
   MAX_ADN_HISTORY_PAGES,
   type AdnHistoryPortMessage,
   type AdnHistoryRead,
-} from '../../shared/content-messages';
+} from '../../protocol/content-messages';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
 import { CrHistoryError } from '../crunchyroll/history';

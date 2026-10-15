@@ -11,7 +11,7 @@ import { describe, expect, it, type TestContext } from 'vitest';
 import { registerCatalogs, tl, tpl, type MessageKey, type MessageParams } from '../../src/i18n';
 import { CR_IMPORT_KEYS, isCrImportJob, type CrImportJob } from '../../src/shared/cr-import';
 import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
-import { STORAGE_KEYS } from '../../src/shared/storage-keys';
+import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { catalogOf } from '../../src/test/catalogs';
 import { FakeAniList, type AniListMediaSeed } from './fake-anilist';
 import { FakeAdnHistory, FakeCrunchyrollHistory, type AdnVideoSeed, type CrHistoryItemSeed } from './fake-history';

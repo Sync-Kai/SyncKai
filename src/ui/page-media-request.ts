@@ -1,4 +1,4 @@
-import { isPageMediaResponse, PAGE_MEDIA_ASYNC_TIMEOUT_MS, type ContentMessage, type PageMediaResponse } from '../shared/content-messages';
+import { isPageMediaResponse, PAGE_MEDIA_ASYNC_TIMEOUT_MS, type ContentMessage, type PageMediaResponse } from '../protocol/content-messages';
 
 // Lecture de la page d'un onglet (GET_PAGE_MEDIA au script de contenu) : une seule implémentation et les mêmes délais
 // pour le popup (carte « Sur cette page »), le panneau (« En lecture ») et sa détection d'onglet (presence.ts).

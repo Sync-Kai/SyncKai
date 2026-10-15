@@ -16,13 +16,13 @@ interface PendingCall {
 
 const sw = vi.hoisted(() => ({ calls: [] as PendingCall[] }));
 
-vi.mock('../../shared/messages', () => ({
+vi.mock('../../protocol/messages', () => ({
   sendMessage: (type: string, payload: unknown) => new Promise((resolve, reject) => sw.calls.push({ type, payload, resolve, reject })),
 }));
 
 const fake = installFakeChrome();
 const { createQueueController } = await import('./queue');
-const { SYNC_QUEUE_KEY } = await import('../../shared/storage-keys');
+const { SYNC_QUEUE_KEY } = await import('../../protocol/storage-keys');
 const { NOTICE_MS } = await import('./notice');
 
 async function settle(): Promise<void> {

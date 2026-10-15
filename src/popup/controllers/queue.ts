@@ -2,8 +2,8 @@
 // service worker et abandon d'un élément.
 import { t } from '../../i18n';
 import { createLogger } from '../../shared/logger';
-import { sendMessage } from '../../shared/messages';
-import { SYNC_QUEUE_KEY } from '../../shared/storage-keys';
+import { sendMessage } from '../../protocol/messages';
+import { SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import { getSyncQueue, removeQueueItem } from '../../shared/sync-queue-store';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { retryFeedback } from '../../ui/feedback';

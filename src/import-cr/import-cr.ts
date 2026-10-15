@@ -1,6 +1,6 @@
 import { getLocale, initI18n, onLocaleChange, t, tp, type MessageKey } from '../i18n';
 import { isAdnHistoryPortMessage, reduceAdnHistory } from '../shared/adn-import';
-import { ADN_HISTORY_PORT_NAME, CR_HISTORY_PORT_NAME, isCrHistoryPortMessage } from '../shared/content-messages';
+import { ADN_HISTORY_PORT_NAME, CR_HISTORY_PORT_NAME, isCrHistoryPortMessage } from '../protocol/content-messages';
 import { MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistoryStats } from '../shared/cr-history';
 import {
   CR_IMPORT_KEYS,
@@ -21,7 +21,7 @@ import {
 } from '../shared/cr-import';
 import { dismissCrImportJob, resetCrImport } from '../shared/cr-import-store';
 import { hasHostAccess, requestHostAccess } from '../shared/host-access';
-import { NETFLIX_HISTORY_HOOK } from '../shared/netflix-history';
+import { NETFLIX_HISTORY_HOOK } from '../protocol/netflix-history';
 import {
   groupNetflixRows,
   keepsShow,
@@ -39,10 +39,10 @@ import { isNetflixShowMetadata, type NetflixShowMetadata } from '../shared/netfl
 import { hasPlatformAccess, requestPlatformAccess } from '../shared/platform-access';
 import { isJobActive } from '../shared/job';
 import { createLogger } from '../shared/logger';
-import { sendMessage } from '../shared/messages';
+import { sendMessage } from '../protocol/messages';
 import { PLATFORMS } from '../shared/platforms';
 import { getSettings } from '../shared/settings';
-import { STORAGE_KEYS } from '../shared/storage-keys';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../ui/dom';
 import { icon, kai } from '../ui/icons';

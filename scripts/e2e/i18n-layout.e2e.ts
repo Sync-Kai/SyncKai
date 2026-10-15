@@ -22,7 +22,7 @@ import type { Browser, Page } from 'puppeteer';
 import { afterAll, beforeAll, describe, it } from 'vitest';
 import { isLocale, LOCALES, type Locale } from '../../src/i18n';
 import { CR_IMPORT_KEYS } from '../../src/shared/cr-import';
-import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/shared/storage-keys';
+import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
 import { SETTINGS_CATEGORIES } from '../../src/ui/settings/navigation';
 import { demoChrome } from '../screenshots/demo-data';
 import { importPlan } from '../screenshots/demo-panel';

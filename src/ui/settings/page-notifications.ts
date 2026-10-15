@@ -5,7 +5,7 @@ import { formatAiringStatus } from '../../shared/airing.types';
 import { AIRING_DELAYS, type AiringDelayHours } from '../../shared/engagement.types';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../shared/logger';
-import { sendMessage } from '../../shared/messages';
+import { sendMessage } from '../../protocol/messages';
 import { STREAMING_PLATFORMS } from '../../shared/platforms';
 import { normalizeOffset, OFFSET_RANGE, parseOffsetInput, type NotificationLevel, type SyncSettings } from '../../shared/settings';
 import { BTN_GHOST, CARD, PLATFORM_LABELS, segmented } from '../kit';

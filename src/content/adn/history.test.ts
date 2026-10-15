@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ADN_HISTORY_VIDEOS } from '../../shared/__fixtures__/adn-history';
-import { ADN_HISTORY_PORT_NAME, MAX_ADN_HISTORY_PAGES, type AdnHistoryPortMessage } from '../../shared/adn-history';
+import { ADN_HISTORY_PORT_NAME, MAX_ADN_HISTORY_PAGES, type AdnHistoryPortMessage } from '../../protocol/adn-history';
 import { isAdnHistoryPortMessage } from '../../shared/adn-import';
 import { ADN_HISTORY_URL, ADN_RETRY_DELAYS_MS, adnHeaders, listenAdnHistoryPorts, readAdnHistory, type AdnReaderDeps } from './history';
 import { CrHistoryError } from '../crunchyroll/history';

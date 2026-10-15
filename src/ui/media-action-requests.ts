@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { sendMessage, type AdjustProgressPayload } from '../shared/messages';
+import { sendMessage, type AdjustProgressPayload } from '../protocol/messages';
 import type { PageMediaView } from '../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { addFeedback, adjustFeedback, notesFeedback, ratingFeedback, removeFeedback, statusFeedback } from './feedback';

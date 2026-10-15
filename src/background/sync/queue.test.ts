@@ -3,7 +3,7 @@ import { setLocale, t } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SyncQueueItem } from '../../shared/queue.types';
 import type { SyncOutcome } from '../../shared/sync.types';
-import { SYNC_QUEUE_KEY } from '../../shared/storage-keys';
+import { SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import { installFakeChrome } from '../../test/fake-chrome';
 
 // File de relance : vrai queue.ts, vrai stockage et vraies alarmes (fausse API chrome partagée), Web Locks en

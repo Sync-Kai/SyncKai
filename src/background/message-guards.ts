@@ -1,6 +1,6 @@
 // Contrôle des messages reçus par le service worker (seul importateur) : expéditeurs autorisés et validation des
 // payloads. Hors du graphe des scripts de contenu, qui n'ont besoin que de `sendMessage` et des types
-// (shared/messages.ts) : les gardes de tous les payloads (import, comparaison, agenda…) n'alourdissent pas les pages.
+// (protocol/messages.ts) : les gardes de tous les payloads (import, comparaison, agenda…) n'alourdissent pas les pages.
 import { isLocale, type Locale } from '../i18n/locale-codes';
 import { isAgendaPayload } from '../shared/agenda';
 import { isApplyDiffsPayload } from '../shared/compare';
@@ -20,7 +20,7 @@ import type {
   MessageType,
   ResolveReviewPayload,
   SetListStatusPayload,
-} from '../shared/messages';
+} from '../protocol/messages';
 import { isPageMediaInfo, type ResolvePageMediaPayload } from '../shared/page-media.types';
 import { isAddListStatus, isListStatusChange } from '../shared/sync.types';
 import { isTrackerId, type TrackerId } from '../shared/tracker.types';

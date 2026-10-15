@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../shared/episode.types';
 import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
-import type { PageMediaResponse } from '../shared/content-messages';
+import type { PageMediaResponse } from '../protocol/content-messages';
 import type { CachedPageMedia } from '../shared/page-media-cache';
 import type { PanelMedia } from '../shared/panel-media.types';
 import type { SessionEpochs } from '../shared/session-epochs';
-import { STORAGE_KEYS } from '../shared/storage-keys';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { PageMediaController } from './page-media-controller';
 
 // Contrôleur « fiche de la page » (popup et panneau) avec un faux service worker (sendMessage) et un faux script de
@@ -47,7 +47,7 @@ const fake = vi.hoisted(() => ({
   accessListeners: [] as (() => void)[],
 }));
 
-vi.mock('../shared/messages', () => ({
+vi.mock('../protocol/messages', () => ({
   sendMessage: (type: string, payload: unknown) => new Promise((resolve) => fake.calls.push({ type, payload, resolve })),
 }));
 
@@ -89,7 +89,7 @@ vi.stubGlobal('chrome', {
 });
 
 const { AUTO_REDETECT_MAX_PER_MINUTE, createPageMediaController } = await import('./page-media-controller');
-const { sendMessage } = await import('../shared/messages');
+const { sendMessage } = await import('../protocol/messages');
 const { pageMediaCacheKey, toCachedPageMedia } = await import('../shared/page-media-cache');
 const { getLocale, setLocale } = await import('../i18n');
 

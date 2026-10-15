@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { TestContext } from 'vitest';
 import puppeteer, { type Browser, type CDPSession, type HTTPRequest, type Page, type Protocol, type Target } from 'puppeteer';
-import type { MessagePayload, MessageResponse, MessageType } from '../../src/shared/messages';
+import type { MessagePayload, MessageResponse, MessageType } from '../../src/protocol/messages';
 
 export const ROOT: string = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 

@@ -1,5 +1,5 @@
 import { createLogger } from '../shared/logger';
-import { isPanelToggleMessage } from '../shared/panel-toggle';
+import { isPanelToggleMessage } from '../protocol/panel-toggle';
 import { getChromeSidePanel } from '../shared/side-panel';
 
 // Raccourci « Ouvrir ou fermer le panneau latéral » (Chrome) : côté panneau, la fermeture.

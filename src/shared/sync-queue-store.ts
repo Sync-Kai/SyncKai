@@ -1,6 +1,6 @@
 import { isSyncQueueItem, restrictToSession, type SyncQueueItem } from './queue.types';
 import { getOpenSessions } from './storage';
-import { SYNC_QUEUE_KEY } from './storage-keys';
+import { SYNC_QUEUE_KEY } from '../protocol/storage-keys';
 import { withStorageLock } from './storage-lock';
 
 // Accès au stockage de la file de synchro (popup + service worker).

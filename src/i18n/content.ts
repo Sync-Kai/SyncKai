@@ -2,7 +2,7 @@
 // (`define` de vite.config.ts, voir src/build/content-catalog.ts) au lieu des catalogues complets (PERF-01). Une autre
 // langue est demandée au service worker au premier usage (GET_CONTENT_CATALOG : les mêmes clés, dans cette langue).
 // Importé par les modules de `content/` ; les modules partagés qu'ils utilisent importent `./core`.
-import { sendMessage } from '../shared/messages';
+import { sendMessage } from '../protocol/messages';
 import {
   applyLanguageSetting as applyCore,
   hasCatalogLoader,

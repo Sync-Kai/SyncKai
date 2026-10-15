@@ -7,11 +7,11 @@ import { weekRangeFromKey, type AiringSchedule, type AiringWeekCache } from '../
 import type { CrImportPlan, CrPlanItem, CrReviewItem, CrServicePlan } from '../../src/shared/cr-import';
 import type { EpisodeInfo } from '../../src/shared/episode.types';
 import { isRecord } from '../../src/shared/guards';
-import { LIVE_PORT_NAME, type LiveContentMessage } from '../../src/shared/live.types';
+import { LIVE_PORT_NAME, type LiveContentMessage } from '../../src/protocol/live';
 import { pageMediaCacheKey, toCachedPageMedia } from '../../src/shared/page-media-cache';
 import type { PageMediaInfo, PageMediaView } from '../../src/shared/page-media.types';
 import type { PanelMedia } from '../../src/shared/panel-media.types';
-import { STORAGE_KEYS } from '../../src/shared/storage-keys';
+import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { PANEL_LAST_TAB_KEY, type PanelTab } from '../../src/sidepanel/tabs';
 import { bannerUrl, coverUrl } from './covers';
 import { demoChrome, episode, SERIES } from './demo-data';

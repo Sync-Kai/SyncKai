@@ -3,7 +3,7 @@
 // Lancement : npm run test:ext
 import { describe, expect, it } from 'vitest';
 import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
-import { PENDING_RATINGS_KEY } from '../../src/shared/storage-keys';
+import { PENDING_RATINGS_KEY } from '../../src/protocol/storage-keys';
 import { FakeAniList } from './fake-anilist';
 import { FakeMal } from './fake-mal';
 import { startExtension, waitFor } from './harness';

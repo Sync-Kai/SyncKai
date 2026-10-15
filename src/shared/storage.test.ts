@@ -4,7 +4,7 @@ import type { EpisodeInfo } from './episode.types';
 import type { SyncQueueItem } from './queue.types';
 import type { PendingReview, RecentSync } from './review.types';
 import type { SessionEpochs } from './session-epochs';
-import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from './storage-keys';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../protocol/storage-keys';
 import type { MediaMapping } from './sync.types';
 import { forgetTokenKey } from '../test/memory-key-store';
 import { revealToken } from '../test/tokens';

@@ -9,7 +9,7 @@ import { launchBrowser, startHarnessServer, type HarnessServer } from '../screen
 import type { SentMessage } from '../screenshots/mock-chrome';
 import { PLATFORM_LINKS_KEY } from '../../src/shared/platform-links';
 import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
-import { STORAGE_KEYS } from '../../src/shared/storage-keys';
+import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { COMPARE_JOB_KEY, type CompareJob } from '../../src/shared/compare-job';
 import { PLANTED_SECRETS, type E2EState, type FrameParams } from './protocol';
 

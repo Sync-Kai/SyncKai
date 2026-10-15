@@ -1,4 +1,4 @@
-import { CR_HISTORY_PORT_NAME, isCrHistoryRequest, type CrHistoryPortMessage } from '../../shared/content-messages';
+import { CR_HISTORY_PORT_NAME, isCrHistoryRequest, type CrHistoryPortMessage } from '../../protocol/content-messages';
 import { createLogger } from '../../shared/logger';
 import { getSettings } from '../../shared/settings';
 import { CrHistoryError, pageLocale, readCrunchyrollHistory } from './history';

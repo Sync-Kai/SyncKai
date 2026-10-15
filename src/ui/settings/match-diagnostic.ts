@@ -3,7 +3,7 @@
 // dans storage.session ; « Copier » donne une décision en JSON (cas du corpus), « Effacer » vide la liste.
 import { getLocale, t } from '../../i18n';
 import { clearMatchDecisions, readMatchDecisions, type MatchDecision } from '../../shared/match-diagnostic';
-import { MATCH_DIAGNOSTIC_KEY } from '../../shared/storage-keys';
+import { MATCH_DIAGNOSTIC_KEY } from '../../protocol/storage-keys';
 import { PLATFORMS } from '../../shared/platforms';
 import { createLogger } from '../../shared/logger';
 import { BTN_GHOST, CARD } from '../kit';

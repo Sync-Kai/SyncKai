@@ -7,7 +7,7 @@ import { isPendingReview, isRecentSync, keepDeferred, type DeferredEpisode, type
 import { isMediaMapping, type MediaMapping } from './sync.types';
 import { TRACKER_IDS, type TrackerId } from './tracker.types';
 import { isPendingRating } from './engagement-store';
-import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from './storage-keys';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../protocol/storage-keys';
 import { isSyncQueueItem, restrictToSession } from './queue.types';
 import { liveServices, stillOpen, type SessionEpochs } from './session-epochs';
 import { isWatchingList, type WatchingList } from './watching.types';

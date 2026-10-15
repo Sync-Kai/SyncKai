@@ -1,6 +1,6 @@
 import type { StreamingPlatform } from '../../shared/platforms';
 import { deleteMediaMappingsIfUnchanged, getMediaMappings } from '../../shared/storage';
-import { STORAGE_KEYS } from '../../shared/storage-keys';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
 import { createLogger } from '../../shared/logger';
 import { getAnimeByIds, type AniListMedia } from '../api/media';

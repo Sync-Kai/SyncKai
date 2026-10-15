@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import type { LivePoint, LiveState, LiveTickMessage } from '../shared/live.types';
+import type { LivePoint, LiveState, LiveTickMessage } from '../protocol/live';
 
 // Progression en direct (onglet « En lecture ») : fonctions pures dérivées du dernier tick de la page.
 

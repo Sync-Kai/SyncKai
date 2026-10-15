@@ -1,5 +1,5 @@
 import { createLogger } from '../../shared/logger';
-import { sendMessage } from '../../shared/messages';
+import { sendMessage } from '../../protocol/messages';
 import { effectivePreferredPlayer } from '../../shared/preferred-player';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PanelMedia } from '../../shared/panel-media.types';

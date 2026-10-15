@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLocale } from '../i18n';
-import type { LiveState, LiveTickMessage } from '../shared/live.types';
+import type { LiveState, LiveTickMessage } from '../protocol/live';
 import { formatClock, formatCountdown, liveDisplay, liveStateKeepsMessage, pointLabel } from './live-view';
 
 const tick = (extra: Partial<LiveTickMessage> = {}): LiveTickMessage => ({

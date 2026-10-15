@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import { isPendingRating, MAX_PENDING_RATINGS } from './engagement-store';
-import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS } from './storage-keys';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS } from '../protocol/storage-keys';
 import type { PendingRating } from './engagement.types';
 import { EXCLUDED_SERIES_KEY, isExcludedSeries, mergeExclusion, type ExcludedSeries } from './exclusions';
 import { isRecord } from './guards';

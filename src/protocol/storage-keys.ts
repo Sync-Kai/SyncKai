@@ -1,4 +1,4 @@
-import type { TrackerId } from './tracker.types';
+import type { TrackerId } from '../shared/tracker.types';
 
 // Clés de chrome.storage.local : module feuille (aucune dépendance de valeur), importable par les types,
 // les gardes et les stores sans tirer le module d'accès au stockage.

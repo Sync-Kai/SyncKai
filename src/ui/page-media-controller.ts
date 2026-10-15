@@ -1,6 +1,6 @@
 import { onLocaleChange, t } from '../i18n';
 import { createLogger } from '../shared/logger';
-import { sendMessage } from '../shared/messages';
+import { sendMessage } from '../protocol/messages';
 import {
   isCachedPageMedia,
   isPartialEpisodePage,

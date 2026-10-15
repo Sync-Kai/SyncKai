@@ -1,4 +1,4 @@
-import { isRecord } from './guards';
+import { isRecord } from '../shared/guards';
 
 /**
  * Raccourci « Ouvrir ou fermer le panneau latéral » (Chrome) : avis diffusé par le service worker aux pages de

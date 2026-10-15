@@ -4,7 +4,7 @@ import type { Page } from 'puppeteer';
 import type { TestContext } from 'vitest';
 import type { CrunchyrollWatchFixture } from '../../src/content/crunchyroll/__fixtures__/crunchyroll-watch';
 import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
-import { STORAGE_KEYS } from '../../src/shared/storage-keys';
+import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { SIDE_PANEL_PATH } from '../../src/shared/target-pages';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import { FakeAniList, type AniListEntrySeed, type AniListMediaSeed } from './fake-anilist';

@@ -1,7 +1,7 @@
-import { isRecord } from './guards';
-import { isPageMediaInfo, type PageMediaInfo } from './page-media.types';
+import { isRecord } from '../shared/guards';
+import { isPageMediaInfo, type PageMediaInfo } from '../shared/page-media.types';
 
-export { CR_HISTORY_PORT_NAME, isCrHistoryPortMessage, isCrHistoryRequest, type CrHistoryPortMessage, type CrHistoryRequest } from './cr-history';
+export { CR_HISTORY_PORT_NAME, isCrHistoryPortMessage, isCrHistoryRequest, type CrHistoryPortMessage, type CrHistoryRequest } from '../shared/cr-history';
 export {
   ADN_HISTORY_PAGE_SIZE,
   ADN_HISTORY_PORT_NAME,

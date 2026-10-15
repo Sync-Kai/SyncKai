@@ -45,7 +45,7 @@ export const FIREFOX_DATA_COLLECTION: readonly GeckoDataCollection[] = ['website
 
 /**
  * Commande du panneau latéral dans le manifeste source (Chrome, traitée par le service worker). Sans import : ce module
- * est aussi chargé tel quel par Node (scripts/verify-build.ts). Égalité avec src/shared/commands.ts vérifiée par les tests.
+ * est aussi chargé tel quel par Node (scripts/verify-build.ts). Égalité avec src/protocol/commands.ts vérifiée par les tests.
  */
 export const SOURCE_PANEL_COMMAND = 'open-side-panel';
 

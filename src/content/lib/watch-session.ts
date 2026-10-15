@@ -1,8 +1,8 @@
 import { applyLanguageSetting, t } from '../../i18n/content';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isExcluded, platformSeriesKey } from '../../shared/exclusions-core';
-import { sendMessage } from '../../shared/messages';
-import type { LiveOutcome, LiveState } from '../../shared/live.types';
+import { sendMessage } from '../../protocol/messages';
+import type { LiveOutcome, LiveState } from '../../protocol/live';
 import { failedServices } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import { DEFAULT_SETTINGS, getSettings, type NotificationLevel, type SyncSettings } from '../../shared/settings';

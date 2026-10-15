@@ -5,7 +5,7 @@
 // Format IIFE (suffixe .iife.ts) : script enregistré dynamiquement, sans chargeur ESM.
 import { bridge, netflixAdapter } from './adapter';
 import { claimContentInstance } from '../lib/instance-guard';
-import { NETFLIX_HISTORY_HOOK } from '../../shared/netflix-history';
+import { NETFLIX_HISTORY_HOOK } from '../../protocol/netflix-history';
 import { startContent } from '../start';
 
 /**

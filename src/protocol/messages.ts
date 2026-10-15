@@ -1,29 +1,29 @@
 // Messages envoyés au service worker : types et `sendMessage`. Importé par les scripts de contenu : uniquement des
 // imports de types ici. Expéditeurs autorisés et validation des payloads : background/message-guards.ts.
-import type { AgendaPayload, AgendaResult } from './agenda';
-import type { AiringCheckResult } from './airing.types';
-import type { AniListErrorCode, ViewerResult } from './anilist.types';
-import type { AuthResult } from './auth.types';
-import type { EpisodeInfo } from './episode.types';
-import type { Result } from './result';
-import type { CandidateSummary } from './review.types';
-import type { MalViewerResult } from './mal.types';
-import type { AddListStatus, ListStatusChange, SyncOutcome } from './sync.types';
-import type { PageMediaResult, ResolvePageMediaPayload } from './page-media.types';
-import type { PanelMediaResult } from './panel-media.types';
-import type { TrackerId } from './tracker.types';
-import type { WatchingResult } from './watching.types';
-import type { ApplyDiffsPayload, ApplyResult, CancelJobResult, CompareResult } from './compare';
-import type { MediaRef, Score10 } from './engagement.types';
-import type { ListNotesResult } from './list-notes';
+import type { AgendaPayload, AgendaResult } from '../shared/agenda';
+import type { AiringCheckResult } from '../shared/airing.types';
+import type { AniListErrorCode, ViewerResult } from '../shared/anilist.types';
+import type { AuthResult } from '../shared/auth.types';
+import type { EpisodeInfo } from '../shared/episode.types';
+import type { Result } from '../shared/result';
+import type { CandidateSummary } from '../shared/review.types';
+import type { MalViewerResult } from '../shared/mal.types';
+import type { AddListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { PageMediaResult, ResolvePageMediaPayload } from '../shared/page-media.types';
+import type { PanelMediaResult } from '../shared/panel-media.types';
+import type { TrackerId } from '../shared/tracker.types';
+import type { WatchingResult } from '../shared/watching.types';
+import type { ApplyDiffsPayload, ApplyResult, CancelJobResult, CompareResult } from '../shared/compare';
+import type { MediaRef, Score10 } from '../shared/engagement.types';
+import type { ListNotesResult } from '../shared/list-notes';
 import type {
   CrImportAnalyzePayload,
   CrImportApplyPayload,
   CrImportJobResult,
   CrImportReviewsPayload,
   CrImportReviewsResult,
-} from './cr-import';
-import type { NetflixTitlesPayload, NetflixTitlesResult } from './netflix-import';
+} from '../shared/cr-import';
+import type { NetflixTitlesPayload, NetflixTitlesResult } from '../shared/netflix-import';
 import type { ContentCatalog } from '../i18n/content-keys';
 import type { Locale } from '../i18n/locale-codes';
 

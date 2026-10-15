@@ -1,4 +1,4 @@
-import type { LiveContentMessage, LiveOutcome, LivePoint, LiveState, LiveTickMessage } from '../../shared/live.types';
+import type { LiveContentMessage, LiveOutcome, LivePoint, LiveState, LiveTickMessage } from '../../protocol/live';
 import { describeOutcome } from '../../shared/sync-feedback';
 import { failedServices, type SyncOutcome } from '../../shared/sync.types';
 

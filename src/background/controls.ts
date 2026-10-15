@@ -1,7 +1,7 @@
 import { t } from '../i18n';
-import { COMPLETE_EPISODE_COMMAND } from '../shared/commands';
-import type { ContentMessage } from '../shared/content-messages';
-import type { AddToListPayload, AdjustProgressPayload, AdjustRetryTarget, SetListStatusPayload } from '../shared/messages';
+import { COMPLETE_EPISODE_COMMAND } from '../protocol/commands';
+import type { ContentMessage } from '../protocol/content-messages';
+import type { AddToListPayload, AdjustProgressPayload, AdjustRetryTarget, SetListStatusPayload } from '../protocol/messages';
 import type { MediaRef } from '../shared/engagement.types';
 import { getSettings } from '../shared/settings';
 import type { AddListStatus, ListStatusChange, ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';

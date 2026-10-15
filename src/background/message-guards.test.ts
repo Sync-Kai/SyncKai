@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MessageType } from '../shared/messages';
+import type { MessageType } from '../protocol/messages';
 import { layerFiles, reachableFrom, SOURCES } from '../test/import-graph';
 import { isAllowedOrigin, isExtensionPageSender, isRuntimeMessage, MESSAGE_ORIGINS } from './message-guards';
 

@@ -6,7 +6,7 @@ import { isSafeImageUrl } from '../shared/url';
 // la validation du message (hôtes d'images autorisés), sinon tout le message serait refusé.
 
 const sent = vi.hoisted(() => ({ calls: [] as { type: string; payload: unknown }[] }));
-vi.mock('../shared/messages', () => ({
+vi.mock('../protocol/messages', () => ({
   sendMessage: (type: string, payload: unknown): Promise<unknown> => {
     sent.calls.push({ type, payload });
     return Promise.resolve({ status: 'synced', mediaTitle: 'Frieren', results: [] });

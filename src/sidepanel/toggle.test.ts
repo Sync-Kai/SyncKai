@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PANEL_TOGGLE_MESSAGE } from '../shared/panel-toggle';
+import { PANEL_TOGGLE_MESSAGE } from '../protocol/panel-toggle';
 import { closeSidePanel, listenPanelToggle, shouldCloseOnToggle } from './toggle';
 
 afterEach(() => {

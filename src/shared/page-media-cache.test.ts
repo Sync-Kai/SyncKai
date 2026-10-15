@@ -13,7 +13,7 @@ import {
   storeCachedPageMedia,
   toCachedPageMedia,
 } from './page-media-cache';
-import { STORAGE_KEYS } from './storage-keys';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { SessionEpochs } from './session-epochs';
 import { PANEL_MEDIA_CACHE_TTL_MS, panelMediaCacheKey, purgeStaleSessionCaches } from './session-cache';
 

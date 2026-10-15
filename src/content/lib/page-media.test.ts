@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PAGE_MEDIA_ASYNC_TIMEOUT_MS } from '../../shared/content-messages';
+import { PAGE_MEDIA_ASYNC_TIMEOUT_MS } from '../../protocol/content-messages';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import type { StreamingAdapter } from './adapter';
 import { detectPageMedia, loadPageMedia, needsAsyncPageMedia } from './page-media';

@@ -37,7 +37,7 @@ vi.stubGlobal('navigator', { language: 'fr', locks: { request: <T>(_name: string
 
 const { deferRating, getListNotes, rateMedia, removeFromList, setListNotes } = await import('./engagement');
 const { getPendingRatings } = await import('../shared/engagement-store');
-const { STORAGE_KEYS } = await import('../shared/storage-keys');
+const { STORAGE_KEYS } = await import('../protocol/storage-keys');
 const { bindBackupToSession } = await import('../shared/backup');
 const { DEFAULT_SETTINGS } = await import('../shared/settings');
 

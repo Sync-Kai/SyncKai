@@ -1,7 +1,7 @@
 import type { AniListErrorCode } from './anilist.types';
 import type { ApplyDiffItem, CompareJob } from './compare-job';
 import { isRecord } from './guards';
-import { STORAGE_KEYS } from './storage-keys';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { Result } from './result';
 import { aniListScoreOn10, isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from './score';
 import type { ListStatus } from './sync.types';

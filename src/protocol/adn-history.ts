@@ -1,5 +1,5 @@
-import type { CrHistoryErrorCode, HistoryStats } from './cr-history';
-import { isRecord } from './guards';
+import type { CrHistoryErrorCode, HistoryStats } from '../shared/cr-history';
+import { isRecord } from '../shared/guards';
 
 // Import de l'historique ADN : protocole du port entre la page d'import et le script de contenu de l'onglet ADN.
 // Le script de contenu lit l'API de visionnage d'ADN avec le jeton de la page (localStorage), qui ne quitte jamais
