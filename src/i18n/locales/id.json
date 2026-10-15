@@ -167,7 +167,6 @@
   "compare.summary.diffs_other": "{count} perbedaan",
   "compare.summary.notComparable_other": "{count} tak bisa dibandingkan",
   "content.episodeShort": "{title} · episode {number}",
-  "content.shortcut.alreadySynced": "Episode sudah tersinkron",
   "content.shortcut.noPlayback.message": "Buka episode dulu untuk menandainya sudah ditonton lewat pintasan.",
   "content.shortcut.noPlayback.title": "Tidak ada episode yang diputar",
   "content.shortcut.paused.message": "Aktifkan lagi sinkron otomatis di Setelan, lalu coba lagi.",

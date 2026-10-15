@@ -167,7 +167,6 @@
   "compare.summary.diffs_other": "差異 {count}件",
   "compare.summary.notComparable_other": "比較不可 {count}件",
   "content.episodeShort": "{title} · 第{number}話",
-  "content.shortcut.alreadySynced": "このエピソードは同期済みです",
   "content.shortcut.noPlayback.message": "ショートカットで視聴済みにするには、エピソードを開いてください。",
   "content.shortcut.noPlayback.title": "再生中のエピソードがありません",
   "content.shortcut.paused.message": "設定で自動同期をオンにしてから、もう一度お試しください。",

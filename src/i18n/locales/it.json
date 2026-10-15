@@ -185,7 +185,6 @@
   "compare.summary.notComparable_one": "{count} non confrontabile",
   "compare.summary.notComparable_other": "{count} non confrontabili",
   "content.episodeShort": "{title} · episodio {number}",
-  "content.shortcut.alreadySynced": "Episodio già sincronizzato",
   "content.shortcut.noPlayback.message": "Apri un episodio per segnarlo come visto con la scorciatoia.",
   "content.shortcut.noPlayback.title": "Nessun episodio in riproduzione",
   "content.shortcut.paused.message": "Riattiva la sincronizzazione automatica in Impostazioni, poi riprova.",

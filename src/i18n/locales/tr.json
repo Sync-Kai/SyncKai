@@ -185,7 +185,6 @@
   "compare.summary.notComparable_one": "{count} karşılaştırılamaz",
   "compare.summary.notComparable_other": "{count} karşılaştırılamaz",
   "content.episodeShort": "{title} · bölüm {number}",
-  "content.shortcut.alreadySynced": "Bölüm zaten eşitlendi",
   "content.shortcut.noPlayback.message": "Kısayolla izlendi olarak işaretlemek için bir bölüm aç.",
   "content.shortcut.noPlayback.title": "Oynatılan bölüm yok",
   "content.shortcut.paused.message": "Ayarlar'dan otomatik eşitlemeyi tekrar aç, sonra yeniden dene.",

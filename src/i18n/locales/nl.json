@@ -185,7 +185,6 @@
   "compare.summary.notComparable_one": "{count} niet vergelijkbaar",
   "compare.summary.notComparable_other": "{count} niet vergelijkbaar",
   "content.episodeShort": "{title} · aflevering {number}",
-  "content.shortcut.alreadySynced": "Al gesynchroniseerd",
   "content.shortcut.noPlayback.message": "Open een aflevering om die met de sneltoets als bekeken te markeren.",
   "content.shortcut.noPlayback.title": "Er speelt geen aflevering",
   "content.shortcut.paused.message": "Zet automatische sync weer aan in Instellingen en probeer het opnieuw.",

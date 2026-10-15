@@ -203,7 +203,6 @@
   "compare.summary.notComparable_few": "{count} nelze porovnat",
   "compare.summary.notComparable_other": "{count} nelze porovnat",
   "content.episodeShort": "{title} · epizoda {number}",
-  "content.shortcut.alreadySynced": "Epizoda už synchronizována",
   "content.shortcut.noPlayback.message": "Otevři epizodu, pak ji zkratkou označíš jako zhlédnutou.",
   "content.shortcut.noPlayback.title": "Nepřehrává se žádná epizoda",
   "content.shortcut.paused.message": "V Nastavení znovu zapni automatickou synchronizaci a zkus to ještě jednou.",

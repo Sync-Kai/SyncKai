@@ -12,7 +12,6 @@ export const CONTENT_KEYS = [
   'common.serviceMessage',
   'common.syncing',
   'content.episodeShort',
-  'content.shortcut.alreadySynced',
   'content.shortcut.noPlayback.message',
   'content.shortcut.noPlayback.title',
   'content.shortcut.paused.message',

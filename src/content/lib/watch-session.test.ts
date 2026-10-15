@@ -309,10 +309,10 @@ describe('startWatchSession — langue des textes chargée à la demande (PERF-1
     mocks.completions.at(-1)?.();
     await flush();
     expect(toastTitles()).toEqual([catalogOf('de')['common.syncing']]);
-    // Raccourci sur l'épisode synchronisé : deuxième besoin, aucune nouvelle demande
+    // Raccourci sur l'épisode synchronisé : renvoyé, deuxième besoin de la langue, aucune nouvelle demande de catalogue
     session.forceComplete();
     await flush();
-    expect(toastTitles()).toEqual([catalogOf('de')['common.syncing'], catalogOf('de')['content.shortcut.alreadySynced']]);
+    expect(toastTitles()).toEqual([catalogOf('de')['common.syncing'], catalogOf('de')['common.syncing']]);
     expect(catalogRequests()).toEqual(['de']);
     session.destroy();
   });
@@ -564,7 +564,7 @@ describe('startWatchSession — envoi et raccourci (CONT-05, CONT-07, CTRL-07)',
     expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
   });
 
-  it('raccourci sur un épisode déjà synchronisé : toast explicatif, rien de renvoyé', async () => {
+  it('raccourci sur un épisode déjà synchronisé : renvoyé, le service worker relit la liste (« −1 » fait entre-temps)', async () => {
     const info = episode('GRMG8ZQZR', 'GE022', { platform: 'crunchyroll' });
     mocks.sendMessage.mockResolvedValue(synced);
     navigate('/watch/GE022');
@@ -575,10 +575,30 @@ describe('startWatchSession — envoi et raccourci (CONT-05, CONT-07, CTRL-07)',
     expect(mocks.sendMessage).toHaveBeenCalledOnce();
     mocks.showToast.mockClear();
 
+    // « −1 » dans le panneau ou la popup, autre appareil, site d'AniList : l'onglet n'en sait rien
     session.forceComplete();
     await flush();
-    expect(mocks.sendMessage).toHaveBeenCalledOnce();
-    expect(mocks.showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'success' }), expect.objectContaining({ variant: 'pill' }));
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
+    expect(mocks.sendMessage).toHaveBeenLastCalledWith('EPISODE_COMPLETED', { episode: info, services: null });
+    session.destroy();
+  });
+
+  it('raccourci sur un épisode déjà à jour : la réponse du service worker est affichée (À jour)', async () => {
+    const info = episode('GRMG8ZQZR', 'GE023', { platform: 'crunchyroll' });
+    mocks.sendMessage.mockResolvedValue(synced);
+    navigate('/watch/GE023');
+    const session = startWatchSession(syncAdapter(info), 'GE023');
+    await flush();
+    mocks.completions.at(-1)?.();
+    await flush();
+    mocks.showToast.mockClear();
+
+    const upToDate: SyncOutcome = { status: 'synced', mediaTitle: 'Série', results: [{ service: 'anilist', outcome: { status: 'up-to-date', progress: 3 } }] };
+    mocks.sendMessage.mockResolvedValue(upToDate);
+    session.forceComplete();
+    await flush();
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
+    expect(mocks.showToast).toHaveBeenCalled();
     session.destroy();
   });
 

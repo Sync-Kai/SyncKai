@@ -203,7 +203,6 @@
   "compare.summary.notComparable_few": "{count} necomparabile",
   "compare.summary.notComparable_other": "{count} de necomparabile",
   "content.episodeShort": "{title} · episodul {number}",
-  "content.shortcut.alreadySynced": "Episod deja sincronizat",
   "content.shortcut.noPlayback.message": "Deschide un episod ca să-l marchezi ca văzut cu comanda rapidă.",
   "content.shortcut.noPlayback.title": "Niciun episod în redare",
   "content.shortcut.paused.message": "Reactivează sincronizarea automată din Setări, apoi încearcă din nou.",

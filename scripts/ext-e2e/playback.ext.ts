@@ -357,7 +357,7 @@ describe('Détection de la lecture', () => {
     expectCleanRun(run.h, run.anilist, run.mal);
   });
 
-  it('raccourci « valider l’épisode » (message de la commande) : « aucune lecture » sur une page de série, « déjà synchronisé », « synchro en pause »', async (context) => {
+  it('raccourci « valider l’épisode » (message de la commande) : « aucune lecture » sur une page de série, « à jour », renvoi après « −1 », « synchro en pause »', async (context) => {
     const seriesUrl = 'https://www.crunchyroll.com/fr/series/GRMG8ZQZR/one-piece';
     const sites = new FakeSites()
       .page(seriesUrl, '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>One Piece</title></head><body><h1>One Piece</h1></body></html>')
@@ -372,14 +372,25 @@ describe('Détection de la lecture', () => {
     await waitForToast(series, text('en', 'content.shortcut.noPlayback.title'));
     await series.close();
 
-    // Épisode synchronisé à la fin de la lecture, puis raccourci : rien de plus n'est écrit
+    // Épisode synchronisé à la fin de la lecture, puis raccourci : renvoyé, la liste est relue, rien de plus n'est écrit
     const episode = await run.h.openTab(ONE_PIECE_E1180.url);
     await play(episode);
     await seek(episode, CREDITS_START + 1);
     await waitFor('E1180 écrit', () => run.anilist.mutations().length === 1 && run.mal.writes().length === 1);
     await waitForToast(episode, text('en', 'toast.pill.saved', { episode: 1180 }));
     await pressCompleteShortcut(run.h, ONE_PIECE_E1180.url);
-    await waitForToast(episode, text('en', 'content.shortcut.alreadySynced'));
+    await waitForToast(episode, text('en', 'toast.pill.upToDate', { episode: 1180 }));
+    expect(writtenProgress(run)).toEqual({ anilist: [1180], mal: ['1180'] });
+
+    // « −1 » fait ailleurs (panneau, popup, site) : l'onglet l'ignore, le raccourci réécrit quand même l'épisode
+    const anilistEntry = run.anilist.entry(ANILIST_A.token, ONE_PIECE.anilist.id);
+    const malEntry = run.mal.entry(MAL_A.token, ONE_PIECE.mal.id);
+    if (!anilistEntry || !malEntry) throw new Error('fiches absentes des faux services');
+    anilistEntry.progress = 1179;
+    malEntry.num_episodes_watched = 1179;
+    await pressCompleteShortcut(run.h, ONE_PIECE_E1180.url);
+    await waitFor('E1180 réécrit', () => run.anilist.mutations().length === 2 && run.mal.writes().length === 2);
+    expect(writtenProgress(run)).toEqual({ anilist: [1180, 1180], mal: ['1180', '1180'] });
     await episode.close();
 
     // Synchro en pause (Réglages) : le raccourci explique pourquoi rien n'est envoyé
@@ -388,7 +399,7 @@ describe('Détection de la lecture', () => {
     await play(paused);
     await pressCompleteShortcut(run.h, ONE_PIECE_E1181.url);
     await waitForToast(paused, text('en', 'content.shortcut.paused.title'));
-    expect(writtenProgress(run)).toEqual({ anilist: [1180], mal: ['1180'] });
+    expect(writtenProgress(run)).toEqual({ anilist: [1180, 1180], mal: ['1180', '1180'] });
     expectCleanRun(run.h, run.anilist, run.mal);
   });
 

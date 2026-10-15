@@ -167,7 +167,6 @@
   "compare.summary.diffs_other": "차이 {count}건",
   "compare.summary.notComparable_other": "비교 불가 {count}개",
   "content.episodeShort": "{title} · {number}화",
-  "content.shortcut.alreadySynced": "이미 동기화된 에피소드",
   "content.shortcut.noPlayback.message": "에피소드를 연 다음 단축키를 누르면 시청함으로 표시돼요.",
   "content.shortcut.noPlayback.title": "재생 중인 에피소드 없음",
   "content.shortcut.paused.message": "설정에서 자동 동기화를 다시 켠 다음 다시 시도하세요.",

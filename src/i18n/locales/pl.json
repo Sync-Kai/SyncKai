@@ -221,7 +221,6 @@
   "compare.summary.notComparable_many": "{count} nieporównywalnych",
   "compare.summary.notComparable_other": "{count} nieporównywalnej",
   "content.episodeShort": "{title} · odcinek {number}",
-  "content.shortcut.alreadySynced": "Już zsynchronizowano",
   "content.shortcut.noPlayback.message": "Otwórz odcinek, aby oznaczyć go skrótem jako obejrzany.",
   "content.shortcut.noPlayback.title": "Brak odtwarzanego odcinka",
   "content.shortcut.paused.message": "Włącz ponownie autosynchronizację w Ustawieniach, a potem spróbuj jeszcze raz.",

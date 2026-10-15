@@ -221,7 +221,6 @@
   "compare.summary.notComparable_many": "{count} нельзя сравнить",
   "compare.summary.notComparable_other": "{count} нельзя сравнить",
   "content.episodeShort": "{title} · эпизод {number}",
-  "content.shortcut.alreadySynced": "Эпизод уже синхронизирован",
   "content.shortcut.noPlayback.message": "Открой эпизод, чтобы горячей клавишей отметить его просмотренным.",
   "content.shortcut.noPlayback.title": "Эпизод не запущен",
   "content.shortcut.paused.message": "Включи автосинхронизацию в разделе «Настройки» и попробуй ещё раз.",

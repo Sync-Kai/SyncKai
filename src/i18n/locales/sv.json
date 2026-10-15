@@ -185,7 +185,6 @@
   "compare.summary.notComparable_one": "{count} inte jämförbar",
   "compare.summary.notComparable_other": "{count} inte jämförbara",
   "content.episodeShort": "{title} · avsnitt {number}",
-  "content.shortcut.alreadySynced": "Avsnittet är redan synkat",
   "content.shortcut.noPlayback.message": "Öppna ett avsnitt för att markera det som sett med kortkommandot.",
   "content.shortcut.noPlayback.title": "Inget avsnitt spelas",
   "content.shortcut.paused.message": "Aktivera automatisk synkning i Inställningar och försök sedan igen.",

@@ -167,7 +167,6 @@
   "compare.summary.diffs_other": "{count} 部有差異",
   "compare.summary.notComparable_other": "{count} 部無法比較",
   "content.episodeShort": "{title} · 第 {number} 集",
-  "content.shortcut.alreadySynced": "這一集已經同步過了",
   "content.shortcut.noPlayback.message": "請先開啟一集，才能用快速鍵標記為已看。",
   "content.shortcut.noPlayback.title": "目前沒有在播放",
   "content.shortcut.paused.message": "請在「設定」中重新開啟「自動同步」，然後再試一次。",

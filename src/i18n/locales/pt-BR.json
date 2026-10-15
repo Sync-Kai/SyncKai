@@ -185,7 +185,6 @@
   "compare.summary.notComparable_one": "{count} não comparável",
   "compare.summary.notComparable_other": "{count} não comparáveis",
   "content.episodeShort": "{title} · episódio {number}",
-  "content.shortcut.alreadySynced": "Episódio já sincronizado",
   "content.shortcut.noPlayback.message": "Abra um episódio para marcá-lo como assistido com o atalho.",
   "content.shortcut.noPlayback.title": "Nenhum episódio em reprodução",
   "content.shortcut.paused.message": "Reative a sincronização automática em Configurações e tente de novo.",

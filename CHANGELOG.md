@@ -29,6 +29,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Fixed
 
+- Alt+Shift+K on an episode SyncKai had already synced in that tab answered "Episode already synced" without checking: after a −1 in the side panel or the popup (or a change made on AniList, MyAnimeList or another device), the episode could not be validated again without reloading the page. The shortcut now always sends the episode; when your list is already up to date, it says so.
 - Prime Video: on a title page that plays its trailer by itself, SyncKai followed the trailer instead of the episode until you pressed play, and a long trailer could have been synced as the first episode when Prime Video gave no end-credits time. Trailers are now never followed.
 - Changing the season several times in a series page's menu with the side panel open no longer runs into "Too many requests to AniList": the card now reads every season of the series and your list entries for them in one AniList request, and a season already seen costs no request at all (Attack on Titan: 17 AniList requests for the first view and four season changes, now 5). The hourly new-episode check no longer uses the budget kept for the popup and the side panel.
 - "Episode 2 exceeds the entry's 1 episodes": the message shown when a service's entry has fewer episodes now uses the singular for a one-episode entry, in every language.

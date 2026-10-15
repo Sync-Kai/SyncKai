@@ -10,7 +10,7 @@ import { getContentSettings } from '../../browser/storage/content-settings';
 import type { StreamingAdapter } from './adapter';
 import { showEngagementPrompt } from '../ui/engagement-prompt';
 import { isAlertTone, promptForOutcome, showsProgress } from '../ui/notification-policy';
-import { ALERT_TOAST_MS, NOTICE_TOAST_MS, PILL_TOAST_MS, RETRY_TOAST_MS, bubbleForOutcome, toastForOutcome } from '../ui/sync-toast';
+import { ALERT_TOAST_MS, NOTICE_TOAST_MS, RETRY_TOAST_MS, bubbleForOutcome, toastForOutcome } from '../ui/sync-toast';
 import { showToast, type ToastContent, type ToastHandle, type ToastOptions } from '../ui/toast';
 import { createLogger } from '../../browser/logger';
 import { trace } from '../../browser/debug-trace-client';
@@ -107,8 +107,6 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   const controller = new AbortController();
   const { signal } = controller;
   let delivery: Delivery = 'none';
-  /** Dernier épisode envoyé (toast « déjà synchronisé » du raccourci) */
-  let sentEpisode: EpisodeInfo | null = null;
   /** Métadonnées obtenues au démarrage, en réserve si la relecture échoue à la complétion */
   let metadata: EpisodeInfo | null = null;
   /** Début du générique de fin, renseigné dès que la plateforme répond */
@@ -259,17 +257,6 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
         if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : envoi déjà en cours');
         if (__SYNCKAI_DEBUG__) trace('shortcut', 'decision', { episodeId, decision: 'already-sending' }, traceContext);
         return;
-      case 'synced':
-        if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : épisode déjà synchronisé');
-        if (__SYNCKAI_DEBUG__) trace('shortcut', 'decision', { episodeId, decision: 'already-synced-nothing-sent' }, traceContext);
-        // Langue déjà assurée par l'envoi (nouvel essai s'il avait échoué)
-        void ensureContentLanguage().then(() =>
-          showToast(
-            { tone: 'success', title: t('content.shortcut.alreadySynced'), message: sentEpisode ? formatEpisodeShort(sentEpisode) : undefined },
-            { variant: 'pill', autoHideMs: PILL_TOAST_MS },
-          ),
-        );
-        return;
       case 'ignored':
         // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, comme à la fin de l'épisode
         if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : série ignorée par SyncKai');
@@ -277,7 +264,10 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
         return;
       case 'none':
       case 'retryable':
-        // Pas encore envoyé, ou rien d'écrit la dernière fois (pause, exclusion, à vérifier, échec) : envoi
+      case 'synced':
+        // Pas encore envoyé, rien d'écrit la dernière fois (pause, exclusion, à vérifier, échec), ou déjà synchronisé :
+        // geste explicite, l'épisode est renvoyé. La liste a pu changer depuis (« −1 » dans le panneau ou la popup, autre
+        // appareil, site d'AniList / MAL) ; le service worker la relit et répond « À jour » si rien n'est à écrire
         if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : complétion immédiate');
         if (__SYNCKAI_DEBUG__) trace('shortcut', 'decision', { episodeId, decision: 'send', previous: delivery }, traceContext);
         void reportCompletion('shortcut');
@@ -321,7 +311,6 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       const outcome = await sendMessage('EPISODE_COMPLETED', { episode, services });
       if (__SYNCKAI_DEBUG__) log.info('Résultat de la synchronisation :', outcome);
       if (__SYNCKAI_DEBUG__) trace('page', 'sync-result', { episodeId, retryServices: services, ...summarizeOutcome(outcome) }, traceContext);
-      sentEpisode = episode;
       // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, épisodes suivants non renvoyés.
       // Accès Netflix retiré : rien d'affiché non plus, mais la série n'est pas retenue (accès accordé de nouveau)
       if (outcome.status === 'ignored') {

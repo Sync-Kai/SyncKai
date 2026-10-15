@@ -167,7 +167,6 @@
   "compare.summary.diffs_other": "{count} khác biệt",
   "compare.summary.notComparable_other": "{count} không thể so sánh",
   "content.episodeShort": "{title} · tập {number}",
-  "content.shortcut.alreadySynced": "Tập này đã được đồng bộ",
   "content.shortcut.noPlayback.message": "Hãy mở một tập để đánh dấu đã xem bằng phím tắt.",
   "content.shortcut.noPlayback.title": "Không có tập nào đang phát",
   "content.shortcut.paused.message": "Hãy bật lại tự động đồng bộ trong Cài đặt rồi thử lại.",

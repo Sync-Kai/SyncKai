@@ -185,7 +185,6 @@
   "compare.summary.notComparable_one": "{count} nicht vergleichbar",
   "compare.summary.notComparable_other": "{count} nicht vergleichbar",
   "content.episodeShort": "{title} · Folge {number}",
-  "content.shortcut.alreadySynced": "Folge bereits synchronisiert",
   "content.shortcut.noPlayback.message": "Öffne eine Folge, um sie mit dem Tastenkürzel abzuschließen.",
   "content.shortcut.noPlayback.title": "Keine Folge wird abgespielt",
   "content.shortcut.paused.message": "Aktiviere die automatische Synchronisierung in den Einstellungen und versuche es erneut.",
