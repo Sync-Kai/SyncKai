@@ -143,6 +143,21 @@ describe('aperçu', () => {
     expect(plan).toMatchObject({ excluded: 2, failed: 1, seasonCount: 5 });
   });
 
+  it('même clé de vérification (VO et VF sans numéro de saison) : la saison la plus avancée est proposée, pas la plus récente', () => {
+    const review = (progress: number): SeasonResolution => ({ kind: 'review', key: 'crunchyroll:GRV:s0', reason: 'À vérifier', suggestion: { mediaId: 5, progress }, candidates: [] });
+    const vo = { seriesId: 'GRV', seriesTitle: 'Frieren', seasonNumber: null, seasonTitle: 'Frieren', episodeNumber: null, seasonEpisodeNumber: null };
+    const plan = buildCrImportPlan(
+      input({
+        // Tri du réducteur : visionnage le plus récent d'abord (la VF, en retard)
+        seasons: [season({ ...vo, seasonId: 'VF', episodeId: 'EVF4', episodeNumber: 4, lastPlayedAt: 2 }), season({ ...vo, seasonId: 'VO', episodeId: 'EVO12', episodeNumber: 12, lastPlayedAt: 1 })],
+        resolutions: { '0': review(4), '1': review(12) },
+      }),
+      0,
+    );
+    expect(plan.review).toHaveLength(1);
+    expect(plan.review[0]).toMatchObject({ key: 'crunchyroll:GRV:s0', suggestion: { progress: 12 }, episode: { episodeId: 'EVO12', displayedEpisodeNumber: 12 } });
+  });
+
   it('Netflix : séries écartées (pas des animes) comptées une fois par série, en plus des titres écartés avant l’analyse', () => {
     const plan = buildCrImportPlan(
       input({

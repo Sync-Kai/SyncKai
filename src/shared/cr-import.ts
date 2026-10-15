@@ -282,6 +282,12 @@ export interface PlanInput {
   stats: HistoryStats;
 }
 
+/** Vérification plus avancée : progression suggérée, puis épisode affiché (à égalité, la première est gardée) */
+function isAheadOf(item: CrReviewItem, other: CrReviewItem): boolean {
+  const progress = (item.suggestion?.progress ?? 0) - (other.suggestion?.progress ?? 0);
+  return progress !== 0 ? progress > 0 : (item.episode.displayedEpisodeNumber ?? 0) > (other.episode.displayedEpisodeNumber ?? 0);
+}
+
 /**
  * Construit l'aperçu (pur, testé) : saisons sûres regroupées par fiche (progression maximale), état actuel
  * de chaque liste → nouvelle valeur selon decideImport ; saisons incertaines listées à part.
@@ -368,9 +374,19 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
     });
   }
   items.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }) || a.mediaId - b.mediaId);
-  // Une vérification par saison (même clé que la synchro en direct), regroupées par série dans l'aperçu
-  const uniqueReview = review
-    .filter((r, i) => review.findIndex((o) => o.key === r.key) === i)
+  // Une vérification par saison (même clé que la synchro en direct), regroupées par série dans l'aperçu. Même clé
+  // (VO et VF sans numéro de saison chez Crunchyroll : deux season_id, une clé s0) : la plus avancée l'emporte
+  const reviewByKey = new Map<string, CrReviewItem>();
+  for (const item of review) {
+    const kept = reviewByKey.get(item.key);
+    if (!kept) {
+      reviewByKey.set(item.key, item);
+      continue;
+    }
+    const seasons = [...kept.seasons, ...item.seasons.filter((label) => !kept.seasons.includes(label))];
+    reviewByKey.set(item.key, { ...(isAheadOf(item, kept) ? item : kept), seasons });
+  }
+  const uniqueReview = [...reviewByKey.values()]
     .sort((a, b) => a.episode.animeTitle.localeCompare(b.episode.animeTitle, undefined, { sensitivity: 'base' }) || (a.episode.seasonNumber ?? 0) - (b.episode.seasonNumber ?? 0));
   const ignored = (input.stats.ignored ?? 0) + ignoredSeries.size;
   return {
