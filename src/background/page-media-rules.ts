@@ -1,4 +1,4 @@
-import type { EpisodeInfo } from '../shared/episode.types';
+import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../shared/episode.types';
 import type { PageMediaInfo, PageSeason, SeasonSlot, SeasonSource } from '../shared/page-media.types';
 import { platformSeriesUrl } from '../shared/platform-links';
 import type { CandidateSummary } from '../shared/review.types';
@@ -17,11 +17,13 @@ export interface SeasonChoice {
 /**
  * Préfixe des clés de correspondance d'une série, toutes saisons : "crunchyroll:GRMG8ZQZR:". Disney+ et Prime Video : par
  * titre ("disney:title:undead unluck:", "prime:title:tokyo ghoul:"), comme les clés de la lecture (aucun identifiant de
- * série sur la page de lecture), même si la page de série connaît l'uuid de l'entité ou le GTI compact de la saison.
+ * série sur la page de lecture), même si la page de série connaît l'uuid de l'entité ou le GTI compact de la saison. Arc
+ * Disney+ affiché (saison 99) : par titre de l'arc ("disney:title:undead unluck winter arc:"), comme sa clé en lecture.
  */
-export function seriesMappingPrefix(page: Pick<PageMediaInfo, 'platform' | 'seriesId' | 'seriesTitle'>): string {
+export function seriesMappingPrefix(page: Pick<PageMediaInfo, 'platform' | 'seriesId' | 'seriesTitle'> & Partial<Pick<PageMediaInfo, 'seasonNumber' | 'seasonTitle'>>): string {
   const seriesId = page.platform === 'disney' || page.platform === 'prime' ? null : page.seriesId;
-  return mappingKey({ platform: page.platform, seriesId, animeTitle: page.seriesTitle, seasonNumber: 0 }).replace(/s0$/, '');
+  const season = page.platform === 'disney' && page.seasonNumber === DISNEY_ARC_SEASON ? { seasonNumber: DISNEY_ARC_SEASON, seasonTitle: page.seasonTitle ?? null } : { seasonNumber: 0 };
+  return mappingKey({ platform: page.platform, seriesId, animeTitle: page.seriesTitle, ...season }).replace(/s\d+$/, '');
 }
 
 /**
