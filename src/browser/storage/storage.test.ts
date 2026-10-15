@@ -598,3 +598,29 @@ describe('tokens chiffrés au repos (SEC-01)', () => {
     expect(store.has(STORAGE_KEYS.malToken)).toBe(true);
   });
 });
+
+describe('getCachedWatching : liste relue du stockage (SEC-04)', () => {
+  const entry = (platformUrl: string): Record<string, unknown> => ({
+    mediaId: 1,
+    malId: null,
+    title: 'Anime',
+    coverUrl: null,
+    progress: 1,
+    totalEpisodes: 12,
+    updatedAt: null,
+    nextEpisode: null,
+    airingStatus: null,
+    platforms: [{ platform: 'crunchyroll', url: platformUrl }],
+    lastSync: null,
+    siteUrl: 'https://anilist.co/anime/1',
+  });
+  const cacheWith = (platformUrl: string): Record<string, unknown> => ({ anilist: { service: 'anilist', fetchedAt: 1, entries: [entry(platformUrl)] } });
+
+
+  it('liste légitime : servie ; URL étrangère plantée dans le stockage : cache absent', async () => {
+    store.set(STORAGE_KEYS.watchingCache, cacheWith('https://www.crunchyroll.com/series/GRMG8ZQZR/one-piece'));
+    expect(await storage.getCachedWatching('anilist')).toMatchObject({ service: 'anilist', entries: [{ title: 'Anime' }] });
+    store.set(STORAGE_KEYS.watchingCache, cacheWith('https://evil.example/phish'));
+    expect(await storage.getCachedWatching('anilist')).toBeNull();
+  });
+});

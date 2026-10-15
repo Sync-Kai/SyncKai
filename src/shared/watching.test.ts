@@ -306,6 +306,63 @@ describe('isWatchingList', () => {
     expect(isWatchingList({ service: 'mal', fetchedAt: NOW, entries: [{ title: 'x' }] })).toBe(false);
     expect(isWatchingList(null)).toBe(false);
   });
+
+  // SEC-04 : les URL du cache deviennent des liens, un script de contenu peut écrire dans le stockage
+  describe('URL relues du stockage (SEC-04)', () => {
+    const listWith = (overrides: Partial<WatchingEntry>): unknown => ({ service: 'anilist', fetchedAt: NOW, entries: [entry(overrides)] });
+
+    it('accepte les liens légitimes : plateformes, amazon.<tld> pour Prime Video, épisode de la dernière synchro, fiche MAL', () => {
+      const platforms = [
+        { platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/GRMG8ZQZR/one-piece' },
+        { platform: 'adn', url: 'https://animationdigitalnetwork.com/video/1311-tougen-anki' },
+        { platform: 'netflix', url: 'https://www.netflix.com/title/80107103' },
+        { platform: 'disney', url: 'https://www.disneyplus.com/series/undead-unluck/4hmBWOLvAqm2' },
+        { platform: 'prime', url: 'https://www.primevideo.com/detail/0GMSR5LDQCKJ3B0DQAYCSQIR2W' },
+        { platform: 'prime', url: 'https://www.amazon.co.jp/gp/video/detail/B0ABCDEFGH' },
+      ] as const;
+      expect(isWatchingList(listWith({ platforms: [...platforms] }))).toBe(true);
+      expect(isWatchingList(listWith({ lastSync: { platform: 'netflix', at: NOW, episodeUrl: 'https://www.netflix.com/watch/82000040' } }))).toBe(true);
+      expect(isWatchingList(listWith({ siteUrl: 'https://myanimelist.net/anime/52991' }))).toBe(true);
+    });
+
+    it('refuse une URL de plateforme d’un autre hôte, non https, javascript: ou qui ressemble à l’hôte', () => {
+      const bad = [
+        'https://evil.example/phish',
+        'http://www.crunchyroll.com/series/X',
+        'javascript:alert(1)',
+        'https://crunchyroll.com.evil.example/x',
+        'https://evilcrunchyroll.com/x',
+        'https://www.netflix.com@evil.example/x',
+        'data:text/html,<script>1</script>',
+        '',
+      ];
+      for (const url of bad) expect(isWatchingList(listWith({ platforms: [{ platform: 'crunchyroll', url }] })), url).toBe(false);
+    });
+
+    it('refuse une plateforme inconnue ou qui ne correspond pas à l’hôte du lien', () => {
+      expect(isWatchingList(listWith({ platforms: [{ platform: 'crunchyroll', url: 'https://www.netflix.com/title/1' }] }))).toBe(false);
+      expect(isWatchingList(listWith({ platforms: [{ platform: 'hulu' as 'netflix', url: 'https://www.hulu.com/x' }] }))).toBe(false);
+      expect(isWatchingList(listWith({ platforms: [{ platform: 'crunchyroll', url: 5 as unknown as string }] }))).toBe(false);
+      expect(isWatchingList(listWith({ platforms: [null as unknown as { platform: 'netflix'; url: string }] }))).toBe(false);
+      // amazon.<tld> n'est accepté que pour Prime Video, et avec un identifiant de vidéo
+      expect(isWatchingList(listWith({ platforms: [{ platform: 'netflix', url: 'https://www.amazon.co.jp/gp/video/detail/B0ABCDEFGH' }] }))).toBe(false);
+      expect(isWatchingList(listWith({ platforms: [{ platform: 'prime', url: 'https://www.amazon.com/gp/help/customer/display.html' }] }))).toBe(false);
+    });
+
+    it('refuse un épisode de la dernière synchro ou une fiche hors de la plateforme / du service annoncé', () => {
+      expect(isWatchingList(listWith({ lastSync: { platform: 'netflix', at: NOW, episodeUrl: 'https://evil.example/watch/1' } }))).toBe(false);
+      expect(isWatchingList(listWith({ lastSync: { platform: 'netflix', at: NOW, episodeUrl: 'https://www.crunchyroll.com/watch/1' } }))).toBe(false);
+      expect(isWatchingList(listWith({ siteUrl: 'https://evil.example/anime/1' }))).toBe(false);
+      expect(isWatchingList(listWith({ siteUrl: 'https://anilist.co.evil.example/anime/1' }))).toBe(false);
+      expect(isWatchingList(listWith({ siteUrl: 'http://anilist.co/anime/1' }))).toBe(false);
+      expect(isWatchingList(listWith({ siteUrl: 'javascript:alert(1)' }))).toBe(false);
+    });
+
+    it('une seule entrée altérée suffit : la liste entière est refusée (lecture sur le service)', () => {
+      const entries = [entry({ mediaId: 1 }), entry({ mediaId: 2, platforms: [{ platform: 'adn', url: 'https://evil.example/' }] })];
+      expect(isWatchingList({ service: 'anilist', fetchedAt: NOW, entries })).toBe(false);
+    });
+  });
 });
 
 describe('isWatchingFresh (PERF-04, ALRT-01)', () => {
