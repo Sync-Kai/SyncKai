@@ -6,11 +6,32 @@ import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
 import { PENDING_RATINGS_KEY } from '../../src/protocol/storage-keys';
 import { FakeAniList } from './fake-anilist';
 import { FakeMal } from './fake-mal';
-import { startExtension, waitFor } from './harness';
+import { FakeSites, crunchyrollWatchHtml, play, seek } from './fake-sites';
+import { sleep, startExtension, waitFor, type ExtensionHarness } from './harness';
 import { ANILIST_A, BOCCHI, DUNGEON_MESHI, FRIEREN, MAL_A, anilistAccount, anilistMedia, crunchyrollEpisode, expectCleanRun, malAccount, malAnime, seedMapping, seedSettings, signIn } from './seed';
+import { CREDITS_START, FRIEREN_E3, FRIEREN_S1, FRIEREN_S2, launch, nowPlayingText, openPanel, waitForEntry } from './scenario';
 
 const en = (key: MessageKey, params?: MessageParams): string => tl('en', key, params);
 const sel = (focus: string): string => `[data-focus="${focus}"]`;
+
+/** Progression AniList de la fiche en cache de l'onglet (storage.session `pageMedia:<onglet>`), null si aucune fiche */
+async function cachedProgress(h: ExtensionHarness): Promise<number | null> {
+  const items = await (await h.bridge()).evaluate(() => chrome.storage.session.get(null));
+  const entry = Object.entries(items).find(([key]) => key.startsWith('pageMedia:'))?.[1] as { view: { lists: { service: string; progress?: number }[] } } | undefined;
+  return entry?.view.lists.find((list) => list.service === 'anilist')?.progress ?? null;
+}
+
+/** Opérations reçues par AniList depuis le rang `from`, une fois le trafic calmé (aucune requête pendant `quietMs`) */
+async function settledOperations(anilist: FakeAniList, from: number, quietMs = 1500): Promise<Record<string, number>> {
+  let seen = -1;
+  while (seen !== anilist.requests.length) {
+    seen = anilist.requests.length;
+    await sleep(quietMs);
+  }
+  const counts: Record<string, number> = {};
+  for (const operation of anilist.operations(from)) counts[operation] = (counts[operation] ?? 0) + 1;
+  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)));
+}
 
 describe('Synchro et contrôles', () => {
   it('« +1 » avec MyAnimeList en panne : « échec sur MyAnimeList », puis « Réessayer » rattrape MAL sans réécrire AniList', async (context) => {
@@ -140,5 +161,77 @@ describe('Synchro et contrôles', () => {
     expect((await h.storage())[PENDING_RATINGS_KEY]).toBeUndefined();
     expect(anilist.mutations().filter((m) => m.operation === 'SaveScore')).toEqual([]);
     expectCleanRun(h, anilist, mal);
+  });
+});
+
+// Nombre de requêtes AniList par action (ligne de base chiffrée, resserrée à chaque économie de requêtes) : une requête
+// de plus est un défaut de performance silencieux (limite de 90 par minute, latence du toast).
+describe('Requêtes AniList par action', () => {
+  it('épisode terminé, aucune vue ouverte : 1re synchro (correspondance apprise) puis 2e (correspondance en cache)', async (context) => {
+    const run = await launch(context, [FRIEREN_S1, FRIEREN_S2]);
+    let from = run.anilist.requests.length;
+    await run.h.sendFromContent('EPISODE_COMPLETED', { episode: crunchyrollEpisode(FRIEREN, 3), services: null });
+    // Recherche de la série, relations, fiche du catalogue, entrée de la liste, écriture
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeById: 1, AnimeByIds: 1, MediaEntry: 1, SaveProgress: 1, SearchAnime: 1 });
+
+    from = run.anilist.requests.length;
+    await run.h.sendFromContent('EPISODE_COMPLETED', { episode: crunchyrollEpisode(FRIEREN, 4), services: null });
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeById: 1, MediaEntry: 1, SaveProgress: 1 });
+    expect(run.anilist.mutations().map((m) => m.variables)).toEqual([
+      { mediaId: FRIEREN.mediaId, progress: 3, status: 'CURRENT' },
+      { mediaId: FRIEREN.mediaId, progress: 4, status: 'CURRENT' },
+    ]);
+  });
+
+  it('épisode terminé, panneau ouvert sur l’onglet : fiche recalculée (une lecture de liste en plus) et progression à jour dans le cache', async (context) => {
+    const sites = new FakeSites().page(FRIEREN_E3.url, crunchyrollWatchHtml(FRIEREN_E3, { lang: 'en' })).creditsStart(FRIEREN_E3.episodeId, CREDITS_START);
+    const run = await launch(context, [FRIEREN_S1, FRIEREN_S2], sites);
+    const panel = await openPanel(run.h);
+    await settledOperations(run.anilist, 0);
+    const tab = await run.h.openTab(FRIEREN_E3.url);
+    await waitForEntry(panel, FRIEREN_S1.anilist.title, 'Ep. 3');
+    await settledOperations(run.anilist, 0);
+    const from = run.anilist.requests.length;
+    await play(tab);
+    await seek(tab, CREDITS_START + 1);
+    await waitFor('progression écrite', () => run.anilist.mutations().length === 1);
+    // Panneau ouvert : la fiche est recalculée (MediaEntry en plus) et affiche l'épisode synchronisé
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeById: 1, MediaEntry: 2, SaveProgress: 1 });
+    expect(await cachedProgress(run.h)).toBe(3);
+    expectCleanRun(run.h, run.anilist, run.mal);
+  });
+
+  it('épisode terminé, panneau fermé depuis (fiche de l’onglet encore en cache) : recalculée quand même, ligne de base avant PERF-07', async (context) => {
+    const sites = new FakeSites().page(FRIEREN_E3.url, crunchyrollWatchHtml(FRIEREN_E3, { lang: 'en' })).creditsStart(FRIEREN_E3.episodeId, CREDITS_START);
+    const run = await launch(context, [FRIEREN_S1, FRIEREN_S2], sites);
+    const panel = await openPanel(run.h);
+    await settledOperations(run.anilist, 0);
+    const tab = await run.h.openTab(FRIEREN_E3.url);
+    await waitForEntry(panel, FRIEREN_S1.anilist.title, 'Ep. 3');
+    await settledOperations(run.anilist, 0);
+    await panel.close();
+    await tab.bringToFront();
+    const from = run.anilist.requests.length;
+    await play(tab);
+    await seek(tab, CREDITS_START + 1);
+    await waitFor('progression écrite', () => run.anilist.mutations().length === 1);
+    // Aucune vue n'affiche l'onglet, la lecture de liste (MediaEntry) est refaite
+    expect(await cachedProgress(run.h)).toBe(3);
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeById: 1, MediaEntry: 2, SaveProgress: 1 });
+    expectCleanRun(run.h, run.anilist, run.mal);
+  });
+
+  it('page de série affichée dans le panneau : requêtes de la fiche (recherche, relations, fiche, listes)', async (context) => {
+    const url = 'https://www.crunchyroll.com/series/GG5H5XQX4/frieren';
+    const sites = new FakeSites().page(url, '<!doctype html><html lang="en"><head><title>Frieren</title></head><body><h1 data-t="series-hero-title">Frieren: Beyond Journey’s End</h1></body></html>');
+    const run = await launch(context, [FRIEREN_S1, FRIEREN_S2], sites);
+    const panel = await openPanel(run.h);
+    await settledOperations(run.anilist, 0);
+    const from = run.anilist.requests.length;
+    await run.h.openTab(url);
+    await waitFor('fiche de la série', async () => (await nowPlayingText(panel)).includes(FRIEREN_S1.anilist.title));
+    // La saison 1 est lue deux fois (MediaEntry : statut des saisons, puis listes de la fiche) : PERF-11
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, MediaEntry: 2, PageMedia: 1, PanelMedia: 1, SearchAnime: 1 });
+    expectCleanRun(run.h, run.anilist, run.mal);
   });
 });

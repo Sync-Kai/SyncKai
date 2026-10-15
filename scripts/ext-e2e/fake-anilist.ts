@@ -136,6 +136,11 @@ export class FakeAniList {
     return this.requests.filter((r) => MUTATIONS.has(r.operation) && r.status === 200 && (token === undefined || r.token === token));
   }
 
+  /** Opérations reçues depuis la requête de rang `from` (`requests.length` relevé avant l'action), dans l'ordre */
+  operations(from = 0): string[] {
+    return this.requests.slice(from).map((r) => r.operation);
+  }
+
   readonly handler: RequestHandler = (request: InterceptedRequest): Promise<FakeResponse | null> | null => {
     if (request.url !== ANILIST_URL && request.url !== ANILIST_URL.slice(0, -1)) return null;
     return this.respond(request);
