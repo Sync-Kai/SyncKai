@@ -314,7 +314,7 @@ describe('chooseDisneyVideo (lecteur de la page)', () => {
       return videos.filter((video) => video.className.split(' ').includes('btm-media-client-element'));
     };
     return {
-      querySelector: ((selector: string) => matching(selector)[0] ?? null) as ParentNode['querySelector'],
+      querySelector: ((selector: string) => matching(selector)[0] ?? null),
       querySelectorAll: ((selector: string) => matching(selector)) as unknown as ParentNode['querySelectorAll'],
     };
   }

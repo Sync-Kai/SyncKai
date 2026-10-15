@@ -116,7 +116,7 @@ async function openFromMyData(h: ExtensionHarness, focus: string, prefix: string
 }
 
 async function pageText(page: Page): Promise<string> {
-  return page.evaluate(() => (document.getElementById('app') as HTMLElement | null)?.innerText ?? '');
+  return page.evaluate(() => (document.getElementById('app'))?.innerText ?? '');
 }
 
 async function importJob(h: ExtensionHarness): Promise<CrImportJob | null> {
@@ -263,7 +263,7 @@ describe('Import de l’historique ADN', () => {
     const run = await launch(context, [TOUGEN_ANKI, CONAN], { [TOUGEN_ANKI.anilist.id]: 4, [CONAN.anilist.id]: 100 }, [adn.handler, sites.handler]);
     const tab = await run.h.openTab(ADN_HOME);
     // Cookie de session du site : il ne doit jamais partir avec la requête de l'historique (credentials: 'omit')
-    await tab.setCookie({ name: 'adn_session', value: 'e2e-adn-cookie', domain: '.animationdigitalnetwork.com', path: '/', secure: true });
+    await tab.browserContext().setCookie({ name: 'adn_session', value: 'e2e-adn-cookie', domain: '.animationdigitalnetwork.com', path: '/', secure: true });
     const page = await openFromMyData(run.h, 'adn-import', `${IMPORT_PAGE}?platform=adn`);
 
     // Session ADN expirée : message de connexion, rien d'analysé

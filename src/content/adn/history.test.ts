@@ -185,7 +185,7 @@ describe('port de la page d’import (onglet ADN)', () => {
         onDisconnect: { addListener: () => undefined },
       };
       if (!onConnect) throw new Error('aucun écouteur');
-      (onConnect as (port: chrome.runtime.Port) => void)(port as unknown as chrome.runtime.Port);
+      (onConnect)(port as unknown as chrome.runtime.Port);
     });
     if (!onMessage) throw new Error('aucun écouteur de message');
     (onMessage as (message: unknown) => void)({ type: 'READ_ADN_HISTORY' });

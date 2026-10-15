@@ -103,7 +103,7 @@ const clone = <T>(value: T): T => (value === undefined ? value : structuredClone
 function pick(store: Map<string, unknown>, keys: unknown): StorageItems {
   if (keys === null || keys === undefined) return Object.fromEntries([...store].map(([k, v]) => [k, clone(v)]));
   if (typeof keys === 'string') return store.has(keys) ? { [keys]: clone(store.get(keys)) } : {};
-  if (Array.isArray(keys)) return Object.assign({}, ...keys.map((k: unknown) => (typeof k === 'string' ? pick(store, k) : {})));
+  if (Array.isArray(keys)) return Object.fromEntries(keys.flatMap((k: unknown) => (typeof k === 'string' ? Object.entries(pick(store, k)) : [])));
   if (typeof keys === 'object') {
     // Objet de valeurs par défaut
     const defaults = keys as StorageItems;

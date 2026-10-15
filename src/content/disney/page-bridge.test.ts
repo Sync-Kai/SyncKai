@@ -90,7 +90,7 @@ function connect(nonce = 'n1'): DisneyPlayerExperience[] {
   if (!port) throw new Error('aucune offre de port');
   received.push(port);
   port.addEventListener('message', (event) => {
-    const push = decodeDisneyPush((event as MessageEvent).data);
+    const push = decodeDisneyPush(event.data);
     entries.push(...(push?.entries ?? []));
     pages.push(...(push?.pages ?? []));
   });
@@ -99,7 +99,7 @@ function connect(nonce = 'n1'): DisneyPlayerExperience[] {
 }
 
 /** Requête du site : XHR vers `url`, réponse `body` */
-function siteXhr(url: string, body: unknown, { status = 200, responseType = '' as XMLHttpRequestResponseType, method = 'GET' } = {}): void {
+function siteXhr(url: string, body: unknown, { status = 200, responseType = '', method = 'GET' }: { status?: number; responseType?: XMLHttpRequestResponseType; method?: string } = {}): void {
   const xhr = new XMLHttpRequest() as unknown as FakeXhr;
   xhr.reply = { status, body };
   xhr.responseType = responseType;

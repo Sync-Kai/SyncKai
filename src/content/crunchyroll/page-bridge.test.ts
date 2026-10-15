@@ -93,7 +93,7 @@ function connect(nonce = 'n1'): ReceivedCrunchyrollTable[][] {
   if (!port) throw new Error('aucun port');
   received.push(port);
   port.addEventListener('message', (event) => {
-    const data: unknown = (event as MessageEvent).data;
+    const data: unknown = event.data;
     expect(data).not.toContain('SECRET');
     pushes.push(decodeCrunchyrollPush(data));
   });
@@ -101,7 +101,7 @@ function connect(nonce = 'n1'): ReceivedCrunchyrollTable[][] {
   return pushes;
 }
 
-function siteXhr(url: string, body: unknown, { status = 200, responseType = '' as XMLHttpRequestResponseType } = {}): void {
+function siteXhr(url: string, body: unknown, { status = 200, responseType = '' }: { status?: number; responseType?: XMLHttpRequestResponseType } = {}): void {
   const xhr = new XMLHttpRequest() as unknown as FakeXhr;
   xhr.reply = { status, body };
   xhr.responseType = responseType;

@@ -74,14 +74,14 @@ function connect(nonce = 'n1'): PrimeBridgePush[] {
   if (!port) throw new Error('aucune offre de port');
   received.push(port);
   port.addEventListener('message', (event) => {
-    const push = decodePrimePush((event as MessageEvent).data);
+    const push = decodePrimePush(event.data);
     if (push) pushes.push(push);
   });
   port.start();
   return pushes;
 }
 
-function siteXhr(url: string, body: unknown, { status = 200, responseType = '' as XMLHttpRequestResponseType, method = 'GET' } = {}): void {
+function siteXhr(url: string, body: unknown, { status = 200, responseType = '', method = 'GET' }: { status?: number; responseType?: XMLHttpRequestResponseType; method?: string } = {}): void {
   const xhr = new XMLHttpRequest() as unknown as FakeXhr;
   xhr.reply = { status, body };
   xhr.responseType = responseType;

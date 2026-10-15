@@ -134,7 +134,7 @@ export async function openPopup(h: ExtensionHarness, options: { behind?: boolean
 
 /** Textes de l'onglet « En lecture » du panneau (vide s'il n'est pas affiché) */
 export async function nowPlayingText(panel: Page): Promise<string> {
-  return panel.evaluate(() => (document.getElementById('sk-tabpanel-nowPlaying') as HTMLElement | null)?.innerText.replace(/\s+/g, ' ') ?? '');
+  return panel.evaluate(() => (document.getElementById('sk-tabpanel-nowPlaying'))?.innerText.replace(/\s+/g, ' ') ?? '');
 }
 
 /** Squelette de chargement de la fiche affiché */

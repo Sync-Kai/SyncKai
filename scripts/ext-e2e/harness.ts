@@ -87,6 +87,7 @@ const lowerKeys = (headers: Record<string, string>): Record<string, string> =>
 
 /** Corps d'une requête Fetch.requestPaused (postData, ou ses morceaux en base64 pour un gros corps) */
 function pausedBody(request: Protocol.Network.Request): string | null {
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- champ du protocole CDP (Fetch.requestPaused), sans équivalent : seul HTTPRequest.postData() est remplacé par fetchPostData()
   if (request.postData !== undefined) return request.postData;
   const entries = request.postDataEntries ?? [];
   if (entries.length === 0) return null;
@@ -264,7 +265,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
         void request.continue();
         return;
       }
-      const intercepted: InterceptedRequest = { source: 'page', method: request.method(), url, headers: lowerKeys(request.headers()), body: request.postData() ?? null };
+      const intercepted: InterceptedRequest = { source: 'page', method: request.method(), url, headers: lowerKeys(request.headers()), body: request.postData() ?? null }; // eslint-disable-line @typescript-eslint/no-deprecated -- synchrone ici : fetchPostData() est asynchrone et la requête est déjà en pause
       void (async (): Promise<void> => {
         try {
           const response = await routePage(intercepted);
@@ -341,7 +342,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
     async send(type, payload, page) {
       const target = page ?? (await bridge());
       // Message passé en JSON : les `null` doivent arriver tels quels
-      return target.evaluate((message: string) => chrome.runtime.sendMessage(JSON.parse(message)), JSON.stringify({ type, payload }));
+      return target.evaluate((message: string) => chrome.runtime.sendMessage(JSON.parse(message) as unknown), JSON.stringify({ type, payload })) as Promise<MessageResponse<typeof type>>;
     },
     async sendFromContent(type, payload) {
       await contentTab();
@@ -363,7 +364,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
       return (await bridge()).evaluate(() => chrome.storage.local.get(null));
     },
     async setStorage(items) {
-      await (await bridge()).evaluate((raw: string) => chrome.storage.local.set(JSON.parse(raw)), JSON.stringify(items));
+      await (await bridge()).evaluate((raw: string) => chrome.storage.local.set(JSON.parse(raw) as Record<string, unknown>), JSON.stringify(items));
     },
     openPage,
     openTab,

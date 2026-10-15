@@ -188,7 +188,7 @@ export function adnSeriesSignals(node: Record<string, unknown>): PlatformSignals
   const published = node.datePublished;
   const year = /^\d{4}/.exec(typeof published === 'string' || typeof published === 'number' ? String(published).trim() : '')?.[0];
   const country = cleanText(isRecord(node.countryOfOrigin) ? node.countryOfOrigin.name : node.countryOfOrigin)?.toLowerCase();
-  const seasons = Array.isArray(node.containsSeason) ? node.containsSeason : [];
+  const seasons: unknown[] = Array.isArray(node.containsSeason) ? node.containsSeason : [];
   const [only] = seasons;
   return toPlatformSignals({
     format: node['@type'] === 'Movie' ? 'movie' : 'series',

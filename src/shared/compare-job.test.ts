@@ -39,7 +39,7 @@ describe('tâche d’alignement : transitions', () => {
   });
 
   it('une tâche terminée n’évolue plus', () => {
-    const done = reduceJob(startApplyJob([items[0]!], 'anilist', 0), { type: 'item', outcome: 'updated', at: 1 });
+    const done = reduceJob(startApplyJob([items[0]], 'anilist', 0), { type: 'item', outcome: 'updated', at: 1 });
     expect(done.status).toBe('done');
     expect(reduceJob(done, { type: 'item', outcome: 'failed', at: 2 })).toBe(done);
     expect(reduceJob(done, { type: 'cancel', at: 2 })).toBe(done);

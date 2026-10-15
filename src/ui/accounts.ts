@@ -50,7 +50,7 @@ export function createAccountsController(): AccountsController {
 
   function store(service: TrackerId): Store<AccountState<unknown>> {
     // Les transitions génériques manipulent les deux stores de la même façon
-    return (service === 'anilist' ? anilist : mal) as Store<AccountState<unknown>>;
+    return service === 'anilist' ? anilist : mal;
   }
 
   async function refresh(service: TrackerId): Promise<void> {

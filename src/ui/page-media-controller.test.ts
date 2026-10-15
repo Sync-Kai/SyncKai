@@ -33,7 +33,7 @@ const fake = vi.hoisted(() => ({
   writtenAt: 1_000,
   /** Sessions passées à chaque écriture du cache, et stockage local lu par getOpenSessions */
   storedEpochs: [] as SessionEpochs[],
-  local: {} as Record<string, unknown>,
+  local: {},
   listeners: [] as ChangeListener[],
   /**
    * Comme Chrome : storage.onChanged émis PENDANT l'écriture, avant que storeCachedPageMedia ne rende la main (l'écriture

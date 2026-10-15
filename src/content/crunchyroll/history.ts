@@ -227,11 +227,12 @@ export async function readHistoryPages(client: CrClient, deps: Pick<ReaderDeps, 
     if (pages >= MAX_HISTORY_PAGES) return { items, pages, partial: true };
     const body = await client.get(path);
     if (!isRecord(body) || !Array.isArray(body.data)) throw new CrHistoryError('unavailable', 'Page d’historique inattendue');
-    items.push(...body.data);
+    const data: unknown[] = body.data;
+    items.push(...data);
     pages++;
     onPage(pages, items.length);
     // Page vide : fin de l'historique même si un curseur est encore fourni
-    path = body.data.length > 0 ? nextPagePath(body.meta, deps.origin) : null;
+    path = data.length > 0 ? nextPagePath(body.meta, deps.origin) : null;
   }
   return { items, pages, partial: false };
 }

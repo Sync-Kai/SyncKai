@@ -32,7 +32,7 @@ type DelayKey = `${AiringDelayHours}`;
 
 /** Délais du segmenté (valeurs texte : le contrôle segmenté travaille sur des chaînes) */
 function delayOptions(): { value: DelayKey; label: string; aria: string }[] {
-  return AIRING_DELAYS.map((hours) => ({ value: `${hours}` as DelayKey, label: t('settings.delay.label', { hours }), aria: tp('settings.delay.aria', hours) }));
+  return AIRING_DELAYS.map((hours) => ({ value: `${hours}`, label: t('settings.delay.label', { hours }), aria: tp('settings.delay.aria', hours) }));
 }
 
 function delayFromKey(key: DelayKey): AiringDelayHours {

@@ -44,7 +44,7 @@ export async function captureLayout(page: Page, file: string, ids: readonly numb
   }, ids);
   try {
     await settle(page);
-    await page.screenshot({ path: file as `${string}.png`, fullPage: true });
+    await page.screenshot({ path: file, fullPage: true });
   } finally {
     await page.evaluate(() => window.__skLayout?.expand(false));
   }

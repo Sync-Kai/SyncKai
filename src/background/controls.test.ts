@@ -9,7 +9,7 @@ const MEDIA_ID = 154587;
 const MAL_ID = 52991;
 
 // Services simulés en mémoire pour adjustProgress (le reste du fichier teste les règles pures)
-const fakes = vi.hoisted(() => ({ trackers: [] as TrackerService[], episodes: 12 as number | null }));
+const fakes = vi.hoisted(() => ({ trackers: [] as TrackerService[], episodes: 12 }));
 
 vi.mock('./trackers', () => ({
   getConnectedTrackers: async (only: readonly TrackerId[] | null = null): Promise<TrackerService[]> =>

@@ -5,6 +5,7 @@ import type { Page } from 'puppeteer';
 import { describe, expect, it } from 'vitest';
 import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
 import { SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
+import { isSyncQueueItem } from '../../src/shared/queue.types';
 import { isSealedToken } from '../../src/browser/tokens/crypto';
 import { FakeAniList } from './fake-anilist';
 import { FakeMal } from './fake-mal';
@@ -166,7 +167,8 @@ describe('Comptes', () => {
     expect(await h.sendFromContent('EPISODE_COMPLETED', { episode, services: null })).toMatchObject({ status: 'error', code: 'NETWORK', queued: true });
     const [queued] = await waitFor('synchro en file', async () => {
       const queue = (await h.storage())[SYNC_QUEUE_KEY];
-      return Array.isArray(queue) && queue.length === 1 ? queue : null;
+      const items = Array.isArray(queue) ? queue.filter(isSyncQueueItem) : [];
+      return items.length === 1 ? items : null;
     });
     expect(queued).toMatchObject({ id: `crunchyroll:${episode.episodeId}`, services: ['anilist', 'mal'], epochs: { anilist: 0, mal: 0 }, status: 'pending' });
 

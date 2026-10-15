@@ -101,7 +101,7 @@ describe('Panneau latéral', () => {
     const tab = await run.h.openTab(FRIEREN_E3.url);
     // Saison 1 devinée d'après la page (S1 E3)
     await waitForEntry(panel, FRIEREN_S1.anilist.title, en('panel.nowPlaying.episode', { episode: 3, total: 28 }));
-    const options = await panel.$$eval(`${sel('page-season')} option`, (list) => list.map((o) => (o as HTMLOptionElement).value));
+    const options = await panel.$$eval(`${sel('page-season')} option`, (list) => list.map((o) => (o).value));
     expect(options).toEqual([String(FRIEREN_S1.anilist.id), String(FRIEREN_S2.anilist.id)]);
 
     // L'utilisateur choisit la saison 2 (sélecteur « Season »)
@@ -143,7 +143,7 @@ describe('Agenda', () => {
     const retry = sel('agenda-retry');
     await panel.waitForSelector(retry, { timeout: 10_000 });
     const errorPrefix = en('agenda.error', { error: '' }).trim();
-    const agendaText = (): Promise<string> => panel.evaluate(() => (document.getElementById('sk-tabpanel-agenda') as HTMLElement | null)?.innerText ?? '');
+    const agendaText = (): Promise<string> => panel.evaluate(() => (document.getElementById('sk-tabpanel-agenda'))?.innerText ?? '');
     expect(await agendaText()).toContain(errorPrefix);
     // Ni rechargement automatique qui l'efface, ni squelette : l'erreur et le bouton restent
     await stays('erreur et « Retry » affichés', async () => (await panel.$(retry)) !== null && (await agendaText()).includes(errorPrefix), 2_500);
