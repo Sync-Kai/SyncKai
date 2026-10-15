@@ -12,8 +12,9 @@ describe('toAniListScore', () => {
     expect(toAniListScore(10, 'POINT_10_DECIMAL')).toBe(10);
   });
 
-  it('POINT_10 : arrondi, minimum 1', () => {
-    expect(toAniListScore(7.5, 'POINT_10')).toBe(8);
+  it('POINT_10 : arrondi inférieur comme MAL, minimum 1', () => {
+    expect(toAniListScore(7.5, 'POINT_10')).toBe(7);
+    expect(toAniListScore(8, 'POINT_10')).toBe(8);
     expect(toAniListScore(0.5, 'POINT_10')).toBe(1);
   });
 
@@ -25,9 +26,11 @@ describe('toAniListScore', () => {
 
   it('POINT_3 : paliers 4 / 7', () => {
     expect(toAniListScore(4, 'POINT_3')).toBe(1);
-    expect(toAniListScore(4.5, 'POINT_3')).toBe(2);
+    expect(toAniListScore(4.5, 'POINT_3')).toBe(1);
+    expect(toAniListScore(5, 'POINT_3')).toBe(2);
     expect(toAniListScore(7, 'POINT_3')).toBe(2);
-    expect(toAniListScore(7.5, 'POINT_3')).toBe(3);
+    expect(toAniListScore(7.5, 'POINT_3')).toBe(2);
+    expect(toAniListScore(8, 'POINT_3')).toBe(3);
   });
 });
 

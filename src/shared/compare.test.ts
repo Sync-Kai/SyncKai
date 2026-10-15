@@ -20,7 +20,8 @@ import {
   type ListDiff,
   type MalListEntry,
 } from './compare';
-import { aniListScoreOn10 } from './score';
+import { aniListScoreOn10, toAniListScore, toMalScore, type AniListScoreFormat } from './score';
+import { isScore10 } from './engagement.types';
 
 const al = (patch: Partial<AniListListEntry> = {}): AniListListEntry => ({
   mediaId: 1,
@@ -80,6 +81,35 @@ describe('scoresMatch (arrondi inférieur MAL)', () => {
     expect(malScoreFrom(8.5)).toBe(8);
     expect(malScoreFrom(0.5)).toBe(1);
     expect(malScoreFrom(aniListScoreOn10(3, 'POINT_3') ?? 0)).toBe(10);
+  });
+});
+
+describe('parité AniList ↔ MAL d\'une note SyncKai', () => {
+  const FORMATS: readonly AniListScoreFormat[] = ['POINT_100', 'POINT_10_DECIMAL', 'POINT_10', 'POINT_5', 'POINT_3'];
+  // Toutes les notes de la bulle (10 étoiles, demi-points)
+  const SCORES = Array.from({ length: 20 }, (_, i) => (i + 1) / 2);
+
+  it('chaque note produite par l\'interface donne des valeurs équivalentes sur les deux services', () => {
+    for (const format of FORMATS) {
+      for (const score of SCORES) {
+        expect(isScore10(score)).toBe(true);
+        expect(scoresMatch(toAniListScore(score, format), toMalScore(score), format), `${format} ${score}`).toBe(true);
+      }
+    }
+  });
+
+  it('POINT_10 : 8,5 donne 8 des deux côtés, jamais au-dessus de la note donnée', () => {
+    expect(toAniListScore(8.5, 'POINT_10')).toBe(8);
+    expect(toMalScore(8.5)).toBe(8);
+  });
+
+  it('une note donnée une fois ne crée aucun écart dans la comparaison', () => {
+    for (const format of FORMATS) {
+      for (const score of SCORES) {
+        const result = compare([al({ score: toAniListScore(score, format) })], [mal({ score: toMalScore(score) })], format);
+        expect(result.items, `${format} ${score}`).toEqual([]);
+      }
+    }
   });
 });
 

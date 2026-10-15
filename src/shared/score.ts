@@ -9,7 +9,11 @@ export function isAniListScoreFormat(value: unknown): value is AniListScoreForma
   return SCORE_FORMATS.some((format) => format === value);
 }
 
-/** Note SyncKai (sur 10, pas 0,5) → valeur `score` de SaveMediaListEntry, exprimée dans le format du profil. */
+/**
+ * Note SyncKai (sur 10, pas 0,5) → valeur `score` de SaveMediaListEntry, exprimée dans le format du profil.
+ * Formats entiers (sur 10, sur 5, smileys) : convertis depuis la note entière écrite sur MAL (toMalScore,
+ * arrondi inférieur), pour qu'une même note donne la même valeur sur les deux services (8,5 → 8 et 8).
+ */
 export function toAniListScore(score: Score10, format: AniListScoreFormat): number {
   switch (format) {
     case 'POINT_100':
@@ -17,12 +21,14 @@ export function toAniListScore(score: Score10, format: AniListScoreFormat): numb
     case 'POINT_10_DECIMAL':
       return Math.round(score * 10) / 10;
     case 'POINT_10':
-      return Math.max(1, Math.round(score));
+      return toMalScore(score);
     case 'POINT_5':
-      return Math.max(1, Math.round(score / 2));
-    case 'POINT_3':
+      return Math.max(1, Math.round(toMalScore(score) / 2));
+    case 'POINT_3': {
       // 3 smileys : ≤ 4 mécontent, ≤ 7 neutre, sinon content
-      return score <= 4 ? 1 : score <= 7 ? 2 : 3;
+      const whole = toMalScore(score);
+      return whole <= 4 ? 1 : whole <= 7 ? 2 : 3;
+    }
   }
 }
 
