@@ -210,3 +210,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Wissen |
 | `settings.matchDiag.candidates` | Kandidaten: {count} |
 | `settings.matchDiag.noEntry` | Geen pagina |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Debugtrace |
+| `settings.debugTrace.text` | Alleen in ontwikkelbuilds: een tijdlijn van wat SyncKai deed op de pagina’s, in de service worker en met AniList en MyAnimeList, nieuwste eerst, bewaard tot de browser sluit. Er worden geen tokens, cookies of account-ID’s vastgelegd. Kopieer de hele trace als JSON om hem te delen als je een probleem meldt. |
+| `settings.debugTrace.empty` | Nog geen gebeurtenis vastgelegd |
+| `settings.debugTrace.copy` | Trace kopiëren |
+| `settings.debugTrace.copied` | Gekopieerd |
+| `settings.debugTrace.copyFailed` | Kan de trace niet kopiëren. |
+| `settings.debugTrace.verbose` | Uitgebreide modus (alle logregels) |
+| `settings.debugTrace.count` | Gebeurtenissen: {count} / {max} |
+| `settings.debugTrace.allCategories` | Alle categorieën |
+| `settings.debugTrace.filterAria` | Gebeurtenissen filteren op categorie |

@@ -31,6 +31,12 @@ import { listenContentReinjection } from './content-reinjection';
 import { listenPlatformAccess } from './platform-access';
 import { runUpdateMigrations } from './update-migrations';
 import { runPendingOtherSeriesPurge } from './sync/mapping-purge';
+import { isDebugTraceMessage, type DebugTraceResponse } from '../protocol/debug-trace';
+import { answerTraceMessage, installTraceWriter, traceRuntimeMessage } from './debug-trace';
+
+// Trace de débogage (builds de développement seulement, absente des bundles publiés) : événements du service worker et
+// lignes de son logger écrits directement, avant tout autre code de ce module
+if (__SYNCKAI_DEBUG__) installTraceWriter();
 
 const log = createLogger('background');
 
@@ -183,8 +189,10 @@ chrome.runtime.onMessage.addListener(
   (
     message: unknown,
     sender: chrome.runtime.MessageSender,
-    sendResponse: (response: MessageResponse<MessageType>) => void,
+    sendResponse: (response: MessageResponse<MessageType> | DebugTraceResponse) => void,
   ): boolean => {
+    // Trace de débogage (builds de développement seulement) : message hors MessageMap, mêmes contrôles dans debug-trace.ts
+    if (__SYNCKAI_DEBUG__ && isDebugTraceMessage(message)) return answerTraceMessage(message, sender, sendResponse);
     // N'accepte que les messages provenant de l'extension elle-même (popup ou content scripts)
     if (sender.id !== chrome.runtime.id || !isRuntimeMessage(message)) return false;
     // Liste d'autorisation par type (MESSAGE_ORIGINS, ARCH-07) : un content script n'envoie que les messages de
@@ -195,6 +203,7 @@ chrome.runtime.onMessage.addListener(
       return false;
     }
 
+    const receivedAt = __SYNCKAI_DEBUG__ ? Date.now() : 0;
     // Langue en cours de changement (réglage modifié juste avant) : réponse traduite dans la nouvelle
     i18nReady
       .then(languageSettled)
@@ -203,10 +212,12 @@ chrome.runtime.onMessage.addListener(
         // Erreurs prévues (réseau, API…) renvoyées sans log : consignées ici pour le rapport de diagnostic
         const failure = describeFailedResponse(response);
         if (failure !== null) log.warn(`${message.type} :`, failure);
+        if (__SYNCKAI_DEBUG__) traceRuntimeMessage(message.type, message.payload, response, sender, origin === 'content', receivedAt);
         sendResponse(response);
       })
       .catch((error: unknown) => {
         log.error('Erreur non gérée pour', message.type, error);
+        if (__SYNCKAI_DEBUG__) traceRuntimeMessage(message.type, message.payload, unexpectedErrors()[message.type], sender, origin === 'content', receivedAt);
         sendResponse(unexpectedErrors()[message.type]);
       });
     return true; // Garde le canal ouvert pour la réponse asynchrone

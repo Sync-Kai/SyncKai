@@ -204,3 +204,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Rensa |
 | `settings.matchDiag.candidates` | Kandidater: {count} |
 | `settings.matchDiag.noEntry` | Ingen titel |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Felsökningsspår |
+| `settings.debugTrace.text` | Endast i utvecklingsbyggen: en tidslinje över vad SyncKai gjorde på sidorna, i service workern och med AniList och MyAnimeList, nyaste först, sparad tills webbläsaren stängs. Inga tokens, cookies eller konto-id:n sparas. Kopiera hela spåret som JSON för att dela det när du rapporterar ett problem. |
+| `settings.debugTrace.empty` | Inga händelser sparade ännu |
+| `settings.debugTrace.copy` | Kopiera spåret |
+| `settings.debugTrace.copied` | Kopierat |
+| `settings.debugTrace.copyFailed` | Det gick inte att kopiera spåret. |
+| `settings.debugTrace.verbose` | Utförligt läge (alla loggrader) |
+| `settings.debugTrace.count` | Händelser: {count} / {max} |
+| `settings.debugTrace.allCategories` | Alla kategorier |
+| `settings.debugTrace.filterAria` | Filtrera händelser efter kategori |

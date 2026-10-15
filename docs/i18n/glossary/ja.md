@@ -115,3 +115,13 @@ Binding for every change to `src/i18n/locales/ja.json` and `public/_locales/ja/m
 ## 4. Netflix
 
 「その他を表示」 (Netflix Japanese help center, help.netflix.com/ja/node/101917: 「履歴がすべて表示されていない場合は、[その他を表示]ボタンを押します。」, the English page says "use the Show More button"; the page itself is 「視聴履歴」)
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | デバッグトレース |
+| event (one line of the trace) | イベント |
+| verbose mode | 詳細モード |

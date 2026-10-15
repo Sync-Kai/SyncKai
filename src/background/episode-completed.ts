@@ -4,6 +4,8 @@ import { hasPlatformAccess } from '../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS } from '../platforms/registry';
 import { getOpenSessions } from '../browser/storage/sessions';
 import { createLogger } from '../browser/logger';
+import { trace } from '../browser/debug-trace-client';
+import { episodeTraceData, summarizeOutcome } from '../shared/debug-trace';
 import type { SyncOutcome } from '../shared/sync.types';
 import { forgetPageResolutions, refreshTabPageMedia } from './page-media/page-media';
 import { recordSyncOutcome } from './sync/queue';
@@ -22,8 +24,12 @@ async function accessRevoked(episode: EpisodeCompletedPayload['episode']): Promi
 
 /** Échec passager → mise en file de relance automatique (le résultat porte alors `queued: true`) */
 export async function handleEpisodeCompleted({ episode, services }: EpisodeCompletedPayload, tabId: number | undefined): Promise<SyncOutcome> {
+  // Trace de débogage (builds de développement seulement)
+  const traceContext = __SYNCKAI_DEBUG__ ? { platform: episode.platform, ...(tabId !== undefined ? { tabId } : {}) } : {};
+  if (__SYNCKAI_DEBUG__) trace('sync', 'received', { ...episodeTraceData(episode), services, signals: episode.signals !== undefined }, traceContext);
   if (await accessRevoked(episode)) {
     log.info(`Accès ${PLATFORMS[episode.platform].label} retiré : épisode ignoré, rien n’est écrit`, episode.animeTitle);
+    if (__SYNCKAI_DEBUG__) trace('sync', 'access-revoked', { episodeId: episode.episodeId }, traceContext);
     return { status: 'ignored', noAccess: true };
   }
   // Sessions capturées avant la synchro : un échec n'est relancé que sur elles (jamais sur un compte connecté depuis)
@@ -35,5 +41,8 @@ export async function handleEpisodeCompleted({ episode, services }: EpisodeCompl
     // Fiche de l'onglet recalculée sans retarder le toast de la page (panneau et popup la lisent dans le cache)
     refreshTabPageMedia(tabId, episode).catch((error: unknown) => log.warn('Fiche de l’onglet non mise à jour :', error));
   }
-  return recordSyncOutcome(episode, services, outcome, epochs);
+  if (!__SYNCKAI_DEBUG__) return recordSyncOutcome(episode, services, outcome, epochs);
+  const recorded = await recordSyncOutcome(episode, services, outcome, epochs);
+  trace('sync', 'outcome', { episodeId: episode.episodeId, ...summarizeOutcome(recorded) }, traceContext);
+  return recorded;
 }

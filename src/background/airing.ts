@@ -28,6 +28,7 @@ import type { AiringCheckResult, AiringSkipReason } from '../shared/airing.types
 import { getExcludedSeries } from '../shared/exclusions';
 import { isRecord } from '../shared/guards';
 import { effectivePreferredPlayer } from '../shared/preferred-player';
+import { trace } from '../browser/debug-trace-client';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { getSettings } from '../browser/storage/settings-access';
 import {
@@ -286,6 +287,8 @@ export async function checkNewEpisodes(lane: RequestLane = 'background'): Promis
     result = { checkedAt: Date.now(), notified: 0, skipped: null, error: describeError(error) };
   }
   log.info('Fin de la vérification :', result.error ? 'échec' : result.skipped ? `ignorée (${result.skipped})` : `${result.notified} notification(s)`);
+  // Trace de débogage (builds de développement seulement) : vérification horaire (background) ou « Vérifier maintenant »
+  if (__SYNCKAI_DEBUG__) trace('alarm', 'airing-check', { lane, notified: result.notified, skipped: result.skipped, failed: result.error !== null });
   try {
     await chrome.storage.local.set({ [AIRING_RESULT_KEY]: result });
   } catch (error) {

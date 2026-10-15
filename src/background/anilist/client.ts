@@ -5,8 +5,18 @@ import { getValidToken } from '../../browser/tokens/access';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../errors';
 import { aniListBudget, MAX_RETRY_WAIT_MS, readRateLimitHeaders, retryDelayMs, sleep, type RequestLane } from '../rate-limit';
 import { createLogger } from '../../browser/logger';
+import { trace } from '../../browser/debug-trace-client';
+import { graphqlOperation } from '../../shared/debug-trace';
 
 const log = createLogger('anilist');
+
+/**
+ * Trace de débogage (builds de développement seulement) : opération GraphQL (jamais ses variables ni les en-têtes),
+ * file, statut HTTP (0 : réseau, délai dépassé), durée de la requête et attente avant son envoi (pénalité 429, budget partagé)
+ */
+function traceRequest(query: string, lane: RequestLane, status: number | 'network' | 'timeout', startedAt: number, sentAt: number, isRetry: boolean, authenticated: boolean): void {
+  trace('network', 'request', { service: 'anilist', op: graphqlOperation(query), lane, status, ms: Date.now() - sentAt, waitMs: sentAt - startedAt, retry: isRetry, authenticated });
+}
 
 const ANILIST_GRAPHQL_URL = 'https://graphql.anilist.co';
 
@@ -21,17 +31,20 @@ async function request<T>(
   isRetry: boolean,
   lane: RequestLane,
 ): Promise<T> {
+  const startedAt = __SYNCKAI_DEBUG__ ? Date.now() : 0;
   const token = await getValidToken();
   if (!token && auth === 'required') throw new ApiError('NOT_AUTHENTICATED', t('api.notAuthenticated', { service: 'AniList' }));
 
   // Pénalité 429 en cours : une requête interactive attend si c'est court, échoue aussitôt sinon (erreur visible)
   if (lane === 'interactive') {
     const cooldown = aniListBudget.cooldownLeft();
+    if (__SYNCKAI_DEBUG__ && cooldown > 0) trace('network', 'cooldown', { service: 'anilist', op: graphqlOperation(query), cooldownMs: cooldown, refused: cooldown > MAX_RETRY_WAIT_MS });
     if (cooldown > MAX_RETRY_WAIT_MS) throw new ApiError('RATE_LIMITED', t('api.rateLimited', { service: 'AniList' }));
     if (cooldown > 0) await sleep(cooldown);
   }
   // Budget partagé : les tâches de fond attendent leur tour, les requêtes interactives passent en priorité
   const release = await aniListBudget.acquire(lane);
+  const sentAt = __SYNCKAI_DEBUG__ ? Date.now() : 0;
   let response: Response;
   try {
     response = await fetch(ANILIST_GRAPHQL_URL, {
@@ -45,11 +58,13 @@ async function request<T>(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error: unknown) {
+    if (__SYNCKAI_DEBUG__) traceRequest(query, lane, isTimeoutError(error) ? 'timeout' : 'network', startedAt, sentAt, isRetry, token !== null);
     if (isTimeoutError(error)) throw new ApiError('NETWORK', t('api.timeout', { service: 'AniList' }), { timedOut: true });
     throw new ApiError('NETWORK', t('api.network', { service: 'AniList' }));
   } finally {
     release();
   }
+  if (__SYNCKAI_DEBUG__) traceRequest(query, lane, response.status, startedAt, sentAt, isRetry, token !== null);
   aniListBudget.observe(readRateLimitHeaders(response.headers));
 
   let body: unknown = null;
@@ -82,6 +97,7 @@ async function request<T>(
     // si l'attente est courte (requête non traitée : sans risque). Les tâches de fond attendent aussi.
     const delay = retryDelayMs(response.headers.get('Retry-After'), Date.now(), response.headers.get('X-RateLimit-Reset'));
     aniListBudget.penalize(delay ?? 60_000);
+    if (__SYNCKAI_DEBUG__) trace('network', 'rate-limited', { service: 'anilist', op: graphqlOperation(query), lane, delayMs: delay, willRetry: delay !== null && !isRetry });
     if (delay !== null && !isRetry) {
       log.warn(`Limite de requêtes AniList atteinte, nouvelle tentative dans ${Math.ceil(delay / 1000)} s`);
       return request(query, isData, variables, auth, true, lane);

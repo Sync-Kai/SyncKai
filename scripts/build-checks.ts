@@ -392,11 +392,12 @@ export function checkMainWorldBridge(file: string, code: string): string[] {
 }
 
 /**
- * Marqueurs des builds de développement (`npm run build:dev`) : clé du diagnostic de rapprochement et journaux
- * `[disney]`, présents seulement sous `if (__SYNCKAI_DEBUG__)`. Ils ne doivent pas figurer dans le code publié.
- * (Les textes `settings.matchDiag.*` du catalogue anglais restent, ce sont des données.)
+ * Marqueurs des builds de développement (`npm run build:dev`) : clé du diagnostic de rapprochement, journaux
+ * `[disney]` et trace de débogage (`debug:trace`, préfixe de ses clés de storage.session et de son message), présents
+ * seulement sous `if (__SYNCKAI_DEBUG__)`. Ils ne doivent pas figurer dans le code publié.
+ * (Les textes `settings.matchDiag.*` et `settings.debugTrace.*` du catalogue anglais restent, ce sont des données.)
  */
-export const DEV_ONLY_MARKERS: readonly string[] = ['debug:matchDiagnostic', '[disney]'];
+export const DEV_ONLY_MARKERS: readonly string[] = ['debug:matchDiagnostic', '[disney]', 'debug:trace'];
 
 /** Erreurs pour chaque fichier JS du paquet qui contient un marqueur de `DEV_ONLY_MARKERS` */
 export function checkNoDevMarkers(file: string, code: string): string[] {

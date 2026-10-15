@@ -108,3 +108,13 @@ Binding for every change to `src/i18n/locales/tr.json` and `public/_locales/tr/m
 
 - Page name: "İzleme etkinliği" and button "Daha Fazla Göster" (Netflix's own title case), both confirmed by Netflix's Turkish Help Center on 2026-10-14 (help.netflix.com/tr/node/101917, steps 3 and 4: "İzleme etkinliği öğesini açın", "Daha Fazla Göster düğmesini kullanın"). `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` quote them.
 - Not yet checked on the live page with a Turkish profile. The importer's button label list (`labels` in `src/platforms/netflix/tab-op.ts` › `netflixTabOp`) has had `daha fazla göster` since the final pass of 2026-10-14.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | hata ayıklama izi |
+| event (one line of the trace) | olay |
+| verbose mode | ayrıntılı mod |

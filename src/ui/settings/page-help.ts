@@ -10,6 +10,7 @@ import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
 import type { SettingsContext, SettingsPageView } from './context';
 import { createMatchDiagnosticSection } from './match-diagnostic';
+import { createDebugTraceSection } from './debug-trace';
 import { BTN_DANGER, dangerRow, dangerZone, DIVIDER, HELP_TEXT, linkRow, rowsCard, settingsSection } from './rows';
 
 const log = createLogger('settings');
@@ -31,6 +32,7 @@ export function createHelpPage(ctx: SettingsContext): SettingsPageView {
   const redraw = (): void => ctx.redraw(['help']);
   // Builds de dev seulement (`npm run build:dev`) : section absente des bundles publiés
   const matchDiagnostic = __SYNCKAI_DEBUG__ ? createMatchDiagnosticSection(redraw) : null;
+  const debugTrace = __SYNCKAI_DEBUG__ ? createDebugTraceSection(redraw) : null;
 
   function showFeedback(next: HelpFeedback): void {
     clearTimeout(feedbackTimer);
@@ -132,6 +134,7 @@ export function createHelpPage(ctx: SettingsContext): SettingsPageView {
         ),
       ),
       ...(matchDiagnostic ? [matchDiagnostic.render()] : []),
+      ...(debugTrace ? [debugTrace.render()] : []),
       dangerZone(
         dangerRow({
           title: t('settings.help.journal'),

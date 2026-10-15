@@ -1,5 +1,6 @@
 import { onLocaleChange, t } from '../i18n';
 import { createLogger } from '../browser/logger';
+import { trace } from '../browser/debug-trace-client';
 import {
   isCachedPageMedia,
   isPartialEpisodePage,
@@ -558,9 +559,12 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
       const previous = manualId;
       manualId = mediaId;
       actions = { ...actions, confirm: null, feedback: null };
+      // Trace de débogage (builds de développement seulement) : la résolution qui suit est tracée par le service worker
+      if (__SYNCKAI_DEBUG__) trace('ui', 'season-picked', { mediaId, previous, title: content.page.seriesTitle }, { platform: content.page.platform });
       // Échec (réseau) : la saison affichée reste la précédente, le choix n'est pas gardé pour les relectures suivantes
       void resolve(content.page, true, false, () => {
         if (manualId === mediaId) manualId = previous;
+        if (__SYNCKAI_DEBUG__) trace('ui', 'season-pick-failed', { mediaId });
       });
     },
   };

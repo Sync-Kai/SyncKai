@@ -13,6 +13,8 @@ import { readListNotes } from '../../shared/list-notes';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../errors';
 import { retryDelayMs, sleep } from '../rate-limit';
 import { createLogger } from '../../browser/logger';
+import { trace } from '../../browser/debug-trace-client';
+import { restPathTemplate } from '../../shared/debug-trace';
 
 const log = createLogger('mal');
 
@@ -104,6 +106,10 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
   const accessToken = await getMalAccessToken({ rejected: options.rejected });
   if (!accessToken) throw new ApiError('NOT_AUTHENTICATED', t('api.notAuthenticated', { service: 'MyAnimeList' }));
 
+  // Trace de débogage (builds de développement seulement) : méthode et chemin sans paramètres ni identifiants, statut, durée
+  const sentAt = __SYNCKAI_DEBUG__ ? Date.now() : 0;
+  const traceRequest = (status: number | 'network' | 'timeout'): void =>
+    trace('network', 'request', { service: 'mal', op: `${options.method ?? 'GET'} ${restPathTemplate(path)}`, status, ms: Date.now() - sentAt, authRetries: options.authRetries ?? 0, rateRetried: options.rateRetried === true });
   let response: Response;
   try {
     response = await fetch(`${MAL_API_URL}${path}`, {
@@ -117,9 +123,11 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error: unknown) {
+    if (__SYNCKAI_DEBUG__) traceRequest(isTimeoutError(error) ? 'timeout' : 'network');
     if (isTimeoutError(error)) throw new ApiError('NETWORK', t('api.timeout', { service: 'MyAnimeList' }), { timedOut: true });
     throw new ApiError('NETWORK', t('api.network', { service: 'MyAnimeList' }));
   }
+  if (__SYNCKAI_DEBUG__) traceRequest(response.status);
 
   if (response.status === 401) {
     // Token révoqué ou expiré plus tôt que prévu : un renouvellement (ou le token déjà renouvelé par un autre appel)
@@ -133,6 +141,7 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
 
   if (response.status === 429) {
     const delay = options.rateRetried ? null : retryDelayMs(response.headers.get('Retry-After'));
+    if (__SYNCKAI_DEBUG__) trace('network', 'rate-limited', { service: 'mal', op: restPathTemplate(path), delayMs: delay, willRetry: delay !== null });
     if (delay !== null) {
       log.warn(`Limite de requêtes MyAnimeList atteinte, nouvelle tentative dans ${Math.ceil(delay / 1000)} s`);
       await sleep(delay);

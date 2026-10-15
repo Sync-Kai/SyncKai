@@ -205,3 +205,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Hapus |
 | `settings.matchDiag.candidates` | Kandidat: {count} |
 | `settings.matchDiag.noEntry` | Tidak ada entri |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Jejak debug |
+| `settings.debugTrace.text` | Hanya di build pengembangan: linimasa tindakan SyncKai di halaman, di service worker, dan dengan AniList serta MyAnimeList, terbaru di atas, disimpan sampai browser ditutup. Tidak ada token, cookie, atau ID akun yang dicatat. Salin seluruh jejak sebagai JSON untuk membagikannya saat melaporkan masalah. |
+| `settings.debugTrace.empty` | Belum ada peristiwa yang dicatat |
+| `settings.debugTrace.copy` | Salin jejak |
+| `settings.debugTrace.copied` | Disalin |
+| `settings.debugTrace.copyFailed` | Jejak tidak dapat disalin. |
+| `settings.debugTrace.verbose` | Mode terperinci (semua baris log) |
+| `settings.debugTrace.count` | Peristiwa: {count} / {max} |
+| `settings.debugTrace.allCategories` | Semua kategori |
+| `settings.debugTrace.filterAria` | Saring peristiwa menurut kategori |

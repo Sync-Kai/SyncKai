@@ -88,3 +88,13 @@ Target: natural Czech as used by Czech anime fans and by the Czech versions of N
 - *Viewing activity* page (used in `crImport.read.error.netflixLoggedOut`, `crImport.netflix.rule`, `crImport.netflix.keepTab`): **„Divácká historie“**. Confirmed on 2026-10-14 in Netflix's Czech help center (help.netflix.com/cs/node/101917: *Otevřete sekci Divácká historie*); the earlier guess *Aktivita sledování* was wrong.
 - "Show more" button at the bottom of netflix.com/viewingactivity: **„Zobrazit více“** (same article: *použijte tlačítko Zobrazit více*), quoted in `crImport.netflix.rule`.
 - Firefox gear-menu item *Manage Extension Shortcuts* (`settings.shortcut.manualFirefox`): **Správa klávesových zkratek pro rozšíření** (mozilla-l10n `cs/toolkit/toolkit/about/aboutAddons.ftl`, `addon-manage-extensions-shortcuts`, checked 2026-10-14). Firefox calls its sidebar *postranní lišta*; SyncKai keeps *boční panel* for both browsers.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | ladicí záznam |
+| event (one line of the trace) | událost |
+| verbose mode | podrobný režim |

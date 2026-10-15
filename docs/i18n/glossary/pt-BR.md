@@ -98,3 +98,13 @@ Target: natural Brazilian Portuguese as used by Crunchyroll Brasil, Netflix Bras
 - *Show more* button at the bottom of netflix.com/viewingactivity in pt-BR: **“Mostrar mais”**. Source: the official Netflix help article in Brazilian Portuguese (help.netflix.com/pt-br/node/101917), consistent with Brazilian press articles describing the page; the French and German versions of the same article give « Voir plus » and « Mehr anzeigen », the labels already handled by the import.
 - The *Viewing activity* page is named **“O que foi assistido”** in Brazilian Portuguese (same sources).
 - Firefox pt-BR gear-menu item *Manage Extension Shortcuts*: **Gerenciar atalhos de extensões** (mozilla-l10n `aboutAddons.ftl`, `addon-manage-extensions-shortcuts`).
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | rastreamento de depuração |
+| event (one line of the trace) | evento |
+| verbose mode | modo detalhado |

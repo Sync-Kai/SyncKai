@@ -1,5 +1,6 @@
 import type { TrackerId } from '../shared/tracker.types';
 import { createLogger } from './logger';
+import { trace } from './debug-trace-client';
 import { getSettings } from './storage/settings-access';
 import { hasMalToken, hasValidAniListToken } from './storage/tokens';
 
@@ -29,11 +30,14 @@ export async function ensureAiringAlarm(): Promise<void> {
   try {
     const settings = await getSettings();
     if (!settings.airingAlerts || (await connectedServices()).length === 0) {
-      await chrome.alarms.clear(AIRING_ALARM);
+      const cleared = await chrome.alarms.clear(AIRING_ALARM);
+      // Trace de débogage (builds de développement seulement)
+      if (__SYNCKAI_DEBUG__) trace('alarm', 'airing', { action: cleared ? 'cleared' : 'absent', alerts: settings.airingAlerts });
       return;
     }
     const existing = await chrome.alarms.get(AIRING_ALARM);
     if (!existing) await chrome.alarms.create(AIRING_ALARM, AIRING_ALARM_SCHEDULE);
+    if (__SYNCKAI_DEBUG__) trace('alarm', 'airing', { action: existing ? 'kept' : 'created', nextAt: existing?.scheduledTime ?? null });
   } catch (error) {
     log.error('Alarme impossible à configurer :', error);
   }

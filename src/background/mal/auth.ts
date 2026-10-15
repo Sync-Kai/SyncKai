@@ -11,6 +11,7 @@ import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../errors';
 import { classifyAuthFlowError, getOAuthClients } from '../trackers/oauth-clients';
 import { createCodeVerifier, createState } from './pkce';
 import { createLogger } from '../../browser/logger';
+import { trace } from '../../browser/debug-trace-client';
 
 const log = createLogger('auth');
 
@@ -42,6 +43,10 @@ async function requestToken(params: Record<string, string>): Promise<MalToken> {
     throw new ApiError('TOKEN_INVALID', t('auth.notConfigured', { url: redirectUri }));
   }
   const timeout = (): ApiError => new ApiError('NETWORK', t('api.timeout', { service: 'MyAnimeList' }), { timedOut: true });
+  // Trace de débogage (builds de développement seulement) : type d'échange et statut, jamais le corps (code, jetons)
+  const sentAt = __SYNCKAI_DEBUG__ ? Date.now() : 0;
+  const traceRequest = (status: number | 'network' | 'timeout'): void =>
+    trace('network', 'request', { service: 'mal', op: `POST /oauth2/token (${params.grant_type ?? '?'})`, status, ms: Date.now() - sentAt });
   let response: Response;
   try {
     response = await fetch(MAL_TOKEN_URL, {
@@ -52,9 +57,11 @@ async function requestToken(params: Record<string, string>): Promise<MalToken> {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error: unknown) {
+    if (__SYNCKAI_DEBUG__) traceRequest(isTimeoutError(error) ? 'timeout' : 'network');
     if (isTimeoutError(error)) throw timeout();
     throw new ApiError('NETWORK', t('api.network', { service: 'MyAnimeList' }));
   }
+  if (__SYNCKAI_DEBUG__) traceRequest(response.status);
 
   // 400/401 : code expiré, refresh token révoqué… → une nouvelle connexion est nécessaire
   if (response.status === 400 || response.status === 401) {

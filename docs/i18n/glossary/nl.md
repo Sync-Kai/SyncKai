@@ -103,3 +103,13 @@ The add buttons of the “On this page” card use the bare status names (`page.
 - Name of the Viewing activity page in Dutch: Kijkactiviteit.
 - Label of the “Show more” button at the bottom of netflix.com/viewingactivity in Dutch: **Meer weergeven** (Netflix's Dutch help centre, help.netflix.com/nl/node/101917, step 4: “Gebruik de knop Meer weergeven als je een lijst met beperkte titels ziet”; English page: “use the Show More button”). `crImport.netflix.rule` quotes it: “met de knop ‘Meer weergeven’”. Not verified on the live site with a Dutch profile.
 - Developer note (review of 2026-10-14): the import only clicks buttons whose text is in the list of `netflixTabOp` (`src/platforms/netflix/tab-op.ts`); “meer weergeven” was added to it in the final pass of 2026-10-14, so a Dutch Netflix profile reads the whole history.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | debugtrace (de trace) |
+| event (one line of the trace) | gebeurtenis |
+| verbose mode | uitgebreide modus |

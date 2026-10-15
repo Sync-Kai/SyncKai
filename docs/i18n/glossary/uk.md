@@ -117,3 +117,13 @@ Verified 2026-10-14 in Netflix's Ukrainian help (help.netflix.com/uk/node/101917
 
 - "Viewing activity" (profile section, netflix.com/viewingactivity) = «Переглянуте». Quoted as «сторінка «Переглянуте»» / «на сторінці «Переглянуте»».
 - "Show more" button = «Показати більше»; "Download all" = «Завантажити все».
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | налагоджувальне трасування |
+| event (one line of the trace) | подія |
+| verbose mode | докладний режим |

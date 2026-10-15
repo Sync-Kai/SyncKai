@@ -206,3 +206,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Golește |
 | `settings.matchDiag.candidates` | Candidați: {count} |
 | `settings.matchDiag.noEntry` | Nicio fișă |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Urmă de depanare |
+| `settings.debugTrace.text` | Doar în build-urile de dezvoltare: desfășurarea a ceea ce a făcut SyncKai pe pagini, în service worker și cu AniList și MyAnimeList, de la cea mai recentă, păstrată până la închiderea browserului. Nu se înregistrează niciun token, cookie sau ID de cont. Copiază toată urma ca JSON ca s-o trimiți când raportezi o problemă. |
+| `settings.debugTrace.empty` | Niciun eveniment înregistrat încă |
+| `settings.debugTrace.copy` | Copiază urma |
+| `settings.debugTrace.copied` | Copiată |
+| `settings.debugTrace.copyFailed` | Urma nu a putut fi copiată. |
+| `settings.debugTrace.verbose` | Mod detaliat (toate liniile din jurnal) |
+| `settings.debugTrace.count` | Evenimente: {count} / {max} |
+| `settings.debugTrace.allCategories` | Toate categoriile |
+| `settings.debugTrace.filterAria` | Filtrează evenimentele după categorie |

@@ -14,6 +14,8 @@ import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
 import type { CatalogMedia, TrackerService } from './ports/tracker';
 import { createLogger } from '../browser/logger';
+import { trace } from '../browser/debug-trace-client';
+import { decisionTraceData, entryTraceData } from '../shared/debug-trace';
 
 // Contrôles manuels (service worker) : +1 / −1 depuis le popup et raccourci « valider l'épisode ».
 
@@ -90,6 +92,7 @@ async function adjustOnService(
       const current = await tracker.getEntry(id);
       const total = current.episodes ?? fallbackTotal;
       const decision = retry ? decideRetryAdjustment(current.entry, total, delta, retry.progress) : decideAdjustment(current.entry, total, delta);
+      if (__SYNCKAI_DEBUG__) trace('ui', 'adjust-decision', { service: tracker.id, id, delta, retry: retry !== null, before: entryTraceData(current.entry), total, ...decisionTraceData(decision) });
       if (decision.action === 'skip') {
         const outcome: ServiceOutcome = { status: 'skipped', reason: decision.reason, ...(decision.notInList ? { code: 'not-in-list' as const } : {}) };
         return { result: { service: tracker.id, outcome }, title: current.title };
@@ -281,10 +284,16 @@ export async function handleCommand(command: string): Promise<void> {
   try {
     // L'id de l'onglet ne requiert pas la permission "tabs"
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    if (tab?.id === undefined) return;
+    if (tab?.id === undefined) {
+      if (__SYNCKAI_DEBUG__) trace('shortcut', 'command', { command, delivered: false, reason: 'no-tab' });
+      return;
+    }
     const message: ContentMessage = { type: 'FORCE_COMPLETE' };
     await chrome.tabs.sendMessage(tab.id, message);
+    // Trace de débogage (builds de développement seulement) : la décision vient ensuite du script de contenu
+    if (__SYNCKAI_DEBUG__) trace('shortcut', 'command', { command, delivered: true }, { tabId: tab.id });
   } catch (error: unknown) {
+    if (__SYNCKAI_DEBUG__) trace('shortcut', 'command', { command, delivered: false, reason: isNoReceiverError(error) ? 'no-content-script' : 'error' });
     if (!isNoReceiverError(error)) log.warn('Raccourci « valider l’épisode » :', error);
   }
 }

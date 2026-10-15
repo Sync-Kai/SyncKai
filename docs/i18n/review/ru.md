@@ -182,3 +182,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Очистить |
 | `settings.matchDiag.candidates` | Кандидаты: {count} |
 | `settings.matchDiag.noEntry` | Нет карточки |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Отладочная трассировка |
+| `settings.debugTrace.text` | Только в сборках для разработки: хронология того, что SyncKai делал на страницах, в service worker и с AniList и MyAnimeList, от новых событий к старым, хранится до закрытия браузера. Токены, cookie и идентификаторы аккаунтов не записываются. Скопируй всю трассировку в JSON, чтобы поделиться ею, когда сообщаешь о проблеме. |
+| `settings.debugTrace.empty` | Пока нет записанных событий |
+| `settings.debugTrace.copy` | Копировать трассировку |
+| `settings.debugTrace.copied` | Скопировано |
+| `settings.debugTrace.copyFailed` | Не удалось скопировать трассировку. |
+| `settings.debugTrace.verbose` | Подробный режим (все строки журнала) |
+| `settings.debugTrace.count` | События: {count} / {max} |
+| `settings.debugTrace.allCategories` | Все категории |
+| `settings.debugTrace.filterAria` | Фильтр событий по категории |

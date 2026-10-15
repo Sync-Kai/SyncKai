@@ -53,3 +53,10 @@ export const REWATCH_DECLINED_KEY = 'rewatchDeclined';
  * décisions, dans chrome.storage.session (jamais local). Constante à part (pas dans STORAGE_KEYS) : absente des bundles publiés.
  */
 export const MATCH_DIAGNOSTIC_KEY = 'debug:matchDiagnostic';
+
+/**
+ * Trace de débogage (builds de dev seulement, voir shared/debug-trace.ts) : événements et mode détaillé, dans
+ * chrome.storage.session (jamais local), écrits par le service worker seul. Constantes à part, absentes des bundles publiés.
+ */
+export const DEBUG_TRACE_KEY = 'debug:trace';
+export const DEBUG_TRACE_VERBOSE_KEY = 'debug:trace:verbose';

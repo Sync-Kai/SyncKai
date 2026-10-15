@@ -159,3 +159,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Svuota |
 | `settings.matchDiag.candidates` | Candidati: {count} |
 | `settings.matchDiag.noEntry` | Nessuna scheda |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Traccia di debug |
+| `settings.debugTrace.text` | Solo nelle build di sviluppo: la cronologia di ciò che SyncKai ha fatto sulle pagine, nel service worker e con AniList e MyAnimeList, dalla più recente, conservata fino alla chiusura del browser. Non viene registrato nessun token, cookie o ID account. Copia l’intera traccia in JSON per condividerla quando segnali un problema. |
+| `settings.debugTrace.empty` | Ancora nessun evento registrato |
+| `settings.debugTrace.copy` | Copia traccia |
+| `settings.debugTrace.copied` | Copiata |
+| `settings.debugTrace.copyFailed` | Impossibile copiare la traccia. |
+| `settings.debugTrace.verbose` | Modalità dettagliata (tutte le righe del registro) |
+| `settings.debugTrace.count` | Eventi: {count} / {max} |
+| `settings.debugTrace.allCategories` | Tutte le categorie |
+| `settings.debugTrace.filterAria` | Filtra gli eventi per categoria |

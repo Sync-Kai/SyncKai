@@ -115,3 +115,13 @@ Binding for every change to `src/i18n/locales/vi.json` and `public/_locales/vi/m
 
 - "Viewing activity" page: **Hoạt động xem** (Netflix's Vietnamese help center: "Mở Hoạt động xem.").
 - "Show more" button at the bottom of netflix.com/viewingactivity: **Hiển thị thêm** (Netflix's Vietnamese help center, article "Viewing activity": "hãy sử dụng nút Hiển thị thêm"; the French and German versions of the same article give "Voir plus" and "Mehr anzeigen", the labels already validated on the real site).
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | dấu vết gỡ lỗi |
+| event (one line of the trace) | sự kiện |
+| verbose mode | chế độ chi tiết |

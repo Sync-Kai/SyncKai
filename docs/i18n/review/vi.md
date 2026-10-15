@@ -198,3 +198,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Xóa |
 | `settings.matchDiag.candidates` | Ứng viên: {count} |
 | `settings.matchDiag.noEntry` | Không có mục |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Dấu vết gỡ lỗi |
+| `settings.debugTrace.text` | Chỉ có trong bản build phát triển: dòng thời gian những gì SyncKai đã làm trên các trang, trong service worker và với AniList, MyAnimeList, mới nhất trước, được giữ đến khi đóng trình duyệt. Không ghi lại token, cookie hay ID tài khoản nào. Hãy sao chép toàn bộ dấu vết dạng JSON để chia sẻ khi báo lỗi. |
+| `settings.debugTrace.empty` | Chưa ghi lại sự kiện nào |
+| `settings.debugTrace.copy` | Sao chép dấu vết |
+| `settings.debugTrace.copied` | Đã sao chép |
+| `settings.debugTrace.copyFailed` | Không thể sao chép dấu vết. |
+| `settings.debugTrace.verbose` | Chế độ chi tiết (mọi dòng nhật ký) |
+| `settings.debugTrace.count` | Sự kiện: {count} / {max} |
+| `settings.debugTrace.allCategories` | Tất cả danh mục |
+| `settings.debugTrace.filterAria` | Lọc sự kiện theo danh mục |

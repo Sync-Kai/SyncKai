@@ -1,5 +1,6 @@
 import { canComplete, formatTimecode, resolveCompletionPoint, type CompletionPoint } from './completion';
 import type { Logger } from '../../browser/logger';
+import { trace } from '../../browser/debug-trace-client';
 import type { PlaybackTime } from './adapter';
 
 interface VideoTrackerOptions {
@@ -74,6 +75,7 @@ export function trackVideoProgress(video: HTMLVideoElement, options: VideoTracke
     if (__SYNCKAI_DEBUG__ && pointLabel !== lastLoggedPoint) {
       lastLoggedPoint = pointLabel;
       logger.info(`Fin d’épisode : ${pointLabel}`);
+      trace('page', 'completion-point', { source: point.source, seconds: Math.round(point.seconds), duration: Math.round(duration), ratio: fallbackRatio });
     }
 
     if (__SYNCKAI_DEBUG__) {
@@ -118,6 +120,7 @@ export function trackVideoProgress(video: HTMLVideoElement, options: VideoTracke
     'loadstart',
     () => {
       if (__SYNCKAI_DEBUG__) logger.info('Nouvelle source vidéo : suivi réarmé');
+      if (__SYNCKAI_DEBUG__) trace('page', 'video-source', { rearmed: true });
       hasFreshSource = true;
       arm();
     },

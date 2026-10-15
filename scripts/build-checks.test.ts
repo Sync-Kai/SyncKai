@@ -393,4 +393,10 @@ describe('marqueurs de build de développement', () => {
     expect(checkNoDevMarkers('assets/a.js', 'const a="[SyncKai:sync]"')).toEqual([]);
     expect(checkNoDevMarkers('assets/a.js', 'k="debug:matchDiagnostic";console.info(`[disney] x`)')).toHaveLength(2);
   });
+
+  it('signale la clé et le message de la trace de débogage', () => {
+    expect(checkNoDevMarkers('assets/background.js', 'chrome.storage.session.get("debug:trace")')).toHaveLength(1);
+    expect(checkNoDevMarkers('assets/a.js', 'sendMessage({type:"debug:trace:message"})')).toHaveLength(1);
+    expect(checkNoDevMarkers('assets/a.js', 'k="debug:trace:verbose"')).toHaveLength(1);
+  });
 });

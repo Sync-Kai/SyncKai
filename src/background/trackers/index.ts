@@ -7,6 +7,45 @@ import type { ListEntryState } from '../sync/rules';
 import { toAniListScore, toMalScore } from '../../shared/score';
 import type { TrackerService } from '../ports/tracker';
 import { forgetCachedEntries } from './entry-cache';
+import { ApiError } from '../errors';
+import { trace } from '../../browser/debug-trace-client';
+import { entryTraceData } from '../../shared/debug-trace';
+import { isRecord } from '../../shared/guards';
+
+/**
+ * Trace de débogage (builds de développement seulement : jamais posé dans les bundles publiés) : chaque écriture sur un
+ * service, ses arguments (progression, statut, note ; longueur du commentaire, jamais son texte), l'état de l'entrée après
+ * l'écriture ou le code de l'erreur, et sa durée.
+ */
+function tracingWrites(tracker: TrackerService): TrackerService {
+  const wrap =
+    <A extends unknown[], R>(op: string, write: (id: number, ...args: A) => Promise<R>) =>
+    async (id: number, ...args: A): Promise<R> => {
+      const startedAt = Date.now();
+      const fields = args.find(isRecord);
+      const input = op === 'saveNotes' ? { notesLength: typeof args[0] === 'string' ? args[0].length : null } : { args: args.filter((a) => typeof a !== 'object'), ...(fields ? { write: fields } : {}) };
+      try {
+        const saved = await write(id, ...args);
+        const after = isRecord(saved) && typeof saved.status === 'string' && typeof saved.progress === 'number' ? entryTraceData({ status: saved.status, progress: saved.progress }) : null;
+        trace('sync', 'write', { service: tracker.id, op, id, ...input, after, ms: Date.now() - startedAt });
+        return saved;
+      } catch (error: unknown) {
+        const failure = error instanceof ApiError ? { code: error.code, httpStatus: error.httpStatus } : { code: 'UNEXPECTED' };
+        trace('sync', 'write-failed', { service: tracker.id, op, id, ...input, ...failure, ms: Date.now() - startedAt });
+        throw error;
+      }
+    };
+  return {
+    ...tracker,
+    saveProgress: wrap('saveProgress', tracker.saveProgress),
+    saveScore: wrap('saveScore', tracker.saveScore),
+    startRewatch: wrap('startRewatch', tracker.startRewatch),
+    saveStatus: wrap('saveStatus', tracker.saveStatus),
+    saveEntry: wrap('saveEntry', tracker.saveEntry),
+    deleteEntry: wrap('deleteEntry', tracker.deleteEntry),
+    saveNotes: wrap('saveNotes', tracker.saveNotes),
+  };
+}
 
 /**
  * Toute écriture réussie hors alignement (synchro en direct ou en file, carte vérifiée, +1/−1, statut, note,
@@ -95,7 +134,8 @@ export const malTracker: TrackerService = forgettingEntries(invalidatingComparis
   saveNotes: (id, notes) => saveMalNotes(id, notes),
 }));
 
-const TRACKERS: readonly TrackerService[] = [anilistTracker, malTracker];
+// Build de développement : écritures tracées (tracingWrites) ; tableau d'origine sinon
+const TRACKERS: readonly TrackerService[] = __SYNCKAI_DEBUG__ ? [tracingWrites(anilistTracker), tracingWrites(malTracker)] : [anilistTracker, malTracker];
 
 /** Services connectés, éventuellement restreints à `only` (nouvelle tentative ciblée). */
 export async function getConnectedTrackers(only: readonly TrackerId[] | null = null): Promise<TrackerService[]> {

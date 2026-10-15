@@ -10,6 +10,8 @@ import type { TrackerId } from '../../shared/tracker.types';
 import { classifyOutcome, decideAfterRetry, dueItems, nextAlarmTime, upsertFailure, withoutServices } from './queue-policy';
 import { syncEpisode } from './sync-service';
 import { createLogger } from '../../browser/logger';
+import { trace } from '../../browser/debug-trace-client';
+import { summarizeOutcome } from '../../shared/debug-trace';
 
 // File de synchro hors ligne (service worker).
 
@@ -80,6 +82,8 @@ export async function recordSyncOutcome(
       }
       return false;
     });
+    // Trace de débogage (builds de développement seulement)
+    if (__SYNCKAI_DEBUG__ && queued) trace('sync', 'queued', { id, services: result.kind === 'retry' ? result.services : null }, { platform: episode.platform });
 
     await scheduleAlarm();
     await refreshBadgeSafely();
@@ -110,6 +114,10 @@ async function retryItem(id: string, manual: boolean): Promise<SyncOutcome | nul
 
     const outcome = await syncEpisode(item.episode, item.services, item.epochs);
     const decision = decideAfterRetry(item, outcome, Date.now(), manual);
+    if (__SYNCKAI_DEBUG__) {
+      const next = decision.action === 'remove' ? 'removed' : decision.item.status;
+      trace('sync', 'retry', { id, manual, attempts: item.attempts, next, ...summarizeOutcome(outcome) }, { platform: item.episode.platform });
+    }
     if (decision.action === 'remove') {
       await removeQueueItem(id);
       return outcome;
@@ -127,6 +135,7 @@ export async function processSyncQueue(): Promise<void> {
     await navigator.locks.request(RUN_LOCK, { ifAvailable: true }, async (lock): Promise<void> => {
       if (lock === null) return;
       const due = dueItems(await getSyncQueue(), Date.now());
+      if (__SYNCKAI_DEBUG__) trace('sync', 'queue-run', { due: due.length });
       for (const [index, item] of due.entries()) {
         if (index > 0) await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
         try {

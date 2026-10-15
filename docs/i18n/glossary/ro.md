@@ -115,3 +115,13 @@ Target: standard Romanian as used by Chrome, Netflix and big Romanian apps, with
 ## 5. Firefox
 
 - Gear menu item of about:addons "Manage Extension Shortcuts": **„Gestionează comenzile rapide ale extensiilor”** (mozilla-l10n `ro/toolkit/toolkit/about/aboutAddons.ftl`, `addon-manage-extensions-shortcuts`, checked 2026-10-14), quoted in `settings.shortcut.manualFirefox`.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | urmă de depanare |
+| event (one line of the trace) | eveniment |
+| verbose mode | mod detaliat |

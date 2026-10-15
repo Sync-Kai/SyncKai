@@ -140,3 +140,13 @@ Binding for every change to `src/i18n/locales/zh-CN.json` and `public/_locales/z
 
 - “Viewing activity” page: 观看记录 (Netflix zh-Hans account page name, used in `crImport.*`).
 - “Show more” button at the bottom of netflix.com/viewingactivity: **unknown**. Not verified on the real page with high confidence; the catalog text (`crImport.netflix.rule`) uses the generic “显示更多”, to be checked before relying on it in code.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | 调试跟踪 |
+| event (one line of the trace) | 事件 |
+| verbose mode | 详细模式 |

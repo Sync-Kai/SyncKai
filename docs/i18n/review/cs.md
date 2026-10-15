@@ -177,3 +177,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Vymazat |
 | `settings.matchDiag.candidates` | Kandidáti: {count} |
 | `settings.matchDiag.noEntry` | Žádný záznam |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Ladicí záznam |
+| `settings.debugTrace.text` | Jen ve vývojových buildech: průběh toho, co SyncKai dělal na stránkách, v service workeru a s AniListem a MyAnimeListem, od nejnovějšího, uložený do zavření prohlížeče. Neukládají se žádné tokeny, cookies ani ID účtů. Zkopíruj celý záznam jako JSON a sdílej ho při hlášení problému. |
+| `settings.debugTrace.empty` | Zatím se nezaznamenala žádná událost |
+| `settings.debugTrace.copy` | Kopírovat záznam |
+| `settings.debugTrace.copied` | Zkopírováno |
+| `settings.debugTrace.copyFailed` | Záznam se nepodařilo zkopírovat. |
+| `settings.debugTrace.verbose` | Podrobný režim (všechny řádky protokolu) |
+| `settings.debugTrace.count` | Události: {count} / {max} |
+| `settings.debugTrace.allCategories` | Všechny kategorie |
+| `settings.debugTrace.filterAria` | Filtrovat události podle kategorie |

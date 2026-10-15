@@ -100,3 +100,13 @@ Binding for every change to `src/i18n/locales/id.json` and `public/_locales/id/m
 - The "Viewing activity" page is named **Aktivitas streaming** in Netflix's Indonesian UI (same article: "Buka Aktivitas streaming."). The catalog quotes it as halaman “Aktivitas streaming”.
 - Firefox (for `settings.shortcut.manualFirefox`): "Manage Extension Shortcuts" = **Kelola Pintasan Ekstensi** (mozilla-l10n `id` aboutAddons.ftl, message `addon-manage-extensions-shortcuts`).
 - All three names re-checked against the live sources in the 2026-10-14 review.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | jejak debug |
+| event (one line of the trace) | peristiwa |
+| verbose mode | mode terperinci |

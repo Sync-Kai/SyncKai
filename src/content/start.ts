@@ -2,6 +2,8 @@ import { ensureContentLanguage, t } from '../i18n/content';
 import { isContentMessage, type PageMediaResponse } from '../protocol/content-messages';
 import { isLivePanelMessage, LIVE_PORT_NAME, type LiveContentMessage } from '../protocol/live';
 import { createLogger } from '../browser/logger';
+import { trace } from '../browser/debug-trace-client';
+import { pageMediaTraceData } from '../shared/debug-trace';
 import type { StreamingAdapter } from './lib/adapter';
 import { isExtensionContextInvalidated } from './lib/extension-context';
 import { createLiveStream, type LiveStream } from './lib/live-stream';
@@ -60,6 +62,8 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
     const episodeId = adapter.getEpisodeId(url);
     if (episodeId !== null && episodeId === session?.episodeId) return; // Même épisode (query/hash modifiés)
 
+    // Trace de débogage (builds de développement seulement) : navigation SPA, lecture automatique de l'épisode suivant
+    if (__SYNCKAI_DEBUG__) trace('page', 'navigation', { from: session?.episodeId ?? null, to: episodeId, page: episodeId ? 'watch' : 'other' }, { platform: adapter.platform });
     session?.destroy();
     session = episodeId ? startWatchSession(adapter, episodeId) : null;
     session?.onStateChange((state, outcome) => live.notifySync(state, outcome));
@@ -75,6 +79,7 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
       const url = new URL(location.href);
       const page = detectPageMedia(adapter, url);
       if (!needsAsyncPageMedia(adapter, url, page)) {
+        if (__SYNCKAI_DEBUG__) trace('page', 'page-media', pageMediaTraceData(page), { platform: adapter.platform });
         sendResponse(page);
         return undefined;
       }
@@ -82,6 +87,7 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
       void loadPageMedia(adapter, url).then((loaded) => {
         // Diagnostic (build de développement seulement : retiré des scripts publiés, budget de taille)
         if (__SYNCKAI_DEBUG__) log.debug(`Page de série : ${loaded ? `« ${loaded.seriesTitle} », saison ${loaded.seasonNumber ?? '?'}` : 'métadonnées absentes à temps'}`);
+        if (__SYNCKAI_DEBUG__) trace('page', 'page-media', { ...pageMediaTraceData(loaded), async: true }, { platform: adapter.platform });
         sendResponse(loaded);
       });
       return true;
@@ -89,6 +95,7 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
     sendResponse(); // Accusé de réception : le service worker n'attend rien de plus
     if (!session) {
       if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » ignoré : aucune lecture en cours');
+      if (__SYNCKAI_DEBUG__) trace('shortcut', 'decision', { decision: 'no-playback' }, { platform: adapter.platform });
       // Textes calculés une fois la langue assurée (demandée au service worker au premier besoin de la page)
       void ensureContentLanguage().then(() =>
         showToast({ tone: 'info', title: t('content.shortcut.noPlayback.title'), message: t('content.shortcut.noPlayback.message') }, { autoHideMs: NOTICE_TOAST_MS }),

@@ -120,3 +120,13 @@ Verified on 2026-10-14 in Netflix's Taiwan help center ([如何查看觀影記�
 - "Show more" button at the bottom of that page: **「顯示更多」**.
 - Netflix profiles: **使用者** (the profile picker and the account menu use 使用者, not 個人檔案, which stays the AniList/MyAnimeList profile).
 - Netflix calls the history itself 觀影記錄; the catalog keeps 觀看記錄 as the one generic word for every platform's watch history (history import), and quotes Netflix's names only where it points at Netflix's own page or button.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | 偵錯追蹤 |
+| event (one line of the trace) | 事件 |
+| verbose mode | 詳細模式 |

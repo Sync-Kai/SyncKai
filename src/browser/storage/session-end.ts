@@ -10,6 +10,7 @@ import {
 } from './account-data';
 import type { SealedToken } from '../tokens/crypto';
 import type { TrackerId } from '../../shared/tracker.types';
+import { trace } from '../debug-trace-client';
 
 /**
  * Après la fermeture d'une session : données de l'utilisateur si plus aucun service n'est connecté, badge de l'icône,
@@ -27,6 +28,8 @@ async function afterSessionEnd(): Promise<void> {
  * encore), et met à jour le badge de l'icône.
  */
 export async function endSession(service: TrackerId): Promise<void> {
+  // Trace de débogage (builds de développement seulement) : depuis une page (Réglages) ou le service worker
+  if (__SYNCKAI_DEBUG__) trace('account', 'sign-out', { service });
   await (service === 'anilist' ? clearAniListSession() : clearMalSession());
   await afterSessionEnd();
 }
@@ -37,6 +40,7 @@ export async function endSession(service: TrackerId): Promise<void> {
  */
 export async function endSessionIfToken(service: TrackerId, accessToken: string): Promise<boolean> {
   const ended = await (service === 'anilist' ? clearAniListSessionIfToken(accessToken) : clearMalSessionIfToken(accessToken));
+  if (__SYNCKAI_DEBUG__) trace('account', 'token-rejected', { service, sessionExpired: ended });
   if (ended) await afterSessionEnd();
   return ended;
 }
@@ -48,6 +52,7 @@ export async function endSessionIfToken(service: TrackerId, accessToken: string)
  */
 export async function endSessionIfUnreadable(service: TrackerId, sealed: SealedToken): Promise<boolean> {
   const ended = await clearUnreadableSession(service, sealed);
+  if (__SYNCKAI_DEBUG__) trace('account', 'token-unreadable', { service, sessionExpired: ended });
   if (ended) await afterSessionEnd();
   return ended;
 }

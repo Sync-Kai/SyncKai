@@ -199,3 +199,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | 지우기 |
 | `settings.matchDiag.candidates` | 후보: {count} |
 | `settings.matchDiag.noEntry` | 항목 없음 |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | 디버그 추적 |
+| `settings.debugTrace.text` | 개발 빌드 전용: 페이지, 서비스 워커, AniList·MyAnimeList와의 통신에서 SyncKai가 한 일을 최신순으로 기록해요. 브라우저를 닫을 때까지 보관돼요. 토큰, 쿠키, 계정 ID는 기록하지 않아요. 문제를 신고할 때 전체 추적을 JSON으로 복사해 공유하세요. |
+| `settings.debugTrace.empty` | 아직 기록된 이벤트가 없어요 |
+| `settings.debugTrace.copy` | 추적 복사 |
+| `settings.debugTrace.copied` | 복사됨 |
+| `settings.debugTrace.copyFailed` | 추적을 복사하지 못했어요. |
+| `settings.debugTrace.verbose` | 상세 모드(모든 로그 줄) |
+| `settings.debugTrace.count` | 이벤트: {count} / {max} |
+| `settings.debugTrace.allCategories` | 모든 카테고리 |
+| `settings.debugTrace.filterAria` | 카테고리별로 이벤트 필터링 |

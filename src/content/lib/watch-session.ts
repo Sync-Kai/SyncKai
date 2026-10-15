@@ -13,6 +13,8 @@ import { isAlertTone, promptForOutcome, showsProgress } from '../ui/notification
 import { ALERT_TOAST_MS, NOTICE_TOAST_MS, PILL_TOAST_MS, RETRY_TOAST_MS, bubbleForOutcome, toastForOutcome } from '../ui/sync-toast';
 import { showToast, type ToastContent, type ToastHandle, type ToastOptions } from '../ui/toast';
 import { createLogger } from '../../browser/logger';
+import { trace } from '../../browser/debug-trace-client';
+import { episodeTraceData, summarizeOutcome } from '../../shared/debug-trace';
 import { isExtensionContextInvalidated } from './extension-context';
 import { liveOutcomeOf, type LiveSnapshot } from './live-stream';
 import { trackVideoProgress, type VideoProgressTracker } from './video-tracker';
@@ -128,6 +130,9 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   };
 
   if (__SYNCKAI_DEBUG__) log.info(`▶ Page de lecture détectée (${adapter.platform}, épisode ${episodeId})`);
+  // Trace de débogage (builds de développement seulement) : événements de la page, onglet ajouté par le service worker
+  const traceContext = __SYNCKAI_DEBUG__ ? { platform: adapter.platform } : {};
+  if (__SYNCKAI_DEBUG__) trace('page', 'watch-page', { episodeId }, traceContext);
 
   const isCurrentEpisode = (): boolean => adapter.getEpisodeId(new URL(location.href)) === episodeId;
   const extract = (): EpisodeInfo | null => (isCurrentEpisode() ? adapter.extractEpisodeInfo(new URL(location.href)) : null);
@@ -191,10 +196,12 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       // cas normal → rien d'affiché ni consigné au journal (info, pas warn)
       if (adapter.quiet) {
         if (__SYNCKAI_DEBUG__) log.info('Épisode terminé mais métadonnées introuvables : complétion non envoyée (plateforme discrète)');
+        if (__SYNCKAI_DEBUG__) trace('page', 'completion-skipped', { episodeId, trigger, reason: 'unidentified' }, traceContext);
         setState('idle');
         return;
       }
       log.error('Épisode terminé mais métadonnées introuvables : complétion non envoyée');
+      if (__SYNCKAI_DEBUG__) trace('page', 'completion-skipped', { episodeId, trigger, reason: 'unidentified' }, traceContext);
       // Premier texte de la session : langue assurée avant de le calculer
       await ensureContentLanguage();
       if (signal.aborted) return;
@@ -204,12 +211,14 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     }
 
     if (__SYNCKAI_DEBUG__) log.info(`✔ Épisode terminé : ${formatEpisode(episode)}`, episode);
+    if (__SYNCKAI_DEBUG__) trace('page', 'episode-completed', { trigger, ...episodeTraceData(episode) }, traceContext);
 
     // Relus maintenant : une pause activée pendant l'épisode s'applique immédiatement.
     // Rien d'écrit (pause, série exclue) : le raccourci pourra renvoyer l'épisode après réactivation
     const settings = await loadSettings();
     if (!settings.autoSync) {
       if (__SYNCKAI_DEBUG__) log.info('Synchronisation en pause (options) : épisode non envoyé');
+      if (__SYNCKAI_DEBUG__) trace('page', 'completion-skipped', { episodeId, trigger, reason: 'sync-paused' }, traceContext);
       delivery = 'retryable';
       setState('idle');
       if (trigger === 'shortcut') showShortcutNotice({ tone: 'info', title: t('content.shortcut.paused.title'), message: t('content.shortcut.paused.message') });
@@ -217,6 +226,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     }
     if (await isSeriesExcluded(episode)) {
       if (__SYNCKAI_DEBUG__) log.info(`Série exclue (Réglages › Séries exclues) : épisode non envoyé (${platformSeriesKey(episode)})`);
+      if (__SYNCKAI_DEBUG__) trace('page', 'completion-skipped', { episodeId, trigger, reason: 'excluded' }, traceContext);
       delivery = 'retryable';
       setState('excluded', { status: 'excluded', message: null });
       if (trigger === 'shortcut') showShortcutNotice({ tone: 'info', title: t('common.excludedTitle'), message: t('popup.syncDisabledDetail') });
@@ -224,6 +234,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     }
     if (ignoredSeries.has(platformSeriesKey(episode))) {
       if (__SYNCKAI_DEBUG__) log.info(`Série déjà ignorée par SyncKai (pas un anime) : épisode non envoyé (${platformSeriesKey(episode)})`);
+      if (__SYNCKAI_DEBUG__) trace('page', 'completion-skipped', { episodeId, trigger, reason: 'ignored-series' }, traceContext);
       delivery = 'ignored';
       setState('idle');
       return;
@@ -246,9 +257,11 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     switch (delivery) {
       case 'sending':
         if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : envoi déjà en cours');
+        if (__SYNCKAI_DEBUG__) trace('shortcut', 'decision', { episodeId, decision: 'already-sending' }, traceContext);
         return;
       case 'synced':
         if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : épisode déjà synchronisé');
+        if (__SYNCKAI_DEBUG__) trace('shortcut', 'decision', { episodeId, decision: 'already-synced-nothing-sent' }, traceContext);
         // Langue déjà assurée par l'envoi (nouvel essai s'il avait échoué)
         void ensureContentLanguage().then(() =>
           showToast(
@@ -260,11 +273,13 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       case 'ignored':
         // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, comme à la fin de l'épisode
         if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : série ignorée par SyncKai');
+        if (__SYNCKAI_DEBUG__) trace('shortcut', 'decision', { episodeId, decision: 'ignored-series' }, traceContext);
         return;
       case 'none':
       case 'retryable':
         // Pas encore envoyé, ou rien d'écrit la dernière fois (pause, exclusion, à vérifier, échec) : envoi
         if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » : complétion immédiate');
+        if (__SYNCKAI_DEBUG__) trace('shortcut', 'decision', { episodeId, decision: 'send', previous: delivery }, traceContext);
         void reportCompletion('shortcut');
     }
   }
@@ -305,6 +320,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     try {
       const outcome = await sendMessage('EPISODE_COMPLETED', { episode, services });
       if (__SYNCKAI_DEBUG__) log.info('Résultat de la synchronisation :', outcome);
+      if (__SYNCKAI_DEBUG__) trace('page', 'sync-result', { episodeId, retryServices: services, ...summarizeOutcome(outcome) }, traceContext);
       sentEpisode = episode;
       // Série hors périmètre (Netflix, pas un anime) : rien d'affiché, épisodes suivants non renvoyés.
       // Accès Netflix retiré : rien d'affiché non plus, mais la série n'est pas retenue (accès accordé de nouveau)
@@ -344,6 +360,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       // Rien d'écrit : la fin de lecture peut de nouveau déclencher l'envoi (source rechargée), le raccourci aussi
       delivery = 'none';
       log.error('Service worker injoignable :', error);
+      if (__SYNCKAI_DEBUG__) trace('page', 'sync-unreachable', { episodeId }, traceContext);
       setState('error', { status: 'error', message: t('content.unreachable.message') });
       notifyRetry(
         { tone: 'error', title: t('content.unreachable.title'), message: t('content.unreachable.message') },
@@ -359,6 +376,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     // Adapter asynchrone (Netflix) : métadonnées demandées à la plateforme plutôt qu'attendues dans le DOM
     metadata = adapter.loadEpisodeInfo ? await load() : await waitFor(extract, { signal, timeoutMs: METADATA_WAIT_TIMEOUT_MS });
     if (signal.aborted) return;
+    if (__SYNCKAI_DEBUG__) trace('page', metadata ? 'episode-identified' : 'episode-unidentified', metadata ? episodeTraceData(metadata) : { episodeId }, traceContext);
     if (metadata) {
       if (__SYNCKAI_DEBUG__) log.info(`Épisode identifié : ${formatEpisode(metadata)}`, metadata);
     } else if (!adapter.quiet) log.warn('Métadonnées indisponibles pour l’instant, nouvel essai à la fin de l’épisode');
@@ -369,6 +387,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   /** Suit `found` : le tracker précédent (lecteur remplacé) est annulé avec tous ses écouteurs */
   function attach(found: HTMLVideoElement, settings: ContentSettings): void {
     if (__SYNCKAI_DEBUG__) log.info(video ? 'Lecteur vidéo remplacé, suivi rattaché :' : 'Lecteur vidéo trouvé :', found.id || '(sans id)');
+    if (__SYNCKAI_DEBUG__) trace('page', video ? 'video-replaced' : 'video-found', { episodeId, videoId: found.id || null, duration: found.duration }, traceContext);
     trackerController?.abort();
     trackerController = new AbortController();
     video = found;
@@ -420,6 +439,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     const timer = setTimeout(() => {
       if (video || signal.aborted) return;
       log.warn(`Aucune balise <video> trouvée après ${VIDEO_WAIT_TIMEOUT_MS / 1000} s : attente du lecteur`);
+      if (__SYNCKAI_DEBUG__) trace('page', 'no-video', { episodeId, waitedMs: VIDEO_WAIT_TIMEOUT_MS }, traceContext);
       setState('no-video');
     }, VIDEO_WAIT_TIMEOUT_MS);
     signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
@@ -464,6 +484,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       void adapter.getCreditsStart?.(episodeId, signal).then(
         (start) => {
           creditsStart = start;
+          if (__SYNCKAI_DEBUG__) trace('page', 'credits-start', { episodeId, seconds: start }, traceContext);
         },
         () => undefined,
       );

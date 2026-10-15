@@ -214,3 +214,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | 消去 |
 | `settings.matchDiag.candidates` | 候補：{count} |
 | `settings.matchDiag.noEntry` | 作品ページなし |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | デバッグトレース |
+| `settings.debugTrace.text` | 開発ビルドのみ：ページ、Service Worker、AniList・MyAnimeListとのやり取りでSyncKaiが行った処理を新しい順に記録します。ブラウザを閉じるまで保持されます。トークン、Cookie、アカウントIDは記録しません。問題を報告するときは、トレース全体をJSONとしてコピーして共有してください。 |
+| `settings.debugTrace.empty` | 記録されたイベントはまだありません |
+| `settings.debugTrace.copy` | トレースをコピー |
+| `settings.debugTrace.copied` | コピー済み |
+| `settings.debugTrace.copyFailed` | トレースをコピーできませんでした。 |
+| `settings.debugTrace.verbose` | 詳細モード（すべてのログ行） |
+| `settings.debugTrace.count` | イベント：{count} / {max} |
+| `settings.debugTrace.allCategories` | すべてのカテゴリ |
+| `settings.debugTrace.filterAria` | カテゴリでイベントを絞り込む |

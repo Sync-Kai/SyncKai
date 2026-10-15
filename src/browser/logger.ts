@@ -1,3 +1,4 @@
+import { traceLog } from './debug-trace-client';
 import { defaultJournal, type Journal } from './error-journal';
 
 export interface Logger {
@@ -32,20 +33,33 @@ export function createLoggerFor(scope: string, debugEnabled: boolean, journal: J
 
 /**
  * Logger du module `scope`. debug/info ne s'affichent qu'en build de développement
- * (`__SYNCKAI_DEBUG__` remplacé à la compilation : esbuild élimine les appels en production).
+ * (`__SYNCKAI_DEBUG__` remplacé à la compilation : esbuild élimine les appels en production). En build de développement,
+ * chaque ligne alimente aussi la trace de débogage (debug-trace-client.ts : warn / error toujours, info / debug en mode détaillé).
  */
 export function createLogger(scope: string): Logger {
   const prefix = `[SyncKai:${scope}]`;
   return {
-    debug: __SYNCKAI_DEBUG__ ? (...args: unknown[]) => console.debug(prefix, ...args) : noop,
-    info: __SYNCKAI_DEBUG__ ? (...args: unknown[]) => console.info(prefix, ...args) : noop,
+    debug: __SYNCKAI_DEBUG__
+      ? (...args: unknown[]) => {
+          console.debug(prefix, ...args);
+          traceLog('debug', scope, args);
+        }
+      : noop,
+    info: __SYNCKAI_DEBUG__
+      ? (...args: unknown[]) => {
+          console.info(prefix, ...args);
+          traceLog('info', scope, args);
+        }
+      : noop,
     warn: (...args: unknown[]) => {
       console.warn(prefix, ...args);
       defaultJournal.record('warn', scope, args);
+      if (__SYNCKAI_DEBUG__) traceLog('warn', scope, args);
     },
     error: (...args: unknown[]) => {
       console.error(prefix, ...args);
       defaultJournal.record('error', scope, args);
+      if (__SYNCKAI_DEBUG__) traceLog('error', scope, args);
     },
   };
 }

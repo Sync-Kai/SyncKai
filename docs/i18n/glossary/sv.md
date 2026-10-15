@@ -91,3 +91,13 @@ Target: standard Swedish as used by Chrome, Firefox, Netflix and YouTube in Swed
 
 - "Show more" button at the bottom of netflix.com/viewingactivity in Swedish: **Visa mer**. Source: Netflix's Swedish help article "Visa streaming- och enhetsaktivitet" (help.netflix.com/sv/node/101917, step 4: "använder du knappen Visa mer"; re-checked 2026-10-14). Not checked on the live page with a Swedish profile.
 - The page itself is called **Streamingaktivitet** in Swedish (same article, step 3; also help.netflix.com/sv/node/22205); the catalog uses that name.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | felsökningsspår (spåret) |
+| event (one line of the trace) | händelse |
+| verbose mode | utförligt läge |

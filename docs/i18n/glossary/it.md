@@ -101,3 +101,13 @@ Target: standard Italian as used by Crunchyroll Italia and big Italian apps (Chr
 - "Show more" button at the bottom of netflix.com/viewingactivity: **Mostra altri** (Netflix Help Center, Italian article "Come visualizzare l'attività di visione e del dispositivo", help.netflix.com/it/node/101917: "usa il pulsante Mostra altri"; the same article says "Show More" in English and "Voir plus" in French).
 - "Viewing activity" page: **Attività di visione contenuti** (same article: "Apri Attività di visione contenuti").
 - Both names re-checked against help.netflix.com/it/node/101917 on 2026-10-14 (review). Not checked on the live Italian netflix.com page itself.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | traccia di debug |
+| event (one line of the trace) | evento |
+| verbose mode | modalità dettagliata |

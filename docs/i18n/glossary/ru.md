@@ -96,3 +96,13 @@ Paths keep ` › ` and the exact labels: « Настройки › Просмо�
 - « Show more » button of netflix.com/viewingactivity: **Показать еще** (spelled with *е*, as quoted in Netflix's Russian help article *Как увидеть историю просмотра и активность устройств*, help.netflix.com/ru/node/101917: « нажмите кнопку Показать еще »). Code that matches the label should also accept « Показать ещё ».
 - « Viewing activity » page: **История просмотра** (name of the profile section in the same Russian help article).
 - Both names re-checked against help.netflix.com/ru/node/101917 on 2026-10-14 (button « Показать еще », section « История просмотра »).
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | отладочная трассировка |
+| event (one line of the trace) | событие |
+| verbose mode | подробный режим |

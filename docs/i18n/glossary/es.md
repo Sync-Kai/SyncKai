@@ -95,3 +95,13 @@ Binding for every change to `src/i18n/locales/es.json` and `public/_locales/es/m
 
 - "Show more" button at the bottom of netflix.com/viewingactivity: **Mostrar más** (Netflix Help Center, es-ES article on viewing activity: « Si ves una lista limitada, usa el botón Mostrar más. »).
 - "Viewing activity" page: **Actividad de visionado** (same article: « Abre Actividad de visionado »).
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | traza de depuración |
+| event (one line of the trace) | evento |
+| verbose mode | modo detallado |

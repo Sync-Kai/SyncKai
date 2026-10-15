@@ -114,3 +114,13 @@ Binding for every change to `src/i18n/locales/ko.json` and `public/_locales/ko/m
 - "Show more" button at the bottom of that page: unknown
 
   Probable candidate, not verified on a Korean profile: “더 보기” (spacing not confirmed: “더보기” is also possible). The UI text `crImport.netflix.rule` uses ‘더 보기’.
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | 디버그 추적 |
+| event (one line of the trace) | 이벤트 |
+| verbose mode | 상세 모드 |

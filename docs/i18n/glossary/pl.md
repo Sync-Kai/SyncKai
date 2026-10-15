@@ -114,3 +114,13 @@ Statuses are neuter, so composed texts use the neuter too: “{title}: obejrzane
 - **“zapomnieć”** governs the genitive (“zapomnieć czegoś”); the accusative is colloquial. The per-item button stays “Zapomnij”; sentences about all matches use “usunąć/usuwa wszystkie dopasowania”.
 - **Impersonal forms of reflexive verbs** keep “się”: “Nie zalogowano się do {service}”.
 - **“Completed” vs “finished airing”** in running text: “po obejrzeniu serii” (the user finished it), never “po zakończeniu serii” (reads as the end of the broadcast).
+
+## Development builds only
+
+Settings › Help & about sections that exist only in development builds (2026-10-15, `settings.debugTrace.*`).
+
+| English | Term |
+|---|---|
+| debug trace | ślad debugowania |
+| event (one line of the trace) | zdarzenie |
+| verbose mode | tryb szczegółowy |

@@ -40,8 +40,16 @@ import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './reso
 import { withEntryLock } from './entry-lock';
 import { decideListUpdate, type ListEntryState } from './rules';
 import { createLogger } from '../../browser/logger';
+import { trace } from '../../browser/debug-trace-client';
+import { decisionTraceData, entryTraceData, type TraceData } from '../../shared/debug-trace';
 
 const log = createLogger('sync');
+
+/** Résumé de la correspondance pour la trace de débogage (le diagnostic des correspondances garde le détail) */
+const matchTraceData = (result: ResolveResult): TraceData =>
+  result.ok
+    ? { mediaId: result.target.mediaId, progress: result.target.progress, confidence: result.target.confidence, reason: result.target.reason, fromCache: result.target.fromCache === true, bySignals: result.target.bySignals === true }
+    : { mediaId: null, reason: result.reason, ignored: result.ignored === true };
 const MAX_SEARCH_RESULTS = 10;
 
 const SKIP_REASONS = {
@@ -164,6 +172,9 @@ async function writeEntry(
   const isCorrection = correctionFrom !== null && current.entry?.progress === correctionFrom;
   const outdatedCorrection = correctionFrom !== null && !isCorrection;
   const decision = decideListUpdate(current.entry, progress, current.episodes ?? catalog.episodes, isCorrection);
+  if (__SYNCKAI_DEBUG__) {
+    trace('sync', 'decide', { service: tracker.id, id, target: progress, correction: isCorrection, before: entryTraceData(current.entry), episodes: current.episodes, ...decisionTraceData(decision) });
+  }
   if (decision.action === 'skip') {
     log.info(`${label} : pas de mise à jour (${decision.reason})`, current);
     if (outdatedCorrection && current.entry !== null && current.entry.progress !== progress) {
@@ -369,6 +380,8 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
     }
     const key = mappingKey(episode);
     const { result, candidates, catalog } = await resolveForSync(episode, key);
+    // Trace de débogage (builds de développement seulement) : résumé, détail dans le diagnostic des correspondances
+    if (__SYNCKAI_DEBUG__) trace('sync', 'match', { key, ...matchTraceData(result), candidates: candidates.length, catalogEpisodes: catalog?.episodes ?? null }, { platform: episode.platform });
 
     // Plateforme généraliste (Netflix) : série sans fiche AniList liée ni au même titre, probablement pas un anime.
     // Ni carte de vérification ni entrée au journal (info, pas warn) : le content script n'affiche rien.

@@ -168,3 +168,20 @@ New keys `settings.matchDiag.*` (Settings › Help & about, section shown only i
 | `settings.matchDiag.clear` | Temizle |
 | `settings.matchDiag.candidates` | Adaylar: {count} |
 | `settings.matchDiag.noEntry` | Sayfa yok |
+
+## 2026-10-15 · Debug trace (development builds only)
+
+New keys `settings.debugTrace.*` (Settings › Help & about, section shown only in development builds, never in the published extension, below the matching diagnostic): a timeline of what the extension did (pages, service worker, AniList and MyAnimeList requests), a verbose switch, a category filter (category names stay in English: technical identifiers), « Copy trace » (the whole trace as JSON) and the « Clear » button of the matching diagnostic (`settings.matchDiag.clear`, reused). `{count}` and `{max}` follow a label and a colon (no plural form) and arrive formatted for the language; `JSON` is a format name; `service worker` kept as the browser's technical term. New terms added to this language's term sheet (debug trace, event, verbose mode); other terms from it (account). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.debugTrace.title` | Hata ayıklama izi |
+| `settings.debugTrace.text` | Yalnızca geliştirme sürümlerinde: SyncKai'nin sayfalarda, service worker'da ve AniList ile MyAnimeList'te yaptıklarının zaman çizelgesi, en yenisi önce, tarayıcı kapanana kadar tutulur. Hiçbir token, çerez veya hesap kimliği kaydedilmez. Bir sorunu bildirirken paylaşmak için izin tamamını JSON olarak kopyala. |
+| `settings.debugTrace.empty` | Henüz kaydedilmiş olay yok |
+| `settings.debugTrace.copy` | İzi kopyala |
+| `settings.debugTrace.copied` | Kopyalandı |
+| `settings.debugTrace.copyFailed` | İz kopyalanamadı. |
+| `settings.debugTrace.verbose` | Ayrıntılı mod (tüm günlük satırları) |
+| `settings.debugTrace.count` | Olaylar: {count} / {max} |
+| `settings.debugTrace.allCategories` | Tüm kategoriler |
+| `settings.debugTrace.filterAria` | Olayları kategoriye göre filtrele |
