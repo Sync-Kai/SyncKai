@@ -5,7 +5,8 @@ import type { AniListToken } from '../../shared/auth.types';
 vi.mock('../../browser/tokens/access', () => ({ getValidToken: async (): Promise<AniListToken> => ({ accessToken: 'A', expiresAt: Number.MAX_SAFE_INTEGER }) }));
 vi.mock('../../browser/storage/session-end', () => ({ endSessionIfToken: async () => true }));
 
-import { anilistEntryVariables, deleteListEntry, getMediaListInfo, saveListNotes } from './list';
+import { anilistEntryVariables, deleteListEntry, getMediaListInfo, saveListEntry, saveListNotes, saveProgress } from './list';
+import { aniListBudget } from '../rate-limit';
 
 describe('SaveMediaListEntry (AniList)', () => {
   it('envoie les statuts du popup tels quels (énumération MediaListStatus)', () => {
@@ -68,6 +69,17 @@ describe('commentaire et retrait (AniList)', () => {
     expect(sent).toHaveLength(2);
     expect(sent[1]?.query).toMatch(/DeleteMediaListEntry\(id: \$id\)/);
     expect(sent[1]?.variables).toEqual({ id: 555 });
+  });
+
+  it('B9 : relecture et écriture d’une tâche de fond (import, alignement) sur la file de fond ; écrans : file interactive', async () => {
+    const acquire = vi.spyOn(aniListBudget, 'acquire');
+    stubAniList(media(null), { SaveMediaListEntry: { status: 'CURRENT', progress: 4, repeat: 0 } }, { SaveMediaListEntry: { status: 'CURRENT', progress: 5, repeat: 0 } }, media(null));
+    await getMediaListInfo(21, 'background');
+    await saveProgress(21, 4, 'CURRENT', undefined, 'background');
+    await saveListEntry(21, { progress: 5 }, 'background');
+    await getMediaListInfo(21);
+    expect(acquire.mock.calls.map(([lane]) => lane)).toEqual(['background', 'background', 'background', 'interactive']);
+    acquire.mockRestore();
   });
 
   it('série déjà absente de la liste : aucune suppression envoyée ; « deleted: false » : erreur', async () => {

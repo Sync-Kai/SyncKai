@@ -8,6 +8,7 @@ import type { EntryWrite } from '../../shared/compare';
 import { readListNotes } from '../../shared/list-notes';
 import { anilistQuery } from './client';
 import { ApiError } from '../errors';
+import type { RequestLane } from '../rate-limit';
 
 export interface MediaListInfo {
   mediaId: number;
@@ -110,9 +111,12 @@ function isScoreFormatData(data: unknown): data is ScoreFormatData {
   );
 }
 
-/** Lit la fiche et l'entrée de liste de l'utilisateur (juste avant d'écrire, pour une donnée fraîche). */
-export async function getMediaListInfo(mediaId: number): Promise<MediaListInfo> {
-  const { Media } = await anilistQuery(MEDIA_ENTRY_QUERY, isMediaEntryData, { id: mediaId });
+/**
+ * Lit la fiche et l'entrée de liste de l'utilisateur (juste avant d'écrire, pour une donnée fraîche). `lane` : 'background'
+ * pour une tâche de fond (import, alignement : place réservée avant le verrou de la fiche, voir jobs/runner.ts)
+ */
+export async function getMediaListInfo(mediaId: number, lane: RequestLane = 'interactive'): Promise<MediaListInfo> {
+  const { Media } = await anilistQuery(MEDIA_ENTRY_QUERY, isMediaEntryData, { id: mediaId }, lane);
   return toMediaListInfo(mediaId, Media);
 }
 
@@ -152,9 +156,9 @@ export function anilistEntryVariables(
   return variables;
 }
 
-/** `repeat` : nouveau nombre de revisionnages (fin d'un revisionnage), sinon inchangé */
-export async function saveProgress(mediaId: number, progress: number, status: WriteStatus, repeat?: number): Promise<ListEntryState> {
-  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat)));
+/** `repeat` : nouveau nombre de revisionnages (fin d'un revisionnage), sinon inchangé ; `lane` : voir getMediaListInfo */
+export async function saveProgress(mediaId: number, progress: number, status: WriteStatus, repeat?: number, lane: RequestLane = 'interactive'): Promise<ListEntryState> {
+  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat), lane));
 }
 
 /** Statut manuel (En pause, Abandonné, Terminé, ajout À regarder / En cours) : même mutation que la progression */
@@ -165,10 +169,10 @@ export async function saveListStatus(mediaId: number, status: ManualListStatus, 
 /** Format de note du profil, gardé en mémoire le temps de vie du service worker (lié au token : changement de compte = relecture) */
 let scoreFormatCache: { accessToken: string; format: AniListScoreFormat } | null = null;
 
-export async function getScoreFormat(): Promise<AniListScoreFormat> {
+export async function getScoreFormat(lane: RequestLane = 'interactive'): Promise<AniListScoreFormat> {
   const token = await getValidToken();
   if (scoreFormatCache && token?.accessToken === scoreFormatCache.accessToken) return scoreFormatCache.format;
-  const { Viewer } = await anilistQuery(SCORE_FORMAT_QUERY, isScoreFormatData);
+  const { Viewer } = await anilistQuery(SCORE_FORMAT_QUERY, isScoreFormatData, {}, lane);
   if (token) scoreFormatCache = { accessToken: token.accessToken, format: Viewer.mediaListOptions.scoreFormat };
   return Viewer.mediaListOptions.scoreFormat;
 }
@@ -204,10 +208,10 @@ export function anilistEntryWriteVariables(mediaId: number, write: EntryWrite, f
   return variables;
 }
 
-/** Écrit (ou crée) l'entrée de liste AniList avec les champs fournis, en une requête (+ format de note, en cache) */
-export async function saveListEntry(mediaId: number, write: EntryWrite): Promise<ListEntryState> {
-  const format = write.score !== undefined ? await getScoreFormat() : 'POINT_10_DECIMAL';
-  return parseSaved(await anilistQuery(SAVE_ENTRY_MUTATION, isSaveProgressData, anilistEntryWriteVariables(mediaId, write, format)));
+/** Écrit (ou crée) l'entrée de liste AniList avec les champs fournis, en une requête (+ format de note, en cache) ; `lane` : voir getMediaListInfo */
+export async function saveListEntry(mediaId: number, write: EntryWrite, lane: RequestLane = 'interactive'): Promise<ListEntryState> {
+  const format = write.score !== undefined ? await getScoreFormat(lane) : 'POINT_10_DECIMAL';
+  return parseSaved(await anilistQuery(SAVE_ENTRY_MUTATION, isSaveProgressData, anilistEntryWriteVariables(mediaId, write, format), lane));
 }
 
 // ─── Commentaire et retrait de la liste ───────────────────────────────────

@@ -3,6 +3,7 @@ import type { Score10 } from '../../shared/engagement.types';
 import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, WriteStatus } from '../sync/rules';
 import type { EntryWrite } from '../../shared/compare';
+import type { RequestLane } from '../rate-limit';
 
 /**
  * Fiche du catalogue (AniList) choisie par la correspondance.
@@ -33,9 +34,10 @@ export interface TrackerService {
   isConnected(): Promise<boolean>;
   /** Identifiant de la fiche sur ce service, null s'il n'a pas d'équivalent */
   resolveId(media: CatalogMedia): number | null;
-  getEntry(id: number): Promise<TrackerEntry>;
-  /** `repeat` : nouveau nombre de revisionnages à écrire (fin d'un revisionnage, statut COMPLETED) */
-  saveProgress(id: number, progress: number, status: WriteStatus, repeat?: number): Promise<ListEntryState>;
+  /** `lane` : 'background' pour une tâche de fond (import, alignement), place réservée avant (waitReadSlot) ; ignoré par MAL */
+  getEntry(id: number, lane?: RequestLane): Promise<TrackerEntry>;
+  /** `repeat` : nouveau nombre de revisionnages à écrire (fin d'un revisionnage, statut COMPLETED) ; `lane` : voir getEntry */
+  saveProgress(id: number, progress: number, status: WriteStatus, repeat?: number, lane?: RequestLane): Promise<ListEntryState>;
   /** Note SyncKai (sur 10), convertie dans le format du service */
   saveScore(id: number, score: Score10): Promise<ListEntryState>;
   /** Démarre un revisionnage (REPEATING) à la progression donnée */
@@ -46,7 +48,7 @@ export interface TrackerService {
    */
   saveStatus(id: number, status: ManualListStatus, progress: number, repeat?: number): Promise<ListEntryState>;
   /** Alignement (comparaison des listes) : écrit ou crée l'entrée avec les seuls champs fournis, en une requête */
-  saveEntry(id: number, write: EntryWrite): Promise<ListEntryState>;
+  saveEntry(id: number, write: EntryWrite, lane?: RequestLane): Promise<ListEntryState>;
   /** Retire l'anime de la liste ; déjà absent = succès (rien à retirer) */
   deleteEntry(id: number): Promise<void>;
   /** Commentaire de l'entrée (déjà normalisé, "" l'efface) ; l'appelant vérifie que l'anime est dans la liste */

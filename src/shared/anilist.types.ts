@@ -1,6 +1,13 @@
 import { isRecord } from './guards';
 import type { Result } from './result';
 
+/**
+ * Recherches AniList réunies dans UNE requête GraphQL (un alias par recherche, background/anilist/media.ts ›
+ * searchAnimeBatch). Complexité mesurée le 2026-10-14 : 35 par recherche, plafond AniList 500 → 14 au plus, 10 gardé (350).
+ * Une seule valeur pour le filtre de l'import Netflix (titres par message) et le pré-chargement de l'analyse Crunchyroll / ADN.
+ */
+export const ANILIST_SEARCHES_PER_REQUEST = 10;
+
 /** Profil AniList normalisé, tel que consommé par le popup (et mis en cache). */
 export interface AniListViewer {
   id: number;

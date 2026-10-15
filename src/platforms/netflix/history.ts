@@ -1,5 +1,6 @@
 import type { CrHistoryErrorCode, HistorySeason } from '../crunchyroll/history';
 import { isRecord } from '../../shared/guards';
+import { ANILIST_SEARCHES_PER_REQUEST } from '../../shared/anilist.types';
 import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixBookmark, type NetflixShowMetadata } from './metadata';
 import type { Result } from '../../shared/result';
 import type { CompletionTrigger } from '../../shared/settings';
@@ -307,7 +308,7 @@ export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentag
 // ─── Filtre « anime » (service worker) ────────────────────────────────────
 
 /** Titres par message NETFLIX_IMPORT_TITLES = recherches AniList réunies dans UNE requête GraphQL (alias) */
-export const NETFLIX_TITLES_PER_REQUEST = 10;
+export const NETFLIX_TITLES_PER_REQUEST = ANILIST_SEARCHES_PER_REQUEST;
 
 /**
  * Verdict du filtre pour un titre de l'historique (recherche AniList du titre affiché) :

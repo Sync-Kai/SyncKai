@@ -5,7 +5,7 @@ import { PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
 import { STREAMING_PLATFORMS } from '../../platforms/ids';
 import type { MediaMapping } from '../../shared/sync.types';
 import { deleteMediaMappingIf, getMediaMapping, saveMediaMappingIf } from '../../browser/storage/mappings';
-import { getAnimeByIds, searchAnime, type AniListMedia } from '../anilist/media';
+import { getAnimeByIds, searchAnime, searchAnimeBatch, type AniListMedia } from '../anilist/media';
 import type { RequestLane } from '../rate-limit';
 import {
   alignPlatformSeasons,
@@ -87,11 +87,37 @@ export interface EpisodeResolution {
 }
 
 /**
+ * Requête au catalogue demandée par la collecte des candidats : recherches d'une même étape (envoyées ensemble) ou fiches
+ * par identifiant (suites / préquelles absentes des recherches). Réponse : une liste de fiches par recherche, ou une seule
+ * liste pour les identifiants.
+ */
+type CatalogRequest = { kind: 'search'; queries: readonly string[] } | { kind: 'ids'; ids: readonly number[] };
+type CatalogAnswer = readonly (readonly AniListMedia[])[];
+type CandidateSteps = Generator<CatalogRequest, CollectedCandidates, CatalogAnswer>;
+
+async function answerCatalog(request: CatalogRequest, lane: RequestLane): Promise<CatalogAnswer> {
+  if (request.kind === 'search') return Promise.all(request.queries.map((query) => searchAnime(query, lane)));
+  return [await getAnimeByIds(request.ids, lane)];
+}
+
+/**
  * Recherche les fiches AniList de la franchise et détermine le lien de chacune avec la série.
  * Les suites/préquelles d'une fiche liée sont ajoutées (et récupérées si besoin) : AniList ne lie
  * pas toujours chaque saison à la plateforme.
  */
 async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'interactive'): Promise<CollectedCandidates> {
+  const steps = candidateSteps(episode);
+  let step = steps.next([]);
+  while (!step.done) step = steps.next(await answerCatalog(step.value, lane));
+  return step.value;
+}
+
+/**
+ * Règles de collectCandidates, étape par étape : chaque requête au catalogue est cédée (yield) à l'appelant, qui renvoie
+ * ses résultats. Une seule source pour les requêtes : la résolution (collectCandidates) et le pré-chargement groupé de
+ * l'import (prefetchCandidates) demandent exactement les mêmes recherches, donc les mêmes clés du cache du catalogue.
+ */
+function* candidateSteps(episode: SeriesQuery): CandidateSteps {
   const mediaById = new Map<number, AniListMedia>();
   const links = new Map<number, LinkKind>();
 
@@ -116,7 +142,7 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
     if (media.externalLinkUrls.some((url) => linksToOtherSeries(url, episode.platform, episode.seriesId))) return 'other';
     return media.externalLinkUrls.some((url) => linksToOtherSeriesBySlug(url, episode.platform, episode.seriesSlug)) ? 'other-slug' : null;
   };
-  const add = (list: AniListMedia[], fallback: LinkKind = null): void => {
+  const add = (list: readonly AniListMedia[], fallback: LinkKind = null): void => {
     for (const media of list) {
       if (mediaById.has(media.id)) continue;
       mediaById.set(media.id, media);
@@ -128,14 +154,14 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
   // est noyée sous les fiches de la franchise (20 résultats), la fiche de la saison n'y figure pas toujours.
   // Recherche complémentaire « série + saison », fusionnée sans doublon.
   const seasonQuery = seasonSearchQuery(episode.animeTitle, episode.seasonTitle);
-  const [main, bySeason] = await Promise.all([searchAnime(episode.animeTitle, lane), seasonQuery ? searchAnime(seasonQuery, lane) : Promise.resolve([])]);
+  const [main = [], bySeason = []] = yield { kind: 'search', queries: seasonQuery ? [episode.animeTitle, seasonQuery] : [episode.animeTitle] };
   add(main);
   add(bySeason);
 
   // Aucun résultat lié : le titre de saison seul est parfois le titre AniList (ex : "… Season 2")
   const hasLinked = [...links.values()].some((link) => isLinked({ link }));
   if (!hasLinked && episode.seasonTitle && normalizeTitle(episode.seasonTitle) !== normalizeTitle(episode.animeTitle) && episode.seasonTitle !== seasonQuery) {
-    add(await searchAnime(episode.seasonTitle, lane));
+    add((yield { kind: 'search', queries: [episode.seasonTitle] })[0] ?? []);
   }
 
   // Toujours rien de lié : titre sans accents (AniList ne trouve pas les synonymes accentués, titres localisés de
@@ -146,7 +172,7 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
     if (!query || searched.has(query.toLowerCase())) continue;
     if ([...links.values()].some((link) => isLinked({ link }))) break;
     searched.add(query.toLowerCase());
-    add(await searchAnime(query, lane));
+    add((yield { kind: 'search', queries: [query] })[0] ?? []);
   }
 
   /**
@@ -211,7 +237,7 @@ async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'inte
       fetchRounds++;
       // Fiches sans lien : rattachées au tour suivant si la relation tient (isSeasonRelation) ; une fiche liée à une autre
       // série reste 'other' / 'other-slug' (voir linkOf)
-      add(await getAnimeByIds([...missing], lane));
+      add((yield { kind: 'ids', ids: [...missing] })[0] ?? []);
       settleTitleBoundLinks();
       changed = true;
     }
@@ -418,6 +444,48 @@ async function doubtedMapping(
   const result: ResolveResult = { ok: true, target };
   if (__SYNCKAI_DEBUG__) recordMatchDecision({ episode, key, lane, source: 'doubted', candidates: collected.candidates, result, mapping: { mapping: cached, verdict: 'doubt' } });
   return { result, candidates, seasons: seasons.map(toCandidateSummary), seasonGroups };
+}
+
+/** Fiches par identifiant au plus par requête (AnimeByIds : Page(perPage: 50)) */
+const IDS_PER_REQUEST = 50;
+
+/**
+ * La résolution de cet épisode cherchera-t-elle dans le catalogue ? Mêmes conditions que resolveEpisode : correspondance en
+ * cache applicable, Prime Video sans verdict « anime », série déjà ignorée → non. Une correspondance en cache remise en
+ * cause par les signaux (rare) cherche seule, sans pré-chargement.
+ */
+async function willSearch(episode: EpisodeInfo): Promise<boolean> {
+  const stored = await getMediaMapping(mappingKey(episode));
+  if (stored && applyMapping(episode, stored) !== null) return false;
+  if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) return false;
+  return !(filtersAnime(episode) && !stored && (await isSeriesIgnored(episode)));
+}
+
+/**
+ * Pré-chargement groupé du catalogue (PERF-10, analyse d'un historique) : déroule les étapes de collectCandidates de
+ * plusieurs épisodes ensemble, étape par étape. Les recherches d'une étape partent réunies (searchAnimeBatch : MAX_SEARCH_BATCH
+ * par requête, mêmes clés de cache que searchAnime), les fiches par identifiant par IDS_PER_REQUEST ; chaque épisode reçoit
+ * ensuite ses réponses du cache, comme collectCandidates. La résolution de chaque saison (resolveEpisode, même file, cache
+ * du catalogue de 10 min) ne demande alors plus rien. N'écrit rien ; une erreur est levée (l'appelant l'ignore : la
+ * résolution de la saison refait seule ses requêtes, avec ses nouvelles tentatives).
+ */
+export async function prefetchCandidates(episodes: readonly EpisodeInfo[], lane: RequestLane = 'background'): Promise<void> {
+  const walks: { steps: CandidateSteps; step: IteratorResult<CatalogRequest, CollectedCandidates> }[] = [];
+  for (const episode of episodes) {
+    if (!(await willSearch(episode))) continue;
+    const steps = candidateSteps(episode);
+    walks.push({ steps, step: steps.next([]) });
+  }
+  for (;;) {
+    const pending = walks.flatMap((walk) => (walk.step.done ? [] : [{ walk, request: walk.step.value }]));
+    if (pending.length === 0) return;
+    const queries = pending.flatMap(({ request }) => (request.kind === 'search' ? request.queries : []));
+    const ids = [...new Set(pending.flatMap(({ request }) => (request.kind === 'ids' ? request.ids : [])))];
+    const idChunks = Array.from({ length: Math.ceil(ids.length / IDS_PER_REQUEST) }, (_, i) => ids.slice(i * IDS_PER_REQUEST, (i + 1) * IDS_PER_REQUEST));
+    await Promise.all([searchAnimeBatch(queries, lane), ...idChunks.map((chunk) => getAnimeByIds(chunk, lane))]);
+    // Réponses de chaque épisode servies par le cache rempli ci-dessus (aucune requête de plus)
+    for (const { walk, request } of pending) walk.step = walk.steps.next(await answerCatalog(request, lane));
+  }
 }
 
 /** Résout la fiche AniList d'un épisode : cache d'abord, recherche sinon (et mise en cache si fiable). */

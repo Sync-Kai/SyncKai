@@ -12,10 +12,13 @@ const log = createLogger('anilist');
 
 /**
  * Trace de débogage (builds de développement seulement) : opération GraphQL (jamais ses variables ni les en-têtes),
- * file, statut HTTP (0 : réseau, délai dépassé), durée de la requête et attente avant son envoi (pénalité 429, budget partagé)
+ * file, statut HTTP (0 : réseau, délai dépassé), durée de la requête et attente avant son envoi (pénalité 429, budget partagé),
+ * quota de fond de la minute au moment de l'envoi (PERF-21 : 45 si AniList annonce 90/min, 20 en mode dégradé ou inconnu).
+ * Requête d'une tâche à place réservée (import, alignement) : son attente est dans waitReadSlot / waitWriteSlot, pas ici.
  */
 function traceRequest(query: string, lane: RequestLane, status: number | 'network' | 'timeout', startedAt: number, sentAt: number, isRetry: boolean, authenticated: boolean): void {
-  trace('network', 'request', { service: 'anilist', op: graphqlOperation(query), lane, status, ms: Date.now() - sentAt, waitMs: sentAt - startedAt, retry: isRetry, authenticated });
+  const backgroundQuota = aniListBudget.backgroundPerMinute();
+  trace('network', 'request', { service: 'anilist', op: graphqlOperation(query), lane, status, ms: Date.now() - sentAt, waitMs: sentAt - startedAt, retry: isRetry, authenticated, backgroundQuota });
 }
 
 const ANILIST_GRAPHQL_URL = 'https://graphql.anilist.co';

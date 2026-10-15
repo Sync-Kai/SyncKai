@@ -31,15 +31,36 @@ export function sleep(ms: number): Promise<void> {
 /**
  * Origine d'une requête :
  * - interactive : popup, panneau latéral, synchro en direct (prioritaire, jamais retenue hors pénalité 429) ;
- * - background  : tâches de fond (analyse de l'import Crunchyroll, application, comparaison des listes),
- *                 limitées pour laisser de la marge aux requêtes interactives.
+ * - background  : tâches de fond (analyse de l'import Crunchyroll, application, comparaison des listes et alignement,
+ *                 vérification horaire des sorties), limitées pour laisser de la marge aux requêtes interactives
+ *                 (quota selon X-RateLimit-Limit, voir backgroundQuota).
  */
 export type RequestLane = 'interactive' | 'background';
 
-/** Requêtes de fond au plus par minute glissante (AniList : ~90/min, parfois réduit à 30/min) */
+/**
+ * Requêtes de fond au plus par minute glissante tant que la limite d'AniList est inconnue ou réduite (mode dégradé,
+ * `X-RateLimit-Limit: 30`) ; au-delà, voir backgroundQuota
+ */
 export const BACKGROUND_PER_MINUTE = 20;
+/** Plafond du quota de fond, quelle que soit la limite annoncée (AniList : 90/min en temps normal) */
+export const MAX_BACKGROUND_PER_MINUTE = 45;
+/** Limite du mode dégradé d'AniList : en dessous ou à ce niveau, aucune marge supplémentaire pour les tâches de fond */
+const DEGRADED_LIMIT = 30;
 /** Requêtes restantes annoncées par AniList (`X-RateLimit-Remaining`) réservées aux requêtes interactives */
 export const INTERACTIVE_RESERVE = 10;
+/** Place réservée par une tâche (waitReadSlot, waitWriteSlot) et pas encore utilisée par sa requête : oubliée après ce délai */
+export const PREPAID_SLOT_TTL_MS = 10_000;
+
+/**
+ * Quota de fond par minute selon la limite annoncée par AniList (PERF-21, pur, testé) : limite moins la réserve interactive
+ * et une marge (la moitié de ce qui dépasse la limite du mode dégradé), plafonné à 45. 90 → 45, 60 → 35, 30 → 20 ; limite
+ * inconnue ou illisible → 20. Jamais plus que limite − réserve (au moins 1 : une tâche n'est jamais bloquée pour de bon).
+ */
+export function backgroundQuota(limit: number | null): number {
+  if (limit === null || !Number.isFinite(limit) || limit < 1) return BACKGROUND_PER_MINUTE;
+  const margin = Math.max(0, Math.ceil((limit - DEGRADED_LIMIT) / 2));
+  return Math.max(1, Math.min(MAX_BACKGROUND_PER_MINUTE, limit - INTERACTIVE_RESERVE - margin));
+}
 /** Pause des tâches de fond après une requête interactive (le popup en enchaîne plusieurs) */
 export const INTERACTIVE_GRACE_MS = 1_500;
 const WINDOW_MS = 60_000;
@@ -86,7 +107,9 @@ export interface BudgetClock {
 /**
  * Budget de requêtes d'une API, partagé par tout le service worker. Les requêtes interactives passent
  * toujours (sauf pénalité 429 en cours) ; les requêtes de fond attendent : pénalité, requête interactive en
- * cours ou toute récente, quota de fond de la minute épuisé, ou réserve interactive annoncée par l'API atteinte.
+ * cours ou toute récente, quota de fond de la minute épuisé (backgroundQuota de la dernière limite lue), ou réserve
+ * interactive annoncée par l'API atteinte. Une tâche peut réserver sa place avant de verrouiller une fiche
+ * (reserveBackground) : sa requête la consomme ensuite sans attendre.
  */
 export class RequestBudget {
   private backgroundStarts: number[] = [];
@@ -95,6 +118,10 @@ export class RequestBudget {
   private cooldownUntil = 0;
   /** Dernier `X-RateLimit-Remaining` connu, décompté à chaque requête, valable jusqu'à `until` */
   private remaining: { value: number; until: number } | null = null;
+  /** Dernière `X-RateLimit-Limit` lue (null : inconnue, quota prudent), voir backgroundQuota */
+  private limit: number | null = null;
+  /** Places de fond réservées par une tâche avant sa requête (horodatage de la réservation), voir reserveBackground */
+  private prepaid: number[] = [];
   private readonly waitListeners = new Set<BudgetWaitListener>();
 
   private readonly clock: BudgetClock;
@@ -109,9 +136,16 @@ export class RequestBudget {
     const waits = [this.cooldownUntil - now];
     if (this.interactiveInFlight > 0) waits.push(INTERACTIVE_GRACE_MS);
     else waits.push(this.lastInteractiveAt + INTERACTIVE_GRACE_MS - now);
-    if (this.backgroundStarts.length >= BACKGROUND_PER_MINUTE) waits.push(this.backgroundStarts[0] + WINDOW_MS - now);
+    // Quota dépassé (limite abaissée entre-temps : 45 départs puis 20 autorisés) : attente jusqu'à ce qu'assez de départs sortent de la minute
+    const quota = this.backgroundPerMinute();
+    if (this.backgroundStarts.length >= quota) waits.push(this.backgroundStarts[this.backgroundStarts.length - quota] + WINDOW_MS - now);
     if (this.remaining && now < this.remaining.until && this.remaining.value <= INTERACTIVE_RESERVE) waits.push(this.remaining.until - now);
     return Math.max(0, ...waits);
+  }
+
+  /** Quota de fond de la minute, d'après la dernière limite annoncée par AniList (PERF-21) */
+  backgroundPerMinute(): number {
+    return backgroundQuota(this.limit);
   }
 
   /** Attente estimée d'une requête de fond (null : elle peut partir tout de suite) */
@@ -150,6 +184,31 @@ export class RequestBudget {
         this.lastInteractiveAt = this.clock.now();
       };
     }
+    // Place déjà réservée par la tâche (et comptée) : la requête part aussitôt, hors pénalité 429
+    if (this.takePrepaid(this.clock.now())) return () => undefined;
+    await this.waitBackgroundTurn();
+    return () => undefined;
+  }
+
+  /**
+   * Tâche de fond (import, alignement) : attend une place de fond et la réserve AVANT de prendre le verrou de la fiche ;
+   * la requête qui suit (file 'background') la consomme sans attendre (B9). Une place inutilisée (écriture finalement
+   * inutile) est oubliée après PREPAID_SLOT_TTL_MS ; elle reste comptée dans la minute.
+   */
+  async reserveBackground(): Promise<void> {
+    await this.waitBackgroundTurn();
+    this.prepaid.push(this.clock.now());
+  }
+
+  private takePrepaid(now: number): boolean {
+    this.prepaid = this.prepaid.filter((at) => now - at < PREPAID_SLOT_TTL_MS);
+    if (this.prepaid.length === 0 || this.cooldownUntil > now) return false;
+    this.prepaid.shift();
+    return true;
+  }
+
+  /** Attend que le budget permette une requête de fond, puis la compte (minute glissante, X-RateLimit-Remaining) */
+  private async waitBackgroundTurn(): Promise<void> {
     // Attente longue signalée aux tâches (pause visible), estimation mise à jour si elle change, fin signalée au départ
     let notified: BudgetWait | null = null;
     const waitingSince = this.clock.now();
@@ -171,19 +230,23 @@ export class RequestBudget {
     if (notified !== null) this.emit(null);
     this.backgroundStarts.push(this.clock.now());
     this.consume();
-    return () => undefined;
   }
 
-  /** En-têtes X-RateLimit-* reçus : la réserve interactive se recale sur le décompte de l'API */
-  observe({ remaining }: RateLimitHeaders): void {
+  /**
+   * En-têtes X-RateLimit-* reçus : la réserve interactive se recale sur le décompte de l'API, le quota de fond sur la
+   * limite (elle peut changer d'une réponse à l'autre : mode dégradé) ; une réponse sans limite lisible garde la dernière
+   */
+  observe({ limit, remaining }: RateLimitHeaders): void {
+    if (limit !== null) this.limit = limit;
     if (remaining === null) return;
     this.remaining = { value: remaining, until: this.clock.now() + WINDOW_MS };
   }
 
-  /** Réponse 429 : plus aucune requête (de fond ou interactive) avant `delayMs` */
+  /** Réponse 429 : plus aucune requête (de fond ou interactive) avant `delayMs`, puis quota de fond prudent jusqu'à la prochaine limite lue */
   penalize(delayMs: number): void {
     this.cooldownUntil = Math.max(this.cooldownUntil, this.clock.now() + delayMs);
     this.remaining = { value: 0, until: this.cooldownUntil };
+    this.limit = null;
   }
 
   private emit(wait: BudgetWait | null): void {

@@ -36,6 +36,7 @@ import {
   type SeasonResolution,
 } from '../../shared/cr-import';
 import type { HistorySeason } from '../../platforms/crunchyroll/history';
+import type { EpisodeInfo } from '../../shared/episode.types';
 import { getExcludedSeries, isExcluded, platformSeriesKey } from '../../shared/exclusions';
 import { reduceJob } from '../../shared/job';
 import { createLogger } from '../../browser/logger';
@@ -76,7 +77,7 @@ import {
   type TransientKind,
 } from '../jobs/runner';
 import { mappingKey, seasonLabel } from '../sync/matching/matching';
-import { resolveEpisode } from '../sync/resolver';
+import { prefetchCandidates, resolveEpisode } from '../sync/resolver';
 import { withEntryLock } from '../sync/entry-lock';
 import { getConnectedTrackers } from '../trackers';
 import type { TrackerService } from '../ports/tracker';
@@ -142,6 +143,8 @@ interface AnalyzeMemory {
   /** Correspondances pas encore écrites (index de saison → résultat) */
   pending: Record<string, SeasonResolution>;
   since: number;
+  /** Saisons dont les recherches ont déjà été pré-chargées (PERF-10) ; vide après un réveil : reprise pré-chargée aussi */
+  prefetched: Set<number>;
 }
 
 interface ApplyMemory {
@@ -159,7 +162,7 @@ let analyzeMemory: AnalyzeMemory | null = null;
 let applyMemory: ApplyMemory | null = null;
 
 function analyzeMemoryFor(job: CrImportJob): AnalyzeMemory {
-  if (analyzeMemory?.jobId !== job.startedAt) analyzeMemory = { jobId: job.startedAt, input: null, pending: {}, since: Date.now() };
+  if (analyzeMemory?.jobId !== job.startedAt) analyzeMemory = { jobId: job.startedAt, input: null, pending: {}, since: Date.now(), prefetched: new Set() };
   return analyzeMemory;
 }
 
@@ -245,6 +248,44 @@ async function resolveSeason(season: HistorySeason, platform: ImportPlatform): P
   return { kind: 'certain', key, mediaId, progress, mapping: { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...origin } };
 }
 
+// ─── Analyse : recherches pré-chargées par lots (PERF-10) ─────────────────
+// Sans pré-chargement, chaque série coûte 1 à 4 recherches AniList unitaires (titre, « série + saison », titre sans
+// accents, slug), plus les suites manquantes. Les saisons à venir sont pré-chargées par tranches : leurs recherches partent
+// réunies (10 par requête, voir resolver.ts › prefetchCandidates), puis chaque saison est résolue depuis le cache du
+// catalogue. Par tranches et pas tout l'historique d'avance : le cache de fond ne garde les résultats que 10 min.
+
+/** Saisons pré-chargées ensemble : assez pour bien remplir les lots, assez peu pour être résolues bien avant 10 min */
+export const PREFETCH_SEASONS = 30;
+
+/** Pré-charge les recherches de ces saisons (exclusions écartées) ; un échec est sans conséquence : chaque saison refait les siennes */
+async function prefetchSeasons(input: CrImportInput, indexes: readonly number[]): Promise<void> {
+  const platform = importPlatformOf(input);
+  const episodes: EpisodeInfo[] = [];
+  for (const index of indexes) {
+    const season = input.seasons[index];
+    if (!season) continue;
+    const episode = toEpisodeInfo(season, platform);
+    if (!(await isExcluded({ platformKey: platformSeriesKey(episode) }))) episodes.push(episode);
+  }
+  try {
+    await prefetchCandidates(episodes, 'background');
+  } catch (error: unknown) {
+    log.info('Pré-chargement des recherches interrompu (chaque saison cherchera seule) :', error instanceof ApiError ? error.message : error);
+  }
+}
+
+/** Avant la saison `index` : pré-charge la tranche des saisons restantes de la tâche qui commence par elle (sauf déjà fait) */
+async function prefetchAhead(memory: AnalyzeMemory, job: CrImportJob, input: CrImportInput, index: number): Promise<void> {
+  if (memory.prefetched.has(index)) return;
+  const upcoming = job.pending.flatMap((item) => {
+    const next = seasonIndexOf(item);
+    return next !== null && next !== index && !memory.prefetched.has(next) ? [next] : [];
+  });
+  const indexes = [index, ...upcoming].slice(0, PREFETCH_SEASONS);
+  for (const next of indexes) memory.prefetched.add(next);
+  await prefetchSeasons(input, indexes);
+}
+
 const itemEvent = (outcome: 'updated' | 'skipped' | 'failed', message?: string): StepResult => ({
   kind: 'event',
   event: { type: 'item', outcome, ...(message ? { message } : {}), at: Date.now() },
@@ -273,6 +314,7 @@ async function analyzeSeason(job: CrImportJob, index: number, isLastAttempt: (re
   if (!input) return stopStep(t('crImport.error.noHistory'));
   const season = input.seasons[index];
   if (!season) return itemEvent('skipped');
+  await prefetchAhead(memory, job, input, index);
   try {
     const resolution = await resolveSeason(season, importPlatformOf(input));
     await keepResolution(memory, index, resolution);
@@ -294,9 +336,13 @@ async function analyzeSeason(job: CrImportJob, index: number, isLastAttempt: (re
 async function allResolutions(memory: AnalyzeMemory, input: CrImportInput): Promise<Record<string, SeasonResolution>> {
   await flushResolutions(memory);
   const resolutions = readResolutions(await readKey(CR_IMPORT_KEYS.resolutions));
-  for (const [index, season] of input.seasons.entries()) {
+  const missing = [...input.seasons.keys()].filter((index) => !resolutions[String(index)]);
+  for (const [rank, index] of missing.entries()) {
+    const season = input.seasons[index];
+    if (!season) continue;
     const key = String(index);
-    if (resolutions[key]) continue;
+    // Saisons perdues recalculées par tranches pré-chargées, comme pendant l'analyse
+    if (rank % PREFETCH_SEASONS === 0) await prefetchSeasons(input, missing.slice(rank, rank + PREFETCH_SEASONS));
     let resolution: SeasonResolution;
     try {
       resolution = await resolveSeason(season, importPlatformOf(input));
@@ -423,11 +469,12 @@ export async function importOnService(
   if (!(await isSessionOpen(tracker.id, epoch))) return { action: 'session-closed' };
   return withEntryLock(tracker.id, targetId, async (): Promise<ImportOnServiceResult> => {
     // Lecture fraîche : la liste a pu changer depuis l'aperçu (autre appareil, synchro en direct)
-    const current = await tracker.getEntry(targetId);
+    // File de fond : places réservées ci-dessus, consommées sans attente (B9 : jamais le budget du popup et du panneau)
+    const current = await tracker.getEntry(targetId, 'background');
     const decision = decideImport(current.entry, item.progress, current.episodes ?? item.episodes);
     if (decision.action !== 'update') return decision;
     if (!(await isSessionOpen(tracker.id, epoch))) return { action: 'session-closed' };
-    await tracker.saveProgress(targetId, decision.progress, decision.status);
+    await tracker.saveProgress(targetId, decision.progress, decision.status, undefined, 'background');
     return decision;
   });
 }
@@ -565,7 +612,7 @@ export async function startCrAnalyze({ history, platform = 'crunchyroll' }: CrIm
     const input: CrImportInput = { ...history, createdAt: Date.now(), platform };
     await chrome.storage.local.set({ [CR_IMPORT_KEYS.input]: input, [CR_IMPORT_KEYS.resolutions]: {} });
     await chrome.storage.local.remove(CR_IMPORT_KEYS.plan);
-    analyzeMemory = { jobId: job.startedAt, input, pending: {}, since: Date.now() };
+    analyzeMemory = { jobId: job.startedAt, input, pending: {}, since: Date.now(), prefetched: new Set() };
     applyMemory = null;
     await chrome.alarms.create(CR_IMPORT_ALARM, { periodInMinutes: RESUME_ALARM_PERIOD_MIN });
     log.info(`Analyse de l’historique ${PLATFORMS[platform].label} : ${history.seasons.length} saisons (${history.stats.items} éléments lus)`);

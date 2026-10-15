@@ -75,17 +75,18 @@ const lastWriteAt: Record<TrackerId, number> = { anilist: 0, mal: 0 };
 
 /**
  * Attend que l'écriture suivante sur `target` respecte l'espacement minimal, puis la réserve. AniList : la place
- * est aussi prise sur le budget des tâches de fond (requêtes interactives prioritaires, voir rate-limit.ts).
+ * est aussi réservée sur le budget des tâches de fond (requêtes interactives prioritaires, voir rate-limit.ts) ;
+ * l'écriture elle-même part sur la file 'background' et consomme cette place sans attendre (B9).
  */
 export async function waitWriteSlot(target: TrackerId): Promise<void> {
   await sleep(Math.max(0, lastWriteAt[target] + WRITE_GAP_MS[target] - Date.now()));
-  if (target === 'anilist') await aniListBudget.acquire('background');
+  if (target === 'anilist') await aniListBudget.reserveBackground();
   lastWriteAt[target] = Date.now();
 }
 
-/** Lecture AniList d'une tâche de fond (état de l'entrée avant écriture) : place prise sur le budget de fond */
+/** Lecture AniList d'une tâche de fond (état de l'entrée avant écriture) : place réservée sur le budget de fond, consommée par la lecture ('background') */
 export async function waitReadSlot(target: TrackerId): Promise<void> {
-  if (target === 'anilist') await aniListBudget.acquire('background');
+  if (target === 'anilist') await aniListBudget.reserveBackground();
 }
 
 /** Attente du budget AniList → évènement de la tâche (pur, testé) : pause « quota » / « limite », ou fin de l'attente */

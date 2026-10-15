@@ -5,7 +5,8 @@ import { reduceAdnHistory } from '../../platforms/adn/history';
 import { onePieceShow, ranmaShow } from '../../shared/__fixtures__/netflix-history';
 import { reduceNetflixShow } from '../../platforms/netflix/history';
 import type { HistorySeason } from '../../platforms/crunchyroll/history';
-import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../../shared/cr-import';
+import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, toEpisodeInfo, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../../shared/cr-import';
+import { EXCLUDED_SERIES_KEY, mergeExclusion, platformSeriesKey } from '../../shared/exclusions';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
@@ -24,9 +25,12 @@ const fakes = vi.hoisted(() => ({
   trackers: [] as TrackerService[],
   /** Résolution de chaque saison (appelée avec l'épisode équivalent et les options) */
   resolve: vi.fn<(episode: EpisodeInfo, options?: { persist?: boolean; lane?: string }) => Promise<EpisodeResolution>>(),
+  /** Pré-chargement des recherches (PERF-10) : épisodes de chaque tranche */
+  prefetch: vi.fn<(episodes: readonly EpisodeInfo[], lane?: string) => Promise<void>>(async () => undefined),
 }));
 
-vi.mock('../sync/resolver', () => ({ resolveEpisode: fakes.resolve }));
+// Pré-chargement des recherches (PERF-10) relevé sans effet ici : requêtes comptées avec le vrai résolveur dans cr-import-requests.test.ts
+vi.mock('../sync/resolver', () => ({ resolveEpisode: fakes.resolve, prefetchCandidates: fakes.prefetch }));
 vi.mock('../trackers', () => ({ getConnectedTrackers: async (): Promise<TrackerService[]> => fakes.trackers }));
 vi.mock('../anilist/media', () => ({
   getAnimeByIds: async (ids: number[]) => ids.map((id) => ({ id, idMal: id + 1000, displayTitle: `Fiche ${id}`, coverUrl: null, episodes: 24 })),
@@ -52,7 +56,7 @@ const OPEN_SESSIONS = {
 };
 
 const crImport = await import('./cr-import');
-const { cancelCrImport, resumeCrImport, startCrAnalyze, startCrApply, WRITE_BATCH_SIZE } = crImport;
+const { cancelCrImport, PREFETCH_SEASONS, resumeCrImport, startCrAnalyze, startCrApply, WRITE_BATCH_SIZE } = crImport;
 const { RETRY_DELAYS_MS } = await import('../jobs/runner');
 
 setLocale('fr');
@@ -63,6 +67,8 @@ interface FakeTracker extends TrackerService {
   entries: Map<number, ListEntryState>;
   writes: { id: number; progress: number; status: WriteStatus }[];
   reads: number;
+  /** File de requêtes de chaque lecture et écriture (B9 : toujours celle de fond pendant une tâche) */
+  lanes: string[];
   /** Erreurs levées aux prochaines écritures, dans l'ordre (la dernière se répète si `persistent`) */
   failures: ApiError[];
   persistent: boolean;
@@ -75,18 +81,21 @@ function fakeTracker(id: TrackerId): FakeTracker {
     entries: new Map(),
     writes: [],
     reads: 0,
+    lanes: [],
     failures: [],
     persistent: false,
     attempts: 0,
     isConnected: async () => true,
     resolveId: (media) => (id === 'anilist' ? media.mediaId : media.idMal),
-    getEntry: async (entryId: number): Promise<TrackerEntry> => {
+    getEntry: async (entryId: number, lane?: string): Promise<TrackerEntry> => {
       tracker.reads++;
+      tracker.lanes.push(`read:${lane ?? 'interactive'}`);
       const entry = tracker.entries.get(entryId);
       return { title: `#${entryId}`, episodes: 24, entry: entry ? { ...entry } : null, notes: null };
     },
-    saveProgress: async (entryId, progress, status) => {
+    saveProgress: async (entryId, progress, status, _repeat, lane) => {
       tracker.attempts++;
+      tracker.lanes.push(`write:${lane ?? 'interactive'}`);
       const failure = tracker.persistent ? tracker.failures[0] : tracker.failures.shift();
       if (failure) throw failure;
       tracker.writes.push({ id: entryId, progress, status });
@@ -178,6 +187,8 @@ beforeEach(() => {
   fakes.trackers = [anilist, mal];
   fakes.resolve.mockReset();
   fakes.resolve.mockImplementation(async (episode) => certain(episode));
+  fakes.prefetch.mockReset();
+  fakes.prefetch.mockImplementation(async () => undefined);
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
@@ -243,8 +254,28 @@ describe('analyse de l’historique (TEST-05)', () => {
     await restarted.resumeCrImport();
     await untilEnded();
     expect(storedPlan().items.map((i) => i.mediaId).sort()).toEqual([100, 101, 102, 103]);
+    // PERF-10 : tranche pré-chargée au début, de nouveau à la reprise (mémoire perdue), puis pour les saisons recalculées
+    expect(fakes.prefetch.mock.calls.map(([episodes]) => episodes.map((e) => e.seriesId))).toEqual([['GR0', 'GR1', 'GR2', 'GR3'], ['GR2', 'GR3'], ['GR0', 'GR1']]);
     release();
     await flush();
+  });
+
+  it('PERF-10 : recherches pré-chargées par tranches de PREFETCH_SEASONS saisons, file de fond, saisons exclues écartées', async () => {
+    fake.local.data.set(EXCLUDED_SERIES_KEY, mergeExclusion([], { platformKey: platformSeriesKey(toEpisodeInfo(season(1))), mediaId: null, label: 'Série 1' }, 1));
+    const count = PREFETCH_SEASONS * 2 + 10;
+    await startCrAnalyze(history(Array.from({ length: count }, (_, i) => season(i))));
+    expect(await untilEnded()).toMatchObject({ status: 'done' });
+    const tranches = fakes.prefetch.mock.calls.map(([episodes, lane]) => [episodes.length, lane]);
+    expect(tranches).toEqual([[PREFETCH_SEASONS - 1, 'background'], [PREFETCH_SEASONS, 'background'], [10, 'background']]);
+    expect(fakes.prefetch.mock.calls[0]?.[0].map((e) => e.seriesId)).not.toContain('GR1');
+  });
+
+  it('PERF-10 : pré-chargement en échec (réseau, limite) → chaque saison est résolue seule, comme avant', async () => {
+    fakes.prefetch.mockRejectedValueOnce(new ApiError('NETWORK', 'AniList injoignable'));
+    await startCrAnalyze(history([season(0), season(1)]));
+    expect(await untilEnded()).toMatchObject({ status: 'done', failed: 0 });
+    expect(fakes.resolve).toHaveBeenCalledTimes(2);
+    expect(storedPlan().items).toHaveLength(2);
   });
 
   it('CRI-04 : « Arrêter » → historique réduit et correspondances effacés', async () => {
@@ -366,6 +397,9 @@ describe('application (TEST-05, CRI-05)', () => {
     expect(anilist.writes).toEqual([{ id: MEDIA_ID, progress: 12, status: 'CURRENT' }]);
     expect(mal.attempts).toBe(2);
     expect(mal.writes).toEqual([{ id: MAL_ID, progress: 12, status: 'CURRENT' }]);
+    // B9 : relecture et écriture de la tâche sur la file de fond (jamais le budget des écrans)
+    expect(anilist.lanes).toEqual(['read:background', 'write:background']);
+    expect(new Set(mal.lanes)).toEqual(new Set(['read:background', 'write:background']));
 
     const [item] = storedPlan().items;
     expect(item?.result).toEqual({ outcome: 'updated', message: null });

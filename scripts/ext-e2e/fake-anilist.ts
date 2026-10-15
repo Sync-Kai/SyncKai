@@ -197,6 +197,16 @@ export class FakeAniList {
     return json(200, { data: data.ok }, { 'X-RateLimit-Limit': '90', 'X-RateLimit-Remaining': '89' });
   }
 
+  /**
+   * Résultats d'une recherche. Comme le vrai AniList (observé le 2026-10-14) : une requête accentuée ne trouve rien, même un
+   * synonyme accentué ; sans accents, titre et synonymes sont comparés sans leurs accents
+   */
+  private search(search: string): unknown[] {
+    const titles = (m: AniListMediaSeed): string[] => [m.title, ...(m.synonyms ?? [])].map(withoutDiacritics);
+    const found = DIACRITICS.test(search.normalize('NFD')) ? [] : [...this.media.values()].filter((m) => titles(m).some((title) => title.includes(withoutDiacritics(search))));
+    return found.map((m) => this.mediaFields(m, null));
+  }
+
   /** Données de l'opération ; null si inconnue */
   private execute(operation: string, v: Record<string, unknown>, account: Account | null, query: string): { ok: unknown } | { error: number; message: string } | null {
     const needsAccount = (): { error: number; message: string } => ({ error: 401, message: 'Unauthorized.' });
@@ -219,14 +229,11 @@ export class FakeAniList {
         const found = [...this.media.values()].filter((m) => (operation === 'AnimeByIds' ? ids.includes(m.id) : m.idMal !== null && ids.includes(m.idMal)));
         return { ok: { Page: { media: found.map((m) => this.mediaFields(m, null)) } } };
       }
-      case 'SearchAnime': {
-        // Comme le vrai AniList (observé le 2026-10-14) : une requête accentuée ne trouve rien, même un synonyme accentué ;
-        // sans accents, titre et synonymes sont comparés sans leurs accents
-        const search = String(v.search ?? '');
-        const titles = (m: AniListMediaSeed): string[] => [m.title, ...(m.synonyms ?? [])].map(withoutDiacritics);
-        const found = DIACRITICS.test(search.normalize('NFD')) ? [] : [...this.media.values()].filter((m) => titles(m).some((title) => title.includes(withoutDiacritics(search))));
-        return { ok: { Page: { media: found.map((m) => this.mediaFields(m, null)) } } };
-      }
+      case 'SearchAnime':
+        return { ok: { Page: { media: this.search(String(v.search ?? '')) } } };
+      // Recherches réunies (un alias s0, s1… par recherche, voir searchAnimeBatch) : même réponse que SearchAnime pour chacune
+      case 'SearchAnimeBatch':
+        return { ok: Object.fromEntries(Object.entries(v).map(([alias, search]) => [alias, { media: this.search(String(search ?? '')) }])) };
       case 'Watching': {
         if (!account) return needsAccount();
         if (Number(v.userId) !== account.viewer.id) return { error: 400, message: 'Private list.' };

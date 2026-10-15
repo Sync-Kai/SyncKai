@@ -5,6 +5,7 @@ import { getCachedViewer, saveCachedViewer } from '../../browser/storage/viewer-
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistQuery } from './client';
 import { ApiError } from '../errors';
+import type { RequestLane } from '../rate-limit';
 import { createLogger } from '../../browser/logger';
 
 const log = createLogger('anilist');
@@ -21,11 +22,11 @@ const VIEWER_QUERY = /* GraphQL */ `
 `;
 
 /** Récupère le profil de l'utilisateur connecté et le met en cache (si la session n'a pas changé pendant la requête). */
-export async function getViewer(): Promise<ViewerResult> {
+export async function getViewer(lane: RequestLane = 'interactive'): Promise<ViewerResult> {
   try {
     // Génération relevée avant la requête : une déconnexion pendant celle-ci rend le profil obsolète (AUTH-04)
     const epoch = await getSessionEpoch('anilist');
-    const { Viewer } = await anilistQuery(VIEWER_QUERY, isViewerQueryData);
+    const { Viewer } = await anilistQuery(VIEWER_QUERY, isViewerQueryData, {}, lane);
     const viewer: AniListViewer = {
       id: Viewer.id,
       name: Viewer.name,
@@ -47,10 +48,10 @@ export async function getViewer(): Promise<ViewerResult> {
 }
 
 /** Identifiant AniList de l'utilisateur connecté : profil en cache, sinon lu sur le service. Lève une ApiError si la session est invalide. */
-export async function getAniListUserId(): Promise<number> {
+export async function getAniListUserId(lane: RequestLane = 'interactive'): Promise<number> {
   const cached = await getCachedViewer();
   if (cached) return cached.id;
-  const result = await getViewer();
+  const result = await getViewer(lane);
   if (!result.ok) throw new ApiError(result.code, result.message);
   return result.data.id;
 }

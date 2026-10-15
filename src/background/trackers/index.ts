@@ -105,16 +105,16 @@ export const anilistTracker: TrackerService = forgettingEntries(invalidatingComp
   // Présence et expiration lues sans déchiffrement ; le token est déchiffré à la requête (anilist/client.ts)
   isConnected: hasValidAniListToken,
   resolveId: (media) => media.mediaId,
-  async getEntry(id) {
-    const { title, episodes, entry, notes } = await getMediaListInfo(id);
+  async getEntry(id, lane) {
+    const { title, episodes, entry, notes } = await getMediaListInfo(id, lane);
     return { title, episodes, entry, notes };
   },
-  saveProgress: (id, progress, status, repeat) => saveProgress(id, progress, status, repeat),
+  saveProgress: (id, progress, status, repeat, lane) => saveProgress(id, progress, status, repeat, lane),
   // Le score d'AniList s'exprime dans le format choisi par l'utilisateur (sur 100, 10, 5, 3…)
   saveScore: async (id, score) => saveScore(id, toAniListScore(score, await getScoreFormat())),
   startRewatch: (id, progress) => saveProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveListStatus(id, status, progress, repeat),
-  saveEntry: (id, write) => saveListEntry(id, write),
+  saveEntry: (id, write, lane) => saveListEntry(id, write, lane),
   deleteEntry: (id) => deleteListEntry(id),
   saveNotes: (id, notes) => saveListNotes(id, notes),
 }));

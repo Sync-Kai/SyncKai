@@ -36,7 +36,7 @@ const isCollectionData = (data: unknown): data is { MediaListCollection: Record<
 
 /** Liste complète : requêtes de fond (comparaison, import Crunchyroll), budget limité */
 export async function fetchAniListFullList(): Promise<ReturnType<typeof parseAniListCollection>> {
-  const userId = await getAniListUserId();
+  const userId = await getAniListUserId('background');
   const entries: ReturnType<typeof parseAniListCollection> = [];
   for (let chunk = 1; chunk <= MAX_ANILIST_CHUNKS; chunk++) {
     const { MediaListCollection } = await anilistQuery(ANILIST_FULL_LIST_QUERY, isCollectionData, { userId, chunk, perChunk: ANILIST_CHUNK }, 'background');

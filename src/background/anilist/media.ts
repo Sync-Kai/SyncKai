@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
 import { isRecord } from '../../shared/guards';
+import { ANILIST_SEARCHES_PER_REQUEST } from '../../shared/anilist.types';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
 import type { RequestLane } from '../rate-limit';
@@ -185,11 +186,12 @@ export async function searchAnime(search: string, lane: RequestLane = 'interacti
 
 /**
  * Recherches réunies dans UNE requête GraphQL (un alias `s{i}` par titre, mêmes champs et même page de 20 résultats que
- * searchAnime) : import de l'historique Netflix, une recherche par titre de l'historique. Complexité mesurée le 2026-10-14
- * (avec duration, countryOfOrigin, status, endDate) : 35 par recherche (28 avant), plafond AniList 500 (18 alias :
- * « Max query complexity should be 500 but got 630 ») → 14 au plus, 10 gardé (350).
+ * searchAnime) : filtre de l'import Netflix (une recherche par titre de l'historique), pré-chargement de l'analyse
+ * Crunchyroll / ADN (resolver.ts › prefetchCandidates). Complexité mesurée le 2026-10-14 (avec duration, countryOfOrigin,
+ * status, endDate) : 35 par recherche (28 avant), plafond AniList 500 (18 alias : « Max query complexity should be 500 but
+ * got 630 ») → 14 au plus, 10 gardé (350).
  */
-export const MAX_SEARCH_BATCH = 10;
+export const MAX_SEARCH_BATCH = ANILIST_SEARCHES_PER_REQUEST;
 
 function batchQuery(count: number): string {
   const variables = Array.from({ length: count }, (_, i) => `$s${i}: String!`).join(', ');

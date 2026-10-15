@@ -110,7 +110,7 @@ const isCollectionData = (data: unknown): data is { MediaListCollection: Record<
   isRecord(data) && isRecord(data.MediaListCollection);
 
 async function fetchAniListEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore, lane: RequestLane): Promise<WatchingEntry[]> {
-  const userId = await getAniListUserId();
+  const userId = await getAniListUserId(lane);
   const { MediaListCollection } = await anilistQuery(ANILIST_WATCHING_QUERY, isCollectionData, { userId }, lane);
 
   const entries = new Map<number, WatchingEntry>();

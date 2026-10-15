@@ -163,6 +163,10 @@ describe('Import de l’historique Crunchyroll', () => {
     expect(preview).toContain('1170 → 1180');
     expect(preview).toContain(en('common.labelValue', { label: 'Crunchyroll', value: '' }).trim());
     expect(run.anilist.mutations()).toEqual([]);
+    // PERF-10 : recherches de l'analyse réunies dans des requêtes groupées, aucune recherche seule
+    const operations = run.anilist.requests.map((r) => r.operation);
+    expect(operations).toContain('SearchAnimeBatch');
+    expect(operations).not.toContain('SearchAnime');
 
     await page.locator(sel('cr-apply')).click();
     await waitFor('import terminé', async () => (await pageText(page)).includes(en('crImport.apply.done')), 30_000);

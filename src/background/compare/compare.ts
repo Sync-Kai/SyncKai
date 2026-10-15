@@ -195,8 +195,9 @@ async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt
     // Relectures et écriture sous le verrou de la fiche cible : une synchro ou un +1 concurrents attendent l'alignement
     // (puis relisent sa valeur), ou l'alignement les voit à la relecture et ignore la série
     return await withEntryLock(plan.target, plan.id, async (): Promise<StepResult> => {
-      const from = (await origin.getEntry(sourceId)).entry;
-      const to = (await tracker.getEntry(plan.id)).entry;
+      // File de fond : places réservées ci-dessus, consommées sans attente (B9)
+      const from = (await origin.getEntry(sourceId, 'background')).entry;
+      const to = (await tracker.getEntry(plan.id, 'background')).entry;
       const { scoreFormat } = comparison;
 
       if (isAlignedNow(source === 'anilist' ? from : to, source === 'mal' ? from : to, scoreFormat)) {
@@ -211,7 +212,7 @@ async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt
         return skipped(message);
       }
 
-      await tracker.saveEntry(plan.id, plan.write);
+      await tracker.saveEntry(plan.id, plan.write, 'background');
       log.info(`${label} : ${diff.title} aligné sur ${TRACKER_LABELS[source]}${plan.create ? ' (ajout)' : ''}`, plan.write);
       await updateComparison((result) => withoutDiff(result, diff.key));
       return { kind: 'event', event: { type: 'item', outcome: 'updated', at: at() }, stop: null };

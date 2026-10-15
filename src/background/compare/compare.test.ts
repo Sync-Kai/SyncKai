@@ -164,6 +164,8 @@ describe('alignement : relecture avant écriture', () => {
     expect(storedComparison().items.map((d) => d.key)).toEqual([DANDADAN.key]);
     // Lectures comptées sur le budget des tâches de fond (source puis cible)
     expect(slots.waitReadSlot.mock.calls).toEqual([['anilist'], ['mal']]);
+    // B9 : la relecture AniList part sur la file de fond (place réservée par waitReadSlot), jamais sur celle des écrans
+    expect(api.getMediaListInfo.mock.calls).toEqual([[154587, 'background']]);
   });
 
   it('cible avancée depuis l’analyse (MAL 5 → 8) : « Garder AniList » n’écrit pas 7, série ignorée et à réanalyser', async () => {
