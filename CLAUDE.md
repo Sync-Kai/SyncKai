@@ -62,6 +62,14 @@ Enforced by `src/architecture.test.ts` (type imports included):
 - Only use DOM event listeners (such as `timeupdate`) when strictly necessary, and clean them up properly to avoid memory leaks.
 - Never store OAuth2 tokens or secret keys in plain text. Use the appropriate extension API and handle authentication through `chrome.identity`.
 
+### Tests first, where they pay off (decision of 2026-10-15)
+
+- **Bug fix**: first a failing test that reproduces the state really observed (values read on the real site, log lines), then the fix. It proves the fix even when the site no longer reproduces the case (Prime trailer, `3c8ec4f`).
+- **Business rule or matching change**: the case comes first, as a unit test or as a corpus case (`src/background/sync/__corpus__`: `expected`, or `ideal` + `gap` while not met), then the code that makes it pass. Same for pure logic (platform payload reducers, sync / import decisions, settings normalization, episode numbering).
+- **New platform or unknown API**: explore the real site first, capture real responses as fixtures (never tokens, cookies, headers or account / profile ids), then tests on those fixtures, then the production code.
+- **UI** (layout, styles, long translations): no test-first; `npm run test:e2e` and `npm run test:i18n-layout` check afterwards. MAIN bridges and real-site behaviour (autoplay, previews, SPA) still need the owner's pass on the real sites: tests freeze what was observed there.
+- Briefs given to subagents name the tests that must fail before and pass after the change.
+
 ## Git Workflow (Gitflow)
 
 All development must strictly follow the Gitflow methodology. As the assistant, you must guide me to follow this flow:
