@@ -35,8 +35,8 @@ const base: BuiltManifest = {
   host_permissions: CR,
   optional_host_permissions: [NETFLIX_PATTERN, DISNEY_PATTERN, PRIME_PATTERN],
   background: { service_worker: 'service-worker-loader.js' },
-  content_scripts: [{ matches: CR, js: ['assets/content.ts-loader-x.js'] }],
-  web_accessible_resources: [crEntry, netflixEntry, disneyEntry, primeEntry],
+  content_scripts: [{ matches: CR, js: ['src/content/content.iife.js'] }],
+  web_accessible_resources: [netflixEntry, disneyEntry, primeEntry],
   action: { default_popup: 'src/popup/popup.html', default_icon: { '16': 'icons/icon-16.png' } },
 };
 
@@ -47,8 +47,7 @@ describe('manifestReferences', () => {
       'icons/icon-16.png',
       'src/popup/popup.html',
       'service-worker-loader.js',
-      'assets/content.ts-loader-x.js',
-      'assets/start-x.js',
+      'src/content/content.iife.js',
       'src/content/netflix/a.iife.js',
       'src/content/netflix/b.iife.js',
       'src/content/disney/a.iife.js',
@@ -70,12 +69,12 @@ describe('manifestScriptFiles', () => {
     const manifest: BuiltManifest = {
       content_scripts: [
         { matches: CR, js: ['src/content/crunchyroll/page-bridge.iife.js'], world: 'MAIN' },
-        { matches: CR, js: ['assets/content.ts-loader-x.js'] },
+        { matches: CR, js: ['src/content/content.iife.js'] },
         { matches: CR, js: ['assets/other.js'], world: 'ISOLATED' },
       ],
     };
     expect(manifestScriptFiles(manifest, 'MAIN')).toEqual(['src/content/crunchyroll/page-bridge.iife.js']);
-    expect(manifestScriptFiles(manifest, 'ISOLATED')).toEqual(['assets/content.ts-loader-x.js', 'assets/other.js']);
+    expect(manifestScriptFiles(manifest, 'ISOLATED')).toEqual(['src/content/content.iife.js', 'assets/other.js']);
     expect(manifestScriptFiles({}, 'MAIN')).toEqual([]);
   });
 });
@@ -83,6 +82,12 @@ describe('manifestScriptFiles', () => {
 describe('checkWebAccessibleResources', () => {
   it('manifeste conforme', () => {
     expect(checkWebAccessibleResources(base)).toEqual([]);
+  });
+
+  it('chunks du script Crunchyroll / ADN exposés à ses sites (chargeur ESM de crxjs) : la page détecterait l’extension', () => {
+    expect(checkWebAccessibleResources({ ...base, web_accessible_resources: [crEntry, netflixEntry, disneyEntry, primeEntry] })).toEqual([
+      'web_accessible_resources ["*://*.crunchyroll.com/*"] : ressources exposées aux sites des scripts du manifeste (*://*.crunchyroll.com/*)',
+    ]);
   });
 
   it('scripts Netflix exposés à tous les sites (exposition par défaut de crxjs)', () => {

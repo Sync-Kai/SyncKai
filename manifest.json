@@ -58,7 +58,7 @@
         "*://*.animationdigitalnetwork.com/*"
       ],
       "js": [
-        "src/content/content.ts"
+        "src/content/content.iife.ts"
       ]
     }
   ],

@@ -14,7 +14,7 @@ const STARTED_FLAG = Symbol.for('synckai.content');
 async function runContentScript(runtime: { id?: string }): Promise<void> {
   vi.stubGlobal('chrome', { runtime });
   vi.resetModules();
-  await import('./content');
+  await import('./content.iife');
 }
 
 beforeEach(() => {
@@ -27,7 +27,7 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-describe('content.ts — garde de double exécution', () => {
+describe('content.iife.ts — garde de double exécution', () => {
   it('première exécution : démarre', async () => {
     await runContentScript({ id: 'synckai' });
     expect(startContent).toHaveBeenCalledOnce();

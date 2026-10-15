@@ -32,7 +32,7 @@ export function reinjectionPlan(reason: string, target: ReinjectionTarget): Rein
   return { manifest: lifecycle && target === 'chrome', registered: lifecycle };
 }
 
-/** Script de contenu déclaré dans le manifeste généré (chemin du chargeur propre au build) */
+/** Script de contenu déclaré dans le manifeste généré (chemin du fichier construit, propre au build) */
 export interface ManifestContentScript {
   js?: string[];
   matches?: string[];

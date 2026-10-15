@@ -35,7 +35,7 @@ describe('jsFileNames', () => {
   });
 
   it('autres chunks : nom haché par défaut', () => {
-    expect(name({ facadeModuleId: '/repo/src/content/content.ts' })).toBe(DEFAULT_CHUNK_FILE);
+    expect(name({ facadeModuleId: '/repo/src/popup/popup.ts' })).toBe(DEFAULT_CHUNK_FILE);
     expect(name({ facadeModuleId: '/repo/src/other/src/background/background.tsx' })).toBe(DEFAULT_CHUNK_FILE);
     expect(name({ facadeModuleId: null })).toBe(DEFAULT_CHUNK_FILE);
   });

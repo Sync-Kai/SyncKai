@@ -155,16 +155,20 @@ function isAllSites(pattern: string): boolean {
 }
 
 /**
- * `web_accessible_resources` : aucune ressource exposée à tous les sites, aucun repère crxjs restant, et les scripts
- * enregistrés de chaque plateforme optionnelle (`src/content/{netflix,disney}/*.iife.js`) exposés à cette seule
- * plateforme, dans une entrée qui ne contient qu'eux.
+ * `web_accessible_resources` : aucune ressource exposée à tous les sites ni aux sites des scripts du manifeste (Crunchyroll,
+ * ADN : leurs scripts sont des IIFE autonomes, sans chargeur ; une ressource exposée permettrait à la page de détecter
+ * l'extension, SEC-09), aucun repère crxjs restant, et les scripts enregistrés de chaque plateforme optionnelle
+ * (`src/content/{netflix,disney}/*.iife.js`) exposés à cette seule plateforme, dans une entrée qui ne contient qu'eux.
  */
 export function checkWebAccessibleResources(manifest: BuiltManifest): string[] {
   const errors: string[] = [];
   const entries = manifest.web_accessible_resources ?? [];
+  const scriptHosts = new Set((manifest.content_scripts ?? []).flatMap((script) => script.matches ?? []));
   for (const entry of entries) {
     const label = JSON.stringify(entry.matches ?? entry.extension_ids ?? []);
     if ((entry.matches ?? []).some(isAllSites)) errors.push(`web_accessible_resources ${label} : ressources exposées à tous les sites`);
+    const exposed = (entry.matches ?? []).filter((pattern) => scriptHosts.has(pattern));
+    if (exposed.length > 0) errors.push(`web_accessible_resources ${label} : ressources exposées aux sites des scripts du manifeste (${exposed.join(', ')})`);
     for (const resource of entry.resources) {
       if (resource.includes('<') || resource.includes('*')) errors.push(`web_accessible_resources ${label} : ressource non résolue « ${resource} »`);
     }

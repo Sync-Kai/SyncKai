@@ -3,7 +3,7 @@ import { reinjectContentScripts, reinjectionPlan, type ContentReinjectionApi, ty
 
 // Réinjection des scripts de contenu du manifeste dans les onglets ouverts (installation, mise à jour).
 
-const LOADER = 'assets/content.ts-loader-abc123.js';
+const SCRIPT = 'src/content/content.iife.js';
 const MATCHES = ['*://*.crunchyroll.com/*', '*://animationdigitalnetwork.com/*'];
 
 function fakeApi(scripts: ManifestContentScript[], tabs: number[], failing: number[] = []): ContentReinjectionApi & {
@@ -18,27 +18,27 @@ function fakeApi(scripts: ManifestContentScript[], tabs: number[], failing: numb
 }
 
 describe('reinjectContentScripts', () => {
-  it('exécute le chargeur du manifeste dans chaque onglet ouvert correspondant', async () => {
-    const api = fakeApi([{ js: [LOADER], matches: MATCHES }], [11, 12]);
+  it('exécute le script du manifeste dans chaque onglet ouvert correspondant', async () => {
+    const api = fakeApi([{ js: [SCRIPT], matches: MATCHES }], [11, 12]);
     expect(await reinjectContentScripts(api, vi.fn())).toBe(2);
     expect(api.tabIds).toHaveBeenCalledWith(MATCHES);
-    expect(api.inject).toHaveBeenCalledWith(11, [LOADER], 'ISOLATED');
-    expect(api.inject).toHaveBeenCalledWith(12, [LOADER], 'ISOLATED');
+    expect(api.inject).toHaveBeenCalledWith(11, [SCRIPT], 'ISOLATED');
+    expect(api.inject).toHaveBeenCalledWith(12, [SCRIPT], 'ISOLATED');
   });
 
   it('pont Crunchyroll du monde MAIN : réexécuté dans la page, avant le script isolé qui lui demande son canal', async () => {
     const bridge = 'src/content/crunchyroll/page-bridge.iife.js';
-    const api = fakeApi([{ js: [bridge], matches: ['*://*.crunchyroll.com/*'], world: 'MAIN' }, { js: [LOADER], matches: MATCHES }], [11]);
+    const api = fakeApi([{ js: [bridge], matches: ['*://*.crunchyroll.com/*'], world: 'MAIN' }, { js: [SCRIPT], matches: MATCHES }], [11]);
     expect(await reinjectContentScripts(api, vi.fn())).toBe(2);
     expect(api.inject.mock.calls).toEqual([
       [11, [bridge], 'MAIN'],
-      [11, [LOADER], 'ISOLATED'],
+      [11, [SCRIPT], 'ISOLATED'],
     ]);
   });
 
   it('un onglet en échec (déchargé, page d’erreur) n’empêche pas les autres, sans exception', async () => {
     const onError = vi.fn();
-    const api = fakeApi([{ js: [LOADER], matches: MATCHES }], [21, 22, 23], [22]);
+    const api = fakeApi([{ js: [SCRIPT], matches: MATCHES }], [21, 22, 23], [22]);
     expect(await reinjectContentScripts(api, onError)).toBe(2);
     expect(onError).toHaveBeenCalledOnce();
     expect(onError).toHaveBeenCalledWith(22, expect.any(Error));
@@ -46,7 +46,7 @@ describe('reinjectContentScripts', () => {
 
   it('recherche des onglets impossible : signalée, aucune injection', async () => {
     const onError = vi.fn();
-    const api = fakeApi([{ js: [LOADER], matches: MATCHES }], []);
+    const api = fakeApi([{ js: [SCRIPT], matches: MATCHES }], []);
     api.tabIds.mockRejectedValueOnce(new Error('tabs.query'));
     expect(await reinjectContentScripts(api, onError)).toBe(0);
     expect(onError).toHaveBeenCalledWith(null, expect.any(Error));
@@ -54,7 +54,7 @@ describe('reinjectContentScripts', () => {
   });
 
   it('script sans fichier ni motif : ignoré', async () => {
-    const api = fakeApi([{ js: [], matches: MATCHES }, { js: [LOADER] }], [31]);
+    const api = fakeApi([{ js: [], matches: MATCHES }, { js: [SCRIPT] }], [31]);
     expect(await reinjectContentScripts(api, vi.fn())).toBe(0);
     expect(api.tabIds).not.toHaveBeenCalled();
   });
