@@ -726,6 +726,8 @@
   "settings.matchDiag.empty": "Henüz kaydedilmiş karar yok",
   "settings.matchDiag.copy": "Kopyala",
   "settings.matchDiag.copyTitle": "Bu kararı JSON olarak kopyala",
+  "settings.matchDiag.copyAll": "Tümünü kopyala",
+  "settings.matchDiag.copyAllTitle": "Tüm kararları JSON olarak kopyala",
   "settings.matchDiag.copied": "Kopyalandı",
   "settings.matchDiag.copyFailed": "Karar kopyalanamadı.",
   "settings.matchDiag.clear": "Temizle",

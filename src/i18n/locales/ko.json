@@ -677,6 +677,8 @@
   "settings.matchDiag.empty": "아직 기록된 판단 없음",
   "settings.matchDiag.copy": "복사",
   "settings.matchDiag.copyTitle": "이 판단을 JSON으로 복사",
+  "settings.matchDiag.copyAll": "모두 복사",
+  "settings.matchDiag.copyAllTitle": "모든 판단을 JSON으로 복사",
   "settings.matchDiag.copied": "복사됨",
   "settings.matchDiag.copyFailed": "판단을 복사하지 못했어요.",
   "settings.matchDiag.clear": "지우기",

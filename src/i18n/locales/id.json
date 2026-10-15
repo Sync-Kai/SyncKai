@@ -677,6 +677,8 @@
   "settings.matchDiag.empty": "Belum ada keputusan yang tercatat",
   "settings.matchDiag.copy": "Salin",
   "settings.matchDiag.copyTitle": "Salin keputusan ini sebagai JSON",
+  "settings.matchDiag.copyAll": "Salin semua",
+  "settings.matchDiag.copyAllTitle": "Salin semua keputusan sebagai JSON",
   "settings.matchDiag.copied": "Disalin",
   "settings.matchDiag.copyFailed": "Gagal menyalin keputusan.",
   "settings.matchDiag.clear": "Hapus",

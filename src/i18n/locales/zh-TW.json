@@ -677,6 +677,8 @@
   "settings.matchDiag.empty": "尚未記錄任何判定",
   "settings.matchDiag.copy": "複製",
   "settings.matchDiag.copyTitle": "將這筆判定複製為 JSON",
+  "settings.matchDiag.copyAll": "全部複製",
+  "settings.matchDiag.copyAllTitle": "將所有判定複製為 JSON",
   "settings.matchDiag.copied": "已複製",
   "settings.matchDiag.copyFailed": "無法複製這筆判定。",
   "settings.matchDiag.clear": "清除",

@@ -677,6 +677,8 @@
   "settings.matchDiag.empty": "記録された判定はまだありません",
   "settings.matchDiag.copy": "コピー",
   "settings.matchDiag.copyTitle": "この判定をJSONとしてコピー",
+  "settings.matchDiag.copyAll": "すべてコピー",
+  "settings.matchDiag.copyAllTitle": "すべての判定をJSONとしてコピー",
   "settings.matchDiag.copied": "コピー済み",
   "settings.matchDiag.copyFailed": "判定をコピーできませんでした。",
   "settings.matchDiag.clear": "消去",

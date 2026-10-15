@@ -824,6 +824,8 @@
   "settings.matchDiag.empty": "Пока нет записанных решений",
   "settings.matchDiag.copy": "Копировать",
   "settings.matchDiag.copyTitle": "Скопировать это решение в JSON",
+  "settings.matchDiag.copyAll": "Копировать всё",
+  "settings.matchDiag.copyAllTitle": "Скопировать все решения в JSON",
   "settings.matchDiag.copied": "Скопировано",
   "settings.matchDiag.copyFailed": "Не удалось скопировать решение.",
   "settings.matchDiag.clear": "Очистить",

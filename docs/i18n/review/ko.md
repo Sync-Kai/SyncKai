@@ -216,3 +216,12 @@ New keys `settings.debugTrace.*` (Settings › Help & about, section shown only 
 | `settings.debugTrace.count` | 이벤트: {count} / {max} |
 | `settings.debugTrace.allCategories` | 모든 카테고리 |
 | `settings.debugTrace.filterAria` | 카테고리별로 이벤트 필터링 |
+
+## 2026-10-16 · Matching diagnostic: Copy all (development builds only)
+
+New keys in the « Matching diagnostic » section (Settings › Help & about, development builds only, never in the published extension, now collapsed by default behind its title): « Copy all » copies every recorded decision as one JSON array, next to « Clear »; its label becomes « Copied » (`settings.matchDiag.copied`, reused) and a failure reuses `settings.matchDiag.copyFailed`. `JSON` is a format name. Same word for « decision » as `settings.matchDiag.copyTitle`, in the plural; other terms from this language's term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.matchDiag.copyAll` | 모두 복사 |
+| `settings.matchDiag.copyAllTitle` | 모든 판단을 JSON으로 복사 |

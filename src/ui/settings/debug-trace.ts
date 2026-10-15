@@ -1,7 +1,8 @@
 // Réglages › Aide › Trace de débogage (builds de dev seulement : créé sous `if (__SYNCKAI_DEBUG__)` par page-help.ts,
 // absent des bundles publiés). Événements écrits par le service worker (background/debug-trace.ts) dans storage.session :
 // les plus récents d'abord, filtre par catégorie ; « Copier la trace » donne toute la trace en JSON (à coller pour déboguer
-// un cas réel), « Effacer » et le mode détaillé passent par le service worker.
+// un cas réel), « Effacer » et le mode détaillé passent par le service worker. Section repliée par défaut (liste longue) :
+// fermée, le filtre, les actions et la liste sont masqués.
 import { getLocale, t } from '../../i18n';
 import { clearTrace, readTraceEvents, readTraceVerbose, setTraceVerbose } from '../../browser/debug-trace-store';
 import { DEBUG_TRACE_KEY, DEBUG_TRACE_VERBOSE_KEY } from '../../protocol/storage-keys';
@@ -10,7 +11,7 @@ import { createLogger } from '../../browser/logger';
 import { BTN_GHOST, CARD } from '../kit';
 import { h, type Child } from '../dom';
 import { icon } from '../icons';
-import { DIVIDER, HELP_TEXT, settingsSection, toggleRow } from './rows';
+import { collapsibleSection, createDisclosure, DIVIDER, HELP_TEXT, toggleRow } from './rows';
 
 const COPIED_MS = 2_000;
 /** Relecture regroupée : la trace change à chaque événement pendant qu'on la lit */
@@ -37,6 +38,7 @@ export function createDebugTraceSection(redraw: () => void): DebugTraceSection {
   let copyFailed = false;
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
   let reloadTimer: ReturnType<typeof setTimeout> | undefined;
+  const disclosure = createDisclosure(redraw);
 
   async function load(): Promise<void> {
     try {
@@ -131,8 +133,7 @@ export function createDebugTraceSection(redraw: () => void): DebugTraceSection {
     render: () => {
       const empty = events === null || events.length === 0;
       const number = new Intl.NumberFormat(getLocale());
-      return settingsSection(
-        t('settings.debugTrace.title'),
+      return collapsibleSection({ label: t('settings.debugTrace.title'), count: events?.length ?? null, disclosure, id: 'sk-debug-trace' }, () => [
         h(
           'div',
           { class: `${CARD} flex flex-col overflow-hidden` },
@@ -170,7 +171,7 @@ export function createDebugTraceSection(redraw: () => void): DebugTraceSection {
           copyFailed && h('span', { class: 'px-3 pb-2 text-[11px] font-bold text-danger', attrs: { role: 'status' } }, t('settings.debugTrace.copyFailed')),
           h('div', { class: DIVIDER }, ...body()),
         ),
-      );
+      ]);
     },
   };
 }

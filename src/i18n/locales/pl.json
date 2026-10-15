@@ -824,6 +824,8 @@
   "settings.matchDiag.empty": "Nie zapisano jeszcze żadnej decyzji",
   "settings.matchDiag.copy": "Kopiuj",
   "settings.matchDiag.copyTitle": "Kopiuj tę decyzję jako JSON",
+  "settings.matchDiag.copyAll": "Kopiuj wszystko",
+  "settings.matchDiag.copyAllTitle": "Kopiuj wszystkie decyzje jako JSON",
   "settings.matchDiag.copied": "Skopiowano",
   "settings.matchDiag.copyFailed": "Nie udało się skopiować decyzji.",
   "settings.matchDiag.clear": "Wyczyść",

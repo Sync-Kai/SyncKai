@@ -1,6 +1,7 @@
 // Réglages › Aide › Diagnostic des correspondances (builds de dev seulement : créé sous `if (__SYNCKAI_DEBUG__)` par
 // page-help.ts, absent des bundles publiés). Décisions écrites par le service worker (background/sync/match-diagnostic.ts)
-// dans storage.session ; « Copier » donne une décision en JSON (cas du corpus), « Effacer » vide la liste.
+// dans storage.session ; « Copier » donne une décision en JSON (cas du corpus), « Tout copier » toutes (tableau JSON, les
+// plus récentes d'abord), « Effacer » vide la liste. Section repliée par défaut (liste longue).
 import { getLocale, t } from '../../i18n';
 import { clearMatchDecisions, readMatchDecisions, type MatchDecision } from '../../shared/match-diagnostic';
 import { MATCH_DIAGNOSTIC_KEY } from '../../protocol/storage-keys';
@@ -9,7 +10,7 @@ import { createLogger } from '../../browser/logger';
 import { BTN_GHOST, CARD } from '../kit';
 import { h, type Child } from '../dom';
 import { icon } from '../icons';
-import { DIVIDER, HELP_TEXT, settingsSection } from './rows';
+import { collapsibleSection, createDisclosure, DIVIDER, HELP_TEXT } from './rows';
 
 const log = createLogger('settings');
 const COPIED_MS = 2_000;
@@ -42,6 +43,13 @@ function numbersLine(decision: MatchDecision): string {
 }
 
 const idOf = (decision: MatchDecision): string => `${decision.at}:${decision.key}`;
+/** Repère de « Tout copier » dans `copiedId` (jamais une clé de décision : celles-ci commencent par l'horodatage) */
+const ALL = 'all';
+
+/** JSON d'une décision (« Copier ») */
+export const decisionJson = (decision: MatchDecision): string => JSON.stringify(decision, null, 2);
+/** JSON de toutes les décisions (« Tout copier ») : tableau dans l'ordre affiché, chaque élément comme `decisionJson` */
+export const matchDecisionsJson = (decisions: readonly MatchDecision[]): string => JSON.stringify(decisions, null, 2);
 
 export function createMatchDiagnosticSection(redraw: () => void): MatchDiagnosticSection {
   let decisions: MatchDecision[] | null = null;
@@ -49,6 +57,7 @@ export function createMatchDiagnosticSection(redraw: () => void): MatchDiagnosti
   let copiedId: string | null = null;
   let copyFailed = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const disclosure = createDisclosure(redraw);
 
   async function load(): Promise<void> {
     try {
@@ -60,11 +69,12 @@ export function createMatchDiagnosticSection(redraw: () => void): MatchDiagnosti
     redraw();
   }
 
-  async function copy(decision: MatchDecision): Promise<void> {
+  /** Copie une décision (id de la décision) ou toutes (`ALL`) */
+  async function copy(id: string, text: string): Promise<void> {
     clearTimeout(timer);
     try {
-      await navigator.clipboard.writeText(JSON.stringify(decision, null, 2));
-      copiedId = idOf(decision);
+      await navigator.clipboard.writeText(text);
+      copiedId = id;
       copyFailed = false;
       timer = setTimeout(() => {
         copiedId = null;
@@ -108,7 +118,7 @@ export function createMatchDiagnosticSection(redraw: () => void): MatchDiagnosti
           {
             class: `${BTN_GHOST} shrink-0 border border-line px-2 text-[11px] ${copied ? 'text-mint' : 'text-ink'}`,
             attrs: { type: 'button', title: t('settings.matchDiag.copyTitle'), 'data-focus': `match-diag-copy-${idOf(decision)}` },
-            on: { click: () => void copy(decision) },
+            on: { click: () => void copy(idOf(decision), decisionJson(decision)) },
           },
           copied && icon('check', 'h-3 w-3', '3'),
           copied ? t('settings.matchDiag.copied') : t('settings.matchDiag.copy'),
@@ -130,30 +140,47 @@ export function createMatchDiagnosticSection(redraw: () => void): MatchDiagnosti
     return [h('ul', { class: 'm-0 flex list-none flex-col p-0' }, ...decisions.map(row))];
   }
 
-  return {
-    render: () =>
-      settingsSection(
-        t('settings.matchDiag.title'),
+  function card(): HTMLElement {
+    const empty = decisions === null || decisions.length === 0;
+    const copiedAll = copiedId === ALL;
+    return h(
+      'div',
+      { class: `${CARD} flex flex-col overflow-hidden` },
+      h(
+        'div',
+        { class: 'flex items-start gap-2 px-3 py-2' },
+        h('p', { class: `m-0 min-w-0 flex-1 ${HELP_TEXT}` }, t('settings.matchDiag.text')),
         h(
           'div',
-          { class: `${CARD} flex flex-col overflow-hidden` },
+          { class: 'flex shrink-0 flex-wrap justify-end gap-2' },
           h(
-            'div',
-            { class: 'flex items-start gap-2 px-3 py-2' },
-            h('p', { class: `m-0 min-w-0 flex-1 ${HELP_TEXT}` }, t('settings.matchDiag.text')),
-            h(
-              'button',
-              {
-                class: `${BTN_GHOST} shrink-0 border border-line px-2.5 text-[11px] text-danger`,
-                attrs: { type: 'button', 'data-focus': 'match-diag-clear', ...(decisions === null || decisions.length === 0 ? { disabled: '' } : {}) },
-                on: { click: () => void clear() },
-              },
-              t('settings.matchDiag.clear'),
-            ),
+            'button',
+            {
+              class: `${BTN_GHOST} shrink-0 border border-line px-2.5 text-[11px] ${copiedAll ? 'text-mint' : 'text-ink'}`,
+              attrs: { type: 'button', title: t('settings.matchDiag.copyAllTitle'), 'data-focus': 'match-diag-copy-all', ...(empty ? { disabled: '' } : {}) },
+              on: { click: () => void copy(ALL, matchDecisionsJson(decisions ?? [])) },
+            },
+            copiedAll && icon('check', 'h-3 w-3', '3'),
+            copiedAll ? t('settings.matchDiag.copied') : t('settings.matchDiag.copyAll'),
           ),
-          copyFailed && h('span', { class: 'px-3 pb-2 text-[11px] font-bold text-danger', attrs: { role: 'status' } }, t('settings.matchDiag.copyFailed')),
-          h('div', { class: DIVIDER }, ...body()),
+          h(
+            'button',
+            {
+              class: `${BTN_GHOST} shrink-0 border border-line px-2.5 text-[11px] text-danger`,
+              attrs: { type: 'button', 'data-focus': 'match-diag-clear', ...(empty ? { disabled: '' } : {}) },
+              on: { click: () => void clear() },
+            },
+            t('settings.matchDiag.clear'),
+          ),
         ),
       ),
+      copyFailed && h('span', { class: 'px-3 pb-2 text-[11px] font-bold text-danger', attrs: { role: 'status' } }, t('settings.matchDiag.copyFailed')),
+      h('div', { class: DIVIDER }, ...body()),
+    );
+  }
+
+  return {
+    render: () =>
+      collapsibleSection({ label: t('settings.matchDiag.title'), count: decisions?.length ?? null, disclosure, id: 'sk-match-diag' }, () => [card()]),
   };
 }

@@ -677,6 +677,8 @@
   "settings.matchDiag.empty": "尚未记录任何决策",
   "settings.matchDiag.copy": "复制",
   "settings.matchDiag.copyTitle": "将此决策复制为 JSON",
+  "settings.matchDiag.copyAll": "全部复制",
+  "settings.matchDiag.copyAllTitle": "将所有决策复制为 JSON",
   "settings.matchDiag.copied": "已复制",
   "settings.matchDiag.copyFailed": "无法复制此决策。",
   "settings.matchDiag.clear": "清空",

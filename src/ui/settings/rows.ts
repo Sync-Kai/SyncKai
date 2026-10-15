@@ -1,6 +1,6 @@
 // Briques communes des Réglages (popup et panneau latéral) : interrupteur, ligne à bascule, ligne de choix,
-// ligne de navigation vers une sous-page, ligne de lien et zone de danger. Un seul rendu pour toutes les pages.
-import { t } from '../../i18n';
+// ligne de navigation vers une sous-page, ligne de lien, section repliable et zone de danger. Un seul rendu pour toutes les pages.
+import { getLocale, t } from '../../i18n';
 import { CARD, LINK, sectionLabel } from '../kit';
 import { h, type Child } from '../dom';
 import { icon, type IconName } from '../icons';
@@ -40,6 +40,67 @@ export function renderRadio(name: string, checked: boolean, label: string, onSel
 /** Section titrée (titre en capitales discrètes) */
 export function settingsSection(label: string, ...children: Child[]): HTMLElement {
   return h('section', { class: 'flex flex-col gap-2' }, sectionLabel(label), ...children);
+}
+
+/** État ouvert / fermé d'une section repliable : en mémoire pour la page (aucun stockage), fermée par défaut */
+export interface Disclosure {
+  readonly expanded: boolean;
+  toggle(): void;
+}
+
+export function createDisclosure(redraw: () => void): Disclosure {
+  let expanded = false;
+  return {
+    get expanded() {
+      return expanded;
+    },
+    toggle: () => {
+      expanded = !expanded;
+      redraw();
+    },
+  };
+}
+
+/** Attributs du bouton d'en-tête : `data-focus` stable, le focus reste sur la bascule après le nouveau rendu */
+export function disclosureAttrs(expanded: boolean, controls: string, focus: string): Record<string, string> {
+  return { type: 'button', 'aria-expanded': String(expanded), 'aria-controls': controls, 'data-focus': focus };
+}
+
+interface CollapsibleSectionProps {
+  label: string;
+  /** Nombre affiché à côté du titre (null : en lecture) */
+  count: number | null;
+  disclosure: Disclosure;
+  /** id du contenu (aria-controls) ; le repère de focus du bouton en est dérivé */
+  id: string;
+}
+
+/**
+ * Section titrée repliable (diagnostics des builds de dev) : le titre est le bouton (titre, nombre, chevron). Fermée, le
+ * contenu (liste et actions) n'est pas construit ; son conteneur vide reste là, masqué, pour `aria-controls`.
+ */
+export function collapsibleSection({ label, count, disclosure, id }: CollapsibleSectionProps, content: () => Child[]): HTMLElement {
+  const { expanded } = disclosure;
+  return h(
+    'section',
+    { class: 'flex flex-col gap-2' },
+    h(
+      'h2',
+      { class: 'm-0' },
+      h(
+        'button',
+        {
+          class: 'flex min-h-8 w-full cursor-pointer items-center gap-2 bg-transparent p-0 text-left text-muted',
+          attrs: disclosureAttrs(expanded, id, `${id}-toggle`),
+          on: { click: () => disclosure.toggle() },
+        },
+        h('span', { class: 'min-w-0 truncate text-[11px] font-bold tracking-[0.06em] uppercase' }, label),
+        count !== null && h('span', { class: 'shrink-0 rounded-full bg-raised px-1.5 text-[10px] font-bold text-ink tabular-nums' }, new Intl.NumberFormat(getLocale()).format(count)),
+        icon('chevronDown', `ml-auto h-3 w-3 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`, '2.6'),
+      ),
+    ),
+    h('div', { attrs: { id, ...(expanded ? {} : { hidden: '' }) } }, ...(expanded ? content() : [])),
+  );
 }
 
 /** Carte de lignes séparées par des pointillés */

@@ -775,6 +775,8 @@
   "settings.matchDiag.empty": "Zatím žádné zaznamenané rozhodnutí",
   "settings.matchDiag.copy": "Kopírovat",
   "settings.matchDiag.copyTitle": "Zkopírovat toto rozhodnutí jako JSON",
+  "settings.matchDiag.copyAll": "Kopírovat vše",
+  "settings.matchDiag.copyAllTitle": "Zkopírovat všechna rozhodnutí jako JSON",
   "settings.matchDiag.copied": "Zkopírováno",
   "settings.matchDiag.copyFailed": "Rozhodnutí se nepodařilo zkopírovat.",
   "settings.matchDiag.clear": "Vymazat",

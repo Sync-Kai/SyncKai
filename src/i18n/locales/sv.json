@@ -726,6 +726,8 @@
   "settings.matchDiag.empty": "Inga beslut registrerade än",
   "settings.matchDiag.copy": "Kopiera",
   "settings.matchDiag.copyTitle": "Kopiera det här beslutet som JSON",
+  "settings.matchDiag.copyAll": "Kopiera alla",
+  "settings.matchDiag.copyAllTitle": "Kopiera alla beslut som JSON",
   "settings.matchDiag.copied": "Kopierat",
   "settings.matchDiag.copyFailed": "Det gick inte att kopiera beslutet.",
   "settings.matchDiag.clear": "Rensa",

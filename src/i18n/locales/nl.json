@@ -726,6 +726,8 @@
   "settings.matchDiag.empty": "Nog geen beslissing vastgelegd",
   "settings.matchDiag.copy": "Kopiëren",
   "settings.matchDiag.copyTitle": "Deze beslissing als JSON kopiëren",
+  "settings.matchDiag.copyAll": "Alles kopiëren",
+  "settings.matchDiag.copyAllTitle": "Alle beslissingen als JSON kopiëren",
   "settings.matchDiag.copied": "Gekopieerd",
   "settings.matchDiag.copyFailed": "Kon de beslissing niet kopiëren.",
   "settings.matchDiag.clear": "Wissen",

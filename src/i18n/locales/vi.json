@@ -677,6 +677,8 @@
   "settings.matchDiag.empty": "Chưa có quyết định nào được ghi lại",
   "settings.matchDiag.copy": "Sao chép",
   "settings.matchDiag.copyTitle": "Sao chép quyết định này dạng JSON",
+  "settings.matchDiag.copyAll": "Sao chép tất cả",
+  "settings.matchDiag.copyAllTitle": "Sao chép tất cả quyết định dạng JSON",
   "settings.matchDiag.copied": "Đã sao chép",
   "settings.matchDiag.copyFailed": "Không sao chép được quyết định.",
   "settings.matchDiag.clear": "Xóa",

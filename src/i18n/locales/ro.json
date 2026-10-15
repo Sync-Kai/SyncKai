@@ -775,6 +775,8 @@
   "settings.matchDiag.empty": "Nicio decizie înregistrată încă",
   "settings.matchDiag.copy": "Copiază",
   "settings.matchDiag.copyTitle": "Copiază decizia ca JSON",
+  "settings.matchDiag.copyAll": "Copiază tot",
+  "settings.matchDiag.copyAllTitle": "Copiază toate deciziile ca JSON",
   "settings.matchDiag.copied": "Copiată",
   "settings.matchDiag.copyFailed": "Decizia nu a putut fi copiată.",
   "settings.matchDiag.clear": "Golește",
