@@ -311,3 +311,40 @@ export function checkLocaleCatalogs(
 export function hasDynamicImport(code: string): boolean {
   return /\bimport\(/.test(code);
 }
+
+/** Ponts passifs du monde MAIN du paquet (`src/content/<plateforme>/page-bridge.iife.js`), scripts classiques autonomes */
+export function isMainWorldBridge(file: string): boolean {
+  return /^src\/content\/[a-z0-9-]+\/page-bridge\.iife\.js$/.test(file);
+}
+
+/**
+ * Chaînes interdites dans un pont du monde MAIN : API d'extension absentes de ce monde, et tout ce qui toucherait aux
+ * en-têtes (jeton de l'utilisateur), aux cookies ou aux stockages de la page. Un pont lit uniquement les réponses que
+ * l'application web demande elle-même (CLAUDE.md › Known pitfalls).
+ */
+export const MAIN_WORLD_FORBIDDEN: readonly { pattern: RegExp; label: string }[] = [
+  { pattern: /\bchrome\./, label: 'chrome.' },
+  { pattern: /\bbrowser\.(?:runtime|storage|tabs)/, label: 'browser.' },
+  { pattern: /getResponseHeader|getAllResponseHeaders/, label: 'lecture d’en-têtes de réponse' },
+  { pattern: /setRequestHeader/, label: 'setRequestHeader' },
+  { pattern: /\.headers\b/, label: '.headers' },
+  { pattern: /document\.cookie/, label: 'document.cookie' },
+  { pattern: /\b(?:localStorage|sessionStorage|indexedDB)\b/, label: 'stockage de la page' },
+];
+
+/** Erreurs d'un pont du monde MAIN qui contient une chaîne de `MAIN_WORLD_FORBIDDEN` */
+export function checkMainWorldBridge(file: string, code: string): string[] {
+  return MAIN_WORLD_FORBIDDEN.filter(({ pattern }) => pattern.test(code)).map(({ label }) => `${file} : « ${label} » interdit dans un pont du monde MAIN`);
+}
+
+/**
+ * Marqueurs des builds de développement (`npm run build:dev`) : clé du diagnostic de rapprochement et journaux
+ * `[disney]`, présents seulement sous `if (__SYNCKAI_DEBUG__)`. Ils ne doivent pas figurer dans le code publié.
+ * (Les textes `settings.matchDiag.*` du catalogue anglais restent, ce sont des données.)
+ */
+export const DEV_ONLY_MARKERS: readonly string[] = ['debug:matchDiagnostic', '[disney]'];
+
+/** Erreurs pour chaque fichier JS du paquet qui contient un marqueur de `DEV_ONLY_MARKERS` */
+export function checkNoDevMarkers(file: string, code: string): string[] {
+  return DEV_ONLY_MARKERS.filter((marker) => code.includes(marker)).map((marker) => `${file} : marqueur de build de développement « ${marker} » dans le paquet`);
+}

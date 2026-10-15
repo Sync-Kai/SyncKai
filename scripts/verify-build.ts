@@ -5,7 +5,8 @@
  * - `*.iife.js` : scripts classiques (aucun import ni export, aucun `import(`) ;
  * - permissions, motifs, CSP des pages et commandes clavier identiques au manifeste source adapté à la cible ;
  * - budgets de taille des scripts de contenu (Crunchyroll / ADN, pont Crunchyroll du monde MAIN, Netflix, Disney+, Prime Video) ;
- * - catalogues de traduction chargés à la demande : chaque langue hors anglais dans assets/locales/, référencée par le code.
+ * - catalogues de traduction chargés à la demande : chaque langue hors anglais dans assets/locales/, référencée par le code ;
+ * - ponts du monde MAIN : aucune API d'extension, aucun en-tête ni cookie (chaînes interdites) ; aucun marqueur de build de développement.
  *
  * Usage : npm run verify:build                        (dist/ et dist-firefox/)
  *         node scripts/verify-build.ts --target chrome|firefox
@@ -29,6 +30,9 @@ import {
   checkCommands,
   checkContentSecurityPolicy,
   checkLocaleCatalogs,
+  checkMainWorldBridge,
+  checkNoDevMarkers,
+  isMainWorldBridge,
   localeCatalogFiles,
   checkWebAccessibleResources,
   fileReferences,
@@ -135,6 +139,12 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   errors.push(...checkLocaleCatalogs(files, used, catalogSources, read));
   const catalogFiles = localeCatalogFiles(files);
   const catalogBytes = catalogFiles.reduce((total, file) => total + size(file), 0);
+
+  // 7. Ponts du monde MAIN sans API d'extension ni accès aux en-têtes, cookies ou stockages ; aucun marqueur de build de développement
+  for (const file of [...files].sort()) {
+    if (isMainWorldBridge(file)) errors.push(...checkMainWorldBridge(file, read(file)));
+    if (file.endsWith('.js')) errors.push(...checkNoDevMarkers(file, read(file)));
+  }
 
   // Informatif : fichiers que rien ne référence (les autres langues de _locales sont lues par le navigateur)
   const unused = [...files].filter((file) => !used.has(file) && !file.startsWith('_locales/')).sort();

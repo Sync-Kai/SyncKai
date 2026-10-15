@@ -7,6 +7,9 @@ import {
   checkAccessDeclarations,
   checkCommands,
   checkLocaleCatalogs,
+  checkMainWorldBridge,
+  checkNoDevMarkers,
+  isMainWorldBridge,
   localeCatalogFiles,
   checkContentSecurityPolicy,
   checkWebAccessibleResources,
@@ -291,5 +294,29 @@ describe('checkLocaleCatalogs', () => {
       'catalogue fr absent de assets/locales/ (contenu de src/i18n/locales/fr.json)',
       'assets/locales/fr.json : aucun catalogue source de ce contenu',
     ]);
+  });
+});
+
+describe('ponts du monde MAIN', () => {
+  it('reconnaît les ponts passifs de chaque plateforme, pas les scripts isolés', () => {
+    expect(isMainWorldBridge('src/content/netflix/page-bridge.iife.js')).toBe(true);
+    expect(isMainWorldBridge('src/content/crunchyroll/page-bridge.iife.js')).toBe(true);
+    expect(isMainWorldBridge('src/content/netflix/content-netflix.iife.js')).toBe(false);
+    expect(isMainWorldBridge('assets/page-bridge.iife.ts-abc.js')).toBe(false);
+  });
+
+  it('signale les API d’extension, les en-têtes, les cookies et les stockages de la page', () => {
+    const file = 'src/content/prime/page-bridge.iife.js';
+    expect(checkMainWorldBridge(file, '(function(){const r=await fetch(u);return r.clone().json()})()')).toEqual([]);
+    expect(checkMainWorldBridge(file, 'chrome.runtime.sendMessage(1)')).toEqual([`${file} : « chrome. » interdit dans un pont du monde MAIN`]);
+    expect(checkMainWorldBridge(file, 'x.setRequestHeader(a,b);document.cookie;localStorage.getItem(k)').length).toBe(3);
+    expect(checkMainWorldBridge(file, 'r.headers.get(`authorization`)')).toEqual([`${file} : « .headers » interdit dans un pont du monde MAIN`]);
+  });
+});
+
+describe('marqueurs de build de développement', () => {
+  it('signale la clé du diagnostic et les journaux [disney]', () => {
+    expect(checkNoDevMarkers('assets/a.js', 'const a="[SyncKai:sync]"')).toEqual([]);
+    expect(checkNoDevMarkers('assets/a.js', 'k="debug:matchDiagnostic";console.info(`[disney] x`)')).toHaveLength(2);
   });
 });
