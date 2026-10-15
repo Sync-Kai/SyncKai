@@ -170,6 +170,75 @@ describe('clearUserSyncData (TEST-10)', () => {
   });
 });
 
+describe('ensemble exact des clés effacées à la fin d’une session (registre des données du compte)', () => {
+  /** Clés d'un compte seulement : retirées à toute déconnexion, avec le jeton et le profil du service */
+  const ACCOUNT_KEYS = ['compare:last', 'compare:job', 'crImport:job', 'crImport:input', 'crImport:resolutions', 'crImport:plan'];
+
+  /** Tout ce que SyncKai écrit, y compris l'horodatage de lecture des profils */
+  function seedAll(): string[] {
+    seedEverything();
+    store.set(STORAGE_KEYS.anilistViewerAt, 1);
+    store.set(STORAGE_KEYS.malViewerAt, 1);
+    return keys();
+  }
+
+  it('déconnexion AniList : exactement le jeton, le profil, son horodatage et les clés du compte', async () => {
+    const before = seedAll();
+    await storage.clearAniListSession();
+    const removed = before.filter((key) => !store.has(key)).sort();
+    expect(removed).toEqual(['anilistToken', 'anilistViewer', 'anilistViewerAt', ...ACCOUNT_KEYS].sort());
+    // Aucune clé nouvelle (la génération est incrémentée dans sa clé existante)
+    expect(keys().filter((key) => !before.includes(key))).toEqual([]);
+  });
+
+  it('déconnexion MAL : exactement le jeton, le profil, son horodatage et les clés du compte', async () => {
+    const before = seedAll();
+    await storage.clearMalSession();
+    expect(before.filter((key) => !store.has(key)).sort()).toEqual(['malToken', 'malViewer', 'malViewerAt', ...ACCOUNT_KEYS].sort());
+  });
+
+  it('jeton refusé (session expirée) : mêmes clés effacées, plus l’indicateur « Session expirée »', async () => {
+    const before = seedAll();
+    expect(await storage.clearAniListSessionIfToken('anilist')).toBe(true);
+    expect(before.filter((key) => !store.has(key)).sort()).toEqual(['anilistToken', 'anilistViewer', 'anilistViewerAt', ...ACCOUNT_KEYS].sort());
+    expect(store.get(SESSION_EXPIRED_KEYS.anilist)).toBe(true);
+  });
+
+  it('dernier compte déconnecté : les données de l’utilisateur partent avec lui, jamais correspondances, exclusions ni réglages', async () => {
+    const before = seedAll();
+    await storage.clearAniListSession();
+    await storage.clearMalSession();
+    expect(await storage.clearUserSyncDataIfNoSession()).toBe(true);
+    const removed = before.filter((key) => !store.has(key)).sort();
+    expect(removed).toEqual(
+      [
+        'anilistToken',
+        'anilistViewer',
+        'anilistViewerAt',
+        'malToken',
+        'malViewer',
+        'malViewerAt',
+        ...ACCOUNT_KEYS,
+        'pendingReviews',
+        'recentSyncs',
+        'watchingCache',
+        'syncQueue',
+        'pendingRatings',
+        'rewatchDeclined',
+        'platformLinks',
+        'airingWeek:2026-10-05',
+        'airingWeek:2026-10-12',
+        'airingLastCheck',
+        'airingCoveredUntil',
+        'airingNotified',
+        'airingTargets',
+        'airingLastResult',
+      ].sort(),
+    );
+    expect(keys().filter((key) => !before.includes(key))).toEqual([]);
+  });
+});
+
 describe('clearAniListSession / clearMalSession (TEST-10, DATA-01)', () => {
   it('AniList : session, comparaison, import et cache AniList effacés ; génération AniList incrémentée seule', async () => {
     seedEverything();

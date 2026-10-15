@@ -3,12 +3,11 @@ import { isSealedToken, type SealedToken } from '../tokens/crypto';
 import { isPendingReview, isRecentSync } from '../../shared/review.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import { isPendingRating } from './engagement-store';
-import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
+import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import { isSyncQueueItem, restrictToSession } from '../../shared/queue.types';
 import { liveServices, type SessionEpochs } from '../../shared/session-epochs';
-import { PLATFORM_LINKS_KEY } from '../../platforms/links';
+import { keysClearedOnLastSession, keysClearedOnSessionEnd, prefixesClearedOnLastSession } from './account-keys';
 import { withStorageLock } from './lock';
-import { AIRING_USER_KEYS } from '../../shared/airing-keys';
 import { clearSessionCaches } from './session-cache';
 import { createLogger } from '../logger';
 import { getOpenSessions, bumpSessionEpoch } from './sessions';
@@ -16,9 +15,6 @@ import { setSessionExpired, readRawToken, readStoredToken, tokenOf } from './tok
 import { removeCachedWatching } from './watching-cache';
 
 const log = createLogger('storage');
-
-/** Import Crunchyroll : propre au compte (aperçu = état des listes), effacé à toute déconnexion */
-const CR_IMPORT_STORAGE_KEYS = [STORAGE_KEYS.crImportJob, STORAGE_KEYS.crImportInput, STORAGE_KEYS.crImportResolutions, STORAGE_KEYS.crImportPlan];
 
 /**
  * Token indéchiffrable (clé perdue : IndexedDB vidée) : ferme la session avec l'indicateur « Session expirée », comme
@@ -47,7 +43,7 @@ export function clearAniListSession(): Promise<void> {
 async function removeAniListSession(expired: boolean): Promise<void> {
   // Indicateur écrit avant la suppression du token : l'interface qui réagit à cette suppression le lit déjà (AUTH-03)
   await setSessionExpired('anilist', expired);
-  await chrome.storage.local.remove([STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.anilistViewerAt, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
+  await chrome.storage.local.remove(keysClearedOnSessionEnd('anilist'));
   await removeCachedWatching('anilist');
   await bumpSessionEpoch('anilist');
   await purgeClosedSessions();
@@ -70,22 +66,9 @@ export function clearAniListSessionIfToken(accessToken: string): Promise<boolean
 /** Clés propres à l'utilisateur, sans verrou (voir clearUserSyncData) */
 async function removeUserSyncData(): Promise<void> {
   // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
-  const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => key.startsWith('airingWeek:'));
-  await chrome.storage.local.remove([
-    STORAGE_KEYS.pendingReviews,
-    STORAGE_KEYS.recentSyncs,
-    STORAGE_KEYS.watchingCache,
-    SYNC_QUEUE_KEY,
-    PENDING_RATINGS_KEY,
-    REWATCH_DECLINED_KEY,
-    STORAGE_KEYS.compareLast,
-    STORAGE_KEYS.compareJob,
-    ...CR_IMPORT_STORAGE_KEYS,
-    PLATFORM_LINKS_KEY,
-    // Alertes de sortie : épisodes notifiés, cibles des notifications (séries de l'ancien compte), dernière vérification (ALRT-05)
-    ...AIRING_USER_KEYS,
-    ...weeks,
-  ]);
+  const prefixes = prefixesClearedOnLastSession();
+  const weeks = Object.keys(await chrome.storage.local.get(null)).filter((key) => prefixes.some((prefix) => key.startsWith(prefix)));
+  await chrome.storage.local.remove([...keysClearedOnLastSession(), ...weeks]);
   await removeSessionCaches();
 }
 
@@ -132,7 +115,7 @@ export function clearMalSession(): Promise<void> {
 async function removeMalSession(expired: boolean): Promise<void> {
   // Indicateur écrit avant la suppression du token, comme pour AniList (AUTH-03)
   await setSessionExpired('mal', expired);
-  await chrome.storage.local.remove([STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer, STORAGE_KEYS.malViewerAt, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, ...CR_IMPORT_STORAGE_KEYS]);
+  await chrome.storage.local.remove(keysClearedOnSessionEnd('mal'));
   await removeCachedWatching('mal');
   await bumpSessionEpoch('mal');
   await purgeClosedSessions();
