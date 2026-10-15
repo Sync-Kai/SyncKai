@@ -6,6 +6,7 @@ import { defineConfig } from 'vite';
 import manifest from './manifest.json';
 import { GIT_COMMIT_EPOCH_ARGS, resolveBuildStamp } from './src/build/build-stamp';
 import { contentCatalogsDefine } from './src/build/content-catalog';
+import { devVersionName, GIT_DIRTY_ARGS, GIT_SHORT_SHA_ARGS } from './src/build/dev-version';
 import { parseBuildTarget, targetManifest, targetOutDir } from './src/build/manifest-target';
 import { assetFileName, dropExtensionInjectedScripts, jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
 import en from './src/i18n/locales/en.json';
@@ -35,6 +36,16 @@ function buildStamp(mode: string): string {
   });
 }
 
+/** Builds de développement : `version_name` « 2.3.1-dev · 3c8ec4f » (src/build/dev-version.ts) ; production inchangée */
+function withDevVersionName<M extends { version: string }>(built: M, mode: string): M {
+  if (mode === 'production') return built;
+  const git = (args: readonly string[]): string | null => readOrNull(() => execFileSync('git', [...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+  const sha = git(GIT_SHORT_SHA_ARGS)?.trim() ?? '';
+  // `git diff --quiet` sort en erreur (code 1) si des fichiers suivis sont modifiés
+  const clean = git(GIT_DIRTY_ARGS) !== null;
+  return { ...built, version_name: devVersionName(built.version, sha ? { sha, dirty: !clean } : null) };
+}
+
 /**
  * Manifeste généré identique d'un build à l'autre (ordre des scripts `?script`), scripts enregistrés de chaque plateforme
  * optionnelle exposés à cette seule plateforme (crxjs les réunit sous l'union des motifs), et scripts injectés par une page
@@ -53,7 +64,7 @@ const sortedWebAccessibleResources: CrxPlugin = {
 
 export default defineConfig(({ mode }) => ({
   // Après crx() : renderCrxManifest est appelé dans l'ordre des plugins, une fois les ressources calculées
-  plugins: [tailwindcss(), crx({ manifest: targetManifest(manifest, target), browser: target }), sortedWebAccessibleResources],
+  plugins: [tailwindcss(), crx({ manifest: withDevVersionName(targetManifest(manifest, target), mode), browser: target }), sortedWebAccessibleResources],
   build: {
     outDir: targetOutDir(target),
     rollupOptions: {

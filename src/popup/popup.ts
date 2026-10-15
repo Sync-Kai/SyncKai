@@ -105,7 +105,8 @@ const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
  */
 const platformAccessStore = createStore<readonly StreamingPlatform[] | undefined>(undefined);
 
-const version = chrome.runtime.getManifest().version;
+// Build de développement : libellé « 2.3.1-dev · 3c8ec4f » (src/build/dev-version.ts), sinon la version publiée
+const version = chrome.runtime.getManifest().version_name ?? chrome.runtime.getManifest().version;
 /** Lues au démarrage (synchrone) : la demande d'accès doit partir sans `await` dans le clic */
 const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
 let now = Date.now();

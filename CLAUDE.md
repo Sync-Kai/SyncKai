@@ -222,6 +222,7 @@ Section maintained by Claude so the project can be picked up on any machine afte
 - **Debugging**:
   - after reloading the extension, reopen the tab, otherwise the orphaned content script stays active;
   - the content script prints its build timestamp in the console;
+  - dev builds (`npm run build:dev`, `npm run dev`) set the manifest `version_name` to « <version>-dev · <short sha> » (« + » when tracked files were modified), shown in `chrome://extensions` and the popup footer (`src/build/dev-version.ts`); production builds keep `version` only, so the published package is unchanged;
   - the service worker writes `[SyncKai:sync]` lines;
   - info/debug logs are visible only with `npm run build:dev` (or `npm run dev`); `npm run build`/`package` keep only warn/error;
   - end-to-end tests of the popup, the side panel and the import page: `npm run test:e2e` (Vitest + Puppeteer, headless Chrome; `scripts/e2e/`, panel records in `window.__e2ePanel`). The real popup runs on the mocked chrome API of the screenshots (`scripts/screenshots/mock-chrome.ts`); messages sent to the service worker, access requests and the clipboard are recorded in `window.__e2e`. CI `e2e` job; locally, Chrome via `npx puppeteer browsers install chrome-headless-shell` if missing.
