@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { encodeNetflixHandshake, installNetflixBridgeOnce, NETFLIX_BRIDGE_VERSION, NETFLIX_HANDSHAKE_EVENT, netflixBridgeFlag } from './bridge-protocol';
+import { encodeNetflixHandshake, encodeNetflixRequest, installNetflixBridgeOnce, NETFLIX_BRIDGE_VERSION, NETFLIX_HANDSHAKE_EVENT, netflixBridgeFlag } from './bridge-protocol';
 
 // Garde d'installation du pont MAIN : le pont reste dans la page après une mise à jour de l'extension (code de la
 // page, jamais invalidé) et le service worker le réexécute dans les onglets Netflix ouverts.
@@ -51,6 +51,30 @@ describe('page-bridge.iife.ts — une installation par version de protocole', ()
     expect(handshakeListeners()).toBe(0);
     await runBridge(2);
     expect(handshakeListeners()).toBe(1);
+  });
+
+  it('demandes d’ouverture répétées : 4 canaux au plus, le plus ancien fermé (comme les ponts passifs)', async () => {
+    // Requête du site en échec : la réponse « network » suffit à prouver que le canal répond encore
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.reject(new TypeError('hors ligne'))));
+    await runBridge(NETFLIX_BRIDGE_VERSION);
+    const ports = Array.from({ length: 6 }, (_, i) => {
+      page.dispatchEvent(new CustomEvent(NETFLIX_HANDSHAKE_EVENT, { detail: encodeNetflixHandshake({ v: NETFLIX_BRIDGE_VERSION, nonce: `n${i}` }) }));
+      const port = page.postMessage.mock.calls.at(-1)?.[2][0];
+      if (!port) throw new Error('aucun port');
+      return port;
+    });
+    const answered = await Promise.all(
+      ports.map(
+        (port, i) =>
+          new Promise<boolean>((resolve) => {
+            port.onmessage = () => resolve(true);
+            setTimeout(() => resolve(false), 100);
+            port.postMessage(encodeNetflixRequest({ v: NETFLIX_BRIDGE_VERSION, id: `r${i}`, movieId: '81301833' }));
+          }),
+      ),
+    );
+    expect(answered).toEqual([false, false, true, true, true, true]);
+    for (const port of ports) port.close();
   });
 });
 

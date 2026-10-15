@@ -29,12 +29,15 @@ import {
 } from './bridge-protocol';
 
 const METADATA_URL = '/nq/website/memberapi/release/metadata';
+/** Clients isolés connectés au plus (réinjections successives) : le plus ancien port est fermé au-delà */
+const MAX_PORTS = 4;
 
 // Références prises à l'installation : une redéfinition ultérieure par la page ne détourne pas le canal
 const Channel = MessageChannel;
 const CustomEventType = CustomEvent;
 const MessageEventType = MessageEvent;
 const postToWindow = window.postMessage.bind(window);
+const ports: MessagePort[] = [];
 
 type ResponseBody = Omit<Extract<NetflixBridgeResponse, { ok: true }>, 'v' | 'id'> | Omit<Extract<NetflixBridgeResponse, { ok: false }>, 'v' | 'id'>;
 
@@ -70,7 +73,7 @@ function onRequest(port: MessagePort, event: Event): void {
   });
 }
 
-/** Demande d'ouverture : nouveau canal, port2 transféré au script isolé (même origine uniquement) */
+/** Demande d'ouverture : nouveau canal, port2 transféré au script isolé (même origine uniquement), 4 canaux au plus */
 function onHandshake(event: Event): void {
   if (!(event instanceof CustomEventType)) return;
   const handshake = decodeNetflixHandshake(event.detail);
@@ -78,6 +81,8 @@ function onHandshake(event: Event): void {
   const { port1, port2 } = new Channel();
   port1.addEventListener('message', (message) => onRequest(port1, message));
   port1.start();
+  ports.push(port1);
+  while (ports.length > MAX_PORTS) ports.shift()?.close();
   postToWindow(encodeNetflixPortOffer({ v: NETFLIX_BRIDGE_VERSION, type: NETFLIX_PORT_OFFER, nonce: handshake.nonce }), location.origin, [port2]);
 }
 
