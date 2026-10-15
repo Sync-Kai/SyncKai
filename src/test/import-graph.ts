@@ -3,9 +3,9 @@
 // (background/message-guards.test.ts) et celui des traductions des scripts de contenu (i18n/content.test.ts).
 // Imports de types inclus (marqués `typeOnly`) : un cycle de types finit souvent en cycle de valeurs.
 
-/** Sources de src/, clés relatives à src/ ("popup/popup.ts") */
+/** Sources de src/ (TypeScript et TSX), clés relatives à src/ ("popup/popup.ts") */
 export const SOURCES = new Map(
-  Object.entries(import.meta.glob<string>(['../**/*.ts', '!../**/*.d.ts'], { query: '?raw', import: 'default', eager: true })).map(([path, code]) => [
+  Object.entries(import.meta.glob<string>(['../**/*.{ts,tsx}', '!../**/*.d.ts'], { query: '?raw', import: 'default', eager: true })).map(([path, code]) => [
     path.slice(3),
     code,
   ]),
@@ -22,7 +22,7 @@ export interface Edge {
   typeOnly: boolean;
 }
 
-/** Chemin relatif à src/ visé par un spécifieur relatif (`?script` retiré, extension ou index.ts implicites), sinon null */
+/** Chemin relatif à src/ visé par un spécifieur relatif (`?script` retiré, extension .ts / .tsx ou index implicites), sinon null */
 export function resolveImport(from: string, spec: string): string | null {
   const parts = from.split('/').slice(0, -1);
   for (const segment of (spec.split('?')[0] ?? spec).split('/')) {
@@ -30,7 +30,7 @@ export function resolveImport(from: string, spec: string): string | null {
     else if (segment !== '.') parts.push(segment);
   }
   const base = parts.join('/');
-  return [base, `${base}.ts`, `${base}/index.ts`].find((path) => SOURCES.has(path)) ?? null;
+  return [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`].find((path) => SOURCES.has(path)) ?? null;
 }
 
 function buildEdges(): Edge[] {
@@ -46,7 +46,15 @@ function buildEdges(): Edge[] {
 
 export const EDGES: readonly Edge[] = buildEdges();
 
-const isTest = (path: string): boolean => path.endsWith('.test.ts') || path.startsWith('test/');
+/** Paquets npm importés par un module (`preact`, `preact/hooks`…), imports de types compris (`typeOnly`) */
+export function packageImports(file: string): { spec: string; typeOnly: boolean }[] {
+  return [...(SOURCES.get(file) ?? '').matchAll(IMPORT_RE)].flatMap((match) => {
+    const spec = match[2] ?? match[3];
+    return spec === undefined || spec.startsWith('.') ? [] : [{ spec, typeOnly: match[1] !== undefined }];
+  });
+}
+
+const isTest = (path: string): boolean => /\.test\.tsx?$/.test(path) || path.startsWith('test/');
 
 /** Import `?script` de crxjs : le chemin du script produit (une chaîne), jamais son code, qui forme un bundle à part */
 const isScriptPath = (edge: Edge): boolean => edge.spec.endsWith('?script');

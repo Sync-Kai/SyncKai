@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDGES, SOURCES, layerFiles, reachableFrom, resolveImport, type Edge } from './test/import-graph';
+import { EDGES, SOURCES, layerFiles, packageImports, reachableFrom, resolveImport, type Edge } from './test/import-graph';
 
 // Frontières des modules (voir CLAUDE.md › « Frontières des modules ») : graphe des imports relatifs de src/, tests
 // compris (src/test/import-graph.ts).
@@ -40,6 +40,8 @@ describe('frontières des modules', () => {
     expect(edges.length).toBeGreaterThan(500);
     expect(edges).toContainEqual(expect.objectContaining({ from: 'popup/components/watching-screen.ts', to: 'ui/kit.ts' }));
     expect(edges).toContainEqual(expect.objectContaining({ from: 'popup/popup.ts', to: 'i18n/index.ts' }));
+    // Modules TSX (pages Preact) suivis comme les autres
+    expect(edges).toContainEqual(expect.objectContaining({ from: 'ui/settings/settings-view.ts', to: 'ui/settings/page-shortcuts.tsx' }));
   });
 
   it('aucun cycle d’import', () => {
@@ -121,6 +123,15 @@ describe('scripts de contenu légers (PERF-01)', () => {
     expect(heavy.filter((path) => contentModules.has(path))).toEqual([]);
   });
 
+  it('ni Preact ni module TSX (pages de l’extension seulement ; scripts Crunchyroll / ADN sous budget, MANIFEST_SCRIPT_BUDGETS)', () => {
+    const isPreact = (spec: string): boolean => spec === 'preact' || spec.startsWith('preact/');
+    // Le relevé voit bien Preact là où il sert : sinon la règle passerait sans rien vérifier
+    expect(packageImports('ui/settings/page-shortcuts.tsx').some(({ spec }) => isPreact(spec))).toBe(true);
+    // Graphe complet (imports de types compris), comme les frontières des modules
+    const reachable = [...reachableFrom(layerFiles('content'))];
+    expect(reachable.filter((path) => path.endsWith('.tsx') || packageImports(path).some(({ spec }) => isPreact(spec)))).toEqual([]);
+  });
+
   /** Scripts isolés du manifeste, un par plateforme (une page ne charge que le sien) */
   const MANIFEST_SCRIPTS = { crunchyroll: 'content/crunchyroll/content-crunchyroll.iife.ts', adn: 'content/adn/content-adn.iife.ts' } as const;
 
@@ -150,7 +161,7 @@ describe('scripts de contenu légers (PERF-01)', () => {
 
 // ── Filets de sécurité du réaménagement des dossiers : règles qui valent déjà aujourd'hui et qui suivent chaque déplacement ──
 
-const isTestFile = (path: string): boolean => path.endsWith('.test.ts') || path.startsWith('test/');
+const isTestFile = (path: string): boolean => /\.test\.tsx?$/.test(path) || path.startsWith('test/');
 
 /** Code d'un module sans les commentaires (lignes de commentaire et fin de ligne ` // …`) */
 function withoutComments(code: string): string {
