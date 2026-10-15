@@ -1,6 +1,6 @@
 import { CR_HISTORY_PORT_NAME, isCrHistoryRequest, type CrHistoryPortMessage } from '../../protocol/content-messages';
 import { createLogger } from '../../browser/logger';
-import { getSettings } from '../../browser/storage/settings-access';
+import { getContentSettings } from '../../browser/storage/content-settings';
 import { CrHistoryError, pageLocale, readCrunchyrollHistory } from './history';
 import { abortableSleep, listenHistoryPort } from '../lib/history-port';
 import { pageFetch } from '../lib/page-fetch';
@@ -21,7 +21,7 @@ async function read(signal: AbortSignal, post: (message: CrHistoryPortMessage) =
     return;
   }
   try {
-    const { completionPercentage } = await getSettings();
+    const { completionPercentage } = await getContentSettings();
     const result = await readCrunchyrollHistory(
       {
         fetch: pageFetch(),

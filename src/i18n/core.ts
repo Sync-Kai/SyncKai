@@ -1,6 +1,6 @@
 import { createLogger } from '../browser/logger';
-import { getSettings } from '../browser/storage/settings-access';
-import { normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
+import { getContentSettings } from '../browser/storage/content-settings';
+import { normalizeContentSettings, SETTINGS_STORAGE_KEY } from '../shared/content-settings';
 import { isCatalog, type Catalog } from './catalog-check';
 import { LOCALES, matchLocale, type LanguageSetting, type Locale } from './locale-codes';
 import type en from './locales/en.json';
@@ -322,7 +322,8 @@ export function initI18n({ setDocumentLang = true, follow = true }: InitI18nOpti
     if (ownsDocumentLang && typeof document !== 'undefined') document.documentElement.lang = current;
     let setting: LanguageSetting = 'auto';
     try {
-      setting = (await getSettings()).language;
+      // Lecteur léger des scripts de contenu, jamais getSettings : ce module est embarqué par eux
+      setting = (await getContentSettings()).language;
     } catch {
       // Stockage illisible : langue du navigateur
     }
@@ -332,7 +333,7 @@ export function initI18n({ setDocumentLang = true, follow = true }: InitI18nOpti
       // Zone locale seule : une écriture dans `storage.session` ne réveille pas le service worker (ARCH-18)
       chrome.storage.local.onChanged.addListener((changes) => {
         const change = changes[SETTINGS_STORAGE_KEY];
-        if (change) void applyLanguageSetting(normalizeSettings(change.newValue).language);
+        if (change) void applyLanguageSetting(normalizeContentSettings(change.newValue).language);
       });
     }
     return applied;

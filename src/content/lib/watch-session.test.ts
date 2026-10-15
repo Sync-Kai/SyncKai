@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   sendMessage: vi.fn(),
   isExcluded: vi.fn(),
-  getSettings: vi.fn(),
+  getContentSettings: vi.fn(),
   /** Fin de lecture du lecteur simulé (onCompleted du suivi vidéo) */
   completions: [] as (() => void)[],
   /** <video> suivies, dans l'ordre, avec le signal de leur tracker et la lecture de position transmise */
@@ -31,9 +31,9 @@ vi.mock('../../browser/storage/exclusions-read', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../browser/storage/exclusions-read')>()),
   isExcluded: mocks.isExcluded,
 }));
-vi.mock('../../browser/storage/settings-access', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../browser/storage/settings-access')>()),
-  getSettings: mocks.getSettings,
+vi.mock('../../browser/storage/content-settings', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../browser/storage/content-settings')>()),
+  getContentSettings: mocks.getContentSettings,
 }));
 vi.mock('./video-tracker', () => ({
   trackVideoProgress: (
@@ -46,7 +46,7 @@ vi.mock('./video-tracker', () => ({
   },
 }));
 
-const { DEFAULT_SETTINGS } = await import('../../shared/settings');
+const { DEFAULT_CONTENT_SETTINGS } = await import('../../shared/content-settings');
 const { startWatchSession, VIDEO_POLL_MS } = await import('./watch-session');
 
 /** Fausse <video> : seules les propriétés lues par la session */
@@ -138,7 +138,7 @@ beforeEach(() => {
   vi.stubGlobal('MutationObserver', class { observe(): void {} disconnect(): void {} });
   mocks.showToast.mockReturnValue(toastHandle);
   mocks.isExcluded.mockResolvedValue(false);
-  mocks.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoSync: true, notificationLevel: 'detailed', completionTrigger: 'percentage' });
+  mocks.getContentSettings.mockResolvedValue({ ...DEFAULT_CONTENT_SETTINGS, autoSync: true, notificationLevel: 'detailed', completionTrigger: 'percentage' });
 });
 
 afterAll(() => {
@@ -230,7 +230,7 @@ describe('startWatchSession — adapter synchrone (inchangé)', () => {
   });
 
   it('début du générique en échec (promesse rejetée) : repli sur le ratio comme un null, aucun rejet non géré', async () => {
-    mocks.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoSync: true, completionTrigger: 'credits' });
+    mocks.getContentSettings.mockResolvedValue({ ...DEFAULT_CONTENT_SETTINGS, autoSync: true, completionTrigger: 'credits' });
     const unhandled: unknown[] = [];
     const onUnhandled = (reason: unknown): void => void unhandled.push(reason);
     // Process Node du lanceur de tests (types Node absents de src/)
@@ -442,7 +442,7 @@ describe('startWatchSession — envoi et raccourci (CONT-05, CONT-07, CTRL-07)',
 
   it('synchro en pause à la fin de l’épisode, puis réactivée : le raccourci renvoie l’épisode', async () => {
     const info = episode('GRMG8ZQZR', 'GE021', { platform: 'crunchyroll' });
-    mocks.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoSync: false, completionTrigger: 'percentage' });
+    mocks.getContentSettings.mockResolvedValue({ ...DEFAULT_CONTENT_SETTINGS, autoSync: false, completionTrigger: 'percentage' });
     mocks.sendMessage.mockResolvedValue(synced);
     navigate('/watch/GE021');
     const session = startWatchSession(syncAdapter(info), 'GE021');
@@ -457,7 +457,7 @@ describe('startWatchSession — envoi et raccourci (CONT-05, CONT-07, CTRL-07)',
     expect(mocks.sendMessage).not.toHaveBeenCalled();
     expect(mocks.showToast).toHaveBeenLastCalledWith(expect.objectContaining({ tone: 'info' }), expect.anything());
 
-    mocks.getSettings.mockResolvedValue({ ...DEFAULT_SETTINGS, autoSync: true, notificationLevel: 'detailed', completionTrigger: 'percentage' });
+    mocks.getContentSettings.mockResolvedValue({ ...DEFAULT_CONTENT_SETTINGS, autoSync: true, notificationLevel: 'detailed', completionTrigger: 'percentage' });
     session.forceComplete();
     await flush();
     expect(mocks.sendMessage).toHaveBeenCalledOnce();

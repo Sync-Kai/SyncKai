@@ -1,19 +1,13 @@
 import { LANGUAGE_SETTINGS, type LanguageSetting } from '../i18n/locale-codes';
+import { DEFAULT_CONTENT_SETTINGS, normalizeContentSettings, type ContentSettings } from './content-settings';
 import { AIRING_DELAYS, type AiringDelayHours } from './engagement.types';
 import { isRecord } from './guards';
 import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from '../platforms/ids';
 import { TRACKER_IDS, type TrackerId } from './tracker.types';
 
-export type CompletionTrigger = 'credits' | 'percentage';
-
-/**
- * Notifications affichées sur la page de lecture :
- * - discreet    : petite pastille de succès 3 s (rien en plein écran), aucun toast de progression
- * - detailed    : bulle complète avec le résultat par service
- * - alerts-only : uniquement quand il faut agir (à vérifier, erreur, reconnexion)
- * Les alertes s'affichent dans tous les cas.
- */
-export type NotificationLevel = 'discreet' | 'detailed' | 'alerts-only';
+// Champs lus par les scripts de contenu (déclenchement, notifications, langue) : définis et normalisés dans
+// content-settings.ts, que ces scripts lisent seul (jamais getSettings / normalizeSettings)
+export { PERCENTAGE_RANGE, SETTINGS_STORAGE_KEY, type CompletionTrigger, type ContentSettings, type NotificationLevel } from './content-settings';
 
 // Langue de l'interface : 'auto' ou une langue proposée (liste dans i18n/locale-codes.ts, module feuille : le moteur
 // i18n importe ces réglages, un import du moteur ici ferait un cycle)
@@ -23,14 +17,7 @@ export { LANGUAGE_SETTINGS, type LanguageSetting };
 export type PanelDefaultTab = 'last' | 'nowPlaying' | 'agenda';
 export const PANEL_DEFAULT_TABS: readonly PanelDefaultTab[] = ['last', 'nowPlaying', 'agenda'];
 
-export interface SyncSettings {
-  /** Synchronisation automatique active (false = pause) */
-  autoSync: boolean;
-  /** "credits" : début du générique de fin si connu, sinon pourcentage */
-  completionTrigger: CompletionTrigger;
-  /** Pourcentage de la vidéo (repli, ou déclencheur unique en mode "percentage") */
-  completionPercentage: number;
-  notificationLevel: NotificationLevel;
+export interface SyncSettings extends ContentSettings {
   /** Plateforme ouverte par « Ouvrir » quand l'anime est disponible sur plusieurs plateformes */
   preferredPlayer: StreamingPlatform;
   /** Fiche ouverte au clic sur un titre ou une jaquette quand les deux comptes sont connectés */
@@ -41,7 +28,6 @@ export interface SyncSettings {
   airingAlerts: boolean;
   /** Délai après la diffusion japonaise avant de notifier */
   airingDelayHours: AiringDelayHours;
-  language: LanguageSetting;
   /** Agenda : délai estimé (minutes) entre la diffusion japonaise et la sortie sur chaque plateforme */
   platformOffsets: PlatformOffsets;
   /** Agenda : délai propre à une série (clé = mediaId AniList), prioritaire sur `platformOffsets` */
@@ -66,23 +52,21 @@ export const OFFSET_RANGE = { min: -1440, max: 10080 } as const;
 export const MAX_SERIES_OFFSETS = 200;
 
 export const DEFAULT_SETTINGS: SyncSettings = {
-  autoSync: true,
-  completionTrigger: 'credits',
-  completionPercentage: 85,
-  notificationLevel: 'discreet',
+  autoSync: DEFAULT_CONTENT_SETTINGS.autoSync,
+  completionTrigger: DEFAULT_CONTENT_SETTINGS.completionTrigger,
+  completionPercentage: DEFAULT_CONTENT_SETTINGS.completionPercentage,
+  notificationLevel: DEFAULT_CONTENT_SETTINGS.notificationLevel,
   preferredPlayer: 'crunchyroll',
   entryService: 'anilist',
   ratingPrompt: true,
   airingAlerts: true,
   airingDelayHours: 0,
-  language: 'auto',
+  language: DEFAULT_CONTENT_SETTINGS.language,
   platformOffsets: platformRecord(() => 60),
   seriesOffsets: {},
   panelDefaultTab: 'last',
   panelLiveProgress: true,
 };
-
-export const PERCENTAGE_RANGE = { min: 70, max: 98 } as const;
 
 /**
  * Lecteurs préférés à accès optionnel (permission d'hôte) : écrits ici plutôt que lus dans le registre (platforms/registry.ts,
@@ -110,9 +94,6 @@ export function effectivePlayer(preferred: StreamingPlatform, granted: readonly 
 export function isPreferredPlayerOption(platform: StreamingPlatform): boolean {
   return platform !== 'disney';
 }
-
-const SETTINGS_KEY = 'settings';
-const NOTIFICATION_LEVELS: readonly NotificationLevel[] = ['discreet', 'detailed', 'alerts-only'];
 
 /**
  * Valeur d'un champ de délai (`<input type="number">`) : vide, ou saisie non numérique que le navigateur rend
@@ -171,30 +152,21 @@ export function normalizeSeriesOffsets(raw: unknown, legacyAt = 0): Record<strin
  */
 export function normalizeSettings(raw: unknown): SyncSettings {
   const value = isRecord(raw) ? raw : {};
-  const percentage =
-    typeof value.completionPercentage === 'number' && Number.isFinite(value.completionPercentage)
-      ? Math.min(PERCENTAGE_RANGE.max, Math.max(PERCENTAGE_RANGE.min, Math.round(value.completionPercentage)))
-      : DEFAULT_SETTINGS.completionPercentage;
-
-  // Migration ≤ 1.3 : "showToast: false" correspondait à n'afficher que les alertes
-  const legacyLevel: NotificationLevel | null = value.showToast === false ? 'alerts-only' : null;
-  const notificationLevel = NOTIFICATION_LEVELS.find((level) => level === value.notificationLevel) ?? legacyLevel ?? DEFAULT_SETTINGS.notificationLevel;
+  // Champs des scripts de contenu : mêmes règles que leur lecteur (content-settings.ts), migration ≤ 1.3 comprise
+  const content = normalizeContentSettings(value);
 
   return {
-    autoSync: typeof value.autoSync === 'boolean' ? value.autoSync : DEFAULT_SETTINGS.autoSync,
-    completionTrigger:
-      value.completionTrigger === 'credits' || value.completionTrigger === 'percentage'
-        ? value.completionTrigger
-        : DEFAULT_SETTINGS.completionTrigger,
-    completionPercentage: percentage,
-    notificationLevel,
+    autoSync: content.autoSync,
+    completionTrigger: content.completionTrigger,
+    completionPercentage: content.completionPercentage,
+    notificationLevel: content.notificationLevel,
     preferredPlayer: STREAMING_PLATFORMS.find((p) => p === value.preferredPlayer) ?? DEFAULT_SETTINGS.preferredPlayer,
     // Réglage récent : absent des réglages plus anciens → AniList
     entryService: TRACKER_IDS.find((service) => service === value.entryService) ?? DEFAULT_SETTINGS.entryService,
     ratingPrompt: typeof value.ratingPrompt === 'boolean' ? value.ratingPrompt : DEFAULT_SETTINGS.ratingPrompt,
     airingAlerts: typeof value.airingAlerts === 'boolean' ? value.airingAlerts : DEFAULT_SETTINGS.airingAlerts,
     airingDelayHours: AIRING_DELAYS.find((d) => d === value.airingDelayHours) ?? DEFAULT_SETTINGS.airingDelayHours,
-    language: LANGUAGE_SETTINGS.find((l) => l === value.language) ?? DEFAULT_SETTINGS.language,
+    language: content.language,
     platformOffsets: normalizePlatformOffsets(value.platformOffsets),
     seriesOffsets: normalizeSeriesOffsets(value.seriesOffsets),
     // Réglages du panneau (1.10) : absents des réglages plus anciens → valeurs par défaut
@@ -202,5 +174,3 @@ export function normalizeSettings(raw: unknown): SyncSettings {
     panelLiveProgress: typeof value.panelLiveProgress === 'boolean' ? value.panelLiveProgress : DEFAULT_SETTINGS.panelLiveProgress,
   };
 }
-
-export const SETTINGS_STORAGE_KEY = SETTINGS_KEY;

@@ -5,8 +5,8 @@ import { sendMessage } from '../../protocol/messages';
 import type { LiveOutcome, LiveState } from '../../protocol/live';
 import { failedServices } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
-import { DEFAULT_SETTINGS, type NotificationLevel, type SyncSettings } from '../../shared/settings';
-import { getSettings } from '../../browser/storage/settings-access';
+import { DEFAULT_CONTENT_SETTINGS, type ContentSettings, type NotificationLevel } from '../../shared/content-settings';
+import { getContentSettings } from '../../browser/storage/content-settings';
 import type { StreamingAdapter } from './adapter';
 import { showEngagementPrompt } from '../ui/engagement-prompt';
 import { isAlertTone, promptForOutcome, showsProgress } from '../ui/notification-policy';
@@ -47,14 +47,14 @@ const ignoredSeries = new Set<string>();
  * langue choisie : le script de contenu ne suit pas les réglages (PERF-03), il la relit à chaque lecture. Attendue
  * avant tout toast : textes d'une autre langue que l'anglais demandés au service worker la première fois.
  */
-async function loadSettings(): Promise<SyncSettings> {
+async function loadSettings(): Promise<ContentSettings> {
   try {
-    const settings = await getSettings();
+    const settings = await getContentSettings();
     await applyLanguageSetting(settings.language);
     return settings;
   } catch (error: unknown) {
     log.warn('Réglages illisibles, valeurs par défaut utilisées :', error);
-    return DEFAULT_SETTINGS;
+    return DEFAULT_CONTENT_SETTINGS;
   }
 }
 
@@ -113,7 +113,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   /** Écouteurs du tracker courant : un seul tracker à la fois, annulé quand le lecteur est remplacé */
   let trackerController: AbortController | null = null;
   /** Réglages fixés au démarrage (seuil de complétion) : null tant qu'ils ne sont pas lus */
-  let startSettings: SyncSettings | null = null;
+  let startSettings: ContentSettings | null = null;
   let state: LiveState = 'idle';
   const stateListeners = new Set<WatchStateListener>();
 
@@ -354,7 +354,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   }
 
   /** Suit `found` : le tracker précédent (lecteur remplacé) est annulé avec tous ses écouteurs */
-  function attach(found: HTMLVideoElement, settings: SyncSettings): void {
+  function attach(found: HTMLVideoElement, settings: ContentSettings): void {
     if (__SYNCKAI_DEBUG__) log.info(video ? 'Lecteur vidéo remplacé, suivi rattaché :' : 'Lecteur vidéo trouvé :', found.id || '(sans id)');
     trackerController?.abort();
     trackerController = new AbortController();

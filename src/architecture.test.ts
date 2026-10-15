@@ -101,6 +101,9 @@ describe('scripts de contenu légers (PERF-01)', () => {
       'platforms/links.ts',
       // Descripteurs des plateformes (logos, hôtes, liens) : platforms/ids.ts suffit
       'platforms/registry.ts',
+      // Réglages complets (délais de l'Agenda, lecteur préféré…) : content-settings.ts suffit (getContentSettings)
+      'shared/settings.ts',
+      'browser/storage/settings-access.ts',
     ];
     expect(contentModules.has('protocol/messages.ts')).toBe(true);
     expect(heavy.filter((path) => contentModules.has(path))).toEqual([]);
@@ -195,7 +198,7 @@ describe('shared/ : pur, sans API du navigateur', () => {
    */
   const SHARED_TO_BROWSER: readonly string[] = [
     'i18n/core.ts → browser/logger.ts',
-    'i18n/core.ts → browser/storage/settings-access.ts',
+    'i18n/core.ts → browser/storage/content-settings.ts',
     'shared/backup.ts → browser/storage/engagement-store.ts',
     'shared/backup.ts → browser/storage/reviews.ts',
     'shared/diagnostics.ts → browser/error-journal.ts',
