@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearAniListSession, clearMalSession, clearUserSyncData, getCachedWatching, getSessionEpoch } from '../../shared/storage';
+import { clearAniListSession, clearMalSession, clearUserSyncData } from '../../browser/storage/account-data';
+import { getCachedWatching } from '../../browser/storage/watching-cache';
+import { getSessionEpoch } from '../../browser/storage/sessions';
 import { getWatchingList } from './watching';
 
 // Requêtes réseau contrôlées par le test : résolues à la main pour simuler une requête en vol

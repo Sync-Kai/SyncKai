@@ -43,13 +43,17 @@ import type { Result } from '../shared/result';
 import { sameSessions, type SessionEpochs } from '../shared/session-epochs';
 import {
   getMediaMapping,
-  getOpenSessions,
-  getPendingReviews,
-  isSessionOpen,
-  MAX_PENDING_REVIEWS,
   saveMediaMappingsIfAbsent,
+} from '../browser/storage/mappings';
+import {
+  getOpenSessions,
+  isSessionOpen,
+} from '../browser/storage/sessions';
+import {
+  getPendingReviews,
+  MAX_PENDING_REVIEWS,
   savePendingReview,
-} from '../shared/storage';
+} from '../browser/storage/reviews';
 import { withStorageLock } from '../browser/storage/lock';
 import type { MediaMapping } from '../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';

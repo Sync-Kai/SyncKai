@@ -15,7 +15,7 @@ vi.mock('../api/media', () => api);
 const fake = installFakeChrome();
 const { belongsToOtherSeries, markOtherSeriesPurgePending, purgeOtherSeriesMappings, runPendingOtherSeriesPurge, seriesSlugFromLabel, slugFromTitle } =
   await import('./mapping-purge');
-const { saveMediaMapping } = await import('../../shared/storage');
+const { saveMediaMapping } = await import('../../browser/storage/mappings');
 
 const SHIPPUDEN = 'GYQ4MW246';
 const NARUTO_SERIES = 'GY9VWW3XY';

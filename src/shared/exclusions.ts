@@ -5,7 +5,7 @@ import type { PlatformLink } from './watching.types';
 
 // Séries exclues de la synchronisation (toutes saisons) — lues par le content script
 // (avant tout envoi, via exclusions-core.ts), le service worker (après résolution) et le popup (gestion).
-// Écritures sous `withStorageLock` (src/shared/storage.ts), clé de stockage `excludedSeries`.
+// Écritures sous `withStorageLock` (src/browser/storage/lock.ts), clé de stockage `excludedSeries`.
 
 export {
   EXCLUDED_SERIES_KEY,

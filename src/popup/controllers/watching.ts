@@ -6,7 +6,7 @@ import { excludeSeries, includeSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../protocol/messages';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../../platforms/links';
-import { getCachedWatching } from '../../shared/storage';
+import { getCachedWatching } from '../../browser/storage/watching-cache';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { AdjustRetry, ListStatusChange, SyncOutcome } from '../../shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';

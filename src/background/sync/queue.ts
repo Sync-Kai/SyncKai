@@ -3,7 +3,7 @@ import { refreshReviewBadge } from '../../shared/badge';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { queueItemId, restrictToSession, type SyncQueueItem } from '../../shared/queue.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
-import { getOpenSessions } from '../../shared/storage';
+import { getOpenSessions } from '../../browser/storage/sessions';
 import { getSyncQueue, removeQueueItem, saveQueueItem } from '../../browser/storage/sync-queue-store';
 import type { SyncOutcome } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';

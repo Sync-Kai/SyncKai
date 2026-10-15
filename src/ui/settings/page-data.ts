@@ -3,7 +3,7 @@
 import { t, tp } from '../../i18n';
 import { includeSeries, type ExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../shared/logger';
-import { clearMediaMappings, deleteMediaMapping } from '../../shared/storage';
+import { clearMediaMappings, deleteMediaMapping } from '../../browser/storage/mappings';
 import type { MediaMapping } from '../../shared/sync.types';
 import { renderAlert } from '../alert';
 import { BACKUP_EXPORT_PARAM, BACKUP_PAGE, downloadBackup } from '../backup-download';

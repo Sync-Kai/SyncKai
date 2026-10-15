@@ -83,7 +83,7 @@ const fake = installFakeChrome();
 const { resolveEpisode } = await import('../resolver');
 const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media');
 const { clearCatalogCache } = await import('../../api/media');
-const { getMediaMapping, saveMediaMapping } = await import('../../../shared/storage');
+const { getMediaMapping, saveMediaMapping } = await import('../../../browser/storage/mappings');
 
 /** Saison affichée parmi les saisons relevées (`seq` = numéro de saison ; une seule saison relevée : celle-ci) */
 function shownSeason(captured: CapturedSignals, seasonNumber: number | null): PlatformSeasonSignal | undefined {

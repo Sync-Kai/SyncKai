@@ -1,5 +1,5 @@
 import { getPendingRatings } from '../browser/storage/engagement-store';
-import { getPendingReviews } from './storage';
+import { getPendingReviews } from '../browser/storage/reviews';
 import { getSyncQueue } from '../browser/storage/sync-queue-store';
 
 const BADGE_COLOR = '#f59e0b'; // amber-500, cohérent avec les alertes "à vérifier"

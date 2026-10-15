@@ -9,11 +9,11 @@ import type { MediaCandidate } from './matching';
 // résolution par le titre comme Crunchyroll / ADN pour un anime, titre exact exigé pour l'animation sans piste japonaise.
 const storage = vi.hoisted(() => {
   const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
-  // Écritures conditionnelles (voir storage.ts) relayées aux simulations ci-dessus
+  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus
   return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
-vi.mock('../../shared/storage', () => storage);
+vi.mock('../../browser/storage/mappings', () => storage);
 vi.mock('../api/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('./resolver');

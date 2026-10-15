@@ -3,7 +3,10 @@ import { isRecord } from '../../shared/guards';
 import { learnedLinksFor, mergePlatformLinks, platformFromUrl, platformLinkFromExternal, withLearnedLinks, type PlatformLinkStore } from '../../platforms/links';
 import { getPlatformLinks } from '../../browser/storage/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
-import { getCachedViewer, getCachedWatching, getRecentSyncs, getSessionEpoch, saveCachedWatching } from '../../shared/storage';
+import { getCachedViewer } from '../../browser/storage/viewer-cache';
+import { getCachedWatching, saveCachedWatching } from '../../browser/storage/watching-cache';
+import { getRecentSyncs } from '../../browser/storage/reviews';
+import { getSessionEpoch } from '../../browser/storage/sessions';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import type {

@@ -15,7 +15,7 @@ import {
 import { learnedLinksFor, mergePlatformLinks, type PlatformLinkStore } from '../../platforms/links';
 import { getPlatformLinks } from '../../browser/storage/platform-links-store';
 import type { RecentSync } from '../../shared/review.types';
-import { getRecentSyncs } from '../../shared/storage';
+import { getRecentSyncs } from '../../browser/storage/reviews';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistPublicQuery } from './client';
 import { ApiError } from './errors';

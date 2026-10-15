@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { isViewerQueryData, type AniListViewer, type ViewerResult } from '../../shared/anilist.types';
-import { getSessionEpoch, saveCachedViewer } from '../../shared/storage';
+import { getSessionEpoch } from '../../browser/storage/sessions';
+import { saveCachedViewer } from '../../browser/storage/viewer-cache';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistQuery } from './client';
 import { ApiError } from './errors';

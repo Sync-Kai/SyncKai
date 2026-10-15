@@ -1,5 +1,5 @@
 // Données de départ des scénarios : comptes connectés sans OAuth, séries, correspondances et réglages.
-// Connexion simulée : tokens enregistrés dans l'ANCIEN format en clair (avant la 2.2.0, voir shared/storage.ts ›
+// Connexion simulée : tokens enregistrés dans l'ANCIEN format en clair (avant la 2.2.0, voir browser/storage/tokens.ts ›
 // readStoredToken) ; le service worker les chiffre lui-même au premier accès (browser/tokens/access.ts), comme après une
 // mise à jour. Le profil est ensuite lu par les vrais messages GET_VIEWER / GET_MAL_VIEWER (mis en cache, lié à la session).
 import { expect } from 'vitest';

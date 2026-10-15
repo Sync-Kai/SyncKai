@@ -1,5 +1,7 @@
 import { migrateLegacySeriesOffsets } from '../browser/storage/agenda-store';
-import { bindLegacyDataToSession, deleteMediaMappingsByPrefix, encryptLegacyTokens } from '../shared/storage';
+import { bindLegacyDataToSession } from '../browser/storage/account-data';
+import { deleteMediaMappingsByPrefix } from '../browser/storage/mappings';
+import { encryptLegacyTokens } from '../browser/storage/tokens';
 import { createLogger } from '../shared/logger';
 import { markOtherSeriesPurgePending, runPendingOtherSeriesPurge } from './sync/mapping-purge';
 

@@ -1,5 +1,5 @@
 import { isSyncQueueItem, restrictToSession, type SyncQueueItem } from '../../shared/queue.types';
-import { getOpenSessions } from '../../shared/storage';
+import { getOpenSessions } from './sessions';
 import { SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import { withStorageLock } from './lock';
 

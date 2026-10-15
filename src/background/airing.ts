@@ -31,12 +31,18 @@ import type { SessionEpochs } from '../shared/session-epochs';
 import { getSettings } from '../shared/settings';
 import {
   getCachedWatching,
+} from '../browser/storage/watching-cache';
+import {
   getOpenSessions,
+  sessionsStillOpen,
+} from '../browser/storage/sessions';
+import {
   getRecentSyncs,
+} from '../browser/storage/reviews';
+import {
   hasMalToken,
   hasValidAniListToken,
-  sessionsStillOpen,
-} from '../shared/storage';
+} from '../browser/storage/tokens';
 import { withStorageLock } from '../browser/storage/lock';
 import type { TrackerId } from '../shared/tracker.types';
 import { choosePlatformLink, isWatchingFresh, WATCHING_MAX_AGE_MS } from '../shared/watching';

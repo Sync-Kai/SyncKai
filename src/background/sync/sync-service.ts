@@ -12,16 +12,20 @@ import { pickSessions, sessionsOf, type SessionEpochs } from '../../shared/sessi
 import {
   addRecentSync,
   deferOnCorrection,
-  deleteMediaMappingIf,
-  getOpenSessions,
   getPendingReviews,
   getRecentSyncs,
-  isSessionOpen,
-  saveMediaMapping,
-  saveMediaMappingIf,
   savePendingReview,
   takePendingReview,
-} from '../../shared/storage';
+} from '../../browser/storage/reviews';
+import {
+  deleteMediaMappingIf,
+  saveMediaMapping,
+  saveMediaMappingIf,
+} from '../../browser/storage/mappings';
+import {
+  getOpenSessions,
+  isSessionOpen,
+} from '../../browser/storage/sessions';
 import { isRewatchDeclined } from '../../browser/storage/engagement-store';
 import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
 import { getSettings } from '../../shared/settings';

@@ -1,4 +1,4 @@
-import { hasMalToken, hasValidAniListToken } from '../../shared/storage';
+import { hasMalToken, hasValidAniListToken } from '../../browser/storage/tokens';
 import type { TrackerId } from '../../shared/tracker.types';
 import { deleteListEntry, getMediaListInfo, getScoreFormat, saveListEntry, saveListNotes, saveListStatus, saveProgress, saveScore } from '../api/list';
 import { deleteMalEntry, getMalAnime, saveMalEntry, saveMalListStatus, saveMalNotes, saveMalProgress, saveMalScore } from '../api/mal';

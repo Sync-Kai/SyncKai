@@ -18,7 +18,8 @@ import type { SessionEpochs } from '../../shared/session-epochs';
 import { PANEL_MEDIA_CACHE_TTL_MS, panelMediaCacheKey, purgeStaleSessionCaches } from './session-cache';
 
 const fake = installFakeChrome();
-const { clearAniListSession, clearMalSession, clearUserSyncData, getOpenSessions } = await import('../../shared/storage');
+const { clearAniListSession, clearMalSession, clearUserSyncData } = await import('./account-data');
+const { getOpenSessions } = await import('./sessions');
 
 // Régression : Black Butler -Public School Arc- E1. Le panneau lisait la page avant son JSON-LD (repli DOM sans
 // saison) et devinait « Kuroshitsuji » (2008) ; la synchro et le popup retenaient « Kishuku Gakkou-hen » (2024).

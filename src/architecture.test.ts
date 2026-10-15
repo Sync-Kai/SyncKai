@@ -196,7 +196,6 @@ describe('shared/ : cliquet des modules qui appellent une API du navigateur', ()
     'shared/platform-access.ts',
     'shared/settings.ts',
     'shared/side-panel.ts',
-    'shared/storage.ts',
   ];
   const BROWSER_API = /\b(?:chrome|browser)\.(?:storage|runtime|permissions|action|sidePanel|tabs|scripting|commands|alarms|windows|i18n|identity|notifications)\b|\bindexedDB\b|\bnavigator\.locks\b/;
 

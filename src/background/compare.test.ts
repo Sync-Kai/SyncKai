@@ -30,8 +30,8 @@ vi.mock('./api/mal', async (importOriginal) => ({
   saveMalProgress: api.saveMalProgress,
 }));
 // Deux comptes connectés
-vi.mock('../shared/storage', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../shared/storage')>()),
+vi.mock('../browser/storage/tokens', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../browser/storage/tokens')>()),
   hasValidAniListToken: async () => true,
   hasMalToken: async () => true,
 }));

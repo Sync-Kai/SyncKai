@@ -5,7 +5,7 @@ import type { ResolveReviewPayload } from '../../protocol/messages';
 import type { Result } from '../../shared/result';
 import type { DeferredEpisode } from '../../shared/review.types';
 import { liveServices, pickSessions } from '../../shared/session-epochs';
-import { getOpenSessions } from '../../shared/storage';
+import { getOpenSessions } from '../../browser/storage/sessions';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { recordSyncOutcome } from './queue';
 import { dismissReview, resolveReview, syncEpisode } from './sync-service';

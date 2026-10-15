@@ -1,5 +1,5 @@
 import type { StreamingPlatform } from '../../platforms/registry';
-import { deleteMediaMappingsIfUnchanged, getMediaMappings } from '../../shared/storage';
+import { deleteMediaMappingsIfUnchanged, getMediaMappings } from '../../browser/storage/mappings';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
 import { createLogger } from '../../shared/logger';

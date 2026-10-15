@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../shared/guards';
-import { saveMediaMapping } from '../shared/storage';
+import { saveMediaMapping } from '../browser/storage/mappings';
 import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../protocol/storage-keys';
 import { STORAGE_LOCK } from '../browser/storage/lock-core';
 import type { PendingRating } from '../shared/engagement.types';

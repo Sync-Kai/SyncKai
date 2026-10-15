@@ -1,5 +1,12 @@
 import { refreshReviewBadge } from '../../shared/badge';
-import { clearAniListSession, clearAniListSessionIfToken, clearMalSession, clearMalSessionIfToken, clearUnreadableSession, clearUserSyncDataIfNoSession } from '../../shared/storage';
+import {
+  clearAniListSession,
+  clearAniListSessionIfToken,
+  clearMalSession,
+  clearMalSessionIfToken,
+  clearUnreadableSession,
+  clearUserSyncDataIfNoSession,
+} from './account-data';
 import type { SealedToken } from '../tokens/crypto';
 import type { TrackerId } from '../../shared/tracker.types';
 

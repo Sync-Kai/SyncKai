@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 }));
 /** Sessions ouvertes au début de la synchro : transmises à la file avec l'épisode */
 const SESSIONS = { anilist: 2, mal: 0 };
-vi.mock('../shared/storage', () => ({ getOpenSessions: async () => SESSIONS }));
+vi.mock('../browser/storage/sessions', () => ({ getOpenSessions: async () => SESSIONS }));
 vi.mock('../shared/platform-access', () => ({ hasPlatformAccess: mocks.hasPlatformAccess }));
 vi.mock('./sync/sync-service', () => ({ syncEpisode: mocks.syncEpisode }));
 vi.mock('./sync/queue', () => ({ recordSyncOutcome: mocks.recordSyncOutcome }));

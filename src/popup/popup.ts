@@ -8,7 +8,7 @@ import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, effectivePlayer, getSettings, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import type { StreamingPlatform } from '../shared/episode.types';
 import { grantedOptionalPlatforms } from '../shared/platform-access';
-import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../shared/storage';
+import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../browser/storage/reviews';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { ListStatusChange } from '../shared/sync.types';
 import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';

@@ -19,7 +19,7 @@ import type { EpisodeInfo } from './episode.types';
 import type { ExcludedSeries } from './exclusions';
 import type { PendingReview, RecentSync } from './review.types';
 import { DEFAULT_SETTINGS } from './settings';
-import { MAX_RECENT_SYNCS } from './storage';
+import { MAX_RECENT_SYNCS } from '../browser/storage/reviews';
 import type { MediaMapping } from './sync.types';
 
 const NOW = new Date('2026-10-01T12:00:00.000Z');

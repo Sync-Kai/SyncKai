@@ -14,7 +14,7 @@ import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/pa
 import { hasPlatformAccess } from '../shared/platform-access';
 import { isOptionalPlatform } from '../platforms/registry';
 import type { SessionEpochs } from '../shared/session-epochs';
-import { getOpenSessions } from '../shared/storage';
+import { getOpenSessions } from '../browser/storage/sessions';
 import type { ListStatusChange } from '../shared/sync.types';
 import { errorFeedback } from './feedback';
 import { mediaActionKey, runMediaAction, type MediaActionRequest } from './media-action-requests';

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PendingRating } from './engagement.types';
-import type { EpisodeInfo } from './episode.types';
-import type { SyncQueueItem } from './queue.types';
-import type { PendingReview, RecentSync } from './review.types';
-import type { SessionEpochs } from './session-epochs';
-import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../protocol/storage-keys';
-import type { MediaMapping } from './sync.types';
-import { forgetTokenKey } from '../test/memory-key-store';
-import { revealToken } from '../test/tokens';
+import type { PendingRating } from '../../shared/engagement.types';
+import type { EpisodeInfo } from '../../shared/episode.types';
+import type { SyncQueueItem } from '../../shared/queue.types';
+import type { PendingReview, RecentSync } from '../../shared/review.types';
+import type { SessionEpochs } from '../../shared/session-epochs';
+import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
+import type { MediaMapping } from '../../shared/sync.types';
+import { forgetTokenKey } from '../../test/memory-key-store';
+import { revealToken } from '../../test/tokens';
 
 // Effacements de session, données liées au compte, écritures sous session et plafonds de storage.ts
 // (TEST-10, DATA-01, DATA-06, AUTH-01, AUTH-02, ARCH-17) :
@@ -32,12 +32,21 @@ vi.stubGlobal('chrome', {
   },
 });
 vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
-vi.mock('./badge', () => ({ refreshReviewBadge: async () => undefined }));
+vi.mock('../../shared/badge', () => ({ refreshReviewBadge: async () => undefined }));
 
-const storage = await import('./storage');
-const tokenAccess = await import('../browser/tokens/access');
-const { getSyncQueue, saveQueueItem } = await import('../browser/storage/sync-queue-store');
-const { PLATFORM_LINKS_KEY } = await import('../platforms/links');
+// Les modules de stockage (tokens, sessions, correspondances, vérifications, caches, données du compte), réunis comme avant leur découpage
+const storage = {
+  ...(await import('./tokens')),
+  ...(await import('./sessions')),
+  ...(await import('./mappings')),
+  ...(await import('./reviews')),
+  ...(await import('./viewer-cache')),
+  ...(await import('./watching-cache')),
+  ...(await import('./account-data')),
+};
+const tokenAccess = await import('../tokens/access');
+const { getSyncQueue, saveQueueItem } = await import('./sync-queue-store');
+const { PLATFORM_LINKS_KEY } = await import('../../platforms/links');
 const { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } = storage;
 
 const FAR = Number.MAX_SAFE_INTEGER;

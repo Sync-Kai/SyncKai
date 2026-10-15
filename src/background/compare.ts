@@ -30,7 +30,8 @@ import {
   type CompareJob,
 } from '../shared/compare-job';
 import { isRecord } from '../shared/guards';
-import { getCachedViewer, getOpenSessions, writeIfSessions } from '../shared/storage';
+import { getCachedViewer } from '../browser/storage/viewer-cache';
+import { getOpenSessions, writeIfSessions } from '../browser/storage/sessions';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { anilistPublicQuery, anilistQuery } from './api/client';

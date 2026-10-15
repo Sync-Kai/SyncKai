@@ -8,7 +8,7 @@ import type { Result } from './result';
 import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } from './review.types';
 import type { SessionEpochs } from './session-epochs';
 import { normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from './settings';
-import { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } from './storage';
+import { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } from '../browser/storage/reviews';
 import { isImportableMapping, isMediaMapping, type MediaMapping } from './sync.types';
 import { isSafeImageUrl } from './url';
 

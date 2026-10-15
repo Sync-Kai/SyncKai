@@ -1,4 +1,4 @@
-// Clés de stockage des alertes de sortie (module sans dépendance : importé par storage.ts pour l'effacement).
+// Clés de stockage des alertes de sortie (module sans dépendance : importé par browser/storage/account-data.ts pour l'effacement).
 
 /** Horodatage (UNIX secondes) de la dernière vérification des sorties : ancien format, lu seulement si AIRING_COVERED_KEY manque */
 export const AIRING_LAST_CHECK_KEY = 'airingLastCheck';

@@ -2,11 +2,11 @@ import type { AniListToken } from '../../shared/auth.types';
 import { createLogger } from '../../shared/logger';
 import type { MalToken } from '../../shared/mal.types';
 import { endSessionIfUnreadable } from '../storage/session-end';
-import { encryptLegacyTokens, readStoredToken, type TokenOf } from '../../shared/storage';
+import { encryptLegacyTokens, readStoredToken, type TokenOf } from '../storage/tokens';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 
 // Lecture des tokens OAuth déchiffrés (SEC-01), réservée au service worker (requêtes AniList / MAL). Les pages de
-// l'extension se contentent de la présence (storage.ts : hasValidAniListToken, hasMalToken). À ne jamais appeler sous
+// l'extension se contentent de la présence (browser/storage/tokens.ts : hasValidAniListToken, hasMalToken). À ne jamais appeler sous
 // le verrou du stockage : la migration et la déconnexion le prennent (ordre des verrous : sync/entry-lock.ts).
 
 const log = createLogger('storage');
