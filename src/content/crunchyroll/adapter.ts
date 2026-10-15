@@ -492,7 +492,7 @@ export const crunchyrollAdapter: StreamingAdapter = {
       const fields = strategy.run(episodeId);
       if (fields) {
         labels.remember(episodeId, labelKey(fields.displayedEpisodeNumber, fields.episodeTitle));
-        log.info(`Métadonnées extraites via ${strategy.name}`);
+        if (__SYNCKAI_DEBUG__) log.info(`Métadonnées extraites via ${strategy.name}`);
         return { platform: 'crunchyroll', episodeId, url: url.href, ...fields, ...bridgeSignals(fields.seriesId, { episodeId, seasonNumber: fields.seasonNumber }) };
       }
     }
@@ -522,12 +522,12 @@ export const crunchyrollAdapter: StreamingAdapter = {
     try {
       const response = await fetch(url, { signal, credentials: 'omit' });
       if (!response.ok) {
-        log.info(`Pas de données de générique pour cet épisode (HTTP ${response.status})`);
+        if (__SYNCKAI_DEBUG__) log.info(`Pas de données de générique pour cet épisode (HTTP ${response.status})`);
         return null;
       }
       const data: unknown = await response.json();
       const start = isRecord(data) && isRecord(data.credits) ? toNumber(data.credits.start) : null;
-      log.info(start !== null ? `Générique de fin annoncé à ${start} s` : 'Données de générique sans début de générique de fin');
+      if (__SYNCKAI_DEBUG__) log.info(start !== null ? `Générique de fin annoncé à ${start} s` : 'Données de générique sans début de générique de fin');
       return start;
     } catch (error: unknown) {
       if (!signal.aborted) log.warn('Données de générique indisponibles :', error);

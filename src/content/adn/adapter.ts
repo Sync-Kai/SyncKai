@@ -239,7 +239,7 @@ export const adnAdapter: StreamingAdapter = {
       const fields = strategy.run(path.episodeId);
       if (fields) {
         labels.remember(path.episodeId, labelKey(fields.displayedEpisodeNumber, fields.episodeTitle));
-        log.info(`Métadonnées extraites via ${strategy.name}`);
+        if (__SYNCKAI_DEBUG__) log.info(`Métadonnées extraites via ${strategy.name}`);
         return { platform: 'adn', episodeId: path.episodeId, seriesId: path.seriesId, seriesSlug: path.seriesSlug, url: url.href, ...fields };
       }
     }

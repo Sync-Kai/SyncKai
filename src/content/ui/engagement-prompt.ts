@@ -49,7 +49,7 @@ function showRatingPrompt(media: MediaRef): void {
     // Bulle « Enregistrement… » sans rappel de fermeture : un × pendant l'envoi ne reporte rien
     handle.update({ tone: 'info', title: t('prompt.rating.saving'), message: media.title }, { variant: 'bubble' });
     const outcome = await send(() => sendMessage('RATE_MEDIA', { media, score: value }));
-    log.info('Résultat de la note :', outcome);
+    if (__SYNCKAI_DEBUG__) log.info('Résultat de la note :', outcome);
     const result = engagementResultToast(outcome, { success: t('prompt.rating.saved', { score: formatScoreLabel(value) }), failure: t('prompt.rating.failed'), mediaTitle: media.title });
     if (result.ok) {
       settled = true;
@@ -95,7 +95,7 @@ function showRewatchPrompt(media: MediaRef, progress: number): void {
     const saving = { tone: 'info', title: t('prompt.rewatch.saving'), message: media.title } as const;
     target.update(saving, { variant: 'bubble' });
     const outcome = await send(() => sendMessage('START_REWATCH', { media, progress }));
-    log.info('Résultat du revisionnage :', outcome);
+    if (__SYNCKAI_DEBUG__) log.info('Résultat du revisionnage :', outcome);
     const result = engagementResultToast(outcome, { success: t('prompt.rewatch.saved', { progress }), failure: t('prompt.rewatch.failed'), mediaTitle: media.title });
     const action = result.ok ? undefined : { label: t('common.retry'), onClick: () => void start(showToast(saving)) };
     target.update({ ...result.content, action }, { variant: result.variant, autoHideMs: result.autoHideMs });

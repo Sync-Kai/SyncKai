@@ -426,7 +426,7 @@ const MAX_SEEN_URLS = 20;
 /** Créés à la première utilisation : le module est aussi importé hors navigateur (tests) */
 let client: DisneyBridgeClient | null = null;
 function bridge(): DisneyBridgeClient {
-  client ??= createDisneyBridgeClient({ target: document, messages: window, origin: location.origin, log: (message) => log.debug(message) });
+  client ??= createDisneyBridgeClient({ target: document, messages: window, origin: location.origin, log: __SYNCKAI_DEBUG__ ? (message) => log.debug(message) : undefined });
   return client;
 }
 
@@ -463,7 +463,7 @@ function reportProgressHost(found: boolean): void {
   if (hostReports.key !== key) hostReports = { key, seen: new Set() };
   if (hostReports.seen.has(found)) return;
   hostReports.seen.add(found);
-  log.debug(found ? 'Barre de progression du lecteur trouvée' : 'Barre de progression du lecteur introuvable pour l’instant');
+  if (__SYNCKAI_DEBUG__) log.debug(found ? 'Barre de progression du lecteur trouvée' : 'Barre de progression du lecteur introuvable pour l’instant');
 }
 
 /** Dernier lecteur signalé (diagnostic : « trouvé » / « introuvable » journalisé à chaque changement) */
@@ -502,10 +502,11 @@ export const disneyAdapter: StreamingAdapter = {
     // Pas un anime, ou titre interne illisible : rien de journalisé hors debug (catalogue généraliste ; messages retirés du
     // script publié, budget de taille)
     const episode = episodeInfoFromPlayerExperience(entry, episodeId, bridge().pages());
-    if (!__SYNCKAI_DEBUG__) return episode;
-    if (episode) log.debug(`Anime retenu (langue originale ${entry.originalLanguage ?? '?'}) : « ${episode.animeTitle} » S${episode.seasonNumber ?? '?'} E${episode.seasonEpisodeNumber ?? '?'}`);
-    else if (!isJapaneseOriginal(entry)) log.debug(`Pas un anime (langue originale ${entry.originalLanguage ?? 'inconnue'}) : vidéo ${episodeId} ignorée`);
-    else log.debug(`Titre interne illisible (« ${entry.internalTitle ?? ''} », ${entry.programType ?? '?'}) : vidéo ${episodeId} non suivie`);
+    if (__SYNCKAI_DEBUG__) {
+      if (episode) log.debug(`Anime retenu (langue originale ${entry.originalLanguage ?? '?'}) : « ${episode.animeTitle} » S${episode.seasonNumber ?? '?'} E${episode.seasonEpisodeNumber ?? '?'}`);
+      else if (!isJapaneseOriginal(entry)) log.debug(`Pas un anime (langue originale ${entry.originalLanguage ?? 'inconnue'}) : vidéo ${episodeId} ignorée`);
+      else log.debug(`Titre interne illisible (« ${entry.internalTitle ?? ''} », ${entry.programType ?? '?'}) : vidéo ${episodeId} non suivie`);
+    }
     return episode;
   },
 

@@ -65,24 +65,28 @@ export function trackVideoProgress(video: HTMLVideoElement, options: VideoTracke
     const point = time ? pointFor(time.duration) : null;
     if (!time || !point) return;
     const { currentTime, duration } = time;
-    const pointLabel =
-      point.source === 'credits'
+    // Diagnostic (build de développement seulement : chaînes retirées des scripts publiés, budget de taille)
+    const pointLabel = !__SYNCKAI_DEBUG__
+      ? ''
+      : point.source === 'credits'
         ? `générique de fin à ${formatTimecode(point.seconds)}`
         : `${Math.round(fallbackRatio * 100)} % (${formatTimecode(point.seconds)}, pas de données de générique)`;
-    if (pointLabel !== lastLoggedPoint) {
+    if (__SYNCKAI_DEBUG__ && pointLabel !== lastLoggedPoint) {
       lastLoggedPoint = pointLabel;
       logger.info(`Fin d’épisode : ${pointLabel}`);
     }
 
-    const decile = Math.floor((currentTime / duration) * 10);
-    if (decile !== lastLoggedDecile) {
-      lastLoggedDecile = decile;
-      logger.debug(`Progression : ${Math.round((currentTime / duration) * 100)} % (${formatTimecode(currentTime)})`);
+    if (__SYNCKAI_DEBUG__) {
+      const decile = Math.floor((currentTime / duration) * 10);
+      if (decile !== lastLoggedDecile) {
+        lastLoggedDecile = decile;
+        logger.debug(`Progression : ${Math.round((currentTime / duration) * 100)} % (${formatTimecode(currentTime)})`);
+      }
     }
 
     if (currentTime < point.seconds) seenBeforePoint = true;
     if (canComplete(currentTime, point.seconds, seenBeforePoint, hasFreshSource)) {
-      logger.info(`Fin d’épisode atteinte (${pointLabel})`);
+      if (__SYNCKAI_DEBUG__) logger.info(`Fin d’épisode atteinte (${pointLabel})`);
       disarm();
       onCompleted();
     }
@@ -113,7 +117,7 @@ export function trackVideoProgress(video: HTMLVideoElement, options: VideoTracke
   video.addEventListener(
     'loadstart',
     () => {
-      logger.info('Nouvelle source vidéo : suivi réarmé');
+      if (__SYNCKAI_DEBUG__) logger.info('Nouvelle source vidéo : suivi réarmé');
       hasFreshSource = true;
       arm();
     },

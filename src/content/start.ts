@@ -41,10 +41,10 @@ export function startContent(adapters: readonly StreamingAdapter[], options: Sta
 function main(adapters: readonly StreamingAdapter[], options: StartContentOptions): void {
   const adapter = adapters.find((a) => a.supportsHost(location.hostname));
   if (!adapter) {
-    log.info(`Aucun adapter pour ${location.hostname}`);
+    if (__SYNCKAI_DEBUG__) log.info(`Aucun adapter pour ${location.hostname}`);
     return;
   }
-  log.info(`Adapter "${adapter.platform}" chargé (build ${__SYNCKAI_BUILD__})`);
+  if (__SYNCKAI_DEBUG__) log.info(`Adapter "${adapter.platform}" chargé (build ${__SYNCKAI_BUILD__})`);
 
   // Écouteurs DOM de la page : retirés si cette instance devient orpheline et qu'une nouvelle prend le relais
   const page = new AbortController();
@@ -90,7 +90,7 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
     }
     sendResponse(); // Accusé de réception : le service worker n'attend rien de plus
     if (!session) {
-      log.info('Raccourci « valider l’épisode » ignoré : aucune lecture en cours');
+      if (__SYNCKAI_DEBUG__) log.info('Raccourci « valider l’épisode » ignoré : aucune lecture en cours');
       showToast({ tone: 'info', title: t('content.shortcut.noPlayback.title'), message: t('content.shortcut.noPlayback.message') }, { autoHideMs: NOTICE_TOAST_MS });
       return undefined;
     }
@@ -111,7 +111,7 @@ function main(adapters: readonly StreamingAdapter[], options: StartContentOption
     CONTENT_STARTED_EVENT,
     () => {
       if (!isExtensionContextInvalidated()) return;
-      log.info('Extension rechargée : instance orpheline arrêtée, la nouvelle prend le relais');
+      if (__SYNCKAI_DEBUG__) log.info('Extension rechargée : instance orpheline arrêtée, la nouvelle prend le relais');
       session?.destroy();
       session = null;
       seasons.stop();

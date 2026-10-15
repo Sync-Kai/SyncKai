@@ -15,6 +15,6 @@ import { startContent } from '../start';
 const STARTED_FLAG = Symbol.for('synckai.disney.content.runtime');
 
 if (claimContentInstance(STARTED_FLAG)) {
-  createLogger('disney').debug('Script Disney+ démarré');
+  if (__SYNCKAI_DEBUG__) createLogger('disney').debug('Script Disney+ démarré');
   startContent([disneyAdapter]);
 }

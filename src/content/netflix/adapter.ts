@@ -178,7 +178,7 @@ export const netflixAdapter: StreamingAdapter = {
     const show = await bridge().load(episodeId, signal);
     if (!show) return null;
     const episode = episodeInfoFromMetadata(show, episodeId);
-    if (!episode) log.info(`Vidéo ${episodeId} absente des métadonnées de « ${show.title} » (bande-annonce, bonus…)`);
+    if (__SYNCKAI_DEBUG__ && !episode) log.info(`Vidéo ${episodeId} absente des métadonnées de « ${show.title} » (bande-annonce, bonus…)`);
     return episode;
   },
 
@@ -210,7 +210,7 @@ export const netflixAdapter: StreamingAdapter = {
   // Même requête que loadEpisodeInfo (cache ou requête en vol partagée)
   async getCreditsStart(episodeId, signal) {
     const start = creditsStartFromMetadata(await bridge().load(episodeId, signal), episodeId);
-    log.info(start !== null ? `Générique de fin annoncé à ${start} s` : 'Pas de début de générique exploitable');
+    if (__SYNCKAI_DEBUG__) log.info(start !== null ? `Générique de fin annoncé à ${start} s` : 'Pas de début de générique exploitable');
     return start;
   },
 };

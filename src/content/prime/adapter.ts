@@ -202,7 +202,7 @@ export function readPrimePlayback(video: Pick<HTMLVideoElement, 'currentTime' | 
 /** Créé à la première utilisation : le module est aussi importé hors navigateur (tests) */
 let client: PrimeBridgeClient | null = null;
 function bridge(): PrimeBridgeClient {
-  client ??= createPrimeBridgeClient({ target: document, messages: window, origin: location.origin, log: (message) => log.debug(message) });
+  client ??= createPrimeBridgeClient({ target: document, messages: window, origin: location.origin, log: __SYNCKAI_DEBUG__ ? (message) => log.debug(message) : undefined });
   return client;
 }
 
