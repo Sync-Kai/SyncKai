@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { connectCrunchyrollBridge } from './bridge-client';
 import { CRUNCHYROLL_BRIDGE_VERSION, CRUNCHYROLL_HANDSHAKE_EVENT, encodeCrunchyrollPortOffer, encodeCrunchyrollPush } from './bridge-protocol';
+import { flushPorts } from '../../test/ports';
 
 // Client isolé du pont Crunchyroll : ouverture du canal (nonce, premier port seulement) et tables reçues.
 
@@ -31,7 +32,6 @@ function offer(messages: EventTarget, data: string, origin = ORIGIN): MessagePor
 }
 
 const table = (seriesId: string, year: number): Record<string, unknown> => ({ seriesId, signals: [{ seriesYear: year }], keys: {} });
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 10));
 
 describe('connectCrunchyrollBridge', () => {
   it('demande d’ouverture versionnée, puis tables reçues sur le port offert pour ce nonce', async () => {
@@ -39,7 +39,7 @@ describe('connectCrunchyrollBridge', () => {
     expect(nonce()).toMatch(/^[\w-]{8,}$/);
     const bridge = offer(messages, encodeCrunchyrollPortOffer(nonce()));
     bridge.postMessage(encodeCrunchyrollPush({ v: CRUNCHYROLL_BRIDGE_VERSION, tables: [{ seriesId: 'GA1', signals: [{ seriesYear: 2023 }], keys: {} }] }));
-    await flush();
+    await flushPorts();
     expect(tables('GA1')).toEqual(table('GA1', 2023));
     expect(tables('GB2')).toBeNull();
   });
@@ -53,7 +53,7 @@ describe('connectCrunchyrollBridge', () => {
     second.postMessage(JSON.stringify({ v: CRUNCHYROLL_BRIDGE_VERSION, tables: [table('GX', 1999)] }));
     first.postMessage(JSON.stringify({ v: CRUNCHYROLL_BRIDGE_VERSION + 1, tables: [table('GX', 2000)] }));
     first.postMessage('{pas du json');
-    await flush();
+    await flushPorts();
     expect(tables('GX')).toBeNull();
   });
 
@@ -63,7 +63,7 @@ describe('connectCrunchyrollBridge', () => {
     const ids = Array.from({ length: 12 }, (_, i) => `GS${i}`);
     bridge.postMessage(JSON.stringify({ v: CRUNCHYROLL_BRIDGE_VERSION, tables: ids.slice(0, 6).map((id) => table(id, 2000)) }));
     bridge.postMessage(JSON.stringify({ v: CRUNCHYROLL_BRIDGE_VERSION, tables: [...ids.slice(6).map((id) => table(id, 2001)), table('GS5', 2002)] }));
-    await flush();
+    await flushPorts();
     expect(tables('GS0')).toBeNull();
     expect(tables('GS1')).toBeNull();
     expect(tables('GS2')).toEqual(table('GS2', 2000));

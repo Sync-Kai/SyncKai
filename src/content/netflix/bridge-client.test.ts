@@ -16,6 +16,7 @@ import {
   type NetflixShowMetadata,
 } from './bridge-protocol';
 import { mushokuEpisodeId, mushokuRawResponse } from './fixtures';
+import { advance, useBridgeFakeTimers } from '../../test/ports';
 
 const reduced = reduceNetflixMetadata(mushokuRawResponse());
 if (!reduced) throw new Error('fixture invalide');
@@ -93,26 +94,8 @@ let counter = 0;
 const newId = (): string => `req-${++counter}`;
 const signal = (): AbortSignal => new AbortController().signal;
 
-// Fourni par Node (types Node absents du tsconfig du projet)
-declare function setImmediate(callback: () => void): unknown;
-
-/** Livraison réelle des messages des MessagePort Node (boucle d'événements, hors minuteurs simulés) */
-async function flushPorts(): Promise<void> {
-  for (let i = 0; i < 5; i++) await new Promise<void>((resolve) => setImmediate(resolve));
-}
-
-/** Avance le temps simulé par pas de 100 ms en laissant passer les messages des ports entre chaque pas */
-async function advance(ms: number): Promise<void> {
-  await flushPorts();
-  for (let elapsed = 0; elapsed < ms; elapsed += 100) {
-    await vi.advanceTimersByTimeAsync(Math.min(100, ms - elapsed));
-    await flushPorts();
-  }
-}
-
 beforeEach(() => {
-  // setImmediate réel : flushPorts en dépend
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+  useBridgeFakeTimers();
 });
 afterEach(() => {
   vi.useRealTimers();

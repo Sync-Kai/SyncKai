@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reducePrimeDetail, reducePrimeDetailWidgets } from '../../platforms/prime/metadata';
+import { advance, useBridgeFakeTimers, waitUntil } from '../../test/ports';
 import { createPrimeBridgeClient, type PrimeBridgeClient } from './bridge-client';
 import {
   decodePrimeHandshake,
@@ -44,7 +45,11 @@ function playback(n: number, seenAt = SEEN_AT + n): PrimePlaybackEntry {
 const channels: MessageChannel[] = [];
 const forged = new WeakSet<Event>();
 
+beforeEach(() => {
+  useBridgeFakeTimers();
+});
 afterEach(() => {
+  vi.useRealTimers();
   for (const { port1, port2 } of channels.splice(0)) {
     port1.close();
     port2.close();
@@ -92,7 +97,11 @@ function setup(options: { bridge?: boolean; seen?: Delta; path?: () => string } 
 }
 
 const signal = (): AbortSignal => new AbortController().signal;
-const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+/** Laisse s'écouler le temps simulé (délais du client) puis rend le résultat de la demande en cours */
+async function settle<T>(pending: Promise<T>, ms = 500): Promise<T> {
+  await advance(ms);
+  return pending;
+}
 
 describe('createPrimeBridgeClient', () => {
   it('canal ouvert au démarrage, instantané reçu, abonnés prévenus ; chemin de réception retenu', async () => {
@@ -101,7 +110,7 @@ describe('createPrimeBridgeClient', () => {
     client.subscribe(() => notified++);
     client.start();
     client.start();
-    await vi.waitFor(() => expect(notified).toBe(1));
+    await waitUntil(() => expect(notified).toBe(1));
     expect(handshakes()).toBe(1);
     expect(client.latestCatalog()).toMatchObject({ id: bumpkinEpisodeGti(1), path: PAGE });
     expect(client.peekCatalog(bumpkinEpisodeGti(1).toUpperCase())?.episodeNumber).toBe(1);
@@ -110,15 +119,15 @@ describe('createPrimeBridgeClient', () => {
   it('lecture automatique : la dernière fiche du lecteur fait foi, les repères restent indexés par épisode', async () => {
     const { client, push } = setup();
     client.start();
-    await delay(20);
+    await advance(20);
     push({ catalog: [catalog(3)], playback: [playback(3)] });
     // Repères de E4 reçus avant la bascule : jamais ceux de l'épisode en cours
     push({ playback: [playback(4)] });
-    await vi.waitFor(() => expect(client.peekPlayback(bumpkinEpisodeGti(4))).not.toBeNull());
+    await waitUntil(() => expect(client.peekPlayback(bumpkinEpisodeGti(4))).not.toBeNull());
     expect(client.latestCatalog()?.id).toBe(bumpkinEpisodeGti(3));
     expect(client.peekPlayback(bumpkinEpisodeGti(3))?.seenAt).toBe(SEEN_AT + 3);
     push({ catalog: [catalog(4)] });
-    await vi.waitFor(() => expect(client.latestCatalog()?.id).toBe(bumpkinEpisodeGti(4)));
+    await waitUntil(() => expect(client.latestCatalog()?.id).toBe(bumpkinEpisodeGti(4)));
     expect(client.peekPlayback(bumpkinEpisodeGti(4))?.creditsStartMs).toBe(1_312_000);
   });
 
@@ -126,23 +135,23 @@ describe('createPrimeBridgeClient', () => {
     let path = PAGE;
     const { client, push } = setup({ path: () => path });
     client.start();
-    await delay(20);
+    await advance(20);
     push({ catalog: [catalog(1)] });
-    await vi.waitFor(() => expect(client.latestCatalog()).not.toBeNull());
+    await waitUntil(() => expect(client.latestCatalog()).not.toBeNull());
     path = '/region/eu/detail/0OTHERPAGE0000000000000000';
     push({ catalog: [catalog(1)], playback: [playback(1)] });
-    await vi.waitFor(() => expect(client.peekPlayback(bumpkinEpisodeGti(1))).not.toBeNull());
+    await waitUntil(() => expect(client.peekPlayback(bumpkinEpisodeGti(1))).not.toBeNull());
     expect(client.latestCatalog()?.path).toBe(PAGE);
   });
 
   it('repères attendus jusqu’à leur arrivée, null après le délai ou sans pont', async () => {
     const { client, push } = setup();
     const pending = client.loadPlayback(bumpkinEpisodeGti(2), signal());
-    await delay(20);
+    await advance(20);
     push({ playback: [playback(2)] });
     expect((await pending)?.creditsStartMs).toBe(1_311_000);
-    expect(await client.loadPlayback(bumpkinEpisodeGti(9), signal())).toBeNull();
-    expect(await setup({ bridge: false }).client.loadPlayback(bumpkinEpisodeGti(2), signal())).toBeNull();
+    expect(await settle(client.loadPlayback(bumpkinEpisodeGti(9), signal()))).toBeNull();
+    expect(await settle(setup({ bridge: false }).client.loadPlayback(bumpkinEpisodeGti(2), signal()))).toBeNull();
     const aborted = new AbortController();
     aborted.abort();
     expect(await client.loadPlayback(bumpkinEpisodeGti(2), aborted.signal)).toBeNull();
@@ -154,7 +163,7 @@ describe('createPrimeBridgeClient', () => {
     if (!title || !widgets) throw new Error('fixtures');
     const { client, push } = setup();
     const pending = client.loadTitle(BUMPKIN_S1_COMPACT, signal());
-    await delay(20);
+    await advance(20);
     push({ titles: [{ requestId: 'B0ABCDEF12', seenAt: SEEN_AT, title }], widgets: [{ seenAt: SEEN_AT, widgets }] });
     expect((await pending)?.seasonGti).toBe(BUMPKIN_S1_GTI);
     expect(client.peekTitle('B0ABCDEF12')?.seasonGti).toBe(BUMPKIN_S1_GTI);

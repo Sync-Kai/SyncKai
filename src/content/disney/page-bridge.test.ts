@@ -23,6 +23,7 @@ import {
   winterArcE1,
   winterArcSeasonResponse,
 } from './fixtures';
+import { flushPorts } from '../../test/ports';
 
 // Pont MAIN de Disney+ : observateur passif des réponses `playerExperience` du site (XMLHttpRequest, fetch),
 // exécuté sur une fausse page (Node : ni DOM ni XHR).
@@ -106,7 +107,6 @@ function siteXhr(url: string, body: unknown, { status = 200, responseType = '' a
   xhr.send();
 }
 
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 10));
 
 beforeEach(() => {
   FakeXhr.prototype.open = originalOpen;
@@ -133,9 +133,9 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     await runBridge();
     const before = Date.now();
     siteXhr(playerExperienceUrl(UNDEAD_UNLUCK_S1E1_AVAIL_ID), undeadUnluckS1E1());
-    await flush();
+    await flushPorts();
     const entries = connect();
-    await flush();
+    await flushPorts();
     expect(entries.map((entry) => entry.ids)).toEqual([[UNDEAD_UNLUCK_S1E1_AVAIL_ID, UNDEAD_UNLUCK_S1E1_PLAY_ID]]);
     expect(entries[0]?.seenAt).toBeGreaterThanOrEqual(before);
     expect(JSON.stringify(entries)).not.toMatch(/playback|ripcut|EiJ1/);
@@ -154,7 +154,7 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     xhr.abort();
     xhr.open('GET', playerExperienceUrl(WINTER_ARC_E1_AVAIL_ID));
     xhr.send();
-    await flush();
+    await flushPorts();
     expect(entries).toHaveLength(1);
     expect(entries[0]?.ids).toContain(WINTER_ARC_E1_AVAIL_ID);
     expect(entries.flatMap((entry) => entry.ids)).not.toContain(UNDEAD_UNLUCK_S1E1_AVAIL_ID);
@@ -164,11 +164,11 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     await runBridge();
     const entries = connect();
     siteXhr(playerExperienceUrl(WINTER_ARC_E1_AVAIL_ID), winterArcE1(), { responseType: 'json' });
-    await flush();
+    await flushPorts();
     expect(entries.map((entry) => entry.ids)).toEqual([[WINTER_ARC_E1_AVAIL_ID]]);
     // Requête par l'identifiant de l'épisode, availId différent dans la réponse : fiche gardée avec les deux
     siteXhr(playerExperienceUrl(UNDEAD_UNLUCK_S1E1_PLAY_ID), undeadUnluckS1E1());
-    await flush();
+    await flushPorts();
     expect(entries.at(-1)?.ids).toEqual([UNDEAD_UNLUCK_S1E1_PLAY_ID, UNDEAD_UNLUCK_S1E1_AVAIL_ID]);
   });
 
@@ -178,7 +178,7 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     siteXhr('https://disney.api.edge.bamgrid.com/explore/v1.21/upNext?x=1', undeadUnluckS1E1());
     siteXhr(playerExperienceUrl(UNDEAD_UNLUCK_S1E1_AVAIL_ID), undeadUnluckS1E1(), { status: 401 });
     siteXhr(playerExperienceUrl(UNDEAD_UNLUCK_S1E1_AVAIL_ID), '{pas du json');
-    await flush();
+    await flushPorts();
     expect(entries).toEqual([]);
   });
 
@@ -187,7 +187,7 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     const entries = connect();
     const availId = '11111111-2222-4333-8444-555555555555';
     siteXhr(playerExperienceUrl(availId), nonAnimeEpisode(availId));
-    await flush();
+    await flushPorts();
     expect(entries.map((entry) => entry.originalLanguage)).toEqual(['en']);
   });
 
@@ -196,7 +196,7 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     const entries = connect();
     const response = await window.fetch(playerExperienceUrl(WINTER_ARC_E1_AVAIL_ID));
     expect(await response.json()).toEqual(winterArcE1());
-    await flush();
+    await flushPorts();
     expect(entries.map((entry) => entry.ids)).toEqual([[WINTER_ARC_E1_AVAIL_ID]]);
   });
 
@@ -212,21 +212,21 @@ describe('page-bridge.iife.ts (Disney+)', () => {
   it('page de série observée avant l’ouverture : instantané ; saison choisie ensuite (season/{id}) : page mise à jour poussée', async () => {
     await runBridge();
     siteXhr(seriesPageUrl(UNDEAD_UNLUCK_ENTITY_ID), undeadUnluckSeriesPage());
-    await flush();
+    await flushPorts();
     const entries = connect();
-    await flush();
+    await flushPorts();
     expect(entries).toEqual([]);
     expect(receivedPages.map((p) => [p.entityId, p.title, p.focusSeasonId, p.selectedSeasonId])).toEqual([[UNDEAD_UNLUCK_ENTITY_ID, 'Undead Unluck', UNDEAD_UNLUCK_S1_ID, null]]);
     expect(JSON.stringify(receivedPages)).not.toMatch(/Description|imageId|jeton|Summer Time/);
 
     siteXhr(seasonUrl(WINTER_ARC_SEASON_ID), winterArcSeasonResponse(), { responseType: 'json' });
-    await flush();
+    await flushPorts();
     expect(receivedPages).toHaveLength(2);
     expect(receivedPages[1]?.selectedSeasonId).toBe(WINTER_ARC_SEASON_ID);
     expect(receivedPages[1]?.seasons[1]?.seasonNumber).toBe(99);
     // Saison d'une page jamais vue : ignorée ; aucune requête ajoutée par le pont
     siteXhr(seasonUrl('00000000-0000-4000-8000-000000000000'), winterArcSeasonResponse());
-    await flush();
+    await flushPorts();
     expect(receivedPages).toHaveLength(2);
     expect(FakeXhr.sent).toBe(3);
   });
@@ -251,10 +251,10 @@ describe('page-bridge.iife.ts (Disney+)', () => {
       await runBridge();
       const entries = connect();
       siteXhr(playerExperienceUrl(SYNDUALITY_S1E1_PLAY_ID), syndualityS1E1());
-      await flush();
+      await flushPorts();
       expect(entries.map((entry) => entry.editorial)).toEqual([null]);
       siteXhr(PLAYBACK_URL, playbackWithSecrets(), { method: 'POST' });
-      await flush();
+      await flushPorts();
       expect(entries).toHaveLength(2);
       expect(entries[1]?.ids).toEqual([SYNDUALITY_S1E1_PLAY_ID, SYNDUALITY_S1E1_AVAIL_ID]);
       expect(entries[1]?.editorial).toEqual(credits);
@@ -267,13 +267,13 @@ describe('page-bridge.iife.ts (Disney+)', () => {
     it('réponse de lecture avant la fiche : gardée en attente, repères joints à la fiche dès son arrivée', async () => {
       await runBridge();
       siteXhr(PLAYBACK_URL, playbackWithSecrets(), { method: 'POST', responseType: 'json' });
-      await flush();
+      await flushPorts();
       const entries = connect();
-      await flush();
+      await flushPorts();
       // Rien à pousser tant que la fiche manque (la réponse de lecture seule n'est jamais transmise)
       expect(entries).toEqual([]);
       siteXhr(playerExperienceUrl(SYNDUALITY_S1E1_AVAIL_ID), syndualityS1E1());
-      await flush();
+      await flushPorts();
       expect(entries.map((entry) => entry.editorial)).toEqual([credits]);
       expect(JSON.stringify(entries)).not.toMatch(/FAKE|sig=|eyJ|m3u8/);
     });
@@ -283,13 +283,13 @@ describe('page-bridge.iife.ts (Disney+)', () => {
       await runBridge();
       const entries = connect();
       siteXhr(playerExperienceUrl(UNDEAD_UNLUCK_S1E1_AVAIL_ID), undeadUnluckS1E1());
-      await flush();
+      await flushPorts();
       const response = await window.fetch(PLAYBACK_URL, { method: 'POST' });
       expect(await response.json()).toEqual(syndualityPlayback());
-      await flush();
+      await flushPorts();
       expect(entries.map((entry) => entry.editorial)).toEqual([null]);
       siteXhr(playerExperienceUrl(SYNDUALITY_S1E1_AVAIL_ID), syndualityS1E1());
-      await flush();
+      await flushPorts();
       expect(entries.at(-1)?.editorial).toEqual(credits);
     });
   });

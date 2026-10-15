@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { advance, useBridgeFakeTimers } from '../../test/ports';
 import { createDisneyBridgeClient, type DisneyBridgeClient, type DisneyBridgeClientOptions } from './bridge-client';
 import {
   decodeDisneyHandshake,
@@ -50,7 +51,11 @@ const channels: MessageChannel[] = [];
 /** Événements déclenchés par un « script de la page » (dispatchEvent) : non « trusted » */
 const forged = new WeakSet<Event>();
 
+beforeEach(() => {
+  useBridgeFakeTimers();
+});
 afterEach(() => {
+  vi.useRealTimers();
   for (const { port1, port2 } of channels.splice(0)) {
     port1.close();
     port2.close();
@@ -126,7 +131,19 @@ function setup(options: { bridge?: boolean; seen?: DisneyPlayerExperience[]; for
 }
 
 const signal = (): AbortSignal => new AbortController().signal;
-const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+/** Laisse s'écouler le temps simulé (délais du client) puis rend le résultat de la demande en cours */
+async function settle<T>(pending: Promise<T>, ms = 300): Promise<T> {
+  await advance(ms);
+  return pending;
+}
+/** Demande en cours : `done` devient vrai à son dénouement (pour vérifier qu'elle attend bien son délai) */
+function track<T>(pending: Promise<T>): { result: Promise<T>; done: () => boolean } {
+  let settled = false;
+  const result = pending.finally(() => {
+    settled = true;
+  });
+  return { result, done: () => settled };
+}
 
 describe('createDisneyBridgeClient — fiche portant l’identifiant de l’URL', () => {
   it('épisode de l’URL décodé de infoBlock (différent de l’availId) : fiche servie, puis lue en cache', async () => {
@@ -142,7 +159,7 @@ describe('createDisneyBridgeClient — fiche portant l’identifiant de l’URL'
   it('fiche arrivée après la demande (navigation, épisode suivant) : attendue puis servie, même avec d’autres fiches', async () => {
     const { client, bridge } = setup();
     const pending = client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), URL_CHANGE);
-    await delay(10);
+    await advance(10);
     bridge.push(OTHER);
     bridge.push(S1E1);
     expect(await pending).toEqual(S1E1);
@@ -154,7 +171,7 @@ describe('createDisneyBridgeClient — fiche portant l’identifiant de l’URL'
     const { client, bridge } = setup({ seen: [S1E1] });
     await client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0);
     bridge.push(byPlayId);
-    await delay(10);
+    await advance(10);
     expect(client.peek(UNDEAD_UNLUCK_S1E1_AVAIL_ID)?.seenAt).toBe(URL_CHANGE + 5);
   });
 });
@@ -162,14 +179,16 @@ describe('createDisneyBridgeClient — fiche portant l’identifiant de l’URL'
 describe('createDisneyBridgeClient — repli sans identifiant correspondant', () => {
   it('une seule fiche reçue depuis le changement d’URL : retenue après le délai, puis associée à l’URL', async () => {
     const { client, bridge, logs } = setup({ seen: [S1E1] });
-    const started = Date.now();
-    const pending = client.load(ARC_PLAY_ID, signal(), URL_CHANGE);
-    await delay(5);
+    const pending = track(client.load(ARC_PLAY_ID, signal(), URL_CHANGE));
+    await advance(5);
     bridge.push(ARC);
-    const found = await pending;
+    // Retenue seulement après le délai de correspondance (40 ms), pas à l'arrivée de la fiche
+    await advance(30);
+    expect(pending.done()).toBe(false);
+    await advance(20);
+    const found = await pending.result;
     expect(found?.title).toBe(ARC.title);
     expect(found?.ids).toEqual([WINTER_ARC_E1_AVAIL_ID, ARC_PLAY_ID]);
-    expect(Date.now() - started).toBeGreaterThanOrEqual(35);
     // Relectures (popup, fin de l'épisode) : retrouvée directement par l'identifiant de l'URL
     expect(client.peek(ARC_PLAY_ID)?.title).toBe(ARC.title);
     expect(logs.some((line) => line.includes('seule fiche reçue'))).toBe(true);
@@ -178,35 +197,38 @@ describe('createDisneyBridgeClient — repli sans identifiant correspondant', ()
   it('fiche arrivée après le délai de correspondance (réseau lent) : retenue à son arrivée', async () => {
     const { client, bridge } = setup();
     const pending = client.load(ARC_PLAY_ID, signal(), URL_CHANGE);
-    await delay(80);
+    await advance(80);
     bridge.push(ARC);
-    expect((await pending)?.ids).toContain(ARC_PLAY_ID);
+    expect((await settle(pending))?.ids).toContain(ARC_PLAY_ID);
   });
 
   it('plusieurs fiches reçues depuis le changement d’URL (ambiguïté) : vidéo non suivie', async () => {
     const { client, bridge, logs } = setup();
     const pending = client.load(ARC_PLAY_ID, signal(), URL_CHANGE);
-    await delay(5);
+    await advance(5);
     bridge.push(ARC, OTHER);
-    expect(await pending).toBeNull();
+    expect(await settle(pending)).toBeNull();
     expect(client.peek(ARC_PLAY_ID)).toBeNull();
     expect(logs.some((line) => line.includes('2 fiches reçues'))).toBe(true);
   });
 
   it('seules des fiches antérieures au changement d’URL (épisode précédent) : rien après le délai maximal', async () => {
     const { client } = setup({ seen: [S1E1] });
-    const started = Date.now();
-    expect(await client.load(ARC_PLAY_ID, signal(), URL_CHANGE)).toBeNull();
-    expect(Date.now() - started).toBeGreaterThanOrEqual(150);
+    const pending = track(client.load(ARC_PLAY_ID, signal(), URL_CHANGE));
+    await advance(150);
+    expect(pending.done()).toBe(false);
+    await advance(100);
+    expect(await pending.result).toBeNull();
   });
 });
 
 describe('createDisneyBridgeClient — pont et sécurité', () => {
   it('pont absent (accès accordé après le chargement de l’onglet) : null sans attendre la fiche', async () => {
     const { client, logs } = setup({ bridge: false });
-    const started = Date.now();
-    expect(await client.load(WINTER_ARC_E1_AVAIL_ID, signal(), 0)).toBeNull();
-    expect(Date.now() - started).toBeLessThan(150);
+    const pending = track(client.load(WINTER_ARC_E1_AVAIL_ID, signal(), 0));
+    await advance(100);
+    expect(pending.done()).toBe(true);
+    expect(await pending.result).toBeNull();
     expect(logs.some((line) => line.startsWith('Pont Disney+ absent'))).toBe(true);
   });
 
@@ -214,7 +236,7 @@ describe('createDisneyBridgeClient — pont et sécurité', () => {
     const { client } = setup();
     const controller = new AbortController();
     const pending = client.load(WINTER_ARC_E1_AVAIL_ID, controller.signal, 0);
-    await delay(10);
+    await advance(10);
     controller.abort();
     expect(await pending).toBeNull();
     const aborted = new AbortController();
@@ -231,16 +253,16 @@ describe('createDisneyBridgeClient — pont et sécurité', () => {
   it('offre de port imitée par la page (dispatchEvent) : refusée, seul le vrai port est écouté', async () => {
     const { client } = setup({ seen: [S1E1], forgeFirst: true });
     expect(await client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0)).toEqual(S1E1);
-    await delay(10);
+    await advance(10);
     expect(client.peek(UNDEAD_UNLUCK_S1E1_PLAY_ID)?.title).toBe('Undead Unluck');
   });
 
   it('fiche falsifiée ou invalide poussée sur le port : écartée', async () => {
     const { client, bridge } = setup();
     const pending = client.load(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), URL_CHANGE);
-    await delay(5);
+    await advance(5);
     bridge.push({ ...S1E1, ids: ['pas-un-uuid'] });
-    expect(await pending).toBeNull();
+    expect(await settle(pending)).toBeNull();
   });
 });
 
@@ -251,23 +273,23 @@ describe('createDisneyBridgeClient — pages de série', () => {
   it('page arrivée après la demande : attendue puis servie, puis lue en cache (casse de l’uuid ignorée)', async () => {
     const { client, bridge } = setup();
     const loading = client.loadPage(UNDEAD_UNLUCK_ENTITY_ID.toUpperCase(), signal());
-    await delay(10);
+    await advance(10);
     bridge.pushPages(PAGE);
     expect(await loading).toEqual(PAGE);
     expect(client.peekPage(UNDEAD_UNLUCK_ENTITY_ID)).toEqual(PAGE);
     // Saison choisie ensuite : la page mise à jour remplace la précédente
     bridge.pushPages({ ...PAGE, selectedSeasonId: PAGE.focusSeasonId });
-    await delay(10);
+    await advance(10);
     expect(client.peekPage(UNDEAD_UNLUCK_ENTITY_ID)?.selectedSeasonId).toBe(PAGE.focusSeasonId);
   });
 
   it('aucune page (délai de l’appelant) : null à l’annulation ; pont absent : null sans attendre', async () => {
     const controller = new AbortController();
     const loading = setup().client.loadPage(UNDEAD_UNLUCK_ENTITY_ID, controller.signal);
-    await delay(20);
+    await advance(20);
     controller.abort();
     expect(await loading).toBeNull();
-    expect(await setup({ bridge: false }).client.loadPage(UNDEAD_UNLUCK_ENTITY_ID, signal())).toBeNull();
+    expect(await settle(setup({ bridge: false }).client.loadPage(UNDEAD_UNLUCK_ENTITY_ID, signal()))).toBeNull();
     expect(await setup().client.loadPage('x', signal())).toBeNull();
   });
 });
@@ -278,7 +300,7 @@ describe('createDisneyBridgeClient — repères éditoriaux (générique de fin)
   it('fiche sans repères puis fiche complétée par le pont (réponse de lecture) : repères servis', async () => {
     const { client, bridge } = setup({ seen: [S1E1] });
     const loading = client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0);
-    await delay(10);
+    await advance(10);
     bridge.push({ ...S1E1, editorial: CREDITS });
     expect(await loading).toEqual(CREDITS);
     expect(client.peek(UNDEAD_UNLUCK_S1E1_PLAY_ID)?.editorial).toEqual(CREDITS);
@@ -290,13 +312,15 @@ describe('createDisneyBridgeClient — repères éditoriaux (générique de fin)
   });
 
   it('aucune réponse de lecture dans le délai, aucune fiche, ou annulation : null', async () => {
-    const started = Date.now();
-    expect(await setup({ seen: [S1E1] }).client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0)).toBeNull();
-    expect(Date.now() - started).toBeGreaterThanOrEqual(150);
-    expect(await setup({ bridge: false }).client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0)).toBeNull();
+    const waiting = track(setup({ seen: [S1E1] }).client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0));
+    await advance(150);
+    expect(waiting.done()).toBe(false);
+    await advance(100);
+    expect(await waiting.result).toBeNull();
+    expect(await settle(setup({ bridge: false }).client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, signal(), 0))).toBeNull();
     const controller = new AbortController();
     const loading = setup({ seen: [S1E1] }).client.loadEditorial(UNDEAD_UNLUCK_S1E1_PLAY_ID, controller.signal, 0);
-    await delay(20);
+    await advance(20);
     controller.abort();
     expect(await loading).toBeNull();
   });

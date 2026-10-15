@@ -14,6 +14,7 @@ import {
   spaDetailResponse,
   widgetsUrl,
 } from './fixtures';
+import { flushPorts } from '../../test/ports';
 
 // Pont MAIN de Prime Video : observateur passif des réponses du site (fetch, XMLHttpRequest), exécuté sur une fausse
 // page (Node : ni DOM ni XHR).
@@ -88,7 +89,6 @@ function siteXhr(url: string, body: unknown, { status = 200, responseType = '' a
   xhr.send();
 }
 
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 10));
 
 beforeEach(() => {
   FakeXhr.prototype.open = originalOpen;
@@ -118,9 +118,9 @@ describe('page-bridge.iife.ts (Prime Video)', () => {
     await window.fetch(detailUrl());
     siteXhr(catalogUrl(bumpkinEpisodeGti(1)), bumpkinCatalog(1));
     siteXhr(playbackUrl(bumpkinEpisodeGti(1)), bumpkinPlayback(1), { method: 'POST' });
-    await flush();
+    await flushPorts();
     const pushes = connect();
-    await flush();
+    await flushPorts();
     expect(pushes).toHaveLength(1);
     const [snapshot] = pushes;
     expect(snapshot?.catalog.map((entry) => [entry.id, entry.episodeNumber])).toEqual([[bumpkinEpisodeGti(1), 1]]);
@@ -140,15 +140,15 @@ describe('page-bridge.iife.ts (Prime Video)', () => {
     const pushes = connect();
     siteXhr(catalogUrl(bumpkinEpisodeGti(3)), bumpkinCatalog(3));
     siteXhr(playbackUrl(bumpkinEpisodeGti(3)), bumpkinPlayback(3));
-    await flush();
+    await flushPorts();
     // ~1 s avant la fin de E3 : réponse de lecture de E4 ; la carte « À suivre » (nextUpV3) ne donne aucune identité
     siteXhr(playbackUrl(bumpkinEpisodeGti(4)), bumpkinPlayback(4));
     siteXhr(catalogUrl(bumpkinEpisodeGti(3), 'nextUpV3'), bumpkinNextUp(4));
-    await flush();
+    await flushPorts();
     // Bascule : métadonnées et widgets de E4
     siteXhr(catalogUrl(bumpkinEpisodeGti(4)), bumpkinCatalog(4), { responseType: 'json' });
     siteXhr(widgetsUrl(), bumpkinDetailWidgets(4));
-    await flush();
+    await flushPorts();
     const catalog = pushes.flatMap((push) => push.catalog);
     const playback = pushes.flatMap((push) => push.playback);
     expect(catalog.map((entry) => [entry.id, entry.episodeNumber])).toEqual([
@@ -172,7 +172,7 @@ describe('page-bridge.iife.ts (Prime Video)', () => {
     xhr.abort();
     xhr.open('GET', playbackUrl(bumpkinEpisodeGti(4)));
     xhr.send();
-    await flush();
+    await flushPorts();
     expect(pushes.flatMap((push) => push.playback).map((entry) => entry.id)).toEqual([bumpkinEpisodeGti(4)]);
   });
 
@@ -182,7 +182,7 @@ describe('page-bridge.iife.ts (Prime Video)', () => {
     siteXhr(catalogUrl(bumpkinEpisodeGti(1)), bumpkinCatalog(1), { status: 403 });
     siteXhr(playbackUrl(bumpkinEpisodeGti(1)), '{pas du json');
     siteXhr(detailUrl(), '<!doctype html><html></html>');
-    await flush();
+    await flushPorts();
     expect(pushes).toEqual([]);
   });
 

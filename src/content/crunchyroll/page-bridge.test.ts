@@ -24,6 +24,7 @@ import {
   observedCrunchyrollRequest,
   type ReceivedCrunchyrollTable,
 } from './bridge-protocol';
+import { flushPorts } from '../../test/ports';
 
 // Pont MAIN de Crunchyroll : observateur passif des réponses du site (fetch, XMLHttpRequest), exécuté sur une fausse
 // page (Node : ni DOM ni XHR).
@@ -114,7 +115,6 @@ async function siteFetchJson(url: string, body: unknown): Promise<void> {
   await window.fetch(url, { headers: { authorization: TOKEN } });
 }
 
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 10));
 const lastTable = (pushes: ReceivedCrunchyrollTable[][], seriesId = FRIEREN_SERIES_ID): unknown =>
   pushes.flat().filter((entry) => entry.seriesId === seriesId).at(-1)?.table ?? null;
 
@@ -177,9 +177,9 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     await siteFetchJson(seriesUrl(), frierenSeries());
     siteXhr(seasonsUrl(), frierenSeasons());
     siteXhr(episodesUrl(FRIEREN_S2), frierenEpisodes(2, 10, { firstAirDate: '2026-01-16' }), { responseType: 'json' });
-    await flush();
+    await flushPorts();
     const pushes = connect();
-    await flush();
+    await flushPorts();
     expect(pushes).toHaveLength(1);
     const table = lastTable(pushes);
     expect(crunchyrollTableSignals(table, { episodeId: frierenEpisodeId(2, 3), seasonNumber: 2 })).toEqual({
@@ -207,10 +207,10 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     await runBridge();
     const pushes = connect();
     siteXhr(episodesUrl(FRIEREN_S1), frierenEpisodes(1, 28));
-    await flush();
+    await flushPorts();
     expect(pushes).toEqual([]);
     siteXhr(seasonsUrl(), frierenSeasons());
-    await flush();
+    await flushPorts();
     expect(crunchyrollTableSignals(lastTable(pushes), { episodeId: frierenEpisodeId(1, 5, true), seasonNumber: 1 })).toMatchObject({ seasonYear: 2023, seasonEpisodeCount: 28 });
   });
 
@@ -219,7 +219,7 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     const pushes = connect();
     siteXhr(seasonsUrl(), frierenSeasons());
     siteXhr(upNextUrl(), frierenUpNext(FRIEREN_S2, 3));
-    await flush();
+    await flushPorts();
     expect(crunchyrollTableSignals(lastTable(pushes), { episodeId: frierenEpisodeId(2, 3), seasonNumber: 2 })).toEqual({
       seasonEpisodeCount: 10,
       episodeMinutes: 25,
@@ -228,7 +228,7 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     });
     siteXhr(episodesUrl(FRIEREN_S2), frierenEpisodes(2, 10, { firstAirDate: '2026-01-16' }));
     siteXhr(upNextUrl(), frierenUpNext(FRIEREN_S2, 4));
-    await flush();
+    await flushPorts();
     expect(crunchyrollTableSignals(lastTable(pushes), { seasonNumber: 2 })).toMatchObject({ seasonYear: 2026, episodeMinutes: 26 });
   });
 
@@ -238,10 +238,10 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     siteXhr(seasonsUrl(), frierenSeasons(), { status: 401 });
     siteXhr(seriesUrl(), '{pas du json');
     siteXhr(episodesUrl(FRIEREN_S1), '<!doctype html>');
-    await flush();
+    await flushPorts();
     expect(pushes).toEqual([]);
     siteXhr(seasonsUrl('GOTHER1'), frierenSeasons());
-    await flush();
+    await flushPorts();
     expect(pushes.flat().map((entry) => entry.seriesId)).toEqual(['GOTHER1']);
   });
 
@@ -255,7 +255,7 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     xhr.abort();
     xhr.open('GET', seriesUrl('GOTHER1'));
     xhr.send();
-    await flush();
+    await flushPorts();
     expect(pushes.flat().map((entry) => entry.seriesId)).toEqual(['GOTHER1']);
     // Réutilisé pour une requête non lue : rien
     xhr.open('GET', seriesUrl('GOTHER2'));
@@ -263,7 +263,7 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     xhr.abort();
     xhr.open('GET', 'https://www.crunchyroll.com/auth/v1/token');
     xhr.send();
-    await flush();
+    await flushPorts();
     expect(pushes.flat().map((entry) => entry.seriesId)).toEqual(['GOTHER1']);
   });
 

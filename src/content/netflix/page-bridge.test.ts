@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { advance, useBridgeFakeTimers } from '../../test/ports';
 import { encodeNetflixHandshake, encodeNetflixRequest, installNetflixBridgeOnce, NETFLIX_BRIDGE_VERSION, NETFLIX_HANDSHAKE_EVENT, netflixBridgeFlag } from './bridge-protocol';
 
 // Garde d'installation du pont MAIN : le pont reste dans la page après une mise à jour de l'extension (code de la
@@ -32,6 +33,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -56,6 +58,7 @@ describe('page-bridge.iife.ts — une installation par version de protocole', ()
   it('demandes d’ouverture répétées : 4 canaux au plus, le plus ancien fermé (comme les ponts passifs)', async () => {
     // Requête du site en échec : la réponse « network » suffit à prouver que le canal répond encore
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.reject(new TypeError('hors ligne'))));
+    useBridgeFakeTimers();
     await runBridge(NETFLIX_BRIDGE_VERSION);
     const ports = Array.from({ length: 6 }, (_, i) => {
       page.dispatchEvent(new CustomEvent(NETFLIX_HANDSHAKE_EVENT, { detail: encodeNetflixHandshake({ v: NETFLIX_BRIDGE_VERSION, nonce: `n${i}` }) }));
@@ -63,7 +66,7 @@ describe('page-bridge.iife.ts — une installation par version de protocole', ()
       if (!port) throw new Error('aucun port');
       return port;
     });
-    const answered = await Promise.all(
+    const answering = Promise.all(
       ports.map(
         (port, i) =>
           new Promise<boolean>((resolve) => {
@@ -73,6 +76,9 @@ describe('page-bridge.iife.ts — une installation par version de protocole', ()
           }),
       ),
     );
+    // Délai de 100 ms en temps simulé : un canal fermé ne répond jamais
+    await advance(200);
+    const answered = await answering;
     expect(answered).toEqual([false, false, true, true, true, true]);
     for (const port of ports) port.close();
   });
