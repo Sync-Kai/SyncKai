@@ -24,6 +24,8 @@ const now = Date.now();
 const historyMode = param('history');
 /** `netflix=denied` : accès optionnel à netflix.com pas encore accordé */
 const netflixMode = param('netflix');
+/** `token=expired` : token AniList expiré (« Reconnecter »), aucun compte MyAnimeList */
+const tokenMode = param('token');
 const NETFLIX_PATTERN = '*://*.netflix.com/*';
 
 const season = (seriesId: string, seriesTitle: string, seasonNumber: number, episodeNumber: number) => ({
@@ -245,6 +247,13 @@ function fakePort(name: string): chrome.runtime.Port {
   const port = {
     name,
     postMessage: (message: unknown) => {
+      // Script de contenu muet (onglet en chargement) : le port se ferme sans jamais répondre
+      if (historyMode === 'silent') {
+        setTimeout(() => {
+          if (open) disconnectListeners.forEach((l) => l());
+        }, 10);
+        return;
+      }
       if (isRecord(message) && message.type === 'READ_ADN_HISTORY' && name === 'synckai:adn-history') {
         if (historyMode === 'logged-out') {
           emit({ type: 'error', code: 'logged-out' }, 20);
@@ -276,7 +285,7 @@ let storageSet: ((items: Record<string, unknown>) => Promise<void>) | null = nul
 installChromeMock({
   locale: await loadedUiLocaleParam(),
   version: manifest.version,
-  storage: { [STORAGE_KEYS.anilistToken]: { accessToken: 'e2e-anilist', expiresAt: now + 86_400_000 } },
+  storage: { [STORAGE_KEYS.anilistToken]: { accessToken: 'e2e-anilist', expiresAt: tokenMode === 'expired' ? now - 60_000 : now + 86_400_000 } },
   handlers: {
     // Analyse simulée : tâche lancée puis, peu après, aperçu prêt (comme le service worker en fin d'analyse)
     CR_IMPORT_ANALYZE: (payload) => {
@@ -325,7 +334,10 @@ Object.assign(chrome.tabs, {
     const patterns = [info.url ?? []].flat();
     return Promise.resolve(TABS.filter((tab) => patterns.some((pattern) => tab.url.startsWith(pattern.replace(/\*$/, '')))));
   },
-  connect: (_tabId: number, info: { name?: string }) => fakePort(info.name ?? ''),
+  connect: (_tabId: number, info: { name?: string }) => {
+    trace.historyConnects = (trace.historyConnects ?? 0) + 1;
+    return fakePort(info.name ?? '');
+  },
   update: () => Promise.resolve({}),
   reload: () => Promise.resolve(),
 });

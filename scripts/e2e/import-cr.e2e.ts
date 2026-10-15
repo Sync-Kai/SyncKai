@@ -227,6 +227,25 @@ describe('page d’import, historique Netflix (bout en bout)', () => {
     expect(body).toContain(tl('fr', 'crImport.preview.ignored_other', { count: 40 }));
   });
 
+  it('token AniList expiré et aucun compte MAL : page « non connecté » (comme les autres écrans), lecture impossible', async () => {
+    const page = await openPage({ token: 'expired' });
+    await page.waitForFunction((text: string) => document.querySelector('main')?.textContent?.includes(text) ?? false, {}, fr('crImport.error.notConnected'));
+    expect(await page.$(sel('cr-read'))).toBeNull();
+  });
+
+  it('« Arrêter » puis « Lire » pendant l’attente d’une nouvelle tentative : une seule lecture (la tentative annulée ne rouvre pas de port)', async () => {
+    const page = await openPage({ history: 'silent' });
+    const connects = async (): Promise<number> => (await trace(page)).historyConnects ?? 0;
+    await page.locator(sel('cr-read')).click();
+    await page.locator(sel('cr-read-stop')).click();
+    await page.waitForSelector(sel('cr-read'));
+    await page.locator(sel('cr-read')).click();
+    // Premier port, second port, puis la nouvelle tentative de la SEULE lecture en cours (1 s après le silence du port)
+    await page.waitForFunction(() => (window.__e2e?.historyConnects ?? 0) >= 3, { timeout: 5_000 });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(await connects()).toBe(3);
+  });
+
   it('« Arrêter » pendant le chargement de l’historique : aucun filtre ni analyse', async () => {
     const page = await openPage({ platform: 'netflix' });
     await page.waitForSelector(sel('cr-read'));

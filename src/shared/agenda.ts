@@ -114,6 +114,19 @@ export function shiftWeek(range: WeekRange, delta: number): WeekRange {
   return rangeFrom(new Date(start.getFullYear(), start.getMonth(), start.getDate() + delta * 7));
 }
 
+/**
+ * Semaine à afficher après minuit : la nouvelle semaine en cours si la semaine affichée était celle du jour qui vient de
+ * s'achever (panneau laissé ouvert le dimanche soir : le lundi montre la semaine qui commence, avec « Aujourd'hui »),
+ * null si rien ne change (la semaine affichée contient `now`, ou une autre semaine a été choisie).
+ */
+export function rolloverWeek(range: WeekRange, now: number, firstDay: IsoWeekday): WeekRange | null {
+  if (now >= range.start && now < range.end) return null;
+  const date = new Date(now);
+  // Midi de la veille (jamais un minuit : un changement d'heure ne le déplace pas d'un jour)
+  const yesterday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1, 12).getTime();
+  return yesterday >= range.start && yesterday < range.end ? weekRange(now, firstDay) : null;
+}
+
 // ─── Calendrier AniList ───────────────────────────────────────────────────
 
 /** Diffusion d'un épisode au Japon (airingSchedules AniList) */

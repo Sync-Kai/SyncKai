@@ -1,4 +1,4 @@
-import { getLocale, joinSentences, t } from '../../i18n';
+import { getLocale, joinSentences, t, upperFirst } from '../../i18n';
 import { BTN_GHOST, CARD, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { platformIcon } from '../../ui/brand-icons';
 import {
@@ -7,6 +7,7 @@ import {
   formatOffset,
   isWeekCacheFresh,
   mergeWatchingSeries,
+  rolloverWeek,
   shiftWeek,
   weekRange,
   type AgendaDay,
@@ -270,7 +271,10 @@ export function createAgenda(): AgendaView {
     const now = new Date();
     const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
     midnightTimer = setTimeout(() => {
-      draw();
+      // Semaine en cours affichée la veille : suit le changement de semaine (lundi), sinon seul « Aujourd'hui » bouge
+      const rolled = rolloverWeek(range, Date.now(), firstDay);
+      if (rolled) goTo(rolled);
+      else draw();
       armMidnight();
     }, next - now.getTime() + 1_000);
   }
@@ -389,7 +393,7 @@ export function createAgenda(): AgendaView {
     const header = h(
       'h3',
       { class: 'm-0 flex items-center gap-1.5 text-[12px] font-bold' },
-      h('span', { class: day.isToday ? 'text-sakura' : '' }, label.charAt(0).toUpperCase() + label.slice(1)),
+      h('span', { class: day.isToday ? 'text-sakura' : '' }, upperFirst(label)),
       day.isToday && h('span', { class: 'rounded-full bg-sakura px-1.5 py-px text-[10px] font-bold text-on-fill' }, t('agenda.day.today')),
     );
     if (day.rows.length === 0) {
@@ -633,7 +637,8 @@ export function createAgenda(): AgendaView {
     input.value = edit.value;
     return h(
       'div',
-      { class: 'flex flex-col gap-1 rounded-[10px] bg-ground p-2' },
+      // Annuler / Échap retirent l'éditeur : le focus revient au bouton « ⋯ » de la série (et non à la suivante), comme après l'enregistrement
+      { class: 'flex flex-col gap-1 rounded-[10px] bg-ground p-2', attrs: { 'data-focus-fallback': `agenda-menu-${row.scheduleId}` } },
       h('label', { class: 'text-[11px] font-bold', attrs: { for: inputId } }, t('agenda.adjust.label', { title: row.title })),
       h(
         'div',

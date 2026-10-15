@@ -292,6 +292,22 @@ describe('panneau latéral (bout en bout)', () => {
     expect(offsets).toEqual({});
   });
 
+  it('UI-05 : Échap et Annuler dans l’éditeur de délai rendent le focus au « ⋯ » de la même série (pas à la suivante)', async () => {
+    const page = await openPanel({ tab: 'agenda' });
+    const activeFocusKey = (): Promise<string | null> => page.evaluate(() => (document.activeElement instanceof HTMLElement ? (document.activeElement.dataset.focus ?? null) : null));
+    for (const close of ['escape', 'cancel'] as const) {
+      await page.locator('[data-focus^="agenda-menu-"]').click();
+      await page.locator('[data-focus^="agenda-adjust-"]').click();
+      await page.waitForSelector('[data-focus^="agenda-offset-"]');
+      const scheduleId = await page.$eval('[data-focus^="agenda-offset-"]', (input) => (input instanceof HTMLElement ? (input.dataset.focus ?? '').replace('agenda-offset-', '') : ''));
+      await page.focus('[data-focus^="agenda-offset-"]');
+      if (close === 'escape') await page.keyboard.press('Escape');
+      else await page.$eval('[data-focus^="agenda-cancel-"]', (button) => (button instanceof HTMLElement ? button.click() : undefined));
+      await page.waitForFunction(() => document.querySelector('[data-focus^="agenda-offset-"]') === null);
+      expect(await activeFocusKey(), close).toBe(`agenda-menu-${scheduleId}`);
+    }
+  });
+
   it('Réglages › Raccourcis (vue partagée avec le popup) : résumé de l’accueil et touches actuelles', async () => {
     const page = await openPanel({});
     await page.locator('[data-focus="gear"]').click();

@@ -2,7 +2,7 @@
 // autres langues sont des fichiers du paquet lus à la demande (en pratique une seule : celle des réglages), jamais
 // toutes dans le code (PERF-01 : ~60 Ko par langue, à analyser à chaque ouverture du popup ou réveil du service
 // worker). Les scripts de contenu passent par `./content`.
-import { registerCatalogs, setCatalogLoader, type Locale } from './core';
+import { getLocale, registerCatalogs, setCatalogLoader, type Locale } from './core';
 import en from './locales/en.json';
 
 /**
@@ -29,3 +29,11 @@ registerCatalogs({ en });
 setCatalogLoader(fetchCatalog);
 
 export * from './core';
+
+/**
+ * Première lettre en majuscule (nom de jour en tête de ligne), selon les règles de la langue (turc : « i » → « İ »).
+ * Ici et non dans `core` : seules les pages l'utilisent, le budget des scripts de contenu n'a aucune marge.
+ */
+export function upperFirst(text: string, locale: Locale = getLocale()): string {
+  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+}

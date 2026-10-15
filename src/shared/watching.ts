@@ -138,6 +138,11 @@ export function sortWatchingBy(entries: readonly WatchingEntry[], sort: Watching
   }
 }
 
+/** Clé stable d'une série de la liste (une fiche MAL peut ne pas avoir d'identifiant AniList) */
+export function entryKey(entry: Pick<WatchingEntry, 'mediaId' | 'malId'>): string {
+  return `${entry.mediaId ?? '-'}:${entry.malId ?? '-'}`;
+}
+
 /**
  * Lien utilisé par « Ouvrir » : la plateforme préférée si l'anime y est, sinon la première disponible.
  * Choix assumé : sans lien connu sur la plateforme préférée, « Ouvrir » ouvre le lien direct de l'autre

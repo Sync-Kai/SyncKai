@@ -6,7 +6,7 @@ import type { SyncOutcome } from '../shared/sync.types';
 import type { WatchingEntry } from '../shared/watching.types';
 import { CATALOG_FILES, catalogOf } from '../test/catalogs';
 import { checkCatalog } from './catalog-check';
-import { appendSuffix, formatList, getLocale, joinQuantities, joinSentences, LOCALES, lowerFirst, setLocale, t, tp, tpl } from './index';
+import { appendSuffix, formatList, getLocale, joinQuantities, joinSentences, LOCALES, lowerFirst, setLocale, t, tp, tpl, upperFirst } from './index';
 import en from './locales/en.json';
 
 describe('catalogues de traduction', () => {
@@ -86,6 +86,17 @@ describe('t / tp / tpl', () => {
     expect(describeOutcome(outcome).message).toBe('AniList: Folge 2 gespeichert');
     expect(formatStarValue(8.5)).toBe('8,5');
     expect(lowerFirst('Kein entsprechender Eintrag')).toBe('Kein entsprechender Eintrag');
+  });
+
+  it('upperFirst : majuscule selon la langue (turc : i avec point → İ), langue active par défaut', () => {
+    expect(upperFirst('ışık', 'tr')).toBe('Işık');
+    expect(upperFirst('iptal', 'tr')).toBe('İptal');
+    expect(upperFirst('lundi 12 oct.', 'fr')).toBe('Lundi 12 oct.');
+    expect(upperFirst('')).toBe('');
+    const previous = getLocale();
+    setLocale('tr');
+    expect(upperFirst('imza')).toBe('İmza');
+    setLocale(previous);
   });
 
   it('lowerFirst : minuscule selon la langue (turc : I sans point, İ avec point), allemand inchangé', () => {

@@ -41,6 +41,7 @@ import { createLogger } from '../browser/logger';
 import { sendMessage } from '../protocol/messages';
 import { PLATFORMS } from '../platforms/registry';
 import { getSettings } from '../browser/storage/settings-access';
+import { hasMalToken, hasValidAniListToken } from '../browser/storage/tokens';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../ui/dom';
@@ -162,12 +163,13 @@ function draw(): void {
 // ─── Lecture du stockage ──────────────────────────────────────────────────
 
 async function loadStored(): Promise<void> {
-  const stored = await chrome.storage.local.get([CR_IMPORT_KEYS.job, CR_IMPORT_KEYS.plan, STORAGE_KEYS.anilistToken, STORAGE_KEYS.malToken]);
+  const stored = await chrome.storage.local.get([CR_IMPORT_KEYS.job, CR_IMPORT_KEYS.plan]);
   const job: unknown = stored[CR_IMPORT_KEYS.job];
   const plan: unknown = stored[CR_IMPORT_KEYS.plan];
   state.job = isCrImportJob(job) ? job : null;
   setPlan(isCrImportPlan(plan) ? plan : null);
-  state.connected = stored[STORAGE_KEYS.anilistToken] !== undefined || stored[STORAGE_KEYS.malToken] !== undefined;
+  // Comme les autres écrans : AniList seulement avec un token non expiré (le service worker refuse l'import sinon), MAL avec le sien
+  state.connected = (await hasValidAniListToken()) || (await hasMalToken());
 }
 
 /** Plateforme affichée : celle de l'aperçu s'il existe, sinon celle choisie */
@@ -302,7 +304,11 @@ function readEvent(platform: ImportPlatform, raw: unknown): ReadEvent | null {
   return { type: 'done', history: () => Promise.resolve(result) };
 }
 
+/** Nouvelle tentative de connexion en attente (script de contenu pas encore à l'écoute) : annulée par tout retour à l'écran de connexion et par toute nouvelle lecture */
+let connectRetryTimer: ReturnType<typeof setTimeout> | undefined;
+
 function backToConnect(tabId: number | null, error: string | null, reloadTabId: number | null = null): void {
+  clearTimeout(connectRetryTimer);
   port = null;
   netflixRun = null;
   state.step = { kind: 'connect', tabId, tabTitle: null, opening: false, error, reloadTabId };
@@ -311,6 +317,8 @@ function backToConnect(tabId: number | null, error: string | null, reloadTabId: 
 }
 
 function startReading(tabId: number, attempt = 0): void {
+  // « Arrêter » puis « Lire » pendant l'attente d'une nouvelle tentative : une seule connexion, jamais deux lectures de l'historique
+  clearTimeout(connectRetryTimer);
   const platform = state.platform;
   if (platform === 'netflix') {
     void readNetflix(tabId);
@@ -367,7 +375,7 @@ function startReading(tabId: number, attempt = 0): void {
       backToConnect(tabId, t('crImport.read.error.noScript', platformParams(platform)), tabId);
       return;
     }
-    setTimeout(() => {
+    connectRetryTimer = setTimeout(() => {
       if (state.step.kind === 'reading' && state.step.tabId === tabId) startReading(tabId, attempt + 1);
     }, wait);
   });

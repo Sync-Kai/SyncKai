@@ -12,6 +12,7 @@ import {
   isWeekKey,
   mergeWatchingSeries,
   parseDateKey,
+  rolloverWeek,
   shiftWeek,
   watchingProgress,
   weekKeysToPrune,
@@ -102,6 +103,33 @@ describe('weekRange', () => {
     // Passage à l'heure d'été (29 mars 2026) : 167 h
     const spring = weekRange(local(2026, 3, 29, 12), 1);
     expect(spring.end - spring.start).toBe(167 * HOUR);
+  });
+
+  it('minuit du dimanche au lundi : la semaine en cours affichée la veille suit le changement de semaine (rolloverWeek)', () => {
+    const shown = weekRange(local(2026, 10, 11, 20), 1);
+    expect(shown.key).toBe('2026-10-05');
+    // Même semaine ou autre minuit de la semaine : rien ne change
+    expect(rolloverWeek(shown, local(2026, 10, 8, 0, 1), 1)).toBeNull();
+    expect(rolloverWeek(shown, local(2026, 10, 11, 23, 59), 1)).toBeNull();
+    // Lundi 00:01 : la nouvelle semaine, « Aujourd'hui » dedans
+    const rolled = rolloverWeek(shown, local(2026, 10, 12, 0, 1), 1);
+    expect(rolled?.key).toBe('2026-10-12');
+    expect(rolled && local(2026, 10, 12, 0, 1) >= rolled.start && local(2026, 10, 12, 0, 1) < rolled.end).toBe(true);
+    // Dimanche en premier jour (en-US) : le changement de semaine est le dimanche
+    expect(rolloverWeek(weekRange(local(2026, 10, 10, 20), 7), local(2026, 10, 11, 0, 1), 7)?.key).toBe('2026-10-11');
+  });
+
+  it('semaine choisie par l’utilisateur (passée ou future) : conservée à minuit, même quand la semaine en cours change', () => {
+    const next = weekRange(local(2026, 10, 19, 12), 1);
+    const past = weekRange(local(2026, 9, 28, 12), 1);
+    expect(rolloverWeek(next, local(2026, 10, 12, 0, 1), 1)).toBeNull();
+    expect(rolloverWeek(past, local(2026, 10, 12, 0, 1), 1)).toBeNull();
+    expect(rolloverWeek(past, local(2026, 10, 5, 0, 1), 1)?.key).toBe('2026-10-05');
+  });
+
+  it('changement d’heure : la veille est jugée à midi, pas à minuit', () => {
+    const shown = weekRange(local(2026, 10, 24, 12), 1);
+    expect(rolloverWeek(shown, local(2026, 10, 26, 0, 1), 1)?.key).toBe('2026-10-26');
   });
 
   it('navigation et clés', () => {

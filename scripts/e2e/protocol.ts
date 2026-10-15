@@ -16,6 +16,8 @@ export interface E2EState {
   openedTabs: string[];
   /** Fenêtre de chaque ouverture du panneau latéral (chrome.sidePanel.open, popup avec `panel=chrome`) */
   sidePanelOpens?: (number | null)[];
+  /** Ports ouverts vers les scripts de contenu (chrome.tabs.connect), page d'import */
+  historyConnects?: number;
 }
 
 declare global {

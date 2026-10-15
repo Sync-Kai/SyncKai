@@ -47,7 +47,7 @@ function seriesOf(fixture: SeriesFixture, entries: Pick<SeriesSeed, 'anilistEntr
 /** Delicious in Dungeon à l'épisode 7 sur les deux listes */
 const DUNGEON = seriesOf(DUNGEON_MESHI, { anilistEntry: { status: 'CURRENT', progress: 7 }, malEntry: { status: 'watching', num_episodes_watched: 7 } });
 
-/** Clé d'une série dans « En cours » du popup (watching-screen.ts › entryKey) */
+/** Clé d'une série dans « En cours » du popup (shared/watching.ts › entryKey) */
 const keyOf = (series: SeriesSeed): string => `${series.anilist.id}:${series.mal.id}`;
 
 const anilistUrl = (series: SeriesSeed): string => entryUrl('anilist', series.anilist.id);

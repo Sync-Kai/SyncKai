@@ -25,13 +25,12 @@ const log = createLogger('sidepanel');
 
 interface TabCopy {
   label: MessageKey;
-  soon: MessageKey;
   icon: IconName;
 }
 
 const TAB_COPY: Record<PanelTab, TabCopy> = {
-  nowPlaying: { label: 'panel.tab.nowPlaying', soon: 'panel.nowPlaying.soon', icon: 'screen' },
-  agenda: { label: 'panel.tab.agenda', soon: 'panel.agenda.soon', icon: 'calendar' },
+  nowPlaying: { label: 'panel.tab.nowPlaying', icon: 'screen' },
+  agenda: { label: 'panel.tab.agenda', icon: 'calendar' },
 };
 
 let context: PanelContext = { status: 'checking' };
@@ -182,20 +181,8 @@ function mount(container: HTMLElement, children: readonly HTMLElement[]): void {
 
 /** Contenu de l'onglet sélectionné ; `entering` : l'onglet devient visible (pas un simple nouveau rendu) */
 function renderTabContent(entering: boolean): HTMLElement {
-  const copy = TAB_COPY[selected];
-  return selected === 'nowPlaying'
-    ? context.status === 'off'
-      ? renderNotice(offTargetText(), false, disabledPlatforms().map(renderEnableButton), true)
-      : nowPlaying.render()
-    : selected === 'agenda'
-      ? mountAgenda(entering)
-    : h(
-        'div',
-        { class: 'flex flex-col items-center gap-2 rounded-card bg-surface px-4 py-6 text-center' },
-        icon(copy.icon, 'h-6 w-6 text-lavender'),
-        h('span', { class: 'rounded-full bg-raised px-2 py-0.5 text-[11px] font-bold text-butter' }, t('panel.soon')),
-        h('p', { class: 'm-0 max-w-[260px] text-muted' }, t(copy.soon)),
-      );
+  if (selected === 'agenda') return mountAgenda(entering);
+  return context.status === 'off' ? renderNotice(offTargetText(), false, disabledPlatforms().map(renderEnableButton), true) : nowPlaying.render();
 }
 
 /**

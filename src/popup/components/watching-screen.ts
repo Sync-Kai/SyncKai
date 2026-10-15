@@ -5,7 +5,7 @@ import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsWithoutLink } from '../../platforms/links';
 import { activePlatforms } from '../../browser/platform-access';
 import { PLATFORMS } from '../../platforms/registry';
-import { choosePlatformLink, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
+import { choosePlatformLink, entryKey, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import { BADGE_CLASSES } from '../../ui/airing-badge';
 import { busyAttrs, h, nodes } from '../../ui/dom';
@@ -91,11 +91,6 @@ function progressLabel(entry: WatchingEntry): string {
 /** Plateforme affichée en pastille : celle du lien « Ouvrir », sinon la dernière utilisée */
 function displayPlatform(entry: WatchingEntry, preferred: StreamingPlatform): StreamingPlatform | null {
   return choosePlatformLink(entry, preferred)?.platform ?? entry.lastSync?.platform ?? null;
-}
-
-/** Clé stable d'une série de la liste (une fiche MAL peut ne pas avoir d'identifiant AniList) */
-export function entryKey(entry: WatchingEntry): string {
-  return `${entry.mediaId ?? '-'}:${entry.malId ?? '-'}`;
 }
 
 /**
