@@ -30,16 +30,14 @@ import {
   type CompareJob,
 } from '../shared/compare-job';
 import { isRecord } from '../shared/guards';
-import { getCachedViewer } from '../browser/storage/viewer-cache';
 import { getOpenSessions, writeIfSessions } from '../browser/storage/sessions';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
-import { anilistPublicQuery, anilistQuery } from './anilist/client';
+import { anilistPublicQuery } from './anilist/client';
+import { fetchAniListFullList } from './anilist/full-list';
 import { ApiError } from './errors';
 import { getScoreFormat } from './anilist/list';
-import { malRequest } from './mal/client';
-import { getViewer } from './anilist/viewer';
-import { parseAniListCollection, parseMalListPage } from './compare-parse';
+import { fetchMalFullList } from './mal/full-list';
 import { readComparison, updateComparison } from './compare-snapshot';
 import {
   createJobLoop,
@@ -63,74 +61,6 @@ import { createLogger } from '../browser/logger';
 const log = createLogger('compare');
 
 // ─── Lecture des listes complètes ─────────────────────────────────────────
-
-/** 500 = maximum de `perChunk` ; chunk + hasNextChunk : listes de plus de 500 entrées */
-const ANILIST_CHUNK = 500;
-const MAX_ANILIST_CHUNKS = 40;
-
-const ANILIST_FULL_LIST_QUERY = /* GraphQL */ `
-  query FullList($userId: Int, $chunk: Int, $perChunk: Int) {
-    MediaListCollection(userId: $userId, type: ANIME, chunk: $chunk, perChunk: $perChunk) {
-      hasNextChunk
-      lists {
-        entries {
-          status
-          progress
-          score
-          repeat
-          media {
-            id
-            idMal
-            title { userPreferred romaji english }
-            coverImage { medium }
-          }
-        }
-      }
-    }
-  }
-`;
-
-const isCollectionData = (data: unknown): data is { MediaListCollection: Record<string, unknown> } =>
-  isRecord(data) && isRecord(data.MediaListCollection);
-
-async function getAniListUserId(): Promise<number> {
-  const cached = await getCachedViewer();
-  if (cached) return cached.id;
-  const result = await getViewer();
-  if (!result.ok) throw new ApiError(result.code, result.message);
-  return result.data.id;
-}
-
-/** Liste complète : requêtes de fond (comparaison, import Crunchyroll), budget limité */
-export async function fetchAniListFullList(): Promise<ReturnType<typeof parseAniListCollection>> {
-  const userId = await getAniListUserId();
-  const entries: ReturnType<typeof parseAniListCollection> = [];
-  for (let chunk = 1; chunk <= MAX_ANILIST_CHUNKS; chunk++) {
-    const { MediaListCollection } = await anilistQuery(ANILIST_FULL_LIST_QUERY, isCollectionData, { userId, chunk, perChunk: ANILIST_CHUNK }, 'background');
-    entries.push(...parseAniListCollection(MediaListCollection));
-    if (MediaListCollection.hasNextChunk !== true) break;
-  }
-  return entries;
-}
-
-/** limit=1000 = maximum de l'endpoint ; nsfw=true : sinon MAL omet les fiches NSFW */
-const MAL_PAGE = 1000;
-const MAX_MAL_PAGES = 20;
-const MAL_FULL_LIST_PATH =
-  '/users/@me/animelist?nsfw=true&fields=list_status{status,score,num_episodes_watched,is_rewatching,num_times_rewatched,updated_at},num_episodes,main_picture';
-
-const isMalListData = (data: unknown): data is { data: unknown[]; paging?: unknown } => isRecord(data) && Array.isArray(data.data);
-
-export async function fetchMalFullList(): Promise<MalListEntry[]> {
-  const entries: MalListEntry[] = [];
-  for (let page = 0; page < MAX_MAL_PAGES; page++) {
-    const result = await malRequest(`${MAL_FULL_LIST_PATH}&limit=${MAL_PAGE}&offset=${page * MAL_PAGE}`, isMalListData);
-    entries.push(...parseMalListPage(result.data));
-    const hasNext = isRecord(result.paging) && typeof result.paging.next === 'string';
-    if (!hasNext || result.data.length < MAL_PAGE) break;
-  }
-  return entries;
-}
 
 const CATALOG_BY_MAL_QUERY = /* GraphQL */ `
   query CompareCatalog($ids: [Int]) {

@@ -60,7 +60,8 @@ import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { PLATFORMS } from '../platforms/registry';
 import { ApiError } from './errors';
 import { getAnimeByIds } from './anilist/media';
-import { fetchAniListFullList, fetchMalFullList } from './compare';
+import { fetchAniListFullList } from './anilist/full-list';
+import { fetchMalFullList } from './mal/full-list';
 import {
   createJobLoop,
   createJobStore,

@@ -32,7 +32,8 @@ vi.mock('./anilist/media', () => ({
   getAnimeByIds: async (ids: number[]) => ids.map((id) => ({ id, idMal: id + 1000, displayTitle: `Fiche ${id}`, coverUrl: null, episodes: 24 })),
 }));
 // Listes vides : chaque saison sûre donne un élément à mettre à jour
-vi.mock('./compare', () => ({ fetchAniListFullList: async () => [], fetchMalFullList: async () => [] }));
+vi.mock('./anilist/full-list', () => ({ fetchAniListFullList: async () => [] }));
+vi.mock('./mal/full-list', () => ({ fetchMalFullList: async () => [] }));
 vi.mock('../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
 // Espacement des écritures et budget AniList sans attente
 vi.mock('./jobs/runner', async (importOriginal) => ({
