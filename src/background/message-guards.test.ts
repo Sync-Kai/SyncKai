@@ -235,9 +235,9 @@ describe('REMOVE_FROM_LIST / GET_LIST_NOTES / SET_LIST_NOTES', () => {
 });
 
 describe('expéditeurs autorisés (MESSAGE_ORIGINS, ARCH-07)', () => {
-  /** Appels `sendMessage('TYPE', …)` (type littéral) ; ni la déclaration, ni `chrome.runtime.sendMessage` */
-  const SEND_RE = /(?<!function |\.)\bsendMessage(?:<[^>]*>)?\(\s*'([A-Z_]+)'/g;
-  const CALL_RE = /(?<!function |\.)\bsendMessage(?:<[^>]*>)?\(/g;
+  /** Appels `sendMessage('TYPE', …)` ou `callWorker('TYPE', …)` (type littéral) ; ni les déclarations, ni `chrome.runtime.sendMessage` */
+  const SEND_RE = /(?<!function |\.)\b(?:sendMessage|callWorker)(?:<[^>]*>)?\(\s*'([A-Z_]+)'/g;
+  const CALL_RE = /(?<!function |\.)\b(?:sendMessage|callWorker)(?:<[^>]*>)?\(/g;
   const sentTypes = (files: Iterable<string>): Set<string> =>
     new Set([...files].flatMap((file) => [...(SOURCES.get(file) ?? '').matchAll(SEND_RE)].map((match) => match[1] ?? '')));
   const typesWith = (origins: readonly string[]): string[] =>

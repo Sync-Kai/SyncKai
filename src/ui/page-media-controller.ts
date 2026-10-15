@@ -1,6 +1,5 @@
 import { onLocaleChange, t } from '../i18n';
 import { createLogger } from '../browser/logger';
-import { sendMessage } from '../protocol/messages';
 import {
   isCachedPageMedia,
   isPartialEpisodePage,
@@ -21,6 +20,7 @@ import { mediaActionKey, runMediaAction, type MediaActionRequest } from './media
 import type { MediaActionsState } from './media-actions';
 import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from './page-media-request';
 import type { InlineFeedback } from './state';
+import { callWorker, networkFailure } from './worker-call';
 
 // « Fiche de la page » (ARCH-05) : machine d'état sans rendu, commune à la carte « Sur cette page » du popup et à
 // l'onglet « En lecture » du panneau. Lecture de la page de l'onglet, cache de l'onglet, RESOLVE_PAGE_MEDIA, actions
@@ -425,13 +425,8 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     }
   }
 
-  async function requestView(page: PageMediaInfo, mediaId: number | null): Promise<PageMediaResult> {
-    try {
-      return await sendMessage('RESOLVE_PAGE_MEDIA', { page, mediaId });
-    } catch (error: unknown) {
-      log.warn('Service worker injoignable :', error);
-      return { ok: false, code: 'NETWORK', message: t('popup.swUnreachable') };
-    }
+  function requestView(page: PageMediaInfo, mediaId: number | null): Promise<PageMediaResult> {
+    return callWorker('RESOLVE_PAGE_MEDIA', { page, mediaId }, networkFailure);
   }
 
   /**
@@ -486,7 +481,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     const { page, view } = content;
     const epoch = actionEpoch;
     patchActions({ busy: mediaActionKey(request), confirm: null });
-    const feedback = await runMediaAction(request, view, (error) => log.warn('Service worker injoignable :', error));
+    const feedback = await runMediaAction(request, view);
     onActionDone?.();
     // Onglet ou page changés pendant l'envoi : la fiche affichée n'est plus celle de l'action, son retour est ignoré
     if (epoch !== actionEpoch) return null;

@@ -4,7 +4,6 @@
 import { t } from '../../i18n';
 import { excludeSeries, includeSeries } from '../../browser/storage/exclusions-store';
 import { createLogger } from '../../browser/logger';
-import { sendMessage } from '../../protocol/messages';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../../platforms/links';
 import { getCachedWatching } from '../../browser/storage/watching-cache';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
@@ -17,7 +16,9 @@ import { adjustFeedback, errorFeedback, notesFeedback, removeFeedback, statusFee
 import type { MediaRef } from '../../shared/engagement.types';
 import { normalizeListNotes, type ListNotesResult } from '../../shared/list-notes';
 import { adjustPayload } from '../../ui/media-action-requests';
+import { mediaRefOf } from '../../ui/media-ref';
 import { createStore, patchStore, withEntry, type ExclusionsState, type InlineFeedback, type Store } from '../../ui/state';
+import { callWorker, networkFailure, outcomeFailure } from '../../ui/worker-call';
 import { entryKey } from '../components/watching-screen';
 import type { EntryAction, WatchingPrefs, WatchingState } from '../state';
 import { popupTimeouts } from '../timeouts';
@@ -97,7 +98,6 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
   const entryActions = createStore<ReadonlyMap<string, EntryAction>>(new Map());
   const notice = createStore<WatchingNotice | null>(null);
   const notes = createStore<NotesSession | null>(null);
-  const swUnreachable = (): string => t('popup.swUnreachable');
   const unsubscribers: (() => void)[] = [];
 
   // ─── Chargement (stale-while-revalidate) ───────────────────────────────────
@@ -123,10 +123,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
     store.set(cached ? { status: 'ready', service, list: cached, refreshing: true, error: null } : { status: 'loading', service });
 
     // 2. Revalidation par le service worker
-    const response = sendMessage('GET_WATCHING', force ? { service, force } : { service }).catch((error: unknown): WatchingResult => {
-      log.error('Service worker injoignable :', error);
-      return { ok: false, code: 'NETWORK', message: swUnreachable() };
-    });
+    const response = callWorker('GET_WATCHING', force ? { service, force } : { service }, networkFailure);
     // Service worker lent ou bloqué (verrou du stockage…) : erreur affichée au bout du délai, mais la réponse
     // reste attendue et s'applique si elle arrive (sauf requête plus récente : « Réessayer », autre source)
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -285,8 +282,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
     if (changes[STORAGE_KEYS.recentSyncs]) scheduleRevalidation();
   };
 
-  /** Série telle que le service worker l'attend (titre borné par la validation du message) */
-  const mediaRef = (entry: WatchingEntry): MediaRef => ({ mediaId: entry.mediaId, malId: entry.malId, title: entry.title.slice(0, 300) });
+  const mediaRef = (entry: WatchingEntry): MediaRef => mediaRefOf(entry.mediaId, entry.malId, entry.title);
 
   const controller: WatchingController = {
     store,
@@ -337,13 +333,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
       if (!beginEntryAction(key, 'adjust')) return;
       if (retry) hideNotice();
 
-      let outcome: SyncOutcome;
-      try {
-        outcome = await sendMessage('ADJUST_PROGRESS', adjustPayload(entry.mediaId, entry.malId, delta, retry));
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        outcome = { status: 'error', message: swUnreachable() };
-      }
+      const outcome = await callWorker('ADJUST_PROGRESS', adjustPayload(entry.mediaId, entry.malId, delta, retry), outcomeFailure);
       patchProgress(entry, outcome);
       const feedback = adjustFeedback(outcome, delta, retry);
       flashEntryFeedback(key, feedback);
@@ -358,15 +348,9 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
       const key = entryKey(entry);
       if (!beginEntryAction(key, 'status')) return;
 
-      let outcome: SyncOutcome;
-      try {
-        // Affiche de la carte « À noter » : hôte d'images autorisé uniquement (refusée sinon par la validation du message)
-        const coverUrl = toSafeImageUrl(entry.coverUrl);
-        outcome = await sendMessage('SET_LIST_STATUS', { mediaId: entry.mediaId, malId: entry.malId, status, coverUrl });
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        outcome = { status: 'error', message: swUnreachable() };
-      }
+      // Affiche de la carte « À noter » : hôte d'images autorisé uniquement (refusée sinon par la validation du message)
+      const coverUrl = toSafeImageUrl(entry.coverUrl);
+      const outcome = await callWorker('SET_LIST_STATUS', { mediaId: entry.mediaId, malId: entry.malId, status, coverUrl }, outcomeFailure);
 
       const feedback = statusFeedback(outcome, status);
       // La série quitte la liste si le service affiché a bien changé de statut (ou l'avait déjà)
@@ -413,13 +397,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
       if (!beginEntryAction(key, 'status')) return;
       if (notes.get()?.key === key) notes.set(null);
 
-      let outcome: SyncOutcome;
-      try {
-        outcome = await sendMessage('REMOVE_FROM_LIST', { media: mediaRef(entry) });
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        outcome = { status: 'error', message: swUnreachable() };
-      }
+      const outcome = await callWorker('REMOVE_FROM_LIST', { media: mediaRef(entry) }, outcomeFailure);
 
       // La série quitte la liste si le service affiché l'a retirée (ou ne l'avait déjà plus)
       const shown = store.get();
@@ -440,11 +418,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
         if (notes.get()?.key !== key) return;
         notes.set(result.ok ? { key, entry, phase: 'ready', inList: result.data.inList, notes: result.data.notes } : { key, entry, phase: 'error', message: result.message });
       };
-      sendMessage('GET_LIST_NOTES', { media: mediaRef(entry) })
-        .catch((error: unknown): ListNotesResult => {
-          log.error('Service worker injoignable :', error);
-          return { ok: false, code: 'NETWORK', message: swUnreachable() };
-        })
+      callWorker('GET_LIST_NOTES', { media: mediaRef(entry) }, networkFailure)
         .then(apply)
         .catch((error: unknown) => log.error('Commentaire non affiché :', error));
     },
@@ -455,13 +429,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
 
     async saveNotes(entry, text) {
       const key = entryKey(entry);
-      let outcome: SyncOutcome;
-      try {
-        outcome = await sendMessage('SET_LIST_NOTES', { media: mediaRef(entry), notes: text });
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        outcome = { status: 'error', message: swUnreachable() };
-      }
+      const outcome = await callWorker('SET_LIST_NOTES', { media: mediaRef(entry), notes: text }, outcomeFailure);
       const feedback = notesFeedback(outcome, normalizeListNotes(text) === '');
       if (feedback.tone !== 'success') {
         // Échec ou échec partiel : bandeau (texte complet), l'éditeur reste ouvert pour réessayer

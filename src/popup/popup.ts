@@ -5,6 +5,7 @@ import type { EpisodeInfo } from '../shared/episode.types';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries, platformSeriesKey } from '../shared/exclusions';
 import { excludeSeries } from '../browser/storage/exclusions-store';
 import { sendMessage } from '../protocol/messages';
+import { callWorker, networkFailure, outcomeFailure } from '../ui/worker-call';
 import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, effectivePlayer, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { getSettings } from '../browser/storage/settings-access';
@@ -53,7 +54,6 @@ const log = createLogger('popup');
 // Langue lue avant le premier rendu : toutes les vues sont construites directement dans la bonne langue
 await initI18n();
 
-const swUnreachable = (): string => t('popup.swUnreachable');
 const CLOCK_TICK_MS = 60_000;
 
 /**
@@ -127,22 +127,8 @@ function entryLinkContext(): EntryLinkContext {
 // ─── Actions des cartes "À vérifier" ────────────────────────────────────────
 
 const reviewActions: ReviewActions = {
-  async search(query) {
-    try {
-      return await sendMessage('SEARCH_ANIME', { query });
-    } catch (error: unknown) {
-      log.error('Service worker injoignable :', error);
-      return { ok: false, code: 'NETWORK', message: swUnreachable() };
-    }
-  },
-  async confirm(key, mediaId, progress) {
-    try {
-      return await sendMessage('RESOLVE_REVIEW', { key, mediaId, progress });
-    } catch (error: unknown) {
-      log.error('Service worker injoignable :', error);
-      return { status: 'error', message: swUnreachable() };
-    }
-  },
+  search: (query) => callWorker('SEARCH_ANIME', { query }, networkFailure),
+  confirm: (key, mediaId, progress) => callWorker('RESOLVE_REVIEW', { key, mediaId, progress }, outcomeFailure),
   // Service worker : l'épisode mis de côté pendant une correction est rejoué après le retrait de la carte
   async dismiss(key) {
     const result = await sendMessage('DISMISS_REVIEW', { key });
@@ -791,15 +777,9 @@ function setPageConfirm(status: ListStatusChange | null): void {
 /** "Corriger" : le service worker recharge les fiches candidates et rouvre une carte. */
 async function handleCorrect(key: string): Promise<void> {
   patchStore(syncStore, { busyKey: key, recentError: null });
-  let error: string | null = null;
-  try {
-    const result = await sendMessage('REOPEN_REVIEW', { key });
-    if (!result.ok) error = result.message;
-    else navigate('activity');
-  } catch (e: unknown) {
-    log.error('Service worker injoignable :', e);
-    error = swUnreachable();
-  }
+  const result = await callWorker('REOPEN_REVIEW', { key }, networkFailure);
+  const error = result.ok ? null : result.message;
+  if (result.ok) navigate('activity');
   patchStore(syncStore, { busyKey: null, recentError: error });
 }
 

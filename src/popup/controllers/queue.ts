@@ -2,11 +2,10 @@
 // service worker et abandon d'un élément.
 import { t } from '../../i18n';
 import { createLogger } from '../../browser/logger';
-import { sendMessage } from '../../protocol/messages';
 import { SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import { getSyncQueue, removeQueueItem } from '../../browser/storage/sync-queue-store';
-import type { SyncOutcome } from '../../shared/sync.types';
 import { retryFeedback } from '../../ui/feedback';
+import { callWorker, outcomeFailure } from '../../ui/worker-call';
 import { createStore, patchStore, withMember, type Store } from '../../ui/state';
 import type { QueueState } from '../state';
 import { NOTICE_MS } from './notice';
@@ -64,13 +63,7 @@ export function createQueueController(): QueueController {
     async retry(id) {
       if (store.get().busyIds.has(id)) return;
       setBusy(id, true);
-      let outcome: SyncOutcome;
-      try {
-        outcome = await sendMessage('RETRY_QUEUED', { id });
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        outcome = { status: 'error', message: t('popup.swUnreachable') };
-      }
+      const outcome = await callWorker('RETRY_QUEUED', { id }, outcomeFailure);
       setBusy(id, false);
       // Résultat affiché quelques secondes (l'élément a pu quitter la file entre-temps)
       clearTimeout(noticeTimer);

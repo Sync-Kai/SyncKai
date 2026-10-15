@@ -33,6 +33,7 @@ import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../../ui/dom';
 import { entryCover, entryTitle } from '../../ui/entry-link';
 import { createMenuDismiss } from '../../ui/menu';
+import { callWorker, networkFailure } from '../../ui/worker-call';
 import { alertAttrs } from '../../ui/live-region';
 import { formatPlatformList } from '../../ui/platform-list';
 import { icon } from '../../ui/icons';
@@ -242,7 +243,7 @@ export function createAgenda(): AgendaView {
       requested = true;
       let result: MessageResponse<'GET_AGENDA'>;
       try {
-        result = await sendMessage('GET_AGENDA', { weekStart: target.key });
+        result = await callWorker('GET_AGENDA', { weekStart: target.key }, networkFailure);
       } finally {
         if (inFlight?.run === current) inFlight = null;
       }

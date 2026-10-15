@@ -4,11 +4,11 @@ import { t } from '../../i18n';
 import { getPendingRatings, removePendingRating } from '../../browser/storage/engagement-store';
 import type { PendingRating } from '../../shared/engagement.types';
 import { createLogger } from '../../browser/logger';
-import { sendMessage } from '../../protocol/messages';
 import { PENDING_RATINGS_KEY } from '../../protocol/storage-keys';
-import type { SyncOutcome } from '../../shared/sync.types';
 import { ratingFeedback } from '../../ui/feedback';
+import { mediaRefOf } from '../../ui/media-ref';
 import { formatStarValue } from '../../ui/rating';
+import { callWorker, outcomeFailure } from '../../ui/worker-call';
 import { createStore, patchStore, withEntry, withMember, type Store } from '../../ui/state';
 import type { RatingsState } from '../state';
 import { NOTICE_MS } from './notice';
@@ -55,13 +55,7 @@ export function createRatingsController(): RatingsController {
     async rate(item, value) {
       if (store.get().busyIds.has(item.id)) return;
       patch({ busyIds: withMember(store.get().busyIds, item.id, true), errors: withEntry(store.get().errors, item.id, null) });
-      let outcome: SyncOutcome;
-      try {
-        outcome = await sendMessage('RATE_MEDIA', { media: { mediaId: item.mediaId, malId: item.malId, title: item.title }, score: value, fromCard: true });
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        outcome = { status: 'error', message: t('popup.swUnreachable') };
-      }
+      const outcome = await callWorker('RATE_MEDIA', { media: mediaRefOf(item.mediaId, item.malId, item.title), score: value, fromCard: true }, outcomeFailure);
       const feedback = ratingFeedback(outcome, formatStarValue(value), item.title);
       const current = store.get();
       if (!feedback.ok) {

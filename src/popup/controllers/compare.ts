@@ -1,13 +1,12 @@
 // Activité › « Écarts AniList ↔ MAL » : dernière analyse et tâche d'alignement (lues du stockage, suivies par
 // storage.onChanged), demandes au service worker et compte à rebours d'une pause d'alignement.
-import { t } from '../../i18n';
 import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type DiffFilter, type ListDiff } from '../../shared/compare';
 import { COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../../shared/compare-job';
 import { createLogger } from '../../browser/logger';
-import { sendMessage } from '../../protocol/messages';
 import { withStorageLock } from '../../browser/storage/lock';
 import type { TrackerId } from '../../shared/tracker.types';
 import { createStore, patchStore, type Store } from '../../ui/state';
+import { callWorker, networkFailure } from '../../ui/worker-call';
 import { COMPARE_PAGE_SIZE } from '../components/compare-section';
 import type { CompareState } from '../state';
 
@@ -46,7 +45,6 @@ function isCountingDown(job: CompareJob | null): job is CompareJob {
 export function createCompareController(deps: CompareControllerDeps): CompareController {
   const store = createStore<CompareState>({ result: null, job: null, requesting: null, error: null, confirm: null, filter: 'all', shown: COMPARE_PAGE_SIZE });
   const patch = (next: Partial<CompareState>): void => patchStore(store, next);
-  const swUnreachable = (): string => t('popup.swUnreachable');
 
   function setComparison(value: unknown): void {
     patch({ result: isComparisonResult(value) ? value : null });
@@ -100,13 +98,7 @@ export function createCompareController(deps: CompareControllerDeps): CompareCon
     async analyze() {
       if (store.get().requesting !== null) return;
       patch({ requesting: 'analyze', error: null, confirm: null });
-      let result: CompareResult;
-      try {
-        result = await sendMessage('COMPARE_LISTS', null);
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        result = { ok: false, code: 'NETWORK', message: swUnreachable() };
-      }
+      const result: CompareResult = await callWorker('COMPARE_LISTS', null, networkFailure);
       if (result.ok) patch({ requesting: null, result: result.data, shown: COMPARE_PAGE_SIZE });
       else patch({ requesting: null, error: result.message });
     },
@@ -114,13 +106,7 @@ export function createCompareController(deps: CompareControllerDeps): CompareCon
     async apply(diffs, source) {
       if (diffs.length === 0 || store.get().requesting !== null) return;
       patch({ requesting: 'apply', confirm: null, error: null });
-      let result: ApplyResult;
-      try {
-        result = await sendMessage('APPLY_DIFFS', { items: diffs.map((d) => ({ mediaId: d.mediaId, malId: d.malId })), source });
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        result = { ok: false, code: 'NETWORK', message: swUnreachable() };
-      }
+      const result: ApplyResult = await callWorker('APPLY_DIFFS', { items: diffs.map((d) => ({ mediaId: d.mediaId, malId: d.malId })), source }, networkFailure);
       // Tâche acceptée : affichée tout de suite (le changement du stockage suit)
       if (result.ok) patch({ requesting: null, job: result.data });
       else patch({ requesting: null, error: result.message });
@@ -141,12 +127,11 @@ export function createCompareController(deps: CompareControllerDeps): CompareCon
     async cancel() {
       const job = store.get().job;
       if (job) patch({ job: { ...job, cancelled: true } });
-      try {
-        await sendMessage('CANCEL_COMPARE_JOB', null);
-      } catch (error: unknown) {
-        log.error('Service worker injoignable :', error);
-        patch({ error: swUnreachable() });
-      }
+      // Seul l'échec d'envoi est affiché (l'arrêt lui-même est déjà reflété dans la tâche, une réponse « rien à arrêter » est ignorée)
+      await callWorker('CANCEL_COMPARE_JOB', null, (message) => {
+        patch({ error: message });
+        return { ok: false, code: 'NOT_FOUND', message };
+      });
     },
 
     async dismissJob() {

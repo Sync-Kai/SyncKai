@@ -6,7 +6,7 @@ import { isAniListViewer, type ViewerErrorCode, type ViewerResult } from '../sha
 import type { AuthResult } from '../shared/auth.types';
 import { createLogger } from '../browser/logger';
 import { isMalViewer, type MalViewerResult } from '../shared/mal.types';
-import { sendMessage } from '../protocol/messages';
+import { callWorker, networkFailure } from './worker-call';
 import { endSession } from '../browser/storage/session-end';
 import { getCachedMalViewer, getCachedViewer, getViewerFetchedAt } from '../browser/storage/viewer-cache';
 import { hasAniListToken, hasMalToken, hasValidAniListToken, isSessionExpired } from '../browser/storage/tokens';
@@ -18,8 +18,6 @@ const log = createLogger('accounts');
 
 /** Erreurs qui invalident la session : « Session expirée » + reconnexion */
 export const AUTH_ERRORS: ReadonlySet<ViewerErrorCode> = new Set(['NOT_AUTHENTICATED', 'TOKEN_INVALID']);
-
-const swUnreachable = (): string => t('popup.swUnreachable');
 
 /** Profil en cache relu au plus toutes les 6 h à l'ouverture du popup ou du panneau (PERF-04) */
 export const PROFILE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -57,13 +55,7 @@ export function createAccountsController(): AccountsController {
     // Nouvel essai sans profil en cache : l'erreur laisse place au chargement (squelette) le temps de la requête
     const before = store(service).get();
     if (before.status === 'logged-in' && !before.viewer && before.error !== null) store(service).set({ ...before, error: null });
-    let result: ViewerResult | MalViewerResult;
-    try {
-      result = service === 'anilist' ? await sendMessage('GET_VIEWER', null) : await sendMessage('GET_MAL_VIEWER', null);
-    } catch (error: unknown) {
-      log.error('Service worker injoignable :', error);
-      result = { ok: false, code: 'NETWORK', message: swUnreachable() };
-    }
+    const result: ViewerResult | MalViewerResult = await (service === 'anilist' ? callWorker('GET_VIEWER', null, networkFailure) : callWorker('GET_MAL_VIEWER', null, networkFailure));
 
     if (!result.ok && AUTH_ERRORS.has(result.code)) {
       markExpired(service);
@@ -96,13 +88,7 @@ export function createAccountsController(): AccountsController {
     const expired = before.status === 'logged-out' && before.expired;
     target.set({ status: 'logged-out', pending: true, error: null, expired });
 
-    let result: AuthResult;
-    try {
-      result = await sendMessage(service === 'anilist' ? 'LOGIN_ANILIST' : 'LOGIN_MAL', null);
-    } catch (error: unknown) {
-      log.error('Service worker injoignable :', error);
-      result = { ok: false, code: 'UNKNOWN', message: swUnreachable() };
-    }
+    const result: AuthResult = await callWorker(service === 'anilist' ? 'LOGIN_ANILIST' : 'LOGIN_MAL', null, (message) => ({ ok: false, code: 'UNKNOWN', message }));
 
     if (!result.ok) {
       log.warn(`Échec de connexion ${TRACKER_LABELS[service]} :`, result.code, result.message);

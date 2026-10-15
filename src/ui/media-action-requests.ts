@@ -1,5 +1,4 @@
-import { t } from '../i18n';
-import { sendMessage, type AdjustProgressPayload } from '../protocol/messages';
+import type { AdjustProgressPayload } from '../protocol/messages';
 import type { PageMediaView } from '../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import { addFeedback, adjustFeedback, notesFeedback, ratingFeedback, removeFeedback, statusFeedback } from './feedback';
@@ -8,6 +7,8 @@ import { toSafeImageUrl } from '../shared/url';
 import type { InlineFeedback } from './state';
 import type { MediaAction } from './media-actions';
 import { formatStarValue } from './rating';
+import { mediaRefOf } from './media-ref';
+import { callWorker, outcomeFailure } from './worker-call';
 
 // Envoi des actions de la fiche au service worker et texte du retour : partagé par le popup et le panneau.
 
@@ -45,23 +46,24 @@ export function adjustPayload(mediaId: number | null, malId: number | null, delt
   return retry ? { mediaId, malId, delta, retry: { services: retry.services, progress: retry.progress } } : { mediaId, malId, delta };
 }
 
+/** Message de l'action ; service worker injoignable → erreur affichée comme n'importe quel échec */
 function send(request: MediaActionRequest, { media }: PageMediaView): Promise<SyncOutcome> {
   switch (request.kind) {
     case 'add':
-      return sendMessage('ADD_TO_LIST', { mediaId: media.mediaId, malId: media.idMal, status: request.status });
+      return callWorker('ADD_TO_LIST', { mediaId: media.mediaId, malId: media.idMal, status: request.status }, outcomeFailure);
     case 'adjust':
-      return sendMessage('ADJUST_PROGRESS', adjustPayload(media.mediaId, media.idMal, request.delta, request.retry));
+      return callWorker('ADJUST_PROGRESS', adjustPayload(media.mediaId, media.idMal, request.delta, request.retry), outcomeFailure);
     case 'status': {
       // Affiche de la carte « À noter » : hôtes d'images autorisés seulement (IMAGE_HOSTS), sinon sans affiche ; une
       // affiche refusée par la validation du message ferait échouer tout le changement de statut
-      return sendMessage('SET_LIST_STATUS', { mediaId: media.mediaId, malId: media.idMal, status: request.status, coverUrl: toSafeImageUrl(media.coverUrl) });
+      return callWorker('SET_LIST_STATUS', { mediaId: media.mediaId, malId: media.idMal, status: request.status, coverUrl: toSafeImageUrl(media.coverUrl) }, outcomeFailure);
     }
     case 'rate':
-      return sendMessage('RATE_MEDIA', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) }, score: request.value });
+      return callWorker('RATE_MEDIA', { media: mediaRefOf(media.mediaId, media.idMal, media.title), score: request.value }, outcomeFailure);
     case 'remove':
-      return sendMessage('REMOVE_FROM_LIST', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) } });
+      return callWorker('REMOVE_FROM_LIST', { media: mediaRefOf(media.mediaId, media.idMal, media.title) }, outcomeFailure);
     case 'notes':
-      return sendMessage('SET_LIST_NOTES', { media: { mediaId: media.mediaId, malId: media.idMal, title: media.title.slice(0, 300) }, notes: request.notes });
+      return callWorker('SET_LIST_NOTES', { media: mediaRefOf(media.mediaId, media.idMal, media.title), notes: request.notes }, outcomeFailure);
   }
 }
 
@@ -85,13 +87,6 @@ function toFeedback(request: MediaActionRequest, outcome: SyncOutcome, view: Pag
 }
 
 /** Envoie l'action et retourne le retour à afficher (service worker injoignable → erreur) */
-export async function runMediaAction(request: MediaActionRequest, view: PageMediaView, onError: (error: unknown) => void = () => undefined): Promise<InlineFeedback> {
-  let outcome: SyncOutcome;
-  try {
-    outcome = await send(request, view);
-  } catch (error: unknown) {
-    onError(error);
-    outcome = { status: 'error', message: t('popup.swUnreachable') };
-  }
-  return toFeedback(request, outcome, view);
+export async function runMediaAction(request: MediaActionRequest, view: PageMediaView): Promise<InlineFeedback> {
+  return toFeedback(request, await send(request, view), view);
 }
