@@ -457,15 +457,17 @@ function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
   if (!seriesTitle) return null;
 
   const season = readSeasonMenu()?.season ?? null;
+  // Première saison au titre de la série (« Attack on Titan », sans « Season 1 ») : saison 1, pour lire ses signaux
+  const seasonNumber = season?.number ?? (season?.title === seriesTitle ? 1 : null);
   return {
     seriesId: path.seriesId,
     seriesSlug: path.seriesSlug,
     seriesTitle,
-    seasonNumber: season?.number ?? null,
+    seasonNumber,
     seasonTitle: season?.title ?? null,
-    seasonEpisodeCount: readSeasonEpisodeCount(season?.number ?? null),
+    seasonEpisodeCount: readSeasonEpisodeCount(seasonNumber),
     ...(season?.firstEpisode !== undefined ? { seasonFirstEpisode: season.firstEpisode } : {}),
-    ...bridgeSignals(path.seriesId, { seasonNumber: season?.number ?? null }),
+    ...bridgeSignals(path.seriesId, { seasonNumber }),
   };
 }
 

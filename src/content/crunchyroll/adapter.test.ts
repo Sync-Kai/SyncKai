@@ -19,6 +19,7 @@ import {
 } from './adapter';
 import { createLabelGuard, flattenJsonLd, LABEL_SETTLE_MS, labelKey, type LabelGuard } from '../lib/parsing';
 import { crunchyrollSignalTable, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../platforms/crunchyroll/metadata';
+import { AOT_SERIES_ID, aotSeasons } from '../../shared/__fixtures__/crunchyroll-cms';
 
 // Pont du monde MAIN remplacé : tables des signaux servies par le test (aucune par défaut, comme un onglet ouvert avant l'extension)
 const bridge = vi.hoisted(() => ({ tables: new Map<string, Record<string, unknown>>() }));
@@ -147,6 +148,16 @@ describe('crunchyrollAdapter.detectSeries : saison du menu de la page de série'
     expect(crunchyrollAdapter.detectSeries?.(ONE_PIECE)).toMatchObject({ seasonNumber: null, seasonTitle: 'HEROINES' });
     page.set('.erc-seasons-select [role="button"]', { text: 'Elbaph (1156-current)Elbaph (1156-current)' });
     expect(crunchyrollAdapter.detectSeries?.(ONE_PIECE)).toMatchObject({ seasonTitle: 'Elbaph', seasonFirstEpisode: 1156 });
+  });
+
+  it('première saison au titre de la série (Attack on Titan, relevé le 2026-10-15) : titre de saison seul, sans numéro', () => {
+    page.set('h1', { text: 'Attack on Titan' });
+    page.set('.erc-seasons-select [role="button"]', { text: 'Attack on TitanAttack on Titan' });
+    const series = crunchyrollAdapter.detectSeries?.(new URL('https://www.crunchyroll.com/series/GR751KNZY/attack-on-titan'));
+    expect(series).toMatchObject({ seriesTitle: 'Attack on Titan', seasonNumber: 1, seasonTitle: 'Attack on Titan' });
+    // Autre nom seul (« HEROINES ») : toujours sans numéro
+    page.set('.erc-seasons-select [role="button"]', { text: 'Attack on Titan OADs' });
+    expect(crunchyrollAdapter.detectSeries?.(new URL('https://www.crunchyroll.com/series/GR751KNZY/attack-on-titan'))).toMatchObject({ seasonNumber: null, seasonTitle: 'Attack on Titan OADs' });
   });
 
   it('Elbaph ↔ HEROINES : la saison retenue change à chaque choix (suivi du menu par le panneau)', () => {
@@ -450,5 +461,19 @@ describe('crunchyrollAdapter : signaux de correspondance du pont MAIN', () => {
     expect(crunchyrollAdapter.detectSeries(url)?.signals).toEqual({ seriesYear: 1999 });
     page.set('[data-t="seasons-select"]', { text: 'S7: Inconnue' });
     expect(crunchyrollAdapter.detectSeries(url)?.signals).toEqual({ seriesYear: 1999 });
+  });
+
+  it('page de série, première saison au titre de la série (« Attack on Titan », réponse `seasons` réelle) : signaux de la saison 1', () => {
+    const rows = reduceCrunchyrollSeasons(aotSeasons()) ?? [];
+    const s1 = reduceCrunchyrollEpisodes({ data: [{ id: 'GAOTS1E1', duration_ms: 1_435_000, episode_air_date: '2013-04-07T00:00:00Z', media_type: 'episode' }] }) ?? undefined;
+    const series = mergeCrunchyrollSeries(AOT_SERIES_ID, 2013, rows, (id) => (id === 'GR9PXM286' ? s1 : undefined));
+    bridge.tables.set(AOT_SERIES_ID, JSON.parse(JSON.stringify(crunchyrollSignalTable(series))) as Record<string, unknown>);
+    page.set('h1', { text: 'Attack on Titan' });
+    page.set('.erc-seasons-select [role="button"]', { text: 'Attack on TitanAttack on Titan' });
+    // Avant : saison sans numéro, plusieurs saisons originales → année de la série seule ({ seriesYear: 2013 })
+    expect(crunchyrollAdapter.detectSeries(new URL(`https://www.crunchyroll.com/series/${AOT_SERIES_ID}/attack-on-titan`))).toMatchObject({
+      seasonNumber: 1,
+      signals: { seasonYear: 2013, seasonEpisodeCount: 27, episodeMinutes: 23.9, format: 'series', country: 'JP' },
+    });
   });
 });

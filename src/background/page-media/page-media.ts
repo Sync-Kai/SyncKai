@@ -35,6 +35,7 @@ import {
   rememberedSeason,
   seriesMappingPrefix,
   seriesPageGate,
+  seriesTitledSeason,
   toPageSeasons,
   type SeasonChoice,
 } from './page-media-rules';
@@ -202,7 +203,9 @@ function pageSignals(page: PageMediaInfo): PlatformSignals | undefined {
 }
 
 /** Saison de la page de série : saison lue sur la page, correspondance mémorisée, puis première saison non terminée */
-async function pickSeriesSeason(page: PageMediaInfo, manual: number | null, { candidates, seasons, others, seasonGroups }: SeriesSeasons): Promise<Resolution | null> {
+async function pickSeriesSeason(shownPage: PageMediaInfo, manual: number | null, { candidates, seasons, others, seasonGroups }: SeriesSeasons): Promise<Resolution | null> {
+  // Saison au titre de la série sans numéro (première saison Crunchyroll « Attack on Titan ») : saison 1
+  const page = { ...shownPage, seasonNumber: seriesTitledSeason(shownPage) };
   const shown = (seasons.length > 0 ? seasons : others).slice(0, MAX_PICKER_SEASONS);
   const summaries = toPageSeasons(shown.map(toCandidateSummary), seasonGroups);
   if (shown.length === 0) return null;

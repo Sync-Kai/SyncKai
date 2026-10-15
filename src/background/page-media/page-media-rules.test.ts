@@ -9,6 +9,7 @@ import {
   rememberedSeason,
   seriesMappingPrefix,
   seriesPageGate,
+  seriesTitledSeason,
   toPageSeasons,
 } from './page-media-rules';
 import type { CandidateSummary } from '../../shared/review.types';
@@ -32,6 +33,23 @@ describe('seriesMappingPrefix', () => {
     expect(seriesMappingPrefix({ platform: 'disney', seriesId: null, seriesTitle: 'Undead Unluck', seasonNumber: 99, seasonTitle: null })).toBe('disney:title:undead unluck:');
     // Prime Video : par titre, comme la lecture (`prime:title:{titre}:s{n}`), même avec le GTI compact de la saison
     expect(seriesMappingPrefix({ platform: 'prime', seriesId: '0GMSR5LDQCKJ3B0DQAYCSQIR2W', seriesTitle: 'Tokyo Ghoul' })).toBe('prime:title:tokyo ghoul:');
+  });
+});
+
+describe('seriesTitledSeason (saison du menu au titre de la série)', () => {
+  const page = { seriesTitle: 'Attack on Titan', seasonNumber: null, seasonTitle: 'Attack on Titan' };
+
+  it('libellé égal au titre de la série, sans numéro (Attack on Titan, relevé le 2026-10-15) : saison 1', () => {
+    expect(seriesTitledSeason(page)).toBe(1);
+    expect(seriesTitledSeason({ ...page, seasonTitle: 'ATTACK ON TITAN' })).toBe(1);
+    expect(seriesTitledSeason({ seriesTitle: "L'Attaque des Titans", seasonNumber: null, seasonTitle: "L'Attaque des Titans" })).toBe(1);
+  });
+
+  it('numéro lu, autre titre, arc à plage d’épisodes ou aucune saison : inchangé', () => {
+    expect(seriesTitledSeason({ ...page, seasonNumber: 3 })).toBe(3);
+    expect(seriesTitledSeason({ ...page, seasonTitle: 'Attack on Titan Season 3' })).toBeNull();
+    expect(seriesTitledSeason({ ...page, seasonTitle: null })).toBeNull();
+    expect(seriesTitledSeason({ seriesTitle: 'One Piece', seasonNumber: null, seasonTitle: 'One Piece', seasonFirstEpisode: 1 })).toBeNull();
   });
 });
 

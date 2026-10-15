@@ -3,6 +3,7 @@ import type { PageMediaInfo, PageSeason, SeasonSlot, SeasonSource } from '../../
 import { platformSeriesUrl } from '../../platforms/links';
 import type { CandidateSummary } from '../../shared/review.types';
 import type { ListStatus, MediaMapping } from '../../shared/sync.types';
+import { normalizeTitle } from '../../shared/title';
 import type { PlatformLink } from '../../shared/watching.types';
 import { mappingKey, type PlatformLinkVerdict } from '../sync/matching/matching';
 
@@ -12,6 +13,16 @@ export interface SeasonChoice {
   mediaId: number;
   source: SeasonSource;
   confidence: 'certain' | 'uncertain';
+}
+
+/**
+ * Numéro de la saison affichée sur une page de série. Saison sans numéro dont le libellé est le titre de la série (première
+ * saison de Crunchyroll « Attack on Titan », suivie de « Attack on Titan: Season 2 »…, relevé le 2026-10-15) : saison 1.
+ * Sans cela, aucune saison n'était retenue et la carte retombait sur la progression de l'utilisateur (dernière partie).
+ */
+export function seriesTitledSeason(page: Pick<PageMediaInfo, 'seriesTitle' | 'seasonNumber' | 'seasonTitle'> & { seasonFirstEpisode?: number | undefined }): number | null {
+  if (page.seasonNumber !== null || !page.seasonTitle || page.seasonFirstEpisode !== undefined) return page.seasonNumber;
+  return normalizeTitle(page.seasonTitle) === normalizeTitle(page.seriesTitle) ? 1 : null;
 }
 
 /**

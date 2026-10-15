@@ -10,6 +10,7 @@ import {
   AOT_SEASON_IDS,
   AOT_SERIES,
   ATTACK_ON_TITAN_SEARCH,
+  FINAL_SEASON_PART_2,
   LAST_ATTACK_MOVIE,
   LAST_ATTACK_MOVIE_ID,
   LAST_ATTACK_SEASON,
@@ -534,6 +535,15 @@ describe('resolvePageMedia — Attack on Titan sur Crunchyroll, saison nommée �
     const result = await resolvePageMedia({ page: seriesPage, mediaId: null });
     expect(result).toMatchObject({ ok: true, data: { media: { mediaId: LAST_ATTACK_MOVIE_ID }, confidence: 'certain', source: 'page' } });
     expect(result.ok && result.data.seasons.map((s) => s.id)).toEqual([...AOT_SEASON_IDS]);
+  });
+
+  it('première saison au libellé « Attack on Titan » (titre de la série, relevé le 2026-10-15) : saison 1, certaine, jamais la dernière partie mémorisée', async () => {
+    searchResults([]);
+    // Synchro précédente de la dernière partie : avant le correctif, aucune saison n'était lue et la carte la proposait
+    await chrome.storage.local.set({ [STORAGE_KEYS.mediaMappings]: { [`crunchyroll:${AOT_SERIES.seriesId}:s4`]: { mediaId: FINAL_SEASON_PART_2, numbering: 'season', offset: 16, episodes: 12, learned: true } } });
+    const result = await resolvePageMedia({ page: { ...seriesPage, seasonTitle: AOT_SERIES.animeTitle }, mediaId: null });
+    expect(result).toMatchObject({ ok: true, data: { media: { mediaId: AOT_SEASON_IDS[0] }, confidence: 'certain', source: 'page' } });
+    expect(api.searchAnime).toHaveBeenCalledTimes(1);
   });
 });
 
