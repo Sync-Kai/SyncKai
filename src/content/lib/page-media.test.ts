@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PAGE_MEDIA_ASYNC_TIMEOUT_MS } from '../../shared/content-messages';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
-import type { StreamingAdapter } from '../adapters/adapter';
+import type { StreamingAdapter } from './adapter';
 import { detectPageMedia, loadPageMedia, needsAsyncPageMedia } from './page-media';
 
 // Réponse à GET_PAGE_MEDIA : lecture synchrone (Crunchyroll, ADN, cache du pont), ou chargement asynchrone borné d'une

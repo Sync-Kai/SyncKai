@@ -1,6 +1,6 @@
 import { isRecord } from '../../shared/guards';
 import { isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistorySeason } from '../../shared/cr-history';
-import { cleanText, stripAudioTag } from '../adapters/parsing';
+import { cleanText, stripAudioTag } from './parsing';
 import type { FetchLike } from './page-fetch';
 
 // Lecture de l'historique de visionnage Crunchyroll, DANS l'onglet Crunchyroll de l'utilisateur (même origine :

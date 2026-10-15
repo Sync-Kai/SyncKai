@@ -6,8 +6,8 @@ import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixSeasonMe
 import type { PlatformSignals } from '../../shared/match-signals';
 import { findPlayerVideo } from '../lib/find-video';
 import { watchElementText } from '../lib/season-watch';
-import type { StreamingAdapter } from './adapter';
-import { meaningfulSeasonTitle } from './parsing';
+import type { StreamingAdapter } from '../lib/adapter';
+import { meaningfulSeasonTitle } from '../lib/parsing';
 
 // Numérotation partagée avec l'import de l'historique (shared/netflix-metadata.ts) : mêmes numéros des deux côtés
 export { absoluteEpisodeNumber, episodeNumbers, platformSeasonsOf } from '../../shared/netflix-metadata';

@@ -8,7 +8,7 @@ vi.mock('../content/disney/content-disney.iife.ts?script', () => ({ default: 'di
 vi.mock('../content/prime/page-bridge.iife.ts?script', () => ({ default: 'prime-bridge.js' }));
 vi.mock('../content/prime/content-prime.iife.ts?script', () => ({ default: 'prime-content.js' }));
 const mocks = vi.hoisted(() => ({ resetRevokedPlayer: vi.fn() }));
-vi.mock('../shared/netflix-access', () => mocks);
+vi.mock('../shared/preferred-player', () => mocks);
 
 const NETFLIX = '*://*.netflix.com/*';
 const DISNEY = '*://*.disneyplus.com/*';

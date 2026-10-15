@@ -21,7 +21,7 @@ import {
   hydrationDocument,
   SEEN_AT,
 } from '../prime/fixtures';
-import type { StreamingAdapter } from './adapter';
+import type { StreamingAdapter } from '../lib/adapter';
 
 // Adapter Prime Video branché sur le vrai client du pont et un faux onglet (Node : ni DOM ni postMessage « trusted ») :
 // page de détail lue dans le nœud d'hydratation, épisodes poussés par un pont MAIN simulé, comme lors de la lecture

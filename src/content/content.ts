@@ -1,7 +1,7 @@
 // Script de contenu déclaré dans le manifeste : Crunchyroll et ADN (Netflix : netflix/content-netflix.iife.ts,
 // enregistré à la demande par le service worker). Aussi réinjecté par le service worker dans les onglets déjà
 // ouverts à l'installation et à la mise à jour sur Chrome (background/content-reinjection.ts) ; Firefox le fait seul.
-import type { StreamingAdapter } from './adapters/adapter';
+import type { StreamingAdapter } from './lib/adapter';
 import { adnAdapter } from './adapters/adn';
 import { crunchyrollAdapter, crunchyrollBridge } from './adapters/crunchyroll';
 import { listenAdnHistoryPorts } from './lib/adn-history';

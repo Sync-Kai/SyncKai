@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { installFakeDocument, type FakeDocument } from '../../test/fake-document';
 import { ONE_PIECE_E1180, ONE_PIECE_E1180_WITH_URL, ONE_PIECE_E1181, type CrunchyrollWatchFixture } from './__fixtures__/crunchyroll-watch';
-import type { StreamingAdapter } from './adapter';
+import type { StreamingAdapter } from '../lib/adapter';
 import {
   crunchyrollAdapter,
   episodeFromJsonLdNodes,
@@ -17,7 +17,7 @@ import {
   seriesTitleFromJsonLd,
   type WatchPageContext,
 } from './crunchyroll';
-import { createLabelGuard, flattenJsonLd, LABEL_SETTLE_MS, labelKey, type LabelGuard } from './parsing';
+import { createLabelGuard, flattenJsonLd, LABEL_SETTLE_MS, labelKey, type LabelGuard } from '../lib/parsing';
 import { crunchyrollSignalTable, mergeCrunchyrollSeries, reduceCrunchyrollEpisodes, reduceCrunchyrollSeasons } from '../../shared/crunchyroll-metadata';
 
 // Pont du monde MAIN remplacé : tables des signaux servies par le test (aucune par défaut, comme un onglet ouvert avant l'extension)

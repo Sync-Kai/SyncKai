@@ -5,8 +5,8 @@ import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createDisneyBridgeClient, type DisneyBridgeClient } from '../disney/bridge-client';
 import { hasDisneyId, parseInternalTitle, type DisneyPlayerExperience, type DisneySeason, type DisneySeriesPage } from '../disney/bridge-protocol';
 import { watchElementText } from '../lib/season-watch';
-import type { PlaybackTime, StreamingAdapter } from './adapter';
-import { meaningfulSeasonTitle } from './parsing';
+import type { PlaybackTime, StreamingAdapter } from '../lib/adapter';
+import { meaningfulSeasonTitle } from '../lib/parsing';
 
 export { parseInternalTitle, type DisneyInternalTitle } from '../disney/bridge-protocol';
 

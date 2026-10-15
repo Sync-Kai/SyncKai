@@ -1,6 +1,6 @@
 import { createLogger } from '../../shared/logger';
 import { sendMessage } from '../../shared/messages';
-import { effectivePreferredPlayer } from '../../shared/netflix-access';
+import { effectivePreferredPlayer } from '../../shared/preferred-player';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PanelMedia } from '../../shared/panel-media.types';
 import { DEFAULT_SETTINGS, getSettings, SETTINGS_STORAGE_KEY } from '../../shared/settings';

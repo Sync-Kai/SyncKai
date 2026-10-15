@@ -1,6 +1,6 @@
 import { canComplete, formatTimecode, resolveCompletionPoint, type CompletionPoint } from './completion';
 import type { Logger } from '../../shared/logger';
-import type { PlaybackTime } from '../adapters/adapter';
+import type { PlaybackTime } from './adapter';
 
 interface VideoTrackerOptions {
   /** Seuil de repli (0 à 1) si le début du générique de fin est inconnu */

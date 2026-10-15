@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StreamingAdapter } from '../adapters/adapter';
+import type { StreamingAdapter } from './adapter';
 import { createSeasonWatch, SEASON_DEBOUNCE_MS, SEASON_RECHECK_MS, watchElementText } from './season-watch';
 
 // Saison choisie dans le menu d'une page de série : panneau prévenu une fois par rafale, rien sans panneau connecté,

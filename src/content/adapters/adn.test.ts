@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { installFakeDocument, type FakeDocument } from '../../test/fake-document';
 import { TOUGEN_ANKI_E1, TOUGEN_ANKI_E1_DE, TOUGEN_ANKI_E2, type AdnWatchFixture } from './__fixtures__/adn-watch';
-import type { StreamingAdapter } from './adapter';
+import type { StreamingAdapter } from '../lib/adapter';
 import {
   adnEpisodeFromJsonLdNodes,
   adnEpisodeFromPlayer,
@@ -13,7 +13,7 @@ import {
   parseAdnSeriesPath,
   parseAdnWatchPath,
 } from './adn';
-import { createLabelGuard, flattenJsonLd, labelKey } from './parsing';
+import { createLabelGuard, flattenJsonLd, labelKey } from '../lib/parsing';
 
 describe('parseAdnWatchPath', () => {
   it('extrait série et épisode d’une page de lecture (URL réelle)', () => {

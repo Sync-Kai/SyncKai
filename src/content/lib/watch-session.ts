@@ -6,7 +6,7 @@ import type { LiveOutcome, LiveState } from '../../shared/live.types';
 import { failedServices } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import { DEFAULT_SETTINGS, getSettings, type NotificationLevel, type SyncSettings } from '../../shared/settings';
-import type { StreamingAdapter } from '../adapters/adapter';
+import type { StreamingAdapter } from './adapter';
 import { showEngagementPrompt } from '../ui/engagement-prompt';
 import { isAlertTone, promptForOutcome, showsProgress } from '../ui/notification-policy';
 import { ALERT_TOAST_MS, NOTICE_TOAST_MS, PILL_TOAST_MS, RETRY_TOAST_MS, bubbleForOutcome, toastForOutcome } from '../ui/sync-toast';

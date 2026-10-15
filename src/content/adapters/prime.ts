@@ -14,7 +14,7 @@ import {
 import { titleKey } from '../../shared/title';
 import { createPrimeBridgeClient, type PrimeBridgeClient, type ReceivedCatalog } from '../prime/bridge-client';
 import type { PrimeWidgetsEntry } from '../prime/bridge-protocol';
-import type { PlaybackTime, StreamingAdapter } from './adapter';
+import type { PlaybackTime, StreamingAdapter } from '../lib/adapter';
 
 // Prime Video (accès optionnel, comme Netflix et Disney+). Particularités relevées le 2026-10-14 :
 // - le lecteur est intégré à la page de détail de la saison : l'URL (/detail/{GTI compact de la saison}) ne change JAMAIS,

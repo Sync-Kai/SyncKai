@@ -14,10 +14,10 @@ import {
   stripAudioTag,
   stripCtaPrefix,
   toNumber,
-} from './parsing';
+} from '../lib/parsing';
 import { findPlayerVideo } from '../lib/find-video';
 import { watchElementText } from '../lib/season-watch';
-import type { StreamingAdapter } from './adapter';
+import type { StreamingAdapter } from '../lib/adapter';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { connectCrunchyrollBridge, type CrunchyrollTables } from '../crunchyroll/bridge-client';
 

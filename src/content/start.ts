@@ -2,7 +2,7 @@ import { initI18n, t } from '../i18n/content';
 import { isContentMessage, type PageMediaResponse } from '../shared/content-messages';
 import { isLivePanelMessage, LIVE_PORT_NAME, type LiveContentMessage } from '../shared/live.types';
 import { createLogger } from '../shared/logger';
-import type { StreamingAdapter } from './adapters/adapter';
+import type { StreamingAdapter } from './lib/adapter';
 import { isExtensionContextInvalidated } from './lib/extension-context';
 import { createLiveStream, type LiveStream } from './lib/live-stream';
 import { detectPageMedia, loadPageMedia, needsAsyncPageMedia } from './lib/page-media';

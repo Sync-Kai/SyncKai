@@ -9,7 +9,7 @@ import netflixContentPath from '../content/netflix/content-netflix.iife.ts?scrip
 import primeBridgePath from '../content/prime/page-bridge.iife.ts?script';
 import primeContentPath from '../content/prime/content-prime.iife.ts?script';
 import { createLogger } from '../shared/logger';
-import { resetRevokedPlayer } from '../shared/netflix-access';
+import { resetRevokedPlayer } from '../shared/preferred-player';
 import { PLATFORMS } from '../shared/platforms';
 import { isPreferredPlayerOption } from '../shared/settings';
 import { reinjectionPlan } from './content-reinjection';

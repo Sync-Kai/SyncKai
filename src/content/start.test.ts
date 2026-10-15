@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StreamingAdapter } from './adapters/adapter';
+import type { StreamingAdapter } from './lib/adapter';
 
 // Point d'entrée commun des scripts de contenu : raccourci sans lecture (CTRL-07) et retrait d'une instance
 // orpheline quand le script réinjecté démarre (CONT-06). Session, URL, panneau et toasts simulés.

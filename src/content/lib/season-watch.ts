@@ -1,4 +1,4 @@
-import type { StreamingAdapter } from '../adapters/adapter';
+import type { StreamingAdapter } from './adapter';
 
 // Saison choisie dans le menu d'une page de série (Crunchyroll, Netflix, Disney+ : l'URL ne change pas) : le panneau
 // latéral relit la page à chaque changement. Rien ne tourne hors page de série, ni tant qu'aucun panneau n'est connecté.

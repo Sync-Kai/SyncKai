@@ -3,7 +3,7 @@ import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../shared/logger';
 import { toPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
 import { findPlayerVideo } from '../lib/find-video';
-import type { StreamingAdapter } from './adapter';
+import type { StreamingAdapter } from '../lib/adapter';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import {
   cleanPageTitle,
@@ -16,7 +16,7 @@ import {
   slugToTitle,
   toNumber,
   type LabelGuard,
-} from './parsing';
+} from '../lib/parsing';
 
 const log = createLogger('adn');
 

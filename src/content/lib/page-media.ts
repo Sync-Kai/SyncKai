@@ -1,7 +1,7 @@
 import { PAGE_MEDIA_ASYNC_TIMEOUT_MS } from '../../shared/content-messages';
 import type { PageMediaInfo } from '../../shared/page-media.types';
 import { pageMediaFromEpisode, pageMediaFromSeries } from '../../shared/page-media';
-import type { StreamingAdapter } from '../adapters/adapter';
+import type { StreamingAdapter } from './adapter';
 
 /**
  * Série ou épisode affiché, lu à la demande du popup (aucun écouteur posé).

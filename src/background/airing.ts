@@ -26,7 +26,7 @@ import { AIRING_COVERED_KEY, AIRING_LAST_CHECK_KEY, AIRING_NOTIFIED_KEY, AIRING_
 import type { AiringCheckResult, AiringSkipReason } from '../shared/airing.types';
 import { getExcludedSeries } from '../shared/exclusions';
 import { isRecord } from '../shared/guards';
-import { effectivePreferredPlayer } from '../shared/netflix-access';
+import { effectivePreferredPlayer } from '../shared/preferred-player';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { getSettings } from '../shared/settings';
 import {

@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SyncOutcome } from '../../shared/sync.types';
-import type { StreamingAdapter } from '../adapters/adapter';
+import type { StreamingAdapter } from './adapter';
 
 // Session de lecture (adapters synchrone et asynchrone) : DOM, toasts, service worker et lecteur simulés.
 
