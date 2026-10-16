@@ -190,6 +190,59 @@ describe('pagination tronquée (ALRT-06)', () => {
   });
 });
 
+describe('heure de l’alerte = heure annoncée par l’agenda (décision 17, 6-D13)', () => {
+  const crunchyroll = (mediaId: number, progress: number): WatchingEntry => ({ ...entry(mediaId, progress), platforms: [{ platform: 'crunchyroll', url: `https://www.crunchyroll.com/series/S${mediaId}` }] });
+  /** Calendrier qui respecte les bornes demandées (exclues), comme AniList */
+  const scheduleOf = (nodes: Record<string, unknown>[]) => ({ from, to }: { from: number; to: number }): unknown =>
+    page(nodes.filter((n) => typeof n.airingAt === 'number' && n.airingAt > from && n.airingAt < to));
+
+  it('délai de la série (+3 jours dans l’agenda) : rien à la diffusion japonaise, annoncée quand l’agenda l’annonce', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.parse('2026-10-14T15:00:00Z'));
+      const aired = nowS() - 600;
+      const settings = { airingAlerts: true, airingDelayHours: 0, seriesOffsets: { '1': { minutes: 3 * 24 * 60, at: 1 } } };
+      fake.reset({ ...OPEN_SESSIONS, settings, [STORAGE_KEYS.watchingCache]: { anilist: list(Date.now(), [crunchyroll(1, 6), crunchyroll(2, 2)]) } });
+      fakes.schedule.mockImplementation(scheduleOf([node(100, 1, 7, aired), node(200, 2, 3, aired)]));
+      // Liste « En cours » relue quand elle a plus de 12 h (même contenu)
+      fakes.getWatchingList.mockImplementation(async (service) => {
+        const fresh = list(Date.now(), [crunchyroll(1, 6), crunchyroll(2, 2)]);
+        await chrome.storage.local.set({ [STORAGE_KEYS.watchingCache]: { [service]: fresh } });
+        return { ok: true, data: fresh };
+      });
+
+      expect((await checkNewEpisodes()).notified).toBe(0);
+      // Série 2 : délai de Crunchyroll (60 min par défaut) pas encore écoulé ; série 1 : 3 jours
+      expect(fakes.create).not.toHaveBeenCalled();
+      expect((await checkNewEpisodes()).notified).toBe(0);
+
+      fakes.create.mockClear();
+      vi.setSystemTime(Date.now() + HOUR_MS);
+      expect((await checkNewEpisodes()).notified).toBe(1);
+      expect(fakes.create.mock.calls.map(([id]) => id)).toEqual(['synckai-airing:200']);
+      // La reprise reste à la sortie de la série 1, pas encore annoncée
+      expect(stored(AIRING_COVERED_KEY)).toBe(aired);
+
+      fakes.create.mockClear();
+      vi.setSystemTime(Date.now() + 3 * 24 * HOUR_MS);
+      expect((await checkNewEpisodes()).notified).toBe(1);
+      expect(fakes.create.mock.calls.map(([id]) => id)).toEqual(['synckai-airing:100']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('délai des alertes ajouté à l’heure de l’agenda ; sans plateforme ni délai de série : diffusion japonaise + délai', async () => {
+    const settings = { airingAlerts: true, airingDelayHours: 1, platformOffsets: { crunchyroll: 30 } };
+    const now = nowS();
+    fake.reset({ ...OPEN_SESSIONS, settings, [STORAGE_KEYS.watchingCache]: { anilist: list(Date.now(), [crunchyroll(1, 6), entry(2, 2)]) } });
+    // Série 1 (Crunchyroll, 30 min + 1 h) : due 90 min après la diffusion ; série 2 (aucun lien) : 1 h après
+    fakes.schedule.mockImplementation(scheduleOf([node(100, 1, 7, now - 95 * 60), node(101, 1, 8, now - 85 * 60), node(200, 2, 3, now - 61 * 60)]));
+    await checkNewEpisodes();
+    expect(fakes.create.mock.calls.map(([id]) => id).sort()).toEqual(['synckai-airing:100', 'synckai-airing:200']);
+  });
+});
+
 describe('alarme horaire (PERF-17) : vérifiée à son déclenchement, plus par storage.onChanged', () => {
   const AIRING = 'synckai:airing';
 

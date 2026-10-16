@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  alertAt,
+  alertShifts,
+  alertWindow,
   chunk,
-  computeWindow,
   coveredEnd,
+  dueAlerts,
   filterNewEpisodes,
   isAiringPageData,
   itemsInWindow,
@@ -29,22 +32,24 @@ const item = (scheduleId: number, mediaId: number, episode: number, title = `Sé
   coverUrl: null,
 });
 
-describe('computeWindow', () => {
+describe('alertWindow (diffusions lues)', () => {
   const HOUR = 3600;
+  /** Même écart pour toutes les séries : délai des alertes seul, comme avant les délais de l'agenda */
+  const uniform = (hours: number): { min: number; max: number } => ({ min: hours * HOUR, max: hours * HOUR });
 
   it('premier passage : 2 h en arrière', () => {
-    expect(computeWindow(NOW, null, 0)).toEqual({ from: NOW - 7200, to: NOW });
+    expect(alertWindow(NOW, null, uniform(0))).toEqual({ fetch: { from: NOW - 7200, to: NOW }, notBefore: NOW - 7200 });
   });
 
   it('reprend à la fin de la fenêtre couverte (seconde de reprise incluse), décalée du délai', () => {
     // Vérification précédente une heure plus tôt avec 3 h de délai : couverte jusqu'à NOW - 4 h
-    expect(computeWindow(NOW, NOW - 4 * HOUR, 3)).toEqual({ from: NOW - 4 * HOUR - 1, to: NOW - 3 * HOUR });
+    expect(alertWindow(NOW, NOW - 4 * HOUR, uniform(3)).fetch).toEqual({ from: NOW - 4 * HOUR - 1, to: NOW - 3 * HOUR });
   });
 
   it('délai passé de 6 h à 0 h : la fenêtre reprend à la dernière borne couverte (ALRT-02)', () => {
     // Dernière vérification à NOW - 1 h avec 6 h de délai : sorties traitées jusqu'à NOW - 7 h
     const covered = NOW - HOUR - 6 * HOUR;
-    const range = computeWindow(NOW, covered, 0);
+    const range = alertWindow(NOW, covered, uniform(0)).fetch;
     expect(range).toEqual({ from: covered - 1, to: NOW });
     // Diffusions de l'intervalle autrefois sauté (entre NOW - 7 h et NOW - 1 h) : dans la fenêtre
     const skipped = [{ airingAt: covered }, { airingAt: NOW - 4 * HOUR }, { airingAt: NOW - HOUR - 1 }];
@@ -52,20 +57,55 @@ describe('computeWindow', () => {
   });
 
   it('délai augmenté : fenêtre vide jusqu’à rattraper la borne couverte (doublons écartés par airingNotified)', () => {
-    expect(computeWindow(NOW, NOW - HOUR, 6)).toEqual({ from: NOW - 6 * HOUR, to: NOW - 6 * HOUR });
+    expect(alertWindow(NOW, NOW - HOUR, uniform(6)).fetch).toEqual({ from: NOW - 6 * HOUR, to: NOW - 6 * HOUR });
   });
 
-  it('rattrapage borné à 24 h', () => {
-    expect(computeWindow(NOW, NOW - 10 * 86400, 0)).toEqual({ from: NOW - 86400, to: NOW });
+  it('rattrapage borné à 24 h d’alertes', () => {
+    expect(alertWindow(NOW, NOW - 10 * 86400, uniform(0))).toEqual({ fetch: { from: NOW - 86400, to: NOW }, notBefore: NOW - 86400 });
   });
 
   it('borne couverte dans le futur ramenée à la fin de la fenêtre', () => {
-    expect(computeWindow(NOW, NOW + 500, 1)).toEqual({ from: NOW - 3600, to: NOW - 3600 });
+    expect(alertWindow(NOW, NOW + 500, uniform(1)).fetch).toEqual({ from: NOW - 3600, to: NOW - 3600 });
   });
 
   it('ancien format (heure de la dernière vérification) : décalé du délai actuel', () => {
     expect(legacyCoveredUntil(NOW - HOUR, 3)).toBe(NOW - 4 * HOUR);
-    expect(computeWindow(NOW, legacyCoveredUntil(NOW - HOUR, 0), 0)).toEqual({ from: NOW - HOUR - 1, to: NOW });
+    expect(alertWindow(NOW, legacyCoveredUntil(NOW - HOUR, 0), uniform(0)).fetch).toEqual({ from: NOW - HOUR - 1, to: NOW });
+  });
+
+  it('écarts différents selon les séries : diffusions lues assez loin pour le plus grand, jusqu’au plus petit (sortie avancée)', () => {
+    // Une série à +3 jours, une à −1 h (la plateforme publie avant la diffusion japonaise)
+    const { fetch, notBefore } = alertWindow(NOW, NOW - HOUR, { min: -HOUR, max: 3 * 24 * HOUR });
+    expect(notBefore).toBe(NOW - 24 * HOUR);
+    expect(fetch).toEqual({ from: NOW - HOUR - 1, to: NOW + HOUR });
+    expect(alertWindow(NOW, null, { min: 0, max: 3 * 24 * HOUR }).fetch).toEqual({ from: NOW - 2 * HOUR - 3 * 24 * HOUR, to: NOW });
+  });
+});
+
+describe('heure de l’alerte (décision 17, 6-D13 : celle de l’agenda)', () => {
+  const settings = { airingDelayHours: 0 as const, platformOffsets: { crunchyroll: 30, adn: 120, netflix: 60, disney: 60, prime: 60 }, seriesOffsets: { '7': { minutes: -15, at: 1 } } };
+
+  it('délai de la série, sinon de la plateforme du lien « Ouvrir », sinon diffusion japonaise ; puis délai des alertes', () => {
+    expect(alertAt(NOW, 7, 'adn', settings)).toBe(NOW - 15 * 60);
+    expect(alertAt(NOW, 8, 'adn', settings)).toBe(NOW + 120 * 60);
+    expect(alertAt(NOW, 8, null, settings)).toBe(NOW);
+    expect(alertAt(NOW, 8, null, { ...settings, airingDelayHours: 3 as const })).toBe(NOW + 3 * 3600);
+    expect(alertAt(NOW, 8, 'crunchyroll', { ...settings, airingDelayHours: 1 as const })).toBe(NOW + 90 * 60);
+  });
+
+  it('écarts extrêmes des séries suivies ; aucune série : délai des alertes seul', () => {
+    expect(alertShifts(new Map([[7, 'adn'], [8, 'adn'], [9, null]]), settings)).toEqual({ min: -15 * 60, max: 120 * 60 });
+    expect(alertShifts(new Map(), { ...settings, airingDelayHours: 6 as const })).toEqual({ min: 6 * 3600, max: 6 * 3600 });
+  });
+
+  it('dueAlerts : alertes échues annoncées, trop anciennes écartées ; une alerte à venir retient la reprise à sa diffusion', () => {
+    const items = [item(1, 1, 5), { ...item(2, 2, 3), airingAt: NOW - 5000 }, { ...item(3, 3, 9), airingAt: NOW - 90_000 }];
+    // Série 2 : alerte dans 1 h ; série 3 : alerte il y a plus de 24 h
+    const at = (i: AiringItem): number => (i.mediaId === 2 ? i.airingAt + 8600 : i.airingAt);
+    const { due, coveredUntil } = dueAlerts(items, at, NOW, NOW - 86400, NOW);
+    expect(due.map((i) => i.scheduleId)).toEqual([1]);
+    expect(coveredUntil).toBe(NOW - 5000);
+    expect(dueAlerts(items.slice(0, 1), at, NOW, NOW - 86400, NOW).coveredUntil).toBe(NOW);
   });
 });
 
@@ -168,7 +208,7 @@ describe('fenêtre élargie à la semaine (agenda)', () => {
   });
 
   it('les notifications ne portent que sur la fenêtre des alertes (bornes exclues)', () => {
-    const alerts = computeWindow(NOW, NOW - 3599, 0);
+    const alerts = alertWindow(NOW, NOW - 3599, { min: 0, max: 0 }).fetch;
     const items = [
       { ...item(1, 1, 4), airingAt: NOW - 1800 },
       { ...item(2, 1, 5), airingAt: NOW + 86400 }, // à venir : agenda seulement

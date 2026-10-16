@@ -14,7 +14,6 @@ import {
   parseDateKey,
   rolloverWeek,
   shiftWeek,
-  watchingProgress,
   weekKeysToPrune,
   weekLocaleTag,
   weekRange,
@@ -242,10 +241,6 @@ describe('séries suivies', () => {
     expect(row).toMatchObject({ mediaId: 1, malId: 7 });
   });
 
-  it('watchingProgress (alertes) : même règle', () => {
-    expect(watchingProgress(entries, [excluded(3)])).toEqual(new Map([[1, 5], [2, 1]]));
-  });
-
   it('exclusion par platformKey (fiche pas encore résolue) : retirée des alertes et de l’agenda (ALRT-03)', () => {
     const byPlatform = (platformKey: string): ExcludedSeries => ({ id: platformKey, platformKey, mediaId: null, label: 'x', excludedAt: 0 });
     const followed = [
@@ -257,7 +252,6 @@ describe('séries suivies', () => {
     // Clé Crunchyroll comparée sans la casse ; une page d'épisode Crunchyroll ne désigne pas la série
     const list = [byPlatform('crunchyroll:grmg8zqzr'), byPlatform('adn:1311'), byPlatform('netflix:81564899'), byPlatform('crunchyroll:GEVUZD9KJ')];
     expect([...mergeWatchingSeries(followed, list, 'crunchyroll').keys()]).toEqual([13]);
-    expect([...watchingProgress(followed, list).keys()]).toEqual([13]);
     // Exclusion d'une autre série : rien n'est retiré
     expect(mergeWatchingSeries(followed, [byPlatform('adn:999')], 'crunchyroll').size).toBe(4);
   });

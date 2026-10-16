@@ -274,13 +274,6 @@ export function mergeWatchingSeries(
   return series;
 }
 
-/** Progression par fiche AniList (alertes de sortie) */
-export function watchingProgress(entries: readonly WatchingEntry[], excluded: readonly ExcludedSeries[]): Map<number, number> {
-  const progress = new Map<number, number>();
-  for (const [mediaId, series] of mergeWatchingSeries(entries, excluded, 'crunchyroll')) progress.set(mediaId, series.progress);
-  return progress;
-}
-
 // ─── Heure estimée sur les plateformes ────────────────────────────────────
 
 export type OffsetSettings = Pick<SyncSettings, 'platformOffsets' | 'seriesOffsets'>;
@@ -293,7 +286,8 @@ export function seriesOffset(settings: OffsetSettings, mediaId: number): number 
 
 /**
  * Sortie estimée sur la plateforme (UNIX secondes) : diffusion japonaise + délai de la série, sinon de la plateforme.
- * null si la plateforme est inconnue et qu'aucun délai n'est réglé pour la série.
+ * null si la plateforme est inconnue et qu'aucun délai n'est réglé pour la série. Partagée par l'agenda et les alertes
+ * de sortie (airing-policy.ts › alertAt) : la notification part à l'heure affichée par l'agenda.
  */
 export function estimateRelease(airingAt: number, platform: StreamingPlatform | null, settings: OffsetSettings, mediaId: number): number | null {
   const offset = seriesOffset(settings, mediaId) ?? (platform ? settings.platformOffsets[platform] : null);

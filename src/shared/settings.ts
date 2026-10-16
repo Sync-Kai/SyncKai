@@ -26,11 +26,11 @@ export interface SyncSettings extends ContentSettings {
   ratingPrompt: boolean;
   /** Notifications Chrome à la sortie d'un nouvel épisode d'une série en cours */
   airingAlerts: boolean;
-  /** Délai après la diffusion japonaise avant de notifier */
+  /** Délai des alertes de sortie, ajouté à l'heure de sortie estimée de l'agenda (décision 17, airing-policy.ts › alertAt) */
   airingDelayHours: AiringDelayHours;
-  /** Agenda : délai estimé (minutes) entre la diffusion japonaise et la sortie sur chaque plateforme */
+  /** Agenda et alertes de sortie : délai estimé (minutes) entre la diffusion japonaise et la sortie sur chaque plateforme */
   platformOffsets: PlatformOffsets;
-  /** Agenda : délai propre à une série (clé = mediaId AniList), prioritaire sur `platformOffsets` */
+  /** Agenda et alertes de sortie : délai propre à une série (clé = mediaId AniList), prioritaire sur `platformOffsets` */
   seriesOffsets: Readonly<Record<string, SeriesOffset>>;
   /** Panneau latéral : onglet ouvert par défaut */
   panelDefaultTab: PanelDefaultTab;

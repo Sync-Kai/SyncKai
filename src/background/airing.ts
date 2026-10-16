@@ -4,9 +4,12 @@ import type { RequestLane } from './rate-limit';
 import { getWatchingList } from './anilist/watching';
 import {
   AIRING_NOTIFICATION_PREFIX,
+  alertAt,
+  alertShifts,
+  alertWindow,
   chunk,
-  computeWindow,
   coveredEnd,
+  dueAlerts,
   filterNewEpisodes,
   isAiringPageData,
   itemsInWindow,
@@ -21,7 +24,7 @@ import {
   type AiringItem,
   type PlannedNotification,
 } from './airing-policy';
-import { watchingProgress, weekRange } from '../shared/agenda';
+import { mergeWatchingSeries, weekRange } from '../shared/agenda';
 import { agendaFirstDay, writeWeekCache } from '../browser/storage/agenda-store';
 import { AIRING_COVERED_KEY, AIRING_LAST_CHECK_KEY, AIRING_NOTIFIED_KEY, AIRING_RESULT_KEY, AIRING_TARGETS_KEY } from '../shared/airing-keys';
 import type { AiringCheckResult, AiringSkipReason } from '../shared/airing.types';
@@ -187,17 +190,22 @@ async function runCheck(lane: RequestLane): Promise<CheckOutcome> {
   // semaine d'agenda et les notifications de l'ancien compte (ALRT-05)
   const epochs = await getOpenSessions();
   await refreshStaleWatching(services, lane);
-  const [lists, excluded, syncs] = await Promise.all([getCachedLists(), getExcludedSeries(), getRecentSyncs()]);
+  const [lists, excluded, syncs, preferred] = await Promise.all([getCachedLists(), getExcludedSeries(), getRecentSyncs(), effectivePreferredPlayer(settings.preferredPlayer)]);
+  // Séries suivies comme dans l'agenda (même lien « Ouvrir », donc même plateforme d'estimation)
+  const series = mergeWatchingSeries(lists.flatMap((list) => list.entries), excluded, preferred);
+  const platforms = new Map([...series].map(([mediaId, info]) => [mediaId, info.link?.platform ?? null]));
   // Progression par fiche AniList (la plus avancée si la série est sur les deux services), complétée par les synchros
   // faites depuis la lecture de la plus ancienne des listes
   const oldestList = lists.length > 0 ? Math.min(...lists.map((list) => list.fetchedAt)) : 0;
-  const progressByMedia = withSyncedProgress(watchingProgress(lists.flatMap((list) => list.entries), excluded), syncs, oldestList);
+  const progressByMedia = withSyncedProgress(new Map([...series].map(([mediaId, info]) => [mediaId, info.progress])), syncs, oldestList);
   log.info(`${progressByMedia.size} série(s) en cours à vérifier`);
   if (progressByMedia.size === 0) return { notified: 0, skipped: 'no-series', error: null };
 
   const stored = await chrome.storage.local.get([AIRING_COVERED_KEY, AIRING_LAST_CHECK_KEY]);
   const nowS = Math.floor(Date.now() / 1000);
-  const range = computeWindow(nowS, readCoveredUntil(stored, settings.airingDelayHours), settings.airingDelayHours);
+  // Heure de chaque alerte = heure de l'agenda (décision 17) : diffusions lues selon les délais des séries suivies
+  const alerts = alertWindow(nowS, readCoveredUntil(stored, settings.airingDelayHours), alertShifts(platforms, settings));
+  const range = alerts.fetch;
   // Une seule lecture du calendrier sert aussi l'agenda : fenêtre élargie à toute la semaine en cours
   const week = weekRange(nowS * 1000, agendaFirstDay());
   const weekWindow = { from: Math.floor(week.start / 1000) - 1, to: Math.floor(week.end / 1000) };
@@ -206,9 +214,10 @@ async function runCheck(lane: RequestLane): Promise<CheckOutcome> {
   const fetched = await fetchAiring(mediaIds, fetchWindow.from, fetchWindow.to, MAX_SCHEDULE_PAGES, lane);
   // Semaine coupée avant la fin de la fenêtre des alertes : celle-ci, bien plus petite, est relue seule (ALRT-06)
   const alertFetch = fetched.truncatedAt !== null && fetched.truncatedAt < range.to ? await fetchAiring(mediaIds, range.from, range.to, MAX_SCHEDULE_PAGES, lane) : fetched;
-  const coveredUntil = coveredEnd(range, alertFetch.truncatedAt);
-  const items = itemsInWindow(alertFetch.items, { from: range.from, to: coveredUntil });
-  log.info(`${items.length} diffusion(s) trouvée(s) dans la fenêtre`);
+  const readUntil = coveredEnd(range, alertFetch.truncatedAt);
+  const read = itemsInWindow(alertFetch.items, { from: range.from, to: readUntil });
+  const { due: items, coveredUntil } = dueAlerts(read, (item) => alertAt(item.airingAt, item.mediaId, platforms.get(item.mediaId) ?? null, settings), nowS, alerts.notBefore, readUntil);
+  log.info(`${read.length} diffusion(s) trouvée(s) dans la fenêtre, ${items.length} à l’heure de leur alerte`);
   try {
     const schedules = itemsInWindow(fetched.items, weekWindow);
     // Semaine incomplète : marquée pour que le panneau la relise au lieu de la croire à jour
