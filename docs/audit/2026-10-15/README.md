@@ -12,6 +12,7 @@ Seven expert audits of the whole extension, run read-only on `develop` at `9a5d0
 | `5-security-quality.md` | Security, privacy, typing, tests and tooling |
 | `6-business-domains.md` | Imports, Agenda, list actions, AniList / MAL parity, sessions, settings, backup |
 | `7-folder-architecture.md` | Folder structure and target architecture |
+| `preact-pilot.md` | Evaluation of the Preact pilot (`feature/ui-preact-pilot`, decision 12): measured weight, layout, focus, CSP, migration effort, recommendation |
 
 These are snapshots: file paths and line numbers refer to `9a5d08c`, before the folder restructuring (`refactor/structure`, see `CLAUDE.md` › Module boundaries for the current layout). Absolute `/tmp/...` paths point to throwaway repro tests that were not kept.
 
