@@ -19,9 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -66,9 +66,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -92,9 +92,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -128,10 +128,84 @@ jobs:
             echo "::warning title=i18n layout::${summary:-findings} — see the run summary and the i18n-layout artifact."
           fi
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: i18n-layout
           path: ${{ runner.temp }}/i18n-layout
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Couverture des tests unitaires en cliquet (décision 5 de l'audit 2026-10-15) : seuils de vitest.config.ts
+  # (branches, instructions, fonctions, lignes), le job échoue seulement si l'une des valeurs baisse.
+  # Une hausse durable se reporte à la main dans vitest.config.ts. Résumé des valeurs dans celui du run.
+  coverage:
+    name: Couverture (cliquet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Tests avec couverture
+        run: npm run coverage -- --coverage.reportsDirectory="$RUNNER_TEMP/coverage"
+
+      - name: Résumé
+        if: always()
+        run: |
+          summary="$RUNNER_TEMP/coverage/coverage-summary.json"
+          if [ ! -f "$summary" ]; then
+            echo "::warning::Coverage summary missing: the tests did not run to the end."
+            exit 0
+          fi
+          jq -r '.total | "| Coverage | % |\n|---|---|\n| Branches | \(.branches.pct) |\n| Statements | \(.statements.pct) |\n| Functions | \(.functions.pct) |\n| Lines | \(.lines.pct) |"' "$summary" >> "$GITHUB_STEP_SUMMARY"
+
+  # Extension construite dans un vrai Chromium (npm run test:ext, scripts/ext-e2e) : informatif (décision 4 de
+  # l'audit 2026-10-15), sur les pushs vers develop seulement ; à rendre requis dans release.yml après deux semaines
+  # stables. Chrome for Testing épinglé par puppeteer (lockfile) : le Chrome de marque ignore --load-extension depuis
+  # la 137 et chrome-headless-shell ne charge pas les extensions. Headless, pas de serveur X ; CI=true (GitHub)
+  # ajoute --no-sandbox (scripts/ext-e2e/harness.ts). Captures des pages en échec jointes en artefact.
+  test-ext:
+    name: Extension réelle (test:ext, informatif)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      # Chemin de l'exécutable : dernière ligne de la sortie (--format), passé au harnais par SYNCKAI_EXT_CHROME
+      - name: Chrome for Testing pour Puppeteer
+        run: |
+          chrome="$(npx --no-install puppeteer browsers install chrome@pinned --format '{{path}}' | tail -n 1)"
+          if [ ! -x "$chrome" ]; then
+            echo "::error::Chrome for Testing not found after install (got: $chrome)."
+            exit 1
+          fi
+          echo "SYNCKAI_EXT_CHROME=$chrome" >> "$GITHUB_ENV"
+
+      - name: Tests de l'extension réelle
+        env:
+          SYNCKAI_EXT_E2E_DIR: ${{ runner.temp }}/ext-e2e
+        run: npm run test:ext
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: test-ext-failures
+          path: ${{ runner.temp }}/ext-e2e/**/failure/*.png
           if-no-files-found: ignore
           retention-days: 14

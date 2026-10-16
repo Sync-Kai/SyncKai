@@ -16,13 +16,17 @@ export default defineConfig({
     environment: 'node',
     // Clé des tokens en mémoire (pas d'IndexedDB dans Node) : voir src/test/setup.ts
     setupFiles: ['src/test/setup.ts'],
-    // `npm run coverage` : rapport seulement (aucun seuil bloquant), code de l'extension hors tests et aides de test
+    // `npm run coverage` (job « coverage » de ci.yml) : code de l'extension hors tests et aides de test.
+    // Seuils en cliquet (décision 5 de l'audit 2026-10-15) : valeurs mesurées le 2026-10-16, arrondies au dixième
+    // inférieur. Une baisse fait échouer le job ; une hausse durable se reporte ici à la main, jamais de seuil abaissé.
+    // Sans --coverage (`vitest run`, `npm run verify`, release.yml), aucun seuil n'est vérifié.
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/test/**', 'src/**/*.d.ts'],
       reporter: ['text-summary', 'html', 'json-summary'],
       reportsDirectory: 'coverage',
+      thresholds: { branches: 80.3, statements: 85.8, functions: 85.6, lines: 87.4 },
     },
   },
 });

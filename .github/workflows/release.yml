@@ -38,7 +38,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       # Historique complet : contrôle d'ascendance avec origin/main
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -52,7 +52,7 @@ jobs:
           fi
           echo "Tag $GITHUB_REF_NAME ($commit) contenu dans origin/main."
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -114,7 +114,7 @@ jobs:
       - name: Notes de version
         run: node scripts/changelog-notes.ts "${{ steps.version.outputs.version }}" > release/notes.md
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
           path: release/
@@ -132,20 +132,21 @@ jobs:
       contents: read
     steps:
       # package.json + package-lock.json seulement (fichiers racine du mode cone) : CLI à version exacte
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github
           sparse-checkout-cone-mode: true
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      # Pas de cache npm dans un job qui tient les secrets des stores (SEC-03) : un cache restauré pourrait venir
+      # d'un autre run ; npm ci télécharge les paquets du lockfile et vérifie leur intégrité
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: npm
 
       - run: npm ci --ignore-scripts
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release
           path: release
@@ -193,21 +194,21 @@ jobs:
       contents: read
     steps:
       # docs/store/amo-metadata.json, plus package.json + package-lock.json (fichiers racine du mode cone)
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: docs/store
           sparse-checkout-cone-mode: true
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      # Pas de cache npm (secrets des stores, SEC-03), comme le job chrome
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: npm
 
       # web-ext du lockfile (le même que pour web-ext lint)
       - run: npm ci --ignore-scripts
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release
           path: release
@@ -276,7 +277,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release
           path: release
@@ -333,7 +334,7 @@ jobs:
     timeout-minutes: 5
     permissions: {}
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release
           path: release
