@@ -131,7 +131,7 @@ const storageLock = await import('../../browser/storage/lock');
 const { withEntryLock } = await import('./entry-lock');
 const { syncEpisode } = await import('./sync-service');
 const { adjustProgress } = await import('../controls');
-const { importOnService } = await import('../history-import/cr-import');
+const { importOnService } = await import('../history-import/apply');
 
 setLocale('fr');
 

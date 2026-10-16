@@ -57,7 +57,9 @@ const OPEN_SESSIONS = {
 };
 
 const crImport = await import('./cr-import');
-const { cancelCrImport, PREFETCH_SEASONS, resumeCrImport, startCrAnalyze, startCrApply, WRITE_BATCH_SIZE } = crImport;
+const { cancelCrImport, resumeCrImport, startCrAnalyze, startCrApply } = crImport;
+const { PREFETCH_SEASONS } = await import('./analyze');
+const { WRITE_BATCH_SIZE } = await import('./import-job');
 const { RETRY_DELAYS_MS } = await import('../jobs/runner');
 
 setLocale('fr');
