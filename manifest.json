@@ -34,7 +34,7 @@
     "https://*.primevideo.com/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https://s4.anilist.co https://cdn.myanimelist.net https://api-cdn.myanimelist.net"
+    "extension_pages": "default-src 'self'; script-src 'self'; object-src 'self'; img-src 'self' data: https://s4.anilist.co https://cdn.myanimelist.net https://api-cdn.myanimelist.net; connect-src 'self' https://graphql.anilist.co https://myanimelist.net https://api.myanimelist.net; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
   },
   "background": {
     "service_worker": "src/background/background.ts",

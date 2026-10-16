@@ -18,7 +18,8 @@ import { restPathTemplate } from '../../shared/debug-trace';
 
 const log = createLogger('mal');
 
-const MAL_API_URL = 'https://api.myanimelist.net/v2';
+/** API MAL (connect-src de la CSP, network-csp.test.ts) */
+export const MAL_API_URL = 'https://api.myanimelist.net/v2';
 
 type MalListStatus = 'watching' | 'completed' | 'on_hold' | 'dropped' | 'plan_to_watch';
 

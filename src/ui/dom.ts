@@ -36,7 +36,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 ): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   if (props.class) el.className = props.class;
-  for (const [name, value] of Object.entries(props.attrs ?? {})) el.setAttribute(name, value);
+  // `style` par le CSSOM : la CSP des pages (sans 'unsafe-inline') refuse un attribut style posé par setAttribute
+  for (const [name, value] of Object.entries(props.attrs ?? {})) {
+    if (name === 'style') el.style.cssText = value;
+    else el.setAttribute(name, value);
+  }
   // Garde posée avant les autres écouteurs : un bouton aria-disabled (action en cours) ne relance rien
   if (tag === 'button' || props.on?.click) el.addEventListener('click', blockAriaDisabledClick);
   for (const [type, handler] of Object.entries(props.on ?? {})) {

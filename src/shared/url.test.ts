@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import manifest from '../../manifest.json';
-import { IMAGE_HOSTS, isSafeImageUrl, toImageSrc, toSafeImageUrl, toSafeUrl } from './url';
+import { isSafeImageUrl, toImageSrc, toSafeImageUrl, toSafeUrl } from './url';
 
 describe('toSafeUrl', () => {
   it('https seulement, domaine facultatif', () => {
@@ -56,20 +55,5 @@ describe('images : liste des hôtes autorisés (SEC-02)', () => {
     expect(toImageSrc('https://tracker.example/x.jpg')).toBeNull();
     expect(toImageSrc('data:text/html,<script>')).toBeNull();
     expect(toImageSrc(null)).toBeNull();
-  });
-
-  it('la CSP des pages de l’extension autorise exactement ces hôtes, et garde script-src / object-src par défaut', () => {
-    const csp = manifest.content_security_policy.extension_pages;
-    const directives = new Map(
-      csp
-        .split(';')
-        .map((part) => part.trim().split(/\s+/))
-        .filter((tokens) => tokens.length > 0 && tokens[0] !== '')
-        .map(([name = '', ...values]) => [name, values]),
-    );
-    expect(directives.get('script-src')).toEqual(["'self'"]);
-    expect(directives.get('object-src')).toEqual(["'self'"]);
-    expect(directives.get('img-src')).toEqual(["'self'", 'data:', ...IMAGE_HOSTS.map((host) => `https://${host}`)]);
-    expect([...directives.keys()].sort()).toEqual(['img-src', 'object-src', 'script-src']);
   });
 });

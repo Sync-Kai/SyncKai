@@ -1,5 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
-import { busyAttrs, createMemo, createRenderScheduler, pickFocusKey } from './dom';
+import { busyAttrs, createMemo, createRenderScheduler, h, pickFocusKey } from './dom';
+
+describe('h', () => {
+  it('attribut style posé par le CSSOM, jamais setAttribute (bloqué par la CSP des pages, SEC-12)', () => {
+    const setAttribute = vi.fn();
+    const el = { className: '', style: { cssText: '' }, setAttribute, addEventListener: vi.fn(), append: vi.fn() };
+    vi.stubGlobal('document', { createElement: () => el });
+    try {
+      h('div', { class: 'bar', attrs: { style: 'width: 40%', role: 'progressbar' } });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(el.style.cssText).toBe('width: 40%');
+    expect(setAttribute.mock.calls).toEqual([['role', 'progressbar']]);
+  });
+});
 
 describe('busyAttrs', () => {
   it('action en cours : aria-disabled (bouton focalisable), jamais disabled', () => {

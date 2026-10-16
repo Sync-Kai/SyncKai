@@ -108,4 +108,6 @@ export function expectCleanRun(h: ExtensionHarness, anilist: FakeAniList, mal: F
   expect(anilist.unknownOperations).toEqual([]);
   expect(mal.unknownPaths).toEqual([]);
   expect(h.pageErrors).toEqual([]);
+  // CSP des pages et du service worker (SEC-12) : aucune violation relevée par le navigateur
+  expect(h.cspViolations).toEqual([]);
 }

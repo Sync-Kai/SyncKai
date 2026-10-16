@@ -18,7 +18,8 @@ const log = createLogger('auth');
 
 // Client public (type "other" sur MAL, un par navigateur : voir oauth-clients.ts) : PKCE, aucun secret
 const MAL_AUTHORIZE_URL = 'https://myanimelist.net/v1/oauth2/authorize';
-const MAL_TOKEN_URL = 'https://myanimelist.net/v1/oauth2/token';
+/** Point de jeton MAL (connect-src de la CSP, network-csp.test.ts) */
+export const MAL_TOKEN_URL = 'https://myanimelist.net/v1/oauth2/token';
 /** Renouvellement anticipé : évite qu'un token expire au milieu d'une synchronisation */
 const REFRESH_MARGIN_MS = 5 * 60_000;
 const REFRESH_LOCK = 'synckai:mal-refresh';

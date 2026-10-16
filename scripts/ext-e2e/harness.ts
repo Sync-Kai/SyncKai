@@ -116,6 +116,8 @@ export interface ExtensionHarness {
   readonly pageErrors: string[];
   /** Messages de console des pages sous surveillance (« url : texte ») : rien de secret ne doit y paraître */
   readonly consoleMessages: string[];
+  /** Violations de la CSP relevées par le navigateur (pages sous surveillance et service worker, « url : texte ») */
+  readonly cspViolations: string[];
   /** Page pont (manifest.json de l'extension) : messages et stockage */
   bridge(): Promise<Page>;
   /** Message au service worker depuis une page de l'extension (expéditeur « extension ») */
@@ -193,6 +195,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
   const unexpected: InterceptedRequest[] = [];
   const pageErrors: string[] = [];
   const consoleMessages: string[] = [];
+  const cspViolations: string[] = [];
   const pages: Page[] = [];
   let browser: Browser;
   let bridgePage: Page | null = null;
@@ -244,6 +247,18 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
       })();
     });
     await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
+    await watchCsp(cdp, () => target.url());
+  }
+
+  /**
+   * Violations de la CSP (SEC-12) : le navigateur les écrit dans le journal (domaine Log, source « security »), jamais
+   * dans la console JavaScript que relève page.on('console')
+   */
+  async function watchCsp(cdp: CDPSession, url: () => string): Promise<void> {
+    cdp.on('Log.entryAdded', ({ entry }: Protocol.Log.EntryAddedEvent): void => {
+      if (entry.source === 'security' || entry.text.includes('Content Security Policy')) cspViolations.push(`${url()} : ${entry.text}`);
+    });
+    await cdp.send('Log.enable');
   }
 
   const isOurWorker = (target: Target): boolean => target.type() === 'service_worker' && target.url().startsWith(EXTENSION_ORIGIN);
@@ -274,6 +289,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
     pages.push(page);
     page.on('pageerror', (error: unknown) => pageErrors.push(`${page.url()} : ${String(error)}`));
     page.on('console', (message) => consoleMessages.push(`${page.url()} : ${message.text()}`));
+    await watchCsp(await page.createCDPSession(), () => page.url());
     await page.setRequestInterception(true);
     page.on('request', (request: HTTPRequest): void => {
       const url = request.url();
@@ -354,6 +370,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
     unexpected,
     pageErrors,
     consoleMessages,
+    cspViolations,
     bridge,
     async send(type, payload, page) {
       const target = page ?? (await bridge());

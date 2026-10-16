@@ -327,7 +327,8 @@ function excludedChip(): HTMLElement {
 /** Étincelle posée au bout de la barre de progression */
 function spark(pct: number): SVGSVGElement {
   const el = sparkIcon('absolute -top-[3px] -ml-[7px] h-3.5 w-3.5');
-  el.setAttribute('style', `left: ${pct}%`);
+  // CSSOM : un attribut style posé par setAttribute est refusé par la CSP des pages
+  el.style.left = `${pct}%`;
   return el;
 }
 

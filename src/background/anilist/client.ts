@@ -21,7 +21,8 @@ function traceRequest(query: string, lane: RequestLane, status: number | 'networ
   trace('network', 'request', { service: 'anilist', op: graphqlOperation(query), lane, status, ms: Date.now() - sentAt, waitMs: sentAt - startedAt, retry: isRetry, authenticated, backgroundQuota });
 }
 
-const ANILIST_GRAPHQL_URL = 'https://graphql.anilist.co';
+/** Seule origine contactée pour AniList (connect-src de la CSP, network-csp.test.ts) */
+export const ANILIST_GRAPHQL_URL = 'https://graphql.anilist.co';
 
 /** "required" : compte AniList indispensable ; "optional" : catalogue public, token joint s'il existe */
 type AuthMode = 'required' | 'optional';
