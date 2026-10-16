@@ -10,21 +10,25 @@ vi.mock('../content/prime/content-prime.iife.ts?script', () => ({ default: 'prim
 const mocks = vi.hoisted(() => ({ resetRevokedPlayer: vi.fn() }));
 vi.mock('../shared/preferred-player', () => mocks);
 
-const NETFLIX = '*://*.netflix.com/*';
-const DISNEY = '*://*.disneyplus.com/*';
-const PRIME = '*://*.primevideo.com/*';
+const NETFLIX = 'https://*.netflix.com/*';
+const DISNEY = 'https://*.disneyplus.com/*';
+const PRIME = 'https://*.primevideo.com/*';
+/** Motif accordé par les versions ≤ 2.3.1 (SEC-02), resté tel quel dans les permissions accordées de Firefox */
+const LEGACY_NETFLIX = '*://*.netflix.com/*';
 
 type Listener = (permissions: { origins?: string[] }) => void;
 type InstalledListener = (details: { reason: string }) => void;
 const listeners = { added: [] as Listener[], removed: [] as Listener[], installed: [] as InstalledListener[], startup: [] as (() => void)[] };
 const unregister = vi.fn((_filter: { ids: string[] }) => Promise.resolve());
-const register = vi.fn((_scripts: { id: string }[]) => Promise.resolve());
+const register = vi.fn((_scripts: { id: string; matches?: string[] }[]) => Promise.resolve());
 /** Origines accordées (permission optionnelle de chaque plateforme) */
 let granted: string[] = [];
 const ALL_IDS = ['synckai-netflix-bridge', 'synckai-netflix-content', 'synckai-disney-bridge', 'synckai-disney-content', 'synckai-prime-bridge', 'synckai-prime-content'];
 /** Scripts déjà enregistrés */
 let registered: string[] = ALL_IDS;
-const contains = vi.fn((query: { origins: string[] }) => Promise.resolve(query.origins.every((origin) => granted.includes(origin))));
+/** Englobement des navigateurs : un motif accordé en `*://` (http et https) contient son équivalent `https://` */
+const covers = (grant: string, origin: string): boolean => grant === origin || (grant.startsWith('*://') && origin === `https://${grant.slice(4)}`);
+const contains = vi.fn((query: { origins: string[] }) => Promise.resolve(query.origins.every((origin) => granted.some((grant) => covers(grant, origin)))));
 const query = vi.fn((filter: { url: string[] }) => Promise.resolve(filter.url.includes(DISNEY) ? [{ id: 8 }] : filter.url.includes(PRIME) ? [{ id: 9 }] : [{ id: 7 }]));
 const executeScript = vi.fn((_injection: { target: { tabId: number }; files: string[]; world?: string }) => Promise.resolve([]));
 
@@ -74,8 +78,14 @@ describe('listenPlatformAccess', () => {
     expect(unregister.mock.calls).toEqual([[{ ids: ['synckai-disney-bridge', 'synckai-disney-content'] }]]);
   });
 
+  it('SEC-02, Firefox : retrait de l’ancien motif *:// (accordé avant la mise à jour) reconnu, scripts retirés', async () => {
+    for (const listener of listeners.removed) listener({ origins: [LEGACY_NETFLIX] });
+    await flush();
+    expect(unregister).toHaveBeenCalledWith({ ids: ['synckai-netflix-bridge', 'synckai-netflix-content'] });
+  });
+
   it('autre permission retirée : rien', async () => {
-    for (const listener of listeners.removed) listener({ origins: ['*://*.crunchyroll.com/*'] });
+    for (const listener of listeners.removed) listener({ origins: ['https://*.crunchyroll.com/*'] });
     await flush();
     expect(mocks.resetRevokedPlayer).not.toHaveBeenCalled();
     expect(unregister).not.toHaveBeenCalled();
@@ -128,6 +138,22 @@ describe('listenPlatformAccess — mise à jour de l’extension', () => {
     granted = [NETFLIX];
     for (const listener of listeners.installed) listener({ reason: 'update' });
     await flush();
+    expect(injected()).toEqual([
+      [7, 'bridge.js', 'MAIN'],
+      [7, 'content.js', 'ISOLATED'],
+    ]);
+  });
+
+  it('SEC-02 : accès accordé en *:// par une version ≤ 2.3.1 toujours reconnu, scripts réenregistrés en https:// seulement', async () => {
+    granted = [LEGACY_NETFLIX];
+    for (const listener of listeners.installed) listener({ reason: 'update' });
+    await flush();
+    expect(contains).toHaveBeenCalledWith({ origins: [NETFLIX] });
+    expect(register.mock.calls.flatMap(([scripts]) => scripts.map((script) => [script.id, script.matches]))).toEqual([
+      ['synckai-netflix-bridge', [NETFLIX]],
+      ['synckai-netflix-content', [NETFLIX]],
+    ]);
+    expect(query).toHaveBeenCalledWith({ url: [NETFLIX] });
     expect(injected()).toEqual([
       [7, 'bridge.js', 'MAIN'],
       [7, 'content.js', 'ISOLATED'],

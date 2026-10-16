@@ -31,6 +31,7 @@ import {
   checkAccessDeclarations,
   checkCommands,
   checkContentSecurityPolicy,
+  checkHttpsPatterns,
   checkFontFormats,
   checkUnreferencedFiles,
   checkLocaleCatalogs,
@@ -115,6 +116,7 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
 
   // 4. Permissions livrées = manifeste source adapté à la cible
   errors.push(...checkAccessDeclarations(manifest, targetManifest(source, target)));
+  errors.push(...checkHttpsPatterns(manifest));
   errors.push(...checkContentSecurityPolicy(manifest, targetManifest(source, target)));
   errors.push(...checkCommands(manifest, targetManifest(source, target), target));
 

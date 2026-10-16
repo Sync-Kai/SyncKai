@@ -2,14 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import manifest from '../../manifest.json';
 import { contentScriptMatches, isTargetPage, matchesPattern, NETFLIX_MATCHES, SIDE_PANEL_PATH, targetPagePatterns } from './target-pages';
 
-const DISNEY_MATCHES = ['*://*.disneyplus.com/*'];
-const PRIME_MATCHES = ['*://*.primevideo.com/*'];
+const DISNEY_MATCHES = ['https://*.disneyplus.com/*'];
+const PRIME_MATCHES = ['https://*.primevideo.com/*'];
 
 const patterns = contentScriptMatches(manifest);
 
 describe('contentScriptMatches', () => {
   it('motifs des scripts de contenu du manifeste, sans doublon', () => {
-    expect(patterns).toEqual(['*://*.crunchyroll.com/*', '*://animationdigitalnetwork.com/*', '*://*.animationdigitalnetwork.com/*']);
+    expect(patterns).toEqual(['https://*.crunchyroll.com/*', 'https://animationdigitalnetwork.com/*', 'https://*.animationdigitalnetwork.com/*']);
     expect(contentScriptMatches({ content_scripts: [{ matches: ['a'] }, { matches: ['a', 'b'] }, {}] })).toEqual(['a', 'b']);
     expect(contentScriptMatches({})).toEqual([]);
   });
@@ -19,7 +19,7 @@ describe('isTargetPage', () => {
   it.each([
     'https://www.crunchyroll.com/fr/watch/GG1U2Q5K4/the-beginning',
     'https://www.crunchyroll.com/',
-    'http://crunchyroll.com/series/abc',
+    'https://crunchyroll.com/series/abc',
     'https://beta.crunchyroll.com/watch/x?t=10#top',
     'https://animationdigitalnetwork.com/video/123-frieren/456-episode-1',
     'https://www.animationdigitalnetwork.com/',
@@ -33,6 +33,9 @@ describe('isTargetPage', () => {
     'https://crunchyroll.com.evil.example/watch/x',
     'https://notcrunchyroll.com/',
     'https://animationdigitalnetwork.fr/',
+    // SEC-02 : jamais en http (motifs https:// seulement), ni le script de contenu ni le panneau
+    'http://crunchyroll.com/series/abc',
+    'http://www.animationdigitalnetwork.com/',
     'ftp://www.crunchyroll.com/',
     'chrome://extensions/',
     'about:blank',

@@ -15,7 +15,7 @@ describe('accès Netflix (permission optionnelle)', () => {
     const contains = vi.fn(() => Promise.resolve(true));
     vi.stubGlobal('chrome', { permissions: { contains } });
     expect(await hasNetflixAccess()).toBe(true);
-    expect(contains).toHaveBeenCalledWith({ origins: ['*://*.netflix.com/*'] });
+    expect(contains).toHaveBeenCalledWith({ origins: ['https://*.netflix.com/*'] });
   });
 
   it('API absente ou en échec : accès considéré comme non accordé', async () => {
@@ -58,7 +58,7 @@ describe('lecteur préféré « Netflix » et accès retiré', () => {
   it('Prime Video : comme Netflix, seulement avec son accès (permission primevideo.com lue)', async () => {
     const { contains } = fakeBrowser(false, {});
     expect(await effectivePreferredPlayer('prime')).toBe(DEFAULT_SETTINGS.preferredPlayer);
-    expect(contains).toHaveBeenCalledWith({ origins: ['*://*.primevideo.com/*'] });
+    expect(contains).toHaveBeenCalledWith({ origins: ['https://*.primevideo.com/*'] });
     fakeBrowser(true, {});
     expect(await effectivePreferredPlayer('prime')).toBe('prime');
     const revoked = fakeBrowser(false, { ...DEFAULT_SETTINGS, preferredPlayer: 'prime' });

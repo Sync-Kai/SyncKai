@@ -3,6 +3,7 @@ import manifest from '../../manifest.json';
 import { isStreamingPlatform } from '../shared/episode.types';
 import {
   isOptionalPlatform,
+  legacyAccessMatches,
   OPTIONAL_PLATFORM_MATCHES,
   PLATFORM_LABELS,
   platformFromHost,
@@ -172,6 +173,13 @@ describe('URL de série et de recherche', () => {
 describe('manifeste', () => {
   it('accès optionnel = optional_host_permissions', () => {
     expect(manifest.optional_host_permissions).toEqual([...OPTIONAL_PLATFORM_MATCHES]);
+  });
+
+  it('SEC-02 : accès optionnel en https:// seulement, ancien motif *:// (versions ≤ 2.3.1) connu pour la migration', () => {
+    expect(OPTIONAL_PLATFORM_MATCHES).toEqual(['https://*.netflix.com/*', 'https://*.disneyplus.com/*', 'https://*.primevideo.com/*']);
+    expect(legacyAccessMatches('netflix')).toEqual(['*://*.netflix.com/*']);
+    expect(legacyAccessMatches('prime')).toEqual(['*://*.primevideo.com/*']);
+    expect(legacyAccessMatches('crunchyroll')).toEqual([]);
   });
 
   it('chaque plateforme non optionnelle a un script de contenu sur son hôte', () => {

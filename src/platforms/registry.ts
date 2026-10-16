@@ -92,7 +92,7 @@ export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> 
     linkRequired: true,
     // Catalogue généraliste : une recherche par titre proposerait n'importe quelle série homonyme
     searchable: false,
-    optionalMatches: ['*://*.netflix.com/*'],
+    optionalMatches: ['https://*.netflix.com/*'],
     seriesIdInPath: /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?title\/(\d+)(?:\/|$)/i,
     seriesUrl: (seriesId) => (seriesId !== null && NETFLIX_ID.test(seriesId) ? `https://www.netflix.com/title/${seriesId}` : null),
     searchUrl: (query) => `https://www.netflix.com/search?q=${query}`,
@@ -105,7 +105,7 @@ export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> 
     // Catalogue généraliste : seuls les animes (langue originale japonaise) liés à Disney+ sur AniList sont suivis
     linkRequired: true,
     searchable: false,
-    optionalMatches: ['*://*.disneyplus.com/*'],
+    optionalMatches: ['https://*.disneyplus.com/*'],
     // Page de série actuelle : /{langue}/browse/entity-{uuid} (les anciens liens /series/{slug}/{id} n'ont pas de clé)
     seriesIdInPath: /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?browse\/entity-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i,
     seriesUrl: (seriesId) => (seriesId !== null && DISNEY_ENTITY_ID.test(seriesId) ? `https://www.disneyplus.com/browse/entity-${seriesId.toLowerCase()}` : null),
@@ -120,7 +120,7 @@ export const PLATFORMS: Readonly<Record<StreamingPlatform, PlatformDescriptor>> 
     // Catalogue généraliste, mais filtre par genre (av_genre_anime…) côté script de contenu : résolution normale
     linkRequired: false,
     searchable: false,
-    optionalMatches: ['*://*.primevideo.com/*'],
+    optionalMatches: ['https://*.primevideo.com/*'],
     // Page de détail : /[region/{xx}/][-/{langue}/]detail/{id} ; id = ASIN (10), GTI compact (26) ou GTI complet
     seriesIdInPath: /^\/(?:region\/[a-z]{2}\/)?(?:-\/[a-z]{2}(?:-[a-z]{2})?\/)?detail\/([A-Z0-9]{10}|[0-9A-Z]{26}|amzn1\.dv\.gti\.[0-9a-f-]{36})(?:\/|$)/i,
     // Page canonique d'une saison : GTI compact seulement (un ASIN régional ou un GTI complet n'y mène pas toujours)
@@ -137,6 +137,16 @@ export function platformFromHost(hostname: string): StreamingPlatform | null {
 /** Plateforme activée à la demande (permission d'hôte optionnelle) */
 export function isOptionalPlatform(platform: StreamingPlatform): boolean {
   return PLATFORMS[platform].optionalMatches.length > 0;
+}
+
+/**
+ * Motifs `*://` (http et https) que les versions ≤ 2.3.1 demandaient pour la plateforme, avant le passage en `https://`
+ * seulement (SEC-02). Chrome réduit l'accès déjà accordé au nouveau motif à la mise à jour ; Firefox le garde tel quel
+ * dans ses permissions accordées : `contains(https://…)` reste vrai (englobement), mais `remove(https://…)` ne le retire
+ * pas (comparaison exacte des chaînes), d'où ce motif, retiré en second (browser/platform-access.ts).
+ */
+export function legacyAccessMatches(platform: StreamingPlatform): string[] {
+  return PLATFORMS[platform].optionalMatches.map((pattern) => pattern.replace(/^https:\/\//, '*://'));
 }
 
 /** Motifs de toutes les plateformes à accès optionnel (= `optional_host_permissions` du manifeste) */

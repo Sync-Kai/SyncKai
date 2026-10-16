@@ -195,7 +195,7 @@ describe('page d’import, historique Netflix (bout en bout)', () => {
     await page.locator(sel('cr-access')).click();
     // Même permission que l'interrupteur des Réglages (le service worker enregistre alors les scripts Netflix)
     await page.waitForSelector(sel('cr-read'));
-    expect((await trace(page)).permissionRequests).toEqual([['*://*.netflix.com/*']]);
+    expect((await trace(page)).permissionRequests).toEqual([['https://*.netflix.com/*']]);
     expect(await page.$eval(sel('platform-netflix'), (el) => el.getAttribute('aria-pressed'))).toBe('true');
     expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('crImport.netflix.rule'));
 

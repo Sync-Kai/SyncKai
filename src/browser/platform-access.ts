@@ -3,7 +3,7 @@
  * d'hôte optionnelle (`optional_host_permissions`) ; l'état de l'accès EST la permission, rien n'est stocké. Le
  * service worker enregistre ou retire les scripts de la plateforme quand elle change (background/platform-access.ts).
  */
-import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../platforms/registry';
+import { isOptionalPlatform, legacyAccessMatches, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../platforms/registry';
 
 /**
  * true si l'accès à la plateforme est accordé ; toujours true pour une plateforme du manifeste (Crunchyroll, ADN).
@@ -27,9 +27,15 @@ export function requestPlatformAccess(platform: StreamingPlatform): Promise<bool
   return chrome.permissions.request({ origins: [...PLATFORMS[platform].optionalMatches] });
 }
 
-/** Retire l'accès (les scripts de la plateforme sont désenregistrés par le service worker) */
-export function removePlatformAccess(platform: StreamingPlatform): Promise<boolean> {
-  return chrome.permissions.remove({ origins: [...PLATFORMS[platform].optionalMatches] });
+/**
+ * Retire l'accès (les scripts de la plateforme sont désenregistrés par le service worker). Firefox, accès accordé par une
+ * version ≤ 2.3.1 : le motif `*://` stocké survit au retrait du motif `https://` (comparaison exacte des chaînes), il est
+ * donc retiré à son tour. Jamais en un seul appel : Chrome refuse tout le retrait s'il cite un motif absent du manifeste.
+ */
+export async function removePlatformAccess(platform: StreamingPlatform): Promise<boolean> {
+  const removed = await chrome.permissions.remove({ origins: [...PLATFORMS[platform].optionalMatches] });
+  if (!(await hasPlatformAccess(platform))) return removed;
+  return chrome.permissions.remove({ origins: legacyAccessMatches(platform) });
 }
 
 /** Plateformes à accès optionnel actuellement accordées (ordre de STREAMING_PLATFORMS) */

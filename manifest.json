@@ -21,17 +21,17 @@
     "scripting"
   ],
   "host_permissions": [
-    "*://*.crunchyroll.com/*",
-    "*://animationdigitalnetwork.com/*",
-    "*://*.animationdigitalnetwork.com/*",
+    "https://*.crunchyroll.com/*",
+    "https://animationdigitalnetwork.com/*",
+    "https://*.animationdigitalnetwork.com/*",
     "https://graphql.anilist.co/*",
     "https://myanimelist.net/*",
     "https://api.myanimelist.net/*"
   ],
   "optional_host_permissions": [
-    "*://*.netflix.com/*",
-    "*://*.disneyplus.com/*",
-    "*://*.primevideo.com/*"
+    "https://*.netflix.com/*",
+    "https://*.disneyplus.com/*",
+    "https://*.primevideo.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https://s4.anilist.co https://cdn.myanimelist.net https://api-cdn.myanimelist.net"
@@ -43,7 +43,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.crunchyroll.com/*"
+        "https://*.crunchyroll.com/*"
       ],
       "js": [
         "src/content/crunchyroll/page-bridge.iife.ts"
@@ -53,7 +53,7 @@
     },
     {
       "matches": [
-        "*://*.crunchyroll.com/*"
+        "https://*.crunchyroll.com/*"
       ],
       "js": [
         "src/content/crunchyroll/content-crunchyroll.iife.ts"
@@ -61,8 +61,8 @@
     },
     {
       "matches": [
-        "*://animationdigitalnetwork.com/*",
-        "*://*.animationdigitalnetwork.com/*"
+        "https://animationdigitalnetwork.com/*",
+        "https://*.animationdigitalnetwork.com/*"
       ],
       "js": [
         "src/content/adn/content-adn.iife.ts"
@@ -75,9 +75,9 @@
         "<dynamic_resource>"
       ],
       "matches": [
-        "*://*.netflix.com/*",
-        "*://*.disneyplus.com/*",
-        "*://*.primevideo.com/*"
+        "https://*.netflix.com/*",
+        "https://*.disneyplus.com/*",
+        "https://*.primevideo.com/*"
       ]
     }
   ],

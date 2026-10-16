@@ -26,7 +26,7 @@ const historyMode = param('history');
 const netflixMode = param('netflix');
 /** `token=expired` : token AniList expiré (« Reconnecter »), aucun compte MyAnimeList */
 const tokenMode = param('token');
-const NETFLIX_PATTERN = '*://*.netflix.com/*';
+const NETFLIX_PATTERN = 'https://*.netflix.com/*';
 
 const season = (seriesId: string, seriesTitle: string, seasonNumber: number, episodeNumber: number) => ({
   seriesId,

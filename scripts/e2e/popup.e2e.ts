@@ -729,7 +729,7 @@ describe('popup (bout en bout)', () => {
 
     await click(page, 'sk-netflix');
     await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
-    expect((await trace(page)).permissionRequests).toEqual([['*://*.netflix.com/*']]);
+    expect((await trace(page)).permissionRequests).toEqual([['https://*.netflix.com/*']]);
     // Accès accordé (scripts aussi exécutés dans les onglets ouverts : aucune consigne de rechargement), option Netflix proposée
     await page.waitForSelector(sel('player-netflix'));
     expect(await checked()).toBe(true);
@@ -740,7 +740,7 @@ describe('popup (bout en bout)', () => {
     // Retrait : permissions.remove, l'option disparaît
     await click(page, 'sk-netflix');
     await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
-    expect((await trace(page)).permissionRemovals).toEqual([['*://*.netflix.com/*']]);
+    expect((await trace(page)).permissionRemovals).toEqual([['https://*.netflix.com/*']]);
     await page.waitForSelector(sel('player-netflix'), { hidden: true });
     expect(await checked()).toBe(false);
     // Le script d'un onglet déjà ouvert tourne jusqu'à son rechargement : consigne discrète
@@ -759,7 +759,7 @@ describe('popup (bout en bout)', () => {
 
     await click(page, 'sk-disney');
     await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
-    expect((await trace(page)).permissionRequests).toEqual([['*://*.disneyplus.com/*']]);
+    expect((await trace(page)).permissionRequests).toEqual([['https://*.disneyplus.com/*']]);
     await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-disney')?.checked === true);
     expect(await text(page, '#sk-disney-help')).toBe(fr('settings.disney.helpOn'));
     // Lecteur préféré inchangé : Disney+ n'y est jamais proposé, l'interrupteur Netflix reste éteint
@@ -768,7 +768,7 @@ describe('popup (bout en bout)', () => {
 
     await click(page, 'sk-disney');
     await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
-    expect((await trace(page)).permissionRemovals).toEqual([['*://*.disneyplus.com/*']]);
+    expect((await trace(page)).permissionRemovals).toEqual([['https://*.disneyplus.com/*']]);
     await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-disney')?.checked === false);
     const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
     expect(statuses).toContain(fr('settings.disney.disabled'));
@@ -785,7 +785,7 @@ describe('popup (bout en bout)', () => {
 
     await click(page, 'sk-prime');
     await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
-    expect((await trace(page)).permissionRequests).toEqual([['*://*.primevideo.com/*']]);
+    expect((await trace(page)).permissionRequests).toEqual([['https://*.primevideo.com/*']]);
     await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-prime')?.checked === true);
     expect(await text(page, '#sk-prime-help')).toBe(fr('settings.prime.helpOn'));
     // Prime Video proposé comme lecteur préféré (comme Netflix), les interrupteurs Netflix et Disney+ restent éteints
@@ -796,7 +796,7 @@ describe('popup (bout en bout)', () => {
 
     await click(page, 'sk-prime');
     await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
-    expect((await trace(page)).permissionRemovals).toEqual([['*://*.primevideo.com/*']]);
+    expect((await trace(page)).permissionRemovals).toEqual([['https://*.primevideo.com/*']]);
     await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-prime')?.checked === false);
     const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
     expect(statuses).toContain(fr('settings.prime.disabled'));

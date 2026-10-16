@@ -68,6 +68,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - The diagnostic report (*Settings › Help › Copy report*) is now built by the extension's background, the only part of SyncKai that decrypts sign-in tokens: the settings page only receives the finished report, with tokens and account names already masked.
 - Signing in to MyAnimeList while a MyAnimeList session is already open (two windows, a double click) now closes the previous session first, as AniList already did, so nothing queued for the previous account is written to the new one. Saving a new sign-in token can no longer interleave with a sign-out or another storage write.
 
+### Security
+
+- SyncKai now runs only on `https://` pages of Crunchyroll, ADN, Netflix, Disney+ and Prime Video: its scripts, site permissions and exposed files no longer match plain `http://` pages, where someone on the same network could serve a fake episode page and have it synced. Access to Netflix, Disney+ or Prime Video already granted is kept after the update (on Firefox, turning it off also removes the access granted by earlier versions).
+
 ## [2.3.1] - 2026-10-12
 
 First published version of the 2.3 line: 2.3.0 was tagged but never published (the release workflow stopped at the tests, before any upload). Same extension code as 2.3.0.

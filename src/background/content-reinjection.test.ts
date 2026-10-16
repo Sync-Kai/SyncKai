@@ -4,9 +4,9 @@ import { reinjectContentScripts, reinjectionPlan, type ContentReinjectionApi, ty
 // Réinjection des scripts de contenu du manifeste dans les onglets ouverts (installation, mise à jour).
 
 const SCRIPT = 'src/content/crunchyroll/content-crunchyroll.iife.js';
-const MATCHES = ['*://*.crunchyroll.com/*'];
+const MATCHES = ['https://*.crunchyroll.com/*'];
 const ADN_SCRIPT = 'src/content/adn/content-adn.iife.js';
-const ADN_MATCHES = ['*://animationdigitalnetwork.com/*', '*://*.animationdigitalnetwork.com/*'];
+const ADN_MATCHES = ['https://animationdigitalnetwork.com/*', 'https://*.animationdigitalnetwork.com/*'];
 
 /** `tabs` : onglets ouverts, les mêmes pour tous les motifs ou selon les motifs demandés */
 function fakeApi(scripts: ManifestContentScript[], tabs: number[] | ((matches: string[]) => number[]), failing: number[] = []): ContentReinjectionApi & {

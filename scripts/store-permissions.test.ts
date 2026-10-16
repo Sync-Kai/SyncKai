@@ -164,6 +164,22 @@ function checkStorePermissions(manifest: StoreManifest, markdown: string): strin
 const MANIFEST = JSON.parse(readFileSync('manifest.json', 'utf8')) as StoreManifest;
 const DOC = readFileSync('docs/store/permissions.md', 'utf8');
 
+/** Champs du manifeste qui portent des motifs d'hôtes (permissions, scripts de contenu, ressources exposées) */
+interface PatternManifest extends StoreManifest {
+  content_scripts?: { matches?: string[] }[];
+  web_accessible_resources?: { matches?: string[] }[];
+}
+
+/** Tous les motifs d'hôtes du manifeste */
+function manifestPatterns(manifest: PatternManifest): string[] {
+  return [
+    ...(manifest.host_permissions ?? []),
+    ...(manifest.optional_host_permissions ?? []),
+    ...(manifest.content_scripts ?? []).flatMap((script) => script.matches ?? []),
+    ...(manifest.web_accessible_resources ?? []).flatMap((entry) => entry.matches ?? []),
+  ];
+}
+
 /** Copie du manifeste avec un champ modifié (manifest.json n'est jamais touché) */
 function withField<K extends keyof StoreManifest>(field: K, value: StoreManifest[K]): StoreManifest {
   return { ...structuredClone(MANIFEST), [field]: value };
@@ -203,9 +219,9 @@ describe('justifications Chrome Web Store (docs/store/permissions.md)', () => {
   });
 
   it('échoue sur un hôte optionnel ajouté', () => {
-    const manifest = withField('optional_host_permissions', [...(MANIFEST.optional_host_permissions ?? []), '*://*.hidive.com/*']);
+    const manifest = withField('optional_host_permissions', [...(MANIFEST.optional_host_permissions ?? []), 'https://*.hidive.com/*']);
     const problems = checkStorePermissions(manifest, DOC);
-    expect(problems).toContain('optional_host_permissions « *://*.hidive.com/* » absent du tableau « Declared in `optional_host_permissions` ».');
+    expect(problems).toContain('optional_host_permissions « https://*.hidive.com/* » absent du tableau « Declared in `optional_host_permissions` ».');
     expect(problems).toHaveLength(2);
   });
 
@@ -235,6 +251,16 @@ describe('justifications Chrome Web Store (docs/store/permissions.md)', () => {
     expect(difference(firefox.permissions ?? [], MANIFEST.permissions ?? [])).toEqual([]);
     expect(firefox.host_permissions).toEqual(MANIFEST.host_permissions);
     expect(firefox.optional_host_permissions).toEqual(MANIFEST.optional_host_permissions);
+  });
+
+  it('SEC-02 : tous les motifs du manifeste (Chrome et Firefox) et de cette page sont en https:// seulement', () => {
+    const source = JSON.parse(readFileSync('manifest.json', 'utf8')) as PatternManifest;
+    for (const manifest of [source, targetManifest(source, 'firefox') as PatternManifest]) {
+      const patterns = manifestPatterns(manifest);
+      expect(patterns.length).toBeGreaterThan(5);
+      expect(patterns.filter((pattern) => !pattern.startsWith('https://'))).toEqual([]);
+    }
+    expect(DOC.match(/`(?:\*|http):\/\/[^`]*`/g) ?? []).toEqual([]);
   });
 
   it('hostOf : domaine cité dans le bloc des hôtes', () => {

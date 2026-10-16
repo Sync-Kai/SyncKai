@@ -72,12 +72,12 @@ interface PlatformSource {
 }
 
 const SOURCES: Record<ImportPlatform, PlatformSource> = {
-  crunchyroll: { tabPatterns: ['https://www.crunchyroll.com/*'], home: 'https://www.crunchyroll.com/', site: 'www.crunchyroll.com', origins: ['*://*.crunchyroll.com/*'] },
+  crunchyroll: { tabPatterns: ['https://www.crunchyroll.com/*'], home: 'https://www.crunchyroll.com/', site: 'www.crunchyroll.com', origins: ['https://*.crunchyroll.com/*'] },
   adn: {
     tabPatterns: ['https://animationdigitalnetwork.com/*', 'https://www.animationdigitalnetwork.com/*'],
     home: 'https://animationdigitalnetwork.com/',
     site: 'animationdigitalnetwork.com',
-    origins: ['*://animationdigitalnetwork.com/*', '*://*.animationdigitalnetwork.com/*'],
+    origins: ['https://animationdigitalnetwork.com/*', 'https://*.animationdigitalnetwork.com/*'],
   },
   // Page Activité de visionnage du profil (l'historique n'est lisible que là) ; accès optionnel, comme dans Réglages
   netflix: {

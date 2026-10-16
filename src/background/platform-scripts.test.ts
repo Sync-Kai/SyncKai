@@ -61,7 +61,7 @@ describe('platformContentScripts', () => {
     expect(bridge).toEqual({
       id: NETFLIX_SCRIPT_IDS.bridge,
       js: [PATHS.bridge],
-      matches: ['*://*.netflix.com/*'],
+      matches: ['https://*.netflix.com/*'],
       runAt: 'document_start',
       world: 'MAIN',
       allFrames: false,
@@ -70,7 +70,7 @@ describe('platformContentScripts', () => {
     expect(content).toEqual({
       id: NETFLIX_SCRIPT_IDS.content,
       js: [PATHS.content],
-      matches: ['*://*.netflix.com/*'],
+      matches: ['https://*.netflix.com/*'],
       runAt: 'document_idle',
       allFrames: false,
       persistAcrossSessions: true,
@@ -116,8 +116,8 @@ describe('reconcilePlatformScripts — Disney+', () => {
   it('pont MAIN à document_start et script isolé sur disneyplus.com uniquement', () => {
     const scripts = platformContentScripts('disney', DISNEY_PATHS);
     expect(scripts.map((script) => [script.id, script.js, script.matches, script.runAt, script.world])).toEqual([
-      [DISNEY_SCRIPT_IDS.bridge, [DISNEY_PATHS.bridge], ['*://*.disneyplus.com/*'], 'document_start', 'MAIN'],
-      [DISNEY_SCRIPT_IDS.content, [DISNEY_PATHS.content], ['*://*.disneyplus.com/*'], 'document_idle', undefined],
+      [DISNEY_SCRIPT_IDS.bridge, [DISNEY_PATHS.bridge], ['https://*.disneyplus.com/*'], 'document_start', 'MAIN'],
+      [DISNEY_SCRIPT_IDS.content, [DISNEY_PATHS.content], ['https://*.disneyplus.com/*'], 'document_idle', undefined],
     ]);
   });
 
@@ -133,24 +133,27 @@ describe('reconcilePlatformScripts — Disney+', () => {
   it('Prime Video : pont MAIN à document_start et script isolé sur primevideo.com uniquement', () => {
     const paths = { bridge: 'src/content/prime/page-bridge.iife.js', content: 'src/content/prime/content-prime.iife.js' };
     expect(platformContentScripts('prime', paths).map((script) => [script.id, script.matches, script.runAt, script.world])).toEqual([
-      ['synckai-prime-bridge', ['*://*.primevideo.com/*'], 'document_start', 'MAIN'],
-      ['synckai-prime-content', ['*://*.primevideo.com/*'], 'document_idle', undefined],
+      ['synckai-prime-bridge', ['https://*.primevideo.com/*'], 'document_start', 'MAIN'],
+      ['synckai-prime-content', ['https://*.primevideo.com/*'], 'document_idle', undefined],
     ]);
-    expect(touchesPlatform('prime', { origins: ['*://*.primevideo.com/*'] })).toBe(true);
-    expect(touchesPlatform('prime', { origins: ['*://*.disneyplus.com/*'] })).toBe(false);
+    expect(touchesPlatform('prime', { origins: ['https://*.primevideo.com/*'] })).toBe(true);
+    expect(touchesPlatform('prime', { origins: ['https://*.disneyplus.com/*'] })).toBe(false);
   });
 
   it('ne réagit qu’à l’origine Disney+', () => {
-    expect(touchesPlatform('disney', { origins: ['*://*.disneyplus.com/*'] })).toBe(true);
-    expect(touchesPlatform('disney', { origins: ['*://*.netflix.com/*'] })).toBe(false);
-    expect(touchesPlatform('netflix', { origins: ['*://*.disneyplus.com/*'] })).toBe(false);
+    expect(touchesPlatform('disney', { origins: ['https://*.disneyplus.com/*'] })).toBe(true);
+    expect(touchesPlatform('disney', { origins: ['https://*.netflix.com/*'] })).toBe(false);
+    expect(touchesPlatform('netflix', { origins: ['https://*.disneyplus.com/*'] })).toBe(false);
   });
 });
 
 describe('touchesPlatform', () => {
   it('ne réagit qu’à l’origine Netflix', () => {
+    expect(touchesPlatform('netflix', { origins: ['https://*.netflix.com/*'] })).toBe(true);
+    // SEC-02 : retrait (Firefox) de l'accès accordé en *:// par une version ≤ 2.3.1
     expect(touchesPlatform('netflix', { origins: ['*://*.netflix.com/*'] })).toBe(true);
-    expect(touchesPlatform('netflix', { origins: ['*://*.crunchyroll.com/*'] })).toBe(false);
+    expect(touchesPlatform('netflix', { origins: ['*://*.disneyplus.com/*'] })).toBe(false);
+    expect(touchesPlatform('netflix', { origins: ['https://*.crunchyroll.com/*'] })).toBe(false);
     expect(touchesPlatform('netflix', { permissions: ['scripting'] } as { origins?: string[] })).toBe(false);
     expect(touchesPlatform('netflix', {})).toBe(false);
   });

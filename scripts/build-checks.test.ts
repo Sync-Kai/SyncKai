@@ -16,6 +16,7 @@ import {
   localeCatalogFiles,
   MANIFEST_SCRIPT_BUDGETS,
   checkContentSecurityPolicy,
+  checkHttpsPatterns,
   checkWebAccessibleResources,
   fileReferences,
   hasDynamicImport,
@@ -26,8 +27,8 @@ import {
 } from './build-checks.ts';
 import { isExtensionInjectedScript } from '../src/build/output-names.ts';
 
-const CR = ['*://*.crunchyroll.com/*'];
-const ADN = ['*://animationdigitalnetwork.com/*', '*://*.animationdigitalnetwork.com/*'];
+const CR = ['https://*.crunchyroll.com/*'];
+const ADN = ['https://animationdigitalnetwork.com/*', 'https://*.animationdigitalnetwork.com/*'];
 const CR_SCRIPT = 'src/content/crunchyroll/content-crunchyroll.iife.js';
 const ADN_SCRIPT = 'src/content/adn/content-adn.iife.js';
 const netflixEntry = { matches: [NETFLIX_PATTERN], resources: ['src/content/netflix/a.iife.js', 'src/content/netflix/b.iife.js'] };
@@ -121,7 +122,7 @@ describe('checkWebAccessibleResources', () => {
 
   it('chunks du script Crunchyroll / ADN exposés à ses sites (chargeur ESM de crxjs) : la page détecterait l’extension', () => {
     expect(checkWebAccessibleResources({ ...base, web_accessible_resources: [crEntry, netflixEntry, disneyEntry, primeEntry] })).toEqual([
-      'web_accessible_resources ["*://*.crunchyroll.com/*"] : ressources exposées aux sites des scripts du manifeste (*://*.crunchyroll.com/*)',
+      'web_accessible_resources ["https://*.crunchyroll.com/*"] : ressources exposées aux sites des scripts du manifeste (https://*.crunchyroll.com/*)',
     ]);
   });
 
@@ -140,8 +141,8 @@ describe('checkWebAccessibleResources', () => {
       'web_accessible_resources : scripts Prime Video (*.iife.js) absents',
     ]);
     expect(checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, resources: [...netflixEntry.resources, '<dynamic_resource>'] }, disneyEntry, primeEntry] })).toEqual([
-      'web_accessible_resources ["*://*.netflix.com/*"] : ressource non résolue « <dynamic_resource> »',
-      'web_accessible_resources ["*://*.netflix.com/*"] : entrée Netflix mêlée à d\'autres ressources',
+      'web_accessible_resources ["https://*.netflix.com/*"] : ressource non résolue « <dynamic_resource> »',
+      'web_accessible_resources ["https://*.netflix.com/*"] : entrée Netflix mêlée à d\'autres ressources',
     ]);
   });
 
@@ -149,9 +150,9 @@ describe('checkWebAccessibleResources', () => {
     const merged = { matches: [NETFLIX_PATTERN, DISNEY_PATTERN], resources: [...netflixEntry.resources, ...disneyEntry.resources] };
     const errors = checkWebAccessibleResources({ web_accessible_resources: [merged, primeEntry] });
     expect(errors).toEqual([
-      expect.stringMatching(/scripts Netflix .* exposés hors de \*:\/\/\*\.netflix\.com/),
+      expect.stringMatching(/scripts Netflix .* exposés hors de https:\/\/\*\.netflix\.com/),
       expect.stringMatching(/entrée Netflix mêlée/),
-      expect.stringMatching(/scripts Disney\+ .* exposés hors de \*:\/\/\*\.disneyplus\.com/),
+      expect.stringMatching(/scripts Disney\+ .* exposés hors de https:\/\/\*\.disneyplus\.com/),
       expect.stringMatching(/entrée Disney\+ mêlée/),
     ]);
   });
@@ -159,8 +160,8 @@ describe('checkWebAccessibleResources', () => {
   it('lecteurs de l’historique (injectés par la page d’import) exposés aux sites : refusés (sortie brute de crxjs)', () => {
     const history = 'src/content/history/history.iife.js';
     expect(checkWebAccessibleResources({ web_accessible_resources: [{ ...netflixEntry, resources: [...netflixEntry.resources, history] }, disneyEntry, primeEntry] })).toEqual([
-      `web_accessible_resources ["*://*.netflix.com/*"] : scripts injectés par l'extension exposés aux sites (${history})`,
-      'web_accessible_resources ["*://*.netflix.com/*"] : entrée Netflix mêlée à d\'autres ressources',
+      `web_accessible_resources ["https://*.netflix.com/*"] : scripts injectés par l'extension exposés aux sites (${history})`,
+      'web_accessible_resources ["https://*.netflix.com/*"] : entrée Netflix mêlée à d\'autres ressources',
     ]);
     expect(checkWebAccessibleResources({ web_accessible_resources: [{ matches: [PRIME_PATTERN], resources: [history] }, netflixEntry, disneyEntry, primeEntry] })).toEqual([
       `web_accessible_resources ["${PRIME_PATTERN}"] : scripts injectés par l'extension exposés aux sites (${history})`,
@@ -202,6 +203,28 @@ describe('checkAccessDeclarations', () => {
     );
     expect(errors).toHaveLength(9);
     expect(errors[0]).toMatch(/^permissions :/);
+  });
+});
+
+describe('checkHttpsPatterns (SEC-02)', () => {
+  it('motifs https:// partout : rien à signaler', () => {
+    expect(checkHttpsPatterns(base)).toEqual([]);
+  });
+
+  it('motif *:// ou http:// dans un champ quelconque, y compris une entrée ajoutée par le build', () => {
+    const errors = checkHttpsPatterns({
+      ...base,
+      host_permissions: ['*://*.crunchyroll.com/*'],
+      optional_host_permissions: [NETFLIX_PATTERN, 'http://*.disneyplus.com/*'],
+      content_scripts: [{ matches: ['*://animationdigitalnetwork.com/*'], js: [ADN_SCRIPT] }],
+      web_accessible_resources: [netflixEntry, { matches: ['*://*.primevideo.com/*'], resources: ['src/content/prime/a.iife.js'] }],
+    });
+    expect(errors).toEqual([
+      'host_permissions : « *://*.crunchyroll.com/* » n’est pas en https:// (SEC-02)',
+      'optional_host_permissions : « http://*.disneyplus.com/* » n’est pas en https:// (SEC-02)',
+      'content_scripts.matches : « *://animationdigitalnetwork.com/* » n’est pas en https:// (SEC-02)',
+      'web_accessible_resources.matches : « *://*.primevideo.com/* » n’est pas en https:// (SEC-02)',
+    ]);
   });
 });
 

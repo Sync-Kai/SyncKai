@@ -9,11 +9,11 @@ import { FIREFOX_PANEL_COMMAND, firefoxMenuKeyConflicts, SOURCE_PANEL_COMMAND, t
 import { isExtensionInjectedScript, LOCALE_CATALOG_DIR } from '../src/build/output-names.ts';
 
 /** Netflix : accès optionnel uniquement (voir src/platforms/registry.ts › optionalMatches) */
-export const NETFLIX_PATTERN = '*://*.netflix.com/*';
+export const NETFLIX_PATTERN = 'https://*.netflix.com/*';
 /** Disney+ : accès optionnel uniquement (voir src/platforms/registry.ts › optionalMatches) */
-export const DISNEY_PATTERN = '*://*.disneyplus.com/*';
+export const DISNEY_PATTERN = 'https://*.disneyplus.com/*';
 /** Prime Video : accès optionnel uniquement (voir src/platforms/registry.ts › optionalMatches) */
-export const PRIME_PATTERN = '*://*.primevideo.com/*';
+export const PRIME_PATTERN = 'https://*.primevideo.com/*';
 
 /** Plateformes à accès optionnel : dossier de leurs scripts enregistrés (`src/content/{dossier}/*.iife.js`), libellé, motif */
 export const OPTIONAL_PLATFORMS: readonly { dir: string; label: string; pattern: string }[] = [
@@ -245,6 +245,23 @@ export function checkAccessDeclarations(built: BuiltManifest, expected: BuiltMan
     if (!built.optional_host_permissions?.includes(pattern)) errors.push(`${pattern} absent de optional_host_permissions`);
   }
   return errors;
+}
+
+/**
+ * Motifs d'hôtes du paquet en `https://` seulement (SEC-02) : un motif `*://` ou `http://` ferait aussi tourner les scripts
+ * de contenu (et le pont MAIN de Crunchyroll) sur une page http servie par un attaquant du réseau. Vérifié sur le
+ * manifeste construit : les entrées ajoutées par le build (`web_accessible_resources` de crxjs) comptent aussi.
+ */
+export function checkHttpsPatterns(built: BuiltManifest): string[] {
+  const fields: [string, readonly string[]][] = [
+    ['host_permissions', built.host_permissions ?? []],
+    ['optional_host_permissions', built.optional_host_permissions ?? []],
+    ['content_scripts.matches', (built.content_scripts ?? []).flatMap((script) => script.matches ?? [])],
+    ['web_accessible_resources.matches', (built.web_accessible_resources ?? []).flatMap((entry) => entry.matches ?? [])],
+  ];
+  return fields.flatMap(([field, patterns]) =>
+    patterns.filter((pattern) => !pattern.startsWith('https://')).map((pattern) => `${field} : « ${pattern} » n’est pas en https:// (SEC-02)`),
+  );
 }
 
 /**

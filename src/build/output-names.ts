@@ -83,9 +83,9 @@ export function sortWebAccessibleResources<E extends WebAccessibleResourceEntry>
  * de Vite n'importe pas le registre.
  */
 export const REGISTERED_SCRIPT_MATCHES: Readonly<Record<string, readonly string[]>> = {
-  netflix: ['*://*.netflix.com/*'],
-  disney: ['*://*.disneyplus.com/*'],
-  prime: ['*://*.primevideo.com/*'],
+  netflix: ['https://*.netflix.com/*'],
+  disney: ['https://*.disneyplus.com/*'],
+  prime: ['https://*.primevideo.com/*'],
 };
 
 /** Script enregistré d'une plateforme optionnelle (`src/content/{dossier}/….iife.js`) : son dossier, sinon null */

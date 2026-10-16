@@ -58,12 +58,12 @@ describe('jsFileNames', () => {
 describe('sortWebAccessibleResources', () => {
   it('trie les ressources de chaque entrée sans réordonner les entrées ni modifier l’original', () => {
     const entries = [
-      { matches: ['*://*.netflix.com/*'], resources: ['src/b.iife.js', 'src/a.iife.js'] },
-      { matches: ['*://*.crunchyroll.com/*'], resources: ['assets/z.js', 'assets/m.js'] },
+      { matches: ['https://*.netflix.com/*'], resources: ['src/b.iife.js', 'src/a.iife.js'] },
+      { matches: ['https://*.crunchyroll.com/*'], resources: ['assets/z.js', 'assets/m.js'] },
     ];
     expect(sortWebAccessibleResources(entries)).toEqual([
-      { matches: ['*://*.netflix.com/*'], resources: ['src/a.iife.js', 'src/b.iife.js'] },
-      { matches: ['*://*.crunchyroll.com/*'], resources: ['assets/m.js', 'assets/z.js'] },
+      { matches: ['https://*.netflix.com/*'], resources: ['src/a.iife.js', 'src/b.iife.js'] },
+      { matches: ['https://*.crunchyroll.com/*'], resources: ['assets/m.js', 'assets/z.js'] },
     ]);
     expect(entries[0]?.resources).toEqual(['src/b.iife.js', 'src/a.iife.js']);
   });
@@ -73,9 +73,9 @@ describe('dropExtensionInjectedScripts', () => {
   const history = 'src/content/history/history.iife.js';
 
   it('lecteurs de l’historique retirés de toute entrée ; entrée vidée supprimée ; reste inchangé', () => {
-    const merged = { matches: ['*://*.netflix.com/*', '*://*.disneyplus.com/*'], resources: ['src/content/netflix/page-bridge.iife.js', history], use_dynamic_url: false };
-    const alone = { matches: ['*://*.primevideo.com/*'], resources: [history] };
-    const other = { matches: ['*://*.netflix.com/*'], resources: ['assets/a.js'] };
+    const merged = { matches: ['https://*.netflix.com/*', 'https://*.disneyplus.com/*'], resources: ['src/content/netflix/page-bridge.iife.js', history], use_dynamic_url: false };
+    const alone = { matches: ['https://*.primevideo.com/*'], resources: [history] };
+    const other = { matches: ['https://*.netflix.com/*'], resources: ['assets/a.js'] };
     expect(dropExtensionInjectedScripts([merged, alone, other])).toEqual([{ ...merged, resources: ['src/content/netflix/page-bridge.iife.js'] }, other]);
   });
 
@@ -90,23 +90,23 @@ describe('dropExtensionInjectedScripts', () => {
 describe('splitRegisteredScripts', () => {
   it('une entrée par plateforme, limitée à ses motifs ; autres ressources laissées en place', () => {
     const merged = {
-      matches: ['*://*.netflix.com/*', '*://*.disneyplus.com/*'],
+      matches: ['https://*.netflix.com/*', 'https://*.disneyplus.com/*'],
       resources: ['src/content/netflix/page-bridge.iife.js', 'src/content/disney/page-bridge.iife.js', 'src/content/disney/content-disney.iife.js', 'assets/x.js'],
       use_dynamic_url: false,
     };
-    const other = { matches: ['*://*.crunchyroll.com/*'], resources: ['assets/a.js'] };
+    const other = { matches: ['https://*.crunchyroll.com/*'], resources: ['assets/a.js'] };
     expect(splitRegisteredScripts([other, merged])).toEqual([
       other,
-      { matches: ['*://*.netflix.com/*', '*://*.disneyplus.com/*'], resources: ['assets/x.js'], use_dynamic_url: false },
-      { matches: ['*://*.netflix.com/*'], resources: ['src/content/netflix/page-bridge.iife.js'], use_dynamic_url: false },
-      { matches: ['*://*.disneyplus.com/*'], resources: ['src/content/disney/page-bridge.iife.js', 'src/content/disney/content-disney.iife.js'], use_dynamic_url: false },
+      { matches: ['https://*.netflix.com/*', 'https://*.disneyplus.com/*'], resources: ['assets/x.js'], use_dynamic_url: false },
+      { matches: ['https://*.netflix.com/*'], resources: ['src/content/netflix/page-bridge.iife.js'], use_dynamic_url: false },
+      { matches: ['https://*.disneyplus.com/*'], resources: ['src/content/disney/page-bridge.iife.js', 'src/content/disney/content-disney.iife.js'], use_dynamic_url: false },
     ]);
   });
 
   it('dossier inconnu, fichier hors src/content/{dossier}/ ou script du manifeste (Crunchyroll, ADN) : inchangé', () => {
-    const entry = { matches: ['*://*.netflix.com/*'], resources: ['src/content/hidive/a.iife.js', 'src/content/a.iife.js'] };
+    const entry = { matches: ['https://*.netflix.com/*'], resources: ['src/content/hidive/a.iife.js', 'src/content/a.iife.js'] };
     expect(splitRegisteredScripts([entry])).toEqual([entry]);
-    const manifestScripts = { matches: ['*://*.netflix.com/*'], resources: ['src/content/crunchyroll/content-crunchyroll.iife.js', 'src/content/adn/content-adn.iife.js'] };
+    const manifestScripts = { matches: ['https://*.netflix.com/*'], resources: ['src/content/crunchyroll/content-crunchyroll.iife.js', 'src/content/adn/content-adn.iife.js'] };
     expect(splitRegisteredScripts([manifestScripts])).toEqual([manifestScripts]);
     expect(isExtensionInjectedScript('src/content/adn/content-adn.iife.js')).toBe(false);
   });

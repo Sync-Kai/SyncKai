@@ -101,6 +101,8 @@ export interface LaunchOptions {
   routes: RequestHandler[];
   /** Version écrite dans le manifeste de la copie testée (mise à jour simulée : voir restart) */
   version?: string;
+  /** Manifeste de la copie testée réécrit à partir de celui de dist/ (ancienne version simulée : voir restart) */
+  manifest?: ManifestTransform;
   /** Routes des onglets (fausses pages de plateformes, données de générique…), essayées avant la page Crunchyroll vide */
   pageRoutes?: RequestHandler[];
 }
@@ -134,11 +136,24 @@ export interface ExtensionHarness {
    * `prefix`, mis sous surveillance (réseau, erreurs, console) dès qu'il apparaît
    */
   waitForPage(prefix: string): Promise<Page>;
-  /** Ferme puis relance le navigateur sur le même profil ; `version` change la version du manifeste (mise à jour) */
-  restart(options?: { version?: string }): Promise<void>;
+  /**
+   * Ferme puis relance le navigateur sur le même profil ; `version` change la version du manifeste (mise à jour),
+   * `manifest` le réécrit à partir de celui de dist/ (`(m) => m` : manifeste de dist/ tel quel)
+   */
+  restart(options?: { version?: string; manifest?: ManifestTransform }): Promise<void>;
   /** Captures d'écran des pages ouvertes (échec d'un test) */
   capture(label: string): Promise<void>;
   close(): Promise<void>;
+}
+
+/** Réécriture du manifeste de la copie testée (objet JSON lu dans dist/) */
+export type ManifestTransform = (manifest: Record<string, unknown>) => Record<string, unknown>;
+
+/** Manifeste de la copie testée = `transform` appliqué à celui de dist/ */
+function writeManifest(extDir: string, transform: ManifestTransform): void {
+  const manifest: unknown = JSON.parse(fs.readFileSync(path.join(distDir(), 'manifest.json'), 'utf8'));
+  if (typeof manifest !== 'object' || manifest === null) throw new Error('Manifeste illisible');
+  fs.writeFileSync(path.join(extDir, 'manifest.json'), JSON.stringify(transform({ ...manifest })));
 }
 
 /** Remplace la version du manifeste de la copie testée */
@@ -172,6 +187,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
   const profileDir = path.join(root, 'profile');
   // Copie : la version du manifeste peut changer entre deux lancements sans toucher à dist/
   fs.cpSync(distDir(), extDir, { recursive: true });
+  if (options.manifest !== undefined) writeManifest(extDir, options.manifest);
   if (options.version !== undefined) writeManifestVersion(extDir, options.version);
 
   const unexpected: InterceptedRequest[] = [];
@@ -375,6 +391,7 @@ export async function launchExtension(options: LaunchOptions): Promise<Extension
       pages.length = 0;
       bridgePage = null;
       contentPage = null;
+      if (restartOptions.manifest !== undefined) writeManifest(extDir, restartOptions.manifest);
       if (restartOptions.version !== undefined) writeManifestVersion(extDir, restartOptions.version);
       await start();
     },
