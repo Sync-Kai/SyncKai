@@ -200,4 +200,16 @@ describe('primeAnimeVerdict (tableau G du relevé du 2026-10-14)', () => {
   ])('%s', (_title, genres, audio, verdict) => {
     expect(primeAnimeVerdict(genres, audio)).toBe(verdict);
   });
+
+  it('Secret Level (animation occidentale, relevé du 2026-10-16) : doublage japonais parmi ses pistes → animation-ja', () => {
+    // Pistes lues sur la page /detail/0IT5QD04WG06AKTABIYKVOTHYM ; identifiant du genre d'animation supposé (pas av_genre_anime)
+    const audioTracks = [
+      'Français (France)', 'Deutsch', 'English', 'English', 'English [Audio Description]', 'English Dialogue Boost: Medium', 'English Dialogue Boost: High',
+      'Español (España)', 'Español (Latinoamérica)', 'Français (Canada)', 'Italiano', 'Polski', 'Português (Brasil)', 'Türkçe', 'हिन्दी', 'ไทย', '日本語',
+    ];
+    const title = reducePrimeDetail(hydrationDocument(bumpkinDetailBody({ parentTitle: 'Secret Level', genres: ['av_genre_animation_adult_interest', 'av_genre_action'], audioTracks })));
+    if (!title) throw new Error('fixture invalide');
+    expect(title).toMatchObject({ seriesTitle: 'Secret Level', japaneseAudio: true });
+    expect(primeAnimeVerdict(title.genres, title.japaneseAudio)).toBe('animation-ja');
+  });
 });

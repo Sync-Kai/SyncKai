@@ -361,6 +361,87 @@ describe('resolvePageMedia — page de série Netflix / Disney+', () => {
   });
 });
 
+// ─── Prime Video : animation avec un doublage japonais, sans fiche AniList (Secret Level, relevé du 2026-10-16) ──
+
+describe('resolvePageMedia — Prime Video « Secret Level » (animation occidentale doublée en japonais)', () => {
+  // Page de détail /detail/0IT5QD04WG06AKTABIYKVOTHYM : genres d'animation sans av_genre_anime, piste « 日本語 » parmi
+  // 16 → verdict animation-ja. La trace montrait NOT_FOUND « Aucune fiche AniList trouvée pour « Secret Level » » sur la
+  // page de série comme sur la lecture (S1E1, 959 s, générique à 808 s) : jamais « introuvable », ignorée en silence.
+  const SECRET_LEVEL_GTI = '0IT5QD04WG06AKTABIYKVOTHYM';
+  const primeNotTracked = { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Prime Video' }) };
+
+  function seriesPage(overrides: Partial<PageMediaInfo> = {}): PageMediaInfo {
+    return { platform: 'prime', kind: 'series', seriesId: SECRET_LEVEL_GTI, seriesSlug: null, seriesTitle: 'Secret Level', seasonNumber: 1, seasonTitle: null, primeAnime: 'animation-ja', episode: null, ...overrides };
+  }
+
+  function secretLevelEpisode(overrides: Partial<EpisodeInfo> = {}): EpisodeInfo {
+    return {
+      platform: 'prime',
+      episodeId: 'amzn1.dv.gti.5ec1e7a1-0000-4000-8000-000000000001',
+      seriesId: null,
+      seriesSlug: null,
+      animeTitle: 'Secret Level',
+      seasonNumber: 1,
+      seasonTitle: null,
+      seasonEpisodeNumber: 1,
+      displayedEpisodeNumber: 1,
+      episodeTitle: null,
+      url: `https://www.primevideo.com/detail/${SECRET_LEVEL_GTI}`,
+      primeAnime: 'animation-ja',
+      ...overrides,
+    };
+  }
+
+  const playbackPage = (overrides: Partial<EpisodeInfo> = {}): PageMediaInfo => pageMediaFromEpisode(secretLevelEpisode(overrides));
+
+  function anime(id: number, title: string): AniListMedia {
+    return { id, idMal: null, format: 'TV', episodes: 12, startDate: { year: 2024, month: 4, day: 6 }, displayTitle: title, titles: [title], year: 2024, coverUrl: null, externalLinkUrls: [], relations: [] };
+  }
+
+  beforeEach(() => {
+    // Vraies résolutions (synchro et page de série) sur le catalogue simulé, verdict « série ignorée » dans le faux stockage
+    resolver.resolveEpisode.mockImplementation(sync.resolveEpisode);
+    resolver.findSeriesSeasons.mockImplementation(sync.findSeriesSeasons);
+    resolver.toCandidateSummary.mockImplementation(sync.toCandidateSummary);
+    api.getPageMediaDetails.mockImplementation(async (id: number) => ({ ...details(id), mediaId: id, title: 'Anime' }));
+  });
+
+  it('page de série, rien trouvé sur AniList : NOT_TRACKED (pas NOT_FOUND), verdict mémorisé sans nouvelle recherche', async () => {
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toEqual(primeNotTracked);
+    const searches = api.searchAnime.mock.calls.length;
+    expect(searches).toBeGreaterThan(0);
+    forgetPageResolutions();
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toEqual(primeNotTracked);
+    expect(api.searchAnime).toHaveBeenCalledTimes(searches);
+  });
+
+  it('page de série, résultats AniList sans rapport avec le titre : NOT_TRACKED', async () => {
+    api.searchAnime.mockResolvedValue([anime(5001, 'Level E'), anime(5002, 'Secret of Mana')]);
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toEqual(primeNotTracked);
+  });
+
+  it('page de lecture S1E1, rien trouvé : NOT_TRACKED ; relecture servie par le verdict mémorisé, sans recherche', async () => {
+    expect(await resolvePageMedia({ page: playbackPage(), mediaId: null })).toEqual(primeNotTracked);
+    const searches = api.searchAnime.mock.calls.length;
+    forgetPageResolutions();
+    // Fin de l'épisode (EPISODE_COMPLETED → syncEpisode → resolveEpisode) : même verdict, ignoré sans recherche
+    expect((await sync.resolveEpisode(secretLevelEpisode())).result).toMatchObject({ ok: false, ignored: true });
+    expect(await resolvePageMedia({ page: playbackPage(), mediaId: null })).toEqual(primeNotTracked);
+    expect(api.searchAnime).toHaveBeenCalledTimes(searches);
+  });
+
+  it('inchangé : genre anime (av_genre_anime) rien trouvé → NOT_FOUND, page de série comme lecture', async () => {
+    expect(await resolvePageMedia({ page: seriesPage({ primeAnime: 'anime' }), mediaId: null })).toEqual({ ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: 'Secret Level' }) });
+    expect(await resolvePageMedia({ page: playbackPage({ primeAnime: 'anime' }), mediaId: null })).toMatchObject({ ok: false, code: 'NOT_FOUND' });
+  });
+
+  it('inchangé : animation-ja avec une fiche au titre de la série → retenue, page de série comme lecture', async () => {
+    api.searchAnime.mockResolvedValue([anime(5003, 'Secret Level')]);
+    expect(await resolvePageMedia({ page: seriesPage(), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: 5003 } } });
+    expect(await resolvePageMedia({ page: playbackPage(), mediaId: null })).toMatchObject({ ok: true, data: { media: { mediaId: 5003 }, episodeProgress: 1 } });
+  });
+});
+
 describe('resolvePageMedia — page de série Crunchyroll sur la saison « Special »', () => {
   const TV = 153845;
   const SPECIAL = 170110;

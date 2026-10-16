@@ -391,7 +391,8 @@ export function primeSignals(title: PrimeTitle): PlatformSignals | undefined {
  * Verdict « anime » d'un titre Prime Video (décision du 2026-10-14) :
  * - `av_genre_anime` → `anime` ;
  * - un autre genre `av_genre_animation*` (`animation_adult_interest`, partagé avec l'animation occidentale) : avec une piste
- *   audio japonaise → `animation-ja` (résolution normale), sans → `animation-exact-only` (suivi seulement sur un titre
+ *   audio japonaise → `animation-ja` (résolution normale, ignorée en silence sans fiche au titre de la série : doublage
+ *   japonais d'une animation occidentale, Secret Level), sans → `animation-exact-only` (suivi seulement sur un titre
  *   AniList exact) ;
  * - aucun genre d'animation, ou aucun genre lu → `ignored` (rien envoyé, en silence).
  */

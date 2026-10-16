@@ -129,10 +129,20 @@ describe('primeAnimeGate', () => {
   const vinland: MediaCandidate = { id: 1, format: 'TV', episodes: 12, startDate: null, titles: ['Vinland Saga', 'VINLAND SAGA Season 2'], link: null };
   const candidates: readonly MediaCandidate[] = [vinland];
 
-  it('anime, animation-ja : ouvert sans condition ; autres plateformes : ouvert', () => {
+  it('anime : ouvert sans condition ; autres plateformes : ouvert', () => {
     expect(primeAnimeGate(primeEpisode({ primeAnime: 'anime', animeTitle: 'Invincible' }), [])).toBe('open');
-    expect(primeAnimeGate(primeEpisode({ primeAnime: 'animation-ja', animeTitle: 'Invincible' }), [])).toBe('open');
     expect(primeAnimeGate({ platform: 'crunchyroll', animeTitle: 'Invincible' }, [])).toBe('open');
+  });
+
+  it('animation-ja (Secret Level, doublage japonais) : rien trouvé ou rien au titre de la série → ignoré ; titre ou lien → ouvert', () => {
+    const secretLevel = primeEpisode({ primeAnime: 'animation-ja', animeTitle: 'Secret Level' });
+    expect(primeAnimeGate(secretLevel, [])).toBe('none');
+    expect(primeAnimeGate(secretLevel, [{ ...vinland, titles: ['Level E'] }, { ...vinland, id: 2, titles: ['Secret of Mana'] }])).toBe('none');
+    // Titre de la série, saison numérotée d'AniList (« Season 2 »), film au titre exact, ou lien Prime Video : résolution normale
+    expect(primeAnimeGate(secretLevel, [{ ...vinland, titles: ['SECRET LEVEL'] }])).toBe('open');
+    expect(primeAnimeGate(primeEpisode({ primeAnime: 'animation-ja', animeTitle: 'Vinland Saga' }), [{ ...vinland, titles: ['Vinland Saga Season 2'] }])).toBe('open');
+    expect(primeAnimeGate(secretLevel, [{ ...vinland, format: 'MOVIE', titles: ['Secret Level'] }])).toBe('open');
+    expect(primeAnimeGate(secretLevel, [{ ...vinland, titles: ['Autre titre'], link: 'id' }])).toBe('open');
   });
 
   it('animation-exact-only : titre ou synonyme exact (casse, ponctuation, accents), sinon ignoré', () => {
@@ -154,7 +164,8 @@ describe('primeAnimeGate', () => {
     expect(platformLinkVerdict(primeEpisode({ primeAnime: undefined }), candidates)).toBe('none');
     expect(platformLinkVerdict(primeEpisode({ primeAnime: 'anime' }), [])).toBe('open');
     expect(filtersAnime(primeEpisode({ primeAnime: 'anime' }))).toBe(false);
-    expect(filtersAnime(primeEpisode({ primeAnime: 'animation-ja' }))).toBe(false);
+    // Doublage japonais d'une animation occidentale possible : verdict « série ignorée » mémorisé aussi
+    expect(filtersAnime(primeEpisode({ primeAnime: 'animation-ja' }))).toBe(true);
     expect(filtersAnime(primeEpisode({ primeAnime: 'animation-exact-only' }))).toBe(true);
     expect(filtersAnime({ platform: 'netflix' })).toBe(true);
     expect(filtersAnime({ platform: 'crunchyroll' })).toBe(false);
@@ -215,6 +226,20 @@ describe('resolveEpisode — Prime Video', () => {
   it('animation sans piste japonaise, aucun titre exact (Invincible) : ignorée en silence, même avec une fiche « Season 2 »', async () => {
     searchResults({ Invincible: [media({ id: 999, titles: ['Invincible Season 2'] }), media({ id: 998, titles: ['The Invincible Ones'] })] });
     const { result } = await resolveEpisode(primeEpisode({ primeAnime: 'animation-exact-only', animeTitle: 'Invincible' }));
+    expect(result).toMatchObject({ ok: false, ignored: true });
+    expect(storage.saved).not.toHaveBeenCalled();
+  });
+
+  it('animation + piste japonaise, rien trouvé (Secret Level S1E1, relevé du 2026-10-16) : ignorée en silence, jamais « introuvable »', async () => {
+    searchResults({});
+    const { result } = await resolveEpisode(primeEpisode({ primeAnime: 'animation-ja', animeTitle: 'Secret Level', seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 }));
+    expect(result).toMatchObject({ ok: false, ignored: true });
+    expect(storage.saved).not.toHaveBeenCalled();
+  });
+
+  it('animation + piste japonaise, résultats sans le titre de la série : ignorée en silence', async () => {
+    searchResults({ 'Secret Level': [media({ id: 5001, titles: ['Level E'] }), media({ id: 5002, titles: ['Secret of Mana'] })] });
+    const { result } = await resolveEpisode(primeEpisode({ primeAnime: 'animation-ja', animeTitle: 'Secret Level', seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 }));
     expect(result).toMatchObject({ ok: false, ignored: true });
     expect(storage.saved).not.toHaveBeenCalled();
   });

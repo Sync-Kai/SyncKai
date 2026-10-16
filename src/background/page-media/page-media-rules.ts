@@ -33,7 +33,7 @@ export function seriesTitledSeason(page: Pick<PageMediaInfo, 'seriesTitle' | 'se
  *   la page elle-même (`ownLink` : entité Disney+, certaine même sans genre « Anime » ; GTI compact de la saison Prime Video) ;
  * - `title` : fiches au titre de la série seulement : saison toujours à vérifier ;
  * - `ignored` : rien de lié ni au même titre, série classée hors anime par la page (Disney+ sans genre « Anime ») sans
- *   lien vers l'entité, ou animation Prime Video sans fiche au titre exact : rien à afficher (NOT_TRACKED).
+ *   lien vers l'entité, ou animation Prime Video sans fiche à son titre (exact sans piste japonaise) : rien à afficher (NOT_TRACKED).
  */
 export function seriesPageGate(page: Pick<PageMediaInfo, 'catalogAnime'>, verdict: PlatformLinkVerdict, ownLink: boolean): 'open' | 'title' | 'ignored' {
   if (verdict === 'open' || ownLink) return 'open';

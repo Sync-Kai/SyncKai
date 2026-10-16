@@ -469,7 +469,10 @@ export function hasExactTitle(candidate: Pick<MediaCandidate, 'titles'>, animeTi
 
 /**
  * Verdict « anime » de Prime Video (script de contenu, genres de la page de détail : voir EpisodeInfo.primeAnime) :
- * - `anime`, `animation-ja` : résolution normale (`open`), comme Crunchyroll / ADN ;
+ * - `anime` : résolution normale (`open`), comme Crunchyroll / ADN ;
+ * - `animation-ja` (animation avec une piste japonaise : indice faible, l'animation occidentale a aussi des doublages
+ *   japonais, Secret Level le 2026-10-16) : résolution normale si une fiche est liée à la série ou porte son titre (saison
+ *   numérotée « Season 2 » comprise, voir seasonPool) ; sinon `none` (ignorée en silence, jamais « introuvable ») ;
  * - `animation-exact-only` (animation sans piste japonaise : animation occidentale possible) : suivie seulement si une
  *   fiche porte exactement le titre de la série, ou est liée à Prime Video (lien vers la page, ou lien au titre de la
  *   série : voir isTitleBoundLink) ; sinon `none` (ignorée en silence, comme une série Netflix sans fiche liée) ;
@@ -480,17 +483,22 @@ export function primeAnimeGate(episode: Pick<EpisodeInfo, 'platform' | 'animeTit
   if (episode.platform !== 'prime') return 'open';
   const verdict: unknown = episode.primeAnime;
   if (!isSentPrimeAnimeVerdict(verdict)) return 'none';
-  if (verdict !== 'animation-exact-only') return 'open';
-  return candidates.some((c) => isDirectlyLinked(c) || hasExactTitle(c, episode.animeTitle)) ? 'open' : 'none';
+  if (verdict === 'anime') return 'open';
+  const { animeTitle } = episode;
+  const matches =
+    verdict === 'animation-ja'
+      ? candidates.some((c) => isLinked(c) || hasExactTitle(c, animeTitle)) || seasonPool(candidates, animeTitle).length > 0
+      : candidates.some((c) => isDirectlyLinked(c) || hasExactTitle(c, animeTitle));
+  return matches ? 'open' : 'none';
 }
 
 /**
  * Série soumise à un filtre « anime » (verdict « série ignorée » possible, mémorisé : voir ignored-series.ts) : plateforme
- * généraliste (`linkRequired`), ou Prime Video hors genre anime (`animation-exact-only`, verdict absent).
+ * généraliste (`linkRequired`), ou Prime Video hors genre anime (`animation-ja`, `animation-exact-only`, verdict absent).
  */
 export function filtersAnime(episode: Pick<EpisodeInfo, 'platform' | 'primeAnime'>): boolean {
   if (PLATFORMS[episode.platform].linkRequired) return true;
-  return episode.platform === 'prime' && episode.primeAnime !== 'anime' && episode.primeAnime !== 'animation-ja';
+  return episode.platform === 'prime' && episode.primeAnime !== 'anime';
 }
 
 export function platformLinkVerdict(episode: Pick<EpisodeInfo, 'platform' | 'animeTitle' | 'primeAnime'>, candidates: readonly MediaCandidate[]): PlatformLinkVerdict {
