@@ -94,9 +94,10 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
         onChange();
       });
   };
-  chrome.storage.onChanged.addListener((changes, area) => {
+  const onStorageChange = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
     if (area === 'local' && SETTINGS_STORAGE_KEY in changes) loadSettings();
-  });
+  };
+  chrome.storage.onChanged.addListener(onStorageChange);
   loadSettings();
 
   return {
@@ -131,5 +132,11 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
     runAction: (request) => ctl.runAction(request),
     setConfirm: (status) => ctl.setConfirm(status),
     pickSeason: (mediaId) => ctl.pickSeason(mediaId),
+    dispose(): void {
+      chrome.storage.onChanged.removeListener(onStorageChange);
+      ctl.dispose();
+      tabId = null;
+      live.follow(null);
+    },
   };
 }

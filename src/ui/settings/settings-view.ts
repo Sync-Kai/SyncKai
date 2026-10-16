@@ -39,6 +39,8 @@ export interface SettingsView {
   readonly element: HTMLElement;
   /** Entrée dans les Réglages : accueil, ou directement une sous-page (pastille de compte) */
   show(page?: SettingsPage): void;
+  /** Écouteurs (stockage, accès, comptes, langue, focus) et minuteries retirés : vue recréée par l'hôte (4-R6) */
+  dispose(): void;
 }
 
 interface CategoryCopy {
@@ -356,7 +358,10 @@ export function createSettingsView(host: SettingsHost): SettingsView {
 
   // ─── Suivi du stockage et de la langue ───
 
-  chrome.storage.onChanged.addListener((changes, area) => {
+  /** Écouteurs et minuteries retirés par `dispose` */
+  const cleanups: (() => void)[] = [];
+
+  const onStorageChange = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
     if (area !== 'local') return;
     const settingsChange = changes[SETTINGS_STORAGE_KEY];
     if (settingsChange) {
@@ -373,30 +378,37 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     if (changes[DIAGNOSTICS_LOG_KEY]) void refreshJournal();
     const airingChange = changes[AIRING_RESULT_KEY];
     if (airingChange) setAiring(airingChange.newValue);
-  });
+  };
+  chrome.storage.onChanged.addListener(onStorageChange);
+  cleanups.push(() => chrome.storage.onChanged.removeListener(onStorageChange));
 
   // Accès Netflix / Disney+ / Prime Video accordé ou retiré (ici, chrome://extensions, autre vue) : interrupteurs et
   // lecteur préféré suivent le store de l'hôte (une seule paire d'écouteurs permissions.* par page)
-  host.platformAccess.subscribe((granted) => {
-    if (granted === data.platformAccess) return;
-    data.platformAccess = granted;
-    redraw(['home', 'sync']);
-  });
+  cleanups.push(
+    host.platformAccess.subscribe((granted) => {
+      if (granted === data.platformAccess) return;
+      data.platformAccess = granted;
+      redraw(['home', 'sync']);
+    }),
+  );
 
   // Comptes connectés ou déconnectés (ici ou ailleurs) : carte Comptes, résumé de l'accueil et « Fiche ouverte par défaut »
-  host.accounts.anilist.subscribe(() => redraw(['home', 'accounts', 'sync']));
-  host.accounts.mal.subscribe(() => redraw(['home', 'accounts', 'sync']));
+  cleanups.push(host.accounts.anilist.subscribe(() => redraw(['home', 'accounts', 'sync'])));
+  cleanups.push(host.accounts.mal.subscribe(() => redraw(['home', 'accounts', 'sync'])));
 
   // Langue changée (popup, panneau latéral) : tout est retraduit en place, sans rechargement
-  onLocaleChange(() => {
-    drawBar();
-    drawPage();
-  });
+  cleanups.push(
+    onLocaleChange(() => {
+      drawBar();
+      drawPage();
+    }),
+  );
 
   // « Dernière vérification il y a… » vieillit tant que la vue reste ouverte
-  setInterval(() => {
+  const clock = setInterval(() => {
     if (nav.page === 'notifications') notifications.drawAiring(Date.now());
   }, CLOCK_TICK_MS);
+  cleanups.push(() => clearInterval(clock));
 
   drawBar();
   drawPage();
@@ -406,11 +418,17 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   void refreshJournal();
   void loadAiring();
   void loadShortcuts();
-  window.addEventListener('focus', () => void loadShortcuts());
+  const onFocus = (): void => void loadShortcuts();
+  window.addEventListener('focus', onFocus);
+  cleanups.push(() => window.removeEventListener('focus', onFocus));
 
   return {
     bar,
     element,
+    dispose() {
+      for (const cleanup of cleanups.splice(0)) cleanup();
+      clearTimeout(badgeTimer);
+    },
     show(page = 'home') {
       // Nouvelle entrée : l'accueil repart du haut
       homeScroll = 0;

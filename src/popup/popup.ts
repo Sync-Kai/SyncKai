@@ -15,7 +15,7 @@ import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { ListStatusChange } from '../shared/sync.types';
 import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
 import { TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
-import { entryKey, formatRelativeTime } from '../shared/watching';
+import { entryKey } from '../shared/watching';
 import type { WatchingEntry, WatchingSort } from '../shared/watching.types';
 import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../ui/dom';
 import { tickJobPause } from '../ui/job-pause';
@@ -23,6 +23,7 @@ import { createMenuDismiss } from '../ui/menu';
 import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../browser/host-access';
 import { renderFooter, type FooterStatus } from './components/footer';
+import { footerChips, footerStatus } from './footer-status';
 import { renderHostAccessBanner } from './components/host-access-banner';
 import { renderHeader, renderNav } from './components/header';
 import { renderOnboarding } from './components/onboarding';
@@ -369,36 +370,21 @@ const menuDismiss = createMenuDismiss({
 
 // ─── Rendu ────────────────────────────────────────────────────────────────
 
-function footerStatus(): FooterStatus {
-  const connected = connectedServices();
-  const expired = TRACKER_IDS.find((service) => {
-    const state = accountStore(service).get();
-    return state.status === 'logged-out' && state.expired;
-  });
-  const { reviews, recentSyncs } = syncStore.get();
-  const { failed, pending } = queue.counts();
-
-  // Priorité : synchros abandonnées, vérifications, relances en attente, session expirée
-  if (connected.length > 0 && failed > 0) return { kind: 'queue-failed', count: failed };
-  if (connected.length > 0 && reviews.length > 0) return { kind: 'pending', count: reviews.length };
-  if (connected.length > 0 && pending > 0) return { kind: 'queue-pending', count: pending };
-  if (expired) return { kind: 'expired', service: expired };
-  if (connected.length === 0) return { kind: 'none' };
-  // Priorité la plus basse : une note reportée n'empêche rien de fonctionner
-  const toRate = ratings.store.get().items.length;
-  if (toRate > 0) return { kind: 'to-rate', count: toRate };
-  const latest = recentSyncs[0];
-  return { kind: 'ok', relative: latest ? formatRelativeTime(latest.syncedAt, now) : null };
+/** Comptes des deux services (barre d'état) */
+function accountStates(): Record<TrackerId, AccountState<unknown>> {
+  return { anilist: anilistStore.get(), mal: malStore.get() };
 }
 
-type FooterChip = { service: TrackerId; state: 'ok' | 'expired' };
-
-function footerChips(): FooterChip[] {
-  return TRACKER_IDS.flatMap((service): FooterChip[] => {
-    const state = accountStore(service).get();
-    if (state.status === 'logged-in') return [{ service, state: 'ok' }];
-    if (state.status === 'logged-out' && state.expired) return [{ service, state: 'expired' }];
-    return [];
+/** Barre d'état : fonction pure de l'état du popup (footer-status.ts) */
+function currentFooterStatus(): FooterStatus {
+  const { reviews, recentSyncs } = syncStore.get();
+  return footerStatus({
+    accounts: accountStates(),
+    reviews: reviews.length,
+    queue: queue.counts(),
+    toRate: ratings.store.get().items.length,
+    latestSyncAt: recentSyncs[0]?.syncedAt ?? null,
+    now,
   });
 }
 
@@ -618,8 +604,8 @@ function render(): void {
     }
 
     // Barre d'état (role="status") : comparée sur son contenu, pas sur l'identité des objets recalculés
-    const chips = footerChips();
-    const status = footerStatus();
+    const chips = footerChips(accountStates());
+    const status = currentFooterStatus();
     if (footerChanged([JSON.stringify(chips), JSON.stringify(status)])) {
       footerSlot.replaceChildren(
         renderFooter({

@@ -2,7 +2,6 @@ import { onLocaleChange, t } from '../i18n';
 import { createLogger } from '../browser/logger';
 import { trace } from '../browser/debug-trace-client';
 import {
-  isCachedPageMedia,
   isPartialEpisodePage,
   matchCachedPageMedia,
   pageKey,
@@ -20,6 +19,8 @@ import { mediaActionKey, runMediaAction, type MediaActionRequest } from './media
 import type { MediaActionsState } from './media-actions';
 import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from './page-media-request';
 import type { PlatformAccessStore } from './platform-access-store';
+import { createRedetectLimiter } from './redetect-limiter';
+import { createOwnWrites, isForeignCacheChange } from './tab-cache-echo';
 import type { InlineFeedback } from './state';
 import { callWorker, networkFailure } from './worker-call';
 
@@ -96,6 +97,8 @@ export interface PageMediaController<D> {
   setConfirm(status: ListStatusChange | null): boolean;
   /** Saison choisie dans le sélecteur : enregistrée comme correspondance par le service worker (ARCH-20) */
   pickSeason(mediaId: number): void;
+  /** Écouteurs retirés et minuteries annulées ; une réponse encore en vol ne touche plus à rien (4-R6) */
+  dispose(): void;
 }
 
 /** Retour d'action affiché (un échec reste deux fois plus longtemps : texte à lire) */
@@ -106,14 +109,11 @@ const PARTIAL_RECHECK_MS: readonly number[] = [2_500, 5_000, 10_000];
 const FOLLOW_UP_RETRY_MS = 1_000;
 /**
  * Relectures AUTOMATIQUES de la page (fiche réécrite ailleurs, événement du port de lecture : synchro, saison choisie
- * dans la page) : au plus une toutes les 2 s (les suivantes sont regroupées et reportées) et 5 par minute. Au-delà, plus
- * aucune jusqu'à un changement d'URL de l'onglet ou une actualisation demandée : quelle qu'en soit la cause, une boucle
- * ne peut jamais épuiser le quota de requêtes AniList (chaque résolution relit les listes).
+ * dans la page) : au plus une toutes les 2 s et 5 par minute, puis suspendues jusqu'à un changement d'URL de l'onglet
+ * ou une actualisation demandée (ui/redetect-limiter.ts)
  */
 export const AUTO_REDETECT_MIN_INTERVAL_MS = 2_000;
 export const AUTO_REDETECT_MAX_PER_MINUTE = 5;
-/** Horodatages de ses propres écritures gardés pour reconnaître leur écho */
-const OWN_WRITES_KEPT = 8;
 
 const NO_ACTIONS: MediaActionsState = { busy: null, confirm: null, feedback: null };
 
@@ -173,35 +173,29 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
   let recheck: { episodeId: string | null; count: number } = { episodeId: null, count: 0 };
   let recheckTimer: ReturnType<typeof setTimeout> | undefined;
   let followUpTimer: ReturnType<typeof setTimeout> | undefined;
-  /**
-   * Horodatages des fiches écrites par cet écran dans le cache de l'onglet, retenus AVANT l'écriture : storage.onChanged
-   * est émis pendant l'écriture, avant son retour. Retenus après coup, l'écho de sa propre écriture passait pour une
-   * fiche réécrite ailleurs : après un choix de saison (cache ignoré), chaque écho relançait RESOLVE_PAGE_MEDIA, qui
-   * réécrivait le cache… boucle sans fin, jusqu'à la limite de requêtes AniList.
-   */
-  const ownWrites: number[] = [];
-  /** Relectures automatiques : horodatages de la dernière minute, relecture reportée, suspension (voir AUTO_REDETECT_*) */
-  let autoTimes: number[] = [];
-  let autoTimer: ReturnType<typeof setTimeout> | undefined;
-  let autoDeferred: boolean | null = null;
-  let autoSuspended = false;
+  /** Fiches écrites par cet écran dans le cache de l'onglet (horodatages retenus AVANT l'écriture : voir tab-cache-echo.ts) */
+  const ownWrites = createOwnWrites();
+  /** Relectures automatiques plafonnées (voir AUTO_REDETECT_*) */
+  const auto = createRedetectLimiter({
+    minIntervalMs: AUTO_REDETECT_MIN_INTERVAL_MS,
+    maxPerMinute: AUTO_REDETECT_MAX_PER_MINUTE,
+    active: () => tabId !== null,
+    run: (reresolve) => void redetect(reresolve),
+    onSuspend: () => log.warn(`Relectures automatiques de la page suspendues (${AUTO_REDETECT_MAX_PER_MINUTE} en une minute) jusqu’au prochain changement d’URL ou à « Actualiser »`),
+  });
 
   // Fiche de l'onglet réécrite ailleurs (synchro par le service worker, action dans l'autre écran) : appliquée tout de suite.
-  // Fiche effacée (commentaire ou retrait depuis l'autre écran : forgetCachedPageMedia) : relue aussi, sinon l'écran
-  // garde l'état des listes d'avant l'action.
-  chrome.storage.onChanged.addListener((changes, area) => {
+  // Fiche effacée (commentaire ou retrait depuis l'autre écran) : relue aussi (voir isForeignCacheChange)
+  const onStorageChange = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
     if (area !== 'session' || tabId === null) return;
     const change = changes[pageMediaCacheKey(tabId)];
-    if (!change) return;
-    const entry: unknown = change.newValue;
-    const forgotten = entry === undefined && isCachedPageMedia(change.oldValue);
-    if (!forgotten && (!isCachedPageMedia(entry) || ownWrites.includes(entry.resolvedAt))) return;
-    autoRedetect(true);
-  });
+    if (change && isForeignCacheChange(change, ownWrites)) auto.request(true);
+  };
+  chrome.storage.onChanged.addListener(onStorageChange);
 
   // Nouvelle langue : le message d'erreur ou « introuvable » vient du service worker, déjà traduit. Requête relancée
   // pour l'avoir dans la nouvelle langue (limite AniList : refus local, sans requête réseau)
-  onLocaleChange(() => {
+  const stopLocale = onLocaleChange(() => {
     if (content.status === 'error' || content.status === 'not-found') void resolve(content.page, false);
   });
 
@@ -213,50 +207,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     if (tabId === null || !page || !isOptionalPlatform(page.platform)) return;
     void resolve(page, content.status === 'ready', true);
   };
-  platformAccess.onPermissionsChange(onAccessChange);
-
-  /** Écriture à venir dans le cache de l'onglet : horodatage retenu pour en ignorer l'écho */
-  function ownWrite(): number {
-    let at = Date.now();
-    while (ownWrites.includes(at)) at++;
-    ownWrites.push(at);
-    if (ownWrites.length > OWN_WRITES_KEPT) ownWrites.shift();
-    return at;
-  }
-
-  /** Relecture automatique, plafonnée (voir AUTO_REDETECT_*) ; `reresolve` des demandes regroupées cumulé */
-  function autoRedetect(reresolve: boolean): void {
-    if (tabId === null || autoSuspended) return;
-    const now = Date.now();
-    autoTimes = autoTimes.filter((at) => now - at < 60_000);
-    const last = autoTimes.at(-1);
-    if (last !== undefined && now - last < AUTO_REDETECT_MIN_INTERVAL_MS) {
-      autoDeferred = (autoDeferred ?? false) || reresolve;
-      autoTimer ??= setTimeout(() => {
-        autoTimer = undefined;
-        const deferred = autoDeferred ?? false;
-        autoDeferred = null;
-        autoRedetect(deferred);
-      }, last + AUTO_REDETECT_MIN_INTERVAL_MS - now);
-      return;
-    }
-    if (autoTimes.length >= AUTO_REDETECT_MAX_PER_MINUTE) {
-      autoSuspended = true;
-      log.warn(`Relectures automatiques de la page suspendues (${AUTO_REDETECT_MAX_PER_MINUTE} en une minute) jusqu’au prochain changement d’URL ou à « Actualiser »`);
-      return;
-    }
-    autoTimes.push(now);
-    void redetect(reresolve);
-  }
-
-  /** Changement d'URL de l'onglet, autre onglet ou actualisation demandée : plafond remis à zéro */
-  function resetAutoRedetect(): void {
-    clearTimeout(autoTimer);
-    autoTimer = undefined;
-    autoDeferred = null;
-    autoTimes = [];
-    autoSuspended = false;
-  }
+  const stopAccess = platformAccess.onPermissionsChange(onAccessChange);
 
   const set = (next: PageMediaContent<D>): void => {
     content = next;
@@ -358,7 +309,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
   async function refresh(force: boolean): Promise<void> {
     const id = tabId;
     if (id === null) return;
-    resetAutoRedetect();
+    auto.reset();
     // Annule toute résolution en cours : relancée plus bas si la page n'a pas changé
     const current = ++run;
     const known = pageOf(content);
@@ -461,7 +412,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     if (current !== run) return;
     if (result.ok) {
       if (id !== null && epochs !== null) {
-        storeCachedPageMedia(id, page, result.data, 'resolve', epochs, ownWrite()).catch((error: unknown) => log.debug('Fiche non mise en cache :', error));
+        storeCachedPageMedia(id, page, result.data, 'resolve', epochs, ownWrites.stamp()).catch((error: unknown) => log.debug('Fiche non mise en cache :', error));
       }
       await showReady(current, page, result.data);
     } else if (result.code === 'NOT_FOUND' || result.code === 'NOT_TRACKED') {
@@ -517,7 +468,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
       // Autre onglet : l'action en cours sur l'onglet quitté ne doit rien afficher ici
       if (changed) resetActions();
       if (next === null) {
-        resetAutoRedetect();
+        auto.reset();
         run++;
         content = { status: 'idle' };
         onContent?.(content);
@@ -527,7 +478,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     },
     open(next: number, page: PageMediaInfo): void {
       tabId = next;
-      resetAutoRedetect();
+      auto.reset();
       clearTimeout(recheckTimer);
       clearTimeout(followUpTimer);
       leavePage();
@@ -536,14 +487,10 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     },
     refresh,
     redetect(reresolve: boolean): Promise<void> {
-      autoRedetect(reresolve);
+      auto.request(reresolve);
       return Promise.resolve();
     },
-    navigated(): void {
-      autoTimes = autoTimes.slice(-1);
-      autoSuspended = false;
-      autoRedetect(autoDeferred ?? false);
-    },
+    navigated: () => auto.navigated(),
     retry(): void {
       const page = pageOf(content);
       if (!page) return;
@@ -567,6 +514,19 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
         if (manualId === mediaId) manualId = previous;
         if (__SYNCKAI_DEBUG__) trace('ui', 'season-pick-failed', { mediaId });
       });
+    },
+    dispose(): void {
+      chrome.storage.onChanged.removeListener(onStorageChange);
+      stopLocale();
+      stopAccess();
+      auto.dispose();
+      // Réponses encore en vol ignorées (`run`), retour d'une action en cours aussi (`actionEpoch`)
+      tabId = null;
+      run++;
+      actionEpoch++;
+      clearTimeout(feedbackTimer);
+      clearTimeout(recheckTimer);
+      clearTimeout(followUpTimer);
     },
   };
 }

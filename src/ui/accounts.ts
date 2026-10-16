@@ -40,6 +40,8 @@ export interface AccountsController {
   refresh(service: TrackerId): Promise<void>;
   /** Session invalidée (token refusé) : « Session expirée » + reconnexion */
   markExpired(service: TrackerId): void;
+  /** Écouteur du stockage retiré (hôte qui recrée ses écrans, 4-R6) */
+  dispose(): void;
 }
 
 export function createAccountsController(): AccountsController {
@@ -165,7 +167,7 @@ export function createAccountsController(): AccountsController {
   }
 
   // La vue se ferme souvent pendant l'OAuth, et le service worker peut invalider une session : on suit le stockage
-  chrome.storage.onChanged.addListener((changes, areaName): void => {
+  const onStorageChange = (changes: Record<string, chrome.storage.StorageChange>, areaName: string): void => {
     if (areaName !== 'local') return;
     onTokenChange('anilist', changes[STORAGE_KEYS.anilistToken]);
     onTokenChange('mal', changes[STORAGE_KEYS.malToken]);
@@ -180,7 +182,8 @@ export function createAccountsController(): AccountsController {
     if (malViewerChange && malState.status === 'logged-in' && isMalViewer(malViewerChange.newValue)) {
       mal.set({ ...malState, viewer: malViewerChange.newValue });
     }
-  });
+  };
+  chrome.storage.onChanged.addListener(onStorageChange);
 
   return {
     anilist,
@@ -193,5 +196,6 @@ export function createAccountsController(): AccountsController {
     logout,
     refresh,
     markExpired,
+    dispose: () => chrome.storage.onChanged.removeListener(onStorageChange),
   };
 }

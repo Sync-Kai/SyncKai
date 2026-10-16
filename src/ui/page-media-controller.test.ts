@@ -79,12 +79,21 @@ vi.mock('../browser/storage/page-media-cache', async (importOriginal) => {
 vi.stubGlobal('chrome', {
   storage: {
     local: { get: () => Promise.resolve({ ...fake.local }) },
-    onChanged: { addListener: (listener: ChangeListener) => void fake.listeners.push(listener) },
+    onChanged: {
+      addListener: (listener: ChangeListener) => void fake.listeners.push(listener),
+      removeListener: (listener: ChangeListener) => void fake.listeners.splice(fake.listeners.indexOf(listener), 1),
+    },
   },
   permissions: {
     contains: () => Promise.resolve(fake.optionalGranted),
-    onAdded: { addListener: (listener: () => void) => void fake.accessListeners.push(listener) },
-    onRemoved: { addListener: (listener: () => void) => void fake.accessListeners.push(listener) },
+    onAdded: {
+      addListener: (listener: () => void) => void fake.accessListeners.push(listener),
+      removeListener: (listener: () => void) => void fake.accessListeners.splice(fake.accessListeners.indexOf(listener), 1),
+    },
+    onRemoved: {
+      addListener: (listener: () => void) => void fake.accessListeners.push(listener),
+      removeListener: (listener: () => void) => void fake.accessListeners.splice(fake.accessListeners.indexOf(listener), 1),
+    },
   },
 });
 
@@ -419,6 +428,30 @@ describe('anti-écho du cache de l’onglet', () => {
     emitCacheWrite(2, 9_999);
     await settle();
     expect(fake.reads).toBe(reads);
+  });
+});
+
+describe('dispose (4-R6)', () => {
+  it('écouteurs retirés : fiche réécrite ailleurs ou accès changé sans effet ; réponse en vol ignorée', async () => {
+    const ctl = await readyOnFrieren();
+    await settle();
+    const reads = fake.reads;
+    const listeners = fake.listeners.length;
+    // Résolution en vol au moment de la destruction
+    ctl.retry();
+    await settle();
+    expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(1);
+    ctl.dispose();
+    expect(fake.listeners).toHaveLength(listeners - 1);
+
+    emitCacheWrite(1, 9_999);
+    for (const listener of fake.accessListeners) listener();
+    await settle();
+    expect(fake.reads).toBe(reads);
+    expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(1);
+    answer(pending('RESOLVE_PAGE_MEDIA')[0], { ok: false, code: 'API_ERROR', message: 'trop tard' });
+    await settle();
+    expect(ctl.content.status).toBe('ready');
   });
 });
 

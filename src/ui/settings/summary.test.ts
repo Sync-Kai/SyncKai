@@ -83,7 +83,7 @@ describe('effectivePlayer : lecteur préféré effectif, partout où il est lu',
       .filter(([path, text]) => !path.endsWith('/shared/settings.ts') && /\.preferredPlayer\b/.test(text))
       .map(([path, text]) => ({ path: path.replace(/^(\.\.\/)+/, ''), helper: /\beffective(Preferred)?Player\(/.test(text) }));
     expect(readers.map((r) => r.path)).toEqual(
-      expect.arrayContaining(['popup/popup.ts', 'sidepanel/components/now-playing-controller.ts', 'sidepanel/components/agenda.ts', 'background/airing.ts']),
+      expect.arrayContaining(['popup/popup.ts', 'sidepanel/components/now-playing-controller.ts', 'sidepanel/agenda-controller.ts', 'background/airing.ts']),
     );
     expect(readers.filter((r) => !r.helper).map((r) => r.path)).toEqual([]);
   });

@@ -1,66 +1,30 @@
 import { getLocale, joinSentences, t, upperFirst } from '../../i18n';
 import { BTN_GHOST, CARD, PLATFORM_LABELS, renderCover } from '../../ui/kit';
 import { platformIcon } from '../../ui/brand-icons';
-import {
-  airingWeekKey,
-  buildAgendaDays,
-  formatOffset,
-  isWeekCacheFresh,
-  mergeWatchingSeries,
-  rolloverWeek,
-  shiftWeek,
-  weekRange,
-  type AgendaDay,
-  type AgendaRow,
-  type AgendaSeries,
-  type AiringWeekCache,
-  type IsoWeekday,
-  type WeekRange,
-} from '../../shared/agenda';
-import { agendaFirstDay, readWeekCache, saveSeriesOffset } from '../../browser/storage/agenda-store';
+import { buildAgendaDays, formatOffset, shiftWeek, weekRange, type AgendaDay, type AgendaRow, type WeekRange } from '../../shared/agenda';
+import { saveSeriesOffset } from '../../browser/storage/agenda-store';
 import { entryLink } from '../../shared/entry-link';
-import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../browser/logger';
-import { sendMessage, type MessageResponse } from '../../protocol/messages';
 import { activePlatforms } from '../../browser/platform-access';
 import { platformSearchUrl } from '../../platforms/links';
-import { DEFAULT_SETTINGS, effectivePlayer, OFFSET_RANGE, parseOffsetInput, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
-import { getSettings } from '../../browser/storage/settings-access';
-import { getCachedWatching } from '../../browser/storage/watching-cache';
-import { hasMalToken, hasValidAniListToken } from '../../browser/storage/tokens';
-import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
+import { DEFAULT_SETTINGS, OFFSET_RANGE, parseOffsetInput } from '../../shared/settings';
 import { busyAttrs, h, nodes, preserveFocus, type Child } from '../../ui/dom';
 import { entryCover, entryTitle } from '../../ui/entry-link';
 import { createMenuDismiss } from '../../ui/menu';
-import { callWorker, networkFailure } from '../../ui/worker-call';
 import { alertAttrs } from '../../ui/live-region';
 import type { PlatformAccessStore } from '../../ui/platform-access-store';
 import { formatPlatformList } from '../../ui/platform-list';
 import { icon } from '../../ui/icons';
-import { decideAgendaLoad } from '../agenda-load';
+import { createAgendaController } from '../agenda-controller';
 
-// Onglet « Agenda » du panneau latéral : sorties de la semaine pour les séries en cours.
-// Le cache `airingWeek:<date>` (alarme horaire ou requête précédente) est lu d'abord ;
-// le service worker n'est sollicité (GET_AGENDA) que s'il manque ou a expiré.
+// Onglet « Agenda » du panneau latéral : sorties de la semaine pour les séries en cours. Données de la semaine (cache
+// `airingWeek:<date>`, GET_AGENDA, requête en cours) : sidepanel/agenda-controller.ts ; ici le rendu, le menu « ⋯ » et
+// l'éditeur de délai.
 
 const log = createLogger('agenda');
 
-/** Navigation ‹ › : un seul chargement après une rafale de clics */
-const NAV_DEBOUNCE_MS = 300;
-/** Changements du stockage regroupés */
-const STORAGE_DEBOUNCE_MS = 250;
-
 const SHORT_PLATFORM: Record<StreamingPlatform, string> = { crunchyroll: 'CR', adn: 'ADN', netflix: 'NF', disney: 'D+', prime: 'PV' };
-
-type Status =
-  | { kind: 'loading' }
-  | { kind: 'not-connected' }
-  /** `optional` : plateformes à accès optionnel accordées (Netflix, Disney+), citées parmi les plateformes */
-  | { kind: 'no-series'; optional: readonly StreamingPlatform[] }
-  | { kind: 'ready'; cache: AiringWeekCache; refreshing: boolean; error: string | null }
-  | { kind: 'error'; message: string };
 
 interface Editing {
   scheduleId: number;
@@ -75,6 +39,8 @@ export interface AgendaView {
   element: HTMLElement;
   /** Onglet affiché : premier chargement, ou vérification de la fraîcheur du cache */
   activate(): void;
+  /** Écouteurs (stockage, clic hors du menu) et minuteries retirés (4-R6) */
+  dispose(): void;
 }
 
 function timeFormat(): Intl.DateTimeFormat {
@@ -101,31 +67,17 @@ function weekLabel(range: WeekRange): string {
 /** `platformAccess` : accès optionnels de la page du panneau (lecteur préféré, plateformes de « aucune série ») */
 export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
   const element = h('div', { class: 'flex flex-col gap-3' });
-  let firstDay: IsoWeekday = agendaFirstDay();
-  let range: WeekRange = weekRange(Date.now(), firstDay);
-  let status: Status = { kind: 'loading' };
-  let settings: SyncSettings | null = null;
-  /** Lecteur préféré effectif (Netflix seulement avec l'accès) : lien « Ouvrir » et ordre des recherches */
-  let player: StreamingPlatform = DEFAULT_SETTINGS.preferredPlayer;
-  let series = new Map<number, AgendaSeries>();
-  /** Comptes connectés (lus à chaque chargement) : fiche ouverte par le titre et la jaquette */
-  let connected: TrackerId[] = [];
   let menuFor: number | null = null;
   let editing: Editing | null = null;
-  let started = false;
-  let run = 0;
-  let loadTimer: ReturnType<typeof setTimeout> | undefined;
-  let midnightTimer: ReturnType<typeof setTimeout> | undefined;
-  /** Semaine → horodatage de la dernière requête GET_AGENDA de ce panneau */
-  const lastFetch = new Map<string, number>();
-  /** Semaine → échec de la dernière requête GET_AGENDA (absente si elle a réussi) */
-  const lastError = new Map<string, string>();
-  /** Requête GET_AGENDA en cours (semaine, chargement qui l'a lancée) */
-  let inFlight: { key: string; run: number } | null = null;
-  /** Chargement demandé pendant cette requête : rejoué une fois sa réponse affichée */
-  let reloadQueued = false;
-  /** Services dont la liste « En cours » a déjà été demandée (cache vide à l'ouverture du panneau) */
-  const watchingRequested = new Set<TrackerId>();
+  /** Données de la semaine (chargement, cache, requête en cours) : sidepanel/agenda-controller.ts */
+  const ctl = createAgendaController({
+    platformAccess,
+    onChange: () => draw(),
+    onWeekChange: () => {
+      menuFor = null;
+      editing = null;
+    },
+  });
 
   /** Clic hors du menu « ⋯ » : fermeture (écouteur présent seulement pendant l'ouverture) */
   const menuDismiss = createMenuDismiss({
@@ -141,146 +93,6 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
     menuDismiss.setOpen(menuFor !== null);
   }
 
-  function scheduleLoad(delay: number): void {
-    clearTimeout(loadTimer);
-    loadTimer = setTimeout(() => void load(false), delay);
-  }
-
-  function goTo(next: WeekRange): void {
-    range = next;
-    menuFor = null;
-    editing = null;
-    // Le cache de la nouvelle semaine est lu après la rafale de clics ; squelette en attendant
-    status = { kind: 'loading' };
-    draw();
-    scheduleLoad(NAV_DEBOUNCE_MS);
-  }
-
-  /** Liste « En cours » jamais chargée (popup jamais ouvert) : demandée une fois au service worker */
-  function requestMissingWatching(connected: readonly TrackerId[], cached: Record<TrackerId, boolean>): void {
-    for (const service of connected) {
-      if (cached[service] || watchingRequested.has(service)) continue;
-      watchingRequested.add(service);
-      // La réponse est enregistrée en cache par le service worker : storage.onChanged relance le chargement
-      sendMessage('GET_WATCHING', { service }).catch((error: unknown) => log.warn('Liste en cours indisponible :', error));
-    }
-  }
-
-  /**
-   * Charge la semaine affichée. Une requête déjà en cours pour cette semaine n'est jamais jetée par un
-   * chargement automatique (stockage, langue) : sa réponse, erreur comprise, reste affichée, et le chargement
-   * demandé entre-temps est rejoué ensuite. Seul « Réessayer » (`force`) la remplace.
-   */
-  async function load(force: boolean): Promise<void> {
-    if (!force && inFlight?.key === range.key) {
-      reloadQueued = true;
-      return;
-    }
-    reloadQueued = false;
-    const current = ++run;
-    await loadWeek(current, force);
-    if (current === run && reloadQueued) {
-      reloadQueued = false;
-      scheduleLoad(STORAGE_DEBOUNCE_MS);
-    }
-  }
-
-  async function loadWeek(current: number, force: boolean): Promise<void> {
-    const target = range;
-    /** GET_AGENDA envoyé : son échec est retenu pour la semaine */
-    let requested = false;
-    try {
-      const [nextSettings, optionalGranted, anilistConnected, malConnected, anilist, mal, excluded, cache] = await Promise.all([
-        getSettings(),
-        platformAccess.read(),
-        hasValidAniListToken(),
-        hasMalToken(),
-        getCachedWatching('anilist'),
-        getCachedWatching('mal'),
-        getExcludedSeries(),
-        readWeekCache(target.key),
-      ]);
-      if (current !== run) return;
-      settings = nextSettings;
-      player = effectivePlayer(nextSettings.preferredPlayer, optionalGranted);
-      connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistConnected : malConnected));
-      if (connected.length === 0) {
-        status = { kind: 'not-connected' };
-        draw();
-        return;
-      }
-      requestMissingWatching(connected, { anilist: anilist !== null, mal: mal !== null });
-      const entries = [...(anilistConnected ? (anilist?.entries ?? []) : []), ...(malConnected ? (mal?.entries ?? []) : [])];
-      series = mergeWatchingSeries(entries, excluded, player);
-      if (series.size === 0) {
-        status = { kind: 'no-series', optional: optionalGranted };
-        draw();
-        return;
-      }
-
-      const now = Date.now();
-      const decision = decideAgendaLoad({
-        hasCache: cache !== null,
-        fresh: cache !== null && isWeekCacheFresh(cache, target, now, series.keys()),
-        force,
-        lastFetchAt: lastFetch.get(target.key) ?? null,
-        now,
-        lastError: lastError.get(target.key) ?? null,
-        showingResult: status.kind === 'error' || (status.kind === 'ready' && status.cache.weekStart === target.key),
-      });
-      if (decision.kind === 'show' && cache) {
-        status = { kind: 'ready', cache, refreshing: false, error: decision.error };
-        draw();
-        return;
-      }
-      if (decision.kind === 'keep') {
-        draw();
-        return;
-      }
-
-      // Cache expiré : affiché tout de suite, rafraîchi en arrière-plan
-      status = cache ? { kind: 'ready', cache, refreshing: true, error: null } : { kind: 'loading' };
-      draw();
-      lastFetch.set(target.key, now);
-      inFlight = { key: target.key, run: current };
-      requested = true;
-      let result: MessageResponse<'GET_AGENDA'>;
-      try {
-        result = await callWorker('GET_AGENDA', { weekStart: target.key }, networkFailure);
-      } finally {
-        if (inFlight?.run === current) inFlight = null;
-      }
-      // Échec retenu pour la semaine, même si un chargement plus récent a pris le relais (sauf déconnexion)
-      if (!result.ok && result.code !== 'NOT_AUTHENTICATED') lastError.set(target.key, result.message);
-      else lastError.delete(target.key);
-      if (current !== run) return;
-      if (result.ok) status = { kind: 'ready', cache: result.data, refreshing: false, error: null };
-      else if (result.code === 'NOT_AUTHENTICATED') status = { kind: 'not-connected' };
-      else status = cache ? { kind: 'ready', cache, refreshing: false, error: result.message } : { kind: 'error', message: result.message };
-    } catch (error: unknown) {
-      const message = error instanceof Error && error.message ? error.message : t('error.unexpected');
-      if (requested) lastError.set(target.key, message);
-      if (current !== run) return;
-      log.warn('Agenda illisible :', error);
-      status = status.kind === 'ready' ? { ...status, refreshing: false, error: message } : { kind: 'error', message };
-    }
-    draw();
-  }
-
-  /** Redessine à minuit (« Aujourd'hui » change de jour) */
-  function armMidnight(): void {
-    clearTimeout(midnightTimer);
-    const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
-    midnightTimer = setTimeout(() => {
-      // Semaine en cours affichée la veille : suit le changement de semaine (lundi), sinon seul « Aujourd'hui » bouge
-      const rolled = rolloverWeek(range, Date.now(), firstDay);
-      if (rolled) goTo(rolled);
-      else draw();
-      armMidnight();
-    }, next - now.getTime() + 1_000);
-  }
-
   // ─── Rendu ─────────────────────────────────────────────────────────────
 
   function navButton(direction: -1 | 1): HTMLElement {
@@ -290,13 +102,14 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
       {
         class: `${BTN_GHOST} w-8 px-0`,
         attrs: { type: 'button', 'aria-label': label, title: label, 'data-focus': direction < 0 ? 'agenda-prev' : 'agenda-next' },
-        on: { click: () => goTo(shiftWeek(range, direction)) },
+        on: { click: () => ctl.goTo(shiftWeek(ctl.range, direction)) },
       },
       icon('chevronRight', `h-4 w-4 ${direction < 0 ? 'rotate-180' : ''}`),
     );
   }
 
   function renderNav(): HTMLElement {
+    const { range, status } = ctl;
     const isCurrent = Date.now() >= range.start && Date.now() < range.end;
     const refreshing = status.kind === 'ready' && status.refreshing;
     return h(
@@ -315,7 +128,7 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
         {
           class: `${BTN_GHOST} bg-surface`,
           attrs: { type: 'button', 'data-focus': 'agenda-today', ...(isCurrent ? { disabled: '' } : {}) },
-          on: { click: () => goTo(weekRange(Date.now(), firstDay)) },
+          on: { click: () => ctl.goTo(weekRange(Date.now(), ctl.firstDay)) },
         },
         t('agenda.today'),
       ),
@@ -335,7 +148,7 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
   function retryButton(): HTMLElement {
     return h(
       'button',
-      { class: `${BTN_GHOST} bg-raised`, attrs: { type: 'button', 'data-focus': 'agenda-retry' }, on: { click: () => void load(true) } },
+      { class: `${BTN_GHOST} bg-raised`, attrs: { type: 'button', 'data-focus': 'agenda-retry' }, on: { click: () => void ctl.load(true) } },
       icon('retry', 'h-3.5 w-3.5'),
       t('common.retry'),
     );
@@ -357,6 +170,7 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
   }
 
   function renderBody(): Child[] {
+    const { status, settings, series, range } = ctl;
     switch (status.kind) {
       case 'loading':
         return [renderSkeleton()];
@@ -422,6 +236,7 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
     const format = timeFormat();
     const jp = h('span', { attrs: { title: t('agenda.jp.title') } }, t('agenda.jp', { time: format.format(row.airingAt * 1000) }));
     let estimate: Child = null;
+    const { settings } = ctl;
     if (row.estimateAt !== null && settings) {
       const at = row.estimateAt * 1000;
       // Sortie un autre jour que la diffusion : jour abrégé devant l'heure
@@ -455,7 +270,7 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
   function renderRow(row: AgendaRow, first: boolean): HTMLElement {
     const menuOpen = menuFor === row.scheduleId;
     const edit = editing?.scheduleId === row.scheduleId ? editing : null;
-    const site = entryLink(row, { connected, preferred: settings?.entryService ?? DEFAULT_SETTINGS.entryService });
+    const site = entryLink(row, { connected: ctl.connected, preferred: ctl.settings?.entryService ?? DEFAULT_SETTINGS.entryService });
     const watchedMark =
       row.watched &&
       h(
@@ -526,6 +341,7 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
   }
 
   function renderMenu(row: AgendaRow): HTMLElement {
+    const { player } = ctl;
     return h(
       'div',
       {
@@ -574,6 +390,7 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
   }
 
   function openEditor(row: AgendaRow): void {
+    const { settings } = ctl;
     const current = row.customOffset ?? (row.platform && settings ? settings.platformOffsets[row.platform] : 60);
     menuFor = null;
     editing = { scheduleId: row.scheduleId, mediaId: row.mediaId, value: String(current), invalid: false, saving: false, failed: false };
@@ -595,7 +412,7 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
       await saveSeriesOffset(edit.mediaId, offset);
       // La mise à jour des réglages revient par storage.onChanged
       editing = null;
-      settings = await getSettings();
+      await ctl.reloadSettings();
       draw();
       element.querySelector<HTMLElement>(`[data-focus="agenda-menu-${edit.scheduleId}"]`)?.focus();
     } catch (error: unknown) {
@@ -690,39 +507,12 @@ export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
     );
   }
 
-  // ─── Écouteurs ─────────────────────────────────────────────────────────
-
-  function start(): void {
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'local') return;
-      const relevant = [
-        SETTINGS_STORAGE_KEY,
-        STORAGE_KEYS.watchingCache,
-        STORAGE_KEYS.anilistToken,
-        STORAGE_KEYS.malToken,
-        EXCLUDED_SERIES_KEY,
-        airingWeekKey(range.key),
-      ];
-      if (relevant.some((key) => key in changes)) scheduleLoad(STORAGE_DEBOUNCE_MS);
-    });
-    armMidnight();
-  }
-
   return {
     element,
-    activate() {
-      if (!started) {
-        started = true;
-        start();
-      }
-      // Langue changée depuis le dernier affichage : le premier jour de la semaine peut changer
-      const nextFirstDay = agendaFirstDay();
-      if (nextFirstDay !== firstDay) {
-        firstDay = nextFirstDay;
-        range = weekRange(range.start, firstDay);
-      }
-      draw();
-      void load(false);
+    activate: () => ctl.activate(),
+    dispose() {
+      ctl.dispose();
+      menuDismiss.setOpen(false);
     },
   };
 }
