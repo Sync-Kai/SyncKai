@@ -295,6 +295,49 @@ describe('connexion MyAnimeList (TEST-02, AUTH-10)', () => {
     expect(store.has('sessionExpired:mal')).toBe(false);
   });
 
+  it('« state » absent du retour : INVALID_RESPONSE, aucun échange de code (SEC-08)', async () => {
+    launchWebAuthFlow.mockResolvedValue(`${REDIRECT_URL}?code=C`);
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(loginWithMal()).resolves.toMatchObject({ ok: false, code: 'INVALID_RESPONSE' });
+    expect(authParams().get('state')).toMatch(/^[\w.~-]{32}$/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('session MAL déjà ouverte (double clic, deux pages) : l’ancienne est fermée avant la nouvelle, nouvelle génération (B8 / SEC-14)', async () => {
+    store.set('malToken', { accessToken: 'OLD', refreshToken: 'ROLD', expiresAt: FAR });
+    store.set('malViewer', { id: 1, name: 'A' });
+    store.set('crImport:plan', {});
+    store.set('sessionEpoch', { mal: 2 });
+    launchWebAuthFlow.mockImplementation(authorize);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(json(200, tokenBody(1)))));
+
+    await expect(loginWithMal()).resolves.toEqual({ ok: true, data: null });
+    expect((await storedToken())?.accessToken).toBe('T1');
+    expect(store.get('sessionEpoch')).toEqual({ mal: 3 });
+    expect(store.has('malViewer')).toBe(false);
+    expect(store.has('crImport:plan')).toBe(false);
+  });
+
+  it('jeton enregistré sous le verrou du stockage : rien n’est écrit tant qu’une autre écriture le détient (B8 / SEC-14)', async () => {
+    const { withStorageLock } = await import('../../browser/storage/lock');
+    let release: () => void = () => undefined;
+    const held = withStorageLock(() => new Promise<void>((resolve) => (release = resolve)));
+    launchWebAuthFlow.mockImplementation(authorize);
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(json(200, tokenBody(1))));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = loginWithMal();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(store.has('malToken')).toBe(false);
+    release();
+    await held;
+    await expect(pending).resolves.toEqual({ ok: true, data: null });
+    expect((await storedToken())?.accessToken).toBe('T1');
+  });
+
   it('connexion réussie, alertes actives : alarme des sorties créée sans attendre un autre réveil (PERF-17)', async () => {
     launchWebAuthFlow.mockImplementation(authorize);
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(json(200, tokenBody(1)))));

@@ -49,7 +49,8 @@ export function getMalToken(): Promise<MalToken | null> {
 }
 
 /**
- * Valeurs secrètes des tokens enregistrés, pour les masquer dans le rapport de diagnostic (jamais affichées). Sans
+ * Valeurs secrètes des tokens enregistrés, pour les masquer dans le rapport de diagnostic construit par le service
+ * worker (GET_DIAGNOSTICS_REPORT, SEC-06 ; jamais affichées ni envoyées à une page). Sans
  * effet de bord : un token indéchiffrable ou une clé inaccessible sont ignorés.
  */
 export async function readTokenSecrets(): Promise<string[]> {

@@ -28,6 +28,8 @@ export async function loginWithAniList(): Promise<AuthResult> {
   authUrl.searchParams.set('response_type', 'token');
   // Pas de redirect_uri : AniList redirige vers l'URL enregistrée sur le client (= redirectUri),
   // ce qui évite un rejet sur une différence mineure (slash final…).
+  // Pas de `state` (SEC-08) : son renvoi dans le fragment par AniList n'est pas vérifié ; l'exiger pourrait casser la
+  // connexion. launchWebAuthFlow ne rend que la redirection du flux qu'il a ouvert.
 
   let responseUrl: string | undefined;
   try {

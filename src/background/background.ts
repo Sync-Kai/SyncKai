@@ -15,6 +15,7 @@ import { applyDiffs, cancelCompareJob, compareServiceLists } from './compare/com
 import { cancelCrImport, createCrReviews, startCrAnalyze, startCrApply } from './history-import/cr-import';
 import { checkNetflixTitles } from './history-import/netflix-import';
 import { getContentCatalog } from './content-catalog';
+import { diagnosticsReport } from './diagnostics-report';
 import { listenJobResume } from './job-resume';
 import { declineRewatch, deferRating, getListNotes, rateMedia, removeFromList, setListNotes, startRewatch } from './engagement';
 import { ensureQueueAlarm, processSyncQueue, QUEUE_ALARM, retryQueued } from './sync/queue';
@@ -115,6 +116,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     CR_IMPORT_REVIEWS: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
     NETFLIX_IMPORT_TITLES: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
     GET_CONTENT_CATALOG: null,
+    GET_DIAGNOSTICS_REPORT: { ok: false, code: 'UNKNOWN', message },
   };
 }
 
@@ -187,6 +189,8 @@ const handlers: MessageHandlers = {
   NETFLIX_IMPORT_TITLES: (payload) => checkNetflixTitles(payload),
   // Script de contenu dans une autre langue que l'anglais : ses textes, tirés du catalogue chargé à la demande
   GET_CONTENT_CATALOG: ({ locale }) => getContentCatalog(locale),
+  // Réglages › Aide : rapport expurgé ici, jetons déchiffrés dans le service worker seulement (SEC-06)
+  GET_DIAGNOSTICS_REPORT: () => diagnosticsReport(),
   // Vérification manuelle : (re)crée aussi l'alarme horaire si elle a disparu
   CHECK_AIRING: async () => {
     await ensureAiringAlarm();

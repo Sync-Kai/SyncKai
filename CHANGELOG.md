@@ -63,6 +63,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - *On this page* / side panel: changing a status no longer fails when the entry's cover comes from an unexpected image host (the cover is left out of the *To rate* card).
 - *On this page* / side panel, Netflix and Disney+ title pages: an AniList entry found by its title only, while another entry of the search links to the title (a TV series with the same name as a linked movie), was shown as certain, and its *Open* link was learned on that wrong entry. The title page now judges the entry like playback does: it is shown as a guess to confirm, and nothing is learned.
 
+### Security
+
+- The diagnostic report (*Settings › Help › Copy report*) is now built by the extension's background, the only part of SyncKai that decrypts sign-in tokens: the settings page only receives the finished report, with tokens and account names already masked.
+- Signing in to MyAnimeList while a MyAnimeList session is already open (two windows, a double click) now closes the previous session first, as AniList already did, so nothing queued for the previous account is written to the new one. Saving a new sign-in token can no longer interleave with a sign-out or another storage write.
+
 ## [2.3.1] - 2026-10-12
 
 First published version of the 2.3 line: 2.3.0 was tagged but never published (the release workflow stopped at the tests, before any upload). Same extension code as 2.3.0.

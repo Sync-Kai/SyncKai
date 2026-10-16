@@ -193,16 +193,15 @@ describe('monde MAIN des ponts de page', () => {
 
 describe('déchiffrement des jetons (token-access)', () => {
   const TOKEN_ACCESS = 'browser/tokens/access.ts';
-  /** Exception connue : le rapport de diagnostic des pages masque les jetons (lecture seule des secrets, pour les expurger) */
-  const DIAGNOSTICS_EXCEPTION = 'browser/storage/diagnostics-store.ts';
 
-  it('seul le service worker importe token-access (et l’exception du diagnostic)', () => {
+  // Le rapport de diagnostic est expurgé dans le service worker (GET_DIAGNOSTICS_REPORT, SEC-06) : plus d'exception
+  it('seul le service worker importe token-access', () => {
     const importers = edges.filter((e) => e.to === TOKEN_ACCESS && !e.typeOnly && !isTestFile(e.from)).map((e) => e.from);
-    expect(importers.filter((from) => layerOf(from) !== 'background' && from !== DIAGNOSTICS_EXCEPTION)).toEqual([]);
+    expect(importers.filter((from) => layerOf(from) !== 'background')).toEqual([]);
   });
 
-  it('les scripts de contenu et les pages d’import n’atteignent pas token-access', () => {
-    for (const layer of ['content', 'import', 'import-cr']) {
+  it('aucune page ni script de contenu n’atteint token-access (déchiffrement dans le service worker seulement)', () => {
+    for (const layer of ['content', 'import', 'import-cr', 'ui', 'popup', 'sidepanel']) {
       expect(reachableFrom(layerFiles(layer), { valuesOnly: true }).has(TOKEN_ACCESS), layer).toBe(false);
     }
   });

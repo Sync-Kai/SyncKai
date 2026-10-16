@@ -2,7 +2,8 @@
 // et zone de danger (effacement du journal d'erreurs).
 import { getLocale, t, tp } from '../../i18n';
 import { buildIssueUrl } from '../../shared/diagnostics';
-import { buildCurrentReport, currentBrowser } from '../../browser/storage/diagnostics-store';
+import { currentBrowser } from '../../browser/storage/diagnostics-store';
+import { sendMessage } from '../../protocol/messages';
 import { clearJournal } from '../../browser/error-journal';
 import { createLogger } from '../../browser/logger';
 import { BTN_GHOST, CARD } from '../kit';
@@ -50,8 +51,11 @@ export function createHelpPage(ctx: SettingsContext): SettingsPageView {
     busy = 'copy';
     redraw();
     try {
+      // Rapport construit et expurgé par le service worker, seul à déchiffrer les jetons (SEC-06)
+      const report = await sendMessage('GET_DIAGNOSTICS_REPORT', null);
+      if (!report.ok) throw new Error(report.message);
       // Clic utilisateur : l'API Clipboard n'exige pas la permission clipboardWrite
-      await navigator.clipboard.writeText(await buildCurrentReport());
+      await navigator.clipboard.writeText(report.data);
       showFeedback({ tone: 'ok', text: t('settings.help.copied') });
     } catch (error: unknown) {
       log.error('Copie du rapport de diagnostic impossible :', error);

@@ -6,6 +6,7 @@ import manifest from '../../manifest.json';
 import { t } from '../../src/i18n';
 import type { CompareJob } from '../../src/shared/compare-job';
 import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../src/browser/error-journal';
+import { diagnosticsReport } from '../../src/background/diagnostics-report';
 import { isRecord } from '../../src/shared/guards';
 import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
 import type { ListNotesResult } from '../../src/shared/list-notes';
@@ -231,6 +232,8 @@ installChromeMock({
     ADJUST_PROGRESS: (payload) =>
       param('adjust') === 'slow' ? new Promise<SyncOutcome>((resolve) => setTimeout(() => resolve(adjustProgress(payload)), E2E_ADJUST_SLOW_MS)) : adjustProgress(payload),
     SET_LIST_STATUS: setListStatus,
+    // Vrai code du service worker (SEC-06) : rapport construit et expurgé sur le stockage semé, jetons compris
+    GET_DIAGNOSTICS_REPORT: () => diagnosticsReport(),
     REMOVE_FROM_LIST: removeFromList,
     GET_LIST_NOTES: getListNotes,
     SET_LIST_NOTES: setListNotes,

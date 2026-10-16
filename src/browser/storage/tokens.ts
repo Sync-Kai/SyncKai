@@ -96,10 +96,21 @@ export async function hasMalToken(): Promise<boolean> {
   return isStoredToken('mal', await readRawToken('mal'));
 }
 
+/**
+ * Jeton d'une nouvelle session écrit sous le verrou du stockage (B8 / SEC-14), avec le retrait de l'indicateur « Session
+ * expirée » : une déconnexion ou une purge concurrente ne s'intercale pas entre les deux. Chiffré avant le verrou.
+ */
+async function saveSessionToken<S extends TrackerId>(service: S, token: TokenOf[S]): Promise<void> {
+  const sealed = await sealToken(service, token);
+  await withStorageLock(async () => {
+    await chrome.storage.local.set({ [TOKEN_STORAGE[service].key]: sealed });
+    await setSessionExpired(service, false);
+  });
+}
+
 /** Connexion AniList réussie : nouveau token (chiffré), indicateur « Session expirée » retiré */
-export async function saveToken(token: AniListToken): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.anilistToken]: await sealToken('anilist', token) });
-  await setSessionExpired('anilist', false);
+export function saveToken(token: AniListToken): Promise<void> {
+  return saveSessionToken('anilist', token);
 }
 
 /**
@@ -122,7 +133,6 @@ export function encryptLegacyTokens(): Promise<number> {
 }
 
 /** Connexion MAL (nouvelle session, token chiffré), indicateur « Session expirée » retiré. Un renouvellement passe par saveRefreshedMalToken. */
-export async function saveMalToken(token: MalToken): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.malToken]: await sealToken('mal', token) });
-  await setSessionExpired('mal', false);
+export function saveMalToken(token: MalToken): Promise<void> {
+  return saveSessionToken('mal', token);
 }

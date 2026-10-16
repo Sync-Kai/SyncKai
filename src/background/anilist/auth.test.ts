@@ -27,7 +27,18 @@ vi.stubGlobal('chrome', {
     },
   },
 });
-vi.stubGlobal('navigator', { language: 'fr', locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
+// Verrous Web Locks en file par nom, comme navigator.locks
+const queues = new Map<string, Promise<unknown>>();
+vi.stubGlobal('navigator', {
+  language: 'fr',
+  locks: {
+    request: <T>(name: string, task: () => Promise<T>): Promise<T> => {
+      const run = (queues.get(name) ?? Promise.resolve()).then(task);
+      queues.set(name, run.catch(() => undefined));
+      return run;
+    },
+  },
+});
 
 const { loginWithAniList } = await import('./auth');
 
@@ -49,6 +60,7 @@ const EPISODE = {
 
 beforeEach(() => {
   store = {};
+  queues.clear();
   void alarms.clearAll();
   runtime.id = 'khokcmigioggannjoojambdgioigdceb';
   launchWebAuthFlow.mockReset();
@@ -86,6 +98,20 @@ describe('loginWithAniList (AUTH-06)', () => {
     store = { sessionEpoch: { anilist: 2 } };
     expect(await loginWithAniList()).toEqual({ ok: true, data: null });
     expect(store.sessionEpoch).toEqual({ anilist: 2 });
+    expect(await revealToken('anilist', store.anilistToken)).toMatchObject({ accessToken: 'NEW' });
+  });
+
+  it('jeton enregistré sous le verrou du stockage : rien n’est écrit tant qu’une autre écriture le détient (B8 / SEC-14)', async () => {
+    const { withStorageLock } = await import('../../browser/storage/lock');
+    let release: () => void = () => undefined;
+    const held = withStorageLock(() => new Promise<void>((resolve) => (release = resolve)));
+
+    const pending = loginWithAniList();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(store).not.toHaveProperty('anilistToken');
+    release();
+    await held;
+    expect(await pending).toEqual({ ok: true, data: null });
     expect(await revealToken('anilist', store.anilistToken)).toMatchObject({ accessToken: 'NEW' });
   });
 

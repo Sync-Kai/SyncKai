@@ -5,7 +5,8 @@ import type { MalToken } from '../../shared/mal.types';
 import { ensureAiringAlarm } from '../../browser/airing-alarm';
 import { endSessionIfToken } from '../../browser/storage/session-end';
 import { getOpenSessions, saveRefreshedMalToken } from '../../browser/storage/sessions';
-import { saveMalToken } from '../../browser/storage/tokens';
+import { clearMalSession } from '../../browser/storage/account-data';
+import { hasMalToken, saveMalToken } from '../../browser/storage/tokens';
 import { getMalToken } from '../../browser/tokens/access';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../errors';
 import { classifyAuthFlowError, getOAuthClients } from '../trackers/oauth-clients';
@@ -140,6 +141,10 @@ export async function loginWithMal(): Promise<AuthResult> {
 
   try {
     const token = await requestToken({ grant_type: 'authorization_code', code, code_verifier: codeVerifier, redirect_uri: redirectUri });
+    // Session déjà ouverte (deux pages, double clic : l'interface ne le propose pas, le service worker l'impose) : le
+    // compte peut avoir changé. Fermée comme à la déconnexion (nouvelle génération) avant d'ouvrir la nouvelle, comme
+    // AniList (B8 / SEC-14)
+    if (await hasMalToken()) await clearMalSession();
     await saveMalToken(token);
     // Session ouverte : alarme des sorties créée si les alertes sont actives (PERF-17)
     await ensureAiringAlarm();

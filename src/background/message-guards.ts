@@ -75,6 +75,8 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   NETFLIX_IMPORT_TITLES: 'extension',
   // Textes d'une langue pour les toasts : les pages de l'extension chargent elles-mêmes les catalogues complets
   GET_CONTENT_CATALOG: 'content',
+  // Réglages › Aide : jamais depuis une page tierce (le rapport décrit les réglages et le journal de l'utilisateur)
+  GET_DIAGNOSTICS_REPORT: 'extension',
 };
 
 /** Le message `type` est accepté depuis cet expéditeur */
@@ -178,6 +180,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   CR_IMPORT_REVIEWS: isCrImportReviewsPayload,
   NETFLIX_IMPORT_TITLES: isNetflixTitlesPayload,
   GET_CONTENT_CATALOG: isContentCatalogPayload,
+  GET_DIAGNOSTICS_REPORT: isNull,
 };
 
 /** Valide le type ET le payload d'un message reçu (les content scripts tournent sur des pages tierces). */

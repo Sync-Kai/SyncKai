@@ -11,9 +11,10 @@ import { getPendingReviews, getRecentSyncs } from './reviews';
 import { isStoredToken } from './tokens';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { getSyncQueue } from './sync-queue-store';
-import { readTokenSecrets } from '../tokens/access';
 
-// Collecte des données du rapport de diagnostic (popup) : lecture directe de chrome.storage.local.
+// Collecte des données du rapport de diagnostic : lecture directe de chrome.storage.local. Appelée par le service worker
+// seulement (GET_DIAGNOSTICS_REPORT, background/diagnostics-report.ts), qui fournit les jetons déchiffrés à masquer :
+// aucune page ne déchiffre de jeton (SEC-06).
 
 /** Navigateur courant, lisible (userAgentData absent des types DOM : lu comme `unknown`) */
 export function currentBrowser(): string {
@@ -22,8 +23,8 @@ export function currentBrowser(): string {
 }
 
 /** Tokens (déchiffrés) et noms de compte présents en stockage : jamais affichés, servent seulement à les masquer */
-async function sensitiveValues(stored: Record<string, unknown>): Promise<string[]> {
-  const values = await readTokenSecrets();
+function sensitiveValues(tokenSecrets: readonly string[], stored: Record<string, unknown>): string[] {
+  const values = [...tokenSecrets];
   for (const key of [STORAGE_KEYS.anilistViewer, STORAGE_KEYS.malViewer]) {
     const viewer = stored[key];
     if (isRecord(viewer) && typeof viewer.name === 'string') values.push(viewer.name);
@@ -31,7 +32,8 @@ async function sensitiveValues(stored: Record<string, unknown>): Promise<string[
   return values;
 }
 
-export async function buildCurrentReport(): Promise<string> {
+/** Rapport complet ; `tokenSecrets` : valeurs des jetons enregistrés (déchiffrées par le service worker), masquées partout */
+export async function buildCurrentReport(tokenSecrets: readonly string[]): Promise<string> {
   const stored = await chrome.storage.local.get([STORAGE_KEYS.anilistToken, STORAGE_KEYS.malToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.malViewer, AIRING_RESULT_KEY]);
   const [settings, mappings, excluded, reviews, queue, ratings, recent, journal] = await Promise.all([
     getSettings(),
@@ -67,6 +69,6 @@ export async function buildCurrentReport(): Promise<string> {
     },
     airing: isAiringCheckResult(airing) ? airing : null,
     journal,
-    sensitiveValues: await sensitiveValues(stored),
+    sensitiveValues: sensitiveValues(tokenSecrets, stored),
   });
 }

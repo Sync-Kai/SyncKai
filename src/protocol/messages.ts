@@ -143,6 +143,11 @@ export interface MessageMap {
    * par le service worker ; null si le catalogue est introuvable (le script reste en anglais)
    */
   GET_CONTENT_CATALOG: { payload: { locale: Locale }; response: ContentCatalog | null };
+  /**
+   * Réglages › Aide : rapport de diagnostic, construit et expurgé par le service worker (seul à déchiffrer les jetons,
+   * SEC-06) ; texte Markdown sans jeton ni nom de compte
+   */
+  GET_DIAGNOSTICS_REPORT: { payload: null; response: Result<string, 'UNKNOWN'> };
 }
 
 export type MessageType = keyof MessageMap;
