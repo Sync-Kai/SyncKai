@@ -1,11 +1,12 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { platformSeriesKey } from '../../shared/exclusions';
+import { seriesKey } from '../../platforms/series-identity';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../browser/logger';
 
 // Séries ignorées par le filtre « anime » des plateformes généralistes (Netflix : aucune fiche AniList liée ni au
-// même titre), par clé plateforme (`netflix:{showId}`). Évite de relancer la recherche AniList (budget de
-// requêtes partagé) à chaque onglet ou épisode d'une série qui n'est pas un anime.
+// même titre), par clé de série (`netflix:{showId}`, `disney:title:{titre}` : platforms/series-identity.ts › seriesKey,
+// la même pour la page de série et la lecture). Évite de relancer la recherche AniList (budget de requêtes partagé) à
+// chaque onglet ou épisode d'une série qui n'est pas un anime.
 // `storage.session` (Chrome 102+, Firefox 115+ : couverts par les versions minimales) : survit à la mise en veille
 // du service worker, vidé à la fermeture du navigateur, jamais écrit sur disque. Absent : rien n'est mémorisé.
 // Pas une donnée de l'utilisateur (seulement l'état du catalogue AniList) : rien à effacer à la déconnexion.
@@ -47,7 +48,7 @@ export async function isSeriesIgnored(series: SeriesRef, now: number = Date.now(
   const area = sessionArea();
   if (!area) return false;
   try {
-    return platformSeriesKey(series) in (await readStore(area, now));
+    return seriesKey(series) in (await readStore(area, now));
   } catch (error: unknown) {
     log.debug('Séries ignorées illisibles :', error);
     return false;
@@ -63,7 +64,7 @@ export async function rememberIgnoredSeries(series: SeriesRef, now: number = Dat
   if (!area) return;
   try {
     const store = await readStore(area, now);
-    await area.set({ [IGNORED_SERIES_KEY]: pruneIgnoredSeries({ ...store, [platformSeriesKey(series)]: now }, now) });
+    await area.set({ [IGNORED_SERIES_KEY]: pruneIgnoredSeries({ ...store, [seriesKey(series)]: now }, now) });
   } catch (error: unknown) {
     log.debug('Série ignorée non mémorisée :', error);
   }

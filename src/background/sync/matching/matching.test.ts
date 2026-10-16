@@ -3,7 +3,6 @@ import {
   linksToOtherSeries,
   legacySeriesSlugInLink,
   linksToOtherSeriesBySlug,
-  mappingKey,
   matchAdnLink,
   matchPlatformLink,
   matchCrunchyrollLink,
@@ -15,6 +14,7 @@ import { type EpisodeNumbers, type MediaCandidate } from './model';
 import { resolveTarget } from './rules-engine';
 import { seasonPool } from './season-pool';
 import { normalizeTitle } from '../../../shared/title';
+import { mappingKey } from '../../../platforms/series-identity';
 import { setLocale } from '../../../i18n';
 
 // Textes attendus en français

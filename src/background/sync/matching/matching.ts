@@ -1,9 +1,8 @@
 import { t } from '../../../i18n';
-import { DISNEY_ARC_SEASON, isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../../shared/episode.types';
-import type { PlatformSignals } from '../../../shared/match-signals';
+import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../../shared/episode.types';
 import { PLATFORMS, type StreamingPlatform } from '../../../platforms/registry';
 import { parsePrimeDetailId, primeId, primeIdInLink } from '../../../platforms/prime/metadata';
-import { normalizeTitle, titleKey } from '../../../shared/title';
+import { normalizeTitle } from '../../../shared/title';
 import { groupSeasons } from './season-groups';
 import { exactTitleKeys } from './concordance';
 import { byStartDate, isDirectlyLinked, isLinked, SEASON_COUNT_TOLERANCE, SERIES_FORMATS, totalEpisodes, type LinkKind, type MediaCandidate, type ResolveResult } from './model';
@@ -349,21 +348,6 @@ export function linksToOtherSeriesBySlug(url: string, platform: StreamingPlatfor
   if (linkedSlug === null) return false;
   const slug = seriesSlug.toLowerCase();
   return platform === 'crunchyroll' ? !isSameCrunchyrollSlug(linkedSlug, slug) : linkedSlug !== slug;
-}
-
-/**
- * Clé de cache d'une saison : "crunchyroll:GRMG8ZQZR:s24", "disney:title:undead unluck:s1". Arc Disney+ (saison 99,
- * plusieurs par série) : clé par titre de l'arc, "disney:title:undead unluck winter arc:s99". Plateforme sans identifiant de
- * série (clé par titre : Disney+, Prime Video) dont la saison donne son année : année dans la clé
- * ("prime:title:berserk:y2016:s1"), deux remakes au même titre ne partagent pas leur correspondance ; sans année : inchangée.
- */
-export function mappingKey(
-  episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle' | 'seasonNumber'> & { seasonTitle?: string | null; signals?: PlatformSignals | undefined },
-): string {
-  const arcTitle = episode.platform === 'disney' && episode.seasonNumber === DISNEY_ARC_SEASON ? episode.seasonTitle : null;
-  const series = episode.seriesId ?? `title:${titleKey(arcTitle ?? episode.animeTitle)}`;
-  const year = episode.seriesId === null && episode.signals?.seasonYear !== undefined ? `:y${episode.signals.seasonYear}` : '';
-  return `${episode.platform}:${series}${year}:s${episode.seasonNumber ?? 0}`;
 }
 
 // ─── Plateformes généralistes ─────────────────────────────────────────────

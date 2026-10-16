@@ -1,5 +1,6 @@
 import { seriesKeyFromLink } from '../platforms/links';
 import { matchesExclusion, type ExcludedSeries } from '../browser/storage/exclusions-read';
+import { exclusionKeyCovers, exclusionKeyYear } from '../platforms/series-identity';
 import type { PlatformLink } from './watching.types';
 
 // Séries exclues de la synchronisation (toutes saisons) — lues par le content script
@@ -13,7 +14,6 @@ export {
   isExcludedSeries,
   matchesExclusion,
   normalizeSeriesTitle,
-  platformSeriesKey,
   type ExcludedSeries,
 } from '../browser/storage/exclusions-read';
 
@@ -32,7 +32,18 @@ export function isEntryExcluded(list: readonly ExcludedSeries[], entry: { mediaI
   return list.some((ex) => matchesExclusion(ex, { mediaId: entry.mediaId }) || (ex.platformKey !== null && keys.has(ex.platformKey.toLowerCase())));
 }
 
-/** Fusionne une nouvelle exclusion dans la liste (pur, testable) : complète l'entrée existante qui partage une clé. */
+/**
+ * L'exclusion existante `entry` inclut déjà la nouvelle : même fiche AniList, ou même série et année égale ou absente de
+ * l'existante (« Berserk » sans année inclut « Berserk » 2016, l'inverse non : l'exclusion sans année, plus large, est ajoutée).
+ */
+function includesExclusion(entry: ExcludedSeries, input: { platformKey: string | null; mediaId: number | null }): boolean {
+  if (input.mediaId !== null && entry.mediaId === input.mediaId) return true;
+  if (input.platformKey === null || entry.platformKey === null) return false;
+  const year = exclusionKeyYear(entry.platformKey);
+  return exclusionKeyCovers(entry.platformKey, input.platformKey) && (year === null || year === exclusionKeyYear(input.platformKey));
+}
+
+/** Fusionne une nouvelle exclusion dans la liste (pur, testable) : complète l'entrée existante qui l'inclut déjà. */
 export function mergeExclusion(
   list: readonly ExcludedSeries[],
   input: { platformKey: string | null; mediaId: number | null; label: string },
@@ -40,7 +51,7 @@ export function mergeExclusion(
 ): ExcludedSeries[] {
   const id = exclusionId(input.platformKey, input.mediaId);
   if (id === null) return [...list];
-  const index = list.findIndex((e) => matchesExclusion(e, input));
+  const index = list.findIndex((e) => includesExclusion(e, input));
   if (index === -1) {
     return [...list, { id, platformKey: input.platformKey, mediaId: input.mediaId, label: input.label, excludedAt: now }];
   }

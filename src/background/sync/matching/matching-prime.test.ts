@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withOrigin, type MappingOrigin, type MediaMapping } from '../../../shared/sync.types';
 import { setLocale } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
-import { platformSeriesKey } from '../../../browser/storage/exclusions-read';
+import { mappingKey, seriesKey } from '../../../platforms/series-identity';
 import type { AniListMedia } from '../../anilist/media';
 import type { MediaCandidate } from './model';
 
@@ -22,7 +22,7 @@ vi.mock('../../../browser/storage/mappings', () => storage);
 vi.mock('../../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('../resolver');
-const { filtersAnime, hasExactTitle, isPrimeOwnLink, isTitleBoundLink, mappingKey, matchPlatformLink, matchPrimeLink, platformLinkVerdict, primeAnimeGate, primeOwnIds } = await import('./matching');
+const { filtersAnime, hasExactTitle, isPrimeOwnLink, isTitleBoundLink, matchPlatformLink, matchPrimeLink, platformLinkVerdict, primeAnimeGate, primeOwnIds } = await import('./matching');
 
 setLocale('fr');
 
@@ -120,8 +120,8 @@ describe('clés Prime Video', () => {
     expect(mappingKey(primeEpisode())).toBe('prime:title:tokyo ghoul:s1');
     expect(mappingKey(primeEpisode({ animeTitle: '東京喰種トーキョーグール', seasonNumber: 2 }))).toBe('prime:title:東京喰種トーキョーグール:s2');
     expect(mappingKey(primeEpisode({ animeTitle: '進撃の巨人' }))).not.toBe(mappingKey(primeEpisode({ animeTitle: '東京喰種' })));
-    expect(platformSeriesKey(primeEpisode())).toBe('prime:title:tokyo ghoul');
-    expect(platformSeriesKey(primeEpisode({ animeTitle: '進撃の巨人' }))).toBe('prime:title:進撃の巨人');
+    expect(seriesKey(primeEpisode())).toBe('prime:title:tokyo ghoul');
+    expect(seriesKey(primeEpisode({ animeTitle: '進撃の巨人' }))).toBe('prime:title:進撃の巨人');
   });
 });
 

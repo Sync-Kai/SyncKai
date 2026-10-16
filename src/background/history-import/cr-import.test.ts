@@ -6,7 +6,8 @@ import { onePieceShow, ranmaShow } from '../../shared/__fixtures__/netflix-histo
 import { reduceNetflixShow } from '../../platforms/netflix/history';
 import type { HistorySeason } from '../../platforms/crunchyroll/history';
 import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, startApplyJob, toEpisodeInfo, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../../shared/cr-import';
-import { EXCLUDED_SERIES_KEY, mergeExclusion, platformSeriesKey } from '../../shared/exclusions';
+import { EXCLUDED_SERIES_KEY, mergeExclusion } from '../../shared/exclusions';
+import { exclusionKey } from '../../platforms/series-identity';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
@@ -293,7 +294,7 @@ describe('analyse de l’historique (TEST-05)', () => {
   });
 
   it('PERF-10 : recherches pré-chargées par tranches de PREFETCH_SEASONS saisons, file de fond, saisons exclues écartées', async () => {
-    fake.local.data.set(EXCLUDED_SERIES_KEY, mergeExclusion([], { platformKey: platformSeriesKey(toEpisodeInfo(season(1))), mediaId: null, label: 'Série 1' }, 1));
+    fake.local.data.set(EXCLUDED_SERIES_KEY, mergeExclusion([], { platformKey: exclusionKey(toEpisodeInfo(season(1))), mediaId: null, label: 'Série 1' }, 1));
     const count = PREFETCH_SEASONS * 2 + 10;
     await startCrAnalyze(history(Array.from({ length: count }, (_, i) => season(i))));
     expect(await untilEnded()).toMatchObject({ status: 'done' });

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { DISNEY_ARC_SEASON } from '../../shared/episode.types';
-import { platformSeriesKey } from '../../shared/exclusions';
 import type { PageMediaInfo } from '../../shared/page-media.types';
+import type { MediaMapping } from '../../shared/sync.types';
 import type { StreamingPlatform } from '../../platforms/registry';
-import { mappingKey } from '../sync/matching/matching';
-import { seriesMappingPrefix } from './page-media-rules';
+import { exclusionKey, exclusionKeyCovers, mappingKey, seriesKey, seriesMappingPrefix } from '../../platforms/series-identity';
+import { rememberedSeason } from './page-media-rules';
 
 // Propriété 1-I7 : la lecture d'un épisode et la page de série de la MÊME série décrivent la même série. Trois clés en
 // dépendent : le préfixe des correspondances (page) contre `mappingKey` (lecture), la clé de série ignorée / exclue
-// (`platformSeriesKey`), alimentée par les deux côtés. Le tableau couvre chaque plateforme, avec et sans identifiant de
+// (`seriesKey`), alimentée par les deux côtés. Le tableau couvre chaque plateforme, avec et sans identifiant de
 // série en lecture, titres à accents et à ponctuation.
 
 interface SameSeries {
@@ -70,14 +70,36 @@ describe('clés d’une même série, lecture et page de série (1-I7)', () => {
     expect(mappingKey(episode)).toBe(`${seriesMappingPrefix(page)}s${DISNEY_ARC_SEASON}`);
   });
 
-  // Connu (M5 / L5, audit 1) : la page de série garde l'uuid / le GTI dans la clé de la série ignorée, la lecture n'a
-  // que le titre : le verdict « hors anime » d'une page n'est jamais partagé avec la lecture sur Disney+ et Prime Video.
-  // Passera au vert avec `platforms/series-identity.ts` (e2) : retirer alors `.fails`.
-  it.fails('la clé de série ignorée / exclue est la même côté page de série et côté lecture', () => {
+  // M5 (audit 1) : la page de série connaît l'uuid / le GTI, la lecture n'a que le titre ; Disney+ et Prime Video sont
+  // toujours désignés par leur titre, le verdict « hors anime » d'une page vaut pour la lecture
+  it('la clé de série ignorée / exclue est la même côté page de série et côté lecture', () => {
     for (const series of SERIES) {
-      const pageKey = platformSeriesKey({ platform: series.platform, seriesId: series.pageSeriesId, animeTitle: series.title });
-      const playbackKey = platformSeriesKey({ platform: series.platform, seriesId: series.playbackSeriesId, animeTitle: series.title });
+      const pageKey = seriesKey({ platform: series.platform, seriesId: series.pageSeriesId, animeTitle: series.title });
+      const playbackKey = seriesKey({ platform: series.platform, seriesId: series.playbackSeriesId, animeTitle: series.title });
       expect(pageKey, `${series.platform} ${series.title}`).toBe(playbackKey);
     }
+  });
+
+  it('arc Disney+ (saison 99) choisi en lecture : retrouvé par la page de série qui affiche cet arc (L5)', () => {
+    const series = SERIES[4];
+    const episode = { ...episodeOf(series, DISNEY_ARC_SEASON), seasonTitle: 'Undead Unluck: Winter Arc' };
+    const mapping: MediaMapping = { mediaId: 180745, numbering: 'season', offset: 0, episodes: 12, chosen: true };
+    const mappings = { [mappingKey(episodeOf(series, 1))]: { ...mapping, mediaId: 154587 }, [mappingKey(episode)]: mapping };
+    const page = { ...pageOf(series, DISNEY_ARC_SEASON), seasonTitle: 'Undead Unluck: Winter Arc' };
+    expect(rememberedSeason(mappings, seriesMappingPrefix(page), DISNEY_ARC_SEASON)).toEqual({ mediaId: 180745, exact: true });
+    // Saison ordinaire : jamais l'arc
+    expect(rememberedSeason(mappings, seriesMappingPrefix(pageOf(series, 1)), 1)).toEqual({ mediaId: 154587, exact: true });
+  });
+
+  it('Berserk 1997 / 2016 (Prime Video) : même clé d’exclusion page de série et lecture, une par remake', () => {
+    const berserk = (pageSeriesId: string | null, seasonYear: number) => ({ platform: 'prime' as const, seriesId: pageSeriesId, animeTitle: 'Berserk', seasonNumber: 1, signals: { seasonYear } });
+    const page1997 = exclusionKey(berserk('0AAAAAAAAAAAAAAAAAAAAAAAAA', 1997));
+    const page2016 = exclusionKey(berserk('0BBBBBBBBBBBBBBBBBBBBBBBBB', 2016));
+    expect(page1997).toBe(exclusionKey(berserk(null, 1997)));
+    expect(page2016).toBe(exclusionKey(berserk(null, 2016)));
+    expect(page2016).toBe('prime:title:berserk:y2016');
+    expect(exclusionKeyCovers(page1997, page2016)).toBe(false);
+    // Même série ignorée (catalogue), sans année
+    expect(seriesKey(berserk('0AAAAAAAAAAAAAAAAAAAAAAAAA', 1997))).toBe(seriesKey(berserk(null, 2016)));
   });
 });

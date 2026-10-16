@@ -13,6 +13,7 @@ import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.
 import { hasSignals, type PlatformSignals } from '../../shared/match-signals';
 import { hasPlatformAccess } from '../../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS } from '../../platforms/registry';
+import { mappingKey, seriesMappingPrefix } from '../../platforms/series-identity';
 import { hasOpenScreen } from '../../browser/open-screens';
 import { forgetTabPageMedia, isCachedEpisodeShown, readCachedPageMedia, storeCachedPageMedia } from '../../browser/storage/page-media-cache';
 import { learnPlatformLink } from '../../browser/storage/platform-links-store';
@@ -35,7 +36,6 @@ import {
   pickKnownSeason,
   pickPartInGroup,
   rememberedSeason,
-  seriesMappingPrefix,
   seriesPageGate,
   seriesTitledSeason,
   toPageSeasons,
@@ -46,7 +46,6 @@ import {
   filtersAnime,
   isDisneyEntityLink,
   isPrimeOwnLink,
-  mappingKey,
   platformLinkVerdict,
   primeOwnIds,
   representsWholeShow,
@@ -213,7 +212,8 @@ async function resolveEpisodePage(
  * (pickSeriesSeason). Correspondance par le titre seul sur une plateforme généraliste : saison toujours à vérifier.
  */
 async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Promise<Resolution | typeof IGNORED | null> {
-  const series = { platform: page.platform, seriesId: page.seriesId, animeTitle: page.seriesTitle };
+  // Verdict « série ignorée » sous la clé de la lecture (seriesKey : par titre sur Disney+ et Prime Video, uuid / GTI exclus, M5)
+  const series ={ platform: page.platform, seriesId: page.seriesId, animeTitle: page.seriesTitle };
   // Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu) : rien à afficher, sans recherche
   if (page.platform === 'prime' && !isSentPrimeAnimeVerdict(page.primeAnime)) return IGNORED;
   const linkRequired = filtersAnime(page);

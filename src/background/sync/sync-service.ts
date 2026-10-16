@@ -2,7 +2,8 @@ import { t, tp, type MessageKey } from '../../i18n';
 import type { AniListErrorCode } from '../../shared/anilist.types';
 import { flashSyncBadge, refreshReviewBadge } from '../../browser/badge';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { isExcluded, platformSeriesKey } from '../../shared/exclusions';
+import { isExcluded } from '../../shared/exclusions';
+import { exclusionKey, mappingKey } from '../../platforms/series-identity';
 import type { ResolveReviewPayload } from '../../protocol/messages';
 import { platformSeriesUrl } from '../../platforms/links';
 import { learnPlatformLink } from '../../browser/storage/platform-links-store';
@@ -35,7 +36,7 @@ import { ApiError } from '../errors';
 import { getAnimeByIds, searchAnime } from '../anilist/media';
 import { getConnectedTrackers } from '../trackers';
 import type { CatalogMedia, TrackerService } from '../ports/tracker';
-import { mappingKey, seasonLabel } from './matching/matching';
+import { seasonLabel } from './matching/matching';
 import { mappingFromManualChoice } from './matching/mapping';
 import { type ResolveResult, type SyncTarget } from './matching/model';
 import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './resolver';
@@ -380,7 +381,7 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
     const sessions = epochs ?? (await getOpenSessions());
     if ((await getConnectedTrackers(only)).length === 0) return { status: 'not-connected' };
     // Série exclue côté plateforme (filet de sécurité : le content script vérifie déjà avant l'envoi)
-    if (await isExcluded({ platformKey: platformSeriesKey(episode) })) {
+    if (await isExcluded({ platformKey: exclusionKey(episode) })) {
       log.info('Série exclue (plateforme) : rien n’est écrit', episode);
       return { status: 'excluded', mediaTitle: episode.animeTitle };
     }

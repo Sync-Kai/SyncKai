@@ -1,6 +1,7 @@
 import { ensureContentLanguage, t } from '../../i18n/content';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { isExcluded, platformSeriesKey } from '../../browser/storage/exclusions-read';
+import { isExcluded } from '../../browser/storage/exclusions-read';
+import { exclusionKey, seriesKey } from '../../platforms/series-identity';
 import { sendMessage } from '../../protocol/messages';
 import type { LiveOutcome, LiveState } from '../../protocol/live';
 import { failedServices } from '../../shared/sync.types';
@@ -223,15 +224,15 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       return;
     }
     if (await isSeriesExcluded(episode)) {
-      if (__SYNCKAI_DEBUG__) log.info(`Série exclue (Réglages › Séries exclues) : épisode non envoyé (${platformSeriesKey(episode)})`);
+      if (__SYNCKAI_DEBUG__) log.info(`Série exclue (Réglages › Séries exclues) : épisode non envoyé (${exclusionKey(episode)})`);
       if (__SYNCKAI_DEBUG__) trace('page', 'completion-skipped', { episodeId, trigger, reason: 'excluded' }, traceContext);
       delivery = 'retryable';
       setState('excluded', { status: 'excluded', message: null });
       if (trigger === 'shortcut') showShortcutNotice({ tone: 'info', title: t('common.excludedTitle'), message: t('popup.syncDisabledDetail') });
       return;
     }
-    if (ignoredSeries.has(platformSeriesKey(episode))) {
-      if (__SYNCKAI_DEBUG__) log.info(`Série déjà ignorée par SyncKai (pas un anime) : épisode non envoyé (${platformSeriesKey(episode)})`);
+    if (ignoredSeries.has(seriesKey(episode))) {
+      if (__SYNCKAI_DEBUG__) log.info(`Série déjà ignorée par SyncKai (pas un anime) : épisode non envoyé (${seriesKey(episode)})`);
       if (__SYNCKAI_DEBUG__) trace('page', 'completion-skipped', { episodeId, trigger, reason: 'ignored-series' }, traceContext);
       delivery = 'ignored';
       setState('idle');
@@ -243,7 +244,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
   /** Exclusion côté plateforme ; stockage illisible → non exclu (le service worker revérifie après résolution) */
   async function isSeriesExcluded(episode: EpisodeInfo): Promise<boolean> {
     try {
-      return await isExcluded({ platformKey: platformSeriesKey(episode) });
+      return await isExcluded({ platformKey: exclusionKey(episode) });
     } catch (error: unknown) {
       log.warn('Exclusions illisibles :', error);
       return false;
@@ -315,7 +316,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       // Accès Netflix retiré : rien d'affiché non plus, mais la série n'est pas retenue (accès accordé de nouveau)
       if (outcome.status === 'ignored') {
         const noAccess = outcome.noAccess === true;
-        if (!noAccess) ignoredSeries.add(platformSeriesKey(episode));
+        if (!noAccess) ignoredSeries.add(seriesKey(episode));
         delivery = noAccess ? 'retryable' : 'ignored';
         toast?.dismiss();
         setState('idle');

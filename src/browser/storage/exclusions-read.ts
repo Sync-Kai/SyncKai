@@ -1,17 +1,20 @@
-import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
-import { normalizeTitle, titleKey } from '../../shared/title';
+import { normalizeTitle } from '../../shared/title';
+import { exclusionKeyCovers } from '../../platforms/series-identity';
 
-// Séries exclues, lecture seule : ce qu'utilise le script de contenu avant tout envoi (clé de série, lecture du
-// stockage, correspondance). Écritures et rapprochement avec les liens « En cours » : exclusions.ts, hors des pages
-// de streaming.
+// Séries exclues, lecture seule : ce qu'utilise le script de contenu avant tout envoi (lecture du stockage,
+// correspondance ; clés : platforms/series-identity.ts › exclusionKey). Écritures et rapprochement avec les liens
+// « En cours » : exclusions.ts, hors des pages de streaming.
 
 export const EXCLUDED_SERIES_KEY = 'excludedSeries';
 
 export interface ExcludedSeries {
   /** Identifiant stable de l'exclusion */
   id: string;
-  /** Série sur la plateforme (`${platform}:${seriesId ou "title:" + titre normalisé}`), si connue */
+  /**
+   * Série sur la plateforme (`${platform}:${seriesId ou "title:" + titre normalisé}`, suivie de `:y{année}` pour une série
+   * par titre dont l'année de début était connue, voir exclusionKey), si connue
+   */
   platformKey: string | null;
   /** Fiche AniList, si connue (exclusion depuis « En cours » ou après résolution) */
   mediaId: number | null;
@@ -34,17 +37,13 @@ export function isExcludedSeries(value: unknown): value is ExcludedSeries {
 /** Titre comparable : minuscules, sans accents, ponctuation → espaces (voir title.ts) */
 export const normalizeSeriesTitle = normalizeTitle;
 
-/** Clé de série plateforme, toutes saisons : "crunchyroll:GRMG8ZQZR", "adn:1311" ou "crunchyroll:title:one piece". */
-export function platformSeriesKey(episode: Pick<EpisodeInfo, 'platform' | 'seriesId' | 'animeTitle'>): string {
-  return episode.seriesId
-    ? `${episode.platform}:${episode.seriesId}`
-    : `${episode.platform}:title:${titleKey(episode.animeTitle)}`;
-}
-
-/** Vrai si l'exclusion couvre la clé plateforme ou la fiche AniList demandée. */
+/**
+ * Vrai si l'exclusion couvre la clé plateforme (exclusionKey : années égales, ou l'une inconnue, voir exclusionKeyCovers)
+ * ou la fiche AniList demandée.
+ */
 export function matchesExclusion(entry: ExcludedSeries, query: { platformKey?: string | null; mediaId?: number | null }): boolean {
   return (
-    (query.platformKey != null && entry.platformKey === query.platformKey) ||
+    (query.platformKey != null && entry.platformKey !== null && exclusionKeyCovers(entry.platformKey, query.platformKey)) ||
     (query.mediaId != null && entry.mediaId === query.mediaId)
   );
 }

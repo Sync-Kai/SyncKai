@@ -5,7 +5,7 @@ import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { installFakeChrome } from '../../test/fake-chrome';
 import type { TrackerService } from '../ports/tracker';
 import type { MediaMapping } from '../../shared/sync.types';
-import { mappingKey } from '../sync/matching/matching';
+import { mappingKey } from '../../platforms/series-identity';
 
 // Requêtes AniList de l'analyse d'un historique Crunchyroll (PERF-10) : vraie analyse (cr-import), vrai résolveur, vrai
 // catalogue (cache, recherches groupées) ; seules les réponses d'AniList sont simulées, et comptées par opération.

@@ -1,11 +1,11 @@
-import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../../shared/episode.types';
+import type { EpisodeInfo } from '../../shared/episode.types';
 import type { PageMediaInfo, PageSeason, SeasonSlot, SeasonSource } from '../../shared/page-media.types';
 import { platformSeriesUrl } from '../../platforms/links';
 import type { CandidateSummary } from '../../shared/review.types';
 import type { ListStatus, MediaMapping } from '../../shared/sync.types';
 import { normalizeTitle } from '../../shared/title';
 import type { PlatformLink } from '../../shared/watching.types';
-import { mappingKey, type PlatformLinkVerdict } from '../sync/matching/matching';
+import type { PlatformLinkVerdict } from '../sync/matching/matching';
 import { SEASON_COUNT_TOLERANCE, totalEpisodes } from '../sync/matching/model';
 
 // Règles pures de la fiche de la page (#23) : choix de la saison affichée. Testables sans API.
@@ -24,18 +24,6 @@ export interface SeasonChoice {
 export function seriesTitledSeason(page: Pick<PageMediaInfo, 'seriesTitle' | 'seasonNumber' | 'seasonTitle'> & { seasonFirstEpisode?: number | undefined }): number | null {
   if (page.seasonNumber !== null || !page.seasonTitle || page.seasonFirstEpisode !== undefined) return page.seasonNumber;
   return normalizeTitle(page.seasonTitle) === normalizeTitle(page.seriesTitle) ? 1 : null;
-}
-
-/**
- * Préfixe des clés de correspondance d'une série, toutes saisons : "crunchyroll:GRMG8ZQZR:". Disney+ et Prime Video : par
- * titre ("disney:title:undead unluck:", "prime:title:tokyo ghoul:"), comme les clés de la lecture (aucun identifiant de
- * série sur la page de lecture), même si la page de série connaît l'uuid de l'entité ou le GTI compact de la saison. Arc
- * Disney+ affiché (saison 99) : par titre de l'arc ("disney:title:undead unluck winter arc:"), comme sa clé en lecture.
- */
-export function seriesMappingPrefix(page: Pick<PageMediaInfo, 'platform' | 'seriesId' | 'seriesTitle'> & Partial<Pick<PageMediaInfo, 'seasonNumber' | 'seasonTitle'>>): string {
-  const seriesId = page.platform === 'disney' || page.platform === 'prime' ? null : page.seriesId;
-  const season = page.platform === 'disney' && page.seasonNumber === DISNEY_ARC_SEASON ? { seasonNumber: DISNEY_ARC_SEASON, seasonTitle: page.seasonTitle ?? null } : { seasonNumber: 0 };
-  return mappingKey({ platform: page.platform, seriesId, animeTitle: page.seriesTitle, ...season }).replace(/s\d+$/, '');
 }
 
 /**

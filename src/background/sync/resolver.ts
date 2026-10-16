@@ -3,6 +3,7 @@ import { hasSignals } from '../../shared/match-signals';
 import type { CandidateSummary } from '../../shared/review.types';
 import { PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
 import { STREAMING_PLATFORMS } from '../../platforms/ids';
+import { mappingKey } from '../../platforms/series-identity';
 import { mappingOrigin, type MediaMapping } from '../../shared/sync.types';
 import { forgetIfUnchanged, getMediaMapping, saveLearned } from '../../browser/storage/mappings';
 import { getAnimeByIds, searchAnime, searchAnimeBatch, type AniListMedia } from '../anilist/media';
@@ -18,7 +19,6 @@ import {
   isTitleBoundLink,
   linksToOtherSeries,
   linksToOtherSeriesBySlug,
-  mappingKey,
   seasonLabel,
   matchPlatformLink,
   primeOwnIds,

@@ -20,7 +20,7 @@ vi.mock('../../../browser/storage/mappings', () => storage);
 vi.mock('../../anilist/media', () => api);
 
 const { resolveEpisode } = await import('../resolver');
-const { mappingKey } = await import('./matching');
+const { mappingKey } = await import('../../../platforms/series-identity');
 const { rememberedSeason } = await import('../../page-media/page-media-rules');
 
 setLocale('en');

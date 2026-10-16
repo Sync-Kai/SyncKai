@@ -60,13 +60,12 @@ const OPEN_SESSIONS = {
 const { resolveReview, shouldPromptRating, syncEpisode } = await import('./sync-service');
 const { recordSyncOutcome } = await import('./queue');
 const { confirmReview, ignoreReview } = await import('./review-decision');
-const { mappingKey } = await import('./matching/matching');
+const { exclusionKey, mappingKey } = await import('../../platforms/series-identity');
 const { getMediaMapping, saveChosen, saveMediaMappingsIfAbsent } = await import('../../browser/storage/mappings');
 /** Correspondance semée telle quelle (stockage vide) */
 const seedMapping = (key: string, mapping: MediaMapping): Promise<number> => saveMediaMappingsIfAbsent([{ key, mapping }]);
 const { getPendingReviews, savePendingReview } = await import('../../browser/storage/reviews');
 const { getSyncQueue } = await import('../../browser/storage/sync-queue-store');
-const { platformSeriesKey } = await import('../../shared/exclusions');
 const { excludeSeries } = await import('../../browser/storage/exclusions-store');
 const { PLATFORM_LINKS_KEY } = await import('../../platforms/links');
 
@@ -627,7 +626,7 @@ describe('syncEpisode : ordre des décisions avant écriture (TEST-01)', () => {
 
   it('série exclue côté plateforme : excluded avant toute résolution', async () => {
     connect({ status: 'CURRENT', progress: 5 });
-    await excludeSeries({ platformKey: platformSeriesKey(episode(6)), mediaId: null, label: 'Série' });
+    await excludeSeries({ platformKey: exclusionKey(episode(6)), mediaId: null, label: 'Série' });
     fakes.resolutions = [resolved(PART1, 6)];
     expect(await syncEpisode(episode(6))).toEqual({ status: 'excluded', mediaTitle: 'Série' });
     expect(fakes.resolveCalls).toBe(0);

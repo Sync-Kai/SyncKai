@@ -38,7 +38,7 @@ const fake = installFakeChrome();
 const { resolvePageMedia, forgetPageResolutions, refreshTabPageMedia } = await import('./page-media');
 const { pageMediaCacheKey, toCachedPageMedia, PAGE_MEDIA_CACHE_TTL_MS } = await import('../../browser/storage/page-media-cache');
 const { pageMediaFromEpisode } = await import('../../shared/page-media');
-const { mappingKey } = await import('../sync/matching/matching');
+const { mappingKey } = await import('../../platforms/series-identity');
 // Résolution réelle de la synchro (EPISODE_COMPLETED → syncEpisode → resolveEpisode), hors du simulacre ci-dessus
 const sync = await vi.importActual<typeof import('../sync/resolver')>('../sync/resolver');
 
@@ -93,6 +93,35 @@ describe('resolvePageMedia — série ignorée', () => {
     // Résultat mémorisé : une relecture du panneau ne relance pas la recherche
     await resolvePageMedia({ page: page(), mediaId: null });
     expect(resolver.resolveEpisode).toHaveBeenCalledTimes(1);
+  });
+
+  // M5 (audit 1) : la page de série connaît l'uuid de l'entité / le GTI compact, la lecture n'a que le titre ; le verdict
+  // « hors anime » de la page vaut pour la lecture de la même série, sans nouvelle recherche AniList
+  it.each([
+    { platform: 'disney', seriesId: '5d6e6a2f-8f4e-4c0b-9d7a-1c2b3a4d5e6f', title: 'Bluey', extra: { catalogAnime: false } },
+    { platform: 'prime', seriesId: '0GMSR5LDQCKJ3B0DQAYCSQIR2W', title: 'Invincible', extra: { primeAnime: 'animation-exact-only' } },
+  ] as const)('$platform : page de série ignorée → lecture de la même série ignorée sans recherche', async ({ platform, seriesId, title, extra }) => {
+    resolver.findSeriesSeasons.mockResolvedValue({ candidates: [], seasons: [], others: [], seasonGroups: [] });
+    const series: PageMediaInfo = { platform, kind: 'series', seriesId, seriesSlug: null, seriesTitle: title, seasonNumber: 1, seasonTitle: null, ...extra, episode: null };
+    expect(await resolvePageMedia({ page: series, mediaId: null })).toMatchObject({ ok: false, code: 'NOT_TRACKED' });
+    api.searchAnime.mockClear();
+    const episode: EpisodeInfo = {
+      platform,
+      episodeId: 'e1',
+      seriesId: null,
+      seriesSlug: null,
+      animeTitle: title,
+      seasonNumber: 1,
+      seasonTitle: null,
+      seasonEpisodeNumber: 1,
+      displayedEpisodeNumber: 1,
+      episodeTitle: null,
+      url: platform === 'disney' ? 'https://www.disneyplus.com/play/e1' : 'https://www.primevideo.com/detail/e1',
+      ...(platform === 'prime' ? { primeAnime: 'animation-exact-only' } : {}),
+    };
+    const { result } = await sync.resolveEpisode(episode, { persist: false });
+    expect(result).toMatchObject({ ok: false, ignored: true });
+    expect(api.searchAnime).not.toHaveBeenCalled();
   });
 
   it('aucune fiche sans série ignorée (titre seul introuvable) → NOT_FOUND, comme sur Crunchyroll', async () => {

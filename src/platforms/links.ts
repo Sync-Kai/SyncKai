@@ -79,7 +79,7 @@ export function platformSeriesUrl(platform: StreamingPlatform, seriesId: string 
 }
 
 /**
- * Clé de série (`${platform}:${seriesId}`, forme de platformSeriesKey) d'un lien de plateforme, null si le lien ne
+ * Clé de série (`${platform}:${seriesId}`, forme de series-identity.ts › seriesKey) d'un lien de plateforme, null si le lien ne
  * désigne pas la série (page d'épisode Crunchyroll ou Netflix, ancien lien Crunchyroll sans identifiant).
  */
 export function seriesKeyFromLink(link: PlatformLink): string | null {

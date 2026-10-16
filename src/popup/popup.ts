@@ -2,7 +2,8 @@ import { getLocale, initI18n, onLocaleChange, t } from '../i18n';
 import { refreshReviewBadge } from '../browser/badge';
 import type { EntryLinkContext } from '../shared/entry-link';
 import type { EpisodeInfo } from '../shared/episode.types';
-import { EXCLUDED_SERIES_KEY, getExcludedSeries, platformSeriesKey } from '../shared/exclusions';
+import { EXCLUDED_SERIES_KEY, getExcludedSeries, matchesExclusion } from '../shared/exclusions';
+import { exclusionKey } from '../platforms/series-identity';
 import { excludeSeries } from '../browser/storage/exclusions-store';
 import { sendMessage } from '../protocol/messages';
 import { callWorker, networkFailure, outcomeFailure } from '../ui/worker-call';
@@ -137,7 +138,7 @@ const reviewActions: ReviewActions = {
   },
   async exclude(review) {
     // Fiche suggérée volontairement ignorée (par définition incertaine) : seule une fiche déjà écrite est reprise
-    await excludeSeries({ platformKey: platformSeriesKey(review.episode), mediaId: review.previous?.mediaId ?? null, label: review.episode.animeTitle });
+    await excludeSeries({ platformKey: exclusionKey(review.episode), mediaId: review.previous?.mediaId ?? null, label: review.episode.animeTitle });
     // Série exclue : simple suppression, aucun épisode mis de côté n'est rejoué
     await deletePendingReview(review.key);
     await refreshReviewBadge();
@@ -666,7 +667,7 @@ function allowHostAccess(): void {
 /** Clé de série plateforme, sans faire échouer le rendu si elle est incalculable */
 function seriesKeyOrNull(episode: EpisodeInfo): string | null {
   try {
-    return platformSeriesKey(episode);
+    return exclusionKey(episode);
   } catch {
     return null;
   }
@@ -676,13 +677,13 @@ function isRecentExcluded(sync: RecentSync): boolean {
   const exclusions = exclusionsStore.get();
   if (exclusions.status !== 'ready' || exclusions.items.length === 0) return false;
   const platformKey = seriesKeyOrNull(sync.episode);
-  return exclusions.items.some((e) => e.mediaId === sync.mediaId || (e.platformKey !== null && e.platformKey === platformKey));
+  return exclusions.items.some((e) => matchesExclusion(e, { platformKey, mediaId: sync.mediaId }));
 }
 
 async function excludeRecent(sync: RecentSync): Promise<void> {
   let error: string | null = null;
   try {
-    await excludeSeries({ platformKey: platformSeriesKey(sync.episode), mediaId: sync.mediaId, label: sync.episode.animeTitle });
+    await excludeSeries({ platformKey: exclusionKey(sync.episode), mediaId: sync.mediaId, label: sync.episode.animeTitle });
   } catch (e: unknown) {
     log.error('Exclusion de la série impossible :', e);
     error = t('common.excludeFailed');

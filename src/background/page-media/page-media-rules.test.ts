@@ -7,11 +7,11 @@ import {
   pickKnownSeason,
   pickPartInGroup,
   rememberedSeason,
-  seriesMappingPrefix,
   seriesPageGate,
   seriesTitledSeason,
   toPageSeasons,
 } from './page-media-rules';
+import { seriesMappingPrefix } from '../../platforms/series-identity';
 import type { CandidateSummary } from '../../shared/review.types';
 import type { MediaMapping } from '../../shared/sync.types';
 

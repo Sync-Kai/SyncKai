@@ -40,7 +40,8 @@ import {
 } from '../../shared/cr-import';
 import type { HistorySeason } from '../../platforms/crunchyroll/history';
 import type { EpisodeInfo } from '../../shared/episode.types';
-import { getExcludedSeries, isExcluded, platformSeriesKey } from '../../shared/exclusions';
+import { getExcludedSeries, isExcluded } from '../../shared/exclusions';
+import { exclusionKey, mappingKey } from '../../platforms/series-identity';
 import { reduceJob } from '../../shared/job';
 import { createLogger } from '../../browser/logger';
 import type { Result } from '../../shared/result';
@@ -80,7 +81,7 @@ import {
   type StepResult,
   type TransientKind,
 } from '../jobs/runner';
-import { mappingKey, seasonLabel } from '../sync/matching/matching';
+import { seasonLabel } from '../sync/matching/matching';
 import { IMPORT_RESOLVE_OPTIONS, prefetchCandidates, resolveEpisode } from '../sync/resolver';
 import { withEntryLock } from '../sync/entry-lock';
 import { getConnectedTrackers } from '../trackers';
@@ -241,7 +242,7 @@ const itemMappings = (item: CrPlanItem): PlanMapping[] => item.mappings.map((m) 
 async function resolveSeason(season: HistorySeason, platform: ImportPlatform): Promise<SeasonResolution> {
   const episode = toEpisodeInfo(season, platform);
   const key = mappingKey(episode);
-  if (await isExcluded({ platformKey: platformSeriesKey(episode) })) return { kind: 'excluded', key };
+  if (await isExcluded({ platformKey: exclusionKey(episode) })) return { kind: 'excluded', key };
 
   const cached = await getMediaMapping(key);
   // Requêtes de fond : budget AniList partagé (popup et synchro en direct prioritaires, voir rate-limit.ts)
@@ -283,7 +284,7 @@ async function prefetchSeasons(input: CrImportInput, indexes: readonly number[])
     const season = input.seasons[index];
     if (!season) continue;
     const episode = toEpisodeInfo(season, platform);
-    if (!(await isExcluded({ platformKey: platformSeriesKey(episode) }))) episodes.push(episode);
+    if (!(await isExcluded({ platformKey: exclusionKey(episode) }))) episodes.push(episode);
   }
   try {
     await prefetchCandidates(episodes, 'background');
