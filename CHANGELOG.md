@@ -60,6 +60,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - A *To rate* card created from the MyAnimeList list is removed once the series is rated from a screen that knows its AniList entry.
 - *Settings*: a change no longer overwrites a setting saved at the same time elsewhere (a series delay from the *Schedule*, the preferred player reset after removing a platform's access).
 - *On this page* / side panel: changing a status no longer fails when the entry's cover comes from an unexpected image host (the cover is left out of the *To rate* card).
+- *On this page* / side panel, Netflix and Disney+ title pages: an AniList entry found by its title only, while another entry of the search links to the title (a TV series with the same name as a linked movie), was shown as certain, and its *Open* link was learned on that wrong entry. The title page now judges the entry like playback does: it is shown as a guess to confirm, and nothing is learned.
 
 ## [2.3.1] - 2026-10-12
 

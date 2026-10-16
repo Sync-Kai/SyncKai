@@ -597,6 +597,16 @@ export const CASES: readonly CorpusCase[] = [
     expected: high(21, 1086),
   },
   {
+    id: 'nf-one-piece-series-elbaph',
+    kind: 'series',
+    note: 'Page /title/80107103 « One Piece », arc « Elbaph Arc » (S40) choisi dans le menu des saisons : une seule fiche liée (21, en cours) couvre les 40 saisons Netflix, certaine quelle que soit la saison (wholeShow du juge). Garde-fou de e4 (page de série passée par le juge de la synchro, décision 6).',
+    anilist: 'one-piece',
+    page: seriesPage({ platform: 'netflix', seriesId: '80107103', seriesSlug: null, seriesTitle: 'One Piece', seasonNumber: 40, seasonTitle: 'Elbaph Arc', platformSeasons: ONE_PIECE_NETFLIX.platformSeasons }),
+    signals: ONE_PIECE_NETFLIX.signals,
+    searches: ['One Piece', 'One Piece Elbaph Arc'],
+    expected: high(21),
+  },
+  {
     id: 'nf-ranma-s1e1',
     kind: 'episode',
     note: 'Ranma1/2 (/title/81171925, 3 saisons 12 / 12 / 2) : AniList lie S1 et S2 à un autre titre Netflix (81301833), S3 à celui-ci.',
@@ -1052,7 +1062,7 @@ export const CASES: readonly CorpusCase[] = [
   {
     id: 'nf-okkos-inn-series-page',
     kind: 'series',
-    note: 'Film lié + série TV homonyme non liée (audit 1-M4) sur de VRAIES données : Netflix /title/81037597 « Okko’s Inn », lié sur AniList au film Wakaokami wa Shougakusei! (Movie) (101478), à côté de la série TV_SHORT Wakaokami wa Shougakusei! (2018, 101277), sans lien Netflix ni titre anglais : déjà l’idéal. La forme exacte de M4 (série non liée AU TITRE de la page) n’existe pas dans le catalogue réel relevé (Bubble, Okko’s Inn, BLAME!, BELLE, Mirai…) : reproduite sur données supposées dans page-media/series-gate.test.ts (it.fails).',
+    note: 'Film lié + série TV homonyme non liée (audit 1-M4) sur de VRAIES données : Netflix /title/81037597 « Okko’s Inn », lié sur AniList au film Wakaokami wa Shougakusei! (Movie) (101478), à côté de la série TV_SHORT Wakaokami wa Shougakusei! (2018, 101277), sans lien Netflix ni titre anglais : déjà l’idéal. La forme exacte de M4 (série non liée AU TITRE de la page) n’existe pas dans le catalogue réel relevé (Bubble, Okko’s Inn, BLAME!, BELLE, Mirai…) : reproduite sur données supposées dans page-media/series-gate.test.ts (corrigée par e4 : juge de la synchro).',
     anilist: 'okkos-inn',
     page: seriesPage({ platform: 'netflix', seriesId: '81037597', seriesSlug: null, seriesTitle: "Okko's Inn", seasonNumber: null, seasonTitle: null }),
     searches: ["Okko's Inn"],

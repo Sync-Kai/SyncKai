@@ -173,13 +173,15 @@ export function pickPartInGroup(groupIds: readonly number[], remembered: { media
 }
 
 /**
- * Jugement de la fiche retenue pour la saison de la page (judge.ts) traduit pour la page de série : certaine si les signaux
- * la prouvent ; sinon si la règle est sûre sans doute « fiche unique » (singleEntry), ou si la fiche est la série entière
+ * Jugement de la fiche retenue pour la saison de la page (judge.ts) traduit pour la page de série, comme pour la synchro :
+ * jamais certaine si elle n'est pas liée alors qu'une autre fiche l'est (unlinkedEntry : série TV homonyme d'un film lié,
+ * audit 1-M4, décision 6 ; groupe prouvé par les signaux hors de la franchise liée). Sinon certaine si les signaux la
+ * prouvent ; ou si la règle est sûre sans doute « fiche unique » (singleEntry), ou si la fiche est la série entière
  * (wholeShow : arcs One Piece Netflix), et que la saison nommée a une fiche à son titre (unmatchedName). Le nombre
  * d'épisodes (countMismatch) est contrôlé sur la saison affichée (voir page-media.ts › refinePageSeason).
  */
 export function pageMatchConfident({ result, doubts, wholeShow, bySignals }: Judgement): boolean {
-  if (!result.ok) return false;
+  if (!result.ok || doubts.includes('unlinkedEntry')) return false;
   if (bySignals) return true;
   return ((result.target.confidence === 'high' && !doubts.includes('singleEntry')) || wholeShow) && !doubts.includes('unmatchedName');
 }

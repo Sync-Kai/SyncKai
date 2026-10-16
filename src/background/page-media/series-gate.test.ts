@@ -68,6 +68,7 @@ const fake = installFakeChrome();
 const { resolveEpisode } = await import('../sync/resolver');
 const { resolvePageMedia, forgetPageResolutions } = await import('./page-media');
 const { clearCatalogCache } = await import('../anilist/media');
+const { getPlatformLinks } = await import('../../browser/storage/platform-links-store');
 
 /** Lecture de S1E1 (saison 1 affichée par Netflix) */
 const EPISODE: EpisodeInfo = {
@@ -103,11 +104,13 @@ describe('Netflix « Bubble » : film lié + série TV homonyme non liée (audit
     expect(result).toMatchObject({ ok: true, data: { media: { mediaId: FILM }, confidence: 'certain' } });
   });
 
-  // BOGUE 1-M4 (correction prévue par e4 `refactor/judge`) : la page de série ne repasse pas par gateByPlatformLink ; la
-  // série TV non liée y est « certaine » (relevé : mediaId 999001, confidence 'certain'), et learnableSeriesLink
-  // apprendrait le lien Netflix sur la mauvaise fiche. Passe au vert avec e4 : retirer `.fails`.
-  it.fails('page de série, saison 1 : même verdict que la lecture (série TV non liée « à vérifier », jamais « certaine »)', async () => {
+  // Ancien BOGUE 1-M4 (corrigé par e4 `refactor/judge`, décision 6) : la page de série ne repassait pas par la porte de la
+  // synchro ; la série TV non liée y était « certaine » (relevé : mediaId 999001, confidence 'certain'), et
+  // learnableSeriesLink apprenait le lien Netflix sur la mauvaise fiche. Même juge que la synchro (judge.ts › unlinkedEntry).
+  it('page de série, saison 1 : même verdict que la lecture (série TV non liée « à vérifier », jamais « certaine »)', async () => {
     const result = await resolvePageMedia({ page: SERIES_PAGE, mediaId: null });
     expect(result).toMatchObject({ ok: true, data: { media: { mediaId: TV }, confidence: 'uncertain' } });
+    // Correspondance incertaine : le lien Netflix n'est appris sur aucune fiche (« Ouvrir » ne pointe pas ailleurs)
+    expect(await getPlatformLinks()).toEqual({});
   });
 });
