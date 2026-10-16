@@ -1,6 +1,7 @@
 import { MAX_ADN_HISTORY_ITEMS, type AdnHistoryPortMessage, type AdnHistoryRead } from '../../protocol/adn-history';
 import { CR_HISTORY_ERROR_CODES, isHistoryStats, isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryResult, type HistorySeason } from '../crunchyroll/history';
 import { isRecord } from '../../shared/guards';
+import { isEpisodeWatched, reduceWatchEvents } from '../../shared/history-source';
 
 // Historique ADN → une ligne par saison (pur, testé), dans la page d'import : même forme que l'historique Crunchyroll
 // (HistorySeason), analysée par le même pipeline. Mêmes clés et numéros que la synchro en direct d'ADN
@@ -86,9 +87,7 @@ export function parseAdnVideo(raw: unknown): AdnHistoryEpisode | null {
  * n'est jamais importé.
  */
 export function isAdnWatched(episode: Pick<AdnHistoryEpisode, 'fullyWatched' | 'stoptime' | 'duration'>, completionPercentage: number): boolean {
-  if (episode.fullyWatched) return true;
-  if (episode.duration === null) return false;
-  return episode.stoptime / episode.duration >= completionPercentage / 100;
+  return isEpisodeWatched({ fullyWatched: episode.fullyWatched, position: episode.stoptime, duration: episode.duration }, { completionPercentage });
 }
 
 /**
@@ -98,26 +97,26 @@ export function isAdnWatched(episode: Pick<AdnHistoryEpisode, 'fullyWatched' | '
  * n'est jamais appliquée.
  */
 export function reduceAdnHistory(read: AdnHistoryRead, completionPercentage: number): CrHistoryResult {
-  const bySeason = new Map<string, { best: AdnHistoryEpisode & { episodeNumber: number }; watched: Set<string>; lastPlayedAt: number | null }>();
-  for (const raw of read.videos) {
+  // Événements de visionnage (règle et réducteur communs, shared/history-source.ts) ; position et durée en secondes
+  const events = read.videos.flatMap((raw) => {
     const episode = parseAdnVideo(raw);
-    if (!episode || !isAdnWatched(episode, completionPercentage)) continue;
-    const { episodeNumber } = episode;
-    if (episodeNumber === null) continue;
-    const numbered = { ...episode, episodeNumber };
-    const key = `${episode.showId}:s${episode.seasonNumber ?? 0}`;
-    const entry = bySeason.get(key);
-    if (!entry) {
-      bySeason.set(key, { best: numbered, watched: new Set([episode.episodeId]), lastPlayedAt: episode.watchedAt });
-      continue;
-    }
-    entry.watched.add(episode.episodeId);
-    if (episodeNumber > entry.best.episodeNumber) entry.best = numbered;
-    if (episode.watchedAt !== null && (entry.lastPlayedAt === null || episode.watchedAt > entry.lastPlayedAt)) entry.lastPlayedAt = episode.watchedAt;
-  }
-  const all = [...bySeason.values()]
-    .sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0))
-    .map(({ best, watched, lastPlayedAt }): HistorySeason => ({
+    const episodeNumber = episode?.episodeNumber ?? null;
+    if (!episode || episodeNumber === null) return [];
+    return [
+      {
+        seasonKey: `${episode.showId}:s${episode.seasonNumber ?? 0}`,
+        episodeId: episode.episodeId,
+        rank: episodeNumber,
+        fullyWatched: episode.fullyWatched,
+        position: episode.stoptime,
+        duration: episode.duration,
+        playedAt: episode.watchedAt,
+        episode: { ...episode, episodeNumber },
+      },
+    ];
+  });
+  const all = reduceWatchEvents(events, { completionPercentage })
+    .seasons.map(({ best: { episode: best }, watchedCount, lastPlayedAt }): HistorySeason => ({
       seriesId: best.showId,
       seriesTitle: best.showTitle,
       seriesSlug: best.showSlug,
@@ -130,7 +129,7 @@ export function reduceAdnHistory(read: AdnHistoryRead, completionPercentage: num
       // Numéro dans la saison ADN, comme sur la page de lecture (JSON-LD episodeNumber)
       episodeNumber: best.episodeNumber,
       seasonEpisodeNumber: best.episodeNumber,
-      watchedCount: watched.size,
+      watchedCount,
       lastPlayedAt,
     }));
   return {

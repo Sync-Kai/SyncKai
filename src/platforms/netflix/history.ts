@@ -4,6 +4,7 @@ import { ANILIST_SEARCHES_PER_REQUEST } from '../../shared/anilist.types';
 import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixBookmark, type NetflixShowMetadata } from './metadata';
 import type { Result } from '../../shared/result';
 import type { CompletionTrigger } from '../../shared/settings';
+import { isEpisodeWatched, reduceWatchEvents, type WatchEvent } from '../../shared/history-source';
 import { meaningfulSeasonTitle, normalizeTitle } from '../../shared/title';
 import { withSignals } from '../../shared/match-signals';
 
@@ -256,13 +257,12 @@ export function isNetflixWatched(
   completionPercentage: number,
   completionTrigger: CompletionTrigger = 'credits',
 ): boolean {
-  const bookmark = item.bookmark;
-  if (!bookmark || bookmark.offset <= 0) return false;
-  const byPercentage = item.runtime !== null && item.runtime > 0 ? bookmark.offset / item.runtime >= completionPercentage / 100 : null;
-  if (completionTrigger === 'percentage' && byPercentage !== null) return byPercentage;
-  const marks = [bookmark.watchedToEndOffset, item.creditsOffset].filter((mark): mark is number => mark !== null && mark > 0);
-  if (marks.length > 0) return bookmark.offset >= Math.min(...marks);
-  return byPercentage ?? false;
+  return isEpisodeWatched(netflixWatch(item), { completionPercentage, completionTrigger });
+}
+
+/** Point de lecture → entrée de la règle commune (shared/history-source.ts) ; secondes ; sans point de lecture : jamais commencé */
+function netflixWatch(item: { bookmark?: NetflixBookmark | null; runtime: number | null; creditsOffset: number | null }): Pick<WatchEvent, 'position' | 'duration' | 'endMarks'> {
+  return { position: item.bookmark?.offset ?? 0, duration: item.runtime, endMarks: [item.bookmark?.watchedToEndOffset ?? null, item.creditsOffset] };
 }
 
 /**
@@ -281,9 +281,11 @@ export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentag
   }
   const platformSeasons = platformSeasonsOf(show);
   return show.seasons.flatMap((season): HistorySeason[] => {
-    const watched = season.episodes.filter((episode) => episode.seq >= 1 && isNetflixWatched(episode, completionPercentage, completionTrigger));
-    const best = watched.reduce<(typeof watched)[number] | null>((top, episode) => (top === null || episode.seq > top.seq ? episode : top), null);
-    if (!best) return [];
+    // Réducteur commun (shared/history-source.ts), une saison Netflix à la fois : épisode vu de plus grand `seq`
+    const events = season.episodes.filter((episode) => episode.seq >= 1).map((episode) => ({ seasonKey: String(season.seq), episodeId: episode.id, rank: episode.seq, ...netflixWatch(episode), playedAt: null, episode }));
+    const [watched] = reduceWatchEvents(events, { completionPercentage, completionTrigger }).seasons;
+    if (!watched) return [];
+    const best = watched.best.episode;
     const { seasonEpisodeNumber, displayedEpisodeNumber } = episodeNumbers(show.seasons, season, best);
     // Mêmes signaux que la synchro en direct (même résolution, même clé)
     const signals = netflixSignals(show, season);
@@ -298,7 +300,7 @@ export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentag
         // Numéro absolu inconnu (saison précédente vide) : numéro dans la saison, comme le ferait une correspondance par saison
         episodeNumber: displayedEpisodeNumber ?? seasonEpisodeNumber,
         seasonEpisodeNumber,
-        watchedCount: watched.length,
+        watchedCount: watched.watchedCount,
         platformSeasons,
         ...withSignals(signals),
       },

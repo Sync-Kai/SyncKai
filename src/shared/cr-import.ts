@@ -3,6 +3,7 @@ import { isEpisodeInfo, type EpisodeInfo } from './episode.types';
 import { normalizeSeriesTitle } from './exclusions';
 import { isRecord } from './guards';
 import { fromLegacyJob, isJobOf, startJob, type Job, type JobStart } from './job';
+import { progressStep, reachesLastEpisode } from './list-update';
 import type { Result } from './result';
 import { isCandidateSummary, type CandidateSummary } from './review.types';
 import { isMediaMapping, type ListStatus, type MediaMapping } from './sync.types';
@@ -209,11 +210,12 @@ export type CrImportDecision = { action: 'update'; progress: number; status: CrW
  * - sinon Terminé au dernier épisode, En cours avant (une série En pause / Abandonnée reprend comme en direct).
  */
 export function decideImport(entry: CrListState | null, progress: number, totalEpisodes: number | null): CrImportDecision {
+  // Gardes propres à l'import, puis la règle commune à la synchro en direct (shared/list-update.ts)
   if (totalEpisodes !== null && progress > totalEpisodes) return { action: 'skip', reason: 'beyond' };
-  if (entry?.status === 'COMPLETED') return { action: 'skip', reason: 'completed' };
   if (entry?.status === 'REPEATING') return { action: 'skip', reason: 'repeating' };
-  if (entry && progress <= entry.progress) return { action: 'skip', reason: 'up-to-date' };
-  return { action: 'update', progress, status: totalEpisodes !== null && progress >= totalEpisodes ? 'COMPLETED' : 'CURRENT' };
+  const step = progressStep(entry, progress);
+  if (step !== 'advance') return { action: 'skip', reason: step };
+  return { action: 'update', progress, status: reachesLastEpisode(progress, totalEpisodes) ? 'COMPLETED' : 'CURRENT' };
 }
 
 export type CrServicePlan =

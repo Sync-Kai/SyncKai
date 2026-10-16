@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { malProgressBody } from '../mal/client';
 import { decideAddToList, decideListUpdate, decideStatusChange, type ListEntryState } from './rules';
+import { decideImport } from '../../shared/cr-import';
 
 describe('decideListUpdate', () => {
   it('ajoute un anime absent de la liste en CURRENT', () => {
@@ -146,5 +147,29 @@ describe('decideAddToList', () => {
       expect(decideAddToList({ status, progress: 7 }, 'PLANNING')).toEqual({ action: 'skip', reason: 'already-in-list' });
       expect(decideAddToList({ status, progress: 7 }, 'CURRENT')).toEqual({ action: 'skip', reason: 'already-in-list' });
     }
+  });
+});
+
+describe('import et synchro en direct : une seule règle de mise à jour (audit 1-D14 / 6-D3)', () => {
+  const entries: (ListEntryState | null)[] = [null, ...(['CURRENT', 'PLANNING', 'PAUSED', 'DROPPED', 'COMPLETED'] as const).map((status) => ({ status, progress: 5 }))];
+
+  it('hors revisionnage et découpage différent (gardes propres à l’import), mêmes décisions', () => {
+    for (const entry of entries) {
+      for (const total of [null, 12]) {
+        for (const progress of [1, 5, 6, 11, 12]) {
+          const live = decideListUpdate(entry, progress, total);
+          const imported = decideImport(entry, progress, total);
+          const context = `${entry?.status ?? 'absente'} ${entry?.progress ?? ''} → ${progress}/${total ?? '?'}`;
+          if (live.action === 'update') expect(imported, context).toEqual({ action: 'update', progress: live.progress, status: live.status });
+          else expect(imported, context).toEqual({ action: 'skip', reason: live.reason === 'already-completed' ? 'completed' : 'up-to-date' });
+        }
+      }
+    }
+  });
+
+  it('gardes propres à l’import : revisionnage jamais touché, épisode au-delà de la fiche ignoré', () => {
+    expect(decideImport({ status: 'REPEATING', progress: 2 }, 3, 12)).toEqual({ action: 'skip', reason: 'repeating' });
+    expect(decideListUpdate({ status: 'REPEATING', progress: 2 }, 3, 12)).toEqual({ action: 'update', progress: 3, status: 'REPEATING' });
+    expect(decideImport(null, 13, 12)).toEqual({ action: 'skip', reason: 'beyond' });
   });
 });

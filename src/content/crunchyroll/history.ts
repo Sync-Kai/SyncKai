@@ -1,5 +1,6 @@
 import { isRecord } from '../../shared/guards';
 import { isSeriesSlug, MAX_HISTORY_SEASONS, type CrHistoryErrorCode, type CrHistoryResult, type HistorySeason } from '../../platforms/crunchyroll/history';
+import { isEpisodeWatched, reduceWatchEvents, type WatchEvent } from '../../shared/history-source';
 import { cleanText, stripAudioTag } from '../lib/parsing';
 import type { FetchLike } from '../lib/page-fetch';
 
@@ -308,16 +309,26 @@ export function parseHistoryItem(raw: unknown): HistoryEpisode | null {
   };
 }
 
-/** Épisode compté comme vu : marqué terminé par Crunchyroll, ou position ≥ seuil de fin réglé dans SyncKai */
-export function isWatched(episode: Pick<HistoryEpisode, 'fullyWatched' | 'playhead' | 'durationMs'>, completionPercentage: number): boolean {
-  if (episode.fullyWatched) return true;
-  if (episode.durationMs === null) return false;
-  return (episode.playhead * 1000) / episode.durationMs >= completionPercentage / 100;
-}
-
 /** Clé de saison : la série + son numéro de saison (VO et VF d'une même saison ont des season_id différents) */
 const seasonKey = (e: Pick<HistoryEpisode, 'seriesId' | 'seasonNumber' | 'seasonId'>): string =>
   e.seasonNumber !== null ? `${e.seriesId}:s${e.seasonNumber}` : `${e.seriesId}:${e.seasonId}`;
+
+/** Événement de visionnage (règle et réducteur communs, shared/history-source.ts) ; position et durée en ms */
+const watchEvent = (episode: HistoryEpisode, number: number): WatchEvent & { episode: HistoryEpisode } => ({
+  seasonKey: seasonKey(episode),
+  episodeId: episode.episodeId,
+  rank: number,
+  fullyWatched: episode.fullyWatched,
+  position: episode.playhead * 1000,
+  duration: episode.durationMs,
+  playedAt: episode.playedAt,
+  episode,
+});
+
+/** Épisode compté comme vu : marqué terminé par Crunchyroll, ou position ≥ seuil de fin réglé dans SyncKai (règle commune) */
+export function isWatched(episode: Pick<HistoryEpisode, 'fullyWatched' | 'playhead' | 'durationMs'>, completionPercentage: number): boolean {
+  return isEpisodeWatched({ fullyWatched: episode.fullyWatched, position: episode.playhead * 1000, duration: episode.durationMs }, { completionPercentage });
+}
 
 export interface ReducedHistory {
   /** seasonEpisodeNumber non établi (null) : voir needsSeasonLookup / relativeEpisodeNumber */
@@ -331,41 +342,31 @@ export interface ReducedHistory {
  * Les saisons sans aucun épisode vu sont omises. Tri : visionnage le plus récent d'abord.
  */
 export function reduceHistory(rawItems: readonly unknown[], completionPercentage: number): ReducedHistory {
-  const bySeason = new Map<string, { best: HistoryEpisode; watched: Set<string>; lastPlayedAt: number | null }>();
-  let ignored = 0;
-  for (const raw of rawItems) {
+  let unreadable = 0;
+  const events = rawItems.flatMap((raw) => {
     const episode = parseHistoryItem(raw);
-    if (!episode || episode.episodeNumber === null || !isWatched(episode, completionPercentage)) {
-      ignored++;
-      continue;
+    if (!episode || episode.episodeNumber === null) {
+      unreadable++;
+      return [];
     }
-    const key = seasonKey(episode);
-    const entry = bySeason.get(key);
-    if (!entry) {
-      bySeason.set(key, { best: episode, watched: new Set([episode.episodeId]), lastPlayedAt: episode.playedAt });
-      continue;
-    }
-    entry.watched.add(episode.episodeId);
-    if ((episode.episodeNumber ?? 0) > (entry.best.episodeNumber ?? 0)) entry.best = episode;
-    if (episode.playedAt !== null && (entry.lastPlayedAt === null || episode.playedAt > entry.lastPlayedAt)) entry.lastPlayedAt = episode.playedAt;
-  }
-  const seasons = [...bySeason.values()]
-    .sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0))
-    .map(({ best, watched, lastPlayedAt }): HistorySeason => ({
-      seriesId: best.seriesId,
-      seriesTitle: best.seriesTitle,
-      seriesSlug: best.seriesSlug,
-      seasonId: best.seasonId,
-      seasonNumber: best.seasonNumber,
-      seasonTitle: best.seasonTitle,
-      episodeId: best.episodeId,
-      episodeTitle: best.episodeTitle,
-      episodeNumber: best.episodeNumber ?? 1,
-      seasonEpisodeNumber: null,
-      watchedCount: watched.size,
-      lastPlayedAt,
-    }));
-  return { seasons, ignored };
+    return [watchEvent(episode, episode.episodeNumber)];
+  });
+  const reduced = reduceWatchEvents(events, { completionPercentage });
+  const seasons = reduced.seasons.map(({ best: { episode: best, rank }, watchedCount, lastPlayedAt }): HistorySeason => ({
+    seriesId: best.seriesId,
+    seriesTitle: best.seriesTitle,
+    seriesSlug: best.seriesSlug,
+    seasonId: best.seasonId,
+    seasonNumber: best.seasonNumber,
+    seasonTitle: best.seasonTitle,
+    episodeId: best.episodeId,
+    episodeTitle: best.episodeTitle,
+    episodeNumber: rank,
+    seasonEpisodeNumber: null,
+    watchedCount,
+    lastPlayedAt,
+  }));
+  return { seasons, ignored: unreadable + reduced.ignored };
 }
 
 /**

@@ -20,6 +20,9 @@ import {
   type FetchLike,
   type ReaderDeps,
 } from './history';
+import { isEpisodeWatched } from '../../shared/history-source';
+import { isAdnWatched } from '../../platforms/adn/history';
+import { isNetflixWatched } from '../../platforms/netflix/history';
 
 const ORIGIN = 'https://www.crunchyroll.com';
 
@@ -101,6 +104,15 @@ describe('éléments d’historique', () => {
     expect(isWatched({ fullyWatched: false, playhead: 1_224, durationMs: 1_440_000 }, 85)).toBe(true);
     expect(isWatched({ fullyWatched: false, playhead: 1_223, durationMs: 1_440_000 }, 85)).toBe(false);
     expect(isWatched({ fullyWatched: false, playhead: 9_999, durationMs: null }, 85)).toBe(false);
+  });
+
+  it('règle commune (audit 6-D1) : Crunchyroll, ADN et Netflix donnent le même verdict pour le même visionnage sans marque', () => {
+    for (const [position, duration] of [[0, 1440], [1223, 1440], [1224, 1440], [600, null]] as const) {
+      const expected = isEpisodeWatched({ position, duration }, { completionPercentage: 85 });
+      expect(isWatched({ fullyWatched: false, playhead: position, durationMs: duration === null ? null : duration * 1000 }, 85)).toBe(expected);
+      expect(isAdnWatched({ fullyWatched: false, stoptime: position, duration }, 85)).toBe(expected);
+      expect(isNetflixWatched({ bookmark: { offset: position, watchedToEndOffset: null }, runtime: duration, creditsOffset: null }, 85)).toBe(expected);
+    }
   });
 });
 

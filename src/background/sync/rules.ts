@@ -1,4 +1,5 @@
 import type { AddListStatus, ListStatus, ListStatusChange } from '../../shared/sync.types';
+import { progressStep, reachesLastEpisode } from '../../shared/list-update';
 
 export type { ListStatus };
 
@@ -32,7 +33,7 @@ export interface ProgressWrite {
  * - avant le dernier épisode : le revisionnage continue (REPEATING), sinon CURRENT
  */
 export function progressWrite(entry: ListEntryState | null, progress: number, totalEpisodes: number | null): ProgressWrite {
-  const isLastEpisode = totalEpisodes !== null && progress >= totalEpisodes;
+  const isLastEpisode = reachesLastEpisode(progress, totalEpisodes);
   const repeating = entry?.status === 'REPEATING';
   if (isLastEpisode) return repeating ? { status: 'COMPLETED', repeat: (entry.repeat ?? 0) + 1 } : { status: 'COMPLETED' };
   return { status: repeating ? 'REPEATING' : 'CURRENT' };
@@ -62,8 +63,10 @@ export function decideListUpdate(
       : { action: 'update', progress, ...progressWrite(entry, progress, totalEpisodes) };
   }
 
-  if (entry?.status === 'COMPLETED') return { action: 'skip', reason: 'already-completed' };
-  if (entry && progress <= entry.progress) return { action: 'skip', reason: 'up-to-date' };
+  // Règle commune à l'import (shared/list-update.ts) : série terminée jamais touchée, jamais de recul
+  const step = progressStep(entry, progress);
+  if (step === 'completed') return { action: 'skip', reason: 'already-completed' };
+  if (step === 'up-to-date') return { action: 'skip', reason: 'up-to-date' };
   return { action: 'update', progress, ...progressWrite(entry, progress, totalEpisodes) };
 }
 
