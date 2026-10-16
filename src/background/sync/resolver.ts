@@ -1,14 +1,15 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { hasSignals } from '../../shared/match-signals';
 import type { CandidateSummary } from '../../shared/review.types';
-import { PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
-import { STREAMING_PLATFORMS } from '../../platforms/ids';
 import { mappingKey } from '../../platforms/series-identity';
 import { mappingOrigin, type MediaMapping } from '../../shared/sync.types';
 import { forgetIfUnchanged, getMediaMapping, saveLearned } from '../../browser/storage/mappings';
-import { getAnimeByIds, searchAnime, searchAnimeBatch, type AniListMedia } from '../anilist/media';
+import type { AniListMedia } from '../anilist/media';
+import { anilistCatalog } from '../anilist/catalog';
+import type { Catalog } from '../ports/catalog';
 import type { RequestLane } from '../rate-limit';
-import { alignPlatformSeasons, ignoredResult, seasonLabel, toSortableDate } from './matching/matching';
+import { answerCatalog, asCandidate, candidateSignals, candidateSteps, collectCandidates, type CandidateSteps, type CatalogRequest, type CollectedCandidates, type SeriesQuery } from './candidates';
+import { ignoredResult, seasonLabel, toSortableDate } from './matching/matching';
 import { filtersAnime, policyOf } from './matching/policies/registry';
 import {
   applyMapping,
@@ -20,12 +21,11 @@ import {
   type CachedMappingVerdict,
 } from './matching/mapping';
 import { gateByPlatformLink } from './matching/judge';
-import { isAbsoluteNumbering, isLinked, isOtherSeries, SERIES_FORMATS, type LinkKind, type MediaCandidate, type ResolveResult, type SyncTarget } from './matching/model';
+import { isLinked, type MediaCandidate, type ResolveResult, type SyncTarget } from './matching/model';
 import { resolveTarget } from './matching/rules-engine';
 import { seasonPool } from './matching/season-pool';
-import { carriesSeasonTitle, seasonSearchQuery } from './matching/season-titles';
+import { carriesSeasonTitle } from './matching/season-titles';
 import { provenBySignals } from './matching/signal-groups';
-import { normalizeTitle, slugSearchTitle, withoutDiacritics } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './matching/season-groups';
 import { recordMatchDecision } from './match-diagnostic';
@@ -34,30 +34,8 @@ import { createLogger } from '../../browser/logger';
 
 const log = createLogger('sync');
 
-const FRANCHISE_RELATIONS: ReadonlySet<string> = new Set(['SEQUEL', 'PREQUEL']);
-/** Limite les requêtes supplémentaires pour récupérer les saisons absentes de la recherche */
-const MAX_FETCH_ROUNDS = 2;
-/**
- * Tours de plus, numérotation absolue seulement : préquelles de la franchise (saisons séries, ou OVA / spécial qui les relie) pour
- * que le cumul parte de la 1re saison (Slime : saison 2 → OVA « Coleus no Yume » → saison 1)
- */
-const MAX_PREQUEL_ROUNDS = 4;
 /** Nombre de fiches proposées dans une carte de vérification */
 const MAX_REVIEW_CANDIDATES = 8;
-
-interface CollectedCandidates {
-  candidates: MediaCandidate[];
-  /** Fiches complètes, dans l'ordre de pertinence de la recherche */
-  media: AniListMedia[];
-}
-
-/**
- * Série à rechercher : un épisode, ou une page de série (titre et saison lus sur la page).
- * `episodeId` (page de lecture) : reconnaît une fiche AniList liée à l'épisode lui-même.
- * `url` (page de lecture Prime Video) : page de détail de la saison, dont l'identifiant rend certain un lien AniList vers elle.
- */
-export type SeriesQuery = Pick<EpisodeInfo, 'platform' | 'seriesId' | 'seriesSlug' | 'animeTitle' | 'seasonTitle' | 'platformSeasons'> &
-  Partial<Pick<EpisodeInfo, 'seasonEpisodeNumber' | 'displayedEpisodeNumber' | 'url'>> & { episodeId?: string | null };
 
 interface ResolveOptions {
   /** false : lecture seule (fiche de la page), le cache des correspondances n'est ni écrit ni purgé */
@@ -85,253 +63,24 @@ export interface EpisodeResolution {
 }
 
 /**
- * Requête au catalogue demandée par la collecte des candidats : recherches d'une même étape (envoyées ensemble) ou fiches
- * par identifiant (suites / préquelles absentes des recherches). Réponse : une liste de fiches par recherche, ou une seule
- * liste pour les identifiants.
- */
-type CatalogRequest = { kind: 'search'; queries: readonly string[] } | { kind: 'ids'; ids: readonly number[] };
-type CatalogAnswer = readonly (readonly AniListMedia[])[];
-type CandidateSteps = Generator<CatalogRequest, CollectedCandidates, CatalogAnswer>;
-
-async function answerCatalog(request: CatalogRequest, lane: RequestLane): Promise<CatalogAnswer> {
-  if (request.kind === 'search') return Promise.all(request.queries.map((query) => searchAnime(query, lane)));
-  return [await getAnimeByIds(request.ids, lane)];
-}
-
-/**
- * Recherche les fiches AniList de la franchise et détermine le lien de chacune avec la série.
- * Les suites/préquelles d'une fiche liée sont ajoutées (et récupérées si besoin) : AniList ne lie
- * pas toujours chaque saison à la plateforme.
- */
-async function collectCandidates(episode: SeriesQuery, lane: RequestLane = 'interactive'): Promise<CollectedCandidates> {
-  const steps = candidateSteps(episode);
-  let step = steps.next([]);
-  while (!step.done) step = steps.next(await answerCatalog(step.value, lane));
-  return step.value;
-}
-
-/**
- * Règles de collectCandidates, étape par étape : chaque requête au catalogue est cédée (yield) à l'appelant, qui renvoie
- * ses résultats. Une seule source pour les requêtes : la résolution (collectCandidates) et le pré-chargement groupé de
- * l'import (prefetchCandidates) demandent exactement les mêmes recherches, donc les mêmes clés du cache du catalogue.
- */
-function* candidateSteps(episode: SeriesQuery): CandidateSteps {
-  const mediaById = new Map<number, AniListMedia>();
-  const links = new Map<number, LinkKind>();
-
-  // Lien de chaque fiche avec la série (policies/ : formes d'URL de la plateforme ; Disney+, Prime Video : lien vers la
-  // plateforme valable seulement pour une fiche au titre de la série, sauf lien vers la page elle-même)
-  const policy = policyOf(episode.platform);
-  const query = {
-    seriesId: episode.seriesId,
-    seriesSlug: episode.seriesSlug,
-    episodeId: episode.episodeId ?? null,
-    ...(episode.url !== undefined ? { url: episode.url } : {}),
-    animeTitle: episode.animeTitle,
-    seasonTitle: episode.seasonTitle,
-  };
-  const add = (list: readonly AniListMedia[], fallback: LinkKind = null): void => {
-    for (const media of list) {
-      if (mediaById.has(media.id)) continue;
-      mediaById.set(media.id, media);
-      links.set(media.id, policy.linkOf(media, query) ?? fallback);
-    }
-  };
-
-  // Titre de saison distinct (ex : saison « HEROINES » de One Piece) : la recherche du seul titre de la série
-  // est noyée sous les fiches de la franchise (20 résultats), la fiche de la saison n'y figure pas toujours.
-  // Recherche complémentaire « série + saison », fusionnée sans doublon.
-  const seasonQuery = seasonSearchQuery(episode.animeTitle, episode.seasonTitle);
-  const [main = [], bySeason = []] = yield { kind: 'search', queries: seasonQuery ? [episode.animeTitle, seasonQuery] : [episode.animeTitle] };
-  add(main);
-  add(bySeason);
-
-  // Aucun résultat lié : le titre de saison seul est parfois le titre AniList (ex : "… Season 2")
-  const hasLinked = [...links.values()].some((link) => isLinked({ link }));
-  if (!hasLinked && episode.seasonTitle && normalizeTitle(episode.seasonTitle) !== normalizeTitle(episode.animeTitle) && episode.seasonTitle !== seasonQuery) {
-    add((yield { kind: 'search', queries: [episode.seasonTitle] })[0] ?? []);
-  }
-
-  // Toujours rien de lié : titre sans accents (AniList ne trouve pas les synonymes accentués, titres localisés de
-  // Crunchyroll /fr/), puis slug de l'URL (titre anglais sur Crunchyroll). Mêmes résultats à chaque relecture de la page
-  // (requête exacte comparée : normalizeTitle retire déjà les accents)
-  const searched = new Set([episode.animeTitle.toLowerCase()]);
-  for (const query of [withoutDiacritics(episode.animeTitle), slugSearchTitle(episode.seriesSlug)]) {
-    if (!query || searched.has(query.toLowerCase())) continue;
-    if ([...links.values()].some((link) => isLinked({ link }))) break;
-    searched.add(query.toLowerCase());
-    add((yield { kind: 'search', queries: [query] })[0] ?? []);
-  }
-
-  // Liens réglés entre fiches (Disney+ : clé de série Disney+ des fiches retenues, voir policies/disney.ts)
-  const settleLinks = (): void => policy.settleLinks?.(mediaById.values(), links);
-  settleLinks();
-
-  // Numérotation absolue (One Piece E1180) déjà couverte par une fiche série liée directement (en cours de diffusion, ou
-  // assez d'épisodes) : la saison est trouvée sans les suites / préquelles absentes de la recherche, qui ne sont pas
-  // demandées à AniList (budget de requêtes : un début de lecture ne coûte que la recherche)
-  const absolute = episode.displayedEpisodeNumber ?? null;
-  const isAbsolute = isAbsoluteNumbering(episode);
-  const coveredByLinkedEntry = (): boolean =>
-    isAbsolute &&
-    absolute !== null &&
-    [...mediaById.values()].some((m) => (links.get(m.id) === 'id' || links.get(m.id) === 'platform') && m.format !== null && SERIES_FORMATS.has(m.format) && (m.episodes === null || m.episodes >= absolute));
-  // Numérotation absolue : le cumul part de la 1re saison TV. Préquelle série, ou préquelle d'une saison série publiée dans un
-  // autre format (Slime saison 2 → PREQUEL l'OVA « Coleus no Yume » → PREQUEL la saison 1) : demandée aussi, sinon la chaîne
-  // s'arrête et la saison 1 manque au cumul (Saison 3 E72 comptée sur la saison 4)
-  const bridgesToEarlierSeason = (media: AniListMedia, rel: AniListMedia['relations'][number]): boolean =>
-    rel.relationType === 'PREQUEL' && rel.format !== null && rel.format !== 'MUSIC' && (SERIES_FORMATS.has(rel.format) || (media.format !== null && SERIES_FORMATS.has(media.format)));
-
-  // Propagation du lien le long des relations SEQUEL/PREQUEL jusqu'à stabilisation
-  let fetchRounds = 0;
-  for (;;) {
-    let changed = false;
-    const missing = new Set<number>();
-    /** Préquelles absentes (saison série, ou autre format qui y mène, voir bridgesToEarlierSeason) : tours en plus, numérotation absolue */
-    const prequels = new Set<number>();
-
-    for (const media of mediaById.values()) {
-      // Un lien vers un épisode précis (spécial, film) ne fait pas de ses suites des saisons de la série, ni une
-      // fiche d'une autre série de la plateforme (Naruto ne propage rien vers Boruto sur la page Shippuden)
-      const link = links.get(media.id);
-      if (link === undefined || link === null || link === 'episode' || isOtherSeries({ link })) continue;
-      for (const rel of media.relations) {
-        if (rel.type !== 'ANIME' || !FRANCHISE_RELATIONS.has(rel.relationType ?? '')) continue;
-        const related = mediaById.get(rel.id);
-        if (related) {
-          // Seule une fiche sans aucun lien devient 'relation' : une fiche 'other' / 'other-slug' le reste
-          if (links.get(rel.id) === null && isSeasonRelation(media, rel.relationType, related, episode.platform)) {
-            links.set(rel.id, 'relation');
-            changed = true;
-          }
-        } else if (rel.format !== null) {
-          if (SERIES_FORMATS.has(rel.format)) missing.add(rel.id);
-          if (isAbsolute && bridgesToEarlierSeason(media, rel)) prequels.add(rel.id);
-        }
-      }
-    }
-
-    if (missing.size > 0 && fetchRounds < MAX_FETCH_ROUNDS && !coveredByLinkedEntry()) {
-      fetchRounds++;
-      // Fiches sans lien : rattachées au tour suivant si la relation tient (isSeasonRelation) ; une fiche liée à une autre
-      // série reste 'other' / 'other-slug' (voir policies/policy.ts › linkOfMedia)
-      add((yield { kind: 'ids', ids: [...missing] })[0] ?? []);
-      settleLinks();
-      changed = true;
-    } else if (prequels.size > 0 && fetchRounds < MAX_FETCH_ROUNDS + MAX_PREQUEL_ROUNDS && !coveredByLinkedEntry()) {
-      // Tours ordinaires épuisés (suites comprises), numérotation absolue : seule la chaîne des préquelles continue, une
-      // saison par tour, jusqu'à la 1re saison (cumul complet)
-      fetchRounds++;
-      add((yield { kind: 'ids', ids: [...prequels] })[0] ?? []);
-      settleLinks();
-      changed = true;
-    }
-    if (!changed) break;
-  }
-
-  const toCandidates = (): MediaCandidate[] => [...mediaById.values()].map((m) => asCandidate(m, links.get(m.id) ?? null));
-
-  // Saisons de la plateforme (Netflix : épisodes par saison) rapprochées des fiches de la franchise : une saison liée à
-  // un autre titre de la plateforme (`other`) devient une saison de la série si les nombres d'épisodes concordent
-  if (episode.platformSeasons && episode.platformSeasons.length > 0) {
-    const neighbors = new Map<number, number[]>();
-    const relate = (a: number, b: number): void => {
-      neighbors.set(a, [...(neighbors.get(a) ?? []), b]);
-      neighbors.set(b, [...(neighbors.get(b) ?? []), a]);
-    };
-    for (const media of mediaById.values()) {
-      for (const rel of media.relations) if (rel.type === 'ANIME' && FRANCHISE_RELATIONS.has(rel.relationType ?? '')) relate(media.id, rel.id);
-    }
-    const aligned = alignPlatformSeasons(episode.platformSeasons, toCandidates(), neighbors) ?? [];
-    for (const id of aligned) {
-      const link = links.get(id);
-      if (link === null || link === undefined || isOtherSeries({ link })) links.set(id, 'relation');
-    }
-    if (aligned.length > 0) log.info('Saisons de la plateforme alignées sur les fiches :', aligned);
-  }
-
-  return { candidates: toCandidates(), media: [...mediaById.values()] };
-}
-
-const sortableStart = (media: AniListMedia): number | null => toSortableDate(media.startDate);
-
-/** Fiche AniList comparée par les règles et la concordance */
-function asCandidate(m: AniListMedia, link: LinkKind): MediaCandidate {
-  return {
-    id: m.id,
-    format: m.format,
-    episodes: m.episodes,
-    startDate: toSortableDate(m.startDate),
-    titles: m.titles,
-    link,
-    hasPrequel: m.relations.some((rel) => rel.type === 'ANIME' && rel.relationType === 'PREQUEL' && rel.format !== null && SERIES_FORMATS.has(rel.format)),
-    ...candidateSignals(m),
-  };
-}
-
-/** Signaux AniList d'une fiche, comparés à ceux de la plateforme (concordance.ts) */
-function candidateSignals(media: AniListMedia): Pick<MediaCandidate, 'endYear' | 'status' | 'duration' | 'country' | 'relations'> {
-  return {
-    endYear: media.endDate?.year ?? null,
-    status: media.status ?? null,
-    duration: media.duration ?? null,
-    country: media.countryOfOrigin ?? null,
-    relations: media.relations.flatMap((rel) => (rel.type === 'ANIME' && (rel.relationType === 'SEQUEL' || rel.relationType === 'PREQUEL') ? [{ id: rel.id, type: rel.relationType }] : [])),
-  };
-}
-
-/**
  * Correspondance en cache confrontée aux signaux de la plateforme (voir matching.ts › cachedMappingVerdict), puis au titre
  * de saison (cachedTitleVerdict), avec sa fiche (proposée dans la carte « À vérifier » si elle est mise en doute). Hors choix
  * de l'utilisateur (`chosen`) : une requête au catalogue (en cache quelques minutes) avec des signaux ou un titre de saison
  * propre ; les recherches de la série seulement si la fiche ne porte pas ce titre.
  */
-async function questionMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<{ verdict: CachedMappingVerdict; media: AniListMedia | null }> {
+async function questionMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane, catalog: Catalog): Promise<{ verdict: CachedMappingVerdict; media: AniListMedia | null }> {
   const bySignals = mappingOrigin(mapping) !== 'chosen' && hasSignals(episode.signals);
   const byTitle = questionsByTitle(episode, mapping);
   if (!bySignals && !byTitle) return { verdict: { kind: 'keep' }, media: null };
-  const media = (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId) ?? null;
+  const media = (await catalog.byIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId) ?? null;
   if (!media) return { verdict: { kind: 'keep' }, media: null };
-  const entry = { id: media.id, format: media.format, episodes: media.episodes, startDate: sortableStart(media), titles: media.titles, ...candidateSignals(media) };
+  const entry = { id: media.id, format: media.format, episodes: media.episodes, startDate: toSortableDate(media.startDate), titles: media.titles, ...candidateSignals(media) };
   const verdict = cachedMappingVerdict(mapping, entry, episode.signals);
   // Titre de saison (sans signal, comme l'import de l'historique) : fiche qui le porte → tient sans recherche ; sinon les
   // saisons de la série (catalogue en cache quelques minutes) disent si le titre désigne un autre groupe
   if (verdict.kind !== 'keep' || !byTitle || carriesSeasonTitle(media.titles, episode.seasonTitle ?? '')) return { verdict, media };
-  const { candidates } = await collectCandidates(episode, lane);
+  const { candidates } = await collectCandidates(episode, lane, catalog);
   return { verdict: cachedTitleVerdict(mapping, episode, candidates), media };
-}
-
-/**
- * Lien vers une AUTRE plateforme prise en charge, et aucun vers celle de la série (MONSTERS : Netflix seulement).
- * Plateforme dont les liens ne prouvent pas la présence (`countsAsPresence` faux : Prime Video) : n'entre pas en compte, ni
- * d'un côté ni de l'autre ; ses liens AniList sont rares (Vinland Saga, SPY×FAMILY… n'en ont aucun) et souvent vers
- * d'anciennes pages amazon.com, leur absence ne prouve rien.
- */
-function linksElsewhereOnly(media: AniListMedia, platform: StreamingPlatform): boolean {
-  if (!policyOf(platform).countsAsPresence) return false;
-  const hosts = media.externalLinkUrls.flatMap((url) => {
-    try {
-      return [new URL(url).hostname];
-    } catch {
-      return [];
-    }
-  });
-  const onPlatform = (id: StreamingPlatform): boolean => hosts.some((host) => PLATFORMS[id].matchesHost(host));
-  return !onPlatform(platform) && STREAMING_PLATFORMS.some((other) => other !== platform && policyOf(other).countsAsPresence && onPlatform(other));
-}
-
-/**
- * Suite / préquelle d'une fiche liée à la série : saison de la série par relation, sauf
- * - préquelle sortie APRÈS la fiche (ou suite sortie avant) : récit annexe daté autrement (MONSTERS, ONA 2024, « préquelle »
- *   de One Piece 1999), jamais la saison 2 ;
- * - fiche présente sur une autre plateforme prise en charge mais pas sur celle de la série (MONSTERS : Netflix seulement,
- *   page Crunchyroll de One Piece).
- */
-function isSeasonRelation(from: AniListMedia, relationType: string | null, to: AniListMedia, platform: StreamingPlatform): boolean {
-  const start = sortableStart(from);
-  const other = sortableStart(to);
-  if (start !== null && other !== null && ((relationType === 'PREQUEL' && other > start) || (relationType === 'SEQUEL' && other < start))) return false;
-  return !linksElsewhereOnly(to, platform);
 }
 
 export function toCandidateSummary(media: AniListMedia): CandidateSummary {
@@ -375,15 +124,15 @@ function poolOf({ candidates, media }: CollectedCandidates, animeTitle: string):
 }
 
 /** Saisons AniList d'une série (page de série) : même recherche que la synchro, sans rien écrire. */
-export async function findSeriesSeasons(query: SeriesQuery): Promise<SeriesSeasons> {
-  const collected = await collectCandidates(query);
+export async function findSeriesSeasons(query: SeriesQuery, catalog: Catalog = anilistCatalog): Promise<SeriesSeasons> {
+  const collected = await collectCandidates(query, 'interactive', catalog);
   const others = collected.media.filter((m) => m.format !== 'MUSIC');
   return { candidates: collected.candidates, ...poolOf(collected, query.animeTitle), others };
 }
 
 /** Fiches candidates d'un épisode, sans résolution (ex : correction d'une synchro passée). */
-export async function findReviewCandidates(episode: EpisodeInfo, suggestedId: number | null): Promise<CandidateSummary[]> {
-  return summarize(await collectCandidates(episode), suggestedId);
+export async function findReviewCandidates(episode: EpisodeInfo, suggestedId: number | null, catalog: Catalog = anilistCatalog): Promise<CandidateSummary[]> {
+  return summarize(await collectCandidates(episode, 'interactive', catalog), suggestedId);
 }
 
 /**
@@ -392,8 +141,8 @@ export async function findReviewCandidates(episode: EpisodeInfo, suggestedId: nu
  * catalogue (`persist`). Réfutée : null (l'appelant la retire et résout de nouveau). Erreur réseau : propagée, comme
  * celle d'une recherche (la correspondance reste à revérifier).
  */
-async function confirmImportedMapping(episode: EpisodeInfo, key: string, mapping: MediaMapping, persist: boolean, lane: RequestLane): Promise<MediaMapping | null> {
-  const media = (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId);
+async function confirmImportedMapping(episode: EpisodeInfo, key: string, mapping: MediaMapping, persist: boolean, lane: RequestLane, catalog: Catalog): Promise<MediaMapping | null> {
+  const media = (await catalog.byIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId);
   if (!media) {
     log.warn(`Correspondance importée ${key} : fiche #${mapping.mediaId} introuvable sur AniList, ignorée`);
     return null;
@@ -425,8 +174,9 @@ async function doubtedMapping(
   media: AniListMedia,
   { signals, titleGroup, refreshed }: { signals: readonly SignalName[]; titleGroup?: readonly number[]; refreshed?: true },
   lane: RequestLane,
+  catalog: Catalog,
 ): Promise<EpisodeResolution> {
-  const collected = await collectCandidates(episode, lane);
+  const collected = await collectCandidates(episode, lane, catalog);
   const fresh = gateByPlatformLink(episode, collected.candidates, resolveTarget(episode, collected.candidates));
   const isProven = (target: SyncTarget): boolean =>
     refreshed === true || (titleGroup ? titleGroup.includes(target.mediaId) : target.bySignals === true || provenBySignals(episode, collected.candidates, target.mediaId));
@@ -452,12 +202,12 @@ async function doubtedMapping(
  * (`high`) vers une autre fiche → contredite : `freshId`, et la fiche en cache (`media`, sélectionnable dans la carte) ;
  * sinon null (résolution incertaine ou introuvable : la correspondance en cache reste, comme avant).
  */
-async function revalidatedMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<{ freshId: number; media: AniListMedia | null } | null> {
+async function revalidatedMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane, catalog: Catalog): Promise<{ freshId: number; media: AniListMedia | null } | null> {
   if (mappingOrigin(mapping) === 'chosen' || applyMapping(episode, mapping) === null) return null;
-  const collected = await collectCandidates(episode, lane);
+  const collected = await collectCandidates(episode, lane, catalog);
   const fresh = gateByPlatformLink(episode, collected.candidates, resolveTarget(episode, collected.candidates));
   if (!fresh.ok || fresh.target.confidence !== 'high' || fresh.target.mediaId === mapping.mediaId) return null;
-  const media = collected.media.find((m) => m.id === mapping.mediaId) ?? (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId) ?? null;
+  const media = collected.media.find((m) => m.id === mapping.mediaId) ?? (await catalog.byIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId) ?? null;
   return { freshId: fresh.target.mediaId, media };
 }
 
@@ -485,7 +235,7 @@ async function willSearch(episode: EpisodeInfo): Promise<boolean> {
  * du catalogue de 10 min) ne demande alors plus rien. N'écrit rien ; une erreur est levée (l'appelant l'ignore : la
  * résolution de la saison refait seule ses requêtes, avec ses nouvelles tentatives).
  */
-export async function prefetchCandidates(episodes: readonly EpisodeInfo[], lane: RequestLane = 'background'): Promise<void> {
+export async function prefetchCandidates(episodes: readonly EpisodeInfo[], lane: RequestLane = 'background', catalog: Catalog = anilistCatalog): Promise<void> {
   const walks: { steps: CandidateSteps; step: IteratorResult<CatalogRequest, CollectedCandidates> }[] = [];
   for (const episode of episodes) {
     if (!(await willSearch(episode))) continue;
@@ -498,9 +248,9 @@ export async function prefetchCandidates(episodes: readonly EpisodeInfo[], lane:
     const queries = pending.flatMap(({ request }) => (request.kind === 'search' ? request.queries : []));
     const ids = [...new Set(pending.flatMap(({ request }) => (request.kind === 'ids' ? request.ids : [])))];
     const idChunks = Array.from({ length: Math.ceil(ids.length / IDS_PER_REQUEST) }, (_, i) => ids.slice(i * IDS_PER_REQUEST, (i + 1) * IDS_PER_REQUEST));
-    await Promise.all([searchAnimeBatch(queries, lane), ...idChunks.map((chunk) => getAnimeByIds(chunk, lane))]);
+    await Promise.all([catalog.searchBatch(queries, lane), ...idChunks.map((chunk) => catalog.byIds(chunk, lane))]);
     // Réponses de chaque épisode servies par le cache rempli ci-dessus (aucune requête de plus)
-    for (const { walk, request } of pending) walk.step = walk.steps.next(await answerCatalog(request, lane));
+    for (const { walk, request } of pending) walk.step = walk.steps.next(await answerCatalog(request, lane, catalog));
   }
 }
 
@@ -514,23 +264,29 @@ type CacheOutcome = { kind: 'hit'; resolution: EpisodeResolution } | { kind: 'mi
  * (revalidatedMapping). Applicable → servie ; sinon `miss` (correspondance confirmée et verdict, pour la suite). N'écrit
  * que la correspondance importée confirmée (confirmImportedMapping, `persist`).
  */
-async function fromCache(episode: EpisodeInfo, key: string, stored: MediaMapping | null, { persist, lane, revalidateCache }: Required<ResolveOptions>): Promise<CacheOutcome> {
-  const confirmed = stored?.unverified === true && applyMapping(episode, stored) !== null ? await confirmImportedMapping(episode, key, stored, persist, lane) : stored;
-  const question = confirmed ? await questionMapping(episode, confirmed, lane) : null;
+async function fromCache(
+  episode: EpisodeInfo,
+  key: string,
+  stored: MediaMapping | null,
+  { persist, lane, revalidateCache }: Required<ResolveOptions>,
+  catalog: Catalog,
+): Promise<CacheOutcome> {
+  const confirmed = stored?.unverified === true && applyMapping(episode, stored) !== null ? await confirmImportedMapping(episode, key, stored, persist, lane, catalog) : stored;
+  const question = confirmed ? await questionMapping(episode, confirmed, lane, catalog) : null;
   const { verdict } = question ?? { verdict: { kind: 'keep' } as const };
   if (verdict.kind === 'drop') {
     log.info(`Correspondance apprise ${key} contredite par la plateforme (${verdict.titleGroup ? 'titre de saison' : verdict.signals.join(', ')}) : nouvelle résolution`);
   }
   // Analyse d'un import : correspondance applicable confrontée à une nouvelle résolution (revalidatedMapping)
-  const revalidated = revalidateCache && verdict.kind === 'keep' && confirmed ? await revalidatedMapping(episode, confirmed, lane) : null;
+  const revalidated = revalidateCache && verdict.kind === 'keep' && confirmed ? await revalidatedMapping(episode, confirmed, lane, catalog) : null;
   const confirmedLearned = confirmed !== null && mappingOrigin(confirmed) === 'learned';
   if (revalidated && confirmedLearned) log.info(`Correspondance apprise ${key} contredite par une nouvelle résolution (#${revalidated.freshId}) : écartée`);
   // Fiche en cache introuvable sur AniList (rien à proposer à côté) : comme écartée, la nouvelle résolution l'emporte
   const cached = verdict.kind === 'drop' || (revalidated && (confirmedLearned || revalidated.media === null)) ? null : confirmed;
   const progress = cached ? applyMapping(episode, cached) : null;
   if (!cached || progress === null) return { kind: 'miss', confirmed, verdict };
-  if (verdict.kind === 'doubt' && question?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict, lane) };
-  if (revalidated?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, revalidated.media, { signals: [], refreshed: true }, lane) };
+  if (verdict.kind === 'doubt' && question?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict, lane, catalog) };
+  if (revalidated?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, revalidated.media, { signals: [], refreshed: true }, lane, catalog) };
   const result: ResolveResult = { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } };
   if (__SYNCKAI_DEBUG__) {
     const candidates = question?.media ? [asCandidate(question.media, null)] : [];
@@ -562,8 +318,9 @@ async function fresh(
   episode: EpisodeInfo,
   key: string,
   { stored, verdict, keepsChoice, persist, lane }: { stored: MediaMapping | null; verdict: CachedMappingVerdict; keepsChoice: boolean; persist: boolean; lane: RequestLane },
+  catalog: Catalog,
 ): Promise<EpisodeResolution> {
-  const collected = await collectCandidates(episode, lane);
+  const collected = await collectCandidates(episode, lane, catalog);
   const { candidates } = collected;
   // Diagnostic : fiches retenues comme appartenant à la série (les autres résultats de recherche sont omis)
   log.info(
@@ -593,10 +350,14 @@ async function fresh(
 }
 
 /** Résout la fiche AniList d'un épisode : cache d'abord (fromCache), série ignorée sans recherche, recherche sinon (fresh). */
-export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lane = 'interactive', revalidateCache = false }: ResolveOptions = {}): Promise<EpisodeResolution> {
+export async function resolveEpisode(
+  episode: EpisodeInfo,
+  { persist = true, lane = 'interactive', revalidateCache = false }: ResolveOptions = {},
+  catalog: Catalog = anilistCatalog,
+): Promise<EpisodeResolution> {
   const key = mappingKey(episode);
   const stored = await getMediaMapping(key);
-  const cache = await fromCache(episode, key, stored, { persist, lane, revalidateCache });
+  const cache = await fromCache(episode, key, stored, { persist, lane, revalidateCache }, catalog);
   if (cache.kind === 'hit') return cache.resolution;
   const { confirmed, verdict } = cache;
   // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution.
@@ -606,6 +367,6 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   if (keepsChoice) log.info(`Correspondance choisie ${key} hors de sa fiche pour cet épisode : conservée, résolution sans mise en cache`);
   // Suppression et apprentissage conditionnels : un choix enregistré pendant les requêtes (sélecteur, carte) n'est jamais écrasé
   if (stored && persist && !keepsChoice) await forgetIfUnchanged(key, confirmed ?? stored);
-  return (await ignoredShortcut(episode, key, stored, lane)) ?? fresh(episode, key, { stored, verdict, keepsChoice, persist, lane });
+  return (await ignoredShortcut(episode, key, stored, lane)) ?? fresh(episode, key, { stored, verdict, keepsChoice, persist, lane }, catalog);
 }
 

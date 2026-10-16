@@ -3,8 +3,9 @@ import { withOrigin, type MappingOrigin, type MediaMapping } from '../../shared/
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { AniListMedia } from '../anilist/media';
+import type { Catalog } from '../ports/catalog';
 
-// Mise en cache des correspondances selon le filtre Netflix (stockage et API AniList simulés).
+// Mise en cache des correspondances selon le filtre Netflix (stockage simulé, faux catalogue AniList injecté).
 const storage = vi.hoisted(() => {
   const mock = { getMediaMapping: vi.fn(), saved: vi.fn(), forgotten: vi.fn() };
   // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus, origine posée comme saveLearned
@@ -14,12 +15,15 @@ const storage = vi.hoisted(() => {
     forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
   };
 });
-const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
-
 vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../anilist/media', () => api);
 
-const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
+/** Faux catalogue (port Catalog, voir ports/catalog.ts) passé à la résolution, sans simuler le module AniList */
+const api = { searchAnime: vi.fn<Catalog['search']>(), getAnimeByIds: vi.fn<Catalog['byIds']>() };
+const catalog: Catalog = { search: api.searchAnime, byIds: api.getAnimeByIds, searchBatch: () => Promise.reject(new Error('aucune recherche groupée ici')) };
+
+const resolver = await import('./resolver');
+const resolveEpisode = (episode: EpisodeInfo, options?: Parameters<typeof resolver.resolveEpisode>[1]): ReturnType<typeof resolver.resolveEpisode> => resolver.resolveEpisode(episode, options, catalog);
+const findSeriesSeasons = (query: Parameters<typeof resolver.findSeriesSeasons>[0]): ReturnType<typeof resolver.findSeriesSeasons> => resolver.findSeriesSeasons(query, catalog);
 const { IGNORED_SERIES_TTL_MS } = await import('./ignored-series');
 
 /** Faux chrome.storage.session (verdicts « série ignorée » du service worker) */

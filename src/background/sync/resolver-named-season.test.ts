@@ -3,6 +3,7 @@ import { withOrigin, type MappingOrigin, type MediaMapping } from '../../shared/
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { AniListMedia } from '../anilist/media';
+import type { Catalog } from '../ports/catalog';
 import {
   AOT_SEASON_IDS,
   AOT_SERIES,
@@ -25,11 +26,15 @@ const storage = vi.hoisted(() => {
     forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
   };
 });
-const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../browser/storage/mappings', () => storage);
-vi.mock('../anilist/media', () => api);
 
-const { findSeriesSeasons, resolveEpisode } = await import('./resolver');
+/** Faux catalogue (port Catalog, voir ports/catalog.ts) passé à la résolution, sans simuler le module AniList */
+const api = { searchAnime: vi.fn<Catalog['search']>(), getAnimeByIds: vi.fn<Catalog['byIds']>() };
+const catalog: Catalog = { search: api.searchAnime, byIds: api.getAnimeByIds, searchBatch: () => Promise.reject(new Error('aucune recherche groupée ici')) };
+
+const resolver = await import('./resolver');
+const resolveEpisode = (episode: EpisodeInfo): ReturnType<typeof resolver.resolveEpisode> => resolver.resolveEpisode(episode, {}, catalog);
+const findSeriesSeasons = (query: Parameters<typeof resolver.findSeriesSeasons>[0]): ReturnType<typeof resolver.findSeriesSeasons> => resolver.findSeriesSeasons(query, catalog);
 const { resolveTarget } = await import('./matching/rules-engine');
 const { isUnmatchedNamedSeason } = await import('./matching/season-titles');
 

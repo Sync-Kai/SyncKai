@@ -3,6 +3,7 @@ import { setLocale } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
 import { withOrigin, type MappingOrigin, type MediaMapping } from '../../../shared/sync.types';
 import type { AniListMedia } from '../../anilist/media';
+import type { Catalog } from '../../ports/catalog';
 
 // Signaux de la plateforme dans la résolution : clé de cache avec l'année, correspondance apprise contredite, preuve
 // exigée pour une correspondance par le titre seul (stockage et API AniList simulés).
@@ -15,11 +16,14 @@ const storage = vi.hoisted(() => {
     forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
   };
 });
-const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../../browser/storage/mappings', () => storage);
-vi.mock('../../anilist/media', () => api);
 
-const { resolveEpisode } = await import('../resolver');
+/** Faux catalogue (port Catalog, voir ports/catalog.ts) passé à la résolution, sans simuler le module AniList */
+const api = { searchAnime: vi.fn<Catalog['search']>(), getAnimeByIds: vi.fn<Catalog['byIds']>() };
+const catalog: Catalog = { search: api.searchAnime, byIds: api.getAnimeByIds, searchBatch: () => Promise.reject(new Error('aucune recherche groupée ici')) };
+
+const resolver = await import('../resolver');
+const resolveEpisode = (episode: EpisodeInfo, options?: Parameters<typeof resolver.resolveEpisode>[1]): ReturnType<typeof resolver.resolveEpisode> => resolver.resolveEpisode(episode, options, catalog);
 const { mappingKey } = await import('../../../platforms/series-identity');
 const { rememberedSeason } = await import('../../page-media/page-media-rules');
 
