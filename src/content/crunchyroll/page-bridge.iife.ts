@@ -53,11 +53,10 @@ function view(seriesId: string): CrunchyrollSignalTable {
   return crunchyrollSignalTable(mergeCrunchyrollSeries(seriesId, launchYears.get(seriesId) ?? null, seasonLists.get(seriesId) ?? [], (id) => seasonStats.get(id)?.stats));
 }
 
-function knownSeries(): string[] {
-  return [...new Set([...launchYears.keys(), ...seasonLists.keys()])].slice(-CRUNCHYROLL_MAX_SERIES);
-}
+/** Séries vues (push garde les CRUNCHYROLL_MAX_SERIES dernières) */
+const knownSeries = (): string[] => [...new Set([...launchYears.keys(), ...seasonLists.keys()])];
 
-/** Message des tables de ces séries, null sans série */
+/** Message des tables de ces séries (les CRUNCHYROLL_MAX_SERIES dernières), null sans série */
 function push(seriesIds: readonly string[]): string | null {
   if (seriesIds.length === 0) return null;
   return encodeCrunchyrollPush({ v: CRUNCHYROLL_BRIDGE_VERSION, tables: seriesIds.slice(-CRUNCHYROLL_MAX_SERIES).map(view) });

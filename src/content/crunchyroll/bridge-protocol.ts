@@ -64,12 +64,15 @@ export type CrunchyrollRequest =
 const CMS_PATH = /^\/content\/v2\/cms\/(series|seasons)\/([A-Z0-9]{3,32})\/?(seasons|episodes)?\/?$/i;
 const UP_NEXT_PATH = /^\/content\/v2\/discover\/up_next\/([A-Z0-9]{3,32})\/?$/i;
 const isCrunchyrollHost = domainOrSubdomain('crunchyroll.com');
+/** Requête lue selon « collection/sous-ressource » du chemin (minuscules) ; toute autre combinaison n'est pas lue */
+const CMS_KINDS: Partial<Record<string, 'series' | 'seasons' | 'episodes'>> = { 'series/': 'series', 'series/seasons': 'seasons', 'seasons/episodes': 'episodes' };
 
 /**
- * URL d'une requête du site lue par le pont → nature et identifiant, sinon null. Toute autre requête (lecture, compte,
- * historique, statistiques, images…) est ignorée sans être lue. Paramètres (`locale`, `preferred_audio_language`) ignorés.
+ * URL d'une requête du site lue par le pont (relative à `base`, l'adresse de la page) → nature et identifiant, sinon
+ * null. Toute autre requête (lecture, compte, historique, statistiques, images…) est ignorée sans être lue. Paramètres
+ * (`locale`, `preferred_audio_language`) ignorés.
  */
-export function observedCrunchyrollRequest(url: string, base = 'https://www.crunchyroll.com/'): CrunchyrollRequest | null {
+export function observedCrunchyrollRequest(url: string, base: string): CrunchyrollRequest | null {
   let parsed: URL;
   try {
     parsed = new URL(url, base);
@@ -81,7 +84,8 @@ export function observedCrunchyrollRequest(url: string, base = 'https://www.crun
   if (upNext) return { kind: 'upNext', seriesId: upNext };
   const [, collection, id, sub] = CMS_PATH.exec(parsed.pathname) ?? [];
   if (!collection || !id) return null;
-  const kind = collection.toLowerCase() === 'series' ? (sub === undefined ? 'series' : sub.toLowerCase() === 'seasons' ? 'seasons' : null) : sub?.toLowerCase() === 'episodes' ? 'episodes' : null;
+  // Clé sans propriété héritée possible (elle contient « / »)
+  const kind = CMS_KINDS[`${collection}/${sub ?? ''}`.toLowerCase()];
   if (kind === 'episodes') return { kind, seasonId: id };
   return kind ? { kind, seriesId: id } : null;
 }

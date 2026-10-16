@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { isEpisodeInfo } from './episode.types';
-import { hasSignals, isPlatformSignals, withSignals } from './match-signals';
+import { hasSignals, isPlatformSignals, toPlatformSignals, withSignals } from './match-signals';
+
+describe('toPlatformSignals', () => {
+  it('valeurs invalides ou absentes retirées une à une, ordre des champs fixe (tables dédoublonnées par JSON)', () => {
+    const all = { country: 'JP', originalTitle: '無職転生', format: 'series', episodeMinutes: 23.7, airing: false, seasonEpisodeCount: 25, seriesYear: 2021, seasonYear: 2023 } as const;
+    expect(JSON.stringify(toPlatformSignals(all))).toBe('{"seasonYear":2023,"seriesYear":2021,"seasonEpisodeCount":25,"airing":false,"episodeMinutes":23.7,"format":"series","originalTitle":"無職転生","country":"JP"}');
+    expect(toPlatformSignals({ seasonYear: 1850, seriesYear: null, seasonEpisodeCount: 0, episodeMinutes: 23.7, format: undefined, country: 'jp' })).toStrictEqual({ episodeMinutes: 23.7 });
+    // `airing` seul, ou rien de valide : aucun signal comparable
+    expect(toPlatformSignals({ airing: true, seasonYear: 2023.5 })).toBeUndefined();
+    expect(toPlatformSignals({})).toBeUndefined();
+  });
+});
 
 describe('withSignals', () => {
   it('propriété `signals` seulement s’il y en a (jamais `signals: undefined`)', () => {

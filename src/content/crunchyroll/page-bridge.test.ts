@@ -153,11 +153,14 @@ afterEach(() => {
 });
 
 describe('observedCrunchyrollRequest', () => {
+  /** Adresse de la page (base des URL relatives, passée par le kit) */
+  const PAGE = 'https://www.crunchyroll.com/fr/series/GG5H5XQ7D/frieren';
+
   it('quatre chemins lus, paramètres ignorés ; tout le reste ignoré sans être lu', () => {
-    expect(observedCrunchyrollRequest(seriesUrl())).toEqual({ kind: 'series', seriesId: FRIEREN_SERIES_ID });
-    expect(observedCrunchyrollRequest(seasonsUrl())).toEqual({ kind: 'seasons', seriesId: FRIEREN_SERIES_ID });
-    expect(observedCrunchyrollRequest(episodesUrl(FRIEREN_S1))).toEqual({ kind: 'episodes', seasonId: FRIEREN_S1 });
-    expect(observedCrunchyrollRequest(upNextUrl())).toEqual({ kind: 'upNext', seriesId: FRIEREN_SERIES_ID });
+    expect(observedCrunchyrollRequest(seriesUrl(), PAGE)).toEqual({ kind: 'series', seriesId: FRIEREN_SERIES_ID });
+    expect(observedCrunchyrollRequest(seasonsUrl(), PAGE)).toEqual({ kind: 'seasons', seriesId: FRIEREN_SERIES_ID });
+    expect(observedCrunchyrollRequest(episodesUrl(FRIEREN_S1), PAGE)).toEqual({ kind: 'episodes', seasonId: FRIEREN_S1 });
+    expect(observedCrunchyrollRequest(upNextUrl(), PAGE)).toEqual({ kind: 'upNext', seriesId: FRIEREN_SERIES_ID });
     for (const url of [
       'https://www.crunchyroll.com/auth/v1/token',
       'https://www.crunchyroll.com/content/v2/0123-account/watch-history',
@@ -167,8 +170,19 @@ describe('observedCrunchyrollRequest', () => {
       `https://evil.example/content/v2/cms/series/${FRIEREN_SERIES_ID}`,
       `http://www.crunchyroll.com/content/v2/cms/series/${FRIEREN_SERIES_ID}`,
     ]) {
-      expect(observedCrunchyrollRequest(url)).toBeNull();
+      expect(observedCrunchyrollRequest(url, PAGE)).toBeNull();
     }
+  });
+
+  it('chemin relatif lu par rapport à la page ; casse ignorée ; autres combinaisons de la collection et de la sous-ressource ignorées', () => {
+    expect(observedCrunchyrollRequest(`/content/v2/cms/series/${FRIEREN_SERIES_ID}/seasons?locale=fr-FR`, PAGE)).toEqual({ kind: 'seasons', seriesId: FRIEREN_SERIES_ID });
+    expect(observedCrunchyrollRequest(`/content/v2/cms/series/${FRIEREN_SERIES_ID}`, 'https://evil.example/')).toBeNull();
+    expect(observedCrunchyrollRequest(`https://www.crunchyroll.com/Content/V2/CMS/Series/${FRIEREN_SERIES_ID}/`, PAGE)).toEqual({ kind: 'series', seriesId: FRIEREN_SERIES_ID });
+    expect(observedCrunchyrollRequest(`https://www.crunchyroll.com/content/v2/cms/Seasons/${FRIEREN_S1}/Episodes`, PAGE)).toEqual({ kind: 'episodes', seasonId: FRIEREN_S1 });
+    for (const path of [`series/${FRIEREN_SERIES_ID}/episodes`, `seasons/${FRIEREN_S1}/seasons`, `seasons/${FRIEREN_S1}`]) {
+      expect(observedCrunchyrollRequest(`https://www.crunchyroll.com/content/v2/cms/${path}`, PAGE)).toBeNull();
+    }
+    expect(observedCrunchyrollRequest('https://[invalide', PAGE)).toBeNull();
   });
 });
 

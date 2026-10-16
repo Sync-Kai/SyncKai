@@ -66,28 +66,35 @@ export const isSignalYear = isYear;
 /** Valeurs lues sur la page (absentes : undefined ou null), avant contrôle */
 export type RawSignals = { [K in keyof PlatformSignals]?: PlatformSignals[K] | null | undefined };
 
-const GUARDS: { [K in keyof PlatformSignals]-?: (v: unknown) => boolean } = {
-  seasonYear: isYear,
-  seriesYear: isYear,
-  seasonEpisodeCount: isCount,
-  airing: isBoolean,
-  episodeMinutes: isMinutes,
-  format: isFormat,
-  originalTitle: isTitle,
-  country: isCountry,
-};
+/**
+ * Copie `raw[name]` si la garde de ce champ l'accepte (chaque valeur gardée est déjà bornée : rien à revalider ensuite) ;
+ * true si elle est copiée
+ */
+function copySignal<K extends keyof PlatformSignals>(signals: PlatformSignals, raw: RawSignals, name: K, guard: (value: unknown) => value is NonNullable<PlatformSignals[K]>): boolean {
+  const value: unknown = raw[name];
+  if (!guard(value)) return false;
+  signals[name] = value;
+  return true;
+}
 
 /**
  * Signaux à envoyer : valeurs absentes ou hors bornes retirées une à une (une seule valeur invalide ferait refuser tout le
- * message par isEpisodeInfo) ; undefined sans signal comparable.
+ * message par isEpisodeInfo) ; undefined sans signal comparable (même règle que hasSignals : `airing` seul ne compte pas).
+ * Champs dans cet ordre fixe (les tables des ponts sont dédoublonnées par leur JSON). Ni isPlatformSignals ni hasSignals :
+ * inutiles ici, ils alourdiraient les ponts du monde MAIN (budget).
  */
 export function toPlatformSignals(raw: RawSignals): PlatformSignals | undefined {
-  const signals: Record<string, unknown> = {};
-  for (const [name, guard] of Object.entries(GUARDS)) {
-    const value: unknown = Reflect.get(raw, name);
-    if (guard(value)) signals[name] = value;
-  }
-  return isPlatformSignals(signals) && hasSignals(signals) ? signals : undefined;
+  const signals: PlatformSignals = {};
+  // Copie d'abord, puis `||` : chaque champ est copié, même après un signal comparable
+  let comparable = copySignal(signals, raw, 'seasonYear', isYear);
+  comparable = copySignal(signals, raw, 'seriesYear', isYear) || comparable;
+  comparable = copySignal(signals, raw, 'seasonEpisodeCount', isCount) || comparable;
+  copySignal(signals, raw, 'airing', isBoolean);
+  comparable = copySignal(signals, raw, 'episodeMinutes', isMinutes) || comparable;
+  comparable = copySignal(signals, raw, 'format', isFormat) || comparable;
+  comparable = copySignal(signals, raw, 'originalTitle', isTitle) || comparable;
+  comparable = copySignal(signals, raw, 'country', isCountry) || comparable;
+  return comparable ? signals : undefined;
 }
 
 /** Propriété `signals` à étaler dans un épisode ou une page : absente sans signal (jamais `signals: undefined`) */

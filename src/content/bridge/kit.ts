@@ -152,12 +152,11 @@ interface ObserverSlot {
 const isObserverSlot = (value: unknown): value is ObserverSlot =>
   typeof value === 'object' && value !== null && typeof Reflect.get(value, 'current') === 'object';
 
-/** URL passée à `open` / `fetch` (chaîne, URL ou Request) → texte, sinon null */
+/** URL passée à `open` / `fetch` (chaîne, URL ou Request, toujours définie dans une page) → texte, sinon null */
 function urlOf(input: unknown): string | null {
   if (typeof input === 'string') return input;
   if (input instanceof URL) return input.href;
-  if (typeof Request !== 'undefined' && input instanceof Request) return input.url;
-  return null;
+  return input instanceof Request ? input.url : null;
 }
 
 /** XMLHttpRequest : `open` repère les requêtes lues, `send` attend leur réponse (lecture seule, aucun en-tête) */
