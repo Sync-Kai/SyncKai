@@ -1,4 +1,4 @@
-import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
+import type { EpisodeInfo } from '../../shared/episode.types';
 import { hasSignals } from '../../shared/match-signals';
 import type { CandidateSummary } from '../../shared/review.types';
 import { PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
@@ -8,21 +8,8 @@ import { mappingOrigin, type MediaMapping } from '../../shared/sync.types';
 import { forgetIfUnchanged, getMediaMapping, saveLearned } from '../../browser/storage/mappings';
 import { getAnimeByIds, searchAnime, searchAnimeBatch, type AniListMedia } from '../anilist/media';
 import type { RequestLane } from '../rate-limit';
-import {
-  alignPlatformSeasons,
-  disneySeriesKey,
-  filtersAnime,
-  ignoredResult,
-  isDisneyEntityLink,
-  isPrimeOwnLink,
-  isTitleBoundLink,
-  linksToOtherSeries,
-  linksToOtherSeriesBySlug,
-  seasonLabel,
-  matchPlatformLink,
-  primeOwnIds,
-  toSortableDate,
-} from './matching/matching';
+import { alignPlatformSeasons, ignoredResult, seasonLabel, toSortableDate } from './matching/matching';
+import { filtersAnime, policyOf } from './matching/policies/registry';
 import {
   applyMapping,
   cachedMappingVerdict,
@@ -36,7 +23,7 @@ import { gateByPlatformLink } from './matching/judge';
 import { isAbsoluteNumbering, isLinked, isOtherSeries, SERIES_FORMATS, type LinkKind, type MediaCandidate, type ResolveResult, type SyncTarget } from './matching/model';
 import { resolveTarget } from './matching/rules-engine';
 import { seasonPool } from './matching/season-pool';
-import { carriesSeasonTitle, hasSeriesTitle, seasonSearchQuery } from './matching/season-titles';
+import { carriesSeasonTitle, seasonSearchQuery } from './matching/season-titles';
 import { provenBySignals } from './matching/signal-groups';
 import { normalizeTitle, slugSearchTitle, withoutDiacritics } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
@@ -132,32 +119,22 @@ function* candidateSteps(episode: SeriesQuery): CandidateSteps {
   const mediaById = new Map<number, AniListMedia>();
   const links = new Map<number, LinkKind>();
 
-  const episodeId = episode.episodeId ?? null;
-  // Disney+, Prime Video : lien vers la plateforme sans identifiant de série, valable seulement pour une fiche au titre de
-  // la série, sauf lien vers la page elle-même (Disney+ /browse/entity-{uuid} ; Prime Video : GTI compact de la saison,
-  // GTI de l'épisode) : certain, quel que soit le titre
-  const titleBound = isTitleBoundLink(episode.platform);
-  const ownPrimeIds = episode.platform === 'prime' ? primeOwnIds({ seriesId: episode.seriesId, episodeId, ...(episode.url !== undefined ? { url: episode.url } : {}) }) : [];
-  const isOwnLink = (url: string): boolean => (episode.platform === 'prime' ? isPrimeOwnLink(url, ownPrimeIds) : isDisneyEntityLink(url, episode.seriesId));
-  const linkOf = (media: AniListMedia): LinkKind => {
-    const isOwnEntity = titleBound && media.externalLinkUrls.some(isOwnLink);
-    if (titleBound && !isOwnEntity && !hasSeriesTitle(media.titles, episode.animeTitle) && !(episode.seasonTitle && hasSeriesTitle(media.titles, episode.seasonTitle))) return null;
-    const kinds = media.externalLinkUrls.map((url) => matchPlatformLink(url, episode.platform, episode.seriesId, episode.seriesSlug, episodeId));
-    // Le lien vers l'épisode lui-même prime sur le lien vers la série
-    if (kinds.includes('episode')) return 'episode';
-    const own = kinds.find((k) => k !== null);
-    // Disney+, Prime Video : lien vers la plateforme sans désigner la page elle-même → présence seule (voir hasTrustedLinks)
-    if (own) return titleBound && !isOwnEntity ? 'platform' : own;
-    // Liée seulement à une autre série de la plateforme : marquée pour ne jamais devenir une saison par relation
-    // (identifiant différent : signal fort ; ancien slug différent : signal faible, voir resolveTarget)
-    if (media.externalLinkUrls.some((url) => linksToOtherSeries(url, episode.platform, episode.seriesId))) return 'other';
-    return media.externalLinkUrls.some((url) => linksToOtherSeriesBySlug(url, episode.platform, episode.seriesSlug)) ? 'other-slug' : null;
+  // Lien de chaque fiche avec la série (policies/ : formes d'URL de la plateforme ; Disney+, Prime Video : lien vers la
+  // plateforme valable seulement pour une fiche au titre de la série, sauf lien vers la page elle-même)
+  const policy = policyOf(episode.platform);
+  const query = {
+    seriesId: episode.seriesId,
+    seriesSlug: episode.seriesSlug,
+    episodeId: episode.episodeId ?? null,
+    ...(episode.url !== undefined ? { url: episode.url } : {}),
+    animeTitle: episode.animeTitle,
+    seasonTitle: episode.seasonTitle,
   };
   const add = (list: readonly AniListMedia[], fallback: LinkKind = null): void => {
     for (const media of list) {
       if (mediaById.has(media.id)) continue;
       mediaById.set(media.id, media);
-      links.set(media.id, linkOf(media) ?? fallback);
+      links.set(media.id, policy.linkOf(media, query) ?? fallback);
     }
   };
 
@@ -186,28 +163,9 @@ function* candidateSteps(episode: SeriesQuery): CandidateSteps {
     add((yield { kind: 'search', queries: [query] })[0] ?? []);
   }
 
-  /**
-   * Disney+ (lien sans identifiant de série en lecture) : fiche liée à Disney+ mais refusée par la règle du titre, dont
-   * le lien désigne une AUTRE série Disney+ que celle des fiches retenues (BLEACH, /series/bleach/…, pour BLEACH:
-   * Thousand-Year Blood War, /series/bleach-thousand-year-blood-war/…) : autre série de la plateforme, jamais une saison
-   * par relation (sinon BLEACH, préquelle, deviendrait la saison 1). Même lien qu'une fiche retenue (« The Separation »,
-   * suite publiée dans la même série Disney+) : fiche de la série.
-   */
-  // Prime Video exclu : un lien par saison (identifiants différents d'une saison à l'autre de la même série)
-  const settleTitleBoundLinks = (): void => {
-    if (episode.platform !== 'disney') return;
-    const ownKeys = new Set([...mediaById.values()].filter((m) => links.get(m.id) === 'id' || links.get(m.id) === 'platform').flatMap((m) => m.externalLinkUrls.flatMap((url) => disneySeriesKey(url) ?? [])));
-    if (ownKeys.size === 0) return;
-    const ownForms = new Set([...ownKeys].map((key) => key.split(':')[0]));
-    for (const media of mediaById.values()) {
-      const link = links.get(media.id);
-      if (link !== null && link !== 'relation') continue;
-      const keys = media.externalLinkUrls.flatMap((url) => disneySeriesKey(url) ?? []);
-      if (keys.some((key) => ownKeys.has(key))) links.set(media.id, 'platform');
-      else if (keys.some((key) => ownForms.has(key.split(':')[0]))) links.set(media.id, 'other');
-    }
-  };
-  settleTitleBoundLinks();
+  // Liens réglés entre fiches (Disney+ : clé de série Disney+ des fiches retenues, voir policies/disney.ts)
+  const settleLinks = (): void => policy.settleLinks?.(mediaById.values(), links);
+  settleLinks();
 
   // Numérotation absolue (One Piece E1180) déjà couverte par une fiche série liée directement (en cours de diffusion, ou
   // assez d'épisodes) : la saison est trouvée sans les suites / préquelles absentes de la recherche, qui ne sont pas
@@ -256,16 +214,16 @@ function* candidateSteps(episode: SeriesQuery): CandidateSteps {
     if (missing.size > 0 && fetchRounds < MAX_FETCH_ROUNDS && !coveredByLinkedEntry()) {
       fetchRounds++;
       // Fiches sans lien : rattachées au tour suivant si la relation tient (isSeasonRelation) ; une fiche liée à une autre
-      // série reste 'other' / 'other-slug' (voir linkOf)
+      // série reste 'other' / 'other-slug' (voir policies/policy.ts › linkOfMedia)
       add((yield { kind: 'ids', ids: [...missing] })[0] ?? []);
-      settleTitleBoundLinks();
+      settleLinks();
       changed = true;
     } else if (prequels.size > 0 && fetchRounds < MAX_FETCH_ROUNDS + MAX_PREQUEL_ROUNDS && !coveredByLinkedEntry()) {
       // Tours ordinaires épuisés (suites comprises), numérotation absolue : seule la chaîne des préquelles continue, une
       // saison par tour, jusqu'à la 1re saison (cumul complet)
       fetchRounds++;
       add((yield { kind: 'ids', ids: [...prequels] })[0] ?? []);
-      settleTitleBoundLinks();
+      settleLinks();
       changed = true;
     }
     if (!changed) break;
@@ -345,11 +303,12 @@ async function questionMapping(episode: EpisodeInfo, mapping: MediaMapping, lane
 
 /**
  * Lien vers une AUTRE plateforme prise en charge, et aucun vers celle de la série (MONSTERS : Netflix seulement).
- * Prime Video n'entre pas en compte, ni d'un côté ni de l'autre : ses liens AniList sont rares (Vinland Saga, SPY×FAMILY…
- * n'en ont aucun) et souvent vers d'anciennes pages amazon.com, leur absence ne prouve rien.
+ * Plateforme dont les liens ne prouvent pas la présence (`countsAsPresence` faux : Prime Video) : n'entre pas en compte, ni
+ * d'un côté ni de l'autre ; ses liens AniList sont rares (Vinland Saga, SPY×FAMILY… n'en ont aucun) et souvent vers
+ * d'anciennes pages amazon.com, leur absence ne prouve rien.
  */
 function linksElsewhereOnly(media: AniListMedia, platform: StreamingPlatform): boolean {
-  if (platform === 'prime') return false;
+  if (!policyOf(platform).countsAsPresence) return false;
   const hosts = media.externalLinkUrls.flatMap((url) => {
     try {
       return [new URL(url).hostname];
@@ -358,7 +317,7 @@ function linksElsewhereOnly(media: AniListMedia, platform: StreamingPlatform): b
     }
   });
   const onPlatform = (id: StreamingPlatform): boolean => hosts.some((host) => PLATFORMS[id].matchesHost(host));
-  return !onPlatform(platform) && STREAMING_PLATFORMS.some((other) => other !== platform && other !== 'prime' && onPlatform(other));
+  return !onPlatform(platform) && STREAMING_PLATFORMS.some((other) => other !== platform && policyOf(other).countsAsPresence && onPlatform(other));
 }
 
 /**
@@ -514,7 +473,7 @@ const IDS_PER_REQUEST = 50;
 async function willSearch(episode: EpisodeInfo): Promise<boolean> {
   const stored = await getMediaMapping(mappingKey(episode));
   if (stored && applyMapping(episode, stored) !== null) return mappingOrigin(stored) !== 'chosen';
-  if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) return false;
+  if (policyOf(episode.platform).ignoredBeforeSearch(episode)) return false;
   return !(filtersAnime(episode) && !stored && (await isSeriesIgnored(episode)));
 }
 
@@ -586,8 +545,7 @@ async function fromCache(episode: EpisodeInfo, key: string, stored: MediaMapping
  * correspondance enregistrée (choix manuel) l'emporte : vérifiée par fromCache, et sa présence montre que la série est un anime.
  */
 async function ignoredShortcut(episode: EpisodeInfo, key: string, stored: MediaMapping | null, lane: RequestLane): Promise<EpisodeResolution | null> {
-  const isUnsentPrime = episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime);
-  if (!isUnsentPrime) {
+  if (!policyOf(episode.platform).ignoredBeforeSearch(episode)) {
     if (!filtersAnime(episode) || stored || !(await isSeriesIgnored(episode))) return null;
     log.info('Série déjà ignorée (verdict mémorisé) : pas de nouvelle recherche', episode.animeTitle);
   }

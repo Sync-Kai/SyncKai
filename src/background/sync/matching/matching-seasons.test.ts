@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../../../i18n';
 import type { MediaMapping } from '../../../shared/sync.types';
-import { matchCrunchyrollEpisodeLink, matchPlatformLink } from './matching';
+import { matchCrunchyrollEpisodeLink } from './policies/crunchyroll';
+import { matchPlatformLink } from './policies/registry';
 import { cachedTitleVerdict } from './mapping';
 import { type EpisodeNumbers, type MediaCandidate } from './model';
 import { resolveTarget } from './rules-engine';

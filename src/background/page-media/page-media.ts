@@ -9,7 +9,7 @@ import type {
   ResolvePageMediaPayload,
   SeasonSource,
 } from '../../shared/page-media.types';
-import { isSentPrimeAnimeVerdict, type EpisodeInfo } from '../../shared/episode.types';
+import type { EpisodeInfo } from '../../shared/episode.types';
 import { hasSignals, type PlatformSignals } from '../../shared/match-signals';
 import { hasPlatformAccess } from '../../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS } from '../../platforms/registry';
@@ -42,7 +42,8 @@ import {
   type SeasonChoice,
 } from './page-media-rules';
 import { isSeriesIgnored, rememberIgnoredSeries } from '../sync/ignored-series';
-import { filtersAnime, isDisneyEntityLink, isPrimeOwnLink, platformLinkVerdict, primeOwnIds, seasonLabel } from '../sync/matching/matching';
+import { seasonLabel } from '../sync/matching/matching';
+import { filtersAnime, platformLinkVerdict, policyOf } from '../sync/matching/policies/registry';
 import { judge } from '../sync/matching/judge';
 import { cachedMappingVerdict, mappingFromManualChoice } from '../sync/matching/mapping';
 import { resolveTarget } from '../sync/matching/rules-engine';
@@ -206,7 +207,8 @@ async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Pr
   // Verdict « série ignorée » sous la clé de la lecture (seriesKey : par titre sur Disney+ et Prime Video, uuid / GTI exclus, M5)
   const series ={ platform: page.platform, seriesId: page.seriesId, animeTitle: page.seriesTitle };
   // Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu) : rien à afficher, sans recherche
-  if (page.platform === 'prime' && !isSentPrimeAnimeVerdict(page.primeAnime)) return IGNORED;
+  const policy = policyOf(page.platform);
+  if (policy.ignoredBeforeSearch(page)) return IGNORED;
   const linkRequired = filtersAnime(page);
   if (linkRequired && manual === null && (await isSeriesIgnored(series))) {
     log.info('Page de série déjà ignorée (verdict mémorisé) :', page.seriesTitle);
@@ -214,9 +216,8 @@ async function resolveSeriesPage(page: PageMediaInfo, manual: number | null): Pr
   }
   const query = { platform: page.platform, seriesId: page.seriesId, seriesSlug: page.seriesSlug, animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, platformSeasons: page.platformSeasons };
   const found = await findSeriesSeasons(query);
-  const ownPrimeIds = page.platform === 'prime' ? primeOwnIds({ seriesId: page.seriesId }) : [];
-  const isOwnLink = (url: string): boolean => (page.platform === 'prime' ? isPrimeOwnLink(url, ownPrimeIds) : page.platform === 'disney' && isDisneyEntityLink(url, page.seriesId));
-  const ownLink = found.others.some((media) => media.externalLinkUrls.some(isOwnLink));
+  // Lien AniList vers la page elle-même (entité Disney+, GTI compact Prime Video) : même règle que la synchro (audit 1-D4)
+  const ownLink = found.others.some((media) => media.externalLinkUrls.some((url) => policy.isOwnLink(url, query)));
   const gate = seriesPageGate(page, platformLinkVerdict({ platform: page.platform, animeTitle: page.seriesTitle, primeAnime: page.primeAnime }, found.candidates), ownLink);
   if (linkRequired) log.info(`Page de série ${page.platform} « ${page.seriesTitle} » : filtre anime ${gate}${ownLink ? ' (lien vers la page)' : ''}${page.catalogAnime === false ? ' (pas de genre Anime)' : ''}`);
   if (gate === 'ignored') {

@@ -22,7 +22,9 @@ vi.mock('../../../browser/storage/mappings', () => storage);
 vi.mock('../../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('../resolver');
-const { filtersAnime, hasExactTitle, isPrimeOwnLink, isTitleBoundLink, matchPlatformLink, matchPrimeLink, platformLinkVerdict, primeAnimeGate, primeOwnIds } = await import('./matching');
+const { hasExactTitle } = await import('./matching');
+const { isPrimeOwnLink, matchPrimeLink, primeAnimeGate, primeOwnIds } = await import('./policies/prime');
+const { filtersAnime, isTitleBoundLink, matchPlatformLink, platformLinkVerdict } = await import('./policies/registry');
 
 setLocale('fr');
 

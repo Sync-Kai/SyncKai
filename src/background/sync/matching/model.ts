@@ -28,7 +28,7 @@ export const SEASON_COUNT_TOLERANCE = 2;
  * - other-slug : comme `other`, mais désignée par un ancien slug différent (crunchyroll.com/naruto sur la page
  *              naruto-shippuden) : signal faible, un slug a pu être renommé (voir linksToOtherSeriesBySlug)
  * - platform : Disney+ / Prime Video, lien vers la plateforme d'une fiche au titre de la série, sans désigner la page
- *              elle-même (voir isTitleBoundLink) : prouve seulement la présence sur la plateforme. Comme `id` partout, sauf
+ *              elle-même (voir policies/ › titleBound) : prouve seulement la présence sur la plateforme. Comme `id` partout, sauf
  *              pour la confiance : fiable seulement si ces fiches forment une seule franchise (voir hasTrustedLinks)
  */
 export type LinkKind = 'id' | 'slug' | 'relation' | 'episode' | 'platform' | 'other' | 'other-slug' | null;

@@ -4,7 +4,7 @@ import type { NetflixTitlesPayload, NetflixTitlesResult, NetflixTitleVerdict } f
 import { normalizeTitle } from '../../shared/title';
 import { ApiError } from '../errors';
 import { searchAnimeBatch, type AniListMedia } from '../anilist/media';
-import { netflixShowIdInLink } from '../sync/matching/matching';
+import { netflixShowIdInLink } from '../sync/matching/policies/netflix';
 import { getConnectedTrackers } from '../trackers';
 
 // Import de l'historique Netflix : filtre « anime » des titres de l'historique, AVANT toute requête à Netflix. Une

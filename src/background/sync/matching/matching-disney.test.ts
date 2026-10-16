@@ -20,7 +20,8 @@ vi.mock('../../../browser/storage/mappings', () => storage);
 vi.mock('../../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('../resolver');
-const { disneyEntityInLink, isDisneyEntityLink, isTitleBoundLink, matchDisneyLink, matchPlatformLink, platformLinkVerdict } = await import('./matching');
+const { disneyEntityInLink, isDisneyEntityLink, matchDisneyLink } = await import('./policies/disney');
+const { isTitleBoundLink, matchPlatformLink, platformLinkVerdict } = await import('./policies/registry');
 const { hasSeriesTitle } = await import('./season-titles');
 const { mappingKey } = await import('../../../platforms/series-identity');
 

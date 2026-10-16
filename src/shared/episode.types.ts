@@ -47,7 +47,7 @@ export interface EpisodeInfo {
  * platforms/prime/metadata.ts › primeAnimeVerdict) :
  * - `anime` : genre `av_genre_anime` ;
  * - `animation-ja` : autre genre `av_genre_animation*` avec une piste audio japonaise (résolution normale, ignorée en
- *   silence sans fiche liée ni au titre de la série : voir matching.ts › primeAnimeGate) ;
+ *   silence sans fiche liée ni au titre de la série : voir background/sync/matching/policies/prime.ts › primeAnimeGate) ;
  * - `animation-exact-only` : autre genre d'animation sans piste japonaise : suivi seulement sur un titre AniList exact ;
  * - `ignored` : pas d'animation, ou genres illisibles : rien n'est envoyé (jamais dans un message).
  */

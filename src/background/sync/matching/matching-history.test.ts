@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../../../i18n';
-import { matchCrunchyrollLink } from './matching';
+import { matchCrunchyrollLink } from './policies/crunchyroll';
 import { type EpisodeNumbers, type MediaCandidate } from './model';
 import { resolveTarget } from './rules-engine';
 import { seasonPool } from './season-pool';

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { setLocale } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
 import { gateByPlatformLink } from './judge';
-import { matchNetflixLink, matchPlatformLink } from './matching';
+import { matchNetflixLink } from './policies/netflix';
+import { matchPlatformLink } from './policies/registry';
 import { type MediaCandidate, type ResolveResult } from './model';
 import { resolveTarget } from './rules-engine';
 

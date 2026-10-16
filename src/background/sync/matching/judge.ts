@@ -1,7 +1,8 @@
 import { t } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
 import { PLATFORMS } from '../../../platforms/registry';
-import { ignoredResult, platformLinkVerdict, representsWholeShow, singleEntryDoubt, type PlatformLinkVerdict } from './matching';
+import { ignoredResult, representsWholeShow, singleEntryDoubt, type PlatformLinkVerdict } from './matching';
+import { platformLinkVerdict } from './policies/registry';
 import { isLinked, SEASON_COUNT_TOLERANCE, totalEpisodes, type MediaCandidate, type ResolveResult } from './model';
 import { groupSeasons } from './season-groups';
 import { seasonPool } from './season-pool';

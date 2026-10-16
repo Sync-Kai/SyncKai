@@ -1,14 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-  linksToOtherSeries,
-  legacySeriesSlugInLink,
-  linksToOtherSeriesBySlug,
-  matchAdnLink,
-  matchPlatformLink,
-  matchCrunchyrollLink,
-  seasonLabel,
-  toSortableDate,
-} from './matching';
+import { seasonLabel, toSortableDate } from './matching';
+import { matchAdnLink } from './policies/adn';
+import { matchCrunchyrollLink } from './policies/crunchyroll';
+import { legacySeriesSlugInLink, linksToOtherSeries, linksToOtherSeriesBySlug, matchPlatformLink } from './policies/registry';
 import { applyMapping, mappingFromManualChoice } from './mapping';
 import { type EpisodeNumbers, type MediaCandidate } from './model';
 import { resolveTarget } from './rules-engine';
