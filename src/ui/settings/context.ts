@@ -5,6 +5,7 @@ import type { SyncSettings } from '../../shared/settings';
 import type { MediaMapping } from '../../shared/sync.types';
 import type { ExclusionsState } from '../state';
 import type { AccountsController } from '../accounts';
+import type { PlatformAccessStore } from '../platform-access-store';
 import type { SettingsCategory, SettingsPage } from './navigation';
 
 /** Ce que l'hôte fournit : tout comportement propre au popup ou au panneau passe par ici */
@@ -20,6 +21,8 @@ export interface SettingsHost {
   closesOnBlur: boolean;
   /** Comptes AniList / MyAnimeList (état partagé avec le reste de l'hôte) */
   accounts: AccountsController;
+  /** Accès Netflix / Disney+ / Prime Video de la page (store unique de l'hôte, partagé avec ses autres écrans) */
+  platformAccess: PlatformAccessStore;
 }
 
 /** Données lues du stockage par la vue (suivies via storage.onChanged) */
@@ -38,19 +41,11 @@ export interface SettingsData {
   shortcut: string | undefined;
   /** Raccourci « ouvrir le panneau latéral » : undefined = en lecture, '' = non défini */
   panelShortcut: string | undefined;
-  /** Accès à Netflix (permission optionnelle) : undefined = en lecture */
-  netflixAccess: boolean | undefined;
-  /** Accès à Disney+ (permission optionnelle) : undefined = en lecture */
-  disneyAccess: boolean | undefined;
-  /** Accès à Prime Video (permission optionnelle) : undefined = en lecture */
-  primeAccess: boolean | undefined;
-}
-
-/** Plateformes optionnelles accordées (lecteur préféré Netflix ou Prime Video) ; undefined tant que les accès sont en lecture */
-export function grantedPlatforms(data: Pick<SettingsData, 'netflixAccess' | 'disneyAccess' | 'primeAccess'>): StreamingPlatform[] | undefined {
-  const access = { netflix: data.netflixAccess, disney: data.disneyAccess, prime: data.primeAccess } as const;
-  if (Object.values(access).some((value) => value === undefined)) return undefined;
-  return (['netflix', 'disney', 'prime'] as const).filter((platform) => access[platform] === true);
+  /**
+   * Plateformes optionnelles accordées (interrupteurs, lecteur préféré Netflix ou Prime Video), copie du store de
+   * l'hôte (`SettingsHost.platformAccess`) : undefined tant que les accès sont en lecture
+   */
+  platformAccess: readonly StreamingPlatform[] | undefined;
 }
 
 /** Contexte passé aux pages */
@@ -65,8 +60,6 @@ export interface SettingsContext {
   refreshMappings(): Promise<void>;
   /** Relit le nombre d'erreurs du journal */
   refreshJournal(): Promise<void>;
-  /** Relit l'accès à Netflix, Disney+ et Prime Video (après une demande ou un retrait de permission) */
-  refreshPlatformAccess(): Promise<void>;
   /** Ouvre une autre catégorie (lien d'une page vers une autre, ex. Lecture & synchro → Raccourcis) */
   openCategory(category: SettingsCategory): void;
 }

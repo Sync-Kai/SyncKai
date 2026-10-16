@@ -2,11 +2,12 @@ import { initI18n, joinSentences, onLocaleChange, t, type MessageKey } from '../
 import { kanaLabel } from '../ui/kit';
 import { createLogger } from '../browser/logger';
 import type { StreamingPlatform } from '../shared/episode.types';
-import { activePlatforms, grantedOptionalPlatforms, requestPlatformAccess } from '../browser/platform-access';
+import { activePlatforms } from '../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../platforms/registry';
 import { getSettings } from '../browser/storage/settings-access';
 import { sidePanelKind } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
+import { createPlatformAccessStore, requestPlatformAccessFromClick } from '../ui/platform-access-store';
 import { formatPlatformList } from '../ui/platform-list';
 import { settingsPath } from '../ui/settings/navigation';
 import { createSettingsView, type SettingsView } from '../ui/settings/settings-view';
@@ -39,7 +40,9 @@ let selected: PanelTab = 'nowPlaying';
 let autoSelected = false;
 
 const app = document.getElementById('app');
-const nowPlaying = createNowPlaying(() => render());
+/** Accès Netflix / Disney+ / Prime Video de la page du panneau : un seul store, partagé par ses écrans (4-D6) */
+const platformAccess = createPlatformAccessStore();
+const nowPlaying = createNowPlaying(() => render(), platformAccess);
 
 /** Choix de l'utilisateur (clic, clavier) : seul mémorisé comme « dernier onglet » */
 function selectTab(tab: PanelTab, focus: boolean): void {
@@ -69,6 +72,7 @@ function getSettingsView(): SettingsView {
     openTab: (url) => void chrome.tabs.create({ url }),
     closesOnBlur: false,
     accounts,
+    platformAccess,
   });
   settingsScroll.append(settingsView.element);
   return settingsView;
@@ -192,7 +196,7 @@ function renderTabContent(entering: boolean): HTMLElement {
  */
 let agenda: AgendaView | null = null;
 function mountAgenda(entering: boolean): HTMLElement {
-  agenda ??= createAgenda();
+  agenda ??= createAgenda(platformAccess);
   if (entering) agenda.activate();
   return agenda.element;
 }
@@ -237,12 +241,9 @@ function render(): void {
   });
 }
 
-/** Plateformes à accès optionnel accordées (Netflix, Disney+), relues à chaque passage hors page cible */
-let optionalPlatforms: readonly StreamingPlatform[] = [];
-
 /** Ligne hors page cible (onglet « En lecture ») : plateformes réellement suivies (UX-05), puis celles qui restent à activer (ex. Disney+ si seul Netflix l'est) */
 function offTargetText(): string {
-  const active = t('panel.offTargetPlatforms', { platforms: formatPlatformList(activePlatforms(optionalPlatforms), 'conjunction') });
+  const active = t('panel.offTargetPlatforms', { platforms: formatPlatformList(activePlatforms(platformAccess.get() ?? []), 'conjunction') });
   const disabled = disabledPlatforms();
   if (disabled.length === 0) return active;
   return joinSentences([active, t('panel.offTargetEnable', { platforms: formatPlatformList(disabled, 'conjunction'), path: settingsPath('sync') })]);
@@ -250,7 +251,8 @@ function offTargetText(): string {
 
 /** Plateformes à accès optionnel encore désactivées (ordre de STREAMING_PLATFORMS) */
 function disabledPlatforms(): StreamingPlatform[] {
-  return STREAMING_PLATFORMS.filter((platform) => isOptionalPlatform(platform) && !optionalPlatforms.includes(platform));
+  const granted = platformAccess.get() ?? [];
+  return STREAMING_PLATFORMS.filter((platform) => isOptionalPlatform(platform) && !granted.includes(platform));
 }
 
 /**
@@ -266,7 +268,7 @@ function renderEnableButton(platform: StreamingPlatform): HTMLElement {
       attrs: { type: 'button', 'data-enable-platform': platform },
       on: {
         click: () => {
-          requestPlatformAccess(platform).then(refreshOptionalPlatforms, (error: unknown) => log.warn(`Demande d’accès à ${label} impossible :`, error));
+          requestPlatformAccessFromClick(platform, platformAccess).catch((error: unknown) => log.warn(`Demande d’accès à ${label} impossible :`, error));
         },
       },
     },
@@ -274,14 +276,9 @@ function renderEnableButton(platform: StreamingPlatform): HTMLElement {
   );
 }
 
-/** Accès optionnels relus (hors page cible seulement) ; redessine si la liste a changé */
+/** Accès optionnels relus à chaque passage hors page cible (comme avant le store : filet si un événement manquait) */
 function refreshOptionalPlatforms(): void {
-  if (context.status !== 'off') return;
-  void grantedOptionalPlatforms().then((granted) => {
-    if (granted.join() === optionalPlatforms.join()) return;
-    optionalPlatforms = granted;
-    render();
-  });
+  if (context.status === 'off') void platformAccess.refresh();
 }
 
 function setContext(next: PanelContext): void {
@@ -314,9 +311,10 @@ async function main(): Promise<void> {
   // Raccourci « ouvrir ou fermer » (Chrome) : écoute posée avant tout await (instant de chargement au plus tôt)
   if (sidePanelKind() === 'chrome') listenPanelToggle();
   await Promise.all([initI18n(), loadInitialTab()]);
-  // Accès accordé ou retiré (bouton ci-dessous, Réglages, about:addons) : la ligne hors page cible suit
-  chrome.permissions?.onAdded?.addListener(refreshOptionalPlatforms);
-  chrome.permissions?.onRemoved?.addListener(refreshOptionalPlatforms);
+  // Accès accordé ou retiré (bouton « Activer », Réglages, about:addons) : la ligne hors page cible suit
+  platformAccess.subscribe(() => {
+    if (context.status === 'off') render();
+  });
   onLocaleChange(() => {
     // Agenda affiché : textes et premier jour de la semaine à jour (il n'est plus réactivé à chaque rendu)
     if (shownTab === 'agenda') agenda?.activate();
@@ -328,7 +326,7 @@ async function main(): Promise<void> {
     return;
   }
   try {
-    await watchPanelContext(setContext);
+    await watchPanelContext(setContext, platformAccess);
   } catch (error: unknown) {
     log.warn('Onglet du panneau illisible :', error);
     setContext({ status: 'off' });

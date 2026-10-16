@@ -89,6 +89,7 @@ vi.stubGlobal('chrome', {
 });
 
 const { AUTO_REDETECT_MAX_PER_MINUTE, createPageMediaController } = await import('./page-media-controller');
+const { createPlatformAccessStore } = await import('./platform-access-store');
 const { sendMessage } = await import('../protocol/messages');
 const { pageMediaCacheKey, toCachedPageMedia } = await import('../browser/storage/page-media-cache');
 const { getLocale, setLocale } = await import('../i18n');
@@ -180,7 +181,7 @@ function holdDetection(): () => void {
 
 /** Contrôleur du panneau : détails chargés après la fiche (GET_PANEL_MEDIA) */
 function panelController(): PageMediaController<PanelMedia> {
-  return createPageMediaController<PanelMedia>({ onChange: () => undefined, loadDetails: (mediaId) => sendMessage('GET_PANEL_MEDIA', { mediaId }) });
+  return createPageMediaController<PanelMedia>({ platformAccess: createPlatformAccessStore(), onChange: () => undefined, loadDetails: (mediaId) => sendMessage('GET_PANEL_MEDIA', { mediaId }) });
 }
 
 /** Panneau prêt sur Frieren (onglet 1) */
@@ -232,7 +233,7 @@ describe('états alignés (popup et panneau)', () => {
 
   it('NOT_FOUND → not-found (pas une erreur), NOT_TRACKED → not-found `untracked`, même message que le service worker', async () => {
     for (const [code, untracked] of [['NOT_FOUND', false], ['NOT_TRACKED', true]] as const) {
-      const ctl = createPageMediaController({ onChange: () => undefined });
+      const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
       ctl.open(1, FRIEREN);
       await settle();
       answer(pending('RESOLVE_PAGE_MEDIA')[0], { ok: false, code, message: `message ${code}` });
@@ -242,7 +243,7 @@ describe('états alignés (popup et panneau)', () => {
   });
 
   it('erreur de l’API ou service worker muet → error avec le message, « Réessayer » relance sans cache', async () => {
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await settle();
     answer(pending('RESOLVE_PAGE_MEDIA')[0], { ok: false, code: 'NETWORK', message: 'AniList injoignable' });
@@ -258,7 +259,7 @@ describe('états alignés (popup et panneau)', () => {
   it('nouvelle langue : erreur et « introuvable » redemandés (message du service worker traduit), fiche prête non', async () => {
     const before = getLocale();
     const forDandadan = (): PendingCall[] => pending('RESOLVE_PAGE_MEDIA').filter((call) => payloadPage(call).seriesId === 'DANDADAN');
-    const controllers = (['API_ERROR', 'NOT_FOUND', 'ready'] as const).map((outcome) => ({ outcome, ctl: createPageMediaController({ onChange: () => undefined }) }));
+    const controllers = (['API_ERROR', 'NOT_FOUND', 'ready'] as const).map((outcome) => ({ outcome, ctl: createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined }) }));
     for (const { outcome, ctl } of controllers) {
       ctl.open(1, DANDADAN);
       await settle();
@@ -275,7 +276,7 @@ describe('états alignés (popup et panneau)', () => {
   });
 
   it('popup (`open`, sans détails) : fiche prête dès la réponse, sans relire la page', async () => {
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     expect(ctl.content).toEqual({ status: 'loading', page: FRIEREN });
     await answerAll();
@@ -286,7 +287,7 @@ describe('états alignés (popup et panneau)', () => {
 
   it('fiche en cache de l’onglet : affichée sans RESOLVE_PAGE_MEDIA', async () => {
     fake.cached = toCachedPageMedia(FRIEREN, view(FRIEREN), 'sync', Date.now(), {});
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await settle();
     expect(ctl.content.status).toBe('ready');
@@ -294,7 +295,7 @@ describe('états alignés (popup et panneau)', () => {
   });
 
   it('relecture silencieuse en échec : la fiche reste affichée, l’erreur passe en retour d’action', async () => {
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await answerAll();
     void ctl.runAction({ kind: 'adjust', delta: 1 });
@@ -310,7 +311,7 @@ describe('états alignés (popup et panneau)', () => {
 
 describe('choix de la saison', () => {
   it('saison choisie : renvoyée au service worker, et à chaque relecture de la même page', async () => {
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await answerAll();
     ctl.pickSeason(999);
@@ -327,7 +328,7 @@ describe('choix de la saison', () => {
   });
 
   it('choix en échec (réseau) : la saison précédente reste affichée et n’est plus remplacée aux relectures', async () => {
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await answerAll();
     ctl.pickSeason(999);
@@ -343,7 +344,7 @@ describe('choix de la saison', () => {
 
   it('saison choisie dans l’autre écran (fiche en cache `manual`) : reprise pour les relectures', async () => {
     fake.cached = toCachedPageMedia(FRIEREN, { ...view(FRIEREN, 777), source: 'manual' }, 'resolve', Date.now(), {});
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await settle();
     expect(ctl.content.status === 'ready' && ctl.content.view.media.mediaId).toBe(777);
@@ -435,7 +436,7 @@ describe('plafond des relectures automatiques (AniList jamais saturé, quelle qu
 
   async function readyPopup(): Promise<PageMediaController<never>> {
     fake.pages.set(1, FRIEREN);
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await answerAll();
     return ctl;
@@ -607,7 +608,7 @@ describe('accès à une plateforme optionnelle retiré (Prime Video désactivé 
   it('ouverture après le retrait (popup) : la fiche en cache n’est pas réutilisée', async () => {
     fake.optionalGranted = false;
     fake.cached = toCachedPageMedia(PRIME, view(PRIME), 'resolve', Date.now(), {});
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, PRIME);
     await settle();
     expect(pending('RESOLVE_PAGE_MEDIA')).toHaveLength(1);
@@ -752,7 +753,7 @@ describe('UI-02 / CTRL-05 : retour d’une action après un changement de page o
 
   it('popup : « En cours » relu après chaque action (`onActionDone`)', async () => {
     const done = vi.fn();
-    const ctl = createPageMediaController({ onChange: () => undefined, onActionDone: done });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined, onActionDone: done });
     ctl.open(1, FRIEREN);
     await answerAll();
     void ctl.runAction({ kind: 'adjust', delta: 1 });
@@ -768,7 +769,7 @@ describe('cache de l’onglet lié aux sessions (DATA-04, SEC-03)', () => {
 
   it('sessions relevées AVANT RESOLVE_PAGE_MEDIA : une déconnexion pendant la résolution ne passe pas pour la session courante', async () => {
     fake.local = { [STORAGE_KEYS.anilistToken]: TOKEN };
-    const ctl = createPageMediaController({ onChange: () => undefined });
+    const ctl = createPageMediaController({ platformAccess: createPlatformAccessStore(), onChange: () => undefined });
     ctl.open(1, FRIEREN);
     await settle();
     const [call] = pending('RESOLVE_PAGE_MEDIA');

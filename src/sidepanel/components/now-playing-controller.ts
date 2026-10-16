@@ -1,12 +1,12 @@
 import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
-import { effectivePreferredPlayer } from '../../shared/preferred-player';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PanelMedia } from '../../shared/panel-media.types';
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer, SETTINGS_STORAGE_KEY } from '../../shared/settings';
 import { getSettings } from '../../browser/storage/settings-access';
 import type { TrackerId } from '../../shared/tracker.types';
 import { createPageMediaController, type PageMediaContent, type PageMediaController } from '../../ui/page-media-controller';
+import type { PlatformAccessStore } from '../../ui/platform-access-store';
 import { liveEventRead } from '../now-playing-view';
 import { createLiveProgress, type LiveProgress, type LiveTarget } from './live-progress';
 
@@ -30,8 +30,8 @@ export interface NowPlayingController extends Omit<PageMediaController<PanelMedi
   expanded: boolean;
 }
 
-/** Contrôleur de l'onglet : `onChange` redessine le panneau */
-export function createNowPlayingController(onChange: () => void): NowPlayingController {
+/** Contrôleur de l'onglet : `onChange` redessine le panneau ; `platformAccess` : accès optionnels de la page du panneau */
+export function createNowPlayingController(onChange: () => void, platformAccess: PlatformAccessStore): NowPlayingController {
   let tabId: number | null = null;
   let expanded = false;
   let preferred: StreamingPlatform = DEFAULT_SETTINGS.preferredPlayer;
@@ -46,6 +46,7 @@ export function createNowPlayingController(onChange: () => void): NowPlayingCont
       expanded = false;
     },
     loadDetails: (mediaId) => sendMessage('GET_PANEL_MEDIA', { mediaId }),
+    platformAccess,
   });
 
   // Progression en direct : nouvel épisode annoncé, synchro terminée ou saison choisie dans la page → page relue
@@ -72,7 +73,7 @@ export function createNowPlayingController(onChange: () => void): NowPlayingCont
     getSettings()
       .then(async (settings) => {
         // Lecteur « Netflix » sans l'accès accordé : lecteur par défaut
-        const player = await effectivePreferredPlayer(settings.preferredPlayer);
+        const player = effectivePlayer(settings.preferredPlayer, await platformAccess.read());
         const playerChanged = player !== preferred;
         const liveChanged = settings.panelLiveProgress !== liveEnabled;
         const entryChanged = settings.entryService !== entryService;

@@ -11,7 +11,6 @@ import {
   storeCachedPageMedia,
 } from '../browser/storage/page-media-cache';
 import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/page-media.types';
-import { hasPlatformAccess } from '../browser/platform-access';
 import { isOptionalPlatform } from '../platforms/registry';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { getOpenSessions } from '../browser/storage/sessions';
@@ -20,6 +19,7 @@ import { errorFeedback } from './feedback';
 import { mediaActionKey, runMediaAction, type MediaActionRequest } from './media-action-requests';
 import type { MediaActionsState } from './media-actions';
 import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from './page-media-request';
+import type { PlatformAccessStore } from './platform-access-store';
 import type { InlineFeedback } from './state';
 import { callWorker, networkFailure } from './worker-call';
 
@@ -63,6 +63,8 @@ export interface PageMediaControllerOptions<D> {
   loadDetails?: (mediaId: number) => Promise<DetailsResult<D>>;
   /** Action terminée (popup : relecture de « En cours ») */
   onActionDone?: () => void;
+  /** Accès aux plateformes optionnelles de la page (store unique de l'hôte : ui/platform-access-store.ts) */
+  platformAccess: PlatformAccessStore;
 }
 
 export interface PageMediaController<D> {
@@ -148,7 +150,7 @@ export async function detectPageMedia(tabId: number, { isCurrent = () => true }:
 const pageOf = <D>(content: PageMediaContent<D>): PageMediaInfo | null => ('page' in content ? content.page : null);
 
 export function createPageMediaController<D = never>(options: PageMediaControllerOptions<D>): PageMediaController<D> {
-  const { onChange, onContent, onPageChange, loadDetails, onActionDone } = options;
+  const { onChange, onContent, onPageChange, loadDetails, onActionDone, platformAccess } = options;
   let tabId: number | null = null;
   let content: PageMediaContent<D> = { status: 'idle' };
   let actions: MediaActionsState = NO_ACTIONS;
@@ -211,8 +213,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     if (tabId === null || !page || !isOptionalPlatform(page.platform)) return;
     void resolve(page, content.status === 'ready', true);
   };
-  chrome.permissions?.onAdded?.addListener(onAccessChange);
-  chrome.permissions?.onRemoved?.addListener(onAccessChange);
+  platformAccess.onPermissionsChange(onAccessChange);
 
   /** Écriture à venir dans le cache de l'onglet : horodatage retenu pour en ignorer l'écho */
   function ownWrite(): number {
@@ -408,7 +409,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
   async function cachedView(id: number, page: PageMediaInfo): Promise<PageMediaView | null> {
     try {
       // Plateforme désactivée depuis : la fiche en cache n'est plus valable (RESOLVE_PAGE_MEDIA répond « désactivé »)
-      if (isOptionalPlatform(page.platform) && !(await hasPlatformAccess(page.platform))) return null;
+      if (!(await platformAccess.has(page.platform))) return null;
       return matchCachedPageMedia(await readCachedPageMedia(id), page, Date.now())?.view ?? null;
     } catch (error: unknown) {
       log.debug('Cache de la fiche illisible :', error);

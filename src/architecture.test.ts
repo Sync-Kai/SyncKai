@@ -291,6 +291,14 @@ describe('service worker : pas de nouvel écouteur d’événement du navigateur
   });
 });
 
+describe('pages : accès aux plateformes optionnelles', () => {
+  it('permissions.onAdded / onRemoved écoutés seulement par ui/platform-access-store.ts (un store par page, 4-D6)', () => {
+    const pages = ['ui', 'popup', 'sidepanel', 'import', 'import-cr'].flatMap((layer) => layerFiles(layer)).filter((file) => !isTestFile(file));
+    const found = pages.filter((file) => file !== 'ui/platform-access-store.ts' && /\bpermissions\??\.on(?:Added|Removed)\b/.test(withoutComments(SOURCES.get(file) ?? '')));
+    expect(found).toEqual([]);
+  });
+});
+
 describe('intégrité des simulations (vi.mock)', () => {
   it('chaque chemin relatif de vi.mock / vi.doMock / vi.importActual désigne un fichier existant', () => {
     const missing: string[] = [];

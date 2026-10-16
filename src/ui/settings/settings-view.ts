@@ -7,7 +7,6 @@ import { COMPLETE_EPISODE_COMMAND, panelCommandName } from '../../protocol/comma
 import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../browser/error-journal';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../browser/logger';
-import { hasPlatformAccess } from '../../browser/platform-access';
 import { getSettings } from '../../browser/storage/settings-access';
 import { normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { updateSettings } from '../../browser/storage/settings-store';
@@ -16,7 +15,7 @@ import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { kanaLabel } from '../kit';
 import { h, nodes, preserveFocus } from '../dom';
 import { icon, type IconName } from '../icons';
-import { grantedPlatforms, type SettingsContext, type SettingsData, type SettingsHost, type SettingsPageView } from './context';
+import { type SettingsContext, type SettingsData, type SettingsHost, type SettingsPageView } from './context';
 import { INITIAL_SETTINGS_NAV, SETTINGS_CATEGORY_TITLES, settingsNavReducer, type SettingsCategory, type SettingsNavAction, type SettingsPage } from './navigation';
 import { createAccountsPage } from './page-accounts';
 import { createDataPage } from './page-data';
@@ -73,9 +72,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     airing: null,
     shortcut: undefined,
     panelShortcut: undefined,
-    netflixAccess: undefined,
-    disneyAccess: undefined,
-    primeAccess: undefined,
+    platformAccess: host.platformAccess.get(),
   };
 
   // ─── Coque : barre + contenu ───
@@ -198,12 +195,6 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     redraw(['home', 'shortcuts']);
   }
 
-  /** Accès Netflix, Disney+ et Prime Video relus (ouverture, ou permission changée ici ou dans chrome://extensions) */
-  async function loadPlatformAccess(): Promise<void> {
-    [data.netflixAccess, data.disneyAccess, data.primeAccess] = await Promise.all([hasPlatformAccess('netflix'), hasPlatformAccess('disney'), hasPlatformAccess('prime')]);
-    redraw(['home', 'sync']);
-  }
-
   async function loadSettings(): Promise<void> {
     try {
       data.settings = await getSettings();
@@ -236,7 +227,6 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     redraw,
     refreshMappings,
     refreshJournal,
-    refreshPlatformAccess: loadPlatformAccess,
     openCategory: (category) => dispatch({ type: 'open', category }),
   };
 
@@ -295,7 +285,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
       settingsSection(
         t('settings.group.daily'),
         rowsCard(
-          categoryRow('sync', muted(s ? syncSummary(s, grantedPlatforms(data)) : loading), false),
+          categoryRow('sync', muted(s ? syncSummary(s, data.platformAccess) : loading), false),
           categoryRow('notifications', muted(s ? notificationsSummary(s) : loading), true),
           categoryRow('shortcuts', muted(shortcutsSummary(data.shortcut, data.panelShortcut)), true),
         ),
@@ -385,11 +375,13 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     if (airingChange) setAiring(airingChange.newValue);
   });
 
-  // Accès Netflix / Disney+ / Prime Video accordé ou retiré ailleurs (chrome://extensions, autre vue) : interrupteurs et lecteur préféré suivent
-  if (typeof chrome.permissions?.onAdded?.addListener === 'function') {
-    chrome.permissions.onAdded.addListener(() => void loadPlatformAccess());
-    chrome.permissions.onRemoved.addListener(() => void loadPlatformAccess());
-  }
+  // Accès Netflix / Disney+ / Prime Video accordé ou retiré (ici, chrome://extensions, autre vue) : interrupteurs et
+  // lecteur préféré suivent le store de l'hôte (une seule paire d'écouteurs permissions.* par page)
+  host.platformAccess.subscribe((granted) => {
+    if (granted === data.platformAccess) return;
+    data.platformAccess = granted;
+    redraw(['home', 'sync']);
+  });
 
   // Comptes connectés ou déconnectés (ici ou ailleurs) : carte Comptes, résumé de l'accueil et « Fiche ouverte par défaut »
   host.accounts.anilist.subscribe(() => redraw(['home', 'accounts', 'sync']));
@@ -414,7 +406,6 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   void refreshJournal();
   void loadAiring();
   void loadShortcuts();
-  void loadPlatformAccess();
   window.addEventListener('focus', () => void loadShortcuts());
 
   return {

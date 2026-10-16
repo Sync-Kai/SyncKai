@@ -19,6 +19,7 @@ import { busyAttrs, h, nodes, type Child } from '../../ui/dom';
 import { entryCover, entryTitle } from '../../ui/entry-link';
 import { icon } from '../../ui/icons';
 import { renderMediaActions } from '../../ui/media-actions';
+import type { PlatformAccessStore } from '../../ui/platform-access-store';
 import { airedLabel, episodeLine, relationLabel } from '../now-playing-view';
 import { createNowPlayingController, type NowPlayingContent } from './now-playing-controller';
 
@@ -73,8 +74,8 @@ export interface NowPlaying {
 }
 
 /** Onglet « En lecture » : `onChange` redessine le panneau */
-export function createNowPlaying(onChange: () => void): NowPlaying {
-  const ctl = createNowPlayingController(onChange);
+export function createNowPlaying(onChange: () => void, platformAccess: PlatformAccessStore): NowPlaying {
+  const ctl = createNowPlayingController(onChange, platformAccess);
 
   // ─── Menu « ⋯ » de « Ta progression » (Retirer de la liste) et commentaire ───
 

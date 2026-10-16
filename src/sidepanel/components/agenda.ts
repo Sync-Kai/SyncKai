@@ -23,7 +23,7 @@ import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions'
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { createLogger } from '../../browser/logger';
 import { sendMessage, type MessageResponse } from '../../protocol/messages';
-import { activePlatforms, grantedOptionalPlatforms } from '../../browser/platform-access';
+import { activePlatforms } from '../../browser/platform-access';
 import { platformSearchUrl } from '../../platforms/links';
 import { DEFAULT_SETTINGS, effectivePlayer, OFFSET_RANGE, parseOffsetInput, SETTINGS_STORAGE_KEY, type SyncSettings } from '../../shared/settings';
 import { getSettings } from '../../browser/storage/settings-access';
@@ -36,6 +36,7 @@ import { entryCover, entryTitle } from '../../ui/entry-link';
 import { createMenuDismiss } from '../../ui/menu';
 import { callWorker, networkFailure } from '../../ui/worker-call';
 import { alertAttrs } from '../../ui/live-region';
+import type { PlatformAccessStore } from '../../ui/platform-access-store';
 import { formatPlatformList } from '../../ui/platform-list';
 import { icon } from '../../ui/icons';
 import { decideAgendaLoad } from '../agenda-load';
@@ -97,7 +98,8 @@ function weekLabel(range: WeekRange): string {
   return format.formatRange(new Date(range.start), new Date(last));
 }
 
-export function createAgenda(): AgendaView {
+/** `platformAccess` : accès optionnels de la page du panneau (lecteur préféré, plateformes de « aucune série ») */
+export function createAgenda(platformAccess: PlatformAccessStore): AgendaView {
   const element = h('div', { class: 'flex flex-col gap-3' });
   let firstDay: IsoWeekday = agendaFirstDay();
   let range: WeekRange = weekRange(Date.now(), firstDay);
@@ -190,7 +192,7 @@ export function createAgenda(): AgendaView {
     try {
       const [nextSettings, optionalGranted, anilistConnected, malConnected, anilist, mal, excluded, cache] = await Promise.all([
         getSettings(),
-        grantedOptionalPlatforms(),
+        platformAccess.read(),
         hasValidAniListToken(),
         hasMalToken(),
         getCachedWatching('anilist'),

@@ -1,9 +1,9 @@
 import { createLogger } from '../browser/logger';
 import type { PageMediaInfo } from '../shared/page-media.types';
-import { hasPlatformAccess } from '../browser/platform-access';
 import { isOptionalPlatform, type StreamingPlatform } from '../platforms/registry';
 import { isTargetPage } from '../platforms/target-pages';
 import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from '../ui/page-media-request';
+import type { PlatformAccessStore } from '../ui/platform-access-store';
 
 const log = createLogger('sidepanel');
 
@@ -30,14 +30,14 @@ function delay(ms: number): Promise<void> {
  * retiré (le script tourne encore jusqu'au rechargement, l'URL est masquée faute de permission) : hors page cible, comme
  * si elle n'avait jamais été activée (« Activer Prime Video »)
  */
-export async function answersAsTarget(page: PageMediaInfo | null, hasAccess: (platform: StreamingPlatform) => Promise<boolean> = hasPlatformAccess): Promise<boolean> {
+export async function answersAsTarget(page: PageMediaInfo | null, hasAccess: (platform: StreamingPlatform) => Promise<boolean>): Promise<boolean> {
   return page === null || !isOptionalPlatform(page.platform) || (await hasAccess(page.platform));
 }
 
 /** 'unreachable' si le script de contenu SyncKai ne répond pas dans l'onglet, sinon s'il signale une page suivie */
-async function pingContentScript(tabId: number): Promise<boolean | 'unreachable'> {
+async function pingContentScript(tabId: number, access: PlatformAccessStore): Promise<boolean | 'unreachable'> {
   const response = await requestPageMedia(tabId);
-  return response === 'unreachable' ? response : answersAsTarget(response);
+  return response === 'unreachable' ? response : answersAsTarget(response, (platform) => access.has(platform));
 }
 
 /**
@@ -45,12 +45,12 @@ async function pingContentScript(tabId: number): Promise<boolean | 'unreachable'
  * `onFirstMiss` : script muet au premier essai. URL masquée = presque toujours un site sans permission d'hôte (le panneau
  * est disponible partout) : le panneau n'attend pas les essais suivants pour s'afficher.
  */
-async function isTargetTab(tab: chrome.tabs.Tab, onFirstMiss: () => void): Promise<boolean> {
+async function isTargetTab(tab: chrome.tabs.Tab, access: PlatformAccessStore, onFirstMiss: () => void): Promise<boolean> {
   const verdict = classifyTabUrl(tab.url ?? tab.pendingUrl);
   if (verdict !== 'unknown' || tab.id === undefined) return verdict === 'target';
   for (const [index, wait] of PAGE_MEDIA_RETRY_DELAYS_MS.entries()) {
     if (wait > 0) await delay(wait);
-    const answer = await pingContentScript(tab.id);
+    const answer = await pingContentScript(tab.id, access);
     if (answer !== 'unreachable') return answer;
     if (index === 0) onFirstMiss();
   }
@@ -60,8 +60,9 @@ async function isTargetTab(tab: chrome.tabs.Tab, onFirstMiss: () => void): Promi
 /**
  * Suit l'onglet actif de la fenêtre du panneau et signale son contexte. Même règle sur Chrome (panneau global, partagé
  * par les onglets de la fenêtre) et Firefox (barre latérale par fenêtre) : le panneau n'est jamais retiré ni fermé ici.
+ * `access` : accès optionnels de la page du panneau (store unique, ui/platform-access-store.ts).
  */
-export async function watchPanelContext(onChange: (context: PanelContext) => void): Promise<void> {
+export async function watchPanelContext(onChange: (context: PanelContext) => void, access: PlatformAccessStore): Promise<void> {
   let trackedTabId: number | null = null;
   /** Dernier onglet signalé comme page de streaming (sa navigation ne repasse pas par « hors page » le temps des essais) */
   let targetTabId: number | null = null;
@@ -73,7 +74,7 @@ export async function watchPanelContext(onChange: (context: PanelContext) => voi
     trackedTabId = tabId;
     let target = false;
     try {
-      target = await isTargetTab(await chrome.tabs.get(tabId), () => {
+      target = await isTargetTab(await chrome.tabs.get(tabId), access, () => {
         if (current === run && targetTabId !== tabId) onChange({ status: 'off' });
       });
     } catch (error: unknown) {
@@ -96,12 +97,10 @@ export async function watchPanelContext(onChange: (context: PanelContext) => voi
     schedule(tabId);
   });
 
-  // Accès à une plateforme optionnelle accordé ou retiré : l'URL de ses onglets devient visible ou masquée
-  const onAccessChange = (): void => {
+  // Accès à une plateforme optionnelle (ou aux sites) accordé ou retiré : l'URL de ses onglets devient visible ou masquée
+  access.onPermissionsChange(() => {
     if (trackedTabId !== null) schedule(trackedTabId);
-  };
-  chrome.permissions?.onAdded?.addListener(onAccessChange);
-  chrome.permissions?.onRemoved?.addListener(onAccessChange);
+  });
 
   const { id: windowId } = await chrome.windows.getCurrent();
   // Changement d'onglet dans la fenêtre du panneau

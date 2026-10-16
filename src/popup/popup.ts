@@ -10,8 +10,6 @@ import { callWorker, networkFailure, outcomeFailure } from '../ui/worker-call';
 import type { RecentSync } from '../shared/review.types';
 import { DEFAULT_SETTINGS, effectivePlayer, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { getSettings } from '../browser/storage/settings-access';
-import type { StreamingPlatform } from '../shared/episode.types';
-import { grantedOptionalPlatforms } from '../browser/platform-access';
 import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../browser/storage/reviews';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { ListStatusChange } from '../shared/sync.types';
@@ -49,6 +47,7 @@ import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-
 import { createAccountsController } from '../ui/accounts';
 import type { SettingsPage } from '../ui/settings/navigation';
 import { createSettingsView, type SettingsView } from '../ui/settings/settings-view';
+import { createPlatformAccessStore } from '../ui/platform-access-store';
 
 const log = createLogger('popup');
 
@@ -102,9 +101,9 @@ const pageCardStore = createStore<PageCardState>({ content: { status: 'idle' }, 
 const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
 /**
  * Plateformes à accès optionnel accordées (Netflix, Disney+, Prime Video) : lecteur préféré « Netflix » ou « Prime Video » ignoré sans son accès ;
- * undefined = pas encore lu
+ * undefined = pas encore lu. Store unique de la page (4-D6), partagé avec la carte « Sur cette page » et les Réglages
  */
-const platformAccessStore = createStore<readonly StreamingPlatform[] | undefined>(undefined);
+const platformAccessStore = createPlatformAccessStore();
 
 // Build de développement : libellé « 2.3.1-dev · 3c8ec4f » (src/build/dev-version.ts), sinon la version publiée
 const version = chrome.runtime.getManifest().version_name ?? chrome.runtime.getManifest().version;
@@ -175,6 +174,7 @@ function getSettingsView(): SettingsView {
     openTab: (url) => void chrome.tabs.create({ url }),
     closesOnBlur: true,
     accounts,
+    platformAccess: platformAccessStore,
   });
   // Même place dans le DOM que lorsqu'elle était créée au démarrage (avant l'accueil de première utilisation)
   main.insertBefore(settingsView.element, onboardingSlot);
@@ -641,8 +641,6 @@ const renderer = createRenderScheduler(render);
 // ─── Accès aux sites (Firefox) et accès Netflix / Disney+ (optionnels) ─────
 
 async function checkHostAccess(): Promise<void> {
-  const optional = await grantedOptionalPlatforms();
-  if (platformAccessStore.get()?.join() !== optional.join()) platformAccessStore.set(optional);
   const granted = await hasHostAccess(hostOrigins);
   const current = hostAccessStore.get();
   hostAccessStore.set(granted ? { status: 'granted' } : { status: 'missing', denied: current.status === 'missing' && current.denied });
@@ -729,6 +727,7 @@ const activePage: Promise<PageMediaInfo | null> = activeTab.then(async ({ tabId 
 const pageCtl = createPageMediaController({
   onChange: () => pageCardStore.set({ content: pageCtl.content, actions: pageCtl.actions }),
   onActionDone: () => watching.scheduleRevalidation(),
+  platformAccess: platformAccessStore,
 });
 
 // ─── Panneau latéral : bouton d'en-tête, sur toutes les pages ───
@@ -820,9 +819,8 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 watching.start();
 uiStore.subscribe(({ sortMenuOpen, rowMenu }) => menuDismiss.setOpen(sortMenuOpen || rowMenu !== null));
 for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, watching.prefs, watching.entryActions, watching.notice, watching.notes, queue.store, ratings.store, pageCardStore, compare.store, hostAccessStore, platformAccessStore]) store.subscribe(renderer.schedule);
-// Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre)
-chrome.permissions?.onAdded?.addListener(() => void checkHostAccess());
-chrome.permissions?.onRemoved?.addListener(() => void checkHostAccess());
+// Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store
+platformAccessStore.onPermissionsChange(() => void checkHostAccess());
 exclusionsStore.subscribe(renderer.schedule);
 settingsStore.subscribe(renderer.schedule);
 

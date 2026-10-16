@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import manifest from '../../manifest.json';
 import type { PageMediaInfo } from '../shared/page-media.types';
 import { contentScriptMatches } from '../platforms/target-pages';
+import { createPlatformAccessStore } from '../ui/platform-access-store';
 import { answersAsTarget, classifyTabUrl, watchPanelContext, type PanelContext } from './presence';
 
 const requestPageMedia = vi.hoisted(() => vi.fn<(tabId: number) => Promise<unknown>>());
@@ -96,7 +97,7 @@ describe('watchPanelContext', () => {
   });
 
   const start = async (): Promise<void> => {
-    const started = watchPanelContext((context) => contexts.push(context));
+    const started = watchPanelContext((context) => contexts.push(context), createPlatformAccessStore());
     await vi.advanceTimersByTimeAsync(0);
     await started;
   };
@@ -141,7 +142,7 @@ describe('watchPanelContext', () => {
     tabs.set(5, { id: 5 });
     activeTabId = 5;
     requestPageMedia.mockResolvedValueOnce('unreachable').mockResolvedValue(null);
-    const started = watchPanelContext((context) => contexts.push(context));
+    const started = watchPanelContext((context) => contexts.push(context), createPlatformAccessStore());
     await vi.advanceTimersByTimeAsync(0);
     expect(contexts).toEqual([{ status: 'off' }]);
     await vi.advanceTimersByTimeAsync(700);
@@ -154,7 +155,7 @@ describe('watchPanelContext', () => {
     tabs.set(5, { id: 5 });
     activeTabId = 5;
     requestPageMedia.mockResolvedValue('unreachable');
-    const started = watchPanelContext((context) => contexts.push(context));
+    const started = watchPanelContext((context) => contexts.push(context), createPlatformAccessStore());
     await vi.advanceTimersByTimeAsync(3_000);
     await started;
     expect(requestPageMedia).toHaveBeenCalledTimes(3);

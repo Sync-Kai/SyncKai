@@ -3,7 +3,7 @@
 // propre catégorie (page-shortcuts.ts) : un lien y mène.
 import { t, type MessageKey } from '../../i18n';
 import { createLogger } from '../../browser/logger';
-import { removePlatformAccess, requestPlatformAccess } from '../../browser/platform-access';
+import { removePlatformAccess } from '../../browser/platform-access';
 import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
 import { DEFAULT_SETTINGS, effectivePlayer, isPreferredPlayerOption, PERCENTAGE_RANGE, type PanelDefaultTab, type SyncSettings } from '../../shared/settings';
 import { renderAlert } from '../alert';
@@ -11,7 +11,8 @@ import { alertAttrs } from '../live-region';
 import { CARD, LINK, segmented } from '../kit';
 import { h } from '../dom';
 import { icon } from '../icons';
-import { grantedPlatforms, type SettingsContext, type SettingsPageView } from './context';
+import { requestPlatformAccessFromClick } from '../platform-access-store';
+import type { SettingsContext, SettingsPageView } from './context';
 import { choiceRow, DIVIDER, HELP_TEXT, renderRadio, rowsCard, settingsSection, toggleRow } from './rows';
 
 const log = createLogger('settings');
@@ -91,15 +92,17 @@ type AccessNotice = 'denied' | 'error' | 'disabled' | null;
 export function createSyncPage(ctx: SettingsContext): SettingsPageView {
   const notices: Record<ToggledPlatform, AccessNotice> = { netflix: null, disney: null, prime: null };
 
-  function settle(platform: ToggledPlatform, notice: AccessNotice): void {
+  /**
+   * Retour de la demande affiché après relecture des accès (store de l'hôte) ; redessin même si la liste n'a pas changé
+   * (refus : l'interrupteur coché par le clic revient à l'état réel). `reread` faux : accès déjà relus par la demande.
+   */
+  function settle(platform: ToggledPlatform, notice: AccessNotice, reread = true): void {
     notices[platform] = notice;
-    void ctx.refreshPlatformAccess();
+    const access = ctx.host.platformAccess;
+    void (reread ? access.refresh() : access.read()).then(() => ctx.redraw(['home', 'sync']));
   }
 
-  function isGranted(platform: ToggledPlatform): boolean {
-    const access: Record<ToggledPlatform, boolean | undefined> = { netflix: ctx.data.netflixAccess, disney: ctx.data.disneyAccess, prime: ctx.data.primeAccess };
-    return access[platform] === true;
-  }
+  const isGranted = (platform: ToggledPlatform): boolean => ctx.data.platformAccess?.includes(platform) === true;
 
   /**
    * Interrupteur d'une plateforme. Activation : permissions.request appelé directement dans le gestionnaire (geste
@@ -108,8 +111,8 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
   function onAccessToggle(platform: ToggledPlatform, checked: boolean): void {
     const { label } = PLATFORMS[platform];
     if (checked) {
-      requestPlatformAccess(platform).then(
-        (granted) => settle(platform, granted ? null : 'denied'),
+      requestPlatformAccessFromClick(platform, ctx.host.platformAccess).then(
+        (granted) => settle(platform, granted ? null : 'denied', false),
         (error: unknown) => {
           log.warn(`Demande d’accès à ${label} impossible :`, error);
           settle(platform, 'error');
@@ -220,7 +223,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
     render(): Node[] {
       const s = ctx.data.settings;
       if (!s) return settingsPlaceholder(ctx);
-      const players = playerOptions(grantedPlatforms(ctx.data) ?? []);
+      const players = playerOptions(ctx.data.platformAccess ?? []);
       return [
         settingsSection(
           t('settings.section.sync'),
@@ -239,7 +242,7 @@ export function createSyncPage(ctx: SettingsContext): SettingsPageView {
               help: t('settings.player.help'),
               control: segmented({
                 options: players,
-                current: effectivePlayer(s.preferredPlayer, grantedPlatforms(ctx.data)),
+                current: effectivePlayer(s.preferredPlayer, ctx.data.platformAccess),
                 dense: players.length > 3,
                 onPick: (value) => void ctx.update({ preferredPlayer: value }, true),
                 attrs: { 'aria-labelledby': 'sk-player-label' },
