@@ -21,7 +21,7 @@ vi.mock('../../../browser/storage/mappings', () => storage);
 vi.mock('../../anilist/media', () => api);
 
 const { findSeriesSeasons, resolveEpisode } = await import('../resolver');
-const { resolveTarget } = await import('./matching');
+const { resolveTarget } = await import('./rules-engine');
 
 setLocale('fr');
 

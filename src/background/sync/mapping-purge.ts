@@ -4,7 +4,8 @@ import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
 import { createLogger } from '../../browser/logger';
 import { getAnimeByIds, type AniListMedia } from '../anilist/media';
-import { legacySeriesSlugInLink, linksToOtherSeries, linksToOtherSeriesBySlug, matchPlatformLink, SERIES_FORMATS } from './matching/matching';
+import { legacySeriesSlugInLink, linksToOtherSeries, linksToOtherSeriesBySlug, matchPlatformLink } from './matching/matching';
+import { SERIES_FORMATS } from './matching/model';
 
 // Purge unique des correspondances apprises avant le correctif SYNC-01 (2.3.0) : une suite publiée comme une autre
 // série de la plateforme (Naruto Shippuden) pouvait être mise en cache vers la fiche de la série précédente (Naruto).

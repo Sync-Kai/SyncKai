@@ -1,13 +1,14 @@
 import type { PlatformSignals } from '../../../shared/match-signals';
 import { normalizeTitle, withoutDiacritics } from '../../../shared/title';
+import { SEASON_COUNT_TOLERANCE, SERIES_FORMATS, totalEpisodes } from './model';
 
 // Concordance entre les signaux de la plateforme (année, épisodes, durée, format, titre original, pays) et les fiches
 // AniList candidates, par groupe de saison (fiches consécutives qu'une saison de la plateforme peut réunir : Mushoku
 // Tensei S2 Netflix = « II » + « II Part 2 »). Règle du propriétaire : « prouvé ou à vérifier ». Une synchro automatique
 // sans lien AniList vers la plateforme exige UN seul groupe sans contradiction ET au moins un signal confirmant
-// au-delà du titre (année, nombre d'épisodes, titre original). Pur, sans i18n : textes des raisons dans matching.ts.
+// au-delà du titre (année, nombre d'épisodes, titre original). Pur, sans i18n : textes des raisons dans signal-groups.ts.
 
-/** Champs d'une fiche lus ici (MediaCandidate de matching.ts, sans en dépendre : pas de cycle d'imports) */
+/** Champs d'une fiche lus ici (sous-ensemble de MediaCandidate, model.ts) */
 export interface ConcordanceEntry {
   id: number;
   format: string | null;
@@ -68,26 +69,14 @@ export interface ConcordanceContext {
 /** Signaux qui prouvent un groupe (au-delà du titre) */
 export const PROOF_SIGNALS: readonly SignalName[] = ['seasonYear', 'seriesYear', 'episodeCount', 'originalTitle'];
 
-/** Écart toléré sur le nombre d'épisodes (épisode 0, récapitulatif), comme alignPlatformSeasons */
-const COUNT_TOLERANCE = 2;
 /** Durée : ±30 % ; format court (< 8 min) contre normal (≥ 20 min) : contradiction */
 const DURATION_TOLERANCE = 0.3;
 const SHORT_MINUTES = 8;
 const NORMAL_MINUTES = 20;
-const SERIES = new Set(['TV', 'TV_SHORT', 'ONA']);
 /** Fiche encore ouverte (épisodes à venir) : une saison de la plateforme peut commencer au milieu */
 const OPEN_STATUSES = new Set(['RELEASING', 'HIATUS', 'NOT_YET_RELEASED']);
 
 const yearOf = (entry: ConcordanceEntry): number | null => (entry.startDate === null ? null : Math.floor(entry.startDate / 10_000));
-
-function totalEpisodes(entries: readonly ConcordanceEntry[]): number | null {
-  let total = 0;
-  for (const entry of entries) {
-    if (entry.episodes === null) return null;
-    total += entry.episodes;
-  }
-  return total;
-}
 
 const isOpen = (entries: readonly ConcordanceEntry[]): boolean => entries.some((e) => OPEN_STATUSES.has(e.status ?? '') || (e.episodes === null && e.status !== 'FINISHED'));
 
@@ -131,16 +120,17 @@ function seriesYearCheck(year: number, group: SignalGroup, firstCheck: SignalChe
  */
 function countCheck(count: number, entries: readonly ConcordanceEntry[], airing: boolean, context: ConcordanceContext): SignalCheck {
   const total = totalEpisodes(entries);
-  if (total !== null && Math.abs(total - count) <= COUNT_TOLERANCE) return 'agree';
+  if (total !== null && Math.abs(total - count) <= SEASON_COUNT_TOLERANCE) return 'agree';
   if (context.absolute || airing || total === null || isOpen(entries)) return 'unknown';
-  return count > total + COUNT_TOLERANCE ? 'contradict' : 'unknown';
+  return count > total + SEASON_COUNT_TOLERANCE ? 'contradict' : 'unknown';
 }
 
 function minutesCheck(minutes: number, entries: readonly ConcordanceEntry[]): SignalCheck {
   const durations = entries.map((e) => e.duration ?? null).filter((d): d is number => d !== null && d > 0);
   if (durations.length === 0) return 'unknown';
   const sorted = [...durations].sort((a, b) => a - b);
-  const duration = sorted[Math.floor(sorted.length / 2)] ?? durations[0];
+  const duration = sorted[Math.floor(sorted.length / 2)];
+  if (duration === undefined) return 'unknown';
   if (Math.abs(minutes - duration) <= duration * DURATION_TOLERANCE) return 'agree';
   const isShort = (value: number): boolean => value < SHORT_MINUTES;
   const isNormal = (value: number): boolean => value >= NORMAL_MINUTES;
@@ -153,7 +143,7 @@ function minutesCheck(minutes: number, entries: readonly ConcordanceEntry[]): Si
  */
 export function formatCheck(format: PlatformSignals['format'], entries: readonly ConcordanceEntry[]): SignalCheck {
   if (format === undefined || format === 'special' || entries.length === 0) return 'unknown';
-  const isSeries = entries.every((e) => e.format !== null && SERIES.has(e.format));
+  const isSeries = entries.every((e) => e.format !== null && SERIES_FORMATS.has(e.format));
   const isMovie = entries.every((e) => e.format === 'MOVIE');
   if (format === 'movie') {
     if (isMovie) return 'weak-agree';
@@ -171,15 +161,18 @@ function countryCheck(country: string, entries: readonly ConcordanceEntry[]): Si
   return country === 'JP' && (own === 'CN' || own === 'KR') ? 'weak-contradict' : 'unknown';
 }
 
-/** Clés de comparaison d'un titre original : normalisé (romaji), et brut sans accents (titres japonais, que normalizeTitle vide) */
-function titleKeys(title: string): string[] {
+/**
+ * Clés de comparaison exacte d'un titre : normalisé (accents, ponctuation, casse, romaji), et brut sans accents (titres
+ * non latins, que normalizeTitle vide). Titre original de la plateforme ici, titre exact de la série (matching.ts › hasExactTitle).
+ */
+export function exactTitleKeys(title: string): string[] {
   const rawKey = (withoutDiacritics(title) ?? title).normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
   return [normalizeTitle(title), rawKey].filter((key) => key.length > 0);
 }
 
 function originalTitleCheck(original: string, entries: readonly ConcordanceEntry[]): SignalCheck {
-  const wanted = new Set(titleKeys(original));
-  const matches = entries.some((e) => e.titles.some((title) => titleKeys(title).some((key) => wanted.has(key))));
+  const wanted = new Set(exactTitleKeys(original));
+  const matches = entries.some((e) => e.titles.some((title) => exactTitleKeys(title).some((key) => wanted.has(key))));
   return matches ? 'agree' : 'unknown';
 }
 

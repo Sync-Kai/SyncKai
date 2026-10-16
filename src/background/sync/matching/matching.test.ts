@@ -1,21 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyMapping,
   linksToOtherSeries,
   legacySeriesSlugInLink,
   linksToOtherSeriesBySlug,
-  mappingFromManualChoice,
   mappingKey,
   matchAdnLink,
   matchPlatformLink,
   matchCrunchyrollLink,
-  resolveTarget,
   seasonLabel,
-  seasonPool,
   toSortableDate,
-  type EpisodeNumbers,
-  type MediaCandidate,
 } from './matching';
+import { applyMapping, mappingFromManualChoice } from './mapping';
+import { type EpisodeNumbers, type MediaCandidate } from './model';
+import { resolveTarget } from './rules-engine';
+import { seasonPool } from './season-pool';
 import { normalizeTitle } from '../../../shared/title';
 import { setLocale } from '../../../i18n';
 

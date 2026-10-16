@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../../../i18n';
-import {
-  effectiveSeasonNumber,
-  isSpecialSeason,
-  matchCrunchyrollLink,
-  resolveTarget,
-  seasonNumberFromTitle,
-  seasonPool,
-  titleSeasonOf,
-  type EpisodeNumbers,
-  type MediaCandidate,
-} from './matching';
+import { matchCrunchyrollLink } from './matching';
+import { type EpisodeNumbers, type MediaCandidate } from './model';
+import { resolveTarget } from './rules-engine';
+import { seasonPool } from './season-pool';
+import { effectiveSeasonNumber, isSpecialSeason, seasonNumberFromTitle, titleSeasonOf } from './season-titles';
 
 // Cas réels de l'import de l'historique Crunchyroll (test du 2026-10-08, fiches AniList relevées le même jour).
 setLocale('fr');

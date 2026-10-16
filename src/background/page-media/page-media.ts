@@ -43,20 +43,19 @@ import {
 } from './page-media-rules';
 import { isSeriesIgnored, rememberIgnoredSeries } from '../sync/ignored-series';
 import {
-  cachedMappingVerdict,
   filtersAnime,
   isDisneyEntityLink,
   isPrimeOwnLink,
-  isUnmatchedNamedSeason,
-  mappingFromManualChoice,
   mappingKey,
   platformLinkVerdict,
   primeOwnIds,
   representsWholeShow,
-  resolveTarget,
   seasonLabel,
   singleEntryDoubt,
 } from '../sync/matching/matching';
+import { cachedMappingVerdict, mappingFromManualChoice } from '../sync/matching/mapping';
+import { resolveTarget } from '../sync/matching/rules-engine';
+import { isUnmatchedNamedSeason } from '../sync/matching/season-titles';
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from '../sync/resolver';
 import { fromAniListScore, fromMalScore } from '../../shared/score';
 import { getConnectedTrackers } from '../trackers';

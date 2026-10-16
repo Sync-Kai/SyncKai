@@ -9,41 +9,35 @@ import { getAnimeByIds, searchAnime, searchAnimeBatch, type AniListMedia } from 
 import type { RequestLane } from '../rate-limit';
 import {
   alignPlatformSeasons,
-  applyMapping,
-  cachedMappingVerdict,
-  cachedTitleVerdict,
-  carriesSeasonTitle,
   disneySeriesKey,
   filtersAnime,
   gateByPlatformLink,
-  hasSeriesTitle,
   ignoredResult,
   isDisneyEntityLink,
-  isLinked,
   isPrimeOwnLink,
   isTitleBoundLink,
-  isOtherSeries,
   linksToOtherSeries,
   linksToOtherSeriesBySlug,
   mappingKey,
   seasonLabel,
   matchPlatformLink,
   primeOwnIds,
-  provenBySignals,
+  toSortableDate,
+} from './matching/matching';
+import {
+  applyMapping,
+  cachedMappingVerdict,
+  cachedTitleVerdict,
   questionsByTitle,
-  seasonSearchQuery,
-  resolveTarget,
   savedMappingDoubt,
   titleMappingDoubt,
-  seasonPool,
-  SERIES_FORMATS,
-  toSortableDate,
   type CachedMappingVerdict,
-  type LinkKind,
-  type MediaCandidate,
-  type ResolveResult,
-  type SyncTarget,
-} from './matching/matching';
+} from './matching/mapping';
+import { isAbsoluteNumbering, isLinked, isOtherSeries, SERIES_FORMATS, type LinkKind, type MediaCandidate, type ResolveResult, type SyncTarget } from './matching/model';
+import { resolveTarget } from './matching/rules-engine';
+import { seasonPool } from './matching/season-pool';
+import { carriesSeasonTitle, hasSeriesTitle, seasonSearchQuery } from './matching/season-titles';
+import { provenBySignals } from './matching/signal-groups';
 import { normalizeTitle, slugSearchTitle, withoutDiacritics } from '../../shared/title';
 import { isSeriesIgnored, rememberIgnoredSeries } from './ignored-series';
 import { groupSeasons } from './matching/season-groups';
@@ -219,9 +213,10 @@ function* candidateSteps(episode: SeriesQuery): CandidateSteps {
   // assez d'épisodes) : la saison est trouvée sans les suites / préquelles absentes de la recherche, qui ne sont pas
   // demandées à AniList (budget de requêtes : un début de lecture ne coûte que la recherche)
   const absolute = episode.displayedEpisodeNumber ?? null;
-  const isAbsolute = absolute !== null && episode.seasonEpisodeNumber !== undefined && episode.seasonEpisodeNumber !== null && absolute > episode.seasonEpisodeNumber;
+  const isAbsolute = isAbsoluteNumbering(episode);
   const coveredByLinkedEntry = (): boolean =>
     isAbsolute &&
+    absolute !== null &&
     [...mediaById.values()].some((m) => (links.get(m.id) === 'id' || links.get(m.id) === 'platform') && m.format !== null && SERIES_FORMATS.has(m.format) && (m.episodes === null || m.episodes >= absolute));
   // Numérotation absolue : le cumul part de la 1re saison TV. Préquelle série, ou préquelle d'une saison série publiée dans un
   // autre format (Slime saison 2 → PREQUEL l'OVA « Coleus no Yume » → PREQUEL la saison 1) : demandée aussi, sinon la chaîne

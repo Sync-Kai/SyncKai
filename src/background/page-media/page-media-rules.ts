@@ -6,6 +6,7 @@ import type { ListStatus, MediaMapping } from '../../shared/sync.types';
 import { normalizeTitle } from '../../shared/title';
 import type { PlatformLink } from '../../shared/watching.types';
 import { mappingKey, type PlatformLinkVerdict } from '../sync/matching/matching';
+import { SEASON_COUNT_TOLERANCE, totalEpisodes } from '../sync/matching/model';
 
 // Règles pures de la fiche de la page (#23) : choix de la saison affichée. Testables sans API.
 
@@ -183,21 +184,15 @@ export function pickPartInGroup(groupIds: readonly number[], remembered: { media
   return statuses.length >= groupIds.length ? groupIds[groupIds.length - 1] : (groupIds[statuses.length] ?? groupIds[0]);
 }
 
-/** Écart toléré entre la plateforme et AniList (épisode 0, récapitulatif compté à part…) */
-const EPISODE_COUNT_TOLERANCE = 2;
-
 /**
  * Vrai si le nombre d'épisodes de la saison affiché sur la page ne correspond pas à celui des fiches
- * AniList retenues (somme des parties). Inconnu d'un côté ou de l'autre (saison en cours) → pas d'alerte.
+ * AniList retenues (somme des parties), au-delà de l'écart toléré (épisode 0, récapitulatif compté à part…).
+ * Inconnu d'un côté ou de l'autre (saison en cours) → pas d'alerte.
  */
 export function episodeCountMismatch(pageCount: number | null | undefined, episodes: readonly (number | null)[]): boolean {
   if (pageCount === null || pageCount === undefined || episodes.length === 0) return false;
-  let total = 0;
-  for (const count of episodes) {
-    if (count === null) return false;
-    total += count;
-  }
-  return Math.abs(pageCount - total) > EPISODE_COUNT_TOLERANCE;
+  const total = totalEpisodes(episodes.map((count) => ({ episodes: count })));
+  return total !== null && Math.abs(pageCount - total) > SEASON_COUNT_TOLERANCE;
 }
 
 /**

@@ -1,17 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../../../i18n';
 import type { MediaMapping } from '../../../shared/sync.types';
-import {
-  cachedTitleVerdict,
-  carriesSeasonTitle,
-  isUnmatchedNamedSeason,
-  matchCrunchyrollEpisodeLink,
-  matchPlatformLink,
-  resolveTarget,
-  seasonSearchQuery,
-  type EpisodeNumbers,
-  type MediaCandidate,
-} from './matching';
+import { matchCrunchyrollEpisodeLink, matchPlatformLink } from './matching';
+import { cachedTitleVerdict } from './mapping';
+import { type EpisodeNumbers, type MediaCandidate } from './model';
+import { resolveTarget } from './rules-engine';
+import { carriesSeasonTitle, isUnmatchedNamedSeason, seasonSearchQuery } from './season-titles';
 
 // Saisons découpées en parties (cours) et fiches dédiées à une saison. Textes attendus en français.
 setLocale('fr');

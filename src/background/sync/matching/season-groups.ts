@@ -79,8 +79,9 @@ export function groupSeasons<T extends { titles: readonly string[] }>(pool: read
   const groups: T[][] = [];
   for (const entry of pool) {
     const current = groups.at(-1);
+    const head = current?.[0];
     const previous = current?.at(-1);
-    if (current && previous && continuesSeason(entry.titles, [current[0].titles, previous.titles])) {
+    if (current && head && previous && continuesSeason(entry.titles, [head.titles, previous.titles])) {
       current.push(entry);
     } else {
       groups.push([entry]);

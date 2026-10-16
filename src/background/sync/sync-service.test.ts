@@ -7,7 +7,7 @@ import type { TrackerId } from '../../shared/tracker.types';
 import type { AniListMedia } from '../anilist/media';
 import { ApiError } from '../errors';
 import type { CatalogMedia, TrackerEntry, TrackerService } from '../ports/tracker';
-import type { SyncTarget } from './matching/matching';
+import type { SyncTarget } from './matching/model';
 import type { EpisodeResolution } from './resolver';
 import type { ListEntryState, WriteStatus } from './rules';
 import { installFakeChrome } from '../../test/fake-chrome';

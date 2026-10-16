@@ -4,7 +4,7 @@ import { setLocale } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
 import { platformSeriesKey } from '../../../browser/storage/exclusions-read';
 import type { AniListMedia } from '../../anilist/media';
-import type { MediaCandidate } from './matching';
+import type { MediaCandidate } from './model';
 
 // Prime Video (catalogue généraliste, filtre « anime » par genre côté script de contenu, liens AniList rares) :
 // résolution par le titre comme Crunchyroll / ADN pour un anime, titre exact exigé pour l'animation sans piste japonaise.
