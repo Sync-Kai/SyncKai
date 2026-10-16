@@ -399,4 +399,9 @@ describe('marqueurs de build de développement', () => {
     expect(checkNoDevMarkers('assets/a.js', 'sendMessage({type:"debug:trace:message"})')).toHaveLength(1);
     expect(checkNoDevMarkers('assets/a.js', 'k="debug:trace:verbose"')).toHaveLength(1);
   });
+
+  it('signale l’alarme et le fichier témoin du rechargement automatique', () => {
+    expect(checkNoDevMarkers('assets/background.js', 'chrome.alarms.create("debug:dev-reload",{periodInMinutes:.5})')).toHaveLength(1);
+    expect(checkNoDevMarkers('assets/background.js', 'fetch(chrome.runtime.getURL("dev-build.json"))')).toHaveLength(1);
+  });
 });

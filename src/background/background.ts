@@ -33,10 +33,14 @@ import { runUpdateMigrations } from './update-migrations';
 import { runPendingOtherSeriesPurge } from './sync/mapping-purge';
 import { isDebugTraceMessage, type DebugTraceResponse } from '../protocol/debug-trace';
 import { answerTraceMessage, installTraceWriter, traceRuntimeMessage } from './debug-trace';
+import { DEV_RELOAD_ALARM, ensureDevReloadAlarm, reloadIfRebuilt } from './dev-reload';
 
 // Trace de débogage (builds de développement seulement, absente des bundles publiés) : événements du service worker et
 // lignes de son logger écrits directement, avant tout autre code de ce module
 if (__SYNCKAI_DEBUG__) installTraceWriter();
+
+// Rechargement automatique après `npm run build:dev` (builds de développement seulement : dev-reload.ts)
+if (__SYNCKAI_DEBUG__) void ensureDevReloadAlarm();
 
 const log = createLogger('background');
 
@@ -233,8 +237,10 @@ chrome.runtime.onMessage.addListener(
 
 // ─── File de relance et raccourci clavier ─────────────────────────────────
 
+// Alarme du rechargement automatique traitée ici : pas d'écouteur de plus (nombre d'écouteurs figé, architecture.test.ts)
 chrome.alarms.onAlarm.addListener((alarm): void => {
   if (alarm.name === QUEUE_ALARM) afterI18n(processSyncQueue);
+  else if (__SYNCKAI_DEBUG__ && alarm.name === DEV_RELOAD_ALARM) void reloadIfRebuilt();
 });
 
 chrome.commands.onCommand.addListener((command, tab): void => {

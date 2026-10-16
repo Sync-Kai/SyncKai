@@ -1,11 +1,13 @@
 import { crx, type CrxPlugin } from '@crxjs/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import manifest from './manifest.json';
 import { GIT_COMMIT_EPOCH_ARGS, resolveBuildStamp } from './src/build/build-stamp';
 import { contentCatalogsDefine } from './src/build/content-catalog';
+import { DEV_BUILD_FILE, devBuildPayload } from './src/build/dev-reload';
 import { devVersionName, GIT_DIRTY_ARGS, GIT_SHORT_SHA_ARGS } from './src/build/dev-version';
 import { parseBuildTarget, targetManifest, targetOutDir } from './src/build/manifest-target';
 import { assetFileName, crxIifeIntermediates, dropExtensionInjectedScripts, jsFileNames, sortWebAccessibleResources, splitRegisteredScripts } from './src/build/output-names';
@@ -24,10 +26,14 @@ function readOrNull(read: () => string): string | null {
   }
 }
 
+// Heure du build de développement, fixée une fois : `__SYNCKAI_BUILD__` et le fichier témoin du rechargement automatique
+// (devBuildWitness) doivent porter la même valeur, sinon le service worker se rechargerait sans fin
+const devBuildTime = new Date().toISOString();
+
 /** Horodatage reproductible (SOURCE_DATE_EPOCH, archive des sources, dernier commit) : voir BUILD.md */
 function buildStamp(mode: string): string {
   // En développement, l'heure réelle du build permet de vérifier quelle version tourne dans un onglet
-  if (mode !== 'production') return new Date().toISOString();
+  if (mode !== 'production') return devBuildTime;
   return resolveBuildStamp({
     epochEnv: process.env.SOURCE_DATE_EPOCH,
     epochFile: readOrNull(() => readFileSync('.source-date-epoch', 'utf8')),
@@ -76,9 +82,30 @@ const dropCrxIifeIntermediates: Plugin = {
   },
 };
 
+/**
+ * Builds de développement : fichier témoin `dev-build.json` écrit à la fin du build (closeBundle, tous les fichiers déjà
+ * sur le disque), relu par le service worker du build précédent qui se recharge alors (src/build/dev-reload.ts). Écrit
+ * hors du bundle : aucun fichier du paquet ne le référence, et jamais en production
+ */
+function devBuildWitness(stamp: string, outDir: string): Plugin {
+  return {
+    name: 'synckai:dev-build-witness',
+    apply: 'build',
+    closeBundle() {
+      writeFileSync(join(outDir, DEV_BUILD_FILE), devBuildPayload(stamp));
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   // Après crx() : renderCrxManifest est appelé dans l'ordre des plugins, une fois les ressources calculées
-  plugins: [tailwindcss(), crx({ manifest: withDevVersionName(targetManifest(manifest, target), mode), browser: target }), sortedWebAccessibleResources, dropCrxIifeIntermediates],
+  plugins: [
+    tailwindcss(),
+    crx({ manifest: withDevVersionName(targetManifest(manifest, target), mode), browser: target }),
+    sortedWebAccessibleResources,
+    dropCrxIifeIntermediates,
+    ...(mode === 'production' ? [] : [devBuildWitness(buildStamp(mode), targetOutDir(target))]),
+  ],
   build: {
     outDir: targetOutDir(target),
     rollupOptions: {
