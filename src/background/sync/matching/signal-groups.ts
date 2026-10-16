@@ -33,7 +33,10 @@ export function signalGroups(candidates: readonly MediaCandidate[], animeTitle: 
   const animeKey = normalizeTitle(animeTitle);
   const series = candidates.filter((c) => c.format !== null && SERIES_FORMATS.has(c.format) && !isOtherSeries(c) && !isSpecialTitled(c));
   const byId = new Map(series.map((c) => [c.id, c]));
-  // Relation dans l'ordre de diffusion seulement (une « préquelle » sortie après, MONSTERS, n'est pas une saison)
+  // Relation dans l'ordre de diffusion seulement (une « préquelle » sortie après, MONSTERS, n'est pas une saison). Une fiche
+  // liée seulement à une autre plateforme reste dans la franchise, contrairement à la propagation des liens (resolver.ts ›
+  // isSeasonRelation) : c'est elle que les signaux doivent pouvoir prouver (Mushoku Tensei Netflix S2 = « II » + « II Part 2 »,
+  // liée seulement à Crunchyroll). Audit 1-D5 : l'écarter ici aussi faisait échouer 6 cas réels du corpus (essai du 2026-10-16).
   const neighbors = (c: MediaCandidate): MediaCandidate[] =>
     (c.relations ?? []).flatMap((rel) => {
       const other = byId.get(rel.id);
