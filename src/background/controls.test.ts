@@ -149,6 +149,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     onRead: null,
     isConnected: async () => true,
     resolveId: (media: CatalogMedia) => (id === 'anilist' ? media.mediaId : media.idMal),
+    fullList: async () => [],
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
       tracker.onRead?.();
       const entry = tracker.entries.get(entryId);

@@ -9,7 +9,6 @@ import {
   isAlignedNow,
   isApplyDiffsPayload,
   isComparisonResult,
-  malScoreFrom,
   planApply,
   scoresMatch,
   sideMatches,
@@ -77,10 +76,10 @@ describe('scoresMatch (arrondi inférieur MAL)', () => {
     expect(scoresMatch(1, 9, 'POINT_3')).toBe(false);
   });
 
-  it('malScoreFrom : arrondi inférieur borné à 1–10 (3 smileys = 10)', () => {
-    expect(malScoreFrom(8.5)).toBe(8);
-    expect(malScoreFrom(0.5)).toBe(1);
-    expect(malScoreFrom(aniListScoreOn10(3, 'POINT_3') ?? 0)).toBe(10);
+  it('toMalScore : arrondi inférieur borné à 1–10 (3 smileys = 10)', () => {
+    expect(toMalScore(8.5)).toBe(8);
+    expect(toMalScore(0.5)).toBe(1);
+    expect(toMalScore(aniListScoreOn10(3, 'POINT_3') ?? 0)).toBe(10);
   });
 });
 

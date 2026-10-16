@@ -34,7 +34,7 @@ import {
 import { isRecord } from '../../shared/guards';
 import { getOpenSessions, writeIfSessions } from '../../browser/storage/sessions';
 import type { SessionEpochs } from '../../shared/session-epochs';
-import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
+import { entryIdOn, TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { anilistPublicQuery } from '../anilist/client';
 import { fetchAniListFullList } from '../anilist/full-list';
 import { ApiError } from '../errors';
@@ -184,7 +184,7 @@ async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt
   const tracker = trackers.find((tr) => tr.id === plan.target);
   const origin = trackers.find((tr) => tr.id === source);
   // Source présente dans l'instantané : son identifiant est connu (fiche AniList ou id MAL)
-  const sourceId = source === 'mal' ? diff.malId : diff.mediaId;
+  const sourceId = entryIdOn(source, diff);
   if (!tracker || !origin) return stop(t('compare.error.notConnected'));
   if (sourceId === null) return skipped(skipReasonText('no-equivalent', source));
 

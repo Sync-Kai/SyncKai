@@ -8,7 +8,8 @@ import type { ManualListStatus } from '../../shared/sync.types';
 import { toSafeImageUrl } from '../../shared/url';
 import { getMalAccessToken } from './auth';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
-import { malScoreFrom, type EntryWrite } from '../../shared/compare';
+import type { EntryWrite } from '../../shared/compare';
+import { MAL_SCORES } from '../../shared/score';
 import { readListNotes } from '../../shared/list-notes';
 import { ApiError, isTimeoutError, REQUEST_TIMEOUT_MS } from '../errors';
 import { retryDelayMs, sleep } from '../rate-limit';
@@ -23,13 +24,23 @@ export const MAL_API_URL = 'https://api.myanimelist.net/v2';
 
 type MalListStatus = 'watching' | 'completed' | 'on_hold' | 'dropped' | 'plan_to_watch';
 
-const MAL_TO_LIST_STATUS: Record<MalListStatus, ListStatus> = {
-  watching: 'CURRENT',
-  completed: 'COMPLETED',
-  on_hold: 'PAUSED',
-  dropped: 'DROPPED',
-  plan_to_watch: 'PLANNING',
+/**
+ * Statut commun → statut MAL : seule table des statuts MAL (audit 6-D6), lue dans les deux sens. Un revisionnage MAL
+ * reste « completed » avec is_rewatching (voir malStatusFields).
+ */
+const LIST_STATUS_TO_MAL: Record<ListStatus, MalListStatus> = {
+  CURRENT: 'watching',
+  PLANNING: 'plan_to_watch',
+  COMPLETED: 'completed',
+  PAUSED: 'on_hold',
+  DROPPED: 'dropped',
+  REPEATING: 'completed',
 };
+
+/** Statut MAL → statut commun (REPEATING exclu : il se lit sur is_rewatching) */
+const MAL_TO_LIST_STATUS = Object.fromEntries(
+  Object.entries(LIST_STATUS_TO_MAL).flatMap(([status, mal]) => (status === 'REPEATING' ? [] : [[mal, status]])),
+) as Record<MalListStatus, ListStatus>;
 
 /** Statut MAL → statut commun aux règles de mise à jour (un revisionnage MAL = REPEATING). */
 export function fromMalStatus(status: unknown, isRewatching: unknown): ListStatus | null {
@@ -37,9 +48,18 @@ export function fromMalStatus(status: unknown, isRewatching: unknown): ListStatu
   return isRewatching === true ? 'REPEATING' : MAL_TO_LIST_STATUS[status as MalListStatus];
 }
 
-/** Statut écrit par SyncKai → statut MAL (un revisionnage MAL reste « completed » avec is_rewatching) */
-export function toMalStatus(status: WriteStatus): MalListStatus {
-  return status === 'CURRENT' ? 'watching' : 'completed';
+/** Statut commun → statut MAL (un revisionnage MAL reste « completed » avec is_rewatching) */
+export function toMalStatus(status: ListStatus): MalListStatus {
+  return LIST_STATUS_TO_MAL[status];
+}
+
+/**
+ * Statut et is_rewatching d'un PATCH my_list_status, toujours écrits ensemble : `rewatching` dit si l'entrée est (ou
+ * reste) en revisionnage après l'écriture ; toute autre écriture de statut sort d'un revisionnage MAL.
+ */
+function malStatusFields(body: URLSearchParams, status: ListStatus, rewatching: boolean): void {
+  body.set('status', toMalStatus(status));
+  body.set('is_rewatching', String(rewatching));
 }
 
 /** my_list_status MAL → état d'entrée commun ; null si l'anime n'est pas dans la liste */
@@ -54,14 +74,6 @@ export function parseMalListStatus(value: unknown): ListEntryState | null {
   return entry;
 }
 
-const STATUS_CHANGE_TO_MAL: Record<ManualListStatus, MalListStatus> = {
-  PAUSED: 'on_hold',
-  DROPPED: 'dropped',
-  COMPLETED: 'completed',
-  PLANNING: 'plan_to_watch',
-  CURRENT: 'watching',
-};
-
 /**
  * Corps du PATCH my_list_status pour un statut manuel (pur, testable) : changement de statut
  * ou ajout à la liste (plan_to_watch / watching).
@@ -69,7 +81,9 @@ const STATUS_CHANGE_TO_MAL: Record<ManualListStatus, MalListStatus> = {
  * `repeat` : nouveau compteur de revisionnages (revisionnage marqué terminé).
  */
 export function malStatusBody(status: ManualListStatus, progress: number, repeat?: number): URLSearchParams {
-  const body = new URLSearchParams({ status: STATUS_CHANGE_TO_MAL[status], num_watched_episodes: String(progress), is_rewatching: 'false' });
+  const body = new URLSearchParams();
+  malStatusFields(body, status, false);
+  body.set('num_watched_episodes', String(progress));
   if (repeat !== undefined) body.set('num_times_rewatched', String(repeat));
   return body;
 }
@@ -80,11 +94,9 @@ export function malStatusBody(status: ManualListStatus, progress: number, repeat
  * is_rewatching toujours explicite : une écriture CURRENT ou COMPLETED (correction, +1) sort d'un revisionnage MAL.
  */
 export function malProgressBody(progress: number, status: WriteStatus, repeat?: number): URLSearchParams {
-  const body = new URLSearchParams({
-    status: toMalStatus(status),
-    num_watched_episodes: String(progress),
-    is_rewatching: String(status === 'REPEATING' && repeat === undefined),
-  });
+  const body = new URLSearchParams();
+  malStatusFields(body, status, status === 'REPEATING' && repeat === undefined);
+  body.set('num_watched_episodes', String(progress));
   if (repeat !== undefined) body.set('num_times_rewatched', String(repeat));
   return body;
 }
@@ -277,29 +289,17 @@ export async function deleteMalEntry(malId: number): Promise<void> {
 
 // ─── Alignement depuis la comparaison des listes ──────────────────────────
 
-const LIST_STATUS_TO_MAL: Record<ListStatus, MalListStatus> = {
-  CURRENT: 'watching',
-  PLANNING: 'plan_to_watch',
-  COMPLETED: 'completed',
-  PAUSED: 'on_hold',
-  DROPPED: 'dropped',
-  // Un revisionnage MAL reste « completed » avec is_rewatching
-  REPEATING: 'completed',
-};
-
 /**
  * Corps du PATCH my_list_status pour un alignement (pur, testable) : seuls les champs fournis sont écrits.
- * Statut écrit → is_rewatching suit (true pour REPEATING, false sinon). Note convertie en entier MAL (arrondi inférieur).
+ * Statut écrit → is_rewatching suit (true pour REPEATING, false sinon ; `repeat` est ici le compteur recopié, pas une
+ * fin de revisionnage). Note convertie en entier MAL (arrondi inférieur).
  */
 export function malEntryBody(write: EntryWrite): URLSearchParams {
   const body = new URLSearchParams();
-  if (write.status !== undefined) {
-    body.set('status', LIST_STATUS_TO_MAL[write.status]);
-    body.set('is_rewatching', String(write.status === 'REPEATING'));
-  }
+  if (write.status !== undefined) malStatusFields(body, write.status, write.status === 'REPEATING');
   if (write.progress !== undefined) body.set('num_watched_episodes', String(write.progress));
   if (write.repeat !== undefined) body.set('num_times_rewatched', String(write.repeat));
-  if (write.score !== undefined) body.set('score', String(malScoreFrom(write.score)));
+  if (write.score !== undefined) body.set('score', String(MAL_SCORES.encode(write.score)));
   return body;
 }
 

@@ -3,7 +3,7 @@ import { isSessionOpen } from '../browser/storage/sessions';
 import { isSessionExpired } from '../browser/storage/tokens';
 import type { SessionEpochs } from '../shared/session-epochs';
 import type { ServiceOutcome, ServiceResult } from '../shared/sync.types';
-import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
+import { entryIdOn, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { ApiError } from './errors';
 import type { RequestLane } from './rate-limit';
 import { withEntryLock } from './sync/entry-lock';
@@ -56,7 +56,7 @@ export async function runGuarded<R>({ tracker, id }: EntryTarget, { epoch, lane,
  * l'écran ; MAL = l'idMal du catalogue, sinon celui de l'écran (entrée MAL sans fiche AniList, idMal absent du catalogue).
  */
 export function entryTargetId(service: TrackerId, ref: { mediaId: number | null; malId: number | null }, catalog: CatalogMedia | null = null): number | null {
-  return service === 'anilist' ? (catalog?.mediaId ?? ref.mediaId) : (catalog?.idMal ?? ref.malId);
+  return entryIdOn(service, catalog ? { mediaId: catalog.mediaId, malId: catalog.idMal ?? ref.malId } : ref);
 }
 
 /** Services connectés où la série a un identifiant */

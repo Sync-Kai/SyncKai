@@ -66,8 +66,6 @@ import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { PLATFORMS } from '../../platforms/registry';
 import { ApiError } from '../errors';
 import { getAnimeByIds } from '../anilist/media';
-import { fetchAniListFullList } from '../anilist/full-list';
-import { fetchMalFullList } from '../mal/full-list';
 import {
   createJobLoop,
   createJobStore,
@@ -391,10 +389,9 @@ async function readCatalog(mediaIds: readonly number[]): Promise<Map<number, CrC
 }
 
 /** Liste complète d'un service → état par identifiant (première occurrence : listes personnalisées en double) */
-async function readList(service: TrackerId): Promise<Map<number, CrListState>> {
-  const entries = service === 'anilist' ? (await fetchAniListFullList()).map((e) => ({ id: e.mediaId, status: e.status, progress: e.progress })) : (await fetchMalFullList()).map((e) => ({ id: e.malId, status: e.status, progress: e.progress }));
+async function readList(tracker: TrackerService): Promise<Map<number, CrListState>> {
   const list = new Map<number, CrListState>();
-  for (const { id, status, progress } of entries) if (!list.has(id)) list.set(id, { status, progress });
+  for (const { id, status, progress } of await tracker.fullList()) if (!list.has(id)) list.set(id, { status, progress });
   return list;
 }
 
@@ -418,14 +415,15 @@ async function finalize(job: CrImportJob, isLastAttempt: (reason: TransientKind)
   const memory = analyzeMemoryFor(job);
   const input = await inputFor(memory);
   if (!input) return stopStep(t('crImport.error.noHistory'));
-  const services = (await getConnectedTrackers()).map((tr) => tr.id);
+  const trackers = await getConnectedTrackers();
+  const services = trackers.map((tr) => tr.id);
   if (services.length === 0) return stopStep(t('crImport.error.notConnected'));
   try {
     const resolutions = await allResolutions(memory, input);
     const mediaIds = [...new Set(Object.values(resolutions).flatMap((r) => (r.kind === 'certain' ? [r.mediaId] : [])))];
     const catalog = await readCatalog(mediaIds);
     const lists: Partial<Record<TrackerId, Map<number, CrListState>>> = {};
-    for (const service of services) lists[service] = await readList(service);
+    for (const tracker of trackers) lists[tracker.id] = await readList(tracker);
     const excludedMediaIds = new Set((await getExcludedSeries()).flatMap((e) => (e.mediaId !== null ? [e.mediaId] : [])));
     const plan = buildCrImportPlan({ platform: importPlatformOf(input), seasons: input.seasons, resolutions, catalog, lists, services, excludedMediaIds, stats: input.stats }, Date.now());
     if (!(await savePlanIfSession(plan, epochs))) {

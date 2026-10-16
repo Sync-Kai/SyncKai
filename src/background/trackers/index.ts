@@ -1,10 +1,12 @@
 import { hasMalToken, hasValidAniListToken } from '../../browser/storage/tokens';
-import type { TrackerId } from '../../shared/tracker.types';
+import { entryIdOn, type TrackerId } from '../../shared/tracker.types';
 import { deleteListEntry, getMediaListInfo, getScoreFormat, saveListEntry, saveListNotes, saveListStatus, saveProgress, saveScore } from '../anilist/list';
+import { fetchAniListFullList } from '../anilist/full-list';
 import { deleteMalEntry, getMalAnime, saveMalEntry, saveMalListStatus, saveMalNotes, saveMalProgress, saveMalScore } from '../mal/client';
+import { fetchMalFullList } from '../mal/full-list';
 import { markSeriesStale } from '../compare/compare-snapshot';
 import type { ListEntryState } from '../sync/rules';
-import { toAniListScore, toMalScore } from '../../shared/score';
+import { aniListScores, MAL_SCORES } from '../../shared/score';
 import type { TrackerService } from '../ports/tracker';
 import { forgetCachedEntries } from './entry-cache';
 import { ApiError } from '../errors';
@@ -104,14 +106,15 @@ export const anilistTracker: TrackerService = forgettingEntries(invalidatingComp
   id: 'anilist',
   // Présence et expiration lues sans déchiffrement ; le token est déchiffré à la requête (anilist/client.ts)
   isConnected: hasValidAniListToken,
-  resolveId: (media) => media.mediaId,
+  resolveId: (media) => entryIdOn('anilist', { mediaId: media.mediaId, malId: media.idMal }),
+  fullList: async () => (await fetchAniListFullList()).map((e) => ({ id: e.mediaId, status: e.status, progress: e.progress })),
   async getEntry(id, lane) {
     const { title, episodes, entry, notes } = await getMediaListInfo(id, lane);
     return { title, episodes, entry, notes };
   },
   saveProgress: (id, progress, status, repeat, lane) => saveProgress(id, progress, status, repeat, lane),
   // Le score d'AniList s'exprime dans le format choisi par l'utilisateur (sur 100, 10, 5, 3…)
-  saveScore: async (id, score) => saveScore(id, toAniListScore(score, await getScoreFormat())),
+  saveScore: async (id, score) => saveScore(id, aniListScores(await getScoreFormat()).encode(score)),
   startRewatch: (id, progress) => saveProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveListStatus(id, status, progress, repeat),
   saveEntry: (id, write, lane) => saveListEntry(id, write, lane),
@@ -123,10 +126,11 @@ export const malTracker: TrackerService = forgettingEntries(invalidatingComparis
   id: 'mal',
   // Token présent (même expiré) : il sera renouvelé à la première requête
   isConnected: hasMalToken,
-  resolveId: (media) => media.idMal,
+  resolveId: (media) => entryIdOn('mal', { mediaId: media.mediaId, malId: media.idMal }),
+  fullList: async () => (await fetchMalFullList()).map((e) => ({ id: e.malId, status: e.status, progress: e.progress })),
   getEntry: (id) => getMalAnime(id),
   saveProgress: (id, progress, status, repeat) => saveMalProgress(id, progress, status, repeat),
-  saveScore: (id, score) => saveMalScore(id, toMalScore(score)),
+  saveScore: (id, score) => saveMalScore(id, MAL_SCORES.encode(score)),
   startRewatch: (id, progress) => saveMalProgress(id, progress, 'REPEATING'),
   saveStatus: (id, status, progress, repeat) => saveMalListStatus(id, status, progress, repeat),
   saveEntry: (id, write) => saveMalEntry(id, write),

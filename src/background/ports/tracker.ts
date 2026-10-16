@@ -1,7 +1,7 @@
 import type { TrackerId } from '../../shared/tracker.types';
 import type { Score10 } from '../../shared/engagement.types';
 import type { ManualListStatus } from '../../shared/sync.types';
-import type { ListEntryState, WriteStatus } from '../sync/rules';
+import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
 import type { EntryWrite } from '../../shared/compare';
 import type { RequestLane } from '../rate-limit';
 
@@ -25,6 +25,13 @@ export interface TrackerEntry {
   notes: string | null;
 }
 
+/** Entrée de la liste complète de l'utilisateur, identifiée par la fiche de CE service */
+export interface ListedEntry {
+  id: number;
+  status: ListStatus;
+  progress: number;
+}
+
 /**
  * Contrat commun aux services de suivi (pattern Adapter, comme les plateformes de streaming).
  * Les règles métier (jamais de recul, statuts) restent dans sync-service / rules.
@@ -32,8 +39,10 @@ export interface TrackerEntry {
 export interface TrackerService {
   readonly id: TrackerId;
   isConnected(): Promise<boolean>;
-  /** Identifiant de la fiche sur ce service, null s'il n'a pas d'équivalent */
+  /** Identifiant de la fiche du catalogue sur ce service, null s'il n'a pas d'équivalent (règle commune : entryIdOn) */
   resolveId(media: CatalogMedia): number | null;
+  /** Liste complète de l'utilisateur (import de l'historique), requêtes de fond */
+  fullList(): Promise<ListedEntry[]>;
   /** `lane` : 'background' pour une tâche de fond (import, alignement), place réservée avant (waitReadSlot) ; ignoré par MAL */
   getEntry(id: number, lane?: RequestLane): Promise<TrackerEntry>;
   /** `repeat` : nouveau nombre de revisionnages à écrire (fin d'un revisionnage, statut COMPLETED) ; `lane` : voir getEntry */

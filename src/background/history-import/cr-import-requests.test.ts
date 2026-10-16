@@ -3,7 +3,7 @@ import type { HistorySeason } from '../../platforms/crunchyroll/history';
 import { CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, type CrImportJob, type CrImportPlan } from '../../shared/cr-import';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { installFakeChrome } from '../../test/fake-chrome';
-import type { TrackerService } from '../ports/tracker';
+import type { ListedEntry, TrackerService } from '../ports/tracker';
 import type { MediaMapping } from '../../shared/sync.types';
 import { mappingKey } from '../../platforms/series-identity';
 
@@ -140,7 +140,7 @@ async function analyze(seasons: HistorySeason[], mappings: Record<string, MediaM
 const total = (requests: Record<string, number>): number => Object.values(requests).reduce((sum, n) => sum + n, 0);
 
 beforeEach(() => {
-  connected.trackers = [{ id: 'anilist', isConnected: async () => true } as TrackerService];
+  connected.trackers = [{ id: 'anilist', isConnected: async () => true, fullList: async (): Promise<ListedEntry[]> => [] } as TrackerService];
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });

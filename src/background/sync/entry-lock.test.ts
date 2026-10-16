@@ -96,6 +96,7 @@ function fakeTracker(id: TrackerId, writeDelay: (progress: number) => number = (
     writes,
     isConnected: async () => true,
     resolveId: (media: CatalogMedia) => (id === 'anilist' ? media.mediaId : media.idMal),
+    fullList: async () => [],
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
       slots.calls.push(`read:${id}`);
       await sleep(1);

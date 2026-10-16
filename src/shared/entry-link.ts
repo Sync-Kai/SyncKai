@@ -1,4 +1,4 @@
-import { TRACKER_IDS, type TrackerId } from './tracker.types';
+import { entryIdOn, TRACKER_IDS, type TrackerId } from './tracker.types';
 
 // Lien vers la fiche d'un anime (titre et jaquette cliquables) : AniList ou MyAnimeList selon les comptes connectés
 // et le réglage « Fiche ouverte par défaut ». Fonction pure, sans requête : seuls les identifiants déjà connus servent.
@@ -45,7 +45,7 @@ export function entryLink(ids: EntryIds, context: EntryLinkContext): EntryLink |
   const first = entryService(context);
   const order: readonly TrackerId[] = first === 'anilist' ? ['anilist', 'mal'] : ['mal', 'anilist'];
   for (const service of order) {
-    const id = service === 'anilist' ? ids.mediaId : ids.malId;
+    const id = entryIdOn(service, ids);
     if (isId(id)) return { service, url: entryUrl(service, id) };
   }
   return null;

@@ -88,6 +88,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     attempts: 0,
     isConnected: async () => true,
     resolveId: (media) => (id === 'anilist' ? media.mediaId : media.idMal),
+    fullList: async () => [],
     getEntry: async (entryId: number, lane?: string): Promise<TrackerEntry> => {
       tracker.reads++;
       tracker.lanes.push(`read:${lane ?? 'interactive'}`);

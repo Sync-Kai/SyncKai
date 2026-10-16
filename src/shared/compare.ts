@@ -3,9 +3,9 @@ import type { ApplyDiffItem, CompareJob } from './compare-job';
 import { isRecord } from './guards';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { Result } from './result';
-import { aniListScoreOn10, isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from './score';
+import { aniListScoreOn10, aniListScores, isAniListScoreFormat, MAL_SCORES, scoreCodec, type AniListScoreFormat } from './score';
 import type { ListStatus } from './sync.types';
-import { isTrackerId, TRACKER_LABELS, type TrackerId } from './tracker.types';
+import { entryIdOn, isTrackerId, TRACKER_LABELS, type TrackerId } from './tracker.types';
 import { t } from '../i18n/core';
 
 // Comparaison des listes AniList ↔ MyAnimeList (Activité › Écarts) : logique pure, testée.
@@ -110,12 +110,6 @@ export const MAX_APPLY_ITEMS = 2000;
 
 // ─── Notes ────────────────────────────────────────────────────────────────
 
-/** Note sur 10 → note MAL (entier 1 à 10, arrondi à l'inférieur, comme toMalScore) */
-export function malScoreFrom(score10: number): number {
-  // Tolérance : 3 smileys AniList (10/3 × 3 = 9,999…) doit donner 10
-  return Math.min(10, Math.max(1, Math.floor(score10 + 1e-9)));
-}
-
 /**
  * Notes équivalentes : MAL n'accepte que des entiers et SyncKai y écrit l'arrondi inférieur
  * (AniList 8,5 ↔ MAL 8 n'est pas un écart). Les formats AniList grossiers (POINT_5, POINT_3) sont
@@ -123,9 +117,10 @@ export function malScoreFrom(score10: number): number {
  */
 export function scoresMatch(anilistRaw: number | null, malScore: number | null, format: AniListScoreFormat): boolean {
   if (anilistRaw === null || malScore === null) return anilistRaw === malScore;
-  const on10 = aniListScoreOn10(anilistRaw, format);
+  const anilist = aniListScores(format);
+  const on10 = anilist.on10(anilistRaw);
   if (on10 === null) return false;
-  return malScoreFrom(on10) === malScore || toAniListScore(malScore, format) === anilistRaw;
+  return MAL_SCORES.encode(on10) === malScore || anilist.encode(malScore) === anilistRaw;
 }
 
 // ─── Diff ─────────────────────────────────────────────────────────────────
@@ -250,7 +245,7 @@ export function planApply(diff: ListDiff, source: TrackerId): ApplyPlan {
   const from = diff[source];
   const to = diff[target];
   if (from === null) return { action: 'skip', reason: 'missing-source' };
-  const id = target === 'mal' ? diff.malId : diff.mediaId;
+  const id = entryIdOn(target, diff);
   if (id === null) return { action: 'skip', reason: 'no-equivalent' };
 
   if (to === null) {
@@ -323,7 +318,7 @@ export interface LiveEntry {
  */
 export function sideMatches(side: DiffSide | null, entry: LiveEntry | null, service: TrackerId, scoreFormat: AniListScoreFormat): boolean {
   if (side === null || entry === null) return side === entry;
-  const score = entry.score === undefined ? null : service === 'anilist' ? aniListScoreOn10(entry.score, scoreFormat) : entry.score;
+  const score = entry.score === undefined ? null : scoreCodec(service, scoreFormat).on10(entry.score);
   return (
     entry.status === side.status &&
     entry.progress === side.progress &&

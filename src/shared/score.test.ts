@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { aniListScoreOn10, fromAniListScore, fromMalScore, isAniListScoreFormat, toAniListScore, toMalScore } from './score';
+import { scoresMatch } from './compare';
+import {
+  aniListScoreOn10,
+  aniListScores,
+  fromAniListScore,
+  fromMalScore,
+  isAniListScoreFormat,
+  MAL_SCORES,
+  scoreCodec,
+  toAniListScore,
+  toMalScore,
+  type AniListScoreFormat,
+  type ScoreCodec,
+} from './score';
 
 describe('toAniListScore', () => {
   it('POINT_100 : note × 10', () => {
@@ -69,6 +82,62 @@ describe('note du service → note sur 10 (affichage)', () => {
 
   it('aller-retour stable pour une note SyncKai sur 100', () => {
     expect(fromAniListScore(toAniListScore(7.5, 'POINT_100'), 'POINT_100')).toBe(7.5);
+  });
+});
+
+// ─── Contrat commun des codecs (audit 6-P2, prolonge B1) ────────────────
+
+const FORMATS: readonly AniListScoreFormat[] = ['POINT_100', 'POINT_10_DECIMAL', 'POINT_10', 'POINT_5', 'POINT_3'];
+/** Toutes les notes SyncKai : 0,5 à 10 par demi-point */
+const SCORES: readonly number[] = Array.from({ length: 20 }, (_, i) => (i + 1) / 2);
+const CODECS: readonly [string, ScoreCodec][] = [['MAL', MAL_SCORES], ...FORMATS.map((format): [string, ScoreCodec] => [`AniList ${format}`, aniListScores(format)])];
+
+describe.each(CODECS)('contrat du codec de notes : %s', (_name, codec) => {
+  it('une note écrite se relit toujours comme une note (jamais « non notée »), entre 0,5 et 10', () => {
+    for (const score of SCORES) {
+      const read = codec.decode(codec.encode(score));
+      expect(read, `note ${score}`).not.toBeNull();
+      expect(read ?? 0).toBeGreaterThanOrEqual(0.5);
+      expect(read ?? 11).toBeLessThanOrEqual(10);
+      expect(codec.on10(codec.encode(score)), `note ${score}`).not.toBeNull();
+    }
+  });
+
+  it('aller-retour stable : réécrire la note relue écrit la même valeur', () => {
+    for (const score of SCORES) {
+      const raw = codec.encode(score);
+      expect(codec.encode(codec.decode(raw) ?? 0), `note ${score}`).toBe(raw);
+    }
+  });
+
+  it('une note plus haute ne s’écrit jamais plus bas', () => {
+    for (let i = 1; i < SCORES.length; i++) expect(codec.encode(SCORES[i] ?? 0)).toBeGreaterThanOrEqual(codec.encode(SCORES[i - 1] ?? 0));
+  });
+
+  it('0 = non notée', () => {
+    expect(codec.decode(0)).toBeNull();
+    expect(codec.on10(0)).toBeNull();
+  });
+});
+
+describe.each(FORMATS)('parité AniList ↔ MAL (B1) : %s', (format) => {
+  const anilist = aniListScores(format);
+
+  it('une même note SyncKai écrite sur les deux services n’est jamais un écart', () => {
+    for (const score of SCORES) expect(scoresMatch(anilist.encode(score), MAL_SCORES.encode(score), format), `note ${score}`).toBe(true);
+  });
+
+  it('alignement dans les deux sens : la valeur recopiée n’est pas un écart', () => {
+    for (const score of SCORES) {
+      const raw = anilist.encode(score);
+      expect(scoresMatch(raw, MAL_SCORES.encode(anilist.on10(raw) ?? 0), format), `AniList ${raw} → MAL`).toBe(true);
+    }
+    for (let mal = 1; mal <= 10; mal++) expect(scoresMatch(anilist.encode(mal), mal, format), `MAL ${mal} → AniList`).toBe(true);
+  });
+
+  it('scoreCodec : le codec de chaque service', () => {
+    expect(scoreCodec('anilist', format).encode(8.5)).toBe(anilist.encode(8.5));
+    expect(scoreCodec('mal', format)).toBe(MAL_SCORES);
   });
 });
 

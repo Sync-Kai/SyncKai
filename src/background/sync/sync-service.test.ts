@@ -91,6 +91,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     failWith: null,
     isConnected: async () => true,
     resolveId: (media: CatalogMedia) => (id === 'anilist' ? media.mediaId : media.idMal),
+    fullList: async () => [],
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
       const entry = tracker.entries.get(entryId);
       return { title: `#${entryId}`, episodes: tracker.totals.get(entryId) ?? null, entry: entry ? { ...entry } : null, notes: null };

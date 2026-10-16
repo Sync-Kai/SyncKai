@@ -93,6 +93,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
     onRead: null,
     isConnected: async () => true,
     resolveId: (media) => (id === 'anilist' ? media.mediaId : media.idMal),
+    fullList: async () => [],
     getEntry: async (): Promise<TrackerEntry> => {
       tracker.onRead?.();
       return { title: 'Frieren', episodes: 28, entry: tracker.entry, notes: tracker.entry ? tracker.notes : null };

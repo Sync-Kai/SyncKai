@@ -3,7 +3,7 @@ import { isRecord } from '../../shared/guards';
 import { getValidToken } from '../../browser/tokens/access';
 import type { ManualListStatus } from '../../shared/sync.types';
 import type { ListEntryState, ListStatus, WriteStatus } from '../sync/rules';
-import { isAniListScoreFormat, toAniListScore, type AniListScoreFormat } from '../../shared/score';
+import { aniListScores, isAniListScoreFormat, type AniListScoreFormat } from '../../shared/score';
 import type { EntryWrite } from '../../shared/compare';
 import { readListNotes } from '../../shared/list-notes';
 import { anilistQuery } from './client';
@@ -204,7 +204,7 @@ export function anilistEntryWriteVariables(mediaId: number, write: EntryWrite, f
   if (write.status !== undefined) variables.status = write.status;
   if (write.progress !== undefined) variables.progress = write.progress;
   if (write.repeat !== undefined) variables.repeat = write.repeat;
-  if (write.score !== undefined) variables.score = toAniListScore(write.score, format);
+  if (write.score !== undefined) variables.score = aniListScores(format).encode(write.score);
   return variables;
 }
 

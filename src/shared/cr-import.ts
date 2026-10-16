@@ -8,7 +8,7 @@ import { isCandidateSummary, type CandidateSummary } from './review.types';
 import { isMediaMapping, type ListStatus, type MediaMapping } from './sync.types';
 import { isListStatus } from './compare';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
-import { isTrackerId, type TrackerId } from './tracker.types';
+import { entryIdOn, isTrackerId, type TrackerId } from './tracker.types';
 
 // Import de l'historique Crunchyroll, ADN ou Netflix (Réglages › Importer un historique) : types, stockage et planification
 // (pur, testé). Le préfixe « Cr » est historique : le pipeline est commun aux deux plateformes (ImportPlatform, absente
@@ -374,7 +374,7 @@ export function buildCrImportPlan(input: PlanInput, now: number): CrImportPlan {
     const malId = catalog?.idMal ?? null;
     const episodes = catalog?.episodes ?? null;
     const services = input.services.map((service): CrServicePlan => {
-      const id = service === 'anilist' ? mediaId : malId;
+      const id = entryIdOn(service, { mediaId, malId });
       if (id === null) return { service, current: null, action: 'skip', reason: 'no-equivalent' };
       const current = input.lists[service]?.get(id) ?? null;
       const decision = decideImport(current, group.progress, episodes);
