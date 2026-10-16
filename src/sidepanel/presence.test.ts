@@ -38,6 +38,9 @@ describe('answersAsTarget (URL masquée, script de contenu joignable)', () => {
 
 // ─── watchPanelContext : suivi de l'onglet actif (chrome simulé, minuteurs factices) ──────────────────────────────
 
+/** Réponse du script de contenu sur une page de série Crunchyroll */
+const CR_SERIES_PAGE = { platform: 'crunchyroll', kind: 'series', seriesId: null, seriesSlug: null, seriesTitle: 'X', seasonNumber: 1, seasonTitle: null, episode: null } as const;
+
 describe('watchPanelContext', () => {
   const WINDOW_ID = 1;
   type Listener<A extends unknown[]> = (...args: A) => void;
@@ -211,6 +214,20 @@ describe('watchPanelContext', () => {
     for (const listener of onUpdated) listener(1, { status: 'complete' });
     await settle();
     expect(last()).toEqual({ status: 'off' });
+  });
+
+  it('navigation SPA dans un onglet déjà cible (URL masquée), script muet au premier essai : pas de « hors page » le temps des essais', async () => {
+    tabs.set(5, { id: 5 });
+    activeTabId = 5;
+    requestPageMedia.mockResolvedValue(CR_SERIES_PAGE);
+    await start();
+    expect(contexts).toEqual([{ status: 'target', tabId: 5 }]);
+    // Navigation : le script de contenu de la nouvelle page n'est pas encore prêt au premier essai
+    requestPageMedia.mockReset().mockResolvedValueOnce('unreachable').mockResolvedValue(CR_SERIES_PAGE);
+    for (const listener of onUpdated) listener(5, { status: 'complete' });
+    await vi.advanceTimersByTimeAsync(1_500);
+    expect(contexts).toEqual([{ status: 'target', tabId: 5 }, { status: 'target', tabId: 5 }]);
+    expect(requestPageMedia).toHaveBeenCalledTimes(2);
   });
 
   it('rafale d’événements : une seule réévaluation (anti-rebond 250 ms)', async () => {

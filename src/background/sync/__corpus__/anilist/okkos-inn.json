@@ -1,0 +1,13 @@
+{
+  "fetchedAt": "2026-10-16",
+  "searches": {
+    "Okko's Inn": [101277,101478]
+  },
+  "byIds": {
+
+  },
+  "media": [
+    {"id":101277,"idMal":37433,"format":"TV_SHORT","episodes":24,"startDate":{"year":2018,"month":4,"day":8},"seasonYear":2018,"title":{"romaji":"Wakaokami wa Shougakusei!","english":null,"native":"若おかみは小学生！","userPreferred":"Wakaokami wa Shougakusei!"},"synonyms":["Okko's Inn","Okko y los fantasmas"],"relations":{"edges":[]},"externalLinks":[],"signals":{"duration":12,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2018,"endDate":{"year":2018,"month":9,"day":23}}},
+    {"id":101478,"idMal":37682,"format":"MOVIE","episodes":1,"startDate":{"year":2018,"month":9,"day":21},"seasonYear":2018,"title":{"romaji":"Wakaokami wa Shougakusei! (Movie)","english":"Okko's Inn","native":"若おかみは小学生！(劇場版)","userPreferred":"Wakaokami wa Shougakusei! (Movie)"},"synonyms":["Готель Окко","Okko e os Espíritos"],"relations":{"edges":[]},"externalLinks":[{"url":"https://www.netflix.com/title/81037597"}],"signals":{"duration":94,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2018,"endDate":{"year":2018,"month":9,"day":21}}}
+  ]
+}

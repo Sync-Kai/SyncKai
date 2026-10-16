@@ -9,7 +9,7 @@ import { FakeMal } from './fake-mal';
 import { FakeSites, crunchyrollWatchHtml, play, seek } from './fake-sites';
 import { sleep, startExtension, waitFor, type ExtensionHarness } from './harness';
 import { ANILIST_A, BOCCHI, DUNGEON_MESHI, FRIEREN, MAL_A, anilistAccount, anilistMedia, crunchyrollEpisode, expectCleanRun, malAccount, malAnime, seedMapping, seedSettings, signIn } from './seed';
-import { CREDITS_START, FRIEREN_E3, FRIEREN_S1, FRIEREN_S2, launch, nowPlayingText, openPanel, waitForEntry } from './scenario';
+import { CREDITS_START, FRIEREN_E3, FRIEREN_S1, FRIEREN_S2, launch, nowPlayingText, openPanel, storedMappings, waitForEntry } from './scenario';
 
 const en = (key: MessageKey, params?: MessageParams): string => tl('en', key, params);
 const sel = (focus: string): string => `[data-focus="${focus}"]`;
@@ -173,6 +173,8 @@ describe('Requêtes AniList par action', () => {
     await run.h.sendFromContent('EPISODE_COMPLETED', { episode: crunchyrollEpisode(FRIEREN, 3), services: null });
     // Recherche de la série, relations (AnimeByIds), entrée de la liste, écriture : la fiche du catalogue vient de la recherche
     expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, MediaEntry: 1, SaveProgress: 1, SearchAnime: 1 });
+    // Correspondance sûre apprise et enregistrée (origine « apprise »), réutilisée par la synchro suivante
+    expect(Object.values(await storedMappings(run.h))).toEqual([expect.objectContaining({ mediaId: FRIEREN.mediaId, learned: true })]);
 
     from = run.anilist.requests.length;
     await run.h.sendFromContent('EPISODE_COMPLETED', { episode: crunchyrollEpisode(FRIEREN, 4), services: null });

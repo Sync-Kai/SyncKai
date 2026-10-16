@@ -19,6 +19,10 @@ const fakes = vi.hoisted(() => ({
   ratingPrompt: true,
   deferred: [] as { media: MediaRef; coverUrl: string | null }[],
   deferOk: true,
+  /** Erreur levée par la lecture du catalogue AniList (null : catalogue lisible) */
+  catalogError: null as Error | null,
+  /** Erreur levée par la lecture des réglages (null : réglages lisibles) */
+  settingsError: null as Error | null,
 }));
 
 vi.mock('./trackers', () => ({
@@ -26,10 +30,16 @@ vi.mock('./trackers', () => ({
     only ? fakes.trackers.filter((tracker) => only.includes(tracker.id)) : fakes.trackers,
 }));
 vi.mock('./sync/sync-service', () => ({
-  getCatalogMedia: async (mediaId: number): Promise<CatalogMedia> => ({ mediaId, idMal: fakes.idMal, title: 'Frieren', episodes: fakes.episodes }),
+  getCatalogMedia: async (mediaId: number): Promise<CatalogMedia> => {
+    if (fakes.catalogError) throw fakes.catalogError;
+    return { mediaId, idMal: fakes.idMal, title: 'Frieren', episodes: fakes.episodes };
+  },
 }));
 vi.mock('../browser/storage/settings-access', () => ({
-  getSettings: async (): Promise<{ ratingPrompt: boolean }> => ({ ratingPrompt: fakes.ratingPrompt }),
+  getSettings: async (): Promise<{ ratingPrompt: boolean }> => {
+    if (fakes.settingsError) throw fakes.settingsError;
+    return { ratingPrompt: fakes.ratingPrompt };
+  },
 }));
 vi.mock('./engagement', () => ({
   deferRating: async (media: MediaRef, coverUrl: string | null): Promise<{ ok: true; data: null } | { ok: false; code: string; message: string }> => {
@@ -173,6 +183,8 @@ beforeEach(() => {
   fakes.ratingPrompt = true;
   fakes.deferred = [];
   fakes.deferOk = true;
+  fakes.catalogError = null;
+  fakes.settingsError = null;
   anilist = fakeTracker('anilist');
   mal = fakeTracker('mal');
   fakes.trackers = [anilist, mal];
@@ -273,6 +285,52 @@ describe('adjustProgress, cas limites', () => {
     const outcome = await adjustProgress({ mediaId: MEDIA_ID, malId: null, delta: 1 });
     expect(resultsOf(outcome)).toEqual([{ service: 'anilist', outcome: { status: 'error', message: 'Trop de requêtes', code: 'RATE_LIMITED' } }]);
   });
+
+  it('catalogue AniList illisible (ApiError) : erreur remontée avec son code, aucun service lu ni écrit', async () => {
+    fakes.catalogError = new ApiError('RATE_LIMITED', 'Trop de requêtes');
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 3 });
+    expect(await adjustProgress({ mediaId: MEDIA_ID, malId: MAL_ID, delta: 1 })).toEqual({ status: 'error', message: 'Trop de requêtes', code: 'RATE_LIMITED' });
+    expect(anilist.saves).toEqual([]);
+    expect(mal.saves).toEqual([]);
+  });
+
+  it('catalogue AniList : erreur inattendue → message générique, sans code', async () => {
+    fakes.catalogError = new Error('boom');
+    expect(await adjustProgress({ mediaId: MEDIA_ID, malId: MAL_ID, delta: 1 })).toEqual({ status: 'error', message: 'Erreur inattendue pendant l’ajustement.' });
+  });
+
+  it('total inconnu du service : celui du catalogue termine la série au dernier épisode', async () => {
+    fakes.trackers = [anilist];
+    anilist.getEntry = async (): Promise<TrackerEntry> => ({ title: 'Frieren', episodes: null, entry: { status: 'CURRENT', progress: 11 }, notes: null });
+    await adjustProgress({ mediaId: MEDIA_ID, malId: null, delta: 1 });
+    expect(anilist.saves).toEqual([{ progress: 12, status: 'COMPLETED' }]);
+  });
+
+  it('−1 : recule d’un épisode sur chaque service où la série est', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 5 });
+    mal.entries.set(MAL_ID, { status: 'CURRENT', progress: 5 });
+    const outcome = await adjustProgress({ mediaId: MEDIA_ID, malId: MAL_ID, delta: -1 });
+    expect(anilist.saves).toEqual([{ progress: 4, status: 'CURRENT' }]);
+    expect(mal.saves).toEqual([{ progress: 4, status: 'CURRENT' }]);
+    expect(resultsOf(outcome)).toEqual([
+      { service: 'anilist', outcome: { status: 'updated', progress: 4, completed: false } },
+      { service: 'mal', outcome: { status: 'updated', progress: 4, completed: false } },
+    ]);
+  });
+
+  it('+1 sur une série déjà au dernier épisode : ignoré avec sa raison, sans code « absente »', async () => {
+    fakes.trackers = [anilist];
+    anilist.entries.set(MEDIA_ID, { status: 'COMPLETED', progress: 12 });
+    const outcome = await adjustProgress({ mediaId: MEDIA_ID, malId: null, delta: 1 });
+    expect(anilist.saves).toEqual([]);
+    expect(resultsOf(outcome)).toEqual([{ service: 'anilist', outcome: { status: 'skipped', reason: 'Déjà au dernier épisode' } }]);
+  });
+
+  it('sans fiche AniList et service en échec (aucun titre lu) : titre de secours', async () => {
+    mal.getEntry = () => Promise.reject(new ApiError('API_ERROR', 'Service indisponible'));
+    const outcome = await adjustProgress({ mediaId: null, malId: MAL_ID, delta: 1 });
+    expect(outcome).toEqual({ status: 'synced', mediaTitle: 'Série', results: [{ service: 'mal', outcome: { status: 'error', message: 'Service indisponible', code: 'API_ERROR' } }] });
+  });
 });
 
 describe('setListStatus', () => {
@@ -349,6 +407,55 @@ describe('setListStatus', () => {
       { service: 'mal', outcome: { status: 'error', message: 'Service indisponible', code: 'API_ERROR' } },
     ]);
   });
+
+  it('fiche sans équivalent sur les services connectés : erreur « aucun service ne la suit »', async () => {
+    fakes.trackers = [mal];
+    fakes.idMal = null;
+    expect(await setListStatus({ mediaId: MEDIA_ID, malId: null, status: 'PAUSED', coverUrl: null })).toEqual({ status: 'error', message: 'Aucun service connecté n’a de fiche pour cette série.' });
+  });
+
+  it('catalogue illisible : ApiError remontée avec son code ; erreur inattendue : message générique', async () => {
+    fakes.catalogError = new ApiError('RATE_LIMITED', 'Trop de requêtes');
+    expect(await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'PAUSED', coverUrl: null })).toEqual({ status: 'error', message: 'Trop de requêtes', code: 'RATE_LIMITED' });
+    fakes.catalogError = new Error('boom');
+    expect(await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'PAUSED', coverUrl: null })).toEqual({ status: 'error', message: 'Erreur inattendue pendant le changement de statut.' });
+    expect(anilist.statusSaves).toEqual([]);
+  });
+
+  it('entrée MAL sans fiche AniList (mediaId null), Terminé : carte « À noter » avec l’idMal du popup et le titre lu sur MAL', async () => {
+    mal.entries.set(MAL_ID, { status: 'CURRENT', progress: 4 });
+    const outcome = await setListStatus({ mediaId: null, malId: MAL_ID, status: 'COMPLETED', coverUrl: null });
+    expect(mal.statusSaves).toEqual([{ status: 'COMPLETED', progress: 12 }]);
+    expect(anilist.statusSaves).toEqual([]);
+    expect(fakes.deferred).toEqual([{ media: { mediaId: null, malId: MAL_ID, title: 'Frieren' }, coverUrl: null }]);
+    expect(outcome).toMatchObject({ status: 'synced', mediaTitle: 'Frieren', prompts: { rate: { mediaId: null, malId: MAL_ID } } });
+  });
+
+  it('total inconnu du service : Terminé porte la progression au total du catalogue', async () => {
+    fakes.trackers = [anilist];
+    anilist.getEntry = async (): Promise<TrackerEntry> => ({ title: 'Frieren', episodes: null, entry: { status: 'CURRENT', progress: 4 }, notes: null });
+    await setListStatus({ mediaId: MEDIA_ID, malId: null, status: 'COMPLETED', coverUrl: null });
+    expect(anilist.statusSaves).toEqual([{ status: 'COMPLETED', progress: 12 }]);
+  });
+
+  it('réglages illisibles : statut écrit, pas de carte « À noter » (facultative)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fakes.settingsError = new Error('storage');
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 4 });
+    const outcome = await setListStatus({ mediaId: MEDIA_ID, malId: null, status: 'COMPLETED', coverUrl: null });
+    expect(anilist.statusSaves).toEqual([{ status: 'COMPLETED', progress: 12 }]);
+    expect(outcome.status).toBe('synced');
+    expect(outcome).not.toHaveProperty('prompts');
+    expect(fakes.deferred).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('sans fiche AniList et service en échec (aucun titre lu) : titre de secours, pas de carte', async () => {
+    mal.getEntry = () => Promise.reject(new Error('boom'));
+    const outcome = await setListStatus({ mediaId: null, malId: MAL_ID, status: 'COMPLETED', coverUrl: null });
+    expect(outcome).toMatchObject({ status: 'synced', mediaTitle: 'Série', results: [{ service: 'mal', outcome: { status: 'error', message: 'Erreur inattendue.' } }] });
+    expect(outcome).not.toHaveProperty('prompts');
+  });
 });
 
 describe('addToList', () => {
@@ -395,6 +502,25 @@ describe('addToList', () => {
     fakes.trackers = [mal];
     fakes.idMal = null;
     expect((await addToList({ mediaId: MEDIA_ID, malId: null, status: 'CURRENT' })).status).toBe('error');
+  });
+
+  it('échec d’un service : erreur sur celui-là seul, l’autre est ajouté', async () => {
+    mal.failNext = 1;
+    const outcome = await addToList({ mediaId: MEDIA_ID, malId: null, status: 'PLANNING' });
+    expect(anilist.statusSaves).toEqual([{ status: 'PLANNING', progress: 0 }]);
+    expect(mal.statusSaves).toEqual([]);
+    expect(resultsOf(outcome)).toEqual([
+      { service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } },
+      { service: 'mal', outcome: { status: 'error', message: 'Service indisponible', code: 'API_ERROR' } },
+    ]);
+  });
+
+  it('catalogue illisible : ApiError remontée avec son code ; erreur inattendue : message générique', async () => {
+    fakes.catalogError = new ApiError('RATE_LIMITED', 'Trop de requêtes');
+    expect(await addToList({ mediaId: MEDIA_ID, malId: null, status: 'PLANNING' })).toEqual({ status: 'error', message: 'Trop de requêtes', code: 'RATE_LIMITED' });
+    fakes.catalogError = new Error('boom');
+    expect(await addToList({ mediaId: MEDIA_ID, malId: null, status: 'PLANNING' })).toEqual({ status: 'error', message: 'Erreur inattendue lors de l’ajout à la liste.' });
+    expect(anilist.statusSaves).toEqual([]);
   });
 });
 
