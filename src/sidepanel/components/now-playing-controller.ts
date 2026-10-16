@@ -18,7 +18,7 @@ const log = createLogger('sidepanel');
 
 export type NowPlayingContent = PageMediaContent<PanelMedia>;
 
-export interface NowPlayingController extends Omit<PageMediaController<PanelMedia>, 'open' | 'redetect' | 'navigated'> {
+export interface NowPlayingController extends Omit<PageMediaController<PanelMedia>, 'open' | 'redetect' | 'navigated' | 'synced'> {
   /** Lecteur préféré (réglages) : plateforme du bouton « Regarder » des relations */
   readonly preferred: StreamingPlatform;
   /** Réglage « Fiche ouverte par défaut » (avec les deux comptes connectés) : lien du titre, de la jaquette et des relations */
@@ -54,6 +54,7 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
     const { content } = ctl;
     const read = liveEventRead('page' in content ? content.page : null, event);
     if (read === 'navigate') ctl.navigated();
+    else if (read === 'synced') ctl.synced();
     else if (read === 'redetect') void ctl.redetect(false);
   });
 

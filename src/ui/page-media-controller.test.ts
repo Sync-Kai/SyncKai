@@ -511,6 +511,56 @@ describe('plafond des relectures automatiques (AniList jamais saturé, quelle qu
     }
   });
 
+  it('échos des actions de l’utilisateur (−1, statut) : regroupés mais jamais comptés, la page reste suivie ensuite', async () => {
+    // Régression (trace réelle du 2026-10-15) : après quelques −1 et synchros, le panneau ne suivait plus la page
+    const ctl = await readyPopup();
+    vi.useFakeTimers();
+    try {
+      let n = 0;
+      for (let i = 0; i < 6; i++) {
+        void ctl.runAction(i % 2 === 0 ? { kind: 'adjust', delta: -1 } : { kind: 'status', status: 'PAUSED' });
+        await vi.advanceTimersByTimeAsync(0);
+        for (const call of fake.calls.filter((c) => c.type === 'ADJUST_PROGRESS' || c.type === 'SET_LIST_STATUS')) answer(call, SYNCED);
+        // Fiche de l'onglet réécrite ailleurs juste après l'action (service worker, autre écran) : deux échos
+        await vi.advanceTimersByTimeAsync(0);
+        emitCacheWrite(1, 70_000 + n++);
+        emitCacheWrite(1, 70_000 + n++);
+        await run(ctl, 5, () => undefined);
+      }
+      // Déclencheur automatique ensuite : toujours suivi
+      const reads = fake.reads;
+      await run(ctl, 3, (second) => {
+        if (second === 0) emitCacheWrite(1, 80_000);
+      });
+      expect(fake.reads).toBe(reads + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('synchro terminée dans la page (port de lecture) : relue, ses échos (fiche réécrite par le service worker) non comptés', async () => {
+    const ctl = await readyPopup();
+    vi.useFakeTimers();
+    try {
+      let n = 0;
+      const reads = fake.reads;
+      for (let i = 0; i < 6; i++) {
+        ctl.synced();
+        emitCacheWrite(1, 85_000 + n++);
+        emitCacheWrite(1, 85_000 + n++);
+        await run(ctl, 5, () => undefined);
+      }
+      expect(fake.reads - reads).toBe(12);
+      const after = fake.reads;
+      await run(ctl, 3, (second) => {
+        if (second === 0) emitCacheWrite(1, 95_000);
+      });
+      expect(fake.reads).toBe(after + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('saison choisie dans le menu de la page (navigation sans changement d’URL) : toujours suivie, même plafond atteint', async () => {
     // Régression (2026-10-14, Attack on Titan) : après 5 saisons choisies en une minute, le panneau ne suivait plus le menu
     const ctl = await readyPopup();

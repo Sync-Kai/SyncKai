@@ -89,6 +89,11 @@ export interface PageMediaController<D> {
    * puis relecture sans squelette ; les choix en rafale restent regroupés (une relecture toutes les 2 s au plus).
    */
   navigated(): void;
+  /**
+   * Synchro terminée dans la page (port de lecture : lecture jusqu'au bout, raccourci) : page relue, et ses échos (fiche de
+   * l'onglet réécrite par le service worker) regroupés sans être comptés dans le plafond des relectures automatiques
+   */
+  synced(): void;
   /** Recharge la fiche de la page affichée sans cache (« Réessayer ») */
   retry(): void;
   /** Retour affiché (null : action refusée, une autre est en cours, ou page quittée pendant l'envoi) */
@@ -114,6 +119,12 @@ const FOLLOW_UP_RETRY_MS = 1_000;
  */
 export const AUTO_REDETECT_MIN_INTERVAL_MS = 2_000;
 export const AUTO_REDETECT_MAX_PER_MINUTE = 5;
+/**
+ * Échos d'une action de l'utilisateur (+1 / −1, statut… dans cet écran, synchro terminée dans la page) : relectures
+ * demandées jusqu'à ce délai après l'action, regroupées mais non comptées dans le plafond (le service worker réécrit la
+ * fiche de l'onglet après une synchro, une résolution AniList pouvant prendre quelques secondes)
+ */
+export const OWN_ECHO_MS = 10_000;
 
 const NO_ACTIONS: MediaActionsState = { busy: null, confirm: null, feedback: null };
 
@@ -434,7 +445,11 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     const { page, view } = content;
     const epoch = actionEpoch;
     patchActions({ busy: mediaActionKey(request), confirm: null });
+    // Action de l'utilisateur : la fiche réécrite par le service worker ou l'autre écran n'use pas le plafond (relectures
+    // automatiques) ; fenêtre prolongée après la réponse
+    auto.expectEchoes(OWN_ECHO_MS);
     const feedback = await runMediaAction(request, view);
+    auto.expectEchoes(OWN_ECHO_MS);
     onActionDone?.();
     // Onglet ou page changés pendant l'envoi : la fiche affichée n'est plus celle de l'action, son retour est ignoré
     if (epoch !== actionEpoch) return null;
@@ -491,6 +506,10 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
       return Promise.resolve();
     },
     navigated: () => auto.navigated(),
+    synced(): void {
+      auto.expectEchoes(OWN_ECHO_MS);
+      auto.request(false);
+    },
     retry(): void {
       const page = pageOf(content);
       if (!page) return;

@@ -96,6 +96,52 @@ describe('createRedetectLimiter', () => {
     expect(runs).toEqual([false, true]);
   });
 
+  it('échos d’une action de l’utilisateur : regroupés (une toutes les 2 s) mais jamais comptés dans le plafond', () => {
+    // Régression (2026-10-15) : après quelques −1 et synchros, le panneau ne suivait plus la page
+    for (let i = 0; i < 6; i++) {
+      limiter.expectEchoes(1_000);
+      limiter.request(true);
+      limiter.request(true);
+      expect(runs).toHaveLength(2 * i + 1);
+      // Relecture reportée après la fin de la fenêtre : reste un écho
+      vi.advanceTimersByTime(2_000);
+      expect(runs).toHaveLength(2 * i + 2);
+      vi.advanceTimersByTime(2_000);
+    }
+    expect(suspended).toBe(0);
+    // Hors fenêtre : relectures automatiques toujours plafonnées
+    for (let i = 0; i < 6; i++) {
+      limiter.request(false);
+      vi.advanceTimersByTime(2_000);
+    }
+    expect(runs).toHaveLength(12 + 5);
+    expect(suspended).toBe(1);
+  });
+
+  it('écho regroupé avec une demande automatique : la relecture regroupée est comptée', () => {
+    for (let i = 0; i < 5; i++) {
+      limiter.request(false);
+      if (i < 4) vi.advanceTimersByTime(2_000);
+    }
+    // 5e relecture à l'instant : demande automatique reportée, puis un écho regroupé avec elle
+    limiter.request(false);
+    limiter.expectEchoes(5_000);
+    limiter.request(true);
+    vi.advanceTimersByTime(2_000);
+    expect(runs).toHaveLength(5);
+    expect(suspended).toBe(1);
+  });
+
+  it('reset : fenêtre des échos refermée', () => {
+    limiter.expectEchoes(60_000);
+    limiter.reset();
+    for (let i = 0; i < 6; i++) {
+      limiter.request(false);
+      vi.advanceTimersByTime(2_000);
+    }
+    expect(runs).toHaveLength(5);
+  });
+
   it('inactif (aucun onglet) : demande ignorée sans être comptée', () => {
     active = false;
     limiter.request(true);

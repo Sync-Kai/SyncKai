@@ -2,7 +2,9 @@
 // saison choisie dans la page), extrait du contrôleur de la fiche (ui/page-media-controller.ts, audit 4-§3) : au plus
 // une toutes les `minIntervalMs` (les suivantes sont regroupées et reportées) et `maxPerMinute` par minute. Au-delà,
 // plus aucune jusqu'à `reset` (changement d'URL de l'onglet, actualisation demandée) : quelle qu'en soit la cause, une
-// boucle ne peut jamais épuiser le quota de requêtes AniList (chaque résolution relit les listes).
+// boucle ne peut jamais épuiser le quota de requêtes AniList (chaque résolution relit les listes). Les échos d'une action
+// de l'utilisateur (`expectEchoes` : +1 / −1, statut… dans l'écran, synchro terminée dans la page) restent regroupés
+// mais ne sont pas comptés : quelques actions de suite ne suspendent plus le suivi de la page (2026-10-15).
 
 const MINUTE_MS = 60_000;
 
@@ -20,6 +22,12 @@ export interface RedetectLimiterOptions {
 export interface RedetectLimiter {
   /** Relecture automatique demandée : accordée, reportée (regroupée) ou ignorée (suspendue) */
   request(reresolve: boolean): void;
+  /**
+   * Action de l'utilisateur : les relectures demandées pendant `ms` sont ses échos (fiche de l'onglet réécrite par le
+   * service worker ou l'autre écran, synchro annoncée) : regroupées comme les autres, jamais comptées dans le plafond par
+   * minute. Une relecture regroupée avec une demande hors écho est comptée.
+   */
+  expectEchoes(ms: number): void;
   /** Changement d'URL, autre onglet, actualisation demandée : plafond remis à zéro, relecture reportée oubliée */
   reset(): void;
   /**
@@ -34,34 +42,39 @@ export interface RedetectLimiter {
 
 export function createRedetectLimiter(options: RedetectLimiterOptions): RedetectLimiter {
   const { minIntervalMs, maxPerMinute, run, active, onSuspend } = options;
-  /** Relectures accordées de la dernière minute */
+  /** Relectures accordées et comptées de la dernière minute (sans les échos) */
   let times: number[] = [];
+  /** Dernière relecture accordée, écho compris (intervalle minimal), null : aucune */
+  let lastAt: number | null = null;
+  /** Fin de la fenêtre des échos d'une action de l'utilisateur */
+  let echoUntil = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  /** `reresolve` cumulé de la relecture reportée, null : aucune */
-  let deferred: boolean | null = null;
+  /** Relecture reportée : `reresolve` cumulé, `echo` si toutes les demandes regroupées sont des échos ; null : aucune */
+  let deferred: { reresolve: boolean; echo: boolean } | null = null;
   let suspended = false;
 
-  function request(reresolve: boolean): void {
+  /** `echo` : demande faite dans la fenêtre des échos (relecture reportée : établi à la demande, pas à son exécution) */
+  function grant(reresolve: boolean, echo: boolean): void {
     if (!active() || suspended) return;
     const now = Date.now();
     times = times.filter((at) => now - at < MINUTE_MS);
-    const last = times.at(-1);
-    if (last !== undefined && now - last < minIntervalMs) {
-      deferred = (deferred ?? false) || reresolve;
+    if (lastAt !== null && now - lastAt < minIntervalMs) {
+      deferred = deferred === null ? { reresolve, echo } : { reresolve: deferred.reresolve || reresolve, echo: deferred.echo && echo };
       timer ??= setTimeout(() => {
         timer = undefined;
-        const pending = deferred ?? false;
+        const pending = deferred;
         deferred = null;
-        request(pending);
-      }, last + minIntervalMs - now);
+        if (pending) grant(pending.reresolve, pending.echo);
+      }, lastAt + minIntervalMs - now);
       return;
     }
-    if (times.length >= maxPerMinute) {
+    if (!echo && times.length >= maxPerMinute) {
       suspended = true;
       onSuspend?.();
       return;
     }
-    times.push(now);
+    if (!echo) times.push(now);
+    lastAt = now;
     run(reresolve);
   }
 
@@ -70,16 +83,21 @@ export function createRedetectLimiter(options: RedetectLimiterOptions): Redetect
     timer = undefined;
     deferred = null;
     times = [];
+    lastAt = null;
+    echoUntil = 0;
     suspended = false;
   }
 
   return {
-    request,
+    request: (reresolve) => grant(reresolve, Date.now() < echoUntil),
+    expectEchoes(ms: number): void {
+      echoUntil = Math.max(echoUntil, Date.now() + ms);
+    },
     reset,
     navigated(): void {
       times = times.slice(-1);
       suspended = false;
-      request(deferred ?? false);
+      grant(deferred?.reresolve ?? false, Date.now() < echoUntil);
     },
     dispose: reset,
   };

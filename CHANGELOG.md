@@ -72,6 +72,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - A saved match that counts episodes within the season could be applied to the episode number shown on the page when the page did not say which episode of the season it was: on a season Crunchyroll numbers from the start of the series (Kaiju No. 8 season 2, shown as E23 for its 11th episode), 23 could be written to an entry still airing. Without the episode's place in its season, the saved match is now kept but not used, and the episode is matched again (or goes to *To check*).
 - Firefox: SyncKai now also checks the page address every second, so moving to another episode inside a streaming site is noticed even if the browser does not report the site's own navigation to the extension.
 - The sync result shown in a background tab no longer disappears before you come back to the tab: its delay starts once the tab is visible.
+- Popup and side panel: after a few −1, status changes or syncs in a row (Alt+Shift+K), the card stopped following the page (a later episode, a season picked in the page) until *Refresh*; the updates that follow your own actions no longer count towards the limit of automatic re-reads.
 
 ### Security
 

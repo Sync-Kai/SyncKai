@@ -42,8 +42,8 @@ describe('fiche du panneau : lecture partielle et suivi en direct', () => {
   });
 
   it('synchro terminée : page relue (la fiche arrive par le cache de l’onglet)', () => {
-    expect(liveEventRead(pageMediaFromEpisode(complete), { type: 'synced' })).toBe('redetect');
-    expect(liveEventRead(pageMediaFromEpisode(fromDom), { type: 'synced' })).toBe('redetect');
+    expect(liveEventRead(pageMediaFromEpisode(complete), { type: 'synced' })).toBe('synced');
+    expect(liveEventRead(pageMediaFromEpisode(fromDom), { type: 'synced' })).toBe('synced');
   });
 
   it('épisode annoncé par la page : relu s’il diffère ou si la fiche vient d’une lecture partielle', () => {

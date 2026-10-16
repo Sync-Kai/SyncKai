@@ -46,15 +46,16 @@ export type LiveEvent = { type: 'page'; episodeId: string | null } | { type: 'sy
  * Relecture de la page de l'onglet due à un événement du port :
  * - `navigate` : saison choisie dans le menu d'une page de série (sans changement d'URL), relue comme une navigation
  *   (plafond des relectures automatiques remis à zéro : le panneau suit le menu quel que soit le nombre de choix) ;
- * - `redetect` : relecture automatique, plafonnée (AUTO_REDETECT_*). Synchro terminée (la page a pu se compléter ; la
- *   fiche elle-même arrive par le cache de l'onglet). Épisode annoncé qui diffère de la fiche (navigation SPA) ou fiche
- *   d'une lecture partielle. Port ouvert sur une page de série : une saison choisie entre la lecture de la page et la
- *   connexion du port n'est signalée par aucun événement (la page prend sa référence à la connexion) ;
+ * - `synced` : synchro terminée (la page a pu se compléter ; la fiche elle-même arrive par le cache de l'onglet), relue
+ *   comme une action de l'utilisateur : ses échos ne sont pas comptés dans le plafond (OWN_ECHO_MS) ;
+ * - `redetect` : relecture automatique, plafonnée (AUTO_REDETECT_*). Épisode annoncé qui diffère de la fiche (navigation
+ *   SPA) ou fiche d'une lecture partielle. Port ouvert sur une page de série : une saison choisie entre la lecture de la
+ *   page et la connexion du port n'est signalée par aucun événement (la page prend sa référence à la connexion) ;
  * - null : rien à relire.
  */
-export function liveEventRead(shown: PageMediaInfo | null, event: LiveEvent): 'navigate' | 'redetect' | null {
+export function liveEventRead(shown: PageMediaInfo | null, event: LiveEvent): 'navigate' | 'synced' | 'redetect' | null {
   if (event.type === 'season') return 'navigate';
-  if (event.type === 'synced') return 'redetect';
+  if (event.type === 'synced') return 'synced';
   if (event.episodeId === null) return shown?.kind === 'series' ? 'redetect' : null;
   return !shown || shown.episode?.episodeId !== event.episodeId || isPartialEpisodePage(shown) ? 'redetect' : null;
 }
