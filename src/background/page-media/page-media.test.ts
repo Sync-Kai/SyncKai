@@ -645,3 +645,43 @@ describe('refreshTabPageMedia — fiche de l’onglet après la synchro (PERF-07
     expect(resolved()).toBe(false);
   });
 });
+
+// ─── L4 : correspondances modifiées pendant que la résolution de la page est gardée en mémoire ───
+
+describe('resolvePageMedia — résolution oubliée quand les correspondances changent (L4)', () => {
+  const ignored = { result: { ok: false, reason: 'x', ignored: true }, candidates: [], seasons: [], seasonGroups: [] };
+  const mapping = { mediaId: 21, numbering: 'season' as const, offset: 0, episodes: 12 };
+  const read = (): Promise<unknown> => resolvePageMedia({ page: page(), mediaId: null });
+
+  beforeEach(() => resolver.resolveEpisode.mockResolvedValue(ignored));
+
+  it('écriture faite dans le service worker (import, migration, apprentissage) : la page est résolue de nouveau', async () => {
+    const { deleteMediaMappingsByPrefix, saveMediaMappingsIfAbsent } = await import('../../browser/storage/mappings');
+    await read();
+    await read();
+    expect(resolver.resolveEpisode).toHaveBeenCalledTimes(1);
+    // Aucune correspondance retirée : la résolution en mémoire reste
+    await deleteMediaMappingsByPrefix('netflix:');
+    await read();
+    expect(resolver.resolveEpisode).toHaveBeenCalledTimes(1);
+    await saveMediaMappingsIfAbsent([{ key: 'netflix:81991749:s1', mapping }]);
+    await read();
+    expect(resolver.resolveEpisode).toHaveBeenCalledTimes(2);
+    await deleteMediaMappingsByPrefix('netflix:');
+    await read();
+    expect(resolver.resolveEpisode).toHaveBeenCalledTimes(3);
+  });
+
+  it('résolution partie avant l’écriture, finie après : jamais gardée (elle a pu lire l’ancienne correspondance)', async () => {
+    const { saveMediaMappingsIfAbsent } = await import('../../browser/storage/mappings');
+    let finish: (value: typeof ignored) => void = () => undefined;
+    resolver.resolveEpisode.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    const pending = read();
+    await vi.waitFor(() => expect(resolver.resolveEpisode).toHaveBeenCalledTimes(1));
+    await saveMediaMappingsIfAbsent([{ key: 'netflix:81991749:s1', mapping }]);
+    finish(ignored);
+    await pending;
+    await read();
+    expect(resolver.resolveEpisode).toHaveBeenCalledTimes(2);
+  });
+});

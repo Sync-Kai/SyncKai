@@ -15,7 +15,7 @@ vi.mock('../anilist/media', () => api);
 const fake = installFakeChrome();
 const { belongsToOtherSeries, markOtherSeriesPurgePending, purgeOtherSeriesMappings, runPendingOtherSeriesPurge, seriesSlugFromLabel, slugFromTitle } =
   await import('./mapping-purge');
-const { saveMediaMapping } = await import('../../browser/storage/mappings');
+const { saveChosen } = await import('../../browser/storage/mappings');
 
 const SHIPPUDEN = 'GYQ4MW246';
 const NARUTO_SERIES = 'GY9VWW3XY';
@@ -184,12 +184,12 @@ describe('purgeOtherSeriesMappings', () => {
     fake.local.seed({ [STORAGE_KEYS.mediaMappings]: { [key]: mapping(20, 'Naruto Shippuden · S1') } });
     api.getAnimeByIds.mockImplementation(async (ids) => {
       // L'utilisateur choisit Shippuden pendant la requête
-      await saveMediaMapping(key, mapping(1735, 'Naruto Shippuden · S1'));
+      await saveChosen(key, mapping(1735, 'Naruto Shippuden · S1'));
       return ids.map(media);
     });
 
     expect(await purgeOtherSeriesMappings()).toBe(0);
-    expect(storedMappings()[key]).toEqual(mapping(1735, 'Naruto Shippuden · S1'));
+    expect(storedMappings()[key]).toEqual({ ...mapping(1735, 'Naruto Shippuden · S1'), chosen: true });
   });
 
   it('entrées illisibles conservées', async () => {

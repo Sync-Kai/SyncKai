@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { withOrigin, type MappingOrigin, type MediaMapping } from '../../../shared/sync.types';
 import { setLocale } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
 import { platformSeriesKey } from '../../../browser/storage/exclusions-read';
@@ -8,9 +9,13 @@ import type { MediaCandidate } from './matching';
 // Prime Video (catalogue généraliste, filtre « anime » par genre côté script de contenu, liens AniList rares) :
 // résolution par le titre comme Crunchyroll / ADN pour un anime, titre exact exigé pour l'animation sans piste japonaise.
 const storage = vi.hoisted(() => {
-  const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
-  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus
-  return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
+  const mock = { getMediaMapping: vi.fn(), saved: vi.fn(), forgotten: vi.fn() };
+  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus, origine posée comme saveLearned
+  return {
+    ...mock,
+    saveLearned: vi.fn((key: string, _expected: unknown, mapping: MediaMapping, origin: MappingOrigin = 'learned') => mock.saved(key, withOrigin(mapping, origin))),
+    forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
+  };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../../browser/storage/mappings', () => storage);
@@ -70,7 +75,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('chrome', {});
   storage.getMediaMapping.mockResolvedValue(null);
-  storage.saveMediaMapping.mockResolvedValue(undefined);
+  storage.saved.mockResolvedValue(undefined);
   api.getAnimeByIds.mockResolvedValue([]);
 });
 
@@ -161,7 +166,7 @@ describe('resolveEpisode — Prime Video', () => {
     searchResults({ 'Tokyo Ghoul': [media({ id: 20605, titles: ['Tokyo Ghoul', '東京喰種トーキョーグール'] })] });
     const { result } = await resolveEpisode(primeEpisode());
     expect(result).toMatchObject({ ok: true, target: { mediaId: 20605, progress: 3, confidence: 'high' } });
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith('prime:title:tokyo ghoul:s1', expect.objectContaining({ mediaId: 20605 }));
+    expect(storage.saved).toHaveBeenCalledWith('prime:title:tokyo ghoul:s1', expect.objectContaining({ mediaId: 20605 }));
   });
 
   it('animation + piste japonaise : résolution normale ; saison 2 par le titre « Season 2 » d’AniList', async () => {
@@ -211,7 +216,7 @@ describe('resolveEpisode — Prime Video', () => {
     searchResults({ Invincible: [media({ id: 999, titles: ['Invincible Season 2'] }), media({ id: 998, titles: ['The Invincible Ones'] })] });
     const { result } = await resolveEpisode(primeEpisode({ primeAnime: 'animation-exact-only', animeTitle: 'Invincible' }));
     expect(result).toMatchObject({ ok: false, ignored: true });
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('verdict absent (défensif) : ignoré sans aucune recherche', async () => {
@@ -273,14 +278,14 @@ describe('remakes au même titre liés chacun à Prime Video (audit H2)', () => 
     remakes();
     const { result } = await resolveEpisode(primeEpisode({ animeTitle: 'Foo', seasonNumber: 1 }));
     expect(result).toMatchObject({ ok: true, target: { mediaId: 1, progress: 3, confidence: 'low' } });
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('année de la saison : le remake prouvé par les signaux, synchronisé', async () => {
     remakes();
     const { result } = await resolveEpisode(primeEpisode({ animeTitle: 'Foo', seasonNumber: 1, signals: { seasonYear: 2016 } }));
     expect(result).toMatchObject({ ok: true, target: { mediaId: 2, progress: 3, confidence: 'high', bySignals: true } });
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith('prime:title:foo:y2016:s1', expect.objectContaining({ mediaId: 2, learned: true }));
+    expect(storage.saved).toHaveBeenCalledWith('prime:title:foo:y2016:s1', expect.objectContaining({ mediaId: 2, learned: true }));
   });
 
   it('une seule franchise (suite déclarée) liée en plusieurs saisons : inchangé, fiable', async () => {

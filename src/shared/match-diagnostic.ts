@@ -1,5 +1,6 @@
 import { isRecord } from './guards';
 import type { PlatformSignals } from './match-signals';
+import type { MappingOrigin } from './sync.types';
 import type { StreamingPlatform } from '../platforms/registry';
 import { sessionArea } from '../browser/storage/session-cache';
 import { MATCH_DIAGNOSTIC_KEY } from '../protocol/storage-keys';
@@ -32,9 +33,6 @@ export interface DiagnosticCandidate {
   /** Signaux comparés au groupe de saison du candidat (à la fiche seule hors groupe) */
   checks: Partial<Record<DiagnosticSignal, DiagnosticCheck>>;
 }
-
-/** Origine d'une correspondance en cache (sync.types.ts › MediaMapping) */
-export type MappingOrigin = 'learned' | 'chosen' | 'unmarked';
 
 export interface MatchDecision {
   at: number;

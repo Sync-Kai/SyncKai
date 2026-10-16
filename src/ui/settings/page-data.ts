@@ -4,11 +4,12 @@ import { t, tp } from '../../i18n';
 import { includeSeries } from '../../browser/storage/exclusions-store';
 import { type ExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../browser/logger';
-import { clearMediaMappings, deleteMediaMapping } from '../../browser/storage/mappings';
+import { clearMediaMappings, forgetMapping } from '../../browser/storage/mappings';
 import type { MediaMapping } from '../../shared/sync.types';
 import { renderAlert } from '../alert';
 import { BACKUP_EXPORT_PARAM, BACKUP_PAGE, downloadBackup } from '../backup-download';
 import { BTN_GHOST, CARD, LINK } from '../kit';
+import { notifyMappingsChanged } from '../worker-call';
 import { platformIcon } from '../brand-icons';
 import type { ImportPlatform } from '../../shared/cr-import';
 import { PLATFORMS } from '../../platforms/registry';
@@ -47,6 +48,8 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
     try {
       await action();
       mappingsActionError = null;
+      // Résolutions de page gardées en mémoire par le service worker : oubliées (L4)
+      void notifyMappingsChanged();
     } catch (error: unknown) {
       log.error('Modification des correspondances impossible :', error);
       mappingsActionError = t('settings.mappings.saveFailed');
@@ -114,7 +117,7 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
           {
             class: `${BTN_GHOST} text-danger`,
             attrs: { type: 'button', 'aria-label': t('settings.mappings.forgetAria', { label }), title: t('settings.mappings.forgetTitle'), 'data-focus': `forget-${key}` },
-            on: { click: () => void runMappingAction(() => deleteMediaMapping(key)) },
+            on: { click: () => void runMappingAction(() => forgetMapping(key)) },
           },
           t('settings.mappings.forget'),
         ),

@@ -1,13 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { withOrigin, type MappingOrigin, type MediaMapping } from '../../shared/sync.types';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { AniListMedia } from '../anilist/media';
 
 // Mise en cache des correspondances selon le filtre Netflix (stockage et API AniList simulés).
 const storage = vi.hoisted(() => {
-  const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
-  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus
-  return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
+  const mock = { getMediaMapping: vi.fn(), saved: vi.fn(), forgotten: vi.fn() };
+  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus, origine posée comme saveLearned
+  return {
+    ...mock,
+    saveLearned: vi.fn((key: string, _expected: unknown, mapping: MediaMapping, origin: MappingOrigin = 'learned') => mock.saved(key, withOrigin(mapping, origin))),
+    forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
+  };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 
@@ -68,7 +73,7 @@ beforeEach(() => {
   session.clear();
   vi.stubGlobal('chrome', { storage: { session: sessionArea } });
   storage.getMediaMapping.mockResolvedValue(null);
-  storage.saveMediaMapping.mockResolvedValue(undefined);
+  storage.saved.mockResolvedValue(undefined);
   api.getAnimeByIds.mockResolvedValue([]);
 });
 
@@ -82,28 +87,28 @@ describe('resolveEpisode — Netflix', () => {
     api.searchAnime.mockResolvedValue([media({ id: 154587, titles: ['Sousou no Frieren', 'Frieren'], externalLinkUrls: [`https://www.netflix.com/be-fr/title/${SHOW_ID}`] })]);
     const { result } = await resolveEpisode(netflixEpisode());
     expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3, confidence: 'high' } });
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith(`netflix:${SHOW_ID}:s1`, expect.objectContaining({ mediaId: 154587 }));
+    expect(storage.saved).toHaveBeenCalledWith(`netflix:${SHOW_ID}:s1`, expect.objectContaining({ mediaId: 154587 }));
   });
 
   it('titre seul (même titre, aucun lien Netflix) : à vérifier, jamais mis en cache', async () => {
     api.searchAnime.mockResolvedValue([media({ id: 154587, titles: ['Sousou no Frieren', 'Frieren'], externalLinkUrls: ['https://www.crunchyroll.com/series/GG5H5XQX4'] })]);
     const { result } = await resolveEpisode(netflixEpisode());
     expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, confidence: 'low' } });
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('ni lien ni titre identique : série ignorée, rien en cache', async () => {
     api.searchAnime.mockResolvedValue([media({ id: 1, titles: ['Wednesday Addams Special'] })]);
     const { result } = await resolveEpisode(netflixEpisode({ animeTitle: 'Wednesday' }));
     expect(result).toMatchObject({ ok: false, ignored: true });
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('Crunchyroll : titre seul fiable (saison 1) toujours mis en cache', async () => {
     api.searchAnime.mockResolvedValue([media({ id: 154587, titles: ['Frieren'] })]);
     const { result } = await resolveEpisode(netflixEpisode({ platform: 'crunchyroll', seriesId: 'GG5H5XQX4' }));
     expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, confidence: 'high' } });
-    expect(storage.saveMediaMapping).toHaveBeenCalledOnce();
+    expect(storage.saved).toHaveBeenCalledOnce();
   });
 
   describe('verdict « série ignorée » mémorisé par le service worker', () => {
@@ -199,17 +204,17 @@ describe('resolveEpisode — correspondance en cache', () => {
     expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } });
     expect(api.searchAnime).not.toHaveBeenCalled();
     expect(api.getAnimeByIds).not.toHaveBeenCalled();
-    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.forgotten).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('épisode au-delà de la fiche en cache (persist) : correspondance supprimée puis nouvelle résolution', async () => {
     const { result } = await resolveEpisode(crunchyrollEpisode({ seasonEpisodeNumber: 13, displayedEpisodeNumber: 13 }));
-    expect(storage.deleteMediaMapping).toHaveBeenCalledWith(KEY);
+    expect(storage.forgotten).toHaveBeenCalledWith(KEY);
     expect(api.searchAnime).toHaveBeenCalled();
-    expect(storage.deleteMediaMapping.mock.invocationCallOrder[0]).toBeLessThan(api.searchAnime.mock.invocationCallOrder[0] ?? 0);
+    expect(storage.forgotten.mock.invocationCallOrder[0]).toBeLessThan(api.searchAnime.mock.invocationCallOrder[0] ?? 0);
     expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 13 } });
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith(KEY, expect.objectContaining({ mediaId: 154587, episodes: 28 }));
+    expect(storage.saved).toHaveBeenCalledWith(KEY, expect.objectContaining({ mediaId: 154587, episodes: 28 }));
   });
 
   it('choix de l’utilisateur (Part 2 pour E13+) et épisode antérieur revu : correspondance gardée, résolution sans écriture', async () => {
@@ -217,16 +222,16 @@ describe('resolveEpisode — correspondance en cache', () => {
     const { result } = await resolveEpisode(crunchyrollEpisode({ seasonEpisodeNumber: 3, displayedEpisodeNumber: 3 }));
     expect(api.searchAnime).toHaveBeenCalled();
     expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3 } });
-    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.forgotten).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('même cas en lecture seule (persist: false) : ni suppression ni écriture', async () => {
     const { result } = await resolveEpisode(crunchyrollEpisode({ seasonEpisodeNumber: 13, displayedEpisodeNumber: 13 }), { persist: false });
     expect(api.searchAnime).toHaveBeenCalled();
     expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 13 } });
-    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.forgotten).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   describe('correspondance importée d’une sauvegarde, à revérifier (BAK-02)', () => {
@@ -241,13 +246,13 @@ describe('resolveEpisode — correspondance en cache', () => {
       const { result } = await resolveEpisode(crunchyrollEpisode());
       expect(api.getAnimeByIds).toHaveBeenCalledWith([154587], 'interactive');
       expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3, confidence: 'high', fromCache: true } });
-      expect(storage.saveMediaMapping).toHaveBeenCalledWith(KEY, { mediaId: 154587, numbering: 'season', offset: 0, episodes: 28 });
+      expect(storage.saved).toHaveBeenCalledWith(KEY, { mediaId: 154587, numbering: 'season', offset: 0, episodes: 28 });
       expect(api.searchAnime).not.toHaveBeenCalled();
     });
 
     it('fiche introuvable : correspondance retirée, nouvelle résolution', async () => {
       const { result } = await resolveEpisode(crunchyrollEpisode());
-      expect(storage.deleteMediaMapping).toHaveBeenCalledWith(KEY);
+      expect(storage.forgotten).toHaveBeenCalledWith(KEY);
       expect(api.searchAnime).toHaveBeenCalled();
       expect(result).toMatchObject({ ok: true, target: { mediaId: 154587, progress: 3 } });
     });
@@ -256,7 +261,7 @@ describe('resolveEpisode — correspondance en cache', () => {
       storage.getMediaMapping.mockResolvedValue({ ...imported, numbering: 'displayed', offset: -500 });
       api.getAnimeByIds.mockResolvedValue([media({ id: 154587, titles: ['Frieren'], episodes: 28 })]);
       const { result } = await resolveEpisode(crunchyrollEpisode());
-      expect(storage.deleteMediaMapping).toHaveBeenCalledWith(KEY);
+      expect(storage.forgotten).toHaveBeenCalledWith(KEY);
       expect(result).toMatchObject({ ok: true, target: { progress: 3 } });
     });
 
@@ -264,7 +269,7 @@ describe('resolveEpisode — correspondance en cache', () => {
       api.getAnimeByIds.mockResolvedValue([media({ id: 154587, titles: ['Frieren'], episodes: 28 })]);
       const { result } = await resolveEpisode(crunchyrollEpisode(), { persist: false });
       expect(result).toMatchObject({ ok: true, target: { progress: 3, confidence: 'high' } });
-      expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+      expect(storage.saved).not.toHaveBeenCalled();
     });
   });
 });
@@ -337,7 +342,7 @@ describe('resolveEpisode — propagation des relations SEQUEL / PREQUEL', () => 
     it('S1 E5 → Shippuden épisode 5, jamais Naruto (ni en cache)', async () => {
       const { result } = await resolveEpisode(shippudenEpisode({ seasonNumber: 1, seasonEpisodeNumber: 5, displayedEpisodeNumber: 5 }));
       expect(result).toMatchObject({ ok: true, target: { mediaId: 1735, progress: 5 } });
-      expect(storage.saveMediaMapping).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ mediaId: 20 }));
+      expect(storage.saved).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ mediaId: 20 }));
     });
 
     it('S2 E3 affiché E35 → Shippuden épisode 35', async () => {
@@ -388,7 +393,7 @@ describe('resolveEpisode — propagation des relations SEQUEL / PREQUEL', () => 
     it('S1 E5 → Shippuden (liée par son slug), confiance haute, jamais Naruto', async () => {
       const { result } = await resolveEpisode(shippudenEpisode({ seasonNumber: 1, seasonEpisodeNumber: 5, displayedEpisodeNumber: 5 }));
       expect(result).toMatchObject({ ok: true, target: { mediaId: 1735, progress: 5, confidence: 'high' } });
-      expect(storage.saveMediaMapping).toHaveBeenCalledWith('crunchyroll:GYQ4MW246:s1', expect.objectContaining({ mediaId: 1735 }));
+      expect(storage.saved).toHaveBeenCalledWith('crunchyroll:GYQ4MW246:s1', expect.objectContaining({ mediaId: 1735 }));
     });
 
     it('S2 E3 affiché E35 → Shippuden épisode 35, jamais Naruto', async () => {
@@ -426,7 +431,7 @@ describe('resolveEpisode — propagation des relations SEQUEL / PREQUEL', () => 
       const { result } = await resolveEpisode(fooEpisode(season));
       expect(result).not.toMatchObject({ ok: true, target: { confidence: 'high' } });
     }
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('Bleach TYBW (aucun lien Crunchyroll, relations seules) : inchangé, fiche au titre de la série', async () => {

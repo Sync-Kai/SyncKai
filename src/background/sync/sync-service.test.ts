@@ -61,7 +61,9 @@ const { resolveReview, shouldPromptRating, syncEpisode } = await import('./sync-
 const { recordSyncOutcome } = await import('./queue');
 const { confirmReview, ignoreReview } = await import('./review-decision');
 const { mappingKey } = await import('./matching/matching');
-const { getMediaMapping, saveMediaMapping } = await import('../../browser/storage/mappings');
+const { getMediaMapping, saveChosen, saveMediaMappingsIfAbsent } = await import('../../browser/storage/mappings');
+/** Correspondance semée telle quelle (stockage vide) */
+const seedMapping = (key: string, mapping: MediaMapping): Promise<number> => saveMediaMappingsIfAbsent([{ key, mapping }]);
 const { getPendingReviews, savePendingReview } = await import('../../browser/storage/reviews');
 const { getSyncQueue } = await import('../../browser/storage/sync-queue-store');
 const { platformSeriesKey } = await import('../../shared/exclusions');
@@ -362,7 +364,7 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
   it('episodes:null puis « Part 2 » publiée : correspondance oubliée et épisode écrit sur la Part 2', async () => {
     connect({ status: 'COMPLETED', progress: 12 });
     anilist.entries.set(PART2, { status: 'CURRENT', progress: 0 });
-    await saveMediaMapping(KEY, cachedMapping);
+    await seedMapping(KEY, cachedMapping);
     // Cache (fiche Part 1, épisode 13), puis nouvelle résolution : Part 2, épisode 1
     fakes.resolutions = [resolved(PART1, 13, { ...cachedMapping, fromCache: true }), resolved(PART2, 1)];
 
@@ -375,7 +377,7 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
 
   it('episodes:null et épisode dans la fiche : total complété dans la correspondance', async () => {
     connect({ status: 'CURRENT', progress: 4 });
-    await saveMediaMapping(KEY, cachedMapping);
+    await seedMapping(KEY, cachedMapping);
     fakes.resolutions = [resolved(PART1, 5, { ...cachedMapping, fromCache: true })];
 
     await syncEpisode(episode(5));
@@ -386,7 +388,7 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
 
   it('total complété : origine de la correspondance (choisie) conservée', async () => {
     connect({ status: 'CURRENT', progress: 4 });
-    await saveMediaMapping(KEY, { ...cachedMapping, chosen: true });
+    await saveChosen(KEY, cachedMapping);
     fakes.resolutions = [resolved(PART1, 5, { ...cachedMapping, chosen: true, fromCache: true })];
 
     await syncEpisode(episode(5));
@@ -395,12 +397,12 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
 
   it('choix enregistré pendant la requête au catalogue : jamais remplacé par le total complété (écriture conditionnelle)', async () => {
     connect({ status: 'CURRENT', progress: 4 });
-    await saveMediaMapping(KEY, cachedMapping);
+    await seedMapping(KEY, cachedMapping);
     const choice: MediaMapping = { mediaId: PART2, numbering: 'season', offset: 0, episodes: 12, chosen: true };
     const fetchCatalog = fakes.getAnimeByIds;
     fakes.getAnimeByIds = async (ids: readonly number[]): Promise<AniListMedia[]> => {
       // L'utilisateur choisit une autre saison dans le sélecteur pendant la requête
-      await saveMediaMapping(KEY, choice);
+      await saveChosen(KEY, choice);
       return fetchCatalog(ids);
     };
     fakes.resolutions = [resolved(PART1, 5, { ...cachedMapping, fromCache: true })];
@@ -412,7 +414,7 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
   it('choix de l’utilisateur et « Part 2 » publiée : correspondance gardée (total corrigé), épisode résolu à nouveau', async () => {
     connect({ status: 'COMPLETED', progress: 12 });
     anilist.entries.set(PART2, { status: 'CURRENT', progress: 0 });
-    await saveMediaMapping(KEY, { ...cachedMapping, chosen: true });
+    await saveChosen(KEY, cachedMapping);
     fakes.resolutions = [resolved(PART1, 13, { ...cachedMapping, chosen: true, fromCache: true }), resolved(PART2, 1)];
 
     const outcome = await syncEpisode(episode(13));
@@ -425,7 +427,7 @@ describe('correspondance en cache revalidée avec le catalogue (SYNC-05, SYNC-06
     connect({ status: 'CURRENT', progress: 4 });
     anilist.entries.set(PART2, { status: 'CURRENT', progress: 4 });
     catalog.delete(PART1);
-    await saveMediaMapping(KEY, { ...cachedMapping, episodes: 12 });
+    await seedMapping(KEY, { ...cachedMapping, episodes: 12 });
     fakes.resolutions = [resolved(PART1, 5, { ...cachedMapping, episodes: 12, fromCache: true }), resolved(PART2, 5)];
 
     const outcome = await syncEpisode(episode(5));

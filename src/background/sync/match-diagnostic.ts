@@ -4,13 +4,12 @@ import {
   MATCH_DIAGNOSTIC_MAX_CANDIDATES,
   readMatchDecisions,
   type DiagnosticCandidate,
-  type MappingOrigin,
   type MatchDecision,
 } from '../../shared/match-diagnostic';
 import { createLogger } from '../../browser/logger';
 import { sessionArea } from '../../browser/storage/session-cache';
 import { MATCH_DIAGNOSTIC_KEY } from '../../protocol/storage-keys';
-import type { MediaMapping } from '../../shared/sync.types';
+import { mappingOrigin, type MediaMapping } from '../../shared/sync.types';
 import type { RequestLane } from '../rate-limit';
 import { candidateSignalChecks, type CachedMappingVerdict, type MediaCandidate, type ResolveResult } from './matching/matching';
 
@@ -30,8 +29,6 @@ export interface DecisionInput {
   result: ResolveResult;
   mapping?: { mapping: MediaMapping; verdict: CachedMappingVerdict['kind'] } | null;
 }
-
-export const mappingOrigin = (mapping: MediaMapping): MappingOrigin => (mapping.chosen === true ? 'chosen' : mapping.learned === true ? 'learned' : 'unmarked');
 
 /** Décision réduite à ce qui sert à un cas du corpus (pur, testable) */
 export function toMatchDecision({ episode, key, lane, source, candidates, result, mapping = null }: DecisionInput, at: number): MatchDecision {

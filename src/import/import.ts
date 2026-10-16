@@ -7,6 +7,7 @@ import { renderAlert } from '../ui/alert';
 import { alertAttrs } from '../ui/live-region';
 import { BTN_GHOST, BTN_PRIMARY, CARD } from '../ui/kit';
 import { BACKUP_EXPORT_PARAM, downloadBackup } from '../ui/backup-download';
+import { notifyMappingsChanged } from '../ui/worker-call';
 import { createLogger } from '../browser/logger';
 
 const log = createLogger('import');
@@ -100,6 +101,8 @@ async function runImport(): Promise<void> {
   setState(applying);
   try {
     await applyBackup(current.parsed.backup.data, current.mode, current.includeSettings);
+    // Correspondances restaurées : résolutions de page gardées en mémoire par le service worker oubliées (L4)
+    void notifyMappingsChanged();
     // Résultat appliqué seulement si la page n'a pas changé d'état entre-temps (UI-07)
     if (state === applying) setState({ kind: 'done' });
   } catch (error: unknown) {

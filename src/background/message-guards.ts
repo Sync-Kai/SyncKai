@@ -60,6 +60,8 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   DECLINE_REWATCH: 'content',
   CHECK_AIRING: 'extension',
   RESOLVE_PAGE_MEDIA: 'extension',
+  // Réglages › Mes données (« Oublier », tout réinitialiser) et page Sauvegarde (restauration)
+  MAPPINGS_CHANGED: 'extension',
   ADD_TO_LIST: 'extension',
   COMPARE_LISTS: 'extension',
   APPLY_DIFFS: 'extension',
@@ -163,6 +165,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   DECLINE_REWATCH: isMediaPayload,
   CHECK_AIRING: isNull,
   RESOLVE_PAGE_MEDIA: isResolvePageMediaPayload,
+  MAPPINGS_CHANGED: isNull,
   ADD_TO_LIST: isAddToListPayload,
   COMPARE_LISTS: isNull,
   APPLY_DIFFS: isApplyDiffsPayload,

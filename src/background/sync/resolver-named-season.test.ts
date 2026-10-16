@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { withOrigin, type MappingOrigin, type MediaMapping } from '../../shared/sync.types';
 import { setLocale } from '../../i18n';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { AniListMedia } from '../anilist/media';
@@ -16,9 +17,13 @@ import {
 // Saison nommée d'une page Crunchyroll qui désigne un film publié dans la série (Attack on Titan « Last Attack »),
 // sur les résultats AniList réels (voir __fixtures__/attack-on-titan-search.ts).
 const storage = vi.hoisted(() => {
-  const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
-  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus
-  return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
+  const mock = { getMediaMapping: vi.fn(), saved: vi.fn(), forgotten: vi.fn() };
+  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus, origine posée comme saveLearned
+  return {
+    ...mock,
+    saveLearned: vi.fn((key: string, _expected: unknown, mapping: MediaMapping, origin: MappingOrigin = 'learned') => mock.saved(key, withOrigin(mapping, origin))),
+    forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
+  };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../browser/storage/mappings', () => storage);
@@ -55,7 +60,7 @@ const lastAttackEpisode = (seasonNumber: number | null): EpisodeInfo => ({
 beforeEach(() => {
   vi.clearAllMocks();
   storage.getMediaMapping.mockResolvedValue(null);
-  storage.saveMediaMapping.mockResolvedValue(undefined);
+  storage.saved.mockResolvedValue(undefined);
   api.getAnimeByIds.mockResolvedValue([]);
 });
 
@@ -86,7 +91,7 @@ describe('Attack on Titan, saison Crunchyroll « Attack on Titan: Last Attack »
       const { result } = await resolveEpisode(lastAttackEpisode(seasonNumber));
       expect(result, `saison ${String(seasonNumber)}`).not.toMatchObject({ ok: true, target: { confidence: 'high' } });
     }
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 });
 
@@ -105,7 +110,7 @@ describe('Attack on Titan « Last Attack » — fiche du film présente (fiche f
       const { result } = await resolveEpisode(lastAttackEpisode(seasonNumber));
       expect(result).toMatchObject({ ok: true, target: { mediaId: LAST_ATTACK_MOVIE_ID, progress: 1, confidence: 'high' } });
     }
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith(expect.stringMatching(/^crunchyroll:GR751KNZY:s/), expect.objectContaining({ mediaId: LAST_ATTACK_MOVIE_ID }));
+    expect(storage.saved).toHaveBeenCalledWith(expect.stringMatching(/^crunchyroll:GR751KNZY:s/), expect.objectContaining({ mediaId: LAST_ATTACK_MOVIE_ID }));
   });
 
   it('deux fiches au même titre : ambigu, jamais certain', async () => {

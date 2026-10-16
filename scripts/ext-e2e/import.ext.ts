@@ -18,7 +18,7 @@ import { FakeAdnHistory, FakeCrunchyrollHistory, type AdnVideoSeed, type CrHisto
 import { FakeMal, type MalAnimeSeed } from './fake-mal';
 import { FakeSites } from './fake-sites';
 import { EXTENSION_ORIGIN, artifactsDir, startExtension, waitFor, type ExtensionHarness, type RequestHandler } from './harness';
-import { ANILIST_A, FRIEREN, MAL_A, anilistAccount, anilistMedia, expectCleanRun, malAccount, malAnime, seedMapping, seedSettings, signIn } from './seed';
+import { ANILIST_A, FRIEREN, MAL_A, anilistAccount, anilistMedia, expectCleanRun, malAccount, malAnime, seedMapping, seedSettings, seriesMappingKey, signIn } from './seed';
 
 registerCatalogs({ fr: catalogOf('fr') });
 
@@ -364,7 +364,11 @@ describe('Sauvegarde', () => {
     await seedSettings(h, { language: 'fr', completionPercentage: 90, autoSync: false });
     await signIn(h, { anilist: ANILIST_A, mal: true });
     await seedMapping(h, FRIEREN);
-    const before = await h.storage();
+    // Une correspondance apprise et une choisie : leur origine n'est jamais restaurée (fichier non fiable, shared/backup.ts)
+    const learnedKey = seriesMappingKey(FRIEREN);
+    const chosenKey = 'crunchyroll:GFRIERENCHOSEN:s2';
+    const frieren = ((await h.storage())[STORAGE_KEYS.mediaMappings] as Record<string, object>)[learnedKey];
+    await h.setStorage({ [STORAGE_KEYS.mediaMappings]: { [learnedKey]: { ...frieren, learned: true }, [chosenKey]: { ...frieren, seriesLabel: `${FRIEREN.title} · S2`, chosen: true } } });
 
     // Téléchargements du navigateur dans un dossier temporaire, hors du dépôt
     const dir = fs.mkdtempSync(path.join(artifactsDir(), 'downloads-'));
@@ -410,9 +414,12 @@ describe('Sauvegarde', () => {
       return text.includes(tl('en', 'import.done')) || text.includes(tl('fr', 'import.done'));
     });
     const after = await fresh.storage();
-    // Correspondances importées marquées « à revérifier » contre le catalogue à leur premier usage (shared/backup.ts)
-    const imported = before[STORAGE_KEYS.mediaMappings] as Record<string, object>;
-    expect(after[STORAGE_KEYS.mediaMappings]).toEqual(Object.fromEntries(Object.entries(imported).map(([key, mapping]) => [key, { ...mapping, unverified: true }])));
+    // Correspondances importées marquées « à revérifier » contre le catalogue à leur premier usage, sans leur origine
+    // (apprise, choisie : d'origine inconnue, voir shared/backup.ts)
+    expect(after[STORAGE_KEYS.mediaMappings]).toEqual({
+      [learnedKey]: { ...frieren, unverified: true },
+      [chosenKey]: { ...frieren, seriesLabel: `${FRIEREN.title} · S2`, unverified: true },
+    });
     expect(after[SETTINGS_STORAGE_KEY]).toMatchObject({ language: 'fr', completionPercentage: 90, autoSync: false });
     // Aucun compte importé
     expect(after[STORAGE_KEYS.anilistToken]).toBeUndefined();

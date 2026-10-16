@@ -102,6 +102,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     DECLINE_REWATCH: { ok: false, code: 'API_ERROR', message },
     CHECK_AIRING: { checkedAt: 0, notified: 0, skipped: null, error: message },
     RESOLVE_PAGE_MEDIA: { ok: false, code: 'API_ERROR', message },
+    MAPPINGS_CHANGED: null,
     ADD_TO_LIST: { status: 'error', message: t('error.unexpectedAdd') },
     COMPARE_LISTS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
     APPLY_DIFFS: { ok: false, code: 'API_ERROR', message: t('compare.error.unexpected') },
@@ -168,6 +169,11 @@ const handlers: MessageHandlers = {
   START_REWATCH: ({ media, progress }) => startRewatch(media, progress),
   DECLINE_REWATCH: ({ media }) => declineRewatch(media),
   RESOLVE_PAGE_MEDIA: (payload) => resolvePageMedia(payload),
+  // « Oublier », restauration d'une sauvegarde (pages) : les écritures du service worker oublient d'elles-mêmes (onMappingsWritten)
+  MAPPINGS_CHANGED: async () => {
+    forgetPageResolutions();
+    return null;
+  },
   ADD_TO_LIST: (payload) => addToList(payload),
   COMPARE_LISTS: () => compareServiceLists(),
   APPLY_DIFFS: (payload) => applyDiffs(payload),

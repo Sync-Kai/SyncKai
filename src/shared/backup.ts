@@ -9,7 +9,7 @@ import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } fr
 import type { SessionEpochs } from './session-epochs';
 import { normalizeSettings, SETTINGS_STORAGE_KEY, type SyncSettings } from './settings';
 import { MAX_PENDING_REVIEWS, MAX_RECENT_SYNCS } from '../browser/storage/reviews';
-import { isImportableMapping, isMediaMapping, type MediaMapping } from './sync.types';
+import { isImportableMapping, isMediaMapping, withOrigin, type MediaMapping } from './sync.types';
 import { isSafeImageUrl } from './url';
 
 // Sauvegarde exportable / importable (module pur, testable). Ne contient JAMAIS les tokens,
@@ -205,7 +205,7 @@ export function sectionsFromStorage(stored: Record<string, unknown>): Record<Bac
  */
 function markUnverified(mappings: Record<string, MediaMapping>): Record<string, MediaMapping> {
   return Object.fromEntries(
-    Object.entries(mappings).map(([key, { learned: _learned, chosen: _chosen, ...mapping }]) => [key, { ...mapping, unverified: true as const }]),
+    Object.entries(mappings).map(([key, mapping]) => [key, { ...withOrigin(mapping, 'unmarked'), unverified: true as const }]),
   );
 }
 

@@ -47,9 +47,10 @@ import type { Result } from '../../shared/result';
 import { sameSessions, type SessionEpochs } from '../../shared/session-epochs';
 import {
   getMediaMapping,
-  saveMediaMappingIf,
+  saveLearned,
   saveMediaMappingsIfAbsent,
 } from '../../browser/storage/mappings';
+import { mappingOrigin, withOrigin, type MappingOrigin } from '../../shared/sync.types';
 import {
   getOpenSessions,
   isSessionOpen,
@@ -221,8 +222,9 @@ async function flushApply(memory: ApplyMemory): Promise<void> {
 /** Correspondances d'éléments appliqués : ajoutées si la clé n'en a pas, ou à la place de celle que l'analyse a contredite */
 async function saveItemMappings(mappings: readonly PlanMapping[]): Promise<void> {
   await saveMediaMappingsIfAbsent(mappings.filter((m) => m.replaces === undefined));
-  // Correspondance apprise contredite par l'analyse (1-D10) : remplacée si elle n'a pas changé depuis, jamais un choix
-  for (const { key, mapping, replaces } of mappings) if (replaces) await saveMediaMappingIf(key, replaces, mapping);
+  // Correspondance apprise contredite par l'analyse (1-D10) : remplacée si elle n'a pas changé depuis, jamais un choix ;
+  // la remplaçante est toujours apprise (resolveSeason)
+  for (const { key, mapping, replaces } of mappings) if (replaces) await saveLearned(key, replaces, mapping);
 }
 
 /** Correspondances sûres de l'élément, avec le titre de la fiche (Réglages › Correspondances) */
@@ -258,10 +260,10 @@ async function resolveSeason(season: HistorySeason, platform: ImportPlatform): P
   }
   const { mediaId, numbering, offset, episodes, progress } = result.target;
   // Correspondance en cache : son origine reste (jamais écrasée, voir saveMediaMappingsIfAbsent) ; sinon apprise
-  const origin = result.target.fromCache ? { ...(cached?.learned ? { learned: true as const } : {}), ...(cached?.chosen ? { chosen: true as const } : {}) } : { learned: true as const };
+  const origin: MappingOrigin = result.target.fromCache ? (cached ? mappingOrigin(cached) : 'unmarked') : 'learned';
   // Correspondance apprise écartée par la résolution (contredite, ou qui ne s'applique plus) : remplacée à l'application
-  const replaces = !result.target.fromCache && cached?.learned === true ? { replaces: cached } : {};
-  return { kind: 'certain', key, mediaId, progress, mapping: { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...origin }, ...replaces };
+  const replaces = !result.target.fromCache && cached !== null && mappingOrigin(cached) === 'learned' ? { replaces: cached } : {};
+  return { kind: 'certain', key, mediaId, progress, mapping: withOrigin({ mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode) }, origin), ...replaces };
 }
 
 // ─── Analyse : recherches pré-chargées par lots (PERF-10) ─────────────────

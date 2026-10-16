@@ -18,9 +18,9 @@ import {
   takePendingReview,
 } from '../../browser/storage/reviews';
 import {
-  deleteMediaMappingIf,
-  saveMediaMapping,
-  saveMediaMappingIf,
+  forgetIfUnchanged,
+  saveChosen,
+  saveLearned,
 } from '../../browser/storage/mappings';
 import {
   getOpenSessions,
@@ -29,7 +29,7 @@ import {
 import { isRewatchDeclined } from '../../browser/storage/engagement-store';
 import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
 import { getSettings } from '../../browser/storage/settings-access';
-import type { ServiceResult, SyncOutcome } from '../../shared/sync.types';
+import { mappingOrigin, type ServiceResult, type SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { ApiError } from '../errors';
 import { getAnimeByIds, searchAnime } from '../anilist/media';
@@ -324,28 +324,32 @@ async function revalidateCachedTarget(key: string, target: SyncTarget): Promise<
   } catch (error: unknown) {
     if (!isNotFound(error)) throw error;
     log.warn(`Fiche ${target.mediaId} introuvable sur AniList : correspondance ${key} oubliée`);
-    await deleteMediaMappingIf(key, read);
+    await forgetIfUnchanged(key, read);
     return null;
   }
   const beyond = catalog.episodes !== null && target.progress > catalog.episodes;
   // Choix de l'utilisateur : jamais oublié, total corrigé (l'épisode, hors de la fiche, est résolu à nouveau sans l'écraser)
-  if (beyond && target.chosen !== true) {
+  if (beyond && mappingOrigin(read) !== 'chosen') {
     log.warn(`Épisode ${target.progress} au-delà des ${catalog.episodes ?? '?'} épisodes de la fiche ${target.mediaId} : correspondance ${key} oubliée`);
-    await deleteMediaMappingIf(key, read);
+    await forgetIfUnchanged(key, read);
     return null;
   }
   if (catalog.episodes !== null && (target.episodes === null || beyond)) {
-    const { mediaId, numbering, offset, seriesLabel, mediaTitle, learned, chosen } = target;
-    await saveMediaMappingIf(key, read, {
-      mediaId,
-      numbering,
-      offset,
-      episodes: catalog.episodes,
-      ...(seriesLabel !== undefined ? { seriesLabel } : {}),
-      ...(mediaTitle !== undefined ? { mediaTitle } : {}),
-      ...(learned !== undefined ? { learned } : {}),
-      ...(chosen !== undefined ? { chosen } : {}),
-    });
+    // Total complété : origine de la correspondance relue gardée (apprise, choisie ou inconnue)
+    const { mediaId, numbering, offset, seriesLabel, mediaTitle } = target;
+    await saveLearned(
+      key,
+      read,
+      {
+        mediaId,
+        numbering,
+        offset,
+        episodes: catalog.episodes,
+        ...(seriesLabel !== undefined ? { seriesLabel } : {}),
+        ...(mediaTitle !== undefined ? { mediaTitle } : {}),
+      },
+      mappingOrigin(read),
+    );
   }
   return beyond ? null : catalog;
 }
@@ -473,7 +477,7 @@ export async function resolveReview({ key, mediaId, progress }: ResolveReviewPay
     }
 
     // Choix de l'utilisateur : jamais remis en cause par les signaux de la plateforme (voir matching.ts › cachedMappingVerdict)
-    await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title, chosen: true });
+    await saveChosen(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title });
     log.info(`Correspondance manuelle enregistrée pour ${key} :`, mapping);
     // Correction sur la fiche déjà utilisée : la valeur choisie remplace celle écrite (même plus basse), seulement
     // sur un service resté à la progression écrite par la synchro corrigée (voir writeEntry)

@@ -114,6 +114,8 @@ export interface MessageMap {
   CHECK_AIRING: { payload: null; response: AiringCheckResult };
   /** Fiche AniList de la série affichée dans l'onglet actif + état dans chaque liste (lecture seule) */
   RESOLVE_PAGE_MEDIA: { payload: ResolvePageMediaPayload; response: PageMediaResult };
+  /** Correspondances modifiées par une page (« Oublier », restauration d'une sauvegarde) : résolutions de page en mémoire oubliées */
+  MAPPINGS_CHANGED: { payload: null; response: null };
   /** « À regarder » / « En cours » depuis la fiche de la page : seulement là où la série n'est pas déjà dans la liste */
   ADD_TO_LIST: { payload: AddToListPayload; response: SyncOutcome };
   /** Activité › Écarts : lit les listes complètes AniList et MAL et calcule les écarts (rien n'est écrit) */

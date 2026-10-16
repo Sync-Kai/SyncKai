@@ -3,7 +3,7 @@ import { DISNEY_ARC_SEASON, isSentPrimeAnimeVerdict, type EpisodeInfo } from '..
 import { hasSignals, type PlatformSignals } from '../../../shared/match-signals';
 import { PLATFORMS, type StreamingPlatform } from '../../../platforms/registry';
 import { parsePrimeDetailId, primeId, primeIdInLink } from '../../../platforms/prime/metadata';
-import type { MediaMapping, NumberingMode } from '../../../shared/sync.types';
+import { mappingOrigin, type MediaMapping, type NumberingMode } from '../../../shared/sync.types';
 import { normalizeTitle, titleKey, withoutDiacritics } from '../../../shared/title';
 import { groupSeasons, stripCourMarker } from './season-groups';
 import {
@@ -966,10 +966,10 @@ export type CachedMappingVerdict =
   | { kind: 'drop' | 'doubt'; signals: SignalName[]; titleGroup?: number[] };
 
 export function cachedMappingVerdict(mapping: MediaMapping, entry: ConcordanceEntry | null, signals: PlatformSignals | undefined): CachedMappingVerdict {
-  if (mapping.chosen === true || entry === null || !hasSignals(signals)) return { kind: 'keep' };
+  if (mappingOrigin(mapping) === 'chosen' || entry === null || !hasSignals(signals)) return { kind: 'keep' };
   const names = contradictingSignals(entry, signals);
   if (names.length === 0) return { kind: 'keep' };
-  return { kind: mapping.learned === true ? 'drop' : 'doubt', signals: names };
+  return { kind: mappingOrigin(mapping) === 'learned' ? 'drop' : 'doubt', signals: names };
 }
 
 /**
@@ -999,7 +999,7 @@ export function titleSeasonGroup(
  * absolue (One Piece « Elbaph ») : le titre ne choisit pas la fiche, jamais confrontée.
  */
 export function questionsByTitle(episode: Pick<EpisodeNumbers, 'animeTitle' | 'seasonTitle' | 'seasonNumber' | 'episodeTitle'>, mapping: MediaMapping): boolean {
-  if (mapping.chosen === true || mapping.numbering === 'displayed' || !episode.seasonTitle) return false;
+  if (mappingOrigin(mapping) === 'chosen' || mapping.numbering === 'displayed' || !episode.seasonTitle) return false;
   const seasonKey = normalizeTitle(episode.seasonTitle);
   return seasonKey !== '' && seasonKey !== normalizeTitle(episode.animeTitle) && seasonNumberFromTitle(episode.seasonTitle) === null && !isSpecialSeason(episode);
 }
@@ -1019,7 +1019,7 @@ export function cachedTitleVerdict(mapping: MediaMapping, episode: EpisodeNumber
   if (!questionsByTitle(episode, mapping)) return { kind: 'keep' };
   const designated = titleSeasonGroup(episode, seasonPool(candidates, episode.animeTitle));
   if (!designated || designated.group.some((c) => c.id === mapping.mediaId)) return { kind: 'keep' };
-  return { kind: mapping.learned === true ? 'drop' : 'doubt', signals: [], titleGroup: designated.group.map((c) => c.id) };
+  return { kind: mappingOrigin(mapping) === 'learned' ? 'drop' : 'doubt', signals: [], titleGroup: designated.group.map((c) => c.id) };
 }
 
 /**

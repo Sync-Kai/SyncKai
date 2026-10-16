@@ -17,9 +17,9 @@ import { hasOpenScreen } from '../../browser/open-screens';
 import { forgetTabPageMedia, isCachedEpisodeShown, readCachedPageMedia, storeCachedPageMedia } from '../../browser/storage/page-media-cache';
 import { learnPlatformLink } from '../../browser/storage/platform-links-store';
 import { pageMediaFromEpisode } from '../../shared/page-media';
-import { getMediaMapping, getMediaMappings, saveMediaMapping } from '../../browser/storage/mappings';
+import { getMediaMapping, getMediaMappings, onMappingsWritten, saveChosen } from '../../browser/storage/mappings';
 import { accountFingerprint, getOpenSessions } from '../../browser/storage/sessions';
-import type { ListStatus } from '../../shared/sync.types';
+import { mappingOrigin, type ListStatus } from '../../shared/sync.types';
 import { createLogger } from '../../browser/logger';
 import { getScoreFormat } from '../anilist/list';
 import { ApiError } from '../errors';
@@ -348,22 +348,32 @@ async function refinePageSeason(
 
 const resolutionKey = (page: PageMediaInfo, manual: number | null): string => JSON.stringify([pageSeasonKey(page), page.episode?.episodeId ?? null, manual]);
 
+/** Génération des résolutions en mémoire : une résolution partie avant un oubli (correspondance modifiée) n'est pas gardée */
+let resolutionsGeneration = 0;
+
 async function resolveSeason(page: PageMediaInfo, manual: number | null): Promise<Resolution | typeof IGNORED | null> {
   const key = resolutionKey(page, manual);
   const cached = readCache(resolutions, key);
   if (cached) return cached;
+  const generation = resolutionsGeneration;
   const resolution = page.kind === 'episode' && page.episode ? await resolveEpisodePage({ ...page, episode: page.episode }, manual) : await resolveSeriesPage(page, manual);
-  if (resolution) writeCache(resolutions, key, resolution);
+  if (resolution && generation === resolutionsGeneration) writeCache(resolutions, key, resolution);
   return resolution;
 }
 
 /**
  * Oublie les saisons résolues (pas les fiches) : après une synchro ou une vérification, la correspondance
- * mémorisée doit primer sur une résolution incertaine mise en cache avant elle.
+ * mémorisée doit primer sur une résolution incertaine mise en cache avant elle. Aussi après toute écriture des
+ * correspondances (L4) : faite dans le service worker (onMappingsWritten ci-dessous), ou par une page de l'extension
+ * (« Oublier », restauration d'une sauvegarde : message MAPPINGS_CHANGED).
  */
 export function forgetPageResolutions(): void {
+  resolutionsGeneration++;
   resolutions.clear();
 }
+
+// Import, migration, apprentissage, choix enregistré : la résolution gardée a pu lire l'ancienne correspondance
+onMappingsWritten(forgetPageResolutions);
 
 /**
  * Saison choisie dans le sélecteur d'une page de lecture (ARCH-20) : enregistrée comme correspondance de la saison
@@ -377,9 +387,9 @@ async function rememberManualSeason(episode: EpisodeInfo, media: PageMediaDetail
   const key = mappingKey(episode);
   const stored = await getMediaMapping(key);
   // Relecture avec la même saison (après une action) : correspondance déjà enregistrée, rien à réécrire
-  if (stored?.chosen && stored.mediaId === mapping.mediaId && stored.numbering === mapping.numbering && stored.offset === mapping.offset) return true;
+  if (stored !== null && mappingOrigin(stored) === 'chosen' && stored.mediaId === mapping.mediaId && stored.numbering === mapping.numbering && stored.offset === mapping.offset) return true;
   // Choix de l'utilisateur (même fiche qu'une correspondance apprise ou d'origine inconnue : marquée choisie)
-  await saveMediaMapping(key, { ...mapping, seriesLabel: seasonLabel(episode), mediaTitle: media.title, chosen: true });
+  await saveChosen(key, { ...mapping, seriesLabel: seasonLabel(episode), mediaTitle: media.title });
   log.info(`Saison choisie enregistrée pour ${key} :`, mapping);
   return true;
 }

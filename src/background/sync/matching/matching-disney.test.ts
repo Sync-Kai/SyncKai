@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { withOrigin, type MappingOrigin, type MediaMapping } from '../../../shared/sync.types';
 import { setLocale } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
 import type { AniListMedia } from '../../anilist/media';
@@ -6,9 +7,13 @@ import type { AniListMedia } from '../../anilist/media';
 // Disney+ (catalogue généraliste, aucun identifiant de série sur la page de lecture) : correspondance par le titre
 // anglais de la série, fiable seulement si la fiche AniList au même titre est liée à Disney+ (toute forme de lien).
 const storage = vi.hoisted(() => {
-  const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
-  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus
-  return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
+  const mock = { getMediaMapping: vi.fn(), saved: vi.fn(), forgotten: vi.fn() };
+  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus, origine posée comme saveLearned
+  return {
+    ...mock,
+    saveLearned: vi.fn((key: string, _expected: unknown, mapping: MediaMapping, origin: MappingOrigin = 'learned') => mock.saved(key, withOrigin(mapping, origin))),
+    forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
+  };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../../browser/storage/mappings', () => storage);
@@ -65,7 +70,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('chrome', {});
   storage.getMediaMapping.mockResolvedValue(null);
-  storage.saveMediaMapping.mockResolvedValue(undefined);
+  storage.saved.mockResolvedValue(undefined);
   api.getAnimeByIds.mockResolvedValue([]);
 });
 
@@ -119,7 +124,7 @@ describe('resolveEpisode — Disney+', () => {
     searchResults({ Ishura: [media({ id: 163024, titles: ['Ishura'], externalLinkUrls: [LEGACY_LINK] })] });
     const { result } = await resolveEpisode(disneyEpisode());
     expect(result).toMatchObject({ ok: true, target: { mediaId: 163024, progress: 3, confidence: 'high' } });
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith('disney:title:ishura:s1', expect.objectContaining({ mediaId: 163024 }));
+    expect(storage.saved).toHaveBeenCalledWith('disney:title:ishura:s1', expect.objectContaining({ mediaId: 163024 }));
   });
 
   it('fiche liée à Disney+ mais d’un autre titre (résultat de recherche voisin) : jamais une saison de la série', async () => {
@@ -132,14 +137,14 @@ describe('resolveEpisode — Disney+', () => {
     const { result } = await resolveEpisode(disneyEpisode());
     // Titre seul (la fiche « Ishura » n'est pas liée à Disney+) : à vérifier, jamais mis en cache
     expect(result).toMatchObject({ ok: true, target: { mediaId: 163024, confidence: 'low', reason: 'Trouvée par le titre seul (aucune fiche AniList liée à cette série Disney+)' } });
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('ni lien ni titre identique : série ignorée en silence (live action japonais…)', async () => {
     searchResults({ Gannibal: [media({ id: 1, titles: ['Gantz'], externalLinkUrls: [ENTITY_LINK] })] });
     const { result } = await resolveEpisode(disneyEpisode({ animeTitle: 'Gannibal' }));
     expect(result).toMatchObject({ ok: false, ignored: true });
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('saison 2 (numérotation par saison) : fiche de la saison 2, liée par son titre « Season 2 »', async () => {
@@ -151,7 +156,7 @@ describe('resolveEpisode — Disney+', () => {
     });
     const { result } = await resolveEpisode(disneyEpisode({ seasonNumber: 2, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1 }));
     expect(result).toMatchObject({ ok: true, target: { mediaId: 178000, progress: 1, confidence: 'high' } });
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith('disney:title:ishura:s2', expect.objectContaining({ mediaId: 178000 }));
+    expect(storage.saved).toHaveBeenCalledWith('disney:title:ishura:s2', expect.objectContaining({ mediaId: 178000 }));
   });
 
   it('arc en saison 99 : fiche distincte de l’arc (suite de la série), clé par arc', async () => {
@@ -174,7 +179,7 @@ describe('resolveEpisode — Disney+', () => {
     });
     const { result } = await resolveEpisode(episode);
     expect(result).toMatchObject({ ok: true, target: { mediaId: 185000, progress: 1, confidence: 'high' } });
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith('disney:title:undead unluck winter arc:s99', expect.objectContaining({ mediaId: 185000 }));
+    expect(storage.saved).toHaveBeenCalledWith('disney:title:undead unluck winter arc:s99', expect.objectContaining({ mediaId: 185000 }));
   });
 });
 
@@ -237,7 +242,7 @@ describe('remakes au même titre liés chacun à Disney+ (audit H2)', () => {
     remakes();
     const { result } = await resolveEpisode(disneyEpisode({ animeTitle: 'Foo' }));
     expect(result).toMatchObject({ ok: true, target: { mediaId: 1, progress: 3, confidence: 'low' } });
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('année de la série : le remake prouvé par les signaux, synchronisé', async () => {

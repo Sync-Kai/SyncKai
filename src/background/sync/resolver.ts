@@ -3,8 +3,8 @@ import { hasSignals } from '../../shared/match-signals';
 import type { CandidateSummary } from '../../shared/review.types';
 import { PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
 import { STREAMING_PLATFORMS } from '../../platforms/ids';
-import type { MediaMapping } from '../../shared/sync.types';
-import { deleteMediaMappingIf, getMediaMapping, saveMediaMappingIf } from '../../browser/storage/mappings';
+import { mappingOrigin, type MediaMapping } from '../../shared/sync.types';
+import { forgetIfUnchanged, getMediaMapping, saveLearned } from '../../browser/storage/mappings';
 import { getAnimeByIds, searchAnime, searchAnimeBatch, type AniListMedia } from '../anilist/media';
 import type { RequestLane } from '../rate-limit';
 import {
@@ -334,7 +334,7 @@ function candidateSignals(media: AniListMedia): Pick<MediaCandidate, 'endYear' |
  * propre ; les recherches de la série seulement si la fiche ne porte pas ce titre.
  */
 async function questionMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<{ verdict: CachedMappingVerdict; media: AniListMedia | null }> {
-  const bySignals = mapping.chosen !== true && hasSignals(episode.signals);
+  const bySignals = mappingOrigin(mapping) !== 'chosen' && hasSignals(episode.signals);
   const byTitle = questionsByTitle(episode, mapping);
   if (!bySignals && !byTitle) return { verdict: { kind: 'keep' }, media: null };
   const media = (await getAnimeByIds([mapping.mediaId], lane)).find((m) => m.id === mapping.mediaId) ?? null;
@@ -450,8 +450,8 @@ async function confirmImportedMapping(episode: EpisodeInfo, key: string, mapping
     log.warn(`Correspondance importée ${key} : épisode hors de la fiche #${mapping.mediaId} (${media.episodes ?? '?'} ép.), ignorée`);
     return null;
   }
-  // Écrite seulement si la correspondance n'a pas changé pendant la requête (choix de l'utilisateur entre-temps)
-  if (persist) await saveMediaMappingIf(key, mapping, confirmed);
+  // Écrite seulement si la correspondance n'a pas changé pendant la requête (choix de l'utilisateur entre-temps), origine gardée
+  if (persist) await saveLearned(key, mapping, confirmed, mappingOrigin(confirmed));
   return confirmed;
 }
 
@@ -499,7 +499,7 @@ async function doubtedMapping(
  * sinon null (résolution incertaine ou introuvable : la correspondance en cache reste, comme avant).
  */
 async function revalidatedMapping(episode: EpisodeInfo, mapping: MediaMapping, lane: RequestLane): Promise<{ freshId: number; media: AniListMedia | null } | null> {
-  if (mapping.chosen === true || applyMapping(episode, mapping) === null) return null;
+  if (mappingOrigin(mapping) === 'chosen' || applyMapping(episode, mapping) === null) return null;
   const collected = await collectCandidates(episode, lane);
   const fresh = gateByPlatformLink(episode, collected.candidates, resolveTarget(episode, collected.candidates));
   if (!fresh.ok || fresh.target.confidence !== 'high' || fresh.target.mediaId === mapping.mediaId) return null;
@@ -518,7 +518,7 @@ const IDS_PER_REQUEST = 50;
  */
 async function willSearch(episode: EpisodeInfo): Promise<boolean> {
   const stored = await getMediaMapping(mappingKey(episode));
-  if (stored && applyMapping(episode, stored) !== null) return stored.chosen !== true;
+  if (stored && applyMapping(episode, stored) !== null) return mappingOrigin(stored) !== 'chosen';
   if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) return false;
   return !(filtersAnime(episode) && !stored && (await isSeriesIgnored(episode)));
 }
@@ -566,9 +566,10 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   }
   // Analyse d'un import : correspondance applicable confrontée à une nouvelle résolution (revalidatedMapping)
   const revalidated = revalidateCache && verdict.kind === 'keep' && confirmed ? await revalidatedMapping(episode, confirmed, lane) : null;
-  if (revalidated && confirmed?.learned === true) log.info(`Correspondance apprise ${key} contredite par une nouvelle résolution (#${revalidated.freshId}) : écartée`);
+  const confirmedLearned = confirmed !== null && mappingOrigin(confirmed) === 'learned';
+  if (revalidated && confirmedLearned) log.info(`Correspondance apprise ${key} contredite par une nouvelle résolution (#${revalidated.freshId}) : écartée`);
   // Fiche en cache introuvable sur AniList (rien à proposer à côté) : comme écartée, la nouvelle résolution l'emporte
-  const cached = verdict.kind === 'drop' || (revalidated && (confirmed?.learned === true || revalidated.media === null)) ? null : confirmed;
+  const cached = verdict.kind === 'drop' || (revalidated && (confirmedLearned || revalidated.media === null)) ? null : confirmed;
   if (cached) {
     const progress = applyMapping(episode, cached);
     if (progress !== null) {
@@ -590,10 +591,10 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution.
   // Choix de l'utilisateur hors de sa fiche (épisode d'une autre partie de la saison, revisionnage d'un épisode antérieur) :
   // jamais supprimé ni remplacé, nouvelle résolution sans rien enregistrer
-  const keepsChoice = stored?.chosen === true && confirmed !== null;
+  const keepsChoice = stored !== null && mappingOrigin(stored) === 'chosen' && confirmed !== null;
   if (keepsChoice) log.info(`Correspondance choisie ${key} hors de sa fiche pour cet épisode : conservée, résolution sans mise en cache`);
   // Suppression et apprentissage conditionnels : un choix enregistré pendant les requêtes (sélecteur, carte) n'est jamais écrasé
-  if (stored && persist && !keepsChoice) await deleteMediaMappingIf(key, confirmed ?? stored);
+  if (stored && persist && !keepsChoice) await forgetIfUnchanged(key, confirmed ?? stored);
 
   // Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu) : ignoré sans recherche
   if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) {
@@ -628,7 +629,7 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   if (persist && !keepsChoice && result.ok && result.target.confidence === 'high') {
     const { mediaId, numbering, offset, episodes } = result.target;
     const mediaTitle = collected.media.find((m) => m.id === mediaId)?.displayTitle;
-    await saveMediaMappingIf(key, null, { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...(mediaTitle ? { mediaTitle } : {}), learned: true });
+    await saveLearned(key, null, { mediaId, numbering, offset, episodes, seriesLabel: seasonLabel(episode), ...(mediaTitle ? { mediaTitle } : {}) });
   }
   if (__SYNCKAI_DEBUG__) {
     // Correspondance en cache oubliée (apprise et contredite) ou qui ne s'applique plus : gardée dans la décision

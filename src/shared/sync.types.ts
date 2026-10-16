@@ -53,8 +53,26 @@ export function isMediaMapping(value: unknown): value is MediaMapping {
     (value.mediaTitle === undefined || typeof value.mediaTitle === 'string') &&
     (value.unverified === undefined || value.unverified === true) &&
     (value.learned === undefined || value.learned === true) &&
-    (value.chosen === undefined || value.chosen === true)
+    (value.chosen === undefined || value.chosen === true) &&
+    // Apprise ET choisie : sans signification, jamais écrite par withOrigin (entrée illisible, gardée telle quelle, ARCH-15)
+    !(value.learned === true && value.chosen === true)
   );
+}
+
+/**
+ * Origine d'une correspondance, lue sur les indicateurs stockés (`learned`, `chosen`) : apprise par la résolution, choisie
+ * par l'utilisateur, ou inconnue (enregistrée avant la 2.4.0, importée d'une sauvegarde). Seul accès à ces indicateurs.
+ */
+export type MappingOrigin = 'learned' | 'chosen' | 'unmarked';
+
+export const mappingOrigin = (mapping: MediaMapping): MappingOrigin => (mapping.chosen === true ? 'chosen' : mapping.learned === true ? 'learned' : 'unmarked');
+
+/** Correspondance avec les indicateurs stockés de `origin` (forme stockée inchangée : aucun indicateur pour une origine inconnue) */
+export function withOrigin(mapping: MediaMapping, origin: MappingOrigin): MediaMapping {
+  const { learned: _learned, chosen: _chosen, ...rest } = mapping;
+  if (origin === 'learned') return { ...rest, learned: true };
+  if (origin === 'chosen') return { ...rest, chosen: true };
+  return rest;
 }
 
 /**

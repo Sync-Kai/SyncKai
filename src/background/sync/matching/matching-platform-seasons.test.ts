@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { withOrigin, type MappingOrigin, type MediaMapping } from '../../../shared/sync.types';
 import { setLocale } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
 import type { AniListMedia } from '../../anilist/media';
@@ -7,9 +8,13 @@ import type { AniListMedia } from '../../anilist/media';
 // 2026-10-11 : Ranma1/2, /title/81171925, 3 saisons ; AniList lie la saison 3 à 81171925 mais les saisons 1 et 2 à
 // 81301833). Avant le correctif, S1E1 était synchronisé sur la saison 3 (« Fiche unique »).
 const storage = vi.hoisted(() => {
-  const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
-  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus
-  return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
+  const mock = { getMediaMapping: vi.fn(), saved: vi.fn(), forgotten: vi.fn() };
+  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus, origine posée comme saveLearned
+  return {
+    ...mock,
+    saveLearned: vi.fn((key: string, _expected: unknown, mapping: MediaMapping, origin: MappingOrigin = 'learned') => mock.saved(key, withOrigin(mapping, origin))),
+    forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
+  };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../../browser/storage/mappings', () => storage);
@@ -99,7 +104,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('chrome', {});
   storage.getMediaMapping.mockResolvedValue(null);
-  storage.saveMediaMapping.mockResolvedValue(undefined);
+  storage.saved.mockResolvedValue(undefined);
   api.searchAnime.mockImplementation((query: string) => Promise.resolve(query === 'Ranma1/2' ? ranmaSearch() : []));
   api.getAnimeByIds.mockResolvedValue([]);
 });
@@ -117,7 +122,7 @@ describe('Ranma1/2 sur Netflix : saison N → fiche AniList de la saison N', () 
     const { result } = await resolveEpisode(episode);
     expect(result).toMatchObject({ ok: true, target: { mediaId, progress, confidence: 'high' } });
     // Correspondance mise en cache par saison (clé netflix:{showId}:s{seq})
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith(`netflix:${SHOW_ID}:s${episode.seasonNumber ?? 0}`, expect.objectContaining({ mediaId }));
+    expect(storage.saved).toHaveBeenCalledWith(`netflix:${SHOW_ID}:s${episode.seasonNumber ?? 0}`, expect.objectContaining({ mediaId }));
   });
 
   it('page de série : les trois fiches sont les saisons de la série', async () => {
@@ -128,7 +133,7 @@ describe('Ranma1/2 sur Netflix : saison N → fiche AniList de la saison N', () 
   it('épisodes par saison inconnus (épisode mis en file avant la mise à jour) : jamais la saison 3 en certain', async () => {
     const { result } = await resolveEpisode(ranmaEpisode(1, 1, undefined));
     expect(result.ok && result.target.confidence === 'high' && result.target.mediaId === S3).toBe(false);
-    if (result.ok && result.target.mediaId === S3) expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    if (result.ok && result.target.mediaId === S3) expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('nombres d’épisodes incompatibles (autre découpage) : pas d’alignement, saison 3 jamais certaine pour S1', async () => {

@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../../i18n';
 import type { EpisodeInfo } from '../../../shared/episode.types';
-import type { MediaMapping } from '../../../shared/sync.types';
+import { withOrigin, type MappingOrigin, type MediaMapping } from '../../../shared/sync.types';
 import type { AniListMedia } from '../../anilist/media';
 
 // Signaux de la plateforme dans la résolution : clé de cache avec l'année, correspondance apprise contredite, preuve
 // exigée pour une correspondance par le titre seul (stockage et API AniList simulés).
 const storage = vi.hoisted(() => {
-  const mock = { getMediaMapping: vi.fn(), saveMediaMapping: vi.fn(), deleteMediaMapping: vi.fn() };
-  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus
-  return { ...mock, saveMediaMappingIf: vi.fn((key: string, _expected: unknown, next: unknown) => mock.saveMediaMapping(key, next)), deleteMediaMappingIf: vi.fn((key: string) => mock.deleteMediaMapping(key)) };
+  const mock = { getMediaMapping: vi.fn(), saved: vi.fn(), forgotten: vi.fn() };
+  // Écritures conditionnelles (voir browser/storage/mappings.ts) relayées aux simulations ci-dessus, origine posée comme saveLearned
+  return {
+    ...mock,
+    saveLearned: vi.fn((key: string, _expected: unknown, mapping: MediaMapping, origin: MappingOrigin = 'learned') => mock.saved(key, withOrigin(mapping, origin))),
+    forgetIfUnchanged: vi.fn((key: string) => mock.forgotten(key)),
+  };
 });
 const api = vi.hoisted(() => ({ searchAnime: vi.fn(), getAnimeByIds: vi.fn() }));
 vi.mock('../../../browser/storage/mappings', () => storage);
@@ -63,8 +67,8 @@ const TOUGEN = media({ id: 177474, titles: ['Tougen Anki', 'TOUGEN ANKI'], episo
 beforeEach(() => {
   vi.clearAllMocks();
   storage.getMediaMapping.mockResolvedValue(null);
-  storage.saveMediaMapping.mockResolvedValue(undefined);
-  storage.deleteMediaMapping.mockResolvedValue(undefined);
+  storage.saved.mockResolvedValue(undefined);
+  storage.forgotten.mockResolvedValue(undefined);
   api.searchAnime.mockResolvedValue([TOUGEN]);
   api.getAnimeByIds.mockResolvedValue([]);
 });
@@ -93,13 +97,13 @@ describe('preuve exigée pour le titre seul', () => {
   it('signal comparable qui ne prouve rien (durée seule) : à vérifier, jamais mis en cache', async () => {
     const { result } = await resolveEpisode(adnEpisode({ signals: { episodeMinutes: 24 } }));
     expect(result.ok && result.target).toMatchObject({ mediaId: 177474, confidence: 'low' });
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('année de la saison concordante : fiable, raison des signaux, correspondance apprise', async () => {
     const { result } = await resolveEpisode(adnEpisode({ signals: { seasonYear: 2025 } }));
     expect(result.ok && result.target).toMatchObject({ mediaId: 177474, confidence: 'high', reason: 'Matches the platform: release year' });
-    expect(storage.saveMediaMapping).toHaveBeenCalledWith('adn:1311:s1', expect.objectContaining({ mediaId: 177474, learned: true }));
+    expect(storage.saved).toHaveBeenCalledWith('adn:1311:s1', expect.objectContaining({ mediaId: 177474, learned: true }));
   });
 
   it('année contradictoire (seule fiche) : à vérifier, signal nommé', async () => {
@@ -122,7 +126,7 @@ describe('correspondance en cache contredite par les signaux', () => {
     storage.getMediaMapping.mockResolvedValue({ ...stored, learned: true });
     api.getAnimeByIds.mockResolvedValue([wrong]);
     const { result } = await resolveEpisode(adnEpisode({ signals: { seasonYear: 2025 } }));
-    expect(storage.deleteMediaMapping).toHaveBeenCalledWith('adn:1311:s1');
+    expect(storage.forgotten).toHaveBeenCalledWith('adn:1311:s1');
     expect(result.ok && result.target).toMatchObject({ mediaId: 177474, confidence: 'high' });
   });
 
@@ -141,8 +145,8 @@ describe('correspondance en cache contredite par les signaux', () => {
     expect(result.ok && result.target.fromCache).toBeFalsy();
     // Fiche proposée d'abord, fiche en cache toujours sélectionnable
     expect(candidates.map((c) => c.id)).toEqual([177474, 999]);
-    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
-    expect(storage.saveMediaMapping).not.toHaveBeenCalled();
+    expect(storage.forgotten).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
   });
 
   it('origine inconnue contredite sans fiche prouvée : fiche en cache proposée, à vérifier', async () => {
@@ -151,7 +155,7 @@ describe('correspondance en cache contredite par les signaux', () => {
     api.searchAnime.mockResolvedValue([]);
     const { result } = await resolveEpisode(adnEpisode({ signals: { seasonYear: 2025 } }));
     expect(result.ok && result.target).toMatchObject({ mediaId: 999, progress: 5, confidence: 'low' });
-    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
+    expect(storage.forgotten).not.toHaveBeenCalled();
   });
 
   it('origine inconnue et concordante : gardée, fiable', async () => {
@@ -166,7 +170,7 @@ describe('correspondance en cache contredite par les signaux', () => {
     storage.getMediaMapping.mockResolvedValue({ ...stored, mediaId: 177474, learned: true });
     api.getAnimeByIds.mockResolvedValue([TOUGEN]);
     const { result } = await resolveEpisode(adnEpisode({ signals: { seasonYear: 2025 } }));
-    expect(storage.deleteMediaMapping).not.toHaveBeenCalled();
+    expect(storage.forgotten).not.toHaveBeenCalled();
     expect(result.ok && result.target).toMatchObject({ mediaId: 177474, fromCache: true });
   });
 });

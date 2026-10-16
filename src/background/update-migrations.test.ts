@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRecord } from '../shared/guards';
-import { saveMediaMapping } from '../browser/storage/mappings';
+import { saveMediaMappingsIfAbsent } from '../browser/storage/mappings';
 import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../protocol/storage-keys';
 import { STORAGE_LOCK } from '../browser/storage/lock-core';
 import type { PendingRating } from '../shared/engagement.types';
@@ -72,7 +72,7 @@ describe('runUpdateMigrations', () => {
   });
 
   it('une écriture concurrente pendant la purge n’est pas perdue (lecture-écriture sous verrou)', async () => {
-    await Promise.all([runUpdateMigrations('2.1.0'), saveMediaMapping('crunchyroll:GY9VWW3XY:s1', mapping(20))]);
+    await Promise.all([runUpdateMigrations('2.1.0'), saveMediaMappingsIfAbsent([{ key: 'crunchyroll:GY9VWW3XY:s1', mapping: mapping(20) }])]);
     expect(mappingKeys()).toEqual(['adn:1311:s1', 'crunchyroll:GRMG8ZQZR:s24', 'crunchyroll:GY9VWW3XY:s1']);
   });
 

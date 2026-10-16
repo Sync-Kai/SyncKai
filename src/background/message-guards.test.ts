@@ -12,6 +12,15 @@ describe('GET_AGENDA', () => {
   });
 });
 
+describe('MAPPINGS_CHANGED', () => {
+  it('sans payload, réservé aux pages de l’extension (« Oublier », restauration d’une sauvegarde)', () => {
+    expect(isRuntimeMessage({ type: 'MAPPINGS_CHANGED', payload: null })).toBe(true);
+    expect(isRuntimeMessage({ type: 'MAPPINGS_CHANGED', payload: { key: 'crunchyroll:A:s1' } })).toBe(false);
+    expect(isAllowedOrigin('MAPPINGS_CHANGED', 'extension')).toBe(true);
+    expect(isAllowedOrigin('MAPPINGS_CHANGED', 'content')).toBe(false);
+  });
+});
+
 describe('GET_WATCHING', () => {
   it('`force` facultatif et booléen (PERF-04)', () => {
     expect(isRuntimeMessage({ type: 'GET_WATCHING', payload: { service: 'mal' } })).toBe(true);

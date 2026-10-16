@@ -88,7 +88,7 @@ const fake = installFakeChrome();
 const { IMPORT_RESOLVE_OPTIONS, resolveEpisode } = await import('../resolver');
 const { resolvePageMedia, forgetPageResolutions } = await import('../../page-media/page-media');
 const { clearCatalogCache } = await import('../../anilist/media');
-const { getMediaMapping, saveMediaMapping } = await import('../../../browser/storage/mappings');
+const { getMediaMapping, saveMediaMappingsIfAbsent } = await import('../../../browser/storage/mappings');
 
 /** Saison affichée parmi les saisons relevées (`seq` = numéro de saison ; une seule saison relevée : celle-ci) */
 function shownSeason(captured: CapturedSignals, seasonNumber: number | null): PlatformSeasonSignal | undefined {
@@ -189,7 +189,8 @@ function signalsOf(platform: StreamingPlatform, captured: CapturedSignals | unde
 }
 
 async function outcomeOf(corpusCase: CorpusCase): Promise<CorpusOutcome> {
-  for (const [key, mapping] of Object.entries(corpusCase.mappings ?? {})) await saveMediaMapping(key, mapping);
+  // Correspondances du cas semées telles quelles (origine comprise), stockage vide
+  await saveMediaMappingsIfAbsent(Object.entries(corpusCase.mappings ?? {}).map(([key, mapping]) => ({ key, mapping })));
   if (corpusCase.kind === 'episode') {
     const signals = signalsOf(corpusCase.episode.platform, corpusCase.signals, corpusCase.episode.seasonNumber);
     const { result } = await resolveEpisode(signals ? { ...corpusCase.episode, signals } : corpusCase.episode, corpusCase.import ? IMPORT_RESOLVE_OPTIONS : undefined);

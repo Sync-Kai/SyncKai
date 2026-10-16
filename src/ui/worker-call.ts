@@ -26,3 +26,16 @@ export const networkFailure = (message: string): { ok: false; code: 'NETWORK'; m
 
 /** Repli des actions sur une fiche (`SyncOutcome`) : erreur affichée telle quelle */
 export const outcomeFailure = (message: string): { status: 'error'; message: string } => ({ status: 'error', message });
+
+/**
+ * Correspondances modifiées par cette page (« Oublier », restauration d'une sauvegarde) : le service worker oublie ses
+ * résolutions de page gardées en mémoire (L4 ; il n'écoute pas storage.onChanged). Ne lève jamais : service worker
+ * injoignable → rien à oublier (ses caches en mémoire ne survivent pas à son arrêt).
+ */
+export async function notifyMappingsChanged(): Promise<void> {
+  try {
+    await sendMessage('MAPPINGS_CHANGED', null);
+  } catch (error: unknown) {
+    log.info('Service worker non prévenu du changement des correspondances :', error);
+  }
+}
