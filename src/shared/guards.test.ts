@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { installOnce, parseJsonBounded } from './guards';
 import { domainOrSubdomain } from './hosts';
-import { keep, trim } from './lru';
+import { keep, keepKey, trim } from './lru';
 
 describe('parseJsonBounded', () => {
   it('chaîne JSON d’au plus maxLength caractères ; sinon null', () => {
@@ -41,5 +41,11 @@ describe('keep / trim', () => {
     const set = new Set([1, 2, 3, 4]);
     trim(set, 1);
     expect([...set]).toEqual([4]);
+  });
+
+  it('keepKey : ensemble borné (2-R10), une clé revue redevient la plus récente', () => {
+    const set = new Set<string>();
+    for (const key of ['a', 'b', 'c', 'a', 'd']) keepKey(set, key, 3);
+    expect([...set]).toEqual(['c', 'a', 'd']);
   });
 });

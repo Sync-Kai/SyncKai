@@ -184,6 +184,16 @@ export const CASES: readonly CorpusCase[] = [
     expected: high(178754, 11),
   },
   {
+    id: 'cr-kaiju-s3e23-no-season-position',
+    kind: 'episode',
+    note: 'Audit M6 : même épisode relu en direct SANS numéro dans la saison (JSON-LD sans `episodeNumber` : forme SUPPOSÉE ; le repli DOM du script donne aussi `seasonEpisodeNumber: null`). Correspondance `s3` → 178754 « saison » enregistrée pendant la diffusion (`episodes: null`, origine inconnue) : appliquée au numéro affiché, elle écrivait 23 sur une fiche de 11 épisodes. Position inconnue : correspondance gardée (vérifié : origine inconnue, jamais modifiée), non appliquée, nouvelle résolution sans mise en cache ; E23 ne tient dans aucune saison : aucune fiche, carte « À vérifier » sans suggestion en direct, rien d’écrit.',
+    anilist: 'kaiju-no-8',
+    episode: crunchyroll(KAIJU_CR, 'GKAIJU0323', { seasonNumber: 3, seasonTitle: 'Kaiju No. 8', seasonEpisodeNumber: null, displayedEpisodeNumber: 23 }),
+    mappings: { 'crunchyroll:GG5H5XQ7D:s3': { mediaId: 178754, numbering: 'season', offset: 0, episodes: null } },
+    searches: ['Kaiju No. 8'],
+    expected: NOT_FOUND,
+  },
+  {
     id: 'cr-import-drstone-newworld-e22',
     kind: 'episode',
     note:

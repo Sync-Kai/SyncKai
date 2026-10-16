@@ -199,6 +199,16 @@ describe('applyMapping / mappingKey', () => {
     expect(applyMapping(onePiece, { mediaId: 2, numbering: 'displayed', offset: 1100, episodes: 100 })).toBe(81);
   });
 
+  it('numérotation « saison » sans numéro dans la saison : jamais le numéro affiché à sa place (M6), nouvelle résolution', () => {
+    // Kaiju No. 8 « Season 2 » = S3 de Crunchyroll, numérotée en absolu : E23 = 11e de la saison ; fiche 178754 en cours
+    // de diffusion quand la correspondance a été apprise (épisodes inconnus)
+    const mapping = { mediaId: 178754, numbering: 'season', offset: 0, episodes: null } as const;
+    expect(applyMapping(episode({ seasonNumber: 3, seasonEpisodeNumber: 11, displayedEpisodeNumber: 23 }), mapping)).toBe(11);
+    expect(applyMapping(episode({ seasonNumber: 3, seasonEpisodeNumber: null, displayedEpisodeNumber: 23 }), mapping)).toBeNull();
+    // Numérotation « affichée » : le numéro dans la saison n'est pas nécessaire
+    expect(applyMapping(episode({ seasonNumber: 3, seasonEpisodeNumber: null, displayedEpisodeNumber: 23 }), { ...mapping, numbering: 'displayed', offset: 12 })).toBe(11);
+  });
+
   it('invalide le cache si la progression sort de la fiche', () => {
     expect(applyMapping(episode({ seasonEpisodeNumber: 13, displayedEpisodeNumber: 13 }), { mediaId: 1, numbering: 'season', offset: 0, episodes: 12 })).toBeNull();
   });

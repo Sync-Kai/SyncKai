@@ -152,6 +152,45 @@ describe('installPassiveBridge', () => {
     expect(messages).toEqual(['json:{"b":2}', 'long:null']);
   });
 
+  it('fetch : corps au-delà de la borne jamais lu en entier, le site reçoit sa réponse intacte (2-R13)', async () => {
+    let pulled = 0;
+    const chunk = new TextEncoder().encode('x'.repeat(50));
+    // Corps de 500 octets en 10 morceaux, tirés à la demande
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++;
+        if (pulled > 10) controller.close();
+        else controller.enqueue(chunk);
+      },
+    });
+    page.fetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response(body)));
+    const onPayload = vi.fn((request: string, raw: unknown): string | null => `${request}:${JSON.stringify(raw)}`);
+    installPassiveBridge(spec(1, onPayload));
+    const response = await window.fetch('/lu/gros');
+    await flushPorts();
+    expect(onPayload).toHaveBeenCalledWith('gros', null);
+    expect(pulled).toBeLessThan(10);
+    expect(await response.text()).toBe('x'.repeat(500));
+  });
+
+  it('fetch : corps sous la borne lu en morceaux, caractères multioctets intacts', async () => {
+    const encoded = new TextEncoder().encode('{"titre":"進撃の巨人"}');
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        // Coupé au milieu d'un caractère
+        controller.enqueue(encoded.slice(0, 12));
+        controller.enqueue(encoded.slice(12));
+        controller.close();
+      },
+    });
+    page.fetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response(body)));
+    const onPayload = vi.fn((request: string, raw: unknown): string | null => `${request}:${JSON.stringify(raw)}`);
+    installPassiveBridge(spec(1, onPayload));
+    await window.fetch('/lu/titre');
+    await flushPorts();
+    expect(onPayload).toHaveBeenCalledWith('titre', { titre: '進撃の巨人' });
+  });
+
   it(`demandes d’ouverture : ${MAX_BRIDGE_PORTS} canaux au plus, offre postée à l’origine de la page, instantané à l’ouverture`, async () => {
     installPassiveBridge({ ...spec(1), snapshot: () => 'instantané' });
     const all = Array.from({ length: MAX_BRIDGE_PORTS + 2 }, (_, i) => connect(`1:n${i}`));

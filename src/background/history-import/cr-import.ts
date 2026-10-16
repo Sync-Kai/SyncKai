@@ -40,6 +40,7 @@ import {
 } from '../../shared/cr-import';
 import type { HistorySeason } from '../../platforms/crunchyroll/history';
 import type { EpisodeInfo } from '../../shared/episode.types';
+import { seasonPosition } from '../../shared/episode-position';
 import { getExcludedSeries, isExcluded } from '../../shared/exclusions';
 import { exclusionKey, mappingKey } from '../../platforms/series-identity';
 import { reduceJob } from '../../shared/job';
@@ -252,7 +253,7 @@ async function resolveSeason(season: HistorySeason, platform: ImportPlatform): P
   if (!result.ok && result.ignored === true) return { kind: 'ignored', key };
 
   // Position dans la saison inconnue (saison retirée du catalogue) : seul un numéro affiché déjà appris est fiable
-  const numbersKnown = season.seasonEpisodeNumber !== null || cached?.numbering === 'displayed';
+  const numbersKnown = seasonPosition(episode, cached?.numbering === 'displayed' ? 'displayed' : 'season') !== null;
   // Saison nommée placée par son seul rang (voir SyncTarget.byRank) : la plateforme peut compter un spécial comme saison
   // (Dr. STONE « RYUSUI » en saison 3) ; la synchro en direct l'applique, l'import jamais sans vérification
   if (!result.ok || result.target.confidence === 'low' || result.target.byRank === true || !numbersKnown) {

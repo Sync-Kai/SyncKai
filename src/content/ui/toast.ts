@@ -273,6 +273,28 @@ function isAlert(tone: ToastTone): boolean {
 }
 
 /**
+ * Fermeture automatique qui ne court que page visible (2-R12) : dans un onglet caché, l'animation d'entrée
+ * (requestAnimationFrame) ne s'exécute pas, le toast n'a donc jamais été vu ; son délai part au retour sur l'onglet.
+ * Retourne l'armement : un nouveau délai remplace le précédent, `undefined` garde le toast affiché. Rien après `signal`.
+ */
+export function createVisibleTimer(doc: EventTarget & { visibilityState: DocumentVisibilityState }, signal: AbortSignal, onTimeout: () => void): (ms: number | undefined) => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let pending: number | undefined;
+  const start = (): void => {
+    if (pending === undefined || signal.aborted || doc.visibilityState === 'hidden') return;
+    timer = setTimeout(onTimeout, pending);
+    pending = undefined;
+  };
+  doc.addEventListener('visibilitychange', start, { signal });
+  signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
+  return (ms) => {
+    clearTimeout(timer);
+    pending = ms;
+    start();
+  };
+}
+
+/**
  * Affiche un toast unique (le précédent est remplacé).
  * En plein écran, seul l'élément plein écran est visible : le toast y est donc déplacé.
  */
@@ -288,7 +310,7 @@ export function showToast(content: ToastContent, options: ToastOptions = {}): To
   shadow.append(style, toast);
 
   const controller = new AbortController();
-  let hideTimer: ReturnType<typeof setTimeout> | undefined;
+  const armHide = createVisibleTimer(document, controller.signal, () => handle.dismiss('timeout'));
   let onDismiss: ToastOptions['onDismiss'];
 
   const attach = (): void => {
@@ -311,14 +333,12 @@ export function showToast(content: ToastContent, options: ToastOptions = {}): To
       else renderBubble(toast, next, () => handle.dismiss('close'));
 
       onDismiss = nextOptions.onDismiss;
-      clearTimeout(hideTimer);
-      if (nextOptions.autoHideMs !== undefined) hideTimer = setTimeout(() => handle.dismiss('timeout'), nextOptions.autoHideMs);
+      armHide(nextOptions.autoHideMs);
     },
     dismiss(reason = 'programmatic') {
       if (controller.signal.aborted) return;
       controller.abort();
       onDismiss?.(reason);
-      clearTimeout(hideTimer);
       toast.classList.remove('visible');
       setTimeout(() => host.remove(), 200); // Laisse la transition de sortie se terminer
       if (current === handle) current = null;

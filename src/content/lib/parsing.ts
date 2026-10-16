@@ -1,4 +1,5 @@
 import { isRecord } from '../../shared/guards';
+import { keep } from '../../shared/lru';
 
 /** Helpers de lecture communs aux adapters (DOM, JSON-LD, texte). */
 
@@ -41,6 +42,8 @@ export function readJsonLdNodes(type: string): Record<string, unknown>[] {
  * Inférieur à la somme des relectures du panneau (PAGE_MEDIA_RETRY_DELAYS_MS : 2,5 s), dont la dernière l'accepte donc.
  */
 export const LABEL_SETTLE_MS = 2_000;
+/** Libellés retenus par page au plus (2-R10 : un par épisode vu dans l'onglet) ; les plus anciens oubliés */
+export const MAX_LABELS = 200;
 
 export interface LabelGuard {
   /** Vrai si ce libellé a déjà été attribué à un AUTRE épisode (DOM encore celui du précédent) */
@@ -70,7 +73,7 @@ export function createLabelGuard(now: () => number = () => Date.now()): LabelGua
       return isStale(episodeId, key) && now() - seen.at < LABEL_SETTLE_MS;
     },
     remember(episodeId, key) {
-      if (key) owners.set(key, episodeId);
+      if (key) keep(owners, key, episodeId, MAX_LABELS);
     },
   };
 }

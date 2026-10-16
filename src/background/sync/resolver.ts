@@ -1,5 +1,6 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { hasSignals } from '../../shared/match-signals';
+import { seasonPosition } from '../../shared/episode-position';
 import type { CandidateSummary } from '../../shared/review.types';
 import { mappingKey } from '../../platforms/series-identity';
 import { mappingOrigin, type MediaMapping } from '../../shared/sync.types';
@@ -255,7 +256,10 @@ export async function prefetchCandidates(episodes: readonly EpisodeInfo[], lane:
 }
 
 /** Correspondance en cache lue pour l'épisode : résolution servie par le cache, ou ce qu'il en reste pour une nouvelle résolution */
-type CacheOutcome = { kind: 'hit'; resolution: EpisodeResolution } | { kind: 'miss'; confirmed: MediaMapping | null; verdict: CachedMappingVerdict };
+type CacheOutcome =
+  | { kind: 'hit'; resolution: EpisodeResolution }
+  /** `unknownPosition` : correspondance retenue, mais position de l'épisode inconnue pour sa numérotation (M6) */
+  | { kind: 'miss'; confirmed: MediaMapping | null; verdict: CachedMappingVerdict; unknownPosition: boolean };
 
 /**
  * Cache des correspondances : correspondance importée revérifiée sur le catalogue (BAK-02), confrontée aux signaux de la
@@ -284,7 +288,7 @@ async function fromCache(
   // Fiche en cache introuvable sur AniList (rien à proposer à côté) : comme écartée, la nouvelle résolution l'emporte
   const cached = verdict.kind === 'drop' || (revalidated && (confirmedLearned || revalidated.media === null)) ? null : confirmed;
   const progress = cached ? applyMapping(episode, cached) : null;
-  if (!cached || progress === null) return { kind: 'miss', confirmed, verdict };
+  if (!cached || progress === null) return { kind: 'miss', confirmed, verdict, unknownPosition: cached !== null && seasonPosition(episode, cached.numbering) === null };
   if (verdict.kind === 'doubt' && question?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict, lane, catalog) };
   if (revalidated?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, revalidated.media, { signals: [], refreshed: true }, lane, catalog) };
   const result: ResolveResult = { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } };
@@ -359,12 +363,14 @@ export async function resolveEpisode(
   const stored = await getMediaMapping(key);
   const cache = await fromCache(episode, key, stored, { persist, lane, revalidateCache }, catalog);
   if (cache.kind === 'hit') return cache.resolution;
-  const { confirmed, verdict } = cache;
+  const { confirmed, verdict, unknownPosition } = cache;
   // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution.
   // Choix de l'utilisateur hors de sa fiche (épisode d'une autre partie de la saison, revisionnage d'un épisode antérieur) :
   // jamais supprimé ni remplacé, nouvelle résolution sans rien enregistrer
-  const keepsChoice = stored !== null && mappingOrigin(stored) === 'chosen' && confirmed !== null;
-  if (keepsChoice) log.info(`Correspondance choisie ${key} hors de sa fiche pour cet épisode : conservée, résolution sans mise en cache`);
+  // Position de l'épisode inconnue pour sa numérotation (M6 : numéro dans la saison absent de la page) : rien ne dit que
+  // la correspondance est fausse, elle est gardée telle quelle et l'épisode résolu sans mise en cache
+  const keepsChoice = (stored !== null && mappingOrigin(stored) === 'chosen' && confirmed !== null) || unknownPosition;
+  if (keepsChoice) log.info(`Correspondance ${key} ${unknownPosition ? 'sans position connue pour cet épisode' : 'choisie hors de sa fiche pour cet épisode'} : conservée, résolution sans mise en cache`);
   // Suppression et apprentissage conditionnels : un choix enregistré pendant les requêtes (sélecteur, carte) n'est jamais écrasé
   if (stored && persist && !keepsChoice) await forgetIfUnchanged(key, confirmed ?? stored);
   return (await ignoredShortcut(episode, key, stored, lane)) ?? fresh(episode, key, { stored, verdict, keepsChoice, persist, lane }, catalog);

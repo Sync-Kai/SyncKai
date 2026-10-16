@@ -62,19 +62,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - *Settings*: a change no longer overwrites a setting saved at the same time elsewhere (a series delay from the *Schedule*, the preferred player reset after removing a platform's access).
 - *On this page* / side panel: changing a status no longer fails when the entry's cover comes from an unexpected image host (the cover is left out of the *To rate* card).
 - *On this page* / side panel, Netflix and Disney+ title pages: an AniList entry found by its title only, while another entry of the search links to the title (a TV series with the same name as a linked movie), was shown as certain, and its *Open* link was learned on that wrong entry. The title page now judges the entry like playback does: it is shown as a guess to confirm, and nothing is learned.
+- A saved match that counts episodes within the season could be applied to the episode number shown on the page when the page did not say which episode of the season it was: on a season Crunchyroll numbers from the start of the series (Kaiju No. 8 season 2, shown as E23 for its 11th episode), 23 could be written to an entry still airing. Without the episode's place in its season, the saved match is now kept but not used, and the episode is matched again (or goes to *To check*).
+- Firefox: SyncKai now also checks the page address every second, so moving to another episode inside a streaming site is noticed even if the browser does not report the site's own navigation to the extension.
+- The sync result shown in a background tab no longer disappears before you come back to the tab: its delay starts once the tab is visible.
 
 ### Security
 
 - The diagnostic report (*Settings › Help › Copy report*) is now built by the extension's background, the only part of SyncKai that decrypts sign-in tokens: the settings page only receives the finished report, with tokens and account names already masked.
 - Signing in to MyAnimeList while a MyAnimeList session is already open (two windows, a double click) now closes the previous session first, as AniList already did, so nothing queued for the previous account is written to the new one. Saving a new sign-in token can no longer interleave with a sign-out or another storage write.
-
-### Security
-
 - Stricter Content Security Policy for SyncKai's own pages (popup, side panel, settings, import and backup pages) and its background: everything is closed by default, network requests may only reach the AniList and MyAnimeList APIs and the extension package itself, and the pages can no longer be embedded in another page, submit forms or change their base URL.
 - SyncKai now runs only on `https://` pages of Crunchyroll, ADN, Netflix, Disney+ and Prime Video: its scripts, site permissions and exposed files no longer match plain `http://` pages, where someone on the same network could serve a fake episode page and have it synced. Access to Netflix, Disney+ or Prime Video already granted is kept after the update (on Firefox, turning it off also removes the access granted by earlier versions).
-
-### Security
-
 - The small scripts SyncKai runs inside Crunchyroll, Netflix, Disney+ and Prime Video pages to read what the site already loads now share one implementation: they no longer pile up in a tab left open across extension updates (each update used to wrap the site's requests once more), and they ignore values a page could slip in through JavaScript's shared object prototype.
 
 ## [2.3.1] - 2026-10-12

@@ -1,5 +1,6 @@
 import { t } from '../../../i18n';
 import { hasSignals, type PlatformSignals } from '../../../shared/match-signals';
+import { seasonPosition } from '../../../shared/episode-position';
 import { mappingOrigin, type MediaMapping } from '../../../shared/sync.types';
 import { normalizeTitle } from '../../../shared/title';
 import { contradictingSignals, type ConcordanceEntry, type SignalName } from './concordance';
@@ -11,12 +12,13 @@ import { signalList } from './signal-groups';
 // Correspondances en cache (saison de la plateforme → fiche AniList) : application à un épisode, déduction d'un choix
 // manuel, et remise en question par les signaux ou le titre de saison. La clé (mappingKey) reste dans matching.ts.
 
-/** Applique une correspondance en cache ; null si elle ne s'applique plus (ex : saison suivante). */
+/**
+ * Applique une correspondance en cache ; null si elle ne s'applique plus (ex : saison suivante) ou si la position de
+ * l'épisode dans sa numérotation est inconnue (numérotation « saison » sans numéro dans la saison : jamais le numéro
+ * affiché à sa place, M6).
+ */
 export function applyMapping(episode: EpisodeNumbers, mapping: MediaMapping): number | null {
-  const base =
-    mapping.numbering === 'displayed'
-      ? episode.displayedEpisodeNumber
-      : (episode.seasonEpisodeNumber ?? episode.displayedEpisodeNumber);
+  const base = seasonPosition(episode, mapping.numbering);
   if (base === null) return null;
   const progress = base - mapping.offset;
   return isValidProgress(progress, mapping.episodes) ? progress : null;

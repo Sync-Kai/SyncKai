@@ -20,6 +20,7 @@ import { isExtensionContextInvalidated } from './extension-context';
 import { liveOutcomeOf, type LiveSnapshot } from './live-stream';
 import { trackVideoProgress, type VideoProgressTracker } from './video-tracker';
 import { waitFor } from './wait-for';
+import { keepKey } from '../../shared/lru';
 
 const MIN_EPISODE_DURATION_S = 120;
 /** Sans lecteur après ce délai, le panneau affiche « pas de vidéo » ; l'attente passive continue */
@@ -41,9 +42,11 @@ const log = createLogger('session');
 
 /**
  * Séries ignorées par le service worker pendant la vie de la page (Netflix : pas un anime), par clé plateforme.
- * Leurs épisodes suivants (lecture automatique) ne sont plus envoyés ; vidé au rechargement de l'onglet.
+ * Leurs épisodes suivants (lecture automatique) ne sont plus envoyés ; vidé au rechargement de l'onglet. Au plus
+ * MAX_IGNORED_SERIES (2-R10), les plus anciennes oubliées (renvoyées une fois de plus, ignorées de nouveau).
  */
 const ignoredSeries = new Set<string>();
+const MAX_IGNORED_SERIES = 200;
 
 /** Réglages de la page d'options, relus à chaque usage (PERF-03) ; valeurs par défaut si le stockage est illisible */
 async function readSettings(): Promise<ContentSettings> {
@@ -213,7 +216,10 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     if (__SYNCKAI_DEBUG__) trace('page', 'episode-completed', { trigger, ...episodeTraceData(episode) }, traceContext);
 
     // Relus maintenant : une pause activée pendant l'épisode s'applique immédiatement.
-    // Rien d'écrit (pause, série exclue) : le raccourci pourra renvoyer l'épisode après réactivation
+    // Rien d'écrit (pause, série exclue) : le raccourci pourra renvoyer l'épisode après réactivation.
+    // Volontairement sans contrôle de `signal` après ces attentes (2-R9) : l'épisode a VRAIMENT été terminé ; une
+    // session close entre-temps (lecture automatique de l'épisode suivant, navigation) l'envoie quand même, et son
+    // toast (épisode précédent nommé) s'affiche au-dessus du suivant. Seul l'état du port en direct n'est plus publié.
     const settings = await loadSettings();
     if (!settings.autoSync) {
       if (__SYNCKAI_DEBUG__) log.info('Synchronisation en pause (options) : épisode non envoyé');
@@ -316,7 +322,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       // Accès Netflix retiré : rien d'affiché non plus, mais la série n'est pas retenue (accès accordé de nouveau)
       if (outcome.status === 'ignored') {
         const noAccess = outcome.noAccess === true;
-        if (!noAccess) ignoredSeries.add(seriesKey(episode));
+        if (!noAccess) keepKey(ignoredSeries, seriesKey(episode), MAX_IGNORED_SERIES);
         delivery = noAccess ? 'retryable' : 'ignored';
         toast?.dismiss();
         setState('idle');
