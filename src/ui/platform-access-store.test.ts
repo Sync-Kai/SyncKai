@@ -5,8 +5,8 @@ import { createPlatformAccessStore, requestPlatformAccessFromClick } from './pla
 // Store des accès optionnels (4-D6, 4-R2) : une lecture de chrome.permissions par page, une seule paire d'écouteurs,
 // la lecture la plus récente l'emporte même si une plus ancienne répond après elle.
 
-const NETFLIX = '*://*.netflix.com/*';
-const PRIME = '*://*.primevideo.com/*';
+const NETFLIX = 'https://*.netflix.com/*';
+const PRIME = 'https://*.primevideo.com/*';
 
 interface Deferred {
   origins: readonly string[];

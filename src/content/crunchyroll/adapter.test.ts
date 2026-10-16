@@ -477,3 +477,44 @@ describe('crunchyrollAdapter : signaux de correspondance du pont MAIN', () => {
     });
   });
 });
+
+describe('crunchyrollAdapter.getCreditsStart (skip events du bouton « Passer le générique »)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const getCreditsStart = (episodeId: string, signal = new AbortController().signal): Promise<number | null> => {
+    const read = crunchyrollAdapter.getCreditsStart;
+    if (!read) throw new Error('getCreditsStart attendu');
+    return read.call(crunchyrollAdapter, episodeId, signal);
+  };
+
+  it('structure réelle (2026-09-29) : début du générique de fin, requête anonyme sur l’identifiant encodé', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ intro: { start: 111, end: 199 }, credits: { start: 1344, end: 1437 }, mediaId: 'GE00374365JAJP' }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(getCreditsStart('GX9UQE0WJ')).resolves.toBe(1344);
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toBe('https://static.crunchyroll.com/skip-events/production/GX9UQE0WJ.json');
+    expect(init?.credentials).toBe('omit');
+  });
+
+  it('épisode sans données (404), données sans générique de fin : null (repli sur le pourcentage)', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response('', { status: 404 })));
+    await expect(getCreditsStart('GX9UQE0WJ')).resolves.toBeNull();
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({ intro: { start: 111, end: 199 } })));
+    await expect(getCreditsStart('GX9UQE0WJ')).resolves.toBeNull();
+  });
+
+  it('réseau en échec : null avec un avertissement ; requête annulée (épisode quitté) : null sans avertissement', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Promise.reject(new TypeError('Failed to fetch'))));
+    await expect(getCreditsStart('GX9UQE0WJ')).resolves.toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const controller = new AbortController();
+    controller.abort();
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Promise.reject(new DOMException('aborted', 'AbortError'))));
+    await expect(getCreditsStart('GX9UQE0WJ', controller.signal)).resolves.toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+});

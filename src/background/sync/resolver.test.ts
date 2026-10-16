@@ -86,6 +86,24 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('findReviewCandidates (correction d’une synchro passée)', () => {
+  it('fiche suggérée d’abord, puis fiches liées par date de début, puis les autres résultats ; clips musicaux écartés', async () => {
+    const link = `https://www.netflix.com/title/${SHOW_ID}`;
+    api.searchAnime.mockResolvedValue([
+      media({ id: 3, titles: ['Frieren 2'], externalLinkUrls: [link], startDate: { year: 2026, month: 1, day: 16 } }),
+      media({ id: 1, titles: ['Frieren'], externalLinkUrls: [link], startDate: { year: 2023, month: 9, day: 29 } }),
+      media({ id: 9, titles: ['Frieren MV'], format: 'MUSIC' }),
+      media({ id: 5, titles: ['Frieren Mini'], format: 'ONA' }),
+    ]);
+    const summaries = await resolver.findReviewCandidates(netflixEpisode(), 5, catalog);
+    expect(summaries.map((s) => s.id)).toEqual([5, 1, 3]);
+    // Aucune suggestion : fiches liées en tête
+    expect((await resolver.findReviewCandidates(netflixEpisode(), null, catalog)).map((s) => s.id)).toEqual([1, 3, 5]);
+    // Rien n'est écrit : simple liste de choix
+    expect(storage.saved).not.toHaveBeenCalled();
+  });
+});
+
 describe('resolveEpisode — Netflix', () => {
   it('fiche liée à /title/{showId} : correspondance sûre, mise en cache', async () => {
     api.searchAnime.mockResolvedValue([media({ id: 154587, titles: ['Sousou no Frieren', 'Frieren'], externalLinkUrls: [`https://www.netflix.com/be-fr/title/${SHOW_ID}`] })]);

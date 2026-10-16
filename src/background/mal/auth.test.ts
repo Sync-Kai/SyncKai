@@ -14,8 +14,10 @@ const REDIRECT_URL = 'https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/'
 const store = new Map<string, unknown>();
 const launchWebAuthFlow = vi.fn<(details: { url: string; interactive?: boolean }) => Promise<string | undefined>>();
 const alarms = new FakeAlarms();
+/** ID d'extension (un ID sans app MAL enregistrée : voir oauth-clients.ts) */
+const runtime = { id: 'khokcmigioggannjoojambdgioigdceb' };
 vi.stubGlobal('chrome', {
-  runtime: { id: 'khokcmigioggannjoojambdgioigdceb' },
+  runtime,
   alarms,
   identity: { getRedirectURL: () => REDIRECT_URL, launchWebAuthFlow },
   storage: {
@@ -74,6 +76,7 @@ beforeEach(() => {
   queues.clear();
   void alarms.clearAll();
   launchWebAuthFlow.mockReset();
+  runtime.id = 'khokcmigioggannjoojambdgioigdceb';
 });
 
 afterEach(() => {
@@ -244,6 +247,38 @@ describe('renouvellement du token MAL : verrou et erreurs (TEST-02)', () => {
     expect((await storedToken())?.accessToken).toBe('X');
   });
 
+  it('réseau coupé au renouvellement : NETWORK sans timedOut, session intacte', async () => {
+    expiringSession();
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.reject(new TypeError('Failed to fetch'))));
+
+    const error = await rejection(getMalAccessToken());
+    expect(error).toMatchObject({ code: 'NETWORK' });
+    expect(error).not.toMatchObject({ timedOut: true });
+    expect((await storedToken())?.accessToken).toBe('X');
+  });
+
+  it('réponse 200 sans token exploitable (champ manquant, corps illisible) : INVALID_RESPONSE, session intacte', async () => {
+    for (const response of [json(200, { access_token: 'T1', refresh_token: 'R1' }), json(200, ['T1']), new Response('pas du json', { status: 200 })]) {
+      expiringSession();
+      vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(response)));
+      expect(await rejection(getMalAccessToken())).toMatchObject({ code: 'INVALID_RESPONSE' });
+      expect((await storedToken())?.accessToken).toBe('X');
+    }
+  });
+
+  it('ID d’extension sans app MAL : renouvellement impossible, aucune requête, session fermée (reconnexion requise)', async () => {
+    runtime.id = 'id-inconnu';
+    expiringSession();
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await expect(getMalAccessToken()).resolves.toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(store.has('malToken')).toBe(false);
+    expect(store.get('sessionExpired:mal')).toBe(true);
+  });
+
   it('déconnexion volontaire : indicateur « Session expirée » retiré (AUTH-03)', async () => {
     expiringSession();
     store.set('sessionExpired:mal', true);
@@ -343,6 +378,59 @@ describe('connexion MyAnimeList (TEST-02, AUTH-10)', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(json(200, tokenBody(1)))));
     await expect(loginWithMal()).resolves.toEqual({ ok: true, data: null });
     expect(await alarms.get('synckai:airing')).toMatchObject({ periodInMinutes: 60 });
+  });
+
+  it('ID d’extension sans app MAL : connexion refusée avant la page d’autorisation, URL de redirection à enregistrer', async () => {
+    runtime.id = 'id-inconnu';
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await loginWithMal();
+    expect(result).toMatchObject({ ok: false, code: 'AUTH_FLOW_FAILED' });
+    expect(result.ok ? '' : result.message).toContain(REDIRECT_URL);
+    expect(launchWebAuthFlow).not.toHaveBeenCalled();
+  });
+
+  it('page d’autorisation fermée ou accès refusé : USER_CANCELLED ; page introuvable : configuration ; autre échec : message repris', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    launchWebAuthFlow.mockRejectedValueOnce(new Error('The user did not approve access.'));
+    await expect(loginWithMal()).resolves.toMatchObject({ ok: false, code: 'USER_CANCELLED' });
+
+    launchWebAuthFlow.mockRejectedValueOnce(new Error('Authorization page could not be loaded.'));
+    const rejected = await loginWithMal();
+    expect(rejected).toMatchObject({ ok: false, code: 'AUTH_FLOW_FAILED' });
+    expect(rejected.ok ? '' : rejected.message).toContain(REDIRECT_URL);
+
+    // Valeur levée qui n'est pas une Error : son texte est repris dans le message
+    launchWebAuthFlow.mockRejectedValueOnce('fenêtre perdue');
+    const failed = await loginWithMal();
+    expect(failed).toMatchObject({ ok: false, code: 'AUTH_FLOW_FAILED' });
+    expect(failed.ok ? '' : failed.message).toContain('fenêtre perdue');
+    expect(store.has('malToken')).toBe(false);
+  });
+
+  it('aucune adresse de retour : INVALID_RESPONSE ; accès refusé sur MyAnimeList (?error=) : ACCESS_DENIED, aucun échange', async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    launchWebAuthFlow.mockResolvedValueOnce(undefined);
+    await expect(loginWithMal()).resolves.toMatchObject({ ok: false, code: 'INVALID_RESPONSE' });
+    launchWebAuthFlow.mockResolvedValueOnce(`${REDIRECT_URL}?error=access_denied`);
+    await expect(loginWithMal()).resolves.toMatchObject({ ok: false, code: 'ACCESS_DENIED' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('échange du code en échec passager (réseau, réponse invalide) : UNKNOWN avec le message de l’erreur, aucune session', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // Deux connexions : chacune renvoie le « state » de sa propre demande
+    launchWebAuthFlow.mockImplementation(async ({ url }) => `${REDIRECT_URL}?code=C&state=${new URL(url).searchParams.get('state') ?? ''}`);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.reject(new TypeError('Failed to fetch'))));
+    const network = await loginWithMal();
+    expect(network).toMatchObject({ ok: false, code: 'UNKNOWN' });
+    expect(network.ok ? '' : network.message).toContain('MyAnimeList');
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(json(200, { access_token: 'T1' }))));
+    await expect(loginWithMal()).resolves.toMatchObject({ ok: false, code: 'UNKNOWN' });
+    expect(store.has('malToken')).toBe(false);
   });
 
   it('déconnexion du seul service : alarme des sorties supprimée (PERF-17)', async () => {

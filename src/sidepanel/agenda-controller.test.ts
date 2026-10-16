@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AiringWeekCache } from '../shared/agenda';
+import type { AiringWeekCache, IsoWeekday } from '../shared/agenda';
 import type { WatchingEntry, WatchingList } from '../shared/watching.types';
 import { DEFAULT_SETTINGS } from '../shared/settings';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
@@ -27,13 +27,16 @@ const fake = vi.hoisted(() => ({
   listeners: [] as ChangeListener[],
 }));
 
+/** Premier jour de la semaine de la locale (relu à chaque affichage de l'onglet) */
+let firstDay: IsoWeekday = 1;
+
 vi.mock('../protocol/messages', () => ({
   sendMessage: (type: string, payload: unknown) => new Promise((resolve) => fake.calls.push({ type, payload, resolve })),
 }));
 vi.mock('../browser/storage/settings-access', () => ({ getSettings: () => Promise.resolve({ ...DEFAULT_SETTINGS, ...(fake.preferred ? { preferredPlayer: fake.preferred } : {}) }) }));
 vi.mock('../browser/storage/tokens', () => ({ hasValidAniListToken: () => Promise.resolve(fake.anilist), hasMalToken: () => Promise.resolve(fake.mal) }));
 vi.mock('../browser/storage/watching-cache', () => ({ getCachedWatching: (service: string) => Promise.resolve(service === 'anilist' ? fake.watching : null) }));
-vi.mock('../browser/storage/agenda-store', () => ({ agendaFirstDay: () => 1, readWeekCache: () => Promise.resolve(fake.weekCache) }));
+vi.mock('../browser/storage/agenda-store', () => ({ agendaFirstDay: () => firstDay, readWeekCache: () => Promise.resolve(fake.weekCache) }));
 vi.mock('../shared/exclusions', async (importOriginal) => ({ ...(await importOriginal<typeof import('../shared/exclusions')>()), getExcludedSeries: () => Promise.resolve([]) }));
 
 vi.stubGlobal('chrome', {
@@ -95,6 +98,7 @@ beforeEach(() => {
   fake.weekCache = null;
   fake.preferred = null;
   fake.listeners.length = 0;
+  firstDay = 1;
 });
 
 afterEach(() => {
@@ -218,6 +222,185 @@ describe('createAgendaController', () => {
     for (const listener of fake.listeners) listener({ other: { newValue: 1 } }, 'local');
     await vi.advanceTimersByTimeAsync(STORAGE_DEBOUNCE_MS);
     expect(ctl.status.kind).toBe('no-series');
+    ctl.dispose();
+  });
+
+  it('liste « En cours » jamais chargée : demandée une seule fois au service worker', async () => {
+    fake.watching = null;
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    await ctl.load(false);
+    await ctl.load(false);
+    expect(fake.calls.filter((c) => c.type === 'GET_WATCHING').map((c) => c.payload)).toEqual([{ service: 'anilist' }]);
+  });
+
+  it('session refusée par le service worker : « non connecté », sans échec retenu', async () => {
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    const load = ctl.load(false);
+    await settle();
+    answerAgenda({ ok: false, code: 'NOT_AUTHENTICATED', message: 'Session expirée' });
+    await load;
+    expect(ctl.status).toEqual({ kind: 'not-connected' });
+  });
+
+  it('échec avec le programme en cache : programme gardé, erreur affichée à côté', async () => {
+    fake.weekCache = { weekStart: '', fetchedAt: 0, mediaIds: [1], schedules: [] };
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    const cache: AiringWeekCache = { weekStart: ctl.range.key, fetchedAt: 0, mediaIds: [1], schedules: [] };
+    fake.weekCache = cache;
+    const load = ctl.load(true);
+    await settle();
+    answerAgenda({ ok: false, code: 'API_ERROR', message: 'AniList indisponible' });
+    await load;
+    expect(ctl.status).toEqual({ kind: 'ready', cache, refreshing: false, error: 'AniList indisponible' });
+  });
+
+  it('exception pendant le chargement : message de l’erreur affiché', async () => {
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const load = ctl.load(false);
+    await settle();
+    const call = agendaCalls()[0];
+    if (!call) throw new Error('Aucun GET_AGENDA en attente');
+    fake.calls.splice(fake.calls.indexOf(call), 1);
+    call.resolve(Promise.reject(new Error('Réseau coupé')));
+    await load;
+    warn.mockRestore();
+    expect(ctl.status.kind).toBe('error');
+  });
+
+  it('minuit : redessin (« Aujourd’hui » change), puis l’alarme suivante est armée', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 23, 59, 0) });
+    const changes = vi.fn();
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: changes });
+    ctl.activate();
+    await vi.advanceTimersByTimeAsync(0);
+    answerAgenda({ ok: true, data: { weekStart: ctl.range.key, fetchedAt: Date.now(), mediaIds: [1], schedules: [] } });
+    await vi.advanceTimersByTimeAsync(0);
+    const before = changes.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(2 * 60_000);
+    expect(changes.mock.calls.length).toBeGreaterThan(before);
+    ctl.dispose();
+  });
+
+  it('réglages relus à la demande', async () => {
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    fake.preferred = 'netflix';
+    await ctl.reloadSettings();
+    expect(ctl.settings?.preferredPlayer).toBe('netflix');
+  });
+});
+
+describe('createAgendaController : échecs, réponses dépassées, semaine et premier jour', () => {
+  it('séries en cours exposées à la vue (identifiants, titres)', async () => {
+    fake.weekCache = { weekStart: '', fetchedAt: Date.now(), mediaIds: [1, 2], schedules: [] };
+    fake.watching = { service: 'anilist', entries: [entry(1), entry(2)], fetchedAt: 1 };
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    fake.weekCache = { ...fake.weekCache, weekStart: ctl.range.key };
+    await ctl.load(false);
+    expect(ctl.status.kind).toBe('ready');
+    expect([...ctl.series.keys()]).toEqual([1, 2]);
+    expect(ctl.series.get(2)?.title).toBe('Série 2');
+  });
+
+  it('liste « En cours » indisponible (service worker en échec) : avertissement, l’Agenda continue', async () => {
+    fake.watching = null;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    await ctl.load(false);
+    const call = fake.calls.find((c) => c.type === 'GET_WATCHING');
+    if (!call) throw new Error('Aucun GET_WATCHING en attente');
+    call.resolve(Promise.reject(new Error('Service worker absent')));
+    await settle();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+    expect(ctl.status).toEqual({ kind: 'no-series', optional: [] });
+  });
+
+  it('réponse d’une requête remplacée par « Réessayer » : ignorée, seule la plus récente s’affiche', async () => {
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    const first = ctl.load(false);
+    await settle();
+    const retry = ctl.load(true);
+    await settle();
+    const [stale, fresh] = agendaCalls();
+    if (!stale || !fresh) throw new Error('Deux GET_AGENDA attendus');
+    const data: AiringWeekCache = { weekStart: ctl.range.key, fetchedAt: Date.now(), mediaIds: [1], schedules: [] };
+    fresh.resolve({ ok: true, data });
+    await retry;
+    stale.resolve({ ok: false, code: 'API_ERROR', message: 'Ancienne requête' });
+    await first;
+    expect(ctl.status).toEqual({ kind: 'ready', cache: data, refreshing: false, error: null });
+  });
+
+  it('lecture locale en échec avant la requête : message de l’erreur affiché', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const broken: PlatformAccessStore = { ...access([]), read: () => Promise.reject(new Error('permissions illisibles')) };
+    const ctl = createAgendaController({ platformAccess: broken, onChange: () => undefined });
+    await ctl.load(false);
+    warn.mockRestore();
+    expect(ctl.status).toEqual({ kind: 'error', message: 'permissions illisibles' });
+    expect(agendaCalls()).toHaveLength(0);
+  });
+
+  it('programme affiché puis échec local : programme gardé, erreur à côté', async () => {
+    fake.weekCache = { weekStart: '', fetchedAt: Date.now(), mediaIds: [1], schedules: [] };
+    let fail = false;
+    const flaky: PlatformAccessStore = { ...access([]), read: () => (fail ? Promise.reject(new Error('')) : Promise.resolve([])) };
+    const ctl = createAgendaController({ platformAccess: flaky, onChange: () => undefined });
+    const cache: AiringWeekCache = { ...fake.weekCache, weekStart: ctl.range.key };
+    fake.weekCache = cache;
+    await ctl.load(false);
+    expect(ctl.status.kind).toBe('ready');
+    fail = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await ctl.load(false);
+    warn.mockRestore();
+    // Erreur sans message : texte générique
+    const status = ctl.status;
+    if (status.kind !== 'ready') throw new Error('Programme attendu');
+    expect(status.cache).toBe(cache);
+    expect(status.refreshing).toBe(false);
+    expect(status.error).toBeTruthy();
+  });
+
+  it('changement du stockage hors `local` (session, sync) : aucun rechargement', async () => {
+    vi.useFakeTimers();
+    fake.weekCache = { weekStart: '', fetchedAt: Date.now(), mediaIds: [1], schedules: [] };
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    fake.weekCache = { ...fake.weekCache, weekStart: ctl.range.key };
+    ctl.activate();
+    await vi.advanceTimersByTimeAsync(0);
+    fake.watching = { service: 'anilist', entries: [], fetchedAt: 2 };
+    for (const listener of fake.listeners) listener({ [STORAGE_KEYS.watchingCache]: { newValue: {} } }, 'session');
+    await vi.advanceTimersByTimeAsync(STORAGE_DEBOUNCE_MS);
+    expect(ctl.status.kind).toBe('ready');
+    ctl.dispose();
+  });
+
+  it('langue changée entre deux affichages : premier jour de la semaine relu, semaine recalée', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) }); // mercredi
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    expect(ctl.firstDay).toBe(1);
+    expect(new Date(ctl.range.start).getDay()).toBe(1);
+    firstDay = 7;
+    ctl.activate();
+    expect(ctl.firstDay).toBe(7);
+    // Semaine commençant le dimanche 11 octobre
+    expect(new Date(ctl.range.start).getDay()).toBe(0);
+    expect(new Date(ctl.range.start).getDate()).toBe(11);
+    ctl.dispose();
+  });
+
+  it('minuit du dimanche au lundi, semaine en cours affichée : la nouvelle semaine suit', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 18, 23, 59, 0) }); // dimanche
+    const week = vi.fn();
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined, onWeekChange: week });
+    const sunday = ctl.range;
+    ctl.activate();
+    await vi.advanceTimersByTimeAsync(2 * 60_000);
+    expect(week).toHaveBeenCalledTimes(1);
+    expect(ctl.range.key).not.toBe(sunday.key);
+    expect(new Date(ctl.range.start).getDate()).toBe(19);
     ctl.dispose();
   });
 });

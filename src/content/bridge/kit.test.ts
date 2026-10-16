@@ -191,6 +191,53 @@ describe('installPassiveBridge', () => {
     expect(onPayload).toHaveBeenCalledWith('titre', { titre: '進撃の巨人' });
   });
 
+  it('fetch : adresse en URL ou en Request lue comme une chaîne ; XHR ouvert sans adresse lisible : jamais lu', async () => {
+    const onPayload = vi.fn((request: string, raw: unknown): string | null => `${request}:${JSON.stringify(raw)}`);
+    installPassiveBridge(spec(1, onPayload));
+    await window.fetch(new URL('https://site.example/lu/url'));
+    await window.fetch(new Request('https://site.example/lu/requete'));
+    const xhr = new XMLHttpRequest() as unknown as FakeXhr;
+    xhr.responseText = '{}';
+    xhr.open('GET', 42);
+    xhr.send();
+    await flushPorts();
+    expect(onPayload.mock.calls.map(([request]) => request)).toEqual(['url', 'requete']);
+  });
+
+  it('fetch : réponse 200 sans corps lue comme illisible (null)', async () => {
+    page.fetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response(null, { status: 200 })));
+    const onPayload = vi.fn((request: string, raw: unknown): string | null => `${request}:${JSON.stringify(raw)}`);
+    installPassiveBridge(spec(1, onPayload));
+    await window.fetch('/lu/vide');
+    await flushPorts();
+    expect(onPayload).toHaveBeenCalledWith('vide', null);
+  });
+
+  it('fetch : réponse en échec (500) jamais lue', async () => {
+    page.fetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('{"a":1}', { status: 500 })));
+    const onPayload = vi.fn((request: string, raw: unknown): string | null => `${request}:${JSON.stringify(raw)}`);
+    installPassiveBridge(spec(1, onPayload));
+    const response = await window.fetch('/lu/echec');
+    await flushPorts();
+    expect(response.status).toBe(500);
+    expect(onPayload).not.toHaveBeenCalled();
+  });
+
+  it('fetch : requête rejetée (réseau coupé) : le site reçoit son erreur, rien n’est lu ni levé par le pont', async () => {
+    page.fetch = vi.fn<typeof fetch>(() => Promise.reject(new TypeError('Failed to fetch')));
+    const onPayload = vi.fn((request: string, raw: unknown): string | null => `${request}:${JSON.stringify(raw)}`);
+    installPassiveBridge(spec(1, onPayload));
+    await expect(window.fetch('/lu/rejet')).rejects.toBeInstanceOf(TypeError);
+    await flushPorts();
+    expect(onPayload).not.toHaveBeenCalled();
+  });
+
+  it(`demande d’ouverture qui n’est pas un CustomEvent : ignorée, aucun port offert`, () => {
+    installPassiveBridge(spec(1));
+    page.dispatchEvent(new Event('test:hello'));
+    expect(page.postMessage).not.toHaveBeenCalled();
+  });
+
   it(`demandes d’ouverture : ${MAX_BRIDGE_PORTS} canaux au plus, offre postée à l’origine de la page, instantané à l’ouverture`, async () => {
     installPassiveBridge({ ...spec(1), snapshot: () => 'instantané' });
     const all = Array.from({ length: MAX_BRIDGE_PORTS + 2 }, (_, i) => connect(`1:n${i}`));

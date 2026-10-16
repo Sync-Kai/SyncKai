@@ -1,14 +1,37 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MalViewer } from '../../shared/mal.types';
 
 // Token MAL et fermeture de session simulés : malRequest est testé seul (le renouvellement l'est dans mal/auth.test.ts)
 const auth = vi.hoisted(() => ({
   getMalAccessToken: vi.fn<(options?: { rejected?: string }) => Promise<string | null>>(),
   endSessionIfToken: vi.fn<(service: string, accessToken: string) => Promise<boolean>>(),
+  getSessionEpoch: vi.fn<(service: string) => Promise<number>>(),
+  saveCachedMalViewer: vi.fn<(viewer: MalViewer, epoch: number) => Promise<boolean>>(),
 }));
 vi.mock('./auth', () => ({ getMalAccessToken: auth.getMalAccessToken }));
 vi.mock('../../browser/storage/session-end', () => ({ endSessionIfToken: auth.endSessionIfToken }));
+vi.mock('../../browser/storage/sessions', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../browser/storage/sessions')>()), getSessionEpoch: auth.getSessionEpoch }));
+vi.mock('../../browser/storage/viewer-cache', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../browser/storage/viewer-cache')>()),
+  saveCachedMalViewer: auth.saveCachedMalViewer,
+}));
 
-import { deleteMalEntry, fromMalStatus, getMalAnime, malProgressBody, malRequest, malStatusBody, parseMalListStatus, saveMalNotes, toMalStatus } from './client';
+import {
+  deleteMalEntry,
+  fromMalStatus,
+  getMalAnime,
+  getMalViewer,
+  malProgressBody,
+  malRequest,
+  malStatusBody,
+  parseMalListStatus,
+  saveMalEntry,
+  saveMalListStatus,
+  saveMalNotes,
+  saveMalProgress,
+  saveMalScore,
+  toMalStatus,
+} from './client';
 
 describe('statuts MyAnimeList', () => {
   it('convertit les statuts MAL vers les statuts communs', () => {
@@ -209,5 +232,106 @@ describe('commentaire et retrait (MyAnimeList)', () => {
 
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json(500, { error: 'boom' })));
     await expect(deleteMalEntry(52991)).rejects.toMatchObject({ code: 'API_ERROR', httpStatus: 500 });
+  });
+});
+
+describe('écritures de liste MyAnimeList (PATCH my_list_status)', () => {
+  const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  const sentBody = (fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): Record<string, string> => Object.fromEntries(new URLSearchParams(String(fetchMock.mock.calls[0]?.[1]?.body)));
+
+  beforeEach(() => {
+    auth.getMalAccessToken.mockReset();
+    auth.getMalAccessToken.mockResolvedValue('A');
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('progression, statut manuel, note et alignement : un PATCH avec les seuls champs voulus, entrée relue de la réponse', async () => {
+    const saved = { status: 'completed', num_episodes_watched: 12, is_rewatching: false, num_times_rewatched: 1, score: 8 };
+    const cases: Array<[() => Promise<unknown>, Record<string, string>]> = [
+      [() => saveMalProgress(1, 12, 'COMPLETED', 1), { status: 'completed', num_watched_episodes: '12', is_rewatching: 'false', num_times_rewatched: '1' }],
+      [() => saveMalListStatus(1, 'PAUSED', 5), { status: 'on_hold', num_watched_episodes: '5', is_rewatching: 'false' }],
+      [() => saveMalScore(1, 8), { score: '8' }],
+      [() => saveMalEntry(1, { status: 'REPEATING', progress: 3 }), { status: 'completed', is_rewatching: 'true', num_watched_episodes: '3' }],
+    ];
+    for (const [write, body] of cases) {
+      const fetchMock = vi.fn<typeof fetch>(async () => json(200, saved));
+      vi.stubGlobal('fetch', fetchMock);
+      await expect(write()).resolves.toEqual({ status: 'COMPLETED', progress: 12, repeat: 1, score: 8 });
+      expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('PATCH');
+      expect(sentBody(fetchMock)).toEqual(body);
+    }
+  });
+
+  it('réponse au PATCH sans statut lisible : INVALID_RESPONSE (écriture non confirmée)', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json(200, { status: 'inconnu', num_episodes_watched: 3 })));
+    await expect(saveMalProgress(1, 3, 'CURRENT')).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+  });
+});
+
+describe('malRequest : session absente et réseau', () => {
+  const isUser = (data: unknown): data is { id: number } => typeof data === 'object' && data !== null && 'id' in data;
+
+  beforeEach(() => {
+    auth.getMalAccessToken.mockReset();
+    auth.getMalAccessToken.mockResolvedValue('A');
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('non connecté : NOT_AUTHENTICATED, aucune requête', async () => {
+    auth.getMalAccessToken.mockResolvedValue(null);
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(malRequest('/users/@me', isUser)).rejects.toMatchObject({ code: 'NOT_AUTHENTICATED' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('réseau coupé : NETWORK ; délai dépassé avant la réponse : NETWORK avec timedOut', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Promise.reject(new TypeError('Failed to fetch'))));
+    await expect(malRequest('/users/@me', isUser)).rejects.toMatchObject({ code: 'NETWORK', timedOut: false });
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Promise.reject(new DOMException('signal timed out', 'TimeoutError'))));
+    await expect(malRequest('/users/@me', isUser)).rejects.toMatchObject({ code: 'NETWORK', timedOut: true });
+  });
+});
+
+describe('getMalViewer (profil du popup, ne lève jamais)', () => {
+  const json = (body: unknown): Response => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  beforeEach(() => {
+    auth.getMalAccessToken.mockReset();
+    auth.getMalAccessToken.mockResolvedValue('A');
+    auth.getSessionEpoch.mockReset();
+    auth.getSessionEpoch.mockResolvedValue(3);
+    auth.saveCachedMalViewer.mockReset();
+    auth.saveCachedMalViewer.mockResolvedValue(true);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('profil lu et mis en cache avec la génération relevée avant la requête ; image hors des hôtes permis écartée', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai', picture: 'https://cdn.myanimelist.net/images/userimages/7.jpg' })));
+    const viewer: MalViewer = { id: 7, name: 'Kai', pictureUrl: 'https://cdn.myanimelist.net/images/userimages/7.jpg' };
+    await expect(getMalViewer()).resolves.toEqual({ ok: true, data: viewer });
+    expect(auth.saveCachedMalViewer).toHaveBeenCalledWith(viewer, 3);
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai', picture: 'https://pirate.example/7.jpg' })));
+    await expect(getMalViewer()).resolves.toEqual({ ok: true, data: { id: 7, name: 'Kai', pictureUrl: null } });
+  });
+
+  it('déconnexion pendant la requête (cache refusé) : NOT_AUTHENTICATED (AUTH-04)', async () => {
+    auth.saveCachedMalViewer.mockResolvedValue(false);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai' })));
+    await expect(getMalViewer()).resolves.toMatchObject({ ok: false, code: 'NOT_AUTHENTICATED' });
+  });
+
+  it('erreur de l’API : son code ; profil illisible : INVALID_RESPONSE ; erreur inattendue : API_ERROR', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    auth.getMalAccessToken.mockResolvedValueOnce(null);
+    await expect(getMalViewer()).resolves.toMatchObject({ ok: false, code: 'NOT_AUTHENTICATED' });
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: '7' })));
+    await expect(getMalViewer()).resolves.toMatchObject({ ok: false, code: 'INVALID_RESPONSE' });
+
+    auth.getSessionEpoch.mockRejectedValueOnce(new Error('stockage illisible'));
+    await expect(getMalViewer()).resolves.toMatchObject({ ok: false, code: 'API_ERROR' });
+    vi.restoreAllMocks();
   });
 });
