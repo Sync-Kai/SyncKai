@@ -24,3 +24,5 @@ a06efbc55ff815cbd4305b8da49bb89ce23af88a
 513cbb384ad45a79529272fe895bf3165e6948ea
 # refactor: group compare, history import, page media and matching modules in background folders (no code change)
 90ac4dd4808b912305bca878193c8a2f09d3441f
+# refactor(import): split the history import into analysis and application (no behaviour change)
+83d86fbbbdc54acc02c1bf459fc0f2056e05755e

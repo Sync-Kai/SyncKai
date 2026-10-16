@@ -23,7 +23,8 @@ import { createJobLoop, waitReadSlot, waitWriteSlot, type StepResult, type Trans
 import { entryTargetId, runGuarded } from '../entry-commands';
 import { getConnectedTrackers } from '../trackers';
 import type { TrackerService } from '../ports/tracker';
-import { batchFull, errorStep, itemEvent, jobStore, readPlan, stopStep, updatePlan } from './import-job';
+import { createWriteBatch, type WriteBatch } from './batch-writer';
+import { errorStep, itemEvent, jobStore, readPlan, stopStep, updatePlan } from './import-job';
 
 // Import de l'historique, application : écrit les éléments choisis dans l'aperçu sur chaque service prévu.
 
@@ -34,16 +35,15 @@ interface ApplyMemory {
   jobId: number;
   plan: CrImportPlan | null;
   /** Résultats pas encore inscrits dans l'aperçu */
-  results: Map<string, CrItemResult>;
+  results: WriteBatch<CrItemResult>;
   /** Correspondances sûres à mémoriser (si la saison n'en a pas encore, ou à la place de celle que l'analyse a contredite) */
   mappings: PlanMapping[];
-  since: number;
 }
 
 let applyMemory: ApplyMemory | null = null;
 
 function applyMemoryFor(job: CrImportJob): ApplyMemory {
-  if (applyMemory?.jobId !== job.startedAt) applyMemory = { jobId: job.startedAt, plan: null, results: new Map(), mappings: [], since: Date.now() };
+  if (applyMemory?.jobId !== job.startedAt) applyMemory = { jobId: job.startedAt, plan: null, results: createWriteBatch(), mappings: [] };
   return applyMemory;
 }
 
@@ -52,10 +52,9 @@ function applyMemoryFor(job: CrImportJob): ApplyMemory {
  * s'il est toujours celui de la tâche, puis mémorise les correspondances apprises en une seule écriture.
  */
 async function flushApply(memory: ApplyMemory): Promise<void> {
-  const { results, mappings } = memory;
-  memory.results = new Map();
+  const results = memory.results.take();
+  const { mappings } = memory;
   memory.mappings = [];
-  memory.since = Date.now();
   const builtAt = memory.plan?.builtAt;
   if (results.size > 0) {
     await withStorageLock(async () => {
@@ -205,7 +204,7 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
   if (updated) memory.mappings.push(...itemMappings(item));
   memory.results.set(id, result);
   // Dernier élément ou arrêt : résultat publié tout de suite (bilan complet dans la page)
-  if (job.cursor + 1 >= job.itemCount || fatal !== null || batchFull(memory.results.size, memory.since)) await flushApply(memory);
+  if (job.cursor + 1 >= job.itemCount || fatal !== null || memory.results.full()) await flushApply(memory);
   return { kind: 'event', event: { type: 'item', outcome: result.outcome, ...(result.message ? { message: result.message } : {}), at: Date.now() }, stop: fatal };
 }
 
@@ -230,7 +229,7 @@ const applyLoop = createJobLoop<CrImportJob>({
 
 /** Nouvelle application : son aperçu gardé en mémoire (il vient d'être lu) ; null : mémoire oubliée (nouvelle analyse) */
 export function startApplyMemory(job: CrImportJob | null, plan: CrImportPlan | null = null): void {
-  applyMemory = job && { jobId: job.startedAt, plan, results: new Map(), mappings: [], since: Date.now() };
+  applyMemory = job && { jobId: job.startedAt, plan, results: createWriteBatch(), mappings: [] };
 }
 
 /** Démarre la boucle d'application si aucune boucle vivante ne tourne dans ce service worker */

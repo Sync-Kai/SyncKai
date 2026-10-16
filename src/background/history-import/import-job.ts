@@ -59,18 +59,6 @@ export function purgeOrphanImportData(): Promise<void> {
   });
 }
 
-// ─── Écritures par lots (PERF-02) ─────────────────────────────────────────
-// L'historique (analyse) et l'aperçu (application) sont lus une fois par tâche, puis relus seulement après un réveil
-// du service worker. Les correspondances de saison, les résultats et les correspondances apprises sont écrits par lots :
-// le volume écrit ne croît plus avec le carré du nombre de saisons, et la page d'import ne redessine qu'à chaque lot.
-
-/** Éléments au plus par lot */
-export const WRITE_BATCH_SIZE = 20;
-/** Délai au plus entre deux lots : la page d'import suit la progression */
-export const WRITE_BATCH_MS = 10_000;
-
-export const batchFull = (count: number, since: number): boolean => count >= WRITE_BATCH_SIZE || Date.now() - since >= WRITE_BATCH_MS;
-
 // ─── Étapes de tâche ──────────────────────────────────────────────────────
 
 export const itemEvent = (outcome: 'updated' | 'skipped' | 'failed', message?: string): StepResult => ({

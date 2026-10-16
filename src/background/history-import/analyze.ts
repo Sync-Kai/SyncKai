@@ -35,7 +35,8 @@ import { seasonLabel } from '../sync/matching/matching';
 import { IMPORT_RESOLVE_OPTIONS, prefetchCandidates, resolveEpisode } from '../sync/resolver';
 import { getConnectedTrackers } from '../trackers';
 import type { TrackerService } from '../ports/tracker';
-import { batchFull, errorStep, itemEvent, jobStore, purgeOrphanImportData, readInput, readKey, stopStep } from './import-job';
+import { createWriteBatch, type WriteBatch } from './batch-writer';
+import { errorStep, itemEvent, jobStore, purgeOrphanImportData, readInput, readKey, stopStep } from './import-job';
 
 // Import de l'historique, analyse : correspondance de chaque saison (sans rien écrire sur les services), puis aperçu.
 
@@ -46,8 +47,7 @@ interface AnalyzeMemory {
   jobId: number;
   input: CrImportInput | null;
   /** Correspondances pas encore écrites (index de saison → résultat) */
-  pending: Record<string, SeasonResolution>;
-  since: number;
+  pending: WriteBatch<SeasonResolution>;
   /** Saisons dont les recherches ont déjà été pré-chargées (PERF-10) ; vide après un réveil : reprise pré-chargée aussi */
   prefetched: Set<number>;
 }
@@ -55,7 +55,7 @@ interface AnalyzeMemory {
 let analyzeMemory: AnalyzeMemory | null = null;
 
 function analyzeMemoryFor(job: CrImportJob): AnalyzeMemory {
-  if (analyzeMemory?.jobId !== job.startedAt) analyzeMemory = { jobId: job.startedAt, input: null, pending: {}, since: Date.now(), prefetched: new Set() };
+  if (analyzeMemory?.jobId !== job.startedAt) analyzeMemory = { jobId: job.startedAt, input: null, pending: createWriteBatch(), prefetched: new Set() };
   return analyzeMemory;
 }
 
@@ -65,10 +65,9 @@ function analyzeMemoryFor(job: CrImportJob): AnalyzeMemory {
  * est recalculée par finalize.
  */
 async function flushResolutions(memory: AnalyzeMemory): Promise<void> {
-  const entries = memory.pending;
-  memory.pending = {};
-  memory.since = Date.now();
-  if (Object.keys(entries).length === 0) return;
+  const taken = memory.pending.take();
+  if (taken.size === 0) return;
+  const entries = Object.fromEntries(taken);
   await withStorageLock(async () => {
     const job = await jobStore.read();
     if (job?.kind !== 'cr-analyze' || job.startedAt !== memory.jobId || job.status !== 'running') return;
@@ -78,8 +77,8 @@ async function flushResolutions(memory: AnalyzeMemory): Promise<void> {
 }
 
 async function keepResolution(memory: AnalyzeMemory, index: number, resolution: SeasonResolution): Promise<void> {
-  memory.pending[String(index)] = resolution;
-  if (batchFull(Object.keys(memory.pending).length, memory.since)) await flushResolutions(memory);
+  memory.pending.set(String(index), resolution);
+  if (memory.pending.full()) await flushResolutions(memory);
 }
 
 // ─── Analyse : correspondance d'une saison ────────────────────────────────
@@ -206,7 +205,7 @@ async function allResolutions(memory: AnalyzeMemory, input: CrImportInput): Prom
       resolution = { kind: 'failed', key: mappingKey(toEpisodeInfo(season, importPlatformOf(input))), message: error.message };
     }
     resolutions[key] = resolution;
-    memory.pending[key] = resolution;
+    memory.pending.set(key, resolution);
   }
   return resolutions;
 }
@@ -302,7 +301,7 @@ const analyzeLoop = createJobLoop<CrImportJob>({
 
 /** Nouvelle analyse : son historique gardé en mémoire (il vient d'être enregistré), sans relecture */
 export function startAnalyzeMemory(job: CrImportJob, input: CrImportInput): void {
-  analyzeMemory = { jobId: job.startedAt, input, pending: {}, since: Date.now(), prefetched: new Set() };
+  analyzeMemory = { jobId: job.startedAt, input, pending: createWriteBatch(), prefetched: new Set() };
 }
 
 /** Démarre la boucle d'analyse si aucune boucle vivante ne tourne dans ce service worker */
