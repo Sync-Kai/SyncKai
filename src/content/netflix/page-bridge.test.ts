@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { advance, useBridgeFakeTimers } from '../../test/ports';
-import { encodeNetflixHandshake, encodeNetflixRequest, installNetflixBridgeOnce, NETFLIX_BRIDGE_VERSION, NETFLIX_HANDSHAKE_EVENT, netflixBridgeFlag } from './bridge-protocol';
+import { encodeNetflixHandshake, encodeNetflixRequest, NETFLIX_BRIDGE_VERSION, NETFLIX_HANDSHAKE_EVENT, netflixBridgeFlag } from './bridge-protocol';
+import { installOnce } from '../../shared/guards';
 
 // Garde d'installation du pont MAIN : le pont reste dans la page après une mise à jour de l'extension (code de la
 // page, jamais invalidé) et le service worker le réexécute dans les onglets Netflix ouverts.
@@ -84,13 +85,13 @@ describe('page-bridge.iife.ts — une installation par version de protocole', ()
   });
 });
 
-describe('installNetflixBridgeOnce', () => {
+describe('netflixBridgeFlag', () => {
   it('installe une fois par version, la v1 garde la clé historique', () => {
     const global = {};
     const install = vi.fn();
-    expect(installNetflixBridgeOnce(global, 1, install)).toBe(true);
-    expect(installNetflixBridgeOnce(global, 1, install)).toBe(false);
-    expect(installNetflixBridgeOnce(global, 2, install)).toBe(true);
+    expect(installOnce(global, netflixBridgeFlag(1), install)).toBe(true);
+    expect(installOnce(global, netflixBridgeFlag(1), install)).toBe(false);
+    expect(installOnce(global, netflixBridgeFlag(2), install)).toBe(true);
     expect(install).toHaveBeenCalledTimes(2);
     expect(netflixBridgeFlag(1)).toBe(Symbol.for('synckai.netflix.bridge'));
     expect(netflixBridgeFlag(2)).not.toBe(netflixBridgeFlag(1));

@@ -90,6 +90,11 @@ export function toPlatformSignals(raw: RawSignals): PlatformSignals | undefined 
   return isPlatformSignals(signals) && hasSignals(signals) ? signals : undefined;
 }
 
+/** Propriété `signals` à étaler dans un épisode ou une page : absente sans signal (jamais `signals: undefined`) */
+export function withSignals(signals: PlatformSignals | undefined): { signals?: PlatformSignals } {
+  return signals ? { signals } : {};
+}
+
 /** Durée médiane (minutes, au dixième) de durées en secondes ; les valeurs absentes ou nulles sont ignorées */
 export function medianMinutes(seconds: readonly (number | null | undefined)[]): number | undefined {
   const sorted = seconds.filter((s): s is number => typeof s === 'number' && Number.isFinite(s) && s > 0).sort((a, b) => a - b);

@@ -5,6 +5,7 @@ import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixBookmark
 import type { Result } from '../../shared/result';
 import type { CompletionTrigger } from '../../shared/settings';
 import { meaningfulSeasonTitle, normalizeTitle } from '../../shared/title';
+import { withSignals } from '../../shared/match-signals';
 
 // Import de l'historique Netflix (pur, testé), dans la page d'import : lecture de la page Activité de visionnage du profil
 // (netflix.com/viewingactivity) en pilotant l'onglet, regroupement des lignes par série, filtre « anime » (AniList, dans
@@ -276,7 +277,7 @@ export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentag
   if (show.type === 'movie') {
     if (!isNetflixWatched(show, completionPercentage, completionTrigger)) return [];
     const signals = netflixSignals(show, null);
-    return [{ ...base, seasonId: `${show.showId}-s0`, seasonNumber: null, seasonTitle: null, episodeId: show.showId, episodeTitle: null, episodeNumber: 1, seasonEpisodeNumber: 1, watchedCount: 1, ...(signals ? { signals } : {}) }];
+    return [{ ...base, seasonId: `${show.showId}-s0`, seasonNumber: null, seasonTitle: null, episodeId: show.showId, episodeTitle: null, episodeNumber: 1, seasonEpisodeNumber: 1, watchedCount: 1, ...withSignals(signals) }];
   }
   const platformSeasons = platformSeasonsOf(show);
   return show.seasons.flatMap((season): HistorySeason[] => {
@@ -299,7 +300,7 @@ export function reduceNetflixShow(show: NetflixShowMetadata, completionPercentag
         seasonEpisodeNumber,
         watchedCount: watched.length,
         platformSeasons,
-        ...(signals ? { signals } : {}),
+        ...withSignals(signals),
       },
     ];
   });

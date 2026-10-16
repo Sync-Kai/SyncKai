@@ -168,7 +168,9 @@ function modulesMatching(files: Iterable<string>, pattern: RegExp): string[] {
 
 describe('monde MAIN des ponts de page', () => {
   /** Modules purs que les ponts passifs peuvent embarquer (aucun accès aux API d'extension) */
-  const MAIN_SAFE_SHARED: readonly string[] = ['shared/guards.ts', 'shared/match-signals.ts', 'shared/title.ts'];
+  const MAIN_SAFE_SHARED: readonly string[] = ['shared/guards.ts', 'shared/hosts.ts', 'shared/lru.ts', 'shared/match-signals.ts', 'shared/title.ts'];
+  /** Kit des ponts : seul module de content/ hors du dossier de la plateforme permis à un pont */
+  const BRIDGE_KIT = 'content/bridge/kit.ts';
   const bridges = layerFiles('content').filter((file) => /^content\/[a-z0-9-]+\/page-bridge\.iife\.ts$/.test(file));
 
   it('les quatre ponts sont trouvés', () => {
@@ -179,10 +181,20 @@ describe('monde MAIN des ponts de page', () => {
     for (const bridge of bridges) {
       const platform = bridge.split('/')[1] ?? '';
       const allowed = (file: string): boolean =>
-        file === bridge || file === `content/${platform}/bridge-protocol.ts` || file.startsWith(`platforms/${platform}/`) || MAIN_SAFE_SHARED.includes(file);
+        file === bridge ||
+        file === `content/${platform}/bridge-protocol.ts` ||
+        file === BRIDGE_KIT ||
+        file.startsWith(`platforms/${platform}/`) ||
+        MAIN_SAFE_SHARED.includes(file);
       const reached = [...reachableFrom([bridge], { valuesOnly: true })];
       expect(reached.filter((file) => !allowed(file)), bridge).toEqual([]);
+      // Relevé et canal communs : aucun pont ne réimplémente l'enveloppe fetch / XHR ni l'ouverture du canal
+      expect(reached, bridge).toContain(BRIDGE_KIT);
     }
+  });
+
+  it('le kit des ponts n’importe que des modules purs de la liste blanche', () => {
+    expect([...reachableFrom([BRIDGE_KIT], { valuesOnly: true })].filter((file) => file !== BRIDGE_KIT && !MAIN_SAFE_SHARED.includes(file))).toEqual([]);
   });
 
   it('aucun module atteint par un pont n’appelle chrome. ni browser. (absents du monde MAIN)', () => {

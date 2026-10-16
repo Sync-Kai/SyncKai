@@ -18,7 +18,12 @@
 // 3. Le client n'accepte que le PREMIER port reçu pour son nonce, par un vrai postMessage (`isTrusted`).
 // Ensuite, le pont pousse sur port1 tout ce qu'il a déjà vu (instantané), puis chaque nouveauté. Charges utiles en
 // CHAÎNES JSON (Xray wrappers de Firefox).
-import { isRecord } from '../../shared/guards';
+// Garantie réelle : l'ordre (pont posé à `document_start`, avant tout script de la page), pas le nonce (lisible par la
+// page) ni `isTrusted` (vrai aussi pour un postMessage de la page). Pont exécuté dans un onglet déjà ouvert (accès
+// accordé, mise à jour) : garantie plus faible. Ce qui est reçu est une donnée que la page aurait pu écrire : revalidé
+// ici un à un, jamais seule preuve d'une correspondance (voir content/bridge/kit.ts).
+import { isRecord, parseJsonBounded } from '../../shared/guards';
+import { domainOrSubdomain } from '../../shared/hosts';
 import {
   isPrimeDetailWidgets,
   isPrimeTitle,
@@ -33,8 +38,9 @@ import { stripVersionTags } from '../../shared/title';
  * Version du protocole, à incrémenter à tout changement des messages ou des formes réduites : le pont MAIN d'une
  * version précédente reste dans les onglets ouverts après une mise à jour. Chaque côté ignore les messages d'une autre version.
  * v2 (2026-10-14) : année de sortie de la saison (`PrimeTitle.releaseYear`, signaux de correspondance).
+ * v3 (2026-10-16) : kit des ponts (content/bridge/kit.ts) : observateur sans version, JSON sans prototype hérité.
  */
-export const PRIME_BRIDGE_VERSION = 2;
+export const PRIME_BRIDGE_VERSION = 3;
 /** Ouverture du canal (client isolé → pont), detail = PrimeHandshake en chaîne JSON */
 export const PRIME_HANDSHAKE_EVENT = 'synckai:prime:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
@@ -115,20 +121,14 @@ export function primeBridgeFlag(version: number): symbol {
   return Symbol.for(`synckai.prime.bridge.v${version}`);
 }
 
-/** Installe le pont au plus une fois par version sur ce global (voir installDisneyBridgeOnce). Retourne true si installé. */
-export function installPrimeBridgeOnce(global: object, version: number, install: () => void): boolean {
-  const flag = primeBridgeFlag(version);
-  if (Reflect.get(global, flag)) return false;
-  Reflect.defineProperty(global, flag, { value: true });
-  install();
-  return true;
-}
+/** Emplacement de l'observateur fetch / XHR, sans version (content/bridge/kit.ts › installObserver, 2-R3) */
+export const primeObserverKey = Symbol.for('synckai.prime.observer');
 
 // ─── Requêtes observées (monde MAIN) ──────────────────────────────────────
 
 export type PrimeRequestKind = 'detail' | 'widgets' | 'catalog' | 'playback';
 
-const isPrimeHost = (host: string): boolean => host === 'primevideo.com' || host.endsWith('.primevideo.com');
+const isPrimeHost = domainOrSubdomain('primevideo.com');
 /** Page de détail (même chemin que la page : la réponse n'est lue que si elle est du JSON) */
 const DETAIL_PATH = /^\/(?:region\/[a-z]{2}\/)?(?:-\/[a-z]{2}(?:[-_][a-z]{2})?\/)?detail\/([^/?#]+)\/?$/i;
 const WIDGETS_PATH = /^\/(?:region\/[a-z]{2}\/)?(?:-\/[a-z]{2}(?:[-_][a-z]{2})?\/)?api\/getDetailWidgets\/?$/i;
@@ -256,14 +256,7 @@ function isPrimeWidgetsEntry(value: unknown): value is PrimeWidgetsEntry {
 
 // ─── Messages (chaînes JSON) ──────────────────────────────────────────────
 
-function parseJson(detail: unknown, maxLength: number): unknown {
-  if (typeof detail !== 'string' || detail.length > maxLength) return null;
-  try {
-    return JSON.parse(detail);
-  } catch {
-    return null;
-  }
-}
+const parseJson = parseJsonBounded;
 
 const isCorrelationId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= MAX_ID_LENGTH;
 

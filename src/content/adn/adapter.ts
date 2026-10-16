@@ -1,19 +1,18 @@
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
 import { createLogger } from '../../browser/logger';
-import { toPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
+import { toPlatformSignals, withSignals, type PlatformSignals } from '../../shared/match-signals';
+import { domainOrSubdomain } from '../../shared/hosts';
+import { runStrategies, seriesTitleChain } from '../lib/dom-strategies';
 import { findPlayerVideo } from '../lib/find-video';
 import type { StreamingAdapter } from '../lib/adapter';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import {
-  cleanPageTitle,
   cleanText,
   createLabelGuard,
   labelKey,
   meaningfulSeasonTitle,
   readJsonLdNodes,
-  readMetaContent,
-  slugToTitle,
   toNumber,
   type LabelGuard,
 } from '../lib/parsing';
@@ -206,16 +205,9 @@ function detectAdnSeries(url: URL): SeriesPageInfo | null {
 
   const node = adnSeriesNode([...readJsonLdNodes('TVSeries'), ...readJsonLdNodes('Movie')], path.seriesId);
   const signals = node ? adnSeriesSignals(node) : undefined;
-  const heading = SERIES_TITLE_SELECTORS.map((s) => cleanText(document.querySelector(s)?.textContent)).find(
-    (text): text is string => text !== null && text.length <= 200,
-  );
-  const seriesTitle =
-    cleanText(node?.name) ??
-    heading ??
-    cleanPageTitle(readMetaContent('og:title'), PLATFORM_NAME) ??
-    slugToTitle(path.seriesSlug);
+  const seriesTitle = seriesTitleChain(cleanText(node?.name), SERIES_TITLE_SELECTORS, PLATFORM_NAME, path.seriesSlug);
   if (!seriesTitle) return null;
-  return { seriesId: path.seriesId, seriesSlug: path.seriesSlug, seriesTitle, seasonNumber: null, seasonTitle: null, ...(signals ? { signals } : {}) };
+  return { seriesId: path.seriesId, seriesSlug: path.seriesSlug, seriesTitle, seasonNumber: null, seasonTitle: null, ...withSignals(signals) };
 }
 
 // ─── Adapter ──────────────────────────────────────────────────────────────
@@ -223,9 +215,7 @@ function detectAdnSeries(url: URL): SeriesPageInfo | null {
 export const adnAdapter: StreamingAdapter = {
   platform: 'adn',
 
-  supportsHost(hostname) {
-    return hostname === 'animationdigitalnetwork.com' || hostname.endsWith('.animationdigitalnetwork.com');
-  },
+  supportsHost: domainOrSubdomain('animationdigitalnetwork.com'),
 
   getEpisodeId(url) {
     return parseAdnWatchPath(url.pathname)?.episodeId ?? null;
@@ -235,15 +225,8 @@ export const adnAdapter: StreamingAdapter = {
     const path = parseAdnWatchPath(url.pathname);
     if (!path) return null;
 
-    for (const strategy of STRATEGIES) {
-      const fields = strategy.run(path.episodeId);
-      if (fields) {
-        labels.remember(path.episodeId, labelKey(fields.displayedEpisodeNumber, fields.episodeTitle));
-        if (__SYNCKAI_DEBUG__) log.info(`Métadonnées extraites via ${strategy.name}`);
-        return { platform: 'adn', episodeId: path.episodeId, seriesId: path.seriesId, seriesSlug: path.seriesSlug, url: url.href, ...fields };
-      }
-    }
-    return null;
+    const fields = runStrategies(STRATEGIES, path.episodeId, labels, __SYNCKAI_DEBUG__ ? (name) => log.info(`Métadonnées extraites via ${name}`) : undefined);
+    return fields ? { platform: 'adn', episodeId: path.episodeId, seriesId: path.seriesId, seriesSlug: path.seriesSlug, url: url.href, ...fields } : null;
   },
 
   detectSeries(url) {

@@ -6,11 +6,13 @@
 // 2. Le pont (écouteur en capture sur `window`, posé à `document_start` avant tout script de la page : il passe
 //    en premier) crée un MessageChannel, garde port1 et transfère port2 par
 //    `window.postMessage(offre, location.origin, [port2])`.
-// 3. Le client n'accepte que le PREMIER port reçu pour son nonce, par un vrai postMessage (`isTrusted`) : une
-//    offre forgée par la page arrive forcément après, un événement synthétique (dispatchEvent) est refusé.
+// 3. Le client n'accepte que le PREMIER port reçu pour son nonce, par un vrai postMessage (`isTrusted`) : un
+//    événement synthétique (dispatchEvent) est refusé ; une offre postée par la page n'arrive après la nôtre que si le
+//    pont a été posé avant ses scripts (`document_start`), le nonce étant lisible par la page.
 // Toutes les charges utiles sont des CHAÎNES JSON (Firefox : un objet créé dans un monde n'est pas lisible tel
-// quel dans l'autre, à cause des Xray wrappers ; une chaîne est copiée).
-import { isRecord } from '../../shared/guards';
+// quel dans l'autre, à cause des Xray wrappers ; une chaîne est copiée). Ce qui arrive du monde MAIN est une donnée que
+// la page aurait pu écrire : revalidée ici, jamais seule preuve d'une correspondance (content/bridge/kit.ts).
+import { isRecord, parseJsonBounded } from '../../shared/guards';
 import { isSignalYear } from '../../shared/match-signals';
 import {
   isNetflixShowMetadata,
@@ -45,8 +47,9 @@ export {
  * répondrait au nouveau client. Chaque côté ignore les messages d'une autre version.
  * v2 (2026-10-12) : demande `bookmarks` et points de lecture `bookmark` (import de l'historique).
  * v3 (2026-10-14) : année de début d'origine de chaque saison (`year`, signaux de correspondance).
+ * v4 (2026-10-16) : kit des ponts (content/bridge/kit.ts), réponse relue sans prototype hérité.
  */
-export const NETFLIX_BRIDGE_VERSION = 3;
+export const NETFLIX_BRIDGE_VERSION = 4;
 /** Ouverture du canal (client isolé → pont), detail = NetflixHandshake en chaîne JSON */
 export const NETFLIX_HANDSHAKE_EVENT = 'synckai:netflix:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
@@ -100,20 +103,6 @@ export type NetflixBridgeResponse =
  */
 export function netflixBridgeFlag(version: number): symbol {
   return Symbol.for(version === 1 ? 'synckai.netflix.bridge' : `synckai.netflix.bridge.v${version}`);
-}
-
-/**
- * Pose l'écouteur du pont (`install`) au plus une fois par version sur ce global : double injection (script
- * enregistré puis exécuté dans l'onglet, bfcache) sans écouteur en double. Après une mise à jour, un pont d'une
- * autre version déjà présent n'empêche pas l'installation du nouveau ; l'ancien ignore les demandes de la nouvelle
- * version (`decodeNetflixHandshake`) : une seule offre de port par demande. Retourne true si installé.
- */
-export function installNetflixBridgeOnce(global: object, version: number, install: () => void): boolean {
-  const flag = netflixBridgeFlag(version);
-  if (Reflect.get(global, flag)) return false;
-  Reflect.defineProperty(global, flag, { value: true });
-  install();
-  return true;
 }
 
 // ─── Réduction de la réponse brute (exécutée dans le monde MAIN) ──────────
@@ -187,14 +176,7 @@ export function reduceNetflixMetadata(raw: unknown, bookmarks = false): NetflixS
 
 // ─── Messages (chaînes JSON) ──────────────────────────────────────────────
 
-function parseJson(detail: unknown): unknown {
-  if (typeof detail !== 'string' || detail.length > 2_000_000) return null;
-  try {
-    return JSON.parse(detail);
-  } catch {
-    return null;
-  }
-}
+const parseJson = (detail: unknown): unknown => parseJsonBounded(detail, 2_000_000);
 
 const isId = (v: unknown): v is string => typeof v === 'string' && NETFLIX_MOVIE_ID_REGEX.test(v);
 const isCorrelationId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= MAX_ID_LENGTH;

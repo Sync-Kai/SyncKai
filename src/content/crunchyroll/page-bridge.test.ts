@@ -101,6 +101,18 @@ function connect(nonce = 'n1'): ReceivedCrunchyrollTable[][] {
   return pushes;
 }
 
+/** Ouvre le canal (demande de la version courante) ; messages bruts reçus sur le dernier port offert */
+function connectRaw(nonce: string): unknown[] {
+  const messages: unknown[] = [];
+  page.dispatchEvent(new CustomEvent(CRUNCHYROLL_HANDSHAKE_EVENT, { detail: encodeCrunchyrollHandshake(nonce) }));
+  const port = page.postMessage.mock.calls.at(-1)?.[2][0];
+  if (!port) throw new Error('aucun port');
+  received.push(port);
+  port.addEventListener('message', (event) => messages.push(event.data));
+  port.start();
+  return messages;
+}
+
 function siteXhr(url: string, body: unknown, { status = 200, responseType = '' }: { status?: number; responseType?: XMLHttpRequestResponseType } = {}): void {
   const xhr = new XMLHttpRequest() as unknown as FakeXhr;
   xhr.reply = { status, body };
@@ -265,6 +277,41 @@ describe('page-bridge.iife.ts (Crunchyroll)', () => {
     xhr.send();
     await flushPorts();
     expect(pushes.flat().map((entry) => entry.seriesId)).toEqual(['GOTHER1']);
+  });
+
+  it('nouvelle version réexécutée sans rechargement (mise à jour) : fetch / XHR enveloppés une seule fois, l’ancienne version ne reçoit plus rien (2-R3)', async () => {
+    await runBridge();
+    const before = connectRaw('ancien');
+    const wrapped = { open: FakeXhr.prototype.open, send: FakeXhr.prototype.send, fetch: window.fetch };
+    // Version suivante (autre garde), réinjectée dans la même page comme après une mise à jour
+    vi.doMock('./bridge-protocol', async (importOriginal) => ({ ...(await importOriginal<typeof import('./bridge-protocol')>()), CRUNCHYROLL_BRIDGE_VERSION: CRUNCHYROLL_BRIDGE_VERSION + 1 }));
+    await runBridge();
+    vi.doUnmock('./bridge-protocol');
+    expect(FakeXhr.prototype.open).toBe(wrapped.open);
+    expect(FakeXhr.prototype.send).toBe(wrapped.send);
+    expect(window.fetch).toBe(wrapped.fetch);
+    // Dernière offre : celle du pont le plus récent (écouteurs en capture, dans l'ordre d'installation)
+    const after = connectRaw('nouveau');
+    siteXhr(seasonsUrl(), frierenSeasons());
+    await siteFetchJson(seriesUrl(), frierenSeries());
+    await flushPorts();
+    expect(before).toEqual([]);
+    expect(after).toHaveLength(2);
+    expect(siteFetch).toHaveBeenCalledOnce();
+  });
+
+  it('propriétés héritées polluées par la page (Object.prototype) : jamais lues par les réductions (SEC-05)', async () => {
+    await runBridge();
+    const pushes = connect();
+    Reflect.defineProperty(Object.prototype, 'series_launch_year', { value: 1999, configurable: true });
+    try {
+      siteXhr(seriesUrl(), frierenSeries({ series_launch_year: undefined }));
+      siteXhr(seasonsUrl(), frierenSeasons(), { responseType: 'json' });
+      await flushPorts();
+    } finally {
+      Reflect.deleteProperty(Object.prototype, 'series_launch_year');
+    }
+    expect(crunchyrollTableSignals(lastTable(pushes), { seasonNumber: 1 })).not.toHaveProperty('seriesYear');
   });
 
   it('réexécuté dans la page (même version) : une seule observation ; demande d’une autre version ignorée', async () => {

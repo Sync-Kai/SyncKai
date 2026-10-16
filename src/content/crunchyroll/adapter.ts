@@ -1,16 +1,17 @@
 import { crunchyrollTableSignals, type CrunchyrollSeasonPick } from '../../platforms/crunchyroll/metadata';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
+import { domainOrSubdomain } from '../../shared/hosts';
+import { withSignals } from '../../shared/match-signals';
+import { lazy } from '../bridge/client-kit';
+import { runStrategies, seriesTitleChain } from '../lib/dom-strategies';
 import { createLogger } from '../../browser/logger';
 import {
-  cleanPageTitle,
   cleanText,
   createLabelGuard,
   labelKey,
   readJsonLdNodes,
   type LabelGuard,
-  readMetaContent,
-  slugToTitle,
   stripAudioTag,
   stripCtaPrefix,
   toNumber,
@@ -56,18 +57,12 @@ export type CrunchyrollEpisodeFields = Omit<EpisodeInfo, 'platform' | 'episodeId
 /** Évite d'attribuer au nouvel épisode le DOM de l'épisode précédent (voir createLabelGuard) */
 const labels = createLabelGuard();
 
-let bridgeTables: CrunchyrollTables | null = null;
-
 /** Pont du monde MAIN (crunchyroll/page-bridge.iife.ts), connecté au premier appel : tables des signaux des séries vues */
-export function crunchyrollBridge(): CrunchyrollTables {
-  bridgeTables ??= connectCrunchyrollBridge();
-  return bridgeTables;
-}
+export const crunchyrollBridge: () => CrunchyrollTables = lazy(() => connectCrunchyrollBridge());
 
 /** Signaux de correspondance de la saison affichée, si le pont a vu la série (sinon aucun : comportement d'avant) */
 function bridgeSignals(seriesId: string | null, pick: CrunchyrollSeasonPick): Pick<EpisodeInfo, 'signals'> {
-  const signals = seriesId ? crunchyrollTableSignals(crunchyrollBridge()(seriesId), pick) : undefined;
-  return signals ? { signals } : {};
+  return withSignals(seriesId ? crunchyrollTableSignals(crunchyrollBridge()(seriesId), pick) : undefined);
 }
 
 // ─── Helpers de parsing ────────────────────────────────────────────────────
@@ -399,20 +394,6 @@ function readSeasonEpisodeCount(seasonNumber: number | null): number | null {
 }
 
 /** Premier élément (sélecteurs dans l'ordre de priorité, puis ordre du document) dont le texte est accepté */
-function firstElement(selectors: readonly string[], accept: (text: string) => boolean): { element: Element; text: string } | null {
-  for (const selector of selectors) {
-    for (const element of document.querySelectorAll(selector)) {
-      const text = cleanText(element.textContent);
-      if (text && accept(text)) return { element, text };
-    }
-  }
-  return null;
-}
-
-function firstText(selectors: readonly string[], accept: (text: string) => boolean): string | null {
-  return firstElement(selectors, accept)?.text ?? null;
-}
-
 /** Libellé du menu des saisons : reconnu (numéro, arc, spécial), sinon nom seul sur un bouton du menu uniquement */
 function parseSeasonMenuText(text: string, isButton: boolean): ParsedSeasonLabel | null {
   const parsed = parseCrunchyrollSeasonLabel(text);
@@ -449,11 +430,7 @@ function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
   const path = parseCrunchyrollSeriesPath(url.pathname);
   if (!path) return null;
 
-  const seriesTitle =
-    seriesTitleFromJsonLd(readJsonLdNodes('TVSeries'), path.seriesId) ??
-    firstText(SERIES_SELECTORS.title, (text) => text.length <= 200) ??
-    cleanPageTitle(readMetaContent('og:title'), PLATFORM_NAME) ??
-    slugToTitle(path.seriesSlug);
+  const seriesTitle = seriesTitleChain(seriesTitleFromJsonLd(readJsonLdNodes('TVSeries'), path.seriesId), SERIES_SELECTORS.title, PLATFORM_NAME, path.seriesSlug);
   if (!seriesTitle) return null;
 
   const season = readSeasonMenu()?.season ?? null;
@@ -476,9 +453,7 @@ function detectCrunchyrollSeries(url: URL): SeriesPageInfo | null {
 export const crunchyrollAdapter: StreamingAdapter = {
   platform: 'crunchyroll',
 
-  supportsHost(hostname) {
-    return hostname === 'crunchyroll.com' || hostname.endsWith('.crunchyroll.com');
-  },
+  supportsHost: domainOrSubdomain('crunchyroll.com'),
 
   getEpisodeId(url) {
     return WATCH_PATH_REGEX.exec(url.pathname)?.[1] ?? null;
@@ -488,15 +463,8 @@ export const crunchyrollAdapter: StreamingAdapter = {
     const episodeId = this.getEpisodeId(url);
     if (!episodeId) return null;
 
-    for (const strategy of STRATEGIES) {
-      const fields = strategy.run(episodeId);
-      if (fields) {
-        labels.remember(episodeId, labelKey(fields.displayedEpisodeNumber, fields.episodeTitle));
-        if (__SYNCKAI_DEBUG__) log.info(`Métadonnées extraites via ${strategy.name}`);
-        return { platform: 'crunchyroll', episodeId, url: url.href, ...fields, ...bridgeSignals(fields.seriesId, { episodeId, seasonNumber: fields.seasonNumber }) };
-      }
-    }
-    return null;
+    const fields = runStrategies(STRATEGIES, episodeId, labels, __SYNCKAI_DEBUG__ ? (name) => log.info(`Métadonnées extraites via ${name}`) : undefined);
+    return fields ? { platform: 'crunchyroll', episodeId, url: url.href, ...fields, ...bridgeSignals(fields.seriesId, { episodeId, seasonNumber: fields.seasonNumber }) } : null;
   },
 
   detectSeries(url) {

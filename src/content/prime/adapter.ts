@@ -12,6 +12,9 @@ import {
   type PrimeTitle,
 } from '../../platforms/prime/metadata';
 import { titleKey } from '../../shared/title';
+import { withSignals } from '../../shared/match-signals';
+import { domainOrSubdomain } from '../../shared/hosts';
+import { lazy, pageEndpoints } from '../bridge/client-kit';
 import { createPrimeBridgeClient, type PrimeBridgeClient, type ReceivedCatalog } from './bridge-client';
 import type { PrimeWidgetsEntry } from './bridge-protocol';
 import type { PlaybackTime, StreamingAdapter } from '../lib/adapter';
@@ -112,8 +115,7 @@ const detailUrl = (title: PrimeTitle | null, fallback: string): string => (title
  */
 function titleSignals(entry: ReceivedCatalog, listed: boolean, title: PrimeTitle): Pick<EpisodeInfo, 'signals'> {
   const own = entry.type === 'movie' ? title.titleType === 'movie' : listed || (entry.seasonNumber !== null && entry.seasonNumber === title.seasonNumber);
-  const signals = own ? primeSignals(title) : undefined;
-  return signals ? { signals } : {};
+  return withSignals(own ? primeSignals(title) : undefined);
 }
 
 /**
@@ -146,9 +148,8 @@ export function episodeInfoFromPrime(entry: ReceivedCatalog, aliases: readonly s
 export function seriesInfoFromPrime(title: PrimeTitle, urlId: string | null): SeriesPageInfo | null {
   const verdict = primeAnimeVerdict(title.genres, title.japaneseAudio);
   if (verdict === 'ignored') return null;
-  const signals = primeSignals(title);
   return {
-    ...(signals ? { signals } : {}),
+    ...withSignals(primeSignals(title)),
     seriesId: title.compactGTI ?? primeCompactGti(urlId),
     seriesSlug: null,
     seriesTitle: title.seriesTitle,
@@ -204,11 +205,9 @@ export function readPrimePlayback(video: Pick<HTMLVideoElement, 'currentTime' | 
 // ─── Adapter ──────────────────────────────────────────────────────────────
 
 /** Créé à la première utilisation : le module est aussi importé hors navigateur (tests) */
-let client: PrimeBridgeClient | null = null;
-function bridge(): PrimeBridgeClient {
-  client ??= createPrimeBridgeClient({ target: document, messages: window, origin: location.origin, log: __SYNCKAI_DEBUG__ ? (message) => log.debug(message) : undefined });
-  return client;
-}
+const bridge: () => PrimeBridgeClient = lazy(() =>
+  createPrimeBridgeClient({ ...pageEndpoints(), log: __SYNCKAI_DEBUG__ ? (message) => log.debug(message) : undefined }),
+);
 
 /** Page du premier chargement (seule décrite par le nœud d'hydratation) et sa lecture */
 let hydration: { path: string; node: Element | null; title: PrimeTitle | null } | null = null;
@@ -282,9 +281,7 @@ export const primeAdapter: StreamingAdapter = {
   // Catalogue généraliste : pas de toast pour une vidéo qui n'est probablement pas un anime
   quiet: true,
 
-  supportsHost(hostname) {
-    return hostname === 'primevideo.com' || hostname.endsWith('.primevideo.com');
-  },
+  supportsHost: domainOrSubdomain('primevideo.com'),
 
   // Aucun identifiant d'épisode dans l'URL : épisode en lecture d'après le lecteur, sur cette page seulement
   getEpisodeId(url) {

@@ -16,6 +16,10 @@
 // 3. Le client n'accepte que le PREMIER port reçu pour son nonce, par un vrai postMessage (`isTrusted`).
 // Ensuite, le pont pousse sur port1 les fiches déjà vues (instantané), puis chaque nouvelle fiche (lecture
 // automatique de l'épisode suivant, navigation dans le site). Charges utiles en CHAÎNES JSON (Xray wrappers de Firefox).
+// Garantie réelle : l'ordre (pont posé à `document_start`, avant tout script de la page), pas le nonce (lisible par la
+// page) ni `isTrusted` (vrai aussi pour un postMessage de la page). Pont exécuté dans un onglet déjà ouvert (accès
+// accordé, mise à jour) : garantie plus faible. Les fiches reçues sont des données que la page aurait pu écrire :
+// revalidées ici une à une, jamais seule preuve d'une correspondance (voir content/bridge/kit.ts).
 //
 // Pages de série (/browse/entity-{uuid}) : le pont observe aussi les réponses `page/entity-{uuid}` (série, genres,
 // saisons) et `season/{id}` (saison choisie dans le menu, pagination des épisodes), réduites à `DisneySeriesPage` et
@@ -25,7 +29,7 @@
 // requête POST du lecteur) et n'en garde que les identifiants de la vidéo et les repères éditoriaux
 // (`stream.editorial` : FFEC, up_next), réunis à la fiche de la même vidéo (`DisneyPlayerExperience.editorial`). Les
 // URL signées des flux et les jetons de droits (`playbackRightsContext`…) de cette réponse ne sont jamais lus.
-import { isRecord } from '../../shared/guards';
+import { isRecord, parseJsonBounded } from '../../shared/guards';
 import { isSignalYear } from '../../shared/match-signals';
 import {
   DISNEY_ID_REGEX,
@@ -53,8 +57,9 @@ import {
  * Chaque côté ignore les messages d'une autre version.
  * v5 (2026-10-14) : année de début de la série (`startYear`) et durée médiane des épisodes de chaque saison
  * (`episodeMinutes`), signaux de correspondance.
+ * v6 (2026-10-16) : kit des ponts (content/bridge/kit.ts) : observateur sans version, JSON sans prototype hérité.
  */
-export const DISNEY_BRIDGE_VERSION = 5;
+export const DISNEY_BRIDGE_VERSION = 6;
 /** Ouverture du canal (client isolé → pont), detail = DisneyHandshake en chaîne JSON */
 export const DISNEY_HANDSHAKE_EVENT = 'synckai:disney:handshake';
 /** Type du message `window.postMessage` qui transfère port2 (pont → client isolé) */
@@ -88,18 +93,10 @@ export function disneyBridgeFlag(version: number): symbol {
 }
 
 /**
- * Installe le pont (`install`) au plus une fois par version sur ce global : double injection (script enregistré puis
- * exécuté dans l'onglet, bfcache) sans observateur en double. Après une mise à jour, un pont d'une autre version déjà
- * présent n'empêche pas l'installation du nouveau ; l'ancien ignore les demandes de la nouvelle version. Retourne true
- * si installé.
+ * Emplacement de l'observateur fetch / XHR, SANS version (content/bridge/kit.ts › installObserver, 2-R3) : une version
+ * réinjectée après une mise à jour remplace l'observateur sans envelopper fetch / XHR une fois de plus.
  */
-export function installDisneyBridgeOnce(global: object, version: number, install: () => void): boolean {
-  const flag = disneyBridgeFlag(version);
-  if (Reflect.get(global, flag)) return false;
-  Reflect.defineProperty(global, flag, { value: true });
-  install();
-  return true;
-}
+export const disneyObserverKey = Symbol.for('synckai.disney.observer');
 
 // ─── Revalidation (monde isolé : la page peut émettre n'importe quoi) ─────
 
@@ -161,14 +158,7 @@ export function isDisneySeriesPage(value: unknown): value is DisneySeriesPage {
 
 // ─── Messages (chaînes JSON) ──────────────────────────────────────────────
 
-function parseJson(detail: unknown, maxLength: number): unknown {
-  if (typeof detail !== 'string' || detail.length > maxLength) return null;
-  try {
-    return JSON.parse(detail);
-  } catch {
-    return null;
-  }
-}
+const parseJson = parseJsonBounded;
 
 const isCorrelationId = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= MAX_ID_LENGTH;
 

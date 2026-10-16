@@ -6,15 +6,16 @@ import {
   encodePrimeHandshake,
   encodePrimePortOffer,
   encodePrimePush,
-  installPrimeBridgeOnce,
   isPrimeCatalogEntry,
   observedPrimeRequest,
   PRIME_BRIDGE_VERSION,
   PRIME_PORT_OFFER,
+  primeBridgeFlag,
   reducePrimeCatalog,
   reducePrimePlayback,
   type PrimeBridgePush,
 } from './bridge-protocol';
+import { installOnce } from '../../shared/guards';
 import {
   BUMPKIN_CREDITS_MS,
   BUMPKIN_DURATION_MS,
@@ -135,9 +136,9 @@ describe('messages', () => {
   it('pont installé une fois par version', () => {
     const global = {};
     let installs = 0;
-    expect(installPrimeBridgeOnce(global, 1, () => installs++)).toBe(true);
-    expect(installPrimeBridgeOnce(global, 1, () => installs++)).toBe(false);
-    expect(installPrimeBridgeOnce(global, 2, () => installs++)).toBe(true);
+    expect(installOnce(global, primeBridgeFlag(1), () => installs++)).toBe(true);
+    expect(installOnce(global, primeBridgeFlag(1), () => installs++)).toBe(false);
+    expect(installOnce(global, primeBridgeFlag(2), () => installs++)).toBe(true);
     expect(installs).toBe(2);
   });
 });

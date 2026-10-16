@@ -3,7 +3,9 @@ import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createLogger } from '../../browser/logger';
 import { createNetflixBridgeClient, type NetflixBridgeClient } from './bridge-client';
 import { episodeNumbers, netflixSignals, platformSeasonsOf, type NetflixSeasonMetadata, type NetflixShowMetadata } from '../../platforms/netflix/metadata';
-import type { PlatformSignals } from '../../shared/match-signals';
+import { withSignals } from '../../shared/match-signals';
+import { domainOrSubdomain } from '../../shared/hosts';
+import { lazy, pageEndpoints } from '../bridge/client-kit';
 import { findPlayerVideo } from '../lib/find-video';
 import { watchElementText } from '../lib/season-watch';
 import type { StreamingAdapter } from '../lib/adapter';
@@ -50,7 +52,6 @@ export function parseNetflixSeriesId(url: URL): string | null {
 const watchUrl = (movieId: string): string => `https://www.netflix.com/watch/${movieId}`;
 
 /** Signaux de la saison (ou du film), propriété absente sans signal */
-const withSignals = (signals: PlatformSignals | undefined): { signals?: PlatformSignals } => (signals ? { signals } : {});
 
 /**
  * Épisode correspondant à la vidéo `movieId` dans les métadonnées réduites, null s'il n'y figure pas.
@@ -148,20 +149,14 @@ export function creditsStartFromMetadata(show: NetflixShowMetadata | null, movie
 }
 
 /** Créé à la première utilisation : le module est aussi importé hors navigateur (tests). Partagé avec l'import (history.ts) */
-let client: NetflixBridgeClient | null = null;
-export function bridge(): NetflixBridgeClient {
-  client ??= createNetflixBridgeClient({ target: document, messages: window, origin: location.origin });
-  return client;
-}
+export const bridge: () => NetflixBridgeClient = lazy(() => createNetflixBridgeClient(pageEndpoints()));
 
 export const netflixAdapter: StreamingAdapter = {
   platform: 'netflix',
   // Catalogue généraliste : pas de toast pour une vidéo qui n'est probablement pas un anime
   quiet: true,
 
-  supportsHost(hostname) {
-    return hostname === 'netflix.com' || hostname.endsWith('.netflix.com');
-  },
+  supportsHost: domainOrSubdomain('netflix.com'),
 
   getEpisodeId(url) {
     return parseNetflixWatchId(url.pathname);

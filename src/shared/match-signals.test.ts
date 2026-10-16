@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { isEpisodeInfo } from './episode.types';
-import { hasSignals, isPlatformSignals } from './match-signals';
+import { hasSignals, isPlatformSignals, withSignals } from './match-signals';
+
+describe('withSignals', () => {
+  it('propriété `signals` seulement s’il y en a (jamais `signals: undefined`)', () => {
+    expect(withSignals({ seasonYear: 2023 })).toEqual({ signals: { seasonYear: 2023 } });
+    expect(withSignals(undefined)).toEqual({});
+    expect(Object.hasOwn(withSignals(undefined), 'signals')).toBe(false);
+  });
+});
 
 describe('isPlatformSignals', () => {
   it('accepte des signaux bornés, facultatifs', () => {

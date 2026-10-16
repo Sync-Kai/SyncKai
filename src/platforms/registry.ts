@@ -1,9 +1,10 @@
 // Registre des plateformes de streaming : tout ce que SyncKai sait d'une plateforme hors de son adaptateur de contenu
-// (libellé, logo, hôtes, liens, accès optionnel, filtre « anime »). Seul import : platforms/ids.ts
-// (feuille), pour rester utilisable partout (shared, ui, background, content) sans cycle. Ajouter une plateforme :
+// (libellé, logo, hôtes, liens, accès optionnel, filtre « anime »). Seuls imports : platforms/ids.ts et shared/hosts.ts
+// (feuilles), pour rester utilisable partout (shared, ui, background, content) sans cycle. Ajouter une plateforme :
 // l'ajouter à STREAMING_PLATFORMS (platforms/ids.ts), puis le compilateur exige son descripteur (Record exhaustif)
 // et les Record qui en dépendent.
 
+import { domainOrSubdomain } from '../shared/hosts';
 import { platformRecord, STREAMING_PLATFORMS, type StreamingPlatform } from './ids';
 
 // Identifiants (liste, type, platformRecord) : platforms/ids.ts, repris ici
@@ -36,14 +37,6 @@ export interface PlatformDescriptor {
   seriesUrl: (seriesId: string | null, slug: string | null) => string | null;
   /** Page de recherche ; `query` déjà encodée pour l'URL */
   searchUrl: (query: string) => string;
-}
-
-/** Domaine exact ou l'un de ses sous-domaines (« crunchyroll.com », « www.crunchyroll.com », pas « evilcrunchyroll.com ») */
-function domainOrSubdomain(...domains: readonly string[]): (hostname: string) => boolean {
-  return (hostname) => {
-    const host = hostname.toLowerCase();
-    return domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
-  };
 }
 
 const CRUNCHYROLL_ID = /^[A-Z0-9]{4,20}$/i;

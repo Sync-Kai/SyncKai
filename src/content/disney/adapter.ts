@@ -1,6 +1,8 @@
 import { DISNEY_ARC_SEASON, type EpisodeInfo } from '../../shared/episode.types';
 import { createLogger } from '../../browser/logger';
-import { medianMinutes, toPlatformSignals, type PlatformFormat, type PlatformSignals } from '../../shared/match-signals';
+import { medianMinutes, toPlatformSignals, withSignals, type PlatformFormat, type PlatformSignals } from '../../shared/match-signals';
+import { domainOrSubdomain } from '../../shared/hosts';
+import { lazy, pageEndpoints } from '../bridge/client-kit';
 import type { SeriesPageInfo } from '../../shared/page-media.types';
 import { createDisneyBridgeClient, type DisneyBridgeClient } from './bridge-client';
 import {
@@ -142,7 +144,7 @@ export function episodeInfoFromPlayerExperience(entry: DisneyPlayerExperience, u
   if (parsed.kind === 'movie') {
     if (entry.programType !== 'movie') return null;
     const signals = playbackSignals(entry, parsed.title, null, null, pages);
-    return { ...base, animeTitle: parsed.title, seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: null, ...(signals ? { signals } : {}) };
+    return { ...base, animeTitle: parsed.title, seasonNumber: null, seasonTitle: null, seasonEpisodeNumber: 1, displayedEpisodeNumber: 1, episodeTitle: null, ...withSignals(signals) };
   }
 
   const { series, season, episode } = parsed;
@@ -150,7 +152,7 @@ export function episodeInfoFromPlayerExperience(entry: DisneyPlayerExperience, u
   const signals = playbackSignals(entry, series, season === DISNEY_ARC_SEASON ? null : season, arc, pages);
   return {
     ...base,
-    ...(signals ? { signals } : {}),
+    ...withSignals(signals),
     animeTitle: series,
     seasonNumber: season === DISNEY_ARC_SEASON ? (arc ? DISNEY_ARC_SEASON : 0) : season,
     seasonTitle: arc,
@@ -252,7 +254,7 @@ export function seriesInfoFromDisneyPage(page: DisneySeriesPage, season: DisneyS
     seriesSlug: null,
     seriesTitle: internal?.kind === 'episode' ? internal.series : (internal?.title ?? page.title),
     ...(page.genres.length > 0 ? { catalogAnime: hasAnimeGenre(page.genres) } : {}),
-    ...(signals ? { signals } : {}),
+    ...withSignals(signals),
   };
   if (!season) return { ...base, seasonNumber: null, seasonTitle: null, seasonEpisodeCount: null };
   const named = meaningfulSeasonTitle(season.name);
@@ -424,11 +426,9 @@ const URL_CHANGE_MARGIN_MS = 2_000;
 const MAX_SEEN_URLS = 20;
 
 /** Créés à la première utilisation : le module est aussi importé hors navigateur (tests) */
-let client: DisneyBridgeClient | null = null;
-function bridge(): DisneyBridgeClient {
-  client ??= createDisneyBridgeClient({ target: document, messages: window, origin: location.origin, log: __SYNCKAI_DEBUG__ ? (message) => log.debug(message) : undefined });
-  return client;
-}
+const bridge: () => DisneyBridgeClient = lazy(() =>
+  createDisneyBridgeClient({ ...pageEndpoints(), log: __SYNCKAI_DEBUG__ ? (message) => log.debug(message) : undefined }),
+);
 
 /**
  * Date du changement d'URL vers `urlId` (premier passage), pour le repli du pont (seule fiche reçue depuis). Premier
@@ -474,9 +474,7 @@ export const disneyAdapter: StreamingAdapter = {
   // Catalogue généraliste : pas de toast pour une vidéo qui n'est probablement pas un anime
   quiet: true,
 
-  supportsHost(hostname) {
-    return hostname === 'disneyplus.com' || hostname.endsWith('.disneyplus.com');
-  },
+  supportsHost: domainOrSubdomain('disneyplus.com'),
 
   getEpisodeId(url) {
     const urlId = parseDisneyPlayId(url.pathname);

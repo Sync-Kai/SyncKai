@@ -7,6 +7,8 @@
 // Tout est indexé par identifiant (entityId, titleId, GTI de saison), jamais « dernière réponse reçue » : la réponse de
 // lecture de l'épisode suivant arrive avant la bascule.
 import { primeId, type PrimeTitle } from '../../platforms/prime/metadata';
+import { keep } from '../../shared/lru';
+import { createBridgeConnection, createWaiters, type ChannelEndpoints } from '../bridge/client-kit';
 import {
   decodePrimePortOffer,
   decodePrimePush,
@@ -22,13 +24,7 @@ import {
   type PrimeWidgetsEntry,
 } from './bridge-protocol';
 
-export interface PrimeBridgeClientOptions {
-  /** Cible de la demande d'ouverture du canal (document en production, faux document dans les tests) */
-  target: EventTarget;
-  /** Réception de l'offre de port par `postMessage` (window en production) */
-  messages: EventTarget;
-  /** Origine attendue de l'offre (location.origin) */
-  origin: string;
+export interface PrimeBridgeClientOptions extends ChannelEndpoints {
   /** Attente de l'offre de port : pont absent au-delà (onglet ouvert avant l'activation ou la mise à jour) */
   connectTimeoutMs?: number;
   /** Attente maximale d'une donnée une fois le canal ouvert */
@@ -36,8 +32,6 @@ export interface PrimeBridgeClientOptions {
   /** Chemin de la page au moment de la réception (location.pathname en production) */
   currentPath?: () => string;
   newId?: () => string;
-  /** Défaut : `event.isTrusted` ; remplacé dans les tests (Node : toujours faux) */
-  isTrusted?: (event: Event) => boolean;
   /** Journal de diagnostic (appels entourés de `__SYNCKAI_DEBUG__` : retirés du script publié) */
   log?: (message: string) => void;
 }
@@ -64,7 +58,7 @@ export interface PrimeBridgeClient {
   titles(): readonly PrimeTitle[];
   /** Page de détail désignée par `id` (identifiant du chemin de la requête, GTI de saison ou GTI compact) */
   peekTitle(id: string): PrimeTitle | null;
-  /** Page `id` en cache, sinon attendue (borné par l'appelant au moyen de `signal`) */
+  /** Page `id` en cache, sinon attendue jusqu'à `waitMs` (en pratique bornée plus tôt par l'appelant au moyen de `signal`) */
   loadTitle(id: string, signal: AbortSignal): Promise<PrimeTitle | null>;
   /** Widgets reçus, du plus ancien au plus récent */
   widgets(): readonly PrimeWidgetsEntry[];
@@ -73,12 +67,8 @@ export interface PrimeBridgeClient {
 const DEFAULTS = { connectTimeoutMs: 3_000, waitMs: 20_000 } as const;
 
 export function createPrimeBridgeClient(options: PrimeBridgeClientOptions): PrimeBridgeClient {
-  const { target, messages, origin } = options;
-  const connectTimeoutMs = options.connectTimeoutMs ?? DEFAULTS.connectTimeoutMs;
   const waitMs = options.waitMs ?? DEFAULTS.waitMs;
   const currentPath = options.currentPath ?? ((): string => location.pathname);
-  const newId = options.newId ?? ((): string => crypto.randomUUID());
-  const isTrusted = options.isTrusted ?? ((event: Event): boolean => event.isTrusted);
   const log = options.log ?? ((): void => undefined);
 
   const catalog = new Map<string, ReceivedCatalog>();
@@ -86,23 +76,11 @@ export function createPrimeBridgeClient(options: PrimeBridgeClientOptions): Prim
   /** Pages par GTI de saison, avec les identifiants de chemin qui y ont mené */
   const titleEntries = new Map<string, { title: PrimeTitle; requestIds: Set<string> }>();
   let widgetEntries: PrimeWidgetsEntry[] = [];
-  const listeners = new Set<() => void>();
-  let port: MessagePort | null = null;
-  let opening: Promise<MessagePort | null> | null = null;
+  /** Attentes et abonnés : relus à chaque nouveauté */
+  const { notify, subscribe, until } = createWaiters();
 
-  function keep<T>(map: Map<string, T>, key: string, value: T, max: number): void {
-    map.delete(key);
-    map.set(key, value);
-    for (const old of [...map.keys()].slice(0, Math.max(0, map.size - max))) map.delete(old);
-  }
-
-  function notify(): void {
-    for (const listener of [...listeners]) listener();
-  }
-
-  function onPortMessage(event: Event): void {
-    if (!(event instanceof MessageEvent) || !isTrusted(event)) return;
-    const push = decodePrimePush(event.data);
+  function onPortMessage(data: unknown): void {
+    const push = decodePrimePush(data);
     if (!push) return;
     const path = currentPath();
     for (const entry of push.catalog) {
@@ -127,61 +105,19 @@ export function createPrimeBridgeClient(options: PrimeBridgeClientOptions): Prim
     notify();
   }
 
-  function openChannel(): Promise<MessagePort | null> {
-    const nonce = newId();
-    return new Promise((resolve) => {
-      const done = (offered: MessagePort | null): void => {
-        clearTimeout(timer);
-        messages.removeEventListener('message', onOffer);
-        resolve(offered);
-      };
-      const onOffer = (event: Event): void => {
-        if (!(event instanceof MessageEvent) || !isTrusted(event) || event.origin !== origin) return;
-        if (decodePrimePortOffer(event.data)?.nonce !== nonce) return;
-        const [offered] = event.ports;
-        if (offered instanceof MessagePort) done(offered);
-      };
-      const timer = setTimeout(() => done(null), connectTimeoutMs);
-      messages.addEventListener('message', onOffer);
-      target.dispatchEvent(new CustomEvent(PRIME_HANDSHAKE_EVENT, { detail: encodePrimeHandshake({ v: PRIME_BRIDGE_VERSION, nonce }) }));
-    });
-  }
-
-  function connect(): Promise<MessagePort | null> {
-    if (port) return Promise.resolve(port);
-    opening ??= openChannel().then((offered) => {
-      opening = null;
-      if (offered) {
-        port = offered;
-        offered.addEventListener('message', onPortMessage);
-        offered.start();
-        if (__SYNCKAI_DEBUG__) log('Pont Prime Video connecté');
-      } else if (__SYNCKAI_DEBUG__) log('Pont Prime Video absent (onglet ouvert avant l’activation ou la mise à jour ?)');
-      return offered;
-    });
-    return opening;
-  }
-
-  /** Valeur de `get` dès qu'elle est définie (relue à chaque nouveauté) ; null si `signal` est annulé ou après `timeoutMs` */
-  function until<T>(get: () => T | null, signal: AbortSignal, timeoutMs?: number): Promise<T | null> {
-    return new Promise((resolve) => {
-      const finish = (value: T | null): void => {
-        clearTimeout(timer);
-        listeners.delete(check);
-        signal.removeEventListener('abort', onAbort);
-        resolve(value);
-      };
-      const check = (): void => {
-        const value = get();
-        if (value !== null) finish(value);
-      };
-      const onAbort = (): void => finish(null);
-      const timer = timeoutMs === undefined ? undefined : setTimeout(onAbort, timeoutMs);
-      signal.addEventListener('abort', onAbort, { once: true });
-      listeners.add(check);
-      check();
-    });
-  }
+  /** Canal privé (content/bridge/client-kit.ts) ; pont absent : null après `connectTimeoutMs`, nouvel essai à la demande suivante */
+  const connect = createBridgeConnection({
+    endpoints: options,
+    event: PRIME_HANDSHAKE_EVENT,
+    handshake: (nonce) => encodePrimeHandshake({ v: PRIME_BRIDGE_VERSION, nonce }),
+    isOffer: (data, nonce) => decodePrimePortOffer(data)?.nonce === nonce,
+    timeoutMs: options.connectTimeoutMs ?? DEFAULTS.connectTimeoutMs,
+    newId: options.newId,
+    onMessage: onPortMessage,
+    onOpen: (port) => {
+      if (__SYNCKAI_DEBUG__) log(port ? 'Pont Prime Video connecté' : 'Pont Prime Video absent (onglet ouvert avant l’activation ou la mise à jour ?)');
+    },
+  });
 
   const canonical = (id: string): string | null => primeId(id);
 
@@ -206,7 +142,7 @@ export function createPrimeBridgeClient(options: PrimeBridgeClientOptions): Prim
     const cached = peekPlayback(id);
     if (cached) return cached;
     if (!(await connect()) || signal.aborted) return peekPlayback(id);
-    return until(() => peekPlayback(id), signal, waitMs);
+    return until(() => peekPlayback(id) ?? undefined, signal, waitMs);
   }
 
   function peekTitle(id: string): PrimeTitle | null {
@@ -223,15 +159,12 @@ export function createPrimeBridgeClient(options: PrimeBridgeClientOptions): Prim
     const cached = peekTitle(id);
     if (cached) return cached;
     if (!(await connect()) || signal.aborted) return peekTitle(id);
-    return until(() => peekTitle(id), signal);
+    return until(() => peekTitle(id) ?? undefined, signal, waitMs);
   }
 
   return {
     start: () => void connect(),
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    subscribe,
     peekCatalog,
     latestCatalog,
     peekPlayback,

@@ -9,9 +9,9 @@ import {
   encodeDisneyHandshake,
   encodeDisneyPortOffer,
   encodeDisneyPush,
-  installDisneyBridgeOnce,
   isDisneyPlayerExperience,
 } from './bridge-protocol';
+import { installOnce } from '../../shared/guards';
 import {
   DISNEY_MAX_ENTRIES,
   DISNEY_MAX_IDS,
@@ -289,13 +289,13 @@ describe('messages du canal (chaînes JSON)', () => {
   });
 });
 
-describe('installDisneyBridgeOnce', () => {
+describe('disneyBridgeFlag', () => {
   it('installe une fois par version de protocole', () => {
     const global = {};
     const install = vi.fn();
-    expect(installDisneyBridgeOnce(global, 1, install)).toBe(true);
-    expect(installDisneyBridgeOnce(global, 1, install)).toBe(false);
-    expect(installDisneyBridgeOnce(global, 2, install)).toBe(true);
+    expect(installOnce(global, disneyBridgeFlag(1), install)).toBe(true);
+    expect(installOnce(global, disneyBridgeFlag(1), install)).toBe(false);
+    expect(installOnce(global, disneyBridgeFlag(2), install)).toBe(true);
     expect(install).toHaveBeenCalledTimes(2);
     expect(disneyBridgeFlag(1)).not.toBe(disneyBridgeFlag(2));
     // Clé distincte de celle du pont Netflix

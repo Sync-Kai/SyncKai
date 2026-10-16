@@ -3,6 +3,7 @@
 // script de contenu isolé et des tests. Le protocole du pont (messages, version, revalidation côté isolé) est dans
 // content/disney/bridge-protocol.ts.
 import { isRecord } from '../../shared/guards';
+import { domainOrSubdomain } from '../../shared/hosts';
 import { isSignalYear, medianMinutes } from '../../shared/match-signals';
 
 /** Identifiant Disney+ (épisode de /play/{id}, availId, entité) : UUID */
@@ -114,10 +115,7 @@ export interface DisneySeriesPage {
 // ─── Requêtes observées (monde MAIN) ──────────────────────────────────────
 
 /** Hôtes de l'API du site (Disney Streaming / BAMTech) */
-function isApiHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  return ['bamgrid.com', 'disneyplus.com'].some((domain) => host === domain || host.endsWith(`.${domain}`));
-}
+const isApiHost = domainOrSubdomain('bamgrid.com', 'disneyplus.com');
 
 /** Requêtes lues : fiche d'une vidéo, page de série (entité), saison d'une page de série */
 const OBSERVED_PATH = /^\/explore\/v1(?:\.\d{1,3})?\/(playerExperience|page|season)\/(entity-)?([0-9a-f-]{36})\/?$/i;

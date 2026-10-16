@@ -6,6 +6,8 @@
 // l'épisode suivant de la lecture automatique est servi sans nouvelle requête).
 // Page de série (/title/{id}, fenêtre de détail ?jbv={id}) : même requête avec l'identifiant de la série (`loadShow`),
 // réponse acceptée seulement si elle décrit cette série ; même cache et même requête en vol.
+import { keep } from '../../shared/lru';
+import { createBridgeConnection, untilAborted, type ChannelEndpoints } from '../bridge/client-kit';
 import {
   decodeNetflixPortOffer,
   decodeNetflixResponse,
@@ -19,13 +21,7 @@ import {
   type NetflixShowMetadata,
 } from './bridge-protocol';
 
-export interface NetflixBridgeClientOptions {
-  /** Cible de la demande d'ouverture du canal (document en production, faux document dans les tests) */
-  target: EventTarget;
-  /** Réception de l'offre de port par `postMessage` (window en production) */
-  messages: EventTarget;
-  /** Origine attendue de l'offre (location.origin) */
-  origin: string;
+export interface NetflixBridgeClientOptions extends ChannelEndpoints {
   /** Délai d'une tentative (ouverture du canal comprise) ; doit rester supérieur à NETFLIX_FETCH_TIMEOUT_MS */
   timeoutMs?: number;
   /** Nouvelles tentatives après un délai dépassé ou une erreur passagère */
@@ -34,11 +30,6 @@ export interface NetflixBridgeClientOptions {
   cacheSize?: number;
   /** Identifiants de corrélation et nonces d'ouverture */
   newId?: () => string;
-  /**
-   * Événement émis par le navigateur (vrai postMessage) et non par `dispatchEvent` d'un script de la page.
-   * Défaut : `event.isTrusted` ; remplacé dans les tests (Node : toujours faux).
-   */
-  isTrusted?: (event: Event) => boolean;
 }
 
 export interface NetflixBridgeClient {
@@ -79,45 +70,20 @@ function retryable(response: Extract<NetflixBridgeResponse, { ok: false }>): boo
   return false; // Forme inattendue : une nouvelle tentative donnerait la même réponse
 }
 
-/** Résout `promise`, ou null dès que `signal` est annulé (la promesse partagée continue pour les autres) */
-function untilAborted<T>(promise: Promise<T | null>, signal: AbortSignal): Promise<T | null> {
-  if (signal.aborted) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const onAbort = (): void => resolve(null);
-    signal.addEventListener('abort', onAbort, { once: true });
-    void promise.then((value) => {
-      signal.removeEventListener('abort', onAbort);
-      resolve(value);
-    });
-  });
-}
-
 export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): NetflixBridgeClient {
-  const { target, messages, origin } = options;
   const timeoutMs = options.timeoutMs ?? DEFAULTS.timeoutMs;
   const retries = options.retries ?? DEFAULTS.retries;
   const retryDelayMs = options.retryDelayMs ?? DEFAULTS.retryDelayMs;
   const cacheSize = options.cacheSize ?? DEFAULTS.cacheSize;
   const newId = options.newId ?? ((): string => crypto.randomUUID());
-  const isTrusted = options.isTrusted ?? ((event: Event): boolean => event.isTrusted);
 
   /** Clé : vidéo demandée ; ordre d'insertion = ancienneté d'usage (LRU) */
   const cache = new Map<string, NetflixShowMetadata>();
   const inFlight = new Map<string, Promise<NetflixShowMetadata | null>>();
-  /** Canal privé vers le pont, une fois ouvert ; réponses aiguillées par identifiant de corrélation */
-  let port: MessagePort | null = null;
-  let opening: Promise<MessagePort | null> | null = null;
+  /** Réponses aiguillées par identifiant de corrélation */
   const pending = new Map<string, (response: NetflixBridgeResponse) => void>();
 
-  function remember(movieId: string, show: NetflixShowMetadata): void {
-    cache.delete(movieId);
-    cache.set(movieId, show);
-    while (cache.size > cacheSize) {
-      const oldest = cache.keys().next();
-      if (oldest.done) break;
-      cache.delete(oldest.value);
-    }
-  }
+  const remember = (movieId: string, show: NetflixShowMetadata): void => keep(cache, movieId, show, cacheSize);
 
   function peek(movieId: string): NetflixShowMetadata | null {
     const direct = cache.get(movieId);
@@ -142,54 +108,22 @@ export function createNetflixBridgeClient(options: NetflixBridgeClientOptions): 
     return show;
   }
 
-  // Le port transféré est aussi visible des écouteurs `message` de la page : un MessageEvent synthétique
-  // qu'elle déclencherait sur ce port (dispatchEvent) n'est pas « trusted » et reste ignoré
-  function onPortMessage(event: Event): void {
-    if (!(event instanceof MessageEvent) || !isTrusted(event)) return;
-    const response = decodeNetflixResponse(event.data);
-    if (response) pending.get(response.id)?.(response);
-  }
-
   /**
-   * Ouvre le canal : demande d'ouverture avec un nonce neuf, puis PREMIER port offert pour ce nonce (les offres
-   * suivantes ne sont plus écoutées). Pont absent ou pas encore prêt : null après `timeoutMs`, nouvel essai à la
-   * tentative suivante (nouveau nonce).
+   * Canal privé vers le pont (content/bridge/client-kit.ts) : PREMIER port offert pour un nonce neuf. Pont absent ou pas
+   * encore prêt : null après `timeoutMs`, nouvel essai à la tentative suivante (nouveau nonce).
    */
-  function openChannel(): Promise<MessagePort | null> {
-    const nonce = newId();
-    return new Promise((resolve) => {
-      const done = (offered: MessagePort | null): void => {
-        clearTimeout(timer);
-        messages.removeEventListener('message', onOffer);
-        resolve(offered);
-      };
-      const onOffer = (event: Event): void => {
-        // Offre synthétique (dispatchEvent) : elle passerait avant le vrai postMessage du pont → refusée
-        if (!(event instanceof MessageEvent) || !isTrusted(event) || event.origin !== origin) return;
-        if (decodeNetflixPortOffer(event.data)?.nonce !== nonce) return;
-        const [offered] = event.ports;
-        if (offered instanceof MessagePort) done(offered);
-      };
-      const timer = setTimeout(() => done(null), timeoutMs);
-      messages.addEventListener('message', onOffer);
-      target.dispatchEvent(new CustomEvent(NETFLIX_HANDSHAKE_EVENT, { detail: encodeNetflixHandshake({ v: NETFLIX_BRIDGE_VERSION, nonce }) }));
-    });
-  }
-
-  /** Canal ouvert, ou ouverture en cours partagée entre les demandes simultanées */
-  function connect(): Promise<MessagePort | null> {
-    if (port) return Promise.resolve(port);
-    opening ??= openChannel().then((offered) => {
-      opening = null;
-      if (offered) {
-        port = offered;
-        offered.addEventListener('message', onPortMessage);
-        offered.start(); // Obligatoire avec addEventListener (onmessage le ferait implicitement)
-      }
-      return offered;
-    });
-    return opening;
-  }
+  const connect = createBridgeConnection({
+    endpoints: options,
+    event: NETFLIX_HANDSHAKE_EVENT,
+    handshake: (nonce) => encodeNetflixHandshake({ v: NETFLIX_BRIDGE_VERSION, nonce }),
+    isOffer: (data, nonce) => decodeNetflixPortOffer(data)?.nonce === nonce,
+    timeoutMs,
+    newId,
+    onMessage: (data) => {
+      const response = decodeNetflixResponse(data);
+      if (response) pending.get(response.id)?.(response);
+    },
+  });
 
   /** Une demande au script MAIN ; l'attente de la réponse est toujours retirée */
   function attempt(movieId: string, wanted: Wanted, bookmarks: boolean): Promise<Attempt> {

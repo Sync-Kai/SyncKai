@@ -73,6 +73,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - Stricter Content Security Policy for SyncKai's own pages (popup, side panel, settings, import and backup pages) and its background: everything is closed by default, network requests may only reach the AniList and MyAnimeList APIs and the extension package itself, and the pages can no longer be embedded in another page, submit forms or change their base URL.
 - SyncKai now runs only on `https://` pages of Crunchyroll, ADN, Netflix, Disney+ and Prime Video: its scripts, site permissions and exposed files no longer match plain `http://` pages, where someone on the same network could serve a fake episode page and have it synced. Access to Netflix, Disney+ or Prime Video already granted is kept after the update (on Firefox, turning it off also removes the access granted by earlier versions).
 
+### Security
+
+- The small scripts SyncKai runs inside Crunchyroll, Netflix, Disney+ and Prime Video pages to read what the site already loads now share one implementation: they no longer pile up in a tab left open across extension updates (each update used to wrap the site's requests once more), and they ignore values a page could slip in through JavaScript's shared object prototype.
+
 ## [2.3.1] - 2026-10-12
 
 First published version of the 2.3 line: 2.3.0 was tagged but never published (the release workflow stopped at the tests, before any upload). Same extension code as 2.3.0.

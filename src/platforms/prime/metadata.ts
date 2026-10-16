@@ -13,6 +13,7 @@
 // dans tout le document.
 import type { PrimeAnimeVerdict } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
+import { domainOrSubdomain } from '../../shared/hosts';
 import { isSignalYear, medianMinutes, toPlatformSignals, type PlatformSignals } from '../../shared/match-signals';
 import { stripVersionTags } from '../../shared/title';
 
@@ -179,7 +180,7 @@ export function primeIdInLink(url: string): string | null {
     return null;
   }
   const host = parsed.hostname.toLowerCase();
-  const prime = host === 'primevideo.com' || host.endsWith('.primevideo.com');
+  const prime = domainOrSubdomain('primevideo.com')(host);
   if (!prime && !AMAZON_HOST.test(host)) return null;
   const fromQuery = primeGti(parsed.searchParams.get('gti'));
   if (fromQuery) return fromQuery;

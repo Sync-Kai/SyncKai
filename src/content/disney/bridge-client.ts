@@ -7,11 +7,12 @@
 // défaut de correspondance après `matchWaitMs`, la seule fiche reçue depuis le changement d'URL est retenue ; plusieurs
 // fiches (ambiguïté) ou aucune : vidéo non suivie.
 //
-// Pages de série : `loadPage` attend la page de l'entité de l'URL (/browse/entity-{uuid}), sans délai propre (borné par
-// l'appelant au moyen de `signal`) ; les réponses `season/{id}` observées ensuite la mettent à jour.
+// Pages de série : `loadPage` attend la page de l'entité de l'URL (/browse/entity-{uuid}), au plus `waitMs` (en pratique
+// borné plus tôt par l'appelant au moyen de `signal`) ; les réponses `season/{id}` observées ensuite la mettent à jour.
 //
 // Générique de fin : `loadEditorial` attend la fiche, puis (borné par `waitMs`) ses repères éditoriaux, joints
 // par le pont quand la réponse de lecture du lecteur arrive (en général juste après `playerExperience`).
+import { createBridgeConnection, createWaiters, type ChannelEndpoints } from '../bridge/client-kit';
 import {
   decodeDisneyPortOffer,
   decodeDisneyPush,
@@ -30,13 +31,7 @@ import {
   type DisneySeriesPage,
 } from '../../platforms/disney/metadata';
 
-export interface DisneyBridgeClientOptions {
-  /** Cible de la demande d'ouverture du canal (document en production, faux document dans les tests) */
-  target: EventTarget;
-  /** Réception de l'offre de port par `postMessage` (window en production) */
-  messages: EventTarget;
-  /** Origine attendue de l'offre (location.origin) */
-  origin: string;
+export interface DisneyBridgeClientOptions extends ChannelEndpoints {
   /** Attente de l'offre de port : pont absent (accès accordé après le chargement de l'onglet…) au-delà */
   connectTimeoutMs?: number;
   /** Attente d'une fiche portant l'identifiant de l'URL avant le repli sur la seule fiche reçue depuis le changement d'URL */
@@ -46,11 +41,6 @@ export interface DisneyBridgeClientOptions {
   cacheSize?: number;
   /** Nonces d'ouverture */
   newId?: () => string;
-  /**
-   * Événement émis par le navigateur (vrai postMessage) et non par `dispatchEvent` d'un script de la page.
-   * Défaut : `event.isTrusted` ; remplacé dans les tests (Node : toujours faux).
-   */
-  isTrusted?: (event: Event) => boolean;
   /**
    * Journal de diagnostic (debug, build de développement) : appels retirés du script publié (`__SYNCKAI_DEBUG__`, budget
    * de taille), messages construits seulement en développement
@@ -72,7 +62,7 @@ export interface DisneyBridgeClient {
    * `waitMs`. Null sans fiche, sans réponse de lecture dans le délai, ou si `signal` est annulé.
    */
   loadEditorial(urlId: string, signal: AbortSignal, since: number): Promise<DisneyEditorial | null>;
-  /** Page de série de l'entité `entityId` : en cache, sinon attendue jusqu'à son arrivée ; null si pont absent ou `signal` annulé */
+  /** Page de série de l'entité `entityId` : en cache, sinon attendue jusqu'à `waitMs` ; null si pont absent, délai écoulé ou `signal` annulé */
   loadPage(entityId: string, signal: AbortSignal): Promise<DisneySeriesPage | null>;
   /** Page de série en cache, sans attente */
   peekPage(entityId: string): DisneySeriesPage | null;
@@ -83,13 +73,9 @@ export interface DisneyBridgeClient {
 const DEFAULTS = { connectTimeoutMs: 3_000, matchWaitMs: 5_000, waitMs: 20_000, cacheSize: DISNEY_MAX_ENTRIES } as const;
 
 export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): DisneyBridgeClient {
-  const { target, messages, origin } = options;
-  const connectTimeoutMs = options.connectTimeoutMs ?? DEFAULTS.connectTimeoutMs;
   const matchWaitMs = options.matchWaitMs ?? DEFAULTS.matchWaitMs;
   const waitMs = options.waitMs ?? DEFAULTS.waitMs;
   const cacheSize = options.cacheSize ?? DEFAULTS.cacheSize;
-  const newId = options.newId ?? ((): string => crypto.randomUUID());
-  const isTrusted = options.isTrusted ?? ((event: Event): boolean => event.isTrusted);
   const log = options.log ?? ((): void => undefined);
 
   /** Fiches reçues, une par vidéo, de la plus ancienne à la plus récente */
@@ -97,9 +83,7 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
   /** Pages de série reçues, une par entité (la plus récente remplace la précédente) */
   let pages: DisneySeriesPage[] = [];
   /** Attentes en cours : relues à chaque fiche reçue */
-  const listeners = new Set<() => void>();
-  let port: MessagePort | null = null;
-  let opening: Promise<MessagePort | null> | null = null;
+  const { notify, until } = createWaiters();
 
   /** Garde la fiche (remplace celle de la même vidéo : identifiants en commun, réunis) */
   function remember(entry: DisneyPlayerExperience): void {
@@ -117,11 +101,8 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     return pages.find((page) => page.entityId === id) ?? null;
   }
 
-  // Le port transféré est aussi visible des écouteurs `message` de la page : un MessageEvent synthétique qu'elle
-  // déclencherait sur ce port (dispatchEvent) n'est pas « trusted » et reste ignoré
-  function onPortMessage(event: Event): void {
-    if (!(event instanceof MessageEvent) || !isTrusted(event)) return;
-    const push = decodeDisneyPush(event.data);
+  function onPortMessage(data: unknown): void {
+    const push = decodeDisneyPush(data);
     const received = push?.entries ?? [];
     const receivedPages = push?.pages ?? [];
     if (received.length === 0 && receivedPages.length === 0) return;
@@ -132,53 +113,19 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     notify();
   }
 
-  /** Relit les attentes en cours */
-  function notify(): void {
-    for (const listener of [...listeners]) listener();
-  }
-
-  /**
-   * Ouvre le canal : demande d'ouverture avec un nonce neuf, puis PREMIER port offert pour ce nonce (les offres
-   * suivantes ne sont plus écoutées). Pont absent : null après `connectTimeoutMs`, nouvel essai au prochain `load`.
-   */
-  function openChannel(): Promise<MessagePort | null> {
-    const nonce = newId();
-    return new Promise((resolve) => {
-      const done = (offered: MessagePort | null): void => {
-        clearTimeout(timer);
-        messages.removeEventListener('message', onOffer);
-        resolve(offered);
-      };
-      const onOffer = (event: Event): void => {
-        // Offre synthétique (dispatchEvent) : elle passerait avant le vrai postMessage du pont → refusée
-        if (!(event instanceof MessageEvent) || !isTrusted(event) || event.origin !== origin) return;
-        if (decodeDisneyPortOffer(event.data)?.nonce !== nonce) return;
-        const [offered] = event.ports;
-        if (offered instanceof MessagePort) done(offered);
-      };
-      const timer = setTimeout(() => done(null), connectTimeoutMs);
-      messages.addEventListener('message', onOffer);
-      target.dispatchEvent(new CustomEvent(DISNEY_HANDSHAKE_EVENT, { detail: encodeDisneyHandshake({ v: DISNEY_BRIDGE_VERSION, nonce }) }));
-    });
-  }
-
-  /** Canal ouvert, ou ouverture en cours partagée entre les demandes simultanées */
-  function connect(): Promise<MessagePort | null> {
-    if (port) return Promise.resolve(port);
-    opening ??= openChannel().then((offered) => {
-      opening = null;
-      if (offered) {
-        port = offered;
-        offered.addEventListener('message', onPortMessage);
-        offered.start(); // Obligatoire avec addEventListener (onmessage le ferait implicitement)
-        if (__SYNCKAI_DEBUG__) log('Pont Disney+ connecté');
-      } else {
-        if (__SYNCKAI_DEBUG__) log('Pont Disney+ absent (onglet ouvert avant l’activation ou la mise à jour ?)');
-      }
-      return offered;
-    });
-    return opening;
-  }
+  /** Canal privé (content/bridge/client-kit.ts) ; pont absent : null après `connectTimeoutMs`, nouvel essai au prochain `load` */
+  const connect = createBridgeConnection({
+    endpoints: options,
+    event: DISNEY_HANDSHAKE_EVENT,
+    handshake: (nonce) => encodeDisneyHandshake({ v: DISNEY_BRIDGE_VERSION, nonce }),
+    isOffer: (data, nonce) => decodeDisneyPortOffer(data)?.nonce === nonce,
+    timeoutMs: options.connectTimeoutMs ?? DEFAULTS.connectTimeoutMs,
+    newId: options.newId,
+    onMessage: onPortMessage,
+    onOpen: (port) => {
+      if (__SYNCKAI_DEBUG__) log(port ? 'Pont Disney+ connecté' : 'Pont Disney+ absent (onglet ouvert avant l’activation ou la mise à jour ?)');
+    },
+  });
 
   /** Fiche portant `id`, sinon (délai de correspondance écoulé) la seule fiche reçue depuis `since` ; undefined : attendre */
   function decide(id: string, since: number, matchExpired: boolean): DisneyPlayerExperience | null | undefined {
@@ -219,30 +166,6 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     return entry;
   }
 
-  /**
-   * Valeur de `get` dès qu'elle est définie (relue à chaque message du pont, et à chaque `notify`) : null (vidéo non
-   * suivie) compris ; null aussi si `signal` est annulé ou après `timeoutMs`
-   */
-  function until<T>(get: () => T | null | undefined, signal: AbortSignal, timeoutMs?: number): Promise<T | null> {
-    return new Promise((resolve) => {
-      const finish = (value: T | null): void => {
-        clearTimeout(timer);
-        listeners.delete(check);
-        signal.removeEventListener('abort', onAbort);
-        resolve(value);
-      };
-      const check = (): void => {
-        const value = get();
-        if (value !== undefined) finish(value);
-      };
-      const onAbort = (): void => finish(null);
-      const timer = timeoutMs === undefined ? undefined : setTimeout(onAbort, timeoutMs);
-      signal.addEventListener('abort', onAbort, { once: true });
-      listeners.add(check);
-      check();
-    });
-  }
-
   async function loadEditorial(urlId: string, signal: AbortSignal, since: number): Promise<DisneyEditorial | null> {
     const entry = await load(urlId, signal, since);
     if (!entry || signal.aborted) return null;
@@ -255,7 +178,7 @@ export function createDisneyBridgeClient(options: DisneyBridgeClientOptions): Di
     if (cached) return cached;
     const channel = await connect();
     if (!channel || signal.aborted) return peekPage(entityId);
-    return until(() => peekPage(entityId) ?? undefined, signal);
+    return until(() => peekPage(entityId) ?? undefined, signal, waitMs);
   }
 
   return { load, peek, loadEditorial, loadPage, peekPage, pages: () => pages };
