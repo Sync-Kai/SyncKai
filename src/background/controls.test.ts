@@ -23,6 +23,10 @@ const fakes = vi.hoisted(() => ({
   catalogError: null as Error | null,
   /** Erreur levée par la lecture des réglages (null : réglages lisibles) */
   settingsError: null as Error | null,
+  /** Sessions ouvertes (génération par service) ; une déconnexion l'incrémente */
+  sessions: { anilist: 0, mal: 0 },
+  /** Services dont le token a été refusé (indicateur « Session expirée ») */
+  expired: [] as TrackerId[],
 }));
 
 vi.mock('./trackers', () => ({
@@ -34,6 +38,13 @@ vi.mock('./sync/sync-service', () => ({
     if (fakes.catalogError) throw fakes.catalogError;
     return { mediaId, idMal: fakes.idMal, title: 'Frieren', episodes: fakes.episodes };
   },
+}));
+vi.mock('../browser/storage/sessions', () => ({
+  getOpenSessions: async (): Promise<Partial<Record<TrackerId, number>>> => ({ ...fakes.sessions }),
+  isSessionOpen: async (service: TrackerId, epoch: number | undefined): Promise<boolean> => epoch !== undefined && fakes.sessions[service] === epoch,
+}));
+vi.mock('../browser/storage/tokens', () => ({
+  isSessionExpired: async (service: TrackerId): Promise<boolean> => fakes.expired.includes(service),
 }));
 vi.mock('../browser/storage/settings-access', () => ({
   getSettings: async (): Promise<{ ratingPrompt: boolean }> => {
@@ -123,6 +134,8 @@ interface FakeTracker extends TrackerService {
   failNext: number;
   /** Écritures de statut reçues (saveStatus), dans l'ordre */
   statusSaves: { status: ManualListStatus; progress: number; repeat?: number }[];
+  /** Appelé pendant la lecture (déconnexion simulée entre la lecture et l'écriture) */
+  onRead: (() => void) | null;
 }
 
 function fakeTracker(id: TrackerId): FakeTracker {
@@ -133,9 +146,11 @@ function fakeTracker(id: TrackerId): FakeTracker {
     saves: [],
     statusSaves: [],
     failNext: 0,
+    onRead: null,
     isConnected: async () => true,
     resolveId: (media: CatalogMedia) => (id === 'anilist' ? media.mediaId : media.idMal),
     getEntry: async (entryId: number): Promise<TrackerEntry> => {
+      tracker.onRead?.();
       const entry = tracker.entries.get(entryId);
       return { title: 'Frieren', episodes: fakes.episodes, entry: entry ? { ...entry } : null, notes: null };
     },
@@ -185,6 +200,8 @@ beforeEach(() => {
   fakes.deferOk = true;
   fakes.catalogError = null;
   fakes.settingsError = null;
+  fakes.sessions = { anilist: 0, mal: 0 };
+  fakes.expired = [];
   anilist = fakeTracker('anilist');
   mal = fakeTracker('mal');
   fakes.trackers = [anilist, mal];
@@ -524,6 +541,69 @@ describe('addToList', () => {
   });
 });
 
+describe('écritures gardées par la session (audit 6-D10)', () => {
+  it('+1 : déconnexion (puis autre compte) pendant la lecture d’un service, rien n’y est écrit, l’autre est ajusté', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 4 });
+    mal.entries.set(MAL_ID, { status: 'CURRENT', progress: 4 });
+    anilist.onRead = () => {
+      fakes.sessions = { ...fakes.sessions, anilist: 1 };
+    };
+    const outcome = await adjustProgress({ mediaId: MEDIA_ID, malId: MAL_ID, delta: 1 });
+    expect(anilist.saves).toEqual([]);
+    expect(mal.saves).toEqual([{ progress: 5, status: 'CURRENT' }]);
+    expect(resultsOf(outcome)).toEqual([
+      { service: 'anilist', outcome: { status: 'skipped', reason: expect.stringContaining('rien n’est écrit') as unknown } },
+      { service: 'mal', outcome: { status: 'updated', progress: 5, completed: false } },
+    ]);
+  });
+
+  it('token refusé pendant la lecture (session fermée, « Session expirée ») : erreur TOKEN_INVALID, rien n’est écrit', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 4 });
+    anilist.onRead = () => {
+      fakes.sessions = { ...fakes.sessions, anilist: 1 };
+      fakes.expired = ['anilist'];
+    };
+    const outcome = await adjustProgress({ mediaId: MEDIA_ID, malId: MAL_ID, delta: 1 });
+    expect(anilist.saves).toEqual([]);
+    expect(resultsOf(outcome)[0]).toEqual({ service: 'anilist', outcome: { status: 'error', message: expect.stringContaining('AniList') as unknown, code: 'TOKEN_INVALID' } });
+  });
+
+  it('statut et ajout : déconnexion pendant la lecture, rien n’est écrit sur ce service', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 4 });
+    anilist.onRead = () => {
+      fakes.sessions = { ...fakes.sessions, anilist: 1 };
+    };
+    await setListStatus({ mediaId: MEDIA_ID, malId: null, status: 'PAUSED', coverUrl: null });
+    expect(anilist.statusSaves).toEqual([]);
+    fakes.sessions = { anilist: 0, mal: 0 };
+    anilist.entries.delete(MEDIA_ID);
+    await addToList({ mediaId: MEDIA_ID, malId: null, status: 'PLANNING' });
+    expect(anilist.statusSaves).toEqual([]);
+    expect(mal.statusSaves).toEqual([{ status: 'PLANNING', progress: 0 }]);
+  });
+});
+
+describe('cible MAL : une seule résolution (audit 6-D9)', () => {
+  it('+1 et statut : idMal absent du catalogue, celui du popup en secours (comme l’ajout)', async () => {
+    fakes.idMal = null;
+    mal.entries.set(MAL_ID, { status: 'CURRENT', progress: 4 });
+    await adjustProgress({ mediaId: MEDIA_ID, malId: MAL_ID, delta: 1 });
+    expect(mal.saves).toEqual([{ progress: 5, status: 'CURRENT' }]);
+    await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'PAUSED', coverUrl: null });
+    expect(mal.statusSaves).toEqual([{ status: 'PAUSED', progress: 5 }]);
+  });
+});
+
+describe('carte « À noter » après Terminé en revisionnage (audit 6-D4)', () => {
+  it('fin de revisionnage marquée Terminé : pas de carte, comme la fin d’un revisionnage par la lecture', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'REPEATING', progress: 5, repeat: 1 });
+    const outcome = await setListStatus({ mediaId: MEDIA_ID, malId: null, status: 'COMPLETED', coverUrl: null });
+    expect(anilist.statusSaves).toEqual([{ status: 'COMPLETED', progress: 12, repeat: 2 }]);
+    expect(fakes.deferred).toEqual([]);
+    expect(outcome).not.toHaveProperty('prompts');
+  });
+});
+
 describe('handleCommand (raccourci « valider l’épisode »)', () => {
   const sendMessage = vi.fn<(tabId: number, message: unknown) => Promise<unknown>>();
   const query = vi.fn<() => Promise<{ id?: number }[]>>();
@@ -579,6 +659,10 @@ describe('shouldQueueRating', () => {
 
   it('pas de carte si la proposition de note est désactivée', () => {
     expect(shouldQueueRating('COMPLETED', [completed], false)).toBe(false);
+  });
+
+  it('pas de carte à la fin d’un revisionnage', () => {
+    expect(shouldQueueRating('COMPLETED', [{ ...completed, wasRepeating: true }, malUpToDate], true)).toBe(false);
   });
 
   it('pas de carte pour En pause / Abandonné, ni sans passage effectif en Terminé', () => {

@@ -385,11 +385,21 @@ describe('plafonds (TEST-10)', () => {
   });
 
   it('addRecentSync : une entrée par saison, 5 au plus, la plus récente en premier', async () => {
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    store.set(STORAGE_KEYS.malToken, MAL_TOKEN);
     for (let n = 1; n <= 7; n++) await storage.addRecentSync(recent(n, BOTH));
     await storage.addRecentSync(recent(6, BOTH, 50));
     const syncs = await storage.getRecentSyncs();
     expect(syncs).toHaveLength(MAX_RECENT_SYNCS);
     expect(syncs.map((s) => s.mediaId)).toEqual([6, 7, 5, 4, 3]);
+  });
+
+  it('addRecentSync : synchro dont aucune session n’est encore ouverte jamais recréée après la purge (audit L3)', async () => {
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    expect(await storage.addRecentSync(recent(1, { anilist: 0, mal: 0 }))).toBe(true);
+    await storage.clearAniListSession();
+    expect(await storage.addRecentSync(recent(2, { anilist: 0 }))).toBe(false);
+    expect((await storage.getRecentSyncs()).map((s) => s.mediaId)).toEqual([]);
   });
 });
 

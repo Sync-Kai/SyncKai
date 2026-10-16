@@ -605,6 +605,21 @@ describe('écritures liées au compte (DATA-01)', () => {
     // Synchro récente liée aux sessions du début de la synchro
     expect(fake.local.peek('recentSyncs')).toMatchObject([{ progress: 6, epochs: { anilist: 0, mal: 0 } }]);
   });
+
+  it('déconnexion des deux comptes pendant les écritures : synchro récente jamais recréée (audit L3)', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    const save = anilist.saveProgress;
+    anilist.saveProgress = async (...args) => {
+      const saved = await save(...args);
+      // Déconnexion des deux comptes (purge des sessions fermées déjà faite) juste après l'écriture
+      fake.local.data.set('sessionEpoch', { anilist: 1, mal: 1 });
+      return saved;
+    };
+    fakes.resolutions = [resolved(PART1, 6)];
+    const outcome = await syncEpisode(episode(6));
+    expect(resultOf(outcome, 'anilist')).toMatchObject({ status: 'updated' });
+    expect(fake.local.peek('recentSyncs')).toBeUndefined();
+  });
 });
 
 // ─── Table de décision (TEST-01, ARCH-09) ─────────────────────────────────

@@ -25,7 +25,6 @@ import {
 } from '../../browser/storage/mappings';
 import {
   getOpenSessions,
-  isSessionOpen,
 } from '../../browser/storage/sessions';
 import { isRewatchDeclined } from '../../browser/storage/engagement-store';
 import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
@@ -35,12 +34,12 @@ import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { ApiError } from '../errors';
 import { getAnimeByIds, searchAnime } from '../anilist/media';
 import { getConnectedTrackers } from '../trackers';
-import type { CatalogMedia, TrackerService } from '../ports/tracker';
+import type { CatalogMedia, TrackerEntry, TrackerService } from '../ports/tracker';
+import { entryTargetId, runGuarded, type EntryStep } from '../entry-commands';
 import { seasonLabel } from './matching/matching';
 import { mappingFromManualChoice } from './matching/mapping';
 import { type ResolveResult, type SyncTarget } from './matching/model';
 import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './resolver';
-import { withEntryLock } from './entry-lock';
 import { decideListUpdate, type ListEntryState } from './rules';
 import { createLogger } from '../../browser/logger';
 import { trace } from '../../browser/debug-trace-client';
@@ -135,14 +134,17 @@ async function writeToService(
   epoch: number | undefined,
 ): Promise<ServiceWrite> {
   const label = TRACKER_LABELS[tracker.id];
-  const id = tracker.resolveId(catalog);
+  const id = entryTargetId(tracker.id, { mediaId: catalog.mediaId, malId: null }, catalog);
   if (id === null) return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.noEquivalent') } });
-  if (!(await isSessionOpen(tracker.id, epoch))) return sessionClosed(tracker.id);
 
   try {
-    // Lecture, décision et écriture sous le verrou de la fiche : une relance de la file ou un +1 concurrent ne peut
-    // ni faire reculer la progression ni perdre une écriture (voir entry-lock.ts)
-    return await withEntryLock(tracker.id, id, () => writeEntry(tracker, id, catalog, progress, correctionFrom, epoch));
+    // Écriture gardée (entry-commands.ts) : lecture, décision et écriture sous le verrou de la fiche, une relance de la
+    // file ou un +1 concurrent ne peut ni faire reculer la progression ni perdre une écriture (voir entry-lock.ts)
+    return await runGuarded({ tracker, id }, {
+      epoch,
+      sessionClosed: () => sessionClosed(tracker.id),
+      decide: (current) => decideEntryWrite(tracker, id, current, catalog, progress, correctionFrom),
+    });
   } catch (error: unknown) {
     log.error(`${label} : échec`, error);
     return serviceWrite({
@@ -152,21 +154,20 @@ async function writeToService(
   }
 }
 
-/** Relecture, règles métier puis écriture sur la fiche `id` (appelé sous son verrou). Lève les erreurs d'API. */
-async function writeEntry(
+/** Règles métier sur l'entrée relue sous le verrou de la fiche `id` (pur), puis l'écriture à faire. */
+function decideEntryWrite(
   tracker: TrackerService,
   id: number,
+  current: TrackerEntry,
   catalog: CatalogMedia,
   progress: number,
   correctionFrom: number | null,
-  epoch: number | undefined,
-): Promise<ServiceWrite> {
+): EntryStep<ServiceWrite> {
   const label = TRACKER_LABELS[tracker.id];
-  // Lecture fraîche juste avant l'écriture (la liste a pu changer depuis un autre appareil)
-  const current = await tracker.getEntry(id);
+  const done = (write: ServiceWrite): EntryStep<ServiceWrite> => ({ done: write });
   // Découpage différent entre services : on n'écrit pas au-delà de la fiche de ce service
   if (current.episodes !== null && progress > current.episodes) {
-    return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: tp('sync.beyondEntry', current.episodes, { progress }) } }, current.entry);
+    return done(serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: tp('sync.beyondEntry', current.episodes, { progress }) } }, current.entry));
   }
 
   // Une correction (écriture vers le bas permise) ne vaut que sur la valeur écrite par la synchro corrigée : si la
@@ -181,9 +182,9 @@ async function writeEntry(
   if (decision.action === 'skip') {
     log.info(`${label} : pas de mise à jour (${decision.reason})`, current);
     if (outdatedCorrection && current.entry !== null && current.entry.progress !== progress) {
-      return serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.correctionOutdated', { progress: current.entry.progress }) } }, current.entry);
+      return done(serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.correctionOutdated', { progress: current.entry.progress }) } }, current.entry));
     }
-    return serviceWrite(
+    return done(serviceWrite(
       {
         service: tracker.id,
         outcome:
@@ -193,14 +194,17 @@ async function writeEntry(
       },
       current.entry,
       decision.reason === 'already-completed',
-    );
+    ));
   }
 
-  // Déconnexion (puis autre compte) pendant la lecture ou l'attente du verrou : la décision vaut pour l'ancienne session
-  if (!(await isSessionOpen(tracker.id, epoch))) return sessionClosed(tracker.id);
-  const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
-  log.info(`✔ ${label} : ${current.title} → épisode ${saved.progress} (${saved.status})`);
-  return serviceWrite({ service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' } }, current.entry);
+  // Session revérifiée par runGuarded juste avant l'écriture (déconnexion pendant la lecture ou l'attente du verrou)
+  return {
+    write: async () => {
+      const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
+      log.info(`✔ ${label} : ${current.title} → épisode ${saved.progress} (${saved.status})`);
+      return serviceWrite({ service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' } }, current.entry);
+    },
+  };
 }
 
 /**

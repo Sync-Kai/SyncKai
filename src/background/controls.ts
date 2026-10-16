@@ -4,15 +4,16 @@ import type { ContentMessage } from '../protocol/content-messages';
 import type { AddToListPayload, AdjustProgressPayload, AdjustRetryTarget, SetListStatusPayload } from '../protocol/messages';
 import type { MediaRef } from '../shared/engagement.types';
 import { getSettings } from '../browser/storage/settings-access';
-import type { AddListStatus, ListStatusChange, ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
+import { getOpenSessions } from '../browser/storage/sessions';
+import type { AddListStatus, ListStatusChange, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './errors';
 import { deferRating } from './engagement';
-import { withEntryLock } from './sync/entry-lock';
+import { entryTargets, runOnServices, type EntryCommand, type ServiceRun } from './entry-commands';
 import { decideAddToList, decideStatusChange, progressWrite, type ListEntryState, type WriteStatus } from './sync/rules';
 import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
-import type { CatalogMedia, TrackerService } from './ports/tracker';
+import type { CatalogMedia } from './ports/tracker';
 import { createLogger } from '../browser/logger';
 import { trace } from '../browser/debug-trace-client';
 import { decisionTraceData, entryTraceData } from '../shared/debug-trace';
@@ -57,58 +58,31 @@ export function decideRetryAdjustment(entry: ListEntryState | null, total: numbe
   return { action: 'write', progress: target, ...progressWrite(entry, target, total) };
 }
 
-function toServiceError(error: unknown): ServiceOutcome {
-  return error instanceof ApiError ? { status: 'error', message: error.message, code: error.code } : { status: 'error', message: t('error.unexpected') };
-}
-
-interface Target {
-  tracker: TrackerService;
-  id: number;
-}
-
 /**
- * Services connectés où la série a un identifiant. Catalogue AniList si connu (idMal, total) ;
- * sinon MAL seul avec son propre identifiant (entrée MAL sans équivalent AniList).
+ * Ajustement d'UN service : delta relatif, ou progression absolue `retry` (nouvel essai). La progression de référence
+ * est celle de CE service (relue sous le verrou de sa fiche).
  */
-function resolveTargets(trackers: readonly TrackerService[], catalog: CatalogMedia | null, malId: number | null): Target[] {
-  return trackers.flatMap((tracker) => {
-    const id = catalog ? tracker.resolveId(catalog) : tracker.id === 'mal' ? malId : null;
-    return id !== null ? [{ tracker, id }] : [];
-  });
-}
-
-/** Ajuste UN service : delta relatif, ou progression absolue `retry` (nouvel essai). Ne lève jamais : l'échec est un résultat. */
-async function adjustOnService(
-  { tracker, id }: Target,
-  fallbackTotal: number | null,
-  delta: 1 | -1,
-  retry: AdjustRetryTarget | null,
-): Promise<{ result: ServiceResult; title: string | null }> {
-  const label = TRACKER_LABELS[tracker.id];
-  try {
-    // Sous le verrou de la fiche : deux +1 simultanés (panneau et popup) ou un −1 pendant une synchro ne se perdent pas
-    return await withEntryLock(tracker.id, id, async (): Promise<{ result: ServiceResult; title: string | null }> => {
-      // Lecture fraîche : la progression de référence est celle de CE service
-      const current = await tracker.getEntry(id);
+function adjustCommand(fallbackTotal: number | null, delta: 1 | -1, retry: AdjustRetryTarget | null): EntryCommand {
+  return {
+    name: 'ajustement',
+    decide: (current, { tracker, id }) => {
       const total = current.episodes ?? fallbackTotal;
       const decision = retry ? decideRetryAdjustment(current.entry, total, delta, retry.progress) : decideAdjustment(current.entry, total, delta);
       if (__SYNCKAI_DEBUG__) trace('ui', 'adjust-decision', { service: tracker.id, id, delta, retry: retry !== null, before: entryTraceData(current.entry), total, ...decisionTraceData(decision) });
-      if (decision.action === 'skip') {
-        const outcome: ServiceOutcome = { status: 'skipped', reason: decision.reason, ...(decision.notInList ? { code: 'not-in-list' as const } : {}) };
-        return { result: { service: tracker.id, outcome }, title: current.title };
-      }
-      if (decision.action === 'up-to-date') {
-        return { result: { service: tracker.id, outcome: { status: 'up-to-date', progress: decision.progress } }, title: current.title };
-      }
-      const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
-      log.info(`${label} : ${current.title} → épisode ${saved.progress} (${saved.status}, ${retry ? 'nouvel essai' : `ajustement ${delta > 0 ? '+1' : '−1'}`})`);
-      const outcome: ServiceOutcome = { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
-      return { result: { service: tracker.id, outcome }, title: current.title };
-    });
-  } catch (error: unknown) {
-    log.error(`${label} : échec de l’ajustement`, error);
-    return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null };
-  }
+      if (decision.action === 'skip') return { status: 'skipped', reason: decision.reason, ...(decision.notInList ? { code: 'not-in-list' as const } : {}) };
+      if (decision.action === 'up-to-date') return { status: 'up-to-date', progress: decision.progress };
+      return async () => {
+        const saved = await tracker.saveProgress(id, decision.progress, decision.status, decision.repeat);
+        log.info(`${TRACKER_LABELS[tracker.id]} : ${current.title} → épisode ${saved.progress} (${saved.status}, ${retry ? 'nouvel essai' : `ajustement ${delta > 0 ? '+1' : '−1'}`})`);
+        return { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
+      };
+    },
+  };
+}
+
+/** Titre de la série : catalogue, sinon le premier titre lu sur un service, sinon le titre de secours */
+function seriesTitle(catalog: CatalogMedia | null, runs: readonly ServiceRun[]): string {
+  return catalog?.title ?? runs.find((r) => r.title !== null)?.title ?? t('sync.seriesFallback');
 }
 
 /**
@@ -119,16 +93,17 @@ async function adjustOnService(
 export async function adjustProgress(payload: AdjustProgressPayload): Promise<SyncOutcome> {
   try {
     const retry = payload.retry ?? null;
+    // Sessions relevées avant toute requête : rien n'est écrit sur un compte connecté entre-temps
+    const epochs = await getOpenSessions();
     const trackers = await getConnectedTrackers(retry?.services ?? null);
     if (trackers.length === 0) return { status: 'not-connected' };
 
     const catalog: CatalogMedia | null = payload.mediaId !== null ? await getCatalogMedia(payload.mediaId) : null;
-    const targets = resolveTargets(trackers, catalog, payload.malId);
+    const targets = entryTargets(trackers, payload, catalog);
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const adjusted = await Promise.all(targets.map((target) => adjustOnService(target, catalog?.episodes ?? null, payload.delta, retry)));
-    const mediaTitle = catalog?.title ?? adjusted.find((a) => a.title !== null)?.title ?? t('sync.seriesFallback');
-    return { status: 'synced', mediaTitle, results: adjusted.map((a) => a.result) };
+    const adjusted = await runOnServices(targets, adjustCommand(catalog?.episodes ?? null, payload.delta, retry), epochs);
+    return { status: 'synced', mediaTitle: seriesTitle(catalog, adjusted), results: adjusted.map((a) => a.result) };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { status: 'error', message: error.message, code: error.code };
     log.error('Erreur inattendue :', error);
@@ -138,46 +113,45 @@ export async function adjustProgress(payload: AdjustProgressPayload): Promise<Sy
 
 // ─── Statut (En pause, Abandonné, Terminé) ───────────────────────────────
 
-interface StatusWrite {
-  result: ServiceResult;
-  title: string | null;
-  /** L'entrée de ce service porte déjà une note */
-  scored: boolean;
-}
-
-/** Change le statut sur UN service (lecture fraîche, puis règle decideStatusChange). Ne lève jamais. */
-async function statusOnService({ tracker, id }: Target, fallbackTotal: number | null, status: ListStatusChange): Promise<StatusWrite> {
-  const label = TRACKER_LABELS[tracker.id];
-  try {
-    // Lecture et écriture sous le verrou de la fiche (synchro ou +1 concurrents)
-    return await withEntryLock(tracker.id, id, async (): Promise<StatusWrite> => {
-      const current = await tracker.getEntry(id);
-      const scored = current.entry?.score !== undefined;
+/** Changement de statut sur UN service (entrée relue, puis règle decideStatusChange) */
+function statusCommand(fallbackTotal: number | null, status: ListStatusChange): EntryCommand {
+  return {
+    name: 'changement de statut',
+    decide: (current, { tracker, id }) => {
       const decision = decideStatusChange(current.entry, current.episodes ?? fallbackTotal, status);
       if (decision.action === 'skip') {
-        const outcome: ServiceOutcome =
-          decision.reason === 'not-in-list'
-            ? { status: 'skipped', reason: t('engagement.notInList'), code: 'not-in-list' }
-            : { status: 'up-to-date', progress: current.entry?.progress ?? 0 };
-        return { result: { service: tracker.id, outcome }, title: current.title, scored };
+        return decision.reason === 'not-in-list'
+          ? { status: 'skipped', reason: t('engagement.notInList'), code: 'not-in-list' }
+          : { status: 'up-to-date', progress: current.entry?.progress ?? 0 };
       }
-      const saved = await tracker.saveStatus(id, decision.status, decision.progress, decision.repeat);
-      log.info(`${label} : ${current.title} → ${saved.status}, épisode ${saved.progress}`);
-      const outcome: ServiceOutcome = { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
-      return { result: { service: tracker.id, outcome }, title: current.title, scored };
-    });
-  } catch (error: unknown) {
-    log.error(`${label} : échec du changement de statut`, error);
-    return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null, scored: false };
-  }
+      return async () => {
+        const saved = await tracker.saveStatus(id, decision.status, decision.progress, decision.repeat);
+        log.info(`${TRACKER_LABELS[tracker.id]} : ${current.title} → ${saved.status}, épisode ${saved.progress}`);
+        return { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
+      };
+    },
+  };
+}
+
+/** Écriture de statut vue par la règle de la carte « À noter » */
+export interface StatusWrite {
+  result: ServiceResult;
+  /** L'entrée de ce service porte déjà une note */
+  scored: boolean;
+  /** L'entrée était en revisionnage : sa fin ne demande pas de note (comme la synchro, shouldPromptRating) */
+  wasRepeating?: boolean;
+}
+
+function statusWrite({ result, entry }: ServiceRun): StatusWrite {
+  return { result, scored: entry?.score !== undefined, wasRepeating: entry?.status === 'REPEATING' };
 }
 
 /**
- * Carte « À noter » après « Terminé » (pur, testable) : la série vient de passer en Terminé sur au moins
- * un service, aucun service n'a déjà de note, et la proposition de note est activée dans les réglages.
+ * Carte « À noter » après « Terminé » (pur, testable) : la série vient de passer en Terminé sur au moins un service,
+ * aucun service n'a déjà de note ni n'était en revisionnage, et la proposition de note est activée dans les réglages.
  */
-export function shouldQueueRating(status: ListStatusChange, writes: readonly Pick<StatusWrite, 'result' | 'scored'>[], ratingPrompt: boolean): boolean {
-  if (status !== 'COMPLETED' || !ratingPrompt || writes.some((w) => w.scored)) return false;
+export function shouldQueueRating(status: ListStatusChange, writes: readonly StatusWrite[], ratingPrompt: boolean): boolean {
+  if (status !== 'COMPLETED' || !ratingPrompt || writes.some((w) => w.scored || w.wasRepeating === true)) return false;
   return writes.some(({ result }) => result.outcome.status === 'updated' && result.outcome.completed);
 }
 
@@ -198,18 +172,19 @@ async function isRatingPromptEnabled(): Promise<boolean> {
  */
 export async function setListStatus(payload: SetListStatusPayload): Promise<SyncOutcome> {
   try {
+    const epochs = await getOpenSessions();
     const trackers = await getConnectedTrackers();
     if (trackers.length === 0) return { status: 'not-connected' };
 
     const catalog: CatalogMedia | null = payload.mediaId !== null ? await getCatalogMedia(payload.mediaId) : null;
-    const targets = resolveTargets(trackers, catalog, payload.malId);
+    const targets = entryTargets(trackers, payload, catalog);
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const writes = await Promise.all(targets.map((target) => statusOnService(target, catalog?.episodes ?? null, payload.status)));
-    const mediaTitle = catalog?.title ?? writes.find((w) => w.title !== null)?.title ?? t('sync.seriesFallback');
-    const outcome: SyncOutcome = { status: 'synced', mediaTitle, results: writes.map((w) => w.result) };
+    const runs = await runOnServices(targets, statusCommand(catalog?.episodes ?? null, payload.status), epochs);
+    const mediaTitle = seriesTitle(catalog, runs);
+    const outcome: SyncOutcome = { status: 'synced', mediaTitle, results: runs.map((r) => r.result) };
 
-    if (shouldQueueRating(payload.status, writes, await isRatingPromptEnabled())) {
+    if (shouldQueueRating(payload.status, runs.map(statusWrite), await isRatingPromptEnabled())) {
       const media: MediaRef = { mediaId: catalog?.mediaId ?? payload.mediaId, malId: catalog?.idMal ?? payload.malId, title: mediaTitle.slice(0, 300) };
       const queued = await deferRating(media, payload.coverUrl);
       if (queued.ok) outcome.prompts = { rate: media };
@@ -224,25 +199,20 @@ export async function setListStatus(payload: SetListStatusPayload): Promise<Sync
 
 // ─── Ajout à la liste (fiche « Sur cette page ») ──────────────────────────
 
-/** Ajoute la série sur UN service si elle n'y est pas (lecture fraîche). Ne lève jamais. */
-async function addOnService({ tracker, id }: Target, status: AddListStatus): Promise<{ result: ServiceResult; title: string | null }> {
-  const label = TRACKER_LABELS[tracker.id];
-  try {
-    // Sous le verrou de la fiche : une synchro concurrente ne peut pas être écrasée par l'ajout
-    return await withEntryLock(tracker.id, id, async (): Promise<{ result: ServiceResult; title: string | null }> => {
-      const current = await tracker.getEntry(id);
+/** Ajout de la série sur UN service si elle n'y est pas (une synchro concurrente n'est jamais écrasée par l'ajout) */
+function addCommand(status: AddListStatus): EntryCommand {
+  return {
+    name: 'ajout à la liste',
+    decide: (current, { tracker, id }) => {
       const decision = decideAddToList(current.entry, status);
-      if (decision.action === 'skip') {
-        return { result: { service: tracker.id, outcome: { status: 'skipped', reason: t('page.alreadyInList') } }, title: current.title };
-      }
-      const saved = await tracker.saveStatus(id, decision.status, decision.progress);
-      log.info(`${label} : ${current.title} ajouté (${saved.status})`);
-      return { result: { service: tracker.id, outcome: { status: 'updated', progress: saved.progress, completed: false } }, title: current.title };
-    });
-  } catch (error: unknown) {
-    log.error(`${label} : échec de l’ajout à la liste`, error);
-    return { result: { service: tracker.id, outcome: toServiceError(error) }, title: null };
-  }
+      if (decision.action === 'skip') return { status: 'skipped', reason: t('page.alreadyInList') };
+      return async () => {
+        const saved = await tracker.saveStatus(id, decision.status, decision.progress);
+        log.info(`${TRACKER_LABELS[tracker.id]} : ${current.title} ajouté (${saved.status})`);
+        return { status: 'updated', progress: saved.progress, completed: false };
+      };
+    },
+  };
 }
 
 /**
@@ -251,16 +221,16 @@ async function addOnService({ tracker, id }: Target, status: AddListStatus): Pro
  */
 export async function addToList(payload: AddToListPayload): Promise<SyncOutcome> {
   try {
+    const epochs = await getOpenSessions();
     const trackers = await getConnectedTrackers();
     if (trackers.length === 0) return { status: 'not-connected' };
 
-    const fetched = await getCatalogMedia(payload.mediaId);
+    const catalog = await getCatalogMedia(payload.mediaId);
     // idMal du catalogue prioritaire ; celui du popup en secours (même fiche, lu juste avant)
-    const catalog: CatalogMedia = { ...fetched, idMal: fetched.idMal ?? payload.malId };
-    const targets = resolveTargets(trackers, catalog, null);
+    const targets = entryTargets(trackers, payload, catalog);
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const added = await Promise.all(targets.map((target) => addOnService(target, payload.status)));
+    const added = await runOnServices(targets, addCommand(payload.status), epochs);
     // Service sans équivalent (ex : pas d'idMal) : signalé plutôt qu'omis
     const missing: ServiceResult[] = trackers
       .filter((tracker) => !targets.some((target) => target.tracker.id === tracker.id))

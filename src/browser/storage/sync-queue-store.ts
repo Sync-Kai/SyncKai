@@ -44,6 +44,18 @@ export function saveQueueItem(item: SyncQueueItem): Promise<boolean> {
   });
 }
 
+/** Retire les entrées qui satisfont `drop` (série retirée de la liste) ; retourne le nombre d'entrées retirées */
+export function removeQueueItemsWhere(drop: (item: SyncQueueItem) => boolean): Promise<number> {
+  return withStorageLock(async () => {
+    const queue = await readQueue();
+    const remaining = queue.filter((i) => !drop(i));
+    if (remaining.length === queue.length) return 0;
+    if (remaining.length === 0) await chrome.storage.local.remove(SYNC_QUEUE_KEY);
+    else await chrome.storage.local.set({ [SYNC_QUEUE_KEY]: remaining });
+    return queue.length - remaining.length;
+  });
+}
+
 export function removeQueueItem(id: string): Promise<void> {
   return withStorageLock(async () => {
     const queue = await readQueue();

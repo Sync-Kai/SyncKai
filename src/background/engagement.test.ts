@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../i18n';
 import type { MediaRef } from '../shared/engagement.types';
+import type { EpisodeInfo } from '../shared/episode.types';
+import type { SyncQueueItem } from '../shared/queue.types';
+import type { PendingReview } from '../shared/review.types';
+import { SYNC_QUEUE_KEY } from '../protocol/storage-keys';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../shared/watching.types';
 import { ApiError } from './errors';
@@ -10,8 +14,19 @@ import type { TrackerEntry, TrackerService } from './ports/tracker';
 // Cartes « À noter » liées au compte (DATA-01), retrait de la liste et commentaire : vrai engagement.ts, services et
 // stockage simulés.
 
-const fakes = vi.hoisted(() => ({ trackers: [] as TrackerService[] }));
+const fakes = vi.hoisted(() => ({
+  trackers: [] as TrackerService[],
+  /** idMal du catalogue AniList simulé (null : fiche sans équivalent MAL) */
+  idMal: null as number | null,
+  catalogReads: 0,
+}));
 vi.mock('./trackers', () => ({ getConnectedTrackers: async (): Promise<TrackerService[]> => fakes.trackers }));
+vi.mock('./sync/sync-service', () => ({
+  getCatalogMedia: async (mediaId: number) => {
+    fakes.catalogReads++;
+    return { mediaId, idMal: fakes.idMal, title: 'Frieren', episodes: 28 };
+  },
+}));
 vi.mock('../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
 
 let store: Record<string, unknown> = {};
@@ -35,7 +50,10 @@ function area(items: () => Record<string, unknown>): Pick<chrome.storage.Storage
 vi.stubGlobal('chrome', { storage: { local: area(() => store), session: area(() => session) } });
 vi.stubGlobal('navigator', { language: 'fr', locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
 
-const { deferRating, getListNotes, rateMedia, removeFromList, setListNotes } = await import('./engagement');
+const { deferRating, getListNotes, rateMedia, removeFromList, setListNotes, startRewatch } = await import('./engagement');
+const { getSyncQueue } = await import('../browser/storage/sync-queue-store');
+const { getPendingReviews } = await import('../browser/storage/reviews');
+const { mappingKey } = await import('../platforms/series-identity');
 const { getPendingRatings } = await import('../browser/storage/engagement-store');
 const { STORAGE_KEYS } = await import('../protocol/storage-keys');
 const { bindBackupToSession } = await import('../shared/backup');
@@ -47,6 +65,8 @@ const MEDIA: MediaRef = { mediaId: 1001, malId: 2001, title: 'Frieren' };
 
 interface FakeTracker extends TrackerService {
   scores: number[];
+  /** Progressions de revisionnage écrites (startRewatch) */
+  rewatches: number[];
   deleted: number[];
   notesWritten: string[];
   /** Entrée de la liste (null : série absente) */
@@ -64,6 +84,7 @@ function fakeTracker(id: TrackerId): FakeTracker {
   const tracker: FakeTracker = {
     id,
     scores: [],
+    rewatches: [],
     deleted: [],
     notesWritten: [],
     entry: { status: 'COMPLETED', progress: 28 },
@@ -93,7 +114,11 @@ function fakeTracker(id: TrackerId): FakeTracker {
     },
     saveProgress: unused,
     saveStatus: unused,
-    startRewatch: unused,
+    startRewatch: async (_id, progress) => {
+      tracker.rewatches.push(progress);
+      tracker.entry = { status: 'REPEATING', progress };
+      return tracker.entry;
+    },
     saveEntry: unused,
   };
   return tracker;
@@ -106,6 +131,8 @@ beforeEach(() => {
   anilist = fakeTracker('anilist');
   mal = fakeTracker('mal');
   fakes.trackers = [anilist, mal];
+  fakes.idMal = null;
+  fakes.catalogReads = 0;
   store = {
     anilistToken: { accessToken: 'A', expiresAt: Number.MAX_SAFE_INTEGER },
     malToken: { accessToken: 'M', refreshToken: 'R', expiresAt: Number.MAX_SAFE_INTEGER },
@@ -300,5 +327,113 @@ describe('commentaire de l’entrée', () => {
     await setListNotes(MEDIA, 'Note');
     expect(anilist.notesWritten).toEqual(['Note']);
     expect(mal.notesWritten).toEqual([]);
+  });
+});
+
+describe('cible MAL : une seule résolution (audit 6-D9)', () => {
+  const WITHOUT_MAL: MediaRef = { mediaId: 1001, malId: null, title: 'Frieren' };
+
+  it('écran sans idMal, catalogue qui en a un : note, revisionnage et retrait aussi sur MAL', async () => {
+    fakes.idMal = 2001;
+    await rateMedia(WITHOUT_MAL, 8);
+    expect(mal.scores).toEqual([8]);
+    await startRewatch(WITHOUT_MAL, 3);
+    expect(mal.rewatches).toEqual([3]);
+    await removeFromList(WITHOUT_MAL);
+    expect(mal.deleted).toEqual([2001]);
+  });
+
+  it('écran avec idMal : catalogue jamais lu ; MAL non connecté : catalogue jamais lu', async () => {
+    await rateMedia(MEDIA, 8);
+    fakes.trackers = [anilist];
+    await rateMedia(WITHOUT_MAL, 8);
+    expect(fakes.catalogReads).toBe(0);
+  });
+});
+
+describe('revisionnage gardé par la session (audit 6-D10)', () => {
+  it('déconnexion (puis autre compte) pendant la lecture : rien n’est écrit sur ce compte', async () => {
+    anilist.onRead = () => {
+      store.sessionEpoch = { anilist: 1, mal: 0 };
+    };
+    const outcome = await startRewatch(MEDIA, 3);
+    expect(outcome).toMatchObject({ status: 'synced', results: [{ service: 'anilist', outcome: { status: 'skipped' } }, { service: 'mal', outcome: { status: 'updated' } }] });
+    expect(anilist.rewatches).toEqual([]);
+    expect(mal.rewatches).toEqual([3]);
+  });
+});
+
+describe('« Retirer de la liste » : file et cartes de la série (audit B7, décision 18)', () => {
+  const episodeOf = (seriesId: string, n: number): EpisodeInfo => ({
+    platform: 'crunchyroll',
+    episodeId: `${seriesId}-E${n}`,
+    seriesId,
+    seriesSlug: 'serie',
+    animeTitle: 'Série',
+    seasonNumber: 1,
+    seasonTitle: null,
+    seasonEpisodeNumber: n,
+    displayedEpisodeNumber: n,
+    episodeTitle: null,
+    url: `https://www.crunchyroll.com/watch/${seriesId}-E${n}`,
+  });
+  const queued = (episode: EpisodeInfo, firstFailedAt: number): SyncQueueItem => ({
+    id: `crunchyroll:${episode.episodeId}`,
+    episode,
+    services: null,
+    epochs: { anilist: 0, mal: 0 },
+    attempts: 1,
+    status: 'pending',
+    nextAttemptAt: 0,
+    firstFailedAt,
+    lastError: 'Hors ligne',
+  });
+  const reviewCard = (episode: EpisodeInfo, mediaId: number, createdAt: number, previous: PendingReview['previous'] = null): PendingReview => ({
+    key: mappingKey(episode),
+    episode,
+    reason: 'À vérifier',
+    suggestion: { mediaId, progress: episode.displayedEpisodeNumber ?? 1 },
+    candidates: [],
+    previous,
+    createdAt,
+  });
+  const FRIEREN = episodeOf('GFRIEREN', 5);
+  const OTHER = episodeOf('GOTHER', 2);
+  const mapping = (mediaId: number): Record<string, unknown> => ({ mediaId, numbering: 'season', offset: 0, episodes: 28, learned: true });
+
+  beforeEach(() => {
+    store[STORAGE_KEYS.mediaMappings] = { [mappingKey(FRIEREN)]: mapping(1001), [mappingKey(OTHER)]: mapping(5) };
+  });
+
+  it('synchro en file avant le retrait : retirée (elle rajouterait la série) ; autres séries gardées', async () => {
+    store[SYNC_QUEUE_KEY] = [queued(FRIEREN, Date.now() - 1000), queued(OTHER, Date.now() - 1000)];
+    await removeFromList(MEDIA);
+    expect((await getSyncQueue()).map((i) => i.id)).toEqual([`crunchyroll:${OTHER.episodeId}`]);
+  });
+
+  it('carte « À vérifier » simple qui propose la série retirée : retirée ; correction et autres cartes gardées', async () => {
+    const correctionEp = episodeOf('GFRIEREN2', 1);
+    store[STORAGE_KEYS.pendingReviews] = [
+      reviewCard(FRIEREN, 1001, Date.now() - 1000),
+      reviewCard(OTHER, 5, Date.now() - 1000),
+      { ...reviewCard(correctionEp, 1001, Date.now() - 1000, { mediaId: 1001, title: 'Frieren', progress: 1 }), epochs: { anilist: 0, mal: 0 } },
+    ];
+    await removeFromList(MEDIA);
+    expect((await getPendingReviews()).map((r) => r.key).sort()).toEqual([mappingKey(OTHER), mappingKey(correctionEp)].sort());
+  });
+
+  it('élément mis en file après le début du retrait : gardé', async () => {
+    store[SYNC_QUEUE_KEY] = [queued(FRIEREN, Date.now() + 60_000)];
+    await removeFromList(MEDIA);
+    expect(await getSyncQueue()).toHaveLength(1);
+  });
+
+  it('retrait en échec sur un service : file et cartes gardées (un nouvel essai reste possible)', async () => {
+    store[SYNC_QUEUE_KEY] = [queued(FRIEREN, Date.now() - 1000)];
+    store[STORAGE_KEYS.pendingReviews] = [reviewCard(FRIEREN, 1001, Date.now() - 1000)];
+    mal.failWrite = new ApiError('NETWORK', 'MyAnimeList injoignable');
+    await removeFromList(MEDIA);
+    expect(await getSyncQueue()).toHaveLength(1);
+    expect(await getPendingReviews()).toHaveLength(1);
   });
 });

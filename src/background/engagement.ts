@@ -7,16 +7,22 @@ import { mediaRefId, type MediaRef, type Score10 } from '../shared/engagement.ty
 import type { Result } from '../shared/result';
 import { sessionsOf, type SessionEpochs } from '../shared/session-epochs';
 import { dropCachedWatchingEntry } from '../browser/storage/watching-cache';
-import { getOpenSessions, isSessionOpen } from '../browser/storage/sessions';
+import { getOpenSessions } from '../browser/storage/sessions';
+import { getMediaMappings } from '../browser/storage/mappings';
+import { deletePendingReviewsWhere } from '../browser/storage/reviews';
+import { removeQueueItemsWhere } from '../browser/storage/sync-queue-store';
 import { normalizeListNotes, type ListNotesResult } from '../shared/list-notes';
 import { forgetCachedPageMedia } from '../browser/storage/page-media-cache';
+import type { EpisodeInfo } from '../shared/episode.types';
+import { mappingKey } from '../platforms/series-identity';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import type { WatchingEntry } from '../shared/watching.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './errors';
-import { withEntryLock } from './sync/entry-lock';
+import { entryTargets, runOnServices, type EntryCommand, type EntryTarget } from './entry-commands';
+import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
-import type { TrackerEntry, TrackerService } from './ports/tracker';
+import type { CatalogMedia, TrackerService } from './ports/tracker';
 import { createLogger } from '../browser/logger';
 
 // Engagement (service worker) : note de fin de série, revisionnage, commentaire et retrait de la liste, sur tous les
@@ -24,19 +30,25 @@ import { createLogger } from '../browser/logger';
 
 const log = createLogger('engagement');
 
-interface Target {
-  tracker: TrackerService;
-  id: number;
+/**
+ * idMal manquant sur l'écran alors que MAL est connecté : celui du catalogue AniList (audit 6-D9, même résolution que
+ * +1 / −1 et le statut). Catalogue illisible : la référence de l'écran seule (AniList reste écrit).
+ */
+async function catalogFor(media: MediaRef, trackers: readonly TrackerService[]): Promise<CatalogMedia | null> {
+  if (media.mediaId === null || media.malId !== null || !trackers.some((tracker) => tracker.id === 'mal')) return null;
+  try {
+    return await getCatalogMedia(media.mediaId);
+  } catch (error: unknown) {
+    log.warn('Fiche du catalogue illisible, MyAnimeList ignoré :', error);
+    return null;
+  }
 }
 
-/** Services connectés où la série a un identifiant (AniList : mediaId ; MAL : malId) */
-async function resolveTargets(media: MediaRef): Promise<Target[] | null> {
+/** Services connectés où la série a un identifiant (null : aucun service connecté) */
+async function resolveTargets(media: MediaRef): Promise<EntryTarget[] | null> {
   const trackers = await getConnectedTrackers();
   if (trackers.length === 0) return null;
-  return trackers.flatMap((tracker) => {
-    const id = tracker.id === 'anilist' ? media.mediaId : media.malId;
-    return id !== null ? [{ tracker, id }] : [];
-  });
+  return entryTargets(trackers, media, await catalogFor(media, trackers));
 }
 
 type SkippedOutcome = Extract<ServiceOutcome, { status: 'skipped' }>;
@@ -44,9 +56,7 @@ type SkippedOutcome = Extract<ServiceOutcome, { status: 'skipped' }>;
 /** Série absente de la liste de ce service : rien n'y est écrit (code reconnu par les écrans) */
 const notInList = (): SkippedOutcome => ({ status: 'skipped', reason: t('engagement.notInList'), code: 'not-in-list' });
 
-function toErrorOutcome(error: unknown): ServiceOutcome {
-  return error instanceof ApiError ? { status: 'error', message: error.message, code: error.code } : { status: 'error', message: t('error.unexpected') };
-}
+const skipped = (reason: string): SkippedOutcome => ({ status: 'skipped', reason });
 
 function toSyncError(error: unknown, fallback: string): SyncOutcome {
   if (error instanceof ApiError) return { status: 'error', message: error.message, code: error.code };
@@ -55,32 +65,12 @@ function toSyncError(error: unknown, fallback: string): SyncOutcome {
 }
 
 /**
- * Lecture fraîche puis action sur UN service ; `act` renvoie un saut (raison), un résultat sans écriture ou l'écriture.
- * Lecture et écriture sous le verrou de la fiche : le revisionnage décidé sur « Terminé » n'écrase pas une synchro
- * concurrente. Ne lève jamais. `epochs` : sessions auxquelles appartient l'action (carte « À noter », sessions relevées
- * avant un retrait ou un commentaire) ; rien n'est écrit sur une session fermée ou rouverte depuis.
+ * Action sur chaque service (voir entry-commands.ts : verrou, lecture fraîche, session revérifiée avant l'écriture).
+ * `epochs` : sessions auxquelles appartient l'action (carte « À noter », sinon sessions relevées avant toute requête) ;
+ * rien n'est écrit sur une session fermée ou rouverte depuis.
  */
-async function onService(
-  { tracker, id }: Target,
-  act: (current: TrackerEntry) => string | ServiceOutcome | (() => Promise<ServiceOutcome>),
-  epochs: SessionEpochs | null = null,
-): Promise<ServiceResult> {
-  const sessionClosed: ServiceResult = { service: tracker.id, outcome: { status: 'skipped', reason: t('sync.sessionClosed') } };
-  const open = async (): Promise<boolean> => epochs === null || (await isSessionOpen(tracker.id, epochs[tracker.id]));
-  try {
-    if (!(await open())) return sessionClosed;
-    return await withEntryLock(tracker.id, id, async (): Promise<ServiceResult> => {
-      const step = act(await tracker.getEntry(id));
-      if (typeof step === 'string') return { service: tracker.id, outcome: { status: 'skipped', reason: step } };
-      if (typeof step === 'object') return { service: tracker.id, outcome: step };
-      // Déconnexion (puis autre compte) pendant la lecture : rien n'est écrit
-      if (!(await open())) return sessionClosed;
-      return { service: tracker.id, outcome: await step() };
-    });
-  } catch (error: unknown) {
-    log.error(`${TRACKER_LABELS[tracker.id]} : échec`, error);
-    return { service: tracker.id, outcome: toErrorOutcome(error) };
-  }
+async function onServices(targets: readonly EntryTarget[], name: string, decide: EntryCommand['decide'], epochs: SessionEpochs): Promise<ServiceResult[]> {
+  return (await runOnServices(targets, { name, decide }, epochs)).map((run) => run.result);
 }
 
 /** Identifiants possibles de la carte « À noter » : créée depuis l'une ou l'autre fiche (liste MAL : fiche AniList inconnue) */
@@ -103,24 +93,21 @@ export async function rateMedia(media: MediaRef, score: Score10, fromCard = fals
   try {
     const ids = ratingCardIds(media);
     const card = fromCard ? (await getPendingRatings()).filter((r) => ids.includes(r.id)).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))[0] : undefined;
-    const epochs = card ? sessionsOf(card.epochs, await getOpenSessions()) : null;
+    const open = await getOpenSessions();
+    const epochs = card ? sessionsOf(card.epochs, open) : open;
     const targets = await resolveTargets(media);
     if (targets === null) return { status: 'not-connected' };
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const results = await Promise.all(
-      targets.map((target) =>
-        onService(target, (current) => {
-          // Noter une série absente de la liste l'y ajouterait sans statut : on s'abstient
-          if (current.entry === null) return t('engagement.notInList');
-          return async () => {
-            const saved = await target.tracker.saveScore(target.id, score);
-            log.info(`✔ ${TRACKER_LABELS[target.tracker.id]} : ${current.title} noté ${score}/10`);
-            return { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
-          };
-        }, epochs),
-      ),
-    );
+    const results = await onServices(targets, 'note', (current, { tracker, id }) => {
+      // Noter une série absente de la liste l'y ajouterait sans statut : on s'abstient
+      if (current.entry === null) return skipped(t('engagement.notInList'));
+      return async () => {
+        const saved = await tracker.saveScore(id, score);
+        log.info(`✔ ${TRACKER_LABELS[tracker.id]} : ${current.title} noté ${score}/10`);
+        return { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
+      };
+    }, epochs);
 
     // Carte « À noter » conservée tant qu'un service est en erreur ou que personne n'a enregistré la note (nouvel essai possible)
     if (isRatingSettled(results) && (await removeRatingCards(media))) {
@@ -150,23 +137,20 @@ export async function deferRating(media: MediaRef, coverUrl: string | null): Pro
 /** « Oui » au revisionnage : REPEATING + progression, uniquement sur les fiches terminées. */
 export async function startRewatch(media: MediaRef, progress: number): Promise<SyncOutcome> {
   try {
+    const epochs = await getOpenSessions();
     const targets = await resolveTargets(media);
     if (targets === null) return { status: 'not-connected' };
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const results = await Promise.all(
-      targets.map((target) =>
-        onService(target, (current) => {
-          if (current.entry?.status !== 'COMPLETED') return t('engagement.notCompleted');
-          if (current.episodes !== null && progress >= current.episodes) return t('engagement.lastEpisode', { progress });
-          return async () => {
-            const saved = await target.tracker.startRewatch(target.id, progress);
-            log.info(`✔ ${TRACKER_LABELS[target.tracker.id]} : revisionnage de ${current.title}, épisode ${saved.progress}`);
-            return { status: 'updated', progress: saved.progress, completed: false };
-          };
-        }),
-      ),
-    );
+    const results = await onServices(targets, 'revisionnage', (current, { tracker, id }) => {
+      if (current.entry?.status !== 'COMPLETED') return skipped(t('engagement.notCompleted'));
+      if (current.episodes !== null && progress >= current.episodes) return skipped(t('engagement.lastEpisode', { progress }));
+      return async () => {
+        const saved = await tracker.startRewatch(id, progress);
+        log.info(`✔ ${TRACKER_LABELS[tracker.id]} : revisionnage de ${current.title}, épisode ${saved.progress}`);
+        return { status: 'updated', progress: saved.progress, completed: false };
+      };
+    }, epochs);
     return { status: 'synced', mediaTitle: media.title, results };
   } catch (error: unknown) {
     return toSyncError(error, t('error.unexpectedRewatch'));
@@ -192,12 +176,28 @@ function isSameSeries(media: MediaRef): (entry: WatchingEntry) => boolean {
 }
 
 /**
+ * Synchros en file et cartes « À vérifier » simples de la série, créées AVANT le retrait (décision 18, audit B7) :
+ * retirées, sinon leur relance ou leur validation rajouterait la série. La série d'un élément en file est celle de la
+ * correspondance de sa saison ; une carte simple propose la série retirée. Une correction (« Corriger ») est gardée :
+ * elle peut déplacer la synchro vers une autre fiche. Un épisode vu après le retrait la rajoute (comportement voulu).
+ * Retourne true si une carte ou un élément a été retiré.
+ */
+async function dropQueuedSeries(mediaId: number, before: number): Promise<boolean> {
+  const mappings = await getMediaMappings();
+  const ofSeries = (episode: EpisodeInfo): boolean => mappings[mappingKey(episode)]?.mediaId === mediaId;
+  const queued = await removeQueueItemsWhere((item) => item.firstFailedAt < before && ofSeries(item.episode));
+  const cards = await deletePendingReviewsWhere((review) => review.previous === null && review.createdAt < before && review.suggestion?.mediaId === mediaId);
+  return queued + cards > 0;
+}
+
+/**
  * Après un retrait : fiches des onglets (états des listes) oubliées, série retirée de la liste « En cours » en cache
- * des services où elle a été retirée, et carte « À noter » retirée si plus aucun service n'est en erreur (il n'y a plus
- * rien à noter). Les correspondances (plateforme → fiche) sont gardées : une synchro ultérieure retrouve la bonne fiche.
+ * des services où elle a été retirée ; si plus aucun service n'est en erreur, carte « À noter » retirée (il n'y a plus
+ * rien à noter), ainsi que les synchros en file et les cartes « À vérifier » de la série (dropQueuedSeries). Les
+ * correspondances (plateforme → fiche) sont gardées : une synchro ultérieure retrouve la bonne fiche.
  * Ne lève jamais : le retrait est fait, seul l'affichage peut rester en retard jusqu'à la prochaine relecture.
  */
-async function afterRemoval(media: MediaRef, results: readonly ServiceResult[], epochs: SessionEpochs): Promise<void> {
+async function afterRemoval(media: MediaRef, results: readonly ServiceResult[], epochs: SessionEpochs, startedAt: number): Promise<void> {
   const removed = results.filter((r) => r.outcome.status === 'updated').map((r) => r.service);
   if (removed.length === 0) return;
   try {
@@ -207,7 +207,9 @@ async function afterRemoval(media: MediaRef, results: readonly ServiceResult[], 
       if (epoch !== undefined) await dropCachedWatchingEntry(service, epoch, isSameSeries(media));
     }
     if (results.some((r) => r.outcome.status === 'error')) return;
-    if (await removeRatingCards(media)) await refreshReviewBadge();
+    const ratings = await removeRatingCards(media);
+    const queued = media.mediaId !== null && (await dropQueuedSeries(media.mediaId, startedAt));
+    if (ratings || queued) await refreshReviewBadge();
   } catch (error: unknown) {
     log.warn('Affichage non mis à jour après le retrait de la liste :', error);
   }
@@ -220,24 +222,21 @@ async function afterRemoval(media: MediaRef, results: readonly ServiceResult[], 
  */
 export async function removeFromList(media: MediaRef): Promise<SyncOutcome> {
   try {
+    const startedAt = Date.now();
     const epochs = await getOpenSessions();
     const targets = await resolveTargets(media);
     if (targets === null) return { status: 'not-connected' };
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const results = await Promise.all(
-      targets.map((target) =>
-        onService(target, (current) => {
-          if (current.entry === null) return notInList();
-          return async () => {
-            await target.tracker.deleteEntry(target.id);
-            log.info(`✔ ${TRACKER_LABELS[target.tracker.id]} : ${current.title} retiré de la liste`);
-            return { status: 'updated', progress: 0, completed: false };
-          };
-        }, epochs),
-      ),
-    );
-    await afterRemoval(media, results, epochs);
+    const results = await onServices(targets, 'retrait de la liste', (current, { tracker, id }) => {
+      if (current.entry === null) return notInList();
+      return async () => {
+        await tracker.deleteEntry(id);
+        log.info(`✔ ${TRACKER_LABELS[tracker.id]} : ${current.title} retiré de la liste`);
+        return { status: 'updated', progress: 0, completed: false };
+      };
+    }, epochs);
+    await afterRemoval(media, results, epochs, startedAt);
     return { status: 'synced', mediaTitle: media.title, results };
   } catch (error: unknown) {
     return toSyncError(error, t('error.unexpectedRemove'));
@@ -283,19 +282,15 @@ export async function setListNotes(media: MediaRef, text: string): Promise<SyncO
     if (targets === null) return { status: 'not-connected' };
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const results = await Promise.all(
-      targets.map((target) =>
-        onService(target, (current) => {
-          if (current.entry === null) return notInList();
-          if ((current.notes ?? '') === notes) return { status: 'up-to-date', progress: current.entry.progress };
-          return async () => {
-            const saved = await target.tracker.saveNotes(target.id, notes);
-            log.info(`✔ ${TRACKER_LABELS[target.tracker.id]} : commentaire de ${current.title} ${notes ? 'enregistré' : 'effacé'}`);
-            return { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
-          };
-        }, epochs),
-      ),
-    );
+    const results = await onServices(targets, 'commentaire', (current, { tracker, id }) => {
+      if (current.entry === null) return notInList();
+      if ((current.notes ?? '') === notes) return { status: 'up-to-date', progress: current.entry.progress };
+      return async () => {
+        const saved = await tracker.saveNotes(id, notes);
+        log.info(`✔ ${TRACKER_LABELS[tracker.id]} : commentaire de ${current.title} ${notes ? 'enregistré' : 'effacé'}`);
+        return { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
+      };
+    }, epochs);
     if (results.some((r) => r.outcome.status === 'updated')) {
       await forgetCachedPageMedia(media).catch((error: unknown) => log.warn('Fiches des onglets non oubliées :', error));
     }

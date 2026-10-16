@@ -55,7 +55,6 @@ import {
 import { mappingOrigin, withOrigin, type MappingOrigin } from '../../shared/sync.types';
 import {
   getOpenSessions,
-  isSessionOpen,
 } from '../../browser/storage/sessions';
 import {
   getPendingReviews,
@@ -84,7 +83,7 @@ import {
 } from '../jobs/runner';
 import { seasonLabel } from '../sync/matching/matching';
 import { IMPORT_RESOLVE_OPTIONS, prefetchCandidates, resolveEpisode } from '../sync/resolver';
-import { withEntryLock } from '../sync/entry-lock';
+import { entryTargetId, runGuarded } from '../entry-commands';
 import { getConnectedTrackers } from '../trackers';
 import type { TrackerService } from '../ports/tracker';
 
@@ -487,16 +486,23 @@ export async function importOnService(
 ): Promise<ImportOnServiceResult> {
   await waitWriteSlot(tracker.id);
   await waitReadSlot(tracker.id);
-  if (!(await isSessionOpen(tracker.id, epoch))) return { action: 'session-closed' };
-  return withEntryLock(tracker.id, targetId, async (): Promise<ImportOnServiceResult> => {
-    // Lecture fraîche : la liste a pu changer depuis l'aperçu (autre appareil, synchro en direct)
-    // File de fond : places réservées ci-dessus, consommées sans attente (B9 : jamais le budget du popup et du panneau)
-    const current = await tracker.getEntry(targetId, 'background');
-    const decision = decideImport(current.entry, item.progress, current.episodes ?? item.episodes);
-    if (decision.action !== 'update') return decision;
-    if (!(await isSessionOpen(tracker.id, epoch))) return { action: 'session-closed' };
-    await tracker.saveProgress(targetId, decision.progress, decision.status, undefined, 'background');
-    return decision;
+  // Écriture gardée (entry-commands.ts) ; lecture fraîche : la liste a pu changer depuis l'aperçu (autre appareil,
+  // synchro en direct). File de fond : places réservées ci-dessus, consommées sans attente (B9 : jamais le budget du
+  // popup et du panneau)
+  return runGuarded<ImportOnServiceResult>({ tracker, id: targetId }, {
+    epoch,
+    lane: 'background',
+    sessionClosed: () => ({ action: 'session-closed' }),
+    decide: (current) => {
+      const decision = decideImport(current.entry, item.progress, current.episodes ?? item.episodes);
+      if (decision.action !== 'update') return { done: decision };
+      return {
+        write: async () => {
+          await tracker.saveProgress(targetId, decision.progress, decision.status, undefined, 'background');
+          return decision;
+        },
+      };
+    },
   });
 }
 
@@ -539,7 +545,7 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
     }
     const label = TRACKER_LABELS[planned.service];
     const tracker = trackers.find((tr) => tr.id === planned.service);
-    const targetId = planned.service === 'anilist' ? item.mediaId : item.malId;
+    const targetId = entryTargetId(planned.service, item);
     if (!tracker || targetId === null) {
       outcomes.push({ service: planned.service, result: 'skipped', message: t('crImport.skip.notConnected', { service: label }) });
       continue;

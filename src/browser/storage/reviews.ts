@@ -1,7 +1,9 @@
 // Vérifications manuelles (« À vérifier ») et dernières synchros, propres à l'utilisateur.
 import { isPendingReview, isRecentSync, keepDeferred, type DeferredEpisode, type PendingReview, type RecentSync } from '../../shared/review.types';
+import { liveServices } from '../../shared/session-epochs';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { withStorageLock } from './lock';
+import { getOpenSessions } from './sessions';
 
 export const MAX_PENDING_REVIEWS = 20;
 
@@ -47,6 +49,16 @@ export function deletePendingReview(key: string): Promise<void> {
   });
 }
 
+/** Retire les cartes qui satisfont `drop` (série retirée de la liste) ; retourne le nombre de cartes retirées */
+export function deletePendingReviewsWhere(drop: (review: PendingReview) => boolean): Promise<number> {
+  return withStorageLock(async () => {
+    const reviews = await getPendingReviews();
+    const remaining = reviews.filter((r) => !drop(r));
+    if (remaining.length < reviews.length) await chrome.storage.local.set({ [STORAGE_KEYS.pendingReviews]: remaining });
+    return reviews.length - remaining.length;
+  });
+}
+
 /** Retire la carte d'une saison et la renvoie (null : déjà retirée), en une seule opération sous le verrou */
 export function takePendingReview(key: string): Promise<PendingReview | null> {
   return withStorageLock(async () => {
@@ -79,10 +91,16 @@ export async function getRecentSyncs(): Promise<RecentSync[]> {
   return (Array.isArray(raw) ? raw.filter(isRecentSync) : []).sort((a, b) => b.syncedAt - a.syncedAt);
 }
 
-/** Une entrée par saison : la synchro la plus récente remplace la précédente. */
-export function addRecentSync(sync: RecentSync): Promise<void> {
+/**
+ * Une entrée par saison : la synchro la plus récente remplace la précédente. Vérifié sous le verrou de la déconnexion
+ * (audit L3) : une synchro dont aucune session n'est encore ouverte n'est jamais recréée après la purge (même règle que
+ * purgeClosedSessions). Retourne false si rien n'a été enregistré.
+ */
+export function addRecentSync(sync: RecentSync): Promise<boolean> {
   return withStorageLock(async () => {
+    if (sync.epochs !== undefined && liveServices(sync.epochs, await getOpenSessions()).length === 0) return false;
     const others = (await getRecentSyncs()).filter((s) => s.key !== sync.key);
     await chrome.storage.local.set({ [STORAGE_KEYS.recentSyncs]: [sync, ...others].slice(0, MAX_RECENT_SYNCS) });
+    return true;
   });
 }
