@@ -104,12 +104,12 @@ export async function importOnService(
     epoch,
     lane: 'background',
     sessionClosed: () => ({ action: 'session-closed' }),
-    decide: (current) => {
+    decide: (current, bound) => {
       const decision = decideImport(current.entry, item.progress, current.episodes ?? item.episodes);
       if (decision.action !== 'update') return { done: decision };
       return {
         write: async () => {
-          await tracker.saveProgress(targetId, decision.progress, decision.status, undefined, 'background');
+          await bound.saveProgress(targetId, decision.progress, decision.status, undefined, 'background');
           return decision;
         },
       };

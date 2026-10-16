@@ -39,6 +39,7 @@ function tracingWrites(tracker: TrackerService): TrackerService {
     };
   return {
     ...tracker,
+    forSession: (epoch) => tracingWrites(tracker.forSession(epoch)),
     saveProgress: wrap('saveProgress', tracker.saveProgress),
     saveScore: wrap('saveScore', tracker.saveScore),
     startRewatch: wrap('startRewatch', tracker.startRewatch),
@@ -102,41 +103,52 @@ function forgettingEntries(tracker: TrackerService): TrackerService {
   };
 }
 
-export const anilistTracker: TrackerService = forgettingEntries(invalidatingComparison({
+/** Adaptateur d'un service ; `session` : ses requêtes liées à cette session (forSession, L2), sinon à la session courante */
+type TrackerAdapter = (session: number | undefined) => Omit<TrackerService, 'forSession'>;
+
+/** Service complet (invalidation de la comparaison, oubli des entrées gardées), et sa version liée à une session */
+function assemble(adapter: TrackerAdapter, session?: number): TrackerService {
+  return forgettingEntries(invalidatingComparison({ ...adapter(session), forSession: (epoch) => assemble(adapter, epoch) }));
+}
+
+const aniListAdapter: TrackerAdapter = (session) => ({
   id: 'anilist',
   // Présence et expiration lues sans déchiffrement ; le token est déchiffré à la requête (anilist/client.ts)
   isConnected: hasValidAniListToken,
   resolveId: (media) => entryIdOn('anilist', { mediaId: media.mediaId, malId: media.idMal }),
   fullList: async () => (await fetchAniListFullList()).map((e) => ({ id: e.mediaId, status: e.status, progress: e.progress })),
   async getEntry(id, lane) {
-    const { title, episodes, entry, notes } = await getMediaListInfo(id, lane);
+    const { title, episodes, entry, notes } = await getMediaListInfo(id, lane, session);
     return { title, episodes, entry, notes };
   },
-  saveProgress: (id, progress, status, repeat, lane) => saveProgress(id, progress, status, repeat, lane),
+  saveProgress: (id, progress, status, repeat, lane) => saveProgress(id, progress, status, repeat, lane, session),
   // Le score d'AniList s'exprime dans le format choisi par l'utilisateur (sur 100, 10, 5, 3…)
-  saveScore: async (id, score) => saveScore(id, aniListScores(await getScoreFormat()).encode(score)),
-  startRewatch: (id, progress) => saveProgress(id, progress, 'REPEATING'),
-  saveStatus: (id, status, progress, repeat) => saveListStatus(id, status, progress, repeat),
-  saveEntry: (id, write, lane) => saveListEntry(id, write, lane),
-  deleteEntry: (id) => deleteListEntry(id),
-  saveNotes: (id, notes) => saveListNotes(id, notes),
-}));
+  saveScore: async (id, score) => saveScore(id, aniListScores(await getScoreFormat('interactive', session)).encode(score), session),
+  startRewatch: (id, progress) => saveProgress(id, progress, 'REPEATING', undefined, 'interactive', session),
+  saveStatus: (id, status, progress, repeat) => saveListStatus(id, status, progress, repeat, session),
+  saveEntry: (id, write, lane) => saveListEntry(id, write, lane, session),
+  deleteEntry: (id) => deleteListEntry(id, session),
+  saveNotes: (id, notes) => saveListNotes(id, notes, session),
+});
 
-export const malTracker: TrackerService = forgettingEntries(invalidatingComparison({
+const malAdapter: TrackerAdapter = (session) => ({
   id: 'mal',
   // Token présent (même expiré) : il sera renouvelé à la première requête
   isConnected: hasMalToken,
   resolveId: (media) => entryIdOn('mal', { mediaId: media.mediaId, malId: media.idMal }),
   fullList: async () => (await fetchMalFullList()).map((e) => ({ id: e.malId, status: e.status, progress: e.progress })),
-  getEntry: (id) => getMalAnime(id),
-  saveProgress: (id, progress, status, repeat) => saveMalProgress(id, progress, status, repeat),
-  saveScore: (id, score) => saveMalScore(id, MAL_SCORES.encode(score)),
-  startRewatch: (id, progress) => saveMalProgress(id, progress, 'REPEATING'),
-  saveStatus: (id, status, progress, repeat) => saveMalListStatus(id, status, progress, repeat),
-  saveEntry: (id, write) => saveMalEntry(id, write),
-  deleteEntry: (id) => deleteMalEntry(id),
-  saveNotes: (id, notes) => saveMalNotes(id, notes),
-}));
+  getEntry: (id) => getMalAnime(id, session),
+  saveProgress: (id, progress, status, repeat) => saveMalProgress(id, progress, status, repeat, session),
+  saveScore: (id, score) => saveMalScore(id, MAL_SCORES.encode(score), session),
+  startRewatch: (id, progress) => saveMalProgress(id, progress, 'REPEATING', undefined, session),
+  saveStatus: (id, status, progress, repeat) => saveMalListStatus(id, status, progress, repeat, session),
+  saveEntry: (id, write) => saveMalEntry(id, write, session),
+  deleteEntry: (id) => deleteMalEntry(id, session),
+  saveNotes: (id, notes) => saveMalNotes(id, notes, session),
+});
+
+export const anilistTracker: TrackerService = assemble(aniListAdapter);
+export const malTracker: TrackerService = assemble(malAdapter);
 
 // Build de développement : écritures tracées (tracingWrites) ; tableau d'origine sinon
 const TRACKERS: readonly TrackerService[] = __SYNCKAI_DEBUG__ ? [tracingWrites(anilistTracker), tracingWrites(malTracker)] : [anilistTracker, malTracker];

@@ -34,9 +34,11 @@ async function request<T>(
   auth: AuthMode,
   isRetry: boolean,
   lane: RequestLane,
+  session: number | undefined,
 ): Promise<T> {
   const startedAt = __SYNCKAI_DEBUG__ ? Date.now() : 0;
-  const token = await getValidToken();
+  // Requête liée à une session (écritures, L2) : SessionChangedError si elle a été fermée ou remplacée, rien n'est envoyé
+  const token = await getValidToken(session);
   if (!token && auth === 'required') throw new ApiError('NOT_AUTHENTICATED', t('api.notAuthenticated', { service: 'AniList' }));
 
   // Pénalité 429 en cours : une requête interactive attend si c'est court, échoue aussitôt sinon (erreur visible)
@@ -92,7 +94,7 @@ async function request<T>(
     // déconnexion pendant la requête, rejouée avec le token actuel
     const ended = await endSessionIfToken('anilist', token.accessToken);
     // Catalogue public : on rejoue la requête sans token plutôt que d'échouer
-    if (!ended || auth === 'optional') return request(query, isData, variables, auth, isRetry, lane);
+    if (!ended || auth === 'optional') return request(query, isData, variables, auth, isRetry, lane, session);
     throw new ApiError('TOKEN_INVALID', t('api.sessionExpired', { service: 'AniList' }));
   }
 
@@ -104,7 +106,7 @@ async function request<T>(
     if (__SYNCKAI_DEBUG__) trace('network', 'rate-limited', { service: 'anilist', op: graphqlOperation(query), lane, delayMs: delay, willRetry: delay !== null && !isRetry });
     if (delay !== null && !isRetry) {
       log.warn(`Limite de requêtes AniList atteinte, nouvelle tentative dans ${Math.ceil(delay / 1000)} s`);
-      return request(query, isData, variables, auth, true, lane);
+      return request(query, isData, variables, auth, true, lane, session);
     }
     throw new ApiError('RATE_LIMITED', t('api.rateLimited', { service: 'AniList' }));
   }
@@ -122,14 +124,18 @@ async function request<T>(
   return data;
 }
 
-/** Requête authentifiée (liste de l'utilisateur, mutations). Lève une ApiError typée. */
+/**
+ * Requête authentifiée (liste de l'utilisateur, mutations). Lève une ApiError typée. `session` : génération de la session
+ * sous laquelle l'écriture a été décidée (L2), SessionChangedError si ce n'est plus celle du token enregistré.
+ */
 export function anilistQuery<T>(
   query: string,
   isData: (data: unknown) => data is T,
   variables: Record<string, unknown> = {},
   lane: RequestLane = 'interactive',
+  session?: number,
 ): Promise<T> {
-  return request(query, isData, variables, 'required', false, lane);
+  return request(query, isData, variables, 'required', false, lane, session);
 }
 
 /**
@@ -142,5 +148,5 @@ export function anilistPublicQuery<T>(
   variables: Record<string, unknown> = {},
   lane: RequestLane = 'interactive',
 ): Promise<T> {
-  return request(query, isData, variables, 'optional', false, lane);
+  return request(query, isData, variables, 'optional', false, lane, undefined);
 }

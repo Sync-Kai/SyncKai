@@ -10,13 +10,23 @@ const items = [
 
 describe('tâche d’alignement : transitions', () => {
   it('démarre en cours avec toutes les séries à traiter', () => {
-    const { job, items: list } = startApplyJob(items, 'anilist', 1_000);
+    const { job, items: list } = startApplyJob(items, 'anilist', { anilist: 0, mal: 0 }, 1_000);
     expect(job).toMatchObject({ kind: 'apply', source: 'anilist', status: 'running', total: 3, done: 0, cursor: 0, itemCount: 3, current: null, cancelled: false, startedAt: 1_000, updatedAt: 1_000 });
     expect(list).toEqual(items);
   });
 
+  it('sessions du démarrage (L2) : gardées dans la tâche ; tâche d’avant la 2.4.0 sans sessions acceptée, sessions invalides refusées', () => {
+    const { job } = startApplyJob(items, 'anilist', { anilist: 3, mal: 1 }, 0);
+    expect(job.epochs).toEqual({ anilist: 3, mal: 1 });
+    expect(isCompareJob(job)).toBe(true);
+    const { epochs: _epochs, ...legacy } = job;
+    expect(isCompareJob(legacy)).toBe(true);
+    expect(isCompareJob({ ...job, epochs: { anilist: -1 } })).toBe(false);
+    expect(isCompareJob({ ...job, epochs: 'mal' })).toBe(false);
+  });
+
   it('chaque série traitée avance la progression et compte son résultat', () => {
-    let job = startApplyJob(items, 'mal', 0).job;
+    let job = startApplyJob(items, 'mal', { anilist: 0, mal: 0 }, 0).job;
     job = reduceJob(job, { type: 'item', outcome: 'updated', at: 10 });
     job = reduceJob(job, { type: 'item', outcome: 'failed', message: 'Erreur MAL (400).', at: 20 });
     expect(job).toMatchObject({ status: 'running', done: 2, updated: 1, failed: 1, skipped: 0, updatedAt: 20, messages: ['Erreur MAL (400).'] });
@@ -26,7 +36,7 @@ describe('tâche d’alignement : transitions', () => {
   });
 
   it('« Arrêter » : la série en cours se termine, puis la tâche est close comme arrêtée', () => {
-    let job = reduceJob(startApplyJob(items, 'anilist', 0).job, { type: 'cancel', at: 5 });
+    let job = reduceJob(startApplyJob(items, 'anilist', { anilist: 0, mal: 0 }, 0).job, { type: 'cancel', at: 5 });
     expect(job).toMatchObject({ status: 'running', cancelled: true });
     job = reduceJob(job, { type: 'item', outcome: 'updated', at: 6 });
     job = reduceJob(job, { type: 'finish', at: 7 });
@@ -34,19 +44,19 @@ describe('tâche d’alignement : transitions', () => {
   });
 
   it('arrêt sur erreur bloquante : message conservé, séries restantes non traitées', () => {
-    const job = reduceJob(startApplyJob(items, 'anilist', 0).job, { type: 'stop', message: 'Session expirée', at: 9 });
+    const job = reduceJob(startApplyJob(items, 'anilist', { anilist: 0, mal: 0 }, 0).job, { type: 'stop', message: 'Session expirée', at: 9 });
     expect(job).toMatchObject({ status: 'stopped', message: 'Session expirée', done: 0, cursor: 0 });
   });
 
   it('une tâche terminée n’évolue plus', () => {
-    const done = reduceJob(startApplyJob([items[0]], 'anilist', 0).job, { type: 'item', outcome: 'updated', at: 1 });
+    const done = reduceJob(startApplyJob([items[0]], 'anilist', { anilist: 0, mal: 0 }, 0).job, { type: 'item', outcome: 'updated', at: 1 });
     expect(done.status).toBe('done');
     expect(reduceJob(done, { type: 'item', outcome: 'failed', at: 2 })).toBe(done);
     expect(reduceJob(done, { type: 'cancel', at: 2 })).toBe(done);
   });
 
   it('messages distincts limités à 5', () => {
-    let job = startApplyJob(Array.from({ length: 8 }, (_, i) => ({ mediaId: i + 1, malId: i + 1 })), 'anilist', 0).job;
+    let job = startApplyJob(Array.from({ length: 8 }, (_, i) => ({ mediaId: i + 1, malId: i + 1 })), 'anilist', { anilist: 0, mal: 0 }, 0).job;
     for (let i = 0; i < 7; i++) job = reduceJob(job, { type: 'item', outcome: 'failed', message: `e${i}`, at: i });
     expect(job.messages).toEqual(['e0', 'e1', 'e2', 'e3', 'e4']);
   });
@@ -64,13 +74,13 @@ describe('tâche vivante / interrompue', () => {
 
   it('une tâche terminée ou absente ne bloque rien', () => {
     expect(isJobActive(null, 0)).toBe(false);
-    const done = reduceJob(startApplyJob(items, 'mal', 0).job, { type: 'finish', at: 1 });
+    const done = reduceJob(startApplyJob(items, 'mal', { anilist: 0, mal: 0 }, 0).job, { type: 'finish', at: 1 });
     expect(isJobActive(done, 2)).toBe(false);
     expect(isJobStale(done, JOB_STALE_MS * 2)).toBe(false);
   });
 
   it('isCompareJob valide le stockage', () => {
-    const { job } = startApplyJob(items, 'mal', 0);
+    const { job } = startApplyJob(items, 'mal', { anilist: 0, mal: 0 }, 0);
     expect(isCompareJob(job)).toBe(true);
     expect(isCompareJob(startAnalyzeJob(0).job)).toBe(true);
     expect(isCompareJob({ ...startAnalyzeJob(0).job, status: 'paused' })).toBe(false);
@@ -80,7 +90,7 @@ describe('tâche vivante / interrompue', () => {
   });
 
   it('série en cours d’écriture : l’élément démarré (`current`), seulement pendant un alignement en cours', () => {
-    const { job } = startApplyJob(items, 'mal', 0);
+    const { job } = startApplyJob(items, 'mal', { anilist: 0, mal: 0 }, 0);
     expect(currentApplyMalId(job)).toBeNull();
     expect(currentApplyMalId(null)).toBeNull();
     const started = startItem(reduceJob(job, { type: 'item', outcome: 'updated', at: 1 }), items[1], 2);
@@ -89,7 +99,7 @@ describe('tâche vivante / interrompue', () => {
   });
 
   it('alignement d’une version précédente (file `pending`) : converti avec son service de référence', () => {
-    const { job } = startApplyJob(items, 'mal', 0);
+    const { job } = startApplyJob(items, 'mal', { anilist: 0, mal: 0 }, 0);
     const legacy: Record<string, unknown> = { ...job, done: 1, updated: 1, pending: items.slice(1) };
     delete legacy.cursor;
     delete legacy.itemCount;
@@ -106,7 +116,7 @@ describe('tâche vivante / interrompue', () => {
 
 describe('pauses (limite de requêtes, service lent, reprise)', () => {
   const pause = (reason: 'rate-limit' | 'server' | 'network' | 'resume', until: number) =>
-    reduceJob(startApplyJob(items, 'anilist', 0).job, { type: 'pause', until, reason, service: reason === 'resume' ? null : 'mal', at: 10 });
+    reduceJob(startApplyJob(items, 'anilist', { anilist: 0, mal: 0 }, 0).job, { type: 'pause', until, reason, service: reason === 'resume' ? null : 'mal', at: 10 });
 
   it('pause : fin d’attente, raison et service enregistrés, série gardée en tête de file', () => {
     const job = pause('server', 15_010);

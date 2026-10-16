@@ -2,6 +2,7 @@ import { isRecord } from './guards';
 import { fromLegacyJob, isJobOf, startJob, type Job, type JobStart } from './job';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { isTrackerId, type TrackerId } from './tracker.types';
+import { isSessionEpochs, type SessionEpochs } from './session-epochs';
 
 // Tâche de comparaison (analyse ou alignement) persistée dans chrome.storage.local (`compare:job`) :
 // le popup affiche sa progression (même rouvert) et le service worker la reprend s'il a été arrêté.
@@ -26,13 +27,21 @@ export interface ApplyDiffItem {
 export interface CompareJob extends Job<JobKind, ApplyDiffItem> {
   /** Service de référence d'un alignement (null pour une analyse) */
   source: TrackerId | null;
+  /**
+   * Sessions ouvertes au démarrage d'un alignement (L2) : rien n'est lu ni écrit sur une session fermée ou remplacée
+   * depuis. Absent : analyse, ou alignement démarré avant la 2.4.0 (sessions courantes, voir sessionsOf)
+   */
+  epochs?: SessionEpochs;
 }
 
 function withSource({ job, items }: JobStart<Job<JobKind, ApplyDiffItem>>, source: TrackerId | null): JobStart<CompareJob> {
   return { job: { ...job, source }, items };
 }
 
-export const startApplyJob = (items: readonly ApplyDiffItem[], source: TrackerId, now: number): JobStart<CompareJob> => withSource(startJob('apply', items, now), source);
+export const startApplyJob = (items: readonly ApplyDiffItem[], source: TrackerId, epochs: SessionEpochs, now: number): JobStart<CompareJob> => {
+  const { job, items: list } = withSource(startJob('apply', items, now), source);
+  return { job: { ...job, epochs }, items: list };
+};
 export const startAnalyzeJob = (now: number): JobStart<CompareJob> => withSource(startJob<JobKind, ApplyDiffItem>('analyze', [], now), null);
 
 const isId = (v: unknown): v is number | null => v === null || (typeof v === 'number' && Number.isInteger(v) && v >= 1);
@@ -41,7 +50,7 @@ export const isApplyDiffItem = (p: unknown): p is ApplyDiffItem => isRecord(p) &
 const isSource = (v: unknown): v is TrackerId | null => v === null || isTrackerId(v);
 
 export function isCompareJob(value: unknown): value is CompareJob {
-  return isRecord(value) && isSource(value.source) && isJobOf(value, isKind, isApplyDiffItem);
+  return isRecord(value) && isSource(value.source) && (value.epochs === undefined || isSessionEpochs(value.epochs)) && isJobOf(value, isKind, isApplyDiffItem);
 }
 
 /** Tâche enregistrée avant PERF-16 (file `pending` dans la tâche) : convertie, voir fromLegacyJob */

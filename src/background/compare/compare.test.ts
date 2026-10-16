@@ -4,7 +4,9 @@ import { COMPARE_STORAGE_KEY, isComparisonResult, planApply, type ComparisonResu
 import { COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../../shared/compare-job';
 import type { ApplyDiffsPayload } from '../../shared/compare';
 import type { ListEntryState } from '../sync/rules';
+import { SessionChangedError } from '../../shared/session-epochs';
 import { ApiError } from '../errors';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
 
 // Services simulés au niveau des clients d'API : les vrais adaptateurs (trackers) et la vraie boucle d'alignement tournent
 const api = vi.hoisted(() => ({
@@ -141,11 +143,17 @@ async function runApply(payload: ApplyDiffsPayload): Promise<CompareJob> {
   return storedJob();
 }
 
+/** Deux comptes connectés (anciens tokens en clair : présence seule, les requêtes sont simulées), première génération */
+const SIGNED_IN = {
+  [STORAGE_KEYS.anilistToken]: { accessToken: 'a', expiresAt: Number.MAX_SAFE_INTEGER },
+  [STORAGE_KEYS.malToken]: { accessToken: 'm', refreshToken: 'r', expiresAt: Number.MAX_SAFE_INTEGER },
+};
+
 const item = (diff: ListDiff): { mediaId: number | null; malId: number } => ({ mediaId: diff.mediaId, malId: diff.malId });
 
 beforeEach(() => {
   vi.clearAllMocks();
-  store = { [COMPARE_STORAGE_KEY]: snapshot([DANDADAN, FRIEREN]) };
+  store = { ...SIGNED_IN, [COMPARE_STORAGE_KEY]: snapshot([DANDADAN, FRIEREN]) };
   anilistLive = { 154587: { status: 'CURRENT', progress: 7, repeat: 0 }, 171018: { status: 'CURRENT', progress: 4, repeat: 0 } };
   malLive = { 52991: { status: 'CURRENT', progress: 5, repeat: 0 }, 57334: { status: 'CURRENT', progress: 2, repeat: 0 } };
   api.getMediaListInfo.mockImplementation(async (id: number) => ({ mediaId: id, title: `#${id}`, episodes: 28, entry: anilistLive[id] ?? null }));
@@ -159,13 +167,13 @@ beforeEach(() => {
 describe('alignement : relecture avant écriture', () => {
   it('état inchangé depuis l’analyse → écrit comme avant, écart retiré', async () => {
     const job = await runApply({ items: [item(FRIEREN)], source: 'anilist' });
-    expect(api.saveMalEntry).toHaveBeenCalledWith(52991, { status: 'CURRENT', progress: 7 });
+    expect(api.saveMalEntry).toHaveBeenCalledWith(52991, { status: 'CURRENT', progress: 7 }, 0);
     expect(job.updated).toBe(1);
     expect(storedComparison().items.map((d) => d.key)).toEqual([DANDADAN.key]);
     // Lectures comptées sur le budget des tâches de fond (source puis cible)
     expect(slots.waitReadSlot.mock.calls).toEqual([['anilist'], ['mal']]);
     // B9 : la relecture AniList part sur la file de fond (place réservée par waitReadSlot), jamais sur celle des écrans
-    expect(api.getMediaListInfo.mock.calls).toEqual([[154587, 'background']]);
+    expect(api.getMediaListInfo.mock.calls).toEqual([[154587, 'background', 0]]);
   });
 
   it('cible avancée depuis l’analyse (MAL 5 → 8) : « Garder AniList » n’écrit pas 7, série ignorée et à réanalyser', async () => {
@@ -198,7 +206,7 @@ describe('alignement : relecture avant écriture', () => {
   it('statut ou note changés depuis l’analyse → ignorée', async () => {
     malLive[52991] = { status: 'PAUSED', progress: 5, repeat: 0 };
     expect((await runApply({ items: [item(FRIEREN)], source: 'mal' })).skipped).toBe(1);
-    store = { [COMPARE_STORAGE_KEY]: snapshot([FRIEREN]) };
+    store = { ...SIGNED_IN, [COMPARE_STORAGE_KEY]: snapshot([FRIEREN]) };
     malLive[52991] = { status: 'CURRENT', progress: 5, repeat: 0, score: 8 };
     expect((await runApply({ items: [item(FRIEREN)], source: 'mal' })).skipped).toBe(1);
     expect(api.saveListEntry).not.toHaveBeenCalled();
@@ -217,9 +225,54 @@ describe('alignement : relecture avant écriture', () => {
     malLive[52991] = { status: 'CURRENT', progress: 8, repeat: 0 };
     const job = await runApply({ items: [item(DANDADAN), item(FRIEREN)], source: 'anilist' });
     expect(api.saveMalEntry).toHaveBeenCalledTimes(1);
-    expect(api.saveMalEntry).toHaveBeenCalledWith(57334, { status: 'CURRENT', progress: 4 });
+    expect(api.saveMalEntry).toHaveBeenCalledWith(57334, { status: 'CURRENT', progress: 4 }, 0);
     expect({ updated: job.updated, skipped: job.skipped }).toEqual({ updated: 1, skipped: 1 });
     expect(storedComparison().items).toEqual([{ ...FRIEREN, stale: true }]);
+  });
+});
+
+describe('alignement : sessions relevées au démarrage (L2)', () => {
+  /** Déconnexion de MyAnimeList puis connexion à un autre compte : nouvelle génération, un token est de nouveau enregistré */
+  const reconnectMal = (): void => {
+    store = { ...store, [STORAGE_KEYS.sessionEpoch]: { mal: 1 }, [STORAGE_KEYS.malToken]: { accessToken: 'autre', refreshToken: 'r', expiresAt: Number.MAX_SAFE_INTEGER } };
+  };
+
+  it('écritures liées à la session du démarrage : chaque requête du service porte sa génération', async () => {
+    await runApply({ items: [item(FRIEREN)], source: 'anilist' });
+    expect(api.getMediaListInfo.mock.calls).toEqual([[154587, 'background', 0]]);
+    expect(api.getMalAnime.mock.calls).toEqual([[52991, 0]]);
+    expect(api.saveMalEntry.mock.calls).toEqual([[52991, { status: 'CURRENT', progress: 7 }, 0]]);
+  });
+
+  it('autre compte MAL connecté pendant la relecture : rien n’est écrit sur le nouveau compte, alignement arrêté', async () => {
+    api.getMalAnime.mockImplementationOnce(async (id: number) => {
+      reconnectMal();
+      return { title: `#${id}`, episodes: 28, entry: malLive[id] ?? null };
+    });
+    const job = await runApply({ items: [item(FRIEREN), item(DANDADAN)], source: 'anilist' });
+    expect(api.saveMalEntry).not.toHaveBeenCalled();
+    expect(job.status).toBe('stopped');
+    expect(job.message).toBe(t('compare.error.notConnected'));
+  });
+
+  it('autre compte MAL connecté entre deux séries : la série suivante n’est jamais écrite sur le nouveau compte', async () => {
+    api.saveMalEntry.mockImplementationOnce(async (_id: number, write: { status: ListEntryState['status']; progress: number }) => {
+      reconnectMal();
+      return { status: write.status, progress: write.progress };
+    });
+    const job = await runApply({ items: [item(FRIEREN), item(DANDADAN)], source: 'anilist' });
+    expect(api.saveMalEntry).toHaveBeenCalledTimes(1);
+    expect(job.updated).toBe(1);
+    expect(job.status).toBe('stopped');
+  });
+
+  it('autre compte AniList (la source) connecté avant la relecture : la valeur d’un autre compte n’est jamais recopiée', async () => {
+    api.getMediaListInfo.mockImplementationOnce(async () => {
+      throw new SessionChangedError('anilist');
+    });
+    const job = await runApply({ items: [item(FRIEREN)], source: 'anilist' });
+    expect(api.saveMalEntry).not.toHaveBeenCalled();
+    expect(job.status).toBe('stopped');
   });
 });
 

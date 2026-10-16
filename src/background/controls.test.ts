@@ -148,6 +148,8 @@ function fakeTracker(id: TrackerId): FakeTracker {
     failNext: 0,
     onRead: null,
     isConnected: async () => true,
+    // Requêtes liées à une session (L2) : le service simulé ne change pas de compte
+    forSession: () => tracker,
     resolveId: (media: CatalogMedia) => (id === 'anilist' ? media.mediaId : media.idMal),
     fullList: async () => [],
     getEntry: async (entryId: number): Promise<TrackerEntry> => {

@@ -115,8 +115,8 @@ function isScoreFormatData(data: unknown): data is ScoreFormatData {
  * Lit la fiche et l'entrée de liste de l'utilisateur (juste avant d'écrire, pour une donnée fraîche). `lane` : 'background'
  * pour une tâche de fond (import, alignement : place réservée avant le verrou de la fiche, voir jobs/runner.ts)
  */
-export async function getMediaListInfo(mediaId: number, lane: RequestLane = 'interactive'): Promise<MediaListInfo> {
-  const { Media } = await anilistQuery(MEDIA_ENTRY_QUERY, isMediaEntryData, { id: mediaId }, lane);
+export async function getMediaListInfo(mediaId: number, lane: RequestLane = 'interactive', session?: number): Promise<MediaListInfo> {
+  const { Media } = await anilistQuery(MEDIA_ENTRY_QUERY, isMediaEntryData, { id: mediaId }, lane, session);
   return toMediaListInfo(mediaId, Media);
 }
 
@@ -156,30 +156,33 @@ export function anilistEntryVariables(
   return variables;
 }
 
-/** `repeat` : nouveau nombre de revisionnages (fin d'un revisionnage), sinon inchangé ; `lane` : voir getMediaListInfo */
-export async function saveProgress(mediaId: number, progress: number, status: WriteStatus, repeat?: number, lane: RequestLane = 'interactive'): Promise<ListEntryState> {
-  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat), lane));
+/**
+ * `repeat` : nouveau nombre de revisionnages (fin d'un revisionnage), sinon inchangé ; `lane` : voir getMediaListInfo ;
+ * `session` (ici et dans les écritures suivantes) : session de l'écriture, voir anilistQuery
+ */
+export async function saveProgress(mediaId: number, progress: number, status: WriteStatus, repeat?: number, lane: RequestLane = 'interactive', session?: number): Promise<ListEntryState> {
+  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat), lane, session));
 }
 
 /** Statut manuel (En pause, Abandonné, Terminé, ajout À regarder / En cours) : même mutation que la progression */
-export async function saveListStatus(mediaId: number, status: ManualListStatus, progress: number, repeat?: number): Promise<ListEntryState> {
-  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat)));
+export async function saveListStatus(mediaId: number, status: ManualListStatus, progress: number, repeat?: number, session?: number): Promise<ListEntryState> {
+  return parseSaved(await anilistQuery(SAVE_PROGRESS_MUTATION, isSaveProgressData, anilistEntryVariables(mediaId, progress, status, repeat), 'interactive', session));
 }
 
 /** Format de note du profil, gardé en mémoire le temps de vie du service worker (lié au token : changement de compte = relecture) */
 let scoreFormatCache: { accessToken: string; format: AniListScoreFormat } | null = null;
 
-export async function getScoreFormat(lane: RequestLane = 'interactive'): Promise<AniListScoreFormat> {
-  const token = await getValidToken();
+export async function getScoreFormat(lane: RequestLane = 'interactive', session?: number): Promise<AniListScoreFormat> {
+  const token = await getValidToken(session);
   if (scoreFormatCache && token?.accessToken === scoreFormatCache.accessToken) return scoreFormatCache.format;
-  const { Viewer } = await anilistQuery(SCORE_FORMAT_QUERY, isScoreFormatData, {}, lane);
+  const { Viewer } = await anilistQuery(SCORE_FORMAT_QUERY, isScoreFormatData, {}, lane, session);
   if (token) scoreFormatCache = { accessToken: token.accessToken, format: Viewer.mediaListOptions.scoreFormat };
   return Viewer.mediaListOptions.scoreFormat;
 }
 
 /** `score` déjà converti dans le format du profil (voir toAniListScore) */
-export async function saveScore(mediaId: number, score: number): Promise<ListEntryState> {
-  return parseSaved(await anilistQuery(SAVE_SCORE_MUTATION, isSaveProgressData, { mediaId, score }));
+export async function saveScore(mediaId: number, score: number, session?: number): Promise<ListEntryState> {
+  return parseSaved(await anilistQuery(SAVE_SCORE_MUTATION, isSaveProgressData, { mediaId, score }, 'interactive', session));
 }
 
 // ─── Alignement depuis la comparaison des listes ──────────────────────────
@@ -209,9 +212,9 @@ export function anilistEntryWriteVariables(mediaId: number, write: EntryWrite, f
 }
 
 /** Écrit (ou crée) l'entrée de liste AniList avec les champs fournis, en une requête (+ format de note, en cache) ; `lane` : voir getMediaListInfo */
-export async function saveListEntry(mediaId: number, write: EntryWrite, lane: RequestLane = 'interactive'): Promise<ListEntryState> {
-  const format = write.score !== undefined ? await getScoreFormat(lane) : 'POINT_10_DECIMAL';
-  return parseSaved(await anilistQuery(SAVE_ENTRY_MUTATION, isSaveProgressData, anilistEntryWriteVariables(mediaId, write, format), lane));
+export async function saveListEntry(mediaId: number, write: EntryWrite, lane: RequestLane = 'interactive', session?: number): Promise<ListEntryState> {
+  const format = write.score !== undefined ? await getScoreFormat(lane, session) : 'POINT_10_DECIMAL';
+  return parseSaved(await anilistQuery(SAVE_ENTRY_MUTATION, isSaveProgressData, anilistEntryWriteVariables(mediaId, write, format), lane, session));
 }
 
 // ─── Commentaire et retrait de la liste ───────────────────────────────────
@@ -228,8 +231,8 @@ const SAVE_NOTES_MUTATION = /* GraphQL */ `
 `;
 
 /** Commentaire de l'entrée (texte déjà normalisé, "" l'efface) : seul champ écrit */
-export async function saveListNotes(mediaId: number, notes: string): Promise<ListEntryState> {
-  return parseSaved(await anilistQuery(SAVE_NOTES_MUTATION, isSaveProgressData, { mediaId, notes }));
+export async function saveListNotes(mediaId: number, notes: string, session?: number): Promise<ListEntryState> {
+  return parseSaved(await anilistQuery(SAVE_NOTES_MUTATION, isSaveProgressData, { mediaId, notes }, 'interactive', session));
 }
 
 const DELETE_ENTRY_MUTATION = /* GraphQL */ `
@@ -252,9 +255,9 @@ function isDeleteEntryData(data: unknown): data is DeleteEntryData {
  * Retire l'anime de la liste AniList. DeleteMediaListEntry prend l'identifiant de l'ENTRÉE (MediaList.id), pas celui de
  * la fiche : relu juste avant. Anime déjà absent de la liste : rien à faire (succès).
  */
-export async function deleteListEntry(mediaId: number): Promise<void> {
-  const { entryId } = await getMediaListInfo(mediaId);
+export async function deleteListEntry(mediaId: number, session?: number): Promise<void> {
+  const { entryId } = await getMediaListInfo(mediaId, 'interactive', session);
   if (entryId === null) return;
-  const { DeleteMediaListEntry } = await anilistQuery(DELETE_ENTRY_MUTATION, isDeleteEntryData, { id: entryId });
+  const { DeleteMediaListEntry } = await anilistQuery(DELETE_ENTRY_MUTATION, isDeleteEntryData, { id: entryId }, 'interactive', session);
   if (DeleteMediaListEntry.deleted !== true) throw new ApiError('INVALID_RESPONSE', t('api.invalidAfterUpdate.anilist'));
 }

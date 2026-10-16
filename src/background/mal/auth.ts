@@ -2,6 +2,7 @@ import { t } from '../../i18n';
 import type { AuthResult } from '../../shared/auth.types';
 import { isRecord } from '../../shared/guards';
 import type { MalToken } from '../../shared/mal.types';
+import { SessionChangedError } from '../../shared/session-epochs';
 import { ensureAiringAlarm } from '../../browser/airing-alarm';
 import { endSessionIfToken } from '../../browser/storage/session-end';
 import { getOpenSessions, saveRefreshedMalToken } from '../../browser/storage/sessions';
@@ -164,6 +165,8 @@ export async function loginWithMal(): Promise<AuthResult> {
 interface AccessTokenOptions {
   /** Token refusé par l'API (401) : renouvelé seulement s'il est toujours le token enregistré (AUTH-08) */
   rejected?: string;
+  /** Token de cette session seulement (écriture décidée sous elle, L2) : SessionChangedError si elle a été fermée ou remplacée */
+  session?: number;
 }
 
 /** Token à renouveler : expiré ou dans la marge de renouvellement anticipé */
@@ -178,15 +181,16 @@ function isExpiring(token: MalToken): boolean {
  * Le verrou évite deux renouvellements simultanés (le premier invaliderait le refresh token du second). Ordre des
  * verrous : renouvellement MAL → stockage (voir sync/entry-lock.ts).
  */
-export async function getMalAccessToken({ rejected }: AccessTokenOptions = {}): Promise<string | null> {
-  const token = await getMalToken();
+export async function getMalAccessToken({ rejected, session }: AccessTokenOptions = {}): Promise<string | null> {
+  const token = await getMalToken(session);
   if (!token) return null;
   if (token.accessToken !== rejected && !isExpiring(token)) return token.accessToken;
 
   return navigator.locks.request(REFRESH_LOCK, async () => {
-    const current = await getMalToken();
+    const current = await getMalToken(session);
     // Session relevée APRÈS le token : une déconnexion entre les deux lectures donne undefined
     const epoch = (await getOpenSessions()).mal;
+    if (session !== undefined && epoch !== session) throw new SessionChangedError('mal');
     if (!current || epoch === undefined) return null;
     // Renouvelé par un autre appel (pendant l'attente du verrou, ou depuis le 401) : comparé au token refusé, pas au
     // token relu, sinon chaque 401 concurrent relancerait un renouvellement (AUTH-08)

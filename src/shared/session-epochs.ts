@@ -11,6 +11,26 @@ import { TRACKER_IDS, type TrackerId } from './tracker.types';
  */
 export type SessionEpochs = Partial<Record<TrackerId, number>>;
 
+/**
+ * Requête liée à une session (L2) refusée : la session a été fermée, ou remplacée par une autre (déconnexion puis
+ * connexion, même à un autre compte), depuis que l'écriture a été décidée. Rien n'a été envoyé au service.
+ */
+export class SessionChangedError extends Error {
+  readonly service: TrackerId;
+
+  constructor(service: TrackerId) {
+    super(`Session ${service} fermée ou remplacée`);
+    this.name = 'SessionChangedError';
+    this.service = service;
+  }
+}
+
+/** Génération du service dans la valeur enregistrée sous `sessionEpoch` (0 tant qu'aucune déconnexion n'a eu lieu) */
+export function storedEpoch(epochs: unknown, service: TrackerId): number {
+  const epoch: unknown = isRecord(epochs) ? epochs[service] : undefined;
+  return typeof epoch === 'number' && Number.isFinite(epoch) ? epoch : 0;
+}
+
 export function isSessionEpochs(value: unknown): value is SessionEpochs {
   return (
     isRecord(value) &&

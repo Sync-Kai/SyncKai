@@ -2,7 +2,8 @@ import type { AniListToken } from '../../shared/auth.types';
 import { createLogger } from '../logger';
 import type { MalToken } from '../../shared/mal.types';
 import { endSessionIfUnreadable } from '../storage/session-end';
-import { encryptLegacyTokens, readStoredToken, type TokenOf } from '../storage/tokens';
+import { encryptLegacyTokens, readSessionToken, readStoredToken, type TokenOf } from '../storage/tokens';
+import { SessionChangedError } from '../../shared/session-epochs';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 
 // Lecture des tokens OAuth déchiffrés (SEC-01), réservée au service worker (requêtes AniList / MAL). Les pages de
@@ -13,8 +14,10 @@ const log = createLogger('storage');
 
 const LABELS: Record<TrackerId, string> = { anilist: 'AniList', mal: 'MyAnimeList' };
 
-async function readToken<S extends TrackerId>(service: S): Promise<TokenOf[S] | null> {
-  const read = await readStoredToken(service);
+/** `session` : requête liée à cette session (écriture décidée sous elle), refusée si elle a été fermée ou remplacée (L2) */
+async function readToken<S extends TrackerId>(service: S, session: number | undefined): Promise<TokenOf[S] | null> {
+  const read = session === undefined ? await readStoredToken(service) : await readSessionToken(service, session);
+  if (read === null) throw new SessionChangedError(service);
   switch (read.kind) {
     case 'none':
       return null;
@@ -37,15 +40,18 @@ async function readToken<S extends TrackerId>(service: S): Promise<TokenOf[S] | 
   }
 }
 
-/** Token AniList déchiffré s'il existe et n'a pas expiré. */
-export async function getValidToken(): Promise<AniListToken | null> {
-  const token = await readToken('anilist');
+/**
+ * Token AniList déchiffré s'il existe et n'a pas expiré. `session` : celui de cette session seulement, sinon
+ * SessionChangedError (une écriture décidée sous une session n'utilise jamais le token d'une session plus récente, L2).
+ */
+export async function getValidToken(session?: number): Promise<AniListToken | null> {
+  const token = await readToken('anilist', session);
   return token !== null && token.expiresAt > Date.now() ? token : null;
 }
 
-/** Token MAL déchiffré, même expiré : le refresh token permet de le renouveler. */
-export function getMalToken(): Promise<MalToken | null> {
-  return readToken('mal');
+/** Token MAL déchiffré, même expiré : le refresh token permet de le renouveler. `session` : voir getValidToken. */
+export function getMalToken(session?: number): Promise<MalToken | null> {
+  return readToken('mal', session);
 }
 
 /**

@@ -161,6 +161,28 @@ describe('renouvellement du token MAL : verrou et erreurs (TEST-02)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('token d’une session (L2) : celui de la session courante ; session remplacée pendant l’attente du verrou → refusé, aucun renouvellement', async () => {
+    expiringSession();
+    const refresh = deferred();
+    const fetchMock = vi.fn<typeof fetch>(() => refresh.promise);
+    vi.stubGlobal('fetch', fetchMock);
+    store.set('malToken', { accessToken: 'X', refreshToken: 'RX', expiresAt: FAR });
+    await expect(getMalAccessToken({ session: 0 })).resolves.toBe('X');
+    await expect(rejection(getMalAccessToken({ session: 1 }))).resolves.toMatchObject({ name: 'SessionChangedError', service: 'mal' });
+
+    // Renouvellement en cours ; une écriture de la session 0 attend le verrou, l'utilisateur passe à un autre compte
+    expiringSession();
+    const first = getMalAccessToken();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const bound = getMalAccessToken({ session: 0 });
+    await endSession('mal');
+    store.set('malToken', { accessToken: 'Y', refreshToken: 'RY', expiresAt: Date.now() + 60_000 });
+    refresh.resolve(json(200, tokenBody(1)));
+    expect(await first).toBeNull();
+    expect(await rejection(bound)).toMatchObject({ name: 'SessionChangedError' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('deux appels concurrents sur un token à renouveler : un seul POST, le second reprend le nouveau token', async () => {
     expiringSession();
     const refresh = deferred();

@@ -3,7 +3,7 @@ import type { PendingRating } from '../../shared/engagement.types';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SyncQueueItem } from '../../shared/queue.types';
 import type { PendingReview, RecentSync } from '../../shared/review.types';
-import type { SessionEpochs } from '../../shared/session-epochs';
+import { SessionChangedError, type SessionEpochs } from '../../shared/session-epochs';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, SESSION_EXPIRED_KEYS, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import type { MediaMapping } from '../../shared/sync.types';
 import { forgetTokenKey } from '../../test/memory-key-store';
@@ -648,6 +648,26 @@ describe('tokens chiffrés au repos (SEC-01)', () => {
     // Plus aucune session : données de l'utilisateur effacées comme après un token refusé
     expect(store.has(SYNC_QUEUE_KEY)).toBe(false);
     expect(store.has(STORAGE_KEYS.recentSyncs)).toBe(false);
+  });
+
+  it('token d’une session (L2) : refusé dès que la session a été fermée, même si un autre compte est connecté depuis', async () => {
+    await storage.saveToken(ANILIST_TOKEN);
+    await storage.saveMalToken(MAL_TOKEN);
+    expect(await tokenAccess.getValidToken(0)).toEqual(ANILIST_TOKEN);
+    expect(await tokenAccess.getMalToken(0)).toEqual(MAL_TOKEN);
+    // Déconnexion puis connexion à un autre compte : une écriture préparée sous la session 0 ne reçoit jamais le nouveau token
+    await storage.clearAniListSession();
+    await storage.clearMalSession();
+    await expect(tokenAccess.getValidToken(0)).rejects.toBeInstanceOf(SessionChangedError);
+    await expect(tokenAccess.getMalToken(0)).rejects.toBeInstanceOf(SessionChangedError);
+    await storage.saveToken({ ...ANILIST_TOKEN, accessToken: 'autre-compte' });
+    await storage.saveMalToken({ ...MAL_TOKEN, accessToken: 'autre-compte' });
+    await expect(tokenAccess.getValidToken(0)).rejects.toMatchObject({ service: 'anilist' });
+    await expect(tokenAccess.getMalToken(0)).rejects.toMatchObject({ service: 'mal' });
+    // La nouvelle session et les requêtes sans session (catalogue, profil) lisent le nouveau token
+    expect(await tokenAccess.getValidToken(1)).toMatchObject({ accessToken: 'autre-compte' });
+    expect(await tokenAccess.getMalToken(1)).toMatchObject({ accessToken: 'autre-compte' });
+    expect(await tokenAccess.getValidToken()).toMatchObject({ accessToken: 'autre-compte' });
   });
 
   it('clé perdue mais reconnexion entre-temps : la nouvelle session est conservée', async () => {

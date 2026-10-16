@@ -5,6 +5,7 @@ import { isMalToken, type MalToken } from '../../shared/mal.types';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { SESSION_EXPIRED_KEYS, STORAGE_KEYS } from '../../protocol/storage-keys';
 import { withStorageLock } from './lock';
+import { storedEpoch } from '../../shared/session-epochs';
 
 /** Session du service invalidée en arrière-plan depuis la dernière connexion (voir SESSION_EXPIRED_KEYS) */
 export async function isSessionExpired(service: TrackerId): Promise<boolean> {
@@ -67,8 +68,23 @@ export async function readRawToken(service: TrackerId): Promise<unknown> {
  * Lève une erreur seulement si la clé est inaccessible (IndexedDB indisponible).
  */
 export async function readStoredToken<S extends TrackerId>(service: S): Promise<StoredTokenRead<TokenOf[S]>> {
+  return parseStoredToken(service, await readRawToken(service));
+}
+
+/**
+ * Token de la session `epoch` du service (L2) : token et génération lus ensemble, en une seule lecture du stockage (la
+ * déconnexion incrémente la génération avant de retirer le token). null si cette session a été fermée ou remplacée
+ * depuis, même si un token (d'un autre compte) est enregistré.
+ */
+export async function readSessionToken<S extends TrackerId>(service: S, epoch: number): Promise<StoredTokenRead<TokenOf[S]> | null> {
+  const key = TOKEN_STORAGE[service].key;
+  const stored = await chrome.storage.local.get([key, STORAGE_KEYS.sessionEpoch]);
+  if (storedEpoch(stored[STORAGE_KEYS.sessionEpoch], service) !== epoch || !isStoredToken(service, stored[key])) return null;
+  return parseStoredToken(service, stored[key]);
+}
+
+async function parseStoredToken<S extends TrackerId>(service: S, raw: unknown): Promise<StoredTokenRead<TokenOf[S]>> {
   const { guard } = TOKEN_STORAGE[service];
-  const raw = await readRawToken(service);
   if (guard(raw)) return { kind: 'plain', token: raw };
   if (!isSealedToken(raw)) return { kind: 'none' };
   const opened = await openToken(service, raw);

@@ -1,7 +1,7 @@
 import { t } from '../i18n';
 import { isSessionOpen } from '../browser/storage/sessions';
 import { isSessionExpired } from '../browser/storage/tokens';
-import type { SessionEpochs } from '../shared/session-epochs';
+import { SessionChangedError, type SessionEpochs } from '../shared/session-epochs';
 import type { ServiceOutcome, ServiceResult } from '../shared/sync.types';
 import { entryIdOn, TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { ApiError } from './errors';
@@ -31,23 +31,35 @@ export interface GuardedWrite<R> {
   epoch: number | undefined;
   /** File des requêtes (import : 'background', places réservées avant l'appel) */
   lane?: RequestLane;
-  /** Décision pure sur l'entrée relue sous le verrou */
-  decide(current: TrackerEntry): EntryStep<R>;
+  /**
+   * Décision pure sur l'entrée relue sous le verrou. `tracker` : le service lié à la session `epoch` (L2), le seul par
+   * lequel écrire (une requête partie après une reconnexion à un autre compte est refusée avant l'envoi)
+   */
+  decide(current: TrackerEntry, tracker: TrackerService): EntryStep<R>;
   /** Résultat quand la session est fermée (déconnexion, autre compte) : rien n'est écrit */
   sessionClosed(): R | Promise<R>;
 }
 
 /** Écriture gardée sur UNE fiche ; lève les erreurs d'API (l'appelant décide de leur rendu ou d'une relance). */
 export async function runGuarded<R>({ tracker, id }: EntryTarget, { epoch, lane, decide, sessionClosed }: GuardedWrite<R>): Promise<R> {
-  if (!(await isSessionOpen(tracker.id, epoch))) return sessionClosed();
+  if (epoch === undefined || !(await isSessionOpen(tracker.id, epoch))) return sessionClosed();
+  // Requêtes liées à la session (L2) : entre la dernière vérification et la lecture du token par la requête, une
+  // déconnexion suivie d'une connexion à un autre compte ne lui donne jamais le nouveau token
+  const bound = tracker.forSession(epoch);
   // Sous le verrou de la fiche : deux actions simultanées (panneau et popup, synchro et +1) ne se perdent pas
   return withEntryLock(tracker.id, id, async (): Promise<R> => {
-    // Lecture fraîche juste avant l'écriture (la liste a pu changer depuis un autre appareil)
-    const step = decide(await tracker.getEntry(id, lane));
-    if ('done' in step) return step.done;
-    // Déconnexion (puis autre compte) pendant la lecture ou l'attente du verrou : la décision vaut pour l'ancienne session
-    if (!(await isSessionOpen(tracker.id, epoch))) return sessionClosed();
-    return step.write();
+    try {
+      // Lecture fraîche juste avant l'écriture (la liste a pu changer depuis un autre appareil)
+      const step = decide(await bound.getEntry(id, lane), bound);
+      if ('done' in step) return step.done;
+      // Déconnexion (puis autre compte) pendant la lecture ou l'attente du verrou : la décision vaut pour l'ancienne session
+      if (!(await isSessionOpen(tracker.id, epoch))) return sessionClosed();
+      return await step.write();
+    } catch (error: unknown) {
+      // Requête refusée avant l'envoi : session fermée ou remplacée depuis la vérification
+      if (error instanceof SessionChangedError) return sessionClosed();
+      throw error;
+    }
   });
 }
 
@@ -101,8 +113,8 @@ async function runOnService(target: EntryTarget, command: EntryCommand, epochs: 
         title: null,
         entry: null,
       }),
-      decide: (current) => {
-        const step = command.decide(current, target);
+      decide: (current, tracker) => {
+        const step = command.decide(current, { tracker, id: target.id });
         const run = (outcome: ServiceOutcome): ServiceRun => ({ result: { service, outcome }, title: current.title, entry: current.entry });
         return typeof step === 'function' ? { write: async () => run(await step()) } : { done: run(step) };
       },

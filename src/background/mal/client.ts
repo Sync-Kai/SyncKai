@@ -110,13 +110,15 @@ interface RequestOptions {
   authRetries?: number;
   /** Nouvelle tentative déjà faite après un 429 */
   rateRetried?: boolean;
+  /** Session sous laquelle l'écriture a été décidée (L2) : SessionChangedError si elle a été fermée ou remplacée */
+  session?: number;
 }
 
 /** Après un 401 : un renouvellement, puis un essai de plus si le token a été remplacé entre-temps (reconnexion) */
 const MAX_AUTH_RETRIES = 2;
 
 export async function malRequest<T>(path: string, isData: (data: unknown) => data is T, options: RequestOptions = {}): Promise<T> {
-  const accessToken = await getMalAccessToken({ rejected: options.rejected });
+  const accessToken = await getMalAccessToken({ rejected: options.rejected, session: options.session });
   if (!accessToken) throw new ApiError('NOT_AUTHENTICATED', t('api.notAuthenticated', { service: 'MyAnimeList' }));
 
   // Trace de débogage (builds de développement seulement) : méthode et chemin sans paramètres ni identifiants, statut, durée
@@ -236,39 +238,40 @@ function isRawMalAnime(data: unknown): data is { id: number; title: string; num_
 // détail d'un anime seulement, « You cannot contain this field in a list » sur /users/{user}/animelist)
 const MY_LIST_FIELDS = 'my_list_status{status,score,num_episodes_watched,is_rewatching,num_times_rewatched,comments}';
 
-export async function getMalAnime(malId: number): Promise<MalAnimeInfo> {
-  const anime = await malRequest(`/anime/${malId}?fields=num_episodes,${MY_LIST_FIELDS}`, isRawMalAnime);
+/** `session` (ici et dans les écritures suivantes) : session de la lecture ou de l'écriture, voir RequestOptions */
+export async function getMalAnime(malId: number, session?: number): Promise<MalAnimeInfo> {
+  const anime = await malRequest(`/anime/${malId}?fields=num_episodes,${MY_LIST_FIELDS}`, isRawMalAnime, { session });
   const episodes = typeof anime.num_episodes === 'number' && anime.num_episodes > 0 ? anime.num_episodes : null; // 0 = inconnu
   const entry = parseMalListStatus(anime.my_list_status);
   const notes = entry && isRecord(anime.my_list_status) ? readListNotes(anime.my_list_status.comments) : null;
   return { title: anime.title, episodes, entry, notes };
 }
 
-async function patchMalListStatus(malId: number, body: URLSearchParams): Promise<ListEntryState> {
-  const saved = await malRequest(`/anime/${malId}/my_list_status`, isRecord, { method: 'PATCH', body });
+async function patchMalListStatus(malId: number, body: URLSearchParams, session: number | undefined): Promise<ListEntryState> {
+  const saved = await malRequest(`/anime/${malId}/my_list_status`, isRecord, { method: 'PATCH', body, session });
   const entry = parseMalListStatus(saved);
   if (!entry) throw new ApiError('INVALID_RESPONSE', t('api.invalidAfterUpdate.mal'));
   return entry;
 }
 
 /** `repeat` : nouveau nombre de revisionnages (fin d'un revisionnage), sinon inchangé */
-export function saveMalProgress(malId: number, progress: number, status: WriteStatus, repeat?: number): Promise<ListEntryState> {
-  return patchMalListStatus(malId, malProgressBody(progress, status, repeat));
+export function saveMalProgress(malId: number, progress: number, status: WriteStatus, repeat?: number, session?: number): Promise<ListEntryState> {
+  return patchMalListStatus(malId, malProgressBody(progress, status, repeat), session);
 }
 
 /** Statut manuel (on_hold, dropped, completed, ajout plan_to_watch / watching) */
-export function saveMalListStatus(malId: number, status: ManualListStatus, progress: number, repeat?: number): Promise<ListEntryState> {
-  return patchMalListStatus(malId, malStatusBody(status, progress, repeat));
+export function saveMalListStatus(malId: number, status: ManualListStatus, progress: number, repeat?: number, session?: number): Promise<ListEntryState> {
+  return patchMalListStatus(malId, malStatusBody(status, progress, repeat), session);
 }
 
 /** `score` déjà converti (entier 1 à 10, voir toMalScore) */
-export function saveMalScore(malId: number, score: number): Promise<ListEntryState> {
-  return patchMalListStatus(malId, new URLSearchParams({ score: String(score) }));
+export function saveMalScore(malId: number, score: number, session?: number): Promise<ListEntryState> {
+  return patchMalListStatus(malId, new URLSearchParams({ score: String(score) }), session);
 }
 
 /** Commentaire de l'entrée (texte déjà normalisé, "" l'efface) : seul champ écrit */
-export function saveMalNotes(malId: number, notes: string): Promise<ListEntryState> {
-  return patchMalListStatus(malId, new URLSearchParams({ comments: notes }));
+export function saveMalNotes(malId: number, notes: string, session?: number): Promise<ListEntryState> {
+  return patchMalListStatus(malId, new URLSearchParams({ comments: notes }), session);
 }
 
 /** Corps de la réponse au DELETE ignoré (`null` ou vide selon la doc) */
@@ -278,9 +281,9 @@ const anyBody = (_data: unknown): _data is unknown => true;
  * Retire l'anime de la liste MAL. Doc MAL v2 : « If the specified anime does not exist in user's anime list, this
  * endpoint does nothing and returns 404 Not Found » : un 404 veut dire déjà absent, donc succès.
  */
-export async function deleteMalEntry(malId: number): Promise<void> {
+export async function deleteMalEntry(malId: number, session?: number): Promise<void> {
   try {
-    await malRequest(`/anime/${malId}/my_list_status`, anyBody, { method: 'DELETE' });
+    await malRequest(`/anime/${malId}/my_list_status`, anyBody, { method: 'DELETE', session });
   } catch (error: unknown) {
     if (error instanceof ApiError && error.httpStatus === 404) return;
     throw error;
@@ -304,6 +307,6 @@ export function malEntryBody(write: EntryWrite): URLSearchParams {
 }
 
 /** Écrit (ou crée) l'entrée de liste MAL avec les champs fournis, en une requête */
-export function saveMalEntry(malId: number, write: EntryWrite): Promise<ListEntryState> {
-  return patchMalListStatus(malId, malEntryBody(write));
+export function saveMalEntry(malId: number, write: EntryWrite, session?: number): Promise<ListEntryState> {
+  return patchMalListStatus(malId, malEntryBody(write), session);
 }

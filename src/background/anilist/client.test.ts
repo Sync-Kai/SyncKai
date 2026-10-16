@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AniListToken } from '../../shared/auth.types';
+import { SessionChangedError } from '../../shared/session-epochs';
 
 // Token AniList et fermeture de session simulés : aucun token par défaut (catalogue public)
 const mocks = vi.hoisted(() => ({
-  getValidToken: vi.fn<() => Promise<AniListToken | null>>(async () => null),
+  getValidToken: vi.fn<(session?: number) => Promise<AniListToken | null>>(async () => null),
   endSessionIfToken: vi.fn<(service: string, accessToken: string) => Promise<boolean>>(async () => true),
 }));
 vi.mock('../../browser/tokens/access', () => ({ getValidToken: mocks.getValidToken }));
@@ -74,6 +75,16 @@ describe('client AniList : token refusé et erreurs GraphQL (TEST-03)', () => {
     vi.unstubAllGlobals();
     mocks.getValidToken.mockReset();
     mocks.endSessionIfToken.mockReset();
+  });
+
+  it('écriture liée à une session (L2) : token lu pour cette session ; session fermée ou remplacée → rien n’est envoyé', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(json(200, { data: { ok: true } }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(anilistQuery('mutation { ok }', isAny, {}, 'interactive', 4)).resolves.toEqual({ ok: true });
+    expect(mocks.getValidToken).toHaveBeenLastCalledWith(4);
+    mocks.getValidToken.mockRejectedValueOnce(new SessionChangedError('anilist'));
+    await expect(anilistQuery('mutation { ok }', isAny, {}, 'interactive', 4)).rejects.toBeInstanceOf(SessionChangedError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('« Invalid token » en mode public : session fermée, requête rejouée sans Authorization', async () => {

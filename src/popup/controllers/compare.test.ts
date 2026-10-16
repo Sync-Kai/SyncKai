@@ -58,7 +58,7 @@ const comparison: ComparisonResult = {
 
 /** Alignement sur AniList (une série) */
 function job(patch: Partial<CompareJob> = {}): CompareJob {
-  return { ...startApplyJob([{ mediaId: FRIEREN.mediaId, malId: FRIEREN.malId }], 'anilist', 0).job, ...patch };
+  return { ...startApplyJob([{ mediaId: FRIEREN.mediaId, malId: FRIEREN.malId }], 'anilist', { anilist: 0, mal: 0 }, 0).job, ...patch };
 }
 
 let ctl: CompareController;

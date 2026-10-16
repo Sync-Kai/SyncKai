@@ -41,6 +41,11 @@ export interface TrackerService {
   isConnected(): Promise<boolean>;
   /** Identifiant de la fiche du catalogue sur ce service, null s'il n'a pas d'équivalent (règle commune : entryIdOn) */
   resolveId(media: CatalogMedia): number | null;
+  /**
+   * Même service, toutes ses requêtes liées à la session `epoch` (L2) : chacune lit le token de cette session, ou lève
+   * SessionChangedError (rien n'est envoyé) si elle a été fermée ou remplacée depuis (autre compte). Voir runGuarded.
+   */
+  forSession(epoch: number): TrackerService;
   /** Liste complète de l'utilisateur (import de l'historique), requêtes de fond */
   fullList(): Promise<ListedEntry[]>;
   /** `lane` : 'background' pour une tâche de fond (import, alignement), place réservée avant (waitReadSlot) ; ignoré par MAL */

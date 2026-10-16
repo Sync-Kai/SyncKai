@@ -146,7 +146,7 @@ async function writeToService(
     return await runGuarded({ tracker, id }, {
       epoch,
       sessionClosed: () => sessionClosed(tracker.id),
-      decide: (current) => decideEntryWrite(tracker, id, current, catalog, progress, correctionFrom, guardFinale),
+      decide: (current, bound) => decideEntryWrite(bound, id, current, catalog, progress, correctionFrom, guardFinale),
     });
   } catch (error: unknown) {
     log.error(`${label} : échec`, error);

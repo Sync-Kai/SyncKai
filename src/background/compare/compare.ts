@@ -32,8 +32,10 @@ import {
   type CompareJob,
 } from '../../shared/compare-job';
 import { isRecord } from '../../shared/guards';
-import { getOpenSessions, writeIfSessions } from '../../browser/storage/sessions';
-import type { SessionEpochs } from '../../shared/session-epochs';
+import { getOpenSessions, isSessionOpen, writeIfSessions } from '../../browser/storage/sessions';
+import { SessionChangedError, sessionsOf, type SessionEpochs } from '../../shared/session-epochs';
+import type { ListEntryState } from '../sync/rules';
+import { runGuarded } from '../entry-commands';
 import { entryIdOn, TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { anilistPublicQuery } from '../anilist/client';
 import { fetchAniListFullList } from '../anilist/full-list';
@@ -54,7 +56,6 @@ import {
   type StepResult,
   type TransientKind,
 } from '../jobs/runner';
-import { withEntryLock } from '../sync/entry-lock';
 import { getConnectedTrackers } from '../trackers';
 import { createLogger } from '../../browser/logger';
 
@@ -159,12 +160,17 @@ export async function compareServiceLists(): Promise<CompareResult> {
 // Espacement des écritures, erreurs passagères et boucle reprenable : src/background/jobs/runner.ts
 export { ANILIST_WRITE_GAP_MS, MAL_WRITE_GAP_MS, RETRY_DELAYS_MS, transientKind, type TransientKind } from '../jobs/runner';
 
+/** Relecture de la cible sous son verrou (écriture gardée) : ce qui a été constaté, ou fait */
+type AlignOutcome = { kind: 'aligned' } | { kind: 'changed'; to: ListEntryState | null } | { kind: 'written' } | { kind: 'session-closed' };
+
 /**
  * Traite UNE série de la tâche : écrit les valeurs de `source` sur l'autre service. Ne lève jamais.
  * Les deux entrées sont relues juste avant l'écriture : si l'une a changé depuis l'analyse (synchro en direct,
  * contrôle, autre appareil), la série est ignorée et marquée « à réanalyser » ; l'instantané n'est jamais réécrit.
+ * `epochs` : sessions du démarrage de l'alignement (L2) ; une session fermée ou remplacée depuis (autre compte) arrête
+ * l'alignement sans rien lire ni écrire sur le nouveau compte.
  */
-async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt: (reason: TransientKind) => boolean): Promise<StepResult> {
+async function processItem(item: ApplyDiffItem, source: TrackerId, epochs: SessionEpochs, isLastAttempt: (reason: TransientKind) => boolean): Promise<StepResult> {
   const at = (): number => Date.now();
   const stop = (message: string): StepResult => ({ kind: 'event', event: { type: 'stop', message, at: at() }, stop: message });
   const skipped = (message: string): StepResult => ({ kind: 'event', event: { type: 'item', outcome: 'skipped', message, at: at() }, stop: null });
@@ -194,33 +200,55 @@ async function processItem(item: ApplyDiffItem, source: TrackerId, isLastAttempt
   await waitReadSlot(source);
   await waitReadSlot(plan.target);
   const label = TRACKER_LABELS[plan.target];
+  const sessionClosed = (): StepResult => {
+    log.warn('Compte déconnecté ou changé pendant l’alignement : arrêt');
+    return stop(t('compare.error.notConnected'));
+  };
+  const sourceEpoch = epochs[source];
+  if (sourceEpoch === undefined || !(await isSessionOpen(source, sourceEpoch))) return sessionClosed();
   try {
-    // Relectures et écriture sous le verrou de la fiche cible : une synchro ou un +1 concurrents attendent l'alignement
-    // (puis relisent sa valeur), ou l'alignement les voit à la relecture et ignore la série
-    return await withEntryLock(plan.target, plan.id, async (): Promise<StepResult> => {
-      // File de fond : places réservées ci-dessus, consommées sans attente (B9)
-      const from = (await origin.getEntry(sourceId, 'background')).entry;
-      const to = (await tracker.getEntry(plan.id, 'background')).entry;
-      const { scoreFormat } = comparison;
-
-      if (isAlignedNow(source === 'anilist' ? from : to, source === 'mal' ? from : to, scoreFormat)) {
+    // Relecture de la source liée à sa session du démarrage (L2) ; file de fond : places réservées ci-dessus,
+    // consommées sans attente (B9)
+    const from = (await origin.forSession(sourceEpoch).getEntry(sourceId, 'background')).entry;
+    const { scoreFormat } = comparison;
+    // Écriture gardée (entry-commands.ts) : relecture de la cible et écriture sous le verrou de sa fiche, session de la
+    // cible revérifiée avant l'écriture. Une synchro ou un +1 concurrents attendent l'alignement (puis relisent sa
+    // valeur), ou l'alignement les voit à la relecture et ignore la série
+    const outcome = await runGuarded<AlignOutcome>({ tracker, id: plan.id }, {
+      epoch: epochs[plan.target],
+      lane: 'background',
+      sessionClosed: () => ({ kind: 'session-closed' }),
+      decide: ({ entry: to }, target) => {
+        if (isAlignedNow(source === 'anilist' ? from : to, source === 'mal' ? from : to, scoreFormat)) return { done: { kind: 'aligned' } };
+        if (!sideMatches(diff[source], from, source, scoreFormat) || !sideMatches(diff[plan.target], to, plan.target, scoreFormat)) return { done: { kind: 'changed', to } };
+        return {
+          write: async () => {
+            await target.saveEntry(plan.id, plan.write, 'background');
+            // Écart retiré sous le verrou de la fiche, avant qu'une écriture concurrente ne le marque à réanalyser
+            await updateComparison((result) => withoutDiff(result, diff.key));
+            return { kind: 'written' };
+          },
+        };
+      },
+    });
+    switch (outcome.kind) {
+      case 'session-closed':
+        return sessionClosed();
+      case 'aligned':
         log.info(`Alignement inutile : ${diff.title} est déjà alignée`);
         await updateComparison((result) => withoutDiff(result, diff.key));
         return skipped(t('compare.skip.nothing'));
-      }
-      if (!sideMatches(diff[source], from, source, scoreFormat) || !sideMatches(diff[plan.target], to, plan.target, scoreFormat)) {
-        const message = skipReasonText('changed', source);
-        log.info(`Alignement ignoré : ${diff.title} modifiée depuis l'analyse`, { analyse: { [source]: diff[source], [plan.target]: diff[plan.target] }, relu: { [source]: from, [plan.target]: to } });
+      case 'changed':
+        log.info(`Alignement ignoré : ${diff.title} modifiée depuis l'analyse`, { analyse: { [source]: diff[source], [plan.target]: diff[plan.target] }, relu: { [source]: from, [plan.target]: outcome.to } });
         await updateComparison((result) => withStaleDiffs(result, (d) => d.key === diff.key));
-        return skipped(message);
-      }
-
-      await tracker.saveEntry(plan.id, plan.write, 'background');
-      log.info(`${label} : ${diff.title} aligné sur ${TRACKER_LABELS[source]}${plan.create ? ' (ajout)' : ''}`, plan.write);
-      await updateComparison((result) => withoutDiff(result, diff.key));
-      return { kind: 'event', event: { type: 'item', outcome: 'updated', at: at() }, stop: null };
-    });
+        return skipped(skipReasonText('changed', source));
+      case 'written':
+        log.info(`${label} : ${diff.title} aligné sur ${TRACKER_LABELS[source]}${plan.create ? ' (ajout)' : ''}`, plan.write);
+        return { kind: 'event', event: { type: 'item', outcome: 'updated', at: at() }, stop: null };
+    }
   } catch (error: unknown) {
+    // Relecture de la source refusée avant l'envoi : sa session a été fermée ou remplacée
+    if (error instanceof SessionChangedError) return sessionClosed();
     const message = error instanceof ApiError ? error.message : t('error.unexpected');
     const transient = transientKind(error);
     if (transient !== null && !isLastAttempt(transient)) {
@@ -244,7 +272,9 @@ const applyLoop = createJobLoop<CompareJob>({
   accepts: (job) => job.kind === 'apply' && job.source !== null,
   itemKey: (item) => `${item.mediaId ?? ''}:${item.malId ?? ''}`,
   process: async (job, item, isLastAttempt) =>
-    job.source === null ? { kind: 'event', event: { type: 'finish', at: Date.now() }, stop: null } : processItem(item, job.source, isLastAttempt),
+    job.source === null
+      ? { kind: 'event', event: { type: 'finish', at: Date.now() }, stop: null }
+      : processItem(item, job.source, sessionsOf(job.epochs, await getOpenSessions()), isLastAttempt),
   onEnd: (job) => log.info(`Alignement ${job.status} : ${job.updated} écrites, ${job.skipped} ignorées, ${job.failed} échecs`),
 });
 
@@ -258,7 +288,9 @@ export async function applyDiffs({ items, source }: ApplyDiffsPayload): Promise<
   try {
     if (!(await bothConnected())) return notConnected();
     if (!(await readComparison())) return { ok: false, code: 'NO_COMPARISON', message: t('compare.error.noComparison') };
-    const started = await reserveJob(jobStore, () => startApplyJob(items, source, Date.now()));
+    // Sessions du démarrage : chaque série n'est lue et écrite que sur ces comptes (L2)
+    const epochs = await getOpenSessions();
+    const started = await reserveJob(jobStore, () => startApplyJob(items, source, epochs, Date.now()));
     if (started === null) return isBusy();
     await chrome.alarms.create(COMPARE_JOB_ALARM, { periodInMinutes: 0.5 });
     log.info(`Alignement sur ${TRACKER_LABELS[source]} : ${items.length} séries`);
