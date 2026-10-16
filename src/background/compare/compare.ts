@@ -19,7 +19,10 @@ import {
 } from '../../shared/compare';
 import {
   COMPARE_JOB_ALARM,
+  COMPARE_JOB_ITEMS_KEY,
   COMPARE_JOB_KEY,
+  compareJobFromLegacy,
+  isApplyDiffItem,
   isCompareJob,
   isJobStale,
   reduceJob,
@@ -98,8 +101,8 @@ function writeComparison(result: ComparisonResult, epochs: SessionEpochs): Promi
   return writeIfSessions(epochs, { [COMPARE_STORAGE_KEY]: result });
 }
 
-/** Tâche d'analyse ou d'alignement (`compare:job`), écrite sous verrou par le popup (« Arrêter ») et la boucle */
-const jobStore = createJobStore(COMPARE_JOB_KEY, isCompareJob);
+/** Tâche d'analyse ou d'alignement (`compare:job`, séries dans `compare:job:items`), écrite sous verrou par le popup (« Arrêter ») et la boucle */
+const jobStore = createJobStore<CompareJob>({ key: COMPARE_JOB_KEY, itemsKey: COMPARE_JOB_ITEMS_KEY, isJob: isCompareJob, isItem: isApplyDiffItem, fromLegacy: compareJobFromLegacy });
 const readJob = (): Promise<CompareJob | null> => jobStore.read();
 const updateJob = (update: (job: CompareJob | null) => CompareJob | null): Promise<CompareJob | null> => jobStore.update(update);
 

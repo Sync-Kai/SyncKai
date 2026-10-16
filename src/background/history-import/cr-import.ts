@@ -4,12 +4,14 @@ import {
   buildCrImportPlan,
   CR_IMPORT_ALARM,
   CR_IMPORT_KEYS,
+  crImportJobFromLegacy,
   decideImport,
   FINALIZE_ITEM,
   importPlatformOf,
   isCrImportInput,
   isCrImportJob,
   isCrImportPlan,
+  isCrJobItem,
   readResolutions,
   seasonIndexOf,
   startAnalyzeJob,
@@ -89,7 +91,7 @@ import type { TrackerService } from '../ports/tracker';
 
 const log = createLogger('cr-import');
 
-const jobStore = createJobStore(CR_IMPORT_KEYS.job, isCrImportJob);
+const jobStore = createJobStore<CrImportJob>({ key: CR_IMPORT_KEYS.job, itemsKey: CR_IMPORT_KEYS.jobItems, isJob: isCrImportJob, isItem: isCrJobItem, fromLegacy: crImportJobFromLegacy });
 
 // ─── Stockage ─────────────────────────────────────────────────────────────
 
@@ -291,7 +293,8 @@ async function prefetchSeasons(input: CrImportInput, indexes: readonly number[])
 /** Avant la saison `index` : pré-charge la tranche des saisons restantes de la tâche qui commence par elle (sauf déjà fait) */
 async function prefetchAhead(memory: AnalyzeMemory, job: CrImportJob, input: CrImportInput, index: number): Promise<void> {
   if (memory.prefetched.has(index)) return;
-  const upcoming = job.pending.flatMap((item) => {
+  // Liste lue à chaque tranche seulement (déjà pré-chargée sinon) : éléments à partir du curseur
+  const upcoming = (await jobStore.readItems()).slice(job.cursor).flatMap((item) => {
     const next = seasonIndexOf(item);
     return next !== null && next !== index && !memory.prefetched.has(next) ? [next] : [];
   });
@@ -580,7 +583,7 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
   if (updated) memory.mappings.push(...itemMappings(item));
   memory.results.set(id, result);
   // Dernier élément ou arrêt : résultat publié tout de suite (bilan complet dans la page)
-  if (job.pending.length <= 1 || fatal !== null || batchFull(memory.results.size, memory.since)) await flushApply(memory);
+  if (job.cursor + 1 >= job.itemCount || fatal !== null || batchFull(memory.results.size, memory.since)) await flushApply(memory);
   return { kind: 'event', event: { type: 'item', outcome: result.outcome, ...(result.message ? { message: result.message } : {}), at: Date.now() }, stop: fatal };
 }
 

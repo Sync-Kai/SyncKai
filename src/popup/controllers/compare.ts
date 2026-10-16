@@ -1,7 +1,7 @@
 // Activité › « Écarts AniList ↔ MAL » : dernière analyse et tâche d'alignement (lues du stockage, suivies par
 // storage.onChanged), demandes au service worker et compte à rebours d'une pause d'alignement.
 import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type DiffFilter, type ListDiff } from '../../shared/compare';
-import { COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../../shared/compare-job';
+import { COMPARE_JOB_ITEMS_KEY, COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../../shared/compare-job';
 import { createLogger } from '../../browser/logger';
 import { withStorageLock } from '../../browser/storage/lock';
 import type { TrackerId } from '../../shared/tracker.types';
@@ -139,7 +139,7 @@ export function createCompareController(deps: CompareControllerDeps): CompareCon
         await withStorageLock(async () => {
           const stored = await chrome.storage.local.get(COMPARE_JOB_KEY);
           const job: unknown = stored[COMPARE_JOB_KEY];
-          if (!isCompareJob(job) || job.status !== 'running') await chrome.storage.local.remove(COMPARE_JOB_KEY);
+          if (!isCompareJob(job) || job.status !== 'running') await chrome.storage.local.remove([COMPARE_JOB_KEY, COMPARE_JOB_ITEMS_KEY]);
         });
       } catch (error: unknown) {
         log.warn('Suppression du bilan d’alignement impossible :', error);

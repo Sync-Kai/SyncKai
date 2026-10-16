@@ -622,7 +622,9 @@ describe('popup (bout en bout)', () => {
       updated: 1,
       skipped: 0,
       failed: 0,
-      pending: [{ mediaId: 150672, malId: 52034 }, { mediaId: 176496, malId: 58567 }],
+      cursor: 1,
+      itemCount: 3,
+      current: { mediaId: 150672, malId: 52034 },
       cancelled: false,
       startedAt: at,
       updatedAt: at,
@@ -643,6 +645,8 @@ describe('popup (bout en bout)', () => {
       return document.querySelector('[data-job-pause]')?.textContent ?? '';
     }, fr('compare.section'));
     expect(first).toContain('AniList');
+    // Série en cours d'écriture : l'élément démarré de la tâche (`current`), seule ligne occupée
+    expect(await page.$$eval('li[aria-busy="true"]', (rows) => rows.map((row) => row.textContent ?? ''))).toEqual([expect.stringContaining('Oshi no Ko')]);
 
     // Deux secondes plus tard : le compte à rebours a avancé, mais aucun nœud n'a été recréé
     await page.waitForFunction((text: string) => document.querySelector('[data-job-pause]')?.textContent !== text, { timeout: 3_000 }, first);

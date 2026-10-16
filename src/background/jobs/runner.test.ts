@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isJobOf, JOB_STALE_MS, reduceJob, startJob, type Job, type JobEvent } from '../../shared/job';
+import { fromLegacyJob, isJobOf, JOB_STALE_MS, reduceJob, startJob, type Job, type JobEvent, type JobStart } from '../../shared/job';
 import { createLoggerFor } from '../../browser/logger';
 import { installFakeChrome } from '../../test/fake-chrome';
 import { ApiError, isRetryableStatus, JOB_RETRY_STATUSES } from '../errors';
@@ -32,14 +32,18 @@ describe('attente du budget AniList → évènement de la tâche', () => {
 type TestJob = Job<'test', string>;
 
 const JOB_KEY = 'testJob';
+const ITEMS_KEY = 'testJob:items';
 const ALARM = 'synckai:test-job';
 const T0 = 1_000_000_000_000;
 const realSetTimeout = globalThis.setTimeout;
 
 const fake = installFakeChrome();
-const isTestJob = (value: unknown): value is TestJob =>
-  isJobOf(value, (kind): kind is 'test' => kind === 'test', (item): item is string => typeof item === 'string');
-const store = createJobStore<TestJob>(JOB_KEY, isTestJob);
+const isKind = (kind: unknown): kind is 'test' => kind === 'test';
+const isItem = (item: unknown): item is string => typeof item === 'string';
+const isTestJob = (value: unknown): value is TestJob => isJobOf(value, isKind, isItem);
+const store = createJobStore<TestJob>({ key: JOB_KEY, itemsKey: ITEMS_KEY, isJob: isTestJob, isItem, fromLegacy: (value) => fromLegacyJob(value, isKind, isItem) });
+/** Tâche et sa liste d'éléments, comme les écrit la réservation */
+const seeded = ({ job, items }: JobStart<TestJob>): Record<string, unknown> => ({ [JOB_KEY]: job, [ITEMS_KEY]: items });
 
 /** Traitement scripté : réponses successives par élément (la dernière se répète), « terminé » par défaut */
 type Script = Record<string, (StepResult | Promise<StepResult>)[]>;
@@ -97,7 +101,7 @@ const job = (): TestJob | undefined => fake.local.peek(JOB_KEY) as TestJob | und
 const cancel = (): Promise<TestJob | null> => store.update((j) => j && reduceJob(j, { type: 'cancel', at: Date.now() }));
 
 beforeEach(async () => {
-  fake.reset({ [JOB_KEY]: startJob('test', ['a', 'b', 'c'], T0) });
+  fake.reset(seeded(startJob('test', ['a', 'b', 'c'], T0)));
   vi.useFakeTimers({ now: T0 });
   await chrome.alarms.create(ALARM, { periodInMinutes: 1 });
   vi.spyOn(console, 'info').mockImplementation(() => {});
@@ -115,7 +119,7 @@ describe('createJobLoop (TEST-06)', () => {
     h.ensure();
     await flush();
     expect(h.calls.map((c) => c.item)).toEqual(['a', 'b', 'c']);
-    expect(job()).toMatchObject({ status: 'done', done: 3, updated: 3, pending: [] });
+    expect(job()).toMatchObject({ status: 'done', done: 3, updated: 3, cursor: 3, current: null });
     expect(await chrome.alarms.get(ALARM)).toBeUndefined();
     expect(h.onEnd).toHaveBeenCalledOnce();
   });
@@ -125,7 +129,7 @@ describe('createJobLoop (TEST-06)', () => {
     h.ensure();
     await flush();
     // Pause « serveur » de 5 s sur l'élément a, toujours en tête de file
-    expect(job()).toMatchObject({ status: 'running', pending: ['a', 'b', 'c'], pauseReason: 'server', pauseService: 'mal', pausedUntil: T0 + RETRY_DELAYS_MS.server[0] });
+    expect(job()).toMatchObject({ status: 'running', cursor: 0, current: 'a', pauseReason: 'server', pauseService: 'mal', pausedUntil: T0 + RETRY_DELAYS_MS.server[0] });
     expect(h.calls).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(RETRY_DELAYS_MS.server[0]);
@@ -159,7 +163,7 @@ describe('createJobLoop (TEST-06)', () => {
     await vi.advanceTimersByTimeAsync(5_000);
     await flush();
     expect(h.calls).toHaveLength(1);
-    expect(job()).toMatchObject({ status: 'cancelled', done: 0, pending: ['a', 'b', 'c'], pausedUntil: null });
+    expect(job()).toMatchObject({ status: 'cancelled', done: 0, cursor: 0, pausedUntil: null });
     expect(await chrome.alarms.get(ALARM)).toBeUndefined();
     expect(h.onEnd).toHaveBeenCalledOnce();
   });
@@ -169,7 +173,7 @@ describe('createJobLoop (TEST-06)', () => {
     h.ensure();
     await flush();
     expect(h.calls.map((c) => c.item)).toEqual(['a']);
-    expect(job()).toMatchObject({ status: 'stopped', message: 'Session expirée', done: 1, failed: 1, pending: ['b', 'c'] });
+    expect(job()).toMatchObject({ status: 'stopped', message: 'Session expirée', done: 1, failed: 1, cursor: 1 });
     expect(await chrome.alarms.get(ALARM)).toBeUndefined();
     expect(h.onEnd).toHaveBeenCalledOnce();
   });
@@ -204,17 +208,17 @@ describe('createJobLoop (TEST-06)', () => {
     await flush();
     // Nouvelle boucle : « Reprise… » affiché, l'élément a retraité
     expect(h.calls.map((c) => c.item)).toEqual(['a', 'a']);
-    expect(job()).toMatchObject({ status: 'running', pauseReason: 'resume', pending: ['a', 'b', 'c'] });
+    expect(job()).toMatchObject({ status: 'running', pauseReason: 'resume', cursor: 0, current: 'a' });
 
     // L'ancienne boucle se réveille pendant que la nouvelle traite a : son résultat n'est pas appliqué
     stuck.release(done('failed'));
     await flush();
-    expect(job()).toMatchObject({ status: 'running', done: 0, failed: 0, pending: ['a', 'b', 'c'] });
+    expect(job()).toMatchObject({ status: 'running', done: 0, failed: 0, cursor: 0 });
 
     retried.release(done());
     await flush();
     expect(h.calls.map((c) => c.item)).toEqual(['a', 'a', 'b', 'c']);
-    expect(job()).toMatchObject({ status: 'done', done: 3, updated: 3, failed: 0, pending: [] });
+    expect(job()).toMatchObject({ status: 'done', done: 3, updated: 3, failed: 0, cursor: 3 });
     expect(h.onEnd).toHaveBeenCalledOnce();
   });
 });
@@ -223,8 +227,9 @@ describe('réservation de la tâche (reserveJob)', () => {
   it('aucune tâche : créée ; tâche vivante : refusée et laissée telle quelle ; tâche muette depuis JOB_STALE_MS : remplacée', async () => {
     fake.reset();
     const first = await reserveJob(store, () => startJob('test', ['a'], Date.now()));
-    expect(first).toMatchObject({ kind: 'test', status: 'running', pending: ['a'] });
+    expect(first).toMatchObject({ kind: 'test', status: 'running', cursor: 0, itemCount: 1 });
     expect(job()).toEqual(first);
+    expect(fake.local.peek(ITEMS_KEY)).toEqual(['a']);
 
     const start = vi.fn(() => startJob('test', ['b'], Date.now()));
     expect(await reserveJob(store, start)).toBeNull();
@@ -233,13 +238,132 @@ describe('réservation de la tâche (reserveJob)', () => {
 
     await vi.advanceTimersByTimeAsync(JOB_STALE_MS + 1);
     const second = await reserveJob(store, start);
-    expect(second).toMatchObject({ pending: ['b'] });
+    expect(second).toMatchObject({ cursor: 0, itemCount: 1 });
     expect(job()).toEqual(second);
+    expect(fake.local.peek(ITEMS_KEY)).toEqual(['b']);
   });
 
   it('tâche terminée : une nouvelle est réservée', async () => {
-    fake.reset({ [JOB_KEY]: { ...startJob('test', ['a'], T0), status: 'done' } });
-    expect(await reserveJob(store, () => startJob('test', ['z'], Date.now()))).toMatchObject({ pending: ['z'], status: 'running' });
+    fake.reset({ [JOB_KEY]: { ...startJob('test', ['a'], T0).job, status: 'done' }, [ITEMS_KEY]: ['a'] });
+    expect(await reserveJob(store, () => startJob('test', ['z'], Date.now()))).toMatchObject({ cursor: 0, status: 'running' });
+    expect(fake.local.peek(ITEMS_KEY)).toEqual(['z']);
+  });
+});
+
+// ─── Stockage de la tâche : liste écrite une fois, curseur (PERF-16) ──────
+
+/** Laisse la boucle traiter tous les éléments (verrous et stockage ne dépendent pas de l'horloge) */
+async function untilSettled(maxTicks = 200_000): Promise<void> {
+  for (let i = 0; i < maxTicks && job()?.status === 'running'; i++) await new Promise<void>((resolve) => realSetTimeout(resolve, 0));
+}
+
+/** Tâche au format précédent : file `pending` dans la tâche, sans curseur */
+function legacyJob(fields: Partial<TestJob>, pending: string[]): Record<string, unknown> {
+  const legacy: Record<string, unknown> = { ...startJob('test', [], T0).job, ...fields, pending };
+  delete legacy.cursor;
+  delete legacy.itemCount;
+  delete legacy.current;
+  return legacy;
+}
+
+describe('stockage de la tâche (PERF-16)', () => {
+  it('2000 éléments : chaque écriture de la tâche reste petite (ne dépend pas des éléments restants), liste écrite une seule fois', async () => {
+    const items = Array.from({ length: 2000 }, (_, i) => `s:${i}`);
+    fake.reset();
+    const writes: { key: string; bytes: number; remaining: number }[] = [];
+    const write = fake.local.set;
+    vi.spyOn(fake.local, 'set').mockImplementation(async (values: Record<string, unknown>) => {
+      for (const [key, value] of Object.entries(values)) {
+        const stored = value as Partial<TestJob>;
+        writes.push({ key, bytes: JSON.stringify(value).length, remaining: (stored.total ?? 0) - (stored.done ?? 0) });
+      }
+      await write(values);
+    });
+    expect(await reserveJob(store, () => startJob('test', items, Date.now()))).not.toBeNull();
+    const h = harness({});
+    h.ensure();
+    await untilSettled();
+
+    expect(job()).toMatchObject({ status: 'done', done: 2000, updated: 2000, total: 2000, cursor: 2000, current: null });
+    expect(h.calls.map((c) => c.item)).toEqual(items);
+    expect(writes.filter((w) => w.key === ITEMS_KEY)).toHaveLength(1);
+    const jobWrites = writes.filter((w) => w.key === JOB_KEY);
+    const largest = (keep: (w: { remaining: number }) => boolean): number => Math.max(...jobWrites.filter(keep).map((w) => w.bytes));
+    // Au début (1990 restants et plus) comme à la fin (10 restants et moins) : même taille, à quelques chiffres près
+    expect(Math.abs(largest((w) => w.remaining >= 1990) - largest((w) => w.remaining <= 10))).toBeLessThan(32);
+    expect(Math.max(...jobWrites.map((w) => w.bytes))).toBeLessThan(1_000);
+    // Volume total linéaire : quelques écritures de moins de 1 Ko par élément
+    expect(jobWrites.reduce((sum, w) => sum + w.bytes, 0)).toBeLessThan(items.length * 3 * 1_000);
+  }, 60_000);
+
+  it('reprise après l’arrêt du service worker : repart de l’élément du curseur, aucun traité deux fois ni sauté', async () => {
+    const items = Array.from({ length: 10 }, (_, i) => `e${i}`);
+    const { job: start } = startJob('test', items, T0);
+    // Arrêté pendant e5 (en cours) : signe de vie trop ancien
+    fake.reset({ [JOB_KEY]: { ...start, cursor: 5, done: 5, updated: 5, current: 'e5', updatedAt: T0 - JOB_STALE_MS }, [ITEMS_KEY]: items });
+    const h = harness({});
+    h.ensure();
+    await untilSettled();
+    expect(h.calls.map((c) => c.item)).toEqual(['e5', 'e6', 'e7', 'e8', 'e9']);
+    expect(job()).toMatchObject({ status: 'done', done: 10, updated: 10, total: 10, cursor: 10, current: null });
+  });
+
+  it('tâche d’une version précédente (file `pending` dans la tâche) : convertie, menée à son terme avec les bons compteurs', async () => {
+    const pending = ['d', 'e', 'f', 'g', 'h', 'i', 'j'];
+    const legacy = legacyJob({ total: 10, done: 3, updated: 2, skipped: 1 }, pending);
+    fake.reset({ [JOB_KEY]: legacy });
+    expect(isTestJob(legacy)).toBe(false);
+    // Lecture : déjà au format actuel (rien n'est écrit sans le verrou)
+    expect(await store.read()).toMatchObject({ status: 'running', total: 10, done: 3, cursor: 0, itemCount: 7, current: null });
+    expect(await store.readItems()).toEqual(pending);
+    expect(fake.local.peek(ITEMS_KEY)).toBeUndefined();
+
+    const h = harness({});
+    h.ensure();
+    await untilSettled();
+    expect(h.calls.map((c) => c.item)).toEqual(pending);
+    expect(job()).toMatchObject({ status: 'done', total: 10, done: 10, updated: 9, skipped: 1, failed: 0, cursor: 7, itemCount: 7, current: null });
+    expect(job()).not.toHaveProperty('pending');
+    expect(fake.local.peek(ITEMS_KEY)).toEqual(pending);
+  });
+
+  it('élément en cours visible dans la tâche (`current`) ; « Arrêter » entre deux éléments : arrêtée, suivants non traités', async () => {
+    const request = held();
+    const h = harness({ b: [request.promise] });
+    h.ensure();
+    await flush();
+    expect(job()).toMatchObject({ status: 'running', cursor: 1, current: 'b' });
+    await cancel();
+    request.release(done());
+    await flush();
+    expect(h.calls.map((c) => c.item)).toEqual(['a', 'b']);
+    expect(job()).toMatchObject({ status: 'cancelled', done: 2, cursor: 2, current: null });
+  });
+
+  it('fin d’un élément : l’élément suivant est aussitôt l’élément en cours (pas de `current` null entre deux, la ligne de la page ne clignote pas)', async () => {
+    const seen: (string | null)[] = [];
+    const write = fake.local.set;
+    vi.spyOn(fake.local, 'set').mockImplementation(async (values: Record<string, unknown>) => {
+      const stored = values[JOB_KEY] as TestJob | undefined;
+      if (stored?.status === 'running') seen.push(stored.current);
+      await write(values);
+    });
+    harness({}).ensure();
+    await untilSettled();
+    expect(job()).toMatchObject({ status: 'done', current: null });
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen).not.toContain(null);
+  });
+
+  it('tâche retirée (mise à jour qui renvoie null) : la tâche et sa liste disparaissent, même au format précédent', async () => {
+    expect(fake.local.peek(ITEMS_KEY)).toEqual(['a', 'b', 'c']);
+    await store.update(() => null);
+    expect(job()).toBeUndefined();
+    expect(fake.local.peek(ITEMS_KEY)).toBeUndefined();
+
+    fake.reset({ [JOB_KEY]: legacyJob({}, ['x']) });
+    await store.update(() => null);
+    expect(job()).toBeUndefined();
   });
 });
 

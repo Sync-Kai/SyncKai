@@ -127,7 +127,9 @@ function seedEverything(): void {
     [STORAGE_KEYS.sessionEpoch]: { anilist: 0, mal: 0 },
     [STORAGE_KEYS.compareLast]: {},
     [STORAGE_KEYS.compareJob]: {},
+    [STORAGE_KEYS.compareJobItems]: [],
     [STORAGE_KEYS.crImportJob]: {},
+    [STORAGE_KEYS.crImportJobItems]: [],
     [STORAGE_KEYS.crImportInput]: {},
     [STORAGE_KEYS.crImportResolutions]: {},
     [STORAGE_KEYS.crImportPlan]: {},
@@ -174,7 +176,7 @@ describe('clearUserSyncData (TEST-10)', () => {
 
 describe('ensemble exact des clés effacées à la fin d’une session (registre des données du compte)', () => {
   /** Clés d'un compte seulement : retirées à toute déconnexion, avec le jeton et le profil du service */
-  const ACCOUNT_KEYS = ['compare:last', 'compare:job', 'crImport:job', 'crImport:input', 'crImport:resolutions', 'crImport:plan'];
+  const ACCOUNT_KEYS = ['compare:last', 'compare:job', 'compare:job:items', 'crImport:job', 'crImport:job:items', 'crImport:input', 'crImport:resolutions', 'crImport:plan'];
 
   /** Tout ce que SyncKai écrit, y compris l'horodatage de lecture des profils */
   function seedAll(): string[] {
@@ -245,7 +247,7 @@ describe('clearAniListSession / clearMalSession (TEST-10, DATA-01)', () => {
   it('AniList : session, comparaison, import et cache AniList effacés ; génération AniList incrémentée seule', async () => {
     seedEverything();
     await storage.clearAniListSession();
-    for (const key of [STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, STORAGE_KEYS.crImportJob, STORAGE_KEYS.crImportInput, STORAGE_KEYS.crImportResolutions, STORAGE_KEYS.crImportPlan]) {
+    for (const key of [STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, STORAGE_KEYS.compareJobItems, STORAGE_KEYS.crImportJob, STORAGE_KEYS.crImportJobItems, STORAGE_KEYS.crImportInput, STORAGE_KEYS.crImportResolutions, STORAGE_KEYS.crImportPlan]) {
       expect(store.has(key), key).toBe(false);
     }
     expect(store.get(STORAGE_KEYS.watchingCache)).toEqual({ mal: { service: 'mal' } });

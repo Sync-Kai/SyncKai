@@ -23,7 +23,8 @@ vi.mock('../../protocol/messages', () => ({
 const fake = installFakeChrome();
 const { createCompareController } = await import('./compare');
 const { COMPARE_STORAGE_KEY } = await import('../../shared/compare');
-const { COMPARE_JOB_KEY, startApplyJob } = await import('../../shared/compare-job');
+const { COMPARE_JOB_ITEMS_KEY, COMPARE_JOB_KEY, currentApplyMalId, startApplyJob } = await import('../../shared/compare-job');
+const { startItem } = await import('../../shared/job');
 const { t } = await import('../../i18n');
 
 /** Laisse passer les promesses et les évènements du stockage (microtâches ; minuteries simulées) */
@@ -57,7 +58,7 @@ const comparison: ComparisonResult = {
 
 /** Alignement sur AniList (une série) */
 function job(patch: Partial<CompareJob> = {}): CompareJob {
-  return { ...startApplyJob([{ mediaId: FRIEREN.mediaId, malId: FRIEREN.malId }], 'anilist', 0), ...patch };
+  return { ...startApplyJob([{ mediaId: FRIEREN.mediaId, malId: FRIEREN.malId }], 'anilist', 0).job, ...patch };
 }
 
 let ctl: CompareController;
@@ -155,6 +156,15 @@ describe('createCompareController', () => {
     expect(onApplied).not.toHaveBeenCalled();
   });
 
+  it('série en cours d’écriture : l’élément démarré de la tâche (`current`), sans relire sa liste', async () => {
+    await fake.local.set({ [COMPARE_JOB_KEY]: job() });
+    await settle();
+    expect(currentApplyMalId(ctl.store.get().job)).toBeNull();
+    await fake.local.set({ [COMPARE_JOB_KEY]: startItem(job(), { mediaId: FRIEREN.mediaId, malId: FRIEREN.malId }, 1) });
+    await settle();
+    expect(currentApplyMalId(ctl.store.get().job)).toBe(FRIEREN.malId);
+  });
+
   it('filtre et « Afficher plus » : pagination et confirmation remises à zéro au changement de filtre', () => {
     ctl.showMore();
     ctl.setConfirm('mal');
@@ -173,14 +183,17 @@ describe('createCompareController', () => {
     expect(ctl.store.get().error).toBe(t('popup.swUnreachable'));
   });
 
-  it('« OK » sur le bilan : tâche terminée retirée du stockage, tâche en cours conservée', async () => {
-    fake.local.seed({ [COMPARE_JOB_KEY]: job() });
+  it('« OK » sur le bilan : tâche terminée retirée du stockage avec sa liste, tâche en cours conservée', async () => {
+    const items = [{ mediaId: FRIEREN.mediaId, malId: FRIEREN.malId }];
+    fake.local.seed({ [COMPARE_JOB_KEY]: job(), [COMPARE_JOB_ITEMS_KEY]: items });
     await ctl.dismissJob();
     expect(fake.local.peek(COMPARE_JOB_KEY)).toBeDefined();
+    expect(fake.local.peek(COMPARE_JOB_ITEMS_KEY)).toEqual(items);
 
-    fake.local.seed({ [COMPARE_JOB_KEY]: job({ status: 'done' }) });
+    fake.local.seed({ [COMPARE_JOB_KEY]: job({ status: 'done' }), [COMPARE_JOB_ITEMS_KEY]: items });
     await ctl.dismissJob();
     expect(fake.local.peek(COMPARE_JOB_KEY)).toBeUndefined();
+    expect(fake.local.peek(COMPARE_JOB_ITEMS_KEY)).toBeUndefined();
     await settle();
     expect(ctl.store.get().job).toBeNull();
   });

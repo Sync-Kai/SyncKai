@@ -6,7 +6,7 @@ import { jobPauseText } from './job-pause';
 setLocale('fr');
 
 describe('texte de la pause d’une tâche', () => {
-  const job = startJob('demo', ['a'], 0);
+  const { job } = startJob('demo', ['a'], 0);
 
   it('quota AniList : compte à rebours, ou « … » si la reprise est inconnue ou échue ; rien hors pause', () => {
     const paused = reduceJob(job, { type: 'pause', until: 12_000, reason: 'budget', service: 'anilist', at: 0 });

@@ -5,6 +5,8 @@ import { isTrackerId, type TrackerId } from './tracker.types';
 // par le service worker (voir src/background/jobs/runner.ts). La page qui l'a lancée affiche sa progression
 // (même rouverte) et le service worker la reprend s'il a été arrêté. Utilisée par la comparaison des listes
 // (compare-job.ts) et l'import de l'historique Crunchyroll (cr-import.ts).
+// Stockage (PERF-16) : la liste des éléments est écrite UNE fois au démarrage, sous sa propre clé (`<clé de la tâche>:items`) ;
+// la tâche, réécrite à chaque élément, signe de vie et pause, n'en garde que le curseur : chaque écriture reste petite.
 
 /** Tâche « en cours » sans signe de vie depuis ce délai : considérée comme interrompue (reprise ou abandon) */
 export const JOB_STALE_MS = 60_000;
@@ -26,8 +28,15 @@ export interface Job<Kind extends string, Item> {
   updated: number;
   skipped: number;
   failed: number;
-  /** Éléments restant à traiter (le premier est en cours) */
-  pending: Item[];
+  /** Index de l'élément suivant (ou en cours) dans la liste de la tâche, stockée à part */
+  cursor: number;
+  /**
+   * Nombre d'éléments de cette liste : la tâche se termine quand `cursor` l'atteint. Égal à `total`, sauf pour une tâche
+   * convertie d'une version précédente (liste = éléments qui restaient, `total` et `done` gardent la progression affichée)
+   */
+  itemCount: number;
+  /** Élément en cours de traitement (affiché par la page), null entre deux éléments */
+  current: Item | null;
   /** « Arrêter » demandé : vérifié entre deux éléments */
   cancelled: boolean;
   startedAt: number;
@@ -46,6 +55,14 @@ export interface Job<Kind extends string, Item> {
 
 /** Tâche quelconque (fonctions génériques : transitions, état vivant / interrompu) */
 export type AnyJob = Job<string, unknown>;
+/** Type des éléments d'une tâche */
+export type JobItem<J extends AnyJob> = Exclude<J['current'], null>;
+
+/** Tâche créée et sa liste d'éléments : écrites ensemble à la réservation, la liste jamais réécrite ensuite */
+export interface JobStart<J extends AnyJob, Item = JobItem<J>> {
+  job: J;
+  items: readonly Item[];
+}
 
 export type JobOutcome = 'updated' | 'skipped' | 'failed';
 
@@ -64,16 +81,18 @@ export type JobEvent =
   /** Attente du budget de requêtes terminée (la requête part) : fin de la pause « quota » ou « limite » */
   | { type: 'wait-end'; at: number };
 
-export function startJob<Kind extends string, Item>(kind: Kind, pending: readonly Item[], now: number): Job<Kind, Item> {
-  return {
+export function startJob<Kind extends string, Item>(kind: Kind, items: readonly Item[], now: number): JobStart<Job<Kind, Item>, Item> {
+  const job: Job<Kind, Item> = {
     kind,
     status: 'running',
-    total: pending.length,
+    total: items.length,
     done: 0,
     updated: 0,
     skipped: 0,
     failed: 0,
-    pending: [...pending],
+    cursor: 0,
+    itemCount: items.length,
+    current: null,
     cancelled: false,
     startedAt: now,
     updatedAt: now,
@@ -83,6 +102,7 @@ export function startJob<Kind extends string, Item>(kind: Kind, pending: readonl
     pauseReason: null,
     pauseService: null,
   };
+  return { job, items: [...items] };
 }
 
 const NO_PAUSE = { pausedUntil: null, pauseReason: null, pauseService: null } as const;
@@ -95,7 +115,8 @@ export function reduceJob<J extends AnyJob>(job: J, event: JobEvent): J {
       const messages = event.message && !job.messages.includes(event.message) && job.messages.length < MAX_JOB_MESSAGES ? [...job.messages, event.message] : job.messages;
       const next: J = {
         ...job,
-        pending: job.pending.slice(1),
+        cursor: job.cursor + 1,
+        current: null,
         done: job.done + 1,
         updated: job.updated + (event.outcome === 'updated' ? 1 : 0),
         skipped: job.skipped + (event.outcome === 'skipped' ? 1 : 0),
@@ -104,14 +125,14 @@ export function reduceJob<J extends AnyJob>(job: J, event: JobEvent): J {
         updatedAt: event.at,
         ...NO_PAUSE,
       };
-      return next.pending.length === 0 ? { ...next, status: next.cancelled ? 'cancelled' : 'done' } : next;
+      return next.cursor >= next.itemCount ? { ...next, status: next.cancelled ? 'cancelled' : 'done' } : next;
     }
     case 'cancel':
       return { ...job, cancelled: true, updatedAt: event.at };
     case 'stop':
-      return { ...job, status: 'stopped', message: event.message, updatedAt: event.at, ...NO_PAUSE };
+      return { ...job, status: 'stopped', message: event.message, current: null, updatedAt: event.at, ...NO_PAUSE };
     case 'finish':
-      return { ...job, status: job.cancelled ? 'cancelled' : 'done', updatedAt: event.at, ...NO_PAUSE };
+      return { ...job, status: job.cancelled ? 'cancelled' : 'done', current: null, updatedAt: event.at, ...NO_PAUSE };
     case 'pause':
       return { ...job, pausedUntil: event.until, pauseReason: event.reason, pauseService: event.service, updatedAt: event.at };
     case 'item-start':
@@ -122,6 +143,11 @@ export function reduceJob<J extends AnyJob>(job: J, event: JobEvent): J {
     case 'touch':
       return { ...job, updatedAt: event.at };
   }
+}
+
+/** L'élément du curseur démarre : affiché par la page (`current`), fin de la pause éventuelle (voir 'item-start') */
+export function startItem<J extends AnyJob>(job: J, item: JobItem<J>, at: number): J {
+  return job.status === 'running' ? { ...reduceJob(job, { type: 'item-start', at }), current: item } : job;
 }
 
 /** Tâche en cours et vivante : bloque une nouvelle tâche du même type */
@@ -145,7 +171,8 @@ const PAUSE_REASONS: readonly PauseReason[] = ['rate-limit', 'budget', 'server',
 
 /**
  * Champs communs d'une tâche relue du stockage (format de l'extension, validé quand même : version précédente possible).
- * `isKind` et `isItem` valident le type de tâche et chaque élément de la file.
+ * `isKind` et `isItem` valident le type de tâche et l'élément en cours. Une tâche au format précédent (file `pending`,
+ * sans curseur) est refusée : voir fromLegacyJob.
  */
 export function isJobOf<Kind extends string, Item>(
   value: unknown,
@@ -161,8 +188,10 @@ export function isJobOf<Kind extends string, Item>(
     isCount(value.updated) &&
     isCount(value.skipped) &&
     isCount(value.failed) &&
-    Array.isArray(value.pending) &&
-    value.pending.every(isItem) &&
+    isCount(value.cursor) &&
+    isCount(value.itemCount) &&
+    value.cursor <= value.itemCount &&
+    (value.current === null || isItem(value.current)) &&
     typeof value.cancelled === 'boolean' &&
     typeof value.startedAt === 'number' &&
     typeof value.updatedAt === 'number' &&
@@ -173,4 +202,22 @@ export function isJobOf<Kind extends string, Item>(
     (value.pauseReason === null || PAUSE_REASONS.some((r) => r === value.pauseReason)) &&
     (value.pauseService === null || isTrackerId(value.pauseService))
   );
+}
+
+/**
+ * Tâche enregistrée par une version précédente (avant PERF-16 : file `pending` des éléments restants dans la tâche, sans
+ * curseur), par exemple une extension mise à jour pendant un import. Convertie au format actuel : liste = éléments qui
+ * restaient, curseur au début ; `total` et `done` gardent la progression affichée. Champs propres au type de tâche conservés.
+ * null si la valeur n'est pas une tâche au format précédent. Utilisée seulement par le stockage des tâches (runner.ts).
+ */
+export function fromLegacyJob<Kind extends string, Item>(
+  value: unknown,
+  isKind: (kind: unknown) => kind is Kind,
+  isItem: (item: unknown) => item is Item,
+): JobStart<Job<Kind, Item>, Item> | null {
+  if (!isRecord(value) || 'cursor' in value) return null;
+  const { pending, ...rest } = value;
+  if (!Array.isArray(pending) || !pending.every(isItem)) return null;
+  const job: unknown = { ...rest, cursor: 0, itemCount: pending.length, current: null };
+  return isJobOf(job, isKind, isItem) ? { job, items: pending } : null;
 }

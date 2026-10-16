@@ -217,6 +217,42 @@ describe('Import de l’historique Crunchyroll', () => {
     expect(perMedia(run.mal.writes().map((w) => w.path))).toEqual({ [`/anime/${FRIEREN.malId}/my_list_status`]: 1, [`/anime/${ONE_PIECE.mal.id}/my_list_status`]: 1 });
     expectCleanRun(run.h, run.anilist, run.mal);
   }, 120_000);
+
+  it('extension mise à jour pendant l’analyse, tâche au format précédent (file `pending`) : reprise, aperçu construit, rien écrit', async (context) => {
+    const cr = new FakeCrunchyrollHistory({ items: crunchyrollHistory(), seasons: { GONEPIECES24: ONE_PIECE_S24 } });
+    const run = await launch(context, [{ anilist: anilistMedia(FRIEREN), mal: malAnime(FRIEREN) }, ONE_PIECE], { [FRIEREN.mediaId]: 3, [ONE_PIECE.anilist.id]: 1170 }, [cr.handler]);
+    await run.h.openTab('https://www.crunchyroll.com/fr/');
+    const page = await openFromMyData(run.h, 'cr-import', `${IMPORT_PAGE}?platform=crunchyroll`);
+    // Analyse lente : la mise à jour arrive pendant l'analyse, la tâche existe
+    run.anilist.latencyMs = 2_000;
+    await readHistory(page, 'Crunchyroll');
+    const started = await waitFor('analyse en cours', async () => {
+      const current = await importJob(run.h);
+      return current?.kind === 'cr-analyze' && current.status === 'running' ? current : null;
+    }, 30_000);
+
+    // Tâche telle que l'écrivait la version précédente (avant PERF-16) : éléments restants dans la tâche, pas de liste à part
+    // (sa liste à part, inconnue d'elle, remplacée par une valeur qui ne doit jamais être lue)
+    const items = (await run.h.storage())[CR_IMPORT_KEYS.jobItems] as string[];
+    const { cursor, itemCount: _count, current: _current, ...rest } = started;
+    const pending = items.slice(cursor);
+    await run.h.setStorage({ [CR_IMPORT_KEYS.job]: { ...rest, pending }, [CR_IMPORT_KEYS.jobItems]: ['s:9999'] });
+    await run.h.restart({ version: '9.9.9' });
+    run.anilist.latencyMs = 0;
+
+    // Reprise sans aucune page ouverte (runtime.onInstalled « update », ou alarme de reprise), jusqu'à l'aperçu
+    const job = await waitFor('analyse reprise et terminée', async () => {
+      const current = await importJob(run.h);
+      return current?.kind === 'cr-analyze' && current.status !== 'running' ? current : null;
+    }, 60_000);
+    expect(job).toMatchObject({ status: 'done', total: started.total, done: started.total });
+    const stored = await run.h.storage();
+    expect(stored[CR_IMPORT_KEYS.plan]).toBeDefined();
+    // Liste réécrite depuis la file de l'ancienne tâche, à la première mise à jour sous verrou
+    expect(stored[CR_IMPORT_KEYS.jobItems]).toEqual(pending);
+    expect(run.anilist.mutations()).toEqual([]);
+    expect(run.mal.writes()).toEqual([]);
+  }, 150_000);
 });
 
 /** Historique ADN : Tougen Anki E1–E12 vus et E13 commencé (8 s), Détective Conan E1–E137 vus ; 150 épisodes, 2 pages */

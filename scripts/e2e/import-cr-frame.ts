@@ -290,7 +290,7 @@ installChromeMock({
     // Analyse simulée : tâche lancée puis, peu après, aperçu prêt (comme le service worker en fin d'analyse)
     CR_IMPORT_ANALYZE: (payload) => {
       const platform = isRecord(payload) ? payload.platform : undefined;
-      const job = startAnalyzeJob(2, Date.now());
+      const { job } = startAnalyzeJob(2, Date.now());
       setTimeout(() => {
         let done: CrImportJob = job;
         for (let i = 0; i < 3; i++) done = reduceJob(done, { type: 'item', outcome: 'updated', at: Date.now() });
@@ -304,7 +304,7 @@ installChromeMock({
     },
     CR_IMPORT_APPLY: (payload) => {
       const ids = isRecord(payload) && Array.isArray(payload.ids) ? payload.ids.filter((id): id is string => typeof id === 'string') : [];
-      return { ok: true, data: startApplyJob(ids, Date.now()) };
+      return { ok: true, data: startApplyJob(ids, Date.now()).job };
     },
     CR_IMPORT_REVIEWS: () => ({ ok: true, data: { created: 1, limited: false } }),
     CR_IMPORT_CANCEL: () => ({ ok: true, data: null }),

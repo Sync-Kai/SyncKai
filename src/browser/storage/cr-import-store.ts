@@ -14,7 +14,7 @@ async function readJob(): Promise<CrImportJob | null> {
 export function resetCrImport(now: number = Date.now()): Promise<boolean> {
   return withStorageLock(async () => {
     if (isJobActive(await readJob(), now)) return false;
-    await chrome.storage.local.remove([CR_IMPORT_KEYS.job, CR_IMPORT_KEYS.plan, CR_IMPORT_KEYS.input, CR_IMPORT_KEYS.resolutions]);
+    await chrome.storage.local.remove([CR_IMPORT_KEYS.job, CR_IMPORT_KEYS.jobItems, CR_IMPORT_KEYS.plan, CR_IMPORT_KEYS.input, CR_IMPORT_KEYS.resolutions]);
     return true;
   });
 }
@@ -24,7 +24,7 @@ export function dismissCrImportJob(): Promise<boolean> {
   return withStorageLock(async () => {
     const job = await readJob();
     if (job?.status === 'running') return false;
-    await chrome.storage.local.remove(CR_IMPORT_KEYS.job);
+    await chrome.storage.local.remove([CR_IMPORT_KEYS.job, CR_IMPORT_KEYS.jobItems]);
     return true;
   });
 }

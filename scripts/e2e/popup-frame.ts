@@ -157,19 +157,21 @@ function resolvePage(): PageMediaView {
 /** Alignement accepté : tâche en cours (la progression arriverait ensuite par le stockage) */
 function applyDiffs(payload: unknown): { ok: true; data: CompareJob } | { ok: false; code: 'INVALID'; message: string } {
   if (!isRecord(payload) || !isTrackerId(payload.source) || !Array.isArray(payload.items)) return { ok: false, code: 'INVALID', message: 'Payload invalide (e2e)' };
-  const pending = payload.items.flatMap((item: unknown) =>
+  const items = payload.items.flatMap((item: unknown) =>
     isRecord(item) ? [{ mediaId: numberField(item, 'mediaId'), malId: numberField(item, 'malId') }] : [],
   );
   const job: CompareJob = {
     kind: 'apply',
     source: payload.source,
     status: 'running',
-    total: pending.length,
+    total: items.length,
     done: 0,
     updated: 0,
     skipped: 0,
     failed: 0,
-    pending,
+    cursor: 0,
+    itemCount: items.length,
+    current: items[0] ?? null,
     cancelled: false,
     startedAt: now,
     updatedAt: Date.now(),

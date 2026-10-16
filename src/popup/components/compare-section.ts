@@ -12,7 +12,7 @@ import {
   type DiffSide,
   type ListDiff,
 } from '../../shared/compare';
-import { isJobActive, type CompareJob } from '../../shared/compare-job';
+import { currentApplyMalId, isJobActive, type CompareJob } from '../../shared/compare-job';
 import { entryLink, type EntryLinkContext } from '../../shared/entry-link';
 import type { ListStatus } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
@@ -64,11 +64,6 @@ function isBusy(state: CompareState): boolean {
 const isAnalyzing = (state: CompareState): boolean =>
   state.requesting === 'analyze' || (state.job?.kind === 'analyze' && isJobActive(state.job, Date.now()));
 
-/** Série en cours d'écriture (première de la tâche) */
-function currentMalId(job: CompareJob | null): number | null {
-  return job?.kind === 'apply' && job.status === 'running' ? (job.pending[0]?.malId ?? null) : null;
-}
-
 // ─── Lignes ───────────────────────────────────────────────────────────────
 
 /** Pastilles des champs en écart : « Ép. AL 12 · MAL 10 », statuts, notes, absence */
@@ -119,7 +114,7 @@ function keepButton(diff: ListDiff, source: TrackerId, busy: boolean, onApply: C
 }
 
 function renderRow(diff: ListDiff, { state, onApply, entryLinks }: CompareSectionProps, busy: boolean): HTMLElement {
-  const current = currentMalId(state.job) === diff.malId;
+  const current = currentApplyMalId(state.job) === diff.malId;
   const error = state.result?.errors[diff.key];
   const site = entryLink(diff, entryLinks);
   return h(

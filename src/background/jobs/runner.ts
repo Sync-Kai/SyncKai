@@ -1,4 +1,4 @@
-import { reduceJob, isJobActive, isJobStale, JOB_STALE_MS, type AnyJob, type JobEvent } from '../../shared/job';
+import { reduceJob, isJobActive, isJobStale, JOB_STALE_MS, startItem, type AnyJob, type JobEvent, type JobItem, type JobStart } from '../../shared/job';
 import type { Logger } from '../../browser/logger';
 import { withStorageLock } from '../../browser/storage/lock';
 import type { TrackerId } from '../../shared/tracker.types';
@@ -11,45 +11,79 @@ import { aniListBudget, sleep, type BudgetWait } from '../rate-limit';
 
 // ─── Stockage de la tâche ─────────────────────────────────────────────────
 
-export interface JobStore<J> {
+// Deux clés (PERF-16) : la tâche (petite, réécrite à chaque élément, signe de vie et pause) et sa liste d'éléments
+// (`<clé>:items`), écrite une seule fois à la réservation. Le curseur de la tâche désigne l'élément suivant de la liste.
+
+export interface JobStore<J extends AnyJob> {
   read(): Promise<J | null>;
+  /** Liste des éléments de la tâche stockée (jamais modifiée pendant la tâche), vide sans tâche */
+  readItems(): Promise<readonly JobItem<J>[]>;
   /**
    * Lecture-modification-écriture sous verrou : la page (« Arrêter ») et la boucle écrivent toutes deux
-   * la tâche. `update` renvoie null pour la supprimer.
+   * la tâche. `update` renvoie null pour la supprimer (avec sa liste).
    */
   update(update: (job: J | null) => J | null): Promise<J | null>;
+  /** Réservation sous verrou (voir reserveJob) : seule écriture de la liste */
+  reserve(start: () => JobStart<J>): Promise<J | null>;
 }
 
-export function createJobStore<J>(key: string, isJob: (value: unknown) => value is J): JobStore<J> {
-  const read = async (): Promise<J | null> => {
-    const stored = await chrome.storage.local.get(key);
-    const value: unknown = stored[key];
-    return isJob(value) ? value : null;
+export interface JobStoreSpec<J extends AnyJob> {
+  /** Clé de la tâche */
+  key: string;
+  /** Clé de sa liste d'éléments */
+  itemsKey: string;
+  isJob: (value: unknown) => value is J;
+  isItem: (value: unknown) => value is JobItem<J>;
+  /**
+   * Tâche enregistrée par une version précédente (file `pending` dans la tâche) : convertie à la lecture, écrite au format
+   * actuel (tâche + liste) à la première mise à jour sous verrou
+   */
+  fromLegacy?: (value: unknown) => JobStart<J> | null;
+}
+
+export function createJobStore<J extends AnyJob>({ key, itemsKey, isJob, isItem, fromLegacy }: JobStoreSpec<J>): JobStore<J> {
+  /** Tâche stockée ; `legacyItems` : liste d'une tâche au format précédent, pas encore écrite à part */
+  const readStored = async (): Promise<{ job: J; legacyItems: readonly JobItem<J>[] | null } | null> => {
+    const value: unknown = (await chrome.storage.local.get(key))[key];
+    if (isJob(value)) return { job: value, legacyItems: null };
+    const legacy = fromLegacy?.(value) ?? null;
+    return legacy && { job: legacy.job, legacyItems: legacy.items };
   };
   return {
-    read,
+    read: async () => (await readStored())?.job ?? null,
+    readItems: async () => {
+      const stored = await readStored();
+      if (!stored) return [];
+      if (stored.legacyItems) return stored.legacyItems;
+      const value: unknown = (await chrome.storage.local.get(itemsKey))[itemsKey];
+      return Array.isArray(value) && value.every(isItem) ? value : [];
+    },
     update: (update) =>
       withStorageLock(async () => {
-        const next = update(await read());
-        if (next === null) await chrome.storage.local.remove(key);
+        const stored = await readStored();
+        const next = update(stored?.job ?? null);
+        if (next === null) await chrome.storage.local.remove([key, itemsKey]);
+        // Tâche convertie : sa liste est écrite une fois, avec la tâche au format actuel
+        else if (stored?.legacyItems && next.startedAt === stored.job.startedAt) await chrome.storage.local.set({ [key]: next, [itemsKey]: stored.legacyItems });
         else await chrome.storage.local.set({ [key]: next });
         return next;
+      }),
+    reserve: (start) =>
+      withStorageLock(async () => {
+        if (isJobActive((await readStored())?.job ?? null, Date.now())) return null;
+        const { job, items } = start();
+        await chrome.storage.local.set({ [key]: job, [itemsKey]: items });
+        return job;
       }),
   };
 }
 
 /**
- * Réserve la tâche sous verrou : une seule tâche vivante à la fois (analyse, alignement, import). Retourne la tâche créée
- * par `start`, ou null si une tâche vivante existe déjà (elle est alors laissée telle quelle).
+ * Réserve la tâche sous verrou : une seule tâche vivante à la fois (analyse, alignement, import). Écrit la tâche créée
+ * par `start` et sa liste, et la retourne ; null si une tâche vivante existe déjà (elle est alors laissée telle quelle).
  */
-export async function reserveJob<J extends AnyJob>(store: JobStore<J>, start: () => J): Promise<J | null> {
-  let started: J | null = null;
-  await store.update((job) => {
-    if (isJobActive(job, Date.now())) return job;
-    started = start();
-    return started;
-  });
-  return started;
+export function reserveJob<J extends AnyJob>(store: JobStore<J>, start: () => JobStart<J>): Promise<J | null> {
+  return store.reserve(start);
 }
 
 /** Période de l'alarme de reprise d'une tâche (30 s) */
@@ -182,7 +216,7 @@ export type StepResult =
   /** Erreur passagère : attendre puis retenter le même élément */
   | { kind: 'retry'; reason: TransientKind; service: TrackerId | null; error: string };
 
-type ItemOf<J extends AnyJob> = J['pending'][number];
+type ItemOf<J extends AnyJob> = JobItem<J>;
 
 export interface JobLoopConfig<J extends AnyJob> {
   /** Nom de la tâche dans les logs (« alignement », « analyse de l'historique »…) */
@@ -232,7 +266,7 @@ export function createJobLoop<J extends AnyJob>(config: JobLoopConfig<J>): JobLo
    * Traite les éléments de la tâche un par un, jusqu'à la fin, un « Arrêter » ou une erreur bloquante.
    * Erreur passagère : pause visible (compte à rebours) puis nouvelle tentative du même élément.
    * Chaque appel au stockage prolonge la vie du service worker ; s'il est quand même arrêté,
-   * l'alarme de reprise relance la boucle sur les éléments restants (stockés dans la tâche).
+   * l'alarme de reprise relance la boucle sur les éléments restants (à partir du curseur de la tâche).
    */
   async function run(gen: number): Promise<void> {
     // Tâche sans signe de vie depuis 60 s : service worker arrêté puis relancé → « Reprise… » affiché
@@ -245,12 +279,19 @@ export function createJobLoop<J extends AnyJob>(config: JobLoopConfig<J>): JobLo
     /** Essais déjà faits pour l'élément en tête de file, par type d'erreur passagère */
     let attempts: Record<TransientKind, number> = { 'rate-limit': 0, server: 0, network: 0 };
     let currentKey: string | null = null;
+    /** Liste de la tâche, lue une fois par tâche (jamais modifiée pendant la tâche) ; `listOf` : `startedAt` de cette tâche */
+    let list: readonly ItemOf<J>[] = [];
+    let listOf: number | null = null;
 
     while (gen === generation) {
       beat = Date.now();
       const job = await store.read();
       if (!job || job.status !== 'running' || !config.accepts(job)) break;
-      const item: ItemOf<J> | undefined = job.pending[0];
+      if (listOf !== job.startedAt) {
+        list = await store.readItems();
+        listOf = job.startedAt;
+      }
+      const item: ItemOf<J> | undefined = job.cursor < job.itemCount ? list[job.cursor] : undefined;
       if (job.cancelled || item === undefined) {
         await store.update((j) => j && reduceJob(j, { type: 'finish', at: Date.now() }));
         break;
@@ -261,7 +302,7 @@ export function createJobLoop<J extends AnyJob>(config: JobLoopConfig<J>): JobLo
         attempts = { 'rate-limit': 0, server: 0, network: 0 };
       }
 
-      await store.update((j) => j && reduceJob(j, { type: 'item-start', at: Date.now() }));
+      await store.update((j) => j && startItem(j, item, Date.now()));
       const step = await beating(() => config.process(job, item, (reason) => attempts[reason] >= RETRY_DELAYS_MS[reason].length));
       if (gen !== generation) break;
 
@@ -276,7 +317,9 @@ export function createJobLoop<J extends AnyJob>(config: JobLoopConfig<J>): JobLo
 
       await store.update((j) => {
         if (!j || j.status !== 'running') return j;
-        const next = step.event.type === 'item' ? reduceJob(j, step.event) : j;
+        const reduced = step.event.type === 'item' ? reduceJob(j, step.event) : j;
+        // L'élément suivant devient aussitôt l'élément en cours : la ligne affichée par la page ne repasse pas par « aucun »
+        const next = reduced.status === 'running' && reduced.current === null ? { ...reduced, current: list[reduced.cursor] ?? null } : reduced;
         return step.stop === null ? next : reduceJob(next, { type: 'stop', message: step.stop, at: Date.now() });
       });
     }

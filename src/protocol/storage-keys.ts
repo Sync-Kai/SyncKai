@@ -23,8 +23,11 @@ export const STORAGE_KEYS = {
   compareLast: 'compare:last',
   /** Tâche d'analyse ou d'alignement en cours (progression, reprise) */
   compareJob: 'compare:job',
+  /** Éléments de cette tâche, écrits une fois au démarrage (la tâche n'en garde que le curseur, PERF-16) */
+  compareJobItems: 'compare:job:items',
   /** Import de l'historique Crunchyroll : tâche, historique réduit, correspondances, aperçu (voir cr-import.ts) */
   crImportJob: 'crImport:job',
+  crImportJobItems: 'crImport:job:items',
   crImportInput: 'crImport:input',
   crImportResolutions: 'crImport:resolutions',
   crImportPlan: 'crImport:plan',

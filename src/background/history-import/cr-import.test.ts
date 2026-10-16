@@ -5,7 +5,7 @@ import { reduceAdnHistory } from '../../platforms/adn/history';
 import { onePieceShow, ranmaShow } from '../../shared/__fixtures__/netflix-history';
 import { reduceNetflixShow } from '../../platforms/netflix/history';
 import type { HistorySeason } from '../../platforms/crunchyroll/history';
-import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, toEpisodeInfo, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../../shared/cr-import';
+import { CR_IMPORT_ALARM, CR_IMPORT_KEYS, isCrImportJob, isCrImportPlan, startAnalyzeJob, startApplyJob, toEpisodeInfo, type CrImportJob, type CrImportPlan, type CrPlanItem } from '../../shared/cr-import';
 import { EXCLUDED_SERIES_KEY, mergeExclusion, platformSeriesKey } from '../../shared/exclusions';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import { isRecord } from '../../shared/guards';
@@ -350,7 +350,9 @@ describe('analyse de l’historique (TEST-05)', () => {
       await new Promise<void>((resolve) => (release = resolve));
       return certain(episode);
     });
-    fake.local.data.set(CR_IMPORT_KEYS.job, startAnalyzeJob(1, Date.now()));
+    const started = startAnalyzeJob(1, Date.now());
+    fake.local.data.set(CR_IMPORT_KEYS.job, started.job);
+    fake.local.data.set(CR_IMPORT_KEYS.jobItems, started.items);
     fake.local.data.set(CR_IMPORT_KEYS.input, input);
     fake.local.data.set(CR_IMPORT_KEYS.resolutions, {});
     await resumeCrImport();
@@ -505,6 +507,24 @@ describe('application (TEST-05, CRI-05)', () => {
     expect(planReads.length).toBeLessThanOrEqual(1 + planWrites.length);
     expect(storedPlan().items.every((i) => i.result?.outcome === 'updated')).toBe(true);
     expect(keysOf(fake.local.peek(STORAGE_KEYS.mediaMappings))).toHaveLength(count + 1);
+  });
+
+  it('PERF-16 : import d’une version précédente (file `pending` dans la tâche), service worker relancé : converti et terminé', async () => {
+    seedPlan([planItem()]);
+    const { job } = startApplyJob([`m:${MEDIA_ID}`], Date.now() - 120_000);
+    // Extension mise à jour pendant l'import : un élément déjà traité, le dernier restant, signe de vie trop ancien
+    const legacy: Record<string, unknown> = { ...job, total: 2, done: 1, updated: 1, pending: [`m:${MEDIA_ID}`] };
+    delete legacy.cursor;
+    delete legacy.itemCount;
+    delete legacy.current;
+    fake.local.data.set(CR_IMPORT_KEYS.job, legacy);
+    await resumeCrImport();
+    await flush();
+    expect(fake.local.peek(CR_IMPORT_KEYS.jobItems)).toEqual([`m:${MEDIA_ID}`]);
+    expect(await driveUntilEnded()).toMatchObject({ status: 'done', total: 2, done: 2, updated: 2, cursor: 1, itemCount: 1 });
+    expect(anilist.writes).toEqual([{ id: MEDIA_ID, progress: 12, status: 'CURRENT' }]);
+    expect(storedPlan().items[0]?.result).toEqual({ outcome: 'updated', message: null });
+    expect(fake.local.peek(CR_IMPORT_KEYS.job)).not.toHaveProperty('pending');
   });
 });
 

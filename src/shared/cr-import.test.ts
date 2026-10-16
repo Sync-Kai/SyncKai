@@ -7,7 +7,9 @@ import {
   FINALIZE_ITEM,
   historySeasonLabel,
   isCrImportApplyPayload,
+  crImportJobFromLegacy,
   isCrImportJob,
+  isCrJobItem,
   isCrImportPlan,
   isCrImportReviewsPayload,
   isImportPlatform,
@@ -259,8 +261,9 @@ describe('épisode et libellé', () => {
 
 describe('tâches d’import', () => {
   it('analyse : une étape par saison puis la construction de l’aperçu', () => {
-    const job = startAnalyzeJob(2, 0);
-    expect(job).toMatchObject({ kind: 'cr-analyze', total: 3, pending: ['s:0', 's:1', FINALIZE_ITEM] });
+    const { job, items } = startAnalyzeJob(2, 0);
+    expect(job).toMatchObject({ kind: 'cr-analyze', total: 3, cursor: 0, itemCount: 3, current: null });
+    expect(items).toEqual(['s:0', 's:1', FINALIZE_ITEM]);
     expect(seasonIndexOf('s:1')).toBe(1);
     expect(seasonIndexOf(FINALIZE_ITEM)).toBeNull();
     expect(isCrImportJob(job)).toBe(true);
@@ -268,10 +271,24 @@ describe('tâches d’import', () => {
   });
 
   it('application : éléments du plan ; tâche invalide refusée', () => {
-    const job = startApplyJob(['m:21'], 0);
+    const { job, items } = startApplyJob(['m:21'], 0);
+    expect(items).toEqual(['m:21']);
     expect(isCrImportJob(job)).toBe(true);
     expect(isCrImportJob({ ...job, kind: 'apply' })).toBe(false);
-    expect(isCrImportJob({ ...job, pending: ['drop table'] })).toBe(false);
+    expect(isCrImportJob({ ...job, current: 'drop table' })).toBe(false);
+    expect(isCrJobItem('m:21')).toBe(true);
+    expect(isCrJobItem('drop table')).toBe(false);
+  });
+
+  it('tâche d’import d’une version précédente (file `pending`) : convertie ; élément invalide refusé', () => {
+    const { job } = startApplyJob(['m:21', 'm:22'], 0);
+    const legacy: Record<string, unknown> = { ...job, done: 1, pending: ['m:22'] };
+    delete legacy.cursor;
+    delete legacy.itemCount;
+    delete legacy.current;
+    expect(isCrImportJob(legacy)).toBe(false);
+    expect(crImportJobFromLegacy(legacy)).toMatchObject({ job: { kind: 'cr-apply', total: 2, done: 1, cursor: 0, itemCount: 1 }, items: ['m:22'] });
+    expect(crImportJobFromLegacy({ ...legacy, pending: ['drop table'] })).toBeNull();
   });
 
   it('messages : identifiants et clés validés', () => {

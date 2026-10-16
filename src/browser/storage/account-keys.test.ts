@@ -33,6 +33,8 @@ describe('registre des données du compte', () => {
     const anilist = keysClearedOnSessionEnd('anilist');
     expect(anilist).toContain(STORAGE_KEYS.anilistToken);
     expect(anilist).toContain(STORAGE_KEYS.compareJob);
+    expect(anilist).toContain(STORAGE_KEYS.compareJobItems);
+    expect(anilist).toContain(STORAGE_KEYS.crImportJobItems);
     expect(anilist).toContain(STORAGE_KEYS.crImportPlan);
     expect(anilist).not.toContain(STORAGE_KEYS.malToken);
     expect(anilist).not.toContain(STORAGE_KEYS.pendingReviews);

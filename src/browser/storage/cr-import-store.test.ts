@@ -10,9 +10,9 @@ const { dismissCrImportJob, resetCrImport } = await import('./cr-import-store');
 const { STORAGE_LOCK } = await import('./lock-core');
 
 const NOW = 1_800_000_000_000;
-const running = startAnalyzeJob(3, NOW);
+const { job: running, items } = startAnalyzeJob(3, NOW);
 const done = reduceJob(running, { type: 'finish', at: NOW });
-const all = { [CR_IMPORT_KEYS.job]: running, [CR_IMPORT_KEYS.plan]: {}, [CR_IMPORT_KEYS.input]: {}, [CR_IMPORT_KEYS.resolutions]: {} };
+const all = { [CR_IMPORT_KEYS.job]: running, [CR_IMPORT_KEYS.jobItems]: items, [CR_IMPORT_KEYS.plan]: {}, [CR_IMPORT_KEYS.input]: {}, [CR_IMPORT_KEYS.resolutions]: {} };
 const storedKeys = (): string[] => [...fake.local.data.keys()].sort();
 
 beforeEach(() => fake.reset());
@@ -36,11 +36,11 @@ describe('resetCrImport (« Recommencer »)', () => {
 });
 
 describe('dismissCrImportJob', () => {
-  it('ne ferme jamais une tâche en cours, relue sous verrou', async () => {
-    fake.local.seed({ [CR_IMPORT_KEYS.job]: running });
+  it('ne ferme jamais une tâche en cours, relue sous verrou ; la tâche fermée part avec sa liste', async () => {
+    fake.local.seed({ [CR_IMPORT_KEYS.job]: running, [CR_IMPORT_KEYS.jobItems]: items });
     expect(await dismissCrImportJob()).toBe(false);
-    expect(storedKeys()).toEqual([CR_IMPORT_KEYS.job]);
-    fake.local.seed({ [CR_IMPORT_KEYS.job]: done, [CR_IMPORT_KEYS.plan]: {} });
+    expect(storedKeys()).toEqual([CR_IMPORT_KEYS.job, CR_IMPORT_KEYS.jobItems].sort());
+    fake.local.seed({ [CR_IMPORT_KEYS.job]: done, [CR_IMPORT_KEYS.jobItems]: items, [CR_IMPORT_KEYS.plan]: {} });
     expect(await dismissCrImportJob()).toBe(true);
     expect(storedKeys()).toEqual([CR_IMPORT_KEYS.plan]);
   });

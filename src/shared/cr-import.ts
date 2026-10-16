@@ -2,7 +2,7 @@ import { isCrHistoryResult, isHistoryStats, type CrHistoryResult, type HistorySe
 import { isEpisodeInfo, type EpisodeInfo } from './episode.types';
 import { normalizeSeriesTitle } from './exclusions';
 import { isRecord } from './guards';
-import { isJobOf, startJob, type Job } from './job';
+import { fromLegacyJob, isJobOf, startJob, type Job, type JobStart } from './job';
 import type { Result } from './result';
 import { isCandidateSummary, type CandidateSummary } from './review.types';
 import { isMediaMapping, type ListStatus, type MediaMapping } from './sync.types';
@@ -31,6 +31,8 @@ export const isImportPlatform = (value: unknown): value is ImportPlatform => IMP
 export const CR_IMPORT_KEYS = {
   /** Tâche en cours (analyse ou application) */
   job: STORAGE_KEYS.crImportJob,
+  /** Éléments de cette tâche, écrits une fois au démarrage (la tâche n'en garde que le curseur) */
+  jobItems: STORAGE_KEYS.crImportJobItems,
   /** Historique réduit par saison, en attente d'analyse */
   input: STORAGE_KEYS.crImportInput,
   /** Correspondance de chaque saison (index → résultat), écrite pendant l'analyse */
@@ -58,17 +60,20 @@ export function seasonIndexOf(item: string): number | null {
 export const planItemId = (mediaId: number): string => `m:${mediaId}`;
 
 const ITEM_PATTERN = /^(?:s:\d{1,5}|m:\d{1,10}|finalize)$/;
-const isJobItem = (v: unknown): v is string => typeof v === 'string' && ITEM_PATTERN.test(v);
+export const isCrJobItem = (v: unknown): v is string => typeof v === 'string' && ITEM_PATTERN.test(v);
 const isCrJobKind = (v: unknown): v is CrJobKind => v === 'cr-analyze' || v === 'cr-apply';
 
-export function startAnalyzeJob(seasonCount: number, now: number): CrImportJob {
+export function startAnalyzeJob(seasonCount: number, now: number): JobStart<CrImportJob> {
   return startJob<CrJobKind, string>('cr-analyze', [...Array.from({ length: seasonCount }, (_, i) => seasonItem(i)), FINALIZE_ITEM], now);
 }
-export const startApplyJob = (ids: readonly string[], now: number): CrImportJob => startJob<CrJobKind, string>('cr-apply', ids, now);
+export const startApplyJob = (ids: readonly string[], now: number): JobStart<CrImportJob> => startJob<CrJobKind, string>('cr-apply', ids, now);
 
 export function isCrImportJob(value: unknown): value is CrImportJob {
-  return isJobOf(value, isCrJobKind, isJobItem);
+  return isJobOf(value, isCrJobKind, isCrJobItem);
 }
+
+/** Tâche enregistrée avant PERF-16 (file `pending` dans la tâche) : convertie, voir fromLegacyJob */
+export const crImportJobFromLegacy = (value: unknown): JobStart<CrImportJob> | null => fromLegacyJob(value, isCrJobKind, isCrJobItem);
 
 // ─── Entrée et correspondances ────────────────────────────────────────────
 
