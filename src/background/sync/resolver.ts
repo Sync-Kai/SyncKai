@@ -12,7 +12,6 @@ import {
   alignPlatformSeasons,
   disneySeriesKey,
   filtersAnime,
-  gateByPlatformLink,
   ignoredResult,
   isDisneyEntityLink,
   isPrimeOwnLink,
@@ -33,6 +32,7 @@ import {
   titleMappingDoubt,
   type CachedMappingVerdict,
 } from './matching/mapping';
+import { gateByPlatformLink } from './matching/judge';
 import { isAbsoluteNumbering, isLinked, isOtherSeries, SERIES_FORMATS, type LinkKind, type MediaCandidate, type ResolveResult, type SyncTarget } from './matching/model';
 import { resolveTarget } from './matching/rules-engine';
 import { seasonPool } from './matching/season-pool';
@@ -545,15 +545,18 @@ export async function prefetchCandidates(episodes: readonly EpisodeInfo[], lane:
   }
 }
 
-/** Résout la fiche AniList d'un épisode : cache d'abord, recherche sinon (et mise en cache si fiable). */
-export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lane = 'interactive', revalidateCache = false }: ResolveOptions = {}): Promise<EpisodeResolution> {
-  const key = mappingKey(episode);
+/** Correspondance en cache lue pour l'épisode : résolution servie par le cache, ou ce qu'il en reste pour une nouvelle résolution */
+type CacheOutcome = { kind: 'hit'; resolution: EpisodeResolution } | { kind: 'miss'; confirmed: MediaMapping | null; verdict: CachedMappingVerdict };
 
-  const stored = await getMediaMapping(key);
-  // Correspondance importée : revérifiée sur le catalogue avant d'être jugée sûre (BAK-02)
+/**
+ * Cache des correspondances : correspondance importée revérifiée sur le catalogue (BAK-02), confrontée aux signaux de la
+ * plateforme ou au titre de saison (apprise et contredite → oubliée ; origine inconnue et contredite → « À vérifier »,
+ * doubtedMapping ; choix de l'utilisateur → jamais remis en cause), puis à une nouvelle résolution à l'analyse d'un import
+ * (revalidatedMapping). Applicable → servie ; sinon `miss` (correspondance confirmée et verdict, pour la suite). N'écrit
+ * que la correspondance importée confirmée (confirmImportedMapping, `persist`).
+ */
+async function fromCache(episode: EpisodeInfo, key: string, stored: MediaMapping | null, { persist, lane, revalidateCache }: Required<ResolveOptions>): Promise<CacheOutcome> {
   const confirmed = stored?.unverified === true && applyMapping(episode, stored) !== null ? await confirmImportedMapping(episode, key, stored, persist, lane) : stored;
-  // Signaux de la plateforme ou titre de saison contre la correspondance : apprise et contredite → oubliée, nouvelle
-  // résolution ; origine inconnue et contredite → « À vérifier » (doubtedMapping) ; choix de l'utilisateur → jamais remis en cause
   const question = confirmed ? await questionMapping(episode, confirmed, lane) : null;
   const { verdict } = question ?? { verdict: { kind: 'keep' } as const };
   if (verdict.kind === 'drop') {
@@ -565,46 +568,43 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   if (revalidated && confirmedLearned) log.info(`Correspondance apprise ${key} contredite par une nouvelle résolution (#${revalidated.freshId}) : écartée`);
   // Fiche en cache introuvable sur AniList (rien à proposer à côté) : comme écartée, la nouvelle résolution l'emporte
   const cached = verdict.kind === 'drop' || (revalidated && (confirmedLearned || revalidated.media === null)) ? null : confirmed;
-  if (cached) {
-    const progress = applyMapping(episode, cached);
-    if (progress !== null) {
-      if (verdict.kind === 'doubt' && question?.media) return doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict, lane);
-      if (revalidated?.media) return doubtedMapping(episode, key, { ...cached, progress }, revalidated.media, { signals: [], refreshed: true }, lane);
-      const result: ResolveResult = { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } };
-      if (__SYNCKAI_DEBUG__) {
-        const candidates = question?.media ? [asCandidate(question.media, null)] : [];
-        recordMatchDecision({ episode, key, lane, source: 'cache', candidates, result, mapping: { mapping: cached, verdict: verdict.kind } });
-      }
-      return {
-        result,
-        candidates: [],
-        seasons: [],
-        seasonGroups: [],
-      };
-    }
+  const progress = cached ? applyMapping(episode, cached) : null;
+  if (!cached || progress === null) return { kind: 'miss', confirmed, verdict };
+  if (verdict.kind === 'doubt' && question?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict, lane) };
+  if (revalidated?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, revalidated.media, { signals: [], refreshed: true }, lane) };
+  const result: ResolveResult = { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } };
+  if (__SYNCKAI_DEBUG__) {
+    const candidates = question?.media ? [asCandidate(question.media, null)] : [];
+    recordMatchDecision({ episode, key, lane, source: 'cache', candidates, result, mapping: { mapping: cached, verdict: verdict.kind } });
   }
-  // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution.
-  // Choix de l'utilisateur hors de sa fiche (épisode d'une autre partie de la saison, revisionnage d'un épisode antérieur) :
-  // jamais supprimé ni remplacé, nouvelle résolution sans rien enregistrer
-  const keepsChoice = stored !== null && mappingOrigin(stored) === 'chosen' && confirmed !== null;
-  if (keepsChoice) log.info(`Correspondance choisie ${key} hors de sa fiche pour cet épisode : conservée, résolution sans mise en cache`);
-  // Suppression et apprentissage conditionnels : un choix enregistré pendant les requêtes (sélecteur, carte) n'est jamais écrasé
-  if (stored && persist && !keepsChoice) await forgetIfUnchanged(key, confirmed ?? stored);
+  return { kind: 'hit', resolution: { result, candidates: [], seasons: [], seasonGroups: [] } };
+}
 
-  // Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu) : ignoré sans recherche
-  if (episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime)) {
-    if (__SYNCKAI_DEBUG__) recordMatchDecision({ episode, key, lane, source: 'ignored', candidates: [], result: ignoredResult(episode) });
-    return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
-  }
-  // Plateforme généraliste (ou Prime Video hors genre anime) : série déjà ignorée (moins de 24 h) → aucune recherche
-  // AniList. Une correspondance enregistrée (choix manuel) l'emporte : vérifiée ci-dessus, et sa présence montre que la
-  // série est un anime.
-  if (filtersAnime(episode) && !stored && (await isSeriesIgnored(episode))) {
+/**
+ * Série ignorée sans recherche AniList : Prime Video sans verdict « anime » (jamais envoyé ainsi par le script de contenu),
+ * ou plateforme généraliste (Prime Video hors genre anime compris) dont la série est déjà ignorée (moins de 24 h). Une
+ * correspondance enregistrée (choix manuel) l'emporte : vérifiée par fromCache, et sa présence montre que la série est un anime.
+ */
+async function ignoredShortcut(episode: EpisodeInfo, key: string, stored: MediaMapping | null, lane: RequestLane): Promise<EpisodeResolution | null> {
+  const isUnsentPrime = episode.platform === 'prime' && !isSentPrimeAnimeVerdict(episode.primeAnime);
+  if (!isUnsentPrime) {
+    if (!filtersAnime(episode) || stored || !(await isSeriesIgnored(episode))) return null;
     log.info('Série déjà ignorée (verdict mémorisé) : pas de nouvelle recherche', episode.animeTitle);
-    if (__SYNCKAI_DEBUG__) recordMatchDecision({ episode, key, lane, source: 'ignored', candidates: [], result: ignoredResult(episode) });
-    return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
   }
+  if (__SYNCKAI_DEBUG__) recordMatchDecision({ episode, key, lane, source: 'ignored', candidates: [], result: ignoredResult(episode) });
+  return { result: ignoredResult(episode), candidates: [], seasons: [], seasonGroups: [] };
+}
 
+/**
+ * Nouvelle résolution : candidats du catalogue, règles (resolveTarget) puis juge (judge.ts, filtre « anime » des plateformes
+ * généralistes compris) ; verdict « série ignorée » mémorisé ; résultat sûr appris (saveLearned : jamais par-dessus un choix
+ * enregistré pendant les requêtes), sauf en lecture seule ou pour un choix de l'utilisateur hors de sa fiche (`keepsChoice`).
+ */
+async function fresh(
+  episode: EpisodeInfo,
+  key: string,
+  { stored, verdict, keepsChoice, persist, lane }: { stored: MediaMapping | null; verdict: CachedMappingVerdict; keepsChoice: boolean; persist: boolean; lane: RequestLane },
+): Promise<EpisodeResolution> {
   const collected = await collectCandidates(episode, lane);
   const { candidates } = collected;
   // Diagnostic : fiches retenues comme appartenant à la série (les autres résultats de recherche sont omis)
@@ -633,3 +633,21 @@ export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lan
   const { seasons, seasonGroups } = poolOf(collected, episode.animeTitle);
   return { result, candidates: summarize(collected, result.ok ? result.target.mediaId : null), seasons: seasons.map(toCandidateSummary), seasonGroups };
 }
+
+/** Résout la fiche AniList d'un épisode : cache d'abord (fromCache), série ignorée sans recherche, recherche sinon (fresh). */
+export async function resolveEpisode(episode: EpisodeInfo, { persist = true, lane = 'interactive', revalidateCache = false }: ResolveOptions = {}): Promise<EpisodeResolution> {
+  const key = mappingKey(episode);
+  const stored = await getMediaMapping(key);
+  const cache = await fromCache(episode, key, stored, { persist, lane, revalidateCache });
+  if (cache.kind === 'hit') return cache.resolution;
+  const { confirmed, verdict } = cache;
+  // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution.
+  // Choix de l'utilisateur hors de sa fiche (épisode d'une autre partie de la saison, revisionnage d'un épisode antérieur) :
+  // jamais supprimé ni remplacé, nouvelle résolution sans rien enregistrer
+  const keepsChoice = stored !== null && mappingOrigin(stored) === 'chosen' && confirmed !== null;
+  if (keepsChoice) log.info(`Correspondance choisie ${key} hors de sa fiche pour cet épisode : conservée, résolution sans mise en cache`);
+  // Suppression et apprentissage conditionnels : un choix enregistré pendant les requêtes (sélecteur, carte) n'est jamais écrasé
+  if (stored && persist && !keepsChoice) await forgetIfUnchanged(key, confirmed ?? stored);
+  return (await ignoredShortcut(episode, key, stored, lane)) ?? fresh(episode, key, { stored, verdict, keepsChoice, persist, lane });
+}
+

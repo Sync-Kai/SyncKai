@@ -5,8 +5,8 @@ import type { CandidateSummary } from '../../shared/review.types';
 import type { ListStatus, MediaMapping } from '../../shared/sync.types';
 import { normalizeTitle } from '../../shared/title';
 import type { PlatformLink } from '../../shared/watching.types';
+import type { Judgement } from '../sync/matching/judge';
 import type { PlatformLinkVerdict } from '../sync/matching/matching';
-import { SEASON_COUNT_TOLERANCE, totalEpisodes } from '../sync/matching/model';
 
 // Règles pures de la fiche de la page (#23) : choix de la saison affichée. Testables sans API.
 
@@ -173,14 +173,15 @@ export function pickPartInGroup(groupIds: readonly number[], remembered: { media
 }
 
 /**
- * Vrai si le nombre d'épisodes de la saison affiché sur la page ne correspond pas à celui des fiches
- * AniList retenues (somme des parties), au-delà de l'écart toléré (épisode 0, récapitulatif compté à part…).
- * Inconnu d'un côté ou de l'autre (saison en cours) → pas d'alerte.
+ * Jugement de la fiche retenue pour la saison de la page (judge.ts) traduit pour la page de série : certaine si les signaux
+ * la prouvent ; sinon si la règle est sûre sans doute « fiche unique » (singleEntry), ou si la fiche est la série entière
+ * (wholeShow : arcs One Piece Netflix), et que la saison nommée a une fiche à son titre (unmatchedName). Le nombre
+ * d'épisodes (countMismatch) est contrôlé sur la saison affichée (voir page-media.ts › refinePageSeason).
  */
-export function episodeCountMismatch(pageCount: number | null | undefined, episodes: readonly (number | null)[]): boolean {
-  if (pageCount === null || pageCount === undefined || episodes.length === 0) return false;
-  const total = totalEpisodes(episodes.map((count) => ({ episodes: count })));
-  return total !== null && Math.abs(pageCount - total) > SEASON_COUNT_TOLERANCE;
+export function pageMatchConfident({ result, doubts, wholeShow, bySignals }: Judgement): boolean {
+  if (!result.ok) return false;
+  if (bySignals) return true;
+  return ((result.target.confidence === 'high' && !doubts.includes('singleEntry')) || wholeShow) && !doubts.includes('unmatchedName');
 }
 
 /**

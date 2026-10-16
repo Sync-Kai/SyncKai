@@ -28,11 +28,11 @@ import { getPageMediaDetails, type AniListMedia } from '../anilist/media';
 import { getPageMediaBatch } from '../anilist/page-batch';
 import { entryGeneration, readCachedEntry, storeCachedEntry } from '../trackers/entry-cache';
 import {
-  episodeCountMismatch,
   exactRememberedMapping,
   firstUnfinishedSeason,
   learnableSeriesLink,
   manualSeasonProgress,
+  pageMatchConfident,
   pickKnownSeason,
   pickPartInGroup,
   rememberedSeason,
@@ -42,19 +42,10 @@ import {
   type SeasonChoice,
 } from './page-media-rules';
 import { isSeriesIgnored, rememberIgnoredSeries } from '../sync/ignored-series';
-import {
-  filtersAnime,
-  isDisneyEntityLink,
-  isPrimeOwnLink,
-  platformLinkVerdict,
-  primeOwnIds,
-  representsWholeShow,
-  seasonLabel,
-  singleEntryDoubt,
-} from '../sync/matching/matching';
+import { filtersAnime, isDisneyEntityLink, isPrimeOwnLink, platformLinkVerdict, primeOwnIds, seasonLabel } from '../sync/matching/matching';
+import { judge } from '../sync/matching/judge';
 import { cachedMappingVerdict, mappingFromManualChoice } from '../sync/matching/mapping';
 import { resolveTarget } from '../sync/matching/rules-engine';
-import { isUnmatchedNamedSeason } from '../sync/matching/season-titles';
 import { findSeriesSeasons, resolveEpisode, toCandidateSummary, type SeriesSeasons } from '../sync/resolver';
 import { fromAniListScore, fromMalScore } from '../../shared/score';
 import { getConnectedTrackers } from '../trackers';
@@ -276,16 +267,26 @@ async function pickSeriesSeason(shownPage: PageMediaInfo, manual: number | null,
           candidates,
         )
       : null;
-  // Fiche unique, suite d'une autre fiche, qui ne couvre pas toutes les saisons de la plateforme : à vérifier (comme la synchro)
-  const doubt = target?.ok ? singleEntryDoubt({ platform: page.platform, animeTitle: page.seriesTitle, platformSeasons: page.platformSeasons }, candidates, target.target.mediaId) : false;
-  // Fiche unique liée qui couvre toutes les saisons de la plateforme (One Piece, arcs Netflix) : la série entière, certaine
-  const wholeShow = target?.ok ? representsWholeShow({ animeTitle: page.seriesTitle, platformSeasons: page.platformSeasons }, candidates, target.target.mediaId) : false;
-  // Saison nommée (« HEROINES ») sans fiche à son titre : la fiche retenue (série principale) reste à vérifier
-  const chosen = target?.ok ? candidates.find((c) => c.id === target.target.mediaId) : undefined;
-  const unmatchedName = chosen !== undefined && isUnmatchedNamedSeason({ animeTitle: page.seriesTitle, seasonTitle: page.seasonTitle, seasonNumber: page.seasonNumber, seasonFirstEpisode: page.seasonFirstEpisode }, chosen);
-  // Fiche prouvée par les signaux de la plateforme (groupe de saison unique et confirmé) : certaine, jamais « Saison devinée »
-  const proven = target?.ok === true && target.target.bySignals === true;
-  const pageMatch = target?.ok ? { mediaId: target.target.mediaId, confident: proven || (((target.target.confidence === 'high' && !doubt) || wholeShow) && !unmatchedName) } : null;
+  // Même juge que la synchro (judge.ts) : doutes sur la fiche retenue, traduits pour la page (pageMatchConfident)
+  const judgement = target?.ok
+    ? judge(
+        {
+          platform: page.platform,
+          animeTitle: page.seriesTitle,
+          seasonTitle: page.seasonTitle,
+          seasonNumber: page.seasonNumber,
+          seasonFirstEpisode: page.seasonFirstEpisode,
+          seasonEpisodeCount: page.seasonEpisodeCount,
+          platformSeasons: page.platformSeasons,
+          primeAnime: page.primeAnime,
+        },
+        candidates,
+        target,
+      )
+    : null;
+  // Fiche prouvée par les signaux de la plateforme (groupe de saison unique et confirmé) : jamais « Saison devinée »
+  const proven = judgement?.bySignals === true;
+  const pageMatch = target?.ok && judgement ? { mediaId: target.target.mediaId, confident: pageMatchConfident(judgement) } : null;
 
   if (seasons.length === 0) {
     if (manual !== null) return { mediaId: manual, source: 'manual', confidence: 'certain', seasons: summaries, episodeProgress: null };
@@ -310,7 +311,9 @@ async function pickSeriesSeason(shownPage: PageMediaInfo, manual: number | null,
     // (c) Première saison non terminée par l'utilisateur
     firstUnfinishedSeason(seasonIds, await seasonStatuses(seasons));
   if (!choice) return null;
-  const refined = choice.source === 'page' ? await refinePageSeason(page, choice, seasons, seasonGroups, remembered, proven && choice.mediaId === pageMatch?.mediaId) : choice;
+  // Choix « page » = fiche retenue par la résolution (pageMatch) : contrôle du nombre d'épisodes par le juge
+  const counted = { mismatch: judgement?.doubts.includes('countMismatch') === true, proven: proven && choice.mediaId === pageMatch?.mediaId };
+  const refined = choice.source === 'page' ? await refinePageSeason(page, choice, seasons, seasonGroups, remembered, counted) : choice;
   const confidence = doubted && refined.source !== 'manual' ? 'uncertain' : refined.confidence;
   return { ...refined, confidence, seasons: summaries, episodeProgress: null };
 }
@@ -325,8 +328,11 @@ async function refinePageSeason(
   seasons: readonly AniListMedia[],
   seasonGroups: readonly number[][],
   remembered: { mediaId: number; exact: boolean } | null,
-  /** Fiche prouvée par les signaux (nombre d'épisodes compris) : jamais « Saison devinée » */
-  proven = false,
+  /**
+   * Doute countMismatch du juge sur la fiche retenue (épisodes de la saison sur la page contre le total des parties) ;
+   * `proven` : fiche prouvée par les signaux (nombre d'épisodes compris), jamais « Saison devinée »
+   */
+  { mismatch, proven }: { mismatch: boolean; proven: boolean },
 ): Promise<SeasonChoice> {
   const group = seasonGroups.find((ids) => ids.includes(choice.mediaId));
   if (!group) return choice;
@@ -340,7 +346,6 @@ async function refinePageSeason(
     mediaId = pickPartInGroup(group, remembered, needsStatuses ? await seasonStatuses(parts) : []) ?? mediaId;
   }
   // Nombre d'épisodes de la saison (page) très différent de la somme des parties : choix à vérifier
-  const mismatch = episodeCountMismatch(page.seasonEpisodeCount, parts.map((m) => m.episodes));
   if (mismatch) log.info(`Saison ${page.seasonNumber ?? '?'} : ${page.seasonEpisodeCount ?? '?'} épisodes sur la page, autre total sur AniList`);
   return { ...choice, mediaId, confidence: mismatch && !proven ? 'uncertain' : choice.confidence };
 }

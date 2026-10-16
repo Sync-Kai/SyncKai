@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { episodeCountMismatch } from '../sync/matching/judge';
 import {
-  episodeCountMismatch,
   firstUnfinishedSeason,
   learnableSeriesLink,
   manualSeasonProgress,

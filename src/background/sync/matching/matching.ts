@@ -8,11 +8,11 @@ import { exactTitleKeys } from './concordance';
 import { byStartDate, isDirectlyLinked, isLinked, SEASON_COUNT_TOLERANCE, SERIES_FORMATS, totalEpisodes, type LinkKind, type MediaCandidate, type ResolveResult } from './model';
 import { seasonPool } from './season-pool';
 import { isSpecialTitled } from './season-titles';
-import { inLinkedFranchise } from './signal-groups';
 
 // Liens AniList vers les plateformes, clé et libellé d'une saison, et filtre « anime » des plateformes généralistes.
 // Règles de correspondance : rules-engine.ts (étapes : stages/) ; modèle : model.ts ; correspondances en cache :
-// mapping.ts ; titres de saison : season-titles.ts ; signaux : signal-groups.ts et concordance.ts.
+// mapping.ts ; titres de saison : season-titles.ts ; signaux : signal-groups.ts et concordance.ts ; jugement du
+// résultat (doutes nommés, filtre « anime » appliqué) : judge.ts.
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -510,39 +510,7 @@ export function platformLinkVerdict(episode: Pick<EpisodeInfo, 'platform' | 'ani
   return isTitleMatch ? 'title' : 'none';
 }
 
-/**
- * Filtre « anime » d'une plateforme généraliste (PLATFORMS[…].linkRequired : Netflix, Disney+ ; Prime Video selon son
- * verdict de genre, voir primeAnimeGate), appliqué au résultat de resolveTarget :
- * 1. une fiche liée à la série (lien plateforme ou suite/préquelle d'une fiche liée) → résultat inchangé, mais
- *    confiance basse si la fiche choisie n'est pas elle-même liée (série TV homonyme d'un film lié) ;
- * 2. sinon, des fiches au titre de la série → correspondance jamais fiable (carte « à vérifier »), échec inchangé ;
- * 3. sinon → série ignorée (probablement pas un anime : ni carte de vérification ni toast).
- */
-export function gateByPlatformLink(
-  episode: Pick<EpisodeInfo, 'platform' | 'animeTitle' | 'platformSeasons' | 'primeAnime'>,
-  candidates: readonly MediaCandidate[],
-  result: ResolveResult,
-): ResolveResult {
-  const verdict = platformLinkVerdict(episode, candidates);
-  if (verdict === 'open') return result;
-  if (verdict === 'linked') {
-    if (!result.ok || result.target.confidence !== 'high') return result;
-    const { mediaId } = result.target;
-    const platform = PLATFORMS[episode.platform].label;
-    if (singleEntryDoubt(episode, candidates, mediaId)) return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformSeasonsSingle', { platform }) } };
-    // Fiche prouvée par les signaux dans la franchise liée (« II Part 2 », liée seulement à Crunchyroll) : comme liée.
-    // Prouvée hors de la franchise liée (homonyme sans lien ni relation avec la fiche liée) : titre seul, à vérifier
-    const provenInLinkedFranchise = result.target.bySignals === true && inLinkedFranchise(candidates, episode.animeTitle, mediaId);
-    if (provenInLinkedFranchise || candidates.some((c) => c.id === mediaId && isLinked(c))) return result;
-    return { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformUnlinkedEntry', { platform: PLATFORMS[episode.platform].label }) } };
-  }
-  if (verdict === 'title') {
-    return result.ok ? { ok: true, target: { ...result.target, confidence: 'low', reason: t('match.platformTitleOnly', { platform: PLATFORMS[episode.platform].label }) } } : result;
-  }
-  return ignoredResult(episode);
-}
-
-/** Verdict « série ignorée » (filtre ci-dessus, ou verdict mémorisé : voir ignored-series.ts) */
+/** Verdict « série ignorée » (filtre « anime » : voir judge.ts › syncResult ; ou verdict mémorisé : voir ignored-series.ts) */
 export function ignoredResult(episode: Pick<EpisodeInfo, 'animeTitle'>): ResolveResult {
   return { ok: false, reason: t('match.noEntry', { title: episode.animeTitle }), ignored: true };
 }
