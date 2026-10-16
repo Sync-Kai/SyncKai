@@ -107,15 +107,20 @@ function rulesContext(episode: EpisodeNumbers, candidates: readonly MediaCandida
  * - plafond « autre slug » : une fiche écartée sur un ancien slug rend tout choix sûr à vérifier, sauf fiche liée
  *   directement ou dédiée au titre exact ;
  * - raison : liens non fiables (remakes Disney+ / Prime Video), ou absence de tout lien (titre seul) plutôt que la règle ;
- * - groupe prouvé par les signaux : tel quel (audit L1, décision 9 en attente).
+ * - groupe prouvé par les signaux : tel quel (l'année de la saison place l'épisode sans le rang des saisons), sauf preuve
+ *   par le seul nombre d'épisodes à côté d'une fiche écartée sur un ancien slug : plafonné, sans la marque bySignals (audit
+ *   L1, décision 9 : une saison décalée de même longueur concorderait aussi).
  */
 function finalize(ctx: RulesContext, proposal: Proposal): ResolveResult {
   const { candidate, base, progress, numbering, confidence, reason } = proposal;
   const placement = { mediaId: candidate.id, numbering, offset: base - progress, episodes: candidate.episodes, progress };
-  if (proposal.bySignals) return { ok: true, target: { ...placement, confidence, reason, bySignals: true } };
+  const isCapped = confidence === 'high' && ctx.weakExclusion && !isDirectlyLinked(candidate) && proposal.byExactTitle !== true;
+  if (proposal.bySignals) {
+    if (isCapped && proposal.countOnlyProof === true) return { ok: true, target: { ...placement, confidence: 'low', reason: t('match.otherSeriesExcluded') } };
+    return { ok: true, target: { ...placement, confidence, reason, bySignals: true } };
+  }
 
   const { episode } = ctx;
-  const isCapped = confidence === 'high' && ctx.weakExclusion && !isDirectlyLinked(candidate) && proposal.byExactTitle !== true;
   const finalReason = isCapped
     ? t('match.otherSeriesExcluded')
     : ctx.untrustedLinks && confidence !== 'high' && episode.platform !== undefined

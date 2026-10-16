@@ -324,6 +324,36 @@ describe('fiche écartée sur un ancien slug différent (« other-slug », signa
       target: { mediaId: 3, confidence: 'low', reason: 'Une fiche liée à une autre série de la plateforme a été écartée : saison à vérifier' },
     });
   });
+
+  // Audit L1, décision 9 : un groupe prouvé par les signaux échappait au plafond. Le nombre d'épisodes seul ne distingue pas
+  // une saison décalée de même longueur : plafonné ; l'année de la saison place l'épisode sans le rang des saisons : gardé.
+  describe('groupe prouvé par les signaux (audit L1, décision 9)', () => {
+    const candidates = [
+      candidate({ id: 1, startDate: 20180101, titles: ['Foo'], link: 'slug' }),
+      candidate({ id: 2, startDate: 20200101, titles: ['Foo Season 2'], link: 'other-slug' }),
+      candidate({ id: 3, episodes: 24, startDate: 20220101, titles: ['Foo Season 3'], link: 'relation' }),
+    ];
+    const s2e4 = episode({ animeTitle: 'Foo', seasonNumber: 2, seasonEpisodeNumber: 4, displayedEpisodeNumber: 4 });
+
+    it('seule preuve = le nombre d’épisodes : plafonné, à vérifier (raison « autre série écartée »)', () => {
+      const result = resolveTarget({ ...s2e4, signals: { seasonEpisodeCount: 24 } }, candidates);
+      expect(result).toMatchObject({
+        ok: true,
+        target: { mediaId: 3, progress: 4, confidence: 'low', reason: 'Une fiche liée à une autre série de la plateforme a été écartée : saison à vérifier' },
+      });
+      expect(result.ok && result.target.bySignals).toBeFalsy();
+    });
+
+    it('année de la saison concordante : groupe prouvé gardé tel quel (comportement documenté)', () => {
+      expect(resolveTarget({ ...s2e4, signals: { seasonYear: 2022 } }, candidates)).toMatchObject({ ok: true, target: { mediaId: 3, progress: 4, confidence: 'high', bySignals: true } });
+      expect(resolveTarget({ ...s2e4, signals: { seasonYear: 2022, seasonEpisodeCount: 24 } }, candidates)).toMatchObject({ ok: true, target: { mediaId: 3, confidence: 'high', bySignals: true } });
+    });
+
+    it('sans fiche écartée sur un ancien slug : le nombre d’épisodes seul prouve le groupe', () => {
+      const unrelated = candidates.filter((c) => c.link !== 'other-slug');
+      expect(resolveTarget({ ...s2e4, signals: { seasonEpisodeCount: 24 } }, unrelated)).toMatchObject({ ok: true, target: { mediaId: 3, confidence: 'high', bySignals: true } });
+    });
+  });
 });
 
 describe('legacySeriesSlugInLink', () => {

@@ -58,10 +58,12 @@ export interface Proposal {
   /** Placement par le seul rang de la saison (voir SyncTarget.byRank) */
   byRank?: boolean;
   /**
-   * Groupe prouvé par les signaux : confiance et raison gardées telles quelles, ni plafond « autre slug » ni raison du
-   * titre seul (audit L1, décision 9 en attente : plafonner quand la seule preuve est le nombre d'épisodes)
+   * Groupe prouvé par les signaux : confiance et raison gardées telles quelles, sans raison du titre seul ; plafond « autre
+   * slug » seulement si la preuve n'est que le nombre d'épisodes (`countOnlyProof`, audit L1, décision 9)
    */
   bySignals?: boolean;
+  /** Groupe prouvé par le seul nombre d'épisodes (ni année ni titre original) : une saison décalée de même longueur passerait */
+  countOnlyProof?: boolean;
 }
 
 /** Proposition, échec définitif, ou null : l'étape ne s'applique pas, la suivante décide */

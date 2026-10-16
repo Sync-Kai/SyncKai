@@ -1,3 +1,4 @@
+import { PROOF_SIGNALS } from '../concordance';
 import { fits, SEASON_COUNT_TOLERANCE, totalEpisodes, walkSeasons } from '../model';
 import { agreeReason, type SignalConcordance } from '../signal-groups';
 import type { Proposal, Stage } from './context';
@@ -18,7 +19,10 @@ export function provenProposal(concordance: SignalConcordance, relative: number)
   const hit = walkSeasons(group.entries, 0, relative);
   const chosen = hit ? group.entries[hit.index] : undefined;
   if (!hit || !chosen || !fits(chosen, hit.progress)) return null;
-  return { candidate: chosen, base: relative, progress: hit.progress, numbering: 'season', confidence: 'high', reason: agreeReason(concordance, group.checks), bySignals: true };
+  // Seule preuve : le nombre d'épisodes (ni année ni titre original), qui ne distingue pas une saison décalée de même longueur
+  const proofs = PROOF_SIGNALS.filter((name) => group.checks[name] === 'agree');
+  const countOnly = proofs.length === 1 && proofs[0] === 'episodeCount';
+  return { candidate: chosen, base: relative, progress: hit.progress, numbering: 'season', confidence: 'high', reason: agreeReason(concordance, group.checks), bySignals: true, ...(countOnly ? { countOnlyProof: true } : {}) };
 }
 
 /** Groupe prouvé par les signaux (calculé avec le contexte, voir RulesContext.proven) : prime sur le rang des saisons */
