@@ -853,6 +853,8 @@
   "sync.noEquivalent": "Nenhuma ficha correspondente",
   "sync.noServiceFollows": "Nenhum serviço conectado tem uma ficha deste anime.",
   "sync.recentNotFound": "Sincronização não encontrada.",
+  "sync.review.burst": "Muitos episódios concluídos em poucos minutos: a verificar",
+  "sync.review.finaleJump": "Salto direto para o último episódio ({progress}) a partir do episódio {from}: a verificar",
   "sync.reviewGone": "Esta verificação não existe mais.",
   "sync.sessionClosed": "Conta desconectada ou trocada desde então: nada foi gravado",
   "sync.seriesFallback": "Anime",

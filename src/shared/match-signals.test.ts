@@ -51,4 +51,24 @@ describe('isPlatformSignals', () => {
     expect(isEpisodeInfo({ ...episode, signals: { seasonYear: 2023 } })).toBe(true);
     expect(isEpisodeInfo({ ...episode, signals: { seasonYear: 'x' } })).toBe(false);
   });
+
+  it('EpisodeInfo bornée (SEC-10) : textes trop longs et nombres non finis ou négatifs refusés, épisode décimal accepté', () => {
+    const episode = { platform: 'crunchyroll', episodeId: 'GEP1', seriesId: 'GSERIES', seriesSlug: 'serie', animeTitle: 'X', seasonNumber: 0, seasonTitle: 'Saison', seasonEpisodeNumber: 24.5, displayedEpisodeNumber: 1180, episodeTitle: 'Titre', url: 'https://www.crunchyroll.com/watch/GEP1' };
+    expect(isEpisodeInfo(episode)).toBe(true);
+    for (const [field, value] of [
+      ['animeTitle', 'x'.repeat(501)],
+      ['episodeId', 'x'.repeat(201)],
+      ['seriesId', 'x'.repeat(201)],
+      ['seriesSlug', 'x'.repeat(201)],
+      ['seasonTitle', 'x'.repeat(501)],
+      ['episodeTitle', 'x'.repeat(1001)],
+      ['url', `https://www.crunchyroll.com/${'x'.repeat(2048)}`],
+      ['seasonNumber', Number.NaN],
+      ['seasonEpisodeNumber', Number.POSITIVE_INFINITY],
+      ['displayedEpisodeNumber', -1],
+      ['displayedEpisodeNumber', 10_000_001],
+    ] as const) {
+      expect(isEpisodeInfo({ ...episode, [field]: value }), field).toBe(false);
+    }
+  });
 });

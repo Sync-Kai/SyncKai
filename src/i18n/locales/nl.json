@@ -853,6 +853,8 @@
   "sync.noEquivalent": "Geen overeenkomende pagina",
   "sync.noServiceFollows": "Geen enkele verbonden dienst heeft een pagina voor deze serie.",
   "sync.recentNotFound": "Sync niet gevonden.",
+  "sync.review.burst": "Veel afleveringen binnen een paar minuten afgerond: te controleren",
+  "sync.review.finaleJump": "Rechtstreeks naar de laatste aflevering ({progress}) vanaf aflevering {from}: te controleren",
   "sync.reviewGone": "Deze controle bestaat niet meer.",
   "sync.sessionClosed": "Account inmiddels uitgelogd of gewisseld: niets geschreven",
   "sync.seriesFallback": "Serie",

@@ -904,6 +904,8 @@
   "sync.noEquivalent": "Chybí odpovídající záznam",
   "sync.noServiceFollows": "Žádná připojená služba nemá pro tento seriál záznam.",
   "sync.recentNotFound": "Synchronizace nenalezena.",
+  "sync.review.burst": "Mnoho epizod dokončeno během několika minut: je třeba ověřit",
+  "sync.review.finaleJump": "Přímý skok na poslední epizodu ({progress}) z epizody {from}: je třeba ověřit",
   "sync.reviewGone": "Toto ověření už neexistuje.",
   "sync.sessionClosed": "Mezitím došlo k odhlášení nebo změně účtu: nic se nezapsalo",
   "sync.seriesFallback": "Seriál",

@@ -905,7 +905,8 @@ export const CASES: readonly CorpusCase[] = [
     episode: prime('Berserk', 'anime', 1, 1),
     signals: { seasons: [{ seq: 1, year: 1997 }], source: 'SUPPOSÉ : valeur de releaseYear non relevée pour ce titre (chemin relevé le 2026-10-14), année de diffusion d’origine ; passée par reducePrimeDetail et primeSignals' },
     searches: ['Berserk'],
-    expected: high(33, 1),
+    // Décision 1 (SEC-01) : l'année ne vient que du pont de la page, elle désigne la fiche sans la rendre sûre (à vérifier)
+    expected: low(33, 1),
   },
   {
     id: 'pv-berserk-2016-e1-year',
@@ -915,7 +916,8 @@ export const CASES: readonly CorpusCase[] = [
     episode: prime('Berserk', 'anime', 1, 1, '0PRIMEBERSERK2016000000000'),
     signals: { seasons: [{ seq: 1, year: 2016 }], source: 'SUPPOSÉ : valeur de releaseYear non relevée pour ce titre (chemin relevé le 2026-10-14), année de diffusion d’origine ; passée par reducePrimeDetail et primeSignals' },
     searches: ['Berserk'],
-    expected: high(21560, 1),
+    // Décision 1 (SEC-01) : l'année ne vient que du pont de la page, elle désigne la fiche sans la rendre sûre (à vérifier)
+    expected: low(21560, 1),
   },
   {
     id: 'pv-berserk-2016-s2e1-year',
@@ -925,7 +927,8 @@ export const CASES: readonly CorpusCase[] = [
     episode: prime('Berserk', 'anime', 2, 1, '0PRIMEBERSERK2017000000000'),
     signals: { seasons: [{ seq: 2, year: 2017 }], source: 'SUPPOSÉ : valeur de releaseYear non relevée pour ce titre (chemin relevé le 2026-10-14), année de diffusion d’origine ; passée par reducePrimeDetail et primeSignals' },
     searches: ['Berserk'],
-    expected: high(97643, 1),
+    // Décision 1 (SEC-01) : l'année ne vient que du pont de la page, elle désigne la fiche sans la rendre sûre (à vérifier)
+    expected: low(97643, 1),
   },
   {
     id: 'pv-fate-ubw-movie',
@@ -970,8 +973,9 @@ export const CASES: readonly CorpusCase[] = [
     episode: prime('VINLAND SAGA', 'animation-ja', 2, 1),
     signals: { seasons: [{ seq: 2, year: 2023 }], source: 'SUPPOSÉ : valeur de releaseYear non relevée pour ce titre (chemin relevé le 2026-10-14), année de diffusion d’origine ; passée par reducePrimeDetail et primeSignals' },
     searches: ['VINLAND SAGA'],
-    // Sans releaseYear : « À vérifier » (saison 2 au titre seul) ; l’année 2023 prouve « VINLAND SAGA SEASON 2 »
-    expected: high(136430, 1),
+    // Sans releaseYear : « À vérifier » (saison 2 au titre seul) ; l’année 2023 désigne « VINLAND SAGA SEASON 2 », mais elle
+    // ne vient que du pont de la page : à vérifier (décision 1, SEC-01)
+    expected: low(136430, 1),
   },
   {
     id: 'pv-vinland-saga-s2-simuldub',
@@ -982,8 +986,54 @@ export const CASES: readonly CorpusCase[] = [
     signals: { seasons: [{ seq: 2, year: 2023 }], source: 'SUPPOSÉ : valeur de releaseYear non relevée pour ce titre (chemin relevé le 2026-10-14), année de diffusion d’origine ; passée par reducePrimeDetail et primeSignals' },
     searches: ['VINLAND SAGA'],
     // Titre exact (fiche de la saison 1) : filtre « exact seulement » passé ; sans releaseYear « À vérifier », l’année 2023
-    // prouve la saison 2
-    expected: high(136430, 1),
+    // désigne la saison 2, mais elle ne vient que du pont de la page : à vérifier (décision 1, SEC-01)
+    expected: low(136430, 1),
+  },
+  // ─── Cas adverses (audit 5-§3.5, SEC-01 / SEC-05) : signaux forgés par un script de la page ─────────────────────────
+  {
+    id: 'adv-pv-berserk-1997-forged-2016',
+    kind: 'episode',
+    note: 'ADVERSE : page Prime Video de Berserk (1997) dont un script forge l’année et le nombre d’épisodes de Berserk (2016) pour viser l’autre fiche.',
+    anilist: 'berserk',
+    episode: prime('Berserk', 'anime', 1, 1),
+    signals: { seasons: [{ seq: 1, year: 2016, episodes: 12 }], source: 'FORGÉ : signaux d’un script de la page (pont MAIN), cas construit' },
+    searches: ['Berserk'],
+    // La fiche visée est proposée, jamais synchronisée d'office (décision 1 : le pont seul ne prouve rien)
+    expected: low(21560, 1),
+  },
+  {
+    id: 'adv-pv-berserk-contradictory',
+    kind: 'episode',
+    note: 'ADVERSE : signaux contradictoires (année de Berserk 2016, 25 épisodes de Berserk 1997) sur une page Prime Video « Berserk ».',
+    anilist: 'berserk',
+    episode: prime('Berserk', 'anime', 1, 1),
+    signals: { seasons: [{ seq: 1, year: 2016, episodes: 25 }], source: 'FORGÉ : signaux d’un script de la page (pont MAIN), cas construit' },
+    searches: ['Berserk'],
+    // Aucun groupe prouvé : à vérifier comme sans signal
+    expected: low(33, 1),
+  },
+  {
+    id: 'adv-pv-bumpkin-forged-year',
+    kind: 'episode',
+    note: 'ADVERSE : titre seul déjà sûr sans signal (fiche unique, saison 1) ; un script forge une année qui le contredit.',
+    anilist: 'bumpkin',
+    episode: prime('From Old Country Bumpkin to Master Swordsman', 'animation-ja', 1, 3),
+    signals: { seasons: [{ seq: 1, year: 2010 }], source: 'FORGÉ : signaux d’un script de la page (pont MAIN), cas construit' },
+    searches: ['From Old Country Bumpkin to Master Swordsman'],
+    // Des signaux forgés ne peuvent que faire baisser la confiance : à vérifier, rien n'est écrit
+    expected: low(179955, 3),
+  },
+  {
+    id: 'adv-cr-frieren-s1e5-forged-year',
+    kind: 'episode',
+    note: 'ADVERSE : Frieren saison 1 E5 sur Crunchyroll (fiche liée à la série), un script forge l’année de la saison 2.',
+    anilist: 'frieren',
+    episode: crunchyroll(FRIEREN_CR, 'GFRIER0105', { seasonNumber: 1, seasonTitle: 'Frieren: Beyond Journey’s End', seasonEpisodeNumber: 5, displayedEpisodeNumber: 5 }),
+    signals: { seasons: [{ seq: 1, year: 2026, episodes: 10 }], source: 'FORGÉ : signaux d’un script de la page (pont MAIN), cas construit' },
+    searches: ['Frieren: Beyond Journey’s End'],
+    // Avant la décision 1 : saison 2 E5 écrite d'office (high, bySignals). Les règles seules choisissaient la saison 1 :
+    // les signaux du pont ne déplacent jamais la fiche d'office, la saison visée est seulement proposée (à vérifier)
+    expected: low(182255, 5),
   },
   {
     id: 'pv-vinland-saga-season-2-title',

@@ -904,6 +904,8 @@
   "sync.noEquivalent": "Nicio fișă corespunzătoare",
   "sync.noServiceFollows": "Niciun serviciu conectat nu are o fișă pentru această serie.",
   "sync.recentNotFound": "Sincronizarea nu a fost găsită.",
+  "sync.review.burst": "Multe episoade terminate în câteva minute: de verificat",
+  "sync.review.finaleJump": "Salt direct la ultimul episod ({progress}) de la episodul {from}: de verificat",
   "sync.reviewGone": "Această verificare nu mai există.",
   "sync.sessionClosed": "Cont deconectat sau schimbat între timp: nu s-a scris nimic",
   "sync.seriesFallback": "Serie",

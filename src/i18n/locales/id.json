@@ -802,6 +802,8 @@
   "sync.noEquivalent": "Tidak ada entri yang sesuai",
   "sync.noServiceFollows": "Tidak ada layanan terhubung yang punya entri untuk anime ini.",
   "sync.recentNotFound": "Sinkron tidak ditemukan.",
+  "sync.review.burst": "Banyak episode selesai dalam beberapa menit: perlu dicek",
+  "sync.review.finaleJump": "Langsung ke episode terakhir ({progress}) dari episode {from}: perlu dicek",
   "sync.reviewGone": "Pengecekan ini sudah tidak ada.",
   "sync.sessionClosed": "Akun sudah terputus atau diganti: tidak ada yang ditulis",
   "sync.seriesFallback": "Anime",

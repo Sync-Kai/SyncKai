@@ -208,3 +208,12 @@ New keys in the « Matching diagnostic » section (Settings › Help & about, de
 |---|---|
 | `settings.matchDiag.copyAll` | Копировать всё |
 | `settings.matchDiag.copyAllTitle` | Скопировать все решения в JSON |
+
+## 2026-10-16 · Episode guards (« To check » reasons)
+
+New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a sync that would jump straight to the last episode from far behind, and episodes reported as finished in a burst, now wait for the user instead of being written. Same « to check » term as `match.otherSeriesExcluded`, same episode wording as `sync.beyondEntry_*`; `{from}` and `{progress}` are episode numbers. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `sync.review.finaleJump` | Сразу последний эпизод ({progress}) после эпизода {from}: нужно проверить |
+| `sync.review.burst` | Много эпизодов досмотрено за несколько минут: нужно проверить |

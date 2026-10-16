@@ -853,6 +853,8 @@
   "sync.noEquivalent": "Pas de fiche équivalente",
   "sync.noServiceFollows": "Aucun service connecté n’a de fiche pour cette série.",
   "sync.recentNotFound": "Synchronisation introuvable.",
+  "sync.review.burst": "Beaucoup d’épisodes terminés en quelques minutes : à vérifier",
+  "sync.review.finaleJump": "Passage direct au dernier épisode ({progress}) depuis l’épisode {from} : à vérifier",
   "sync.reviewGone": "Cette vérification n’existe plus.",
   "sync.sessionClosed": "Compte déconnecté ou changé depuis : rien n’est écrit",
   "sync.seriesFallback": "Série",

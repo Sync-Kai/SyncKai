@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../shared/episode.types';
 import type { SyncOutcome } from '../shared/sync.types';
 
@@ -87,5 +87,72 @@ describe('EPISODE_COMPLETED — accès Netflix', () => {
     }
     expect(mocks.hasPlatformAccess).not.toHaveBeenCalled();
     expect(mocks.syncEpisode).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('EPISODE_COMPLETED — limite de débit par onglet et par série (SEC-01, décision 1)', () => {
+  let session: Record<string, unknown> = {};
+  const MINUTE = 60_000;
+  /** Épisode n de la série `seriesId` sur Crunchyroll */
+  const crEpisode = (n: number, seriesId = 'GSERIES'): EpisodeInfo => ({
+    ...episode('crunchyroll'),
+    episodeId: `${seriesId}-E${n}`,
+    seriesId,
+    seasonEpisodeNumber: n,
+    displayedEpisodeNumber: n,
+    url: `https://www.crunchyroll.com/watch/${seriesId}-E${n}`,
+  });
+  /** Synchros réellement écrites (sans demande de vérification) */
+  const reviewed = (): boolean[] => mocks.syncEpisode.mock.calls.map((call: unknown[]) => call.length > 3);
+
+  beforeEach(() => {
+    session = {};
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-16T20:00:00Z'));
+    vi.stubGlobal('chrome', {
+      storage: {
+        session: {
+          get: async (key: string) => (key in session ? { [key]: session[key] } : {}),
+          set: async (values: Record<string, unknown>) => void Object.assign(session, values),
+        },
+      },
+    });
+    vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('enchaînement autoplay (épisodes consécutifs à quelques minutes d’intervalle) : jamais limité', async () => {
+    for (let n = 1; n <= 12; n++) {
+      await handleEpisodeCompleted({ episode: crEpisode(n), services: null }, 7);
+      vi.setSystemTime(Date.now() + 22 * MINUTE);
+    }
+    expect(reviewed()).toEqual(Array.from({ length: 12 }, () => false));
+  });
+
+  it('épisodes courts (moins de 2 min) en rafale : 5 par 10 minutes écrits, au-delà « À vérifier » au lieu d’écrire', async () => {
+    for (let n = 1; n <= 7; n++) {
+      await handleEpisodeCompleted({ episode: crEpisode(n), services: null }, 7);
+      vi.setSystemTime(Date.now() + 1.5 * MINUTE);
+    }
+    expect(reviewed()).toEqual([false, false, false, false, false, true, true]);
+    expect(mocks.syncEpisode.mock.calls[5]?.[3]).toMatchObject({ review: expect.any(String) as unknown });
+    // La fenêtre glisse : passé 10 minutes sans rafale, l'écriture reprend
+    vi.setSystemTime(Date.now() + 10 * MINUTE);
+    await handleEpisodeCompleted({ episode: crEpisode(8), services: null }, 7);
+    expect(reviewed().at(-1)).toBe(false);
+  });
+
+  it('par série : la même série depuis plusieurs onglets est limitée ; d’autres séries du même onglet aussi (par onglet)', async () => {
+    for (let n = 1; n <= 5; n++) await handleEpisodeCompleted({ episode: crEpisode(n), services: null }, n);
+    await handleEpisodeCompleted({ episode: crEpisode(6), services: null }, 99);
+    expect(reviewed().at(-1)).toBe(true);
+    mocks.syncEpisode.mockClear();
+    vi.setSystemTime(Date.now() + 11 * MINUTE);
+    for (let n = 1; n <= 6; n++) await handleEpisodeCompleted({ episode: crEpisode(1, `GOTHER${n}`), services: null }, 42);
+    expect(reviewed()).toEqual([false, false, false, false, false, true]);
   });
 });

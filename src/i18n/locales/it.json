@@ -853,6 +853,8 @@
   "sync.noEquivalent": "Nessuna scheda corrispondente",
   "sync.noServiceFollows": "Nessun servizio collegato ha una scheda per questa serie.",
   "sync.recentNotFound": "Sincronizzazione non trovata.",
+  "sync.review.burst": "Molti episodi completati in pochi minuti: da verificare",
+  "sync.review.finaleJump": "Salto diretto all’ultimo episodio ({progress}) dall’episodio {from}: da verificare",
   "sync.reviewGone": "Questa verifica non esiste più.",
   "sync.sessionClosed": "Account scollegato o cambiato nel frattempo: non è stato scritto nulla",
   "sync.seriesFallback": "Serie",

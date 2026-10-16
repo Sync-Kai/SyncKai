@@ -853,6 +853,8 @@
   "sync.noEquivalent": "Kein entsprechender Eintrag",
   "sync.noServiceFollows": "Kein verbundener Dienst hat einen Eintrag für diese Serie.",
   "sync.recentNotFound": "Synchronisierung nicht gefunden.",
+  "sync.review.burst": "Viele Folgen in wenigen Minuten beendet: prüfen",
+  "sync.review.finaleJump": "Direkt zur letzten Folge ({progress}) ab Folge {from}: prüfen",
   "sync.reviewGone": "Diese Prüfung existiert nicht mehr.",
   "sync.sessionClosed": "Konto seitdem abgemeldet oder gewechselt: nichts geschrieben",
   "sync.seriesFallback": "Serie",

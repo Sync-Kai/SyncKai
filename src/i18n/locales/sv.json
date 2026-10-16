@@ -853,6 +853,8 @@
   "sync.noEquivalent": "Ingen motsvarande titel",
   "sync.noServiceFollows": "Ingen ansluten tjänst har en titel för den här serien.",
   "sync.recentNotFound": "Synkningen hittades inte.",
+  "sync.review.burst": "Många avsnitt klara inom några minuter: granska",
+  "sync.review.finaleJump": "Direkt till sista avsnittet ({progress}) från avsnitt {from}: granska",
   "sync.reviewGone": "Den här granskningen finns inte längre.",
   "sync.sessionClosed": "Kontot har loggats ut eller bytts sedan dess: inget skrevs",
   "sync.seriesFallback": "Serie",

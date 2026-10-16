@@ -853,6 +853,8 @@
   "sync.noEquivalent": "No matching entry",
   "sync.noServiceFollows": "No connected service has an entry for this series.",
   "sync.recentNotFound": "Sync not found.",
+  "sync.review.burst": "Many episodes completed within a few minutes: to check",
+  "sync.review.finaleJump": "Straight to the last episode ({progress}) from episode {from}: to check",
   "sync.reviewGone": "This review no longer exists.",
   "sync.sessionClosed": "Account signed out or changed since: nothing written",
   "sync.seriesFallback": "Series",

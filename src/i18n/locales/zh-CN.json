@@ -802,6 +802,8 @@
   "sync.noEquivalent": "没有对应的条目",
   "sync.noServiceFollows": "已连接的服务中都没有此番剧的条目。",
   "sync.recentNotFound": "找不到该同步记录。",
+  "sync.review.burst": "几分钟内看完了多集：待确认",
+  "sync.review.finaleJump": "从第 {from} 集直接跳到最后一集（第 {progress} 集）：待确认",
   "sync.reviewGone": "此待确认项已不存在。",
   "sync.sessionClosed": "账号已退出或更换：未写入任何内容",
   "sync.seriesFallback": "未知番剧",

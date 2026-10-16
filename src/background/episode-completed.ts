@@ -9,7 +9,10 @@ import { episodeTraceData, summarizeOutcome } from '../shared/debug-trace';
 import type { SyncOutcome } from '../shared/sync.types';
 import { forgetPageResolutions, refreshTabPageMedia } from './page-media/page-media';
 import { recordSyncOutcome } from './sync/queue';
+import { recordCompletion } from './sync/episode-rate';
 import { syncEpisode } from './sync/sync-service';
+import { exclusionKey } from '../platforms/series-identity';
+import { t } from '../i18n';
 
 const log = createLogger('background');
 
@@ -34,7 +37,10 @@ export async function handleEpisodeCompleted({ episode, services }: EpisodeCompl
   }
   // Sessions capturées avant la synchro : un échec n'est relancé que sur elles (jamais sur un compte connecté depuis)
   const epochs = await getOpenSessions();
-  const outcome = await syncEpisode(episode, services, epochs);
+  // Limite de débit par onglet et par série (SEC-01) : au-delà, « À vérifier » au lieu d'écrire
+  const burst = await recordCompletion([...(tabId !== undefined ? [`tab:${tabId}`] : []), `series:${exclusionKey(episode)}`]);
+  if (burst) log.warn('Épisodes terminés en rafale : vérification demandée', episode.animeTitle);
+  const outcome = burst ? await syncEpisode(episode, services, epochs, { review: t('sync.review.burst') }) : await syncEpisode(episode, services, epochs);
   // Correspondance saison → fiche peut-être apprise : les résolutions en mémoire sont oubliées
   forgetPageResolutions();
   if (outcome.status === 'synced' && tabId !== undefined) {

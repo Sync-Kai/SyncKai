@@ -802,6 +802,8 @@
   "sync.noEquivalent": "沒有對應的條目",
   "sync.noServiceFollows": "已連結的服務都沒有這部動畫的條目。",
   "sync.recentNotFound": "找不到這筆同步記錄。",
+  "sync.review.burst": "幾分鐘內看完了多集：待確認",
+  "sync.review.finaleJump": "從第 {from} 集直接跳到最後一集（第 {progress} 集）：待確認",
   "sync.reviewGone": "這個待確認項目已不存在。",
   "sync.sessionClosed": "帳號在此期間已登出或切換：未寫入任何資料",
   "sync.seriesFallback": "動畫",

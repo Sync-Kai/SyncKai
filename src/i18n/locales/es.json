@@ -853,6 +853,8 @@
   "sync.noEquivalent": "Sin ficha equivalente",
   "sync.noServiceFollows": "Ningún servicio conectado tiene una ficha de esta serie.",
   "sync.recentNotFound": "Sincro no encontrada.",
+  "sync.review.burst": "Muchos episodios terminados en pocos minutos: por revisar",
+  "sync.review.finaleJump": "Salto directo al último episodio ({progress}) desde el episodio {from}: por revisar",
   "sync.reviewGone": "Esta revisión ya no existe.",
   "sync.sessionClosed": "Cuenta desconectada o cambiada desde entonces: no se ha escrito nada",
   "sync.seriesFallback": "Serie",

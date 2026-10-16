@@ -40,7 +40,7 @@ import { seasonLabel } from './matching/matching';
 import { mappingFromManualChoice } from './matching/mapping';
 import { type ResolveResult, type SyncTarget } from './matching/model';
 import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './resolver';
-import { decideListUpdate, type ListEntryState } from './rules';
+import { decideListUpdate, isFinaleJump, type ListEntryState } from './rules';
 import { createLogger } from '../../browser/logger';
 import { trace } from '../../browser/debug-trace-client';
 import { decisionTraceData, entryTraceData, type TraceData } from '../../shared/debug-trace';
@@ -110,6 +110,8 @@ export interface ServiceWrite {
   scored: boolean;
   /** L'entrée était en revisionnage : sa fin ne redemande pas de note */
   wasRepeating: boolean;
+  /** Saut direct vers le dernier épisode retenu (isFinaleJump) : progression de l'entrée sur ce service, rien n'y est écrit */
+  finaleJumpFrom?: number;
 }
 
 function serviceWrite(result: ServiceResult, entry: ListEntryState | null = null, alreadyCompleted = false): ServiceWrite {
@@ -132,6 +134,7 @@ async function writeToService(
   progress: number,
   correctionFrom: number | null,
   epoch: number | undefined,
+  guardFinale: boolean,
 ): Promise<ServiceWrite> {
   const label = TRACKER_LABELS[tracker.id];
   const id = entryTargetId(tracker.id, { mediaId: catalog.mediaId, malId: null }, catalog);
@@ -143,7 +146,7 @@ async function writeToService(
     return await runGuarded({ tracker, id }, {
       epoch,
       sessionClosed: () => sessionClosed(tracker.id),
-      decide: (current) => decideEntryWrite(tracker, id, current, catalog, progress, correctionFrom),
+      decide: (current) => decideEntryWrite(tracker, id, current, catalog, progress, correctionFrom, guardFinale),
     });
   } catch (error: unknown) {
     log.error(`${label} : échec`, error);
@@ -162,6 +165,7 @@ function decideEntryWrite(
   catalog: CatalogMedia,
   progress: number,
   correctionFrom: number | null,
+  guardFinale: boolean,
 ): EntryStep<ServiceWrite> {
   const label = TRACKER_LABELS[tracker.id];
   const done = (write: ServiceWrite): EntryStep<ServiceWrite> => ({ done: write });
@@ -195,6 +199,13 @@ function decideEntryWrite(
       current.entry,
       decision.reason === 'already-completed',
     ));
+  }
+
+  // Saut direct vers le dernier épisode depuis loin (SEC-01) : rien n'est écrit, une carte « À vérifier » est créée
+  if (guardFinale && !isCorrection && isFinaleJump(current.entry, decision.progress, current.episodes ?? catalog.episodes)) {
+    const from = current.entry?.progress ?? 0;
+    log.warn(`${label} : saut direct de l’épisode ${from} au dernier (${decision.progress}), à vérifier`);
+    return done({ ...serviceWrite({ service: tracker.id, outcome: { status: 'skipped', reason: t('sync.review.finaleJump', { from, progress: decision.progress }) } }, current.entry), finaleJumpFrom: from });
   }
 
   // Session revérifiée par runGuarded juste avant l'écriture (déconnexion pendant la lecture ou l'attente du verrou)
@@ -245,8 +256,10 @@ interface WriteOptions {
   correctionFrom?: number | null;
   /** Restreint l'écriture à ces services (nouvelle tentative après un échec partiel) */
   only?: readonly TrackerId[] | null;
-  /** Carte de vérification confirmée par l'utilisateur (voir settleReviewCard) */
+  /** Carte de vérification confirmée par l'utilisateur (voir settleReviewCard) ; jamais retenue par la garde du saut final */
   confirmed?: PendingReview;
+  /** Fiches candidates de la résolution, proposées sur la carte d'un saut final retenu */
+  candidates?: CandidateSummary[];
 }
 
 interface ServicesWrite {
@@ -269,7 +282,9 @@ async function writeToServices(
   const trackers = await getConnectedTrackers(options.only ?? null);
   if (trackers.length === 0) return { outcome: { status: 'not-connected' }, deferred: null };
 
-  const writes = await Promise.all(trackers.map((tr) => writeToService(tr, catalog, progress, options.correctionFrom ?? null, options.epochs[tr.id])));
+  // Garde du saut final (SEC-01) pour la synchro automatique seulement : un choix de l'utilisateur s'applique tel quel
+  const guardFinale = options.confirmed === undefined && (options.correctionFrom ?? null) === null;
+  const writes = await Promise.all(trackers.map((tr) => writeToService(tr, catalog, progress, options.correctionFrom ?? null, options.epochs[tr.id], guardFinale)));
   const results = writes.map((w) => w.result);
 
   if (results.some((r) => r.outcome.status === 'updated')) {
@@ -281,6 +296,14 @@ async function writeToServices(
     void flashSyncBadge();
   }
   const deferred = await settleReviewCard(key, results, options.confirmed ?? null);
+  // Saut final retenu sur un service : carte « À vérifier » de la saison (la valider écrit sans la garde) ; rien d'écrit
+  // ailleurs : l'épisode attend la décision
+  const jump = writes.find((w) => w.finaleJumpFrom !== undefined);
+  if (jump?.finaleJumpFrom !== undefined) {
+    const reason = t('sync.review.finaleJump', { from: jump.finaleJumpFrom, progress });
+    await queueReview({ key, episode, reason, suggestion: { mediaId: catalog.mediaId, progress }, candidates: options.candidates ?? [], previous: null, createdAt: Date.now() });
+    if (!results.some((r) => r.outcome.status === 'updated')) return { outcome: { status: 'needs-review', reason }, deferred };
+  }
   const prompts = await buildPrompts(catalog, progress, writes);
   return { outcome: { status: 'synced', mediaTitle: catalog.title, results, ...(prompts ? { prompts } : {}) }, deferred };
 }
@@ -375,12 +398,17 @@ async function resolveForSync(episode: EpisodeInfo, key: string): Promise<SyncRe
   return { result: second.result, candidates: second.candidates, catalog: fresh ? await getCatalogMedia(fresh.mediaId) : null };
 }
 
+export interface SyncOptions {
+  /** Raison d'une vérification imposée (limite de débit de EPISODE_COMPLETED) : carte « À vérifier » au lieu d'écrire */
+  review?: string;
+}
+
 /**
  * Synchronise un épisode terminé avec les services connectés (tous, ou `only` après un échec partiel).
  * La correspondance passe toujours par le catalogue AniList, même sans compte AniList. Ne lève jamais.
  * `epochs` : sessions de l'épisode (relance de la file), sinon celles ouvertes maintenant.
  */
-export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId[] | null = null, epochs?: SessionEpochs): Promise<SyncOutcome> {
+export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId[] | null = null, epochs?: SessionEpochs, options: SyncOptions = {}): Promise<SyncOutcome> {
   try {
     const sessions = epochs ?? (await getOpenSessions());
     if ((await getConnectedTrackers(only)).length === 0) return { status: 'not-connected' };
@@ -440,7 +468,13 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
       log.info(`Fiche ${target.mediaId} exclue : rien n’est écrit`);
       return { status: 'excluded', mediaTitle: catalog.title };
     }
-    return (await writeToServices(key, episode, catalog, target.progress, { only, epochs: sessions })).outcome;
+    // Vérification imposée (limite de débit, SEC-01) : la fiche sûre est seulement proposée
+    if (options.review !== undefined) {
+      log.warn(`Vérification imposée pour ${key} : ${options.review}`);
+      await queueReview({ key, episode, reason: options.review, suggestion: { mediaId: target.mediaId, progress: target.progress }, candidates, previous: null, createdAt: Date.now() });
+      return { status: 'needs-review', reason: options.review };
+    }
+    return (await writeToServices(key, episode, catalog, target.progress, { only, epochs: sessions, candidates })).outcome;
   } catch (error: unknown) {
     return toErrorOutcome(error);
   }

@@ -83,23 +83,35 @@ export function isStreamingPlatform(value: unknown): value is StreamingPlatform 
   return typeof value === 'string' && (STREAMING_PLATFORMS as readonly string[]).includes(value);
 }
 
-const isNullableNumber = (v: unknown): v is number | null => v === null || typeof v === 'number';
-const isNullableString = (v: unknown): v is string | null => v === null || typeof v === 'string';
+/**
+ * Bornes d'un épisode reçu d'un script de contenu ou relu du stockage (SEC-10) : il est gardé dans la file, les cartes et
+ * les dernières synchros, une page ne remplit pas le stockage avec des textes sans fin ni des nombres non finis.
+ */
+const MAX_ID = 200;
+const MAX_TITLE = 500;
+const MAX_EPISODE_TITLE = 1000;
+const MAX_URL = 2048;
+/** Numéros de saison et d'épisode : finis, ≥ 0 ; décimaux permis (spécial 24.5, refusé ensuite par la correspondance) */
+const MAX_NUMBER = 10_000_000;
+
+const isText = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
+const isNullableText = (v: unknown, max: number): v is string | null => v === null || isText(v, max);
+const isNullableNumber = (v: unknown): v is number | null => v === null || (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= MAX_NUMBER);
 
 export function isEpisodeInfo(value: unknown): value is EpisodeInfo {
   return (
     isRecord(value) &&
     isStreamingPlatform(value.platform) &&
-    typeof value.episodeId === 'string' &&
-    isNullableString(value.seriesId) &&
-    isNullableString(value.seriesSlug) &&
-    typeof value.animeTitle === 'string' &&
+    isText(value.episodeId, MAX_ID) &&
+    isNullableText(value.seriesId, MAX_ID) &&
+    isNullableText(value.seriesSlug, MAX_ID) &&
+    isText(value.animeTitle, MAX_TITLE) &&
     isNullableNumber(value.seasonNumber) &&
-    isNullableString(value.seasonTitle) &&
+    isNullableText(value.seasonTitle, MAX_TITLE) &&
     isNullableNumber(value.seasonEpisodeNumber) &&
     isNullableNumber(value.displayedEpisodeNumber) &&
-    isNullableString(value.episodeTitle) &&
-    typeof value.url === 'string' &&
+    isNullableText(value.episodeTitle, MAX_EPISODE_TITLE) &&
+    isText(value.url, MAX_URL) &&
     (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons)) &&
     (value.primeAnime === undefined || isSentPrimeAnimeVerdict(value.primeAnime)) &&
     (value.signals === undefined || isPlatformSignals(value.signals))

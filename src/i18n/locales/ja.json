@@ -802,6 +802,8 @@
   "sync.noEquivalent": "対応する作品ページがありません",
   "sync.noServiceFollows": "連携中のどのサービスにも、この作品に対応する作品ページがありません。",
   "sync.recentNotFound": "同期が見つかりません。",
+  "sync.review.burst": "数分間に多くの話を視聴完了：確認が必要",
+  "sync.review.finaleJump": "第{from}話から最終話（第{progress}話）へ直接移動：確認が必要",
   "sync.reviewGone": "この確認カードはすでに存在しません。",
   "sync.sessionClosed": "その後アカウントがログアウトまたは変更されたため、何も書き込んでいません",
   "sync.seriesFallback": "この作品",

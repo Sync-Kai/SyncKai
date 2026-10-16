@@ -47,6 +47,9 @@ export const SESSION_EXPIRED_KEYS: Readonly<Record<TrackerId, string>> = {
 /** File de synchro hors ligne (voir sync-queue-store.ts) */
 export const SYNC_QUEUE_KEY = 'syncQueue';
 
+/** Épisodes terminés récents par onglet et par série, dans chrome.storage.session (limite de débit, background/sync/episode-rate.ts) */
+export const EPISODE_RATE_KEY = 'episodeRate';
+
 /** Cartes « À noter » et revisionnages refusés (voir engagement-store.ts) */
 export const PENDING_RATINGS_KEY = 'pendingRatings';
 export const REWATCH_DECLINED_KEY = 'rewatchDeclined';

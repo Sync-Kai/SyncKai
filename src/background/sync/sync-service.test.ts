@@ -623,6 +623,77 @@ describe('écritures liées au compte (DATA-01)', () => {
   });
 });
 
+// ─── Garde « saut direct vers le dernier épisode » (SEC-01, décision 1) ───
+
+describe('saut direct vers le dernier épisode depuis loin : « À vérifier » au lieu d’écrire (SEC-01, décision 1)', () => {
+  /** Saison de 24 épisodes */
+  beforeEach(() => {
+    catalog.set(PART1, [MAL_PART1, 24]);
+  });
+
+  it('épisode 24 depuis l’épisode 2 (22 d’écart) : rien n’est écrit, carte avec la fiche et la progression proposées', async () => {
+    connect({ status: 'CURRENT', progress: 2 });
+    fakes.resolutions = [resolved(PART1, 24)];
+    const outcome = await syncEpisode(episode(24));
+    expect(anilist.writes).toEqual([]);
+    expect(mal.writes).toEqual([]);
+    expect(outcome).toMatchObject({ status: 'needs-review' });
+    expect(await getPendingReviews()).toMatchObject([{ key: KEY, suggestion: { mediaId: PART1, progress: 24 }, previous: null }]);
+    expect(fake.local.peek('recentSyncs')).toBeUndefined();
+  });
+
+  it('série absente de la liste, épisode 24 vu seul : « À vérifier » ; écart de 12 (12 → 24) : écrit', async () => {
+    connect(null);
+    fakes.resolutions = [resolved(PART1, 24)];
+    expect(await syncEpisode(episode(24))).toMatchObject({ status: 'needs-review' });
+    expect(anilist.writes).toEqual([]);
+
+    connect({ status: 'CURRENT', progress: 12 });
+    fakes.resolutions = [resolved(PART1, 24)];
+    fakes.resolveCalls = 0;
+    await syncEpisode(episode(24));
+    expect(anilist.writes).toEqual([{ id: PART1, progress: 24, status: 'COMPLETED' }]);
+  });
+
+  it('un seul service loin derrière : l’autre est écrit, la carte reste pour celui-là ; validée, elle écrit', async () => {
+    connect({ status: 'CURRENT', progress: 2 }, { status: 'CURRENT', progress: 23 });
+    fakes.resolutions = [resolved(PART1, 24)];
+    const outcome = await syncEpisode(episode(24));
+    expect(mal.writes).toEqual([{ id: MAL_PART1, progress: 24, status: 'COMPLETED' }]);
+    expect(anilist.writes).toEqual([]);
+    expect(resultOf(outcome, 'anilist')).toMatchObject({ status: 'skipped' });
+    expect(await getPendingReviews()).toMatchObject([{ key: KEY, suggestion: { mediaId: PART1, progress: 24 } }]);
+
+    // Carte validée par l'utilisateur : jamais retenue par la garde
+    const { outcome: confirmed } = await resolveReview({ key: KEY, mediaId: PART1, progress: 24 });
+    expect(resultOf(confirmed, 'anilist')).toMatchObject({ status: 'updated', progress: 24 });
+    expect(await getPendingReviews()).toEqual([]);
+  });
+
+  it('enchaînement autoplay jusqu’au dernier épisode (épisodes consécutifs) : tout est écrit, jamais de carte', async () => {
+    connect({ status: 'CURRENT', progress: 0 });
+    for (let n = 1; n <= 24; n++) {
+      fakes.resolutions = [resolved(PART1, n)];
+      fakes.resolveCalls = 0;
+      await syncEpisode(episode(n));
+    }
+    expect(anilist.writes.map((w) => w.progress)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));
+    expect(anilist.entries.get(PART1)).toMatchObject({ status: 'COMPLETED', progress: 24 });
+    expect(await getPendingReviews()).toEqual([]);
+  });
+});
+
+describe('demande de vérification imposée (limite de débit de EPISODE_COMPLETED, SEC-01)', () => {
+  it('correspondance sûre : carte « À vérifier » avec la fiche proposée, rien n’est écrit', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    fakes.resolutions = [resolved(PART1, 6)];
+    const outcome = await syncEpisode(episode(6), null, undefined, { review: 'Trop d’épisodes' });
+    expect(outcome).toEqual({ status: 'needs-review', reason: 'Trop d’épisodes' });
+    expect(anilist.writes).toEqual([]);
+    expect(await getPendingReviews()).toMatchObject([{ key: KEY, reason: 'Trop d’épisodes', suggestion: { mediaId: PART1, progress: 6 } }]);
+  });
+});
+
 // ─── Table de décision (TEST-01, ARCH-09) ─────────────────────────────────
 
 const unresolved = (reason: string, ignored = false): EpisodeResolution => ({

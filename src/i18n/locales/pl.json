@@ -955,6 +955,8 @@
   "sync.noEquivalent": "Brak odpowiadającego wpisu",
   "sync.noServiceFollows": "Żaden połączony serwis nie ma wpisu tej serii.",
   "sync.recentNotFound": "Nie znaleziono synchronizacji.",
+  "sync.review.burst": "Wiele odcinków ukończonych w kilka minut: do sprawdzenia",
+  "sync.review.finaleJump": "Bezpośredni skok do ostatniego odcinka ({progress}) z odcinka {from}: do sprawdzenia",
   "sync.reviewGone": "Ta pozycja do sprawdzenia już nie istnieje.",
   "sync.sessionClosed": "Konto zostało w międzyczasie wylogowane lub zmienione: nic nie zapisano",
   "sync.seriesFallback": "Seria",

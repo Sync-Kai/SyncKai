@@ -853,6 +853,8 @@
   "sync.noEquivalent": "Karşılık gelen sayfa yok",
   "sync.noServiceFollows": "Bağlı hiçbir serviste bu serinin sayfası yok.",
   "sync.recentNotFound": "Eşitleme bulunamadı.",
+  "sync.review.burst": "Birkaç dakikada çok sayıda bölüm bitirildi: Doğrulanmalı",
+  "sync.review.finaleJump": "{from}. bölümden doğrudan son bölüme ({progress}): Doğrulanmalı",
   "sync.reviewGone": "Bu doğrulama artık yok.",
   "sync.sessionClosed": "Hesaptan çıkış yapıldı veya hesap değişti, hiçbir şey yazılmadı",
   "sync.seriesFallback": "Seri",

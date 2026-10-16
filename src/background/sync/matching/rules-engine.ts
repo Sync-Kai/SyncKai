@@ -6,7 +6,7 @@ import { isAbsoluteNumbering, isDirectlyLinked, isLinked, SERIES_FORMATS, type E
 import { groupSeasons } from './season-groups';
 import { seasonPool, titleSeasonGroup } from './season-pool';
 import { effectiveSeasonNumber, titleSeasonOf } from './season-titles';
-import { checkedBySignals, hasTrustedLinks, signalConcordance, type SignalConcordance } from './signal-groups';
+import { checkedBySignals, hasTrustedLinks, inLinkedFranchise, signalConcordance, type SignalConcordance } from './signal-groups';
 import { absoluteSplit } from './stages/absolute-split';
 import { failure, isProposal, noEntry, type Proposal, type RulesContext, type Stage } from './stages/context';
 import { dedicated } from './stages/dedicated';
@@ -41,7 +41,36 @@ const STAGES: readonly Stage[] = [
 export function resolveTarget(episode: EpisodeNumbers, candidates: MediaCandidate[]): ResolveResult {
   if (!hasSignals(episode.signals)) return resolveByRules(episode, candidates, null);
   const concordance = signalConcordance(episode, candidates, episode.signals);
-  return checkedBySignals(episode, resolveByRules(episode, concordance.candidates, concordance), concordance);
+  return bridgeProofCapped(episode, candidates, checkedBySignals(episode, resolveByRules(episode, concordance.candidates, concordance), concordance));
+}
+
+/**
+ * Plateformes résolues par le titre seul dont les signaux viennent d'un pont du monde MAIN : des données de la page,
+ * qu'un script de la page peut forger (audit SEC-01 / SEC-05). Netflix et Disney+ (pont aussi) exigent un lien AniList :
+ * gateByPlatformLink y rend déjà tout titre seul « À vérifier », et n'accepte une fiche prouvée que dans la franchise
+ * liée (H1). ADN : JSON-LD de la page de série servie par le site, pas un pont.
+ */
+const BRIDGE_SIGNAL_PLATFORMS: ReadonlySet<string> = new Set(['crunchyroll', 'prime']);
+
+/**
+ * Signaux du seul pont (décision 1, SEC-01) : ils peuvent faire baisser la confiance, jamais rendre sûre à eux seuls une
+ * correspondance par le titre seul (fiche sans lien vers la plateforme, hors d'une franchise liée). Une telle fiche reste
+ * sûre seulement si les règles la jugent déjà sûre sans les signaux (même fiche, même progression) ; sinon « À vérifier »
+ * avec la fiche proposée (jamais mise en cache).
+ */
+function bridgeProofCapped(episode: EpisodeNumbers, candidates: MediaCandidate[], result: ResolveResult): ResolveResult {
+  if (!result.ok || result.target.confidence !== 'high' || episode.platform === undefined || !BRIDGE_SIGNAL_PLATFORMS.has(episode.platform)) return result;
+  const { target } = result;
+  const plain = resolveByRules(episode, candidates, null);
+  const plainHigh = plain.ok && plain.target.confidence === 'high';
+  if (plainHigh && plain.target.mediaId === target.mediaId && plain.target.progress === target.progress) return result;
+  // Règles sûres d'une autre fiche sans les signaux : les signaux du pont ne la déplacent jamais d'office (saison 1 liée
+  // envoyée vers la saison 2 par une année forgée) ; règles indécises : fiche liée ou dans la franchise liée gardée
+  const chosen = candidates.find((c) => c.id === target.mediaId);
+  if (!plainHigh && chosen && (isLinked(chosen) || inLinkedFranchise(candidates, episode.animeTitle, chosen.id))) return result;
+  const reason = episode.platform === 'prime' ? t('match.platformTitleOnly', { platform: PLATFORMS.prime.label }) : t('match.titleOnly');
+  const { bySignals: _bySignals, ...rest } = target;
+  return { ok: true, target: { ...rest, confidence: 'low', reason } };
 }
 
 function resolveByRules(episode: EpisodeNumbers, candidates: readonly MediaCandidate[], concordance: SignalConcordance | null): ResolveResult {

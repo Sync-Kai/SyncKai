@@ -802,6 +802,8 @@
   "sync.noEquivalent": "Không có mục tương ứng",
   "sync.noServiceFollows": "Không có dịch vụ đã kết nối nào có mục cho bộ này.",
   "sync.recentNotFound": "Không tìm thấy lượt đồng bộ.",
+  "sync.review.burst": "Nhiều tập được xem xong trong vài phút: cần kiểm tra",
+  "sync.review.finaleJump": "Nhảy thẳng tới tập cuối ({progress}) từ tập {from}: cần kiểm tra",
   "sync.reviewGone": "Yêu cầu kiểm tra này không còn tồn tại.",
   "sync.sessionClosed": "Tài khoản đã đăng xuất hoặc thay đổi trong lúc đó: không ghi gì cả",
   "sync.seriesFallback": "Bộ anime",

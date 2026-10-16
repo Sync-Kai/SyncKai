@@ -70,6 +70,19 @@ export function decideListUpdate(
   return { action: 'update', progress, ...progressWrite(entry, progress, totalEpisodes) };
 }
 
+/** Écart au-delà duquel un passage direct au dernier épisode est mis en doute (SEC-01, décision 1) */
+export const FINALE_JUMP_LIMIT = 12;
+
+/**
+ * Saut direct vers le dernier épisode depuis loin (pur, testable) : la synchro écrirait la fin de la série alors que
+ * l'entrée en est à plus de FINALE_JUMP_LIMIT épisodes (absente de la liste : 0). Une page forgée (script de la page,
+ * SEC-01) pourrait sinon marquer une série terminée d'un coup ; « À vérifier » à la place. Un épisode suivant de
+ * l'enchaînement (autoplay) n'est jamais concerné.
+ */
+export function isFinaleJump(entry: ListEntryState | null, progress: number, totalEpisodes: number | null): boolean {
+  return reachesLastEpisode(progress, totalEpisodes) && progress - (entry?.progress ?? 0) > FINALE_JUMP_LIMIT;
+}
+
 export type StatusChangeDecision =
   /** `repeat` : nouveau nombre de revisionnages (un revisionnage marqué terminé compte comme achevé) */
   | { action: 'write'; status: ListStatusChange; progress: number; repeat?: number }

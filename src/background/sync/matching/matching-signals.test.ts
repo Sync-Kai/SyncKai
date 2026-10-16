@@ -122,6 +122,62 @@ describe('preuve exigée pour le titre seul', () => {
   });
 });
 
+describe('signaux du seul pont de la page (SEC-01, décision 1) : jamais seuls à rendre sûr un titre seul', () => {
+  /** Remakes au même titre, aucun lien vers la plateforme : sans signal, à vérifier (deux franchises) */
+  const BERSERK_1997 = media({ id: 33, titles: ['Berserk'], episodes: 25, startDate: { year: 1997, month: 10, day: 8 } });
+  const BERSERK_2016 = media({ id: 21560, titles: ['Berserk'], episodes: 12, startDate: { year: 2016, month: 7, day: 1 } });
+  const crEpisode = (overrides: Partial<EpisodeInfo> = {}): EpisodeInfo =>
+    adnEpisode({ platform: 'crunchyroll', episodeId: 'GBERSERK3', seriesId: 'GBERSERK', seriesSlug: 'berserk', animeTitle: 'Berserk', seasonEpisodeNumber: 3, displayedEpisodeNumber: 3, url: 'https://www.crunchyroll.com/watch/GBERSERK3', ...overrides });
+
+  it('sans signal : à vérifier (comportement d’avant)', async () => {
+    api.searchAnime.mockResolvedValue([BERSERK_1997, BERSERK_2016]);
+    const { result } = await resolveEpisode(crEpisode());
+    expect(result.ok && result.target).toMatchObject({ confidence: 'low' });
+  });
+
+  it('Crunchyroll : année de la saison (pont MAIN) qui désigne un remake → fiche proposée, mais à vérifier, jamais mise en cache', async () => {
+    api.searchAnime.mockResolvedValue([BERSERK_1997, BERSERK_2016]);
+    const { result } = await resolveEpisode(crEpisode({ signals: { seasonYear: 2016, seasonEpisodeCount: 12 } }));
+    expect(result.ok && result.target).toMatchObject({ mediaId: 21560, confidence: 'low' });
+    expect(storage.saved).not.toHaveBeenCalled();
+  });
+
+  it('Prime Video (pont MAIN) : même règle', async () => {
+    api.searchAnime.mockResolvedValue([BERSERK_1997, BERSERK_2016]);
+    const prime = crEpisode({ platform: 'prime', seriesId: null, seriesSlug: null, url: 'https://www.primevideo.com/detail/0ABC', primeAnime: 'anime', signals: { seasonYear: 2016, seasonEpisodeCount: 12 } });
+    const { result } = await resolveEpisode(prime);
+    expect(result.ok && result.target).toMatchObject({ mediaId: 21560, confidence: 'low' });
+  });
+
+  it('Netflix et Disney+ (pont MAIN, lien AniList exigé) : déjà garanti par la porte des liens, titre seul à vérifier', async () => {
+    api.searchAnime.mockResolvedValue([BERSERK_1997, BERSERK_2016]);
+    for (const platform of ['netflix', 'disney'] as const) {
+      const { result } = await resolveEpisode(crEpisode({ platform, seriesId: platform === 'netflix' ? '80000001' : null, url: `https://www.${platform === 'netflix' ? 'netflix' : 'disneyplus'}.com/watch/1`, signals: { seasonYear: 2016, seasonEpisodeCount: 12 } }));
+      expect(result.ok && result.target, platform).toMatchObject({ mediaId: 21560, confidence: 'low' });
+    }
+    expect(storage.saved).not.toHaveBeenCalled();
+  });
+
+  it('ADN (signaux du JSON-LD de la page, pas d’un pont) : la preuve vaut toujours', async () => {
+    api.searchAnime.mockResolvedValue([BERSERK_1997, BERSERK_2016]);
+    const { result } = await resolveEpisode(crEpisode({ platform: 'adn', seriesId: '1311', url: 'https://animationdigitalnetwork.com/video/1311-berserk/29348', signals: { seasonYear: 2016, seasonEpisodeCount: 12 } }));
+    expect(result.ok && result.target).toMatchObject({ mediaId: 21560, confidence: 'high' });
+  });
+
+  it('Crunchyroll : fiche liée à la série sur AniList (preuve hors de la page) : sûre, les signaux départagent', async () => {
+    const linked = { ...BERSERK_2016, externalLinkUrls: ['https://www.crunchyroll.com/series/GBERSERK/berserk'] };
+    api.searchAnime.mockResolvedValue([BERSERK_1997, linked]);
+    const { result } = await resolveEpisode(crEpisode({ signals: { seasonYear: 2016, seasonEpisodeCount: 12 } }));
+    expect(result.ok && result.target).toMatchObject({ mediaId: 21560, confidence: 'high' });
+  });
+
+  it('Crunchyroll : titre seul déjà sûr sans les signaux (fiche unique, saison 1) et signaux concordants : sûr', async () => {
+    api.searchAnime.mockResolvedValue([TOUGEN]);
+    const { result } = await resolveEpisode(crEpisode({ animeTitle: 'TOUGEN ANKI', seriesSlug: 'tougen-anki', signals: { seasonYear: 2025 } }));
+    expect(result.ok && result.target).toMatchObject({ mediaId: 177474, confidence: 'high' });
+  });
+});
+
 describe('correspondance en cache contredite par les signaux', () => {
   const stored: MediaMapping = { mediaId: 999, numbering: 'season', offset: 0, episodes: 12 };
   const wrong = media({ id: 999, titles: ['Other'], startDate: { year: 2010, month: 1, day: 1 } });
