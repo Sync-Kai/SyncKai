@@ -90,7 +90,7 @@ describe('buildIssueUrl', () => {
 
   it('utilise la langue de l’interface', () => {
     const body = new URL(buildIssueUrl({ version: '1', browser: 'b', locale: 'fr' })).searchParams.get('body') ?? '';
-    expect(body).toContain('Réglages › Aide › Copier le rapport');
+    expect(body).toContain('Réglages › Aide & à propos › Copier le rapport');
   });
 
   it('tronque un navigateur trop long', () => {

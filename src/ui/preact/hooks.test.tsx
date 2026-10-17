@@ -3,7 +3,7 @@ import { render } from 'preact';
 import { useRef } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useDismiss, useFocusFallback, type DismissOptions, type FocusFallback } from './hooks';
+import { useDismiss, useFocusFallback, useNow, type DismissOptions, type FocusFallback } from './hooks';
 
 // Hooks de focus et de fermeture des pages Preact, dans un vrai DOM (happy-dom) : même contrat que preserveFocus
 // (ui/dom.ts › pickFocusKey) quand un rendu retire l'élément focalisé, et que createMenuDismiss (ui/menu.ts).
@@ -201,5 +201,42 @@ describe('useDismiss', () => {
     escape(document.body);
     pointerDown(document.body);
     expect(onDismiss).not.toHaveBeenCalled();
+  });
+});
+
+describe('useNow', () => {
+  function Clock({ every, active }: { every: number; active?: boolean }) {
+    const now = useNow(every, active);
+    return <span data-now="">{now}</span>;
+  }
+
+  const shown = (): number => Number($('[data-now]')?.textContent);
+
+  it('relit l’heure à chaque intervalle tant qu’il est actif, plus rien une fois inactif ou démonté', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      vi.setSystemTime(1_000);
+      await act(() => render(<Clock every={1_000} />, container));
+      expect(shown()).toBe(1_000);
+      await act(() => {
+        vi.advanceTimersByTime(2_000);
+      });
+      expect(shown()).toBe(3_000);
+
+      // Inactif : l'heure n'avance plus (aucune minuterie), relue une fois à la réactivation
+      await act(() => render(<Clock every={1_000} active={false} />, container));
+      await act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+      expect(shown()).toBe(3_000);
+      expect(vi.getTimerCount()).toBe(0);
+      await act(() => render(<Clock every={1_000} active />, container));
+      expect(shown()).toBe(8_000);
+
+      await act(() => render(null, container));
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

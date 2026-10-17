@@ -91,6 +91,7 @@ beforeEach(() => {
     source: { store: data, load: async () => undefined, markSeen, dispose: vi.fn() },
     openActivity: vi.fn(),
     openImport: vi.fn(),
+    openCompare: vi.fn(),
     now: () => NOW,
   };
   dispose = null;
@@ -184,12 +185,13 @@ describe('mountStatusBar', () => {
     expect(markSeen).toHaveBeenCalledWith('import', NOW);
   });
 
-  it('alignement en cours : Activité', async () => {
+  it('alignement en cours : page des Écarts (Réglages › Mes données), pas l’Activité', async () => {
     data.set({ ...EMPTY, alignJob: { status: 'running', done: 3, total: 10, updatedAt: NOW - MIN } });
     await mount();
     expect(statusText()).toContain(t('compare.bulk.running', { done: 3, total: 10 }));
     $<HTMLButtonElement>('[data-focus="footer-job"]')?.click();
-    expect(deps.openActivity).toHaveBeenCalledTimes(1);
+    expect(deps.openCompare).toHaveBeenCalledTimes(1);
+    expect(deps.openActivity).not.toHaveBeenCalled();
   });
 
   it('nouvelle langue : texte retraduit sans remontage', async () => {

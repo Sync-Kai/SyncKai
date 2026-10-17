@@ -82,6 +82,7 @@ Airing statuses (`page.airing.*`): Airing «Виходить», Finished «За�
 |---|---|
 | Settings home groups: Quick settings / Playback & alerts / Data & help | Швидкі налаштування / Перегляд і сповіщення / Дані й допомога |
 | Categories: Playback & sync / Notifications & schedule / Shortcuts / My data / Language / Help & about / Accounts | Перегляд і синхронізація / Сповіщення й розклад / Комбінації клавіш / Мої дані / Мова / Допомога й інформація / Акаунти |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **Платформи** / **Сповіщення** / **Відображення** |
 | Sections: Playback / Sync / Side panel / New episodes / On-page notifications / Schedule / Matches / Excluded series / Backup / Import / Help / About / Danger zone | Перегляд / Синхронізація / Бічна панель / Нові епізоди / Сповіщення на сторінці / Розклад / Відповідності / Виключені аніме / Резервна копія / Імпорт / Допомога / Про розширення / Небезпечна зона |
 | Notification levels: Discreet / Detailed / Alerts only | Ненав’язливі / Докладні / Лише попередження (adjectives agree with «сповіщення») |
 
@@ -127,3 +128,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | налагоджувальне трасування |
 | event (one line of the trace) | подія |
 | verbose mode | докладний режим |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Автоматично |
+| Per series (Sync section) | Для кожного аніме |
+| Never synced (Excluded series section) | Ніколи не синхронізуються |
+| Match origins: chosen / learned / legacy / imported · to recheck | Вибрано тобою / Знайдено / Стара / Імпортовано · перевірити |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Де SyncKai відстежує твої епізоди |
+| Included (built-in platform) | Вбудовано |
+| Access missing | Немає доступу |
+| Turn on first (preferred player option) | Спершу увімкни |
+| Estimated release time | Орієнтовний час виходу |
+| Extra delay (release alerts) | Запас часу |
+| On the playback page (Notifications section) | На сторінці перегляду |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Порівняння |
+| AniList ↔ MyAnimeList differences (row title) | Розбіжності AniList ↔ MyAnimeList |
+| Align (differences section) | Узгодження |
+| Diagnostic report (row title) | Діагностичний звіт |
+| Copy the report (button) | Копіювати звіт |
+| What's new (About link) | Що нового |
+| Privacy (About link) | Конфіденційність |

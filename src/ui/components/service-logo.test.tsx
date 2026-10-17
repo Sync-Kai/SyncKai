@@ -34,8 +34,8 @@ describe('ServiceLogo', () => {
     expect($('img')?.getAttribute('alt')).toBe('MyAnimeList, session expirée');
   });
 
-  it('tailles 16, 18 et 22 px (jetons logo-sm / -md / -lg)', async () => {
-    for (const [size, token] of [['sm', 'size-logo-sm'], ['md', 'size-logo-md'], ['lg', 'size-logo-lg']] as const) {
+  it('tailles 16, 18, 22 et 28 px (jetons logo-sm / -md / -lg, icon-button)', async () => {
+    for (const [size, token] of [['sm', 'size-logo-sm'], ['md', 'size-logo-md'], ['lg', 'size-logo-lg'], ['tile', 'size-icon-button']] as const) {
       await show(<ServiceLogo id="anilist" size={size} />);
       expect($('img')?.className).toContain(token);
     }

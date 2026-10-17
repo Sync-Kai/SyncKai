@@ -278,3 +278,130 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.title` | Avsnitt som SyncKai har synkat den här veckan |
 | `accountMenu.week.value_one` | {count} avsnitt |
 | `accountMenu.week.value_other` | {count} avsnitt |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. Player summary « föredragen: {player} » (*Föredragen plattform*); the My data summary uses **säkerhetskopia** (the file) as the term sheet says. **aktiv / aktiva** agree with *plattformar*. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | Aviseringar |
+| `settings.cat.platforms` | Plattformar |
+| `settings.cat.display` | Visning |
+| `settings.backToAria` | Tillbaka till {page} |
+| `settings.group.categories` | Kategorier |
+| `settings.summary.connected` | {service} ansluten |
+| `settings.summary.notConnected` | {service} inte ansluten |
+| `settings.summary.bothConnected` | AniList och MyAnimeList anslutna |
+| `settings.summary.auto` | Automatisk |
+| `settings.summary.paused` | Pausad |
+| `settings.summary.platforms_one` | {count} av {total} aktiv |
+| `settings.summary.platforms_other` | {count} av {total} aktiva |
+| `settings.summary.player` | föredragen: {player} |
+| `settings.summary.display` | Språk, sidopanel, kortkommandon |
+| `settings.summary.data` | Importera visningshistorik · säkerhetskopia |
+| `settings.summary.version` | Version {version} |
+| `settings.summary.noErrors` | inga fel |
+| `settings.display.keyboard` | Tangentbord |
+| `settings.display.shortcutsHelp` | Markera ett avsnitt eller öppna sidopanelen |
+| `settings.shortcuts.duringPlayback` | Under uppspelning |
+| `settings.shortcuts.navigation` | Navigering |
+| `settings.accounts.lists` | Synkade listor |
+| `settings.accounts.both` | Med båda kontona |
+| `settings.accounts.privacy` | Du loggar in på webbplatsen för AniList eller MyAnimeList: SyncKai ser aldrig ditt lösenord. |
+| `settings.account.expiredHelp` | Dina avsnitt skickas inte längre till {service} förrän du återansluter. |
+| `settings.account.otherStillSynced` | {service} uppdateras fortfarande. |
+| `settings.entry.help` | Öppnas när du klickar på en animes titel eller omslag |
+| `settings.entry.unavailable` | Tillgängligt när både AniList och MyAnimeList är anslutna. |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | Automatiskt |
+| `settings.section.perSeries` | Per serie |
+| `settings.trigger.credits` | När eftertexterna börjar |
+| `settings.trigger.creditsHelp` | Rekommenderas: den exakta tidpunkt som plattformen anger |
+| `settings.trigger.percentageHelp` | Används också när eftertexterna är okända |
+| `settings.sync.mappingsRow` | Sparade kopplingar |
+| `settings.sync.mappingsRowHelp` | AniList-säsongen som valts för varje serie |
+| `settings.sync.exclusionsRowHelp` | Synkas aldrig, kan återaktiveras här |
+| `settings.mappings.intro_one` | {count} serie sparad, per plattform: plattformens säsong → AniList-titeln som SyncKai skriver till. Om du glömmer en koppling räknas den ut på nytt vid nästa avsnitt. |
+| `settings.mappings.intro_other` | {count} serier sparade, per plattform: plattformens säsong → AniList-titeln som SyncKai skriver till. Om du glömmer en koppling räknas den ut på nytt vid nästa avsnitt. |
+| `settings.mappings.search` | Sök en serie eller titel |
+| `settings.mappings.noResult` | Ingen koppling för ”{query}” |
+| `settings.mappings.noResultHelp` | Sök på seriens titel eller på AniList-titeln. |
+| `settings.mappings.emptyHelp` | SyncKai sparar en för varje säsong som synkas. |
+| `settings.mappings.showMore_one` | Visa {count} till på {platform} |
+| `settings.mappings.showMore_other` | Visa {count} till på {platform} |
+| `settings.mappings.origin.chosen` | Vald av dig |
+| `settings.mappings.origin.learned` | Inlärd |
+| `settings.mappings.origin.unmarked` | Äldre |
+| `settings.mappings.origin.unverified` | Importerad · kontrolleras igen |
+| `settings.mappings.origin.chosenHelp` | Bekräftad eller vald av dig: ifrågasätts aldrig. |
+| `settings.mappings.origin.learnedHelp` | Hittad av SyncKai: räknas ut på nytt om plattformen motsäger den. |
+| `settings.mappings.origin.unmarkedHelp` | Sparad före 2.4: behålls, kontrolleras om den motsägs. |
+| `settings.mappings.origin.unverifiedHelp` | Från en säkerhetskopia: kontrolleras igen första gången den används. |
+| `settings.mappings.originLegend` | Kopplingarnas ursprung |
+| `settings.exclusions.section` | Synkas aldrig |
+| `settings.exclusions.help` | En utesluten serie synkas aldrig mer, oavsett säsong. ”{action}” följer den igen från nästa avsnitt. |
+| `settings.exclusions.emptyHelp` | Om du vill sluta synka en serie väljer du ”{action}” i dess meny ”⋯”. |
+| `settings.exclusions.seriesYear` | serie från {year} |
+| `settings.exclusions.excludedOn` | utesluten {date} |
+| `popup.syncDisabledDetail` | Kan återaktiveras i Inställningar › Synkning › Uteslutna serier |
+| `review.excludeTitle` | Utesluter serien (alla säsonger): kan återaktiveras i Inställningar › Synkning › Uteslutna serier |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. `settings.delay.title` is « Extra väntetid » (« Extra fördröjning » is 17 chars, over the 16-char limit). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | Där SyncKai följer dina avsnitt |
+| `settings.platforms.allAnime` | All anime |
+| `settings.platforms.included` | Ingår |
+| `settings.platforms.accessMissing` | Åtkomst saknas |
+| `settings.platforms.note` | När du aktiverar en plattform ber webbläsaren om åtkomst till dess webbplats. Bara uppspelnings- och seriesidor läses. |
+| `settings.player.openOn` | Öppna avsnitt på |
+| `settings.player.enableFirst` | Aktivera först |
+| `settings.player.help` | Används av ”Öppna” när en anime finns på flera aktiva plattformar. |
+| `settings.offsets.title` | Beräknad publiceringstid |
+| `settings.offsets.help` | Efter sändningen i Japan. Används av Schema och aviseringarna; en enskild serie justeras från sin rad i Schema. |
+| `settings.offsets.earlier` | {minutes} min tidigare |
+| `settings.offsets.later` | {minutes} min senare |
+| `page.platformOff` | Du har stängt av {platform}: SyncKai följer inget här. Slå på det igen i Inställningar › Plattformar. |
+| `settings.section.notifications` | På uppspelningssidan |
+| `settings.notif.legend` | Stil för meddelanden på sidan |
+| `settings.notif.discreet.desc` | En liten ruta i några sekunder, i ett hörn av videon |
+| `settings.notif.detailed.desc` | En bubbla med avsnittet och resultatet på AniList och MyAnimeList |
+| `settings.notif.alertsOnly.desc` | Inget när allt går bra; en bubbla bara vid ett fel eller ett avsnitt att granska |
+| `settings.notif.alertsAlways` | Ett fel eller en serie att granska visas alltid, oavsett stil. |
+| `settings.delay.title` | Extra väntetid |
+| `settings.airing.enableFirst` | Slå på aviseringarna för att leta efter nya avsnitt |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | Ta igen det du redan har sett |
+| `settings.crImport.help` | Crunchyroll, ADN eller Netflix. Du ser en förhandsvisning innan något skrivs. |
+| `settings.backup.help` | Inställningar, kopplingar, uteslutna serier och historik i en fil. Aldrig dina inloggningar på AniList eller MyAnimeList. |
+| `settings.backup.import` | Importera |
+| `settings.section.compare` | Jämför |
+| `settings.compare.title` | Skillnader AniList ↔ MyAnimeList |
+| `settings.compare.help` | Jämför dina två listor och anpassa dem åt det håll du väljer |
+| `settings.data.perSeries` | Kopplingar och uteslutna serier hanteras under {path}. |
+| `compare.align` | Anpassa |
+| `compare.bulk.help` | ”{action}” för över AniList till MyAnimeList; först visar en bekräftelse ändringarna. |
+| `compare.job.background` | Fortsätter även om du stänger sidan. |
+| `settings.help.diagnostic` | Diagnostikrapport |
+| `settings.help.diagnosticHelp` | Att klistra in i en felrapport: version, webbläsare, inställningar, senaste fel. Inga tokens, inga konton. |
+| `settings.help.copy` | Kopiera rapporten |
+| `settings.help.journalNote` | Högst de 50 senaste, nyaste först; tokens redan dolda. |
+| `settings.about.whatsNew` | Nyheter |
+| `settings.about.privacy` | Integritet |
+| `settings.about.source` | Källkod |

@@ -11,20 +11,24 @@ describe('shortcutRows (Réglages › Raccourcis)', () => {
     expect(shortcutRows({ shortcut: 'Alt+Shift+K', panelShortcut: 'Alt+Shift+1' }, 'chrome')).toEqual([
       {
         kind: 'episode',
+        section: 'Pendant la lecture',
         label: 'Valider l’épisode en cours',
         key: 'Alt+Maj+K',
         keyHint: null,
         value: null,
+        loading: false,
         action: 'Modifier',
         editAria: 'Modifier le raccourci clavier (réglages du navigateur)',
         focus: 'shortcut',
       },
       {
         kind: 'panel',
+        section: 'Navigation',
         label: 'Ouvrir ou fermer le panneau latéral',
         key: 'Alt+Maj+1',
         keyHint: 'touche &',
         value: null,
+        loading: false,
         action: 'Modifier',
         editAria: 'Modifier le raccourci du panneau latéral (réglages du navigateur)',
         focus: 'panel-shortcut',
@@ -47,7 +51,8 @@ describe('shortcutRows (Réglages › Raccourcis)', () => {
     setLocale('fr');
     const [episode, panel] = shortcutRows({ shortcut: '', panelShortcut: undefined }, 'chrome');
     expect(episode).toMatchObject({ key: null, keyHint: null, value: 'Non défini', action: 'Définir' });
-    expect(panel).toMatchObject({ key: null, value: 'Chargement…', action: 'Définir' });
+    expect(panel).toMatchObject({ key: null, value: 'Chargement…', loading: true, action: 'Définir' });
+    expect(episode?.loading).toBe(false);
     setLocale('en');
     expect(shortcutRows({ shortcut: '', panelShortcut: 'Alt+Shift+1' }, 'chrome').map((row) => [row.value ?? row.key, row.action])).toEqual([
       ['Not set', 'Set'],

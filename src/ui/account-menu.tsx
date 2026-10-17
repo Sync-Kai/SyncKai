@@ -16,9 +16,9 @@ import { getCachedMalViewer, getCachedViewer, getViewerFetchedAt } from '../brow
 import { getWeeklySyncCount } from '../browser/storage/weekly-syncs';
 import type { AccountsController } from './accounts';
 import { formatStatDays, menuNeedsRefresh, profileUrl, statsView } from './account-menu-model';
+import { AccountAvatar } from './components/account-avatar';
 import { Icon } from './components/icon';
 import { MenuItem, MenuPopup, MenuSeparator } from './components/menu';
-import { ServiceLogo } from './components/service-logo';
 import { useLocale, useStore } from './preact/hooks';
 import type { AccountState } from './state';
 
@@ -59,28 +59,6 @@ function typedState(state: AccountState<unknown>): AccountState<Viewer> {
 }
 
 const avatarOf = (viewer: Viewer | null): string | null => toImageSrc(viewer === null ? null : 'avatarUrl' in viewer ? viewer.avatarUrl : viewer.pictureUrl);
-
-/** Fond de l'avatar sans image : dégradé de la marque du service */
-const AVATAR_GRADIENT: Readonly<Record<TrackerId, string>> = { anilist: 'from-lavender to-sakura', mal: 'from-mint to-mal' };
-
-function Avatar({ service, url, dimmed }: { service: TrackerId; url: string | null; dimmed: boolean }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [url]);
-  return (
-    <span class="relative block size-9 shrink-0" data-avatar="">
-      {url && !failed ? (
-        <img class={`block size-9 rounded-pill object-cover ${dimmed ? 'opacity-55' : ''}`} src={url} alt="" referrerpolicy="no-referrer" onError={() => setFailed(true)} />
-      ) : (
-        <span class={`flex size-9 items-end justify-center overflow-hidden rounded-pill bg-linear-135 text-ink ${AVATAR_GRADIENT[service]} ${dimmed ? 'opacity-55' : ''}`} aria-hidden="true">
-          <Icon name="user" class="size-7 opacity-90" strokeWidth="2.2" />
-        </span>
-      )}
-      <span class="absolute -right-0.75 -bottom-0.75 flex rounded-logo border-2 border-raised bg-raised">
-        <ServiceLogo id={service} size="sm" />
-      </span>
-    </span>
-  );
-}
 
 /** Texte remplacé par un pavé de même hauteur pendant la lecture (aucun saut à l'arrivée des données) */
 function Placeholder({ width }: { width: string }) {
@@ -230,7 +208,7 @@ export function AccountMenu({ service, accounts, root, onClose, data = STORAGE_M
     >
       <div id={infoId} data-account-menu={service}>
         <div class="flex items-center gap-2.5 px-2.5 py-2">
-          <Avatar service={service} url={avatarOf(viewer)} dimmed={expired} />
+          <AccountAvatar service={service} url={avatarOf(viewer)} state={expired ? 'expired' : 'connected'} />
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="truncate font-extrabold text-ink">{label}</span>
             {status}

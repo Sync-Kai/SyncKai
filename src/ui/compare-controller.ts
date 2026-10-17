@@ -1,23 +1,39 @@
-// Activité › « Écarts AniList ↔ MAL » : dernière analyse et tâche d'alignement (lues du stockage, suivies par
-// storage.onChanged), demandes au service worker et compte à rebours d'une pause d'alignement.
-import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type DiffFilter, type ListDiff } from '../../shared/compare';
-import { COMPARE_JOB_ITEMS_KEY, COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../../shared/compare-job';
-import { createLogger } from '../../browser/logger';
-import { withStorageLock } from '../../browser/storage/lock';
-import type { TrackerId } from '../../shared/tracker.types';
-import { createStore, patchStore, type Store } from '../../ui/state';
-import { callWorker, networkFailure } from '../../ui/worker-call';
-import { COMPARE_PAGE_SIZE } from '../components/compare-section';
-import type { CompareState } from '../state';
+// Réglages › Mes données › « Écarts AniList ↔ MAL » (et sa ligne dans l'Activité du popup) : dernière analyse et tâche
+// d'alignement (lues du stockage, suivies par storage.onChanged) et demandes au service worker. Un contrôleur par page
+// hôte (popup, panneau latéral), passé aux Réglages par `SettingsHost.compare`. Le compte à rebours d'une pause est
+// recalculé par la page qui l'affiche (isCountingDown).
+import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type ComparisonResult, type DiffFilter, type ListDiff } from '../shared/compare';
+import { COMPARE_JOB_ITEMS_KEY, COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../shared/compare-job';
+import { createLogger } from '../browser/logger';
+import { withStorageLock } from '../browser/storage/lock';
+import type { TrackerId } from '../shared/tracker.types';
+import { createStore, patchStore, type Store } from './state';
+import { callWorker, networkFailure } from './worker-call';
 
-const log = createLogger('popup');
-const PAUSE_TICK_MS = 1_000;
+const log = createLogger('compare');
+
+/** Lignes affichées d'emblée, puis par tranche (« Afficher plus ») : la page reste rapide sur de longues listes */
+export const COMPARE_PAGE_SIZE = 30;
+
+/** Dernière analyse et tâche (lues du stockage), demandes en cours et affichage (filtre, confirmation, pagination) */
+export interface CompareState {
+  result: ComparisonResult | null;
+  /** Analyse ou alignement en cours / dernier alignement terminé (bilan) */
+  job: CompareJob | null;
+  /** Demande envoyée au service worker, réponse pas encore reçue */
+  requesting: 'analyze' | 'apply' | null;
+  /** Erreur de l'analyse ou du lancement d'un alignement (affichée en alerte) */
+  error: string | null;
+  /** Confirmation « Tout aligner sur … » affichée */
+  confirm: TrackerId | null;
+  filter: DiffFilter;
+  /** Nombre de lignes affichées (« Afficher plus ») */
+  shown: number;
+}
 
 export interface CompareControllerDeps {
-  /** Alignement terminé avec au moins une série mise à jour : « En cours » est à relire */
+  /** Alignement terminé avec au moins une série mise à jour : les listes affichées par l'hôte sont à relire */
   onApplied(): void;
-  /** Pause d'alignement en cours (limite de requêtes, service lent) : compte à rebours mis à jour chaque seconde */
-  onPauseTick(job: CompareJob, now: number): void;
 }
 
 export interface CompareController {
@@ -37,8 +53,8 @@ export interface CompareController {
   dispose(): void;
 }
 
-/** Pause dont le compte à rebours avance (une reprise après redémarrage n'en a pas) */
-function isCountingDown(job: CompareJob | null): job is CompareJob {
+/** Pause dont le compte à rebours avance (une reprise après redémarrage n'en a pas) : la page relit l'heure chaque seconde */
+export function isCountingDown(job: CompareJob | null): job is CompareJob {
   return job?.status === 'running' && job.pausedUntil !== null && job.pauseReason !== 'resume';
 }
 
@@ -58,20 +74,6 @@ export function createCompareController(deps: CompareControllerDeps): CompareCon
     const finished = previous?.status === 'running' && job !== null && job.kind === 'apply' && job.status !== 'running';
     if (finished && job.updated > 0) deps.onApplied();
   }
-
-  // Compte à rebours : seul le texte change chaque seconde (sans nouveau rendu), minuterie active pendant la pause seulement
-  let pauseTimer: ReturnType<typeof setInterval> | undefined;
-  const unsubscribePause = store.subscribe(({ job }) => {
-    if (!isCountingDown(job)) {
-      clearInterval(pauseTimer);
-      pauseTimer = undefined;
-    } else if (pauseTimer === undefined) {
-      pauseTimer = setInterval(() => {
-        const current = store.get().job;
-        if (isCountingDown(current)) deps.onPauseTick(current, Date.now());
-      }, PAUSE_TICK_MS);
-    }
-  });
 
   const onStorageChanged = (changes: Record<string, chrome.storage.StorageChange>, areaName: string): void => {
     if (areaName !== 'local') return;
@@ -148,8 +150,6 @@ export function createCompareController(deps: CompareControllerDeps): CompareCon
 
     dispose() {
       chrome.storage.onChanged.removeListener(onStorageChanged);
-      unsubscribePause();
-      clearInterval(pauseTimer);
     },
   };
 }

@@ -287,3 +287,134 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.value_one` | {count} episod |
 | `accountMenu.week.value_few` | {count} episoade |
 | `accountMenu.week.value_other` | {count} de episoade |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. **activă / active** agree with *platforme* (`_few` and `_other` identical: « din {total} » never takes « de »). Player summary « preferată: {player} »; the Display summary uses **comenzi rapide** (category word) to stay within 45 characters. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | Notificări |
+| `settings.cat.platforms` | Platforme |
+| `settings.cat.display` | Afișare |
+| `settings.backToAria` | Înapoi la {page} |
+| `settings.group.categories` | Categorii |
+| `settings.summary.connected` | {service} conectat |
+| `settings.summary.notConnected` | {service} neconectat |
+| `settings.summary.bothConnected` | AniList și MyAnimeList conectate |
+| `settings.summary.auto` | Automată |
+| `settings.summary.paused` | În pauză |
+| `settings.summary.platforms_one` | {count} din {total} activă |
+| `settings.summary.platforms_few` | {count} din {total} active |
+| `settings.summary.platforms_other` | {count} din {total} active |
+| `settings.summary.player` | preferată: {player} |
+| `settings.summary.display` | Limbă, panou lateral, comenzi rapide |
+| `settings.summary.data` | Importă istoricul de vizionare · backup |
+| `settings.summary.version` | Versiunea {version} |
+| `settings.summary.noErrors` | nicio eroare |
+| `settings.display.keyboard` | Tastatură |
+| `settings.display.shortcutsHelp` | Taste: marchează un episod, deschide panoul |
+| `settings.shortcuts.duringPlayback` | În timpul redării |
+| `settings.shortcuts.navigation` | Navigare |
+| `settings.accounts.lists` | Liste sincronizate |
+| `settings.accounts.both` | Cu ambele conturi |
+| `settings.accounts.privacy` | Te conectezi pe site-ul AniList sau MyAnimeList: SyncKai nu îți vede niciodată parola. |
+| `settings.account.expiredHelp` | Episoadele tale nu mai sunt trimise la {service} până te reconectezi. |
+| `settings.account.otherStillSynced` | {service} este actualizat în continuare. |
+| `settings.entry.help` | Se deschide la clic pe titlul sau coperta unui anime |
+| `settings.entry.unavailable` | Disponibil când AniList și MyAnimeList sunt ambele conectate. |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). `_few` and `_other` of the intro differ only by « de » (« 20 de serii »), as `settings.mappings.count` did. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | Automat |
+| `settings.section.perSeries` | Pe serie |
+| `settings.trigger.legend` | Episod considerat văzut |
+| `settings.trigger.credits` | La începutul genericului |
+| `settings.trigger.creditsHelp` | Recomandat: momentul exact indicat de platformă |
+| `settings.trigger.percentageHelp` | Folosit și când genericul nu e cunoscut |
+| `settings.sync.mappingsRow` | Asocieri memorate |
+| `settings.sync.mappingsRowHelp` | Sezonul AniList ales pentru fiecare serie |
+| `settings.sync.exclusionsRowHelp` | Nu se sincronizează niciodată, se pot reactiva aici |
+| `settings.mappings.intro_one` | {count} serie memorată, pe platforme: sezonul de pe platformă → fișa AniList în care scrie SyncKai. O asociere uitată este recalculată la următorul episod. |
+| `settings.mappings.intro_few` | {count} serii memorate, pe platforme: sezonul de pe platformă → fișa AniList în care scrie SyncKai. O asociere uitată este recalculată la următorul episod. |
+| `settings.mappings.intro_other` | {count} de serii memorate, pe platforme: sezonul de pe platformă → fișa AniList în care scrie SyncKai. O asociere uitată este recalculată la următorul episod. |
+| `settings.mappings.search` | Caută o serie sau o fișă |
+| `settings.mappings.noResult` | Nicio asociere pentru „{query}” |
+| `settings.mappings.noResultHelp` | Caută după titlul seriei sau al fișei AniList. |
+| `settings.mappings.emptyHelp` | SyncKai memorează câte una pentru fiecare sezon sincronizat. |
+| `settings.mappings.showMore_one` | Vezi încă {count} pe {platform} |
+| `settings.mappings.showMore_few` | Vezi încă {count} pe {platform} |
+| `settings.mappings.showMore_other` | Vezi încă {count} pe {platform} |
+| `settings.mappings.origin.chosen` | Aleasă de tine |
+| `settings.mappings.origin.learned` | Învățată |
+| `settings.mappings.origin.unmarked` | Veche |
+| `settings.mappings.origin.unverified` | Importată · de reverificat |
+| `settings.mappings.origin.chosenHelp` | Confirmată sau aleasă de tine: nu e pusă niciodată la îndoială. |
+| `settings.mappings.origin.learnedHelp` | Găsită de SyncKai: recalculată dacă platforma o contrazice. |
+| `settings.mappings.origin.unmarkedHelp` | Salvată înainte de 2.4: păstrată, de verificat dacă e contrazisă. |
+| `settings.mappings.origin.unverifiedHelp` | Dintr-un backup: reverificată la prima folosire. |
+| `settings.mappings.originLegend` | Originea asocierilor |
+| `settings.exclusions.section` | Nesincronizate niciodată |
+| `settings.exclusions.help` | O serie exclusă nu mai e sincronizată niciodată, în niciun sezon. „{action}” o urmărește din nou de la următorul episod. |
+| `settings.exclusions.emptyHelp` | Ca să nu mai sincronizezi o serie, alege „{action}” din meniul ei „⋯”. |
+| `settings.exclusions.seriesYear` | serie din {year} |
+| `settings.exclusions.excludedOn` | exclusă pe {date} |
+| `popup.syncDisabledDetail` | Se poate reactiva din Setări › Sincronizare › Serii excluse |
+| `review.excludeTitle` | Exclude seria (toate sezoanele): se poate reactiva din Setări › Sincronizare › Serii excluse |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. `settings.platforms.where` drops « your » (« Unde urmărește SyncKai episoadele », 33 chars) to stay under 36. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | Unde urmărește SyncKai episoadele |
+| `settings.platforms.allAnime` | Toate titlurile anime |
+| `settings.platforms.included` | Inclusă |
+| `settings.platforms.accessMissing` | Fără acces |
+| `settings.platforms.note` | Activarea unei platforme cere acces la site-ul ei. Se citesc doar paginile de redare și de serii. |
+| `settings.player.openOn` | Deschide episoadele pe |
+| `settings.player.enableFirst` | Activeaz-o întâi |
+| `settings.player.help` | Folosită de „Deschide” când un titlu e pe mai multe platforme active. |
+| `settings.offsets.title` | Ora estimată a lansării |
+| `settings.offsets.help` | După difuzarea din Japonia. Folosită de Calendar și de alerte; o serie se ajustează din rândul ei din Calendar. |
+| `settings.offsets.earlier` | Cu {minutes} min mai devreme |
+| `settings.offsets.later` | Cu {minutes} min mai târziu |
+| `page.platformOff` | {platform} este dezactivat: SyncKai nu urmărește nimic aici. Pentru reactivare: Setări › Platforme. |
+| `settings.section.notifications` | Pe pagina de redare |
+| `settings.notif.legend` | Stilul notificărilor pe pagină |
+| `settings.notif.discreet.desc` | O bulină mică timp de câteva secunde, într-un colț al videoclipului |
+| `settings.notif.detailed.desc` | O bulă cu episodul și rezultatul pe AniList și MyAnimeList |
+| `settings.notif.alertsOnly.desc` | Nimic când totul e în regulă; o bulă doar la o eroare sau un episod de verificat |
+| `settings.notif.alertsAlways` | O eroare sau o serie de verificat apare mereu, indiferent de stil. |
+| `settings.delay.title` | Întârziere extra |
+| `settings.airing.enableFirst` | Activează alertele ca să verifici lansările |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | Recuperează ce ai văzut deja |
+| `settings.crImport.help` | Crunchyroll, ADN sau Netflix. Vezi o previzualizare înainte să se scrie ceva. |
+| `settings.backup.help` | Setări, asocieri, serii excluse și istoric într-un fișier. Niciodată datele tale de conectare AniList sau MyAnimeList. |
+| `settings.backup.import` | Importă |
+| `settings.section.compare` | Comparare |
+| `settings.compare.title` | Diferențe AniList ↔ MyAnimeList |
+| `settings.compare.help` | Compară cele două liste și aliniază-le în direcția pe care o alegi |
+| `settings.data.perSeries` | Asocierile și seriile excluse se gestionează în {path}. |
+| `compare.align` | Aliniere |
+| `compare.bulk.help` | „{action}” copiază AniList pe MyAnimeList; mai întâi, o confirmare arată modificările. |
+| `compare.job.background` | Continuă chiar dacă închizi pagina. |
+| `settings.help.diagnostic` | Raport diagnostic |
+| `settings.help.diagnosticHelp` | De lipit într-un raport de eroare: versiune, browser, setări, ultimele erori. Fără tokenuri, fără conturi. |
+| `settings.help.copy` | Copiază raportul |
+| `settings.help.journalNote` | Cel mult ultimele 50, cele mai noi primele; tokenurile sunt deja mascate. |
+| `settings.about.whatsNew` | Noutăți |
+| `settings.about.privacy` | Confidențialitate |
+| `settings.about.source` | Cod sursă |

@@ -62,6 +62,7 @@ Binding for every change to `src/i18n/locales/id.json` and `public/_locales/id/m
 | shortcut | **pintasan** ("Pintasan keyboard") | Chrome and Firefox Indonesian wording. |
 | Settings (`nav.settings`) | **Setelan** | Chrome/Android/WhatsApp Indonesian, shorter than *Pengaturan*. |
 | Settings categories | **Pemutaran & sinkron** (Playback & sync), **Notifikasi & jadwal** (Notifications & schedule), **Pintasan** (Shortcuts), **Data saya** (My data), **Bantuan & tentang** (Help & about) | Paths: "Setelan › Pemutaran & sinkron", "Setelan › Anime yang dikecualikan". |
+| Settings categories of the 2026-10-17 redesign | Platforms = **Platform** · Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) = **Notifikasi** · Display = **Tampilan** | Playback & sync (`settings.cat.sync`) was removed |
 | Settings sections | Akun, Bahasa, Episode baru, Cadangan, Anime yang dikecualikan, Bantuan, Tentang, Pencocokan, Notifikasi di halaman, Pemutaran, Sinkron, Jadwal, Zona bahaya, Impor, Panel samping | "Zona bahaya" is the idiomatic compound (news: "zona bahaya Merapi"); "zona berbahaya" means "a dangerous zone". |
 | error | **error** ("Error tak terduga", "Log error") | Everyday loanword, shorter than *kesalahan*. |
 | progress | **progres** ("progresmu") | KBBI loanword used by fans. |
@@ -110,3 +111,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | jejak debug |
 | event (one line of the trace) | peristiwa |
 | verbose mode | mode terperinci |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Otomatis |
+| Per series (Sync section) | Per anime |
+| Never synced (Excluded series section) | Tidak pernah disinkronkan |
+| Match origins: chosen / learned / legacy / imported · to recheck | Dipilih olehmu / Dipelajari / Lama / Diimpor · perlu dicek ulang |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Tempat SyncKai melacak episodemu |
+| Included (built-in platform) | Bawaan |
+| Access missing | Tanpa akses |
+| Turn on first (preferred player option) | Aktifkan dulu |
+| Estimated release time | Perkiraan waktu rilis |
+| Extra delay (release alerts) | Penundaan ekstra |
+| On the playback page (Notifications section) | Di halaman pemutaran |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Bandingkan |
+| AniList ↔ MyAnimeList differences (row title) | Perbedaan AniList ↔ MyAnimeList |
+| Align (differences section) | Samakan |
+| Diagnostic report (row title) | Laporan diagnostik |
+| Copy the report (button) | Salin laporan |
+| What's new (About link) | Yang baru |
+| Privacy (About link) | Privasi |

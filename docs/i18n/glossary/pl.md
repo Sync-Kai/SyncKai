@@ -74,7 +74,7 @@ Statuses are neuter, so composed texts use the neuter too: “{title}: obejrzane
 |---|---|
 | Accounts | Konta |
 | Playback & sync | Oglądanie i synchronizacja |
-| Notifications & schedule | Powiadomienia i kalendarz |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **Platformy** / **Powiadomienia** / **Wyświetlanie** |
 | Shortcuts | Skróty klawiszowe |
 | My data | Moje dane |
 | Language | Język |
@@ -124,3 +124,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | ślad debugowania |
 | event (one line of the trace) | zdarzenie |
 | verbose mode | tryb szczegółowy |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Automatycznie |
+| Per series (Sync section) | Dla każdej serii |
+| Never synced (Excluded series section) | Nigdy niesynchronizowane |
+| Match origins: chosen / learned / legacy / imported · to recheck | Wybrane przez ciebie / Wyuczone / Stare / Zaimportowane · do sprawdzenia |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Gdzie SyncKai śledzi Twoje odcinki |
+| Included (built-in platform) | Wbudowana |
+| Access missing | Brak dostępu |
+| Turn on first (preferred player option) | Najpierw włącz |
+| Estimated release time | Szacowana godzina premiery |
+| Extra delay (release alerts) | Dodatkowy czas |
+| On the playback page (Notifications section) | Na stronie odtwarzania |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Porównanie |
+| AniList ↔ MyAnimeList differences (row title) | Różnice AniList ↔ MyAnimeList |
+| Align (differences section) | Ujednolić |
+| Diagnostic report (row title) | Raport diagnostyczny |
+| Copy the report (button) | Kopiuj raport |
+| What's new (About link) | Nowości |
+| Privacy (About link) | Prywatność |

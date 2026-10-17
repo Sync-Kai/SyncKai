@@ -81,6 +81,7 @@ Binding for every change to `src/i18n/locales/ja.json` and `public/_locales/ja/m
 | shortcut | ショートカット (キーボードショートカット) | Change → 変更; Set → 割り当て |
 | Settings (`nav.settings`) | 設定 | |
 | Settings categories | 再生と同期 · 通知とスケジュール · ショートカット · マイデータ · ヘルプと情報 · アカウント · 言語 | |
+| Settings categories of the 2026-10-17 redesign | Platforms = **配信サービス** · Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) = **通知** · Display = **表示** | Playback & sync (`settings.cat.sync`) was removed |
 | Settings sections | 同期 · 再生 · サイドパネル · ページ内通知 · 新エピソード · スケジュール · 紐付け · 除外した作品 · インポート · バックアップ · ヘルプ · アプリ情報 · 危険な操作 | |
 
 ## 3. Other recurring words
@@ -125,3 +126,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | デバッグトレース |
 | event (one line of the trace) | イベント |
 | verbose mode | 詳細モード |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | 自動 |
+| Per series (Sync section) | 作品ごと |
+| Never synced (Excluded series section) | 同期しない作品 |
+| Match origins: chosen / learned / legacy / imported · to recheck | 自分で選択 / 自動判定 / 旧形式 / インポート・再確認待ち |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | SyncKaiが視聴を記録する配信サービス |
+| Included (built-in platform) | 標準対応 |
+| Access missing | アクセス権なし |
+| Turn on first (preferred player option) | 先にオンにする |
+| Estimated release time | 予想配信時刻 |
+| Extra delay (release alerts) | 追加の遅延 |
+| On the playback page (Notifications section) | 再生ページでの表示 |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | 比較 |
+| AniList ↔ MyAnimeList differences (row title) | AniList ↔ MyAnimeListの差異 |
+| Align (differences section) | 合わせる |
+| Diagnostic report (row title) | 診断レポート |
+| Copy the report (button) | コピー |
+| What's new (About link) | 新機能 |
+| Privacy (About link) | プライバシー |

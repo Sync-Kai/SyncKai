@@ -284,3 +284,131 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.title` | Afleveringen die SyncKai deze week heeft gesynchroniseerd |
 | `accountMenu.week.value_one` | {count} afl. |
 | `accountMenu.week.value_other` | {count} afl. |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. Player summary « voorkeur: {player} » (*Voorkeursplatform*). `settings.display.shortcutsHelp` rephrased as two actions to fit 50 characters. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | Meldingen |
+| `settings.cat.platforms` | Platforms |
+| `settings.cat.display` | Weergave |
+| `settings.backToAria` | Terug naar {page} |
+| `settings.group.categories` | Categorieën |
+| `settings.summary.connected` | {service} verbonden |
+| `settings.summary.notConnected` | {service} niet verbonden |
+| `settings.summary.bothConnected` | AniList en MyAnimeList verbonden |
+| `settings.summary.auto` | Automatisch |
+| `settings.summary.paused` | Gepauzeerd |
+| `settings.summary.platforms_one` | {count} van {total} actief |
+| `settings.summary.platforms_other` | {count} van {total} actief |
+| `settings.summary.player` | voorkeur: {player} |
+| `settings.summary.display` | Taal, zijpaneel, sneltoetsen |
+| `settings.summary.data` | Kijkgeschiedenis importeren · back-up |
+| `settings.summary.version` | Versie {version} |
+| `settings.summary.noErrors` | geen fouten |
+| `settings.display.keyboard` | Toetsenbord |
+| `settings.display.shortcutsHelp` | Aflevering markeren of zijpaneel openen |
+| `settings.shortcuts.duringPlayback` | Tijdens het afspelen |
+| `settings.shortcuts.navigation` | Navigatie |
+| `settings.accounts.lists` | Gesynchroniseerde lijsten |
+| `settings.accounts.both` | Met beide accounts |
+| `settings.accounts.privacy` | Je logt in op de website van AniList of MyAnimeList: SyncKai ziet je wachtwoord nooit. |
+| `settings.account.expiredHelp` | Je afleveringen worden niet meer naar {service} gestuurd tot je opnieuw verbinding maakt. |
+| `settings.account.otherStillSynced` | {service} wordt nog steeds bijgewerkt. |
+| `settings.entry.help` | Bij een klik op de titel of cover van een anime |
+| `settings.entry.unavailable` | Beschikbaar als AniList en MyAnimeList allebei verbonden zijn. |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). `settings.mappings.origin.unverified` shortened to « Geïmporteerd · te controleren » after the 320 px layout check (the badge overflowed the legend). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | Automatisch |
+| `settings.section.perSeries` | Per serie |
+| `settings.trigger.legend` | Aflevering telt als bekeken |
+| `settings.trigger.credits` | Bij het begin van de aftiteling |
+| `settings.trigger.creditsHelp` | Aanbevolen: het exacte moment dat het platform doorgeeft |
+| `settings.trigger.percentageHelp` | Ook gebruikt als de aftiteling onbekend is |
+| `settings.sync.mappingsRow` | Onthouden koppelingen |
+| `settings.sync.mappingsRowHelp` | Het AniList-seizoen dat voor elke serie is gekozen |
+| `settings.sync.exclusionsRowHelp` | Nooit gesynchroniseerd, hier weer in te schakelen |
+| `settings.mappings.intro_one` | {count} serie onthouden, per platform: het seizoen op het platform → de AniList-pagina waarin SyncKai schrijft. Een vergeten koppeling wordt bij de volgende aflevering opnieuw bepaald. |
+| `settings.mappings.intro_other` | {count} series onthouden, per platform: het seizoen op het platform → de AniList-pagina waarin SyncKai schrijft. Een vergeten koppeling wordt bij de volgende aflevering opnieuw bepaald. |
+| `settings.mappings.search` | Zoek een serie of pagina |
+| `settings.mappings.noResult` | Geen koppeling voor ‘{query}’ |
+| `settings.mappings.noResultHelp` | Zoek op de titel van de serie of van de AniList-pagina. |
+| `settings.mappings.emptyHelp` | SyncKai onthoudt er een voor elk gesynchroniseerd seizoen. |
+| `settings.mappings.showMore_one` | Nog {count} op {platform} tonen |
+| `settings.mappings.showMore_other` | Nog {count} op {platform} tonen |
+| `settings.mappings.origin.chosen` | Door jou gekozen |
+| `settings.mappings.origin.learned` | Geleerd |
+| `settings.mappings.origin.unmarked` | Oud |
+| `settings.mappings.origin.unverified` | Geïmporteerd · te controleren |
+| `settings.mappings.origin.chosenHelp` | Door jou bevestigd of gekozen: wordt nooit betwijfeld. |
+| `settings.mappings.origin.learnedHelp` | Door SyncKai gevonden: opnieuw bepaald als het platform het tegenspreekt. |
+| `settings.mappings.origin.unmarkedHelp` | Opgeslagen vóór 2.4: blijft staan, te controleren als het wordt tegengesproken. |
+| `settings.mappings.origin.unverifiedHelp` | Uit een back-up: bij het eerste gebruik opnieuw gecontroleerd. |
+| `settings.mappings.originLegend` | Herkomst van de koppelingen |
+| `settings.exclusions.section` | Nooit gesynchroniseerd |
+| `settings.exclusions.help` | Een uitgesloten serie wordt nooit meer gesynchroniseerd, in geen enkel seizoen. ‘{action}’ volgt haar weer vanaf de volgende aflevering. |
+| `settings.exclusions.emptyHelp` | Wil je een serie niet meer synchroniseren, kies dan ‘{action}’ in het menu ‘⋯’ ervan. |
+| `settings.exclusions.seriesYear` | serie uit {year} |
+| `settings.exclusions.excludedOn` | uitgesloten op {date} |
+| `popup.syncDisabledDetail` | Weer in te schakelen via Instellingen › Sync › Uitgesloten series |
+| `review.excludeTitle` | Sluit de serie uit (alle seizoenen): weer in te schakelen via Instellingen › Sync › Uitgesloten series |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. `settings.offsets.title` keeps « Geschatte tijd op de platforms » (term sheet: never « releasetijd »), exactly 30 chars. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | Waar SyncKai je afleveringen volgt |
+| `settings.platforms.allAnime` | Alle anime |
+| `settings.platforms.included` | Inbegrepen |
+| `settings.platforms.accessMissing` | Geen toegang |
+| `settings.platforms.note` | Een platform aanzetten vraagt om toegang tot de site. Alleen afspeel- en seriepagina’s worden gelezen. |
+| `settings.player.openOn` | Afleveringen openen op |
+| `settings.player.enableFirst` | Eerst aanzetten |
+| `settings.player.help` | Gebruikt door ‘Openen’ als een anime op meerdere actieve platforms staat. |
+| `settings.offsets.title` | Geschatte tijd op de platforms |
+| `settings.offsets.help` | Na de Japanse uitzending. Gebruikt door de Kalender en de meldingen; een serie pas je aan via haar rij in de Kalender. |
+| `settings.offsets.earlier` | {minutes} min eerder |
+| `settings.offsets.later` | {minutes} min later |
+| `page.platformOff` | {platform} staat uit: SyncKai volgt hier niets. Weer aanzetten: Instellingen › Platforms. |
+| `settings.section.notifications` | Op de afspeelpagina |
+| `settings.notif.legend` | Stijl van de berichten op de pagina |
+| `settings.notif.discreet.desc` | Een klein balkje, een paar seconden lang, in een hoek van de video |
+| `settings.notif.detailed.desc` | Een ballon met de aflevering en het resultaat op AniList en MyAnimeList |
+| `settings.notif.alertsOnly.desc` | Niets als alles goed gaat; alleen een ballon bij een fout of een te controleren aflevering |
+| `settings.notif.alertsAlways` | Een fout of een te controleren serie verschijnt altijd, welke stijl je ook kiest. |
+| `settings.delay.title` | Extra vertraging |
+| `settings.airing.enableFirst` | Zet de meldingen aan om op nieuwe afleveringen te controleren |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | Haal in wat je al hebt gekeken |
+| `settings.crImport.help` | Crunchyroll, ADN of Netflix. Je ziet eerst een voorbeeld voordat er iets wordt opgeslagen. |
+| `settings.backup.help` | Instellingen, koppelingen, uitgesloten series en geschiedenis in één bestand. Nooit je inloggegevens voor AniList of MyAnimeList. |
+| `settings.backup.import` | Importeren |
+| `settings.section.compare` | Vergelijken |
+| `settings.compare.title` | Verschillen AniList ↔ MyAnimeList |
+| `settings.compare.help` | Vergelijkt je twee lijsten en stemt ze af in de richting die jij kiest |
+| `settings.data.perSeries` | Koppelingen en uitgesloten series beheer je in {path}. |
+| `compare.align` | Afstemmen |
+| `compare.bulk.help` | ‘{action}’ neemt AniList over op MyAnimeList; eerst toont een bevestiging de wijzigingen. |
+| `compare.job.background` | Gaat door, ook als je deze pagina sluit. |
+| `settings.help.diagnostic` | Diagnoserapport |
+| `settings.help.diagnosticHelp` | Om in een foutmelding te plakken: versie, browser, instellingen, recente fouten. Geen tokens, geen accounts. |
+| `settings.help.copy` | Rapport kopiëren |
+| `settings.help.journalNote` | Hooguit de laatste 50, nieuwste eerst; tokens al afgeschermd. |
+| `settings.about.whatsNew` | Nieuw |
+| `settings.about.privacy` | Privacy |
+| `settings.about.source` | Broncode |

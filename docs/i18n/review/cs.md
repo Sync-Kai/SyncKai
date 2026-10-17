@@ -258,3 +258,134 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.value_one` | {count} epizoda |
 | `accountMenu.week.value_few` | {count} epizody |
 | `accountMenu.week.value_other` | {count} epizod |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. Platform count « Zapnuto: {count} z {total} » in every plural form (no agreement). Genitive slots get the head noun *služba* (« do služby {service} », « Služba {service} … »); « Připojeno: AniList a MyAnimeList » avoids the gender of the brands. Player summary « výchozí: {player} ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | Upozornění |
+| `settings.cat.platforms` | Platformy |
+| `settings.cat.display` | Zobrazení |
+| `settings.backToAria` | Zpět na stránku {page} |
+| `settings.group.categories` | Kategorie |
+| `settings.summary.connected` | {service} připojeno |
+| `settings.summary.notConnected` | {service} nepřipojeno |
+| `settings.summary.bothConnected` | Připojeno: AniList a MyAnimeList |
+| `settings.summary.auto` | Automaticky |
+| `settings.summary.paused` | Pozastaveno |
+| `settings.summary.platforms_one` | Zapnuto: {count} z {total} |
+| `settings.summary.platforms_few` | Zapnuto: {count} z {total} |
+| `settings.summary.platforms_other` | Zapnuto: {count} z {total} |
+| `settings.summary.player` | výchozí: {player} |
+| `settings.summary.display` | Jazyk, boční panel, klávesové zkratky |
+| `settings.summary.data` | Import historie sledování · záloha |
+| `settings.summary.version` | Verze {version} |
+| `settings.summary.noErrors` | žádné chyby |
+| `settings.display.keyboard` | Klávesnice |
+| `settings.display.shortcutsHelp` | Klávesy pro označení epizody nebo otevření panelu |
+| `settings.shortcuts.duringPlayback` | Při přehrávání |
+| `settings.shortcuts.navigation` | Navigace |
+| `settings.accounts.lists` | Synchronizované seznamy |
+| `settings.accounts.both` | S oběma účty |
+| `settings.accounts.privacy` | Přihlašuješ se na webu AniList nebo MyAnimeList: SyncKai tvoje heslo nikdy nevidí. |
+| `settings.account.expiredHelp` | Tvoje epizody se do služby {service} neodesílají, dokud se znovu nepřipojíš. |
+| `settings.account.otherStillSynced` | Služba {service} se dál aktualizuje. |
+| `settings.entry.help` | Otevře se po kliknutí na název nebo obal anime |
+| `settings.entry.unavailable` | Dostupné, když jsou připojené AniList i MyAnimeList. |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). Counts written « Zapamatované seriály: {count} » and « Zobrazit další na {platform} ({count}) » in every plural form (no agreement). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | Automaticky |
+| `settings.section.perSeries` | Pro jednotlivé seriály |
+| `settings.trigger.legend` | Kdy se epizoda počítá jako zhlédnutá |
+| `settings.trigger.credits` | Na začátku závěrečných titulků |
+| `settings.trigger.creditsHelp` | Doporučeno: přesný okamžik, který udává platforma |
+| `settings.trigger.percentageHelp` | Použije se i tehdy, když titulky nejsou známé |
+| `settings.sync.mappingsRow` | Zapamatovaná přiřazení |
+| `settings.sync.mappingsRowHelp` | Řada z AniList zvolená pro každý seriál |
+| `settings.sync.exclusionsRowHelp` | Nikdy se nesynchronizují, tady je lze znovu zapnout |
+| `settings.mappings.intro_one` | Zapamatované seriály: {count}, podle platformy: řada na platformě → záznam AniList, do kterého SyncKai zapisuje. Zapomenuté přiřazení se při další epizodě určí znovu. |
+| `settings.mappings.intro_few` | Zapamatované seriály: {count}, podle platformy: řada na platformě → záznam AniList, do kterého SyncKai zapisuje. Zapomenuté přiřazení se při další epizodě určí znovu. |
+| `settings.mappings.intro_other` | Zapamatované seriály: {count}, podle platformy: řada na platformě → záznam AniList, do kterého SyncKai zapisuje. Zapomenuté přiřazení se při další epizodě určí znovu. |
+| `settings.mappings.search` | Hledat seriál nebo záznam |
+| `settings.mappings.noResult` | Žádné přiřazení pro „{query}“ |
+| `settings.mappings.noResultHelp` | Hledej podle názvu seriálu nebo záznamu AniList. |
+| `settings.mappings.emptyHelp` | SyncKai si zapamatuje jedno pro každou synchronizovanou řadu. |
+| `settings.mappings.showMore_one` | Zobrazit další na {platform} ({count}) |
+| `settings.mappings.showMore_few` | Zobrazit další na {platform} ({count}) |
+| `settings.mappings.showMore_other` | Zobrazit další na {platform} ({count}) |
+| `settings.mappings.origin.chosen` | Zvoleno tebou |
+| `settings.mappings.origin.learned` | Naučeno |
+| `settings.mappings.origin.unmarked` | Starší |
+| `settings.mappings.origin.unverified` | Importováno · ověřit |
+| `settings.mappings.origin.chosenHelp` | Potvrzeno nebo zvoleno tebou: nikdy se nezpochybňuje. |
+| `settings.mappings.origin.learnedHelp` | Nalezeno SyncKai: určí se znovu, když mu platforma odporuje. |
+| `settings.mappings.origin.unmarkedHelp` | Uloženo před verzí 2.4: zůstává, při rozporu se nabídne k ověření. |
+| `settings.mappings.origin.unverifiedHelp` | Ze zálohy: při prvním použití se znovu ověří. |
+| `settings.mappings.originLegend` | Původ přiřazení |
+| `settings.exclusions.section` | Nikdy se nesynchronizují |
+| `settings.exclusions.help` | Vyloučený seriál se už nikdy nesynchronizuje, v žádné řadě. „{action}“ ho od další epizody znovu sleduje. |
+| `settings.exclusions.emptyHelp` | Chceš-li seriál přestat synchronizovat, zvol „{action}“ v jeho nabídce „⋯“. |
+| `settings.exclusions.seriesYear` | seriál z roku {year} |
+| `settings.exclusions.excludedOn` | vyloučeno {date} |
+| `popup.syncDisabledDetail` | Lze znovu zapnout v Nastavení › Synchronizace › Vyloučené seriály |
+| `review.excludeTitle` | Vyloučí seriál (všechny řady): lze znovu zapnout v Nastavení › Synchronizace › Vyloučené seriály |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. Minute tooltips written « O 15 min dřív / později » (the − / + button moves the delay by that amount). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | Kde SyncKai sleduje tvoje epizody |
+| `settings.platforms.allAnime` | Všechna anime |
+| `settings.platforms.included` | Zahrnuto |
+| `settings.platforms.accessMissing` | Chybí přístup |
+| `settings.platforms.note` | Zapnutí platformy si vyžádá přístup k jejímu webu. Čtou se jen stránky přehrávání a seriálů. |
+| `settings.player.openOn` | Otevírat epizody na |
+| `settings.player.enableFirst` | Nejdřív zapni |
+| `settings.player.help` | Použije ho tlačítko „Otevřít“, když je anime na více zapnutých platformách. |
+| `settings.offsets.title` | Odhadovaný čas vydání |
+| `settings.offsets.help` | Po japonském vysílání. Používají ho Kalendář a upozornění; jednotlivý seriál upravíš v jeho řádku v Kalendáři. |
+| `settings.offsets.earlier` | O {minutes} min dřív |
+| `settings.offsets.later` | O {minutes} min později |
+| `page.platformOff` | Platforma {platform} je vypnutá: SyncKai tu nic nehlídá. Zapnout ji můžeš v Nastavení › Platformy. |
+| `settings.section.notifications` | Na stránce přehrávání |
+| `settings.notif.legend` | Styl oznámení na stránce |
+| `settings.notif.discreet.desc` | Malý štítek na pár sekund v rohu videa |
+| `settings.notif.detailed.desc` | Bublina s epizodou a výsledkem na AniListu a MyAnimeListu |
+| `settings.notif.alertsOnly.desc` | Nic, když je vše v pořádku; bublina jen při chybě nebo epizodě k ověření |
+| `settings.notif.alertsAlways` | Chyba nebo seriál k ověření se zobrazí vždy, bez ohledu na styl. |
+| `settings.delay.title` | Zpoždění navíc |
+| `settings.airing.enableFirst` | Pro kontrolu nových epizod zapni upozornění |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. `settings.help.diagnostic` « Diagnostika » and `settings.help.copy` « Kopírovat » stay short like the catalog's existing « Kopírovat diagnostiku » / « Zkopírováno » (Czech 320 px panel). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | Doplň, co už máš zhlédnuté |
+| `settings.crImport.help` | Crunchyroll, ADN nebo Netflix. Než se cokoli zapíše, uvidíš náhled. |
+| `settings.backup.help` | Nastavení, přiřazení, vyloučené seriály a historie v jednom souboru. Nikdy tvoje přihlášení k AniListu ani MyAnimeListu. |
+| `settings.backup.import` | Importovat |
+| `settings.section.compare` | Porovnání |
+| `settings.compare.title` | Rozdíly AniList ↔ MyAnimeList |
+| `settings.compare.help` | Porovná tvoje dva seznamy a sladí je směrem, který zvolíš |
+| `settings.data.perSeries` | Přiřazení a vyloučené seriály spravuješ v {path}. |
+| `compare.align` | Sladit |
+| `compare.bulk.help` | „{action}“ přenese AniList na MyAnimeList; nejdřív potvrzení vypíše změny. |
+| `compare.job.background` | Pokračuje, i když tuto stránku zavřeš. |
+| `settings.help.diagnostic` | Diagnostika |
+| `settings.help.diagnosticHelp` | K vložení do hlášení chyby: verze, prohlížeč, nastavení, poslední chyby. Žádné tokeny ani účty. |
+| `settings.help.copy` | Kopírovat |
+| `settings.help.journalNote` | Nanejvýš posledních 50, od nejnovější; tokeny už skryté. |
+| `settings.about.whatsNew` | Novinky |
+| `settings.about.privacy` | Soukromí |
+| `settings.about.source` | Zdrojový kód |

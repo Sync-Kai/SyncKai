@@ -56,15 +56,17 @@ describe('ShortcutsPage (Preact)', () => {
     expect(edit?.getAttribute('aria-label')).toBe(t('settings.shortcut.panelEditAria'));
     expect(edit?.getAttribute('aria-describedby')).toBe('sk-shortcut-panel');
     expect(edit?.textContent).toBe(t('settings.shortcut.edit'));
-    // Séparateur entre les lignes seulement (pas d'attribut class vide sur la première)
-    const rows = [...(container.querySelector('.rounded-card')?.children ?? [])];
-    expect(rows.map((row) => row.getAttribute('class'))).toEqual([null, 'border-t border-dotted border-line']);
+    // Une carte par commande, sous le titre de sa section (maquette Raccourcis)
+    expect([...container.querySelectorAll('section > h2')].map((h2) => h2.textContent)).toEqual([t('settings.shortcuts.duringPlayback'), t('settings.shortcuts.navigation')]);
+    expect([...container.querySelectorAll('section [data-shortcut-card]')].map((card) => card.getAttribute('data-shortcut-card'))).toEqual(['episode', 'panel']);
   });
 
   it('touches relues : mise à jour en place, le bouton focalisé reste le même nœud et garde le focus', async () => {
-    keys.set({ shortcut: undefined, panelShortcut: undefined });
+    keys.set({ shortcut: 'Alt+Shift+J', panelShortcut: undefined });
     await mount();
-    expect(text('[data-shortcut-key="episode"]')).toBe(t('settings.summary.loading'));
+    // Touche en lecture : « Chargement… », bouton désactivé
+    expect(text('[data-shortcut-key="panel"]')).toBe(t('settings.summary.loading'));
+    expect($('[data-focus="panel-shortcut"]')?.hasAttribute('disabled')).toBe(true);
     const button = $('[data-focus="shortcut"]');
     button?.focus();
     await act(() => keys.set({ shortcut: 'Alt+Shift+K', panelShortcut: '' }));

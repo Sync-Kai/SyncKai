@@ -4,8 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { tl, type Locale } from '../../src/i18n';
 import type { PendingRating } from '../../src/shared/engagement.types';
+import type { ExcludedSeries } from '../../src/shared/exclusions';
 import { PLATFORMS, STREAMING_PLATFORMS } from '../../src/platforms/registry';
 import type { SyncQueueItem } from '../../src/shared/queue.types';
+import type { MediaMapping } from '../../src/shared/sync.types';
 import { TRACKER_IDS, TRACKER_LABELS } from '../../src/shared/tracker.types';
 import { demoChrome, episode } from '../screenshots/demo-data';
 import { importPlan, PANEL_PAGE, panelMedia, panelView } from '../screenshots/demo-panel';
@@ -45,6 +47,27 @@ const BRAND_NAMES: readonly string[] = ['SyncKai', ...STREAMING_PLATFORMS.map((p
 /** Cartes « À noter » ajoutées à l'écran Activité du popup (absentes des données de démo) */
 export function ratingSeed(now: number): PendingRating[] {
   return [{ id: 'anilist:154587', mediaId: 154587, malId: 52991, title: 'Frieren', coverUrl: null, completedAt: now - 2 * HOUR }];
+}
+
+/**
+ * Correspondances de Réglages › Synchronisation › Correspondances : les quatre origines (pastilles longues), numérotation
+ * avec décalage, fiche sans titre (correspondance d'avant la 1.1), plus de 4 lignes sur Crunchyroll (« Voir les N autres »)
+ */
+export const LAYOUT_MAPPINGS: Readonly<Record<string, MediaMapping>> = {
+  'crunchyroll:DEMOFRIEREN:s1': { mediaId: 154587, numbering: 'season', offset: 0, episodes: 28, seriesLabel: 'Frieren · S1', mediaTitle: 'Frieren: Beyond Journey’s End', chosen: true },
+  'crunchyroll:DEMOONEPIECE:s24': { mediaId: 21, numbering: 'displayed', offset: 0, episodes: null, seriesLabel: 'One Piece · S24 (Elbaph 1156-current)', mediaTitle: 'One Piece', learned: true },
+  'crunchyroll:DEMODRSTONE:s4': { mediaId: 189117, numbering: 'season', offset: 11, episodes: 11, seriesLabel: 'Dr. STONE · S4', mediaTitle: 'Dr. STONE: SCIENCE FUTURE Part 2', learned: true },
+  'crunchyroll:DEMODANDADAN:s1': { mediaId: 171018, numbering: 'season', offset: 0, episodes: 12, seriesLabel: 'Dandadan · S1', mediaTitle: 'Dandadan', unverified: true },
+  'crunchyroll:DEMOKAIJU:s1': { mediaId: 178754, numbering: 'season', offset: 0, episodes: 12 },
+  'netflix:DEMOMUSHOKU:s2': { mediaId: 166873, numbering: 'season', offset: 12, episodes: 12, seriesLabel: 'Mushoku Tensei: Jobless Reincarnation · S2', mediaTitle: 'Mushoku Tensei: Jobless Reincarnation Season 2 Part 2', chosen: true },
+};
+
+/** Séries exclues de Réglages › Synchronisation › Séries exclues : série par titre avec année, série d'une autre année */
+export function layoutExclusions(now: number): ExcludedSeries[] {
+  return [
+    { id: 'prime:title:berserk:y1997', platformKey: 'prime:title:berserk:y1997', mediaId: null, label: 'Berserk', excludedAt: now - 14 * 24 * HOUR },
+    { id: 'netflix:DEMOPOKEMON', platformKey: 'netflix:DEMOPOKEMON', mediaId: null, label: 'Pokémon Horizons: The Series', excludedAt: now - 400 * 24 * HOUR },
+  ];
 }
 
 /** « Synchros en attente » de l'écran Activité : une relance prévue, une synchro abandonnée (erreurs dans la langue) */
@@ -88,7 +111,7 @@ export function demoDataStrings(locale: Locale, catalog: CatalogEntries): string
       return null;
     }
   });
-  return dataStringsOf([popup.storage, responses, panelView(), panelMedia(), PANEL_PAGE, importPlan(locale, now), ratingSeed(now), queueSeed(locale, now)], catalog);
+  return dataStringsOf([popup.storage, responses, panelView(), panelMedia(), PANEL_PAGE, importPlan(locale, now), ratingSeed(now), queueSeed(locale, now), LAYOUT_MAPPINGS, layoutExclusions(now)], catalog);
 }
 
 /** Chaînes affichables d'un contenu quelconque (stockage d'une page de test), mêmes exclusions */

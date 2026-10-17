@@ -18,15 +18,15 @@ import { TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { entryKey } from '../shared/watching';
 import type { WatchingEntry, WatchingSort } from '../shared/watching.types';
 import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../ui/dom';
-import { tickJobPause } from '../ui/job-pause';
 import { createMenuDismiss } from '../ui/menu';
 import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../browser/host-access';
 import { renderHostAccessBanner } from './components/host-access-banner';
 import { renderHeader, renderNav } from './components/header';
 import { renderOnboarding } from './components/onboarding';
-import { renderCompareSection } from './components/compare-section';
-import { createCompareController } from './controllers/compare';
+import { renderCompareLink } from './components/compare-link';
+import { createCompareController } from '../ui/compare-controller';
+import { diffBadge } from '../ui/settings/compare-model';
 import { createQueueController } from './controllers/queue';
 import { createRatingsController } from './controllers/ratings';
 import { createWatchingController } from './controllers/watching';
@@ -158,11 +158,8 @@ const queueSlot = h('div', { class: 'contents' });
 const ratingSlot = h('div', { class: 'contents' });
 const recentSlot = h('div', { class: 'contents' });
 const compareSlot = h('div', { class: 'contents' });
-/** Activité › « Écarts AniList ↔ MAL » */
-const compare = createCompareController({
-  onApplied: () => void watching.reload(),
-  onPauseTick: (job, at) => tickJobPause(compareSlot, job, at),
-});
+/** « Écarts AniList ↔ MAL » : compteur de la ligne de l'Activité, page des Réglages (même contrôleur) */
+const compare = createCompareController({ onApplied: () => void watching.reload() });
 const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot, compareSlot);
 /**
  * Créée à la première ouverture des Réglages (comme dans le panneau) : mappings, journal, raccourcis et accès ne sont lus
@@ -178,8 +175,10 @@ function loadSettingsView(): Promise<SettingsView | null> {
         // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
         openTab: (url) => void chrome.tabs.create({ url }),
         closesOnBlur: true,
+        hostAccessBanner: true,
         accounts,
         platformAccess: platformAccessStore,
+        compare: () => compare,
       });
       // Masquée jusqu'au rendu qui l'affiche (ouverture annulée pendant le chargement : elle reste masquée)
       view.element.hidden = true;
@@ -236,6 +235,12 @@ function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
 
 function goBack(): void {
   navigate(uiStore.get().previous);
+}
+
+/** Page des Réglages (barre d'état « Alignement… » → Écarts), Réglages déjà ouverts ou non */
+function openSettingsPage(page: SettingsPage): void {
+  if (uiStore.get().screen === 'settings' && settingsView) settingsView.show(page);
+  else navigate('settings', page);
 }
 
 function toggleSettings(): void {
@@ -443,7 +448,7 @@ function renderWatching(): void {
         onPickSort: (value) => pickSort(value),
         onRetry: () => void watching.reload(),
         optionalPlatforms,
-        onOpenSyncSettings: () => navigate('settings', 'sync'),
+        onOpenSyncSettings: () => navigate('settings', 'platforms'),
         pageCard: renderPageMediaCard({
           card: pageCard,
           now,
@@ -503,34 +508,14 @@ function renderRatings(): void {
   );
 }
 
-/**
- * Section « Écarts » redessinée seulement si son état change (jusqu'à 30+ lignes). Le compte à rebours d'une pause
- * d'alignement n'en fait pas partie : il est mis à jour en place chaque seconde (tickJobPause).
- */
+/** Ligne « Écarts AniList ↔ MyAnimeList » (les deux comptes connectés) : ouvre Réglages › Mes données › Écarts */
 const compareChanged = createLocaleMemo();
 
 function renderCompare(): void {
   const both = connectedServices().length === 2;
-  const entryLinks = entryLinkContext();
-  if (!compareChanged([compare.store.get(), both, now, entryLinks.preferred])) return;
-  compareSlot.replaceChildren(
-    ...nodes([
-      both &&
-        renderCompareSection({
-          state: compare.store.get(),
-          now,
-          onAnalyze: () => void compare.analyze(),
-          onApply: (diffs, source) => void compare.apply(diffs, source),
-          onConfirm: (source) => compare.setConfirm(source),
-          onFilter: (filter) => compare.setFilter(filter),
-          onCancel: () => void compare.cancel(),
-          onDismissJob: () => void compare.dismissJob(),
-          onRetryFailed: (diffs, source) => void compare.apply(diffs, source),
-          onShowMore: () => compare.showMore(),
-          entryLinks,
-        }),
-    ]),
-  );
+  const count = diffBadge(compare.store.get().result);
+  if (!compareChanged([both, count])) return;
+  compareSlot.replaceChildren(...nodes([both && renderCompareLink({ count, onOpen: () => navigate('settings', 'compare') })]));
 }
 
 // Chaque zone n'est redessinée que si ses entrées changent : focus, survol et régions live (bandeau d'accès,
@@ -804,6 +789,7 @@ watching.start();
 mountStatusBar(footerSlot, {
   accounts,
   openActivity: () => navigate('activity'),
+  openCompare: () => openSettingsPage('compare'),
   // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
   openImport: (platform) => void chrome.tabs.create({ url: importPageUrl(platform) }),
 });

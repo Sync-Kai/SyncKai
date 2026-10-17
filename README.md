@@ -65,7 +65,7 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 - One-click status changes (on hold, dropped, completed) on both services; remove an anime from your list or edit its comment, from the popup or the side panel.
 - Remove a series from your list (confirmed first) and write a comment on its entry (AniList notes, MyAnimeList comments), from the ⋯ menu of *Watching* or the *Your progress* card of the side panel.
 - Click a title or cover to open its AniList or MyAnimeList page (*Default entry page* setting when both accounts are connected).
-- Compare AniList and MyAnimeList: spots differences in progress, status, score and missing series, and aligns them on demand, never automatically.
+- Compare AniList and MyAnimeList: spots differences in progress, status, score and missing series, and aligns them on demand, never automatically (*Settings › My data*).
 - Rating prompt when a series is completed, and rewatch detection.
 
 **Side panel and schedule**
@@ -86,9 +86,9 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 - No server, no analytics: data only goes to AniList and MyAnimeList.
 - Offline queue: if the network or a service is down, pending syncs are retried automatically.
 - On-page notifications in three levels (Discreet, Detailed, Alerts only), fullscreen-friendly.
-- Keyboard shortcuts, the same on Chrome, Brave and Firefox: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> to mark the current episode as watched, <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> to open or close the side panel (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>&</kbd> on AZERTY: same key). *Settings › Shortcuts* shows the current keys and opens the browser's shortcuts page to change them (`chrome://extensions/shortcuts`; Firefox: `about:addons` › gear icon › *Manage Extension Shortcuts*). Already installed? A key you changed is kept on update; if a key is missing, set it there.
+- Keyboard shortcuts, the same on Chrome, Brave and Firefox: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> to mark the current episode as watched, <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> to open or close the side panel (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>&</kbd> on AZERTY: same key). *Settings › Display › Shortcuts* shows the current keys and opens the browser's shortcuts page to change them (`chrome://extensions/shortcuts`; Firefox: `about:addons` › gear icon › *Manage Extension Shortcuts*). Already installed? A key you changed is kept on update; if a key is missing, set it there.
 - Per-series exclusion, settings grouped by category with quick toggles.
-- Interface in 21 languages: English, French, German, Spanish (Spain and Latin America), Brazilian Portuguese, Italian, Dutch, Russian, Ukrainian, Polish, Czech, Romanian, Swedish, Turkish, Indonesian, Vietnamese, Chinese (Simplified and Traditional), Korean and Japanese; the browser language is used by default, or the one chosen in *Settings › Language*.
+- Interface in 21 languages: English, French, German, Spanish (Spain and Latin America), Brazilian Portuguese, Italian, Dutch, Russian, Ukrainian, Polish, Czech, Romanian, Swedish, Turkish, Indonesian, Vietnamese, Chinese (Simplified and Traditional), Korean and Japanese; the browser language is used by default, or the one chosen in *Settings › Display › Language*.
 
 <table>
   <tr>
@@ -116,11 +116,11 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 | [AniList](https://anilist.co) | OAuth2 (implicit grant) |
 | [MyAnimeList](https://myanimelist.net) | OAuth2 with PKCE, no client secret |
 
-**Netflix** is off by default. Turn it on in *Settings › Playback & sync*: the browser then asks for access to netflix.com, and turning it off removes that access. Since Netflix does not label anime, only series whose AniList entry links to the Netflix title are synced. A series found by title alone goes through a *To check* card, and other titles are silently ignored.
+**Netflix** is off by default. Turn it on in *Settings › Platforms*: the browser then asks for access to netflix.com, and turning it off removes that access. Since Netflix does not label anime, only series whose AniList entry links to the Netflix title are synced. A series found by title alone goes through a *To check* card, and other titles are silently ignored.
 
-**Disney+** is off by default too (*Settings › Playback & sync*, access to disneyplus.com). Only titles whose original language is Japanese are considered; the others are ignored in the page without being sent anywhere. Disney+ gives no series ID on its player page, so the English series title (season 99 arcs by their own title) is matched against AniList, and a match is trusted only if that entry links to Disney+; otherwise it goes through *To check*. SyncKai sends no request to Disney+: it reads the response the player already receives, and the position from the player's progress bar. In a Disney+ tab opened before turning it on (or before an update), tracking starts with the next episode.
+**Disney+** is off by default too (*Settings › Platforms*, access to disneyplus.com). Only titles whose original language is Japanese are considered; the others are ignored in the page without being sent anywhere. Disney+ gives no series ID on its player page, so the English series title (season 99 arcs by their own title) is matched against AniList, and a match is trusted only if that entry links to Disney+; otherwise it goes through *To check*. SyncKai sends no request to Disney+: it reads the response the player already receives, and the position from the player's progress bar. In a Disney+ tab opened before turning it on (or before an update), tracking starts with the next episode.
 
-**Prime Video** is off by default too (*Settings › Playback & sync*, access to primevideo.com; the amazon.<tld> sites are not supported). SyncKai reads the title's data the page already holds (genres, Japanese audio track, season and episode list) and, through a passive script, the responses the player already receives (episode playing, end-credits time); it sends no request to Prime Video. Titles Prime Video labels anime, or animation offered with Japanese audio, are matched against AniList as usual; other animation is synced only when an AniList anime has exactly the same title, and anything else is ignored in the page without being sent anywhere.
+**Prime Video** is off by default too (*Settings › Platforms*, access to primevideo.com; the amazon.<tld> sites are not supported). SyncKai reads the title's data the page already holds (genres, Japanese audio track, season and episode list) and, through a passive script, the responses the player already receives (episode playing, end-credits time); it sends no request to Prime Video. Titles Prime Video labels anime, or animation offered with Japanese audio, are matched against AniList as usual; other animation is synced only when an AniList anime has exactly the same title, and anything else is ignored in the page without being sent anywhere.
 
 ## How it works
 
@@ -192,7 +192,7 @@ Store names and descriptions live in `public/_locales/`.
 
 ## Contributing
 
-Bug reports and suggestions are welcome in [GitHub Issues](https://github.com/Sync-Kai/SyncKai/issues). When reporting a bug, attach the diagnostic report (*Settings › Help & about › Copy diagnostic report*). It contains no sensitive data.
+Bug reports and suggestions are welcome in [GitHub Issues](https://github.com/Sync-Kai/SyncKai/issues). When reporting a bug, attach the diagnostic report (*Settings › Help & about › Copy the report*). It contains no sensitive data.
 
 Pull requests are welcome too, including translations (`src/i18n/locales/`). Please run `npm run verify` before opening one.
 

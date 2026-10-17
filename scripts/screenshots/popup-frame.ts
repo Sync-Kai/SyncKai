@@ -3,7 +3,7 @@ import '../../src/popup/popup.css';
 import { demoChrome, type Scenario } from './demo-data';
 import { installChromeMock } from './mock-chrome';
 import { loadedLocaleParam, markReady, param, waitFor } from './params';
-import { isSettingsCategory } from '../../src/ui/settings/navigation';
+import { isSettingsSubPage, SETTINGS_PAGE_PARENTS, type SettingsSubPage } from '../../src/ui/settings/navigation';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'menu', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
@@ -17,13 +17,6 @@ if (zoom !== 1) document.documentElement.style.zoom = String(zoom);
 
 const find = (selector: string): Promise<HTMLElement> => waitFor(() => document.querySelector<HTMLElement>(selector));
 const click = async (selector: string): Promise<void> => (await find(selector)).click();
-
-/** Amène `node` en haut de la zone défilante du popup, avec une petite marge */
-function scrollToTop(node: Element | null, margin = 12): void {
-  node?.scrollIntoView({ block: 'start' });
-  const main = document.querySelector('main');
-  if (main) main.scrollTop -= margin;
-}
 
 // Navigation par les vrais boutons, une fois les comptes chargés
 await waitFor(() => document.querySelector('[data-focus="nav-activity"]') && document.querySelector('main section'));
@@ -46,19 +39,27 @@ switch (scenario) {
     await waitFor(() => document.querySelector('main article button[aria-pressed="true"]'));
     break;
   case 'compare':
-    await click('[data-focus="nav-activity"]');
-    scrollToTop((await find('[data-focus^="compare-anilist-"]')).closest('section'));
+    // Réglages › Mes données › Écarts AniList ↔ MAL, analyse de démo affichée
+    await click('[data-focus="gear"]');
+    await click('[data-focus="settings-cat-data"]');
+    await click('[data-focus="settings-cat-compare"]');
+    await find('[data-diff]');
     break;
   case 'settings': {
-    // Accueil des Réglages, ou sous-page via `settingsPage` (accounts, sync, notifications, shortcuts, data, language, help)
+    // Accueil des Réglages, ou page via `settingsPage` (SETTINGS_SUBPAGES : accounts, sync, …, language, shortcuts)
     await click('[data-focus="gear"]');
-    await waitFor(() => document.querySelector('[data-focus="settings-cat-accounts"]')?.textContent?.includes('✓') && document.querySelector('#sk-quick-auto'));
+    await waitFor(() => document.querySelector('[data-account-summary]:not([data-account-summary="loading"])') && document.querySelector('[data-focus="sk-quick-auto"]'));
     const settingsPage = param('settingsPage');
-    if (isSettingsCategory(settingsPage)) {
-      await click(`[data-focus="settings-cat-${settingsPage}"]`);
-      await find('[data-focus="settings-home"]');
-      // Comptes : profils chargés (avatars) avant la capture
-      if (settingsPage === 'accounts') await waitFor(() => [...document.querySelectorAll('main a')].some((a) => a.textContent === 'Kai_fan'));
+    if (isSettingsSubPage(settingsPage)) {
+      // Page de second niveau : par sa page parente, comme à la main
+      const trail: SettingsSubPage[] = [];
+      for (let id: SettingsSubPage | 'home' = settingsPage; id !== 'home'; id = SETTINGS_PAGE_PARENTS[id]) trail.unshift(id);
+      for (const id of trail) {
+        await click(`[data-focus="settings-cat-${id}"]`);
+        await find('[data-focus="settings-home"]');
+      }
+      // Comptes : profils chargés avant la capture
+      if (settingsPage === 'accounts') await waitFor(() => [...document.querySelectorAll('[data-account-status]')].some((status) => status.textContent?.includes('Kai_fan')));
     }
     break;
   }

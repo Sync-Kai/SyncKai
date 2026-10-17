@@ -267,3 +267,127 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.label` | 本週已同步 |
 | `accountMenu.week.title` | 本週由 SyncKai 同步的集數 |
 | `accountMenu.week.value_other` | {count} 集 |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. Half-width spaces around Latin names and placeholders; the back label quotes the page name (返回「{page}」). Platform count 已啟用 {count}/{total}; player summary 偏好 {player} (偏好播放平台); list = 清單. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | 通知 |
+| `settings.cat.platforms` | 平台 |
+| `settings.cat.display` | 顯示 |
+| `settings.backToAria` | 返回「{page}」 |
+| `settings.group.categories` | 類別 |
+| `settings.summary.connected` | {service} 已連結 |
+| `settings.summary.notConnected` | {service} 未連結 |
+| `settings.summary.bothConnected` | AniList 和 MyAnimeList 皆已連結 |
+| `settings.summary.auto` | 自動 |
+| `settings.summary.paused` | 已暫停 |
+| `settings.summary.platforms_other` | 已啟用 {count}/{total} |
+| `settings.summary.player` | 偏好 {player} |
+| `settings.summary.display` | 語言、側邊面板、鍵盤快速鍵 |
+| `settings.summary.data` | 匯入觀看記錄 · 備份 |
+| `settings.summary.version` | 版本 {version} |
+| `settings.summary.noErrors` | 沒有錯誤 |
+| `settings.display.keyboard` | 鍵盤 |
+| `settings.display.shortcutsHelp` | 用來將集數標記為已看或開啟側邊面板的按鍵 |
+| `settings.shortcuts.duringPlayback` | 播放時 |
+| `settings.shortcuts.navigation` | 導覽 |
+| `settings.accounts.lists` | 同步的清單 |
+| `settings.accounts.both` | 兩個帳號都連結時 |
+| `settings.accounts.privacy` | 登入是在 AniList 或 MyAnimeList 網站上完成，SyncKai 絕不會看到你的密碼。 |
+| `settings.account.expiredHelp` | 重新連結之前，你的集數不會再傳送到 {service}。 |
+| `settings.account.otherStillSynced` | {service} 仍會持續更新。 |
+| `settings.entry.help` | 點選動畫標題或封面時開啟的頁面 |
+| `settings.entry.unavailable` | AniList 和 MyAnimeList 都連結後才能使用。 |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | 自動 |
+| `settings.section.perSeries` | 依作品 |
+| `settings.trigger.credits` | 片尾開始時 |
+| `settings.trigger.creditsHelp` | 建議：平台提供的確切時間點 |
+| `settings.trigger.percentageHelp` | 片尾時間不明時也會使用 |
+| `settings.sync.mappingsRow` | 已記住的對應 |
+| `settings.sync.mappingsRowHelp` | 為每部動畫選定的 AniList 季 |
+| `settings.sync.exclusionsRowHelp` | 永不同步，可在這裡重新啟用 |
+| `settings.mappings.intro_other` | 已記住 {count} 部動畫，依平台分組：平台上的季 → SyncKai 寫入的 AniList 條目。忘記對應後，看下一集時會重新判斷。 |
+| `settings.mappings.search` | 搜尋動畫或條目 |
+| `settings.mappings.noResult` | 沒有「{query}」的對應記錄 |
+| `settings.mappings.noResultHelp` | 可依動畫名稱或 AniList 條目名稱搜尋。 |
+| `settings.mappings.emptyHelp` | SyncKai 會為每個同步過的季記住一筆。 |
+| `settings.mappings.showMore_other` | 查看 {platform} 上其餘 {count} 筆 |
+| `settings.mappings.origin.chosen` | 你選擇的 |
+| `settings.mappings.origin.learned` | 自動學習 |
+| `settings.mappings.origin.unmarked` | 舊記錄 |
+| `settings.mappings.origin.unverified` | 已匯入 · 待複查 |
+| `settings.mappings.origin.chosenHelp` | 由你確認或選擇：不會再被質疑。 |
+| `settings.mappings.origin.learnedHelp` | 由 SyncKai 找到：若與平台資訊矛盾會重新判斷。 |
+| `settings.mappings.origin.unmarkedHelp` | 2.4 之前儲存：會保留，出現矛盾時需要確認。 |
+| `settings.mappings.origin.unverifiedHelp` | 來自備份：第一次使用時會重新確認。 |
+| `settings.mappings.originLegend` | 對應記錄的來源 |
+| `settings.exclusions.section` | 永不同步 |
+| `settings.exclusions.help` | 已排除的動畫不會再同步，所有季都一樣。按「{action}」後從下一集起重新追蹤。 |
+| `settings.exclusions.emptyHelp` | 要停止同步某部動畫，請在它的「⋯」選單中選擇「{action}」。 |
+| `settings.exclusions.seriesYear` | {year} 年的動畫 |
+| `settings.exclusions.excludedOn` | {date} 排除 |
+| `popup.syncDisabledDetail` | 可在「設定 › 同步 › 已排除的動畫」中重新啟用 |
+| `review.excludeTitle` | 排除整部動畫（所有季）：可在「設定 › 同步 › 已排除的動畫」中重新啟用 |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. Settings path quoted as « 「設定 › 平台」 » in `page.platformOff`, per the term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | SyncKai 追蹤你觀看的平台 |
+| `settings.platforms.allAnime` | 所有動畫 |
+| `settings.platforms.included` | 內建 |
+| `settings.platforms.accessMissing` | 缺少權限 |
+| `settings.platforms.note` | 啟用平台時會要求存取該網站。只會讀取播放頁面和作品頁面。 |
+| `settings.player.openOn` | 開啟集數的平台 |
+| `settings.player.enableFirst` | 請先啟用 |
+| `settings.player.help` | 動畫在多個已啟用的平台上架時，「開啟」會使用這個平台。 |
+| `settings.offsets.title` | 預估上架時間 |
+| `settings.offsets.help` | 以日本播出後的時間計算，用於「時間表」和播出提醒。個別動畫可在時間表的該列中單獨調整。 |
+| `settings.offsets.earlier` | 提早 {minutes} 分鐘 |
+| `settings.offsets.later` | 延後 {minutes} 分鐘 |
+| `page.platformOff` | {platform} 已停用：SyncKai 不會在這裡追蹤任何內容。如要重新啟用，請前往「設定 › 平台」。 |
+| `settings.section.notifications` | 在播放頁面上 |
+| `settings.notif.legend` | 頁面內通知樣式 |
+| `settings.notif.discreet.desc` | 在影片角落顯示幾秒的小型通知 |
+| `settings.notif.detailed.desc` | 顯示該集以及 AniList 和 MyAnimeList 結果的通知泡泡 |
+| `settings.notif.alertsOnly.desc` | 一切正常時不顯示；只在出錯或有待確認的集數時顯示泡泡 |
+| `settings.notif.alertsAlways` | 無論選擇哪種樣式，錯誤或待確認的動畫一律會顯示。 |
+| `settings.delay.title` | 額外延遲 |
+| `settings.airing.enableFirst` | 請先開啟播出提醒才能檢查新集數 |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | 補上你看過的動畫 |
+| `settings.crImport.help` | 支援 Crunchyroll、ADN 或 Netflix。寫入前會先顯示預覽。 |
+| `settings.backup.help` | 設定、對應記錄、已排除的動畫和記錄，存成一個檔案。絕不包含你的 AniList 或 MyAnimeList 登入資訊。 |
+| `settings.backup.import` | 匯入 |
+| `settings.section.compare` | 比較 |
+| `settings.compare.title` | AniList ↔ MyAnimeList 差異 |
+| `settings.compare.help` | 比較你的兩份清單，並依你選擇的方向對齊 |
+| `settings.data.perSeries` | 對應記錄和已排除的動畫在「{path}」中管理。 |
+| `compare.align` | 對齊 |
+| `compare.bulk.help` | 「{action}」會把 AniList 的內容寫到 MyAnimeList；執行前會先列出變更讓你確認。 |
+| `compare.job.background` | 關閉此頁面也會繼續。 |
+| `settings.help.diagnostic` | 診斷報告 |
+| `settings.help.diagnosticHelp` | 貼到錯誤回報中：版本、瀏覽器、設定、最近的錯誤。不含權杖和帳號。 |
+| `settings.help.copy` | 複製報告 |
+| `settings.help.journalNote` | 最多保留最近 50 筆，最新的在前；權杖已遮蔽。 |
+| `settings.about.whatsNew` | 新功能 |
+| `settings.about.privacy` | 隱私權 |
+| `settings.about.source` | 原始碼 |

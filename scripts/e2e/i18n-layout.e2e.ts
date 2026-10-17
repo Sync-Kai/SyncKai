@@ -23,11 +23,11 @@ import { afterAll, beforeAll, describe, it } from 'vitest';
 import { isLocale, LOCALES, type Locale } from '../../src/i18n';
 import { CR_IMPORT_KEYS } from '../../src/shared/cr-import';
 import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
-import { SETTINGS_CATEGORIES } from '../../src/ui/settings/navigation';
+import { SETTINGS_PAGE_PARENTS, SETTINGS_SUBPAGES, type SettingsSubPage } from '../../src/ui/settings/navigation';
 import { demoChrome } from '../screenshots/demo-data';
 import { importPlan } from '../screenshots/demo-panel';
 import { launchBrowser, ROOT, startHarnessServer, type HarnessServer } from '../screenshots/harness';
-import { dataStringsOf, demoDataStrings, queueSeed, ratingSeed, readCatalog } from './layout-demo';
+import { dataStringsOf, demoDataStrings, LAYOUT_MAPPINGS, layoutExclusions, queueSeed, ratingSeed, readCatalog } from './layout-demo';
 import { attachProbe, captureLayout, scanLayout } from './layout-page';
 import { buildReport, describeFinding, parseAllowlist, type AllowEntry, type ScreenResult } from './layout-report';
 import type { CatalogEntries } from './layout-text';
@@ -120,9 +120,26 @@ async function storageSet(page: Page, items: Record<string, unknown>): Promise<v
   await page.evaluate(async (values: Record<string, unknown>) => chrome.storage.local.set(values), items);
 }
 
-/** Réglages affichés : comptes chargés (résumé « AniList ✓ ») et interrupteurs rapides présents */
+/** Réglages affichés : comptes chargés (résumé de la carte Comptes) et interrupteurs rapides présents */
 async function waitForSettingsHome(page: Page): Promise<void> {
-  await page.waitForFunction(() => document.querySelector('[data-focus="settings-cat-accounts"]')?.textContent?.includes('✓') && document.querySelector('#sk-quick-auto') !== null);
+  await page.waitForFunction(() => document.querySelector('[data-account-summary]:not([data-account-summary="loading"])') !== null && document.querySelector('[data-focus="sk-quick-auto"]') !== null);
+}
+
+/** Page des Réglages ouverte depuis l'accueil par les vraies lignes (page de second niveau : par sa page parente) */
+async function openSettingsPage(page: Page, id: SettingsSubPage): Promise<void> {
+  const parent = SETTINGS_PAGE_PARENTS[id];
+  if (parent !== 'home') await openSettingsPage(page, parent);
+  await click(page, `settings-cat-${id}`);
+  await page.waitForSelector(sel('settings-home'));
+  if (id === 'accounts') await page.waitForFunction(() => [...document.querySelectorAll('[data-account-status]')].some((status) => status.textContent?.includes('Kai_fan')));
+  // Écarts : analyse de démo lue (lignes, filtres)
+  if (id === 'compare') await page.waitForSelector('[data-diff]');
+}
+
+/** Retour à l'accueil des Réglages (« ← parent » jusqu'à la ligne de la catégorie) */
+async function backToSettingsHome(page: Page, id: SettingsSubPage): Promise<void> {
+  for (let current: SettingsSubPage | 'home' = id; current !== 'home'; current = SETTINGS_PAGE_PARENTS[current]) await click(page, 'settings-home');
+  await page.waitForSelector(sel('back'));
 }
 
 // ─── Popup ────────────────────────────────────────────────────────────────
@@ -168,20 +185,24 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await page.waitForSelector(`[data-notes-row="${SOLO}"]`, { hidden: true });
 
     ctx.step = 'popup/settings';
+    // Correspondances aux quatre origines (pastilles longues) et séries exclues : pages Synchronisation remplies
+    await storageSet(page, {
+      [STORAGE_KEYS.mediaMappings]: LAYOUT_MAPPINGS,
+      excludedSeries: layoutExclusions(Date.now()),
+      // Écarts AniList ↔ MAL analysés : page Mes données › Écarts remplie (compteur, filtres, lignes)
+      [STORAGE_KEYS.compareLast]: demoChrome(ctx.locale, 'compare', Date.now()).storage[STORAGE_KEYS.compareLast],
+    });
     await click(page, 'gear');
     await waitForSettingsHome(page);
     await shot(ctx, page, 'popup/settings');
-    for (const category of SETTINGS_CATEGORIES) {
-      ctx.step = `popup/settings-${category}`;
-      await click(page, `settings-cat-${category}`);
-      await page.waitForSelector(sel('settings-home'));
-      if (category === 'accounts') await page.waitForFunction(() => [...document.querySelectorAll('main a')].some((a) => a.textContent === 'Kai_fan'));
-      await shot(ctx, page, `popup/settings-${category}`);
-      await click(page, 'settings-home');
-      await page.waitForSelector(sel(`settings-cat-${category}`));
+    for (const id of SETTINGS_SUBPAGES) {
+      ctx.step = `popup/settings-${id}`;
+      await openSettingsPage(page, id);
+      await shot(ctx, page, `popup/settings-${id}`);
+      await backToSettingsHome(page, id);
     }
 
-    // Activité : carte « À vérifier » de la démo (raison traduite), « À noter », « Synchros en attente » et écarts
+    // Activité : carte « À vérifier » de la démo (raison traduite), « À noter », « Synchros en attente » et ligne des écarts
     // AniList ↔ MAL analysés ajoutés
     ctx.step = 'popup/activity';
     const now = Date.now();
@@ -196,7 +217,7 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await page.waitForSelector('main article [data-focus^="cand-"]');
     await page.waitForSelector('[data-focus^="rate-ignore-"]');
     await page.waitForSelector('[data-focus^="queue-retry-"]');
-    await page.waitForSelector('[data-focus^="compare-anilist-"]');
+    await page.waitForSelector('[data-focus="activity-compare"] [data-diff-count]');
     await shot(ctx, page, 'popup/activity');
   } finally {
     await page.close();
@@ -262,9 +283,23 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
     await panelShots(ctx, page, 'schedule');
 
     ctx.step = 'panel/settings';
+    await storageSet(page, {
+      [STORAGE_KEYS.mediaMappings]: LAYOUT_MAPPINGS,
+      excludedSeries: layoutExclusions(Date.now()),
+      // Écarts AniList ↔ MAL analysés : page Mes données › Écarts remplie (compteur, filtres, lignes)
+      [STORAGE_KEYS.compareLast]: demoChrome(ctx.locale, 'compare', Date.now()).storage[STORAGE_KEYS.compareLast],
+    });
     await click(page, 'gear');
     await waitForSettingsHome(page);
     await panelShots(ctx, page, 'settings');
+    // Pages des Réglages refaites (comptes, affichage et ses pages) : règle des 320 px
+    for (const id of ['accounts', 'sync', 'mappings', 'exclusions', 'platforms', 'notifications', 'display', 'language', 'shortcuts', 'data', 'compare', 'help'] as const) {
+      ctx.step = `panel/settings-${id}`;
+      await page.setViewport({ width: PANEL_WIDTHS[0], height: PANEL_HEIGHT });
+      await openSettingsPage(page, id);
+      await panelShots(ctx, page, `settings-${id}`);
+      await backToSettingsHome(page, id);
+    }
   } finally {
     await page.close();
   }

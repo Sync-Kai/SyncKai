@@ -100,6 +100,7 @@ Binding for every change to `src/i18n/locales/ko.json` and `public/_locales/ko/m
 | Correct (fix a sync) | 수정 | |
 | Settings (`nav.settings`) | 설정 | |
 | Settings categories | 계정 (Accounts), 재생 및 동기화 (Playback & sync), 알림 및 편성표 (Notifications & schedule), 단축키 (Shortcuts), 내 데이터 (My data), 언어 (Language), 도움말 및 정보 (Help & about) | Groups: 빠른 설정, 재생 및 알림, 데이터 및 도움말 |
+| Settings categories of the 2026-10-17 redesign | Platforms = **플랫폼** · Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) = **알림** · Display = **표시** | Playback & sync (`settings.cat.sync`) was removed |
 | Settings sections | 제외된 작품, 매칭, 백업, 가져오기, 새 에피소드, 편성표, 재생, 동기화, 측면 패널, 도움말, 정보, 위험 구역 | |
 | Activity (popup tab) | 활동 | Quoted as 활동 탭 / 팝업의 ‘활동’ 탭 |
 | Continue (card) | 이어 보기 | |
@@ -124,3 +125,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | 디버그 추적 |
 | event (one line of the trace) | 이벤트 |
 | verbose mode | 상세 모드 |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | 자동 |
+| Per series (Sync section) | 작품별 |
+| Never synced (Excluded series section) | 동기화하지 않음 |
+| Match origins: chosen / learned / legacy / imported · to recheck | 직접 선택 / 자동 학습 / 이전 방식 / 가져옴 · 다시 확인 |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | SyncKai가 에피소드를 추적하는 곳 |
+| Included (built-in platform) | 기본 포함 |
+| Access missing | 접근 권한 없음 |
+| Turn on first (preferred player option) | 먼저 켜기 |
+| Estimated release time | 예상 공개 시각 |
+| Extra delay (release alerts) | 추가 지연 |
+| On the playback page (Notifications section) | 재생 페이지에서 |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | 비교 |
+| AniList ↔ MyAnimeList differences (row title) | AniList ↔ MyAnimeList 차이 |
+| Align (differences section) | 맞추기 |
+| Diagnostic report (row title) | 진단 보고서 |
+| Copy the report (button) | 보고서 복사 |
+| What's new (About link) | 새로운 기능 |
+| Privacy (About link) | 개인정보 |

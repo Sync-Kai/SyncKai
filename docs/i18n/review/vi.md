@@ -265,3 +265,127 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.label` | Đã đồng bộ tuần này |
 | `accountMenu.week.title` | Số tập SyncKai đã đồng bộ trong tuần này |
 | `accountMenu.week.value_other` | {count} tập |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. Platform count « Đang bật {count}/{total} »; player summary « ưu tiên {player} » (*Nền tảng ưu tiên*); the panel is **bảng điều khiển** (term of `settings.section.panel`). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | Thông báo |
+| `settings.cat.platforms` | Nền tảng |
+| `settings.cat.display` | Hiển thị |
+| `settings.backToAria` | Quay lại {page} |
+| `settings.group.categories` | Danh mục |
+| `settings.summary.connected` | {service} đã kết nối |
+| `settings.summary.notConnected` | {service} chưa kết nối |
+| `settings.summary.bothConnected` | Đã kết nối AniList và MyAnimeList |
+| `settings.summary.auto` | Tự động |
+| `settings.summary.paused` | Tạm dừng |
+| `settings.summary.platforms_other` | Đang bật {count}/{total} |
+| `settings.summary.player` | ưu tiên {player} |
+| `settings.summary.display` | Ngôn ngữ, bảng điều khiển bên, phím tắt |
+| `settings.summary.data` | Nhập lịch sử xem · sao lưu |
+| `settings.summary.version` | Phiên bản {version} |
+| `settings.summary.noErrors` | không có lỗi |
+| `settings.display.keyboard` | Bàn phím |
+| `settings.display.shortcutsHelp` | Phím đánh dấu tập đã xem hoặc mở bảng điều khiển |
+| `settings.shortcuts.duringPlayback` | Khi đang xem |
+| `settings.shortcuts.navigation` | Điều hướng |
+| `settings.accounts.lists` | Danh sách được đồng bộ |
+| `settings.accounts.both` | Khi có cả hai tài khoản |
+| `settings.accounts.privacy` | Bạn đăng nhập ngay trên trang AniList hoặc MyAnimeList: SyncKai không bao giờ thấy mật khẩu của bạn. |
+| `settings.account.expiredHelp` | Các tập bạn xem sẽ không được gửi đến {service} cho đến khi bạn kết nối lại. |
+| `settings.account.otherStillSynced` | {service} vẫn được cập nhật. |
+| `settings.entry.help` | Khi nhấn vào tên hoặc ảnh bìa của anime |
+| `settings.entry.unavailable` | Chỉ dùng được khi đã kết nối cả AniList và MyAnimeList. |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | Tự động |
+| `settings.section.perSeries` | Theo từng bộ |
+| `settings.trigger.credits` | Khi bắt đầu ending |
+| `settings.trigger.creditsHelp` | Khuyên dùng: đúng thời điểm do nền tảng cung cấp |
+| `settings.trigger.percentageHelp` | Cũng dùng khi không biết thời điểm ending |
+| `settings.sync.mappingsRow` | Ghép nối đã ghi nhớ |
+| `settings.sync.mappingsRowHelp` | Mùa trên AniList được chọn cho từng bộ |
+| `settings.sync.exclusionsRowHelp` | Không bao giờ đồng bộ, có thể bật lại ở đây |
+| `settings.mappings.intro_other` | Đã ghi nhớ {count} bộ, theo nền tảng: mùa trên nền tảng → mục AniList mà SyncKai ghi vào. Quên một ghép nối sẽ khiến nó được tính lại ở tập tiếp theo. |
+| `settings.mappings.search` | Tìm bộ anime hoặc mục |
+| `settings.mappings.noResult` | Không có ghép nối nào cho “{query}” |
+| `settings.mappings.noResultHelp` | Tìm theo tên bộ anime hoặc tên mục AniList. |
+| `settings.mappings.emptyHelp` | SyncKai ghi nhớ một ghép nối cho mỗi mùa được đồng bộ. |
+| `settings.mappings.showMore_other` | Xem thêm {count} trên {platform} |
+| `settings.mappings.origin.chosen` | Do bạn chọn |
+| `settings.mappings.origin.learned` | Tự học |
+| `settings.mappings.origin.unmarked` | Cũ |
+| `settings.mappings.origin.unverified` | Đã nhập · cần kiểm tra lại |
+| `settings.mappings.origin.chosenHelp` | Do bạn xác nhận hoặc chọn: không bao giờ bị xét lại. |
+| `settings.mappings.origin.learnedHelp` | SyncKai tự tìm: được tính lại nếu nền tảng cho thông tin trái ngược. |
+| `settings.mappings.origin.unmarkedHelp` | Lưu trước bản 2.4: được giữ, cần kiểm tra nếu có mâu thuẫn. |
+| `settings.mappings.origin.unverifiedHelp` | Từ bản sao lưu: được kiểm tra lại ở lần dùng đầu tiên. |
+| `settings.mappings.originLegend` | Nguồn gốc ghép nối |
+| `settings.exclusions.section` | Không bao giờ đồng bộ |
+| `settings.exclusions.help` | Bộ anime bị loại trừ sẽ không bao giờ được đồng bộ nữa, ở mọi mùa. “{action}” sẽ theo dõi lại từ tập tiếp theo. |
+| `settings.exclusions.emptyHelp` | Để ngừng đồng bộ một bộ anime, chọn “{action}” trong menu “⋯” của bộ đó. |
+| `settings.exclusions.seriesYear` | bộ năm {year} |
+| `settings.exclusions.excludedOn` | loại trừ ngày {date} |
+| `popup.syncDisabledDetail` | Có thể bật lại trong Cài đặt › Đồng bộ › Bộ anime bị loại trừ |
+| `review.excludeTitle` | Loại trừ bộ này (mọi mùa): có thể bật lại trong Cài đặt › Đồng bộ › Bộ anime bị loại trừ |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. Series = « bộ »; the minute tooltips put the amount after the comparative (« Sớm hơn 15 phút »). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | Nơi SyncKai theo dõi tập bạn xem |
+| `settings.platforms.allAnime` | Mọi anime |
+| `settings.platforms.included` | Có sẵn |
+| `settings.platforms.accessMissing` | Thiếu quyền |
+| `settings.platforms.note` | Bật một nền tảng sẽ cần quyền truy cập trang web của nền tảng đó. Chỉ đọc trang xem và trang của bộ anime. |
+| `settings.player.openOn` | Mở tập trên |
+| `settings.player.enableFirst` | Hãy bật trước |
+| `settings.player.help` | Dùng cho nút “Mở” khi anime có trên nhiều nền tảng đang bật. |
+| `settings.offsets.title` | Giờ ra mắt dự kiến |
+| `settings.offsets.help` | Tính từ lúc phát sóng tại Nhật. Dùng cho Lịch chiếu và thông báo; có thể chỉnh riêng từng bộ trên dòng của bộ đó trong Lịch chiếu. |
+| `settings.offsets.earlier` | Sớm hơn {minutes} phút |
+| `settings.offsets.later` | Muộn hơn {minutes} phút |
+| `page.platformOff` | {platform} đang tắt: SyncKai không theo dõi gì ở đây. Để bật lại: Cài đặt › Nền tảng. |
+| `settings.section.notifications` | Trên trang xem |
+| `settings.notif.legend` | Kiểu thông báo trên trang |
+| `settings.notif.discreet.desc` | Một nhãn nhỏ hiện vài giây ở góc video |
+| `settings.notif.detailed.desc` | Bong bóng hiện tập phim và kết quả trên AniList và MyAnimeList |
+| `settings.notif.alertsOnly.desc` | Không hiện gì khi mọi thứ ổn; chỉ hiện bong bóng khi có lỗi hoặc tập cần kiểm tra |
+| `settings.notif.alertsAlways` | Lỗi hoặc bộ cần kiểm tra luôn được hiển thị, dù chọn kiểu nào. |
+| `settings.delay.title` | Trễ thêm |
+| `settings.airing.enableFirst` | Hãy bật thông báo tập mới để kiểm tra |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | Cập nhật những gì bạn đã xem |
+| `settings.crImport.help` | Crunchyroll, ADN hoặc Netflix. Bạn xem trước trước khi có gì được ghi. |
+| `settings.backup.help` | Cài đặt, ghép nối, bộ anime bị loại trừ và lịch sử trong một tệp. Không bao giờ chứa thông tin đăng nhập AniList hay MyAnimeList. |
+| `settings.backup.import` | Nhập |
+| `settings.section.compare` | So sánh |
+| `settings.compare.title` | Khác biệt AniList ↔ MyAnimeList |
+| `settings.compare.help` | So sánh hai danh sách của bạn và đồng nhất theo hướng bạn chọn |
+| `settings.data.perSeries` | Ghép nối và bộ anime bị loại trừ được quản lý trong {path}. |
+| `compare.align` | Đồng nhất |
+| `compare.bulk.help` | “{action}” chép AniList sang MyAnimeList; trước đó, một bước xác nhận liệt kê các thay đổi. |
+| `compare.job.background` | Vẫn tiếp tục dù bạn đóng trang này. |
+| `settings.help.diagnostic` | Báo cáo chẩn đoán |
+| `settings.help.diagnosticHelp` | Để dán vào báo cáo lỗi: phiên bản, trình duyệt, cài đặt, lỗi gần đây. Không có token hay tài khoản. |
+| `settings.help.copy` | Sao chép báo cáo |
+| `settings.help.journalNote` | Tối đa 50 lỗi gần nhất, mới nhất trước; token đã được che. |
+| `settings.about.whatsNew` | Có gì mới |
+| `settings.about.privacy` | Quyền riêng tư |
+| `settings.about.source` | Mã nguồn |

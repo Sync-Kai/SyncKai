@@ -5,8 +5,6 @@ import type { SyncSettings } from '../shared/settings';
 import type { ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
-import type { ComparisonResult, DiffFilter } from '../shared/compare';
-import type { CompareJob } from '../shared/compare-job';
 import type { MediaActionsState } from '../ui/media-actions';
 import type { PageMediaContent } from '../ui/page-media-controller';
 import type { InlineFeedback } from '../ui/state';
@@ -85,22 +83,6 @@ export interface RatingsState {
 export interface PageCardState {
   content: PageMediaContent<never>;
   actions: MediaActionsState;
-}
-
-/** Activité › « Écarts AniList ↔ MAL » (dernière analyse et tâche en cours, lues du stockage) */
-export interface CompareState {
-  result: ComparisonResult | null;
-  /** Analyse ou alignement en cours / dernier alignement terminé (bilan) */
-  job: CompareJob | null;
-  /** Demande envoyée au service worker, réponse pas encore reçue */
-  requesting: 'analyze' | 'apply' | null;
-  /** Erreur de l'analyse ou du lancement d'un alignement (affichée en alerte) */
-  error: string | null;
-  /** Confirmation « Tout aligner sur … » affichée */
-  confirm: TrackerId | null;
-  filter: DiffFilter;
-  /** Nombre de lignes affichées (« Afficher plus ») */
-  shown: number;
 }
 
 /** Accès aux sites (Firefox : retirables par l'utilisateur) ; `denied` = dernière demande refusée */

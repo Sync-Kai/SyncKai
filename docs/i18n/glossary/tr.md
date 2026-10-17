@@ -67,7 +67,7 @@ Binding for every change to `src/i18n/locales/tr.json` and `public/_locales/tr/m
 |---|---|
 | Settings | Ayarlar |
 | Playback & sync | Oynatma ve eşitleme |
-| Notifications & schedule | Bildirimler ve takvim |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **Platformlar** / **Bildirimler** / **Görünüm** |
 | Shortcuts | Kısayollar |
 | My data | Verilerim |
 | Help & about | Yardım ve hakkında |
@@ -118,3 +118,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | hata ayıklama izi |
 | event (one line of the trace) | olay |
 | verbose mode | ayrıntılı mod |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Otomatik |
+| Per series (Sync section) | Seri bazında |
+| Never synced (Excluded series section) | Hiç eşitlenmeyenler |
+| Match origins: chosen / learned / legacy / imported · to recheck | Senin seçtiğin / Öğrenilen / Eski / İçe aktarıldı · yeniden kontrol |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Bölümlerinin takip edildiği yerler |
+| Included (built-in platform) | Dahil |
+| Access missing | Erişim yok |
+| Turn on first (preferred player option) | Önce aç |
+| Estimated release time | Tahmini çıkış saati |
+| Extra delay (release alerts) | Ek gecikme |
+| On the playback page (Notifications section) | Oynatma sayfasında |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Karşılaştır |
+| AniList ↔ MyAnimeList differences (row title) | AniList ↔ MyAnimeList farkları |
+| Align (differences section) | Aktar |
+| Diagnostic report (row title) | Tanılama raporu |
+| Copy the report (button) | Raporu kopyala |
+| What's new (About link) | Yenilikler |
+| Privacy (About link) | Gizlilik |

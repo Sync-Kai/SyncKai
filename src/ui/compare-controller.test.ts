@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ComparisonResult, ListDiff } from '../../shared/compare';
-import type { CompareJob } from '../../shared/compare-job';
-import { installFakeChrome } from '../../test/fake-chrome';
-import type { CompareController } from './compare';
+import type { ComparisonResult, ListDiff } from '../shared/compare';
+import type { CompareJob } from '../shared/compare-job';
+import { installFakeChrome } from '../test/fake-chrome';
+import type { CompareController } from './compare-controller';
 
 // Contrôleur « Écarts AniList ↔ MAL » : fausse API chrome (stockage + onChanged, verrous) et faux service worker
 // (chaque réponse rendue à la main).
@@ -16,16 +16,16 @@ interface PendingCall {
 
 const sw = vi.hoisted(() => ({ calls: [] as PendingCall[] }));
 
-vi.mock('../../protocol/messages', () => ({
+vi.mock('../protocol/messages', () => ({
   sendMessage: (type: string, payload: unknown) => new Promise((resolve, reject) => sw.calls.push({ type, payload, resolve, reject })),
 }));
 
 const fake = installFakeChrome();
-const { createCompareController } = await import('./compare');
-const { COMPARE_STORAGE_KEY } = await import('../../shared/compare');
-const { COMPARE_JOB_ITEMS_KEY, COMPARE_JOB_KEY, currentApplyMalId, startApplyJob } = await import('../../shared/compare-job');
-const { startItem } = await import('../../shared/job');
-const { t } = await import('../../i18n');
+const { createCompareController, isCountingDown } = await import('./compare-controller');
+const { COMPARE_STORAGE_KEY } = await import('../shared/compare');
+const { COMPARE_JOB_ITEMS_KEY, COMPARE_JOB_KEY, currentApplyMalId, startApplyJob } = await import('../shared/compare-job');
+const { startItem } = await import('../shared/job');
+const { t } = await import('../i18n');
 
 /** Laisse passer les promesses et les évènements du stockage (microtâches ; minuteries simulées) */
 async function settle(): Promise<void> {
@@ -63,15 +63,13 @@ function job(patch: Partial<CompareJob> = {}): CompareJob {
 
 let ctl: CompareController;
 const onApplied = vi.fn<() => void>();
-const onPauseTick = vi.fn<(job: CompareJob, now: number) => void>();
 
 beforeEach(() => {
   fake.reset();
   sw.calls.length = 0;
   onApplied.mockReset();
-  onPauseTick.mockReset();
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'Date'] });
-  ctl = createCompareController({ onApplied, onPauseTick });
+  ctl = createCompareController({ onApplied });
 });
 
 afterEach(() => {
@@ -111,7 +109,7 @@ describe('createCompareController', () => {
     expect(ctl.store.get().error).toBe(t('popup.swUnreachable'));
   });
 
-  it('alignement : tâche acceptée → pause (compte à rebours chaque seconde) → terminée : « En cours » relu une fois', async () => {
+  it('alignement : tâche acceptée → pause (compte à rebours hors reprise) → terminée : « En cours » relu une fois', async () => {
     ctl.setConfirm('anilist');
     void ctl.apply([], 'anilist');
     expect(sw.calls).toHaveLength(0);
@@ -123,24 +121,20 @@ describe('createCompareController', () => {
     await settle();
     expect(ctl.store.get()).toMatchObject({ requesting: null, job: { status: 'running' } });
 
-    // Pause de 5 s : le compte à rebours avance sans nouveau rendu
+    // Pause de 5 s : compte à rebours (relu chaque seconde par la page)
     await fake.local.set({ [COMPARE_JOB_KEY]: job({ pausedUntil: Date.now() + 5_000, pauseReason: 'rate-limit', pauseService: 'anilist' }) });
     await settle();
-    vi.advanceTimersByTime(3_000);
-    expect(onPauseTick).toHaveBeenCalledTimes(3);
-    expect(onPauseTick.mock.lastCall?.[0].pauseReason).toBe('rate-limit');
+    expect(isCountingDown(ctl.store.get().job)).toBe(true);
 
     // Reprise après redémarrage : pas de compte à rebours
     await fake.local.set({ [COMPARE_JOB_KEY]: job({ pausedUntil: Date.now() + 5_000, pauseReason: 'resume' }) });
     await settle();
-    vi.advanceTimersByTime(3_000);
-    expect(onPauseTick).toHaveBeenCalledTimes(3);
+    expect(isCountingDown(ctl.store.get().job)).toBe(false);
 
     await fake.local.set({ [COMPARE_JOB_KEY]: job({ status: 'done', updated: 1, done: 1 }) });
     await settle();
     expect(onApplied).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(3_000);
-    expect(onPauseTick).toHaveBeenCalledTimes(3);
+    expect(isCountingDown(ctl.store.get().job)).toBe(false);
 
     // Même bilan relu : pas de nouvelle relecture
     await fake.local.set({ [COMPARE_JOB_KEY]: job({ status: 'done', updated: 2, done: 1 }) });

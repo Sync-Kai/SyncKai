@@ -38,7 +38,7 @@ Shared rules for every translation of the SyncKai interface. Each language also 
 | popup | The small window opened from the extension icon | popup | Popup | Use your language's usual word for a browser extension popup |
 | side panel | The browser side panel (Chrome) or sidebar (Firefox) that shows SyncKai next to the page | panneau latéral | Seitenleiste | |
 | Now playing (panel tab) | Side panel tab about the episode being watched | En lecture | Läuft gerade | |
-| Schedule (panel tab `panel.tab.agenda`, `agenda.*`) | Weekly calendar of upcoming episodes of the user's series | Agenda | Zeitplan | The settings category `settings.cat.notifications` reuses this word |
+| Schedule (panel tab `panel.tab.agenda`, `agenda.*`) | Weekly calendar of upcoming episodes of the user's series | Agenda | Zeitplan | (Until 2026-10-17 the settings category `settings.cat.notifications` also named the Schedule; it is now « Notifications » alone) |
 | On this page (`page.*`) | Card showing the AniList entry of what is open in the current tab | Sur cette page | Auf dieser Seite | |
 | preferred player | The platform SyncKai opens episodes on by default | lecteur préféré | bevorzugter Player | |
 | history import (`crImport.*`) | Reading the user's watch history on Crunchyroll / ADN / Netflix to bring their lists up to date, with a preview before writing | importer un historique | Verlauf importieren | |

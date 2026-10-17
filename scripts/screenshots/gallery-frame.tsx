@@ -6,13 +6,18 @@ import './gallery.css';
 import { render, type ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
 import { loadLocale, setLocale } from '../../src/i18n';
+import { AccountAvatar } from '../../src/ui/components/account-avatar';
+import { Alert } from '../../src/ui/components/alert';
 import { Button } from '../../src/ui/components/button';
+import { ChoiceCards } from '../../src/ui/components/choice-cards';
 import { Collapsible } from '../../src/ui/components/collapsible';
 import { Cover } from '../../src/ui/components/cover';
 import { IconButton } from '../../src/ui/components/icon-button';
 import { LogoButton } from '../../src/ui/components/logo-button';
 import { Menu, MenuItem, MenuSeparator, SubMenu } from '../../src/ui/components/menu';
 import { Section } from '../../src/ui/components/section';
+import { Segmented } from '../../src/ui/components/segmented';
+import { Select } from '../../src/ui/components/select';
 import { ServiceLogo } from '../../src/ui/components/service-logo';
 import { SettingsCard, SettingsRow } from '../../src/ui/components/settings-row';
 import { StarRating } from '../../src/ui/components/star-rating';
@@ -62,10 +67,35 @@ function Toggles() {
   );
 }
 
+function TriggerCards() {
+  const [value, setValue] = useState<'credits' | 'percentage'>('credits');
+  return (
+    <ChoiceCards
+      legend="Épisode compté comme vu"
+      options={[
+        { value: 'credits', label: 'Au début du générique', description: 'Recommandé : le moment exact donné par la plateforme' },
+        { value: 'percentage', label: 'À un pourcentage fixe', description: 'Utilisé aussi quand le générique est inconnu' },
+      ]}
+      value={value}
+      onChange={setValue}
+    />
+  );
+}
+
 function Rating({ initial, size, readonly = false }: { initial: number; size?: 'sm' | 'md'; readonly?: boolean }) {
   const [value, setValue] = useState(initial);
   return <StarRating label="Noter Frieren" value={value} onChange={setValue} size={size} readonly={readonly} />;
 }
+
+const PANEL_TABS = [
+  { value: 'last', label: 'Dernier ouvert' },
+  { value: 'nowPlaying', label: 'En lecture' },
+  { value: 'agenda', label: 'Agenda' },
+] as const;
+const ENTRY_SERVICES = [
+  { value: 'anilist', label: 'AniList' },
+  { value: 'mal', label: 'MAL', aria: 'MyAnimeList' },
+] as const;
 
 const ACCOUNTS: readonly StatusBarAccount[] = [
   { service: 'anilist', state: 'connected', label: 'Compte AniList', onClick: () => undefined },
@@ -151,6 +181,7 @@ function RowMenu({ title, open }: { title: string; open: boolean }) {
 
 function Gallery() {
   const [tab, setTab] = useState<'watching' | 'activity'>('watching');
+  const [segment, setSegment] = useState<'last' | 'nowPlaying' | 'agenda'>('last');
   return (
     <div style={{ width: `${width}px`, boxSizing: 'border-box', padding: '16px', ...column, gap: '20px', background: 'var(--color-ground)', fontSize: '13px', lineHeight: 1.4 }}>
       <Block name="Button">
@@ -274,9 +305,9 @@ function Gallery() {
         <Section title="Catégories">
           <SettingsCard>
             <SettingsRow icon="sync" tile="lavender" title="Synchronisation" description="Auto · au début du générique" onClick={() => undefined} />
-            <SettingsRow icon="screen" tile="mint" title="Plateformes" description="4 sur 5 actives · lecteur Crunchyroll" onClick={() => undefined} divider />
+            <SettingsRow icon="monitor" tile="mint" title="Plateformes" description="4 sur 5 actives · lecteur Crunchyroll" onClick={() => undefined} divider />
             <SettingsRow icon="bell" tile="butter" title="Notifications" description="Discrètes · alertes désactivées" onClick={() => undefined} divider />
-            <SettingsRow icon="panel" tile="sakura" title="Affichage" description="Langue, panneau latéral, raccourcis clavier" onClick={() => undefined} divider />
+            <SettingsRow icon="window" tile="sakura" title="Affichage" description="Langue, panneau latéral, raccourcis clavier" onClick={() => undefined} divider />
             <SettingsRow icon="help" tile="muted" title="Aide & à propos" onClick={() => undefined} divider />
           </SettingsCard>
         </Section>
@@ -286,6 +317,79 @@ function Gallery() {
             <SettingsRow title="Version" trailing={<span style={{ color: 'var(--color-muted)', fontSize: '12px' }}>2.4.0</span>} divider />
           </SettingsCard>
         </Section>
+        <Section title="À propos (liens externes)">
+          <SettingsCard>
+            <SettingsRow icon="sparkles" title="Nouveautés" summary="synckai.app" href="https://synckai.app/fr/changelog" external />
+            <SettingsRow icon="code" title="Code source" summary="GitHub" href="https://github.com/Sync-Kai/SyncKai" external divider />
+          </SettingsCard>
+        </Section>
+      </Block>
+
+      <Block name="ChoiceCards">
+        <TriggerCards />
+        <ChoiceCards
+          legend="Style des notifications (désactivé)"
+          options={[
+            { value: 'discreet', label: 'Discrètes', badge: 'Recommandé', description: 'Une pastille « Synchronisé » de quelques secondes' },
+            { value: 'detailed', label: 'Détaillées', description: 'Une bulle avec l’épisode et le résultat' },
+          ]}
+          value="discreet"
+          onChange={() => undefined}
+          disabled
+        />
+      </Block>
+
+      <Block name="Section (compte, danger)">
+        <Section title="Crunchyroll" count={61}>
+          <Card>Lignes</Card>
+        </Section>
+        <Section title="Zone de danger" tone="danger">
+          <Card>Tout réinitialiser</Card>
+        </Section>
+        <SettingsCard>
+          <SettingsRow title="Synchro automatique" description="En pause : aucun épisode n’est envoyé" descriptionTone="warn" toggle={{ checked: false, onChange: () => undefined }} />
+        </SettingsCard>
+      </Block>
+
+      <Block name="Segmented">
+        <Segmented label="Onglet à l’ouverture" options={PANEL_TABS} value={segment} onChange={setSegment} fill />
+        <Segmented label="Fiche ouverte par défaut" options={ENTRY_SERVICES} value="anilist" onChange={() => undefined} />
+        <Segmented label="Fiche ouverte par défaut (désactivée)" options={ENTRY_SERVICES} value="anilist" onChange={() => undefined} disabled />
+      </Block>
+
+      <Block name="Select (liste ouverte, option à activer d’abord)">
+        <SettingsCard>
+          <SettingsRow title="Crunchyroll" description="Tous les animes" leading={<ServiceLogo id="crunchyroll" size="tile" />} trailing={<span style={{ color: 'var(--color-mint)', fontSize: '12px', fontWeight: 700 }}>Inclus</span>} />
+        </SettingsCard>
+        <div style={{ height: '200px' }}>
+          <SettingsCard>
+            <Select
+              label="Ouvrir les épisodes sur"
+              options={[
+                { value: 'crunchyroll', label: 'Crunchyroll', leading: <ServiceLogo id="crunchyroll" /> },
+                { value: 'adn', label: 'ADN', leading: <ServiceLogo id="adn" /> },
+                { value: 'prime', label: 'Prime Video', leading: <ServiceLogo id="prime" />, disabled: true, hint: 'Activer d’abord' },
+              ]}
+              value="crunchyroll"
+              onChange={() => undefined}
+              defaultOpen
+            />
+          </SettingsCard>
+        </div>
+      </Block>
+
+      <Block name="Alert">
+        <Alert message="Connexion annulée." />
+        <Alert message="Erreur inattendue lors du chargement du profil." action={{ label: 'Réessayer', onClick: () => undefined }} />
+      </Block>
+
+      <Block name="AccountAvatar">
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <AccountAvatar service="anilist" url={null} size="md" ring="surface" />
+          <AccountAvatar service="mal" url={null} state="expired" size="md" ring="surface" />
+          <AccountAvatar service="anilist" url={null} state="disconnected" size="md" ring="surface" />
+          <AccountAvatar service="mal" url={null} />
+        </div>
       </Block>
 
       <Block name="Collapsible">
@@ -295,6 +399,11 @@ function Gallery() {
         <Collapsible title="Diagnostic de correspondance" count={12} defaultOpen>
           <Card>
             <span style={{ color: 'var(--color-muted)', fontSize: '12px' }}>Contenu déplié</span>
+          </Card>
+        </Collapsible>
+        <Collapsible title="Trace de débogage" count={214} variant="section">
+          <Card>
+            <span style={{ color: 'var(--color-muted)', fontSize: '12px' }}>Section repliable (outils de dev)</span>
           </Card>
         </Collapsible>
       </Block>

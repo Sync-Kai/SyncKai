@@ -2,29 +2,32 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale } from '../../i18n';
 import { DEFAULT_SETTINGS, effectivePlayer } from '../../shared/settings';
 import { LOGGED_OUT } from '../state';
-import { accountLink, accountsSummary, azertyKeyHint, dataSummary, formatShortcut, helpSummary, languageSummary, notificationsSummary, shortcutsSummary, syncSummary } from './summary';
+import { accountLink, accountsSummary, azertyKeyHint, formatShortcut, helpSummary, languageSummary, notificationsSummary, platformsSummary, syncSummary } from './summary';
 
 const initial = getLocale();
 afterEach(() => setLocale(initial));
 
 describe('accountsSummary', () => {
-  it('deux comptes connectés', () => {
+  it('deux comptes connectés : une phrase, point vert', () => {
     setLocale('fr');
-    expect(accountsSummary({ anilist: 'connected', mal: 'connected' })).toEqual({ text: 'AniList ✓ · MAL ✓', tone: 'muted' });
-  });
-
-  it('session expirée signalée en rouge, compte non connecté omis', () => {
-    setLocale('fr');
-    expect(accountsSummary({ anilist: 'connected', mal: 'expired' })).toEqual({ text: 'AniList ✓ · MAL : session expirée', tone: 'danger' });
+    expect(accountsSummary({ anilist: 'connected', mal: 'connected' })).toEqual({ text: 'AniList et MyAnimeList connectés', tone: 'ok' });
     setLocale('en');
-    expect(accountsSummary({ anilist: 'expired', mal: 'disconnected' })).toEqual({ text: 'AniList: session expired', tone: 'danger' });
-    setLocale('de');
-    expect(accountsSummary({ anilist: 'disconnected', mal: 'connected' }).text).toBe('MAL ✓');
+    expect(accountsSummary({ anilist: 'connected', mal: 'connected' }).text).toBe('AniList and MyAnimeList connected');
   });
 
-  it('aucun compte, ou lecture en cours', () => {
+  it('session expirée signalée en rouge ; compte non connecté nommé (maquette ReglagesEtats)', () => {
     setLocale('fr');
-    expect(accountsSummary({ anilist: 'disconnected', mal: 'disconnected' }).text).toBe('Aucun compte connecté');
+    expect(accountsSummary({ anilist: 'connected', mal: 'expired' })).toEqual({ text: 'AniList connecté · MAL : session expirée', tone: 'danger' });
+    expect(accountsSummary({ anilist: 'connected', mal: 'disconnected' })).toEqual({ text: 'AniList connecté · MAL non connecté', tone: 'ok' });
+    setLocale('en');
+    expect(accountsSummary({ anilist: 'expired', mal: 'disconnected' })).toEqual({ text: 'AniList: session expired · MAL not connected', tone: 'danger' });
+    expect(accountsSummary({ anilist: 'disconnected', mal: 'connected' })).toEqual({ text: 'AniList not connected · MAL connected', tone: 'ok' });
+  });
+
+  it('aucun compte, ou lecture en cours : point neutre', () => {
+    setLocale('fr');
+    expect(accountsSummary({ anilist: 'disconnected', mal: 'disconnected' })).toEqual({ text: 'Aucun compte connecté', tone: 'muted' });
+    expect(accountsSummary({ anilist: 'loading', mal: 'connected' })).toEqual({ text: 'Chargement…', tone: 'muted' });
     setLocale('de');
     expect(accountsSummary({ anilist: 'disconnected', mal: 'disconnected' }).text).toBe('Kein Konto verbunden');
     expect(accountsSummary({ anilist: 'loading', mal: 'connected' }).text).toBe('Wird geladen…');
@@ -39,27 +42,32 @@ describe('accountsSummary', () => {
 });
 
 describe('syncSummary', () => {
-  it('lecteur et moment de la synchro', () => {
+  it('synchro automatique et moment de la synchro (le lecteur passe dans Plateformes)', () => {
     setLocale('fr');
-    expect(syncSummary(DEFAULT_SETTINGS)).toBe('Crunchyroll · au générique');
-    expect(syncSummary({ ...DEFAULT_SETTINGS, completionTrigger: 'percentage', completionPercentage: 85, preferredPlayer: 'adn' })).toBe('ADN · à 85 %');
-    expect(syncSummary({ ...DEFAULT_SETTINGS, autoSync: false })).toBe('Crunchyroll · en pause');
-  });
-
-  it('en et de', () => {
+    expect(syncSummary(DEFAULT_SETTINGS)).toBe('Auto · au générique');
+    expect(syncSummary({ ...DEFAULT_SETTINGS, completionTrigger: 'percentage', completionPercentage: 85 })).toBe('Auto · à 85 %');
+    expect(syncSummary({ ...DEFAULT_SETTINGS, autoSync: false })).toBe('En pause');
     setLocale('en');
-    expect(syncSummary({ ...DEFAULT_SETTINGS, completionTrigger: 'percentage', completionPercentage: 90 })).toBe('Crunchyroll · at 90%');
-    setLocale('de');
-    expect(syncSummary(DEFAULT_SETTINGS)).toBe('Crunchyroll · beim Abspann');
-    expect(syncSummary({ ...DEFAULT_SETTINGS, autoSync: false })).toBe('Crunchyroll · pausiert');
+    expect(syncSummary({ ...DEFAULT_SETTINGS, completionTrigger: 'percentage', completionPercentage: 90 })).toBe('Auto · at 90%');
+    expect(syncSummary({ ...DEFAULT_SETTINGS, autoSync: false })).toBe('Paused');
+  });
+});
+
+describe('platformsSummary', () => {
+  it('plateformes suivies (Crunchyroll et ADN toujours, plus les accès accordés) et lecteur préféré', () => {
+    setLocale('fr');
+    expect(platformsSummary(DEFAULT_SETTINGS, [])).toBe('2 sur 5 actives · lecteur Crunchyroll');
+    expect(platformsSummary({ ...DEFAULT_SETTINGS, preferredPlayer: 'adn' }, ['netflix', 'prime'])).toBe('4 sur 5 actives · lecteur ADN');
+    setLocale('en');
+    expect(platformsSummary(DEFAULT_SETTINGS, ['disney'])).toBe('3 of 5 active · Crunchyroll player');
   });
 
-  it('Netflix affiché seulement avec l’accès accordé (sinon lecteur par défaut)', () => {
+  it('Netflix lecteur seulement avec l’accès accordé (sinon lecteur par défaut) ; accès pas encore lus', () => {
     setLocale('fr');
     const netflix = { ...DEFAULT_SETTINGS, preferredPlayer: 'netflix' } as const;
-    expect(syncSummary(netflix, ['netflix'])).toBe('Netflix · au générique');
-    expect(syncSummary(netflix, [])).toBe('Crunchyroll · au générique');
-    expect(syncSummary(netflix)).toBe('Crunchyroll · au générique');
+    expect(platformsSummary(netflix, ['netflix'])).toBe('3 sur 5 actives · lecteur Netflix');
+    expect(platformsSummary(netflix, [])).toBe('2 sur 5 actives · lecteur Crunchyroll');
+    expect(platformsSummary(netflix, undefined)).toBe('Chargement…');
     expect(effectivePlayer('adn', [])).toBe('adn');
   });
 });
@@ -102,24 +110,6 @@ describe('notificationsSummary', () => {
   });
 });
 
-describe('dataSummary', () => {
-  it('correspondances et séries exclues (pluriels)', () => {
-    setLocale('fr');
-    expect(dataSummary(12, 2)).toBe('12 correspondances · 2 exclues');
-    expect(dataSummary(1, 0)).toBe('1 correspondance · 0 exclue');
-    setLocale('en');
-    expect(dataSummary(1, 3)).toBe('1 match · 3 excluded');
-    setLocale('de');
-    expect(dataSummary(5, 1)).toBe('5 Zuordnungen · 1 ausgeschlossen');
-  });
-
-  it('données pas encore lues', () => {
-    setLocale('fr');
-    expect(dataSummary(4, null)).toBe('4 correspondances');
-    expect(dataSummary(null, null)).toBe('Chargement…');
-  });
-});
-
 describe('languageSummary', () => {
   it('automatique : langue détectée entre parenthèses ; sinon nom de la langue', () => {
     setLocale('fr');
@@ -133,42 +123,18 @@ describe('languageSummary', () => {
 });
 
 describe('helpSummary', () => {
-  it('version, précédée des erreurs enregistrées', () => {
+  it('version, puis erreurs enregistrées (« aucune erreur » à 0)', () => {
     setLocale('fr');
-    expect(helpSummary('1.9.0', 0)).toBe('v1.9.0');
-    expect(helpSummary('1.9.0', null)).toBe('v1.9.0');
-    expect(helpSummary('1.9.0', 2)).toBe('2 erreurs · v1.9.0');
+    expect(helpSummary('1.9.0', 0)).toBe('Version 1.9.0 · aucune erreur');
+    expect(helpSummary('1.9.0', null)).toBe('Version 1.9.0');
+    expect(helpSummary('1.9.0', 2)).toBe('Version 1.9.0 · 2 erreurs');
     setLocale('en');
-    expect(helpSummary('1.9.0', 1)).toBe('1 error · v1.9.0');
-    setLocale('de');
-    expect(helpSummary('1.9.0', 3)).toBe('3 Fehler · v1.9.0');
+    expect(helpSummary('1.9.0', 1)).toBe('Version 1.9.0 · 1 error');
+    expect(helpSummary('1.9.0', 0)).toBe('Version 1.9.0 · no errors');
   });
 });
 
-describe('shortcutsSummary', () => {
-  it('deux touches définies : valider l’épisode puis panneau, touche Maj traduite, touche & en AZERTY (français)', () => {
-    setLocale('fr');
-    expect(shortcutsSummary('Alt+Shift+K', 'Alt+Shift+1')).toBe('Alt+Maj+K · Alt+Maj+1 (touche &)');
-    setLocale('en');
-    expect(shortcutsSummary('Alt+Shift+K', 'Alt+Shift+1')).toBe('Alt+Shift+K · Alt+Shift+1');
-    setLocale('de');
-    expect(shortcutsSummary('Alt+Shift+K', 'Ctrl+Shift+Y')).toBe('Alt+Umschalt+K · Ctrl+Umschalt+Y');
-  });
-
-  it('touche absente nommée, aucune touche, lecture en cours', () => {
-    setLocale('fr');
-    expect(shortcutsSummary('Alt+Shift+K', '')).toBe('Alt+Maj+K · panneau : non défini');
-    expect(shortcutsSummary('', 'Alt+Shift+1')).toBe('épisode : non défini · Alt+Maj+1 (touche &)');
-    expect(shortcutsSummary('', '')).toBe('Aucun raccourci défini');
-    expect(shortcutsSummary(undefined, 'Alt+Shift+1')).toBe('Chargement…');
-    setLocale('en');
-    expect(shortcutsSummary('Alt+Shift+K', '')).toBe('Alt+Shift+K · panel: not set');
-    expect(shortcutsSummary('', '')).toBe('No shortcut set');
-    setLocale('de');
-    expect(shortcutsSummary('', 'Alt+Shift+1')).toBe('Folge: nicht festgelegt · Alt+Umschalt+1');
-    expect(shortcutsSummary('', '')).toBe('Keine Tastenkürzel festgelegt');
-  });
-
+describe('raccourcis', () => {
   it('formatShortcut : seule la touche Maj est traduite', () => {
     setLocale('fr');
     expect(formatShortcut('Ctrl+Shift+F5')).toBe('Ctrl+Maj+F5');

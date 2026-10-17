@@ -280,3 +280,137 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.value_few` | {count} епізоди |
 | `accountMenu.week.value_many` | {count} епізодів |
 | `accountMenu.week.value_other` | {count} епізоду |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. Platform count « Увімкнено: {count} з {total} » in every plural form. « доки ти не ввійдеш знову » follows `common.reconnect` (*Увійти знову*). Back label « Назад до розділу {page} ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | Сповіщення |
+| `settings.cat.platforms` | Платформи |
+| `settings.cat.display` | Відображення |
+| `settings.backToAria` | Назад до розділу {page} |
+| `settings.group.categories` | Категорії |
+| `settings.summary.connected` | {service} підключено |
+| `settings.summary.notConnected` | {service} не підключено |
+| `settings.summary.bothConnected` | AniList і MyAnimeList підключено |
+| `settings.summary.auto` | Автоматично |
+| `settings.summary.paused` | На паузі |
+| `settings.summary.platforms_one` | Увімкнено: {count} з {total} |
+| `settings.summary.platforms_few` | Увімкнено: {count} з {total} |
+| `settings.summary.platforms_many` | Увімкнено: {count} з {total} |
+| `settings.summary.platforms_other` | Увімкнено: {count} з {total} |
+| `settings.summary.player` | плеєр {player} |
+| `settings.summary.display` | Мова, бічна панель, комбінації клавіш |
+| `settings.summary.data` | Імпорт історії переглядів · резервна копія |
+| `settings.summary.version` | Версія {version} |
+| `settings.summary.noErrors` | помилок немає |
+| `settings.display.keyboard` | Клавіатура |
+| `settings.display.shortcutsHelp` | Клавіші, щоб позначити епізод або відкрити панель |
+| `settings.shortcuts.duringPlayback` | Під час перегляду |
+| `settings.shortcuts.navigation` | Навігація |
+| `settings.accounts.lists` | Синхронізовані списки |
+| `settings.accounts.both` | З обома акаунтами |
+| `settings.accounts.privacy` | Вхід відбувається на сайті AniList або MyAnimeList: SyncKai ніколи не бачить твого пароля. |
+| `settings.account.expiredHelp` | Епізоди більше не надсилаються до {service}, доки ти не ввійдеш знову. |
+| `settings.account.otherStillSynced` | {service} і далі оновлюється. |
+| `settings.entry.help` | Відкривається натисканням на назву чи обкладинку аніме |
+| `settings.entry.unavailable` | Доступно, коли підключено і AniList, і MyAnimeList. |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). Counts written « Запам’ятовано аніме: {count} » and « Показати ще на {platform} ({count}) » in every plural form (no agreement). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | Автоматично |
+| `settings.section.perSeries` | Для кожного аніме |
+| `settings.trigger.legend` | Коли епізод вважається переглянутим |
+| `settings.trigger.credits` | На початку титрів |
+| `settings.trigger.creditsHelp` | Рекомендовано: точний момент, який повідомляє платформа |
+| `settings.trigger.percentageHelp` | Використовується й тоді, коли титри невідомі |
+| `settings.sync.mappingsRow` | Збережені відповідності |
+| `settings.sync.mappingsRowHelp` | Сезон AniList, вибраний для кожного аніме |
+| `settings.sync.exclusionsRowHelp` | Ніколи не синхронізуються, можна відновити тут |
+| `settings.mappings.intro_one` | Запам’ятовано аніме: {count}, за платформами: сезон на платформі → запис AniList, у який пише SyncKai. Якщо забути відповідність, її буде визначено заново на наступному епізоді. |
+| `settings.mappings.intro_few` | Запам’ятовано аніме: {count}, за платформами: сезон на платформі → запис AniList, у який пише SyncKai. Якщо забути відповідність, її буде визначено заново на наступному епізоді. |
+| `settings.mappings.intro_many` | Запам’ятовано аніме: {count}, за платформами: сезон на платформі → запис AniList, у який пише SyncKai. Якщо забути відповідність, її буде визначено заново на наступному епізоді. |
+| `settings.mappings.intro_other` | Запам’ятовано аніме: {count}, за платформами: сезон на платформі → запис AniList, у який пише SyncKai. Якщо забути відповідність, її буде визначено заново на наступному епізоді. |
+| `settings.mappings.search` | Шукати аніме або запис |
+| `settings.mappings.noResult` | Немає відповідностей для «{query}» |
+| `settings.mappings.noResultHelp` | Шукай за назвою аніме або запису AniList. |
+| `settings.mappings.emptyHelp` | SyncKai запам’ятовує одну для кожного синхронізованого сезону. |
+| `settings.mappings.showMore_one` | Показати ще на {platform} ({count}) |
+| `settings.mappings.showMore_few` | Показати ще на {platform} ({count}) |
+| `settings.mappings.showMore_many` | Показати ще на {platform} ({count}) |
+| `settings.mappings.showMore_other` | Показати ще на {platform} ({count}) |
+| `settings.mappings.origin.chosen` | Вибрано тобою |
+| `settings.mappings.origin.learned` | Знайдено |
+| `settings.mappings.origin.unmarked` | Стара |
+| `settings.mappings.origin.unverified` | Імпортовано · перевірити |
+| `settings.mappings.origin.chosenHelp` | Підтверджено або вибрано тобою: ніколи не переглядається. |
+| `settings.mappings.origin.learnedHelp` | Знайдено SyncKai: визначається заново, якщо платформа їй суперечить. |
+| `settings.mappings.origin.unmarkedHelp` | Збережено до версії 2.4: лишається, у разі суперечності — на перевірку. |
+| `settings.mappings.origin.unverifiedHelp` | З резервної копії: перевіряється заново під час першого використання. |
+| `settings.mappings.originLegend` | Походження відповідностей |
+| `settings.exclusions.section` | Ніколи не синхронізуються |
+| `settings.exclusions.help` | Виключене аніме більше ніколи не синхронізується, у жодному сезоні. «{action}» знову відстежує його з наступного епізоду. |
+| `settings.exclusions.emptyHelp` | Щоб більше не синхронізувати аніме, вибери «{action}» у його меню «⋯». |
+| `settings.exclusions.seriesYear` | аніме {year} року |
+| `settings.exclusions.excludedOn` | виключено {date} |
+| `popup.syncDisabledDetail` | Можна відновити: Налаштування › Синхронізація › Виключені аніме |
+| `review.excludeTitle` | Виключає аніме (усі сезони): відновити можна в розділі Налаштування › Синхронізація › Виключені аніме |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. `settings.delay.title` « Запас часу » (time margin), short enough for the control row. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | Де SyncKai відстежує твої епізоди |
+| `settings.platforms.allAnime` | Усі аніме |
+| `settings.platforms.included` | Вбудовано |
+| `settings.platforms.accessMissing` | Немає доступу |
+| `settings.platforms.note` | Увімкнення платформи запитує доступ до її сайту. Читаються лише сторінки перегляду та сторінки аніме. |
+| `settings.player.openOn` | Відкривати епізоди на |
+| `settings.player.enableFirst` | Спершу увімкни |
+| `settings.player.help` | Використовується кнопкою «Відкрити», коли аніме є на кількох увімкнених платформах. |
+| `settings.offsets.title` | Орієнтовний час виходу |
+| `settings.offsets.help` | Після показу в Японії. Використовується на вкладці «Розклад» і в сповіщеннях; окреме аніме можна налаштувати в його рядку в «Розкладі». |
+| `settings.offsets.earlier` | На {minutes} хв раніше |
+| `settings.offsets.later` | На {minutes} хв пізніше |
+| `page.platformOff` | {platform} вимкнено: SyncKai тут нічого не відстежує. Щоб увімкнути знову: Налаштування › Платформи. |
+| `settings.section.notifications` | На сторінці перегляду |
+| `settings.notif.legend` | Стиль сповіщень на сторінці |
+| `settings.notif.discreet.desc` | Невелика плашка на кілька секунд у кутку відео |
+| `settings.notif.detailed.desc` | Повідомлення з епізодом і результатом на AniList і MyAnimeList |
+| `settings.notif.alertsOnly.desc` | Нічого, якщо все гаразд; повідомлення лише при помилці або епізоді, який треба перевірити |
+| `settings.notif.alertsAlways` | Помилка або аніме, яке треба перевірити, показуються завжди, за будь-якого стилю. |
+| `settings.delay.title` | Запас часу |
+| `settings.airing.enableFirst` | Увімкни сповіщення, щоб перевіряти нові епізоди |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | Перенеси вже переглянуте |
+| `settings.crImport.help` | Crunchyroll, ADN або Netflix. Перед записом ти побачиш попередній перегляд. |
+| `settings.backup.help` | Налаштування, відповідності, виключені аніме та історія в одному файлі. Твої дані входу AniList чи MyAnimeList — ніколи. |
+| `settings.backup.import` | Імпорт |
+| `settings.section.compare` | Порівняння |
+| `settings.compare.title` | Розбіжності AniList ↔ MyAnimeList |
+| `settings.compare.help` | Порівнює обидва твої списки й узгоджує їх у вибраний бік |
+| `settings.data.perSeries` | Відповідностями та виключеними аніме керуй у розділі {path}. |
+| `compare.align` | Узгодження |
+| `compare.bulk.help` | «{action}» переносить AniList у MyAnimeList; спершу підтвердження покаже зміни. |
+| `compare.job.background` | Триває, навіть якщо закрити цю сторінку. |
+| `settings.help.diagnostic` | Діагностичний звіт |
+| `settings.help.diagnosticHelp` | Для повідомлення про помилку: версія, браузер, налаштування, останні помилки. Без токенів і акаунтів. |
+| `settings.help.copy` | Копіювати звіт |
+| `settings.help.journalNote` | Щонайбільше 50 останніх, спершу нові; токени вже приховано. |
+| `settings.about.whatsNew` | Що нового |
+| `settings.about.privacy` | Конфіденційність |
+| `settings.about.source` | Вихідний код |

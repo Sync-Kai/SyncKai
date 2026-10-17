@@ -62,7 +62,7 @@ Target: natural Czech as used by Czech anime fans and by the Czech versions of N
 | Settings | **Nastavení** (indeclinable: *v Nastavení*) |
 | Quick settings / Playback & alerts / Data & help (groups) | **Rychlé nastavení** / **Přehrávání a upozornění** / **Data a nápověda** |
 | Playback & sync | **Přehrávání a synchronizace** (path *Nastavení › Přehrávání a synchronizace*) |
-| Notifications & schedule | **Upozornění a kalendář** |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **Platformy** / **Upozornění** / **Zobrazení** |
 | Shortcuts | **Zkratky** |
 | Accounts | **Účty** |
 | My data | **Moje data** |
@@ -98,3 +98,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | ladicí záznam |
 | event (one line of the trace) | událost |
 | verbose mode | podrobný režim |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Automaticky |
+| Per series (Sync section) | Pro jednotlivé seriály |
+| Never synced (Excluded series section) | Nikdy se nesynchronizují |
+| Match origins: chosen / learned / legacy / imported · to recheck | Zvoleno tebou / Naučeno / Starší / Importováno · ověřit |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Kde SyncKai sleduje tvoje epizody |
+| Included (built-in platform) | Zahrnuto |
+| Access missing | Chybí přístup |
+| Turn on first (preferred player option) | Nejdřív zapni |
+| Estimated release time | Odhadovaný čas vydání |
+| Extra delay (release alerts) | Zpoždění navíc |
+| On the playback page (Notifications section) | Na stránce přehrávání |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Porovnání |
+| AniList ↔ MyAnimeList differences (row title) | Rozdíly AniList ↔ MyAnimeList |
+| Align (differences section) | Sladit |
+| Diagnostic report (row title) | Diagnostika |
+| Copy the report (button) | Kopírovat |
+| What's new (About link) | Novinky |
+| Privacy (About link) | Soukromí |

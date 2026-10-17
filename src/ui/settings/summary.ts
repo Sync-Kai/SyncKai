@@ -1,8 +1,8 @@
-// Résumés d'une ligne affichés sous chaque catégorie de l'accueil des Réglages.
+// Résumés d'une ligne affichés sous chaque catégorie de l'accueil des Réglages (maquettes Main, ReglagesEtats).
 // Fonctions pures (langue active de l'i18n) : testées en fr, en et de.
 import { getLocale, t, tp, type Locale } from '../../i18n';
 import { endonym } from '../../i18n/language-list';
-import type { StreamingPlatform } from '../../shared/episode.types';
+import { isOptionalPlatform, STREAMING_PLATFORMS, type StreamingPlatform } from '../../platforms/registry';
 import { effectivePlayer, type LanguageSetting, type SyncSettings } from '../../shared/settings';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import type { AccountState } from '../state';
@@ -12,39 +12,52 @@ export type AccountLink = 'loading' | 'connected' | 'expired' | 'disconnected';
 
 export interface SettingsSummary {
   text: string;
-  /** danger : action attendue (session expirée) */
-  tone: 'muted' | 'danger';
+  /** Point devant le texte : ok (compte connecté), danger (session expirée, texte rouge aussi), muted (aucun compte, lecture) */
+  tone: 'ok' | 'muted' | 'danger';
 }
 
 const PLAYER_NAMES: Record<StreamingPlatform, string> = { crunchyroll: 'Crunchyroll', adn: 'ADN', netflix: 'Netflix', disney: 'Disney+', prime: 'Prime Video' };
 /** Libellé court des services (« AniList ✓ · MAL ✓ ») */
 const SHORT_LABELS: Record<TrackerId, string> = { anilist: 'AniList', mal: 'MAL' };
 
-/** « AniList ✓ · MAL ✓ », « MAL : session expirée », « Aucun compte connecté » */
+const ACCOUNT_LINK_KEYS = {
+  connected: 'settings.summary.connected',
+  expired: 'settings.summary.expired',
+  disconnected: 'settings.summary.notConnected',
+} as const;
+
+/**
+ * Carte Comptes de l'accueil : « AniList et MyAnimeList connectés », « AniList connecté · MAL : session expirée » (rouge),
+ * « AniList connecté · MAL non connecté », « Aucun compte connecté »
+ */
 export function accountsSummary(links: Readonly<Record<TrackerId, AccountLink>>): SettingsSummary {
   if (TRACKER_IDS.some((id) => links[id] === 'loading')) return { text: t('settings.summary.loading'), tone: 'muted' };
-  const parts = TRACKER_IDS.flatMap((id): string[] => {
-    if (links[id] === 'connected') return [t('settings.summary.connected', { service: SHORT_LABELS[id] })];
-    if (links[id] === 'expired') return [t('settings.summary.expired', { service: SHORT_LABELS[id] })];
-    return [];
-  });
-  if (parts.length === 0) return { text: t('settings.summary.noAccount'), tone: 'muted' };
-  const expired = TRACKER_IDS.some((id) => links[id] === 'expired');
-  return { text: parts.join(' · '), tone: expired ? 'danger' : 'muted' };
+  if (TRACKER_IDS.every((id) => links[id] === 'connected')) return { text: t('settings.summary.bothConnected'), tone: 'ok' };
+  if (TRACKER_IDS.every((id) => links[id] === 'disconnected')) return { text: t('settings.summary.noAccount'), tone: 'muted' };
+  const text = TRACKER_IDS.map((id) => {
+    const link = links[id];
+    return link === 'loading' ? '' : t(ACCOUNT_LINK_KEYS[link], { service: SHORT_LABELS[id] });
+  }).join(' · ');
+  return { text, tone: TRACKER_IDS.some((id) => links[id] === 'expired') ? 'danger' : 'ok' };
 }
 
-/** « Crunchyroll · au générique », « ADN · à 85 % », « Crunchyroll · en pause » */
-export function syncSummary(
-  settings: Pick<SyncSettings, 'autoSync' | 'completionTrigger' | 'completionPercentage' | 'preferredPlayer'>,
-  /** Plateformes optionnelles accordées (lecteur préféré Netflix ou Prime Video) ; absent = pas encore lues */
-  granted?: readonly StreamingPlatform[],
-): string {
-  const trigger = !settings.autoSync
-    ? t('settings.summary.paused')
-    : settings.completionTrigger === 'credits'
-      ? t('settings.summary.credits')
-      : t('settings.summary.percentage', { percent: t('settings.percent', { value: settings.completionPercentage }) });
-  return `${PLAYER_NAMES[effectivePlayer(settings.preferredPlayer, granted)]} · ${trigger}`;
+/** « Auto · au générique », « Auto · à 85 % », « En pause » */
+export function syncSummary(settings: Pick<SyncSettings, 'autoSync' | 'completionTrigger' | 'completionPercentage'>): string {
+  if (!settings.autoSync) return t('settings.summary.paused');
+  const trigger =
+    settings.completionTrigger === 'credits' ? t('settings.summary.credits') : t('settings.summary.percentage', { percent: t('settings.percent', { value: settings.completionPercentage }) });
+  return `${t('settings.summary.auto')} · ${trigger}`;
+}
+
+/**
+ * « 4 sur 5 actives · lecteur Crunchyroll » : plateformes suivies (incluses toujours, optionnelles avec leur accès) et
+ * lecteur préféré effectif (Netflix / Prime Video seulement avec l'accès) ; accès pas encore lus : « Chargement… »
+ */
+export function platformsSummary(settings: Pick<SyncSettings, 'preferredPlayer'>, granted: readonly StreamingPlatform[] | undefined): string {
+  if (granted === undefined) return t('settings.summary.loading');
+  const active = STREAMING_PLATFORMS.filter((platform) => !isOptionalPlatform(platform) || granted.includes(platform)).length;
+  const player = t('settings.summary.player', { player: PLAYER_NAMES[effectivePlayer(settings.preferredPlayer, granted)] });
+  return `${tp('settings.summary.platforms', active, { total: STREAMING_PLATFORMS.length })} · ${player}`;
 }
 
 const LEVEL_TITLES = {
@@ -61,14 +74,6 @@ export function notificationsSummary(settings: Pick<SyncSettings, 'notificationL
       ? t('settings.summary.airingOnTime')
       : t('settings.summary.airingDelay', { hours: settings.airingDelayHours });
   return `${t(LEVEL_TITLES[settings.notificationLevel])} · ${airing}`;
-}
-
-/** « 12 correspondances · 2 exclues » ; null = pas encore lu (ou illisible) */
-export function dataSummary(mappings: number | null, excluded: number | null): string {
-  const parts = [mappings !== null && tp('settings.summary.mappings', mappings), excluded !== null && tp('settings.summary.excluded', excluded)].filter(
-    (part): part is string => typeof part === 'string',
-  );
-  return parts.length > 0 ? parts.join(' · ') : t('settings.summary.loading');
 }
 
 /** « Automatique (Français) » ou le nom de la langue choisie, chacune dans sa propre langue (comme le sélecteur) */
@@ -98,28 +103,11 @@ export function azertyKeyHint(shortcut: string): string | null {
   return char === undefined ? null : t('settings.shortcut.azertyKey', { char });
 }
 
-/** Touche mise en forme suivie de son indication AZERTY : « Alt+Maj+1 (touche &) » */
-function formatShortcutWithHint(shortcut: string): string {
-  const hint = azertyKeyHint(shortcut);
-  return hint ? `${formatShortcut(shortcut)} (${hint})` : formatShortcut(shortcut);
-}
-
-/**
- * « Alt+Maj+K · Alt+Maj+1 (touche &) » (valider l'épisode, puis panneau) ; touche absente nommée (« épisode : non défini ») ;
- * undefined = en lecture, '' = non défini (voir SettingsData)
- */
-export function shortcutsSummary(episode: string | undefined, panel: string | undefined): string {
-  if (episode === undefined || panel === undefined) return t('settings.summary.loading');
-  if (!episode && !panel) return t('settings.summary.shortcutsNone');
-  const episodeText = episode ? formatShortcutWithHint(episode) : t('settings.summary.episodeUnset');
-  const panelText = panel ? formatShortcutWithHint(panel) : t('settings.summary.panelUnset');
-  return `${episodeText} · ${panelText}`;
-}
-
-/** « v2.0.0 », précédé du nombre d'erreurs enregistrées s'il y en a */
+/** « Version 2.4.0 · aucune erreur », « Version 2.4.0 · 2 erreurs » ; journal illisible ou en lecture : la version seule */
 export function helpSummary(version: string, errors: number | null): string {
   const versionText = t('settings.summary.version', { version });
-  return errors !== null && errors > 0 ? `${tp('settings.summary.errors', errors)} · ${versionText}` : versionText;
+  if (errors === null) return versionText;
+  return `${versionText} · ${errors > 0 ? tp('settings.summary.errors', errors) : t('settings.summary.noErrors')}`;
 }
 
 /** État d'un compte (popup / panneau) → état résumé sur l'accueil */

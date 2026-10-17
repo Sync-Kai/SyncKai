@@ -7,6 +7,7 @@ import { isOptionalPlatform, PLATFORMS, STREAMING_PLATFORMS } from '../platforms
 import { getSettings } from '../browser/storage/settings-access';
 import { sidePanelKind } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
+import { createCompareController, type CompareController } from '../ui/compare-controller';
 import { createPlatformAccessStore, requestPlatformAccessFromClick } from '../ui/platform-access-store';
 import { formatPlatformList } from '../ui/platform-list';
 import { settingsPath, type SettingsPage } from '../ui/settings/navigation';
@@ -68,6 +69,18 @@ let settingsView: SettingsView | null = null;
 const settingsScroll = h('main', { class: 'sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3' });
 
 let settingsLoad: Promise<SettingsView | null> | null = null;
+
+/** Réglages › Mes données › Écarts AniList ↔ MAL : contrôleur créé et lu à la première ouverture de ces pages */
+let compare: CompareController | null = null;
+function compareController(): CompareController {
+  if (!compare) {
+    // Le panneau n'affiche pas les listes alignées (pas de « Mes séries ») : rien à relire après un alignement
+    compare = createCompareController({ onApplied: () => undefined });
+    void compare.load();
+  }
+  return compare;
+}
+
 /** Ouverture demandée pendant le premier chargement du module des Réglages (un second clic l'annule) */
 let settingsPending = false;
 
@@ -82,8 +95,10 @@ function loadSettingsView(): Promise<SettingsView | null> {
         navigateBack: () => setSettingsOpen(false),
         openTab: (url) => void chrome.tabs.create({ url }),
         closesOnBlur: false,
+        hostAccessBanner: false,
         accounts,
         platformAccess,
+        compare: compareController,
       });
       settingsScroll.append(settingsView.element);
       return settingsView;
@@ -287,7 +302,7 @@ function offTargetText(): string {
   const active = t('panel.offTargetPlatforms', { platforms: formatPlatformList(activePlatforms(platformAccess.get() ?? []), 'conjunction') });
   const disabled = disabledPlatforms();
   if (disabled.length === 0) return active;
-  return joinSentences([active, t('panel.offTargetEnable', { platforms: formatPlatformList(disabled, 'conjunction'), path: settingsPath('sync') })]);
+  return joinSentences([active, t('panel.offTargetEnable', { platforms: formatPlatformList(disabled, 'conjunction'), path: settingsPath('platforms') })]);
 }
 
 /** Plateformes à accès optionnel encore désactivées (ordre de STREAMING_PLATFORMS) */
@@ -357,6 +372,7 @@ async function main(): Promise<void> {
   mountStatusBar(statusBarSlot, {
     accounts,
     openActivity: canOpenPopup() ? () => void openPopupOn('activity') : null,
+    openCompare: () => setSettingsOpen(true, 'compare'),
     openImport: (platform) => void chrome.tabs.create({ url: importPageUrl(platform) }),
   });
   // Accès accordé ou retiré (bouton « Activer », Réglages, about:addons) : la ligne hors page cible suit

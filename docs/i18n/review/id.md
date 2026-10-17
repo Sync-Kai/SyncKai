@@ -272,3 +272,127 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.label` | Tersinkron minggu ini |
 | `accountMenu.week.title` | Episode yang disinkronkan SyncKai minggu ini |
 | `accountMenu.week.value_other` | {count} episode |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. **disinkronkan** and **error** as in the rest of the catalog; player summary « pilihan: {player} » (*Platform pilihan*). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | Notifikasi |
+| `settings.cat.platforms` | Platform |
+| `settings.cat.display` | Tampilan |
+| `settings.backToAria` | Kembali ke {page} |
+| `settings.group.categories` | Kategori |
+| `settings.summary.connected` | {service} terhubung |
+| `settings.summary.notConnected` | {service} belum terhubung |
+| `settings.summary.bothConnected` | AniList dan MyAnimeList terhubung |
+| `settings.summary.auto` | Otomatis |
+| `settings.summary.paused` | Dijeda |
+| `settings.summary.platforms_other` | {count} dari {total} aktif |
+| `settings.summary.player` | pilihan: {player} |
+| `settings.summary.display` | Bahasa, panel samping, pintasan keyboard |
+| `settings.summary.data` | Impor riwayat tontonan · cadangan |
+| `settings.summary.version` | Versi {version} |
+| `settings.summary.noErrors` | tidak ada error |
+| `settings.display.keyboard` | Keyboard |
+| `settings.display.shortcutsHelp` | Tombol untuk menandai episode atau membuka panel |
+| `settings.shortcuts.duringPlayback` | Saat pemutaran |
+| `settings.shortcuts.navigation` | Navigasi |
+| `settings.accounts.lists` | Daftar yang disinkronkan |
+| `settings.accounts.both` | Dengan kedua akun |
+| `settings.accounts.privacy` | Kamu login di situs AniList atau MyAnimeList: SyncKai tidak pernah melihat kata sandimu. |
+| `settings.account.expiredHelp` | Episodemu tidak dikirim lagi ke {service} sampai kamu menghubungkannya lagi. |
+| `settings.account.otherStillSynced` | {service} tetap diperbarui. |
+| `settings.entry.help` | Dibuka saat judul atau sampul anime diklik |
+| `settings.entry.unavailable` | Tersedia jika AniList dan MyAnimeList sama-sama terhubung. |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | Otomatis |
+| `settings.section.perSeries` | Per anime |
+| `settings.trigger.credits` | Saat kredit penutup mulai |
+| `settings.trigger.creditsHelp` | Disarankan: momen tepat yang diberikan platform |
+| `settings.trigger.percentageHelp` | Juga dipakai jika kredit penutup tidak diketahui |
+| `settings.sync.mappingsRow` | Pencocokan yang diingat |
+| `settings.sync.mappingsRowHelp` | Season AniList yang dipilih untuk tiap anime |
+| `settings.sync.exclusionsRowHelp` | Tidak pernah disinkronkan, bisa diaktifkan lagi di sini |
+| `settings.mappings.intro_other` | {count} anime diingat, per platform: season di platform → entri AniList tempat SyncKai menulis. Pencocokan yang dilupakan akan ditentukan ulang di episode berikutnya. |
+| `settings.mappings.search` | Cari anime atau entri |
+| `settings.mappings.noResult` | Tidak ada pencocokan untuk “{query}” |
+| `settings.mappings.noResultHelp` | Cari berdasarkan judul anime atau entri AniList. |
+| `settings.mappings.emptyHelp` | SyncKai mengingat satu untuk tiap season yang disinkronkan. |
+| `settings.mappings.showMore_other` | Lihat {count} lagi di {platform} |
+| `settings.mappings.origin.chosen` | Dipilih olehmu |
+| `settings.mappings.origin.learned` | Dipelajari |
+| `settings.mappings.origin.unmarked` | Lama |
+| `settings.mappings.origin.unverified` | Diimpor · perlu dicek ulang |
+| `settings.mappings.origin.chosenHelp` | Dikonfirmasi atau dipilih olehmu: tidak pernah dipertanyakan. |
+| `settings.mappings.origin.learnedHelp` | Ditemukan SyncKai: ditentukan ulang jika platform bertentangan. |
+| `settings.mappings.origin.unmarkedHelp` | Disimpan sebelum 2.4: dipertahankan, perlu dicek jika ada pertentangan. |
+| `settings.mappings.origin.unverifiedHelp` | Dari cadangan: dicek ulang saat pertama kali dipakai. |
+| `settings.mappings.originLegend` | Asal pencocokan |
+| `settings.exclusions.section` | Tidak pernah disinkronkan |
+| `settings.exclusions.help` | Anime yang dikecualikan tidak akan pernah disinkronkan lagi, di season mana pun. “{action}” membuatnya dilacak lagi mulai episode berikutnya. |
+| `settings.exclusions.emptyHelp` | Untuk berhenti menyinkronkan anime, pilih “{action}” di menu “⋯”-nya. |
+| `settings.exclusions.seriesYear` | anime tahun {year} |
+| `settings.exclusions.excludedOn` | dikecualikan {date} |
+| `popup.syncDisabledDetail` | Bisa diaktifkan lagi di Setelan › Sinkron › Anime yang dikecualikan |
+| `review.excludeTitle` | Mengecualikan anime ini (semua season): bisa diaktifkan lagi di Setelan › Sinkron › Anime yang dikecualikan |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. Series = « anime » (« halaman anime », « anime yang perlu dicek »), as elsewhere in this catalog. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | Tempat SyncKai melacak episodemu |
+| `settings.platforms.allAnime` | Semua anime |
+| `settings.platforms.included` | Bawaan |
+| `settings.platforms.accessMissing` | Tanpa akses |
+| `settings.platforms.note` | Mengaktifkan platform akan meminta akses ke situsnya. Hanya halaman pemutaran dan halaman anime yang dibaca. |
+| `settings.player.openOn` | Buka episode di |
+| `settings.player.enableFirst` | Aktifkan dulu |
+| `settings.player.help` | Dipakai tombol “Buka” jika anime tersedia di beberapa platform aktif. |
+| `settings.offsets.title` | Perkiraan waktu rilis |
+| `settings.offsets.help` | Setelah tayang di Jepang. Dipakai oleh Jadwal dan pengingat; tiap anime bisa disesuaikan dari barisnya di Jadwal. |
+| `settings.offsets.earlier` | {minutes} mnt lebih awal |
+| `settings.offsets.later` | {minutes} mnt lebih lambat |
+| `page.platformOff` | {platform} dinonaktifkan: SyncKai tidak melacak apa pun di sini. Untuk mengaktifkannya lagi: Setelan › Platform. |
+| `settings.section.notifications` | Di halaman pemutaran |
+| `settings.notif.legend` | Gaya notifikasi di halaman |
+| `settings.notif.discreet.desc` | Label kecil selama beberapa detik di pojok video |
+| `settings.notif.detailed.desc` | Gelembung berisi episode dan hasilnya di AniList dan MyAnimeList |
+| `settings.notif.alertsOnly.desc` | Tidak ada apa-apa jika semua lancar; gelembung hanya saat ada error atau episode yang perlu dicek |
+| `settings.notif.alertsAlways` | Error atau anime yang perlu dicek selalu muncul, apa pun gayanya. |
+| `settings.delay.title` | Penundaan ekstra |
+| `settings.airing.enableFirst` | Aktifkan pengingat untuk mengecek rilis |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | Kejar tontonan yang sudah kamu tonton |
+| `settings.crImport.help` | Crunchyroll, ADN, atau Netflix. Kamu melihat pratinjau sebelum ada yang ditulis. |
+| `settings.backup.help` | Setelan, pencocokan, anime yang dikecualikan, dan riwayat dalam satu file. Data login AniList atau MyAnimeList kamu tidak pernah disertakan. |
+| `settings.backup.import` | Impor |
+| `settings.section.compare` | Bandingkan |
+| `settings.compare.title` | Perbedaan AniList ↔ MyAnimeList |
+| `settings.compare.help` | Bandingkan kedua daftarmu dan samakan ke arah yang kamu pilih |
+| `settings.data.perSeries` | Pencocokan dan anime yang dikecualikan diatur di {path}. |
+| `compare.align` | Samakan |
+| `compare.bulk.help` | “{action}” menyalin AniList ke MyAnimeList; konfirmasi akan menampilkan perubahannya dulu. |
+| `compare.job.background` | Tetap berjalan meski halaman ini kamu tutup. |
+| `settings.help.diagnostic` | Laporan diagnostik |
+| `settings.help.diagnosticHelp` | Untuk ditempel di laporan bug: versi, browser, setelan, error terbaru. Tanpa token dan akun. |
+| `settings.help.copy` | Salin laporan |
+| `settings.help.journalNote` | Paling banyak 50 terakhir, terbaru dulu; token sudah disamarkan. |
+| `settings.about.whatsNew` | Yang baru |
+| `settings.about.privacy` | Privasi |
+| `settings.about.source` | Kode sumber |

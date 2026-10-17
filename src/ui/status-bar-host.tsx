@@ -1,7 +1,7 @@
 // Barre d'état montée en pied du popup et du panneau latéral (même composant, maquettes BarreEtat) : état choisi par
 // ui/status-bar-model.ts sur les comptes de la page et les données lues par ui/status-bar-source.ts, présentation par
 // components/status-bar.tsx. La page fournit la navigation : Activité (popup : son écran ; panneau : le popup ouvert sur
-// Activité, ou rien), page d'import. Un logo de compte ouvre le menu du compte (ui/account-menu.tsx) au-dessus de la barre.
+// Activité, ou rien), page d'import, page des Écarts AniList ↔ MAL des Réglages. Un logo de compte ouvre le menu du compte (ui/account-menu.tsx) au-dessus de la barre.
 import type { ComponentChildren } from 'preact';
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -30,6 +30,8 @@ export interface StatusBarHostDeps {
   openActivity: (() => void) | null;
   /** Page d'import de l'historique de la plateforme */
   openImport: (platform: ImportPlatform) => void;
+  /** Réglages › Mes données › Écarts AniList ↔ MAL (alignement en cours) */
+  openCompare: () => void;
   /** Lectures du menu du compte (tests) ; défaut : le stockage */
   menuData?: AccountMenuData;
   now?: () => number;
@@ -95,7 +97,7 @@ function viewOf(state: StatusBarState, actions: Actions): View {
       const progress = progressOf(state.done, state.total);
       if (state.job === 'align') {
         const text = t('compare.bulk.running', { done: state.done, total: state.total });
-        return { message: { text, tone: 'info', icon: 'sync', ...toActivity(text, actions, 'footer-job') }, progress };
+        return { message: { text, title: text, tone: 'info', icon: 'sync', focusKey: 'footer-job', onClick: deps.openCompare }, progress };
       }
       const platform = state.platform ?? 'crunchyroll';
       const text = t('footer.importProgress', { platform: PLATFORMS[platform].label, done: state.done, total: state.total });

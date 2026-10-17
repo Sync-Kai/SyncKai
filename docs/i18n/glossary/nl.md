@@ -80,6 +80,7 @@ The add buttons of the “On this page” card use the bare status names (`page.
 | icon (toolbar) | pictogram (“het SyncKai-pictogram”) | |
 | to reload | opnieuw laden | Chrome's Dutch wording |
 | Settings categories | Afspelen & sync · Meldingen & kalender · Sneltoetsen · Accounts · Mijn gegevens · Taal · Hulp & info | Groups on the home: Snelle instellingen · Afspelen & meldingen · Gegevens & hulp |
+| Settings categories of the 2026-10-17 redesign | Platforms = **Platforms** · Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) = **Meldingen** · Display = **Weergave** | Playback & sync (`settings.cat.sync`) was removed |
 | Settings sections | Afspelen · Sync · Zijpaneel · Netflix (alleen anime) · Nieuwe afleveringen · Berichten op de pagina · Kalender · Koppelingen · Uitgesloten series · Back-up · Importeren · Gevarenzone · Hulp · Over | |
 | Settings paths quoted in sentences | Instellingen › Afspelen & sync · Instellingen › Uitgesloten series · Instellingen › Hulp › Diagnoserapport kopiëren | Always the exact labels above |
 
@@ -113,3 +114,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | debugtrace (de trace) |
 | event (one line of the trace) | gebeurtenis |
 | verbose mode | uitgebreide modus |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Automatisch |
+| Per series (Sync section) | Per serie |
+| Never synced (Excluded series section) | Nooit gesynchroniseerd |
+| Match origins: chosen / learned / legacy / imported · to recheck | Door jou gekozen / Geleerd / Oud / Geïmporteerd · te controleren |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Waar SyncKai je afleveringen volgt |
+| Included (built-in platform) | Inbegrepen |
+| Access missing | Geen toegang |
+| Turn on first (preferred player option) | Eerst aanzetten |
+| Estimated release time | Geschatte tijd op de platforms |
+| Extra delay (release alerts) | Extra vertraging |
+| On the playback page (Notifications section) | Op de afspeelpagina |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Vergelijken |
+| AniList ↔ MyAnimeList differences (row title) | Verschillen AniList ↔ MyAnimeList |
+| Align (differences section) | Afstemmen |
+| Diagnostic report (row title) | Diagnoserapport |
+| Copy the report (button) | Rapport kopiëren |
+| What's new (About link) | Nieuw |
+| Privacy (About link) | Privacy |

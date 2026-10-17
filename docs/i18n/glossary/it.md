@@ -65,6 +65,7 @@ Target: standard Italian as used by Crunchyroll Italia and big Italian apps (Chr
 | card (Activity cards) | avoid "scheda": rephrase or use "riquadro" | Keeps "scheda" for entries and tabs only |
 | Settings (`nav.settings`) | Impostazioni | |
 | Settings categories | Riproduzione e sync · Notifiche e calendario · I miei dati · Scorciatoie · Aiuto e info | |
+| Settings categories of the 2026-10-17 redesign | Platforms = **Piattaforme** · Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) = **Notifiche** · Display = **Visualizzazione** | Playback & sync (`settings.cat.sync`) was removed |
 | Settings groups | Impostazioni rapide · Riproduzione e notifiche · Dati e aiuto | |
 | Settings sections | Account · Lingua · Riproduzione · Sincronizzazione · Pannello laterale · Notifiche nella pagina · Nuovi episodi · Calendario · Abbinamenti · Serie escluse · Importa · Backup · Zona pericolosa · Aiuto · Informazioni | |
 | Activity (tab) | Attività | |
@@ -111,3 +112,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | traccia di debug |
 | event (one line of the trace) | evento |
 | verbose mode | modalità dettagliata |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Automatica |
+| Per series (Sync section) | Per serie |
+| Never synced (Excluded series section) | Mai sincronizzate |
+| Match origins: chosen / learned / legacy / imported · to recheck | Scelto da te / Appreso / Vecchio / Importato · da ricontrollare |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Dove SyncKai segue i tuoi episodi |
+| Included (built-in platform) | Inclusa |
+| Access missing | Accesso mancante |
+| Turn on first (preferred player option) | Attivala prima |
+| Estimated release time | Orario di uscita stimato |
+| Extra delay (release alerts) | Ritardo extra |
+| On the playback page (Notifications section) | Nella pagina di riproduzione |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Confronta |
+| AniList ↔ MyAnimeList differences (row title) | Differenze AniList ↔ MyAnimeList |
+| Align (differences section) | Allinea |
+| Diagnostic report (row title) | Report diagnostico |
+| Copy the report (button) | Copia il report |
+| What's new (About link) | Novità |
+| Privacy (About link) | Privacy |

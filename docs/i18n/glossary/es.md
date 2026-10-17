@@ -64,7 +64,7 @@ Binding for every change to `src/i18n/locales/es.json` and `public/_locales/es/m
 | Data & help (group) | Datos y ayuda |
 | Accounts | Cuentas |
 | Playback & sync | Reproducción y sincro |
-| Notifications & schedule | Avisos y calendario |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **Plataformas** / **Avisos** / **Visualización** |
 | Shortcuts | Atajos |
 | My data | Mis datos |
 | Language | Idioma |
@@ -105,3 +105,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | traza de depuración |
 | event (one line of the trace) | evento |
 | verbose mode | modo detallado |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Automática |
+| Per series (Sync section) | Por serie |
+| Never synced (Excluded series section) | Nunca sincronizadas |
+| Match origins: chosen / learned / legacy / imported · to recheck | Elegida por ti / Aprendida / Antigua / Importada · por revisar |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Dónde sigue SyncKai tus episodios |
+| Included (built-in platform) | Incluida |
+| Access missing | Sin acceso |
+| Turn on first (preferred player option) | Actívala primero |
+| Estimated release time | Hora de estreno estimada |
+| Extra delay (release alerts) | Retraso extra |
+| On the playback page (Notifications section) | En la página de reproducción |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Comparar |
+| AniList ↔ MyAnimeList differences (row title) | Diferencias AniList ↔ MyAnimeList |
+| Align (differences section) | Igualar |
+| Diagnostic report (row title) | Informe de diagnóstico |
+| Copy the report (button) | Copiar informe |
+| What's new (About link) | Novedades |
+| Privacy (About link) | Privacidad |

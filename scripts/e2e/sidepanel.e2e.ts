@@ -260,6 +260,8 @@ describe('panneau latéral (bout en bout)', () => {
     await page.waitForSelector('[data-status-bar] footer [data-focus="chip-mal"]');
     await page.locator('[data-focus="chip-mal"]').click();
     await page.waitForSelector('[role="menu"] [data-stat]');
+    // Compteur de la semaine lu après l'ouverture (squelette « 0 » d'ici là)
+    await page.waitForSelector('[role="menu"] [data-week-value]:not(:has([data-skeleton]))');
     expect(await page.$eval('[role="menu"]', (el) => el.getAttribute('aria-label'))).toBe(fr('accountMenu.label', { service: 'MyAnimeList' }));
     const tiles = await page.$$eval('[role="menu"] [data-stat]', (els) => els.map((el) => (el as HTMLElement).innerText.replace(/\n+/g, ' ').trim()));
     const n = new Intl.NumberFormat('fr');
@@ -295,7 +297,7 @@ describe('panneau latéral (bout en bout)', () => {
   });
 
   it('UX-05 : hors page cible, la ligne neutre cite les plateformes suivies, puis celles à activer (et le vrai chemin des Réglages)', async () => {
-    const path = `${fr('nav.settings')} › ${fr('settings.cat.sync')}`;
+    const path = `${fr('nav.settings')} › ${fr('settings.cat.platforms')}`;
     const off = await openPanel({ site: 'other', tab: 'nowPlaying' });
     await off.locator('#sk-tab-nowPlaying').click();
     const offText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' })} ${fr('panel.offTargetEnable', { platforms: 'Netflix, Disney+ et Prime Video', path })}`;
@@ -359,12 +361,13 @@ describe('panneau latéral (bout en bout)', () => {
     }
   });
 
-  it('Réglages › Raccourcis (vue partagée avec le popup) : résumé de l’accueil et touches actuelles', async () => {
+  it('Réglages › Affichage › Raccourcis (vue partagée avec le popup) : ligne décrite, touches actuelles, retour « ← Affichage »', async () => {
     const page = await openPanel({});
     await page.locator('[data-focus="gear"]').click();
+    await page.locator('[data-focus="settings-cat-display"]').click();
     const row = '[data-focus="settings-cat-shortcuts"]';
-    await page.waitForFunction((s: string) => document.querySelector(s)?.textContent?.includes('Alt+Maj+K · Alt+Maj+1 (touche &)') ?? false, {}, row);
-    expect(await page.$eval(row, (el) => el.textContent ?? '')).toContain(fr('settings.cat.shortcuts'));
+    await page.waitForSelector(row);
+    expect(await page.$eval(row, (el) => el.textContent ?? '')).toContain(fr('settings.shortcuts.pointer'));
 
     await page.locator(row).click();
     await page.waitForSelector('kbd[data-shortcut-key="panel"]');
@@ -373,5 +376,8 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await page.$eval('#sk-shortcut-panel', (el) => el.textContent?.trim())).toBe(fr('settings.shortcuts.panel'));
     expect(await page.$('[data-focus="shortcut"]')).not.toBeNull();
     expect(await page.$('[data-focus="panel-shortcut"]')).not.toBeNull();
+    // Page de second niveau : le retour nomme la page parente
+    expect(await page.$eval('[data-focus="settings-home"]', (el) => el.textContent?.trim())).toBe(fr('settings.cat.display'));
+    expect(await page.$eval('[data-focus="settings-home"]', (el) => el.getAttribute('aria-label'))).toBe(fr('settings.backToAria', { page: fr('settings.cat.display') }));
   });
 });

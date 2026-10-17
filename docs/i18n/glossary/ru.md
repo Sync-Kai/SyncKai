@@ -62,7 +62,7 @@ Reference vocabulary: the list statuses of **Shikimori**, the main Russian-langu
 | Quick settings | Быстрые настройки |
 | Playback & alerts / Data & help (home groups) | Просмотр и оповещения / Данные и помощь |
 | Playback & sync (`settings.cat.sync`) | Просмотр и синхронизация |
-| Notifications & schedule | Уведомления и расписание |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **Платформы** / **Уведомления** / **Отображение** |
 | Shortcuts | Горячие клавиши |
 | My data | Мои данные |
 | Help & about | Помощь и информация |
@@ -106,3 +106,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | отладочная трассировка |
 | event (one line of the trace) | событие |
 | verbose mode | подробный режим |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Автоматически |
+| Per series (Sync section) | По аниме |
+| Never synced (Excluded series section) | Никогда не синхронизируются |
+| Match origins: chosen / learned / legacy / imported · to recheck | Выбрано тобой / Найдено / Старое / Импортировано · проверить |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Где SyncKai отслеживает эпизоды |
+| Included (built-in platform) | Встроено |
+| Access missing | Нет доступа |
+| Turn on first (preferred player option) | Сначала включи |
+| Estimated release time | Примерное время выхода |
+| Extra delay (release alerts) | Запас времени |
+| On the playback page (Notifications section) | На странице просмотра |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Сравнение |
+| AniList ↔ MyAnimeList differences (row title) | Расхождения AniList ↔ MyAnimeList |
+| Align (differences section) | Выравнивание |
+| Diagnostic report (row title) | Отчёт диагностики |
+| Copy the report (button) | Копировать отчёт |
+| What's new (About link) | Что нового |
+| Privacy (About link) | Конфиденциальность |

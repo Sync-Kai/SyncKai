@@ -136,7 +136,9 @@ describe('Lien vers la fiche', () => {
       await clickOn(popup, sel('nav-activity'));
       await expectOpensEntry(h, popup, '[data-focus^="recent-entry-"]', urlOn(service, DUNGEON));
       await expectOpensEntry(h, popup, sel(`rate-entry-anilist:${FRIEREN_S2.anilist.id}`), urlOn(service, FRIEREN_S2));
-      // Différences : analyse des deux listes (Frieren 2 / 1), la ligne de la différence
+      // Différences : ligne de l'Activité → Réglages › Mes données › Écarts, analyse des deux listes (Frieren 2 / 1),
+      // la ligne de la différence
+      await clickOn(popup, sel('activity-compare'));
       await clickOn(popup, sel('compare-analyze'));
       await expectOpensEntry(h, popup, '[data-focus^="compare-entry-"]', urlOn(service, frieren));
       await popup.close();
@@ -154,13 +156,13 @@ describe('Lien vers la fiche', () => {
     await settings.close();
     await checkLinks('mal');
 
-    // MAL déconnecté : le choix disparaît, les liens suivent le seul compte connecté (AniList) malgré le réglage
+    // MAL déconnecté : le choix reste visible mais désactivé, les liens suivent le seul compte connecté (AniList) malgré le réglage
     const logout = await openPopup(h);
     await clickOn(logout, sel('gear'));
     await clickOn(logout, sel('settings-cat-accounts'));
     await logout.waitForSelector(sel('entry-service-mal'));
     await clickOn(logout, sel('logout-mal'));
-    await logout.waitForSelector(sel('entry-service-mal'), { hidden: true });
+    await logout.waitForSelector(`${sel('entry-service-mal')}:disabled`);
     await logout.close();
     await tab.bringToFront();
     const popup = await openPopup(h, { behind: true });

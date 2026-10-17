@@ -49,6 +49,7 @@ Target: natural Brazilian Portuguese as used by Crunchyroll Brasil, Netflix Bras
 | shortcut | **atalho** / **atalho de teclado** | Shift key: **Shift** (printed name on Brazilian keyboards and in Chrome/Firefox pt-BR). |
 | Settings (`nav.settings`) | **Configurações** | Chrome and Android pt-BR. |
 | Settings categories | **Contas** · **Reprodução e sincronização** · **Notificações e agenda** · **Atalhos** · **Meus dados** · **Idioma** · **Ajuda e informações** | Brazilian UIs join with *e*, not *&*. *Reprodução e sincronização* is 26 characters for the ≤ 24 hint, kept: it is the natural noun pair and every shorter option was unnatural (*Assistir e sincronizar*) or an anglicism. *Ajuda e informações* (review 2026-10-14, was *Ajuda e sobre*: a dangling *sobre* is not idiomatic as a category name); the sections inside stay **Ajuda** and **Sobre**, and the GitHub template path is *Configurações › Ajuda › Copiar relatório de diagnóstico*. |
+| Settings categories of the 2026-10-17 redesign | Platforms = **Plataformas** · Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) = **Notificações** · Display = **Exibição** | Playback & sync (`settings.cat.sync`) was removed |
 | Settings home groups | **Configurações rápidas** · **Reprodução e alertas** · **Dados e ajuda** | |
 
 ## 2. Other recurring terms
@@ -108,3 +109,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | rastreamento de depuração |
 | event (one line of the trace) | evento |
 | verbose mode | modo detalhado |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Automática |
+| Per series (Sync section) | Por anime |
+| Never synced (Excluded series section) | Nunca sincronizados |
+| Match origins: chosen / learned / legacy / imported · to recheck | Escolhida por você / Aprendida / Antiga / Importada · a verificar |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Onde o SyncKai segue seus episódios |
+| Included (built-in platform) | Incluída |
+| Access missing | Sem acesso |
+| Turn on first (preferred player option) | Ative antes |
+| Estimated release time | Horário estimado de lançamento |
+| Extra delay (release alerts) | Atraso extra |
+| On the playback page (Notifications section) | Na página de reprodução |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Comparar |
+| AniList ↔ MyAnimeList differences (row title) | Diferenças AniList ↔ MyAnimeList |
+| Align (differences section) | Alinhar |
+| Diagnostic report (row title) | Relatório de diagnóstico |
+| Copy the report (button) | Copiar relatório |
+| What's new (About link) | Novidades |
+| Privacy (About link) | Privacidade |

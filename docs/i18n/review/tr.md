@@ -242,3 +242,130 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.title` | SyncKai'nin bu hafta eşitlediği bölümler |
 | `accountMenu.week.value_one` | {count} bölüm |
 | `accountMenu.week.value_other` | {count} bölüm |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. No case suffix on placeholders: « {page} sayfasına dön », « {service} hesabına ». Platform count « Açık: {count}/{total} » and **Kapalı** for the paused sync (as `settings.autoSync.helpOff`), so the Sync row reads « Otomatik · jenerikte » / « Kapalı ». Player summary « favori: {player} ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | Bildirimler |
+| `settings.cat.platforms` | Platformlar |
+| `settings.cat.display` | Görünüm |
+| `settings.backToAria` | {page} sayfasına dön |
+| `settings.group.categories` | Kategoriler |
+| `settings.summary.connected` | {service} bağlı |
+| `settings.summary.notConnected` | {service} bağlı değil |
+| `settings.summary.bothConnected` | AniList ve MyAnimeList bağlı |
+| `settings.summary.auto` | Otomatik |
+| `settings.summary.paused` | Kapalı |
+| `settings.summary.platforms_one` | Açık: {count}/{total} |
+| `settings.summary.platforms_other` | Açık: {count}/{total} |
+| `settings.summary.player` | favori: {player} |
+| `settings.summary.display` | Dil, yan panel, klavye kısayolları |
+| `settings.summary.data` | İzleme geçmişini içe aktar · yedekleme |
+| `settings.summary.version` | Sürüm {version} |
+| `settings.summary.noErrors` | hata yok |
+| `settings.display.keyboard` | Klavye |
+| `settings.display.shortcutsHelp` | Bölüm işaretleme ve paneli açma tuşları |
+| `settings.shortcuts.duringPlayback` | Oynatma sırasında |
+| `settings.shortcuts.navigation` | Gezinme |
+| `settings.accounts.lists` | Eşitlenen listeler |
+| `settings.accounts.both` | İki hesap bağlıyken |
+| `settings.accounts.privacy` | Girişi AniList veya MyAnimeList sitesinde yaparsın: SyncKai şifreni asla görmez. |
+| `settings.account.expiredHelp` | Yeniden bağlanana kadar bölümlerin {service} hesabına gönderilmez. |
+| `settings.account.otherStillSynced` | {service} güncellenmeye devam ediyor. |
+| `settings.entry.help` | Bir animenin başlığına veya kapağına tıklayınca açılır |
+| `settings.entry.unavailable` | AniList ve MyAnimeList ikisi de bağlıyken kullanılabilir. |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). No case suffix on placeholders: « Kayıtlı seri: {count} », « {platform} üzerinde ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | Otomatik |
+| `settings.section.perSeries` | Seri bazında |
+| `settings.trigger.credits` | Bitiş jeneriği başlayınca |
+| `settings.trigger.creditsHelp` | Önerilen: platformun bildirdiği tam an |
+| `settings.trigger.percentageHelp` | Jenerik bilinmediğinde de kullanılır |
+| `settings.sync.mappingsRow` | Kayıtlı eşleşmeler |
+| `settings.sync.mappingsRowHelp` | Her seri için seçilen AniList sezonu |
+| `settings.sync.exclusionsRowHelp` | Hiç eşitlenmez, buradan yeniden dahil edilebilir |
+| `settings.mappings.intro_one` | Kayıtlı seri: {count}, platforma göre: platformdaki sezon → SyncKai’ın yazdığı AniList sayfası. Bir eşleşmeyi unutursan bir sonraki bölümde yeniden hesaplanır. |
+| `settings.mappings.intro_other` | Kayıtlı seri: {count}, platforma göre: platformdaki sezon → SyncKai’ın yazdığı AniList sayfası. Bir eşleşmeyi unutursan bir sonraki bölümde yeniden hesaplanır. |
+| `settings.mappings.search` | Seri veya sayfa ara |
+| `settings.mappings.noResult` | “{query}” için eşleşme yok |
+| `settings.mappings.noResultHelp` | Seri adına veya AniList sayfasının adına göre ara. |
+| `settings.mappings.emptyHelp` | SyncKai eşitlenen her sezon için bir tane kaydeder. |
+| `settings.mappings.showMore_one` | {platform} üzerinde {count} tane daha göster |
+| `settings.mappings.showMore_other` | {platform} üzerinde {count} tane daha göster |
+| `settings.mappings.origin.chosen` | Senin seçtiğin |
+| `settings.mappings.origin.learned` | Öğrenilen |
+| `settings.mappings.origin.unmarked` | Eski |
+| `settings.mappings.origin.unverified` | İçe aktarıldı · yeniden kontrol |
+| `settings.mappings.origin.chosenHelp` | Senin onayladığın veya seçtiğin: hiç sorgulanmaz. |
+| `settings.mappings.origin.learnedHelp` | SyncKai’ın bulduğu: platform çelişirse yeniden hesaplanır. |
+| `settings.mappings.origin.unmarkedHelp` | 2.4’ten önce kaydedilen: korunur, çelişirse kontrole düşer. |
+| `settings.mappings.origin.unverifiedHelp` | Bir yedekten gelen: ilk kullanımda yeniden kontrol edilir. |
+| `settings.mappings.originLegend` | Eşleşmelerin kaynağı |
+| `settings.exclusions.section` | Hiç eşitlenmeyenler |
+| `settings.exclusions.help` | Hariç tutulan bir seri, hangi sezon olursa olsun bir daha asla eşitlenmez. “{action}” seriyi bir sonraki bölümden itibaren yeniden takip eder. |
+| `settings.exclusions.emptyHelp` | Bir seriyi artık eşitlememek için “⋯” menüsünden “{action}” seçeneğini seç. |
+| `settings.exclusions.seriesYear` | {year} serisi |
+| `settings.exclusions.excludedOn` | hariç tutulma: {date} |
+| `popup.syncDisabledDetail` | Yeniden dahil etmek için: Ayarlar › Eşitleme › Hariç tutulan seriler |
+| `review.excludeTitle` | Seriyi hariç tutar (tüm sezonlar). Yeniden dahil etmek için: Ayarlar › Eşitleme › Hariç tutulan seriler |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. No case suffix on placeholders; `settings.platforms.where` rephrased « Bölümlerinin takip edildiği yerler » (34 chars). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | Bölümlerinin takip edildiği yerler |
+| `settings.platforms.allAnime` | Tüm animeler |
+| `settings.platforms.included` | Dahil |
+| `settings.platforms.accessMissing` | Erişim yok |
+| `settings.platforms.note` | Bir platformu açmak, sitesi için erişim izni ister. Yalnızca oynatma ve seri sayfaları okunur. |
+| `settings.player.openOn` | Bölümleri şurada aç |
+| `settings.player.enableFirst` | Önce aç |
+| `settings.player.help` | Anime birden fazla etkin platformdayken “Aç” bunu kullanır. |
+| `settings.offsets.title` | Tahmini çıkış saati |
+| `settings.offsets.help` | Japonya yayınından sonra. Takvim ve bildirimler bunu kullanır; bir seri, Takvim'deki kendi satırından ayarlanır. |
+| `settings.offsets.earlier` | {minutes} dk daha erken |
+| `settings.offsets.later` | {minutes} dk daha geç |
+| `page.platformOff` | {platform} kapalı: SyncKai burada hiçbir şeyi takip etmiyor. Yeniden açmak için: Ayarlar › Platformlar. |
+| `settings.section.notifications` | Oynatma sayfasında |
+| `settings.notif.legend` | Sayfa içi bildirim stili |
+| `settings.notif.discreet.desc` | Videonun bir köşesinde birkaç saniyelik küçük bir etiket |
+| `settings.notif.detailed.desc` | Bölümü ve AniList ile MyAnimeList sonucunu gösteren bir balon |
+| `settings.notif.alertsOnly.desc` | Her şey yolundayken hiçbir şey; yalnızca hata ya da doğrulanacak bir bölüm olunca balon |
+| `settings.notif.alertsAlways` | Hata ya da doğrulanacak bir seri, stil ne olursa olsun her zaman gösterilir. |
+| `settings.delay.title` | Ek gecikme |
+| `settings.airing.enableFirst` | Yeni bölümleri denetlemek için bildirimleri aç |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. `compare.align` reuses the catalog's « Aktar » family (« Aktarım tamamlandı »), not a literal « hizala ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | Daha önce izlediklerini tamamla |
+| `settings.crImport.help` | Crunchyroll, ADN veya Netflix. Bir şey yazılmadan önce önizlemeyi görürsün. |
+| `settings.backup.help` | Ayarlar, eşleşmeler, hariç tutulan seriler ve geçmiş tek bir dosyada. AniList veya MyAnimeList oturum bilgilerin asla dahil edilmez. |
+| `settings.backup.import` | İçe aktar |
+| `settings.section.compare` | Karşılaştır |
+| `settings.compare.title` | AniList ↔ MyAnimeList farkları |
+| `settings.compare.help` | İki listeni karşılaştırır ve seçtiğin yönde eşitler |
+| `settings.data.perSeries` | Eşleşmeler ve hariç tutulan seriler {path} bölümünden yönetilir. |
+| `compare.align` | Aktar |
+| `compare.bulk.help` | “{action}”, AniList’i MyAnimeList’e aktarır; önce bir onay değişiklikleri listeler. |
+| `compare.job.background` | Bu sayfayı kapatsan da devam eder. |
+| `settings.help.diagnostic` | Tanılama raporu |
+| `settings.help.diagnosticHelp` | Hata bildirimine yapıştırmak için: sürüm, tarayıcı, ayarlar, son hatalar. Token yok, hesap yok. |
+| `settings.help.copy` | Raporu kopyala |
+| `settings.help.journalNote` | En fazla son 50, en yeni önce; token’lar zaten gizlendi. |
+| `settings.about.whatsNew` | Yenilikler |
+| `settings.about.privacy` | Gizlilik |
+| `settings.about.source` | Kaynak kodu |

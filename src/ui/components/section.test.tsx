@@ -36,6 +36,19 @@ describe('Section', () => {
     expect(section?.querySelector('[data-body]')?.textContent).toBe('Contenu');
   });
 
+  it('compte à droite du titre (hors du nom de la section) ; ton danger (« Zone de danger »)', async () => {
+    await show(
+      <Section title="Crunchyroll" count={61} tone="danger">
+        x
+      </Section>,
+    );
+    const heading = $('h2');
+    expect(heading?.textContent).toBe('Crunchyroll');
+    expect(heading?.className).toContain('text-danger');
+    expect($('[data-section-count]')?.textContent).toBe('61');
+    expect($('[data-section-count]')?.className).toContain('tabular-nums');
+  });
+
   it('deux sections : identifiants distincts', async () => {
     await show(
       <div>

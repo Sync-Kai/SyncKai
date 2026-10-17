@@ -71,7 +71,7 @@ Target: standard Romanian as used by Chrome, Netflix and big Romanian apps, with
 | English | Romanian |
 |---|---|
 | Settings › Playback & sync (`settings.cat.sync`) | Setări › Redare & sincronizare |
-| Notifications & schedule (`settings.cat.notifications`) | Notificări & calendar |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **Platforme** / **Notificări** / **Afișare** |
 | Shortcuts (`settings.cat.shortcuts`) | Comenzi rapide |
 | My data (`settings.cat.data`) | Datele mele |
 | Help & about (`settings.cat.help`) | Ajutor & informații |
@@ -125,3 +125,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | urmă de depanare |
 | event (one line of the trace) | eveniment |
 | verbose mode | mod detaliat |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Automat |
+| Per series (Sync section) | Pe serie |
+| Never synced (Excluded series section) | Nesincronizate niciodată |
+| Match origins: chosen / learned / legacy / imported · to recheck | Aleasă de tine / Învățată / Veche / Importată · de reverificat |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Unde urmărește SyncKai episoadele |
+| Included (built-in platform) | Inclusă |
+| Access missing | Fără acces |
+| Turn on first (preferred player option) | Activeaz-o întâi |
+| Estimated release time | Ora estimată a lansării |
+| Extra delay (release alerts) | Întârziere extra |
+| On the playback page (Notifications section) | Pe pagina de redare |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Comparare |
+| AniList ↔ MyAnimeList differences (row title) | Diferențe AniList ↔ MyAnimeList |
+| Align (differences section) | Aliniere |
+| Diagnostic report (row title) | Raport diagnostic |
+| Copy the report (button) | Copiază raportul |
+| What's new (About link) | Noutăți |
+| Privacy (About link) | Confidențialitate |

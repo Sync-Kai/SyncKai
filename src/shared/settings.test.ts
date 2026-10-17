@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LOCALES } from '../i18n/locale-codes';
 import { seriesOffset, withSeriesOffset } from './agenda';
 import { isOptionalPlatform, STREAMING_PLATFORMS } from '../platforms/registry';
-import { ACCESS_PLAYERS, DEFAULT_SETTINGS, isPreferredPlayerOption, MAX_SERIES_OFFSETS, normalizeSettings, parseOffsetInput } from './settings';
+import { ACCESS_PLAYERS, DEFAULT_SETTINGS, formatOffsetDraft, isPreferredPlayerOption, MAX_SERIES_OFFSETS, normalizeSettings, OFFSET_RANGE, OFFSET_STEP, parseOffsetDraft, parseOffsetInput, stepOffset } from './settings';
 
 describe('normalizeSettings', () => {
   it('retourne les valeurs par défaut sans données', () => {
@@ -153,5 +153,50 @@ describe('parseOffsetInput (UI-05)', () => {
 describe('ACCESS_PLAYERS', () => {
   it('= plateformes à accès optionnel proposables comme lecteur préféré (registre des plateformes)', () => {
     expect(ACCESS_PLAYERS).toEqual(STREAMING_PLATFORMS.filter((platform) => isOptionalPlatform(platform) && isPreferredPlayerOption(platform)));
+  });
+});
+
+describe('Délai par plateforme, champ des Réglages › Plateformes', () => {
+  it('− / + : pas de 15 min, calé sur un multiple de 15 dans le sens du clic', () => {
+    expect(OFFSET_STEP).toBe(15);
+    expect(stepOffset(60, 1)).toBe(75);
+    expect(stepOffset(60, -1)).toBe(45);
+    // Valeur saisie hors du pas : le premier multiple de 15 dans le sens du clic
+    expect(stepOffset(65, 1)).toBe(75);
+    expect(stepOffset(65, -1)).toBe(60);
+    expect(stepOffset(-7, 1)).toBe(0);
+    expect(stepOffset(-7, -1)).toBe(-15);
+    expect(stepOffset(0, -1)).toBe(-15);
+  });
+
+  it('− / + : bornés à −1440…10080', () => {
+    expect(stepOffset(OFFSET_RANGE.min, -1)).toBe(OFFSET_RANGE.min);
+    expect(stepOffset(OFFSET_RANGE.max, 1)).toBe(OFFSET_RANGE.max);
+    expect(stepOffset(10_075, 1)).toBe(OFFSET_RANGE.max);
+    expect(stepOffset(-1_430, -1)).toBe(OFFSET_RANGE.min);
+  });
+
+  it('saisie : entier signé dans les bornes, sinon null (jamais enregistré)', () => {
+    expect(parseOffsetDraft('60')).toBe(60);
+    expect(parseOffsetDraft(' +75 ')).toBe(75);
+    expect(parseOffsetDraft('-30')).toBe(-30);
+    // Signe moins typographique affiché par le champ
+    expect(parseOffsetDraft('\u221230')).toBe(-30);
+    expect(parseOffsetDraft('0')).toBe(0);
+    expect(parseOffsetDraft('-0')).toBe(0);
+    expect(parseOffsetDraft(String(OFFSET_RANGE.min))).toBe(OFFSET_RANGE.min);
+    expect(parseOffsetDraft(String(OFFSET_RANGE.max))).toBe(OFFSET_RANGE.max);
+    for (const raw of ['', '  ', '+', '-', '12.5', '1e3', '60 min', 'abc', '--5', String(OFFSET_RANGE.min - 1), String(OFFSET_RANGE.max + 1)]) {
+      expect(parseOffsetDraft(raw)).toBeNull();
+    }
+  });
+
+  it('affichage : signe toujours écrit, moins typographique, sans séparateur de milliers', () => {
+    expect(formatOffsetDraft(60)).toBe('+60');
+    expect(formatOffsetDraft(0)).toBe('0');
+    expect(formatOffsetDraft(-30)).toBe('\u221230');
+    expect(formatOffsetDraft(10_080)).toBe('+10080');
+    // Aller-retour : ce qui est affiché se relit tel quel
+    for (const value of [OFFSET_RANGE.min, -15, 0, 60, OFFSET_RANGE.max]) expect(parseOffsetDraft(formatOffsetDraft(value))).toBe(value);
   });
 });

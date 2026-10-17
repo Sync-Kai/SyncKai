@@ -58,6 +58,11 @@ const ICON_PATHS = {
   sync: ['M20 11a8 8 0 0 0-14.5-4.5L4 8', 'M4 4v4h4', 'M4 13a8 8 0 0 0 14.5 4.5L20 16', 'M20 20v-4h-4'],
   bell: ['M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z', 'M10 21h4'],
   folder: ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
+  // Information (note sous un réglage indisponible)
+  info: ['M22 12a10 10 0 1 1-20 0a10 10 0 1 1 20 0', 'M12 16v-4', 'M12 8h.01'],
+  // Écran sur pied : Plateformes ; fenêtre à barre de titre : Affichage
+  monitor: ['M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z', 'M8 21h8', 'M12 17v4'],
+  window: ['M6 4h12a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z', 'M3 9h18'],
   globe: ['M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0', 'M3 12h18', 'M12 3c3 3 3 15 0 18', 'M12 3c-3 3-3 15 0 18'],
   help: ['M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0', 'M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14', 'M12 17.2v.1'],
   // Clavier : touches en segments nuls (disques), barre d'espace
@@ -69,6 +74,22 @@ const ICON_PATHS = {
   checkSquare: ['M9 11l3 3 8-8', 'M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'],
   // Menu du compte : « Se déconnecter »
   logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+  // Aide & à propos : rapport de diagnostic, signalement, journal d'erreurs, nouveautés, confidentialité, code source
+  clipboard: ['M9 3h6a1 1 0 0 1 1 1v2H8V4a1 1 0 0 1 1-1z', 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2', 'M9 12h6', 'M9 16h4'],
+  bug: [
+    'M8 9a4 4 0 0 1 8 0v5a4 4 0 0 1-8 0z',
+    'M12 9v9',
+    'M9 5.5 7.5 4',
+    'M15 5.5 16.5 4',
+    'M8 11H4',
+    'M20 11h-4',
+    'M8 15H4.5',
+    'M19.5 15H16',
+  ],
+  list: ['M8 6h13', 'M8 12h13', 'M8 18h13', 'M3 6h.01', 'M3 12h.01', 'M3 18h.01'],
+  sparkles: ['M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z', 'M19 15v4', 'M17 17h4', 'M5 3v3', 'M3.5 4.5h3'],
+  shield: ['M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z', 'm9 12 2 2 4-4'],
+  code: ['m16 18 6-6-6-6', 'm8 6-6 6 6 6', 'M14 4l-4 16'],
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

@@ -100,7 +100,7 @@ Binding for every change to `src/i18n/locales/vi.json` and `public/_locales/vi/m
 | Quick settings / Playback & alerts / Data & help (groups) | Cài đặt nhanh / Xem & thông báo / Dữ liệu & trợ giúp |
 | Accounts | Tài khoản |
 | Playback & sync | Xem & đồng bộ |
-| Notifications & schedule | Thông báo & lịch chiếu |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **Nền tảng** / **Thông báo** / **Hiển thị** |
 | Shortcuts | Phím tắt |
 | My data | Dữ liệu của tôi |
 | Language | Ngôn ngữ |
@@ -125,3 +125,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | dấu vết gỡ lỗi |
 | event (one line of the trace) | sự kiện |
 | verbose mode | chế độ chi tiết |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Tự động |
+| Per series (Sync section) | Theo từng bộ |
+| Never synced (Excluded series section) | Không bao giờ đồng bộ |
+| Match origins: chosen / learned / legacy / imported · to recheck | Do bạn chọn / Tự học / Cũ / Đã nhập · cần kiểm tra lại |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Nơi SyncKai theo dõi tập bạn xem |
+| Included (built-in platform) | Có sẵn |
+| Access missing | Thiếu quyền |
+| Turn on first (preferred player option) | Hãy bật trước |
+| Estimated release time | Giờ ra mắt dự kiến |
+| Extra delay (release alerts) | Trễ thêm |
+| On the playback page (Notifications section) | Trên trang xem |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | So sánh |
+| AniList ↔ MyAnimeList differences (row title) | Khác biệt AniList ↔ MyAnimeList |
+| Align (differences section) | Đồng nhất |
+| Diagnostic report (row title) | Báo cáo chẩn đoán |
+| Copy the report (button) | Sao chép báo cáo |
+| What's new (About link) | Có gì mới |
+| Privacy (About link) | Quyền riêng tư |

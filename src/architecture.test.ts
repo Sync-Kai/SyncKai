@@ -41,7 +41,7 @@ describe('frontières des modules', () => {
     expect(edges).toContainEqual(expect.objectContaining({ from: 'popup/components/watching-screen.ts', to: 'ui/kit.ts' }));
     expect(edges).toContainEqual(expect.objectContaining({ from: 'popup/popup.ts', to: 'i18n/index.ts' }));
     // Modules TSX (pages Preact) suivis comme les autres
-    expect(edges).toContainEqual(expect.objectContaining({ from: 'ui/settings/settings-view.ts', to: 'ui/settings/page-shortcuts.tsx' }));
+    expect(edges).toContainEqual(expect.objectContaining({ from: 'ui/settings/settings-view.tsx', to: 'ui/settings/page-shortcuts.tsx' }));
   });
 
   it('aucun cycle d’import', () => {
@@ -126,7 +126,7 @@ describe('scripts de contenu légers (PERF-01)', () => {
   it('ni Preact ni module TSX (pages de l’extension seulement ; scripts Crunchyroll / ADN sous budget, MANIFEST_SCRIPT_BUDGETS)', () => {
     const isPreact = (spec: string): boolean => spec === 'preact' || spec.startsWith('preact/');
     // Le relevé voit bien Preact là où il sert : sinon la règle passerait sans rien vérifier
-    expect(packageImports('ui/settings/page-shortcuts.tsx').some(({ spec }) => isPreact(spec))).toBe(true);
+    expect(packageImports('ui/settings/preact-page.tsx').some(({ spec }) => isPreact(spec))).toBe(true);
     // Graphe complet (imports de types compris), comme les frontières des modules
     const reachable = [...reachableFrom(layerFiles('content'))];
     expect(reachable.filter((path) => path.endsWith('.tsx') || packageImports(path).some(({ spec }) => isPreact(spec)))).toEqual([]);

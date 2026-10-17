@@ -104,14 +104,21 @@ async function launch(context: TestContext, media: { anilist: AniListMediaSeed; 
   return { h, anilist, mal };
 }
 
-/** Popup › Réglages › Mes données, puis le bouton `focus` (ex. « cr-import ») : la page d'import s'ouvre dans un onglet */
-async function openFromMyData(h: ExtensionHarness, focus: string, prefix: string): Promise<Page> {
+/**
+ * Popup › Réglages › Mes données › « Importer un historique » : la page d'import s'ouvre dans un onglet, sans plateforme
+ * (Crunchyroll par défaut) ; une autre plateforme se choisit dans la page
+ */
+async function openFromMyData(h: ExtensionHarness, platform: 'crunchyroll' | 'adn' = 'crunchyroll'): Promise<Page> {
   const popup = await h.openPage('src/popup/popup.html', { width: 400, height: 580 });
   await popup.locator(sel('gear')).click();
   await popup.locator(sel('settings-cat-data')).click();
-  await popup.locator(sel(focus)).click();
-  const page = await h.waitForPage(prefix);
+  await popup.locator(sel('history-import')).click();
+  const page = await h.waitForPage(IMPORT_PAGE);
   await popup.close();
+  if (platform !== 'crunchyroll') {
+    await page.locator(sel(`platform-${platform}`)).click();
+    await page.waitForFunction((value: string) => new URL(location.href).searchParams.get('platform') === value, {}, platform);
+  }
   return page;
 }
 
@@ -138,7 +145,7 @@ describe('Import de l’historique Crunchyroll', () => {
     const cr = new FakeCrunchyrollHistory({ items: crunchyrollHistory(), seasons: { GONEPIECES24: ONE_PIECE_S24 } });
     const run = await launch(context, [{ anilist: anilistMedia(FRIEREN), mal: malAnime(FRIEREN) }, ONE_PIECE], { [FRIEREN.mediaId]: 3, [ONE_PIECE.anilist.id]: 1170 }, [cr.handler]);
     await run.h.openTab('https://www.crunchyroll.com/fr/');
-    const page = await openFromMyData(run.h, 'cr-import', `${IMPORT_PAGE}?platform=crunchyroll`);
+    const page = await openFromMyData(run.h);
 
     // Wi-Fi coupé dès la première lecture d'une saison (vérification de la numérotation de One Piece S24), AniList compris
     cr.cutNetworkAt = '/content/v2/cms/seasons/';
@@ -187,7 +194,7 @@ describe('Import de l’historique Crunchyroll', () => {
     const cr = new FakeCrunchyrollHistory({ items: crunchyrollHistory(), seasons: { GONEPIECES24: ONE_PIECE_S24 } });
     const run = await launch(context, [{ anilist: anilistMedia(FRIEREN), mal: malAnime(FRIEREN) }, ONE_PIECE], { [FRIEREN.mediaId]: 3, [ONE_PIECE.anilist.id]: 1170 }, [cr.handler]);
     await run.h.openTab('https://www.crunchyroll.com/fr/');
-    const page = await openFromMyData(run.h, 'cr-import', `${IMPORT_PAGE}?platform=crunchyroll`);
+    const page = await openFromMyData(run.h);
     await readHistory(page, 'Crunchyroll');
     await page.waitForSelector(sel('cr-apply'), { timeout: 30_000 });
 
@@ -222,7 +229,7 @@ describe('Import de l’historique Crunchyroll', () => {
     const cr = new FakeCrunchyrollHistory({ items: crunchyrollHistory(), seasons: { GONEPIECES24: ONE_PIECE_S24 } });
     const run = await launch(context, [{ anilist: anilistMedia(FRIEREN), mal: malAnime(FRIEREN) }, ONE_PIECE], { [FRIEREN.mediaId]: 3, [ONE_PIECE.anilist.id]: 1170 }, [cr.handler]);
     await run.h.openTab('https://www.crunchyroll.com/fr/');
-    const page = await openFromMyData(run.h, 'cr-import', `${IMPORT_PAGE}?platform=crunchyroll`);
+    const page = await openFromMyData(run.h);
     // Analyse lente : la mise à jour arrive pendant l'analyse, la tâche existe
     run.anilist.latencyMs = 2_000;
     await readHistory(page, 'Crunchyroll');
@@ -304,7 +311,7 @@ describe('Import de l’historique ADN', () => {
     const tab = await run.h.openTab(ADN_HOME);
     // Cookie de session du site : il ne doit jamais partir avec la requête de l'historique (credentials: 'omit')
     await tab.browserContext().setCookie({ name: 'adn_session', value: 'e2e-adn-cookie', domain: '.animationdigitalnetwork.com', path: '/', secure: true });
-    const page = await openFromMyData(run.h, 'adn-import', `${IMPORT_PAGE}?platform=adn`);
+    const page = await openFromMyData(run.h, 'adn');
 
     // Session ADN expirée : message de connexion, rien d'analysé
     adn.loggedOut = true;

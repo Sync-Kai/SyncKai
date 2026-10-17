@@ -64,6 +64,7 @@ Target: standard Swedish as used by Chrome, Firefox, Netflix and YouTube in Swed
 | platform / service | plattform (streaming site) / tjänst (AniList, MyAnimeList) | |
 | Settings (`nav.settings`) | Inställningar | |
 | Settings categories | Konton · Uppspelning & synkning · Aviseringar & schema · Kortkommandon · Mina data · Språk · Hjälp & info | Section names: Uppspelning, Synkning, Sidopanel, Nya avsnitt, Meddelanden på sidan, Schema, Kopplingar, Uteslutna serier, Säkerhetskopiering, Importera, Farozon, Hjälp, Om. "Hjälp & info" rather than "Hjälp & om": a bare *om* reads unfinished in a title (review 2026-10-14) |
+| Settings categories of the 2026-10-17 redesign | Platforms = **Plattformar** · Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) = **Aviseringar** · Display = **Visning** | Playback & sync (`settings.cat.sync`) was removed |
 | Activity (popup tab) | Aktivitet | |
 | Continue (card) | Fortsätt titta | Netflix Swedish wording |
 | Open / Retry / Cancel / Confirm / Ignore (card) | Öppna / Försök igen / Avbryt / Bekräfta / Hoppa över | "Hoppa över" for Ignore: the card is skipped, the series is not ignored |
@@ -101,3 +102,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | felsökningsspår (spåret) |
 | event (one line of the trace) | händelse |
 | verbose mode | utförligt läge |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | Automatiskt |
+| Per series (Sync section) | Per serie |
+| Never synced (Excluded series section) | Synkas aldrig |
+| Match origins: chosen / learned / legacy / imported · to recheck | Vald av dig / Inlärd / Äldre / Importerad · kontrolleras igen |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | Där SyncKai följer dina avsnitt |
+| Included (built-in platform) | Ingår |
+| Access missing | Åtkomst saknas |
+| Turn on first (preferred player option) | Aktivera först |
+| Estimated release time | Beräknad publiceringstid |
+| Extra delay (release alerts) | Extra väntetid |
+| On the playback page (Notifications section) | På uppspelningssidan |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | Jämför |
+| AniList ↔ MyAnimeList differences (row title) | Skillnader AniList ↔ MyAnimeList |
+| Align (differences section) | Anpassa |
+| Diagnostic report (row title) | Diagnostikrapport |
+| Copy the report (button) | Kopiera rapporten |
+| What's new (About link) | Nyheter |
+| Privacy (About link) | Integritet |

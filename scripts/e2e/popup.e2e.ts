@@ -11,6 +11,7 @@ import { PLATFORM_LINKS_KEY } from '../../src/platforms/links';
 import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { COMPARE_JOB_KEY, type CompareJob } from '../../src/shared/compare-job';
+import { SETTINGS_PAGE_PARENTS, type SettingsSubPage } from '../../src/ui/settings/navigation';
 import { PLANTED_SECRETS, type E2EState, type FrameParams } from './protocol';
 
 let server: HarnessServer;
@@ -93,6 +94,29 @@ async function attr(page: Page, selector: string, name: string): Promise<string 
   return page.$eval(selector, (el, n) => el.getAttribute(n), name);
 }
 
+/** Interrupteur (role="switch") allumé */
+async function switchOn(page: Page, focus: string): Promise<boolean> {
+  return (await attr(page, sel(focus), 'aria-checked')) === 'true';
+}
+
+/** Description de la ligne des Réglages qui porte un interrupteur */
+async function rowHelp(page: Page, focus: string): Promise<string> {
+  return page.$eval(sel(focus), (el) => el.closest('[data-settings-row]')?.querySelector('[data-row-description]')?.textContent?.trim() ?? '');
+}
+
+/** Lecteur préféré (Réglages › Plateformes) : option proposée, grisée (« Activer d'abord ») ou absente de la liste */
+async function playerOption(page: Page, platform: string): Promise<'offered' | 'disabled' | 'absent'> {
+  await click(page, 'player');
+  await page.waitForSelector('[role="listbox"]');
+  const state = await page.evaluate((key: string) => {
+    const option = document.querySelector(`[data-focus="${key}"]`);
+    return option === null ? 'absent' : option.getAttribute('aria-disabled') === 'true' ? 'disabled' : 'offered';
+  }, `player-${platform}`);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('[role="listbox"]', { hidden: true });
+  return state;
+}
+
 /** Écran visible de la zone centrale : 0 En cours, 1 Activité, 2 Réglages, 3 accueil */
 async function shownScreen(page: Page): Promise<number> {
   return page.$eval('main', (main) => [...main.children].findIndex((child) => child instanceof HTMLElement && !child.hidden));
@@ -121,11 +145,16 @@ async function watchingRows(page: Page): Promise<RowInfo[]> {
 }
 
 /** Titres des lignes de la section « Écarts AniList ↔ MAL » */
+/** Titres des lignes de Réglages › Mes données › Écarts, dans l'ordre affiché */
 async function compareRows(page: Page): Promise<string[]> {
-  return page.evaluate((label: string) => {
-    const section = [...document.querySelectorAll('section')].find((s) => s.getAttribute('aria-label') === label);
-    return [...(section?.querySelectorAll('ul > li span[title]') ?? [])].map((span) => span.getAttribute('title') ?? '');
-  }, fr('compare.section'));
+  return page.$$eval('[data-diff] [data-diff-title]', (titles) => titles.map((title) => title.getAttribute('title') ?? ''));
+}
+
+/** Réglages › Mes données › Écarts AniList ↔ MAL, par la ligne de Mes données */
+async function openCompare(page: Page): Promise<void> {
+  await click(page, 'gear');
+  await openCategory(page, 'compare');
+  expect(await text(page, 'h1')).toBe(fr('compare.section'));
 }
 
 /** Change un réglage directement dans le stockage (comme une autre vue ouverte) */
@@ -146,8 +175,10 @@ async function waitForHref(page: Page, selector: string, href: string): Promise<
   await page.waitForFunction((s: string, url: string) => document.querySelector(s)?.getAttribute('href') === url, {}, selector, href);
 }
 
-/** Ouvre une sous-page depuis l'accueil des Réglages */
-async function openCategory(page: Page, category: string): Promise<void> {
+/** Ouvre une page depuis l'accueil des Réglages (page de second niveau : par sa page parente, comme à la main) */
+async function openCategory(page: Page, category: SettingsSubPage): Promise<void> {
+  const parent = SETTINGS_PAGE_PARENTS[category];
+  if (parent !== 'home') await openCategory(page, parent);
   await click(page, `settings-cat-${category}`);
   await page.waitForSelector(sel('settings-home'));
 }
@@ -183,7 +214,7 @@ async function languageRows(page: Page): Promise<LanguageRowInfo[]> {
       const input = row.querySelector('input[type="radio"]');
       return {
         value: row.getAttribute('data-language-row') ?? '',
-        label: row.querySelector('span > span')?.textContent?.trim() ?? '',
+        label: row.querySelector('[data-language-label]')?.textContent?.trim() ?? '',
         checked: input instanceof HTMLInputElement && input.checked,
       };
     }),
@@ -334,7 +365,7 @@ describe('popup (bout en bout)', () => {
     await setSetting(page, { language: 'auto' });
     await click(page, 'gear');
     await openCategory(page, 'language');
-    expect(await attr(page, '[role="radiogroup"]', 'aria-labelledby')).toBe('sk-language-label');
+    expect(await attr(page, '[role="radiogroup"]', 'aria-label')).toBe(fr('settings.language.groupLabel'));
     const rows = await languageRows(page);
     expect(rows[0]).toEqual({ value: 'auto', label: fr('settings.language.auto'), checked: true });
     const order = rows.slice(1).map((row) => row.value);
@@ -369,8 +400,8 @@ describe('popup (bout en bout)', () => {
       expect(await page.evaluate(() => document.documentElement.lang)).toBe(locale);
       expect(await shownScreen(page)).toBe(2);
       expect(await text(page, 'h1')).toBe(tl(locale, 'settings.section.language'));
-      expect(await text(page, sel('settings-home'))).toBe(tl(locale, 'nav.settings'));
-      expect(await text(page, '#sk-language-label')).toBe(tl(locale, 'settings.language.groupLabel'));
+      expect(await text(page, sel('settings-home'))).toBe(tl(locale, 'settings.cat.display'));
+      expect(await attr(page, '[role="radiogroup"]', 'aria-label')).toBe(tl(locale, 'settings.language.groupLabel'));
       // Même ordre (endonymes) dans toutes les langues ; une seule langue cochée
       expect((await languageRows(page)).map((row) => [row.value, row.checked])).toEqual(['auto', ...order].map((value) => [value, value === locale]));
     }
@@ -390,11 +421,16 @@ describe('popup (bout en bout)', () => {
     await page.keyboard.press('Tab');
     await page.keyboard.up('Shift');
     expect(await focused(page)).toBe('language-search');
-    // Retour à l'accueil des Réglages (résumés traduits), puis à l'écran principal
+    // Retour à Affichage (ligne Langue focalisée, résumé de la langue), puis à l'accueil des Réglages (résumés traduits)
+    await click(page, 'settings-home');
+    await page.waitForSelector(sel('settings-cat-language'));
+    expect(await focused(page)).toBe('settings-cat-language');
+    expect(await text(page, sel('settings-cat-language'))).toContain(fr('settings.language.groupLabel'));
     await click(page, 'settings-home');
     await page.waitForSelector(sel('back'));
+    expect(await focused(page)).toBe('settings-cat-display');
     expect(await text(page, sel('settings-cat-help'))).toContain(fr('settings.cat.help'));
-    expect(await text(page, sel('settings-cat-language'))).toContain(fr('settings.section.language'));
+    expect(await text(page, sel('settings-cat-display'))).toContain(fr('settings.summary.display'));
     await click(page, 'back');
     await page.waitForSelector(sel('nav-watching'));
     expect(await text(page, sel('nav-watching'))).toBe(fr('nav.watching'));
@@ -631,6 +667,7 @@ describe('popup (bout en bout)', () => {
     expect(await attr(page, sel('gear'), 'aria-label')).toBe(en('nav.settings'));
 
     await click(page, 'settings-home');
+    await click(page, 'settings-home');
     await click(page, 'back');
     await page.waitForSelector(sel('nav-watching'));
     expect(await shownScreen(page)).toBe(0);
@@ -656,9 +693,23 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(`${card} button`)).toBeNull();
   });
 
-  it('Écarts AniList ↔ MAL : analyse, filtres, « Garder AniList » envoie APPLY_DIFFS', async () => {
+  it('Écarts AniList ↔ MAL (Réglages › Mes données) : jamais analysé, analyse, filtres, « Garder AniList » envoie APPLY_DIFFS', async () => {
     const page = await openPopup();
+    // Activité : une ligne qui mène aux Réglages, sans compteur avant la première analyse
     await click(page, 'nav-activity');
+    await page.waitForSelector(sel('activity-compare'));
+    expect(await text(page, sel('activity-compare'))).toContain(fr('settings.compare.title'));
+    expect(await page.$(`${sel('activity-compare')} [data-diff-count]`)).toBeNull();
+    await click(page, 'activity-compare');
+    await page.waitForSelector(sel('settings-home'));
+    expect(await text(page, 'h1')).toBe(fr('compare.section'));
+    // Retour : Mes données, focus sur la ligne des écarts
+    await click(page, 'settings-home');
+    expect(await text(page, 'h1')).toBe(fr('settings.cat.data'));
+    expect(await focused(page)).toBe('settings-cat-compare');
+    await click(page, 'settings-cat-compare');
+
+    expect(await text(page, sel('compare-analyze'))).toBe(fr('compare.analyze'));
     await click(page, 'compare-analyze');
     await waitForMessage(page, 'COMPARE_LISTS');
     await page.waitForSelector(sel('compare-filter-all'));
@@ -666,23 +717,37 @@ describe('popup (bout en bout)', () => {
     expect(await compareRows(page)).toHaveLength(7);
     expect(await text(page, sel('compare-filter-all'))).toBe(`${fr('compare.filter.all')} 7`);
     expect(await attr(page, sel('compare-filter-all'), 'aria-pressed')).toBe('true');
-    const sectionText = await page.evaluate((label: string) => [...document.querySelectorAll('section')].find((s) => s.getAttribute('aria-label') === label)?.textContent ?? '', fr('compare.section'));
-    expect(sectionText).toContain(fr('compare.summary.compared_other', { count: 412 }));
+    expect(await text(page, '[data-compare-result]')).toContain(fr('compare.summary.compared_other', { count: 412 }));
 
     await click(page, 'compare-filter-status');
     expect(await attr(page, sel('compare-filter-status'), 'aria-pressed')).toBe('true');
     expect(await compareRows(page)).toEqual(['Blue Lock', 'Oshi no Ko']);
+    // Filtre : boutons en lot « Aligner ce filtre sur … »
+    expect(await text(page, sel('compare-bulk-anilist'))).toBe(fr('compare.bulk.filtered.anilist'));
+
+    // Confirmation en lot : focus sur « Annuler », Échap ne quitte pas la page (Annuler la referme)
+    await click(page, 'compare-bulk-anilist');
+    await page.waitForSelector('[data-compare-confirm]');
+    expect(await focused(page)).toBe('compare-bulk-cancel');
+    await click(page, 'compare-bulk-cancel');
+    await page.waitForSelector(sel('compare-bulk-anilist'));
 
     await click(page, 'compare-anilist-mal:49596');
     const message = await waitForMessage(page, 'APPLY_DIFFS');
     expect(message.payload).toEqual({ items: [{ mediaId: 137822, malId: 49596 }], source: 'anilist' });
-    // Tâche acceptée : barre de progression
-    await page.waitForSelector('[role="progressbar"]');
+    // Tâche acceptée : barre de progression à la place des boutons en lot, « Continue même si tu fermes cette page »
+    await page.waitForSelector('[data-compare-running] [role="progressbar"]');
+    expect(await text(page, '[data-compare-running]')).toContain(fr('compare.job.background'));
+    expect(await page.$(sel('compare-bulk-anilist'))).toBeNull();
   });
 
-  it('pause d’alignement : seul le compte à rebours change chaque seconde, sans nouveau rendu du popup', async () => {
+  it('pause d’alignement : seul le compte à rebours change chaque seconde, sans recréer les nœuds de la page', async () => {
     const page = await openPopup({ scenario: 'compare' });
+    // Analyse en mémoire : compteur des écarts sur la ligne de l'Activité
     await click(page, 'nav-activity');
+    await page.waitForSelector(`${sel('activity-compare')} [data-diff-count]`);
+    expect(await text(page, `${sel('activity-compare')} [data-diff-count]`)).toBe('7');
+    await openCompare(page);
     await page.waitForSelector(sel('compare-filter-all'));
     const at = Date.now();
     const job: CompareJob = {
@@ -710,12 +775,11 @@ describe('popup (bout en bout)', () => {
     await page.waitForSelector('[data-job-pause]');
 
     // Nœuds de référence : une ligne d'écart, l'en-tête du popup et la ligne de pause
-    const first = await page.evaluate((label: string) => {
+    const first = await page.evaluate(() => {
       const w = window as Window & { __nodes?: Element[] };
-      const section = [...document.querySelectorAll('section')].find((s) => s.getAttribute('aria-label') === label);
-      w.__nodes = [section?.querySelector('ul > li'), document.querySelector('header'), document.querySelector('[data-job-pause]')].filter((n): n is Element => n instanceof Element);
+      w.__nodes = [document.querySelector('[data-diff]'), document.querySelector('header'), document.querySelector('[data-job-pause]')].filter((n): n is Element => n instanceof Element);
       return document.querySelector('[data-job-pause]')?.textContent ?? '';
-    }, fr('compare.section'));
+    });
     expect(first).toContain('AniList');
     // Série en cours d'écriture : l'élément démarré de la tâche (`current`), seule ligne occupée
     expect(await page.$$eval('li[aria-busy="true"]', (rows) => rows.map((row) => row.textContent ?? ''))).toEqual([expect.stringContaining('Oshi no Ko')]);
@@ -723,19 +787,35 @@ describe('popup (bout en bout)', () => {
     // Deux secondes plus tard : le compte à rebours a avancé, mais aucun nœud n'a été recréé
     await page.waitForFunction((text: string) => document.querySelector('[data-job-pause]')?.textContent !== text, { timeout: 3_000 }, first);
     await new Promise((resolve) => setTimeout(resolve, 1_100));
-    const same = await page.evaluate((label: string) => {
+    const same = await page.evaluate(() => {
       const w = window as Window & { __nodes?: Element[] };
-      const section = [...document.querySelectorAll('section')].find((s) => s.getAttribute('aria-label') === label);
-      const now = [section?.querySelector('ul > li'), document.querySelector('header'), document.querySelector('[data-job-pause]')];
+      const now = [document.querySelector('[data-diff]'), document.querySelector('header'), document.querySelector('[data-job-pause]')];
       return w.__nodes?.length === 3 && w.__nodes.every((node, i) => node === now[i] && node.isConnected);
-    }, fr('compare.section'));
+    });
     expect(same).toBe(true);
+    // Alignement en cours dans la barre d'état : mène à cette page (Réglages déjà ouverts : rien ne change)
+    expect(await text(page, sel('footer-job'))).toContain(fr('compare.bulk.running', { done: 1, total: 3 }));
   });
 
-  it('Réglages › Aide : « Copier le rapport » copie un rapport sans token ni nom de compte', async () => {
+  it('Réglages › Aide & à propos : version, liens, journal ; « Copier le rapport » copie un rapport sans token ni nom de compte', async () => {
     const page = await openPopup();
     await click(page, 'gear');
     await openCategory(page, 'help');
+    // Version : seul endroit qui l'affiche ; liens externes en nouvel onglet
+    expect(await text(page, '[data-about-version]')).toContain(fr('settings.summary.version', { version: manifest.version }));
+    expect(await attr(page, sel('about-source'), 'href')).toBe('https://github.com/Sync-Kai/SyncKai');
+    expect(await attr(page, sel('about-privacy'), 'target')).toBe('_blank');
+    expect(await attr(page, sel('about-whats-new'), 'href')).toBe('https://synckai.app/fr/changelog');
+    expect(await attr(page, sel('help-report'), 'href')).toContain('https://github.com/Sync-Kai/SyncKai/issues/new');
+    // Journal de démo (1 erreur) : nombre, liste dépliable avec l'erreur, note sous la carte
+    expect(await text(page, '[data-journal-count]')).toBe(fr('settings.help.errors_one', { count: 1 }));
+    await click(page, 'help-journal-toggle');
+    await page.waitForSelector('[data-journal-list] li');
+    expect(await attr(page, sel('help-journal-toggle'), 'aria-expanded')).toBe('true');
+    const helpText = await page.$eval('main', (el) => el.textContent ?? '');
+    expect(helpText).toContain(fr('settings.help.journalNote'));
+    // Entrée de démo avec un jeton en clair (« Bearer … ») : masquée à l'affichage aussi
+    for (const secret of Object.values(PLANTED_SECRETS)) expect(helpText).not.toContain(secret);
     await click(page, 'help-copy');
     await page.waitForFunction(() => (window.__e2e?.clipboard.length ?? 0) > 0);
     const [report] = (await trace(page)).clipboard;
@@ -748,7 +828,7 @@ describe('popup (bout en bout)', () => {
     await page.waitForFunction((label: string) => document.body.textContent?.includes(label) ?? false, {}, fr('settings.help.copied'));
   });
 
-  it('Réglages : sous-page Notifications & Agenda (focus sur le titre, retour sur la ligne d’origine), interrupteur rapide enregistré', async () => {
+  it('Réglages : sous-page Notifications (focus sur le titre, retour sur la ligne d’origine), interrupteur rapide enregistré', async () => {
     const page = await openPopup();
     await click(page, 'gear');
     await page.waitForSelector(sel('settings-cat-notifications'));
@@ -758,7 +838,25 @@ describe('popup (bout en bout)', () => {
     await openCategory(page, 'notifications');
     expect(await text(page, 'h1')).toBe(fr('settings.cat.notifications'));
     expect(await focused(page)).toBe('settings-heading');
-    expect(await page.$('#sk-airing')).not.toBeNull();
+    expect(await page.$(sel('sk-airing'))).not.toBeNull();
+
+    // Style illustré choisi dans les cartes : enregistré
+    expect(await page.$$eval('[data-notif-art]', (arts) => arts.map((art) => art.getAttribute('data-notif-art')))).toEqual(['pill', 'bubble', 'alert']);
+    await page.$eval('[data-choice="alerts-only"]', (label) => (label as HTMLElement).click());
+    await page.waitForFunction(
+      async (key: string) => {
+        const value: unknown = (await chrome.storage.local.get(key))[key];
+        return typeof value === 'object' && value !== null && 'notificationLevel' in value && value.notificationLevel === 'alerts-only';
+      },
+      {},
+      SETTINGS_STORAGE_KEY,
+    );
+    // « Vérifier maintenant » : CHECK_AIRING envoyé, ligne d'état du résultat (démo : 1 épisode notifié), bouton de nouveau actif
+    await click(page, 'airing-check');
+    await page.waitForFunction(() => window.__e2e?.messages.some((m) => m.type === 'CHECK_AIRING') ?? false);
+    await page.waitForFunction(() => document.querySelector('[data-focus="airing-check"]')?.getAttribute('aria-busy') === null);
+    expect(await attr(page, '[data-airing-status]', 'data-airing-status')).toBe('muted');
+    expect(await text(page, '[data-airing-status]')).toContain(fr('airing.status.last', { relative: '' }).trim());
 
     // Échap : retour à l'accueil, focus rendu à la ligne de la catégorie
     await page.keyboard.press('Escape');
@@ -771,7 +869,7 @@ describe('popup (bout en bout)', () => {
     expect(await focused(page)).toBe('settings-cat-notifications');
 
     // Interrupteur rapide « Alertes de sortie » : réglage enregistré, résumé mis à jour
-    expect(await page.$eval('#sk-quick-airing', (input) => input instanceof HTMLInputElement && input.checked)).toBe(true);
+    expect(await attr(page, sel('sk-quick-airing'), 'aria-checked')).toBe('true');
     await click(page, 'sk-quick-airing');
     await page.waitForFunction(
       async (key: string) => {
@@ -783,96 +881,157 @@ describe('popup (bout en bout)', () => {
       SETTINGS_STORAGE_KEY,
     );
     expect(await text(page, sel('settings-cat-notifications'))).toContain(fr('settings.summary.airingOff'));
-    expect(await page.$eval('#sk-quick-airing', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
+    expect(await attr(page, sel('sk-quick-airing'), 'aria-checked')).toBe('false');
   });
 
-  it('Réglages › Lecture & synchro : activer Netflix demande l’accès à netflix.com, puis le lecteur Netflix devient proposé', async () => {
+  it('Réglages › Plateformes : activer Netflix demande l’accès à netflix.com, puis le lecteur Netflix devient proposé', async () => {
     const page = await openPopup();
     await click(page, 'gear');
-    await openCategory(page, 'sync');
-    await page.waitForSelector('#sk-netflix');
-    const checked = (): Promise<boolean> => page.$eval('#sk-netflix', (input) => input instanceof HTMLInputElement && input.checked);
+    await openCategory(page, 'platforms');
+    await page.waitForSelector(sel('sk-netflix'));
 
-    // Accès non accordé : interrupteur éteint, Netflix absent du lecteur préféré
-    expect(await checked()).toBe(false);
-    expect(await text(page, '#sk-netflix-help')).toBe(fr('settings.netflix.helpOff'));
-    expect(await page.$(sel('player-netflix'))).toBeNull();
-    expect(await page.$(sel('player-crunchyroll'))).not.toBeNull();
+    // Crunchyroll et ADN inclus ; accès Netflix non accordé : interrupteur éteint, Netflix grisé dans le lecteur préféré
+    expect(await page.$$eval('[data-platform-state]', (nodes) => nodes.map((node) => node.getAttribute('data-platform-state')))).toEqual(['included', 'included']);
+    expect(await switchOn(page, 'sk-netflix')).toBe(false);
+    expect(await rowHelp(page, 'sk-netflix')).toBe(fr('settings.netflix.helpOff'));
+    expect(await playerOption(page, 'netflix')).toBe('disabled');
+    expect(await playerOption(page, 'crunchyroll')).toBe('offered');
+    expect(await playerOption(page, 'disney')).toBe('absent');
 
     await click(page, 'sk-netflix');
     await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
     expect((await trace(page)).permissionRequests).toEqual([['https://*.netflix.com/*']]);
     // Accès accordé (scripts aussi exécutés dans les onglets ouverts : aucune consigne de rechargement), option Netflix proposée
-    await page.waitForSelector(sel('player-netflix'));
-    expect(await checked()).toBe(true);
-    expect(await text(page, '#sk-netflix-help')).toBe(fr('settings.netflix.helpOn'));
+    await page.waitForSelector(`${sel('sk-netflix')}[aria-checked="true"]`);
+    expect(await rowHelp(page, 'sk-netflix')).toBe(fr('settings.netflix.helpOn'));
+    expect(await playerOption(page, 'netflix')).toBe('offered');
     // Aucun message au service worker : l'enregistrement des scripts suit la permission (permissions.onAdded)
     expect((await trace(page)).messages.filter((m) => m.type !== 'GET_WATCHING' && m.type !== 'GET_VIEWER' && m.type !== 'GET_MAL_VIEWER')).toEqual([]);
 
-    // Retrait : permissions.remove, l'option disparaît
+    // Lecteur Netflix choisi dans la liste : enregistré, focus rendu au bouton
+    await click(page, 'player');
+    await click(page, 'player-netflix');
+    await page.waitForFunction(
+      async (key: string) => {
+        const stored = await chrome.storage.local.get(key);
+        const value: unknown = stored[key];
+        return typeof value === 'object' && value !== null && 'preferredPlayer' in value && value.preferredPlayer === 'netflix';
+      },
+      {},
+      SETTINGS_STORAGE_KEY,
+    );
+    expect(await text(page, `${sel('player')} [data-select-value]`)).toBe('Netflix');
+    expect(await focused(page)).toBe('player');
+
+    // Retrait : permissions.remove, l'option repasse grisée et le lecteur revient sur Crunchyroll
     await click(page, 'sk-netflix');
     await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
     expect((await trace(page)).permissionRemovals).toEqual([['https://*.netflix.com/*']]);
-    await page.waitForSelector(sel('player-netflix'), { hidden: true });
-    expect(await checked()).toBe(false);
+    await page.waitForSelector(`${sel('sk-netflix')}[aria-checked="false"]`);
+    await page.waitForFunction((label: string) => document.querySelector('[data-focus="player"] [data-select-value]')?.textContent === label, {}, 'Crunchyroll');
+    expect(await playerOption(page, 'netflix')).toBe('disabled');
     // Le script d'un onglet déjà ouvert tourne jusqu'à son rechargement : consigne discrète
     const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
     expect(statuses).toContain(fr('settings.netflix.disabled'));
   });
 
-  it('Réglages › Lecture & synchro : activer Disney+ demande l’accès à disneyplus.com, jamais proposé comme lecteur préféré', async () => {
+  it('Réglages › Plateformes : activer Disney+ demande l’accès à disneyplus.com, jamais proposé comme lecteur préféré', async () => {
     const page = await openPopup();
     await click(page, 'gear');
-    await openCategory(page, 'sync');
-    await page.waitForSelector('#sk-disney');
-    const checked = (): Promise<boolean> => page.$eval('#sk-disney', (input) => input instanceof HTMLInputElement && input.checked);
-    expect(await checked()).toBe(false);
-    expect(await text(page, '#sk-disney-help')).toBe(fr('settings.disney.helpOff'));
+    await openCategory(page, 'platforms');
+    await page.waitForSelector(sel('sk-disney'));
+    expect(await switchOn(page, 'sk-disney')).toBe(false);
+    expect(await rowHelp(page, 'sk-disney')).toBe(fr('settings.disney.helpOff'));
 
     await click(page, 'sk-disney');
     await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
     expect((await trace(page)).permissionRequests).toEqual([['https://*.disneyplus.com/*']]);
-    await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-disney')?.checked === true);
-    expect(await text(page, '#sk-disney-help')).toBe(fr('settings.disney.helpOn'));
+    await page.waitForSelector(`${sel('sk-disney')}[aria-checked="true"]`);
+    expect(await rowHelp(page, 'sk-disney')).toBe(fr('settings.disney.helpOn'));
     // Lecteur préféré inchangé : Disney+ n'y est jamais proposé, l'interrupteur Netflix reste éteint
-    expect(await page.$(sel('player-disney'))).toBeNull();
-    expect(await page.$eval('#sk-netflix', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
+    expect(await playerOption(page, 'disney')).toBe('absent');
+    expect(await switchOn(page, 'sk-netflix')).toBe(false);
 
     await click(page, 'sk-disney');
     await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
     expect((await trace(page)).permissionRemovals).toEqual([['https://*.disneyplus.com/*']]);
-    await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-disney')?.checked === false);
+    await page.waitForSelector(`${sel('sk-disney')}[aria-checked="false"]`);
     const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
     expect(statuses).toContain(fr('settings.disney.disabled'));
   });
 
-  it('Réglages › Lecture & synchro : activer Prime Video demande l’accès à primevideo.com, proposé comme lecteur préféré tant qu’il est activé', async () => {
+  it('Réglages › Plateformes : activer Prime Video demande l’accès à primevideo.com, proposé comme lecteur préféré tant qu’il est activé', async () => {
     const page = await openPopup();
     await click(page, 'gear');
-    await openCategory(page, 'sync');
-    await page.waitForSelector('#sk-prime');
-    const checked = (): Promise<boolean> => page.$eval('#sk-prime', (input) => input instanceof HTMLInputElement && input.checked);
-    expect(await checked()).toBe(false);
-    expect(await text(page, '#sk-prime-help')).toBe(fr('settings.prime.helpOff'));
+    await openCategory(page, 'platforms');
+    await page.waitForSelector(sel('sk-prime'));
+    expect(await switchOn(page, 'sk-prime')).toBe(false);
+    expect(await rowHelp(page, 'sk-prime')).toBe(fr('settings.prime.helpOff'));
+    expect(await playerOption(page, 'prime')).toBe('disabled');
 
     await click(page, 'sk-prime');
     await page.waitForFunction(() => (window.__e2e?.permissionRequests.length ?? 0) > 0);
     expect((await trace(page)).permissionRequests).toEqual([['https://*.primevideo.com/*']]);
-    await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-prime')?.checked === true);
-    expect(await text(page, '#sk-prime-help')).toBe(fr('settings.prime.helpOn'));
+    await page.waitForSelector(`${sel('sk-prime')}[aria-checked="true"]`);
+    expect(await rowHelp(page, 'sk-prime')).toBe(fr('settings.prime.helpOn'));
     // Prime Video proposé comme lecteur préféré (comme Netflix), les interrupteurs Netflix et Disney+ restent éteints
-    await page.waitForSelector(sel('player-prime'));
-    expect(await page.$(sel('player-netflix'))).toBeNull();
-    expect(await page.$eval('#sk-netflix', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
-    expect(await page.$eval('#sk-disney', (input) => input instanceof HTMLInputElement && input.checked)).toBe(false);
+    expect(await playerOption(page, 'prime')).toBe('offered');
+    expect(await playerOption(page, 'netflix')).toBe('disabled');
+    expect(await switchOn(page, 'sk-netflix')).toBe(false);
+    expect(await switchOn(page, 'sk-disney')).toBe(false);
 
     await click(page, 'sk-prime');
     await page.waitForFunction(() => (window.__e2e?.permissionRemovals.length ?? 0) > 0);
     expect((await trace(page)).permissionRemovals).toEqual([['https://*.primevideo.com/*']]);
-    await page.waitForFunction(() => document.querySelector<HTMLInputElement>('#sk-prime')?.checked === false);
+    await page.waitForSelector(`${sel('sk-prime')}[aria-checked="false"]`);
     const statuses = await page.$$eval('[role="status"]', (nodes) => nodes.map((node) => node.textContent ?? ''));
     expect(statuses).toContain(fr('settings.prime.disabled'));
-    expect(await page.$(sel('player-prime'))).toBeNull();
+    expect(await playerOption(page, 'prime')).toBe('disabled');
+  });
+
+  it('Réglages › Plateformes : heure de sortie estimée par plateforme, − / + par 15 min et saisie au clavier', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'platforms');
+    await page.waitForSelector(sel('offset-disney'));
+    const stored = (platform: string, minutes: number): Promise<unknown> =>
+      page.waitForFunction(
+        async (key: string, p: string, m: number) => {
+          const settings: unknown = (await chrome.storage.local.get(key))[key];
+          if (typeof settings !== 'object' || settings === null || !('platformOffsets' in settings)) return false;
+          const offsets: unknown = settings.platformOffsets;
+          return typeof offsets === 'object' && offsets !== null && p in offsets && Object.entries(offsets).some(([name, value]) => name === p && value === m);
+        },
+        {},
+        SETTINGS_STORAGE_KEY,
+        platform,
+        minutes,
+      );
+    // Les cinq plateformes, Disney+ compris
+    expect(await page.$$eval('[data-offset-row]', (rows) => rows.length)).toBe(5);
+    expect(await page.$eval(sel('offset-crunchyroll'), (input) => (input instanceof HTMLInputElement ? input.value : ''))).toBe('+60');
+
+    await click(page, 'offset-crunchyroll-plus');
+    await stored('crunchyroll', 75);
+    await click(page, 'offset-crunchyroll-minus');
+    await click(page, 'offset-crunchyroll-minus');
+    await stored('crunchyroll', 45);
+
+    // Saisie : enregistrée à Entrée ; hors bornes : signalée, rien d'enregistré, Échap rend la valeur
+    await page.locator(sel('offset-disney')).click({ count: 3 });
+    await page.keyboard.type('-30');
+    await page.keyboard.press('Enter');
+    await stored('disney', -30);
+    await page.locator(sel('offset-disney')).click({ count: 3 });
+    await page.keyboard.type('20000');
+    await page.keyboard.press('Enter');
+    expect(await attr(page, sel('offset-disney'), 'aria-invalid')).toBe('true');
+    expect(await page.$('[data-offset-error]')).not.toBeNull();
+    await page.keyboard.press('Escape');
+    expect(await attr(page, sel('offset-disney'), 'aria-invalid')).toBe('false');
+    // Échap consommé par le champ : toujours sur la page Plateformes
+    expect(await text(page, 'h1')).toBe(fr('settings.cat.platforms'));
+    await stored('disney', -30);
   });
 
   it('accès aux sites retiré : bandeau annoncé une seule fois, même nœud entre deux rendus', async () => {
@@ -958,14 +1117,15 @@ describe('popup (bout en bout)', () => {
     expect(await sent(page, 'GET_MAL_VIEWER')).toHaveLength(2);
   });
 
-  it('Réglages › Raccourcis : résumé de l’accueil, touches actuelles, « Modifier » ouvre chrome://extensions/shortcuts (BRW-02)', async () => {
+  it('Réglages › Affichage › Raccourcis : ligne décrite sans les touches, touches actuelles, « Modifier » ouvre chrome://extensions/shortcuts (BRW-02)', async () => {
     const page = await openPopup();
     await click(page, 'gear');
-    // Accueil : catégorie avec les deux touches (Shift → Maj)
-    await page.waitForFunction((s: string) => document.querySelector(s)?.textContent?.includes('Alt+Maj+K · Alt+Maj+1 (touche &)') ?? false, {}, sel('settings-cat-shortcuts'));
-    expect(await text(page, sel('settings-cat-shortcuts'))).toContain(fr('settings.cat.shortcuts'));
-
-    await openCategory(page, 'shortcuts');
+    await openCategory(page, 'display');
+    // Affichage : la ligne décrit les raccourcis, sans les touches
+    expect(await text(page, sel('settings-cat-shortcuts'))).toContain(fr('settings.display.shortcutsHelp'));
+    expect(await text(page, sel('settings-cat-shortcuts'))).not.toContain('Alt+');
+    await click(page, 'settings-cat-shortcuts');
+    await page.waitForSelector(sel('settings-home'));
     expect(await text(page, 'h1')).toBe(fr('settings.cat.shortcuts'));
     await page.waitForSelector('[data-shortcut-key="episode"]');
     expect(await text(page, 'kbd[data-shortcut-key="episode"]')).toBe('Alt+Maj+K');
@@ -988,18 +1148,15 @@ describe('popup (bout en bout)', () => {
     expect((await trace(page)).openedTabs).toEqual(['chrome://extensions/shortcuts', 'chrome://extensions/shortcuts']);
     expect(await page.$('[data-shortcut-manual]')).toBeNull();
 
-    // Retour : focus rendu à la ligne de la catégorie
+    // Retour : Affichage, focus rendu à la ligne Raccourcis
     await click(page, 'settings-home');
-    await page.waitForSelector(sel('back'));
+    await page.waitForSelector(sel('settings-cat-shortcuts'));
     expect(await focused(page)).toBe('settings-cat-shortcuts');
   });
 
-  it('Réglages › Raccourcis : touche du panneau non définie → « Non défini », « Définir », résumé qui la nomme', async () => {
+  it('Réglages › Raccourcis : touche du panneau non définie → « Non défini », « Définir »', async () => {
     const page = await openPopup({ shortcuts: 'panel-unset' });
     await click(page, 'gear');
-    const summary = `Alt+Maj+K · ${fr('settings.summary.panelUnset')}`;
-    await page.waitForFunction((s: string, want: string) => document.querySelector(s)?.textContent?.includes(want) ?? false, {}, sel('settings-cat-shortcuts'), summary);
-
     await openCategory(page, 'shortcuts');
     await page.waitForSelector('[data-shortcut-key="panel"]');
     expect(await page.$('kbd[data-shortcut-key="panel"]')).toBeNull();
@@ -1008,19 +1165,153 @@ describe('popup (bout en bout)', () => {
     expect(await text(page, 'kbd[data-shortcut-key="episode"]')).toBe('Alt+Maj+K');
   });
 
-  it('Lecture & synchro : plus aucune touche affichée, un lien mène à Réglages › Raccourcis', async () => {
+  it('Affichage : panneau latéral (onglet à l’ouverture, progression en direct) enregistré ; Synchronisation n’en montre plus rien', async () => {
     const page = await openPopup();
     await click(page, 'gear');
     await openCategory(page, 'sync');
-    await page.waitForSelector(sel('shortcuts-link'));
-    expect(await page.$(sel('shortcut'))).toBeNull();
-    expect(await page.$(sel('panel-shortcut'))).toBeNull();
-    expect(await page.$('kbd')).toBeNull();
-    expect(await text(page, sel('shortcuts-link'))).toBe(fr('settings.shortcuts.pointer'));
+    await page.waitForSelector(sel('sk-auto'));
+    expect(await page.$(sel('panel-tab-agenda'))).toBeNull();
+    expect(await page.$(sel('shortcuts-link'))).toBeNull();
+    await click(page, 'settings-home');
 
-    await click(page, 'shortcuts-link');
-    await page.waitForSelector('[data-shortcut-key="episode"]');
-    expect(await text(page, 'h1')).toBe(fr('settings.cat.shortcuts'));
+    await openCategory(page, 'display');
+    expect(await text(page, 'h1')).toBe(fr('settings.cat.display'));
+    expect(await text(page, sel('settings-cat-language'))).toContain(fr('settings.language.groupLabel'));
+    // Onglet à l'ouverture : groupe radio, un seul arrêt de tabulation
+    expect(await attr(page, sel('panel-tab-last'), 'aria-checked')).toBe('true');
+    await click(page, 'panel-tab-agenda');
+    await page.waitForFunction(
+      async (key: string) => {
+        const stored = await chrome.storage.local.get(key);
+        const value: unknown = stored[key];
+        return typeof value === 'object' && value !== null && 'panelDefaultTab' in value && value.panelDefaultTab === 'agenda';
+      },
+      {},
+      SETTINGS_STORAGE_KEY,
+    );
+    expect(await attr(page, sel('panel-tab-agenda'), 'aria-checked')).toBe('true');
+    expect(await attr(page, sel('panel-tab-last'), 'tabindex')).toBe('-1');
+    expect(await attr(page, sel('sk-panel-live'), 'role')).toBe('switch');
+  });
+
+  it('Synchronisation : pause signalée, moment « vu » et pourcentage enregistrés ; lignes « Par série » avec leur nombre', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'sync');
+    await page.waitForSelector(sel('sk-auto'));
+    expect(await attr(page, sel('sk-auto'), 'aria-checked')).toBe('true');
+    // Lecteur préféré et accès : page Plateformes, plus ici
+    expect(await page.$(sel('player-crunchyroll'))).toBeNull();
+    expect(await page.$(sel('sk-netflix'))).toBeNull();
+    expect(await page.$(sel('player'))).toBeNull();
+    // Démo : 2 correspondances, aucune série exclue
+    expect(await text(page, `${sel('settings-cat-mappings')} [data-row-summary]`)).toBe('2');
+    expect(await text(page, `${sel('settings-cat-exclusions')} [data-row-summary]`)).toBe('0');
+
+    await click(page, 'sk-auto');
+    await page.waitForSelector('[data-row-description][data-tone="warn"]');
+    expect(await text(page, '[data-row-description][data-tone="warn"]')).toBe(fr('settings.autoSync.helpOff'));
+
+    expect(await page.$eval(sel('trigger-credits'), (input) => input instanceof HTMLInputElement && input.checked)).toBe(true);
+    await page.$eval('[data-choice="percentage"]', (label) => (label as HTMLElement).click());
+    await page.waitForFunction(
+      async (key: string) => {
+        const stored = await chrome.storage.local.get(key);
+        const value: unknown = stored[key];
+        return typeof value === 'object' && value !== null && 'completionTrigger' in value && value.completionTrigger === 'percentage' && 'autoSync' in value && value.autoSync === false;
+      },
+      {},
+      SETTINGS_STORAGE_KEY,
+    );
+    const rangeId = await attr(page, sel('pct'), 'id');
+    expect(await text(page, `label[for="${rangeId ?? ''}"]`)).toBe(fr('settings.percentage.label'));
+    // Curseur au clavier : valeur enregistrée au relâchement (change)
+    await page.focus(sel('pct'));
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(
+      async (key: string) => {
+        const stored = await chrome.storage.local.get(key);
+        const value: unknown = stored[key];
+        return typeof value === 'object' && value !== null && 'completionPercentage' in value && value.completionPercentage === 86;
+      },
+      {},
+      SETTINGS_STORAGE_KEY,
+    );
+  });
+
+  it('Synchronisation › Correspondances : groupes par plateforme, « Oublier » écrit et prévient le service worker, « Tout réinitialiser » confirmé sur place', async () => {
+    const page = await openPopup();
+    await click(page, 'gear');
+    await openCategory(page, 'mappings');
+    await page.waitForSelector('[data-mapping]');
+    expect(await text(page, 'h1')).toBe(fr('settings.section.mappings'));
+    // La carte la plus fournie (Crunchyroll, à égalité : ordre du registre) est ouverte, ADN repliée
+    expect(await attr(page, sel('maps-group-crunchyroll'), 'aria-expanded')).toBe('true');
+    expect(await attr(page, sel('maps-group-adn'), 'aria-expanded')).toBe('false');
+    await click(page, 'maps-group-adn');
+    await page.waitForFunction(() => document.querySelector('[data-focus="maps-group-adn"]')?.getAttribute('aria-expanded') === 'true');
+
+    // Recherche sans résultat, puis effacée
+    await page.type(sel('mappings-search'), 'zzz');
+    await page.waitForSelector('[data-mappings-empty]');
+    expect(await text(page, '[data-mappings-empty]')).toContain(fr('settings.mappings.noResult', { query: 'zzz' }));
+    await page.$eval(sel('mappings-search'), (input) => {
+      (input as HTMLInputElement).value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForSelector('[data-mapping]');
+
+    await click(page, 'forget-adn:DEMO-OnePiece');
+    await page.waitForFunction(
+      async (key: string) => {
+        const stored = await chrome.storage.local.get(key);
+        const value: unknown = stored[key];
+        return typeof value === 'object' && value !== null && !('adn:DEMO-OnePiece' in value) && 'crunchyroll:DEMO-Dandadan:S2' in value;
+      },
+      {},
+      STORAGE_KEYS.mediaMappings,
+    );
+    await page.waitForFunction(() => document.querySelector('[data-mapping-group="adn"]') === null);
+    expect((await trace(page)).messages.map((m) => m.type)).toContain('MAPPINGS_CHANGED');
+
+    // Zone de danger : confirmation sur place, focus sur « Annuler », Échap annule sans quitter la page
+    await click(page, 'reset');
+    await page.waitForSelector(sel('reset-confirm'));
+    expect(await focused(page)).toBe('reset-cancel');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector(sel('reset'));
+    expect(await focused(page)).toBe('reset');
+    expect(await text(page, 'h1')).toBe(fr('settings.section.mappings'));
+    await click(page, 'reset');
+    await click(page, 'reset-confirm');
+    await page.waitForSelector('[data-mappings-empty]');
+    expect(await text(page, '[data-mappings-empty]')).toContain(fr('settings.mappings.empty'));
+    expect(await page.$eval(sel('reset'), (button) => (button as HTMLButtonElement).disabled)).toBe(true);
+  });
+
+  it('Synchronisation › Séries exclues : plateforme, année et date ; « Réactiver » retire la série ; liste vide', async () => {
+    const page = await openPopup();
+    await page.evaluate(async () => {
+      await chrome.storage.local.set({
+        excludedSeries: [
+          { id: 'netflix:81000', platformKey: 'netflix:81000', mediaId: null, label: 'Pokémon Horizons', excludedAt: new Date(new Date().getFullYear(), 0, 2).getTime() },
+          { id: 'prime:title:berserk:y1997', platformKey: 'prime:title:berserk:y1997', mediaId: null, label: 'Berserk', excludedAt: Date.now() },
+        ],
+      });
+    });
+    await click(page, 'gear');
+    await openCategory(page, 'exclusions');
+    await page.waitForSelector('[data-exclusion]');
+    expect(await page.evaluate(() => [...document.querySelectorAll('[data-exclusion]')].map((row) => row.getAttribute('data-exclusion')))).toEqual(['prime:title:berserk:y1997', 'netflix:81000']);
+    expect(await text(page, '[data-exclusion="prime:title:berserk:y1997"]')).toContain(`Prime Video · ${fr('settings.exclusions.seriesYear', { year: 1997 })}`);
+    expect(await attr(page, sel('include-netflix:81000'), 'aria-label')).toBe(fr('settings.exclusions.reactivateAria', { title: 'Pokémon Horizons' }));
+
+    await click(page, 'include-prime:title:berserk:y1997');
+    await page.waitForFunction(() => document.querySelectorAll('[data-exclusion]').length === 1);
+    await click(page, 'include-netflix:81000');
+    await page.waitForSelector('[data-exclusions-empty]');
+    expect(await text(page, '[data-exclusions-empty]')).toContain(fr('settings.exclusions.empty'));
+    expect(await text(page, '[data-exclusions-empty]')).toContain(fr('common.stopSyncSeries'));
   });
 
   it('BAK-05 : « Exporter » depuis le popup ouvre la page Sauvegarde, qui lance l’export (pas de téléchargement dans le popup)', async () => {
@@ -1036,25 +1327,19 @@ describe('popup (bout en bout)', () => {
     expect(await page.$('a[download]')).toBeNull();
   });
 
-  it('« Importer un historique » : un bouton par plateforme, page d’import ouverte sur Crunchyroll, ADN ou Netflix', async () => {
+  it('Mes données : « Importer un historique » ouvre la page d’import (plateforme choisie dans la page), ligne des écarts, note « Par série »', async () => {
     const page = await openPopup();
     await click(page, 'gear');
     await openCategory(page, 'data');
-    expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('settings.backup.crImport'));
-    expect(await attr(page, sel('adn-import'), 'aria-label')).toBe(fr('settings.crImport.openAria', { platform: 'ADN' }));
-    await click(page, 'cr-import');
+    const main = await page.$eval('main', (el) => el.textContent ?? '');
+    expect(main).toContain(fr('settings.import.title'));
+    expect(main).toContain(fr('settings.data.perSeries', { path: `${fr('settings.section.sync')} › ${fr('settings.section.perSeries')}` }));
+    // Deux comptes connectés : ligne de navigation vers les écarts
+    expect(await text(page, sel('settings-cat-compare'))).toContain(fr('settings.compare.title'));
+    await click(page, 'history-import');
     await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 0);
-    await click(page, 'adn-import');
-    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 1);
-    // Netflix : bouton proposé même sans l'accès (la page d'import le demande)
-    await click(page, 'netflix-import');
-    await page.waitForFunction(() => (window.__e2e?.openedTabs.length ?? 0) > 2);
     const opened = (await trace(page)).openedTabs.map((url) => new URL(url));
-    expect(opened.map((url) => [url.pathname, url.searchParams.get('platform')])).toEqual([
-      ['/src/import-cr/import-cr.html', 'crunchyroll'],
-      ['/src/import-cr/import-cr.html', 'adn'],
-      ['/src/import-cr/import-cr.html', 'netflix'],
-    ]);
+    expect(opened.map((url) => [url.pathname, url.searchParams.get('platform')])).toEqual([['/src/import-cr/import-cr.html', null]]);
   });
 
   it('titre et jaquette de « En cours » : fiche AniList par défaut, MyAnimeList selon le réglage, seul compte MAL → MAL', async () => {
@@ -1085,9 +1370,10 @@ describe('popup (bout en bout)', () => {
     await click(page, 'gear');
     await openCategory(page, 'accounts');
     await page.waitForSelector(sel('entry-service-mal'));
-    expect(await attr(page, sel('entry-service-anilist'), 'aria-pressed')).toBe('true');
+    expect(await attr(page, sel('entry-service-anilist'), 'aria-checked')).toBe('true');
+    expect(await page.$('[data-entry-unavailable]')).toBeNull();
     await click(page, 'entry-service-mal');
-    await page.waitForSelector(`${sel('entry-service-mal')}[aria-pressed="true"]`);
+    await page.waitForSelector(`${sel('entry-service-mal')}[aria-checked="true"]`);
     // Enregistrement sous le verrou du stockage (lecture puis écriture) : terminé après l'affichage du choix
     await page.waitForFunction(
       async (key: string) => ((await chrome.storage.local.get(key))[key] as { entryService?: string } | undefined)?.entryService === 'mal',
@@ -1107,14 +1393,15 @@ describe('popup (bout en bout)', () => {
     expect((await trace(page)).messages.length).toBe(before);
     expect(await page.$('[role="menu"]')).toBeNull();
 
-    // AniList déconnecté : MyAnimeList seul, quel que soit le réglage ; le choix disparaît des Réglages
+    // AniList déconnecté : MyAnimeList seul, quel que soit le réglage ; le choix reste visible, désactivé et expliqué
     await setSetting(page, { entryService: 'anilist' });
     await page.evaluate(async (key: string) => chrome.storage.local.remove(key), STORAGE_KEYS.anilistToken);
     await waitForHref(page, title, mal);
     await click(page, 'gear');
     await openCategory(page, 'accounts');
     await page.waitForSelector(sel('logout-mal'));
-    expect(await page.$(sel('entry-service-mal'))).toBeNull();
+    await page.waitForSelector(`${sel('entry-service-mal')}:disabled`);
+    expect(await text(page, '[data-entry-unavailable]')).toBe(fr('settings.entry.unavailable'));
   });
 
   it('« Sur cette page » : titre et jaquette ouvrent la fiche, MyAnimeList avec le réglage', async () => {
@@ -1144,15 +1431,15 @@ describe('popup (bout en bout)', () => {
     expect(await attr(page, onePiece, 'href')).toBe('https://anilist.co/anime/21');
   });
 
-  it('UX-05 / UX-06 : état vide, astuce avec le vrai chemin « Réglages › Lecture & synchro », cliquable', async () => {
+  it('UX-05 / UX-06 : état vide, astuce avec le vrai chemin « Réglages › Plateformes », cliquable', async () => {
     const page = await openPopup({ watching: 'empty' });
     await page.waitForSelector(sel('tip-settings'));
     expect(await text(page, '#sk-empty-title + p')).toBe(fr('watching.empty.text'));
-    expect(await text(page, sel('tip-settings'))).toBe(`${fr('nav.settings')} › ${fr('settings.cat.sync')}`);
+    expect(await text(page, sel('tip-settings'))).toBe(`${fr('nav.settings')} › ${fr('settings.cat.platforms')}`);
     expect(await text(page, 'main aside p')).toContain('Netflix');
 
     await click(page, 'tip-settings');
-    await page.waitForFunction((title: string) => document.querySelector('h1')?.textContent?.trim() === title, {}, fr('settings.cat.sync'));
+    await page.waitForFunction((title: string) => document.querySelector('h1')?.textContent?.trim() === title, {}, fr('settings.cat.platforms'));
     expect(await shownScreen(page)).toBe(2);
   });
 });

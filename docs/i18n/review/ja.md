@@ -281,3 +281,127 @@ New texts of the account menu that opens above the AniList / MyAnimeList logo of
 | `accountMenu.week.label` | 今週の同期 |
 | `accountMenu.week.title` | 今週SyncKaiが同期したエピソード |
 | `accountMenu.week.value_other` | {count}話 |
+
+## 2026-10-17 · Settings redesign (Preact): new and changed keys
+
+New texts of the redesigned Settings (Preact): the Platforms and Display categories, the screen-reader names of the back button and of the category card, the row summaries of the Settings home, the Keyboard section of Display, the two sections of Shortcuts, and the section titles and notes of Accounts. Changed: `settings.cat.notifications` (now the single word: the Schedule options moved to Platforms), `settings.summary.connected` (a word instead of ✓), `settings.summary.paused` (now a standalone, capitalised summary), `settings.summary.version` (a word instead of « v »), `settings.entry.help` (the « both accounts connected » condition moved to `settings.entry.unavailable`). Summaries are joined with ` · ` by the code; `settings.account.expiredHelp` and `settings.account.otherStillSynced` are joined as two sentences. The Display summary reuses `settings.section.language`, `settings.section.panel` and `settings.shortcuts.pointer`; the My data summary the history import and backup words; the player summary `settings.player.label`. Platform = **配信サービス** (term sheet), connect = **連携**. No space between バージョン and the number; the two Accounts sentences are joined without a space by `joinSentences`. Player summary « 優先：{player} ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.cat.notifications` | 通知 |
+| `settings.cat.platforms` | 配信サービス |
+| `settings.cat.display` | 表示 |
+| `settings.backToAria` | 「{page}」に戻る |
+| `settings.group.categories` | カテゴリ |
+| `settings.summary.connected` | {service}連携済み |
+| `settings.summary.notConnected` | {service}未連携 |
+| `settings.summary.bothConnected` | AniList・MyAnimeList連携済み |
+| `settings.summary.auto` | 自動 |
+| `settings.summary.paused` | 一時停止中 |
+| `settings.summary.platforms_other` | {total}件中{count}件がオン |
+| `settings.summary.player` | 優先：{player} |
+| `settings.summary.display` | 言語、サイドパネル、キーボードショートカット |
+| `settings.summary.data` | 視聴履歴をインポート · バックアップ |
+| `settings.summary.version` | バージョン{version} |
+| `settings.summary.noErrors` | エラーなし |
+| `settings.display.keyboard` | キーボード |
+| `settings.display.shortcutsHelp` | エピソードの視聴済み登録やパネルを開くためのキー |
+| `settings.shortcuts.duringPlayback` | 再生中 |
+| `settings.shortcuts.navigation` | ナビゲーション |
+| `settings.accounts.lists` | 同期するリスト |
+| `settings.accounts.both` | 両方のアカウントと連携時 |
+| `settings.accounts.privacy` | ログインはAniListまたはMyAnimeListのサイトで行うため、SyncKaiがパスワードを知ることはありません。 |
+| `settings.account.expiredHelp` | 再連携するまで、エピソードは{service}に送信されません。 |
+| `settings.account.otherStillSynced` | {service}は引き続き更新されます。 |
+| `settings.entry.help` | アニメのタイトルやカバー画像をクリックすると開きます |
+| `settings.entry.unavailable` | AniListとMyAnimeListの両方と連携すると利用できます。 |
+
+## 2026-10-17 · Settings › Sync, Matches and Excluded series (Preact)
+
+New texts of the redesigned Sync settings page and of its two sub-pages (Matches, Excluded series), moved out of My data: section titles « Automatic » / « Per series », the descriptions of the two « Episode counted as watched » cards, the « Per series » rows, the Matches intro, search, empty and no-result texts, « Show N more on {platform} », the four origin badges and their legend, the Excluded series section, note, empty hint and the « {year} series · excluded on {date} » fragments. Changed: `settings.trigger.legend` (« Episode counted as watched », where the old text was only « Episode watched »), `settings.trigger.credits` (« (recommended) » moved to `settings.trigger.creditsHelp`), and the paths of `popup.syncDisabledDetail` / `review.excludeTitle` (now nav.settings › settings.section.sync › settings.section.exclusions, built from this catalog's own titles). Removed: `settings.mappings.count_*`, `settings.mappings.help`, `settings.mappings.manage`. `{action}` is the « Re-enable » button (`settings.exclusions.help`) or the « Stop syncing this series » menu item (`settings.exclusions.emptyHelp`), so the quoted labels always match. The match / entry / excluded / re-enable words reuse this catalog's existing terms (`settings.section.mappings`, `settings.mappings.entryFallback`, `settings.section.exclusions`, `settings.exclusions.reactivate`). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.section.automatic` | 自動 |
+| `settings.section.perSeries` | 作品ごと |
+| `settings.trigger.credits` | エンディング開始時 |
+| `settings.trigger.creditsHelp` | おすすめ：配信サービスが示す正確なタイミング |
+| `settings.trigger.percentageHelp` | エンディングの位置が不明なときにも使用 |
+| `settings.sync.mappingsRow` | 記憶した紐付け |
+| `settings.sync.mappingsRowHelp` | 各作品で選ばれたAniListのシーズン |
+| `settings.sync.exclusionsRowHelp` | 同期しない作品。ここで再開できます |
+| `settings.mappings.intro_other` | {count}作品を紐付け済み（配信サービス別）：配信サービスのシーズン → SyncKaiが書き込むAniListの作品ページ。紐付けを解除すると、次のエピソードで改めて判定されます。 |
+| `settings.mappings.search` | 作品または作品ページを検索 |
+| `settings.mappings.noResult` | 「{query}」の紐付けはありません |
+| `settings.mappings.noResultHelp` | 作品名またはAniListの作品ページ名で検索してください。 |
+| `settings.mappings.emptyHelp` | 同期したシーズンごとに1件ずつ記憶されます。 |
+| `settings.mappings.showMore_other` | {platform}の残り{count}件を表示 |
+| `settings.mappings.origin.chosen` | 自分で選択 |
+| `settings.mappings.origin.learned` | 自動判定 |
+| `settings.mappings.origin.unmarked` | 旧形式 |
+| `settings.mappings.origin.unverified` | インポート・再確認待ち |
+| `settings.mappings.origin.chosenHelp` | 自分で確認または選択したもの。見直されることはありません。 |
+| `settings.mappings.origin.learnedHelp` | SyncKaiが判定したもの。配信サービスの情報と矛盾すると判定し直します。 |
+| `settings.mappings.origin.unmarkedHelp` | 2.4より前に保存されたもの。残りますが、矛盾があれば確認に回ります。 |
+| `settings.mappings.origin.unverifiedHelp` | バックアップから復元したもの。初めて使うときに再確認します。 |
+| `settings.mappings.originLegend` | 紐付けの由来 |
+| `settings.exclusions.section` | 同期しない作品 |
+| `settings.exclusions.help` | 除外した作品は、どのシーズンも二度と同期されません。「{action}」で次のエピソードから再び記録されます。 |
+| `settings.exclusions.emptyHelp` | 作品の同期をやめるには、その作品の「⋯」メニューで「{action}」を選んでください。 |
+| `settings.exclusions.seriesYear` | {year}年の作品 |
+| `settings.exclusions.excludedOn` | {date}に除外 |
+| `popup.syncDisabledDetail` | 「設定 › 同期 › 除外した作品」で再開できます |
+| `review.excludeTitle` | 作品を同期から除外します（全シーズン）。「設定 › 同期 › 除外した作品」で再開できます |
+
+## 2026-10-17 · Settings › Platforms and Notifications (Preact)
+
+Texts of the redesigned Platforms page (list of sites with « Included » / « Access missing » or a switch, preferred player dropdown, estimated release time per platform with − / + buttons, moved there from the Schedule card) and Notifications page (« On the playback page » style cards and « New episodes »). New: `settings.platforms.where`, `settings.platforms.allAnime`, `settings.platforms.included`, `settings.platforms.accessMissing`, `settings.platforms.note`, `settings.player.openOn`, `settings.player.enableFirst`, `settings.offsets.earlier`, `settings.offsets.later`, `settings.notif.legend`. Changed: `settings.player.help`, `settings.offsets.title`, `settings.offsets.help`, `page.platformOff`, `settings.section.notifications`, `settings.notif.discreet.desc`, `settings.notif.detailed.desc`, `settings.notif.alertsOnly.desc`, `settings.notif.alertsAlways`, `settings.delay.title`, `settings.airing.enableFirst` (the notification descriptions now describe the pill and the bubble, « Extra delay » replaces « Delay », the release-time help says the alerts use it too, « Turn on alerts… » is now visible text). `page.platformOff` keeps its sentence; only the path changed, from « Settings › Playback & sync » to nav.settings › settings.cat.platforms of this catalog. Removed: `settings.section.playback`, `settings.netflix.section`, `settings.netflix.label`, `settings.disney.section`, `settings.disney.label`, `settings.prime.section`, `settings.prime.label`, `settings.airing.label`, `settings.airing.help`, `settings.section.agenda`. The Schedule word, « Open », the release-alert name and the minute unit reuse this catalog's `panel.tab.agenda`, `common.open`, `settings.quick.airing.label` and `settings.offsets.unit`. Descriptions without a final period are 体言止め (…を表示); `settings.platforms.where` names the services (配信サービス) rather than a literal « where ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.platforms.where` | SyncKaiが視聴を記録する配信サービス |
+| `settings.platforms.allAnime` | すべてのアニメ |
+| `settings.platforms.included` | 標準対応 |
+| `settings.platforms.accessMissing` | アクセス権なし |
+| `settings.platforms.note` | 配信サービスをオンにすると、そのサイトへのアクセス許可を求めます。読み取るのは再生ページと作品ページだけです。 |
+| `settings.player.openOn` | エピソードを開くサービス |
+| `settings.player.enableFirst` | 先にオンにする |
+| `settings.player.help` | オンにした複数の配信サービスにアニメがあるとき、「開く」で使われます。 |
+| `settings.offsets.title` | 予想配信時刻 |
+| `settings.offsets.help` | 日本での放送からの時間です。「スケジュール」と放送通知で使われます。作品ごとの調整は、スケジュールの各行から行えます。 |
+| `settings.offsets.earlier` | {minutes}分早く |
+| `settings.offsets.later` | {minutes}分遅く |
+| `page.platformOff` | {platform}はオフになっているため、ここでは何も記録しません。オンに戻すには「設定 › 配信サービス」を開いてください。 |
+| `settings.section.notifications` | 再生ページでの表示 |
+| `settings.notif.legend` | ページ内通知のスタイル |
+| `settings.notif.discreet.desc` | 動画の隅に小さなラベルを数秒間表示 |
+| `settings.notif.detailed.desc` | エピソードとAniList・MyAnimeListの結果を吹き出しで表示 |
+| `settings.notif.alertsOnly.desc` | 問題がなければ何も表示せず、エラーや要確認のエピソードのときだけ吹き出しを表示 |
+| `settings.notif.alertsAlways` | エラーや要確認の作品は、スタイルに関係なく常に表示されます。 |
+| `settings.delay.title` | 追加の遅延 |
+| `settings.airing.enableFirst` | 放送の確認には放送通知をオンにしてください |
+
+## 2026-10-17 · Settings › My data, AniList ↔ MAL differences, Help & about (Preact)
+
+Texts of the redesigned My data page (one « Import a watch history » card, Backup card, « Compare » row opening the AniList ↔ MyAnimeList differences page, which moved there from the popup's Activity screen) and Help & about page (diagnostic report row, error log that unfolds, About card with What's new / Privacy / Source code links). New: `settings.import.title`, `settings.section.compare`, `settings.compare.title`, `settings.compare.help`, `settings.data.perSeries`, `compare.align`, `compare.bulk.help`, `compare.job.background`, `settings.help.diagnostic`, `settings.help.diagnosticHelp`, `settings.help.journalNote`, `settings.about.whatsNew`, `settings.about.privacy`. Changed: `settings.crImport.help`, `settings.backup.help`, `settings.backup.import`, `settings.help.copy`, `settings.about.source` (import help in two sentences, backup help « in one file », « Import » without ellipsis, « Copy the report » next to the new « Diagnostic report » title, « Source code » with « GitHub » on the right). `help.issue.body` keeps its text; only its last-line path changed, to nav.settings › settings.cat.help › settings.help.copy of this catalog. The compare.* texts are unchanged: their context notes now point to Settings › My data. Removed: `settings.section.import`, `settings.backup.crImportTitle`, `settings.crImport.openAria`, `settings.help.text`, `settings.help.copyTitle`, `settings.help.clearHelp`, `settings.help.reportTitle`. The version line reuses `settings.summary.version`, the « Clear » button `settings.matchDiag.clear`. `settings.help.copy` is just « コピー »: the row title « 診断レポート » sits next to it. `settings.import.title` paraphrases « catch up » as « 見た作品をまとめて反映 ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.import.title` | 見た作品をまとめて反映 |
+| `settings.crImport.help` | Crunchyroll、ADN、Netflixに対応。書き込む前にプレビューで確認できます。 |
+| `settings.backup.help` | 設定、紐付け、除外した作品、履歴を1つのファイルに。AniListやMyAnimeListのログイン情報は含まれません。 |
+| `settings.backup.import` | インポート |
+| `settings.section.compare` | 比較 |
+| `settings.compare.title` | AniList ↔ MyAnimeListの差異 |
+| `settings.compare.help` | 2つのリストを比較し、選んだ方向に合わせます |
+| `settings.data.perSeries` | 紐付けと除外した作品は「{path}」で管理します。 |
+| `compare.align` | 合わせる |
+| `compare.bulk.help` | 「{action}」はAniListの内容をMyAnimeListに反映します。実行前に変更内容を確認できます。 |
+| `compare.job.background` | このページを閉じても続きます。 |
+| `settings.help.diagnostic` | 診断レポート |
+| `settings.help.diagnosticHelp` | バグ報告に貼り付けるための情報：バージョン、ブラウザ、設定、最近のエラー。トークンやアカウントは含みません。 |
+| `settings.help.copy` | コピー |
+| `settings.help.journalNote` | 最新の50件まで、新しい順。トークンはマスク済みです。 |
+| `settings.about.whatsNew` | 新機能 |
+| `settings.about.privacy` | プライバシー |
+| `settings.about.source` | ソースコード |

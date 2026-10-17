@@ -103,6 +103,36 @@ export function parseOffsetInput(raw: string): number {
   return raw.trim() === '' ? Number.NaN : Number(raw);
 }
 
+/** Pas des boutons − / + du délai d'une plateforme (Réglages › Plateformes) */
+export const OFFSET_STEP = 15;
+
+/**
+ * Délai après un clic sur − (-1) ou + (1) : premier multiple de OFFSET_STEP dans le sens du clic (une valeur saisie
+ * hors du pas, 65, se recale sur 60 ou 75), borné à OFFSET_RANGE
+ */
+export function stepOffset(value: number, direction: 1 | -1): number {
+  const next = direction > 0 ? (Math.floor(value / OFFSET_STEP) + 1) * OFFSET_STEP : (Math.ceil(value / OFFSET_STEP) - 1) * OFFSET_STEP;
+  // -0 (Math.ceil(-7 / 15) = -0) rendu en 0
+  return Math.min(OFFSET_RANGE.max, Math.max(OFFSET_RANGE.min, next)) || 0;
+}
+
+/**
+ * Saisie du champ de délai d'une plateforme : entier signé (« +75 », « -30 », « −30 » avec le moins typographique
+ * affiché par le champ) dans OFFSET_RANGE ; sinon null (champ signalé invalide, rien n'est enregistré)
+ */
+export function parseOffsetDraft(raw: string): number | null {
+  const match = /^([+\-−]?)(\d{1,5})$/.exec(raw.trim());
+  if (!match) return null;
+  const value = (match[1] === '' || match[1] === '+' ? 1 : -1) * Number(match[2]);
+  return value >= OFFSET_RANGE.min && value <= OFFSET_RANGE.max ? value || 0 : null;
+}
+
+/** Valeur affichée dans le champ : signe toujours écrit (« +60 », « 0 », « −30 »), relue telle quelle par parseOffsetDraft */
+export function formatOffsetDraft(value: number): string {
+  if (value > 0) return `+${value}`;
+  return value < 0 ? `−${-value}` : '0';
+}
+
 /** Délai en minutes (entier borné) ou null si invalide */
 export function normalizeOffset(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;

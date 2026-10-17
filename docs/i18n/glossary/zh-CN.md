@@ -101,7 +101,8 @@ Binding for every change to `src/i18n/locales/zh-CN.json` and `public/_locales/z
 |---|---|---|
 | `nav.settings` | Settings | 设置 |
 | `settings.cat.sync` | Playback & sync | 播放与同步 |
-| `settings.cat.notifications` | Notifications & schedule | 通知与时间表 |
+| `settings.cat.notifications` | Notifications | 通知 (one word since 2026-10-17) |
+| `settings.cat.platforms` / `settings.cat.display` | Platforms / Display (2026-10-17) | 平台 / 显示 |
 | `settings.cat.shortcuts` | Shortcuts | 快捷键 |
 | `settings.cat.data` | My data | 我的数据 |
 | `settings.cat.help` | Help & about | 帮助与关于 |
@@ -150,3 +151,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | 调试跟踪 |
 | event (one line of the trace) | 事件 |
 | verbose mode | 详细模式 |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | 自动 |
+| Per series (Sync section) | 按番剧 |
+| Never synced (Excluded series section) | 永不同步 |
+| Match origins: chosen / learned / legacy / imported · to recheck | 你选择的 / 自动学习 / 旧记录 / 已导入 · 待复核 |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | SyncKai 追踪你看番的平台 |
+| Included (built-in platform) | 已内置 |
+| Access missing | 缺少权限 |
+| Turn on first (preferred player option) | 请先开启 |
+| Estimated release time | 预计上线时间 |
+| Extra delay (release alerts) | 额外延迟 |
+| On the playback page (Notifications section) | 在播放页面上 |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | 比较 |
+| AniList ↔ MyAnimeList differences (row title) | AniList ↔ MyAnimeList 差异 |
+| Align (differences section) | 对齐 |
+| Diagnostic report (row title) | 诊断报告 |
+| Copy the report (button) | 复制报告 |
+| What's new (About link) | 新功能 |
+| Privacy (About link) | 隐私 |

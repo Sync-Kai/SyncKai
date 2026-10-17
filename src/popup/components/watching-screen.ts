@@ -641,7 +641,7 @@ function renderEmpty(optionalPlatforms: readonly StreamingPlatform[], onOpenSync
             attrs: { type: 'button', 'data-focus': 'tip-settings' },
             on: { click: onOpenSyncSettings },
           },
-          settingsPath('sync'),
+          settingsPath('platforms'),
         ),
         tipAfter,
       ),

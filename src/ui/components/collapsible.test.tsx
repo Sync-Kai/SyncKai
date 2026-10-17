@@ -75,4 +75,25 @@ describe('Collapsible', () => {
     );
     expect($('button')?.getAttribute('aria-expanded')).toBe('true');
   });
+
+  it('en-tête de section (outils de dev d’Aide & à propos) : titre de section en <h2>, compte, bouton sur toute la largeur', async () => {
+    await show(
+      <Collapsible title="Trace de débogage" count={214} variant="section" focusKey="debug-trace-toggle">
+        <p>Corps</p>
+      </Collapsible>,
+    );
+    const header = $<HTMLButtonElement>('h2 > button');
+    expect(header?.dataset.focus).toBe('debug-trace-toggle');
+    expect(header?.className).toContain('w-full');
+    expect(header?.className).toContain('uppercase');
+    expect($('[data-collapsible-count]')?.textContent).toBe('214');
+    expect($('[data-collapsible-body]')?.hidden).toBe(true);
+    header?.click();
+    await show(
+      <Collapsible title="Trace de débogage" count={214} variant="section" focusKey="debug-trace-toggle">
+        <p>Corps</p>
+      </Collapsible>,
+    );
+    expect($('[data-collapsible-body]')?.hidden).toBe(false);
+  });
 });

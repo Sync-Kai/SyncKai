@@ -102,7 +102,7 @@ This is a Taiwan localization written from the English/French source, not a char
 | Playback & alerts / Data & help (home groups) | 播放與通知 / 資料與說明 |
 | Accounts | 帳號 |
 | Playback & sync (`settings.cat.sync`) | 播放與同步 |
-| Notifications & schedule | 通知與時間表 |
+| Settings categories of the 2026-10-17 redesign: Platforms / Notifications (`settings.cat.notifications`, one word: the Schedule options moved to Platforms) / Display; Playback & sync (`settings.cat.sync`) was removed | **平台** / **通知** / **顯示** |
 | Shortcuts | 快速鍵 |
 | My data | 我的資料 |
 | Language | 語言 |
@@ -130,3 +130,36 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | debug trace | 偵錯追蹤 |
 | event (one line of the trace) | 事件 |
 | verbose mode | 詳細模式 |
+
+## Settings › Sync (2026-10-17)
+
+| English | Term |
+|---|---|
+| Automatic (Sync section) | 自動 |
+| Per series (Sync section) | 依作品 |
+| Never synced (Excluded series section) | 永不同步 |
+| Match origins: chosen / learned / legacy / imported · to recheck | 你選擇的 / 自動學習 / 舊記錄 / 已匯入 · 待複查 |
+
+## Settings › Platforms and Notifications (2026-10-17)
+
+| English | Term |
+|---|---|
+| Where SyncKai follows your episodes (section) | SyncKai 追蹤你觀看的平台 |
+| Included (built-in platform) | 內建 |
+| Access missing | 缺少權限 |
+| Turn on first (preferred player option) | 請先啟用 |
+| Estimated release time | 預估上架時間 |
+| Extra delay (release alerts) | 額外延遲 |
+| On the playback page (Notifications section) | 在播放頁面上 |
+
+## Settings › My data and Help & about (2026-10-17)
+
+| English | Term |
+|---|---|
+| Compare (My data section) | 比較 |
+| AniList ↔ MyAnimeList differences (row title) | AniList ↔ MyAnimeList 差異 |
+| Align (differences section) | 對齊 |
+| Diagnostic report (row title) | 診斷報告 |
+| Copy the report (button) | 複製報告 |
+| What's new (About link) | 新功能 |
+| Privacy (About link) | 隱私權 |

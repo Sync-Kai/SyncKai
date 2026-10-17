@@ -119,15 +119,16 @@ describe('Panneau latéral', () => {
     expect(run.mal.writes().map((w) => w.path)).toEqual([`/anime/${FRIEREN_S2.mal.id}/my_list_status`]);
     expect(run.anilist.entry(ANILIST_A.token, FRIEREN_S1.anilist.id)).toMatchObject({ progress: 2 });
 
-    // Réglages › Mes données (dans le panneau) : la correspondance est listée
+    // Réglages › Synchronisation › Correspondances (dans le panneau) : la correspondance est listée, choisie par l'utilisateur
     await panel.$eval(sel('gear'), (button) => (button as HTMLButtonElement).click());
-    await panel.waitForSelector(sel('settings-cat-data'));
-    await panel.$eval(sel('settings-cat-data'), (button) => (button as HTMLButtonElement).click());
-    await panel.waitForSelector(sel('maps-toggle'));
-    expect(await panel.$eval(sel('maps-toggle'), (el) => el.textContent)).toContain(tl('en', 'settings.mappings.count_one', { count: 1 }));
-    await panel.$eval(sel('maps-toggle'), (button) => (button as HTMLButtonElement).click());
-    const listed = await panel.waitForSelector('#sk-maps li');
-    expect(await listed?.evaluate((li) => li.textContent)).toContain(`→ ${FRIEREN_S2.anilist.title}`);
+    await panel.waitForSelector(sel('settings-cat-sync'));
+    await panel.$eval(sel('settings-cat-sync'), (button) => (button as HTMLButtonElement).click());
+    await panel.waitForSelector(sel('settings-cat-mappings'));
+    await panel.$eval(sel('settings-cat-mappings'), (button) => (button as HTMLButtonElement).click());
+    const listed = await panel.waitForSelector('[data-mapping]');
+    expect(await panel.evaluate(() => document.querySelector('main')?.textContent ?? '')).toContain(tl('en', 'settings.mappings.intro_one', { count: 1 }));
+    expect(await listed?.evaluate((li) => li.textContent)).toContain(FRIEREN_S2.anilist.title);
+    expect(await listed?.evaluate((li) => li.querySelector('[data-origin]')?.getAttribute('data-origin'))).toBe('chosen');
     expectCleanRun(run.h, run.anilist, run.mal);
   });
 });
