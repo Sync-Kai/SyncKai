@@ -56,6 +56,7 @@ Enforced by `src/architecture.test.ts` (type imports included):
 - Use Tailwind CSS for all styling of the popup and the options page.
 - Build responsive, very compact interfaces (extension popups have limited space).
 - Make sure loading states and network authentication errors are handled visibly for the user.
+- Graphic charter (tokens, typography, component rules of the redesign): `docs/design/README.md`; tokens in `src/ui/theme.css`. `src/ui/design-tokens.test.ts` freezes per file the arbitrary colour classes, raw hex colours and arbitrary pixel font sizes (`design-tokens.baseline.json`, counts only go down; `theme.css` keeps `docs/design` and that test out of Tailwind's sources).
 
 ### Performance and Security
 

@@ -1,0 +1,51 @@
+{
+  "arbitraryColors": {
+    "popup/components/compare-section.ts": 1,
+    "ui/kit.ts": 8
+  },
+  "hexColors": {
+    "browser/badge.ts": 4,
+    "content/ui/toast.ts": 20,
+    "sidepanel/components/now-playing.ts": 1,
+    "ui/icons.ts": 3,
+    "ui/settings/page-notifications.ts": 10
+  },
+  "pxFontSizes": {
+    "import-cr/import-cr.ts": 33,
+    "import/import.ts": 18,
+    "popup/components/compare-section.ts": 25,
+    "popup/components/footer.ts": 2,
+    "popup/components/header.ts": 3,
+    "popup/components/host-access-banner.ts": 1,
+    "popup/components/onboarding.ts": 6,
+    "popup/components/page-media-card.ts": 9,
+    "popup/components/queue-section.ts": 6,
+    "popup/components/rating-section.ts": 5,
+    "popup/components/recent-syncs.ts": 4,
+    "popup/components/review-card.ts": 14,
+    "popup/components/review-section.ts": 2,
+    "popup/components/watching-screen.ts": 23,
+    "sidepanel/components/agenda.ts": 16,
+    "sidepanel/components/live-progress.ts": 6,
+    "sidepanel/components/now-playing.ts": 19,
+    "sidepanel/sidepanel.ts": 3,
+    "ui/airing-badge.ts": 2,
+    "ui/alert.ts": 1,
+    "ui/kit.ts": 9,
+    "ui/list-entry-tools.ts": 3,
+    "ui/media-actions.ts": 11,
+    "ui/notes-editor.ts": 7,
+    "ui/settings/debug-trace.ts": 7,
+    "ui/settings/match-diagnostic.ts": 6,
+    "ui/settings/page-accounts.ts": 2,
+    "ui/settings/page-data.ts": 10,
+    "ui/settings/page-help.ts": 3,
+    "ui/settings/page-language.ts": 4,
+    "ui/settings/page-notifications.ts": 8,
+    "ui/settings/page-shortcuts.ts": 3,
+    "ui/settings/page-sync.ts": 6,
+    "ui/settings/rows.ts": 14,
+    "ui/settings/settings-view.ts": 5,
+    "ui/status-actions.ts": 2
+  }
+}

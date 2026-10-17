@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* La charte (docs/design) et son cliquet citent des classes et des jetons en exemple : ni lus ni générés */
+@source not "../../docs/design";
+@source not "./design-tokens.test.ts";
+
 /* Polices auto-hébergées : sous-ensembles latins uniquement (les katakana passent par la police système), woff2 seul.
    Mêmes déclarations que @fontsource/<police>/latin-<graisse>.css, sans le .woff de repli que ni Chrome ni Firefox pris en
    charge ne chargent (PERF-22, refusé par scripts/verify-build.ts) */
@@ -55,12 +59,60 @@
   --color-on-fill: #1a0f1c;
   --color-anilist: #3db4f2;
   --color-mal: #5a7fd6;
+  /* Bordure des champs, menus et boutons secondaires (maquettes de la refonte, docs/design/README.md) */
+  --color-field: #7a7098;
 
   --font-display: "M PLUS Rounded 1c", "Yu Gothic UI", "Hiragino Maru Gothic ProN", system-ui, sans-serif;
   --font-body: "Nunito", system-ui, sans-serif;
 
+  /* Échelle typographique de la charte : text-overline … text-stat (taille, interligne, graisse) */
+  --text-overline: 10px;
+  --text-overline--line-height: 12px;
+  --text-overline--font-weight: 700;
+  --text-overline--letter-spacing: 1px;
+  --text-section: 11px;
+  --text-section--line-height: normal;
+  --text-section--font-weight: 800;
+  --text-section--letter-spacing: 0.06em;
+  --text-secondary: 12px;
+  --text-secondary--line-height: 16px;
+  --text-secondary--font-weight: 600;
+  --text-body: 13px;
+  --text-body--line-height: 1.4;
+  --text-row-title: 14px;
+  --text-row-title--line-height: 18px;
+  --text-row-title--font-weight: 700;
+  --text-stat: 15px;
+  --text-stat--line-height: 19px;
+  --text-stat--font-weight: 800;
+
   --radius-card: 14px;
+  --radius-pill: 999px;
+  --radius-menu: 12px;
+  --radius-panel: 10px;
+  --radius-control: 8px;
+  --radius-cover: 6px;
+  --radius-logo: 4px;
   --shadow-pop: 2px 2px 0 rgba(0, 0, 0, 0.45);
+
+  /* Tailles fixes des maquettes (h-*, w-*, size-* : --spacing reste la grille par défaut) */
+  --spacing-stepper: 24px;
+  --spacing-icon-button: 28px;
+  --spacing-logo-button: 32px;
+  --spacing-menu-item: 36px;
+  --spacing-status-bar: 48px;
+  --spacing-series-row: 80px;
+  --spacing-cover-row-w: 42px;
+  --spacing-cover-row-h: 57px;
+  --spacing-cover-agenda-w: 32px;
+  --spacing-cover-agenda-h: 44px;
+  --spacing-logo-sm: 16px;
+  --spacing-logo-md: 18px;
+  --spacing-logo-lg: 22px;
+
+  /* Durées des transitions (duration-(--motion-enter)) ; mouvement réduit : fondus seuls */
+  --motion-enter: 160ms;
+  --motion-exit: 120ms;
 
   --animate-squish: squish 1.2s ease-in-out infinite;
   @keyframes squish {
