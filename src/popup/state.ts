@@ -2,7 +2,6 @@ import type { PendingRating } from '../shared/engagement.types';
 import type { PendingReview, RecentSync } from '../shared/review.types';
 import type { SyncQueueItem } from '../shared/queue.types';
 import type { SyncSettings } from '../shared/settings';
-import type { ListStatusChange } from '../shared/sync.types';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
 import type { MediaActionsState } from '../ui/media-actions';
@@ -24,21 +23,13 @@ export interface UiState {
   screen: Screen;
   /** Écran à retrouver en quittant les réglages */
   previous: Exclude<Screen, 'settings'>;
-  /** Menu de tri ouvert : conservé dans l'état pour survivre aux nouveaux rendus */
-  sortMenuOpen: boolean;
-  /** Menu « … » ouvert sur une série de « En cours » (clé d'entrée) : un seul à la fois */
-  rowMenu: string | null;
-  /** Confirmation affichée dans le menu « … » ouvert (Abandonner, Terminé, Retirer de la liste), null sinon */
-  rowConfirm: RowConfirm | null;
 }
 
-/** Action confirmée dans le menu « … » d'une série : statut (Abandonner, Terminé) ou retrait de la liste */
-export type RowConfirm = ListStatusChange | 'REMOVE';
-
-/** Préférences de « En cours », enregistrées dans le stockage (`popupPrefs`) */
+/**
+ * Préférences de « En cours », enregistrées dans le stockage (`popupPrefs`). La source (sélecteur AniList / MAL retiré)
+ * suit désormais le réglage « Fiche ouverte par défaut » ; un ancien `source` enregistré est ignoré
+ */
 export interface WatchingPrefs {
-  /** Source préférée (utilisée seulement si les deux services sont connectés) */
-  source: TrackerId;
   /** Tri de « Mes séries » */
   sort: WatchingSort;
 }

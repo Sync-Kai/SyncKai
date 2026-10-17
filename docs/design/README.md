@@ -1,6 +1,6 @@
 # SyncKai design charter
 
-The graphic charter of the extension pages (popup, side panel, settings, import pages) and of the in-page toasts. It is the target of the UI redesign that moves the screens to Preact one by one. Until a screen is migrated, it keeps its current look: the tokens below exist in `src/ui/theme.css`. Migrated so far: the status bar of the popup and side panel with its account menu, and all of Settings: the shell (bar, home, navigation), Accounts, Sync (and its Matches and Excluded series pages), Platforms, Notifications, Display (and its Language and Shortcuts pages), My data (and its AniList ↔ MAL differences page, moved there from the popup's Activité) and Help & about.
+The graphic charter of the extension pages (popup, side panel, settings, import pages) and of the in-page toasts. It is the target of the UI redesign that moves the screens to Preact one by one. Until a screen is migrated, it keeps its current look: the tokens below exist in `src/ui/theme.css`. Migrated so far: the status bar of the popup and side panel with its account menu, and all of Settings: the shell (bar, home, navigation), Accounts, Sync (and its Matches and Excluded series pages), Platforms, Notifications, Display (and its Language and Shortcuts pages), My data (and its AniList ↔ MAL differences page, moved there from the popup's Activité) and Help & about; the popup shell (header, Watching / Activité tabs, host-access banner), the welcome screen, the « Mes séries » list with its sort menu and states, its row « ⋯ » menu, comment editor and the « Reprendre » card (the « Sur cette page » card and Activité are still vanilla, mounted inside the Preact shell; the side panel's cards and menus too).
 
 Sources: the owner's decisions on the UX mockups (2026-10-16 / 17) and the mockups themselves (see [Mockups](#mockups)). Anything they leave open is marked *to be decided during the migration*.
 
@@ -151,14 +151,20 @@ The weight of a size token is a default; a `font-*` weight utility overrides it.
 - Line 2: status as a coloured dot + text: `mint` available, `lavender` upcoming, `muted` finished or unknown.
 - Line 3: « Ép. x / y » in tabular figures, with borderless ghost − / + of 24 px.
 - Right: « Open » = the platform logo in a neutral 32 px circle (`surface`, `line` border), then « ⋯ ».
-- No AniList / MAL selector: the list follows « Fiche ouverte par défaut » (Réglages › Comptes).
-- Off streaming pages, the « Reprendre » card takes the place of « Sur cette page », with « Ouvrir sur {platform} » and the stepper.
+- No AniList / MAL selector: the list follows « Fiche ouverte par défaut » (Réglages › Comptes). A `source` stored in `popupPrefs` by an earlier version is ignored.
+- Line 2 shows, in place of the release status for about 3 s, the result of a − / + or menu action (« Ép. 5 vu », « Rien n’a été modifié »…, tone by the dot, detail per service in the tooltip) and « Mise à jour… » while it is sent; a partial failure also opens the banner above the list with « Réessayer ». An excluded series shows « Exclue » after the status and no +.
+- Sort: « Prochaine sortie ▾ » to the right of « Mes séries マイシリーズ » (shown from two rows), a menu of exclusive choices with an icon each, the active one checked; focus opens on it.
+- Off streaming pages, the « Reprendre » card takes the place of « Sur cette page » (`popup/components/resume-card.tsx`): overline « Reprendre ツヅキ » (kana in sakura), the row cover with its progress bar, the title link, the release status (or the result of an action) as in a row, then « {platform} · il y a … » (platform of « Open », else of the last sync, and the last sync time), « Ouvrir sur {platform} » (secondary button: platform logo, sakura ▸) and the stepper on one line, « ⋯ » at the top right. Its menu is the row menu.
+- « Commentaire… » opens the comment editor under the row (`ui/components/notes-editor.tsx`, mockup PopupSeriesCommentaire): « COMMENTAIRE » title, text area (read-only while the comment is read), counter (`butter` from 90 % of 6000), « Annuler » (text) and « Enregistrer » (secondary, disabled until the text changes, spinning while sent, area locked and « Annuler » greyed meanwhile); Ctrl+Enter saves, Esc or « Annuler » closes without writing; saved: the editor closes, the row shows « Commentaire enregistré », the focus goes back to « ⋯ ». A series in no list shows « Ajoute la série à ta liste pour la commenter. » in place of the editor. The « Sur cette page » card and the side panel keep the foldable vanilla editor (`ui/notes-editor.ts`) until their migration.
+- The rows do not expand: the « Détails : saison, note, commentaire » section of mockup PopupSeriesDeplie belongs to the « Sur cette page » card (next branch).
 
 ### Row menus
 
-- « ⋯ » opens a menu (`raised`, `field` border, `radius-menu`, `shadow-pop`).
-- « Ouvrir la fiche › » and « Chercher sur… › » open a sub-menu on hover, and also on click, → or Enter.
-- A destructive item (« Abandonner ») confirms inline: the menu line becomes the question, focus on « Non », Esc cancels.
+- « ⋯ » opens a menu (`raised`, `field` border, `radius-menu`, `shadow-pop`), as wide as its longest item (240 to 320 px), brought into view when it opens near the bottom of the list.
+- Series menu (`ui/series-menu.tsx`, shared with the « Reprendre » card, ready for the side panel; mockups PopupSeriesMenu, PopupSeriesMenuConfirm): « Mettre en pause » (butter icon), « Abandonner » (danger icon), « Marquer comme terminé » (mint check), separator, « Commentaire… », « Ouvrir la fiche › » (AniList / MyAnimeList, one per connected account that knows the anime, the « Fiche ouverte par défaut » one first), « Chercher sur… › » (active platforms with search and no known link, preferred player first; absent when there is none), separator, « Ne plus synchroniser cette série » (greyed without an AniList entry) or, for an excluded series, « Réactiver la synchro » in `mint`, « Retirer de la liste » (danger). No « −1 épisode »: the row has its own −.
+- While a − / + or a status change is sent, the statuses, « Commentaire… » and « Retirer de la liste » are greyed; the links and the exclusion stay available.
+- « Ouvrir la fiche › » and « Chercher sur… › » open a sub-menu on hover, and also on click, → or Enter; their items are the bare service / platform names with their logo (accessible name « Ouvrir la fiche sur AniList », « Chercher Dandadan sur ADN »).
+- « Abandonner », « Marquer comme terminé » and « Retirer de la liste » confirm inline (base `MenuConfirm`): the menu line becomes the question (« Abandonner ? » `danger` Oui, « Terminé ? » `mint` Oui, « Retirer de ta liste ? » with the explanation « Retirée de chaque compte connecté… » under it and `danger` « Retirer »), focus on « Non » / « Annuler »; Esc, « Non » or « Annuler » cancel (the menu stays open, the focus returns to the item); a closed menu forgets the confirmation.
 
 ### Ratings
 
@@ -201,7 +207,7 @@ Components in `src/ui/components/`, built from the tokens above. Every visible o
 
 - **`Button`**: `primary` (one per surface), `secondary`, `ghost`, `danger`, `text`; `sm` / `md`; leading icon; `busy` (aria-busy, focus kept, clicks ignored); `<a>` when given `href`.
 - **`IconButton`**: 28 px round icon button; `label` is required (aria-label and tooltip); optional line border, menu and pressed states.
-- **`Stepper`**: « Ép. x / y » in tabular figures, then ghost − / + of 24 px; a reached bound disables its side.
+- **`Stepper`**: « Ép. x / y » in tabular figures, then ghost − / + of 24 px; a reached bound disables its side; `busy` keeps both focusable (aria-disabled) and ignores clicks; `incrementHidden` drops the +.
 - **`LogoButton`**: 32 px round « Open » link, neutral surface with a line border, 18 px platform logo.
 - **`Switch`**: `role="switch"` button with `aria-checked`; Space and Enter toggle it.
 - **`ServiceLogo`**: AniList / MAL / platform logo at 16, 18, 22 or 28 px (`tile`, Settings › Platforms rows) with an optional state badge (`ok`, `info`, `warn`, `error`, `expired` = greyed logo and red dot).
@@ -215,9 +221,11 @@ Components in `src/ui/components/`, built from the tokens above. Every visible o
 - **`Alert`**: error inside a card (`danger` border and text, alert icon), optional secondary action (« Réessayer »); `data-alert` feeds the page's live region.
 - **`AccountAvatar`**: profile picture or brand gradient with a person glyph, 16 px service logo in the corner; 36 px (account menu) or 44 px (Settings › Accounts); expired = dimmed, not connected = dashed circle.
 - **`Collapsible`**: header button with `aria-expanded` / `aria-controls`, chevron and optional count; controlled or not; `variant="section"` makes the whole section foldable (uppercase section title in an `<h2>`, count pill, chevron on the right: developer tools of Help & about).
-- **`Tabs`**: pill tablist, neutral selection, roving tabindex, arrows / Home / End select.
-- **`Menu` / `MenuItem` / `SubMenu` / `MenuSeparator`**: the row « ⋯ » menu; roving focus, Tab / Esc / outside click close it (`useDismiss`); sub-menus open on hover after a short intent delay, on click, → or Enter, and close on ← or Esc; danger items.
+- **`Tabs`**: pill tablist, neutral selection, roving tabindex, arrows / Home / End select; a tab may carry a count badge and its own accessible name.
+- **`Menu` / `MenuItem` / `SubMenu` / `MenuSeparator` / `MenuConfirm`**: the row « ⋯ » menu; ↓ / ↑ on the closed button opens it; roving focus, Tab / Esc / outside click close it (`useDismiss`); sub-menus open on hover after a short intent delay, on click, → or Enter, and close on ← or Esc; danger items; `tinted` colours the label with the icon tone; `keepOpen` keeps the menu open after the choice; `checked` makes exclusive choices (`menuitemradio`, check mark, focus opens on the checked one); `MenuConfirm` is the inline confirmation (question, optional explanation, Oui / Non menu items, focus on Non, Esc cancels it before closing anything).
+- **`NotesEditor`**: the comment editor of a series (see « Mes séries » row above).
 - **`StatusBar`**: the 48 px footer, props only: account logo buttons (none when never connected, greyed with a red dot when expired; `aria-haspopup` only when they open a menu), message with its tone icon (or a muted dot), two lines when it names a series, a button with a trailing chevron when clickable, an optional accessible name, trailing slot, import progress line. Mounted with its data by `src/ui/status-bar-host.tsx` (`mountStatusBar`).
+- **`SeriesRow`**: the 80 px series row (cover with its progress bar, title link with tooltip, status dot + text with an optional tag, `Stepper`, `LogoButton`, then the host's actions); `SeriesTitle` and `SeriesStatusLine` are exported for the side panel.
 - **`StarRating`**: 10 stars with halves as one `role="slider"` (← → ±0.5, Home / End, Enter confirms), half-star click, hover preview, read-only mode. Pages only: the content-safe `ui/star-rating.ts` (end-of-series toast) is unchanged until the toasts are redesigned.
 
 ## Mockups

@@ -44,7 +44,7 @@ describe('Synchro et contrôles', () => {
     // Écritures MAL en erreur 500 (lectures normales)
     mal.failure = { status: 500, methods: ['PATCH'] };
     const popup = await h.openPage('src/popup/popup.html', { width: 400, height: 580 });
-    const plus = sel(`plus-${FRIEREN.mediaId}:${FRIEREN.malId}`);
+    const plus = sel(`${FRIEREN.mediaId}:${FRIEREN.malId}-plus`);
     await popup.locator(plus).click();
     await popup.waitForSelector(sel('watching-retry'));
     const notice = await popup.$eval('[data-watching-notice]', (el) => el.textContent ?? '');

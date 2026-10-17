@@ -100,6 +100,20 @@ function notesWrites({ anilist, mal }: Scenario): { anilist: unknown[]; mal: (st
 }
 
 /** Bandeau du popup (« En cours ») */
+/**
+ * Liste MyAnimeList dans « Mes séries » : Réglages › Comptes › « Fiche ouverte par défaut » (le sélecteur AniList / MAL
+ * au-dessus de la liste a été retiré), puis retour à « En cours »
+ */
+async function showMalList(popup: Page): Promise<void> {
+  await clickOn(popup, sel('gear'));
+  await clickOn(popup, sel('settings-cat-accounts'));
+  await clickOn(popup, sel('entry-service-mal'));
+  await popup.waitForSelector(`${sel('entry-service-mal')}[aria-checked="true"]`);
+  await clickOn(popup, sel('settings-home'));
+  await clickOn(popup, sel('back'));
+  await popup.waitForSelector(`${sel('nav-watching')}[aria-selected="true"]`);
+}
+
 async function watchingNotice(popup: Page): Promise<string> {
   return popup.$eval('[data-watching-notice]', (el) => (el as HTMLElement).innerText.replace(/\s+/g, ' '));
 }
@@ -281,9 +295,9 @@ describe('Retrait de la liste', () => {
     expect(run.anilist.entry(ANILIST_A.token, DUNGEON.anilist.id)).toBeNull();
     expect(run.mal.entry(MAL_A.token, DUNGEON.mal.id)).toMatchObject({ num_episodes_watched: 7 });
 
-    // MAL rétabli : liste MAL affichée (sélecteur de source), nouveau retrait, retirée de MAL
+    // MAL rétabli : liste MAL affichée (« Fiche ouverte par défaut »), nouveau retrait, retirée de MAL
     run.mal.failure = null;
-    await popup.locator(sel('source-mal')).click();
+    await showMalList(popup);
     await popup.waitForSelector(sel(`title-${keyOf(DUNGEON)}`), { timeout: 10_000 });
     await popup.waitForSelector('[data-watching-notice]', { hidden: true, timeout: 10_000 });
     const notice = await remove(keyOf(DUNGEON));
@@ -425,7 +439,7 @@ describe('Commentaire dans le popup', () => {
     expect(notesWrites(run)).toEqual({ anilist: [], mal: [] });
 
     // Liste MAL : la saison 2, dans la liste MAL seulement, montre le commentaire de MAL ; l'enregistrer n'écrit que sur MAL
-    await popup.locator(sel('source-mal')).click();
+    await showMalList(popup);
     const s2 = await openEditor(season2MalOnly);
     expect(await draft(s2)).toBe('Season 2 on MAL');
     await popup.keyboard.type(' (rewatch)');

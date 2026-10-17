@@ -67,6 +67,10 @@ export interface FrameParams {
   panel?: 'chrome';
   /** Compte AniList du menu du compte : session expirée, profil en cours de lecture, statistiques illisibles (accountDemo) */
   account?: AccountDemo;
+  /** Accueil : `none` = aucun compte ; `expired` = session AniList expirée, MyAnimeList jamais connecté */
+  accounts?: 'none' | 'expired';
+  /** Connexion depuis l'accueil : `pending` = fenêtre restée ouverte ; `error` = connexion AniList annulée */
+  login?: 'pending' | 'error';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */

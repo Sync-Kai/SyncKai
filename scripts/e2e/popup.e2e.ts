@@ -132,14 +132,13 @@ interface RowInfo {
   progress: string;
 }
 
-/** Lignes « Mes séries » : titre, pastille d'épisode et progression */
+/** Lignes « Mes séries » : titre, statut (sortie du prochain épisode ou retour d'action) et progression « Ép. x / y » */
 async function watchingRows(page: Page): Promise<RowInfo[]> {
-  return page.$$eval('main ul[aria-label] > li', (items) =>
+  return page.$$eval('main [data-series-row]', (items) =>
     items.map((li) => ({
-      title: li.querySelector('span[title]')?.getAttribute('title') ?? '',
-      // Deuxième ligne du bloc texte : pastille d'épisode (ou retour d'action)
-      badge: li.querySelector(':scope > div > span:nth-of-type(2) > span')?.textContent?.trim() ?? '',
-      progress: li.querySelector(':scope > span[aria-label]')?.textContent?.trim() ?? '',
+      title: li.querySelector('[data-series-title]')?.getAttribute('title') ?? '',
+      badge: li.querySelector('[data-status-text]')?.textContent?.trim() ?? '',
+      progress: li.querySelector('[data-stepper-text]')?.textContent?.trim() ?? '',
     })),
   );
 }
@@ -230,7 +229,7 @@ describe('popup (bout en bout)', () => {
     const page = await openPopup();
     await page.waitForSelector(sel(`more-${SOLO}`));
 
-    expect(await attr(page, sel('nav-watching'), 'aria-pressed')).toBe('true');
+    expect(await attr(page, sel('nav-watching'), 'aria-selected')).toBe('true');
     expect(await shownScreen(page)).toBe(0);
     // Carte « Reprendre » : la série mise à jour le plus récemment, hors de la liste
     expect(await page.$eval(`section[aria-label="${fr('watching.resume')}"] span[title]`, (el) => el.getAttribute('title'))).toBe('Dandadan');
@@ -243,7 +242,7 @@ describe('popup (bout en bout)', () => {
     expect(badgeOf('Solo Leveling')).toBe(fr('watching.badge.available', { episode: 3 }));
     // Prochain épisode dans moins d'un jour : compte à rebours
     expect(badgeOf('Kaiju No. 8').startsWith(fr('watching.badge.upcoming', { episode: 5, delay: '' }))).toBe(true);
-    expect(rows.find((r) => r.title === 'Solo Leveling')?.progress).toBe('2 / 13');
+    expect(rows.find((r) => r.title === 'Solo Leveling')?.progress).toBe(fr('watching.heroProgress', { progress: 2, total: 13 }));
 
     // Barre d'état : synchro d'il y a 3 min non vue (série en 1re ligne, « J'ai vu, masquer ») ; version : Réglages › Aide seulement
     const footer = await text(page, 'footer');
@@ -342,7 +341,7 @@ describe('popup (bout en bout)', () => {
     await page.waitForSelector(sel('nav-activity'));
 
     await click(page, 'nav-activity');
-    expect(await attr(page, sel('nav-activity'), 'aria-pressed')).toBe('true');
+    expect(await attr(page, sel('nav-activity'), 'aria-selected')).toBe('true');
     expect(await shownScreen(page)).toBe(1);
 
     await click(page, 'gear');
@@ -531,22 +530,23 @@ describe('popup (bout en bout)', () => {
 
   it('« +1 » envoie ADJUST_PROGRESS (delta 1) et met la progression à jour', async () => {
     const page = await openPopup();
-    await click(page, `plus-${SOLO}`);
+    await click(page, `${SOLO}-plus`);
     const message = await waitForMessage(page, 'ADJUST_PROGRESS');
     expect(message.payload).toEqual({ mediaId: 176496, malId: 58567, delta: 1 });
     await page.waitForFunction(
-      (title: string) =>
-        [...document.querySelectorAll('main ul[aria-label] > li')].some(
-          (li) => li.querySelector('span[title]')?.getAttribute('title') === title && li.querySelector(':scope > span[aria-label]')?.textContent === '3 / 13',
+      (title: string, progress: string) =>
+        [...document.querySelectorAll('main [data-series-row]')].some(
+          (li) => li.querySelector('[data-series-title]')?.getAttribute('title') === title && li.querySelector('[data-stepper-text]')?.textContent === progress,
         ),
       {},
       'Solo Leveling',
+      fr('watching.heroProgress', { progress: 3, total: 13 }),
     );
   });
 
   it('« +1 » en échec partiel : « Réessayer » envoie la progression absolue au seul service en échec', async () => {
     const page = await openPopup({ adjust: 'partial' });
-    await click(page, `plus-${SOLO}`);
+    await click(page, `${SOLO}-plus`);
     expect((await waitForMessage(page, 'ADJUST_PROGRESS')).payload).toEqual({ mediaId: 176496, malId: 58567, delta: 1 });
     await page.waitForSelector(sel('watching-retry'));
     expect(await attr(page, sel('watching-retry'), 'aria-label')).toBe(fr('inline.retryOn', { services: 'MyAnimeList' }));
@@ -560,7 +560,7 @@ describe('popup (bout en bout)', () => {
 
   it('« +1 » au clavier : le focus reste sur le bouton pendant l’envoi (aria-disabled) et après les nouveaux rendus', async () => {
     const page = await openPopup({ adjust: 'slow' });
-    const plus = `plus-${SOLO}`;
+    const plus = `${SOLO}-plus`;
     await page.waitForSelector(sel(plus));
     // Tabulation depuis le début du popup jusqu'au « +1 » de Solo Leveling
     for (let i = 0; i < 80 && (await focused(page)) !== plus; i++) await page.keyboard.press('Tab');
@@ -596,10 +596,13 @@ describe('popup (bout en bout)', () => {
       const current: unknown = stored[key];
       await chrome.storage.local.set({ [key]: { ...(typeof current === 'object' && current !== null ? current : {}), preferredPlayer: 'adn' } });
     }, SETTINGS_STORAGE_KEY);
+    // « Chercher sur… › » : sous-menu des plateformes sans lien
     await click(page, `more-${SOLO}`);
+    await click(page, `search-${SOLO}`);
     await page.waitForSelector(sel(`search-adn-${SOLO}`));
     expect(await attr(page, sel(`search-adn-${SOLO}`), 'href')).toBe('https://animationdigitalnetwork.com/video?search=Solo%20Leveling');
-    expect(await text(page, sel(`search-adn-${SOLO}`))).toBe(fr('watching.searchOn', { platform: 'ADN' }));
+    expect(await text(page, sel(`search-adn-${SOLO}`))).toBe('ADN');
+    expect(await attr(page, sel(`search-adn-${SOLO}`), 'aria-label')).toBe(fr('watching.searchOnAria', { title: 'Solo Leveling', platform: 'ADN' }));
     expect(await page.$(openOn('ADN'))).toBeNull();
 
     // Page de la série ADN visitée : lien appris → « Ouvrir » passe sur ADN, la recherche disparaît
@@ -1055,7 +1058,7 @@ describe('popup (bout en bout)', () => {
     }, SETTINGS_STORAGE_KEY);
     await click(page, 'nav-activity');
     await click(page, 'nav-watching');
-    await page.waitForFunction(() => document.querySelector('[data-focus="nav-watching"]')?.getAttribute('aria-pressed') === 'true');
+    await page.waitForFunction(() => document.querySelector('[data-focus="nav-watching"]')?.getAttribute('aria-selected') === 'true');
 
     const result = await page.evaluate(() => {
       const w = window as Window & { __banner?: Element | null; __announces?: number };
@@ -1358,11 +1361,17 @@ describe('popup (bout en bout)', () => {
       return link ? { href: link.getAttribute('href'), tabindex: link.getAttribute('tabindex'), img: link.querySelector('div') !== null } : null;
     });
     expect(cover).toEqual({ href: anilist, tabindex: '-1', img: true });
-    // « Ouvrir la fiche » du menu : même règle, service nommé
+    // « Ouvrir la fiche › » du menu : la fiche de chaque compte connecté, service préféré en tête
     await click(page, `more-${SOLO}`);
-    await page.waitForSelector(sel(`site-${SOLO}`));
-    expect(await attr(page, sel(`site-${SOLO}`), 'href')).toBe(anilist);
-    expect(await text(page, sel(`site-${SOLO}`))).toBe(fr('page.openOn', { service: 'AniList' }));
+    await click(page, `site-${SOLO}`);
+    await page.waitForSelector(sel(`site-anilist-${SOLO}`));
+    expect(await attr(page, sel(`site-anilist-${SOLO}`), 'href')).toBe(anilist);
+    expect(await attr(page, sel(`site-anilist-${SOLO}`), 'aria-label')).toBe(fr('page.openOn', { service: 'AniList' }));
+    expect(await page.$$eval(`[data-submenu-list] [role="menuitem"]`, (els) => els.map((el) => el.getAttribute('data-focus')))).toEqual([`site-anilist-${SOLO}`, `site-mal-${SOLO}`]);
+    expect(await attr(page, sel(`site-mal-${SOLO}`), 'href')).toBe(mal);
+    // Échap ferme le sous-menu, puis le menu
+    await page.keyboard.press('Escape');
+    await page.waitForSelector(sel(`site-anilist-${SOLO}`), { hidden: true });
     await page.keyboard.press('Escape');
     await page.waitForSelector(sel(`site-${SOLO}`), { hidden: true });
 
@@ -1441,5 +1450,94 @@ describe('popup (bout en bout)', () => {
     await click(page, 'tip-settings');
     await page.waitForFunction((title: string) => document.querySelector('h1')?.textContent?.trim() === title, {}, fr('settings.cat.platforms'));
     expect(await shownScreen(page)).toBe(2);
+  });
+
+  it('« Mes séries » suit « Fiche ouverte par défaut » (Réglages › Comptes) : pas de sélecteur AniList / MAL', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    expect((await sent(page, 'GET_WATCHING')).map((m) => m.payload)).toEqual([{ service: 'anilist' }]);
+    expect(await page.$('main [role="radiogroup"]')).toBeNull();
+    expect(await attr(page, 'main ul[aria-label]', 'aria-label')).toContain('AniList');
+
+    await setSetting(page, { entryService: 'mal' });
+    await waitForMessage(page, 'GET_WATCHING', 2);
+    expect((await sent(page, 'GET_WATCHING'))[1]?.payload).toEqual({ service: 'mal' });
+    await page.waitForFunction(() => document.querySelector('main ul[aria-label]')?.getAttribute('aria-label')?.includes('MyAnimeList') === true);
+  });
+
+  it('tri : menu de choix exclusifs (focus sur le tri actif), « Titre (A → Z) » retrie la liste, l’enregistre et rend le focus au bouton', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel('sort-trigger'));
+    await click(page, 'sort-trigger');
+    await page.waitForSelector('[role="menu"] [role="menuitemradio"]');
+    expect(await attr(page, sel('sort-trigger'), 'aria-expanded')).toBe('true');
+    const options = await page.$$eval('[role="menu"] [role="menuitemradio"]', (els) => els.map((el) => [el.textContent?.trim(), el.getAttribute('aria-checked')]));
+    expect(options).toEqual([
+      [fr('watching.sort.nextEpisode'), 'true'],
+      [fr('watching.sort.recent'), 'false'],
+      [fr('watching.sort.title'), 'false'],
+      [fr('watching.sort.remaining'), 'false'],
+    ]);
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-checked'))).toBe('true');
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('[role="menu"]', { hidden: true });
+    expect(await focused(page)).toBe('sort-trigger');
+    expect(await text(page, sel('sort-trigger'))).toBe(fr('watching.sort.title'));
+    const titles = (await watchingRows(page)).map((r) => r.title);
+    expect(titles).toEqual([...titles].sort((a, b) => a.localeCompare(b)));
+    expect(await page.evaluate(async () => (await chrome.storage.local.get('popupPrefs')).popupPrefs)).toEqual({ sort: 'title' });
+
+    // Échap ferme sans rien changer
+    await click(page, 'sort-trigger');
+    await page.waitForSelector('[role="menu"]');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[role="menu"]', { hidden: true });
+    expect(await focused(page)).toBe('sort-trigger');
+  });
+
+  it('série exclue : pastille « Exclue » sur la ligne, − seul (pas de +)', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel(`${SOLO}-plus`));
+    await page.evaluate(async () => {
+      await chrome.storage.local.set({ excludedSeries: [{ id: 'e2e', platformKey: null, mediaId: 176496, label: 'Solo Leveling', excludedAt: Date.now() }] });
+    });
+    await page.waitForSelector(`[data-series-row="${SOLO}"] [data-series-tag]`);
+    expect(await text(page, `[data-series-row="${SOLO}"] [data-series-tag]`)).toBe(fr('common.excluded'));
+    expect(await page.$(sel(`${SOLO}-plus`))).toBeNull();
+    expect(await page.$(sel(`${SOLO}-minus`))).not.toBeNull();
+  });
+
+  it('accueil sans compte : pas d’onglets, boutons de connexion, étapes ; erreur de connexion sous le bouton', async () => {
+    const page = await openPopup({ accounts: 'none', login: 'error' });
+    await page.waitForSelector(sel('connect-anilist'));
+    expect(await shownScreen(page)).toBe(3);
+    expect(await page.$('[role="tablist"]')).toBeNull();
+    expect(await text(page, sel('connect-anilist'))).toBe(fr('common.connectService', { service: 'AniList' }));
+    expect(await text(page, sel('connect-mal'))).toBe(fr('common.connectService', { service: 'MyAnimeList' }));
+    expect(await page.$$eval('main ol li', (items) => items.map((li) => li.textContent?.trim()))).toEqual([fr('onboarding.step1'), fr('onboarding.step2'), fr('onboarding.step3')]);
+    expect(await text(page, sel('tip-settings'))).toBe(`${fr('nav.settings')} › ${fr('settings.cat.platforms')}`);
+
+    await click(page, 'connect-anilist');
+    await waitForMessage(page, 'LOGIN_ANILIST');
+    await page.waitForSelector('[data-alert]');
+    expect(await text(page, '[data-alert]')).toBe(fr('auth.cancelled'));
+  });
+
+  it('accueil : connexion en cours (bouton occupé, clic ignoré) ; session expirée : « Reconnecter AniList »', async () => {
+    const pending = await openPopup({ accounts: 'none', login: 'pending' });
+    await click(pending, 'connect-mal');
+    await waitForMessage(pending, 'LOGIN_MAL');
+    await pending.waitForFunction(() => document.querySelector('[data-focus="connect-mal"]')?.getAttribute('aria-busy') === 'true');
+    expect(await text(pending, sel('connect-mal'))).toBe(fr('common.connecting'));
+    await click(pending, 'connect-mal');
+    expect(await sent(pending, 'LOGIN_MAL')).toHaveLength(1);
+
+    const expired = await openPopup({ accounts: 'expired' });
+    await expired.waitForSelector(sel('connect-anilist'));
+    await expired.waitForFunction((label: string) => document.querySelector('[data-focus="connect-anilist"]')?.textContent?.includes(label) === true, {}, fr('common.reconnectService', { service: 'AniList' }));
+    expect(await text(expired, sel('connect-anilist'))).toContain(fr('common.sessionExpired'));
   });
 });

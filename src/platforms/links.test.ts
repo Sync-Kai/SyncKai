@@ -8,6 +8,7 @@ import {
   platformSearchUrl,
   platformSeriesUrl,
   seriesKeyFromLink,
+  platformsToSearch,
   platformsWithoutLink,
   rememberPlatformLink,
   withLearnedLinks,
@@ -122,6 +123,13 @@ describe('fusion des liens', () => {
     expect(platformsWithoutLink([])).toEqual(['crunchyroll', 'adn']);
     // Netflix (catalogue généraliste) n'est jamais proposé en recherche
     expect(platformsWithoutLink([{ platform: 'netflix', url: 'https://www.netflix.com/title/1' }])).toEqual(['crunchyroll', 'adn']);
+  });
+
+  it('platformsToSearch : sans lien, actives seulement, lecteur préféré en tête', () => {
+    expect(platformsToSearch([], 'crunchyroll', ['crunchyroll', 'adn'])).toEqual(['crunchyroll', 'adn']);
+    expect(platformsToSearch([], 'adn', ['crunchyroll', 'adn'])).toEqual(['adn', 'crunchyroll']);
+    expect(platformsToSearch([CR], 'crunchyroll', ['crunchyroll', 'adn'])).toEqual(['adn']);
+    expect(platformsToSearch([], 'crunchyroll', ['crunchyroll'])).toEqual(['crunchyroll']);
   });
 
   it('learnedLinksFor : ordre fixe, fiche inconnue ou MAL seule → aucun lien', () => {

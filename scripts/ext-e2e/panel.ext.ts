@@ -166,7 +166,7 @@ describe('Clavier', () => {
   it('popup « Watching » : Tab jusqu’à « +1 », Entrée : le focus reste sur le bouton pendant et après l’envoi', async (context) => {
     const run = await launch(context, [FRIEREN_S1]);
     const popup = await run.h.openPage('src/popup/popup.html', { width: 400, height: 580 });
-    const plus = `plus-${FRIEREN_S1.anilist.id}:${FRIEREN_S1.mal.id}`;
+    const plus = `${FRIEREN_S1.anilist.id}:${FRIEREN_S1.mal.id}-plus`;
     await popup.waitForSelector(sel(plus));
     const focused = (): Promise<string | null> => popup.evaluate(() => document.activeElement?.getAttribute('data-focus') ?? null);
 

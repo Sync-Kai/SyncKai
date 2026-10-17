@@ -1,4 +1,7 @@
 import { getLocale, initI18n, onLocaleChange, t } from '../i18n';
+import { mountPopupApp } from './popup-app';
+import { afterRender } from './after-render';
+import type { WatchingContext } from './components/watching-screen';
 import { refreshReviewBadge } from '../browser/badge';
 import type { EntryLinkContext } from '../shared/entry-link';
 import type { EpisodeInfo } from '../shared/episode.types';
@@ -18,12 +21,8 @@ import { TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { entryKey } from '../shared/watching';
 import type { WatchingEntry, WatchingSort } from '../shared/watching.types';
 import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../ui/dom';
-import { createMenuDismiss } from '../ui/menu';
 import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../browser/host-access';
-import { renderHostAccessBanner } from './components/host-access-banner';
-import { renderHeader, renderNav } from './components/header';
-import { renderOnboarding } from './components/onboarding';
 import { renderCompareLink } from './components/compare-link';
 import { createCompareController } from '../ui/compare-controller';
 import { diffBadge } from '../ui/settings/compare-model';
@@ -36,9 +35,8 @@ import { renderRecentSyncs } from './components/recent-syncs';
 import type { ReviewActions } from './components/review-card';
 import { createReviewSection } from './components/review-section';
 import { renderPageMediaCard } from './components/page-media-card';
-import { renderWatchingScreen } from './components/watching-screen';
-import type { HostAccessState, PageCardState, RowConfirm, Screen, SettingsState, SyncData, UiState } from './state';
-import { createNotesEditor, type NotesEditor } from '../ui/notes-editor';
+import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, UiState } from './state';
+import { createNotesEditor } from '../ui/notes-editor';
 import { primaryList } from '../ui/page-media-view';
 import { createStore, patchStore, type AccountState, type ExclusionsState, type Store } from '../ui/state';
 import { createLogger } from '../browser/logger';
@@ -78,20 +76,24 @@ const accounts = createAccountsController();
 const anilistStore = accounts.anilist;
 const malStore = accounts.mal;
 const syncStore = createStore<SyncData>({ reviews: [], recentSyncs: [], busyKey: null, recentError: null });
-const uiStore = createStore<UiState>({ screen: 'watching', previous: 'watching', sortMenuOpen: false, rowMenu: null, rowConfirm: null });
+const uiStore = createStore<UiState>({ screen: 'watching', previous: 'watching' });
 const settingsStore = createStore<SettingsState>({ status: 'loading' });
 const exclusionsStore = createStore<ExclusionsState>({ status: 'loading' });
-/** Liste « En cours » (source, tri, actions sur une série, bandeau de retour) */
+/** Réglage « Fiche ouverte par défaut » : service de la liste « En cours » ; null tant que les réglages ne sont pas lus */
+const preferredServiceStore = createStore<TrackerId | null>(null);
+settingsStore.subscribe((state) => {
+  const service = state.status === 'ready' ? state.settings.entryService : state.status === 'error' ? DEFAULT_SETTINGS.entryService : null;
+  if (service !== preferredServiceStore.get()) preferredServiceStore.set(service);
+});
+/** Liste « En cours » (service, tri, actions sur une série, bandeau de retour) */
 const watching = createWatchingController({
   accounts,
+  preferredService: preferredServiceStore,
   exclusions: exclusionsStore,
   reloadExclusions: () => loadExclusions(),
   onServiceShown: () => startPageMedia(),
   // Bandeau en haut de la liste : ramené dans la zone visible si la série était plus bas
-  onNoticeShown: () => {
-    renderer.flush();
-    watchingSlot.querySelector('[data-watching-notice]')?.scrollIntoView({ block: 'nearest' });
-  },
+  onNoticeShown: () => afterRender(() => document.querySelector('[data-watching-notice]')?.scrollIntoView({ block: 'nearest' })),
 });
 /** Activité › « Synchros en attente » */
 const queue = createQueueController();
@@ -109,7 +111,12 @@ const platformAccessStore = createPlatformAccessStore();
 
 /** Lues au démarrage (synchrone) : la demande d'accès doit partir sans `await` dans le clic */
 const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
+/** Heure des rendus vanilla (Activité, carte « Sur cette page ») ; l'écran Preact a sa propre horloge (useNow) */
 let now = Date.now();
+/** Vue des Réglages, chargée à la première ouverture */
+const settingsViewStore = createStore<SettingsView | null>(null);
+/** Pastille de l'onglet Activité */
+const pendingStore = createStore(0);
 
 function accountStore(service: TrackerId): Store<AccountState<unknown>> {
   return accounts.store(service);
@@ -124,6 +131,17 @@ function entryLinkContext(): EntryLinkContext {
   const state = settingsStore.get();
   return { connected: connectedServices(), preferred: state.status === 'ready' ? state.settings.entryService : DEFAULT_SETTINGS.entryService };
 }
+
+/** Lecteur préféré effectif, accès optionnels accordés et liens de fiche : relus à chaque changement de leurs sources */
+function watchingContext(): WatchingContext {
+  const state = settingsStore.get();
+  return {
+    preferredPlayer: state.status === 'ready' ? effectivePlayer(state.settings.preferredPlayer, platformAccessStore.get()) : DEFAULT_SETTINGS.preferredPlayer,
+    optionalPlatforms: platformAccessStore.get() ?? [],
+    entryLinks: entryLinkContext(),
+  };
+}
+const contextStore = createStore<WatchingContext>(watchingContext());
 
 // ─── Actions des cartes "À vérifier" ────────────────────────────────────────
 
@@ -145,14 +163,9 @@ const reviewActions: ReviewActions = {
 };
 
 // ─── Mise en page ───────────────────────────────────────────────────────────
-// En-tête, navigation et barre d'état fixes ; seule la zone centrale défile.
-// Les écrans à état local (Activité, Réglages) sont masqués plutôt que recréés.
+// Coquille Preact (popup-app.tsx) : en-tête, onglets et barre d'état fixes, seule la zone centrale défile. Les écrans
+// à état local (Activité, Réglages) sont masqués plutôt que recréés ; Activité reste vanilla (dessinée ici).
 
-const headerSlot = h('div', { class: 'contents' });
-const barSlot = h('div', { class: 'contents' });
-const hostAccessSlot = h('div', { class: 'contents' });
-const watchingSlot = h('div', { class: 'min-h-full' });
-const onboardingSlot = h('div', { class: 'min-h-full' });
 const reviewSection = createReviewSection(reviewActions);
 const queueSlot = h('div', { class: 'contents' });
 const ratingSlot = h('div', { class: 'contents' });
@@ -165,7 +178,6 @@ const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot
  * Créée à la première ouverture des Réglages (comme dans le panneau) : mappings, journal, raccourcis et accès ne sont lus
  * qu'alors. Module chargé à ce moment (import dynamique) : le code des Réglages reste hors du chargement initial
  */
-let settingsView: SettingsView | null = null;
 let settingsLoad: Promise<SettingsView | null> | null = null;
 function loadSettingsView(): Promise<SettingsView | null> {
   settingsLoad ??= import('../ui/settings/settings-view').then(
@@ -180,11 +192,8 @@ function loadSettingsView(): Promise<SettingsView | null> {
         platformAccess: platformAccessStore,
         compare: () => compare,
       });
-      // Masquée jusqu'au rendu qui l'affiche (ouverture annulée pendant le chargement : elle reste masquée)
-      view.element.hidden = true;
-      // Même place dans le DOM que lorsqu'elle était créée au démarrage (avant l'accueil de première utilisation)
-      main.insertBefore(view.element, onboardingSlot);
-      settingsView = view;
+      // Montée par la coquille dans sa zone (masquée hors des Réglages : ouverture annulée pendant le chargement comprise)
+      settingsViewStore.set(view);
       return view;
     },
     (error: unknown) => {
@@ -198,16 +207,13 @@ function loadSettingsView(): Promise<SettingsView | null> {
 }
 /** Ouverture des Réglages en attente du premier chargement de leur module ; toute autre navigation l'annule */
 let pendingSettings: { page: SettingsPage } | null = null;
+/** Conteneur de la barre d'état (son propre arbre Preact), placé en pied par la coquille */
 const footerSlot = h('div', { class: 'contents' });
-const main = h(
-  'main',
-  { class: 'sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3' },
-  watchingSlot,
-  activityScreen,
-  onboardingSlot,
-);
-const root = getRoot();
-root.replaceChildren(headerSlot, barSlot, hostAccessSlot, main, footerSlot);
+
+/** Zone centrale qui défile (rendue par la coquille) */
+function mainRegion(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('main.sk-scroll');
+}
 
 // ─── Navigation ───────────────────────────────────────────────────────────
 
@@ -217,6 +223,7 @@ function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
   if (ui.screen === screen) return;
   // Entrée dans les Réglages : accueil, ou sous-page demandée (pastille de compte → Comptes). Première ouverture : écran
   // inchangé le temps de charger le module (quelques millisecondes, lu dans le paquet), puis même navigation
+  const settingsView = settingsViewStore.get();
   if (screen === 'settings') {
     if (!settingsView) {
       const request = { page: settingsPage };
@@ -228,9 +235,9 @@ function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
     }
     settingsView.show(settingsPage);
   }
-  // Changement d'écran : les menus éventuellement ouverts se ferment
-  uiStore.set({ ...ui, screen, previous: ui.screen === 'settings' ? ui.previous : ui.screen, sortMenuOpen: false, rowMenu: null, rowConfirm: null });
-  main.scrollTop = 0;
+  uiStore.set({ ...ui, screen, previous: ui.screen === 'settings' ? ui.previous : ui.screen });
+  const main = mainRegion();
+  if (main) main.scrollTop = 0;
 }
 
 function goBack(): void {
@@ -239,6 +246,7 @@ function goBack(): void {
 
 /** Page des Réglages (barre d'état « Alignement… » → Écarts), Réglages déjà ouverts ou non */
 function openSettingsPage(page: SettingsPage): void {
+  const settingsView = settingsViewStore.get();
   if (uiStore.get().screen === 'settings' && settingsView) settingsView.show(page);
   else navigate('settings', page);
 }
@@ -250,110 +258,41 @@ function toggleSettings(): void {
   else navigate('settings');
 }
 
-// ─── Menu de tri « Mes séries » ─────────────────────────────────────────────
-// Ouvert/fermé dans uiStore (survit aux nouveaux rendus) ; les écouteurs globaux
-// (clic extérieur, Échap) n'existent que pendant l'ouverture.
+// ─── « En cours » : tri, commentaire d'une série ──────────────────────────────
+// Menus « ⋯ » (ui/series-menu.tsx) et menu de tri : composants Preact qui gèrent seuls ouverture, focus et fermeture.
 
+/** Focus dans « En cours » après le rendu Preact en attente (l'élément visé n'existe qu'ensuite) */
 function focusInWatching(selector: string): void {
-  // Rendu en attente dessiné d'abord : l'élément visé doit déjà exister
-  renderer.flush();
-  watchingSlot.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+  afterRender(() => watchingRegion()?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true }));
 }
 
-function setSortMenu(open: boolean, restoreFocus = true): void {
-  const ui = uiStore.get();
-  if (ui.sortMenuOpen === open) return;
-  // Un seul menu ouvert à la fois
-  uiStore.set({ ...ui, sortMenuOpen: open, rowMenu: open ? null : ui.rowMenu, rowConfirm: open ? null : ui.rowConfirm });
-  // focusInWatching dessine d'abord le rendu en attente : à l'ouverture, focus sur l'option cochée ; à la fermeture, retour au bouton
-  if (open) focusInWatching('[role="menuitemradio"][aria-checked="true"]');
-  else if (restoreFocus) focusInWatching('[data-focus="sort-trigger"]');
+function watchingRegion(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('main.sk-scroll > [role="tabpanel"]');
 }
 
-/** Choix de source : les menus ouverts se ferment, la liste du service choisi est chargée */
-function pickSource(source: TrackerId): void {
-  patchStore(uiStore, { sortMenuOpen: false, rowMenu: null, rowConfirm: null });
-  void watching.pickSource(source);
-}
-
+/** Choix du tri : enregistré, la liste est retriée (le menu Preact rend le focus à son bouton) */
 function pickSort(sort: WatchingSort): void {
-  patchStore(uiStore, { sortMenuOpen: false });
   void watching.pickSort(sort);
-  focusInWatching('[data-focus="sort-trigger"]');
 }
 
-/** Menu « … » d'une série : ouverture = focus sur la première action, fermeture = retour au bouton */
-function setRowMenu(key: string | null, restoreFocus = true): void {
-  const ui = uiStore.get();
-  if (ui.rowMenu === key) return;
-  const previous = ui.rowMenu;
-  uiStore.set({ ...ui, rowMenu: key, rowConfirm: null, sortMenuOpen: false });
-  if (key !== null) {
-    renderer.flush();
-    const root = watchingSlot.querySelector<HTMLElement>(`[data-menu-root="${key}"]`);
-    root?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus({ preventScroll: true });
-    // Dernières lignes : le menu déborde vers le bas, on le ramène dans la zone visible
-    root?.querySelector('[role="menu"]')?.scrollIntoView({ block: 'nearest' });
-  } else if (restoreFocus && previous !== null) {
-    focusInWatching(`[data-focus="more-${previous}"]`);
-  }
-}
-
-/**
- * Confirmation dans le menu ouvert (Abandonner, Terminé, Retirer de la liste). Ouverture : focus sur « Non » / « Annuler »
- * (une action irréversible ne se valide pas d'un double Entrée) ; annulation : focus rendu à l'option d'origine.
- */
-function setRowConfirm(status: RowConfirm | null): void {
-  const ui = uiStore.get();
-  if (ui.rowMenu === null || ui.rowConfirm === status) return;
-  const previous = ui.rowConfirm;
-  uiStore.set({ ...ui, rowConfirm: status });
-  if (status !== null) {
-    focusInWatching(`[data-focus="confirm-no-${ui.rowMenu}"]`);
-    // Confirmation plus haute que l'option (retrait : deux lignes) : ramenée dans la zone visible en bas de liste
-    watchingSlot.querySelector(`[data-menu-root="${ui.rowMenu}"] [role="group"]`)?.scrollIntoView({ block: 'nearest' });
-  } else if (previous !== null) focusInWatching(`[data-focus="${previous}-${ui.rowMenu}"]`);
-}
-
-// ─── Commentaire d'une série (« Commentaire… » du menu « … ») ──────────────
-
-/** Éditeur ouvert : élément persistant (brouillon et curseur gardés entre deux rendus), recréé pour une autre série */
-let notesEditor: { key: string; editor: NotesEditor } | null = null;
-
+/** « Commentaire… » : éditeur ouvert sous la série (il prend le focus), ramené dans la zone visible */
 function openNotes(entry: WatchingEntry): void {
-  // Nouvelle ouverture : brouillon d'une ouverture précédente oublié (déjà ouvert : gardé)
-  if (watching.notes.get()?.key !== entryKey(entry)) notesEditor = null;
   watching.openNotes(entry);
-  // Focus dans la zone de texte (lecture seule le temps de lire le commentaire)
-  focusInWatching(`[data-focus="notes-${entryKey(entry)}-input"]`);
-  watchingSlot.querySelector(`[data-notes-row="${entryKey(entry)}"]`)?.scrollIntoView({ block: 'nearest' });
+  afterRender(() => watchingRegion()?.querySelector(`[data-notes-row="${entryKey(entry)}"]`)?.scrollIntoView({ block: 'nearest' }));
 }
 
-/** Fermeture (Annuler, Échap, enregistré) : focus rendu au bouton « … » de la série */
+/** Fermeture (Annuler, Échap, enregistré) : focus rendu au bouton « ⋯ » de la série */
 function closeNotes(): void {
   const key = watching.notes.get()?.key;
   watching.closeNotes();
   if (key !== undefined) focusInWatching(`[data-focus="more-${key}"]`);
 }
 
-function notesEditorFor(entry: WatchingEntry): HTMLElement | null {
-  const session = watching.notes.get();
-  if (!session || session.key !== entryKey(entry)) return null;
-  if (notesEditor?.key !== session.key) {
-    const { entry: target } = session;
-    notesEditor = {
-      key: session.key,
-      editor: createNotesEditor({ focusKey: `notes-${session.key}`, collapsible: false, onSave: (text) => watching.saveNotes(target, text), onClose: closeNotes }),
-    };
-  }
-  notesEditor.editor.update({
-    notes: session.phase === 'ready' ? session.notes : null,
-    loading: session.phase === 'loading',
-    unavailable: session.phase === 'error' ? session.message : session.phase === 'ready' && !session.inList ? t('notes.notInList') : null,
-    busy: watching.entryActions.get().get(session.key)?.phase === 'pending',
-    title: session.entry.title,
-  });
-  return notesEditor.editor.element;
+/** Enregistré : éditeur fermé (focus au bouton « ⋯ »), sinon il reste ouvert pour réessayer */
+async function saveNotes(entry: WatchingEntry, text: string): Promise<boolean> {
+  const ok = await watching.saveNotes(entry, text);
+  if (ok && watching.notes.get()?.key === entryKey(entry)) closeNotes();
+  return ok;
 }
 
 /**
@@ -385,106 +324,25 @@ function pageNotesFor(view: PageMediaView, refreshing: boolean): HTMLElement | n
   return pageNotesEditor.element;
 }
 
-/** Écouteurs globaux (clic extérieur, Échap) présents seulement pendant qu'un menu est ouvert */
-const menuDismiss = createMenuDismiss({
-  onPointerDown(target) {
-    const ui = uiStore.get();
-    if (ui.sortMenuOpen && !target?.closest('[data-sort-root]')) setSortMenu(false, false);
-    const rowRoot = target?.closest<HTMLElement>('[data-menu-root]');
-    if (ui.rowMenu !== null && rowRoot?.dataset.menuRoot !== ui.rowMenu) setRowMenu(null, false);
-  },
-  onEscape() {
-    const ui = uiStore.get();
-    if (ui.sortMenuOpen) setSortMenu(false);
-    if (ui.rowConfirm !== null) {
-      // Échap annule d'abord la confirmation en cours, le menu reste ouvert
-      setRowConfirm(null);
-      return;
-    }
-    if (ui.rowMenu !== null) setRowMenu(null);
-  },
-});
-
 // ─── Rendu ────────────────────────────────────────────────────────────────
 
-/** Onboarding : plus aucun chargement en cours et aucun compte connecté */
-function isOnboarding(): boolean {
-  return TRACKER_IDS.every((service) => accountStore(service).get().status === 'logged-out');
-}
-
-/** Entrées du rendu de « En cours » : on ne redessine la liste que si elles changent */
-const watchingChanged = createLocaleMemo();
-
-function renderWatching(): void {
-  const preferredPlayer = (() => {
-    const state = settingsStore.get();
-    return state.status === 'ready' ? effectivePlayer(state.settings.preferredPlayer, platformAccessStore.get()) : DEFAULT_SETTINGS.preferredPlayer;
-  })();
-  const services = connectedServices();
-  const { sortMenuOpen, rowMenu, rowConfirm } = uiStore.get();
-  const { sort } = watching.prefs.get();
-  const exclusions = exclusionsStore.get();
-  const actions = watching.entryActions.get();
-  const notice = watching.notice.get();
-  const notesSession = watching.notes.get();
-  const pageCard = pageCardStore.get();
-  const optionalPlatforms = platformAccessStore.get() ?? [];
-  const entryLinks = entryLinkContext();
-  if (!watchingChanged([watching.store.get(), now, preferredPlayer, optionalPlatforms.join(), services.join(), entryLinks.preferred, sort, sortMenuOpen, rowMenu, rowConfirm, exclusions, actions, notice, notesSession, pageCard])) return;
-
-  preserveFocus(watchingSlot, () =>
-    watchingSlot.replaceChildren(
-      renderWatchingScreen({
-        state: watching.store.get(),
-        notice: notice?.feedback ?? null,
-        onNoticeRetry: notice?.retry ?? null,
-        now,
-        preferredPlayer,
-        services,
-        onPickSource: (source) => pickSource(source),
-        sort,
-        sortMenuOpen,
-        onSortMenu: (open) => setSortMenu(open),
-        onPickSort: (value) => pickSort(value),
-        onRetry: () => void watching.reload(),
-        optionalPlatforms,
-        onOpenSyncSettings: () => navigate('settings', 'platforms'),
-        pageCard: renderPageMediaCard({
-          card: pageCard,
-          now,
-          entryLinks,
-          onRetry: () => pageCtl.retry(),
-          onAdd: (status) => void pageCtl.runAction({ kind: 'add', status }),
-          onAdjust: (delta) => void pageCtl.runAction({ kind: 'adjust', delta }),
-          onRetryAdjust: (retry) => void pageCtl.runAction({ kind: 'adjust', delta: retry.delta, retry }),
-          onConfirm: (status) => setPageConfirm(status),
-          onSetStatus: (status) => void pageCtl.runAction({ kind: 'status', status }),
-          onRate: (value) => void pageCtl.runAction({ kind: 'rate', value }),
-          onPickSeason: (mediaId) => pageCtl.pickSeason(mediaId),
-          notesFor: pageNotesFor,
-        }),
-        controls: {
-          actions,
-          excludedMediaIds: new Set(exclusions.status === 'ready' ? exclusions.items.flatMap((e) => (e.mediaId !== null ? [e.mediaId] : [])) : []),
-          rowMenu,
-          rowConfirm,
-          onRowConfirm: (status) => setRowConfirm(status),
-          onSetStatus: (entry, status) => void watching.setStatus(entry, status),
-          onRowMenu: (key) => setRowMenu(key),
-          onAdjust: (entry, delta) => void watching.adjust(entry, delta),
-          onExclude: (entry) => void watching.exclude(entry),
-          onInclude: (entry) => void watching.include(entry),
-          onRemove: (entry) => void watching.remove(entry),
-          onNotes: (entry) => openNotes(entry),
-          notesFor: notesEditorFor,
-          entryLinks,
-        },
-      }),
-    ),
-  );
-  // Menu ouvert mais contrôle absent (liste vide, chargement, erreur, série disparue) : on le referme après ce rendu
-  if (sortMenuOpen && !watchingSlot.querySelector('[data-sort-root]')) queueMicrotask(() => setSortMenu(false, false));
-  if (rowMenu !== null && !watchingSlot.querySelector(`[data-menu-root="${rowMenu}"]`)) queueMicrotask(() => setRowMenu(null, false));
+/** Carte « Sur cette page » (vanilla, montée par l'écran « En cours ») */
+function renderPageCard(): HTMLElement | null {
+  return renderPageMediaCard({
+    card: pageCardStore.get(),
+    // Heure du rendu : la carte est redessinée par l'écran à chaque minute (useNow)
+    now: Date.now(),
+    entryLinks: entryLinkContext(),
+    onRetry: () => pageCtl.retry(),
+    onAdd: (status) => void pageCtl.runAction({ kind: 'add', status }),
+    onAdjust: (delta) => void pageCtl.runAction({ kind: 'adjust', delta }),
+    onRetryAdjust: (retry) => void pageCtl.runAction({ kind: 'adjust', delta: retry.delta, retry }),
+    onConfirm: (status) => setPageConfirm(status),
+    onSetStatus: (status) => void pageCtl.runAction({ kind: 'status', status }),
+    onRate: (value) => void pageCtl.runAction({ kind: 'rate', value }),
+    onPickSeason: (mediaId) => pageCtl.pickSeason(mediaId),
+    notesFor: pageNotesFor,
+  });
 }
 
 /** Section « À noter » redessinée seulement si son état change (préserve le survol des étoiles) */
@@ -518,57 +376,27 @@ function renderCompare(): void {
   compareSlot.replaceChildren(...nodes([both && renderCompareLink({ count, onOpen: () => navigate('settings', 'compare') })]));
 }
 
-// Chaque zone n'est redessinée que si ses entrées changent : focus, survol et régions live (bandeau d'accès,
-// barre d'état) restent en place entre deux rendus
-const headerChanged = createLocaleMemo();
-const navChanged = createLocaleMemo();
-const hostAccessChanged = createLocaleMemo();
-const onboardingChanged = createLocaleMemo();
+// Activité (vanilla) : chaque zone n'est redessinée que si ses entrées changent (focus, survol et régions live gardés)
 const queueChanged = createLocaleMemo();
 const recentChanged = createLocaleMemo();
 
+/** Pastille « Activité » : vérifications + synchros abandonnées + séries à noter (à traiter par l'utilisateur) */
+function activityPending(): number {
+  return connectedServices().length > 0 ? syncStore.get().reviews.length + queue.counts().failed + ratings.store.get().items.length : 0;
+}
+
 function render(): void {
-  const ui = uiStore.get();
-  const onboarding = isOnboarding();
-  const isSettings = ui.screen === 'settings';
   const data = syncStore.get();
   const connected = connectedServices().length > 0;
-  // Pastille « Activité » : vérifications + synchros abandonnées + séries à noter (à traiter par l'utilisateur)
-  const pending = connected ? data.reviews.length + queue.counts().failed + ratings.store.get().items.length : 0;
-  const hostAccess = hostAccessStore.get();
+  const pending = activityPending();
+  if (pending !== pendingStore.get()) pendingStore.set(pending);
+  const context = watchingContext();
+  const shown = contextStore.get();
+  if (context.preferredPlayer !== shown.preferredPlayer || context.optionalPlatforms.join() !== shown.optionalPlatforms.join() || context.entryLinks.preferred !== shown.entryLinks.preferred || context.entryLinks.connected.join() !== shown.entryLinks.connected.join()) {
+    contextStore.set(context);
+  }
 
-  preserveFocus(root, () => {
-    if (headerChanged([isSettings, panelTarget])) {
-      headerSlot.replaceChildren(renderHeader({ isSettings, onSettings: toggleSettings, onOpenPanel: panelTarget === null ? null : openPanel }));
-    }
-    const navStale = navChanged([isSettings, onboarding, ui.screen, pending]);
-    // Barre des Réglages persistante (gérée par la vue) : jamais retirée puis réinsérée, le focus y resterait perdu
-    if (isSettings && settingsView) {
-      const { bar } = settingsView;
-      if (barSlot.firstChild !== bar || barSlot.childNodes.length !== 1) barSlot.replaceChildren(bar);
-    } else if (navStale) {
-      barSlot.replaceChildren(
-        ...nodes([!onboarding && renderNav({ screen: ui.screen === 'activity' ? 'activity' : 'watching', pending, onNavigate: (screen) => navigate(screen) })]),
-      );
-    }
-
-    // Bandeau d'accès : même nœud tant que son contenu ne change pas (pas de nouvelle annonce à chaque rendu)
-    if (hostAccessChanged([hostAccess.status, hostAccess.status === 'missing' && hostAccess.denied])) {
-      hostAccessSlot.replaceChildren(...nodes([renderHostAccessBanner({ state: hostAccess, onAllow: allowHostAccess })]));
-    }
-
-    watchingSlot.hidden = isSettings || onboarding || ui.screen !== 'watching';
-    activityScreen.hidden = isSettings || onboarding || ui.screen !== 'activity';
-    if (settingsView) settingsView.element.hidden = !isSettings;
-    onboardingSlot.hidden = isSettings || !onboarding;
-
-    if (!watchingSlot.hidden) renderWatching();
-    if (!onboardingSlot.hidden && onboardingChanged([anilistStore.get(), malStore.get()])) {
-      onboardingSlot.replaceChildren(
-        renderOnboarding({ anilist: anilistStore.get(), mal: malStore.get(), onLogin: (service) => void accounts.login(service) }),
-      );
-    }
-
+  preserveFocus(activityScreen, () => {
     if (queueChanged([connected, queue.store.get(), now])) {
       queueSlot.replaceChildren(
         ...nodes([
@@ -703,11 +531,12 @@ const pageCtl = createPageMediaController({
 
 /** Onglet actif (et sa fenêtre) pour lequel le bouton « Ouvrir le panneau » est proposé ; null sans API de panneau */
 let panelTarget: PanelTarget | null = null;
+const panelAvailableStore = createStore(false);
 
 void activeTab.then(({ tabId, windowId }) => {
   if (sidePanelKind() === null || (tabId === null && windowId === null)) return;
   panelTarget = { tabId: tabId ?? undefined, windowId: windowId ?? undefined };
-  renderer.schedule();
+  panelAvailableStore.set(true);
 });
 
 /** Clic : aucun `await` avant l'ouverture (geste utilisateur requis par sidePanel.open / sidebarAction.open) */
@@ -785,6 +614,44 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 // ─── Démarrage ────────────────────────────────────────────────────────────
 
 watching.start();
+mountPopupApp(getRoot(), {
+  ui: uiStore,
+  accounts: { anilist: anilistStore, mal: malStore },
+  pending: pendingStore,
+  hostAccess: hostAccessStore,
+  panelAvailable: panelAvailableStore,
+  settingsView: settingsViewStore,
+  activity: activityScreen,
+  footer: footerSlot,
+  watching: {
+    state: watching.store,
+    sort: watching.prefs,
+    actions: watching.entryActions,
+    notice: watching.notice,
+    notes: watching.notes,
+    exclusions: exclusionsStore,
+    pageCard: pageCardStore,
+    context: contextStore,
+    renderPageCard,
+    onAdjust: (entry, delta) => void watching.adjust(entry, delta),
+    onSetStatus: (entry, status) => void watching.setStatus(entry, status),
+    onExclude: (entry) => void watching.exclude(entry),
+    onInclude: (entry) => void watching.include(entry),
+    onRemove: (entry) => void watching.remove(entry),
+    onOpenNotes: openNotes,
+    onCloseNotes: closeNotes,
+    onSaveNotes: saveNotes,
+    onPickSort: pickSort,
+    onRetry: () => void watching.reload(),
+    onOpenPlatformsSettings: () => navigate('settings', 'platforms'),
+  },
+  onNavigate: (screen) => navigate(screen),
+  onSettings: toggleSettings,
+  onOpenPanel: openPanel,
+  onAllowHostAccess: allowHostAccess,
+  onLogin: (service) => void accounts.login(service),
+  onOpenPlatformsSettings: () => navigate('settings', 'platforms'),
+});
 // Barre d'état (composant partagé avec le panneau latéral) : Activité, menu du compte (logos), page d'import
 mountStatusBar(footerSlot, {
   accounts,
@@ -800,15 +667,15 @@ takePopupScreen().then(
   },
   (error: unknown) => log.debug('Écran demandé illisible :', error),
 );
-uiStore.subscribe(({ sortMenuOpen, rowMenu }) => menuDismiss.setOpen(sortMenuOpen || rowMenu !== null));
-for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, watching.prefs, watching.entryActions, watching.notice, watching.notes, queue.store, ratings.store, pageCardStore, compare.store, hostAccessStore, platformAccessStore]) store.subscribe(renderer.schedule);
+// Activité (vanilla), pastille d'Activité et contexte de « En cours » ; l'arbre Preact suit ses stores lui-même
+for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, queue.store, ratings.store, compare.store, platformAccessStore]) store.subscribe(renderer.schedule);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store
 platformAccessStore.onPermissionsChange(() => void checkHostAccess());
 exclusionsStore.subscribe(renderer.schedule);
 settingsStore.subscribe(renderer.schedule);
 
-// Nouvelle langue : retraduction en place (écran, sous-page des Réglages et défilement conservés). Chaque zone a la
-// langue dans son mémo ; les Réglages se retraduisent eux-mêmes (settings-view.ts)
+// Nouvelle langue : retraduction en place (écran, sous-page des Réglages et défilement conservés). Chaque zone vanilla
+// a la langue dans son mémo ; la coquille Preact suit useLocale, les Réglages se retraduisent eux-mêmes (settings-view.tsx)
 onLocaleChange(() => renderer.schedule());
 
 // Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert
@@ -824,5 +691,6 @@ void loadExclusions();
 void queue.load();
 void ratings.load();
 void compare.load();
-// La source préférée est lue avant les comptes : évite de charger la mauvaise liste puis de basculer
-void watching.loadPrefs().then(() => accounts.bootstrapAll());
+void watching.loadPrefs();
+// La liste attend les réglages (« Fiche ouverte par défaut ») et les comptes : jamais la mauvaise liste puis une bascule
+void accounts.bootstrapAll();

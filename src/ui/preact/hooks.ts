@@ -160,13 +160,14 @@ export interface DismissOptions {
 /**
  * Fermeture d'un menu ou d'une fenêtre montés : Échap (phase de capture, sans fermer le popup ni revenir en arrière
  * dans les Réglages) et pointeur enfoncé hors de `ref`, par createMenuDismiss (ui/menu.ts). Écouteurs du document posés
- * au montage, retirés au démontage ; le bouton qui ouvre doit être dans `ref`, sinon son clic rouvre aussitôt.
+ * au montage, avant que le navigateur ne peigne (Échap pressé aussitôt après l'ouverture compris), retirés au démontage ;
+ * le bouton qui ouvre doit être dans `ref`, sinon son clic rouvre aussitôt.
  * `onDismiss` est relu à chaque événement : un nouveau rendu ne repose pas les écouteurs.
  */
 export function useDismiss(ref: RefObject<Element | null>, onDismiss: () => void, { escape = true, outside = true }: DismissOptions = {}): void {
   const latest = useRef(onDismiss);
   latest.current = onDismiss;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const handlers: MenuDismissHandlers = {};
     if (escape) handlers.onEscape = () => latest.current();
     if (outside) {

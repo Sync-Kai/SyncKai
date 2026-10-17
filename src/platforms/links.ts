@@ -206,6 +206,16 @@ export function platformsWithoutLink(platforms: readonly PlatformLink[]): Stream
 }
 
 /**
+ * Recherches du menu « ⋯ » (« Chercher sur… › ») : plateformes sans lien connu, actives (`active` : accès optionnel
+ * accordé), lecteur préféré en tête
+ */
+export function platformsToSearch(platforms: readonly PlatformLink[], preferred: StreamingPlatform, active: readonly StreamingPlatform[]): StreamingPlatform[] {
+  return platformsWithoutLink(platforms)
+    .filter((platform) => active.includes(platform))
+    .sort((a, b) => Number(b === preferred) - Number(a === preferred));
+}
+
+/**
  * Séries affichées complétées par les liens appris (plateformes encore sans lien uniquement) :
  * mise à jour immédiate du popup quand un lien est appris. null si rien ne change.
  */

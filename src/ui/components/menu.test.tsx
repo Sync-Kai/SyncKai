@@ -309,4 +309,27 @@ describe('Menu : nettoyage', () => {
     await act(() => render(null, container));
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it('choix exclusifs (checked) : role="menuitemradio", aria-checked, coche ; focus d’ouverture sur le choix coché, flèches entre les choix', async () => {
+    const onPick = vi.fn<(value: string) => void>();
+    await show(
+      <Menu label="Trier" defaultOpen>
+        {['next', 'recent', 'title'].map((value) => (
+          <MenuItem key={value} icon="clock" checked={value === 'recent'} onSelect={() => onPick(value)}>
+            {value}
+          </MenuItem>
+        ))}
+      </Menu>,
+    );
+    const radios = [...(menu()?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])];
+    expect(radios.map((radio) => radio.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false']);
+    expect(radios[1]?.querySelector('[data-menu-check]')).not.toBeNull();
+    expect(radios[0]?.querySelector('[data-menu-check]')).toBeNull();
+    expect(document.activeElement).toBe(radios[1]);
+    await press('ArrowDown');
+    expect(document.activeElement).toBe(radios[2]);
+    await act(() => radios[0]?.click());
+    expect(onPick).toHaveBeenCalledWith('next');
+    expect(menu()).toBeNull();
+  });
 });

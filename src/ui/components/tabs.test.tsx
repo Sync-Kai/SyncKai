@@ -104,6 +104,18 @@ describe('Tabs', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it('nom accessible d’un onglet (pastille comprise) et clés data-focus', async () => {
+    const items = [
+      { id: 'watching', label: 'En cours' },
+      { id: 'activity', label: 'Activité', badge: 2, ariaLabel: 'Activité, 2 éléments à traiter' },
+    ] as const satisfies readonly { id: View; label: string; badge?: number; ariaLabel?: string }[];
+    await show(<Tabs label="Vues" idBase="view" tabs={items} selected="watching" onSelect={onSelect} focusKeyBase="nav" />);
+    expect(tabs()[1]?.getAttribute('aria-label')).toBe('Activité, 2 éléments à traiter');
+    expect(tabs()[0]?.hasAttribute('aria-label')).toBe(false);
+    expect(tabs().map((tab) => tab.dataset.focus)).toEqual(['nav-watching', 'nav-activity']);
+    expect($('[data-tab-badge]')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('nouvelle sélection : tabindex déplacé', async () => {
     await show(<Host initial="activity" />);
     expect(tabs()[1]?.tabIndex).toBe(0);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entryLink, entryService, entryUrl } from './entry-link';
+import { entryLink, entryLinks, entryService, entryUrl } from './entry-link';
 
 const BOTH = ['anilist', 'mal'] as const;
 const FRIEREN = { mediaId: 154587, malId: 52991 };
@@ -59,5 +59,31 @@ describe('entryLink', () => {
     expect(entryLink({ mediaId: null, malId: null }, { connected: BOTH, preferred: 'anilist' })).toBeNull();
     expect(entryLink({ mediaId: 0, malId: -3 }, { connected: BOTH, preferred: 'mal' })).toBeNull();
     expect(entryLink({ mediaId: 1.5, malId: null }, { connected: [], preferred: 'anilist' })).toBeNull();
+  });
+});
+
+describe('entryLinks (« Ouvrir la fiche › » du menu « ⋯ »)', () => {
+  it('deux comptes : les deux fiches, service préféré en tête', () => {
+    expect(entryLinks(FRIEREN, { connected: BOTH, preferred: 'anilist' })).toEqual([
+      { service: 'anilist', url: AL },
+      { service: 'mal', url: MAL },
+    ]);
+    expect(entryLinks(FRIEREN, { connected: BOTH, preferred: 'mal' })).toEqual([
+      { service: 'mal', url: MAL },
+      { service: 'anilist', url: AL },
+    ]);
+  });
+
+  it('un seul compte : sa fiche seulement', () => {
+    expect(entryLinks(FRIEREN, { connected: ['mal'], preferred: 'anilist' })).toEqual([{ service: 'mal', url: MAL }]);
+  });
+
+  it('identifiant absent sur un service connecté : ce service est omis ; sur tous : repli de entryLink', () => {
+    expect(entryLinks({ mediaId: 154587, malId: null }, { connected: BOTH, preferred: 'mal' })).toEqual([{ service: 'anilist', url: AL }]);
+    expect(entryLinks({ mediaId: 154587, malId: null }, { connected: ['mal'], preferred: 'mal' })).toEqual([{ service: 'anilist', url: AL }]);
+  });
+
+  it('aucun identifiant : aucune fiche', () => {
+    expect(entryLinks({ mediaId: null, malId: null }, { connected: BOTH, preferred: 'anilist' })).toEqual([]);
   });
 });

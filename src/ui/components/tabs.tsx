@@ -8,6 +8,8 @@ export interface TabItem<T extends string> {
   label: string;
   /** Pastille de compte (« 2 » à vérifier) */
   badge?: string | number;
+  /** Nom accessible quand la pastille ne se lit pas seule (« Activité, 2 éléments à traiter ») ; pastille alors masquée */
+  ariaLabel?: string;
 }
 
 export interface TabsProps<T extends string> {
@@ -18,12 +20,14 @@ export interface TabsProps<T extends string> {
   tabs: readonly TabItem<T>[];
   selected: T;
   onSelect: (id: T) => void;
+  /** Préfixe des clés data-focus des onglets (`<préfixe>-<id>`) */
+  focusKeyBase?: string;
 }
 
 export const tabId = (base: string, id: string): string => `${base}-tab-${id}`;
 export const panelId = (base: string, id: string): string => `${base}-panel-${id}`;
 
-export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect }: TabsProps<T>) {
+export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect, focusKeyBase }: TabsProps<T>) {
   const list = useRef<HTMLDivElement>(null);
 
   const onKeyDown = (event: KeyboardEvent): void => {
@@ -65,13 +69,15 @@ export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect
             aria-selected={on ? 'true' : 'false'}
             aria-controls={panelId(idBase, tab.id)}
             tabIndex={on ? 0 : -1}
+            aria-label={tab.ariaLabel}
+            data-focus={focusKeyBase && `${focusKeyBase}-${tab.id}`}
             onClick={() => {
               if (!on) onSelect(tab.id);
             }}
           >
             <span class="truncate">{tab.label}</span>
             {tab.badge !== undefined && (
-              <span class="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-pill bg-butter px-1.25 text-section tracking-normal text-on-fill tabular-nums" data-tab-badge="">
+              <span class="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-pill bg-butter px-1.25 text-section tracking-normal text-on-fill tabular-nums" aria-hidden={tab.ariaLabel ? 'true' : undefined} data-tab-badge="">
                 {tab.badge}
               </span>
             )}

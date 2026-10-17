@@ -169,6 +169,20 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await page.waitForSelector('[role="menu"]');
     // Menu seul : le reste de l'écran vient d'être relevé
     await shot(ctx, page, 'popup/row-menu', '[role="menu"]');
+    // « Ouvrir la fiche › » : sous-menu (deux comptes) ; Échap le referme seul
+    ctx.step = 'popup/row-submenu';
+    await click(page, `site-${SOLO}`);
+    await page.waitForSelector(sel(`site-mal-${SOLO}`));
+    await shot(ctx, page, 'popup/row-submenu', '[role="menu"]');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector(sel(`site-mal-${SOLO}`), { hidden: true });
+    // « Abandonner ? Oui / Non » sur la ligne du menu
+    ctx.step = 'popup/drop-confirm';
+    await click(page, `DROPPED-${SOLO}`);
+    await page.waitForSelector(sel(`confirm-no-${SOLO}`));
+    await shot(ctx, page, 'popup/drop-confirm', '[role="menu"]');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector(sel(`DROPPED-${SOLO}`));
     ctx.step = 'popup/remove-confirm';
     await click(page, `REMOVE-${SOLO}`);
     await page.waitForSelector(sel(`confirm-no-${SOLO}`));
@@ -233,6 +247,18 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await shot(ctx, expired, 'popup/account-menu-expired', '[role="menu"]');
   } finally {
     await expired.close();
+  }
+
+  // Hors page de streaming : carte « Reprendre » (surtitre, statut, plateforme et dernière synchro, « Ouvrir sur … », − / +)
+  ctx.step = 'popup/resume';
+  const resume = await openPage(ctx, 'popup.html', {}, POPUP_VIEWPORT);
+  try {
+    await resume.waitForSelector('[data-resume-card]');
+    await resume.waitForSelector('main [aria-busy="false"]');
+    await attach(ctx, resume);
+    await shot(ctx, resume, 'popup/resume');
+  } finally {
+    await resume.close();
   }
 
   // Listes vides : « Rien en cours », astuce avec le chemin des Réglages, plateformes à activer

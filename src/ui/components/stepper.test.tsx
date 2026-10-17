@@ -82,4 +82,25 @@ describe('Stepper', () => {
     expect(minus()?.disabled).toBe(true);
     expect(plus()?.disabled).toBe(true);
   });
+
+  it('busy : aria-disabled sur les deux boutons (focus gardé), clics ignorés', async () => {
+    await show(<Stepper {...props({ busy: true, focusKey: 'row' })} />);
+    expect(plus()?.disabled).toBe(false);
+    expect(plus()?.getAttribute('aria-disabled')).toBe('true');
+    expect(minus()?.getAttribute('aria-disabled')).toBe('true');
+    expect(plus()?.getAttribute('aria-busy')).toBe('true');
+    plus()?.click();
+    minus()?.click();
+    expect(onIncrement).not.toHaveBeenCalled();
+    expect(onDecrement).not.toHaveBeenCalled();
+    expect(plus()?.dataset.focus).toBe('row-plus');
+    await show(<Stepper {...props({ focusKey: 'row' })} />);
+    expect(plus()?.hasAttribute('aria-disabled')).toBe(false);
+  });
+
+  it('incrementHidden : + absent, − seul dans le groupe', async () => {
+    await show(<Stepper {...props({ incrementHidden: true })} />);
+    expect(plus()).toBeNull();
+    expect(minus()).not.toBeNull();
+  });
 });

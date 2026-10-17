@@ -1,4 +1,4 @@
-// Liste « En cours » : source et tri (préférences du popup), cache affiché puis revalidé par le service worker
+// Liste « En cours » : service du réglage « Fiche ouverte par défaut » et tri (préférence du popup), cache affiché puis revalidé par le service worker
 // (délai d'attente, réponse tardive, requête obsolète ignorée), actions sur une série (+1, −1, statut, exclusion,
 // retrait de la liste, commentaire) et bandeau de retour.
 import { t } from '../../i18n';
@@ -8,7 +8,7 @@ import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '..
 import { getCachedWatching } from '../../browser/storage/watching-cache';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { AdjustRetry, ListStatusChange, SyncOutcome } from '../../shared/sync.types';
-import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
+import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { toSafeImageUrl } from '../../shared/url';
 import { entryKey } from '../../shared/watching';
 import { DEFAULT_WATCHING_SORT, isWatchingSort, type WatchingEntry, type WatchingList, type WatchingResult, type WatchingSort } from '../../shared/watching.types';
@@ -18,7 +18,7 @@ import type { MediaRef } from '../../shared/engagement.types';
 import { normalizeListNotes, type ListNotesResult } from '../../shared/list-notes';
 import { adjustPayload } from '../../ui/media-action-requests';
 import { mediaRefOf } from '../../ui/media-ref';
-import { createStore, patchStore, withEntry, type ExclusionsState, type InlineFeedback, type Store } from '../../ui/state';
+import { createStore, patchStore, withEntry, type ExclusionsState, type InlineFeedback, type ReadonlyStore, type Store } from '../../ui/state';
 import { callWorker, networkFailure, outcomeFailure } from '../../ui/worker-call';
 import type { EntryAction, WatchingPrefs, WatchingState } from '../state';
 import { popupTimeouts } from '../timeouts';
@@ -46,6 +46,11 @@ export type NotesSession =
 
 export interface WatchingControllerDeps {
   accounts: Pick<AccountsController, 'store' | 'markExpired'>;
+  /**
+   * Réglage « Fiche ouverte par défaut » (Réglages › Comptes) : service dont la liste est affichée quand les deux sont
+   * connectés ; null tant que les réglages ne sont pas lus (rien n'est chargé : pas de bascule d'une liste à l'autre)
+   */
+  preferredService: ReadonlyStore<TrackerId | null>;
   /** Séries exclues (pastille « Exclue », réactivation) et leur relecture après une exclusion */
   exclusions: Store<ExclusionsState>;
   reloadExclusions(): Promise<void>;
@@ -65,11 +70,10 @@ export interface WatchingController {
   readonly notes: Store<NotesSession | null>;
   /** Suit les comptes et la source : la liste est chargée dès que le service affiché est connu */
   start(): void;
-  /** Service affiché : la source choisie si elle est connectée, sinon le seul service connecté */
+  /** Service affiché : celui du réglage s'il est connecté, sinon le seul service connecté ; null : réglages pas encore lus */
   activeService(): TrackerId | null;
-  /** Préférences enregistrées (source, tri), lues avant les comptes : évite de charger la mauvaise liste */
+  /** Tri enregistré */
   loadPrefs(): Promise<void>;
-  pickSource(source: TrackerId): Promise<void>;
   pickSort(sort: WatchingSort): Promise<void>;
   /** « Réessayer », fin d'un alignement : relit la liste même si le service worker en a une récente */
   reload(): Promise<void>;
@@ -94,7 +98,7 @@ export interface WatchingController {
 export function createWatchingController(deps: WatchingControllerDeps): WatchingController {
   const { accounts } = deps;
   const store = createStore<WatchingState>({ status: 'idle' });
-  const prefs = createStore<WatchingPrefs>({ source: 'anilist', sort: DEFAULT_WATCHING_SORT });
+  const prefs = createStore<WatchingPrefs>({ sort: DEFAULT_WATCHING_SORT });
   const entryActions = createStore<ReadonlyMap<string, EntryAction>>(new Map());
   const notice = createStore<WatchingNotice | null>(null);
   const notes = createStore<NotesSession | null>(null);
@@ -107,9 +111,10 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
   let request = 0;
 
   function activeService(): TrackerId | null {
+    const preferred = deps.preferredService.get();
+    if (preferred === null) return null;
     const connected = TRACKER_IDS.filter((service) => accounts.store(service).get().status === 'logged-in');
-    const { source } = prefs.get();
-    return connected.includes(source) ? source : (connected[0] ?? null);
+    return connected.includes(preferred) ? preferred : (connected[0] ?? null);
   }
 
   /** `force` : relit la liste même si le service worker en a une de moins de 90 s (« Réessayer », synchro, import) */
@@ -161,10 +166,10 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
     return service ? load(service, true) : Promise.resolve();
   }
 
-  /** Recharge la liste quand le service affiché change (connexion, déconnexion, choix de source) */
+  /** Recharge la liste quand le service affiché change (connexion, déconnexion, réglage « Fiche ouverte par défaut ») */
   function syncSource(): void {
-    // Comptes encore en lecture : attendre les deux évite de charger (et d'afficher) la mauvaise liste
-    if (TRACKER_IDS.some((id) => accounts.store(id).get().status === 'loading')) return;
+    // Comptes ou réglages encore en lecture : les attendre évite de charger (et d'afficher) la mauvaise liste
+    if (deps.preferredService.get() === null || TRACKER_IDS.some((id) => accounts.store(id).get().status === 'loading')) return;
     const service = activeService();
     if (service === loadedService) return;
     loadedService = service;
@@ -191,9 +196,9 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
   // ─── Préférences ──────────────────────────────────────────────────────────
 
   async function savePrefs(): Promise<void> {
-    const { source, sort } = prefs.get();
+    const { sort } = prefs.get();
     try {
-      await chrome.storage.local.set({ [PREFS_KEY]: { source, sort } satisfies WatchingPrefs });
+      await chrome.storage.local.set({ [PREFS_KEY]: { sort } satisfies WatchingPrefs });
     } catch (error: unknown) {
       log.warn('Préférences du popup non enregistrées :', error);
     }
@@ -297,7 +302,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
     start() {
       if (unsubscribers.length > 0) return;
       for (const id of TRACKER_IDS) unsubscribers.push(accounts.store(id).subscribe(syncSource));
-      unsubscribers.push(prefs.subscribe(syncSource));
+      unsubscribers.push(deps.preferredService.subscribe(syncSource));
       chrome.storage.onChanged.addListener(onStorageChanged);
       unsubscribers.push(() => chrome.storage.onChanged.removeListener(onStorageChanged));
     },
@@ -307,20 +312,11 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
         const stored = await chrome.storage.local.get(PREFS_KEY);
         const raw: unknown = stored[PREFS_KEY];
         if (typeof raw !== 'object' || raw === null) return;
-        // Chaque champ est validé séparément : une valeur inconnue retombe sur la valeur par défaut
-        const current = prefs.get();
-        prefs.set({
-          source: 'source' in raw && isTrackerId(raw.source) ? raw.source : current.source,
-          sort: 'sort' in raw && isWatchingSort(raw.sort) ? raw.sort : DEFAULT_WATCHING_SORT,
-        });
+        // Tri inconnu : tri par défaut. `source` (sélecteur AniList / MAL retiré) n'est plus lu : la liste suit le réglage
+        prefs.set({ sort: 'sort' in raw && isWatchingSort(raw.sort) ? raw.sort : DEFAULT_WATCHING_SORT });
       } catch (error: unknown) {
         log.warn('Préférences du popup illisibles :', error);
       }
-    },
-
-    async pickSource(source) {
-      patchStore(prefs, { source });
-      await savePrefs();
     },
 
     async pickSort(sort) {

@@ -412,3 +412,14 @@ Texts of the redesigned My data page (one « Import a watch history » card, Bac
 | `settings.about.whatsNew` | Nieuw |
 | `settings.about.privacy` | Privacy |
 | `settings.about.source` | Broncode |
+
+## 2026-10-17 · Popup « My series » row menu (Preact)
+
+The row « … » menu of the popup's « My series » list and of the « Continue » card now groups the entry links and the platform searches in two sub-menus. New: `watching.menu.openEntry` (sub-menu entry, its items are the bare AniList / MyAnimeList names; wording taken from `page.openOn` without « on {service} »), `watching.menu.searchOn` (sub-menu entry, its items are the bare platform names; wording taken from `watching.searchOn`, ending with « … »). Changed: `settings.entry.help`, which now also says that « Default entry page » picks the list shown in « My series » (quoted with the exact `watching.mySeries` of this catalog). The « −1 episode » item left the menu (the row has its own −), `watching.minusOne` stays for the « On this page » card. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.menu.openEntry` | Pagina openen |
+| `watching.menu.searchOn` | Zoeken op… |
+| `settings.entry.help` | Bij een klik op de titel of cover van een anime; bepaalt ook de lijst in ‘Mijn series’ |
+

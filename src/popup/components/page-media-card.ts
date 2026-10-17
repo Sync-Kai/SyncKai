@@ -135,6 +135,12 @@ function renderReady(view: PageMediaView, refreshing: boolean, props: PageMediaC
   );
 }
 
+/** Carte affichée (série ou épisode reconnu, en chargement ou en erreur) : elle remplace alors la carte « Reprendre » */
+export function hasPageMediaCard(card: PageCardState): boolean {
+  const { status } = card.content;
+  return status !== 'idle' && status !== 'detecting' && status !== 'no-page';
+}
+
 /** Carte « Sur cette page », ou null hors page de série / d'épisode reconnue (carte « Reprendre » affichée) */
 export function renderPageMediaCard(props: PageMediaCardProps): HTMLElement | null {
   const { content } = props.card;

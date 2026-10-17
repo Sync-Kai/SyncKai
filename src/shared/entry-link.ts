@@ -50,3 +50,18 @@ export function entryLink(ids: EntryIds, context: EntryLinkContext): EntryLink |
   }
   return null;
 }
+
+/**
+ * Fiches proposées par « Ouvrir la fiche › » (menu « ⋯ ») : celle de chaque compte connecté qui connaît l'anime, service
+ * préféré en tête ; aucune : le repli de `entryLink` (fiche de l'autre service), sinon rien.
+ */
+export function entryLinks(ids: EntryIds, context: EntryLinkContext): EntryLink[] {
+  const first = entryService(context);
+  const order: readonly TrackerId[] = first === 'anilist' ? ['anilist', 'mal'] : ['mal', 'anilist'];
+  const links = order.flatMap((service): EntryLink[] => {
+    const id = entryIdOn(service, ids);
+    return context.connected.includes(service) && isId(id) ? [{ service, url: entryUrl(service, id) }] : [];
+  });
+  const fallback = links.length === 0 ? entryLink(ids, context) : null;
+  return fallback ? [fallback] : links;
+}

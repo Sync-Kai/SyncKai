@@ -208,11 +208,26 @@ const chromePanel =
       }
     : {};
 
+/**
+ * `accounts=none` : aucun compte (accueil) ; `accounts=expired` : session AniList expirée, MyAnimeList jamais connecté
+ * (accueil avec « Reconnecter AniList »)
+ */
+const onboardingParam = param('accounts');
+const onboarding = onboardingParam === 'none' || onboardingParam === 'expired' ? onboardingParam : null;
+/** `login=pending` : fenêtre de connexion restée ouverte ; `login=error` : connexion AniList annulée */
+const loginMode = param('login');
+
+/** Tokens retirés du stockage semé pour l'accueil */
+function withoutTokens(storage: Record<string, unknown>): Record<string, unknown> {
+  const dropped: string[] = onboarding === 'none' ? [STORAGE_KEYS.anilistToken, STORAGE_KEYS.malToken] : onboarding === 'expired' ? [STORAGE_KEYS.malToken] : [];
+  return Object.fromEntries(Object.entries(storage).filter(([key]) => !dropped.includes(key)));
+}
+
 installChromeMock({
   ...demo,
   ...chromePanel,
   ...(param('shortcuts') === 'panel-unset' ? { shortcuts: { episode: 'Alt+Shift+K', panel: '' } } : {}),
-  storage: {
+  storage: withoutTokens({
     ...demoStorage,
     ...(emptyWatching ? { [STORAGE_KEYS.watchingCache]: lists } : {}),
     [STORAGE_KEYS.anilistToken]: { accessToken: PLANTED_SECRETS.anilistAccess, expiresAt: far },
@@ -220,10 +235,15 @@ installChromeMock({
     [DIAGNOSTICS_LOG_KEY]: journal,
     ...(hangWatching || slowWatching ? { [STORAGE_KEYS.watchingCache]: {} } : {}),
     ...account.storage,
-  },
+    // Accueil, session AniList expirée : token échu (MyAnimeList retiré par withoutTokens)
+    ...(onboarding === 'expired' ? { [STORAGE_KEYS.anilistToken]: { accessToken: PLANTED_SECRETS.anilistAccess, expiresAt: 1 } } : {}),
+  }),
   handlers: {
     ...demo.handlers,
     ...account.handlers,
+    // `login=pending` : fenêtre de connexion restée ouverte ; `login=error` : connexion annulée
+    ...(loginMode === 'pending' ? { LOGIN_ANILIST: () => new Promise<never>(() => {}), LOGIN_MAL: () => new Promise<never>(() => {}) } : {}),
+    ...(loginMode === 'error' ? { LOGIN_ANILIST: () => ({ ok: false, code: 'CANCELLED', message: t('auth.cancelled') }) } : {}),
     GET_MAL_VIEWER: (payload) =>
       missingViewer && ++malViewerCalls === 1 ? { ok: false, code: 'NETWORK', message: 'MyAnimeList injoignable (e2e)' } : demo.handlers.GET_MAL_VIEWER?.(payload),
     GET_WATCHING: (payload) => {
@@ -240,8 +260,11 @@ installChromeMock({
     // Vrai code du service worker (SEC-06) : rapport construit et expurgé sur le stockage semé, jetons compris
     GET_DIAGNOSTICS_REPORT: () => diagnosticsReport(),
     REMOVE_FROM_LIST: removeFromList,
-    GET_LIST_NOTES: getListNotes,
-    SET_LIST_NOTES: setListNotes,
+    // `notes=hang` : commentaire jamais lu (éditeur en lecture) ; `notes=missing` : série absente des listes ;
+    // `notes=slow` : enregistrement en cours un moment (captures des états de l'éditeur)
+    GET_LIST_NOTES: (payload): ListNotesResult | Promise<never> =>
+      param('notes') === 'hang' ? new Promise<never>(() => {}) : param('notes') === 'missing' ? { ok: true, data: { inList: false, notes: null } } : getListNotes(payload),
+    SET_LIST_NOTES: (payload) => (param('notes') === 'slow' ? new Promise<SyncOutcome>((resolve) => setTimeout(() => resolve(setListNotes(payload)), 60_000)) : setListNotes(payload)),
     ADD_TO_LIST: () => synced(pageView().media.title, { status: 'updated', progress: 0, completed: false }),
     RESOLVE_PAGE_MEDIA: (): PageMediaResult =>
       // `pageMedia=untracked` : série ignorée par la synchro (Netflix, pas un anime)

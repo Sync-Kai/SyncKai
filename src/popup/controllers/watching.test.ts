@@ -75,6 +75,8 @@ const markExpired = vi.fn<(service: TrackerId) => void>();
 const onServiceShown = vi.fn<(service: TrackerId) => void>();
 const onNoticeShown = vi.fn<() => void>();
 let exclusions: Store<ExclusionsState>;
+/** Réglage « Fiche ouverte par défaut » (null : réglages pas encore lus) */
+let preferred: Store<TrackerId | null>;
 let ctl: WatchingController;
 
 function connect(...services: TrackerId[]): void {
@@ -94,8 +96,10 @@ beforeEach(() => {
   // Session refusée : le compte passe à « Session expirée » (comme le contrôleur des comptes)
   markExpired.mockImplementation((service) => accountStores[service].set({ ...LOGGED_OUT, expired: true }));
   exclusions = createStore<ExclusionsState>({ status: 'ready', items: [] });
+  preferred = createStore<TrackerId | null>('anilist');
   ctl = createWatchingController({
     accounts: { store: (service) => accountStores[service], markExpired },
+    preferredService: preferred,
     exclusions,
     reloadExclusions: async () => undefined,
     onServiceShown,
@@ -157,16 +161,38 @@ describe('createWatchingController : chargement', () => {
     expect(ctl.store.get()).toEqual({ status: 'ready', service: 'anilist', list: late, refreshing: false, error: null });
   });
 
-  it('changement de source : la réponse de l’ancienne requête est ignorée', async () => {
+  it('service affiché : « Fiche ouverte par défaut » des réglages s’il est connecté, sinon le seul service connecté', async () => {
+    preferred.set('mal');
+    connect('anilist', 'mal');
+    await settle();
+    expect(ctl.activeService()).toBe('mal');
+    expect(lastCall('GET_WATCHING').payload).toEqual({ service: 'mal' });
+    connect('anilist');
+    await settle();
+    expect(ctl.activeService()).toBe('anilist');
+    expect(lastCall('GET_WATCHING').payload).toEqual({ service: 'anilist' });
+  });
+
+  it('réglages pas encore lus : rien n’est chargé, puis la liste du service choisi', async () => {
+    preferred.set(null);
+    connect('anilist', 'mal');
+    await settle();
+    expect(sw.calls).toHaveLength(0);
+    expect(ctl.activeService()).toBeNull();
+    preferred.set('mal');
+    await settle();
+    expect(calls('GET_WATCHING').map((c) => c.payload)).toEqual([{ service: 'mal' }]);
+  });
+
+  it('réglage « Fiche ouverte par défaut » changé : liste de l’autre service, la réponse de l’ancienne requête est ignorée', async () => {
     connect('anilist', 'mal');
     await settle();
     const first = lastCall('GET_WATCHING');
     expect(first.payload).toEqual({ service: 'anilist' });
 
-    void ctl.pickSource('mal');
+    preferred.set('mal');
     await settle();
     expect(lastCall('GET_WATCHING').payload).toEqual({ service: 'mal' });
-    expect(fake.local.peek('popupPrefs')).toEqual({ source: 'mal', sort: 'next-episode' });
 
     first.resolve({ ok: true, data: list('anilist', [FRIEREN]) });
     await settle();
@@ -195,12 +221,15 @@ describe('createWatchingController : chargement', () => {
     expect(ctl.store.get()).toEqual({ status: 'idle' });
   });
 
-  it('préférences : valeurs valides reprises, valeur inconnue remplacée par le tri par défaut', async () => {
+  it('préférences : tri valide repris, valeur inconnue remplacée par le tri par défaut ; l’ancienne source enregistrée est ignorée', async () => {
     fake.local.seed({ popupPrefs: { source: 'mal', sort: 'inconnu' } });
     await ctl.loadPrefs();
-    expect(ctl.prefs.get()).toEqual({ source: 'mal', sort: 'next-episode' });
+    expect(ctl.prefs.get()).toEqual({ sort: 'next-episode' });
     await ctl.pickSort('title');
-    expect(fake.local.peek('popupPrefs')).toEqual({ source: 'mal', sort: 'title' });
+    expect(fake.local.peek('popupPrefs')).toEqual({ sort: 'title' });
+    fake.local.seed({ popupPrefs: { source: 'mal', sort: 'remaining' } });
+    await ctl.loadPrefs();
+    expect(ctl.prefs.get()).toEqual({ sort: 'remaining' });
   });
 });
 
