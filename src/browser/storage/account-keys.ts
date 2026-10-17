@@ -33,6 +33,8 @@ export const ACCOUNT_STORES: readonly AccountBoundStore[] = [
   { name: 'reviews', scope: { kind: 'user' }, keys: [STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs] },
   // Marques « vu » de la barre d'état (synchros et import terminés de l'utilisateur)
   { name: 'status-bar', scope: { kind: 'user' }, keys: [STORAGE_KEYS.syncsSeenAt, STORAGE_KEYS.importSeenAt] },
+  // « Synchro cette semaine » du menu du compte (la part de chaque service est retirée à sa déconnexion par purgeClosedSessions)
+  { name: 'weekly-syncs', scope: { kind: 'user' }, keys: [STORAGE_KEYS.weeklySyncs] },
   // Liste « En cours » de chaque service : l'entrée du service déconnecté est retirée à sa déconnexion (removeCachedWatching)
   { name: 'watching-cache', scope: { kind: 'user' }, keys: [STORAGE_KEYS.watchingCache] },
   { name: 'sync-queue', scope: { kind: 'user' }, keys: [SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY] },

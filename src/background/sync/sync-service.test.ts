@@ -66,6 +66,7 @@ const { getMediaMapping, saveChosen, saveMediaMappingsIfAbsent } = await import(
 const seedMapping = (key: string, mapping: MediaMapping): Promise<number> => saveMediaMappingsIfAbsent([{ key, mapping }]);
 const { getPendingReviews, savePendingReview } = await import('../../browser/storage/reviews');
 const { getSyncQueue } = await import('../../browser/storage/sync-queue-store');
+const { getWeeklySyncCount } = await import('../../browser/storage/weekly-syncs');
 const { excludeSeries } = await import('../../browser/storage/exclusions-store');
 const { PLATFORM_LINKS_KEY } = await import('../../platforms/links');
 
@@ -261,6 +262,44 @@ describe('« Synchro… » de la barre d’état', () => {
     await resolveReview({ key: KEY, mediaId: PART1, progress: 12 });
     expect(seen).toEqual([{ startedAt: expect.any(Number) }]);
     expect(fake.session.peek('syncActivity')).toBeUndefined();
+  });
+});
+
+describe('« Synchro cette semaine » du menu du compte', () => {
+  it('un épisode par service réellement écrit (déjà à jour : non compté)', async () => {
+    connect({ status: 'CURRENT', progress: 5 }, { status: 'CURRENT', progress: 6 });
+    fakes.resolutions = [resolved(PART1, 6)];
+    await syncEpisode(episode(6));
+    expect(await getWeeklySyncCount('anilist')).toBe(1);
+    expect(await getWeeklySyncCount('mal')).toBe(0);
+    fakes.resolutions = [resolved(PART1, 7)];
+    await syncEpisode(episode(7));
+    expect(await getWeeklySyncCount('anilist')).toBe(2);
+    expect(await getWeeklySyncCount('mal')).toBe(1);
+  });
+
+  it('carte « À vérifier » validée : comptée ; correction (« Corriger ») : non comptée (l’épisode l’a déjà été)', async () => {
+    connect({ status: 'CURRENT', progress: 11 });
+    await savePendingReview(review());
+    await resolveReview({ key: KEY, mediaId: PART1, progress: 12 });
+    expect(await getWeeklySyncCount('anilist')).toBe(1);
+    await savePendingReview(review({ episode: episode(12), suggestion: { mediaId: PART1, progress: 11 }, previous: { mediaId: PART1, title: 'Fiche 1001', progress: 12 } }));
+    await resolveReview({ key: KEY, mediaId: PART1, progress: 11 });
+    expect(anilist.entries.get(PART1)?.progress).toBe(11);
+    expect(await getWeeklySyncCount('anilist')).toBe(1);
+  });
+
+  it('session changée pendant les écritures : rien n’est compté pour elle', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    const save = anilist.saveProgress;
+    anilist.saveProgress = async (...args) => {
+      const saved = await save(...args);
+      fake.local.data.set('sessionEpoch', { anilist: 1, mal: 0 });
+      return saved;
+    };
+    fakes.resolutions = [resolved(PART1, 6)];
+    await syncEpisode(episode(6));
+    expect(fake.local.peek('accountMenu:weeklySyncs')).toEqual({ mal: expect.objectContaining({ count: 1, epoch: 0 }) });
   });
 });
 

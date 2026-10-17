@@ -263,3 +263,34 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.syncedEpisodes_few` | {count} odcinki zsynchronizowane |
 | `footer.syncedEpisodes_many` | {count} odcinków zsynchronizowanych |
 | `footer.syncedEpisodes_other` | {count} odcinka zsynchronizowanego |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **konto**, **połączone** (as `settings.account.connected`), **sesja wygasła** (`common.sessionExpired`), **synchronizacja**, **odcinek** with the four plural forms of `footer.syncedEpisodes_*`; *anime* indeclinable; the days tile label is the genitive noun **oglądania** (of watching), valid for every count; « day » is **d**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Połączone |
+| `accountMenu.connectedAs` | {name} · połączone |
+| `accountMenu.label` | Konto {service} |
+| `accountMenu.labelExpired` | Konto {service}, sesja wygasła |
+| `accountMenu.profile` | Zobacz mój profil |
+| `accountMenu.stats.anime_one` | anime |
+| `accountMenu.stats.anime_few` | anime |
+| `accountMenu.stats.anime_many` | anime |
+| `accountMenu.stats.anime_other` | anime |
+| `accountMenu.stats.days_one` | oglądania |
+| `accountMenu.stats.days_few` | oglądania |
+| `accountMenu.stats.days_many` | oglądania |
+| `accountMenu.stats.days_other` | oglądania |
+| `accountMenu.stats.daysValue` | {days} d |
+| `accountMenu.stats.episodes_one` | odcinek |
+| `accountMenu.stats.episodes_few` | odcinki |
+| `accountMenu.stats.episodes_many` | odcinków |
+| `accountMenu.stats.episodes_other` | odcinka |
+| `accountMenu.week.label` | Synchronizacja w tym tygodniu |
+| `accountMenu.week.title` | Odcinki zsynchronizowane przez SyncKai w tym tygodniu |
+| `accountMenu.week.value_one` | {count} odcinek |
+| `accountMenu.week.value_few` | {count} odcinki |
+| `accountMenu.week.value_many` | {count} odcinków |
+| `accountMenu.week.value_other` | {count} odcinka |

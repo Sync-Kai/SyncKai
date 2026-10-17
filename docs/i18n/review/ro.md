@@ -260,3 +260,30 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.syncedEpisodes_one` | {count} episod sincronizat |
 | `footer.syncedEpisodes_few` | {count} episoade sincronizate |
 | `footer.syncedEpisodes_other` | {count} de episoade sincronizate |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **contul**, **conectat** (as `settings.account.connected`), **sesiune expirată** (`common.sessionExpired`), **sincronizat**, **episod** with the forms of `footer.syncedEpisodes_*` (« de » only in the row value: the tile labels stand alone under the number); *anime* invariable; « vizionată / vizionate » agrees with *zi / zile*; « day » is **z**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Conectat |
+| `accountMenu.connectedAs` | {name} · conectat |
+| `accountMenu.label` | Contul {service} |
+| `accountMenu.labelExpired` | Contul {service}, sesiune expirată |
+| `accountMenu.profile` | Vezi profilul meu |
+| `accountMenu.stats.anime_one` | anime |
+| `accountMenu.stats.anime_few` | anime |
+| `accountMenu.stats.anime_other` | anime |
+| `accountMenu.stats.days_one` | vizionată |
+| `accountMenu.stats.days_few` | vizionate |
+| `accountMenu.stats.days_other` | vizionate |
+| `accountMenu.stats.daysValue` | {days} z |
+| `accountMenu.stats.episodes_one` | episod |
+| `accountMenu.stats.episodes_few` | episoade |
+| `accountMenu.stats.episodes_other` | episoade |
+| `accountMenu.week.label` | Sincronizate săptămâna asta |
+| `accountMenu.week.title` | Episoade sincronizate de SyncKai săptămâna aceasta |
+| `accountMenu.week.value_one` | {count} episod |
+| `accountMenu.week.value_few` | {count} episoade |
+| `accountMenu.week.value_other` | {count} de episoade |

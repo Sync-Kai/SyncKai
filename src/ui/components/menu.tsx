@@ -97,16 +97,23 @@ export function Menu({ label, menuLabel, align = 'end', defaultOpen = false, foc
   );
 }
 
-interface MenuPopupProps {
+export interface MenuPopupProps {
   label: string;
   align: 'start' | 'end';
-  root: RefObject<HTMLDivElement | null>;
+  /** Position et largeur à la place du défaut (sous le bouton, 240 px) : menu du compte au-dessus de la barre d'état */
+  placement?: string;
+  /** Contenu non interactif décrit au lecteur d'écran à l'ouverture (aria-describedby) */
+  describedBy?: string;
+  root: RefObject<Element | null>;
   onClose: (restore: boolean) => void;
   children: ComponentChildren;
 }
 
-/** Menu ouvert : monté à l'ouverture, démonté à la fermeture (écouteurs et minuterie retirés avec lui) */
-function MenuPopup({ label, align, root, onClose, children }: MenuPopupProps) {
+/**
+ * Menu ouvert : monté à l'ouverture, démonté à la fermeture (écouteurs et minuterie retirés avec lui). `root` contient
+ * le bouton qui l'ouvre (son clic ne compte pas comme un clic extérieur)
+ */
+export function MenuPopup({ label, align, placement, describedBy, root, onClose, children }: MenuPopupProps) {
   const menu = useRef<HTMLDivElement>(null);
   const [openSub, setOpenSub] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -221,9 +228,10 @@ function MenuPopup({ label, align, root, onClose, children }: MenuPopupProps) {
     <MenuContext.Provider value={api}>
       <div
         ref={menu}
-        class={`absolute top-full z-10 mt-1 flex w-60 flex-col rounded-menu border border-field bg-raised p-1.5 shadow-pop ${align === 'end' ? 'right-0' : 'left-0'}`}
+        class={`absolute z-10 flex flex-col rounded-menu border border-field bg-raised p-1.5 shadow-pop ${placement ?? `top-full mt-1 w-60 ${align === 'end' ? 'right-0' : 'left-0'}`}`}
         role="menu"
         aria-label={label}
+        aria-describedby={describedBy}
         data-menu=""
         onKeyDown={onKeyDown}
       >
@@ -234,7 +242,7 @@ function MenuPopup({ label, align, root, onClose, children }: MenuPopupProps) {
 }
 
 const ITEM =
-  'flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-control border-0 bg-transparent px-2.5 text-left text-body font-bold no-underline transition-colors hover:bg-line focus-visible:bg-line disabled:pointer-events-none disabled:opacity-50';
+  'flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-control border-0 px-2.5 text-left text-body no-underline transition-colors hover:bg-line focus-visible:bg-line disabled:pointer-events-none disabled:opacity-50';
 
 export interface MenuItemProps {
   /** Icône de tête ; `tone` la colore (danger, à vérifier…) */
@@ -244,6 +252,8 @@ export interface MenuItemProps {
   service?: TrackerId | StreamingPlatform;
   /** Action destructive : texte et icône en `danger` */
   danger?: boolean;
+  /** Action mise en avant (« Reconnecter » d'une session expirée) : fond `line`, texte 800, icône sakura */
+  emphasis?: boolean;
   /** Lien dans un nouvel onglet ; sinon bouton */
   href?: string;
   onSelect?: () => void;
@@ -251,11 +261,11 @@ export interface MenuItemProps {
   children: ComponentChildren;
 }
 
-export function MenuItem({ icon, tone, service, danger = false, href, onSelect, disabled = false, children }: MenuItemProps) {
+export function MenuItem({ icon, tone, service, danger = false, emphasis = false, href, onSelect, disabled = false, children }: MenuItemProps) {
   const api = useMenu();
   const sub = useContext(SubMenuContext);
-  const className = `${ITEM} ${sub === null ? 'min-h-menu-item' : 'min-h-8'} ${danger ? 'text-danger' : 'text-ink'}`;
-  const lead = service ? <ServiceLogo id={service} size="sm" /> : icon && <Icon name={icon} class={`size-4 ${tone ? TONE_TEXT[tone] : ''}`} strokeWidth="2.2" />;
+  const className = `${ITEM} ${sub === null ? 'min-h-menu-item' : 'min-h-8'} ${danger ? 'text-danger' : 'text-ink'} ${emphasis ? 'bg-line font-extrabold' : 'bg-transparent font-bold'}`;
+  const lead = service ? <ServiceLogo id={service} size="sm" /> : icon && <Icon name={icon} class={`size-4 ${tone ? TONE_TEXT[tone] : emphasis ? 'text-sakura' : ''}`} strokeWidth="2.2" />;
   const shared = {
     class: className,
     role: 'menuitem' as const,
@@ -303,7 +313,7 @@ export function SubMenu({ label, icon, children }: SubMenuProps) {
     <div class="relative" data-submenu="" onMouseEnter={() => api.hoverEnter(id)} onMouseLeave={() => api.hoverLeave(id)}>
       <button
         type="button"
-        class={`${ITEM} min-h-menu-item text-ink ${open ? 'bg-surface' : ''}`}
+        class={`${ITEM} min-h-menu-item font-bold text-ink ${open ? 'bg-surface' : 'bg-transparent'}`}
         role="menuitem"
         tabIndex={-1}
         aria-haspopup="menu"

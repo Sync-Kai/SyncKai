@@ -247,3 +247,22 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.importReady_other` | 가져오기 준비됨 · 확인할 작품 {count}개 |
 | `footer.syncedEpisode` | {episode}화 동기화됨 |
 | `footer.syncedEpisodes_other` | 에피소드 {count}개 동기화됨 |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used 계정, 연결됨 (as `settings.account.connected`), 세션 만료 (`common.sessionExpired`), 동기화, 에피소드 and 에피소드 N개 (as `footer.syncedEpisodes_other`), 애니; the days tile label is 시청 시간; « day » is 일, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | 연결됨 |
+| `accountMenu.connectedAs` | {name} · 연결됨 |
+| `accountMenu.label` | {service} 계정 |
+| `accountMenu.labelExpired` | {service} 계정, 세션 만료 |
+| `accountMenu.profile` | 내 프로필 보기 |
+| `accountMenu.stats.anime_other` | 애니 |
+| `accountMenu.stats.days_other` | 시청 시간 |
+| `accountMenu.stats.daysValue` | {days}일 |
+| `accountMenu.stats.episodes_other` | 에피소드 |
+| `accountMenu.week.label` | 이번 주 동기화 |
+| `accountMenu.week.title` | 이번 주 SyncKai가 동기화한 에피소드 |
+| `accountMenu.week.value_other` | 에피소드 {count}개 |

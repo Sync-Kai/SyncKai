@@ -226,6 +226,71 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(sel('host-access'))).toBeNull();
   });
 
+  it('menu du compte : logo AniList → menu au-dessus de la barre (statistiques, synchros de la semaine), une relecture du profil au plus, Échap ferme', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel('chip-anilist'));
+    // Profil de démo sans date de lecture : relu au démarrage, puis une fois à l'ouverture du menu
+    await waitForMessage(page, 'GET_VIEWER');
+    const before = (await sent(page, 'GET_VIEWER')).length;
+    expect(await attr(page, sel('chip-anilist'), 'aria-haspopup')).toBe('menu');
+    await click(page, 'chip-anilist');
+    await page.waitForSelector('[role="menu"] [data-stat]');
+    expect(await attr(page, sel('chip-anilist'), 'aria-expanded')).toBe('true');
+    expect(await attr(page, '[role="menu"]', 'aria-label')).toBe(fr('accountMenu.label', { service: 'AniList' }));
+    expect(await text(page, '[data-account-status]')).toBe(fr('accountMenu.connectedAs', { name: 'Kai_fan' }));
+    const tiles = await page.$$eval('[role="menu"] [data-stat]', (els) => els.map((el) => (el as HTMLElement).innerText.replace(/\n+/g, ' ').trim()));
+    const n = new Intl.NumberFormat('fr');
+    expect(tiles).toEqual([
+      `${n.format(142)} ${tl('fr', 'accountMenu.stats.anime_other')}`,
+      `${n.format(3210)} ${tl('fr', 'accountMenu.stats.episodes_other')}`,
+      `${fr('accountMenu.stats.daysValue', { days: '54' })} ${tl('fr', 'accountMenu.stats.days_other')}`,
+    ]);
+    expect(await text(page, '[data-week-value]')).toBe(fr('accountMenu.week.value_other', { count: 9 }));
+    expect(await attr(page, '[data-week] [title]', 'title')).toBe(fr('accountMenu.week.title'));
+    // Menu au-dessus de la barre, dans le popup, entre 288 et 376 px
+    const box = await page.$eval('[role="menu"]', (el) => {
+      const rect = el.getBoundingClientRect();
+      const footer = document.querySelector('footer')?.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width, bottom: rect.bottom, footerTop: footer?.top ?? 0 };
+    });
+    expect(box.bottom).toBeLessThanOrEqual(box.footerTop);
+    expect(box.width).toBeGreaterThanOrEqual(288);
+    expect(box.width).toBeLessThanOrEqual(376);
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(400);
+    // Focus sur « Voir mon profil » (lien vers le profil, nouvel onglet), flèche vers « Déconnecter »
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('href'))).toBe('https://anilist.co/user/Kai_fan');
+    await page.keyboard.press('ArrowDown');
+    expect(await page.evaluate(() => document.activeElement?.textContent)).toBe(fr('settings.account.logout'));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.querySelector('[role="menu"]') === null);
+    expect(await focused(page)).toBe('chip-anilist');
+    // Échap n'a fermé que le menu : le popup reste sur « En cours »
+    expect(await shownScreen(page)).toBe(0);
+    expect((await sent(page, 'GET_VIEWER')).length).toBeLessThanOrEqual(before + 1);
+  });
+
+  it('menu du compte : session expirée (« Reconnecter » d’abord, profil en cache), statistiques illisibles (tuiles masquées)', async () => {
+    const expired = await openPopup({ account: 'expired' });
+    await click(expired, 'chip-anilist');
+    await expired.waitForSelector('[data-account-status="expired"]');
+    expect(await attr(expired, '[role="menu"]', 'aria-label')).toBe(fr('accountMenu.labelExpired', { service: 'AniList' }));
+    // Profil en cache lu à l'ouverture : « Voir mon profil » apparaît
+    await expired.waitForFunction(() => document.querySelectorAll('[role="menu"] [role="menuitem"]').length === 3);
+    const items = await expired.$$eval('[role="menu"] [role="menuitem"]', (els) => els.map((el) => el.textContent));
+    expect(items).toEqual([fr('common.reconnect'), fr('accountMenu.profile'), fr('settings.account.logout')]);
+    expect(await expired.$('[role="menu"] [data-stats]')).toBeNull();
+    await expired.locator('[role="menu"] [role="menuitem"]').click();
+    await waitForMessage(expired, 'LOGIN_ANILIST');
+
+    const failed = await openPopup({ account: 'no-stats' });
+    await click(failed, 'chip-anilist');
+    await failed.waitForSelector('[role="menu"] [data-week-value]');
+    await failed.waitForFunction(() => document.querySelector('[role="menu"] [data-skeleton]') === null);
+    expect(await failed.$('[role="menu"] [data-stats]')).toBeNull();
+    expect(await text(failed, '[data-account-status]')).toBe(fr('accountMenu.connectedAs', { name: 'Kai_fan' }));
+  });
+
   it('panneau latéral (Chrome) : bouton « Ouvrir le panneau » sur un site quelconque, ouvert dans la fenêtre de l’onglet', async () => {
     const page = await openPopup({ panel: 'chrome' });
     await page.waitForSelector(sel('panel'));

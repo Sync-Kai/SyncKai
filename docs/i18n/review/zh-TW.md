@@ -248,3 +248,22 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.importReady_other` | 匯入就緒 · {count} 部待確認 |
 | `footer.syncedEpisode` | 第 {episode} 集已同步 |
 | `footer.syncedEpisodes_other` | {count} 集已同步 |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used 帳號, 已連結 (as `settings.account.connected`), 登入已過期 (`common.sessionExpired`), 同步, 集 / 集數, 動畫, 個人檔案 (as `settings.account.openProfile`); the days tile label is 觀看時間; « day » is 天, as `time.countdown.days`; full-width comma. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | 已連結 |
+| `accountMenu.connectedAs` | {name} · 已連結 |
+| `accountMenu.label` | {service} 帳號 |
+| `accountMenu.labelExpired` | {service} 帳號，登入已過期 |
+| `accountMenu.profile` | 查看我的個人檔案 |
+| `accountMenu.stats.anime_other` | 動畫 |
+| `accountMenu.stats.days_other` | 觀看時間 |
+| `accountMenu.stats.daysValue` | {days} 天 |
+| `accountMenu.stats.episodes_other` | 集數 |
+| `accountMenu.week.label` | 本週已同步 |
+| `accountMenu.week.title` | 本週由 SyncKai 同步的集數 |
+| `accountMenu.week.value_other` | {count} 集 |

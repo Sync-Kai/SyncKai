@@ -1,3 +1,4 @@
+import { isAccountStats, type AccountStats } from './account-stats';
 import { isRecord } from './guards';
 import type { Result } from './result';
 
@@ -14,6 +15,8 @@ export interface AniListViewer {
   name: string;
   siteUrl: string;
   avatarUrl: string | null;
+  /** Statistiques du menu du compte, lues avec le profil ; null : illisibles ; absentes : profil enregistré avant elles */
+  stats?: AccountStats | null;
 }
 
 export function isAniListViewer(value: unknown): value is AniListViewer {
@@ -22,7 +25,8 @@ export function isAniListViewer(value: unknown): value is AniListViewer {
     typeof value.id === 'number' &&
     typeof value.name === 'string' &&
     typeof value.siteUrl === 'string' &&
-    (value.avatarUrl === null || typeof value.avatarUrl === 'string')
+    (value.avatarUrl === null || typeof value.avatarUrl === 'string') &&
+    (value.stats === undefined || value.stats === null || isAccountStats(value.stats))
   );
 }
 
@@ -46,6 +50,8 @@ export interface ViewerQueryData {
     name: string;
     siteUrl: string;
     avatar?: { medium: string | null } | null;
+    /** `statistics.anime`, validé à part (shared/account-stats.ts › aniListStats) : illisible, le profil reste valide */
+    statistics?: unknown;
   };
 }
 

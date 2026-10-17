@@ -231,3 +231,22 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.importReady_other` | 导入就绪 · {count} 部待确认 |
 | `footer.syncedEpisode` | 第 {episode} 集已同步 |
 | `footer.syncedEpisodes_other` | {count} 集已同步 |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used 账号, 已连接 (as `settings.account.connected`), 登录已过期 (`common.sessionExpired`), 同步, 集 / 集数, 动画, 个人主页 (as `settings.account.openProfile`); the days tile label is 观看时长; « day » is 天, as `time.countdown.days`; full-width comma. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | 已连接 |
+| `accountMenu.connectedAs` | {name} · 已连接 |
+| `accountMenu.label` | {service} 账号 |
+| `accountMenu.labelExpired` | {service} 账号，登录已过期 |
+| `accountMenu.profile` | 查看我的个人主页 |
+| `accountMenu.stats.anime_other` | 动画 |
+| `accountMenu.stats.days_other` | 观看时长 |
+| `accountMenu.stats.daysValue` | {days} 天 |
+| `accountMenu.stats.episodes_other` | 集数 |
+| `accountMenu.week.label` | 本周已同步 |
+| `accountMenu.week.title` | 本周由 SyncKai 同步的剧集 |
+| `accountMenu.week.value_other` | {count} 集 |

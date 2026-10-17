@@ -1,5 +1,6 @@
 // Contrat entre la page de test (popup-frame.ts, dans le navigateur) et les tests (popup.e2e.ts, dans Node).
 import type { Locale } from '../../src/i18n';
+import type { AccountDemo } from '../screenshots/demo-data';
 import type { SentMessage } from '../screenshots/mock-chrome';
 
 /** Traces relevées par la page de test, lues par les tests via `window.__e2e` */
@@ -64,6 +65,8 @@ export interface FrameParams {
   shortcuts?: 'panel-unset';
   /** `chrome` : chrome.sidePanel exposé (bouton « Ouvrir le panneau ») ; onglet actif hors plateformes de streaming */
   panel?: 'chrome';
+  /** Compte AniList du menu du compte : session expirée, profil en cours de lecture, statistiques illisibles (accountDemo) */
+  account?: AccountDemo;
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */
@@ -104,6 +107,8 @@ export interface PanelFrameParams {
   netflix?: 'granted';
   /** `open` : chrome.action.openPopup présent (Chrome 127+) ; absent : API absente */
   popup?: 'open';
+  /** Compte AniList du menu du compte (accountDemo) */
+  account?: AccountDemo;
 }
 
 declare global {

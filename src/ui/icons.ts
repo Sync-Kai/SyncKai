@@ -67,6 +67,8 @@ const ICON_PATHS = {
   close: ['M18 6 6 18', 'M6 6l12 12'],
   download: ['M12 3v12', 'M7 10l5 5 5-5', 'M5 21h14'],
   checkSquare: ['M9 11l3 3 8-8', 'M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'],
+  // Menu du compte : « Se déconnecter »
+  logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

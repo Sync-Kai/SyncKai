@@ -357,7 +357,6 @@ async function main(): Promise<void> {
   mountStatusBar(statusBarSlot, {
     accounts,
     openActivity: canOpenPopup() ? () => void openPopupOn('activity') : null,
-    openAccounts: () => setSettingsOpen(true, 'accounts'),
     openImport: (platform) => void chrome.tabs.create({ url: importPageUrl(platform) }),
   });
   // Accès accordé ou retiré (bouton « Activer », Réglages, about:addons) : la ligne hors page cible suit

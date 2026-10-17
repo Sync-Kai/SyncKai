@@ -249,3 +249,34 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.syncedEpisodes_few` | {count} епізоди синхронізовано |
 | `footer.syncedEpisodes_many` | {count} епізодів синхронізовано |
 | `footer.syncedEpisodes_other` | {count} епізоду синхронізовано |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **акаунт**, **підключено** (as `settings.account.connected`), **сеанс закінчився** (`common.sessionExpired`), **синхронізовано**, **епізод** with the four plural forms of `footer.syncedEpisodes_*`; *аніме* indeclinable; the days tile label is the genitive noun **перегляду**, valid for every count; « day » is **дн.**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Підключено |
+| `accountMenu.connectedAs` | {name} · підключено |
+| `accountMenu.label` | Акаунт {service} |
+| `accountMenu.labelExpired` | Акаунт {service}, сеанс закінчився |
+| `accountMenu.profile` | Відкрити мій профіль |
+| `accountMenu.stats.anime_one` | аніме |
+| `accountMenu.stats.anime_few` | аніме |
+| `accountMenu.stats.anime_many` | аніме |
+| `accountMenu.stats.anime_other` | аніме |
+| `accountMenu.stats.days_one` | перегляду |
+| `accountMenu.stats.days_few` | перегляду |
+| `accountMenu.stats.days_many` | перегляду |
+| `accountMenu.stats.days_other` | перегляду |
+| `accountMenu.stats.daysValue` | {days} дн. |
+| `accountMenu.stats.episodes_one` | епізод |
+| `accountMenu.stats.episodes_few` | епізоди |
+| `accountMenu.stats.episodes_many` | епізодів |
+| `accountMenu.stats.episodes_other` | епізоду |
+| `accountMenu.week.label` | Синхронізовано за тиждень |
+| `accountMenu.week.title` | Епізоди, синхронізовані SyncKai цього тижня |
+| `accountMenu.week.value_one` | {count} епізод |
+| `accountMenu.week.value_few` | {count} епізоди |
+| `accountMenu.week.value_many` | {count} епізодів |
+| `accountMenu.week.value_other` | {count} епізоду |

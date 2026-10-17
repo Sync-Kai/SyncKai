@@ -14,7 +14,7 @@ import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../src/shared/watching.types';
-import { demoChrome, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
+import { accountDemo, demoChrome, isAccountDemo, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
@@ -193,7 +193,10 @@ const journal: JournalEntry[] = [
   { at: now - 5 * 60_000, level: 'error', scope: 'sync', message: `AniList 401 (Bearer ${PLANTED_SECRETS.anilistAccess})` },
 ];
 
-const demoStorage = Object.fromEntries(Object.entries(demo.storage).filter(([key]) => !(missingViewer && key === STORAGE_KEYS.malViewer)));
+/** `account=expired|loading|no-stats` : compte AniList du menu du compte (voir accountDemo) */
+const accountMode = param('account');
+const account = accountDemo(isAccountDemo(accountMode) ? accountMode : null, demo);
+const demoStorage = Object.fromEntries(Object.entries(demo.storage).filter(([key]) => !(missingViewer && key === STORAGE_KEYS.malViewer) && !account.drop.includes(key)));
 
 /** `panel=chrome` : panneau latéral Chrome disponible, onglet actif sur un site quelconque (pas de script de contenu) */
 const chromePanel =
@@ -216,9 +219,11 @@ installChromeMock({
     [STORAGE_KEYS.malToken]: { accessToken: PLANTED_SECRETS.malAccess, refreshToken: PLANTED_SECRETS.malRefresh, expiresAt: far },
     [DIAGNOSTICS_LOG_KEY]: journal,
     ...(hangWatching || slowWatching ? { [STORAGE_KEYS.watchingCache]: {} } : {}),
+    ...account.storage,
   },
   handlers: {
     ...demo.handlers,
+    ...account.handlers,
     GET_MAL_VIEWER: (payload) =>
       missingViewer && ++malViewerCalls === 1 ? { ok: false, code: 'NETWORK', message: 'MyAnimeList injoignable (e2e)' } : demo.handlers.GET_MAL_VIEWER?.(payload),
     GET_WATCHING: (payload) => {

@@ -253,12 +253,34 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await page.$eval('[data-status-message]', (el) => el.tagName)).toBe('SPAN');
     await page.locator('#sk-tab-nowPlaying').click();
     expect(await page.$('[data-status-bar] footer')).not.toBeNull();
-    // Logo de compte : Réglages › Comptes du panneau
+  });
+
+  it('menu du compte (même composant que le popup) : logo MAL → statistiques et synchros de la semaine ; à 320 px, jamais hors du panneau ; Échap ferme', async () => {
+    const page = await openPanel({ tab: 'agenda' });
+    await page.waitForSelector('[data-status-bar] footer [data-focus="chip-mal"]');
     await page.locator('[data-focus="chip-mal"]').click();
-    // Module des Réglages chargé à la première ouverture : les onglets cèdent la place aux Réglages
-    await page.waitForFunction(() => document.querySelector('#sk-tab-nowPlaying') === null);
-    expect(await page.$$eval('h1', (els) => els.map((el) => el.textContent))).toContain(fr('settings.section.accounts'));
-    expect(await page.evaluate(() => document.querySelector('#app')?.lastElementChild?.firstElementChild?.matches('[data-status-bar]') ?? false)).toBe(true);
+    await page.waitForSelector('[role="menu"] [data-stat]');
+    expect(await page.$eval('[role="menu"]', (el) => el.getAttribute('aria-label'))).toBe(fr('accountMenu.label', { service: 'MyAnimeList' }));
+    const tiles = await page.$$eval('[role="menu"] [data-stat]', (els) => els.map((el) => (el as HTMLElement).innerText.replace(/\n+/g, ' ').trim()));
+    const n = new Intl.NumberFormat('fr');
+    expect(tiles).toEqual([
+      `${n.format(139)} ${tl('fr', 'accountMenu.stats.anime_other')}`,
+      `${n.format(3164)} ${tl('fr', 'accountMenu.stats.episodes_other')}`,
+      `${fr('accountMenu.stats.daysValue', { days: '53' })} ${tl('fr', 'accountMenu.stats.days_other')}`,
+    ]);
+    expect(await page.$eval('[data-week-value]', (el) => el.textContent)).toBe(fr('accountMenu.week.value_other', { count: 9 }));
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('href'))).toBe('https://myanimelist.net/profile/Kai_fan');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.querySelector('[role="menu"]') === null);
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('chip-mal');
+
+    await page.setViewport({ width: 320, height: 800 });
+    await page.locator('[data-focus="chip-anilist"]').click();
+    await page.waitForSelector('[role="menu"] [data-stat]');
+    const box = await page.$eval('[role="menu"]', (el) => el.getBoundingClientRect().toJSON() as DOMRect);
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(320);
+    expect(box.width).toBeGreaterThanOrEqual(288);
   });
 
   it('barre d’état : clic sur la synchro → popup ouvert sur Activité (demande dans storage.session), × marque la synchro vue', async () => {

@@ -210,3 +210,26 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.syncedEpisode` | Ep. {episode} sincronizzato |
 | `footer.syncedEpisodes_one` | {count} episodio sincronizzato |
 | `footer.syncedEpisodes_other` | {count} episodi sincronizzati |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **account**, **collegato** (as `settings.account.connected`), **sessione scaduta**, the short noun **sync** of the term sheet for the narrow row label, **episodio**; *anime* invariable; « visti » agrees with *giorni*; « day » is **g**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Collegato |
+| `accountMenu.connectedAs` | {name} · collegato |
+| `accountMenu.label` | Account {service} |
+| `accountMenu.labelExpired` | Account {service}, sessione scaduta |
+| `accountMenu.profile` | Vedi il mio profilo |
+| `accountMenu.stats.anime_one` | anime |
+| `accountMenu.stats.anime_other` | anime |
+| `accountMenu.stats.days_one` | visto |
+| `accountMenu.stats.days_other` | visti |
+| `accountMenu.stats.daysValue` | {days} g |
+| `accountMenu.stats.episodes_one` | episodio |
+| `accountMenu.stats.episodes_other` | episodi |
+| `accountMenu.week.label` | Sync questa settimana |
+| `accountMenu.week.title` | Episodi sincronizzati da SyncKai questa settimana |
+| `accountMenu.week.value_one` | {count} episodio |
+| `accountMenu.week.value_other` | {count} episodi |

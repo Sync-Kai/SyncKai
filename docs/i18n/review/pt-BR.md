@@ -211,3 +211,26 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.syncedEpisode` | Ep. {episode} sincronizado |
 | `footer.syncedEpisodes_one` | {count} episódio sincronizado |
 | `footer.syncedEpisodes_other` | {count} episódios sincronizados |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **conta do {service}**, **conectado** (as `settings.account.connected`), **sessão expirada** (`common.sessionExpired`), **sincronizar**, **episódio**, **assistido** (agrees with *dias*); plural **animes**; « day » is **d**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Conectado |
+| `accountMenu.connectedAs` | {name} · conectado |
+| `accountMenu.label` | Conta do {service} |
+| `accountMenu.labelExpired` | Conta do {service}, sessão expirada |
+| `accountMenu.profile` | Ver meu perfil |
+| `accountMenu.stats.anime_one` | anime |
+| `accountMenu.stats.anime_other` | animes |
+| `accountMenu.stats.days_one` | assistido |
+| `accountMenu.stats.days_other` | assistidos |
+| `accountMenu.stats.daysValue` | {days} d |
+| `accountMenu.stats.episodes_one` | episódio |
+| `accountMenu.stats.episodes_other` | episódios |
+| `accountMenu.week.label` | Sincronizados esta semana |
+| `accountMenu.week.title` | Episódios sincronizados pelo SyncKai esta semana |
+| `accountMenu.week.value_one` | {count} episódio |
+| `accountMenu.week.value_other` | {count} episódios |

@@ -1,4 +1,6 @@
 import { t } from '../../i18n';
+import { aniListStats } from '../../shared/account-stats';
+import { isRecord } from '../../shared/guards';
 import { isViewerQueryData, type AniListViewer, type ViewerResult } from '../../shared/anilist.types';
 import { getSessionEpoch } from '../../browser/storage/sessions';
 import { getCachedViewer, saveCachedViewer } from '../../browser/storage/viewer-cache';
@@ -17,11 +19,15 @@ const VIEWER_QUERY = /* GraphQL */ `
       name
       siteUrl
       avatar { medium }
+      statistics { anime { count episodesWatched minutesWatched } }
     }
   }
 `;
 
-/** Récupère le profil de l'utilisateur connecté et le met en cache (si la session n'a pas changé pendant la requête). */
+/**
+ * Récupère le profil de l'utilisateur connecté et ses statistiques (menu du compte, même requête) et les met en cache
+ * (si la session n'a pas changé pendant la requête).
+ */
 export async function getViewer(lane: RequestLane = 'interactive'): Promise<ViewerResult> {
   try {
     // Génération relevée avant la requête : une déconnexion pendant celle-ci rend le profil obsolète (AUTH-04)
@@ -32,6 +38,7 @@ export async function getViewer(lane: RequestLane = 'interactive'): Promise<View
       name: Viewer.name,
       siteUrl: toSafeUrl(Viewer.siteUrl, 'anilist.co') ?? `https://anilist.co/user/${Viewer.id}`,
       avatarUrl: toSafeImageUrl(Viewer.avatar?.medium),
+      stats: aniListStats(isRecord(Viewer.statistics) ? Viewer.statistics.anime : null),
     };
     if (!(await saveCachedViewer(viewer, epoch))) {
       // Ni profil de l'ancien compte en cache, ni renvoyé à l'interface

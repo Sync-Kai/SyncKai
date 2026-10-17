@@ -261,3 +261,26 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.syncedEpisode` | Afl. {episode} gesynchroniseerd |
 | `footer.syncedEpisodes_one` | {count} afl. gesynchroniseerd |
 | `footer.syncedEpisodes_other` | {count} afl. gesynchroniseerd |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **account**, **verbonden** (as `settings.account.connected`), **sessie verlopen**, the noun **sync** (plural *syncs*) of the term sheet, **aflevering** for the stat label and **afl.** for the row value (as `footer.syncedEpisodes_*`); « day » is **d**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Verbonden |
+| `accountMenu.connectedAs` | {name} · verbonden |
+| `accountMenu.label` | {service}-account |
+| `accountMenu.labelExpired` | {service}-account, sessie verlopen |
+| `accountMenu.profile` | Mijn profiel bekijken |
+| `accountMenu.stats.anime_one` | anime |
+| `accountMenu.stats.anime_other` | anime |
+| `accountMenu.stats.days_one` | bekeken |
+| `accountMenu.stats.days_other` | bekeken |
+| `accountMenu.stats.daysValue` | {days} d |
+| `accountMenu.stats.episodes_one` | aflevering |
+| `accountMenu.stats.episodes_other` | afleveringen |
+| `accountMenu.week.label` | Syncs deze week |
+| `accountMenu.week.title` | Afleveringen die SyncKai deze week heeft gesynchroniseerd |
+| `accountMenu.week.value_one` | {count} afl. |
+| `accountMenu.week.value_other` | {count} afl. |

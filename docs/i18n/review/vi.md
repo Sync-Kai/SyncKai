@@ -246,3 +246,22 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.importReady_other` | Sẵn sàng nhập · {count} bộ cần xác nhận |
 | `footer.syncedEpisode` | Tập {episode} đã đồng bộ |
 | `footer.syncedEpisodes_other` | {count} tập đã đồng bộ |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **tài khoản**, **đã kết nối** (as `settings.account.connected`), **phiên đã hết hạn** (`common.sessionExpired`), **đồng bộ**, **tập**; no plural forms; « day » stays the full word **ngày**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Đã kết nối |
+| `accountMenu.connectedAs` | {name} · đã kết nối |
+| `accountMenu.label` | Tài khoản {service} |
+| `accountMenu.labelExpired` | Tài khoản {service}, phiên đã hết hạn |
+| `accountMenu.profile` | Xem hồ sơ của tôi |
+| `accountMenu.stats.anime_other` | anime |
+| `accountMenu.stats.days_other` | đã xem |
+| `accountMenu.stats.daysValue` | {days} ngày |
+| `accountMenu.stats.episodes_other` | tập |
+| `accountMenu.week.label` | Đã đồng bộ tuần này |
+| `accountMenu.week.title` | Số tập SyncKai đã đồng bộ trong tuần này |
+| `accountMenu.week.value_other` | {count} tập |

@@ -1,8 +1,8 @@
 // Barre d'état de 48 px en pied du popup et du panneau latéral (maquettes BarreEtat, MenuCompte), présentation seule :
 // l'hôte choisit l'état (une priorité à la fois) et le passe en props. À gauche, les logos des comptes (jamais connecté :
-// aucun logo ; session expirée : logo grisé, point rouge) ; à droite, le message en 12 px / 600 `muted`, jamais
+// aucun logo ; session expirée : logo grisé, point rouge), qui ouvrent le menu du compte au-dessus de la barre ; à droite, le message en 12 px / 600 `muted`, jamais
 // souligné, le ton porté par son icône. Message qui nomme une série : titre en `ink` sur la première ligne.
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, Ref } from 'preact';
 import type { TrackerId } from '../../shared/tracker.types';
 import type { IconName } from '../icons';
 import { Icon } from './icon';
@@ -48,6 +48,10 @@ export interface StatusBarProps {
   trailing?: ComponentChildren;
   /** Avancement d'un import (0 à 1) : filet décoratif en bas de la barre */
   progress?: number | null;
+  /** Menu du compte ouvert, placé au-dessus de la barre ; rendu avec les logos (un clic sur un logo n'est pas « dehors ») */
+  menu?: ComponentChildren;
+  /** Zone des logos et du menu (fermeture du menu par un clic extérieur) */
+  accountsRef?: Ref<HTMLSpanElement>;
 }
 
 function AccountLogo({ account }: { account: StatusBarAccount }) {
@@ -136,15 +140,16 @@ function Message({ message }: { message: StatusBarMessage }) {
   );
 }
 
-export function StatusBar({ accounts, message, trailing, progress = null }: StatusBarProps) {
+export function StatusBar({ accounts, message, trailing, progress = null, menu, accountsRef }: StatusBarProps) {
   const shown = accounts.filter((account) => account.state !== 'none');
   return (
     <footer class="relative flex h-status-bar shrink-0 items-center gap-2 border-t border-line bg-surface px-4">
       {shown.length > 0 && (
-        <span class="flex shrink-0 items-center gap-1">
+        <span ref={accountsRef} class="flex shrink-0 items-center gap-1" data-accounts="">
           {shown.map((account) => (
             <AccountLogo key={account.service} account={account} />
           ))}
+          {menu}
         </span>
       )}
       {/* Région vivante : un changement d'état est annoncé sans prendre le focus. Sans logo : message à gauche */}

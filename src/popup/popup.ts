@@ -800,11 +800,10 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 // ─── Démarrage ────────────────────────────────────────────────────────────
 
 watching.start();
-// Barre d'état (composant partagé avec le panneau latéral) : Activité, Réglages › Comptes (logos), page d'import
+// Barre d'état (composant partagé avec le panneau latéral) : Activité, menu du compte (logos), page d'import
 mountStatusBar(footerSlot, {
   accounts,
   openActivity: () => navigate('activity'),
-  openAccounts: () => navigate('settings', 'accounts'),
   // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
   openImport: (platform) => void chrome.tabs.create({ url: importPageUrl(platform) }),
 });

@@ -49,7 +49,7 @@ Stored **locally** on your device, in the extension storage (`chrome.storage.loc
 - recent sync history, episodes to review, series to rate, declined rewatches;
 - the queue of pending syncs (offline retry);
 - the last AniList ↔ MyAnimeList comparison and the history import preview (Crunchyroll, ADN or Netflix);
-- caches (“Watching” list, profile, airing schedule);
+- caches (“Watching” list, profile with its statistics: number of anime, episodes and days watched, airing schedule) and the number of episodes synced this week to each account;
 - the last 50 technical errors (without tokens or account names), to help diagnose problems: they never leave your browser unless you copy the diagnostic report yourself (Settings › Help).
 
 A few short-lived caches are kept in memory, in the extension’s session storage (`chrome.storage.session`): the entry shown for the current page, the side panel data (the episode’s AniList entry, sequels) and the Netflix, Disney+ and Prime Video series recognized as not anime. They are never written to disk: stale entries are removed along the way, the current page entry and the side panel data are cleared as soon as you log out of an account, and the rest when the browser closes.
@@ -132,7 +132,7 @@ Sont enregistrés **localement** sur ton appareil, dans le stockage de l’exten
 - l’historique des dernières synchros, les épisodes à vérifier, les séries à noter, les refus de revisionnage ;
 - la file des synchros en attente (nouvel essai hors ligne) ;
 - la dernière comparaison AniList ↔ MyAnimeList et l’aperçu de l’import d’historique (Crunchyroll, ADN ou Netflix) ;
-- des caches (liste « En cours », profil, calendrier des sorties) ;
+- des caches (liste « En cours », profil avec ses statistiques : nombre d’animes, d’épisodes et de jours visionnés, calendrier des sorties) et le nombre d’épisodes synchronisés cette semaine vers chaque compte ;
 - les 50 dernières erreurs techniques (sans jetons ni noms de compte), pour aider à diagnostiquer un problème : elles ne quittent jamais le navigateur, sauf si tu copies toi-même le rapport de diagnostic (Réglages › Aide).
 
 Quelques caches de courte durée sont gardés en mémoire, dans le stockage de session de l’extension (`chrome.storage.session`) : la fiche affichée pour la page en cours, les données du panneau latéral (fiche AniList de l’épisode, suites) et les séries Netflix, Disney+ et Prime Video reconnues comme non-animes. Ils ne sont jamais écrits sur le disque : les entrées périmées sont retirées au fil de l’eau, la fiche de la page et les données du panneau sont effacées dès la déconnexion d’un compte, et le reste à la fermeture du navigateur.
@@ -215,7 +215,7 @@ Es liest weder deine Crunchyroll-/ADN-Zugangsdaten noch deinen Browserverlauf (a
 - Verlauf der letzten Synchronisierungen, zu prüfende Episoden, zu bewertende Serien, abgelehnte Rewatches;
 - die Warteschlange ausstehender Synchronisierungen (Offline-Wiederholung);
 - der letzte Vergleich AniList ↔ MyAnimeList und die Vorschau des Verlaufsimports (Crunchyroll, ADN oder Netflix);
-- Caches (Liste „Schaue ich“, Profil, Ausstrahlungsplan);
+- Caches (Liste „Schaue ich“, Profil mit seinen Statistiken: Anzahl der Anime, Folgen und Tage, Ausstrahlungsplan) sowie die Zahl der diese Woche zu jedem Konto synchronisierten Folgen;
 - die letzten 50 technischen Fehler (ohne Tokens und Kontonamen) zur Fehlerdiagnose: Sie verlassen den Browser nie, außer du kopierst selbst den Diagnosebericht (Einstellungen › Hilfe).
 
 Einige kurzlebige Caches werden im Arbeitsspeicher gehalten, im Sitzungsspeicher der Erweiterung (`chrome.storage.session`): der für die aktuelle Seite angezeigte Eintrag, die Daten der Seitenleiste (AniList-Eintrag der Folge, Fortsetzungen) und die als Nicht-Anime erkannten Netflix-, Disney+- und Prime-Video-Serien. Sie werden nie auf die Festplatte geschrieben: veraltete Einträge werden laufend entfernt, der Eintrag der aktuellen Seite und die Daten der Seitenleiste sofort beim Abmelden eines Kontos gelöscht, der Rest beim Schließen des Browsers.

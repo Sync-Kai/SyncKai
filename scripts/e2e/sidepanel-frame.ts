@@ -7,6 +7,7 @@ import { airingWeekKey, weekRange, type IsoWeekday } from '../../src/shared/agen
 import { isRecord } from '../../src/shared/guards';
 import type { PageListState, PageMediaInfo, PageMediaResult } from '../../src/shared/page-media.types';
 import { isPanelTab } from '../../src/sidepanel/tabs';
+import { accountDemo, isAccountDemo } from '../screenshots/demo-data';
 import { agendaWeek, PANEL_PAGE, panelChrome, panelView } from '../screenshots/demo-panel';
 import { installChromeMock, type SentMessage } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
@@ -99,10 +100,14 @@ const offTargetOptions = offTarget
     }
   : {};
 
+/** `account=expired|loading|no-stats` : compte AniList du menu du compte (voir accountDemo) */
+const accountMode = param('account');
+const account = accountDemo(isAccountDemo(accountMode) ? accountMode : null, base);
+
 const controls = installChromeMock({
   ...base,
   ...offTargetOptions,
-  storage: { ...base.storage, ...expiredWeeks },
+  storage: { ...Object.fromEntries(Object.entries(base.storage).filter(([key]) => !account.drop.includes(key))), ...expiredWeeks, ...account.storage },
   session: param('cache') === 'none' ? {} : base.session,
   tabMessage: (message) => {
     if (!isRecord(message) || message.type !== 'GET_PAGE_MEDIA') return undefined;
@@ -111,6 +116,7 @@ const controls = installChromeMock({
   },
   handlers: {
     ...base.handlers,
+    ...account.handlers,
     RESOLVE_PAGE_MEDIA: holdable('RESOLVE_PAGE_MEDIA', resolvePage),
     ADJUST_PROGRESS: holdable('ADJUST_PROGRESS', () => ({
       status: 'synced',

@@ -253,3 +253,22 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.importReady_other` | Impor siap · {count} anime perlu dikonfirmasi |
 | `footer.syncedEpisode` | Ep. {episode} tersinkron |
 | `footer.syncedEpisodes_other` | {count} episode tersinkron |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **akun**, **terhubung**, **sesi berakhir** (`common.sessionExpired`), **tersinkron**, **episode**; no plural forms; « day » stays the full word **hari**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Terhubung |
+| `accountMenu.connectedAs` | {name} · terhubung |
+| `accountMenu.label` | Akun {service} |
+| `accountMenu.labelExpired` | Akun {service}, sesi berakhir |
+| `accountMenu.profile` | Lihat profil saya |
+| `accountMenu.stats.anime_other` | anime |
+| `accountMenu.stats.days_other` | ditonton |
+| `accountMenu.stats.daysValue` | {days} hari |
+| `accountMenu.stats.episodes_other` | episode |
+| `accountMenu.week.label` | Tersinkron minggu ini |
+| `accountMenu.week.title` | Episode yang disinkronkan SyncKai minggu ini |
+| `accountMenu.week.value_other` | {count} episode |

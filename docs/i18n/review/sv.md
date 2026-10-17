@@ -255,3 +255,26 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.syncedEpisode` | Avs. {episode} synkat |
 | `footer.syncedEpisodes_one` | {count} avsnitt synkat |
 | `footer.syncedEpisodes_other` | {count} avsnitt synkade |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **konto**, **ansluten** (as `settings.account.connected`), **utgången session** (`common.sessionExpired`), **synkat** (as `footer.syncedEpisodes_*`), **avsnitt**; the days tile label is **tittat**; « day » is **d**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Ansluten |
+| `accountMenu.connectedAs` | {name} · ansluten |
+| `accountMenu.label` | {service}-konto |
+| `accountMenu.labelExpired` | {service}-konto, utgången session |
+| `accountMenu.profile` | Visa min profil |
+| `accountMenu.stats.anime_one` | anime |
+| `accountMenu.stats.anime_other` | anime |
+| `accountMenu.stats.days_one` | tittat |
+| `accountMenu.stats.days_other` | tittat |
+| `accountMenu.stats.daysValue` | {days} d |
+| `accountMenu.stats.episodes_one` | avsnitt |
+| `accountMenu.stats.episodes_other` | avsnitt |
+| `accountMenu.week.label` | Synkat den här veckan |
+| `accountMenu.week.title` | Avsnitt som SyncKai har synkat den här veckan |
+| `accountMenu.week.value_one` | {count} avsnitt |
+| `accountMenu.week.value_other` | {count} avsnitt |

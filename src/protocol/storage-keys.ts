@@ -39,6 +39,11 @@ export const STORAGE_KEYS = {
    */
   syncsSeenAt: 'statusBar:syncsSeenAt',
   importSeenAt: 'statusBar:importSeenAt',
+  /**
+   * « Synchro cette semaine » du menu du compte : `{ [service]: { weekStart, count, epoch } }`, épisodes synchronisés
+   * vers chaque service pendant la semaine en cours (shared/weekly-syncs.ts), écrit par le service worker
+   */
+  weeklySyncs: 'accountMenu:weeklySyncs',
 } as const;
 
 /**

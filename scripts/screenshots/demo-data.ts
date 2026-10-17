@@ -14,6 +14,7 @@ import type { SyncSettings } from '../../src/shared/settings';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import type { TrackerId } from '../../src/shared/tracker.types';
+import { currentWeekStart } from '../../src/shared/weekly-syncs';
 import type { AiringStatus, WatchingEntry, WatchingList } from '../../src/shared/watching.types';
 import { avatarUrl, coverUrl, type CoverMotif } from './covers';
 import type { ChromeMockOptions } from './mock-chrome';
@@ -223,6 +224,34 @@ function comparison(now: number): ComparisonResult {
 }
 
 /**
+ * Compte AniList dans un autre état pour le menu du compte (e2e, captures) : `expired` = token échu (profil encore en
+ * cache, « Reconnecter »), `loading` = profil jamais lu et GET_VIEWER sans réponse (squelettes), `no-stats` =
+ * statistiques illisibles (tuiles masquées)
+ */
+export type AccountDemo = 'expired' | 'loading' | 'no-stats';
+
+export function isAccountDemo(value: string | null): value is AccountDemo {
+  return value === 'expired' || value === 'loading' || value === 'no-stats';
+}
+
+/** Stockage et gestionnaires à superposer à ceux de demoChrome ; `drop` : clés à retirer du stockage de démo */
+export function accountDemo(mode: AccountDemo | null, base: ChromeMockOptions): { storage: Record<string, unknown>; handlers: ChromeMockOptions['handlers']; drop: string[] } {
+  const viewer = base.storage[STORAGE_KEYS.anilistViewer];
+  switch (mode) {
+    case 'expired':
+      return { storage: { [STORAGE_KEYS.anilistToken]: { accessToken: 'demo', expiresAt: 1 } }, handlers: {}, drop: [] };
+    case 'loading':
+      return { storage: {}, handlers: { GET_VIEWER: () => new Promise<never>(() => {}) }, drop: [STORAGE_KEYS.anilistViewer] };
+    case 'no-stats': {
+      const unreadable = typeof viewer === 'object' && viewer !== null ? { ...viewer, stats: null } : viewer;
+      return { storage: { [STORAGE_KEYS.anilistViewer]: unreadable }, handlers: { GET_VIEWER: () => ({ ok: true, data: unreadable }) }, drop: [] };
+    }
+    case null:
+      return { storage: {}, handlers: {}, drop: [] };
+  }
+}
+
+/**
  * Écran rendu par popup-frame :
  * - watching : « En cours » (carte « Reprendre ») ; menu : idem, menu « ⋯ » d'une ligne ouvert ;
  * - page : « En cours » avec la carte « Sur cette page » (onglet actif sur Crunchyroll) ;
@@ -231,8 +260,11 @@ function comparison(now: number): ComparisonResult {
 export type Scenario = 'watching' | 'menu' | 'page' | 'activity' | 'compare' | 'settings';
 
 export function demoChrome(locale: Locale, scenario: Scenario, now: number = Date.now()): ChromeMockOptions {
-  const anilistViewer: AniListViewer = { id: 1000001, name: 'Kai_fan', siteUrl: 'https://anilist.co/user/Kai_fan', avatarUrl: avatarUrl('K', '#FF8FB8', '#B9A4FF') };
-  const malViewer: MalViewer = { id: 2000002, name: 'Kai_fan', pictureUrl: avatarUrl('K', '#7EE0C3', '#5FE3FF') };
+  // Statistiques du menu du compte (maquette MenuCompte : 142 animes, 3 210 épisodes, 54 jours)
+  const anilistViewer: AniListViewer = { id: 1000001, name: 'Kai_fan', siteUrl: 'https://anilist.co/user/Kai_fan', avatarUrl: avatarUrl('K', '#FF8FB8', '#B9A4FF'), stats: { animeCount: 142, episodes: 3210, days: 54.3 } };
+  const malViewer: MalViewer = { id: 2000002, name: 'Kai_fan', pictureUrl: avatarUrl('K', '#7EE0C3', '#5FE3FF'), stats: { animeCount: 139, episodes: 3164, days: 53.1 } };
+  // « Synchro cette semaine » : 9 épisodes vers chaque service (sessions de démo, génération 0)
+  const weekStart = currentWeekStart(now);
   const settings: SyncSettings = {
     autoSync: true,
     completionTrigger: 'credits',
@@ -267,6 +299,7 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
       // La carte « À vérifier » n'apparaît que sur l'écran Activité (badge cohérent avec la capture)
       pendingReviews: scenario === 'activity' ? [review(locale, now)] : [],
       recentSyncs: recentSyncs(now),
+      [STORAGE_KEYS.weeklySyncs]: { anilist: { weekStart, count: 9, epoch: 0 }, mal: { weekStart, count: 9, epoch: 0 } },
       mediaMappings: mappings(),
       excludedSeries: [],
       syncQueue: [],

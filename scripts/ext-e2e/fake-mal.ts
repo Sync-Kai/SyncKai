@@ -141,8 +141,19 @@ export class FakeMal {
     return json(result.status, result.body);
   }
 
+  /** `anime_statistics` (champs de la documentation de l'API v2) : `num_items` compte aussi « À voir » ; 24 min par épisode */
+  private statistics(account: Account): Record<string, number> {
+    const statuses = [...account.list.values()];
+    const numEpisodes = statuses.reduce((sum, status) => sum + status.num_episodes_watched, 0);
+    const days = Math.round(((numEpisodes * 24) / 1440) * 100) / 100;
+    return { num_items: statuses.length, num_items_plan_to_watch: statuses.filter((status) => status.status === 'plan_to_watch').length, num_episodes: numEpisodes, num_days: days, num_days_watched: days };
+  }
+
   private execute(method: string, path: string, query: URLSearchParams, body: Record<string, string> | null, account: Account): { status: number; body: unknown } | null {
-    if (method === 'GET' && path === '/users/@me') return { status: 200, body: { id: account.user.id, name: account.user.name } };
+    if (method === 'GET' && path === '/users/@me') {
+      const fields = (query.get('fields') ?? '').split(',');
+      return { status: 200, body: { id: account.user.id, name: account.user.name, ...(fields.includes('anime_statistics') ? { anime_statistics: this.statistics(account) } : {}) } };
+    }
 
     if (method === 'GET' && path === '/users/@me/animelist') {
       const wanted = query.get('status');

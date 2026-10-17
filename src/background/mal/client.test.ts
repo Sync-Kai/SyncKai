@@ -308,12 +308,26 @@ describe('getMalViewer (profil du popup, ne lève jamais)', () => {
 
   it('profil lu et mis en cache avec la génération relevée avant la requête ; image hors des hôtes permis écartée', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai', picture: 'https://cdn.myanimelist.net/images/userimages/7.jpg' })));
-    const viewer: MalViewer = { id: 7, name: 'Kai', pictureUrl: 'https://cdn.myanimelist.net/images/userimages/7.jpg' };
+    const viewer: MalViewer = { id: 7, name: 'Kai', pictureUrl: 'https://cdn.myanimelist.net/images/userimages/7.jpg', stats: null };
     await expect(getMalViewer()).resolves.toEqual({ ok: true, data: viewer });
     expect(auth.saveCachedMalViewer).toHaveBeenCalledWith(viewer, 3);
 
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai', picture: 'https://pirate.example/7.jpg' })));
-    await expect(getMalViewer()).resolves.toEqual({ ok: true, data: { id: 7, name: 'Kai', pictureUrl: null } });
+    await expect(getMalViewer()).resolves.toEqual({ ok: true, data: { id: 7, name: 'Kai', pictureUrl: null, stats: null } });
+  });
+
+  it('statistiques du menu du compte dans la même requête (anime_statistics) ; illisibles : null, profil gardé', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      json({ id: 7, name: 'Kai', anime_statistics: { num_items: 1000, num_items_plan_to_watch: 997, num_episodes: 8, num_days: 0.09, num_items_watching: 2 } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(getMalViewer()).resolves.toEqual({ ok: true, data: { id: 7, name: 'Kai', pictureUrl: null, stats: { animeCount: 3, episodes: 8, days: 0.09 } } });
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(url.pathname).toBe('/v2/users/@me');
+    expect(url.searchParams.get('fields')).toBe('picture,anime_statistics');
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai', anime_statistics: { num_items: '3' } })));
+    await expect(getMalViewer()).resolves.toEqual({ ok: true, data: { id: 7, name: 'Kai', pictureUrl: null, stats: null } });
   });
 
   it('déconnexion pendant la requête (cache refusé) : NOT_AUTHENTICATED (AUTH-04)', async () => {

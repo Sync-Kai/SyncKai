@@ -138,6 +138,15 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await attach(ctx, page);
     await shot(ctx, page, 'popup/watching');
 
+    // Menu du compte (logo AniList de la barre d'état) : largeur du contenu entre 288 et 376 px
+    ctx.step = 'popup/account-menu';
+    await click(page, 'chip-anilist');
+    await page.waitForSelector('[role="menu"] [data-stat]');
+    await page.waitForSelector('[role="menu"] [data-week-value]:not(:has([data-skeleton]))');
+    await shot(ctx, page, 'popup/account-menu', '[role="menu"]');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[role="menu"]', { hidden: true });
+
     ctx.step = 'popup/row-menu';
     await click(page, `more-${SOLO}`);
     await page.waitForSelector('[role="menu"]');
@@ -193,6 +202,18 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await page.close();
   }
 
+  // Menu du compte d'une session expirée : « Session expirée », « Reconnecter », profil en cache
+  ctx.step = 'popup/account-menu-expired';
+  const expired = await openPage(ctx, 'popup.html', { account: 'expired' }, POPUP_VIEWPORT);
+  try {
+    await click(expired, 'chip-anilist');
+    await expired.waitForFunction(() => document.querySelectorAll('[role="menu"] [role="menuitem"]').length === 3);
+    await attach(ctx, expired);
+    await shot(ctx, expired, 'popup/account-menu-expired', '[role="menu"]');
+  } finally {
+    await expired.close();
+  }
+
   // Listes vides : « Rien en cours », astuce avec le chemin des Réglages, plateformes à activer
   ctx.step = 'popup/watching-empty';
   const empty = await openPage(ctx, 'popup.html', { watching: 'empty' }, POPUP_VIEWPORT);
@@ -207,11 +228,11 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
 
 // ─── Panneau latéral ──────────────────────────────────────────────────────
 
-/** Même écran relevé à chaque largeur du panneau */
-async function panelShots(ctx: LocaleContext, page: Page, screen: string): Promise<void> {
+/** Même écran relevé à chaque largeur du panneau ; `scope` : zone relevée (menu ouvert) */
+async function panelShots(ctx: LocaleContext, page: Page, screen: string, scope?: string): Promise<void> {
   for (const width of PANEL_WIDTHS) {
     await page.setViewport({ width, height: PANEL_HEIGHT });
-    await shot(ctx, page, `panel-${width}/${screen}`);
+    await shot(ctx, page, `panel-${width}/${screen}`, scope);
   }
 }
 
@@ -225,6 +246,15 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
     await page.waitForFunction(() => [...document.querySelectorAll('[role="progressbar"]')].some((bar) => bar.getAttribute('aria-valuenow') !== null && !bar.closest('[hidden]')));
     await attach(ctx, page);
     await panelShots(ctx, page, 'now-playing');
+
+    // Menu du compte (logo MyAnimeList) : à 320 px, jamais plus large que le panneau
+    ctx.step = 'panel/account-menu';
+    await click(page, 'chip-mal');
+    await page.waitForSelector('[role="menu"] [data-stat]');
+    await page.waitForSelector('[role="menu"] [data-week-value]:not(:has([data-skeleton]))');
+    await panelShots(ctx, page, 'account-menu', '[role="menu"]');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[role="menu"]', { hidden: true });
 
     ctx.step = 'panel/schedule';
     await page.locator('#sk-tab-agenda').click();

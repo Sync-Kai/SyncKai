@@ -5,6 +5,7 @@ import type { TrackerId } from '../../shared/tracker.types';
 import { isPendingRating } from './engagement-store';
 import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import { isSyncQueueItem, restrictToSession } from '../../shared/queue.types';
+import { openWeeklySyncs } from '../../shared/weekly-syncs';
 import { liveServices, type SessionEpochs } from '../../shared/session-epochs';
 import { keysClearedOnLastSession, keysClearedOnSessionEnd, prefixesClearedOnLastSession } from './account-keys';
 import { withStorageLock } from './lock';
@@ -150,8 +151,8 @@ async function writeListIfChanged<T>(key: string, before: readonly T[], after: r
 
 /**
  * Après une déconnexion (sous le verrou du stockage, génération déjà incrémentée) : retire de la file les services
- * dont la session est fermée, et supprime les notes, synchros récentes et corrections qui ne valent plus pour aucune
- * session ouverte. Les données sans session (antérieures à la 2.2.0, non migrées) sont supprimées.
+ * dont la session est fermée, et supprime les notes, synchros récentes, compteurs de la semaine et corrections qui ne
+ * valent plus pour aucune session ouverte. Les données sans session (antérieures à la 2.2.0, non migrées) sont supprimées.
  */
 async function purgeClosedSessions(): Promise<void> {
   const current = await getOpenSessions();
@@ -163,6 +164,13 @@ async function purgeClosedSessions(): Promise<void> {
   await writeListIfChanged(PENDING_RATINGS_KEY, ratings, ratings.filter((rating) => live(rating.epochs)));
   const syncs = await readList(STORAGE_KEYS.recentSyncs, isRecentSync);
   await writeListIfChanged(STORAGE_KEYS.recentSyncs, syncs, syncs.filter((sync) => live(sync.epochs)));
+  // « Synchro cette semaine » : part des sessions fermées retirée (clé retirée sans part restante)
+  const weekly: unknown = (await chrome.storage.local.get(STORAGE_KEYS.weeklySyncs))[STORAGE_KEYS.weeklySyncs];
+  if (weekly !== undefined) {
+    const kept = openWeeklySyncs(weekly, current);
+    if (Object.keys(kept).length === 0) await chrome.storage.local.remove(STORAGE_KEYS.weeklySyncs);
+    else await chrome.storage.local.set({ [STORAGE_KEYS.weeklySyncs]: kept });
+  }
   // Vérification simple : non liée au compte (elle n'applique que les règles normales, sans recul)
   const reviews = await readList(STORAGE_KEYS.pendingReviews, isPendingReview);
   await writeListIfChanged(STORAGE_KEYS.pendingReviews, reviews, reviews.filter((review) => review.previous === null || live(review.epochs)));

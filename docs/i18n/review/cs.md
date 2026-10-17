@@ -231,3 +231,30 @@ New texts of the status bar shown at the bottom of the popup and, now, of the si
 | `footer.syncedEpisodes_one` | {count} epizoda synchronizována |
 | `footer.syncedEpisodes_few` | {count} epizody synchronizovány |
 | `footer.syncedEpisodes_other` | {count} epizod synchronizováno |
+
+## 2026-10-17 · Account menu (status bar)
+
+New texts of the account menu that opens above the AniList / MyAnimeList logo of the status bar (popup and side panel): the logo button's label (also when the session expired), the connection status line, three stat tiles (anime count, episodes watched, days watched, each number shown above its short label), the « Synced this week » row with its tooltip and value, and « View my profile ». Following this language's term sheet, used **účet**, **připojeno** (as `settings.account.connected`), **relace vypršela** (`common.sessionExpired`), **synchronizovat** and **epizoda** with the plural forms of `footer.syncedEpisodes_*`; *anime* stays indeclinable; the days tile label is the noun **sledování** (watching), valid for every count; « day » is **d**, as `time.countdown.days`. ` · ` kept; `{service}` is a brand name, `{name}` the user's AniList / MyAnimeList user name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `accountMenu.connected` | Připojeno |
+| `accountMenu.connectedAs` | {name} · připojeno |
+| `accountMenu.label` | Účet {service} |
+| `accountMenu.labelExpired` | Účet {service}, relace vypršela |
+| `accountMenu.profile` | Zobrazit můj profil |
+| `accountMenu.stats.anime_one` | anime |
+| `accountMenu.stats.anime_few` | anime |
+| `accountMenu.stats.anime_other` | anime |
+| `accountMenu.stats.days_one` | sledování |
+| `accountMenu.stats.days_few` | sledování |
+| `accountMenu.stats.days_other` | sledování |
+| `accountMenu.stats.daysValue` | {days} d |
+| `accountMenu.stats.episodes_one` | epizoda |
+| `accountMenu.stats.episodes_few` | epizody |
+| `accountMenu.stats.episodes_other` | epizod |
+| `accountMenu.week.label` | Synchronizováno tento týden |
+| `accountMenu.week.title` | Epizody, které SyncKai tento týden synchronizoval |
+| `accountMenu.week.value_one` | {count} epizoda |
+| `accountMenu.week.value_few` | {count} epizody |
+| `accountMenu.week.value_other` | {count} epizod |

@@ -1,6 +1,6 @@
 # SyncKai design charter
 
-The graphic charter of the extension pages (popup, side panel, settings, import pages) and of the in-page toasts. It is the target of the UI redesign that moves the screens to Preact one by one. Until a screen is migrated, it keeps its current look: the tokens below exist in `src/ui/theme.css`. Migrated so far: Settings › Shortcuts (pilot) and the status bar of the popup and side panel.
+The graphic charter of the extension pages (popup, side panel, settings, import pages) and of the in-page toasts. It is the target of the UI redesign that moves the screens to Preact one by one. Until a screen is migrated, it keeps its current look: the tokens below exist in `src/ui/theme.css`. Migrated so far: Settings › Shortcuts (pilot), and the status bar of the popup and side panel with its account menu.
 
 Sources: the owner's decisions on the UX mockups (2026-10-16 / 17) and the mockups themselves (see [Mockups](#mockups)). Anything they leave open is marked *to be decided during the migration*.
 
@@ -125,15 +125,18 @@ The weight of a size token is a default; a `font-*` weight utility overrides it.
 - Import running (« Import Crunchyroll · 42 / 120 », analysis or writing) and alignment running (« Alignement… 3 / 10 », opens Activité) show the 2 px progress line. « Import prêt · N séries à valider » shows for 24 h after the analysis ends (it is not dismissible: the import page has « Recommencer »). A stopped or cancelled job shows nothing.
 - « Synchro… »: a `{ startedAt }` signal written by the service worker in `storage.session` around the tracker reads and writes of a sync, ignored by the pages after one minute.
 - Session expired: greyed logo with a red dot, « Session expirée » (the logo names the service) and a « Reconnecter » button. No account: no logo, a grey dot, the message on the left, nothing clickable.
-- The account logos open Settings › Accounts until the account menu replaces that. The version is no longer in the bar (Settings › Help & about).
+- The account logos open the account menu (below). The version is no longer in the bar (Settings › Help & about).
 - Side panel: it has no Activité, so a message that leads there opens the popup on Activité (`chrome.action.openPopup`, Chrome 127+ and Firefox; the screen is passed through a one-shot `storage.session` request). Without that API the message is plain text; × still works.
 
 ### Account menu
 
-- Opened by a click on the AniList / MAL logo of the status bar.
-- Avatar, profile stats (count / episodes / days), one « Synchro cette semaine … 9 épisodes » label / value row: the label truncates with a tooltip, the value never wraps.
-- Width `max-content` between 288 and 376 px, so translations fit.
-- Logo button hover: `raised` background, `muted` border; keyboard focus adds the focus ring.
+- Opened by a click on the AniList / MAL logo of the status bar (`ui/account-menu.tsx`, mounted by `ui/status-bar-host.tsx`); a second click, Esc, Tab or a pointer down outside the logos closes it. The logo carries `aria-haspopup="menu"` and `aria-expanded`; on open the focus goes to the first item, Esc and a chosen item give it back to the logo; ↑ ↓ Home End move between the items (base `Menu`'s `MenuPopup`, placed above the bar, 12 px from the left edge, 8 px above the bar).
+- Connected: avatar (the profile picture, else a brand gradient with a person glyph) with the 16 px service logo in its corner, service name, « {name} · connecté » after a `mint` dot, a separator, three stat tiles (`surface`, value in the display font `text-stat` with tabular figures, label in `muted`): anime in the list (« Plan to watch » excluded on both services), episodes watched, days watched (« 54 j », one decimal under 10 days), then one « Synchro cette semaine … 9 épisodes » label / value row: a `mint` check, the label truncates with a tooltip giving the full meaning, the value never wraps; a separator, « Voir mon profil ↗ » (new tab) and « Déconnecter » (danger, same direct sign-out as Settings › Accounts, no confirmation).
+- Expired session: greyed avatar, red dot « Session expirée », a separator, then « Reconnecter » highlighted (`line` background, 800, sakura icon), « Voir mon profil » when the profile is still cached, « Déconnecter ». No stats.
+- The header and stats are the menu's description (`aria-describedby`), not items. While the profile or stats load, the texts are replaced by blocks of the same height (no layout jump); stats that cannot be read hide the tiles and keep the rest.
+- Data: the stats come with the profile (same request and cache), re-read once when the menu opens if older than one hour; « this week » = Monday to Sunday, local time.
+- Width `max-content` between 288 and 376 px, so translations fit, and never wider than the page minus 24 px (side panel at 320 px).
+- Logo button hover: `raised` background, `muted` border; open: `field` border; keyboard focus adds the focus ring.
 
 ### Popup « Mes séries » row
 

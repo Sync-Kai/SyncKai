@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import { malStats } from '../../shared/account-stats';
 import { isRecord } from '../../shared/guards';
 import type { MalViewer, MalViewerResult } from '../../shared/mal.types';
 import { endSessionIfToken } from '../../browser/storage/session-end';
@@ -192,22 +193,25 @@ interface RawMalUser {
   id: number;
   name: string;
   picture?: unknown;
+  /** Validé à part (shared/account-stats.ts › malStats) : illisible, le profil reste valide */
+  anime_statistics?: unknown;
 }
 
 function isRawMalUser(data: unknown): data is RawMalUser {
   return isRecord(data) && typeof data.id === 'number' && typeof data.name === 'string';
 }
 
-/** Profil de l'utilisateur MAL connecté, mis en cache pour le popup. Ne lève jamais. */
+/** Profil de l'utilisateur MAL connecté et ses statistiques (menu du compte, même requête), mis en cache. Ne lève jamais. */
 export async function getMalViewer(): Promise<MalViewerResult> {
   try {
     // Génération relevée avant la requête : une déconnexion pendant celle-ci rend le profil obsolète (AUTH-04)
     const epoch = await getSessionEpoch('mal');
-    const user = await malRequest('/users/@me?fields=picture', isRawMalUser);
+    const user = await malRequest('/users/@me?fields=picture,anime_statistics', isRawMalUser);
     const viewer: MalViewer = {
       id: user.id,
       name: user.name,
       pictureUrl: toSafeImageUrl(user.picture),
+      stats: malStats(user.anime_statistics),
     };
     if (!(await saveCachedMalViewer(viewer, epoch))) {
       return { ok: false, code: 'NOT_AUTHENTICATED', message: t('api.notAuthenticated', { service: 'MyAnimeList' }) };

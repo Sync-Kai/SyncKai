@@ -1,4 +1,5 @@
 import type { AniListErrorCode } from './anilist.types';
+import { isAccountStats, type AccountStats } from './account-stats';
 import { isRecord } from './guards';
 import type { Result } from './result';
 
@@ -24,6 +25,8 @@ export interface MalViewer {
   id: number;
   name: string;
   pictureUrl: string | null;
+  /** Statistiques du menu du compte, lues avec le profil ; null : illisibles ; absentes : profil enregistré avant elles */
+  stats?: AccountStats | null;
 }
 
 export function isMalViewer(value: unknown): value is MalViewer {
@@ -31,7 +34,8 @@ export function isMalViewer(value: unknown): value is MalViewer {
     isRecord(value) &&
     typeof value.id === 'number' &&
     typeof value.name === 'string' &&
-    (value.pictureUrl === null || typeof value.pictureUrl === 'string')
+    (value.pictureUrl === null || typeof value.pictureUrl === 'string') &&
+    (value.stats === undefined || value.stats === null || isAccountStats(value.stats))
   );
 }
 

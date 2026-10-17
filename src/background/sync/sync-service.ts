@@ -30,6 +30,7 @@ import { isRewatchDeclined } from '../../browser/storage/engagement-store';
 import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
 import { getSettings } from '../../browser/storage/settings-access';
 import { withSyncActivity } from '../../browser/storage/sync-activity';
+import { recordWeeklySyncs } from '../../browser/storage/weekly-syncs';
 import { mappingOrigin, type ServiceResult, type SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { ApiError } from '../errors';
@@ -263,6 +264,15 @@ interface WriteOptions {
   candidates?: CandidateSummary[];
 }
 
+/** Compteur de la semaine : facultatif, un échec du stockage ne fait jamais échouer la synchro */
+async function countWeeklySyncs(services: readonly TrackerId[], epochs: SessionEpochs): Promise<void> {
+  try {
+    await recordWeeklySyncs(services, epochs);
+  } catch (error: unknown) {
+    log.warn('Compteur « Synchro cette semaine » non enregistré :', error);
+  }
+}
+
 interface ServicesWrite {
   outcome: SyncOutcome;
   /** Épisode mis de côté sur la carte de correction retirée par cette écriture (à rejouer), null sinon */
@@ -289,8 +299,12 @@ async function writeToServices(
   const writes = await withSyncActivity(() => Promise.all(trackers.map((tr) => writeToService(tr, catalog, progress, options.correctionFrom ?? null, options.epochs[tr.id], guardFinale))));
   const results = writes.map((w) => w.result);
 
-  if (results.some((r) => r.outcome.status === 'updated')) {
+  const updated = results.filter((r) => r.outcome.status === 'updated').map((r) => r.service);
+  if (updated.length > 0) {
     await addRecentSync({ key, episode, mediaId: catalog.mediaId, malId: catalog.idMal, mediaTitle: catalog.title, progress, syncedAt: Date.now(), epochs: options.epochs });
+    // « Synchro cette semaine » (menu du compte) : un épisode par service écrit. Une correction réécrit un épisode déjà
+    // compté ; l'import d'historique et les actions de liste (+1, statut…) ne passent pas par ici
+    if ((options.correctionFrom ?? null) === null) await countWeeklySyncs(updated, options.epochs);
     // Synchro réussie (correspondance sûre ou confirmée) : page de la série mémorisée au-delà des 5 synchros de l'historique
     const seriesUrl = platformSeriesUrl(episode.platform, episode.seriesId, episode.seriesSlug);
     if (seriesUrl) await learnPlatformLink(catalog.mediaId, { platform: episode.platform, url: seriesUrl });

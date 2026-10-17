@@ -1,16 +1,17 @@
 // Barre d'état montée en pied du popup et du panneau latéral (même composant, maquettes BarreEtat) : état choisi par
 // ui/status-bar-model.ts sur les comptes de la page et les données lues par ui/status-bar-source.ts, présentation par
 // components/status-bar.tsx. La page fournit la navigation : Activité (popup : son écran ; panneau : le popup ouvert sur
-// Activité, ou rien), Réglages › Comptes (logos), page d'import. Le menu du compte viendra remplacer l'ouverture des Réglages.
+// Activité, ou rien), page d'import. Un logo de compte ouvre le menu du compte (ui/account-menu.tsx) au-dessus de la barre.
 import type { ComponentChildren } from 'preact';
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { t, tp } from '../i18n';
 import { PLATFORMS } from '../platforms/registry';
 import type { ImportPlatform } from '../shared/cr-import';
-import { TRACKER_LABELS } from '../shared/tracker.types';
+import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { formatRelativeTime } from '../shared/watching';
 import type { AccountsController } from './accounts';
+import { AccountMenu, type AccountMenuData } from './account-menu';
 import { Button } from './components/button';
 import { IconButton } from './components/icon-button';
 import { StatusBar, type StatusBarAccount, type StatusBarMessage } from './components/status-bar';
@@ -22,15 +23,15 @@ import { createStatusBarSource, type SeenKind, type StatusBarSource } from './st
 const CLOCK_TICK_MS = 30_000;
 
 export interface StatusBarHostDeps {
-  accounts: Pick<AccountsController, 'store' | 'login'>;
+  accounts: Pick<AccountsController, 'store' | 'login' | 'logout' | 'refresh'>;
   /** Données de la barre ; absente : créée et lue au montage. Libérée au démontage dans les deux cas */
   source?: StatusBarSource;
   /** Activité ; null : messages qui y mènent affichés en texte (panneau sans popup ouvrable) */
   openActivity: (() => void) | null;
-  /** Clic sur un logo de compte : Réglages › Comptes */
-  openAccounts: () => void;
   /** Page d'import de l'historique de la plateforme */
   openImport: (platform: ImportPlatform) => void;
+  /** Lectures du menu du compte (tests) ; défaut : le stockage */
+  menuData?: AccountMenuData;
   now?: () => number;
 }
 
@@ -171,24 +172,37 @@ function StatusBarHost({ deps, source }: { deps: StatusBarHostDeps; source: Stat
   // Bouton retiré par un changement d'état (×, Reconnecter) : focus rendu à un voisin, jamais à <body>
   const root = useRef<HTMLDivElement>(null);
   useFocusFallback(root);
+  // Menu du compte : un seul à la fois, basculé par son logo
+  const [menuFor, setMenuFor] = useState<TrackerId | null>(null);
+  const accountsArea = useRef<HTMLSpanElement>(null);
 
   const now = (deps.now ?? Date.now)();
   const accounts = { anilist, mal };
   const state = statusBarState({ accounts, ...data, now });
   const actions: Actions = { deps, now, seen: (kind) => void source.markSeen(kind, now) };
-  const logos = accountLogos(accounts).map(
+  const states = accountLogos(accounts);
+  // Logo retiré (déconnexion depuis le menu ou ailleurs) : menu fermé avec lui
+  const openMenu = states.some(({ service, state: logo }) => service === menuFor && logo !== 'none') ? menuFor : null;
+  const logos = states.map(
     ({ service, state: logo }): StatusBarAccount => ({
       service,
       state: logo,
-      label: t(logo === 'expired' ? 'footer.chip.expired' : 'footer.chip.ok', { service: TRACKER_LABELS[service] }),
-      onClick: deps.openAccounts,
+      label: t(logo === 'expired' ? 'accountMenu.labelExpired' : 'accountMenu.label', { service: TRACKER_LABELS[service] }),
+      onClick: () => setMenuFor(openMenu === service ? null : service),
+      expanded: openMenu === service,
       focusKey: `chip-${service}`,
     }),
   );
+  const closeMenu = (restore: boolean): void => {
+    const service = openMenu;
+    setMenuFor(null);
+    if (restore && service) accountsArea.current?.querySelector<HTMLElement>(`[data-focus="chip-${service}"]`)?.focus();
+  };
+  const menu = openMenu && <AccountMenu key={openMenu} service={openMenu} accounts={deps.accounts} root={accountsArea} onClose={closeMenu} data={deps.menuData} now={deps.now} />;
   const view = viewOf(state, actions);
   return (
     <div ref={root} class="contents" data-status-bar="">
-      <StatusBar accounts={logos} message={view.message} trailing={view.trailing} progress={view.progress ?? null} />
+      <StatusBar accounts={logos} message={view.message} trailing={view.trailing} progress={view.progress ?? null} menu={menu} accountsRef={accountsArea} />
     </div>
   );
 }

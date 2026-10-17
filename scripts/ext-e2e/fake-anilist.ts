@@ -207,13 +207,23 @@ export class FakeAniList {
     return found.map((m) => this.mediaFields(m, null));
   }
 
+  /**
+   * `statistics.anime` du profil (menu du compte), comme le vrai AniList (mesuré le 2026-10-17) : `count` sans les entrées
+   * « À voir » (PLANNING) ; 24 min par épisode
+   */
+  private statistics(account: Account): { count: number; episodesWatched: number; minutesWatched: number } {
+    const entries = [...account.entries.values()].filter((entry) => entry.status !== 'PLANNING');
+    const episodesWatched = entries.reduce((sum, entry) => sum + entry.progress, 0);
+    return { count: entries.length, episodesWatched, minutesWatched: episodesWatched * 24 };
+  }
+
   /** Données de l'opération ; null si inconnue */
   private execute(operation: string, v: Record<string, unknown>, account: Account | null, query: string): { ok: unknown } | { error: number; message: string } | null {
     const needsAccount = (): { error: number; message: string } => ({ error: 401, message: 'Unauthorized.' });
     switch (operation) {
       case 'Viewer':
         if (!account) return needsAccount();
-        return { ok: { Viewer: { id: account.viewer.id, name: account.viewer.name, siteUrl: `https://anilist.co/user/${account.viewer.name}`, avatar: null } } };
+        return { ok: { Viewer: { id: account.viewer.id, name: account.viewer.name, siteUrl: `https://anilist.co/user/${account.viewer.name}`, avatar: null, ...(query.includes('statistics') ? { statistics: { anime: this.statistics(account) } } : {}) } } };
       case 'ScoreFormat':
         if (!account) return needsAccount();
         return { ok: { Viewer: { mediaListOptions: { scoreFormat: account.scoreFormat } } } };

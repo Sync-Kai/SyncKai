@@ -102,8 +102,8 @@ describe('Comptes', () => {
     const footer = await popup.$eval('footer', (el) => el.textContent ?? '');
     expect(footer).toContain(en('common.sessionExpired'));
     expect(footer).not.toContain(en('feedback.notConnected.title'));
-    expect(await ariaLabel(popup, sel('chip-anilist'))).toBe(en('footer.chip.expired', { service: 'AniList' }));
-    expect(await ariaLabel(popup, sel('chip-mal'))).toBe(en('footer.chip.ok', { service: 'MyAnimeList' }));
+    expect(await ariaLabel(popup, sel('chip-anilist'))).toBe(en('accountMenu.labelExpired', { service: 'AniList' }));
+    expect(await ariaLabel(popup, sel('chip-mal'))).toBe(en('accountMenu.label', { service: 'MyAnimeList' }));
     expectCleanRun(h, anilist, mal);
   });
 
@@ -133,6 +133,7 @@ describe('Comptes', () => {
       STORAGE_KEYS.anilistViewer,
       STORAGE_KEYS.malViewer,
       STORAGE_KEYS.recentSyncs,
+      STORAGE_KEYS.weeklySyncs,
       STORAGE_KEYS.mediaMappings,
       STORAGE_KEYS.sessionEpoch,
       'settings',
@@ -148,9 +149,22 @@ describe('Comptes', () => {
 
     const popup = await openPopup(h);
     await popup.waitForSelector(sel('chip-mal'));
-    expect(await ariaLabel(popup, sel('chip-anilist'))).toBe(en('footer.chip.ok', { service: 'AniList' }));
-    expect(await ariaLabel(popup, sel('chip-mal'))).toBe(en('footer.chip.ok', { service: 'MyAnimeList' }));
+    expect(await ariaLabel(popup, sel('chip-anilist'))).toBe(en('accountMenu.label', { service: 'AniList' }));
+    expect(await ariaLabel(popup, sel('chip-mal'))).toBe(en('accountMenu.label', { service: 'MyAnimeList' }));
     expect(await popup.$(sel('footer-reconnect'))).toBeNull();
+
+    // Menu du compte MAL : statistiques lues avec le profil (anime_statistics), synchro de la semaine gardée par la mise à
+    // jour ; profil lu à l'instant : aucune requête de plus à l'ouverture
+    const malRequests = mal.requests.length;
+    await popup.locator(sel('chip-mal')).click();
+    await popup.waitForSelector('[role="menu"] [data-stat]');
+    const tiles = await popup.$$eval('[role="menu"] [data-stat]', (els) => els.map((el) => (el as HTMLElement).innerText.replace(/\n+/g, ' ').trim()));
+    expect(tiles).toEqual([`1 ${en('accountMenu.stats.anime_one')}`, `6 ${en('accountMenu.stats.episodes_other')}`, `${en('accountMenu.stats.daysValue', { days: '0.1' })} ${en('accountMenu.stats.days_other')}`]);
+    expect(await popup.$eval('[data-week-value]', (el) => el.textContent)).toBe(en('accountMenu.week.value_one', { count: 1 }));
+    await popup.keyboard.press('Escape');
+    await popup.waitForFunction(() => document.querySelector('[role="menu"]') === null);
+    expect(await popup.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.focus)).toBe('chip-mal');
+    expect(mal.requests.length).toBe(malRequests);
     expectCleanRun(h, anilist, mal);
   });
 
@@ -172,11 +186,11 @@ describe('Comptes', () => {
     });
     expect(queued).toMatchObject({ id: `crunchyroll:${episode.episodeId}`, services: ['anilist', 'mal'], epochs: { anilist: 0, mal: 0 }, status: 'pending' });
 
-    // Déconnexion d'AniList depuis le popup (pastille du compte → Réglages › Comptes → « Déconnecter »)
+    // Déconnexion d'AniList depuis le popup (logo du compte → menu du compte → « Déconnecter »)
     const popup = await openPopup(h);
     await popup.waitForSelector(sel('footer-queue'));
     await popup.locator(sel('chip-anilist')).click();
-    await popup.locator(sel('logout-anilist')).click();
+    await popup.locator('[role="menu"] [role="menuitem"][data-danger]').click();
     const afterLogout = await waitFor('session AniList fermée', async () => {
       const stored = await h.storage();
       return stored[STORAGE_KEYS.anilistToken] === undefined ? stored : null;
