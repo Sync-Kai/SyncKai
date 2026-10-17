@@ -1,5 +1,5 @@
 // Vérifications manuelles (« À vérifier ») et dernières synchros, propres à l'utilisateur.
-import { isPendingReview, isRecentSync, keepDeferred, type DeferredEpisode, type PendingReview, type RecentSync } from '../../shared/review.types';
+import { earlierSyncsOf, isPendingReview, isRecentSync, keepDeferred, type DeferredEpisode, type PendingReview, type RecentSync } from '../../shared/review.types';
 import { liveServices } from '../../shared/session-epochs';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { withStorageLock } from './lock';
@@ -99,8 +99,12 @@ export async function getRecentSyncs(): Promise<RecentSync[]> {
 export function addRecentSync(sync: RecentSync): Promise<boolean> {
   return withStorageLock(async () => {
     if (sync.epochs !== undefined && liveServices(sync.epochs, await getOpenSessions()).length === 0) return false;
-    const others = (await getRecentSyncs()).filter((s) => s.key !== sync.key);
-    await chrome.storage.local.set({ [STORAGE_KEYS.recentSyncs]: [sync, ...others].slice(0, MAX_RECENT_SYNCS) });
+    const syncs = await getRecentSyncs();
+    const others = syncs.filter((s) => s.key !== sync.key);
+    // Synchros précédentes de la saison gardées 24 h : la barre d'état compte chaque épisode synchronisé
+    const earlier = earlierSyncsOf(syncs.find((s) => s.key === sync.key), sync.syncedAt);
+    const entry: RecentSync = earlier.length > 0 ? { ...sync, earlierSyncs: earlier } : sync;
+    await chrome.storage.local.set({ [STORAGE_KEYS.recentSyncs]: [entry, ...others].slice(0, MAX_RECENT_SYNCS) });
     return true;
   });
 }

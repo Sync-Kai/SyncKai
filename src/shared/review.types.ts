@@ -47,6 +47,21 @@ export interface RecentSync {
   syncedAt: number;
   /** Sessions ouvertes lors de l'écriture : « Corriger » ne vaut que pour elles (absent : antérieure à la 2.2.0) */
   epochs?: SessionEpochs;
+  /**
+   * Dates des synchros précédentes de la même saison sur les dernières 24 h, la plus récente en premier (au plus
+   * MAX_EARLIER_SYNCS) : la barre d'état compte chaque épisode synchronisé, pas seulement la dernière entrée de la saison
+   */
+  earlierSyncs?: number[];
+}
+
+/** Dates gardées dans `earlierSyncs` (fenêtre de la barre d'état : 24 h) */
+export const EARLIER_SYNCS_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const MAX_EARLIER_SYNCS = 20;
+
+/** Dates des synchros précédentes de la saison à garder sur la nouvelle entrée (pur) ; vide : champ omis */
+export function earlierSyncsOf(previous: RecentSync | undefined, syncedAt: number): number[] {
+  if (!previous) return [];
+  return [previous.syncedAt, ...(previous.earlierSyncs ?? [])].filter((at) => at < syncedAt && syncedAt - at < EARLIER_SYNCS_WINDOW_MS).slice(0, MAX_EARLIER_SYNCS);
 }
 
 const isNullableNumber = (v: unknown): v is number | null => v === null || typeof v === 'number';
@@ -118,6 +133,7 @@ export function isRecentSync(value: unknown): value is RecentSync {
     typeof value.mediaTitle === 'string' &&
     typeof value.progress === 'number' &&
     typeof value.syncedAt === 'number' &&
-    (value.epochs === undefined || isSessionEpochs(value.epochs))
+    (value.epochs === undefined || isSessionEpochs(value.epochs)) &&
+    (value.earlierSyncs === undefined || (Array.isArray(value.earlierSyncs) && value.earlierSyncs.length <= MAX_EARLIER_SYNCS && value.earlierSyncs.every((at) => typeof at === 'number')))
   );
 }

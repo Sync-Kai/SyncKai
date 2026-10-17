@@ -58,6 +58,8 @@ export interface ChromeMockOptions {
   onCreateTab?: (url: string) => void;
   /** Expose chrome.sidePanel (le panneau latéral se croit sur Chrome) */
   sidePanel?: boolean;
+  /** Expose chrome.action.openPopup (Chrome 127+), appelé à chaque ouverture du popup ; absent = API absente */
+  onOpenPopup?: () => void;
   /** Appelé à chaque chrome.sidePanel.open (tests : ouvertures demandées) */
   onOpenSidePanel?: (options: chrome.sidePanel.OpenOptions) => void;
   /** Touches renvoyées par chrome.commands.getAll ('' : non définie) ; absent = Alt+Shift+K et Alt+Shift+1 */
@@ -263,6 +265,14 @@ export function installChromeMock(options: ChromeMockOptions): ChromeMockControl
       setBadgeText: () => Promise.resolve(),
       setBadgeBackgroundColor: () => Promise.resolve(),
       setBadgeTextColor: () => Promise.resolve(),
+      ...(options.onOpenPopup
+        ? {
+            openPopup: () => {
+              options.onOpenPopup?.();
+              return Promise.resolve();
+            },
+          }
+        : {}),
     },
     ...(permissions ? { permissions } : {}),
     ...(options.sidePanel

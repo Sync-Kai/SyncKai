@@ -245,3 +245,19 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Rechtstreeks naar de laatste aflevering ({progress}) vanaf aflevering {from}: te controleren |
 | `sync.review.burst` | Veel afleveringen binnen een paar minuten afgerond: te controleren |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: « sync » / « gesynchroniseerd » (`footer.allSynced`), « serie » / « series », « Afl. » / « afl. » (`agenda.episode`; the abbreviation also serves the plural, as the term sheet says, to keep the count line short), « import » and « Import klaar » (`crImport.apply.done`), and « voorbeeld » (preview) for the ready state, so it never reads like the finished « Import klaar »; « bevestigen » as `common.confirm`; ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Gezien, verbergen |
+| `footer.importDone_one` | Import klaar · {count} serie bijgewerkt |
+| `footer.importDone_other` | Import klaar · {count} series bijgewerkt |
+| `footer.importProgress` | {platform}-import · {done} / {total} |
+| `footer.importReady_one` | Voorbeeld klaar · {count} serie te bevestigen |
+| `footer.importReady_other` | Voorbeeld klaar · {count} series te bevestigen |
+| `footer.syncedEpisode` | Afl. {episode} gesynchroniseerd |
+| `footer.syncedEpisodes_one` | {count} afl. gesynchroniseerd |
+| `footer.syncedEpisodes_other` | {count} afl. gesynchroniseerd |

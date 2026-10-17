@@ -241,3 +241,22 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Salt direct la ultimul episod ({progress}) de la episodul {from}: de verificat |
 | `sync.review.burst` | Multe episoade terminate în câteva minute: de verificat |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: « sincronizat » (agreeing with *episod*), « serie / serii », « Ep. » (`agenda.episode`), « import » (`crImport.apply.done` « Import terminat »), « pregătit » as in `crImport.connect.found` and « de confirmat » as `common.confirm`; plurals `_one` / `_few` / `_other` with « de » in `_other`, like `footer.queueFailed_*`; ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Văzut, ascunde |
+| `footer.importDone_one` | Import terminat · {count} serie actualizată |
+| `footer.importDone_few` | Import terminat · {count} serii actualizate |
+| `footer.importDone_other` | Import terminat · {count} de serii actualizate |
+| `footer.importProgress` | Import {platform} · {done} / {total} |
+| `footer.importReady_one` | Import pregătit · {count} serie de confirmat |
+| `footer.importReady_few` | Import pregătit · {count} serii de confirmat |
+| `footer.importReady_other` | Import pregătit · {count} de serii de confirmat |
+| `footer.syncedEpisode` | Ep. {episode} sincronizat |
+| `footer.syncedEpisodes_one` | {count} episod sincronizat |
+| `footer.syncedEpisodes_few` | {count} episoade sincronizate |
+| `footer.syncedEpisodes_other` | {count} de episoade sincronizate |

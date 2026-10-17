@@ -212,3 +212,22 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Přímý skok na poslední epizodu ({progress}) z epizody {from}: je třeba ověřit |
 | `sync.review.burst` | Mnoho epizod dokončeno během několika minut: je třeba ověřit |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: « synchronizace » (participle « synchronizována », feminine after « Ep. »), « seriál », « epizoda » / « Ep. », « import » (« Import dokončen » as in `crImport.apply.done`), « k potvrzení » (from « Potvrdit ») and « aktualizován » as in `compare.result.updated_*`; `{platform}` after « z platformy » as in `settings.crImport.openAria`; ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Přečteno, skrýt |
+| `footer.importDone_one` | Import dokončen · {count} seriál aktualizován |
+| `footer.importDone_few` | Import dokončen · {count} seriály aktualizovány |
+| `footer.importDone_other` | Import dokončen · {count} seriálů aktualizováno |
+| `footer.importProgress` | Import z platformy {platform} · {done} / {total} |
+| `footer.importReady_one` | Import připraven · {count} seriál k potvrzení |
+| `footer.importReady_few` | Import připraven · {count} seriály k potvrzení |
+| `footer.importReady_other` | Import připraven · {count} seriálů k potvrzení |
+| `footer.syncedEpisode` | Ep. {episode} synchronizována |
+| `footer.syncedEpisodes_one` | {count} epizoda synchronizována |
+| `footer.syncedEpisodes_few` | {count} epizody synchronizovány |
+| `footer.syncedEpisodes_other` | {count} epizod synchronizováno |

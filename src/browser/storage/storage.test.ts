@@ -394,6 +394,24 @@ describe('plafonds (TEST-10)', () => {
     expect(syncs.map((s) => s.mediaId)).toEqual([6, 7, 5, 4, 3]);
   });
 
+  it('addRecentSync : dates des synchros précédentes de la saison gardées 24 h, 20 au plus (compte de la barre d’état)', async () => {
+    const HOUR = 3_600_000;
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    await storage.addRecentSync(recent(1, BOTH, 0));
+    expect((await storage.getRecentSyncs())[0]).not.toHaveProperty('earlierSyncs');
+    await storage.addRecentSync(recent(1, BOTH, 23 * HOUR));
+    await storage.addRecentSync(recent(1, BOTH, 25 * HOUR));
+    // Plus récente d'abord ; la synchro de 0 h a plus de 24 h à 25 h
+    expect((await storage.getRecentSyncs())[0]).toMatchObject({ syncedAt: 25 * HOUR, earlierSyncs: [23 * HOUR] });
+    for (let n = 1; n <= 30; n++) await storage.addRecentSync(recent(1, BOTH, 25 * HOUR + n));
+    const [latest] = await storage.getRecentSyncs();
+    expect(latest?.earlierSyncs).toHaveLength(20);
+    expect(latest?.earlierSyncs?.[0]).toBe(25 * HOUR + 29);
+    // Autre saison : rien n'est repris
+    await storage.addRecentSync(recent(2, BOTH, 26 * HOUR));
+    expect((await storage.getRecentSyncs())[0]).not.toHaveProperty('earlierSyncs');
+  });
+
   it('addRecentSync : synchro dont aucune session n’est encore ouverte jamais recréée après la purge (audit L3)', async () => {
     store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
     expect(await storage.addRecentSync(recent(1, { anilist: 0, mal: 0 }))).toBe(true);

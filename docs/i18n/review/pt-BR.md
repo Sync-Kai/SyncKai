@@ -195,3 +195,19 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Salto direto para o último episódio ({progress}) a partir do episódio {from}: a verificar |
 | `sync.review.burst` | Muitos episódios concluídos em poucos minutos: a verificar |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: *sincronizado* (sync), *anime* (series, masculine agreement: *atualizado*), *Ep.* / *episódio* (episode), *Importação* (import, as `crImport.apply.done` « Importação concluída »), *a confirmar* (preview to confirm, label form like *a verificar*) and *ocultar* (hide); *da {platform}* as in `crImport.preview.nothing` (Crunchyroll, ADN and Netflix are feminine). ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Visto, ocultar |
+| `footer.importDone_one` | Importação concluída · {count} anime atualizado |
+| `footer.importDone_other` | Importação concluída · {count} animes atualizados |
+| `footer.importProgress` | Importação da {platform} · {done} / {total} |
+| `footer.importReady_one` | Importação pronta · {count} anime a confirmar |
+| `footer.importReady_other` | Importação pronta · {count} animes a confirmar |
+| `footer.syncedEpisode` | Ep. {episode} sincronizado |
+| `footer.syncedEpisodes_one` | {count} episódio sincronizado |
+| `footer.syncedEpisodes_other` | {count} episódios sincronizados |

@@ -227,3 +227,25 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Одразу останній епізод ({progress}) після епізоду {from}: треба перевірити |
 | `sync.review.burst` | Багато епізодів переглянуто за кілька хвилин: треба перевірити |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: « синхронізовано », « аніме » (impersonal participles, as in `compare.result.updated_*`), « епізод » / « Еп. », « імпорт » (« Імпорт завершено » as in `crImport.apply.done`) and « для підтвердження » (from « Підтвердити »); ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Ясно, сховати |
+| `footer.importDone_one` | Імпорт завершено · {count} аніме оновлено |
+| `footer.importDone_few` | Імпорт завершено · {count} аніме оновлено |
+| `footer.importDone_many` | Імпорт завершено · {count} аніме оновлено |
+| `footer.importDone_other` | Імпорт завершено · {count} аніме оновлено |
+| `footer.importProgress` | Імпорт з {platform} · {done} / {total} |
+| `footer.importReady_one` | Імпорт готовий · {count} аніме для підтвердження |
+| `footer.importReady_few` | Імпорт готовий · {count} аніме для підтвердження |
+| `footer.importReady_many` | Імпорт готовий · {count} аніме для підтвердження |
+| `footer.importReady_other` | Імпорт готовий · {count} аніме для підтвердження |
+| `footer.syncedEpisode` | Еп. {episode} синхронізовано |
+| `footer.syncedEpisodes_one` | {count} епізод синхронізовано |
+| `footer.syncedEpisodes_few` | {count} епізоди синхронізовано |
+| `footer.syncedEpisodes_many` | {count} епізодів синхронізовано |
+| `footer.syncedEpisodes_other` | {count} епізоду синхронізовано |

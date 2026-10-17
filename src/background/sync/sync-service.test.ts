@@ -248,6 +248,22 @@ describe('resolveReview : échec passager d’un service (SYNC-03)', () => {
   });
 });
 
+describe('« Synchro… » de la barre d’état', () => {
+  it('signal posé dans storage.session pendant les écritures des services, retiré après', async () => {
+    connect({ status: 'CURRENT', progress: 11 });
+    await savePendingReview(review());
+    const seen: unknown[] = [];
+    const save = anilist.saveProgress;
+    anilist.saveProgress = async (...args) => {
+      seen.push(fake.session.peek('syncActivity'));
+      return save(...args);
+    };
+    await resolveReview({ key: KEY, mediaId: PART1, progress: 12 });
+    expect(seen).toEqual([{ startedAt: expect.any(Number) }]);
+    expect(fake.session.peek('syncActivity')).toBeUndefined();
+  });
+});
+
 describe('correction (« Corriger ») : jamais sur une valeur périmée (BAK-01)', () => {
   const correction = review({ episode: episode(5), suggestion: { mediaId: PART1, progress: 5 }, previous: { mediaId: PART1, title: 'Fiche 1001', progress: 5 } });
 

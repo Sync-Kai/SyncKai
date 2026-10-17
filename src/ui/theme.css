@@ -3,10 +3,6 @@
 /* La charte (docs/design) et son cliquet citent des classes et des jetons en exemple : ni lus ni générés */
 @source not "../../docs/design";
 @source not "./design-tokens.test.ts";
-/* Composants de base (ui/components) qu'aucun écran ne monte encore : hors du scan, le paquet publié ne change pas.
-   À retirer avec le premier écran qui les importe (components/scan.test.ts l'exige) ; la galerie de développement les
-   réintègre (scripts/screenshots/gallery.css) */
-@source not "./components";
 
 /* Polices auto-hébergées : sous-ensembles latins uniquement (les katakana passent par la police système), woff2 seul.
    Mêmes déclarations que @fontsource/<police>/latin-<graisse>.css, sans le .woff de repli que ni Chrome ni Firefox pris en

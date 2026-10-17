@@ -243,6 +243,35 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await messages(page, 'RESOLVE_PAGE_MEDIA')).toEqual([]);
   });
 
+  it('barre d’état (même composant que le popup) : en bas de chaque onglet ; sans chrome.action.openPopup, message en texte', async () => {
+    const page = await openPanel({ tab: 'agenda' });
+    await page.waitForSelector('[data-status-bar] footer [data-focus="chip-anilist"]');
+    // Dernier élément du panneau, sous la zone défilante
+    expect(await page.evaluate(() => document.querySelector('#app')?.lastElementChild?.firstElementChild?.matches('[data-status-bar]') ?? false)).toBe(true);
+    // Synchro de démo d'il y a 3 min, non vue : série puis épisode, « J'ai vu, masquer »
+    expect(await page.$eval('[data-status-series]', (el) => el.textContent)).toBe('Dandadan Season 2');
+    expect(await page.$eval('[data-status-message]', (el) => el.tagName)).toBe('SPAN');
+    await page.locator('#sk-tab-nowPlaying').click();
+    expect(await page.$('[data-status-bar] footer')).not.toBeNull();
+    // Logo de compte : Réglages › Comptes du panneau
+    await page.locator('[data-focus="chip-mal"]').click();
+    // Module des Réglages chargé à la première ouverture : les onglets cèdent la place aux Réglages
+    await page.waitForFunction(() => document.querySelector('#sk-tab-nowPlaying') === null);
+    expect(await page.$$eval('h1', (els) => els.map((el) => el.textContent))).toContain(fr('settings.section.accounts'));
+    expect(await page.evaluate(() => document.querySelector('#app')?.lastElementChild?.firstElementChild?.matches('[data-status-bar]') ?? false)).toBe(true);
+  });
+
+  it('barre d’état : clic sur la synchro → popup ouvert sur Activité (demande dans storage.session), × marque la synchro vue', async () => {
+    const page = await openPanel({ tab: 'agenda', popup: 'open' });
+    await page.waitForSelector('button[data-focus="footer-synced"]');
+    await page.locator('[data-focus="footer-synced"]').click();
+    await page.waitForFunction(() => (window.__e2e?.popupOpens ?? 0) === 1);
+    expect(await page.evaluate(async () => (await chrome.storage.session.get('popupScreen')).popupScreen)).toMatchObject({ screen: 'activity' });
+    // Marque « vu » : synchro masquée, écrite dans storage.local
+    await page.waitForFunction(() => document.querySelector('[data-status-series]') === null);
+    expect(typeof (await page.evaluate(async () => (await chrome.storage.local.get('statusBar:syncsSeenAt'))['statusBar:syncsSeenAt']))).toBe('number');
+  });
+
   it('UX-05 : hors page cible, la ligne neutre cite les plateformes suivies, puis celles à activer (et le vrai chemin des Réglages)', async () => {
     const path = `${fr('nav.settings')} › ${fr('settings.cat.sync')}`;
     const off = await openPanel({ site: 'other', tab: 'nowPlaying' });

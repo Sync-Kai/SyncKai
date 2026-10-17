@@ -234,3 +234,16 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | {from}화에서 바로 마지막 화({progress}화)로 이동: 확인 필요 |
 | `sync.review.burst` | 몇 분 사이에 여러 화를 시청 완료: 확인 필요 |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: 동기화됨 (synced), 작품 with the counter 개 (series, as `footer.toRate`), {n}화 for the numbered episode, 가져오기 (import, as `crImport.apply.done`), 업데이트 (as `crImport.preview.apply`); the episode count is 에피소드 {count}개, because {count}화 would read as an episode number; no particle after `{platform}`; « to confirm » is 확인할 작품 (common.confirm 확인); ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | 확인함, 숨기기 |
+| `footer.importDone_other` | 가져오기 완료 · 작품 {count}개 업데이트됨 |
+| `footer.importProgress` | {platform} 가져오기 · {done} / {total} |
+| `footer.importReady_other` | 가져오기 준비됨 · 확인할 작품 {count}개 |
+| `footer.syncedEpisode` | {episode}화 동기화됨 |
+| `footer.syncedEpisodes_other` | 에피소드 {count}개 동기화됨 |

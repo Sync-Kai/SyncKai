@@ -22,8 +22,6 @@ import { tickJobPause } from '../ui/job-pause';
 import { createMenuDismiss } from '../ui/menu';
 import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../browser/host-access';
-import { renderFooter, type FooterStatus } from './components/footer';
-import { footerChips, footerStatus } from './footer-status';
 import { renderHostAccessBanner } from './components/host-access-banner';
 import { renderHeader, renderNav } from './components/header';
 import { renderOnboarding } from './components/onboarding';
@@ -49,6 +47,9 @@ import { createAccountsController } from '../ui/accounts';
 import type { SettingsPage } from '../ui/settings/navigation';
 import type { SettingsView } from '../ui/settings/settings-view';
 import { createPlatformAccessStore } from '../ui/platform-access-store';
+import { importPageUrl } from '../ui/import-page';
+import { mountStatusBar } from '../ui/status-bar-host';
+import { takePopupScreen } from '../browser/popup-screen';
 
 const log = createLogger('popup');
 
@@ -106,8 +107,6 @@ const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
  */
 const platformAccessStore = createPlatformAccessStore();
 
-// Build de développement : libellé « 2.3.1-dev · 3c8ec4f » (src/build/dev-version.ts), sinon la version publiée
-const version = chrome.runtime.getManifest().version_name ?? chrome.runtime.getManifest().version;
 /** Lues au démarrage (synchrone) : la demande d'accès doit partir sans `await` dans le clic */
 const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
 let now = Date.now();
@@ -167,7 +166,7 @@ const compare = createCompareController({
 const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot, compareSlot);
 /**
  * Créée à la première ouverture des Réglages (comme dans le panneau) : mappings, journal, raccourcis et accès ne sont lus
- * qu'alors. Module chargé à ce moment (import dynamique) : Preact et le code des Réglages restent hors du chargement initial
+ * qu'alors. Module chargé à ce moment (import dynamique) : le code des Réglages reste hors du chargement initial
  */
 let settingsView: SettingsView | null = null;
 let settingsLoad: Promise<SettingsView | null> | null = null;
@@ -403,24 +402,6 @@ const menuDismiss = createMenuDismiss({
 
 // ─── Rendu ────────────────────────────────────────────────────────────────
 
-/** Comptes des deux services (barre d'état) */
-function accountStates(): Record<TrackerId, AccountState<unknown>> {
-  return { anilist: anilistStore.get(), mal: malStore.get() };
-}
-
-/** Barre d'état : fonction pure de l'état du popup (footer-status.ts) */
-function currentFooterStatus(): FooterStatus {
-  const { reviews, recentSyncs } = syncStore.get();
-  return footerStatus({
-    accounts: accountStates(),
-    reviews: reviews.length,
-    queue: queue.counts(),
-    toRate: ratings.store.get().items.length,
-    latestSyncAt: recentSyncs[0]?.syncedAt ?? null,
-    now,
-  });
-}
-
 /** Onboarding : plus aucun chargement en cours et aucun compte connecté */
 function isOnboarding(): boolean {
   return TRACKER_IDS.every((service) => accountStore(service).get().status === 'logged-out');
@@ -560,7 +541,6 @@ const hostAccessChanged = createLocaleMemo();
 const onboardingChanged = createLocaleMemo();
 const queueChanged = createLocaleMemo();
 const recentChanged = createLocaleMemo();
-const footerChanged = createLocaleMemo();
 
 function render(): void {
   const ui = uiStore.get();
@@ -632,22 +612,6 @@ function render(): void {
           isExcluded: isRecentExcluded,
           onExclude: (sync) => void excludeRecent(sync),
           entryLinks,
-        }),
-      );
-    }
-
-    // Barre d'état (role="status") : comparée sur son contenu, pas sur l'identité des objets recalculés
-    const chips = footerChips(accountStates());
-    const status = currentFooterStatus();
-    if (footerChanged([JSON.stringify(chips), JSON.stringify(status)])) {
-      footerSlot.replaceChildren(
-        renderFooter({
-          version,
-          chips,
-          status,
-          onOpenSettings: () => navigate('settings', 'accounts'),
-          onOpenActivity: () => navigate('activity'),
-          onReconnect: (service) => void accounts.login(service),
         }),
       );
     }
@@ -836,6 +800,21 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 // ─── Démarrage ────────────────────────────────────────────────────────────
 
 watching.start();
+// Barre d'état (composant partagé avec le panneau latéral) : Activité, Réglages › Comptes (logos), page d'import
+mountStatusBar(footerSlot, {
+  accounts,
+  openActivity: () => navigate('activity'),
+  openAccounts: () => navigate('settings', 'accounts'),
+  // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
+  openImport: (platform) => void chrome.tabs.create({ url: importPageUrl(platform) }),
+});
+// Popup ouvert depuis la barre d'état du panneau latéral : écran Activité demandé
+takePopupScreen().then(
+  (screen) => {
+    if (screen === 'activity') navigate('activity');
+  },
+  (error: unknown) => log.debug('Écran demandé illisible :', error),
+);
 uiStore.subscribe(({ sortMenuOpen, rowMenu }) => menuDismiss.setOpen(sortMenuOpen || rowMenu !== null));
 for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, watching.prefs, watching.entryActions, watching.notice, watching.notes, queue.store, ratings.store, pageCardStore, compare.store, hostAccessStore, platformAccessStore]) store.subscribe(renderer.schedule);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store

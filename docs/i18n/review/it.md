@@ -194,3 +194,19 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Salto diretto all’ultimo episodio ({progress}) dall’episodio {from}: da verificare |
 | `sync.review.burst` | Molti episodi completati in pochi minuti: da verificare |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: « sincronizzato » (agreeing with *episodio*, masculine), « serie » (invariable, « aggiornata / aggiornate » agreeing in the feminine), « Ep. » (`agenda.episode`), « importazione » (`crImport.apply.done` « Importazione completata », `crImport.apply.running`) and « conferma » as `common.confirm`; ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Visto, nascondi |
+| `footer.importDone_one` | Importazione completata · {count} serie aggiornata |
+| `footer.importDone_other` | Importazione completata · {count} serie aggiornate |
+| `footer.importProgress` | Importazione {platform} · {done} / {total} |
+| `footer.importReady_one` | Importazione pronta · {count} serie da confermare |
+| `footer.importReady_other` | Importazione pronta · {count} serie da confermare |
+| `footer.syncedEpisode` | Ep. {episode} sincronizzato |
+| `footer.syncedEpisodes_one` | {count} episodio sincronizzato |
+| `footer.syncedEpisodes_other` | {count} episodi sincronizzati |

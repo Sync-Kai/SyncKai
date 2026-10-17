@@ -15,10 +15,12 @@ export interface StatusBarAccount {
   state: 'none' | 'connected' | 'expired';
   /** Nom du bouton (« Compte AniList », « Compte MyAnimeList, session expirée ») */
   label: string;
-  /** Ouvre le menu du compte ; absent : logo seul */
+  /** Ouvre le menu du compte (ou les Réglages) ; absent : logo seul */
   onClick?: () => void;
-  /** Menu du compte ouvert */
+  /** Menu du compte ouvert ; absent : le bouton n'ouvre pas de menu (ni aria-haspopup ni aria-expanded) */
   expanded?: boolean;
+  /** Clé data-focus (focus retrouvé après un rendu) */
+  focusKey?: string;
 }
 
 export interface StatusBarMessage {
@@ -27,11 +29,16 @@ export interface StatusBarMessage {
   /** Titre de la série nommée par le message : deux lignes */
   series?: string;
   tone: Tone;
-  icon: IconName;
+  /** null : point `muted` à la place de l'icône (« Aucun compte connecté ») */
+  icon: IconName | null;
   /** Infobulle (texte complet) */
   title?: string;
+  /** Nom accessible quand le texte visible ne suffit pas (« Tout est synchronisé · il y a 5 min ») */
+  label?: string;
   /** Message cliquable (ouvre Activité, l'import…) : bouton avec chevron de fin */
   onClick?: () => void;
+  /** Clé data-focus du bouton */
+  focusKey?: string;
 }
 
 export interface StatusBarProps {
@@ -58,9 +65,10 @@ function AccountLogo({ account }: { account: StatusBarAccount }) {
       class="flex cursor-pointer rounded-control border border-transparent bg-transparent p-0.5 transition-colors hover:border-muted hover:bg-raised aria-expanded:border-field aria-expanded:bg-raised"
       aria-label={account.label}
       title={account.label}
-      aria-haspopup="menu"
-      aria-expanded={account.expanded ? 'true' : 'false'}
+      aria-haspopup={account.expanded === undefined ? undefined : 'menu'}
+      aria-expanded={account.expanded === undefined ? undefined : account.expanded ? 'true' : 'false'}
       data-account={account.service}
+      data-focus={account.focusKey}
       data-state={account.state}
       onClick={account.onClick}
     >
@@ -71,37 +79,55 @@ function AccountLogo({ account }: { account: StatusBarAccount }) {
 
 const MESSAGE = 'flex min-w-0 items-center gap-1.5 border-0 bg-transparent p-0 text-right text-secondary text-muted no-underline';
 
+/** Icône du ton, ou point `muted` (sans icône) */
+function StatusIcon({ message, size }: { message: StatusBarMessage; size: string }) {
+  if (message.icon === null) return <span class="mr-0.5 size-2 shrink-0 rounded-pill bg-muted opacity-60" aria-hidden="true" data-status-dot="" />;
+  return (
+    <span class={`flex shrink-0 ${TONE_TEXT[message.tone]}`} data-status-icon="">
+      <Icon name={message.icon} class={size} strokeWidth="2.6" />
+    </span>
+  );
+}
+
 function Message({ message }: { message: StatusBarMessage }) {
-  const toned = TONE_TEXT[message.tone];
+  // Nom accessible donné : texte visible masqué au lecteur d'écran (bouton : aria-label ; texte : copie hors écran)
+  const hidden = message.label !== undefined && !message.onClick ? 'true' : undefined;
   const content = message.series ? (
-    <span class="flex min-w-0 flex-col items-end">
+    <span class="flex min-w-0 flex-col items-end" aria-hidden={hidden}>
       <span class="max-w-full truncate text-ink" title={message.series} data-status-series="">
         {message.series}
       </span>
       <span class="flex items-center gap-1 whitespace-nowrap" data-status-line="">
-        <span class={`flex shrink-0 ${toned}`} data-status-icon="">
-          <Icon name={message.icon} class="size-3" strokeWidth="2.6" />
-        </span>
+        <StatusIcon message={message} size="size-3" />
         {message.text}
       </span>
     </span>
   ) : (
     <>
-      <span class={`flex shrink-0 ${toned}`} data-status-icon="">
-        <Icon name={message.icon} class="size-3.5" strokeWidth="2.6" />
+      <StatusIcon message={message} size="size-3.5" />
+      <span class="truncate" aria-hidden={hidden}>
+        {message.text}
       </span>
-      <span class="truncate">{message.text}</span>
     </>
   );
   if (!message.onClick) {
     return (
       <span class={MESSAGE} title={message.title} data-status-message="">
+        {hidden && <span class="sr-only">{message.label}</span>}
         {content}
       </span>
     );
   }
   return (
-    <button type="button" class={`${MESSAGE} cursor-pointer rounded-control transition-colors hover:text-ink`} title={message.title} data-status-message="" onClick={message.onClick}>
+    <button
+      type="button"
+      class={`${MESSAGE} cursor-pointer rounded-control transition-colors hover:text-ink`}
+      title={message.title}
+      aria-label={message.label}
+      data-status-message=""
+      data-focus={message.focusKey}
+      onClick={message.onClick}
+    >
       {content}
       <span class="-ml-0.5 flex shrink-0 text-muted" data-chevron="">
         <Icon name="chevronRight" class="size-3" strokeWidth="2.6" />
@@ -121,8 +147,8 @@ export function StatusBar({ accounts, message, trailing, progress = null }: Stat
           ))}
         </span>
       )}
-      {/* Région vivante : un changement d'état est annoncé sans prendre le focus */}
-      <div class="ml-auto flex min-w-0 items-center" role="status">
+      {/* Région vivante : un changement d'état est annoncé sans prendre le focus. Sans logo : message à gauche */}
+      <div class={`flex min-w-0 items-center ${shown.length > 0 ? 'ml-auto' : ''}`} role="status">
         {message && <Message message={message} />}
       </div>
       {trailing}

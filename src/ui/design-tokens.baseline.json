@@ -14,7 +14,6 @@
     "import-cr/import-cr.ts": 33,
     "import/import.ts": 18,
     "popup/components/compare-section.ts": 25,
-    "popup/components/footer.ts": 2,
     "popup/components/header.ts": 3,
     "popup/components/host-access-banner.ts": 1,
     "popup/components/onboarding.ts": 6,

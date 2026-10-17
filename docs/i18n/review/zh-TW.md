@@ -235,3 +235,16 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | 從第 {from} 集直接跳到最後一集（第 {progress} 集）：待確認 |
 | `sync.review.burst` | 幾分鐘內看完了多集：待確認 |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: 已同步 (synced), 部 (series counter, as `crImport.preview.toUpdate`), 第 N 集 for the numbered episode and N 集 for the count, 匯入 (import, as `crImport.apply.done`), 待確認 (to confirm, common.confirm 確認); half-width spaces around digits and placeholders; « Seen, hide » is 知道了，隱藏 (usual dismiss wording); ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | 知道了，隱藏 |
+| `footer.importDone_other` | 匯入完成 · {count} 部已更新 |
+| `footer.importProgress` | {platform} 匯入中 · {done} / {total} |
+| `footer.importReady_other` | 匯入就緒 · {count} 部待確認 |
+| `footer.syncedEpisode` | 第 {episode} 集已同步 |
+| `footer.syncedEpisodes_other` | {count} 集已同步 |

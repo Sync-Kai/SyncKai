@@ -195,7 +195,7 @@ async function languageRows(page: Page): Promise<LanguageRowInfo[]> {
 const SOLO = '176496:58567';
 
 describe('popup (bout en bout)', () => {
-  it('s’ouvre sur « En cours » avec les séries, les pastilles d’épisode et la version du manifest', async () => {
+  it('s’ouvre sur « En cours » avec les séries, les pastilles d’épisode et la barre d’état (synchro non vue, sans la version)', async () => {
     const page = await openPopup();
     await page.waitForSelector(sel(`more-${SOLO}`));
 
@@ -214,7 +214,14 @@ describe('popup (bout en bout)', () => {
     expect(badgeOf('Kaiju No. 8').startsWith(fr('watching.badge.upcoming', { episode: 5, delay: '' }))).toBe(true);
     expect(rows.find((r) => r.title === 'Solo Leveling')?.progress).toBe('2 / 13');
 
-    expect(await text(page, 'footer')).toContain(`v${manifest.version}`);
+    // Barre d'état : synchro d'il y a 3 min non vue (série en 1re ligne, « J'ai vu, masquer ») ; version : Réglages › Aide seulement
+    const footer = await text(page, 'footer');
+    expect(footer).toContain('Dandadan Season 2');
+    expect(footer).toContain(fr('footer.syncedEpisode', { episode: 7 }));
+    expect(footer).not.toContain(`v${manifest.version}`);
+    await click(page, 'footer-dismiss');
+    await page.waitForFunction(() => document.querySelector('[data-focus="footer-dismiss"]') === null);
+    expect(await text(page, 'footer')).not.toContain('Dandadan Season 2');
     // Accès aux sites accordé : pas de bandeau
     expect(await page.$(sel('host-access'))).toBeNull();
   });

@@ -249,3 +249,16 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | 第{from}話から最終話（第{progress}話）へ直接移動：確認が必要 |
 | `sync.review.burst` | 数分間に多くの話を視聴完了：確認が必要 |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: 同期済み (synced), 作品 (series, counter N作品), 第N話 for the numbered episode and N話 for the episode count, インポート (import, as `crImport.apply.done`); « to confirm » is 確定待ち (common.confirm 確定, label then count like 評価待ち 3作品), kept apart from 要確認 (to check); « Seen, hide » is 既読にして非表示 (mark as read and hide), not 確認済み, to stay clear of 要確認; ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | 既読にして非表示 |
+| `footer.importDone_other` | インポート完了 · {count}作品を更新 |
+| `footer.importProgress` | {platform}からインポート中 · {done} / {total} |
+| `footer.importReady_other` | インポート準備完了 · 確定待ち {count}作品 |
+| `footer.syncedEpisode` | 第{episode}話を同期済み |
+| `footer.syncedEpisodes_other` | {count}話を同期済み |

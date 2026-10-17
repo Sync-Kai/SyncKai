@@ -239,3 +239,19 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Direkt till sista avsnittet ({progress}) från avsnitt {from}: granska |
 | `sync.review.burst` | Många avsnitt klara inom några minuter: granska |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: « synka » (« synkat » / « synkade », agreeing with *avsnitt*, neuter), « serie » / « serier », « Avs. » (`agenda.episode`), « importen » (`crImport.apply.done` « Importen är klar », shortened to « Importen klar ») and « redo » for the ready state, so it never reads like the finished « klar »; « bekräfta » as `common.confirm`; ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Sett, dölj |
+| `footer.importDone_one` | Importen klar · {count} serie uppdaterad |
+| `footer.importDone_other` | Importen klar · {count} serier uppdaterade |
+| `footer.importProgress` | {platform}-import · {done} / {total} |
+| `footer.importReady_one` | Importen redo · {count} serie att bekräfta |
+| `footer.importReady_other` | Importen redo · {count} serier att bekräfta |
+| `footer.syncedEpisode` | Avs. {episode} synkat |
+| `footer.syncedEpisodes_one` | {count} avsnitt synkat |
+| `footer.syncedEpisodes_other` | {count} avsnitt synkade |

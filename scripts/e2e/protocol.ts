@@ -16,6 +16,8 @@ export interface E2EState {
   openedTabs: string[];
   /** Fenêtre de chaque ouverture du panneau latéral (chrome.sidePanel.open, popup avec `panel=chrome`) */
   sidePanelOpens?: (number | null)[];
+  /** Ouvertures du popup depuis le panneau (chrome.action.openPopup, panneau avec `popup=open`) */
+  popupOpens?: number;
   /** Ports ouverts vers les scripts de contenu (chrome.tabs.connect), page d'import */
   historyConnects?: number;
   /** Fichiers injectés par chrome.scripting.executeScript (lecteurs de l'historique), page d'import */
@@ -100,6 +102,8 @@ export interface PanelFrameParams {
   site?: 'other';
   /** `granted` : accès Netflix (permission optionnelle) accordé */
   netflix?: 'granted';
+  /** `open` : chrome.action.openPopup présent (Chrome 127+) ; absent : API absente */
+  popup?: 'open';
 }
 
 declare global {

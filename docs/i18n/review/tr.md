@@ -203,3 +203,19 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | {from}. bölümden doğrudan son bölüme ({progress}): Doğrulanmalı |
 | `sync.review.burst` | Birkaç dakikada çok sayıda bölüm bitirildi: Doğrulanmalı |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: *eşitlendi* (synced), *seri* (series, singular after a number), *Bölüm* (episode, label form), *içe aktarma* (import), *güncellendi* (updated), *onaylanacak* (to confirm, same pattern as *doğrulanacak* / *güncellenecek*) and *gizle* (hide); no suffix on `{platform}` or `{count}` (*{platform} içe aktarması*). ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Gördüm, gizle |
+| `footer.importDone_one` | İçe aktarma bitti · {count} seri güncellendi |
+| `footer.importDone_other` | İçe aktarma bitti · {count} seri güncellendi |
+| `footer.importProgress` | {platform} içe aktarması · {done} / {total} |
+| `footer.importReady_one` | İçe aktarma hazır · {count} seri onaylanacak |
+| `footer.importReady_other` | İçe aktarma hazır · {count} seri onaylanacak |
+| `footer.syncedEpisode` | Bölüm {episode} eşitlendi |
+| `footer.syncedEpisodes_one` | {count} bölüm eşitlendi |
+| `footer.syncedEpisodes_other` | {count} bölüm eşitlendi |

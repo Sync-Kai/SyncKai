@@ -217,3 +217,25 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Сразу последний эпизод ({progress}) после эпизода {from}: нужно проверить |
 | `sync.review.burst` | Много эпизодов досмотрено за несколько минут: нужно проверить |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: « синхронизировать » (« синхронизирован »), « аниме » (neuter agreement, as in `compare.result.updated_*`), « эпизод » / « Эп. », « импорт » (« Импорт завершён » as in `crImport.apply.done`) and « к подтверждению » (from « Подтвердить »); ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Понятно, скрыть |
+| `footer.importDone_one` | Импорт завершён · {count} аниме обновлено |
+| `footer.importDone_few` | Импорт завершён · {count} аниме обновлены |
+| `footer.importDone_many` | Импорт завершён · {count} аниме обновлено |
+| `footer.importDone_other` | Импорт завершён · {count} аниме обновлено |
+| `footer.importProgress` | Импорт из {platform} · {done} / {total} |
+| `footer.importReady_one` | Импорт готов · {count} аниме к подтверждению |
+| `footer.importReady_few` | Импорт готов · {count} аниме к подтверждению |
+| `footer.importReady_many` | Импорт готов · {count} аниме к подтверждению |
+| `footer.importReady_other` | Импорт готов · {count} аниме к подтверждению |
+| `footer.syncedEpisode` | Эп. {episode} синхронизирован |
+| `footer.syncedEpisodes_one` | {count} эпизод синхронизирован |
+| `footer.syncedEpisodes_few` | {count} эпизода синхронизированы |
+| `footer.syncedEpisodes_many` | {count} эпизодов синхронизировано |
+| `footer.syncedEpisodes_other` | {count} эпизода синхронизировано |

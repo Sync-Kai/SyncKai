@@ -29,6 +29,7 @@ import {
 import { isRewatchDeclined } from '../../browser/storage/engagement-store';
 import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
 import { getSettings } from '../../browser/storage/settings-access';
+import { withSyncActivity } from '../../browser/storage/sync-activity';
 import { mappingOrigin, type ServiceResult, type SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { ApiError } from '../errors';
@@ -284,7 +285,8 @@ async function writeToServices(
 
   // Garde du saut final (SEC-01) pour la synchro automatique seulement : un choix de l'utilisateur s'applique tel quel
   const guardFinale = options.confirmed === undefined && (options.correctionFrom ?? null) === null;
-  const writes = await Promise.all(trackers.map((tr) => writeToService(tr, catalog, progress, options.correctionFrom ?? null, options.epochs[tr.id], guardFinale)));
+  // « Synchro… » dans la barre d'état des pages ouvertes, le temps des lectures et écritures des services
+  const writes = await withSyncActivity(() => Promise.all(trackers.map((tr) => writeToService(tr, catalog, progress, options.correctionFrom ?? null, options.epochs[tr.id], guardFinale))));
   const results = writes.map((w) => w.result);
 
   if (results.some((r) => r.outcome.status === 'updated')) {

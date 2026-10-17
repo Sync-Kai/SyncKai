@@ -15,13 +15,12 @@ import type { ImportPlatform } from '../../shared/cr-import';
 import { PLATFORMS } from '../../platforms/registry';
 import { busyAttrs, h, nodes, type Child } from '../dom';
 import { icon } from '../icons';
+import { importPageUrl } from '../import-page';
 import type { SettingsContext, SettingsPageView } from './context';
 import { BTN_DANGER, BTN_DANGER_FILL, dangerRow, dangerZone, DIVIDER, HELP_TEXT, settingsSection } from './rows';
 
 const log = createLogger('settings');
 
-/** Import d'un historique Crunchyroll, ADN ou Netflix (onglet dédié : lecture, analyse et aperçu durent plusieurs minutes) */
-const IMPORT_PAGE = 'src/import-cr/import-cr.html';
 const EXPORTED_BADGE_MS = 2_000;
 
 type ExportState = 'idle' | 'exporting' | 'exported' | 'error';
@@ -194,7 +193,7 @@ export function createDataPage(ctx: SettingsContext): SettingsPageView {
       {
         class: `${BTN_GHOST} border border-line px-3 text-sakura`,
         attrs: { type: 'button', 'data-focus': focus, title: t('settings.backup.crImportTitle', { platform: label }), 'aria-label': t('settings.crImport.openAria', { platform: label }) },
-        on: { click: () => ctx.host.openTab(chrome.runtime.getURL(`${IMPORT_PAGE}?platform=${platform}`)) },
+        on: { click: () => ctx.host.openTab(importPageUrl(platform)) },
       },
       platformIcon(platform, 'h-4 w-4 rounded-[4px]', { decorative: true }),
       label,

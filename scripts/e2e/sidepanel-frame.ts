@@ -132,6 +132,8 @@ const controls = installChromeMock({
     ),
   },
   onSendMessage: (message: SentMessage) => trace.messages.push(message),
+  // `popup=open` : chrome.action.openPopup présent (barre d'état : messages vers Activité cliquables)
+  ...(param('popup') === 'open' ? { onOpenPopup: () => void (trace.popupOpens = (trace.popupOpens ?? 0) + 1) } : {}),
 });
 
 const panel: E2EPanelControls = {

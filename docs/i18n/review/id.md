@@ -240,3 +240,16 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Langsung ke episode terakhir ({progress}) dari episode {from}: perlu dicek |
 | `sync.review.burst` | Banyak episode selesai dalam beberapa menit: perlu dicek |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: *tersinkron* (synced), *anime* (series), *Ep.* / *episode* (episode), *Impor* (import, as `crImport.apply.done` « Impor selesai »), *diperbarui* (updated), *perlu dikonfirmasi* (to confirm, parallel to *perlu dicek*) and *sembunyikan* (hide); « Seen, hide » became *Oke, sembunyikan* to stay short. ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Oke, sembunyikan |
+| `footer.importDone_other` | Impor selesai · {count} anime diperbarui |
+| `footer.importProgress` | Impor {platform} · {done} / {total} |
+| `footer.importReady_other` | Impor siap · {count} anime perlu dikonfirmasi |
+| `footer.syncedEpisode` | Ep. {episode} tersinkron |
+| `footer.syncedEpisodes_other` | {count} episode tersinkron |

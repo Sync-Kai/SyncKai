@@ -63,6 +63,10 @@ const ICON_PATHS = {
   // Clavier : touches en segments nuls (disques), barre d'espace
   keyboard: ['M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z', 'M6 10h.01', 'M10 10h.01', 'M14 10h.01', 'M18 10h.01', 'M8 14h8'],
   pencil: ['M12 20h9', 'M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z'],
+  // Barre d'état : « J'ai vu, masquer », import d'historique en cours, aperçu de l'import prêt à valider
+  close: ['M18 6 6 18', 'M6 6l12 12'],
+  download: ['M12 3v12', 'M7 10l5 5 5-5', 'M5 21h14'],
+  checkSquare: ['M9 11l3 3 8-8', 'M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'],
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

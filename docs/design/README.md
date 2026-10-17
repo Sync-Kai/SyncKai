@@ -1,6 +1,6 @@
 # SyncKai design charter
 
-The graphic charter of the extension pages (popup, side panel, settings, import pages) and of the in-page toasts. It is the target of the UI redesign that moves the screens to Preact one by one. Until a screen is migrated, it keeps its current look: the tokens below exist in `src/ui/theme.css`, but no component has been restyled to use them yet.
+The graphic charter of the extension pages (popup, side panel, settings, import pages) and of the in-page toasts. It is the target of the UI redesign that moves the screens to Preact one by one. Until a screen is migrated, it keeps its current look: the tokens below exist in `src/ui/theme.css`. Migrated so far: Settings › Shortcuts (pilot) and the status bar of the popup and side panel.
 
 Sources: the owner's decisions on the UX mockups (2026-10-16 / 17) and the mockups themselves (see [Mockups](#mockups)). Anything they leave open is marked *to be decided during the migration*.
 
@@ -120,8 +120,13 @@ The weight of a size token is a default; a `font-*` weight utility overrides it.
 - One shared component, 48 px high, at the bottom of the popup and of the side panel: service logos on the left, message on the right.
 - Message: always `text-secondary` (12 px, 600), `muted`, never underlined. The tone is carried by the icon only. A clickable message ends with « › ».
 - A message naming a series takes two lines: the series title in `ink` on line 1 (truncated with « … »), the status with its icon on line 2.
-- One state at a time, by priority: failed syncs › to check › pending › session expired › no account › to rate › all synced.
-- « Synchro terminée » / « Import terminé » stays until the user has seen it (× or a click on the text, which opens Activité), 24 h at most; a new sync adds to the count (« 2 épisodes synchronisés »). It comes after failed / to check and before to rate / sync in progress / idle. Its place relative to pending and session expired is to be decided during the migration.
+- One state at a time, by priority (`src/ui/status-bar-model.ts`): failed syncs › to check (with the pending retries after it: « 2 à vérifier · 1 en attente ») › pending › session expired › no account › import or list alignment running › import ready › sync done › import done › to rate › sync in progress › all synced. While the accounts are being read, the bar shows no message (no flash of « Aucun compte connecté »).
+- « Synchro terminée » / « Import terminé » stays until the user has seen it (× « J'ai vu, masquer » or a click on the text), 24 h at most; a new sync adds to the count (« 2 épisodes synchronisés », every episode counted, earlier episodes of the same season included). The mark lives in `storage.local` (`statusBar:syncsSeenAt`, `statusBar:importSeenAt`), so it is shared by the popup and the panel and survives a closed popup. A click on « Synchro terminée » opens Activité; on an import message, the import page of its platform.
+- Import running (« Import Crunchyroll · 42 / 120 », analysis or writing) and alignment running (« Alignement… 3 / 10 », opens Activité) show the 2 px progress line. « Import prêt · N séries à valider » shows for 24 h after the analysis ends (it is not dismissible: the import page has « Recommencer »). A stopped or cancelled job shows nothing.
+- « Synchro… »: a `{ startedAt }` signal written by the service worker in `storage.session` around the tracker reads and writes of a sync, ignored by the pages after one minute.
+- Session expired: greyed logo with a red dot, « Session expirée » (the logo names the service) and a « Reconnecter » button. No account: no logo, a grey dot, the message on the left, nothing clickable.
+- The account logos open Settings › Accounts until the account menu replaces that. The version is no longer in the bar (Settings › Help & about).
+- Side panel: it has no Activité, so a message that leads there opens the popup on Activité (`chrome.action.openPopup`, Chrome 127+ and Firefox; the screen is passed through a one-shot `storage.session` request). Without that API the message is plain text; × still works.
 
 ### Account menu
 
@@ -183,7 +188,7 @@ Extension pages move to Preact one screen at a time (decision 12, 2026-10-17); c
 
 ### Base components
 
-Components in `src/ui/components/`, built from the tokens above. Every visible or accessible text is a prop that the caller fills with `t()`. Until a screen imports them, `src/ui/theme.css` keeps them out of the Tailwind scan (`@source not "./components"`), so the published CSS is unchanged; the first screen that uses one removes that line (`components/scan.test.ts` enforces both ways). Dev-only gallery of every component in its states, at 400 and 360 px: `node scripts/screenshots/gallery.ts [--out <dir>]` (default `<tmp>/synckai-gallery`).
+Components in `src/ui/components/`, built from the tokens above. Every visible or accessible text is a prop that the caller fills with `t()`. The status bar is the first shipped screen that imports them, so `src/ui/theme.css` no longer keeps them out of the Tailwind scan (`components/scan.test.ts` enforces it both ways: the exclusion comes back only if no shipped module imports them). Dev-only gallery of every component in its states, at 400 and 360 px: `node scripts/screenshots/gallery.ts [--out <dir>]` (default `<tmp>/synckai-gallery`).
 
 - **`Button`**: `primary` (one per surface), `secondary`, `ghost`, `danger`, `text`; `sm` / `md`; leading icon; `busy` (aria-busy, focus kept, clicks ignored); `<a>` when given `href`.
 - **`IconButton`**: 28 px round icon button; `label` is required (aria-label and tooltip); optional line border, menu and pressed states.
@@ -198,7 +203,7 @@ Components in `src/ui/components/`, built from the tokens above. Every visible o
 - **`Collapsible`**: header button with `aria-expanded` / `aria-controls`, chevron and optional count; controlled or not.
 - **`Tabs`**: pill tablist, neutral selection, roving tabindex, arrows / Home / End select.
 - **`Menu` / `MenuItem` / `SubMenu` / `MenuSeparator`**: the row « ⋯ » menu; roving focus, Tab / Esc / outside click close it (`useDismiss`); sub-menus open on hover after a short intent delay, on click, → or Enter, and close on ← or Esc; danger items.
-- **`StatusBar`**: the 48 px footer, props only: account logo buttons (none when never connected, greyed with a red dot when expired), message with its tone icon, two lines when it names a series, a button with a trailing chevron when clickable, trailing slot, import progress line.
+- **`StatusBar`**: the 48 px footer, props only: account logo buttons (none when never connected, greyed with a red dot when expired; `aria-haspopup` only when they open a menu), message with its tone icon (or a muted dot), two lines when it names a series, a button with a trailing chevron when clickable, an optional accessible name, trailing slot, import progress line. Mounted with its data by `src/ui/status-bar-host.tsx` (`mountStatusBar`).
 - **`StarRating`**: 10 stars with halves as one `role="slider"` (← → ±0.5, Home / End, Enter confirms), half-star click, hover preview, read-only mode. Pages only: the content-safe `ui/star-rating.ts` (end-of-series toast) is unchanged until the toasts are redesigned.
 
 ## Mockups

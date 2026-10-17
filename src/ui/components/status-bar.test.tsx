@@ -101,6 +101,34 @@ describe('StatusBar', () => {
     expect(line?.querySelector('[data-status-icon]')).not.toBeNull();
   });
 
+  it('logo qui n’ouvre pas de menu : ni aria-haspopup ni aria-expanded ; clés data-focus du logo et du message', async () => {
+    await show(
+      <StatusBar
+        accounts={[{ service: 'anilist', state: 'connected', label: 'Compte AniList', onClick: () => undefined, focusKey: 'chip-anilist' }]}
+        message={{ text: '2 à vérifier', tone: 'warn', icon: 'alert', onClick: () => undefined, focusKey: 'footer-pending', label: '2 à vérifier — voir l’activité' }}
+      />,
+    );
+    const logo = $('[data-focus="chip-anilist"]');
+    expect(logo?.hasAttribute('aria-haspopup')).toBe(false);
+    expect(logo?.hasAttribute('aria-expanded')).toBe(false);
+    expect($('[data-focus="footer-pending"]')?.getAttribute('aria-label')).toBe('2 à vérifier — voir l’activité');
+  });
+
+  it('nom accessible d’un message en texte : copie hors écran, texte visible masqué au lecteur d’écran', async () => {
+    await show(<StatusBar accounts={ACCOUNTS} message={{ text: 'il y a 5 min', tone: 'ok', icon: 'check', label: 'Tout est synchronisé · il y a 5 min' }} />);
+    expect($('[role="status"] .sr-only')?.textContent).toBe('Tout est synchronisé · il y a 5 min');
+    expect($('[data-status-message] .truncate')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('sans logo : message à gauche ; sans icône : point muted', async () => {
+    await show(<StatusBar accounts={[]} message={{ text: 'Aucun compte connecté', tone: 'muted', icon: null }} />);
+    expect($('[role="status"]')?.className).not.toContain('ml-auto');
+    expect($('[data-status-dot]')).not.toBeNull();
+    expect($('[data-status-icon]')).toBeNull();
+    await show(<StatusBar accounts={ACCOUNTS} message={{ text: 'il y a 5 min', tone: 'ok', icon: 'check' }} />);
+    expect($('[role="status"]')?.className).toContain('ml-auto');
+  });
+
   it('contenu de fin (masquer, reconnecter) et barre de progression décorative', async () => {
     await show(
       <StatusBar accounts={ACCOUNTS} message={{ text: 'Import Crunchyroll · 42 / 120', tone: 'info', icon: 'sync' }} progress={0.35} trailing={<button type="button" data-hide="">×</button>} />,

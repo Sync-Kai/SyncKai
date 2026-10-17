@@ -241,3 +241,25 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Bezpośredni skok do ostatniego odcinka ({progress}) z odcinka {from}: do sprawdzenia |
 | `sync.review.burst` | Wiele odcinków ukończonych w kilka minut: do sprawdzenia |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: « synchronizacja » (participle « zsynchronizowany »), « seria », « odcinek » / « Odc. », « import » and « do potwierdzenia » (from « Potwierdź »), « zaktualizowana » as in `compare.result.updated_*`; ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Widzę, ukryj |
+| `footer.importDone_one` | Import zakończony · {count} seria zaktualizowana |
+| `footer.importDone_few` | Import zakończony · {count} serie zaktualizowane |
+| `footer.importDone_many` | Import zakończony · {count} serii zaktualizowanych |
+| `footer.importDone_other` | Import zakończony · {count} serii zaktualizowanej |
+| `footer.importProgress` | Import z {platform} · {done} / {total} |
+| `footer.importReady_one` | Import gotowy · {count} seria do potwierdzenia |
+| `footer.importReady_few` | Import gotowy · {count} serie do potwierdzenia |
+| `footer.importReady_many` | Import gotowy · {count} serii do potwierdzenia |
+| `footer.importReady_other` | Import gotowy · {count} serii do potwierdzenia |
+| `footer.syncedEpisode` | Odc. {episode} zsynchronizowany |
+| `footer.syncedEpisodes_one` | {count} odcinek zsynchronizowany |
+| `footer.syncedEpisodes_few` | {count} odcinki zsynchronizowane |
+| `footer.syncedEpisodes_many` | {count} odcinków zsynchronizowanych |
+| `footer.syncedEpisodes_other` | {count} odcinka zsynchronizowanego |

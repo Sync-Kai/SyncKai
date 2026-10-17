@@ -233,3 +233,16 @@ New reasons on a « To check » card (`fix/episode-guards`, audit SEC-01): a syn
 |---|---|
 | `sync.review.finaleJump` | Nhảy thẳng tới tập cuối ({progress}) từ tập {from}: cần kiểm tra |
 | `sync.review.burst` | Nhiều tập được xem xong trong vài phút: cần kiểm tra |
+
+## 2026-10-17 · Status bar (popup and side panel)
+
+New texts of the status bar shown at the bottom of the popup and, now, of the side panel (`feature/ui-status-bar`): a synced episode or a count of synced episodes under the series title, shown until the user hides it (« Seen, hide », a × button label), and the history import running, ready to confirm and done. Same words as this language's term sheet: *đã đồng bộ* (synced), *bộ* (series after a number), *Tập* / *tập* (episode), *nhập* (import, as `crImport.apply.done` « Đã nhập xong »), *đã cập nhật* (updated, the import result), *cần xác nhận* (to confirm, parallel to *cần kiểm tra*) and *ẩn* (hide); « Seen, hide » is *Đã biết, ẩn đi* (got it), since *Đã xem* would read as « watched ». ` · ` and ` / ` kept; `{platform}` is a brand name. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `footer.dismiss` | Đã biết, ẩn đi |
+| `footer.importDone_other` | Đã nhập xong · {count} bộ đã cập nhật |
+| `footer.importProgress` | Đang nhập từ {platform} · {done} / {total} |
+| `footer.importReady_other` | Sẵn sàng nhập · {count} bộ cần xác nhận |
+| `footer.syncedEpisode` | Tập {episode} đã đồng bộ |
+| `footer.syncedEpisodes_other` | {count} tập đã đồng bộ |

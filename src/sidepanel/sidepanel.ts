@@ -9,8 +9,11 @@ import { sidePanelKind } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
 import { createPlatformAccessStore, requestPlatformAccessFromClick } from '../ui/platform-access-store';
 import { formatPlatformList } from '../ui/platform-list';
-import { settingsPath } from '../ui/settings/navigation';
+import { settingsPath, type SettingsPage } from '../ui/settings/navigation';
 import type { SettingsView } from '../ui/settings/settings-view';
+import { importPageUrl } from '../ui/import-page';
+import { mountStatusBar } from '../ui/status-bar-host';
+import { canOpenPopup, openPopupOn } from '../browser/popup-screen';
 import { h, preserveFocus } from '../ui/dom';
 import { icon, kai, type IconName } from '../ui/icons';
 import { createNowPlaying } from './components/now-playing';
@@ -42,6 +45,8 @@ let autoSelected = false;
 const app = document.getElementById('app');
 /** Accès Netflix / Disney+ / Prime Video de la page du panneau : un seul store, partagé par ses écrans (4-D6) */
 const platformAccess = createPlatformAccessStore();
+/** Comptes AniList / MAL : barre d'état (dès l'ouverture) et Réglages, un seul contrôleur pour la page */
+const accounts = createAccountsController();
 const nowPlaying = createNowPlaying(() => render(), platformAccess);
 
 /** Choix de l'utilisateur (clic, clavier) : seul mémorisé comme « dernier onglet » */
@@ -67,14 +72,12 @@ let settingsLoad: Promise<SettingsView | null> | null = null;
 let settingsPending = false;
 
 /**
- * Créée à la première ouverture : comptes lus seulement si l'utilisateur ouvre les Réglages. Module chargé à ce moment
- * (import dynamique) : Preact et le code des Réglages restent hors du chargement initial du panneau
+ * Créée à la première ouverture (mappings, journal, raccourcis lus seulement alors), avec les comptes de la barre d'état.
+ * Module chargé à ce moment (import dynamique) : le code des Réglages reste hors du chargement initial du panneau
  */
 function loadSettingsView(): Promise<SettingsView | null> {
   settingsLoad ??= import('../ui/settings/settings-view').then(
     ({ createSettingsView }) => {
-      const accounts = createAccountsController();
-      void accounts.bootstrapAll();
       settingsView = createSettingsView({
         navigateBack: () => setSettingsOpen(false),
         openTab: (url) => void chrome.tabs.create({ url }),
@@ -95,7 +98,9 @@ function loadSettingsView(): Promise<SettingsView | null> {
   return settingsLoad;
 }
 
-function setSettingsOpen(open: boolean): void {
+function setSettingsOpen(open: boolean, page: SettingsPage = 'home'): void {
+  // Déjà ouverts : sous-page demandée (logo de compte de la barre d'état → Comptes)
+  if (open && settingsOpen && page !== 'home') settingsView?.show(page);
   if (open === settingsOpen) return;
   // Première ouverture : onglets affichés le temps de charger le module (quelques millisecondes), puis même ouverture
   if (open && !settingsView) {
@@ -103,13 +108,13 @@ function setSettingsOpen(open: boolean): void {
     void loadSettingsView().then((view) => {
       if (!view || !settingsPending) return;
       settingsPending = false;
-      setSettingsOpen(true);
+      setSettingsOpen(true, page);
     });
     return;
   }
   settingsPending = false;
   settingsOpen = open;
-  if (open) settingsView?.show();
+  if (open) settingsView?.show(page);
   render();
   // Fermeture : focus rendu au bouton Réglages de l'en-tête
   if (!open) gearButton.focus({ preventScroll: true });
@@ -196,6 +201,8 @@ function renderTabList(): HTMLElement {
 const header = renderHeader();
 const tabBar = h('div', { class: 'flex h-11 shrink-0 items-start px-4' });
 const tabPanel = h('section', { class: 'sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3', attrs: { role: 'tabpanel', tabindex: '0' } });
+/** Barre d'état (même composant que le popup), en bas du panneau sur chaque onglet et dans les Réglages ; jamais recréée */
+const statusBarSlot = h('div', { class: 'contents' });
 /** Position de défilement de chaque onglet, restaurée au retour sur l'onglet */
 const scrollByTab: Partial<Record<PanelTab, number>> = {};
 let shownTab: PanelTab | null = null;
@@ -261,16 +268,16 @@ function render(): void {
       // Réglages affichés quel que soit l'onglet suivi ; l'onglet du panneau reprendra sa position au retour
       if (shownTab !== null) scrollByTab[shownTab] = tabPanel.scrollTop;
       shownTab = null;
-      mount(app, [header, settingsView.bar, settingsScroll]);
+      mount(app, [header, settingsView.bar, settingsScroll, statusBarSlot]);
     } else if (context.status !== 'checking') {
       // Page de streaming ou non : mêmes onglets ; hors streaming, « En lecture » affiche la ligne neutre
-      mount(app, [header, tabBar, tabPanel]);
+      mount(app, [header, tabBar, tabPanel, statusBarSlot]);
       tabBar.replaceChildren(renderTabList());
       fillTabPanel();
     } else {
       // Première vérification de l'onglet (l'onglet affiché en dépend) ; le panneau d'onglet quitte le DOM
       shownTab = null;
-      app.replaceChildren(header, renderNotice(t('panel.checking'), true));
+      app.replaceChildren(header, renderNotice(t('panel.checking'), true), statusBarSlot);
     }
   });
 }
@@ -345,6 +352,14 @@ async function main(): Promise<void> {
   // Raccourci « ouvrir ou fermer » (Chrome) : écoute posée avant tout await (instant de chargement au plus tôt)
   if (sidePanelKind() === 'chrome') listenPanelToggle();
   await Promise.all([initI18n(), loadInitialTab()]);
+  // Barre d'état : Activité dans le popup (le panneau n'en a pas ; sans chrome.action.openPopup, messages en texte)
+  void accounts.bootstrapAll();
+  mountStatusBar(statusBarSlot, {
+    accounts,
+    openActivity: canOpenPopup() ? () => void openPopupOn('activity') : null,
+    openAccounts: () => setSettingsOpen(true, 'accounts'),
+    openImport: (platform) => void chrome.tabs.create({ url: importPageUrl(platform) }),
+  });
   // Accès accordé ou retiré (bouton « Activer », Réglages, about:addons) : la ligne hors page cible suit
   platformAccess.subscribe(() => {
     if (context.status === 'off') render();

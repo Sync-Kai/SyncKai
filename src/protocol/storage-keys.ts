@@ -33,6 +33,12 @@ export const STORAGE_KEYS = {
   crImportPlan: 'crImport:plan',
   /** Purge des correspondances vers une autre série de la plateforme (SYNC-01) à faire : 'pending', absente sinon */
   otherSeriesPurge: 'migrations:purgeOtherSeries',
+  /**
+   * Barre d'état : dernière fois (ms) où l'utilisateur a vu « Synchro terminée » / « Import terminé » (× ou clic sur le
+   * message), écrites par les pages (ui/status-bar-source.ts). Dans local : le popup se ferme sans perdre la marque
+   */
+  syncsSeenAt: 'statusBar:syncsSeenAt',
+  importSeenAt: 'statusBar:importSeenAt',
 } as const;
 
 /**
@@ -49,6 +55,15 @@ export const SYNC_QUEUE_KEY = 'syncQueue';
 
 /** Épisodes terminés récents par onglet et par série, dans chrome.storage.session (limite de débit, background/sync/episode-rate.ts) */
 export const EPISODE_RATE_KEY = 'episodeRate';
+
+/**
+ * « Synchro… » de la barre d'état, dans chrome.storage.session : `{ startedAt }` posé par le service worker pendant les
+ * écritures d'une synchro et retiré après (browser/storage/sync-activity.ts) ; les pages l'ignorent passé une minute
+ */
+export const SYNC_ACTIVITY_KEY = 'syncActivity';
+
+/** Écran demandé au popup ouvert depuis le panneau latéral (Activité), dans chrome.storage.session, lu une fois (browser/popup-screen.ts) */
+export const POPUP_SCREEN_KEY = 'popupScreen';
 
 /** Cartes « À noter » et revisionnages refusés (voir engagement-store.ts) */
 export const PENDING_RATINGS_KEY = 'pendingRatings';
