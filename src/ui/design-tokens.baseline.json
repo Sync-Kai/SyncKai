@@ -42,7 +42,7 @@
     "ui/settings/page-help.ts": 3,
     "ui/settings/page-language.ts": 4,
     "ui/settings/page-notifications.ts": 8,
-    "ui/settings/page-shortcuts.ts": 3,
+    "ui/settings/page-shortcuts.tsx": 3,
     "ui/settings/page-sync.ts": 6,
     "ui/settings/rows.ts": 14,
     "ui/settings/settings-view.ts": 5,

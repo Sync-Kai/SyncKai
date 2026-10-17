@@ -10,7 +10,7 @@ import { createAccountsController } from '../ui/accounts';
 import { createPlatformAccessStore, requestPlatformAccessFromClick } from '../ui/platform-access-store';
 import { formatPlatformList } from '../ui/platform-list';
 import { settingsPath } from '../ui/settings/navigation';
-import { createSettingsView, type SettingsView } from '../ui/settings/settings-view';
+import type { SettingsView } from '../ui/settings/settings-view';
 import { h, preserveFocus } from '../ui/dom';
 import { icon, kai, type IconName } from '../ui/icons';
 import { createNowPlaying } from './components/now-playing';
@@ -62,35 +62,69 @@ let settingsView: SettingsView | null = null;
 /** Zone défilante des Réglages (jamais retirée du DOM pendant l'affichage : défilement conservé) */
 const settingsScroll = h('main', { class: 'sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3' });
 
-/** Créée à la première ouverture : comptes lus seulement si l'utilisateur ouvre les Réglages */
-function getSettingsView(): SettingsView {
-  if (settingsView) return settingsView;
-  const accounts = createAccountsController();
-  void accounts.bootstrapAll();
-  settingsView = createSettingsView({
-    navigateBack: () => setSettingsOpen(false),
-    openTab: (url) => void chrome.tabs.create({ url }),
-    closesOnBlur: false,
-    accounts,
-    platformAccess,
-  });
-  settingsScroll.append(settingsView.element);
-  return settingsView;
+let settingsLoad: Promise<SettingsView | null> | null = null;
+/** Ouverture demandée pendant le premier chargement du module des Réglages (un second clic l'annule) */
+let settingsPending = false;
+
+/**
+ * Créée à la première ouverture : comptes lus seulement si l'utilisateur ouvre les Réglages. Module chargé à ce moment
+ * (import dynamique) : Preact et le code des Réglages restent hors du chargement initial du panneau
+ */
+function loadSettingsView(): Promise<SettingsView | null> {
+  settingsLoad ??= import('../ui/settings/settings-view').then(
+    ({ createSettingsView }) => {
+      const accounts = createAccountsController();
+      void accounts.bootstrapAll();
+      settingsView = createSettingsView({
+        navigateBack: () => setSettingsOpen(false),
+        openTab: (url) => void chrome.tabs.create({ url }),
+        closesOnBlur: false,
+        accounts,
+        platformAccess,
+      });
+      settingsScroll.append(settingsView.element);
+      return settingsView;
+    },
+    (error: unknown) => {
+      // Nouvel essai à la prochaine ouverture
+      settingsLoad = null;
+      log.warn('Réglages non chargés :', error);
+      return null;
+    },
+  );
+  return settingsLoad;
 }
 
 function setSettingsOpen(open: boolean): void {
   if (open === settingsOpen) return;
+  // Première ouverture : onglets affichés le temps de charger le module (quelques millisecondes), puis même ouverture
+  if (open && !settingsView) {
+    settingsPending = true;
+    void loadSettingsView().then((view) => {
+      if (!view || !settingsPending) return;
+      settingsPending = false;
+      setSettingsOpen(true);
+    });
+    return;
+  }
+  settingsPending = false;
   settingsOpen = open;
-  if (open) getSettingsView().show();
+  if (open) settingsView?.show();
   render();
   // Fermeture : focus rendu au bouton Réglages de l'en-tête
   if (!open) gearButton.focus({ preventScroll: true });
 }
 
+/** Bouton Réglages ; un second clic pendant le premier chargement du module annule l'ouverture */
+function toggleSettings(): void {
+  if (settingsPending) settingsPending = false;
+  else setSettingsOpen(!settingsOpen);
+}
+
 const gearButton = h('button', {
   class: 'ml-auto flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-raised',
   attrs: { type: 'button', 'data-focus': 'gear' },
-  on: { click: () => setSettingsOpen(!settingsOpen) },
+  on: { click: () => toggleSettings() },
 });
 gearButton.append(icon('gear', 'h-[18px] w-[18px]'));
 

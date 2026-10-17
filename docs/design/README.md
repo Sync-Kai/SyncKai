@@ -168,13 +168,26 @@ The weight of a size token is a default; a `font-*` weight utility overrides it.
 - Motion: enter 160 ms, exit 120 ms; reduced motion: fades only.
 - The top-right position is still to be checked on the real sites.
 
+## Preact
+
+Extension pages move to Preact one screen at a time (decision 12, 2026-10-17); content scripts and the in-page toasts stay vanilla. Rules for every migrated screen:
+
+- **`.tsx` for pages only.** No `.tsx` module and no `preact` import is reachable from `src/content/` (`src/architecture.test.ts`).
+- **No `preact/compat`**, no `react` / `react-dom` (ESLint `no-restricted-imports`): only `preact` and `preact/hooks`. Shared hooks live in `src/ui/preact/hooks.ts` (`useStore`, `useLocale`, `useFocusFallback`, `useDismiss`).
+- **No `dangerouslySetInnerHTML`** (ESLint, with the `innerHTML` ban): build the nodes in JSX.
+- **Styles through classes or the `style` object.** Preact writes the `style` object through the CSSOM, which the CSP allows; it has no `style-src`, so an inline style attribute in markup is refused.
+- **Content-safe modules stay vanilla**: `ui/{rating,star-rating,kai-small,svg}.ts` are shared with content scripts. A page wraps them in a small component that mounts the vanilla node into a ref.
+- **Every mounted tree is unmounted on dispose** (`render(null, container)`), and on host navigation when the host mixes Preact and vanilla screens: a tree left mounted keeps its store and locale subscriptions.
+- **Texts through `t()`**, with `useLocale()` in the component so it re-renders when the language changes.
+- **Focus**: Preact keeps nodes across renders; where a render removes the focused element, `useFocusFallback` moves the focus as `preserveFocus` does (same key, declared `data-focus-fallback`, given fallback, then neighbours).
+
 ## Mockups
 
 The owner keeps the reference mockups in a private Claude Design artifact (not linked from this repository). Each screen migrated to Preact is checked against its view there. Decisions recorded on the mockups are summarised above.
 
 ## Ratchet
 
-`src/ui/design-tokens.test.ts` scans `src/**/*.ts` (tests, test helpers and test data excluded) and freezes, per file, in `src/ui/design-tokens.baseline.json`:
+`src/ui/design-tokens.test.ts` scans `src/**/*.{ts,tsx}` (tests, test helpers and test data excluded) and freezes, per file, in `src/ui/design-tokens.baseline.json`:
 
 - **`arbitraryColors`**: Tailwind arbitrary values carrying a colour (`bg-[#…]`, `text-[rgb(…)]`, `shadow-[…_rgba(…)]`, `text-[color:…]`, `[text-shadow:…]`);
 - **`hexColors`**: raw `#rgb` / `#rrggbb` / `#rrggbbaa` colours in string literals (comments ignored, colours already counted as arbitrary classes not counted twice). The Kai mascot drawings are exempt: `src/ui/kai-small.ts` and the large Kai drawing at the end of `src/ui/icons.ts`;

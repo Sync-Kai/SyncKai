@@ -47,7 +47,7 @@ import { createLogger } from '../browser/logger';
 import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
 import type { SettingsPage } from '../ui/settings/navigation';
-import { createSettingsView, type SettingsView } from '../ui/settings/settings-view';
+import type { SettingsView } from '../ui/settings/settings-view';
 import { createPlatformAccessStore } from '../ui/platform-access-store';
 
 const log = createLogger('popup');
@@ -165,22 +165,41 @@ const compare = createCompareController({
   onPauseTick: (job, at) => tickJobPause(compareSlot, job, at),
 });
 const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot, compareSlot);
-/** Créée à la première ouverture des Réglages (comme dans le panneau) : mappings, journal, raccourcis et accès ne sont lus qu'alors */
+/**
+ * Créée à la première ouverture des Réglages (comme dans le panneau) : mappings, journal, raccourcis et accès ne sont lus
+ * qu'alors. Module chargé à ce moment (import dynamique) : Preact et le code des Réglages restent hors du chargement initial
+ */
 let settingsView: SettingsView | null = null;
-function getSettingsView(): SettingsView {
-  if (settingsView) return settingsView;
-  settingsView = createSettingsView({
-    navigateBack: () => goBack(),
-    // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
-    openTab: (url) => void chrome.tabs.create({ url }),
-    closesOnBlur: true,
-    accounts,
-    platformAccess: platformAccessStore,
-  });
-  // Même place dans le DOM que lorsqu'elle était créée au démarrage (avant l'accueil de première utilisation)
-  main.insertBefore(settingsView.element, onboardingSlot);
-  return settingsView;
+let settingsLoad: Promise<SettingsView | null> | null = null;
+function loadSettingsView(): Promise<SettingsView | null> {
+  settingsLoad ??= import('../ui/settings/settings-view').then(
+    ({ createSettingsView }) => {
+      const view = createSettingsView({
+        navigateBack: () => goBack(),
+        // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
+        openTab: (url) => void chrome.tabs.create({ url }),
+        closesOnBlur: true,
+        accounts,
+        platformAccess: platformAccessStore,
+      });
+      // Masquée jusqu'au rendu qui l'affiche (ouverture annulée pendant le chargement : elle reste masquée)
+      view.element.hidden = true;
+      // Même place dans le DOM que lorsqu'elle était créée au démarrage (avant l'accueil de première utilisation)
+      main.insertBefore(view.element, onboardingSlot);
+      settingsView = view;
+      return view;
+    },
+    (error: unknown) => {
+      // Nouvel essai à la prochaine ouverture
+      settingsLoad = null;
+      log.warn('Réglages non chargés :', error);
+      return null;
+    },
+  );
+  return settingsLoad;
 }
+/** Ouverture des Réglages en attente du premier chargement de leur module ; toute autre navigation l'annule */
+let pendingSettings: { page: SettingsPage } | null = null;
 const footerSlot = h('div', { class: 'contents' });
 const main = h(
   'main',
@@ -196,9 +215,21 @@ root.replaceChildren(headerSlot, barSlot, hostAccessSlot, main, footerSlot);
 
 function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
   const ui = uiStore.get();
+  pendingSettings = null;
   if (ui.screen === screen) return;
-  // Entrée dans les Réglages : accueil, ou sous-page demandée (pastille de compte → Comptes)
-  if (screen === 'settings') getSettingsView().show(settingsPage);
+  // Entrée dans les Réglages : accueil, ou sous-page demandée (pastille de compte → Comptes). Première ouverture : écran
+  // inchangé le temps de charger le module (quelques millisecondes, lu dans le paquet), puis même navigation
+  if (screen === 'settings') {
+    if (!settingsView) {
+      const request = { page: settingsPage };
+      pendingSettings = request;
+      void loadSettingsView().then((view) => {
+        if (view && pendingSettings === request) navigate('settings', settingsPage);
+      });
+      return;
+    }
+    settingsView.show(settingsPage);
+  }
   // Changement d'écran : les menus éventuellement ouverts se ferment
   uiStore.set({ ...ui, screen, previous: ui.screen === 'settings' ? ui.previous : ui.screen, sortMenuOpen: false, rowMenu: null, rowConfirm: null });
   main.scrollTop = 0;
@@ -210,6 +241,8 @@ function goBack(): void {
 
 function toggleSettings(): void {
   if (uiStore.get().screen === 'settings') goBack();
+  // Second clic pendant le premier chargement des Réglages : ouverture annulée, comme un retour
+  else if (pendingSettings) pendingSettings = null;
   else navigate('settings');
 }
 
@@ -545,8 +578,8 @@ function render(): void {
     }
     const navStale = navChanged([isSettings, onboarding, ui.screen, pending]);
     // Barre des Réglages persistante (gérée par la vue) : jamais retirée puis réinsérée, le focus y resterait perdu
-    if (isSettings) {
-      const { bar } = getSettingsView();
+    if (isSettings && settingsView) {
+      const { bar } = settingsView;
       if (barSlot.firstChild !== bar || barSlot.childNodes.length !== 1) barSlot.replaceChildren(bar);
     } else if (navStale) {
       barSlot.replaceChildren(

@@ -12,7 +12,16 @@ const SHIPPED_CODE_RESTRICTIONS = [
   { selector: 'CallExpression[callee.name="eval"], NewExpression[callee.name="Function"], CallExpression[callee.name="Function"]', message: 'Évaluation de code interdite (CSP, revue des Stores).' },
   { selector: 'Identifier[name="localStorage"]', message: 'localStorage interdit : chrome.storage.local (le lecteur d’historique ADN lit celui de la page ADN, voir content/adn/history.ts).' },
   { selector: 'MemberExpression[object.name="console"]', message: 'console.* interdit : passer par createLogger (browser/logger.ts).' },
+  // Preact : même interdit que innerHTML, que la règle sur les MemberExpression ne voit pas dans le JSX
+  { selector: 'JSXAttribute[name.name="dangerouslySetInnerHTML"]', message: 'dangerouslySetInnerHTML interdit : construire les nœuds en JSX.' },
 ];
+
+// Preact sans couche de compatibilité : preact/compat modifie Preact globalement et alourdit chaque page, React n'est pas une dépendance
+const COMPAT_IMPORTS = {
+  patterns: [
+    { group: ['preact/compat', 'preact/compat/*', 'react', 'react/*', 'react-dom', 'react-dom/*'], message: 'preact/compat et React interdits : Preact et preact/hooks seulement (ui/preact/hooks.ts).' },
+  ],
+};
 
 // Journal info/debug des scripts de contenu : no-op en production, mais ses arguments (gabarits) restent dans le bundle
 // publié s'il n'est pas sous `if (__SYNCKAI_DEBUG__)` (aussi `__SYNCKAI_DEBUG__ && …`, ou `__SYNCKAI_DEBUG__ ? … : …`)
@@ -65,9 +74,14 @@ export default defineConfig(
   },
   {
     // Code livré (hors tests) : pas de HTML injecté en texte, pas d'évaluation de code, journal par le logger seulement
-    files: ['src/**/*.ts'],
-    ignores: ['src/**/*.test.ts', 'src/test/**'],
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
     rules: { 'no-restricted-syntax': ['error', ...SHIPPED_CODE_RESTRICTIONS] },
+  },
+  {
+    // Tout src/, tests compris : ni preact/compat ni React
+    files: ['src/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-imports': ['error', COMPAT_IMPORTS] },
   },
   {
     // Scripts de contenu : mêmes interdits, plus le journal info/debug hors garde de développement
