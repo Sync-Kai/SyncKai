@@ -103,4 +103,20 @@ describe('Stepper', () => {
     expect(plus()).toBeNull();
     expect(minus()).not.toBeNull();
   });
+
+  it('variante pill (carte « Sur cette page ») : groupe nommé, texte entre − et +, mêmes bornes et même envoi en cours', async () => {
+    await show(<Stepper {...props({ variant: 'pill', focusKey: 'page', value: 12, text: 'Ép. 12 / 12' })} />);
+    const group = $('[data-stepper="pill"]');
+    expect(group?.getAttribute('role')).toBe('group');
+    expect(group?.getAttribute('aria-label')).toBe('Épisodes vus de Dandadan');
+    expect([...(group?.children ?? [])].map((el) => el.getAttribute('data-step') ?? el.textContent)).toEqual(['-1', 'Ép. 12 / 12', '1']);
+    expect(plus()?.disabled).toBe(true);
+    expect(plus()?.dataset.focus).toBe('page-plus');
+    minus()?.click();
+    expect(onDecrement).toHaveBeenCalledTimes(1);
+    await show(<Stepper {...props({ variant: 'pill', busy: true })} />);
+    expect(plus()?.getAttribute('aria-busy')).toBe('true');
+    plus()?.click();
+    expect(onIncrement).not.toHaveBeenCalled();
+  });
 });

@@ -74,4 +74,9 @@ describe('Cover', () => {
     await show(<Cover size="row" title="A" src={null} progress={{ value: 0, total: 0, label: 'Progression' }} />);
     expect($('[role="progressbar"]')).toBeNull();
   });
+
+  it('taille `card` (carte « Sur cette page ») : 44 × 62', async () => {
+    await show(<Cover size="card" title="Frieren" src={null} />);
+    expect($('[data-cover]')?.className).toContain('h-15.5 w-11');
+  });
 });

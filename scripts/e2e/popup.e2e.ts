@@ -632,6 +632,30 @@ describe('popup (bout en bout)', () => {
     await page.waitForSelector(`${card} [role="status"]`);
   });
 
+  it('« Sur cette page » : menu « ⋯ » (statut actuel grisé), « Mettre en pause » envoie SET_LIST_STATUS, exclusion puis réactivation', async () => {
+    const page = await openPopup({ scenario: 'page' });
+    await page.waitForSelector(sel('page-plus'));
+    await click(page, 'more-page');
+    await page.waitForSelector('[role="menu"]');
+    // En cours : aucun des trois statuts proposés n'est le statut actuel ; pas de commentaire (il est dans les détails)
+    expect(await page.$(`${sel('PAUSED-page')}:disabled`)).toBeNull();
+    expect(await page.$(sel('notes-page'))).toBeNull();
+    await click(page, 'PAUSED-page');
+    expect((await waitForMessage(page, 'SET_LIST_STATUS')).payload).toMatchObject({ mediaId: 146065, malId: 51179, status: 'PAUSED' });
+    await page.waitForSelector('[data-page-card] [data-feedback]');
+
+    // « Ne plus synchroniser cette série » : clé de la page et fiche AniList, puis « Réactiver la synchro »
+    await click(page, 'more-page');
+    await click(page, 'exclude-page');
+    await page.waitForFunction(async () => ((await chrome.storage.local.get('excludedSeries')).excludedSeries as unknown[] | undefined)?.length === 1);
+    const stored = await page.evaluate(async () => (await chrome.storage.local.get('excludedSeries')).excludedSeries as { platformKey: string; mediaId: number }[]);
+    expect(stored[0]).toMatchObject({ platformKey: 'crunchyroll:DEMOMUSHOKU', mediaId: 146065 });
+    expect(await text(page, '[data-page-card] [data-feedback]')).toBe(fr('popup.syncDisabled'));
+    await click(page, 'more-page');
+    await click(page, 'include-page');
+    await page.waitForFunction(async () => ((await chrome.storage.local.get('excludedSeries')).excludedSeries as unknown[] | undefined)?.length === 0);
+  });
+
   it('« Sur cette page » : série déjà en cours, contrôles de progression', async () => {
     const page = await openPopup({ scenario: 'page' });
     await page.waitForSelector(sel('page-plus'));
@@ -640,12 +664,14 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(`section[aria-label="${fr('watching.resume')}"]`)).toBeNull();
   });
 
-  it('« Sur cette page » : commentaire replié sous la note, « Enregistrer » envoie SET_LIST_NOTES (rien à la frappe)', async () => {
+  it('« Sur cette page » : commentaire dans les détails repliés, « Enregistrer » envoie SET_LIST_NOTES (rien à la frappe)', async () => {
     const page = await openPopup({ scenario: 'page' });
     const card = `section[aria-label="${fr('page.title')}"]`;
-    const toggle = `${card} [data-focus="page-notes-toggle"]`;
+    const toggle = `${card} [data-focus="page-details"]`;
     await page.waitForSelector(toggle);
+    expect(await page.$('[data-focus="page-notes-input"]')).toBeNull();
     await page.locator(toggle).click();
+    expect(await attr(page, toggle, 'aria-expanded')).toBe('true');
     await page.waitForSelector('[data-focus="page-notes-input"]');
     await page.type('[data-focus="page-notes-input"]', 'Superbe arc');
     expect(await sent(page, 'SET_LIST_NOTES')).toEqual([]);
@@ -657,9 +683,9 @@ describe('popup (bout en bout)', () => {
   it('changement de langue : en-tête, onglets, carte « Sur cette page », commentaire et barre d’état retraduits sans rechargement', async () => {
     const page = await openPopup({ scenario: 'page' });
     const en = (key: MessageKey, params?: MessageParams): string => tl('en', key, params);
-    const notesToggle = '[data-focus="page-notes-toggle"]';
-    await page.waitForSelector(notesToggle);
-    expect(await text(page, notesToggle)).toContain(fr('notes.title'));
+    const detailsToggle = '[data-focus="page-details"]';
+    await page.waitForSelector(detailsToggle);
+    expect(await text(page, detailsToggle)).toContain(fr('page.details'));
     const footer = await text(page, 'footer');
 
     await click(page, 'gear');
@@ -677,8 +703,8 @@ describe('popup (bout en bout)', () => {
     expect(await text(page, sel('nav-watching'))).toBe(en('nav.watching'));
     expect(await text(page, sel('nav-activity'))).toBe(en('nav.activity'));
     expect(await page.$(`section[aria-label="${en('page.title')}"]`)).not.toBeNull();
-    // Éditeur persistant du commentaire : redessiné dans la nouvelle langue
-    expect(await text(page, notesToggle)).toContain(en('notes.title'));
+    // Carte « Sur cette page » (Preact) : retraduite
+    expect(await text(page, detailsToggle)).toContain(en('page.details'));
     expect(await text(page, 'footer')).not.toBe(footer);
     // Activité : section « À vérifier » (élément persistant) retraduite
     await click(page, 'nav-activity');
@@ -1423,8 +1449,13 @@ describe('popup (bout en bout)', () => {
     await setSetting(page, { entryService: 'mal' });
     await waitForHref(page, title, 'https://myanimelist.net/anime/51179');
     expect(await attr(page, title, 'aria-label')).toBe(fr('entry.openAria', { title: 'Mushoku Tensei: Jobless Reincarnation Season 2', service: 'MyAnimeList' }));
-    // Liens AniList ↗ / MAL ↗ de la carte conservés
-    expect(await page.$(`a[aria-label="${fr('page.openOn', { service: 'AniList' })}"]`)).not.toBeNull();
+    // Menu « ⋯ » de la carte › « Ouvrir la fiche › » : MyAnimeList (réglage) puis AniList
+    await click(page, 'more-page');
+    await click(page, 'site-page');
+    await page.waitForSelector(sel('site-anilist-page'));
+    expect(await attr(page, sel('site-anilist-page'), 'aria-label')).toBe(fr('page.openOn', { service: 'AniList' }));
+    expect(await attr(page, sel('site-anilist-page'), 'href')).toBe('https://anilist.co/anime/146065');
+    expect(await attr(page, sel('site-mal-page'), 'href')).toBe('https://myanimelist.net/anime/51179');
   });
 
   it('« Dernières synchros » : titre vers la fiche MyAnimeList quand elle est préférée et connue, AniList sinon', async () => {
@@ -1539,5 +1570,112 @@ describe('popup (bout en bout)', () => {
     await expired.waitForSelector(sel('connect-anilist'));
     await expired.waitForFunction((label: string) => document.querySelector('[data-focus="connect-anilist"]')?.textContent?.includes(label) === true, {}, fr('common.reconnectService', { service: 'AniList' }));
     expect(await text(expired, sel('connect-anilist'))).toContain(fr('common.sessionExpired'));
+  });
+});
+
+// ─── Activité ─────────────────────────────────────────────────────────────
+
+describe('popup › Activité (bout en bout)', () => {
+  const REVIEW_KEY = 'crunchyroll:DEMO-Kaiju8:S2';
+  const NOW = Date.now();
+  const episode = (title: string, number: number) => ({
+    platform: 'crunchyroll',
+    episodeId: `DEMO${number}`,
+    seriesId: `DEMO-${title}`,
+    seriesSlug: title.toLowerCase(),
+    animeTitle: title,
+    seasonNumber: 1,
+    seasonTitle: null,
+    seasonEpisodeNumber: number,
+    displayedEpisodeNumber: number,
+    episodeTitle: null,
+    url: 'https://www.crunchyroll.com/watch/demo',
+  });
+
+  /** Écrit dans le stockage (comme le service worker) : les contrôleurs suivent storage.onChanged */
+  async function seed(page: Page, values: Record<string, unknown>): Promise<void> {
+    await page.evaluate(async (v: Record<string, unknown>) => chrome.storage.local.set(v), values);
+  }
+
+  async function openActivity(): Promise<Page> {
+    const page = await openPopup({ scenario: 'activity' });
+    await click(page, 'nav-activity');
+    await page.waitForSelector(`[data-review="${REVIEW_KEY}"]`);
+    return page;
+  }
+
+  it('« À vérifier » : suggestion cochée, autre fiche choisie, « Confirmer » envoie RESOLVE_REVIEW ; résultat, « Fermer », état vide', async () => {
+    const page = await openActivity();
+    expect(await attr(page, sel('nav-activity'), 'aria-label')).toBe(tl('fr', 'nav.activityPending_one', { count: 1 }));
+    expect(await text(page, '#sk-review-title')).toBe(`${fr('inline.toCheck')} · 1`);
+    expect(await attr(page, sel(`cand-${REVIEW_KEY}-178754`), 'aria-pressed')).toBe('true');
+    await click(page, `cand-${REVIEW_KEY}-163132`);
+    await page.waitForSelector(`${sel(`cand-${REVIEW_KEY}-163132`)}[aria-pressed="true"]`);
+    await click(page, `review-confirm-${REVIEW_KEY}`);
+    expect((await waitForMessage(page, 'RESOLVE_REVIEW')).payload).toEqual({ key: REVIEW_KEY, mediaId: 163132, progress: 5 });
+    // Vérification retirée du stockage : la carte reste le temps de lire le résultat, focus sur « Fermer »
+    await page.waitForSelector(sel(`review-close-${REVIEW_KEY}`));
+    expect(await text(page, '[data-review-feedback]')).toContain('Kaiju No. 8 Season 2');
+    await click(page, `review-close-${REVIEW_KEY}`);
+    await page.waitForSelector('[data-review-empty]');
+    expect(await text(page, '[data-review-empty]')).toBe(fr('review.empty'));
+    expect(await focused(page)).toBe('review-title');
+    expect(await attr(page, sel('nav-activity'), 'aria-label')).toBeNull();
+  });
+
+  it('« À vérifier » : recherche (fiches déjà proposées retirées), « Ne plus synchroniser » exclut la série et retire la carte', async () => {
+    const page = await openActivity();
+    await page.locator(sel(`review-search-${REVIEW_KEY}`)).fill('Kaiju');
+    await page.keyboard.press('Enter');
+    expect((await waitForMessage(page, 'SEARCH_ANIME')).payload).toEqual({ query: 'Kaiju' });
+    await page.waitForFunction((label: string) => document.querySelector('main article')?.textContent?.includes(label) === true, {}, fr('review.results', { count: 0 }));
+    await click(page, `review-exclude-${REVIEW_KEY}`);
+    await page.waitForSelector('[data-review-empty]');
+    const stored = await page.evaluate(async () => (await chrome.storage.local.get('excludedSeries')).excludedSeries);
+    expect(stored).toEqual([expect.objectContaining({ label: 'Kaiju No. 8', mediaId: null })]);
+  });
+
+  it('« Échec » et « En attente » : sections distinctes, « Réessayer » envoie RETRY_QUEUED, la synchro quitte la file, bandeau du résultat', async () => {
+    const page = await openActivity();
+    await seed(page, {
+      syncQueue: [
+        { id: 'crunchyroll:DEMO4', episode: episode('Dandadan', 4), services: ['mal'], attempts: 6, status: 'failed', nextAttemptAt: NOW, firstFailedAt: NOW - 3_600_000, lastError: 'MyAnimeList ne répond pas.' },
+        { id: 'crunchyroll:DEMO7', episode: episode('Frieren', 7), services: null, attempts: 1, status: 'pending', nextAttemptAt: NOW + 300_000, firstFailedAt: NOW - 60_000, lastError: 'AniList est injoignable.' },
+      ],
+    });
+    await page.waitForSelector(sel('queue-retry-crunchyroll:DEMO4'));
+    const titles = await page.$$eval('[data-activity] h2', (list) => list.map((h) => h.textContent?.trim() ?? ''));
+    expect(titles.slice(0, 2)).toEqual([`${fr('queue.failedHeading')} · 1`, `${fr('queue.pendingHeading')} · 1`]);
+    // Pastille : vérification + synchro abandonnée (pas celle en attente)
+    expect(await attr(page, sel('nav-activity'), 'aria-label')).toBe(tl('fr', 'nav.activityPending_other', { count: 2 }));
+    await click(page, 'queue-retry-crunchyroll:DEMO4');
+    expect((await waitForMessage(page, 'RETRY_QUEUED')).payload).toEqual({ id: 'crunchyroll:DEMO4' });
+    await page.waitForSelector(sel('queue-retry-crunchyroll:DEMO4'), { hidden: true });
+    expect(await text(page, '[data-feedback="success"]')).toContain('Kaiju No. 8');
+    expect(await page.$(sel('queue-retry-crunchyroll:DEMO7'))).not.toBeNull();
+  });
+
+  it('« À noter » : 10 étoiles au clavier, Entrée envoie RATE_MEDIA (note sur 10), la carte part, bandeau « Note … enregistrée »', async () => {
+    const page = await openActivity();
+    await seed(page, { pendingRatings: [{ id: 'anilist:154587', mediaId: 154587, malId: 52991, title: 'Frieren', coverUrl: null, completedAt: NOW - 7_200_000 }] });
+    const slider = sel('rate-anilist:154587');
+    await page.waitForSelector(slider);
+    expect(await page.$$eval(`${slider} [data-star]`, (stars) => stars.length)).toBe(10);
+    await page.focus(slider);
+    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Enter');
+    expect((await waitForMessage(page, 'RATE_MEDIA')).payload).toEqual({ media: { mediaId: 154587, malId: 52991, title: 'Frieren' }, score: 9.5, fromCard: true });
+    await page.waitForSelector(slider, { hidden: true });
+    expect(await text(page, '[data-feedback="success"]')).toContain('Frieren');
+  });
+
+  it('« Dernières synchros » : « Corriger » envoie REOPEN_REVIEW ; ⊘ exclut la série (pastille « Exclue »)', async () => {
+    const page = await openActivity();
+    await click(page, 'correct-cr:dandadan');
+    expect((await waitForMessage(page, 'REOPEN_REVIEW')).payload).toEqual({ key: 'cr:dandadan' });
+    await click(page, 'exclude-cr:solo');
+    await page.waitForSelector('[data-recent="cr:solo"] [data-recent-excluded]');
+    expect(await text(page, '[data-recent="cr:solo"] [data-recent-excluded]')).toBe(fr('common.excluded'));
   });
 });

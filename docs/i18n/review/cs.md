@@ -400,3 +400,27 @@ The row « … » menu of the popup's « My series » list and of the « Continu
 | `watching.menu.searchOn` | Hledat na webu… |
 | `settings.entry.help` | Otevře se po kliknutí na název nebo obal anime; určuje také seznam v „Moje seriály“ |
 
+
+
+## 2026-10-17 · Popup « On this page » card (Preact)
+
+The popup's « On this page » card was redesigned: the Hold / Drop / Done row and the AniList / MAL links moved to the card's « … » menu (shared with « My series »), and the season dropdown, the star rating and the comment moved to a foldable « Details » section. New: `page.currentStatus` (grey mention at the end of the menu item of the series' current status), `page.details` (foldable button listing what the section holds, same nouns as `page.seasonPicker`, the rating words of `rating.*` and `notes.title`), `page.seasonOnAniList` (title above the season dropdown), `page.seasonHelp` (help under it on an episode page; the match word is the one of `settings.section.mappings`), `page.yourRating` (title above the stars). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `page.currentStatus` | Aktuální stav |
+| `page.details` | Podrobnosti: řada, hodnocení, komentář |
+| `page.seasonOnAniList` | Řada na AniListu |
+| `page.seasonHelp` | Změna řady opraví přiřazení pro další epizody. |
+| `page.yourRating` | Tvoje hodnocení |
+
+
+## 2026-10-17 · Popup « Activity » tab (Preact)
+
+The popup's Activity tab was redesigned: failed and pending syncs are now two sections, and every section heading is an uppercase label followed by « · {count} » added by the code. New: `queue.failedHeading` (same failure word as `queue.failed`), `queue.pendingHeading` (syncs waiting for a retry, wording of the former `queue.sectionTitle`), `ratings.heading` (the former `ratings.sectionTitle` without its count). The « To check » heading now reuses `inline.toCheck`. Removed: `queue.section`, `queue.sectionTitle`, `ratings.section`, `ratings.sectionTitle`, `review.title`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `queue.failedHeading` | Selhalo |
+| `queue.pendingHeading` | Čekající |
+| `ratings.heading` | K hodnocení |

@@ -114,6 +114,56 @@ export function listStatusLabel(status: ListStatus): string {
   return t(LIST_STATUS_LABELS[status]);
 }
 
+/**
+ * Ligne d'infos de la carte : celle de la fiche, puis la plateforme de la page ; « Pas dans ta liste » quand aucun compte
+ * connecté n'a la série (sinon la ligne de chaque service le dit)
+ */
+export function pageMetaParts(view: PageMediaView, platformLabel: string): string[] {
+  const parts = [...mediaMetaParts(view), platformLabel];
+  if (primaryList(view.lists) === null && hasMissingList(view.lists)) parts.push(t('page.notInList'));
+  return parts;
+}
+
+/** Texte de la ligne d'un service : « En cours · Ép. 6 / 28 », absence de la liste, fiche absente, erreur */
+export function serviceLineText(list: PageListState, episodes: number | null): string {
+  switch (list.state) {
+    case 'in-list':
+      return `${listStatusLabel(list.status)} · ${progressText(list.progress, episodes)}`;
+    case 'not-in-list':
+      return t('page.notInList');
+    case 'unavailable':
+      return t('page.unavailable');
+    case 'error':
+      return list.message;
+  }
+}
+
+/**
+ * Lignes par service de la carte : masquées quand un seul compte suit la série et l'a dans sa liste (le statut et le − / +
+ * suffisent), ou quand aucun compte ne l'a (« Pas dans ta liste » dans la ligne d'infos)
+ */
+export function showsServiceLines(view: PageMediaView): boolean {
+  const { lists } = view;
+  if (lists.length === 0 || lists.every((l) => l.state === 'not-in-list')) return false;
+  return !(lists.length === 1 && primaryList(lists) !== null);
+}
+
+/**
+ * Choix du sélecteur de saison : saisons proposées, la fiche affichée en tête si elle n'en fait pas partie (spécial…).
+ * Moins de deux choix : pas de sélecteur, et donc pas d'avertissement « vérifiez ci-dessous » (rien à vérifier).
+ */
+export function seasonPickerOptions(view: PageMediaView): Pick<PageSeason, 'id' | 'title' | 'year' | 'slot'>[] {
+  return view.seasons.some((s) => s.id === view.media.mediaId)
+    ? view.seasons
+    : [{ id: view.media.mediaId, title: view.media.title, year: view.media.year, slot: null }, ...view.seasons];
+}
+
+/** Texte avant et après `part` (première occurrence), null si absent : un passage traduit rendu en lien */
+export function splitAround(text: string, part: string): [string, string] | null {
+  const index = part === '' ? -1 : text.indexOf(part);
+  return index < 0 ? null : [text.slice(0, index), text.slice(index + part.length)];
+}
+
 /** Progression d'une entrée : "Ép. 5 / 12" ou "Ép. 5" (total inconnu) */
 export function progressText(progress: number, total: number | null): string {
   return total !== null ? t('watching.heroProgress', { progress, total }) : t('watching.heroProgressNoTotal', { progress });

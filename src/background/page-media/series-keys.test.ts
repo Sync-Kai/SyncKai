@@ -3,7 +3,7 @@ import { DISNEY_ARC_SEASON } from '../../shared/episode.types';
 import type { PageMediaInfo } from '../../shared/page-media.types';
 import type { MediaMapping } from '../../shared/sync.types';
 import type { StreamingPlatform } from '../../platforms/registry';
-import { exclusionKey, exclusionKeyCovers, mappingKey, seriesKey, seriesMappingPrefix } from '../../platforms/series-identity';
+import { exclusionKey, exclusionKeyCovers, mappingKey, pageExclusionKey, seriesKey, seriesMappingPrefix } from '../../platforms/series-identity';
 import { rememberedSeason } from './page-media-rules';
 
 // Propriété 1-I7 : la lecture d'un épisode et la page de série de la MÊME série décrivent la même série. Trois clés en
@@ -101,5 +101,15 @@ describe('clés d’une même série, lecture et page de série (1-I7)', () => {
     expect(exclusionKeyCovers(page1997, page2016)).toBe(false);
     // Même série ignorée (catalogue), sans année
     expect(seriesKey(berserk('0AAAAAAAAAAAAAAAAAAAAAAAAA', 1997))).toBe(seriesKey(berserk(null, 2016)));
+  });
+
+  // « Ne plus synchroniser cette série » depuis la carte « Sur cette page » : même clé que l'exclusion vérifiée en lecture
+  it('exclusion depuis la page de série : la clé vérifiée par la lecture de chaque épisode', () => {
+    for (const series of SERIES) {
+      const page: PageMediaInfo = { ...pageOf(series, 1), kind: 'series', seriesSlug: null, episode: null };
+      expect(pageExclusionKey(page), `${series.platform} ${series.title}`).toBe(exclusionKey(episodeOf(series, 1)));
+    }
+    const berserk: PageMediaInfo = { platform: 'prime', kind: 'series', seriesId: '0BBBBBBBBBBBBBBBBBBBBBBBBB', seriesSlug: null, seriesTitle: 'Berserk', seasonNumber: 1, seasonTitle: null, signals: { seasonYear: 2016 }, episode: null };
+    expect(pageExclusionKey(berserk)).toBe('prime:title:berserk:y2016');
   });
 });

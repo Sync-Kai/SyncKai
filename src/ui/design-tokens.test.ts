@@ -92,7 +92,7 @@ describe('charte graphique : cliquet des valeurs en dur (docs/design/README.md)'
   it('le scan lit bien les sources', () => {
     expect(Object.keys(current.hexColors)).toContain('browser/badge.ts');
     expect(current.hexColors['ui/kai-small.ts']).toBeUndefined();
-    expect(current.pxFontSizes['popup/components/page-media-card.ts']).toBeGreaterThan(0);
+    expect(current.pxFontSizes['sidepanel/components/now-playing.ts']).toBeGreaterThan(0);
   });
 
   it('tests TSX exclus comme les tests TS ; modules TSX lus avec la syntaxe JSX', () => {

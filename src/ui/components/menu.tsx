@@ -334,10 +334,12 @@ export interface MenuItemProps {
   keepOpen?: boolean;
   /** Le ton colore aussi le texte (« Réactiver la synchro » en mint) */
   tinted?: boolean;
+  /** Mention discrète en fin d'option (« Statut actuel » d'un statut grisé) */
+  hint?: string;
   children: ComponentChildren;
 }
 
-export function MenuItem({ icon, tone, service, danger = false, emphasis = false, href, onSelect, disabled = false, checked, ariaLabel, focusKey, keepOpen = false, tinted = false, children }: MenuItemProps) {
+export function MenuItem({ icon, tone, service, danger = false, emphasis = false, href, onSelect, disabled = false, checked, ariaLabel, focusKey, keepOpen = false, tinted = false, hint, children }: MenuItemProps) {
   const api = useMenu();
   const sub = useContext(SubMenuContext);
   const radio = checked !== undefined;
@@ -376,6 +378,11 @@ export function MenuItem({ icon, tone, service, danger = false, emphasis = false
     >
       {lead}
       <span class="min-w-0 flex-1 truncate">{children}</span>
+      {hint !== undefined && (
+        <span class="shrink-0 text-section font-bold tracking-normal text-muted" data-menu-hint="">
+          {hint}
+        </span>
+      )}
       {checked && (
         <span class="flex shrink-0" data-menu-check="">
           <Icon name="check" class="size-3.5" strokeWidth="2.4" />

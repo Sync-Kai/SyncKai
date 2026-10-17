@@ -120,38 +120,3 @@ export function preserveFocus(container: HTMLElement, draw: () => void): void {
   const target = pickFocusKey(key, before, fallbacks, (k) => focusable.has(k));
   if (target !== null) focusable.get(target)?.focus({ preventScroll: true });
 }
-
-/**
- * Mémo d'un rendu : renvoie true quand les entrées diffèrent du précédent appel (comparaison stricte, dans l'ordre).
- * Une zone n'est redessinée que si son état change (focus, survol et régions live préservés).
- */
-export function createMemo(): (inputs: readonly unknown[]) => boolean {
-  let last: readonly unknown[] | null = null;
-  return (inputs) => {
-    const previous = last;
-    if (previous !== null && previous.length === inputs.length && inputs.every((value, i) => Object.is(value, previous[i]))) return false;
-    last = inputs;
-    return true;
-  };
-}
-
-/**
- * Regroupe les demandes de rendu d'un même tour (plusieurs stores modifiés d'affilée) en un seul appel, en microtâche.
- * `flush()` dessine tout de suite ce qui est en attente (avant de déplacer le focus dans la vue).
- */
-export function createRenderScheduler(render: () => void): { schedule: () => void; flush: () => void } {
-  let queued = false;
-  const flush = (): void => {
-    if (!queued) return;
-    queued = false;
-    render();
-  };
-  return {
-    schedule: () => {
-      if (queued) return;
-      queued = true;
-      queueMicrotask(flush);
-    },
-    flush,
-  };
-}

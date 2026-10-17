@@ -49,6 +49,15 @@ export function exclusionKey(series: SeriesRef & { seasonNumber?: number | null;
   return year !== undefined ? `${key}:y${year}` : key;
 }
 
+/**
+ * Clé d'exclusion de la série d'une page (« Ne plus synchroniser cette série » de la carte « Sur cette page ») : celle de
+ * l'épisode sur une page de lecture, sinon celle de la page de série (saison affichée et ses signaux pour l'année)
+ */
+export function pageExclusionKey(page: PageMediaInfo): string {
+  if (page.episode) return exclusionKey(page.episode);
+  return exclusionKey({ platform: page.platform, seriesId: page.seriesId, animeTitle: page.seriesTitle, seasonNumber: page.seasonNumber, signals: page.signals });
+}
+
 /** Année d'une clé d'exclusion par titre ("prime:title:berserk:y2016" → 2016), null sans année */
 export function exclusionKeyYear(key: string): number | null {
   const match = YEAR_SUFFIX.exec(key);

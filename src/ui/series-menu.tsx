@@ -2,14 +2,15 @@
 // confirmés en ligne), commentaire, « Ouvrir la fiche › » (AniList / MyAnimeList des comptes connectés), « Chercher
 // sur… › » (plateformes actives sans lien connu), exclusion ou réactivation de la synchro, retrait de la liste (confirmé,
 // phrase d'explication sous la question). Les actions restent celles de l'hôte (contrôleurs, messages) ; pendant un envoi,
-// statuts, commentaire et retrait sont grisés, les liens restent ouverts. Popup « Mes séries » et carte « Reprendre »
-// aujourd'hui ; prévu pour le panneau latéral (aucune dépendance au popup).
+// statuts, commentaire et retrait sont grisés, les liens restent ouverts. Popup « Mes séries », carte « Reprendre » et
+// carte « Sur cette page » (maquette PopupPageMenu : statut actuel grisé « Statut actuel », sans commentaire ni
+// recherche ; série absente des listes : ni statuts ni retrait) ; prévu pour le panneau latéral (aucune dépendance au popup).
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import type { StreamingPlatform } from '../platforms/ids';
 import { PLATFORMS } from '../platforms/registry';
 import type { EntryLink } from '../shared/entry-link';
-import type { ListStatusChange } from '../shared/sync.types';
+import type { ListStatus, ListStatusChange } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { Menu, MenuConfirm, MenuItem, MenuSeparator, SubMenu } from './components/menu';
 import type { IconName } from './icons';
@@ -39,6 +40,10 @@ export interface SeriesMenuProps {
   sync: { excluded: boolean; canExclude: boolean; onExclude: () => void; onInclude: () => void };
   /** « Retirer de la liste » confirmé : retirée de chaque compte connecté */
   onRemove: () => void;
+  /** Série dans au moins une liste (défaut) ; faux : ni statuts, ni commentaire, ni retrait */
+  inList?: boolean;
+  /** Statut de la série : son option est grisée, « Statut actuel » à droite */
+  currentStatus?: ListStatus | null;
   /** Ouvert au premier rendu (captures) */
   defaultOpen?: boolean;
 }
@@ -60,7 +65,7 @@ const STATUS_ICONS: Readonly<Record<ListStatusChange, { icon: IconName; tone: To
 const CONFIRM_QUESTIONS = { DROPPED: 'watching.confirm.DROPPED', COMPLETED: 'watching.confirm.COMPLETED' } as const;
 
 /** Contenu du menu ouvert : monté à l'ouverture, la confirmation en cours est oubliée à la fermeture */
-function SeriesMenuItems({ title, focusKey: key, busy = false, onStatus, onNotes, entryLinks, searches, sync, onRemove }: SeriesMenuProps) {
+function SeriesMenuItems({ title, focusKey: key, busy = false, onStatus, onNotes, entryLinks, searches, sync, onRemove, inList = true, currentStatus = null }: SeriesMenuProps) {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   /** Option à refocaliser après une confirmation annulée */
   const restore = useRef<string | null>(null);
@@ -76,6 +81,7 @@ function SeriesMenuItems({ title, focusKey: key, busy = false, onStatus, onNotes
 
   const status = (value: ListStatusChange) => {
     const look = STATUS_ICONS[value];
+    const current = currentStatus === value;
     if (value !== 'PAUSED' && confirm === value && !busy) {
       const action = t(STATUS_LABELS[value]);
       return (
@@ -97,7 +103,8 @@ function SeriesMenuItems({ title, focusKey: key, busy = false, onStatus, onNotes
         key={value}
         icon={look.icon}
         tone={look.tone}
-        disabled={busy}
+        disabled={busy || current}
+        hint={current ? t('page.currentStatus') : undefined}
         focusKey={`${value}-${key}`}
         // Abandonner / Terminé : confirmés en ligne, le menu reste ouvert
         onSelect={value === 'PAUSED' ? () => onStatus(value) : () => setConfirm(value)}
@@ -110,11 +117,15 @@ function SeriesMenuItems({ title, focusKey: key, busy = false, onStatus, onNotes
 
   return (
     <>
-      {status('PAUSED')}
-      {status('DROPPED')}
-      {status('COMPLETED')}
-      <MenuSeparator />
-      {onNotes && (
+      {inList && (
+        <>
+          {status('PAUSED')}
+          {status('DROPPED')}
+          {status('COMPLETED')}
+          <MenuSeparator />
+        </>
+      )}
+      {inList && onNotes && (
         <MenuItem icon="pencil" tone="info" disabled={busy} focusKey={`notes-${key}`} onSelect={onNotes}>
           {t('notes.menu')}
         </MenuItem>
@@ -153,7 +164,7 @@ function SeriesMenuItems({ title, focusKey: key, busy = false, onStatus, onNotes
           {t('common.stopSyncSeries')}
         </MenuItem>
       )}
-      {confirm === 'REMOVE' && !busy ? (
+      {!inList ? null : confirm === 'REMOVE' && !busy ? (
         <MenuConfirm
           question={t('list.remove.confirm')}
           detail={t('list.remove.detail')}

@@ -202,6 +202,24 @@ describe('SeriesMenu', () => {
     expect($('[role="menu"]')).toBeNull();
   });
 
+  it('statut actuel (carte « Sur cette page ») : son option grisée, « Statut actuel » à droite ; les autres restent actives', async () => {
+    await open({ currentStatus: 'PAUSED', onNotes: undefined, searches: [] });
+    const paused = key(`PAUSED-${KEY}`) as HTMLButtonElement | null;
+    expect(paused?.disabled).toBe(true);
+    expect(paused?.querySelector('[data-menu-hint]')?.textContent).toBe(t('page.currentStatus'));
+    expect((key(`DROPPED-${KEY}`) as HTMLButtonElement | null)?.disabled).toBe(false);
+    expect(key(`DROPPED-${KEY}`)?.querySelector('[data-menu-hint]')).toBeNull();
+    // Ni commentaire ni recherche quand l'hôte n'en donne pas
+    expect(key(`notes-${KEY}`)).toBeNull();
+    expect(key(`search-${KEY}`)).toBeNull();
+  });
+
+  it('série absente des listes : ni statuts, ni commentaire, ni retrait ; fiche et exclusion restent', async () => {
+    await open({ inList: false });
+    const labels = [...container.querySelectorAll<HTMLElement>('[role="menu"] > [role="menuitem"], [role="menu"] > [data-submenu] > [role="menuitem"]')].map((el) => el.textContent);
+    expect(labels).toEqual([t('watching.menu.openEntry'), t('watching.menu.searchOn'), t('common.stopSyncSeries')]);
+  });
+
   it('flèche vers le bas sur le bouton fermé : ouverture', async () => {
     await show(menu());
     await press('ArrowDown', key(`more-${KEY}`));

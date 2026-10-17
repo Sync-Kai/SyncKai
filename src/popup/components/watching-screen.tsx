@@ -2,8 +2,8 @@
 // de retour, carte « Sur cette page » ou « Reprendre », titre « Mes séries » et son tri, lignes de 80 px (SeriesRow),
 // états de chargement, d'erreur et vide. La liste suit le réglage « Fiche ouverte par défaut » (plus de sélecteur
 // AniList / MAL). Menu « ⋯ » partagé (ui/series-menu.tsx), éditeur de commentaire sous la ligne (maquettes
-// PopupSeriesMenu, PopupSeriesMenuConfirm, PopupSeriesCommentaire), carte « Reprendre » (PopupReprendre). Encore
-// vanilla, monté par VanillaSlot : la carte « Sur cette page » (branche suivante).
+// PopupSeriesMenu, PopupSeriesMenuConfirm, PopupSeriesCommentaire), carte « Reprendre » (PopupReprendre), carte « Sur
+// cette page » (page-media-card.tsx, maquettes PopupPageEtats, PopupPageMenu, PopupPageRetours, PopupSeriesDeplie).
 import type { ComponentChildren } from 'preact';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { formatList, t, tp, type MessageKey } from '../../i18n';
@@ -24,7 +24,7 @@ import { TONE_CHIP } from '../../ui/feedback';
 import { PLATFORM_LABELS } from '../../ui/kit';
 import { formatPlatformList } from '../../ui/platform-list';
 import { PlatformsTipText } from './platforms-tip';
-import type { ExclusionsState, ReadonlyStore } from '../../ui/state';
+import type { ExclusionsState, InlineFeedback, ReadonlyStore } from '../../ui/state';
 import { Alert } from '../../ui/components/alert';
 import { Button } from '../../ui/components/button';
 import { Icon, MountedNode } from '../../ui/components/icon';
@@ -34,12 +34,13 @@ import { SeriesRow, type SeriesStatus } from '../../ui/components/series-row';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import type { Tone } from '../../ui/components/tone';
 import { useLocale, useStore } from '../../ui/preact/hooks';
-import { VanillaSlot } from '../../ui/preact/vanilla-slot';
 import { SeriesMenu } from '../../ui/series-menu';
 import type { NotesSession, WatchingNotice } from '../controllers/watching';
 import type { EntryAction, PageCardState, WatchingState } from '../state';
 import { flushAfterRender } from '../after-render';
-import { hasPageMediaCard } from './page-media-card';
+import { matchesExclusion } from '../../shared/exclusions';
+import { pageExclusionKey } from '../../platforms/series-identity';
+import { hasPageMediaCard, PageMediaCard, type PageMediaCardProps } from './page-media-card';
 import { ResumeCard } from './resume-card';
 
 /** Ce dont dépend l'affichage des séries (réglages, accès aux plateformes, comptes), recalculé par l'hôte */
@@ -63,8 +64,10 @@ export interface WatchingScreenProps {
   pageCard: ReadonlyStore<PageCardState>;
   context: ReadonlyStore<WatchingContext>;
   now: number;
-  /** Carte « Sur cette page » (vanilla), null hors page reconnue */
-  renderPageCard: () => HTMLElement | null;
+  /** Retour propre au popup sur la carte « Sur cette page » (exclusion, réactivation) */
+  pageNotice: ReadonlyStore<InlineFeedback | null>;
+  /** Actions de la carte « Sur cette page » */
+  page: Omit<PageMediaCardProps, 'card' | 'now' | 'entryLinks' | 'excluded' | 'notice'>;
   onAdjust: (entry: WatchingEntry, delta: 1 | -1) => void;
   /** Menu « ⋯ » : statut (Abandonner et Terminé confirmés dans le menu) */
   onSetStatus: (entry: WatchingEntry, status: ListStatusChange) => void;
@@ -112,6 +115,13 @@ const FEEDBACK_TONES: Record<FeedbackTone, Tone> = { success: 'ok', info: 'info'
  */
 function entrySite(entry: WatchingEntry, links: EntryLinkContext): EntryLink {
   return entryLink(entry, links) ?? { service: entry.siteUrl.startsWith('https://myanimelist.net/') ? 'mal' : 'anilist', url: entry.siteUrl };
+}
+
+/** Série de la carte « Sur cette page » exclue de la synchro : clé de la page (comme la lecture) ou fiche AniList affichée */
+function isPageExcluded({ content }: PageCardState, exclusions: ExclusionsState): boolean {
+  if (content.status !== 'ready' || exclusions.status !== 'ready') return false;
+  const platformKey = pageExclusionKey(content.page);
+  return exclusions.items.some((e) => matchesExclusion(e, { platformKey, mediaId: content.view.media.mediaId }));
 }
 
 /** Menu « ⋯ » d'une série (ligne ou carte « Reprendre ») */
@@ -394,7 +404,7 @@ function ResumeEntry({ entry, props, context, action, excluded, notes }: Omit<Ro
 export function WatchingScreen(props: WatchingScreenProps) {
   // Focus et défilement demandés par l'hôte (menus « ⋯ », commentaire) : appliqués dès ce rendu terminé
   useLayoutEffect(flushAfterRender);
-  const locale = useLocale();
+  useLocale();
   const state = useStore(props.state);
   const { sort } = useStore(props.sort);
   const actions = useStore(props.actions);
@@ -405,9 +415,12 @@ export function WatchingScreen(props: WatchingScreenProps) {
   const context = useStore(props.context);
   const { now } = props;
 
+  const pageNotice = useStore(props.pageNotice);
+
   const pageCardShown = hasPageMediaCard(pageCard);
-  // Carte « Sur cette page » : vanilla, redessinée quand son état, l'heure, les liens de fiche ou la langue changent
-  const pageCardSlot = pageCardShown && <VanillaSlot build={props.renderPageCard} inputs={[pageCard, now, context, locale]} />;
+  const pageCardSlot = pageCardShown && (
+    <PageMediaCard {...props.page} card={pageCard} now={now} entryLinks={context.entryLinks} excluded={isPageExcluded(pageCard, exclusions)} notice={pageNotice} />
+  );
 
   if (state.status === 'idle') return <SeriesSkeleton />;
   if (state.status === 'loading') {

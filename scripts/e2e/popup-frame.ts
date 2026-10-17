@@ -10,11 +10,11 @@ import { diagnosticsReport } from '../../src/background/diagnostics-report';
 import { isRecord } from '../../src/shared/guards';
 import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
 import type { ListNotesResult } from '../../src/shared/list-notes';
-import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
+import { STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../src/shared/watching.types';
-import { accountDemo, demoChrome, isAccountDemo, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
+import { accountDemo, demoChrome, isAccountDemo, PAGE_INFO, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
@@ -142,17 +142,56 @@ function setListNotes(payload: unknown): SyncOutcome {
   return synced(entry.title, { status: 'updated', progress: entry.progress, completed: false });
 }
 
-/** Fiche de la page ; `pageList=missing` : absente des deux listes (boutons « Ajouter ») */
+/**
+ * Fiche de la page ; `pageList=missing` : absente des deux listes (boutons « Ajouter ») ; `partial` : dans la liste AniList
+ * seulement ; `pageView` : `uncertain` (saison devinée), `manual` (saison choisie hors de l'épisode), `airing` (en
+ * diffusion, prochain épisode dans 18 h)
+ */
 function resolvePage(): PageMediaView {
-  const view = pageView();
-  if (param('pageList') !== 'missing') return view;
-  return {
-    ...view,
-    lists: [
-      { service: 'anilist', state: 'not-in-list', siteUrl: 'https://anilist.co/anime/146065' },
-      { service: 'mal', state: 'not-in-list', siteUrl: 'https://myanimelist.net/anime/51179' },
-    ],
-  };
+  const base = pageView();
+  const variant = param('pageView');
+  const view: PageMediaView =
+    variant === 'uncertain' || variant === 'manual'
+      ? { ...base, confidence: 'uncertain', source: variant === 'manual' ? 'manual' : 'page' }
+      : variant === 'airing'
+        ? { ...base, media: { ...base.media, airingStatus: 'RELEASING', nextEpisode: { episode: 8, airingAt: Date.now() + 18 * 3_600_000 } } }
+        : base;
+  const anilist = view.lists[0];
+  switch (param('pageList') ?? '') {
+    case 'missing':
+      return {
+        ...view,
+        lists: [
+          { service: 'anilist', state: 'not-in-list', siteUrl: 'https://anilist.co/anime/146065' },
+          { service: 'mal', state: 'not-in-list', siteUrl: 'https://myanimelist.net/anime/51179' },
+        ],
+      };
+    case 'partial':
+      return { ...view, lists: [...(anilist ? [anilist] : []), { service: 'mal', state: 'not-in-list', siteUrl: 'https://myanimelist.net/anime/51179' }] };
+    default:
+      return view;
+  }
+}
+
+/**
+ * Réponse de RESOLVE_PAGE_MEDIA ; `pageMedia` : `untracked` (pas un anime), `off` (plateforme désactivée), `notFound`,
+ * `error` (limite AniList), `hang` (jamais de réponse : squelette)
+ */
+function resolvePageResult(): PageMediaResult | Promise<never> {
+  switch (param('pageMedia') ?? '') {
+    case 'untracked':
+      return { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Netflix' }) };
+    case 'off':
+      return { ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform: 'Netflix' }) };
+    case 'notFound':
+      return { ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: PAGE_INFO.seriesTitle }) };
+    case 'error':
+      return { ok: false, code: 'RATE_LIMITED', message: t('api.rateLimited', { service: 'AniList' }) };
+    case 'hang':
+      return new Promise<never>(() => {});
+    default:
+      return { ok: true, data: resolvePage() };
+  }
 }
 
 /** Alignement accepté : tâche en cours (la progression arriverait ensuite par le stockage) */
@@ -183,6 +222,31 @@ function applyDiffs(payload: unknown): { ok: true; data: CompareJob } | { ok: fa
     pauseService: null,
   };
   return { ok: true, data: job };
+}
+
+// ─── Activité : vérifications, file de relance (le service worker retire ce qu'il a traité) ───
+
+/** Retire un élément d'une liste du stockage, comme le service worker après l'avoir traité */
+async function dropStored(key: string, matches: (item: unknown) => boolean): Promise<void> {
+  const stored: unknown = (await chrome.storage.local.get(key))[key];
+  if (Array.isArray(stored)) await chrome.storage.local.set({ [key]: stored.filter((item) => !matches(item)) });
+}
+
+const hasField = (field: string, value: unknown) => (item: unknown): boolean => isRecord(item) && item[field] === value;
+
+/** « Confirmer » d'une carte « À vérifier » : écrit sur les deux services, la vérification quitte le stockage */
+async function resolveReview(payload: unknown): Promise<SyncOutcome> {
+  const key = isRecord(payload) ? payload.key : null;
+  const progress = numberField(payload, 'progress') ?? 0;
+  await dropStored(STORAGE_KEYS.pendingReviews, hasField('key', key));
+  return synced('Kaiju No. 8 Season 2', { status: 'updated', progress, completed: false });
+}
+
+/** « Réessayer » d'une synchro en attente : écrite, elle quitte la file */
+async function retryQueued(payload: unknown): Promise<SyncOutcome> {
+  const id = isRecord(payload) ? payload.id : null;
+  await dropStored(SYNC_QUEUE_KEY, hasField('id', id));
+  return synced('Kaiju No. 8', { status: 'updated', progress: 5, completed: false });
 }
 
 // ─── Installation ───────────────────────────────────────────────────────────
@@ -266,10 +330,16 @@ installChromeMock({
       param('notes') === 'hang' ? new Promise<never>(() => {}) : param('notes') === 'missing' ? { ok: true, data: { inList: false, notes: null } } : getListNotes(payload),
     SET_LIST_NOTES: (payload) => (param('notes') === 'slow' ? new Promise<SyncOutcome>((resolve) => setTimeout(() => resolve(setListNotes(payload)), 60_000)) : setListNotes(payload)),
     ADD_TO_LIST: () => synced(pageView().media.title, { status: 'updated', progress: 0, completed: false }),
-    RESOLVE_PAGE_MEDIA: (): PageMediaResult =>
-      // `pageMedia=untracked` : série ignorée par la synchro (Netflix, pas un anime)
-      param('pageMedia') === 'untracked' ? { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Netflix' }) } : { ok: true, data: resolvePage() },
+    RESOLVE_PAGE_MEDIA: resolvePageResult,
+    RATE_MEDIA: () => synced(pageView().media.title, { status: 'updated', progress: 7, completed: false }),
     APPLY_DIFFS: applyDiffs,
+    RESOLVE_REVIEW: resolveReview,
+    DISMISS_REVIEW: async (payload) => {
+      await dropStored(STORAGE_KEYS.pendingReviews, hasField('key', isRecord(payload) ? payload.key : null));
+      return { ok: true, data: null };
+    },
+    REOPEN_REVIEW: () => ({ ok: true, data: null }),
+    RETRY_QUEUED: retryQueued,
   },
   onSendMessage: (message) => trace.messages.push(message),
   onCreateTab: (url) => trace.openedTabs.push(url),

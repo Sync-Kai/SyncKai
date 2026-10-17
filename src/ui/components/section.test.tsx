@@ -49,6 +49,25 @@ describe('Section', () => {
     expect($('[data-section-count]')?.className).toContain('tabular-nums');
   });
 
+  it('Activité : titre teinté du ton, compte à la suite du titre et dans son nom (« ÉCHEC · 1 »)', async () => {
+    await show(
+      <Section title="Échec" count={1} countInline tone="danger">
+        x
+      </Section>,
+    );
+    expect($('h2')?.textContent).toBe('Échec · 1');
+    expect($('h2')?.className).toContain('text-danger');
+    expect($('h2 [data-section-count]')?.textContent).toBe(' · 1');
+    for (const [tone, color] of [['info', 'text-lavender'], ['warn', 'text-butter'], ['accent', 'text-sakura']] as const) {
+      await show(
+        <Section title="À noter" tone={tone}>
+          x
+        </Section>,
+      );
+      expect($('h2')?.className).toContain(color);
+    }
+  });
+
   it('deux sections : identifiants distincts', async () => {
     await show(
       <div>

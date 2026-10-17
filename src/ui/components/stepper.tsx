@@ -1,6 +1,8 @@
 // Progression d'une série : « Ép. x / y » en chiffres tabulaires puis − / + fantômes de 24 px (jeton stepper).
 // Une borne atteinte désactive son côté ; total inconnu (max null) : + toujours actif. Envoi en cours (`busy`) :
-// aria-disabled, le bouton cliqué garde le focus clavier et les clics sont ignorés.
+// aria-disabled, le bouton cliqué garde le focus clavier et les clics sont ignorés. Variante `pill` (carte « Sur cette page »,
+// maquette PopupPageEtats) : − / « Ép. x / y » / + dans une pilule `raised`, boutons de 30 px, + plein sakura (action
+// principale de la carte).
 import { Icon } from './icon';
 
 export interface StepperProps {
@@ -25,12 +27,17 @@ export interface StepperProps {
   incrementHidden?: boolean;
   /** Préfixe data-focus des deux boutons (`<clé>-minus`, `<clé>-plus`) */
   focusKey?: string;
+  /** `ghost` (défaut) : lignes de « Mes séries » ; `pill` : carte « Sur cette page » */
+  variant?: 'ghost' | 'pill';
 }
 
 const STEP =
   'inline-flex size-stepper shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent p-0 text-muted transition-colors hover:bg-raised hover:text-ink disabled:pointer-events-none disabled:opacity-40 aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent';
 
-export function Stepper({ text, value, min = 0, max, decrementLabel, incrementLabel, groupLabel, onDecrement, onIncrement, disabled = false, busy = false, incrementHidden = false, focusKey }: StepperProps) {
+const PILL_STEP =
+  'inline-flex size-7.5 shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 p-0 transition disabled:pointer-events-none disabled:opacity-40 aria-disabled:cursor-default aria-disabled:opacity-40';
+
+export function Stepper({ text, value, min = 0, max, decrementLabel, incrementLabel, groupLabel, onDecrement, onIncrement, disabled = false, busy = false, incrementHidden = false, focusKey, variant = 'ghost' }: StepperProps) {
   const atMin = value <= min;
   const atMax = max !== null && value >= max;
   // Envoi en cours : le clic (souris ou Entrée) n'a aucun effet
@@ -38,6 +45,23 @@ export function Stepper({ text, value, min = 0, max, decrementLabel, incrementLa
     if (!busy) run();
   };
   const busyAttrs = busy ? { 'aria-disabled': 'true' as const, 'aria-busy': 'true' as const } : {};
+  if (variant === 'pill') {
+    return (
+      <div class="flex h-9 shrink-0 items-center gap-0.5 rounded-pill border border-line bg-raised px-0.5" role="group" aria-label={groupLabel} data-stepper="pill">
+        <button type="button" class={`${PILL_STEP} bg-transparent text-ink hover:bg-line`} aria-label={decrementLabel} title={decrementLabel} disabled={disabled || atMin} {...busyAttrs} data-step="-1" data-focus={focusKey && `${focusKey}-minus`} onClick={guard(onDecrement)}>
+          <Icon name="minus" class="size-3.5" strokeWidth="2.8" />
+        </button>
+        <span class="min-w-18 px-1 text-center text-body font-extrabold whitespace-nowrap tabular-nums" aria-live="polite" data-stepper-text="">
+          {text}
+        </span>
+        {!incrementHidden && (
+          <button type="button" class={`${PILL_STEP} bg-sakura text-on-fill hover:brightness-105`} aria-label={incrementLabel} title={incrementLabel} disabled={disabled || atMax} {...busyAttrs} data-step="1" data-focus={focusKey && `${focusKey}-plus`} onClick={guard(onIncrement)}>
+            <Icon name="plus" class="size-3.5" strokeWidth="2.8" />
+          </button>
+        )}
+      </div>
+    );
+  }
   return (
     <div class="flex h-stepper items-center gap-0.5">
       <span class="mr-1 text-secondary whitespace-nowrap text-muted tabular-nums" data-stepper-text="">

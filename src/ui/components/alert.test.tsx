@@ -39,4 +39,14 @@ describe('Alert', () => {
     await act(() => container.querySelector('button')?.click());
     expect(onClick).toHaveBeenCalledTimes(1);
   });
+
+  it('ton beurre (fiche introuvable) : couleurs beurre, danger par défaut', async () => {
+    await show(<Alert message="Aucune fiche AniList trouvée." tone="warn" icon="search" />);
+    const alert = container.querySelector<HTMLElement>('[data-alert]');
+    expect(alert?.dataset.tone).toBe('warn');
+    expect(alert?.className).toContain('text-butter');
+    expect(alert?.className).not.toContain('text-danger');
+    await show(<Alert message="Trop de requêtes." />);
+    expect(container.querySelector<HTMLElement>('[data-alert]')?.className).toContain('text-danger');
+  });
 });

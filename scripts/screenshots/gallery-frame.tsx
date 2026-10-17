@@ -12,20 +12,29 @@ import { Button } from '../../src/ui/components/button';
 import { ChoiceCards } from '../../src/ui/components/choice-cards';
 import { Collapsible } from '../../src/ui/components/collapsible';
 import { Cover } from '../../src/ui/components/cover';
+import { FeedbackBanner } from '../../src/ui/components/feedback-banner';
 import { IconButton } from '../../src/ui/components/icon-button';
 import { LogoButton } from '../../src/ui/components/logo-button';
+import { MediaDetails } from '../../src/ui/components/media-details';
+import { MediaHeader, MediaHeaderSkeleton } from '../../src/ui/components/media-header';
 import { Menu, MenuItem, MenuSeparator, SubMenu } from '../../src/ui/components/menu';
+import { RatingBlock } from '../../src/ui/components/rating-block';
+import { SeasonPicker } from '../../src/ui/components/season-picker';
 import { Section } from '../../src/ui/components/section';
 import { Segmented } from '../../src/ui/components/segmented';
 import { Select } from '../../src/ui/components/select';
+import { ServiceLines } from '../../src/ui/components/service-lines';
 import { ServiceLogo } from '../../src/ui/components/service-logo';
 import { SettingsCard, SettingsRow } from '../../src/ui/components/settings-row';
 import { StarRating } from '../../src/ui/components/star-rating';
 import { StatusBar, type StatusBarAccount, type StatusBarProps } from '../../src/ui/components/status-bar';
+import { AddToListButtons, StatusActions } from '../../src/ui/components/status-actions';
 import { StatusText } from '../../src/ui/components/status-text';
 import { Stepper } from '../../src/ui/components/stepper';
 import { Switch } from '../../src/ui/components/switch';
 import { Tabs } from '../../src/ui/components/tabs';
+import { ReviewCard, type ReviewActions } from '../../src/ui/review-card';
+import type { PendingReview } from '../../src/shared/review.types';
 import { coverUrl } from './covers';
 import { markReady, param, waitFor } from './params';
 
@@ -41,6 +50,27 @@ const row = { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap
 const column = { display: 'flex', flexDirection: 'column', gap: '8px' } as const;
 
 /** Bloc de la galerie : titre du composant, puis ses états */
+/** Carte « À vérifier » de démonstration (deux fiches proposées, la suggestion cochée) */
+const REVIEW: PendingReview = {
+  key: 'netflix:mushoku:s2',
+  episode: { platform: 'netflix', episodeId: 'e30', seriesId: 'mushoku', seriesSlug: null, animeTitle: 'Mushoku Tensei', seasonNumber: 2, seasonTitle: null, seasonEpisodeNumber: 5, displayedEpisodeNumber: 30, episodeTitle: null, url: 'https://www.netflix.com/watch/1' },
+  reason: 'Trouvée par le titre seul (aucune fiche AniList liée à cette série Netflix)',
+  suggestion: { mediaId: 146065, progress: 5 },
+  candidates: [
+    { id: 146065, title: 'Mushoku Tensei II: Jobless Reincarnation', format: 'TV', episodes: 12, year: 2023, coverUrl: null },
+    { id: 166873, title: 'Mushoku Tensei II: Jobless Reincarnation Part 2', format: 'TV', episodes: 12, year: 2024, coverUrl: null },
+  ],
+  previous: null,
+  createdAt: 1,
+};
+
+const REVIEW_ACTIONS: ReviewActions = {
+  search: () => Promise.resolve({ ok: true, data: [] }),
+  confirm: () => new Promise(() => undefined),
+  dismiss: () => Promise.resolve(),
+  exclude: () => Promise.resolve(),
+};
+
 function Block({ name, children }: { name: string; children: ComponentChildren }) {
   return (
     <div style={{ ...column, gap: '6px' }} data-block={name}>
@@ -421,6 +451,57 @@ function Gallery() {
           <div style={{ height: '1px', background: 'var(--color-line)', margin: '0 10px' }} />
           <SeriesRow title="Les Carnets de l’apothicaire" cover={APOTHICAIRE} value={30} total={48} status="Sam. 18:00" tone="info" />
         </div>
+      </Block>
+
+      <Block name="Fiche « Sur cette page » : MediaHeader · ServiceLines · FeedbackBanner · StatusActions · MediaDetails">
+        <Card>
+          <MediaHeaderSkeleton overline="Sur cette page" title="Frieren" />
+        </Card>
+        <Card>
+          <MediaHeader
+            overline="Sur cette page"
+            title="Les Carnets de l’apothicaire Saison 2"
+            coverUrl={APOTHICAIRE}
+            entry={{ href: 'https://anilist.co/anime/176301', label: 'Ouvrir la fiche sur AniList' }}
+            meta="Saison 2 · 2025 · 24 ép. · En diffusion · Crunchyroll"
+            airing={{ tone: 'info', text: 'Ép. 7 dans 18 h', date: 'sam. 17 oct., 18:00' }}
+            actions={<Menu label="Plus d’actions"><MenuItem icon="pause">Mettre en pause</MenuItem></Menu>}
+          />
+          <SeasonPicker label="Saison" ariaLabel="Choisir la saison" options={[{ id: 1, label: 'Saison 2 · partie 2 — Mushoku Tensei II Part 2 (2024)' }, { id: 2, label: 'Saison 2 · partie 1 — Mushoku Tensei II (2023)' }]} value={1} onPick={() => undefined} warning="Saison devinée : vérifie-la ci-dessous" />
+          <ServiceLines
+            label="État dans tes listes"
+            lines={[
+              { service: 'anilist', serviceLabel: 'AniList', text: 'En cours · Ép. 6 / 24', state: 'in-list' },
+              { service: 'mal', serviceLabel: 'MyAnimeList', text: 'Pas dans ta liste', state: 'absent' },
+            ]}
+          />
+          <FeedbackBanner tone="warning" text="Ép. 7 vu · échec MyAnimeList" retry={{ label: 'Réessayer', ariaLabel: 'Réessayer sur MyAnimeList', onClick: () => undefined }} />
+          <AddToListButtons labels={{ PLANNING: 'Ajouter à À regarder', CURRENT: 'Ajouter à En cours' }} busy={null} primary={false} onAdd={() => undefined} focusKey="g" />
+          <StatusActions statusLabel="En cours" stepper={{ text: 'Ép. 6 / 24', value: 6, max: 24, decrementLabel: 'Moins', incrementLabel: 'Plus', onDecrement: () => undefined, onIncrement: () => undefined }} />
+          <MediaDetails label="Détails : saison, note, commentaire" open onToggle={() => undefined}>
+            <RatingBlock label="Ta note" sliderLabel="Noter" value={8.5} onRate={() => undefined} />
+          </MediaDetails>
+        </Card>
+        <FeedbackBanner tone="success" text="Ajoutée à En cours" />
+        <FeedbackBanner tone="info" text="Déjà dans ta liste" />
+        <FeedbackBanner tone="error" text="Erreur inattendue lors de l’ajout à la liste." />
+        <Alert message="Aucune fiche AniList trouvée pour « Moi, quand je me réincarne en Slime »." tone="warn" icon="search" action={{ label: 'Réessayer', onClick: () => undefined }} />
+      </Block>
+
+      <Block name="Activité : Section teintée · carte « À vérifier » (ReviewCard)">
+        <Section title="Échec" count={1} countInline tone="danger">
+          <Alert message="Impossible de lire les synchros en attente." />
+        </Section>
+        <Section title="En attente" count={2} countInline tone="info">
+          <FeedbackBanner tone="success" text="Frieren : AniList : épisode 7 enregistré" />
+        </Section>
+        <Section title="À noter" count={1} countInline tone="accent">
+          <StarRating size="sm" label="Noter Berserk" value={8.5} />
+        </Section>
+        <Section title="À vérifier" count={1} countInline tone="warn">
+          <ReviewCard review={REVIEW} actions={REVIEW_ACTIONS} />
+          <ReviewCard review={{ ...REVIEW, key: 'empty', candidates: [], suggestion: null, reason: 'Aucune fiche AniList trouvée pour « Dandadan »' }} actions={REVIEW_ACTIONS} />
+        </Section>
       </Block>
 
       <Block name="StatusBar">

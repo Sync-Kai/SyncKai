@@ -150,4 +150,30 @@ describe('NotesEditor', () => {
     expect(input()).toBeNull();
     expect($('[role="note"]')?.textContent).toBe(t('notes.notInList'));
   });
+
+  it('variante inline (détails de « Sur cette page ») : ni focus à l’ouverture ni « Annuler », Échap rend le texte enregistré', async () => {
+    await show(editor({ variant: 'inline', notes: 'Superbe arc', onClose: undefined }));
+    expect(document.activeElement).not.toBe(input());
+    expect(cancel()).toBeNull();
+    expect(input()?.value).toBe('Superbe arc');
+    await type('Superbe arc, revu');
+    expect(save()?.disabled).toBe(false);
+    await press('Escape');
+    expect(input()?.value).toBe('Superbe arc');
+    expect(save()?.disabled).toBe(true);
+  });
+
+  it('variante inline : enregistré, le brouillon suit le commentaire relu par l’hôte', async () => {
+    onSave.mockResolvedValue(true);
+    await show(editor({ variant: 'inline', notes: 'Avant', onClose: undefined }));
+    await type('Après');
+    await act(async () => {
+      save()?.click();
+      await Promise.resolve();
+    });
+    expect(onSave).toHaveBeenCalledWith('Après');
+    await show(editor({ variant: 'inline', notes: 'Après', onClose: undefined }));
+    expect(input()?.value).toBe('Après');
+    expect(save()?.disabled).toBe(true);
+  });
 });

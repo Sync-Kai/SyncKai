@@ -155,6 +155,20 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await attach(ctx, page);
     await shot(ctx, page, 'popup/watching');
 
+    // Carte « Sur cette page » : détails dépliés (saison, note, commentaire), puis son menu « ⋯ » (statut actuel, fiches)
+    ctx.step = 'popup/page-details';
+    await click(page, 'page-details');
+    await page.waitForSelector(sel('page-notes-input'));
+    await shot(ctx, page, 'popup/page-details', '[data-page-card]');
+    await click(page, 'page-details');
+    await page.waitForSelector(sel('page-notes-input'), { hidden: true });
+    ctx.step = 'popup/page-menu';
+    await click(page, 'more-page');
+    await page.waitForSelector('[role="menu"]');
+    await shot(ctx, page, 'popup/page-menu', '[role="menu"]');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[role="menu"]', { hidden: true });
+
     // Menu du compte (logo AniList de la barre d'état) : largeur du contenu entre 288 et 376 px
     ctx.step = 'popup/account-menu';
     await click(page, 'chip-anilist');
@@ -235,6 +249,28 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await shot(ctx, page, 'popup/activity');
   } finally {
     await page.close();
+  }
+
+  // Carte « Sur cette page » : saison devinée (encadré beurre), absente d'une liste (lignes par service, boutons d'ajout)
+  ctx.step = 'popup/page-guessed';
+  const guessed = await openPage(ctx, 'popup.html', { scenario: 'page', pageView: 'uncertain', pageList: 'partial' }, POPUP_VIEWPORT);
+  try {
+    await guessed.waitForSelector(sel('page-add-CURRENT'));
+    await guessed.waitForSelector(sel('page-season'));
+    await attach(ctx, guessed);
+    await shot(ctx, guessed, 'popup/page-guessed', '[data-page-card]');
+  } finally {
+    await guessed.close();
+  }
+  // Plateforme désactivée : phrase et lien « Réglages › Plateformes »
+  ctx.step = 'popup/page-off';
+  const off = await openPage(ctx, 'popup.html', { scenario: 'page', pageMedia: 'off' }, POPUP_VIEWPORT);
+  try {
+    await off.waitForSelector(sel('page-platforms-settings'));
+    await attach(ctx, off);
+    await shot(ctx, off, 'popup/page-off', '[data-page-card]');
+  } finally {
+    await off.close();
   }
 
   // Menu du compte d'une session expirée : « Session expirée », « Reconnecter », profil en cache

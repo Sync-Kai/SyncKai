@@ -38,7 +38,7 @@ function findCycles(): string[][] {
 describe('frontières des modules', () => {
   it('le graphe des imports est bien lu', () => {
     expect(edges.length).toBeGreaterThan(500);
-    expect(edges).toContainEqual(expect.objectContaining({ from: 'popup/components/page-media-card.ts', to: 'ui/kit.ts' }));
+    expect(edges).toContainEqual(expect.objectContaining({ from: 'sidepanel/components/now-playing.ts', to: 'ui/kit.ts' }));
     expect(edges).toContainEqual(expect.objectContaining({ from: 'popup/popup.ts', to: 'i18n/index.ts' }));
     // Modules TSX (pages Preact) suivis comme les autres
     expect(edges).toContainEqual(expect.objectContaining({ from: 'ui/settings/settings-view.tsx', to: 'ui/settings/page-shortcuts.tsx' }));

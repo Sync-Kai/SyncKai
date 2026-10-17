@@ -118,17 +118,6 @@ export function icon(name: IconName, className = 'h-4 w-4', strokeWidth = '2'): 
   return svg;
 }
 
-/** Triangle d'avertissement plein (couleur via currentColor, point d'exclamation sombre) */
-export function warnIcon(className = 'h-3.5 w-3.5'): SVGSVGElement {
-  const svg = svgEl('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', class: `shrink-0 ${className}` });
-  svg.append(
-    svgEl('path', { d: 'M12 3 22 20H2Z', fill: 'currentColor', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round' }),
-    svgEl('path', { d: 'M12 10v4', stroke: '#1A0F1C', 'stroke-width': '2.4', 'stroke-linecap': 'round' }),
-    svgEl('circle', { cx: '12', cy: '17', r: '1.3', fill: '#1A0F1C' }),
-  );
-  return svg;
-}
-
 /** Triangle "lecture" plein */
 export function playIcon(className = 'h-3 w-3'): SVGSVGElement {
   const svg = svgEl('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', class: `shrink-0 ${className}` });

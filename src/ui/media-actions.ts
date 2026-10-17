@@ -1,9 +1,11 @@
 import { formatList, t } from '../i18n';
-import type { PageListState, PageMediaView, PageSeason } from '../shared/page-media.types';
+import type { PageListState, PageMediaView } from '../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, ListStatusChange } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { TONE_CHIP } from './feedback';
-import { displayScore, hasMissingList, listStatusLabel, primaryList, progressText, seasonOptionLabel, type InListState } from './page-media-view';
+import { displayScore, hasMissingList, listStatusLabel, primaryList, progressText, seasonOptionLabel, seasonPickerOptions, serviceLineText, type InListState } from './page-media-view';
+
+export { seasonPickerOptions };
 import type { InlineFeedback } from './state';
 import { STAR_CLASSES } from './kit';
 import { needsConfirm, renderStatusConfirm, STATUS_ICONS, STATUS_LABELS } from './status-actions';
@@ -48,14 +50,7 @@ const spinner = (): SVGSVGElement => icon('spinner', 'h-3.5 w-3.5 shrink-0 motio
 /** Une ligne par service connecté : statut + progression (et note), absence de la liste, ou erreur */
 export function renderListLine(list: PageListState, episodes: number | null, withScore = false): HTMLElement {
   const score = withScore && list.state === 'in-list' && list.score !== null ? ` · ★ ${list.score}/10` : '';
-  const text =
-    list.state === 'in-list'
-      ? `${listStatusLabel(list.status)} · ${progressText(list.progress, episodes)}${score}`
-      : list.state === 'not-in-list'
-        ? t('page.notInList')
-        : list.state === 'unavailable'
-          ? t('page.unavailable')
-          : list.message;
+  const text = `${serviceLineText(list, episodes)}${score}`;
   return h(
     'li',
     { class: 'flex min-w-0 items-center gap-1.5 text-[11px] font-semibold' },
@@ -71,16 +66,6 @@ export function renderListLines(view: PageMediaView, withScore = false): HTMLEle
     { class: 'm-0 flex list-none flex-col gap-1 p-0', attrs: { 'aria-label': t('page.listsAria') } },
     ...view.lists.map((l) => renderListLine(l, view.media.episodes, withScore)),
   );
-}
-
-/**
- * Choix du sélecteur de saison : saisons proposées, la fiche affichée en tête si elle n'en fait pas partie (spécial…).
- * Moins de deux choix : pas de sélecteur, et donc pas d'avertissement « vérifiez ci-dessous » (rien à vérifier).
- */
-export function seasonPickerOptions(view: PageMediaView): Pick<PageSeason, 'id' | 'title' | 'year' | 'slot'>[] {
-  return view.seasons.some((s) => s.id === view.media.mediaId)
-    ? view.seasons
-    : [{ id: view.media.mediaId, title: view.media.title, year: view.media.year, slot: null }, ...view.seasons];
 }
 
 /** Sélecteur de saison (plusieurs choix), avec l'avertissement si la fiche a été devinée ; null avec un seul choix */

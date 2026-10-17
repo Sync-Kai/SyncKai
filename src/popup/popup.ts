@@ -1,13 +1,12 @@
-import { getLocale, initI18n, onLocaleChange, t } from '../i18n';
+import { initI18n, t } from '../i18n';
 import { mountPopupApp } from './popup-app';
 import { afterRender } from './after-render';
 import type { WatchingContext } from './components/watching-screen';
 import { refreshReviewBadge } from '../browser/badge';
 import type { EntryLinkContext } from '../shared/entry-link';
-import type { EpisodeInfo } from '../shared/episode.types';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries, matchesExclusion } from '../shared/exclusions';
-import { exclusionKey } from '../platforms/series-identity';
-import { excludeSeries } from '../browser/storage/exclusions-store';
+import { exclusionKey, pageExclusionKey } from '../platforms/series-identity';
+import { excludeSeries, includeSeries } from '../browser/storage/exclusions-store';
 import { sendMessage } from '../protocol/messages';
 import { callWorker, networkFailure, outcomeFailure } from '../ui/worker-call';
 import type { RecentSync } from '../shared/review.types';
@@ -15,30 +14,21 @@ import { DEFAULT_SETTINGS, effectivePlayer, normalizeSettings, SETTINGS_STORAGE_
 import { getSettings } from '../browser/storage/settings-access';
 import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../browser/storage/reviews';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
-import type { ListStatusChange } from '../shared/sync.types';
-import type { PageMediaInfo, PageMediaView } from '../shared/page-media.types';
+import type { PageMediaInfo } from '../shared/page-media.types';
 import { TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
 import { entryKey } from '../shared/watching';
 import type { WatchingEntry, WatchingSort } from '../shared/watching.types';
-import { createMemo, createRenderScheduler, h, nodes, preserveFocus } from '../ui/dom';
-import { createPageMediaController, detectPageMedia } from '../ui/page-media-controller';
+import { h } from '../ui/dom';
+import { createPageMediaController, detectPageMedia, PAGE_FEEDBACK_MS } from '../ui/page-media-controller';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../browser/host-access';
-import { renderCompareLink } from './components/compare-link';
 import { createCompareController } from '../ui/compare-controller';
-import { diffBadge } from '../ui/settings/compare-model';
 import { createQueueController } from './controllers/queue';
 import { createRatingsController } from './controllers/ratings';
 import { createWatchingController } from './controllers/watching';
-import { renderQueueSection } from './components/queue-section';
-import { renderRatingSection } from './components/rating-section';
-import { renderRecentSyncs } from './components/recent-syncs';
-import type { ReviewActions } from './components/review-card';
-import { createReviewSection } from './components/review-section';
-import { renderPageMediaCard } from './components/page-media-card';
+import type { ReviewActions } from '../ui/review-card';
 import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, UiState } from './state';
-import { createNotesEditor } from '../ui/notes-editor';
-import { primaryList } from '../ui/page-media-view';
-import { createStore, patchStore, type AccountState, type ExclusionsState, type Store } from '../ui/state';
+import { errorFeedback } from '../ui/feedback';
+import { createStore, patchStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
 import { createLogger } from '../browser/logger';
 import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
@@ -53,17 +43,6 @@ const log = createLogger('popup');
 
 // Langue lue avant le premier rendu : toutes les vues sont construites directement dans la bonne langue
 await initI18n();
-
-const CLOCK_TICK_MS = 60_000;
-
-/**
- * Mémo d'une zone dont la langue fait partie des entrées : un changement de langue la redessine (retraduite en place,
- * sans recharger le popup : un rechargement recrée la vue auto-dimensionnée de Chrome, qui s'affiche alors zoomée)
- */
-function createLocaleMemo(): (inputs: readonly unknown[]) => boolean {
-  const changed = createMemo();
-  return (inputs) => changed([getLocale(), ...inputs]);
-}
 
 function getRoot(): HTMLDivElement {
   const el = document.querySelector<HTMLDivElement>('#app');
@@ -111,8 +90,6 @@ const platformAccessStore = createPlatformAccessStore();
 
 /** Lues au démarrage (synchrone) : la demande d'accès doit partir sans `await` dans le clic */
 const hostOrigins = requiredOrigins(chrome.runtime.getManifest());
-/** Heure des rendus vanilla (Activité, carte « Sur cette page ») ; l'écran Preact a sa propre horloge (useNow) */
-let now = Date.now();
 /** Vue des Réglages, chargée à la première ouverture */
 const settingsViewStore = createStore<SettingsView | null>(null);
 /** Pastille de l'onglet Activité */
@@ -164,16 +141,10 @@ const reviewActions: ReviewActions = {
 
 // ─── Mise en page ───────────────────────────────────────────────────────────
 // Coquille Preact (popup-app.tsx) : en-tête, onglets et barre d'état fixes, seule la zone centrale défile. Les écrans
-// à état local (Activité, Réglages) sont masqués plutôt que recréés ; Activité reste vanilla (dessinée ici).
+// à état local (Activité, Réglages) sont masqués plutôt que recréés.
 
-const reviewSection = createReviewSection(reviewActions);
-const queueSlot = h('div', { class: 'contents' });
-const ratingSlot = h('div', { class: 'contents' });
-const recentSlot = h('div', { class: 'contents' });
-const compareSlot = h('div', { class: 'contents' });
 /** « Écarts AniList ↔ MAL » : compteur de la ligne de l'Activité, page des Réglages (même contrôleur) */
 const compare = createCompareController({ onApplied: () => void watching.reload() });
-const activityScreen = h('div', { class: 'flex flex-col gap-4 pb-1' }, queueSlot, ratingSlot, reviewSection.element, recentSlot, compareSlot);
 /**
  * Créée à la première ouverture des Réglages (comme dans le panneau) : mappings, journal, raccourcis et accès ne sont lus
  * qu'alors. Module chargé à ce moment (import dynamique) : le code des Réglages reste hors du chargement initial
@@ -295,99 +266,15 @@ async function saveNotes(entry: WatchingEntry, text: string): Promise<boolean> {
   return ok;
 }
 
-/**
- * Commentaire de la carte « Sur cette page », sous la note (même éditeur repliable que le panneau) : élément persistant,
- * brouillon oublié quand la carte change de fiche
- */
-const pageNotesEditor = createNotesEditor({
-  focusKey: 'page-notes',
-  collapsible: true,
-  onSave: async (notes) => (await pageCtl.runAction({ kind: 'notes', notes }))?.tone === 'success',
-});
-let pageNotesMediaId: number | null = null;
-
-function pageNotesFor(view: PageMediaView, refreshing: boolean): HTMLElement | null {
-  // Aucun compte connecté : rien à commenter (la carte invite déjà à se connecter)
-  if (view.lists.length === 0) return null;
-  if (pageNotesMediaId !== view.media.mediaId) {
-    pageNotesMediaId = view.media.mediaId;
-    pageNotesEditor.reset();
-  }
-  const primary = primaryList(view.lists);
-  pageNotesEditor.update({
-    notes: primary?.notes ?? null,
-    loading: false,
-    unavailable: primary ? null : t('notes.notInList'),
-    busy: pageCtl.actions.busy !== null || refreshing,
-    title: view.media.title,
-  });
-  return pageNotesEditor.element;
-}
-
-// ─── Rendu ────────────────────────────────────────────────────────────────
-
-/** Carte « Sur cette page » (vanilla, montée par l'écran « En cours ») */
-function renderPageCard(): HTMLElement | null {
-  return renderPageMediaCard({
-    card: pageCardStore.get(),
-    // Heure du rendu : la carte est redessinée par l'écran à chaque minute (useNow)
-    now: Date.now(),
-    entryLinks: entryLinkContext(),
-    onRetry: () => pageCtl.retry(),
-    onAdd: (status) => void pageCtl.runAction({ kind: 'add', status }),
-    onAdjust: (delta) => void pageCtl.runAction({ kind: 'adjust', delta }),
-    onRetryAdjust: (retry) => void pageCtl.runAction({ kind: 'adjust', delta: retry.delta, retry }),
-    onConfirm: (status) => setPageConfirm(status),
-    onSetStatus: (status) => void pageCtl.runAction({ kind: 'status', status }),
-    onRate: (value) => void pageCtl.runAction({ kind: 'rate', value }),
-    onPickSeason: (mediaId) => pageCtl.pickSeason(mediaId),
-    notesFor: pageNotesFor,
-  });
-}
-
-/** Section « À noter » redessinée seulement si son état change (préserve le survol des étoiles) */
-const ratingsChanged = createLocaleMemo();
-
-function renderRatings(): void {
-  const connected = connectedServices().length > 0;
-  const entryLinks = entryLinkContext();
-  if (!ratingsChanged([ratings.store.get(), connected, now, entryLinks.connected.join(), entryLinks.preferred])) return;
-  ratingSlot.replaceChildren(
-    ...nodes([
-      connected &&
-        renderRatingSection({
-          ratings: ratings.store.get(),
-          now,
-          onRate: (item, value) => void ratings.rate(item, value),
-          onIgnore: (item) => void ratings.ignore(item),
-          entryLinks,
-        }),
-    ]),
-  );
-}
-
-/** Ligne « Écarts AniList ↔ MyAnimeList » (les deux comptes connectés) : ouvre Réglages › Mes données › Écarts */
-const compareChanged = createLocaleMemo();
-
-function renderCompare(): void {
-  const both = connectedServices().length === 2;
-  const count = diffBadge(compare.store.get().result);
-  if (!compareChanged([both, count])) return;
-  compareSlot.replaceChildren(...nodes([both && renderCompareLink({ count, onOpen: () => navigate('settings', 'compare') })]));
-}
-
-// Activité (vanilla) : chaque zone n'est redessinée que si ses entrées changent (focus, survol et régions live gardés)
-const queueChanged = createLocaleMemo();
-const recentChanged = createLocaleMemo();
+// ─── Pastille d'Activité et contexte de « En cours » ──────────────────────────
+// Le reste suit ses stores dans l'arbre Preact (useStore) : seules ces deux valeurs dérivées sont calculées ici.
 
 /** Pastille « Activité » : vérifications + synchros abandonnées + séries à noter (à traiter par l'utilisateur) */
 function activityPending(): number {
   return connectedServices().length > 0 ? syncStore.get().reviews.length + queue.counts().failed + ratings.store.get().items.length : 0;
 }
 
-function render(): void {
-  const data = syncStore.get();
-  const connected = connectedServices().length > 0;
+function refreshDerived(): void {
   const pending = activityPending();
   if (pending !== pendingStore.get()) pendingStore.set(pending);
   const context = watchingContext();
@@ -395,44 +282,7 @@ function render(): void {
   if (context.preferredPlayer !== shown.preferredPlayer || context.optionalPlatforms.join() !== shown.optionalPlatforms.join() || context.entryLinks.preferred !== shown.entryLinks.preferred || context.entryLinks.connected.join() !== shown.entryLinks.connected.join()) {
     contextStore.set(context);
   }
-
-  preserveFocus(activityScreen, () => {
-    if (queueChanged([connected, queue.store.get(), now])) {
-      queueSlot.replaceChildren(
-        ...nodes([
-          connected &&
-            renderQueueSection({
-              queue: queue.store.get(),
-              now,
-              onRetry: (id) => void queue.retry(id),
-              onAbandon: (id) => void queue.abandon(id),
-            }),
-        ]),
-      );
-    }
-    renderRatings();
-    renderCompare();
-    reviewSection.update(connected ? data.reviews : []);
-    const entryLinks = entryLinkContext();
-    if (recentChanged([data.recentSyncs, data.reviews, data.busyKey, data.recentError, exclusionsStore.get(), entryLinks.connected.join(), entryLinks.preferred])) {
-      recentSlot.replaceChildren(
-        renderRecentSyncs({
-          syncs: data.recentSyncs,
-          pendingKeys: new Set(data.reviews.map((r) => r.key)),
-          busyKey: data.busyKey,
-          error: data.recentError,
-          onCorrect: (key) => void handleCorrect(key),
-          isExcluded: isRecentExcluded,
-          onExclude: (sync) => void excludeRecent(sync),
-          entryLinks,
-        }),
-      );
-    }
-  });
 }
-
-/** Rendus regroupés : plusieurs stores modifiés dans le même tour (chargements parallèles, job) = un seul rendu */
-const renderer = createRenderScheduler(render);
 
 // ─── Accès aux sites (Firefox) et accès Netflix / Disney+ (optionnels) ─────
 
@@ -457,22 +307,6 @@ function allowHostAccess(): void {
 }
 
 // ─── Exclusions (pastille « Exclue » des dernières synchros et de « En cours ») ───
-
-/** Clé de série plateforme, sans faire échouer le rendu si elle est incalculable */
-function seriesKeyOrNull(episode: EpisodeInfo): string | null {
-  try {
-    return exclusionKey(episode);
-  } catch {
-    return null;
-  }
-}
-
-function isRecentExcluded(sync: RecentSync): boolean {
-  const exclusions = exclusionsStore.get();
-  if (exclusions.status !== 'ready' || exclusions.items.length === 0) return false;
-  const platformKey = seriesKeyOrNull(sync.episode);
-  return exclusions.items.some((e) => matchesExclusion(e, { platformKey, mediaId: sync.mediaId }));
-}
 
 async function excludeRecent(sync: RecentSync): Promise<void> {
   let error: string | null = null;
@@ -526,6 +360,49 @@ const pageCtl = createPageMediaController({
   platformAccess: platformAccessStore,
 });
 
+/** Retour propre au popup sur la carte (exclusion, réactivation : stockage local, hors contrôleur de la fiche) */
+const pageNoticeStore = createStore<InlineFeedback | null>(null);
+let pageNoticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+function flashPageNotice(feedback: InlineFeedback): void {
+  clearTimeout(pageNoticeTimer);
+  pageNoticeStore.set(feedback);
+  pageNoticeTimer = setTimeout(() => pageNoticeStore.set(null), feedback.tone === 'error' ? PAGE_FEEDBACK_MS * 2 : PAGE_FEEDBACK_MS);
+}
+
+/**
+ * « Ne plus synchroniser cette série » de la carte : clé de la page (vérifiée par la lecture de chaque épisode) et fiche
+ * AniList affichée, comme l'exclusion depuis une vérification
+ */
+async function excludePage(): Promise<void> {
+  const { content } = pageCtl;
+  if (content.status !== 'ready') return;
+  try {
+    await excludeSeries({ platformKey: pageExclusionKey(content.page), mediaId: content.view.media.mediaId, label: content.page.seriesTitle });
+    flashPageNotice({ tone: 'info', text: t('popup.syncDisabled'), detail: t('popup.syncDisabledDetail') });
+  } catch (error: unknown) {
+    log.error('Exclusion de la série impossible :', error);
+    flashPageNotice(errorFeedback(t('popup.excludeFailed')));
+  }
+  await loadExclusions();
+}
+
+/** « Réactiver la synchro » : toutes les exclusions qui couvrent la série de la page */
+async function includePage(): Promise<void> {
+  const { content } = pageCtl;
+  const exclusions = exclusionsStore.get();
+  if (content.status !== 'ready' || exclusions.status !== 'ready') return;
+  const query = { platformKey: pageExclusionKey(content.page), mediaId: content.view.media.mediaId };
+  try {
+    for (const match of exclusions.items.filter((e) => matchesExclusion(e, query))) await includeSeries(match.id);
+    flashPageNotice({ tone: 'success', text: t('popup.syncEnabled'), detail: t('popup.syncEnabledDetail') });
+  } catch (error: unknown) {
+    log.error('Réactivation de la série impossible :', error);
+    flashPageNotice(errorFeedback(t('popup.includeFailed')));
+  }
+  await loadExclusions();
+}
+
 // ─── Panneau latéral : bouton d'en-tête, sur toutes les pages ───
 // Le panneau suit l'onglet actif : « En lecture » sur une page de streaming, Agenda ailleurs.
 
@@ -557,17 +434,6 @@ function startPageMedia(): void {
   void Promise.all([activeTab, activePage]).then(([{ tabId }, page]) => {
     if (tabId !== null && page) pageCtl.open(tabId, page);
   });
-}
-
-/**
- * Confirmation Abandonner / Terminé de la carte. Ouverture : focus sur « Non » (une action
- * irréversible ne se valide pas d'un double Entrée) ; annulation : focus rendu au bouton d'origine.
- */
-function setPageConfirm(status: ListStatusChange | null): void {
-  const previous = pageCtl.actions.confirm;
-  if (!pageCtl.setConfirm(status)) return;
-  if (status !== null) focusInWatching('[data-focus="confirm-no-page"]');
-  else if (previous !== null) focusInWatching(`[data-focus="page-status-${previous}"]`);
 }
 
 // ─── Données de synchro ───────────────────────────────────────────────────
@@ -621,7 +487,23 @@ mountPopupApp(getRoot(), {
   hostAccess: hostAccessStore,
   panelAvailable: panelAvailableStore,
   settingsView: settingsViewStore,
-  activity: activityScreen,
+  activity: {
+    accounts: { anilist: anilistStore, mal: malStore },
+    sync: syncStore,
+    queue: queue.store,
+    ratings: ratings.store,
+    exclusions: exclusionsStore,
+    context: contextStore,
+    compare: compare.store,
+    reviewActions,
+    onRetryQueued: (id) => void queue.retry(id),
+    onAbandonQueued: (id) => void queue.abandon(id),
+    onRate: (item, value) => void ratings.rate(item, value),
+    onIgnoreRating: (item) => void ratings.ignore(item),
+    onCorrect: (key) => void handleCorrect(key),
+    onExcludeRecent: (sync) => void excludeRecent(sync),
+    onOpenCompare: () => navigate('settings', 'compare'),
+  },
   footer: footerSlot,
   watching: {
     state: watching.store,
@@ -632,7 +514,21 @@ mountPopupApp(getRoot(), {
     exclusions: exclusionsStore,
     pageCard: pageCardStore,
     context: contextStore,
-    renderPageCard,
+    pageNotice: pageNoticeStore,
+    page: {
+      onRetry: () => pageCtl.retry(),
+      onAdd: (status) => void pageCtl.runAction({ kind: 'add', status }),
+      onAdjust: (delta) => void pageCtl.runAction({ kind: 'adjust', delta }),
+      onRetryAdjust: (retry) => void pageCtl.runAction({ kind: 'adjust', delta: retry.delta, retry }),
+      onSetStatus: (status) => void pageCtl.runAction({ kind: 'status', status }),
+      onRate: (value) => void pageCtl.runAction({ kind: 'rate', value }),
+      onPickSeason: (mediaId) => pageCtl.pickSeason(mediaId),
+      onSaveNotes: async (notes) => (await pageCtl.runAction({ kind: 'notes', notes }))?.tone === 'success',
+      onExclude: () => void excludePage(),
+      onInclude: () => void includePage(),
+      onRemove: () => void pageCtl.runAction({ kind: 'remove' }),
+      onOpenPlatformsSettings: () => navigate('settings', 'platforms'),
+    },
     onAdjust: (entry, delta) => void watching.adjust(entry, delta),
     onSetStatus: (entry, status) => void watching.setStatus(entry, status),
     onExclude: (entry) => void watching.exclude(entry),
@@ -667,22 +563,10 @@ takePopupScreen().then(
   },
   (error: unknown) => log.debug('Écran demandé illisible :', error),
 );
-// Activité (vanilla), pastille d'Activité et contexte de « En cours » ; l'arbre Preact suit ses stores lui-même
-for (const store of [anilistStore, malStore, syncStore, uiStore, watching.store, queue.store, ratings.store, compare.store, platformAccessStore]) store.subscribe(renderer.schedule);
+// Pastille d'Activité et contexte de « En cours » ; l'arbre Preact suit ses stores lui-même (langue comprise : useLocale)
+for (const store of [anilistStore, malStore, syncStore, queue.store, ratings.store, settingsStore, platformAccessStore]) store.subscribe(refreshDerived);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store
 platformAccessStore.onPermissionsChange(() => void checkHostAccess());
-exclusionsStore.subscribe(renderer.schedule);
-settingsStore.subscribe(renderer.schedule);
-
-// Nouvelle langue : retraduction en place (écran, sous-page des Réglages et défilement conservés). Chaque zone vanilla
-// a la langue dans son mémo ; la coquille Preact suit useLocale, les Réglages se retraduisent eux-mêmes (settings-view.tsx)
-onLocaleChange(() => renderer.schedule());
-
-// Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert
-setInterval(() => {
-  now = Date.now();
-  renderer.schedule();
-}, CLOCK_TICK_MS);
 
 void checkHostAccess();
 void loadSettings();

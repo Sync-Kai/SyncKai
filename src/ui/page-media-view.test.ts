@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../i18n';
 import type { PageListState, PageMediaView } from '../shared/page-media.types';
-import { displayScore, hasMissingList, mediaMetaParts, pageBadge, primaryList, seasonOptionLabel, seasonPosition, seasonSlotLabel } from './page-media-view';
+import { displayScore, hasMissingList, mediaMetaParts, pageBadge, pageMetaParts, primaryList, seasonOptionLabel, seasonPosition, seasonSlotLabel, serviceLineText, showsServiceLines, splitAround } from './page-media-view';
 
 // Textes attendus en français
 setLocale('fr');
@@ -97,5 +97,40 @@ describe('vue de la carte « Sur cette page »', () => {
     expect(seasonPosition({ ...view([]), media: { ...view([]).media, mediaId: 99 } })).toBeNull();
     expect(seasonPosition({ ...view([]), seasons: [{ ...view([]).seasons[1], slot: { season: 1, part: 1, parts: 1 } }] })).toBeNull();
     expect(seasonPosition({ ...view([]), seasons: view([]).seasons.map((s) => ({ ...s, slot: null })) })).toBeNull();
+  });
+});
+
+describe('carte « Sur cette page » (Preact) : ligne d’infos, lignes par service, lien dans un message', () => {
+  it('ligne d’infos : saison, année, épisodes, diffusion, puis la plateforme ; « Pas dans ta liste » hors de toute liste', () => {
+    expect(pageMetaParts(view([inList(3)]), 'Crunchyroll')).toEqual(['Saison 2', '2018', '12 ép.', 'En diffusion', 'Crunchyroll']);
+    expect(pageMetaParts(view([malMissing]), 'Crunchyroll')).toEqual(['Saison 2', '2018', '12 ép.', 'En diffusion', 'Crunchyroll', 'Pas dans ta liste']);
+    // Dans une liste, absente de l'autre : rien de plus (la ligne du service le dit)
+    expect(pageMetaParts(view([inList(3), malMissing]), 'Netflix').at(-1)).toBe('Netflix');
+    // Aucun compte (aucune ligne) : rien sur les listes
+    expect(pageMetaParts(view([]), 'ADN').at(-1)).toBe('ADN');
+  });
+
+  it('ligne d’un service : statut et progression, absence, fiche absente, erreur', () => {
+    expect(serviceLineText(inList(6), 28)).toBe('En cours · Ép. 6 / 28');
+    expect(serviceLineText({ service: 'anilist', state: 'in-list', status: 'REPEATING', progress: 3, score: null, notes: null, siteUrl: '' }, null)).toBe('Revisionnage · Ép. 3');
+    expect(serviceLineText(malMissing, 12)).toBe('Pas dans ta liste');
+    expect(serviceLineText({ service: 'mal', state: 'unavailable' }, 12)).toBe('Fiche absente de ce service');
+    expect(serviceLineText({ service: 'mal', state: 'error', message: 'MyAnimeList ne répond pas.' }, 12)).toBe('MyAnimeList ne répond pas.');
+  });
+
+  it('lignes par service : masquées quand un seul compte suit la série et l’a dans sa liste, ou quand aucun ne l’a', () => {
+    expect(showsServiceLines(view([inList(3)]))).toBe(false);
+    expect(showsServiceLines(view([malMissing]))).toBe(false);
+    expect(showsServiceLines(view([{ ...malMissing, service: 'anilist' }, malMissing]))).toBe(false);
+    expect(showsServiceLines(view([inList(3), { service: 'mal', state: 'unavailable' }]))).toBe(true);
+    expect(showsServiceLines(view([{ service: 'anilist', state: 'error', message: 'AniList injoignable' }]))).toBe(true);
+    expect(showsServiceLines(view([inList(3), malMissing]))).toBe(true);
+    expect(showsServiceLines(view([]))).toBe(false);
+  });
+
+  it('texte coupé autour d’un passage (chemin des Réglages devenu lien), null s’il n’y est pas', () => {
+    expect(splitAround('Netflix est désactivé. Pour le réactiver : Réglages › Plateformes.', 'Réglages › Plateformes')).toEqual(['Netflix est désactivé. Pour le réactiver : ', '.']);
+    expect(splitAround('Rien à suivre ici.', 'Réglages › Plateformes')).toBeNull();
+    expect(splitAround('Réglages', '')).toBeNull();
   });
 });

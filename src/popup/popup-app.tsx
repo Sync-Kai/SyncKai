@@ -1,8 +1,8 @@
 // Coquille Preact du popup (maquettes PopupSeries, PopupOnboarding, PopupAcces) : en-tête, onglets « En cours » /
 // « Activité » (ou barre des Réglages), bandeau d'accès aux sites, zone centrale qui défile, barre d'état. Les données
-// et les actions restent dans popup.ts (contrôleurs sans rendu) ; les parties encore vanilla y sont créées et montées
-// ici : Activité (élément persistant), vue des Réglages (barre et contenu, chargés à la première ouverture), barre
-// d'état (son propre arbre Preact, ui/status-bar-host.tsx).
+// et les actions restent dans popup.ts (contrôleurs sans rendu) ; les éléments créés hors de cet arbre y sont montés :
+// vue des Réglages (barre et contenu, chargés à la première ouverture) et barre d'état (son propre arbre Preact,
+// ui/status-bar-host.tsx).
 import { render } from 'preact';
 import { useRef } from 'preact/hooks';
 import type { TrackerId } from '../shared/tracker.types';
@@ -11,6 +11,7 @@ import type { AccountState, ReadonlyStore } from '../ui/state';
 import { panelId, tabId } from '../ui/components/tabs';
 import { useFocusFallback, useLocale, useNow, useStore } from '../ui/preact/hooks';
 import { ElementSlot } from '../ui/preact/vanilla-slot';
+import { ActivityScreen, type ActivityScreenProps } from './components/activity-screen';
 import { POPUP_TABS_ID, PopupHeader, PopupNav, type PopupTab } from './components/header';
 import { HostAccessBanner } from './components/host-access-banner';
 import { Onboarding } from './components/onboarding';
@@ -30,8 +31,8 @@ export interface PopupAppProps {
   panelAvailable: ReadonlyStore<boolean>;
   /** Vue des Réglages, null tant que son module n'est pas chargé */
   settingsView: ReadonlyStore<SettingsView | null>;
-  /** Écran Activité (vanilla, redessiné par popup.ts) */
-  activity: HTMLElement;
+  /** Écran Activité : stores et actions */
+  activity: Omit<ActivityScreenProps, 'now'>;
   /** Conteneur de la barre d'état (mountStatusBar) */
   footer: HTMLElement;
   watching: Omit<WatchingScreenProps, 'now'>;
@@ -74,7 +75,7 @@ export function PopupApp(props: PopupAppProps) {
           <WatchingScreen {...props.watching} now={now} />
         </div>
         <div role="tabpanel" id={panelId(POPUP_TABS_ID, 'activity')} aria-labelledby={tabId(POPUP_TABS_ID, 'activity')} hidden={isSettings || onboarding || tab !== 'activity'}>
-          <ElementSlot element={() => props.activity} />
+          <ActivityScreen {...props.activity} now={now} />
         </div>
         <div hidden={!isSettings}>
           <ElementSlot element={() => settingsView?.element ?? null} />

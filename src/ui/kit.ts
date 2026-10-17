@@ -36,16 +36,6 @@ export function sectionLabel(text: string, id?: string): HTMLElement {
   return h('h2', { class: 'm-0 text-[11px] font-bold tracking-[0.06em] text-muted uppercase', attrs: id ? { id } : {} }, text);
 }
 
-/** Titre de section du contenu (« Mes séries », « À vérifier »…) avec son sous-titre katakana décoratif */
-export function sectionTitle(text: string, kana?: { text: string; class: string }): HTMLElement {
-  return h(
-    'div',
-    { class: 'flex items-baseline gap-1.5' },
-    h('h2', { class: 'm-0 text-[13px] font-bold' }, text),
-    kana && kanaLabel(kana.text, kana.class),
-  );
-}
-
 /** Katakana décoratif (masqué aux lecteurs d'écran) */
 export function kanaLabel(text: string, colorClass = 'text-muted'): HTMLElement {
   return h('span', { class: `font-display text-[10px] font-bold tracking-[1px] opacity-70 ${colorClass}`, attrs: { 'aria-hidden': 'true' } }, text);
