@@ -30,7 +30,7 @@ Statuses are neuter, so composed texts use the neuter too: “{title}: obejrzane
 | list | lista | “Twoja lista” = the user's AniList / MyAnimeList list |
 | entry | wpis (m.) | The anime's page on AniList / MAL (“Otwórz wpis na AniList”, “Wpis AniList #21”). Not “karta” (= browser tab in Polish browsers) and not “strona” (= web page) |
 | sync (noun) | synchronizacja | Standard Polish UI noun (Chrome, Firefox, phones). No anglicism “sync” |
-| to sync (verb) | synchronizować / zsynchronizować (participle: zsynchronizowany) | “Nie synchronizuj”, “Wznów synchronizację”, “Zsynchronizowano ✓” |
+| to sync (verb) | synchronizować / zsynchronizować (participle: zsynchronizowany) | “Nie synchronizuj”, “Wznów synchronizację”, “Zsynchronizowano” |
 | Syncing… | Synchronizacja… | |
 | Auto sync | Autosynchronizacja | Established compound (Samsung: “Autosynchronizacja danych”); fits the toggle and the 30-character status lines |
 | to check (`review.*`, `footer.toReview`) | do sprawdzenia; a check card = “pozycja do sprawdzenia” | Section “Do sprawdzenia ({count})”. Creating cards = “Dodaj … do sprawdzenia”. Never “recenzja” (a critique) |

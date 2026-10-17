@@ -101,10 +101,13 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await page.$(`[aria-label="${fr('panel.nowPlaying.loading')}"]`)).toBeNull();
   });
 
-  it('« Ta progression » : commentaire replié, « Enregistrer » envoie SET_LIST_NOTES (rien à la frappe), aperçu du texte relu', async () => {
+  it('« Note et commentaire » : section repliée puis commentaire replié, « Enregistrer » envoie SET_LIST_NOTES (rien à la frappe), aperçu du texte relu', async () => {
     const page = await openPanel({ hold: 'SET_LIST_NOTES' });
     const toggle = '[data-focus="panel-notes-toggle"]';
-    await page.waitForSelector(toggle);
+    // Sections de la fiche repliées par défaut (maquette PanelLecture)
+    await page.waitForSelector('[data-focus="panel-section-notes"][aria-expanded="false"]');
+    await page.locator('[data-focus="panel-section-notes"]').click();
+    await page.waitForSelector(toggle, { visible: true });
     expect(await page.$eval(toggle, (el) => el.textContent ?? '')).toContain(fr('notes.add'));
 
     await page.locator(toggle).click();
@@ -126,12 +129,16 @@ describe('panneau latéral (bout en bout)', () => {
     await page.waitForFunction((label: string) => document.body.textContent?.includes(label) === true, {}, fr('inline.notesSaved'));
   });
 
-  it('« Ta progression » : menu « ⋯ » → « Retirer de la liste » confirmé → REMOVE_FROM_LIST, la carte propose l’ajout', async () => {
+  it('« Ta liste » : menu « ⋯ » (menu de la série du popup) → « Retirer de la liste » confirmé → REMOVE_FROM_LIST, la carte propose l’ajout', async () => {
     const page = await openPanel({});
     await page.waitForSelector('[data-focus="more-panel"]');
     await page.locator('[data-focus="more-panel"]').click();
     await page.waitForSelector('[data-focus="REMOVE-panel"]');
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('REMOVE-panel');
+    // Focus sur la première option ; statut actuel grisé, fiches et exclusion proposées
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('PAUSED-panel');
+    expect(await page.$eval('[data-focus="COMPLETED-panel"]', (el) => (el as HTMLButtonElement).disabled)).toBe(false);
+    expect(await page.$('[data-focus="site-panel"]')).not.toBeNull();
+    expect(await page.$('[data-focus="exclude-panel"]')).not.toBeNull();
 
     await page.locator('[data-focus="REMOVE-panel"]').click();
     await page.waitForSelector('[data-focus="confirm-no-panel"]');
@@ -300,15 +307,19 @@ describe('panneau latéral (bout en bout)', () => {
     const path = `${fr('nav.settings')} › ${fr('settings.cat.platforms')}`;
     const off = await openPanel({ site: 'other', tab: 'nowPlaying' });
     await off.locator('#sk-tab-nowPlaying').click();
-    const offText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' })} ${fr('panel.offTargetEnable', { platforms: 'Netflix, Disney+ et Prime Video', path })}`;
+    // Plateformes suivies (pastilles), puis, sous un trait, celles à activer avec le chemin des Réglages en lien
+    const offText = fr('panel.offTargetEnable', { platforms: 'Netflix, Disney+ et Prime Video', path });
+    await off.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll et ADN' }));
     await off.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, offText);
+    expect(await off.$$eval('[data-off-target] [data-platform-chip]', (chips) => chips.map((chip) => chip.getAttribute('data-platform-chip')))).toEqual(['crunchyroll', 'adn']);
+    expect(await off.$eval('[data-focus="off-target-settings"]', (el) => el.textContent)).toBe(path);
 
     const granted = await openPanel({ site: 'other', netflix: 'granted' });
     // Agenda par défaut hors page de streaming : la ligne neutre est dans l'onglet « En lecture »
     await granted.locator('#sk-tab-nowPlaying').click();
     // Netflix accordé, Disney+ et Prime Video non : Netflix rejoint les plateformes suivies, les deux autres restent citées comme à activer
-    const grantedText = `${fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' })} ${fr('panel.offTargetEnable', { platforms: 'Disney+ et Prime Video', path })}`;
-    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, grantedText);
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetPlatforms', { platforms: 'Crunchyroll, ADN et Netflix' }));
+    await granted.waitForFunction((t: string) => document.body.textContent?.includes(t) ?? false, {}, fr('panel.offTargetEnable', { platforms: 'Disney+ et Prime Video', path }));
     expect(await granted.evaluate(() => document.body.textContent ?? '')).not.toContain(offText);
 
     // Boutons « Activer Disney+ » puis « Activer Prime Video » : demande d'accès directe, la ligne cite ensuite les cinq plateformes, sans bouton
@@ -359,6 +370,48 @@ describe('panneau latéral (bout en bout)', () => {
       await page.waitForFunction(() => document.querySelector('[data-focus^="agenda-offset-"]') === null);
       expect(await activeFocusKey(), close).toBe(`agenda-menu-${scheduleId}`);
     }
+  });
+
+  it('calendrier de la semaine : mois parcourus sans requête, une requête par semaine choisie, ‹ › regroupés, semaine déjà reçue revue sans requête', async () => {
+    const page = await openPanel({ tab: 'agenda' });
+    await page.waitForSelector('[data-focus^="agenda-open-"]');
+    const weeks = async (): Promise<unknown[]> => (await messages(page, 'GET_AGENDA')).map((m) => m.payload);
+    const before = (await weeks()).length;
+    const shown = (): Promise<string | null> => page.$eval('[data-agenda-day]', (el) => el.getAttribute('data-agenda-day'));
+    const start = await shown();
+
+    // Calendrier : focus sur la liste des semaines, mois suivants et précédents parcourus au clavier
+    await page.locator('[data-focus="agenda-week"]').click();
+    await page.waitForSelector('[data-week-calendar] [role="listbox"]');
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('role'))).toBe('listbox');
+    for (const key of ['PageDown', 'PageDown', 'PageUp', 'ArrowDown', 'ArrowDown'] as const) await page.keyboard.press(key);
+    await pause(400);
+    expect(await weeks()).toHaveLength(before);
+    const chosen = await page.$eval('[data-week-calendar] [data-active]', (el) => el.getAttribute('data-week'));
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('[data-week-calendar]') === null);
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('agenda-week');
+    await waitForMessages(page, 'GET_AGENDA', before + 1);
+    expect((await weeks()).at(-1)).toEqual({ weekStart: chosen });
+    await page.waitForFunction((key: string | null) => document.querySelector('[data-agenda-day]')?.getAttribute('data-agenda-day') === key, {}, chosen);
+
+    // ‹ en rafale : une seule requête, pour la semaine finale
+    for (let i = 0; i < 3; i++) await page.locator('[data-focus="agenda-prev"]').click();
+    await pause(700);
+    expect(await weeks()).toHaveLength(before + 2);
+
+    // « Aujourd'hui » : semaine du départ, déjà reçue (cache ou réponse) : aucune nouvelle requête
+    await page.locator('[data-focus="agenda-today"]').click();
+    await page.waitForFunction((key: string | null) => document.querySelector('[data-agenda-day]')?.getAttribute('data-agenda-day') === key, {}, start);
+    // Puis la semaine choisie dans le calendrier, revue sans requête
+    await page.locator('[data-focus="agenda-week"]').click();
+    await page.waitForSelector('[data-week-calendar] [role="listbox"]');
+    // Mois de la semaine choisie (un mois et demi plus loin) : mois suivants, sans requête
+    for (let i = 0; i < 3 && (await page.$(`[data-week-calendar] [data-week="${chosen}"]`)) === null; i++) await page.keyboard.press('PageDown');
+    await page.locator(`[data-week-calendar] [data-week="${chosen}"]`).click();
+    await page.waitForFunction((key: string | null) => document.querySelector('[data-agenda-day]')?.getAttribute('data-agenda-day') === key, {}, chosen);
+    await pause(400);
+    expect(await weeks()).toHaveLength(before + 2);
   });
 
   it('Réglages › Affichage › Raccourcis (vue partagée avec le popup) : ligne décrite, touches actuelles, retour « ← Affichage »', async () => {

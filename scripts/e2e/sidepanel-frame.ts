@@ -4,12 +4,14 @@
 import '../../src/sidepanel/sidepanel.css';
 import manifest from '../../manifest.json';
 import { airingWeekKey, weekRange, type IsoWeekday } from '../../src/shared/agenda';
+import { t } from '../../src/i18n';
 import { isRecord } from '../../src/shared/guards';
-import type { PageListState, PageMediaInfo, PageMediaResult } from '../../src/shared/page-media.types';
+import { LIVE_PORT_NAME, type LiveContentMessage, type LiveTickMessage } from '../../src/protocol/live';
+import type { PageListState, PageMediaInfo, PageMediaResult, PageMediaView, PageSeason } from '../../src/shared/page-media.types';
 import { isPanelTab } from '../../src/sidepanel/tabs';
 import { accountDemo, isAccountDemo } from '../screenshots/demo-data';
-import { agendaWeek, PANEL_PAGE, panelChrome, panelView } from '../screenshots/demo-panel';
-import { installChromeMock, type SentMessage } from '../screenshots/mock-chrome';
+import { agendaWeek, PANEL_PAGE, panelChrome, panelView, PLAYBACK } from '../screenshots/demo-panel';
+import { createMockPort, installChromeMock, type SentMessage } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
 import type { E2EPanelControls, E2EState } from './protocol';
 
@@ -32,7 +34,10 @@ const DANDADAN_PAGE: PageMediaInfo = {
   seasonEpisodeCount: 12,
   episode: PANEL_PAGE.episode && { ...PANEL_PAGE.episode, episodeId: 'DEMODANDADAN7', seriesId: 'DEMODANDADAN', seriesSlug: 'dandadan', animeTitle: 'Dandadan', seasonEpisodeNumber: 7, displayedEpisodeNumber: 7, url: DANDADAN_URL },
 };
-let shownPage: PageMediaInfo = PANEL_PAGE;
+/** `page=series` : page de série de Frieren (saison 1), sans épisode */
+const SERIES_PAGE: PageMediaInfo = { ...PANEL_PAGE, kind: 'series', episode: null };
+const pageParam = param('page');
+let shownPage: PageMediaInfo = pageParam === 'series' ? SERIES_PAGE : PANEL_PAGE;
 let pageReads = 0;
 
 /** Frieren retirée des listes (« Retirer de la liste ») et commentaire enregistré : relus par RESOLVE_PAGE_MEDIA */
@@ -48,9 +53,53 @@ function withActions(lists: PageListState[]): PageListState[] {
   });
 }
 
+const season = (id: number, title: string, year: number, slot: PageSeason['slot']): PageSeason => ({ id, title, format: 'TV', episodes: 28, year, coverUrl: null, slot });
+
+/** Variante de la fiche demandée par `pageView` / `pageList` (états des maquettes PanelSaisonDevinee, PanelListeEtats) */
+function demoView(): PageMediaView {
+  const demo = panelView();
+  const seasons = [season(demo.media.mediaId, demo.media.title, 2023, { season: 1, part: 1, parts: 1 }), season(182255, 'Frieren: Beyond Journey’s End Season 2', 2026, { season: 2, part: 1, parts: 1 })];
+  const variant = param('pageView');
+  const view: PageMediaView =
+    variant === 'uncertain' || variant === 'manual' || variant === 'seasons' || shownPage.kind === 'series'
+      ? { ...demo, seasons, confidence: variant === 'uncertain' || variant === 'manual' ? 'uncertain' : 'certain', source: variant === 'manual' ? 'manual' : 'page' }
+      : demo;
+  const [anilist, mal] = view.lists;
+  switch (param('pageList') ?? '') {
+    case 'missing':
+      return { ...view, lists: view.lists.map((list): PageListState => ({ service: list.service, state: 'not-in-list', siteUrl: '' })) };
+    case 'partial':
+      return anilist ? { ...view, lists: [anilist, { service: 'mal', state: 'not-in-list', siteUrl: '' }] } : view;
+    case 'none':
+      return { ...view, lists: [] };
+    case 'error':
+      return anilist && mal ? { ...view, lists: [anilist, { service: 'mal', state: 'error', message: t('api.network', { service: 'MyAnimeList' }) }] } : view;
+    default:
+      return view;
+  }
+}
+
+/** Réponse de RESOLVE_PAGE_MEDIA demandée par `pageMedia` (états de la maquette PanelFicheEtats) */
+function pageMediaFailure(): PageMediaResult | null {
+  switch (param('pageMedia') ?? '') {
+    case 'untracked':
+      return { ok: false, code: 'NOT_TRACKED', message: t('page.notTracked', { platform: 'Prime Video' }) };
+    case 'off':
+      return { ok: false, code: 'NOT_TRACKED', message: t('page.platformOff', { platform: 'Netflix' }) };
+    case 'notFound':
+      return { ok: false, code: 'NOT_FOUND', message: t('page.notFound', { title: PANEL_PAGE.seriesTitle }) };
+    case 'error':
+      return { ok: false, code: 'API_ERROR', message: t('api.rateLimited', { service: 'AniList' }) };
+    default:
+      return null;
+  }
+}
+
 /** Fiche de la page demandée (titre de la page : Frieren ou Dandadan) */
 function resolvePage(payload: unknown): PageMediaResult {
-  const demo = panelView();
+  const failure = pageMediaFailure();
+  if (failure) return failure;
+  const demo = demoView();
   const base = { ...demo, lists: withActions(demo.lists) };
   const page = isRecord(payload) && isRecord(payload.page) ? payload.page : null;
   if (page?.seriesTitle !== 'Dandadan') return { ok: true, data: base };
@@ -77,7 +126,51 @@ function holdable(type: string, handler: (payload: unknown) => unknown): (payloa
 // ─── Installation ─────────────────────────────────────────────────────────
 
 const base = panelChrome(await loadedUiLocaleParam(), tab, now);
-const agendaError = param('agenda') === 'error';
+
+// ─── Lecture en direct (`live=<état>`, maquette PanelLectureEtats) ─────────
+
+const tick = (extra: Partial<LiveTickMessage>): LiveTickMessage => ({
+  type: 'tick',
+  t: PLAYBACK.t,
+  duration: PLAYBACK.duration,
+  paused: false,
+  point: { seconds: PLAYBACK.credits, source: 'credits' },
+  state: 'watching',
+  ...extra,
+});
+/** États de la lecture en direct (messages envoyés après l'épisode annoncé) ; textes lus à la connexion, langue chargée */
+const liveDemos = (): Readonly<Record<string, readonly LiveContentMessage[]>> => ({
+  waiting: [tick({ t: null, duration: null, point: null })],
+  noVideo: [tick({ t: null, duration: null, point: null, state: 'no-video' })],
+  ratio: [tick({ t: 11 * 60 + 50, point: { seconds: Math.round(PLAYBACK.duration * 0.85), source: 'ratio' } })],
+  paused: [tick({ paused: true })],
+  passed: [tick({ t: 22 * 60 + 45 })],
+  autoOff: [tick({ state: 'idle' })],
+  syncing: [tick({ t: PLAYBACK.credits, state: 'syncing' })],
+  synced: [tick({ t: 22 * 60 + 5, state: 'synced' })],
+  review: [tick({ t: 22 * 60 + 5 }), { type: 'sync', state: 'review', outcome: { status: 'needs-review', message: null } }],
+  notConnected: [tick({ t: 22 * 60 + 5, state: 'not-connected' })],
+  error: [tick({ t: 22 * 60 + 5 }), { type: 'sync', state: 'error', outcome: { status: 'error', message: t('api.network', { service: 'AniList' }) } }],
+  excluded: [tick({ t: 22 * 60 + 5, state: 'excluded' })],
+});
+const liveParam = param('live');
+/** Port de lecture simulé : épisode annoncé puis l'état demandé ; `silent` : connexion refusée (page injoignable) */
+function demoLivePort(name: string): chrome.runtime.Port {
+  if (liveParam === 'silent') throw new Error('Aucun script de contenu');
+  const mock = createMockPort(name);
+  const messages = name === LIVE_PORT_NAME ? [{ type: 'page', episodeId: PANEL_PAGE.episode?.episodeId ?? null } as const, ...(liveDemos()[liveParam ?? ''] ?? [])] : [];
+  setTimeout(() => messages.forEach((message) => mock.emit(message)), 30);
+  return mock.port;
+}
+const agendaParam = param('agenda');
+const agendaError = agendaParam === 'error';
+/** États de l'Agenda (maquette PanelAgendaEtats) : `failure` (échec sans programme en cache), `empty` (semaine sans sortie),
+ * `noSeries` (listes « En cours » vides), `notConnected` (aucun compte) */
+const agendaStorage: Record<string, unknown> =
+  agendaParam === 'noSeries'
+    ? { watchingCache: { anilist: { service: 'anilist', entries: [], fetchedAt: now }, mal: { service: 'mal', entries: [], fetchedAt: now } } }
+    : {};
+const agendaDrop = agendaParam === 'notConnected' ? ['anilistToken', 'malToken'] : [];
 /** Sorties de la semaine en cache mais expirées, quel que soit le premier jour de la semaine de la langue */
 const expiredWeeks = agendaError
   ? Object.fromEntries(
@@ -107,17 +200,21 @@ const account = accountDemo(isAccountDemo(accountMode) ? accountMode : null, bas
 const controls = installChromeMock({
   ...base,
   ...offTargetOptions,
-  storage: { ...Object.fromEntries(Object.entries(base.storage).filter(([key]) => !account.drop.includes(key))), ...expiredWeeks, ...account.storage },
-  session: param('cache') === 'none' ? {} : base.session,
+  storage: { ...Object.fromEntries(Object.entries(base.storage).filter(([key]) => !account.drop.includes(key) && !agendaDrop.includes(key))), ...expiredWeeks, ...account.storage, ...agendaStorage },
+  // Fiche résolue au démarrage (pas de cache) dès qu'un état de la fiche est demandé
+  session: param('cache') === 'none' || param('pageMedia') || param('pageView') || param('pageList') || pageParam ? {} : base.session,
   tabMessage: (message) => {
     if (!isRecord(message) || message.type !== 'GET_PAGE_MEDIA') return undefined;
     pageReads++;
-    return shownPage;
+    if (pageParam === 'unreachable') throw new Error('Could not establish connection. Receiving end does not exist.');
+    return pageParam === 'none' ? null : shownPage;
   },
+  ...(liveParam ? { connect: (_tabId: number, name: string) => demoLivePort(name) } : {}),
   handlers: {
     ...base.handlers,
     ...account.handlers,
-    RESOLVE_PAGE_MEDIA: holdable('RESOLVE_PAGE_MEDIA', resolvePage),
+    RESOLVE_PAGE_MEDIA: param('pageMedia') === 'hang' ? () => new Promise(() => undefined) : holdable('RESOLVE_PAGE_MEDIA', resolvePage),
+    ...(param('details') === 'error' ? { GET_PANEL_MEDIA: () => ({ ok: false, code: 'NETWORK', message: t('api.network', { service: 'AniList' }) }) } : {}),
     ADJUST_PROGRESS: holdable('ADJUST_PROGRESS', () => ({
       status: 'synced',
       mediaTitle: 'Frieren',
@@ -134,13 +231,20 @@ const controls = installChromeMock({
     }),
     GET_AGENDA: holdable(
       'GET_AGENDA',
-      agendaError ? () => ({ ok: false, code: 'API_ERROR', message: 'AniList 429 (e2e)' }) : (base.handlers.GET_AGENDA ?? (() => undefined)),
+      agendaError || agendaParam === 'failure'
+        ? () => (agendaError ? { ok: false, code: 'API_ERROR', message: 'AniList 429 (e2e)' } : { ok: false, code: 'NETWORK', message: t('api.network', { service: 'AniList' }) })
+        : agendaParam === 'empty'
+          ? (payload: unknown) => ({ ok: true, data: { weekStart: isRecord(payload) && typeof payload.weekStart === 'string' ? payload.weekStart : '', fetchedAt: now, mediaIds: [], schedules: [] } })
+          : (base.handlers.GET_AGENDA ?? (() => undefined)),
     ),
   },
   onSendMessage: (message: SentMessage) => trace.messages.push(message),
   // `popup=open` : chrome.action.openPopup présent (barre d'état : messages vers Activité cliquables)
   ...(param('popup') === 'open' ? { onOpenPopup: () => void (trace.popupOpens = (trace.popupOpens ?? 0) + 1) } : {}),
 });
+
+// `checking=hold` : la fenêtre du panneau ne répond jamais, l'onglet suivi reste « en vérification » (maquette PanelOuverture)
+if (param('checking') === 'hold') chrome.windows.getCurrent = () => new Promise(() => undefined);
 
 const panel: E2EPanelControls = {
   hold: (type) => void held.add(type),

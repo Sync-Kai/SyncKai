@@ -49,4 +49,12 @@ describe('SeasonPicker', () => {
     expect($('[data-season-picker]')?.className).toContain('border-butter/40');
     expect($<HTMLSelectElement>('select')?.disabled).toBe(true);
   });
+
+  it('sans encadré (carte « Saison » du panneau) : avertissement en bandeau au-dessus du titre, liste hors du bandeau', async () => {
+    await show(<SeasonPicker label="Saison" ariaLabel="Choisir" options={OPTIONS} value={166873} onPick={() => undefined} warning="Saison devinée : vérifie-la ci-dessous" framed={false} />);
+    expect($('[data-season-picker]')?.className).not.toContain('border-butter/40');
+    const note = $('[role="note"]');
+    expect(note?.className).toContain('border-butter/40');
+    expect(note?.contains($('select'))).toBe(false);
+  });
 });

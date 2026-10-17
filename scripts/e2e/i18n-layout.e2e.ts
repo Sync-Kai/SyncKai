@@ -330,6 +330,14 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
     await attach(ctx, page);
     await panelShots(ctx, page, 'now-playing');
 
+    // Sections de la fiche dépliées (note et commentaire, suites, discussions), éditeur du commentaire ouvert
+    ctx.step = 'panel/now-playing-details';
+    for (const section of ['notes', 'relations', 'discussion']) await click(page, `panel-section-${section}`);
+    await click(page, 'panel-notes-toggle');
+    await page.waitForSelector(sel('panel-notes-input'));
+    await panelShots(ctx, page, 'now-playing-details');
+    await page.keyboard.press('Escape');
+
     // Menu du compte (logo MyAnimeList) : à 320 px, jamais plus large que le panneau
     ctx.step = 'panel/account-menu';
     await click(page, 'chip-mal');
@@ -343,6 +351,30 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
     await page.locator('#sk-tab-agenda').click();
     await page.waitForSelector('[data-focus^="agenda-open-"]');
     await panelShots(ctx, page, 'schedule');
+
+    // Menu « ⋯ » d'une sortie (« Ajuster l'heure » et sa seconde ligne, sous-menus), puis l'éditeur de délai
+    ctx.step = 'panel/schedule-menu';
+    await page.locator('[data-focus^="agenda-menu-"]').click();
+    await page.waitForSelector('[role="menu"] [data-menu-description]');
+    await panelShots(ctx, page, 'schedule-menu', '[role="menu"]');
+    await page.locator('[role="menu"] [data-focus^="agenda-adjust-"]').click();
+    ctx.step = 'panel/schedule-editor';
+    await page.waitForSelector('[data-agenda-editor]');
+    await panelShots(ctx, page, 'schedule-editor');
+    await page.keyboard.press('Escape');
+
+    // Calendrier du mois (bouton de la semaine), puis une autre semaine (bouton « Aujourd'hui »)
+    ctx.step = 'panel/schedule-calendar';
+    await click(page, 'agenda-week');
+    await page.waitForSelector('[data-week-calendar]');
+    await panelShots(ctx, page, 'schedule-calendar', '[data-week-picker]');
+    await page.keyboard.press('Escape');
+    ctx.step = 'panel/schedule-other-week';
+    await click(page, 'agenda-prev');
+    await page.waitForSelector(sel('agenda-today'));
+    await page.waitForSelector('[data-focus^="agenda-open-"]');
+    await panelShots(ctx, page, 'schedule-other-week');
+    await click(page, 'agenda-today');
 
     ctx.step = 'panel/settings';
     await storageSet(page, {
@@ -364,6 +396,20 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
     }
   } finally {
     await page.close();
+  }
+
+  // Saison devinée (avertissement), série absente de MyAnimeList (boutons d'ajout), générique inconnu (légende et compte à
+  // rebours les plus longs de la lecture en direct)
+  ctx.step = 'panel/now-playing-states';
+  const states = await openPage(ctx, 'sidepanel.html', { pageView: 'uncertain', pageList: 'partial', live: 'ratio' }, { width: PANEL_WIDTHS[0], height: PANEL_HEIGHT });
+  try {
+    await states.waitForSelector('[data-season-card] [role="note"]');
+    await states.waitForSelector(sel('page-add-PLANNING'));
+    await states.waitForSelector('[data-live-legend]');
+    await attach(ctx, states);
+    await panelShots(ctx, states, 'now-playing-states');
+  } finally {
+    await states.close();
   }
 
   // Onglet hors plateformes : « En lecture » montre la ligne neutre et les boutons « Activer Netflix / Disney+ »

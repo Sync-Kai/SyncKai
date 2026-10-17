@@ -23,7 +23,7 @@ Binding for every change to `src/i18n/locales/vi.json` and `public/_locales/vi/m
 | Count summaries | Fragments joined with ` · ` start with the number | "48 mùa đã đọc · 12 bộ cần cập nhật · 3 cần kiểm tra" |
 | Separators | ` › ` and ` · ` kept exactly | "Cài đặt › Xem & đồng bộ" |
 | Browser vocabulary | Chrome's Vietnamese UI: tab = **thẻ**, extension = **tiện ích**, side panel = **bảng điều khiển bên** (Chrome help center: "Quản lý bảng điều khiển bên của Chrome"); Firefox gear-menu item "Manage Extension Shortcuts" = **Quản lý phím tắt tiện ích mở rộng** (mozilla-l10n vi, `aboutAddons.ftl` › `addon-manage-extensions-shortcuts`) | "Tải lại thẻ" |
-| Product names | Never translated (SyncKai, AniList, MyAnimeList, MAL, Crunchyroll, ADN, Netflix, Disney+, Firefox, Chrome, Brave, Reddit, GitHub, Weblate), nor "Redirect URL" / "App Redirect URL", "AL", "MAL", "JP", "E" in "E30" | |
+| Product names | Never translated (SyncKai, AniList, MyAnimeList, MAL, Crunchyroll, ADN, Netflix, Disney+, Firefox, Chrome, Brave, Reddit, GitHub, Weblate), nor "Redirect URL" / "App Redirect URL", "AL", "MAL", "JP" (no catalog text uses it since 2026-10-17: `agenda.jp` writes "Nhật {time}"), "E" in "E30" | |
 
 ## 2. Core terms
 

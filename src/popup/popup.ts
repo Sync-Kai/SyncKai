@@ -4,9 +4,10 @@ import { afterRender } from './after-render';
 import type { WatchingContext } from './components/watching-screen';
 import { refreshReviewBadge } from '../browser/badge';
 import type { EntryLinkContext } from '../shared/entry-link';
-import { EXCLUDED_SERIES_KEY, getExcludedSeries, matchesExclusion } from '../shared/exclusions';
-import { exclusionKey, pageExclusionKey } from '../platforms/series-identity';
-import { excludeSeries, includeSeries } from '../browser/storage/exclusions-store';
+import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../shared/exclusions';
+import { exclusionKey } from '../platforms/series-identity';
+import { excludeSeries } from '../browser/storage/exclusions-store';
+import { excludePageSeries, includePageSeries } from '../ui/page-exclusion';
 import { sendMessage } from '../protocol/messages';
 import { callWorker, networkFailure, outcomeFailure } from '../ui/worker-call';
 import type { RecentSync } from '../shared/review.types';
@@ -27,7 +28,6 @@ import { createRatingsController } from './controllers/ratings';
 import { createWatchingController } from './controllers/watching';
 import type { ReviewActions } from '../ui/review-card';
 import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, UiState } from './state';
-import { errorFeedback } from '../ui/feedback';
 import { createStore, patchStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
 import { createLogger } from '../browser/logger';
 import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
@@ -79,7 +79,7 @@ const queue = createQueueController();
 /** Activité › « À noter » */
 const ratings = createRatingsController();
 /** Carte « Sur cette page » (série de l'onglet actif) */
-const pageCardStore = createStore<PageCardState>({ content: { status: 'idle' }, actions: { busy: null, confirm: null, feedback: null } });
+const pageCardStore = createStore<PageCardState>({ content: { status: 'idle' }, actions: { busy: null, feedback: null } });
 /** Accès à Crunchyroll / ADN et aux API (bandeau « Autoriser l'accès » si Firefox l'a retiré) */
 const hostAccessStore = createStore<HostAccessState>({ status: 'unknown' });
 /**
@@ -370,20 +370,11 @@ function flashPageNotice(feedback: InlineFeedback): void {
   pageNoticeTimer = setTimeout(() => pageNoticeStore.set(null), feedback.tone === 'error' ? PAGE_FEEDBACK_MS * 2 : PAGE_FEEDBACK_MS);
 }
 
-/**
- * « Ne plus synchroniser cette série » de la carte : clé de la page (vérifiée par la lecture de chaque épisode) et fiche
- * AniList affichée, comme l'exclusion depuis une vérification
- */
+/** « Ne plus synchroniser cette série » de la carte (ui/page-exclusion.ts) */
 async function excludePage(): Promise<void> {
   const { content } = pageCtl;
   if (content.status !== 'ready') return;
-  try {
-    await excludeSeries({ platformKey: pageExclusionKey(content.page), mediaId: content.view.media.mediaId, label: content.page.seriesTitle });
-    flashPageNotice({ tone: 'info', text: t('popup.syncDisabled'), detail: t('popup.syncDisabledDetail') });
-  } catch (error: unknown) {
-    log.error('Exclusion de la série impossible :', error);
-    flashPageNotice(errorFeedback(t('popup.excludeFailed')));
-  }
+  flashPageNotice(await excludePageSeries({ page: content.page, mediaId: content.view.media.mediaId }));
   await loadExclusions();
 }
 
@@ -392,14 +383,7 @@ async function includePage(): Promise<void> {
   const { content } = pageCtl;
   const exclusions = exclusionsStore.get();
   if (content.status !== 'ready' || exclusions.status !== 'ready') return;
-  const query = { platformKey: pageExclusionKey(content.page), mediaId: content.view.media.mediaId };
-  try {
-    for (const match of exclusions.items.filter((e) => matchesExclusion(e, query))) await includeSeries(match.id);
-    flashPageNotice({ tone: 'success', text: t('popup.syncEnabled'), detail: t('popup.syncEnabledDetail') });
-  } catch (error: unknown) {
-    log.error('Réactivation de la série impossible :', error);
-    flashPageNotice(errorFeedback(t('popup.includeFailed')));
-  }
+  flashPageNotice(await includePageSeries({ page: content.page, mediaId: content.view.media.mediaId }, exclusions.items));
   await loadExclusions();
 }
 

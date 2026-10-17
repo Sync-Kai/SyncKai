@@ -1,24 +1,20 @@
-import { t } from '../../i18n';
-import { isLiveContentMessage, LIVE_PORT_NAME, type LiveContentMessage, type LivePanelMessage, type LiveTickMessage } from '../../protocol/live';
+import { isLiveContentMessage, LIVE_PORT_NAME, type LiveContentMessage, type LivePanelMessage } from '../../protocol/live';
 import { createLogger } from '../../browser/logger';
-import { h } from '../../ui/dom';
-import { formatClock, liveDisplay, liveStateKeepsMessage, type LiveTone } from '../live-view';
+import { createStore, type ReadonlyStore } from '../../ui/state';
+import { liveStateKeepsMessage, type LiveSnapshot, type LiveTarget } from '../live-view';
 import type { LiveEvent } from '../now-playing-view';
 
 const log = createLogger('sidepanel');
 
 // Progression en direct : port ouvert directement vers le script de contenu de l'onglet suivi
-// (le service worker reste endormi). Le bloc est mis à jour sur place : un tick ne redessine pas le panneau.
+// (le service worker reste endormi). Sans rendu : l'état du port est un store, lu par le bloc « Tu regardes »
+// (components/live-card.tsx), qui seul est redessiné à chaque tick.
 
-/** Onglet et épisode affichés par la fiche ; `episodeId` null : page de série (seulement la saison choisie, aucune progression) */
-export interface LiveTarget {
-  tabId: number;
-  episodeId: string | null;
-}
+export type { LiveTarget };
 
 export interface LiveProgress {
-  /** Bloc persistant, réinséré tel quel à chaque rendu de la fiche */
-  readonly element: HTMLElement;
+  /** Dernier état connu du port (épisode annoncé, tick, message, page injoignable) */
+  readonly store: ReadonlyStore<LiveSnapshot>;
   /** Épisode à suivre ; null : port fermé (autre onglet, page sans lecture, panneau masqué) */
   follow(target: LiveTarget | null): void;
 }
@@ -27,14 +23,6 @@ export interface LiveProgress {
 const CONNECT_RETRY_MS: readonly number[] = [800, 2_000];
 /** Port fermé après des échanges (rechargement de la page) : reconnexion */
 const RECONNECT_MS = 1_000;
-
-const TONE_CLASS: Record<LiveTone, string> = {
-  info: 'text-ink',
-  success: 'text-mint',
-  muted: 'text-muted',
-  warning: 'text-butter',
-  error: 'text-danger',
-};
 
 /** `onEvent` : épisode annoncé par la page (navigation SPA) et synchro terminée, pour mettre la fiche à jour */
 export function createLiveProgress(onEvent: (event: LiveEvent) => void): LiveProgress {
@@ -48,62 +36,13 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
   let unreachable = false;
   /** Épisode annoncé par la page : les ticks d'un autre épisode (navigation SPA) sont ignorés */
   let liveEpisode: string | null = null;
-  let tick: LiveTickMessage | null = null;
+  let tick: LiveSnapshot['tick'] = null;
   let message: string | null = null;
-  let announced: string | null = null;
+  const store = createStore<LiveSnapshot>({ target: null, liveEpisode: null, tick: null, message: null, unreachable: false });
 
-  // ─── Bloc (créé une fois) ─────────────────────────────────────────────
-  const text = h('span', { class: 'max-w-full shrink-0 truncate text-[12px] font-bold' });
-  const clock = h('span', { class: 'ml-auto shrink-0 text-[11px] font-semibold text-muted tabular-nums' });
-  const fill = h('div', {
-    class: 'absolute inset-y-0 left-0 rounded-full bg-sakura transition-[width] duration-1000 ease-linear motion-reduce:transition-none',
-  });
-  const marker = h('div', { class: 'absolute -top-[3px] h-[12px] w-[3px] -translate-x-1/2 rounded-full bg-butter', attrs: { 'aria-hidden': 'true' } });
-  const bar = h('div', { class: 'relative h-1.5 rounded-full bg-raised', attrs: { role: 'progressbar', 'aria-label': t('panel.live.playback'), 'aria-valuemin': '0' } }, fill, marker);
-  const detail = h('span', { class: 'min-w-0 truncate text-[11px] text-muted' });
-  // Région annoncée : changements d'état uniquement (pause, synchro, erreur), jamais le compte à rebours
-  const announcer = h('span', { class: 'sr-only', attrs: { 'aria-live': 'polite', 'aria-atomic': 'true' } });
-  const hint = h('p', { class: 'm-0 text-[11px] text-muted' });
-  // Texte long (russe à 320 px) : l'horloge passe à la ligne plutôt que de tronquer le texte
-  const body = h('div', { class: 'flex flex-col gap-1.5' }, h('div', { class: 'flex flex-wrap items-baseline justify-between gap-x-2' }, text, clock), bar, detail);
-  const element = h('div', { class: 'flex flex-col gap-1.5', attrs: { hidden: '' } }, body, hint, announcer);
-
+  /** Publie l'état courant (les lecteurs du store ne redessinent que ce qui a changé) */
   function update(): void {
-    const visible = target !== null && liveEpisode === target.episodeId && tick !== null;
-    hint.hidden = !(unreachable && !visible);
-    hint.textContent = t('panel.live.unreachable');
-    body.hidden = !visible;
-    element.hidden = !visible && !unreachable;
-    if (!visible || !tick) {
-      announce(null);
-      return;
-    }
-    const view = liveDisplay(tick, message);
-    text.textContent = view.text;
-    text.className = `max-w-full shrink-0 truncate text-[12px] font-bold ${TONE_CLASS[view.tone]}`;
-    detail.textContent = view.detail ?? '';
-    detail.hidden = view.detail === null;
-    // Erreur ou fiche à vérifier : message complet sur plusieurs lignes (raison, marche à suivre)
-    detail.className = `min-w-0 text-[11px] ${view.tone === 'error' ? 'text-danger' : view.tone === 'warning' ? 'text-muted' : 'truncate text-muted'}`;
-    bar.hidden = view.bar === null;
-    clock.hidden = view.bar === null;
-    if (view.bar) {
-      clock.textContent = `${formatClock(tick.t ?? 0)} / ${formatClock(tick.duration ?? 0)}`;
-      fill.style.width = `${view.bar.percent}%`;
-      bar.setAttribute('aria-valuemax', String(view.bar.valueMax));
-      bar.setAttribute('aria-valuenow', String(view.bar.valueNow));
-      bar.setAttribute('aria-valuetext', view.bar.valueText);
-      marker.hidden = view.bar.pointPercent === null;
-      if (view.bar.pointPercent !== null) marker.style.left = `${view.bar.pointPercent}%`;
-      marker.title = view.detail ?? '';
-    }
-    announce(view.announce);
-  }
-
-  function announce(value: string | null): void {
-    if (value === announced) return;
-    announced = value;
-    announcer.textContent = value ?? '';
+    store.set({ target, liveEpisode, tick, message, unreachable });
   }
 
   // ─── Port ─────────────────────────────────────────────────────────────
@@ -223,7 +162,7 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
   });
 
   return {
-    element,
+    store,
     follow(next: LiveTarget | null): void {
       if (next === null) {
         if (target === null) return;

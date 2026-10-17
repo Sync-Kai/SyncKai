@@ -25,7 +25,7 @@ Binding for every change to `src/i18n/locales/id.json` and `public/_locales/id/m
 | Watching tab (`nav.watching`) | **Menonton** | Same as the status. |
 | Activity tab (`nav.activity`) | **Aktivitas** | |
 | sync (noun) | **sinkron** ("Sinkron gagal", "3 sinkron tertunda", "Sinkron terbaru") | One short noun everywhere, common in casual tech Indonesian. *Sinkronisasi* is too long for chips. |
-| sync (verb) / synced | **menyinkronkan, disinkronkan, sinkronkan** / **tersinkron** | "Menyinkronkan…" (in progress), "Tersinkron ✓". |
+| sync (verb) / synced | **menyinkronkan, disinkronkan, sinkronkan** / **tersinkron** | "Menyinkronkan…" (in progress), "Tersinkron". |
 | Stop syncing / Resume syncing (exclude a series) | **Jangan sinkronkan (anime ini)** / **Sinkronkan lagi** | "Don't sync": a lasting choice, not "stop the current sync". |
 | to check (`review.*`) | **perlu dicek** (section: "Perlu dicek"); a check card: **pengecekan** | *Cek* is the everyday Indonesian verb for "check, verify". It never means a critique. |
 | to rate | **perlu dinilai** | |

@@ -1,7 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../i18n';
 import type { PageListState, PageMediaView } from '../shared/page-media.types';
-import { displayScore, hasMissingList, mediaMetaParts, pageBadge, pageMetaParts, primaryList, seasonOptionLabel, seasonPosition, seasonSlotLabel, serviceLineText, showsServiceLines, splitAround } from './page-media-view';
+import type { PageSeason } from '../shared/page-media.types';
+import {
+  displayScore,
+  hasMissingList,
+  mediaMetaParts,
+  pageBadge,
+  pageMetaParts,
+  primaryList,
+  seasonOptionLabel,
+  seasonPickerOptions,
+  seasonPosition,
+  seasonSlotLabel,
+  serviceLineText,
+  serviceLineWithScore,
+  showsServiceLines,
+  splitAround,
+} from './page-media-view';
 
 // Textes attendus en français
 setLocale('fr');
@@ -132,5 +148,32 @@ describe('carte « Sur cette page » (Preact) : ligne d’infos, lignes par serv
     expect(splitAround('Netflix est désactivé. Pour le réactiver : Réglages › Plateformes.', 'Réglages › Plateformes')).toEqual(['Netflix est désactivé. Pour le réactiver : ', '.']);
     expect(splitAround('Rien à suivre ici.', 'Réglages › Plateformes')).toBeNull();
     expect(splitAround('Réglages', '')).toBeNull();
+  });
+});
+
+describe('« Ta liste » du panneau latéral : ligne de chaque service avec sa note', () => {
+  it('note sur 10 après le statut et la progression, chiffres de la langue ; rien sans note ni hors liste', () => {
+    expect(serviceLineWithScore(inList(6, 9), 28)).toBe('En cours · Ép. 6 / 28 · ★ 9/10');
+    expect(serviceLineWithScore(inList(6, 8.5), 28)).toBe('En cours · Ép. 6 / 28 · ★ 8,5/10');
+    expect(serviceLineWithScore(inList(3), 28)).toBe('En cours · Ép. 3 / 28');
+    expect(serviceLineWithScore(malMissing, 28)).toBe('Pas dans ta liste');
+    setLocale('en');
+    expect(serviceLineWithScore(inList(6, 8.5), 28)).toBe('Watching · Ep. 6 / 28 · ★ 8.5/10');
+    setLocale('fr');
+  });
+});
+
+describe('sélecteur de saison (popup et panneau)', () => {
+  const season = (id: number, title: string): PageSeason => ({ id, title, format: 'TV', episodes: 12, year: 2024, coverUrl: null, slot: null });
+  const onePiece = (seasons: PageSeason[]): PageMediaView => ({ ...view([], { mediaId: 21, title: 'ONE PIECE' }), confidence: 'uncertain', seasons });
+
+  it('un seul choix (One Piece sur Netflix : fiche unique), même incertain : rien à choisir', () => {
+    expect(seasonPickerOptions(onePiece([]))).toHaveLength(1);
+    expect(seasonPickerOptions(onePiece([season(21, 'ONE PIECE')]))).toHaveLength(1);
+  });
+
+  it('deux choix ou plus : fiche affichée ajoutée si elle n’en fait pas partie', () => {
+    expect(seasonPickerOptions(onePiece([season(178533, 'Ranma 1/2 (2024)')])).map((s) => s.id)).toEqual([21, 178533]);
+    expect(seasonPickerOptions(onePiece([season(21, 'ONE PIECE'), season(2, 'Autre')]))).toHaveLength(2);
   });
 });

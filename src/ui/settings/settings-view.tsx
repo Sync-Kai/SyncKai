@@ -71,8 +71,9 @@ interface SettingsBarProps {
 }
 
 /**
- * Barre : « ← Retour » (accueil) ou « ← parent », titre centré (sur deux lignes, puis tronqué, quand la place manque :
- * « ← Synchronisierung » + « Ausgeschlossene Serien » à 320 px), état d'enregistrement à droite.
+ * Barre : « ← Retour » (accueil) ou « ← parent », titre centré (sur trois lignes au plus, puis tronqué, quand la place
+ * manque : « ← Synchronisierung » + « Ausgeschlossene Serien » à 320 px, à côté de l'engrenage du panneau latéral ; la
+ * barre grandit alors), état d'enregistrement à droite.
  * Côtés de base nulle et de même croissance : le titre reste centré tant que le retour tient dans sa moitié.
  */
 function SettingsBar({ page, status, onBack }: SettingsBarProps) {
@@ -81,7 +82,7 @@ function SettingsBar({ page, status, onBack }: SettingsBarProps) {
   const backLabel = parent === null ? t('nav.back') : settingsPageTitle(parent);
   const backAria = parent === null ? undefined : parent === 'home' ? t('settings.backHomeAria') : t('settings.backToAria', { page: backLabel });
   return (
-    <div class="flex h-11 shrink-0 items-center gap-2 px-3" data-settings-bar="">
+    <div class="flex min-h-11 shrink-0 items-center gap-2 px-3" data-settings-bar="">
       <div class="flex min-w-fit flex-1 basis-0">
         <button
           type="button"
@@ -94,7 +95,7 @@ function SettingsBar({ page, status, onBack }: SettingsBarProps) {
           <span class="truncate">{backLabel}</span>
         </button>
       </div>
-      <h1 class="m-0 line-clamp-2 min-w-0 shrink text-center font-display text-stat leading-tight font-extrabold break-words outline-none" id="sk-settings-title" tabIndex={-1} data-focus="settings-heading">
+      <h1 class="m-0 line-clamp-3 min-w-0 shrink text-center font-display text-stat leading-tight font-extrabold break-words outline-none" id="sk-settings-title" tabIndex={-1} data-focus="settings-heading">
         {settingsPageTitle(page)}
       </h1>
       <div class="flex min-w-0 flex-1 basis-0 justify-end">

@@ -6,7 +6,7 @@ import { setLocale, t } from '../../i18n';
 import { LOCALES } from '../../i18n/locale-codes';
 import type { PageListState, PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import type { PageMediaContent } from '../../ui/page-media-controller';
-import type { MediaActionsState } from '../../ui/media-actions';
+import type { MediaActionsState } from '../../ui/media-action-requests';
 import { splitAround } from '../../ui/page-media-view';
 import { settingsPath } from '../../ui/settings/navigation';
 import { hasPageMediaCard, PageMediaCard, type PageMediaCardProps } from './page-media-card';
@@ -62,7 +62,7 @@ function view(lists: PageListState[], over: Partial<PageMediaView> = {}): PageMe
   };
 }
 
-const NO_ACTIONS: MediaActionsState = { busy: null, confirm: null, feedback: null };
+const NO_ACTIONS: MediaActionsState = { busy: null, feedback: null };
 const handlers = {
   onRetry: vi.fn<() => void>(),
   onAdd: vi.fn(),

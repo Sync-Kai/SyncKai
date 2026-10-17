@@ -38,6 +38,11 @@ describe('Alert', () => {
     expect(container.querySelector('button')?.getAttribute('aria-busy')).toBe('true');
     await act(() => container.querySelector('button')?.click());
     expect(onClick).toHaveBeenCalledTimes(1);
+
+    // Icône et clé data-focus de l'action (« Réessayer » de l'Agenda)
+    await show(<Alert message="Agenda enregistré affiché" action={{ label: 'Réessayer', onClick, icon: 'retry', focusKey: 'agenda-retry' }} />);
+    expect(container.querySelector('button')?.getAttribute('data-focus')).toBe('agenda-retry');
+    expect(container.querySelector('button svg')).not.toBeNull();
   });
 
   it('ton beurre (fiche introuvable) : couleurs beurre, danger par défaut', async () => {

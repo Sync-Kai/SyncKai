@@ -47,25 +47,3 @@ export function createMenuDismiss(handlers: MenuDismissHandlers, doc: EventTarge
     },
   };
 }
-
-const MENU_NAV_KEYS: ReadonlySet<string> = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
-
-/** Déplace le focus clavier entre les options du menu (flèches en boucle, Début, Fin) */
-function moveMenuFocus(menu: HTMLElement, key: string): void {
-  const items = [...menu.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)')];
-  const index = items.findIndex((item) => item === document.activeElement);
-  const last = items.length - 1;
-  const next = key === 'Home' ? 0 : key === 'End' ? last : key === 'ArrowDown' ? (index >= last ? 0 : index + 1) : index <= 0 ? last : index - 1;
-  items[next]?.focus();
-}
-
-/** Clavier d'un menu (popup, panneau) : flèches / Début / Fin entre les options, Tab ferme (focus rendu au bouton) */
-export function onMenuKeyDown(menu: HTMLElement, event: KeyboardEvent, onClose: () => void): void {
-  if (MENU_NAV_KEYS.has(event.key)) {
-    event.preventDefault();
-    moveMenuFocus(menu, event.key);
-  } else if (event.key === 'Tab') {
-    event.preventDefault();
-    onClose();
-  }
-}

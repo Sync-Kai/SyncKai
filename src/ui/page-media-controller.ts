@@ -13,10 +13,8 @@ import type { PageMediaInfo, PageMediaResult, PageMediaView } from '../shared/pa
 import { isOptionalPlatform } from '../platforms/registry';
 import type { SessionEpochs } from '../shared/session-epochs';
 import { getOpenSessions } from '../browser/storage/sessions';
-import type { ListStatusChange } from '../shared/sync.types';
 import { errorFeedback } from './feedback';
-import { mediaActionKey, runMediaAction, type MediaActionRequest } from './media-action-requests';
-import type { MediaActionsState } from './media-actions';
+import { mediaActionKey, runMediaAction, type MediaActionRequest, type MediaActionsState } from './media-action-requests';
 import { PAGE_MEDIA_RETRY_DELAYS_MS, requestPageMedia } from './page-media-request';
 import type { PlatformAccessStore } from './platform-access-store';
 import { createRedetectLimiter } from './redetect-limiter';
@@ -58,8 +56,6 @@ export interface PageMediaControllerOptions<D> {
   onChange: () => void;
   /** Fiche changée (appelé avant `onChange`) : panneau, progression en direct de l'épisode affiché */
   onContent?: (content: PageMediaContent<D>) => void;
-  /** Nouvel épisode ou nouvelle page : état d'affichage propre à l'écran remis à zéro (synopsis replié) */
-  onPageChange?: () => void;
   /** Détails chargés après la fiche (panneau : GET_PANEL_MEDIA), gardés tant que la fiche ne change pas */
   loadDetails?: (mediaId: number) => Promise<DetailsResult<D>>;
   /** Action terminée (popup : relecture de « En cours ») */
@@ -98,8 +94,6 @@ export interface PageMediaController<D> {
   retry(): void;
   /** Retour affiché (null : action refusée, une autre est en cours, ou page quittée pendant l'envoi) */
   runAction(request: MediaActionRequest): Promise<InlineFeedback | null>;
-  /** Ouvre / ferme la confirmation Abandonner / Terminé ; false si rien n'a changé */
-  setConfirm(status: ListStatusChange | null): boolean;
   /** Saison choisie dans le sélecteur : enregistrée comme correspondance par le service worker (ARCH-20) */
   pickSeason(mediaId: number): void;
   /** Écouteurs retirés et minuteries annulées ; une réponse encore en vol ne touche plus à rien (4-R6) */
@@ -126,7 +120,7 @@ export const AUTO_REDETECT_MAX_PER_MINUTE = 5;
  */
 export const OWN_ECHO_MS = 10_000;
 
-const NO_ACTIONS: MediaActionsState = { busy: null, confirm: null, feedback: null };
+const NO_ACTIONS: MediaActionsState = { busy: null, feedback: null };
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -161,7 +155,7 @@ export async function detectPageMedia(tabId: number, { isCurrent = () => true }:
 const pageOf = <D>(content: PageMediaContent<D>): PageMediaInfo | null => ('page' in content ? content.page : null);
 
 export function createPageMediaController<D = never>(options: PageMediaControllerOptions<D>): PageMediaController<D> {
-  const { onChange, onContent, onPageChange, loadDetails, onActionDone, platformAccess } = options;
+  const { onChange, onContent, loadDetails, onActionDone, platformAccess } = options;
   let tabId: number | null = null;
   let content: PageMediaContent<D> = { status: 'idle' };
   let actions: MediaActionsState = NO_ACTIONS;
@@ -229,17 +223,16 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     actions = { ...actions, ...patch };
     onChange();
   };
-  /** Autre onglet ou autre page : actions, confirmation et retour oubliés ; une action encore en vol ne touchera plus à rien */
+  /** Autre onglet ou autre page : actions et retour oubliés ; une action encore en vol ne touchera plus à rien */
   const resetActions = (): void => {
     actionEpoch++;
     clearTimeout(feedbackTimer);
     actions = NO_ACTIONS;
   };
-  /** Nouvelle page (ou nouvel épisode) affichée : saison choisie, actions et état d'affichage oubliés */
+  /** Nouvelle page (ou nouvel épisode) affichée : saison choisie et actions oubliées */
   const leavePage = (): void => {
     manualId = null;
     resetActions();
-    onPageChange?.();
   };
 
   function showFeedback(feedback: InlineFeedback): void {
@@ -444,7 +437,7 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
     if (actions.busy !== null || content.status !== 'ready') return null;
     const { page, view } = content;
     const epoch = actionEpoch;
-    patchActions({ busy: mediaActionKey(request), confirm: null });
+    patchActions({ busy: mediaActionKey(request) });
     // Action de l'utilisateur : la fiche réécrite par le service worker ou l'autre écran n'use pas le plafond (relectures
     // automatiques) ; fenêtre prolongée après la réponse
     auto.expectEchoes(OWN_ECHO_MS);
@@ -516,16 +509,11 @@ export function createPageMediaController<D = never>(options: PageMediaControlle
       void resolve(page, content.status === 'ready', true);
     },
     runAction,
-    setConfirm(status: ListStatusChange | null): boolean {
-      if (actions.busy !== null || actions.confirm === status) return false;
-      patchActions({ confirm: status });
-      return true;
-    },
     pickSeason(mediaId: number): void {
       if (actions.busy !== null || content.status !== 'ready') return;
       const previous = manualId;
       manualId = mediaId;
-      actions = { ...actions, confirm: null, feedback: null };
+      actions = { ...actions, feedback: null };
       // Trace de débogage (builds de développement seulement) : la résolution qui suit est tracée par le service worker
       if (__SYNCKAI_DEBUG__) trace('ui', 'season-picked', { mediaId, previous, title: content.page.seriesTitle }, { platform: content.page.platform });
       // Échec (réseau) : la saison affichée reste la précédente, le choix n'est pas gardé pour les relectures suivantes

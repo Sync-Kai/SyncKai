@@ -173,3 +173,14 @@ export async function clickOn(page: Page, selector: string): Promise<void> {
   await page.waitForSelector(selector);
   await page.$eval(selector, (el) => (el as HTMLElement).click());
 }
+
+/**
+ * Section repliable de « En lecture » dépliée (`notes`, `synopsis`, `relations`, `discussion`) : repliées par défaut,
+ * leur état est gardé tant que le panneau reste ouvert, d'où un clic seulement si elle est repliée
+ */
+export async function openPanelSection(panel: Page, section: 'notes' | 'synopsis' | 'relations' | 'discussion'): Promise<void> {
+  const header = `[data-focus="panel-section-${section}"]`;
+  await panel.waitForSelector(header);
+  if ((await panel.$eval(header, (el) => el.getAttribute('aria-expanded'))) !== 'true') await clickOn(panel, header);
+  await panel.waitForSelector(`${header}[aria-expanded="true"]`);
+}

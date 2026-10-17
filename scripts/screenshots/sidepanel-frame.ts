@@ -20,8 +20,12 @@ if (tab === 'nowPlaying') {
   // Fiche complète (relations) et compte à rebours de la progression en direct affichés
   await waitFor(() => document.querySelector('[data-focus^="relation-watch-"]'));
   await waitFor(() => [...document.querySelectorAll('[role="progressbar"]')].some((bar) => bar.getAttribute('aria-valuenow') !== null && !bar.closest('[hidden]')));
-  // `reveal=relations` : défilement juste suffisant pour montrer la première suite (« Regarder ») en bas du panneau,
-  // sans jamais masquer le titre de la fiche
+  // `reveal=relations` : section « Suites et histoires liées » dépliée (repliée par défaut), puis défilement juste
+  // suffisant pour montrer la première suite (« Regarder ») en bas du panneau, sans jamais masquer le titre de la fiche
+  if (param('reveal') === 'relations') {
+    document.querySelector<HTMLElement>('[data-focus="panel-section-relations"][aria-expanded="false"]')?.click();
+    await waitFor(() => document.querySelector('[data-focus="panel-section-relations"][aria-expanded="true"]'));
+  }
   const panel = document.querySelector<HTMLElement>('[role="tabpanel"]');
   const relation = document.querySelector('[data-focus^="relation-watch-"]')?.closest('li');
   const title = panel?.querySelector('h2');

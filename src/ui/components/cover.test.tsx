@@ -79,4 +79,9 @@ describe('Cover', () => {
     await show(<Cover size="card" title="Frieren" src={null} />);
     expect($('[data-cover]')?.className).toContain('h-15.5 w-11');
   });
+
+  it('taille `hero` (en-tête de « En lecture » du panneau) : 64 × 90', async () => {
+    await show(<Cover size="hero" title="Frieren" src={null} />);
+    expect($('[data-cover]')?.className).toContain('h-22.5 w-16');
+  });
 });

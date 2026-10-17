@@ -332,4 +332,19 @@ describe('Menu : nettoyage', () => {
     expect(onPick).toHaveBeenCalledWith('next');
     expect(menu()).toBeNull();
   });
+
+  it('seconde ligne (description) : sous le libellé, dans le nom de l’option', async () => {
+    await show(
+      <Menu label="Plus d’actions pour Dandadan" defaultOpen>
+        <MenuItem icon="clock" description="19:45 Netflix · réglé pour cette série">
+          Ajuster l’heure
+        </MenuItem>
+        <MenuItem icon="pause">Mettre en pause</MenuItem>
+      </Menu>,
+    );
+    const [adjust, pause] = items();
+    expect(adjust?.querySelector('[data-menu-description]')?.textContent).toBe('19:45 Netflix · réglé pour cette série');
+    expect(adjust?.textContent).toBe('Ajuster l’heure19:45 Netflix · réglé pour cette série');
+    expect(pause?.querySelector('[data-menu-description]')).toBeNull();
+  });
 });

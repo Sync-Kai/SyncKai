@@ -24,6 +24,7 @@ import {
   launch,
   nowPlayingText,
   openPanel,
+  openPanelSection,
   openPopup,
   sel,
   stays,
@@ -207,6 +208,8 @@ describe('Lien vers la fiche', () => {
       await waitForEntry(panel, FRIEREN_S1.anilist.title, line);
       await expectOpensEntry(h, panel, coverLink('#sk-tabpanel-nowPlaying', urlOn(service, FRIEREN_S1)), urlOn(service, FRIEREN_S1), tab);
       await waitForEntry(panel, FRIEREN_S1.anilist.title, line);
+      // Suites : section repliable de la fiche
+      await openPanelSection(panel, 'relations');
       await expectOpensEntry(h, panel, sel(`relation-entry-${FRIEREN_S2.anilist.id}`), urlOn(service, FRIEREN_S2), tab);
       return tab;
     };
@@ -322,7 +325,8 @@ describe('Commentaire et retrait dans le panneau', () => {
     const line = en('panel.nowPlaying.episode', { episode: 3, total: 28 });
     await waitForEntry(panel, FRIEREN_S1.anilist.title, line);
 
-    // Commentaire : ouvert, saisi au clavier (deux lignes), rien d'envoyé avant « Save »
+    // Commentaire : section « Rating and comment » dépliée, ligne ouverte, saisi au clavier (deux lignes), rien d'envoyé avant « Save »
+    await openPanelSection(panel, 'notes');
     await clickOn(panel, sel('panel-notes-toggle'));
     await waitFor('focus dans la zone de texte', async () => (await focused(panel)) === 'panel-notes-input');
     await panel.keyboard.type('Great episode\nSecond line');

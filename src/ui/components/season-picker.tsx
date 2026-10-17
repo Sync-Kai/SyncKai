@@ -26,15 +26,20 @@ export interface SeasonPickerProps {
   /** Aide sous la liste */
   help?: string | null;
   focusKey?: string;
+  /**
+   * Avertissement : tout le sélecteur dans l'encadré beurre (défaut, carte du popup) ; faux : bandeau beurre au-dessus du
+   * titre, la liste hors du bandeau (carte « Saison » du panneau, maquette PanelSaisonDevinee)
+   */
+  framed?: boolean;
 }
 
-export function SeasonPicker({ label, ariaLabel, options, value, disabled = false, onPick, warning = null, help = null, focusKey }: SeasonPickerProps) {
+export function SeasonPicker({ label, ariaLabel, options, value, disabled = false, onPick, warning = null, help = null, focusKey, framed = true }: SeasonPickerProps) {
   const id = useId();
   const selected = options.find((option) => option.id === value)?.label;
   return (
-    <div class={`flex min-w-0 flex-col gap-1.5 ${warning !== null ? 'rounded-panel border border-butter/40 bg-butter/10 p-2.5' : ''}`} data-season-picker="">
+    <div class={`flex min-w-0 flex-col gap-1.5 ${warning !== null && framed ? 'rounded-panel border border-butter/40 bg-butter/10 p-2.5' : ''}`} data-season-picker="">
       {warning !== null && (
-        <p class="m-0 flex items-start gap-1.5 text-secondary font-extrabold text-butter" role="note">
+        <p class={`m-0 flex items-start gap-1.5 text-secondary font-extrabold text-butter ${framed ? '' : 'mb-1 rounded-panel border border-butter/40 bg-butter/10 px-2.5 py-2'}`} role="note">
           <span class="flex shrink-0 pt-0.5">
             <Icon name="alert" class="size-3.5" strokeWidth="2.4" />
           </span>

@@ -425,3 +425,35 @@ The popup's Activity tab was redesigned: failed and pending syncs are now two se
 | `queue.failedHeading` | 실패 |
 | `queue.pendingHeading` | 대기 중 |
 | `ratings.heading` | 평가 대기 |
+
+
+## 2026-10-17 · Side panel « Now playing » (Preact)
+
+The side panel's « Now playing » tab was redesigned as cards: « You're watching » (live playback: bar, credits marker, countdown, sync state with an icon), « Your list » (status chip, « Progress » and the stepper, one line per account, the series « … » menu shared with the popup: Hold / Drop / Done moved there), then foldable sections « Rating and comment », Synopsis, related entries and Discussions. New: `panel.nowPlaying.watching` (heading of the live card, addresses the user), `panel.nowPlaying.list` (heading of the list card, same « your list » words as `page.notInList`), `panel.nowPlaying.ratingNotes` (section title, same nouns as `page.yourRating` and `notes.title`), `panel.live.creditsAt` and `panel.live.creditsUnknown` (legend of the yellow marker under the bar, credits word of `settings.trigger.credits`), `panel.live.countdownCredits` and `panel.live.countdownRatio` (countdown line, wording of the former `panel.live.countdown` plus what the sync waits for, as in `settings.trigger.credits` / `settings.summary.percentage`). Changed: `panel.live.synced` lost its trailing « ✓ » (a check icon now precedes it). The « Progress » label reuses `compare.filter.progress`. Removed: `page.action.COMPLETED`, `page.action.DROPPED`, `page.action.PAUSED` (the status button row is gone), `panel.live.countdown`, `panel.nowPlaying.progress`, `watching.nextWatched`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `panel.nowPlaying.watching` | 시청 중 |
+| `panel.nowPlaying.list` | 내 목록 |
+| `panel.nowPlaying.ratingNotes` | 평점과 메모 |
+| `panel.live.creditsAt` | 엔딩 시작 {time} |
+| `panel.live.creditsUnknown` | 엔딩 알 수 없음 · {percent}%에서 동기화 |
+| `panel.live.countdownCredits` | {time} 후 동기화 · 엔딩 시작 시 |
+| `panel.live.countdownRatio` | {time} 후 동기화 · {percent}% 시청 시 |
+| `panel.live.synced` | 동기화됨 |
+
+
+## 2026-10-17 · Side panel Schedule (Preact) and week picker
+
+The Schedule tab of the side panel was redesigned: days in order with « No episode » on empty days, episode lines « 18:00 Crunchyroll · Japan 17:00 » (the platform time first, the Japanese broadcast last and cut first), a « ⋯ » menu with « Adjust time » (its second line gives the time and whether the delay is the series' own or the default), « Open the entry › » and « Search on… › », and a week button that opens a month calendar. New: `agenda.adjust.custom` and `agenda.adjust.default` (second line of « Adjust time », lower case after « · »), `agenda.adjust.platform` (first sentence of `agenda.estimate.title`, shown in the delay editor), `agenda.picker.label`, `agenda.picker.prevMonth`, `agenda.picker.nextMonth`, `agenda.picker.thisWeek`, `agenda.picker.hint` (month calendar; the hint names the arrow keys and the Enter key). Changed: `agenda.jp` writes the country name instead of « JP » (unchanged where it already did: ja, ko, zh-CN, zh-TW). Removed: `watching.searchOn` (the search entries are now the platform names of the « Search on… › » sub-menu). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `agenda.adjust.custom` | 이 작품에 따로 설정 |
+| `agenda.adjust.default` | 기본 지연 시간 |
+| `agenda.adjust.platform` | {platform} 예상 공개: 일본 방영 {offset}. |
+| `agenda.picker.label` | 주 선택 |
+| `agenda.picker.prevMonth` | 이전 달 |
+| `agenda.picker.nextMonth` | 다음 달 |
+| `agenda.picker.thisWeek` | 이번 주 |
+| `agenda.picker.hint` | ↑ ↓로 주를 바꾸고 Enter로 표시해요. |

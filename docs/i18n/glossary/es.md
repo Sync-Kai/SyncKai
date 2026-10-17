@@ -21,7 +21,7 @@ Binding for every change to `src/i18n/locales/es.json` and `public/_locales/es/m
 | list | lista | « tu lista », « tus listas » (the user's AniList / MAL list, never a playlist). |
 | entry | ficha (f.) | The anime's page on AniList / MyAnimeList (« la ficha de AniList »). « Abrir la ficha en AniList ». |
 | sync (noun) | sincronización; short form *sincro* (f., pl. *sincros*) | *sincro* is the everyday Spain clipping and fits the tiny UI: chips, footer, status lines, headings of lists (« Sincros en espera », « Últimas sincros », « Sincro en 2 min »). A single sync item is always *sincro*: « Esta sincro ya no existe. », « Sincro no encontrada. », « Descartar la sincro de… ». The full word is kept only for the process in fixed formal phrases: « Error de sincronización », « excluida de la sincronización », « Error inesperado durante la sincronización », settings section « Sincronización ». |
-| to sync / synced / syncing | sincronizar / sincronizado / Sincronizando… | « Todo sincronizado », « Sincronizado ✓ ». |
+| to sync / synced / syncing | sincronizar / sincronizado / Sincronizando… | « Todo sincronizado », « Sincronizado ». |
 | Auto sync | Sincro automática | Same wording in Settings, the in-page toast and the side panel (« Sincro automática en pausa »). |
 | Stop syncing / Resume syncing | No sincronizar / Volver a sincronizar | « No sincronizar esta serie » (menu), « Dejar de sincronizar {title} » (screen readers), « Reactivar » for the excluded-series button. |
 | to check (`review.*`, `footer.toReview`) | por revisar | « Por revisar (2) », « 2 por revisar ». *Revisar* = verify, never a critique (*reseña*). The card itself is a *revisión*: « Crear 3 revisiones », « revisión creada ». |
@@ -89,7 +89,7 @@ Binding for every change to `src/i18n/locales/es.json` and `public/_locales/es/m
 - **`{service}: {message}`**: `{service}: {message}` with lowercase fragments: « AniList: episodio 5 guardado · MyAnimeList: fallo: … ». A failure prefix before an error sentence is « fallo: » (`feedback.service.error`, `airing.status.failed`), never « error: », which would print « error: Error de MyAnimeList (503). » or « error: Error desconocido ».
 - **`{title}: completed`**: « {title}: completada » (agrees with *serie*, not with the title); likewise « {title}: abandonada / en pausa / quitada de tu lista ».
 - **Spain vocabulary**: *vídeo*, *archivo*, *pestaña*, *web*, *hacer clic*, *icono*, *ajustes*, *gestionar*, *introducir*, *caché*.
-- **Untranslated**: product names, `JSON`, `.json`, `Redirect URL`, `App Redirect URL`, `AL`, `MAL`, `JP`, `E5`, `OVA`, `TV`, `Spin-off`.
+- **Untranslated**: product names, `JSON`, `.json`, `Redirect URL`, `App Redirect URL`, `AL`, `MAL`, `JP` (no catalog text uses it since 2026-10-17: `agenda.jp` writes « Japón {time} »), `E5`, `OVA`, `TV`, `Spin-off`.
 
 ## 3. Netflix
 

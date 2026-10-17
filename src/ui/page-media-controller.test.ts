@@ -761,7 +761,7 @@ describe('UI-02 / CTRL-05 : retour d’une action après un changement de page o
     await settle();
     // Aucune résolution de la page quittée
     expect(pending('RESOLVE_PAGE_MEDIA').map(payloadPage)).toEqual([DANDADAN]);
-    expect(ctl.actions).toEqual({ busy: null, confirm: null, feedback: null });
+    expect(ctl.actions).toEqual({ busy: null, feedback: null });
 
     await answerAll();
     expect(ctl.content.status === 'ready' && ctl.content.view.media.title).toBe('Dandadan');
@@ -782,7 +782,7 @@ describe('UI-02 / CTRL-05 : retour d’une action après un changement de page o
     await answerAll();
 
     expect(ctl.content.status === 'ready' && ctl.content.page).toEqual(DANDADAN);
-    expect(ctl.actions).toEqual({ busy: null, confirm: null, feedback: null });
+    expect(ctl.actions).toEqual({ busy: null, feedback: null });
   });
 
   it('action terminée pendant la relecture de la page : la relecture n’est pas annulée et charge la nouvelle page', async () => {

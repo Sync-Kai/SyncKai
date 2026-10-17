@@ -5,12 +5,20 @@ import { addFeedback, adjustFeedback, notesFeedback, ratingFeedback, removeFeedb
 import { normalizeListNotes } from '../shared/list-notes';
 import { toSafeImageUrl } from '../shared/url';
 import type { InlineFeedback } from './state';
-import type { MediaAction } from './media-actions';
 import { formatStarValue } from './rating';
 import { mediaRefOf } from './media-ref';
 import { callWorker, outcomeFailure } from './worker-call';
 
 // Envoi des actions de la fiche au service worker et texte du retour : partagé par le popup et le panneau.
+
+/** Action en cours (une seule à la fois) */
+export type MediaAction = `add-${AddListStatus}` | 'minus' | 'plus' | `status-${ListStatusChange}` | 'rate' | 'season' | 'remove' | 'notes';
+
+export interface MediaActionsState {
+  busy: MediaAction | null;
+  /** Retour de la dernière action (affiché quelques secondes) */
+  feedback: InlineFeedback | null;
+}
 
 export type MediaActionRequest =
   | { kind: 'add'; status: AddListStatus }

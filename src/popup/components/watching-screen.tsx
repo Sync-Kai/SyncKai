@@ -38,8 +38,7 @@ import { SeriesMenu } from '../../ui/series-menu';
 import type { NotesSession, WatchingNotice } from '../controllers/watching';
 import type { EntryAction, PageCardState, WatchingState } from '../state';
 import { flushAfterRender } from '../after-render';
-import { matchesExclusion } from '../../shared/exclusions';
-import { pageExclusionKey } from '../../platforms/series-identity';
+import { isPageSeriesExcluded } from '../../ui/page-exclusion';
 import { hasPageMediaCard, PageMediaCard, type PageMediaCardProps } from './page-media-card';
 import { ResumeCard } from './resume-card';
 
@@ -119,9 +118,7 @@ function entrySite(entry: WatchingEntry, links: EntryLinkContext): EntryLink {
 
 /** Série de la carte « Sur cette page » exclue de la synchro : clé de la page (comme la lecture) ou fiche AniList affichée */
 function isPageExcluded({ content }: PageCardState, exclusions: ExclusionsState): boolean {
-  if (content.status !== 'ready' || exclusions.status !== 'ready') return false;
-  const platformKey = pageExclusionKey(content.page);
-  return exclusions.items.some((e) => matchesExclusion(e, { platformKey, mediaId: content.view.media.mediaId }));
+  return content.status === 'ready' && isPageSeriesExcluded({ page: content.page, mediaId: content.view.media.mediaId }, exclusions);
 }
 
 /** Menu « ⋯ » d'une série (ligne ou carte « Reprendre ») */

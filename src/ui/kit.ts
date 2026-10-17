@@ -1,7 +1,5 @@
-import type { StreamingPlatform } from '../shared/episode.types';
 import type { TrackerId } from '../shared/tracker.types';
 import { toImageSrc } from '../shared/url';
-import { platformIcon, serviceIcon } from './brand-icons';
 import { h, type Child } from './dom';
 
 // Kit d'interface commun (popup, panneau latéral, réglages, pages d'import), direction « Kotatsu »
@@ -11,18 +9,6 @@ export const BTN_GHOST =
   'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full px-3 text-[12px] font-bold transition-colors hover:bg-raised disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent';
 export const BTN_PRIMARY =
   'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-sakura px-4 text-[12px] font-bold text-on-fill shadow-pop transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
-export const LINK = 'text-sakura hover:underline';
-
-// 10 étoiles de 16 px (zone cliquable de 24 px de haut), demi-étoiles cliquables, libellé "8,5/10"
-export const STAR_CLASSES = {
-  group: 'flex min-w-0 items-center gap-1.5',
-  row: 'flex flex-none',
-  value: 'w-9 flex-none text-[12px] font-extrabold tabular-nums text-butter',
-  star: 'h-6 w-4',
-  outline: 'fill-none stroke-muted stroke-[1.6]',
-  fill: 'fill-butter stroke-butter stroke-[1.6]',
-  half: 'cursor-pointer rounded-[4px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-lavender disabled:cursor-default aria-disabled:cursor-default',
-};
 
 export { PLATFORM_LABELS } from '../platforms/registry';
 
@@ -34,35 +20,6 @@ export const SERVICE_CHIPS: Record<TrackerId, { short: string; class: string }> 
 /** Titre de section en capitales discrètes (écran Réglages) */
 export function sectionLabel(text: string, id?: string): HTMLElement {
   return h('h2', { class: 'm-0 text-[11px] font-bold tracking-[0.06em] text-muted uppercase', attrs: id ? { id } : {} }, text);
-}
-
-/** Katakana décoratif (masqué aux lecteurs d'écran) */
-export function kanaLabel(text: string, colorClass = 'text-muted'): HTMLElement {
-  return h('span', { class: `font-display text-[10px] font-bold tracking-[1px] opacity-70 ${colorClass}`, attrs: { 'aria-hidden': 'true' } }, text);
-}
-
-/** Logo de plateforme en coin de jaquette (décoratif : la plateforme est annoncée ailleurs) */
-export function platformChip(platform: StreamingPlatform, position: string): HTMLElement {
-  return h(
-    'span',
-    { class: `absolute flex rounded-[5px] ring-2 ring-surface ${position}`, attrs: { 'aria-hidden': 'true' } },
-    platformIcon(platform, 'h-3 w-3 rounded-[3px]', { decorative: true }),
-  );
-}
-
-/** Pastille ronde (logo AniList / MyAnimeList, ou avatar `extra`) avec point d'état (vert connecté, rouge session expirée) */
-export function serviceAvatar(service: TrackerId, dot: 'ok' | 'expired' | null, extra: Child = null): HTMLElement {
-  const chip = SERVICE_CHIPS[service];
-  return h(
-    'span',
-    // Fond transparent : le logo seul (sans pastille colorée) ; l'avatar `extra` garde sa couleur de repli
-    { class: `relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold text-on-fill ${extra ? chip.class : ''}`, attrs: { 'aria-hidden': 'true' } },
-    extra ?? serviceIcon(service, 'h-6 w-6 rounded-[6px]', { decorative: true }),
-    dot &&
-      h('span', {
-        class: `absolute right-0 bottom-0 h-2 w-2 rounded-full border-2 border-surface ${dot === 'ok' ? 'bg-mint' : 'bg-danger'}`,
-      }),
-  );
 }
 
 // Couleurs de repli des jaquettes (listées en entier pour que Tailwind les génère)

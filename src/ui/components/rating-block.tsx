@@ -17,9 +17,11 @@ export interface RatingBlockProps {
   /** Note confirmée (clic, Entrée) */
   onRate: (value: number) => void;
   focusKey?: string;
+  /** Titre masqué (section déjà titrée : « Note et commentaire » du panneau) ; le groupe reste nommé */
+  labelHidden?: boolean;
 }
 
-export function RatingBlock({ label, sliderLabel, value, disabled = false, onRate, focusKey }: RatingBlockProps) {
+export function RatingBlock({ label, sliderLabel, value, disabled = false, onRate, focusKey, labelHidden = false }: RatingBlockProps) {
   /** Valeur choisie au clavier ou confirmée, en attendant la note relue */
   const [chosen, setChosen] = useState<number | null>(null);
   // Note relue, ou envoi terminé (échec compris) : la note enregistrée prime à nouveau
@@ -29,9 +31,11 @@ export function RatingBlock({ label, sliderLabel, value, disabled = false, onRat
   }, [disabled]);
   return (
     <div class="flex min-w-0 flex-col gap-1" role="group" aria-label={label} data-rating-block="">
-      <span class="text-section text-muted uppercase" aria-hidden="true">
-        {label}
-      </span>
+      {!labelHidden && (
+        <span class="text-section text-muted uppercase" aria-hidden="true">
+          {label}
+        </span>
+      )}
       <StarRating
         label={sliderLabel}
         value={chosen ?? value}

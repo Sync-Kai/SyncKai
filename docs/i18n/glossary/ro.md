@@ -103,7 +103,7 @@ Target: standard Romanian as used by Chrome, Netflix and big Romanian apps, with
 - **"{title}: completed"**: "{title}: terminată" (agrees with "serie"), likewise "{title}: abandonată", "{title}: în pauză", "{title}: eliminată din lista ta".
 - **Relative times** (inserted after "Ultima verificare:", "Analiză făcută", "Terminată", "Totul e sincronizat ·"): "chiar acum", "acum 5 min", "acum 2 h", "ieri", "acum 3 zile". Retry delays after "Reîncercare": "în 5 min", "în 2 h", "în 3 zile", "în curând".
 - **Gender of names**: services and platforms are neuter ("AniList este inaccesibil", "Netflix rămâne dezactivat").
-- **Kept in English**: product names, "Redirect URL", "App Redirect URL", "JSON", "OVA", "TV", "Spin-off", "Prequel", "AL" / "MAL", "JP".
+- **Kept in English**: product names, "Redirect URL", "App Redirect URL", "JSON", "OVA", "TV", "Spin-off", "Prequel", "AL" / "MAL", "JP" (no catalog text uses it since 2026-10-17: `agenda.jp` writes "Japonia {time}").
 - **Shift key**: "Shift" (printed as such on Romanian keyboards).
 
 ## 4. Netflix

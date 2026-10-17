@@ -9,7 +9,7 @@ import { Icon } from './icon';
 
 export interface AlertProps {
   message: string;
-  action?: { label: string; onClick: () => void; busy?: boolean };
+  action?: { label: string; onClick: () => void; busy?: boolean; icon?: IconName; focusKey?: string };
   /** `error` (défaut) : danger ; `warn` : beurre (rien trouvé, à vérifier) */
   tone?: 'error' | 'warn';
   /** Icône de tête (défaut : alerte) */
@@ -31,7 +31,7 @@ export function Alert({ message, action, tone = 'error', icon = 'alert', class: 
       </span>
       <p class="m-0 min-w-0 flex-1 font-bold break-words">{message}</p>
       {action && (
-        <Button size="sm" busy={action.busy} onClick={action.onClick}>
+        <Button size="sm" icon={action.icon} busy={action.busy} focusKey={action.focusKey} onClick={action.onClick}>
           {action.label}
         </Button>
       )}

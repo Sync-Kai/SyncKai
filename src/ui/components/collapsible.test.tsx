@@ -96,4 +96,18 @@ describe('Collapsible', () => {
     );
     expect($('[data-collapsible-body]')?.hidden).toBe(false);
   });
+
+  it('ligne de section d’une carte (panneau « En lecture ») : titre en gras sans capitales, compte en texte, chevron à droite', async () => {
+    await show(
+      <Collapsible title="Suites et histoires liées" count={2} variant="row" focusKey="panel-section-relations">
+        <p>Corps</p>
+      </Collapsible>,
+    );
+    const header = $<HTMLButtonElement>('button[data-focus="panel-section-relations"]');
+    expect(header?.className).toContain('w-full');
+    expect(header?.className).not.toContain('uppercase');
+    expect($('h2')).toBeNull();
+    expect($('[data-collapsible-count]')?.textContent).toBe('2');
+    expect($('[data-collapsible-body]')?.hidden).toBe(true);
+  });
 });

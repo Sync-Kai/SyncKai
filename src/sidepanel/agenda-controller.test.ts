@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AiringWeekCache, IsoWeekday } from '../shared/agenda';
+import { shiftWeek, type AiringWeekCache, type IsoWeekday } from '../shared/agenda';
 import type { WatchingEntry, WatchingList } from '../shared/watching.types';
 import { DEFAULT_SETTINGS } from '../shared/settings';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
@@ -25,6 +25,7 @@ const fake = vi.hoisted(() => ({
   weekCache: null as AiringWeekCache | null,
   preferred: null as StreamingPlatform | null,
   listeners: [] as ChangeListener[],
+  offsets: [] as { mediaId: number; offset: number | null }[],
 }));
 
 /** Premier jour de la semaine de la locale (relu à chaque affichage de l'onglet) */
@@ -36,7 +37,14 @@ vi.mock('../protocol/messages', () => ({
 vi.mock('../browser/storage/settings-access', () => ({ getSettings: () => Promise.resolve({ ...DEFAULT_SETTINGS, ...(fake.preferred ? { preferredPlayer: fake.preferred } : {}) }) }));
 vi.mock('../browser/storage/tokens', () => ({ hasValidAniListToken: () => Promise.resolve(fake.anilist), hasMalToken: () => Promise.resolve(fake.mal) }));
 vi.mock('../browser/storage/watching-cache', () => ({ getCachedWatching: (service: string) => Promise.resolve(service === 'anilist' ? fake.watching : null) }));
-vi.mock('../browser/storage/agenda-store', () => ({ agendaFirstDay: () => firstDay, readWeekCache: () => Promise.resolve(fake.weekCache) }));
+vi.mock('../browser/storage/agenda-store', () => ({
+  agendaFirstDay: () => firstDay,
+  readWeekCache: () => Promise.resolve(fake.weekCache),
+  saveSeriesOffset: (mediaId: number, offset: number | null) => {
+    fake.offsets.push({ mediaId, offset });
+    return Promise.resolve();
+  },
+}));
 vi.mock('../shared/exclusions', async (importOriginal) => ({ ...(await importOriginal<typeof import('../shared/exclusions')>()), getExcludedSeries: () => Promise.resolve([]) }));
 
 vi.stubGlobal('chrome', {
@@ -48,7 +56,7 @@ vi.stubGlobal('chrome', {
   },
 });
 
-const { createAgendaController, STORAGE_DEBOUNCE_MS } = await import('./agenda-controller');
+const { createAgendaController, NAV_DEBOUNCE_MS, STORAGE_DEBOUNCE_MS } = await import('./agenda-controller');
 
 function access(granted: readonly StreamingPlatform[]): PlatformAccessStore {
   return {
@@ -98,6 +106,7 @@ beforeEach(() => {
   fake.weekCache = null;
   fake.preferred = null;
   fake.listeners.length = 0;
+  fake.offsets.length = 0;
   firstDay = 1;
 });
 
@@ -182,10 +191,10 @@ describe('createAgendaController', () => {
     vi.useFakeTimers();
     const week = vi.fn();
     const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined, onWeekChange: week });
-    const next = { ...ctl.range, key: '2099-01-05' };
-    ctl.goTo(next);
+    const next = shiftWeek(ctl.range, 1);
+    ctl.step(1);
     expect(week).toHaveBeenCalledTimes(1);
-    expect(ctl.range).toBe(next);
+    expect(ctl.range).toEqual(next);
     expect(ctl.status).toEqual({ kind: 'loading' });
     expect(agendaCalls()).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(300);
@@ -280,6 +289,16 @@ describe('createAgendaController', () => {
     await vi.advanceTimersByTimeAsync(2 * 60_000);
     expect(changes.mock.calls.length).toBeGreaterThan(before);
     ctl.dispose();
+  });
+
+  it('délai d’une série enregistré : stockage, réglages relus, vue prévenue', async () => {
+    const changes = vi.fn();
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: changes });
+    fake.preferred = 'adn';
+    await ctl.saveOffset(7, 75);
+    expect(fake.offsets).toEqual([{ mediaId: 7, offset: 75 }]);
+    expect(ctl.settings?.preferredPlayer).toBe('adn');
+    expect(changes).toHaveBeenCalled();
   });
 
   it('réglages relus à la demande', async () => {
@@ -401,6 +420,122 @@ describe('createAgendaController : échecs, réponses dépassées, semaine et pr
     expect(week).toHaveBeenCalledTimes(1);
     expect(ctl.range.key).not.toBe(sunday.key);
     expect(new Date(ctl.range.start).getDate()).toBe(19);
+    ctl.dispose();
+  });
+});
+
+describe('createAgendaController : budget de requêtes (semaines, calendrier)', () => {
+  const week = (ctl: { range: { key: string } }, mediaIds: number[] = [1]): AiringWeekCache => ({ weekStart: ctl.range.key, fetchedAt: Date.now(), mediaIds, schedules: [] });
+  const agendaWeeks = (): unknown[] => agendaCalls().map((c) => c.payload);
+
+  /** Semaine affichée chargée par une réponse GET_AGENDA (sans cache du stockage : semaine lointaine) */
+  async function loaded(ctl: ReturnType<typeof createAgendaController>): Promise<AiringWeekCache> {
+    await vi.advanceTimersByTimeAsync(NAV_DEBOUNCE_MS);
+    const data = week(ctl);
+    answerAgenda({ ok: true, data });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ctl.status).toEqual({ kind: 'ready', cache: data, refreshing: false, error: null });
+    return data;
+  }
+
+  it('‹ › en rafale : aucune requête pendant les clics, une seule pour la semaine finale (300 ms après le dernier)', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    const start = ctl.range;
+    for (let i = 0; i < 4; i++) {
+      ctl.step(-1);
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    ctl.step(1);
+    await vi.advanceTimersByTimeAsync(NAV_DEBOUNCE_MS - 1);
+    expect(agendaCalls()).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(agendaWeeks()).toEqual([{ weekStart: shiftWeek(start, -3).key }]);
+    expect(ctl.range.key).toBe(shiftWeek(start, -3).key);
+    ctl.dispose();
+  });
+
+  it('semaine choisie dans le calendrier : une seule requête, envoyée sans attendre ; un ‹ › en attente est annulé', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    const chosen = shiftWeek(ctl.range, -9);
+    ctl.step(1);
+    ctl.choose(chosen);
+    expect(ctl.range).toBe(chosen);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(agendaWeeks()).toEqual([{ weekStart: chosen.key }]);
+    await vi.advanceTimersByTimeAsync(NAV_DEBOUNCE_MS);
+    expect(agendaCalls()).toHaveLength(1);
+    ctl.dispose();
+  });
+
+  it('semaine déjà chargée par la page : revue sans requête (même après la garde de 60 s), affichée aussitôt sans squelette', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    ctl.choose(shiftWeek(ctl.range, -8));
+    const far = await loaded(ctl);
+    ctl.step(-1);
+    await loaded(ctl);
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    ctl.step(1);
+    // Programme en mémoire : affiché dès le clic, sans attendre la fin de la rafale
+    expect(ctl.status).toEqual({ kind: 'ready', cache: far, refreshing: false, error: null });
+    await vi.advanceTimersByTimeAsync(NAV_DEBOUNCE_MS);
+    expect(agendaCalls()).toHaveLength(0);
+    expect(ctl.status).toEqual({ kind: 'ready', cache: far, refreshing: false, error: null });
+    ctl.dispose();
+  });
+
+  it('réponse d’une semaine quittée avant son arrivée : gardée, le retour sur cette semaine ne la redemande pas', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    const far = shiftWeek(ctl.range, -8);
+    ctl.choose(far);
+    await vi.advanceTimersByTimeAsync(0);
+    const late = fake.calls.find((c) => c.type === 'GET_AGENDA');
+    if (!late) throw new Error('GET_AGENDA attendu');
+    ctl.step(-1);
+    await vi.advanceTimersByTimeAsync(NAV_DEBOUNCE_MS);
+    expect(agendaCalls()).toHaveLength(2);
+    // Réponse de la semaine quittée, arrivée après le départ : non affichée, mais retenue
+    const data: AiringWeekCache = { weekStart: far.key, fetchedAt: Date.now(), mediaIds: [1], schedules: [] };
+    fake.calls.splice(fake.calls.indexOf(late), 1);
+    late.resolve({ ok: true, data });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ctl.status).toEqual({ kind: 'loading' });
+    answerAgenda({ ok: true, data: week(ctl) });
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    ctl.step(1);
+    await vi.advanceTimersByTimeAsync(NAV_DEBOUNCE_MS);
+    expect(agendaCalls()).toHaveLength(0);
+    expect(ctl.status).toEqual({ kind: 'ready', cache: data, refreshing: false, error: null });
+    ctl.dispose();
+  });
+
+  it('semaine en mémoire qui ne couvre pas une nouvelle série en cours : redemandée', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    ctl.choose(shiftWeek(ctl.range, -8));
+    await loaded(ctl);
+    ctl.step(-1);
+    await loaded(ctl);
+    fake.watching = { service: 'anilist', entries: [entry(1), entry(2)], fetchedAt: 2 };
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    ctl.step(1);
+    await vi.advanceTimersByTimeAsync(NAV_DEBOUNCE_MS);
+    expect(agendaCalls()).toHaveLength(1);
+    ctl.dispose();
+  });
+
+  it('« Réessayer » sur une semaine en mémoire : nouvelle requête', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    ctl.choose(shiftWeek(ctl.range, -8));
+    await loaded(ctl);
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    void ctl.load(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(agendaCalls()).toHaveLength(1);
     ctl.dispose();
   });
 });

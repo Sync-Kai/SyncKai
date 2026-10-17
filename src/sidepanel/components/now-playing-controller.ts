@@ -14,7 +14,7 @@ const log = createLogger('sidepanel');
 
 // Onglet « En lecture » : fiche de l'onglet suivi par le contrôleur commun (ui/page-media-controller.ts), complétée
 // des extras du panneau : détails AniList (GET_PANEL_MEDIA), progression en direct, lecteur préféré, fiche ouverte par
-// défaut, synopsis.
+// défaut. Sans rendu : `onChange` prévient l'hôte, qui publie un instantané pour l'arbre Preact (components/now-playing.tsx).
 
 export type NowPlayingContent = PageMediaContent<PanelMedia>;
 
@@ -26,14 +26,11 @@ export interface NowPlayingController extends Omit<PageMediaController<PanelMedi
   /** Réglage « Afficher la progression en direct » */
   readonly liveEnabled: boolean;
   readonly live: LiveProgress;
-  /** Synopsis déplié (remis à zéro à chaque nouvel épisode) */
-  expanded: boolean;
 }
 
 /** Contrôleur de l'onglet : `onChange` redessine le panneau ; `platformAccess` : accès optionnels de la page du panneau */
 export function createNowPlayingController(onChange: () => void, platformAccess: PlatformAccessStore): NowPlayingController {
   let tabId: number | null = null;
-  let expanded = false;
   let preferred: StreamingPlatform = DEFAULT_SETTINGS.preferredPlayer;
   let entryService: TrackerId = DEFAULT_SETTINGS.entryService;
   /** Désactivé, aucun port n'est ouvert vers l'onglet (faux jusqu'à la lecture du réglage) */
@@ -42,9 +39,6 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
   const ctl = createPageMediaController<PanelMedia>({
     onChange,
     onContent: () => live.follow(liveTarget()),
-    onPageChange: () => {
-      expanded = false;
-    },
     loadDetails: (mediaId) => sendMessage('GET_PANEL_MEDIA', { mediaId }),
     platformAccess,
   });
@@ -118,12 +112,6 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
       return liveEnabled;
     },
     live,
-    get expanded() {
-      return expanded;
-    },
-    set expanded(value: boolean) {
-      expanded = value;
-    },
     setTab(next: number | null): void {
       tabId = next;
       ctl.setTab(next);
@@ -131,7 +119,6 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
     refresh: (force) => ctl.refresh(force),
     retry: () => ctl.retry(),
     runAction: (request) => ctl.runAction(request),
-    setConfirm: (status) => ctl.setConfirm(status),
     pickSeason: (mediaId) => ctl.pickSeason(mediaId),
     dispose(): void {
       chrome.storage.onChanged.removeListener(onStorageChange);

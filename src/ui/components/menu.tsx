@@ -336,10 +336,12 @@ export interface MenuItemProps {
   tinted?: boolean;
   /** Mention discrète en fin d'option (« Statut actuel » d'un statut grisé) */
   hint?: string;
+  /** Seconde ligne sous le libellé, `muted`, qui passe à la ligne sans élargir le menu (« 19:45 Netflix · délai par défaut ») */
+  description?: string;
   children: ComponentChildren;
 }
 
-export function MenuItem({ icon, tone, service, danger = false, emphasis = false, href, onSelect, disabled = false, checked, ariaLabel, focusKey, keepOpen = false, tinted = false, hint, children }: MenuItemProps) {
+export function MenuItem({ icon, tone, service, danger = false, emphasis = false, href, onSelect, disabled = false, checked, ariaLabel, focusKey, keepOpen = false, tinted = false, hint, description, children }: MenuItemProps) {
   const api = useMenu();
   const sub = useContext(SubMenuContext);
   const radio = checked !== undefined;
@@ -377,7 +379,17 @@ export function MenuItem({ icon, tone, service, danger = false, emphasis = false
       }}
     >
       {lead}
-      <span class="min-w-0 flex-1 truncate">{children}</span>
+      {description === undefined ? (
+        <span class="min-w-0 flex-1 truncate">{children}</span>
+      ) : (
+        <span class="flex min-w-0 flex-1 flex-col py-1.5">
+          <span class="truncate">{children}</span>
+          {/* w-0 + min-w-full : la ligne prend la largeur du menu sans l'élargir */}
+          <span class="w-0 min-w-full text-secondary font-semibold text-muted" data-menu-description="">
+            {description}
+          </span>
+        </span>
+      )}
       {hint !== undefined && (
         <span class="shrink-0 text-section font-bold tracking-normal text-muted" data-menu-hint="">
           {hint}

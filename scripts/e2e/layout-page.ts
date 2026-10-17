@@ -16,11 +16,16 @@ export async function attachProbe(page: Page, catalog: CatalogEntries, data: rea
   await page.evaluate((entries: CatalogEntries, strings: readonly string[]) => window.__skLayout?.configure({ catalog: entries, data: strings }), catalog, data);
 }
 
-/** Rendu stable : polices chargées, images décodées, deux images d'animation (dernières mises en page appliquées) */
+/**
+ * Rendu stable : polices chargées, images affichées décodées, deux images d'animation (dernières mises en page
+ * appliquées). Une image masquée (section repliée) et chargée à la demande (`loading="lazy"`) ne se charge jamais :
+ * son `decode()` ne répondrait pas, elle est ignorée
+ */
 export async function settle(page: Page): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready;
-    await Promise.all([...document.images].map((img) => img.decode().catch(() => undefined)));
+    const shown = [...document.images].filter((img) => img.complete || img.getClientRects().length > 0);
+    await Promise.all(shown.map((img) => img.decode().catch(() => undefined)));
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   });
 }

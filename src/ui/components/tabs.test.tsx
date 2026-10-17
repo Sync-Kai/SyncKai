@@ -121,4 +121,15 @@ describe('Tabs', () => {
     expect(tabs()[1]?.tabIndex).toBe(0);
     expect(tabs()[0]?.tabIndex).toBe(-1);
   });
+
+  it('icône devant le libellé ; panneaux nommés par l’hôte (aria-controls)', async () => {
+    const items = [
+      { id: 'watching', label: 'En lecture', icon: 'play' },
+      { id: 'agenda', label: 'Agenda', icon: 'calendar' },
+    ] as const satisfies readonly { id: View; label: string; icon: 'play' | 'calendar' }[];
+    await show(<Tabs label="Vues" idBase="sk" tabs={items} selected="watching" onSelect={onSelect} controls={(id) => `sk-tabpanel-${id}`} />);
+    expect(tabs().map((tab) => tab.querySelectorAll('svg').length)).toEqual([1, 1]);
+    expect(tabs().map((tab) => tab.getAttribute('aria-controls'))).toEqual(['sk-tabpanel-watching', 'sk-tabpanel-agenda']);
+    expect(tabs()[0]?.id).toBe('sk-tab-watching');
+  });
 });

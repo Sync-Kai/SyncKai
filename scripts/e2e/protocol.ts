@@ -101,8 +101,11 @@ export interface PanelFrameParams {
   tab?: 'nowPlaying' | 'agenda';
   /** `none` : fiche de l'onglet absente du cache de session (RESOLVE_PAGE_MEDIA envoyé au démarrage) */
   cache?: 'none';
-  /** `error` : GET_AGENDA échoue ; les sorties de la semaine en cache sont expirées */
-  agenda?: 'error';
+  /**
+   * `error` : GET_AGENDA échoue ; les sorties de la semaine en cache sont expirées. `failure` : échec réseau sans cache ;
+   * `empty` : semaine sans sortie ; `noSeries` : listes « En cours » vides ; `notConnected` : aucun compte
+   */
+  agenda?: 'error' | 'failure' | 'empty' | 'noSeries' | 'notConnected';
   /** Types de messages retenus dès le démarrage, séparés par des virgules (voir `hold`) */
   hold?: string;
   /** `other` : onglet suivi hors Crunchyroll / ADN / Netflix (ligne neutre du panneau) */
@@ -113,6 +116,23 @@ export interface PanelFrameParams {
   popup?: 'open';
   /** Compte AniList du menu du compte (accountDemo) */
   account?: AccountDemo;
+  /**
+   * Réponse de RESOLVE_PAGE_MEDIA (fiche hors cache) : `untracked` (pas un anime), `off` (plateforme désactivée),
+   * `notFound`, `error` (limite AniList), `hang` (jamais de réponse : squelette)
+   */
+  pageMedia?: 'untracked' | 'off' | 'notFound' | 'error' | 'hang';
+  /** Fiche : `uncertain` (saison devinée), `manual` (saison choisie hors de l'épisode), `seasons` (sélecteur, saison sûre) */
+  pageView?: 'uncertain' | 'manual' | 'seasons';
+  /** Listes : `missing` (absente des deux), `partial` (AniList seule), `none` (aucun compte connecté), `error` (lecture MAL en échec) */
+  pageList?: 'missing' | 'partial' | 'none' | 'error';
+  /** Page de l'onglet : `series` (page de série), `none` (page sans série), `unreachable` (script de contenu muet) */
+  page?: 'series' | 'none' | 'unreachable';
+  /** `error` : GET_PANEL_MEDIA échoue (détails AniList indisponibles) */
+  details?: 'error';
+  /** `hold` : vérification de l'onglet suivi sans fin (panneau à l'ouverture) */
+  checking?: 'hold';
+  /** État de la lecture en direct envoyé par le port (voir liveDemos de sidepanel-frame.ts) ; `silent` : port muet */
+  live?: string;
 }
 
 declare global {

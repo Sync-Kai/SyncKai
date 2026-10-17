@@ -424,3 +424,36 @@ The popup's Activity tab was redesigned: failed and pending syncs are now two se
 | `queue.failedHeading` | Thất bại |
 | `queue.pendingHeading` | Đang chờ |
 | `ratings.heading` | Cần chấm điểm |
+
+
+## 2026-10-17 · Side panel « Now playing » (Preact)
+
+The side panel's « Now playing » tab was redesigned as cards: « You're watching » (live playback: bar, credits marker, countdown, sync state with an icon), « Your list » (status chip, « Progress » and the stepper, one line per account, the series « … » menu shared with the popup: Hold / Drop / Done moved there), then foldable sections « Rating and comment », Synopsis, related entries and Discussions. New: `panel.nowPlaying.watching` (heading of the live card, addresses the user), `panel.nowPlaying.list` (heading of the list card, same « your list » words as `page.notInList`), `panel.nowPlaying.ratingNotes` (section title, same nouns as `page.yourRating` and `notes.title`), `panel.live.creditsAt` and `panel.live.creditsUnknown` (legend of the yellow marker under the bar, credits word of `settings.trigger.credits`), `panel.live.countdownCredits` and `panel.live.countdownRatio` (countdown line, wording of the former `panel.live.countdown` plus what the sync waits for, as in `settings.trigger.credits` / `settings.summary.percentage`). Changed: `panel.live.synced` lost its trailing « ✓ » (a check icon now precedes it). The « Progress » label reuses `compare.filter.progress`. Removed: `page.action.COMPLETED`, `page.action.DROPPED`, `page.action.PAUSED` (the status button row is gone), `panel.live.countdown`, `panel.nowPlaying.progress`, `watching.nextWatched`. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `panel.nowPlaying.watching` | Bạn đang xem |
+| `panel.nowPlaying.list` | Danh sách của bạn |
+| `panel.nowPlaying.ratingNotes` | Điểm và ghi chú |
+| `panel.live.creditsAt` | Ending lúc {time} |
+| `panel.live.creditsUnknown` | Chưa rõ ending · đồng bộ khi đạt {percent}% |
+| `panel.live.countdownCredits` | Đồng bộ sau {time} · khi bắt đầu ending |
+| `panel.live.countdownRatio` | Đồng bộ sau {time} · khi đạt {percent}% tập |
+| `panel.live.synced` | Đã đồng bộ |
+
+
+## 2026-10-17 · Side panel Schedule (Preact) and week picker
+
+The Schedule tab of the side panel was redesigned: days in order with « No episode » on empty days, episode lines « 18:00 Crunchyroll · Japan 17:00 » (the platform time first, the Japanese broadcast last and cut first), a « ⋯ » menu with « Adjust time » (its second line gives the time and whether the delay is the series' own or the default), « Open the entry › » and « Search on… › », and a week button that opens a month calendar. New: `agenda.adjust.custom` and `agenda.adjust.default` (second line of « Adjust time », lower case after « · »), `agenda.adjust.platform` (first sentence of `agenda.estimate.title`, shown in the delay editor), `agenda.picker.label`, `agenda.picker.prevMonth`, `agenda.picker.nextMonth`, `agenda.picker.thisWeek`, `agenda.picker.hint` (month calendar; the hint names the arrow keys and the Enter key). Changed: `agenda.jp` writes the country name instead of « JP » (unchanged where it already did: ja, ko, zh-CN, zh-TW). Removed: `watching.searchOn` (the search entries are now the platform names of the « Search on… › » sub-menu). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `agenda.jp` | Nhật {time} |
+| `agenda.adjust.custom` | đặt riêng cho bộ này |
+| `agenda.adjust.default` | độ trễ mặc định |
+| `agenda.adjust.platform` | Dự kiến có trên {platform}: giờ phát sóng tại Nhật {offset}. |
+| `agenda.picker.label` | Chọn tuần |
+| `agenda.picker.prevMonth` | Tháng trước |
+| `agenda.picker.nextMonth` | Tháng sau |
+| `agenda.picker.thisWeek` | Tuần này |
+| `agenda.picker.hint` | ↑ ↓ để đổi tuần, Enter để hiển thị. |

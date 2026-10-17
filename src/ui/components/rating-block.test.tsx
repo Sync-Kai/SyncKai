@@ -56,4 +56,10 @@ describe('RatingBlock', () => {
     await show(<RatingBlock label="Ta note" sliderLabel="Noter Frieren" value={8} onRate={onRate} />);
     expect(slider()?.getAttribute('aria-valuenow')).toBe('8');
   });
+
+  it('titre masqué (section « Note et commentaire » du panneau) : groupe toujours nommé', async () => {
+    await show(<RatingBlock label="Ta note" sliderLabel="Noter Frieren" value={9} onRate={() => undefined} labelHidden />);
+    expect($('[data-rating-block]')?.getAttribute('aria-label')).toBe('Ta note');
+    expect(container.textContent).not.toContain('Ta note');
+  });
 });

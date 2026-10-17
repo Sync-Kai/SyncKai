@@ -1,7 +1,10 @@
 // Onglets (popup : « En cours » / « Activité ») : tablist en pilule, sélection neutre (bordure `field`, fond `raised`,
 // jamais sakura), tabindex itinérant, flèches en boucle, Début / Fin ; la flèche sélectionne (activation automatique).
-// Les panneaux restent à l'hôte : `panelId(idBase, id)` pour leur id, `tabId(idBase, id)` pour leur aria-labelledby.
+// Les panneaux restent à l'hôte : `panelId(idBase, id)` pour leur id (ou `controls`), `tabId(idBase, id)` pour leur
+// aria-labelledby. Icône facultative devant le libellé (panneau latéral : « En lecture » / « Agenda »).
 import { useRef } from 'preact/hooks';
+import type { IconName } from '../icons';
+import { Icon } from './icon';
 
 export interface TabItem<T extends string> {
   id: T;
@@ -10,6 +13,8 @@ export interface TabItem<T extends string> {
   badge?: string | number;
   /** Nom accessible quand la pastille ne se lit pas seule (« Activité, 2 éléments à traiter ») ; pastille alors masquée */
   ariaLabel?: string;
+  /** Icône décorative devant le libellé */
+  icon?: IconName;
 }
 
 export interface TabsProps<T extends string> {
@@ -22,12 +27,14 @@ export interface TabsProps<T extends string> {
   onSelect: (id: T) => void;
   /** Préfixe des clés data-focus des onglets (`<préfixe>-<id>`) */
   focusKeyBase?: string;
+  /** Id du panneau de chaque onglet (aria-controls) ; défaut `panelId(idBase, id)` */
+  controls?: (id: T) => string;
 }
 
 export const tabId = (base: string, id: string): string => `${base}-tab-${id}`;
 export const panelId = (base: string, id: string): string => `${base}-panel-${id}`;
 
-export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect, focusKeyBase }: TabsProps<T>) {
+export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect, focusKeyBase, controls }: TabsProps<T>) {
   const list = useRef<HTMLDivElement>(null);
 
   const onKeyDown = (event: KeyboardEvent): void => {
@@ -48,7 +55,8 @@ export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect
   return (
     <div
       ref={list}
-      class="grid gap-0 rounded-pill border border-line bg-surface p-0.75"
+      // Conteneur : sous 264 px (panneau latéral à 320 px, barre Firefox), libellés en 12 px et icône plus proche
+      class="@container grid gap-0 rounded-pill border border-line bg-surface p-0.75"
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}
@@ -63,11 +71,11 @@ export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect
             type="button"
             role="tab"
             id={tabId(idBase, tab.id)}
-            class={`flex h-8 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-pill border px-2 text-body font-extrabold transition-colors ${
+            class={`flex h-8 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-pill border px-2 text-body font-extrabold transition-colors @max-[264px]:gap-1 @max-[264px]:text-secondary @max-[264px]:font-extrabold ${
               on ? 'border-field bg-raised text-ink' : 'border-transparent bg-transparent text-muted hover:text-ink'
             }`}
             aria-selected={on ? 'true' : 'false'}
-            aria-controls={panelId(idBase, tab.id)}
+            aria-controls={controls ? controls(tab.id) : panelId(idBase, tab.id)}
             tabIndex={on ? 0 : -1}
             aria-label={tab.ariaLabel}
             data-focus={focusKeyBase && `${focusKeyBase}-${tab.id}`}
@@ -75,6 +83,7 @@ export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect
               if (!on) onSelect(tab.id);
             }}
           >
+            {tab.icon && <Icon name={tab.icon} class={`size-3.5 ${tab.icon === 'play' ? 'fill-current' : ''}`} strokeWidth="2.2" />}
             <span class="truncate">{tab.label}</span>
             {tab.badge !== undefined && (
               <span class="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-pill bg-butter px-1.25 text-section tracking-normal text-on-fill tabular-nums" aria-hidden={tab.ariaLabel ? 'true' : undefined} data-tab-badge="">

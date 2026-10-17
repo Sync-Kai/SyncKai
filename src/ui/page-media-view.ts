@@ -3,6 +3,7 @@ import type { PageListState, PageMediaView, PageSeason, SeasonSlot } from '../sh
 import type { ListStatus } from '../shared/sync.types';
 import { nextEpisodeBadge } from '../shared/watching';
 import type { AiringStatus, NextEpisodeBadge } from '../shared/watching.types';
+import { formatStarValue, STAR_COUNT } from './rating';
 
 // Vue de la carte « Sur cette page » : fonctions pures (testables) dérivées de la réponse du service worker.
 
@@ -136,6 +137,12 @@ export function serviceLineText(list: PageListState, episodes: number | null): s
     case 'error':
       return list.message;
   }
+}
+
+/** Ligne d'un service dans « Ta liste » du panneau : celle de la carte, suivie de la note (« · ★ 8,5/10 ») quand elle existe */
+export function serviceLineWithScore(list: PageListState, episodes: number | null): string {
+  const text = serviceLineText(list, episodes);
+  return list.state === 'in-list' && list.score !== null ? `${text} · ★ ${formatStarValue(list.score)}/${STAR_COUNT}` : text;
 }
 
 /**

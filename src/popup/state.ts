@@ -4,7 +4,7 @@ import type { SyncQueueItem } from '../shared/queue.types';
 import type { SyncSettings } from '../shared/settings';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingList, WatchingSort } from '../shared/watching.types';
-import type { MediaActionsState } from '../ui/media-actions';
+import type { MediaActionsState } from '../ui/media-action-requests';
 import type { PageMediaContent } from '../ui/page-media-controller';
 import type { InlineFeedback } from '../ui/state';
 

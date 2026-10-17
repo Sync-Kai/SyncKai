@@ -22,7 +22,7 @@ Target: standard Swedish as used by Chrome, Firefox, Netflix and YouTube in Swed
 | list | lista (din lista) | The user's AniList / MyAnimeList list, never a playlist |
 | entry | titel (AniList-titel, MyAnimeList-titel; titeln, titlar) | Swedish streaming UIs call catalogue items *titlar* (Netflix: "den här titeln"); *post* reads as a database record, which the shared glossary rules out. When a sentence also needs the anime's title (name), the name is *namnet* ("Enda AniList-titeln med det här namnet"). Menu "Open the entry on {service}" = *Öppna titeln på {service}* |
 | sync (noun) | synkning (synkningen, synkningar) | One noun everywhere; compounds use *synk-*: *synkfel* (failed sync, footer), *synkpunkt*, *synkhistorik* (backup content) |
-| to sync (verb) | synka (synkar, synkas, synkad / synkat / synkade) | Everyday Swedish IT verb ("Synka på Netflix", "Synkar…", "Synkat ✓") |
+| to sync (verb) | synka (synkar, synkas, synkad / synkat / synkade) | Everyday Swedish IT verb ("Synka på Netflix", "Synkar…", "Synkat") |
 | Auto sync | Automatisk synkning | |
 | to check (`review.*`, `footer.toReview`) | att granska; card = **granskning** (granskningar) | *Granska* is the standard Swedish UI verb for "review" (Word's *Granska* tab): examine, never a critique (*recension*). Short enough for chips ("Att granska", "3 att granska"). Plain verb "check" elsewhere = *kontrollera* ("Kontrollera din anslutning") |
 | to rate (`ratings.*`, `footer.toRate`) | att betygsätta / betygsätt | |

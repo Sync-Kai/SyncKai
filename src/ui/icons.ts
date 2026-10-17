@@ -97,6 +97,10 @@ const ICON_PATHS = {
   // Bandeau d'accès (triangle au trait) et étapes de l'accueil (lecture)
   triangle: ['M10.3 4.2 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z', 'M12 9.5v4', 'M12 17.2h.01'],
   play: ['M8 5.5 18.5 12 8 18.5z'],
+  // Panneau « En lecture » : aucune vidéo, point de synchro dépassé, plateforme désactivée
+  videoOff: ['M10.7 6H14a2 2 0 0 1 2 2v2.5l5.2-3a.5.5 0 0 1 .8.4v8.2', 'M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2', 'm2 2 20 20'],
+  skip: ['M5 5l10 7-10 7z', 'M19 5v14'],
+  power: ['M12 2v10', 'M18.4 6.6a9 9 0 1 1-12.8 0'],
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

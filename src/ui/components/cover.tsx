@@ -1,11 +1,11 @@
-// Jaquette : `row` 42 × 57 (ligne « Mes séries »), `agenda` 32 × 44 (ligne de l'Agenda) ou `card` 44 × 62 (carte « Sur cette
-// page »), image ou initiales.
+// Jaquette : `row` 42 × 57 (ligne « Mes séries »), `agenda` 32 × 44 (ligne de l'Agenda, suites du panneau), `card` 44 × 62
+// (carte « Sur cette page ») ou `hero` 64 × 90 (en-tête de « En lecture » du panneau), image ou initiales.
 // Barre de progression lavender de 3 px dessous (role="progressbar"), absente quand le total est inconnu.
 import { useState } from 'preact/hooks';
 import { toImageSrc } from '../../shared/url';
 import { initials } from '../kit';
 
-export type CoverSize = 'row' | 'agenda' | 'card';
+export type CoverSize = 'row' | 'agenda' | 'card' | 'hero';
 
 export interface CoverProgress {
   value: number;
@@ -30,9 +30,10 @@ const BOXES: Readonly<Record<CoverSize, string>> = {
   row: 'h-cover-row-h w-cover-row-w',
   agenda: 'h-cover-agenda-h w-cover-agenda-w',
   card: 'h-15.5 w-11',
+  hero: 'h-22.5 w-16',
 };
 
-const WIDTHS: Readonly<Record<CoverSize, string>> = { row: 'w-cover-row-w', agenda: 'w-cover-agenda-w', card: 'w-11' };
+const WIDTHS: Readonly<Record<CoverSize, string>> = { row: 'w-cover-row-w', agenda: 'w-cover-agenda-w', card: 'w-11', hero: 'w-16' };
 
 /** Largeur de la barre en pourcentage, deux décimales au plus */
 const percent = (value: number, total: number): string => `${Math.round((value / total) * 10_000) / 100}%`;
