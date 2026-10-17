@@ -4,5 +4,5 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["vite/client", "chrome", "node"]
   },
-  "include": ["./**/*.ts", "../../src/env.d.ts"]
+  "include": ["./**/*.ts", "./**/*.tsx", "../../src/env.d.ts"]
 }

@@ -39,7 +39,8 @@ function stringTexts(file: string, code: string): { text: string; at: number }[]
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateLiteralToken(node)) texts.push({ text: node.text, at: node.end });
     ts.forEachChild(node, visit);
   };
-  visit(ts.createSourceFile(file, code, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS));
+  // Modules TSX lus avec la syntaxe JSX : attributs (class="…") et gabarits des expressions compris
+  visit(ts.createSourceFile(file, code, ts.ScriptTarget.Latest, false, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS));
   return texts;
 }
 
@@ -51,7 +52,7 @@ function hexExemptFrom(file: string, code: string): number {
 }
 
 /** Code de l'extension : ni tests, ni aides de test, ni données de test (__corpus__, __fixtures__) */
-const isScanned = (file: string): boolean => !file.endsWith('.test.ts') && !file.startsWith('test/') && !/(?:^|\/)__\w+__\//.test(file);
+const isScanned = (file: string): boolean => !/\.test\.tsx?$/.test(file) && !file.startsWith('test/') && !/(?:^|\/)__\w+__\//.test(file);
 
 function measure(): Record<Metric, Record<string, number>> {
   const counts: Record<Metric, Record<string, number>> = { arbitraryColors: {}, hexColors: {}, pxFontSizes: {} };
@@ -92,6 +93,12 @@ describe('charte graphique : cliquet des valeurs en dur (docs/design/README.md)'
     expect(Object.keys(current.hexColors)).toContain('browser/badge.ts');
     expect(current.hexColors['ui/kai-small.ts']).toBeUndefined();
     expect(current.pxFontSizes['popup/components/watching-screen.ts']).toBeGreaterThan(0);
+  });
+
+  it('tests TSX exclus comme les tests TS ; modules TSX lus avec la syntaxe JSX', () => {
+    expect(isScanned('ui/preact/hooks.test.tsx')).toBe(false);
+    expect(isScanned('ui/settings/page-shortcuts.tsx')).toBe(true);
+    expect(stringTexts('a.tsx', 'const a = <b class="text-[13px]" title={`x ${y}`}>z</b>;').map(({ text }) => text)).toEqual(['text-[13px]', 'x ', '']);
   });
 
   for (const metric of Object.keys(METRICS) as Metric[]) {

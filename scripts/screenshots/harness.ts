@@ -28,8 +28,11 @@ export interface HarnessServer {
   close: () => Promise<void>;
 }
 
-/** Démarre Vite à la racine du dépôt ; `build` est l'horodatage affiché par les scripts (__SYNCKAI_BUILD__) */
-export async function startHarnessServer(build: string): Promise<HarnessServer> {
+/**
+ * Démarre Vite à la racine du dépôt ; `build` est l'horodatage affiché par les scripts (__SYNCKAI_BUILD__) ;
+ * `plugins` : greffons propres à un appelant (galerie des composants : gallery.ts)
+ */
+export async function startHarnessServer(build: string, plugins: Plugin[] = []): Promise<HarnessServer> {
   const { module: catalogs } = await runnerImport<{ CONTENT_CATALOGS_DEFINE: string }>(
     path.join(ROOT, 'scripts/screenshots/content-catalogs.ts'),
     { configFile: false, logLevel: 'error' },
@@ -38,7 +41,7 @@ export async function startHarnessServer(build: string): Promise<HarnessServer> 
     configFile: false,
     root: ROOT,
     logLevel: 'warn',
-    plugins: [scriptPathStub, tailwindcss()],
+    plugins: [scriptPathStub, ...plugins, tailwindcss()],
     // Mêmes constantes que vite.config.ts (build de production : logs info/debug coupés)
     define: {
       __SYNCKAI_BUILD__: JSON.stringify(build),

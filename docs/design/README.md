@@ -181,13 +181,33 @@ Extension pages move to Preact one screen at a time (decision 12, 2026-10-17); c
 - **Texts through `t()`**, with `useLocale()` in the component so it re-renders when the language changes.
 - **Focus**: Preact keeps nodes across renders; where a render removes the focused element, `useFocusFallback` moves the focus as `preserveFocus` does (same key, declared `data-focus-fallback`, given fallback, then neighbours).
 
+### Base components
+
+Components in `src/ui/components/`, built from the tokens above. Every visible or accessible text is a prop that the caller fills with `t()`. Until a screen imports them, `src/ui/theme.css` keeps them out of the Tailwind scan (`@source not "./components"`), so the published CSS is unchanged; the first screen that uses one removes that line (`components/scan.test.ts` enforces both ways). Dev-only gallery of every component in its states, at 400 and 360 px: `node scripts/screenshots/gallery.ts [--out <dir>]` (default `<tmp>/synckai-gallery`).
+
+- **`Button`**: `primary` (one per surface), `secondary`, `ghost`, `danger`, `text`; `sm` / `md`; leading icon; `busy` (aria-busy, focus kept, clicks ignored); `<a>` when given `href`.
+- **`IconButton`**: 28 px round icon button; `label` is required (aria-label and tooltip); optional line border, menu and pressed states.
+- **`Stepper`**: « Ép. x / y » in tabular figures, then ghost − / + of 24 px; a reached bound disables its side.
+- **`LogoButton`**: 32 px round « Open » link, neutral surface with a line border, 18 px platform logo.
+- **`Switch`**: `role="switch"` button with `aria-checked`; Space and Enter toggle it.
+- **`ServiceLogo`**: AniList / MAL / platform logo at 16, 18 or 22 px with an optional state badge (`ok`, `info`, `warn`, `error`, `expired` = greyed logo and red dot).
+- **`Cover`**: `row` (42 × 57) or `agenda` (32 × 44) cover, image or initials, optional 3 px lavender `progressbar` (none when the total is unknown).
+- **`StatusText`**: 6 px dot and text in the tone colour, truncated with a tooltip.
+- **`Section`**: uppercase `text-section` title naming its content.
+- **`SettingsCard` / `SettingsRow`**: rows card (`@container`) and row with tinted icon, title, description, then summary + chevron or a `Switch`; under 340 px of card, description and summary are hidden (the description stays the tooltip and `aria-describedby`).
+- **`Collapsible`**: header button with `aria-expanded` / `aria-controls`, chevron and optional count; controlled or not.
+- **`Tabs`**: pill tablist, neutral selection, roving tabindex, arrows / Home / End select.
+- **`Menu` / `MenuItem` / `SubMenu` / `MenuSeparator`**: the row « ⋯ » menu; roving focus, Tab / Esc / outside click close it (`useDismiss`); sub-menus open on hover after a short intent delay, on click, → or Enter, and close on ← or Esc; danger items.
+- **`StatusBar`**: the 48 px footer, props only: account logo buttons (none when never connected, greyed with a red dot when expired), message with its tone icon, two lines when it names a series, a button with a trailing chevron when clickable, trailing slot, import progress line.
+- **`StarRating`**: 10 stars with halves as one `role="slider"` (← → ±0.5, Home / End, Enter confirms), half-star click, hover preview, read-only mode. Pages only: the content-safe `ui/star-rating.ts` (end-of-series toast) is unchanged until the toasts are redesigned.
+
 ## Mockups
 
 The owner keeps the reference mockups in a private Claude Design artifact (not linked from this repository). Each screen migrated to Preact is checked against its view there. Decisions recorded on the mockups are summarised above.
 
 ## Ratchet
 
-`src/ui/design-tokens.test.ts` scans `src/**/*.{ts,tsx}` (tests, test helpers and test data excluded) and freezes, per file, in `src/ui/design-tokens.baseline.json`:
+`src/ui/design-tokens.test.ts` scans `src/**/*.{ts,tsx}` (`*.test.ts` / `*.test.tsx`, test helpers and test data excluded; `.tsx` modules parsed as JSX, attribute strings included) and freezes, per file, in `src/ui/design-tokens.baseline.json`:
 
 - **`arbitraryColors`**: Tailwind arbitrary values carrying a colour (`bg-[#…]`, `text-[rgb(…)]`, `shadow-[…_rgba(…)]`, `text-[color:…]`, `[text-shadow:…]`);
 - **`hexColors`**: raw `#rgb` / `#rrggbb` / `#rrggbbaa` colours in string literals (comments ignored, colours already counted as arbitrary classes not counted twice). The Kai mascot drawings are exempt: `src/ui/kai-small.ts` and the large Kai drawing at the end of `src/ui/icons.ts`;

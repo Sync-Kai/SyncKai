@@ -1,0 +1,10 @@
+@import "../../src/ui/theme.css";
+
+/* Galerie : l'import ci-dessus est remplacé par le thème recopié sans l'exclusion des composants (greffon de
+   gallery.ts), pour que leurs classes soient générées */
+@layer base {
+  html,
+  body {
+    margin: 0;
+  }
+}
