@@ -5,7 +5,9 @@
   </picture>
 </p>
 
-<p align="center"><strong>Watch anime on Crunchyroll or ADN. Your AniList and MyAnimeList lists update themselves when the credits roll.</strong></p>
+<p align="center"><strong>Watch anime on Crunchyroll, ADN, Netflix, Disney+ or Prime Video. Your AniList and MyAnimeList lists update themselves when the credits roll.</strong></p>
+
+<p align="center"><a href="https://synckai.app/en/">synckai.app</a> · <a href="https://synckai.app/en/changelog">What's new</a></p>
 
 <p align="center">
   <a href="https://github.com/Sync-Kai/SyncKai/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Sync-Kai/SyncKai?label=release"></a>
@@ -54,40 +56,43 @@ Then click the SyncKai icon, connect AniList and/or MyAnimeList (each account is
 - AniList and MyAnimeList, together or separately.
 - Season matching that handles absolute numbering (One Piece episode 1180) as well as seasons split across several entries.
 - *To check* cards: when a match is uncertain, you pick the right entry once and SyncKai remembers it. Nothing is sent blindly.
+- Safeguards against forged pages: a burst of finished episodes or a jump straight to the last episode asks for a check instead of writing.
 - Netflix support, off by default and limited to anime: only series linked to their Netflix title on AniList are synced.
 - Disney+ support, off by default and limited to Japanese anime: only series whose AniList entry carries the same title and a Disney+ link are synced.
 - Prime Video support (primevideo.com), off by default and limited to anime: titles Prime Video labels anime, or animation offered with Japanese audio; other animation only on an exact AniList title match.
 
 **Your lists**
 
-- *Watching*: series in progress with the next episode's date ("Ep. 5 in 18 h"), sorting, +1 / −1, and *Open* on your preferred player.
-- *On this page*: the AniList entry of the series or episode you are on, with editable progress, status and score.
-- One-click status changes (on hold, dropped, completed) on both services; remove an anime from your list or edit its comment, from the popup or the side panel.
-- Remove a series from your list (confirmed first) and write a comment on its entry (AniList notes, MyAnimeList comments), from the ⋯ menu of *Watching* or the *Your progress* card of the side panel.
-- Click a title or cover to open its AniList or MyAnimeList page (*Default entry page* setting when both accounts are connected).
+- *My series* (popup, *Watching* tab): series in progress with a progress bar, the next episode ("Ep. 5 in 18 h"), sorting, discreet −/+ and your preferred player's logo to resume the series. The list follows the *Default entry page* account (*Settings › Accounts*).
+- *Resume*: off the streaming sites, the series you watched last, ready to reopen.
+- *On this page*: the AniList entry of the series or episode you are on; change progress, status, season, score or your comment without leaving the page.
+- The ⋯ menu of each series: on hold, dropped, completed (confirmed first), comment, *Open entry ›* and *Search on… ›* (hover sub-menus), stop syncing the series, remove it from your list.
+- Click a title or cover to open its AniList or MyAnimeList page.
+- Status bar at the bottom of the popup and the side panel: the series and episode just synced ("2 episodes synced" during autoplay), a running import or alignment with its progress, a session to reconnect.
+- Account menu (click an account's logo): avatar, profile stats (anime, episodes, days watched) and the episodes synced this week.
 - Compare AniList and MyAnimeList: spots differences in progress, status, score and missing series, and aligns them on demand, never automatically (*Settings › My data*).
-- Rating prompt when a series is completed, and rewatch detection.
+- End-of-series rating with 10 stars (half stars included), converted to your AniList score format, and rewatch detection.
 
 **Side panel and schedule**
 
 - Side panel (sidebar on Firefox) available on any page, opened only by you: from the popup or with <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> (press again to close). On Chrome and Brave it stays open across tabs and follows the active tab.
 - Off the streaming sites it opens on *Schedule*; *Now playing* shows the supported platforms and turns Netflix, Disney+ or Prime Video on in one click.
-- *Now playing* (Crunchyroll, ADN, Netflix, Disney+, Prime Video): the episode's AniList entry, live progress ("Sync in 2 min 10"), your actions, sequels with a *Watch* button, and the episode discussion.
-- *Schedule*: this week's releases for the series you're watching, with the estimated time on each platform (adjustable delay, per series if needed) and watched episodes ticked off.
-- New episode alerts as browser notifications, with an adjustable delay.
+- *Now playing* (Crunchyroll, ADN, Netflix, Disney+, Prime Video): the episode's AniList entry, live progress with the credits marker ("Sync in 2 min 10"), *Your list* with its actions, then folding sections for rating and comment, synopsis, sequels with a *Watch* button and the episode discussion.
+- *Schedule*: this week's releases for the series you're watching, Monday to Sunday, at the estimated time on your platform and with watched episodes ticked off. *Adjust time* sets a delay per series; *Settings › Platforms* sets one per platform (−/+ by 15 min or typed). A month calendar jumps to any week, one request per week chosen.
+- New episode alerts as browser notifications, at the time the Schedule shows (plus an optional extra delay).
 
 **Import and backup**
 
-- Crunchyroll, ADN and Netflix history import: reads your history in your own browser tab, shows a preview, then updates AniList and MyAnimeList in the background. It never moves progress backwards, only counts finished episodes, and asks for a review when in doubt. On Netflix, it loads the *Viewing activity* page with the site's own *Show more* button and keeps only anime (series linked to Netflix on AniList, or with the same title, which go to *To check*).
+- History import from Crunchyroll, ADN or Netflix (*Settings › My data › Import a watch history*, then pick the platform): reads your history in your own browser tab, shows a preview, then updates AniList and MyAnimeList in the background. It never moves progress backwards, only counts finished episodes, and asks for a review when in doubt. On Netflix, it loads the *Viewing activity* page with the site's own *Show more* button and keeps only anime (series linked to Netflix on AniList, or with the same title, which go to *To check*).
 - Backup: export and import your settings, matches and history (never your sign-ins).
 
 **Privacy and reliability**
 
 - No server, no analytics: data only goes to AniList and MyAnimeList.
 - Offline queue: if the network or a service is down, pending syncs are retried automatically.
-- On-page notifications in three levels (Discreet, Detailed, Alerts only), fullscreen-friendly.
+- On-page notifications over the player, in the top-right corner and fullscreen-friendly: what happened ("Episode 6 saved"), the series and episode, one line per service with its logo. Three styles (Discreet, Detailed, Alerts only); the timer pauses while you hover them.
 - Keyboard shortcuts, the same on Chrome, Brave and Firefox: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> to mark the current episode as watched, <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd> to open or close the side panel (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>&</kbd> on AZERTY: same key). *Settings › Display › Shortcuts* shows the current keys and opens the browser's shortcuts page to change them (`chrome://extensions/shortcuts`; Firefox: `about:addons` › gear icon › *Manage Extension Shortcuts*). Already installed? A key you changed is kept on update; if a key is missing, set it there.
-- Per-series exclusion, settings grouped by category with quick toggles.
+- Per-series exclusion (*Settings › Sync › Excluded series*). Settings in seven categories (Accounts, Sync, Platforms, Notifications, Display, My data, Help & about) with quick toggles, in the popup and the side panel.
 - Interface in 21 languages: English, French, German, Spanish (Spain and Latin America), Brazilian Portuguese, Italian, Dutch, Russian, Ukrainian, Polish, Czech, Romanian, Swedish, Turkish, Indonesian, Vietnamese, Chinese (Simplified and Traditional), Korean and Japanese; the browser language is used by default, or the one chosen in *Settings › Display › Language*.
 
 <table>
@@ -152,7 +157,8 @@ npm run build           # production build for Chrome, in dist/
 npm run build:firefox   # production build for Firefox, in dist-firefox/
 npm run build:dev       # Chrome build with info/debug logs in the console
 npm test                # unit tests (Vitest)
-npm run test:e2e        # popup end-to-end tests (Puppeteer, headless Chrome)
+npm run test:e2e        # end-to-end tests of the popup, side panel, import and backup pages (Puppeteer, headless Chrome)
+npm run test:i18n-layout # layout check of every screen in the 21 languages
 npm run test:ext        # end-to-end tests of the built extension in Chromium, fake AniList / MAL (see BUILD.md)
 npm run verify          # type check, tests, both builds, build checks and lint
 ```
@@ -172,11 +178,11 @@ The repository manifest keeps the Chrome Web Store public key and the Firefox ad
 src/
 ├── background/   service worker: OAuth, AniList/MAL clients (anilist/, mal/), matching (sync/), sync queue, imports, alerts
 ├── content/      content scripts: one folder per platform (crunchyroll/, adn/, netflix/, disney/, prime/) with its adapter and, for the bridged ones, its page bridge
-├── popup/        extension popup
-├── sidepanel/    side panel (Now playing, Schedule)
-├── import-cr/    history import page (Crunchyroll, ADN, Netflix)
-├── import/       backup page
-├── ui/           UI components shared by the popup and the side panel
+├── popup/        extension popup (Preact)
+├── sidepanel/    side panel: Now playing, Schedule (Preact)
+├── import-cr/    history import page: Crunchyroll, ADN, Netflix (Preact)
+├── import/       backup page (Preact)
+├── ui/           shared interface: Preact components (components/), Settings (settings/), hooks, controllers
 ├── shared/       types, guards and pure logic shared by all contexts (no browser API)
 ├── protocol/     contracts between contexts (messages, ports, storage keys)
 ├── platforms/    what is known about each platform (registry, links, metadata reducers)
@@ -184,7 +190,7 @@ src/
 └── i18n/         translations (locales/en.json, fr.json, de.json…)
 ```
 
-Store names and descriptions live in `public/_locales/`.
+The extension pages use Preact and Tailwind CSS, following the graphic charter in [docs/design/README.md](docs/design/README.md); content scripts stay plain TypeScript. Store names and descriptions live in `public/_locales/`.
 
 - [BUILD.md](BUILD.md): reproducible build of the Firefox package.
 - [docs/STORE.md](docs/STORE.md): packaging and release process (Chrome Web Store, Firefox Add-ons, GitHub Actions).
