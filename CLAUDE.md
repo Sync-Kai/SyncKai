@@ -145,7 +145,7 @@ Section maintained by Claude so the project can be picked up on any machine afte
 - **AniList**:
   - client `52346`, Implicit Grant;
   - never send `redirect_uri`: AniList rejects the request ("Authorization page could not be loaded") and uses the URL registered on the client;
-  - no `state` parameter (SEC-08): whether AniList's implicit grant echoes `state` in the fragment is UNVERIFIED (docs.anilist.co does not mention it, 2026-10-16), so it is neither sent nor checked, to avoid breaking sign-in; `launchWebAuthFlow` only returns the redirect of the flow it opened. Add it only after observing a real AniList redirect carrying it (check sign-in on Chrome and Firefox).
+  - `state` (32 random characters, `mal/pkce.ts` › `createState`) sent and checked (SEC-08, 2026-10-18): AniList's implicit grant echoes it unchanged in the FRAGMENT (observed on Chrome and Firefox with a dev-only probe); missing or different → `INVALID_RESPONSE`, no token saved (tested). An `error` in the redirect is still reported first (`ACCESS_DENIED`).
 - **MyAnimeList**:
   - app of type *other* (public client), Client ID `84d05521c007a529cc458421bd0940c5`;
   - Authorization Code + PKCE (`code_challenge_method=plain` only), without a client secret: never ask for one or store one;

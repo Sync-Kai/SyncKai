@@ -7,7 +7,9 @@ import { revealToken } from '../../test/tokens';
 // Alarme des sorties créée à la connexion (PERF-17).
 
 const REDIRECT = 'https://khokcmigioggannjoojambdgioigdceb.chromiumapp.org/';
-const GRANTED = `${REDIRECT}#access_token=NEW&token_type=Bearer&expires_in=31536000`;
+/** Retour d'AniList : token dans le fragment, avec le « state » de la demande renvoyé tel quel (observé le 2026-10-18) */
+const granted = (details: { url: string }): string =>
+  `${REDIRECT}#access_token=NEW&token_type=Bearer&expires_in=31536000&state=${new URL(details.url).searchParams.get('state') ?? ''}`;
 let store: Record<string, unknown> = {};
 const runtime = { id: 'khokcmigioggannjoojambdgioigdceb' };
 const launchWebAuthFlow = vi.fn<(details: { url: string; interactive: boolean }) => Promise<string | undefined>>();
@@ -64,7 +66,7 @@ beforeEach(() => {
   void alarms.clearAll();
   runtime.id = 'khokcmigioggannjoojambdgioigdceb';
   launchWebAuthFlow.mockReset();
-  launchWebAuthFlow.mockResolvedValue(GRANTED);
+  launchWebAuthFlow.mockImplementation(async (details) => granted(details));
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -202,6 +204,24 @@ describe('loginWithAniList, branches d’échec', () => {
   it('une erreur dans la query ne masque pas un token valide absent : l’erreur prime', async () => {
     launchWebAuthFlow.mockResolvedValueOnce(`${REDIRECT}?error=server_error#access_token=T&expires_in=3600`);
     expect(await loginWithAniList()).toMatchObject({ ok: false, code: 'ACCESS_DENIED' });
+    expect(store).not.toHaveProperty('anilistToken');
+  });
+
+  // SEC-08 : AniList renvoie le « state » dans le fragment (observé le 2026-10-18 sur Chrome et Firefox, sonde de dev)
+  it('« state » aléatoire de 32 caractères envoyé à chaque connexion', async () => {
+    await loginWithAniList();
+    await loginWithAniList();
+    const states = launchWebAuthFlow.mock.calls.map(([details]) => new URL(details.url).searchParams.get('state'));
+    expect(states[0]).toMatch(/^[\w.~-]{32}$/);
+    expect(states[1]).toMatch(/^[\w.~-]{32}$/);
+    expect(states[0]).not.toBe(states[1]);
+  });
+
+  it('« state » différent ou absent du retour : INVALID_RESPONSE, aucun token enregistré (SEC-08)', async () => {
+    for (const response of [`${REDIRECT}#access_token=T&expires_in=3600&state=autre`, `${REDIRECT}#access_token=T&expires_in=3600`]) {
+      launchWebAuthFlow.mockResolvedValueOnce(response);
+      expect(await loginWithAniList(), response).toMatchObject({ ok: false, code: 'INVALID_RESPONSE' });
+    }
     expect(store).not.toHaveProperty('anilistToken');
   });
 

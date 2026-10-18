@@ -87,6 +87,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Security
 
+- AniList sign-in now sends a random `state` and refuses a redirect that does not return it unchanged, as the MyAnimeList sign-in already did (AniList was seen echoing it on Chrome and Firefox).
 - The diagnostic report (*Settings › Help › Copy report*) is now built by the extension's background, the only part of SyncKai that decrypts sign-in tokens: the settings page only receives the finished report, with tokens and account names already masked.
 - A list alignment (*Activity › Differences*) running while you sign out and sign in to another AniList or MyAnimeList account now stops instead of writing the previous account's values to the new one, and every write to your lists is refused before it leaves if its session was closed or replaced since SyncKai decided it.
 - Signing in to MyAnimeList while a MyAnimeList session is already open (two windows, a double click) now closes the previous session first, as AniList already did, so nothing queued for the previous account is written to the new one. Saving a new sign-in token can no longer interleave with a sign-out or another storage write.

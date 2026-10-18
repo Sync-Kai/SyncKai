@@ -5,6 +5,7 @@ import { clearAniListSession } from '../../browser/storage/account-data';
 import { hasAniListToken, saveToken } from '../../browser/storage/tokens';
 import { createLogger } from '../../browser/logger';
 import { classifyAuthFlowError, getOAuthClients } from '../trackers/oauth-clients';
+import { createState } from '../mal/pkce';
 
 const log = createLogger('auth');
 
@@ -28,8 +29,10 @@ export async function loginWithAniList(): Promise<AuthResult> {
   authUrl.searchParams.set('response_type', 'token');
   // Pas de redirect_uri : AniList redirige vers l'URL enregistrée sur le client (= redirectUri),
   // ce qui évite un rejet sur une différence mineure (slash final…).
-  // Pas de `state` (SEC-08) : son renvoi dans le fragment par AniList n'est pas vérifié ; l'exiger pourrait casser la
-  // connexion. launchWebAuthFlow ne rend que la redirection du flux qu'il a ouvert.
+  // `state` aléatoire (SEC-08) : AniList le renvoie tel quel dans le fragment (observé le 2026-10-18 sur Chrome et
+  // Firefox) ; un retour sans lui ou avec un autre est refusé, comme pour MyAnimeList
+  const state = createState();
+  authUrl.searchParams.set('state', state);
 
   let responseUrl: string | undefined;
   try {
@@ -66,6 +69,10 @@ export async function loginWithAniList(): Promise<AuthResult> {
   if (error) {
     log.warn('AniList a refusé l’accès :', error);
     return { ok: false, code: 'ACCESS_DENIED', message: t('auth.denied', { service: 'AniList' }) };
+  }
+  if (fragment.get('state') !== state) {
+    log.error('Réponse OAuth refusée : state absent ou différent');
+    return { ok: false, code: 'INVALID_RESPONSE', message: t('auth.invalidResponse.anilist') };
   }
 
   const accessToken = fragment.get('access_token');
