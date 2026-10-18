@@ -108,6 +108,10 @@ export async function rateMedia(media: MediaRef, score: Score10, fromCard = fals
         return { status: 'updated', progress: saved.progress, completed: saved.status === 'COMPLETED' };
       };
     }, epochs);
+    // Fiches des onglets oubliées : une note donnée hors de l'écran (bulle du lecteur) y apparaît à la prochaine lecture
+    if (results.some((r) => r.outcome.status === 'updated')) {
+      await forgetCachedPageMedia(media).catch((error: unknown) => log.warn('Fiches des onglets non oubliées :', error));
+    }
 
     // Carte « À noter » conservée tant qu'un service est en erreur ou que personne n'a enregistré la note (nouvel essai possible)
     if (isRatingSettled(results) && (await removeRatingCards(media))) {

@@ -28,6 +28,13 @@ vi.mock('./sync/sync-service', () => ({
   },
 }));
 vi.mock('../browser/badge', () => ({ refreshReviewBadge: async () => undefined }));
+// Fiches des onglets oubliées après une écriture : appels relevés, la vraie fonction est appelée
+const forgetPages = vi.hoisted(() => vi.fn(async (_target: { mediaId: number | null; malId: number | null }) => 0));
+vi.mock('../browser/storage/page-media-cache', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../browser/storage/page-media-cache')>();
+  forgetPages.mockImplementation(actual.forgetCachedPageMedia);
+  return { ...actual, forgetCachedPageMedia: forgetPages };
+});
 
 let store: Record<string, unknown> = {};
 let session: Record<string, unknown> = {};
@@ -142,6 +149,7 @@ beforeEach(() => {
     sessionEpoch: { anilist: 0, mal: 0 },
   };
   session = {};
+  forgetPages.mockClear();
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -217,6 +225,23 @@ const cachedPage = (mediaId: number, idMal: number): Record<string, unknown> => 
   resolvedAt: Date.now(),
   source: 'resolve',
   epochs: { anilist: 0, mal: 0 },
+});
+
+describe('note : fiches des onglets oubliées (bulle de fin de série)', () => {
+  // Signalé le 2026-10-18 : une note donnée dans la bulle du lecteur n'apparaissait ni dans le popup ni dans le panneau,
+  // qui relisaient la fiche de l'onglet gardée avant la note (seuls le commentaire et le retrait l'oubliaient)
+  it('note enregistrée sur un service : les fiches des onglets de cette série sont oubliées', async () => {
+    await rateMedia(MEDIA, 8.5);
+    expect(anilist.scores).toEqual([8.5]);
+    expect(forgetPages).toHaveBeenCalledWith(MEDIA);
+  });
+
+  it('rien d’enregistré (série absente des listes) : les fiches sont gardées', async () => {
+    anilist.entry = null;
+    mal.entry = null;
+    await rateMedia(MEDIA, 8);
+    expect(forgetPages).not.toHaveBeenCalled();
+  });
 });
 
 describe('« Retirer de la liste »', () => {
