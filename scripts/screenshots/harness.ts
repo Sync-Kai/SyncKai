@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import puppeteer, { type Browser } from 'puppeteer';
 import { createServer, runnerImport, type Plugin } from 'vite';
+import type { DemoCovers } from './demo-media.ts';
 
 export const ROOT: string = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -30,9 +31,10 @@ export interface HarnessServer {
 
 /**
  * Démarre Vite à la racine du dépôt ; `build` est l'horodatage affiché par les scripts (__SYNCKAI_BUILD__) ;
- * `plugins` : greffons propres à un appelant (galerie des composants : gallery.ts)
+ * `plugins` : greffons propres à un appelant (galerie des composants : gallery.ts) ; `demoCovers` : vraies jaquettes
+ * AniList des fiches de démo (captures du Store, anilist-covers.ts), null = jaquettes de remplacement (covers.ts)
  */
-export async function startHarnessServer(build: string, plugins: Plugin[] = []): Promise<HarnessServer> {
+export async function startHarnessServer(build: string, plugins: Plugin[] = [], demoCovers: DemoCovers | null = null): Promise<HarnessServer> {
   const { module: catalogs } = await runnerImport<{ CONTENT_CATALOGS_DEFINE: string }>(
     path.join(ROOT, 'scripts/screenshots/content-catalogs.ts'),
     { configFile: false, logLevel: 'error' },
@@ -48,6 +50,7 @@ export async function startHarnessServer(build: string, plugins: Plugin[] = []):
       __SYNCKAI_DEBUG__: JSON.stringify(false),
       __SYNCKAI_TARGET__: JSON.stringify('chrome'),
       __SYNCKAI_CONTENT_CATALOGS__: catalogs.CONTENT_CATALOGS_DEFINE,
+      __SYNCKAI_DEMO_COVERS__: JSON.stringify(demoCovers),
     },
     // Sans rechargement à chaud : un fichier modifié pendant le passage (catalogue en cours de relecture, éditeur)
     // rechargerait la page au milieu d'un test (« Execution context was destroyed »)

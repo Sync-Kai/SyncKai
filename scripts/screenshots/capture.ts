@@ -1,9 +1,12 @@
 // Génère les visuels du Chrome Web Store, PNG RGB 24 bits sans alpha :
 // - 5 captures × 3 langues, 1280×800 (docs/store/screenshots/<langue>/) ;
 // - la tuile promo « marquee » 1400×560, en anglais (docs/store/promo-1400x560.png).
-// Usage : npm run screenshots [-- --locale fr --shot 2 | --shot marquee]
+// Usage : npm run screenshots [-- --locale fr --shot 2 | --shot marquee] [-- --covers placeholder]
+// Jaquettes : vraies jaquettes et bannières AniList par défaut (anilist-covers.ts) ; `--covers placeholder` ou
+// SYNCKAI_SCREENSHOT_COVERS=placeholder : jaquettes de remplacement (covers.ts), sans requête réseau.
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { isCoversMode, loadDemoCovers } from './anilist-covers.ts';
 import { MARQUEE, SHOT_FILES, SHOT_IDS } from './captions.ts';
 import { launchBrowser, ROOT, startHarnessServer } from './harness.ts';
 import { pngInfo, toRgbPng } from './png.ts';
@@ -18,8 +21,13 @@ function arg(name: string): string | null {
 
 const onlyLocale = arg('locale');
 const onlyShot = arg('shot');
+const coversMode = arg('covers') ?? process.env.SYNCKAI_SCREENSHOT_COVERS ?? 'anilist';
+if (!isCoversMode(coversMode)) {
+  console.error(`Jaquettes inconnues : « ${coversMode} » (anilist ou placeholder)`);
+  process.exit(1);
+}
 
-const server = await startHarnessServer('screenshots');
+const server = await startHarnessServer('screenshots', [], await loadDemoCovers(coversMode));
 const { base } = server;
 
 const browser = await launchBrowser();

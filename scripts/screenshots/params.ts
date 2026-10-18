@@ -37,12 +37,40 @@ export async function loadedUiLocaleParam(): Promise<Locale> {
   return locale;
 }
 
+/**
+ * Image affichée dans la fenêtre de la page : une image `loading="lazy"` d'un bloc replié (<details> fermé) ou sous le
+ * bord de l'iframe ne se charge jamais
+ */
+function inView(img: HTMLImageElement): boolean {
+  if (!img.checkVisibility()) return false;
+  const box = img.getBoundingClientRect();
+  return box.width > 0 && box.height > 0 && box.bottom > 0 && box.right > 0 && box.top < innerHeight && box.left < innerWidth;
+}
+
+/** Fin du chargement d'une image (vraies jaquettes AniList : distantes) ; échec ou délai dépassé signalés en console */
+function loaded(img: HTMLImageElement, timeoutMs = 20_000): Promise<void> {
+  if (img.complete) return Promise.resolve();
+  return new Promise((resolve) => {
+    const src = (img.currentSrc || img.src).slice(0, 160);
+    const finish = (problem: string | null): void => {
+      clearTimeout(timer);
+      if (problem) console.error(`Image ${problem} : ${src}`);
+      resolve();
+    };
+    const timer = setTimeout(() => finish(`non chargée après ${timeoutMs / 1000} s`), timeoutMs);
+    img.addEventListener('load', () => finish(null), { once: true });
+    img.addEventListener('error', () => finish('en échec'), { once: true });
+  });
+}
+
 /** Signale à la page parente (ou au script de capture) que le rendu est stable */
 export async function markReady(): Promise<void> {
   await document.fonts.ready;
-  // Images affichées seulement : une image `loading="lazy"` d'un bloc replié (<details> fermé) ne se charge jamais
-  const images = [...document.images].filter((img) => img.checkVisibility());
-  await Promise.all(images.map((img) => img.decode().catch(() => undefined)));
+  const images = [...document.images].filter(inView);
+  await Promise.all(images.map(async (img) => {
+    await loaded(img);
+    await img.decode().catch(() => undefined);
+  }));
   // Deux frames : dernières mises en page appliquées
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   document.documentElement.dataset.ready = '1';

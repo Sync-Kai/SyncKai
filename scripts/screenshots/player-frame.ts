@@ -1,5 +1,7 @@
 // Lecteur simulé + VRAIE bulle de la page (src/content/ui) : résultat de synchro ou note de fin de série ;
 // `kind=watch` : lecture en cours, sans bulle (scène de la capture du panneau latéral).
+// `layer` : `all` (lecteur et bulle), `scene` (lecteur seul), `toast` (bulle seule, en bas à gauche, fond transparent :
+// posée par-dessus le lecteur, elle peut déborder de sa carte).
 import { initI18n } from '../../src/i18n';
 import { showEngagementPrompt } from '../../src/content/ui/engagement-prompt';
 import { bubbleForOutcome } from '../../src/content/ui/sync-toast';
@@ -12,6 +14,10 @@ import { loadedLocaleParam, markReady, param, waitFor, type StoreLocale } from '
 type Kind = 'sync' | 'rate' | 'watch';
 const KINDS: readonly Kind[] = ['sync', 'rate', 'watch'];
 const kind: Kind = KINDS.find((k) => k === param('kind')) ?? 'sync';
+type Layer = 'all' | 'scene' | 'toast';
+const LAYERS: readonly Layer[] = ['all', 'scene', 'toast'];
+const layer: Layer = LAYERS.find((l) => l === param('layer')) ?? 'all';
+document.documentElement.classList.toggle('toast-only', layer === 'toast');
 const locale: StoreLocale = await loadedLocaleParam();
 
 const CREDITS_TITLE: Record<StoreLocale, string> = { fr: 'GÉNÉRIQUE DE FIN', en: 'ENDING', de: 'ABSPANN' };
@@ -78,6 +84,9 @@ async function showBubble(): Promise<void> {
   const zoom = Number(param('toastZoom') ?? '1.5');
   (host as HTMLElement).style.zoom = String(zoom);
   const shadow = host.shadowRoot;
+  // Bulle seule : collée au coin bas gauche de la page (sa hauteur varie avec la langue), que l'iframe de la composition
+  // place où il faut
+  if (layer === 'toast' && shadow) shadow.append(Object.assign(document.createElement('style'), { textContent: '.toast { top: auto !important; bottom: 0 !important; right: auto !important; left: 0 !important; }' }));
   await waitFor(() => shadow?.querySelector('.toast.visible'));
 
   if (kind === 'rate' && shadow) {
@@ -89,6 +98,6 @@ async function showBubble(): Promise<void> {
   document.documentElement.dataset.toastTitle = shadow?.querySelector('.title')?.textContent ?? '';
 }
 
-// Lecture en cours (`watch`) : pas de bulle, la scène sert de fond à la capture du panneau latéral
-if (kind !== 'watch') await showBubble();
+// Lecture en cours (`watch`) ou lecteur seul (`scene`) : pas de bulle
+if (kind !== 'watch' && layer !== 'scene') await showBubble();
 await markReady();

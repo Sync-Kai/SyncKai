@@ -17,45 +17,67 @@ Watch anime on Crunchyroll or ADN: SyncKai updates your AniList and MyAnimeList 
 ## Detailed description
 
 ```
-SyncKai keeps your anime list up to date on its own. Start an episode on Crunchyroll or ADN: the extension recognizes the series and saves your progress to AniList and/or MyAnimeList at the start of the credits. No manual input.
+Your anime list updates itself.
 
-Features
-• Auto sync at the start of the credits (Crunchyroll) or at an adjustable percentage (70–98%).
-• AniList and MyAnimeList, together or separately: each account is optional.
-• Side panel, opened on any page from the popup or a shortcut; "Now playing" tab on supported streaming sites: the episode's AniList entry (genres, studio, average score), your live progress ("Sync in 2 min 10"), your actions, sequels with a "Watch" button and a link to the episode discussion.
-• "Schedule" in the side panel, on any page: this week's releases for the series you're watching, with the estimated time on Crunchyroll or ADN (adjustable delay, per series if needed) and the episodes you've already seen ticked off.
-• Crunchyroll, ADN and Netflix history import (Settings; Netflix: anime only): SyncKai reads your history in your browser, shows you a preview, then updates AniList and MyAnimeList in the background. It never goes backwards; when in doubt, it asks you to review instead of writing.
-• Season matching, including absolute numbering (e.g. One Piece) and seasons split across several entries.
-• "To check": when a match is uncertain, you pick the right entry from the popup. Nothing is sent blindly.
-• "Watching": your series in progress, the next episode's date ("Ep. 5 in 18 h"), +1 / −1, and "Open" on Crunchyroll or ADN (SyncKai remembers the ADN series pages you visit; otherwise "Search on ADN").
-• "On this page": on a series or episode page (Crunchyroll, ADN, and Netflix, Disney+ or Prime Video if turned on), the AniList entry of what you are watching; add it to your list or change progress, status and score without leaving the page.
-• One-click status: put on hold, drop or mark as completed, on AniList and MyAnimeList; remove an anime from your list or add a comment to it, from the popup or the side panel.
-• Compare AniList ↔ MyAnimeList: spots differences (progress, status, score, missing series) and aligns them in one click, never automatically.
-• Rating at the end of a series (out of 10, converted to your AniList score format) and rewatch support.
-• New episode alerts: a Chrome notification when an episode is out, with an adjustable delay.
-• Pending syncs: if the network drops, the sync is retried automatically.
-• Keyboard shortcuts: Alt+Shift+K to mark the current episode as watched, Alt+Shift+1 to open or close the side panel, shown and changed in Settings › Shortcuts.
-• Excluded series and on-page notifications (Discreet, Detailed, Alerts only), fullscreen-friendly.
-• Settings by category, with a summary of each setting and quick toggles, in the popup and the side panel.
-• Backup: export / import your settings, matches and history (never your AniList/MAL sign-ins).
-• Diagnostic report (Settings › Help): attach it to a bug report, with no sensitive data.
-• Interface in 21 languages: English, French, German, Spanish (Spain and Latin America), Brazilian Portuguese, Italian, Dutch, Russian, Ukrainian, Polish, Czech, Romanian, Swedish, Turkish, Indonesian, Vietnamese, Chinese (Simplified and Traditional), Korean and Japanese.
+Watch an episode on Crunchyroll or ADN as usual: as soon as the ending credits start, SyncKai saves your progress to AniList and/or MyAnimeList. No more opening your list after every episode.
 
-Supported platforms
-• Crunchyroll
-• ADN (Animation Digital Network)
-• Netflix, optional (Settings › Playback & sync): only anime linked to Netflix on AniList, other titles are ignored
-• Disney+, optional (Settings › Playback & sync): only Japanese anime linked to Disney+ on AniList, other titles are ignored
-• Prime Video, optional (Settings › Playback & sync): anime only (primevideo.com), other titles are ignored
+━━━━━━━━━━━━━━━━━━━━
 
-Tracking services
-• AniList
-• MyAnimeList
+▶ HOW IT WORKS
+1. Connect your AniList account, your MyAnimeList account, or both.
+2. Start an episode on your platform.
+3. At the credits, a small bubble confirms: "Episode 6 saved". Done.
 
-Privacy
-SyncKai has no server. Your data (settings, matches, history, sign-ins) stays in your browser's local storage. The extension reads the current episode page on Crunchyroll/ADN (and Netflix, Disney+ or Prime Video, only if you turn them on: access to netflix.com, disneyplus.com or primevideo.com is then requested), your Crunchyroll, ADN or Netflix history only if you start an import, and only shares your data with AniList and MyAnimeList. Nothing is sent to the developer.
+━━━━━━━━━━━━━━━━━━━━
 
-Source code and issue reports: https://github.com/Sync-Kai/SyncKai
+✦ AUTOMATIC SYNC
+• At the start of the ending credits, or at the percentage you choose (70 to 98%).
+• The right seasons on the right entries, even with continuous numbering (One Piece) or a season split into several parts.
+• When in doubt, nothing is sent blindly: a "To check" card lets you pick the right entry.
+• Network drop? The sync is retried automatically.
+
+✦ THE POPUP
+• "My series": your anime in progress, the next episode ("Ep. 5 in 18 h"), −/+ in one click and a button to resume on your platform.
+• "On this page": the AniList entry of the open series or episode, to add it to your list or change progress, status, rating or your note.
+• A status bar showing the latest sync, an import's progress or a session to reconnect.
+• An account menu: your avatar, your stats (anime, episodes, days watched) and the episodes synced this week.
+
+✦ THE SIDE PANEL
+• "Now playing", next to the video: the episode's entry, your live progress ("Sync in 2 min 10"), sequels to watch and the episode discussion.
+• "Schedule": this week's releases of your series, at the estimated time on your platform. A calendar jumps to any week.
+• Open it on any page, from the popup or with Alt+Shift+1.
+
+✦ IMPORT YOUR HISTORY
+• Crunchyroll, ADN or Netflix: SyncKai reads your history in your browser, shows you a preview, then updates your list.
+• Progress never goes backwards, and every doubt becomes a check instead of a write.
+
+✦ AND ALSO
+• New episode alerts, at the release time on your platform.
+• End-of-series rating with 10 stars (half stars included), converted to your AniList score format; rewatches supported.
+• AniList ↔ MyAnimeList comparison to spot and align differences, only when you decide.
+• Excluded series, Alt+Shift+K to mark the current episode as watched, backup of your settings.
+• Interface in 21 languages.
+
+━━━━━━━━━━━━━━━━━━━━
+
+PLATFORMS
+• Crunchyroll and ADN (Animation Digital Network)
+• Optional, to turn on in Settings: Netflix, Disney+ and Prime Video (anime only, other titles are ignored)
+
+TRACKING SERVICES
+• AniList and MyAnimeList, together or separately
+
+━━━━━━━━━━━━━━━━━━━━
+
+🔒 PRIVACY
+SyncKai has no server. Your settings, history and sign-ins stay in your browser. The extension only reads the current episode page on the supported platforms (Netflix, Disney+ and Prime Video only if you turn them on), your history only if you start an import, and only talks to AniList and MyAnimeList. Nothing is sent to the developer.
+
+━━━━━━━━━━━━━━━━━━━━
+
+LEARN MORE
+• Official website, guide and overview: https://synckai.app/en/
+• What's new in each version: https://synckai.app/en/changelog
+• Source code and bug reports: https://github.com/Sync-Kai/SyncKai
 ```
 
 ## Suggested category

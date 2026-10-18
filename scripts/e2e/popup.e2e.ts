@@ -1609,10 +1609,10 @@ describe('popup › Activité (bout en bout)', () => {
     expect(await attr(page, sel('nav-activity'), 'aria-label')).toBe(tl('fr', 'nav.activityPending_one', { count: 1 }));
     expect(await text(page, '#sk-review-title')).toBe(`${fr('inline.toCheck')} · 1`);
     expect(await attr(page, sel(`cand-${REVIEW_KEY}-178754`), 'aria-pressed')).toBe('true');
-    await click(page, `cand-${REVIEW_KEY}-163132`);
-    await page.waitForSelector(`${sel(`cand-${REVIEW_KEY}-163132`)}[aria-pressed="true"]`);
+    await click(page, `cand-${REVIEW_KEY}-153288`);
+    await page.waitForSelector(`${sel(`cand-${REVIEW_KEY}-153288`)}[aria-pressed="true"]`);
     await click(page, `review-confirm-${REVIEW_KEY}`);
-    expect((await waitForMessage(page, 'RESOLVE_REVIEW')).payload).toEqual({ key: REVIEW_KEY, mediaId: 163132, progress: 5 });
+    expect((await waitForMessage(page, 'RESOLVE_REVIEW')).payload).toEqual({ key: REVIEW_KEY, mediaId: 153288, progress: 5 });
     // Vérification retirée du stockage : la carte reste le temps de lire le résultat, focus sur « Fermer »
     await page.waitForSelector(sel(`review-close-${REVIEW_KEY}`));
     expect(await text(page, '[data-review-feedback]')).toContain('Kaiju No. 8 Season 2');

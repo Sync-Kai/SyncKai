@@ -1,8 +1,8 @@
 /**
  * Identité visuelle « Kai » : génère les SVG à texte puis rastérise tous les visuels en PNG.
  *
- * 1. Polices : WOFF de @fontsource (M PLUS Rounded 1c 800, Nunito 600) décompressés en TTF,
- *    seules polices chargées par resvg (polices système désactivées → rendu identique partout).
+ * 1. Polices : WOFF de @fontsource (M PLUS Rounded 1c 800 latin + sous-ensemble des kana, Nunito 600 et 800) décompressés
+ *    en TTF, seules polices chargées par resvg (polices système désactivées → rendu identique partout).
  * 2. Lockups + tuile promo : texte vectorisé en <path> (aucune dépendance de police à l'affichage),
  *    écrits dans assets/brand/.
  * 3. Rastérisation (@resvg/resvg-js) : icônes de l'extension (public/icons) et visuels du store (docs/store).
@@ -48,6 +48,17 @@ const BODY: FontSpec = {
   family: 'Nunito',
   weight: 600,
   woff: join(FONTSOURCE, 'nunito', 'files', 'nunito-latin-600-normal.woff'),
+};
+/** Kana de la tuile promo (シンカイ, ジドウ) : sous-ensemble [119] de la police (hiragana, katakana), même famille */
+const KANA: FontSpec = {
+  family: 'M PLUS Rounded 1c',
+  weight: 800,
+  woff: join(FONTSOURCE, 'm-plus-rounded-1c', 'files', 'm-plus-rounded-1c-119-800-normal.woff'),
+};
+const EYEBROW: FontSpec = {
+  family: 'Nunito',
+  weight: 800,
+  woff: join(FONTSOURCE, 'nunito', 'files', 'nunito-latin-800-normal.woff'),
 };
 
 // ─── Polices : WOFF 1.0 → SFNT (TTF) ──────────────────────────────────────
@@ -115,9 +126,16 @@ function loadFont(spec: FontSpec, file: string): Font {
 }
 
 mkdirSync(FONT_CACHE, { recursive: true });
-const FONT_FILES = [join(FONT_CACHE, 'm-plus-rounded-1c-800.ttf'), join(FONT_CACHE, 'nunito-600.ttf')];
+const FONT_FILES = [
+  join(FONT_CACHE, 'm-plus-rounded-1c-800.ttf'),
+  join(FONT_CACHE, 'nunito-600.ttf'),
+  join(FONT_CACHE, 'm-plus-rounded-1c-kana-800.ttf'),
+  join(FONT_CACHE, 'nunito-800.ttf'),
+];
 const display = loadFont(DISPLAY, FONT_FILES[0]);
 const body = loadFont(BODY, FONT_FILES[1]);
+const kana = loadFont(KANA, FONT_FILES[2]);
+const eyebrowFont = loadFont(EYEBROW, FONT_FILES[3]);
 
 const RENDER_FONTS: ResvgRenderOptions['font'] = {
   loadSystemFonts: false,
@@ -231,40 +249,141 @@ function lockup(theme: WordmarkTheme, taglineColor: string, idPrefix: string): s
   ].join('\n'));
 }
 
-/** Petite tuile promo du Chrome Web Store (440 × 280) : fond marine de la tuile Kai, icône, logotype, accroche. */
+// ─── Petite tuile promo (direction C « Duo / éditorial », comme les captures du Store) ───
+
+/** Jetons de la charte (src/ui/theme.css) et des captures (scripts/screenshots/banner.css) */
+const C = { ground: '#16131F', stage: '#1B1726', watermark: '#241E34', line: '#3D3554', ink: '#F4EFFA', muted: '#B3A9C9', lavender: '#B9A4FF', sakura: '#FF8FB8' };
+
+/** Kai « ravi » du lockup des captures (petit dessin de src/ui/kai-small.ts, sans tuile), repère 320 */
+function smallKai(idPrefix: string, x: number, y: number, size: number): string {
+  const id = (name: string): string => `${idPrefix}${name}`;
+  return [
+    `<svg x="${round(x)}" y="${round(y)}" width="${size}" height="${size}" viewBox="0 0 320 320" overflow="visible">`,
+    `<defs><radialGradient id="${id('H')}" cx="132" cy="132" r="180" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.5" stop-color="#F4F6FF"/><stop offset="1" stop-color="#C9CFF5"/></radialGradient>`,
+    `<linearGradient id="${id('L')}" x1="72" y1="146" x2="118" y2="44" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8A6BFF"/><stop offset="1" stop-color="#46D6FF"/></linearGradient>`,
+    `<linearGradient id="${id('R')}" x1="248" y1="146" x2="206" y2="62" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#46D6FF"/><stop offset="1" stop-color="#8A6BFF"/></linearGradient></defs>`,
+    `<path d="M76 146 C40 122 32 86 54 62 C68 47 86 44 100 46" fill="none" stroke="url(#${id('L')})" stroke-width="28" stroke-linecap="round"/>`,
+    `<path d="M94 20 L134 47 L96 74 Z" fill="#46D6FF" stroke="#46D6FF" stroke-width="8" stroke-linejoin="round"/>`,
+    `<path d="M244 146 C282 124 290 98 276 80 C264 64 246 60 230 62" fill="none" stroke="url(#${id('R')})" stroke-width="28" stroke-linecap="round"/>`,
+    `<path d="M236 35 L194 64 L234 91 Z" fill="#8A6BFF" stroke="#8A6BFF" stroke-width="8" stroke-linejoin="round"/>`,
+    `<path d="M160 98 C234 98 280 134 280 188 C280 242 234 278 160 278 C86 278 40 242 40 188 C40 134 86 98 160 98 Z" fill="url(#${id('H')})"/>`,
+    `<ellipse cx="42" cy="192" rx="16" ry="30" fill="#5FE3FF"/><ellipse cx="278" cy="192" rx="16" ry="30" fill="#5FE3FF"/>`,
+    `<path d="M160 126 C216 126 252 150 252 192 C252 234 216 260 160 260 C104 260 68 234 68 192 C68 150 104 126 160 126 Z" fill="#121633"/>`,
+    `<path d="M92 196 Q106 168 120 196" fill="none" stroke="#5FE3FF" stroke-width="16" stroke-linecap="round"/>`,
+    `<path d="M200 196 Q214 168 228 196" fill="none" stroke="#5FE3FF" stroke-width="16" stroke-linecap="round"/>`,
+    `<ellipse cx="86" cy="223" rx="13" ry="7" fill="#FF7FB0"/><ellipse cx="234" cy="223" rx="13" ry="7" fill="#FF7FB0"/>`,
+    `<path d="M146 206 Q160 212 174 206 Q172 228 160 228 Q148 228 146 206 Z" fill="#FF7FB0"/>`,
+    `</svg>`,
+  ].join('');
+}
+
+/** Logos embarqués (public/brands) en data: URI, coins arrondis comme dans les captures */
+const LOGOS = ['crunchyroll.png', 'adn.png', 'netflix.png', 'disney.png', 'prime.png', 'anilist.png', 'myanimelist.svg'] as const;
+
+function logo(file: (typeof LOGOS)[number], x: number, y: number, size: number): string {
+  const type = file.endsWith('.svg') ? 'image/svg+xml' : 'image/png';
+  const data = readFileSync(join(ROOT, 'public', 'brands', file)).toString('base64');
+  const id = `promo-logo-${file.split('.')[0]}`;
+  return (
+    `<clipPath id="${id}"><rect x="${round(x)}" y="${round(y)}" width="${size}" height="${size}" rx="${round(size * 0.28)}"/></clipPath>` +
+    `<image x="${round(x)}" y="${round(y)}" width="${size}" height="${size}" clip-path="url(#${id})" href="data:${type};base64,${data}"/>`
+  );
+}
+
+/**
+ * Petite tuile promo du Chrome Web Store (440 × 280), direction C des captures : dos avec le kana ジドウ (自動,
+ * « automatique ») en filigrane et filet, lockup, surtitre + kana sakura, titre (un mot en lavande), filet, rangée de
+ * logos (plateformes → AniList / MAL), et à droite la surface plus claire avec son disque et l'icône Kai.
+ */
 function promo(): string {
   const [width, height] = [440, 280];
-  const iconArt = 128; // taille visible de la tuile (kai-icon.svg : 96 sur 128)
-  const iconBox = (iconArt * 128) / 96;
-  const gap = 26;
-  const markSize = 50;
-  const markLine = (60 * markSize) / 56;
-  const taglineSize = 16;
-  const taglineLine = 22;
-  // Tuile promo commune à toutes les langues du Store : en anglais (comme la tuile 1400×560)
-  const lines = ['Your anime list,', 'on autopilot'];
-  const taglineRuns = lines.map((text): TextRun => ({ text, font: body, size: taglineSize }));
+  const spine = 56;
+  const textX = 80;
+  const watermark = 'ジドウ';
 
-  const columnHeight = markLine + 10 + lines.length * taglineLine;
-  const probe = wordmark(DARK, 'probe-', 0, 0, markSize);
-  const columnWidth = Math.max(probe.right, ...taglineRuns.map(advance));
-  const left = (width - (iconArt + gap + columnWidth)) / 2;
-  const textX = left + iconArt + gap;
-  const top = (height - columnHeight) / 2;
-  const mark = wordmark(DARK, 'promo-', textX, top, markSize);
+  // Dos : kana empilés (écriture verticale), coupés par le bord gauche
+  const kanaSize = 50;
+  const spineKana = [...watermark].map(
+    (char, i) => `<path fill="${C.watermark}" d="${outline({ text: char, font: kana, size: kanaSize }, 3, baseline(display, kanaSize, kanaSize, 22 + i * (kanaSize + 6)))}"/>`,
+  );
+
+  // Lockup : Kai, « SyncKai », « シンカイ » (lignes de base communes)
+  const lockTop = 24;
+  const kaiSize = 22;
+  const nameRun: TextRun = { text: 'SyncKai', font: display, size: 15, letterSpacing: -0.2 };
+  const nameX = textX + kaiSize + 7;
+  const lockBase = baseline(display, 15, kaiSize, lockTop);
+  const lockupSvg = [
+    smallKai('promo-kai-', textX, lockTop, kaiSize),
+    `<path fill="${C.ink}" d="${outline(nameRun, nameX, lockBase)}"/>`,
+    `<path fill="${C.muted}" d="${outline({ text: 'シンカイ', font: kana, size: 9 }, nameX + advance(nameRun) + 6, lockBase)}"/>`,
+  ];
+
+  // Surtitre (majuscules espacées) + kana sakura
+  const eyebrowTop = 78;
+  const eyebrowRun: TextRun = { text: 'ANIME TRACKING', font: eyebrowFont, size: 10, letterSpacing: 1.2 };
+  const eyebrowBase = baseline(eyebrowFont, 10, 12, eyebrowTop);
+  const eyebrowSvg = [
+    `<path fill="${C.muted}" d="${outline(eyebrowRun, textX, eyebrowBase)}"/>`,
+    `<path fill="${C.sakura}" d="${outline({ text: watermark, font: kana, size: 11, letterSpacing: 0.4 }, textX + advance(eyebrowRun) + 6, eyebrowBase)}"/>`,
+  ];
+
+  // Titre sur deux lignes, « autopilot » en lavande
+  const titleSize = 25;
+  const titleLine = 29;
+  const titleTop = eyebrowTop + 24;
+  const run = (text: string): TextRun => ({ text, font: display, size: titleSize, letterSpacing: -0.3 });
+  const line2 = titleTop + titleLine;
+  const titleSvg = [
+    `<path fill="${C.ink}" d="${outline(run('Your anime list,'), textX, baseline(display, titleSize, titleLine, titleTop))}"/>`,
+    `<path fill="${C.ink}" d="${outline(run('on'), textX, baseline(display, titleSize, titleLine, line2))}"/>`,
+    `<path fill="${C.lavender}" d="${outline(run('autopilot'), textX + advance(run('on ')), baseline(display, titleSize, titleLine, line2))}"/>`,
+  ];
+  const titleRight = textX + Math.max(advance(run('Your anime list,')), advance(run('on autopilot')));
+  const ruleTop = line2 + titleLine + 14;
+
+  // Rangée de logos : cinq plateformes → AniList, MyAnimeList
+  const logoSize = 20;
+  const gap = 7;
+  const logoTop = height - 26 - logoSize;
+  let x = textX;
+  const logos: string[] = [];
+  for (const file of LOGOS.slice(0, 5)) {
+    logos.push(logo(file, x, logoTop, logoSize));
+    x += logoSize + gap;
+  }
+  logos.push(
+    `<g transform="translate(${round(x + 2)} ${logoTop}) scale(${round(logoSize / 24)})" fill="none" stroke="${C.muted}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></g>`,
+  );
+  x += logoSize + 4 + gap;
+  for (const file of LOGOS.slice(5)) {
+    logos.push(logo(file, x, logoTop, logoSize));
+    x += logoSize + gap;
+  }
+  const textRight = Math.max(titleRight, x - gap);
+
+  // Surface de droite, disque et Kai
+  const stageX = Math.round(textRight + 18);
+  const discR = 70;
+  const discX = stageX + discR + 4;
+  const discY = 142;
+  const iconArt = 76; // taille visible de la tuile (kai-icon.svg : 96 sur 128)
+  const iconBox = (iconArt * 128) / 96;
 
   return svgDocument(width, height, 'SyncKai – Your anime list, on autopilot', [
-    `<defs>`,
-    `<radialGradient id="promo-bg" cx="150" cy="110" r="380" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2A3590"/><stop offset="0.5" stop-color="#1F2A66"/><stop offset="1" stop-color="#141A3D"/></radialGradient>`,
-    `<radialGradient id="promo-glow" cx="${round(left + iconArt / 2)}" cy="140" r="150" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7C5CFF" stop-opacity="0.35"/><stop offset="1" stop-color="#46D6FF" stop-opacity="0"/></radialGradient>`,
-    `</defs>`,
-    `<rect width="${width}" height="${height}" fill="url(#promo-bg)"/>`,
-    `<rect width="${width}" height="${height}" fill="url(#promo-glow)"/>`,
-    embed('kai-icon.svg', 'promo-', left - (iconBox - iconArt) / 2, (height - iconBox) / 2, round(iconBox)),
-    mark.svg,
-    ...taglineRuns.map(
-      (run, i) => `<path fill="#C9CFF5" d="${outline(run, textX, baseline(body, taglineSize, taglineLine, top + markLine + 10 + i * taglineLine))}"/>`,
-    ),
+    `<defs><radialGradient id="promo-disc" cx="${round(discX - discR * 0.2)}" cy="${round(discY - discR * 0.3)}" r="${round(discR * 1.6)}" gradientUnits="userSpaceOnUse">` +
+      `<stop offset="0" stop-color="#2E2744"/><stop offset="0.6" stop-color="#241E35"/><stop offset="1" stop-color="#1F1A2D"/></radialGradient></defs>`,
+    `<rect width="${width}" height="${height}" fill="${C.ground}"/>`,
+    `<rect x="${stageX}" width="${width - stageX}" height="${height}" fill="${C.stage}"/>`,
+    `<circle cx="${round(discX)}" cy="${discY}" r="${discR}" fill="url(#promo-disc)"/>`,
+    embed('kai-icon.svg', 'promo-', discX - iconBox / 2, discY - iconBox / 2, round(iconBox)),
+    ...spineKana,
+    `<rect x="${spine}" y="20" width="1" height="${height - 40}" fill="${C.line}"/>`,
+    ...lockupSvg,
+    ...eyebrowSvg,
+    ...titleSvg,
+    `<rect x="${textX}" y="${ruleTop}" width="40" height="3" rx="1.5" fill="${C.line}"/>`,
+    ...logos,
   ].join('\n'));
 }
 

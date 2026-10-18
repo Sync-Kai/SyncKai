@@ -1,4 +1,15 @@
-// Jaquettes de remplacement (aucune image protégée) : duotone abstrait dans la palette du thème.
+// Jaquettes des données de démo. Captures du Store (`npm run screenshots`, décision du 2026-10-18) : vraies jaquettes et
+// bannières AniList des fiches de démo, lues par anilist-covers.ts et injectées par le serveur du harnais
+// (__SYNCKAI_DEMO_COVERS__). Repli, et seul rendu des tests de bout en bout et de la galerie : duotone abstrait dans la
+// palette du thème (aucune image protégée), aussi pour une fiche sans image sur AniList.
+import type { DemoCovers, DemoMediaId } from './demo-media';
+
+declare const __SYNCKAI_DEMO_COVERS__: DemoCovers | null;
+
+/** Jaquettes réelles injectées par le serveur ; null hors captures (ou mode `placeholder`, AniList injoignable) */
+const REAL: DemoCovers | null = typeof __SYNCKAI_DEMO_COVERS__ === 'undefined' ? null : __SYNCKAI_DEMO_COVERS__;
+
+const real = (id: DemoMediaId | undefined): DemoCovers[string] | null => (id === undefined ? null : (REAL?.[String(id)] ?? null));
 
 export type CoverMotif = 'sun' | 'moon' | 'wave' | 'peaks' | 'rings' | 'bolt';
 
@@ -27,10 +38,17 @@ function motif(spec: CoverSpec): string {
   }
 }
 
-/** Data URI d'une jaquette 2:3 */
-export function coverUrl(spec: CoverSpec): string {
+/** Jaquette 2:3 : celle de la fiche AniList `id` si les vraies jaquettes sont injectées, sinon data URI de remplacement */
+export function coverUrl(spec: CoverSpec, id?: DemoMediaId): string {
+  const image = real(id)?.cover;
+  if (image) return image;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 90" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="g" x1="0" y1="0" x2=".6" y2="1"><stop offset="0" stop-color="${spec.from}"/><stop offset="1" stop-color="${spec.to}"/></linearGradient><radialGradient id="v" cx=".5" cy=".4" r=".8"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient></defs><rect width="60" height="90" fill="url(#g)"/>${motif(spec)}<rect width="60" height="90" fill="url(#v)"/></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/** Couleur dominante de la jaquette réelle de `id`, sinon `fallback` */
+export function coverColor(fallback: string, id?: DemoMediaId): string {
+  return real(id)?.color ?? fallback;
 }
 
 /** Avatar à initiale (aucun avatar réel) */
@@ -39,8 +57,10 @@ export function avatarUrl(letter: string, from: string, to: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-/** Bannière panoramique (fiche du panneau latéral) : paysage abstrait, aucune image protégée */
-export function bannerUrl(spec: Omit<CoverSpec, 'motif'>): string {
+/** Bannière panoramique (fiche du panneau latéral) : celle de la fiche AniList `id`, sinon paysage abstrait de remplacement */
+export function bannerUrl(spec: Omit<CoverSpec, 'motif'>, id?: DemoMediaId): string {
+  const image = real(id)?.banner;
+  if (image) return image;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="s" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${spec.from}"/><stop offset="1" stop-color="${spec.to}"/></linearGradient></defs><rect width="400" height="120" fill="url(#s)"/><circle cx="300" cy="44" r="22" fill="${spec.accent}" opacity=".85"/><g fill="#fff" opacity=".7"><circle cx="40" cy="20" r="1.2"/><circle cx="120" cy="34" r="1"/><circle cx="210" cy="14" r="1.1"/><circle cx="360" cy="18" r=".9"/></g><path d="M0 92 L60 58 L100 78 L160 40 L220 80 L270 62 L330 86 L400 60 V120 H0Z" fill="#000" opacity=".28"/><path d="M0 104 Q80 86 160 100 T320 96 T400 92 V120 H0Z" fill="#000" opacity=".35"/></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }

@@ -17,45 +17,67 @@ Schau deine Animes auf Crunchyroll oder ADN: SyncKai aktualisiert deine AniList-
 ## Ausführliche Beschreibung
 
 ```
-SyncKai hält deine Anime-Liste automatisch aktuell. Starte eine Folge auf Crunchyroll oder ADN: Die Erweiterung erkennt die Serie und speichert deinen Fortschritt zu Beginn des Abspanns auf AniList und/oder MyAnimeList. Ganz ohne manuelle Eingabe.
+Deine Anime-Liste aktualisiert sich von selbst.
 
-Funktionen
-• Automatische Synchronisierung zu Beginn des Abspanns (Crunchyroll) oder bei einem einstellbaren Prozentsatz (70–98 %).
-• AniList und MyAnimeList, zusammen oder einzeln: Jedes Konto ist optional.
-• Seitenleiste, auf jeder Seite über das Popup oder ein Tastenkürzel zu öffnen; Bereich „Läuft gerade“ auf den unterstützten Streaming-Seiten: der AniList-Eintrag der Folge (Genres, Studio, Durchschnittswertung), dein Live-Fortschritt („Sync in 2 Min. 10“), deine Aktionen, Fortsetzungen mit „Ansehen“-Button und ein Link zur Diskussion der Folge.
-• „Zeitplan“ in der Seitenleiste, auf jeder Seite: die Folgen dieser Woche für deine laufenden Serien, mit geschätzter Uhrzeit auf Crunchyroll oder ADN (einstellbare Verzögerung, auch pro Serie) und abgehakten, bereits gesehenen Folgen.
-• Import des Crunchyroll-, ADN- oder Netflix-Verlaufs (Einstellungen; Netflix: nur Animes): SyncKai liest deinen Verlauf in deinem Browser, zeigt dir eine Vorschau und aktualisiert dann AniList und MyAnimeList im Hintergrund. Nie rückwärts; im Zweifel eine Prüfung statt eines Eintrags.
-• Zuordnung der Staffeln, auch bei absoluter Nummerierung (z. B. One Piece) und bei Staffeln, die auf mehrere Einträge verteilt sind.
-• „Zu prüfen“: Ist eine Zuordnung unsicher, wählst du den richtigen Eintrag im Popup. Nichts wird blind gesendet.
-• „Schaue ich“: deine laufenden Serien, das Datum der nächsten Folge („Folge 5 in 18 h“), +1 / −1 und „Öffnen“ auf Crunchyroll oder ADN (SyncKai merkt sich besuchte ADN-Serienseiten; sonst „Auf ADN suchen“).
-• „Auf dieser Seite“: Auf einer Serien- oder Folgenseite (Crunchyroll, ADN sowie Netflix, Disney+ oder Prime Video, wenn aktiviert) der AniList-Eintrag zu dem, was du schaust; zur Liste hinzufügen oder Fortschritt, Status und Bewertung ändern, ohne die Seite zu verlassen.
-• Status mit einem Klick: pausieren, abbrechen oder als abgeschlossen markieren, auf AniList und MyAnimeList; einen Anime aus deiner Liste entfernen oder einen Kommentar hinzufügen, im Popup wie in der Seitenleiste.
-• AniList ↔ MyAnimeList vergleichen: findet Abweichungen (Fortschritt, Status, Bewertung, fehlende Serien) und gleicht sie mit einem Klick ab, nie automatisch.
-• Bewertung am Ende einer Serie (von 10, umgerechnet in dein AniList-Bewertungsformat) und Unterstützung für erneutes Anschauen.
-• Benachrichtigungen bei neuen Folgen: Chrome-Benachrichtigung beim Erscheinen, mit einstellbarer Verzögerung.
-• Ausstehende Synchronisierungen: Bei Netzwerkausfall wird automatisch erneut versucht.
-• Tastenkürzel: Alt+Umschalt+K, um die aktuelle Folge abzuschließen, Alt+Umschalt+1, um die Seitenleiste zu öffnen oder zu schließen, einsehbar und änderbar unter Einstellungen › Tastenkürzel.
-• Ausgeschlossene Serien und Benachrichtigungen auf der Seite (Dezent, Ausführlich, Nur Warnungen), vollbildtauglich.
-• Einstellungen nach Kategorien, mit Zusammenfassung jeder Einstellung und Schnellschaltern, im Popup wie in der Seitenleiste.
-• Sicherung: Export / Import deiner Einstellungen, Zuordnungen und deines Verlaufs (niemals deine AniList-/MAL-Anmeldungen).
-• Diagnosebericht (Einstellungen › Hilfe): für Fehlermeldungen, ohne sensible Daten.
-• Oberfläche in 21 Sprachen: Deutsch, Englisch, Französisch, Spanisch (Spanien und Lateinamerika), brasilianisches Portugiesisch, Italienisch, Niederländisch, Russisch, Ukrainisch, Polnisch, Tschechisch, Rumänisch, Schwedisch, Türkisch, Indonesisch, Vietnamesisch, Chinesisch (vereinfacht und traditionell), Koreanisch und Japanisch.
+Schau eine Folge auf Crunchyroll oder ADN wie gewohnt: Sobald der Abspann beginnt, speichert SyncKai deinen Fortschritt auf AniList und/oder MyAnimeList. Du musst deine Liste nicht mehr nach jeder Folge öffnen.
 
-Unterstützte Plattformen
-• Crunchyroll
-• ADN (Animation Digital Network)
-• Netflix, optional (Einstellungen › Wiedergabe & Sync): nur Animes, die auf AniList mit Netflix verknüpft sind, andere Titel werden ignoriert
-• Disney+, optional (Einstellungen › Wiedergabe & Sync): nur japanische Animes, die auf AniList mit Disney+ verknüpft sind, andere Titel werden ignoriert
-• Prime Video, optional (Einstellungen › Wiedergabe & Sync): nur Animes (primevideo.com), andere Titel werden ignoriert
+━━━━━━━━━━━━━━━━━━━━
 
-Tracking-Dienste
-• AniList
-• MyAnimeList
+▶ SO FUNKTIONIERT'S
+1. Verbinde dein AniList-Konto, dein MyAnimeList-Konto oder beide.
+2. Starte eine Folge auf deiner Plattform.
+3. Beim Abspann bestätigt eine kleine Blase: „Folge 6 gespeichert“. Fertig.
 
-Datenschutz
-SyncKai hat keinen Server. Deine Daten (Einstellungen, Zuordnungen, Verlauf, Anmeldungen) bleiben im lokalen Speicher deines Browsers. Die Erweiterung liest die Seite der aktuellen Folge auf Crunchyroll/ADN (und Netflix, Disney+ oder Prime Video, nur wenn du sie aktivierst: Der Zugriff auf netflix.com, disneyplus.com oder primevideo.com wird dann angefragt), deinen Crunchyroll-, ADN- oder Netflix-Verlauf nur, wenn du einen Import startest, und teilt deine Daten nur mit AniList und MyAnimeList. Nichts wird an den Entwickler gesendet.
+━━━━━━━━━━━━━━━━━━━━
 
-Quellcode und Fehlermeldungen: https://github.com/Sync-Kai/SyncKai
+✦ AUTOMATISCHE SYNCHRONISIERUNG
+• Zu Beginn des Abspanns oder bei einem Prozentsatz deiner Wahl (70 bis 98 %).
+• Die richtigen Staffeln auf den richtigen Einträgen, auch bei durchgehender Nummerierung (One Piece) oder einer in mehrere Teile aufgeteilten Staffel.
+• Im Zweifel wird nichts aufs Geratewohl gesendet: Eine Karte „Zu prüfen“ lässt dich den richtigen Eintrag wählen.
+• Netzwerk weg? Die Synchronisierung wird automatisch erneut versucht.
+
+✦ DAS POPUP
+• „Meine Serien“: deine laufenden Animes, die nächste Folge („Folge 5 in 18 Std.“), −/+ mit einem Klick und eine Schaltfläche zum Weiterschauen auf deiner Plattform.
+• „Auf dieser Seite“: der AniList-Eintrag der geöffneten Serie oder Folge, um ihn zu deiner Liste hinzuzufügen oder Fortschritt, Status, Bewertung oder Notiz zu ändern.
+• Eine Statusleiste mit der letzten Synchronisierung, dem Fortschritt eines Imports oder einer Sitzung, die neu verbunden werden muss.
+• Ein Kontomenü: dein Avatar, deine Statistiken (Animes, Folgen, Tage geschaut) und die diese Woche synchronisierten Folgen.
+
+✦ DIE SEITENLEISTE
+• „Läuft gerade“, neben dem Video: der Eintrag der Folge, dein Fortschritt live („Sync in 2 Min. 10“), Fortsetzungen zum Anschauen und die Diskussion zur Folge.
+• „Zeitplan“: die Veröffentlichungen deiner Serien in dieser Woche, zur geschätzten Uhrzeit auf deiner Plattform. Ein Kalender springt zu jeder beliebigen Woche.
+• Öffne sie auf jeder Seite, über das Popup oder mit Alt+Umschalt+1.
+
+✦ IMPORTIERE DEINEN VERLAUF
+• Crunchyroll, ADN oder Netflix: SyncKai liest deinen Verlauf in deinem Browser, zeigt dir eine Vorschau und aktualisiert dann deine Liste.
+• Ein Fortschritt geht nie zurück, und jeder Zweifel wird zu einer Prüfung statt zu einem Schreibvorgang.
+
+✦ UND AUSSERDEM
+• Benachrichtigungen bei neuen Folgen, zur Veröffentlichungszeit auf deiner Plattform.
+• Bewertung am Serienende mit 10 Sternen (halbe Sterne inklusive), umgerechnet in das Bewertungsformat deines AniList-Profils; erneutes Anschauen wird unterstützt.
+• Vergleich AniList ↔ MyAnimeList, um Abweichungen zu finden und anzugleichen, nur wenn du es willst.
+• Ausgeschlossene Serien, Alt+Umschalt+K, um die aktuelle Folge als gesehen zu markieren, Sicherung deiner Einstellungen.
+• Oberfläche in 21 Sprachen.
+
+━━━━━━━━━━━━━━━━━━━━
+
+PLATTFORMEN
+• Crunchyroll und ADN (Animation Digital Network)
+• Optional, in den Einstellungen zu aktivieren: Netflix, Disney+ und Prime Video (nur Animes, andere Titel werden ignoriert)
+
+TRACKING-DIENSTE
+• AniList und MyAnimeList, zusammen oder einzeln
+
+━━━━━━━━━━━━━━━━━━━━
+
+🔒 DATENSCHUTZ
+SyncKai hat keinen Server. Deine Einstellungen, dein Verlauf und deine Anmeldungen bleiben in deinem Browser. Die Erweiterung liest nur die Seite der aktuellen Folge auf den unterstützten Plattformen (Netflix, Disney+ und Prime Video nur, wenn du sie aktivierst), deinen Verlauf nur, wenn du einen Import startest, und spricht nur mit AniList und MyAnimeList. Nichts wird an den Entwickler gesendet.
+
+━━━━━━━━━━━━━━━━━━━━
+
+MEHR ERFAHREN
+• Offizielle Website, Anleitung und Überblick: https://synckai.app/de/
+• Neuigkeiten jeder Version: https://synckai.app/de/changelog
+• Quellcode und Fehlermeldungen: https://github.com/Sync-Kai/SyncKai
 ```
 
 ## Vorgeschlagene Kategorie

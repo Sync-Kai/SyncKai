@@ -119,7 +119,8 @@ body {
   inset: 0 auto 0 0;
   width: var(--progress, 96%);
   border-radius: 2px;
-  background: #ff8fb8;
+  /* Blanc neutre : le seul accent sakura de la capture est le kana du surtitre */
+  background: rgba(255, 255, 255, 0.9);
 }
 .bar-knob {
   position: absolute;
@@ -130,7 +131,6 @@ body {
   margin: -6px 0 0 -6px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(255, 143, 184, 0.35);
 }
 .row {
   display: flex;
@@ -159,4 +159,16 @@ body {
 }
 .watch .dim {
   opacity: 0.35;
+}
+
+/* Bulle seule (`layer=toast`) : ni lecteur ni fond, la composition la pose par-dessus la carte du lecteur */
+.toast-only,
+.toast-only body {
+  background: transparent;
+}
+.toast-only .scene,
+.toast-only .credits,
+.toast-only .top,
+.toast-only .controls {
+  display: none;
 }

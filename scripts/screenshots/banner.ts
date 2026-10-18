@@ -1,20 +1,19 @@
-// Composition d'une capture 1280×800 (ou de la tuile promo 1400×560, `?shot=marquee`) :
-// légende + vraie UI (popup ou bulle sur lecteur) dans des iframes.
-import kaiIcon from '../../assets/brand/kai-icon-32.svg?url';
-import lockup from '../../assets/brand/kai-lockup-dark.svg?url';
-import { CAPTIONS, MARQUEE, SHOT_IDS, type Caption } from './captions';
+// Composition d'une capture 1280×800 (ou de la tuile promo 1400×560, `?shot=marquee`), direction C « Duo / éditorial » :
+// dos avec kana, colonne de texte, vraie UI (popup, panneau, page d'import, bulle sur lecteur) en carte flottante.
+import { kai } from '../../src/ui/icons';
+import { PLATFORMS } from '../../src/platforms/registry';
+import { CAPTIONS, KANA, MARQUEE, SHOT_IDS } from './captions';
 import { localeParam, markReady, param, waitFor } from './params';
 
 const marquee = param('shot') === 'marquee';
 const shot = SHOT_IDS.find((s) => String(s) === param('shot')) ?? 1;
 // La tuile promo n'est pas localisable sur le Store : toujours en anglais
 const locale = marquee ? 'en' : localeParam();
-const caption: Caption = CAPTIONS[locale][shot];
 const canvas = document.querySelector<HTMLElement>('#canvas');
 if (!canvas) throw new Error('#canvas introuvable');
 document.documentElement.lang = locale;
 
-const POPUP = { width: 400, height: 580, zoom: 1.2 };
+const POPUP = { width: 400, height: 580 };
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, style: Partial<CSSStyleDeclaration> = {}): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -25,28 +24,84 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, st
 
 const px = (n: number): string => `${n}px`;
 
-/** Titre avec mot(s) mis en valeur entre astérisques */
+/** Boîte positionnée : gauche, haut, largeur, hauteur */
+interface Box {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+const place = (box: Box): Partial<CSSStyleDeclaration> => ({ left: px(box.left), top: px(box.top), width: px(box.width), height: px(box.height) });
+
+/** Dos : kana vertical en filigrane, coupé par le bord gauche, et filet qui le sépare de la colonne de texte */
+function spine(kana: string): HTMLElement[] {
+  const box = el('div', 'spine');
+  box.setAttribute('aria-hidden', 'true');
+  const text = el('div', 'spine-kana');
+  text.textContent = kana;
+  box.append(text);
+  return [box, el('div', 'spine-rule')];
+}
+
+/** Surface de droite et disque derrière l'UI ; `discTop` : disque remonté (et rogné par le haut) */
+function stage(discTop?: number): HTMLElement[] {
+  return [el('div', 'stage'), el('div', 'disc', discTop === undefined ? {} : { top: px(discTop) })];
+}
+
+/** Lockup : Kai, « SyncKai », kana de la marque */
+function lockup(): HTMLElement {
+  const box = el('div', 'lockup');
+  const name = el('span', 'lockup-name');
+  name.textContent = 'SyncKai';
+  const kana = el('span', 'lockup-kana');
+  kana.textContent = 'シンカイ';
+  box.append(kai('', { size: 'small', expression: 'happy' }), name, kana);
+  return box;
+}
+
+/** Titre : `\n` = retour à la ligne, `*mot*` = mise en valeur (peut couvrir un retour à la ligne) */
 function headline(text: string): HTMLElement {
   const h1 = el('h1', 'headline');
   text.split(/(\*[^*]+\*)/).forEach((part) => {
     if (!part) return;
-    if (part.startsWith('*')) {
-      const span = el('span', 'accent');
-      span.textContent = part.slice(1, -1);
-      h1.append(span);
-    } else h1.append(part);
+    const accent = part.startsWith('*');
+    const target = accent ? el('span', 'accent') : h1;
+    (accent ? part.slice(1, -1) : part).split('\n').forEach((line, i) => {
+      if (i > 0) target.append(document.createElement('br'));
+      if (line) target.append(line);
+    });
+    if (accent) h1.append(target);
   });
   return h1;
 }
 
-function copy(width: number, compact = false): HTMLElement {
-  const box = el('div', compact ? 'copy compact' : 'copy', { width: px(width) });
-  const eyebrow = el('span', 'eyebrow');
-  eyebrow.textContent = caption.eyebrow;
+/** Colonne de texte : surtitre + kana sakura, titre, filet, sous-titre */
+function copy(text: { eyebrow: string; kana: string; title: string; sub: string }): HTMLElement {
+  const box = el('div', 'copy');
+  const eyebrow = el('div', 'eyebrow');
+  const label = el('span', '');
+  label.textContent = text.eyebrow;
+  const kana = el('span', 'eyebrow-kana');
+  kana.textContent = text.kana;
+  eyebrow.append(label, kana);
   const sub = el('p', 'sub');
-  sub.textContent = caption.sub;
-  box.append(eyebrow, headline(caption.title), sub);
+  sub.textContent = text.sub;
+  box.append(eyebrow, headline(text.title), el('div', 'rule'), sub);
   return box;
+}
+
+const ARROW =
+  '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="#b3a9c9" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>';
+
+/** Rangée de logos : les cinq plateformes → AniList / MyAnimeList (public/brands) */
+function serviceFlow(): HTMLElement {
+  const row = el('div', 'services');
+  const logo = (src: string, alt: string): HTMLImageElement => Object.assign(el('img', ''), { src, alt });
+  row.append(...(['crunchyroll', 'adn', 'netflix', 'disney', 'prime'] as const).map((p) => logo(PLATFORMS[p].icon, PLATFORMS[p].label)));
+  row.insertAdjacentHTML('beforeend', ARROW);
+  row.append(logo('/brands/anilist.png', 'AniList'), logo('/brands/myanimelist.svg', 'MyAnimeList'));
+  return row;
 }
 
 function frame(src: string, width: number, height: number): HTMLIFrameElement {
@@ -55,209 +110,85 @@ function frame(src: string, width: number, height: number): HTMLIFrameElement {
   return iframe;
 }
 
-const popupSrc = (scenario: string, zoom = POPUP.zoom): string => `./popup.html?locale=${locale}&scenario=${scenario}&zoom=${zoom}`;
-
-/** Barre d'outils minimale : icône Kai mise en avant (le popup en descend) */
-function toolbar(left: number, top: number, width: number, badge: string | null): { node: HTMLElement; kaiCenter: number } {
-  const bar = el('div', 'toolbar', { left: px(left), top: px(top), width: px(width) });
-  const dots = el('div', 'dots');
-  dots.append(el('i', ''), el('i', ''), el('i', ''));
-  const omni = el('div', 'omnibox');
-  omni.append(el('b', '', { width: '34%' }));
-  const puzzle = el('span', 'ext');
-  puzzle.innerHTML =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M10 4a2 2 0 1 1 4 0v2h4v4h-2a2 2 0 1 0 0 4h2v4h-4v-2a2 2 0 1 0-4 0v2H6v-4h2a2 2 0 1 0 0-4H6V6h4z"/></svg>';
-  const kai = el('span', 'ext kai');
-  const img = el('img', '');
-  img.src = kaiIcon;
-  img.alt = '';
-  kai.append(img);
-  if (badge) {
-    const b = el('span', 'badge');
-    b.textContent = badge;
-    kai.append(b);
-  }
-  bar.append(dots, omni, puzzle, kai);
-  // Icône Kai : dernier élément, padding droit 14 px, 34 px de large
-  return { node: bar, kaiCenter: left + width - 14 - 17 };
-}
-
-function popupWindow(scenario: string, right: number, top: number, badge: string | null): HTMLElement[] {
-  const w = POPUP.width * POPUP.zoom;
-  const h = POPUP.height * POPUP.zoom;
-  const bar = toolbar(600, 22, 1240 - 600, badge);
-  const win = el('div', 'window', { left: px(right - w), top: px(top), width: px(w), height: px(h) });
-  win.append(frame(popupSrc(scenario), w, h));
-  return [bar.node, win];
-}
-
-/** Fenêtre de navigateur : barre d'adresse (texte facultatif) puis zone de contenu */
-function browserWindow(left: number, top: number, width: number, height: number, address: string | null): { node: HTMLElement; body: HTMLElement } {
-  const win = el('div', 'window browser', { left: px(left), top: px(top), width: px(width), height: px(height) });
-  const bar = el('div', 'browser-bar');
-  const dots = el('div', 'dots');
-  dots.append(el('i', ''), el('i', ''), el('i', ''));
-  const omni = el('div', 'omnibox');
-  if (address) {
-    const text = el('span', 'address');
-    text.textContent = address;
-    omni.append(text);
-  } else omni.append(el('b', '', { width: '34%' }));
-  const kai = el('span', 'ext kai small');
-  const img = el('img', '');
-  img.src = kaiIcon;
-  img.alt = '';
-  kai.append(img);
-  bar.append(dots, omni, kai);
-  const body = el('div', 'browser-body');
-  win.append(bar, body);
-  return { node: win, body };
-}
-
-const SP_ICONS =
-  '<svg class="sp-caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-  '<span class="grow"></span>' +
-  '<svg viewBox="0 0 24 24"><path d="M15 4l5 5-3 1-4 4 1 4-2 2-4-4-4 4M9 11l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-  '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-
-/** En-tête du panneau latéral de Chrome (icône, nom de l'extension, épingle, fermeture) */
-function sidePanelHeader(): HTMLElement {
-  const head = el('div', 'sp-head');
-  const img = el('img', '');
-  img.src = kaiIcon;
-  img.alt = '';
-  const name = el('span', 'sp-name');
-  name.textContent = 'SyncKai';
-  head.append(img, name);
-  head.insertAdjacentHTML('beforeend', SP_ICONS);
-  return head;
-}
-
-type PanelTabName = 'nowPlaying' | 'agenda';
-const SP_HEAD = 36;
-
-/** Panneau latéral (vraie page du panneau, sous l'en-tête Chrome si `chromeHeader`), `width` × `height` px à l'écran */
-function sidePanel(tab: PanelTabName, width: number, height: number, zoom: number, chromeHeader: boolean, revealRelations = false): HTMLElement {
-  const box = el('div', 'sp', { width: px(width), height: px(height) });
-  const src = `./sidepanel.html?locale=${locale}&tab=${tab}&zoom=${zoom}${revealRelations ? '&reveal=relations' : ''}`;
-  if (chromeHeader) box.append(sidePanelHeader(), frame(src, width, height - SP_HEAD));
-  else box.append(frame(src, width, height));
-  return box;
-}
-
-/** Page de lecture Crunchyroll simulée : lecteur, titre de l'épisode, épisodes suivants en traits */
-function watchPage(width: number): HTMLElement {
-  const page = el('div', 'watch-page', { width: px(width) });
-  page.append(frame(`./player.html?locale=${locale}&kind=watch`, width, Math.round((width * 9) / 16)));
-  const info = el('div', 'watch-info');
-  const series = el('span', 'watch-series');
-  series.textContent = 'Frieren: Beyond Journey’s End';
-  const ep = el('span', 'watch-ep');
-  ep.textContent = 'S1 E27';
-  info.append(series, ep, el('b', '', { width: '82%' }), el('b', '', { width: '64%' }));
-  const next = el('div', 'watch-next');
-  for (let i = 0; i < 3; i++) {
-    const row = el('div', 'watch-row');
-    row.append(el('i', ''), el('span', ''));
-    next.append(row);
-  }
-  page.append(info, next);
-  return page;
-}
-
-const BROWSER_BAR = 46;
-
-/** Capture 2 : page de lecture Crunchyroll, panneau latéral ancré à droite */
-function sidePanelScene(): HTMLElement {
-  const width = 744;
-  const height = 772;
-  const panelWidth = 420;
-  const { node, body } = browserWindow(1244 - width, 14, width, height, 'crunchyroll.com/watch/…');
-  body.classList.add('split');
-  body.append(watchPage(width - panelWidth - 1), sidePanel('nowPlaying', panelWidth, height - BROWSER_BAR, 1, false, true));
+/** Carte flottante (coins arrondis, ombre douce) contenant une vraie page de l'extension */
+function card(box: Box, src: string, variant = ''): HTMLElement {
+  const node = el('div', `card ${variant}`.trim(), place(box));
+  node.append(frame(src, box.width, box.height));
   return node;
 }
 
-/** Capture 3 : panneau latéral seul, onglet « Agenda » */
-function agendaScene(): HTMLElement {
+const popupSrc = (scenario: string, zoom: number): string => `./popup.html?locale=${locale}&scenario=${scenario}&zoom=${zoom}`;
+const panelSrc = (tab: 'nowPlaying' | 'agenda', zoom: number, extra = ''): string => `./sidepanel.html?locale=${locale}&tab=${tab}&zoom=${zoom}${extra}`;
+
+/** Iframe de la bulle : la bulle s'y place en bas à gauche (player-frame.ts, `layer=toast`), le reste est transparent */
+const BUBBLE = { width: 487, height: 230 };
+
+/**
+ * Capture 1 : lecteur au générique, bulle de synchro (×1,6) posée au-dessus, débordant de son coin haut droit ; le bas
+ * de la bulle reste juste au-dessus du titre du lecteur, quelle que soit sa hauteur (ligne repliée en allemand)
+ */
+function syncScene(): HTMLElement[] {
+  const player: Box = { left: 636, top: 326, width: 560, height: 315 };
+  const bubble = el('iframe', 'bubble', place({ left: 1232 - BUBBLE.width, top: player.top + 8 - BUBBLE.height, ...BUBBLE }));
+  bubble.src = `./player.html?locale=${locale}&kind=sync&layer=toast&toastZoom=1.6`;
+  return [card(player, `./player.html?locale=${locale}&kind=sync&layer=scene`, 'player'), bubble];
+}
+
+/** Capture 2 : lecteur (lecture en cours) en arrière-plan, panneau latéral « En lecture » devant, à côté */
+function sidePanelScene(): HTMLElement[] {
+  const player: Box = { left: 636, top: 56, width: 540, height: 304 };
+  const panel: Box = { left: 844, top: 128, width: 392, height: 636 };
+  return [card(player, `./player.html?locale=${locale}&kind=watch&layer=scene`, 'player'), card(panel, panelSrc('nowPlaying', 1), 'panel')];
+}
+
+/** Capture 3 : panneau latéral seul, onglet « Agenda », agrandi ×1,25 */
+function agendaScene(): HTMLElement[] {
+  const zoom = 1.25;
+  // 408 px CSS : la ligne « Vu · heure · plateforme · Japon heure » tient sans points de suspension, même en anglais (12 h)
+  const width = Math.round(408 * zoom);
+  const panel: Box = { left: 610 + (670 - width) / 2, top: 40, width, height: 720 };
+  return [card(panel, panelSrc('agenda', zoom), 'panel')];
+}
+
+/** Capture 4 : popup (carte « Sur cette page ») agrandi ×1,2 */
+function popupScene(): HTMLElement[] {
   const zoom = 1.2;
-  const width = Math.round(380 * zoom);
-  const height = 724;
-  const win = el('div', 'window', { left: px(1232 - width), top: px(38), width: px(width), height: px(height) });
-  win.append(sidePanel('agenda', width, height, zoom, true));
-  return win;
+  const width = POPUP.width * zoom;
+  const height = POPUP.height * zoom;
+  return [card({ left: 610 + (670 - width) / 2, top: (800 - height) / 2, width, height }, popupSrc('page', zoom))];
 }
 
-/** Capture 5 : page « Importer depuis Crunchyroll » (aperçu) dans un onglet */
-function importScene(): HTMLElement {
-  const zoom = 1;
-  const width = 640;
-  const height = 736;
-  const { node, body } = browserWindow(1240 - width, 32, width, height, null);
-  body.append(frame(`./import-cr.html?locale=${locale}&zoom=${zoom}`, width, height - BROWSER_BAR));
-  return node;
+/** Capture 5 : page « Importer un historique » (aperçu) */
+function importScene(): HTMLElement[] {
+  // Rognée sous « Mettre à jour 3 séries » : aucune carte coupée par le bas
+  return [card({ left: 640, top: 80, width: 600, height: 640 }, `./import-cr.html?locale=${locale}&zoom=1`)];
 }
 
-function player(kind: 'sync' | 'rate'): HTMLElement {
-  const width = 680;
-  const height = Math.round((width * 9) / 16);
-  const box = el('div', 'player', { left: px(1232 - width), top: px((800 - height) / 2), width: px(width), height: px(height) });
-  box.append(frame(`./player.html?locale=${locale}&kind=${kind}&toastZoom=1.5`, width, height));
-  return box;
-}
-
-
-/** Ligne « Crunchyroll · ADN → AniList · MyAnimeList » de la tuile promo */
-function flow(): HTMLElement {
-  const row = el('div', 'flow');
-  const pill = (text: string, tone: string): HTMLElement => {
-    const span = el('span', `pill ${tone}`);
-    span.textContent = text;
-    return span;
-  };
-  const arrow = el('span', 'arrow');
-  arrow.textContent = '→';
-  row.append(pill('Crunchyroll', 'stream'), pill('ADN', 'stream'), arrow, pill('AniList', 'tracker'), pill('MyAnimeList', 'tracker'));
-  return row;
-}
-
-/** Tuile promo 1400×560 : lockup, accroche, flux des services, popup réel rogné en bas à droite */
+/** Tuile promo 1400×560 : dos et texte à gauche, popup (« Sur cette page ») et panneau (« En lecture ») à droite, rognés en bas */
 function marqueeParts(): HTMLElement[] {
   document.documentElement.classList.add('marquee');
-  const logo = el('img', 'lockup');
-  logo.src = lockup;
-  logo.alt = 'SyncKai';
-  const box = el('div', 'copy');
-  const sub = el('p', 'sub');
-  sub.textContent = MARQUEE.sub;
-  box.append(headline(MARQUEE.title), sub, flow());
-  box.style.width = px(520);
-  // Popup (carte « Sur cette page ») et, devant, le panneau latéral (« En lecture ») : rognés en bas
-  const w = POPUP.width;
-  const h = POPUP.height;
-  const popup = el('div', 'window', { left: px(636), top: px(48), width: px(w), height: px(h) });
-  popup.append(frame(popupSrc('page', 1), w, h));
+  const popup = card({ left: 736, top: 44, width: POPUP.width, height: POPUP.height }, popupSrc('page', 1));
   const panelWidth = 372;
-  const panel = el('div', 'window', { left: px(MARQUEE.width - 56 - panelWidth), top: px(92), width: px(panelWidth), height: px(MARQUEE.height - 92 + 40) });
-  panel.append(sidePanel('nowPlaying', panelWidth, MARQUEE.height - 92 + 40, 1, true));
-  return [logo, box, popup, panel];
+  const panel = card({ left: MARQUEE.width - 48 - panelWidth, top: 96, width: panelWidth, height: MARQUEE.height - 96 + 40 }, panelSrc('nowPlaying', 1), 'panel');
+  return [...stage(), ...spine(MARQUEE.kana), lockup(), copy(MARQUEE), serviceFlow(), popup, panel];
 }
 
 function shotParts(): HTMLElement[] {
-  const logo = el('img', 'lockup');
-  logo.src = lockup;
-  logo.alt = 'SyncKai';
+  const caption = CAPTIONS[locale][shot];
+  const kana = KANA[shot];
+  const left = [...spine(kana), lockup(), copy({ ...caption, kana }), serviceFlow()];
   switch (shot) {
     case 1:
-      return [logo, copy(440, true), player('sync')];
+      return [...stage(), ...left, ...syncScene()];
     case 2:
-      return [logo, copy(400, true), sidePanelScene()];
+      return [...stage(), ...left, ...sidePanelScene()];
     case 3:
-      return [logo, copy(600), agendaScene()];
+      // Panneau presque pleine hauteur : disque remonté, rogné par le haut
+      return [...stage(-120), ...left, ...agendaScene()];
     case 4:
-      return [logo, copy(600), ...popupWindow('page', 1232, 80, null)];
+      return [...stage(), ...left, ...popupScene()];
     case 5:
-      return [logo, copy(480, true), importScene()];
+      return [...stage(), ...left, ...importScene()];
   }
 }
 
@@ -266,7 +197,13 @@ canvas.append(...(marquee ? marqueeParts() : shotParts()));
 // Prêt quand chaque iframe a terminé son rendu
 await Promise.all(
   [...document.querySelectorAll('iframe')].map((iframe) =>
-    waitFor(() => iframe.contentDocument?.documentElement.dataset.ready === '1', 20_000),
+    waitFor(() => iframe.contentDocument?.documentElement?.dataset.ready === '1', 20_000),
   ),
 );
+
+// Retours à la ligne voulus : une ligne de titre qui déborde de la colonne est une erreur (relevée par capture.ts),
+// mesurée une fois les polices chargées
+await document.fonts.ready;
+const title = document.querySelector<HTMLElement>('.headline');
+if (title && title.scrollWidth > title.clientWidth) console.error(`Titre trop large (${title.scrollWidth} px > ${title.clientWidth} px) : ${title.innerText}`);
 await markReady();

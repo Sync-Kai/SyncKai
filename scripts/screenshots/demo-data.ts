@@ -1,4 +1,5 @@
-// Données de démo réalistes mais fictives (aucune donnée personnelle, aucune jaquette protégée).
+// Données de démo réalistes mais fictives (aucune donnée personnelle) ; fiches AniList réelles (demo-media.ts), dont les
+// vraies jaquettes ne sont injectées que pour les captures du Store (covers.ts).
 
 import manifest from '../../manifest.json';
 import { tl, type Locale } from '../../src/i18n';
@@ -17,6 +18,7 @@ import type { TrackerId } from '../../src/shared/tracker.types';
 import { currentWeekStart } from '../../src/shared/weekly-syncs';
 import type { AiringStatus, WatchingEntry, WatchingList } from '../../src/shared/watching.types';
 import { avatarUrl, coverUrl, type CoverMotif } from './covers';
+import type { DemoMediaId } from './demo-media';
 import type { ChromeMockOptions } from './mock-chrome';
 
 /** Version affichée dans le pied du popup : toujours celle du manifest (relue à chaque génération) */
@@ -27,7 +29,7 @@ const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
 interface SeriesSpec {
-  id: number;
+  id: DemoMediaId;
   malId: number;
   title: string;
   progress: number;
@@ -45,7 +47,7 @@ export const SERIES: readonly SeriesSpec[] = [
   { id: 176496, malId: 58567, title: 'Solo Leveling', progress: 2, total: 13, status: 'RELEASING', next: { episode: 4, inMs: 3 * DAY + 6 * HOUR }, updatedAgo: 1 * DAY, platform: 'crunchyroll', lastSyncAgo: 1 * DAY, cover: { from: '#141A3D', to: '#3E5C8A', accent: '#B9A4FF', motif: 'peaks' } },
   { id: 154587, malId: 52991, title: 'Frieren', progress: 26, total: 28, status: 'FINISHED', next: null, updatedAgo: 2 * DAY, platform: 'crunchyroll', lastSyncAgo: 2 * DAY, cover: { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'sun' } },
   { id: 178754, malId: 59177, title: 'Kaiju No. 8', progress: 4, total: 11, status: 'RELEASING', next: { episode: 5, inMs: 18 * HOUR + 20 * MIN }, updatedAgo: 6 * DAY, platform: 'crunchyroll', lastSyncAgo: 6 * DAY, cover: { from: '#8A5A2B', to: '#FF8FB8', accent: '#FFD37A', motif: 'rings' } },
-  { id: 177937, malId: 59000, title: 'Spy x Family', progress: 6, total: 12, status: 'RELEASING', next: { episode: 7, inMs: 2 * DAY + 3 * HOUR }, updatedAgo: 5 * DAY, platform: 'crunchyroll', lastSyncAgo: null, cover: { from: '#8A3B5C', to: '#FF8FB8', accent: '#FFE3EE', motif: 'moon' } },
+  { id: 177937, malId: 59027, title: 'Spy x Family', progress: 6, total: 13, status: 'RELEASING', next: { episode: 7, inMs: 2 * DAY + 3 * HOUR }, updatedAgo: 5 * DAY, platform: 'crunchyroll', lastSyncAgo: null, cover: { from: '#8A3B5C', to: '#FF8FB8', accent: '#FFE3EE', motif: 'moon' } },
   { id: 21, malId: 21, title: 'One Piece', progress: 1122, total: null, status: 'RELEASING', next: { episode: 1123, inMs: 4 * DAY + 2 * HOUR }, updatedAgo: 4 * DAY, platform: 'adn', lastSyncAgo: 4 * DAY, cover: { from: '#2B6A73', to: '#46D6FF', accent: '#FFFFFF', motif: 'wave' } },
 ];
 
@@ -55,7 +57,7 @@ function entry(spec: SeriesSpec, service: TrackerId, now: number): WatchingEntry
     mediaId: spec.id,
     malId: spec.malId,
     title: spec.title,
-    coverUrl: coverUrl(spec.cover),
+    coverUrl: coverUrl(spec.cover, spec.id),
     progress: spec.progress,
     totalEpisodes: spec.total,
     updatedAt: now - spec.updatedAgo,
@@ -92,8 +94,8 @@ const KAIJU_COVER = SERIES[3].cover;
 
 function candidates(): CandidateSummary[] {
   return [
-    { id: 178754, title: 'Kaiju No. 8 Season 2', format: 'TV', episodes: 11, year: 2025, coverUrl: coverUrl(KAIJU_COVER) },
-    { id: 163132, title: 'Kaiju No. 8', format: 'TV', episodes: 12, year: 2024, coverUrl: coverUrl({ from: '#3E5C8A', to: '#B9A4FF', accent: '#FFD37A', motif: 'peaks' }) },
+    { id: 178754, title: 'Kaiju No. 8 Season 2', format: 'TV', episodes: 11, year: 2025, coverUrl: coverUrl(KAIJU_COVER, 178754) },
+    { id: 153288, title: 'Kaiju No. 8', format: 'TV', episodes: 12, year: 2024, coverUrl: coverUrl({ from: '#3E5C8A', to: '#B9A4FF', accent: '#FFD37A', motif: 'peaks' }, 153288) },
   ];
 }
 
@@ -152,13 +154,13 @@ export const PAGE_INFO: PageMediaInfo = {
 };
 
 export function pageView(): PageMediaView {
-  const season = (id: number, title: string, year: number, episodes: number, s: number, part: number): PageSeason => ({
+  const season = (id: DemoMediaId, title: string, year: number, episodes: number, s: number, part: number): PageSeason => ({
     id,
     title,
     format: 'TV',
     episodes,
     year,
-    coverUrl: coverUrl(MUSHOKU_COVER),
+    coverUrl: coverUrl(MUSHOKU_COVER, id),
     slot: { season: s, part, parts: 2 },
   });
   return {
@@ -166,7 +168,7 @@ export function pageView(): PageMediaView {
       mediaId: 146065,
       idMal: 51179,
       title: 'Mushoku Tensei: Jobless Reincarnation Season 2',
-      coverUrl: coverUrl(MUSHOKU_COVER),
+      coverUrl: coverUrl(MUSHOKU_COVER, 146065),
       episodes: 13,
       format: 'TV',
       year: 2023,
@@ -194,12 +196,12 @@ export function pageView(): PageMediaView {
 
 function comparison(now: number): ComparisonResult {
   const side = (status: ListStatus, progress: number, score: number | null = null): DiffSide => ({ status, progress, score, repeat: 0 });
-  const diff = (mediaId: number, malId: number, title: string, cover: Parameters<typeof coverUrl>[0], anilist: DiffSide | null, mal: DiffSide | null, fields: ListDiff['fields']): ListDiff => ({
+  const diff = (mediaId: DemoMediaId, malId: number, title: string, cover: Parameters<typeof coverUrl>[0], anilist: DiffSide | null, mal: DiffSide | null, fields: ListDiff['fields']): ListDiff => ({
     key: `mal:${malId}`,
     mediaId,
     malId,
     title,
-    coverUrl: coverUrl(cover),
+    coverUrl: coverUrl(cover, mediaId),
     anilist,
     mal,
     fields,

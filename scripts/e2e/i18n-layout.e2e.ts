@@ -444,7 +444,7 @@ async function importScreens(ctx: LocaleContext): Promise<void> {
     await click(page, 'cr-read');
     await page.waitForSelector(sel('cr-apply'));
     await storageSet(page, { [CR_IMPORT_KEYS.plan]: importPlan(ctx.locale, Date.now()) });
-    await page.waitForSelector(sel('cr-item-163270'));
+    await page.waitForSelector(sel('cr-item-163146'));
     // « Déjà à jour » déplié : ses lignes sont relevées aussi
     await click(page, 'cr-uptodate-toggle');
     await page.waitForSelector('[data-focus="cr-uptodate-toggle"][aria-expanded="true"]');

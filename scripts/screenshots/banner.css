@@ -1,20 +1,27 @@
-/* Composition 1280×800 d'une capture du Chrome Web Store */
+/* Composition 1280×800 d'une capture du Chrome Web Store, direction C « Duo / éditorial » (maquettes StoreC1 / StoreC2) :
+   dos vertical avec un kana en filigrane, colonne de texte, surface plus claire à droite avec un disque et l'UI réelle en
+   carte flottante. Jetons de la charte (src/ui/theme.css) ; sakura réservé au kana du surtitre. */
 @import '@fontsource/nunito/latin-600.css';
-@import '@fontsource/nunito/latin-700.css';
+@import '@fontsource/nunito/latin-800.css';
 @import '@fontsource/m-plus-rounded-1c/latin-800.css';
+/* Glyphes japonais (kana du dos, du surtitre et du lockup) : sous-ensembles numérotés de la police, pages de capture
+   seulement (la CSS livrée garde les seuls sous-ensembles latins) */
+@import '@fontsource/m-plus-rounded-1c/japanese-700.css';
+@import '@fontsource/m-plus-rounded-1c/japanese-800.css';
 
 :root {
-  --navy-1: #2a3590;
-  --navy-2: #1f2a66;
-  --navy-3: #141a3d;
-  --night: #120e2c;
-  --violet: #7c5cff;
-  --cyan: #46d6ff;
-  --ink: #f4effa;
-  --muted: #c3bce0;
-  --sakura: #ff8fb8;
+  --ground: #16131f;
   --surface: #211c2e;
   --line: #3d3554;
+  --ink: #f4effa;
+  --muted: #b3a9c9;
+  --lavender: #b9a4ff;
+  --sakura: #ff8fb8;
+  /* Surface de droite et kana du dos : un cran au-dessus du fond (maquette) */
+  --stage: #1b1726;
+  --watermark: #241e34;
+  --display: 'M PLUS Rounded 1c', 'Nunito', sans-serif;
+  --body: 'Nunito', system-ui, sans-serif;
 }
 
 html,
@@ -23,7 +30,7 @@ body {
   width: 1280px;
   height: 800px;
   overflow: hidden;
-  background: var(--navy-3);
+  background: var(--ground);
 }
 
 .canvas {
@@ -31,394 +38,222 @@ body {
   width: 1280px;
   height: 800px;
   overflow: hidden;
-  font-family: 'Nunito', system-ui, sans-serif;
+  font-family: var(--body);
   color: var(--ink);
-  background:
-    radial-gradient(620px 520px at 26% 46%, rgba(124, 92, 255, 0.3), transparent 70%),
-    radial-gradient(560px 480px at 84% 70%, rgba(70, 214, 255, 0.12), transparent 70%),
-    radial-gradient(900px 700px at 20% 10%, var(--navy-1) 0%, var(--navy-2) 45%, var(--navy-3) 80%),
-    var(--night);
-}
-/* Voile nuit violet vers le bas */
-.canvas::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(170deg, transparent 40%, rgba(30, 14, 60, 0.55) 100%);
-  pointer-events: none;
+  background: var(--ground);
 }
 .canvas > * {
   position: absolute;
-  z-index: 1;
 }
 
-/* ─── Texte ─────────────────────────────────────────────── */
-.lockup {
-  left: 72px;
-  top: 52px;
-  height: 52px;
-}
-.copy {
-  left: 72px;
+/* ─── Dos : kana vertical en filigrane, coupé par le bord gauche, puis filet ─── */
+.spine {
+  left: 0;
   top: 0;
   bottom: 0;
+  width: 112px;
+  overflow: hidden;
+}
+.spine-kana {
+  position: absolute;
+  left: 6px;
+  top: 40px;
+  writing-mode: vertical-rl;
+  font: 800 112px/1 var(--display);
+  letter-spacing: 8px;
+  color: var(--watermark);
+}
+.spine-rule {
+  left: 112px;
+  top: 48px;
+  bottom: 48px;
+  width: 1px;
+  background: var(--line);
+}
+
+/* ─── Surface de droite et disque ─── */
+.stage {
+  left: 610px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--stage);
+}
+.disc {
+  left: 650px;
+  top: 90px;
+  width: 620px;
+  height: 620px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #2e2744 0%, #241e35 60%, #1f1a2d 100%);
+}
+
+/* ─── Lockup : Kai, « SyncKai », kana ─── */
+.lockup {
+  left: 148px;
+  top: 56px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.lockup svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+  overflow: visible;
+}
+.lockup-name {
+  font: 800 19px/1 var(--display);
+  letter-spacing: -0.2px;
+  color: var(--ink);
+}
+.lockup-kana {
+  font: 700 12px/1 var(--display);
+  color: var(--muted);
+}
+
+/* ─── Colonne de texte ─── */
+.copy {
+  left: 148px;
+  top: 0;
+  bottom: 0;
+  width: 430px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 22px;
 }
 .eyebrow {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
+  display: flex;
+  align-items: baseline;
   gap: 10px;
-  height: 36px;
-  padding: 0 16px 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(185, 164, 255, 0.35);
-  background: rgba(20, 26, 61, 0.55);
-  font: 700 18px/1 'Nunito', sans-serif;
-  color: #dcd3ff;
+  font: 800 14px/1 var(--body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
-.eyebrow::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #b9a4ff, #5fe3ff);
-  box-shadow: 0 0 12px rgba(95, 227, 255, 0.7);
+.eyebrow-kana {
+  font-family: var(--display);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: var(--sakura);
 }
 .headline {
-  margin: 0;
-  font: 800 56px/1.12 'M PLUS Rounded 1c', sans-serif;
-  letter-spacing: -0.5px;
-  color: #fff;
-  text-wrap: balance;
-}
-.compact .headline {
-  font-size: 52px;
+  margin: 20px 0 0;
+  font: 800 52px/1.12 var(--display);
+  letter-spacing: -0.6px;
+  color: var(--ink);
+  /* Retours à la ligne fixés par la légende (captions.ts) : un débordement est signalé, jamais replié */
+  white-space: nowrap;
 }
 .accent {
-  background: linear-gradient(100deg, #c7b6ff 0%, #8fa4ff 45%, #5fe3ff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--lavender);
+}
+.rule {
+  width: 56px;
+  height: 3px;
+  margin: 26px 0 0;
+  border-radius: 2px;
+  background: var(--line);
 }
 .sub {
-  margin: 0;
-  font: 600 21px/1.45 'Nunito', sans-serif;
+  margin: 22px 0 0;
+  font: 600 20px/1.45 var(--body);
   color: var(--muted);
   text-wrap: pretty;
 }
 
-/* ─── Barre d'outils du navigateur ─────────────────────── */
-.toolbar {
-  height: 48px;
-  border-radius: 14px;
-  background: #1c1830;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+/* ─── Rangée de logos : plateformes → AniList / MAL ─── */
+.services {
+  left: 148px;
+  bottom: 52px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 14px 0 18px;
-  box-sizing: border-box;
+  gap: 11px;
 }
-.dots {
-  display: flex;
-  gap: 7px;
-}
-.dots i {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #3d3554;
-}
-.omnibox {
-  flex: 1;
-  height: 30px;
-  border-radius: 999px;
-  background: #110e20;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-}
-.omnibox b {
+.services img {
   display: block;
-  height: 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.16);
-}
-.ext {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #8f86ab;
-}
-.ext svg {
-  width: 18px;
-  height: 18px;
-}
-.ext.kai {
-  background: rgba(185, 164, 255, 0.22);
-  box-shadow: inset 0 0 0 1.5px rgba(185, 164, 255, 0.55);
-}
-.ext.kai img {
-  width: 22px;
-  height: 22px;
-}
-.badge {
-  position: absolute;
-  right: -3px;
-  bottom: -2px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
-  background: #f59e0b;
-  color: #1a0f1c;
-  font: 800 11px/16px 'Nunito', sans-serif;
-  text-align: center;
+}
+.services svg {
+  display: block;
+  width: 30px;
+  height: 30px;
+  margin: 0 3px;
 }
 
-/* ─── Popup et encarts ─────────────────────────────────── */
+/* ─── UI réelle en carte flottante ─── */
 .frame {
   border: 0;
   display: block;
-  background: #16131f;
+  background: var(--ground);
 }
-.window {
+.card {
+  overflow: hidden;
   border-radius: 14px;
-  overflow: hidden;
-  outline: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--ground);
   box-shadow:
-    0 30px 80px rgba(4, 3, 18, 0.65),
-    0 8px 24px rgba(0, 0, 0, 0.35);
-  background: #16131f;
+    0 30px 70px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--line);
 }
-.caret {
-  width: 18px;
-  height: 18px;
-  background: #16131f;
-  transform: rotate(45deg);
-  border-radius: 3px;
-  outline: 1px solid rgba(255, 255, 255, 0.12);
+.card.panel {
+  border-radius: 18px;
 }
-.callout-label {
-  font: 700 18px/1 'Nunito', sans-serif;
-  color: var(--muted);
-}
-
-/* ─── Lecteur ──────────────────────────────────────────── */
-.player {
-  border-radius: 16px;
-  overflow: hidden;
-  outline: 1px solid rgba(255, 255, 255, 0.12);
+.card.player {
   box-shadow:
-    0 30px 80px rgba(4, 3, 18, 0.65),
-    0 8px 24px rgba(0, 0, 0, 0.35);
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px var(--line);
+}
+.card.player .frame {
   background: #07060f;
 }
+/* Bulle de la page posée au-dessus du lecteur : iframe transparente, ombre portée sur la seule bulle */
+.bubble {
+  border: 0;
+  background: transparent;
+  filter: drop-shadow(0 22px 34px rgba(0, 0, 0, 0.5));
+}
 
-/* ─── Tuile promo « marquee » 1400×560 ─────────────────── */
+/* ─── Tuile promo « marquee » 1400×560 ─── */
 html.marquee,
 html.marquee body,
 html.marquee .canvas {
   width: 1400px;
   height: 560px;
 }
-html.marquee .canvas {
-  background:
-    radial-gradient(640px 460px at 24% 52%, rgba(124, 92, 255, 0.32), transparent 70%),
-    radial-gradient(560px 420px at 80% 80%, rgba(70, 214, 255, 0.14), transparent 70%),
-    radial-gradient(1000px 640px at 18% 0%, var(--navy-1) 0%, var(--navy-2) 45%, var(--navy-3) 82%),
-    var(--night);
+html.marquee .spine {
+  width: 96px;
+}
+html.marquee .spine-kana {
+  left: 4px;
+  top: 28px;
+  font-size: 96px;
+  letter-spacing: 6px;
+}
+html.marquee .spine-rule {
+  left: 96px;
+  top: 36px;
+  bottom: 36px;
 }
 html.marquee .lockup {
-  left: 88px;
-  top: 64px;
-  height: 64px;
+  left: 132px;
+  top: 40px;
 }
 html.marquee .copy {
-  left: 88px;
-  top: 180px;
-  bottom: auto;
-  width: 640px;
-  justify-content: flex-start;
-  gap: 20px;
+  left: 132px;
+  width: 500px;
 }
-html.marquee .headline {
-  font-size: 60px;
+html.marquee .services {
+  left: 132px;
+  bottom: 40px;
 }
-html.marquee .sub {
-  font-size: 22px;
+html.marquee .stage {
+  left: 690px;
 }
-.flow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
-}
-.pill {
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 999px;
-  font: 700 17px/1 'Nunito', sans-serif;
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-.pill.stream {
-  background: rgba(255, 143, 184, 0.16);
-  border-color: rgba(255, 143, 184, 0.45);
-}
-.pill.tracker {
-  background: rgba(70, 214, 255, 0.12);
-  border-color: rgba(95, 227, 255, 0.45);
-}
-.arrow {
-  font: 800 24px/1 'M PLUS Rounded 1c', sans-serif;
-  color: #8fa4ff;
-  padding: 0 4px;
-}
-
-/* ─── Fenêtre de navigateur (panneau latéral, page d'import) ── */
-.browser {
-  display: flex;
-  flex-direction: column;
-}
-.browser-bar {
-  height: 46px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 12px 0 16px;
-  background: #1c1830;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-sizing: border-box;
-}
-.address {
-  font: 600 13px/1 'Nunito', sans-serif;
-  color: #b7afd3;
-  letter-spacing: 0.2px;
-}
-.ext.kai.small {
-  width: 30px;
-  height: 30px;
-}
-.ext.kai.small img {
-  width: 19px;
-  height: 19px;
-}
-.browser-body {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-  overflow: hidden;
-  background: #16131f;
-}
-.browser-body.split {
-  display: flex;
-  gap: 1px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* ─── Panneau latéral (en-tête Chrome + page du panneau) ── */
-.sp {
-  display: flex;
-  flex-direction: column;
-  flex: none;
-  background: #16131f;
-}
-.sp-head {
-  height: 36px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 12px;
-  background: #1c1830;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  color: #a79fc6;
-  box-sizing: border-box;
-}
-.sp-head img {
-  width: 16px;
-  height: 16px;
-}
-.sp-name {
-  font: 700 13px/1 'Nunito', sans-serif;
-  color: #e9e3f7;
-}
-.sp-head svg {
-  width: 16px;
-  height: 16px;
-}
-.sp-head .sp-caret {
-  width: 14px;
-  height: 14px;
-  margin-left: -3px;
-}
-.sp-head .grow {
-  flex: 1;
-}
-
-/* ─── Page de lecture simulée ─────────────────────────── */
-.watch-page {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  background: #0b0a12;
-}
-.watch-page .frame {
-  background: #07060f;
-}
-.watch-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 18px 18px 14px;
-}
-.watch-series {
-  font: 700 13px/1.2 'Nunito', sans-serif;
-  color: #ff9a5a;
-}
-.watch-ep {
-  font: 800 19px/1.2 'M PLUS Rounded 1c', sans-serif;
-  color: #fff;
-}
-.watch-info b,
-.watch-row span {
-  display: block;
-  height: 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.12);
-}
-.watch-next {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 6px 18px;
-}
-.watch-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.watch-row i {
-  width: 96px;
-  height: 54px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, rgba(124, 92, 255, 0.3), rgba(70, 214, 255, 0.14));
-}
-.watch-row span {
-  flex: 1;
+html.marquee .disc {
+  left: 744px;
+  top: 34px;
+  width: 560px;
+  height: 560px;
 }

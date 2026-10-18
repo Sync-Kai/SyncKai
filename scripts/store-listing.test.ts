@@ -15,9 +15,9 @@ interface AmoMetadata {
 
 /** Langue de la fiche du Chrome Web Store → locale AMO et intertitre « plateformes » commun aux deux fiches */
 const LOCALES = [
-  { listing: 'en', amo: 'en-US', heading: 'Supported platforms' },
-  { listing: 'fr', amo: 'fr', heading: 'Plateformes prises en charge' },
-  { listing: 'de', amo: 'de', heading: 'Unterstützte Plattformen' },
+  { listing: 'en', amo: 'en-US', heading: 'PLATFORMS' },
+  { listing: 'fr', amo: 'fr', heading: 'PLATEFORMES' },
+  { listing: 'de', amo: 'de', heading: 'PLATTFORMEN' },
 ] as const;
 
 function isAmoMetadata(value: unknown): value is AmoMetadata {

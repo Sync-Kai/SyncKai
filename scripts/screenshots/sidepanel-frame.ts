@@ -9,6 +9,29 @@ import { loadedLocaleParam, markReady, param, waitFor } from './params';
 const tabParam = param('tab');
 const tab = isPanelTab(tabParam) ? tabParam : 'nowPlaying';
 
+/**
+ * Agenda : horloge décalée au mardi 14 h de la semaine en cours (semaine du lundi), quel que soit le jour de génération,
+ * pour que la capture montre toujours la même semaine type (lundi vu, aujourd'hui, sorties à venir : demo-panel.ts)
+ */
+function shiftClockToTuesday(): void {
+  const RealDate = Date;
+  const real = new RealDate();
+  const monday = real.getDate() - ((real.getDay() + 6) % 7);
+  const offset = new RealDate(real.getFullYear(), real.getMonth(), monday + 1, 14, 0).getTime() - real.getTime();
+  class ShiftedDate extends RealDate {
+    constructor(...args: [] | ConstructorParameters<DateConstructor>) {
+      if (args.length === 0) super(RealDate.now() + offset);
+      else super(...args);
+    }
+    static override now(): number {
+      return RealDate.now() + offset;
+    }
+  }
+  globalThis.Date = ShiftedDate as DateConstructor;
+}
+
+if (tab === 'agenda') shiftClockToTuesday();
+
 installChromeMock(panelChrome(await loadedLocaleParam(), tab));
 
 const zoom = Number(param('zoom') ?? '1');

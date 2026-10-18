@@ -1,5 +1,6 @@
 // Données de démo du panneau latéral (« En lecture », « Agenda ») et de la page d'import Crunchyroll.
-// Fictives mais réalistes : aucune donnée personnelle, aucune jaquette protégée.
+// Fictives mais réalistes : aucune donnée personnelle ; fiches AniList réelles (demo-media.ts), vraies jaquettes et
+// bannière injectées pour les captures du Store seulement (covers.ts).
 
 import manifest from '../../manifest.json';
 import { tl, type Locale } from '../../src/i18n';
@@ -13,8 +14,9 @@ import type { PageMediaInfo, PageMediaView } from '../../src/shared/page-media.t
 import type { PanelMedia } from '../../src/shared/panel-media.types';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { PANEL_LAST_TAB_KEY, type PanelTab } from '../../src/sidepanel/tabs';
-import { bannerUrl, coverUrl } from './covers';
+import { bannerUrl, coverColor, coverUrl } from './covers';
 import { demoChrome, episode, SERIES } from './demo-data';
+import type { DemoMediaId } from './demo-media';
 import { createMockPort, type ChromeMockOptions } from './mock-chrome';
 
 // ─── « En lecture » : Frieren, épisode 27 en cours de lecture sur Crunchyroll ─────
@@ -45,7 +47,7 @@ export function panelView(): PageMediaView {
       mediaId: FRIEREN.id,
       idMal: FRIEREN.malId,
       title: FRIEREN_TITLE,
-      coverUrl: coverUrl(FRIEREN.cover),
+      coverUrl: coverUrl(FRIEREN.cover, FRIEREN.id),
       episodes: 28,
       format: 'TV',
       year: 2023,
@@ -72,9 +74,9 @@ export function panelMedia(): PanelMedia {
     title: FRIEREN_TITLE,
     romajiTitle: 'Sousou no Frieren',
     englishTitle: FRIEREN_TITLE,
-    bannerUrl: bannerUrl({ from: '#2F6E5E', to: '#8FD9F0', accent: '#FFF6D8' }),
-    coverUrl: coverUrl(FRIEREN.cover),
-    coverColor: '#2f6e5e',
+    bannerUrl: bannerUrl({ from: '#2F6E5E', to: '#8FD9F0', accent: '#FFF6D8' }, FRIEREN.id),
+    coverUrl: coverUrl(FRIEREN.cover, FRIEREN.id),
+    coverColor: coverColor('#2f6e5e', FRIEREN.id),
     // Synopsis absent : la capture montre la progression en direct et les suites sans défilement
     description: null,
     genres: ['Adventure', 'Drama', 'Fantasy'],
@@ -93,17 +95,18 @@ export function panelMedia(): PanelMedia {
         idMal: 59978,
         title: 'Frieren: Beyond Journey’s End Season 2',
         format: 'TV',
-        coverUrl: coverUrl({ from: '#24506E', to: '#9FD8F0', accent: '#FFF6D8', motif: 'peaks' }),
+        coverUrl: coverUrl({ from: '#24506E', to: '#9FD8F0', accent: '#FFF6D8', motif: 'peaks' }, 182255),
         siteUrl: 'https://anilist.co/anime/182255',
         platforms: [{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/DEMOFRIEREN2' }],
       },
       {
         relationType: 'SIDE_STORY',
         mediaId: 170068,
+        // Fiche MAL réelle (56885) volontairement absente : repli du lien sur AniList (sidepanel.e2e.ts)
         idMal: null,
         title: 'Frieren: Beyond Journey’s End Mini Anime',
         format: 'ONA',
-        coverUrl: coverUrl({ from: '#5A4A1E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }),
+        coverUrl: coverUrl({ from: '#5A4A1E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }, 170068),
         siteUrl: 'https://anilist.co/anime/170068',
         platforms: [],
       },
@@ -129,13 +132,18 @@ function livePort(name: string): chrome.runtime.Port {
 
 // ─── « Agenda » : semaine en cours ─────────────────────────────────────────
 
-/** Jour de diffusion (0 = dimanche) et heure locale de chaque série suivie ; délai Crunchyroll / ADN : +1 h */
+/**
+ * Jour de diffusion (0 = dimanche) et heure locale de chaque série suivie ; délai Crunchyroll / ADN : +1 h. La capture
+ * fige « aujourd'hui » au mardi (sidepanel-frame.ts) : lundi déjà vu (One Piece sur ADN : sa ligne « Vu · heure · ADN ·
+ * Japon heure » tient sans points de suspension, même en anglais), deux sorties aujourd'hui, puis mercredi ; vendredi
+ * reste sous le pied du panneau, sans ligne coupée (maquette StoreC2).
+ */
 const AIRING_SLOTS: { mediaId: number; weekday: number; hour: number; minute: number }[] = [
-  { mediaId: 185660, weekday: 2, hour: 17, minute: 0 }, // Dandadan
-  { mediaId: 178754, weekday: 3, hour: 16, minute: 30 }, // Kaiju No. 8
-  { mediaId: 177937, weekday: 4, hour: 17, minute: 30 }, // Spy x Family
-  { mediaId: 176496, weekday: 6, hour: 17, minute: 0 }, // Solo Leveling
-  { mediaId: 21, weekday: 0, hour: 16, minute: 15 }, // One Piece (ADN)
+  { mediaId: 21, weekday: 1, hour: 16, minute: 15 }, // One Piece (ADN)
+  { mediaId: 178754, weekday: 2, hour: 16, minute: 30 }, // Kaiju No. 8
+  { mediaId: 177937, weekday: 2, hour: 17, minute: 30 }, // Spy x Family
+  { mediaId: 176496, weekday: 3, hour: 18, minute: 0 }, // Solo Leveling
+  { mediaId: 185660, weekday: 5, hour: 17, minute: 0 }, // Dandadan
 ];
 
 /** Sorties de la semaine demandée : épisodes passés déjà vus (✓), à venir = épisode suivant */
@@ -157,7 +165,7 @@ export function agendaWeek(weekStart: string, now: number): AiringWeekCache | nu
       episode: dayStart < todayStart ? spec.progress : spec.progress + 1,
       airingAt: Math.floor(at / 1000),
       title: spec.title,
-      coverUrl: coverUrl(spec.cover),
+      coverUrl: coverUrl(spec.cover, spec.id),
     });
   }
   return { weekStart, fetchedAt: now, mediaIds: SERIES.map((s) => s.id), schedules };
@@ -209,9 +217,9 @@ const upToDate = (service: CrServicePlan['service'], progress: number, completed
 
 type Cover = Parameters<typeof coverUrl>[0];
 
-function item(mediaId: number, malId: number, title: string, episodes: number | null, seasons: string[], cover: Cover, services: CrServicePlan[]): CrPlanItem {
+function item(mediaId: DemoMediaId, malId: number, title: string, episodes: number | null, seasons: string[], cover: Cover, services: CrServicePlan[]): CrPlanItem {
   const progress = Math.max(...services.map((s) => (s.action === 'update' ? s.progress : (s.current?.progress ?? 1))), 1);
-  return { id: `m:${mediaId}`, mediaId, malId, title, coverUrl: coverUrl(cover), episodes, progress, seasons, services, mappings: [], result: null };
+  return { id: `m:${mediaId}`, mediaId, malId, title, coverUrl: coverUrl(cover, mediaId), episodes, progress, seasons, services, mappings: [], result: null };
 }
 
 function review(key: string, seriesTitle: string, season: number, episodeNumber: number, reason: string): CrReviewItem {
@@ -221,11 +229,11 @@ function review(key: string, seriesTitle: string, season: number, episodeNumber:
 }
 
 /** Séries déjà à jour (section repliée) */
-const UP_TO_DATE: [number, number, string, number, boolean][] = [
+const UP_TO_DATE: [DemoMediaId, number, string, number, boolean][] = [
   [185660, 60543, 'Dandadan', 7, false],
   [176496, 58567, 'Solo Leveling', 2, false],
   [154587, 52991, 'Frieren: Beyond Journey’s End', 26, false],
-  [177937, 59000, 'Spy x Family Season 3', 6, false],
+  [177937, 59027, 'Spy x Family Season 3', 6, false],
   [21, 21, 'One Piece', 1122, false],
   [127230, 44511, 'Chainsaw Man', 12, true],
   [137822, 49596, 'Blue Lock', 24, true],
@@ -233,12 +241,12 @@ const UP_TO_DATE: [number, number, string, number, boolean][] = [
   [150672, 52034, 'Oshi no Ko', 11, true],
   [136430, 49387, 'Vinland Saga Season 2', 24, true],
   [146065, 51179, 'Mushoku Tensei: Jobless Reincarnation Season 2', 13, true],
-  [163132, 52588, 'Kaiju No. 8', 12, true],
+  [153288, 52588, 'Kaiju No. 8', 12, true],
 ];
 
 export function importPlan(locale: Locale, now: number): CrImportPlan {
   const toUpdate: CrPlanItem[] = [
-    item(163270, 57334, 'Blue Lock Season 2', 14, ['Blue Lock · S2'], { from: '#1B3A8A', to: '#46D6FF', accent: '#FFFFFF', motif: 'bolt' }, [
+    item(163146, 54865, 'Blue Lock Season 2', 14, ['Blue Lock · S2'], { from: '#1B3A8A', to: '#46D6FF', accent: '#FFFFFF', motif: 'bolt' }, [
       update('anilist', 8, 14, true),
       update('mal', 8, 14, true),
     ]),
