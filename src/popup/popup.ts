@@ -38,6 +38,7 @@ import { createPlatformAccessStore } from '../ui/platform-access-store';
 import { importPageUrl } from '../ui/import-page';
 import { mountStatusBar } from '../ui/status-bar-host';
 import { takePopupScreen } from '../browser/popup-screen';
+import { consumeReopenRequest, loadOrReload } from '../ui/lazy-module';
 
 const log = createLogger('popup');
 
@@ -151,9 +152,15 @@ const compare = createCompareController({ onApplied: () => void watching.reload(
  */
 let settingsLoad: Promise<SettingsView | null> | null = null;
 function loadSettingsView(): Promise<SettingsView | null> {
-  settingsLoad ??= import('../ui/settings/settings-view').then(
-    ({ createSettingsView }) => {
-      const view = createSettingsView({
+  // Fichier du module introuvable (popup ouvert avant une reconstruction du paquet) : popup rechargé, Réglages rouverts
+  settingsLoad ??= loadOrReload(() => import('../ui/settings/settings-view'), 'settings', undefined, (error) => log.warn('Réglages non chargés :', error)).then(
+    (module) => {
+      if (!module) {
+        // Nouvel essai à la prochaine ouverture
+        settingsLoad = null;
+        return null;
+      }
+      const view = module.createSettingsView({
         navigateBack: () => goBack(),
         // Le popup se ferme de lui-même quand le nouvel onglet prend le focus
         openTab: (url) => void chrome.tabs.create({ url }),
@@ -166,12 +173,6 @@ function loadSettingsView(): Promise<SettingsView | null> {
       // Montée par la coquille dans sa zone (masquée hors des Réglages : ouverture annulée pendant le chargement comprise)
       settingsViewStore.set(view);
       return view;
-    },
-    (error: unknown) => {
-      // Nouvel essai à la prochaine ouverture
-      settingsLoad = null;
-      log.warn('Réglages non chargés :', error);
-      return null;
     },
   );
   return settingsLoad;
@@ -547,6 +548,8 @@ takePopupScreen().then(
   },
   (error: unknown) => log.debug('Écran demandé illisible :', error),
 );
+// Popup rechargé parce que le module des Réglages manquait (lazy-module.ts) : Réglages rouverts
+if (consumeReopenRequest('settings')) navigate('settings');
 // Pastille d'Activité et contexte de « En cours » ; l'arbre Preact suit ses stores lui-même (langue comprise : useLocale)
 for (const store of [anilistStore, malStore, syncStore, queue.store, ratings.store, settingsStore, platformAccessStore]) store.subscribe(refreshDerived);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store

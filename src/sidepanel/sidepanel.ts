@@ -24,6 +24,7 @@ import { createAgendaController, type AgendaController } from './agenda-controll
 import { mountPanelApp, type PanelShellState } from './panel-app';
 import { watchPanelContext, type PanelContext } from './presence';
 import { listenPanelToggle } from './toggle';
+import { consumeReopenRequest, loadOrReload } from '../ui/lazy-module';
 import { followPageContext, initialPanelTab, PANEL_LAST_TAB_KEY, type PanelTab } from './tabs';
 
 const log = createLogger('sidepanel');
@@ -157,26 +158,23 @@ let settingsPending = false;
  * Module chargé à ce moment (import dynamique) : le code des Réglages reste hors du chargement initial du panneau
  */
 function loadSettingsView(): Promise<SettingsView | null> {
-  settingsLoad ??= import('../ui/settings/settings-view').then(
-    ({ createSettingsView }) => {
-      const view = createSettingsView({
-        navigateBack: () => setSettingsOpen(false),
-        openTab: (url) => void chrome.tabs.create({ url }),
-        closesOnBlur: false,
-        hostAccessBanner: false,
-        accounts,
-        platformAccess,
-        compare: compareController,
-      });
-      return view;
-    },
-    (error: unknown) => {
+  // Fichier du module introuvable (panneau ouvert avant une reconstruction du paquet) : panneau rechargé, Réglages rouverts
+  settingsLoad ??= loadOrReload(() => import('../ui/settings/settings-view'), 'settings', undefined, (error) => log.warn('Réglages non chargés :', error)).then((module) => {
+    if (!module) {
       // Nouvel essai à la prochaine ouverture
       settingsLoad = null;
-      log.warn('Réglages non chargés :', error);
       return null;
-    },
-  );
+    }
+    return module.createSettingsView({
+      navigateBack: () => setSettingsOpen(false),
+      openTab: (url) => void chrome.tabs.create({ url }),
+      closesOnBlur: false,
+      hostAccessBanner: false,
+      accounts,
+      platformAccess,
+      compare: compareController,
+    });
+  });
   return settingsLoad;
 }
 
@@ -307,6 +305,8 @@ async function main(): Promise<void> {
       onOpenPlatformsSettings: () => setSettingsOpen(true, 'platforms'),
     });
   }
+  // Panneau rechargé parce que le module des Réglages manquait (lazy-module.ts) : Réglages rouverts
+  if (consumeReopenRequest('settings')) setSettingsOpen(true);
   if (!sidePanelKind()) {
     setContext({ status: 'off' });
     return;
