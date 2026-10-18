@@ -2,7 +2,6 @@
   "arbitraryColors": {},
   "hexColors": {
     "browser/badge.ts": 4,
-    "content/ui/toast.ts": 20,
     "ui/icons.ts": 1
   },
   "pxFontSizes": {}

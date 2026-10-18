@@ -484,3 +484,24 @@ Steps 4 and 5 of the history import page and the Backup page were redesigned. Th
 | `import.includes.signIns` | I tuoi accessi AniList / MyAnimeList |
 | `import.fileContents` | Contenuto del file |
 | `import.exportedAt` | esportato il {date} (v{version}) |
+
+## 2026-10-18 · In-page toasts redesigned
+
+The in-page toasts on the player were redesigned (top-right corner, Kai with a state badge, title = what happened, subtitle = series · episode, one line per service, identical results merged). New titles `toast.title.*` (saved, series completed, partial sync, failed on a service, not saved, excluded), per-service results `toast.line.completed` / `toast.line.upToDate`, partial results of a rating or a rewatch (`prompt.rating.partial`, `prompt.rewatch.partial`) and the explanation under the rewatch question (`prompt.rewatch.message`). Two services with the same result share one line, labelled `toast.line.both`. The end-of-series rating bubble title `prompt.rating.title` is now « Series completed! Your rating? » (`toast.title.completed` and the former question joined; the series title moved to the subtitle): `prompt.rating.question` was removed. `content.episodeShort` is now the bubbles' subtitle and uses the short form of « episode » before the number where the language has one. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `toast.title.saved` | Episodio {episode} salvato |
+| `toast.title.completed` | Serie completata! |
+| `toast.title.partial` | Sincronizzazione parziale |
+| `toast.title.failedOn` | Errore su {service} |
+| `toast.title.notSaved` | Episodio non salvato |
+| `toast.title.excluded` | Serie esclusa, nulla inviato |
+| `toast.line.completed` | stato Completato |
+| `toast.line.upToDate` | già aggiornato |
+| `prompt.rating.partial` | Voto salvato in parte |
+| `prompt.rewatch.partial` | Rewatch salvato in parte |
+| `prompt.rewatch.message` | Già completata nella tua lista: i tuoi progressi ripartono dall’episodio {progress}. |
+| `content.episodeShort` | {title} · ep. {number} |
+| `toast.line.both` | AniList e MyAnimeList |
+| `prompt.rating.title` | Serie completata! Il tuo voto? |

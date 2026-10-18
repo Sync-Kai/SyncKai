@@ -490,3 +490,23 @@ Steps 4 and 5 of the history import page and the Backup page were redesigned. Th
 | `import.includes.signIns` | 你的 AniList / MyAnimeList 登录信息 |
 | `import.fileContents` | 文件内容 |
 | `import.exportedAt` | 导出于 {date}（v{version}） |
+
+## 2026-10-18 · In-page toasts redesigned
+
+The in-page toasts on the player were redesigned (top-right corner, Kai with a state badge, title = what happened, subtitle = series · episode, one line per service, identical results merged). New titles `toast.title.*` (saved, series completed, partial sync, failed on a service, not saved, excluded), per-service results `toast.line.completed` / `toast.line.upToDate`, partial results of a rating or a rewatch (`prompt.rating.partial`, `prompt.rewatch.partial`) and the explanation under the rewatch question (`prompt.rewatch.message`). Two services with the same result share one line, labelled `toast.line.both`. The end-of-series rating bubble title `prompt.rating.title` is now « Series completed! Your rating? » (`toast.title.completed` and the former question joined; the series title moved to the subtitle): `prompt.rating.question` was removed. `content.episodeShort` is now the bubbles' subtitle and uses the short form of « episode » before the number where the language has one. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `toast.title.saved` | 已保存第 {episode} 集 |
+| `toast.title.completed` | 番剧已看完！ |
+| `toast.title.partial` | 部分同步 |
+| `toast.title.failedOn` | {service} 同步失败 |
+| `toast.title.notSaved` | 本集未保存 |
+| `toast.title.excluded` | 番剧已排除，未发送任何内容 |
+| `toast.line.completed` | 状态：看过 |
+| `toast.line.upToDate` | 已是最新 |
+| `prompt.rating.partial` | 评分仅部分保存 |
+| `prompt.rewatch.partial` | 重看仅部分保存 |
+| `prompt.rewatch.message` | 列表中已看过：进度将从第 {progress} 集重新开始。 |
+| `toast.line.both` | AniList 和 MyAnimeList |
+| `prompt.rating.title` | 番剧已看完！你打几分？ |

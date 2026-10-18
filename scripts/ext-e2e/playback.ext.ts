@@ -228,9 +228,10 @@ describe('Détection de la lecture', () => {
     expectCleanRun(h, run.anilist, run.mal);
   });
 
-  it('ADN : épisode suivi jusqu’au seuil de 85 % (pas de données de générique), ajouté aux listes AniList et MAL', async (context) => {
+  it('ADN : épisode suivi jusqu’au seuil de 85 % (pas de données de générique), ajouté aux listes AniList et MAL, bulle détaillée', async (context) => {
     const sites = new FakeSites().page(TOUGEN_ANKI_E1.url, adnWatchHtml(TOUGEN_ANKI_E1, { lang: 'fr' }));
     const run = await launch(context, TOUGEN_ANKI, sites);
+    await seedSettings(run.h, { notificationLevel: 'detailed' });
     const page = await run.h.openTab(TOUGEN_ANKI_E1.url);
     const live = await observeLive(run.h, 'https://animationdigitalnetwork.com/*');
     await waitFor('point de fin au seuil', async () => (await live()).some((m) => m.type === 'tick' && m.point?.source === 'ratio' && m.point.seconds === 510));
@@ -244,7 +245,10 @@ describe('Détection de la lecture', () => {
     expect(run.anilist.mutations().map((m) => m.variables)).toEqual([expect.objectContaining({ mediaId: TOUGEN_ANKI.anilist.id, progress: 1 })]);
     expect(run.anilist.entry(ANILIST_A.token, TOUGEN_ANKI.anilist.id)).toMatchObject({ status: 'CURRENT', progress: 1 });
     expect(run.mal.entry(MAL_A.token, TOUGEN_ANKI.mal.id)).toMatchObject({ status: 'watching', num_episodes_watched: 1 });
-    await waitForToast(page, text('en', 'toast.pill.saved', { episode: 1 }));
+    // Bulle détaillée (refonte du 2026-10-18) : titre = ce qui s'est passé ; même résultat sur AniList et MAL = une seule ligne
+    const bubble = await waitForToast(page, text('en', 'toast.title.saved', { episode: 1 }));
+    expect(bubble).toContain(`${text('en', 'toast.line.both')} · ${text('en', 'toast.line.saved')}`);
+    expect(bubble).not.toContain(text('en', 'common.syncing'));
     const synced = await waitFor('synchro récente enregistrée', async () => (await recentSyncs(run.h)).find((s) => s.mediaId === TOUGEN_ANKI.anilist.id));
     expect(synced).toMatchObject({ progress: 1, episode: { platform: 'adn', episodeId: TOUGEN_ANKI_E1.episodeId, seriesId: '1311', displayedEpisodeNumber: 1 } });
     expectCleanRun(run.h, run.anilist, run.mal);

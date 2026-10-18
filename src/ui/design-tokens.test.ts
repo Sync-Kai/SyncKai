@@ -92,9 +92,9 @@ describe('charte graphique : cliquet des valeurs en dur (docs/design/README.md)'
   it('le scan lit bien les sources', () => {
     expect(Object.keys(current.hexColors)).toContain('browser/badge.ts');
     expect(current.hexColors['ui/kai-small.ts']).toBeUndefined();
-    // Plus aucune taille de police en pixels dans les sources (dernières : pages d'import, 2026-10-18) : le toast du
-    // lecteur garde ses couleurs en dur, relevées
-    expect(current.hexColors['content/ui/toast.ts']).toBeGreaterThan(0);
+    // Plus aucune taille de police en pixels dans les sources (dernières : pages d'import, 2026-10-18) ; le toast du lecteur
+    // déclare ses couleurs une fois, en variables de sa feuille content/ui/toast.css (2026-10-18) : ui/icons.ts reste relevé
+    expect(current.hexColors['ui/icons.ts']).toBeGreaterThan(0);
   });
 
   it('tests TSX exclus comme les tests TS ; modules TSX lus avec la syntaxe JSX', () => {

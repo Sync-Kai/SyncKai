@@ -563,3 +563,24 @@ Steps 4 and 5 of the history import page and the Backup page were redesigned. Th
 | `import.includes.signIns` | Twoje dane logowania AniList / MyAnimeList |
 | `import.fileContents` | Zawartość pliku |
 | `import.exportedAt` | wyeksportowano {date} (v{version}) |
+
+## 2026-10-18 · In-page toasts redesigned
+
+The in-page toasts on the player were redesigned (top-right corner, Kai with a state badge, title = what happened, subtitle = series · episode, one line per service, identical results merged). New titles `toast.title.*` (saved, series completed, partial sync, failed on a service, not saved, excluded), per-service results `toast.line.completed` / `toast.line.upToDate`, partial results of a rating or a rewatch (`prompt.rating.partial`, `prompt.rewatch.partial`) and the explanation under the rewatch question (`prompt.rewatch.message`). Two services with the same result share one line, labelled `toast.line.both`. The end-of-series rating bubble title `prompt.rating.title` is now « Series completed! Your rating? » (`toast.title.completed` and the former question joined; the series title moved to the subtitle): `prompt.rating.question` was removed. `content.episodeShort` is now the bubbles' subtitle and uses the short form of « episode » before the number where the language has one. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `toast.title.saved` | Zapisano odcinek {episode} |
+| `toast.title.completed` | Seria obejrzana! |
+| `toast.title.partial` | Częściowa synchronizacja |
+| `toast.title.failedOn` | Nie udało się na {service} |
+| `toast.title.notSaved` | Nie zapisano odcinka |
+| `toast.title.excluded` | Seria wykluczona, nic nie wysłano |
+| `toast.line.completed` | status „Obejrzane” |
+| `toast.line.upToDate` | już aktualne |
+| `prompt.rating.partial` | Ocena zapisana częściowo |
+| `prompt.rewatch.partial` | Powtórka zapisana częściowo |
+| `prompt.rewatch.message` | Na twojej liście już obejrzane: postęp zacznie się od nowa od odcinka {progress}. |
+| `content.episodeShort` | {title} · odc. {number} |
+| `toast.line.both` | AniList i MyAnimeList |
+| `prompt.rating.title` | Seria obejrzana! Twoja ocena? |

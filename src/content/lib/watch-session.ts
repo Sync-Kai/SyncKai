@@ -11,7 +11,7 @@ import { getContentSettings } from '../../browser/storage/content-settings';
 import type { StreamingAdapter } from './adapter';
 import { showEngagementPrompt } from '../ui/engagement-prompt';
 import { isAlertTone, promptForOutcome, showsProgress } from '../ui/notification-policy';
-import { ALERT_TOAST_MS, NOTICE_TOAST_MS, RETRY_TOAST_MS, bubbleForOutcome, toastForOutcome } from '../ui/sync-toast';
+import { ALERT_TOAST_MS, NOTICE_TOAST_MS, RETRY_TOAST_MS, bubbleForOutcome, episodeSubtitle, toastForOutcome, type ToastEpisode } from '../ui/sync-toast';
 import { showToast, type ToastContent, type ToastHandle, type ToastOptions } from '../ui/toast';
 import { createLogger } from '../../browser/logger';
 import { trace } from '../../browser/debug-trace-client';
@@ -76,10 +76,14 @@ function formatEpisode(e: EpisodeInfo): string {
   return `${e.animeTitle} · ${season} ${episode}${displayed} · ${e.episodeId}`;
 }
 
-/** "One Piece · épisode 1180" pour le toast */
-function formatEpisodeShort(e: EpisodeInfo): string {
-  const number = e.displayedEpisodeNumber ?? e.seasonEpisodeNumber;
-  return number !== null ? t('content.episodeShort', { title: e.animeTitle, number }) : e.animeTitle;
+/** Épisode lu sur la page, sous-titre des bulles (« Frieren · ép. 6 ») */
+function toastEpisode(e: EpisodeInfo): ToastEpisode {
+  return { series: e.animeTitle, episode: e.displayedEpisodeNumber ?? e.seasonEpisodeNumber };
+}
+
+function episodeLine(e: EpisodeInfo): string {
+  const { series, episode } = toastEpisode(e);
+  return episodeSubtitle(series, episode);
 }
 
 /** Changement d'état de la synchronisation (panneau latéral, progression en direct) */
@@ -166,7 +170,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
    */
   function stopOrphan(): void {
     log.warn('Extension rechargée depuis l’ouverture de la page : recharge l’onglet pour réactiver SyncKai');
-    showToast({ tone: 'warning', title: t('content.updated.title'), message: t('content.updated.message') }, { autoHideMs: ALERT_TOAST_MS });
+    showToast({ tone: 'warning', title: t('content.updated.title'), ...(metadata ? { subtitle: episodeLine(metadata) } : {}), message: t('content.updated.message') }, { autoHideMs: ALERT_TOAST_MS });
     destroy();
   }
 
@@ -234,7 +238,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       if (__SYNCKAI_DEBUG__) trace('page', 'completion-skipped', { episodeId, trigger, reason: 'excluded' }, traceContext);
       delivery = 'retryable';
       setState('excluded', { status: 'excluded', message: null });
-      if (trigger === 'shortcut') showShortcutNotice({ tone: 'info', title: t('common.excludedTitle'), message: t('popup.syncDisabledDetail') });
+      if (trigger === 'shortcut') showShortcutNotice({ tone: 'info', badge: 'off', title: t('common.excludedTitle'), subtitle: episode.animeTitle, message: t('popup.syncDisabledDetail') });
       return;
     }
     if (ignoredSeries.has(seriesKey(episode))) {
@@ -291,7 +295,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
     delivery = 'sending';
     // Plateforme discrète : pas de toast de progression (la série n'est peut-être pas un anime)
     const toast = showsProgress(level) && !adapter.quiet
-      ? showToast({ tone: 'info', title: t('common.syncing'), message: formatEpisodeShort(episode) })
+      ? showToast({ tone: 'info', badge: 'sync', title: t('common.syncing'), subtitle: episodeLine(episode) })
       : null;
     setState('syncing');
     const notify = (content: ToastContent, options: ToastOptions): ToastHandle | null => {
@@ -335,7 +339,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       // Échec global → tout relancer ; échec partiel → seulement les services en erreur
       const retry = outcome.status === 'error' ? null : failedServices(outcome);
       if (retry === null || retry.length > 0) {
-        notifyRetry(bubbleForOutcome(outcome), { variant: 'bubble', autoHideMs: RETRY_TOAST_MS }, retry);
+        notifyRetry(bubbleForOutcome(outcome, toastEpisode(episode)), { variant: 'bubble', autoHideMs: RETRY_TOAST_MS }, retry);
         return;
       }
       // Note de fin de série / revisionnage : bulle à tous les niveaux (même en plein écran), à la place du résultat
@@ -344,7 +348,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
         showEngagementPrompt(prompt);
         return;
       }
-      const result = toastForOutcome(outcome, level, document.fullscreenElement !== null);
+      const result = toastForOutcome(outcome, level, document.fullscreenElement !== null, toastEpisode(episode));
       if (result) {
         // Pas de toast de progression (discret) : la pastille de succès est créée ici
         if (toast) toast.update(result.content, { variant: result.variant, autoHideMs: result.autoHideMs });
@@ -359,7 +363,7 @@ export function startWatchSession(adapter: StreamingAdapter, episodeId: string):
       if (__SYNCKAI_DEBUG__) trace('page', 'sync-unreachable', { episodeId }, traceContext);
       setState('error', { status: 'error', message: t('content.unreachable.message') });
       notifyRetry(
-        { tone: 'error', title: t('content.unreachable.title'), message: t('content.unreachable.message') },
+        { tone: 'error', title: t('content.unreachable.title'), subtitle: episodeLine(episode), message: t('content.unreachable.message') },
         { variant: 'bubble', autoHideMs: RETRY_TOAST_MS },
         services,
       );

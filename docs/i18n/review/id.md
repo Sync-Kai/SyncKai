@@ -513,3 +513,24 @@ Steps 4 and 5 of the history import page and the Backup page were redesigned. Th
 | `import.includes.signIns` | Data login AniList / MyAnimeList kamu |
 | `import.fileContents` | Isi file |
 | `import.exportedAt` | diekspor pada {date} (v{version}) |
+
+## 2026-10-18 · In-page toasts redesigned
+
+The in-page toasts on the player were redesigned (top-right corner, Kai with a state badge, title = what happened, subtitle = series · episode, one line per service, identical results merged). New titles `toast.title.*` (saved, series completed, partial sync, failed on a service, not saved, excluded), per-service results `toast.line.completed` / `toast.line.upToDate`, partial results of a rating or a rewatch (`prompt.rating.partial`, `prompt.rewatch.partial`) and the explanation under the rewatch question (`prompt.rewatch.message`). Two services with the same result share one line, labelled `toast.line.both`. The end-of-series rating bubble title `prompt.rating.title` is now « Series completed! Your rating? » (`toast.title.completed` and the former question joined; the series title moved to the subtitle): `prompt.rating.question` was removed. `content.episodeShort` is now the bubbles' subtitle and uses the short form of « episode » before the number where the language has one. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `toast.title.saved` | Episode {episode} tersimpan |
+| `toast.title.completed` | Anime selesai ditonton! |
+| `toast.title.partial` | Sinkron sebagian |
+| `toast.title.failedOn` | Gagal di {service} |
+| `toast.title.notSaved` | Episode tidak tersimpan |
+| `toast.title.excluded` | Anime dikecualikan, tidak ada yang dikirim |
+| `toast.line.completed` | status Selesai |
+| `toast.line.upToDate` | sudah tercatat |
+| `prompt.rating.partial` | Nilai tersimpan sebagian |
+| `prompt.rewatch.partial` | Tonton ulang tersimpan sebagian |
+| `prompt.rewatch.message` | Sudah selesai di daftarmu: progresmu mulai lagi dari episode {progress}. |
+| `content.episodeShort` | {title} · ep. {number} |
+| `toast.line.both` | AniList dan MyAnimeList |
+| `prompt.rating.title` | Anime selesai ditonton! Berapa nilaimu? |

@@ -492,3 +492,23 @@ Steps 4 and 5 of the history import page and the Backup page were redesigned. Th
 | `import.includes.signIns` | AniList / MyAnimeList oturum bilgilerin |
 | `import.fileContents` | Dosya içeriği |
 | `import.exportedAt` | {date} tarihinde dışa aktarıldı (v{version}) |
+
+## 2026-10-18 · In-page toasts redesigned
+
+The in-page toasts on the player were redesigned (top-right corner, Kai with a state badge, title = what happened, subtitle = series · episode, one line per service, identical results merged). New titles `toast.title.*` (saved, series completed, partial sync, failed on a service, not saved, excluded), per-service results `toast.line.completed` / `toast.line.upToDate`, partial results of a rating or a rewatch (`prompt.rating.partial`, `prompt.rewatch.partial`) and the explanation under the rewatch question (`prompt.rewatch.message`). Two services with the same result share one line, labelled `toast.line.both`. The end-of-series rating bubble title `prompt.rating.title` is now « Series completed! Your rating? » (`toast.title.completed` and the former question joined; the series title moved to the subtitle): `prompt.rating.question` was removed. `content.episodeShort` is now the bubbles' subtitle and uses the short form of « episode » before the number where the language has one. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `toast.title.saved` | Bölüm {episode} kaydedildi |
+| `toast.title.completed` | Seri tamamlandı! |
+| `toast.title.partial` | Kısmen eşitlendi |
+| `toast.title.failedOn` | {service} üzerinde başarısız |
+| `toast.title.notSaved` | Bölüm kaydedilmedi |
+| `toast.title.excluded` | Seri hariç tutuldu, hiçbir şey gönderilmedi |
+| `toast.line.completed` | durum: Tamamlandı |
+| `toast.line.upToDate` | zaten güncel |
+| `prompt.rating.partial` | Puan kısmen kaydedildi |
+| `prompt.rewatch.partial` | Tekrar izleme kısmen kaydedildi |
+| `prompt.rewatch.message` | Listende zaten tamamlandı: ilerlemen {progress}. bölümden yeniden başlıyor. |
+| `toast.line.both` | AniList ve MyAnimeList |
+| `prompt.rating.title` | Seri tamamlandı! Puanın kaç? |

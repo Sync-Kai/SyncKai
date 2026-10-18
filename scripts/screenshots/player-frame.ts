@@ -82,7 +82,7 @@ async function showBubble(): Promise<void> {
 
   if (kind === 'rate' && shadow) {
     // Survol de la 9e étoile (moitié droite = 9/10) : aperçu de la note comme sous la souris
-    const stars = shadow.querySelectorAll('.stars-row > .star');
+    const stars = shadow.querySelectorAll('.stars-row > .star-box');
     stars[8]?.querySelectorAll('button')[1]?.dispatchEvent(new MouseEvent('mouseenter'));
   }
   // Libellé lisible par la page parente pour vérifier la langue
