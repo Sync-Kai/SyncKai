@@ -41,6 +41,19 @@ describe('checkGroup', () => {
     expect(checkGroup(group([entry(1, 2026, { episodes: null, status: 'RELEASING' })]), { seasonEpisodeCount: 30 }, NOT_ABSOLUTE).episodeCount).toBe('unknown');
   });
 
+  it('nombre d’épisodes d’un groupe en plusieurs parties : la tolérance de contradiction vaut par partie (récapitulatif compté par la plateforme)', () => {
+    // 86 EIGHTY-SIX Crunchyroll S1 (cas réel du 2026-10-18) : 26 épisodes pour « 86 » (11) + « 86 Part 2 » (12)
+    const eightySix = group([entry(116589, 2021, { episodes: 11 }), entry(131586, 2021, { episodes: 12 })]);
+    expect(checkGroup(eightySix, { seasonEpisodeCount: 26 }, NOT_ABSOLUTE).episodeCount).toBe('unknown');
+    expect(checkGroup(eightySix, { seasonEpisodeCount: 27 }, NOT_ABSOLUTE).episodeCount).toBe('unknown');
+    // Au-delà de ±2 par partie : contradiction
+    expect(checkGroup(eightySix, { seasonEpisodeCount: 28 }, NOT_ABSOLUTE).episodeCount).toBe('contradict');
+    expect(checkGroup(group([entry(1, 2021, { episodes: 12 }), entry(2, 2021, { episodes: 12 })]), { seasonEpisodeCount: 30 }, NOT_ABSOLUTE).episodeCount).toBe('contradict');
+    // Fiche seule : tolérance inchangée (24 épisodes contre 12, 13 contre 10)
+    expect(checkGroup(group([entry(1, 2021, { episodes: 12 })]), { seasonEpisodeCount: 24 }, NOT_ABSOLUTE).episodeCount).toBe('contradict');
+    expect(checkGroup(group([entry(1, 2026, { episodes: 10 })]), { seasonEpisodeCount: 13 }, NOT_ABSOLUTE).episodeCount).toBe('contradict');
+  });
+
   it('durée : ±30 %, format court contre normal contredit', () => {
     expect(checkGroup(group([entry(1, 2024, { duration: 23 })]), { episodeMinutes: 23.7 }, NOT_ABSOLUTE).episodeMinutes).toBe('agree');
     expect(checkGroup(group([entry(1, 2024, { duration: 3 })]), { episodeMinutes: 24 }, NOT_ABSOLUTE).episodeMinutes).toBe('contradict');
@@ -86,6 +99,15 @@ describe('concordanceVerdict', () => {
     expect(verdict.kept.map((g) => g.entries[0]?.id)).toEqual([21560]);
     expect(verdict.groups.find((g) => g.entries[0]?.id === 97643)?.checks.seasonYear).toBe('contradict');
     expect(verdict.proven).toBe(true);
+  });
+
+  it('86 EIGHTY-SIX (2021, 26 épisodes) : groupe en deux parties gardé, prouvé par l’année, jamais par le seul nombre d’épisodes', () => {
+    const groups = [group([entry(116589, 2021, { episodes: 11 }), entry(131586, 2021, { episodes: 12 })])];
+    const verdict = concordanceVerdict(groups, { seasonYear: 2021, seasonEpisodeCount: 26, episodeMinutes: 23.7, format: 'series' }, NOT_ABSOLUTE);
+    expect(verdict.kept).toHaveLength(1);
+    expect(verdict.proven).toBe(true);
+    expect(verdict.kept[0]?.checks.episodeCount).toBe('unknown');
+    expect(concordanceVerdict(groups, { seasonEpisodeCount: 26 }, NOT_ABSOLUTE).proven).toBe(false);
   });
 
   it('année à un an près sans groupe exact : gardée, jamais une preuve', () => {

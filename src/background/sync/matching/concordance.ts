@@ -116,13 +116,15 @@ function seriesYearCheck(year: number, group: SignalGroup, firstCheck: SignalChe
 /**
  * Nombre d'épisodes de la saison contre le total du groupe : ±2 → `agree` ; groupe nettement plus court (et terminé)
  * → `contradict`, sauf numérotation absolue ou saison en cours sur la plateforme ; plateforme plus courte (saison
- * partielle, en cours) ou total inconnu → `unknown`.
+ * partielle, en cours) ou total inconnu → `unknown`. La marge de contradiction vaut par partie du groupe : la plateforme
+ * peut compter un récapitulatif ou un spécial dans chaque partie (86 EIGHTY-SIX Crunchyroll S1 : 26 épisodes pour
+ * 11 + 12) ; entre ±2 et cette marge, `unknown` (jamais une preuve).
  */
 function countCheck(count: number, entries: readonly ConcordanceEntry[], airing: boolean, context: ConcordanceContext): SignalCheck {
   const total = totalEpisodes(entries);
   if (total !== null && Math.abs(total - count) <= SEASON_COUNT_TOLERANCE) return 'agree';
   if (context.absolute || airing || total === null || isOpen(entries)) return 'unknown';
-  return count > total + SEASON_COUNT_TOLERANCE ? 'contradict' : 'unknown';
+  return count > total + SEASON_COUNT_TOLERANCE * entries.length ? 'contradict' : 'unknown';
 }
 
 function minutesCheck(minutes: number, entries: readonly ConcordanceEntry[]): SignalCheck {

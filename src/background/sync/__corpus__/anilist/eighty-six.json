@@ -1,0 +1,13 @@
+{
+  "fetchedAt": "2026-10-18",
+  "searches": {
+    "86 EIGHTY-SIX": [116589,131586]
+  },
+  "byIds": {
+
+  },
+  "media": [
+    {"id":116589,"idMal":41457,"format":"TV","episodes":11,"startDate":{"year":2021,"month":4,"day":11},"seasonYear":2021,"title":{"romaji":"86: Eighty Six","english":"86 EIGHTY-SIX","native":"86－エイティシックス－","userPreferred":"86: Eighty Six"},"synonyms":["86--EIGHTY-SIX","86 -เอทตี้ซิกซ์-","86 ВОСЕМЬДЕСЯТ ШЕСТЬ","86 -不存在的战区-"],"relations":{"edges":[{"relationType":"SEQUEL","node":{"id":131586,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.netflix.com/title/81442047"},{"url":"https://www.crunchyroll.com/series/GVDHX8DM5/86-eighty-six"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2021,"endDate":{"year":2021,"month":6,"day":20}}},
+    {"id":131586,"idMal":48569,"format":"TV","episodes":12,"startDate":{"year":2021,"month":10,"day":3},"seasonYear":2021,"title":{"romaji":"86: Eighty Six Part 2","english":"86 EIGHTY-SIX Part 2","native":"86－エイティシックス－ 第2クール","userPreferred":"86: Eighty Six Part 2"},"synonyms":["86－エイティシックス－ 2クール","86 -เอทตี้ซิกซ์- พาร์ท 2"],"relations":{"edges":[{"relationType":"PREQUEL","node":{"id":116589,"type":"ANIME","format":"TV"}}]},"externalLinks":[{"url":"https://www.netflix.com/title/81442047"}],"signals":{"duration":24,"countryOfOrigin":"JP","status":"FINISHED","seasonYear":2021,"endDate":{"year":2022,"month":3,"day":19}}}
+  ]
+}

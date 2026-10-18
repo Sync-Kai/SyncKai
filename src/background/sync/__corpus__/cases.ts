@@ -60,6 +60,7 @@ const DR_STONE_CR = { seriesId: 'GYEXQKJG6', seriesSlug: 'dr-stone', animeTitle:
 const SLIME_CR = { seriesId: 'GYZJ43JMR', seriesSlug: 'that-time-i-got-reincarnated-as-a-slime', animeTitle: 'Moi, quand je me réincarne en Slime' };
 const FRIEREN_CR = { seriesId: 'GG5H5XQX4', seriesSlug: 'frieren-beyond-journeys-end', animeTitle: 'Frieren: Beyond Journey’s End' };
 const AOT_CR = { seriesId: 'GR751KNZY', seriesSlug: 'attack-on-titan', animeTitle: 'Attack on Titan' };
+const EIGHTY_SIX_CR = { seriesId: 'GVDHX8DM5', seriesSlug: '86-eighty-six', animeTitle: '86 EIGHTY-SIX' };
 /**
  * Attack on Titan sur Crunchyroll, réponses CMS relevées le 2026-10-14 (anonyme, en-US) : saisons originales S1 (2013,
  * 27 ép.), S3 (2018, 22 ép.), Final Season (2020, 30 ép.) parmi six (S2, Last Attack et OADs : années non relevées) ;
@@ -378,6 +379,16 @@ export const CASES: readonly CorpusCase[] = [
     episode: crunchyroll(SLIME_CR, 'GSLIME0105', { seasonNumber: 1, seasonTitle: null, seasonEpisodeNumber: 5, displayedEpisodeNumber: 5 }),
     searches: ['Moi, quand je me réincarne en Slime', 'Moi, quand je me reincarne en Slime'],
     expected: high(101280, 5),
+  },
+  {
+    id: 'cr-eighty-six-s1e11',
+    kind: 'episode',
+    note: 'Cas réel (2026-10-18, trace et diagnostic du propriétaire, /fr/watch/GVWU0P095) : « 86 EIGHTY-SIX » saison 1, E11 « On arrive ». La saison Crunchyroll réunit les deux parties AniList (« 86 », 11 ép., et « 86 Part 2 », 12 ép., 2021) et compte 26 épisodes (récapitulatifs ou spéciaux en plus, SUPPOSÉ). E11 tombe dans la partie 1 : « À vérifier » à tort (« nombre d’épisodes »), 26 contre 23 dépassant la tolérance de ±2.',
+    anilist: 'eighty-six',
+    episode: { ...crunchyroll(EIGHTY_SIX_CR, 'GVWU0P095', { seasonNumber: 1, seasonTitle: '86 EIGHTY-SIX', seasonEpisodeNumber: 11, displayedEpisodeNumber: 11, episodeTitle: 'On arrive' }), url: 'https://www.crunchyroll.com/fr/watch/GVWU0P095/here-we-go' },
+    signals: { seasons: [{ seq: 1, year: 2021, episodes: 26 }], episodeDurationS: 1422, source: 'EpisodeInfo.signals reçu par le service worker (trace du propriétaire, 2026-10-18 : seasonYear 2021, seasonEpisodeCount 26, episodeMinutes 23.7, format series ; ligne coupée après `format`)' },
+    searches: ['86 EIGHTY-SIX'],
+    expected: high(116589, 11),
   },
   {
     id: 'cr-frieren-s1e5',
