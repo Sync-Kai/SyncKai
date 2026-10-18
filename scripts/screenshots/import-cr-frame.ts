@@ -12,7 +12,5 @@ if (zoom !== 1) document.documentElement.style.zoom = String(zoom);
 await import('../../src/import-cr/import-cr.ts');
 
 await waitFor(() => document.querySelector('[data-focus="cr-apply"]'));
-// Marge haute de la page réduite : l’aperçu et « À vérifier » tiennent dans la fenêtre
-window.scrollTo(0, 16);
 (document.activeElement as HTMLElement | null)?.blur();
 await markReady();

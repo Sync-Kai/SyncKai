@@ -437,3 +437,58 @@ The Schedule tab of the side panel was redesigned: days in order with « No epis
 | `agenda.picker.nextMonth` | Sonraki ay |
 | `agenda.picker.thisWeek` | Bu hafta |
 | `agenda.picker.hint` | Haftayı değiştirmek için ↑ ↓, göstermek için Enter. |
+
+## 2026-10-18 · History import page, steps 1 to 3 (Preact)
+
+The history import page (steps 1 to 3) was redesigned: a 5-step indicator under the title (Platform, Reading, Analysis, Preview, Import), one tile per platform with the state of its tab (ready, no tab open, waiting for the tab, access to grant), the rules in a « How it works » card (its title reuses `onboarding.howItWorks`), and the Netflix reading card listing its three steps (done with a check, current with a bar, next ones greyed). New: `crImport.steps` (screen readers only), `crImport.step.*` (one word each: the five steps share one line at 576 px), `crImport.tile.*` (status line of a tile, no platform name), `crImport.netflix.heading`, `crImport.netflix.rowsDone` (step done: same wording as `crImport.netflix.rows` without the ellipsis), `crImport.netflix.titlesNext` and `crImport.netflix.showsNext` (steps not started yet: same wording as `crImport.netflix.titles` / `.shows` without the counts). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.steps` | Adımlar |
+| `crImport.step.platform` | Platform |
+| `crImport.step.reading` | Okuma |
+| `crImport.step.analysis` | Analiz |
+| `crImport.step.preview` | Önizleme |
+| `crImport.step.import` | İçe aktarma |
+| `crImport.tile.ready` | Sekme hazır |
+| `crImport.tile.none` | Açık sekme yok |
+| `crImport.tile.access` | Erişim izni gerekli |
+| `crImport.tile.waiting` | Sekme bekleniyor… |
+| `crImport.netflix.heading` | Netflix geçmişin okunuyor |
+| `crImport.netflix.rowsDone` | Netflix geçmişi yüklendi: {rows} satır |
+| `crImport.netflix.titlesNext` | AniList'te anime arama |
+| `crImport.netflix.showsNext` | Netflix ilerlemeni okuma (tutulan seriler) |
+
+## 2026-10-18 · History import page, steps 4 and 5, and Backup page (Preact)
+
+Steps 4 and 5 of the history import page and the Backup page were redesigned. The preview summary is now a row of tiles, each with its number above a label: `crImport.summary.*` are those labels without the number (they replace `crImport.preview.toUpdate`, `.review`, `.upToDate`, `.excluded`, `.ignored` and `.failed`, removed; same wording without `{count}`). The « Update N series » button has a muted hint on its left (`crImport.preview.hint.*`: a line left unchecked, none checked, locked during the import, what stays checked after a stopped or failed import). Each « To check » season shows the entry its check card will propose (`crImport.review.proposed`, a small badge) and the other entries to choose from (`crImport.review.alternatives`, `{titles}` = a localized list). The Backup page's Export card lists what the file contains and never contains (`import.included`, `import.neverIncluded`, `import.includes.*`, reusing the words of `import.summary.*` and `import.intro`); the Import card titles the file table (`import.fileContents`) and shows the export date under the file name (`import.exportedAt`, replaces `import.exportedOn`, removed: same text without the leading ` · `). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.summary.toUpdate_one` | seri güncellenecek |
+| `crImport.summary.toUpdate_other` | seri güncellenecek |
+| `crImport.summary.review_one` | doğrulanacak |
+| `crImport.summary.review_other` | doğrulanacak |
+| `crImport.summary.upToDate_one` | zaten güncel |
+| `crImport.summary.upToDate_other` | zaten güncel |
+| `crImport.summary.excluded_one` | hariç tutuldu |
+| `crImport.summary.excluded_other` | hariç tutuldu |
+| `crImport.summary.ignored_one` | başlık atlandı (anime değil) |
+| `crImport.summary.ignored_other` | başlık atlandı (anime değil) |
+| `crImport.summary.failed_one` | bulunamadı (hata) |
+| `crImport.summary.failed_other` | bulunamadı (hata) |
+| `crImport.preview.hint.unchecked` | İşareti kaldırılan satır yazılmaz. |
+| `crImport.preview.hint.none` | En az bir seri seç. |
+| `crImport.preview.hint.locked` | İçe aktarma bitene kadar kutular ve düğmeler kilitli. |
+| `crImport.preview.hint.stopped` | Henüz yazılmamış seriler işaretli kalır. |
+| `crImport.preview.hint.failed` | Başarısız seriler işaretli kalır. |
+| `crImport.review.proposed` | önerilen |
+| `crImport.review.alternatives` | Diğer seçenekler: {titles} |
+| `import.included` | Dahil |
+| `import.neverIncluded` | Asla dahil değil |
+| `import.includes.settings` | Ayarlar |
+| `import.includes.matches` | Eşleşmeler ve hariç tutulan seriler |
+| `import.includes.history` | Geçmiş: son eşitlemeler, doğrulanacak bölümler, puanlanacak seriler, reddedilen tekrar izlemeler |
+| `import.includes.signIns` | AniList / MyAnimeList oturum bilgilerin |
+| `import.fileContents` | Dosya içeriği |
+| `import.exportedAt` | {date} tarihinde dışa aktarıldı (v{version}) |

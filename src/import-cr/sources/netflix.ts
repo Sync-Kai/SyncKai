@@ -18,6 +18,7 @@ import { hasPlatformAccess, requestPlatformAccess } from '../../browser/platform
 import { getSettings } from '../../browser/storage/settings-access';
 import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
+import { SOURCE_SITES } from './sites';
 import { readErrorText, sleep, sourceParams, type HistorySource, type ReadContext, type ReadOutcome, type ReadProgress } from './source';
 
 // Historique Netflix : onglet « Activité de visionnage » piloté d'ici (voir platforms/netflix/history.ts) : a) lignes
@@ -155,7 +156,7 @@ export const netflixSource: HistorySource = {
   // Page Activité de visionnage du profil (l'historique n'est lisible que là)
   tabPatterns: ['https://www.netflix.com/viewingactivity*', 'https://www.netflix.com/*/viewingactivity*'],
   home: 'https://www.netflix.com/viewingactivity',
-  site: 'netflix.com/viewingactivity',
+  site: SOURCE_SITES.netflix,
   initialProgress: { kind: 'netflix', phase: 'rows', done: 0, total: 0 },
   // Accès optionnel, le même que dans Réglages (permission de la plateforme, voir browser/platform-access.ts)
   hasAccess: () => hasPlatformAccess('netflix'),

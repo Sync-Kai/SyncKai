@@ -1,6 +1,6 @@
 // Contrôle de mise en page des langues : les écrans principaux rendus dans chacune des 21 langues (vrai popup, vrai
-// panneau latéral à 360 et 320 px, vraie page d'import, sur l'API chrome simulée des tests de bout en bout), puis
-// relevé des textes coupés ou qui débordent par le détecteur (règles en tête de layout-probe.ts).
+// panneau latéral à 360 et 320 px, vraie page d'import, vraie page Sauvegarde, sur l'API chrome simulée des tests de
+// bout en bout), puis relevé des textes coupés ou qui débordent par le détecteur (règles en tête de layout-probe.ts).
 //
 // Lancement : npm run test:i18n-layout (≈ 40 s ; hors de npm run test:e2e, que release.yml exige avant toute
 // publication : un libellé traduit trop long ne doit pas bloquer une version) ; quelques langues seulement :
@@ -21,7 +21,9 @@ import path from 'node:path';
 import type { Browser, Page } from 'puppeteer';
 import { afterAll, beforeAll, describe, it } from 'vitest';
 import { isLocale, LOCALES, type Locale } from '../../src/i18n';
-import { CR_IMPORT_KEYS } from '../../src/shared/cr-import';
+import { buildBackup } from '../../src/shared/backup';
+import { CR_IMPORT_KEYS, startAnalyzeJob } from '../../src/shared/cr-import';
+import { DEFAULT_SETTINGS } from '../../src/shared/settings';
 import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
 import { SETTINGS_PAGE_PARENTS, SETTINGS_SUBPAGES, type SettingsSubPage } from '../../src/ui/settings/navigation';
 import { demoChrome } from '../screenshots/demo-data';
@@ -47,7 +49,7 @@ const PANEL_WIDTHS = [360, 320] as const;
 const PANEL_HEIGHT = 900;
 /** Popup : dimensions fixées par src/popup/popup.css */
 const POPUP_VIEWPORT = { width: 400, height: 580 };
-/** Page d'import : colonne de 560 px (src/import-cr/import-cr.html) dans un onglet étroit */
+/** Page d'import : colonne de 576 px (src/import-cr/components/import-app.tsx) dans un onglet étroit */
 const IMPORT_VIEWPORT = { width: 640, height: 900 };
 /** Une langue entière (≈ 25 écrans), avec plusieurs langues en parallèle */
 const LOCALE_TIMEOUT_MS = 300_000;
@@ -445,7 +447,7 @@ async function importScreens(ctx: LocaleContext): Promise<void> {
     await page.waitForSelector(sel('cr-item-163270'));
     // « Déjà à jour » déplié : ses lignes sont relevées aussi
     await click(page, 'cr-uptodate-toggle');
-    await page.waitForFunction(() => [...document.querySelectorAll('details')].every((details) => details.open));
+    await page.waitForSelector('[data-focus="cr-uptodate-toggle"][aria-expanded="true"]');
     await attach(ctx, page);
     await shot(ctx, page, 'import/preview');
 
@@ -453,6 +455,88 @@ async function importScreens(ctx: LocaleContext): Promise<void> {
     await click(page, 'cr-apply');
     await page.waitForSelector(sel('cr-job-stop'));
     await shot(ctx, page, 'import/applying');
+  } finally {
+    await page.close();
+  }
+
+  // Étape 5 finie : bilan avec un échec (raison sous le bilan), ligne écrite, ligne en échec toujours cochée
+  ctx.step = 'import/apply-done';
+  const applied = await openPage(ctx, 'import-cr.html', { apply: 'done' }, IMPORT_VIEWPORT);
+  try {
+    await click(applied, 'cr-read');
+    await click(applied, 'cr-apply');
+    await applied.waitForSelector('[data-apply-end]');
+    await attach(ctx, applied);
+    await shot(ctx, applied, 'import/apply-done');
+  } finally {
+    await applied.close();
+  }
+
+  // Étape 1 : Netflix choisi sans accès (tuile « accès à autoriser », barre « Autoriser l'accès »)
+  const access = await openPage(ctx, 'import-cr.html', { platform: 'netflix', netflix: 'denied' }, IMPORT_VIEWPORT);
+  try {
+    await access.waitForSelector(sel('cr-access'));
+    await attach(ctx, access);
+    await shot(ctx, access, 'import/access');
+  } finally {
+    await access.close();
+  }
+
+  // Étape 2 : lecture Netflix en trois temps, figée sur le filtre AniList
+  const reading = await openPage(ctx, 'import-cr.html', { platform: 'netflix', history: 'hold' }, IMPORT_VIEWPORT);
+  try {
+    await click(reading, 'cr-read');
+    await reading.waitForSelector('[data-phase="titles"] [role="progressbar"][aria-valuenow="40"]', { timeout: 20_000 });
+    await attach(ctx, reading);
+    await shot(ctx, reading, 'import/reading');
+  } finally {
+    await reading.close();
+  }
+
+  // Étape 3 : analyse en pause (quota AniList), puis arrêtée (« Recommencer »)
+  const analysis = await openPage(ctx, 'import-cr.html', { analyze: 'hold' }, IMPORT_VIEWPORT);
+  try {
+    await click(analysis, 'cr-read');
+    await analysis.waitForSelector('[data-job]');
+    const now = Date.now();
+    const job = { ...startAnalyzeJob(120, now).job, done: 42, cursor: 42, current: 's:42', pausedUntil: now + 600_000, pauseReason: 'rate-limit' as const, pauseService: 'anilist' as const };
+    await storageSet(analysis, { [CR_IMPORT_KEYS.job]: job });
+    await analysis.waitForSelector('[data-job-pause]');
+    await attach(ctx, analysis);
+    await shot(ctx, analysis, 'import/analysis');
+    await storageSet(analysis, { [CR_IMPORT_KEYS.job]: { ...job, status: 'cancelled', pausedUntil: null, pauseReason: null, pauseService: null } });
+    await analysis.waitForSelector('[data-analyze-ended]');
+    await attach(ctx, analysis);
+    await shot(ctx, analysis, 'import/analysis-ended');
+  } finally {
+    await analysis.close();
+  }
+}
+
+// ─── Page Sauvegarde ──────────────────────────────────────────────────────
+
+/** Sauvegarde choisie sur la page (écrite une fois, hors du dépôt) */
+let backupFile = '';
+
+async function backupScreens(ctx: LocaleContext): Promise<void> {
+  ctx.step = 'backup/idle';
+  const page = await openPage(ctx, 'backup.html', {}, IMPORT_VIEWPORT);
+  try {
+    // Export (inclus, jamais inclus), import avant le choix d'un fichier
+    await page.waitForSelector(sel('export'));
+    await attach(ctx, page);
+    await shot(ctx, page, 'backup/idle');
+
+    // Fichier lu : contenu, mode « Remplacer » et sa confirmation
+    ctx.step = 'backup/ready';
+    const input = await page.waitForSelector('input#sk-file');
+    await input?.uploadFile(backupFile);
+    await page.waitForSelector('[data-import="ready"]');
+    await page.locator('[data-choice="replace"]').click();
+    await click(page, 'import');
+    await page.waitForSelector('[data-replace-confirm]');
+    await attach(ctx, page);
+    await shot(ctx, page, 'backup/ready');
   } finally {
     await page.close();
   }
@@ -468,6 +552,11 @@ beforeAll(async () => {
   // Résultats d'un passage précédent : seuls les fichiers de ce contrôle sont retirés
   await mkdir(OUT_DIR, { recursive: true });
   await Promise.all([...LOCALES.map((locale) => rm(path.join(OUT_DIR, locale), { recursive: true, force: true })), rm(path.join(OUT_DIR, 'report.json'), { force: true }), rm(path.join(OUT_DIR, 'report.md'), { force: true })]);
+  // Sauvegarde choisie sur la page Sauvegarde : réglages, deux correspondances, un revisionnage refusé
+  backupFile = path.join(OUT_DIR, 'synckai-backup.json');
+  const mapping = (mediaId: number, seriesLabel: string) => ({ mediaId, numbering: 'season', offset: 0, episodes: 12, seriesLabel });
+  const sections = { settings: DEFAULT_SETTINGS, mediaMappings: { 'crunchyroll:GFRIEREN:s1': mapping(154587, 'Frieren · S1'), 'adn:1311:s1': mapping(178680, 'Tougen Anki · S1') }, rewatchDeclined: { 'anilist:1': 1 } };
+  await writeFile(backupFile, JSON.stringify(buildBackup(sections, '2.3.1', new Date('2026-10-12T19:40:00Z'))));
   server = await startHarnessServer('e2e');
   browser = await launchBrowser();
 });
@@ -495,6 +584,7 @@ describe('mise en page des langues', () => {
         await popupScreens(ctx);
         await panelScreens(ctx);
         await importScreens(ctx);
+        await backupScreens(ctx);
       } catch (error: unknown) {
         errors.push({ locale, message: `${ctx.step}: ${error instanceof Error ? error.message : String(error)}` });
       }

@@ -1,6 +1,7 @@
 import { CR_HISTORY_PORT_NAME, isCrHistoryPortMessage } from '../../protocol/content-messages';
 import { hasHostAccess, requestHostAccess } from '../../browser/host-access';
 import { readOverPort, type PortProtocol } from './port-reader';
+import { SOURCE_SITES } from './sites';
 import type { HistorySource } from './source';
 
 // Historique Crunchyroll : lu et réduit par saison dans l'onglet (lecteur injecté, session du site), reçu par le port.
@@ -23,7 +24,7 @@ export const crunchyrollSource: HistorySource = {
   id: 'crunchyroll',
   tabPatterns: ['https://www.crunchyroll.com/*'],
   home: 'https://www.crunchyroll.com/',
-  site: 'www.crunchyroll.com',
+  site: SOURCE_SITES.crunchyroll,
   initialProgress: { kind: 'reading', pages: 0, items: 0, lookups: 0, lookupsTotal: 0 },
   hasAccess: () => hasHostAccess(ORIGINS),
   requestAccess: () => requestHostAccess(ORIGINS),

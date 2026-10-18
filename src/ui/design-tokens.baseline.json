@@ -1,16 +1,9 @@
 {
-  "arbitraryColors": {
-    "ui/kit.ts": 8
-  },
+  "arbitraryColors": {},
   "hexColors": {
     "browser/badge.ts": 4,
     "content/ui/toast.ts": 20,
     "ui/icons.ts": 1
   },
-  "pxFontSizes": {
-    "import-cr/import-cr.ts": 33,
-    "import/import.ts": 18,
-    "ui/alert.ts": 1,
-    "ui/kit.ts": 6
-  }
+  "pxFontSizes": {}
 }

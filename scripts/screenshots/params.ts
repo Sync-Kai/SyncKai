@@ -40,7 +40,8 @@ export async function loadedUiLocaleParam(): Promise<Locale> {
 /** Signale à la page parente (ou au script de capture) que le rendu est stable */
 export async function markReady(): Promise<void> {
   await document.fonts.ready;
-  const images = [...document.images];
+  // Images affichées seulement : une image `loading="lazy"` d'un bloc replié (<details> fermé) ne se charge jamais
+  const images = [...document.images].filter((img) => img.checkVisibility());
   await Promise.all(images.map((img) => img.decode().catch(() => undefined)));
   // Deux frames : dernières mises en page appliquées
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));

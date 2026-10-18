@@ -28,6 +28,8 @@ afterEach(async () => {
 
 const fr = (key: MessageKey, params?: MessageParams): string => tl('fr', key, params);
 const sel = (focus: string): string => `[data-focus="${focus}"]`;
+/** Tuile d'une plateforme (son bouton radio est masqué : le clic porte sur la tuile) */
+const tile = (platform: string): string => `[data-platform-tile="${platform}"]`;
 
 async function openPage(params: Record<string, string> = {}): Promise<Page> {
   const page = await browser.newPage();
@@ -46,6 +48,22 @@ async function trace(page: Page): Promise<E2EState> {
 }
 
 describe('page d’import Crunchyroll (bout en bout)', () => {
+  it('étape 1 : une tuile par plateforme avec son état, étape en cours dans l’indicateur, puis étape 2 pendant la lecture', async () => {
+    const page = await openPage({ netflix: 'denied' });
+    await page.waitForSelector(sel('cr-read'));
+    const tiles = (): Promise<string[]> => page.$$eval('[data-platform-tile]', (els) => els.map((el) => `${el.getAttribute('data-platform-tile')}:${el.getAttribute('data-status')}`));
+    expect(await tiles()).toEqual(['crunchyroll:ready', 'adn:ready', 'netflix:access']);
+    expect(await page.$eval('[aria-current="step"]', (el) => el.textContent)).toBe(`1${fr('crImport.step.platform')}`);
+    // Netflix choisi sans accès : ni règles ni lecture, la barre propose l'autorisation
+    await page.locator(tile('netflix')).click();
+    await page.waitForSelector(sel('cr-access'));
+    expect(await page.$(sel('cr-read'))).toBeNull();
+    await page.locator(tile('crunchyroll')).click();
+    await page.locator(sel('cr-read')).click();
+    await page.waitForSelector(sel('cr-apply'));
+    expect(await page.$eval('[aria-current="step"]', (el) => el.textContent)).toBe(`4${fr('crImport.step.preview')}`);
+  });
+
   it('lit l’historique dans l’onglet, lance l’analyse, affiche l’aperçu et n’importe que les séries cochées', async () => {
     const page = await openPage();
     await page.locator(sel('cr-read')).click();
@@ -74,31 +92,63 @@ describe('page d’import Crunchyroll (bout en bout)', () => {
     expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('crImport.apply.running', { done: 0, total: 1 }));
   });
 
-  it('UI-06 : « Déjà à jour » ouvert et « À vérifier » replié restent ainsi après un nouveau rendu', async () => {
+  it('UI-06 : « Déjà à jour » déplié le reste après un nouveau rendu ; « À vérifier » toujours affiché', async () => {
     const page = await openPage();
     await page.locator(sel('cr-read')).click();
     await page.waitForSelector(sel('cr-apply'));
-    const titles = [tl('fr', 'crImport.preview.upToDateTitle_one', { count: 1 }), tl('fr', 'crImport.review.title_one', { count: 1 })];
-    /** Ouverture des blocs « Déjà à jour » puis « À vérifier » (null : bloc absent) */
-    const openState = (): Promise<(boolean | null)[]> =>
-      page.evaluate(
-        (wanted: string[]) =>
-          wanted.map((title) => [...document.querySelectorAll('details')].find((el) => el.querySelector('summary')?.textContent?.includes(title))?.open ?? null),
-        titles,
-      );
-    expect(await openState()).toEqual([false, true]);
+    const expanded = (): Promise<string | null> => page.$eval(sel('cr-uptodate-toggle'), (el) => el.getAttribute('aria-expanded'));
+    const listHidden = (): Promise<boolean> => page.$eval('[data-uptodate-section] [data-collapsible-body]', (el) => el instanceof HTMLElement && el.hidden === true);
+    expect(await expanded()).toBe('false');
+    expect(await listHidden()).toBe(true);
 
-    // L'utilisateur ouvre « Déjà à jour » et replie « À vérifier »
-    for (const summary of await page.$$('summary')) await summary.click();
-    expect(await openState()).toEqual([true, false]);
+    // L'utilisateur déplie « Déjà à jour » : ONE PIECE (rien à écrire) apparaît, sans case
+    await page.locator(sel('cr-uptodate-toggle')).click();
+    await page.waitForSelector('[data-uptodate-section] [data-item="21"]', { visible: true });
+    expect(await expanded()).toBe('true');
+    expect(await page.$('[data-uptodate-section] input')).toBeNull();
 
-    // Nouveau rendu de la page (case décochée) : les choix sont gardés
+    // Nouveau rendu de la page (case décochée) : le choix est gardé
     await page.locator(sel('cr-item-300')).click();
     await page.waitForFunction(() => {
       const box = document.querySelector('[data-focus="cr-item-300"]');
       return box instanceof HTMLInputElement && !box.checked;
     });
-    expect(await openState()).toEqual([true, false]);
+    expect(await expanded()).toBe('true');
+    expect(await page.$eval('[data-review-section]', (el) => el.textContent ?? '')).toContain('Mystery');
+    // Une ligne décochée : la légende du bouton le dit
+    expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('crImport.preview.hint.unchecked'));
+  });
+
+  it('résumé de l’aperçu : cases des compteurs', async () => {
+    const page = await openPage();
+    await page.locator(sel('cr-read')).click();
+    await page.waitForSelector(sel('cr-apply'));
+    const tiles = await page.$$eval('[data-tile]', (els) => els.map((el) => `${el.getAttribute('data-tile')}:${el.textContent}`));
+    expect(tiles).toEqual([
+      `toUpdate:2${tl('fr', 'crImport.summary.toUpdate_other')}`,
+      `review:1${tl('fr', 'crImport.summary.review_one')}`,
+      `upToDate:1${tl('fr', 'crImport.summary.upToDate_one')}`,
+    ]);
+  });
+
+  it('étape 5 : import terminé avec un échec, bilan et raison, série en échec toujours cochée, « OK » ferme le bilan', async () => {
+    const page = await openPage({ apply: 'done' });
+    await page.locator(sel('cr-read')).click();
+    await page.locator(sel('cr-apply')).click();
+    await page.waitForSelector('[data-apply-end="done"]');
+    const end = await page.$eval('[data-apply-end]', (el) => el.textContent ?? '');
+    expect(end).toContain(fr('crImport.apply.done'));
+    expect(end).toContain('MyAnimeList : délai dépassé');
+    // Import terminé : les cinq étapes faites
+    expect(await page.$eval('[data-import-steps]', (el) => el.getAttribute('data-import-steps'))).toBe('6');
+    // Black Butler écrite : case verte figée ; Slime en échec : cochée, prête pour un nouvel essai
+    expect(await page.$eval(sel('cr-item-100'), (el) => el instanceof HTMLInputElement && el.disabled && el.hasAttribute('data-done'))).toBe(true);
+    expect(await page.$eval(sel('cr-item-300'), (el) => el instanceof HTMLInputElement && el.checked && !el.disabled)).toBe(true);
+    expect(await page.$eval(sel('cr-apply'), (el) => el.textContent?.trim())).toBe(tl('fr', 'crImport.preview.apply_one', { count: 1 }));
+    expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('crImport.preview.hint.failed'));
+    await page.locator(sel('cr-dismiss')).click();
+    await page.waitForFunction(() => document.querySelector('[data-apply-end]') === null);
+    expect(await page.$eval('[aria-current="step"]', (el) => el.textContent)).toBe(`4${fr('crImport.step.preview')}`);
   });
 
   it('« Créer 1 vérification » envoie la saison incertaine', async () => {
@@ -119,6 +169,34 @@ describe('page d’import Crunchyroll (bout en bout)', () => {
     expect((await trace(page)).messages.some((m) => m.type === 'CR_IMPORT_ANALYZE')).toBe(false);
   });
 
+  it('étape 2 : vérification de la numérotation avec sa barre, « Arrêter » ramène au choix de la plateforme', async () => {
+    const page = await openPage({ history: 'hold' });
+    await page.locator(sel('cr-read')).click();
+    const lookups = fr('crImport.read.lookups', { done: 38, total: 52 });
+    await page.waitForFunction((text: string) => document.querySelector('[data-reading]')?.textContent?.includes(text) ?? false, {}, lookups);
+    expect(await page.$eval('[data-reading] [role="progressbar"]', (el) => [el.getAttribute('aria-valuenow'), el.getAttribute('aria-valuemax')])).toEqual(['38', '52']);
+    expect(await page.$eval('[aria-current="step"]', (el) => el.textContent)).toBe(`2${fr('crImport.step.reading')}`);
+    await page.locator(sel('cr-read-stop')).click();
+    await page.waitForSelector(sel('cr-read'));
+    expect(await page.$('[data-alert]')).toBeNull();
+  });
+
+  it('historique sans épisode terminé : information (pas une erreur), retour à l’étape 1', async () => {
+    const page = await openPage({ analyze: 'empty' });
+    await page.locator(sel('cr-read')).click();
+    await page.waitForSelector('[data-feedback="info"]');
+    expect(await page.$eval('[data-feedback="info"]', (el) => el.textContent)).toBe(fr('crImport.error.empty', { platform: 'Crunchyroll' }));
+    expect(await page.$('[data-alert]')).toBeNull();
+    expect(await page.$(sel('cr-read'))).not.toBeNull();
+  });
+
+  it('analyse déjà lancée ailleurs : erreur à l’étape 1, rien n’est démarré', async () => {
+    const page = await openPage({ analyze: 'busy' });
+    await page.locator(sel('cr-read')).click();
+    await page.waitForSelector('[data-alert]');
+    expect(await page.$eval('[data-alert]', (el) => el.getAttribute('data-alert'))).toBe(fr('crImport.error.busy'));
+  });
+
   it('UX-07 : en anglais, « Crunchyroll: » et « AniList: » sans l’espace français avant les deux-points', async () => {
     const page = await openPage({ locale: 'en' });
     await page.locator(sel('cr-read')).click();
@@ -134,7 +212,7 @@ describe('page d’import, historique ADN (bout en bout)', () => {
   it('?platform=adn : lit l’historique ADN, le réduit par saison (épisodes terminés seulement) et lance l’analyse ADN', async () => {
     const page = await openPage({ platform: 'adn' });
     await page.waitForSelector(sel('cr-read'));
-    expect(await page.$eval(sel('platform-adn'), (el) => el.getAttribute('aria-pressed'))).toBe('true');
+    expect(await page.$eval(sel('platform-adn'), (el) => el instanceof HTMLInputElement && el.checked)).toBe(true);
     expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('crImport.connect.foundTitled', { platform: 'ADN', title: 'ADN' }));
     await page.locator(sel('cr-read')).click();
 
@@ -167,10 +245,10 @@ describe('page d’import, historique ADN (bout en bout)', () => {
   it('choix de la plateforme sur la page : Crunchyroll → ADN, onglet ADN retrouvé, choix gardé dans l’URL', async () => {
     const page = await openPage();
     await page.waitForSelector(sel('cr-read'));
-    expect(await page.$eval(sel('platform-crunchyroll'), (el) => el.getAttribute('aria-pressed'))).toBe('true');
-    await page.locator(sel('platform-adn')).click();
+    expect(await page.$eval(sel('platform-crunchyroll'), (el) => el instanceof HTMLInputElement && el.checked)).toBe(true);
+    await page.locator(tile('adn')).click();
     await page.waitForFunction((want: string) => document.querySelector('main')?.textContent?.includes(want) ?? false, {}, fr('crImport.connect.foundTitled', { platform: 'ADN', title: 'ADN' }));
-    expect(await page.$eval(sel('platform-adn'), (el) => el.getAttribute('aria-pressed'))).toBe('true');
+    expect(await page.$eval(sel('platform-adn'), (el) => el instanceof HTMLInputElement && el.checked)).toBe(true);
     expect(new URL(page.url()).searchParams.get('platform')).toBe('adn');
     await page.locator(sel('cr-read')).click();
     await page.waitForSelector(sel('cr-apply'));
@@ -196,7 +274,7 @@ describe('page d’import, historique Netflix (bout en bout)', () => {
     // Même permission que l'interrupteur des Réglages (le service worker enregistre alors les scripts Netflix)
     await page.waitForSelector(sel('cr-read'));
     expect((await trace(page)).permissionRequests).toEqual([['https://*.netflix.com/*']]);
-    expect(await page.$eval(sel('platform-netflix'), (el) => el.getAttribute('aria-pressed'))).toBe('true');
+    expect(await page.$eval(sel('platform-netflix'), (el) => el instanceof HTMLInputElement && el.checked)).toBe(true);
     expect(await page.$eval('main', (el) => el.textContent ?? '')).toContain(fr('crImport.netflix.rule'));
 
     await page.locator(sel('cr-read')).click();
@@ -224,7 +302,7 @@ describe('page d’import, historique Netflix (bout en bout)', () => {
     });
     const body = await page.$eval('main', (el) => el.textContent ?? '');
     expect(body).toContain('Netflix : Ranma1/2 · S1');
-    expect(body).toContain(tl('fr', 'crImport.preview.ignored_other', { count: 40 }));
+    expect(await page.$eval('[data-tile="ignored"]', (el) => el.textContent)).toBe(`40${tl('fr', 'crImport.summary.ignored_other')}`);
   });
 
   it('token AniList expiré et aucun compte MAL : page « non connecté » (comme les autres écrans), lecture impossible', async () => {

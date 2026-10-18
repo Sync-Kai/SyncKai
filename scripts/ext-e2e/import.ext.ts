@@ -116,7 +116,8 @@ async function openFromMyData(h: ExtensionHarness, platform: 'crunchyroll' | 'ad
   const page = await h.waitForPage(IMPORT_PAGE);
   await popup.close();
   if (platform !== 'crunchyroll') {
-    await page.locator(sel(`platform-${platform}`)).click();
+    // Tuile de la plateforme (son bouton radio est masqué)
+    await page.locator(`[data-platform-tile="${platform}"]`).click();
     await page.waitForFunction((value: string) => new URL(location.href).searchParams.get('platform') === value, {}, platform);
   }
   return page;
@@ -164,7 +165,7 @@ describe('Import de l’historique Crunchyroll', () => {
     expect(cr.calls('/content/v2/e2e-cr-account/watch-history').map((r) => r.status)).toEqual([200]);
     const preview = await pageText(page);
     expect(preview).toContain(tpl('en', 'crImport.preview.seasons', 2));
-    expect(preview).toContain(tpl('en', 'crImport.preview.toUpdate', 2));
+    expect(await page.$eval('[data-tile="toUpdate"]', (el) => el.textContent)).toBe(`2${tpl('en', 'crImport.summary.toUpdate', 2)}`);
     // Frieren : E7 seulement commencé, jamais compté (6) ; One Piece : E1180 en numéro absolu (pas 25)
     expect(preview).toContain('3 → 6');
     expect(preview).toContain('1170 → 1180');
@@ -326,7 +327,7 @@ describe('Import de l’historique ADN', () => {
     await readHistory(page, 'ADN');
     await page.waitForSelector(sel('cr-apply'), { timeout: 30_000 });
     const preview = await pageText(page);
-    expect(preview).toContain(tpl('en', 'crImport.preview.toUpdate', 2));
+    expect(await page.$eval('[data-tile="toUpdate"]', (el) => el.textContent)).toBe(`2${tpl('en', 'crImport.summary.toUpdate', 2)}`);
     expect(preview).toContain(en('common.labelValue', { label: 'ADN', value: 'Tougen Anki · S1' }));
     expect(preview).toContain(en('common.labelValue', { label: 'ADN', value: 'Détective Conan · S1' }));
     // E13 vu 8 s seulement : la progression monte à 12, jamais 13

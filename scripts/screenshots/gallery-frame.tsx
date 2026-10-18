@@ -9,6 +9,7 @@ import { loadLocale, setLocale } from '../../src/i18n';
 import { AccountAvatar } from '../../src/ui/components/account-avatar';
 import { Alert } from '../../src/ui/components/alert';
 import { Button } from '../../src/ui/components/button';
+import { Checkbox } from '../../src/ui/components/checkbox';
 import { ChoiceCards } from '../../src/ui/components/choice-cards';
 import { Collapsible } from '../../src/ui/components/collapsible';
 import { Cover } from '../../src/ui/components/cover';
@@ -93,6 +94,19 @@ function Toggles() {
       <Switch checked={off} onChange={setOff} label="Désactivé" />
       <Switch checked disabled onChange={() => undefined} label="Activé, inactif" />
       <Switch checked={false} disabled onChange={() => undefined} label="Désactivé, inactif" />
+    </div>
+  );
+}
+
+function Checkboxes() {
+  const [on, setOn] = useState(true);
+  const [off, setOff] = useState(false);
+  return (
+    <div style={row}>
+      <Checkbox checked={on} onChange={setOn} label="Cochée" />
+      <Checkbox checked={off} onChange={setOff} label="Décochée" />
+      <Checkbox checked disabled onChange={() => undefined} label="Cochée, inactive" />
+      <Checkbox checked done disabled onChange={() => undefined} label="Déjà faite" />
     </div>
   );
 }
@@ -287,6 +301,10 @@ function Gallery() {
 
       <Block name="Switch">
         <Toggles />
+      </Block>
+
+      <Block name="Checkbox">
+        <Checkboxes />
       </Block>
 
       <Block name="ServiceLogo">

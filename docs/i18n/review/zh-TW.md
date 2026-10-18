@@ -458,3 +458,52 @@ The Schedule tab of the side panel was redesigned: days in order with « No epis
 | `agenda.picker.nextMonth` | 下個月 |
 | `agenda.picker.thisWeek` | 本週 |
 | `agenda.picker.hint` | 按 ↑ ↓ 切換週次，按 Enter 顯示。 |
+
+## 2026-10-18 · History import page, steps 1 to 3 (Preact)
+
+The history import page (steps 1 to 3) was redesigned: a 5-step indicator under the title (Platform, Reading, Analysis, Preview, Import), one tile per platform with the state of its tab (ready, no tab open, waiting for the tab, access to grant), the rules in a « How it works » card (its title reuses `onboarding.howItWorks`), and the Netflix reading card listing its three steps (done with a check, current with a bar, next ones greyed). New: `crImport.steps` (screen readers only), `crImport.step.*` (one word each: the five steps share one line at 576 px), `crImport.tile.*` (status line of a tile, no platform name), `crImport.netflix.heading`, `crImport.netflix.rowsDone` (step done: same wording as `crImport.netflix.rows` without the ellipsis), `crImport.netflix.titlesNext` and `crImport.netflix.showsNext` (steps not started yet: same wording as `crImport.netflix.titles` / `.shows` without the counts). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.steps` | 步驟 |
+| `crImport.step.platform` | 平台 |
+| `crImport.step.reading` | 讀取 |
+| `crImport.step.analysis` | 分析 |
+| `crImport.step.preview` | 預覽 |
+| `crImport.step.import` | 匯入 |
+| `crImport.tile.ready` | 分頁已就緒 |
+| `crImport.tile.none` | 沒有開啟中的分頁 |
+| `crImport.tile.access` | 需要允許存取 |
+| `crImport.tile.waiting` | 正在等待分頁… |
+| `crImport.netflix.heading` | 正在讀取你的 Netflix 觀看記錄 |
+| `crImport.netflix.rowsDone` | 已載入 Netflix 觀看記錄：{rows} 筆 |
+| `crImport.netflix.titlesNext` | 在 AniList 上搜尋動畫 |
+| `crImport.netflix.showsNext` | 讀取你的 Netflix 進度（保留的作品） |
+
+## 2026-10-18 · History import page, steps 4 and 5, and Backup page (Preact)
+
+Steps 4 and 5 of the history import page and the Backup page were redesigned. The preview summary is now a row of tiles, each with its number above a label: `crImport.summary.*` are those labels without the number (they replace `crImport.preview.toUpdate`, `.review`, `.upToDate`, `.excluded`, `.ignored` and `.failed`, removed; same wording without `{count}`). The « Update N series » button has a muted hint on its left (`crImport.preview.hint.*`: a line left unchecked, none checked, locked during the import, what stays checked after a stopped or failed import). Each « To check » season shows the entry its check card will propose (`crImport.review.proposed`, a small badge) and the other entries to choose from (`crImport.review.alternatives`, `{titles}` = a localized list). The Backup page's Export card lists what the file contains and never contains (`import.included`, `import.neverIncluded`, `import.includes.*`, reusing the words of `import.summary.*` and `import.intro`); the Import card titles the file table (`import.fileContents`) and shows the export date under the file name (`import.exportedAt`, replaces `import.exportedOn`, removed: same text without the leading ` · `). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.summary.toUpdate_other` | 待更新 |
+| `crImport.summary.review_other` | 待確認 |
+| `crImport.summary.upToDate_other` | 已是最新 |
+| `crImport.summary.excluded_other` | 已排除 |
+| `crImport.summary.ignored_other` | 已略過的作品（非動畫） |
+| `crImport.summary.failed_other` | 查詢失敗 |
+| `crImport.preview.hint.unchecked` | 未勾選的列不會寫入。 |
+| `crImport.preview.hint.none` | 請至少勾選一部動畫。 |
+| `crImport.preview.hint.locked` | 匯入結束前，核取方塊和按鈕都會鎖定。 |
+| `crImport.preview.hint.stopped` | 尚未寫入的動畫會保持勾選。 |
+| `crImport.preview.hint.failed` | 失敗的動畫會保持勾選。 |
+| `crImport.review.proposed` | 建議 |
+| `crImport.review.alternatives` | 其他可選：{titles} |
+| `import.included` | 包含 |
+| `import.neverIncluded` | 絕不包含 |
+| `import.includes.settings` | 設定 |
+| `import.includes.matches` | 對應記錄和已排除的動畫 |
+| `import.includes.history` | 記錄：最近同步、待確認的集數、待評分的動畫、已拒絕的重看詢問 |
+| `import.includes.signIns` | 你的 AniList / MyAnimeList 登入資訊 |
+| `import.fileContents` | 檔案內容 |
+| `import.exportedAt` | 匯出於 {date}（v{version}） |

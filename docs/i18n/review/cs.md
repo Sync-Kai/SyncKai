@@ -457,3 +457,64 @@ The Schedule tab of the side panel was redesigned: days in order with « No epis
 | `agenda.picker.nextMonth` | Další měsíc |
 | `agenda.picker.thisWeek` | Tento týden |
 | `agenda.picker.hint` | ↑ ↓ mění týden, Enter ho zobrazí. |
+
+## 2026-10-18 · History import page, steps 1 to 3 (Preact)
+
+The history import page (steps 1 to 3) was redesigned: a 5-step indicator under the title (Platform, Reading, Analysis, Preview, Import), one tile per platform with the state of its tab (ready, no tab open, waiting for the tab, access to grant), the rules in a « How it works » card (its title reuses `onboarding.howItWorks`), and the Netflix reading card listing its three steps (done with a check, current with a bar, next ones greyed). New: `crImport.steps` (screen readers only), `crImport.step.*` (one word each: the five steps share one line at 576 px), `crImport.tile.*` (status line of a tile, no platform name), `crImport.netflix.heading`, `crImport.netflix.rowsDone` (step done: same wording as `crImport.netflix.rows` without the ellipsis), `crImport.netflix.titlesNext` and `crImport.netflix.showsNext` (steps not started yet: same wording as `crImport.netflix.titles` / `.shows` without the counts). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.steps` | Kroky |
+| `crImport.step.platform` | Platforma |
+| `crImport.step.reading` | Čtení |
+| `crImport.step.analysis` | Analýza |
+| `crImport.step.preview` | Náhled |
+| `crImport.step.import` | Import |
+| `crImport.tile.ready` | Karta připravená |
+| `crImport.tile.none` | Žádná otevřená karta |
+| `crImport.tile.access` | Je třeba povolit přístup |
+| `crImport.tile.waiting` | Čekám na kartu… |
+| `crImport.netflix.heading` | Čtu tvoji historii na Netflixu |
+| `crImport.netflix.rowsDone` | Historie na Netflixu načtena – řádků: {rows} |
+| `crImport.netflix.titlesNext` | Hledání anime na AniListu |
+| `crImport.netflix.showsNext` | Čtení tvého postupu na Netflixu (ponechané seriály) |
+
+## 2026-10-18 · History import page, steps 4 and 5, and Backup page (Preact)
+
+Steps 4 and 5 of the history import page and the Backup page were redesigned. The preview summary is now a row of tiles, each with its number above a label: `crImport.summary.*` are those labels without the number (they replace `crImport.preview.toUpdate`, `.review`, `.upToDate`, `.excluded`, `.ignored` and `.failed`, removed; same wording without `{count}`). The « Update N series » button has a muted hint on its left (`crImport.preview.hint.*`: a line left unchecked, none checked, locked during the import, what stays checked after a stopped or failed import). Each « To check » season shows the entry its check card will propose (`crImport.review.proposed`, a small badge) and the other entries to choose from (`crImport.review.alternatives`, `{titles}` = a localized list). The Backup page's Export card lists what the file contains and never contains (`import.included`, `import.neverIncluded`, `import.includes.*`, reusing the words of `import.summary.*` and `import.intro`); the Import card titles the file table (`import.fileContents`) and shows the export date under the file name (`import.exportedAt`, replaces `import.exportedOn`, removed: same text without the leading ` · `). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.summary.toUpdate_one` | seriál k aktualizaci |
+| `crImport.summary.toUpdate_few` | seriály k aktualizaci |
+| `crImport.summary.toUpdate_other` | seriálů k aktualizaci |
+| `crImport.summary.review_one` | k ověření |
+| `crImport.summary.review_few` | k ověření |
+| `crImport.summary.review_other` | k ověření |
+| `crImport.summary.upToDate_one` | už aktuální |
+| `crImport.summary.upToDate_few` | už aktuální |
+| `crImport.summary.upToDate_other` | už aktuální |
+| `crImport.summary.excluded_one` | vyloučena |
+| `crImport.summary.excluded_few` | vyloučeny |
+| `crImport.summary.excluded_other` | vyloučeno |
+| `crImport.summary.ignored_one` | titul přeskočen (nejde o anime) |
+| `crImport.summary.ignored_few` | tituly přeskočeny (nejde o anime) |
+| `crImport.summary.ignored_other` | titulů přeskočeno (nejde o anime) |
+| `crImport.summary.failed_one` | nenalezena (chyba) |
+| `crImport.summary.failed_few` | nenalezeny (chyba) |
+| `crImport.summary.failed_other` | nenalezeno (chyba) |
+| `crImport.preview.hint.unchecked` | Nezaškrtnutý řádek se nezapíše. |
+| `crImport.preview.hint.none` | Zaškrtni aspoň jeden seriál. |
+| `crImport.preview.hint.locked` | Políčka a tlačítka jsou zamčená až do konce importu. |
+| `crImport.preview.hint.stopped` | Seriály, které ještě nebyly zapsány, zůstávají zaškrtnuté. |
+| `crImport.preview.hint.failed` | Seriály, které selhaly, zůstávají zaškrtnuté. |
+| `crImport.review.proposed` | navrženo |
+| `crImport.review.alternatives` | Na výběr také: {titles} |
+| `import.included` | Zahrnuto |
+| `import.neverIncluded` | Nikdy nezahrnuto |
+| `import.includes.settings` | Nastavení |
+| `import.includes.matches` | Přiřazení a vyloučené seriály |
+| `import.includes.history` | Historie: nedávné synchronizace, epizody k ověření, seriály k hodnocení, odmítnutá opakovaná sledování |
+| `import.includes.signIns` | Tvoje přihlašovací údaje AniList / MyAnimeList |
+| `import.fileContents` | Obsah souboru |
+| `import.exportedAt` | exportováno {date} (v{version}) |

@@ -3,6 +3,7 @@ import { ADN_HISTORY_PORT_NAME } from '../../protocol/content-messages';
 import { hasHostAccess, requestHostAccess } from '../../browser/host-access';
 import { getSettings } from '../../browser/storage/settings-access';
 import { readOverPort, type PortProtocol } from './port-reader';
+import { SOURCE_SITES } from './sites';
 import type { HistorySource } from './source';
 
 // Historique ADN : épisodes lus dans l'onglet (lecteur injecté, jeton de la page), reçus par le port, réduits ici par
@@ -26,7 +27,7 @@ export const adnSource: HistorySource = {
   id: 'adn',
   tabPatterns: ['https://animationdigitalnetwork.com/*', 'https://www.animationdigitalnetwork.com/*'],
   home: 'https://animationdigitalnetwork.com/',
-  site: 'animationdigitalnetwork.com',
+  site: SOURCE_SITES.adn,
   initialProgress: { kind: 'reading', pages: 0, items: 0, lookups: 0, lookupsTotal: 0 },
   hasAccess: () => hasHostAccess(ORIGINS),
   requestAccess: () => requestHostAccess(ORIGINS),

@@ -429,3 +429,58 @@ The Schedule tab of the side panel was redesigned: days in order with « No epis
 | `agenda.picker.nextMonth` | Mese successivo |
 | `agenda.picker.thisWeek` | Questa settimana |
 | `agenda.picker.hint` | ↑ ↓ per cambiare settimana, Invio per mostrarla. |
+
+## 2026-10-18 · History import page, steps 1 to 3 (Preact)
+
+The history import page (steps 1 to 3) was redesigned: a 5-step indicator under the title (Platform, Reading, Analysis, Preview, Import), one tile per platform with the state of its tab (ready, no tab open, waiting for the tab, access to grant), the rules in a « How it works » card (its title reuses `onboarding.howItWorks`), and the Netflix reading card listing its three steps (done with a check, current with a bar, next ones greyed). New: `crImport.steps` (screen readers only), `crImport.step.*` (one word each: the five steps share one line at 576 px), `crImport.tile.*` (status line of a tile, no platform name), `crImport.netflix.heading`, `crImport.netflix.rowsDone` (step done: same wording as `crImport.netflix.rows` without the ellipsis), `crImport.netflix.titlesNext` and `crImport.netflix.showsNext` (steps not started yet: same wording as `crImport.netflix.titles` / `.shows` without the counts). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.steps` | Passaggi |
+| `crImport.step.platform` | Piattaforma |
+| `crImport.step.reading` | Lettura |
+| `crImport.step.analysis` | Analisi |
+| `crImport.step.preview` | Anteprima |
+| `crImport.step.import` | Importazione |
+| `crImport.tile.ready` | Scheda pronta |
+| `crImport.tile.none` | Nessuna scheda aperta |
+| `crImport.tile.access` | Accesso da consentire |
+| `crImport.tile.waiting` | In attesa della scheda… |
+| `crImport.netflix.heading` | Lettura della cronologia Netflix |
+| `crImport.netflix.rowsDone` | Cronologia Netflix caricata: righe {rows} |
+| `crImport.netflix.titlesNext` | Ricerca degli anime su AniList |
+| `crImport.netflix.showsNext` | Lettura del tuo progresso su Netflix (serie mantenute) |
+
+## 2026-10-18 · History import page, steps 4 and 5, and Backup page (Preact)
+
+Steps 4 and 5 of the history import page and the Backup page were redesigned. The preview summary is now a row of tiles, each with its number above a label: `crImport.summary.*` are those labels without the number (they replace `crImport.preview.toUpdate`, `.review`, `.upToDate`, `.excluded`, `.ignored` and `.failed`, removed; same wording without `{count}`). The « Update N series » button has a muted hint on its left (`crImport.preview.hint.*`: a line left unchecked, none checked, locked during the import, what stays checked after a stopped or failed import). Each « To check » season shows the entry its check card will propose (`crImport.review.proposed`, a small badge) and the other entries to choose from (`crImport.review.alternatives`, `{titles}` = a localized list). The Backup page's Export card lists what the file contains and never contains (`import.included`, `import.neverIncluded`, `import.includes.*`, reusing the words of `import.summary.*` and `import.intro`); the Import card titles the file table (`import.fileContents`) and shows the export date under the file name (`import.exportedAt`, replaces `import.exportedOn`, removed: same text without the leading ` · `). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.summary.toUpdate_one` | serie da aggiornare |
+| `crImport.summary.toUpdate_other` | serie da aggiornare |
+| `crImport.summary.review_one` | da verificare |
+| `crImport.summary.review_other` | da verificare |
+| `crImport.summary.upToDate_one` | già aggiornata |
+| `crImport.summary.upToDate_other` | già aggiornate |
+| `crImport.summary.excluded_one` | esclusa |
+| `crImport.summary.excluded_other` | escluse |
+| `crImport.summary.ignored_one` | titolo saltato (non è un anime) |
+| `crImport.summary.ignored_other` | titoli saltati (non sono anime) |
+| `crImport.summary.failed_one` | non trovata (errore) |
+| `crImport.summary.failed_other` | non trovate (errore) |
+| `crImport.preview.hint.unchecked` | Una riga non selezionata non viene scritta. |
+| `crImport.preview.hint.none` | Seleziona almeno una serie. |
+| `crImport.preview.hint.locked` | Caselle e pulsanti bloccati fino alla fine dell’importazione. |
+| `crImport.preview.hint.stopped` | Le serie non ancora scritte restano selezionate. |
+| `crImport.preview.hint.failed` | Le serie non riuscite restano selezionate. |
+| `crImport.review.proposed` | proposta |
+| `crImport.review.alternatives` | In alternativa: {titles} |
+| `import.included` | Incluso |
+| `import.neverIncluded` | Mai incluso |
+| `import.includes.settings` | Impostazioni |
+| `import.includes.matches` | Abbinamenti e serie escluse |
+| `import.includes.history` | Storico: sincronizzazioni recenti, episodi da verificare, serie da votare, rewatch rifiutati |
+| `import.includes.signIns` | I tuoi accessi AniList / MyAnimeList |
+| `import.fileContents` | Contenuto del file |
+| `import.exportedAt` | esportato il {date} (v{version}) |

@@ -8,7 +8,7 @@ import type { SettingsContext, ShortcutKeys } from './context';
 import { createShortcutsPage, ShortcutsPage, type ShortcutKind } from './page-shortcuts';
 
 // Page Réglages › Raccourcis rendue par Preact dans un vrai DOM (happy-dom) : structure attendue par les e2e,
-// mise à jour en place (focus conservé sans preserveFocus), langue suivie, montage / démontage par la vue.
+// mise à jour en place (focus conservé, nœuds gardés par Preact), langue suivie, montage / démontage par la vue.
 
 const initial = getLocale();
 const KEYS: ShortcutKeys = { shortcut: 'Alt+Shift+K', panelShortcut: 'Alt+Shift+1' };

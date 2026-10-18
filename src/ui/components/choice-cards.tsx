@@ -29,12 +29,18 @@ export interface ChoiceCardsProps<T extends string> {
   legendHidden?: boolean;
   /** Options sans bordure, serrées, dans une carte englobante : l'option choisie sur fond `raised` */
   flush?: boolean;
+  /**
+   * Deux cartes côte à côte dès 26 rem de conteneur (`@container` d'un parent ; page Sauvegarde : Fusionner / Remplacer),
+   * l'une sous l'autre en dessous. Légende masquée de préférence (`legendHidden`) : visible, elle occuperait une case
+   */
+  columns?: boolean;
 }
 
-export function ChoiceCards<T extends string>({ legend, options, value, onChange, disabled = false, focusKey, legendHidden = false, flush = false }: ChoiceCardsProps<T>) {
+export function ChoiceCards<T extends string>({ legend, options, value, onChange, disabled = false, focusKey, legendHidden = false, flush = false, columns = false }: ChoiceCardsProps<T>) {
   const name = useId();
+  const layout = columns ? 'grid grid-cols-1 @min-[26rem]:grid-cols-2' : 'flex flex-col';
   return (
-    <fieldset class={`m-0 flex min-w-0 flex-col border-0 p-0 ${flush ? 'gap-0' : 'gap-2'}`} disabled={disabled} data-choice-cards="">
+    <fieldset class={`m-0 ${layout} min-w-0 border-0 p-0 ${flush ? 'gap-0' : 'gap-2'}`} disabled={disabled} data-choice-cards="">
       <legend class={legendHidden ? 'sr-only' : 'float-left mb-1 w-full p-0 text-body font-bold'}>{legend}</legend>
       {options.map((option) => {
         const on = option.value === value;

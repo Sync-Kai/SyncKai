@@ -101,6 +101,12 @@ const ICON_PATHS = {
   videoOff: ['M10.7 6H14a2 2 0 0 1 2 2v2.5l5.2-3a.5.5 0 0 1 .8.4v8.2', 'M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2', 'm2 2 20 20'],
   skip: ['M5 5l10 7-10 7z', 'M19 5v14'],
   power: ['M12 2v10', 'M18.4 6.6a9 9 0 1 1-12.8 0'],
+  // Page d'import, « Comment ça marche » : jamais de recul, aperçu avant import, clic sur « Voir plus » seulement
+  arrowRight: ['M5 12h14', 'M13 6l6 6-6 6'],
+  eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0'],
+  pointer: ['M4 3l7.5 18 2.4-7.1L21 11.5z', 'M14 14l6 6'],
+  // Page Sauvegarde : fichier choisi
+  file: ['M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z', 'M14 3v5h5'],
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

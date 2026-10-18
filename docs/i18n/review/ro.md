@@ -486,3 +486,64 @@ The Schedule tab of the side panel was redesigned: days in order with « No epis
 | `agenda.picker.nextMonth` | Luna următoare |
 | `agenda.picker.thisWeek` | Săptămâna aceasta |
 | `agenda.picker.hint` | ↑ ↓ pentru a schimba săptămâna, Enter pentru a o afișa. |
+
+## 2026-10-18 · History import page, steps 1 to 3 (Preact)
+
+The history import page (steps 1 to 3) was redesigned: a 5-step indicator under the title (Platform, Reading, Analysis, Preview, Import), one tile per platform with the state of its tab (ready, no tab open, waiting for the tab, access to grant), the rules in a « How it works » card (its title reuses `onboarding.howItWorks`), and the Netflix reading card listing its three steps (done with a check, current with a bar, next ones greyed). New: `crImport.steps` (screen readers only), `crImport.step.*` (one word each: the five steps share one line at 576 px), `crImport.tile.*` (status line of a tile, no platform name), `crImport.netflix.heading`, `crImport.netflix.rowsDone` (step done: same wording as `crImport.netflix.rows` without the ellipsis), `crImport.netflix.titlesNext` and `crImport.netflix.showsNext` (steps not started yet: same wording as `crImport.netflix.titles` / `.shows` without the counts). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.steps` | Pași |
+| `crImport.step.platform` | Platformă |
+| `crImport.step.reading` | Citire |
+| `crImport.step.analysis` | Analiză |
+| `crImport.step.preview` | Previzualizare |
+| `crImport.step.import` | Import |
+| `crImport.tile.ready` | Filă pregătită |
+| `crImport.tile.none` | Nicio filă deschisă |
+| `crImport.tile.access` | Acces de permis |
+| `crImport.tile.waiting` | Se așteaptă fila… |
+| `crImport.netflix.heading` | Se citește istoricul Netflix |
+| `crImport.netflix.rowsDone` | Istoric Netflix încărcat — rânduri: {rows} |
+| `crImport.netflix.titlesNext` | Căutarea anime pe AniList |
+| `crImport.netflix.showsNext` | Citirea progresului tău Netflix (serii păstrate) |
+
+## 2026-10-18 · History import page, steps 4 and 5, and Backup page (Preact)
+
+Steps 4 and 5 of the history import page and the Backup page were redesigned. The preview summary is now a row of tiles, each with its number above a label: `crImport.summary.*` are those labels without the number (they replace `crImport.preview.toUpdate`, `.review`, `.upToDate`, `.excluded`, `.ignored` and `.failed`, removed; same wording without `{count}`). The « Update N series » button has a muted hint on its left (`crImport.preview.hint.*`: a line left unchecked, none checked, locked during the import, what stays checked after a stopped or failed import). Each « To check » season shows the entry its check card will propose (`crImport.review.proposed`, a small badge) and the other entries to choose from (`crImport.review.alternatives`, `{titles}` = a localized list). The Backup page's Export card lists what the file contains and never contains (`import.included`, `import.neverIncluded`, `import.includes.*`, reusing the words of `import.summary.*` and `import.intro`); the Import card titles the file table (`import.fileContents`) and shows the export date under the file name (`import.exportedAt`, replaces `import.exportedOn`, removed: same text without the leading ` · `). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.summary.toUpdate_one` | serie de actualizat |
+| `crImport.summary.toUpdate_few` | serii de actualizat |
+| `crImport.summary.toUpdate_other` | serii de actualizat |
+| `crImport.summary.review_one` | de verificat |
+| `crImport.summary.review_few` | de verificat |
+| `crImport.summary.review_other` | de verificat |
+| `crImport.summary.upToDate_one` | deja la zi |
+| `crImport.summary.upToDate_few` | deja la zi |
+| `crImport.summary.upToDate_other` | deja la zi |
+| `crImport.summary.excluded_one` | exclus |
+| `crImport.summary.excluded_few` | excluse |
+| `crImport.summary.excluded_other` | excluse |
+| `crImport.summary.ignored_one` | titlu omis (nu e anime) |
+| `crImport.summary.ignored_few` | titluri omise (nu sunt anime) |
+| `crImport.summary.ignored_other` | titluri omise (nu sunt anime) |
+| `crImport.summary.failed_one` | nu a fost găsit (eroare) |
+| `crImport.summary.failed_few` | nu au fost găsite (eroare) |
+| `crImport.summary.failed_other` | nu au fost găsite (eroare) |
+| `crImport.preview.hint.unchecked` | Un rând debifat nu este scris. |
+| `crImport.preview.hint.none` | Bifează cel puțin o serie. |
+| `crImport.preview.hint.locked` | Casetele și butoanele sunt blocate până la finalul importului. |
+| `crImport.preview.hint.stopped` | Seriile încă nescrise rămân bifate. |
+| `crImport.preview.hint.failed` | Seriile eșuate rămân bifate. |
+| `crImport.review.proposed` | propusă |
+| `crImport.review.alternatives` | De ales și: {titles} |
+| `import.included` | Inclus |
+| `import.neverIncluded` | Niciodată inclus |
+| `import.includes.settings` | Setări |
+| `import.includes.matches` | Asocieri și serii excluse |
+| `import.includes.history` | Istoric: sincronizări recente, episoade de verificat, serii de notat, revizionări refuzate |
+| `import.includes.signIns` | Datele tale de conectare AniList / MyAnimeList |
+| `import.fileContents` | Conținutul fișierului |
+| `import.exportedAt` | exportat pe {date} (v{version}) |

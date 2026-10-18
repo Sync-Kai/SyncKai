@@ -9,6 +9,7 @@ import { movieShow, NETFLIX_ROWS, onePieceShow, ranmaShow } from '../../src/shar
 import type { AdnHistoryPortMessage } from '../../src/protocol/adn-history';
 import type { CrHistoryPortMessage } from '../../src/platforms/crunchyroll/history';
 import { CR_IMPORT_KEYS, startAnalyzeJob, startApplyJob, type CrImportJob, type CrImportPlan } from '../../src/shared/cr-import';
+import { tl } from '../../src/i18n';
 import { isRecord } from '../../src/shared/guards';
 import { reduceJob } from '../../src/shared/job';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
@@ -20,8 +21,21 @@ const trace: E2EState = { messages: [], permissionRequests: [], permissionRemova
 window.__e2e = trace;
 const now = Date.now();
 
-/** Lecture simulée : `history=logged-out` → session absente (Crunchyroll) ou jeton ADN absent / refusé */
+/**
+ * Lecture simulée : `history=logged-out` → session absente (Crunchyroll) ou jeton ADN absent / refusé ; `silent` → script
+ * de contenu muet ; `hold` → lecture figée en cours (Crunchyroll : vérification de la numérotation, Netflix : filtre AniList)
+ */
 const historyMode = param('history');
+/**
+ * Analyse simulée : `empty` → historique sans épisode terminé, `busy` → analyse déjà lancée ailleurs, `hold` → tâche lancée
+ * sans jamais d'aperçu, `pending` → réponse jamais reçue (« Démarrage de l'analyse… »)
+ */
+const analyzeMode = param('analyze');
+/**
+ * Import simulé : `done` → peu après « Mettre à jour », import terminé (Black Butler écrite, Slime en échec sur MAL) ;
+ * absent → import lancé, jamais terminé
+ */
+const applyMode = param('apply');
 /** `netflix=denied` : accès optionnel à netflix.com pas encore accordé */
 const netflixMode = param('netflix');
 /** `token=expired` : token AniList expiré (« Reconnecter »), aucun compte MyAnimeList */
@@ -269,6 +283,10 @@ function fakePort(name: string): chrome.runtime.Port {
         return;
       }
       emit({ type: 'progress', pages: 1, items: 100, lookups: 0, lookupsTotal: 0 }, 20);
+      if (historyMode === 'hold') {
+        emit({ type: 'progress', pages: 14, items: 1236, lookups: 38, lookupsTotal: 52 }, 40);
+        return;
+      }
       emit({ type: 'done', result: { seasons: [season('GRBB', 'Black Butler', 1, 9), season('GRSL', 'Slime', 4, 4)], stats: { items: 240, pages: 3, partial: false } } }, 60);
     },
     disconnect: () => {
@@ -281,16 +299,23 @@ function fakePort(name: string): chrome.runtime.Port {
 }
 
 let storageSet: ((items: Record<string, unknown>) => Promise<void>) | null = null;
+let titleBatches = 0;
+const uiLocale = await loadedUiLocaleParam();
 
 installChromeMock({
-  locale: await loadedUiLocaleParam(),
+  locale: uiLocale,
   version: manifest.version,
   storage: { [STORAGE_KEYS.anilistToken]: { accessToken: 'e2e-anilist', expiresAt: tokenMode === 'expired' ? now - 60_000 : now + 86_400_000 } },
   handlers: {
     // Analyse simulée : tâche lancée puis, peu après, aperçu prêt (comme le service worker en fin d'analyse)
     CR_IMPORT_ANALYZE: (payload) => {
       const platform = isRecord(payload) ? payload.platform : undefined;
+      if (analyzeMode === 'empty') return { ok: false, code: 'EMPTY', message: tl(uiLocale, 'crImport.error.empty', { platform: platform === 'adn' ? 'ADN' : platform === 'netflix' ? 'Netflix' : 'Crunchyroll' }) };
+      if (analyzeMode === 'busy') return { ok: false, code: 'BUSY', message: tl(uiLocale, 'crImport.error.busy') };
       const { job } = startAnalyzeJob(2, Date.now());
+      if (analyzeMode === 'hold') return { ok: true, data: job };
+      // Démarrage de l'analyse jamais confirmé (service worker lent)
+      if (analyzeMode === 'pending') return new Promise(() => undefined);
       setTimeout(() => {
         let done: CrImportJob = job;
         for (let i = 0; i < 3; i++) done = reduceJob(done, { type: 'item', outcome: 'updated', at: Date.now() });
@@ -299,12 +324,27 @@ installChromeMock({
       return { ok: true, data: job };
     },
     NETFLIX_IMPORT_TITLES: (payload) => {
+      // Lecture figée sur le filtre AniList : 40 titres sur 41 vérifiés
+      titleBatches++;
+      if (historyMode === 'hold' && titleBatches > 4) return new Promise(() => undefined);
       const titles = isRecord(payload) && Array.isArray(payload.titles) ? payload.titles.filter((title): title is string => typeof title === 'string') : [];
       return { ok: true, data: titles.map((title) => ({ title, showIds: NETFLIX_LINKS[title] ?? [], titleMatch: false })) };
     },
     CR_IMPORT_APPLY: (payload) => {
       const ids = isRecord(payload) && Array.isArray(payload.ids) ? payload.ids.filter((id): id is string => typeof id === 'string') : [];
-      return { ok: true, data: startApplyJob(ids, Date.now()).job };
+      const { job } = startApplyJob(ids, Date.now());
+      if (applyMode === 'done') {
+        const failure = 'MyAnimeList : délai dépassé';
+        setTimeout(() => {
+          let done: CrImportJob = reduceJob(job, { type: 'item', outcome: 'updated', at: Date.now() });
+          done = reduceJob(done, { type: 'item', outcome: 'failed', message: failure, at: Date.now() });
+          const items = PLAN.items.map((item) =>
+            item.id === 'm:100' ? { ...item, result: { outcome: 'updated' as const, message: null } } : item.id === 'm:300' ? { ...item, result: { outcome: 'failed' as const, message: failure } } : item,
+          );
+          void storageSet?.({ [CR_IMPORT_KEYS.job]: { ...done, status: 'done' }, [CR_IMPORT_KEYS.plan]: { ...PLAN, items } });
+        }, 80);
+      }
+      return { ok: true, data: job };
     },
     CR_IMPORT_REVIEWS: () => ({ ok: true, data: { created: 1, limited: false } }),
     CR_IMPORT_CANCEL: () => ({ ok: true, data: null }),

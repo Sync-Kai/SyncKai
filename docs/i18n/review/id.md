@@ -464,3 +464,52 @@ The Schedule tab of the side panel was redesigned: days in order with « No epis
 | `agenda.picker.nextMonth` | Bulan berikutnya |
 | `agenda.picker.thisWeek` | Minggu ini |
 | `agenda.picker.hint` | ↑ ↓ untuk ganti minggu, Enter untuk menampilkannya. |
+
+## 2026-10-18 · History import page, steps 1 to 3 (Preact)
+
+The history import page (steps 1 to 3) was redesigned: a 5-step indicator under the title (Platform, Reading, Analysis, Preview, Import), one tile per platform with the state of its tab (ready, no tab open, waiting for the tab, access to grant), the rules in a « How it works » card (its title reuses `onboarding.howItWorks`), and the Netflix reading card listing its three steps (done with a check, current with a bar, next ones greyed). New: `crImport.steps` (screen readers only), `crImport.step.*` (one word each: the five steps share one line at 576 px), `crImport.tile.*` (status line of a tile, no platform name), `crImport.netflix.heading`, `crImport.netflix.rowsDone` (step done: same wording as `crImport.netflix.rows` without the ellipsis), `crImport.netflix.titlesNext` and `crImport.netflix.showsNext` (steps not started yet: same wording as `crImport.netflix.titles` / `.shows` without the counts). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.steps` | Langkah |
+| `crImport.step.platform` | Platform |
+| `crImport.step.reading` | Membaca |
+| `crImport.step.analysis` | Analisis |
+| `crImport.step.preview` | Pratinjau |
+| `crImport.step.import` | Impor |
+| `crImport.tile.ready` | Tab siap |
+| `crImport.tile.none` | Tidak ada tab terbuka |
+| `crImport.tile.access` | Perlu izin akses |
+| `crImport.tile.waiting` | Menunggu tab… |
+| `crImport.netflix.heading` | Membaca riwayat Netflix |
+| `crImport.netflix.rowsDone` | Riwayat Netflix dimuat: {rows} baris |
+| `crImport.netflix.titlesNext` | Mencari anime di AniList |
+| `crImport.netflix.showsNext` | Membaca progresmu di Netflix (anime yang disimpan) |
+
+## 2026-10-18 · History import page, steps 4 and 5, and Backup page (Preact)
+
+Steps 4 and 5 of the history import page and the Backup page were redesigned. The preview summary is now a row of tiles, each with its number above a label: `crImport.summary.*` are those labels without the number (they replace `crImport.preview.toUpdate`, `.review`, `.upToDate`, `.excluded`, `.ignored` and `.failed`, removed; same wording without `{count}`). The « Update N series » button has a muted hint on its left (`crImport.preview.hint.*`: a line left unchecked, none checked, locked during the import, what stays checked after a stopped or failed import). Each « To check » season shows the entry its check card will propose (`crImport.review.proposed`, a small badge) and the other entries to choose from (`crImport.review.alternatives`, `{titles}` = a localized list). The Backup page's Export card lists what the file contains and never contains (`import.included`, `import.neverIncluded`, `import.includes.*`, reusing the words of `import.summary.*` and `import.intro`); the Import card titles the file table (`import.fileContents`) and shows the export date under the file name (`import.exportedAt`, replaces `import.exportedOn`, removed: same text without the leading ` · `). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.summary.toUpdate_other` | anime perlu diperbarui |
+| `crImport.summary.review_other` | perlu dicek |
+| `crImport.summary.upToDate_other` | sudah tercatat |
+| `crImport.summary.excluded_other` | dikecualikan |
+| `crImport.summary.ignored_other` | judul dilewati (bukan anime) |
+| `crImport.summary.failed_other` | tidak ditemukan (error) |
+| `crImport.preview.hint.unchecked` | Baris yang tidak dicentang tidak ditulis. |
+| `crImport.preview.hint.none` | Centang minimal satu anime. |
+| `crImport.preview.hint.locked` | Kotak centang dan tombol dikunci sampai impor selesai. |
+| `crImport.preview.hint.stopped` | Anime yang belum ditulis tetap dicentang. |
+| `crImport.preview.hint.failed` | Anime yang gagal tetap dicentang. |
+| `crImport.review.proposed` | diusulkan |
+| `crImport.review.alternatives` | Pilihan lain: {titles} |
+| `import.included` | Disertakan |
+| `import.neverIncluded` | Tidak pernah disertakan |
+| `import.includes.settings` | Setelan |
+| `import.includes.matches` | Pencocokan dan anime yang dikecualikan |
+| `import.includes.history` | Riwayat: sinkron terbaru, episode perlu dicek, anime perlu dinilai, tonton ulang ditolak |
+| `import.includes.signIns` | Data login AniList / MyAnimeList kamu |
+| `import.fileContents` | Isi file |
+| `import.exportedAt` | diekspor pada {date} (v{version}) |

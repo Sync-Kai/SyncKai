@@ -83,6 +83,14 @@ describe('ChoiceCards', () => {
     expect(other).not.toContain('border');
   });
 
+  it('deux colonnes (page Sauvegarde) : grille à deux cases dès 26 rem de conteneur, une colonne en dessous', async () => {
+    await show(<ChoiceCards legend="Mode d’import" options={OPTIONS} value="credits" onChange={onChange} columns legendHidden />);
+    const fieldset = container.querySelector('fieldset')?.className ?? '';
+    expect(fieldset).toContain('grid-cols-1');
+    expect(fieldset).toContain('@min-[26rem]:grid-cols-2');
+    expect(fieldset).not.toContain('flex-col');
+  });
+
   it('désactivé : fieldset désactivé, aucun choix', async () => {
     await show(<Host disabled />);
     expect(container.querySelector('fieldset')?.disabled).toBe(true);

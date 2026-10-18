@@ -5,8 +5,8 @@ import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDismiss, useFocusFallback, useNow, type DismissOptions, type FocusFallback } from './hooks';
 
-// Hooks de focus et de fermeture des pages Preact, dans un vrai DOM (happy-dom) : même contrat que preserveFocus
-// (ui/dom.ts › pickFocusKey) quand un rendu retire l'élément focalisé, et que createMenuDismiss (ui/menu.ts).
+// Hooks de focus et de fermeture des pages Preact, dans un vrai DOM (happy-dom) : choix du repli de ui/dom.ts ›
+// pickFocusKey quand un rendu retire l'élément focalisé, et que createMenuDismiss (ui/menu.ts).
 
 let container: HTMLElement;
 

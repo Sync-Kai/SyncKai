@@ -1,29 +1,7 @@
-import type { TrackerId } from '../shared/tracker.types';
-import { toImageSrc } from '../shared/url';
-import { h, type Child } from './dom';
-
-// Kit d'interface commun (popup, panneau latéral, réglages, pages d'import), direction « Kotatsu »
-
-export const CARD = 'rounded-card bg-surface';
-export const BTN_GHOST =
-  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full px-3 text-[12px] font-bold transition-colors hover:bg-raised disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent';
-export const BTN_PRIMARY =
-  'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-sakura px-4 text-[12px] font-bold text-on-fill shadow-pop transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
+// Kit d'interface commun (popup, panneau latéral, réglages, pages d'import), direction « Kotatsu » : les composants
+// Preact sont dans components/ ; il reste ici les libellés des plateformes et les initiales des jaquettes.
 
 export { PLATFORM_LABELS } from '../platforms/registry';
-
-export const SERVICE_CHIPS: Record<TrackerId, { short: string; class: string }> = {
-  anilist: { short: 'AL', class: 'bg-anilist text-[11px]' },
-  mal: { short: 'MAL', class: 'bg-mal text-[10px]' },
-};
-
-/** Titre de section en capitales discrètes (écran Réglages) */
-export function sectionLabel(text: string, id?: string): HTMLElement {
-  return h('h2', { class: 'm-0 text-[11px] font-bold tracking-[0.06em] text-muted uppercase', attrs: id ? { id } : {} }, text);
-}
-
-// Couleurs de repli des jaquettes (listées en entier pour que Tailwind les génère)
-const COVER_COLORS = ['bg-[#8A3B5C]', 'bg-[#6B4A8F]', 'bg-[#2B6A73]', 'bg-[#8A5A2B]', 'bg-[#3E5C8A]', 'bg-[#2F6E5E]'] as const;
 
 export function initials(title: string): string {
   const words = title.split(/[\s:·\-–]+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
@@ -32,84 +10,4 @@ export function initials(title: string): string {
     .map((w) => [...w][0] ?? '')
     .join('')
     .toUpperCase();
-}
-
-function coverColor(title: string): string {
-  let hash = 0;
-  for (const char of title) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) >>> 0;
-  return COVER_COLORS[hash % COVER_COLORS.length] ?? COVER_COLORS[0];
-}
-
-/**
- * Jaquette : image si disponible, sinon (ou en cas d'échec de chargement) initiales sur fond coloré.
- * `size` porte les dimensions et l'arrondi ; `textSize` la taille des initiales.
- */
-export function renderCover(title: string, coverUrl: string | null, size: string, textSize: string, overlay: Child = null): HTMLElement {
-  const fallback = h(
-    'span',
-    {
-      class: `absolute inset-0 flex items-center justify-center font-display font-bold text-white [text-shadow:0_1px_0_rgba(0,0,0,.35)] ${textSize}`,
-      attrs: { 'aria-hidden': 'true' },
-    },
-    initials(title),
-  );
-  const box = h(
-    'div',
-    { class: `relative shrink-0 rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)] ${coverColor(title)} ${size}` },
-    fallback,
-  );
-  // Hôte hors liste (cache d'une version précédente, sauvegarde) : initiales, aucune requête (SEC-02)
-  const src = toImageSrc(coverUrl);
-  if (src) {
-    const img = h('img', {
-      class: 'absolute inset-0 h-full w-full rounded-lg object-cover',
-      attrs: { src, alt: '', referrerpolicy: 'no-referrer', loading: 'lazy', decoding: 'async' },
-    });
-    img.addEventListener('error', () => img.remove(), { once: true });
-    box.append(img);
-  }
-  if (overlay) box.append(overlay);
-  return box;
-}
-
-interface SegmentedProps<T extends string> {
-  options: readonly { value: T; label: string; aria?: string }[];
-  current: T;
-  onPick: (value: T) => void;
-  /** Attributs du groupe (aria-label ou aria-labelledby) */
-  attrs: Record<string, string>;
-  /** Préfixe des clés de focus (le focus est restauré après un nouveau rendu) */
-  focusKey: string;
-  activeClass: string;
-  trackClass?: string;
-  /** Groupe inactif (réglage dépendant désactivé) */
-  disabled?: boolean;
-  /** Marges réduites (4 options et plus : lecteur préféré avec Netflix et Prime Video, panneau à 320 px) */
-  dense?: boolean;
-}
-
-/** Contrôle segmenté (boutons aria-pressed) */
-export function segmented<T extends string>({ options, current, onPick, attrs, focusKey, activeClass, trackClass = 'bg-surface', disabled = false, dense = false }: SegmentedProps<T>): HTMLElement {
-  return h(
-    'div',
-    { class: `flex h-8 shrink-0 gap-0.5 rounded-full p-0.5 ${trackClass} ${disabled ? 'opacity-50' : ''}`, attrs: { role: 'group', ...attrs } },
-    ...options.map((opt) => {
-      const on = opt.value === current;
-      return h(
-        'button',
-        {
-          class: `h-7 cursor-pointer rounded-full ${dense ? 'px-2' : 'px-3'} text-[11px] transition-colors disabled:cursor-default ${on ? `${activeClass} font-bold text-on-fill` : 'font-semibold text-muted hover:text-ink disabled:hover:text-muted'}`,
-          attrs: {
-            type: 'button',
-            'aria-pressed': String(on),
-            'data-focus': `${focusKey}-${opt.value}`,
-            ...(opt.aria ? { 'aria-label': opt.aria } : {}),
-            ...(disabled ? { disabled: '' } : {}),
-          },
-          on: { click: () => !on && onPick(opt.value) },
-        },
-        opt.label,
-      );
-    }),
-  );
 }

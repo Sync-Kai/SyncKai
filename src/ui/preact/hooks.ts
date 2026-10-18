@@ -58,7 +58,7 @@ function isFocusable(root: HTMLElement, el: HTMLElement): boolean {
   return el.isConnected && root.contains(el) && !el.matches(':disabled') && el.closest('[hidden], [inert]') === null;
 }
 
-/** Éléments focalisables par clé `data-focus`, le premier pour chaque clé (comme preserveFocus) */
+/** Éléments focalisables par clé `data-focus`, le premier pour chaque clé */
 function focusableByKey(root: HTMLElement): Map<string, HTMLElement> {
   const map = new Map<string, HTMLElement>();
   for (const el of root.querySelectorAll<HTMLElement>('[data-focus]')) {
@@ -83,10 +83,9 @@ interface FocusTrack {
 }
 
 /**
- * Élément focalisé retiré (ou désactivé, masqué) par un rendu : le focus passe, comme preserveFocus (ui/dom.ts ›
- * pickFocusKey), à l'élément recréé sous la même clé `data-focus`, sinon au repli `data-focus-fallback` déclaré par
- * l'élément ou un ancêtre, sinon à `fallback`, sinon au voisin suivant puis précédent dans l'ordre d'avant le rendu ;
- * jamais sur <body>. Le diff de Preact garde les nœuds : seuls les retraits sont à traiter. Focus parti hors du conteneur
+ * Élément focalisé retiré (ou désactivé, masqué) par un rendu : le focus passe (ui/dom.ts › pickFocusKey) à l'élément
+ * recréé sous la même clé `data-focus`, sinon au repli `data-focus-fallback` déclaré par l'élément ou un ancêtre,
+ * sinon à `fallback`, sinon au voisin suivant puis précédent dans l'ordre d'avant le rendu ; jamais sur <body>. Le diff de Preact garde les nœuds : seuls les retraits sont à traiter. Focus parti hors du conteneur
  * avant le rendu : rien n'est déplacé.
  */
 export function useFocusFallback(container: RefObject<HTMLElement | null>, fallback?: FocusFallback): void {

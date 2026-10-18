@@ -457,3 +457,52 @@ The Schedule tab of the side panel was redesigned: days in order with « No epis
 | `agenda.picker.nextMonth` | Tháng sau |
 | `agenda.picker.thisWeek` | Tuần này |
 | `agenda.picker.hint` | ↑ ↓ để đổi tuần, Enter để hiển thị. |
+
+## 2026-10-18 · History import page, steps 1 to 3 (Preact)
+
+The history import page (steps 1 to 3) was redesigned: a 5-step indicator under the title (Platform, Reading, Analysis, Preview, Import), one tile per platform with the state of its tab (ready, no tab open, waiting for the tab, access to grant), the rules in a « How it works » card (its title reuses `onboarding.howItWorks`), and the Netflix reading card listing its three steps (done with a check, current with a bar, next ones greyed). New: `crImport.steps` (screen readers only), `crImport.step.*` (one word each: the five steps share one line at 576 px), `crImport.tile.*` (status line of a tile, no platform name), `crImport.netflix.heading`, `crImport.netflix.rowsDone` (step done: same wording as `crImport.netflix.rows` without the ellipsis), `crImport.netflix.titlesNext` and `crImport.netflix.showsNext` (steps not started yet: same wording as `crImport.netflix.titles` / `.shows` without the counts). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.steps` | Các bước |
+| `crImport.step.platform` | Nền tảng |
+| `crImport.step.reading` | Đọc |
+| `crImport.step.analysis` | Phân tích |
+| `crImport.step.preview` | Xem trước |
+| `crImport.step.import` | Nhập |
+| `crImport.tile.ready` | Thẻ đã sẵn sàng |
+| `crImport.tile.none` | Chưa mở thẻ nào |
+| `crImport.tile.access` | Cần cấp quyền |
+| `crImport.tile.waiting` | Đang chờ thẻ… |
+| `crImport.netflix.heading` | Đang đọc lịch sử Netflix |
+| `crImport.netflix.rowsDone` | Đã tải lịch sử Netflix: {rows} dòng |
+| `crImport.netflix.titlesNext` | Tìm anime trên AniList |
+| `crImport.netflix.showsNext` | Đọc tiến độ Netflix của bạn (các bộ được giữ) |
+
+## 2026-10-18 · History import page, steps 4 and 5, and Backup page (Preact)
+
+Steps 4 and 5 of the history import page and the Backup page were redesigned. The preview summary is now a row of tiles, each with its number above a label: `crImport.summary.*` are those labels without the number (they replace `crImport.preview.toUpdate`, `.review`, `.upToDate`, `.excluded`, `.ignored` and `.failed`, removed; same wording without `{count}`). The « Update N series » button has a muted hint on its left (`crImport.preview.hint.*`: a line left unchecked, none checked, locked during the import, what stays checked after a stopped or failed import). Each « To check » season shows the entry its check card will propose (`crImport.review.proposed`, a small badge) and the other entries to choose from (`crImport.review.alternatives`, `{titles}` = a localized list). The Backup page's Export card lists what the file contains and never contains (`import.included`, `import.neverIncluded`, `import.includes.*`, reusing the words of `import.summary.*` and `import.intro`); the Import card titles the file table (`import.fileContents`) and shows the export date under the file name (`import.exportedAt`, replaces `import.exportedOn`, removed: same text without the leading ` · `). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.summary.toUpdate_other` | bộ cần cập nhật |
+| `crImport.summary.review_other` | cần kiểm tra |
+| `crImport.summary.upToDate_other` | không cần cập nhật |
+| `crImport.summary.excluded_other` | bị loại trừ |
+| `crImport.summary.ignored_other` | tựa bị bỏ qua (không phải anime) |
+| `crImport.summary.failed_other` | không tìm được (lỗi) |
+| `crImport.preview.hint.unchecked` | Dòng bỏ chọn sẽ không được ghi. |
+| `crImport.preview.hint.none` | Hãy chọn ít nhất một bộ. |
+| `crImport.preview.hint.locked` | Ô chọn và nút bị khóa cho đến khi nhập xong. |
+| `crImport.preview.hint.stopped` | Các bộ chưa được ghi vẫn được chọn. |
+| `crImport.preview.hint.failed` | Các bộ thất bại vẫn được chọn. |
+| `crImport.review.proposed` | đề xuất |
+| `crImport.review.alternatives` | Lựa chọn khác: {titles} |
+| `import.included` | Bao gồm |
+| `import.neverIncluded` | Không bao giờ bao gồm |
+| `import.includes.settings` | Cài đặt |
+| `import.includes.matches` | Ghép nối và bộ anime bị loại trừ |
+| `import.includes.history` | Lịch sử: lượt đồng bộ gần đây, tập cần kiểm tra, bộ cần chấm điểm, lượt từ chối xem lại |
+| `import.includes.signIns` | Thông tin đăng nhập AniList / MyAnimeList của bạn |
+| `import.fileContents` | Nội dung tệp |
+| `import.exportedAt` | xuất vào {date} (v{version}) |

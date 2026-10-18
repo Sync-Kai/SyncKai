@@ -457,3 +457,52 @@ The Schedule tab of the side panel was redesigned: days in order with « No epis
 | `agenda.picker.nextMonth` | 다음 달 |
 | `agenda.picker.thisWeek` | 이번 주 |
 | `agenda.picker.hint` | ↑ ↓로 주를 바꾸고 Enter로 표시해요. |
+
+## 2026-10-18 · History import page, steps 1 to 3 (Preact)
+
+The history import page (steps 1 to 3) was redesigned: a 5-step indicator under the title (Platform, Reading, Analysis, Preview, Import), one tile per platform with the state of its tab (ready, no tab open, waiting for the tab, access to grant), the rules in a « How it works » card (its title reuses `onboarding.howItWorks`), and the Netflix reading card listing its three steps (done with a check, current with a bar, next ones greyed). New: `crImport.steps` (screen readers only), `crImport.step.*` (one word each: the five steps share one line at 576 px), `crImport.tile.*` (status line of a tile, no platform name), `crImport.netflix.heading`, `crImport.netflix.rowsDone` (step done: same wording as `crImport.netflix.rows` without the ellipsis), `crImport.netflix.titlesNext` and `crImport.netflix.showsNext` (steps not started yet: same wording as `crImport.netflix.titles` / `.shows` without the counts). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.steps` | 단계 |
+| `crImport.step.platform` | 플랫폼 |
+| `crImport.step.reading` | 읽기 |
+| `crImport.step.analysis` | 분석 |
+| `crImport.step.preview` | 미리보기 |
+| `crImport.step.import` | 가져오기 |
+| `crImport.tile.ready` | 탭 준비됨 |
+| `crImport.tile.none` | 열린 탭 없음 |
+| `crImport.tile.access` | 접근 허용 필요 |
+| `crImport.tile.waiting` | 탭을 기다리는 중… |
+| `crImport.netflix.heading` | Netflix 시청 기록 읽는 중 |
+| `crImport.netflix.rowsDone` | Netflix 시청 기록 불러옴: {rows}건 |
+| `crImport.netflix.titlesNext` | AniList에서 애니 찾기 |
+| `crImport.netflix.showsNext` | Netflix 진행도 읽기(남긴 작품) |
+
+## 2026-10-18 · History import page, steps 4 and 5, and Backup page (Preact)
+
+Steps 4 and 5 of the history import page and the Backup page were redesigned. The preview summary is now a row of tiles, each with its number above a label: `crImport.summary.*` are those labels without the number (they replace `crImport.preview.toUpdate`, `.review`, `.upToDate`, `.excluded`, `.ignored` and `.failed`, removed; same wording without `{count}`). The « Update N series » button has a muted hint on its left (`crImport.preview.hint.*`: a line left unchecked, none checked, locked during the import, what stays checked after a stopped or failed import). Each « To check » season shows the entry its check card will propose (`crImport.review.proposed`, a small badge) and the other entries to choose from (`crImport.review.alternatives`, `{titles}` = a localized list). The Backup page's Export card lists what the file contains and never contains (`import.included`, `import.neverIncluded`, `import.includes.*`, reusing the words of `import.summary.*` and `import.intro`); the Import card titles the file table (`import.fileContents`) and shows the export date under the file name (`import.exportedAt`, replaces `import.exportedOn`, removed: same text without the leading ` · `). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `crImport.summary.toUpdate_other` | 업데이트할 작품 |
+| `crImport.summary.review_other` | 확인 필요 |
+| `crImport.summary.upToDate_other` | 이미 최신 상태 |
+| `crImport.summary.excluded_other` | 제외 |
+| `crImport.summary.ignored_other` | 건너뛴 제목(애니 아님) |
+| `crImport.summary.failed_other` | 찾지 못함(오류) |
+| `crImport.preview.hint.unchecked` | 선택 해제한 줄은 반영하지 않아요. |
+| `crImport.preview.hint.none` | 작품을 하나 이상 선택하세요. |
+| `crImport.preview.hint.locked` | 가져오기가 끝날 때까지 체크박스와 버튼이 잠겨요. |
+| `crImport.preview.hint.stopped` | 아직 반영하지 않은 작품은 선택된 상태로 남아요. |
+| `crImport.preview.hint.failed` | 실패한 작품은 선택된 상태로 남아요. |
+| `crImport.review.proposed` | 제안 |
+| `crImport.review.alternatives` | 다른 선택지: {titles} |
+| `import.included` | 포함 |
+| `import.neverIncluded` | 절대 포함 안 됨 |
+| `import.includes.settings` | 설정 |
+| `import.includes.matches` | 매칭 및 제외된 작품 |
+| `import.includes.history` | 기록: 최근 동기화, 확인할 에피소드, 평가할 작품, 거절한 재시청 |
+| `import.includes.signIns` | AniList / MyAnimeList 로그인 정보 |
+| `import.fileContents` | 파일 내용 |
+| `import.exportedAt` | {date}에 내보냄(v{version}) |
