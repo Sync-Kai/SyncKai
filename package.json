@@ -29,7 +29,7 @@
     "screenshots": "tsc --noEmit -p scripts/screenshots && node scripts/screenshots/capture.ts"
   },
   "dependencies": {
-    "preact": "11.0.0"
+    "preact": "11.1.0"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^3.0.0",
