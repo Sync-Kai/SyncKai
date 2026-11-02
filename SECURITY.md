@@ -16,7 +16,10 @@ Only the latest version published on the stores receives security fixes.
 
 **Please do not open a public issue, pull request or discussion for a security problem.**
 
-Report it privately through GitHub: open the [Security tab](https://github.com/Sync-Kai/SyncKai/security) of this repository and click **Report a vulnerability**. Only the maintainers can read the report.
+Report it privately, in one of these ways:
+
+- **GitHub** (preferred): open the [Security tab](https://github.com/Sync-Kai/SyncKai/security) of this repository and click **Report a vulnerability**. Only the maintainers can read the report;
+- **e-mail**: [security@synckai.app](mailto:security@synckai.app), if you cannot use GitHub.
 
 Please include:
 
