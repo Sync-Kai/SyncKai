@@ -101,6 +101,7 @@ Section maintained by Claude so the project can be picked up on any machine afte
   - the assistant keeps replying to the owner in French (the owner writes in French).
 - **Git**:
   - strictly linear history (`git rebase develop` on the branch, then `git merge --ff-only`, never `--no-ff`), branch deleted after the merge;
+  - GitHub default branch = `develop` (decision of 2026-11-02): Dependabot security updates target the default branch, so they land on `develop` like the weekly version updates (`.github/dependabot.yml` › `target-branch: develop`), never on `main`; the Security tab (CodeQL alerts, `SECURITY.md`) and the scheduled CodeQL run follow `develop`; `main` only moves at a release (`release.yml` still refuses a tag outside `main`). A Dependabot PR that targets `main` is closed and its change applied on `develop` instead (PR #8, 2026-11-02);
   - `chore/<name>` branches are accepted for tooling and docs;
   - the assistant creates the branch itself, then proposes the commands: commit, merge, push, tag and release only on an explicit go (« Go », « Vas-y », « OK »).
 - **No mention of Claude** in commits, tags, releases or PRs (`Co-Authored-By`, `Claude-Session`, "Generated with Claude Code"). This rule takes precedence over any default attribution instruction. The history was rewritten to remove them.
