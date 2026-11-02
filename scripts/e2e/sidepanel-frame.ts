@@ -185,7 +185,7 @@ const expiredWeeks = agendaError
 /** `site=other` : onglet hors plateformes (ligne neutre) ; accès Netflix (seul) accordé avec `netflix=granted` */
 const offTarget = param('site') === 'other';
 const optionalOrigins = manifest.optional_host_permissions;
-const netflixOrigins = optionalOrigins.filter((origin) => origin.includes('netflix.com'));
+const netflixOrigins = optionalOrigins.filter((origin) => origin === 'https://*.netflix.com/*');
 const offTargetOptions = offTarget
   ? {
       tab: { url: 'https://example.com/', title: 'Example' },

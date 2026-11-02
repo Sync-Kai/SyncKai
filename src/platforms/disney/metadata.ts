@@ -116,6 +116,7 @@ export interface DisneySeriesPage {
 
 /** Hôtes de l'API du site (Disney Streaming / BAMTech) */
 const isApiHost = domainOrSubdomain('bamgrid.com', 'disneyplus.com');
+const isPlaybackHost = domainOrSubdomain('bamgrid.com');
 
 /** Requêtes lues : fiche d'une vidéo, page de série (entité), saison d'une page de série */
 const OBSERVED_PATH = /^\/explore\/v1(?:\.\d{1,3})?\/(playerExperience|page|season)\/(entity-)?([0-9a-f-]{36})\/?$/i;
@@ -139,7 +140,7 @@ export function observedRequest(url: string, base = 'https://www.disneyplus.com/
   // Lecture (POST du lecteur, `disney.playback.edge.bamgrid.com/v{n}/playback/{scénario}`, chemin exact non relevé) :
   // filtre tolérant sur la version et le scénario, hôte bamgrid.com seulement ; sans identifiant dans le chemin. Les
   // autres requêtes de cet hôte (licences DRM…) ne sont jamais lues.
-  if (/\/playback\//i.test(parsed.pathname)) return parsed.hostname.endsWith('bamgrid.com') ? { kind: 'playback', id: '' } : null;
+  if (/\/playback\//i.test(parsed.pathname)) return isPlaybackHost(parsed.hostname) ? { kind: 'playback', id: '' } : null;
   const [, type = '', entity, id] = OBSERVED_PATH.exec(parsed.pathname) ?? [];
   if (id === undefined || !DISNEY_ID_REGEX.test(id)) return null;
   const kind: DisneyRequestKind = /^playerExperience$/i.test(type) ? 'player' : /^page$/i.test(type) ? 'page' : 'season';

@@ -50,12 +50,18 @@ const MAX_DESCRIPTION = 4000;
  */
 export function sanitizeDescription(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const text = raw
+  const marked = raw
     .replace(/\r\n?/g, '\n')
     .replace(/~!([\s\S]*?)!~/g, '') // Spoilers AniList
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p\s*>/gi, '\n\n')
-    .replace(/<[^>]*>/g, '')
+    .replace(/<\/p\s*>/gi, '\n\n');
+  // Balises retirées jusqu'à stabilité : une balise imbriquée (« <<b>i> ») n'en recompose jamais une autre
+  let stripped = marked;
+  for (let previous = ''; stripped !== previous; ) {
+    previous = stripped;
+    stripped = stripped.replace(/<[^>]*>/g, '');
+  }
+  const text = stripped
     .replace(/<[^>]*$/, '') // Balise tronquée en fin de texte
     .replace(/(\*\*|__)(.+?)\1/g, '$2'); // Gras du balisage AniList
   const plain = decodeEntities(text)

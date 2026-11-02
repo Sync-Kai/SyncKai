@@ -100,7 +100,7 @@ function px(finding: Pick<LayoutIssue, 'dx' | 'dy' | 'catalogDx' | 'catalogDy'>)
 }
 
 /** Cellule de tableau Markdown : barres verticales échappées, une seule ligne */
-const cell = (text: string): string => text.replace(/\|/g, '\\|').replace(/\s+/g, ' ');
+const cell = (text: string): string => text.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\s+/g, ' ');
 
 /** Ligne courte d'une anomalie (message d'échec du test, rapport) */
 export function describeFinding(finding: Finding): string {

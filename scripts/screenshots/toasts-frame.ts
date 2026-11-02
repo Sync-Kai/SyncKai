@@ -157,7 +157,7 @@ const STATES: Record<string, () => void | Promise<void>> = {
 const name = param('state') ?? 'bubble-saved';
 const label = document.querySelector('#state');
 if (label) label.textContent = name;
-await STATES[name]?.();
+await (Object.hasOwn(STATES, name) ? STATES[name] : undefined)?.();
 // Bulle affichée et entrée jouée ; résultats asynchrones (note, revisionnage) arrivés
 await waitFor(() => shadow()?.querySelector('.toast.visible'));
 await new Promise((resolve) => setTimeout(resolve, name === 'rating-saving' || name === 'rewatch-saving' ? 150 : 400));

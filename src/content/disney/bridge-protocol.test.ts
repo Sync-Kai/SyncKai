@@ -160,6 +160,7 @@ describe('réponse de lecture (générique de fin)', () => {
     expect(observedRequest('https://disney.playback.edge.bamgrid.com/v12/playback/tv-drm-ctr?x=1')).toEqual({ kind: 'playback', id: '' });
     expect(observedRequest('https://www.disneyplus.com/playback/ctr-regular')).toBeNull();
     expect(observedRequest('https://disney.playback.edge.bamgrid.com.evil.example/v7/playback/ctr-regular')).toBeNull();
+    expect(observedRequest('https://evilbamgrid.com/v7/playback/ctr-regular')).toBeNull();
     expect(observedRequest('http://disney.playback.edge.bamgrid.com/v7/playback/ctr-regular')).toBeNull();
     expect(observedRequest('https://disney.playback.edge.bamgrid.com/widevine/v1/obtain-license')).toBeNull();
     expect(playerExperienceRequestId(PLAYBACK_URL)).toBeNull();

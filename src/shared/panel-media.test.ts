@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { decodeEntities, isLongDescription, malForumUrl, redditSearchUrl, sanitizeDescription } from './panel-media';
 
 describe('sanitizeDescription', () => {
+  it('ne laisse aucune balise, même imbriquée (CodeQL : assainissement multi-caractères)', () => {
+    for (const raw of ['<scr<script>ipt>alert(1)</script>', '<<b>i>texte<</b>/i>', 'a <b<i>>b</i> c', '<img src=x onerror=1<br>>']) {
+      expect(sanitizeDescription(raw) ?? '').not.toMatch(/<[^>]*>/);
+    }
+    expect(sanitizeDescription('<<b>i>texte<</b>/i>')).toBe('i>texte/i>');
+  });
+
   it('convertit les <br> en sauts de ligne et retire les autres balises', () => {
     expect(sanitizeDescription('Ligne 1<br>Ligne 2<br />\n<i>italique</i> et <b>gras</b>')).toBe('Ligne 1\nLigne 2\n\nitalique et gras');
   });

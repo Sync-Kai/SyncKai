@@ -187,10 +187,14 @@ function embed(file: string, idPrefix: string, x: number, y: number, size: numbe
   const source = readFileSync(join(BRAND, file), 'utf8');
   const viewBox = /viewBox="([^"]+)"/.exec(source)?.[1];
   if (!viewBox) throw new Error(`${file} : viewBox manquant`);
-  const content = source
-    .replace(/^[\s\S]*?<svg[^>]*>/, '')
-    .replace(/<\/svg>\s*$/, '')
-    .replace(/<title>[\s\S]*?<\/title>|<!--[\s\S]*?-->/g, '')
+  const inner = source.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+  // Titres et commentaires retirés jusqu'à stabilité (un retrait n'en recompose jamais un autre)
+  let stripped = inner;
+  for (let previous = ''; stripped !== previous; ) {
+    previous = stripped;
+    stripped = stripped.replace(/<title>[\s\S]*?<\/title>|<!--[\s\S]*?-->/g, '');
+  }
+  const content = stripped
     .replace(/id="([^"]+)"/g, `id="${idPrefix}$1"`)
     .replace(/url\(#([^)]+)\)/g, `url(#${idPrefix}$1)`)
     .trim();

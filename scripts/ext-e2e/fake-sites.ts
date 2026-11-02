@@ -13,7 +13,11 @@ import path from 'node:path';
 import type { Page } from 'puppeteer';
 import type { AdnWatchFixture } from '../../src/content/adn/__fixtures__/adn-watch';
 import type { CrunchyrollWatchFixture } from '../../src/content/crunchyroll/__fixtures__/crunchyroll-watch';
+import { domainOrSubdomain } from '../../src/shared/hosts';
 import { ROOT, json, sleep, type FakeResponse, type InterceptedRequest, type RequestHandler } from './harness';
+
+/** Sites simulés (Crunchyroll, ADN) : le domaine ou l'un de ses sous-domaines, jamais un hôte qui finit pareil */
+const isSimulatedSite = domainOrSubdomain('crunchyroll.com', 'animationdigitalnetwork.com');
 
 /** Durée de la vidéo de test (s) */
 export const VIDEO_SECONDS = 600;
@@ -157,7 +161,7 @@ export class FakeSites {
       return page.delayMs > 0 ? sleep(page.delayMs).then(() => response) : response;
     }
     // Icône demandée par le navigateur sur les sites simulés
-    if (url.pathname === '/favicon.ico' && (url.hostname.endsWith('crunchyroll.com') || url.hostname.endsWith('animationdigitalnetwork.com'))) return { status: 404 };
+    if (url.pathname === '/favicon.ico' && isSimulatedSite(url.hostname)) return { status: 404 };
     return null;
   };
 }
