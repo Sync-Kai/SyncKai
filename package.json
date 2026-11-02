@@ -37,20 +37,20 @@
     "@fontsource/nunito": "^5.3.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/chrome": "^0.3.5",
+    "@types/chrome": "^0.3.7",
     "@types/node": "^24.19.2",
-    "@vitest/coverage-v8": "5.0.3",
+    "@vitest/coverage-v8": "5.0.5",
     "chrome-webstore-upload-cli": "4.0.2",
     "cross-env": "^10.1.0",
-    "eslint": "^10.12.0",
+    "eslint": "^10.13.0",
     "happy-dom": "21.0.4",
-    "puppeteer": "^25.13.0",
+    "puppeteer": "^25.16.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
-    "typescript-eslint": "^8.71.1",
-    "vite": "^8.3.4",
-    "vitest": "5.0.3",
-    "web-ext": "10.7.0"
+    "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.5",
+    "vitest": "5.0.5",
+    "web-ext": "10.8.0"
   },
   "overrides": {
     "shell-quote": "1.11.0"
