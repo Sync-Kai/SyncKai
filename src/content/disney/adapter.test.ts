@@ -313,10 +313,9 @@ describe('chooseDisneyVideo (lecteur de la page)', () => {
       if (selector === 'video') return [...videos];
       return videos.filter((video) => video.className.split(' ').includes('btm-media-client-element'));
     };
-    return {
-      querySelector: ((selector: string) => matching(selector)[0] ?? null),
-      querySelectorAll: ((selector: string) => matching(selector)) as unknown as ParentNode['querySelectorAll'],
-    };
+    // Objet construit sans type attendu puis converti : no-deprecated vise les surcharges dépréciées de querySelector
+    const root = { querySelector: (selector: string) => matching(selector)[0] ?? null, querySelectorAll: (selector: string) => matching(selector) };
+    return root as unknown as Pick<ParentNode, 'querySelector' | 'querySelectorAll'>;
   }
   const [inactive, hive] = PLAY_PAGE_VIDEOS;
 
