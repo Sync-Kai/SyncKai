@@ -108,7 +108,10 @@ export function WeekPicker({ week, firstDay, locale, labels, now = Date.now(), b
     onStep(delta);
   };
   const label = weekLabel(week, locale);
-  /** Bouton « Aujourd'hui » à côté : mois abrégé et icône masquée dès 300 px de navigation (sinon sous 240 px) */
+  /**
+   * Bouton « Aujourd'hui » à côté : mois abrégé, icône masquée et marge réduite dès 300 px de navigation (sinon sous 240 px),
+   * pour qu'une semaine à cheval sur deux mois tienne en entier (es-419 « 26 de oct – 1 de nov » à 320 px)
+   */
   const compact = Boolean(trailing);
   return (
     // @container : à 320 px (et dans la barre latérale de Firefox), l'icône du calendrier laisse la place aux dates
@@ -119,7 +122,7 @@ export function WeekPicker({ week, firstDay, locale, labels, now = Date.now(), b
       <button
         ref={trigger}
         type="button"
-        class="inline-flex h-8 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 rounded-pill border border-line bg-surface px-3 text-body font-extrabold text-ink tabular-nums transition-colors hover:border-field hover:bg-raised aria-expanded:border-field aria-expanded:bg-raised"
+        class={`inline-flex h-8 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 rounded-pill border border-line bg-surface px-3 text-body font-extrabold text-ink tabular-nums transition-colors hover:border-field hover:bg-raised aria-expanded:border-field aria-expanded:bg-raised ${compact ? '@max-[300px]:gap-1.5 @max-[300px]:px-2' : '@max-[240px]:gap-1.5 @max-[240px]:px-2'}`}
         aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={open ? 'true' : 'false'}

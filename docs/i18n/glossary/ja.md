@@ -56,7 +56,7 @@ Binding for every change to `src/i18n/locales/ja.json` and `public/_locales/ja/m
 | score, rating, stars | 評価 | AniList's community average is a different concept: AniList平均スコア |
 | comment (`notes.*`) | メモ | A private note on a list entry; コメント suggests a public comment |
 | match, mapping | 紐付け; forget → 解除 | Remembered season → AniList entry link. "Uncertain match" → 対応が不確か; "matching" (identifying the anime) → 照合 |
-| match (AniList ↔ MAL alignment) | 〜に合わせる (button), 反映 (running job) | すべてAniListに合わせる, 反映中…, 反映が完了しました; Keep AniList → AniListを採用 |
+| match (AniList ↔ MAL alignment) | 〜に合わせる (button), 反映 (running job) | AniListに合わせる (filter « all »; filtered: 表示中をAniListに合わせる), 反映中…, 反映が完了しました; Keep AniList → AniListを採用 |
 | excluded series | 除外した作品; chip 除外中 | Stop syncing → 同期から除外; Resume syncing / Re-enable → 同期を再開. 除外 is never used for anything else |
 | pending sync, queue | 保留中の同期; Abandon → 破棄 | Failed sync → 同期失敗 |
 | credits | エンディング | The anime ED; "at the start of the credits" → エンディング開始時, also in the settings home summary (エンディング開始時, parallel to 85%視聴時) and the live marker (エンディング開始時に同期) |

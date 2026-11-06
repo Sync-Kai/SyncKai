@@ -17,7 +17,7 @@
   "accountMenu.stats.episodes_few": "эпизода",
   "accountMenu.stats.episodes_many": "эпизодов",
   "accountMenu.stats.episodes_other": "эпизода",
-  "accountMenu.week.label": "Синхронизировано за неделю",
+  "accountMenu.week.label": "Синхронизация за неделю",
   "accountMenu.week.title": "Эпизоды, синхронизированные SyncKai на этой неделе",
   "accountMenu.week.value_one": "{count} эпизод",
   "accountMenu.week.value_few": "{count} эпизода",

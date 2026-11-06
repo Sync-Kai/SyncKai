@@ -560,3 +560,11 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | `content.episodeShort` | {title} · эп. {number} |
 | `toast.line.both` | AniList и MyAnimeList |
 | `prompt.rating.title` | Аниме просмотрено! Твоя оценка? |
+
+## 2026-11-06 · Layout fix: account menu weekly counter
+
+`npm run test:i18n-layout` found « Синхронизировано за неделю » truncated by 12.9 px in the side panel at 320 px. Rephrased with the glossary noun (short labels are rephrased, never abbreviated); the tooltip `accountMenu.week.title` keeps the full meaning.
+
+| Key | Text |
+|---|---|
+| `accountMenu.week.label` | Синхронизация за неделю |

@@ -541,3 +541,12 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | `prompt.rewatch.message` | リストではすでに視聴完了です。進捗は第{progress}話からやり直しになります。 |
 | `toast.line.both` | AniListとMyAnimeList |
 | `prompt.rating.title` | 視聴完了！評価は？ |
+
+## 2026-11-06 · Layout fix: AniList ↔ MAL bulk buttons
+
+`npm run test:i18n-layout` found « すべてAniListに合わせる » truncated by 1.6 px in the popup (two buttons side by side). すべて is dropped from both bulk buttons: with the filter « all », the button already acts on every listed series, and the filtered buttons keep 表示中を… to tell them apart. Glossary row updated.
+
+| Key | Text |
+|---|---|
+| `compare.bulk.anilist` | AniListに合わせる |
+| `compare.bulk.mal` | MALに合わせる |
