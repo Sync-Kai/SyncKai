@@ -100,6 +100,17 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
 }
 
 describe('renouvellement du token MAL', () => {
+  it('échange de jeton sans cookie de myanimelist.net (credentials: omit)', async () => {
+    store.set('malToken', { accessToken: 'X', refreshToken: 'RX', expiresAt: Date.now() + 60_000 });
+    store.set('sessionEpoch', { mal: 0 });
+    const fetchMock = vi.fn<typeof fetch>(async () => json(200, tokenBody(1)));
+    vi.stubGlobal('fetch', fetchMock);
+    await getMalAccessToken();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(TOKEN_URL);
+    expect(fetchMock.mock.calls[0]?.[1]?.credentials).toBe('omit');
+  });
+
   it('déconnexion pendant la requête de renouvellement : token abandonné, la session reste fermée (AUTH-01)', async () => {
     store.set('malToken', { accessToken: 'X', refreshToken: 'RX', expiresAt: Date.now() + 60_000 });
     store.set('sessionEpoch', { mal: 0 });

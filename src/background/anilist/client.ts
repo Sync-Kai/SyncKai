@@ -69,6 +69,8 @@ async function request<T>(
         ...(token ? { Authorization: `Bearer ${token.accessToken}` } : {}),
       },
       body: JSON.stringify({ query, variables }),
+      // Le jeton suffit : aucun cookie d'anilist.co (dont ceux de mesure d'audience du site) ne part avec la requête
+      credentials: 'omit',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error: unknown) {

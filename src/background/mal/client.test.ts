@@ -131,6 +131,13 @@ describe('malRequest : 401, 429 et délai (TEST-03)', () => {
     vi.unstubAllGlobals();
   });
 
+  it('aucun cookie de myanimelist.net envoyé à l’API (credentials: omit)', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => json(200, { id: 1 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(malRequest('/users/@me', isUser)).resolves.toEqual({ id: 1 });
+    expect(fetchMock.mock.calls[0]?.[1]?.credentials).toBe('omit');
+  });
+
   it('401 : un renouvellement du token refusé, puis succès', async () => {
     const fetchMock = vi.fn<typeof fetch>(async (_input, init) => (bearer(init) === 'Bearer A' ? new Response(null, { status: 401 }) : json(200, { id: 1 })));
     vi.stubGlobal('fetch', fetchMock);

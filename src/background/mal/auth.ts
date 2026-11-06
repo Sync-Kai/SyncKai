@@ -56,6 +56,8 @@ async function requestToken(params: Record<string, string>): Promise<MalToken> {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_id: clients.malClientId, ...params }),
+      // Échange OAuth : le code ou le refresh token suffisent, aucun cookie de myanimelist.net ne part
+      credentials: 'omit',
       // Appelé sous le verrou de renouvellement : sans délai, un MAL qui ne répond pas bloquerait toutes les requêtes MAL (AUTH-05)
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });

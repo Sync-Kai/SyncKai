@@ -135,6 +135,8 @@ export async function malRequest<T>(path: string, isData: (data: unknown) => dat
         ...(options.body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
       },
       body: options.body,
+      // Le jeton suffit : aucun cookie de myanimelist.net ne part avec la requête
+      credentials: 'omit',
       // MAL surchargé peut garder la requête ouverte longtemps (puis répondre 504) : abandon après le délai
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });

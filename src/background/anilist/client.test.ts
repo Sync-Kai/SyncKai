@@ -75,6 +75,16 @@ describe('client AniList : en-tête d’identification (règles AniList : « uni
     expect(fetchMock).toHaveBeenCalledTimes(2);
     for (const [, init] of fetchMock.mock.calls) expect(new Headers(init?.headers).get('X-Client')).toBe('SyncKai (+https://synckai.app)');
   });
+
+  it('aucun cookie d’anilist.co envoyé à l’API (credentials: omit) : le jeton suffit, les cookies publicitaires du site restent chez lui', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => json(200, { data: { ok: true } }));
+    vi.stubGlobal('fetch', fetchMock);
+    mocks.getValidToken.mockResolvedValueOnce(null);
+    await anilistPublicQuery('query { ok }', isAny);
+    mocks.getValidToken.mockResolvedValueOnce({ accessToken: 'A', expiresAt: Number.MAX_SAFE_INTEGER });
+    await anilistQuery('query { ok }', isAny);
+    expect(fetchMock.mock.calls.map(([, init]) => init?.credentials)).toEqual(['omit', 'omit']);
+  });
 });
 
 describe('client AniList : token refusé et erreurs GraphQL (TEST-03)', () => {
