@@ -5,6 +5,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-11-06
+
+### Fixed
+
+- Texts cut off in narrow layouts: the Russian « Synced this week » label of the account menu in the side panel at 320 px, the Japanese AniList ↔ MAL bulk buttons in the popup, and the Schedule's week button when a week spans two months (Latin American Spanish « 26 de oct – 1 de nov » at 320 px).
+
+### Security
+
+- Hardening found by code scanning, none of it exploitable in practice: the Disney+ reader now accepts the player's requests only from `bamgrid.com` itself or its subdomains (a look-alike domain ending in « bamgrid.com » no longer qualifies), and HTML tags are stripped from AniList synopses until none remain (a tag split around another one could survive a single pass).
+- Security policy (`SECURITY.md`): how to report a vulnerability privately, through GitHub or security@synckai.app.
+
+### Changed
+
+- Preact 11.1.0 and updated build and test tooling.
+
 ## [2.4.0] - 2026-10-18
 
 ### Added
@@ -448,6 +463,7 @@ First release: automatic Crunchyroll → AniList sync.
 - **Manual review** of uncertain matches from the popup (suggested entries, search, episode number), with a badge on the extension icon.
 - **Recent syncs** in the popup, with after-the-fact correction of a match.
 
+[2.4.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.4.1
 [2.4.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.4.0
 [2.3.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.3.1
 [2.3.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.3.0
