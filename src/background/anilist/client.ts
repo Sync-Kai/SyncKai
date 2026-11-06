@@ -24,6 +24,13 @@ function traceRequest(query: string, lane: RequestLane, status: number | 'networ
 /** Seule origine contactée pour AniList (connect-src de la CSP, network-csp.test.ts) */
 export const ANILIST_GRAPHQL_URL = 'https://graphql.anilist.co';
 
+/**
+ * En-tête d'identification de SyncKai sur chaque requête, y compris publique (règles d'AniList pour les extensions :
+ * « Must use a uniquely identifiable header per plugin for API requests »). Pas User-Agent : Chrome ignore celui d'une
+ * extension. Pas de version, pour rester une constante sans API du navigateur.
+ */
+const CLIENT_HEADER = { 'X-Client': 'SyncKai (+https://synckai.app)' } as const;
+
 /** "required" : compte AniList indispensable ; "optional" : catalogue public, token joint s'il existe */
 type AuthMode = 'required' | 'optional';
 
@@ -58,6 +65,7 @@ async function request<T>(
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...CLIENT_HEADER,
         ...(token ? { Authorization: `Bearer ${token.accessToken}` } : {}),
       },
       body: JSON.stringify({ query, variables }),
