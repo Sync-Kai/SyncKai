@@ -132,6 +132,24 @@ describe('useFriends', () => {
     expect(view()).toMatchObject({ state: 'loading', summary: null });
   });
 
+  it('session fermée puis rouverte (autre compte) sur la même fiche : l’ancien résultat n’est jamais remontré', async () => {
+    await show(10);
+    await advance(FRIENDS_SETTLE_MS);
+    expect(view().state).toBe('ok');
+    await show(10, false);
+    expect(view().state).toBe('idle');
+    let answer: (value: unknown) => void = () => undefined;
+    worker.send.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    await show(10, true);
+    expect(view()).toMatchObject({ state: 'loading', summary: null });
+    await advance(FRIENDS_SETTLE_MS);
+    expect(view()).toMatchObject({ state: 'loading', summary: null });
+    answer({ status: 'none' });
+    await advance(0);
+    expect(view()).toMatchObject({ state: 'none', summary: null });
+    expect(requests()).toEqual([{ mediaId: 10 }, { mediaId: 10 }]);
+  });
+
   it('démonté avant 1,5 s : aucune demande', async () => {
     await show(10);
     await act(() => render(null, container));

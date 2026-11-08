@@ -108,14 +108,20 @@ export async function getAniListFriends(mediaId: number): Promise<FriendsSummary
   return request;
 }
 
-/** Réponse du message GET_ANILIST_FRIENDS : `none` sans session ou sans ami qui a la série (rien à afficher) */
+/** Session absente ou expirée : bloc masqué, jamais « Indisponible » (la session expirée a son propre affichage) */
+const HIDDEN_ERROR_CODES: ReadonlySet<ApiError['code']> = new Set(['TOKEN_INVALID', 'NOT_AUTHENTICATED']);
+
+/**
+ * Réponse du message GET_ANILIST_FRIENDS : `none` sans session (absente ou expirée) ou sans ami qui a la série (rien à
+ * afficher)
+ */
 export async function friendsResponse(mediaId: number): Promise<MessageResponse<'GET_ANILIST_FRIENDS'>> {
   try {
     const summary = await getAniListFriends(mediaId);
     if (summary === null || summary.friends.length === 0) return { status: 'none' };
     return { status: 'ok', summary };
   } catch (error: unknown) {
-    if (error instanceof ApiError) return { status: 'error', message: error.message };
+    if (error instanceof ApiError) return HIDDEN_ERROR_CODES.has(error.code) ? { status: 'none' } : { status: 'error', message: error.message };
     log.error('Erreur inattendue (getAniListFriends) :', error);
     return { status: 'error', message: t('error.unexpected') };
   }

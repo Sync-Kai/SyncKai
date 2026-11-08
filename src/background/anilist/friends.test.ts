@@ -126,12 +126,12 @@ describe('friendsResponse (message GET_ANILIST_FRIENDS)', () => {
     await expect(friendsResponse(23)).resolves.toEqual({ status: 'none' });
   });
 
-  it('TOKEN_INVALID : erreur, puis aucune requête pendant 10 s pour cette série (pas de boucle de relance)', async () => {
+  it('TOKEN_INVALID : bloc masqué (none, session expirée montrée ailleurs), puis aucune requête pendant 10 s pour cette série', async () => {
     deps.anilistQuery.mockRejectedValue(new ApiError('TOKEN_INVALID', 'Session AniList expirée'));
-    await expect(friendsResponse(21)).resolves.toEqual({ status: 'error', message: 'Session AniList expirée' });
+    await expect(friendsResponse(21)).resolves.toEqual({ status: 'none' });
     expect(deps.anilistQuery).toHaveBeenCalledTimes(1);
     vi.setSystemTime(Date.now() + FRIENDS_ERROR_TTL_MS - 1000);
-    await expect(friendsResponse(21)).resolves.toEqual({ status: 'error', message: 'Session AniList expirée' });
+    await expect(friendsResponse(21)).resolves.toEqual({ status: 'none' });
     expect(deps.anilistQuery).toHaveBeenCalledTimes(1);
     expect(FRIENDS_ERROR_TTL_MS).toBe(10_000);
     // Passé le délai : nouvelle tentative possible (« Réessayer »)
@@ -139,6 +139,12 @@ describe('friendsResponse (message GET_ANILIST_FRIENDS)', () => {
     answer();
     await expect(friendsResponse(21)).resolves.toMatchObject({ status: 'ok' });
     expect(deps.anilistQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('NOT_AUTHENTICATED : bloc masqué (none), jamais « Indisponible » ; RATE_LIMITED reste une erreur', async () => {
+    deps.anilistQuery.mockRejectedValueOnce(new ApiError('NOT_AUTHENTICATED', 'non connecté')).mockRejectedValueOnce(new ApiError('RATE_LIMITED', 'limite'));
+    await expect(friendsResponse(21)).resolves.toEqual({ status: 'none' });
+    await expect(friendsResponse(22)).resolves.toEqual({ status: 'error', message: 'limite' });
   });
 
   it('NOT_AUTHENTICATED et RATE_LIMITED : gardées 10 s aussi', async () => {

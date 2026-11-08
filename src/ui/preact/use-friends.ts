@@ -34,7 +34,11 @@ export function useFriends(mediaId: number | null, enabled: boolean): FriendsVie
   const active = enabled && mediaId !== null;
 
   useEffect(() => {
-    if (!active) return undefined;
+    if (!active) {
+      // Session fermée (ou fiche absente) : résultat oublié, jamais remontré pour un autre compte à la réouverture
+      setResult(null);
+      return undefined;
+    }
     let current = true;
     const delay = immediate.current ? 0 : FRIENDS_SETTLE_MS;
     immediate.current = false;
