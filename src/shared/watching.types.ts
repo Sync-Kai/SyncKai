@@ -19,6 +19,9 @@ export interface NextEpisode {
   airingAt: number;
 }
 
+/** Statut de l'entrée dans la liste de l'utilisateur : en cours ou revisionnage */
+export type WatchingListStatus = 'CURRENT' | 'REPEATING';
+
 export type AiringStatus = 'RELEASING' | 'FINISHED' | 'NOT_YET_RELEASED' | 'HIATUS' | 'CANCELLED';
 
 /** Un anime "en cours" dans la liste de l'utilisateur (AniList ou MyAnimeList) */
@@ -35,6 +38,10 @@ export interface WatchingEntry {
   updatedAt: number | null;
   nextEpisode: NextEpisode | null;
   airingStatus: AiringStatus | null;
+  /** Durée d'un épisode en minutes (AniList duration, MAL average_episode_duration / 60) ; absent = inconnue (cache 2.4.x) */
+  episodeMinutes?: number | null;
+  /** Statut de l'entrée dans la liste ; absent = inconnu (cache 2.4.x) */
+  listStatus?: WatchingListStatus | null;
   /** Plateformes où ouvrir l'anime (liens AniList + historique SyncKai), sans doublon de plateforme */
   platforms: PlatformLink[];
   /** Dernière synchro faite par SyncKai pour cette fiche (issue de l'historique), sinon null */
@@ -99,6 +106,8 @@ export function isWatchingList(value: unknown): value is WatchingList {
         typeof e.title === 'string' &&
         typeof e.progress === 'number' &&
         isNullableNumber(e.totalEpisodes) &&
+        (e.episodeMinutes === undefined || isNullableNumber(e.episodeMinutes)) &&
+        (e.listStatus === undefined || e.listStatus === null || e.listStatus === 'CURRENT' || e.listStatus === 'REPEATING') &&
         Array.isArray(e.platforms) &&
         e.platforms.every(isPlatformLink) &&
         (e.lastSync === null || (isRecord(e.lastSync) && isPlatformUrl(e.lastSync.platform, e.lastSync.episodeUrl))) &&

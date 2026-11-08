@@ -307,6 +307,15 @@ describe('isWatchingList', () => {
     expect(isWatchingList(null)).toBe(false);
   });
 
+  it('accepte des entrées sans episodeMinutes / listStatus (cache 2.4.x) et valide les valeurs présentes', () => {
+    const list = (e: Record<string, unknown>): unknown => ({ service: 'anilist', fetchedAt: NOW, entries: [{ ...entry(), ...e }] });
+    expect(isWatchingList({ service: 'anilist', fetchedAt: NOW, entries: [entry()] })).toBe(true);
+    expect(isWatchingList(list({ episodeMinutes: 24, listStatus: 'REPEATING' }))).toBe(true);
+    expect(isWatchingList(list({ episodeMinutes: null, listStatus: null }))).toBe(true);
+    expect(isWatchingList(list({ episodeMinutes: '24' }))).toBe(false);
+    expect(isWatchingList(list({ listStatus: 'PAUSED' }))).toBe(false);
+  });
+
   // SEC-04 : les URL du cache deviennent des liens, un script de contenu peut écrire dans le stockage
   describe('URL relues du stockage (SEC-04)', () => {
     const listWith = (overrides: Partial<WatchingEntry>): unknown => ({ service: 'anilist', fetchedAt: NOW, entries: [entry(overrides)] });

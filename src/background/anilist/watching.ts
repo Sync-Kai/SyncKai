@@ -14,6 +14,7 @@ import type {
   PlatformLink,
   WatchingEntry,
   WatchingList,
+  WatchingListStatus,
   WatchingResult,
 } from '../../shared/watching.types';
 import { isWatchingFresh, WATCHING_REVALIDATE_MS } from '../../shared/watching';
@@ -82,6 +83,12 @@ function toLastSync(syncs: readonly RecentSync[]): WatchingEntry['lastSync'] {
 
 // ─── AniList ──────────────────────────────────────────────────────────────
 
+/** Statut d'entrée AniList : seuls CURRENT et REPEATING sont demandés, tout autre texte est inconnu */
+const toListStatus = (v: unknown): WatchingListStatus | null => (v === 'CURRENT' || v === 'REPEATING' ? v : null);
+
+/** Durée d'épisode en minutes : un nombre fini strictement positif, sinon inconnue */
+const positiveMinutes = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
+
 const ANILIST_WATCHING_QUERY = /* GraphQL */ `
   query Watching($userId: Int) {
     MediaListCollection(userId: $userId, type: ANIME, status_in: [CURRENT, REPEATING]) {
@@ -89,11 +96,13 @@ const ANILIST_WATCHING_QUERY = /* GraphQL */ `
         entries {
           progress
           updatedAt
+          status
           media {
             id
             idMal
             siteUrl
             episodes
+            duration
             status
             title { userPreferred }
             coverImage { medium }
@@ -109,7 +118,7 @@ const ANILIST_WATCHING_QUERY = /* GraphQL */ `
 const isCollectionData = (data: unknown): data is { MediaListCollection: Record<string, unknown> } =>
   isRecord(data) && isRecord(data.MediaListCollection);
 
-async function fetchAniListEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore, lane: RequestLane): Promise<WatchingEntry[]> {
+export async function fetchAniListEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore, lane: RequestLane): Promise<WatchingEntry[]> {
   const userId = await getAniListUserId(lane);
   const { MediaListCollection } = await anilistQuery(ANILIST_WATCHING_QUERY, isCollectionData, { userId }, lane);
 
@@ -136,6 +145,8 @@ async function fetchAniListEntries(syncs: readonly RecentSync[], learned: Platfo
         updatedAt: updatedAt ? updatedAt * 1000 : null,
         nextEpisode: parseNextEpisode(media.nextAiringEpisode),
         airingStatus: toAiringStatus(media.status),
+        episodeMinutes: positiveMinutes(num(media.duration)),
+        listStatus: toListStatus(raw.status),
         platforms: buildPlatforms(media.externalLinks, mediaSyncs, learnedLinksFor(learned, id)),
         lastSync: toLastSync(mediaSyncs),
         siteUrl: toSafeUrl(str(media.siteUrl), 'anilist.co') ?? `https://anilist.co/anime/${id}`,
@@ -149,8 +160,8 @@ async function fetchAniListEntries(syncs: readonly RecentSync[], learned: Platfo
 
 // limit=1000 = maximum de l'endpoint : une seule requête suffit pour une liste « en cours », pas de pagination.
 // nsfw=true : sans lui, MAL omet silencieusement les fiches classées NSFW.
-const MAL_WATCHING_PATH =
-  '/users/@me/animelist?status=watching&sort=list_updated_at&limit=1000&nsfw=true&fields=list_status,num_episodes,main_picture,status';
+export const MAL_WATCHING_PATH =
+  '/users/@me/animelist?status=watching&sort=list_updated_at&limit=1000&nsfw=true&fields=list_status,num_episodes,main_picture,status,average_episode_duration';
 
 const isMalListData = (data: unknown): data is { data: unknown[] } => isRecord(data) && Array.isArray(data.data);
 
@@ -192,7 +203,7 @@ async function fetchCatalogByMalIds(malIds: readonly number[], lane: RequestLane
   return catalog;
 }
 
-async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore, lane: RequestLane): Promise<WatchingEntry[]> {
+export async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLinkStore, lane: RequestLane): Promise<WatchingEntry[]> {
   const { data } = await malRequest(MAL_WATCHING_PATH, isMalListData);
   const items = data.flatMap((item) => {
     if (!isRecord(item) || !isRecord(item.node)) return [];
@@ -211,6 +222,7 @@ async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLi
     const updated = str(listStatus.updated_at);
     const updatedAt = updated ? Date.parse(updated) : Number.NaN;
     const mediaSyncs = syncsFor(mediaId, syncs);
+    const malSeconds = num(node.average_episode_duration);
     return {
       mediaId,
       malId: id,
@@ -222,6 +234,9 @@ async function fetchMalEntries(syncs: readonly RecentSync[], learned: PlatformLi
       updatedAt: Number.isNaN(updatedAt) ? null : updatedAt,
       nextEpisode: media ? parseNextEpisode(media.nextAiringEpisode) : null,
       airingStatus: (media ? toAiringStatus(media.status) : null) ?? fromMalAiringStatus(node.status),
+      // average_episode_duration en secondes (0 = inconnue côté MAL)
+      episodeMinutes: positiveMinutes(malSeconds === null ? null : Math.round(malSeconds / 60)),
+      listStatus: listStatus.is_rewatching === true ? 'REPEATING' : 'CURRENT',
       platforms: buildPlatforms(media?.externalLinks, mediaSyncs, learnedLinksFor(learned, mediaId)),
       lastSync: toLastSync(mediaSyncs),
       siteUrl: `https://myanimelist.net/anime/${id}`,
