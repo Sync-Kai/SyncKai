@@ -235,17 +235,26 @@ describe('sortWatchingBy', () => {
     expect(titles(sortWatchingBy(input, 'remaining', NOW))).toEqual(['en diffusion', 'terminée']);
   });
 
-  it('"time" : durée à rattraper la plus courte en tête (50 min < 6 h < inconnu), à égalité par titre', () => {
+  it('"remaining" : sorti inconnu (en diffusion sans prochain épisode) passe après une série terminée, même avec un total connu', () => {
+    const input = [
+      entry({ title: 'a inconnu', progress: 1, totalEpisodes: 12, airingStatus: 'RELEASING', nextEpisode: null }),
+      entry({ title: 'z terminée', progress: 7, totalEpisodes: 12, airingStatus: 'FINISHED' }),
+    ];
+    // total − progression donnerait 11 contre 5 mais l'ordre alphabétique placerait « a » devant : seul « inconnu en dernier » donne ceci
+    expect(titles(sortWatchingBy(input, 'remaining', NOW))).toEqual(['z terminée', 'a inconnu']);
+  });
+
+  it('"time" : durée à rattraper la plus courte en tête (50 min < 6 h < inconnu), à égalité par titre ; à jour et inconnu forment un même groupe trié par titre', () => {
     const base = { airingStatus: 'FINISHED' as const, totalEpisodes: 12 };
     const input = [
-      entry({ title: 'inconnu B', ...base, progress: 0, episodeMinutes: null }),
+      entry({ title: 'aa inconnu B', ...base, progress: 0, episodeMinutes: null }),
       entry({ title: '6 h', ...base, progress: 6, episodeMinutes: 60 }),
       entry({ title: 'égal B', ...base, progress: 10, episodeMinutes: 25 }),
       entry({ title: '50 min', ...base, progress: 10, episodeMinutes: 25 }),
-      entry({ title: 'à jour', ...base, progress: 12, episodeMinutes: 24 }),
-      entry({ title: 'inconnu A', ...base, progress: 0, episodeMinutes: null }),
+      entry({ title: 'zz à jour', ...base, progress: 12, episodeMinutes: 24 }),
+      entry({ title: 'aa inconnu A', ...base, progress: 0, episodeMinutes: null }),
     ];
-    expect(titles(sortWatchingBy(input, 'time', NOW))).toEqual(['50 min', 'égal B', '6 h', 'à jour', 'inconnu A', 'inconnu B']);
+    expect(titles(sortWatchingBy(input, 'time', NOW))).toEqual(['50 min', 'égal B', '6 h', 'aa inconnu A', 'aa inconnu B', 'zz à jour']);
   });
 
   it('retourne un nouveau tableau sans modifier l’entrée, pour chaque mode', () => {
