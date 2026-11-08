@@ -6,6 +6,7 @@ import { isPendingRating } from './engagement-store';
 import { PENDING_RATINGS_KEY, STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../protocol/storage-keys';
 import { isSyncQueueItem, restrictToSession } from '../../shared/queue.types';
 import { openWeeklySyncs } from '../../shared/weekly-syncs';
+import { openKeepMarks } from './dormant-keep';
 import { liveServices, type SessionEpochs } from '../../shared/session-epochs';
 import { keysClearedOnLastSession, keysClearedOnSessionEnd, prefixesClearedOnLastSession } from './account-keys';
 import { withStorageLock } from './lock';
@@ -170,6 +171,13 @@ async function purgeClosedSessions(): Promise<void> {
     const kept = openWeeklySyncs(weekly, current);
     if (Object.keys(kept).length === 0) await chrome.storage.local.remove(STORAGE_KEYS.weeklySyncs);
     else await chrome.storage.local.set({ [STORAGE_KEYS.weeklySyncs]: kept });
+  }
+  // Marques « Garder » des séries dormantes : même règle
+  const keeps: unknown = (await chrome.storage.local.get(STORAGE_KEYS.watchingKeptDormant))[STORAGE_KEYS.watchingKeptDormant];
+  if (keeps !== undefined) {
+    const kept = openKeepMarks(keeps, current);
+    if (Object.keys(kept).length === 0) await chrome.storage.local.remove(STORAGE_KEYS.watchingKeptDormant);
+    else await chrome.storage.local.set({ [STORAGE_KEYS.watchingKeptDormant]: kept });
   }
   // Vérification simple : non liée au compte (elle n'applique que les règles normales, sans recul)
   const reviews = await readList(STORAGE_KEYS.pendingReviews, isPendingReview);

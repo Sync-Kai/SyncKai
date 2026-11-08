@@ -44,6 +44,11 @@ export const STORAGE_KEYS = {
    * vers chaque service pendant la semaine en cours (shared/weekly-syncs.ts), écrit par le service worker
    */
   weeklySyncs: 'accountMenu:weeklySyncs',
+  /**
+   * Séries que l'utilisateur a choisi de garder hors du groupe « dormantes », par service : `{ [service]: { epoch, marks } }`
+   * (browser/storage/dormant-keep.ts)
+   */
+  watchingKeptDormant: 'watching:keptDormant',
 } as const;
 
 /**
