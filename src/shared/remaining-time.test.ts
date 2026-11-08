@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { episodesToCatchUp, formatRemaining, remainingMinutes } from './remaining-time';
+import { episodesToCatchUp, formatDuration, formatRemaining, remainingMinutes } from './remaining-time';
 import type { WatchingEntry } from './watching.types';
 import { setLocale } from '../i18n';
 
@@ -59,6 +59,12 @@ describe('episodesToCatchUp', () => {
     expect(episodesToCatchUp(finished({ totalEpisodes: null }), NOW)).toBeNull();
   });
 
+  it('rien de sorti (épisode 1 à venir, ou pas encore sortie) : null, pas 0', () => {
+    expect(episodesToCatchUp(airing({ progress: 0, nextEpisode: { episode: 1, airingAt: NOW + HOUR } }), NOW)).toBeNull();
+    expect(episodesToCatchUp(entry({ airingStatus: 'NOT_YET_RELEASED', nextEpisode: { episode: 1, airingAt: NOW + HOUR } }), NOW)).toBeNull();
+    expect(episodesToCatchUp(entry({ airingStatus: 'NOT_YET_RELEASED', nextEpisode: { episode: 3, airingAt: NOW - HOUR } }), NOW)).toBeNull();
+  });
+
   it('à jour ou en avance : 0', () => {
     expect(episodesToCatchUp(finished({ progress: 23 }), NOW)).toBe(0);
     expect(episodesToCatchUp(airing({ progress: 6 }), NOW)).toBe(0);
@@ -89,6 +95,38 @@ describe('remainingMinutes', () => {
     expect(remainingMinutes(withoutMinutes, NOW)).toBeNull();
     expect(remainingMinutes(finished({ episodeMinutes: null }), NOW)).toBeNull();
     expect(remainingMinutes(finished({ episodeMinutes: 0 }), NOW)).toBeNull();
+    expect(remainingMinutes(finished({ episodeMinutes: Number.NaN }), NOW)).toBeNull();
+    expect(remainingMinutes(finished({ episodeMinutes: -24 }), NOW)).toBeNull();
+    expect(formatRemaining(finished({ episodeMinutes: Number.NaN }), NOW)).toBeNull();
+    expect(formatRemaining(finished({ episodeMinutes: -24 }), NOW)).toBeNull();
+  });
+});
+
+describe('formatDuration', () => {
+  it('valeur courte et phrase lue (unité longue)', () => {
+    // Espaces d'ICU : insécable devant « heures », ordinaire devant « minutes »
+    expect(formatDuration(384)).toEqual({ text: '≈ 6,5 h', spoken: 'Environ 6,5\u00a0heures pour finir' });
+    expect(formatDuration(47)).toEqual({ text: '≈ 45 min', spoken: 'Environ 45 minutes pour finir' });
+  });
+
+  it('frontière de l\'heure : décidée sur la valeur arrondie', () => {
+    expect(formatDuration(57).text).toBe('≈ 55 min');
+    expect(formatDuration(58).text).toBe('≈ 1 h');
+    expect(formatDuration(59).text).toBe('≈ 1 h');
+    expect(formatDuration(58).spoken).toBe('Environ 1\u00a0heure pour finir');
+  });
+
+  it('frontière des 10 h', () => {
+    expect(formatDuration(584).text).toBe('≈ 9,5 h');
+    expect(formatDuration(585).text).toBe('≈ 10 h');
+    expect(formatDuration(599).text).toBe('≈ 10 h');
+  });
+
+  it('grandes valeurs : séparateur de milliers de la langue', () => {
+    expect(formatDuration(1100 * 24).text).toBe('≈ 440 h');
+    expect(formatDuration(1667 * 60).text).toBe('≈ 1\u202f667 h');
+    setLocale('de');
+    expect(formatDuration(1667 * 60).text).toBe('≈ 1.667 Std.');
   });
 });
 
