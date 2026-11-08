@@ -1733,6 +1733,8 @@ describe('popup › séries en sommeil (bout en bout)', () => {
     await page.waitForFunction((label: string) => document.querySelector('[data-watching-notice]')?.textContent?.includes(label) === true, {}, 'Frieren remise en cours');
     expect(await page.$(sel('watching-undo'))).toBeNull();
     await page.waitForFunction(() => [...document.querySelectorAll('main [data-series-row] [data-series-title]')].some((el) => el.getAttribute('title') === 'Frieren'));
+    // Le bouton cliqué a disparu avec son bandeau : focus au titre de la série remise en cours, jamais sur <body>
+    await page.waitForFunction((key: string) => document.activeElement?.getAttribute('data-focus') === key, {}, `title-${FRIEREN}`);
     expect((await dormantRows(page)).map((row) => row.title)).toEqual(['Solo Leveling', 'Kaiju No. 8']);
   });
 
@@ -1775,8 +1777,12 @@ describe('popup › séries en sommeil (bout en bout)', () => {
     expect((await waitForMessage(page, 'SET_LIST_STATUS')).payload).toMatchObject({ mediaId: 178754, status: 'DROPPED', onlyFrom: 'CURRENT' });
     await page.waitForFunction((label: string) => document.querySelector('[data-watching-notice]')?.textContent?.includes(label) === true, {}, 'Kaiju No. 8 abandonnée');
 
+    // Le « Annuler » de l'abandon est encore affiché : « Garder » ne doit jamais y porter le focus (Entrée annulerait Kaiju)
+    expect(await page.$(sel('watching-undo'))).not.toBeNull();
     await click(page, `dormant-keep-${SOLO_ROW}`);
     await page.waitForFunction(() => [...document.querySelectorAll('main [data-series-row] [data-series-title]')].some((el) => el.getAttribute('title') === 'Solo Leveling'));
+    await page.waitForFunction((key: string) => document.activeElement?.getAttribute('data-focus') === key, {}, `dormant-keep-${FRIEREN}`);
+    expect(await focused(page)).not.toBe('watching-undo');
     expect((await dormantRows(page)).map((row) => row.title)).toEqual(['Frieren']);
     // Marque écrite sous le verrou du stockage, juste après l'affichage
     await page.waitForFunction(async (key: string) => (await chrome.storage.local.get(key))[key] !== undefined, {}, STORAGE_KEYS.watchingKeptDormant);

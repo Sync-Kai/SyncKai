@@ -83,7 +83,7 @@ settingsStore.subscribe((state) => {
   if (days !== dormantThresholdStore.get()) dormantThresholdStore.set(days);
 });
 /** Groupe « En sommeil » de « Mes séries » (pause, abandon, garder, annuler) */
-const dormant = createDormantController({ watching, threshold: dormantThresholdStore });
+const dormant = createDormantController({ watching, threshold: dormantThresholdStore, accounts, onUndo: () => void undoDormant() });
 /** Activité › « Synchros en attente » */
 const queue = createQueueController();
 /** Activité › « À noter » */
@@ -280,17 +280,39 @@ function openNotes(entry: WatchingEntry): void {
   afterRender(() => watchingRegion()?.querySelector(`[data-notes-row="${entryKey(entry)}"]`)?.scrollIntoView({ block: 'nearest' }));
 }
 
-/**
- * Action du groupe « En sommeil » : la ligne disparaît, le focus va au « Annuler » du bandeau s'il y en a un, sinon à
- * l'en-tête du groupe (ou à rien s'il n'y a plus de groupe)
- */
-async function afterDormantAction(action: Promise<void>): Promise<void> {
-  await action;
+/** Focus dans « En cours » sur la première clé présente (la ligne visée a pu disparaître), sinon l'en-tête du groupe */
+function focusFirstOf(keys: readonly string[]): void {
   afterRender(() => {
     const region = watchingRegion();
-    const target = region?.querySelector<HTMLElement>('[data-focus="watching-undo"]') ?? region?.querySelector<HTMLElement>('[data-focus="dormant-toggle"]');
+    const target = [...keys, 'dormant-toggle'].map((key) => region?.querySelector<HTMLElement>(`[data-focus="${key}"]`)).find((el) => el);
     target?.focus({ preventScroll: true });
   });
+}
+
+/**
+ * Pause, abandon, pause groupée : la ligne disparaît, le focus va au « Annuler » du bandeau que CETTE action a ouvert,
+ * sinon à l'en-tête du groupe (jamais au « Annuler » d'une action précédente)
+ */
+async function afterDormantAction(action: Promise<void>): Promise<void> {
+  const before = watching.notice.get();
+  await action;
+  const after = watching.notice.get();
+  focusFirstOf(after !== before && after?.undo ? ['watching-undo'] : []);
+}
+
+/** « Garder » : aucun bandeau ; focus au « Garder » de la série suivante du groupe (sinon précédente, sinon l'en-tête) */
+async function keepDormant(entry: WatchingEntry): Promise<void> {
+  const keys = dormant.store.get().entries.map(entryKey);
+  const index = keys.indexOf(entryKey(entry));
+  const next = keys[index + 1] ?? keys[index - 1];
+  await dormant.keepDormant(entry);
+  focusFirstOf(next !== undefined && index >= 0 ? [`dormant-keep-${next}`] : []);
+}
+
+/** « Annuler » du bandeau (son bouton disparaît) : focus au titre de la série remise en cours, sinon à l'en-tête du groupe */
+async function undoDormant(): Promise<void> {
+  const restored = await dormant.undoDormant();
+  focusFirstOf(restored.map((key) => `title-${key}`));
 }
 
 /** « Seuil : 30 jours » : Réglages › Affichage, focus sur le choix du seuil */
@@ -576,7 +598,7 @@ mountPopupApp(getRoot(), {
       onToggle: (open) => void watching.setDormantOpen(open),
       onPause: (entry) => void afterDormantAction(dormant.pauseDormant(entry)),
       onDrop: (entry) => void afterDormantAction(dormant.dropDormant(entry)),
-      onKeep: (entry) => void afterDormantAction(dormant.keepDormant(entry)),
+      onKeep: (entry) => void keepDormant(entry),
       onPauseAll: () => void afterDormantAction(dormant.pauseAllDormant()),
       onOpenThreshold: openDormantThreshold,
     },

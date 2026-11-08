@@ -18,6 +18,8 @@ export interface NoticeBanner {
   /** Remplace le bandeau affiché ; masqué au bout du délai (le double pour un échec ou un « Annuler » à cliquer) */
   show(feedback: InlineFeedback, actions?: { retry?: (() => void) | null; undo?: (() => void) | null }): void;
   hide(): void;
+  /** Retire « Annuler » du bandeau affiché (texte et délai inchangés) : ce qu'il rétablirait ne vaut plus */
+  dropUndo(): void;
   dispose(): void;
 }
 
@@ -38,6 +40,10 @@ export function createNoticeBanner(onShown: () => void): NoticeBanner {
       timer = setTimeout(hide, feedback.tone === 'success' && undo === null ? NOTICE_MS : NOTICE_MS * 2);
     },
     hide,
+    dropUndo() {
+      const shown = store.get();
+      if (shown?.undo) store.set({ ...shown, undo: null });
+    },
     dispose() {
       clearTimeout(timer);
     },

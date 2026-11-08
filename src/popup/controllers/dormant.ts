@@ -9,11 +9,11 @@ import { keepDormant as storeKeepMark, readKeepMarks } from '../../browser/stora
 import { dormantEntries, dormantKey, type KeepMark } from '../../shared/dormant';
 import type { DormantAfterDays } from '../../shared/settings';
 import type { SyncOutcome } from '../../shared/sync.types';
-import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
+import { TRACKER_IDS, TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { toSafeImageUrl } from '../../shared/url';
 import { entryKey, pickHeroEntry } from '../../shared/watching';
 import type { WatchingEntry } from '../../shared/watching.types';
-import { createStore, withMember, type InlineFeedback, type ReadonlyStore, type Store } from '../../ui/state';
+import { createStore, withMember, type AccountState, type InlineFeedback, type ReadonlyStore, type Store } from '../../ui/state';
 import { callWorker, outcomeFailure } from '../../ui/worker-call';
 import type { WatchingState } from '../state';
 import type { NoticeBanner, WatchingNotice } from './notice';
@@ -58,6 +58,10 @@ export interface DormantControllerDeps {
   watching: { store: Store<WatchingState>; banner: NoticeBanner; scheduleRevalidation(): void };
   /** Réglage « Séries en sommeil » ; undefined tant que les réglages ne sont pas lus (aucun groupe) */
   threshold: ReadonlyStore<DormantAfterDays | undefined>;
+  /** Comptes : une connexion ou une déconnexion retire « Annuler » (il écrirait sur une autre session) */
+  accounts: { store(service: TrackerId): ReadonlyStore<AccountState<unknown>> };
+  /** « Annuler » du bandeau porté par l'hôte (qui appelle `undoDormant` puis place le focus) ; absent : appel direct */
+  onUndo?: () => void;
   now?: () => number;
 }
 
@@ -72,8 +76,11 @@ export interface DormantController {
   keepDormant(entry: WatchingEntry): Promise<void>;
   /** « Tout mettre en pause », après la confirmation : une écriture par série, résultat regroupé */
   pauseAllDormant(): Promise<void>;
-  /** « Annuler » du bandeau : CURRENT sur les seuls services écrits, `onlyFrom` = le statut écrit */
-  undoDormant(): Promise<void>;
+  /**
+   * « Annuler » du bandeau : CURRENT sur les seuls services écrits, `onlyFrom` = le statut écrit ; renvoie les séries
+   * (entryKey) remises en cours sur le service affiché (focus de l'hôte)
+   */
+  undoDormant(): Promise<string[]>;
   dispose(): void;
 }
 
@@ -144,8 +151,9 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
   let marks: { service: TrackerId; marks: Record<string, KeepMark> } | null = null;
   /** Écritures que « Annuler » rétablit, tant que leur bandeau est affiché */
   let undoable: DormantWrite[] = [];
-  /** Bandeau qui porte ce « Annuler » (un autre bandeau l'efface) */
+  /** Bandeau qui porte ce « Annuler » (un autre bandeau l'efface) et service affiché lors des écritures */
   let undoNotice: WatchingNotice | null = null;
+  let undoService: TrackerId | null = null;
   let disposed = false;
 
   function recompute(): void {
@@ -210,12 +218,27 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
 
   /** Banderole avec « Annuler » (écritures de ce lot et des lots qu'il réessaie) et « Réessayer » (séries en échec) */
   function showResult(feedback: InlineFeedback, written: DormantWrite[], failed: DormantItem[]): void {
-    const undo = written.length > 0 ? () => void controller.undoDormant() : null;
+    const undo = written.length > 0 ? (deps.onUndo ?? (() => void controller.undoDormant())) : null;
     const retry = failed.length > 0 ? () => void run(failed, written) : null;
     watching.banner.show(feedback, { undo, retry });
     // Après l'affichage : l'abonnement au bandeau oublie les écritures d'un bandeau remplacé
     undoNotice = watching.banner.store.get();
     undoable = written;
+    const shown = watching.store.get();
+    undoService = shown.status === 'ready' ? shown.service : null;
+  }
+
+  /** Sessions ou liste affichée changées : « Annuler » écrirait ailleurs que là où la pause a été faite */
+  function dropUndo(): void {
+    if (undoable.length === 0) return;
+    undoable = [];
+    watching.banner.dropUndo();
+  }
+
+  /** État de session d'un compte (connecté, déconnecté, expiré), sans le profil qui se recharge seul */
+  const sessionOf = (service: TrackerId): string => {
+    const account = deps.accounts.store(service).get();
+    return account.status === 'logged-out' ? `logged-out:${account.expired}` : account.status;
   }
 
   /** Pause / abandon d'une ou plusieurs séries ; `previous` : écritures d'un essai précédent (« Réessayer ») */
@@ -236,11 +259,21 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
 
     start() {
       if (unsubscribers.length > 0) return;
+      const sessions = new Map(TRACKER_IDS.map((service) => [service, sessionOf(service)]));
       unsubscribers.push(
-        watching.store.subscribe(() => {
+        watching.store.subscribe((shown) => {
           syncMarks();
           recompute();
+          if (undoService !== null && (shown.status !== 'ready' || shown.service !== undoService)) dropUndo();
         }),
+        ...TRACKER_IDS.map((service) =>
+          deps.accounts.store(service).subscribe(() => {
+            const next = sessionOf(service);
+            if (next === sessions.get(service)) return;
+            sessions.set(service, next);
+            dropUndo();
+          }),
+        ),
         deps.threshold.subscribe(recompute),
         // « Annuler » disparaît avec son bandeau (délai écoulé, autre retour affiché)
         watching.banner.store.subscribe((notice) => {
@@ -281,7 +314,7 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
 
     async undoDormant() {
       const writes = undoable;
-      if (writes.length === 0) return;
+      if (writes.length === 0) return [];
       undoable = [];
       watching.banner.hide();
       patch({ bulk: true });
@@ -298,6 +331,7 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
       const { feedback, failed } = dormantFeedback(results, true);
       watching.banner.show(feedback, { retry: failed.length > 0 ? () => void retryUndo(failed) : null });
       watching.scheduleRevalidation();
+      return restored.map(({ item }) => entryKey(item.entry));
     },
 
     dispose() {
@@ -307,7 +341,7 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
   };
 
   /** « Réessayer » d'un « Annuler » en échec partiel : mêmes séries, seuls les services en échec */
-  function retryUndo(failed: readonly DormantItem[]): Promise<void> {
+  function retryUndo(failed: readonly DormantItem[]): Promise<string[]> {
     undoable = failed.map(({ entry, status, services }) => ({ entry, status, services: services ?? [] })).filter((write) => write.services.length > 0);
     return controller.undoDormant();
   }

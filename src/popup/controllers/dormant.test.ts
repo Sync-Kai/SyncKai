@@ -81,6 +81,8 @@ const outcome = (title: string, results: { service: TrackerId; outcome: ServiceO
 let watching: WatchingController;
 let ctl: DormantController;
 let threshold: Store<DormantAfterDays | undefined>;
+let preferred: Store<TrackerId | null>;
+const onUndo = vi.fn<() => void>();
 
 function shownTitles(): string[] {
   const shown = watching.store.get();
@@ -106,18 +108,20 @@ beforeEach(() => {
   keep.read.mockReset().mockImplementation(() => Promise.resolve({ ...keep.marks }));
   keep.write.mockReset().mockResolvedValue(undefined);
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  preferred = createStore<TrackerId | null>('anilist');
+  onUndo.mockReset();
   accounts = { anilist: createStore<AccountState<unknown>>({ status: 'loading' }), mal: createStore<AccountState<unknown>>({ status: 'loading' }) };
   accounts.mal.set(LOGGED_OUT);
   watching = createWatchingController({
     accounts: { store: (service) => accounts[service], markExpired: vi.fn() },
-    preferredService: createStore<TrackerId | null>('anilist'),
+    preferredService: preferred,
     exclusions: createStore<ExclusionsState>({ status: 'ready', items: [] }),
     reloadExclusions: async () => undefined,
     onServiceShown: vi.fn(),
     onNoticeShown: vi.fn(),
   });
   threshold = createStore<DormantAfterDays | undefined>(30);
-  ctl = createDormantController({ watching, threshold, now: () => NOW });
+  ctl = createDormantController({ watching, threshold, accounts: { store: (service) => accounts[service] }, now: () => NOW });
   watching.start();
   ctl.start();
 });
@@ -311,6 +315,60 @@ describe('createDormantController : pause, abandon, annuler', () => {
     await settle();
     vi.advanceTimersByTime(60_000);
     expect(watching.notice.get()).toBeNull();
+    const before = calls('SET_LIST_STATUS').length;
+    await ctl.undoDormant();
+    expect(calls('SET_LIST_STATUS')).toHaveLength(before);
+  });
+
+  it('« Annuler » renvoie les séries remises en cours (focus de l’hôte) ; l’hôte peut porter le clic du bandeau', async () => {
+    await showList([FRIEREN, VINLAND]);
+    void ctl.pauseDormant(FRIEREN);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    const restored = ctl.undoDormant();
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }]));
+    await expect(restored).resolves.toEqual([`${FRIEREN.mediaId}:${FRIEREN.malId}`]);
+
+    // Hôte fourni : le « Annuler » du bandeau passe par lui (focus après l'écriture), jamais directement par le contrôleur
+    ctl.dispose();
+    ctl = createDormantController({ watching, threshold, accounts: { store: (service) => accounts[service] }, now: () => NOW, onUndo });
+    ctl.start();
+    await settle();
+    void ctl.pauseDormant(VINLAND);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    const before = calls('SET_LIST_STATUS').length;
+    watching.notice.get()?.undo?.();
+    expect(onUndo).toHaveBeenCalledTimes(1);
+    expect(calls('SET_LIST_STATUS')).toHaveLength(before);
+  });
+
+  it('déconnexion puis reconnexion d’un compte dans le délai : « Annuler » retiré, rien n’est écrit sur le nouveau compte', async () => {
+    await showList([FRIEREN, VINLAND]);
+    void ctl.pauseDormant(FRIEREN);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }, { service: 'mal', outcome: updated }]));
+    await settle();
+    expect(watching.notice.get()?.undo).not.toBeNull();
+    // MyAnimeList (pas le service affiché) : déconnecté puis reconnecté, peut-être à un autre compte
+    accounts.mal.set(LOGGED_OUT);
+    accounts.mal.set({ status: 'logged-in', viewer: null, error: null });
+    await settle();
+    const notice = watching.notice.get();
+    expect(notice?.feedback.text).toBe('Frieren mise en pause');
+    expect(notice?.undo).toBeNull();
+    const before = calls('SET_LIST_STATUS').length;
+    await expect(ctl.undoDormant()).resolves.toEqual([]);
+    expect(calls('SET_LIST_STATUS')).toHaveLength(before);
+  });
+
+  it('service affiché changé : « Annuler » retiré', async () => {
+    await showList([FRIEREN, VINLAND]);
+    void ctl.pauseDormant(FRIEREN);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    preferred.set('mal');
+    await settle();
+    expect(watching.notice.get()?.undo ?? null).toBeNull();
     const before = calls('SET_LIST_STATUS').length;
     await ctl.undoDormant();
     expect(calls('SET_LIST_STATUS')).toHaveLength(before);
