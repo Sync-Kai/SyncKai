@@ -666,3 +666,36 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Nic nie oglądane od ponad {days} dni |
 | `watching.dormant.threshold` | Próg: {days} dni |
 | `watching.dormant.undo` | Cofnij |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Watching / Plans to watch / Rewatching take the third person (*Ogląda*, *Planuje*, *Ogląda ponownie*, vs. first-person *Oglądam*, *Planuję*, *Oglądam ponownie*); the others keep the participles of `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Zobacz wszystko na AniList |
+| `friends.average` | Średnia znajomych |
+| `friends.averageAria` | Średnia znajomych: {score} na 10 |
+| `friends.listAria` | Znajomi, którzy mają tę serię |
+| `friends.loading` | Wczytywanie znajomych |
+| `friends.more_one` | Pokaż jeszcze {count} |
+| `friends.more_few` | Pokaż jeszcze {count} |
+| `friends.more_many` | Pokaż jeszcze {count} |
+| `friends.more_other` | Pokaż jeszcze {count} |
+| `friends.noScore` | Bez oceny |
+| `friends.privacy` | Publiczne listy osób, które obserwujesz. Nic nie jest zapisywane. |
+| `friends.profileAria` | Profil {name} na AniList |
+| `friends.scoreAria` | Ocena {score} na 10 |
+| `friends.status.COMPLETED` | Obejrzane |
+| `friends.status.CURRENT` | Ogląda |
+| `friends.status.DROPPED` | Porzucone |
+| `friends.status.PAUSED` | Wstrzymane |
+| `friends.status.PLANNING` | Planuje |
+| `friends.status.REPEATING` | Ogląda ponownie |
+| `friends.summary_one` | {count} znajomy |
+| `friends.summary_few` | {count} znajomych |
+| `friends.summary_many` | {count} znajomych |
+| `friends.summary_other` | {count} znajomego |
+| `friends.title` | Znajomi na AniList |
+| `friends.unavailable` | Niedostępne |
+| `friends.yourScore` | Twoja ocena |

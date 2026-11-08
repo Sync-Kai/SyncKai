@@ -9,6 +9,7 @@ import type { ListStatus } from '../../src/shared/sync.types';
 import type { AiringCheckResult } from '../../src/shared/airing.types';
 import type { AniListViewer } from '../../src/shared/anilist.types';
 import type { EpisodeInfo, StreamingPlatform } from '../../src/shared/episode.types';
+import type { FriendEntry, FriendsSummary } from '../../src/shared/friends';
 import type { MalViewer } from '../../src/shared/mal.types';
 import type { CandidateSummary, PendingReview, RecentSync } from '../../src/shared/review.types';
 import type { SyncSettings } from '../../src/shared/settings';
@@ -195,6 +196,49 @@ export function pageView(): PageMediaView {
   };
 }
 
+/**
+ * Amis AniList de la fiche (`friends=on` des pages de test) : 7 amis dont 6 notés (moyenne 8,6), progression sur
+ * `episodes` épisodes ; avatars en data: (pas de réseau), sauf le dernier (repli sur l'initiale)
+ */
+export function friendsDemo(episodes: number): FriendsSummary {
+  const friend = (id: number, name: string, status: ListStatus, progress: number, score: number | null, colors: [string, string] | null): FriendEntry => ({
+    id,
+    name,
+    avatar: colors && avatarUrl(name.charAt(0).toUpperCase(), ...colors),
+    status,
+    progress: Math.min(progress, episodes),
+    score,
+  });
+  return {
+    total: 7,
+    averageScore: 8.6,
+    scoredCount: 6,
+    friends: [
+      friend(3000001, 'Mizuki', 'CURRENT', 8, 9.5, ['#FF8FB8', '#FFD37A']),
+      friend(3000002, 'tanuki_dev', 'CURRENT', 5, 9, ['#7EE0C3', '#3DB4F2']),
+      friend(3000003, 'Haru', 'COMPLETED', episodes, 8.6, ['#B9A4FF', '#FF8FB8']),
+      friend(3000004, 'Lune', 'COMPLETED', episodes, 8.5, ['#FFD37A', '#7EE0C3']),
+      friend(3000005, 'Okabe_Rintaro', 'PAUSED', 4, 8, ['#5A7FD6', '#B9A4FF']),
+      friend(3000006, 'Ren', 'DROPPED', 2, 8, ['#FF8A8A', '#FFD37A']),
+      friend(3000007, 'Sakura_chan', 'PLANNING', 0, null, null),
+    ],
+  };
+}
+
+/**
+ * Réponse de GET_ANILIST_FRIENDS des pages de test (`friends`) : `on` = friendsDemo ; `error` = première demande en
+ * échec, les suivantes `on` ; `hang` = jamais de réponse ; sinon aucun ami (`none`)
+ */
+export function demoFriendsHandler(mode: string | null, episodes: number): (payload: unknown) => unknown {
+  let calls = 0;
+  return () => {
+    calls++;
+    if (mode === 'hang') return new Promise<never>(() => {});
+    if (mode === 'error' && calls === 1) return { status: 'error', message: 'AniList injoignable (e2e)' };
+    return mode === 'on' || mode === 'error' ? { status: 'ok', summary: friendsDemo(episodes) } : { status: 'none' };
+  };
+}
+
 // ─── Écarts AniList ↔ MAL ─────────────────────────────────────────────────
 
 function comparison(now: number): ComparisonResult {
@@ -327,6 +371,8 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
       SEARCH_ANIME: () => ({ ok: true, data: candidates() }),
       RESOLVE_PAGE_MEDIA: () => ({ ok: true, data: pageView() }),
       COMPARE_LISTS: () => ({ ok: true, data: comparison(now) }),
+      // Amis AniList : aucun par défaut (bloc masqué) ; `friends=on|error|hang` des pages de test
+      GET_ANILIST_FRIENDS: () => ({ status: 'none' }),
     },
   };
 }

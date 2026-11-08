@@ -9,7 +9,7 @@ import { isRecord } from '../../src/shared/guards';
 import { LIVE_PORT_NAME, type LiveContentMessage, type LiveTickMessage } from '../../src/protocol/live';
 import type { PageListState, PageMediaInfo, PageMediaResult, PageMediaView, PageSeason } from '../../src/shared/page-media.types';
 import { isPanelTab } from '../../src/sidepanel/tabs';
-import { accountDemo, isAccountDemo } from '../screenshots/demo-data';
+import { accountDemo, demoFriendsHandler, isAccountDemo } from '../screenshots/demo-data';
 import { agendaWeek, PANEL_PAGE, panelChrome, panelView, PLAYBACK } from '../screenshots/demo-panel';
 import { createMockPort, installChromeMock, type SentMessage } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
@@ -214,6 +214,8 @@ const controls = installChromeMock({
     ...base.handlers,
     ...account.handlers,
     RESOLVE_PAGE_MEDIA: param('pageMedia') === 'hang' ? () => new Promise(() => undefined) : holdable('RESOLVE_PAGE_MEDIA', resolvePage),
+    // `friends=on|error|hang` : amis AniList de la fiche (aucun sinon)
+    GET_ANILIST_FRIENDS: demoFriendsHandler(param('friends'), panelView().media.episodes ?? 12),
     ...(param('details') === 'error' ? { GET_PANEL_MEDIA: () => ({ ok: false, code: 'NETWORK', message: t('api.network', { service: 'AniList' }) }) } : {}),
     ADJUST_PROGRESS: holdable('ADJUST_PROGRESS', () => ({
       status: 'synced',

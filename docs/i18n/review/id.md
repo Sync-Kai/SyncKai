@@ -598,3 +598,30 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Tidak ditonton selama lebih dari {days} hari |
 | `watching.dormant.threshold` | Batas: {days} hari |
 | `watching.dormant.undo` | Urungkan |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Indonesian statuses are personless, so they equal `page.status.*` except Plans to watch (*Berencana menonton*, a verb, instead of the list name *Rencana*). Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Lihat semua di AniList |
+| `friends.average` | Rata-rata teman |
+| `friends.averageAria` | Rata-rata teman: {score} dari 10 |
+| `friends.listAria` | Teman yang punya anime ini |
+| `friends.loading` | Memuat teman |
+| `friends.more_other` | Lihat {count} lainnya |
+| `friends.noScore` | Belum dinilai |
+| `friends.privacy` | Daftar publik orang yang kamu ikuti. Tidak ada yang disimpan. |
+| `friends.profileAria` | Profil AniList {name} |
+| `friends.scoreAria` | Nilai {score} dari 10 |
+| `friends.status.COMPLETED` | Selesai |
+| `friends.status.CURRENT` | Menonton |
+| `friends.status.DROPPED` | Di-drop |
+| `friends.status.PAUSED` | Ditunda |
+| `friends.status.PLANNING` | Berencana menonton |
+| `friends.status.REPEATING` | Menonton ulang |
+| `friends.summary_other` | {count} teman |
+| `friends.title` | Teman di AniList |
+| `friends.unavailable` | Tidak tersedia |
+| `friends.yourScore` | Nilaimu |

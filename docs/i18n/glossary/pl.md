@@ -157,3 +157,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Kopiuj raport |
 | What's new (About link) | Nowości |
 | Privacy (About link) | Prywatność |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | znajomy (pl. znajomi, gen. pl. znajomych) |
+| the people you follow | osoby, które obserwujesz |
+| Friends on AniList (section title) | Znajomi na AniList |
+| friends' average (band) | Średnia znajomych |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Ogląda / Planuje / Obejrzane / Porzucone / Wstrzymane / Ogląda ponownie (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Zobacz wszystko na AniList |

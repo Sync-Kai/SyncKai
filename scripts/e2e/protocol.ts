@@ -78,6 +78,11 @@ export interface FrameParams {
   accounts?: 'none' | 'expired';
   /** Connexion depuis l'accueil : `pending` = fenêtre restée ouverte ; `error` = connexion AniList annulée */
   login?: 'pending' | 'error';
+  /**
+   * Amis AniList de la fiche (GET_ANILIST_FRIENDS, aucun par défaut) : `on` = 7 amis (moyenne 8,6) ; `error` = première
+   * demande en échec, la suivante (« Réessayer ») répond `on` ; `hang` = jamais de réponse (squelette)
+   */
+  friends?: 'on' | 'error' | 'hang';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */
@@ -140,6 +145,11 @@ export interface PanelFrameParams {
   checking?: 'hold';
   /** État de la lecture en direct envoyé par le port (voir liveDemos de sidepanel-frame.ts) ; `silent` : port muet */
   live?: string;
+  /**
+   * Amis AniList de la fiche (GET_ANILIST_FRIENDS, aucun par défaut) : `on` = 7 amis (moyenne 8,6) ; `error` = première
+   * demande en échec, la suivante (« Réessayer ») répond `on` ; `hang` = jamais de réponse (squelette)
+   */
+  friends?: 'on' | 'error' | 'hang';
 }
 
 declare global {

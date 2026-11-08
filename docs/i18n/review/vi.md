@@ -590,3 +590,30 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Không xem gì hơn {days} ngày |
 | `watching.dormant.threshold` | Ngưỡng: {days} ngày |
 | `watching.dormant.undo` | Hoàn tác |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Vietnamese statuses are personless, so they equal `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Xem tất cả trên AniList |
+| `friends.average` | Điểm trung bình của bạn bè |
+| `friends.averageAria` | Điểm trung bình của bạn bè: {score}/10 |
+| `friends.listAria` | Bạn bè có bộ anime này |
+| `friends.loading` | Đang tải bạn bè |
+| `friends.more_other` | Xem thêm {count} người |
+| `friends.noScore` | Chưa chấm điểm |
+| `friends.privacy` | Danh sách công khai của những người bạn theo dõi. Không lưu gì cả. |
+| `friends.profileAria` | Hồ sơ AniList của {name} |
+| `friends.scoreAria` | Điểm {score}/10 |
+| `friends.status.COMPLETED` | Đã xem xong |
+| `friends.status.CURRENT` | Đang xem |
+| `friends.status.DROPPED` | Bỏ dở |
+| `friends.status.PAUSED` | Tạm dừng |
+| `friends.status.PLANNING` | Dự định xem |
+| `friends.status.REPEATING` | Đang xem lại |
+| `friends.summary_other` | {count} bạn bè |
+| `friends.title` | Bạn bè trên AniList |
+| `friends.unavailable` | Không khả dụng |
+| `friends.yourScore` | Điểm của bạn |

@@ -574,3 +574,30 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | 超过 {days} 天没看 |
 | `watching.dormant.threshold` | 阈值：{days} 天 |
 | `watching.dormant.undo` | 撤销 |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Chinese statuses are personless (Bangumi list names), so they equal `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | 在 AniList 上查看全部 |
+| `friends.average` | 好友平均分 |
+| `friends.averageAria` | 好友平均分：{score}（满分 10） |
+| `friends.listAria` | 列表中有这部番剧的好友 |
+| `friends.loading` | 正在加载好友 |
+| `friends.more_other` | 查看其余 {count} 位 |
+| `friends.noScore` | 未评分 |
+| `friends.privacy` | 你关注的人的公开列表。不会保存任何内容。 |
+| `friends.profileAria` | {name} 的 AniList 个人主页 |
+| `friends.scoreAria` | 评分 {score}（满分 10） |
+| `friends.status.COMPLETED` | 看过 |
+| `friends.status.CURRENT` | 在看 |
+| `friends.status.DROPPED` | 抛弃 |
+| `friends.status.PAUSED` | 搁置 |
+| `friends.status.PLANNING` | 想看 |
+| `friends.status.REPEATING` | 重看 |
+| `friends.summary_other` | {count} 位好友 |
+| `friends.title` | AniList 好友 |
+| `friends.unavailable` | 暂不可用 |
+| `friends.yourScore` | 我的评分 |

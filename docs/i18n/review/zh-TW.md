@@ -591,3 +591,30 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | 超過 {days} 天沒看 |
 | `watching.dormant.threshold` | 門檻：{days} 天 |
 | `watching.dormant.undo` | 復原 |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Chinese statuses are personless list names, so they equal `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | 在 AniList 查看全部 |
+| `friends.average` | 好友平均評分 |
+| `friends.averageAria` | 好友平均評分：{score}（滿分 10 分） |
+| `friends.listAria` | 清單中有這部動畫的好友 |
+| `friends.loading` | 正在載入好友 |
+| `friends.more_other` | 查看其餘 {count} 位 |
+| `friends.noScore` | 未評分 |
+| `friends.privacy` | 你追蹤的人的公開清單。不會儲存任何資料。 |
+| `friends.profileAria` | {name} 的 AniList 個人檔案 |
+| `friends.scoreAria` | 評分 {score}（滿分 10 分） |
+| `friends.status.COMPLETED` | 已看完 |
+| `friends.status.CURRENT` | 觀看中 |
+| `friends.status.DROPPED` | 已棄番 |
+| `friends.status.PAUSED` | 擱置中 |
+| `friends.status.PLANNING` | 想看 |
+| `friends.status.REPEATING` | 重看中 |
+| `friends.summary_other` | {count} 位好友 |
+| `friends.title` | AniList 好友 |
+| `friends.unavailable` | 無法使用 |
+| `friends.yourScore` | 我的評分 |

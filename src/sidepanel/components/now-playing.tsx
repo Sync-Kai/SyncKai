@@ -19,7 +19,10 @@ import type { IconName } from '../../ui/icons';
 import type { MediaActionsState } from '../../ui/media-action-requests';
 import { isPageSeriesExcluded } from '../../ui/page-exclusion';
 import { seasonOptionLabel, seasonPickerOptions, splitAround } from '../../ui/page-media-view';
+import { friendsEnabled } from '../../ui/components/friends-section';
+import { revealFriendsSection } from '../../ui/components/friends-summary';
 import { useLocale, useNow, useStore } from '../../ui/preact/hooks';
+import { useFriends } from '../../ui/preact/use-friends';
 import { settingsPath } from '../../ui/settings/navigation';
 import type { ExclusionsState, InlineFeedback, ReadonlyStore } from '../../ui/state';
 import type { LiveSnapshot } from '../live-view';
@@ -138,6 +141,12 @@ function Ready({ props, snapshot, page, view, details, detailsError, refreshing 
   const ids = { mediaId: media.mediaId, malId: media.idMal };
   const options = seasonPickerOptions(view).map((season) => ({ id: season.id, label: seasonOptionLabel(season) }));
   const uncertain = view.confidence === 'uncertain';
+  // Amis AniList de la fiche montrée : demandés quand elle est restée la même 1,5 s (jamais pour les saisons du sélecteur)
+  const friends = useFriends(media.mediaId, friendsEnabled(view.lists));
+  const openFriends = (): void => {
+    props.onToggleSection('friends', true);
+    revealFriendsSection('panel-section-friends');
+  };
   return (
     <div class="flex flex-col gap-2.5" aria-label={t('panel.nowPlaying.aria')}>
       <NowPlayingHero view={view} details={details} entry={entryLink(ids, links)} refreshing={refreshing} busy={busy} now={now} onRefresh={props.onRefresh} />
@@ -168,6 +177,8 @@ function Ready({ props, snapshot, page, view, details, detailsError, refreshing 
         notice={notice}
         entryLinks={entryLinks(ids, links)}
         excluded={isPageSeriesExcluded({ page, mediaId: media.mediaId }, exclusions)}
+        friends={friends}
+        onOpenFriends={openFriends}
         onAdd={props.onAdd}
         onAdjust={props.onAdjust}
         onRetryAdjust={props.onRetryAdjust}
@@ -182,6 +193,7 @@ function Ready({ props, snapshot, page, view, details, detailsError, refreshing 
         details={details}
         entryLinks={links}
         preferred={snapshot.preferred}
+        friends={friends}
         busy={busy}
         sections={sections}
         onToggle={props.onToggleSection}

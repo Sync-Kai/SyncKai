@@ -619,3 +619,32 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Inget sett på över {days} dagar |
 | `watching.dormant.threshold` | Gräns: {days} dagar |
 | `watching.dormant.undo` | Ångra |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Watching / Plans to watch / Rewatching take the third person (*Tittar*, *Vill se*, *Tittar om*, vs. *Tittar på*, *Planerad*, *Tittar om*); the others keep `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Visa allt på AniList |
+| `friends.average` | Vännernas snitt |
+| `friends.averageAria` | Vännernas snitt: {score} av 10 |
+| `friends.listAria` | Vänner som har serien |
+| `friends.loading` | Läser in vänner |
+| `friends.more_one` | Visa {count} till |
+| `friends.more_other` | Visa {count} till |
+| `friends.noScore` | Inget betyg |
+| `friends.privacy` | Offentliga listor från personer du följer. Inget sparas. |
+| `friends.profileAria` | AniList-profil: {name} |
+| `friends.scoreAria` | Betyg {score} av 10 |
+| `friends.status.COMPLETED` | Färdigsedd |
+| `friends.status.CURRENT` | Tittar |
+| `friends.status.DROPPED` | Avbruten |
+| `friends.status.PAUSED` | Pausad |
+| `friends.status.PLANNING` | Vill se |
+| `friends.status.REPEATING` | Tittar om |
+| `friends.summary_one` | {count} vän |
+| `friends.summary_other` | {count} vänner |
+| `friends.title` | Vänner på AniList |
+| `friends.unavailable` | Inte tillgängligt |
+| `friends.yourScore` | Ditt betyg |

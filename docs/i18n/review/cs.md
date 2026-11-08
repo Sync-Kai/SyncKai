@@ -615,3 +615,36 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Přes {days} dní nic nezhlédnuto |
 | `watching.dormant.threshold` | Práh: {days} dní |
 | `watching.dormant.undo` | Vrátit zpět |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Watching / Plans to watch / Rewatching take the third person (*Sleduje*, *Chce vidět*, *Znovu sleduje*, vs. first-person *Sleduji*, *Chci vidět*, *Znovu sleduji* of `page.status.*`); the other three keep the impersonal participles of `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Zobrazit vše na AniListu |
+| `friends.average` | Průměr přátel |
+| `friends.averageAria` | Průměr přátel: {score} z 10 |
+| `friends.listAria` | Přátelé, kteří mají tento seriál |
+| `friends.loading` | Načítám přátele |
+| `friends.more_one` | Zobrazit {count} dalšího |
+| `friends.more_few` | Zobrazit {count} další |
+| `friends.more_many` | Zobrazit {count} dalšího |
+| `friends.more_other` | Zobrazit {count} dalších |
+| `friends.noScore` | Bez hodnocení |
+| `friends.privacy` | Veřejné seznamy lidí, které sleduješ. Nic se neukládá. |
+| `friends.profileAria` | Profil {name} na AniListu |
+| `friends.scoreAria` | Hodnocení {score} z 10 |
+| `friends.status.COMPLETED` | Dokončeno |
+| `friends.status.CURRENT` | Sleduje |
+| `friends.status.DROPPED` | Zahozeno |
+| `friends.status.PAUSED` | Pozastaveno |
+| `friends.status.PLANNING` | Chce vidět |
+| `friends.status.REPEATING` | Znovu sleduje |
+| `friends.summary_one` | {count} přítel |
+| `friends.summary_few` | {count} přátelé |
+| `friends.summary_many` | {count} přítele |
+| `friends.summary_other` | {count} přátel |
+| `friends.title` | Přátelé na AniListu |
+| `friends.unavailable` | Nedostupné |
+| `friends.yourScore` | Tvoje hodnocení |

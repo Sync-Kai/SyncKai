@@ -193,6 +193,8 @@ describe('Requêtes AniList par action', () => {
     await settledOperations(run.anilist, 0);
     const tab = await run.h.openTab(FRIEREN_E3.url);
     await waitForEntry(panel, FRIEREN_S1.anilist.title, 'Ep. 3');
+    // Amis AniList de la fiche, demandés 1,5 s après son affichage : attendus avant de compter la suite
+    await waitFor('amis de la fiche', () => run.anilist.operations(0).includes('Friends'));
     await settledOperations(run.anilist, 0);
     const from = run.anilist.requests.length;
     await play(tab);
@@ -212,6 +214,8 @@ describe('Requêtes AniList par action', () => {
     await settledOperations(run.anilist, 0);
     const tab = await run.h.openTab(FRIEREN_E3.url);
     await waitForEntry(panel, FRIEREN_S1.anilist.title, 'Ep. 3');
+    // Amis AniList de la fiche, demandés 1,5 s après son affichage : attendus avant de compter la suite
+    await waitFor('amis de la fiche', () => run.anilist.operations(0).includes('Friends'));
     await settledOperations(run.anilist, 0);
     await panel.close();
     await tab.bringToFront();
@@ -234,9 +238,11 @@ describe('Requêtes AniList par action', () => {
     const from = run.anilist.requests.length;
     await run.h.openTab(url);
     await waitFor('fiche de la série', async () => (await nowPlayingText(panel)).includes(FRIEREN_S1.anilist.title));
+    await waitFor('amis de la fiche', () => run.anilist.operations(from).includes('Friends'));
     // Fiches et entrées de liste de toutes les saisons en une requête (PageMediaBatch), relues ensuite sans requête (PERF-11 :
-    // avant, PageMedia + deux MediaEntry pour la même saison)
-    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, PageMediaBatch: 1, PanelMedia: 1, SearchAnime: 1 });
+    // avant, PageMedia + deux MediaEntry pour la même saison) ; les amis AniList de la fiche restée affichée 1,5 s : une
+    // requête de plus (Friends, 2.5.0), jamais pour les autres saisons du sélecteur
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, Friends: 1, PageMediaBatch: 1, PanelMedia: 1, SearchAnime: 1 });
     expectCleanRun(run.h, run.anilist, run.mal);
   });
 });

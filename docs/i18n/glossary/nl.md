@@ -147,3 +147,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Rapport kopiëren |
 | What's new (About link) | Nieuw |
 | Privacy (About link) | Privacy |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | vriend (pl. vrienden) |
+| the people you follow | mensen die je volgt |
+| Friends on AniList (section title) | Vrienden op AniList |
+| friends' average (band) | Gemiddelde van vrienden |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Kijkt / Wil kijken / Voltooid / Afgehaakt / Gepauzeerd / Kijkt opnieuw (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Alles bekijken op AniList |

@@ -3,9 +3,9 @@
 // (« Réessayer »), erreur réseau ou limite AniList, pas un anime / plateforme désactivée (mention, lien vers Réglages ›
 // Plateformes), puis la fiche : en-tête (jaquette, titre, ligne d'infos, prochain épisode, menu « ⋯ » partagé avec « Mes
 // séries »), saison devinée et son sélecteur, lignes par service, retour de la dernière action, ajout à une liste ou statut
-// et progression, détails repliables (saison, note, commentaire). Données et actions : contrôleur de la fiche
-// (ui/page-media-controller.ts) et popup.ts ; les parties sont des composants partagés (src/ui/components/), prêts pour
-// « En lecture » du panneau latéral.
+// et progression, résumé des amis AniList qui ont la série, détails repliables (saison, note, commentaire, amis). Données
+// et actions : contrôleur de la fiche (ui/page-media-controller.ts) et popup.ts ; les parties sont des composants partagés
+// (src/ui/components/), prêts pour « En lecture » du panneau latéral.
 import { useState } from 'preact/hooks';
 import { formatList, t, tp } from '../../i18n';
 import { pageKey } from '../../browser/storage/page-media-cache';
@@ -16,6 +16,8 @@ import type { AddListStatus, AdjustRetry, MenuStatusChange } from '../../shared/
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { Alert } from '../../ui/components/alert';
 import { FeedbackBanner } from '../../ui/components/feedback-banner';
+import { aniListScore, FriendsSection, friendsEnabled, showsFriendsSection } from '../../ui/components/friends-section';
+import { FriendsSummaryLine, revealFriendsSection } from '../../ui/components/friends-summary';
 import { MediaDetails } from '../../ui/components/media-details';
 import { MediaHeader, MediaHeaderSkeleton, type MediaAiring } from '../../ui/components/media-header';
 import { RatingBlock } from '../../ui/components/rating-block';
@@ -38,6 +40,7 @@ import {
   showsServiceLines,
   splitAround,
 } from '../../ui/page-media-view';
+import { useFriends } from '../../ui/preact/use-friends';
 import { settingsPath } from '../../ui/settings/navigation';
 import type { InlineFeedback } from '../../ui/state';
 import { SeriesMenu } from '../../ui/series-menu';
@@ -133,8 +136,11 @@ function ReadyCard({ props, page, view, refreshing }: ReadyProps) {
   const uncertain = view.confidence === 'uncertain';
   const feedback = props.notice ?? actions.feedback;
   const services = feedback?.retry ? formatList(feedback.retry.services.map((service) => TRACKER_LABELS[service])) : null;
-  // Détails : saison (quand elle n'est pas à vérifier au-dessus), note et commentaire d'une série dans une liste
-  const details = (picker && !uncertain) || primary !== null;
+  // Amis AniList de la fiche montrée : demandés quand elle est restée la même 1,5 s (jamais pour les saisons du sélecteur)
+  const friends = useFriends(media.mediaId, friendsEnabled(view.lists));
+  const friendsPart = showsFriendsSection(friends.state, detailsOpen);
+  // Détails : saison (quand elle n'est pas à vérifier au-dessus), note et commentaire d'une série dans une liste, amis
+  const details = (picker && !uncertain) || primary !== null || friendsPart;
   const seasonPicker = (inDetails: boolean) => (
     <SeasonPicker
       label={t(inDetails ? 'page.seasonOnAniList' : 'page.seasonPicker')}
@@ -228,6 +234,16 @@ function ReadyCard({ props, page, view, refreshing }: ReadyProps) {
           }}
         />
       )}
+      {friends.state === 'ok' && friends.summary !== null && (
+        <FriendsSummaryLine
+          summary={friends.summary}
+          focusKey="friends-summary"
+          onOpen={() => {
+            setDetailsOpen(true);
+            revealFriendsSection();
+          }}
+        />
+      )}
       {details && view.lists.length > 0 && (
         <MediaDetails label={t('page.details')} open={detailsOpen} onToggle={() => setDetailsOpen(!detailsOpen)} focusKey="page-details">
           {picker && !uncertain && seasonPicker(true)}
@@ -246,6 +262,7 @@ function ReadyCard({ props, page, view, refreshing }: ReadyProps) {
             focusKey="page-notes"
             onSave={props.onSaveNotes}
           />
+          {friendsPart && <FriendsSection key={media.mediaId} title={t('friends.title')} friends={friends} yourScore={aniListScore(view.lists)} episodes={total} siteUrl={media.siteUrl} />}
         </MediaDetails>
       )}
     </section>

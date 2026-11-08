@@ -644,3 +644,34 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Nimic văzut de peste {days} de zile |
 | `watching.dormant.threshold` | Prag: {days} de zile |
 | `watching.dormant.undo` | Anulează |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Watching / Plans to watch / Rewatching take the third person (*Urmărește*, *Vrea să vadă*, *Revede*, vs. first-person *Urmăresc* and the nouns *De văzut*, *Revizionare*); the others keep `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Vezi tot pe AniList |
+| `friends.average` | Media prietenilor |
+| `friends.averageAria` | Media prietenilor: {score} din 10 |
+| `friends.listAria` | Prieteni care au această serie |
+| `friends.loading` | Se încarcă prietenii |
+| `friends.more_one` | Arată încă {count} |
+| `friends.more_few` | Arată încă {count} |
+| `friends.more_other` | Arată încă {count} |
+| `friends.noScore` | Fără notă |
+| `friends.privacy` | Listele publice ale persoanelor pe care le urmărești. Nu se păstrează nimic. |
+| `friends.profileAria` | Profil AniList: {name} |
+| `friends.scoreAria` | Nota {score} din 10 |
+| `friends.status.COMPLETED` | Terminat |
+| `friends.status.CURRENT` | Urmărește |
+| `friends.status.DROPPED` | Abandonat |
+| `friends.status.PAUSED` | În pauză |
+| `friends.status.PLANNING` | Vrea să vadă |
+| `friends.status.REPEATING` | Revede |
+| `friends.summary_one` | {count} prieten |
+| `friends.summary_few` | {count} prieteni |
+| `friends.summary_other` | {count} de prieteni |
+| `friends.title` | Prieteni pe AniList |
+| `friends.unavailable` | Indisponibil |
+| `friends.yourScore` | Nota ta |

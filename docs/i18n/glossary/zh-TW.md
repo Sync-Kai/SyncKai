@@ -163,3 +163,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | 複製報告 |
 | What's new (About link) | 新功能 |
 | Privacy (About link) | 隱私權 |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | 好友 (counter: 位) |
+| the people you follow | 你追蹤的人 |
+| Friends on AniList (section title) | AniList 好友 |
+| friends' average (band) | 好友平均評分 |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | 觀看中 / 想看 / 已看完 / 已棄番 / 擱置中 / 重看中 (distinct from `page.status.*` where those are first person) |
+| See all on AniList | 在 AniList 查看全部 |

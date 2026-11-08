@@ -590,3 +590,30 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | {days}일 넘게 시청 기록 없음 |
 | `watching.dormant.threshold` | 기준: {days}일 |
 | `watching.dormant.undo` | 실행 취소 |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Korean statuses are personless list names, so they equal `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | AniList에서 모두 보기 |
+| `friends.average` | 친구 평균 |
+| `friends.averageAria` | 친구 평균: 10점 만점에 {score}점 |
+| `friends.listAria` | 이 작품을 목록에 둔 친구 |
+| `friends.loading` | 친구 불러오는 중… |
+| `friends.more_other` | {count}명 더 보기 |
+| `friends.noScore` | 평점 없음 |
+| `friends.privacy` | 내가 팔로우하는 사람들의 공개 목록이에요. 아무것도 저장하지 않아요. |
+| `friends.profileAria` | {name}의 AniList 프로필 |
+| `friends.scoreAria` | 평점 10점 만점에 {score}점 |
+| `friends.status.COMPLETED` | 완료 |
+| `friends.status.CURRENT` | 시청 중 |
+| `friends.status.DROPPED` | 하차 |
+| `friends.status.PAUSED` | 보류 |
+| `friends.status.PLANNING` | 시청 예정 |
+| `friends.status.REPEATING` | 재시청 중 |
+| `friends.summary_other` | 친구 {count}명 |
+| `friends.title` | AniList 친구 |
+| `friends.unavailable` | 사용할 수 없음 |
+| `friends.yourScore` | 내 평점 |

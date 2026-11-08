@@ -161,3 +161,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Копіювати звіт |
 | What's new (About link) | Що нового |
 | Privacy (About link) | Конфіденційність |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | друг (друзі, друзів) |
+| the people you follow | люди з твоїх підписок (gender-neutral) |
+| Friends on AniList (section title) | Друзі на AniList |
+| friends' average (band) | Середня в друзів |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Дивиться / Заплановано / Переглянуто / Закинуто / Відкладено / Передивляється (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Відкрити все на AniList |

@@ -159,3 +159,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | コピー |
 | What's new (About link) | 新機能 |
 | Privacy (About link) | プライバシー |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | フレンド (counter: N人) |
+| the people you follow | フォロー中のユーザー |
+| Friends on AniList (section title) | AniListのフレンド |
+| friends' average (band) | フレンドの平均 |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | 視聴中 / 視聴予定 / 視聴完了 / 視聴中止 / 一時中断 / 再視聴中 (distinct from `page.status.*` where those are first person) |
+| See all on AniList | AniListですべて見る |

@@ -158,3 +158,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Copiază raportul |
 | What's new (About link) | Noutăți |
 | Privacy (About link) | Confidențialitate |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | prieten (pl. prieteni) |
+| the people you follow | persoanele pe care le urmărești |
+| Friends on AniList (section title) | Prieteni pe AniList |
+| friends' average (band) | Media prietenilor |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Urmărește / Vrea să vadă / Terminat / Abandonat / În pauză / Revede (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Vezi tot pe AniList |

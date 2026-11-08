@@ -575,3 +575,32 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Niente visto da oltre {days} giorni |
 | `watching.dormant.threshold` | Soglia: {days} giorni |
 | `watching.dormant.undo` | Annulla |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Watching / Rewatching take the third person (*Sta guardando*, *Sta riguardando*, vs. the list names *In corso*, *In rewatch*); the others keep `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Vedi tutto su AniList |
+| `friends.average` | Media degli amici |
+| `friends.averageAria` | Media degli amici: {score} su 10 |
+| `friends.listAria` | Amici che hanno questa serie |
+| `friends.loading` | Caricamento degli amici |
+| `friends.more_one` | Mostra {count} altro |
+| `friends.more_other` | Mostra altri {count} |
+| `friends.noScore` | Senza voto |
+| `friends.privacy` | Liste pubbliche delle persone che segui. Non viene salvato nulla. |
+| `friends.profileAria` | Profilo AniList di {name} |
+| `friends.scoreAria` | Voto {score} su 10 |
+| `friends.status.COMPLETED` | Completato |
+| `friends.status.CURRENT` | Sta guardando |
+| `friends.status.DROPPED` | Abbandonato |
+| `friends.status.PAUSED` | In pausa |
+| `friends.status.PLANNING` | Da vedere |
+| `friends.status.REPEATING` | Sta riguardando |
+| `friends.summary_one` | {count} amico |
+| `friends.summary_other` | {count} amici |
+| `friends.title` | Amici su AniList |
+| `friends.unavailable` | Non disponibile |
+| `friends.yourScore` | Il tuo voto |

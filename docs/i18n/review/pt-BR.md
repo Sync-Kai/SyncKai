@@ -576,3 +576,32 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Nada assistido há mais de {days} dias |
 | `watching.dormant.threshold` | Limite: {days} dias |
 | `watching.dormant.undo` | Desfazer |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Plans to watch takes the third person (*Quer assistir*, vs. first-person *Quero assistir*); the others are personless and keep `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Ver tudo no AniList |
+| `friends.average` | Média dos amigos |
+| `friends.averageAria` | Média dos amigos: {score} de 10 |
+| `friends.listAria` | Amigos que têm este anime |
+| `friends.loading` | Carregando amigos |
+| `friends.more_one` | Ver mais {count} |
+| `friends.more_other` | Ver mais {count} |
+| `friends.noScore` | Sem nota |
+| `friends.privacy` | Listas públicas das pessoas que você segue. Nada é guardado. |
+| `friends.profileAria` | Perfil de {name} no AniList |
+| `friends.scoreAria` | Nota {score} de 10 |
+| `friends.status.COMPLETED` | Concluído |
+| `friends.status.CURRENT` | Assistindo |
+| `friends.status.DROPPED` | Abandonado |
+| `friends.status.PAUSED` | Pausado |
+| `friends.status.PLANNING` | Quer assistir |
+| `friends.status.REPEATING` | Reassistindo |
+| `friends.summary_one` | {count} amigo |
+| `friends.summary_other` | {count} amigos |
+| `friends.title` | Amigos no AniList |
+| `friends.unavailable` | Indisponível |
+| `friends.yourScore` | Sua nota |

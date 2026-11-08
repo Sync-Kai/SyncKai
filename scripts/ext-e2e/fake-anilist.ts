@@ -278,6 +278,10 @@ export class FakeAniList {
         if (!media) return { error: 404, message: 'Not Found.' };
         return { ok: { Media: operation === 'PanelMedia' ? this.panelFields(media) : this.mediaFields(media, null) } };
       }
+      // Amis qui ont la série (anilist/friends.ts) : le compte ne suit personne, page vide
+      case 'Friends':
+        if (!account) return needsAccount();
+        return { ok: { Page: { pageInfo: { total: 0 }, mediaList: [] } } };
       case 'AiringSchedules': {
         const ids = Array.isArray(v.ids) ? v.ids.map(Number) : [];
         const from = Number(v.from);

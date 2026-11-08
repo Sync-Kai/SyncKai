@@ -614,3 +614,30 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | {days}日以上視聴なし |
 | `watching.dormant.threshold` | しきい値：{days}日 |
 | `watching.dormant.undo` | 元に戻す |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Japanese statuses are personless list names, so they equal `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | AniListですべて見る |
+| `friends.average` | フレンドの平均 |
+| `friends.averageAria` | フレンドの平均：{score}点（10点満点） |
+| `friends.listAria` | この作品をリストに入れているフレンド |
+| `friends.loading` | フレンドを読み込み中 |
+| `friends.more_other` | 残り{count}人を表示 |
+| `friends.noScore` | 未評価 |
+| `friends.privacy` | フォロー中のユーザーの公開リストです。何も保存されません。 |
+| `friends.profileAria` | {name}のAniListプロフィール |
+| `friends.scoreAria` | 評価：{score}点（10点満点） |
+| `friends.status.COMPLETED` | 視聴完了 |
+| `friends.status.CURRENT` | 視聴中 |
+| `friends.status.DROPPED` | 視聴中止 |
+| `friends.status.PAUSED` | 一時中断 |
+| `friends.status.PLANNING` | 視聴予定 |
+| `friends.status.REPEATING` | 再視聴中 |
+| `friends.summary_other` | フレンド{count}人 |
+| `friends.title` | AniListのフレンド |
+| `friends.unavailable` | 利用できません |
+| `friends.yourScore` | 自分の評価 |

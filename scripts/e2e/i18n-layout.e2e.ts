@@ -267,6 +267,32 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
   } finally {
     await guessed.close();
   }
+  // Amis AniList : ligne de résumé, puis la partie des détails qu'elle ouvre (bande de comparaison, 7 amis, liens, mention)
+  ctx.step = 'popup/page-friends';
+  const friends = await openPage(ctx, 'popup.html', { scenario: 'page', friends: 'on' }, POPUP_VIEWPORT);
+  try {
+    await friends.waitForSelector('[data-page-card] [data-friends-summary]');
+    await attach(ctx, friends);
+    await shot(ctx, friends, 'popup/page-friends-summary', '[data-page-card]');
+    ctx.step = 'popup/page-friends';
+    await click(friends, 'friends-summary');
+    await click(friends, 'friends-more');
+    await friends.waitForFunction(() => document.querySelectorAll('[data-friends-section] [data-friend]').length === 7);
+    await shot(ctx, friends, 'popup/page-friends', '[data-page-card]');
+  } finally {
+    await friends.close();
+  }
+  // Amis indisponibles : « Indisponible » et « Réessayer » dans les détails
+  ctx.step = 'popup/page-friends-error';
+  const friendsError = await openPage(ctx, 'popup.html', { scenario: 'page', friends: 'error' }, POPUP_VIEWPORT);
+  try {
+    await click(friendsError, 'page-details');
+    await friendsError.waitForSelector('[data-friends-section] [data-tone="error"]');
+    await attach(ctx, friendsError);
+    await shot(ctx, friendsError, 'popup/page-friends-error', '[data-page-card]');
+  } finally {
+    await friendsError.close();
+  }
   // Plateforme désactivée : phrase et lien « Réglages › Plateformes »
   ctx.step = 'popup/page-off';
   const off = await openPage(ctx, 'popup.html', { scenario: 'page', pageMedia: 'off' }, POPUP_VIEWPORT);
@@ -449,6 +475,20 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
     await panelShots(ctx, states, 'now-playing-states');
   } finally {
     await states.close();
+  }
+
+  // Amis AniList : ligne de résumé dans « Ta liste », section ouverte (bande, 7 amis, liens, mention)
+  ctx.step = 'panel/now-playing-friends';
+  const friends = await openPage(ctx, 'sidepanel.html', { friends: 'on' }, { width: PANEL_WIDTHS[0], height: PANEL_HEIGHT });
+  try {
+    await friends.waitForSelector('[data-list-card] [data-friends-summary]');
+    await click(friends, 'friends-summary');
+    await click(friends, 'friends-more');
+    await friends.waitForFunction(() => document.querySelectorAll('[data-friends-section] [data-friend]').length === 7);
+    await attach(ctx, friends);
+    await panelShots(ctx, friends, 'now-playing-friends');
+  } finally {
+    await friends.close();
   }
 
   // Onglet hors plateformes : « En lecture » montre la ligne neutre et les boutons « Activer Netflix / Disney+ »

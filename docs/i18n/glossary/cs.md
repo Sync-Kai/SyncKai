@@ -131,3 +131,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Kopírovat |
 | What's new (About link) | Novinky |
 | Privacy (About link) | Soukromí |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | přítel (pl. přátelé, gen. pl. přátel) |
+| the people you follow | lidé, které sleduješ |
+| Friends on AniList (section title) | Přátelé na AniListu |
+| friends' average (band) | Průměr přátel |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Sleduje / Chce vidět / Dokončeno / Zahozeno / Pozastaveno / Znovu sleduje (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Zobrazit vše na AniListu |

@@ -135,3 +135,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Kopiera rapporten |
 | What's new (About link) | Nyheter |
 | Privacy (About link) | Integritet |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | vän (pl. vänner) |
+| the people you follow | personer du följer |
+| Friends on AniList (section title) | Vänner på AniList |
+| friends' average (band) | Vännernas snitt |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Tittar / Vill se / Färdigsedd / Avbruten / Pausad / Tittar om (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Visa allt på AniList |

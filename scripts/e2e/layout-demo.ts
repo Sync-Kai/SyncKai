@@ -9,7 +9,7 @@ import { PLATFORMS, STREAMING_PLATFORMS } from '../../src/platforms/registry';
 import type { SyncQueueItem } from '../../src/shared/queue.types';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import { TRACKER_IDS, TRACKER_LABELS } from '../../src/shared/tracker.types';
-import { demoChrome, episode } from '../screenshots/demo-data';
+import { demoChrome, episode, friendsDemo } from '../screenshots/demo-data';
 import { importPlan, PANEL_PAGE, panelMedia, panelView } from '../screenshots/demo-panel';
 import { ROOT } from '../screenshots/harness';
 import { collectDataStrings, normalizeText, type CatalogEntries } from './layout-text';
@@ -111,7 +111,7 @@ export function demoDataStrings(locale: Locale, catalog: CatalogEntries): string
       return null;
     }
   });
-  return dataStringsOf([popup.storage, responses, panelView(), panelMedia(), PANEL_PAGE, importPlan(locale, now), ratingSeed(now), queueSeed(locale, now), LAYOUT_MAPPINGS, layoutExclusions(now)], catalog);
+  return dataStringsOf([popup.storage, responses, panelView(), panelMedia(), PANEL_PAGE, importPlan(locale, now), ratingSeed(now), queueSeed(locale, now), LAYOUT_MAPPINGS, layoutExclusions(now), friendsDemo(12)], catalog);
 }
 
 /** Chaînes affichables d'un contenu quelconque (stockage d'une page de test), mêmes exclusions */

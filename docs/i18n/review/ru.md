@@ -650,3 +650,36 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Ничего не смотрели больше {days} дней |
 | `watching.dormant.threshold` | Порог: {days} дней |
 | `watching.dormant.undo` | Отменить |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Watching / Rewatching take the third person (*Смотрит*, *Пересматривает*, vs. first-person *Смотрю*, *Пересматриваю*); the others keep the impersonal forms of `page.status.*` (Shikimori list names). Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Открыть всё на AniList |
+| `friends.average` | Средняя у друзей |
+| `friends.averageAria` | Средняя оценка друзей: {score} из 10 |
+| `friends.listAria` | Друзья, у которых есть это аниме |
+| `friends.loading` | Загрузка друзей |
+| `friends.more_one` | Показать ещё {count} |
+| `friends.more_few` | Показать ещё {count} |
+| `friends.more_many` | Показать ещё {count} |
+| `friends.more_other` | Показать ещё {count} |
+| `friends.noScore` | Без оценки |
+| `friends.privacy` | Открытые списки людей из твоих подписок. Ничего не сохраняется. |
+| `friends.profileAria` | Профиль {name} на AniList |
+| `friends.scoreAria` | Оценка {score} из 10 |
+| `friends.status.COMPLETED` | Просмотрено |
+| `friends.status.CURRENT` | Смотрит |
+| `friends.status.DROPPED` | Брошено |
+| `friends.status.PAUSED` | Отложено |
+| `friends.status.PLANNING` | Запланировано |
+| `friends.status.REPEATING` | Пересматривает |
+| `friends.summary_one` | {count} друг |
+| `friends.summary_few` | {count} друга |
+| `friends.summary_many` | {count} друзей |
+| `friends.summary_other` | {count} друга |
+| `friends.title` | Друзья на AniList |
+| `friends.unavailable` | Недоступно |
+| `friends.yourScore` | Твоя оценка |

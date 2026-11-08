@@ -626,3 +626,32 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Al meer dan {days} dagen niets gekeken |
 | `watching.dormant.threshold` | Drempel: {days} dagen |
 | `watching.dormant.undo` | Ongedaan maken |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Watching / Plans to watch / Rewatching take the third person (*Kijkt*, *Wil kijken*, *Kijkt opnieuw*, vs. *Aan het kijken*, *Wil ik zien*, *Aan het herkijken*); the others keep `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Alles bekijken op AniList |
+| `friends.average` | Gemiddelde van vrienden |
+| `friends.averageAria` | Gemiddelde van vrienden: {score} van 10 |
+| `friends.listAria` | Vrienden die deze serie hebben |
+| `friends.loading` | Vrienden laden |
+| `friends.more_one` | Nog {count} tonen |
+| `friends.more_other` | Nog {count} tonen |
+| `friends.noScore` | Geen score |
+| `friends.privacy` | Openbare lijsten van mensen die je volgt. Er wordt niets bewaard. |
+| `friends.profileAria` | AniList-profiel van {name} |
+| `friends.scoreAria` | Score {score} van 10 |
+| `friends.status.COMPLETED` | Voltooid |
+| `friends.status.CURRENT` | Kijkt |
+| `friends.status.DROPPED` | Afgehaakt |
+| `friends.status.PAUSED` | Gepauzeerd |
+| `friends.status.PLANNING` | Wil kijken |
+| `friends.status.REPEATING` | Kijkt opnieuw |
+| `friends.summary_one` | {count} vriend |
+| `friends.summary_other` | {count} vrienden |
+| `friends.title` | Vrienden op AniList |
+| `friends.unavailable` | Niet beschikbaar |
+| `friends.yourScore` | Jouw score |

@@ -4,7 +4,7 @@
 import type { Browser, Page } from 'puppeteer';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import manifest from '../../manifest.json';
-import { LOCALES, tl, type Locale, type MessageKey, type MessageParams } from '../../src/i18n';
+import { LOCALES, tl, tpl, type Locale, type MessageKey, type MessageParams } from '../../src/i18n';
 import { launchBrowser, startHarnessServer, type HarnessServer } from '../screenshots/harness';
 import type { SentMessage } from '../screenshots/mock-chrome';
 import { PLATFORM_LINKS_KEY } from '../../src/platforms/links';
@@ -1914,5 +1914,72 @@ describe('popup › Activité (bout en bout)', () => {
     await click(page, 'exclude-cr:solo');
     await page.waitForSelector('[data-recent="cr:solo"] [data-recent-excluded]');
     expect(await text(page, '[data-recent="cr:solo"] [data-recent-excluded]')).toBe(fr('common.excluded'));
+  });
+});
+
+// ─── « Sur cette page » › Amis AniList ─────────────────────────────────────
+
+describe('popup › amis AniList (bout en bout)', () => {
+  const card = '[data-page-card]';
+  const summary = `${card} [data-friends-summary]`;
+  const section = `${card} [data-friends-section]`;
+
+  it('résumé « 7 amis · ★ 8,6 » : une demande pour la fiche affichée, puis le clic ouvre les détails sur la partie des amis', async () => {
+    const page = await openPopup({ scenario: 'page', friends: 'on' });
+    await page.waitForSelector(summary);
+    expect(await text(page, summary)).toMatch(new RegExp(`${tpl('fr', 'friends.summary', 7)} · ★ 8,6`));
+    // Trois avatars au plus dans la ligne de résumé
+    expect(await page.$$eval(`${summary} [data-friend-avatar]`, (els) => els.length)).toBe(3);
+    expect((await sent(page, 'GET_ANILIST_FRIENDS')).map((m) => m.payload)).toEqual([{ mediaId: 146065 }]);
+    const details = `${card} [data-focus="page-details"]`;
+    expect(await attr(page, details, 'aria-expanded')).toBe('false');
+    expect(await page.$(section)).toBeNull();
+
+    await page.locator(summary).click();
+    expect(await attr(page, details, 'aria-expanded')).toBe('true');
+    await page.waitForSelector(section);
+    // Dernière partie des détails, amenée dans la vue ; focus sur la section
+    await page.waitForFunction((s: string) => {
+      const el = document.querySelector(s);
+      if (!el) return false;
+      const box = el.getBoundingClientRect();
+      return box.top >= 0 && box.top < window.innerHeight && el.contains(document.activeElement);
+    }, {}, section);
+    expect(await page.$$eval(`${section} [data-friend]`, (els) => els.length)).toBe(5);
+    expect(await text(page, `${section} [data-friends-band]`)).toContain(fr('friends.average'));
+    expect(await text(page, section)).toContain(fr('friends.privacy'));
+    expect(await text(page, section)).toContain(fr('friends.status.CURRENT'));
+    // Rien de plus demandé : la fiche n'a pas changé
+    expect(await sent(page, 'GET_ANILIST_FRIENDS')).toHaveLength(1);
+  });
+
+  it('aucun ami (réponse none) : ni résumé, ni partie dans les détails', async () => {
+    const page = await openPopup({ scenario: 'page' });
+    await waitForMessage(page, 'GET_ANILIST_FRIENDS');
+    await page.locator(`${card} [data-focus="page-details"]`).click();
+    await page.waitForSelector(sel('page-notes-input'));
+    expect(await page.$(summary)).toBeNull();
+    expect(await page.$(section)).toBeNull();
+  });
+
+  it('chargement, détails ouverts : squelette aria-busy à la place des amis', async () => {
+    const page = await openPopup({ scenario: 'page', friends: 'hang' });
+    await page.locator(`${card} [data-focus="page-details"]`).click();
+    await page.waitForSelector(`${section} [aria-busy="true"]`);
+    expect(await attr(page, `${section} [aria-busy="true"]`, 'aria-label')).toBe(fr('friends.loading'));
+    expect(await page.$(summary)).toBeNull();
+  });
+
+  it('erreur : « Indisponible » et « Réessayer » dans les détails ; le nouvel essai affiche les amis', async () => {
+    const page = await openPopup({ scenario: 'page', friends: 'error' });
+    await waitForMessage(page, 'GET_ANILIST_FRIENDS');
+    expect(await page.$(summary)).toBeNull();
+    await page.locator(`${card} [data-focus="page-details"]`).click();
+    await page.waitForSelector(`${section} [data-tone="error"]`);
+    expect(await text(page, section)).toContain(fr('friends.unavailable'));
+    await click(page, 'friends-retry');
+    await waitForMessage(page, 'GET_ANILIST_FRIENDS', 2);
+    await page.waitForSelector(`${section} [data-friend]`);
+    await page.waitForSelector(summary);
   });
 });

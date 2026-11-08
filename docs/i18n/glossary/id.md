@@ -144,3 +144,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Salin laporan |
 | What's new (About link) | Yang baru |
 | Privacy (About link) | Privasi |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | teman |
+| the people you follow | orang yang kamu ikuti |
+| Friends on AniList (section title) | Teman di AniList |
+| friends' average (band) | Rata-rata teman |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Menonton / Berencana menonton / Selesai / Di-drop / Ditunda / Menonton ulang (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Lihat semua di AniList |

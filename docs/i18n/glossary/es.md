@@ -138,3 +138,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Copiar informe |
 | What's new (About link) | Novedades |
 | Privacy (About link) | Privacidad |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | amigo (pl. amigos) |
+| the people you follow | las personas que sigues |
+| Friends on AniList (section title) | Amigos en AniList |
+| friends' average (band) | Media de tus amigos |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Viendo / Pendiente / Completado / Abandonado / En pausa / Reviendo (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Ver todo en AniList |

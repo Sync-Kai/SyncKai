@@ -1,7 +1,8 @@
 // Carte à sections repliables de « En lecture » (maquettes PanelLecture, PanelFicheDetails, PanelCommentaire) :
 // « Note et commentaire » (10 demi-étoiles dans une liste, puis la ligne du commentaire qui s'ouvre en éditeur),
-// « Synopsis » (5 lignes, « Lire la suite » / « Réduire »), « Suites et histoires liées » (étiquette · format, jaquette,
-// titre vers la fiche, « Regarder » sur le lecteur préféré) et « Discussions » (épisode sur Reddit, forum MAL, AniList).
+// « Amis sur AniList » (personnes suivies qui ont la série, ui/components/friends-section.tsx), « Synopsis » (5 lignes,
+// « Lire la suite » / « Réduire »), « Suites et histoires liées » (étiquette · format, jaquette, titre vers la fiche,
+// « Regarder » sur le lecteur préféré) et « Discussions » (épisode sur Reddit, forum MAL, AniList).
 // Sections repliées par défaut ; leur état est gardé par la page du panneau (sidepanel.ts).
 import { Fragment, type JSX } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
@@ -17,20 +18,22 @@ import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { choosePlatformLink } from '../../shared/watching';
 import { Collapsible } from '../../ui/components/collapsible';
 import { Cover } from '../../ui/components/cover';
+import { aniListScore, FriendsSection, showsFriendsSection } from '../../ui/components/friends-section';
 import { Icon } from '../../ui/components/icon';
 import { NotesEditor } from '../../ui/components/notes-editor';
 import { RatingBlock } from '../../ui/components/rating-block';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import { displayScore, primaryList } from '../../ui/page-media-view';
+import type { FriendsView } from '../../ui/preact/use-friends';
 import { pageKey, relationLabel } from '../now-playing-view';
 import { newTabLabel } from './now-playing-hero';
 
 /** Sections repliables de la carte, dans l'ordre d'affichage */
-export const PANEL_SECTIONS = ['notes', 'synopsis', 'relations', 'discussion'] as const;
+export const PANEL_SECTIONS = ['notes', 'friends', 'synopsis', 'relations', 'discussion'] as const;
 export type PanelSection = (typeof PANEL_SECTIONS)[number];
 export type PanelSectionsState = Readonly<Record<PanelSection, boolean>>;
 
-export const CLOSED_SECTIONS: PanelSectionsState = { notes: false, synopsis: false, relations: false, discussion: false };
+export const CLOSED_SECTIONS: PanelSectionsState = { notes: false, friends: false, synopsis: false, relations: false, discussion: false };
 
 export interface DetailsCardProps {
   page: PageMediaInfo;
@@ -40,6 +43,8 @@ export interface DetailsCardProps {
   entryLinks: EntryLinkContext;
   /** Lecteur préféré : plateforme de « Regarder » */
   preferred: StreamingPlatform;
+  /** Amis AniList de la fiche (useFriends, partagé avec la ligne de résumé de « Ta liste ») */
+  friends: FriendsView;
   /** Action en cours ou fiche relue */
   busy: boolean;
   sections: PanelSectionsState;
@@ -215,7 +220,7 @@ function Discussion({ page, view, details }: { page: PageMediaInfo; view: PageMe
   );
 }
 
-export function DetailsCard({ page, view, details, entryLinks, preferred, busy, sections, onToggle, onRate, onSaveNotes }: DetailsCardProps) {
+export function DetailsCard({ page, view, details, entryLinks, preferred, friends, busy, sections, onToggle, onRate, onSaveNotes }: DetailsCardProps) {
   const { media } = view;
   const primary = primaryList(view.lists);
   const relations = details?.relations ?? [];
@@ -230,6 +235,24 @@ export function DetailsCard({ page, view, details, entryLinks, preferred, busy, 
             {primary && <RatingBlock label={t('page.yourRating')} sliderLabel={t('rating.groupLabel', { title: media.title })} value={displayScore(view.lists) ?? 0} disabled={busy} onRate={onRate} focusKey="page-rate" labelHidden />}
             <NotesRow key={media.mediaId} title={media.title} notes={primary?.notes ?? null} unavailable={primary ? null : t('notes.notInList')} busy={busy} onSave={onSaveNotes} />
           </div>
+        </Collapsible>
+      ),
+    });
+  }
+  // Amis AniList : section absente sans ami qui a la série ni session AniList (et repliée tant qu'ils se chargent)
+  if (showsFriendsSection(friends.state, sections.friends)) {
+    parts.push({
+      key: 'friends',
+      node: (
+        <Collapsible
+          variant="row"
+          title={t('friends.title')}
+          count={friends.summary?.total}
+          open={sections.friends}
+          onToggle={(open) => onToggle('friends', open)}
+          focusKey="panel-section-friends"
+        >
+          <FriendsSection key={media.mediaId} friends={friends} yourScore={aniListScore(view.lists)} episodes={media.episodes} siteUrl={media.siteUrl} />
         </Collapsible>
       ),
     });

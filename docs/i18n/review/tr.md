@@ -582,3 +582,32 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | {days} günden uzun süredir izlenmedi |
 | `watching.dormant.threshold` | Eşik: {days} gün |
 | `watching.dormant.undo` | Geri al |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Statuses take the third-person past / present of the verb (*İzliyor*, *İzleyecek*, *Tamamladı*, *Bıraktı*, *Tekrar izliyor*) instead of the passive list names of `page.status.*`; On hold keeps *Beklemede*. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Tümünü AniList’te gör |
+| `friends.average` | Arkadaş ortalaması |
+| `friends.averageAria` | Arkadaş ortalaması: 10 üzerinden {score} |
+| `friends.listAria` | Bu seriyi listesine ekleyen arkadaşlar |
+| `friends.loading` | Arkadaşlar yükleniyor |
+| `friends.more_one` | {count} tane daha göster |
+| `friends.more_other` | {count} tane daha göster |
+| `friends.noScore` | Puan yok |
+| `friends.privacy` | Takip ettiğin kişilerin herkese açık listeleri. Hiçbir şey saklanmaz. |
+| `friends.profileAria` | {name} adlı kullanıcının AniList profili |
+| `friends.scoreAria` | Puan: 10 üzerinden {score} |
+| `friends.status.COMPLETED` | Tamamladı |
+| `friends.status.CURRENT` | İzliyor |
+| `friends.status.DROPPED` | Bıraktı |
+| `friends.status.PAUSED` | Beklemede |
+| `friends.status.PLANNING` | İzleyecek |
+| `friends.status.REPEATING` | Tekrar izliyor |
+| `friends.summary_one` | {count} arkadaş |
+| `friends.summary_other` | {count} arkadaş |
+| `friends.title` | AniList’teki arkadaşlar |
+| `friends.unavailable` | Kullanılamıyor |
+| `friends.yourScore` | Puanın |

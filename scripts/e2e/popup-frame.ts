@@ -14,7 +14,7 @@ import { STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../src/shared/watching.types';
-import { accountDemo, demoChrome, isAccountDemo, PAGE_INFO, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
+import { accountDemo, demoChrome, demoFriendsHandler, isAccountDemo, PAGE_INFO, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
@@ -371,6 +371,8 @@ installChromeMock({
     SET_LIST_NOTES: (payload) => (param('notes') === 'slow' ? new Promise<SyncOutcome>((resolve) => setTimeout(() => resolve(setListNotes(payload)), 60_000)) : setListNotes(payload)),
     ADD_TO_LIST: () => synced(pageView().media.title, { status: 'updated', progress: 0, completed: false }),
     RESOLVE_PAGE_MEDIA: resolvePageResult,
+    // `friends=on|error|hang` : amis AniList de la fiche (aucun sinon)
+    GET_ANILIST_FRIENDS: demoFriendsHandler(param('friends'), pageView().media.episodes ?? 12),
     RATE_MEDIA: () => synced(pageView().media.title, { status: 'updated', progress: 7, completed: false }),
     APPLY_DIFFS: applyDiffs,
     RESOLVE_REVIEW: resolveReview,

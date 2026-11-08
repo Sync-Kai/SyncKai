@@ -151,3 +151,14 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | Copy the report (button) | Raporu kopyala |
 | What's new (About link) | Yenilikler |
 | Privacy (About link) | Gizlilik |
+
+## Friends on AniList (2026-11-08)
+
+| English | Term |
+|---|---|
+| friend (someone the user follows on AniList) | arkadaş (unchanged after a number) |
+| the people you follow | takip ettiğin kişiler |
+| Friends on AniList (section title) | AniList’teki arkadaşlar |
+| friends' average (band) | Arkadaş ortalaması |
+| a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | İzliyor / İzleyecek / Tamamladı / Bıraktı / Beklemede / Tekrar izliyor (distinct from `page.status.*` where those are first person) |
+| See all on AniList | Tümünü AniList’te gör |

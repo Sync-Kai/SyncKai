@@ -652,3 +652,36 @@ New « Dormant » group at the bottom of popup › My series (`watching.dormant.
 | `watching.dormant.subtitle` | Нічого не дивилися понад {days} днів |
 | `watching.dormant.threshold` | Поріг: {days} днів |
 | `watching.dormant.undo` | Скасувати |
+
+## 2026-11-08 · Friends on AniList
+
+New « Friends on AniList » block of the popup › On this page card and the side panel › Now playing (`friends.*`): the summary button of Your list (« 7 friends · ★ 8.6 »), the section title, the comparison band (friends’ average, your rating), the third-person statuses of a friend’s row, « Show N more », « See all on AniList », the privacy line, « Unavailable » (with `common.retry`) and the screen-reader labels. The progress reuses `watching.heroProgress`, the new-tab suffix `panel.nowPlaying.newTab`. Watching / Rewatching take the third person (*Дивиться*, *Передивляється*, vs. first-person *Дивлюся*, *Передивляюся*); the others keep the impersonal forms of `page.status.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `friends.allOnAniList` | Відкрити все на AniList |
+| `friends.average` | Середня в друзів |
+| `friends.averageAria` | Середня оцінка друзів: {score} з 10 |
+| `friends.listAria` | Друзі, у яких є це аніме |
+| `friends.loading` | Завантаження друзів |
+| `friends.more_one` | Показати ще {count} |
+| `friends.more_few` | Показати ще {count} |
+| `friends.more_many` | Показати ще {count} |
+| `friends.more_other` | Показати ще {count} |
+| `friends.noScore` | Без оцінки |
+| `friends.privacy` | Відкриті списки людей із твоїх підписок. Нічого не зберігається. |
+| `friends.profileAria` | Профіль {name} на AniList |
+| `friends.scoreAria` | Оцінка {score} з 10 |
+| `friends.status.COMPLETED` | Переглянуто |
+| `friends.status.CURRENT` | Дивиться |
+| `friends.status.DROPPED` | Закинуто |
+| `friends.status.PAUSED` | Відкладено |
+| `friends.status.PLANNING` | Заплановано |
+| `friends.status.REPEATING` | Передивляється |
+| `friends.summary_one` | {count} друг |
+| `friends.summary_few` | {count} друзі |
+| `friends.summary_many` | {count} друзів |
+| `friends.summary_other` | {count} друга |
+| `friends.title` | Друзі на AniList |
+| `friends.unavailable` | Недоступно |
+| `friends.yourScore` | Твоя оцінка |

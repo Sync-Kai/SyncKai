@@ -2,7 +2,8 @@
 // titre et statut de la liste de référence en pastille, « ⋯ » (menu de la série partagé avec le popup : statuts
 // confirmés en ligne, fiches AniList / MyAnimeList, exclusion, retrait ; seulement si la série est dans une liste,
 // rotation à sa place pendant le retrait), « Progression » et la pilule − / « Ép. 6 / 28 » / +, une ligne par service
-// (statut, progression, note), le retour de la dernière action, puis l'ajout à une liste là où la série manque. Aucun
+// (statut, progression, note), le résumé des amis AniList qui ont la série (ouvre leur section), le retour de la dernière
+// action, puis l'ajout à une liste là où la série manque. Aucun
 // compte connecté : la marche à suivre seule.
 import { formatList, t, tp } from '../../i18n';
 import type { EntryLink } from '../../shared/entry-link';
@@ -10,12 +11,14 @@ import type { PageMediaView } from '../../shared/page-media.types';
 import type { AddListStatus, AdjustRetry, MenuStatusChange } from '../../shared/sync.types';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { FeedbackBanner } from '../../ui/components/feedback-banner';
+import { FriendsSummaryLine } from '../../ui/components/friends-summary';
 import { Icon } from '../../ui/components/icon';
 import { ServiceLines } from '../../ui/components/service-lines';
 import { AddToListButtons } from '../../ui/components/status-actions';
 import { Stepper } from '../../ui/components/stepper';
 import type { MediaActionsState } from '../../ui/media-action-requests';
 import { hasMissingList, listStatusLabel, primaryList, progressText, serviceLineWithScore } from '../../ui/page-media-view';
+import type { FriendsView } from '../../ui/preact/use-friends';
 import { SeriesMenu } from '../../ui/series-menu';
 import type { InlineFeedback } from '../../ui/state';
 
@@ -29,6 +32,10 @@ export interface ListCardProps {
   /** Fiches ouvrables depuis le menu (comptes connectés, service préféré en tête) */
   entryLinks: readonly EntryLink[];
   excluded: boolean;
+  /** Amis AniList de la fiche : ligne de résumé quand au moins un ami a la série */
+  friends: FriendsView;
+  /** Ligne de résumé : ouvre la section des amis */
+  onOpenFriends: () => void;
   onAdd: (status: AddListStatus) => void;
   onAdjust: (delta: 1 | -1) => void;
   onRetryAdjust: (retry: AdjustRetry) => void;
@@ -115,6 +122,7 @@ export function ListCard(props: ListCardProps) {
           state: list.state === 'in-list' ? 'in-list' : list.state === 'error' ? 'error' : 'absent',
         }))}
       />
+      {props.friends.state === 'ok' && props.friends.summary !== null && <FriendsSummaryLine summary={props.friends.summary} onOpen={props.onOpenFriends} focusKey="friends-summary" />}
       {feedback && (
         <FeedbackBanner
           tone={feedback.tone}

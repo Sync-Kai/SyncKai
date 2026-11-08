@@ -3,7 +3,7 @@
 // reproduire les courses de l'audit (UI-01, UI-02, UI-03). Lancement : npm run test:e2e
 import type { Browser, Page } from 'puppeteer';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { tl, type MessageKey, type MessageParams } from '../../src/i18n';
+import { tl, tpl, type MessageKey, type MessageParams } from '../../src/i18n';
 import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
 import { launchBrowser, startHarnessServer, type HarnessServer } from '../screenshots/harness';
 import type { SentMessage } from '../screenshots/mock-chrome';
@@ -432,5 +432,84 @@ describe('panneau latéral (bout en bout)', () => {
     // Page de second niveau : le retour nomme la page parente
     expect(await page.$eval('[data-focus="settings-home"]', (el) => el.textContent?.trim())).toBe(fr('settings.cat.display'));
     expect(await page.$eval('[data-focus="settings-home"]', (el) => el.getAttribute('aria-label'))).toBe(fr('settings.backToAria', { page: fr('settings.cat.display') }));
+  });
+});
+
+// ─── « En lecture » › Amis AniList ─────────────────────────────────────────
+
+describe('panneau latéral › amis AniList (bout en bout)', () => {
+  const header = '[data-focus="panel-section-friends"]';
+  const section = '[data-friends-section]';
+  const summary = '[data-list-card] [data-friends-summary]';
+  const count = (page: Page, selector: string): Promise<number> => page.$$eval(selector, (els) => els.length);
+  const textOf = (page: Page, selector: string): Promise<string> => page.$eval(selector, (el) => (el instanceof HTMLElement ? el.innerText : '').trim());
+
+  it('section : 5 amis, « Voir les 2 autres » les ajoute sur place, le profil s’ouvre dans un nouvel onglet', async () => {
+    const page = await openPanel({ friends: 'on' });
+    await page.waitForSelector(header);
+    expect((await messages(page, 'GET_ANILIST_FRIENDS')).map((m) => m.payload)).toEqual([{ mediaId: 154587 }]);
+    // Section repliable après « Note et commentaire », repliée par défaut, nombre d'amis dans l'en-tête
+    const order = await page.$$eval('[data-details-card] [aria-controls]', (els) => els.map((el) => el.getAttribute('data-focus')));
+    expect(order.indexOf('panel-section-friends')).toBe(order.indexOf('panel-section-notes') + 1);
+    expect(await page.$eval(header, (el) => el.getAttribute('aria-expanded'))).toBe('false');
+    expect(await page.$eval(`${header} [data-collapsible-count]`, (el) => el.textContent?.trim())).toBe('7');
+
+    await page.$eval(header, (el) => (el as HTMLElement).click());
+    await page.waitForSelector(`${section} [data-friend]`);
+    expect(await count(page, `${section} [data-friend]`)).toBe(5);
+    const more = '[data-focus="friends-more"]';
+    expect(await textOf(page, more)).toBe(tpl('fr', 'friends.more', 2));
+    await page.$eval(more, (el) => (el as HTMLElement).click());
+    await page.waitForFunction((s: string) => document.querySelectorAll(`${s} [data-friend]`).length === 7, {}, section);
+    expect(await page.$(more)).toBeNull();
+    // Focus sur le premier ami ajouté (le bouton a disparu)
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('friends-profile-3000006');
+
+    const profile = '[data-focus="friends-profile-3000001"]';
+    expect(await page.$eval(profile, (el) => [el.getAttribute('href'), el.getAttribute('target'), el.getAttribute('rel')])).toEqual(['https://anilist.co/user/Mizuki/', '_blank', 'noopener noreferrer']);
+    expect(await page.$eval(profile, (el) => el.getAttribute('aria-label'))).toBe(fr('panel.nowPlaying.newTab', { label: fr('friends.profileAria', { name: 'Mizuki' }) }));
+    expect(await page.$eval('[data-focus="friends-all"]', (el) => [el.getAttribute('href'), el.getAttribute('target')])).toEqual(['https://anilist.co/anime/154587', '_blank']);
+    // Statut à la troisième personne, progression, note ou « — »
+    expect(await textOf(page, '[data-friend="3000001"]')).toContain(fr('friends.status.CURRENT'));
+    expect(await textOf(page, '[data-friend="3000001"]')).toContain(fr('watching.heroProgress', { progress: 8, total: 28 }));
+    expect(await textOf(page, '[data-friend="3000007"] [data-friend-score]')).toBe('—');
+    expect(await textOf(page, `${section} [data-friends-band]`)).toContain('8,6');
+  });
+
+  it('résumé de « Ta liste » : ouvre la section des amis', async () => {
+    const page = await openPanel({ friends: 'on' });
+    await page.waitForSelector(summary);
+    expect(await textOf(page, summary)).toContain(`${tpl('fr', 'friends.summary', 7)} · ★ 8,6`);
+    await page.$eval(summary, (el) => (el as HTMLElement).click());
+    await page.waitForFunction((h: string) => document.querySelector(h)?.getAttribute('aria-expanded') === 'true', {}, header);
+    await page.waitForSelector(`${section} [data-friend]`);
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('panel-section-friends');
+  });
+
+  it('réponse none : ni résumé ni section', async () => {
+    const page = await openPanel({});
+    await waitForMessages(page, 'GET_ANILIST_FRIENDS', 1);
+    await pause(100);
+    expect(await page.$(header)).toBeNull();
+    expect(await page.$(summary)).toBeNull();
+  });
+
+  it('erreur : « Indisponible » et « Réessayer » dans la section ouverte, puis la liste', async () => {
+    const page = await openPanel({ friends: 'error' });
+    await page.waitForSelector(header);
+    await page.$eval(header, (el) => (el as HTMLElement).click());
+    await page.waitForSelector(`${section} [data-tone="error"]`);
+    expect(await textOf(page, section)).toContain(fr('friends.unavailable'));
+    await page.$eval('[data-focus="friends-retry"]', (el) => (el as HTMLElement).click());
+    await waitForMessages(page, 'GET_ANILIST_FRIENDS', 2);
+    await page.waitForSelector(`${section} [data-friend]`);
+  });
+
+  it('chargement, section repliée : ni ligne d’en-tête ni résumé tant que la réponse manque (pas de ligne qui apparaît puis disparaît)', async () => {
+    const page = await openPanel({ friends: 'hang' });
+    await waitForMessages(page, 'GET_ANILIST_FRIENDS', 1);
+    await pause(100);
+    expect(await page.$(header)).toBeNull();
+    expect(await page.$(summary)).toBeNull();
   });
 });
