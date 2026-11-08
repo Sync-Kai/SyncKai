@@ -95,6 +95,32 @@ describe('SeriesRow', () => {
     expect($('[data-series-tag]')?.getAttribute('title')).toBe('Série exclue de la synchronisation');
   });
 
+  it('temps restant : « ⧗ ≈ 6,5 h » à droite du stepper, texte lu à part (sr-only) et détail en infobulle', async () => {
+    await show(<SeriesRow {...props({ remaining: { text: '≈ 6,5 h', spoken: 'Environ 6,5 heures pour finir', detail: '16 épisodes × 24 min' } })} />);
+    const value = $('[data-series-remaining]');
+    expect(value?.getAttribute('title')).toBe('16 épisodes × 24 min');
+    expect(value?.className).toContain('ml-auto');
+    expect(value?.className).toContain('shrink-0');
+    expect(value?.className).toContain('tabular-nums');
+    expect(value?.querySelector('svg')).not.toBeNull();
+    expect(value?.querySelector('[data-remaining-text]')?.getAttribute('aria-hidden')).toBe('true');
+    expect(value?.querySelector('[data-remaining-text]')?.textContent).toBe('≈ 6,5 h');
+    expect(value?.querySelector('.sr-only')?.textContent).toBe('Environ 6,5 heures pour finir');
+    // Même ligne que le stepper : hauteur fixe, retour à la ligne rogné (la valeur disparaît entière, jamais le stepper)
+    const line = value?.parentElement;
+    expect(line?.querySelector('[data-stepper-text]')).not.toBeNull();
+    expect(line?.className).toContain('flex-wrap');
+    expect(line?.className).toContain('overflow-y-clip');
+  });
+
+  it('temps restant inconnu (null ou absent) : rien après le stepper', async () => {
+    await show(<SeriesRow {...props({ remaining: null })} />);
+    expect($('[data-series-remaining]')).toBeNull();
+    await show(<SeriesRow {...props()} />);
+    expect($('[data-series-remaining]')).toBeNull();
+    expect($('[data-stepper-text]')?.textContent).toBe('Ép. 4 / 12');
+  });
+
   it('sans fiche : titre et jaquette inertes ; retour d’action annoncé (role="status") ; séparateur', async () => {
     await show(<SeriesRow {...props({ entry: null, status: { tone: 'warn', text: 'Rien n’a été modifié', title: 'AniList : déjà à jour', live: true }, separated: true })} />);
     expect($('a[aria-hidden="true"]')).toBeNull();

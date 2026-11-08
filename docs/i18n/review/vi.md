@@ -546,3 +546,11 @@ New « My series » sort option ordering by the time left to catch up (`watching
 |---|---|
 | `watching.sort.time` | Thời gian còn lại |
 | `watching.sortAria.time` | theo thời gian còn lại |
+
+## 2026-11-08 · Remaining time total
+
+New line under the « My series » heading: the total time left to catch up on the series that show a remaining-time value, and how many they are (`watching.remaining.total_*`, plural on the count). `{duration}` already carries the « about » prefix of `watching.remaining.short`, so the sentence adds none. « để bắt kịp » (to catch up); « bộ » after the number, as in the term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.total_other` | {duration} để bắt kịp · {count} bộ |

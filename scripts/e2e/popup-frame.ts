@@ -52,9 +52,17 @@ Object.defineProperty(navigator, 'clipboard', {
 
 /** `watching=empty` : listes vides, cache compris (état vide « Rien en cours ») */
 const emptyWatching = watchingMode === 'empty';
+/** `remaining=backlog` : progression en retard (identifiant AniList → épisodes vus) ; Spy x Family reste à jour */
+const BACKLOG: ReadonlyMap<number, number> = new Map([[185660, 3], [176496, 0], [154587, 1], [178754, 0], [21, 1100]]);
+const remainingMode = param('remaining');
+function withRemaining(entry: WatchingEntry): WatchingEntry {
+  if (remainingMode === 'unknown') return { ...entry, episodeMinutes: null };
+  const progress = remainingMode === 'backlog' && entry.mediaId !== null ? BACKLOG.get(entry.mediaId) : undefined;
+  return progress === undefined ? entry : { ...entry, progress };
+}
 const demoList = (service: TrackerId): WatchingList => {
   const list = watchingList(service, now);
-  return emptyWatching ? { ...list, entries: [] } : list;
+  return emptyWatching ? { ...list, entries: [] } : { ...list, entries: list.entries.map(withRemaining) };
 };
 const lists: Record<TrackerId, WatchingList> = { anilist: demoList('anilist'), mal: demoList('mal') };
 

@@ -964,6 +964,8 @@
   "watching.remaining.detail_other": "{count} afleveringen × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "Nog ongeveer {duration} tot het einde",
+  "watching.remaining.total_one": "{duration} in te halen · {count} serie",
+  "watching.remaining.total_other": "{duration} in te halen · {count} series",
   "watching.resume": "Verder kijken",
   "watching.resumeSync": "Weer synchroniseren",
   "watching.seenOf_one": "{count} van {total} afleveringen bekeken",

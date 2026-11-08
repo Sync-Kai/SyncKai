@@ -904,6 +904,7 @@
   "watching.remaining.detail_other": "{count} episode × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "Sekitar {duration} lagi sampai selesai",
+  "watching.remaining.total_other": "{duration} untuk dikejar · {count} anime",
   "watching.resume": "Lanjutkan menonton",
   "watching.resumeSync": "Sinkronkan lagi",
   "watching.seenOf_other": "{count} dari {total} episode sudah ditonton",

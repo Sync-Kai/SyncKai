@@ -528,3 +528,12 @@ New « My series » sort option ordering by the time left to catch up (`watching
 |---|---|
 | `watching.sort.time` | Tempo restante |
 | `watching.sortAria.time` | por tempo restante |
+
+## 2026-11-08 · Remaining time total
+
+New line under the « My series » heading: the total time left to catch up on the series that show a remaining-time value, and how many they are (`watching.remaining.total_*`, plural on the count). `{duration}` already carries the « about » prefix of `watching.remaining.short`, so the sentence adds none. « para colocar em dia » (to catch up); *anime* / *animes* as in the term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.total_one` | {duration} para colocar em dia · {count} anime |
+| `watching.remaining.total_other` | {duration} para colocar em dia · {count} animes |

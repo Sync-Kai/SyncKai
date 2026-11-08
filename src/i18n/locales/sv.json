@@ -964,6 +964,8 @@
   "watching.remaining.detail_other": "{count} avsnitt × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "Ungefär {duration} kvar till slutet",
+  "watching.remaining.total_one": "{duration} att ta igen · {count} serie",
+  "watching.remaining.total_other": "{duration} att ta igen · {count} serier",
   "watching.resume": "Fortsätt titta",
   "watching.resumeSync": "Återuppta synkning",
   "watching.seenOf_one": "{count} av {total} avsnitt sett",

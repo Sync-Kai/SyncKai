@@ -1604,6 +1604,36 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(sel(`${SOLO}-minus`))).not.toBeNull();
   });
 
+  it('temps restant : total « ≈ 24 h à rattraper · 5 séries » sous « Mes séries » (séries avec une valeur seulement, « Reprendre » comprise), valeur des lignes ; masqué sans aucune valeur', async () => {
+    const page = await openPopup({ remaining: 'backlog' });
+    await page.waitForSelector('[data-remaining-total]');
+    // Dandadan (« Reprendre ») 4 + Solo Leveling 3 + Frieren 27 + Kaiju No. 8 4 + One Piece 22 épisodes × 24 min = 24 h ;
+    // Spy x Family à jour : sans valeur
+    expect(await text(page, '[data-remaining-total]')).toBe('≈ 24 h à rattraper · 5 séries');
+    const value = (key: string, part: string): Promise<string | null> =>
+      page.$eval(`[data-series-row="${key}"]`, (row, p) => {
+        const el = row.querySelector('[data-series-remaining]');
+        return el === null ? null : p === 'title' ? el.getAttribute('title') : (el.querySelector(p)?.textContent ?? null);
+      }, part);
+    const FRIEREN = '154587:52991';
+    expect(await value(FRIEREN, '[data-remaining-text]')).toBe('≈ 11 h');
+    expect(await value(FRIEREN, '.sr-only')).toBe('Environ 11 heures pour finir');
+    expect(await value(FRIEREN, 'title')).toBe('27 épisodes × 24 min');
+    expect(await value('177937:59027', 'title')).toBeNull();
+    // À 496 px, la valeur tient sur la ligne du stepper (pas rejetée sur la ligne rognée)
+    const fits = await page.$eval(`[data-series-row="${FRIEREN}"] [data-series-remaining]`, (el) => {
+      const line = el.parentElement?.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      return line !== undefined && box.top >= line.top && box.bottom <= line.bottom && box.width > 0;
+    });
+    expect(fits).toBe(true);
+
+    const unknown = await openPopup({ remaining: 'unknown' });
+    await unknown.waitForSelector(sel(`more-${SOLO}`));
+    expect(await unknown.$('[data-remaining-total]')).toBeNull();
+    expect(await unknown.$('[data-series-remaining]')).toBeNull();
+  });
+
   it('accueil sans compte : pas d’onglets, boutons de connexion, étapes ; erreur de connexion sous le bouton', async () => {
     const page = await openPopup({ accounts: 'none', login: 'error' });
     await page.waitForSelector(sel('connect-anilist'));

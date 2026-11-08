@@ -964,6 +964,8 @@
   "watching.remaining.detail_other": "{count} épisodes × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "Environ {duration} pour finir",
+  "watching.remaining.total_one": "{duration} à rattraper · {count} série",
+  "watching.remaining.total_other": "{duration} à rattraper · {count} séries",
   "watching.resume": "Reprendre",
   "watching.resumeSync": "Réactiver la synchro",
   "watching.seenOf_one": "{count} épisode vu sur {total}",

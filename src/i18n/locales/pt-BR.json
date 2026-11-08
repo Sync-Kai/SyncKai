@@ -964,6 +964,8 @@
   "watching.remaining.detail_other": "{count} episódios × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "Cerca de {duration} para terminar",
+  "watching.remaining.total_one": "{duration} para colocar em dia · {count} anime",
+  "watching.remaining.total_other": "{duration} para colocar em dia · {count} animes",
   "watching.resume": "Continuar assistindo",
   "watching.resumeSync": "Voltar a sincronizar",
   "watching.seenOf_one": "{count} de {total} episódios assistidos",

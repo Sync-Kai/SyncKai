@@ -904,6 +904,7 @@
   "watching.remaining.detail_other": "{count} 集 × {duration}",
   "watching.remaining.short": "約 {duration}",
   "watching.remaining.spoken": "看完還需約 {duration}",
+  "watching.remaining.total_other": "補番 {duration} · {count} 部動畫",
   "watching.resume": "繼續觀看",
   "watching.resumeSync": "恢復同步",
   "watching.seenOf_other": "已看 {count} / {total} 集",

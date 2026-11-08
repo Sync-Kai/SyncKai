@@ -964,6 +964,8 @@
   "watching.remaining.detail_other": "{count} Folgen × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "Noch etwa {duration} bis zum Ende",
+  "watching.remaining.total_one": "{duration} nachzuholen · {count} Serie",
+  "watching.remaining.total_other": "{duration} nachzuholen · {count} Serien",
   "watching.resume": "Weiterschauen",
   "watching.resumeSync": "Synchronisierung reaktivieren",
   "watching.seenOf_one": "{count} von {total} Folgen gesehen",

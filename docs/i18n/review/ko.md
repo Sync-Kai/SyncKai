@@ -546,3 +546,11 @@ New « My series » sort option ordering by the time left to catch up (`watching
 |---|---|
 | `watching.sort.time` | 남은 시간순 |
 | `watching.sortAria.time` | 남은 시간순 |
+
+## 2026-11-08 · Remaining time total
+
+New line under the « My series » heading: the total time left to catch up on the series that show a remaining-time value, and how many they are (`watching.remaining.total_*`, plural on the count). `{duration}` already carries the « about » prefix of `watching.remaining.short`, so the sentence adds none. 따라잡기까지 (until caught up) before the duration, which already carries 약: no second 약. Count as 작품 N개. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.total_other` | 따라잡기까지 {duration} · 작품 {count}개 |

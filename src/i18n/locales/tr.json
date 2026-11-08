@@ -964,6 +964,8 @@
   "watching.remaining.detail_other": "{count} bölüm × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "Bitirmek için yaklaşık {duration}",
+  "watching.remaining.total_one": "Yetişmek için {duration} · {count} seri",
+  "watching.remaining.total_other": "Yetişmek için {duration} · {count} seri",
   "watching.resume": "İzlemeye devam",
   "watching.resumeSync": "Eşitlemeyi sürdür",
   "watching.seenOf_one": "{total} bölümün {count} tanesi izlendi",

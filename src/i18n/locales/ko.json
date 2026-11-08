@@ -904,6 +904,7 @@
   "watching.remaining.detail_other": "에피소드 {count}개 × {duration}",
   "watching.remaining.short": "약 {duration}",
   "watching.remaining.spoken": "다 보려면 약 {duration}",
+  "watching.remaining.total_other": "따라잡기까지 {duration} · 작품 {count}개",
   "watching.resume": "이어 보기",
   "watching.resumeSync": "동기화 재개",
   "watching.seenOf_other": "에피소드 {total}개 중 {count}개 시청함",

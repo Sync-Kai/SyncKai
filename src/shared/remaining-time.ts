@@ -78,3 +78,19 @@ export function formatRemaining(entry: WatchingEntry, now: number): RemainingTex
     detail: tp(detailKey, episodes, { duration: formatShort(entry.episodeMinutes, 'minute') }),
   };
 }
+
+/**
+ * Ligne « ≈ 24 h à rattraper · 5 séries » sous « Mes séries » : somme des séries qui ont une valeur (carte « Reprendre »
+ * comprise), arrondie comme une ligne (formatDuration, qui porte le préfixe « ≈ » traduit) ; null si aucune n'en a.
+ */
+export function formatRemainingTotal(entries: readonly WatchingEntry[], now: number): string | null {
+  let minutes = 0;
+  let count = 0;
+  for (const entry of entries) {
+    const value = remainingMinutes(entry, now);
+    if (value === null) continue;
+    minutes += value;
+    count += 1;
+  }
+  return count > 0 ? tp('watching.remaining.total', count, { duration: formatDuration(minutes).text }) : null;
+}

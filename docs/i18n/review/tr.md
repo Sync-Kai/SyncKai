@@ -534,3 +534,12 @@ New « My series » sort option ordering by the time left to catch up (`watching
 |---|---|
 | `watching.sort.time` | Kalan süre |
 | `watching.sortAria.time` | kalan süreye göre |
+
+## 2026-11-08 · Remaining time total
+
+New line under the « My series » heading: the total time left to catch up on the series that show a remaining-time value, and how many they are (`watching.remaining.total_*`, plural on the count). `{duration}` already carries the « about » prefix of `watching.remaining.short`, so the sentence adds none. « Yetişmek için » (to catch up) before the duration; no plural after a number (« 5 seri »). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.total_one` | Yetişmek için {duration} · {count} seri |
+| `watching.remaining.total_other` | Yetişmek için {duration} · {count} seri |

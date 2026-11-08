@@ -964,6 +964,8 @@
   "watching.remaining.detail_other": "{count} episodes × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "About {duration} to finish",
+  "watching.remaining.total_one": "{duration} to catch up · {count} series",
+  "watching.remaining.total_other": "{duration} to catch up · {count} series",
   "watching.resume": "Continue",
   "watching.resumeSync": "Resume syncing",
   "watching.seenOf_one": "{count} of {total} episodes watched",

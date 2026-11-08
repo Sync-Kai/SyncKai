@@ -53,6 +53,11 @@ export interface FrameParams {
    */
   watching?: 'hang' | 'slow' | 'empty';
   /**
+   * Temps restant : `backlog` = épisodes en retard sur cinq séries (total de 24 h), Spy x Family à jour ; `unknown` =
+   * durée des épisodes inconnue partout (liste mise en cache avant la 2.5.0)
+   */
+  remaining?: 'backlog' | 'unknown';
+  /**
    * +1 / −1 : `partial` = MyAnimeList échoue, le nouvel essai (`retry`) n'écrit que MAL à la progression absolue ;
    * `slow` = réponse après E2E_ADJUST_SLOW_MS (état « envoi en cours » observable)
    */

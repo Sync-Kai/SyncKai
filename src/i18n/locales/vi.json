@@ -904,6 +904,7 @@
   "watching.remaining.detail_other": "{count} tập × {duration}",
   "watching.remaining.short": "≈ {duration}",
   "watching.remaining.spoken": "Khoảng {duration} nữa là xem xong",
+  "watching.remaining.total_other": "{duration} để bắt kịp · {count} bộ",
   "watching.resume": "Xem tiếp",
   "watching.resumeSync": "Tiếp tục đồng bộ",
   "watching.seenOf_other": "Đã xem {count}/{total} tập",

@@ -1,9 +1,11 @@
 // Ligne de série (maquettes PopupSeries, PopupSeriesRetours) : hauteur fixe de 80 px, jaquette 42 × 57 et sa barre de
-// progression, titre (« … » + infobulle), statut en point + texte, « Ép. x / y » et − / + fantômes, puis « Ouvrir »
-// (logo du lecteur dans un rond neutre) et les actions de l'hôte (« ⋯ »). Tous les textes arrivent traduits.
+// progression, titre (« … » + infobulle), statut en point + texte, « Ép. x / y » et − / + fantômes avec le temps restant
+// à droite (« ⧗ ≈ 6,5 h »), puis « Ouvrir » (logo du lecteur dans un rond neutre) et les actions de l'hôte (« ⋯ »). Tous
+// les textes arrivent traduits.
 // Popup « Mes séries » aujourd'hui ; le panneau latéral réutilisera la ligne ou ses parties (SeriesTitle, SeriesStatus).
 import type { ComponentChildren } from 'preact';
 import type { StreamingPlatform } from '../../platforms/ids';
+import type { RemainingText } from '../../shared/remaining-time';
 import { Cover } from './cover';
 import { Icon } from './icon';
 import { LogoButton } from './logo-button';
@@ -67,6 +69,8 @@ export interface SeriesRowProps {
   incrementHidden?: boolean;
   /** « Ouvrir » sur le lecteur ; null : aucun lien connu */
   open: SeriesOpenLink | null;
+  /** Temps restant (« ≈ 6,5 h », lu « Environ 6,5 heures pour finir », détail en infobulle) ; null ou absent : rien */
+  remaining?: RemainingText | null;
   /** Actions à droite d'« Ouvrir » (bouton « ⋯ ») */
   actions?: ComponentChildren;
   /** Trait de séparation au-dessus (toutes les lignes sauf la première) */
@@ -110,6 +114,22 @@ export function SeriesStatusLine({ status, tag }: { status: SeriesStatus; tag?: 
   );
 }
 
+/**
+ * Temps restant au bout de la ligne du stepper : texte court masqué aux lecteurs d'écran, phrase complète en sr-only,
+ * détail (« 16 épisodes × 24 min ») en infobulle
+ */
+function RemainingValue({ remaining }: { remaining: RemainingText }) {
+  return (
+    <span class="ml-auto inline-flex shrink-0 items-center gap-1 text-secondary whitespace-nowrap text-muted tabular-nums" title={remaining.detail} data-series-remaining="">
+      <Icon name="hourglass" class="size-3" strokeWidth="2.2" />
+      <span aria-hidden="true" data-remaining-text="">
+        {remaining.text}
+      </span>
+      <span class="sr-only">{remaining.spoken}</span>
+    </span>
+  );
+}
+
 export function SeriesRow(props: SeriesRowProps) {
   const { title, entry, rowKey } = props;
   const cover = <Cover size="row" title={title} src={props.coverUrl} progress={{ value: props.progress, total: props.total, label: props.progressLabel }} />;
@@ -128,19 +148,28 @@ export function SeriesRow(props: SeriesRowProps) {
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
         <SeriesTitle title={title} entry={entry} focusKey={`title-${rowKey}`} />
         <SeriesStatusLine status={props.status} tag={props.tag} />
-        <Stepper
-          text={props.progressText}
-          value={props.progress}
-          max={props.total}
-          decrementLabel={props.decrementLabel}
-          incrementLabel={props.incrementLabel}
-          groupLabel={props.progressLabel}
-          onDecrement={props.onDecrement}
-          onIncrement={props.onIncrement}
-          busy={props.busy}
-          incrementHidden={props.incrementHidden}
-          focusKey={rowKey}
-        />
+        {/*
+          Ligne 3 : stepper puis temps restant, sur une hauteur fixe. Une valeur trop large passe à la ligne suivante, rognée
+          (overflow-y-clip) : elle disparaît entière sans jamais couper le stepper. Boîte de 32 px (py-1, -my-1 la ramène à
+          24 px dans la colonne) pour garder l'anneau de focus des − / + (2 + 2 px) ; gap-y-1 rejette la ligne suivante
+          au-delà de la boîte.
+        */}
+        <div class="-my-1 flex h-8 min-w-0 flex-wrap items-center gap-x-2 gap-y-1 overflow-y-clip py-1" data-series-progress="">
+          <Stepper
+            text={props.progressText}
+            value={props.progress}
+            max={props.total}
+            decrementLabel={props.decrementLabel}
+            incrementLabel={props.incrementLabel}
+            groupLabel={props.progressLabel}
+            onDecrement={props.onDecrement}
+            onIncrement={props.onIncrement}
+            busy={props.busy}
+            incrementHidden={props.incrementHidden}
+            focusKey={rowKey}
+          />
+          {props.remaining && <RemainingValue remaining={props.remaining} />}
+        </div>
       </div>
       {props.open && <LogoButton platform={props.open.platform} href={props.open.href} label={props.open.label} title={props.open.title} focusKey={`open-${rowKey}`} />}
       {props.actions}

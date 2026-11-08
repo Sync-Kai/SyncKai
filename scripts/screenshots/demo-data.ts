@@ -39,16 +39,18 @@ interface SeriesSpec {
   updatedAgo: number;
   platform: StreamingPlatform;
   lastSyncAgo: number | null;
+  /** Durée d'un épisode (minutes) */
+  minutes: number;
   cover: { from: string; to: string; accent: string; motif: CoverMotif };
 }
 
 export const SERIES: readonly SeriesSpec[] = [
-  { id: 185660, malId: 60543, title: 'Dandadan', progress: 7, total: 12, status: 'RELEASING', next: { episode: 8, inMs: 5 * DAY + 4 * HOUR }, updatedAgo: 3 * MIN, platform: 'crunchyroll', lastSyncAgo: 3 * MIN, cover: { from: '#2A3590', to: '#7C5CFF', accent: '#5FE3FF', motif: 'bolt' } },
-  { id: 176496, malId: 58567, title: 'Solo Leveling', progress: 2, total: 13, status: 'RELEASING', next: { episode: 4, inMs: 3 * DAY + 6 * HOUR }, updatedAgo: 1 * DAY, platform: 'crunchyroll', lastSyncAgo: 1 * DAY, cover: { from: '#141A3D', to: '#3E5C8A', accent: '#B9A4FF', motif: 'peaks' } },
-  { id: 154587, malId: 52991, title: 'Frieren', progress: 26, total: 28, status: 'FINISHED', next: null, updatedAgo: 2 * DAY, platform: 'crunchyroll', lastSyncAgo: 2 * DAY, cover: { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'sun' } },
-  { id: 178754, malId: 59177, title: 'Kaiju No. 8', progress: 4, total: 11, status: 'RELEASING', next: { episode: 5, inMs: 18 * HOUR + 20 * MIN }, updatedAgo: 6 * DAY, platform: 'crunchyroll', lastSyncAgo: 6 * DAY, cover: { from: '#8A5A2B', to: '#FF8FB8', accent: '#FFD37A', motif: 'rings' } },
-  { id: 177937, malId: 59027, title: 'Spy x Family', progress: 6, total: 13, status: 'RELEASING', next: { episode: 7, inMs: 2 * DAY + 3 * HOUR }, updatedAgo: 5 * DAY, platform: 'crunchyroll', lastSyncAgo: null, cover: { from: '#8A3B5C', to: '#FF8FB8', accent: '#FFE3EE', motif: 'moon' } },
-  { id: 21, malId: 21, title: 'One Piece', progress: 1122, total: null, status: 'RELEASING', next: { episode: 1123, inMs: 4 * DAY + 2 * HOUR }, updatedAgo: 4 * DAY, platform: 'adn', lastSyncAgo: 4 * DAY, cover: { from: '#2B6A73', to: '#46D6FF', accent: '#FFFFFF', motif: 'wave' } },
+  { id: 185660, malId: 60543, title: 'Dandadan', progress: 7, total: 12, status: 'RELEASING', next: { episode: 8, inMs: 5 * DAY + 4 * HOUR }, updatedAgo: 3 * MIN, platform: 'crunchyroll', lastSyncAgo: 3 * MIN, minutes: 24, cover: { from: '#2A3590', to: '#7C5CFF', accent: '#5FE3FF', motif: 'bolt' } },
+  { id: 176496, malId: 58567, title: 'Solo Leveling', progress: 2, total: 13, status: 'RELEASING', next: { episode: 4, inMs: 3 * DAY + 6 * HOUR }, updatedAgo: 1 * DAY, platform: 'crunchyroll', lastSyncAgo: 1 * DAY, minutes: 24, cover: { from: '#141A3D', to: '#3E5C8A', accent: '#B9A4FF', motif: 'peaks' } },
+  { id: 154587, malId: 52991, title: 'Frieren', progress: 26, total: 28, status: 'FINISHED', next: null, updatedAgo: 2 * DAY, platform: 'crunchyroll', lastSyncAgo: 2 * DAY, minutes: 24, cover: { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'sun' } },
+  { id: 178754, malId: 59177, title: 'Kaiju No. 8', progress: 4, total: 11, status: 'RELEASING', next: { episode: 5, inMs: 18 * HOUR + 20 * MIN }, updatedAgo: 6 * DAY, platform: 'crunchyroll', lastSyncAgo: 6 * DAY, minutes: 24, cover: { from: '#8A5A2B', to: '#FF8FB8', accent: '#FFD37A', motif: 'rings' } },
+  { id: 177937, malId: 59027, title: 'Spy x Family', progress: 6, total: 13, status: 'RELEASING', next: { episode: 7, inMs: 2 * DAY + 3 * HOUR }, updatedAgo: 5 * DAY, platform: 'crunchyroll', lastSyncAgo: null, minutes: 24, cover: { from: '#8A3B5C', to: '#FF8FB8', accent: '#FFE3EE', motif: 'moon' } },
+  { id: 21, malId: 21, title: 'One Piece', progress: 1122, total: null, status: 'RELEASING', next: { episode: 1123, inMs: 4 * DAY + 2 * HOUR }, updatedAgo: 4 * DAY, platform: 'adn', lastSyncAgo: 4 * DAY, minutes: 24, cover: { from: '#2B6A73', to: '#46D6FF', accent: '#FFFFFF', motif: 'wave' } },
 ];
 
 function entry(spec: SeriesSpec, service: TrackerId, now: number): WatchingEntry {
@@ -63,6 +65,7 @@ function entry(spec: SeriesSpec, service: TrackerId, now: number): WatchingEntry
     updatedAt: now - spec.updatedAgo,
     nextEpisode: spec.next ? { episode: spec.next.episode, airingAt: now + spec.next.inMs } : null,
     airingStatus: spec.status,
+    episodeMinutes: spec.minutes,
     platforms: [{ platform: spec.platform, url }],
     lastSync: spec.lastSyncAgo !== null ? { platform: spec.platform, at: now - spec.lastSyncAgo, episodeUrl: url } : null,
     siteUrl: service === 'anilist' ? `https://anilist.co/anime/${spec.id}` : `https://myanimelist.net/anime/${spec.malId}`,

@@ -1,9 +1,10 @@
 // Écran « En cours » du popup (maquettes PopupSeries, PopupSeriesEtats, PopupSeriesTri, PopupSeriesRetours) : bandeau
-// de retour, carte « Sur cette page » ou « Reprendre », titre « Mes séries » et son tri, lignes de 80 px (SeriesRow),
-// états de chargement, d'erreur et vide. La liste suit le réglage « Fiche ouverte par défaut » (plus de sélecteur
-// AniList / MAL). Menu « ⋯ » partagé (ui/series-menu.tsx), éditeur de commentaire sous la ligne (maquettes
-// PopupSeriesMenu, PopupSeriesMenuConfirm, PopupSeriesCommentaire), carte « Reprendre » (PopupReprendre), carte « Sur
-// cette page » (page-media-card.tsx, maquettes PopupPageEtats, PopupPageMenu, PopupPageRetours, PopupSeriesDeplie).
+// de retour, carte « Sur cette page » ou « Reprendre », titre « Mes séries », son tri et le total du temps restant,
+// lignes de 80 px (SeriesRow), états de chargement, d'erreur et vide. La liste suit le réglage « Fiche ouverte par
+// défaut » (plus de sélecteur AniList / MAL). Menu « ⋯ » partagé (ui/series-menu.tsx), éditeur de commentaire sous la
+// ligne (maquettes PopupSeriesMenu, PopupSeriesMenuConfirm, PopupSeriesCommentaire), carte « Reprendre »
+// (PopupReprendre), carte « Sur cette page » (page-media-card.tsx, maquettes PopupPageEtats, PopupPageMenu,
+// PopupPageRetours, PopupSeriesDeplie).
 import type { ComponentChildren } from 'preact';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { formatList, t, tp, type MessageKey } from '../../i18n';
@@ -16,6 +17,7 @@ import type { FeedbackTone } from '../../shared/sync-feedback';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsToSearch } from '../../platforms/links';
 import type { ListStatusChange } from '../../shared/sync.types';
+import { formatRemaining, formatRemainingTotal } from '../../shared/remaining-time';
 import { choosePlatformLink, entryKey, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type NextEpisodeBadge, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import type { IconName } from '../../ui/icons';
@@ -177,6 +179,16 @@ function SeriesHeading({ children }: { children?: ComponentChildren }) {
       </h2>
       {children}
     </div>
+  );
+}
+
+/** « ≈ 24 h à rattraper · 5 séries » sous « Mes séries » (toutes les séries de la liste) ; rien si aucune n'a de valeur */
+function RemainingTotal({ entries, now }: { entries: readonly WatchingEntry[]; now: number }) {
+  const total = formatRemainingTotal(entries, now);
+  return total === null ? null : (
+    <p class="m-0 mx-1 -mt-1.5 truncate text-secondary text-muted tabular-nums" title={total} data-remaining-total="">
+      {total}
+    </p>
   );
 }
 
@@ -358,6 +370,7 @@ function WatchingRow({ entry, index, props, context, action, excluded, notes }: 
     <>
       <SeriesRow
         {...view}
+        remaining={formatRemaining(entry, props.now)}
         separated={index > 0}
         onDecrement={() => props.onAdjust(entry, -1)}
         onIncrement={() => props.onAdjust(entry, 1)}
@@ -469,6 +482,7 @@ export function WatchingScreen(props: WatchingScreenProps) {
       {pageCardSlot}
       {hero && <ResumeEntry entry={hero} props={props} context={context} action={actions.get(entryKey(hero))} excluded={isExcluded(hero)} notes={notesOf(hero)} />}
       <SeriesHeading>{rows.length > 1 && <SortMenu sort={sort} onPick={props.onPickSort} />}</SeriesHeading>
+      <RemainingTotal entries={list.entries} now={now} />
       {rows.length > 0 ? (
         <ul
           class="m-0 list-none rounded-card border border-line bg-surface p-0"

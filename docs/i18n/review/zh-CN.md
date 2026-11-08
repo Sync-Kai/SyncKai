@@ -530,3 +530,11 @@ New « My series » sort option ordering by the time left to catch up (`watching
 |---|---|
 | `watching.sort.time` | 剩余时间 |
 | `watching.sortAria.time` | 按剩余时间排序 |
+
+## 2026-11-08 · Remaining time total
+
+New line under the « My series » heading: the total time left to catch up on the series that show a remaining-time value, and how many they are (`watching.remaining.total_*`, plural on the count). `{duration}` already carries the « about » prefix of `watching.remaining.short`, so the sentence adds none. 补番 (the fans' word for catching up on anime) before the duration, which already carries 约; « 部番剧 » as the count. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.total_other` | 补番 {duration} · {count} 部番剧 |

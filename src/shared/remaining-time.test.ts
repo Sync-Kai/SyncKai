@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { episodesToCatchUp, formatDuration, formatRemaining, remainingMinutes } from './remaining-time';
+import { episodesToCatchUp, formatDuration, formatRemaining, formatRemainingTotal, remainingMinutes } from './remaining-time';
 import type { WatchingEntry } from './watching.types';
 import { setLocale } from '../i18n';
 
@@ -178,5 +178,32 @@ describe('formatRemaining', () => {
   it('anglais : point décimal et détail au pluriel', () => {
     setLocale('en');
     expect(formatRemaining(finished(), NOW)).toEqual({ text: '≈ 6.5 h', spoken: 'About 6.5 hours to finish', detail: '16 episodes × 24 min' });
+  });
+});
+
+describe('formatRemainingTotal', () => {
+  it('somme des séries qui ont une valeur, arrondie comme une ligne : « ≈ 24 h à rattraper · 5 séries »', () => {
+    // 5 × 12 épisodes × 24 min = 24 h ; la série à jour et celle sans durée ne comptent pas
+    const backlog = [1, 2, 3, 4, 5].map((id) => finished({ mediaId: id, totalEpisodes: 13, progress: 1 }));
+    const entries = [...backlog, finished({ progress: 23 }), finished({ episodeMinutes: null })];
+    expect(formatRemainingTotal(entries, NOW)).toBe('≈ 24 h à rattraper · 5 séries');
+  });
+
+  it('une seule série : singulier', () => {
+    expect(formatRemainingTotal([finished(), finished({ progress: 23 })], NOW)).toBe('≈ 6,5 h à rattraper · 1 série');
+  });
+
+  it('aucune série avec une valeur (à jour, durée inconnue) ou liste vide : null', () => {
+    expect(formatRemainingTotal([finished({ progress: 23 }), finished({ episodeMinutes: null })], NOW)).toBeNull();
+    expect(formatRemainingTotal([], NOW)).toBeNull();
+  });
+
+  it('un seul « ≈ » (préfixe traduit de la durée) : japonais « 約… »', () => {
+    setLocale('ja');
+    const text = formatRemainingTotal([finished()], NOW);
+    expect(text).toContain('約6.5時間');
+    expect(text).not.toContain('≈');
+    setLocale('en');
+    expect(formatRemainingTotal([finished(), lasting(30)], NOW)).toBe('≈ 7 h to catch up · 2 series');
   });
 });

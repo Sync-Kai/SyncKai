@@ -571,3 +571,12 @@ New « My series » sort option ordering by the time left to catch up (`watching
 |---|---|
 | `watching.sort.time` | Tid kvar |
 | `watching.sortAria.time` | efter tid kvar |
+
+## 2026-11-08 · Remaining time total
+
+New line under the « My series » heading: the total time left to catch up on the series that show a remaining-time value, and how many they are (`watching.remaining.total_*`, plural on the count). `{duration}` already carries the « about » prefix of `watching.remaining.short`, so the sentence adds none. « att ta igen » (to make up for); *serie* / *serier* as in the term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.total_one` | {duration} att ta igen · {count} serie |
+| `watching.remaining.total_other` | {duration} att ta igen · {count} serier |
