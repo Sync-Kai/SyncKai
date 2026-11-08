@@ -43,7 +43,7 @@ describe('Synchro et contrôles', () => {
 
     // Écritures MAL en erreur 500 (lectures normales)
     mal.failure = { status: 500, methods: ['PATCH'] };
-    const popup = await h.openPage('src/popup/popup.html', { width: 400, height: 580 });
+    const popup = await h.openPage('src/popup/popup.html', { width: 496, height: 600 });
     const plus = sel(`${FRIEREN.mediaId}:${FRIEREN.malId}-plus`);
     await popup.locator(plus).click();
     await popup.waitForSelector(sel('watching-retry'));

@@ -55,7 +55,7 @@ async function openPopup(params: FrameParams = {}): Promise<Page> {
     if (locale !== undefined) catalogs.push(locale);
   });
   // Dimensions du popup (src/popup/popup.css)
-  await page.setViewport({ width: 400, height: 580 });
+  await page.setViewport({ width: 496, height: 600 });
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
   const entries = Object.entries({ locale: 'fr', ...params }).filter((entry): entry is [string, string] => typeof entry[1] === 'string');
   await page.goto(`${server.base}scripts/e2e/popup.html?${new URLSearchParams(entries).toString()}`, { waitUntil: 'load' });
@@ -229,7 +229,7 @@ describe('popup (bout en bout)', () => {
     const page = await openPopup();
     await page.waitForSelector(sel(`more-${SOLO}`));
 
-    expect(await attr(page, sel('nav-watching'), 'aria-selected')).toBe('true');
+    expect(await attr(page, sel('rail-watching'), 'aria-current')).toBe('page');
     expect(await shownScreen(page)).toBe(0);
     // Carte « Reprendre » : la série mise à jour le plus récemment, hors de la liste
     expect(await page.$eval(`section[aria-label="${fr('watching.resume')}"] span[title]`, (el) => el.getAttribute('title'))).toBe('Dandadan');
@@ -287,7 +287,7 @@ describe('popup (bout en bout)', () => {
     expect(box.width).toBeGreaterThanOrEqual(288);
     expect(box.width).toBeLessThanOrEqual(376);
     expect(box.left).toBeGreaterThanOrEqual(0);
-    expect(box.right).toBeLessThanOrEqual(400);
+    expect(box.right).toBeLessThanOrEqual(496);
     // Focus sur « Voir mon profil » (lien vers le profil, nouvel onglet), flèche vers « Déconnecter »
     expect(await page.evaluate(() => document.activeElement?.getAttribute('href'))).toBe('https://anilist.co/user/Kai_fan');
     await page.keyboard.press('ArrowDown');
@@ -336,26 +336,88 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(sel('panel'))).toBeNull();
   });
 
+  it('titre d’écran « En cours » / « Activité » en tête de la colonne, sans la ligne « SyncKai シンカイ »', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel('rail-activity'));
+    expect(await text(page, '[data-screen-title] h1')).toBe(fr('nav.watching'));
+    expect(await page.$('header')).toBeNull();
+    expect(await page.evaluate(() => document.body.textContent?.includes('シンカイ') ?? false)).toBe(false);
+    await click(page, 'rail-activity');
+    await page.waitForFunction((title: string) => document.querySelector('[data-screen-title] h1')?.textContent?.trim() === title, {}, fr('nav.activity'));
+    // Colonne de contenu à droite du rail (56 px), barre d'état sous la colonne seulement ; popup 496 × 600
+    const box = await page.evaluate(() => {
+      const rect = (selector: string) => {
+        const r = document.querySelector(selector)?.getBoundingClientRect();
+        return r ? { left: r.left, width: r.width, height: r.height, bottom: r.bottom } : null;
+      };
+      return { nav: rect('nav'), title: rect('[data-screen-title]'), main: rect('main'), footer: rect('footer'), width: document.documentElement.clientWidth, height: document.documentElement.clientHeight };
+    });
+    expect(box).toMatchObject({ width: 496, height: 600, nav: { left: 0, width: 56, height: 600 }, title: { left: 56, width: 440 }, main: { left: 56, width: 440 }, footer: { left: 56, width: 440 } });
+    expect(box.footer?.bottom).toBe(600);
+  });
+
+  it('rail : Tab depuis le premier élément mène au contenu ; ↓ puis Entrée sélectionne Activité ; bulle visible au focus', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel('rail-activity'));
+    // Un seul arrêt de tabulation parmi les sections : Tab quitte les sections (boutons du pied du rail, puis le contenu)
+    await page.focus(sel('rail-watching'));
+    const stops: (string | null)[] = [];
+    for (let i = 0; i < 4; i++) {
+      await page.keyboard.press('Tab');
+      const stop = await page.evaluate(() => (document.activeElement?.closest('nav') ? `nav:${document.activeElement.getAttribute('data-focus') ?? ''}` : document.activeElement?.closest('main') ? 'main' : null));
+      stops.push(stop);
+      if (stop === 'main') break;
+    }
+    expect(stops).not.toContain('nav:rail-activity');
+    expect(stops.at(-1)).toBe('main');
+
+    // ↓ déplace le focus sans changer d'écran, Entrée sélectionne
+    await page.focus(sel('rail-watching'));
+    await page.keyboard.press('ArrowDown');
+    expect(await focused(page)).toBe('rail-activity');
+    expect(await shownScreen(page)).toBe(0);
+    // Bulle à droite de l'élément focalisé, au premier plan (ni rognée ni recouverte par la colonne de contenu)
+    const tip = await page.$eval('[data-rail-tooltip]', (el) => {
+      const rect = el.getBoundingClientRect();
+      // La bulle ignore le pointeur (pointer-events: none) : rendue cliquable le temps de la mesure
+      const tipEl = el as HTMLElement;
+      tipEl.style.pointerEvents = 'auto';
+      const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      tipEl.style.pointerEvents = '';
+      return { hidden: tipEl.hidden, text: el.textContent?.trim(), left: rect.left, right: rect.right, onTop: top === el || el.contains(top) };
+    });
+    expect(tip).toMatchObject({ hidden: false, text: fr('nav.activity'), onTop: true });
+    expect(tip.left).toBeGreaterThanOrEqual(56);
+    expect(tip.right).toBeLessThanOrEqual(496);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('[data-focus="rail-activity"]')?.getAttribute('aria-current') === 'page');
+    expect(await shownScreen(page)).toBe(1);
+  });
+
   it('navigue entre En cours, Activité et Réglages, et change de langue', async () => {
     const page = await openPopup();
-    await page.waitForSelector(sel('nav-activity'));
+    await page.waitForSelector(sel('rail-activity'));
 
-    await click(page, 'nav-activity');
-    expect(await attr(page, sel('nav-activity'), 'aria-selected')).toBe('true');
+    await click(page, 'rail-activity');
+    expect(await attr(page, sel('rail-activity'), 'aria-current')).toBe('page');
+    expect(await attr(page, sel('rail-watching'), 'aria-current')).toBeNull();
     expect(await shownScreen(page)).toBe(1);
 
     await click(page, 'gear');
     await page.waitForSelector(sel('back'));
     expect(await shownScreen(page)).toBe(2);
-    expect(await text(page, 'h1')).toBe(fr('nav.settings'));
+    // Un seul titre d'écran : celui de la barre des Réglages ; engrenage enfoncé, aucune section courante
+    expect(await page.$$eval('h1', (titles) => titles.map((h) => h.textContent?.trim()))).toEqual([fr('nav.settings')]);
+    expect(await attr(page, sel('gear'), 'aria-pressed')).toBe('true');
+    expect(await page.$('nav button[aria-current="page"]')).toBeNull();
 
     // Retour : écran précédent (Activité)
     await click(page, 'back');
-    await page.waitForSelector(sel('nav-activity'));
+    await page.waitForSelector(sel('rail-activity'));
     expect(await shownScreen(page)).toBe(1);
-    await click(page, 'nav-watching');
+    await click(page, 'rail-watching');
     expect(await shownScreen(page)).toBe(0);
-    expect(await text(page, sel('nav-activity'))).toBe(fr('nav.activity'));
+    expect(await attr(page, sel('rail-activity'), 'aria-label')).toBe(fr('nav.activity'));
 
     // Langue : liste de boutons radio, « Automatique » en tête et coché par défaut, puis les 21 langues par endonyme ;
     // champ de recherche (au moins LANGUAGE_SEARCH_MIN langues), pas de ligne « Aider à traduire » (adresse absente).
@@ -431,8 +493,8 @@ describe('popup (bout en bout)', () => {
     expect(await text(page, sel('settings-cat-help'))).toContain(fr('settings.cat.help'));
     expect(await text(page, sel('settings-cat-display'))).toContain(fr('settings.summary.display'));
     await click(page, 'back');
-    await page.waitForSelector(sel('nav-watching'));
-    expect(await text(page, sel('nav-watching'))).toBe(fr('nav.watching'));
+    await page.waitForSelector(sel('rail-watching'));
+    expect(await attr(page, sel('rail-watching'), 'aria-label')).toBe(fr('nav.watching'));
   });
 
   it('menu « ⋯ » : Abandonner demande confirmation (focus sur « Non »), « Oui » envoie SET_LIST_STATUS et retire la série', async () => {
@@ -698,16 +760,17 @@ describe('popup (bout en bout)', () => {
     await click(page, 'settings-home');
     await click(page, 'settings-home');
     await click(page, 'back');
-    await page.waitForSelector(sel('nav-watching'));
+    await page.waitForSelector(sel('rail-watching'));
     expect(await shownScreen(page)).toBe(0);
-    expect(await text(page, sel('nav-watching'))).toBe(en('nav.watching'));
-    expect(await text(page, sel('nav-activity'))).toBe(en('nav.activity'));
+    expect(await attr(page, sel('rail-watching'), 'aria-label')).toBe(en('nav.watching'));
+    expect(await attr(page, sel('rail-activity'), 'aria-label')).toBe(en('nav.activity'));
+    expect(await text(page, '[data-screen-title] h1')).toBe(en('nav.watching'));
     expect(await page.$(`section[aria-label="${en('page.title')}"]`)).not.toBeNull();
     // Carte « Sur cette page » (Preact) : retraduite
     expect(await text(page, detailsToggle)).toContain(en('page.details'));
     expect(await text(page, 'footer')).not.toBe(footer);
     // Activité : section « À vérifier » (élément persistant) retraduite
-    await click(page, 'nav-activity');
+    await click(page, 'rail-activity');
     const mainText = await page.$eval('main', (el) => el.textContent ?? '');
     expect(mainText).toContain(en('review.empty'));
     expect(mainText).not.toContain(fr('review.empty'));
@@ -725,7 +788,7 @@ describe('popup (bout en bout)', () => {
   it('Écarts AniList ↔ MAL (Réglages › Mes données) : jamais analysé, analyse, filtres, « Garder AniList » envoie APPLY_DIFFS', async () => {
     const page = await openPopup();
     // Activité : une ligne qui mène aux Réglages, sans compteur avant la première analyse
-    await click(page, 'nav-activity');
+    await click(page, 'rail-activity');
     await page.waitForSelector(sel('activity-compare'));
     expect(await text(page, sel('activity-compare'))).toContain(fr('settings.compare.title'));
     expect(await page.$(`${sel('activity-compare')} [data-diff-count]`)).toBeNull();
@@ -773,7 +836,7 @@ describe('popup (bout en bout)', () => {
   it('pause d’alignement : seul le compte à rebours change chaque seconde, sans recréer les nœuds de la page', async () => {
     const page = await openPopup({ scenario: 'compare' });
     // Analyse en mémoire : compteur des écarts sur la ligne de l'Activité
-    await click(page, 'nav-activity');
+    await click(page, 'rail-activity');
     await page.waitForSelector(`${sel('activity-compare')} [data-diff-count]`);
     expect(await text(page, `${sel('activity-compare')} [data-diff-count]`)).toBe('7');
     await openCompare(page);
@@ -803,10 +866,10 @@ describe('popup (bout en bout)', () => {
     await page.evaluate(async (key: string, value: CompareJob) => chrome.storage.local.set({ [key]: value }), COMPARE_JOB_KEY, job);
     await page.waitForSelector('[data-job-pause]');
 
-    // Nœuds de référence : une ligne d'écart, l'en-tête du popup et la ligne de pause
+    // Nœuds de référence : une ligne d'écart, le rail du popup et la ligne de pause
     const first = await page.evaluate(() => {
       const w = window as Window & { __nodes?: Element[] };
-      w.__nodes = [document.querySelector('[data-diff]'), document.querySelector('header'), document.querySelector('[data-job-pause]')].filter((n): n is Element => n instanceof Element);
+      w.__nodes = [document.querySelector('[data-diff]'), document.querySelector('nav'), document.querySelector('[data-job-pause]')].filter((n): n is Element => n instanceof Element);
       return document.querySelector('[data-job-pause]')?.textContent ?? '';
     });
     expect(first).toContain('AniList');
@@ -818,7 +881,7 @@ describe('popup (bout en bout)', () => {
     await new Promise((resolve) => setTimeout(resolve, 1_100));
     const same = await page.evaluate(() => {
       const w = window as Window & { __nodes?: Element[] };
-      const now = [document.querySelector('[data-diff]'), document.querySelector('header'), document.querySelector('[data-job-pause]')];
+      const now = [document.querySelector('[data-diff]'), document.querySelector('nav'), document.querySelector('[data-job-pause]')];
       return w.__nodes?.length === 3 && w.__nodes.every((node, i) => node === now[i] && node.isConnected);
     });
     expect(same).toBe(true);
@@ -1082,9 +1145,9 @@ describe('popup (bout en bout)', () => {
       const current: unknown = stored[key];
       await chrome.storage.local.set({ [key]: { ...(typeof current === 'object' && current !== null ? current : {}), preferredPlayer: 'adn' } });
     }, SETTINGS_STORAGE_KEY);
-    await click(page, 'nav-activity');
-    await click(page, 'nav-watching');
-    await page.waitForFunction(() => document.querySelector('[data-focus="nav-watching"]')?.getAttribute('aria-selected') === 'true');
+    await click(page, 'rail-activity');
+    await click(page, 'rail-watching');
+    await page.waitForFunction(() => document.querySelector('[data-focus="rail-watching"]')?.getAttribute('aria-current') === 'page');
 
     const result = await page.evaluate(() => {
       const w = window as Window & { __banner?: Element | null; __announces?: number };
@@ -1546,6 +1609,10 @@ describe('popup (bout en bout)', () => {
     await page.waitForSelector(sel('connect-anilist'));
     expect(await shownScreen(page)).toBe(3);
     expect(await page.$('[role="tablist"]')).toBeNull();
+    // Rail sans sections (Kai et Réglages seulement), pas de titre d'écran
+    expect(await page.$('nav [data-focus^="rail-"]')).toBeNull();
+    expect(await page.$(sel('gear'))).not.toBeNull();
+    expect(await page.$('[data-screen-title]')).toBeNull();
     expect(await text(page, sel('connect-anilist'))).toBe(fr('common.connectService', { service: 'AniList' }));
     expect(await text(page, sel('connect-mal'))).toBe(fr('common.connectService', { service: 'MyAnimeList' }));
     expect(await page.$$eval('main ol li', (items) => items.map((li) => li.textContent?.trim()))).toEqual([fr('onboarding.step1'), fr('onboarding.step2'), fr('onboarding.step3')]);
@@ -1599,14 +1666,14 @@ describe('popup › Activité (bout en bout)', () => {
 
   async function openActivity(): Promise<Page> {
     const page = await openPopup({ scenario: 'activity' });
-    await click(page, 'nav-activity');
+    await click(page, 'rail-activity');
     await page.waitForSelector(`[data-review="${REVIEW_KEY}"]`);
     return page;
   }
 
   it('« À vérifier » : suggestion cochée, autre fiche choisie, « Confirmer » envoie RESOLVE_REVIEW ; résultat, « Fermer », état vide', async () => {
     const page = await openActivity();
-    expect(await attr(page, sel('nav-activity'), 'aria-label')).toBe(tl('fr', 'nav.activityPending_one', { count: 1 }));
+    expect(await attr(page, sel('rail-activity'), 'aria-label')).toBe(tl('fr', 'nav.activityPending_one', { count: 1 }));
     expect(await text(page, '#sk-review-title')).toBe(`${fr('inline.toCheck')} · 1`);
     expect(await attr(page, sel(`cand-${REVIEW_KEY}-178754`), 'aria-pressed')).toBe('true');
     await click(page, `cand-${REVIEW_KEY}-153288`);
@@ -1620,7 +1687,7 @@ describe('popup › Activité (bout en bout)', () => {
     await page.waitForSelector('[data-review-empty]');
     expect(await text(page, '[data-review-empty]')).toBe(fr('review.empty'));
     expect(await focused(page)).toBe('review-title');
-    expect(await attr(page, sel('nav-activity'), 'aria-label')).toBeNull();
+    expect(await attr(page, sel('rail-activity'), 'aria-label')).toBe(fr('nav.activity'));
   });
 
   it('« À vérifier » : recherche (fiches déjà proposées retirées), « Ne plus synchroniser » exclut la série et retire la carte', async () => {
@@ -1647,7 +1714,7 @@ describe('popup › Activité (bout en bout)', () => {
     const titles = await page.$$eval('[data-activity] h2', (list) => list.map((h) => h.textContent?.trim() ?? ''));
     expect(titles.slice(0, 2)).toEqual([`${fr('queue.failedHeading')} · 1`, `${fr('queue.pendingHeading')} · 1`]);
     // Pastille : vérification + synchro abandonnée (pas celle en attente)
-    expect(await attr(page, sel('nav-activity'), 'aria-label')).toBe(tl('fr', 'nav.activityPending_other', { count: 2 }));
+    expect(await attr(page, sel('rail-activity'), 'aria-label')).toBe(tl('fr', 'nav.activityPending_other', { count: 2 }));
     await click(page, 'queue-retry-crunchyroll:DEMO4');
     expect((await waitForMessage(page, 'RETRY_QUEUED')).payload).toEqual({ id: 'crunchyroll:DEMO4' });
     await page.waitForSelector(sel('queue-retry-crunchyroll:DEMO4'), { hidden: true });

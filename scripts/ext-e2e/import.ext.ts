@@ -109,7 +109,7 @@ async function launch(context: TestContext, media: { anilist: AniListMediaSeed; 
  * (Crunchyroll par défaut) ; une autre plateforme se choisit dans la page
  */
 async function openFromMyData(h: ExtensionHarness, platform: 'crunchyroll' | 'adn' = 'crunchyroll'): Promise<Page> {
-  const popup = await h.openPage('src/popup/popup.html', { width: 400, height: 580 });
+  const popup = await h.openPage('src/popup/popup.html', { width: 496, height: 600 });
   await popup.locator(sel('gear')).click();
   await popup.locator(sel('settings-cat-data')).click();
   await popup.locator(sel('history-import')).click();
@@ -391,7 +391,7 @@ describe('Sauvegarde', () => {
     );
 
     // Popup › Réglages › Mes données › Exporter : la page Sauvegarde s'ouvre et lance l'export
-    const popup = await h.openPage('src/popup/popup.html', { width: 400, height: 580 });
+    const popup = await h.openPage('src/popup/popup.html', { width: 496, height: 600 });
     await popup.locator(sel('gear')).click();
     await popup.locator(sel('settings-cat-data')).click();
     await popup.locator(sel('backup-export')).click();

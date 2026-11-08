@@ -4,8 +4,8 @@
 @layer base {
   html,
   body {
-    width: 400px;
-    height: 580px;
+    width: 496px;
+    height: 600px;
     margin: 0;
     overflow: hidden;
   }

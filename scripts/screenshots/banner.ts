@@ -13,7 +13,7 @@ const canvas = document.querySelector<HTMLElement>('#canvas');
 if (!canvas) throw new Error('#canvas introuvable');
 document.documentElement.lang = locale;
 
-const POPUP = { width: 400, height: 580 };
+const POPUP = { width: 496, height: 600 };
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, style: Partial<CSSStyleDeclaration> = {}): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);

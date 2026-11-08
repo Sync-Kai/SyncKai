@@ -19,7 +19,7 @@ const find = (selector: string): Promise<HTMLElement> => waitFor(() => document.
 const click = async (selector: string): Promise<void> => (await find(selector)).click();
 
 // Navigation par les vrais boutons, une fois les comptes chargés
-await waitFor(() => document.querySelector('[data-focus="nav-activity"]') && document.querySelector('main section'));
+await waitFor(() => document.querySelector('[data-focus="rail-activity"]') && document.querySelector('main section'));
 switch (scenario) {
   case 'watching':
     break;
@@ -35,7 +35,7 @@ switch (scenario) {
     await find('[data-focus="page-plus"]');
     break;
   case 'activity':
-    await click('[data-focus="nav-activity"]');
+    await click('[data-focus="rail-activity"]');
     await waitFor(() => document.querySelector('main article button[aria-pressed="true"]'));
     break;
   case 'compare':

@@ -239,7 +239,7 @@ function focusInWatching(selector: string): void {
 }
 
 function watchingRegion(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('main.sk-scroll > [role="tabpanel"]');
+  return document.querySelector<HTMLElement>('main.sk-scroll > [data-screen="watching"]');
 }
 
 /** Choix du tri : enregistré, la liste est retriée (le menu Preact rend le focus à son bouton) */

@@ -40,7 +40,7 @@ function fakes(): { anilist: FakeAniList; mal: FakeMal } {
 
 /** Popup ouvert dans un onglet (même page que la bulle de l'icône) */
 async function openPopup(h: ExtensionHarness): Promise<Page> {
-  const page = await h.openPage('src/popup/popup.html', { width: 400, height: 580 });
+  const page = await h.openPage('src/popup/popup.html', { width: 496, height: 600 });
   await page.waitForSelector('footer');
   return page;
 }

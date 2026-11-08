@@ -48,7 +48,7 @@ const CHECKED_LOCALES: readonly Locale[] = process.env.SYNCKAI_I18N_LAYOUT_LOCAL
 const PANEL_WIDTHS = [360, 320] as const;
 const PANEL_HEIGHT = 900;
 /** Popup : dimensions fixées par src/popup/popup.css */
-const POPUP_VIEWPORT = { width: 400, height: 580 };
+const POPUP_VIEWPORT = { width: 496, height: 600 };
 /** Page d'import : colonne de 576 px (src/import-cr/components/import-app.tsx) dans un onglet étroit */
 const IMPORT_VIEWPORT = { width: 640, height: 900 };
 /** Une langue entière (≈ 25 écrans), avec plusieurs langues en parallèle */
@@ -243,7 +243,7 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
       [SYNC_QUEUE_KEY]: queueSeed(ctx.locale, now),
     });
     await click(page, 'back');
-    await click(page, 'nav-activity');
+    await click(page, 'rail-activity');
     await page.waitForSelector('main article [data-focus^="cand-"]');
     await page.waitForSelector('[data-focus^="rate-ignore-"]');
     await page.waitForSelector('[data-focus^="queue-retry-"]');

@@ -115,20 +115,21 @@ describe('détecteur de débordements (bout en bout)', () => {
   });
 
   it('vrai popup : un libellé rallongé à la volée est signalé avec sa clé, les titres d’anime tronqués ne le sont pas', async () => {
-    const page = await open('scripts/e2e/popup.html?locale=en&scenario=page', 400, 580);
+    const page = await open('scripts/e2e/popup.html?locale=en&scenario=page', 496, 600);
     await page.waitForSelector('[data-focus="page-plus"]');
     await page.waitForSelector('[data-focus="more-176496:58567"]');
-    const long = 'Activity, reviews, ratings and every pending sync';
-    const catalog = { ...(await readCatalog('en')), 'nav.activity': long };
+    // Titre d'écran (une ligne, tronqué) : plus long que la colonne de contenu (440 px)
+    const long = 'Watching, resuming, on this page and every series of all your lists';
+    const catalog = { ...(await readCatalog('en')), 'nav.watching': long };
     await attachProbe(page, catalog, demoDataStrings('en', catalog));
     // Remplacement local du texte affiché (le catalogue n'est pas modifié)
-    await page.$eval('[data-focus="nav-activity"] > span', (span, text) => {
-      span.textContent = text;
+    await page.$eval('[data-screen-title] h1', (title, text) => {
+      title.textContent = text;
     }, long);
 
     const issues = await scanLayout(page);
-    const activity = issues.filter((issue) => issue.flagged && issue.keys.includes('nav.activity'));
-    expect(activity.length, JSON.stringify(issues, null, 1)).toBeGreaterThan(0);
+    const title = issues.filter((issue) => issue.flagged && issue.keys.includes('nav.watching'));
+    expect(title.length, JSON.stringify(issues, null, 1)).toBeGreaterThan(0);
     // Titres d'anime tronqués par une ellipse (carte « Sur cette page », lignes) : jamais signalés
     const titles = issues.filter((issue) => issue.source === 'data');
     expect(titles.every((issue) => !issue.flagged || ['overflow', 'offscreen', 'scroll'].includes(issue.kind))).toBe(true);

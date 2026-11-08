@@ -112,7 +112,7 @@ async function showMalList(popup: Page): Promise<void> {
   await popup.waitForSelector(`${sel('entry-service-mal')}[aria-checked="true"]`);
   await clickOn(popup, sel('settings-home'));
   await clickOn(popup, sel('back'));
-  await popup.waitForSelector(`${sel('nav-watching')}[aria-selected="true"]`);
+  await popup.waitForSelector(`${sel('rail-watching')}[aria-current="page"]`);
 }
 
 async function watchingNotice(popup: Page): Promise<string> {
@@ -148,7 +148,7 @@ describe('Lien vers la fiche', () => {
       await expectOpensEntry(h, popup, sel(`title-${keyOf(frieren)}`), urlOn(service, frieren));
       await expectOpensEntry(h, popup, coverLink('', urlOn(service, DUNGEON)), urlOn(service, DUNGEON));
       // Activité : synchro récente, carte « À noter »
-      await clickOn(popup, sel('nav-activity'));
+      await clickOn(popup, sel('rail-activity'));
       await expectOpensEntry(h, popup, '[data-focus^="recent-entry-"]', urlOn(service, DUNGEON));
       await expectOpensEntry(h, popup, sel(`rate-entry-anilist:${FRIEREN_S2.anilist.id}`), urlOn(service, FRIEREN_S2));
       // Différences : ligne de l'Activité → Réglages › Mes données › Écarts, analyse des deux listes (Frieren 2 / 1),

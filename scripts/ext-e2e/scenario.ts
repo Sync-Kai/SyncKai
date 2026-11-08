@@ -120,14 +120,14 @@ export const POPUP_PATH = 'src/popup/popup.html';
  */
 export async function openPopup(h: ExtensionHarness, options: { behind?: boolean } = {}): Promise<Page> {
   if (!options.behind) {
-    const page = await h.openPage(POPUP_PATH, { width: 400, height: 580 });
+    const page = await h.openPage(POPUP_PATH, { width: 496, height: 600 });
     await page.waitForSelector('footer');
     return page;
   }
   const url = `${EXTENSION_ORIGIN}/${POPUP_PATH}`;
   await (await h.bridge()).evaluate((popupUrl: string) => chrome.tabs.create({ url: popupUrl, active: false }).then(() => undefined), url);
   const page = await h.waitForPage(url);
-  await page.setViewport({ width: 400, height: 580 });
+  await page.setViewport({ width: 496, height: 600 });
   await page.waitForSelector('footer');
   return page;
 }
