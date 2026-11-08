@@ -7,7 +7,7 @@
 import { formatList, t, tp } from '../../i18n';
 import type { EntryLink } from '../../shared/entry-link';
 import type { PageMediaView } from '../../shared/page-media.types';
-import type { AddListStatus, AdjustRetry, ListStatusChange } from '../../shared/sync.types';
+import type { AddListStatus, AdjustRetry, MenuStatusChange } from '../../shared/sync.types';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { FeedbackBanner } from '../../ui/components/feedback-banner';
 import { Icon } from '../../ui/components/icon';
@@ -32,7 +32,7 @@ export interface ListCardProps {
   onAdd: (status: AddListStatus) => void;
   onAdjust: (delta: 1 | -1) => void;
   onRetryAdjust: (retry: AdjustRetry) => void;
-  onSetStatus: (status: ListStatusChange) => void;
+  onSetStatus: (status: MenuStatusChange) => void;
   onExclude: () => void;
   onInclude: () => void;
   onRemove: () => void;

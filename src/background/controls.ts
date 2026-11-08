@@ -5,7 +5,7 @@ import type { AddToListPayload, AdjustProgressPayload, AdjustRetryTarget, SetLis
 import type { MediaRef } from '../shared/engagement.types';
 import { getSettings } from '../browser/storage/settings-access';
 import { getOpenSessions } from '../browser/storage/sessions';
-import type { AddListStatus, ListStatusChange, ServiceResult, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, ListStatus, ListStatusChange, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './errors';
 import { deferRating } from './engagement';
@@ -113,13 +113,17 @@ export async function adjustProgress(payload: AdjustProgressPayload): Promise<Sy
 
 // ─── Statut (En pause, Abandonné, Terminé) ───────────────────────────────
 
-/** Changement de statut sur UN service (entrée relue, puis règle decideStatusChange) */
-function statusCommand(fallbackTotal: number | null, status: ListStatusChange): EntryCommand {
+/**
+ * Changement de statut sur UN service (entrée relue sous le verrou de sa fiche, puis règle decideStatusChange) ;
+ * `onlyFrom` est comparé à cette relecture, jamais à un statut envoyé par la page
+ */
+function statusCommand(fallbackTotal: number | null, status: ListStatusChange, onlyFrom?: ListStatus): EntryCommand {
   return {
     name: 'changement de statut',
     decide: (current, { tracker, id }) => {
-      const decision = decideStatusChange(current.entry, current.episodes ?? fallbackTotal, status);
+      const decision = decideStatusChange(current.entry, current.episodes ?? fallbackTotal, status, onlyFrom);
       if (decision.action === 'skip') {
+        // Statut posé ailleurs (onlyFrom non respecté) : rapporté inchangé, comme un statut déjà en place
         return decision.reason === 'not-in-list'
           ? { status: 'skipped', reason: t('engagement.notInList'), code: 'not-in-list' }
           : { status: 'up-to-date', progress: current.entry?.progress ?? 0 };
@@ -169,18 +173,19 @@ async function isRatingPromptEnabled(): Promise<boolean> {
  * En pause / Abandonné / Terminé depuis le popup : écrit sur tous les services connectés où la série
  * est dans la liste. N'alimente pas les « dernières synchros » (action manuelle, comme +1 / −1).
  * Après « Terminé », la carte « À noter » est créée (comme « Plus tard ») ; `prompts.rate` le signale au popup.
+ * Séries en sommeil et « Annuler » : `onlyFrom` (statut exigé à la relecture) et `services` (services visés seulement).
  */
 export async function setListStatus(payload: SetListStatusPayload): Promise<SyncOutcome> {
   try {
     const epochs = await getOpenSessions();
-    const trackers = await getConnectedTrackers();
+    const trackers = await getConnectedTrackers(payload.services ?? null);
     if (trackers.length === 0) return { status: 'not-connected' };
 
     const catalog: CatalogMedia | null = payload.mediaId !== null ? await getCatalogMedia(payload.mediaId) : null;
     const targets = entryTargets(trackers, payload, catalog);
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
-    const runs = await runOnServices(targets, statusCommand(catalog?.episodes ?? null, payload.status), epochs);
+    const runs = await runOnServices(targets, statusCommand(catalog?.episodes ?? null, payload.status, payload.onlyFrom), epochs);
     const mediaTitle = seriesTitle(catalog, runs);
     const outcome: SyncOutcome = { status: 'synced', mediaTitle, results: runs.map((r) => r.result) };
 

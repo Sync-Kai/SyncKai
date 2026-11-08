@@ -8,7 +8,7 @@ import type { EpisodeInfo } from '../shared/episode.types';
 import type { Result } from '../shared/result';
 import type { CandidateSummary } from '../shared/review.types';
 import type { MalViewerResult } from '../shared/mal.types';
-import type { AddListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, ListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import type { PageMediaResult, ResolvePageMediaPayload } from '../shared/page-media.types';
 import type { PanelMediaResult } from '../shared/panel-media.types';
 import type { TrackerId } from '../shared/tracker.types';
@@ -49,6 +49,13 @@ export interface SetListStatusPayload {
   status: ListStatusChange;
   /** Affiche de la carte « À noter » créée après « Terminé » (hôte d'images autorisé, url.ts › IMAGE_HOSTS) */
   coverUrl: string | null;
+  /**
+   * Écrit seulement sur un service dont l'entrée, relue juste avant l'écriture, a ce statut (séries en sommeil : CURRENT ;
+   * « Annuler » : le statut écrit) ; tout autre statut est laissé tel quel et rapporté inchangé
+   */
+  onlyFrom?: ListStatus;
+  /** Limite l'écriture à ces services (« Annuler » : les seuls services réellement écrits) */
+  services?: TrackerId[];
 }
 
 export interface AddToListPayload {

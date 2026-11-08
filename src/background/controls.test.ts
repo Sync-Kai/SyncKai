@@ -597,6 +597,47 @@ describe('cible MAL : une seule résolution (audit 6-D9)', () => {
   });
 });
 
+describe('setListStatus gardé (séries en sommeil, « Annuler »)', () => {
+  it('PAUSED avec onlyFrom CURRENT : AniList (en cours) écrit, MAL (terminé ailleurs) jamais écrasé', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 7 });
+    mal.entries.set(MAL_ID, { status: 'COMPLETED', progress: 12 });
+    const outcome = await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'PAUSED', coverUrl: null, onlyFrom: 'CURRENT' });
+    expect(anilist.statusSaves).toEqual([{ status: 'PAUSED', progress: 7 }]);
+    expect(mal.statusSaves).toEqual([]);
+    expect(mal.entries.get(MAL_ID)).toEqual({ status: 'COMPLETED', progress: 12 });
+    expect(resultsOf(outcome)).toEqual([
+      { service: 'anilist', outcome: { status: 'updated', progress: 7, completed: false } },
+      { service: 'mal', outcome: { status: 'up-to-date', progress: 12 } },
+    ]);
+  });
+
+  it('onlyFrom vérifié sur la relecture faite sous le verrou, pas sur un état antérieur', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 7 });
+    // Terminé ailleurs juste avant la relecture de la fiche
+    anilist.onRead = () => anilist.entries.set(MEDIA_ID, { status: 'COMPLETED', progress: 12 });
+    await setListStatus({ mediaId: MEDIA_ID, malId: null, status: 'DROPPED', coverUrl: null, onlyFrom: 'CURRENT' });
+    expect(anilist.statusSaves).toEqual([]);
+  });
+
+  it('services: [\'anilist\'] : seul AniList est écrit (« Annuler » d’une écriture faite là seulement)', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'PAUSED', progress: 7 });
+    mal.entries.set(MAL_ID, { status: 'PAUSED', progress: 7 });
+    const outcome = await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'CURRENT', coverUrl: null, onlyFrom: 'PAUSED', services: ['anilist'] });
+    expect(anilist.statusSaves).toEqual([{ status: 'CURRENT', progress: 7 }]);
+    expect(mal.statusSaves).toEqual([]);
+    expect(resultsOf(outcome)).toEqual([{ service: 'anilist', outcome: { status: 'updated', progress: 7, completed: false } }]);
+  });
+
+  it('CURRENT ne crée jamais de carte « À noter », même avec une entrée terminée', async () => {
+    mal.entries.set(MAL_ID, { status: 'PAUSED', progress: 12 });
+    const outcome = await setListStatus({ mediaId: null, malId: MAL_ID, status: 'CURRENT', coverUrl: null, onlyFrom: 'PAUSED' });
+    expect(mal.statusSaves).toEqual([{ status: 'CURRENT', progress: 12 }]);
+    expect(fakes.deferred).toEqual([]);
+    expect(outcome).not.toHaveProperty('prompts');
+    expect(shouldQueueRating('CURRENT', [{ result: { service: 'mal', outcome: { status: 'updated', progress: 12, completed: true } }, scored: false }], true)).toBe(false);
+  });
+});
+
 describe('carte « À noter » après Terminé en revisionnage (audit 6-D4)', () => {
   it('fin de revisionnage marquée Terminé : pas de carte, comme la fin d’un revisionnage par la lecture', async () => {
     anilist.entries.set(MEDIA_ID, { status: 'REPEATING', progress: 5, repeat: 1 });

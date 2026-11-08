@@ -141,10 +141,16 @@ export interface AdjustRetry {
   progress: number;
 }
 
-/** Changement de statut manuel depuis le popup (menu « … » de « En cours ») */
-export type ListStatusChange = 'PAUSED' | 'DROPPED' | 'COMPLETED';
+/**
+ * Changement de statut manuel depuis le popup (menu « … » de « En cours ») ; CURRENT : « Annuler » d'une mise en pause
+ * ou d'un abandon de séries en sommeil (jamais proposé dans le menu, voir MenuStatusChange)
+ */
+export type ListStatusChange = 'PAUSED' | 'DROPPED' | 'COMPLETED' | 'CURRENT';
 
-export const LIST_STATUS_CHANGES: readonly ListStatusChange[] = ['PAUSED', 'DROPPED', 'COMPLETED'];
+export const LIST_STATUS_CHANGES: readonly ListStatusChange[] = ['PAUSED', 'DROPPED', 'COMPLETED', 'CURRENT'];
+
+/** Statuts proposés par le menu « … » d'une série */
+export type MenuStatusChange = Exclude<ListStatusChange, 'CURRENT'>;
 
 export function isListStatusChange(value: unknown): value is ListStatusChange {
   return typeof value === 'string' && (LIST_STATUS_CHANGES as readonly string[]).includes(value);

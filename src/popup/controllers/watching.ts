@@ -7,7 +7,7 @@ import { createLogger } from '../../browser/logger';
 import { parsePlatformLinkStore, PLATFORM_LINKS_KEY, withLearnedLinks } from '../../platforms/links';
 import { getCachedWatching } from '../../browser/storage/watching-cache';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import type { AdjustRetry, ListStatusChange, SyncOutcome } from '../../shared/sync.types';
+import type { AdjustRetry, MenuStatusChange, SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_IDS, type TrackerId } from '../../shared/tracker.types';
 import { toSafeImageUrl } from '../../shared/url';
 import { entryKey } from '../../shared/watching';
@@ -82,7 +82,7 @@ export interface WatchingController {
   /** +1 / −1 ; `retry` : nouvel essai après un échec partiel (progression absolue sur les seuls services en échec) */
   adjust(entry: WatchingEntry, delta: 1 | -1, retry?: AdjustRetry): Promise<void>;
   /** En pause / Abandonner / Terminé : écrit sur tous les services connectés, la série quitte « En cours » */
-  setStatus(entry: WatchingEntry, status: ListStatusChange): Promise<void>;
+  setStatus(entry: WatchingEntry, status: MenuStatusChange): Promise<void>;
   exclude(entry: WatchingEntry): Promise<void>;
   include(entry: WatchingEntry): Promise<void>;
   /** « Retirer de la liste » (confirmé) : retirée de chaque service connecté, la série quitte « En cours » */

@@ -86,7 +86,7 @@ export function isFinaleJump(entry: ListEntryState | null, progress: number, tot
 export type StatusChangeDecision =
   /** `repeat` : nouveau nombre de revisionnages (un revisionnage marqué terminé compte comme achevé) */
   | { action: 'write'; status: ListStatusChange; progress: number; repeat?: number }
-  | { action: 'skip'; reason: 'not-in-list' | 'unchanged' };
+  | { action: 'skip'; reason: 'not-in-list' | 'unchanged' | 'other-status' };
 
 /**
  * Changement de statut manuel depuis le popup (pur, testable) :
@@ -95,9 +95,17 @@ export type StatusChangeDecision =
  * - En pause / Abandonné : progression conservée
  * - revisionnage (REPEATING) marqué terminé : compteur de revisionnages incrémenté, comme à la fin
  *   naturelle d'un revisionnage (decideListUpdate) ; mis en pause / abandonné : compteur inchangé
+ * - `onlyFrom` (séries en sommeil, « Annuler ») : écrit seulement si l'entrée relue a ce statut ; un statut posé
+ *   ailleurs entre-temps (terminé, revisionnage, déjà en pause…) n'est jamais écrasé
  */
-export function decideStatusChange(entry: ListEntryState | null, totalEpisodes: number | null, status: ListStatusChange): StatusChangeDecision {
+export function decideStatusChange(
+  entry: ListEntryState | null,
+  totalEpisodes: number | null,
+  status: ListStatusChange,
+  onlyFrom?: ListStatus,
+): StatusChangeDecision {
   if (entry === null) return { action: 'skip', reason: 'not-in-list' };
+  if (onlyFrom !== undefined && entry.status !== onlyFrom) return { action: 'skip', reason: 'other-status' };
   const progress = status === 'COMPLETED' && totalEpisodes !== null ? Math.max(entry.progress, totalEpisodes) : entry.progress;
   if (entry.status === status && entry.progress === progress) return { action: 'skip', reason: 'unchanged' };
   if (status === 'COMPLETED' && entry.status === 'REPEATING') return { action: 'write', status, progress, repeat: (entry.repeat ?? 0) + 1 };

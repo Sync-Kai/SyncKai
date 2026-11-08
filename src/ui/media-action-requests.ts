@@ -1,6 +1,6 @@
 import type { AdjustProgressPayload } from '../protocol/messages';
 import type { PageMediaView } from '../shared/page-media.types';
-import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, AdjustRetry, MenuStatusChange, SyncOutcome } from '../shared/sync.types';
 import { addFeedback, adjustFeedback, notesFeedback, ratingFeedback, removeFeedback, statusFeedback } from './feedback';
 import { normalizeListNotes } from '../shared/list-notes';
 import { toSafeImageUrl } from '../shared/url';
@@ -12,7 +12,7 @@ import { callWorker, outcomeFailure } from './worker-call';
 // Envoi des actions de la fiche au service worker et texte du retour : partagé par le popup et le panneau.
 
 /** Action en cours (une seule à la fois) */
-export type MediaAction = `add-${AddListStatus}` | 'minus' | 'plus' | `status-${ListStatusChange}` | 'rate' | 'season' | 'remove' | 'notes';
+export type MediaAction = `add-${AddListStatus}` | 'minus' | 'plus' | `status-${MenuStatusChange}` | 'rate' | 'season' | 'remove' | 'notes';
 
 export interface MediaActionsState {
   busy: MediaAction | null;
@@ -24,7 +24,7 @@ export type MediaActionRequest =
   | { kind: 'add'; status: AddListStatus }
   /** `retry` : nouvel essai après un échec partiel (progression absolue sur les seuls services en échec) */
   | { kind: 'adjust'; delta: 1 | -1; retry?: AdjustRetry }
-  | { kind: 'status'; status: ListStatusChange }
+  | { kind: 'status'; status: MenuStatusChange }
   | { kind: 'rate'; value: number }
   /** Retire la série de chaque liste connectée où elle est (après confirmation) */
   | { kind: 'remove' }

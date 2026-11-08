@@ -16,7 +16,7 @@ import type { StreamingPlatform } from '../../shared/episode.types';
 import type { FeedbackTone } from '../../shared/sync-feedback';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsToSearch } from '../../platforms/links';
-import type { ListStatusChange } from '../../shared/sync.types';
+import type { MenuStatusChange } from '../../shared/sync.types';
 import { formatRemaining, formatRemainingTotal } from '../../shared/remaining-time';
 import { choosePlatformLink, entryKey, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type NextEpisodeBadge, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
@@ -71,7 +71,7 @@ export interface WatchingScreenProps {
   page: Omit<PageMediaCardProps, 'card' | 'now' | 'entryLinks' | 'excluded' | 'notice'>;
   onAdjust: (entry: WatchingEntry, delta: 1 | -1) => void;
   /** Menu « ⋯ » : statut (Abandonner et Terminé confirmés dans le menu) */
-  onSetStatus: (entry: WatchingEntry, status: ListStatusChange) => void;
+  onSetStatus: (entry: WatchingEntry, status: MenuStatusChange) => void;
   onExclude: (entry: WatchingEntry) => void;
   onInclude: (entry: WatchingEntry) => void;
   /** « Retirer de la liste » confirmé */

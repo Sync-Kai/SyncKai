@@ -40,8 +40,26 @@ describe('SET_LIST_STATUS', () => {
   });
 
   it('refuse un statut non proposé par le popup', () => {
-    for (const status of ['CURRENT', 'PLANNING', 'REPEATING', 'completed', null]) {
+    for (const status of ['PLANNING', 'REPEATING', 'completed', null]) {
       expect(isRuntimeMessage(message({ ...valid, status }))).toBe(false);
+    }
+  });
+
+  it('accepte CURRENT (« Annuler ») avec onlyFrom et services', () => {
+    expect(isRuntimeMessage(message({ ...valid, status: 'CURRENT', onlyFrom: 'PAUSED', services: ['anilist', 'mal'] }))).toBe(true);
+    expect(isRuntimeMessage(message({ ...valid, status: 'PAUSED', onlyFrom: 'CURRENT' }))).toBe(true);
+    expect(isRuntimeMessage(message({ ...valid, services: ['mal'] }))).toBe(true);
+  });
+
+  it('refuse un onlyFrom inconnu', () => {
+    for (const onlyFrom of ['FOO', 'current', null, 1]) {
+      expect(isRuntimeMessage(message({ ...valid, onlyFrom }))).toBe(false);
+    }
+  });
+
+  it('refuse des services inconnus, vides, en double ou hors tableau', () => {
+    for (const services of [['kitsu'], [], ['anilist', 'anilist'], 'anilist', null]) {
+      expect(isRuntimeMessage(message({ ...valid, services }))).toBe(false);
     }
   });
 

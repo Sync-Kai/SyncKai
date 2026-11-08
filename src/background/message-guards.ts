@@ -3,7 +3,7 @@
 // (protocol/messages.ts) : les gardes de tous les payloads (import, comparaison, agenda…) n'alourdissent pas les pages.
 import { isLocale, type Locale } from '../i18n/locale-codes';
 import { isAgendaPayload } from '../shared/agenda';
-import { isApplyDiffsPayload } from '../shared/compare';
+import { isApplyDiffsPayload, isListStatus } from '../shared/compare';
 import { isCrImportAnalyzePayload, isCrImportApplyPayload, isCrImportReviewsPayload } from '../shared/cr-import';
 import { isMediaRef, isScore10, type MediaRef, type Score10 } from '../shared/engagement.types';
 import { isEpisodeInfo } from '../shared/episode.types';
@@ -100,12 +100,12 @@ const isResolveReviewPayload = (p: unknown): p is ResolveReviewPayload =>
   isRecord(p) && isKey(p.key) && isPositiveInt(p.mediaId) && isPositiveInt(p.progress);
 const isWatchingPayload = (p: unknown): p is { service: TrackerId; force?: boolean } =>
   isRecord(p) && isTrackerId(p.service) && (p.force === undefined || typeof p.force === 'boolean');
+/** Liste de services non vide, sans doublon */
+const isServiceList = (value: unknown): value is TrackerId[] =>
+  Array.isArray(value) && value.length > 0 && value.every(isTrackerId) && new Set(value).size === value.length;
 const isAdjustRetryTarget = (r: unknown): r is AdjustRetryTarget =>
   isRecord(r) &&
-  Array.isArray(r.services) &&
-  r.services.length > 0 &&
-  r.services.every(isTrackerId) &&
-  new Set(r.services).size === r.services.length &&
+  isServiceList(r.services) &&
   typeof r.progress === 'number' &&
   Number.isInteger(r.progress) &&
   r.progress >= 0 &&
@@ -123,7 +123,9 @@ const isSetListStatusPayload = (p: unknown): p is SetListStatusPayload =>
   (p.malId === null || isPositiveInt(p.malId)) &&
   (p.mediaId !== null || p.malId !== null) &&
   isListStatusChange(p.status) &&
-  (p.coverUrl === null || isSafeImageUrl(p.coverUrl));
+  (p.coverUrl === null || isSafeImageUrl(p.coverUrl)) &&
+  (p.onlyFrom === undefined || isListStatus(p.onlyFrom)) &&
+  (p.services === undefined || isServiceList(p.services));
 const isRetryQueuedPayload =(p: unknown): p is { id: string } => isRecord(p) && isKey(p.id);
 const isRatePayload = (p: unknown): p is { media: MediaRef; score: Score10; fromCard?: boolean } =>
   isRecord(p) && isMediaRef(p.media) && isScore10(p.score) && (p.fromCard === undefined || typeof p.fromCard === 'boolean');

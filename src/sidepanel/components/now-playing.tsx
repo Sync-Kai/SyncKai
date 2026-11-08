@@ -10,7 +10,7 @@ import { entryLink, entryLinks, type EntryLinkContext } from '../../shared/entry
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import type { PanelMedia } from '../../shared/panel-media.types';
-import type { AddListStatus, AdjustRetry, ListStatusChange } from '../../shared/sync.types';
+import type { AddListStatus, AdjustRetry, MenuStatusChange } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import { Alert } from '../../ui/components/alert';
 import { Icon } from '../../ui/components/icon';
@@ -51,7 +51,7 @@ export interface NowPlayingHandlers {
   onAdd: (status: AddListStatus) => void;
   onAdjust: (delta: 1 | -1) => void;
   onRetryAdjust: (retry: AdjustRetry) => void;
-  onSetStatus: (status: ListStatusChange) => void;
+  onSetStatus: (status: MenuStatusChange) => void;
   onRate: (value: number) => void;
   onRemove: () => void;
   /** Commentaire enregistré ; true si c'est fait */

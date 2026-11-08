@@ -1,6 +1,6 @@
 import { formatList, t, type MessageKey } from '../i18n';
 import { describeOutcome, type FeedbackTone } from '../shared/sync-feedback';
-import type { AddListStatus, AdjustRetry, ListStatusChange, SyncOutcome } from '../shared/sync.types';
+import type { AddListStatus, AdjustRetry, MenuStatusChange, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import type { InlineFeedback } from './state';
 
@@ -57,7 +57,7 @@ export function adjustFeedback(outcome: SyncOutcome, delta: 1 | -1, retried?: Ad
   }
 }
 
-const STATUS_DONE: Record<ListStatusChange, MessageKey> = {
+const STATUS_DONE: Record<MenuStatusChange, MessageKey> = {
   PAUSED: 'inline.status.PAUSED',
   DROPPED: 'inline.status.DROPPED',
   COMPLETED: 'inline.status.COMPLETED',
@@ -67,7 +67,7 @@ const STATUS_DONE: Record<ListStatusChange, MessageKey> = {
  * Résultat d'un changement de statut (En pause, Abandonné, Terminé) : phrase affichée en bandeau,
  * la série quittant « En cours ». Mentionne la carte « À noter » créée après « Terminé ».
  */
-export function statusFeedback(outcome: SyncOutcome, status: ListStatusChange): InlineFeedback {
+export function statusFeedback(outcome: SyncOutcome, status: MenuStatusChange): InlineFeedback {
   const detail = detailOf(outcome);
   // Hors « synced », mêmes textes que +1 / −1 (le sens de l'ajustement n'y intervient pas)
   if (outcome.status !== 'synced') return adjustFeedback(outcome, 1);

@@ -10,7 +10,7 @@ import { t } from '../i18n';
 import type { StreamingPlatform } from '../platforms/ids';
 import { PLATFORMS } from '../platforms/registry';
 import type { EntryLink } from '../shared/entry-link';
-import type { ListStatus, ListStatusChange } from '../shared/sync.types';
+import type { ListStatus, MenuStatusChange } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { Menu, MenuConfirm, MenuItem, MenuSeparator, SubMenu } from './components/menu';
 import type { IconName } from './icons';
@@ -29,7 +29,7 @@ export interface SeriesMenuProps {
   focusKey: string;
   /** Action en cours sur la série : statuts, commentaire et retrait grisés */
   busy?: boolean;
-  onStatus: (status: ListStatusChange) => void;
+  onStatus: (status: MenuStatusChange) => void;
   /** « Commentaire… » ; absent : pas d'option */
   onNotes?: () => void;
   /** Fiches ouvrables (service préféré en tête) ; vide : pas de sous-menu */
@@ -56,7 +56,7 @@ const STATUS_LABELS = {
   COMPLETED: 'watching.status.COMPLETED',
 } as const;
 
-const STATUS_ICONS: Readonly<Record<ListStatusChange, { icon: IconName; tone: Tone }>> = {
+const STATUS_ICONS: Readonly<Record<MenuStatusChange, { icon: IconName; tone: Tone }>> = {
   PAUSED: { icon: 'pause', tone: 'warn' },
   DROPPED: { icon: 'xCircle', tone: 'error' },
   COMPLETED: { icon: 'check', tone: 'ok' },
@@ -79,7 +79,7 @@ function SeriesMenuItems({ title, focusKey: key, busy = false, onStatus, onNotes
     setConfirm(null);
   };
 
-  const status = (value: ListStatusChange) => {
+  const status = (value: MenuStatusChange) => {
     const look = STATUS_ICONS[value];
     const current = currentStatus === value;
     if (value !== 'PAUSED' && confirm === value && !busy) {

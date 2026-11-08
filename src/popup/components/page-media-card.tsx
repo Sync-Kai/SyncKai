@@ -12,7 +12,7 @@ import { pageKey } from '../../browser/storage/page-media-cache';
 import { PLATFORMS } from '../../platforms/registry';
 import { entryLink, entryLinks, type EntryLinkContext } from '../../shared/entry-link';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
-import type { AddListStatus, AdjustRetry, ListStatusChange } from '../../shared/sync.types';
+import type { AddListStatus, AdjustRetry, MenuStatusChange } from '../../shared/sync.types';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { Alert } from '../../ui/components/alert';
 import { FeedbackBanner } from '../../ui/components/feedback-banner';
@@ -57,7 +57,7 @@ export interface PageMediaCardProps {
   onAdjust: (delta: 1 | -1) => void;
   /** « Réessayer » d'un + / − en échec partiel */
   onRetryAdjust: (retry: AdjustRetry) => void;
-  onSetStatus: (status: ListStatusChange) => void;
+  onSetStatus: (status: MenuStatusChange) => void;
   onRate: (value: number) => void;
   onPickSeason: (mediaId: number) => void;
   /** Commentaire enregistré ; true si c'est fait */

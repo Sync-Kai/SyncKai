@@ -136,6 +136,34 @@ describe('decideStatusChange', () => {
   });
 });
 
+describe('decideStatusChange avec onlyFrom (séries en sommeil, « Annuler »)', () => {
+  it('onlyFrom CURRENT, entrée terminée ailleurs : jamais écrasée', () => {
+    expect(decideStatusChange({ status: 'COMPLETED', progress: 12 }, 12, 'PAUSED', 'CURRENT')).toEqual({ action: 'skip', reason: 'other-status' });
+  });
+
+  it('onlyFrom CURRENT, entrée en cours : mise en pause, progression conservée', () => {
+    expect(decideStatusChange({ status: 'CURRENT', progress: 7 }, 23, 'PAUSED', 'CURRENT')).toEqual({ action: 'write', status: 'PAUSED', progress: 7 });
+  });
+
+  it('onlyFrom CURRENT : revisionnage, pause ou abandon déjà posés ne sont jamais touchés', () => {
+    for (const status of ['REPEATING', 'PAUSED', 'DROPPED', 'PLANNING'] as const) {
+      expect(decideStatusChange({ status, progress: 7 }, 23, 'DROPPED', 'CURRENT')).toEqual({ action: 'skip', reason: 'other-status' });
+    }
+  });
+
+  it('« Annuler » : CURRENT depuis PAUSED rétablit En cours, progression conservée', () => {
+    expect(decideStatusChange({ status: 'PAUSED', progress: 7 }, 23, 'CURRENT', 'PAUSED')).toEqual({ action: 'write', status: 'CURRENT', progress: 7 });
+  });
+
+  it('« Annuler » après un changement ailleurs (terminé sur MAL entre-temps) : rien n’est écrit', () => {
+    expect(decideStatusChange({ status: 'COMPLETED', progress: 23 }, 23, 'CURRENT', 'PAUSED')).toEqual({ action: 'skip', reason: 'other-status' });
+  });
+
+  it('série absente de la liste : not-in-list avant onlyFrom', () => {
+    expect(decideStatusChange(null, 23, 'PAUSED', 'CURRENT')).toEqual({ action: 'skip', reason: 'not-in-list' });
+  });
+});
+
 describe('decideAddToList', () => {
   it('ajoute une série absente avec la progression 0', () => {
     expect(decideAddToList(null, 'PLANNING')).toEqual({ action: 'write', status: 'PLANNING', progress: 0 });
