@@ -105,14 +105,46 @@ describe('NavRail', () => {
     await act(() => items()[2]?.blur());
     expect(tooltip()?.hidden).toBe(true);
     await act(() => {
-      items()[0]?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      items()[0]?.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
     });
     expect(tooltip()?.hidden).toBe(false);
     expect(tooltip()?.textContent).toBe('En cours');
     await act(() => {
-      items()[0]?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+      items()[0]?.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
     });
     expect(tooltip()?.hidden).toBe(true);
+  });
+
+  it('shows no tooltip for a touch pointer or for a focus coming from a pointer', async () => {
+    await show(<Host />);
+    await act(() => {
+      items()[0]?.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'touch' }));
+    });
+    expect(tooltip()?.hidden).toBe(true);
+    await act(() => {
+      items()[0]?.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+    });
+    expect(tooltip()?.hidden).toBe(false);
+    await act(() => {
+      items()[0]?.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+    });
+    await act(() => {
+      items()[2]?.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true }));
+      items()[2]?.focus();
+    });
+    expect(tooltip()?.hidden).toBe(true);
+  });
+
+  it('keeps the badge count in the accessible name and renders no badge for 0', async () => {
+    const items2: readonly NavRailItem<View>[] = [
+      { id: 'watching', icon: 'play', label: 'En cours', badge: 0 },
+      { id: 'activity', icon: 'bell', label: 'Activité', badge: 4 },
+    ];
+    await show(<NavRail label="Sections" items={items2} current={null} onSelect={onSelect} footer={null} />);
+    expect(items()[0]?.getAttribute('aria-label')).toBe('En cours');
+    expect(items()[0]?.querySelector('[data-rail-badge]')).toBeNull();
+    expect(items()[1]?.getAttribute('aria-label')).toBe('Activité, 4');
+    expect(items()[1]?.querySelector('[data-rail-badge]')?.textContent).toBe('4');
   });
 
   it('clicking an item calls onSelect with its id', async () => {

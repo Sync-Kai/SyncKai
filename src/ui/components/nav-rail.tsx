@@ -38,6 +38,8 @@ interface Tip {
 
 export function NavRail<Id extends string>({ label, items, current, onSelect, footer }: NavRailProps<Id>) {
   const list = useRef<HTMLUListElement>(null);
+  // Focus venu d'un pointeur (clic, toucher) : pas de bulle, elle resterait collée ; seul le clavier la montre
+  const pointerFocus = useRef(false);
   const [hover, setHover] = useState<Tip | null>(null);
   const [focus, setFocus] = useState<Tip | null>(null);
   const shown = hover ?? focus;
@@ -75,17 +77,29 @@ export function NavRail<Id extends string>({ label, items, current, onSelect, fo
                   on ? 'border-field bg-raised text-ink' : 'border-transparent bg-transparent text-muted hover:text-ink'
                 }`}
                 aria-current={on ? 'page' : undefined}
-                aria-label={item.ariaLabel ?? item.label}
+                aria-label={item.ariaLabel ?? (item.badge ? `${item.label}, ${item.badge}` : item.label)}
                 tabIndex={item.id === stop ? 0 : -1}
                 data-focus={`rail-${item.id}`}
                 onClick={() => onSelect(item.id)}
-                onMouseOver={(event) => setHover(tipOf(event.currentTarget, item.id))}
-                onMouseOut={() => setHover(null)}
-                onFocus={(event) => setFocus(tipOf(event.currentTarget, item.id))}
+                // Survol à la souris seulement : un toucher émet un survol émulé, sans bulle au tactile
+                onPointerEnter={(event) => {
+                  if (event.pointerType !== 'touch') setHover(tipOf(event.currentTarget, item.id));
+                }}
+                onPointerLeave={() => setHover(null)}
+                onPointerDown={() => {
+                  pointerFocus.current = true;
+                }}
+                onKeyDown={() => {
+                  pointerFocus.current = false;
+                }}
+                onFocus={(event) => {
+                  if (!pointerFocus.current) setFocus(tipOf(event.currentTarget, item.id));
+                  pointerFocus.current = false;
+                }}
                 onBlur={() => setFocus(null)}
               >
                 <Icon name={item.icon} class={`size-5 ${item.icon === 'play' ? 'fill-current' : ''}`} strokeWidth="2.2" />
-                {item.badge !== undefined && (
+                {item.badge !== undefined && item.badge > 0 && (
                   <span
                     class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-butter px-1 text-section tracking-normal text-on-fill tabular-nums"
                     aria-hidden="true"
