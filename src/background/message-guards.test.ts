@@ -187,6 +187,22 @@ describe('GET_PANEL_MEDIA', () => {
   });
 });
 
+describe('GET_ANILIST_FRIENDS', () => {
+  const message = (payload: unknown): unknown => ({ type: 'GET_ANILIST_FRIENDS', payload });
+
+  it('accepte un identifiant AniList positif, refuse le reste', () => {
+    expect(isRuntimeMessage(message({ mediaId: 21 }))).toBe(true);
+    for (const payload of [null, {}, { mediaId: 0 }, { mediaId: -3 }, { mediaId: 1.5 }, { mediaId: '21' }]) {
+      expect(isRuntimeMessage(message(payload))).toBe(false);
+    }
+  });
+
+  it('est réservé aux pages de l’extension', () => {
+    expect(MESSAGE_ORIGINS['GET_ANILIST_FRIENDS']).toBe('extension');
+    expect(isAllowedOrigin('GET_ANILIST_FRIENDS', 'content')).toBe(false);
+  });
+});
+
 describe('import Crunchyroll', () => {
   const history = { seasons: [], stats: { items: 0, pages: 1, partial: false } };
 

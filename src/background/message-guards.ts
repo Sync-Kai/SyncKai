@@ -67,6 +67,7 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   APPLY_DIFFS: 'extension',
   CANCEL_COMPARE_JOB: 'extension',
   GET_PANEL_MEDIA: 'extension',
+  GET_ANILIST_FRIENDS: 'extension',
   GET_AGENDA: 'extension',
   CR_IMPORT_ANALYZE: 'extension',
   CR_IMPORT_APPLY: 'extension',
@@ -143,6 +144,7 @@ const isResolvePageMediaPayload = (p: unknown): p is ResolvePageMediaPayload =>
 const isAddToListPayload = (p: unknown): p is AddToListPayload =>
   isRecord(p) && isPositiveInt(p.mediaId) && (p.malId === null || isPositiveInt(p.malId)) && isAddListStatus(p.status);
 
+/** Payload { mediaId } (GET_PANEL_MEDIA, GET_ANILIST_FRIENDS) */
 const isPanelMediaPayload = (p: unknown): p is { mediaId: number } => isRecord(p) && isPositiveInt(p.mediaId);
 /** Langue proposée seulement (i18n/locale-codes.ts) : toute autre valeur est refusée, le script reste en anglais */
 const isContentCatalogPayload = (p: unknown): p is { locale: Locale } => isRecord(p) && isLocale(p.locale);
@@ -177,6 +179,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   APPLY_DIFFS: isApplyDiffsPayload,
   CANCEL_COMPARE_JOB: isNull,
   GET_PANEL_MEDIA: isPanelMediaPayload,
+  GET_ANILIST_FRIENDS: isPanelMediaPayload,
   GET_AGENDA: isAgendaPayload,
   CR_IMPORT_ANALYZE: isCrImportAnalyzePayload,
   CR_IMPORT_APPLY: isCrImportApplyPayload,

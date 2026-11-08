@@ -11,6 +11,7 @@ import type { MalViewerResult } from '../shared/mal.types';
 import type { AddListStatus, ListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import type { PageMediaResult, ResolvePageMediaPayload } from '../shared/page-media.types';
 import type { PanelMediaResult } from '../shared/panel-media.types';
+import type { FriendsSummary } from '../shared/friends';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingResult } from '../shared/watching.types';
 import type { ApplyDiffsPayload, ApplyResult, CancelJobResult, CompareResult } from '../shared/compare';
@@ -133,6 +134,11 @@ export interface MessageMap {
   CANCEL_COMPARE_JOB: { payload: null; response: CancelJobResult };
   /** Panneau latéral › « En lecture » : fiche AniList complète (synopsis, genres, studio, relations), cache de session */
   GET_PANEL_MEDIA: { payload: { mediaId: number }; response: PanelMediaResult };
+  /**
+   * Fiche de la page (popup, panneau) : amis AniList (personnes suivies) qui ont la série, cache mémoire 10 min ;
+   * `none` sans session AniList ou sans ami qui l'a
+   */
+  GET_ANILIST_FRIENDS: { payload: { mediaId: number }; response: { status: 'ok'; summary: FriendsSummary } | { status: 'none' } | { status: 'error'; message: string } };
   /** Agenda (panneau latéral) : sorties d'une semaine, lues sur AniList quand le cache du panneau manque ou a expiré */
   GET_AGENDA: { payload: AgendaPayload; response: AgendaResult };
   /** Import Crunchyroll : historique lu dans l'onglet Crunchyroll → analyse en tâche de fond (rien n'est écrit) */
