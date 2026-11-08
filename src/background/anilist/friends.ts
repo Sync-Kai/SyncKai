@@ -4,7 +4,7 @@ import { isFriendsQueryData, reduceFriends, FRIENDS_PER_PAGE, type FriendsSummar
 import type { MessageResponse } from '../../protocol/messages';
 import { accountFingerprint } from '../../browser/storage/sessions';
 import { anilistQuery } from './client';
-import { ApiError } from '../errors';
+import { ApiError, type ApiErrorCode } from '../errors';
 import { createLogger } from '../../browser/logger';
 
 const log = createLogger('anilist');
@@ -35,6 +35,8 @@ export const FRIENDS_CACHE_TTL_MS = 10 * 60_000;
  * en particulier après une session expirée (TOKEN_INVALID, session fermée par le client) : pas de boucle de relance
  */
 export const FRIENDS_ERROR_TTL_MS = 10_000;
+/** Erreurs gardées 10 s ; réseau, erreur d'API et réponse invalide restent relançables aussitôt (« Réessayer ») */
+const CACHED_ERROR_CODES: ReadonlySet<ApiErrorCode> = new Set<ApiErrorCode>(['TOKEN_INVALID', 'NOT_AUTHENTICATED', 'RATE_LIMITED']);
 export const MAX_FRIENDS_KEYS = 100;
 
 type CachedFriends = { at: number; summary: FriendsSummary } | { at: number; error: ApiError };
@@ -72,14 +74,15 @@ async function fetchFriends(mediaId: number, account: string, key: string): Prom
     keep(cache, key, { at: Date.now(), summary }, MAX_FRIENDS_KEYS);
     return summary;
   } catch (error: unknown) {
-    if (error instanceof ApiError && cacheAccount === account) keep(cache, key, { at: Date.now(), error }, MAX_FRIENDS_KEYS);
+    if (error instanceof ApiError && CACHED_ERROR_CODES.has(error.code) && cacheAccount === account) keep(cache, key, { at: Date.now(), error }, MAX_FRIENDS_KEYS);
     throw error;
   }
 }
 
 /**
  * Amis AniList (personnes suivies) qui ont la série `mediaId`, résumés. null : pas de session AniList (ou session changée
- * pendant la requête). Lève une ApiError (gardée 10 s : rien n'est renvoyé à AniList entre-temps).
+ * pendant la requête). Lève une ApiError (session expirée, absente ou limite atteinte : gardée 10 s, rien n'est renvoyé
+ * à AniList entre-temps).
  */
 export async function getAniListFriends(mediaId: number): Promise<FriendsSummary | null> {
   const account = await accountFingerprint('anilist');

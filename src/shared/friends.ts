@@ -79,6 +79,7 @@ export function reduceFriends(data: unknown): FriendsSummary | null {
     friends.push(friend);
     if (friends.length === FRIENDS_PER_PAGE) break;
   }
+  // Moyenne et scoredCount calculés sur les 50 premiers amis lus (taille de la page), pas sur `total`
   const scores = friends.flatMap((f) => (f.score === null ? [] : [f.score]));
   const average = scores.length >= MIN_SCORES_FOR_AVERAGE ? Math.round((scores.reduce((sum, s) => sum + s, 0) / scores.length) * 10) / 10 : null;
   const total: unknown = isRecord(data.Page.pageInfo) ? data.Page.pageInfo.total : undefined;

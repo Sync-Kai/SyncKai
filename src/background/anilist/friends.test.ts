@@ -141,6 +141,27 @@ describe('friendsResponse (message GET_ANILIST_FRIENDS)', () => {
     expect(deps.anilistQuery).toHaveBeenCalledTimes(2);
   });
 
+  it('NOT_AUTHENTICATED et RATE_LIMITED : gardées 10 s aussi', async () => {
+    deps.anilistQuery.mockRejectedValueOnce(new ApiError('NOT_AUTHENTICATED', 'non connecté')).mockRejectedValueOnce(new ApiError('RATE_LIMITED', 'limite'));
+    await friendsResponse(21);
+    await friendsResponse(21);
+    await friendsResponse(22);
+    await friendsResponse(22);
+    expect(deps.anilistQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('NETWORK, API_ERROR ou INVALID_RESPONSE : rien gardé, « Réessayer » relance aussitôt une requête', async () => {
+    for (const code of ['NETWORK', 'API_ERROR', 'INVALID_RESPONSE'] as const) {
+      clearFriendsCache();
+      deps.anilistQuery.mockReset();
+      deps.anilistQuery.mockRejectedValueOnce(new ApiError(code, `échec ${code}`));
+      await expect(friendsResponse(21)).resolves.toEqual({ status: 'error', message: `échec ${code}` });
+      answer();
+      await expect(friendsResponse(21), code).resolves.toMatchObject({ status: 'ok' });
+      expect(deps.anilistQuery, code).toHaveBeenCalledTimes(2);
+    }
+  });
+
   it('erreur inattendue (hors ApiError) : erreur générique, pas d’exception', async () => {
     deps.anilistQuery.mockRejectedValue(new TypeError('boom'));
     await expect(friendsResponse(21)).resolves.toMatchObject({ status: 'error' });
