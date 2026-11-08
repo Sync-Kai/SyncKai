@@ -231,13 +231,13 @@ describe('sortWatchingBy', () => {
       entry({ title: 'terminée', progress: 8, totalEpisodes: 12, airingStatus: 'FINISHED' }),
       entry({ title: 'en diffusion', progress: 1, totalEpisodes: 12, airingStatus: 'RELEASING', nextEpisode: { episode: 4, airingAt: NOW + DAY } }),
     ];
-    // en diffusion : 3 sortis − 1 = 2 à rattraper, devant la terminée (4), alors que total − progression donnerait 11
+    // ancienne règle (total − progression) : 2 restants, donc en tête ; sorti inconnu : en dernier, après les 5 restants de la terminée
     expect(titles(sortWatchingBy(input, 'remaining', NOW))).toEqual(['en diffusion', 'terminée']);
   });
 
   it('"remaining" : sorti inconnu (en diffusion sans prochain épisode) passe après une série terminée, même avec un total connu', () => {
     const input = [
-      entry({ title: 'a inconnu', progress: 1, totalEpisodes: 12, airingStatus: 'RELEASING', nextEpisode: null }),
+      entry({ title: 'a inconnu', progress: 10, totalEpisodes: 12, airingStatus: 'RELEASING', nextEpisode: null }),
       entry({ title: 'z terminée', progress: 7, totalEpisodes: 12, airingStatus: 'FINISHED' }),
     ];
     // total − progression donnerait 11 contre 5 mais l'ordre alphabétique placerait « a » devant : seul « inconnu en dernier » donne ceci
