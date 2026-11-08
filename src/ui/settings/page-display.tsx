@@ -2,7 +2,7 @@
 // l'ouverture, progression en direct) et raccourcis clavier (page Raccourcis, la ligne décrit les touches sans les montrer).
 import { useId } from 'preact/hooks';
 import { getLocale, t } from '../../i18n';
-import type { PanelDefaultTab } from '../../shared/settings';
+import { DORMANT_AFTER_DAYS, type DormantAfterDays, type PanelDefaultTab } from '../../shared/settings';
 import { Section } from '../components/section';
 import { Segmented } from '../components/segmented';
 import { SettingsCard, SettingsRow } from '../components/settings-row';
@@ -21,10 +21,22 @@ function panelTabOptions(): { value: PanelDefaultTab; label: string }[] {
   ];
 }
 
+type DormantKey = `${30 | 60 | 90}` | 'never';
+
+function dormantOptions(): { value: DormantKey; label: string }[] {
+  return [...DORMANT_AFTER_DAYS.map((days) => ({ value: `${days}` as DormantKey, label: t('settings.dormant.days', { days }) })), { value: 'never', label: t('settings.dormant.never') }];
+}
+
+function dormantFromKey(key: DormantKey): DormantAfterDays {
+  return DORMANT_AFTER_DAYS.find((days) => `${days}` === key) ?? null;
+}
+
 export function DisplayPage({ ctx }: { ctx: SettingsContext }) {
   useLocale();
   const data = useStore(ctx.state);
   const tabLabel = useId();
+  const dormantLabel = useId();
+  const dormantHelp = useId();
   const s = data.settings;
   if (!s) return <SettingsPlaceholder error={data.settingsError} />;
   return (
@@ -61,6 +73,27 @@ export function DisplayPage({ ctx }: { ctx: SettingsContext }) {
             focusKey="sk-panel-live"
             divider
           />
+        </SettingsCard>
+      </Section>
+      <Section title={t('watching.mySeries')}>
+        <SettingsCard>
+          <div class="flex flex-col gap-2 p-3">
+            <span class="text-body font-bold" id={dormantLabel}>
+              {t('settings.dormant.label')}
+            </span>
+            <Segmented
+              options={dormantOptions()}
+              value={s.dormantAfterDays === null ? 'never' : `${s.dormantAfterDays}`}
+              onChange={(value) => void ctx.update({ dormantAfterDays: dormantFromKey(value) })}
+              labelledBy={dormantLabel}
+              describedBy={dormantHelp}
+              focusKey="dormant"
+              fill
+            />
+            <span class="text-secondary text-muted" id={dormantHelp}>
+              {t('settings.dormant.help')}
+            </span>
+          </div>
         </SettingsCard>
       </Section>
       <Section title={t('settings.display.keyboard')}>

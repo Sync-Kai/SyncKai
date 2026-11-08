@@ -17,6 +17,10 @@ export { LANGUAGE_SETTINGS, type LanguageSetting };
 export type PanelDefaultTab = 'last' | 'nowPlaying' | 'agenda';
 export const PANEL_DEFAULT_TABS: readonly PanelDefaultTab[] = ['last', 'nowPlaying', 'agenda'];
 
+/** Seuil des séries « En sommeil » (jours sans épisode vu) ; null = jamais */
+export type DormantAfterDays = 30 | 60 | 90 | null;
+export const DORMANT_AFTER_DAYS: readonly (30 | 60 | 90)[] = [30, 60, 90];
+
 export interface SyncSettings extends ContentSettings {
   /** Plateforme ouverte par « Ouvrir » quand l'anime est disponible sur plusieurs plateformes */
   preferredPlayer: StreamingPlatform;
@@ -36,6 +40,8 @@ export interface SyncSettings extends ContentSettings {
   panelDefaultTab: PanelDefaultTab;
   /** Panneau latéral : position de lecture et compte à rebours en direct (port ouvert vers l'onglet) */
   panelLiveProgress: boolean;
+  /** Mes séries : une série « En cours » sans épisode vu depuis ce délai passe dans « En sommeil » (null = jamais) */
+  dormantAfterDays: DormantAfterDays;
 }
 
 export type PlatformOffsets = Readonly<Record<StreamingPlatform, number>>;
@@ -66,6 +72,7 @@ export const DEFAULT_SETTINGS: SyncSettings = {
   seriesOffsets: {},
   panelDefaultTab: 'last',
   panelLiveProgress: true,
+  dormantAfterDays: 30,
 };
 
 /**
@@ -202,5 +209,7 @@ export function normalizeSettings(raw: unknown): SyncSettings {
     // Réglages du panneau (1.10) : absents des réglages plus anciens → valeurs par défaut
     panelDefaultTab: PANEL_DEFAULT_TABS.find((tab) => tab === value.panelDefaultTab) ?? DEFAULT_SETTINGS.panelDefaultTab,
     panelLiveProgress: typeof value.panelLiveProgress === 'boolean' ? value.panelLiveProgress : DEFAULT_SETTINGS.panelLiveProgress,
+    // null (« Jamais ») est une valeur valide ; absent ou hors liste → 30
+    dormantAfterDays: value.dormantAfterDays === null ? null : (DORMANT_AFTER_DAYS.find((d) => d === value.dormantAfterDays) ?? DEFAULT_SETTINGS.dormantAfterDays),
   };
 }

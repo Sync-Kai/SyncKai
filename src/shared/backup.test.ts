@@ -76,6 +76,11 @@ describe('BACKUP_STORAGE_KEYS', () => {
 });
 
 describe('buildBackup', () => {
+  it('conserve le seuil des séries en sommeil (Jamais compris)', () => {
+    expect(buildBackup({ settings: { dormantAfterDays: null } }, '2.5.0', NOW).data.settings?.dormantAfterDays).toBeNull();
+    expect(buildBackup({ settings: { dormantAfterDays: 60 } }, '2.5.0', NOW).data.settings?.dormantAfterDays).toBe(60);
+  });
+
   it('produit l’en-tête et normalise les sections', () => {
     const backup = buildBackup(
       {

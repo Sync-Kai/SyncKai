@@ -554,3 +554,14 @@ New line under the « My series » heading: the total time left to catch up on t
 | Key | Text |
 |---|---|
 | `watching.remaining.total_other` | {duration} để bắt kịp · {count} bộ |
+
+## 2026-11-08 · Dormant series setting
+
+New Settings › Display row (`settings.dormant.*`): the threshold after which a « Watching » series with no episode watched is grouped at the bottom of My series. The help quotes this language's `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. The label doubles as the name of the future « dormant » group. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.dormant.label` | Bộ tạm ngưng |
+| `settings.dormant.help` | Các bộ “Đang xem” không có tập nào được xem trong khoảng này sẽ được gom xuống cuối Bộ của tôi. |
+| `settings.dormant.days` | {days} ngày |
+| `settings.dormant.never` | Không bao giờ |

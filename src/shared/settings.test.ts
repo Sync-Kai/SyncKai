@@ -26,8 +26,16 @@ describe('normalizeSettings', () => {
       seriesOffsets: { '21': { minutes: 120, at: 5 } },
       panelDefaultTab: 'agenda',
       panelLiveProgress: false,
+      dormantAfterDays: 90,
     } as const;
     expect(normalizeSettings(settings)).toEqual(settings);
+  });
+
+  it('seuil des séries en sommeil : 30 par défaut, 30 / 60 / 90 / null conservés, toute autre valeur → 30', () => {
+    expect(normalizeSettings({}).dormantAfterDays).toBe(30);
+    expect(normalizeSettings({ dormantAfterDays: null }).dormantAfterDays).toBeNull();
+    for (const days of [30, 60, 90]) expect(normalizeSettings({ dormantAfterDays: days }).dormantAfterDays).toBe(days);
+    for (const bad of [45, 0, -30, '60', undefined, NaN]) expect(normalizeSettings({ dormantAfterDays: bad }).dormantAfterDays).toBe(30);
   });
 
   it('migre les réglages sans délais de sortie (≤ 1.9) : délais par défaut, le reste conservé', () => {

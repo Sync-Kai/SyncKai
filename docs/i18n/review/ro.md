@@ -602,3 +602,14 @@ New line under the « My series » heading: the total time left to catch up on t
 | `watching.remaining.total_one` | {duration} de recuperat · {count} serie |
 | `watching.remaining.total_few` | {duration} de recuperat · {count} serii |
 | `watching.remaining.total_other` | {duration} de recuperat · {count} de serii |
+
+## 2026-11-08 · Dormant series setting
+
+New Settings › Display row (`settings.dormant.*`): the threshold after which a « Watching » series with no episode watched is grouped at the bottom of My series. The help quotes this language's `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. The label doubles as the name of the future « dormant » group. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.dormant.label` | Seriale inactive |
+| `settings.dormant.help` | Serialele din „Urmăresc” fără niciun episod văzut în acest interval sunt grupate la finalul listei Seriile mele. |
+| `settings.dormant.days` | {days} de zile |
+| `settings.dormant.never` | Niciodată |

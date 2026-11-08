@@ -537,3 +537,14 @@ New line under the « My series » heading: the total time left to catch up on t
 |---|---|
 | `watching.remaining.total_one` | {duration} para colocar em dia · {count} anime |
 | `watching.remaining.total_other` | {duration} para colocar em dia · {count} animes |
+
+## 2026-11-08 · Dormant series setting
+
+New Settings › Display row (`settings.dormant.*`): the threshold after which a « Watching » series with no episode watched is grouped at the bottom of My series. The help quotes this language's `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. The label doubles as the name of the future « dormant » group. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.dormant.label` | Animes inativos |
+| `settings.dormant.help` | Animes em “Assistindo” sem nenhum episódio visto nesse período ficam agrupados no fim de Meus animes. |
+| `settings.dormant.days` | {days} dias |
+| `settings.dormant.never` | Nunca |

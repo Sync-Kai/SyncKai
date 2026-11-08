@@ -285,6 +285,7 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
     seriesOffsets: {},
     panelDefaultTab: 'last',
     panelLiveProgress: true,
+    dormantAfterDays: 30,
   };
   const airing: AiringCheckResult = { checkedAt: now - 12 * MIN, notified: 1, skipped: null, error: null };
   const lists = { anilist: watchingList('anilist', now), mal: watchingList('mal', now) };

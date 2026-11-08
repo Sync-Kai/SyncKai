@@ -554,3 +554,14 @@ New line under the « My series » heading: the total time left to catch up on t
 | Key | Text |
 |---|---|
 | `watching.remaining.total_other` | 따라잡기까지 {duration} · 작품 {count}개 |
+
+## 2026-11-08 · Dormant series setting
+
+New Settings › Display row (`settings.dormant.*`): the threshold after which a « Watching » series with no episode watched is grouped at the bottom of My series. The help quotes this language's `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. The label doubles as the name of the future « dormant » group. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.dormant.label` | 휴면 작품 |
+| `settings.dormant.help` | 이 기간 동안 시청한 에피소드가 없는 ‘시청 중’ 작품을 내 작품 맨 아래에 모아서 표시 |
+| `settings.dormant.days` | {days}일 |
+| `settings.dormant.never` | 안 함 |

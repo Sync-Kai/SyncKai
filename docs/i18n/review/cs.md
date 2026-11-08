@@ -573,3 +573,14 @@ New line under the « My series » heading: the total time left to catch up on t
 | `watching.remaining.total_one` | {duration} k dohnání · {count} seriál |
 | `watching.remaining.total_few` | {duration} k dohnání · {count} seriály |
 | `watching.remaining.total_other` | {duration} k dohnání · {count} seriálů |
+
+## 2026-11-08 · Dormant series setting
+
+New Settings › Display row (`settings.dormant.*`): the threshold after which a « Watching » series with no episode watched is grouped at the bottom of My series. The help quotes this language's `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. The label doubles as the name of the future « dormant » group. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.dormant.label` | Spící seriály |
+| `settings.dormant.help` | Seriály ve stavu „Sleduji“ bez zhlédnutého dílu za tuto dobu se seskupí na konec seznamu Moje seriály. |
+| `settings.dormant.days` | {days} dní |
+| `settings.dormant.never` | Nikdy |

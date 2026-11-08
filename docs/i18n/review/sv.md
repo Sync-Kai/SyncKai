@@ -580,3 +580,14 @@ New line under the « My series » heading: the total time left to catch up on t
 |---|---|
 | `watching.remaining.total_one` | {duration} att ta igen · {count} serie |
 | `watching.remaining.total_other` | {duration} att ta igen · {count} serier |
+
+## 2026-11-08 · Dormant series setting
+
+New Settings › Display row (`settings.dormant.*`): the threshold after which a « Watching » series with no episode watched is grouped at the bottom of My series. The help quotes this language's `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. The label doubles as the name of the future « dormant » group. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.dormant.label` | Vilande serier |
+| `settings.dormant.help` | Serier under ”Tittar på” utan sett avsnitt på så här länge grupperas längst ned i Mina serier. |
+| `settings.dormant.days` | {days} dagar |
+| `settings.dormant.never` | Aldrig |

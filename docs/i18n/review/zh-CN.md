@@ -538,3 +538,14 @@ New line under the « My series » heading: the total time left to catch up on t
 | Key | Text |
 |---|---|
 | `watching.remaining.total_other` | 补番 {duration} · {count} 部番剧 |
+
+## 2026-11-08 · Dormant series setting
+
+New Settings › Display row (`settings.dormant.*`): the threshold after which a « Watching » series with no episode watched is grouped at the bottom of My series. The help quotes this language's `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. The label doubles as the name of the future « dormant » group. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.dormant.label` | 休眠番剧 |
+| `settings.dormant.help` | “在看”的番剧在这段时间内没有观看任何一集时，会归到“我的番剧”底部 |
+| `settings.dormant.days` | {days} 天 |
+| `settings.dormant.never` | 从不 |

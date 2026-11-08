@@ -621,3 +621,14 @@ New line under the « My series » heading: the total time left to catch up on t
 | `watching.remaining.total_few` | {duration} do nadrobienia · {count} serie |
 | `watching.remaining.total_many` | {duration} do nadrobienia · {count} serii |
 | `watching.remaining.total_other` | {duration} do nadrobienia · {count} serii |
+
+## 2026-11-08 · Dormant series setting
+
+New Settings › Display row (`settings.dormant.*`): the threshold after which a « Watching » series with no episode watched is grouped at the bottom of My series. The help quotes this language's `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. The label doubles as the name of the future « dormant » group. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `settings.dormant.label` | Uśpione serie |
+| `settings.dormant.help` | Serie z „Oglądam” bez obejrzanego odcinka od tego czasu są zgrupowane na dole Moich serii. |
+| `settings.dormant.days` | {days} dni |
+| `settings.dormant.never` | Nigdy |
