@@ -359,20 +359,19 @@ describe('popup (bout en bout)', () => {
   it('rail : Tab depuis le premier élément mène au contenu ; ↓ puis Entrée sélectionne Activité ; bulle visible au focus', async () => {
     const page = await openPopup();
     await page.waitForSelector(sel('rail-activity'));
-    // Un seul arrêt de tabulation parmi les sections : Tab quitte les sections (boutons du pied du rail, puis le contenu)
+    // Un seul arrêt de tabulation pour tout le rail (sections et pied) : Tab le quitte pour le contenu
     await page.focus(sel('rail-watching'));
-    const stops: (string | null)[] = [];
-    for (let i = 0; i < 4; i++) {
-      await page.keyboard.press('Tab');
-      const stop = await page.evaluate(() => (document.activeElement?.closest('nav') ? `nav:${document.activeElement.getAttribute('data-focus') ?? ''}` : document.activeElement?.closest('main') ? 'main' : null));
-      stops.push(stop);
-      if (stop === 'main') break;
-    }
-    expect(stops).not.toContain('nav:rail-activity');
-    expect(stops.at(-1)).toBe('main');
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.activeElement?.closest('nav') === null && document.activeElement?.closest('main') !== null)).toBe(true);
+    // Le pied fait partie du groupe des flèches : Fin atteint les Réglages, dont la bulle s'affiche au focus
+    await page.focus(sel('rail-watching'));
+    await page.keyboard.press('End');
+    expect(await focused(page)).toBe('gear');
+    expect(await page.$eval('[data-rail-tooltip]', (el) => ((el as HTMLElement).hidden ? null : el.textContent?.trim()))).toBe(fr('nav.settings'));
+    await page.keyboard.press('Home');
 
     // ↓ déplace le focus sans changer d'écran, Entrée sélectionne
-    await page.focus(sel('rail-watching'));
+    expect(await focused(page)).toBe('rail-watching');
     await page.keyboard.press('ArrowDown');
     expect(await focused(page)).toBe('rail-activity');
     expect(await shownScreen(page)).toBe(0);

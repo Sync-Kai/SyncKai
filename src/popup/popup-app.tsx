@@ -11,8 +11,7 @@ import { t, tp } from '../i18n';
 import type { TrackerId } from '../shared/tracker.types';
 import type { SettingsView } from '../ui/settings/settings-view';
 import type { AccountState, ReadonlyStore } from '../ui/state';
-import { Icon } from '../ui/components/icon';
-import { NavRail, type NavRailItem } from '../ui/components/nav-rail';
+import { NavRail, type NavRailFooterItem, type NavRailItem } from '../ui/components/nav-rail';
 import { ScreenTitle } from '../ui/components/screen-title';
 import { useFocusFallback, useLocale, useNow, useStore } from '../ui/preact/hooks';
 import { ElementSlot } from '../ui/preact/vanilla-slot';
@@ -25,10 +24,6 @@ import type { HostAccessState, UiState } from './state';
 
 /** Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert */
 const CLOCK_TICK_MS = 60_000;
-
-/** Boutons du pied du rail : même gabarit que les sections (44 × 44), enfoncé = sélection neutre */
-const RAIL_BUTTON =
-  'flex size-rail-item cursor-pointer items-center justify-center rounded-panel border border-transparent bg-transparent p-0 text-muted transition-colors hover:text-ink aria-pressed:border-field aria-pressed:bg-raised aria-pressed:text-ink';
 
 export interface PopupAppProps {
   ui: ReadonlyStore<UiState>;
@@ -74,26 +69,12 @@ function PopupRail({ current, onboarding, pending, settingsOpen, onNavigate, onS
         { id: 'watching', icon: 'list', label: t('nav.watching') },
         pending > 0 ? { id: 'activity', icon: 'history', label: t('nav.activity'), badge: pending, ariaLabel: tp('nav.activityPending', pending) } : { id: 'activity', icon: 'history', label: t('nav.activity') },
       ];
-  return (
-    <NavRail
-      label={t('nav.sections')}
-      items={items}
-      current={current}
-      onSelect={onNavigate}
-      footer={
-        <>
-          {onOpenPanel && (
-            <button type="button" class={RAIL_BUTTON} aria-label={t('panel.open')} title={t('panel.open')} data-focus="panel" onClick={onOpenPanel}>
-              <Icon name="panel" class="size-5" strokeWidth="2.2" />
-            </button>
-          )}
-          <button type="button" class={RAIL_BUTTON} aria-label={t('nav.settings')} title={t('nav.settings')} aria-pressed={settingsOpen ? 'true' : 'false'} data-focus="gear" onClick={onSettings}>
-            <Icon name="gear" class="size-5" strokeWidth="2.2" />
-          </button>
-        </>
-      }
-    />
-  );
+  // Clés data-focus « panel » et « gear » (ids des boutons du pied)
+  const footerItems: NavRailFooterItem[] = [
+    ...(onOpenPanel ? [{ id: 'panel', icon: 'panel' as const, label: t('panel.open'), onClick: onOpenPanel }] : []),
+    { id: 'gear', icon: 'gear', label: t('nav.settings'), pressed: settingsOpen, onClick: onSettings },
+  ];
+  return <NavRail label={t('nav.sections')} items={items} current={current} onSelect={onNavigate} footerItems={footerItems} />;
 }
 
 export function PopupApp(props: PopupAppProps) {
