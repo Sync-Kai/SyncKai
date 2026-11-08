@@ -550,3 +550,14 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 |---|---|
 | `compare.bulk.anilist` | AniListに合わせる |
 | `compare.bulk.mal` | MALに合わせる |
+
+## 2026-11-08 · Remaining time per series
+
+New value at the end of each « My series » row: the approximate time left to watch the released episodes (`watching.remaining.short`, units from `time.countdown.*`), its screen-reader sentence (`watching.remaining.spoken`, unit written in full by the browser) and the tooltip detail, finished series (`watching.remaining.detail_*`) or airing series counting released episodes only (`watching.remaining.detailAiring_*`). 約 replaces ≈ (no space: 約6.5時間), the count uses the 話 counter. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.detailAiring_other` | 配信済みの未視聴{count}話 × {duration} |
+| `watching.remaining.detail_other` | {count}話 × {duration} |
+| `watching.remaining.short` | 約{duration} |
+| `watching.remaining.spoken` | 見終わるまで約{duration} |

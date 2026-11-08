@@ -37,6 +37,15 @@ export function airedEpisodes(entry: WatchingEntry): number | null {
   return null;
 }
 
+/**
+ * Épisodes sortis à l'instant `now` (ms) : comme `airedEpisodes`, mais un épisode annoncé dont l'heure est passée (liste
+ * en cache) compte comme sorti. null si inconnu (diffusion sans date, pause, pas encore sortie, total inconnu).
+ */
+export function releasedEpisodes(entry: WatchingEntry, now: number): number | null {
+  const next = entry.nextEpisode;
+  return next && next.airingAt <= now ? next.episode : airedEpisodes(entry);
+}
+
 /** Délai compact avant une sortie : "12 min", "18 h", "2 j" (arrondi à l'inférieur, minimum 1). */
 function formatCountdown(ms: number): string {
   if (ms < HOUR) return t('time.countdown.minutes', { count: Math.max(1, Math.floor(ms / MINUTE)) });
@@ -55,7 +64,7 @@ function formatCountdown(ms: number): string {
 export function nextEpisodeBadge(entry: WatchingEntry, now: number): NextEpisodeBadge {
   const next = entry.nextEpisode;
   // Données en cache : un épisode annoncé dont l'heure est passée est considéré comme sorti
-  const aired = next && next.airingAt <= now ? next.episode : airedEpisodes(entry);
+  const aired = releasedEpisodes(entry, now);
 
   if (aired !== null && aired > entry.progress) {
     return { kind: 'available', label: t('watching.badge.available', { episode: entry.progress + 1 }) };

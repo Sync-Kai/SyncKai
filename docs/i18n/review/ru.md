@@ -568,3 +568,20 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | Key | Text |
 |---|---|
 | `accountMenu.week.label` | Синхронизация за неделю |
+
+## 2026-11-08 · Remaining time per series
+
+New value at the end of each « My series » row: the approximate time left to watch the released episodes (`watching.remaining.short`, units from `time.countdown.*`), its screen-reader sentence (`watching.remaining.spoken`, unit written in full by the browser) and the tooltip detail, finished series (`watching.remaining.detail_*`) or airing series counting released episodes only (`watching.remaining.detailAiring_*`). « Примерно » is an adverb, so the browser's nominative unit (« 2 часа ») fits after it. The aired variant uses доступный, as the « available » badge. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.detailAiring_one` | {count} доступный эпизод к просмотру × {duration} |
+| `watching.remaining.detailAiring_few` | {count} доступных эпизода к просмотру × {duration} |
+| `watching.remaining.detailAiring_many` | {count} доступных эпизодов к просмотру × {duration} |
+| `watching.remaining.detailAiring_other` | {count} доступного эпизода к просмотру × {duration} |
+| `watching.remaining.detail_one` | {count} эпизод × {duration} |
+| `watching.remaining.detail_few` | {count} эпизода × {duration} |
+| `watching.remaining.detail_many` | {count} эпизодов × {duration} |
+| `watching.remaining.detail_other` | {count} эпизода × {duration} |
+| `watching.remaining.short` | ≈ {duration} |
+| `watching.remaining.spoken` | Примерно {duration} до конца |

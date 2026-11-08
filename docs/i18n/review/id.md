@@ -534,3 +534,14 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | `content.episodeShort` | {title} · ep. {number} |
 | `toast.line.both` | AniList dan MyAnimeList |
 | `prompt.rating.title` | Anime selesai ditonton! Berapa nilaimu? |
+
+## 2026-11-08 · Remaining time per series
+
+New value at the end of each « My series » row: the approximate time left to watch the released episodes (`watching.remaining.short`, units from `time.countdown.*`), its screen-reader sentence (`watching.remaining.spoken`, unit written in full by the browser) and the tooltip detail, finished series (`watching.remaining.detail_*`) or airing series counting released episodes only (`watching.remaining.detailAiring_*`). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.detailAiring_other` | {count} episode sudah rilis belum ditonton × {duration} |
+| `watching.remaining.detail_other` | {count} episode × {duration} |
+| `watching.remaining.short` | ≈ {duration} |
+| `watching.remaining.spoken` | Sekitar {duration} lagi sampai selesai |

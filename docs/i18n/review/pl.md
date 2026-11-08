@@ -584,3 +584,20 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | `content.episodeShort` | {title} · odc. {number} |
 | `toast.line.both` | AniList i MyAnimeList |
 | `prompt.rating.title` | Seria obejrzana! Twoja ocena? |
+
+## 2026-11-08 · Remaining time per series
+
+New value at the end of each « My series » row: the approximate time left to watch the released episodes (`watching.remaining.short`, units from `time.countdown.*`), its screen-reader sentence (`watching.remaining.spoken`, unit written in full by the browser) and the tooltip detail, finished series (`watching.remaining.detail_*`) or airing series counting released episodes only (`watching.remaining.detailAiring_*`). `watching.remaining.spoken` avoids « około » (it needs the genitive, and the browser writes « 2 godziny » in the nominative): « Szacowany czas do końca: {duration} ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.detailAiring_one` | {count} wydany odcinek do obejrzenia × {duration} |
+| `watching.remaining.detailAiring_few` | {count} wydane odcinki do obejrzenia × {duration} |
+| `watching.remaining.detailAiring_many` | {count} wydanych odcinków do obejrzenia × {duration} |
+| `watching.remaining.detailAiring_other` | {count} wydanego odcinka do obejrzenia × {duration} |
+| `watching.remaining.detail_one` | {count} odcinek × {duration} |
+| `watching.remaining.detail_few` | {count} odcinki × {duration} |
+| `watching.remaining.detail_many` | {count} odcinków × {duration} |
+| `watching.remaining.detail_other` | {count} odcinka × {duration} |
+| `watching.remaining.short` | ≈ {duration} |
+| `watching.remaining.spoken` | Szacowany czas do końca: {duration} |

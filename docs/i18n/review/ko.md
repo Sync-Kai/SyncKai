@@ -526,3 +526,14 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | `prompt.rewatch.message` | 리스트에서 이미 완료한 작품이에요. 진행도가 {progress}화부터 다시 시작돼요. |
 | `toast.line.both` | AniList 및 MyAnimeList |
 | `prompt.rating.title` | 시청 완료! 몇 점을 줄까요? |
+
+## 2026-11-08 · Remaining time per series
+
+New value at the end of each « My series » row: the approximate time left to watch the released episodes (`watching.remaining.short`, units from `time.countdown.*`), its screen-reader sentence (`watching.remaining.spoken`, unit written in full by the browser) and the tooltip detail, finished series (`watching.remaining.detail_*`) or airing series counting released episodes only (`watching.remaining.detailAiring_*`). 약 replaces ≈ (약 6.5시간). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.detailAiring_other` | 공개된 미시청 에피소드 {count}개 × {duration} |
+| `watching.remaining.detail_other` | 에피소드 {count}개 × {duration} |
+| `watching.remaining.short` | 약 {duration} |
+| `watching.remaining.spoken` | 다 보려면 약 {duration} |

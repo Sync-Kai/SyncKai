@@ -570,3 +570,20 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | `content.episodeShort` | {title} · еп. {number} |
 | `toast.line.both` | AniList і MyAnimeList |
 | `prompt.rating.title` | Аніме переглянуто! Твоя оцінка? |
+
+## 2026-11-08 · Remaining time per series
+
+New value at the end of each « My series » row: the approximate time left to watch the released episodes (`watching.remaining.short`, units from `time.countdown.*`), its screen-reader sentence (`watching.remaining.spoken`, unit written in full by the browser) and the tooltip detail, finished series (`watching.remaining.detail_*`) or airing series counting released episodes only (`watching.remaining.detailAiring_*`). « Приблизно » is an adverb, so the browser's nominative unit (« 2 години ») fits after it. The aired variant uses доступний, as the « available » badge. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.detailAiring_one` | {count} доступний епізод до перегляду × {duration} |
+| `watching.remaining.detailAiring_few` | {count} доступні епізоди до перегляду × {duration} |
+| `watching.remaining.detailAiring_many` | {count} доступних епізодів до перегляду × {duration} |
+| `watching.remaining.detailAiring_other` | {count} доступного епізоду до перегляду × {duration} |
+| `watching.remaining.detail_one` | {count} епізод × {duration} |
+| `watching.remaining.detail_few` | {count} епізоди × {duration} |
+| `watching.remaining.detail_many` | {count} епізодів × {duration} |
+| `watching.remaining.detail_other` | {count} епізоду × {duration} |
+| `watching.remaining.short` | ≈ {duration} |
+| `watching.remaining.spoken` | Приблизно {duration} до кінця |

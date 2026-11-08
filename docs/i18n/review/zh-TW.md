@@ -527,3 +527,14 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | `prompt.rewatch.message` | 清單中已看完：進度將從第 {progress} 集重新開始。 |
 | `toast.line.both` | AniList 和 MyAnimeList |
 | `prompt.rating.title` | 動畫已看完！你給幾分？ |
+
+## 2026-11-08 · Remaining time per series
+
+New value at the end of each « My series » row: the approximate time left to watch the released episodes (`watching.remaining.short`, units from `time.countdown.*`), its screen-reader sentence (`watching.remaining.spoken`, unit written in full by the browser) and the tooltip detail, finished series (`watching.remaining.detail_*`) or airing series counting released episodes only (`watching.remaining.detailAiring_*`). 約 replaces ≈, with a space before the number (約 6.5 小時). Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.detailAiring_other` | 已上架未看 {count} 集 × {duration} |
+| `watching.remaining.detail_other` | {count} 集 × {duration} |
+| `watching.remaining.short` | 約 {duration} |
+| `watching.remaining.spoken` | 看完還需約 {duration} |

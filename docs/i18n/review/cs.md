@@ -539,3 +539,18 @@ The in-page toasts on the player were redesigned (top-right corner, Kai with a s
 | `content.episodeShort` | {title} · ep. {number} |
 | `toast.line.both` | AniList a MyAnimeList |
 | `prompt.rating.title` | Seriál dokončen! Tvoje hodnocení? |
+
+## 2026-11-08 · Remaining time per series
+
+New value at the end of each « My series » row: the approximate time left to watch the released episodes (`watching.remaining.short`, units from `time.countdown.*`), its screen-reader sentence (`watching.remaining.spoken`, unit written in full by the browser) and the tooltip detail, finished series (`watching.remaining.detail_*`) or airing series counting released episodes only (`watching.remaining.detailAiring_*`). « Přibližně » is an adverb, so the browser's nominative unit fits after it. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.remaining.detailAiring_one` | {count} vydaná epizoda ke zhlédnutí × {duration} |
+| `watching.remaining.detailAiring_few` | {count} vydané epizody ke zhlédnutí × {duration} |
+| `watching.remaining.detailAiring_other` | {count} vydaných epizod ke zhlédnutí × {duration} |
+| `watching.remaining.detail_one` | {count} epizoda × {duration} |
+| `watching.remaining.detail_few` | {count} epizody × {duration} |
+| `watching.remaining.detail_other` | {count} epizod × {duration} |
+| `watching.remaining.short` | ≈ {duration} |
+| `watching.remaining.spoken` | Přibližně {duration} do konce |
