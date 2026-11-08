@@ -5,6 +5,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-11-08
+
+First published version since 2.4.0: 2.4.1 was prepared but never tagged nor published, and its changes (below) ship with this version.
+
+### Changed
+
+- Every AniList API request now carries an `X-Client: SyncKai (+https://synckai.app)` header, as AniList's guidelines ask of third-party tools, so AniList can tell SyncKai's traffic apart, catalogue requests made without an account included.
+
+### Security
+
+- SyncKai no longer sends your anilist.co and myanimelist.net cookies (the sites' own analytics and advertising cookies included) with its API requests and the MyAnimeList sign-in exchange: your access token is all these APIs need.
+
 ## [2.4.1] - 2026-11-06
 
 ### Fixed
@@ -463,6 +475,7 @@ First release: automatic Crunchyroll → AniList sync.
 - **Manual review** of uncertain matches from the popup (suggested entries, search, episode number), with a badge on the extension icon.
 - **Recent syncs** in the popup, with after-the-fact correction of a match.
 
+[2.4.2]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.4.2
 [2.4.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.4.1
 [2.4.0]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.4.0
 [2.3.1]: https://github.com/Sync-Kai/SyncKai/releases/tag/v2.3.1
