@@ -616,3 +616,37 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Аниме из «Смотрю», в которых за этот срок не просмотрено ни одного эпизода, собраны внизу «Мои аниме». |
 | `settings.dormant.days` | {days} дней |
 | `settings.dormant.never` | Выкл. |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Бросить |
+| `watching.dormant.dropAria` | Бросить: {title} |
+| `watching.dormant.dropped` | {title}: брошено |
+| `watching.dormant.keep` | Оставить |
+| `watching.dormant.keepAria` | Оставить в «Мои аниме»: {title} |
+| `watching.dormant.pause` | Отложить |
+| `watching.dormant.pauseAll` | Отложить все |
+| `watching.dormant.pauseAllConfirm_one` | Отложить {count} аниме? |
+| `watching.dormant.pauseAllConfirm_few` | Отложить {count} аниме? |
+| `watching.dormant.pauseAllConfirm_many` | Отложить {count} аниме? |
+| `watching.dormant.pauseAllConfirm_other` | Отложить {count} аниме? |
+| `watching.dormant.pauseAllDetail` | На {services}. Сразу после этого можно отменить. |
+| `watching.dormant.pauseAria` | Отложить: {title} |
+| `watching.dormant.paused` | {title}: отложено |
+| `watching.dormant.pausedMany_one` | {count} аниме отложено |
+| `watching.dormant.pausedMany_few` | {count} аниме отложены |
+| `watching.dormant.pausedMany_many` | {count} аниме отложено |
+| `watching.dormant.pausedMany_other` | {count} аниме отложено |
+| `watching.dormant.restored` | {title}: снова в «Смотрю» |
+| `watching.dormant.restoredMany_one` | {count} аниме снова в «Смотрю» |
+| `watching.dormant.restoredMany_few` | {count} аниме снова в «Смотрю» |
+| `watching.dormant.restoredMany_many` | {count} аниме снова в «Смотрю» |
+| `watching.dormant.restoredMany_other` | {count} аниме снова в «Смотрю» |
+| `watching.dormant.seen` | смотрели {ago} |
+| `watching.dormant.subtitle` | Ничего не смотрели больше {days} дней |
+| `watching.dormant.threshold` | Порог: {days} дней |
+| `watching.dormant.undo` | Отменить |

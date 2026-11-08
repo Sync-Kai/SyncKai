@@ -598,3 +598,31 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Series in ‘Aan het kijken’ zonder bekeken aflevering sinds dit aantal dagen staan gegroepeerd onderaan Mijn series. |
 | `settings.dormant.days` | {days} dagen |
 | `settings.dormant.never` | Nooit |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Afhaken |
+| `watching.dormant.dropAria` | Afhaken: {title} |
+| `watching.dormant.dropped` | {title}: afgehaakt |
+| `watching.dormant.keep` | Houden |
+| `watching.dormant.keepAria` | In Mijn series houden: {title} |
+| `watching.dormant.pause` | Pauzeren |
+| `watching.dormant.pauseAll` | Alles pauzeren |
+| `watching.dormant.pauseAllConfirm_one` | {count} serie pauzeren? |
+| `watching.dormant.pauseAllConfirm_other` | {count} series pauzeren? |
+| `watching.dormant.pauseAllDetail` | Op {services}. Je kunt het meteen daarna ongedaan maken. |
+| `watching.dormant.pauseAria` | Pauzeren: {title} |
+| `watching.dormant.paused` | {title}: gepauzeerd |
+| `watching.dormant.pausedMany_one` | {count} serie gepauzeerd |
+| `watching.dormant.pausedMany_other` | {count} series gepauzeerd |
+| `watching.dormant.restored` | {title}: weer in ‘Aan het kijken’ |
+| `watching.dormant.restoredMany_one` | {count} serie weer in ‘Aan het kijken’ |
+| `watching.dormant.restoredMany_other` | {count} series weer in ‘Aan het kijken’ |
+| `watching.dormant.seen` | laatst gekeken {ago} |
+| `watching.dormant.subtitle` | Al meer dan {days} dagen niets gekeken |
+| `watching.dormant.threshold` | Drempel: {days} dagen |
+| `watching.dormant.undo` | Ongedaan maken |

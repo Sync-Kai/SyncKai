@@ -565,3 +565,28 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | 이 기간 동안 시청한 에피소드가 없는 ‘시청 중’ 작품을 내 작품 맨 아래에 모아서 표시 |
 | `settings.dormant.days` | {days}일 |
 | `settings.dormant.never` | 안 함 |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | 하차 |
+| `watching.dormant.dropAria` | 하차하기: {title} |
+| `watching.dormant.dropped` | {title}: 하차 |
+| `watching.dormant.keep` | 유지 |
+| `watching.dormant.keepAria` | 내 작품에 유지: {title} |
+| `watching.dormant.pause` | 보류 |
+| `watching.dormant.pauseAll` | 모두 보류 |
+| `watching.dormant.pauseAllConfirm_other` | 작품 {count}개를 보류할까요? |
+| `watching.dormant.pauseAllDetail` | {services}에 적용돼요. 바로 실행 취소할 수 있어요. |
+| `watching.dormant.pauseAria` | 보류하기: {title} |
+| `watching.dormant.paused` | {title}: 보류 |
+| `watching.dormant.pausedMany_other` | 작품 {count}개 보류함 |
+| `watching.dormant.restored` | {title}: 다시 ‘시청 중’ |
+| `watching.dormant.restoredMany_other` | 작품 {count}개 다시 ‘시청 중’ |
+| `watching.dormant.seen` | {ago} 시청 |
+| `watching.dormant.subtitle` | {days}일 넘게 시청 기록 없음 |
+| `watching.dormant.threshold` | 기준: {days}일 |
+| `watching.dormant.undo` | 실행 취소 |

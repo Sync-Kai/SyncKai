@@ -57,6 +57,8 @@ export interface FrameParams {
    * durée des épisodes inconnue partout (liste mise en cache avant la 2.5.0)
    */
   remaining?: 'backlog' | 'unknown';
+  /** `on` : listes au statut connu, trois séries sans activité depuis plus de 30 jours (groupe « En sommeil ») */
+  dormant?: 'on';
   /**
    * +1 / −1 : `partial` = MyAnimeList échoue, le nouvel essai (`retry`) n'écrit que MAL à la progression absolue ;
    * `slow` = réponse après E2E_ADJUST_SLOW_MS (état « envoi en cours » observable)

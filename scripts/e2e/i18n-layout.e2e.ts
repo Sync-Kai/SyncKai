@@ -56,6 +56,9 @@ const LOCALE_TIMEOUT_MS = 300_000;
 
 /** Série de démo des lignes « Mes séries » (menu « ⋯ », confirmation du retrait) */
 const SOLO = '176496:58567';
+/** Séries du groupe « En sommeil » de démo (`dormant=on`) */
+const DORMANT_FRIEREN = '154587:52991';
+const DORMANT_KAIJU = '178754:59177';
 
 let server: HarnessServer;
 let browser: Browser;
@@ -297,6 +300,40 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await shot(ctx, resume, 'popup/resume');
   } finally {
     await resume.close();
+  }
+
+  // Groupe « En sommeil » déplié (en-tête, lignes « Ép. x / y · vu il y a … » et Pause / Abandonner / Garder, seuil,
+  // « Tout mettre en pause »), ses deux confirmations en ligne, puis le bandeau « … mise en pause · Annuler »
+  ctx.step = 'popup/dormant';
+  const asleep = await openPage(ctx, 'popup.html', { dormant: 'on' }, POPUP_VIEWPORT);
+  try {
+    await asleep.waitForSelector(sel('dormant-toggle'));
+    await asleep.waitForSelector('main [aria-busy="false"]');
+    await click(asleep, 'dormant-toggle');
+    await asleep.waitForSelector('[data-dormant-body]:not([hidden])');
+    await attach(ctx, asleep);
+    await shot(ctx, asleep, 'popup/dormant');
+
+    ctx.step = 'popup/dormant-pause-all';
+    await click(asleep, 'dormant-pause-all');
+    await asleep.waitForSelector('[data-inline-confirm]');
+    await shot(ctx, asleep, 'popup/dormant-pause-all', '[data-dormant-group]');
+    await asleep.keyboard.press('Escape');
+    await asleep.waitForSelector('[data-inline-confirm]', { hidden: true });
+
+    ctx.step = 'popup/dormant-drop';
+    await click(asleep, `dormant-drop-${DORMANT_KAIJU}`);
+    await asleep.waitForSelector('[data-inline-confirm]');
+    await shot(ctx, asleep, 'popup/dormant-drop', '[data-dormant-group]');
+    await asleep.keyboard.press('Escape');
+    await asleep.waitForSelector('[data-inline-confirm]', { hidden: true });
+
+    ctx.step = 'popup/dormant-undo';
+    await click(asleep, `dormant-pause-${DORMANT_FRIEREN}`);
+    await asleep.waitForSelector(sel('watching-undo'));
+    await shot(ctx, asleep, 'popup/dormant-undo', '[data-watching-notice]');
+  } finally {
+    await asleep.close();
   }
 
   // Listes vides : « Rien en cours », astuce avec le chemin des Réglages, plateformes à activer

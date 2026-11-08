@@ -22,7 +22,7 @@ import { createStore, patchStore, withEntry, type ExclusionsState, type InlineFe
 import { callWorker, networkFailure, outcomeFailure } from '../../ui/worker-call';
 import type { EntryAction, WatchingPrefs, WatchingState } from '../state';
 import { popupTimeouts } from '../timeouts';
-import { NOTICE_MS } from './notice';
+import { createNoticeBanner, type NoticeBanner, type WatchingNotice } from './notice';
 
 const log = createLogger('popup');
 
@@ -31,11 +31,7 @@ const PREFS_KEY = 'popupPrefs';
 const ENTRY_FEEDBACK_MS = 3_000;
 const REVALIDATE_DEBOUNCE_MS = 1_000;
 
-/** Bandeau en haut de la liste ; `retry` : « Réessayer » d'un +1 / −1 en échec partiel */
-export interface WatchingNotice {
-  feedback: InlineFeedback;
-  retry: (() => void) | null;
-}
+export type { WatchingNotice } from './notice';
 
 /** Éditeur de commentaire ouvert sous une série (un seul à la fois) : lecture du commentaire, puis édition */
 export type NotesSession =
@@ -66,6 +62,8 @@ export interface WatchingController {
   /** Action en cours ou retour bref, par série (entryKey) */
   readonly entryActions: Store<ReadonlyMap<string, EntryAction>>;
   readonly notice: Store<WatchingNotice | null>;
+  /** Bandeau de l'écran, partagé avec le groupe « En sommeil » (controllers/dormant.ts) */
+  readonly banner: NoticeBanner;
   /** Éditeur de commentaire ouvert (null : aucun) */
   readonly notes: Store<NotesSession | null>;
   /** Suit les comptes et la source : la liste est chargée dès que le service affiché est connu */
@@ -75,6 +73,8 @@ export interface WatchingController {
   /** Tri enregistré */
   loadPrefs(): Promise<void>;
   pickSort(sort: WatchingSort): Promise<void>;
+  /** Groupe « En sommeil » déplié ou replié (préférence enregistrée avec le tri) */
+  setDormantOpen(open: boolean): Promise<void>;
   /** « Réessayer », fin d'un alignement : relit la liste même si le service worker en a une récente */
   reload(): Promise<void>;
   /** Revalidation silencieuse (liste actuelle conservée, pas de skeleton), regroupée sur ~1 s */
@@ -98,9 +98,10 @@ export interface WatchingController {
 export function createWatchingController(deps: WatchingControllerDeps): WatchingController {
   const { accounts } = deps;
   const store = createStore<WatchingState>({ status: 'idle' });
-  const prefs = createStore<WatchingPrefs>({ sort: DEFAULT_WATCHING_SORT });
+  const prefs = createStore<WatchingPrefs>({ sort: DEFAULT_WATCHING_SORT, dormantOpen: false });
   const entryActions = createStore<ReadonlyMap<string, EntryAction>>(new Map());
-  const notice = createStore<WatchingNotice | null>(null);
+  const banner = createNoticeBanner(() => deps.onNoticeShown());
+  const notice = banner.store;
   const notes = createStore<NotesSession | null>(null);
   const unsubscribers: (() => void)[] = [];
 
@@ -196,9 +197,9 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
   // ─── Préférences ──────────────────────────────────────────────────────────
 
   async function savePrefs(): Promise<void> {
-    const { sort } = prefs.get();
+    const { sort, dormantOpen } = prefs.get();
     try {
-      await chrome.storage.local.set({ [PREFS_KEY]: { sort } satisfies WatchingPrefs });
+      await chrome.storage.local.set({ [PREFS_KEY]: { sort, dormantOpen } satisfies WatchingPrefs });
     } catch (error: unknown) {
       log.warn('Préférences du popup non enregistrées :', error);
     }
@@ -261,20 +262,8 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
     );
   }
 
-  let noticeTimer: ReturnType<typeof setTimeout> | undefined;
-
-  function hideNotice(): void {
-    clearTimeout(noticeTimer);
-    notice.set(null);
-  }
-
-  function showNotice(feedback: InlineFeedback, retry: (() => void) | null = null): void {
-    clearTimeout(noticeTimer);
-    notice.set({ feedback, retry });
-    deps.onNoticeShown();
-    // Un échec reste affiché plus longtemps (texte à lire)
-    noticeTimer = setTimeout(hideNotice, feedback.tone === 'success' ? NOTICE_MS : NOTICE_MS * 2);
-  }
+  const hideNotice = banner.hide;
+  const showNotice = (feedback: InlineFeedback, retry: (() => void) | null = null): void => banner.show(feedback, { retry });
 
   // ─── Stockage ─────────────────────────────────────────────────────────────
 
@@ -294,6 +283,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
     prefs,
     entryActions,
     notice,
+    banner,
     notes,
     activeService,
     reload,
@@ -313,7 +303,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
         const raw: unknown = stored[PREFS_KEY];
         if (typeof raw !== 'object' || raw === null) return;
         // Tri inconnu : tri par défaut. `source` (sélecteur AniList / MAL retiré) n'est plus lu : la liste suit le réglage
-        prefs.set({ sort: 'sort' in raw && isWatchingSort(raw.sort) ? raw.sort : DEFAULT_WATCHING_SORT });
+        prefs.set({ sort: 'sort' in raw && isWatchingSort(raw.sort) ? raw.sort : DEFAULT_WATCHING_SORT, dormantOpen: 'dormantOpen' in raw && raw.dormantOpen === true });
       } catch (error: unknown) {
         log.warn('Préférences du popup illisibles :', error);
       }
@@ -321,6 +311,11 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
 
     async pickSort(sort) {
       patchStore(prefs, { sort });
+      await savePrefs();
+    },
+
+    async setDormantOpen(dormantOpen) {
+      patchStore(prefs, { dormantOpen });
       await savePrefs();
     },
 
@@ -440,7 +435,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
       for (const unsubscribe of unsubscribers.splice(0)) unsubscribe();
       request++;
       clearTimeout(revalidateTimer);
-      clearTimeout(noticeTimer);
+      banner.dispose();
       for (const timer of entryTimers.values()) clearTimeout(timer);
       entryTimers.clear();
     },

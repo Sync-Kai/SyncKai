@@ -565,3 +565,28 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Các bộ “Đang xem” không có tập nào được xem trong khoảng này sẽ được gom xuống cuối Bộ của tôi. |
 | `settings.dormant.days` | {days} ngày |
 | `settings.dormant.never` | Không bao giờ |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Bỏ dở |
+| `watching.dormant.dropAria` | Bỏ dở: {title} |
+| `watching.dormant.dropped` | {title}: đã bỏ dở |
+| `watching.dormant.keep` | Giữ lại |
+| `watching.dormant.keepAria` | Giữ trong Bộ của tôi: {title} |
+| `watching.dormant.pause` | Tạm dừng |
+| `watching.dormant.pauseAll` | Tạm dừng tất cả |
+| `watching.dormant.pauseAllConfirm_other` | Tạm dừng {count} bộ? |
+| `watching.dormant.pauseAllDetail` | Trên {services}. Bạn có thể hoàn tác ngay sau đó. |
+| `watching.dormant.pauseAria` | Tạm dừng: {title} |
+| `watching.dormant.paused` | {title}: đã tạm dừng |
+| `watching.dormant.pausedMany_other` | Đã tạm dừng {count} bộ |
+| `watching.dormant.restored` | {title}: đã trở lại “Đang xem” |
+| `watching.dormant.restoredMany_other` | {count} bộ đã trở lại “Đang xem” |
+| `watching.dormant.seen` | xem {ago} |
+| `watching.dormant.subtitle` | Không xem gì hơn {days} ngày |
+| `watching.dormant.threshold` | Ngưỡng: {days} ngày |
+| `watching.dormant.undo` | Hoàn tác |

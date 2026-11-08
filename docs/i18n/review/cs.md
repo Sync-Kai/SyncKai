@@ -584,3 +584,34 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Seriály ve stavu „Sleduji“ bez zhlédnutého dílu za tuto dobu se seskupí na konec seznamu Moje seriály. |
 | `settings.dormant.days` | {days} dní |
 | `settings.dormant.never` | Nikdy |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Zahodit |
+| `watching.dormant.dropAria` | Zahodit: {title} |
+| `watching.dormant.dropped` | {title}: zahozeno |
+| `watching.dormant.keep` | Ponechat |
+| `watching.dormant.keepAria` | Ponechat v Moje seriály: {title} |
+| `watching.dormant.pause` | Pozastavit |
+| `watching.dormant.pauseAll` | Pozastavit vše |
+| `watching.dormant.pauseAllConfirm_one` | Pozastavit {count} seriál? |
+| `watching.dormant.pauseAllConfirm_few` | Pozastavit {count} seriály? |
+| `watching.dormant.pauseAllConfirm_other` | Pozastavit {count} seriálů? |
+| `watching.dormant.pauseAllDetail` | Na {services}. Hned potom to můžeš vrátit zpět. |
+| `watching.dormant.pauseAria` | Pozastavit: {title} |
+| `watching.dormant.paused` | {title}: pozastaveno |
+| `watching.dormant.pausedMany_one` | {count} seriál pozastaven |
+| `watching.dormant.pausedMany_few` | {count} seriály pozastaveny |
+| `watching.dormant.pausedMany_other` | {count} seriálů pozastaveno |
+| `watching.dormant.restored` | {title}: znovu ve stavu „Sleduji“ |
+| `watching.dormant.restoredMany_one` | {count} seriál znovu ve stavu „Sleduji“ |
+| `watching.dormant.restoredMany_few` | {count} seriály znovu ve stavu „Sleduji“ |
+| `watching.dormant.restoredMany_other` | {count} seriálů znovu ve stavu „Sleduji“ |
+| `watching.dormant.seen` | sledováno {ago} |
+| `watching.dormant.subtitle` | Přes {days} dní nic nezhlédnuto |
+| `watching.dormant.threshold` | Práh: {days} dní |
+| `watching.dormant.undo` | Vrátit zpět |

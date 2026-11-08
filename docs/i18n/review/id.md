@@ -573,3 +573,28 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Anime “Menonton” tanpa episode yang ditonton selama rentang ini dikelompokkan di bagian bawah Anime saya. |
 | `settings.dormant.days` | {days} hari |
 | `settings.dormant.never` | Tidak pernah |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Drop |
+| `watching.dormant.dropAria` | Drop: {title} |
+| `watching.dormant.dropped` | {title}: di-drop |
+| `watching.dormant.keep` | Biarkan |
+| `watching.dormant.keepAria` | Biarkan di Anime saya: {title} |
+| `watching.dormant.pause` | Tunda |
+| `watching.dormant.pauseAll` | Tunda semua |
+| `watching.dormant.pauseAllConfirm_other` | Tunda {count} anime? |
+| `watching.dormant.pauseAllDetail` | Di {services}. Kamu bisa membatalkannya sesudahnya. |
+| `watching.dormant.pauseAria` | Tunda: {title} |
+| `watching.dormant.paused` | {title}: ditunda |
+| `watching.dormant.pausedMany_other` | {count} anime ditunda |
+| `watching.dormant.restored` | {title}: kembali ke “Menonton” |
+| `watching.dormant.restoredMany_other` | {count} anime kembali ke “Menonton” |
+| `watching.dormant.seen` | ditonton {ago} |
+| `watching.dormant.subtitle` | Tidak ditonton selama lebih dari {days} hari |
+| `watching.dormant.threshold` | Batas: {days} hari |
+| `watching.dormant.undo` | Urungkan |

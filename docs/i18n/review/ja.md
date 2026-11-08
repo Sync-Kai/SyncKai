@@ -589,3 +589,28 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | 「視聴中」の作品のうち、この期間エピソードを視聴していないものは「作品一覧」の末尾にまとめて表示 |
 | `settings.dormant.days` | {days}日 |
 | `settings.dormant.never` | しない |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | 視聴中止 |
+| `watching.dormant.dropAria` | 視聴中止にする：{title} |
+| `watching.dormant.dropped` | {title}：視聴中止にしました |
+| `watching.dormant.keep` | そのまま |
+| `watching.dormant.keepAria` | 作品一覧に残す：{title} |
+| `watching.dormant.pause` | 一時中断 |
+| `watching.dormant.pauseAll` | すべて一時中断 |
+| `watching.dormant.pauseAllConfirm_other` | {count}作品を一時中断にしますか？ |
+| `watching.dormant.pauseAllDetail` | {services}に反映されます。直後に元に戻せます。 |
+| `watching.dormant.pauseAria` | 一時中断にする：{title} |
+| `watching.dormant.paused` | {title}：一時中断にしました |
+| `watching.dormant.pausedMany_other` | {count}作品を一時中断にしました |
+| `watching.dormant.restored` | {title}：「視聴中」に戻しました |
+| `watching.dormant.restoredMany_other` | {count}作品を「視聴中」に戻しました |
+| `watching.dormant.seen` | {ago}に視聴 |
+| `watching.dormant.subtitle` | {days}日以上視聴なし |
+| `watching.dormant.threshold` | しきい値：{days}日 |
+| `watching.dormant.undo` | 元に戻す |

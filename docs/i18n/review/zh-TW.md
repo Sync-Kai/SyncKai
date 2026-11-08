@@ -566,3 +566,28 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | 「觀看中」的動畫在這段期間沒有看任何一集時，會歸到「我的動畫」底部 |
 | `settings.dormant.days` | {days} 天 |
 | `settings.dormant.never` | 永不 |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | 棄番 |
+| `watching.dormant.dropAria` | 棄番：{title} |
+| `watching.dormant.dropped` | {title}：已棄番 |
+| `watching.dormant.keep` | 保留 |
+| `watching.dormant.keepAria` | 保留在「我的動畫」：{title} |
+| `watching.dormant.pause` | 擱置 |
+| `watching.dormant.pauseAll` | 全部擱置 |
+| `watching.dormant.pauseAllConfirm_other` | 要擱置 {count} 部動畫嗎？ |
+| `watching.dormant.pauseAllDetail` | 在 {services} 上。之後可以馬上復原。 |
+| `watching.dormant.pauseAria` | 擱置：{title} |
+| `watching.dormant.paused` | {title}：已擱置 |
+| `watching.dormant.pausedMany_other` | 已擱置 {count} 部動畫 |
+| `watching.dormant.restored` | {title}：已恢復為「觀看中」 |
+| `watching.dormant.restoredMany_other` | {count} 部動畫已恢復為「觀看中」 |
+| `watching.dormant.seen` | {ago}看過 |
+| `watching.dormant.subtitle` | 超過 {days} 天沒看 |
+| `watching.dormant.threshold` | 門檻：{days} 天 |
+| `watching.dormant.undo` | 復原 |

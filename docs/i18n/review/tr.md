@@ -554,3 +554,31 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | “İzleniyor” durumundaki ve bu süredir hiç bölüm izlenmemiş seriler Serilerim’in en altında toplanır. |
 | `settings.dormant.days` | {days} gün |
 | `settings.dormant.never` | Asla |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Bırak |
+| `watching.dormant.dropAria` | Bırak: {title} |
+| `watching.dormant.dropped` | {title}: bırakıldı |
+| `watching.dormant.keep` | Tut |
+| `watching.dormant.keepAria` | Serilerim’de tut: {title} |
+| `watching.dormant.pause` | Beklet |
+| `watching.dormant.pauseAll` | Tümünü beklet |
+| `watching.dormant.pauseAllConfirm_one` | {count} seri beklemeye alınsın mı? |
+| `watching.dormant.pauseAllConfirm_other` | {count} seri beklemeye alınsın mı? |
+| `watching.dormant.pauseAllDetail` | {services} üzerinde. Hemen ardından geri alabilirsin. |
+| `watching.dormant.pauseAria` | Beklemeye al: {title} |
+| `watching.dormant.paused` | {title}: beklemeye alındı |
+| `watching.dormant.pausedMany_one` | {count} seri beklemeye alındı |
+| `watching.dormant.pausedMany_other` | {count} seri beklemeye alındı |
+| `watching.dormant.restored` | {title}: yeniden “İzleniyor” |
+| `watching.dormant.restoredMany_one` | {count} seri yeniden “İzleniyor” |
+| `watching.dormant.restoredMany_other` | {count} seri yeniden “İzleniyor” |
+| `watching.dormant.seen` | {ago} izlendi |
+| `watching.dormant.subtitle` | {days} günden uzun süredir izlenmedi |
+| `watching.dormant.threshold` | Eşik: {days} gün |
+| `watching.dormant.undo` | Geri al |

@@ -60,9 +60,23 @@ function withRemaining(entry: WatchingEntry): WatchingEntry {
   const progress = remainingMode === 'backlog' && entry.mediaId !== null ? BACKLOG.get(entry.mediaId) : undefined;
   return progress === undefined ? entry : { ...entry, progress };
 }
+/**
+ * `dormant=on` : statut de liste connu (CURRENT) partout ; Frieren (75 j), Solo Leveling (50 j) et Kaiju No. 8 (40 j, deux
+ * épisodes de retard) sans activité depuis plus de 30 jours : groupe « En sommeil »
+ */
+const dormantMode = param('dormant') === 'on';
+const DAY_MS = 24 * 3_600_000;
+const ASLEEP: ReadonlyMap<number, { days: number; progress?: number }> = new Map([[154587, { days: 75 }], [176496, { days: 50 }], [178754, { days: 40, progress: 2 }]]);
+function withDormancy(entry: WatchingEntry): WatchingEntry {
+  if (!dormantMode) return entry;
+  const asleep = entry.mediaId !== null ? ASLEEP.get(entry.mediaId) : undefined;
+  if (!asleep) return { ...entry, listStatus: 'CURRENT' };
+  const at = now - asleep.days * DAY_MS;
+  return { ...entry, listStatus: 'CURRENT', updatedAt: at, lastSync: entry.lastSync && { ...entry.lastSync, at }, progress: asleep.progress ?? entry.progress };
+}
 const demoList = (service: TrackerId): WatchingList => {
   const list = watchingList(service, now);
-  return emptyWatching ? { ...list, entries: [] } : { ...list, entries: list.entries.map(withRemaining) };
+  return emptyWatching ? { ...list, entries: [] } : { ...list, entries: list.entries.map(withRemaining).map(withDormancy) };
 };
 const lists: Record<TrackerId, WatchingList> = { anilist: demoList('anilist'), mal: demoList('mal') };
 
@@ -115,11 +129,29 @@ function adjustProgress(payload: unknown): SyncOutcome {
   };
 }
 
+/** Séries sorties de « En cours » par un statut, pour « Annuler » (identifiant AniList → série) */
+const parked = new Map<number, WatchingEntry>();
+
+/**
+ * Statut : la série quitte les deux listes ; CURRENT (« Annuler » des séries en sommeil) la remet en cours, fiche modifiée
+ * maintenant. `services` limite l'écriture (résultats des seuls services visés)
+ */
 function setListStatus(payload: unknown): SyncOutcome {
-  const entry = findEntry(numberField(payload, 'mediaId'));
+  const mediaId = numberField(payload, 'mediaId');
+  const services = isRecord(payload) && Array.isArray(payload.services) ? payload.services.filter(isTrackerId) : TRACKER_IDS;
+  const written = (title: string, progress: number): SyncOutcome => ({ status: 'synced', mediaTitle: title, results: services.map((service) => ({ service, outcome: { status: 'updated', progress, completed: false } })) });
+  if (isRecord(payload) && payload.status === 'CURRENT') {
+    const back = mediaId !== null ? parked.get(mediaId) : undefined;
+    if (!back || back.mediaId === null) return { status: 'error', message: 'Série inconnue (e2e)' };
+    parked.delete(back.mediaId);
+    for (const service of TRACKER_IDS) lists[service] = { ...lists[service], entries: [...lists[service].entries, { ...back, updatedAt: Date.now() }] };
+    return written(back.title, back.progress);
+  }
+  const entry = findEntry(mediaId);
   if (!entry || entry.mediaId === null) return { status: 'error', message: 'Série inconnue (e2e)' };
+  parked.set(entry.mediaId, entry);
   patchEntry(entry.mediaId, () => null);
-  return synced(entry.title, { status: 'updated', progress: entry.progress, completed: false });
+  return written(entry.title, entry.progress);
 }
 
 /** Série d'un payload { media: { mediaId } } (retrait, commentaire) */

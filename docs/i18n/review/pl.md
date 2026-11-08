@@ -632,3 +632,37 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Serie z „Oglądam” bez obejrzanego odcinka od tego czasu są zgrupowane na dole Moich serii. |
 | `settings.dormant.days` | {days} dni |
 | `settings.dormant.never` | Nigdy |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Porzuć |
+| `watching.dormant.dropAria` | Porzuć: {title} |
+| `watching.dormant.dropped` | {title}: porzucone |
+| `watching.dormant.keep` | Zostaw |
+| `watching.dormant.keepAria` | Zostaw w Moich seriach: {title} |
+| `watching.dormant.pause` | Wstrzymaj |
+| `watching.dormant.pauseAll` | Wstrzymaj wszystkie |
+| `watching.dormant.pauseAllConfirm_one` | Wstrzymać {count} serię? |
+| `watching.dormant.pauseAllConfirm_few` | Wstrzymać {count} serie? |
+| `watching.dormant.pauseAllConfirm_many` | Wstrzymać {count} serii? |
+| `watching.dormant.pauseAllConfirm_other` | Wstrzymać {count} serii? |
+| `watching.dormant.pauseAllDetail` | Na {services}. Zaraz potem możesz to cofnąć. |
+| `watching.dormant.pauseAria` | Wstrzymaj: {title} |
+| `watching.dormant.paused` | {title}: wstrzymane |
+| `watching.dormant.pausedMany_one` | {count} seria wstrzymana |
+| `watching.dormant.pausedMany_few` | {count} serie wstrzymane |
+| `watching.dormant.pausedMany_many` | {count} serii wstrzymanych |
+| `watching.dormant.pausedMany_other` | {count} serii wstrzymanych |
+| `watching.dormant.restored` | {title}: znów w „Oglądam” |
+| `watching.dormant.restoredMany_one` | {count} seria znów w „Oglądam” |
+| `watching.dormant.restoredMany_few` | {count} serie znów w „Oglądam” |
+| `watching.dormant.restoredMany_many` | {count} serii znów w „Oglądam” |
+| `watching.dormant.restoredMany_other` | {count} serii znów w „Oglądam” |
+| `watching.dormant.seen` | oglądane {ago} |
+| `watching.dormant.subtitle` | Nic nie oglądane od ponad {days} dni |
+| `watching.dormant.threshold` | Próg: {days} dni |
+| `watching.dormant.undo` | Cofnij |

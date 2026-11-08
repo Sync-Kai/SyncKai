@@ -11,7 +11,7 @@ import { excludePageSeries, includePageSeries } from '../ui/page-exclusion';
 import { sendMessage } from '../protocol/messages';
 import { callWorker, networkFailure, outcomeFailure } from '../ui/worker-call';
 import type { RecentSync } from '../shared/review.types';
-import { DEFAULT_SETTINGS, effectivePlayer, normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
+import { DEFAULT_SETTINGS, effectivePlayer, normalizeSettings, SETTINGS_STORAGE_KEY, type DormantAfterDays } from '../shared/settings';
 import { getSettings } from '../browser/storage/settings-access';
 import { deletePendingReview, getPendingReviews, getRecentSyncs } from '../browser/storage/reviews';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
@@ -26,6 +26,7 @@ import { createCompareController } from '../ui/compare-controller';
 import { createQueueController } from './controllers/queue';
 import { createRatingsController } from './controllers/ratings';
 import { createWatchingController } from './controllers/watching';
+import { createDormantController } from './controllers/dormant';
 import type { ReviewActions } from '../ui/review-card';
 import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, UiState } from './state';
 import { createStore, patchStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
@@ -75,6 +76,14 @@ const watching = createWatchingController({
   // Bandeau en haut de la liste : ramené dans la zone visible si la série était plus bas
   onNoticeShown: () => afterRender(() => document.querySelector('[data-watching-notice]')?.scrollIntoView({ block: 'nearest' })),
 });
+/** Réglage « Séries en sommeil » ; undefined tant que les réglages ne sont pas lus (aucun groupe) */
+const dormantThresholdStore = createStore<DormantAfterDays | undefined>(undefined);
+settingsStore.subscribe((state) => {
+  const days = state.status === 'ready' ? state.settings.dormantAfterDays : state.status === 'error' ? DEFAULT_SETTINGS.dormantAfterDays : undefined;
+  if (days !== dormantThresholdStore.get()) dormantThresholdStore.set(days);
+});
+/** Groupe « En sommeil » de « Mes séries » (pause, abandon, garder, annuler) */
+const dormant = createDormantController({ watching, threshold: dormantThresholdStore });
 /** Activité › « Synchros en attente » */
 const queue = createQueueController();
 /** Activité › « À noter » */
@@ -189,7 +198,11 @@ function mainRegion(): HTMLElement | null {
 
 // ─── Navigation ───────────────────────────────────────────────────────────
 
-function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
+/**
+ * `focus` : clé data-focus d'un réglage de `settingsPage` qui reçoit le focus une fois l'écran affiché (avant, la zone des
+ * Réglages est encore masquée)
+ */
+function navigate(screen: Screen, settingsPage: SettingsPage = 'home', focus?: string): void {
   const ui = uiStore.get();
   pendingSettings = null;
   if (ui.screen === screen) return;
@@ -201,7 +214,7 @@ function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
       const request = { page: settingsPage };
       pendingSettings = request;
       void loadSettingsView().then((view) => {
-        if (view && pendingSettings === request) navigate('settings', settingsPage);
+        if (view && pendingSettings === request) navigate('settings', settingsPage, focus);
       });
       return;
     }
@@ -210,6 +223,20 @@ function navigate(screen: Screen, settingsPage: SettingsPage = 'home'): void {
   uiStore.set({ ...ui, screen, previous: ui.screen === 'settings' ? ui.previous : ui.screen });
   const main = mainRegion();
   if (main) main.scrollTop = 0;
+  if (focus !== undefined) focusWhenShown(focus);
+}
+
+/** Réglage à focaliser : la page des Réglages se monte quelques images après l'affichage de l'écran (10 essais au plus) */
+function focusWhenShown(focus: string, tries = 10): void {
+  requestAnimationFrame(() => {
+    const target = mainRegion()?.querySelector<HTMLElement>(`[data-focus="${focus}"]`);
+    if (target && !target.closest('[hidden]')) {
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'nearest' });
+    } else if (tries > 1) {
+      focusWhenShown(focus, tries - 1);
+    }
+  });
 }
 
 function goBack(): void {
@@ -251,6 +278,25 @@ function pickSort(sort: WatchingSort): void {
 function openNotes(entry: WatchingEntry): void {
   watching.openNotes(entry);
   afterRender(() => watchingRegion()?.querySelector(`[data-notes-row="${entryKey(entry)}"]`)?.scrollIntoView({ block: 'nearest' }));
+}
+
+/**
+ * Action du groupe « En sommeil » : la ligne disparaît, le focus va au « Annuler » du bandeau s'il y en a un, sinon à
+ * l'en-tête du groupe (ou à rien s'il n'y a plus de groupe)
+ */
+async function afterDormantAction(action: Promise<void>): Promise<void> {
+  await action;
+  afterRender(() => {
+    const region = watchingRegion();
+    const target = region?.querySelector<HTMLElement>('[data-focus="watching-undo"]') ?? region?.querySelector<HTMLElement>('[data-focus="dormant-toggle"]');
+    target?.focus({ preventScroll: true });
+  });
+}
+
+/** « Seuil : 30 jours » : Réglages › Affichage, focus sur le choix du seuil */
+function openDormantThreshold(): void {
+  const days = dormant.store.get().thresholdDays;
+  navigate('settings', 'display', `dormant-${days ?? 'never'}`);
 }
 
 /** Fermeture (Annuler, Échap, enregistré) : focus rendu au bouton « ⋯ » de la série */
@@ -465,6 +511,7 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 // ─── Démarrage ────────────────────────────────────────────────────────────
 
 watching.start();
+dormant.start();
 mountPopupApp(getRoot(), {
   ui: uiStore,
   accounts: { anilist: anilistStore, mal: malStore },
@@ -523,6 +570,16 @@ mountPopupApp(getRoot(), {
     onCloseNotes: closeNotes,
     onSaveNotes: saveNotes,
     onPickSort: pickSort,
+    dormant: {
+      state: dormant.store,
+      prefs: watching.prefs,
+      onToggle: (open) => void watching.setDormantOpen(open),
+      onPause: (entry) => void afterDormantAction(dormant.pauseDormant(entry)),
+      onDrop: (entry) => void afterDormantAction(dormant.dropDormant(entry)),
+      onKeep: (entry) => void afterDormantAction(dormant.keepDormant(entry)),
+      onPauseAll: () => void afterDormantAction(dormant.pauseAllDormant()),
+      onOpenThreshold: openDormantThreshold,
+    },
     onRetry: () => void watching.reload(),
     onOpenPlatformsSettings: () => navigate('settings', 'platforms'),
   },

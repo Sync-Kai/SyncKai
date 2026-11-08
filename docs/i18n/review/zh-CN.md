@@ -549,3 +549,28 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | “在看”的番剧在这段时间内没有观看任何一集时，会归到“我的番剧”底部 |
 | `settings.dormant.days` | {days} 天 |
 | `settings.dormant.never` | 从不 |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | 抛弃 |
+| `watching.dormant.dropAria` | 将《{title}》标为抛弃 |
+| `watching.dormant.dropped` | 《{title}》：已抛弃 |
+| `watching.dormant.keep` | 保留 |
+| `watching.dormant.keepAria` | 将《{title}》保留在“我的番剧” |
+| `watching.dormant.pause` | 搁置 |
+| `watching.dormant.pauseAll` | 全部搁置 |
+| `watching.dormant.pauseAllConfirm_other` | 将 {count} 部番剧标为搁置？ |
+| `watching.dormant.pauseAllDetail` | 在 {services} 上。之后可以马上撤销。 |
+| `watching.dormant.pauseAria` | 将《{title}》标为搁置 |
+| `watching.dormant.paused` | 《{title}》：已搁置 |
+| `watching.dormant.pausedMany_other` | 已搁置 {count} 部番剧 |
+| `watching.dormant.restored` | 《{title}》：已恢复为“在看” |
+| `watching.dormant.restoredMany_other` | {count} 部番剧已恢复为“在看” |
+| `watching.dormant.seen` | {ago}看过 |
+| `watching.dormant.subtitle` | 超过 {days} 天没看 |
+| `watching.dormant.threshold` | 阈值：{days} 天 |
+| `watching.dormant.undo` | 撤销 |

@@ -613,3 +613,34 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Serialele din „Urmăresc” fără niciun episod văzut în acest interval sunt grupate la finalul listei Seriile mele. |
 | `settings.dormant.days` | {days} de zile |
 | `settings.dormant.never` | Niciodată |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Abandonează |
+| `watching.dormant.dropAria` | Abandonează: {title} |
+| `watching.dormant.dropped` | {title}: abandonată |
+| `watching.dormant.keep` | Păstrează |
+| `watching.dormant.keepAria` | Păstrează în Seriile mele: {title} |
+| `watching.dormant.pause` | Pauză |
+| `watching.dormant.pauseAll` | Pune-le pe toate în pauză |
+| `watching.dormant.pauseAllConfirm_one` | Pui {count} serial în pauză? |
+| `watching.dormant.pauseAllConfirm_few` | Pui {count} seriale în pauză? |
+| `watching.dormant.pauseAllConfirm_other` | Pui {count} de seriale în pauză? |
+| `watching.dormant.pauseAllDetail` | Pe {services}. Poți anula imediat după. |
+| `watching.dormant.pauseAria` | Pune în pauză: {title} |
+| `watching.dormant.paused` | {title}: în pauză |
+| `watching.dormant.pausedMany_one` | {count} serial pus în pauză |
+| `watching.dormant.pausedMany_few` | {count} seriale puse în pauză |
+| `watching.dormant.pausedMany_other` | {count} de seriale puse în pauză |
+| `watching.dormant.restored` | {title}: din nou în „Urmăresc” |
+| `watching.dormant.restoredMany_one` | {count} serial din nou în „Urmăresc” |
+| `watching.dormant.restoredMany_few` | {count} seriale din nou în „Urmăresc” |
+| `watching.dormant.restoredMany_other` | {count} de seriale din nou în „Urmăresc” |
+| `watching.dormant.seen` | văzut {ago} |
+| `watching.dormant.subtitle` | Nimic văzut de peste {days} de zile |
+| `watching.dormant.threshold` | Prag: {days} de zile |
+| `watching.dormant.undo` | Anulează |

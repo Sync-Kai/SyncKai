@@ -548,3 +548,31 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Animes em “Assistindo” sem nenhum episódio visto nesse período ficam agrupados no fim de Meus animes. |
 | `settings.dormant.days` | {days} dias |
 | `settings.dormant.never` | Nunca |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Abandonar |
+| `watching.dormant.dropAria` | Abandonar: {title} |
+| `watching.dormant.dropped` | {title}: abandonado |
+| `watching.dormant.keep` | Manter |
+| `watching.dormant.keepAria` | Manter em Meus animes: {title} |
+| `watching.dormant.pause` | Pausar |
+| `watching.dormant.pauseAll` | Pausar todos |
+| `watching.dormant.pauseAllConfirm_one` | Pausar {count} anime? |
+| `watching.dormant.pauseAllConfirm_other` | Pausar {count} animes? |
+| `watching.dormant.pauseAllDetail` | No {services}. Você pode desfazer logo em seguida. |
+| `watching.dormant.pauseAria` | Pausar: {title} |
+| `watching.dormant.paused` | {title}: pausado |
+| `watching.dormant.pausedMany_one` | {count} anime pausado |
+| `watching.dormant.pausedMany_other` | {count} animes pausados |
+| `watching.dormant.restored` | {title}: de volta a “Assistindo” |
+| `watching.dormant.restoredMany_one` | {count} anime de volta a “Assistindo” |
+| `watching.dormant.restoredMany_other` | {count} animes de volta a “Assistindo” |
+| `watching.dormant.seen` | visto {ago} |
+| `watching.dormant.subtitle` | Nada assistido há mais de {days} dias |
+| `watching.dormant.threshold` | Limite: {days} dias |
+| `watching.dormant.undo` | Desfazer |

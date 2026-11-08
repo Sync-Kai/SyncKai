@@ -618,3 +618,37 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Аніме зі статусу «Дивлюся», у яких за цей час не переглянуто жодного епізоду, зібрано внизу «Мої аніме». |
 | `settings.dormant.days` | {days} днів |
 | `settings.dormant.never` | Ніколи |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Закинути |
+| `watching.dormant.dropAria` | Закинути: {title} |
+| `watching.dormant.dropped` | {title}: закинуто |
+| `watching.dormant.keep` | Залишити |
+| `watching.dormant.keepAria` | Залишити в «Мої аніме»: {title} |
+| `watching.dormant.pause` | Відкласти |
+| `watching.dormant.pauseAll` | Відкласти всі |
+| `watching.dormant.pauseAllConfirm_one` | Відкласти {count} аніме? |
+| `watching.dormant.pauseAllConfirm_few` | Відкласти {count} аніме? |
+| `watching.dormant.pauseAllConfirm_many` | Відкласти {count} аніме? |
+| `watching.dormant.pauseAllConfirm_other` | Відкласти {count} аніме? |
+| `watching.dormant.pauseAllDetail` | На {services}. Одразу після цього можна скасувати. |
+| `watching.dormant.pauseAria` | Відкласти: {title} |
+| `watching.dormant.paused` | {title}: відкладено |
+| `watching.dormant.pausedMany_one` | {count} аніме відкладено |
+| `watching.dormant.pausedMany_few` | {count} аніме відкладено |
+| `watching.dormant.pausedMany_many` | {count} аніме відкладено |
+| `watching.dormant.pausedMany_other` | {count} аніме відкладено |
+| `watching.dormant.restored` | {title}: знову в «Дивлюся» |
+| `watching.dormant.restoredMany_one` | {count} аніме знову в «Дивлюся» |
+| `watching.dormant.restoredMany_few` | {count} аніме знову в «Дивлюся» |
+| `watching.dormant.restoredMany_many` | {count} аніме знову в «Дивлюся» |
+| `watching.dormant.restoredMany_other` | {count} аніме знову в «Дивлюся» |
+| `watching.dormant.seen` | дивилися {ago} |
+| `watching.dormant.subtitle` | Нічого не дивилися понад {days} днів |
+| `watching.dormant.threshold` | Поріг: {days} днів |
+| `watching.dormant.undo` | Скасувати |

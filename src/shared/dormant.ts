@@ -8,12 +8,18 @@ export interface KeepMark {
   keptAt: number;
 }
 
-/** Dernière activité connue : le plus récent de la mise à jour de la fiche et de la dernière synchro SyncKai (ms), null si aucune */
+/**
+ * Dernière activité connue : le plus récent de la mise à jour de la fiche et de la dernière synchro SyncKai (ms), null si
+ * aucune. Un horodatage non fini (NaN, Infinity : cache altéré) est ignoré, jamais pris pour une date ancienne
+ */
 export function lastActivity(entry: WatchingEntry): number | null {
-  const times: number[] = [];
-  if (entry.updatedAt !== null) times.push(entry.updatedAt);
-  if (entry.lastSync !== null) times.push(entry.lastSync.at);
+  const times = [entry.updatedAt, entry.lastSync?.at ?? null].filter((time): time is number => time !== null && Number.isFinite(time));
   return times.length === 0 ? null : Math.max(...times);
+}
+
+/** Clé d'une série dans les marques « Garder » : identifiant AniList, sinon « mal:<id> » */
+export function dormantKey(entry: Pick<WatchingEntry, 'mediaId' | 'malId'>): string {
+  return entry.mediaId !== null ? String(entry.mediaId) : `mal:${entry.malId}`;
 }
 
 /**
@@ -33,4 +39,18 @@ export function isDormant(entry: WatchingEntry, opts: { now: number; thresholdDa
   // Une activité postérieure à la marque l'annule : l'activité décide seule
   if (kept !== null && activity <= kept.keptAt && now - kept.keptAt < windowMs) return false;
   return true;
+}
+
+/**
+ * Groupe « En sommeil » : séries en sommeil hors de la série « Reprendre » (`hero`, jamais affichée deux fois), la plus
+ * longtemps inactive d'abord (titre à égalité), quel que soit le tri de la liste
+ */
+export function dormantEntries(
+  entries: readonly WatchingEntry[],
+  opts: { now: number; thresholdDays: 30 | 60 | 90 | null; marks: Readonly<Record<string, KeepMark>>; hero: WatchingEntry | null },
+): WatchingEntry[] {
+  const { now, thresholdDays, marks, hero } = opts;
+  const dormant = entries.filter((entry) => entry !== hero && isDormant(entry, { now, thresholdDays, kept: marks[dormantKey(entry)] ?? null }));
+  // lastActivity est connue pour toute série en sommeil (isDormant l'exige)
+  return dormant.sort((a, b) => (lastActivity(a) ?? 0) - (lastActivity(b) ?? 0) || a.title.localeCompare(b.title));
 }

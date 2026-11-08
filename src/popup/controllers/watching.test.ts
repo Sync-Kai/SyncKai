@@ -224,12 +224,25 @@ describe('createWatchingController : chargement', () => {
   it('préférences : tri valide repris, valeur inconnue remplacée par le tri par défaut ; l’ancienne source enregistrée est ignorée', async () => {
     fake.local.seed({ popupPrefs: { source: 'mal', sort: 'inconnu' } });
     await ctl.loadPrefs();
-    expect(ctl.prefs.get()).toEqual({ sort: 'next-episode' });
+    expect(ctl.prefs.get()).toEqual({ sort: 'next-episode', dormantOpen: false });
     await ctl.pickSort('title');
-    expect(fake.local.peek('popupPrefs')).toEqual({ sort: 'title' });
+    expect(fake.local.peek('popupPrefs')).toEqual({ sort: 'title', dormantOpen: false });
     fake.local.seed({ popupPrefs: { source: 'mal', sort: 'remaining' } });
     await ctl.loadPrefs();
-    expect(ctl.prefs.get()).toEqual({ sort: 'remaining' });
+    expect(ctl.prefs.get()).toEqual({ sort: 'remaining', dormantOpen: false });
+  });
+
+  it('groupe « En sommeil » replié par défaut, son ouverture est enregistrée avec le tri', async () => {
+    await ctl.loadPrefs();
+    expect(ctl.prefs.get().dormantOpen).toBe(false);
+    await ctl.setDormantOpen(true);
+    expect(fake.local.peek('popupPrefs')).toEqual({ sort: 'next-episode', dormantOpen: true });
+    fake.local.seed({ popupPrefs: { sort: 'title', dormantOpen: true } });
+    await ctl.loadPrefs();
+    expect(ctl.prefs.get()).toEqual({ sort: 'title', dormantOpen: true });
+    fake.local.seed({ popupPrefs: { sort: 'title', dormantOpen: 'oui' } });
+    await ctl.loadPrefs();
+    expect(ctl.prefs.get().dormantOpen).toBe(false);
   });
 });
 

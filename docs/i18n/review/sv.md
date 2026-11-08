@@ -591,3 +591,31 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Serier under ”Tittar på” utan sett avsnitt på så här länge grupperas längst ned i Mina serier. |
 | `settings.dormant.days` | {days} dagar |
 | `settings.dormant.never` | Aldrig |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Hoppa av |
+| `watching.dormant.dropAria` | Hoppa av: {title} |
+| `watching.dormant.dropped` | {title}: avbruten |
+| `watching.dormant.keep` | Behåll |
+| `watching.dormant.keepAria` | Behåll i Mina serier: {title} |
+| `watching.dormant.pause` | Pausa |
+| `watching.dormant.pauseAll` | Pausa alla |
+| `watching.dormant.pauseAllConfirm_one` | Pausa {count} serie? |
+| `watching.dormant.pauseAllConfirm_other` | Pausa {count} serier? |
+| `watching.dormant.pauseAllDetail` | På {services}. Du kan ångra direkt efteråt. |
+| `watching.dormant.pauseAria` | Pausa: {title} |
+| `watching.dormant.paused` | {title}: pausad |
+| `watching.dormant.pausedMany_one` | {count} serie pausad |
+| `watching.dormant.pausedMany_other` | {count} serier pausade |
+| `watching.dormant.restored` | {title}: tillbaka i ”Tittar på” |
+| `watching.dormant.restoredMany_one` | {count} serie tillbaka i ”Tittar på” |
+| `watching.dormant.restoredMany_other` | {count} serier tillbaka i ”Tittar på” |
+| `watching.dormant.seen` | sedd {ago} |
+| `watching.dormant.subtitle` | Inget sett på över {days} dagar |
+| `watching.dormant.threshold` | Gräns: {days} dagar |
+| `watching.dormant.undo` | Ångra |

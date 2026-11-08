@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDormant, lastActivity } from './dormant';
+import { dormantEntries, dormantKey, isDormant, lastActivity } from './dormant';
 import type { WatchingEntry } from './watching.types';
 
 const NOW = Date.UTC(2026, 10, 8, 12, 0, 0);
@@ -36,6 +36,12 @@ describe('lastActivity', () => {
   it('une seule source connue, ou aucune', () => {
     expect(lastActivity(entry({ updatedAt: null, lastSync: sync(3) }))).toBe(NOW - 3 * DAY);
     expect(lastActivity(entry({ updatedAt: null, lastSync: null }))).toBeNull();
+  });
+  it('horodatage non fini (NaN, Infinity) ignoré : jamais en sommeil sur une date illisible', () => {
+    expect(lastActivity(entry({ updatedAt: Number.NaN, lastSync: null }))).toBeNull();
+    expect(lastActivity(entry({ updatedAt: Number.NaN, lastSync: sync(3) }))).toBe(NOW - 3 * DAY);
+    expect(lastActivity(entry({ updatedAt: NOW - 2 * DAY, lastSync: { platform: 'crunchyroll', at: Number.POSITIVE_INFINITY, episodeUrl: 'https://www.crunchyroll.com/watch/X' } }))).toBe(NOW - 2 * DAY);
+    expect(isDormant(entry({ updatedAt: Number.NaN }), opts)).toBe(false);
   });
 });
 
@@ -83,5 +89,33 @@ describe('isDormant', () => {
       // activité 31 j, marque 20 j : marque valide
       expect(isDormant(entry(), { ...opts, kept: { keptAt: NOW - 20 * DAY } })).toBe(false);
     });
+  });
+});
+
+describe('dormantKey', () => {
+  it('identifiant AniList, sinon « mal:<id> »', () => {
+    expect(dormantKey(entry({ mediaId: 101, malId: 7 }))).toBe('101');
+    expect(dormantKey(entry({ mediaId: null, malId: 7 }))).toBe('mal:7');
+  });
+});
+
+describe('dormantEntries', () => {
+  const a = entry({ mediaId: 1, title: 'Alpha', updatedAt: NOW - 40 * DAY });
+  const b = entry({ mediaId: 2, title: 'Beta', updatedAt: NOW - 90 * DAY });
+  const c = entry({ mediaId: 3, title: 'Gamma', updatedAt: NOW - 5 * DAY });
+  const d = entry({ mediaId: 4, title: 'Delta', updatedAt: NOW - 40 * DAY });
+  const base = { now: NOW, thresholdDays: 30 as const, marks: {}, hero: null };
+
+  it('séries en sommeil seulement, la plus longtemps inactive d\'abord (titre à égalité)', () => {
+    expect(dormantEntries([a, b, c, d], base).map((e) => e.title)).toEqual(['Beta', 'Alpha', 'Delta']);
+  });
+  it('la série « Reprendre » n\'est jamais dans le groupe', () => {
+    expect(dormantEntries([a, b, c], { ...base, hero: b }).map((e) => e.title)).toEqual(['Alpha']);
+  });
+  it('marque « Garder » de la série (clé dormantKey) : hors du groupe', () => {
+    expect(dormantEntries([a, b], { ...base, marks: { '2': { keptAt: NOW - DAY } } }).map((e) => e.title)).toEqual(['Alpha']);
+  });
+  it('seuil « Jamais » : aucun groupe', () => {
+    expect(dormantEntries([a, b], { ...base, thresholdDays: null })).toEqual([]);
   });
 });

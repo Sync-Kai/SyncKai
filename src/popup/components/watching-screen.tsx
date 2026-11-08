@@ -11,7 +11,7 @@ import { formatList, t, tp, type MessageKey } from '../../i18n';
 import { activePlatforms } from '../../browser/platform-access';
 import { PLATFORMS } from '../../platforms/registry';
 import { STREAMING_PLATFORMS } from '../../platforms/ids';
-import { entryLink, entryLinks, type EntryLink, type EntryLinkContext } from '../../shared/entry-link';
+import { entryLinks, type EntryLinkContext } from '../../shared/entry-link';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { FeedbackTone } from '../../shared/sync-feedback';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
@@ -43,6 +43,8 @@ import { flushAfterRender } from '../after-render';
 import { isPageSeriesExcluded } from '../../ui/page-exclusion';
 import { hasPageMediaCard, PageMediaCard, type PageMediaCardProps } from './page-media-card';
 import { ResumeCard } from './resume-card';
+import { DormantSection, type DormantHost } from './dormant-section';
+import { entrySite } from './entry-site';
 
 /** Ce dont dépend l'affichage des séries (réglages, accès aux plateformes, comptes), recalculé par l'hôte */
 export interface WatchingContext {
@@ -83,6 +85,8 @@ export interface WatchingScreenProps {
   /** Enregistre le commentaire ; true si c'est fait */
   onSaveNotes: (entry: WatchingEntry, text: string) => Promise<boolean>;
   onPickSort: (sort: WatchingSort) => void;
+  /** Groupe « En sommeil » au bas de la liste */
+  dormant: DormantHost;
   onRetry: () => void;
   /** Lien de l'astuce de l'état vide : Réglages › Plateformes */
   onOpenPlatformsSettings: () => void;
@@ -111,14 +115,6 @@ const SORT_ARIA: Record<WatchingSort, MessageKey> = {
 const BADGE_TONES: Record<NextEpisodeBadge['kind'], Tone> = { available: 'ok', upcoming: 'info', finished: 'muted', unknown: 'muted' };
 
 const FEEDBACK_TONES: Record<FeedbackTone, Tone> = { success: 'ok', info: 'info', warning: 'warn', error: 'error' };
-
-/**
- * Fiche ouverte par le titre et la jaquette ; sans identifiant exploitable (cas théorique), la page de la fiche sur le
- * service affiché
- */
-function entrySite(entry: WatchingEntry, links: EntryLinkContext): EntryLink {
-  return entryLink(entry, links) ?? { service: entry.siteUrl.startsWith('https://myanimelist.net/') ? 'mal' : 'anilist', url: entry.siteUrl };
-}
 
 /** Série de la carte « Sur cette page » exclue de la synchro : clé de la page (comme la lecture) ou fiche AniList affichée */
 function isPageExcluded({ content }: PageCardState, exclusions: ExclusionsState): boolean {
@@ -303,7 +299,10 @@ function EmptyWatching({ context, onOpenSettings }: { context: WatchingContext; 
   );
 }
 
-/** Bandeau en haut de l'écran : changement de statut, retrait, +1 / −1 en échec partiel (« Réessayer ») */
+/**
+ * Bandeau en haut de l'écran : changement de statut, retrait, +1 / −1 en échec partiel (« Réessayer » nommant les services),
+ * action sur les séries en sommeil (« Annuler », « Réessayer »)
+ */
 function WatchingNoticeBanner({ notice }: { notice: WatchingNotice }) {
   const { feedback, retry } = notice;
   const services = feedback.retry ? formatList(feedback.retry.services.map((service) => TRACKER_LABELS[service])) : null;
@@ -313,8 +312,13 @@ function WatchingNoticeBanner({ notice }: { notice: WatchingNotice }) {
         <Icon name={feedback.tone === 'success' ? 'check' : 'alert'} class="size-3.5" strokeWidth={feedback.tone === 'success' ? '3' : '2.2'} />
       </span>
       <span class="min-w-0 flex-1 break-words">{feedback.text}</span>
-      {retry && services !== null && (
-        <Button size="sm" ariaLabel={t('inline.retryOn', { services })} focusKey="watching-retry" onClick={retry}>
+      {notice.undo && (
+        <Button size="sm" focusKey="watching-undo" onClick={notice.undo}>
+          {t('watching.dormant.undo')}
+        </Button>
+      )}
+      {retry && (
+        <Button size="sm" ariaLabel={services !== null ? t('inline.retryOn', { services }) : undefined} focusKey="watching-retry" onClick={retry}>
           {t('common.retry')}
         </Button>
       )}
@@ -428,6 +432,7 @@ export function WatchingScreen(props: WatchingScreenProps) {
   const { now } = props;
 
   const pageNotice = useStore(props.pageNotice);
+  const dormant = useStore(props.dormant.state);
 
   const pageCardShown = hasPageMediaCard(pageCard);
   const pageCardSlot = pageCardShown && (
@@ -472,8 +477,11 @@ export function WatchingScreen(props: WatchingScreenProps) {
   const notesOf = (entry: WatchingEntry): NotesSession | null => (notes?.key === entryKey(entry) ? notes : null);
   // Carte « Sur cette page » prioritaire : la série « Reprendre » reste alors dans la liste
   const hero = pageCardShown ? null : pickHeroEntry(list.entries);
-  // La carte « Reprendre » reste hors tri : elle est simplement retirée de la liste triée
-  const rows = sortWatchingBy(list.entries, sort, now).filter((entry) => entry !== hero);
+  // La carte « Reprendre » reste hors tri : elle est simplement retirée de la liste triée, comme les séries en sommeil
+  // (groupe au bas de la liste, qui n'inclut jamais la série « Reprendre »)
+  const asleep = new Set(dormant.entries.map(entryKey));
+  const rows = sortWatchingBy(list.entries, sort, now).filter((entry) => entry !== hero && !asleep.has(entryKey(entry)));
+  const dormantGroup = <DormantSection host={props.dormant} state={dormant} links={context.entryLinks} now={now} />;
 
   return (
     <div class="flex flex-col gap-2" aria-busy={state.refreshing ? 'true' : 'false'}>
@@ -505,8 +513,9 @@ export function WatchingScreen(props: WatchingScreenProps) {
           })}
         </ul>
       ) : (
-        <p class="m-0 rounded-card border border-line bg-surface p-3 text-secondary text-muted">{t('watching.noOther')}</p>
+        asleep.size === 0 && <p class="m-0 rounded-card border border-line bg-surface p-3 text-secondary text-muted">{t('watching.noOther')}</p>
       )}
+      {dormantGroup}
     </div>
   );
 }

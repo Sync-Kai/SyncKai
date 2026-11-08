@@ -1582,7 +1582,7 @@ describe('popup (bout en bout)', () => {
     expect(await text(page, sel('sort-trigger'))).toBe(fr('watching.sort.title'));
     const titles = (await watchingRows(page)).map((r) => r.title);
     expect(titles).toEqual([...titles].sort((a, b) => a.localeCompare(b)));
-    expect(await page.evaluate(async () => (await chrome.storage.local.get('popupPrefs')).popupPrefs)).toEqual({ sort: 'title' });
+    expect(await page.evaluate(async () => (await chrome.storage.local.get('popupPrefs')).popupPrefs)).toEqual({ sort: 'title', dormantOpen: false });
 
     // Échap ferme sans rien changer
     await click(page, 'sort-trigger');
@@ -1667,6 +1667,140 @@ describe('popup (bout en bout)', () => {
     await expired.waitForSelector(sel('connect-anilist'));
     await expired.waitForFunction((label: string) => document.querySelector('[data-focus="connect-anilist"]')?.textContent?.includes(label) === true, {}, fr('common.reconnectService', { service: 'AniList' }));
     expect(await text(expired, sel('connect-anilist'))).toContain(fr('common.sessionExpired'));
+  });
+});
+
+// ─── « Mes séries » › En sommeil ───────────────────────────────────────────
+
+describe('popup › séries en sommeil (bout en bout)', () => {
+  const FRIEREN = '154587:52991';
+  const SOLO_ROW = '176496:58567';
+  const KAIJU = '178754:59177';
+
+  /** Séries du groupe, dans l'ordre affiché, avec leur ligne 2 */
+  async function dormantRows(page: Page): Promise<{ key: string; title: string; line: string }[]> {
+    return page.$$eval('[data-dormant-row]', (items) =>
+      items.map((li) => ({
+        key: li.getAttribute('data-dormant-row') ?? '',
+        title: li.querySelector('[data-series-title]')?.getAttribute('title') ?? '',
+        line: li.querySelector('[data-status-text]')?.textContent?.trim() ?? '',
+      })),
+    );
+  }
+
+  async function openGroup(): Promise<Page> {
+    const page = await openPopup({ dormant: 'on' });
+    await page.waitForSelector(sel('dormant-toggle'));
+    await click(page, 'dormant-toggle');
+    await page.waitForSelector('[data-dormant-body]:not([hidden])');
+    return page;
+  }
+
+  it('group collapsed by default, opens, Pause shows « … mise en pause · Annuler », Annuler restores', async () => {
+    const page = await openPopup({ dormant: 'on' });
+    await page.waitForSelector(sel('dormant-toggle'));
+    // Replié : en-tête (nom, nombre, seuil), séries hors de la liste principale
+    expect(await attr(page, sel('dormant-toggle'), 'aria-expanded')).toBe('false');
+    expect(await page.$('[data-dormant-body][hidden]')).not.toBeNull();
+    expect(await text(page, '[data-dormant-count]')).toBe('3');
+    expect(await text(page, sel('dormant-toggle'))).toContain(fr('watching.dormant.subtitle', { days: 30 }));
+    const main = (await watchingRows(page)).map((row) => row.title);
+    expect(main).not.toContain('Frieren');
+    expect(main).not.toContain('Kaiju No. 8');
+
+    // Déplié (préférence enregistrée) : la plus longtemps inactive d'abord, « Ép. x / y · vu il y a … »
+    await click(page, 'dormant-toggle');
+    await page.waitForSelector('[data-dormant-body]:not([hidden])');
+    expect(await page.evaluate(async () => ((await chrome.storage.local.get('popupPrefs')).popupPrefs as { dormantOpen?: boolean } | undefined)?.dormantOpen)).toBe(true);
+    expect(await dormantRows(page)).toEqual([
+      { key: FRIEREN, title: 'Frieren', line: 'Ép. 26 / 28 · vu il y a 2 mois' },
+      { key: SOLO_ROW, title: 'Solo Leveling', line: 'Ép. 2 / 13 · vu il y a 7 semaines' },
+      { key: KAIJU, title: 'Kaiju No. 8', line: 'Ép. 2 / 11 · vu il y a 5 semaines' },
+    ]);
+
+    // Pause : sans confirmation, sur les seuls services où la série est encore en cours
+    await click(page, `dormant-pause-${FRIEREN}`);
+    expect((await waitForMessage(page, 'SET_LIST_STATUS')).payload).toMatchObject({ mediaId: 154587, status: 'PAUSED', onlyFrom: 'CURRENT' });
+    await page.waitForSelector(sel('watching-undo'));
+    expect(await text(page, '[data-watching-notice]')).toBe(`${fr('watching.dormant.paused', { title: 'Frieren' })}${fr('watching.dormant.undo')}`);
+    expect(await text(page, '[data-watching-notice] span.min-w-0')).toBe('Frieren mise en pause');
+    expect(await focused(page)).toBe('watching-undo');
+    expect((await dormantRows(page)).map((row) => row.title)).toEqual(['Solo Leveling', 'Kaiju No. 8']);
+
+    // Annuler : CURRENT sur les services écrits, la série revient dans la liste principale (active pour un seuil)
+    await click(page, 'watching-undo');
+    expect((await waitForMessage(page, 'SET_LIST_STATUS', 2)).payload).toMatchObject({ mediaId: 154587, status: 'CURRENT', onlyFrom: 'PAUSED', services: ['anilist', 'mal'] });
+    await page.waitForFunction((label: string) => document.querySelector('[data-watching-notice]')?.textContent?.includes(label) === true, {}, 'Frieren remise en cours');
+    expect(await page.$(sel('watching-undo'))).toBeNull();
+    await page.waitForFunction(() => [...document.querySelectorAll('main [data-series-row] [data-series-title]')].some((el) => el.getAttribute('title') === 'Frieren'));
+    expect((await dormantRows(page)).map((row) => row.title)).toEqual(['Solo Leveling', 'Kaiju No. 8']);
+  });
+
+  it('« Tout mettre en pause » asks for confirmation (focus on « Non », Échap cancels), then one write per series', async () => {
+    const page = await openGroup();
+    await click(page, 'dormant-pause-all');
+    await page.waitForSelector('[data-inline-confirm]');
+    expect(await focused(page)).toBe('confirm-no-dormant-pause-all');
+    expect(await text(page, '[data-inline-confirm]')).toContain('Mettre 3 séries en pause ?');
+    expect(await text(page, '[data-inline-confirm]')).toContain('Sur AniList et MyAnimeList. Tu pourras annuler juste après.');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-inline-confirm]', { hidden: true });
+    expect(await focused(page)).toBe('dormant-pause-all');
+    expect(await sent(page, 'SET_LIST_STATUS')).toHaveLength(0);
+
+    await click(page, 'dormant-pause-all');
+    await click(page, 'confirm-yes-dormant-pause-all');
+    await waitForMessage(page, 'SET_LIST_STATUS', 3);
+    await page.waitForSelector(sel('watching-undo'));
+    expect((await sent(page, 'SET_LIST_STATUS')).map((m) => m.payload)).toMatchObject([
+      { mediaId: 154587, status: 'PAUSED', onlyFrom: 'CURRENT' },
+      { mediaId: 176496, status: 'PAUSED', onlyFrom: 'CURRENT' },
+      { mediaId: 178754, status: 'PAUSED', onlyFrom: 'CURRENT' },
+    ]);
+    expect(await text(page, '[data-watching-notice] span.min-w-0')).toBe('3 séries mises en pause');
+    // Plus de série en sommeil : plus de groupe
+    expect(await page.$('[data-dormant-group]')).toBeNull();
+  });
+
+  it('Abandonner : confirmation en ligne (focus sur « Non »), puis DROPPED depuis CURRENT ; Garder : la série retourne dans la liste', async () => {
+    const page = await openGroup();
+    await click(page, `dormant-drop-${KAIJU}`);
+    await page.waitForSelector(`[data-dormant-row="${KAIJU}"] [data-inline-confirm]`);
+    expect(await focused(page)).toBe(`confirm-no-${KAIJU}`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-inline-confirm]', { hidden: true });
+    expect(await focused(page)).toBe(`dormant-drop-${KAIJU}`);
+    await click(page, `dormant-drop-${KAIJU}`);
+    await click(page, `confirm-yes-${KAIJU}`);
+    expect((await waitForMessage(page, 'SET_LIST_STATUS')).payload).toMatchObject({ mediaId: 178754, status: 'DROPPED', onlyFrom: 'CURRENT' });
+    await page.waitForFunction((label: string) => document.querySelector('[data-watching-notice]')?.textContent?.includes(label) === true, {}, 'Kaiju No. 8 abandonnée');
+
+    await click(page, `dormant-keep-${SOLO_ROW}`);
+    await page.waitForFunction(() => [...document.querySelectorAll('main [data-series-row] [data-series-title]')].some((el) => el.getAttribute('title') === 'Solo Leveling'));
+    expect((await dormantRows(page)).map((row) => row.title)).toEqual(['Frieren']);
+    // Marque écrite sous le verrou du stockage, juste après l'affichage
+    await page.waitForFunction(async (key: string) => (await chrome.storage.local.get(key))[key] !== undefined, {}, STORAGE_KEYS.watchingKeptDormant);
+    const kept = await page.evaluate(async (key: string) => (await chrome.storage.local.get(key))[key] as Record<string, { marks: Record<string, unknown> }> | undefined, STORAGE_KEYS.watchingKeptDormant);
+    expect(Object.keys(kept?.anilist?.marks ?? {})).toEqual(['176496']);
+    // « Garder » n'écrit rien sur les services
+    expect(await sent(page, 'SET_LIST_STATUS')).toHaveLength(1);
+  });
+
+  it('« Seuil : 30 jours » opens Settings › Display', async () => {
+    const page = await openGroup();
+    expect(await text(page, sel('dormant-threshold'))).toBe('Seuil : 30 jours');
+    await click(page, 'dormant-threshold');
+    await page.waitForSelector(sel('dormant-30'));
+    expect(await shownScreen(page)).toBe(2);
+    expect(await text(page, '#sk-settings-title')).toBe(fr('settings.cat.display'));
+    await page.waitForFunction(() => document.activeElement?.getAttribute('data-focus') === 'dormant-30');
+    expect(await focused(page)).toBe('dormant-30');
+  });
+
+  it('sans statut de liste connu (cache 2.4.x) : aucun groupe', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel(`more-${SOLO_ROW}`));
+    expect(await page.$('[data-dormant-group]')).toBeNull();
   });
 });
 

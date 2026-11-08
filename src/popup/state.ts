@@ -32,6 +32,8 @@ export interface UiState {
 export interface WatchingPrefs {
   /** Tri de « Mes séries » */
   sort: WatchingSort;
+  /** Groupe « En sommeil » déplié (replié par défaut) */
+  dormantOpen: boolean;
 }
 
 /** Action en cours ou terminée sur une série de « En cours » */

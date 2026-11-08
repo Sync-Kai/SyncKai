@@ -547,3 +547,31 @@ New Settings › Display row (`settings.dormant.*`): the threshold after which a
 | `settings.dormant.help` | Le serie “In corso” senza episodi visti da così tanto tempo vengono raggruppate in fondo a Le mie serie. |
 | `settings.dormant.days` | {days} giorni |
 | `settings.dormant.never` | Mai |
+
+## 2026-11-08 · Dormant group in My series
+
+New « Dormant » group at the bottom of popup › My series (`watching.dormant.*`): its header subtitle, the second line of a dormant row (`{ago}` comes from `Intl.RelativeTimeFormat`), the Pause / Drop / Keep buttons and their screen-reader labels, « Put all on hold » with its inline confirmation, the result banners and their Undo button, and the threshold link. The group name reuses `settings.dormant.label`; the confirmations reuse `watching.confirm.*`. Terms follow this language's term sheet and its `watching.status.*`, `inline.status.*`, `page.status.CURRENT` and `watching.mySeries`; `{days}` is always 30, 60 or 90. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.drop` | Abbandona |
+| `watching.dormant.dropAria` | Abbandona: {title} |
+| `watching.dormant.dropped` | {title}: abbandonata |
+| `watching.dormant.keep` | Tieni |
+| `watching.dormant.keepAria` | Tieni in Le mie serie: {title} |
+| `watching.dormant.pause` | Pausa |
+| `watching.dormant.pauseAll` | Metti tutte in pausa |
+| `watching.dormant.pauseAllConfirm_one` | Mettere in pausa {count} serie? |
+| `watching.dormant.pauseAllConfirm_other` | Mettere in pausa {count} serie? |
+| `watching.dormant.pauseAllDetail` | Su {services}. Potrai annullare subito dopo. |
+| `watching.dormant.pauseAria` | Metti in pausa: {title} |
+| `watching.dormant.paused` | {title}: in pausa |
+| `watching.dormant.pausedMany_one` | {count} serie in pausa |
+| `watching.dormant.pausedMany_other` | {count} serie in pausa |
+| `watching.dormant.restored` | {title}: di nuovo “In corso” |
+| `watching.dormant.restoredMany_one` | {count} serie di nuovo “In corso” |
+| `watching.dormant.restoredMany_other` | {count} serie di nuovo “In corso” |
+| `watching.dormant.seen` | visto {ago} |
+| `watching.dormant.subtitle` | Niente visto da oltre {days} giorni |
+| `watching.dormant.threshold` | Soglia: {days} giorni |
+| `watching.dormant.undo` | Annulla |

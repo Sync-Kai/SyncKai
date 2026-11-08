@@ -473,8 +473,10 @@ export interface MenuConfirmProps {
   onNo: () => void;
 }
 
-const CONFIRM_BTN = 'inline-flex h-7 shrink-0 cursor-pointer items-center rounded-pill px-3 text-secondary font-extrabold transition-colors';
-const CONFIRM_YES: Readonly<Record<MenuConfirmProps['yes']['tone'], string>> = {
+/** Boutons Oui / Non d'une confirmation en ligne (menu, et hors menu : ui/components/inline-confirm.tsx) */
+export const CONFIRM_BTN = 'inline-flex h-7 shrink-0 cursor-pointer items-center rounded-pill px-3 text-secondary font-extrabold transition-colors';
+export const CONFIRM_NO = 'border border-field bg-transparent text-ink hover:bg-line';
+export const CONFIRM_YES: Readonly<Record<MenuConfirmProps['yes']['tone'], string>> = {
   ok: 'border-0 bg-mint text-on-fill hover:brightness-105',
   danger: 'border-0 bg-danger text-on-fill hover:brightness-105',
 };
@@ -516,7 +518,7 @@ export function MenuConfirm({ question, detail, icon, tone, yes, no, focusKey, o
       <button
         ref={noButton}
         type="button"
-        class={`${CONFIRM_BTN} border border-field bg-transparent text-ink hover:bg-line`}
+        class={`${CONFIRM_BTN} ${CONFIRM_NO}`}
         role="menuitem"
         tabIndex={-1}
         aria-label={no.ariaLabel}
