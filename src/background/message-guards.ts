@@ -125,6 +125,8 @@ const isSetListStatusPayload = (p: unknown): p is SetListStatusPayload =>
   isListStatusChange(p.status) &&
   (p.coverUrl === null || isSafeImageUrl(p.coverUrl)) &&
   (p.onlyFrom === undefined || isListStatus(p.onlyFrom)) &&
+  // CURRENT n'existe que pour « Annuler » : toujours gardé par le statut écrit
+  (p.status !== 'CURRENT' || p.onlyFrom !== undefined) &&
   (p.services === undefined || isServiceList(p.services));
 const isRetryQueuedPayload =(p: unknown): p is { id: string } => isRecord(p) && isKey(p.id);
 const isRatePayload = (p: unknown): p is { media: MediaRef; score: Score10; fromCard?: boolean } =>

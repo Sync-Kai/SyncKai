@@ -96,7 +96,8 @@ export type StatusChangeDecision =
  * - revisionnage (REPEATING) marqué terminé : compteur de revisionnages incrémenté, comme à la fin
  *   naturelle d'un revisionnage (decideListUpdate) ; mis en pause / abandonné : compteur inchangé
  * - `onlyFrom` (séries en sommeil, « Annuler ») : écrit seulement si l'entrée relue a ce statut ; un statut posé
- *   ailleurs entre-temps (terminé, revisionnage, déjà en pause…) n'est jamais écrasé
+ *   ailleurs entre-temps (terminé, revisionnage, déjà en pause…) n'est jamais écrasé ; CURRENT (« Annuler ») n'est
+ *   jamais écrit sans `onlyFrom` (le message le refuse déjà)
  */
 export function decideStatusChange(
   entry: ListEntryState | null,
@@ -105,6 +106,7 @@ export function decideStatusChange(
   onlyFrom?: ListStatus,
 ): StatusChangeDecision {
   if (entry === null) return { action: 'skip', reason: 'not-in-list' };
+  if (status === 'CURRENT' && onlyFrom === undefined) return { action: 'skip', reason: 'other-status' };
   if (onlyFrom !== undefined && entry.status !== onlyFrom) return { action: 'skip', reason: 'other-status' };
   const progress = status === 'COMPLETED' && totalEpisodes !== null ? Math.max(entry.progress, totalEpisodes) : entry.progress;
   if (entry.status === status && entry.progress === progress) return { action: 'skip', reason: 'unchanged' };

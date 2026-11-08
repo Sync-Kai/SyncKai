@@ -159,6 +159,11 @@ describe('decideStatusChange avec onlyFrom (séries en sommeil, « Annuler »)',
     expect(decideStatusChange({ status: 'COMPLETED', progress: 23 }, 23, 'CURRENT', 'PAUSED')).toEqual({ action: 'skip', reason: 'other-status' });
   });
 
+  it('CURRENT sans onlyFrom : jamais écrit (défense en profondeur, revisionnage ou Terminé préservés)', () => {
+    expect(decideStatusChange({ status: 'REPEATING', progress: 4 }, 12, 'CURRENT')).toEqual({ action: 'skip', reason: 'other-status' });
+    expect(decideStatusChange({ status: 'PAUSED', progress: 4 }, 12, 'CURRENT')).toEqual({ action: 'skip', reason: 'other-status' });
+  });
+
   it('série absente de la liste : not-in-list avant onlyFrom', () => {
     expect(decideStatusChange(null, 23, 'PAUSED', 'CURRENT')).toEqual({ action: 'skip', reason: 'not-in-list' });
   });

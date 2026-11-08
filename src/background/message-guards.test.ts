@@ -51,6 +51,12 @@ describe('SET_LIST_STATUS', () => {
     expect(isRuntimeMessage(message({ ...valid, services: ['mal'] }))).toBe(true);
   });
 
+  it('refuse CURRENT sans onlyFrom (réservé à « Annuler », jamais une écriture non gardée)', () => {
+    expect(isRuntimeMessage(message({ ...valid, status: 'CURRENT' }))).toBe(false);
+    expect(isRuntimeMessage(message({ ...valid, status: 'CURRENT', services: ['anilist'] }))).toBe(false);
+    expect(isRuntimeMessage(message({ ...valid, status: 'CURRENT', onlyFrom: 'PAUSED' }))).toBe(true);
+  });
+
   it('refuse un onlyFrom inconnu', () => {
     for (const onlyFrom of ['FOO', 'current', null, 1]) {
       expect(isRuntimeMessage(message({ ...valid, onlyFrom }))).toBe(false);
