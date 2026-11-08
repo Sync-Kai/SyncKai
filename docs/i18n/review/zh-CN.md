@@ -521,3 +521,12 @@ New value at the end of each « My series » row: the approximate time left to w
 | `watching.remaining.detail_other` | {count} 集 × {duration} |
 | `watching.remaining.short` | 约 {duration} |
 | `watching.remaining.spoken` | 看完还需约 {duration} |
+
+## 2026-11-08 · Time-left sort
+
+New « My series » sort option ordering by the time left to catch up (`watching.sort.time`, its screen-reader fragment `watching.sortAria.time`), next to « Episodes left ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.sort.time` | 剩余时间 |
+| `watching.sortAria.time` | 按剩余时间排序 |

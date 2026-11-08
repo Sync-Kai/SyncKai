@@ -1570,6 +1570,7 @@ describe('popup (bout en bout)', () => {
       [fr('watching.sort.recent'), 'false'],
       [fr('watching.sort.title'), 'false'],
       [fr('watching.sort.remaining'), 'false'],
+      [fr('watching.sort.time'), 'false'],
     ]);
     expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-checked'))).toBe('true');
 

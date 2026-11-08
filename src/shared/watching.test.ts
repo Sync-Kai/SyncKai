@@ -208,12 +208,12 @@ describe('sortWatchingBy', () => {
   it('"remaining" : moins d’épisodes restants en tête, total inconnu en dernier, puis par titre', () => {
     const input = [
       entry({ title: 'inconnu B', progress: 1, totalEpisodes: null }),
-      entry({ title: 'reste 10', progress: 2, totalEpisodes: 12 }),
+      entry({ title: 'reste 10', progress: 2, totalEpisodes: 12, airingStatus: 'FINISHED' }),
       entry({ title: 'inconnu A', progress: 5, totalEpisodes: null }),
-      entry({ title: 'reste 1 b', progress: 23, totalEpisodes: 24 }),
-      entry({ title: 'reste 1 a', progress: 11, totalEpisodes: 12 }),
-      entry({ title: 'total zéro', progress: 0, totalEpisodes: 0 }),
-      entry({ title: 'reste 0', progress: 13, totalEpisodes: 12 }),
+      entry({ title: 'reste 1 b', progress: 23, totalEpisodes: 24, airingStatus: 'FINISHED' }),
+      entry({ title: 'reste 1 a', progress: 11, totalEpisodes: 12, airingStatus: 'FINISHED' }),
+      entry({ title: 'total zéro', progress: 0, totalEpisodes: 0, airingStatus: 'FINISHED' }),
+      entry({ title: 'reste 0', progress: 13, totalEpisodes: 12, airingStatus: 'FINISHED' }),
     ];
     expect(titles(sortWatchingBy(input, 'remaining', NOW))).toEqual([
       'reste 0',
@@ -224,6 +224,28 @@ describe('sortWatchingBy', () => {
       'inconnu B',
       'total zéro',
     ]);
+  });
+
+  it('"remaining" ne compte que les épisodes sortis (en diffusion : 3 sortis / 12, progression 1 → 2)', () => {
+    const input = [
+      entry({ title: 'terminée', progress: 8, totalEpisodes: 12, airingStatus: 'FINISHED' }),
+      entry({ title: 'en diffusion', progress: 1, totalEpisodes: 12, airingStatus: 'RELEASING', nextEpisode: { episode: 4, airingAt: NOW + DAY } }),
+    ];
+    // en diffusion : 3 sortis − 1 = 2 à rattraper, devant la terminée (4), alors que total − progression donnerait 11
+    expect(titles(sortWatchingBy(input, 'remaining', NOW))).toEqual(['en diffusion', 'terminée']);
+  });
+
+  it('"time" : durée à rattraper la plus courte en tête (50 min < 6 h < inconnu), à égalité par titre', () => {
+    const base = { airingStatus: 'FINISHED' as const, totalEpisodes: 12 };
+    const input = [
+      entry({ title: 'inconnu B', ...base, progress: 0, episodeMinutes: null }),
+      entry({ title: '6 h', ...base, progress: 6, episodeMinutes: 60 }),
+      entry({ title: 'égal B', ...base, progress: 10, episodeMinutes: 25 }),
+      entry({ title: '50 min', ...base, progress: 10, episodeMinutes: 25 }),
+      entry({ title: 'à jour', ...base, progress: 12, episodeMinutes: 24 }),
+      entry({ title: 'inconnu A', ...base, progress: 0, episodeMinutes: null }),
+    ];
+    expect(titles(sortWatchingBy(input, 'time', NOW))).toEqual(['50 min', 'égal B', '6 h', 'à jour', 'inconnu A', 'inconnu B']);
   });
 
   it('retourne un nouveau tableau sans modifier l’entrée, pour chaque mode', () => {
@@ -241,6 +263,7 @@ describe('sortWatchingBy', () => {
 describe('isWatchingSort', () => {
   it('accepte les modes connus et rejette le reste', () => {
     for (const sort of WATCHING_SORTS) expect(isWatchingSort(sort)).toBe(true);
+    expect(isWatchingSort('time')).toBe(true);
     expect(isWatchingSort('alpha')).toBe(false);
     expect(isWatchingSort(undefined)).toBe(false);
     expect(isWatchingSort(1)).toBe(false);

@@ -525,3 +525,12 @@ New value at the end of each « My series » row: the approximate time left to w
 | `watching.remaining.detail_other` | {count} bölüm × {duration} |
 | `watching.remaining.short` | ≈ {duration} |
 | `watching.remaining.spoken` | Bitirmek için yaklaşık {duration} |
+
+## 2026-11-08 · Time-left sort
+
+New « My series » sort option ordering by the time left to catch up (`watching.sort.time`, its screen-reader fragment `watching.sortAria.time`), next to « Episodes left ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.sort.time` | Kalan süre |
+| `watching.sortAria.time` | kalan süreye göre |

@@ -1,7 +1,11 @@
 import { getLocale, t, tl, tpl, type Locale } from '../i18n/core';
 import type { StreamingPlatform } from './episode.types';
 import { STREAMING_PLATFORMS } from '../platforms/registry';
+import { releasedEpisodes, isFinished } from './released-episodes';
+import { episodesToCatchUp, remainingMinutes } from './remaining-time';
 import type { NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingList, WatchingSort } from './watching.types';
+
+export { airedEpisodes, releasedEpisodes } from './released-episodes';
 
 // Fonctions pures partagées par le service worker (tri, liens) et le popup (affichage).
 
@@ -27,24 +31,6 @@ export function isWatchingFresh(list: Pick<WatchingList, 'fetchedAt'> | null, no
   return lastSyncAt === null || lastSyncAt <= list.fetchedAt;
 }
 
-const isFinished = (entry: WatchingEntry): boolean =>
-  entry.airingStatus === 'FINISHED' || entry.airingStatus === 'CANCELLED';
-
-/** Nombre d'épisodes déjà sortis, si on peut le déduire (prochain épisode annoncé ou série terminée). */
-export function airedEpisodes(entry: WatchingEntry): number | null {
-  if (entry.nextEpisode) return entry.nextEpisode.episode - 1;
-  if (isFinished(entry) && entry.totalEpisodes) return entry.totalEpisodes;
-  return null;
-}
-
-/**
- * Épisodes sortis à l'instant `now` (ms) : comme `airedEpisodes`, mais un épisode annoncé dont l'heure est passée (liste
- * en cache) compte comme sorti. null si inconnu (diffusion sans date, pause, pas encore sortie, total inconnu).
- */
-export function releasedEpisodes(entry: WatchingEntry, now: number): number | null {
-  const next = entry.nextEpisode;
-  return next && next.airingAt <= now ? next.episode : airedEpisodes(entry);
-}
 
 /** Délai compact avant une sortie : "12 min", "18 h", "2 j" (arrondi à l'inférieur, minimum 1). */
 function formatCountdown(ms: number): string {
@@ -120,17 +106,26 @@ function compareTitles(a: string, b: string): number {
 }
 const byTitle = (a: WatchingEntry, b: WatchingEntry): number => compareTitles(a.title, b.title);
 
-/** Épisodes restants à voir, null si le total est inconnu */
-const remainingEpisodes = (entry: WatchingEntry): number | null =>
-  entry.totalEpisodes !== null && entry.totalEpisodes > 0 ? Math.max(0, entry.totalEpisodes - entry.progress) : null;
+/** Moins d'épisodes à rattraper (sortis, pas encore vus) en tête ; inconnu ou rien de sorti en dernier ; à égalité, par titre */
+function byRemaining(now: number): (a: WatchingEntry, b: WatchingEntry) => number {
+  return (a, b) => {
+    const ra = episodesToCatchUp(a, now);
+    const rb = episodesToCatchUp(b, now);
+    if (ra !== null && rb !== null && ra !== rb) return ra - rb;
+    if ((ra === null) !== (rb === null)) return ra === null ? 1 : -1;
+    return byTitle(a, b);
+  };
+}
 
-/** Moins d'épisodes restants en tête ; total inconnu en dernier ; à égalité, par titre */
-function byRemaining(a: WatchingEntry, b: WatchingEntry): number {
-  const ra = remainingEpisodes(a);
-  const rb = remainingEpisodes(b);
-  if (ra !== null && rb !== null && ra !== rb) return ra - rb;
-  if ((ra === null) !== (rb === null)) return ra === null ? 1 : -1;
-  return byTitle(a, b);
+/** Durée à rattraper la plus courte en tête ; inconnue ou nulle en dernier ; à égalité, par titre */
+function byTime(now: number): (a: WatchingEntry, b: WatchingEntry) => number {
+  return (a, b) => {
+    const ma = remainingMinutes(a, now);
+    const mb = remainingMinutes(b, now);
+    if (ma !== null && mb !== null && ma !== mb) return ma - mb;
+    if ((ma === null) !== (mb === null)) return ma === null ? 1 : -1;
+    return byTitle(a, b);
+  };
 }
 
 /** Tri de « Mes séries » selon le mode choisi (nouveau tableau, tri stable). */
@@ -143,7 +138,9 @@ export function sortWatchingBy(entries: readonly WatchingEntry[], sort: Watching
     case 'title':
       return [...entries].sort(byTitle);
     case 'remaining':
-      return [...entries].sort(byRemaining);
+      return [...entries].sort(byRemaining(now));
+    case 'time':
+      return [...entries].sort(byTime(now));
   }
 }
 

@@ -91,9 +91,10 @@ const SORT_LABELS: Record<WatchingSort, MessageKey> = {
   recent: 'watching.sort.recent',
   title: 'watching.sort.title',
   remaining: 'watching.sort.remaining',
+  time: 'watching.sort.time',
 };
 
-const SORT_ICONS: Record<WatchingSort, IconName> = { 'next-episode': 'clock', recent: 'history', title: 'sortAlpha', remaining: 'sortRemaining' };
+const SORT_ICONS: Record<WatchingSort, IconName> = { 'next-episode': 'clock', recent: 'history', title: 'sortAlpha', remaining: 'sortRemaining', time: 'hourglass' };
 
 /** Fin de l'aria-label de la liste (« Mes séries AniList, triées … ») */
 const SORT_ARIA: Record<WatchingSort, MessageKey> = {
@@ -101,6 +102,7 @@ const SORT_ARIA: Record<WatchingSort, MessageKey> = {
   recent: 'watching.sortAria.recent',
   title: 'watching.sortAria.title',
   remaining: 'watching.sortAria.remaining',
+  time: 'watching.sortAria.time',
 };
 
 /** Statut de sortie : `mint` disponible, `lavender` à venir, `muted` terminée ou inconnue */

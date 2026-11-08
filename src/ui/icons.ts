@@ -93,6 +93,7 @@ const ICON_PATHS = {
   // Tris de « Mes séries » : dernière mise à jour, titre (A → Z), épisodes restants
   history: ['M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5', 'M3.5 4v4.5H8', 'M12 8v4l2.5 1.5'],
   sortAlpha: ['M4 15l3-8 3 8M5 12.5h4', 'M14 7h5l-5 10h5'],
+  hourglass: ['M6 3h12M6 21h12M7 3c0 5 10 6 10 9s-10 4-10 9M17 3c0 5-10 6-10 9s10 4 10 9'],
   sortRemaining: ['M5.5 4h13a1.5 1.5 0 0 1 0 4h-13a1.5 1.5 0 0 1 0-4z', 'M5.5 10h8a1.5 1.5 0 0 1 0 4h-8a1.5 1.5 0 0 1 0-4z', 'M5.5 16h3a1.5 1.5 0 0 1 0 4h-3a1.5 1.5 0 0 1 0-4z'],
   // Bandeau d'accès (triangle au trait) et étapes de l'accueil (lecture)
   triangle: ['M10.3 4.2 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z', 'M12 9.5v4', 'M12 17.2h.01'],

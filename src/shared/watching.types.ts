@@ -117,9 +117,9 @@ export function isWatchingList(value: unknown): value is WatchingList {
 }
 
 /** Modes de tri de la liste « Mes séries » (choix persisté dans les préférences du popup) */
-export type WatchingSort = 'next-episode' | 'recent' | 'title' | 'remaining';
+export type WatchingSort = 'next-episode' | 'recent' | 'title' | 'remaining' | 'time';
 
-export const WATCHING_SORTS: readonly WatchingSort[] = ['next-episode', 'recent', 'title', 'remaining'];
+export const WATCHING_SORTS: readonly WatchingSort[] = ['next-episode', 'recent', 'title', 'remaining', 'time'];
 
 export const DEFAULT_WATCHING_SORT: WatchingSort = 'next-episode';
 

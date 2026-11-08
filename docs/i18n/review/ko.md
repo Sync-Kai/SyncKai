@@ -537,3 +537,12 @@ New value at the end of each « My series » row: the approximate time left to w
 | `watching.remaining.detail_other` | 에피소드 {count}개 × {duration} |
 | `watching.remaining.short` | 약 {duration} |
 | `watching.remaining.spoken` | 다 보려면 약 {duration} |
+
+## 2026-11-08 · Time-left sort
+
+New « My series » sort option ordering by the time left to catch up (`watching.sort.time`, its screen-reader fragment `watching.sortAria.time`), next to « Episodes left ». Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.sort.time` | 남은 시간순 |
+| `watching.sortAria.time` | 남은 시간순 |

@@ -1,5 +1,5 @@
 import { getLocale, t, tp } from '../i18n/core';
-import { releasedEpisodes } from './watching';
+import { releasedEpisodes } from './released-episodes';
 import type { WatchingEntry } from './watching.types';
 
 // Temps restant pour rattraper une série (valeur de la ligne, total de la liste, tri « Temps restant »). Fonctions pures.
