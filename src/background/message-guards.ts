@@ -21,6 +21,7 @@ import type {
   ResolveReviewPayload,
   SetListStatusPayload,
 } from '../protocol/messages';
+import { MAX_EXTRAS, MAX_MAIN } from '../shared/franchise';
 import { isPageMediaInfo, type ResolvePageMediaPayload } from '../shared/page-media.types';
 import { isAddListStatus, isListStatusChange } from '../shared/sync.types';
 import { isTrackerId, type TrackerId } from '../shared/tracker.types';
@@ -157,9 +158,11 @@ const isAddToListPayload = (p: unknown): p is AddToListPayload =>
 
 /** Payload { mediaId } (GET_PANEL_MEDIA, GET_FRANCHISE, GET_ANILIST_FRIENDS) */
 const isPanelMediaPayload = (p: unknown): p is { mediaId: number } => isRecord(p) && isPositiveInt(p.mediaId);
-/** Payload { mediaIds, malIds } (GET_LIST_STATES) : au plus 90 identifiants positifs par liste (50 principales + 40 extras) */
-const isListStatesPayload = (p: unknown): p is { mediaIds: number[]; malIds: number[] } =>
-  isRecord(p) && [p.mediaIds, p.malIds].every((ids) => Array.isArray(ids) && ids.length <= 90 && ids.every(isPositiveInt));
+/** Payload { mediaIds, malIds } (GET_LIST_STATES) : au plus 90 identifiants positifs par liste (MAX_MAIN + MAX_EXTRAS) ; `fresh` : relecture de la liste MAL après une action sur la liste */
+const isListStatesPayload = (p: unknown): p is { mediaIds: number[]; malIds: number[]; fresh?: boolean } =>
+  isRecord(p) &&
+  (p.fresh === undefined || typeof p.fresh === 'boolean') &&
+  [p.mediaIds, p.malIds].every((ids) => Array.isArray(ids) && ids.length <= MAX_MAIN + MAX_EXTRAS && ids.every(isPositiveInt));
 /** Langue proposée seulement (i18n/locale-codes.ts) : toute autre valeur est refusée, le script reste en anglais */
 const isContentCatalogPayload = (p: unknown): p is { locale: Locale } => isRecord(p) && isLocale(p.locale);
 

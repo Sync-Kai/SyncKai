@@ -3,6 +3,7 @@ import { getOpenSessions } from '../../browser/storage/sessions';
 import { createLogger } from '../../browser/logger';
 import { isRecord } from '../../shared/guards';
 import { MAX_EXTRAS, MAX_MAIN, toListState, type ListState, type ListStates } from '../../shared/franchise';
+import type { MalListEntry } from '../../shared/compare';
 import type { TrackerId } from '../../shared/tracker.types';
 import { anilistQuery } from '../anilist/client';
 import { fetchMalFullList } from '../mal/full-list';
@@ -41,10 +42,25 @@ async function readAnilist(ids: readonly number[]): Promise<Record<number, ListS
   return states;
 }
 
-async function readMal(ids: readonly number[]): Promise<Record<number, ListState>> {
+/** Liste MAL mémorisée 5 minutes (mémoire du module, ni stockage ni écouteur) : charge raisonnable sur l'API MAL. Une clé par génération de session : un autre compte ne la partage jamais */
+const MAL_MEMO_TTL_MS = 5 * 60_000;
+let malMemo: { epoch: number; at: number; list: Promise<MalListEntry[]> } | null = null;
+
+function malList(epoch: number, fresh: boolean): Promise<MalListEntry[]> {
+  if (!fresh && malMemo?.epoch === epoch && Date.now() - malMemo.at < MAL_MEMO_TTL_MS) return malMemo.list;
+  const memo = { epoch, at: Date.now(), list: fetchMalFullList() };
+  malMemo = memo;
+  // Lecture rejetée : jamais mémorisée
+  memo.list.catch(() => {
+    if (malMemo === memo) malMemo = null;
+  });
+  return memo.list;
+}
+
+async function readMal(ids: readonly number[], epoch: number, fresh: boolean): Promise<Record<number, ListState>> {
   const wanted = new Set(ids);
   const states: Record<number, ListState> = Object.fromEntries(ids.map((id) => [id, null]));
-  for (const entry of await fetchMalFullList()) if (wanted.has(entry.malId)) states[entry.malId] = toListState(entry.status, entry.progress);
+  for (const entry of await malList(epoch, fresh)) if (wanted.has(entry.malId)) states[entry.malId] = toListState(entry.status, entry.progress);
   return states;
 }
 
@@ -58,13 +74,13 @@ async function settle(service: TrackerId, read: () => Promise<Record<number, Lis
   }
 }
 
-export async function loadListStates(payload: { mediaIds: readonly number[]; malIds: readonly number[] }): Promise<ListStates> {
+export async function loadListStates(payload: { mediaIds: readonly number[]; malIds: readonly number[]; fresh?: boolean }): Promise<ListStates> {
   const [connected, before] = await Promise.all([connectedServices(), getOpenSessions()]);
   const mediaIds = [...new Set(payload.mediaIds)].slice(0, MAX_IDS);
   const malIds = [...new Set(payload.malIds)].slice(0, MAX_IDS);
   const [anilist, mal] = await Promise.all([
     connected.includes('anilist') ? settle('anilist', () => readAnilist(mediaIds)) : null,
-    connected.includes('mal') ? settle('mal', () => readMal(malIds)) : null,
+    connected.includes('mal') ? settle('mal', () => readMal(malIds, before.mal ?? 0, payload.fresh === true)) : null,
   ]);
   // Compte changé pendant la lecture : les états lus appartiennent peut-être à un autre compte, jamais servis
   const after = await getOpenSessions();

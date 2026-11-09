@@ -11,14 +11,18 @@ vi.mock('../mal/full-list', () => ({ fetchMalFullList: deps.fetchMalFullList }))
 vi.mock('../../browser/airing-alarm', () => ({ connectedServices: deps.connectedServices }));
 vi.mock('../../browser/storage/sessions', () => ({ getOpenSessions: deps.getOpenSessions }));
 
-const { loadListStates } = await import('./states');
+let loadListStates: typeof import('./states').loadListStates;
 
 const entry = (id: number, status: string | null, progress = 0): { id: number; mediaListEntry: { status: string; progress: number } | null } => ({
   id,
   mediaListEntry: status === null ? null : { status, progress },
 });
 
-beforeEach(() => {
+beforeEach(async () => {
+  // Mémoire du module remise à zéro : la liste MAL mémorisée ne passe pas d'un test à l'autre
+  vi.resetModules();
+  ({ loadListStates } = await import('./states'));
+  vi.useRealTimers();
   for (const mock of Object.values(deps)) mock.mockReset();
   deps.getOpenSessions.mockResolvedValue({ anilist: 1, mal: 2 });
 });
@@ -93,5 +97,52 @@ describe('loadListStates', () => {
     deps.anilistQuery.mockRejectedValue(new Error('boom'));
     const result = await loadListStates({ mediaIds: [1], malIds: [] });
     expect(result).toEqual({ anilist: null, mal: null });
+  });
+
+  describe('mémo de la liste MAL', () => {
+    const malList = [{ malId: 10, status: 'CURRENT', progress: 3 }];
+    beforeEach(() => {
+      deps.connectedServices.mockResolvedValue(['mal']);
+      deps.fetchMalFullList.mockResolvedValue(malList);
+    });
+
+    it('deux appels dans les 5 minutes : une seule lecture MAL', async () => {
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      const second = await loadListStates({ mediaIds: [], malIds: [10] });
+      expect(deps.fetchMalFullList).toHaveBeenCalledTimes(1);
+      expect(second.mal).toEqual({ 10: { kind: 'inProgress', progress: 3 } });
+    });
+
+    it('une autre génération de session MAL relit la liste', async () => {
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      deps.getOpenSessions.mockResolvedValue({ anilist: 1, mal: 3 });
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      expect(deps.fetchMalFullList).toHaveBeenCalledTimes(2);
+    });
+
+    it('fresh: true contourne et rafraîchit la mémoire', async () => {
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      await loadListStates({ mediaIds: [], malIds: [10], fresh: true });
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      expect(deps.fetchMalFullList).toHaveBeenCalledTimes(2);
+    });
+
+    it('une lecture rejetée n\'est pas mémorisée', async () => {
+      deps.fetchMalFullList.mockRejectedValueOnce(new Error('boom'));
+      expect((await loadListStates({ mediaIds: [], malIds: [10] })).mal).toBeNull();
+      expect((await loadListStates({ mediaIds: [], malIds: [10] })).mal).toEqual({ 10: { kind: 'inProgress', progress: 3 } });
+      expect(deps.fetchMalFullList).toHaveBeenCalledTimes(2);
+    });
+
+    it('après 5 minutes : nouvelle lecture', async () => {
+      vi.useFakeTimers();
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      vi.advanceTimersByTime(5 * 60_000 - 1);
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      expect(deps.fetchMalFullList).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(2);
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      expect(deps.fetchMalFullList).toHaveBeenCalledTimes(2);
+    });
   });
 });

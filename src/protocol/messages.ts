@@ -142,7 +142,7 @@ export interface MessageMap {
   GET_PANEL_MEDIA: { payload: { mediaId: number }; response: PanelMediaResult };
   GET_FRANCHISE: { payload: { mediaId: number }; response: FranchiseResult };
   /** Panneau › Ordre de visionnage : états de liste de l'utilisateur pour les entrées de la franchise (lecture seule, rien n'est stocké) ; null = service non connecté ou lecture échouée */
-  GET_LIST_STATES: { payload: { mediaIds: number[]; malIds: number[] }; response: ListStates };
+  GET_LIST_STATES: { payload: { mediaIds: number[]; malIds: number[]; fresh?: boolean }; response: ListStates };
   /**
    * Fiche de la page (popup, panneau) : amis AniList (personnes suivies) qui ont la série, cache mémoire 10 min ;
    * `none` sans session AniList ou sans ami qui l'a
