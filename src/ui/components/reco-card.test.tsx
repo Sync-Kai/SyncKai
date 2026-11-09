@@ -3,6 +3,7 @@ import { render, type ComponentChild } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
+import type { StreamingPlatform } from '../../platforms/registry';
 import type { RecoItem } from '../../shared/recommendations';
 import type { RecoView } from '../reco-controller';
 import { RecoCard, type RecoCardProps } from './reco-card';
@@ -28,7 +29,7 @@ const item = (over: Partial<RecoItem['card']> = {}, matched: string[] = ['Action
 type Ready = Extract<RecoView, { status: 'ready' }>;
 const view = (current: RecoItem, over: Partial<Ready> = {}): Ready => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, ...over });
 
-const handlers = { onAnother: vi.fn<() => void>(), onAdd: vi.fn<() => void>(), onDismiss: vi.fn<() => void>(), onUndo: vi.fn<() => void>(), onEnable: vi.fn<(platform: string) => void>() };
+const handlers = { onAnother: vi.fn<() => void>(), onAdd: vi.fn<() => void>(), onDismiss: vi.fn<() => void>(), onUndo: vi.fn<() => void>(), onEnable: vi.fn<(platform: StreamingPlatform) => void>() };
 const props = (current: RecoItem, over: Partial<Ready> = {}, extra: Partial<RecoCardProps> = {}): RecoCardProps => ({ item: current, view: view(current, over), granted: [], ...handlers, ...extra });
 
 describe('RecoCard', () => {
@@ -50,6 +51,72 @@ describe('RecoCard', () => {
   it('un libellé inconnu garde le nom AniList', async () => {
     await show(<RecoCard {...props(item({}, ['Weirdo']))} />);
     expect($('[data-reco-chip]')?.textContent).toBe('Weirdo');
+  });
+
+  it('bannière : image d\'un hôte autorisé, couleur de repli sans bannière, aucune image d\'un hôte refusé', async () => {
+    await show(<RecoCard {...props(item({ bannerUrl: 'https://s4.anilist.co/file/banner.jpg', color: '#ff8800' }))} />);
+    expect($('[data-reco-banner] img')?.getAttribute('src')).toBe('https://s4.anilist.co/file/banner.jpg');
+    await show(<RecoCard {...props(item({ bannerUrl: null, color: '#ff8800' }))} />);
+    expect($('[data-reco-banner] img')).toBeNull();
+    expect($<HTMLElement>('[data-reco-banner]')?.style.backgroundColor).not.toBe('');
+    await show(<RecoCard {...props(item({ bannerUrl: 'https://evil.example/b.jpg', color: null }))} />);
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('titre sur 2 lignes avec infobulle, lien « Ouvrir sur AniList »', async () => {
+    await show(<RecoCard {...props(item())} />);
+    const title = $('a.line-clamp-2');
+    expect(title?.getAttribute('title')).toBe('Dandadan');
+    const link = [...container.querySelectorAll('a')].find((a) => a.textContent?.includes(t('page.openOn', { service: 'AniList' })));
+    expect(link?.getAttribute('href')).toBe('https://anilist.co/anime/7');
+  });
+
+  it('puces : genres lavande, étiquettes bordées', async () => {
+    await show(<RecoCard {...props(item({ genres: ['Action'], tags: ['Time Loop'] }, ['Action', 'Time Loop']))} />);
+    const kinds = [...container.querySelectorAll('[data-reco-chip]')].map((c) => c.getAttribute('data-reco-chip'));
+    expect(kinds).toEqual(['genre', 'tag']);
+    expect($('[data-reco-chip="genre"]')?.className).toContain('text-lavender');
+    expect($('[data-reco-chip="tag"]')?.className).toContain('border-line');
+    expect($('[data-reco-why]')?.className).toContain('bg-raised');
+  });
+
+  it('focus : « Annuler » après « Pas intéressé », « Autre » après l\'annulation', async () => {
+    const current = item();
+    await show(<RecoCard {...props(current)} />);
+    $<HTMLButtonElement>('[data-focus="reco-dismiss"]')?.focus();
+    await show(<RecoCard {...props(current, { dismissedTitle: 'Dandadan' })} />);
+    expect(document.activeElement).toBe($('[data-focus="reco-undo"]'));
+    await show(<RecoCard {...props(current)} />);
+    expect(document.activeElement).toBe($('[data-focus="reco-another"]'));
+  });
+
+  describe('tirage', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('l\'ancienne fiche reste pendant le tour du dé (360 ms), puis la nouvelle apparaît', async () => {
+      vi.useFakeTimers();
+      vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }));
+      const first = item();
+      const second = item({ id: 8, title: 'Nouvelle' });
+      await show(<RecoCard {...props(first)} />);
+      await act(() => $<HTMLButtonElement>('[data-focus="reco-another"]')?.click());
+      await show(<RecoCard {...props(second)} />);
+      expect(container.textContent).toContain('Dandadan');
+      expect(container.textContent).not.toContain('Nouvelle');
+      await act(() => { vi.advanceTimersByTime(361); });
+      expect(container.textContent).toContain('Nouvelle');
+      expect(container.textContent).not.toContain('Dandadan');
+      vi.unstubAllGlobals();
+    });
+
+    it('mouvement réduit : la nouvelle fiche apparaît tout de suite', async () => {
+      vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+      await show(<RecoCard {...props(item())} />);
+      await act(() => $<HTMLButtonElement>('[data-focus="reco-another"]')?.click());
+      await show(<RecoCard {...props(item({ id: 8, title: 'Nouvelle' }))} />);
+      expect(container.textContent).toContain('Nouvelle');
+      vi.unstubAllGlobals();
+    });
   });
 
   it('les clics appellent Autre, Ajouter et Pas intéressé', async () => {

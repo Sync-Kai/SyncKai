@@ -1,5 +1,6 @@
 // Suggestions « Pour toi » (popup, panneau) : un lot reçu du service worker, tiré localement (drawNext) sans jamais
 // répéter une fiche de la page. Un contrôleur par page ; aucune écoute du DOM, `dispose()` coupe la minuterie d'« Annuler ».
+import { t } from '../i18n';
 import { drawNext, type RecoItem, type RecoBatch } from '../shared/recommendations';
 import { createStore, type ReadonlyStore } from './state';
 import { addToPlanning, sequelAddResult } from './sequel-actions';
@@ -101,8 +102,10 @@ export function createRecoController(): RecoController {
       const view = ready();
       if (!view || view.added) return;
       const { card } = view.current;
+      // MyAnimeList seul et fiche sans idMal : aucune entrée où écrire
+      if (view.malOnly && card.idMal === null) return;
       const outcome = await addToPlanning({ mediaId: card.id, malId: card.idMal });
-      const result = sequelAddResult(outcome, '');
+      const result = sequelAddResult(outcome, t('reco.error', { error: t('error.unexpectedAdd') }));
       const now = ready();
       if (disposed || !now || now.current.card.id !== card.id) return;
       if (result.kind === 'failed') {
@@ -127,7 +130,10 @@ export function createRecoController(): RecoController {
           draw();
         }
       }, UNDO_MS);
-      await callWorker('UPDATE_RECOMMENDATION', { id: card.id, action: 'dismissed' }, () => false);
+      const saved = await callWorker('UPDATE_RECOMMENDATION', { id: card.id, action: 'dismissed' }, () => false);
+      // Écart non enregistré : la fiche reviendrait au prochain lot, l'erreur reste visible
+      const now = ready();
+      if (!saved && !disposed && now && now.current.card.id === card.id) store.set({ ...now, addError: t('reco.error', { error: t('popup.swUnreachable') }) });
     },
     async undo() {
       const view = ready();

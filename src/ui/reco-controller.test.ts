@@ -14,6 +14,7 @@ vi.mock('../protocol/messages', () => ({
 }));
 
 const { createRecoController } = await import('./reco-controller');
+const { t } = await import('../i18n');
 
 const item = (id: number, over: Partial<RecoItem['card']> = {}): RecoItem => ({
   card: { id, idMal: id + 1000, title: `Série ${id}`, format: 'TV', year: 2024, episodes: 12, averageScore: 80, genres: ['Action'], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: `https://anilist.co/anime/${id}`, platforms: [], ...over },
@@ -108,6 +109,22 @@ describe('createRecoController', () => {
     expect(view.added).toBe(false);
     expect(view.addError).toBe('Réseau');
     expect(types()).not.toContain('UPDATE_RECOMMENDATION');
+    c.dispose();
+  });
+
+  it('MyAnimeList seul et sans idMal : add() ne part pas', async () => {
+    sw.handler = (type) => (type === 'GET_RECOMMENDATIONS' ? okResult({ ...batchOf(1), items: [item(1, { idMal: null })] }, true) : added);
+    const c = await start();
+    await c.add();
+    expect(types()).not.toContain('ADD_TO_LIST');
+    c.dispose();
+  });
+
+  it('écart non enregistré : l\'erreur reste visible', async () => {
+    sw.handler = (type) => (type === 'GET_RECOMMENDATIONS' ? okResult(batchOf(3)) : false);
+    const c = await start();
+    await c.dismiss();
+    expect(ready(c.store.get()).addError).toContain(t('popup.swUnreachable'));
     c.dispose();
   });
 

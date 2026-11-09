@@ -6,7 +6,9 @@ import { t } from '../../i18n';
 import { PLATFORM_LABELS, isOptionalPlatform, type StreamingPlatform } from '../../platforms/registry';
 import { genreKey } from '../../shared/genres';
 import type { RecoItem } from '../../shared/recommendations';
-import { toSafeUrl } from '../../shared/url';
+import { TRACKER_LABELS } from '../../shared/tracker.types';
+import { toImageSrc, toSafeUrl } from '../../shared/url';
+import { useMediaQuery } from '../preact/hooks';
 import type { RecoView } from '../reco-controller';
 import { Button } from './button';
 import { Cover } from './cover';
@@ -26,14 +28,19 @@ export interface RecoCardProps {
   /** Plateformes optionnelles dont l'accès est accordé */
   granted: readonly StreamingPlatform[];
   /** Clic sur « Activer {plateforme} » (la demande d'accès part dans le clic) */
-  onEnable?: (platform: StreamingPlatform) => void;
+  onEnable: (platform: StreamingPlatform) => void;
 }
 
 /** Durée du tour du dé (theme.css › --animate-dice-turn) */
 const DICE_MS = 360;
 const MAX_CHIPS = 4;
 
+/** Couleur dominante AniList (#rrggbb) ; autre forme : ignorée */
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
 const chipClass = 'inline-flex max-w-full items-center truncate rounded-pill bg-raised px-2 py-0.5 text-secondary text-muted';
+const genreChipClass = 'inline-flex max-w-full items-center truncate rounded-pill bg-lavender/14 px-2 py-0.5 text-secondary font-bold text-lavender';
+const tagChipClass = 'inline-flex max-w-full items-center truncate rounded-pill border border-line px-2 py-0.5 text-secondary text-muted';
 
 /** Genre traduit, sinon le nom AniList (étiquette ou genre inconnu) */
 function chipLabel(name: string): string {
@@ -54,7 +61,7 @@ function PlatformChips({ item, granted, onEnable }: Pick<RecoCardProps, 'item' |
           if (isOptionalPlatform(platform) && !granted.includes(platform)) {
             // Accès non accordé : puce grisée, le clic demande l'accès
             return (
-              <button key={platform} type="button" class={`${chipClass} cursor-pointer opacity-55 hover:opacity-100`} data-platform={platform} onClick={() => onEnable?.(platform)}>
+              <button key={platform} type="button" class={`${chipClass} cursor-pointer opacity-55 hover:opacity-100`} data-platform={platform} onClick={() => onEnable(platform)}>
                 {t('panel.enablePlatform', { platform: label })}
               </button>
             );
@@ -70,10 +77,13 @@ function PlatformChips({ item, granted, onEnable }: Pick<RecoCardProps, 'item' |
   );
 }
 
-export function RecoCard({ item, compact = false, view, onAnother, onAdd, onDismiss, onUndo, granted, onEnable }: RecoCardProps) {
-  const { card, reason } = item;
-  const [rolling, setRolling] = useState(false);
+export function RecoCard({ item: liveItem, compact = false, view: liveView, onAnother, onAdd, onDismiss, onUndo, granted, onEnable }: RecoCardProps) {
+  const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
+  // Tirage en cours : l'ancienne fiche reste affichée le temps du tour du dé, puis la nouvelle apparaît en fondu
+  const [held, setHeld] = useState<{ item: RecoItem; view: ReadyView } | null>(null);
   const rollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const root = useRef<HTMLElement>(null);
+  const wasDismissed = useRef(false);
   useEffect(
     () => () => {
       if (rollTimer.current !== null) clearTimeout(rollTimer.current);
@@ -81,43 +91,80 @@ export function RecoCard({ item, compact = false, view, onAnother, onAdd, onDism
     [],
   );
 
+  // Focus : « Pas intéressé » disparaît, « Annuler » le reprend ; après l'annulation ou le délai, retour sur « Autre »
+  const dismissedNow = liveView.dismissedTitle !== null;
+  useEffect(() => {
+    const section = root.current;
+    if (!section || wasDismissed.current === dismissedNow) return;
+    wasDismissed.current = dismissedNow;
+    const active = document.activeElement;
+    // Focus ailleurs dans la page : on ne le vole pas
+    if (active && active !== document.body && !section.contains(active)) return;
+    section.querySelector<HTMLElement>(`[data-focus="${dismissedNow ? 'reco-undo' : 'reco-another'}"]`)?.focus();
+  }, [dismissedNow]);
+
+  const shown = held ?? { item: liveItem, view: liveView };
+  const { item, view } = shown;
+  const { card, reason } = item;
+  const rolling = held !== null;
+
   const another = (): void => {
-    setRolling(true);
-    if (rollTimer.current !== null) clearTimeout(rollTimer.current);
-    rollTimer.current = setTimeout(() => setRolling(false), DICE_MS);
+    if (held) return;
+    if (!reduced) {
+      setHeld({ item: liveItem, view: liveView });
+      rollTimer.current = setTimeout(() => {
+        rollTimer.current = null;
+        setHeld(null);
+      }, DICE_MS);
+    }
     onAnother();
   };
 
   const notOnMal = view.malOnly && card.idMal === null;
+  const bannerSrc = toImageSrc(card.bannerUrl);
+  const bannerColor = card.color !== null && HEX_COLOR.test(card.color) ? card.color : null;
+  // Genres et étiquettes de la raison, séparés (leurs puces n'ont pas la même couleur)
+  const matched = reason ? reason.matched.slice(0, MAX_CHIPS) : [];
   const href = toSafeUrl(card.siteUrl);
   const meta = [card.format, card.year, card.episodes !== null ? t('review.episodes', { count: card.episodes }) : null].filter((part): part is string | number => part !== null && part !== '');
   const dismissed = view.dismissedTitle !== null;
 
   return (
-    <section class="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-3" aria-label={t('reco.title')} data-reco="">
+    <section ref={root} class="flex flex-col gap-2.5 overflow-hidden rounded-card border border-line bg-surface p-3" aria-label={t('reco.title')} data-reco="">
       {/* Une clé par fiche : le contenu apparaît en fondu à chaque tirage, les boutons gardent leur focus */}
       <div key={card.id} class="flex animate-reco-in flex-col gap-2.5 motion-reduce:animate-reco-in" data-reco-item={card.id}>
+        <div class="relative -mx-3 -mt-3 h-18 overflow-hidden bg-raised" style={bannerColor ? { backgroundColor: bannerColor } : undefined} data-reco-banner="">
+          {bannerSrc && <img class="absolute inset-0 size-full object-cover" src={bannerSrc} alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" draggable={false} />}
+          <span class="absolute inset-0 bg-linear-to-b from-transparent to-surface" aria-hidden="true" />
+        </div>
         <div class="flex items-start gap-3">
-          <Cover size={compact ? 'card' : 'hero'} title={card.title} src={card.coverLarge ?? card.coverUrl} />
+          <div class={`relative shrink-0 ${compact ? '-mt-7' : '-mt-9'}`}>
+            <Cover size={compact ? 'card' : 'hero'} title={card.title} src={card.coverLarge ?? card.coverUrl} />
+          </div>
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
             {href ? (
-              <a class="text-row-title text-ink no-underline hover:underline" href={href} target="_blank" rel="noopener noreferrer">
+              <a class="line-clamp-2 text-row-title text-ink no-underline hover:underline" href={href} target="_blank" rel="noopener noreferrer" title={card.title}>
                 {card.title}
               </a>
             ) : (
-              <span class="text-row-title text-ink">{card.title}</span>
+              <span class="line-clamp-2 text-row-title text-ink" title={card.title}>
+                {card.title}
+              </span>
             )}
             <span class="text-secondary text-muted">{meta.join(' · ')}</span>
             {card.averageScore !== null && <span class="text-secondary font-bold text-butter">★ {(card.averageScore / 10).toFixed(1)}</span>}
           </div>
         </div>
         {reason && (
-          <div class="flex flex-col gap-1.5 rounded-panel bg-lavender/14 px-2.5 py-2" data-reco-why="">
-            <span class="text-body text-ink">{t('reco.because', { title: reason.seedTitle, score: reason.seedScore })}</span>
-            {reason.matched.length > 0 && (
+          <div class="flex flex-col gap-1.5 rounded-panel bg-raised px-2.5 py-2" data-reco-why="">
+            <span class="flex items-start gap-1.5 text-body text-ink">
+              <Icon name="sparkles" class="mt-0.5 size-3.5 shrink-0 text-lavender" />
+              {t('reco.because', { title: reason.seedTitle, score: reason.seedScore })}
+            </span>
+            {matched.length > 0 && (
               <div class="flex flex-wrap gap-1.5">
-                {reason.matched.slice(0, MAX_CHIPS).map((name) => (
-                  <span key={name} class={chipClass} data-reco-chip="">
+                {matched.map((name) => (
+                  <span key={name} class={card.genres.includes(name) ? genreChipClass : tagChipClass} data-reco-chip={card.genres.includes(name) ? 'genre' : 'tag'}>
                     {chipLabel(name)}
                   </span>
                 ))}
@@ -156,6 +203,11 @@ export function RecoCard({ item, compact = false, view, onAnother, onAdd, onDism
         {!dismissed && (
           <Button variant="text" size="sm" focusKey="reco-dismiss" ariaLabel={t('reco.dismissAria', { title: card.title })} onClick={onDismiss}>
             {t('reco.dismiss')}
+          </Button>
+        )}
+        {href && (
+          <Button variant="text" size="sm" href={href} target="_blank" icon="external">
+            {t('page.openOn', { service: TRACKER_LABELS.anilist })}
           </Button>
         )}
       </div>
