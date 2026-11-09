@@ -649,3 +649,4 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 | `watching.dormant.partial_other` | {text} · 작품 {count}개 실패 |
 
 - 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « 브라우저가 알림을 차단함 — 브라우저 설정에서 SyncKai 알림을 허용하세요 » (term sheet wording for notifications kept).
+- 2026-11-09, feature/sequel-alerts: added the sequel alert texts (sequel.*, agenda.view.*, agenda.announced.empty, settings.section.sequels, settings.sequels.*, nav.activityNewSequels).

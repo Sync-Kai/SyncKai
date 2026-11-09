@@ -720,3 +720,4 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 | `watching.dormant.partial_other` | {text} · {count} аніме з помилкою |
 
 - 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « браузер блокує сповіщення — дозволь їх для SyncKai у налаштуваннях браузера » (term sheet wording for notifications kept).
+- 2026-11-09, feature/sequel-alerts: added the sequel alert texts (sequel.*, agenda.view.*, agenda.announced.empty, settings.section.sequels, settings.sequels.*, nav.activityNewSequels).
