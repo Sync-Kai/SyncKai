@@ -45,6 +45,8 @@ import {
   getRecentSyncs,
 } from '../browser/storage/reviews';
 import { connectedServices, ensureAiringAlarm } from '../browser/airing-alarm';
+import { notificationsBlocked } from '../browser/notifications';
+import { checkSequels } from './sequels/check';
 import { withStorageLock } from '../browser/storage/lock';
 import type { TrackerId } from '../shared/tracker.types';
 import { choosePlatformLink, isWatchingFresh, WATCHING_MAX_AGE_MS } from '../shared/watching';
@@ -179,15 +181,6 @@ interface CheckOutcome {
   error: string | null;
 }
 
-/**
- * Notifications de SyncKai désactivées dans Chrome : chaque création serait refusée avec un message vide. Firefox n'a pas
- * getPermissionLevel (blocage par le système non détectable, comme sur Chrome).
- */
-async function notificationsBlocked(): Promise<boolean> {
-  if (typeof chrome.notifications.getPermissionLevel !== 'function') return false;
-  return (await chrome.notifications.getPermissionLevel()) === 'denied';
-}
-
 /** Vérification proprement dite : nombre de notifications créées ou raison de l'abandon. Peut lever. */
 async function runCheck(lane: RequestLane): Promise<CheckOutcome> {
   const settings = await getSettings();
@@ -319,11 +312,18 @@ export async function checkNewEpisodes(lane: RequestLane = 'background'): Promis
 }
 
 /**
- * Déclenchement de l'alarme horaire : vérification en file de fond. Alertes coupées ou plus aucun service connecté
- * (changement manqué, token AniList arrivé à expiration) : l'alarme est supprimée, plus de réveil horaire inutile (PERF-17).
+ * Déclenchement de l'alarme horaire : vérification des sorties en file de fond, puis des suites (au plus une fois par
+ * 24 h, la passe quotidienne se déclare « pas due » sinon). Les deux vérifications ne lèvent jamais ; une erreur de la
+ * seconde est seulement journalisée. Sorties coupées ou plus aucun service connecté : ensureAiringAlarm supprime
+ * l'alarme, sauf si les alertes de suite la réclament encore (PERF-17).
  */
 export async function handleAiringAlarm(): Promise<void> {
   const { skipped } = await checkNewEpisodes('background');
+  try {
+    await checkSequels();
+  } catch (error) {
+    log.error('Vérification des suites interrompue :', error);
+  }
   if (skipped === 'disabled' || skipped === 'not-connected') await ensureAiringAlarm();
 }
 

@@ -19,6 +19,7 @@ const fakes = vi.hoisted(() => ({
   create: vi.fn<(id: string, options: unknown) => Promise<string>>(),
   /** Autorisation des notifications de l'extension (chrome.notifications.getPermissionLevel) */
   permission: vi.fn<() => Promise<'granted' | 'denied'>>(),
+  checkSequels: vi.fn<() => Promise<unknown>>(),
 }));
 
 vi.mock('./anilist/client', () => ({
@@ -28,6 +29,7 @@ vi.mock('./anilist/client', () => ({
   },
 }));
 vi.mock('./anilist/watching', () => ({ getWatchingList: fakes.getWatchingList }));
+vi.mock('./sequels/check', () => ({ checkSequels: fakes.checkSequels }));
 
 const fake = installFakeChrome({ extra: { notifications: { create: fakes.create, clear: async () => true, getPermissionLevel: fakes.permission } } });
 const { checkNewEpisodes, handleAiringAlarm } = await import('./airing');
@@ -80,6 +82,8 @@ beforeEach(() => {
   fakes.create.mockImplementation(async (id) => id);
   fakes.permission.mockReset();
   fakes.permission.mockResolvedValue('granted');
+  fakes.checkSequels.mockReset();
+  fakes.checkSequels.mockResolvedValue({});
 });
 
 describe('liste « En cours » de plus de 12 h (ALRT-01)', () => {
@@ -298,6 +302,23 @@ describe('alarme horaire (PERF-17) : vérifiée à son déclenchement, plus par 
     fakes.schedule.mockImplementation(() => page([]));
     await handleAiringAlarm();
     expect(fakes.lanes).toEqual(['background']);
+    expect(await chrome.alarms.get(AIRING)).toMatchObject({ periodInMinutes: 60 });
+  });
+
+  it('la vérification des suites suit celle des sorties ; son échec ne casse pas l’alarme', async () => {
+    fake.reset({ ...OPEN_SESSIONS, [STORAGE_KEYS.watchingCache]: { anilist: list(Date.now(), [entry(1, 6)]) } });
+    fakes.schedule.mockImplementation(() => page([]));
+    fakes.checkSequels.mockRejectedValue(new Error('boom'));
+    await handleAiringAlarm();
+    expect(fakes.schedule).toHaveBeenCalled();
+    expect(fakes.checkSequels).toHaveBeenCalledTimes(1);
+  });
+
+  it('sorties coupées, suites actives : l’alarme est gardée', async () => {
+    fake.reset({ ...OPEN_SESSIONS, settings: { airingAlerts: false, sequelAlerts: true } });
+    await chrome.alarms.create(AIRING, { delayInMinutes: 1, periodInMinutes: 60 });
+    await handleAiringAlarm();
+    expect(fakes.checkSequels).toHaveBeenCalledTimes(1);
     expect(await chrome.alarms.get(AIRING)).toMatchObject({ periodInMinutes: 60 });
   });
 });
