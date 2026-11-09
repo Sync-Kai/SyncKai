@@ -237,3 +237,25 @@ export function shortTitle(rootTitle: string, title: string): string {
   if (/^[\p{L}\p{N}]/u.test(rest)) return title;
   return rest.replace(/^[\s:：\-–—·]+/u, '').trim() || title;
 }
+
+/** États de liste des entrées d'une franchise, par service : null = service non connecté, session changée ou lecture échouée */
+export interface ListStates {
+  anilist: Record<number, ListState> | null;
+  mal: Record<number, ListState> | null;
+}
+
+const KIND_OF_STATUS: Record<string, NonNullable<ListState>['kind']> = {
+  COMPLETED: 'watched',
+  REPEATING: 'watched',
+  CURRENT: 'inProgress',
+  PLANNING: 'planned',
+  PAUSED: 'paused',
+  DROPPED: 'dropped',
+};
+
+/** Statut de liste commun (AniList MediaListStatus) → état de la franchise ; null si le statut est inconnu. La progression ne sert qu'« en cours » */
+export function toListState(status: unknown, progress: unknown): ListState {
+  if (typeof status !== 'string' || !Object.hasOwn(KIND_OF_STATUS, status)) return null;
+  const kind = KIND_OF_STATUS[status];
+  return { kind, progress: kind === 'inProgress' && typeof progress === 'number' ? progress : null };
+}

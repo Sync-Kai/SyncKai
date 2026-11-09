@@ -70,6 +70,7 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   CANCEL_COMPARE_JOB: 'extension',
   GET_PANEL_MEDIA: 'extension',
   GET_FRANCHISE: 'extension',
+  GET_LIST_STATES: 'extension',
   GET_ANILIST_FRIENDS: 'extension',
   GET_AGENDA: 'extension',
   CR_IMPORT_ANALYZE: 'extension',
@@ -156,6 +157,9 @@ const isAddToListPayload = (p: unknown): p is AddToListPayload =>
 
 /** Payload { mediaId } (GET_PANEL_MEDIA, GET_FRANCHISE, GET_ANILIST_FRIENDS) */
 const isPanelMediaPayload = (p: unknown): p is { mediaId: number } => isRecord(p) && isPositiveInt(p.mediaId);
+/** Payload { mediaIds, malIds } (GET_LIST_STATES) : au plus 90 identifiants positifs par liste (50 principales + 40 extras) */
+const isListStatesPayload = (p: unknown): p is { mediaIds: number[]; malIds: number[] } =>
+  isRecord(p) && [p.mediaIds, p.malIds].every((ids) => Array.isArray(ids) && ids.length <= 90 && ids.every(isPositiveInt));
 /** Langue proposée seulement (i18n/locale-codes.ts) : toute autre valeur est refusée, le script reste en anglais */
 const isContentCatalogPayload = (p: unknown): p is { locale: Locale } => isRecord(p) && isLocale(p.locale);
 
@@ -192,6 +196,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   CANCEL_COMPARE_JOB: isNull,
   GET_PANEL_MEDIA: isPanelMediaPayload,
   GET_FRANCHISE: isPanelMediaPayload,
+  GET_LIST_STATES: isListStatesPayload,
   GET_ANILIST_FRIENDS: isPanelMediaPayload,
   GET_AGENDA: isAgendaPayload,
   CR_IMPORT_ANALYZE: isCrImportAnalyzePayload,
