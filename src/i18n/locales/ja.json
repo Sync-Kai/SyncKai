@@ -554,7 +554,7 @@
   "page.unavailable": "このサービスに作品ページなし",
   "page.uncertain": "シーズンは推測です。下で確認してください",
   "page.currentStatus": "現在のステータス",
-  "page.details": "詳細：シーズン・評価・メモ",
+  "page.details": "詳細：シーズン・評価・メモ・フレンド",
   "page.seasonOnAniList": "AniListのシーズン",
   "page.seasonHelp": "シーズンを変えると、次のエピソード以降の紐付けが修正されます。",
   "page.yourRating": "評価",

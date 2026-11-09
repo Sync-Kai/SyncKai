@@ -43,4 +43,21 @@ describe('MediaDetails', () => {
     expect($('[data-focus="page-details"]')?.getAttribute('aria-expanded')).toBe('true');
     expect($('[data-test-content]')?.textContent).toBe('Saison');
   });
+
+  it('libellé sur une ligne : tronqué avec « … » et texte complet en infobulle, chevron jamais rogné', async () => {
+    const label = 'Détails : saison, note, commentaire, amis';
+    await show(
+      <MediaDetails label={label} open={false} onToggle={() => undefined} focusKey="page-details">
+        x
+      </MediaDetails>,
+    );
+    const button = $<HTMLButtonElement>('[data-focus="page-details"]');
+    expect(button?.getAttribute('title')).toBe(label);
+    expect(button?.className).toContain('max-w-full');
+    const text = button?.querySelector('span');
+    expect(text?.textContent).toBe(label);
+    expect(text?.className).toContain('truncate');
+    expect(text?.className).toContain('min-w-0');
+    expect(button?.lastElementChild?.className).toContain('shrink-0');
+  });
 });

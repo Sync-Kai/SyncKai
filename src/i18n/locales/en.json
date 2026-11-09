@@ -609,7 +609,7 @@
   "page.unavailable": "Not available on this service",
   "page.uncertain": "Season guessed: check it below",
   "page.currentStatus": "Current status",
-  "page.details": "Details: season, rating, comment",
+  "page.details": "Details: season, rating, comment, friends",
   "page.seasonOnAniList": "Season on AniList",
   "page.seasonHelp": "Changing the season fixes the match for the next episodes.",
   "page.yourRating": "Your rating",

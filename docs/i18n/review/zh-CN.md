@@ -615,3 +615,11 @@ New « My series » sort option grouping the series by the airing status of the 
 | `watching.statusGroup.finished` | 已完结 |
 | `watching.statusGroup.stopped` | 暂停或取消播出 |
 | `watching.statusGroup.unknown` | 状态未知 |
+
+## 2026-11-09 · Friends in the details button
+
+The « Details » button of the popup › On this page card now also names the friends section it opens (owner’s request): « 好友 » added at the end of the list, the word of `friends.title`, same separators as before. Too long for the card, the label truncates with « … » and shows its full text in a tooltip. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `page.details` | 详情：季、评分、备注、好友 |

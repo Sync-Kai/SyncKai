@@ -554,7 +554,7 @@
   "page.unavailable": "此服务上没有该条目",
   "page.uncertain": "此季为推测结果，请在下方确认",
   "page.currentStatus": "当前状态",
-  "page.details": "详情：季、评分、备注",
+  "page.details": "详情：季、评分、备注、好友",
   "page.seasonOnAniList": "AniList 上的季",
   "page.seasonHelp": "更换季会修正之后各集的匹配。",
   "page.yourRating": "我的评分",

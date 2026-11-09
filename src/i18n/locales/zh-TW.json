@@ -554,7 +554,7 @@
   "page.unavailable": "此服務上沒有對應條目",
   "page.uncertain": "這一季是推測的：請在下方確認",
   "page.currentStatus": "目前狀態",
-  "page.details": "詳細資料：季、評分、備註",
+  "page.details": "詳細資料：季、評分、備註、好友",
   "page.seasonOnAniList": "AniList 上的季",
   "page.seasonHelp": "更換季會修正之後各集的對應。",
   "page.yourRating": "我的評分",

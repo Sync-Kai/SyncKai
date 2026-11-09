@@ -554,7 +554,7 @@
   "page.unavailable": "이 서비스에는 항목 없음",
   "page.uncertain": "추정한 시즌이에요. 아래에서 확인하세요",
   "page.currentStatus": "현재 상태",
-  "page.details": "상세: 시즌, 평점, 메모",
+  "page.details": "상세: 시즌, 평점, 메모, 친구",
   "page.seasonOnAniList": "AniList 시즌",
   "page.seasonHelp": "시즌을 바꾸면 다음 에피소드부터 매칭이 수정돼요.",
   "page.yourRating": "내 평점",

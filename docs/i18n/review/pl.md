@@ -713,3 +713,11 @@ New « My series » sort option grouping the series by the airing status of the 
 | `watching.statusGroup.finished` | Zakończone |
 | `watching.statusGroup.stopped` | Zawieszone lub anulowane |
 | `watching.statusGroup.unknown` | Status nieznany |
+
+## 2026-11-09 · Friends in the details button
+
+The « Details » button of the popup › On this page card now also names the friends section it opens (owner’s request): « znajomi » added at the end of the list, the word of `friends.title`, same separators as before. Too long for the card, the label truncates with « … » and shows its full text in a tooltip. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `page.details` | Szczegóły: sezon, ocena, komentarz, znajomi |

@@ -1,6 +1,7 @@
 // Détails repliables d'une série (maquette PopupSeriesDeplie) : bouton « Détails : saison, note, commentaire » avec son
 // chevron (aria-expanded / aria-controls), puis, dépliée, une section sous un trait (saison, note, commentaire fournis par
-// l'hôte). Carte « Sur cette page » du popup, prévu pour le panneau.
+// l'hôte). Carte « Sur cette page » du popup, prévu pour le panneau. Libellé sur une ligne : trop long, il se tronque
+// (« … ») avec son texte complet en infobulle, jamais coupé au milieu d'un mot.
 import type { ComponentChildren } from 'preact';
 import { useId } from 'preact/hooks';
 import { Icon } from './icon';
@@ -21,13 +22,14 @@ export function MediaDetails({ label, open, onToggle, focusKey, children }: Medi
     <div class="flex min-w-0 flex-col gap-2.5" data-media-details="">
       <button
         type="button"
-        class={`flex min-h-6 cursor-pointer items-center gap-1 self-start border-0 bg-transparent p-0 text-left text-secondary font-bold transition-colors hover:text-ink ${open ? 'text-ink' : 'text-muted'}`}
+        class={`flex min-h-6 max-w-full min-w-0 cursor-pointer items-center gap-1 self-start border-0 bg-transparent p-0 text-left text-secondary font-bold transition-colors hover:text-ink ${open ? 'text-ink' : 'text-muted'}`}
         aria-expanded={open ? 'true' : 'false'}
         aria-controls={id}
+        title={label}
         data-focus={focusKey}
         onClick={onToggle}
       >
-        {label}
+        <span class="min-w-0 truncate">{label}</span>
         <span class={`flex shrink-0 motion-safe:transition-transform ${open ? 'rotate-180' : ''}`}>
           <Icon name="chevronDown" class="size-3" strokeWidth="2.4" />
         </span>

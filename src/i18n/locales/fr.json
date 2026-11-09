@@ -609,7 +609,7 @@
   "page.unavailable": "Fiche absente de ce service",
   "page.uncertain": "Saison devinée : vérifie-la ci-dessous",
   "page.currentStatus": "Statut actuel",
-  "page.details": "Détails : saison, note, commentaire",
+  "page.details": "Détails : saison, note, commentaire, amis",
   "page.seasonOnAniList": "Saison sur AniList",
   "page.seasonHelp": "Changer de saison corrige la correspondance pour les prochains épisodes.",
   "page.yourRating": "Ta note",
