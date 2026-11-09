@@ -94,6 +94,20 @@ Settings › My data: « Réafficher les {count} suggestions écartées » (`RES
 
 ## 8. Calls made by the assistant (night of 2026-11-09, owner's autonomy grant)
 
+After the builder check (2026-11-09), settled here:
+- Adult content: `isAdult` titles are never suggested (batch, popup, « Dans le même esprit »); no setting. The Hentai genre label is still translated (it may appear on the user's own entries).
+- « + À regarder » uses the existing `ADD_TO_LIST` (every connected service, like everywhere else). A candidate without `idMal` for a MAL-only user shows « pas encore sur MyAnimeList » and no add button (same rule as the sequel alerts).
+- MAL scores and MAL entries mapped to AniList ids seed the AniList queries: it is the user's own list data reading the AniList catalogue for them, the MAL-only grey zone the owner accepted; no MAL catalogue content is read or merged.
+- Card fields: `id idMal isAdult format status episodes duration averageScore genres tags { name rank isMediaSpoiler } title { userPreferred } coverImage { large medium color } bannerImage siteUrl startDate { year } season seasonYear externalLinks { url } relations { edges { relationType node { id } } }`; « Où regarder » = `buildPlatforms(externalLinks, [])` (same path as the panel and « Regarder »), an optional platform without access greyed with « Activer » through the page's platform-access store.
+- Unseen-sequel rule: a candidate with a PREQUEL (one hop) whose prequel is not in the user's lists as COMPLETED, CURRENT or REPEATING is not suggested (Planning / Paused / Dropped prequel → excluded too). Measure the relations field's cost with the batch query before coding; if it pushes complexity over the limit, drop to 8 recommendations per seed.
+- Seeds: scored ≥ 7/10 first; when fewer than 3, unscored completed series are added with weight 6 (most recently updated first) until 3; cold start only with fewer than 3 completed series at all.
+- After a SyncKai add or dismiss: the id is removed from the batch locally (no recompute); full recompute only when the batch is older than 24 h or on « Réessayer ».
+- Dismissed ids: one list per user (shared by both accounts), purged when no session is left; the Backup carries it and a restore replaces it (schema change handled like other backup fields, builder checks `backup-store.ts`).
+- Popup: when « Mes séries » is empty it reads `reco:batch` from storage; with no batch it sends `GET_RECOMMENDATIONS` once (the popup already talks to the worker on open). Opening the panel on Découvrir: a short-lived session key read by the panel on load (same pattern as `browser/popup-screen.ts`), set inside the click with the panel opening.
+- « Dans le même esprit »: user's lists, dismissed ids, adult and unseen-sequel rules applied (relations of the recommendation nodes in the `PanelMedia` query).
+
+Earlier calls:
+
 - Seeds: completed / repeating scored ≥ 7/10, up to 50, both accounts merged with the higher score.
 - Unseen-sequel exclusion rule (a candidate whose PREQUEL is not in the user's lists is not suggested).
 - Batch of 60, account-bound, 24 h; dismissed ids user-scoped, ≤ 500, in the Backup.
