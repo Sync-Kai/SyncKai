@@ -117,6 +117,19 @@
   --motion-exit: 120ms;
 
   --animate-squish: squish 1.2s ease-in-out infinite;
+  /* Suggestions : le dé fait un tour (360 ms) puis la fiche apparaît en fondu ; mouvement réduit : fondu seul */
+  --animate-dice-turn: dice-turn 360ms ease-in-out;
+  --animate-reco-in: reco-in var(--motion-enter) ease-out;
+  @keyframes dice-turn {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes reco-in {
+    from {
+      opacity: 0;
+    }
+  }
   @keyframes squish {
     0%,
     100% {
