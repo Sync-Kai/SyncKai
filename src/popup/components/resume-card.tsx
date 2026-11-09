@@ -8,7 +8,7 @@ import type { StreamingPlatform } from '../../platforms/ids';
 import { Button } from '../../ui/components/button';
 import { Cover } from '../../ui/components/cover';
 import { Icon } from '../../ui/components/icon';
-import { SeriesStatusLine, SeriesTitle, type SeriesEntryLink, type SeriesOpenLink, type SeriesStatus, type SeriesTag } from '../../ui/components/series-row';
+import { SeriesStatusLine, SeriesTitle, type SeriesChip, type SeriesEntryLink, type SeriesOpenLink, type SeriesStatus, type SeriesTag } from '../../ui/components/series-row';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import { Stepper } from '../../ui/components/stepper';
 
@@ -24,7 +24,8 @@ export interface ResumeCardProps {
   progressText: string;
   /** « 6 épisodes vus sur 28 » */
   progressLabel: string;
-  status: SeriesStatus;
+  status: SeriesStatus | null;
+  chip?: SeriesChip | null;
   tag?: SeriesTag | null;
   /** « Crunchyroll · il y a 2 h » (plateforme affichée, dernière synchro) ; vide : rien */
   meta: string;
@@ -62,7 +63,7 @@ export function ResumeCard(props: ResumeCardProps) {
             </span>
           </span>
           <SeriesTitle title={title} entry={entry} focusKey={`title-${rowKey}`} />
-          <SeriesStatusLine status={props.status} tag={props.tag} />
+          <SeriesStatusLine status={props.status} chip={props.chip} tag={props.tag} />
           {props.meta !== '' && (
             <span class="truncate text-secondary text-muted" title={props.meta} data-resume-meta="">
               {props.meta}

@@ -1604,6 +1604,57 @@ describe('popup (bout en bout)', () => {
     expect(await page.$(sel(`${SOLO}-minus`))).not.toBeNull();
   });
 
+  it('six séries couvrant chaque statut : paires pastille de statut / pastille de sortie attendues', async () => {
+    const page = await openPopup({ airing: 'mixed' });
+    await page.waitForSelector(sel(`${SOLO}-plus`));
+        const line = (key: string): Promise<{ status: string | null; chip: string | null; chipIcon: string | null }> =>
+      page.$eval(`[data-series-row="${key}"]`, (_, k) => {
+        const root = document.querySelector(`[data-series-row="${k}"]`) ?? document.body;
+        return {
+          status: root.querySelector('[data-series-status] [data-status-text]')?.textContent?.trim() ?? null,
+          chip: root.querySelector('[data-series-chip]')?.textContent?.trim() ?? null,
+          chipIcon: root.querySelector('[data-series-chip] svg')?.getAttribute('aria-hidden') ?? null,
+        };
+      }, key);
+    // Solo Leveling : en pause sans date : la pastille remplace « Date inconnue »
+    expect(await line(SOLO)).toEqual({ status: null, chip: fr('page.airing.HIATUS'), chipIcon: 'true' });
+    // Frieren : terminée, 2 épisodes à voir : « Ép. 27 disponible » reste, pas de pastille
+    const frieren = await line('154587:52991');
+    expect(frieren.chip).toBeNull();
+    expect(frieren.status).toContain('27');
+    // Kaiju No. 8 : annulée et à jour : plus de « Série terminée »
+    expect(await line('178754:59177')).toEqual({ status: null, chip: fr('page.airing.CANCELLED'), chipIcon: 'true' });
+    // Spy x Family : pas encore sortie sans date
+    expect(await line('177937:59027')).toEqual({ status: null, chip: fr('page.airing.NOT_YET_RELEASED'), chipIcon: 'true' });
+    // One Piece : en diffusion : prochaine sortie et pastille « En diffusion » (mint)
+    const onePiece = await line('21:21');
+    expect(onePiece.chip).toBe(fr('page.airing.RELEASING'));
+    expect(onePiece.status).not.toBeNull();
+    expect(await page.$eval('[data-series-row="21:21"] [data-series-chip]', (el) => el.getAttribute('data-tone'))).toBe('ok');
+    // Dandadan (« Reprendre ») : même pastille ; quatre lignes + la carte, Frieren sans pastille
+    expect(await page.$$eval('[data-series-chip]', (chips) => chips.map((c) => c.getAttribute('data-tone')).sort())).toEqual(['error', 'muted', 'ok', 'ok', 'warn']);
+  });
+
+  it('avec « Exclue », la pastille de statut se tronque et garde son infobulle', async () => {
+    const page = await openPopup({ airing: 'mixed' });
+    await page.waitForSelector(sel(`${SOLO}-plus`));
+    await page.evaluate(async () => {
+      await chrome.storage.local.set({ excludedSeries: [{ id: 'e2e', platformKey: null, mediaId: 176496, label: 'Solo Leveling', excludedAt: Date.now() }] });
+    });
+    const row = `[data-series-row="${SOLO}"]`;
+    await page.waitForSelector(`${row} [data-series-tag]`);
+    const state = await page.$eval(row, (el) => {
+      const chip = el.querySelector<HTMLElement>('[data-series-chip]');
+      const tag = el.querySelector<HTMLElement>('[data-series-tag]');
+      const line = el.querySelector<HTMLElement>('[data-series-status]');
+      return { title: chip?.getAttribute('title') ?? null, truncates: chip?.querySelector('.truncate') !== null, tagWidth: tag?.getBoundingClientRect().width ?? 0, tagRight: tag?.getBoundingClientRect().right ?? 0, lineRight: line?.getBoundingClientRect().right ?? 0 };
+    });
+    expect(state.title).toBe(fr('page.airing.HIATUS'));
+    expect(state.truncates).toBe(true);
+    expect(state.tagWidth).toBeGreaterThan(0);
+    expect(state.tagRight).toBeLessThanOrEqual(state.lineRight + 1);
+  });
+
   it('temps restant : total « ≈ 24 h à rattraper · 5 séries » sous « Mes séries » (séries avec une valeur seulement, « Reprendre » comprise), valeur des lignes ; masqué sans aucune valeur', async () => {
     const page = await openPopup({ remaining: 'backlog' });
     await page.waitForSelector('[data-remaining-total]');

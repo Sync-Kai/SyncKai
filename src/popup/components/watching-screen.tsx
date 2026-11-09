@@ -18,7 +18,7 @@ import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsToSearch } from '../../platforms/links';
 import type { MenuStatusChange } from '../../shared/sync.types';
 import { formatRemaining, formatRemainingTotal } from '../../shared/remaining-time';
-import { choosePlatformLink, entryKey, formatRelativeTime, nextEpisodeBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
+import { choosePlatformLink, entryKey, formatRelativeTime, listBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
 import { WATCHING_SORTS, type NextEpisodeBadge, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import type { IconName } from '../../ui/icons';
 import { kai } from '../../ui/icons';
@@ -32,7 +32,8 @@ import { Button } from '../../ui/components/button';
 import { Icon, MountedNode } from '../../ui/components/icon';
 import { MenuItem, MenuPopup } from '../../ui/components/menu';
 import { NotesEditor } from '../../ui/components/notes-editor';
-import { SeriesRow, type SeriesStatus } from '../../ui/components/series-row';
+import { releaseChipView } from './release-chip';
+import { SeriesRow, type SeriesChip, type SeriesStatus } from '../../ui/components/series-row';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import type { Tone } from '../../ui/components/tone';
 import { useLocale, useStore } from '../../ui/preact/hooks';
@@ -156,12 +157,15 @@ function EntryNotes({ session, props, busy }: { session: NotesSession; props: Wa
 }
 
 /** Ligne 2 : envoi en cours, retour bref d'une action (~3 s), sinon la sortie du prochain épisode */
-function statusOf(entry: WatchingEntry, action: EntryAction | undefined, now: number): SeriesStatus {
+function statusOf(entry: WatchingEntry, action: EntryAction | undefined, now: number): SeriesStatus | null {
   if (action?.phase === 'pending') return { tone: 'info', text: t('inline.saving'), live: true };
   if (action?.phase === 'done') return { tone: FEEDBACK_TONES[action.feedback.tone], text: action.feedback.text, title: action.feedback.detail, live: true };
-  const badge = nextEpisodeBadge(entry, now);
-  return { tone: BADGE_TONES[badge.kind], text: badge.label };
+  const badge = listBadge(entry, now);
+  return badge && { tone: BADGE_TONES[badge.kind], text: badge.label };
 }
+
+/** Pastille de statut de sortie (ligne 2) ; masquée avec le reste de la ligne pendant le retour d'action */
+const chipOf = (entry: WatchingEntry, action: EntryAction | undefined): SeriesChip | null => (action === undefined ? releaseChipView(entry) : null);
 
 /** « Mes séries マイシリーズ » */
 function SeriesHeading({ children }: { children?: ComponentChildren }) {
@@ -353,6 +357,7 @@ function entryView(entry: WatchingEntry, context: WatchingContext, action: Entry
     progressText: total !== null ? t('watching.heroProgress', { progress, total }) : t('watching.heroProgressNoTotal', { progress }),
     progressLabel: total !== null ? tp('watching.seenOf', progress, { total }) : tp('watching.seen', progress),
     status: statusOf(entry, action, now),
+    chip: chipOf(entry, action),
     tag: excluded ? { text: t('common.excluded'), title: t('common.excludedTitle'), icon: 'ban' as const } : null,
     decrementLabel: t('page.minusOneAria', { title }),
     incrementLabel: atEnd ? t('watching.allWatched') : t('watching.plusOneAria', { title }),

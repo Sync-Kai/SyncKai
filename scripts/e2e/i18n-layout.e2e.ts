@@ -328,6 +328,20 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await resume.close();
   }
 
+  // Pastille de statut de sortie (spec 2.5.0 §5.5) : un statut par série, Solo Leveling (en pause) aussi « Exclue »
+  ctx.step = 'popup/series-status';
+  const statuses = await openPage(ctx, 'popup.html', { airing: 'mixed' }, POPUP_VIEWPORT);
+  try {
+    await statuses.waitForSelector(sel(`more-${SOLO}`));
+    await statuses.waitForSelector('main [aria-busy="false"]');
+    await storageSet(statuses, { excludedSeries: [{ id: 'layout', platformKey: null, mediaId: 176496, label: 'Solo Leveling', excludedAt: Date.now() }] });
+    await statuses.waitForSelector('[data-series-tag]');
+    await attach(ctx, statuses);
+    await shot(ctx, statuses, 'popup/series-status');
+  } finally {
+    await statuses.close();
+  }
+
   // Groupe « En sommeil » déplié (en-tête, lignes « Ép. x / y · vu il y a … » et Pause / Abandonner / Garder, seuil,
   // « Tout mettre en pause »), ses deux confirmations en ligne, puis le bandeau « … mise en pause · Annuler »
   ctx.step = 'popup/dormant';

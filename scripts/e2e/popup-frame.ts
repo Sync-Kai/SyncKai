@@ -61,6 +61,17 @@ function withRemaining(entry: WatchingEntry): WatchingEntry {
   return progress === undefined ? entry : { ...entry, progress };
 }
 /**
+ * `airing=mixed` : un statut de sortie par série (spec 2.5.0 §5.5) : Solo Leveling en pause sans date, Frieren terminée avec
+ * deux épisodes à voir (sans pastille), Kaiju No. 8 annulée et à jour, Spy x Family pas encore sortie ; Dandadan et One Piece en diffusion
+ */
+const AIRING_MIXED: ReadonlyMap<number, Partial<WatchingEntry>> = new Map([
+  [176496, { airingStatus: 'HIATUS', nextEpisode: null }],
+  [178754, { airingStatus: 'CANCELLED', nextEpisode: null, progress: 11 }],
+  [177937, { airingStatus: 'NOT_YET_RELEASED', nextEpisode: null }],
+]);
+const airingMixed = param('airing') === 'mixed';
+const withAiring = (entry: WatchingEntry): WatchingEntry => ({ ...entry, ...(airingMixed && entry.mediaId !== null ? AIRING_MIXED.get(entry.mediaId) : undefined) });
+/**
  * `dormant=on` : statut de liste connu (CURRENT) partout ; Frieren (75 j), Solo Leveling (50 j) et Kaiju No. 8 (40 j, deux
  * épisodes de retard) sans activité depuis plus de 30 jours : groupe « En sommeil »
  */
@@ -76,7 +87,7 @@ function withDormancy(entry: WatchingEntry): WatchingEntry {
 }
 const demoList = (service: TrackerId): WatchingList => {
   const list = watchingList(service, now);
-  return emptyWatching ? { ...list, entries: [] } : { ...list, entries: list.entries.map(withRemaining).map(withDormancy) };
+  return emptyWatching ? { ...list, entries: [] } : { ...list, entries: list.entries.map(withRemaining).map(withAiring).map(withDormancy) };
 };
 const lists: Record<TrackerId, WatchingList> = { anilist: demoList('anilist'), mal: demoList('mal') };
 

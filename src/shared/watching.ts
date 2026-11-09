@@ -66,6 +66,23 @@ export function nextEpisodeBadge(entry: WatchingEntry, now: number): NextEpisode
   return { kind: 'unknown', label: t('watching.badge.unknown') };
 }
 
+/** Statut de sortie d'une série à afficher en pastille (« Mes séries ») ; terminée (« Série terminée » reste) et statut inconnu : aucune */
+export type ReleaseChip = 'RELEASING' | 'NOT_YET_RELEASED' | 'HIATUS' | 'CANCELLED';
+
+export function releaseChip(entry: WatchingEntry): ReleaseChip | null {
+  const status = entry.airingStatus;
+  return status === 'RELEASING' || status === 'NOT_YET_RELEASED' || status === 'HIATUS' || status === 'CANCELLED' ? status : null;
+}
+
+/**
+ * Pastille de la ligne 2 de « Mes séries » : celle de `nextEpisodeBadge`, sauf « Série terminée » et « Date inconnue »,
+ * que la pastille de statut remplace (null). Le tri garde `nextEpisodeBadge`.
+ */
+export function listBadge(entry: WatchingEntry, now: number): NextEpisodeBadge | null {
+  const badge = nextEpisodeBadge(entry, now);
+  return (badge.kind === 'finished' || badge.kind === 'unknown') && releaseChip(entry) !== null ? null : badge;
+}
+
 const GROUP_ORDER: Record<NextEpisodeBadge['kind'], number> = { available: 0, upcoming: 1, unknown: 2, finished: 3 };
 
 /** Plus récemment mis à jour en tête, dates inconnues en dernier (`|| 0` absorbe le NaN de -∞ - -∞) */

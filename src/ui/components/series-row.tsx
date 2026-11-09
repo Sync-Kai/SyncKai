@@ -11,7 +11,7 @@ import { Icon } from './icon';
 import { LogoButton } from './logo-button';
 import { StatusText } from './status-text';
 import { Stepper } from './stepper';
-import type { Tone } from './tone';
+import { TONE_TEXT, type Tone } from './tone';
 
 /** Lien de la fiche AniList / MyAnimeList (titre et jaquette) */
 export interface SeriesEntryLink {
@@ -37,6 +37,15 @@ export interface SeriesTag {
   icon?: 'ban';
 }
 
+/** Pastille de statut de sortie (« Annulée »), après le statut et avant « Exclue » ; tronquée avant elle */
+export interface SeriesChip {
+  text: string;
+  title: string;
+  /** ok (mint) : en diffusion ; muted : à venir ; warn (butter) : en pause ; error (danger) : annulée */
+  tone: Tone;
+  icon: 'play' | 'calendar' | 'pause' | 'ban';
+}
+
 export interface SeriesOpenLink {
   platform: StreamingPlatform;
   href: string;
@@ -57,7 +66,9 @@ export interface SeriesRowProps {
   progressText: string;
   /** « 4 épisodes vus sur 12 » : barre de la jaquette et groupe − / + */
   progressLabel: string;
-  status: SeriesStatus;
+  /** null : la pastille de statut remplace la pastille de sortie (« Série terminée », « Date inconnue ») */
+  status: SeriesStatus | null;
+  chip?: SeriesChip | null;
   tag?: SeriesTag | null;
   decrementLabel: string;
   incrementLabel: string;
@@ -98,12 +109,25 @@ export function SeriesTitle({ title, entry, focusKey }: { title: string; entry: 
 }
 
 /** Ligne de statut : point + texte du ton, pastille facultative ; un retour d'action est annoncé */
-export function SeriesStatusLine({ status, tag }: { status: SeriesStatus; tag?: SeriesTag | null }) {
+export function SeriesStatusLine({ status, chip, tag }: { status: SeriesStatus | null; chip?: SeriesChip | null; tag?: SeriesTag | null }) {
   return (
-    <span class="flex h-4 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap" role={status.live ? 'status' : undefined} data-series-status="">
-      <StatusText tone={status.tone} title={status.title}>
-        {status.text}
-      </StatusText>
+    <span class="flex h-4 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap" role={status?.live ? 'status' : undefined} data-series-status="">
+      {status && (
+        <StatusText tone={status.tone} title={status.title}>
+          {status.text}
+        </StatusText>
+      )}
+      {chip && (
+        <span
+          class={`inline-flex h-4 min-w-0 items-center gap-1 rounded-pill border border-line px-1.5 text-section font-bold tracking-normal ${TONE_TEXT[chip.tone]}`}
+          title={chip.title}
+          data-series-chip=""
+          data-tone={chip.tone}
+        >
+          <Icon name={chip.icon} class="size-2.5 shrink-0" strokeWidth="2.6" />
+          <span class="truncate">{chip.text}</span>
+        </span>
+      )}
       {tag && (
         <span class="inline-flex h-4 shrink-0 items-center gap-1 rounded-pill border border-line px-1.5 text-section font-bold tracking-normal text-muted" title={tag.title} data-series-tag="">
           {tag.icon && <Icon name={tag.icon} class="size-2.5" strokeWidth="2.6" />}
@@ -147,7 +171,7 @@ export function SeriesRow(props: SeriesRowProps) {
       )}
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
         <SeriesTitle title={title} entry={entry} focusKey={`title-${rowKey}`} />
-        <SeriesStatusLine status={props.status} tag={props.tag} />
+        <SeriesStatusLine status={props.status} chip={props.chip} tag={props.tag} />
         {/*
           Ligne 3 : stepper puis temps restant, sur une hauteur fixe. Une valeur trop large passe à la ligne suivante, rognée
           (overflow-y-clip) : elle disparaît entière sans jamais couper le stepper. Boîte de 32 px (py-1, -my-1 la ramène à

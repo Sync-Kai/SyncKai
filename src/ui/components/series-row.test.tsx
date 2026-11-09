@@ -95,6 +95,20 @@ describe('SeriesRow', () => {
     expect($('[data-series-tag]')?.getAttribute('title')).toBe('Série exclue de la synchronisation');
   });
 
+  it('pastille de statut : texte, icône aria-hidden, ton, tronquée avant « Exclue » ; statut absent : la ligne ne garde que la pastille', async () => {
+    await show(<SeriesRow {...props({ status: null, chip: { text: 'Annulée', title: 'Annulée', tone: 'error', icon: 'ban' }, tag: { text: 'Exclue', title: 'Exclue', icon: 'ban' } })} />);
+    const chip = $('[data-series-chip]');
+    expect(chip?.textContent).toBe('Annulée');
+    expect(chip?.getAttribute('data-tone')).toBe('error');
+    expect(chip?.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(chip?.querySelector('.truncate')?.textContent).toBe('Annulée');
+    expect($('[data-series-tag]')?.className).toContain('shrink-0');
+    expect($('[data-status-text]')).toBeNull();
+    await show(<SeriesRow {...props({ chip: { text: 'En pause', title: 'En pause', tone: 'warn', icon: 'pause' } })} />);
+    expect($('[data-status-text]')?.textContent).toBe('Ép. 5 disponible');
+    expect($('[data-series-chip]')?.getAttribute('data-tone')).toBe('warn');
+  });
+
   it('temps restant : « ⧗ ≈ 6,5 h » à droite du stepper, texte lu à part (sr-only) et détail en infobulle', async () => {
     await show(<SeriesRow {...props({ remaining: { text: '≈ 6,5 h', spoken: 'Environ 6,5 heures pour finir', detail: '16 épisodes × 24 min' } })} />);
     const value = $('[data-series-remaining]');

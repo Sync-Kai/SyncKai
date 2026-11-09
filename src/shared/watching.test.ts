@@ -4,8 +4,10 @@ import {
   choosePlatformLink,
   formatRelativeTime,
   isWatchingFresh,
+  listBadge,
   nextEpisodeBadge,
   pickHeroEntry,
+  releaseChip,
   sortWatching,
   sortWatchingBy,
   WATCHING_MAX_AGE_MS,
@@ -54,6 +56,42 @@ describe('airedEpisodes', () => {
     expect(airedEpisodes(entry({ airingStatus: 'FINISHED', totalEpisodes: null }))).toBeNull();
     expect(airedEpisodes(entry({ airingStatus: 'RELEASING', totalEpisodes: 24 }))).toBeNull();
     expect(airedEpisodes(entry())).toBeNull();
+  });
+});
+
+describe('releaseChip', () => {
+  it('FINISHED et statut inconnu : pas de pastille', () => {
+    expect(releaseChip(entry({ airingStatus: 'FINISHED' }))).toBeNull();
+    expect(releaseChip(entry({ airingStatus: null }))).toBeNull();
+  });
+
+  it('RELEASING, NOT_YET_RELEASED, HIATUS, CANCELLED : eux-mêmes', () => {
+    for (const status of ['RELEASING', 'NOT_YET_RELEASED', 'HIATUS', 'CANCELLED'] as const) expect(releaseChip(entry({ airingStatus: status }))).toBe(status);
+  });
+});
+
+describe('listBadge (ligne 2 de « Mes séries »)', () => {
+  it('une série annulée n’affiche plus « Série terminée »', () => {
+    expect(nextEpisodeBadge(entry({ airingStatus: 'CANCELLED', totalEpisodes: 3, progress: 3 }), NOW).kind).toBe('finished');
+    expect(listBadge(entry({ airingStatus: 'CANCELLED', totalEpisodes: 3, progress: 3 }), NOW)).toBeNull();
+  });
+
+  it('en pause sans date : la pastille, pas « Date inconnue »', () => {
+    expect(listBadge(entry({ airingStatus: 'HIATUS', totalEpisodes: 12, progress: 4 }), NOW)).toBeNull();
+  });
+
+  it('terminée : « Série terminée » reste, sans pastille ; avec des épisodes à voir, « Ép. 27 disponible » reste', () => {
+    expect(listBadge(entry({ airingStatus: 'FINISHED', totalEpisodes: 28, progress: 28 }), NOW)).toEqual({ kind: 'finished', label: 'Série terminée' });
+    expect(listBadge(entry({ airingStatus: 'FINISHED', totalEpisodes: 28, progress: 26 }), NOW)).toEqual({ kind: 'available', label: 'Ép. 27 disponible' });
+  });
+
+  it('prochaine sortie datée ou « bientôt » : conservées malgré la pastille', () => {
+    expect(listBadge(entry({ airingStatus: 'HIATUS', progress: 4, nextEpisode: { episode: 5, airingAt: NOW + DAY } }), NOW)?.kind).toBe('upcoming');
+  });
+
+  it('diffusion en cours ou statut inconnu : « Date inconnue » conservée', () => {
+    expect(listBadge(entry({ airingStatus: null }), NOW)).toEqual({ kind: 'unknown', label: 'Date inconnue' });
+    expect(listBadge(entry({ airingStatus: 'RELEASING' }), NOW)?.kind).toBe('upcoming');
   });
 });
 
