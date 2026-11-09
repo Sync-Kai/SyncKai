@@ -21,6 +21,8 @@ const fakes = vi.hoisted(() => ({
   deferOk: true,
   /** Erreur levée par la lecture du catalogue AniList (null : catalogue lisible) */
   catalogError: null as Error | null,
+  /** Lectures du catalogue AniList (séries en sommeil : aucune pour un statut qui n'en a pas besoin) */
+  catalogReads: 0,
   /** Erreur levée par la lecture des réglages (null : réglages lisibles) */
   settingsError: null as Error | null,
   /** Sessions ouvertes (génération par service) ; une déconnexion l'incrémente */
@@ -35,6 +37,7 @@ vi.mock('./trackers', () => ({
 }));
 vi.mock('./sync/sync-service', () => ({
   getCatalogMedia: async (mediaId: number): Promise<CatalogMedia> => {
+    fakes.catalogReads += 1;
     if (fakes.catalogError) throw fakes.catalogError;
     return { mediaId, idMal: fakes.idMal, title: 'Frieren', episodes: fakes.episodes };
   },
@@ -202,6 +205,7 @@ beforeEach(() => {
   fakes.deferred = [];
   fakes.deferOk = true;
   fakes.catalogError = null;
+  fakes.catalogReads = 0;
   fakes.settingsError = null;
   fakes.sessions = { anilist: 0, mal: 0 };
   fakes.expired = [];
@@ -436,9 +440,9 @@ describe('setListStatus', () => {
 
   it('catalogue illisible : ApiError remontée avec son code ; erreur inattendue : message générique', async () => {
     fakes.catalogError = new ApiError('RATE_LIMITED', 'Trop de requêtes');
-    expect(await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'PAUSED', coverUrl: null })).toEqual({ status: 'error', message: 'Trop de requêtes', code: 'RATE_LIMITED' });
+    expect(await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'COMPLETED', coverUrl: null })).toEqual({ status: 'error', message: 'Trop de requêtes', code: 'RATE_LIMITED' });
     fakes.catalogError = new Error('boom');
-    expect(await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'PAUSED', coverUrl: null })).toEqual({ status: 'error', message: 'Erreur inattendue pendant le changement de statut.' });
+    expect(await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'COMPLETED', coverUrl: null })).toEqual({ status: 'error', message: 'Erreur inattendue pendant le changement de statut.' });
     expect(anilist.statusSaves).toEqual([]);
   });
 
@@ -635,6 +639,41 @@ describe('setListStatus gardé (séries en sommeil, « Annuler »)', () => {
     expect(fakes.deferred).toEqual([]);
     expect(outcome).not.toHaveProperty('prompts');
     expect(shouldQueueRating('CURRENT', [{ result: { service: 'mal', outcome: { status: 'updated', progress: 12, completed: true } }, scored: false }], true)).toBe(false);
+  });
+});
+
+describe('setListStatus : catalogue lu seulement si utile (« Tout mettre en pause »)', () => {
+  it('PAUSED / DROPPED / CURRENT (onlyFrom) avec mediaId et malId : aucune lecture du catalogue', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 7 });
+    mal.entries.set(MAL_ID, { status: 'CURRENT', progress: 7 });
+    const paused = await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'PAUSED', coverUrl: null, onlyFrom: 'CURRENT' });
+    await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'CURRENT', coverUrl: null, onlyFrom: 'PAUSED' });
+    await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'DROPPED', coverUrl: null, onlyFrom: 'CURRENT' });
+    expect(fakes.catalogReads).toBe(0);
+    expect(anilist.statusSaves).toEqual([
+      { status: 'PAUSED', progress: 7 },
+      { status: 'CURRENT', progress: 7 },
+      { status: 'DROPPED', progress: 7 },
+    ]);
+    expect(mal.statusSaves).toHaveLength(3);
+    // Titre lu sur le service, à défaut du catalogue
+    expect(paused).toMatchObject({ status: 'synced', mediaTitle: 'Frieren' });
+  });
+
+  it('Terminé : catalogue toujours lu (total de secours)', async () => {
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 4 });
+    await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'COMPLETED', coverUrl: null });
+    expect(fakes.catalogReads).toBe(1);
+  });
+
+  it('malId absent avec MyAnimeList connecté : catalogue lu (idMal) ; sans MAL connecté : aucune lecture', async () => {
+    mal.entries.set(MAL_ID, { status: 'CURRENT', progress: 7 });
+    await setListStatus({ mediaId: MEDIA_ID, malId: null, status: 'PAUSED', coverUrl: null, onlyFrom: 'CURRENT' });
+    expect(fakes.catalogReads).toBe(1);
+    expect(mal.statusSaves).toEqual([{ status: 'PAUSED', progress: 7 }]);
+    fakes.trackers = [anilist];
+    await setListStatus({ mediaId: MEDIA_ID, malId: null, status: 'PAUSED', coverUrl: null, onlyFrom: 'CURRENT' });
+    expect(fakes.catalogReads).toBe(1);
   });
 });
 

@@ -9,11 +9,11 @@ import type { AddListStatus, ListStatus, ListStatusChange, ServiceResult, SyncOu
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './errors';
 import { deferRating } from './engagement';
-import { entryTargets, runOnServices, type EntryCommand, type ServiceRun } from './entry-commands';
+import { entryTargetId, entryTargets, runOnServices, type EntryCommand, type ServiceRun } from './entry-commands';
 import { decideAddToList, decideStatusChange, progressWrite, type ListEntryState, type WriteStatus } from './sync/rules';
 import { getCatalogMedia } from './sync/sync-service';
 import { getConnectedTrackers } from './trackers';
-import type { CatalogMedia } from './ports/tracker';
+import type { CatalogMedia, TrackerService } from './ports/tracker';
 import { createLogger } from '../browser/logger';
 import { trace } from '../browser/debug-trace-client';
 import { decisionTraceData, entryTraceData } from '../shared/debug-trace';
@@ -170,6 +170,15 @@ async function isRatingPromptEnabled(): Promise<boolean> {
 }
 
 /**
+ * Catalogue AniList utile au changement de statut : total de secours de « Terminé », ou idMal absent du popup pour un
+ * service qui en a besoin. Pause, abandon et « Annuler » d'une série complète n'en lisent pas (« Tout mettre en pause » :
+ * une requête de moins par série)
+ */
+function needsCatalog(trackers: readonly TrackerService[], payload: SetListStatusPayload): boolean {
+  return payload.status === 'COMPLETED' || trackers.some((tracker) => entryTargetId(tracker.id, payload) === null);
+}
+
+/**
  * En pause / Abandonné / Terminé depuis le popup : écrit sur tous les services connectés où la série
  * est dans la liste. N'alimente pas les « dernières synchros » (action manuelle, comme +1 / −1).
  * Après « Terminé », la carte « À noter » est créée (comme « Plus tard ») ; `prompts.rate` le signale au popup.
@@ -181,7 +190,7 @@ export async function setListStatus(payload: SetListStatusPayload): Promise<Sync
     const trackers = await getConnectedTrackers(payload.services ?? null);
     if (trackers.length === 0) return { status: 'not-connected' };
 
-    const catalog: CatalogMedia | null = payload.mediaId !== null ? await getCatalogMedia(payload.mediaId) : null;
+    const catalog: CatalogMedia | null = needsCatalog(trackers, payload) && payload.mediaId !== null ? await getCatalogMedia(payload.mediaId) : null;
     const targets = entryTargets(trackers, payload, catalog);
     if (targets.length === 0) return { status: 'error', message: t('sync.noServiceFollows') };
 
