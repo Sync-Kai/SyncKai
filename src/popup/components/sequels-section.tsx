@@ -4,11 +4,10 @@
 import { useState } from 'preact/hooks';
 import { t, tp } from '../../i18n';
 import type { SequelRecord } from '../../shared/sequels';
-import type { SyncOutcome } from '../../shared/sync.types';
 import { Section } from '../../ui/components/section';
 import { SequelRow } from '../../ui/components/sequel-row';
 import { useLocale } from '../../ui/preact/hooks';
-import { addSequelToPlanning, sequelAddResult, updateSequels } from '../../ui/sequel-actions';
+import { useSequelActions } from '../../ui/preact/use-sequel-actions';
 
 const COLLAPSED_ROWS = 3;
 
@@ -20,45 +19,7 @@ export interface SequelsSectionProps {
 export function SequelsSection({ records }: SequelsSectionProps) {
   useLocale();
   const [expanded, setExpanded] = useState(false);
-  const [busy, setBusy] = useState<ReadonlySet<number>>(new Set());
-  /** Dernier résultat par suite ; les suites terminées (retirées du stockage) gardent leur ligne avec leur mention */
-  const [outcomes, setOutcomes] = useState<ReadonlyMap<number, { record: SequelRecord; outcome: SyncOutcome }>>(new Map());
-
-  const withBusy = (id: number, on: boolean): void =>
-    setBusy((current) => {
-      const next = new Set(current);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-
-  const add = async (record: SequelRecord): Promise<void> => {
-    const id = record.snapshot.id;
-    if (busy.has(id)) return;
-    withBusy(id, true);
-    const outcome = await addSequelToPlanning(record);
-    const result = sequelAddResult(outcome, t('error.unexpectedAdd'));
-    if (result.kind === 'ended') await updateSequels([id], 'removed');
-    setOutcomes((current) => new Map(current).set(id, { record, outcome }));
-    withBusy(id, false);
-  };
-
-  const dismiss = (id: number): void => {
-    setOutcomes((current) => {
-      const next = new Map(current);
-      next.delete(id);
-      return next;
-    });
-    // Ligne gardée pour sa mention : déjà retirée du stockage, rien à masquer
-    if (records.some((record) => record.snapshot.id === id)) void updateSequels([id], 'dismissed');
-  };
-
-  // Suites du stockage, puis les terminées avec mention « pas sur MyAnimeList » que le stockage n'a plus
-  const kept = [...outcomes.values()].filter(({ record, outcome }) => {
-    const result = sequelAddResult(outcome, '');
-    return result.kind === 'ended' && result.notOnMal && !records.some((r) => r.snapshot.id === record.snapshot.id);
-  });
-  const all = [...records, ...kept.map(({ record }) => record)];
+  const { all, busy, outcomes, add, dismiss } = useSequelActions(records);
   if (all.length === 0) return null;
   const shown = expanded ? all : all.slice(0, COLLAPSED_ROWS);
   const hidden = all.length - shown.length;

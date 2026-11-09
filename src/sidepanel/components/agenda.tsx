@@ -8,11 +8,12 @@
 // « ⋯ » de la série en se fermant (4-A2). Données et requêtes : sidepanel/agenda-controller.ts (sans rendu).
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { getLocale, t, upperFirst } from '../../i18n';
+import { getLocale, t, upperFirst, type MessageKey } from '../../i18n';
 import { activePlatforms } from '../../browser/platform-access';
 import { platformSearchUrl } from '../../platforms/links';
 import { PLATFORMS } from '../../platforms/registry';
 import { buildAgendaDays, dateKey, formatOffset, weekRange, type AgendaDay, type AgendaRow, type AgendaSeries, type IsoWeekday, type WeekRange } from '../../shared/agenda';
+import { groupSequelsByPeriod, type SequelGroup, type SequelRecord } from '../../shared/sequels';
 import { entryLink, entryLinks, type EntryLinkContext } from '../../shared/entry-link';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { DEFAULT_SETTINGS, OFFSET_RANGE, parseOffsetInput, type SyncSettings } from '../../shared/settings';
@@ -23,11 +24,14 @@ import { Cover } from '../../ui/components/cover';
 import { Icon } from '../../ui/components/icon';
 import { LogoButton } from '../../ui/components/logo-button';
 import { Menu, MenuItem, MenuSeparator, SubMenu } from '../../ui/components/menu';
+import { Segmented } from '../../ui/components/segmented';
+import { SequelRow } from '../../ui/components/sequel-row';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import { WeekPicker } from '../../ui/components/week-picker';
 import { alertAttrs } from '../../ui/live-region';
 import { formatPlatformList } from '../../ui/platform-list';
 import { useLocale, useStore } from '../../ui/preact/hooks';
+import { useSequelActions } from '../../ui/preact/use-sequel-actions';
 import type { ReadonlyStore } from '../../ui/state';
 import type { AgendaController, AgendaStatus } from '../agenda-controller';
 
@@ -50,6 +54,8 @@ export function agendaSnapshot(ctl: AgendaController): AgendaSnapshot {
 export interface AgendaProps {
   /** null : contrôleur pas encore créé (squelette) */
   state: ReadonlyStore<AgendaSnapshot | null>;
+  /** Suites annoncées visibles (ui/sequels-store.ts, l'instance du panneau) : vue « Annoncées » */
+  sequels: ReadonlyStore<SequelRecord[]>;
   /** Plateformes à accès optionnel accordées : recherches du menu « ⋯ » */
   granted: readonly StreamingPlatform[] | undefined;
   /** ‹ › (regroupés par le contrôleur) */
@@ -437,6 +443,31 @@ function StateCard({ text, tone = 'info', onRetry }: { text: string; tone?: 'inf
   );
 }
 
+type AgendaView = 'week' | 'announced';
+
+/** Vue « Annoncées » : suites des animes de l'utilisateur, groupées par saison d'anime (« Hiver 2027 », « 2027 », « Date à venir ») */
+function Announced({ records }: { records: readonly SequelRecord[] }) {
+  const { all, busy, outcomes, add, dismiss } = useSequelActions(records);
+  if (all.length === 0) return <StateCard text={t('agenda.announced.empty')} />;
+  const heading = (group: SequelGroup): string => (group.year === null ? t('sequel.dateUnknown') : group.season === null ? String(group.year) : t(`panel.nowPlaying.season.${group.season}` satisfies MessageKey, { year: group.year }));
+  return (
+    <>
+      {groupSequelsByPeriod(all).map((group) => (
+        <section key={group.key} class="flex flex-col gap-1.5" data-sequel-group={group.key}>
+          <h3 class="m-0 flex h-6 min-w-0 items-center px-1 text-body font-extrabold text-ink">
+            <span class="min-w-0 truncate">{heading(group)}</span>
+          </h3>
+          <ul class="m-0 flex list-none flex-col gap-2 p-0">
+            {group.records.map((record) => (
+              <SequelRow key={record.snapshot.id} record={record} showNew={record.state === 'new'} busy={busy.has(record.snapshot.id)} outcome={outcomes.get(record.snapshot.id)?.outcome ?? null} onAdd={() => void add(record)} onDismiss={() => dismiss(record.snapshot.id)} />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </>
+  );
+}
+
 function Skeleton() {
   return (
     <div class="flex flex-col gap-2.5" role="status" aria-busy="true" aria-label={t('agenda.loading')} data-agenda-skeleton="">
@@ -456,9 +487,12 @@ function Skeleton() {
   );
 }
 
-export function Agenda({ state, granted, onStep, onChoose, onRetry, onSaveOffset }: AgendaProps) {
+export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onSaveOffset }: AgendaProps) {
   const locale = useLocale();
   const snapshot = useStore(state);
+  const records = useStore(sequels);
+  /** Vue choisie : jamais mémorisée, « Semaine » à chaque ouverture ; la semaine affichée vit dans le contrôleur */
+  const [view, setView] = useState<AgendaView>('week');
   const root = useRef<HTMLDivElement>(null);
   /** Ligne dont l'éditeur de délai est ouvert */
   const [editing, setEditing] = useState<number | null>(null);
@@ -481,7 +515,7 @@ export function Agenda({ state, granted, onStep, onChoose, onRetry, onSaveOffset
   // Semaine affichée prête : défilement jusqu'à aujourd'hui (sous la navigation collante), sinon en haut après un changement
   // de semaine. Retour sur l'onglet : la coque rétablit ensuite le défilement gardé.
   useLayoutEffect(() => {
-    if (!range || !ready || scrolled.current === range.key) return;
+    if (!range || !ready || view !== 'week' || scrolled.current === range.key) return;
     const first = scrolled.current === null;
     scrolled.current = range.key;
     const today = root.current?.querySelector<HTMLElement>('[data-agenda-today]');
@@ -490,7 +524,7 @@ export function Agenda({ state, granted, onStep, onChoose, onRetry, onSaveOffset
       const panel = root.current?.closest<HTMLElement>('[role="tabpanel"]');
       if (panel) panel.scrollTop = 0;
     }
-  }, [range?.key, ready]);
+  }, [range?.key, ready, view]);
 
   if (!snapshot || !range) return <Skeleton />;
   const { status, settings, firstDay } = snapshot;
@@ -562,8 +596,23 @@ export function Agenda({ state, granted, onStep, onChoose, onRetry, onSaveOffset
   return (
     <div ref={root} class="flex flex-col gap-2.5" data-agenda="">
       {/* Navigation collante : reste visible quand la semaine défile */}
-      <div class="sticky top-0 z-10 -mx-3 bg-ground px-3 pt-1 pb-1.5">
-        <WeekPicker
+      <div class="sticky top-0 z-10 -mx-3 flex flex-col gap-1.5 bg-ground px-3 pt-1 pb-1.5">
+        <Segmented
+          fill
+          label={t('panel.tab.agenda')}
+          focusKey="agenda-view"
+          value={view}
+          options={[
+            { value: 'week', label: t('agenda.view.week') },
+            { value: 'announced', label: t('agenda.view.announced') },
+          ]}
+          onChange={(next) => {
+            // Retour sur la semaine : de nouveau amenée à aujourd'hui
+            if (next === 'week') scrolled.current = null;
+            setView(next);
+          }}
+        />
+        {view === 'week' && <WeekPicker
           week={range}
           firstDay={firstDay}
           locale={locale}
@@ -589,9 +638,9 @@ export function Agenda({ state, granted, onStep, onChoose, onRetry, onSaveOffset
               </Button>
             )
           }
-        />
+        />}
       </div>
-      {body()}
+      {view === 'week' ? body() : <Announced records={records} />}
     </div>
   );
 }

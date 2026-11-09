@@ -18,6 +18,8 @@ export interface SequelRowProps {
   busy: boolean;
   /** Dernier résultat de « + À regarder » (échec : message et « Réessayer » ; MAL absent : mention) */
   outcome: SyncOutcome | null;
+  /** Pastille « Nouveau » à côté du titre (suite pas encore vue) */
+  showNew?: boolean;
 }
 
 const FORMAT_KEYS = { TV_SHORT: 'review.format.tvShort', MOVIE: 'review.format.movie' } as const;
@@ -26,7 +28,7 @@ function formatLabel(format: SequelRecord['snapshot']['format']): string {
   return format === 'TV_SHORT' || format === 'MOVIE' ? t(FORMAT_KEYS[format]) : format;
 }
 
-export function SequelRow({ record, onAdd, onDismiss, busy, outcome }: SequelRowProps) {
+export function SequelRow({ record, onAdd, onDismiss, busy, outcome, showNew = false }: SequelRowProps) {
   const { snapshot } = record;
   const result = outcome ? sequelAddResult(outcome, t('error.unexpectedAdd')) : null;
   const ended = result?.kind === 'ended';
@@ -35,8 +37,15 @@ export function SequelRow({ record, onAdd, onDismiss, busy, outcome }: SequelRow
     <li class="flex items-center gap-2.5 rounded-card border border-line bg-surface px-3 py-2" data-sequel={snapshot.id} aria-busy={busy ? 'true' : undefined}>
       <Cover size="agenda" title={snapshot.title} src={snapshot.coverUrl} />
       <span class="flex min-w-0 flex-1 flex-col">
-        <span class="truncate font-bold" title={snapshot.title}>
-          {snapshot.title}
+        <span class="flex min-w-0 items-center gap-1.5">
+          <span class="truncate font-bold" title={snapshot.title}>
+            {snapshot.title}
+          </span>
+          {showNew && (
+            <span class="inline-flex h-5 shrink-0 items-center rounded-pill border border-field px-2 text-section tracking-normal font-extrabold text-ink" data-sequel-new="">
+              {t('sequel.new')}
+            </span>
+          )}
         </span>
         <span class="flex min-w-0 items-center gap-1.5 text-secondary text-muted">
           <span class={`size-1.5 shrink-0 rounded-pill ${dated ? 'bg-lavender' : 'bg-muted'}`} aria-hidden="true" data-sequel-dot="" />

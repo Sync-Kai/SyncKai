@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t } from '../../i18n';
 import { weekRange, type AgendaSeries, type AiringSchedule } from '../../shared/agenda';
 import { DEFAULT_SETTINGS, type SyncSettings } from '../../shared/settings';
+import type { SequelRecord } from '../../shared/sequels';
 import { createStore } from '../../ui/state';
 import type { AgendaStatus } from '../agenda-controller';
 import { Agenda, type AgendaSnapshot } from './agenda';
@@ -14,6 +15,8 @@ import { Agenda, type AgendaSnapshot } from './agenda';
 
 let container: HTMLElement;
 const $ = <T extends HTMLElement = HTMLElement>(selector: string): T | null => container.querySelector<T>(selector);
+
+const $$ = (selector: string): HTMLElement[] => [...container.querySelectorAll<HTMLElement>(selector)];
 
 /** Vendredi 16 octobre 2026, 12 h ; semaine du lundi 12 au dimanche 18 */
 const NOW = new Date(2026, 9, 16, 12).getTime();
@@ -45,9 +48,20 @@ const READY = { kind: 'ready', cache: { weekStart: RANGE.key, fetchedAt: NOW, me
 const onSaveOffset = vi.fn<(mediaId: number, offset: number | null) => Promise<void>>();
 const onRetry = vi.fn<() => void>();
 
-async function show(status: AgendaStatus = READY): Promise<void> {
+const worker = vi.hoisted(() => ({ send: vi.fn<(type: string, payload: unknown) => Promise<unknown>>() }));
+vi.mock('../../protocol/messages', () => ({ sendMessage: (type: string, payload: unknown): Promise<unknown> => worker.send(type, payload) }));
+
+function sequel(id: number, state: SequelRecord['state'], patch: Partial<SequelRecord['snapshot']>): SequelRecord {
+  return {
+    snapshot: { id, idMal: null, title: `Suite ${id}`, format: 'TV', status: 'NOT_YET_RELEASED', coverUrl: null, siteUrl: `https://anilist.co/anime/${id}`, year: null, month: null, day: null, season: null, seasonYear: null, sourceId: 1, sourceTitle: 'Source', ...patch },
+    state,
+    firstSeenAt: 1000 - id,
+  };
+}
+
+async function show(status: AgendaStatus = READY, sequels: SequelRecord[] = []): Promise<void> {
   const state = createStore<AgendaSnapshot | null>(snapshot(status));
-  await act(() => render(<Agenda state={state} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} />, container));
+  await act(() => render(<Agenda state={state} sequels={createStore(sequels)} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} />, container));
 }
 
 async function click(selector: string): Promise<void> {
@@ -219,5 +233,45 @@ describe('Agenda', () => {
     await show({ ...READY, refreshing: true });
     expect($('[data-focus="agenda-today"]')).toBeNull();
     expect($('[data-week-busy]')).not.toBeNull();
+  });
+
+  describe('vue « Annoncées »', () => {
+    const SEQUELS = [
+      sequel(1, 'new', { year: 2027, month: 1, day: 10 }),
+      sequel(2, 'seen', { season: 'WINTER', seasonYear: 2027 }),
+      sequel(3, 'seen', { year: 2027 }),
+      sequel(4, 'seen', {}),
+      sequel(5, 'seen', { season: 'FALL', seasonYear: 2026 }),
+    ];
+    const headings = (): string[] => [...container.querySelectorAll('[data-sequel-group] > h3')].map((h) => h.textContent ?? '');
+    const radio = (name: string): HTMLElement => [...container.querySelectorAll<HTMLElement>('[role="radio"]')].find((el) => el.textContent === name) as HTMLElement;
+
+    it('« Semaine » par défaut ; « Annoncées » liste les groupes par saison, « Nouveau » sur les nouvelles seulement', async () => {
+      await show(READY, SEQUELS);
+      expect(radio(t('agenda.view.week')).getAttribute('aria-checked')).toBe('true');
+      expect($('[data-agenda-day]')).not.toBeNull();
+      expect($('[data-sequel]')).toBeNull();
+      await act(() => radio(t('agenda.view.announced')).click());
+      expect($('[data-agenda-day]')).toBeNull();
+      expect(headings()).toEqual([t('panel.nowPlaying.season.FALL', { year: 2026 }), t('panel.nowPlaying.season.WINTER', { year: 2027 }), '2027', t('sequel.dateUnknown')]);
+      expect(container.querySelectorAll('[data-sequel]')).toHaveLength(5);
+      expect([...container.querySelectorAll('[data-sequel-new]')].map((el) => el.closest('[data-sequel]')?.getAttribute('data-sequel'))).toEqual(['1']);
+    });
+
+    it('sans suite : message vide ; retour à « Semaine » : la semaine est intacte', async () => {
+      await show(READY, []);
+      await act(() => radio(t('agenda.view.announced')).click());
+      expect($('[data-agenda-state]')?.textContent).toContain(t('agenda.announced.empty'));
+      await act(() => radio(t('agenda.view.week')).click());
+      expect($$('[data-agenda-day]')).toHaveLength(7);
+    });
+
+    it('× masque la suite (UPDATE_SEQUELS dismissed)', async () => {
+      worker.send.mockResolvedValue(true);
+      await show(READY, SEQUELS);
+      await act(() => radio(t('agenda.view.announced')).click());
+      await click('[data-sequel="1"] [data-focus="sequel-dismiss-1"]');
+      expect(worker.send).toHaveBeenCalledWith('UPDATE_SEQUELS', { ids: [1], state: 'dismissed' });
+    });
   });
 });

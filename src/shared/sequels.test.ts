@@ -3,6 +3,7 @@ import {
   EMPTY_SEQUEL_STORE,
   MAX_KNOWN_SEQUELS,
   MAX_SEQUEL_RECORDS,
+  groupSequelsByPeriod,
   isSequelStore,
   mergeSequelPass,
   sequelCandidates,
@@ -238,5 +239,53 @@ describe('isSequelStore', () => {
       known.known.push(bad);
       for (const candidate of [id, sourceId, seen, known]) expect(isSequelStore(candidate)).toBe(false);
     }
+  });
+});
+
+describe('groupSequelsByPeriod', () => {
+  const rec = (id: number, patch: Partial<SequelSnapshot>, title = `Anime ${id}`): SequelRecord => ({ snapshot: snapshot(id, { title, ...patch }), state: 'new', firstSeenAt: id });
+  const none = { year: null, month: null, day: null, season: null, seasonYear: null } as const;
+
+  it('une date exacte ou un mois rejoint sa saison, comme une saison seule', () => {
+    const groups = groupSequelsByPeriod([
+      rec(1, { ...none, year: 2027, month: 1, day: 10 }),
+      rec(2, { ...none, season: 'WINTER', seasonYear: 2027 }),
+      rec(3, { ...none, year: 2027, month: 3 }),
+      rec(4, { ...none, year: 2026, month: 12, day: 31 }),
+    ]);
+    expect(groups.map((g) => [g.key, g.season, g.year, g.records.map((r) => r.snapshot.id)])).toEqual([
+      ['2026-FALL', 'FALL', 2026, [4]],
+      ['2027-WINTER', 'WINTER', 2027, [1, 3, 2]],
+    ]);
+  });
+
+  it('saisons dans l’ordre de l’année, l’année seule après ses saisons, l’inconnu en dernier', () => {
+    const groups = groupSequelsByPeriod([
+      rec(1, none),
+      rec(2, { ...none, year: 2027 }),
+      rec(3, { ...none, season: 'FALL', seasonYear: 2027 }),
+      rec(4, { ...none, year: 2028, month: 4, day: 2 }),
+      rec(5, { ...none, season: 'SUMMER', seasonYear: 2027 }),
+    ]);
+    expect(groups.map((g) => [g.key, g.season, g.year])).toEqual([
+      ['2027-SUMMER', 'SUMMER', 2027],
+      ['2027-FALL', 'FALL', 2027],
+      ['2027', null, 2027],
+      ['2028-SPRING', 'SPRING', 2028],
+      ['unknown', null, null],
+    ]);
+  });
+
+  it('dans un groupe : par date, puis par titre', () => {
+    const groups = groupSequelsByPeriod([
+      rec(1, { ...none, year: 2027, month: 2, day: 5 }, 'B'),
+      rec(2, { ...none, year: 2027, month: 1, day: 20 }, 'Z'),
+      rec(3, { ...none, year: 2027, month: 1, day: 20 }, 'A'),
+    ]);
+    expect(groups[0]?.records.map((r) => r.snapshot.id)).toEqual([3, 2, 1]);
+  });
+
+  it('aucune suite : aucun groupe', () => {
+    expect(groupSequelsByPeriod([])).toEqual([]);
   });
 });

@@ -250,3 +250,41 @@ export function setSequelStates(store: SequelStore, ids: readonly number[], stat
       : store.records.map((record) => (targets.has(record.snapshot.id) ? { ...record, state } : record));
   return { ...store, records };
 }
+
+export interface SequelGroup {
+  key: string;
+  season: AniListSeason | null;
+  year: number | null;
+  records: SequelRecord[];
+}
+
+const SEASON_ORDER: readonly AniListSeason[] = ['WINTER', 'SPRING', 'SUMMER', 'FALL'];
+
+/** Saison d'anime d'un mois (janvier–mars hiver, avril–juin printemps, juillet–septembre été, octobre–décembre automne) */
+function seasonOfMonth(month: number): AniListSeason {
+  return SEASON_ORDER[Math.min(3, Math.max(0, Math.floor((month - 1) / 3)))] ?? 'WINTER';
+}
+
+/** Période d'une suite : date exacte ou mois → sa saison ; saison seule ; année seule ; sinon inconnue. */
+function periodOf(snapshot: SequelSnapshot): { season: AniListSeason | null; year: number | null } {
+  if (snapshot.year !== null && snapshot.month !== null) return { season: seasonOfMonth(snapshot.month), year: snapshot.year };
+  if (snapshot.season !== null && snapshot.seasonYear !== null) return { season: snapshot.season, year: snapshot.seasonYear };
+  return { season: null, year: snapshot.year };
+}
+
+/** Suites groupées par saison d'anime, dans l'ordre chronologique : l'année seule après les saisons de son année, l'inconnu en dernier ; par date puis titre dans un groupe. */
+export function groupSequelsByPeriod(records: readonly SequelRecord[]): SequelGroup[] {
+  const groups = new Map<string, SequelGroup>();
+  for (const record of records) {
+    const { season, year } = periodOf(record.snapshot);
+    const key = year === null ? 'unknown' : season === null ? String(year) : `${year}-${season}`;
+    const group = groups.get(key);
+    if (group) group.records.push(record);
+    else groups.set(key, { key, season, year, records: [record] });
+  }
+  const rank = (group: SequelGroup): number => (group.year === null ? Number.POSITIVE_INFINITY : group.year * 10 + (group.season === null ? 4 : SEASON_ORDER.indexOf(group.season)));
+  const day = (snapshot: SequelSnapshot): number => (snapshot.month ?? 99) * 100 + (snapshot.day ?? 99);
+  return [...groups.values()]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((group) => ({ ...group, records: group.records.sort((a, b) => day(a.snapshot) - day(b.snapshot) || a.snapshot.title.localeCompare(b.snapshot.title)) }));
+}

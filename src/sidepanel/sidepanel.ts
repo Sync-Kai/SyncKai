@@ -265,6 +265,7 @@ async function main(): Promise<void> {
       platformAccess,
       agenda: {
         state: agendaStore,
+        sequels: sequelsStore,
         onStep: (delta) => agenda?.step(delta),
         onChoose: (week) => agenda?.choose(week),
         onRetry: () => void agenda?.load(true),
