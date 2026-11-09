@@ -292,6 +292,7 @@ async function main(): Promise<void> {
         onToggleSection: (section, open) => sectionsStore.set({ ...sectionsStore.get(), [section]: open }),
         onRefresh: () => void nowPlayingCtl.refresh(true),
         onRetry: () => nowPlayingCtl.retry(),
+        onRetryOrder: () => nowPlayingCtl.retryOrder(),
         onAdd: (status) => void nowPlayingCtl.runAction({ kind: 'add', status }),
         onAdjust: (delta) => void nowPlayingCtl.runAction({ kind: 'adjust', delta }),
         onRetryAdjust: (retry) => void nowPlayingCtl.runAction({ kind: 'adjust', delta: retry.delta, retry }),

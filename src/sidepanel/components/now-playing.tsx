@@ -66,6 +66,8 @@ export interface NowPlayingHandlers {
   onPickSeason: (mediaId: number) => void;
   onExclude: () => void;
   onInclude: () => void;
+  /** « Réessayer » de l'ordre de visionnage */
+  onRetryOrder: () => void;
   /** Lien « Réglages › Plateformes » d'une plateforme désactivée */
   onOpenPlatformsSettings: () => void;
 }
@@ -203,6 +205,8 @@ function Ready({ props, snapshot, page, view, details, detailsError, refreshing 
         preferred={snapshot.preferred}
         friends={friends}
         unlistedSequels={unlistedSequels}
+        order={snapshot.order}
+        onRetryOrder={props.onRetryOrder}
         busy={busy}
         sections={sections}
         onToggle={props.onToggleSection}

@@ -21,6 +21,8 @@ export interface CollapsibleProps {
    * chevron à droite, toute la largeur, contenu sous la ligne)
    */
   variant?: 'inline' | 'section' | 'row';
+  /** Variante `row` : lignes d'aperçu sous le titre, dans l'en-tête, visibles tant que le bloc est replié (« Ordre de visionnage ») */
+  summary?: ComponentChildren;
 }
 
 const HEADERS = {
@@ -30,7 +32,7 @@ const HEADERS = {
   row: 'flex min-h-11 w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-3 py-2.5 text-left text-body font-extrabold text-ink transition-colors hover:bg-raised/50',
 } as const;
 
-export function Collapsible({ title, count, open, defaultOpen = false, onToggle, children, focusKey, variant = 'inline' }: CollapsibleProps) {
+export function Collapsible({ title, count, open, defaultOpen = false, onToggle, children, focusKey, variant = 'inline', summary }: CollapsibleProps) {
   const id = useId();
   const [own, setOwn] = useState(defaultOpen);
   const expanded = open ?? own;
@@ -43,7 +45,14 @@ export function Collapsible({ title, count, open, defaultOpen = false, onToggle,
   const countClass = row ? 'shrink-0 text-secondary font-semibold text-muted tabular-nums' : `rounded-pill bg-raised px-1.5 tabular-nums ${section ? 'shrink-0 text-ink normal-case' : 'text-muted'}`;
   const header = (
     <button type="button" class={HEADERS[variant]} aria-expanded={expanded ? 'true' : 'false'} aria-controls={id} data-focus={focusKey} onClick={toggle}>
-      <span class={section ? 'min-w-0 truncate' : row ? 'min-w-0 flex-1 break-words' : undefined}>{title}</span>
+      {row && summary !== undefined && !expanded ? (
+        <span class="flex min-w-0 flex-1 flex-col gap-1.5" data-collapsible-summary="">
+          <span class="break-words">{title}</span>
+          {summary}
+        </span>
+      ) : (
+        <span class={section ? 'min-w-0 truncate' : row ? 'min-w-0 flex-1 break-words' : undefined}>{title}</span>
+      )}
       {count !== undefined && (
         <span class={countClass} data-collapsible-count="">
           {count}
