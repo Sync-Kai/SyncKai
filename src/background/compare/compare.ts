@@ -31,13 +31,12 @@ import {
   type ApplyDiffItem,
   type CompareJob,
 } from '../../shared/compare-job';
-import { isRecord } from '../../shared/guards';
 import { getOpenSessions, isSessionOpen, writeIfSessions } from '../../browser/storage/sessions';
 import { SessionChangedError, sessionsOf, type SessionEpochs } from '../../shared/session-epochs';
 import type { ListEntryState } from '../sync/rules';
 import { runGuarded } from '../entry-commands';
 import { entryIdOn, TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
-import { anilistPublicQuery } from '../anilist/client';
+import { aniListIdsByMal } from '../anilist/by-mal';
 import { fetchAniListFullList } from '../anilist/full-list';
 import { ApiError } from '../errors';
 import { getScoreFormat } from '../anilist/list';
@@ -66,28 +65,10 @@ const log = createLogger('compare');
 
 // ─── Lecture des listes complètes ─────────────────────────────────────────
 
-const CATALOG_BY_MAL_QUERY = /* GraphQL */ `
-  query CompareCatalog($ids: [Int]) {
-    Page(perPage: 50) {
-      media(idMal_in: $ids, type: ANIME) { id idMal }
-    }
-  }
-`;
-const CATALOG_CHUNK = 50;
-
-const isPageData = (data: unknown): data is { Page: { media: unknown[] } } =>
-  isRecord(data) && isRecord(data.Page) && Array.isArray(data.Page.media);
-
 /** Fiche AniList des séries MAL absentes de la liste AniList (pour pouvoir les y recopier) */
 async function resolveMalOnly(mal: readonly MalListEntry[], knownMalIds: ReadonlySet<number>): Promise<MalListEntry[]> {
   const missing = [...new Set(mal.filter((e) => !knownMalIds.has(e.malId)).map((e) => e.malId))];
-  const byMal = new Map<number, number>();
-  for (let i = 0; i < missing.length; i += CATALOG_CHUNK) {
-    const { Page } = await anilistPublicQuery(CATALOG_BY_MAL_QUERY, isPageData, { ids: missing.slice(i, i + CATALOG_CHUNK) }, 'background');
-    for (const media of Page.media) {
-      if (isRecord(media) && typeof media.id === 'number' && typeof media.idMal === 'number' && !byMal.has(media.idMal)) byMal.set(media.idMal, media.id);
-    }
-  }
+  const byMal = await aniListIdsByMal(missing);
   return mal.map((e) => (knownMalIds.has(e.malId) ? e : { ...e, mediaId: byMal.get(e.malId) ?? null }));
 }
 
