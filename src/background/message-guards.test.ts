@@ -187,6 +187,14 @@ describe('GET_PANEL_MEDIA', () => {
   });
 });
 
+describe('GET_FRANCHISE', () => {
+  it('accepte un identifiant AniList positif, refuse le reste, réservé aux pages de l’extension', () => {
+    expect(isRuntimeMessage({ type: 'GET_FRANCHISE', payload: { mediaId: 16498 } })).toBe(true);
+    for (const payload of [null, {}, { mediaId: 0 }, { mediaId: 1.5 }, { mediaId: '21' }]) expect(isRuntimeMessage({ type: 'GET_FRANCHISE', payload })).toBe(false);
+    expect(MESSAGE_ORIGINS['GET_FRANCHISE']).toBe('extension');
+  });
+});
+
 describe('GET_ANILIST_FRIENDS', () => {
   const message = (payload: unknown): unknown => ({ type: 'GET_ANILIST_FRIENDS', payload });
 

@@ -17,7 +17,7 @@ import {
 } from './page-media-cache';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { SessionEpochs } from '../../shared/session-epochs';
-import { PANEL_MEDIA_CACHE_TTL_MS, panelMediaCacheKey, purgeStaleSessionCaches } from './session-cache';
+import { FRANCHISE_CACHE_TTL_MS, PANEL_MEDIA_CACHE_TTL_MS, panelMediaCacheKey, purgeStaleSessionCaches } from './session-cache';
 
 const fake = installFakeChrome();
 const { clearAniListSession, clearMalSession, clearUserSyncData } = await import('./account-data');
@@ -149,6 +149,15 @@ describe('caches de session : purge et déconnexion (DATA-04, PERF-05, SEC-03)',
     fake.session.seed({ 'pageMedia:1': entry(Date.now()), [panelMediaCacheKey(10)]: panel(Date.now()), ignoredSeries: {} });
     await clear();
     expect(sessionKeys()).toEqual(['ignoredSeries']);
+  });
+
+  it('purge aussi les graphes de franchise expirés ou illisibles', async () => {
+    // Plus tard que les autres cas : la purge est limitée à une par intervalle et par contexte
+    const t = NOW + 48 * 3_600_000;
+    vi.setSystemTime(t);
+    fake.session.seed({ 'franchise:v1:1': { at: t - 3_600_000, value: {} }, 'franchise:v1:2': { at: t - FRANCHISE_CACHE_TTL_MS - 1, value: {} }, 'franchise:v1:3': 'illisible' });
+    await purgeStaleSessionCaches(t);
+    expect(sessionKeys()).toEqual(['franchise:v1:1']);
   });
 });
 

@@ -45,6 +45,14 @@ export interface FranchiseGraph {
   expanded: number[];
 }
 
+/** Graphe relu du cache de session : structure vérifiée (les entrées des nœuds ont été écrites par le chargeur) */
+export function isFranchiseGraph(value: unknown): value is FranchiseGraph {
+  if (typeof value !== 'object' || value === null) return false;
+  const g = value as Record<string, unknown>;
+  return typeof g.startId === 'number' && typeof g.capped === 'boolean' && Array.isArray(g.main) && Array.isArray(g.extras) && Array.isArray(g.expanded)
+    && typeof g.nodes === 'object' && g.nodes !== null && g.main.every((id) => typeof id === 'number' && typeof (g.nodes as Record<number, unknown>)[id] === 'object');
+}
+
 /** Forme brute de la réponse AniList (requête du chargeur) ; les niveaux imbriqués ne portent parfois que `id` et `type` */
 export interface RawMedia {
   id: number;

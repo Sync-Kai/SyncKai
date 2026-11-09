@@ -11,6 +11,7 @@ import type { CandidateSummary } from '../shared/review.types';
 import type { MalViewerResult } from '../shared/mal.types';
 import type { AddListStatus, ListStatus, ListStatusChange, SyncOutcome } from '../shared/sync.types';
 import type { PageMediaResult, ResolvePageMediaPayload } from '../shared/page-media.types';
+import type { FranchiseResult } from '../shared/franchise';
 import type { PanelMediaResult } from '../shared/panel-media.types';
 import type { FriendsSummary } from '../shared/friends';
 import type { TrackerId } from '../shared/tracker.types';
@@ -139,6 +140,7 @@ export interface MessageMap {
   CANCEL_COMPARE_JOB: { payload: null; response: CancelJobResult };
   /** Panneau latéral › « En lecture » : fiche AniList complète (synopsis, genres, studio, relations), cache de session */
   GET_PANEL_MEDIA: { payload: { mediaId: number }; response: PanelMediaResult };
+  GET_FRANCHISE: { payload: { mediaId: number }; response: FranchiseResult };
   /**
    * Fiche de la page (popup, panneau) : amis AniList (personnes suivies) qui ont la série, cache mémoire 10 min ;
    * `none` sans session AniList ou sans ami qui l'a

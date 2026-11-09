@@ -1,0 +1,140 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import aot from '../../shared/__fixtures__/franchise/aot.json';
+import gundam from '../../shared/__fixtures__/franchise/gundam.json';
+import { FRANCHISE_CACHE_TTL_MS, franchiseCacheKey } from '../../browser/storage/session-cache';
+import { installFakeChrome } from '../../test/fake-chrome';
+import type { RawMedia } from '../../shared/franchise';
+
+const deps = vi.hoisted(() => ({ anilistPublicQuery: vi.fn() }));
+vi.mock('../anilist/client', () => ({ anilistPublicQuery: deps.anilistPublicQuery }));
+
+const fake = installFakeChrome();
+const { ApiError } = await import('../errors');
+const { loadFranchise } = await import('./load');
+
+interface Fixture {
+  rounds: RawMedia[][];
+}
+const AOT_START = 16498;
+const GUNDAM_START = 80;
+
+/** Sert la capture réelle tour par tour : chaque requête doit demander exactement les identifiants du tour */
+function serve(fixture: Fixture, gate: (round: number) => Promise<void> = () => Promise.resolve()): void {
+  let round = 0;
+  deps.anilistPublicQuery.mockImplementation((_query: string, _guard: unknown, variables: { ids: number[] }) => {
+    const page = fixture.rounds[round];
+    const held = gate(round);
+    round += 1;
+    expect([...variables.ids].sort()).toEqual(page?.map((m) => m.id).sort());
+    return held.then(() => ({ Page: { media: page } }));
+  });
+}
+
+beforeEach(() => {
+  fake.reset();
+  deps.anilistPublicQuery.mockReset();
+  vi.useRealTimers();
+});
+
+describe('loadFranchise', () => {
+  it('charge L\'Attaque des Titans en autant de requêtes que de tours, toutes en voie « background »', async () => {
+    serve(aot);
+    const result = await loadFranchise(AOT_START);
+    expect(result.ok).toBe(true);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
+    for (const call of deps.anilistPublicQuery.mock.calls) expect(call[3]).toBe('background');
+    if (result.ok) {
+      expect(result.graph.capped).toBe(false);
+      expect(result.graph.main.length).toBeGreaterThan(3);
+    }
+  });
+
+  it('la requête porte le complément du premier niveau et perPage 50', async () => {
+    serve(aot);
+    await loadFranchise(AOT_START);
+    const query = deps.anilistPublicQuery.mock.calls[0]?.[0] as string;
+    expect(query).toContain('Page(perPage: 50)');
+    expect(query).toContain('externalLinks { url }');
+    expect(query).toContain('relations { edges { relationType node { id type } } }');
+  });
+
+  it('une autre entrée de la même franchise est servie par le cache (0 requête)', async () => {
+    serve(aot);
+    const first = await loadFranchise(AOT_START);
+    if (!first.ok) throw new Error('chargement attendu');
+    const other = first.graph.main.find((id) => id !== AOT_START);
+    if (other === undefined) throw new Error('fixture');
+    deps.anilistPublicQuery.mockClear();
+    const second = await loadFranchise(other);
+    expect(deps.anilistPublicQuery).not.toHaveBeenCalled();
+    expect(second).toEqual({ ok: true, graph: first.graph });
+  });
+
+  it('un graphe plafonné par les tours est marqué capped et gardé sous l\'identifiant de départ seulement', async () => {
+    serve(gundam);
+    const result = await loadFranchise(GUNDAM_START, 3);
+    if (!result.ok) throw new Error('chargement attendu');
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(3);
+    expect(result.graph.capped).toBe(true);
+    const keys = [...fake.session.data.keys()].filter((k) => k.startsWith('franchise:'));
+    expect(keys).toEqual([franchiseCacheKey(GUNDAM_START)]);
+  });
+
+  it('Gundam réel : 9 tours, sous le plafond de tours par défaut, graphe complet', async () => {
+    serve(gundam);
+    const result = await loadFranchise(GUNDAM_START);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(gundam.rounds.length);
+    expect(result.ok && result.graph.capped).toBe(false);
+  });
+
+  it('deux appels simultanés pour des entrées d\'une même franchise : un seul parcours', async () => {
+    // Le parcours est retenu avant son troisième tour : les identifiants des deux premiers sont déjà lus
+    let release = (): void => undefined;
+    serve(aot, (round) => (round === 2 ? new Promise<void>((resolve) => (release = resolve)) : Promise.resolve()));
+    const second = aot.rounds[1]?.[0]?.id;
+    if (second === undefined) throw new Error('fixture');
+    const a = loadFranchise(AOT_START);
+    await vi.waitFor(() => expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(3));
+    const b = loadFranchise(second);
+    release();
+    const [ra, rb] = await Promise.all([a, b]);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
+    expect(rb).toEqual(ra);
+  });
+
+  it('les liens de plateformes sont remplis depuis externalLinks', async () => {
+    const withLink = structuredClone(aot) as Fixture;
+    const start = withLink.rounds[0]?.[0];
+    if (!start) throw new Error('fixture');
+    start.externalLinks = [{ url: 'https://www.crunchyroll.com/series/GR751KNZY/attack-on-titan' }, { url: 'javascript:alert(1)' }];
+    serve(withLink);
+    const result = await loadFranchise(AOT_START);
+    if (!result.ok) throw new Error('chargement attendu');
+    expect(result.graph.nodes[AOT_START]?.platforms).toEqual([{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/GR751KNZY/attack-on-titan' }]);
+  });
+
+  it('requête refusée : { ok: false } avec le message de l\'erreur, rien en cache', async () => {
+    deps.anilistPublicQuery.mockRejectedValue(new ApiError('RATE_LIMITED', 'Trop de requêtes'));
+    expect(await loadFranchise(AOT_START)).toEqual({ ok: false, message: 'Trop de requêtes' });
+    expect([...fake.session.data.keys()].filter((k) => k.startsWith('franchise:'))).toEqual([]);
+  });
+
+  it('erreur inattendue : message traduit du panneau, rien en cache', async () => {
+    deps.anilistPublicQuery.mockRejectedValue(new TypeError('boom'));
+    const result = await loadFranchise(AOT_START);
+    expect(result).toEqual({ ok: false, message: expect.stringContaining('watch order') });
+    expect(fake.session.data.size).toBe(0);
+  });
+
+  it('une entrée expirée est relue', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(1_800_000_000_000);
+    serve(aot);
+    await loadFranchise(AOT_START);
+    deps.anilistPublicQuery.mockClear();
+    vi.setSystemTime(1_800_000_000_000 + FRANCHISE_CACHE_TTL_MS + 1);
+    serve(aot);
+    await loadFranchise(AOT_START);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
+  });
+});
