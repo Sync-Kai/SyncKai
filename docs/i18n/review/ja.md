@@ -671,3 +671,5 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 | Key | Text |
 |---|---|
 | `watching.dormant.partial_other` | {text} · {count}作品で失敗 |
+
+- 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « ブラウザが通知をブロック中 — ブラウザの設定でSyncKaiの通知を許可してください » (term sheet wording for notifications kept).

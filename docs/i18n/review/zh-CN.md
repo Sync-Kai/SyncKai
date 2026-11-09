@@ -631,3 +631,5 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 | Key | Text |
 |---|---|
 | `watching.dormant.partial_other` | {text} · {count} 部番剧失败 |
+
+- 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « 浏览器已屏蔽通知——请在浏览器设置中允许 SyncKai 发送通知 » (term sheet wording for notifications kept).

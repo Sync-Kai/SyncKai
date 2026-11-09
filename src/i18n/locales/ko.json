@@ -50,6 +50,7 @@
   "airing.notification.group_other": "새 에피소드 {count}개: {titles}",
   "airing.notification.message": "일본 방영 완료 · 보통 몇 시간 안에 Crunchyroll/ADN에 올라와요",
   "airing.notification.single": "{title} {episode}화가 방영됐어요",
+  "airing.skip.blocked": "브라우저가 알림을 차단함 — 브라우저 설정에서 SyncKai 알림을 허용하세요",
   "airing.skip.disabled": "방영 알림 꺼짐",
   "airing.skip.noSeries": "캐시에 시청 중인 작품 없음 — ‘시청 중’ 탭을 여세요",
   "airing.skip.notConnected": "연결된 계정 없음",

@@ -65,6 +65,7 @@
   "airing.notification.group_other": "{count} нового эпизода: {titles}",
   "airing.notification.message": "Показано в Японии · на Crunchyroll/ADN обычно через несколько часов",
   "airing.notification.single": "Вышел эп. {episode} «{title}»",
+  "airing.skip.blocked": "браузер блокирует уведомления — разреши их для SyncKai в настройках браузера",
   "airing.skip.disabled": "оповещения выключены",
   "airing.skip.noSeries": "в кэше нет аниме, которые ты смотришь — открой вкладку «Смотрю»",
   "airing.skip.notConnected": "нет подключённых аккаунтов",

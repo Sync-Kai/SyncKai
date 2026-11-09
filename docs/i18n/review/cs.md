@@ -680,3 +680,5 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 | `watching.dormant.partial_one` | {text} · {count} seriál se nezdařil |
 | `watching.dormant.partial_few` | {text} · {count} seriály se nezdařily |
 | `watching.dormant.partial_other` | {text} · {count} seriálů se nezdařilo |
+
+- 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « oznámení blokuje prohlížeč – povol je pro SyncKai v jeho nastavení » (term sheet wording for notifications kept).

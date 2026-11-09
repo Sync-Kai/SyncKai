@@ -635,3 +635,5 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 |---|---|
 | `watching.dormant.partial_one` | {text} · {count} con errore |
 | `watching.dormant.partial_other` | {text} · {count} con errore |
+
+- 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « notifiche bloccate dal browser — consentile a SyncKai nelle impostazioni del browser » (term sheet wording for notifications kept).

@@ -60,6 +60,7 @@
   "airing.notification.group_other": "{count} nových epizod: {titles}",
   "airing.notification.message": "Odvysíláno v Japonsku · na Crunchyroll/ADN obvykle dorazí do pár hodin",
   "airing.notification.single": "Vyšla ep. {episode} seriálu {title}",
+  "airing.skip.blocked": "oznámení blokuje prohlížeč – povol je pro SyncKai v jeho nastavení",
   "airing.skip.disabled": "upozornění vypnuta",
   "airing.skip.noSeries": "v mezipaměti nejsou žádné sledované seriály – otevři kartu Sleduji",
   "airing.skip.notConnected": "žádný připojený účet",

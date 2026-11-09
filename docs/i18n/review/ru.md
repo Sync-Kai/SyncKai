@@ -716,3 +716,5 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 | `watching.dormant.partial_few` | {text} · {count} аниме с ошибкой |
 | `watching.dormant.partial_many` | {text} · {count} аниме с ошибкой |
 | `watching.dormant.partial_other` | {text} · {count} аниме с ошибкой |
+
+- 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « браузер блокирует уведомления — разреши их для SyncKai в настройках браузера » (term sheet wording for notifications kept).

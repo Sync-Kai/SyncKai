@@ -49,6 +49,8 @@ describe('formatAiringStatus', () => {
     expect(formatAiringStatus(result({ skipped: 'disabled' }), NOW).text).toContain('alertes désactivées');
     expect(formatAiringStatus(result({ skipped: 'not-connected' }), NOW).text).toContain('aucun compte connecté');
     expect(formatAiringStatus(result({ skipped: 'no-series' }), NOW).text).toContain('aucune série en cours en cache — ouvre l’onglet En cours');
+    // Notifications bloquées dans Chrome : en rouge, la vérification ne sert à rien tant qu'elles le restent
+    expect(formatAiringStatus(result({ skipped: 'blocked' }), NOW)).toEqual({ text: 'Dernière vérification : il y a 12 min · notifications bloquées par le navigateur — autorise-les pour SyncKai dans ses réglages', tone: 'danger' });
   });
 
   it('erreur en couleur danger', () => {

@@ -55,6 +55,7 @@
   "airing.notification.group_other": "{count} novos episódios: {titles}",
   "airing.notification.message": "Exibido no Japão · costuma chegar à Crunchyroll/ADN em poucas horas",
   "airing.notification.single": "Saiu o ep. {episode} de {title}",
+  "airing.skip.blocked": "notificações bloqueadas pelo navegador — permita-as para o SyncKai nas configurações do navegador",
   "airing.skip.disabled": "alertas desativados",
   "airing.skip.noSeries": "nenhum anime sendo assistido no cache — abra a aba Assistindo",
   "airing.skip.notConnected": "nenhuma conta conectada",

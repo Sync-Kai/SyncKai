@@ -55,6 +55,7 @@
   "airing.notification.group_other": "{count} neue Folgen: {titles}",
   "airing.notification.message": "In Japan ausgestrahlt · erscheint meist innerhalb weniger Stunden auf Crunchyroll/ADN",
   "airing.notification.single": "Folge {episode} von {title} ist erschienen",
+  "airing.skip.blocked": "Benachrichtigungen vom Browser blockiert – erlaube sie für SyncKai in den Browsereinstellungen",
   "airing.skip.disabled": "Benachrichtigungen deaktiviert",
   "airing.skip.noSeries": "keine laufenden Serien im Cache – öffne den Tab „Schaue ich“",
   "airing.skip.notConnected": "kein Konto verbunden",

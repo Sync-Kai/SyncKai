@@ -179,10 +179,22 @@ interface CheckOutcome {
   error: string | null;
 }
 
+/**
+ * Notifications de SyncKai désactivées dans Chrome : chaque création serait refusée avec un message vide. Firefox n'a pas
+ * getPermissionLevel (blocage par le système non détectable, comme sur Chrome).
+ */
+async function notificationsBlocked(): Promise<boolean> {
+  if (typeof chrome.notifications.getPermissionLevel !== 'function') return false;
+  return (await chrome.notifications.getPermissionLevel()) === 'denied';
+}
+
 /** Vérification proprement dite : nombre de notifications créées ou raison de l'abandon. Peut lever. */
 async function runCheck(lane: RequestLane): Promise<CheckOutcome> {
   const settings = await getSettings();
   if (!settings.airingAlerts) return { notified: 0, skipped: 'disabled', error: null };
+  // Avant toute requête : rien n'est lu ni marqué notifié, la fenêtre reste où elle est et les sorties seront annoncées
+  // une fois les notifications réautorisées (24 h au plus, MAX_LOOKBACK_S)
+  if (await notificationsBlocked()) return { notified: 0, skipped: 'blocked', error: null };
   const services = await connectedServices();
   if (services.length === 0) return { notified: 0, skipped: 'not-connected', error: null };
 

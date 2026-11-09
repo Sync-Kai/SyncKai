@@ -5,7 +5,8 @@ import { formatRelativeTime } from './watching';
 /** Clé de stockage du dernier résumé de vérification des sorties (définie dans airing-keys.ts) */
 export { AIRING_RESULT_KEY } from './airing-keys';
 
-export type AiringSkipReason = 'disabled' | 'not-connected' | 'no-series';
+/** `blocked` : notifications de SyncKai désactivées dans le navigateur (Chrome) */
+export type AiringSkipReason = 'disabled' | 'not-connected' | 'no-series' | 'blocked';
 
 /** Résumé d'une vérification des nouveaux épisodes (alarme horaire ou « Vérifier maintenant ») */
 export interface AiringCheckResult {
@@ -16,7 +17,7 @@ export interface AiringCheckResult {
   error: string | null;
 }
 
-const SKIP_REASONS: readonly AiringSkipReason[] = ['disabled', 'not-connected', 'no-series'];
+const SKIP_REASONS: readonly AiringSkipReason[] = ['disabled', 'not-connected', 'no-series', 'blocked'];
 
 export function isAiringCheckResult(value: unknown): value is AiringCheckResult {
   return (
@@ -35,6 +36,7 @@ const SKIP_LABELS: Record<AiringSkipReason, MessageKey> = {
   disabled: 'airing.skip.disabled',
   'not-connected': 'airing.skip.notConnected',
   'no-series': 'airing.skip.noSeries',
+  blocked: 'airing.skip.blocked',
 };
 
 export interface AiringStatusLine {
@@ -47,7 +49,7 @@ export function formatAiringStatus(result: AiringCheckResult | null, now: number
   if (!result) return { text: t('airing.status.never'), tone: 'muted' };
   const prefix = t('airing.status.last', { relative: formatRelativeTime(result.checkedAt, now) });
   if (result.error !== null) return { text: `${prefix} · ${t('airing.status.failed', { error: result.error })}`, tone: 'danger' };
-  if (result.skipped !== null) return { text: `${prefix} · ${t(SKIP_LABELS[result.skipped])}`, tone: 'muted' };
+  if (result.skipped !== null) return { text: `${prefix} · ${t(SKIP_LABELS[result.skipped])}`, tone: result.skipped === 'blocked' ? 'danger' : 'muted' };
   if (result.notified === 0) return { text: `${prefix} · ${t('airing.status.none')}`, tone: 'muted' };
   return { text: `${prefix} · ${tp('airing.status.notified', result.notified)}`, tone: 'muted' };
 }

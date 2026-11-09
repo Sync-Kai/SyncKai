@@ -17,6 +17,8 @@ const fakes = vi.hoisted(() => ({
   lanes: [] as (string | undefined)[],
   getWatchingList: vi.fn<(service: TrackerId, force?: boolean) => Promise<WatchingResult>>(),
   create: vi.fn<(id: string, options: unknown) => Promise<string>>(),
+  /** Autorisation des notifications de l'extension (chrome.notifications.getPermissionLevel) */
+  permission: vi.fn<() => Promise<'granted' | 'denied'>>(),
 }));
 
 vi.mock('./anilist/client', () => ({
@@ -27,7 +29,7 @@ vi.mock('./anilist/client', () => ({
 }));
 vi.mock('./anilist/watching', () => ({ getWatchingList: fakes.getWatchingList }));
 
-const fake = installFakeChrome({ extra: { notifications: { create: fakes.create, clear: async () => true } } });
+const fake = installFakeChrome({ extra: { notifications: { create: fakes.create, clear: async () => true, getPermissionLevel: fakes.permission } } });
 const { checkNewEpisodes, handleAiringAlarm } = await import('./airing');
 
 setLocale('fr');
@@ -76,6 +78,8 @@ beforeEach(() => {
   fakes.getWatchingList.mockReset();
   fakes.create.mockReset();
   fakes.create.mockImplementation(async (id) => id);
+  fakes.permission.mockReset();
+  fakes.permission.mockResolvedValue('granted');
 });
 
 describe('liste « En cours » de plus de 12 h (ALRT-01)', () => {
@@ -161,6 +165,30 @@ describe('notification qui échoue (ALRT-04)', () => {
     expect(fakes.create.mock.calls.map(([id]) => id)).toEqual(['synckai-airing:100']);
     expect(second).toMatchObject({ notified: 1, error: null });
     expect(stored(AIRING_NOTIFIED_KEY)).toEqual([200, 100]);
+  });
+});
+
+describe('notifications de SyncKai bloquées dans Chrome', () => {
+  // Chrome refuse alors chrome.notifications.create avec un message vide (notifications_api.cc › Run : Error(""))
+  it('vérification arrêtée avant toute requête, raison « blocked », fenêtre et épisodes notifiés intacts', async () => {
+    const covered = nowS() - 2 * 3600;
+    fake.reset({ ...OPEN_SESSIONS, [STORAGE_KEYS.watchingCache]: { anilist: list(Date.now(), [entry(1, 6)]) }, [AIRING_COVERED_KEY]: covered, [AIRING_NOTIFIED_KEY]: [50] });
+    fakes.permission.mockResolvedValue('denied');
+    fakes.schedule.mockImplementation(() => page([node(100, 1, 7, nowS() - 600)]));
+
+    const result = await checkNewEpisodes();
+
+    expect(result).toMatchObject({ notified: 0, skipped: 'blocked', error: null });
+    expect(fakes.schedule).not.toHaveBeenCalled();
+    expect(fakes.create).not.toHaveBeenCalled();
+    expect(stored(AIRING_COVERED_KEY)).toBe(covered);
+    expect(stored(AIRING_NOTIFIED_KEY)).toEqual([50]);
+
+    // Débloquées plus tard : l'épisode sorti entre-temps est annoncé
+    fakes.permission.mockResolvedValue('granted');
+    const after = await checkNewEpisodes();
+    expect(fakes.create.mock.calls.map(([id]) => id)).toEqual(['synckai-airing:100']);
+    expect(after).toMatchObject({ notified: 1, skipped: null });
   });
 });
 

@@ -65,6 +65,7 @@
   "airing.notification.group_other": "{count} нового епізоду: {titles}",
   "airing.notification.message": "Показано в Японії · на Crunchyroll/ADN зазвичай виходить за кілька годин",
   "airing.notification.single": "Вийшов еп. {episode} — {title}",
+  "airing.skip.blocked": "браузер блокує сповіщення — дозволь їх для SyncKai у налаштуваннях браузера",
   "airing.skip.disabled": "сповіщення вимкнено",
   "airing.skip.noSeries": "у кеші немає аніме, які ти дивишся, — відкрий вкладку «Дивлюся»",
   "airing.skip.notConnected": "немає підключених акаунтів",

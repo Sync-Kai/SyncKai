@@ -50,6 +50,7 @@
   "airing.notification.group_other": "{count} 集已播出：{titles}",
   "airing.notification.message": "已在日本播出 · 通常几小时内会上线 Crunchyroll/ADN",
   "airing.notification.single": "《{title}》第 {episode} 集已播出",
+  "airing.skip.blocked": "浏览器已屏蔽通知——请在浏览器设置中允许 SyncKai 发送通知",
   "airing.skip.disabled": "更新提醒已关闭",
   "airing.skip.noSeries": "缓存中没有在看的番剧——请打开“在看”标签页",
   "airing.skip.notConnected": "未连接账号",

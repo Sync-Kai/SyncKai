@@ -55,6 +55,7 @@
   "airing.notification.group_other": "{count} yeni bölüm: {titles}",
   "airing.notification.message": "Japonya'da yayınlandı · Crunchyroll/ADN üzerinde genelde birkaç saat sonra",
   "airing.notification.single": "{title}: {episode}. bölüm çıktı",
+  "airing.skip.blocked": "bildirimler tarayıcı tarafından engellendi — tarayıcı ayarlarından SyncKai'ye izin ver",
   "airing.skip.disabled": "bildirimler kapalı",
   "airing.skip.noSeries": "önbellekte izlenen seri yok — İzleniyor sekmesini aç",
   "airing.skip.notConnected": "bağlı hesap yok",

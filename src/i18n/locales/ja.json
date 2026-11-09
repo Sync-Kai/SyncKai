@@ -50,6 +50,7 @@
   "airing.notification.group_other": "新エピソード{count}件：{titles}",
   "airing.notification.message": "日本で放送されました · 通常は数時間以内にCrunchyroll/ADNで配信されます",
   "airing.notification.single": "{title} 第{episode}話が放送されました",
+  "airing.skip.blocked": "ブラウザが通知をブロック中 — ブラウザの設定でSyncKaiの通知を許可してください",
   "airing.skip.disabled": "放送通知がオフ",
   "airing.skip.noSeries": "キャッシュに視聴中の作品なし — 「視聴中」タブを開いてください",
   "airing.skip.notConnected": "アカウント未連携",

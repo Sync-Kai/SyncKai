@@ -50,6 +50,7 @@
   "airing.notification.group_other": "{count} tập mới: {titles}",
   "airing.notification.message": "Đã phát sóng tại Nhật · thường lên Crunchyroll/ADN sau vài giờ",
   "airing.notification.single": "Đã ra tập {episode} của {title}",
+  "airing.skip.blocked": "trình duyệt đang chặn thông báo — hãy cho phép SyncKai trong cài đặt trình duyệt",
   "airing.skip.disabled": "thông báo tập mới đang tắt",
   "airing.skip.noSeries": "bộ nhớ đệm chưa có bộ nào đang xem — hãy mở thẻ Đang xem",
   "airing.skip.notConnected": "chưa kết nối tài khoản nào",

@@ -55,6 +55,7 @@
   "airing.notification.group_other": "{count} nya avsnitt: {titles}",
   "airing.notification.message": "Sändes i Japan · brukar komma till Crunchyroll/ADN inom några timmar",
   "airing.notification.single": "Avs. {episode} av {title} är ute",
+  "airing.skip.blocked": "aviseringar blockerade av webbläsaren — tillåt dem för SyncKai i webbläsarens inställningar",
   "airing.skip.disabled": "aviseringar avstängda",
   "airing.skip.noSeries": "inga pågående serier i cachen – öppna fliken ”Tittar på”",
   "airing.skip.notConnected": "inget konto anslutet",

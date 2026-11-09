@@ -65,6 +65,7 @@
   "airing.notification.group_other": "{count} nowego odcinka: {titles}",
   "airing.notification.message": "Wyemitowano w Japonii · na Crunchyroll/ADN zwykle w ciągu kilku godzin",
   "airing.notification.single": "Wyszedł odc. {episode} serii {title}",
+  "airing.skip.blocked": "przeglądarka blokuje powiadomienia — zezwól na nie dla SyncKai w ustawieniach przeglądarki",
   "airing.skip.disabled": "alerty wyłączone",
   "airing.skip.noSeries": "brak oglądanych serii w pamięci podręcznej — otwórz zakładkę „Oglądam”",
   "airing.skip.notConnected": "brak połączonego konta",

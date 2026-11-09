@@ -55,6 +55,7 @@
   "airing.notification.group_other": "{count} nuovi episodi: {titles}",
   "airing.notification.message": "Trasmesso in Giappone · di solito arriva su Crunchyroll/ADN entro poche ore",
   "airing.notification.single": "È uscito l’ep. {episode} di {title}",
+  "airing.skip.blocked": "notifiche bloccate dal browser — consentile a SyncKai nelle impostazioni del browser",
   "airing.skip.disabled": "avvisi disattivati",
   "airing.skip.noSeries": "nessuna serie in corso nella cache — apri la scheda In corso",
   "airing.skip.notConnected": "nessun account collegato",

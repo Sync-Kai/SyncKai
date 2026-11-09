@@ -55,6 +55,7 @@
   "airing.notification.group_other": "{count} new episodes: {titles}",
   "airing.notification.message": "Aired in Japan · usually arrives on Crunchyroll/ADN within a few hours",
   "airing.notification.single": "Ep. {episode} of {title} is out",
+  "airing.skip.blocked": "notifications blocked by the browser — allow them for SyncKai in its settings",
   "airing.skip.disabled": "alerts turned off",
   "airing.skip.noSeries": "no series being watched in cache — open the Watching tab",
   "airing.skip.notConnected": "no account connected",

@@ -707,3 +707,5 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 | `watching.dormant.partial_one` | {text} · {count} serial eșuat |
 | `watching.dormant.partial_few` | {text} · {count} seriale eșuate |
 | `watching.dormant.partial_other` | {text} · {count} de seriale eșuate |
+
+- 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « notificări blocate de browser — permite-le pentru SyncKai în setările browserului » (term sheet wording for notifications kept).

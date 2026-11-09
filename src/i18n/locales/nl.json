@@ -55,6 +55,7 @@
   "airing.notification.group_other": "{count} nieuwe afleveringen: {titles}",
   "airing.notification.message": "Uitgezonden in Japan · meestal binnen een paar uur op Crunchyroll/ADN",
   "airing.notification.single": "Afl. {episode} van {title} is uit",
+  "airing.skip.blocked": "meldingen geblokkeerd door de browser — sta ze toe voor SyncKai in de browserinstellingen",
   "airing.skip.disabled": "meldingen uitgeschakeld",
   "airing.skip.noSeries": "geen series in de cache die je aan het kijken bent — open het tabblad ‘Aan het kijken’",
   "airing.skip.notConnected": "geen account verbonden",

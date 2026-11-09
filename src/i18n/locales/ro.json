@@ -60,6 +60,7 @@
   "airing.notification.group_other": "{count} de episoade noi: {titles}",
   "airing.notification.message": "Difuzare în Japonia · de obicei pe Crunchyroll/ADN în câteva ore",
   "airing.notification.single": "Ep. {episode} din {title} a apărut",
+  "airing.skip.blocked": "notificări blocate de browser — permite-le pentru SyncKai în setările browserului",
   "airing.skip.disabled": "alerte dezactivate",
   "airing.skip.noSeries": "nicio serie urmărită în cache — deschide fila „Urmăresc”",
   "airing.skip.notConnected": "niciun cont conectat",
