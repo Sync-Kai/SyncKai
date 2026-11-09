@@ -5,10 +5,11 @@ import type { SyncOutcome } from '../../shared/sync.types';
 import { addSequelToPlanning, sequelAddResult, updateSequels } from '../sequel-actions';
 
 // « + À regarder » et × des suites annoncées, partagés par Activité (popup) et Agenda (panneau) : ajout en cours, dernier
-// résultat par suite, et lignes gardées pour leur mention quand le stockage ne les a plus.
+// résultat par suite, et lignes terminées gardées avec leur mention (ajoutée, déjà dans la liste, pas sur MyAnimeList)
+// jusqu'à la fermeture de la page, quand le stockage ne les a plus.
 
 export interface SequelActions {
-  /** Suites du stockage, puis les terminées avec mention « pas sur MyAnimeList » que le stockage n'a plus */
+  /** Suites du stockage, puis les terminées (avec leur mention) que le stockage n'a plus */
   all: SequelRecord[];
   busy: ReadonlySet<number>;
   outcomes: ReadonlyMap<number, { record: SequelRecord; outcome: SyncOutcome }>;
@@ -35,8 +36,9 @@ export function useSequelActions(records: readonly SequelRecord[]): SequelAction
     withBusy(id, true);
     const outcome = await addSequelToPlanning(record);
     const result = sequelAddResult(outcome, t('error.unexpectedAdd'));
-    if (result.kind === 'ended') await updateSequels([id], 'removed');
+    // Résultat noté avant le retrait du stockage : la ligne ne disparaît jamais entre les deux
     setOutcomes((current) => new Map(current).set(id, { record, outcome }));
+    if (result.kind === 'ended') await updateSequels([id], 'removed');
     withBusy(id, false);
   };
 
@@ -46,13 +48,12 @@ export function useSequelActions(records: readonly SequelRecord[]): SequelAction
       next.delete(id);
       return next;
     });
-    // Ligne gardée pour sa mention : déjà retirée du stockage, rien à masquer
+    // Ligne terminée gardée pour sa mention : déjà retirée du stockage, rien à masquer
     if (records.some((record) => record.snapshot.id === id)) void updateSequels([id], 'dismissed');
   };
 
   const kept = [...outcomes.values()].filter(({ record, outcome }) => {
-    const result = sequelAddResult(outcome, '');
-    return result.kind === 'ended' && result.notOnMal && !records.some((r) => r.snapshot.id === record.snapshot.id);
+    return sequelAddResult(outcome, '').kind === 'ended' && !records.some((r) => r.snapshot.id === record.snapshot.id);
   });
   return { all: [...records, ...kept.map(({ record }) => record)], busy, outcomes, add, dismiss };
 }

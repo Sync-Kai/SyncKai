@@ -43,7 +43,7 @@ const page = { kind: 'series', platform: 'crunchyroll' } as unknown as PageMedia
 const view = { media: { mediaId: 1, idMal: null, title: 'Frieren', siteUrl: 'https://anilist.co/anime/1', episodes: 28 }, lists: [], confidence: 'certain', source: 'cache', seasons: [], episodeProgress: null } as unknown as PageMediaView;
 const friends = { state: 'idle', summary: null } as never;
 
-async function show(relations: PanelRelation[], unlisted: readonly number[] = [20]): Promise<void> {
+async function show(relations: PanelRelation[], unlisted: readonly number[] = [20], connected: ('anilist' | 'mal')[] = ['anilist']): Promise<void> {
   const details = { description: null, relations, romajiTitle: null } as unknown as PanelMedia;
   await act(() =>
     render(
@@ -51,7 +51,7 @@ async function show(relations: PanelRelation[], unlisted: readonly number[] = [2
         page={page}
         view={view}
         details={details}
-        entryLinks={{ preferredEntry: 'anilist', connected: ['anilist'] } as never}
+        entryLinks={{ preferredEntry: 'anilist', connected } as never}
         preferred="crunchyroll"
         friends={friends}
         unlistedSequels={new Set(unlisted)}
@@ -66,8 +66,8 @@ async function show(relations: PanelRelation[], unlisted: readonly number[] = [2
   );
 }
 
-const synced = (results: { service: 'anilist' | 'mal'; status: 'updated' | 'error' }[]): SyncOutcome =>
-  ({ status: 'synced', results: results.map(({ service, status }) => ({ service, outcome: status === 'updated' ? { status } : { status, message: 'boom' } })) }) as unknown as SyncOutcome;
+const synced = (results: { service: 'anilist' | 'mal'; status: 'updated' | 'error' | 'skipped' }[]): SyncOutcome =>
+  ({ status: 'synced', results: results.map(({ service, status }) => ({ service, outcome: status === 'updated' ? { status } : status === 'skipped' ? { status, reason: 'x', code: 'already-in-list' } : { status, message: 'boom' } })) }) as unknown as SyncOutcome;
 
 /** Clic sur « + À regarder », puis la fin de l'échange avec le service worker (simulé) */
 async function clickAdd(): Promise<void> {
@@ -112,12 +112,28 @@ describe('relations : badge des suites annoncées', () => {
     expect(container.querySelector('[data-focus="relation-add-20"]')).toBeNull();
   });
 
-  it('ajout réussi mais UPDATE_SEQUELS en échec : « Dans ta liste » quand même', async () => {
+  it('ajout réussi mais UPDATE_SEQUELS en échec : « Ajoutée à À regarder » quand même', async () => {
     addToPlanning.mockResolvedValue(synced([{ service: 'anilist', status: 'updated' }]));
     updateSequels.mockResolvedValue(false);
     await show([relation({})]);
     await clickAdd();
+    expect(container.textContent).toContain(t('sequel.added'));
+  });
+
+  it('déjà dans la liste : « Dans ta liste », pas « Ajoutée »', async () => {
+    addToPlanning.mockResolvedValue(synced([{ service: 'anilist', status: 'skipped' }]));
+    await show([relation({})]);
+    await clickAdd();
     expect(container.textContent).toContain(t('sequel.inList'));
+    expect(container.textContent).not.toContain(t('sequel.added'));
+  });
+
+  it('compte MyAnimeList seul et suite sans idMal : « pas encore sur MyAnimeList », aucun bouton d’ajout', async () => {
+    await show([relation({ idMal: null })], [20], ['mal']);
+    expect(container.textContent).toContain(t('sequel.notOnMal'));
+    expect(container.querySelector('[data-focus="relation-add-20"]')).toBeNull();
+    await show([relation({ idMal: 200 })], [20], ['mal']);
+    expect(container.querySelector('[data-focus="relation-add-20"]')).not.toBeNull();
   });
 
   it('ni suite annoncée, ni badge : préquelle, suite terminée', async () => {
@@ -126,13 +142,13 @@ describe('relations : badge des suites annoncées', () => {
     expect(container.querySelector('[data-focus="relation-add-20"]')).toBeNull();
   });
 
-  it('ajout réussi : UPDATE_SEQUELS removed, la ligne dit « Dans ta liste » et le bouton disparaît', async () => {
+  it('ajout réussi : UPDATE_SEQUELS removed, la ligne dit « Ajoutée à À regarder » et le bouton disparaît', async () => {
     addToPlanning.mockResolvedValue(synced([{ service: 'anilist', status: 'updated' }]));
     await show([relation({})]);
     await clickAdd();
     expect(addToPlanning).toHaveBeenCalledWith({ mediaId: 20, malId: 200 });
     expect(updateSequels).toHaveBeenCalledWith([20], 'removed');
-    expect(container.textContent).toContain(t('sequel.inList'));
+    expect(container.textContent).toContain(t('sequel.added'));
     expect(container.querySelector('[data-focus="relation-add-20"]')).toBeNull();
   });
 

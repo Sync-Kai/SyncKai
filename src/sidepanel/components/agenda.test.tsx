@@ -2,10 +2,11 @@
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale, t } from '../../i18n';
+import { setLocale, t, upperFirst } from '../../i18n';
 import { weekRange, type AgendaSeries, type AiringSchedule } from '../../shared/agenda';
 import { DEFAULT_SETTINGS, type SyncSettings } from '../../shared/settings';
 import type { SequelRecord } from '../../shared/sequels';
+import type { SyncOutcome } from '../../shared/sync.types';
 import { createStore } from '../../ui/state';
 import type { AgendaStatus } from '../agenda-controller';
 import { Agenda, type AgendaSnapshot } from './agenda';
@@ -40,8 +41,8 @@ const SERIES = new Map<number, AgendaSeries>([
 ]);
 const SETTINGS: SyncSettings = { ...DEFAULT_SETTINGS, seriesOffsets: { 2: { minutes: 75, at: 1 } } };
 
-function snapshot(status: AgendaStatus): AgendaSnapshot {
-  return { range: RANGE, firstDay: 1, status, settings: SETTINGS, player: 'crunchyroll', series: SERIES, connected: ['anilist'] };
+function snapshot(status: AgendaStatus, patch: Partial<AgendaSnapshot> = {}): AgendaSnapshot {
+  return { range: RANGE, firstDay: 1, status, settings: SETTINGS, player: 'crunchyroll', series: SERIES, connected: ['anilist'], ...patch };
 }
 const READY = { kind: 'ready', cache: { weekStart: RANGE.key, fetchedAt: NOW, mediaIds: [1, 2, 3], schedules: SCHEDULES }, refreshing: false, error: null as string | null } satisfies AgendaStatus;
 
@@ -59,9 +60,12 @@ function sequel(id: number, state: SequelRecord['state'], patch: Partial<SequelR
   };
 }
 
-async function show(status: AgendaStatus = READY, sequels: SequelRecord[] = []): Promise<void> {
-  const state = createStore<AgendaSnapshot | null>(snapshot(status));
-  await act(() => render(<Agenda state={state} sequels={createStore(sequels)} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} />, container));
+let sequelStore = createStore<SequelRecord[]>([]);
+
+async function show(status: AgendaStatus = READY, sequels: SequelRecord[] = [], patch: Partial<AgendaSnapshot> = {}): Promise<void> {
+  const state = createStore<AgendaSnapshot | null>(snapshot(status, patch));
+  sequelStore = createStore(sequels);
+  await act(() => render(<Agenda state={state} sequels={sequelStore} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} />, container));
 }
 
 async function click(selector: string): Promise<void> {
@@ -264,6 +268,60 @@ describe('Agenda', () => {
       expect($('[data-agenda-state]')?.textContent).toContain(t('agenda.announced.empty'));
       await act(() => radio(t('agenda.view.week')).click());
       expect($$('[data-agenda-day]')).toHaveLength(7);
+    });
+
+    it('« Alertes de suites » coupé : une ligne de raison à la place de la liste', async () => {
+      await show(READY, SEQUELS, { settings: { ...SETTINGS, sequelAlerts: false } });
+      await act(() => radio(t('agenda.view.announced')).click());
+      expect($('[data-sequel]')).toBeNull();
+      expect($('[data-agenda-state]')?.textContent).toContain(upperFirst(t('airing.skip.disabled')));
+      expect($('[data-agenda-state]')?.textContent).not.toContain(t('agenda.announced.empty'));
+    });
+
+    it('× puis ajout : le focus passe à la ligne voisine, jamais au body', async () => {
+      await show(READY, SEQUELS);
+      await act(() => radio(t('agenda.view.announced')).click());
+      $('[data-sequel="2"] [data-focus="sequel-dismiss-2"]')?.focus();
+      expect(document.activeElement?.getAttribute('data-focus')).toBe('sequel-dismiss-2');
+      await act(() => sequelStore.set(SEQUELS.filter((r) => r.snapshot.id !== 2)));
+      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement?.closest('[data-sequel]')).not.toBeNull();
+    });
+
+    it('« Nouveau » seulement tant que l’enregistrement est « new » dans le stockage (ligne gardée pour sa mention : sans pastille)', async () => {
+      worker.send.mockImplementation(async (type) => {
+        if (type === 'ADD_TO_LIST') return { status: 'synced', mediaTitle: 'S', results: [{ service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } }, { service: 'mal', outcome: { status: 'error', message: 'x' } }] } satisfies SyncOutcome;
+        sequelStore.set([]);
+        return true;
+      });
+      await show(READY, [sequel(1, 'new', { year: 2027, month: 1, day: 10 })]);
+      await act(() => radio(t('agenda.view.announced')).click());
+      expect($('[data-sequel="1"] [data-sequel-new]')).not.toBeNull();
+      await act(async () => {
+        $('[data-focus="sequel-add-1"]')?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect($('[data-sequel="1"]')?.textContent).toContain(t('sequel.notOnMal'));
+      expect($('[data-sequel="1"] [data-sequel-new]')).toBeNull();
+    });
+
+    it('ajout réussi : la ligne reste avec son résultat ; compte MAL seul sans idMal : mention, pas de bouton', async () => {
+      worker.send.mockImplementation(async (type) => {
+        if (type === 'ADD_TO_LIST') return { status: 'synced', mediaTitle: 'S', results: [{ service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } }] } satisfies SyncOutcome;
+        sequelStore.set([]);
+        return true;
+      });
+      await show(READY, [sequel(1, 'seen', {}), sequel(2, 'seen', {})]);
+      await act(() => radio(t('agenda.view.announced')).click());
+      await act(async () => {
+        $('[data-focus="sequel-add-1"]')?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect($('[data-sequel="1"]')?.textContent).toContain(t('sequel.added'));
+      await show(READY, [sequel(3, 'seen', {})], { connected: ['mal'] });
+      await act(() => radio(t('agenda.view.announced')).click());
+      expect($('[data-sequel="3"]')?.textContent).toContain(t('sequel.notOnMal'));
+      expect($('[data-focus="sequel-add-3"]')).toBeNull();
     });
 
     it('× masque la suite (UPDATE_SEQUELS dismissed)', async () => {

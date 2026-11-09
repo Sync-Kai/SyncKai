@@ -1,12 +1,26 @@
 import type { SequelRecord } from '../shared/sequels';
 import type { SyncOutcome } from '../shared/sync.types';
+import type { TrackerId } from '../shared/tracker.types';
 import { callWorker, outcomeFailure } from './worker-call';
 
 // Actions sur les suites annoncées, partagées par le popup (Activité) et le panneau (Agenda) : messages au service worker
 // et lecture du résultat de « + À regarder ».
 
-/** Résultat de « + À regarder » : `ended` = l'alerte n'a plus d'objet ; `notOnMal` = AniList écrit, MyAnimeList sans suite */
-export type SequelAddResult = { kind: 'ended'; notOnMal: boolean } | { kind: 'failed'; message: string };
+/**
+ * Résultat de « + À regarder » : `ended` = l'alerte n'a plus d'objet ; `notOnMal` = AniList écrit, MyAnimeList sans suite ;
+ * `inList` = aucun service n'a écrit, la suite était déjà dans une liste
+ */
+export type SequelAddResult = { kind: 'ended'; notOnMal: boolean; inList: boolean } | { kind: 'failed'; message: string };
+
+/** Mention d'une alerte terminée, gardée sur la ligne jusqu'à la fermeture de la page */
+export function sequelEndedKey(result: { notOnMal: boolean; inList: boolean }): 'sequel.notOnMal' | 'sequel.inList' | 'sequel.added' {
+  return result.notOnMal ? 'sequel.notOnMal' : result.inList ? 'sequel.inList' : 'sequel.added';
+}
+
+/** Seul MyAnimeList est connecté : une suite sans idMal n'a pas d'entrée où écrire */
+export function noMalEntry(connected: readonly TrackerId[], idMal: number | null): boolean {
+  return idMal === null && connected.includes('mal') && !connected.includes('anilist');
+}
 
 /** Un service a écrit, ou la suite était déjà dans une liste : l'alerte se termine (règle de la spec : un succès suffit) */
 export function sequelAddResult(outcome: SyncOutcome, fallback: string): SequelAddResult {
@@ -14,7 +28,8 @@ export function sequelAddResult(outcome: SyncOutcome, fallback: string): SequelA
   const done = outcome.results.filter((result) => result.outcome.status === 'updated' || result.outcome.status === 'up-to-date' || (result.outcome.status === 'skipped' && result.outcome.code === 'already-in-list'));
   if (done.length > 0) {
     const mal = outcome.results.find((result) => result.service === 'mal');
-    return { kind: 'ended', notOnMal: mal !== undefined && !done.includes(mal) };
+    const written = done.some((result) => result.outcome.status === 'updated' || result.outcome.status === 'up-to-date');
+    return { kind: 'ended', notOnMal: mal !== undefined && !done.includes(mal), inList: !written };
   }
   const failed = outcome.results.find((result) => result.outcome.status === 'error')?.outcome;
   return { kind: 'failed', message: failed?.status === 'error' ? failed.message : fallback };

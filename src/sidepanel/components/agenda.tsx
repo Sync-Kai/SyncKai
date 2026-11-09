@@ -30,7 +30,7 @@ import { ServiceLogo } from '../../ui/components/service-logo';
 import { WeekPicker } from '../../ui/components/week-picker';
 import { alertAttrs } from '../../ui/live-region';
 import { formatPlatformList } from '../../ui/platform-list';
-import { useLocale, useStore } from '../../ui/preact/hooks';
+import { useFocusFallback, useLocale, useStore } from '../../ui/preact/hooks';
 import { useSequelActions } from '../../ui/preact/use-sequel-actions';
 import type { ReadonlyStore } from '../../ui/state';
 import type { AgendaController, AgendaStatus } from '../agenda-controller';
@@ -446,11 +446,15 @@ function StateCard({ text, tone = 'info', onRetry }: { text: string; tone?: 'inf
 type AgendaView = 'week' | 'announced';
 
 /** Vue « Annoncées » : suites des animes de l'utilisateur, groupées par saison d'anime (« Hiver 2027 », « 2027 », « Date à venir ») */
-function Announced({ records }: { records: readonly SequelRecord[] }) {
+function Announced({ records, enabled, connected }: { records: readonly SequelRecord[]; enabled: boolean; connected: readonly TrackerId[] }) {
   const { all, busy, outcomes, add, dismiss } = useSequelActions(records);
-  if (all.length === 0) return <StateCard text={t('agenda.announced.empty')} />;
+  const root = useRef<HTMLDivElement>(null);
+  // Suite retirée (×, ajout) : le focus passe à la ligne voisine, jamais au body
+  useFocusFallback(root);
+  // Alertes coupées : la raison à la place de la liste (aucun enregistrement n'est montré)
+  const body = (): ComponentChildren => (!enabled ? <StateCard text={upperFirst(t('airing.skip.disabled'))} /> : all.length === 0 ? <StateCard text={t('agenda.announced.empty')} /> : groups());
   const heading = (group: SequelGroup): string => (group.year === null ? t('sequel.dateUnknown') : group.season === null ? String(group.year) : t(`panel.nowPlaying.season.${group.season}` satisfies MessageKey, { year: group.year }));
-  return (
+  const groups = (): ComponentChildren => (
     <>
       {groupSequelsByPeriod(all).map((group) => (
         <section key={group.key} class="flex flex-col gap-1.5" data-sequel-group={group.key}>
@@ -459,12 +463,17 @@ function Announced({ records }: { records: readonly SequelRecord[] }) {
           </h3>
           <ul class="m-0 flex list-none flex-col gap-2 p-0">
             {group.records.map((record) => (
-              <SequelRow key={record.snapshot.id} record={record} showNew={record.state === 'new'} busy={busy.has(record.snapshot.id)} outcome={outcomes.get(record.snapshot.id)?.outcome ?? null} onAdd={() => void add(record)} onDismiss={() => dismiss(record.snapshot.id)} />
+              <SequelRow key={record.snapshot.id} record={record} connected={connected} showNew={records.some((current) => current.snapshot.id === record.snapshot.id && current.state === 'new')} busy={busy.has(record.snapshot.id)} outcome={outcomes.get(record.snapshot.id)?.outcome ?? null} onAdd={() => void add(record)} onDismiss={() => dismiss(record.snapshot.id)} />
             ))}
           </ul>
         </section>
       ))}
     </>
+  );
+  return (
+    <div ref={root} class="flex flex-col gap-2.5">
+      {body()}
+    </div>
   );
 }
 
@@ -640,7 +649,7 @@ export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onS
           }
         />}
       </div>
-      {view === 'week' ? body() : <Announced records={records} />}
+      {view === 'week' ? body() : <Announced records={records} enabled={settings?.sequelAlerts !== false} connected={snapshot.connected} />}
     </div>
   );
 }

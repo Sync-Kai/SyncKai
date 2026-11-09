@@ -26,7 +26,7 @@ import { NotesEditor } from '../../ui/components/notes-editor';
 import { RatingBlock } from '../../ui/components/rating-block';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import { displayScore, primaryList } from '../../ui/page-media-view';
-import { addToPlanning, sequelAddResult, updateSequels } from '../../ui/sequel-actions';
+import { addToPlanning, noMalEntry, sequelAddResult, sequelEndedKey, updateSequels } from '../../ui/sequel-actions';
 import type { SyncOutcome } from '../../shared/sync.types';
 import type { FriendsView } from '../../ui/preact/use-friends';
 import { pageKey, relationLabel } from '../now-playing-view';
@@ -181,6 +181,8 @@ function Relation({ relation, links, preferred, unlisted }: { relation: PanelRel
   const announced = isBadgedSequel(relation, unlisted);
   const result = outcome ? sequelAddResult(outcome, t('error.unexpectedAdd')) : null;
   const ended = result?.kind === 'ended';
+  // MyAnimeList seul et suite sans idMal : « + À regarder » échouerait toujours
+  const unaddable = noMalEntry(links.connected, relation.idMal);
   const add = async (): Promise<void> => {
     if (busy) return;
     setBusy(true);
@@ -233,9 +235,10 @@ function Relation({ relation, links, preferred, unlisted }: { relation: PanelRel
         </a>
       )}
       </div>
-      {ended && <span class="pl-1 text-secondary font-bold text-lavender">{result.notOnMal ? t('sequel.notOnMal') : t('sequel.inList')}</span>}
+      {ended && <span class="pl-1 text-secondary font-bold text-lavender">{t(sequelEndedKey(result))}</span>}
+      {!ended && unaddable && <span class="pl-1 text-secondary font-bold text-lavender">{t('sequel.notOnMal')}</span>}
       {result?.kind === 'failed' && <span class="line-clamp-2 pl-1 text-secondary font-bold text-danger" title={result.message}>{result.message}</span>}
-      {unlisted && !ended && relation.relationType === 'SEQUEL' && (relation.status === 'NOT_YET_RELEASED' || relation.status === 'RELEASING') && (
+      {unlisted && !ended && !unaddable && relation.relationType === 'SEQUEL' && (relation.status === 'NOT_YET_RELEASED' || relation.status === 'RELEASING') && (
         <Button size="sm" busy={busy} ariaLabel={t('sequel.addLabel', { title: relation.title })} focusKey={`relation-add-${relation.mediaId}`} onClick={() => void add()}>
           {result?.kind === 'failed' ? t('common.retry') : t('sequel.add')}
         </Button>

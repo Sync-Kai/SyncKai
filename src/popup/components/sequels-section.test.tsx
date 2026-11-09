@@ -43,12 +43,14 @@ function Host() {
   const records = useStore(store);
   return (
     <div ref={root}>
-      <SequelsSection records={records} />
+      <SequelsSection records={records} connected={malOnly ? ['mal'] : ['anilist']} />
     </div>
   );
 }
-const mount = (records: SequelRecord[]): Promise<void> => {
+let malOnly = false;
+const mount = (records: SequelRecord[], onlyMal = false): Promise<void> => {
   store = createStore(records);
+  malOnly = onlyMal;
   return act(() => render(<Host />, container));
 };
 const flush = (): Promise<void> => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
@@ -117,7 +119,7 @@ describe('SequelsSection', () => {
     expect(document.activeElement?.closest('[data-sequel]')).not.toBeNull();
   });
 
-  it('+ Plan to watch : ADD_TO_LIST puis UPDATE_SEQUELS removed ; la ligne part avec le stockage', async () => {
+  it('+ Plan to watch : ADD_TO_LIST puis UPDATE_SEQUELS removed ; la ligne reste avec « Added to Plan to watch » jusqu’à la fermeture', async () => {
     await mount([record(1)]);
     worker.send.mockImplementation(async (type) => {
       if (type === 'ADD_TO_LIST') return syncedWith('updated', 'updated');
@@ -128,7 +130,37 @@ describe('SequelsSection', () => {
     await click('[data-focus="sequel-add-1"]');
     expect(worker.send).toHaveBeenNthCalledWith(1, 'ADD_TO_LIST', { mediaId: 1, malId: 1001, status: 'PLANNING' });
     expect(worker.send).toHaveBeenNthCalledWith(2, 'UPDATE_SEQUELS', { ids: [1], state: 'removed' });
-    expect(container.querySelector('[data-sequel]')).toBeNull();
+    expect($('[data-sequel="1"]')?.textContent).toContain('Added to Plan to watch');
+    expect($('[data-focus="sequel-add-1"]')).toBeNull();
+  });
+
+  it('ligne terminée : × la retire de la page', async () => {
+    await mount([record(1)]);
+    worker.send.mockImplementation(async (type) => {
+      if (type === 'ADD_TO_LIST') return syncedWith('updated', 'updated');
+      store.set([]);
+      return true;
+    });
+    await click('[data-focus="sequel-add-1"]');
+    await click('[data-focus="sequel-dismiss-1"]');
+    expect($('[data-sequel="1"]')).toBeNull();
+    expect(worker.send).toHaveBeenCalledTimes(2);
+  });
+
+  it('cover et titre mènent à la fiche de la suite (nouvel onglet)', async () => {
+    await mount([record(1)]);
+    const link = $<HTMLAnchorElement>('[data-sequel="1"] [data-focus="sequel-entry-1"]');
+    expect(link?.getAttribute('href')).toBe('https://anilist.co/anime/1');
+    expect(link?.getAttribute('target')).toBe('_blank');
+    expect(link?.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(link?.textContent).toBe('Suite 1');
+  });
+
+  it('compte MyAnimeList seul et suite sans idMal : « not on MyAnimeList yet », aucun bouton d’ajout', async () => {
+    await mount([record(1, { idMal: null }), record(2)], true);
+    expect($('[data-sequel="1"]')?.textContent).toContain('not on MyAnimeList yet');
+    expect($('[data-focus="sequel-add-1"]')).toBeNull();
+    expect($('[data-focus="sequel-add-2"]')).not.toBeNull();
   });
 
   it('AniList réussi, MyAnimeList en échec : l’alerte est terminée et la ligne dit « not on MyAnimeList yet »', async () => {
@@ -162,5 +194,6 @@ describe('SequelsSection', () => {
     });
     await click('[data-focus="sequel-add-1"]');
     expect(worker.send).toHaveBeenCalledWith('UPDATE_SEQUELS', { ids: [1], state: 'removed' });
+    expect($('[data-sequel="1"]')?.textContent).toContain('Already in your list');
   });
 });

@@ -373,7 +373,7 @@ export function ActivityScreen(props: ActivityScreenProps) {
           </p>
         }
       />
-      <SequelsSection records={sequels} />
+      <SequelsSection records={sequels} connected={links.connected} />
       <RecentSection data={data} exclusions={exclusions} links={links} props={props} />
       {connected === 2 && <CompareLink count={diffBadge(compare.result)} onOpen={props.onOpenCompare} />}
     </div>

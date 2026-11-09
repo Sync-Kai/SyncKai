@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { EMPTY_SEQUEL_STORE, type SequelRecord, type SequelStore } from '../shared/sequels';
 import { createSequelsStore } from './sequels-store';
@@ -21,7 +22,7 @@ beforeEach(() => {
   data = {};
   vi.stubGlobal('chrome', {
     storage: {
-      local: { get: vi.fn(async (key: string) => ({ [key]: data[key] })) },
+      local: { get: vi.fn(async (keys: string | string[]) => Object.fromEntries([keys].flat().map((key) => [key, data[key]]))) },
       onChanged: { addListener: (l: Listener) => listeners.add(l), removeListener: (l: Listener) => listeners.delete(l) },
     },
   });
@@ -34,6 +35,22 @@ describe('createSequelsStore', () => {
     const store = createSequelsStore();
     await flush();
     expect(store.get().map((r) => r.snapshot.id)).toEqual([3, 1]);
+    store.dispose();
+  });
+
+  it('« Alertes de suites » coupé : aucune suite publiée, et elles reviennent dès que le réglage est rallumé', async () => {
+    data[STORAGE_KEYS.sequelsState] = stored([record(1, 'new', 10)]);
+    data[SETTINGS_STORAGE_KEY] = { sequelAlerts: false };
+    const store = createSequelsStore();
+    await flush();
+    expect(store.get()).toEqual([]);
+    const [listener] = [...listeners];
+    listener?.({ [STORAGE_KEYS.sequelsState]: { newValue: stored([record(1, 'new', 10), record(2, 'new', 20)]) } }, 'local');
+    expect(store.get()).toEqual([]);
+    listener?.({ [SETTINGS_STORAGE_KEY]: { newValue: { sequelAlerts: true } } }, 'local');
+    expect(store.get().map((r) => r.snapshot.id)).toEqual([2, 1]);
+    listener?.({ [SETTINGS_STORAGE_KEY]: { newValue: { sequelAlerts: false } } }, 'local');
+    expect(store.get()).toEqual([]);
     store.dispose();
   });
 

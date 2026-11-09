@@ -1,9 +1,11 @@
 import { STORAGE_KEYS } from '../protocol/storage-keys';
+import { normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { isSequelStore, visibleSequels, type SequelRecord } from '../shared/sequels';
 import { createStore, type ReadonlyStore } from './state';
 
 // Suites annoncées vues par une page (popup, panneau) : lecture de `sequels:state` et suivi de storage.onChanged pour
-// cette clé seulement (une page peut écouter ; le service worker, non). Publie les suites visibles, la plus récente d'abord.
+// cette clé seulement (une page peut écouter ; le service worker, non). Publie les suites visibles, la plus récente d'abord ;
+// rien quand « Alertes de suites » est coupé (réglage suivi aussi : popup, rail, panneau et Agenda se vident ensemble).
 
 export interface SequelsStore extends ReadonlyStore<SequelRecord[]> {
   dispose(): void;
@@ -12,18 +14,28 @@ export interface SequelsStore extends ReadonlyStore<SequelRecord[]> {
 export function createSequelsStore(): SequelsStore {
   const store = createStore<SequelRecord[]>([]);
   let disposed = false;
+  let raw: unknown;
+  let enabled = true;
 
-  /** Valeur absente ou invalide : aucune suite */
-  const publish = (value: unknown): void => {
-    if (!disposed) store.set(isSequelStore(value) ? visibleSequels(value) : []);
+  /** Valeur absente ou invalide, ou alertes coupées : aucune suite */
+  const publish = (): void => {
+    if (!disposed) store.set(enabled && isSequelStore(raw) ? visibleSequels(raw) : []);
   };
 
   const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
-    const change = area === 'local' ? changes[STORAGE_KEYS.sequelsState] : undefined;
-    if (change) publish(change.newValue);
+    if (area !== 'local') return;
+    const state = changes[STORAGE_KEYS.sequelsState];
+    const settings = changes[SETTINGS_STORAGE_KEY];
+    if (state) raw = state.newValue;
+    if (settings) enabled = normalizeSettings(settings.newValue).sequelAlerts;
+    if (state || settings) publish();
   };
   chrome.storage.onChanged.addListener(onChanged);
-  void chrome.storage.local.get(STORAGE_KEYS.sequelsState).then((stored) => publish(stored[STORAGE_KEYS.sequelsState]));
+  void chrome.storage.local.get([STORAGE_KEYS.sequelsState, SETTINGS_STORAGE_KEY]).then((stored) => {
+    raw = stored[STORAGE_KEYS.sequelsState];
+    enabled = normalizeSettings(stored[SETTINGS_STORAGE_KEY]).sequelAlerts;
+    publish();
+  });
 
   return {
     get: store.get,

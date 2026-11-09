@@ -4,6 +4,7 @@
 import { useState } from 'preact/hooks';
 import { t, tp } from '../../i18n';
 import type { SequelRecord } from '../../shared/sequels';
+import type { TrackerId } from '../../shared/tracker.types';
 import { Section } from '../../ui/components/section';
 import { SequelRow } from '../../ui/components/sequel-row';
 import { useLocale } from '../../ui/preact/hooks';
@@ -14,9 +15,11 @@ const COLLAPSED_ROWS = 3;
 export interface SequelsSectionProps {
   /** Suites visibles (ui/sequels-store.ts) : lues par l'écran, qui rend la main au repli du focus à chaque changement */
   records: readonly SequelRecord[];
+  /** Services connectés : MyAnimeList seul, une suite sans idMal n'a pas de bouton d'ajout */
+  connected: readonly TrackerId[];
 }
 
-export function SequelsSection({ records }: SequelsSectionProps) {
+export function SequelsSection({ records, connected }: SequelsSectionProps) {
   useLocale();
   const [expanded, setExpanded] = useState(false);
   const { all, busy, outcomes, add, dismiss } = useSequelActions(records);
@@ -28,7 +31,7 @@ export function SequelsSection({ records }: SequelsSectionProps) {
     <Section title={t('sequel.heading')} tone="info">
       <ul class="m-0 flex list-none flex-col gap-2 p-0">
         {shown.map((record) => (
-          <SequelRow key={record.snapshot.id} record={record} busy={busy.has(record.snapshot.id)} outcome={outcomes.get(record.snapshot.id)?.outcome ?? null} onAdd={() => void add(record)} onDismiss={() => dismiss(record.snapshot.id)} />
+          <SequelRow key={record.snapshot.id} record={record} connected={connected} busy={busy.has(record.snapshot.id)} outcome={outcomes.get(record.snapshot.id)?.outcome ?? null} onAdd={() => void add(record)} onDismiss={() => dismiss(record.snapshot.id)} />
         ))}
       </ul>
       {hidden > 0 && (
