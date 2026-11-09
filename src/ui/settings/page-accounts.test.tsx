@@ -57,6 +57,8 @@ describe('AccountsPage (maquettes Comptes, ComptesConnexion)', () => {
       exclusions: { status: 'loading' },
       journalCount: null,
       airing: null,
+      sequels: null,
+      sequelsDismissed: 0,
       platformAccess: [],
     };
     const host = { accounts } as Partial<SettingsContext['host']> as SettingsContext['host'];

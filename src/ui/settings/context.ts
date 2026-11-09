@@ -1,6 +1,7 @@
 // Contrat entre la vue Réglages, ses pages et l'hôte qui la monte (popup ou panneau latéral).
 import type { AiringCheckResult } from '../../shared/airing.types';
 import type { StreamingPlatform } from '../../platforms/registry';
+import type { SequelCheckResult } from '../../shared/sequels';
 import type { SyncSettings } from '../../shared/settings';
 import type { MediaMapping } from '../../shared/sync.types';
 import type { ExclusionsState, ReadonlyStore } from '../state';
@@ -48,6 +49,10 @@ export interface SettingsData {
   /** Nombre d'entrées du journal ; null = en lecture ou illisible */
   journalCount: number | null;
   airing: AiringCheckResult | null;
+  /** Dernier résumé de la vérification des suites annoncées (aucun tant qu'aucune session n'a été ouverte) */
+  sequels: SequelCheckResult | null;
+  /** Suites masquées (état « dismissed » du stockage), pour « Réafficher » */
+  sequelsDismissed: number;
   /**
    * Plateformes optionnelles accordées (interrupteurs, lecteur préféré Netflix ou Prime Video), copie du store de
    * l'hôte (`SettingsHost.platformAccess`) : undefined tant que les accès sont en lecture

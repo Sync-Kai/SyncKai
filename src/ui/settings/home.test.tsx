@@ -15,6 +15,8 @@ const DATA: SettingsData = {
   exclusions: { status: 'loading' },
   journalCount: 0,
   airing: null,
+  sequels: null,
+  sequelsDismissed: 0,
   platformAccess: ['netflix'],
 };
 

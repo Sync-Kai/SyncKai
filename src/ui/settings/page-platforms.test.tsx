@@ -41,6 +41,8 @@ describe('PlatformsPage (maquettes Plateformes, PlateformesLecteur, PlateformesA
       exclusions: { status: 'loading' },
       journalCount: null,
       airing: null,
+      sequels: null,
+      sequelsDismissed: 0,
       platformAccess: granted,
     };
     const platformAccess = { refresh: vi.fn(async () => granted), onPermissionsChange: () => () => undefined } as Partial<PlatformAccessStore> as PlatformAccessStore;

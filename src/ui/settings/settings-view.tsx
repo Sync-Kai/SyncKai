@@ -10,6 +10,7 @@ import { onLocaleChange, t } from '../../i18n';
 import { AIRING_RESULT_KEY, isAiringCheckResult } from '../../shared/airing.types';
 import { COMPLETE_EPISODE_COMMAND, panelCommandName } from '../../protocol/commands';
 import { DIAGNOSTICS_LOG_KEY, readJournal } from '../../browser/error-journal';
+import { isSequelCheckResult, isSequelStore } from '../../shared/sequels';
 import { EXCLUDED_SERIES_KEY, getExcludedSeries } from '../../shared/exclusions';
 import { createLogger } from '../../browser/logger';
 import { getSettings } from '../../browser/storage/settings-access';
@@ -138,6 +139,8 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     exclusions: { status: 'loading' },
     journalCount: null,
     airing: null,
+    sequels: null,
+    sequelsDismissed: 0,
     platformAccess: host.platformAccess.get(),
   };
   /** Instantanés de `data` pour les pages Preact */
@@ -253,6 +256,26 @@ export function createSettingsView(host: SettingsHost): SettingsView {
 
   function setAiring(value: unknown): void {
     data.airing = isAiringCheckResult(value) ? value : null;
+    state.set({ ...data });
+  }
+
+  async function loadSequels(): Promise<void> {
+    try {
+      const stored = await chrome.storage.local.get([STORAGE_KEYS.sequelsLastResult, STORAGE_KEYS.sequelsState]);
+      setSequelsResult(stored[STORAGE_KEYS.sequelsLastResult]);
+      setSequelsState(stored[STORAGE_KEYS.sequelsState]);
+    } catch (error: unknown) {
+      log.warn('Lecture du résumé des suites impossible :', error);
+    }
+  }
+
+  function setSequelsResult(value: unknown): void {
+    data.sequels = isSequelCheckResult(value) ? value : null;
+    state.set({ ...data });
+  }
+
+  function setSequelsState(value: unknown): void {
+    data.sequelsDismissed = isSequelStore(value) ? value.records.filter((record) => record.state === 'dismissed').length : 0;
     state.set({ ...data });
   }
 
@@ -389,6 +412,10 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     if (changes[DIAGNOSTICS_LOG_KEY]) void refreshJournal();
     const airingChange = changes[AIRING_RESULT_KEY];
     if (airingChange) setAiring(airingChange.newValue);
+    const sequelsResultChange = changes[STORAGE_KEYS.sequelsLastResult];
+    if (sequelsResultChange) setSequelsResult(sequelsResultChange.newValue);
+    const sequelsStateChange = changes[STORAGE_KEYS.sequelsState];
+    if (sequelsStateChange) setSequelsState(sequelsStateChange.newValue);
   };
   chrome.storage.onChanged.addListener(onStorageChange);
   cleanups.push(() => chrome.storage.onChanged.removeListener(onStorageChange));
@@ -423,6 +450,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   void loadExclusions();
   void refreshJournal();
   void loadAiring();
+  void loadSequels();
   void loadShortcuts();
   const onFocus = (): void => void loadShortcuts();
   window.addEventListener('focus', onFocus);

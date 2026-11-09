@@ -3,6 +3,7 @@ import {
   EMPTY_SEQUEL_STORE,
   MAX_KNOWN_SEQUELS,
   MAX_SEQUEL_RECORDS,
+  isSequelCheckResult,
   groupSequelsByPeriod,
   isSequelStore,
   mergeSequelPass,
@@ -287,5 +288,16 @@ describe('groupSequelsByPeriod', () => {
 
   it('aucune suite : aucun groupe', () => {
     expect(groupSequelsByPeriod([])).toEqual([]);
+  });
+});
+
+describe('isSequelCheckResult', () => {
+  it('accepte un résumé valide, refuse le reste', () => {
+    const ok = { checkedAt: 1, found: 2, notified: 0, skipped: null, error: null };
+    expect(isSequelCheckResult(ok)).toBe(true);
+    expect(isSequelCheckResult({ ...ok, skipped: 'not-due' })).toBe(true);
+    expect(isSequelCheckResult({ ...ok, skipped: 'nope' })).toBe(false);
+    expect(isSequelCheckResult({ ...ok, found: -1 })).toBe(false);
+    expect(isSequelCheckResult(null)).toBe(false);
   });
 });

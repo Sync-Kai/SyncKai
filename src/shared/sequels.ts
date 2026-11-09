@@ -83,6 +83,24 @@ export interface SequelCheckResult {
   error: string | null;
 }
 
+const SKIP_REASONS: readonly unknown[] = ['disabled', 'not-connected', 'not-due', 'blocked'];
+
+/** Résumé relu du stockage : valeur absente ou d'une autre forme = pas de résumé */
+export function isSequelCheckResult(value: unknown): value is SequelCheckResult {
+  return (
+    isRecord(value) &&
+    isFiniteNumber(value['checkedAt']) &&
+    typeof value['found'] === 'number' &&
+    Number.isInteger(value['found']) &&
+    value['found'] >= 0 &&
+    typeof value['notified'] === 'number' &&
+    Number.isInteger(value['notified']) &&
+    value['notified'] >= 0 &&
+    (value['skipped'] === null || SKIP_REASONS.includes(value['skipped'])) &&
+    (value['error'] === null || typeof value['error'] === 'string')
+  );
+}
+
 export const EMPTY_SEQUEL_STORE: SequelStore = { records: [], known: [], seeded: [], lastCheck: null };
 export const MAX_SEQUEL_RECORDS = 200;
 export const MAX_KNOWN_SEQUELS = 2000;

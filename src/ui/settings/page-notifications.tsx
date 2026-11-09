@@ -4,11 +4,15 @@
 // « Vérifier maintenant » (en cours : roue et « Vérification en cours… »). L'alarme horaire suit chaque changement de
 // réglage (ctx.update → updateSettings → ensureAiringAlarm).
 import { useId } from 'preact/hooks';
-import { t, tp } from '../../i18n';
-import { formatAiringStatus, type AiringCheckResult } from '../../shared/airing.types';
+import { t, tp, type MessageKey } from '../../i18n';
+import { formatAiringStatus, type AiringCheckResult, type AiringStatusLine } from '../../shared/airing.types';
+import type { SequelCheckResult } from '../../shared/sequels';
+import { formatRelativeTime } from '../../shared/watching';
 import { AIRING_DELAYS, type AiringDelayHours } from '../../shared/engagement.types';
 import { createLogger } from '../../browser/logger';
 import { sendMessage } from '../../protocol/messages';
+import { updateSequels } from '../sequel-actions';
+import { callWorker } from '../worker-call';
 import type { NotificationLevel } from '../../shared/settings';
 import { Button } from '../components/button';
 import { ChoiceCards, type ChoiceCardOption } from '../components/choice-cards';
@@ -117,15 +121,39 @@ interface AiringCheck {
   result: AiringCheckResult | null;
 }
 
+const SEQUEL_SKIP_LABELS: Partial<Record<NonNullable<SequelCheckResult['skipped']>, MessageKey>> = {
+  disabled: 'airing.skip.disabled',
+  'not-connected': 'airing.skip.notConnected',
+  blocked: 'airing.skip.blocked',
+};
+
+/** Ligne d'état des suites : « dernière vérification · N suites trouvées » ; `not-due` (vérification trop récente) se lit comme une vérification normale */
+export function formatSequelStatus(result: SequelCheckResult | null, now: number): AiringStatusLine {
+  if (!result) return { text: t('airing.status.never'), tone: 'muted' };
+  const prefix = t('airing.status.last', { relative: formatRelativeTime(result.checkedAt, now) });
+  if (result.error !== null) return { text: `${prefix} · ${t('airing.status.failed', { error: result.error })}`, tone: 'danger' };
+  const label = result.skipped === null ? undefined : SEQUEL_SKIP_LABELS[result.skipped];
+  if (label) return { text: `${prefix} · ${t(label)}`, tone: result.skipped === 'blocked' ? 'danger' : 'muted' };
+  return { text: result.found > 0 ? `${prefix} · ${tp('settings.sequels.found', result.found)}` : prefix, tone: 'muted' };
+}
+
+interface SequelCheck {
+  pending: boolean;
+  /** Résultat de la dernière vérification lancée depuis les Réglages */
+  result: SequelCheckResult | null;
+}
+
 interface NotificationsPageProps {
   ctx: SettingsContext;
   check: Store<AiringCheck>;
+  sequelCheck: Store<SequelCheck>;
 }
 
-export function NotificationsPage({ ctx, check }: NotificationsPageProps) {
+export function NotificationsPage({ ctx, check, sequelCheck }: NotificationsPageProps) {
   useLocale();
   const data = useStore(ctx.state);
   const checking = useStore(check);
+  const sequelChecking = useStore(sequelCheck);
   const now = useNow(CLOCK_TICK_MS);
   const delayLabel = useId();
   const s = data.settings;
@@ -133,6 +161,17 @@ export function NotificationsPage({ ctx, check }: NotificationsPageProps) {
 
   const enabled = s.airingAlerts;
   const line = formatAiringStatus(latestAiring(data.airing, checking.result), now);
+
+  const sequelsOn = s.sequelAlerts;
+  const sequelLine = formatSequelStatus(sequelChecking.result ?? data.sequels, now);
+
+  async function checkSequels(): Promise<void> {
+    if (sequelCheck.get().pending) return;
+    sequelCheck.set({ ...sequelCheck.get(), pending: true });
+    // Service worker injoignable : échec affiché en rouge, jamais écrit dans le stockage
+    const result = await callWorker('CHECK_SEQUELS', null, (message): SequelCheckResult => ({ checkedAt: Date.now(), found: 0, notified: 0, skipped: null, error: message }));
+    sequelCheck.set({ pending: false, result: { ...result, checkedAt: result.checkedAt || Date.now() } });
+  }
 
   async function checkNow(): Promise<void> {
     if (check.get().pending) return;
@@ -201,6 +240,40 @@ export function NotificationsPage({ ctx, check }: NotificationsPageProps) {
           </div>
         </SettingsCard>
       </Section>
+      <Section title={t('settings.section.sequels')}>
+        <SettingsCard>
+          <SettingsRow
+            title={t('settings.sequels.label')}
+            description={t('settings.sequels.help')}
+            toggle={{ checked: sequelsOn, onChange: (checked) => void ctx.update({ sequelAlerts: checked }) }}
+            focusKey="sk-sequels"
+          />
+          <SettingsRow
+            title={t('settings.sequels.browser')}
+            description={t('settings.sequels.browserHelp')}
+            toggle={{ checked: s.sequelNotifications, onChange: (checked) => void ctx.update({ sequelNotifications: checked }), disabled: !sequelsOn }}
+            focusKey="sk-sequels-browser"
+            divider
+          />
+          <div class="relative flex flex-wrap items-center justify-between gap-x-3 gap-y-2 p-3 before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-line">
+            <span class="min-w-0 flex-1 basis-40 text-secondary">
+              <span class={sequelLine.tone === 'danger' && !sequelChecking.pending ? 'font-bold text-danger' : 'text-muted'} role="status" aria-live="polite" data-sequels-status={sequelLine.tone}>
+                {sequelChecking.pending ? t('settings.airing.checking') : sequelLine.text}
+              </span>
+            </span>
+            <Button size="sm" busy={sequelChecking.pending} disabled={!sequelsOn} focusKey="sequels-check" onClick={() => void checkSequels()}>
+              {t('settings.airing.checkNow')}
+            </Button>
+          </div>
+          {data.sequelsDismissed > 0 && (
+            <div class="relative flex p-3 before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-line">
+              <Button size="sm" focusKey="sequels-restore" onClick={() => void updateSequels([], 'restore')}>
+                {tp('settings.sequels.restore', data.sequelsDismissed)}
+              </Button>
+            </div>
+          )}
+        </SettingsCard>
+      </Section>
     </div>
   );
 }
@@ -208,5 +281,6 @@ export function NotificationsPage({ ctx, check }: NotificationsPageProps) {
 export function createNotificationsPage(ctx: SettingsContext): SettingsMountedPage {
   // Vérification en cours et dernier résultat gardés entre deux visites (la réponse peut arriver page quittée)
   const check = createStore<AiringCheck>({ pending: false, result: null });
-  return preactPage(() => <NotificationsPage ctx={ctx} check={check} />);
+  const sequelCheck = createStore<SequelCheck>({ pending: false, result: null });
+  return preactPage(() => <NotificationsPage ctx={ctx} check={check} sequelCheck={sequelCheck} />);
 }
