@@ -61,6 +61,14 @@ export function createStore<T>(initial: T): Store<T> {
   };
 }
 
+/**
+ * Session ouverte où une écriture partira (comme `isConnected` du service worker) : jamais une session expirée, en
+ * cours de lecture ou déconnectée. Base des services connectés du popup (liens de fiche, confirmation de « Tout mettre en pause »)
+ */
+export function hasOpenSession(account: AccountState<unknown>): boolean {
+  return account.status === 'logged-in';
+}
+
 /** Fusionne `patch` dans l'état d'un store-objet (une seule notification) */
 export function patchStore<T extends object>(store: Store<T>, patch: Partial<T>): void {
   store.set({ ...store.get(), ...patch });

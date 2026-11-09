@@ -29,7 +29,7 @@ import { createWatchingController } from './controllers/watching';
 import { createDormantController } from './controllers/dormant';
 import type { ReviewActions } from '../ui/review-card';
 import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, UiState } from './state';
-import { createStore, patchStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
+import { createStore, hasOpenSession, patchStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
 import { createLogger } from '../browser/logger';
 import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
@@ -110,7 +110,7 @@ function accountStore(service: TrackerId): Store<AccountState<unknown>> {
 }
 
 function connectedServices(): TrackerId[] {
-  return TRACKER_IDS.filter((service) => accountStore(service).get().status === 'logged-in');
+  return TRACKER_IDS.filter((service) => hasOpenSession(accountStore(service).get()));
 }
 
 /** Fiche ouverte au clic sur un titre ou une jaquette : comptes connectés et réglage « Fiche ouverte par défaut » */
