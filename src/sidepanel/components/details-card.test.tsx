@@ -43,7 +43,7 @@ const page = { kind: 'series', platform: 'crunchyroll' } as unknown as PageMedia
 const view = { media: { mediaId: 1, idMal: null, title: 'Frieren', siteUrl: 'https://anilist.co/anime/1', episodes: 28 }, lists: [], confidence: 'certain', source: 'cache', seasons: [], episodeProgress: null } as unknown as PageMediaView;
 const friends = { state: 'idle', summary: null } as never;
 
-async function show(relations: PanelRelation[]): Promise<void> {
+async function show(relations: PanelRelation[], unlisted: readonly number[] = [20]): Promise<void> {
   const details = { description: null, relations, romajiTitle: null } as unknown as PanelMedia;
   await act(() =>
     render(
@@ -54,6 +54,7 @@ async function show(relations: PanelRelation[]): Promise<void> {
         entryLinks={{ preferredEntry: 'anilist', connected: ['anilist'] } as never}
         preferred="crunchyroll"
         friends={friends}
+        unlistedSequels={new Set(unlisted)}
         busy={false}
         sections={{ ...CLOSED_SECTIONS, relations: true }}
         onToggle={() => undefined}
@@ -96,10 +97,27 @@ describe('relations : badge des suites annoncées', () => {
     expect(container.querySelector('[data-focus="relation-add-20"]')?.textContent).toBe(t('sequel.add'));
   });
 
-  it('suite RELEASING : « Déjà en diffusion » et le bouton', async () => {
-    await show([relation({ status: 'RELEASING' })]);
+  it('RELEASING hors de l’ensemble : ni badge ni bouton ; dans l’ensemble : « Déjà en diffusion » et le bouton', async () => {
+    await show([relation({ status: 'RELEASING' })], []);
+    expect(container.querySelector('[data-relation-badge]')).toBeNull();
+    expect(container.querySelector('[data-focus="relation-add-20"]')).toBeNull();
+    await show([relation({ status: 'RELEASING' })], [20]);
     expect(container.querySelector('[data-relation-badge]')?.textContent).toContain(t('sequel.airing'));
     expect(container.querySelector('[data-focus="relation-add-20"]')).not.toBeNull();
+  });
+
+  it('NOT_YET_RELEASED hors de l’ensemble : badge « Annoncée », pas de bouton', async () => {
+    await show([relation({})], []);
+    expect(container.querySelector('[data-relation-badge]')?.textContent).toContain(t('sequel.announced'));
+    expect(container.querySelector('[data-focus="relation-add-20"]')).toBeNull();
+  });
+
+  it('ajout réussi mais UPDATE_SEQUELS en échec : « Dans ta liste » quand même', async () => {
+    addToPlanning.mockResolvedValue(synced([{ service: 'anilist', status: 'updated' }]));
+    updateSequels.mockResolvedValue(false);
+    await show([relation({})]);
+    await clickAdd();
+    expect(container.textContent).toContain(t('sequel.inList'));
   });
 
   it('ni suite annoncée, ni badge : préquelle, suite terminée', async () => {

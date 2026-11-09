@@ -49,6 +49,8 @@ export interface DetailsCardProps {
   preferred: StreamingPlatform;
   /** Amis AniList de la fiche (useFriends, partagé avec la ligne de résumé de « Ta liste ») */
   friends: FriendsView;
+  /** Suites sans liste (magasin des suites annoncées) : « + À regarder » seulement pour elles */
+  unlistedSequels: ReadonlySet<number>;
   /** Action en cours ou fiche relue */
   busy: boolean;
   sections: PanelSectionsState;
@@ -163,8 +165,8 @@ function Synopsis({ text }: { text: string }) {
   );
 }
 
-/** Suite annoncée ou déjà en diffusion : seules relations marquées (la fiche ne dit rien de la liste de l'utilisateur) */
-const isAnnouncedSequel = (relation: PanelRelation): boolean => relation.relationType === 'SEQUEL' && (relation.status === 'NOT_YET_RELEASED' || relation.status === 'RELEASING');
+/** Suite annoncée : toujours badgée ; déjà en diffusion : seulement si le passage quotidien l'a trouvée dans aucune liste */
+const isBadgedSequel = (relation: PanelRelation, unlisted: boolean): boolean => relation.relationType === 'SEQUEL' && (relation.status === 'NOT_YET_RELEASED' || (relation.status === 'RELEASING' && unlisted));
 
 /** Date de la relation, à la précision connue (même libellé que les alertes de suite) */
 function relationDate(relation: PanelRelation): string {
@@ -172,10 +174,11 @@ function relationDate(relation: PanelRelation): string {
   return formatSequelDate({ status: relation.status === 'RELEASING' ? 'RELEASING' : 'NOT_YET_RELEASED', year, month, day, season, seasonYear }, getLocale());
 }
 
-function Relation({ relation, links, preferred }: { relation: PanelRelation; links: EntryLinkContext; preferred: StreamingPlatform }) {
+/** `unlisted` : suite du magasin des suites annoncées (dans aucune liste des comptes connectés) : seule source de l'état de liste */
+function Relation({ relation, links, preferred, unlisted }: { relation: PanelRelation; links: EntryLinkContext; preferred: StreamingPlatform; unlisted: boolean }) {
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<SyncOutcome | null>(null);
-  const announced = isAnnouncedSequel(relation);
+  const announced = isBadgedSequel(relation, unlisted);
   const result = outcome ? sequelAddResult(outcome, t('error.unexpectedAdd')) : null;
   const ended = result?.kind === 'ended';
   const add = async (): Promise<void> => {
@@ -183,6 +186,7 @@ function Relation({ relation, links, preferred }: { relation: PanelRelation; lin
     setBusy(true);
     const done = await addToPlanning({ mediaId: relation.mediaId, malId: relation.idMal });
     // Un service a écrit (ou déjà dans une liste) : l'alerte de cette suite n'a plus d'objet
+    // Retrait du magasin en échec : l'ajout a réussi, le prochain passage quotidien nettoiera
     if (sequelAddResult(done, '').kind === 'ended') await updateSequels([relation.mediaId], 'removed');
     setOutcome(done);
     setBusy(false);
@@ -229,9 +233,9 @@ function Relation({ relation, links, preferred }: { relation: PanelRelation; lin
         </a>
       )}
       </div>
-      {announced && ended && <span class="pl-1 text-secondary font-bold text-lavender">{result.notOnMal ? t('sequel.notOnMal') : t('sequel.inList')}</span>}
-      {announced && result?.kind === 'failed' && <span class="line-clamp-2 pl-1 text-secondary font-bold text-danger" title={result.message}>{result.message}</span>}
-      {announced && !ended && (
+      {ended && <span class="pl-1 text-secondary font-bold text-lavender">{result.notOnMal ? t('sequel.notOnMal') : t('sequel.inList')}</span>}
+      {result?.kind === 'failed' && <span class="line-clamp-2 pl-1 text-secondary font-bold text-danger" title={result.message}>{result.message}</span>}
+      {unlisted && !ended && relation.relationType === 'SEQUEL' && (relation.status === 'NOT_YET_RELEASED' || relation.status === 'RELEASING') && (
         <Button size="sm" busy={busy} ariaLabel={t('sequel.addLabel', { title: relation.title })} focusKey={`relation-add-${relation.mediaId}`} onClick={() => void add()}>
           {result?.kind === 'failed' ? t('common.retry') : t('sequel.add')}
         </Button>
@@ -262,7 +266,7 @@ function Discussion({ page, view, details }: { page: PageMediaInfo; view: PageMe
   );
 }
 
-export function DetailsCard({ page, view, details, entryLinks, preferred, friends, busy, sections, onToggle, onRate, onSaveNotes }: DetailsCardProps) {
+export function DetailsCard({ page, view, details, entryLinks, preferred, friends, unlistedSequels, busy, sections, onToggle, onRate, onSaveNotes }: DetailsCardProps) {
   const { media } = view;
   const primary = primaryList(view.lists);
   const relations = details?.relations ?? [];
@@ -316,7 +320,7 @@ export function DetailsCard({ page, view, details, entryLinks, preferred, friend
         <Collapsible variant="row" title={t('panel.nowPlaying.relations')} count={relations.length} open={sections.relations} onToggle={(open) => onToggle('relations', open)} focusKey="panel-section-relations">
           <ul class="m-0 flex list-none flex-col gap-2 p-0">
             {relations.map((relation) => (
-              <Relation key={relation.mediaId} relation={relation} links={entryLinks} preferred={preferred} />
+              <Relation key={relation.mediaId} relation={relation} links={entryLinks} preferred={preferred} unlisted={unlistedSequels.has(relation.mediaId)} />
             ))}
           </ul>
         </Collapsible>

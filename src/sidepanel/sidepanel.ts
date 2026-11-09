@@ -14,6 +14,7 @@ import type { SettingsPage } from '../ui/settings/navigation';
 import type { SettingsView } from '../ui/settings/settings-view';
 import { importPageUrl } from '../ui/import-page';
 import { mountStatusBar } from '../ui/status-bar-host';
+import { createSequelsStore } from '../ui/sequels-store';
 import { createStore, patchStore, type ExclusionsState, type InlineFeedback } from '../ui/state';
 import { canOpenPopup, openPopupOn } from '../browser/popup-screen';
 import { CLOSED_SECTIONS, type PanelSectionsState } from './components/details-card';
@@ -44,6 +45,8 @@ const shell = createStore<PanelShellState>({ context: { status: 'checking' }, ta
 const settingsViewStore = createStore<SettingsView | null>(null);
 /** Sections repliables de « En lecture » (gardées pendant la vie du panneau, d'une fiche à l'autre) */
 const sectionsStore = createStore<PanelSectionsState>(CLOSED_SECTIONS);
+// Suites annoncées sans liste : écoute de storage.onChanged pour sa clé seulement, pour la vie de la page
+const sequelsStore = createSequelsStore();
 
 // ─── « En lecture » : contrôleur sans rendu, publié pour l'arbre Preact ───
 
@@ -284,6 +287,7 @@ async function main(): Promise<void> {
         exclusions: exclusionsStore,
         notice: noticeStore,
         sections: sectionsStore,
+        sequels: sequelsStore,
         onToggleSection: (section, open) => sectionsStore.set({ ...sectionsStore.get(), [section]: open }),
         onRefresh: () => void nowPlayingCtl.refresh(true),
         onRetry: () => nowPlayingCtl.retry(),
