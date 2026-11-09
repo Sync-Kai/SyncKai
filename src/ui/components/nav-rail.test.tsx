@@ -206,6 +206,14 @@ describe('NavRail', () => {
     expect(tooltip()?.hidden).toBe(true);
   });
 
+  it('no sections (onboarding): no empty list, only the footer list', async () => {
+    await show(<NavRail label="Sections" items={[]} current={null} onSelect={onSelect} footerItems={footerItems()} />);
+    const lists = [...container.querySelectorAll('nav ul')];
+    expect(lists).toHaveLength(1);
+    expect(lists[0]?.querySelector('[data-rail-footer]')).not.toBeNull();
+    expect(container.querySelectorAll('nav li:empty, nav ul:empty')).toHaveLength(0);
+  });
+
   it('clicking an item calls onSelect with its id', async () => {
     await show(<Host />);
     await act(() => items()[2]?.click());

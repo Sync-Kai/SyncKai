@@ -104,37 +104,40 @@ export function NavRail<Id extends string>({ label, items, current, onSelect, fo
   return (
     <nav ref={nav} class="relative flex h-full w-rail shrink-0 flex-col items-center border-r border-line bg-surface py-2" aria-label={label} onKeyDown={onKeyDown}>
       <MountedNode build={() => kai('size-7', { size: 'small', tile: true })} inputs={[]} />
-      <ul class="m-0 mt-3 flex list-none flex-col items-center gap-1 p-0">
-        {items.map((item) => {
-          const on = item.id === current;
-          return (
-            <li key={item.id}>
-              <button
-                type="button"
-                class={`${RAIL_BUTTON} ${on ? ON : OFF}`}
-                aria-current={on ? 'page' : undefined}
-                aria-label={item.ariaLabel ?? (item.badge ? `${item.label}, ${item.badge}` : item.label)}
-                tabIndex={`s:${item.id}` === stop ? 0 : -1}
-                data-focus={`rail-${item.id}`}
-                data-rail-section=""
-                onClick={() => onSelect(item.id)}
-                {...tipHandlers(`s:${item.id}`)}
-              >
-                <Icon name={item.icon} class={`size-5 ${item.icon === 'play' ? 'fill-current' : ''}`} strokeWidth="2.2" />
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span
-                    class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-butter px-1 text-section tracking-normal text-on-fill tabular-nums"
-                    aria-hidden="true"
-                    data-rail-badge=""
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {/* Accueil (aucune section) : pas de liste vide annoncée par les lecteurs d'écran */}
+      {items.length > 0 && (
+        <ul class="m-0 mt-3 flex list-none flex-col items-center gap-1 p-0">
+          {items.map((item) => {
+            const on = item.id === current;
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  class={`${RAIL_BUTTON} ${on ? ON : OFF}`}
+                  aria-current={on ? 'page' : undefined}
+                  aria-label={item.ariaLabel ?? (item.badge ? `${item.label}, ${item.badge}` : item.label)}
+                  tabIndex={`s:${item.id}` === stop ? 0 : -1}
+                  data-focus={`rail-${item.id}`}
+                  data-rail-section=""
+                  onClick={() => onSelect(item.id)}
+                  {...tipHandlers(`s:${item.id}`)}
+                >
+                  <Icon name={item.icon} class={`size-5 ${item.icon === 'play' ? 'fill-current' : ''}`} strokeWidth="2.2" />
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span
+                      class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-butter px-1 text-section tracking-normal text-on-fill tabular-nums"
+                      aria-hidden="true"
+                      data-rail-badge=""
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <span class="flex-1" />
       {footerItems.length > 0 && (
         <ul class="m-0 mt-2 flex w-full list-none flex-col items-center gap-1 border-t border-line p-0 pt-2">
