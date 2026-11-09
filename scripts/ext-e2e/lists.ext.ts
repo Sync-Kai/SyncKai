@@ -208,9 +208,9 @@ describe('Lien vers la fiche', () => {
       await waitForEntry(panel, FRIEREN_S1.anilist.title, line);
       await expectOpensEntry(h, panel, coverLink('#sk-tabpanel-nowPlaying', urlOn(service, FRIEREN_S1)), urlOn(service, FRIEREN_S1), tab);
       await waitForEntry(panel, FRIEREN_S1.anilist.title, line);
-      // Suites : section repliable de la fiche
-      await openPanelSection(panel, 'relations');
-      await expectOpensEntry(h, panel, sel(`relation-entry-${FRIEREN_S2.anilist.id}`), urlOn(service, FRIEREN_S2), tab);
+      // Ordre de visionnage : section repliable de la fiche, la suite (saison 2) dans la frise
+      await openPanelSection(panel, 'order');
+      await expectOpensEntry(h, panel, sel(`order-entry-${FRIEREN_S2.anilist.id}`), urlOn(service, FRIEREN_S2), tab);
       return tab;
     };
 

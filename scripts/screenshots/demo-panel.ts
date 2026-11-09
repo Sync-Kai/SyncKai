@@ -7,6 +7,7 @@ import { tl, type Locale } from '../../src/i18n';
 import { weekRangeFromKey, type AiringSchedule, type AiringWeekCache } from '../../src/shared/agenda';
 import type { CrImportPlan, CrPlanItem, CrReviewItem, CrServicePlan } from '../../src/shared/cr-import';
 import type { EpisodeInfo } from '../../src/shared/episode.types';
+import type { FranchiseGraph, FranchiseNode, FranchiseRelation, ListState, ListStates } from '../../src/shared/franchise';
 import { isRecord } from '../../src/shared/guards';
 import { LIVE_PORT_NAME, type LiveContentMessage } from '../../src/protocol/live';
 import { pageMediaCacheKey, toCachedPageMedia } from '../../src/browser/storage/page-media-cache';
@@ -126,6 +127,77 @@ export function panelMedia(): PanelMedia {
   };
 }
 
+// ─── Ordre de visionnage : franchise fictive de 8 entrées principales (et un extra) autour de Frieren ──────────
+
+/** Entrée de la franchise : identifiants fictifs (990xxx) sauf Frieren (fiche réelle) et sa suite ; états de liste par entrée */
+interface DemoOrderEntry {
+  id: number;
+  idMal: number | null;
+  title: string;
+  format: string;
+  status: 'FINISHED' | 'NOT_YET_RELEASED';
+  year: number;
+  month: number;
+  platform: boolean;
+  state: ListState;
+}
+
+const watched: ListState = { kind: 'watched', progress: null };
+
+/** Ordre de sortie : 3 entrées vues d'affilée (regroupées), la page affichée en cours, une planifiée, une sans état, une annoncée */
+const ORDER_MAIN: DemoOrderEntry[] = [
+  { id: 990001, idMal: 990001, title: 'Frieren: Beyond Journey’s End Prologue', format: 'TV', status: 'FINISHED', year: 2020, month: 4, platform: false, state: watched },
+  { id: 990002, idMal: 990002, title: 'Frieren: Beyond Journey’s End Prologue 2', format: 'TV', status: 'FINISHED', year: 2021, month: 4, platform: false, state: watched },
+  { id: 990003, idMal: 990003, title: 'Frieren: Beyond Journey’s End Prologue 3', format: 'TV', status: 'FINISHED', year: 2022, month: 4, platform: false, state: watched },
+  { id: FRIEREN.id, idMal: FRIEREN.malId, title: FRIEREN_TITLE, format: 'TV', status: 'FINISHED', year: 2023, month: 9, platform: true, state: { kind: 'inProgress', progress: 26 } },
+  { id: 990004, idMal: 990004, title: 'Frieren: Beyond Journey’s End Interlude', format: 'MOVIE', status: 'FINISHED', year: 2024, month: 6, platform: true, state: { kind: 'planned', progress: null } },
+  { id: 990005, idMal: null, title: 'Frieren: Beyond Journey’s End Recap', format: 'TV', status: 'FINISHED', year: 2025, month: 3, platform: false, state: null },
+  { id: 990006, idMal: 990006, title: 'Frieren: Beyond Journey’s End Chapter 2', format: 'TV', status: 'FINISHED', year: 2025, month: 10, platform: true, state: null },
+  { id: 182255, idMal: 59978, title: 'Frieren: Beyond Journey’s End Season 2', format: 'TV', status: 'NOT_YET_RELEASED', year: 2026, month: 1, platform: true, state: null },
+];
+
+const ORDER_EXTRA: DemoOrderEntry = { id: 170068, idMal: null, title: 'Frieren: Beyond Journey’s End Mini Anime', format: 'ONA', status: 'FINISHED', year: 2023, month: 10, platform: false, state: { kind: 'paused', progress: null } };
+
+const orderNode = (entry: DemoOrderEntry): FranchiseNode => ({
+  id: entry.id,
+  idMal: entry.idMal,
+  title: entry.title,
+  format: entry.format,
+  status: entry.status,
+  episodes: entry.format === 'MOVIE' ? 1 : 12,
+  duration: 24,
+  coverUrl: null,
+  siteUrl: `https://anilist.co/anime/${entry.id}`,
+  year: entry.year,
+  month: entry.month,
+  day: 1,
+  season: null,
+  seasonYear: null,
+  platforms: entry.platform ? [{ platform: 'crunchyroll', url: `https://www.crunchyroll.com/series/DEMOORDER${entry.id}` }] : [],
+});
+
+export function panelFranchise(): FranchiseGraph {
+  const entries = [...ORDER_MAIN, ORDER_EXTRA];
+  const extra: { id: number; relation: FranchiseRelation; from: number } = { id: ORDER_EXTRA.id, relation: 'SIDE_STORY', from: FRIEREN.id };
+  return {
+    startId: FRIEREN.id,
+    nodes: Object.fromEntries(entries.map((entry) => [entry.id, orderNode(entry)])),
+    main: ORDER_MAIN.map((entry) => entry.id),
+    extras: [extra],
+    capped: false,
+    expanded: ORDER_MAIN.map((entry) => entry.id),
+  };
+}
+
+/** États des deux comptes de la démo : AniList par identifiant de fiche, MyAnimeList par identifiant MAL ; mêmes états aux deux */
+export function panelListStates(payload: unknown): ListStates {
+  const ids = (key: 'mediaIds' | 'malIds'): number[] => (isRecord(payload) && Array.isArray(payload[key]) ? payload[key].filter((id): id is number => typeof id === 'number') : []);
+  const entries = [...ORDER_MAIN, ORDER_EXTRA];
+  const read = (wanted: number[], idOf: (entry: DemoOrderEntry) => number | null): Record<number, ListState> =>
+    Object.fromEntries(wanted.map((id) => [id, entries.find((entry) => idOf(entry) === id)?.state ?? null]));
+  return { anilist: read(ids('mediaIds'), (entry) => entry.id), mal: read(ids('malIds'), (entry) => entry.idMal) };
+}
+
 /** Lecture en cours : 19:20 / 23:40, synchro au générique à 21:30 → « Synchro dans 2 min 10 » */
 export const PLAYBACK = { t: 19 * 60 + 20, duration: 23 * 60 + 40, credits: 21 * 60 + 30 } as const;
 
@@ -201,6 +273,8 @@ export function panelChrome(locale: Locale, tab: PanelTab, now: number = Date.no
       ...base.handlers,
       RESOLVE_PAGE_MEDIA: () => ({ ok: true, data: view }),
       GET_PANEL_MEDIA: () => ({ ok: true, data: panelMedia() }),
+      GET_FRANCHISE: () => ({ ok: true, graph: panelFranchise() }),
+      GET_LIST_STATES: (payload) => panelListStates(payload),
       GET_AGENDA: (payload) => {
         const week = isRecord(payload) && typeof payload.weekStart === 'string' ? agendaWeek(payload.weekStart, now) : null;
         return week ? { ok: true, data: week } : { ok: false, code: 'API_ERROR', message: 'semaine invalide' };

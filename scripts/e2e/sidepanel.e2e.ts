@@ -185,26 +185,45 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await page.$('[data-focus="page-plus"][aria-busy="true"]')).toBeNull();
   });
 
-  it('« En lecture » : titre, jaquette et relations ouvrent la fiche (AniList par défaut, MyAnimeList avec le réglage)', async () => {
+  it('« En lecture » : titre, jaquette et ordre de visionnage ouvrent la fiche (AniList par défaut, MyAnimeList avec le réglage)', async () => {
     const page = await openPanel({});
     const title = '[role="tabpanel"] h2 a[data-focus="panel-entry"]';
     const href = (selector: string): Promise<string | null> => page.$eval(selector, (a) => a.getAttribute('href'));
     await page.waitForSelector(title);
-    await page.waitForSelector('[data-focus="relation-entry-182255"]');
+    // Ordre de visionnage : en-tête replié (barre d'une cellule par entrée principale), puis déplié
+    await page.waitForSelector('[data-focus="panel-section-order"][aria-expanded="false"]');
+    await page.waitForFunction(() => document.querySelectorAll('[data-order-cell]').length === 8);
+    expect(await page.$$eval('[data-order-cell="watched"]', (cells) => cells.length)).toBe(3);
+    await page.locator('[data-focus="panel-section-order"]').click();
+    await page.waitForSelector('[data-focus="panel-section-order"][aria-expanded="true"]');
+    // Trois entrées vues d'affilée : une seule ligne regroupée, dépliable
+    await page.waitForSelector('[data-order-run]');
+    await page.locator('[data-order-run]').click();
+    await page.waitForSelector('[data-focus="order-entry-990001"]');
+    // Cinq lignes montrées, la suite annoncée derrière « Afficher N de plus »
+    await page.locator('[data-order-more]').click();
+    await page.waitForSelector('[data-focus="order-entry-182255"]');
+    expect(await page.$('[data-focus="order-entry-170068"]')).toBeNull();
+    expect(await page.$('[data-relation-badge]')).not.toBeNull();
+    expect(await page.$('[data-focus="order-watch-182255"]')).not.toBeNull();
+    // « Tout » : l'extra (histoire annexe) rejoint la frise
+    await page.locator('[data-focus="order-mode-all"]').click();
+    await page.waitForSelector('[data-focus="order-entry-170068"]');
+
     expect(await href(title)).toBe('https://anilist.co/anime/154587');
     expect(await page.$eval(title, (a) => a.getAttribute('aria-label'))).toBe(fr('entry.openAria', { title: 'Frieren: Beyond Journey’s End', service: 'AniList' }));
     // Jaquette : même lien, hors tabulation
     expect(await page.$eval('[role="tabpanel"] a[aria-hidden="true"][tabindex="-1"]', (a) => a.getAttribute('href'))).toBe('https://anilist.co/anime/154587');
-    expect(await href('[data-focus="relation-entry-182255"]')).toBe('https://anilist.co/anime/182255');
+    expect(await href('[data-focus="order-entry-182255"]')).toBe('https://anilist.co/anime/182255');
 
     await page.evaluate(async (key: string) => {
       const current: unknown = (await chrome.storage.local.get(key))[key];
       await chrome.storage.local.set({ [key]: { ...(typeof current === 'object' && current !== null ? current : {}), entryService: 'mal' } });
     }, SETTINGS_STORAGE_KEY);
     await page.waitForFunction((s: string) => document.querySelector(s)?.getAttribute('href') === 'https://myanimelist.net/anime/52991', {}, title);
-    expect(await href('[data-focus="relation-entry-182255"]')).toBe('https://myanimelist.net/anime/59978');
-    // Relation sans fiche MyAnimeList connue : repli sur AniList
-    expect(await href('[data-focus="relation-entry-170068"]')).toBe('https://anilist.co/anime/170068');
+    expect(await href('[data-focus="order-entry-182255"]')).toBe('https://myanimelist.net/anime/59978');
+    // Entrée sans fiche MyAnimeList connue : repli sur AniList
+    expect(await href('[data-focus="order-entry-170068"]')).toBe('https://anilist.co/anime/170068');
     // Lien AniList de « Discussion » conservé
     expect(await page.$('[role="tabpanel"] a[href="https://anilist.co/anime/154587"]')).not.toBeNull();
   });

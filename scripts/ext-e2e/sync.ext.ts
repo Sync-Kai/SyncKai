@@ -241,8 +241,9 @@ describe('Requêtes AniList par action', () => {
     await waitFor('amis de la fiche', () => run.anilist.operations(from).includes('Friends'));
     // Fiches et entrées de liste de toutes les saisons en une requête (PageMediaBatch), relues ensuite sans requête (PERF-11 :
     // avant, PageMedia + deux MediaEntry pour la même saison) ; les amis AniList de la fiche restée affichée 1,5 s : une
-    // requête de plus (Friends, 2.5.0), jamais pour les autres saisons du sélecteur
-    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, Friends: 1, PageMediaBatch: 1, PanelMedia: 1, SearchAnime: 1 });
+    // requête de plus (Friends, 2.5.0), jamais pour les autres saisons du sélecteur. Ordre de visionnage : deux tours de
+    // Franchise (saison 1 puis la frontière, saison 2) et une lecture des états de liste (ListStates)
+    expect(await settledOperations(run.anilist, from)).toEqual({ AnimeByIds: 1, Franchise: 2, Friends: 1, ListStates: 1, PageMediaBatch: 1, PanelMedia: 1, SearchAnime: 1 });
     expectCleanRun(run.h, run.anilist, run.mal);
   });
 });

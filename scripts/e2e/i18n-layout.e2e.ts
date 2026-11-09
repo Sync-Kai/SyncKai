@@ -425,15 +425,18 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
   ctx.step = 'panel/now-playing';
   const page = await openPage(ctx, 'sidepanel.html', {}, { width: PANEL_WIDTHS[0], height: PANEL_HEIGHT });
   try {
-    await page.waitForSelector('[data-focus^="relation-watch-"]');
+    await page.waitForSelector(sel('panel-section-order'));
     await page.waitForSelector(sel('page-plus'));
     await page.waitForFunction(() => [...document.querySelectorAll('[role="progressbar"]')].some((bar) => bar.getAttribute('aria-valuenow') !== null && !bar.closest('[hidden]')));
     await attach(ctx, page);
     await panelShots(ctx, page, 'now-playing');
 
-    // Sections de la fiche dépliées (note et commentaire, suites, discussions), éditeur du commentaire ouvert
+    // Sections de la fiche dépliées (ordre de visionnage, note et commentaire, discussions), éditeur du commentaire ouvert
     ctx.step = 'panel/now-playing-details';
-    for (const section of ['notes', 'relations', 'discussion']) await click(page, `panel-section-${section}`);
+    for (const section of ['order', 'notes', 'discussion']) await click(page, `panel-section-${section}`);
+    await page.waitForSelector('[data-order-run]');
+    await click(page, 'order-more');
+    await page.waitForSelector(sel('order-entry-182255'));
     await click(page, 'panel-notes-toggle');
     await page.waitForSelector(sel('panel-notes-input'));
     await panelShots(ctx, page, 'now-playing-details');

@@ -278,6 +278,17 @@ export class FakeAniList {
         if (!media) return { error: 404, message: 'Not Found.' };
         return { ok: { Media: operation === 'PanelMedia' ? this.panelFields(media) : this.mediaFields(media, null) } };
       }
+      // Ordre de visionnage (background/franchise/load.ts, requête publique) : entrées demandées et relations directes
+      case 'Franchise': {
+        const ids = Array.isArray(v.ids) ? v.ids.map(Number) : [];
+        return { ok: { Page: { media: ids.flatMap((id) => this.media.get(id) ?? []).map((m) => this.franchiseFields(m)) } } };
+      }
+      // États de liste des entrées d'une franchise (background/franchise/states.ts) : entrées de liste du compte connecté
+      case 'ListStates': {
+        if (!account) return needsAccount();
+        const ids = Array.isArray(v.ids) ? v.ids.map(Number) : [];
+        return { ok: { Page: { media: ids.flatMap((id) => this.media.get(id) ?? []).map((m) => ({ id: m.id, mediaListEntry: this.mediaFields(m, account).mediaListEntry })) } } };
+      }
       // Amis qui ont la série (anilist/friends.ts) : le compte ne suit personne, page vide
       case 'Friends':
         if (!account) return needsAccount();
@@ -343,6 +354,18 @@ export class FakeAniList {
       relations: { edges: (media.relations ?? []).map((r) => ({ relationType: r.relationType, node: { id: r.id, type: 'ANIME', format: 'TV' } })) },
       mediaListEntry: entry && { id: entry.id, status: entry.status, progress: entry.progress, repeat: entry.repeat, score: entry.score, notes: entry.notes },
     };
+  }
+
+  /** Fiche au format de la requête Franchise (NODE de background/franchise/load.ts) : relations directes complètes, leurs propres relations réduites */
+  private franchiseFields(media: AniListMediaSeed): Record<string, unknown> {
+    const node = (m: AniListMediaSeed): Record<string, unknown> => ({ ...this.mediaFields(m, null), type: 'ANIME', duration: 24 });
+    const edges = (media.relations ?? []).flatMap((r) => {
+      const related = this.media.get(r.id);
+      if (!related) return [];
+      const back = (related.relations ?? []).map((rr) => ({ relationType: rr.relationType, node: { id: rr.id, type: 'ANIME' } }));
+      return [{ relationType: r.relationType, node: { ...node(related), relations: { edges: back } } }];
+    });
+    return { ...node(media), relations: { edges } };
   }
 
   /** Fiche complète du panneau latéral (requête PanelMedia de anilist/panel-media.ts) */
