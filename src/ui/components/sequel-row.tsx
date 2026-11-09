@@ -49,7 +49,7 @@ export function SequelRow({ record, onAdd, onDismiss, busy, outcome, showNew = f
         </span>
         <span class="flex min-w-0 items-center gap-1.5 text-secondary text-muted">
           <span class={`size-1.5 shrink-0 rounded-pill ${dated ? 'bg-lavender' : 'bg-muted'}`} aria-hidden="true" data-sequel-dot="" />
-          <span class="truncate">{`${formatSequelDate(snapshot, getLocale())} · ${formatLabel(snapshot.format)}`}</span>
+          <span class="line-clamp-2 break-words">{`${formatSequelDate(snapshot, getLocale())} · ${formatLabel(snapshot.format)}`}</span>
         </span>
         {ended && result.notOnMal && <span class="text-secondary font-bold text-lavender">{t('sequel.notOnMal')}</span>}
         {result?.kind === 'failed' && <span class="line-clamp-2 text-secondary font-bold text-danger" title={result.message}>{result.message}</span>}

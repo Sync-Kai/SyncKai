@@ -213,7 +213,7 @@ function Relation({ relation, links, preferred, unlisted }: { relation: PanelRel
           {announced && (
             <span class="flex min-w-0 items-center gap-1.5 text-secondary text-muted" data-relation-badge="">
               <span class="size-1.5 shrink-0 rounded-pill bg-lavender" aria-hidden="true" />
-              <span class="truncate">{relation.status === 'RELEASING' ? t('sequel.airing') : `${t('sequel.announced')} · ${relationDate(relation)}`}</span>
+              <span class="line-clamp-2 break-words">{relation.status === 'RELEASING' ? t('sequel.airing') : `${t('sequel.announced')} · ${relationDate(relation)}`}</span>
             </span>
           )}
         </span>
