@@ -147,15 +147,39 @@ describe('mergeSequelPass', () => {
     expect(next.records).toHaveLength(MAX_SEQUEL_RECORDS);
     const kept = new Set(next.records.map((r) => r.snapshot.id));
     expect([1, 2, 3].some((id) => kept.has(id))).toBe(false);
-    expect(kept.has(4)).toBe(false);
+    // Les vues partent avant les nouvelles : 5 et 7 (les plus anciennes vues), pas 4
+    expect(kept.has(4)).toBe(true);
     expect(kept.has(5)).toBe(false);
-    expect(kept.has(6)).toBe(true);
+    expect(kept.has(7)).toBe(false);
+    expect(kept.has(9)).toBe(true);
 
     const bigKnown = Array.from({ length: MAX_KNOWN_SEQUELS }, (_, i) => i + 1);
     const capped = mergeSequelPass(store({ known: bigKnown, seeded: ['anilist'] }), [candidate(9999)], ['anilist'], 5000).store;
     expect(capped.known).toHaveLength(MAX_KNOWN_SEQUELS);
     expect(capped.known[capped.known.length - 1]).toBe(9999);
     expect(capped.known).not.toContain(1);
+  });
+});
+
+describe('plafond et notifications', () => {
+  it('à plafond atteint, une vue récente part avant une nouvelle plus ancienne', () => {
+    const records: SequelRecord[] = [record(1, 'new', 1)];
+    for (let id = 2; id <= 201; id++) records.push(record(id, id === 201 ? 'seen' : 'new', 1000 + id));
+    const start = store({ records, known: records.map((r) => r.snapshot.id), seeded: ['anilist'], lastCheck: 1 });
+    const { store: next } = mergeSequelPass(start, records.map((r) => candidate(r.snapshot.id)), ['anilist'], 5000);
+    const kept = new Set(next.records.map((r) => r.snapshot.id));
+    expect(next.records).toHaveLength(MAX_SEQUEL_RECORDS);
+    expect(kept.has(201)).toBe(false);
+    expect(kept.has(1)).toBe(true);
+  });
+
+  it('ne notifie que les suites dont l’enregistrement survit au plafond', () => {
+    const candidates = Array.from({ length: 250 }, (_, i) => candidate(i + 1));
+    const { store: next, toNotify } = mergeSequelPass(store({ seeded: ['anilist'] }), candidates, ['anilist'], 5000);
+    expect(next.records).toHaveLength(MAX_SEQUEL_RECORDS);
+    const kept = new Set(next.records.map((r) => r.snapshot.id));
+    expect(toNotify.length).toBeGreaterThan(0);
+    expect(toNotify.every((s) => kept.has(s.id))).toBe(true);
   });
 });
 
@@ -191,14 +215,28 @@ describe('isSequelStore', () => {
 
   it('rejette un id non numérique, un état inconnu et un service inconnu', () => {
     const badId = valid() as { records: { snapshot: { id: unknown } }[] };
-    badId.records[0]!.snapshot.id = '1';
+    badId.records[0].snapshot.id = '1';
     expect(isSequelStore(badId)).toBe(false);
     const badState = valid() as { records: { state: unknown }[] };
-    badState.records[0]!.state = 'archived';
+    badState.records[0].state = 'archived';
     expect(isSequelStore(badState)).toBe(false);
     const badSeeded = valid() as { seeded: unknown[] };
     badSeeded.seeded.push('kitsu');
     expect(isSequelStore(badSeeded)).toBe(false);
     expect(isSequelStore(null)).toBe(false);
+  });
+
+  it('rejette NaN et Infinity dans les ids, sourceId, firstSeenAt et known', () => {
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      const id = valid() as { records: { snapshot: { id: number } }[] };
+      id.records[0].snapshot.id = bad;
+      const sourceId = valid() as { records: { snapshot: { sourceId: number } }[] };
+      sourceId.records[0].snapshot.sourceId = bad;
+      const seen = valid() as { records: { firstSeenAt: number }[] };
+      seen.records[0].firstSeenAt = bad;
+      const known = valid() as { known: number[] };
+      known.known.push(bad);
+      for (const candidate of [id, sourceId, seen, known]) expect(isSequelStore(candidate)).toBe(false);
+    }
   });
 });

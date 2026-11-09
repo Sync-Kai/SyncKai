@@ -109,8 +109,12 @@ function isTrackerId(value: unknown): value is TrackerId {
   return typeof value === 'string' && SERVICES.includes(value);
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 function isNullableNumber(value: unknown): value is number | null {
-  return value === null || (typeof value === 'number' && Number.isFinite(value));
+  return value === null || isFiniteNumber(value);
 }
 
 function isNullableString(value: unknown): value is string | null {
@@ -120,7 +124,7 @@ function isNullableString(value: unknown): value is string | null {
 function isSnapshot(value: unknown): value is SequelSnapshot {
   return (
     isRecord(value) &&
-    typeof value['id'] === 'number' &&
+    isFiniteNumber(value['id']) &&
     isNullableNumber(value['idMal']) &&
     typeof value['title'] === 'string' &&
     isFormat(value['format']) &&
@@ -132,7 +136,7 @@ function isSnapshot(value: unknown): value is SequelSnapshot {
     isNullableNumber(value['day']) &&
     (value['season'] === null || isSeason(value['season'])) &&
     isNullableNumber(value['seasonYear']) &&
-    typeof value['sourceId'] === 'number' &&
+    isFiniteNumber(value['sourceId']) &&
     typeof value['sourceTitle'] === 'string'
   );
 }
@@ -143,7 +147,7 @@ function isSequelRecord(value: unknown): value is SequelRecord {
     isSnapshot(value['snapshot']) &&
     typeof value['state'] === 'string' &&
     STATES.includes(value['state']) &&
-    typeof value['firstSeenAt'] === 'number'
+    isFiniteNumber(value['firstSeenAt'])
   );
 }
 
@@ -153,7 +157,7 @@ export function isSequelStore(value: unknown): value is SequelStore {
     Array.isArray(value['records']) &&
     value['records'].every(isSequelRecord) &&
     Array.isArray(value['known']) &&
-    value['known'].every((id) => typeof id === 'number') &&
+    value['known'].every(isFiniteNumber) &&
     Array.isArray(value['seeded']) &&
     value['seeded'].every(isTrackerId) &&
     isNullableNumber(value['lastCheck'])
@@ -185,10 +189,13 @@ export function sequelCandidates(sources: readonly { source: SourceSeries; edges
   return [...byId.values()];
 }
 
-/** Plafond des enregistrements : les masquées partent d'abord, puis les plus anciennes. */
+/** Rang de conservation : les nouvelles se gardent le plus, puis les vues, puis les masquées */
+const KEEP_RANK: Record<SequelState, number> = { new: 0, seen: 1, dismissed: 2 };
+
+/** Plafond des enregistrements : partent d'abord les masquées, puis les plus anciennes vues, puis les plus anciennes nouvelles. */
 function capRecords(records: SequelRecord[]): SequelRecord[] {
   if (records.length <= MAX_SEQUEL_RECORDS) return records;
-  const ranked = [...records].sort((a, b) => Number(a.state === 'dismissed') - Number(b.state === 'dismissed') || b.firstSeenAt - a.firstSeenAt);
+  const ranked = [...records].sort((a, b) => KEEP_RANK[a.state] - KEEP_RANK[b.state] || b.firstSeenAt - a.firstSeenAt);
   const kept = new Set(ranked.slice(0, MAX_SEQUEL_RECORDS));
   return records.filter((record) => kept.has(record));
 }
@@ -220,10 +227,12 @@ export function mergeSequelPass(
     known.add(snapshot.id);
     if (services.some((service) => store.seeded.includes(service))) toNotify.push(snapshot);
   }
+  const capped = capRecords(records);
+  const survivors = new Set(capped.map((record) => record.snapshot.id));
   const seeded = [...store.seeded, ...servicesThisPass.filter((service) => !store.seeded.includes(service))];
   return {
-    store: { records: capRecords(records), known: knownList.slice(-MAX_KNOWN_SEQUELS), seeded, lastCheck: now },
-    toNotify,
+    store: { records: capped, known: knownList.slice(-MAX_KNOWN_SEQUELS), seeded, lastCheck: now },
+    toNotify: toNotify.filter((snapshot) => survivors.has(snapshot.id)),
   };
 }
 
