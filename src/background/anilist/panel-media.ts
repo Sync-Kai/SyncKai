@@ -44,7 +44,7 @@ const PANEL_MEDIA_QUERY = /* GraphQL */ `
       nextAiringEpisode { episode airingAt }
       studios(isMain: true) { nodes { name siteUrl } }
       title { romaji english userPreferred }
-      relations { edges { relationType node { id idMal type format title { userPreferred } coverImage { medium } siteUrl externalLinks { url } } } }
+      relations { edges { relationType node { id idMal type format status startDate { year month day } season seasonYear title { userPreferred } coverImage { medium } siteUrl externalLinks { url } } } }
     }
   }
 `;
@@ -66,6 +66,7 @@ function parseRelation(edge: unknown): PanelRelation | null {
   const title = isRecord(node.title) ? str(node.title.userPreferred) : null;
   const cover = isRecord(node.coverImage) ? node.coverImage : {};
   const idMal = num(node.idMal);
+  const start = isRecord(node.startDate) ? node.startDate : {};
   return {
     relationType: edge.relationType,
     mediaId: node.id,
@@ -75,6 +76,12 @@ function parseRelation(edge: unknown): PanelRelation | null {
     coverUrl: toSafeImageUrl(str(cover.medium)),
     siteUrl: anilistUrl(node.siteUrl) ?? `https://anilist.co/anime/${node.id}`,
     platforms: buildPlatforms(node.externalLinks, []),
+    status: toAiringStatus(node.status),
+    startYear: num(start.year),
+    startMonth: num(start.month),
+    startDay: num(start.day),
+    season: isMediaSeason(node.season) ? node.season : null,
+    seasonYear: num(node.seasonYear),
   };
 }
 

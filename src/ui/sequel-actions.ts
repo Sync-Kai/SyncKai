@@ -20,8 +20,13 @@ export function sequelAddResult(outcome: SyncOutcome, fallback: string): SequelA
   return { kind: 'failed', message: failed?.status === 'error' ? failed.message : fallback };
 }
 
+/** « + À regarder » d'une fiche connue par ses seuls identifiants (relations du panneau) */
+export function addToPlanning(target: { mediaId: number; malId: number | null }): Promise<SyncOutcome> {
+  return callWorker('ADD_TO_LIST', { mediaId: target.mediaId, malId: target.malId, status: 'PLANNING' }, outcomeFailure);
+}
+
 export function addSequelToPlanning(record: SequelRecord): Promise<SyncOutcome> {
-  return callWorker('ADD_TO_LIST', { mediaId: record.snapshot.id, malId: record.snapshot.idMal, status: 'PLANNING' }, outcomeFailure);
+  return addToPlanning({ mediaId: record.snapshot.id, malId: record.snapshot.idMal });
 }
 
 /** Change l'état des suites ; service worker injoignable : false */

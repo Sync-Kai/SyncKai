@@ -32,6 +32,10 @@ const full = {
           idMal: 59978,
           type: 'ANIME',
           format: 'TV',
+          status: 'NOT_YET_RELEASED',
+          startDate: { year: 2026, month: 10, day: null },
+          season: 'FALL',
+          seasonYear: 2026,
           title: { userPreferred: 'Frieren 2' },
           coverImage: { medium: 'https://s4.anilist.co/m.jpg' },
           siteUrl: 'https://anilist.co/anime/182255',
@@ -211,6 +215,23 @@ describe('liens « Regarder » des relations', () => {
     expect(enriched.relations.find((r) => r.mediaId === 2)?.platforms).toEqual([{ platform: 'adn', url: learnedAdn }]);
     expect(choosePlatformLink(enriched.relations.find((r) => r.mediaId === 2) ?? { platforms: [] }, 'adn')?.url).toBe(learnedAdn);
     expect(media.relations.find((r) => r.mediaId === 2)?.platforms).toEqual([]);
+  });
+
+  it('relations : statut, date de début et saison conservés (null si absents)', () => {
+    const relations = parsePanelMedia(full)?.relations ?? [];
+    const sequel = relations.find((r) => r.mediaId === 182255);
+    expect(sequel).toMatchObject({ status: 'NOT_YET_RELEASED', startYear: 2026, startMonth: 10, startDay: null, season: 'FALL', seasonYear: 2026 });
+    const prequel = relations.find((r) => r.mediaId === 2);
+    expect(prequel).toMatchObject({ status: null, startYear: null, startMonth: null, startDay: null, season: null, seasonYear: null });
+  });
+
+  it('cache : une relation d’avant le statut (cache v3) est rejetée, la version a changé', () => {
+    expect(PANEL_MEDIA_CACHE_VERSION).toBeGreaterThanOrEqual(4);
+    const media = parsePanelMedia(full);
+    if (!media) throw new Error('fiche absente');
+    const legacy = { ...media, relations: media.relations.map(({ status: _s, ...rest }) => rest) };
+    expect(isPanelMedia(legacy)).toBe(false);
+    expect(panelMediaCacheKey(1)).not.toContain('v3:');
   });
 
   it('cache versionné : clé v2, et une fiche sans liens de plateformes est rejetée', () => {

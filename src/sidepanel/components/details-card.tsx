@@ -6,16 +6,18 @@
 // Sections repliées par défaut ; leur état est gardé par la page du panneau (sidepanel.ts).
 import { Fragment, type JSX } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { t } from '../../i18n';
+import { getLocale, t } from '../../i18n';
 import { PLATFORMS } from '../../platforms/registry';
 import { entryLink, type EntryLinkContext } from '../../shared/entry-link';
 import { normalizeListNotes, notesPreview } from '../../shared/list-notes';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
+import { formatSequelDate } from '../../shared/sequel-date';
 import { isLongDescription, malForumUrl, redditSearchUrl } from '../../shared/panel-media';
 import type { PanelMedia, PanelRelation } from '../../shared/panel-media.types';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { choosePlatformLink } from '../../shared/watching';
+import { Button } from '../../ui/components/button';
 import { Collapsible } from '../../ui/components/collapsible';
 import { Cover } from '../../ui/components/cover';
 import { aniListScore, FriendsSection, showsFriendsSection } from '../../ui/components/friends-section';
@@ -24,6 +26,8 @@ import { NotesEditor } from '../../ui/components/notes-editor';
 import { RatingBlock } from '../../ui/components/rating-block';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import { displayScore, primaryList } from '../../ui/page-media-view';
+import { addToPlanning, sequelAddResult, updateSequels } from '../../ui/sequel-actions';
+import type { SyncOutcome } from '../../shared/sync.types';
 import type { FriendsView } from '../../ui/preact/use-friends';
 import { pageKey, relationLabel } from '../now-playing-view';
 import { newTabLabel } from './now-playing-hero';
@@ -159,13 +163,37 @@ function Synopsis({ text }: { text: string }) {
   );
 }
 
+/** Suite annoncée ou déjà en diffusion : seules relations marquées (la fiche ne dit rien de la liste de l'utilisateur) */
+const isAnnouncedSequel = (relation: PanelRelation): boolean => relation.relationType === 'SEQUEL' && (relation.status === 'NOT_YET_RELEASED' || relation.status === 'RELEASING');
+
+/** Date de la relation, à la précision connue (même libellé que les alertes de suite) */
+function relationDate(relation: PanelRelation): string {
+  const { startYear: year, startMonth: month, startDay: day, season, seasonYear } = relation;
+  return formatSequelDate({ status: relation.status === 'RELEASING' ? 'RELEASING' : 'NOT_YET_RELEASED', year, month, day, season, seasonYear }, getLocale());
+}
+
 function Relation({ relation, links, preferred }: { relation: PanelRelation; links: EntryLinkContext; preferred: StreamingPlatform }) {
+  const [busy, setBusy] = useState(false);
+  const [outcome, setOutcome] = useState<SyncOutcome | null>(null);
+  const announced = isAnnouncedSequel(relation);
+  const result = outcome ? sequelAddResult(outcome, t('error.unexpectedAdd')) : null;
+  const ended = result?.kind === 'ended';
+  const add = async (): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    const done = await addToPlanning({ mediaId: relation.mediaId, malId: relation.idMal });
+    // Un service a écrit (ou déjà dans une liste) : l'alerte de cette suite n'a plus d'objet
+    if (sequelAddResult(done, '').kind === 'ended') await updateSequels([relation.mediaId], 'removed');
+    setOutcome(done);
+    setBusy(false);
+  };
   const label = relationLabel(relation.relationType);
   const watch = choosePlatformLink(relation, preferred);
   // Fiche AniList toujours connue : repli sur sa page si MyAnimeList est préférée sans équivalent
   const site = entryLink({ mediaId: relation.mediaId, malId: relation.idMal }, links) ?? { service: 'anilist' as const, url: relation.siteUrl };
   return (
-    <li class="flex min-w-0 items-center gap-2.5">
+    <li class="flex min-w-0 flex-col gap-1.5" data-relation={relation.mediaId}>
+      <div class="flex min-w-0 items-center gap-2.5">
       <a
         class="group flex min-w-0 flex-1 items-center gap-2.5 rounded-control text-ink no-underline"
         href={site.url}
@@ -178,6 +206,12 @@ function Relation({ relation, links, preferred }: { relation: PanelRelation; lin
         <span class="flex min-w-0 flex-1 flex-col">
           <span class="text-section text-lavender uppercase">{[label, relation.format].filter(Boolean).join(' · ')}</span>
           <span class="line-clamp-2 text-secondary font-extrabold break-words underline-offset-2 group-hover:underline">{relation.title}</span>
+          {announced && (
+            <span class="flex min-w-0 items-center gap-1.5 text-secondary text-muted" data-relation-badge="">
+              <span class="size-1.5 shrink-0 rounded-pill bg-lavender" aria-hidden="true" />
+              <span class="truncate">{relation.status === 'RELEASING' ? t('sequel.airing') : `${t('sequel.announced')} · ${relationDate(relation)}`}</span>
+            </span>
+          )}
         </span>
       </a>
       {watch && (
@@ -193,6 +227,14 @@ function Relation({ relation, links, preferred }: { relation: PanelRelation; lin
           <ServiceLogo id={watch.platform} size="sm" />
           {t('panel.nowPlaying.watch')}
         </a>
+      )}
+      </div>
+      {announced && ended && <span class="pl-1 text-secondary font-bold text-lavender">{result.notOnMal ? t('sequel.notOnMal') : t('sequel.inList')}</span>}
+      {announced && result?.kind === 'failed' && <span class="line-clamp-2 pl-1 text-secondary font-bold text-danger" title={result.message}>{result.message}</span>}
+      {announced && !ended && (
+        <Button size="sm" busy={busy} ariaLabel={t('sequel.addLabel', { title: relation.title })} focusKey={`relation-add-${relation.mediaId}`} onClick={() => void add()}>
+          {result?.kind === 'failed' ? t('common.retry') : t('sequel.add')}
+        </Button>
       )}
     </li>
   );

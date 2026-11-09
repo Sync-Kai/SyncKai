@@ -32,6 +32,13 @@ export interface PanelRelation {
   siteUrl: string;
   /** Pages Crunchyroll / ADN de la relation (liens AniList, puis historique SyncKai), une par plateforme */
   platforms: PlatformLink[];
+  /** Statut de diffusion et date de début (badge « Annoncée » des suites) ; null si inconnus */
+  status: AiringStatus | null;
+  startYear: number | null;
+  startMonth: number | null;
+  startDay: number | null;
+  season: MediaSeason | null;
+  seasonYear: number | null;
 }
 
 export interface PanelMedia {
@@ -83,7 +90,13 @@ function isPanelRelation(value: unknown): value is PanelRelation {
     isNullableString(value.coverUrl) &&
     typeof value.siteUrl === 'string' &&
     Array.isArray(value.platforms) &&
-    value.platforms.every(isPlatformLink)
+    value.platforms.every(isPlatformLink) &&
+    (value.status === null || AIRING_STATUSES.some((s) => s === value.status)) &&
+    isNullableNumber(value.startYear) &&
+    isNullableNumber(value.startMonth) &&
+    isNullableNumber(value.startDay) &&
+    (value.season === null || isMediaSeason(value.season)) &&
+    isNullableNumber(value.seasonYear)
   );
 }
 

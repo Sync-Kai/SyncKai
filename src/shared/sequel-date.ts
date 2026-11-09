@@ -2,7 +2,7 @@ import { t, type MessageKey } from '../i18n';
 import type { SequelSnapshot } from './sequels';
 
 /** Date de sortie d'une suite, à la précision connue : jour, mois, saison, année ; « déjà en diffusion » prime. */
-export function formatSequelDate(snapshot: SequelSnapshot, locale: string): string {
+export function formatSequelDate(snapshot: Pick<SequelSnapshot, 'status' | 'year' | 'month' | 'day' | 'season' | 'seasonYear'>, locale: string): string {
   const { year, month, day, season, seasonYear } = snapshot;
   if (snapshot.status === 'RELEASING') return t('sequel.airing');
   // Midi UTC : le jour affiché ne dépend pas du fuseau
