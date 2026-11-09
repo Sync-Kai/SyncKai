@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import en from '../i18n/locales/en.json';
 import { ANILIST_GENRES, genreKey } from './genres';
 
 describe('genreKey', () => {
@@ -19,5 +20,9 @@ describe('genreKey', () => {
     const keys = ANILIST_GENRES.map(genreKey);
     expect(keys.every((k) => k !== null)).toBe(true);
     expect(new Set(keys).size).toBe(19);
+  });
+
+  it('chaque clé existe dans le catalogue anglais', () => {
+    for (const g of ANILIST_GENRES) expect(Object.keys(en)).toContain(genreKey(g));
   });
 });
