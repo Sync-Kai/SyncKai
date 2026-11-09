@@ -18,7 +18,7 @@ import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { platformSearchUrl, platformsToSearch } from '../../platforms/links';
 import type { MenuStatusChange } from '../../shared/sync.types';
 import { formatRemaining, formatRemainingTotal } from '../../shared/remaining-time';
-import { choosePlatformLink, entryKey, formatRelativeTime, listBadge, pickHeroEntry, sortWatchingBy } from '../../shared/watching';
+import { choosePlatformLink, entryKey, formatRelativeTime, groupWatchingByStatus, listBadge, pickHeroEntry, sortWatchingBy, type WatchingStatusGroup } from '../../shared/watching';
 import { WATCHING_SORTS, type NextEpisodeBadge, type WatchingEntry, type WatchingSort } from '../../shared/watching.types';
 import type { IconName } from '../../ui/icons';
 import { kai } from '../../ui/icons';
@@ -44,6 +44,7 @@ import { flushAfterRender } from '../after-render';
 import { isPageSeriesExcluded } from '../../ui/page-exclusion';
 import { hasPageMediaCard, PageMediaCard, type PageMediaCardProps } from './page-media-card';
 import { ResumeCard } from './resume-card';
+import { Section } from '../../ui/components/section';
 import { DormantSection, type DormantHost } from './dormant-section';
 import { entrySite } from './entry-site';
 
@@ -99,9 +100,10 @@ const SORT_LABELS: Record<WatchingSort, MessageKey> = {
   title: 'watching.sort.title',
   remaining: 'watching.sort.remaining',
   time: 'watching.sort.time',
+  status: 'watching.sort.status',
 };
 
-const SORT_ICONS: Record<WatchingSort, IconName> = { 'next-episode': 'clock', recent: 'history', title: 'sortAlpha', remaining: 'sortRemaining', time: 'hourglass' };
+const SORT_ICONS: Record<WatchingSort, IconName> = { 'next-episode': 'clock', recent: 'history', title: 'sortAlpha', remaining: 'sortRemaining', time: 'hourglass', status: 'list' };
 
 /** Fin de l'aria-label de la liste (« Mes séries AniList, triées … ») */
 const SORT_ARIA: Record<WatchingSort, MessageKey> = {
@@ -110,6 +112,16 @@ const SORT_ARIA: Record<WatchingSort, MessageKey> = {
   title: 'watching.sortAria.title',
   remaining: 'watching.sortAria.remaining',
   time: 'watching.sortAria.time',
+  status: 'watching.sortAria.status',
+};
+
+/** En-têtes des groupes du tri « État » (« EN DIFFUSION · 2 ») */
+const STATUS_GROUP_TITLES: Record<WatchingStatusGroup['id'], MessageKey> = {
+  airing: 'watching.statusGroup.airing',
+  upcoming: 'watching.statusGroup.upcoming',
+  finished: 'watching.statusGroup.finished',
+  stopped: 'watching.statusGroup.stopped',
+  unknown: 'watching.statusGroup.unknown',
 };
 
 /** Statut de sortie : `mint` disponible, `lavender` à venir, `muted` terminée ou inconnue */
@@ -485,7 +497,15 @@ export function WatchingScreen(props: WatchingScreenProps) {
   // La carte « Reprendre » reste hors tri : elle est simplement retirée de la liste triée, comme les séries en sommeil
   // (groupe au bas de la liste, qui n'inclut jamais la série « Reprendre »)
   const asleep = new Set(dormant.entries.map(entryKey));
-  const rows = sortWatchingBy(list.entries, sort, now).filter((entry) => entry !== hero && !asleep.has(entryKey(entry)));
+  const active = list.entries.filter((entry) => entry !== hero && !asleep.has(entryKey(entry)));
+  const rows = sortWatchingBy(active, sort, now);
+  const listLabel = t('watching.listAria', { service: TRACKER_LABELS[state.service], sort: t(SORT_ARIA[sort]) });
+  const rowsOf = (entries: readonly WatchingEntry[]) =>
+    entries.map((entry, index) => {
+      const key = entryKey(entry);
+      return <WatchingRow key={key} entry={entry} index={index} props={props} context={context} action={actions.get(key)} excluded={isExcluded(entry)} notes={notesOf(entry)} />;
+    });
+  const listClass = 'm-0 list-none rounded-card border border-line bg-surface p-0';
   const dormantGroup = <DormantSection host={props.dormant} state={dormant} links={context.entryLinks} now={now} />;
 
   return (
@@ -496,26 +516,19 @@ export function WatchingScreen(props: WatchingScreenProps) {
       {hero && <ResumeEntry entry={hero} props={props} context={context} action={actions.get(entryKey(hero))} excluded={isExcluded(hero)} notes={notesOf(hero)} />}
       <SeriesHeading>{rows.length > 1 && <SortMenu sort={sort} onPick={props.onPickSort} />}</SeriesHeading>
       <RemainingTotal entries={list.entries} now={now} />
-      {rows.length > 0 ? (
-        <ul
-          class="m-0 list-none rounded-card border border-line bg-surface p-0"
-          aria-label={t('watching.listAria', { service: TRACKER_LABELS[state.service], sort: t(SORT_ARIA[sort]) })}
-        >
-          {rows.map((entry, index) => {
-            const key = entryKey(entry);
-            return (
-              <WatchingRow
-                key={key}
-                entry={entry}
-                index={index}
-                props={props}
-                context={context}
-                action={actions.get(key)}
-                excluded={isExcluded(entry)}
-                notes={notesOf(entry)}
-              />
-            );
-          })}
+      {rows.length > 0 && sort === 'status' ? (
+        // Tri « État » : un groupe par statut de sortie, sous un titre de niveau 3 (séries actives seulement, le groupe
+        // « En sommeil » reste à la fin)
+        <div class="flex flex-col gap-3" role="group" aria-label={listLabel} data-status-groups="">
+          {groupWatchingByStatus(rows, now).map((group) => (
+            <Section key={group.id} title={t(STATUS_GROUP_TITLES[group.id])} count={group.entries.length} countInline level={3}>
+              <ul class={listClass}>{rowsOf(group.entries)}</ul>
+            </Section>
+          ))}
+        </div>
+      ) : rows.length > 0 ? (
+        <ul class={listClass} aria-label={listLabel}>
+          {rowsOf(rows)}
         </ul>
       ) : (
         asleep.size === 0 && <p class="m-0 rounded-card border border-line bg-surface p-3 text-secondary text-muted">{t('watching.noOther')}</p>

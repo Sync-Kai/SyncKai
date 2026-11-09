@@ -3,7 +3,7 @@ import type { StreamingPlatform } from './episode.types';
 import { STREAMING_PLATFORMS } from '../platforms/registry';
 import { releasedEpisodes, isFinished } from './released-episodes';
 import { episodesToCatchUp, remainingMinutes } from './remaining-time';
-import type { NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingList, WatchingSort } from './watching.types';
+import type { AiringStatus, NextEpisodeBadge, PlatformLink, WatchingEntry, WatchingList, WatchingSort } from './watching.types';
 
 export { airedEpisodes, releasedEpisodes } from './released-episodes';
 
@@ -145,6 +145,35 @@ function byTime(now: number): (a: WatchingEntry, b: WatchingEntry) => number {
   };
 }
 
+/** Groupe du tri « État » (spec 2.5.0 §5.5) : en pause et annulée réunies dans `stopped`, statut inconnu à part */
+export interface WatchingStatusGroup {
+  id: 'airing' | 'upcoming' | 'finished' | 'stopped' | 'unknown';
+  entries: WatchingEntry[];
+}
+
+const STATUS_GROUPS: readonly WatchingStatusGroup['id'][] = ['airing', 'upcoming', 'finished', 'stopped', 'unknown'];
+
+const STATUS_GROUP_OF: Record<AiringStatus, WatchingStatusGroup['id']> = {
+  RELEASING: 'airing',
+  NOT_YET_RELEASED: 'upcoming',
+  FINISHED: 'finished',
+  HIATUS: 'stopped',
+  CANCELLED: 'stopped',
+};
+
+/**
+ * Tri « État » : groupes dans l'ordre en diffusion, à venir, terminées, à l'arrêt, statut inconnu ; dans un groupe, l'ordre
+ * « prochain épisode » (`sortWatching`) ; groupes vides absents. Suit `airingStatus` (une série terminée y a son groupe,
+ * même sans pastille).
+ */
+export function groupWatchingByStatus(entries: readonly WatchingEntry[], now: number): WatchingStatusGroup[] {
+  const sorted = sortWatching(entries, now);
+  return STATUS_GROUPS.flatMap((id) => {
+    const members = sorted.filter((entry) => (entry.airingStatus === null ? 'unknown' : STATUS_GROUP_OF[entry.airingStatus]) === id);
+    return members.length > 0 ? [{ id, entries: members }] : [];
+  });
+}
+
 /** Tri de « Mes séries » selon le mode choisi (nouveau tableau, tri stable). */
 export function sortWatchingBy(entries: readonly WatchingEntry[], sort: WatchingSort, now: number): WatchingEntry[] {
   switch (sort) {
@@ -158,6 +187,8 @@ export function sortWatchingBy(entries: readonly WatchingEntry[], sort: Watching
       return [...entries].sort(byRemaining(now));
     case 'time':
       return [...entries].sort(byTime(now));
+    case 'status':
+      return groupWatchingByStatus(entries, now).flatMap((group) => group.entries);
   }
 }
 

@@ -3,6 +3,7 @@ import {
   airedEpisodes,
   choosePlatformLink,
   formatRelativeTime,
+  groupWatchingByStatus,
   isWatchingFresh,
   listBadge,
   nextEpisodeBadge,
@@ -311,9 +312,64 @@ describe('isWatchingSort', () => {
   it('accepte les modes connus et rejette le reste', () => {
     for (const sort of WATCHING_SORTS) expect(isWatchingSort(sort)).toBe(true);
     expect(isWatchingSort('time')).toBe(true);
+    expect(isWatchingSort('status')).toBe(true);
     expect(isWatchingSort('alpha')).toBe(false);
     expect(isWatchingSort(undefined)).toBe(false);
     expect(isWatchingSort(1)).toBe(false);
+  });
+});
+
+describe('groupWatchingByStatus', () => {
+  const view = (groups: ReturnType<typeof groupWatchingByStatus>): [string, string[]][] => groups.map((g) => [g.id, g.entries.map((e) => e.title)]);
+
+  it('groups in order with HIATUS and CANCELLED together in stopped', () => {
+    const input = [
+      entry({ title: 'inconnue', airingStatus: null }),
+      entry({ title: 'annulée', airingStatus: 'CANCELLED' }),
+      entry({ title: 'finie', airingStatus: 'FINISHED' }),
+      entry({ title: 'en pause', airingStatus: 'HIATUS' }),
+      entry({ title: 'à venir', airingStatus: 'NOT_YET_RELEASED' }),
+      entry({ title: 'en diffusion', airingStatus: 'RELEASING' }),
+    ];
+    expect(view(groupWatchingByStatus(input, NOW))).toEqual([
+      ['airing', ['en diffusion']],
+      ['upcoming', ['à venir']],
+      ['finished', ['finie']],
+      // Ordre « prochain épisode » : « Date inconnue » (en pause) avant « Série terminée » (annulée)
+      ['stopped', ['en pause', 'annulée']],
+      ['unknown', ['inconnue']],
+    ]);
+  });
+
+  it('inside a group, next-episode order', () => {
+    const input = [
+      entry({ title: 'lointaine', airingStatus: 'RELEASING', progress: 3, nextEpisode: { episode: 4, airingAt: NOW + 3 * DAY } }),
+      entry({ title: 'proche', airingStatus: 'RELEASING', progress: 3, nextEpisode: { episode: 4, airingAt: NOW + HOUR } }),
+      entry({ title: 'dispo', airingStatus: 'RELEASING', progress: 2, nextEpisode: { episode: 4, airingAt: NOW + DAY } }),
+      entry({ title: 'pause à jour', airingStatus: 'HIATUS', progress: 5, totalEpisodes: 12 }),
+      entry({ title: 'annulée dispo', airingStatus: 'CANCELLED', progress: 1, totalEpisodes: 3 }),
+    ];
+    expect(view(groupWatchingByStatus(input, NOW))).toEqual([
+      ['airing', ['dispo', 'proche', 'lointaine']],
+      ['stopped', ['annulée dispo', 'pause à jour']],
+    ]);
+    // Chaque groupe garde exactement l'ordre de sortWatching
+    for (const group of groupWatchingByStatus(input, NOW)) expect(group.entries).toEqual(sortWatching(group.entries, NOW));
+  });
+
+  it('empty groups omitted', () => {
+    expect(groupWatchingByStatus([], NOW)).toEqual([]);
+    expect(view(groupWatchingByStatus([entry({ title: 'finie', airingStatus: 'FINISHED' })], NOW))).toEqual([['finished', ['finie']]]);
+  });
+
+  it('"status" : sortWatchingBy aplatit les groupes dans leur ordre, sans modifier l’entrée', () => {
+    const input = [
+      entry({ title: 'finie', airingStatus: 'FINISHED' }),
+      entry({ title: 'inconnue', airingStatus: null }),
+      entry({ title: 'en diffusion', airingStatus: 'RELEASING' }),
+    ];
+    expect(sortWatchingBy(input, 'status', NOW).map((e) => e.title)).toEqual(['en diffusion', 'finie', 'inconnue']);
+    expect(input.map((e) => e.title)).toEqual(['finie', 'inconnue', 'en diffusion']);
   });
 });
 

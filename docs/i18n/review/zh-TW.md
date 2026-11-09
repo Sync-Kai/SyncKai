@@ -618,3 +618,17 @@ New « Friends on AniList » block of the popup › On this page card and the si
 | `friends.title` | AniList 好友 |
 | `friends.unavailable` | 無法使用 |
 | `friends.yourScore` | 我的評分 |
+
+## 2026-11-09 · Airing status sort
+
+New « My series » sort option grouping the series by the airing status of the anime (`watching.sort.status`, its screen-reader fragment `watching.sortAria.status`), with one heading per group, shown in capitals and followed by « · N » (`watching.statusGroup.*`: airing, upcoming, finished, on hiatus or cancelled, unknown status). The headings reuse the airing-status words of `page.airing.*`. 停播或已取消 joins 停播中 and 已取消 (airing states, never the user’s statuses). Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.sort.status` | 播出狀態 |
+| `watching.sortAria.status` | 依播出狀態 |
+| `watching.statusGroup.airing` | 播出中 |
+| `watching.statusGroup.upcoming` | 即將播出 |
+| `watching.statusGroup.finished` | 已完結 |
+| `watching.statusGroup.stopped` | 停播或已取消 |
+| `watching.statusGroup.unknown` | 狀態不明 |

@@ -150,3 +150,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Средняя у друзей |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Смотрит / Запланировано / Просмотрено / Брошено / Отложено / Пересматривает (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Открыть всё на AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Статус выхода |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | Онгоинги / Анонсы / Вышедшие / Перерыв или отмена / Статус неизвестен (Group headings are plural nouns or participles (*Онгоинги*, *Анонсы*, *Вышедшие*) since they name a group of anime; *Перерыв или отмена* keeps the nouns of `page.airing.*`.) |

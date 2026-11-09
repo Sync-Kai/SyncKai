@@ -156,3 +156,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Media degli amici |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Sta guardando / Da vedere / Completato / Abbandonato / In pausa / Sta riguardando (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Vedi tutto su AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Stato |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | In onda / In arrivo / Concluse / Sospese o cancellate / Stato sconosciuto (Group headings agree with *serie* (feminine plural), like `page.airing.*`; the sort label stays the short *Stato*, the screen-reader fragment says *della serie* so it never reads as the list status.) |

@@ -170,3 +170,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | フレンドの平均 |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | 視聴中 / 視聴予定 / 視聴完了 / 視聴中止 / 一時中断 / 再視聴中 (distinct from `page.status.*` where those are first person) |
 | See all on AniList | AniListですべて見る |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | 放送状況順 |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | 放送中 / 放送前 / 放送終了 / 休止中・放送中止 / 状況不明 (Sort label ends in 順 like the other sort options; the stopped group joins the two airing statuses with ・.) |

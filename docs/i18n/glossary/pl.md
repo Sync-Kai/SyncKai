@@ -168,3 +168,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Średnia znajomych |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Ogląda / Planuje / Obejrzane / Porzucone / Wstrzymane / Ogląda ponownie (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Zobacz wszystko na AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Status emisji |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | W emisji / Zapowiedziane / Zakończone / Zawieszone lub anulowane / Status nieznany |

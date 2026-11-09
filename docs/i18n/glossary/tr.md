@@ -162,3 +162,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Arkadaş ortalaması |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | İzliyor / İzleyecek / Tamamladı / Bıraktı / Beklemede / Tekrar izliyor (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Tümünü AniList’te gör |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Yayın durumu |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | Yayında / Yakında / Yayını bitti / Ara verildi veya iptal edildi / Durum bilinmiyor |

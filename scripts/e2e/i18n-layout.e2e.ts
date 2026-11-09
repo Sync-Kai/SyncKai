@@ -149,6 +149,28 @@ async function backToSettingsHome(page: Page, id: SettingsSubPage): Promise<void
 
 // ─── Popup ────────────────────────────────────────────────────────────────
 
+/** Tri « État » (spec 2.5.0 §5.5) : menu de tri ouvert, puis un en-tête par groupe, un statut par série */
+async function statusSortScreens(ctx: LocaleContext): Promise<void> {
+  ctx.step = 'popup/status-sort';
+  const grouped = await openPage(ctx, 'popup.html', { airing: 'mixed' }, POPUP_VIEWPORT);
+  try {
+    await grouped.waitForSelector(sel('sort-trigger'));
+    await grouped.waitForSelector('main [aria-busy="false"]');
+    await attach(ctx, grouped);
+    await click(grouped, 'sort-trigger');
+    await grouped.waitForSelector('[role="menu"] [role="menuitemradio"]');
+    await shot(ctx, grouped, 'popup/sort-menu', '[role="menu"]');
+    // Dernière option du menu : « État »
+    await grouped.$$eval('[role="menu"] [role="menuitemradio"]', (items) => (items.at(-1) as HTMLElement | undefined)?.click());
+    await grouped.waitForSelector('main [data-status-groups]');
+    // Chevron du bouton de tri en fin de rotation (sinon sa boîte, à 45°, déborde du bouton)
+    await grouped.waitForFunction(() => document.getAnimations().length === 0);
+    await shot(ctx, grouped, 'popup/status-sort');
+  } finally {
+    await grouped.close();
+  }
+}
+
 async function popupScreens(ctx: LocaleContext): Promise<void> {
   // Onglet actif sur une page série Crunchyroll : carte « Sur cette page » au-dessus de « Mes séries »
   ctx.step = 'popup/watching';
@@ -673,6 +695,7 @@ describe('mise en page des langues', () => {
       await mkdir(ctx.dir, { recursive: true });
       try {
         await popupScreens(ctx);
+        await statusSortScreens(ctx);
         await panelScreens(ctx);
         await importScreens(ctx);
         await backupScreens(ctx);

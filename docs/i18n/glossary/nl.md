@@ -158,3 +158,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Gemiddelde van vrienden |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Kijkt / Wil kijken / Voltooid / Afgehaakt / Gepauzeerd / Kijkt opnieuw (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Alles bekijken op AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Uitzendstatus |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | Lopend / Binnenkort / Afgelopen / Onderbroken of geannuleerd / Status onbekend |

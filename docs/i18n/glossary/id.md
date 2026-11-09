@@ -155,3 +155,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Rata-rata teman |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Menonton / Berencana menonton / Selesai / Di-drop / Ditunda / Menonton ulang (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Lihat semua di AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Status tayang |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | Sedang tayang / Akan tayang / Tamat / Hiatus atau dibatalkan / Status tidak diketahui |

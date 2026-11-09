@@ -169,3 +169,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | 친구 평균 |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | 시청 중 / 시청 예정 / 완료 / 하차 / 보류 / 재시청 중 (distinct from `page.status.*` where those are first person) |
 | See all on AniList | AniList에서 모두 보기 |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | 방영 상태순 |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | 방영 중 / 방영 예정 / 방영 종료 / 휴방·방영 취소 / 상태 알 수 없음 (Sort label ends in 순 like the other sort options; the stopped group joins the two airing statuses with ·.) |

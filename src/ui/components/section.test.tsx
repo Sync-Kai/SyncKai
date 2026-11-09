@@ -78,4 +78,15 @@ describe('Section', () => {
     const [first, second] = [...container.querySelectorAll('h2')];
     expect(first?.id).not.toBe(second?.id);
   });
+
+  it('titre de niveau 3 sous un titre de niveau 2 (groupes du tri « État »)', async () => {
+    await show(
+      <Section title="En diffusion" count={2} countInline level={3}>
+        x
+      </Section>,
+    );
+    expect($('h2')).toBeNull();
+    expect($('h3')?.textContent).toBe('En diffusion · 2');
+    expect($('section')?.getAttribute('aria-labelledby')).toBe($('h3')?.id);
+  });
 });

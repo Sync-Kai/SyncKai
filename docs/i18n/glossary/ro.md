@@ -169,3 +169,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Media prietenilor |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Urmărește / Vrea să vadă / Terminat / Abandonat / În pauză / Revede (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Vezi tot pe AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Starea difuzării |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | În difuzare / Anunțate / Încheiate / Suspendate sau anulate / Stare necunoscută (Group headings agree with *serie* (feminine plural: *Anunțate*, *Încheiate*, *Suspendate sau anulate*).) |

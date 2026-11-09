@@ -169,3 +169,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Điểm trung bình của bạn bè |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Đang xem / Dự định xem / Đã xem xong / Bỏ dở / Tạm dừng / Đang xem lại (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Xem tất cả trên AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Trạng thái phát sóng |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | Đang chiếu / Sắp chiếu / Đã kết thúc / Hoãn chiếu hoặc đã bị hủy / Chưa rõ trạng thái |

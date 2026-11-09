@@ -142,3 +142,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Průměr přátel |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Sleduje / Chce vidět / Dokončeno / Zahozeno / Pozastaveno / Znovu sleduje (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Zobrazit vše na AniListu |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Stav vysílání |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | Vysílá se / Chystá se / Odvysíláno / Přerušeno nebo zrušeno / Stav neznámý |

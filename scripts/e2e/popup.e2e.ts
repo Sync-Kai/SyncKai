@@ -1571,6 +1571,7 @@ describe('popup (bout en bout)', () => {
       [fr('watching.sort.title'), 'false'],
       [fr('watching.sort.remaining'), 'false'],
       [fr('watching.sort.time'), 'false'],
+      [fr('watching.sort.status'), 'false'],
     ]);
     expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-checked'))).toBe('true');
 
@@ -1590,6 +1591,55 @@ describe('popup (bout en bout)', () => {
     await page.keyboard.press('Escape');
     await page.waitForSelector('[role="menu"]', { hidden: true });
     expect(await focused(page)).toBe('sort-trigger');
+  });
+
+  /** Groupes du tri « État » dans l'ordre affiché : en-tête (« En diffusion · 2 ») et titres des séries */
+  async function statusGroups(page: Page): Promise<{ heading: string; titles: string[] }[]> {
+    return page.$$eval('main [data-status-groups] section', (sections) =>
+      sections.map((section) => ({
+        heading: section.querySelector('h3')?.textContent?.trim() ?? '',
+        titles: [...section.querySelectorAll('[data-series-row] [data-series-title]')].map((el) => el.getAttribute('title') ?? ''),
+      })),
+    );
+  }
+
+  async function pickSort(page: Page, label: string): Promise<void> {
+    await page.waitForSelector(sel('sort-trigger'));
+    await click(page, 'sort-trigger');
+    await page.waitForSelector('[role="menu"] [role="menuitemradio"]');
+    await page.$$eval('[role="menu"] [role="menuitemradio"]', (els, wanted) => (els.find((el) => el.textContent?.trim() === wanted) as HTMLElement | undefined)?.click(), label);
+    await page.waitForSelector('[role="menu"]', { hidden: true });
+  }
+
+  it('sort « État » shows headers « EN DIFFUSION · 2 »…, the dormant group stays last, the Resume series is not repeated', async () => {
+    const page = await openPopup({ dormant: 'on' });
+    await page.waitForSelector(sel('dormant-toggle'));
+    await pickSort(page, fr('watching.sort.status'));
+    await page.waitForSelector('main [data-status-groups]');
+    expect(await text(page, sel('sort-trigger'))).toBe(fr('watching.sort.status'));
+    // Dandadan (« Reprendre ») hors des groupes ; Frieren, Solo Leveling et Kaiju No. 8 en sommeil
+    expect(await statusGroups(page)).toEqual([{ heading: `${fr('watching.statusGroup.airing')} · 2`, titles: ['Spy x Family', 'One Piece'] }]);
+    expect(await page.$eval('main [data-status-groups] h3', (el) => getComputedStyle(el).textTransform)).toBe('uppercase');
+    expect((await watchingRows(page)).map((row) => row.title)).not.toContain('Dandadan');
+    expect(await page.$('[data-resume-card]')).not.toBeNull();
+    // Groupe « En sommeil » après le dernier groupe d'état
+    expect(await page.$eval('main [data-status-groups]', (groups) => {
+      const dormant = document.querySelector('[data-dormant-group]');
+      return dormant !== null && (groups.compareDocumentPosition(dormant) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    })).toBe(true);
+    expect(await attr(page, 'main [data-status-groups]', 'aria-label')).toBe(fr('watching.listAria', { service: 'AniList', sort: fr('watching.sortAria.status') }));
+    expect(await page.evaluate(async () => (await chrome.storage.local.get('popupPrefs')).popupPrefs)).toEqual({ sort: 'status', dormantOpen: false });
+
+    // Un statut par série : en diffusion, à venir, terminée, à l'arrêt (en pause et annulée ensemble)
+    const mixed = await openPopup({ airing: 'mixed' });
+    await pickSort(mixed, fr('watching.sort.status'));
+    await mixed.waitForSelector('main [data-status-groups]');
+    expect(await statusGroups(mixed)).toEqual([
+      { heading: `${fr('watching.statusGroup.airing')} · 1`, titles: ['One Piece'] },
+      { heading: `${fr('watching.statusGroup.upcoming')} · 1`, titles: ['Spy x Family'] },
+      { heading: `${fr('watching.statusGroup.finished')} · 1`, titles: ['Frieren'] },
+      { heading: `${fr('watching.statusGroup.stopped')} · 2`, titles: ['Solo Leveling', 'Kaiju No. 8'] },
+    ]);
   });
 
   it('série exclue : pastille « Exclue » sur la ligne, − seul (pas de +)', async () => {

@@ -195,3 +195,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | 好友平均分 |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | 在看 / 想看 / 看过 / 抛弃 / 搁置 / 重看 (distinct from `page.status.*` where those are first person) |
 | See all on AniList | 在 AniList 上查看全部 |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | 播出状态 |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | 连载中 / 未开播 / 已完结 / 暂停或取消播出 / 状态未知 (暂停或取消播出 joins 暂停播出 and 已取消播出 (airing states, never the user’s statuses).) |

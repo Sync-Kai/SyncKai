@@ -625,3 +625,17 @@ New « Friends on AniList » block of the popup › On this page card and the si
 | `friends.title` | Teman di AniList |
 | `friends.unavailable` | Tidak tersedia |
 | `friends.yourScore` | Nilaimu |
+
+## 2026-11-09 · Airing status sort
+
+New « My series » sort option grouping the series by the airing status of the anime (`watching.sort.status`, its screen-reader fragment `watching.sortAria.status`), with one heading per group, shown in capitals and followed by « · N » (`watching.statusGroup.*`: airing, upcoming, finished, on hiatus or cancelled, unknown status). The headings reuse the airing-status words of `page.airing.*`. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.sort.status` | Status tayang |
+| `watching.sortAria.status` | berdasarkan status tayang |
+| `watching.statusGroup.airing` | Sedang tayang |
+| `watching.statusGroup.upcoming` | Akan tayang |
+| `watching.statusGroup.finished` | Tamat |
+| `watching.statusGroup.stopped` | Hiatus atau dibatalkan |
+| `watching.statusGroup.unknown` | Status tidak diketahui |

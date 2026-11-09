@@ -146,3 +146,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Vännernas snitt |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Tittar / Vill se / Färdigsedd / Avbruten / Pausad / Tittar om (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Visa allt på AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Sändningsstatus |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | Sänds nu / Kommande / Avslutade / Uppehåll eller nedlagda / Okänd status (Group headings in the plural (*Avslutade*, *nedlagda*); *Uppehåll* stays a noun as in `page.airing.HIATUS`.) |

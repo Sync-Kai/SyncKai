@@ -172,3 +172,10 @@ Settings › Help & about sections that exist only in development builds (2026-1
 | friends' average (band) | Середня в друзів |
 | a friend's status, third person: Watching / Plans to watch / Completed / Dropped / On hold / Rewatching | Дивиться / Заплановано / Переглянуто / Закинуто / Відкладено / Передивляється (distinct from `page.status.*` where those are first person) |
 | See all on AniList | Відкрити все на AniList |
+
+## Airing status sort (2026-11-09)
+
+| English | Term |
+|---|---|
+| Airing status (sort option) | Статус виходу |
+| group headings: Airing / Upcoming / Finished / On hiatus or cancelled / Unknown status | Виходять / Анонси / Завершені / Перерва або скасування / Статус невідомий (Group headings in the plural (*Виходять*, *Анонси*, *Завершені*); *Перерва або скасування* keeps the nouns of `page.airing.*`.) |

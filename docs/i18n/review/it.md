@@ -604,3 +604,17 @@ New « Friends on AniList » block of the popup › On this page card and the si
 | `friends.title` | Amici su AniList |
 | `friends.unavailable` | Non disponibile |
 | `friends.yourScore` | Il tuo voto |
+
+## 2026-11-09 · Airing status sort
+
+New « My series » sort option grouping the series by the airing status of the anime (`watching.sort.status`, its screen-reader fragment `watching.sortAria.status`), with one heading per group, shown in capitals and followed by « · N » (`watching.statusGroup.*`: airing, upcoming, finished, on hiatus or cancelled, unknown status). The headings reuse the airing-status words of `page.airing.*`. Group headings agree with *serie* (feminine plural), like `page.airing.*`; the sort label stays the short *Stato*, the screen-reader fragment says *della serie* so it never reads as the list status. Terms recorded in this language’s term sheet. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.sort.status` | Stato |
+| `watching.sortAria.status` | per stato della serie |
+| `watching.statusGroup.airing` | In onda |
+| `watching.statusGroup.upcoming` | In arrivo |
+| `watching.statusGroup.finished` | Concluse |
+| `watching.statusGroup.stopped` | Sospese o cancellate |
+| `watching.statusGroup.unknown` | Stato sconosciuto |
