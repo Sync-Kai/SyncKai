@@ -30,6 +30,9 @@ export const ACCOUNT_STORES: readonly AccountBoundStore[] = [
   { name: 'compare', scope: { kind: 'account' }, keys: [STORAGE_KEYS.compareLast, STORAGE_KEYS.compareJob, STORAGE_KEYS.compareJobItems] },
   // Alertes de suite : états et dernier résultat calculés sur les listes du compte, effacés à toute fin de session
   { name: 'sequels', scope: { kind: 'account' }, keys: [STORAGE_KEYS.sequelsState, STORAGE_KEYS.sequelsLastResult] },
+  // Suggestions : le lot dépend des listes du compte (effacé à toute fin de session) ; les ids écartés sont un choix de l'utilisateur
+  { name: 'reco-batch', scope: { kind: 'account' }, keys: [STORAGE_KEYS.recoBatch] },
+  { name: 'reco-dismissed', scope: { kind: 'user' }, keys: [STORAGE_KEYS.recoDismissed] },
   { name: 'history-import', scope: { kind: 'account' }, keys: [STORAGE_KEYS.crImportJob, STORAGE_KEYS.crImportJobItems, STORAGE_KEYS.crImportInput, STORAGE_KEYS.crImportResolutions, STORAGE_KEYS.crImportPlan] },
   // Cartes « À vérifier » et synchros récentes (la part de chaque service est retirée à sa déconnexion par purgeClosedSessions)
   { name: 'reviews', scope: { kind: 'user' }, keys: [STORAGE_KEYS.pendingReviews, STORAGE_KEYS.recentSyncs] },

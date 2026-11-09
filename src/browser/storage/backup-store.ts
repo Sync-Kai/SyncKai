@@ -20,7 +20,7 @@ function readStored(): Promise<Record<string, unknown>> {
   return chrome.storage.local.get(Object.values(BACKUP_STORAGE_KEYS));
 }
 
-/** Sauvegarde des 7 clés exportables (jamais les tokens ni les caches). */
+/** Sauvegarde des 8 clés exportables (jamais les tokens ni les caches). */
 export function exportBackup(): Promise<Backup> {
   return readCurrent(chrome.runtime.getManifest().version);
 }
@@ -49,6 +49,7 @@ export async function applyBackup(incoming: BackupData, mode: ImportMode, includ
       [k.excludedSeries]: next.excludedSeries,
       [k.pendingRatings]: next.pendingRatings,
       [k.rewatchDeclined]: next.rewatchDeclined,
+      [k.recoDismissed]: next.recoDismissed,
     });
   });
   // Badge décoratif : son échec ne remet pas l'import en cause

@@ -3,6 +3,7 @@
 // la fiche), ligne d'infos ; puis note moyenne, saison de diffusion, studio (lien), pastille du prochain épisode et sa
 // date, genres. Squelette de chargement : HeroSkeleton (titre lu sur la page dès qu'il est connu).
 import { t } from '../../i18n';
+import { genreKey } from '../../shared/genres';
 import type { EntryLink } from '../../shared/entry-link';
 import type { PageMediaView } from '../../shared/page-media.types';
 import type { PanelMedia } from '../../shared/panel-media.types';
@@ -36,6 +37,12 @@ const BADGE_TONES: Readonly<Record<NextEpisodeBadge['kind'], string>> = {
 
 /** Fond de repli de la bannière : couleur de l'affiche (#rrggbb validé) vers le fond de la page */
 const bannerGradient = (color: string | null): string => `linear-gradient(135deg, ${color ?? 'var(--color-raised)'} 0%, var(--color-surface) 100%)`;
+
+/** Genre AniList traduit ; hors liste connue, le nom AniList tel quel */
+const genreLabel = (genre: string): string => {
+  const key = genreKey(genre);
+  return key === null ? genre : t(key);
+};
 
 /** Lien externe (nouvel onglet) annoncé comme tel aux lecteurs d'écran */
 export function newTabLabel(label: string): string {
@@ -145,7 +152,7 @@ export function NowPlayingHero({ view, details, entry, refreshing, busy, now, on
           <ul class="m-0 flex list-none flex-wrap gap-1 p-0" aria-label={t('panel.nowPlaying.genres')}>
             {details.genres.map((genre) => (
               <li key={genre} class="rounded-pill bg-raised px-2 py-0.5 text-secondary font-bold text-lavender">
-                {genre}
+                {genreLabel(genre)}
               </li>
             ))}
           </ul>

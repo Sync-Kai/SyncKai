@@ -16,6 +16,14 @@ describe('registre des données du compte', () => {
     }
   });
 
+  it('suggestions : lot lié au compte, ids écartés liés à l’utilisateur (purgés à la dernière déconnexion)', () => {
+    expect(STORAGE_KEYS.recoBatch).toBe('reco:batch');
+    expect(STORAGE_KEYS.recoDismissed).toBe('reco:dismissed');
+    expect(ACCOUNT_STORES.find(({ keys }) => keys.includes(STORAGE_KEYS.recoBatch))?.scope).toEqual({ kind: 'account' });
+    expect(ACCOUNT_STORES.find(({ keys }) => keys.includes(STORAGE_KEYS.recoDismissed))?.scope).toEqual({ kind: 'user' });
+    expect(keysClearedOnLastSession()).toContain(STORAGE_KEYS.recoDismissed);
+  });
+
   it('aucune clé déclarée deux fois ; les clés globales sont de vraies clés de STORAGE_KEYS', () => {
     expect(new Set(accountKeys).size).toBe(accountKeys.length);
     for (const key of Object.keys(GLOBAL_STORAGE_KEYS)) expect(Object.values(STORAGE_KEYS), key).toContain(key);

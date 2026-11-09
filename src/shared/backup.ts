@@ -30,6 +30,8 @@ export interface BackupData {
   pendingRatings: PendingRating[];
   /** id (`anilist:…` / `mal:…`) → horodatage du refus */
   rewatchDeclined: Record<string, number>;
+  /** Suggestions écartées : ids AniList, les plus anciens d'abord (section facultative dans le fichier) */
+  recoDismissed: number[];
 }
 
 export interface Backup {
@@ -43,7 +45,7 @@ export interface Backup {
 
 export type BackupSection = keyof BackupData;
 
-/** Section → clé chrome.storage.local (les 7 seules clés sauvegardées) */
+/** Section → clé chrome.storage.local (les 8 seules clés sauvegardées) */
 export const BACKUP_STORAGE_KEYS: Record<BackupSection, string> = {
   settings: SETTINGS_STORAGE_KEY,
   mediaMappings: STORAGE_KEYS.mediaMappings,
@@ -52,6 +54,7 @@ export const BACKUP_STORAGE_KEYS: Record<BackupSection, string> = {
   excludedSeries: EXCLUDED_SERIES_KEY,
   pendingRatings: PENDING_RATINGS_KEY,
   rewatchDeclined: REWATCH_DECLINED_KEY,
+  recoDismissed: STORAGE_KEYS.recoDismissed,
 };
 
 export type BackupErrorCode = 'INVALID_JSON' | 'INVALID_FORMAT' | 'UNSUPPORTED_VERSION' | 'TOO_LARGE';
@@ -71,6 +74,9 @@ export interface BackupSummary {
   pendingRatings: number;
   rewatchDeclined: number;
 }
+
+/** Nombre maximal d'ids de suggestions écartées conservés */
+export const MAX_RECO_DISMISSED = 500;
 
 export type ImportMode = 'merge' | 'replace';
 
@@ -114,6 +120,19 @@ function validateRecord<T>(raw: unknown, guard: (v: unknown, key: string) => v i
   return { value, invalid };
 }
 
+/** Ids AniList (entiers positifs) : invalides et doublons ignorés, les 500 derniers gardés. Section absente = vide. */
+function validateIds(raw: unknown): Validated<number[]> {
+  if (raw === undefined) return { value: [], invalid: 0 };
+  if (!Array.isArray(raw)) return { value: [], invalid: 1 };
+  const ids = new Set<number>();
+  let invalid = 0;
+  for (const item of raw) {
+    if (typeof item === 'number' && Number.isInteger(item) && item > 0) ids.add(item);
+    else invalid++;
+  }
+  return { value: [...ids].slice(-MAX_RECO_DISMISSED), invalid };
+}
+
 const isTimestamp = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 /** Affiche hors des hôtes d'images autorisés (fichier importé, ancienne version) : remplacée par null, élément gardé (SEC-02) */
@@ -136,7 +155,7 @@ function sortDesc<T>(list: T[], at: (item: T) => number, max: number): T[] {
 }
 
 /**
- * Valide les 7 sections (valeurs brutes du stockage ou du fichier) et compte les éléments ignorés. `fromFile` : fichier
+ * Valide les 8 sections (valeurs brutes du stockage ou du fichier) et compte les éléments ignorés. `fromFile` : fichier
  * importé, non fiable (réglages absents non importables, correspondances au format de clé attendu et décalage borné).
  */
 function validateData(raw: Record<string, unknown>, fromFile: boolean): Validated<BackupData> {
@@ -148,6 +167,7 @@ function validateData(raw: Record<string, unknown>, fromFile: boolean): Validate
   const exclusions = validateList(raw.excludedSeries, isExcludedSeries, (e) => e.id);
   const ratings = validateList(mapList(raw.pendingRatings, withSafeCover), isPendingRating, (r) => r.id);
   const declines = validateRecord(raw.rewatchDeclined, isTimestamp);
+  const dismissed = validateIds(raw.recoDismissed);
 
   return {
     value: {
@@ -159,6 +179,7 @@ function validateData(raw: Record<string, unknown>, fromFile: boolean): Validate
       excludedSeries: exclusions.value,
       pendingRatings: sortDesc(ratings.value, (r) => r.completedAt, MAX_PENDING_RATINGS),
       rewatchDeclined: declines.value,
+      recoDismissed: dismissed.value,
     },
     invalid:
       (rawSettings !== undefined && !settingsValid ? 1 : 0) +
@@ -167,7 +188,8 @@ function validateData(raw: Record<string, unknown>, fromFile: boolean): Validate
       syncs.invalid +
       exclusions.invalid +
       ratings.invalid +
-      declines.invalid,
+      declines.invalid +
+      dismissed.invalid,
   };
 }
 
@@ -195,6 +217,7 @@ export function sectionsFromStorage(stored: Record<string, unknown>): Record<Bac
     excludedSeries: stored[k.excludedSeries],
     pendingRatings: stored[k.pendingRatings],
     rewatchDeclined: stored[k.rewatchDeclined],
+    recoDismissed: stored[k.recoDismissed],
   };
 }
 
@@ -328,6 +351,8 @@ export function mergeBackup(current: BackupData, incoming: BackupData, mode: Imp
     excludedSeries,
     pendingRatings: sortDesc(mergeByKey(current.pendingRatings, incoming.pendingRatings, (r) => r.id), (r) => r.completedAt, MAX_PENDING_RATINGS),
     rewatchDeclined,
+    // Union : l'existant d'abord, les 500 derniers gardés
+    recoDismissed: [...new Set([...current.recoDismissed, ...incoming.recoDismissed])].slice(-MAX_RECO_DISMISSED),
   };
 }
 

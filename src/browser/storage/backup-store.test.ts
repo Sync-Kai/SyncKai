@@ -67,3 +67,13 @@ describe('applyBackup — correspondances (ARCH-15)', () => {
     expect(stored.mediaMappings).toEqual({ 'crunchyroll:GRMG8ZQZR:s24': imported });
   });
 });
+
+describe('applyBackup — suggestions écartées', () => {
+  it('la liste importée remplace celle du stockage (remplacement) ; une sauvegarde sans la section se restaure', async () => {
+    const stored = fakeBrowser(true, { 'reco:dismissed': [1, 2] });
+    await applyBackup(buildBackup({ recoDismissed: [7, 8] }, '2.7.0', new Date()).data, 'replace', false);
+    expect(stored['reco:dismissed']).toEqual([7, 8]);
+    await applyBackup(buildBackup({}, '2.7.0', new Date()).data, 'merge', false);
+    expect(stored['reco:dismissed']).toEqual([7, 8]);
+  });
+});

@@ -54,6 +54,7 @@ const emptyData = (): BackupData => ({
   excludedSeries: [],
   pendingRatings: [],
   rewatchDeclined: {},
+  recoDismissed: [],
 });
 
 function fileText(data: unknown, overrides: Record<string, unknown> = {}): string {
@@ -61,9 +62,9 @@ function fileText(data: unknown, overrides: Record<string, unknown> = {}): strin
 }
 
 describe('BACKUP_STORAGE_KEYS', () => {
-  it('ne contient que les 7 clés sauvegardables (jamais les tokens ni les caches)', () => {
+  it('ne contient que les 8 clés sauvegardables (jamais les tokens ni les caches)', () => {
     expect(Object.values(BACKUP_STORAGE_KEYS).sort()).toEqual(
-      ['excludedSeries', 'mediaMappings', 'pendingRatings', 'pendingReviews', 'recentSyncs', 'rewatchDeclined', 'settings'].sort(),
+      ['excludedSeries', 'mediaMappings', 'pendingRatings', 'pendingReviews', 'recentSyncs', 'reco:dismissed', 'rewatchDeclined', 'settings'].sort(),
     );
   });
 
@@ -404,5 +405,43 @@ describe('backupFileName (BAK-05)', () => {
     } finally {
       setLocale(initial);
     }
+  });
+});
+
+describe('sauvegarde › recoDismissed (suggestions écartées)', () => {
+  const parse = (data: Record<string, unknown>): BackupData => {
+    const result = parseBackup(fileText(data));
+    if (!result.ok) throw new Error(result.message);
+    return result.data.backup.data;
+  };
+
+  it('aller-retour : la liste du stockage est exportée puis relue', () => {
+    expect(BACKUP_STORAGE_KEYS.recoDismissed).toBe('reco:dismissed');
+    const backup = buildBackup({ recoDismissed: [3, 1, 2] }, '2.7.0', NOW);
+    expect(backup.data.recoDismissed).toEqual([3, 1, 2]);
+    expect(parse(backup.data as unknown as Record<string, unknown>).recoDismissed).toEqual([3, 1, 2]);
+    expect(sectionsFromStorage({ 'reco:dismissed': [5] }).recoDismissed).toEqual([5]);
+  });
+
+  it('une sauvegarde sans la section se restaure (liste vide)', () => {
+    expect(parse({ settings: DEFAULT_SETTINGS }).recoDismissed).toEqual([]);
+  });
+
+  it('entrées invalides retirées et comptées, doublons ignorés, 500 au plus', () => {
+    const result = parseBackup(fileText({ recoDismissed: [1, 1, 0, -2, 1.5, '7', null, 2] }));
+    if (!result.ok) throw new Error(result.message);
+    expect(result.data.backup.data.recoDismissed).toEqual([1, 2]);
+    expect(result.data.invalidCount).toBe(5);
+    const many = parse({ recoDismissed: Array.from({ length: 600 }, (_, i) => i + 1) }).recoDismissed;
+    expect(many).toHaveLength(500);
+    expect(many.at(-1)).toBe(600);
+    expect(parseBackup(fileText({ recoDismissed: 'nope' })).ok && true).toBe(true);
+  });
+
+  it('remplacement : la liste importée remplace ; fusion : union', () => {
+    const current = { ...emptyData(), recoDismissed: [1, 2] };
+    const incoming = { ...emptyData(), recoDismissed: [2, 3] };
+    expect(mergeBackup(current, incoming, 'replace').recoDismissed).toEqual([2, 3]);
+    expect(mergeBackup(current, incoming, 'merge').recoDismissed).toEqual([1, 2, 3]);
   });
 });

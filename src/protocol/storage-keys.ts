@@ -25,6 +25,10 @@ export const STORAGE_KEYS = {
   sequelsState: 'sequels:state',
   /** Alertes de suite : résultat de la dernière passe horaire */
   sequelsLastResult: 'sequels:lastResult',
+  /** Suggestions : dernier lot calculé pour le compte (voir shared/reco) */
+  recoBatch: 'reco:batch',
+  /** Suggestions : ids AniList écartés par l'utilisateur (500 au plus), sauvegardés avec le reste */
+  recoDismissed: 'reco:dismissed',
   /** Tâche d'analyse ou d'alignement en cours (progression, reprise) */
   compareJob: 'compare:job',
   /** Éléments de cette tâche, écrits une fois au démarrage (la tâche n'en garde que le curseur, PERF-16) */
