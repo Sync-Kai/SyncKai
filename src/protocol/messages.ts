@@ -2,6 +2,7 @@
 // imports de types ici. Expéditeurs autorisés et validation des payloads : background/message-guards.ts.
 import type { AgendaPayload, AgendaResult } from '../shared/agenda';
 import type { AiringCheckResult } from '../shared/airing.types';
+import type { SequelCheckResult } from '../shared/sequels';
 import type { AniListErrorCode, ViewerResult } from '../shared/anilist.types';
 import type { AuthResult } from '../shared/auth.types';
 import type { EpisodeInfo } from '../shared/episode.types';
@@ -120,6 +121,10 @@ export interface MessageMap {
   DECLINE_REWATCH: { payload: { media: MediaRef }; response: Result<null, AniListErrorCode> };
   /** « Vérifier maintenant » : vérification manuelle des sorties (même fenêtre / dédoublonnage que l'alarme) */
   CHECK_AIRING: { payload: null; response: AiringCheckResult };
+  /** « Vérifier maintenant » (Réglages › Suites annoncées) : vérification des suites hors délai de 24 h */
+  CHECK_SEQUELS: { payload: null; response: SequelCheckResult };
+  /** Activité, Réglages : change l'état de suites ; `restore` (sans id : toutes) = masquée → vue ; false sans session ouverte */
+  UPDATE_SEQUELS: { payload: { ids: number[]; state: 'seen' | 'dismissed' | 'removed' | 'restore' }; response: boolean };
   /** Fiche AniList de la série affichée dans l'onglet actif + état dans chaque liste (lecture seule) */
   RESOLVE_PAGE_MEDIA: { payload: ResolvePageMediaPayload; response: PageMediaResult };
   /** Correspondances modifiées par une page (« Oublier », restauration d'une sauvegarde) : résolutions de page en mémoire oubliées */

@@ -46,7 +46,8 @@ import {
 } from '../browser/storage/reviews';
 import { connectedServices, ensureAiringAlarm } from '../browser/airing-alarm';
 import { notificationsBlocked } from '../browser/notifications';
-import { checkSequels } from './sequels/check';
+import { checkSequels, SEQUEL_NOTIFICATION_PREFIX } from './sequels/check';
+import { handleSequelButton, handleSequelClick } from './sequels/actions';
 import { withStorageLock } from '../browser/storage/lock';
 import type { TrackerId } from '../shared/tracker.types';
 import { choosePlatformLink, isWatchingFresh, WATCHING_MAX_AGE_MS } from '../shared/watching';
@@ -355,9 +356,11 @@ async function openFromNotification(notificationId: string): Promise<void> {
 }
 
 export function handleNotificationClick(notificationId: string): Promise<void> {
+  if (notificationId.startsWith(SEQUEL_NOTIFICATION_PREFIX)) return handleSequelClick(notificationId);
   return openFromNotification(notificationId);
 }
 
 export function handleNotificationButton(notificationId: string, buttonIndex: number): Promise<void> {
+  if (notificationId.startsWith(SEQUEL_NOTIFICATION_PREFIX)) return handleSequelButton(notificationId, buttonIndex);
   return buttonIndex === 0 ? openFromNotification(notificationId) : Promise.resolve();
 }

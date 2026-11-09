@@ -20,6 +20,8 @@ const fakes = vi.hoisted(() => ({
   /** Autorisation des notifications de l'extension (chrome.notifications.getPermissionLevel) */
   permission: vi.fn<() => Promise<'granted' | 'denied'>>(),
   checkSequels: vi.fn<() => Promise<unknown>>(),
+  sequelClick: vi.fn<(id: string) => Promise<void>>(async () => undefined),
+  sequelButton: vi.fn<(id: string, index: number) => Promise<void>>(async () => undefined),
 }));
 
 vi.mock('./anilist/client', () => ({
@@ -29,10 +31,11 @@ vi.mock('./anilist/client', () => ({
   },
 }));
 vi.mock('./anilist/watching', () => ({ getWatchingList: fakes.getWatchingList }));
-vi.mock('./sequels/check', () => ({ checkSequels: fakes.checkSequels }));
+vi.mock('./sequels/check', () => ({ checkSequels: fakes.checkSequels, SEQUEL_NOTIFICATION_PREFIX: 'synckai-sequel:' }));
+vi.mock('./sequels/actions', () => ({ handleSequelClick: fakes.sequelClick, handleSequelButton: fakes.sequelButton }));
 
 const fake = installFakeChrome({ extra: { notifications: { create: fakes.create, clear: async () => true, getPermissionLevel: fakes.permission } } });
-const { checkNewEpisodes, handleAiringAlarm } = await import('./airing');
+const { checkNewEpisodes, handleAiringAlarm, handleNotificationButton, handleNotificationClick } = await import('./airing');
 
 setLocale('fr');
 
@@ -169,6 +172,18 @@ describe('notification qui échoue (ALRT-04)', () => {
     expect(fakes.create.mock.calls.map(([id]) => id)).toEqual(['synckai-airing:100']);
     expect(second).toMatchObject({ notified: 1, error: null });
     expect(stored(AIRING_NOTIFIED_KEY)).toEqual([200, 100]);
+  });
+});
+
+describe('clic sur une notification', () => {
+  it('id de suite → actions des suites ; id de sortie → ouverture des sorties (sans toucher aux suites)', async () => {
+    await handleNotificationClick('synckai-sequel:10');
+    await handleNotificationButton('synckai-sequel:10', 1);
+    expect(fakes.sequelClick).toHaveBeenCalledWith('synckai-sequel:10');
+    expect(fakes.sequelButton).toHaveBeenCalledWith('synckai-sequel:10', 1);
+    fakes.sequelClick.mockClear();
+    await handleNotificationClick('synckai-airing:1');
+    expect(fakes.sequelClick).not.toHaveBeenCalled();
   });
 });
 

@@ -74,6 +74,15 @@ export interface SequelCandidate {
   services: TrackerId[];
 }
 
+/** `blocked` : suites enregistrées, aucune notification (désactivées dans le navigateur) */
+export interface SequelCheckResult {
+  checkedAt: number;
+  found: number;
+  notified: number;
+  skipped: 'disabled' | 'not-connected' | 'not-due' | 'blocked' | null;
+  error: string | null;
+}
+
 export const EMPTY_SEQUEL_STORE: SequelStore = { records: [], known: [], seeded: [], lastCheck: null };
 export const MAX_SEQUEL_RECORDS = 200;
 export const MAX_KNOWN_SEQUELS = 2000;

@@ -9,6 +9,8 @@ import { loginWithMal } from './mal/auth';
 import { getAgendaWeek } from './agenda';
 import { checkNewEpisodes, handleAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
 import { AIRING_ALARM, ensureAiringAlarm } from '../browser/airing-alarm';
+import { checkSequels } from './sequels/check';
+import { updateSequels } from './sequels/actions';
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
 import { handleEpisodeCompleted } from './episode-completed';
 import { forgetPageResolutions, resolvePageMedia } from './page-media/page-media';
@@ -103,6 +105,8 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     START_REWATCH: { status: 'error', message: t('error.unexpectedRewatch') },
     DECLINE_REWATCH: { ok: false, code: 'API_ERROR', message },
     CHECK_AIRING: { checkedAt: 0, notified: 0, skipped: null, error: message },
+    CHECK_SEQUELS: { checkedAt: 0, found: 0, notified: 0, skipped: null, error: message },
+    UPDATE_SEQUELS: false,
     RESOLVE_PAGE_MEDIA: { ok: false, code: 'API_ERROR', message },
     MAPPINGS_CHANGED: null,
     ADD_TO_LIST: { status: 'error', message: t('error.unexpectedAdd') },
@@ -199,6 +203,8 @@ const handlers: MessageHandlers = {
     await ensureAiringAlarm();
     return checkNewEpisodes('interactive');
   },
+  CHECK_SEQUELS: () => checkSequels(Date.now(), true),
+  UPDATE_SEQUELS: ({ ids, state }) => updateSequels(ids, state),
 };
 
 // Générique pour conserver la corrélation type ↔ payload ↔ handler
@@ -283,7 +289,8 @@ chrome.notifications.onClicked.addListener((id): void => {
   void handleNotificationClick(id);
 });
 chrome.notifications.onButtonClicked.addListener((id, index): void => {
-  void handleNotificationButton(id, index);
+  // Le texte de la notification mise à jour (« Ajoutée… ») suit la langue des réglages
+  afterI18n(() => handleNotificationButton(id, index));
 });
 chrome.runtime.onStartup.addListener((): void => {
   void ensureAiringAlarm();

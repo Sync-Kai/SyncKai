@@ -7,7 +7,7 @@ import { getOpenSessions, sessionsStillOpen, writeIfSessions } from '../../brows
 import { withStorageLock } from '../../browser/storage/lock';
 import { formatSequelDate } from '../../shared/sequel-date';
 import type { SessionEpochs } from '../../shared/session-epochs';
-import { EMPTY_SEQUEL_STORE, isSequelStore, mergeSequelPass, sequelCandidates, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
+import { EMPTY_SEQUEL_STORE, isSequelStore, mergeSequelPass, sequelCandidates, type SequelCheckResult, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
 import { notificationsBlocked } from '../../browser/notifications';
 import { fetchSequelRelations, readSourceSeries } from './fetch';
 
@@ -20,21 +20,12 @@ export const SEQUEL_NOTIFICATION_PREFIX = 'synckai-sequel:';
 
 const log = createLogger('sequels');
 
-/** `blocked` : suites enregistrées, aucune notification (désactivées dans le navigateur) */
-export interface SequelCheckResult {
-  checkedAt: number;
-  found: number;
-  notified: number;
-  skipped: 'disabled' | 'not-connected' | 'not-due' | 'blocked' | null;
-  error: string | null;
-}
-
 function describeError(error: unknown): string {
   const message = error instanceof Error && error.message ? error.message : t('airing.unknownError');
   return message.length > 160 ? `${message.slice(0, 157)}…` : message;
 }
 
-async function readStore(): Promise<SequelStore> {
+export async function readSequelStore(): Promise<SequelStore> {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.sequelsState);
   const value: unknown = stored[STORAGE_KEYS.sequelsState];
   return isSequelStore(value) ? value : EMPTY_SEQUEL_STORE;
@@ -74,7 +65,7 @@ async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<
   if (!settings.sequelAlerts) return { ...none, skipped: 'disabled' };
   const services = await connectedServices();
   if (services.length === 0) return { ...none, skipped: 'not-connected' };
-  const { lastCheck } = await readStore();
+  const { lastCheck } = await readSequelStore();
   if (!force && lastCheck !== null && now - lastCheck < SEQUEL_CHECK_INTERVAL_MS) return { ...none, skipped: 'not-due' };
 
   // Toute lecture en échec (liste, relations) lève : la passe est abandonnée entière, aucun service marqué amorcé
@@ -89,7 +80,7 @@ async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<
   // Store relu sous verrou (le panneau a pu changer des états), même verrou que la déconnexion
   const merged = await withStorageLock(async () => {
     if (!(await sessionsStillOpen(epochs))) return null;
-    const result = mergeSequelPass(await readStore(), candidates, services, now);
+    const result = mergeSequelPass(await readSequelStore(), candidates, services, now);
     await chrome.storage.local.set({ [STORAGE_KEYS.sequelsState]: result.store });
     return result;
   });

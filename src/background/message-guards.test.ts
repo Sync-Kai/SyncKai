@@ -373,12 +373,20 @@ describe('isRuntimeMessage, branches négatives', () => {
   });
 
   it('types sans payload : tout sauf null est refusé', () => {
-    for (const type of ['LOGIN_ANILIST', 'GET_VIEWER', 'LOGIN_MAL', 'GET_MAL_VIEWER', 'CHECK_AIRING', 'COMPARE_LISTS', 'CANCEL_COMPARE_JOB', 'CR_IMPORT_CANCEL']) {
+    for (const type of ['LOGIN_ANILIST', 'GET_VIEWER', 'LOGIN_MAL', 'GET_MAL_VIEWER', 'CHECK_AIRING', 'CHECK_SEQUELS', 'COMPARE_LISTS', 'CANCEL_COMPARE_JOB', 'CR_IMPORT_CANCEL']) {
       expect(accepts(type, null), type).toBe(true);
       expect(accepts(type, undefined), `${type} undefined`).toBe(false);
       expect(accepts(type, {}), `${type} {}`).toBe(false);
     }
     expect(isRuntimeMessage({ type: 'GET_VIEWER' })).toBe(false);
+  });
+
+  it('UPDATE_SEQUELS : ids entiers positifs, état connu ; liste vide seulement pour restore', () => {
+    expect(accepts('UPDATE_SEQUELS', { ids: [1, 2], state: 'dismissed' })).toBe(true);
+    expect(accepts('UPDATE_SEQUELS', { ids: [], state: 'restore' })).toBe(true);
+    for (const payload of [{ ids: [], state: 'seen' }, { ids: [0], state: 'seen' }, { ids: [1.5], state: 'seen' }, { ids: [1], state: 'new' }, { ids: 1, state: 'seen' }, { ids: Array.from({ length: 201 }, (_, i) => i + 1), state: 'restore' }, null]) {
+      expect(accepts('UPDATE_SEQUELS', payload), JSON.stringify(payload)).toBe(false);
+    }
   });
 
   it('SEARCH_ANIME : requête non vide (après trim) de 100 caractères au plus', () => {
