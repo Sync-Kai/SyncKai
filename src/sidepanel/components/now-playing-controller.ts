@@ -60,6 +60,8 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
   let orderRun = 0;
   /** Fiche pour laquelle l'ordre est chargé (ou en chargement) */
   let orderEntry: number | null = null;
+  /** Fiche affichée en dernier pendant qu'un chargement de l'ordre est en cours (null : aucune page n'a changé depuis) */
+  let latestEntry: number | null = null;
   /** Graphe dont les états sont en cours de lecture (compte changé pendant ce temps : lecture relancée) */
   let graphInHand: FranchiseGraph | null = null;
   /** Sessions avec lesquelles les derniers états ont été lus */
@@ -96,6 +98,20 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
     graphInHand = null;
     order = { status: 'ready', graph, states };
     onChange();
+    const missing = settleLatest(graph);
+    if (missing !== null) void loadOrder(missing);
+  };
+
+  /** Page changée pendant le chargement : gardée si le graphe reçu la contient, sinon renvoyée pour un nouveau chargement */
+  const settleLatest = (graph: FranchiseGraph): number | null => {
+    const latest = latestEntry;
+    latestEntry = null;
+    if (latest === null) return null;
+    if (inGraph(graph, latest)) {
+      orderEntry = latest;
+      return null;
+    }
+    return latest;
   };
 
   /** Graphe déjà chargé : états relus seuls, l'ordre reste affiché pendant ce temps */
@@ -104,14 +120,18 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
   const loadOrder = async (mediaId: number): Promise<void> => {
     const run = ++orderRun;
     orderEntry = mediaId;
+    latestEntry = null;
     graphInHand = null;
     order = { status: 'loading' };
     onChange();
     try {
       const result = await sendMessage('GET_FRANCHISE', { mediaId });
       if (run !== orderRun) return;
-      if (result.ok) await loadStates(run, result.graph);
-      else {
+      if (result.ok) {
+        const missing = settleLatest(result.graph);
+        if (missing !== null) await loadOrder(missing);
+        else await loadStates(run, result.graph);
+      } else {
         order = { status: 'error', message: result.message };
         onChange();
       }
@@ -126,6 +146,7 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
   const resetOrder = (): void => {
     orderRun++;
     orderEntry = null;
+    latestEntry = null;
     graphInHand = null;
     settledView = null;
     order = { status: 'idle' };
@@ -154,8 +175,10 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
     if (order.status === 'ready' && inGraph(order.graph, entry)) {
       orderEntry = entry;
       void reloadStates(order.graph);
-    } else if (order.status === 'loading' && orderEntry === entry) return;
-    else void loadOrder(entry);
+    } else if (order.status === 'loading') {
+      // Un chargement est en cours : pas de second parcours, la dernière fiche est tranchée à l'arrivée du graphe
+      latestEntry = orderEntry === entry ? null : entry;
+    } else void loadOrder(entry);
   };
 
   /** Connexion ou déconnexion : états relus (aucune requête sans session), jamais ceux de l'ancien compte */
@@ -217,7 +240,7 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
         if (liveChanged) live.follow(liveTarget());
         const { content } = ctl;
         const ready = content.status === 'ready';
-        if (liveChanged || (entryChanged && ready) || (playerChanged && ready && content.details?.relations.some((r) => r.platforms.length > 1))) onChange();
+        if (liveChanged || (entryChanged && ready) || (playerChanged && ready && order.status === 'ready')) onChange();
       })
       .catch((error: unknown) => {
         log.debug('Réglages illisibles :', error);
@@ -275,7 +298,7 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
         actionRunning = false;
       }
       // Action réussie : liste modifiée, états relus avec la liste MAL à jour ; sinon seulement les relectures reportées
-      if (feedback?.tone === 'success') freshNext = true;
+      if (feedback?.tone === 'success' && request.kind !== 'rate' && request.kind !== 'notes') freshNext = true;
       if (feedback?.tone === 'success' || skippedDuringAction) {
         skippedDuringAction = false;
         settledView = null;

@@ -5,6 +5,7 @@ import type { PanelMedia } from '../../shared/panel-media.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
 import type { InlineFeedback } from '../../ui/state';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
+import { SETTINGS_STORAGE_KEY } from '../../shared/settings';
 
 // Ordre de visionnage dans le contrôleur de l'onglet « En lecture » : contrôleur de fiche et service worker simulés,
 // chaque réponse est rendue à la main (séquence des messages GET_FRANCHISE / GET_LIST_STATES, courses de déconnexion).
@@ -30,6 +31,7 @@ interface FakeState {
   sessions: SessionEpochs;
   listeners: ChangeListener[];
   feedback: unknown;
+  settings: Record<string, unknown>;
 }
 
 const fake = vi.hoisted(
@@ -40,6 +42,7 @@ const fake = vi.hoisted(
     sessions: { anilist: 0 },
     listeners: [],
     feedback: null,
+    settings: {},
   }),
 );
 
@@ -50,7 +53,7 @@ vi.mock('../../protocol/messages', () => ({
 vi.mock('../../browser/storage/sessions', () => ({ getOpenSessions: () => Promise.resolve(fake.sessions) }));
 vi.mock('../../browser/storage/settings-access', async () => {
   const { DEFAULT_SETTINGS } = await import('../../shared/settings');
-  return { getSettings: () => Promise.resolve(DEFAULT_SETTINGS) };
+  return { getSettings: () => Promise.resolve({ ...DEFAULT_SETTINGS, ...fake.settings }) };
 });
 vi.mock('./live-progress', () => ({ createLiveProgress: () => ({ follow: () => undefined, store: {} }) }));
 vi.mock('../../ui/page-media-controller', () => ({
@@ -136,8 +139,9 @@ beforeEach(() => {
   fake.sessions = { anilist: 0 };
   fake.listeners.length = 0;
   fake.feedback = null;
+  fake.settings = {};
   onChange = vi.fn<() => void>();
-  ctl = createNowPlayingController(onChange, {} as never);
+  ctl = createNowPlayingController(onChange, { read: () => Promise.resolve([]) } as never);
 });
 
 const ok = (graph: FranchiseGraph): FranchiseResult => ({ ok: true, graph });
@@ -216,6 +220,50 @@ describe('ordre de visionnage du panneau', () => {
     const sent = callsOf('GET_LIST_STATES').slice(before);
     expect(sent).toHaveLength(1);
     expect(sent[0].payload).toMatchObject({ fresh: true });
+  });
+
+  it.each([{ kind: 'rate', value: 8 }, { kind: 'notes', notes: 'x' }] as const)('$kind ne change ni statut ni progression : jamais de fresh', async (request) => {
+    await loadedOrder();
+    const before = callsOf('GET_LIST_STATES').length;
+    fake.feedback = { tone: 'success', text: '', detail: '' } satisfies InlineFeedback;
+    await ctl.runAction(request);
+    await flush();
+    for (const call of callsOf('GET_LIST_STATES').slice(before)) expect(call.payload).not.toHaveProperty('fresh');
+  });
+
+  it('lecteur préféré changé avec l\'ordre prêt : panneau redessiné (le « Regarder » de la chronologie suit)', async () => {
+    await loadedOrder();
+    await flush();
+    onChange.mockClear();
+    fake.settings = { preferredPlayer: 'adn' };
+    fake.listeners.forEach((listener) => listener({ [SETTINGS_STORAGE_KEY]: {} }, 'local'));
+    await flush();
+    expect(ctl.preferred).toBe('adn');
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('page changée pendant le chargement du graphe, vers une entrée du graphe reçu : un seul GET_FRANCHISE', async () => {
+    emit(readyContent(1));
+    await flush();
+    emit(readyContent(2));
+    await flush();
+    expect(callsOf('GET_FRANCHISE')).toHaveLength(1);
+    await answer('GET_FRANCHISE', ok(graphOf([1, 2, 3])));
+    await answer('GET_LIST_STATES', STATES);
+    expect(callsOf('GET_FRANCHISE')).toHaveLength(1);
+    expect(ctl.order.status).toBe('ready');
+  });
+
+  it('page changée pendant le chargement, vers une entrée absente du graphe reçu : GET_FRANCHISE pour elle', async () => {
+    emit(readyContent(1));
+    await flush();
+    emit(readyContent(50));
+    await flush();
+    expect(callsOf('GET_FRANCHISE')).toHaveLength(1);
+    await answer('GET_FRANCHISE', ok(graphOf([1, 2])));
+    expect(callsOf('GET_FRANCHISE')).toHaveLength(2);
+    expect(callsOf('GET_FRANCHISE')[1].payload).toEqual({ mediaId: 50 });
+    expect(ctl.order.status).toBe('loading');
   });
 
   it('action de liste en échec : aucune relecture des états', async () => {
