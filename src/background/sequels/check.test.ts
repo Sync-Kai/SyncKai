@@ -131,6 +131,33 @@ describe('checkSequels', () => {
     expect(store().lastCheck).toBe(NOW + HOUR_MS);
   });
 
+  it('not-due n’est jamais enregistré : le dernier résumé réel (suites trouvées, erreur) reste affiché', async () => {
+    fakes.sequels.set(1, [{ id: 10, idMal: null }]);
+    const first = await checkSequels(NOW);
+    expect(first.found).toBe(1);
+    const skipped = await checkSequels(NOW + HOUR_MS);
+    expect(skipped.skipped).toBe('not-due');
+    expect(fake.local.peek(STORAGE_KEYS.sequelsLastResult)).toEqual(first);
+  });
+
+  it('deux appels simultanés partagent une seule passe (une même promesse)', async () => {
+    fakes.sequels.set(1, [{ id: 10, idMal: null }]);
+    const a = checkSequels(NOW, true);
+    const b = checkSequels(NOW, true);
+    expect(b).toBe(a);
+    await a;
+    expect(fakes.relationCalls).toBe(1);
+  });
+
+  it('passe forcée moins de 60 s après la précédente : dernier résultat enregistré, aucune requête', async () => {
+    const first = await checkSequels(NOW, true);
+    fakes.relationCalls = 0;
+    expect(await checkSequels(NOW + 59_000, true)).toEqual(first);
+    expect(fakes.relationCalls).toBe(0);
+    await checkSequels(NOW + 61_000, true);
+    expect(fakes.relationCalls).toBe(1);
+  });
+
   it('sequelAlerts coupé : disabled sans requête', async () => {
     fake.reset({ ...SEED, settings: { sequelAlerts: false } });
     expect(await checkSequels(NOW)).toMatchObject({ skipped: 'disabled' });

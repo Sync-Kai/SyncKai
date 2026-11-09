@@ -68,8 +68,16 @@ function addOutcome(outcome: SyncOutcome): { added: boolean; message: string } {
 }
 
 async function addToPlanning(notificationId: string, id: number): Promise<void> {
+  // Le store est purgé à la fin de la session : une notification restée dans la barre après une déconnexion ou un changement
+  // de compte n'a plus d'enregistrement, et ne doit rien écrire dans la liste du compte actuel (on ouvre la fiche)
+  const found = (await readSequelStore()).records.find((record) => record.snapshot.id === id);
+  if (found === undefined) {
+    await chrome.tabs.create({ url: (await snapshotOf(id)).siteUrl });
+    await chrome.notifications.update(notificationId, { message: t('sequel.notification.openEntry') });
+    return;
+  }
   // `added` : l'alerte est terminée (ajoutée, ou déjà dans la liste)
-  const { added, message } = addOutcome(await addToList({ mediaId: id, malId: (await snapshotOf(id)).idMal, status: 'PLANNING' }));
+  const { added, message } = addOutcome(await addToList({ mediaId: id, malId: found.snapshot.idMal, status: 'PLANNING' }));
   if (added) await updateSequels([id], 'removed');
   await chrome.notifications.update(notificationId, { message });
 }

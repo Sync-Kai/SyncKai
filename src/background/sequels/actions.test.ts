@@ -124,6 +124,13 @@ describe('boutons', () => {
     expect(fakes.update).toHaveBeenCalledWith('synckai-sequel:10', { message: 'Limite atteinte' });
   });
 
+  it('bouton 0 d\u2019une ancienne notification (suite absente du store du compte actuel) : aucun ajout, la fiche s\u2019ouvre', async () => {
+    await handleSequelButton('synckai-sequel:99', 0);
+    expect(fakes.addToList).not.toHaveBeenCalled();
+    expect(fakes.tabsCreate).toHaveBeenCalledWith({ url: 'https://anilist.co/anime/99' });
+    expect(fakes.update).toHaveBeenCalledWith('synckai-sequel:99', { message: 'Ouvrir la fiche' });
+  });
+
   it('bouton 1 : ouvre la fiche', async () => {
     await handleSequelButton('synckai-sequel:10', 1);
     expect(fakes.tabsCreate).toHaveBeenCalledWith({ url: 'https://anilist.co/anime/10' });

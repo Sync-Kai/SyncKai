@@ -7,7 +7,7 @@ import { getOpenSessions, sessionsStillOpen, writeIfSessions } from '../../brows
 import { withStorageLock } from '../../browser/storage/lock';
 import { formatSequelDate } from '../../shared/sequel-date';
 import type { SessionEpochs } from '../../shared/session-epochs';
-import { EMPTY_SEQUEL_STORE, isSequelStore, mergeSequelPass, sequelCandidates, type SequelCheckResult, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
+import { EMPTY_SEQUEL_STORE, isSequelCheckResult, isSequelStore, mergeSequelPass, sequelCandidates, type SequelCheckResult, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
 import { notificationsBlocked } from '../../browser/notifications';
 import { fetchSequelRelations, readSourceSeries } from './fetch';
 
@@ -100,11 +100,22 @@ async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<
   }
 }
 
-/**
- * Vérifie les suites (au plus une fois par 24 h sauf `force`). Ne lève jamais ; le résumé est aussi enregistré sous
- * `sequels:lastResult`.
- */
-export async function checkSequels(now: number = Date.now(), force = false): Promise<SequelCheckResult> {
+/** Délai minimal entre deux passes forcées (bouton « Vérifier maintenant », messages répétés) */
+export const SEQUEL_FORCE_COOLDOWN_MS = 60_000;
+
+/** Dernier résumé enregistré, null s'il est absent ou illisible */
+async function readLastResult(): Promise<SequelCheckResult | null> {
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.sequelsLastResult);
+  const value: unknown = stored[STORAGE_KEYS.sequelsLastResult];
+  return isSequelCheckResult(value) ? value : null;
+}
+
+async function pass(now: number, force: boolean): Promise<SequelCheckResult> {
+  if (force) {
+    // Passe forcée récente d'une vraie vérification : son résumé, sans requête (« désactivé » / « non connecté » se relisent aussitôt)
+    const last = await readLastResult();
+    if (last !== null && last.skipped !== 'disabled' && last.skipped !== 'not-connected' && now - last.checkedAt >= 0 && now - last.checkedAt < SEQUEL_FORCE_COOLDOWN_MS) return last;
+  }
   // Sessions relevées avant toute requête : le store et le résumé sont des données du compte, jamais recréées après une déconnexion
   const epochs = await getOpenSessions();
   let result: SequelCheckResult;
@@ -114,6 +125,8 @@ export async function checkSequels(now: number = Date.now(), force = false): Pro
     log.error('Vérification des suites impossible :', error);
     result = { checkedAt: now, found: 0, notified: 0, skipped: null, error: describeError(error) };
   }
+  // `not-due` (alarme horaire) n'est pas un résultat : il écraserait le dernier résumé réel (suites trouvées, erreur, blocage)
+  if (result.skipped === 'not-due') return result;
   // Sans session ouverte, rien à écrire ; sinon écriture sous le verrou de la déconnexion
   if (Object.keys(epochs).length === 0) return result;
   try {
@@ -122,4 +135,17 @@ export async function checkSequels(now: number = Date.now(), force = false): Pro
     log.error('Enregistrement du résumé impossible :', error);
   }
   return result;
+}
+
+let inFlight: Promise<SequelCheckResult> | null = null;
+
+/**
+ * Vérifie les suites (au plus une fois par 24 h sauf `force`, et une passe forcée par minute). Ne lève jamais ; le
+ * résumé est aussi enregistré sous `sequels:lastResult` (sauf `not-due`). Un appel pendant une passe en cours rend la même promesse.
+ */
+export function checkSequels(now: number = Date.now(), force = false): Promise<SequelCheckResult> {
+  inFlight ??= pass(now, force).finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
 }
