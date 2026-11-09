@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import aot from '../../shared/__fixtures__/franchise/aot.json';
 import gundam from '../../shared/__fixtures__/franchise/gundam.json';
-import { FRANCHISE_CACHE_TTL_MS, franchiseCacheKey } from '../../browser/storage/session-cache';
+import { FRANCHISE_CACHE_TTL_MS, franchiseCacheKey, franchiseRecordKey } from '../../browser/storage/session-cache';
 import { installFakeChrome } from '../../test/fake-chrome';
 import type { RawMedia } from '../../shared/franchise';
 
@@ -76,8 +76,8 @@ describe('loadFranchise', () => {
     if (!result.ok) throw new Error('chargement attendu');
     expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(3);
     expect(result.graph.capped).toBe(true);
-    const keys = [...fake.session.data.keys()].filter((k) => k.startsWith('franchise:'));
-    expect(keys).toEqual([franchiseCacheKey(GUNDAM_START)]);
+    const keys = [...fake.session.data.keys()].filter((k) => k.startsWith('franchise:')).sort();
+    expect(keys).toEqual([franchiseCacheKey(GUNDAM_START), franchiseRecordKey(GUNDAM_START)].sort());
   });
 
   it('Gundam réel : 9 tours, sous le plafond de tours par défaut, graphe complet', async () => {
@@ -96,6 +96,20 @@ describe('loadFranchise', () => {
     const a = loadFranchise(AOT_START);
     await vi.waitFor(() => expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(3));
     const b = loadFranchise(second);
+    release();
+    const [ra, rb] = await Promise.all([a, b]);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
+    expect(rb).toEqual(ra);
+  });
+
+  it('une entrée sur le point d\'être lue (frontière du tour en cours) rejoint aussi le parcours', async () => {
+    let release = (): void => undefined;
+    serve(aot, (round) => (round === 1 ? new Promise<void>((resolve) => (release = resolve)) : Promise.resolve()));
+    const next = aot.rounds[1]?.[0]?.id;
+    if (next === undefined) throw new Error('fixture');
+    const a = loadFranchise(AOT_START);
+    await vi.waitFor(() => expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(2));
+    const b = loadFranchise(next);
     release();
     const [ra, rb] = await Promise.all([a, b]);
     expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
@@ -136,5 +150,60 @@ describe('loadFranchise', () => {
     serve(aot);
     await loadFranchise(AOT_START);
     expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
+  });
+});
+
+describe('cache de la franchise', () => {
+  const franchiseKeys = (): string[] => [...fake.session.data.keys()].filter((k) => k.startsWith('franchise:')).sort();
+
+  it('un seul enregistrement du graphe, un pointeur par entrée principale', async () => {
+    serve(aot);
+    const result = await loadFranchise(AOT_START);
+    if (!result.ok) throw new Error('chargement attendu');
+    const main = [...new Set([AOT_START, ...result.graph.main])];
+    expect(franchiseKeys()).toEqual([...main.map(franchiseCacheKey), franchiseRecordKey(AOT_START)].sort());
+    expect(fake.session.peek(franchiseCacheKey(main[1]))).toEqual({ at: expect.any(Number), graphId: AOT_START });
+    expect(JSON.stringify([...fake.session.data.values()]).split('"nodes"').length - 1).toBe(1);
+  });
+
+  it('un enregistrement tronqué ou illisible : échec de lecture, nouveau parcours', async () => {
+    serve(aot);
+    await loadFranchise(AOT_START);
+    fake.session.data.set(franchiseRecordKey(AOT_START), { at: Date.now(), value: { startId: AOT_START } });
+    deps.anilistPublicQuery.mockClear();
+    serve(aot);
+    const result = await loadFranchise(AOT_START);
+    expect(result.ok).toBe(true);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
+  });
+
+  it('un pointeur sans enregistrement : échec de lecture', async () => {
+    fake.session.data.set(franchiseCacheKey(AOT_START), { at: Date.now(), graphId: AOT_START });
+    serve(aot);
+    expect((await loadFranchise(AOT_START)).ok).toBe(true);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
+  });
+
+  it('écriture refusée (quota) : la réponse du parcours est tout de même renvoyée', async () => {
+    vi.spyOn(fake.session, 'set').mockRejectedValueOnce(new Error('QUOTA_BYTES'));
+    serve(aot);
+    const result = await loadFranchise(AOT_START);
+    expect(result.ok).toBe(true);
+    expect(franchiseKeys()).toEqual([]);
+  });
+
+  it('sans storage.session : cache mémoire du service worker', async () => {
+    const session = Reflect.get(chrome.storage, 'session') as unknown;
+    Reflect.deleteProperty(chrome.storage, 'session');
+    try {
+      serve(aot);
+      const first = await loadFranchise(AOT_START);
+      deps.anilistPublicQuery.mockClear();
+      const second = await loadFranchise(AOT_START);
+      expect(deps.anilistPublicQuery).not.toHaveBeenCalled();
+      expect(second).toEqual(first);
+    } finally {
+      Reflect.set(chrome.storage, 'session', session);
+    }
   });
 });

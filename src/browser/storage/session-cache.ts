@@ -24,7 +24,10 @@ export const panelMediaCacheKey = (mediaId: number): string => `${PANEL_MEDIA_CU
 export const FRANCHISE_CACHE_PREFIX = 'franchise:v1:';
 /** Ordre de visionnage d'une franchise (catalogue public) : recalculé au bout de 24 h */
 export const FRANCHISE_CACHE_TTL_MS = 24 * 3_600_000;
+/** Pointeur d'une entrée de la franchise : `{ at, graphId }` */
 export const franchiseCacheKey = (mediaId: number): string => `${FRANCHISE_CACHE_PREFIX}${mediaId}`;
+/** Enregistrement unique du graphe : `{ at, value }`, sous l'identifiant de départ du parcours (préfixe `g`, jamais un identifiant) */
+export const franchiseRecordKey = (graphId: number): string => `${FRANCHISE_CACHE_PREFIX}g${graphId}`;
 
 /** Une purge au plus par intervalle et par contexte (service worker : en pratique une par réveil) */
 const PURGE_INTERVAL_MS = PAGE_MEDIA_CACHE_TTL_MS;
@@ -80,37 +83,45 @@ export async function clearSessionCaches(): Promise<void> {
 
 // ─── Graphe d'une franchise (24 h) ────────────────────────────────────────
 
-/** Repli quand `storage.session` est absent : mémoire du service worker (perdue à sa mise en veille) */
+/** Repli quand `storage.session` est absent : mémoire du service worker (perdue à sa mise en veille), un même objet partagé par identifiant */
 const franchiseMemory = new Map<number, { at: number; value: FranchiseGraph }>();
 
-/** Graphe en cache pour cet identifiant, null si absent, expiré ou illisible */
+const validRecord = (record: unknown, now: number): FranchiseGraph | null =>
+  isRecord(record) && fresh(record.at, FRANCHISE_CACHE_TTL_MS, now) && isFranchiseGraph(record.value) ? record.value : null;
+
+/** Graphe en cache pour cet identifiant (pointeur puis enregistrement), null si absent, expiré ou illisible */
 export async function readFranchiseCache(mediaId: number, now: number = Date.now()): Promise<FranchiseGraph | null> {
   const area = sessionArea();
-  let hit: unknown = franchiseMemory.get(mediaId);
-  if (area) {
-    const key = franchiseCacheKey(mediaId);
-    try {
-      hit = (await area.get(key))[key];
-    } catch {
-      hit = undefined;
-    }
+  if (!area) return validRecord(franchiseMemory.get(mediaId), now);
+  try {
+    const pointerKey = franchiseCacheKey(mediaId);
+    const pointer = (await area.get(pointerKey))[pointerKey];
+    if (!isRecord(pointer) || !fresh(pointer.at, FRANCHISE_CACHE_TTL_MS, now) || typeof pointer.graphId !== 'number') return null;
+    const recordKey = franchiseRecordKey(pointer.graphId);
+    return validRecord((await area.get(recordKey))[recordKey], now);
+  } catch {
+    return null;
   }
-  return isRecord(hit) && fresh(hit.at, FRANCHISE_CACHE_TTL_MS, now) && isFranchiseGraph(hit.value) ? hit.value : null;
 }
 
-/** Écrit le même graphe sous chacun des identifiants (le départ et, graphe complet, toutes ses entrées principales) ; échec = accélération perdue */
+/**
+ * Un enregistrement du graphe (sous son identifiant de départ) et un pointeur par identifiant : le départ et, graphe complet,
+ * toutes ses entrées principales. Échec d'écriture = accélération perdue.
+ */
 export async function writeFranchiseCache(mediaIds: readonly number[], graph: FranchiseGraph, now: number = Date.now()): Promise<void> {
   const area = sessionArea();
-  const entry = { at: now, value: graph };
+  const record = { at: now, value: graph };
   if (!area) {
     for (const id of mediaIds) {
       if (franchiseMemory.size >= 30) franchiseMemory.delete(franchiseMemory.keys().next().value as number);
-      franchiseMemory.set(id, entry);
+      franchiseMemory.set(id, record);
     }
     return;
   }
   try {
-    await area.set(Object.fromEntries(mediaIds.map((id) => [franchiseCacheKey(id), entry])));
+    const items: Record<string, unknown> = { [franchiseRecordKey(graph.startId)]: record };
+    for (const id of mediaIds) items[franchiseCacheKey(id)] = { at: now, graphId: graph.startId };
+    await area.set(items);
     await purgeStaleSessionCaches(now);
   } catch {
     // Quota de session atteint : le graphe sera relu au prochain affichage

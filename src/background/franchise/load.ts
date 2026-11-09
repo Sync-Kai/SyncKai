@@ -53,6 +53,8 @@ async function walk(startId: number, read: Set<number>, maxRounds: number): Prom
       graph = { ...graph, capped: true };
       break;
     }
+    // Entrées sur le point d'être lues : une demande qui arrive pendant ce tour rejoint le parcours
+    for (const id of frontier) read.add(id);
     const { Page } = await anilistPublicQuery(FRANCHISE_QUERY, isPageData, { ids: frontier }, 'background');
     collectLinks(Page.media, links);
     for (const media of Page.media) read.add(media.id);
