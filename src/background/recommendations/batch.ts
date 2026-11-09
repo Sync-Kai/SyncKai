@@ -4,7 +4,8 @@ import { getOpenSessions, writeIfSessions } from '../../browser/storage/sessions
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { AniListListEntry, MalListEntry } from '../../shared/compare';
 import { isRecord } from '../../shared/guards';
-import { buildBatch, pickSeeds, relevantTags, toCard, BATCH_SIZE, type RawRecoMedia, type RecoBatch, type RecoItem, type RecoResult, type Seed } from '../../shared/recommendations';
+import { buildBatch, isRecoBatch, pickSeeds, relevantTags, toCard, type RawRecoMedia, type RecoBatch, type RecoItem, type RecoResult, type Seed } from '../../shared/recommendations';
+import { sameSessions, type SessionEpochs } from '../../shared/session-epochs';
 import { fromAniListScore, fromMalScore } from '../../shared/score';
 import type { ListStatus } from '../../shared/sync.types';
 import { aniListIdsByMal } from '../anilist/by-mal';
@@ -14,6 +15,8 @@ import { getScoreFormat } from '../anilist/list';
 import { buildPlatforms } from '../anilist/watching';
 import { ApiError } from '../errors';
 import { fetchMalFullList } from '../mal/full-list';
+import { purgeStoredBatch } from './messages';
+import { beginBuild, endBuild, touchedIds } from './touched';
 
 // Suggestions « Découvrir » : lot calculé dans le service worker (listes complètes + recommandations AniList des séries
 // aimées), gardé 24 h dans `reco:batch` (portée compte). Tout part en file de fond ; les règles de score sont dans shared/.
@@ -24,6 +27,8 @@ export const RECO_TTL_MS = 24 * 3600_000;
 /** Graines lues par requête : plafond de `perPage` retenu (mesuré le 2026-11-09 : 25 fiches + 10 recommandations + relations passent) */
 const SEEDS_PER_QUERY = 25;
 const SEASON_SIZE = 20;
+/** Démarrage à froid : 20 lues, les 10 meilleures gardées après filtrage */
+const COLD_SIZE = 10;
 
 const CARD_FIELDS =
   'id idMal isAdult format status episodes duration averageScore genres tags { name rank isMediaSpoiler } title { userPreferred } coverImage { large medium color } bannerImage siteUrl startDate { year } season seasonYear externalLinks { url } relations { edges { relationType node { id } } }';
@@ -111,13 +116,15 @@ interface UserLists {
   watchedOrCurrent: Set<number>;
 }
 
+const isWatched = (status: ListStatus): boolean => status === 'COMPLETED' || status === 'CURRENT' || status === 'REPEATING';
+
 async function readLists(connected: { anilist: boolean; mal: boolean }): Promise<UserLists> {
   const entries: Listed[] = [];
   const ids = new Set<number>();
   const malIds = new Set<number>();
   const seen = (id: number, status: ListStatus): void => {
     ids.add(id);
-    if (status === 'COMPLETED' || status === 'CURRENT' || status === 'REPEATING') watchedOrCurrent.add(id);
+    if (isWatched(status)) watchedOrCurrent.add(id);
   };
   const watchedOrCurrent = new Set<number>();
 
@@ -135,7 +142,8 @@ async function readLists(connected: { anilist: boolean; mal: boolean }): Promise
     const mal: MalListEntry[] = await fetchMalFullList();
     // Ids MAL déjà connus de la liste AniList : pas de relecture du catalogue pour eux
     const known = new Map(anilist.flatMap((e) => (e.malId !== null ? [[e.malId, e.mediaId] as const] : [])));
-    const unknown = [...new Set(mal.filter((e) => !known.has(e.malId)).map((e) => e.malId))];
+    // Seules les séries vues ou en cours servent de graines ou de préquel ; les autres sont déjà exclues par leur `idMal`
+    const unknown = [...new Set(mal.filter((e) => !known.has(e.malId) && isWatched(e.status)).map((e) => e.malId))];
     const mapped = unknown.length > 0 ? await aniListIdsByMal(unknown) : new Map<number, number>();
     for (const e of mal) {
       malIds.add(e.malId);
@@ -176,7 +184,7 @@ async function coldBatch(lists: UserLists, dismissed: ReadonlySet<number>, now: 
     items.push({ card: toCard(raw), score: raw.averageScore ?? 0, reason: null });
   }
   items.sort((a, b) => b.score - a.score || a.card.id - b.card.id);
-  return { items: withPlatforms(items.slice(0, BATCH_SIZE), links), computedAt: now, seedCount: 0, cold: true };
+  return { items: withPlatforms(items.slice(0, COLD_SIZE), links), computedAt: now, seedCount: 0, cold: true };
 }
 
 /** Recommandations des graines (25 par requête) : leurs genres et tags, les fiches proposées et leurs liens externes */
@@ -212,7 +220,16 @@ async function readSeeds(picked: readonly Omit<Seed, 'genres' | 'tags'>[]): Prom
 async function buildFresh(): Promise<RecoResult> {
   // Sessions relevées AVANT la première requête : le lot décrit les listes de ces comptes (docs/memory/security.md)
   const epochs = await getOpenSessions();
-  if (epochs.anilist === undefined && epochs.mal === undefined) return { ok: false, message: t('error.unexpected') };
+  if (epochs.anilist === undefined && epochs.mal === undefined) return { ok: false, code: 'NO_ACCOUNT', message: t('error.unexpected') };
+  beginBuild();
+  try {
+    return await buildWith(epochs);
+  } finally {
+    endBuild();
+  }
+}
+
+async function buildWith(epochs: SessionEpochs): Promise<RecoResult> {
   const now = Date.now();
   const [lists, dismissed] = await Promise.all([readLists({ anilist: epochs.anilist !== undefined, mal: epochs.mal !== undefined }), readDismissed()]);
   const { seeds: picked, cold } = pickSeeds(lists.entries);
@@ -223,17 +240,23 @@ async function buildFresh(): Promise<RecoResult> {
     const built = buildBatch(seeds, recs, { ids: lists.ids, malIds: lists.malIds, dismissed, watchedOrCurrent: lists.watchedOrCurrent }, now);
     batch = { ...built, items: withPlatforms(built.items, links), cold: false };
   }
+  // Ajoutées ou écartées pendant le calcul : jamais réécrites dans le lot
+  const skip = touchedIds();
+  batch = { ...batch, items: batch.items.filter((i) => !skip.has(i.card.id)), epochs };
   // Déconnexion ou autre compte pendant la construction : rien n'est écrit ni servi
   if (!(await writeIfSessions(epochs, { [STORAGE_KEYS.recoBatch]: batch }))) {
     log.warn('Session fermée ou changée pendant le calcul : suggestions abandonnées');
-    return { ok: false, message: t('error.unexpected') };
+    return { ok: false, code: 'SESSION_CHANGED', message: t('error.unexpected') };
+  }
+  // Touchées entre le filtre et l'écriture : retirées du lot enregistré, et du lot servi
+  const late = touchedIds();
+  if (late.size > skip.size) {
+    await purgeStoredBatch(late);
+    batch = { ...batch, items: batch.items.filter((i) => !late.has(i.card.id)) };
   }
   log.info(`Suggestions : ${batch.items.length} fiches, ${batch.seedCount} graines${batch.cold ? ' (démarrage à froid)' : ''}`);
   return { ok: true, batch, malOnly: epochs.anilist === undefined };
 }
-
-const isStoredBatch = (value: unknown): value is RecoBatch =>
-  isRecord(value) && Array.isArray(value.items) && isNumber(value.computedAt) && isNumber(value.seedCount) && typeof value.cold === 'boolean';
 
 let inFlight: Promise<RecoResult> | null = null;
 
@@ -242,9 +265,13 @@ export async function getRecommendations(force: boolean): Promise<RecoResult> {
   try {
     if (!force) {
       const stored = (await chrome.storage.local.get(STORAGE_KEYS.recoBatch))[STORAGE_KEYS.recoBatch];
-      const age = isStoredBatch(stored) ? Date.now() - stored.computedAt : -1;
-      if (isStoredBatch(stored) && age >= 0 && age < RECO_TTL_MS) {
-        return { ok: true, batch: stored, malOnly: (await getOpenSessions()).anilist === undefined };
+      const open = await getOpenSessions();
+      const age = isRecoBatch(stored) ? Date.now() - stored.computedAt : -1;
+      // Mêmes sessions qu'au calcul : un service connecté depuis (ou un autre compte) fait recalculer
+      if (isRecoBatch(stored) && stored.epochs && sameSessions(stored.epochs, open) && age >= 0 && age < RECO_TTL_MS) {
+        // Écartées depuis le calcul (autre appareil, restauration d'une sauvegarde) : jamais servies
+        const dismissed = await readDismissed();
+        return { ok: true, batch: { ...stored, items: stored.items.filter((i) => !dismissed.has(i.card.id)) }, malOnly: open.anilist === undefined };
       }
     }
     // Deux demandes simultanées (popup et panneau) partagent le même calcul
@@ -253,8 +280,8 @@ export async function getRecommendations(force: boolean): Promise<RecoResult> {
     });
     return await inFlight;
   } catch (error: unknown) {
-    if (error instanceof ApiError) return { ok: false, message: error.message };
+    if (error instanceof ApiError) return { ok: false, code: 'FAILED', message: error.message };
     log.error('Erreur inattendue (suggestions) :', error);
-    return { ok: false, message: t('error.unexpected') };
+    return { ok: false, code: 'FAILED', message: t('error.unexpected') };
   }
 }

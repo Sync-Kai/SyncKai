@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeChrome } from '../../test/fake-chrome';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { MAX_DISMISSED, type RecoBatch, type RecoItem } from '../../shared/recommendations';
+const sessions = vi.hoisted(() => ({ getOpenSessions: vi.fn() }));
+vi.mock('../../browser/storage/sessions', () => ({ getOpenSessions: sessions.getOpenSessions }));
 import { restoreRecommendations, updateRecommendation } from './messages';
 
 const fake = installFakeChrome();
@@ -15,7 +17,11 @@ const batch = (...ids: number[]): RecoBatch => ({ items: ids.map(item), computed
 const storedIds = (): number[] => ((fake.local.peek(STORAGE_KEYS.recoBatch) as RecoBatch | undefined)?.items ?? []).map((i) => i.card.id);
 const dismissed = (): unknown => fake.local.peek(STORAGE_KEYS.recoDismissed);
 
-beforeEach(() => fake.reset());
+beforeEach(() => {
+  fake.reset();
+  sessions.getOpenSessions.mockReset();
+  sessions.getOpenSessions.mockResolvedValue({ anilist: 1 });
+});
 
 describe('updateRecommendation', () => {
   it('added : retire la suggestion du lot enregistré, sans l’écarter', async () => {
@@ -48,6 +54,20 @@ describe('updateRecommendation', () => {
     expect(fake.local.peek(STORAGE_KEYS.recoBatch)).toBeUndefined();
   });
 
+  it('aucune session ouverte : rien n’est écrit (écartées jamais recréées après la dernière déconnexion)', async () => {
+    sessions.getOpenSessions.mockResolvedValue({});
+    fake.local.seed({ [STORAGE_KEYS.recoBatch]: batch(1) });
+    expect(await updateRecommendation(1, 'dismissed')).toBe(false);
+    expect(dismissed()).toBeUndefined();
+    expect(storedIds()).toEqual([1]);
+  });
+
+  it('lot enregistré illisible : laissé tel quel', async () => {
+    fake.local.seed({ [STORAGE_KEYS.recoBatch]: { items: 'x' } });
+    await updateRecommendation(1, 'added');
+    expect(fake.local.peek(STORAGE_KEYS.recoBatch)).toEqual({ items: 'x' });
+  });
+
   it('undo : reprend l’identifiant des écartées', async () => {
     fake.local.seed({ [STORAGE_KEYS.recoBatch]: batch(1), [STORAGE_KEYS.recoDismissed]: [5, 7] });
     expect(await updateRecommendation(7, 'undo')).toBe(true);
@@ -57,6 +77,13 @@ describe('updateRecommendation', () => {
 });
 
 describe('restoreRecommendations', () => {
+  it('aucune session ouverte : rien n’est touché', async () => {
+    sessions.getOpenSessions.mockResolvedValue({});
+    fake.local.seed({ [STORAGE_KEYS.recoDismissed]: [5] });
+    expect(await restoreRecommendations()).toBe(false);
+    expect(dismissed()).toEqual([5]);
+  });
+
   it('vide les écartées et le lot (recalculé à la prochaine demande)', async () => {
     fake.local.seed({ [STORAGE_KEYS.recoBatch]: batch(1), [STORAGE_KEYS.recoDismissed]: [5, 7] });
     expect(await restoreRecommendations()).toBe(true);

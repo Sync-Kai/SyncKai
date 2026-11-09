@@ -120,7 +120,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     GET_PANEL_MEDIA: { ok: false, code: 'API_ERROR', message },
     GET_FRANCHISE: { ok: false, message: t('panel.order.error') },
     GET_LIST_STATES: { anilist: null, mal: null },
-    GET_RECOMMENDATIONS: { ok: false, message },
+    GET_RECOMMENDATIONS: { ok: false, code: 'FAILED', message },
     UPDATE_RECOMMENDATION: false,
     RESTORE_RECOMMENDATIONS: false,
     GET_ANILIST_FRIENDS: { status: 'error', message },

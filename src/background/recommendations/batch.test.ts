@@ -111,11 +111,11 @@ describe('getRecommendations › construction', () => {
     const ok = await getRecommendations(false);
     expect(deps.writeIfSessions).toHaveBeenCalledTimes(1);
     expect(deps.writeIfSessions.mock.calls[0]?.[0]).toEqual({ anilist: 7 });
-    expect(deps.writeIfSessions.mock.calls[0]?.[1]).toEqual({ [STORAGE_KEYS.recoBatch]: batchOf(ok) });
+    expect(deps.writeIfSessions.mock.calls[0]?.[1]).toEqual({ [STORAGE_KEYS.recoBatch]: { ...batchOf(ok), epochs: { anilist: 7 } } });
 
     deps.writeIfSessions.mockResolvedValue(false);
     const refused = await getRecommendations(true);
-    expect(refused.ok).toBe(false);
+    expect(refused).toMatchObject({ ok: false, code: 'SESSION_CHANGED' });
   });
 
   it('jamais de fiche adulte, ni d’écartée, ni de série déjà dans une liste (id AniList ou MAL)', async () => {
@@ -203,7 +203,7 @@ describe('getRecommendations › démarrage à froid', () => {
 });
 
 describe('getRecommendations › cache de 24 h', () => {
-  const stored = (computedAt: number): RecoBatch => ({ items: [], computedAt, seedCount: 3, cold: false });
+  const stored = (computedAt: number): RecoBatch => ({ items: [], computedAt, seedCount: 3, cold: false, epochs: { anilist: 7 } });
 
   it('lot plus récent que 24 h : servi sans aucune requête', async () => {
     fake.local.seed({ [STORAGE_KEYS.recoBatch]: stored(NOW - DAY + 1000) });
@@ -230,6 +230,77 @@ describe('getRecommendations › cache de 24 h', () => {
     expect(deps.fetchAniListFullList).toHaveBeenCalledTimes(1);
   });
 
+  it('un second service connecté depuis le calcul : lot reconstruit, malOnly suit', async () => {
+    deps.getOpenSessions.mockResolvedValue({ mal: 3 });
+    deps.fetchMalFullList.mockResolvedValue([]);
+    fake.local.seed({ [STORAGE_KEYS.recoBatch]: { ...stored(NOW - 1000), epochs: { mal: 3 } } });
+    const first = await getRecommendations(false);
+    expect(first.ok && first.malOnly).toBe(true);
+    expect(deps.anilistPublicQuery).not.toHaveBeenCalled();
+
+    deps.getOpenSessions.mockResolvedValue({ anilist: 7, mal: 3 });
+    deps.fetchAniListFullList.mockResolvedValue([]);
+    const second = await getRecommendations(false);
+    expect(second.ok && second.malOnly).toBe(false);
+    expect(deps.fetchAniListFullList).toHaveBeenCalledTimes(1);
+  });
+
+  it('lot sans sessions enregistrées (ancien format) : reconstruit', async () => {
+    fake.local.seed({ [STORAGE_KEYS.recoBatch]: { items: [], computedAt: NOW - 1000, seedCount: 3, cold: false } });
+    deps.fetchAniListFullList.mockResolvedValue([]);
+    await getRecommendations(false);
+    expect(deps.fetchAniListFullList).toHaveBeenCalledTimes(1);
+  });
+
+  it('lot en cache : les suggestions écartées depuis ne sont pas servies', async () => {
+    const withItems = { ...stored(NOW - 1000), items: [{ card: { id: 1 }, score: 1, reason: null }, { card: { id: 2 }, score: 1, reason: null }] };
+    fake.local.seed({ [STORAGE_KEYS.recoBatch]: withItems, [STORAGE_KEYS.recoDismissed]: [2] });
+    expect(batchOf(await getRecommendations(false)).items.map((i) => i.card.id)).toEqual([1]);
+  });
+
+  it('ajout ou rejet pendant un calcul : l’identifiant n’est jamais écrit dans le lot', async () => {
+    const { updateRecommendation } = await import('./messages');
+    deps.fetchAniListFullList.mockResolvedValue(SEED_IDS.map((id) => entry(id, 'COMPLETED', 9)));
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const base = deps.anilistPublicQuery.getMockImplementation();
+    deps.anilistPublicQuery.mockImplementation(async (...args: unknown[]) => {
+      await gate;
+      return base?.(...args);
+    });
+    const pending = getRecommendations(true);
+    await vi.waitFor(() => expect(deps.anilistPublicQuery).toHaveBeenCalled());
+    await updateRecommendation(16498, 'added');
+    await updateRecommendation(33, 'dismissed');
+    release();
+    const ids = batchOf(await pending).items.map((i) => i.card.id);
+    expect(ids).not.toContain(16498);
+    expect(ids).not.toContain(33);
+    const written = (deps.writeIfSessions.mock.calls[0]?.[1] as Record<string, RecoBatch>)[STORAGE_KEYS.recoBatch];
+    expect(written?.items.some((i) => i.card.id === 16498 || i.card.id === 33)).toBe(false);
+  });
+
+  it('démarrage à froid : les 10 meilleures après filtrage', async () => {
+    deps.fetchAniListFullList.mockResolvedValue([entry(1, 'COMPLETED', 9)]);
+    answerCatalog(Array.from({ length: 20 }, (_, i) => rawMedia(100 + i, { averageScore: 50 + i })));
+    const batch = batchOf(await getRecommendations(false));
+    expect(batch.items).toHaveLength(10);
+    expect(batch.items[0]?.card.id).toBe(119);
+  });
+
+  it('MAL : seules les séries terminées, en cours ou en revisionnage sont converties en ids AniList', async () => {
+    deps.getOpenSessions.mockResolvedValue({ mal: 3 });
+    deps.fetchMalFullList.mockResolvedValue([
+      { malId: 10, mediaId: null, status: 'COMPLETED', score: 9 },
+      { malId: 11, mediaId: null, status: 'PLANNING', score: null },
+      { malId: 12, mediaId: null, status: 'DROPPED', score: 3 },
+      { malId: 13, mediaId: null, status: 'CURRENT', score: null },
+      { malId: 14, mediaId: null, status: 'REPEATING', score: 9 },
+    ]);
+    await getRecommendations(false);
+    expect(deps.aniListIdsByMal).toHaveBeenCalledWith([10, 13, 14]);
+  });
+
   it('valeur stockée illisible : ignorée, lot reconstruit', async () => {
     deps.fetchAniListFullList.mockResolvedValue(SEED_IDS.map((id) => entry(id, 'COMPLETED', 9)));
     fake.local.seed({ [STORAGE_KEYS.recoBatch]: { items: 'x' } });
@@ -239,13 +310,13 @@ describe('getRecommendations › cache de 24 h', () => {
   it('aucun service connecté : message, aucune requête', async () => {
     deps.getOpenSessions.mockResolvedValue({});
     const result = await getRecommendations(false);
-    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ ok: false, code: 'NO_ACCOUNT' });
     expect(deps.anilistPublicQuery).not.toHaveBeenCalled();
   });
 
   it('erreur d’API : message de l’erreur, ne lève pas', async () => {
     const { ApiError } = await import('../errors');
     deps.fetchAniListFullList.mockRejectedValue(new ApiError('NETWORK', 'AniList injoignable'));
-    expect(await getRecommendations(false)).toEqual({ ok: false, message: 'AniList injoignable' });
+    expect(await getRecommendations(false)).toEqual({ ok: false, code: 'FAILED', message: 'AniList injoignable' });
   });
 });

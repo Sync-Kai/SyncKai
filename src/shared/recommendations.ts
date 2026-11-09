@@ -1,3 +1,5 @@
+import { isRecord } from './guards';
+import type { SessionEpochs } from './session-epochs';
 import type { PlatformLink } from './watching.types';
 
 export const BATCH_SIZE = 60;
@@ -14,9 +16,12 @@ const TAG_WEIGHT = 0.5;
 export interface RecoCard { id: number; idMal: number | null; title: string; format: string | null; year: number | null; episodes: number | null; averageScore: number | null; genres: string[]; tags: string[]; coverUrl: string | null; coverLarge: string | null; color: string | null; bannerUrl: string | null; siteUrl: string; platforms: PlatformLink[] }
 export interface RecoReason { seedId: number; seedTitle: string; seedScore: number; matched: string[] }
 export interface RecoItem { card: RecoCard; score: number; reason: RecoReason | null }
-export interface RecoBatch { items: RecoItem[]; computedAt: number; seedCount: number; cold: boolean }
+/** `epochs` : sessions ouvertes au calcul (écrit par le service worker) ; un autre jeu de sessions fait recalculer le lot */
+export interface RecoBatch { items: RecoItem[]; computedAt: number; seedCount: number; cold: boolean; epochs?: SessionEpochs }
 // Réponse du service worker à GET_RECOMMENDATIONS ; `malOnly` : seul MyAnimeList est connecté (catalogue AniList lu sans compte)
-export type RecoResult = { ok: true; batch: RecoBatch; malOnly: boolean } | { ok: false; message: string };
+/** NO_ACCOUNT : aucun service connecté ; SESSION_CHANGED : déconnexion ou autre compte pendant le calcul ; FAILED : le reste */
+export type RecoErrorCode = 'NO_ACCOUNT' | 'SESSION_CHANGED' | 'FAILED';
+export type RecoResult = { ok: true; batch: RecoBatch; malOnly: boolean } | { ok: false; code: RecoErrorCode; message: string };
 export interface Seed { id: number; title: string; score10: number; genres: string[]; tags: string[] }
 
 // Nœud `mediaRecommendation` tel que renvoyé par AniList (champs de la carte)
@@ -160,3 +165,7 @@ export function drawNext(batch: RecoBatch, skip: ReadonlySet<number>, random: ()
 export function withoutItem(batch: RecoBatch, id: number): RecoBatch {
   return { ...batch, items: batch.items.filter((i) => i.card.id !== id) };
 }
+
+/** Lot lu dans le stockage : forme vérifiée (les fiches ne sont pas relues une à une, le lot est écrit par le service worker) */
+export const isRecoBatch = (value: unknown): value is RecoBatch =>
+  isRecord(value) && Array.isArray(value.items) && typeof value.computedAt === 'number' && typeof value.seedCount === 'number' && typeof value.cold === 'boolean';
