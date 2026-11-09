@@ -204,6 +204,30 @@ describe('mergeRound sur des cas synthétiques', () => {
     expect(releaseOrder(graph, 'all').map((n) => n.id)).toContain(10);
   });
 
+  it('un départ dont le PARENT ne le déclare pas par une des 5 relations (COMPILATION) reste dans extras, hors plafond', () => {
+    const pages: Record<number, RawMedia> = {
+      10: raw(10, { format: 'OVA' }, [{ relationType: 'PARENT', node: { id: 1 } }]),
+      1: raw(1, {}, [{ relationType: 'COMPILATION', node: { id: 10, format: 'OVA' } }]),
+    };
+    let graph = newFranchiseGraph(10);
+    let frontier = [10];
+    let guard = 0;
+    while (frontier.length && guard++ < 10) {
+      const merged = mergeRound(graph, frontier.map((id) => pages[id]));
+      graph = merged.graph;
+      frontier = merged.frontier;
+    }
+    expect(graph.main).toEqual([1]);
+    expect(graph.extras.map((e) => e.id)).toEqual([10]);
+    expect(graph.extras[0].from).toBe(1);
+    // Hors plafond : même avec MAX_EXTRAS extras déjà pris, le départ est présent
+    const full = newFranchiseGraph(10);
+    const first = mergeRound(full, [pages[10]]);
+    const withMany = mergeRound(first.graph, [raw(1, {}, Array.from({ length: MAX_EXTRAS + 5 }, (_, i) => ({ relationType: 'SIDE_STORY', node: { id: 100 + i } })))]);
+    expect(withMany.graph.extras.length).toBe(MAX_EXTRAS + 1);
+    expect(withMany.graph.extras.some((e) => e.id === 10)).toBe(true);
+  });
+
   it('MUSIC et les entrées de 5 minutes ou moins n\'apparaissent jamais, ni dans la chaîne ni dans les extras', () => {
     const page = raw(1, {}, [
       { relationType: 'SEQUEL', node: { id: 2, format: 'MUSIC' } },

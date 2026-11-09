@@ -55,7 +55,17 @@ describe('loadFranchise', () => {
     const query = deps.anilistPublicQuery.mock.calls[0]?.[0] as string;
     expect(query).toContain('Page(perPage: 50)');
     expect(query).toContain('externalLinks { url }');
-    expect(query).toContain('relations { edges { relationType node { id type } } }');
+    expect(query).toContain('relations { edges { relationType node {');
+    // Un seul saut par requête : le niveau imbriqué ne revient jamais rempli, il n'est pas demandé
+    expect(query).not.toContain('node { id type }');
+  });
+
+  it('une relation dont le nœud est null (permis par le schéma AniList) est ignorée sans faire échouer le parcours', async () => {
+    const start = { id: 1, type: 'ANIME', format: 'TV', duration: 24, title: { userPreferred: 'A' }, relations: { edges: [{ relationType: 'SEQUEL', node: null }, { relationType: 'SIDE_STORY', node: { id: 2, type: 'ANIME', format: 'OVA', duration: 24, title: { userPreferred: 'B' } } }] } };
+    deps.anilistPublicQuery.mockResolvedValue({ Page: { media: [start] } });
+    const result = await loadFranchise(1);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.graph.extras.map((e) => e.id)).toEqual([2]);
   });
 
   it('une autre entrée de la même franchise est servie par le cache (0 requête)', async () => {

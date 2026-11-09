@@ -373,7 +373,9 @@ function ReadyOrder({ props, graph }: { props: WatchOrderProps; graph: Franchise
 /** La section est dessinée : chargement, erreur ou franchise de plusieurs entrées (même règle pour la carte, qui y met un séparateur) */
 export function showsWatchOrder(order: OrderState, currentId: number): boolean {
   if (order.status === 'idle') return false;
-  if (order.status !== 'ready' || !inFranchise(order.graph, currentId)) return true;
+  if (order.status !== 'ready') return true;
+  // Graphe prêt qui ne contient pas la page (autre franchise le temps d'un changement de page) : rien, jamais de squelette éternel
+  if (!inFranchise(order.graph, currentId)) return false;
   return releaseOrder(order.graph, 'all').length >= 2;
 }
 
@@ -386,9 +388,8 @@ export function WatchOrder(props: WatchOrderProps) {
     </Collapsible>
   );
   const graph = order.status === 'ready' ? order.graph : null;
-  if (order.status === 'error') return shell(<Alert message={t('panel.order.error')} action={{ label: t('common.retry'), onClick: props.onRetry, focusKey: 'order-retry' }} />);
-  // Graphe d'une autre franchise (la page vient de changer) : chargement tant que le nouveau n'est pas publié
-  if (graph === null || !inFranchise(graph, props.currentId)) {
+  if (order.status === 'error') return shell(<Alert message={order.message ?? t('panel.order.error')} action={{ label: t('common.retry'), onClick: props.onRetry, focusKey: 'order-retry' }} />);
+  if (graph === null) {
     return shell(
       <div class="flex flex-col gap-2 motion-safe:animate-pulse" role="status" aria-busy="true" aria-label={t('panel.order.title')}>
         <span class="h-1.5 w-full rounded-pill bg-line" />

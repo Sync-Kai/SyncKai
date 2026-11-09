@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { setLocale } from '../i18n';
 import type { PageMediaInfo } from '../shared/page-media.types';
-import { PANEL_RELATION_TYPES } from '../shared/panel-media.types';
-import { airedLabel, episodeLine, isPartialEpisodePage, liveEventRead, pageKey, relationLabel } from './now-playing-view';
+import { airedLabel, episodeLine, isPartialEpisodePage, liveEventRead, pageKey } from './now-playing-view';
 import { pageMediaFromEpisode, pageMediaFromSeries } from '../shared/page-media';
 import type { EpisodeInfo } from '../shared/episode.types';
 
@@ -60,16 +59,6 @@ describe('fiche du panneau : lecture partielle et suivi en direct', () => {
   });
 });
 describe('onglet « En lecture »', () => {
-  it('libellé de chaque relation, dans chaque langue', () => {
-    setLocale('fr');
-    expect(PANEL_RELATION_TYPES.map(relationLabel)).toEqual(['Préquelle', 'Suite', 'Histoire principale', 'Histoire parallèle', 'Spin-off']);
-    setLocale('en');
-    expect(relationLabel('SEQUEL')).toBe('Sequel');
-    setLocale('de');
-    expect(relationLabel('PREQUEL')).toBe('Vorgeschichte');
-    setLocale('fr');
-  });
-
   it('saison de diffusion', () => {
     setLocale('fr');
     expect(airedLabel({ season: 'SPRING', seasonYear: 2023 })).toBe('Printemps 2023');

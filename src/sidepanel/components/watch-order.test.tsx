@@ -141,15 +141,20 @@ describe('Ordre de visionnage : en-tête replié', () => {
     expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
     const onRetry = vi.fn();
     await show({ status: 'error', message: 'Hors ligne' }, { open: true, onRetry });
-    expect(container.textContent).toContain(t('panel.order.error'));
+    expect(container.textContent).toContain('Hors ligne');
     await click('[data-focus="order-retry"]');
     expect(onRetry).toHaveBeenCalledOnce();
   });
 
-  it('graphe d’une autre franchise (page en chargement) : traité comme un chargement', async () => {
+  it('erreur sans message : texte générique', async () => {
+    await show({ status: 'error' }, { open: true });
+    expect(container.textContent).toContain(t('panel.order.error'));
+  });
+
+  it('graphe prêt sans la page courante : rien n’est dessiné (jamais de squelette éternel)', async () => {
     await show(ready(graphOf([node(1), node(2)]), statesOf({})), { currentId: 99, open: true });
-    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
-    expect(container.querySelector('ol')).toBeNull();
+    expect(container.textContent).toBe('');
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull();
   });
 
   it('l’en-tête appelle onToggle', async () => {

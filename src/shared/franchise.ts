@@ -176,6 +176,12 @@ export function mergeRound(graph: FranchiseGraph, page: readonly RawMedia[]): { 
   }
 
   const frontier = capped ? [] : main.filter((id) => !expanded.has(id));
+  // Parcours fini : un départ dérivé que son parent ne déclare pas (COMPILATION, OTHER, CONTAINS…) rejoint quand même les extras
+  // de son parent, hors plafond, pour que la page affichée soit toujours dans le graphe
+  const root = main[0];
+  if (frontier.length === 0 && root !== undefined && nodes[graph.startId] && !main.includes(graph.startId) && !extras.some((e) => e.id === graph.startId)) {
+    extras.push({ id: graph.startId, relation: 'SIDE_STORY', from: root });
+  }
   return { graph: { startId: graph.startId, nodes, main, extras, capped, expanded: [...expanded] }, frontier };
 }
 

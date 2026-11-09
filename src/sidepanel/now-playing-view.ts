@@ -1,21 +1,9 @@
 import { t, type MessageKey } from '../i18n';
 import { isPartialEpisodePage } from '../browser/storage/page-media-cache';
 import type { PageMediaInfo } from '../shared/page-media.types';
-import type { MediaSeason, PanelMedia, PanelRelationType } from '../shared/panel-media.types';
+import type { MediaSeason, PanelMedia } from '../shared/panel-media.types';
 
 // Onglet « En lecture » : fonctions pures (testables) dérivées de la page et de la fiche AniList.
-
-const RELATION_LABELS: Record<PanelRelationType, MessageKey> = {
-  PREQUEL: 'panel.nowPlaying.relation.PREQUEL',
-  SEQUEL: 'panel.nowPlaying.relation.SEQUEL',
-  PARENT: 'panel.nowPlaying.relation.PARENT',
-  SIDE_STORY: 'panel.nowPlaying.relation.SIDE_STORY',
-  SPIN_OFF: 'panel.nowPlaying.relation.SPIN_OFF',
-};
-
-export function relationLabel(type: PanelRelationType): string {
-  return t(RELATION_LABELS[type]);
-}
 
 const SEASON_LABELS: Record<MediaSeason, MessageKey> = {
   WINTER: 'panel.nowPlaying.season.WINTER',

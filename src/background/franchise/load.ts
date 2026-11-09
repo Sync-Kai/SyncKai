@@ -18,7 +18,7 @@ const FRANCHISE_QUERY = /* GraphQL */ `
     Page(perPage: 50) {
       media(id_in: $ids) {
         ${NODE}
-        relations { edges { relationType node { ${NODE} relations { edges { relationType node { id type } } } } } }
+        relations { edges { relationType node { ${NODE} } } }
       }
     }
   }
@@ -27,6 +27,13 @@ const FRANCHISE_QUERY = /* GraphQL */ `
 const isRawMedia = (value: unknown): value is RawMedia => isRecord(value) && typeof value.id === 'number' && typeof value.type === 'string';
 const isPageData = (data: unknown): data is { Page: { media: RawMedia[] } } =>
   isRecord(data) && isRecord(data.Page) && Array.isArray(data.Page.media) && data.Page.media.every(isRawMedia);
+
+/** Relations dont le nœud est exploitable : AniList permet `node: null`, qui ferait échouer le parcours */
+function withValidEdges(media: RawMedia): RawMedia {
+  const edges = media.relations?.edges;
+  if (!edges) return media;
+  return { ...media, relations: { edges: edges.filter((edge) => isRecord(edge) && isRawMedia(edge.node)) } };
+}
 
 /** Liens externes bruts de la page (entrées demandées et leurs relations directes) ; `mergeRound` ne les garde pas */
 function collectLinks(page: readonly RawMedia[], into: Map<number, unknown>): void {
@@ -56,9 +63,10 @@ async function walk(startId: number, read: Set<number>, maxRounds: number): Prom
     // Entrées sur le point d'être lues : une demande qui arrive pendant ce tour rejoint le parcours
     for (const id of frontier) read.add(id);
     const { Page } = await anilistPublicQuery(FRANCHISE_QUERY, isPageData, { ids: frontier }, 'background');
-    collectLinks(Page.media, links);
-    for (const media of Page.media) read.add(media.id);
-    ({ graph, frontier } = mergeRound(graph, Page.media));
+    const page = Page.media.map(withValidEdges);
+    collectLinks(page, links);
+    for (const media of page) read.add(media.id);
+    ({ graph, frontier } = mergeRound(graph, page));
   }
   const nodes = Object.fromEntries(Object.entries(graph.nodes).map(([id, node]) => [id, { ...node, platforms: buildPlatforms(links.get(node.id), []) }]));
   return { ...graph, nodes };

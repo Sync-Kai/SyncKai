@@ -29,13 +29,13 @@ Anti-goals:
 
 - AniList terms and MAL agreement (`docs/memory/auth-and-api-terms.md`): AniList is the catalogue source; MAL is only read for the user's own list.
 - Requests on the `'background'` lane; one franchise load in flight per franchise; cache in `chrome.storage.session` (cleared when the browser closes), like `PanelMedia` (`browser/storage/session-cache.ts`).
-- Measured on the real API (2026-11-09): nested `relations` beyond two levels returns nothing more (Attack on Titan, Bakemonogatari and Gundam 0079 reached the same entries at depth 2 and 3); Gundam 0079 reaches 55 PREQUEL / SEQUEL entries.
+- Measured on the real API (2026-11-09): the nested `relations` of a related node comes back with `edges: []` in all four captures, so each request advances one hop only. Sequential background requests on a first open: Attack on Titan 8, Monogatari 9, Gundam 9, Mushoku Tensei 6, then 24 h of cache (the « 6 to 9 requests per franchise, dedicated background request, 24 h cache » the owner accepted on the mockup page). Gundam 0079 reaches 55 PREQUEL / SEQUEL entries.
 - Panel: Preact, charter `docs/design/README.md`, 320–360 px wide; every string in 21 languages with its context note.
 - No new `addListener` in `background/`; account-bound data rules for anything stored per account (the franchise cache holds catalogue data only, no list state).
 
 ## 4. Approaches considered
 
-1. **Dedicated franchise query, two relation levels per request, rounds until the chain closes** (chosen). Each round asks `Page(id_in: frontier)` with relations nested twice; ids not yet read become the next frontier. A few requests per franchise, cached 24 h under every entry id of the franchise.
+1. **Dedicated franchise query, one relation hop per request, rounds until the chain closes** (chosen). Each round asks `Page(id_in: frontier)` with the relations of each entry; ids not yet read become the next frontier. 6 to 9 background requests per franchise on a first open (measured, §3), cached 24 h under every entry id of the franchise.
 2. Reuse the relations already loaded by the panel (`PanelMedia`): one level only, no dates, no list states: no timeline and no « Ensuite » possible. Rejected.
 3. Walk one entry at a time with the existing by-id reads: 6 to 9 requests per franchise, exhausts the rate limit. Rejected.
 
@@ -43,7 +43,7 @@ Anti-goals:
 
 ### 5.1 Franchise graph (service worker, `background/franchise/`)
 
-- **Query**: `Page(perPage: 50) { media(id_in: $ids) { <node fields> relations { edges { relationType node { <node fields> relations { edges { relationType node { id type } } } } } } } }` with node fields `id idMal type format status episodes duration title { userPreferred } coverImage { medium } siteUrl startDate { year month day } season seasonYear externalLinks { url }` (the last for « Regarder », like `PanelMedia`). The innermost level only needs ids and types to discover the next frontier. Exact field set and batch size: builder's call after checking the complexity on the real API (§7).
+- **Query**: `Page(perPage: 50) { media(id_in: $ids) { <node fields> relations { edges { relationType node { <node fields> } } } } }` with node fields `id idMal type format status episodes duration title { userPreferred } coverImage { medium } siteUrl startDate { year month day } season seasonYear externalLinks { url }` (the last for « Regarder », like `PanelMedia`). No inner `relations` level: AniList returns it empty, so it would only add cost. Edges whose `node` is null are dropped. Exact field set and batch size: builder's call after checking the complexity on the real API (§7).
 - **Walk**: start from the panel's current entry. Main chain = entries connected by PREQUEL / SEQUEL, any format (the data needs it: the OVA *No Regrets* is PREQUEL of AoT S1, AoT *Final Chapters* are SPECIAL, *Zoku Owarimonogatari* is an OVA), ANIME type only, MUSIC excluded. Rounds continue while the frontier has unread main-chain ids, at most 50 main entries and 8 rounds; a cap reached → the section says the franchise is too long to show fully (shows what was read).
 - **« Tout »** adds, one hop from any main entry: SIDE_STORY, SPIN_OFF, ALTERNATIVE, SUMMARY, PARENT. Never OTHER, CHARACTER, SOURCE, ADAPTATION, COMPILATION, CONTAINS, MUSIC; entries of 5 minutes or less per episode excluded (PVs). At most 40 extra entries.
 - **Several chains** (Gundam): only the connected component that contains the current entry.
