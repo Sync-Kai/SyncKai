@@ -158,6 +158,19 @@ describe('checkSequels', () => {
     expect(fakes.relationCalls).toBe(1);
   });
 
+  it('passe forcée 10 s après une erreur ou un blocage enregistrés : vraie passe, pas de résultat réutilisé', async () => {
+    await seed();
+    for (const stored of [
+      { checkedAt: NOW, found: 0, notified: 0, skipped: null, error: 'RATE_LIMITED' },
+      { checkedAt: NOW, found: 1, notified: 0, skipped: 'blocked', error: null },
+    ]) {
+      await chrome.storage.local.set({ [STORAGE_KEYS.sequelsLastResult]: stored });
+      fakes.relationCalls = 0;
+      await checkSequels(NOW + 10_000, true);
+      expect(fakes.relationCalls).toBe(1);
+    }
+  });
+
   it('sequelAlerts coupé : disabled sans requête', async () => {
     fake.reset({ ...SEED, settings: { sequelAlerts: false } });
     expect(await checkSequels(NOW)).toMatchObject({ skipped: 'disabled' });

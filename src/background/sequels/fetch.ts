@@ -1,5 +1,5 @@
 import { isRecord } from '../../shared/guards';
-import { toSafeImageUrl } from '../../shared/url';
+import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { getExcludedSeries, isEntryExcluded } from '../../shared/exclusions';
 import type { SourceSeries, InLists, RelationEdge } from '../../shared/sequels';
 import type { TrackerId } from '../../shared/tracker.types';
@@ -45,8 +45,9 @@ function parseEdge(raw: unknown): RelationEdge | null {
   const id = num(node.id);
   const relationType = str(raw.relationType);
   const title = isRecord(node.title) ? str(node.title.userPreferred) : null;
-  const siteUrl = str(node.siteUrl);
-  if (id === null || relationType === null || title === null || siteUrl === null) return null;
+  if (id === null || relationType === null || title === null) return null;
+  // URL de fiche validée ici (elle finit dans un href et un onglet) : invalide ou absente → fiche AniList par id
+  const siteUrl = toSafeUrl(str(node.siteUrl), 'anilist.co') ?? `https://anilist.co/anime/${id}`;
   const date = isRecord(node.startDate) ? node.startDate : {};
   return {
     relationType,

@@ -112,9 +112,9 @@ async function readLastResult(): Promise<SequelCheckResult | null> {
 
 async function pass(now: number, force: boolean): Promise<SequelCheckResult> {
   if (force) {
-    // Passe forcée récente d'une vraie vérification : son résumé, sans requête (« désactivé » / « non connecté » se relisent aussitôt)
+    // Passe forcée récente d'une vraie vérification réussie : son résumé, sans requête (erreur, blocage, désactivé et non connecté se relisent aussitôt)
     const last = await readLastResult();
-    if (last !== null && last.skipped !== 'disabled' && last.skipped !== 'not-connected' && now - last.checkedAt >= 0 && now - last.checkedAt < SEQUEL_FORCE_COOLDOWN_MS) return last;
+    if (last !== null && last.error === null && last.skipped !== 'disabled' && last.skipped !== 'not-connected' && last.skipped !== 'blocked' && now - last.checkedAt >= 0 && now - last.checkedAt < SEQUEL_FORCE_COOLDOWN_MS) return last;
   }
   // Sessions relevées avant toute requête : le store et le résumé sont des données du compte, jamais recréées après une déconnexion
   const epochs = await getOpenSessions();

@@ -228,6 +228,14 @@ describe('isSequelStore', () => {
     expect(isSequelStore(null)).toBe(false);
   });
 
+  it('rejette un siteUrl qui n’est pas une URL https://anilist.co', () => {
+    for (const bad of ['javascript:alert(1)', 'https://evil.example/x', 'http://anilist.co/anime/1', '']) {
+      const tampered = valid() as { records: { snapshot: { siteUrl: string } }[] };
+      tampered.records[0].snapshot.siteUrl = bad;
+      expect(isSequelStore(tampered)).toBe(false);
+    }
+  });
+
   it('rejette NaN et Infinity dans les ids, sourceId, firstSeenAt et known', () => {
     for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
       const id = valid() as { records: { snapshot: { id: number } }[] };

@@ -1,4 +1,5 @@
 import { isRecord } from './guards';
+import { toSafeUrl } from './url';
 import type { TrackerId } from './tracker.types';
 
 /** Suites d'animes pas encore dans les listes : règles pures (candidates, état, plafonds). */
@@ -149,6 +150,7 @@ function isSnapshot(value: unknown): value is SequelSnapshot {
     isStatus(value['status']) &&
     isNullableString(value['coverUrl']) &&
     typeof value['siteUrl'] === 'string' &&
+    toSafeUrl(value['siteUrl'], 'anilist.co') !== null &&
     isNullableNumber(value['year']) &&
     isNullableNumber(value['month']) &&
     isNullableNumber(value['day']) &&

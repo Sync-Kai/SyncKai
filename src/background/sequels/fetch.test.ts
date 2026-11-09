@@ -9,6 +9,7 @@ const fakes = vi.hoisted(() => ({
   calls: [] as { query: string; ids: number[]; lane: string | undefined }[],
   catalog: new Map<number, number>(),
   edges: new Map<number, { id: number; idMal: number | null }[]>(),
+  siteUrls: new Map<number, unknown>(),
   anilist: [] as unknown[],
   mal: [] as unknown[],
 }));
@@ -22,7 +23,7 @@ vi.mock('../anilist/client', () => ({
         media: variables.ids.map((id) => ({
           id,
           title: { userPreferred: `Série ${id}` },
-          relations: { edges: (fakes.edges.get(id) ?? []).map((node) => ({ relationType: 'SEQUEL', node: { ...node, type: 'ANIME', format: 'TV', status: 'NOT_YET_RELEASED', title: { userPreferred: `Suite ${node.id}` }, coverImage: null, siteUrl: `https://anilist.co/anime/${node.id}`, startDate: { year: 2027, month: null, day: null }, season: null, seasonYear: null } })) },
+          relations: { edges: (fakes.edges.get(id) ?? []).map((node) => ({ relationType: 'SEQUEL', node: { ...node, type: 'ANIME', format: 'TV', status: 'NOT_YET_RELEASED', title: { userPreferred: `Suite ${node.id}` }, coverImage: null, siteUrl: fakes.siteUrls.has(node.id) ? fakes.siteUrls.get(node.id) : `https://anilist.co/anime/${node.id}`, startDate: { year: 2027, month: null, day: null }, season: null, seasonYear: null } })) },
         })),
       },
     };
@@ -41,6 +42,7 @@ beforeEach(() => {
   fakes.calls.length = 0;
   fakes.catalog.clear();
   fakes.edges.clear();
+  fakes.siteUrls.clear();
   fakes.anilist = [];
   fakes.mal = [];
 });
@@ -51,6 +53,19 @@ describe('fetchSequelRelations', () => {
     expect(fakes.calls.map((call) => call.ids.length)).toEqual([50, 50, 20]);
     expect(fakes.calls.every((call) => call.lane === 'background')).toBe(true);
     expect(result.size).toBe(120);
+  });
+});
+
+describe('fetchSequelRelations › siteUrl', () => {
+  it('URL javascript:, hôte étranger ou absente : repli sur la fiche AniList par id', async () => {
+    fakes.edges.set(1, [{ id: 20, idMal: null }, { id: 21, idMal: null }, { id: 22, idMal: null }, { id: 23, idMal: null }]);
+    fakes.siteUrls.set(20, 'javascript:alert(1)');
+    fakes.siteUrls.set(21, 'https://evil.example/x');
+    fakes.siteUrls.set(22, null);
+    const edges = (await fetchSequelRelations([1])).get(1)?.edges ?? [];
+    expect(edges.map((edge) => edge.node.siteUrl)).toEqual([
+      'https://anilist.co/anime/20', 'https://anilist.co/anime/21', 'https://anilist.co/anime/22', 'https://anilist.co/anime/23',
+    ]);
   });
 });
 
