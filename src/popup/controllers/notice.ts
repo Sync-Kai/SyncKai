@@ -20,29 +20,64 @@ export interface NoticeBanner {
   hide(): void;
   /** Retire « Annuler » du bandeau affiché (texte et délai inchangés) : ce qu'il rétablirait ne vaut plus */
   dropUndo(): void;
+  /**
+   * Pointeur ou focus dans le bandeau : délai suspendu (« Annuler » ne disparaît pas sous le doigt), le temps restant
+   * reprend à la sortie (comme les toasts de la page, content/ui/toast.ts › createToastTimer)
+   */
+  hold(reason: NoticeHold, held: boolean): void;
   dispose(): void;
 }
+
+export type NoticeHold = 'pointer' | 'focus';
 
 /** Bandeau unique de l'écran, partagé par la liste et le groupe « En sommeil » (une seule minuterie) */
 export function createNoticeBanner(onShown: () => void): NoticeBanner {
   const store = createStore<WatchingNotice | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const hide = (): void => {
-    clearTimeout(timer);
-    store.set(null);
+  /** Délai restant du bandeau affiché (undefined : aucun bandeau) ; décompté seulement hors pause */
+  let remaining: number | undefined;
+  let startedAt = 0;
+  let running = false;
+  const holds = new Set<NoticeHold>();
+  const sync = (): void => {
+    const run = remaining !== undefined && holds.size === 0;
+    if (run === running) return;
+    running = run;
+    if (run) {
+      startedAt = Date.now();
+      timer = setTimeout(hide, remaining);
+    } else {
+      clearTimeout(timer);
+      if (remaining !== undefined) remaining = Math.max(0, remaining - (Date.now() - startedAt));
+    }
   };
+  function hide(): void {
+    clearTimeout(timer);
+    running = false;
+    remaining = undefined;
+    // Bandeau retiré du DOM : ni pointerleave ni focusout ne viendront
+    holds.clear();
+    store.set(null);
+  }
   return {
     store,
     show(feedback, { retry = null, undo = null } = {}) {
       clearTimeout(timer);
+      running = false;
       store.set({ feedback, retry, undo });
       onShown();
-      timer = setTimeout(hide, feedback.tone === 'success' && undo === null ? NOTICE_MS : NOTICE_MS * 2);
+      remaining = feedback.tone === 'success' && undo === null ? NOTICE_MS : NOTICE_MS * 2;
+      sync();
     },
     hide,
     dropUndo() {
       const shown = store.get();
       if (shown?.undo) store.set({ ...shown, undo: null });
+    },
+    hold(reason, held) {
+      if (held) holds.add(reason);
+      else holds.delete(reason);
+      sync();
     },
     dispose() {
       clearTimeout(timer);

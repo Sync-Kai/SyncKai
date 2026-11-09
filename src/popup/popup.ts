@@ -564,6 +564,7 @@ mountPopupApp(getRoot(), {
     sort: watching.prefs,
     actions: watching.entryActions,
     notice: watching.notice,
+    onNoticeHold: watching.banner.hold,
     notes: watching.notes,
     exclusions: exclusionsStore,
     pageCard: pageCardStore,

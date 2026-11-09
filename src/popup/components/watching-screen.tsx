@@ -39,6 +39,7 @@ import type { Tone } from '../../ui/components/tone';
 import { useLocale, useStore } from '../../ui/preact/hooks';
 import { SeriesMenu } from '../../ui/series-menu';
 import type { NotesSession, WatchingNotice } from '../controllers/watching';
+import type { NoticeHold } from '../controllers/notice';
 import type { EntryAction, PageCardState, WatchingState } from '../state';
 import { flushAfterRender } from '../after-render';
 import { isPageSeriesExcluded } from '../../ui/page-exclusion';
@@ -63,6 +64,8 @@ export interface WatchingScreenProps {
   sort: ReadonlyStore<{ sort: WatchingSort }>;
   actions: ReadonlyStore<ReadonlyMap<string, EntryAction>>;
   notice: ReadonlyStore<WatchingNotice | null>;
+  /** Pointeur ou focus dans le bandeau : son délai attend la sortie (controllers/notice.ts › hold) */
+  onNoticeHold: (reason: NoticeHold, held: boolean) => void;
   /** Éditeur de commentaire ouvert (une série à la fois) */
   notes: ReadonlyStore<NotesSession | null>;
   exclusions: ReadonlyStore<ExclusionsState>;
@@ -319,11 +322,23 @@ function EmptyWatching({ context, onOpenSettings }: { context: WatchingContext; 
  * Bandeau en haut de l'écran : changement de statut, retrait, +1 / −1 en échec partiel (« Réessayer » nommant les services),
  * action sur les séries en sommeil (« Annuler », « Réessayer »)
  */
-function WatchingNoticeBanner({ notice }: { notice: WatchingNotice }) {
+export function WatchingNoticeBanner({ notice, onHold }: { notice: WatchingNotice; onHold: (reason: NoticeHold, held: boolean) => void }) {
   const { feedback, retry } = notice;
   const services = feedback.retry ? formatList(feedback.retry.services.map((service) => TRACKER_LABELS[service])) : null;
   return (
-    <p class={`m-0 flex shrink-0 items-center gap-2 rounded-panel border px-3 py-2 text-secondary font-bold ${TONE_CHIP[feedback.tone]}`} role="status" title={feedback.detail} data-watching-notice="">
+    <p
+      class={`m-0 flex shrink-0 items-center gap-2 rounded-panel border px-3 py-2 text-secondary font-bold ${TONE_CHIP[feedback.tone]}`}
+      role="status"
+      title={feedback.detail}
+      data-watching-notice=""
+      onPointerEnter={() => onHold('pointer', true)}
+      onPointerLeave={() => onHold('pointer', false)}
+      onFocusIn={() => onHold('focus', true)}
+      // Focus passé d'« Annuler » à « Réessayer » : toujours dans le bandeau
+      onFocusOut={(event) => {
+        if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) onHold('focus', false);
+      }}
+    >
       <span class="flex shrink-0">
         <Icon name={feedback.tone === 'success' ? 'check' : 'alert'} class="size-3.5" strokeWidth={feedback.tone === 'success' ? '3' : '2.2'} />
       </span>
@@ -476,7 +491,7 @@ export function WatchingScreen(props: WatchingScreenProps) {
 
   const { list } = state;
   const errorAlert = state.error && <Alert message={state.error} action={{ label: t('common.retry'), onClick: props.onRetry }} />;
-  const banner = notice && <WatchingNoticeBanner notice={notice} />;
+  const banner = notice && <WatchingNoticeBanner notice={notice} onHold={props.onNoticeHold} />;
 
   if (list.entries.length === 0) {
     return (
