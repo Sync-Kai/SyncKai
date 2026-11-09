@@ -86,31 +86,44 @@ export interface DormantController {
 
 const DONE_ONE = { PAUSED: 'watching.dormant.paused', DROPPED: 'watching.dormant.dropped' } as const;
 
-/** Services d'un résultat selon leur issue ; un refus global (hors « synced ») compte comme un échec de la série */
-function splitResult({ item, outcome }: DormantResult): { written: TrackerId[]; failed: TrackerId[] | null; message: string | null } {
-  if (outcome.status !== 'synced') return { written: [], failed: item.services ?? [], message: outcome.status === 'error' ? outcome.message : null };
+/**
+ * Services d'un résultat selon leur issue ; un refus global (hors « synced ») compte comme un échec de la série entière
+ * (`whole` : aucun service à nommer, le bandeau compte alors les séries en échec)
+ */
+function splitResult({ item, outcome }: DormantResult): { written: TrackerId[]; failed: TrackerId[] | null; message: string | null; whole: boolean } {
+  if (outcome.status !== 'synced') return { written: [], failed: item.services ?? [], message: outcome.status === 'error' ? outcome.message : null, whole: true };
   const written = outcome.results.filter((r) => r.outcome.status === 'updated').map((r) => r.service);
   const errors = outcome.results.filter((r) => r.outcome.status === 'error');
   const message = errors.flatMap((r) => (r.outcome.status === 'error' ? [t('common.serviceMessage', { service: TRACKER_LABELS[r.service], message: r.outcome.message })] : [])).join('\n');
-  return { written, failed: errors.length > 0 ? errors.map((r) => r.service) : null, message: message || null };
+  return { written, failed: errors.length > 0 ? errors.map((r) => r.service) : null, message: message || null, whole: false };
+}
+
+/** Limite de débit atteinte (refus global ou d'un service) : la suite du lot attend « Réessayer » */
+function rateLimited(outcome: SyncOutcome): boolean {
+  if (outcome.status === 'error') return outcome.code === 'RATE_LIMITED';
+  return outcome.status === 'synced' && outcome.results.some((r) => r.outcome.status === 'error' && r.outcome.code === 'RATE_LIMITED');
 }
 
 /**
  * Bandeau d'un lot d'écritures (une série ou « Tout mettre en pause ») ; `undo` : texte de « remise en cours ». Une série
  * absente d'une liste ou déjà sortie de « en cours » ailleurs est inchangée (R8) : jamais un avertissement ; seul un échec
- * réel en est un (partiel) ou une erreur (rien d'écrit).
+ * réel en est un (partiel) ou une erreur (rien d'écrit). `notDone` : séries d'un lot interrompu, jamais envoyées (limite
+ * de débit, compte changé), comptées en échec comme une série refusée en entier.
  */
-export function dormantFeedback(results: readonly DormantResult[], undo = false): { feedback: InlineFeedback; written: DormantWrite[]; failed: DormantItem[] } {
+export function dormantFeedback(results: readonly DormantResult[], undo = false, notDone: readonly DormantItem[] = []): { feedback: InlineFeedback; written: DormantWrite[]; failed: DormantItem[] } {
   const written: DormantWrite[] = [];
   const failed: DormantItem[] = [];
   const details: string[] = [];
+  let whole = notDone.length;
   for (const result of results) {
-    const { written: services, failed: failing, message } = splitResult(result);
+    const { written: services, failed: failing, message, whole: wholeFailure } = splitResult(result);
     const { entry, status } = result.item;
     if (services.length > 0) written.push({ entry, status, services });
     if (failing !== null) failed.push(failing.length > 0 ? { entry, status, services: failing } : { entry, status });
-    if (message !== null) details.push(results.length > 1 ? `${entry.title} · ${message}` : message);
+    if (wholeFailure) whole += 1;
+    if (message !== null) details.push(results.length + notDone.length > 1 ? `${entry.title} · ${message}` : message);
   }
+  failed.push(...notDone);
   const single = written.length === 1 ? written[0] : undefined;
   const done =
     written.length === 0
@@ -126,6 +139,8 @@ export function dormantFeedback(results: readonly DormantResult[], undo = false)
   const detail = details.join('\n');
   let feedback: InlineFeedback;
   if (done === null) feedback = failed.length > 0 ? { tone: 'error', text: t('inline.updateFailed'), detail } : { tone: 'info', text: t('inline.nothingChanged'), detail: t('inline.nothingChanged') };
+  // Série refusée en entier ou jamais envoyée : le nombre de séries en échec, jamais le seul « N séries mises en pause »
+  else if (whole > 0) feedback = { tone: 'warning', text: tp('watching.dormant.partial', failed.length, { text: done }), detail };
   else if (failed.length > 0) feedback = { tone: 'warning', text: failedServices.length > 0 ? t('inline.partial', { text: done, services: formatList(failedServices) }) : done, detail };
   else feedback = { tone: 'success', text: done, detail: done };
   return { feedback, written, failed };
@@ -155,6 +170,8 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
   let undoNotice: WatchingNotice | null = null;
   let undoService: TrackerId | null = null;
   let disposed = false;
+  /** Lecture des marques après une attente (sans le rétrécissement de type d'avant l'`await`) */
+  const currentMarks = (): typeof marks => marks;
 
   function recompute(): void {
     const shown = watching.store.get();
@@ -202,18 +219,36 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
     return result?.status === 'updated' || result?.status === 'up-to-date' || (result?.status === 'skipped' && result.code === 'not-in-list');
   }
 
-  /** Une écriture par série, à la suite (jamais en parallèle : verrou des entrées et limite de débit du service worker) */
-  async function writeAll(items: readonly DormantItem[], status: (item: DormantItem) => 'CURRENT' | DormantStatus, onlyFrom: (item: DormantItem) => 'CURRENT' | DormantStatus): Promise<DormantResult[]> {
+  /** État de session d'un compte (connecté, déconnecté, expiré), sans le profil qui se recharge seul */
+  const sessionOf = (service: TrackerId): string => {
+    const account = deps.accounts.store(service).get();
+    return account.status === 'logged-out' ? `logged-out:${account.expired}` : account.status;
+  };
+  const sessionsKey = (): string => TRACKER_IDS.map(sessionOf).join('|');
+
+  /**
+   * Une écriture par série, à la suite (jamais en parallèle : verrou des entrées et limite de débit du service worker).
+   * Arrêt à la première limite de débit (`rest` : séries non envoyées, reprises par « Réessayer ») et dès qu'un compte
+   * change entre deux séries (`sessionChanged` : la suite écrirait sur une autre session, comme « Annuler », retiré)
+   */
+  async function writeAll(
+    items: readonly DormantItem[],
+    status: (item: DormantItem) => 'CURRENT' | DormantStatus,
+    onlyFrom: (item: DormantItem) => 'CURRENT' | DormantStatus,
+  ): Promise<{ results: DormantResult[]; rest: DormantItem[]; sessionChanged: boolean }> {
     const results: DormantResult[] = [];
-    for (const item of items) {
+    const sessions = sessionsKey();
+    for (const [index, item] of items.entries()) {
+      if (sessionsKey() !== sessions) return { results, rest: items.slice(index), sessionChanged: true };
       const { entry } = item;
       patch({ busy: withMember(store.get().busy, entryKey(entry), true) });
       const payload = { mediaId: entry.mediaId, malId: entry.malId, status: status(item), onlyFrom: onlyFrom(item), ...(item.services ? { services: item.services } : {}), coverUrl: toSafeImageUrl(entry.coverUrl) };
       const outcome = await callWorker('SET_LIST_STATUS', payload, outcomeFailure);
       patch({ busy: withMember(store.get().busy, entryKey(entry), false) });
       results.push({ item, outcome });
+      if (rateLimited(outcome)) return { results, rest: items.slice(index + 1), sessionChanged: sessionsKey() !== sessions };
     }
-    return results;
+    return { results, rest: [], sessionChanged: sessionsKey() !== sessions };
   }
 
   /** Banderole avec « Annuler » (écritures de ce lot et des lots qu'il réessaie) et « Réessayer » (séries en échec) */
@@ -235,22 +270,18 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
     watching.banner.dropUndo();
   }
 
-  /** État de session d'un compte (connecté, déconnecté, expiré), sans le profil qui se recharge seul */
-  const sessionOf = (service: TrackerId): string => {
-    const account = deps.accounts.store(service).get();
-    return account.status === 'logged-out' ? `logged-out:${account.expired}` : account.status;
-  }
-
   /** Pause / abandon d'une ou plusieurs séries ; `previous` : écritures d'un essai précédent (« Réessayer ») */
   async function run(items: readonly DormantItem[], previous: readonly DormantWrite[] = []): Promise<void> {
     const pending = items.filter((item) => !store.get().busy.has(entryKey(item.entry)));
     if (pending.length === 0) return;
     if (items.length > 1) patch({ bulk: true });
-    const results = await writeAll(pending, (item) => item.status, () => 'CURRENT');
+    const { results, rest, sessionChanged } = await writeAll(pending, (item) => item.status, () => 'CURRENT');
     patch({ bulk: false });
     patchList(new Set(results.filter((r) => leftShownList(r.outcome)).map((r) => entryKey(r.item.entry))));
-    const { feedback, written, failed } = dormantFeedback(results);
-    showResult(feedback, mergeWrites(previous, written), failed);
+    const { feedback, written, failed } = dormantFeedback(results, false, rest);
+    // Compte changé pendant le lot : ni « Annuler » ni « Réessayer » (ils écriraient sur l'autre session)
+    if (sessionChanged) showResult(feedback, [], []);
+    else showResult(feedback, mergeWrites(previous, written), failed);
     watching.scheduleRevalidation();
   }
 
@@ -301,8 +332,10 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
         await storeKeepMark(shown.service, key, at);
       } catch (error: unknown) {
         log.error('Série non gardée :', error);
-        if (marks.service === shown.service) {
-          const rest = { ...marks.marks };
+        // Relues pendant l'écriture (service affiché changé) : `syncMarks` a pu les remettre à null
+        const latest = currentMarks();
+        if (latest?.service === shown.service) {
+          const rest = { ...latest.marks };
           if (previous) rest[key] = previous;
           else delete rest[key];
           marks = { service: shown.service, marks: rest };
@@ -318,7 +351,7 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
       undoable = [];
       watching.banner.hide();
       patch({ bulk: true });
-      const results = await writeAll(
+      const { results, rest, sessionChanged } = await writeAll(
         writes.map(({ entry, status, services }) => ({ entry, status, services })),
         () => 'CURRENT',
         (item) => item.status,
@@ -328,8 +361,8 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
       const shown = watching.store.get();
       const restored = results.filter(({ outcome }) => outcome.status === 'synced' && shown.status === 'ready' && outcome.results.some((r) => r.service === shown.service && r.outcome.status === 'updated'));
       patchList(new Set(), restored.map(({ item }) => ({ ...item.entry, listStatus: 'CURRENT', updatedAt: now() })));
-      const { feedback, failed } = dormantFeedback(results, true);
-      watching.banner.show(feedback, { retry: failed.length > 0 ? () => void retryUndo(failed) : null });
+      const { feedback, failed } = dormantFeedback(results, true, rest);
+      watching.banner.show(feedback, { retry: failed.length > 0 && !sessionChanged ? () => void retryUndo(failed) : null });
       watching.scheduleRevalidation();
       return restored.map(({ item }) => entryKey(item.entry));
     },

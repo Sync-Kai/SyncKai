@@ -910,6 +910,7 @@
   "watching.dormant.dropped": "{title}：已棄番",
   "watching.dormant.keep": "保留",
   "watching.dormant.keepAria": "保留在「我的動畫」：{title}",
+  "watching.dormant.partial_other": "{text} · {count} 部動畫失敗",
   "watching.dormant.pause": "擱置",
   "watching.dormant.pauseAll": "全部擱置",
   "watching.dormant.pauseAllConfirm_other": "要擱置 {count} 部動畫嗎？",

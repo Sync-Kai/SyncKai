@@ -910,6 +910,7 @@
   "watching.dormant.dropped": "{title}: 하차",
   "watching.dormant.keep": "유지",
   "watching.dormant.keepAria": "내 작품에 유지: {title}",
+  "watching.dormant.partial_other": "{text} · 작품 {count}개 실패",
   "watching.dormant.pause": "보류",
   "watching.dormant.pauseAll": "모두 보류",
   "watching.dormant.pauseAllConfirm_other": "작품 {count}개를 보류할까요?",

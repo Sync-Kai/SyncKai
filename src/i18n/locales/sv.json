@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title}: avbruten",
   "watching.dormant.keep": "Behåll",
   "watching.dormant.keepAria": "Behåll i Mina serier: {title}",
+  "watching.dormant.partial_one": "{text} · {count} misslyckades",
+  "watching.dormant.partial_other": "{text} · {count} misslyckades",
   "watching.dormant.pause": "Pausa",
   "watching.dormant.pauseAll": "Pausa alla",
   "watching.dormant.pauseAllConfirm_one": "Pausa {count} serie?",

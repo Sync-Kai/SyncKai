@@ -910,6 +910,7 @@
   "watching.dormant.dropped": "{title}: đã bỏ dở",
   "watching.dormant.keep": "Giữ lại",
   "watching.dormant.keepAria": "Giữ trong Bộ của tôi: {title}",
+  "watching.dormant.partial_other": "{text} · {count} bộ thất bại",
   "watching.dormant.pause": "Tạm dừng",
   "watching.dormant.pauseAll": "Tạm dừng tất cả",
   "watching.dormant.pauseAllConfirm_other": "Tạm dừng {count} bộ?",

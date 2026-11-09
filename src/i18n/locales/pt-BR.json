@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title}: abandonado",
   "watching.dormant.keep": "Manter",
   "watching.dormant.keepAria": "Manter em Meus animes: {title}",
+  "watching.dormant.partial_one": "{text} · {count} anime com falha",
+  "watching.dormant.partial_other": "{text} · {count} animes com falha",
   "watching.dormant.pause": "Pausar",
   "watching.dormant.pauseAll": "Pausar todos",
   "watching.dormant.pauseAllConfirm_one": "Pausar {count} anime?",

@@ -707,3 +707,14 @@ The « Details » button of the popup › On this page card now also names the f
 | Key | Text |
 |---|---|
 | `page.details` | Докладніше: сезон, оцінка, коментар, друзі |
+
+## 2026-11-09 · Dormant series: failed series counted
+
+New suffix of the result banner after « Put all on hold » / « Undo » when a series failed as a whole or was not sent (rate limit reached, account changed): « {text} · N failed », instead of showing only the done part in a warning tone. **аніме** (indeclinable, term sheet) + *з помилкою*, the same in every form; ` · ` separator as in `inline.partial`; neutral wording, the same text follows a pause and an undo. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.partial_one` | {text} · {count} аніме з помилкою |
+| `watching.dormant.partial_few` | {text} · {count} аніме з помилкою |
+| `watching.dormant.partial_many` | {text} · {count} аніме з помилкою |
+| `watching.dormant.partial_other` | {text} · {count} аніме з помилкою |

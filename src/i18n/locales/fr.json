@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title} abandonnée",
   "watching.dormant.keep": "Garder",
   "watching.dormant.keepAria": "Garder dans Mes séries : {title}",
+  "watching.dormant.partial_one": "{text} · {count} en échec",
+  "watching.dormant.partial_other": "{text} · {count} en échec",
   "watching.dormant.pause": "Pause",
   "watching.dormant.pauseAll": "Tout mettre en pause",
   "watching.dormant.pauseAllConfirm_one": "Mettre {count} série en pause ?",

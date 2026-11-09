@@ -663,3 +663,11 @@ The « Details » button of the popup › On this page card now also names the f
 | Key | Text |
 |---|---|
 | `page.details` | 詳細：シーズン・評価・メモ・フレンド |
+
+## 2026-11-09 · Dormant series: failed series counted
+
+New suffix of the result banner after « Put all on hold » / « Undo » when a series failed as a whole or was not sent (rate limit reached, account changed): « {text} · N failed », instead of showing only the done part in a warning tone. counter **作品** (term sheet) + *で失敗*, as in `inline.partial`; ` · ` separator as in `inline.partial`; neutral wording, the same text follows a pause and an undo. Not yet reviewed by a native speaker.
+
+| Key | Text |
+|---|---|
+| `watching.dormant.partial_other` | {text} · {count}作品で失敗 |

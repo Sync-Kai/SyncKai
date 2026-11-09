@@ -910,6 +910,7 @@
   "watching.dormant.dropped": "《{title}》：已抛弃",
   "watching.dormant.keep": "保留",
   "watching.dormant.keepAria": "将《{title}》保留在“我的番剧”",
+  "watching.dormant.partial_other": "{text} · {count} 部番剧失败",
   "watching.dormant.pause": "搁置",
   "watching.dormant.pauseAll": "全部搁置",
   "watching.dormant.pauseAllConfirm_other": "将 {count} 部番剧标为搁置？",

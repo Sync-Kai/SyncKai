@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title}: afgehaakt",
   "watching.dormant.keep": "Houden",
   "watching.dormant.keepAria": "In Mijn series houden: {title}",
+  "watching.dormant.partial_one": "{text} · {count} mislukt",
+  "watching.dormant.partial_other": "{text} · {count} mislukt",
   "watching.dormant.pause": "Pauzeren",
   "watching.dormant.pauseAll": "Alles pauzeren",
   "watching.dormant.pauseAllConfirm_one": "{count} serie pauzeren?",

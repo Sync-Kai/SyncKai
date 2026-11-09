@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title}: abandonada",
   "watching.dormant.keep": "Mantener",
   "watching.dormant.keepAria": "Mantener en Mis series: {title}",
+  "watching.dormant.partial_one": "{text} · {count} con error",
+  "watching.dormant.partial_other": "{text} · {count} con error",
   "watching.dormant.pause": "Pausar",
   "watching.dormant.pauseAll": "Pausar todas",
   "watching.dormant.pauseAllConfirm_one": "¿Pausar {count} serie?",

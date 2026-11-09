@@ -910,6 +910,7 @@
   "watching.dormant.dropped": "{title}: di-drop",
   "watching.dormant.keep": "Biarkan",
   "watching.dormant.keepAria": "Biarkan di Anime saya: {title}",
+  "watching.dormant.partial_other": "{text} · {count} anime gagal",
   "watching.dormant.pause": "Tunda",
   "watching.dormant.pauseAll": "Tunda semua",
   "watching.dormant.pauseAllConfirm_other": "Tunda {count} anime?",

@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title}: bırakıldı",
   "watching.dormant.keep": "Tut",
   "watching.dormant.keepAria": "Serilerim’de tut: {title}",
+  "watching.dormant.partial_one": "{text} · {count} seri başarısız",
+  "watching.dormant.partial_other": "{text} · {count} seri başarısız",
   "watching.dormant.pause": "Beklet",
   "watching.dormant.pauseAll": "Tümünü beklet",
   "watching.dormant.pauseAllConfirm_one": "{count} seri beklemeye alınsın mı?",

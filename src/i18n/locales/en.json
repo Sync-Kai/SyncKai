@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title} dropped",
   "watching.dormant.keep": "Keep",
   "watching.dormant.keepAria": "Keep in My series: {title}",
+  "watching.dormant.partial_one": "{text} · {count} failed",
+  "watching.dormant.partial_other": "{text} · {count} failed",
   "watching.dormant.pause": "Pause",
   "watching.dormant.pauseAll": "Put all on hold",
   "watching.dormant.pauseAllConfirm_one": "Put {count} series on hold?",

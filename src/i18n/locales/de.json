@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title}: abgebrochen",
   "watching.dormant.keep": "Behalten",
   "watching.dormant.keepAria": "In Meine Serien behalten: {title}",
+  "watching.dormant.partial_one": "{text} · {count} fehlgeschlagen",
+  "watching.dormant.partial_other": "{text} · {count} fehlgeschlagen",
   "watching.dormant.pause": "Pausieren",
   "watching.dormant.pauseAll": "Alle pausieren",
   "watching.dormant.pauseAllConfirm_one": "{count} Serie pausieren?",

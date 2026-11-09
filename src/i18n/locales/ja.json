@@ -910,6 +910,7 @@
   "watching.dormant.dropped": "{title}：視聴中止にしました",
   "watching.dormant.keep": "そのまま",
   "watching.dormant.keepAria": "作品一覧に残す：{title}",
+  "watching.dormant.partial_other": "{text} · {count}作品で失敗",
   "watching.dormant.pause": "一時中断",
   "watching.dormant.pauseAll": "すべて一時中断",
   "watching.dormant.pauseAllConfirm_other": "{count}作品を一時中断にしますか？",

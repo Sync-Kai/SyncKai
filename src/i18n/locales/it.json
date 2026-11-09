@@ -970,6 +970,8 @@
   "watching.dormant.dropped": "{title}: abbandonata",
   "watching.dormant.keep": "Tieni",
   "watching.dormant.keepAria": "Tieni in Le mie serie: {title}",
+  "watching.dormant.partial_one": "{text} · {count} con errore",
+  "watching.dormant.partial_other": "{text} · {count} con errore",
   "watching.dormant.pause": "Pausa",
   "watching.dormant.pauseAll": "Metti tutte in pausa",
   "watching.dormant.pauseAllConfirm_one": "Mettere in pausa {count} serie?",
