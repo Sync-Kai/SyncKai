@@ -219,7 +219,7 @@ function addCommand(status: AddListStatus): EntryCommand {
     name: 'ajout à la liste',
     decide: (current, { tracker, id }) => {
       const decision = decideAddToList(current.entry, status);
-      if (decision.action === 'skip') return { status: 'skipped', reason: t('page.alreadyInList') };
+      if (decision.action === 'skip') return { status: 'skipped', reason: t('page.alreadyInList'), code: 'already-in-list' };
       return async () => {
         const saved = await tracker.saveStatus(id, decision.status, decision.progress);
         log.info(`${TRACKER_LABELS[tracker.id]} : ${current.title} ajouté (${saved.status})`);

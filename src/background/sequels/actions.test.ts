@@ -44,7 +44,7 @@ const synced = (...statuses: ('updated' | 'skipped' | 'error')[]): SyncOutcome =
   mediaTitle: 'Suite 10',
   results: statuses.map((status) => ({
     service: 'anilist',
-    outcome: status === 'updated' ? { status, progress: 0, completed: false } : status === 'skipped' ? { status, reason: 'Déjà dans ta liste' } : { status, message: 'Échec' },
+    outcome: status === 'updated' ? { status, progress: 0, completed: false } : status === 'skipped' ? { status, reason: 'Déjà dans ta liste', code: 'already-in-list' } : { status, message: 'Échec' },
   })),
 });
 
@@ -59,6 +59,21 @@ beforeEach(() => {
 });
 
 describe('clic sur la notification', () => {
+  it('ouvre avant de fermer la notification (le geste utilisateur de Firefox ne survit pas à un await)', async () => {
+    const order: string[] = [];
+    fakes.openPopupOn.mockImplementation(async () => order.push('open') > 0);
+    fakes.clear.mockImplementation(async () => order.push('clear') > 0);
+    await handleSequelClick('synckai-sequel:group:5');
+    expect(order).toEqual(['open', 'clear']);
+  });
+
+  it('id illisible : clic ignoré', async () => {
+    await handleSequelClick('synckai-sequel:abc');
+    await handleSequelButton('synckai-sequel:1.5', 0);
+    expect(fakes.tabsCreate).not.toHaveBeenCalled();
+    expect(fakes.addToList).not.toHaveBeenCalled();
+  });
+
   it('suite seule : ouvre la fiche et ferme la notification', async () => {
     await handleSequelClick('synckai-sequel:10');
     expect(fakes.tabsCreate).toHaveBeenCalledWith({ url: 'https://anilist.co/anime/10' });
@@ -88,10 +103,11 @@ describe('boutons', () => {
     expect(fakes.update).toHaveBeenCalledWith('synckai-sequel:10', { message: 'Ajoutée à À regarder' });
   });
 
-  it('bouton 0 : déjà dans la liste → message dédié, suite conservée', async () => {
+  it('bouton 0 : déjà dans la liste → alerte terminée (retirée, id gardé dans known), message dédié', async () => {
     fakes.addToList.mockResolvedValue(synced('skipped'));
     await handleSequelButton('synckai-sequel:10', 0);
-    expect(states()[10]).toBe('new');
+    expect(states()[10]).toBeUndefined();
+    expect(fake.local.peek(STORAGE_KEYS.sequelsState)).toMatchObject({ known: [10, 11, 12] });
     expect(fakes.update).toHaveBeenCalledWith('synckai-sequel:10', { message: 'Déjà dans ta liste' });
   });
 

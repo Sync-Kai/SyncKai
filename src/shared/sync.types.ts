@@ -100,7 +100,7 @@ export type ServiceOutcome =
   | { status: 'updated'; progress: number; completed: boolean }
   | { status: 'up-to-date'; progress: number }
   /** `code` : raison connue du popup (série absente de la liste de ce service) */
-  | { status: 'skipped'; reason: string; code?: 'not-in-list' }
+  | { status: 'skipped'; reason: string; code?: 'not-in-list' | 'already-in-list' }
   /** `httpStatus` : statut HTTP de l'erreur d'API (5xx passager, 4xx définitif : voir queue-policy) */
   | { status: 'error'; message: string; code?: SyncErrorCode; httpStatus?: number };
 

@@ -38,6 +38,12 @@ export async function updateSequels(ids: readonly number[], update: SequelUpdate
   });
 }
 
+/** Id AniList d'une notification de suite seule, null s'il est illisible */
+function sequelIdOf(notificationId: string): number | null {
+  const id = Number(notificationId.slice(SEQUEL_NOTIFICATION_PREFIX.length));
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 /** Fiche AniList de la suite : celle du store, sinon l'URL canonique (enregistrement retiré entre-temps) */
 async function snapshotOf(id: number): Promise<Pick<SequelSnapshot, 'idMal' | 'siteUrl'>> {
   const found = (await readSequelStore()).records.find((record) => record.snapshot.id === id);
@@ -55,12 +61,14 @@ function addOutcome(outcome: SyncOutcome): { added: boolean; message: string } {
   if (outcome.status !== 'synced') return { added: false, message: outcome.status === 'error' ? outcome.message : t('error.unexpectedAdd') };
   const outcomes = outcome.results.map((result) => result.outcome);
   if (outcomes.some((o) => o.status === 'updated' || o.status === 'up-to-date')) return { added: true, message: t('sequel.added') };
-  if (outcomes.some((o) => o.status === 'skipped' && o.reason === t('page.alreadyInList'))) return { added: false, message: t('sequel.inList') };
+  // Déjà dans une liste : l'alerte n'a plus d'objet, comme après un ajout
+  if (outcomes.some((o) => o.status === 'skipped' && o.code === 'already-in-list')) return { added: true, message: t('sequel.inList') };
   const failed = outcomes.find((o) => o.status === 'error');
   return { added: false, message: failed?.status === 'error' ? failed.message : t('error.unexpectedAdd') };
 }
 
 async function addToPlanning(notificationId: string, id: number): Promise<void> {
+  // `added` : l'alerte est terminée (ajoutée, ou déjà dans la liste)
   const { added, message } = addOutcome(await addToList({ mediaId: id, malId: (await snapshotOf(id)).idMal, status: 'PLANNING' }));
   if (added) await updateSequels([id], 'removed');
   await chrome.notifications.update(notificationId, { message });
@@ -69,9 +77,14 @@ async function addToPlanning(notificationId: string, id: number): Promise<void> 
 /** Clic sur le corps de la notification : la fiche de la suite, ou Activité pour la notification groupée */
 export async function handleSequelClick(notificationId: string): Promise<void> {
   try {
+    // Ouvrir d'abord : Firefox exige le geste utilisateur sans await avant openPopup ; la fermeture suit
+    if (notificationId.startsWith(GROUP_PREFIX)) await openGroup();
+    else {
+      const id = sequelIdOf(notificationId);
+      if (id === null) return;
+      await chrome.tabs.create({ url: (await snapshotOf(id)).siteUrl });
+    }
     await chrome.notifications.clear(notificationId);
-    if (notificationId.startsWith(GROUP_PREFIX)) return await openGroup();
-    await chrome.tabs.create({ url: (await snapshotOf(Number(notificationId.slice(SEQUEL_NOTIFICATION_PREFIX.length)))).siteUrl });
   } catch (error) {
     log.error('Ouverture impossible :', error);
   }
@@ -82,8 +95,10 @@ export async function handleSequelButton(notificationId: string, buttonIndex: nu
   if (notificationId.startsWith(GROUP_PREFIX)) return buttonIndex === 0 ? handleSequelClick(notificationId) : undefined;
   if (buttonIndex === 1) return handleSequelClick(notificationId);
   if (buttonIndex !== 0) return;
+  const id = sequelIdOf(notificationId);
+  if (id === null) return;
   try {
-    await addToPlanning(notificationId, Number(notificationId.slice(SEQUEL_NOTIFICATION_PREFIX.length)));
+    await addToPlanning(notificationId, id);
   } catch (error) {
     log.error('Ajout depuis la notification impossible :', error);
   }
