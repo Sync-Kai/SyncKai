@@ -1,4 +1,5 @@
 import type { AniListSeason } from './sequels';
+import type { TrackerId } from './tracker.types';
 import { toSafeImageUrl, toSafeUrl } from './url';
 import type { PlatformLink } from './watching.types';
 
@@ -258,4 +259,36 @@ export function toListState(status: unknown, progress: unknown): ListState {
   if (typeof status !== 'string' || !Object.hasOwn(KIND_OF_STATUS, status)) return null;
   const kind = KIND_OF_STATUS[status];
   return { kind, progress: kind === 'inProgress' && typeof progress === 'number' ? progress : null };
+}
+
+const sameState = (a: ListState, b: ListState): boolean => a?.kind === b?.kind && a?.progress === b?.progress;
+
+/**
+ * États des entrées pour le service choisi (`entryService`), repli sur l'autre quand il n'est pas lu ; aucun état si aucun
+ * service. MAL pilote et pas d'`idMal` : 'notOnMal'. `other` : état de l'autre service, seulement quand les deux sont lus
+ * et diffèrent (infobulle de la ligne).
+ */
+export function mergeStates(
+  states: ListStates,
+  entryService: TrackerId,
+  nodes: readonly FranchiseNode[],
+): { byId: ReadonlyMap<number, ListState | 'notOnMal'>; other: ReadonlyMap<number, { service: TrackerId; state: ListState }> } {
+  const byId = new Map<number, ListState | 'notOnMal'>();
+  const other = new Map<number, { service: TrackerId; state: ListState }>();
+  const otherService: TrackerId = entryService === 'anilist' ? 'mal' : 'anilist';
+  const chosen = states[entryService] ? entryService : states[otherService] ? otherService : null;
+  if (chosen === null) return { byId, other };
+  const stateOf = (service: TrackerId, node: FranchiseNode): ListState | 'notOnMal' => {
+    if (service === 'anilist') return states.anilist?.[node.id] ?? null;
+    return node.idMal === null ? 'notOnMal' : (states.mal?.[node.idMal] ?? null);
+  };
+  const counterpart: TrackerId = chosen === 'anilist' ? 'mal' : 'anilist';
+  for (const node of nodes) {
+    const state = stateOf(chosen, node);
+    byId.set(node.id, state);
+    if (!states[counterpart] || state === 'notOnMal') continue;
+    const counter = stateOf(counterpart, node);
+    if (counter !== 'notOnMal' && !sameState(state, counter)) other.set(node.id, { service: counterpart, state: counter });
+  }
+  return { byId, other };
 }

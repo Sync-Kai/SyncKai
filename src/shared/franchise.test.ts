@@ -8,6 +8,7 @@ import {
   MAX_EXTRAS,
   MAX_MAIN,
   mergeRound,
+  mergeStates,
   newFranchiseGraph,
   releaseOrder,
   shortTitle,
@@ -332,5 +333,56 @@ describe('shortTitle', () => {
 
   it('ne renvoie jamais une chaîne vide', () => {
     expect(shortTitle('Gundam', 'Gundam')).toBe('Gundam');
+  });
+});
+
+describe('mergeStates', () => {
+  const watched: ListState = { kind: 'watched', progress: null };
+  const planned: ListState = { kind: 'planned', progress: null };
+  const nodes = [node(1, { idMal: 101 }), node(2, { idMal: null }), node(3, { idMal: 103 })];
+
+  it('prend le service choisi, sans entrée « autre » quand l\'autre service est absent', () => {
+    const r = mergeStates({ anilist: { 1: watched, 2: planned, 3: null }, mal: null }, 'anilist', nodes);
+    expect(r.byId.get(1)).toEqual(watched);
+    expect(r.byId.get(2)).toEqual(planned);
+    expect(r.byId.get(3)).toBeNull();
+    expect(r.other.size).toBe(0);
+  });
+
+  it('service choisi absent : repli sur l\'autre service', () => {
+    const r = mergeStates({ anilist: null, mal: { 101: watched, 103: planned } }, 'anilist', nodes);
+    expect(r.byId.get(1)).toEqual(watched);
+    expect(r.byId.get(3)).toEqual(planned);
+    expect(r.other.size).toBe(0);
+  });
+
+  it('aucun service lu : aucun état', () => {
+    const r = mergeStates({ anilist: null, mal: null }, 'mal', nodes);
+    expect(r.byId.size).toBe(0);
+    expect(r.other.size).toBe(0);
+  });
+
+  it('MAL choisi : « notOnMal » pour une entrée sans idMal', () => {
+    const r = mergeStates({ anilist: { 1: planned, 2: watched, 3: null }, mal: { 101: watched, 103: null } }, 'mal', nodes);
+    expect(r.byId.get(1)).toEqual(watched);
+    expect(r.byId.get(2)).toBe('notOnMal');
+    expect(r.byId.get(3)).toBeNull();
+  });
+
+  it('AniList choisi : une entrée sans idMal garde son état AniList', () => {
+    const r = mergeStates({ anilist: { 1: planned, 2: watched, 3: null }, mal: { 101: planned, 103: null } }, 'anilist', nodes);
+    expect(r.byId.get(2)).toEqual(watched);
+  });
+
+  it('les deux services : « other » seulement là où ils diffèrent', () => {
+    const r = mergeStates({ anilist: { 1: watched, 2: planned, 3: null }, mal: { 101: planned, 103: null } }, 'anilist', nodes);
+    expect(r.other.get(1)).toEqual({ service: 'mal', state: planned });
+    expect(r.other.has(2)).toBe(false);
+    expect(r.other.has(3)).toBe(false);
+  });
+
+  it('MAL choisi : « other » est l\'état AniList', () => {
+    const r = mergeStates({ anilist: { 1: watched, 3: null }, mal: { 101: planned, 103: null } }, 'mal', nodes);
+    expect(r.other.get(1)).toEqual({ service: 'anilist', state: watched });
   });
 });

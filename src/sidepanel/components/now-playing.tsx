@@ -32,7 +32,7 @@ import { episodeLine, pageKey } from '../now-playing-view';
 import { DetailsCard, type PanelSection, type PanelSectionsState } from './details-card';
 import { ListCard } from './list-card';
 import { LiveCard } from './live-card';
-import type { NowPlayingContent } from './now-playing-controller';
+import type { NowPlayingContent, OrderState } from './now-playing-controller';
 import { HeroSkeleton, NowPlayingHero } from './now-playing-hero';
 
 /** Instantané du contrôleur de l'onglet, republié à chaque changement */
@@ -45,6 +45,8 @@ export interface NowPlayingSnapshot {
   entryService: TrackerId;
   /** Réglage « Afficher la progression en direct » */
   liveEnabled: boolean;
+  /** Ordre de visionnage de la franchise de la fiche (chargé après les détails) */
+  order: OrderState;
 }
 
 export interface NowPlayingHandlers {
