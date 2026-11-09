@@ -466,8 +466,8 @@ describe('panneau latéral › amis AniList (bout en bout)', () => {
     expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('friends-profile-3000006');
 
     const profile = '[data-focus="friends-profile-3000001"]';
-    expect(await page.$eval(profile, (el) => [el.getAttribute('href'), el.getAttribute('target'), el.getAttribute('rel')])).toEqual(['https://anilist.co/user/Mizuki/', '_blank', 'noopener noreferrer']);
-    expect(await page.$eval(profile, (el) => el.getAttribute('aria-label'))).toBe(fr('panel.nowPlaying.newTab', { label: fr('friends.profileAria', { name: 'Mizuki' }) }));
+    expect(await page.$eval(profile, (el) => [el.getAttribute('href'), el.getAttribute('target'), el.getAttribute('rel')])).toEqual(['https://anilist.co/user/Mizu_demo/', '_blank', 'noopener noreferrer']);
+    expect(await page.$eval(profile, (el) => el.getAttribute('aria-label'))).toBe(fr('panel.nowPlaying.newTab', { label: fr('friends.profileAria', { name: 'Mizu_demo' }) }));
     expect(await page.$eval('[data-focus="friends-all"]', (el) => [el.getAttribute('href'), el.getAttribute('target')])).toEqual(['https://anilist.co/anime/154587', '_blank']);
     // Statut à la troisième personne, progression, note ou « — »
     expect(await textOf(page, '[data-friend="3000001"]')).toContain(fr('friends.status.CURRENT'));

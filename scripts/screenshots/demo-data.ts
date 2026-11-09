@@ -198,7 +198,8 @@ export function pageView(): PageMediaView {
 
 /**
  * Amis AniList de la fiche (`friends=on` des pages de test) : 7 amis dont 6 notés (moyenne 8,6), progression sur
- * `episodes` épisodes ; avatars en data: (pas de réseau), sauf le dernier (repli sur l'initiale)
+ * `episodes` épisodes ; avatars en data: (pas de réseau), sauf le dernier (repli sur l'initiale). Pseudos inventés et
+ * marqués « _demo » : les captures vont sur les stores, jamais le pseudo d'un vrai compte AniList
  */
 export function friendsDemo(episodes: number): FriendsSummary {
   const friend = (id: number, name: string, status: ListStatus, progress: number, score: number | null, colors: [string, string] | null): FriendEntry => ({
@@ -214,13 +215,13 @@ export function friendsDemo(episodes: number): FriendsSummary {
     averageScore: 8.6,
     scoredCount: 6,
     friends: [
-      friend(3000001, 'Mizuki', 'CURRENT', 8, 9.5, ['#FF8FB8', '#FFD37A']),
-      friend(3000002, 'tanuki_dev', 'CURRENT', 5, 9, ['#7EE0C3', '#3DB4F2']),
-      friend(3000003, 'Haru', 'COMPLETED', episodes, 8.6, ['#B9A4FF', '#FF8FB8']),
-      friend(3000004, 'Lune', 'COMPLETED', episodes, 8.5, ['#FFD37A', '#7EE0C3']),
-      friend(3000005, 'Okabe_Rintaro', 'PAUSED', 4, 8, ['#5A7FD6', '#B9A4FF']),
-      friend(3000006, 'Ren', 'DROPPED', 2, 8, ['#FF8A8A', '#FFD37A']),
-      friend(3000007, 'Sakura_chan', 'PLANNING', 0, null, null),
+      friend(3000001, 'Mizu_demo', 'CURRENT', 8, 9.5, ['#FF8FB8', '#FFD37A']),
+      friend(3000002, 'tanuki_demo', 'CURRENT', 5, 9, ['#7EE0C3', '#3DB4F2']),
+      friend(3000003, 'Haru_demo', 'COMPLETED', episodes, 8.6, ['#B9A4FF', '#FF8FB8']),
+      friend(3000004, 'Lune_demo', 'COMPLETED', episodes, 8.5, ['#FFD37A', '#7EE0C3']),
+      friend(3000005, 'Okami_demo', 'PAUSED', 4, 8, ['#5A7FD6', '#B9A4FF']),
+      friend(3000006, 'Ren_demo', 'DROPPED', 2, 8, ['#FF8A8A', '#FFD37A']),
+      friend(3000007, 'Sora_demo', 'PLANNING', 0, null, null),
     ],
   };
 }
