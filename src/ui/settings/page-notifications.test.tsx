@@ -33,7 +33,7 @@ describe('NotificationsPage (maquettes Notifications, NotificationsAlertes)', ()
 
   const sequelResult = (patch: Partial<SequelCheckResult> = {}): SequelCheckResult => ({ checkedAt: Date.now() - 3 * 3_600_000, found: 0, notified: 0, skipped: null, error: null, ...patch });
 
-  async function mount(settings: SyncSettings = DEFAULT_SETTINGS, extra: Partial<SettingsData> = {}): Promise<void> {
+  async function mount(settings: SyncSettings = DEFAULT_SETTINGS, extra: Partial<SettingsData> = {}, local: SequelCheckResult | null = null): Promise<void> {
     const data: SettingsData = {
       settings,
       settingsError: false,
@@ -48,7 +48,7 @@ describe('NotificationsPage (maquettes Notifications, NotificationsAlertes)', ()
       ...extra,
     };
     const ctx = { state: createStore(data), update } as Partial<SettingsContext> as SettingsContext;
-    await act(() => render(<NotificationsPage ctx={ctx} check={createStore({ pending: false, result: null })} sequelCheck={createStore({ pending: false, result: null })} />, container));
+    await act(() => render(<NotificationsPage ctx={ctx} check={createStore({ pending: false, result: null })} sequelCheck={createStore({ pending: false, result: local })} />, container));
   }
 
   beforeEach(() => {
@@ -126,6 +126,26 @@ describe('NotificationsPage (maquettes Notifications, NotificationsAlertes)', ()
       await mount(DEFAULT_SETTINGS, { sequels: sequelResult({ error: 'boom' }) });
       expect($('[data-sequels-status]')?.getAttribute('data-sequels-status')).toBe('danger');
       expect($('[data-sequels-status]')?.textContent).toContain(t('airing.status.failed', { error: 'boom' }));
+    });
+
+    it('ligne d’état : le plus récent du stockage et de la vérification lancée ici', async () => {
+      const at = Date.now() - 5 * 3_600_000;
+      await mount(DEFAULT_SETTINGS, { sequels: sequelResult({ checkedAt: at + 3_600_000, found: 4 }) }, sequelResult({ checkedAt: at, error: 'hors ligne' }));
+      expect($('[data-sequels-status]')?.textContent).toContain(t('settings.sequels.found_other', { count: 4 }));
+      expect($('[data-sequels-status]')?.getAttribute('data-sequels-status')).toBe('muted');
+      await mount(DEFAULT_SETTINGS, { sequels: sequelResult({ checkedAt: at, found: 4 }) }, sequelResult({ checkedAt: at + 3_600_000, error: 'hors ligne' }));
+      expect($('[data-sequels-status]')?.getAttribute('data-sequels-status')).toBe('danger');
+    });
+
+    it('« Vérifier maintenant » : réponse du service worker vide ou levée, le bouton redevient actif et l’échec s’affiche', async () => {
+      sent.answer.mockResolvedValueOnce(undefined);
+      await mount();
+      await act(async () => {
+        $<HTMLButtonElement>('[data-focus="sequels-check"]')?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect($('[data-focus="sequels-check"]')?.getAttribute('aria-busy')).not.toBe('true');
+      expect($('[data-sequels-status]')?.getAttribute('data-sequels-status')).toBe('danger');
     });
 
     it('« Vérifier maintenant » envoie CHECK_SEQUELS puis affiche le résultat', async () => {

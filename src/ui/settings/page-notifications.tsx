@@ -137,6 +137,12 @@ export function formatSequelStatus(result: SequelCheckResult | null, now: number
   return { text: result.found > 0 ? `${prefix} · ${tp('settings.sequels.found', result.found)}` : prefix, tone: 'muted' };
 }
 
+/** Le plus récent du stockage (alarme, autre vue) et de la vérification lancée ici (échec de secours compris) */
+export function latestSequels(stored: SequelCheckResult | null, local: SequelCheckResult | null): SequelCheckResult | null {
+  if (!stored || !local) return stored ?? local;
+  return local.checkedAt > stored.checkedAt ? local : stored;
+}
+
 interface SequelCheck {
   pending: boolean;
   /** Résultat de la dernière vérification lancée depuis les Réglages */
@@ -163,14 +169,23 @@ export function NotificationsPage({ ctx, check, sequelCheck }: NotificationsPage
   const line = formatAiringStatus(latestAiring(data.airing, checking.result), now);
 
   const sequelsOn = s.sequelAlerts;
-  const sequelLine = formatSequelStatus(sequelChecking.result ?? data.sequels, now);
+  const sequelLine = formatSequelStatus(latestSequels(data.sequels, sequelChecking.result), now);
 
   async function checkSequels(): Promise<void> {
     if (sequelCheck.get().pending) return;
     sequelCheck.set({ ...sequelCheck.get(), pending: true });
-    // Service worker injoignable : échec affiché en rouge, jamais écrit dans le stockage
-    const result = await callWorker('CHECK_SEQUELS', null, (message): SequelCheckResult => ({ checkedAt: Date.now(), found: 0, notified: 0, skipped: null, error: message }));
-    sequelCheck.set({ pending: false, result: { ...result, checkedAt: result.checkedAt || Date.now() } });
+    let result: SequelCheckResult;
+    try {
+      // Service worker injoignable : échec affiché en rouge, jamais écrit dans le stockage
+      const answer = await callWorker('CHECK_SEQUELS', null, (message): SequelCheckResult => ({ checkedAt: Date.now(), found: 0, notified: 0, skipped: null, error: message }));
+      result = { ...answer, checkedAt: answer.checkedAt || Date.now() };
+    } catch (error: unknown) {
+      log.error('Vérification des suites impossible :', error);
+      result = { checkedAt: Date.now(), found: 0, notified: 0, skipped: null, error: t('settings.airing.unavailable') };
+    } finally {
+      sequelCheck.set({ ...sequelCheck.get(), pending: false });
+    }
+    sequelCheck.set({ pending: false, result });
   }
 
   async function checkNow(): Promise<void> {
