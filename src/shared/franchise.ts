@@ -70,7 +70,8 @@ export interface RawEdge {
 }
 
 export const MAX_MAIN = 50;
-export const MAX_ROUNDS = 8;
+/** Tours de lecture au plus (le chargeur s'arrête et marque `capped` ; la saga Gundam réelle en demande 9) */
+export const MAX_ROUNDS = 12;
 export const MAX_EXTRAS = 40;
 
 /** Durée par épisode (minutes) en dessous de laquelle une entrée est un PV et non une œuvre à regarder */
@@ -189,6 +190,8 @@ export function releaseOrder(graph: FranchiseGraph, mode: 'main' | 'all'): Franc
   return listed.map((item) => item.node);
 }
 
+export type FranchiseResult = { ok: true; graph: FranchiseGraph } | { ok: false; message: string };
+
 export type ListState = { kind: 'watched' | 'inProgress' | 'planned' | 'paused' | 'dropped'; progress: number | null } | null;
 
 const isReleased = (node: FranchiseNode): boolean => node.status !== 'NOT_YET_RELEASED' && node.status !== 'CANCELLED';
@@ -213,8 +216,9 @@ export function franchiseProgress(
     if (kind === 'watched' || kind === 'inProgress') furthest = index;
   });
   const allWatched = released.length > 0 && watched === released.length;
+  // « Ensuite » est une entrée sortie ; l'annonce n'est proposée que lorsque tout le sorti est vu
   const announced = counted.find((node) => node.status === 'NOT_YET_RELEASED') ?? null;
-  return { watched, total: released.length, next: (allWatched ? undefined : released[furthest + 1]) ?? announced, allWatched };
+  return { watched, total: released.length, next: allWatched ? announced : (released[furthest + 1] ?? null), allWatched };
 }
 
 /** Titre sans le titre racine quand celui-ci le préfixe (à la frontière d'un mot) ; inchangé sinon, jamais vide */

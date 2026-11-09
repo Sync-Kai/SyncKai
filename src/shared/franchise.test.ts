@@ -283,6 +283,12 @@ describe('franchiseProgress', () => {
     expect(r.next?.id).toBe(3);
   });
 
+  it('la dernière entrée sortie en cours avec une annonce derrière : pas de « Ensuite » (jamais l\'annonce tant que tout n\'est pas vu)', () => {
+    const r = franchiseProgress(main, states([[1, watched], [2, watched], [3, { kind: 'inProgress', progress: 4 }]]));
+    expect(r).toMatchObject({ watched: 2, total: 3, allWatched: false });
+    expect(r.next).toBeNull();
+  });
+
   it('RELEASING compte comme sortie', () => {
     const m = [node(1), node(2, { status: 'RELEASING' })];
     const r = franchiseProgress(m, states([[1, watched]]));
