@@ -13,6 +13,7 @@ import type { FriendEntry, FriendsSummary } from '../../src/shared/friends';
 import type { MalViewer } from '../../src/shared/mal.types';
 import type { CandidateSummary, PendingReview, RecentSync } from '../../src/shared/review.types';
 import type { SyncSettings } from '../../src/shared/settings';
+import { isSequelStore, setSequelStates, type SequelRecord, type SequelSnapshot, type SequelStore } from '../../src/shared/sequels';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import type { TrackerId } from '../../src/shared/tracker.types';
@@ -309,6 +310,32 @@ export function accountDemo(mode: AccountDemo | null, base: ChromeMockOptions): 
  */
 export type Scenario = 'watching' | 'menu' | 'page' | 'activity' | 'compare' | 'settings';
 
+/** Suites annoncées de démo (sans jaquette) : jour précis, mois seul, date inconnue, en cours de diffusion ; la plus récente est « nouvelle » */
+export function sequelsDemo(now: number): SequelStore {
+  const base = { idMal: null, format: 'TV' as const, coverUrl: null, season: null, seasonYear: null };
+  const snap = (s: Partial<SequelSnapshot> & Pick<SequelSnapshot, 'id' | 'title' | 'status' | 'sourceId' | 'sourceTitle'>): SequelSnapshot => ({
+    ...base, siteUrl: `https://anilist.co/anime/${s.id}`, year: null, month: null, day: null, ...s,
+  });
+  const records: SequelRecord[] = [
+    { snapshot: snap({ id: 900001, title: 'Frieren: Beyond Journey\'s End Season 2', status: 'NOT_YET_RELEASED', year: 2026, month: 1, day: 16, sourceId: 154587, sourceTitle: 'Frieren' }), state: 'new', firstSeenAt: now - 1 * HOUR },
+    { snapshot: snap({ id: 900002, title: 'Kaiju No. 8 Season 3', status: 'NOT_YET_RELEASED', year: 2026, month: 7, sourceId: 178754, sourceTitle: 'Kaiju No. 8' }), state: 'seen', firstSeenAt: now - 1 * DAY },
+    { snapshot: snap({ id: 900003, title: 'Solo Leveling Season 3', status: 'NOT_YET_RELEASED', sourceId: 176496, sourceTitle: 'Solo Leveling' }), state: 'seen', firstSeenAt: now - 2 * DAY },
+    { snapshot: snap({ id: 900004, title: 'Dandadan Season 3', status: 'RELEASING', year: 2026, month: 10, day: 3, sourceId: 185660, sourceTitle: 'Dandadan' }), state: 'seen', firstSeenAt: now - 3 * DAY },
+  ];
+  return { records, known: records.map((r) => r.snapshot.id), seeded: ['anilist'], lastCheck: now - 12 * MIN };
+}
+
+/** UPDATE_SEQUELS simulé : même effet sur le stockage que le service worker (état changé, `removed` supprime la ligne) */
+async function updateSequelsDemo(payload: unknown): Promise<boolean> {
+  if (typeof payload !== 'object' || payload === null || !('ids' in payload) || !('state' in payload) || !Array.isArray(payload.ids)) return false;
+  const state = payload.state;
+  if (state !== 'seen' && state !== 'dismissed' && state !== 'removed') return false;
+  const ids = payload.ids.filter((id): id is number => typeof id === 'number');
+  const stored: unknown = (await chrome.storage.local.get(STORAGE_KEYS.sequelsState))[STORAGE_KEYS.sequelsState];
+  if (isSequelStore(stored)) await chrome.storage.local.set({ [STORAGE_KEYS.sequelsState]: setSequelStates(stored, ids, state) });
+  return true;
+}
+
 export function demoChrome(locale: Locale, scenario: Scenario, now: number = Date.now()): ChromeMockOptions {
   // Statistiques du menu du compte (maquette MenuCompte : 142 animes, 3 210 épisodes, 54 jours)
   const anilistViewer: AniListViewer = { id: 1000001, name: 'Kai_fan', siteUrl: 'https://anilist.co/user/Kai_fan', avatarUrl: avatarUrl('K', '#FF8FB8', '#B9A4FF'), stats: { animeCount: 142, episodes: 3210, days: 54.3 } };
@@ -331,6 +358,8 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
     panelDefaultTab: 'last',
     panelLiveProgress: true,
     dormantAfterDays: 30,
+    sequelAlerts: true,
+    sequelNotifications: true,
   };
   const airing: AiringCheckResult = { checkedAt: now - 12 * MIN, notified: 1, skipped: null, error: null };
   const lists = { anilist: watchingList('anilist', now), mal: watchingList('mal', now) };
@@ -356,6 +385,7 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
       syncQueue: [],
       pendingRatings: [],
       airingLastResult: airing,
+      [STORAGE_KEYS.sequelsState]: sequelsDemo(now),
       ...(scenario === 'compare' ? { [STORAGE_KEYS.compareLast]: comparison(now) } : {}),
     },
     // Content script de l'onglet actif : page série Crunchyroll (scénario « page » seulement)
@@ -369,6 +399,7 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
         return { ok: true, data: lists[service] };
       },
       CHECK_AIRING: () => airing,
+      UPDATE_SEQUELS: updateSequelsDemo,
       SEARCH_ANIME: () => ({ ok: true, data: candidates() }),
       RESOLVE_PAGE_MEDIA: () => ({ ok: true, data: pageView() }),
       COMPARE_LISTS: () => ({ ok: true, data: comparison(now) }),

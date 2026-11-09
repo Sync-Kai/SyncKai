@@ -250,6 +250,21 @@ describe('panneau latéral (bout en bout)', () => {
     expect(await messages(page, 'RESOLVE_PAGE_MEDIA')).toEqual([]);
   });
 
+  it('Agenda : le sélecteur « Annoncées » montre les suites groupées par période, « Semaine » ramène la grille', async () => {
+    const page = await openPanel({ tab: 'agenda' });
+    await page.waitForSelector('[data-focus="agenda-view-announced"]');
+    await page.locator('[data-focus="agenda-view-announced"]').click();
+    await page.waitForSelector('[data-sequel-group]');
+    const groups = await page.$$eval('[data-sequel-group]', (els) => els.map((el) => ({ key: el.getAttribute('data-sequel-group'), ids: [...el.querySelectorAll('[data-sequel]')].map((row) => row.getAttribute('data-sequel')) })));
+    // Quatre suites réparties en groupes ; chacune apparaît une seule fois
+    expect(groups.length).toBeGreaterThanOrEqual(2);
+    expect(groups.flatMap((g) => g.ids).sort()).toEqual(['900001', '900002', '900003', '900004']);
+    expect(await page.$eval('[data-sequel="900003"]', (row) => row.textContent)).toContain(fr('sequel.dateUnknown'));
+
+    await page.locator('[data-focus="agenda-view-week"]').click();
+    await page.waitForSelector('[data-sequel-group]', { hidden: true });
+  });
+
   it('barre d’état (même composant que le popup) : en bas de chaque onglet ; sans chrome.action.openPopup, message en texte', async () => {
     const page = await openPanel({ tab: 'agenda' });
     await page.waitForSelector('[data-status-bar] footer [data-focus="chip-anilist"]');

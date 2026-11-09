@@ -762,7 +762,8 @@ describe('popup (bout en bout)', () => {
     await page.waitForSelector(sel('rail-watching'));
     expect(await shownScreen(page)).toBe(0);
     expect(await attr(page, sel('rail-watching'), 'aria-label')).toBe(en('nav.watching'));
-    expect(await attr(page, sel('rail-activity'), 'aria-label')).toBe(en('nav.activity'));
+    // Suite « nouvelle » de la démo : pastille et libellé de l'Activité retraduits
+    expect(await attr(page, sel('rail-activity'), 'aria-label')).toBe(en('nav.activityNewSequels'));
     expect(await text(page, '[data-screen-title] h1')).toBe(en('nav.watching'));
     expect(await page.$(`section[aria-label="${en('page.title')}"]`)).not.toBeNull();
     // Carte « Sur cette page » (Preact) : retraduite
@@ -1531,6 +1532,23 @@ describe('popup (bout en bout)', () => {
     await waitForHref(page, dandadan, 'https://myanimelist.net/anime/60543');
     // Synchro enregistrée sans fiche MAL (version précédente) : repli sur AniList
     expect(await attr(page, onePiece, 'href')).toBe('https://anilist.co/anime/21');
+  });
+
+  it('Activité : « Suites annoncées » (3 lignes, puis « N autres ») ; × masque la suite et envoie UPDATE_SEQUELS « dismissed »', async () => {
+    const page = await openPopup({ scenario: 'activity' });
+    await click(page, 'rail-activity');
+    await page.waitForSelector('[data-sequel="900001"]');
+    expect(await page.$$eval('[data-sequel]', (rows) => rows.map((row) => row.getAttribute('data-sequel')))).toEqual(['900001', '900002', '900003']);
+    expect(await page.$eval('[data-sequel="900001"]', (row) => row.textContent)).toContain('Frieren');
+    expect(await text(page, sel('sequels-more'))).toBe(tpl('fr', 'sequel.more', 1));
+
+    await click(page, 'sequel-dismiss-900001');
+    // L'ouverture d'Activité a déjà marqué les suites comme vues : on cherche le message « dismissed »
+    await page.waitForFunction(() => window.__e2e?.messages.some((m) => m.type === 'UPDATE_SEQUELS' && JSON.stringify(m.payload).includes('dismissed')) ?? false);
+    expect((await sent(page, 'UPDATE_SEQUELS')).map((m) => m.payload)).toContainEqual({ ids: [900001], state: 'dismissed' });
+    // Le stockage change : la ligne disparaît et la quatrième remonte
+    await page.waitForSelector('[data-sequel="900001"]', { hidden: true });
+    expect(await page.$$eval('[data-sequel]', (rows) => rows.map((row) => row.getAttribute('data-sequel')))).toEqual(['900002', '900003', '900004']);
   });
 
   it('UX-05 / UX-06 : état vide, astuce avec le vrai chemin « Réglages › Plateformes », cliquable', async () => {
