@@ -1,6 +1,6 @@
 // Écran « Activité » du popup (maquettes PopupActivite, PopupActiviteEtats, PopupActiviteNoter, PopupVerification) :
 // synchros en échec puis en attente de relance (« Réessayer », « Abandonner »), séries « À noter » (10 étoiles à
-// demi-étoiles, « Ignorer »), cartes « À vérifier » (ui/review-card.tsx), dernières synchros (« Corriger », exclusion de
+// demi-étoiles, « Ignorer »), cartes « À vérifier » (ui/review-card.tsx), « Suites annoncées » (sequels-section.tsx), dernières synchros (« Corriger », exclusion de
 // la série, lien vers la fiche) et ligne « Écarts AniList ↔ MyAnimeList » (Réglages › Mes données › Écarts, les deux
 // comptes connectés). Les sections « Échec », « En attente » et « À noter » n'apparaissent qu'avec un élément, un
 // résultat ou une erreur à montrer ; « À vérifier » et « Dernières synchros » sont toujours là. Données et actions :
@@ -9,6 +9,7 @@ import { useRef, useState } from 'preact/hooks';
 import { t } from '../../i18n';
 import { entryLink, type EntryLink, type EntryLinkContext } from '../../shared/entry-link';
 import type { PendingRating } from '../../shared/engagement.types';
+import type { SequelRecord } from '../../shared/sequels';
 import type { SyncQueueItem } from '../../shared/queue.types';
 import type { RecentSync } from '../../shared/review.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
@@ -27,6 +28,7 @@ import { ReviewList, type ReviewActions } from '../../ui/review-card';
 import { diffBadge } from '../../ui/settings/compare-model';
 import type { AccountState, ExclusionsState, InlineFeedback, ReadonlyStore } from '../../ui/state';
 import type { QueueState, RatingsState, SyncData } from '../state';
+import { SequelsSection } from './sequels-section';
 import { formatUntil, isRecentExcluded, queueRoute, queueTitle, recentTitle } from './activity-view';
 import type { WatchingContext } from './watching-screen';
 
@@ -36,6 +38,8 @@ export interface ActivityScreenProps {
   queue: ReadonlyStore<QueueState>;
   ratings: ReadonlyStore<RatingsState>;
   exclusions: ReadonlyStore<ExclusionsState>;
+  /** Suites annoncées visibles (ui/sequels-store.ts) */
+  sequels: ReadonlyStore<SequelRecord[]>;
   /** Comptes connectés et fiche préférée : liens des titres et jaquettes */
   context: ReadonlyStore<WatchingContext>;
   /** Écarts AniList ↔ MAL (compteur de la ligne) */
@@ -344,6 +348,7 @@ export function ActivityScreen(props: ActivityScreenProps) {
   const exclusions = useStore(props.exclusions);
   const context = useStore(props.context);
   const compare = useStore(props.compare);
+  const sequels = useStore(props.sequels);
   // Élément retiré (synchro abandonnée, carte fermée) : son voisin, ou le repli déclaré par sa section
   useFocusFallback(root);
 
@@ -368,6 +373,7 @@ export function ActivityScreen(props: ActivityScreenProps) {
           </p>
         }
       />
+      <SequelsSection records={sequels} />
       <RecentSection data={data} exclusions={exclusions} links={links} props={props} />
       {connected === 2 && <CompareLink count={diffBadge(compare.result)} onOpen={props.onOpenCompare} />}
     </div>

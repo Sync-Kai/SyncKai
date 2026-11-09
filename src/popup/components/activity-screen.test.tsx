@@ -8,6 +8,7 @@ import type { PendingRating } from '../../shared/engagement.types';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { SyncQueueItem } from '../../shared/queue.types';
 import type { PendingReview, RecentSync } from '../../shared/review.types';
+import type { SequelRecord } from '../../shared/sequels';
 import type { CompareState } from '../../ui/compare-controller';
 import { createStore, type AccountState, type ExclusionsState } from '../../ui/state';
 import type { QueueState, RatingsState, SyncData } from '../state';
@@ -71,7 +72,7 @@ interface Setup {
   ratings: ReturnType<typeof createStore<RatingsState>>;
 }
 
-function setup(patch: { mal?: AccountState<unknown>; anilist?: AccountState<unknown>; exclusions?: ExclusionsState; compare?: Partial<CompareState> } = {}): Setup {
+function setup(patch: { mal?: AccountState<unknown>; anilist?: AccountState<unknown>; exclusions?: ExclusionsState; compare?: Partial<CompareState>; sequels?: SequelRecord[] } = {}): Setup {
   const sync = createStore<SyncData>({ reviews: [], recentSyncs: [], busyKey: null, recentError: null });
   const queue = createStore<QueueState>({ items: [], busyIds: new Set(), notice: null, error: null });
   const ratings = createStore<RatingsState>({ items: [], busyIds: new Set(), errors: new Map(), notice: null, error: null });
@@ -83,6 +84,7 @@ function setup(patch: { mal?: AccountState<unknown>; anilist?: AccountState<unkn
     queue,
     ratings,
     exclusions: createStore<ExclusionsState>(patch.exclusions ?? { status: 'ready', items: [] }),
+    sequels: createStore<SequelRecord[]>(patch.sequels ?? []),
     context: createStore(context),
     compare: createStore(compare),
     now: NOW,
@@ -119,6 +121,17 @@ describe('ActivityScreen', () => {
     expect(container.textContent).toContain('Aucune synchro pour l’instant.');
     expect(key('activity-compare')).not.toBeNull();
     expect($('[data-diff-count]')).toBeNull();
+  });
+
+  it('suites annoncées : section entre « À vérifier » et « Dernières synchros », seulement avec une suite', async () => {
+    const sequel: SequelRecord = {
+      snapshot: { id: 9, idMal: null, title: 'Suite 9', format: 'TV', status: 'NOT_YET_RELEASED', coverUrl: null, siteUrl: 'https://anilist.co/anime/9', year: null, month: null, day: null, season: null, seasonYear: null, sourceId: 1, sourceTitle: 'Source' },
+      state: 'new',
+      firstSeenAt: 1,
+    };
+    await mount(setup({ sequels: [sequel] }).props);
+    expect(headings()).toEqual(['À vérifier', 'Suites annoncées', 'Dernières synchros']);
+    expect($('[data-sequel="9"]')).not.toBeNull();
   });
 
   it('écarts : compteur après une analyse ; un seul compte : pas de ligne', async () => {

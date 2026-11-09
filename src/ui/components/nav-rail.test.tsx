@@ -86,6 +86,21 @@ describe('NavRail', () => {
     expect(items()[0]?.querySelector('[data-rail-badge]')).toBeNull();
   });
 
+  it('shows a decorative dot (no badge) named by ariaLabel; a badge wins over the dot', async () => {
+    const withDot: readonly NavRailItem<View>[] = [
+      { id: 'watching', icon: 'play', label: 'En cours' },
+      { id: 'activity', icon: 'bell', label: 'Activité', dot: true, ariaLabel: 'Activité, nouvelles suites annoncées' },
+      { id: 'agenda', icon: 'calendar', label: 'Agenda', badge: 2, dot: true },
+    ];
+    await show(<NavRail label="Sections" items={withDot} current="watching" onSelect={onSelect} footerItems={[]} />);
+    const dot = items()[1]?.querySelector('[data-rail-dot]');
+    expect(dot?.getAttribute('aria-hidden')).toBe('true');
+    expect(items()[1]?.getAttribute('aria-label')).toBe('Activité, nouvelles suites annoncées');
+    expect(items()[0]?.querySelector('[data-rail-dot]')).toBeNull();
+    expect(items()[2]?.querySelector('[data-rail-dot]')).toBeNull();
+    expect(items()[2]?.querySelector('[data-rail-badge]')?.textContent).toBe('2');
+  });
+
   it('ArrowDown / ArrowUp move focus through sections then footer buttons (one group), wrapping; Home / End jump', async () => {
     await show(<Host />);
     items()[0]?.focus();

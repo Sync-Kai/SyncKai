@@ -33,6 +33,8 @@ import { createStore, hasOpenSession, patchStore, type AccountState, type Exclus
 import { createLogger } from '../browser/logger';
 import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
 import { createAccountsController } from '../ui/accounts';
+import { createSequelsStore } from '../ui/sequels-store';
+import { updateSequels } from '../ui/sequel-actions';
 import type { SettingsPage } from '../ui/settings/navigation';
 import type { SettingsView } from '../ui/settings/settings-view';
 import { createPlatformAccessStore } from '../ui/platform-access-store';
@@ -88,6 +90,8 @@ const dormant = createDormantController({ watching, threshold: dormantThresholdS
 const queue = createQueueController();
 /** Activité › « À noter » */
 const ratings = createRatingsController();
+/** Activité › « Suites annoncées » et point du rail */
+const sequelsStore = createSequelsStore();
 /** Carte « Sur cette page » (série de l'onglet actif) */
 const pageCardStore = createStore<PageCardState>({ content: { status: 'idle' }, actions: { busy: null, feedback: null } });
 /** Accès à Crunchyroll / ADN et aux API (bandeau « Autoriser l'accès » si Firefox l'a retiré) */
@@ -547,6 +551,7 @@ mountPopupApp(getRoot(), {
     queue: queue.store,
     ratings: ratings.store,
     exclusions: exclusionsStore,
+    sequels: sequelsStore,
     context: contextStore,
     compare: compare.store,
     reviewActions,
@@ -632,6 +637,17 @@ takePopupScreen().then(
 if (consumeReopenRequest('settings')) navigate('settings');
 // Pastille d'Activité et contexte de « En cours » ; l'arbre Preact suit ses stores lui-même (langue comprise : useLocale)
 for (const store of [anilistStore, malStore, syncStore, queue.store, ratings.store, settingsStore, platformAccessStore]) store.subscribe(refreshDerived);
+// Ouvrir Activité : les suites nouvelles passent à « vues » (le point du rail s'éteint) ; une seule demande par suite
+const seenRequested = new Set<number>();
+function markSequelsSeen(): void {
+  if (uiStore.get().screen !== 'activity') return;
+  const ids = sequelsStore.get().filter((record) => record.state === 'new' && !seenRequested.has(record.snapshot.id)).map((record) => record.snapshot.id);
+  if (ids.length === 0) return;
+  for (const id of ids) seenRequested.add(id);
+  void updateSequels(ids, 'seen');
+}
+uiStore.subscribe(markSequelsSeen);
+sequelsStore.subscribe(markSequelsSeen);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store
 platformAccessStore.onPermissionsChange(() => void checkHostAccess());
 

@@ -1,6 +1,6 @@
 // Rail de navigation du popup (remplace les onglets du haut) : Kai en haut, une icône par section (44 × 44), les
 // boutons du pied (panneau, Réglages) après un séparateur, même gabarit. Sélection neutre (fond `raised`, bordure
-// `field`, jamais sakura), pastille beurre sur le coin de l'icône. Boutons dans des listes (pas un tablist : ce sont
+// `field`, jamais sakura), pastille beurre sur le coin de l'icône (ou point lavande sans compte). Boutons dans des listes (pas un tablist : ce sont
 // des destinations, `aria-current="page"`) ; sections et pied forment UN groupe : un seul arrêt de tabulation
 // (tabindex itinérant), ↑ ↓ en boucle et Début / Fin déplacent le focus sans activer. Une bulle unique, à droite de
 // l'élément survolé (souris) ou focalisé (clavier), donne le libellé (masquée aux lecteurs d'écran : le bouton porte
@@ -15,6 +15,8 @@ export interface NavRailItem<Id extends string> {
   label: string;
   /** Pastille de compte (éléments à traiter) */
   badge?: number;
+  /** Pastille lavande sans chiffre (nouveauté sans compte) ; absente quand une pastille de compte s'affiche */
+  dot?: boolean;
   /** Nom accessible quand la pastille ne se lit pas seule (« Activité, 3 éléments à traiter ») ; pastille alors masquée */
   ariaLabel?: string;
 }
@@ -131,6 +133,9 @@ export function NavRail<Id extends string>({ label, items, current, onSelect, fo
                     >
                       {item.badge}
                     </span>
+                  )}
+                  {item.dot && !(item.badge !== undefined && item.badge > 0) && (
+                    <span class="absolute top-1 right-1 size-2 rounded-pill bg-lavender" aria-hidden="true" data-rail-dot="" />
                   )}
                 </button>
               </li>

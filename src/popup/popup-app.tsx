@@ -54,6 +54,8 @@ interface PopupRailProps {
   /** Accueil : pas de sections, Kai et Réglages seulement */
   onboarding: boolean;
   pending: number;
+  /** Suite annoncée pas encore vue : point sur Activité quand aucune pastille de compte ne s'affiche */
+  newSequels: boolean;
   settingsOpen: boolean;
   onNavigate: (screen: PopupTab) => void;
   onSettings: () => void;
@@ -62,12 +64,16 @@ interface PopupRailProps {
 }
 
 /** Rail du popup : sections (pastille beurre = éléments à traiter), puis panneau latéral et Réglages */
-function PopupRail({ current, onboarding, pending, settingsOpen, onNavigate, onSettings, onOpenPanel }: PopupRailProps) {
+function PopupRail({ current, onboarding, pending, newSequels, settingsOpen, onNavigate, onSettings, onOpenPanel }: PopupRailProps) {
   const items: NavRailItem<PopupTab>[] = onboarding
     ? []
     : [
         { id: 'watching', icon: 'list', label: t('nav.watching') },
-        pending > 0 ? { id: 'activity', icon: 'history', label: t('nav.activity'), badge: pending, ariaLabel: tp('nav.activityPending', pending) } : { id: 'activity', icon: 'history', label: t('nav.activity') },
+        pending > 0
+          ? { id: 'activity', icon: 'history', label: t('nav.activity'), badge: pending, ariaLabel: tp('nav.activityPending', pending) }
+          : newSequels
+            ? { id: 'activity', icon: 'history', label: t('nav.activity'), dot: true, ariaLabel: t('nav.activityNewSequels') }
+            : { id: 'activity', icon: 'history', label: t('nav.activity') },
       ];
   // Clés data-focus « panel » et « gear » (ids des boutons du pied)
   const footerItems: NavRailFooterItem[] = [
@@ -84,6 +90,7 @@ export function PopupApp(props: PopupAppProps) {
   const anilist = useStore(props.accounts.anilist);
   const mal = useStore(props.accounts.mal);
   const pending = useStore(props.pending);
+  const newSequels = useStore(props.activity.sequels).some((record) => record.state === 'new');
   const hostAccess = useStore(props.hostAccess);
   const panelAvailable = useStore(props.panelAvailable);
   const settingsView = useStore(props.settingsView);
@@ -105,6 +112,7 @@ export function PopupApp(props: PopupAppProps) {
           current={isSettings || onboarding ? null : tab}
           onboarding={onboarding}
           pending={pending}
+          newSequels={newSequels}
           settingsOpen={isSettings}
           onNavigate={props.onNavigate}
           onSettings={props.onSettings}
