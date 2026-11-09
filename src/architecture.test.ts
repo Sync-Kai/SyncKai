@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EDGES, SOURCES, layerFiles, packageImports, reachableFrom, resolveImport, type Edge } from './test/import-graph';
 
-// Frontières des modules (voir CLAUDE.md › « Frontières des modules ») : graphe des imports relatifs de src/, tests
+// Frontières des modules (voir CLAUDE.md › « Module boundaries » et docs/memory/architecture.md) : graphe des imports relatifs de src/, tests
 // compris (src/test/import-graph.ts).
 
 const edges = EDGES;

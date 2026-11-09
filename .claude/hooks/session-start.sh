@@ -9,7 +9,7 @@ fi
 
 cd "${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
-# Identité du propriétaire, sans la signature SSH du conteneur (CLAUDE.md › Cloud sessions)
+# Identité du propriétaire, sans la signature SSH du conteneur (docs/memory/workflow.md › Cloud sessions)
 git config user.name QuentinGeerts
 git config user.email geerts.quentin@gmail.com
 git config commit.gpgsign false

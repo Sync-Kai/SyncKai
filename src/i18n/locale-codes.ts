@@ -1,6 +1,6 @@
 // Langues de l'interface : module feuille (aucun import), partagé par le moteur i18n (core.ts), les réglages
 // (shared/settings.ts) sans cycle d'import, et les scripts Node (empaquetage, contrôle des catalogues).
-// Ajouter une langue : voir CLAUDE.md › « i18n » (code ici, catalogue, dossier `public/_locales`, notes des traducteurs).
+// Ajouter une langue : voir docs/memory/i18n.md › « adding a language » (code ici, catalogue, dossier `public/_locales`, notes des traducteurs).
 
 /**
  * Langues proposées : étiquettes BCP 47, valeur enregistrée dans le réglage `language` et nom du catalogue

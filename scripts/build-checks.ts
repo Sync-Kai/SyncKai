@@ -391,7 +391,7 @@ export function isMainWorldBridge(file: string): boolean {
 /**
  * Chaînes interdites dans un pont du monde MAIN : API d'extension absentes de ce monde, et tout ce qui toucherait aux
  * en-têtes (jeton de l'utilisateur), aux cookies ou aux stockages de la page. Un pont lit uniquement les réponses que
- * l'application web demande elle-même (CLAUDE.md › Known pitfalls).
+ * l'application web demande elle-même (docs/memory/platforms.md).
  */
 export const MAIN_WORLD_FORBIDDEN: readonly { pattern: RegExp; label: string }[] = [
   { pattern: /\bchrome\./, label: 'chrome.' },

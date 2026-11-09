@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRedetectLimiter, type RedetectLimiter } from './redetect-limiter';
 
 // Plafond des relectures automatiques de la fiche (1 toutes les 2 s, 5 par minute, `navigated`) : mêmes règles que
-// lorsqu'il vivait dans ui/page-media-controller.ts (CLAUDE.md › Series pages of bridge platforms)
+// lorsqu'il vivait dans ui/page-media-controller.ts (docs/memory/platforms.md › Series pages of bridge platforms)
 
 let runs: boolean[];
 let active: boolean;

@@ -83,7 +83,7 @@ jobs:
         run: npm run test:e2e
 
   # Mise en page des 21 langues (popup, panneau à 360 / 320 px, page d'import) : informatif, jamais bloquant.
-  # Une traduction trop longue ne doit ni bloquer une fusion ni une release (voir CLAUDE.md › i18n) : le job reste
+  # Une traduction trop longue ne doit ni bloquer une fusion ni une release (voir docs/memory/i18n.md) : le job reste
   # vert, un avertissement signale les anomalies, le rapport s'affiche dans le résumé du run et les captures annotées
   # sont jointes en artefact. Police de secours de Linux plus large que celle de Windows : les anomalies trouvées ici
   # sont réelles pour les utilisateurs Linux / macOS.
