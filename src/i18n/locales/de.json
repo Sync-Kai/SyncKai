@@ -799,7 +799,7 @@
   "reco.dismissed": "Wird nicht mehr vorgeschlagen: {title}",
   "reco.undo": "Rückgängig",
   "reco.previous": "Frühere Ziehungen",
-  "reco.loading": "Wir stöbern in deinem Geschmack…",
+  "reco.loading": "Passende Serien werden gesucht…",
   "reco.cold.title": "Bewerte zuerst ein paar Serien",
   "reco.cold.text": "Vorschläge basieren auf deinen abgeschlossenen Serien mit mindestens 7/10.",
   "reco.cold.meanwhile": "Bis dahin: die Bestbewerteten der Saison",

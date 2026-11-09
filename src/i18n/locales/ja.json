@@ -727,7 +727,7 @@
   "recent.line": "→ {title} · 第{progress}話",
   "recent.pending": "要確認 ↑",
   "recent.title": "最近の同期",
-  "reco.title": "あなたへ",
+  "reco.title": "今日のおすすめ",
   "reco.because": "{title}に★ {score}/10をつけたので",
   "reco.where": "視聴できる場所",
   "reco.another": "別の作品",

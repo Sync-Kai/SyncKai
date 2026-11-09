@@ -919,7 +919,7 @@
   "reco.dismissed": "Nie będzie już proponowane: {title}",
   "reco.undo": "Cofnij",
   "reco.previous": "Wcześniej wylosowane",
-  "reco.loading": "Przeglądam twoje gusta…",
+  "reco.loading": "Dobieranie propozycji…",
   "reco.cold.title": "Najpierw oceń kilka serii",
   "reco.cold.text": "Propozycje wychodzą od ukończonych serii ocenionych na 7/10 lub wyżej.",
   "reco.cold.meanwhile": "Tymczasem: najwyżej oceniane w tym sezonie",
