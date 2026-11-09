@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import type { AniListListEntry } from '../../shared/compare';
+import type { AniListListEntry, MalListEntry } from '../../shared/compare';
 import { isSequelStore, type SequelStore } from '../../shared/sequels';
 import { ApiError } from '../errors';
 import { installFakeChrome } from '../../test/fake-chrome';
@@ -15,6 +15,9 @@ const fakes = vi.hoisted(() => ({
   /** Numéro (1 = premier) de la requête de relations qui échoue */
   failRelationsAt: 0,
   anilist: [] as unknown[],
+  mal: [] as unknown[],
+  /** idMal → fiche AniList (requête idMal_in) */
+  catalog: new Map<number, number>(),
   /** Appelé au premier appel de relations : permet de changer le stockage entre la lecture des sessions et l'écriture */
   onRelations: null as null | (() => Promise<void>),
   create: vi.fn<(id: string, options: { buttons?: { title: string }[]; title: string; message: string }) => Promise<string>>(),
@@ -22,7 +25,8 @@ const fakes = vi.hoisted(() => ({
 }));
 
 vi.mock('../anilist/client', () => ({
-  anilistPublicQuery: async (_query: string, _guard: unknown, variables: { ids: number[] }) => {
+  anilistPublicQuery: async (query: string, _guard: unknown, variables: { ids: number[] }) => {
+    if (query.includes('idMal_in')) return { Page: { media: variables.ids.flatMap((idMal) => (fakes.catalog.has(idMal) ? [{ id: fakes.catalog.get(idMal), idMal }] : [])) } };
     fakes.relationCalls++;
     if (fakes.relationCalls === fakes.failRelationsAt) throw new ApiError('RATE_LIMITED', 'Limite');
     await fakes.onRelations?.();
@@ -30,6 +34,7 @@ vi.mock('../anilist/client', () => ({
       Page: {
         media: variables.ids.map((id) => ({
           id,
+          title: { userPreferred: `Série ${id}` },
           relations: {
             edges: (fakes.sequels.get(id) ?? []).map((node) => ({
               relationType: 'SEQUEL',
@@ -42,7 +47,7 @@ vi.mock('../anilist/client', () => ({
   },
 }));
 vi.mock('../anilist/full-list', () => ({ fetchAniListFullList: async () => fakes.anilist }));
-vi.mock('../mal/full-list', () => ({ fetchMalFullList: async () => [] }));
+vi.mock('../mal/full-list', () => ({ fetchMalFullList: async () => fakes.mal }));
 
 const fake = installFakeChrome({ extra: { notifications: { create: fakes.create, getPermissionLevel: fakes.permission } } });
 const { checkSequels, SEQUEL_CHECK_INTERVAL_MS } = await import('./check');
@@ -75,6 +80,8 @@ beforeEach(() => {
   fakes.failRelationsAt = 0;
   fakes.onRelations = null;
   fakes.anilist = [ani(1)];
+  fakes.mal = [];
+  fakes.catalog.clear();
   fakes.create.mockReset();
   fakes.create.mockImplementation(async (id) => id);
   fakes.permission.mockReset();
@@ -195,5 +202,25 @@ describe('checkSequels', () => {
     const result = await checkSequels(NOW + 25 * HOUR_MS);
     expect(result).toMatchObject({ notified: 0, error: 'refusée' });
     expect(sequelIds()).toEqual([10]);
+  });
+
+  it('déconnexion pendant les requêtes : ni le store ni le résumé ne sont recréés', async () => {
+    fakes.sequels.set(1, [{ id: 10, idMal: null }]);
+    fakes.onRelations = async () => {
+      await chrome.storage.local.set({ [STORAGE_KEYS.sessionEpoch]: { anilist: 1 } });
+    };
+    await checkSequels(NOW);
+    expect(fake.local.peek(STORAGE_KEYS.sequelsState)).toBeUndefined();
+    expect(fake.local.peek(STORAGE_KEYS.sequelsLastResult)).toBeUndefined();
+  });
+
+  it('série source MAL seule : sourceTitle vient d’AniList, pas du titre MAL', async () => {
+    fake.reset({ ...SEED, [STORAGE_KEYS.malToken]: { accessToken: 'm', refreshToken: 'r', expiresAt: Number.MAX_SAFE_INTEGER } });
+    fakes.anilist = [];
+    fakes.catalog.set(500, 900);
+    fakes.mal = [{ malId: 500, mediaId: null, title: 'Titre MAL', coverUrl: null, status: 'COMPLETED', progress: 12, score: null, repeat: 0 } satisfies MalListEntry];
+    fakes.sequels.set(900, [{ id: 10, idMal: null }]);
+    await checkSequels(NOW);
+    expect(store().records[0]?.snapshot).toMatchObject({ sourceId: 900, sourceTitle: 'Série 900' });
   });
 });

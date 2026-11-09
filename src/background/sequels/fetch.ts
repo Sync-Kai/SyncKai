@@ -20,6 +20,7 @@ const RELATIONS_QUERY = /* GraphQL */ `
     Page(perPage: 50) {
       media(id_in: $ids) {
         id
+        title { userPreferred }
         relations {
           edges {
             relationType
@@ -57,16 +58,22 @@ function parseEdge(raw: unknown): RelationEdge | null {
   };
 }
 
-/** Relations de chaque série `ids` (lots de 50, file de fond) ; une série sans relation a une liste vide. Lève une ApiError. */
-export async function fetchSequelRelations(ids: readonly number[]): Promise<Map<number, RelationEdge[]>> {
-  const byId = new Map<number, RelationEdge[]>();
+export interface SourceRelations {
+  /** Titre AniList de la série source (les listes MAL ne fournissent que des ids), null si absent de la réponse */
+  title: string | null;
+  edges: RelationEdge[];
+}
+
+/** Titre et relations de chaque série `ids` (lots de 50, file de fond) ; une série sans relation a une liste vide. Lève une ApiError. */
+export async function fetchSequelRelations(ids: readonly number[]): Promise<Map<number, SourceRelations>> {
+  const byId = new Map<number, SourceRelations>();
   for (let i = 0; i < ids.length; i += RELATIONS_CHUNK) {
     const { Page } = await anilistPublicQuery(RELATIONS_QUERY, isPageData, { ids: ids.slice(i, i + RELATIONS_CHUNK) }, 'background');
     for (const media of Page.media) {
       const id = isRecord(media) ? num(media.id) : null;
       if (id === null || !isRecord(media) || !isRecord(media.relations)) continue;
       const edges = Array.isArray(media.relations.edges) ? media.relations.edges : [];
-      byId.set(id, edges.flatMap((edge) => parseEdge(edge) ?? []));
+      byId.set(id, { title: isRecord(media.title) ? str(media.title.userPreferred) : null, edges: edges.flatMap((edge) => parseEdge(edge) ?? []) });
     }
   }
   return byId;

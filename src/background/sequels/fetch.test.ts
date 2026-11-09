@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeChrome } from '../../test/fake-chrome';
 import type { AniListListEntry, MalListEntry } from '../../shared/compare';
+import { sequelCandidates } from '../../shared/sequels';
 
 // Lectures de la vérification des suites : listes et relations simulées, requêtes comptées par file.
 
 const fakes = vi.hoisted(() => ({
   calls: [] as { query: string; ids: number[]; lane: string | undefined }[],
   catalog: new Map<number, number>(),
+  edges: new Map<number, { id: number; idMal: number | null }[]>(),
   anilist: [] as unknown[],
   mal: [] as unknown[],
 }));
@@ -15,7 +17,15 @@ vi.mock('../anilist/client', () => ({
   anilistPublicQuery: async (query: string, _guard: unknown, variables: { ids: number[] }, lane?: string) => {
     fakes.calls.push({ query, ids: variables.ids, lane });
     if (query.includes('idMal_in')) return { Page: { media: variables.ids.flatMap((idMal) => (fakes.catalog.has(idMal) ? [{ id: fakes.catalog.get(idMal), idMal }] : [])) } };
-    return { Page: { media: variables.ids.map((id) => ({ id, relations: { edges: [] } })) } };
+    return {
+      Page: {
+        media: variables.ids.map((id) => ({
+          id,
+          title: { userPreferred: `Série ${id}` },
+          relations: { edges: (fakes.edges.get(id) ?? []).map((node) => ({ relationType: 'SEQUEL', node: { ...node, type: 'ANIME', format: 'TV', status: 'NOT_YET_RELEASED', title: { userPreferred: `Suite ${node.id}` }, coverImage: null, siteUrl: `https://anilist.co/anime/${node.id}`, startDate: { year: 2027, month: null, day: null }, season: null, seasonYear: null } })) },
+        })),
+      },
+    };
   },
 }));
 vi.mock('../anilist/full-list', () => ({ fetchAniListFullList: async () => fakes.anilist }));
@@ -30,6 +40,7 @@ const mal = (malId: number, status: MalListEntry['status']): MalListEntry => ({ 
 beforeEach(() => {
   fakes.calls.length = 0;
   fakes.catalog.clear();
+  fakes.edges.clear();
   fakes.anilist = [];
   fakes.mal = [];
 });
@@ -73,5 +84,16 @@ describe('readSourceSeries', () => {
     fakes.anilist = [ani(1, null, 'COMPLETED'), ani(2, null, 'COMPLETED')];
     await chrome.storage.local.set({ excludedSeries: [{ id: 'anilist:2', platformKey: null, mediaId: 2, label: 'A2', excludedAt: 1 }] });
     expect((await readSourceSeries(['anilist'])).sources.map((s) => s.id)).toEqual([1]);
+  });
+
+  it('une suite déjà dans la liste MAL (par idMal) n’est pas candidate, de bout en bout', async () => {
+    fakes.catalog.set(500, 900);
+    fakes.mal = [mal(500, 'COMPLETED'), mal(501, 'PLANNING')];
+    // La suite 10 (idMal 501) est déjà planifiée sur MAL ; la suite 11 (idMal 777) ne l'est pas
+    fakes.edges.set(900, [{ id: 10, idMal: 501 }, { id: 11, idMal: 777 }]);
+    const { sources, inLists } = await readSourceSeries(['mal']);
+    const relations = await fetchSequelRelations(sources.map((source) => source.id));
+    const candidates = sequelCandidates(sources.map((source) => ({ source, edges: relations.get(source.id)?.edges ?? [] })), inLists);
+    expect(candidates.map((candidate) => candidate.snapshot.id)).toEqual([11]);
   });
 });

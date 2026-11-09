@@ -3,9 +3,10 @@ import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { connectedServices } from '../../browser/airing-alarm';
 import { createLogger } from '../../browser/logger';
 import { getSettings } from '../../browser/storage/settings-access';
-import { getOpenSessions, sessionsStillOpen } from '../../browser/storage/sessions';
+import { getOpenSessions, sessionsStillOpen, writeIfSessions } from '../../browser/storage/sessions';
 import { withStorageLock } from '../../browser/storage/lock';
 import { formatSequelDate } from '../../shared/sequel-date';
+import type { SessionEpochs } from '../../shared/session-epochs';
 import { EMPTY_SEQUEL_STORE, isSequelStore, mergeSequelPass, sequelCandidates, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
 import { notificationsBlocked } from '../../browser/notifications';
 import { fetchSequelRelations, readSourceSeries } from './fetch';
@@ -67,7 +68,7 @@ async function notify(sequels: readonly SequelSnapshot[], now: number): Promise<
   return sequels.length;
 }
 
-async function run(now: number, force: boolean): Promise<Omit<SequelCheckResult, 'checkedAt'>> {
+async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<Omit<SequelCheckResult, 'checkedAt'>> {
   const none = { found: 0, notified: 0, error: null };
   const settings = await getSettings();
   if (!settings.sequelAlerts) return { ...none, skipped: 'disabled' };
@@ -76,12 +77,14 @@ async function run(now: number, force: boolean): Promise<Omit<SequelCheckResult,
   const { lastCheck } = await readStore();
   if (!force && lastCheck !== null && now - lastCheck < SEQUEL_CHECK_INTERVAL_MS) return { ...none, skipped: 'not-due' };
 
-  // Sessions relevées avant la première requête : une déconnexion pendant la passe l'abandonne sans rien écrire
-  const epochs = await getOpenSessions();
   // Toute lecture en échec (liste, relations) lève : la passe est abandonnée entière, aucun service marqué amorcé
   const { sources, inLists } = await readSourceSeries(services);
   const relations = await fetchSequelRelations(sources.map((source) => source.id));
-  const candidates = sequelCandidates(sources.map((source) => ({ source, edges: relations.get(source.id) ?? [] })), inLists);
+  const candidates = sequelCandidates(
+    // Titre de la série source : AniList seulement (les listes MAL ne donnent que des ids)
+    sources.map((source) => ({ source: { ...source, title: relations.get(source.id)?.title ?? source.title }, edges: relations.get(source.id)?.edges ?? [] })),
+    inLists,
+  );
 
   // Store relu sous verrou (le panneau a pu changer des états), même verrou que la déconnexion
   const merged = await withStorageLock(async () => {
@@ -111,15 +114,19 @@ async function run(now: number, force: boolean): Promise<Omit<SequelCheckResult,
  * `sequels:lastResult`.
  */
 export async function checkSequels(now: number = Date.now(), force = false): Promise<SequelCheckResult> {
+  // Sessions relevées avant toute requête : le store et le résumé sont des données du compte, jamais recréées après une déconnexion
+  const epochs = await getOpenSessions();
   let result: SequelCheckResult;
   try {
-    result = { checkedAt: now, ...(await run(now, force)) };
+    result = { checkedAt: now, ...(await run(now, force, epochs)) };
   } catch (error) {
     log.error('Vérification des suites impossible :', error);
     result = { checkedAt: now, found: 0, notified: 0, skipped: null, error: describeError(error) };
   }
+  // Sans session ouverte, rien à écrire ; sinon écriture sous le verrou de la déconnexion
+  if (Object.keys(epochs).length === 0) return result;
   try {
-    await chrome.storage.local.set({ [STORAGE_KEYS.sequelsLastResult]: result });
+    await writeIfSessions(epochs, { [STORAGE_KEYS.sequelsLastResult]: result });
   } catch (error) {
     log.error('Enregistrement du résumé impossible :', error);
   }
