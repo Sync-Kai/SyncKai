@@ -275,7 +275,7 @@ describe('alarme horaire (PERF-17) : vérifiée à son déclenchement, plus par 
   const AIRING = 'synckai:airing';
 
   it('alertes coupées : aucune requête ni notification, alarme supprimée', async () => {
-    fake.reset({ ...OPEN_SESSIONS, settings: { airingAlerts: false } });
+    fake.reset({ ...OPEN_SESSIONS, settings: { airingAlerts: false, sequelAlerts: false } });
     await chrome.alarms.create(AIRING, { delayInMinutes: 1, periodInMinutes: 60 });
     await handleAiringAlarm();
     expect(fakes.schedule).not.toHaveBeenCalled();

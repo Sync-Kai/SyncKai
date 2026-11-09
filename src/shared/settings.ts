@@ -30,6 +30,10 @@ export interface SyncSettings extends ContentSettings {
   ratingPrompt: boolean;
   /** Notifications Chrome à la sortie d'un nouvel épisode d'une série en cours */
   airingAlerts: boolean;
+  /** Suivi des suites : repérer, pour les séries terminées, la suite qui sort (passe horaire du service worker) */
+  sequelAlerts: boolean;
+  /** Notification Chrome quand une suite est repérée (sans effet si `sequelAlerts` est coupé) */
+  sequelNotifications: boolean;
   /** Délai des alertes de sortie, ajouté à l'heure de sortie estimée de l'agenda (décision 17, airing-policy.ts › alertAt) */
   airingDelayHours: AiringDelayHours;
   /** Agenda et alertes de sortie : délai estimé (minutes) entre la diffusion japonaise et la sortie sur chaque plateforme */
@@ -66,6 +70,8 @@ export const DEFAULT_SETTINGS: SyncSettings = {
   entryService: 'anilist',
   ratingPrompt: true,
   airingAlerts: true,
+  sequelAlerts: true,
+  sequelNotifications: true,
   airingDelayHours: 0,
   language: DEFAULT_CONTENT_SETTINGS.language,
   platformOffsets: platformRecord(() => 60),
@@ -202,6 +208,8 @@ export function normalizeSettings(raw: unknown): SyncSettings {
     entryService: TRACKER_IDS.find((service) => service === value.entryService) ?? DEFAULT_SETTINGS.entryService,
     ratingPrompt: typeof value.ratingPrompt === 'boolean' ? value.ratingPrompt : DEFAULT_SETTINGS.ratingPrompt,
     airingAlerts: typeof value.airingAlerts === 'boolean' ? value.airingAlerts : DEFAULT_SETTINGS.airingAlerts,
+    sequelAlerts: typeof value.sequelAlerts === 'boolean' ? value.sequelAlerts : DEFAULT_SETTINGS.sequelAlerts,
+    sequelNotifications: typeof value.sequelNotifications === 'boolean' ? value.sequelNotifications : DEFAULT_SETTINGS.sequelNotifications,
     airingDelayHours: AIRING_DELAYS.find((d) => d === value.airingDelayHours) ?? DEFAULT_SETTINGS.airingDelayHours,
     language: content.language,
     platformOffsets: normalizePlatformOffsets(value.platformOffsets),

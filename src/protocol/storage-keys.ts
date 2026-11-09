@@ -21,6 +21,10 @@ export const STORAGE_KEYS = {
   sessionEpoch: 'sessionEpoch',
   /** Dernière comparaison AniList ↔ MAL (Activité › Écarts) */
   compareLast: 'compare:last',
+  /** Alertes de suite : suites déjà repérées et notifiées par série (voir shared/sequels.ts) */
+  sequelsState: 'sequels:state',
+  /** Alertes de suite : résultat de la dernière passe horaire */
+  sequelsLastResult: 'sequels:lastResult',
   /** Tâche d'analyse ou d'alignement en cours (progression, reprise) */
   compareJob: 'compare:job',
   /** Éléments de cette tâche, écrits une fois au démarrage (la tâche n'en garde que le curseur, PERF-16) */

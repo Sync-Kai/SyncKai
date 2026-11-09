@@ -25,14 +25,14 @@ export async function connectedServices(): Promise<TrackerId[]> {
   return services;
 }
 
-/** Crée l'alarme horaire si les alertes sont actives et un service connecté (sans repousser une alarme existante), sinon la supprime. Ne lève jamais. */
+/** Crée l'alarme horaire si les alertes de sortie ou de suite sont actives et un service connecté (sans repousser une alarme existante), sinon la supprime. Ne lève jamais. */
 export async function ensureAiringAlarm(): Promise<void> {
   try {
     const settings = await getSettings();
-    if (!settings.airingAlerts || (await connectedServices()).length === 0) {
+    if (!(settings.airingAlerts || settings.sequelAlerts) || (await connectedServices()).length === 0) {
       const cleared = await chrome.alarms.clear(AIRING_ALARM);
       // Trace de débogage (builds de développement seulement)
-      if (__SYNCKAI_DEBUG__) trace('alarm', 'airing', { action: cleared ? 'cleared' : 'absent', alerts: settings.airingAlerts });
+      if (__SYNCKAI_DEBUG__) trace('alarm', 'airing', { action: cleared ? 'cleared' : 'absent', alerts: settings.airingAlerts, sequels: settings.sequelAlerts });
       return;
     }
     const existing = await chrome.alarms.get(AIRING_ALARM);

@@ -22,7 +22,7 @@ const { endSession } = await import('./storage/session-end');
 
 const ANILIST = { [STORAGE_KEYS.anilistToken]: { accessToken: 'anilist', expiresAt: Number.MAX_SAFE_INTEGER } };
 const MAL = { [STORAGE_KEYS.malToken]: { accessToken: 'mal', refreshToken: 'refresh', expiresAt: Number.MAX_SAFE_INTEGER } };
-const settings = (airingAlerts: boolean): Record<string, unknown> => ({ [SETTINGS_STORAGE_KEY]: { ...DEFAULT_SETTINGS, airingAlerts } });
+const settings = (airingAlerts: boolean, sequelAlerts = false): Record<string, unknown> => ({ [SETTINGS_STORAGE_KEY]: { ...DEFAULT_SETTINGS, airingAlerts, sequelAlerts } });
 
 const alarm = (): Promise<chrome.alarms.Alarm | undefined> => chrome.alarms.get(AIRING_ALARM);
 
@@ -62,6 +62,26 @@ describe('ensureAiringAlarm', () => {
   });
 });
 
+describe('alertes de suite : seconde raison de garder l’alarme', () => {
+  it('alertes de sortie coupées, alertes de suite actives et un service : alarme créée', async () => {
+    fake.reset({ ...ANILIST, ...settings(false, true) });
+    await ensureAiringAlarm();
+    expect(await alarm()).toMatchObject({ name: AIRING_ALARM, periodInMinutes: 60 });
+  });
+
+  it('les deux coupées : alarme supprimée ; alertes de suite sans service : alarme supprimée', async () => {
+    fake.reset({ ...ANILIST, ...settings(false, false) });
+    await chrome.alarms.create(AIRING_ALARM, { periodInMinutes: 60 });
+    await ensureAiringAlarm();
+    expect(await alarm()).toBeUndefined();
+
+    fake.reset(settings(false, true));
+    await chrome.alarms.create(AIRING_ALARM, { periodInMinutes: 60 });
+    await ensureAiringAlarm();
+    expect(await alarm()).toBeUndefined();
+  });
+});
+
 describe('réglages enregistrés par une page : l’alarme suit sans réveil du service worker', () => {
   it('alertes activées puis coupées depuis les réglages : alarme créée puis supprimée', async () => {
     fake.reset({ ...ANILIST, ...settings(false) });
@@ -74,7 +94,7 @@ describe('réglages enregistrés par une page : l’alarme suit sans réveil du 
   it('sauvegarde importée avec ses réglages : alertes coupées → alarme supprimée', async () => {
     fake.reset({ ...ANILIST, ...settings(true) });
     await ensureAiringAlarm();
-    const backup = buildBackup({ settings: { ...DEFAULT_SETTINGS, airingAlerts: false } }, '2.4.0', new Date()).data;
+    const backup = buildBackup({ settings: { ...DEFAULT_SETTINGS, airingAlerts: false, sequelAlerts: false } }, '2.4.0', new Date()).data;
     await applyBackup(backup, 'replace', true);
     expect(await alarm()).toBeUndefined();
   });

@@ -20,6 +20,8 @@ describe('normalizeSettings', () => {
       entryService: 'mal',
       ratingPrompt: false,
       airingAlerts: false,
+      sequelAlerts: false,
+      sequelNotifications: false,
       airingDelayHours: 3,
       language: 'de',
       platformOffsets: { crunchyroll: 30, adn: -15, netflix: 90, disney: 60, prime: 45 },
@@ -29,6 +31,12 @@ describe('normalizeSettings', () => {
       dormantAfterDays: 90,
     } as const;
     expect(normalizeSettings(settings)).toEqual(settings);
+  });
+
+  it('alertes de suite : actives par défaut, une valeur non booléenne redevient active, false est conservé', () => {
+    expect(normalizeSettings({})).toMatchObject({ sequelAlerts: true, sequelNotifications: true });
+    expect(normalizeSettings({ sequelAlerts: 'non', sequelNotifications: 0 })).toMatchObject({ sequelAlerts: true, sequelNotifications: true });
+    expect(normalizeSettings({ sequelAlerts: false, sequelNotifications: false })).toMatchObject({ sequelAlerts: false, sequelNotifications: false });
   });
 
   it('seuil des séries en sommeil : 30 par défaut, 30 / 60 / 90 / null conservés, toute autre valeur → 30', () => {
