@@ -638,3 +638,4 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 
 - 2026-11-09, `bugfix/blocked-notifications`: added `airing.skip.blocked` « notifiche bloccate dal browser — consentile a SyncKai nelle impostazioni del browser » (term sheet wording for notifications kept).
 - 2026-11-09, feature/sequel-alerts: added the sequel alert texts (sequel.*, agenda.view.*, agenda.announced.empty, settings.section.sequels, settings.sequels.*, nav.activityNewSequels).
+- 2026-11-09, feature/watch-order: added the watch order texts (panel.order.*).
