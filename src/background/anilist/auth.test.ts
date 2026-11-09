@@ -123,7 +123,7 @@ describe('loginWithAniList (AUTH-06)', () => {
   });
 
   it('connexion réussie, alertes coupées : aucune alarme', async () => {
-    store = { settings: { airingAlerts: false } };
+    store = { settings: { airingAlerts: false, sequelAlerts: false } };
     expect(await loginWithAniList()).toEqual({ ok: true, data: null });
     expect(await alarms.get('synckai:airing')).toBeUndefined();
   });
