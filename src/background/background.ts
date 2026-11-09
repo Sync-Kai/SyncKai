@@ -3,6 +3,8 @@ import { getMalViewer } from './mal/client';
 import { getPanelMedia } from './anilist/panel-media';
 import { loadFranchise } from './franchise/load';
 import { loadListStates } from './franchise/states';
+import { getRecommendations } from './recommendations/batch';
+import { restoreRecommendations, updateRecommendation } from './recommendations/messages';
 import { friendsResponse } from './anilist/friends';
 import { getViewer } from './anilist/viewer';
 import { getWatchingList } from './anilist/watching';
@@ -118,6 +120,9 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     GET_PANEL_MEDIA: { ok: false, code: 'API_ERROR', message },
     GET_FRANCHISE: { ok: false, message: t('panel.order.error') },
     GET_LIST_STATES: { anilist: null, mal: null },
+    GET_RECOMMENDATIONS: { ok: false, message },
+    UPDATE_RECOMMENDATION: false,
+    RESTORE_RECOMMENDATIONS: false,
     GET_ANILIST_FRIENDS: { status: 'error', message },
     GET_AGENDA: { ok: false, code: 'API_ERROR', message },
     CR_IMPORT_ANALYZE: { ok: false, code: 'API_ERROR', message: t('crImport.error.unexpected') },
@@ -193,6 +198,9 @@ const handlers: MessageHandlers = {
   GET_PANEL_MEDIA: ({ mediaId }) => getPanelMedia(mediaId),
   GET_FRANCHISE: ({ mediaId }) => loadFranchise(mediaId),
   GET_LIST_STATES: (payload) => loadListStates(payload),
+  GET_RECOMMENDATIONS: ({ force }) => getRecommendations(force === true),
+  UPDATE_RECOMMENDATION: ({ id, action }) => updateRecommendation(id, action),
+  RESTORE_RECOMMENDATIONS: () => restoreRecommendations(),
   GET_ANILIST_FRIENDS: ({ mediaId }) => friendsResponse(mediaId),
   GET_AGENDA: ({ weekStart }) => getAgendaWeek(weekStart),
   CR_IMPORT_ANALYZE: (payload) => startCrAnalyze(payload),

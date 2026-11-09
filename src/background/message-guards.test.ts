@@ -21,6 +21,25 @@ describe('MAPPINGS_CHANGED', () => {
   });
 });
 
+describe('suggestions (GET / UPDATE / RESTORE_RECOMMENDATIONS)', () => {
+  it('payloads validés, réservés aux pages de l’extension', () => {
+    expect(isRuntimeMessage({ type: 'GET_RECOMMENDATIONS', payload: {} })).toBe(true);
+    expect(isRuntimeMessage({ type: 'GET_RECOMMENDATIONS', payload: { force: true } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'GET_RECOMMENDATIONS', payload: { force: 'oui' } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'GET_RECOMMENDATIONS', payload: null })).toBe(false);
+    for (const action of ['added', 'dismissed', 'undo']) expect(isRuntimeMessage({ type: 'UPDATE_RECOMMENDATION', payload: { id: 7, action } })).toBe(true);
+    expect(isRuntimeMessage({ type: 'UPDATE_RECOMMENDATION', payload: { id: 7, action: 'delete' } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'UPDATE_RECOMMENDATION', payload: { id: 0, action: 'added' } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'UPDATE_RECOMMENDATION', payload: { id: 1.5, action: 'added' } })).toBe(false);
+    expect(isRuntimeMessage({ type: 'RESTORE_RECOMMENDATIONS', payload: null })).toBe(true);
+    expect(isRuntimeMessage({ type: 'RESTORE_RECOMMENDATIONS', payload: {} })).toBe(false);
+    for (const type of ['GET_RECOMMENDATIONS', 'UPDATE_RECOMMENDATION', 'RESTORE_RECOMMENDATIONS'] as const) {
+      expect(MESSAGE_ORIGINS[type]).toBe('extension');
+      expect(isAllowedOrigin(type, 'content')).toBe(false);
+    }
+  });
+});
+
 describe('GET_WATCHING', () => {
   it('`force` facultatif et booléen (PERF-04)', () => {
     expect(isRuntimeMessage({ type: 'GET_WATCHING', payload: { service: 'mal' } })).toBe(true);

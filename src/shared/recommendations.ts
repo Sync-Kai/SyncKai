@@ -15,6 +15,8 @@ export interface RecoCard { id: number; idMal: number | null; title: string; for
 export interface RecoReason { seedId: number; seedTitle: string; seedScore: number; matched: string[] }
 export interface RecoItem { card: RecoCard; score: number; reason: RecoReason | null }
 export interface RecoBatch { items: RecoItem[]; computedAt: number; seedCount: number; cold: boolean }
+// Réponse du service worker à GET_RECOMMENDATIONS ; `malOnly` : seul MyAnimeList est connecté (catalogue AniList lu sans compte)
+export type RecoResult = { ok: true; batch: RecoBatch; malOnly: boolean } | { ok: false; message: string };
 export interface Seed { id: number; title: string; score10: number; genres: string[]; tags: string[] }
 
 // Nœud `mediaRecommendation` tel que renvoyé par AniList (champs de la carte)
@@ -68,7 +70,7 @@ export function pickSeeds(entries: readonly PickEntry[]): { seeds: Omit<Seed, 'g
   return { seeds, cold: done.length < MIN_SEEDS };
 }
 
-function toCard(m: RawRecoMedia): RecoCard {
+export function toCard(m: RawRecoMedia): RecoCard {
   return {
     id: m.id,
     idMal: m.idMal ?? null,
@@ -89,7 +91,7 @@ function toCard(m: RawRecoMedia): RecoCard {
 }
 
 // Tags assez représentatifs (rang ≥ 60) et sans spoiler
-const relevantTags = (m: RawRecoMedia): string[] => (m.tags ?? []).filter((t) => (t.rank ?? 0) >= MIN_TAG_RANK && !t.isMediaSpoiler).map((t) => t.name);
+export const relevantTags = (m: Pick<RawRecoMedia, 'tags'>): string[] => (m.tags ?? []).filter((t) => (t.rank ?? 0) >= MIN_TAG_RANK && !t.isMediaSpoiler).map((t) => t.name);
 
 // Part (0..1) de la note totale des graines qui portent chaque libellé
 function shareByLabel(seeds: readonly Seed[], pick: (s: Seed) => string[]): Map<string, number> {

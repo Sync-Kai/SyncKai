@@ -72,6 +72,9 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   GET_PANEL_MEDIA: 'extension',
   GET_FRANCHISE: 'extension',
   GET_LIST_STATES: 'extension',
+  GET_RECOMMENDATIONS: 'extension',
+  UPDATE_RECOMMENDATION: 'extension',
+  RESTORE_RECOMMENDATIONS: 'extension',
   GET_ANILIST_FRIENDS: 'extension',
   GET_AGENDA: 'extension',
   CR_IMPORT_ANALYZE: 'extension',
@@ -163,6 +166,11 @@ const isListStatesPayload = (p: unknown): p is { mediaIds: number[]; malIds: num
   isRecord(p) &&
   (p.fresh === undefined || typeof p.fresh === 'boolean') &&
   [p.mediaIds, p.malIds].every((ids) => Array.isArray(ids) && ids.length <= MAX_MAIN + MAX_EXTRAS && ids.every(isPositiveInt));
+/** Payload { force? } (GET_RECOMMENDATIONS) */
+const isRecommendationsPayload = (p: unknown): p is { force?: boolean } => isRecord(p) && (p.force === undefined || typeof p.force === 'boolean');
+/** Payload { id, action } (UPDATE_RECOMMENDATION) */
+const isUpdateRecommendationPayload = (p: unknown): p is { id: number; action: 'added' | 'dismissed' | 'undo' } =>
+  isRecord(p) && isPositiveInt(p.id) && (p.action === 'added' || p.action === 'dismissed' || p.action === 'undo');
 /** Langue proposée seulement (i18n/locale-codes.ts) : toute autre valeur est refusée, le script reste en anglais */
 const isContentCatalogPayload = (p: unknown): p is { locale: Locale } => isRecord(p) && isLocale(p.locale);
 
@@ -200,6 +208,9 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   GET_PANEL_MEDIA: isPanelMediaPayload,
   GET_FRANCHISE: isPanelMediaPayload,
   GET_LIST_STATES: isListStatesPayload,
+  GET_RECOMMENDATIONS: isRecommendationsPayload,
+  UPDATE_RECOMMENDATION: isUpdateRecommendationPayload,
+  RESTORE_RECOMMENDATIONS: isNull,
   GET_ANILIST_FRIENDS: isPanelMediaPayload,
   GET_AGENDA: isAgendaPayload,
   CR_IMPORT_ANALYZE: isCrImportAnalyzePayload,

@@ -14,6 +14,7 @@ import type { PageMediaResult, ResolvePageMediaPayload } from '../shared/page-me
 import type { FranchiseResult, ListStates } from '../shared/franchise';
 import type { PanelMediaResult } from '../shared/panel-media.types';
 import type { FriendsSummary } from '../shared/friends';
+import type { RecoResult } from '../shared/recommendations';
 import type { TrackerId } from '../shared/tracker.types';
 import type { WatchingResult } from '../shared/watching.types';
 import type { ApplyDiffsPayload, ApplyResult, CancelJobResult, CompareResult } from '../shared/compare';
@@ -143,6 +144,12 @@ export interface MessageMap {
   GET_FRANCHISE: { payload: { mediaId: number }; response: FranchiseResult };
   /** Panneau › Ordre de visionnage : états de liste de l'utilisateur pour les entrées de la franchise (lecture seule, rien n'est stocké) ; null = service non connecté ou lecture échouée */
   GET_LIST_STATES: { payload: { mediaIds: number[]; malIds: number[]; fresh?: boolean }; response: ListStates };
+  /** Panneau › Découvrir : lot de suggestions (calculé par le service worker, gardé 24 h) ; `force` : recalcul */
+  GET_RECOMMENDATIONS: { payload: { force?: boolean }; response: RecoResult };
+  /** Suggestion ajoutée à la liste, écartée ou écartée par erreur (`undo`) : met à jour le lot et les écartées enregistrés */
+  UPDATE_RECOMMENDATION: { payload: { id: number; action: 'added' | 'dismissed' | 'undo' }; response: boolean };
+  /** Réglages › Mes données : les suggestions écartées reviennent */
+  RESTORE_RECOMMENDATIONS: { payload: null; response: boolean };
   /**
    * Fiche de la page (popup, panneau) : amis AniList (personnes suivies) qui ont la série, cache mémoire 10 min ;
    * `none` sans session AniList ou sans ami qui l'a
