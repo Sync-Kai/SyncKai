@@ -13,6 +13,7 @@ import { formatSequelDate } from '../../shared/sequel-date';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { choosePlatformLink } from '../../shared/watching';
+import { useMediaQuery } from '../../ui/preact/hooks';
 import { Alert } from '../../ui/components/alert';
 import { Button } from '../../ui/components/button';
 import { Collapsible } from '../../ui/components/collapsible';
@@ -46,8 +47,10 @@ type States = ReadonlyMap<number, ListState | 'notOnMal'>;
 /** Choix « Série principale / Tout » gardé pour la durée de vie de la page du panneau (la carte est recréée à chaque fiche) */
 let lastMode: Mode = 'main';
 
-/** Lignes montrées avant « Afficher N de plus » */
+/** Lignes montrées avant « Afficher N de plus » (3 sous 340 px de large) */
 const FIRST_ROWS = 5;
+const NARROW_ROWS = 3;
+const NARROW_QUERY = '(max-width: 339px)';
 /** Entrées vues d'affilée à partir desquelles elles se regroupent en une ligne */
 const MIN_RUN = 3;
 
@@ -241,10 +244,11 @@ function toUnits(list: readonly FranchiseNode[], states: States, currentId: numb
 function Timeline({ graph, ctx, list, mode, onMode }: { graph: FranchiseGraph; ctx: RowContext; list: readonly FranchiseNode[]; mode: Mode; onMode: (mode: Mode) => void }) {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
   const [showAll, setShowAll] = useState(false);
+  const firstRows = useMediaQuery(NARROW_QUERY) ? NARROW_ROWS : FIRST_ROWS;
   const units = toUnits(list, ctx.states, ctx.props.currentId);
   const holdsCurrent = (unit: Unit): boolean => (unit.kind === 'row' ? unit.node.id === ctx.props.currentId : false);
   // La page affichée reste visible même au-delà des premières lignes
-  const limit = showAll ? units.length : Math.max(FIRST_ROWS, units.findIndex(holdsCurrent) + 1);
+  const limit = showAll ? units.length : Math.max(firstRows, units.findIndex(holdsCurrent) + 1);
   const shown = units.slice(0, limit);
   const hidden = units.slice(limit).reduce((sum, unit) => sum + (unit.kind === 'row' ? 1 : unit.nodes.length), 0);
   return (
@@ -266,10 +270,10 @@ function Timeline({ graph, ctx, list, mode, onMode }: { graph: FranchiseGraph; c
           const first = unit.nodes[0]?.id ?? 0;
           if (expanded.has(first)) return unit.nodes.map((node) => <Row key={node.id} node={node} ctx={ctx} />);
           return (
-            <li key={`run-${first}`} class="flex min-w-0 gap-2.5 px-2 pt-2">
+            <li key={`run-${first}`} class="group flex min-w-0 gap-2.5 px-2 pt-2">
               <span class="flex w-4 shrink-0 flex-col items-center gap-1 pt-0.5" aria-hidden="true">
                 <TimelineNode kind="watched" main announced={false} />
-                <span class="w-px flex-1 bg-line" />
+                <span class="w-px flex-1 bg-line group-last:hidden" />
               </span>
               <button
                 type="button"
@@ -337,7 +341,7 @@ function Summary({ main, states }: { main: readonly FranchiseNode[]; states: Sta
 }
 
 function ReadyOrder({ props, graph }: { props: WatchOrderProps; graph: FranchiseGraph }) {
-  const [mode, setMode] = useState<Mode>(lastMode);
+  const [mode, setMode] = useState<Mode>(() => (graph.extras.some((e) => e.id === props.currentId) ? 'all' : lastMode));
   const states0 = props.order.status === 'ready' ? props.order.states : { anilist: null, mal: null };
   const main = releaseOrder(graph, 'main');
   const list = releaseOrder(graph, mode);
@@ -366,9 +370,16 @@ function ReadyOrder({ props, graph }: { props: WatchOrderProps; graph: Franchise
   );
 }
 
+/** La section est dessinée : chargement, erreur ou franchise de plusieurs entrées (même règle pour la carte, qui y met un séparateur) */
+export function showsWatchOrder(order: OrderState, currentId: number): boolean {
+  if (order.status === 'idle') return false;
+  if (order.status !== 'ready' || !inFranchise(order.graph, currentId)) return true;
+  return releaseOrder(order.graph, 'all').length >= 2;
+}
+
 export function WatchOrder(props: WatchOrderProps) {
   const { order } = props;
-  if (order.status === 'idle') return null;
+  if (!showsWatchOrder(order, props.currentId)) return null;
   const shell = (body: ComponentChildren) => (
     <Collapsible variant="row" title={t('panel.order.title')} open={props.open} onToggle={props.onToggle} focusKey="panel-section-order">
       {body}
@@ -386,7 +397,5 @@ export function WatchOrder(props: WatchOrderProps) {
       </div>,
     );
   }
-  // Une seule entrée : rien à ordonner
-  if (releaseOrder(graph, 'all').length < 2) return null;
   return <ReadyOrder props={props} graph={graph} />;
 }

@@ -78,7 +78,13 @@ const click = async (selector: string): Promise<void> => {
 /** Huit entrées sorties, les trois premières vues */
 const eight = (): FranchiseNode[] => Array.from({ length: 8 }, (_, i) => node(i + 1));
 
+/** Panneau étroit simulé : `matchMedia` répond à `(max-width: 339px)` */
+const narrow = (matches: boolean): void => {
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: matches && query.includes('339'), media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
+};
+
 beforeEach(() => {
+  narrow(false);
   setLocale('en');
   container = document.createElement('div');
   document.body.append(container);
@@ -86,6 +92,7 @@ beforeEach(() => {
   updateSequels.mockReset().mockResolvedValue(true);
 });
 afterEach(() => {
+  vi.unstubAllGlobals();
   render(null, container);
   container.remove();
 });
@@ -214,6 +221,23 @@ describe('Ordre de visionnage : liste dépliée', () => {
     await click('[data-order-more]');
     expect(rows()).toHaveLength(8);
     expect(container.querySelector('[data-order-more]')).toBeNull();
+  });
+
+  it('panneau étroit (< 340 px) : 3 lignes avant « Afficher N de plus »', async () => {
+    narrow(true);
+    await show(ready(graphOf(eight()), statesOf({})), { open: true });
+    expect(rows()).toHaveLength(3);
+    expect(container.querySelector('[data-order-more]')?.textContent).toBe(tp('panel.order.more', 5, { count: 5 }));
+  });
+
+  it('page sur un extra : ouvert en « Tout », « Ici » visible ; sur une entrée principale : « Série principale »', async () => {
+    const graph = graphOf([node(1), node(2)], [{ node: node(9, { year: 2001, month: 6, format: 'OVA' }) }]);
+    await show(ready(graph, statesOf({})), { open: true, currentId: 9 });
+    expect(rows().find((r) => r.dataset.orderRow === '9')?.getAttribute('aria-current')).toBe('true');
+    expect(container.querySelector('[data-focus="order-mode-all"]')?.getAttribute('aria-checked')).toBe('true');
+    await click('[data-focus="order-mode-main"]');
+    await show(ready(graph, statesOf({})), { open: true, currentId: 1 });
+    expect(rows().some((r) => r.dataset.orderRow === '9')).toBe(false);
   });
 
   it('la page courante au-delà de la 5e ligne reste visible', async () => {

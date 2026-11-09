@@ -50,6 +50,21 @@ export function useNow(everyMs: number, active = true): number {
   return now;
 }
 
+/** Requête média courante (largeur du panneau) ; nouveau rendu quand elle change, abonnement retiré au démontage */
+export function useMediaQuery(query: string): boolean {
+  const list = (): MediaQueryList | null => (typeof matchMedia === 'function' ? matchMedia(query) : null);
+  const [matches, setMatches] = useState(() => list()?.matches ?? false);
+  useEffect(() => {
+    const media = list();
+    if (!media) return undefined;
+    const onChange = (event: MediaQueryListEvent): void => setMatches(event.matches);
+    setMatches(media.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
+
 /** Repli du focus : un élément (ref) ou une clé `data-focus` du conteneur */
 export type FocusFallback = RefObject<HTMLElement | null> | string;
 

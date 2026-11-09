@@ -22,14 +22,14 @@ import type { FriendsView } from '../../ui/preact/use-friends';
 import { pageKey } from '../now-playing-view';
 import { newTabLabel } from './now-playing-hero';
 import type { OrderState } from './now-playing-controller';
-import { WatchOrder } from './watch-order';
+import { showsWatchOrder, WatchOrder } from './watch-order';
 
 /** Sections repliables de la carte, dans l'ordre d'affichage */
-export const PANEL_SECTIONS = ['notes', 'friends', 'synopsis', 'order', 'discussion'] as const;
+export const PANEL_SECTIONS = ['order', 'notes', 'friends', 'synopsis', 'discussion'] as const;
 export type PanelSection = (typeof PANEL_SECTIONS)[number];
 export type PanelSectionsState = Readonly<Record<PanelSection, boolean>>;
 
-export const CLOSED_SECTIONS: PanelSectionsState = { notes: false, friends: false, synopsis: false, order: false, discussion: false };
+export const CLOSED_SECTIONS: PanelSectionsState = { order: false, notes: false, friends: false, synopsis: false, discussion: false };
 
 export interface DetailsCardProps {
   page: PageMediaInfo;
@@ -186,6 +186,23 @@ export function DetailsCard({ page, view, details, entryLinks, preferred, friend
   const { media } = view;
   const primary = primaryList(view.lists);
   const parts: { key: PanelSection; node: JSX.Element }[] = [];
+  if (showsWatchOrder(order, media.mediaId)) {
+    parts.push({
+      key: 'order',
+      node: (
+        <WatchOrder
+          order={order}
+          currentId={media.mediaId}
+          links={entryLinks}
+          preferred={preferred}
+          unlistedSequels={unlistedSequels}
+          open={sections.order}
+          onToggle={(open) => onToggle('order', open)}
+          onRetry={onRetryOrder}
+        />
+      ),
+    });
+  }
   // Note et commentaire : avec au moins un compte connecté (commentaire désactivé, avec l'explication, hors liste)
   if (view.lists.length > 0) {
     parts.push({
@@ -228,21 +245,6 @@ export function DetailsCard({ page, view, details, entryLinks, preferred, friend
       ),
     });
   }
-  parts.push({
-    key: 'order',
-    node: (
-      <WatchOrder
-        order={order}
-        currentId={media.mediaId}
-        links={entryLinks}
-        preferred={preferred}
-        unlistedSequels={unlistedSequels}
-        open={sections.order}
-        onToggle={(open) => onToggle('order', open)}
-        onRetry={onRetryOrder}
-      />
-    ),
-  });
   parts.push({
     key: 'discussion',
     node: (
