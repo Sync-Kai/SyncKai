@@ -47,6 +47,12 @@ describe('pickSimilar', () => {
   });
 });
 
+describe('pickSimilar : aucun compte', () => {
+  it('aucune liste pour juger (états nuls des deux services) : la règle du préquel est ignorée', () => {
+    expect(ids(pickSimilar([reco(1, { prequelIds: [100], prequelMalIds: [1100] }), reco(2)], none, new Set()))).toEqual([1, 2]);
+  });
+});
+
 describe('similarLookupIds', () => {
   it('identifiants à lire : les recommandations non écartées et leurs préquels, dédoublonnés, par service', () => {
     const recos = [reco(1, { prequelIds: [100, 101], prequelMalIds: [1100, null] }), reco(2, { prequelIds: [100], prequelMalIds: [1100] }), reco(3)];

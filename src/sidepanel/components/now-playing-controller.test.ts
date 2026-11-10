@@ -382,6 +382,13 @@ describe('« Dans le même esprit » du panneau', () => {
     expect(ctl.similar.map((r) => r.mediaId)).toEqual([10]);
   });
 
+  it('aucune session : une recommandation avec préquel est gardée', async () => {
+    fake.sessions = {};
+    emit(withRecos(1, [recoOf(10, { prequelIds: [100], prequelMalIds: [1100] })]));
+    await flush();
+    expect(ctl.similar.map((r) => r.mediaId)).toEqual([10]);
+  });
+
   it('échec de lecture des états avec un compte connecté : aucune ligne (rien ne prouve qu\'elles ne sont pas en liste)', async () => {
     emit(withRecos(1, [recoOf(10)]));
     await flush();

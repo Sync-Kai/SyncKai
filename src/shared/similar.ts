@@ -29,6 +29,8 @@ export function pickSimilar(recos: readonly PanelRecommendation[], states: ListS
     .filter((r) => !dismissed.has(r.mediaId))
     .filter((r) => states.anilist?.[r.mediaId] == null && (r.idMal === null || states.mal?.[r.idMal] == null))
     .filter((r) => {
+      // Aucune liste pour juger (aucun compte connecté) : la règle du préquel ne s'applique pas
+      if (states.anilist === null && states.mal === null) return true;
       // Un préquel vu sur MyAnimeList compte comme vu : seuls ceux qui ne le sont pas passent par la règle commune
       const unseenOnMal = r.prequelIds.filter((_, i) => {
         const malId = r.prequelMalIds[i] ?? null;
