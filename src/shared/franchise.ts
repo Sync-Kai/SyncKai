@@ -176,13 +176,18 @@ export function mergeRound(graph: FranchiseGraph, page: readonly RawMedia[]): { 
   }
 
   const frontier = capped ? [] : main.filter((id) => !expanded.has(id));
-  // Parcours fini : un départ dérivé que son parent ne déclare pas (COMPILATION, OTHER, CONTAINS…) rejoint quand même les extras
-  // de son parent, hors plafond, pour que la page affichée soit toujours dans le graphe
-  const root = main[0];
-  if (frontier.length === 0 && root !== undefined && nodes[graph.startId] && !main.includes(graph.startId) && !extras.some((e) => e.id === graph.startId)) {
-    extras.push({ id: graph.startId, relation: 'SIDE_STORY', from: root });
-  }
-  return { graph: { startId: graph.startId, nodes, main, extras, capped, expanded: [...expanded] }, frontier };
+  const merged: FranchiseGraph = { startId: graph.startId, nodes, main, extras, capped, expanded: [...expanded] };
+  return { graph: frontier.length === 0 ? restoreStart(merged) : merged, frontier };
+}
+
+/**
+ * Parcours fini ou interrompu (plafond de tours) : un départ dérivé que son parent ne déclare pas (COMPILATION, OTHER,
+ * CONTAINS…) rejoint quand même les extras de son parent, hors plafond, pour que la page affichée soit toujours dans le graphe
+ */
+export function restoreStart(graph: FranchiseGraph): FranchiseGraph {
+  const root = graph.main[0];
+  if (root === undefined || !graph.nodes[graph.startId] || graph.main.includes(graph.startId) || graph.extras.some((e) => e.id === graph.startId)) return graph;
+  return { ...graph, extras: [...graph.extras, { id: graph.startId, relation: 'SIDE_STORY', from: root }] };
 }
 
 /** Date de sortie triable : inconnue → null ; mois / jour manquants (annonce « 2027 ») après les dates complètes de l'année */

@@ -2,7 +2,7 @@ import { t } from '../../i18n';
 import { createLogger } from '../../browser/logger';
 import { readFranchiseCache, writeFranchiseCache } from '../../browser/storage/session-cache';
 import { isRecord } from '../../shared/guards';
-import { mergeRound, MAX_ROUNDS, newFranchiseGraph, type FranchiseGraph, type FranchiseResult, type RawMedia } from '../../shared/franchise';
+import { mergeRound, MAX_ROUNDS, newFranchiseGraph, restoreStart, type FranchiseGraph, type FranchiseResult, type RawMedia } from '../../shared/franchise';
 import { anilistPublicQuery } from '../anilist/client';
 import { buildPlatforms } from '../anilist/watching';
 import { ApiError } from '../errors';
@@ -57,7 +57,7 @@ async function walk(startId: number, read: Set<number>, maxRounds: number): Prom
   for (let round = 0; frontier.length > 0; round += 1) {
     // Frontière non vide après le dernier tour : graphe partiel
     if (round >= maxRounds) {
-      graph = { ...graph, capped: true };
+      graph = restoreStart({ ...graph, capped: true });
       break;
     }
     // Entrées sur le point d'être lues : une demande qui arrive pendant ce tour rejoint le parcours

@@ -97,6 +97,18 @@ describe('loadFranchise', () => {
     expect(result.ok && result.graph.capped).toBe(false);
   });
 
+  it('plafond de tours atteint avec la frontière non vide : le départ dérivé que le parent ne déclare pas reste dans les extras', async () => {
+    const media = (id: number, format: string, edges: { relationType: string; node: { id: number; type: string; format: string; duration: number; title: { userPreferred: string } } }[]): RawMedia => ({ id, type: 'ANIME', format, duration: 24, title: { userPreferred: `T${id}` }, relations: { edges } }) as RawMedia;
+    const node = (id: number, format: string): { id: number; type: string; format: string; duration: number; title: { userPreferred: string } } => ({ id, type: 'ANIME', format, duration: 24, title: { userPreferred: `T${id}` } });
+    // 10 (OVA) n'a que son PARENT 1 ; 1 ne déclare pas 10 mais a une suite 2 : après 2 tours la frontière est [2]
+    serve({ rounds: [[media(10, 'OVA', [{ relationType: 'PARENT', node: node(1, 'TV') }])], [media(1, 'TV', [{ relationType: 'SEQUEL', node: node(2, 'TV') }])]] });
+    const result = await loadFranchise(10, 2);
+    if (!result.ok) throw new Error('chargement attendu');
+    expect(result.graph.capped).toBe(true);
+    expect(result.graph.main).toEqual([1, 2]);
+    expect(result.graph.extras).toEqual([{ id: 10, relation: 'SIDE_STORY', from: 1 }]);
+  });
+
   it('deux appels simultanés pour des entrées d\'une même franchise : un seul parcours', async () => {
     // Le parcours est retenu avant son troisième tour : les identifiants des deux premiers sont déjà lus
     let release = (): void => undefined;
