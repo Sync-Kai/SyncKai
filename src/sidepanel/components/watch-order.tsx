@@ -194,22 +194,22 @@ function Row({ node, ctx }: { node: FranchiseNode; ctx: RowContext }) {
             </span>
           </a>
           {watch && (
-            <a
-              class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-line px-2.5 text-secondary font-extrabold text-ink no-underline transition-colors hover:border-field hover:bg-raised"
+            <Button
+              size="sm"
+              class="shrink-0"
               href={watch.url}
               target="_blank"
-              rel="noopener noreferrer"
               title={t('panel.nowPlaying.watchOn', { platform: PLATFORMS[watch.platform].label })}
-              aria-label={t('panel.nowPlaying.watchAria', { title: node.title, platform: PLATFORMS[watch.platform].label })}
-              data-focus={`order-watch-${node.id}`}
+              ariaLabel={t('panel.nowPlaying.watchAria', { title: node.title, platform: PLATFORMS[watch.platform].label })}
+              focusKey={`order-watch-${node.id}`}
             >
               <ServiceLogo id={watch.platform} size="sm" />
               {t('panel.nowPlaying.watch')}
-            </a>
+            </Button>
           )}
         </div>
         {text !== null && (
-          <span class="text-secondary text-muted" title={tooltip} data-order-state="">
+          <span class={`text-secondary text-muted${kindOf(states, node) === 'watched' && !tooltip ? ' sr-only' : ''}`} title={tooltip} data-order-state="">
             {text}
           </span>
         )}

@@ -202,6 +202,22 @@ describe('Ordre de visionnage : liste dépliée', () => {
     expect(first?.getAttribute('title')).toBe(t('panel.order.otherService', { service: 'MyAnimeList', state: t('panel.order.state.planned') }));
   });
 
+  it('ligne vue sans autre service : « Vu » seulement pour les lecteurs d’écran (la coche suffit à l’œil)', async () => {
+    await show(ready(graphOf([node(1), node(2)]), statesOf({ 1: watched, 2: { kind: 'planned', progress: null } })), { open: true });
+    const seen = rows()[0]?.querySelector<HTMLElement>('[data-order-state]');
+    expect(seen?.textContent).toBe(t('panel.order.state.watched'));
+    expect(seen?.classList.contains('sr-only')).toBe(true);
+    expect(rows()[1]?.querySelector<HTMLElement>('[data-order-state]')?.classList.contains('sr-only')).toBe(false);
+  });
+
+  it('« Regarder » compact : bouton sm avec logo et nom accessible', async () => {
+    const withPlatform = node(2, { platforms: [{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/X' }] });
+    await show(ready(graphOf([node(1), withPlatform]), statesOf({})), { open: true });
+    const watch = container.querySelector<HTMLElement>('[data-focus="order-watch-2"]');
+    expect(watch?.dataset.size).toBe('sm');
+    expect(watch?.querySelector('img, svg')).not.toBeNull();
+  });
+
   it('3 entrées vues d’affilée : une ligne « N vus » dépliable', async () => {
     const main = eight();
     await show(ready(graphOf(main), statesOf({ 1: watched, 2: watched, 3: watched, 4: watched })), { open: true, currentId: 8 });

@@ -355,6 +355,14 @@ describe('shortTitle', () => {
     expect(shortTitle('Naru', 'Naruto')).toBe('Naruto');
   });
 
+  it('garde le titre entier quand le reste ne commence pas par une lettre (numéro seul)', () => {
+    expect(shortTitle('Boku no Hero Academia', 'Boku no Hero Academia 2')).toBe('Boku no Hero Academia 2');
+    expect(shortTitle('Boku no Hero Academia', 'Boku no Hero Academia 5 (ONA)')).toBe('Boku no Hero Academia 5 (ONA)');
+    expect(shortTitle('Shingeki no Kyojin', 'Shingeki no Kyojin Season 2')).toBe('Season 2');
+    expect(shortTitle('Boku no Hero Academia', 'Boku no Hero Academia: FINAL SEASON')).toBe('FINAL SEASON');
+    expect(shortTitle('Boku no Hero Academia', 'Boku no Hero Academia: THE MOVIE ~Heroes:Rising~')).toBe('THE MOVIE ~Heroes:Rising~');
+  });
+
   it('ne renvoie jamais une chaîne vide', () => {
     expect(shortTitle('Gundam', 'Gundam')).toBe('Gundam');
   });

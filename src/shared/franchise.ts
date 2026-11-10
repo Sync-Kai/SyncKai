@@ -241,13 +241,15 @@ export function franchiseProgress(
   return { watched, total: released.length, next: allWatched ? announced : (released[furthest + 1] ?? null), allWatched };
 }
 
-/** Titre sans le titre racine quand celui-ci le préfixe (à la frontière d'un mot) ; inchangé sinon, jamais vide */
+/** Titre sans le titre racine quand celui-ci le préfixe (à la frontière d'un mot) et que le reste commence par une lettre ; inchangé sinon, jamais vide */
 export function shortTitle(rootTitle: string, title: string): string {
   const root = rootTitle.trim();
   if (root === '' || !title.toLowerCase().startsWith(root.toLowerCase())) return title;
   const rest = title.slice(root.length);
   if (/^[\p{L}\p{N}]/u.test(rest)) return title;
-  return rest.replace(/^[\s:：\-–—·]+/u, '').trim() || title;
+  const short = rest.replace(/^[\s:：\-–—·]+/u, '').trim();
+  // Un reste qui ne commence pas par une lettre (« 2 », « 5 (ONA) ») n'est plus un titre : on garde l'entier
+  return /^\p{L}/u.test(short) ? short : title;
 }
 
 /** États de liste des entrées d'une franchise, par service : null = service non connecté, session changée ou lecture échouée */
