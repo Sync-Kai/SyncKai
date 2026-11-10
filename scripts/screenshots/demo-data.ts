@@ -369,7 +369,7 @@ const RECO_SPECS: readonly RecoSpec[] = [
 const COLD_SPECS: readonly RecoSpec[] = RECO_SPECS.slice(2).map((spec) => ({ ...spec, seed: undefined }));
 
 function recoItem(spec: RecoSpec, rank: number): RecoItem {
-  const reason = spec.seed ? { seedId: SERIES[0].id, seedTitle: spec.seed.title, seedScore: spec.seed.score, matched: spec.seed.matched } : null;
+  const reason = spec.seed ? { seedId: SERIES[0].id, seedTitle: spec.seed.title, seedScore: spec.seed.score, rated: true, matched: spec.seed.matched } : null;
   return {
     card: {
       id: spec.id,
