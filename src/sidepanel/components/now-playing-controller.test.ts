@@ -331,6 +331,28 @@ describe('ordre de visionnage du panneau', () => {
     expect(ctl.order).toEqual({ status: 'loading' });
   });
 
+  it('page changée pendant un parcours qui échoue : GET_FRANCHISE pour la nouvelle page, pas l\'erreur de l\'ancienne', async () => {
+    emit(readyContent(1));
+    await flush();
+    emit(readyContent(50));
+    await flush();
+    await answer('GET_FRANCHISE', { ok: false, message: 'Boum' } satisfies FranchiseResult);
+    expect(callsOf('GET_FRANCHISE')).toHaveLength(2);
+    expect(callsOf('GET_FRANCHISE')[1].payload).toEqual({ mediaId: 50 });
+    expect(ctl.order).toEqual({ status: 'loading' });
+  });
+
+  it('page changée pendant un parcours dont le service worker est injoignable : même reprise', async () => {
+    emit(readyContent(1));
+    await flush();
+    emit(readyContent(50));
+    await flush();
+    fake.calls[0].resolve(Promise.reject(new Error('sw')));
+    await flush();
+    expect(callsOf('GET_FRANCHISE')).toHaveLength(2);
+    expect(ctl.order).toEqual({ status: 'loading' });
+  });
+
   it('lecture des états en échec : ordre prêt sans états', async () => {
     emit(readyContent(1));
     await flush();

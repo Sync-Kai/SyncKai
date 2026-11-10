@@ -137,13 +137,22 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
       } else {
         order = { status: 'error', message: result.message };
         onChange();
+        await loadLatestAfterError();
       }
     } catch (error: unknown) {
       log.warn('Service worker injoignable :', error);
       if (run !== orderRun) return;
       order = { status: 'error', message: t('popup.swUnreachable') };
       onChange();
+      await loadLatestAfterError();
     }
+  };
+
+  /** Page changée pendant un parcours en échec : la nouvelle page se charge, elle n'affiche pas l'erreur de l'ancienne */
+  const loadLatestAfterError = async (): Promise<void> => {
+    const latest = latestEntry;
+    latestEntry = null;
+    if (latest !== null) await loadOrder(latest);
   };
 
   const resetOrder = (): void => {
