@@ -73,9 +73,11 @@ const airingMixed = param('airing') === 'mixed';
 const withAiring = (entry: WatchingEntry): WatchingEntry => ({ ...entry, ...(airingMixed && entry.mediaId !== null ? AIRING_MIXED.get(entry.mediaId) : undefined) });
 /**
  * `dormant=on` : statut de liste connu (CURRENT) partout ; Frieren (75 j), Solo Leveling (50 j) et Kaiju No. 8 (40 j, deux
- * épisodes de retard) sans activité depuis plus de 30 jours : groupe « En sommeil »
+ * épisodes de retard) sans activité depuis plus de 30 jours : groupe « En sommeil ». `dormant=fail` : idem, mais la mise en pause
+ * de Kaiju No. 8 est refusée en entier (« Tout mettre en pause » : bandeau « … · 1 en échec »)
  */
-const dormantMode = param('dormant') === 'on';
+const dormantMode = param('dormant') === 'on' || param('dormant') === 'fail';
+const KAIJU_ID = 178754;
 const DAY_MS = 24 * 3_600_000;
 const ASLEEP: ReadonlyMap<number, { days: number; progress?: number }> = new Map([[154587, { days: 75 }], [176496, { days: 50 }], [178754, { days: 40, progress: 2 }]]);
 function withDormancy(entry: WatchingEntry): WatchingEntry {
@@ -160,6 +162,7 @@ function setListStatus(payload: unknown): SyncOutcome {
   }
   const entry = findEntry(mediaId);
   if (!entry || entry.mediaId === null) return { status: 'error', message: 'Série inconnue (e2e)' };
+  if (param('dormant') === 'fail' && entry.mediaId === KAIJU_ID) return { status: 'error', message: 'Service indisponible (e2e)' };
   parked.set(entry.mediaId, entry);
   patchEntry(entry.mediaId, () => null);
   return written(entry.title, entry.progress);

@@ -398,6 +398,23 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await asleep.close();
   }
 
+  // Bandeau d'un « Tout mettre en pause » dont une série est refusée en entier : « … · N en échec » (watching.dormant.partial_*)
+  ctx.step = 'popup/dormant-partial';
+  const asleepFail = await openPage(ctx, 'popup.html', { dormant: 'fail' }, POPUP_VIEWPORT);
+  try {
+    await asleepFail.waitForSelector(sel('dormant-toggle'));
+    await asleepFail.waitForSelector('main [aria-busy="false"]');
+    await click(asleepFail, 'dormant-toggle');
+    await asleepFail.waitForSelector('[data-dormant-body]:not([hidden])');
+    await click(asleepFail, 'dormant-pause-all');
+    await click(asleepFail, 'confirm-yes-dormant-pause-all');
+    await asleepFail.waitForSelector(sel('watching-undo'));
+    await attach(ctx, asleepFail);
+    await shot(ctx, asleepFail, 'popup/dormant-partial', '[data-watching-notice]');
+  } finally {
+    await asleepFail.close();
+  }
+
   // Listes vides : « Rien en cours », astuce avec le chemin des Réglages, plateformes à activer
   ctx.step = 'popup/watching-empty';
   const empty = await openPage(ctx, 'popup.html', { watching: 'empty' }, POPUP_VIEWPORT);
