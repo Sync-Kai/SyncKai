@@ -84,6 +84,8 @@ export interface FrameParams {
    * demande en échec, la suivante (« Réessayer ») répond `on` ; `hang` = jamais de réponse (squelette)
    */
   friends?: 'on' | 'error' | 'hang';
+  /** `cold` : suggestions de l'état vide de « Mes séries » en démarrage à froid */
+  reco?: 'cold';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */
@@ -111,7 +113,7 @@ export interface E2EPanelControls {
 export interface PanelFrameParams {
   locale?: Locale;
   /** Onglet ouvert au démarrage */
-  tab?: 'nowPlaying' | 'agenda';
+  tab?: 'nowPlaying' | 'agenda' | 'discover';
   /** `none` : fiche de l'onglet absente du cache de session (RESOLVE_PAGE_MEDIA envoyé au démarrage) */
   cache?: 'none';
   /**
@@ -129,6 +131,8 @@ export interface PanelFrameParams {
   popup?: 'open';
   /** Compte AniList du menu du compte (accountDemo) */
   account?: AccountDemo;
+  /** `cold` : suggestions « Découvrir » de démarrage à froid (tops de la saison, sans raison) */
+  reco?: 'cold';
   /**
    * Réponse de RESOLVE_PAGE_MEDIA (fiche hors cache) : `untracked` (pas un anime), `off` (plateforme désactivée),
    * `notFound`, `error` (limite AniList), `hang` (jamais de réponse : squelette)

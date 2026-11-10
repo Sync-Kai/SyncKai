@@ -547,3 +547,57 @@ describe('panneau latéral › amis AniList (bout en bout)', () => {
     expect(await page.$(summary)).toBeNull();
   });
 });
+
+describe('onglet Découvrir', () => {
+  const card = '[data-reco] [data-reco-item]';
+  const titleOf = (page: Page): Promise<string> => page.$eval(`${card} a`, (el) => el.textContent?.trim() ?? '');
+  const textOf = (page: Page, selector: string): Promise<string> => page.$eval(selector, (el) => (el instanceof HTMLElement ? el.innerText : '').trim());
+  const sentFor = async (page: Page, type: string): Promise<unknown[]> => (await messages(page, type)).map((m) => m.payload);
+
+  it('ouvert : une suggestion avec sa raison, « Autre » tire une autre fiche, « Pas intéressé » puis « Annuler » la rend', async () => {
+    const page = await openPanel({ tab: 'discover' });
+    await page.waitForSelector(card);
+    expect(await sentFor(page, 'GET_RECOMMENDATIONS')).toEqual([{}]);
+    expect(await page.$('[data-reco-cold]')).toBeNull();
+    expect(await page.$('[data-reco-why]')).not.toBeNull();
+    const first = await titleOf(page);
+
+    // « Autre » : mouvement réduit, la nouvelle fiche remplace aussitôt l'ancienne (jamais la même)
+    await page.locator('[data-focus="reco-another"]').click();
+    await page.waitForFunction((title: string) => document.querySelector('[data-reco] [data-reco-item] a')?.textContent?.trim() !== title, {}, first);
+    const second = await titleOf(page);
+    expect(second).not.toBe(first);
+    expect(await textOf(page, '[data-reco]')).toContain(first);
+
+    await page.locator('[data-focus="reco-dismiss"]').click();
+    await page.waitForSelector('[data-focus="reco-undo"]');
+    await waitForMessages(page, 'UPDATE_RECOMMENDATION', 1);
+    expect((await sentFor(page, 'UPDATE_RECOMMENDATION'))[0]).toMatchObject({ action: 'dismissed' });
+    expect(await page.$('[data-focus="reco-dismiss"]')).toBeNull();
+
+    await page.locator('[data-focus="reco-undo"]').click();
+    await page.waitForSelector('[data-focus="reco-dismiss"]');
+    await waitForMessages(page, 'UPDATE_RECOMMENDATION', 2);
+    expect((await sentFor(page, 'UPDATE_RECOMMENDATION'))[1]).toMatchObject({ action: 'undo' });
+    expect(await titleOf(page)).toBe(second);
+  });
+
+  it('démarrage à froid : la note « En attendant » précède des fiches sans raison', async () => {
+    const page = await openPanel({ tab: 'discover', reco: 'cold' });
+    await page.waitForSelector(card);
+    expect(await textOf(page, '[data-reco-cold]')).toContain(fr('reco.cold.title'));
+    expect(await page.$('[data-reco-why]')).toBeNull();
+  });
+
+  it('l’onglet est choisi depuis la barre d’onglets : la liste est demandée à son premier affichage seulement', async () => {
+    const page = await openPanel({});
+    await page.waitForSelector('#sk-tab-discover');
+    expect(await messages(page, 'GET_RECOMMENDATIONS')).toEqual([]);
+    await page.locator('#sk-tab-discover').click();
+    await page.waitForSelector(card);
+    await page.locator('#sk-tab-nowPlaying').click();
+    await page.locator('#sk-tab-discover').click();
+    await page.waitForSelector(card);
+    expect(await messages(page, 'GET_RECOMMENDATIONS')).toHaveLength(1);
+  });
+});

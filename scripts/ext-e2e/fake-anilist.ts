@@ -23,6 +23,8 @@ export interface AniListMediaSeed {
   relations?: readonly { relationType: 'SEQUEL' | 'PREQUEL'; id: number }[];
   /** Année de début (2023 par défaut) : ordre des saisons pour le résolveur */
   startYear?: number;
+  /** Recommandations de la communauté (fiches du faux catalogue, avec leurs votes) : « Découvrir », « Dans le même esprit » */
+  recommends?: readonly { id: number; rating: number }[];
 }
 
 /** Sortie d'un épisode au calendrier public (requête anonyme `airingSchedules` de background/airing.ts) */
@@ -234,7 +236,9 @@ export class FakeAniList {
         return { ok: { Media: this.mediaFields(media, account) } };
       }
       case 'AnimeByIds':
-      case 'CatalogByMal': {
+      case 'CatalogByMal':
+      // Id AniList de ids MAL (by-mal.ts : comparaison, alertes de suite, listes MAL des suggestions)
+      case 'CompareCatalog': {
         const ids = Array.isArray(v.ids) ? v.ids.map(Number) : [];
         const found = [...this.media.values()].filter((m) => (operation === 'AnimeByIds' ? ids.includes(m.id) : m.idMal !== null && ids.includes(m.idMal)));
         return { ok: { Page: { media: found.map((m) => this.mediaFields(m, null)) } } };
@@ -289,6 +293,14 @@ export class FakeAniList {
         const ids = Array.isArray(v.ids) ? v.ids.map(Number) : [];
         return { ok: { Page: { media: ids.flatMap((id) => this.media.get(id) ?? []).map((m) => ({ id: m.id, mediaListEntry: this.mediaFields(m, account).mediaListEntry })) } } };
       }
+      // Suggestions « Découvrir » (background/recommendations/batch.ts) : recommandations des graines, puis tops de la saison (démarrage à froid)
+      case 'RecoSeeds': {
+        const ids = Array.isArray(v.ids) ? v.ids.map(Number) : [];
+        const seeds = ids.flatMap((id) => this.media.get(id) ?? []);
+        return { ok: { Page: { media: seeds.map((m) => ({ id: m.id, genres: ['Adventure'], tags: [], recommendations: { nodes: this.recommendationNodes(m) } })) } } };
+      }
+      case 'RecoSeason':
+        return { ok: { Page: { media: [...this.media.values()].map((m) => this.recoFields(m)) } } };
       // Amis qui ont la série (anilist/friends.ts) : le compte ne suit personne, page vide
       case 'Friends':
         if (!account) return needsAccount();
@@ -356,6 +368,29 @@ export class FakeAniList {
     };
   }
 
+  /** Fiche de suggestion (CARD_FIELDS de background/recommendations/batch.ts) */
+  private recoFields(media: AniListMediaSeed): Record<string, unknown> {
+    return {
+      ...this.mediaFields(media, null),
+      isAdult: false,
+      duration: 24,
+      averageScore: 80,
+      genres: ['Adventure'],
+      tags: [],
+      coverImage: { large: null, medium: null, color: null },
+      bannerImage: null,
+      season: 'FALL',
+    };
+  }
+
+  /** `recommendations.nodes` d'une fiche : les fiches recommandées du faux catalogue, avec leurs votes */
+  private recommendationNodes(media: AniListMediaSeed): Record<string, unknown>[] {
+    return (media.recommends ?? []).flatMap((r) => {
+      const recommended = this.media.get(r.id);
+      return recommended ? [{ rating: r.rating, mediaRecommendation: this.recoFields(recommended) }] : [];
+    });
+  }
+
   /** Fiche au format de la requête Franchise (NODE de background/franchise/load.ts) : relations directes complètes, leurs propres relations réduites */
   private franchiseFields(media: AniListMediaSeed): Record<string, unknown> {
     const node = (m: AniListMediaSeed): Record<string, unknown> => ({ ...this.mediaFields(m, null), type: 'ANIME', duration: 24 });
@@ -379,6 +414,7 @@ export class FakeAniList {
       averageScore: 80,
       season: 'FALL',
       studios: { nodes: [] },
+      recommendations: { nodes: this.recommendationNodes(media) },
       relations: {
         edges: (media.relations ?? []).flatMap((r) => {
           const related = this.media.get(r.id);

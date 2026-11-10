@@ -9,7 +9,7 @@ import { isRecord } from '../../src/shared/guards';
 import { LIVE_PORT_NAME, type LiveContentMessage, type LiveTickMessage } from '../../src/protocol/live';
 import type { PageListState, PageMediaInfo, PageMediaResult, PageMediaView, PageSeason } from '../../src/shared/page-media.types';
 import { isPanelTab } from '../../src/sidepanel/tabs';
-import { accountDemo, demoFriendsHandler, isAccountDemo } from '../screenshots/demo-data';
+import { accountDemo, demoFriendsHandler, isAccountDemo, recoHandlers } from '../screenshots/demo-data';
 import { agendaWeek, PANEL_PAGE, panelChrome, panelView, PLAYBACK } from '../screenshots/demo-panel';
 import { createMockPort, installChromeMock, type SentMessage } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
@@ -213,6 +213,8 @@ const controls = installChromeMock({
   handlers: {
     ...base.handlers,
     ...account.handlers,
+    // `reco=cold` : suggestions de démarrage à froid (tops de la saison)
+    ...recoHandlers(param('reco') === 'cold', now),
     RESOLVE_PAGE_MEDIA: param('pageMedia') === 'hang' ? () => new Promise(() => undefined) : holdable('RESOLVE_PAGE_MEDIA', resolvePage),
     // `friends=on|error|hang` : amis AniList de la fiche (aucun sinon)
     GET_ANILIST_FRIENDS: demoFriendsHandler(param('friends'), panelView().media.episodes ?? 12),

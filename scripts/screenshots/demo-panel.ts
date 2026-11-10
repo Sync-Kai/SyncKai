@@ -12,7 +12,7 @@ import { isRecord } from '../../src/shared/guards';
 import { LIVE_PORT_NAME, type LiveContentMessage } from '../../src/protocol/live';
 import { pageMediaCacheKey, toCachedPageMedia } from '../../src/browser/storage/page-media-cache';
 import type { PageMediaInfo, PageMediaView } from '../../src/shared/page-media.types';
-import type { PanelMedia } from '../../src/shared/panel-media.types';
+import type { PanelMedia, PanelRecommendation } from '../../src/shared/panel-media.types';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { PANEL_LAST_TAB_KEY, type PanelTab } from '../../src/sidepanel/tabs';
 import { bannerUrl, coverColor, coverUrl } from './covers';
@@ -124,7 +124,17 @@ export function panelMedia(): PanelMedia {
         seasonYear: null,
       },
     ],
+    recommendations: [
+      panelReco(108465, 'Mushoku Tensei: Jobless Reincarnation', 2021, 214, { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'peaks' }),
+      panelReco(97986, 'Made in Abyss', 2017, 187, { from: '#5A4A1E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }),
+      panelReco(21827, 'Violet Evergarden', 2018, 142, { from: '#24506E', to: '#FF8FB8', accent: '#FFF6D8', motif: 'moon' }),
+    ],
   };
+}
+
+/** Série voisine de la démo (« Dans le même esprit ») : sans préquel, jaquette de remplacement */
+function panelReco(mediaId: number, title: string, startYear: number, rating: number, cover: Cover): PanelRecommendation {
+  return { mediaId, idMal: mediaId, title, format: 'TV', startYear, coverUrl: coverUrl(cover), siteUrl: `https://anilist.co/anime/${mediaId}`, rating, platforms: [{ platform: 'crunchyroll', url: `https://www.crunchyroll.com/series/DEMO${mediaId}` }], prequelIds: [], prequelMalIds: [] };
 }
 
 // ─── Ordre de visionnage : franchise fictive de 8 entrées principales (et un extra) autour de Frieren ──────────

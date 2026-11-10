@@ -18,6 +18,7 @@ import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import type { TrackerId } from '../../src/shared/tracker.types';
 import { currentWeekStart } from '../../src/shared/weekly-syncs';
+import type { RecoBatch, RecoItem, RecoResult } from '../../src/shared/recommendations';
 import type { AiringStatus, WatchingEntry, WatchingList } from '../../src/shared/watching.types';
 import { avatarUrl, coverUrl, type CoverMotif } from './covers';
 import type { DemoMediaId } from './demo-media';
@@ -336,6 +337,77 @@ async function updateSequelsDemo(payload: unknown): Promise<boolean> {
   return true;
 }
 
+// ─── Suggestions « Découvrir » ───────────────────────────────────────────
+
+interface RecoSpec {
+  id: number;
+  title: string;
+  format: string;
+  year: number;
+  episodes: number;
+  score: number;
+  genres: string[];
+  tags: string[];
+  cover: { from: string; to: string; accent: string; motif: CoverMotif };
+  /** Série de la démo à l'origine de la suggestion (absent : démarrage à froid, tops de la saison) */
+  seed?: { title: string; score: number; matched: string[] };
+}
+
+/** Recommandations AniList réelles des séries de la démo (fiches publiques) ; ids des fiches AniList */
+const RECO_SPECS: readonly RecoSpec[] = [
+  { id: 108465, title: 'Mushoku Tensei: Jobless Reincarnation', format: 'TV', year: 2021, episodes: 11, score: 84, genres: ['Adventure', 'Drama', 'Fantasy'], tags: ['Isekai'], cover: { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'peaks' }, seed: { title: 'Frieren', score: 9, matched: ['Adventure', 'Fantasy'] } },
+  { id: 97986, title: 'Made in Abyss', format: 'TV', year: 2017, episodes: 13, score: 86, genres: ['Adventure', 'Drama', 'Fantasy'], tags: ['Exploration'], cover: { from: '#5A4A1E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }, seed: { title: 'Frieren', score: 9, matched: ['Adventure', 'Fantasy'] } },
+  { id: 101348, title: 'Vinland Saga', format: 'TV', year: 2019, episodes: 24, score: 87, genres: ['Action', 'Adventure', 'Drama'], tags: ['Historical'], cover: { from: '#24506E', to: '#9FD8F0', accent: '#FFF6D8', motif: 'wave' }, seed: { title: 'Solo Leveling', score: 8, matched: ['Action', 'Adventure'] } },
+  { id: 113415, title: 'Jujutsu Kaisen', format: 'TV', year: 2020, episodes: 24, score: 85, genres: ['Action', 'Supernatural'], tags: ['Shounen'], cover: { from: '#3A2A6E', to: '#B9A4FF', accent: '#FFFFFF', motif: 'bolt' }, seed: { title: 'Dandadan', score: 9, matched: ['Action', 'Supernatural'] } },
+  { id: 21507, title: 'Mob Psycho 100', format: 'TV', year: 2016, episodes: 12, score: 85, genres: ['Action', 'Comedy', 'Supernatural'], tags: ['Super Power'], cover: { from: '#6E2A4A', to: '#FF8FB8', accent: '#FFF6D8', motif: 'rings' }, seed: { title: 'Dandadan', score: 9, matched: ['Comedy', 'Supernatural'] } },
+  { id: 21827, title: 'Violet Evergarden', format: 'TV', year: 2018, episodes: 13, score: 84, genres: ['Drama', 'Fantasy'], tags: ['Iyashikei'], cover: { from: '#24506E', to: '#FF8FB8', accent: '#FFF6D8', motif: 'moon' }, seed: { title: 'Frieren', score: 9, matched: ['Drama', 'Fantasy'] } },
+  { id: 21355, title: 'Re:ZERO -Starting Life in Another World-', format: 'TV', year: 2016, episodes: 25, score: 83, genres: ['Drama', 'Fantasy', 'Psychological'], tags: ['Time Loop'], cover: { from: '#3A2A6E', to: '#5FE3FF', accent: '#FFFFFF', motif: 'rings' }, seed: { title: 'Solo Leveling', score: 8, matched: ['Fantasy'] } },
+  { id: 11061, title: 'Hunter x Hunter (2011)', format: 'TV', year: 2011, episodes: 148, score: 90, genres: ['Action', 'Adventure', 'Fantasy'], tags: ['Shounen'], cover: { from: '#2F6E5E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }, seed: { title: 'Kaiju No. 8', score: 8, matched: ['Action', 'Adventure'] } },
+];
+
+/** Démarrage à froid : tops de la saison (sans raison) */
+const COLD_SPECS: readonly RecoSpec[] = RECO_SPECS.slice(2).map((spec) => ({ ...spec, seed: undefined }));
+
+function recoItem(spec: RecoSpec, rank: number): RecoItem {
+  const reason = spec.seed ? { seedId: SERIES[0].id, seedTitle: spec.seed.title, seedScore: spec.seed.score, matched: spec.seed.matched } : null;
+  return {
+    card: {
+      id: spec.id,
+      idMal: spec.id,
+      title: spec.title,
+      format: spec.format,
+      year: spec.year,
+      episodes: spec.episodes,
+      averageScore: spec.score,
+      genres: spec.genres,
+      tags: spec.tags,
+      coverUrl: coverUrl(spec.cover),
+      coverLarge: coverUrl(spec.cover),
+      color: null,
+      bannerUrl: null,
+      siteUrl: `https://anilist.co/anime/${spec.id}`,
+      platforms: [{ platform: 'crunchyroll', url: `https://www.crunchyroll.com/series/DEMO${spec.id}` }],
+    },
+    score: 10 - rank,
+    reason,
+  };
+}
+
+/** Lot de suggestions de la démo (8 fiches ; `cold` : 6 tops de saison, sans raison) */
+export function recoBatch(cold: boolean, now: number): RecoBatch {
+  const specs = cold ? COLD_SPECS : RECO_SPECS;
+  return { items: specs.map(recoItem), computedAt: now, seedCount: cold ? 0 : 5, cold };
+}
+
+/** Messages des suggestions (`cold` : démarrage à froid) ; le lot est identique à chaque demande, les écarts et ajouts sont acceptés sans effet */
+export function recoHandlers(cold: boolean, now: number): Record<string, (payload: unknown) => unknown> {
+  return {
+    GET_RECOMMENDATIONS: (): RecoResult => ({ ok: true, batch: recoBatch(cold, now), malOnly: false }),
+    UPDATE_RECOMMENDATION: () => true,
+    RESTORE_RECOMMENDATIONS: () => true,
+  };
+}
+
 export function demoChrome(locale: Locale, scenario: Scenario, now: number = Date.now()): ChromeMockOptions {
   // Statistiques du menu du compte (maquette MenuCompte : 142 animes, 3 210 épisodes, 54 jours)
   const anilistViewer: AniListViewer = { id: 1000001, name: 'Kai_fan', siteUrl: 'https://anilist.co/user/Kai_fan', avatarUrl: avatarUrl('K', '#FF8FB8', '#B9A4FF'), stats: { animeCount: 142, episodes: 3210, days: 54.3 } };
@@ -405,6 +477,8 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
       COMPARE_LISTS: () => ({ ok: true, data: comparison(now) }),
       // Amis AniList : aucun par défaut (bloc masqué) ; `friends=on|error|hang` des pages de test
       GET_ANILIST_FRIENDS: () => ({ status: 'none' }),
+      // Suggestions « Découvrir » ; `reco=cold` des pages de test : démarrage à froid
+      ...recoHandlers(false, now),
     },
   };
 }

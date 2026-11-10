@@ -10,7 +10,7 @@ import { tl } from '../../src/i18n';
 import { FakeSites, autoplayNextCrunchyroll, crunchyrollWatchHtml, play, seek } from './fake-sites';
 import { waitFor } from './harness';
 import { ANILIST_A, MAL_A, expectCleanRun } from './seed';
-import { CREDITS_START, FRIEREN_E3, FRIEREN_S1, FRIEREN_S2, ONE_PIECE, en, hasSkeleton, launch, nowPlayingText, openPanel, sel, stays, storedMappings, waitForEntry } from './scenario';
+import { CREDITS_START, FRIEREN_E3, FRIEREN_S1, FRIEREN_S2, ONE_PIECE, type SeriesSeed, en, hasSkeleton, launch, nowPlayingText, openPanel, sel, stays, storedMappings, waitForEntry } from './scenario';
 
 // ─── Scénarios ────────────────────────────────────────────────────────────
 
@@ -158,6 +158,34 @@ describe('Agenda', () => {
       return text.includes(ONE_PIECE.anilist.title) && text.includes(episode) && !text.includes(errorPrefix);
     });
     expect(await panel.$(retry)).toBeNull();
+    expectCleanRun(run.h, run.anilist, run.mal);
+  });
+});
+
+describe('Découvrir', () => {
+  // Trois séries terminées et bien notées (graines) recommandent deux fiches hors liste : le panneau en tire une, avec sa raison
+  const seed = (id: number, title: string): SeriesSeed => ({
+    anilist: { id, idMal: id, title, episodes: 12, recommends: [{ id: 9101, rating: 40 }, { id: 9102, rating: 25 }] },
+    mal: { id, title, numEpisodes: 12 },
+    anilistEntry: { status: 'COMPLETED', progress: 12, score: 9 },
+  });
+  const target = (id: number, title: string): SeriesSeed => ({ anilist: { id, idMal: id, title, episodes: 12 }, mal: { id, title, numEpisodes: 12 } });
+
+  it('onglet Découvrir : suggestion d’après les séries aimées (RecoSeeds), « Autre » tire l’autre fiche, rien n’est écrit sur les listes', async (context) => {
+    const run = await launch(context, [seed(9001, 'Seed One'), seed(9002, 'Seed Two'), seed(9003, 'Seed Three'), target(9101, 'Target One'), target(9102, 'Target Two')]);
+    const panel = await openPanel(run.h);
+    await panel.locator('#sk-tab-discover').click();
+    const title = (): Promise<string> => panel.$eval('[data-reco] [data-reco-item] a', (el) => el.textContent?.trim() ?? '');
+    await panel.waitForSelector('[data-reco] [data-reco-why]', { timeout: 15_000 });
+    const first = await title();
+    expect(['Target One', 'Target Two']).toContain(first);
+    expect(await panel.$eval('[data-reco-why]', (el) => el.textContent ?? '')).toContain('Seed');
+    expect(run.anilist.operations(0)).toContain('RecoSeeds');
+
+    await panel.locator(sel('reco-another')).click();
+    await waitFor('autre fiche', async () => (await title()) !== first);
+    expect(run.anilist.mutations()).toEqual([]);
+    expect(run.mal.writes()).toEqual([]);
     expectCleanRun(run.h, run.anilist, run.mal);
   });
 });

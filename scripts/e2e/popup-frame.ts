@@ -14,7 +14,7 @@ import { STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../src/shared/watching.types';
-import { accountDemo, demoChrome, demoFriendsHandler, isAccountDemo, PAGE_INFO, pageView, watchingList, type Scenario } from '../screenshots/demo-data';
+import { accountDemo, demoChrome, demoFriendsHandler, isAccountDemo, PAGE_INFO, pageView, recoHandlers, watchingList, type Scenario } from '../screenshots/demo-data';
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
@@ -356,6 +356,8 @@ installChromeMock({
   handlers: {
     ...demo.handlers,
     ...account.handlers,
+    // `reco=cold` : suggestions de l'état vide en démarrage à froid
+    ...(param('reco') === 'cold' ? recoHandlers(true, now) : {}),
     // `login=pending` : fenêtre de connexion restée ouverte ; `login=error` : connexion annulée
     ...(loginMode === 'pending' ? { LOGIN_ANILIST: () => new Promise<never>(() => {}), LOGIN_MAL: () => new Promise<never>(() => {}) } : {}),
     ...(loginMode === 'error' ? { LOGIN_ANILIST: () => ({ ok: false, code: 'CANCELLED', message: t('auth.cancelled') }) } : {}),

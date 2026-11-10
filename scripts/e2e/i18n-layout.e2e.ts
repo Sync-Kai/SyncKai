@@ -403,8 +403,13 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
   const empty = await openPage(ctx, 'popup.html', { watching: 'empty' }, POPUP_VIEWPORT);
   try {
     await empty.waitForSelector(sel('tip-settings'));
+    // Suggestion « 🎲 Une idée ? » sous l'astuce (fiche compacte, 496 px)
+    await empty.waitForSelector('[data-empty-reco] [data-reco-item]');
     await attach(ctx, empty);
     await shot(ctx, empty, 'popup/watching-empty');
+    await empty.locator(sel('reco-dismiss')).click();
+    await empty.waitForSelector(sel('reco-undo'));
+    await shot(ctx, empty, 'popup/watching-empty-dismissed');
   } finally {
     await empty.close();
   }
@@ -433,8 +438,10 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
 
     // Sections de la fiche dépliées (ordre de visionnage, note et commentaire, discussions), éditeur du commentaire ouvert
     ctx.step = 'panel/now-playing-details';
-    for (const section of ['order', 'notes', 'discussion']) await click(page, `panel-section-${section}`);
+    for (const section of ['order', 'similar', 'notes', 'discussion']) await click(page, `panel-section-${section}`);
     await page.waitForSelector('[data-order-run]');
+    // « Dans le même esprit » : suggestions de la fiche (titre, votes, plateformes)
+    await page.waitForSelector('[data-focus^="similar-entry-"]');
     await click(page, 'order-more');
     await page.waitForSelector(sel('order-entry-182255'));
     await click(page, 'panel-notes-toggle');
@@ -528,6 +535,41 @@ async function panelScreens(ctx: LocaleContext): Promise<void> {
     await panelShots(ctx, friends, 'now-playing-friends');
   } finally {
     await friends.close();
+  }
+
+  // Onglet Découvrir : suggestion tirée avec sa raison, « Pas intéressé » (annulation proposée), puis démarrage à froid
+  ctx.step = 'panel/discover';
+  const discover = await openPage(ctx, 'sidepanel.html', { tab: 'discover' }, { width: PANEL_WIDTHS[0], height: PANEL_HEIGHT });
+  try {
+    await discover.waitForSelector('[data-reco] [data-reco-why]');
+    await attach(ctx, discover);
+    await panelShots(ctx, discover, 'discover');
+    ctx.step = 'panel/discover-dismissed';
+    await click(discover, 'reco-dismiss');
+    await discover.waitForSelector(sel('reco-undo'));
+    await panelShots(ctx, discover, 'discover-dismissed');
+  } finally {
+    await discover.close();
+  }
+  ctx.step = 'panel/discover-cold';
+  const cold = await openPage(ctx, 'sidepanel.html', { tab: 'discover', reco: 'cold' }, { width: PANEL_WIDTHS[0], height: PANEL_HEIGHT });
+  try {
+    await cold.waitForSelector('[data-reco-cold]');
+    await attach(ctx, cold);
+    await panelShots(ctx, cold, 'discover-cold');
+  } finally {
+    await cold.close();
+  }
+
+  // Agenda, semaine sans sortie : lien « 🎲 Une idée ? »
+  ctx.step = 'panel/schedule-empty';
+  const quiet = await openPage(ctx, 'sidepanel.html', { tab: 'agenda', agenda: 'empty' }, { width: PANEL_WIDTHS[0], height: PANEL_HEIGHT });
+  try {
+    await quiet.waitForSelector(sel('agenda-discover'));
+    await attach(ctx, quiet);
+    await panelShots(ctx, quiet, 'schedule-empty');
+  } finally {
+    await quiet.close();
   }
 
   // Onglet hors plateformes : « En lecture » montre la ligne neutre et les boutons « Activer Netflix / Disney+ »

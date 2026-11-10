@@ -1563,6 +1563,22 @@ describe('popup (bout en bout)', () => {
     expect(await shownScreen(page)).toBe(2);
   });
 
+  it('état vide : une suggestion « Une idée ? » (fiche compacte) avec « Autre » et « Plus d’idées dans le panneau » ; démarrage à froid sans raison', async () => {
+    const page = await openPopup({ watching: 'empty' });
+    await page.waitForSelector('[data-empty-reco] [data-reco-item]');
+    expect(await text(page, '[data-empty-reco] h3')).toBe(fr('reco.idea'));
+    expect(await page.$('[data-empty-reco] [data-reco-why]')).not.toBeNull();
+    const first = await text(page, '[data-empty-reco] [data-reco-item] a');
+    await click(page, 'reco-another');
+    await page.waitForFunction((title: string) => document.querySelector('[data-empty-reco] [data-reco-item] a')?.textContent?.trim() !== title, {}, first);
+    expect(await text(page, sel('reco-more-panel'))).toContain(fr('reco.morePanel'));
+    expect(await sent(page, 'GET_RECOMMENDATIONS')).toHaveLength(1);
+
+    const cold = await openPopup({ watching: 'empty', reco: 'cold' });
+    await cold.waitForSelector('[data-empty-reco] [data-reco-item]');
+    expect(await cold.$('[data-empty-reco] [data-reco-why]')).toBeNull();
+  });
+
   it('« Mes séries » suit « Fiche ouverte par défaut » (Réglages › Comptes) : pas de sélecteur AniList / MAL', async () => {
     const page = await openPopup();
     await page.waitForSelector(sel(`more-${SOLO}`));
