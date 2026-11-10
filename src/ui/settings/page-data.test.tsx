@@ -2,7 +2,7 @@
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getLocale, setLocale, tp } from '../../i18n';
+import { getLocale, setLocale, t, tp } from '../../i18n';
 import { DEFAULT_SETTINGS } from '../../shared/settings';
 import { createStore } from '../state';
 import type { SettingsContext, SettingsData } from './context';
@@ -61,5 +61,21 @@ describe('DataPage › suggestions passées', () => {
     expect(button?.textContent).toContain(tp('settings.reco.restore', 3));
     await act(() => button?.click());
     expect(sent.answer).toHaveBeenCalledWith('RESTORE_RECOMMENDATIONS', null);
+  });
+
+  it('la carte porte le titre de la section', async () => {
+    await mount(2);
+    expect(container.textContent).toContain(t('reco.title'));
+  });
+
+  it('échec (service worker injoignable ou réponse false) : message visible, sinon aucun', async () => {
+    await mount(3);
+    expect($('[data-alert]')).toBeNull();
+    sent.answer.mockRejectedValue(new Error('down'));
+    await act(async () => {
+      $<HTMLButtonElement>('[data-focus="reco-restore"]')?.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect($('[data-alert]')?.textContent).toContain(t('popup.swUnreachable'));
   });
 });
