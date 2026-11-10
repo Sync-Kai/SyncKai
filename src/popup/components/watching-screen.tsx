@@ -6,7 +6,7 @@
 // (PopupReprendre), carte « Sur cette page » (page-media-card.tsx, maquettes PopupPageEtats, PopupPageMenu,
 // PopupPageRetours, PopupSeriesDeplie).
 import type { ComponentChildren } from 'preact';
-import { useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { formatList, t, tp, type MessageKey } from '../../i18n';
 import { activePlatforms } from '../../browser/platform-access';
 import { PLATFORMS } from '../../platforms/registry';
@@ -331,18 +331,37 @@ function EmptyWatching({ context, onOpenSettings, onOpenDiscover, onEnablePlatfo
 export function WatchingNoticeBanner({ notice, onHold }: { notice: WatchingNotice; onHold: (reason: NoticeHold, held: boolean) => void }) {
   const { feedback, retry } = notice;
   const services = feedback.retry ? formatList(feedback.retry.services.map((service) => TRACKER_LABELS[service])) : null;
+  const ref = useRef<HTMLParagraphElement>(null);
+  const held = useRef({ pointer: false, focus: false });
+  const hold = (reason: NoticeHold, value: boolean): void => {
+    held.current[reason] = value;
+    onHold(reason, value);
+  };
+  // Un bouton focalisé retiré du bandeau ne déclenche aucun focusout : on lève la suspension du focus si le focus a quitté le bandeau
+  useEffect(() => {
+    if (held.current.focus && !ref.current?.contains(document.activeElement)) hold('focus', false);
+  }, [notice.undo, notice.retry]);
+  // Démontage pendant un survol ou un focus : sinon la suspension resterait levée au prochain bandeau
+  useEffect(
+    () => () => {
+      if (held.current.pointer) onHold('pointer', false);
+      if (held.current.focus) onHold('focus', false);
+    },
+    [],
+  );
   return (
     <p
+      ref={ref}
       class={`m-0 flex shrink-0 items-center gap-2 rounded-panel border px-3 py-2 text-secondary font-bold ${TONE_CHIP[feedback.tone]}`}
       role="status"
       title={feedback.detail}
       data-watching-notice=""
-      onPointerEnter={() => onHold('pointer', true)}
-      onPointerLeave={() => onHold('pointer', false)}
-      onFocusIn={() => onHold('focus', true)}
+      onPointerEnter={() => hold('pointer', true)}
+      onPointerLeave={() => hold('pointer', false)}
+      onFocusIn={() => hold('focus', true)}
       // Focus passé d'« Annuler » à « Réessayer » : toujours dans le bandeau
       onFocusOut={(event) => {
-        if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) onHold('focus', false);
+        if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) hold('focus', false);
       }}
     >
       <span class="flex shrink-0">
