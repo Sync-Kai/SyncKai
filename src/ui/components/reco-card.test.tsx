@@ -2,7 +2,7 @@
 import { render, type ComponentChild } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { t } from '../../i18n';
+import { setLocale, t } from '../../i18n';
 import type { StreamingPlatform } from '../../platforms/registry';
 import type { RecoItem } from '../../shared/recommendations';
 import type { RecoView } from '../reco-controller';
@@ -24,7 +24,7 @@ afterEach(async () => {
 const item = (over: Partial<RecoItem['card']> = {}, matched: string[] = ['Action', 'Slice of Life', 'Weirdo']): RecoItem => ({
   card: { id: 7, idMal: 70, title: 'Dandadan', format: 'TV', year: 2024, episodes: 12, averageScore: 84, genres: ['Action'], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: 'https://anilist.co/anime/7', platforms: [], ...over },
   score: 10,
-  reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, matched },
+  reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, rated: true, matched },
 });
 type Ready = Extract<RecoView, { status: 'ready' }>;
 const view = (current: RecoItem, over: Partial<Ready> = {}): Ready => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, ...over });
@@ -174,6 +174,27 @@ describe('RecoCard', () => {
     await show(<RecoCard {...props(item())} />);
     const live = $('[aria-live="polite"]');
     expect(live?.textContent).toBe(t('reco.announce', { title: 'Dandadan', seed: 'Frieren' }));
+  });
+
+  it('graine non notée : « Parce que tu as vu » sans note inventée, annonce assortie', async () => {
+    const unrated: RecoItem = { ...item(), reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 6, rated: false, matched: [] } };
+    await show(<RecoCard {...props(unrated)} />);
+    expect($('[data-reco-why]')?.textContent).toBe(t('reco.becauseWatched', { title: 'Frieren' }));
+    expect($('[data-reco-why]')?.textContent).not.toContain('6');
+    expect($('[aria-live="polite"]')?.textContent).toBe(t('reco.announceWatched', { title: 'Dandadan', seed: 'Frieren' }));
+  });
+
+  it('note décimale formatée selon la langue', async () => {
+    const decimal: RecoItem = { ...item(), reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 8.5, rated: true, matched: [] } };
+    setLocale('fr');
+    await show(<RecoCard {...props(decimal)} />);
+    expect($('[data-reco-why]')?.textContent).toContain('★ 8,5/10');
+    setLocale('en');
+  });
+
+  it('démarrage à froid (aucune raison) : le titre seul est annoncé', async () => {
+    await show(<RecoCard {...props({ ...item(), reason: null })} />);
+    expect($('[aria-live="polite"]')?.textContent).toBe(t('reco.announceCold', { title: 'Dandadan' }));
   });
 
   it('écartée : texte et « Annuler » à la place des actions', async () => {

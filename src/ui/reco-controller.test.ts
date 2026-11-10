@@ -13,13 +13,18 @@ vi.mock('../protocol/messages', () => ({
   },
 }));
 
+// chrome.storage.onChanged minimal : le contrôleur y écoute les changements de lot et de session
+const storage = vi.hoisted(() => ({ listeners: new Set<(changes: Record<string, { oldValue?: unknown; newValue?: unknown }>, area: string) => void>() }));
+vi.stubGlobal('chrome', { storage: { onChanged: { addListener: (l: never) => storage.listeners.add(l), removeListener: (l: never) => storage.listeners.delete(l) } } });
+const emit = (changes: Record<string, { oldValue?: unknown; newValue?: unknown }>, area = 'local'): void => storage.listeners.forEach((l) => l(changes, area));
+
 const { createRecoController } = await import('./reco-controller');
 const { t } = await import('../i18n');
 
 const item = (id: number, over: Partial<RecoItem['card']> = {}): RecoItem => ({
   card: { id, idMal: id + 1000, title: `Série ${id}`, format: 'TV', year: 2024, episodes: 12, averageScore: 80, genres: ['Action'], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: `https://anilist.co/anime/${id}`, platforms: [], ...over },
   score: 10,
-  reason: { seedId: 1, seedTitle: 'Seed', seedScore: 9, matched: ['Action'] },
+  reason: { seedId: 1, seedTitle: 'Seed', seedScore: 9, rated: true, matched: ['Action'] },
 });
 const batchOf = (count: number, cold = false): RecoBatch => ({ items: Array.from({ length: count }, (_, i) => item(i + 1)), computedAt: 1, seedCount: 5, cold });
 const okResult = (batch: RecoBatch, malOnly = false): RecoResult => ({ ok: true, batch, malOnly });
@@ -141,6 +146,48 @@ describe('createRecoController', () => {
     expect(view.dismissedTitle).toBeNull();
     expect(view.current.card.id).not.toBe(first.card.id);
     c.dispose();
+  });
+
+  it('une suggestion écartée ne figure pas dans « Déjà tirées »', async () => {
+    const c = await start();
+    const first = ready(c.store.get()).current;
+    await c.dismiss();
+    vi.advanceTimersByTime(5100);
+    const view = ready(c.store.get());
+    expect(view.current.card.id).not.toBe(first.card.id);
+    expect(view.previous.map((i) => i.card.id)).not.toContain(first.card.id);
+    c.dispose();
+  });
+
+  it('un id retiré du lot enregistré (ajout ailleurs) n\'est plus tiré', async () => {
+    const c = await start();
+    const shown = ready(c.store.get()).current.card.id;
+    emit({ 'reco:batch': { newValue: batchOf(3) } });
+    c.another();
+    expect(ready(c.store.get()).current.card.id).not.toBe(shown);
+    emit({ 'reco:batch': { newValue: { ...batchOf(3), items: batchOf(3).items.filter((i) => i.card.id === shown) } } });
+    c.another();
+    expect(c.store.get().status).toBe('empty');
+    c.dispose();
+  });
+
+  it('autre compte (sessionEpoch) ou connexion : le lot est rechargé ; un jeton rafraîchi : rien', async () => {
+    const c = await start();
+    const loads = (): number => sw.calls.filter((call) => call.type === 'GET_RECOMMENDATIONS').length;
+    emit({ anilistToken: { oldValue: 'a', newValue: 'b' } });
+    await settle();
+    expect(loads()).toBe(1);
+    emit({ sessionEpoch: { oldValue: { anilist: 0 }, newValue: { anilist: 1 } } });
+    await settle();
+    expect(loads()).toBe(2);
+    emit({ anilistToken: { newValue: 'c' } });
+    await settle();
+    expect(loads()).toBe(3);
+    emit({ anilistToken: { oldValue: 'c', newValue: 'd' } }, 'sync');
+    await settle();
+    expect(loads()).toBe(3);
+    c.dispose();
+    expect(storage.listeners.size).toBe(0);
   });
 
   it('annuler : UPDATE undo, la suggestion reste et la minuterie est coupée', async () => {

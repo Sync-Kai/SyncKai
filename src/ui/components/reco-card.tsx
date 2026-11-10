@@ -2,7 +2,7 @@
 // actions « Autre » / « + À regarder » / « Pas intéressé ». Aucun accès au service worker : tout vient du contrôleur
 // (ui/reco-controller.ts). Mouvement réduit : le dé ne tourne pas, la fiche apparaît en fondu seul.
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { t } from '../../i18n';
+import { getLocale, t } from '../../i18n';
 import { PLATFORM_LABELS, isOptionalPlatform, type StreamingPlatform } from '../../platforms/registry';
 import { genreKey } from '../../shared/genres';
 import type { RecoItem } from '../../shared/recommendations';
@@ -41,6 +41,9 @@ const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const chipClass = 'inline-flex max-w-full items-center truncate rounded-pill bg-raised px-2 py-0.5 text-secondary text-muted';
 const genreChipClass = 'inline-flex max-w-full items-center truncate rounded-pill bg-lavender/14 px-2 py-0.5 text-secondary font-bold text-lavender';
 const tagChipClass = 'inline-flex max-w-full items-center truncate rounded-pill border border-line px-2 py-0.5 text-secondary text-muted';
+
+/** Note de l'utilisateur au format de la langue (« 8,5 » en français) */
+const formatScore = (score: number): string => new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(score);
 
 /** Genre traduit, sinon le nom AniList (étiquette ou genre inconnu) */
 function chipLabel(name: string): string {
@@ -159,7 +162,7 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
           <div class="flex flex-col gap-1.5 rounded-panel bg-raised px-2.5 py-2" data-reco-why="">
             <span class="flex items-start gap-1.5 text-body text-ink">
               <Icon name="sparkles" class="mt-0.5 size-3.5 shrink-0 text-lavender" />
-              {t('reco.because', { title: reason.seedTitle, score: reason.seedScore })}
+              {reason.rated ? t('reco.because', { title: reason.seedTitle, score: formatScore(reason.seedScore) }) : t('reco.becauseWatched', { title: reason.seedTitle })}
             </span>
             {matched.length > 0 && (
               <div class="flex flex-wrap gap-1.5">
@@ -243,7 +246,7 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
 
       {/* Annonce polie de la nouvelle suggestion (le focus reste sur « Autre ») */}
       <div class="sr-only" role="status" aria-live="polite">
-        {reason ? t('reco.announce', { title: card.title, seed: reason.seedTitle }) : ''}
+        {reason ? t(reason.rated ? 'reco.announce' : 'reco.announceWatched', { title: card.title, seed: reason.seedTitle }) : t('reco.announceCold', { title: card.title })}
       </div>
     </section>
   );

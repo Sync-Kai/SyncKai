@@ -14,7 +14,8 @@ const MIN_TAG_RANK = 60;
 const TAG_WEIGHT = 0.5;
 
 export interface RecoCard { id: number; idMal: number | null; title: string; format: string | null; year: number | null; episodes: number | null; averageScore: number | null; genres: string[]; tags: string[]; coverUrl: string | null; coverLarge: string | null; color: string | null; bannerUrl: string | null; siteUrl: string; platforms: PlatformLink[] }
-export interface RecoReason { seedId: number; seedTitle: string; seedScore: number; matched: string[] }
+/** `rated` : la note de la graine vient de l'utilisateur ; faux pour une terminée non notée (poids de calcul seulement, jamais affiché) */
+export interface RecoReason { seedId: number; seedTitle: string; seedScore: number; rated: boolean; matched: string[] }
 export interface RecoItem { card: RecoCard; score: number; reason: RecoReason | null }
 /** `epochs` : sessions ouvertes au calcul (écrit par le service worker) ; un autre jeu de sessions fait recalculer le lot */
 export interface RecoBatch { items: RecoItem[]; computedAt: number; seedCount: number; cold: boolean; epochs?: SessionEpochs }
@@ -22,7 +23,7 @@ export interface RecoBatch { items: RecoItem[]; computedAt: number; seedCount: n
 /** NO_ACCOUNT : aucun service connecté ; SESSION_CHANGED : déconnexion ou autre compte pendant le calcul ; FAILED : le reste */
 export type RecoErrorCode = 'NO_ACCOUNT' | 'SESSION_CHANGED' | 'FAILED';
 export type RecoResult = { ok: true; batch: RecoBatch; malOnly: boolean } | { ok: false; code: RecoErrorCode; message: string };
-export interface Seed { id: number; title: string; score10: number; genres: string[]; tags: string[] }
+export interface Seed { id: number; title: string; score10: number; rated: boolean; genres: string[]; tags: string[] }
 
 // Nœud `mediaRecommendation` tel que renvoyé par AniList (champs de la carte)
 export interface RawRecoMedia {
@@ -72,14 +73,15 @@ export function pickSeeds(entries: readonly PickEntry[]): { seeds: Omit<Seed, 'g
     .filter((e) => e.score10 !== null && e.score10 >= MIN_SEED_SCORE)
     .sort((a, b) => (b.score10 as number) - (a.score10 as number))
     .slice(0, MAX_SEEDS)
-    .map((e) => ({ id: e.id, title: e.title, score10: e.score10 as number }));
+    .map((e) => ({ id: e.id, title: e.title, score10: e.score10 as number, rated: true }));
   if (seeds.length < MIN_SEEDS) {
     for (const e of done) {
       if (seeds.length >= MIN_SEEDS) break;
-      if (e.score10 === null) seeds.push({ id: e.id, title: e.title, score10: UNSCORED_WEIGHT });
+      if (e.score10 === null) seeds.push({ id: e.id, title: e.title, score10: UNSCORED_WEIGHT, rated: false });
     }
   }
-  return { seeds, cold: done.length < MIN_SEEDS };
+  // Aucune graine (terminées toutes mal notées) : démarrage à froid plutôt qu'un lot vide gardé 24 h
+  return { seeds, cold: seeds.length === 0 || done.length < MIN_SEEDS };
 }
 
 export function toCard(m: RawRecoMedia): RecoCard {
@@ -149,7 +151,7 @@ export function buildBatch(
     for (const t of card.tags) { weighted += TAG_WEIGHT * (tagShare.get(t) ?? 0); weights += TAG_WEIGHT; }
     const affinity = weights > 0 ? weighted / weights : 0;
     const matched = [...card.genres.filter((g) => best.seed.genres.includes(g)), ...card.tags.filter((t) => best.seed.tags.includes(t))].slice(0, MAX_MATCHED);
-    items.push({ card, score: sum * (1 + affinity), reason: { seedId: best.seed.id, seedTitle: best.seed.title, seedScore: best.seed.score10, matched } });
+    items.push({ card, score: sum * (1 + affinity), reason: { seedId: best.seed.id, seedTitle: best.seed.title, seedScore: best.seed.score10, rated: best.seed.rated, matched } });
   }
   items.sort((a, b) => b.score - a.score || a.card.id - b.card.id);
   return { items: items.slice(0, BATCH_SIZE), computedAt: now, seedCount: seeds.length, cold: false };

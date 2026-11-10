@@ -636,3 +636,4 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 - 2026-11-09, feature/sequel-alerts: added the sequel alert texts (sequel.*, agenda.view.*, agenda.announced.empty, settings.section.sequels, settings.sequels.*, nav.activityNewSequels).
 - 2026-11-09, feature/watch-order: added the watch order texts (panel.order.*).
 - 2026-11-09, feature/recommendations: added the recommendation texts (reco.*, panel.tab.discover, panel.similar.*, settings.reco.*) and the AniList genres (genre.*).
+- 2026-11-10, feature/recommendations: added `reco.becauseWatched`, `reco.announceWatched` and `reco.announceCold` (suggestion drawn from a completed but unscored series; cold-start announcement), wording and register as `reco.because` / `reco.announce`.

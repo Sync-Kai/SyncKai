@@ -22,7 +22,7 @@ interface FixtureMedia {
 
 const media = (fixture as { media: FixtureMedia[] }).media;
 const titles: Record<number, string> = { 154587: 'Frieren', 108465: 'Mushoku Tensei', 101348: 'Vinland Saga', 140960: 'Spy x Family' };
-const seedOf = (m: FixtureMedia, score10: number): Seed => ({ id: m.id, title: titles[m.id] ?? String(m.id), score10, genres: m.genres, tags: m.tags.filter((t) => t.rank >= 60 && !t.isMediaSpoiler).map((t) => t.name) });
+const seedOf = (m: FixtureMedia, score10: number): Seed => ({ id: m.id, rated: true, title: titles[m.id] ?? String(m.id), score10, genres: m.genres, tags: m.tags.filter((t) => t.rank >= 60 && !t.isMediaSpoiler).map((t) => t.name) });
 const recsOf = (m: FixtureMedia): { rating: number; media: RawRecoMedia }[] => m.recommendations.nodes.flatMap((n) => (n.mediaRecommendation ? [{ rating: n.rating, media: n.mediaRecommendation }] : []));
 const byId = (id: number): FixtureMedia => media.find((m) => m.id === id) as FixtureMedia;
 
@@ -37,7 +37,7 @@ describe('pickSeeds', () => {
   it('ne garde que les terminées notées ≥ 7, meilleures d\'abord', () => {
     const { seeds, cold } = pickSeeds([e(1, 'COMPLETED', 7), e(2, 'COMPLETED', 9.5), e(3, 'REPEATING', 8), e(4, 'COMPLETED', 6.5), e(5, 'CURRENT', 10), e(6, 'PLANNING', 9)]);
     expect(seeds.map((s) => s.id)).toEqual([2, 3, 1]);
-    expect(seeds[0]).toEqual({ id: 2, title: 'T2', score10: 9.5 });
+    expect(seeds[0]).toEqual({ id: 2, title: 'T2', score10: 9.5, rated: true });
     expect(cold).toBe(false);
   });
 
@@ -56,6 +56,17 @@ describe('pickSeeds', () => {
     const { seeds, cold } = pickSeeds([e(1, 'COMPLETED', 8), e(2, 'COMPLETED', null), e(3, 'COMPLETED', null), e(4, 'COMPLETED', null), e(5, 'COMPLETED', 5)]);
     expect(seeds.map((s) => [s.id, s.score10])).toEqual([[1, 8], [2, 6], [3, 6]]);
     expect(cold).toBe(false);
+  });
+
+  it('seule la note est marquée : une graine non notée n\'est pas « rated » (poids 6 gardé pour le score)', () => {
+    const { seeds } = pickSeeds([e(1, 'COMPLETED', 8), e(2, 'COMPLETED', null), e(3, 'COMPLETED', null)]);
+    expect(seeds.map((s) => [s.id, s.rated])).toEqual([[1, true], [2, false], [3, false]]);
+  });
+
+  it('3 terminées toutes notées < 7 : démarrage à froid, pas de lot vide mis en cache', () => {
+    const { seeds, cold } = pickSeeds([e(1, 'COMPLETED', 5), e(2, 'COMPLETED', 6), e(3, 'COMPLETED', 4)]);
+    expect(seeds).toEqual([]);
+    expect(cold).toBe(true);
   });
 
   it('démarrage à froid avec moins de 3 séries terminées', () => {
@@ -105,6 +116,7 @@ describe('buildBatch sur la vraie capture AniList', () => {
     expect(hits[0].reason?.seedId).toBe(154587);
     expect(hits[0].reason?.seedTitle).toBe('Frieren');
     expect(hits[0].reason?.seedScore).toBe(10);
+    expect(hits[0].reason?.rated).toBe(true);
   });
 
   it('plus de 60 candidats : 60 gardés, triés par score décroissant', () => {

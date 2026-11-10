@@ -1,7 +1,8 @@
 // Suggestions « Pour toi » (popup, panneau) : un lot reçu du service worker, tiré localement (drawNext) sans jamais
 // répéter une fiche de la page. Un contrôleur par page ; aucune écoute du DOM, `dispose()` coupe la minuterie d'« Annuler ».
 import { t } from '../i18n';
-import { drawNext, type RecoItem, type RecoBatch } from '../shared/recommendations';
+import { STORAGE_KEYS } from '../protocol/storage-keys';
+import { drawNext, isRecoBatch, type RecoItem, type RecoBatch } from '../shared/recommendations';
 import { createStore, type ReadonlyStore } from './state';
 import { addToPlanning, sequelAddResult } from './sequel-actions';
 import { callWorker } from './worker-call';
@@ -87,6 +88,27 @@ export function createRecoController(): RecoController {
     store.set({ status: 'loading' });
   }
 
+  /**
+   * Lot enregistré modifié (suggestion ajoutée à une liste ailleurs, ou retirée) : les ids absents ne sont plus tirés.
+   * Compte ouvert ou fermé (jeton qui apparaît ou disparaît, génération de session) : le lot d'un autre compte est jeté.
+   * Un jeton simplement rafraîchi (ancienne et nouvelle valeur) ne change rien.
+   */
+  const onStorageChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
+    if (area !== 'local' || disposed) return;
+    const tokens = [changes[STORAGE_KEYS.anilistToken], changes[STORAGE_KEYS.malToken]];
+    if (STORAGE_KEYS.sessionEpoch in changes || tokens.some((c) => c && (c.oldValue === undefined) !== (c.newValue === undefined))) {
+      reset();
+      void load(false);
+      return;
+    }
+    const stored: unknown = changes[STORAGE_KEYS.recoBatch]?.newValue;
+    if (batch && isRecoBatch(stored)) {
+      const kept = new Set(stored.items.map((i) => i.card.id));
+      batch = { ...batch, items: batch.items.filter((i) => kept.has(i.card.id)) };
+    }
+  };
+  chrome.storage.onChanged.addListener(onStorageChanged);
+
   void load(false);
 
   return {
@@ -126,7 +148,7 @@ export function createRecoController(): RecoController {
         timer = null;
         const now = ready();
         if (now?.dismissedTitle !== null && now?.current.card.id === card.id) {
-          previous = [now.current, ...previous].slice(0, PREVIOUS_KEPT);
+          // Écartée : elle ne figure pas dans « Déjà tirées »
           draw();
         }
       }, UNDO_MS);
@@ -154,6 +176,7 @@ export function createRecoController(): RecoController {
     },
     dispose() {
       disposed = true;
+      chrome.storage.onChanged.removeListener(onStorageChanged);
       generation++;
       stopTimer();
     },

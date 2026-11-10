@@ -4,6 +4,7 @@ import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS } from '../prot
 import type { PendingRating } from './engagement.types';
 import { EXCLUDED_SERIES_KEY, isExcludedSeries, mergeExclusion, type ExcludedSeries } from './exclusions';
 import { isRecord } from './guards';
+import { MAX_DISMISSED } from './recommendations';
 import type { Result } from './result';
 import { isPendingReview, isRecentSync, type PendingReview, type RecentSync } from './review.types';
 import type { SessionEpochs } from './session-epochs';
@@ -75,9 +76,6 @@ export interface BackupSummary {
   rewatchDeclined: number;
 }
 
-/** Nombre maximal d'ids de suggestions écartées conservés */
-export const MAX_RECO_DISMISSED = 500;
-
 export type ImportMode = 'merge' | 'replace';
 
 // ─── Validation ───────────────────────────────────────────────────────────
@@ -130,7 +128,7 @@ function validateIds(raw: unknown): Validated<number[]> {
     if (typeof item === 'number' && Number.isInteger(item) && item > 0) ids.add(item);
     else invalid++;
   }
-  return { value: [...ids].slice(-MAX_RECO_DISMISSED), invalid };
+  return { value: [...ids].slice(-MAX_DISMISSED), invalid };
 }
 
 const isTimestamp = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -352,7 +350,7 @@ export function mergeBackup(current: BackupData, incoming: BackupData, mode: Imp
     pendingRatings: sortDesc(mergeByKey(current.pendingRatings, incoming.pendingRatings, (r) => r.id), (r) => r.completedAt, MAX_PENDING_RATINGS),
     rewatchDeclined,
     // Union : l'existant d'abord, les 500 derniers gardés
-    recoDismissed: [...new Set([...current.recoDismissed, ...incoming.recoDismissed])].slice(-MAX_RECO_DISMISSED),
+    recoDismissed: [...new Set([...current.recoDismissed, ...incoming.recoDismissed])].slice(-MAX_DISMISSED),
   };
 }
 

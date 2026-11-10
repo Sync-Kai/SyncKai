@@ -25,7 +25,7 @@ afterEach(async () => {
 const current: RecoItem = {
   card: { id: 7, idMal: 70, title: 'Dandadan', format: 'TV', year: 2024, episodes: 12, averageScore: 84, genres: ['Action'], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: 'https://anilist.co/anime/7', platforms: [] },
   score: 10,
-  reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, matched: ['Action'] },
+  reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, rated: true, matched: ['Action'] },
 };
 type Ready = Extract<RecoView, { status: 'ready' }>;
 const ready = (over: Partial<Ready> = {}): RecoView => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, ...over });

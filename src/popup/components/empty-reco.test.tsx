@@ -16,12 +16,15 @@ vi.mock('../../protocol/messages', () => ({
   },
 }));
 
+// Le contrôleur écoute chrome.storage.onChanged (lot et session)
+vi.stubGlobal('chrome', { storage: { onChanged: { addListener: vi.fn(), removeListener: vi.fn() } } });
+
 const { EmptyReco } = await import('./empty-reco');
 
 const item = (id: number): RecoItem => ({
   card: { id, idMal: id + 1000, title: `Série ${id}`, format: 'TV', year: 2024, episodes: 12, averageScore: 80, genres: ['Action'], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: `https://anilist.co/anime/${id}`, platforms: [], ...{} },
   score: 10,
-  reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, matched: ['Action'] },
+  reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, rated: true, matched: ['Action'] },
 });
 const batch: RecoBatch = { items: [item(1)], computedAt: 1, seedCount: 5, cold: false };
 const ok: RecoResult = { ok: true, batch, malOnly: false };
