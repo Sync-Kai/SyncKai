@@ -1,7 +1,7 @@
 // Carte à sections repliables de « En lecture » (maquettes PanelLecture, PanelFicheDetails, PanelCommentaire) :
 // « Note et commentaire » (10 demi-étoiles dans une liste, puis la ligne du commentaire qui s'ouvre en éditeur),
 // « Amis sur AniList » (personnes suivies qui ont la série, ui/components/friends-section.tsx), « Synopsis » (5 lignes,
-// « Lire la suite » / « Réduire »), « Ordre de visionnage » (frise des entrées de la franchise, components/watch-order.tsx) et « Discussions » (épisode sur Reddit, forum MAL, AniList).
+// « Lire la suite » / « Réduire »), « Ordre de visionnage » (frise des entrées de la franchise, components/watch-order.tsx), « Dans le même esprit » (séries voisines, components/similar.tsx) et « Discussions » (épisode sur Reddit, forum MAL, AniList).
 // Sections repliées par défaut ; leur état est gardé par la page du panneau (sidepanel.ts).
 import { Fragment, type JSX } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
@@ -10,7 +10,7 @@ import type { EntryLinkContext } from '../../shared/entry-link';
 import { normalizeListNotes, notesPreview } from '../../shared/list-notes';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import { isLongDescription, malForumUrl, redditSearchUrl } from '../../shared/panel-media';
-import type { PanelMedia } from '../../shared/panel-media.types';
+import type { PanelMedia, PanelRecommendation } from '../../shared/panel-media.types';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { Collapsible } from '../../ui/components/collapsible';
 import { aniListScore, FriendsSection, showsFriendsSection } from '../../ui/components/friends-section';
@@ -22,14 +22,15 @@ import type { FriendsView } from '../../ui/preact/use-friends';
 import { pageKey } from '../now-playing-view';
 import { newTabLabel } from './now-playing-hero';
 import type { OrderState } from './now-playing-controller';
+import { Similar, showsSimilar } from './similar';
 import { showsWatchOrder, WatchOrder } from './watch-order';
 
 /** Sections repliables de la carte, dans l'ordre d'affichage */
-export const PANEL_SECTIONS = ['order', 'notes', 'friends', 'synopsis', 'discussion'] as const;
+export const PANEL_SECTIONS = ['order', 'similar', 'notes', 'friends', 'synopsis', 'discussion'] as const;
 export type PanelSection = (typeof PANEL_SECTIONS)[number];
 export type PanelSectionsState = Readonly<Record<PanelSection, boolean>>;
 
-export const CLOSED_SECTIONS: PanelSectionsState = { order: false, notes: false, friends: false, synopsis: false, discussion: false };
+export const CLOSED_SECTIONS: PanelSectionsState = { order: false, similar: false, notes: false, friends: false, synopsis: false, discussion: false };
 
 export interface DetailsCardProps {
   page: PageMediaInfo;
@@ -46,6 +47,8 @@ export interface DetailsCardProps {
   /** Ordre de visionnage de la franchise (contrôleur) et son rechargement après une erreur */
   order: OrderState;
   onRetryOrder: () => void;
+  /** « Dans le même esprit » : séries voisines déjà filtrées par le contrôleur (au plus 5) */
+  similar: readonly PanelRecommendation[];
   /** Action en cours ou fiche relue */
   busy: boolean;
   sections: PanelSectionsState;
@@ -182,7 +185,7 @@ function Discussion({ page, view, details }: { page: PageMediaInfo; view: PageMe
   );
 }
 
-export function DetailsCard({ page, view, details, entryLinks, preferred, friends, unlistedSequels, order, onRetryOrder, busy, sections, onToggle, onRate, onSaveNotes }: DetailsCardProps) {
+export function DetailsCard({ page, view, details, entryLinks, preferred, friends, unlistedSequels, order, onRetryOrder, similar, busy, sections, onToggle, onRate, onSaveNotes }: DetailsCardProps) {
   const { media } = view;
   const primary = primaryList(view.lists);
   const parts: { key: PanelSection; node: JSX.Element }[] = [];
@@ -201,6 +204,12 @@ export function DetailsCard({ page, view, details, entryLinks, preferred, friend
           onRetry={onRetryOrder}
         />
       ),
+    });
+  }
+  if (showsSimilar(similar)) {
+    parts.push({
+      key: 'similar',
+      node: <Similar items={similar} title={media.title} links={entryLinks} preferred={preferred} open={sections.similar} onToggle={(open) => onToggle('similar', open)} />,
     });
   }
   // Note et commentaire : avec au moins un compte connecté (commentaire désactivé, avec l'explication, hors liste)

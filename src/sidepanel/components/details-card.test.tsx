@@ -4,6 +4,7 @@ import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setLocale } from '../../i18n';
 import type { FranchiseGraph, FranchiseNode } from '../../shared/franchise';
+import type { PanelRecommendation } from '../../shared/panel-media.types';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import { CLOSED_SECTIONS, DetailsCard } from './details-card';
 import type { OrderState } from './now-playing-controller';
@@ -18,7 +19,7 @@ const ready = (ids: number[]): OrderState => ({ status: 'ready', graph: graph(id
 const page = { kind: 'series', platform: 'crunchyroll' } as unknown as PageMediaInfo;
 const view = { media: { mediaId: 1, idMal: null, title: 'T1', siteUrl: 'https://anilist.co/anime/1', episodes: 12 }, lists: [], confidence: 'certain', source: 'cache', seasons: [], episodeProgress: null } as unknown as PageMediaView;
 
-async function show(order: OrderState): Promise<void> {
+async function show(order: OrderState, similar: PanelRecommendation[] = []): Promise<void> {
   await act(() =>
     render(
       <DetailsCard
@@ -30,6 +31,7 @@ async function show(order: OrderState): Promise<void> {
         friends={{ state: 'idle', summary: null } as never}
         unlistedSequels={new Set()}
         order={order}
+        similar={similar}
         onRetryOrder={() => undefined}
         busy={false}
         sections={CLOSED_SECTIONS}
@@ -75,5 +77,27 @@ describe('DetailsCard : ordre de visionnage', () => {
     expect(sections()[0]).toBe('panel-section-order');
     await show({ status: 'error', message: 'x' });
     expect(sections()[0]).toBe('panel-section-order');
+  });
+});
+
+describe('DetailsCard : « Dans le même esprit »', () => {
+  const reco = (mediaId: number): PanelRecommendation => ({ mediaId, idMal: null, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 3, platforms: [], prequelIds: [] });
+
+  it('section après l’ordre de visionnage, un séparateur par section', async () => {
+    await show(ready([1, 2]), [reco(5)]);
+    expect(sections()).toEqual(['panel-section-order', 'panel-section-similar', 'panel-section-discussion']);
+    expect(separators()).toBe(2);
+  });
+
+  it('sans recommandation : ni section ni séparateur en trop', async () => {
+    await show(ready([1]), []);
+    expect(sections()).toEqual(['panel-section-discussion']);
+    expect(separators()).toBe(0);
+  });
+
+  it('sans ordre : première section', async () => {
+    await show({ status: 'idle' }, [reco(5)]);
+    expect(sections()).toEqual(['panel-section-similar', 'panel-section-discussion']);
+    expect(separators()).toBe(1);
   });
 });

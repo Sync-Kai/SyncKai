@@ -48,3 +48,8 @@ export function addSequelToPlanning(record: SequelRecord): Promise<SyncOutcome> 
 export function updateSequels(ids: number[], state: 'seen' | 'dismissed' | 'removed' | 'restore'): Promise<boolean> {
   return callWorker('UPDATE_SEQUELS', { ids, state }, () => false);
 }
+
+/** « + À regarder » réussi depuis une recommandation du panneau : le lot de Découvrir la retire. Ne lève jamais ; false si non enregistré */
+export function markRecommendationAdded(id: number): Promise<boolean> {
+  return callWorker('UPDATE_RECOMMENDATION', { id, action: 'added' }, () => false);
+}

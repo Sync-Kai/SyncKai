@@ -56,8 +56,8 @@ const sequelsStore = createSequelsStore();
 let publishNowPlaying = (): void => undefined;
 const nowPlayingCtl = createNowPlayingController(() => publishNowPlaying(), platformAccess);
 const nowPlayingSnapshot = (): NowPlayingSnapshot => {
-  const { content, actions, preferred, entryService, liveEnabled, order } = nowPlayingCtl;
-  return { content, actions, preferred, entryService, liveEnabled, order };
+  const { content, actions, preferred, entryService, liveEnabled, order, similar } = nowPlayingCtl;
+  return { content, actions, preferred, entryService, liveEnabled, order, similar };
 };
 const nowPlayingStore = createStore<NowPlayingSnapshot>(nowPlayingSnapshot());
 publishNowPlaying = () => nowPlayingStore.set(nowPlayingSnapshot());

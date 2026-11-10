@@ -4,7 +4,7 @@ import { getOpenSessions, writeIfSessions } from '../../browser/storage/sessions
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { AniListListEntry, MalListEntry } from '../../shared/compare';
 import { isRecord } from '../../shared/guards';
-import { buildBatch, isRecoBatch, pickSeeds, relevantTags, toCard, type RawRecoMedia, type RecoBatch, type RecoItem, type RecoResult, type Seed } from '../../shared/recommendations';
+import { buildBatch, hasUnseenPrequel, isRecoBatch, prequelIdsOf, pickSeeds, relevantTags, toCard, type RawRecoMedia, type RecoBatch, type RecoItem, type RecoResult, type Seed } from '../../shared/recommendations';
 import { sameSessions, type SessionEpochs } from '../../shared/session-epochs';
 import { fromAniListScore, fromMalScore } from '../../shared/score';
 import type { ListStatus } from '../../shared/sync.types';
@@ -179,7 +179,7 @@ async function coldBatch(lists: UserLists, dismissed: ReadonlySet<number>, now: 
   const items: RecoItem[] = [];
   for (const raw of Page.media.map(toRaw)) {
     if (!raw || raw.isAdult || lists.ids.has(raw.id) || dismissed.has(raw.id) || (raw.idMal !== null && lists.malIds.has(raw.idMal))) continue;
-    if ((raw.relations?.edges ?? []).some((e) => e.relationType === 'PREQUEL' && e.node !== null && !lists.watchedOrCurrent.has(e.node.id))) continue;
+    if (hasUnseenPrequel(prequelIdsOf(raw.relations?.edges), lists.watchedOrCurrent)) continue;
     links.set(raw.id, raw.externalLinks);
     items.push({ card: toCard(raw), score: raw.averageScore ?? 0, reason: null });
   }

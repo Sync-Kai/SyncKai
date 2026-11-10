@@ -41,6 +41,23 @@ export interface PanelRelation {
   seasonYear: number | null;
 }
 
+/** Série voisine proposée par AniList (« Dans le même esprit ») : au plus 8 par fiche, 5 montrées */
+export interface PanelRecommendation {
+  mediaId: number;
+  idMal: number | null;
+  title: string;
+  format: string | null;
+  startYear: number | null;
+  coverUrl: string | null;
+  siteUrl: string;
+  /** Votes de la communauté AniList pour cette recommandation (le texte « N fans de … ») */
+  rating: number;
+  /** Pages Crunchyroll / ADN d'après les liens AniList */
+  platforms: PlatformLink[];
+  /** Préquels directs : une suite dont le préquel n'est ni vu ni en cours n'est pas proposée */
+  prequelIds: number[];
+}
+
 export interface PanelMedia {
   mediaId: number;
   idMal: number | null;
@@ -67,6 +84,7 @@ export interface PanelMedia {
   nextEpisode: NextEpisode | null;
   studio: { name: string; siteUrl: string | null } | null;
   relations: PanelRelation[];
+  recommendations: PanelRecommendation[];
 }
 
 export type PanelMediaResult = Result<PanelMedia, AniListErrorCode>;
@@ -100,6 +118,25 @@ function isPanelRelation(value: unknown): value is PanelRelation {
   );
 }
 
+function isPanelRecommendation(value: unknown): value is PanelRecommendation {
+  return (
+    isRecord(value) &&
+    isPositiveInt(value.mediaId) &&
+    (value.idMal === null || isPositiveInt(value.idMal)) &&
+    typeof value.title === 'string' &&
+    isNullableString(value.format) &&
+    isNullableNumber(value.startYear) &&
+    isNullableString(value.coverUrl) &&
+    typeof value.siteUrl === 'string' &&
+    typeof value.rating === 'number' &&
+    Number.isFinite(value.rating) &&
+    Array.isArray(value.platforms) &&
+    value.platforms.every(isPlatformLink) &&
+    Array.isArray(value.prequelIds) &&
+    value.prequelIds.every(isPositiveInt)
+  );
+}
+
 /** Garde d'une fiche relue du cache de session (format d'une version précédente → ignorée) */
 export function isPanelMedia(value: unknown): value is PanelMedia {
   if (!isRecord(value)) return false;
@@ -126,6 +163,8 @@ export function isPanelMedia(value: unknown): value is PanelMedia {
     (nextEpisode === null || (isRecord(nextEpisode) && typeof nextEpisode.episode === 'number' && typeof nextEpisode.airingAt === 'number')) &&
     (studio === null || (isRecord(studio) && typeof studio.name === 'string' && isNullableString(studio.siteUrl))) &&
     Array.isArray(value.relations) &&
-    value.relations.every(isPanelRelation)
+    value.relations.every(isPanelRelation) &&
+    Array.isArray(value.recommendations) &&
+    value.recommendations.every(isPanelRecommendation)
   );
 }

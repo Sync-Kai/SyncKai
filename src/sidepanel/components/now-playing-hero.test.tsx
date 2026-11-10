@@ -11,7 +11,7 @@ import { NowPlayingHero } from './now-playing-hero';
 
 let container: HTMLElement;
 const view = { media: { mediaId: 1, idMal: null, title: 'T1', siteUrl: 'https://anilist.co/anime/1', episodes: 12, coverUrl: null, nextEpisode: null }, lists: [], confidence: 'certain', source: 'cache', seasons: [], episodeProgress: null } as unknown as PageMediaView;
-const details = (genres: string[]): PanelMedia => ({ mediaId: 1, idMal: null, siteUrl: 'https://anilist.co/anime/1', title: 'T1', romajiTitle: null, englishTitle: null, bannerUrl: null, coverUrl: null, coverColor: null, description: null, genres, averageScore: null, season: null, seasonYear: null, format: null, episodes: 12, airingStatus: null, nextEpisode: null, studio: null, relations: [] });
+const details = (genres: string[]): PanelMedia => ({ mediaId: 1, idMal: null, siteUrl: 'https://anilist.co/anime/1', title: 'T1', romajiTitle: null, englishTitle: null, bannerUrl: null, coverUrl: null, coverColor: null, description: null, genres, averageScore: null, season: null, seasonYear: null, format: null, episodes: 12, airingStatus: null, nextEpisode: null, studio: null, relations: [], recommendations: [] });
 
 async function show(genres: string[]): Promise<string[]> {
   await act(() => render(<NowPlayingHero view={view} details={details(genres)} entry={null} refreshing={false} busy={false} now={0} onRefresh={() => undefined} />, container));

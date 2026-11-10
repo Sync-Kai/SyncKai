@@ -55,6 +55,69 @@ const full = {
   },
 };
 
+const recoNode = (id: number, over: Record<string, unknown> = {}): Record<string, unknown> => ({
+  id,
+  idMal: id + 1000,
+  isAdult: false,
+  title: { userPreferred: `Reco ${id}` },
+  coverImage: { medium: `https://s4.anilist.co/r${id}.jpg` },
+  siteUrl: `https://anilist.co/anime/${id}`,
+  format: 'TV',
+  startDate: { year: 2020 },
+  externalLinks: [{ url: 'https://www.crunchyroll.com/series/GG5H5XQ7D/reco' }],
+  relations: { edges: [{ relationType: 'PREQUEL', node: { id: id + 500 } }, { relationType: 'SIDE_STORY', node: { id: 9 } }, { relationType: 'PREQUEL', node: null }] },
+  ...over,
+});
+
+describe('parsePanelMedia : recommandations (« Dans le même esprit »)', () => {
+  it('garde au plus 8 recommandations, ordre d’AniList, champs de la ligne et préquels', () => {
+    const nodes = Array.from({ length: 10 }, (_, i) => ({ rating: 50 - i, mediaRecommendation: recoNode(i + 10) }));
+    const recos = parsePanelMedia({ ...full, recommendations: { nodes } })?.recommendations ?? [];
+    expect(recos).toHaveLength(8);
+    expect(recos[0]).toEqual({
+      mediaId: 10,
+      idMal: 1010,
+      title: 'Reco 10',
+      format: 'TV',
+      startYear: 2020,
+      coverUrl: 'https://s4.anilist.co/r10.jpg',
+      siteUrl: 'https://anilist.co/anime/10',
+      rating: 50,
+      platforms: [{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/GG5H5XQ7D/reco' }],
+      prequelIds: [510],
+    });
+    expect(recos.map((r) => r.mediaId)).toEqual([10, 11, 12, 13, 14, 15, 16, 17]);
+  });
+
+  it('écarte les adultes, les nœuds sans fiche ou sans identifiant, les doublons', () => {
+    const nodes = [
+      { rating: 9, mediaRecommendation: recoNode(1, { isAdult: true }) },
+      { rating: 8, mediaRecommendation: null },
+      { rating: 7, mediaRecommendation: { title: { userPreferred: 'x' } } },
+      { rating: 6, mediaRecommendation: recoNode(2) },
+      { rating: 5, mediaRecommendation: recoNode(2) },
+      { rating: 4, mediaRecommendation: recoNode(154587) },
+    ];
+    expect(parsePanelMedia({ ...full, recommendations: { nodes } })?.recommendations.map((r) => r.mediaId)).toEqual([2]);
+  });
+
+  it('sans recommandations ou données invalides : liste vide', () => {
+    expect(parsePanelMedia(full)?.recommendations).toEqual([]);
+    expect(parsePanelMedia({ ...full, recommendations: { nodes: 'x' } })?.recommendations).toEqual([]);
+  });
+
+  it('cache : une fiche sans recommandations (cache v4) est rejetée, la version a changé', () => {
+    expect(PANEL_MEDIA_CACHE_VERSION).toBeGreaterThanOrEqual(5);
+    const media = parsePanelMedia(full);
+    if (!media) throw new Error('fiche absente');
+    const { recommendations: _r, ...legacy } = media;
+    expect(isPanelMedia(legacy)).toBe(false);
+    expect(isPanelMedia(media)).toBe(true);
+    expect(isPanelMedia({ ...media, recommendations: [{ mediaId: 1 }] })).toBe(false);
+    expect(panelMediaCacheKey(1)).not.toContain('v4:');
+  });
+});
+
 describe('parsePanelMedia (GET_PANEL_MEDIA)', () => {
   it('normalise une réponse complète', () => {
     const media = parsePanelMedia(full);
@@ -122,6 +185,7 @@ describe('parsePanelMedia (GET_PANEL_MEDIA)', () => {
       nextEpisode: null,
       studio: null,
       relations: [],
+      recommendations: [],
     });
     expect(media && isPanelMedia(media)).toBe(true);
   });

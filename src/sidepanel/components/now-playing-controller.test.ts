@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FranchiseGraph, FranchiseNode, FranchiseResult, ListStates } from '../../shared/franchise';
 import type { PageMediaContent } from '../../ui/page-media-controller';
-import type { PanelMedia } from '../../shared/panel-media.types';
+import type { PanelMedia, PanelRecommendation } from '../../shared/panel-media.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
 import type { InlineFeedback } from '../../ui/state';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
@@ -32,6 +32,7 @@ interface FakeState {
   listeners: ChangeListener[];
   feedback: unknown;
   settings: Record<string, unknown>;
+  stored: Record<string, unknown>;
 }
 
 const fake = vi.hoisted(
@@ -43,6 +44,7 @@ const fake = vi.hoisted(
     listeners: [],
     feedback: null,
     settings: {},
+    stored: {},
   }),
 );
 
@@ -76,6 +78,7 @@ vi.mock('../../ui/page-media-controller', () => ({
 
 vi.stubGlobal('chrome', {
   storage: {
+    local: { get: (key: string) => Promise.resolve(key in fake.stored ? { [key]: fake.stored[key] } : {}) },
     onChanged: {
       addListener: (listener: ChangeListener) => void fake.listeners.push(listener),
       removeListener: (listener: ChangeListener) => void fake.listeners.splice(fake.listeners.indexOf(listener), 1),
@@ -109,7 +112,7 @@ const readyContent = (mediaId: number, over: { refreshing?: boolean; details?: P
     status: 'ready',
     page: {},
     view: over.view ?? { media: { mediaId } },
-    details: over.details === undefined ? ({ mediaId } as unknown as PanelMedia) : over.details,
+    details: over.details === undefined ? ({ mediaId, recommendations: [] } as unknown as PanelMedia) : over.details,
     detailsError: null,
     refreshing: over.refreshing ?? false,
   }) as unknown as PageMediaContent<PanelMedia>;
@@ -140,6 +143,7 @@ beforeEach(() => {
   fake.listeners.length = 0;
   fake.feedback = null;
   fake.settings = {};
+  fake.stored = {};
   onChange = vi.fn<() => void>();
   ctl = createNowPlayingController(onChange, { read: () => Promise.resolve([]) } as never);
 });
@@ -340,5 +344,59 @@ describe('ordre de visionnage du panneau', () => {
     await loadedOrder();
     emit({ status: 'idle' });
     expect(ctl.order).toEqual({ status: 'idle' });
+  });
+});
+
+const recoOf = (mediaId: number, over: Partial<PanelRecommendation> = {}): PanelRecommendation => ({
+  mediaId, idMal: mediaId + 1000, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 5, platforms: [], prequelIds: [], ...over,
+});
+const withRecos = (mediaId: number, recommendations: PanelRecommendation[]): PageMediaContent<PanelMedia> =>
+  readyContent(mediaId, { details: { mediaId, recommendations } as unknown as PanelMedia });
+
+describe('« Dans le même esprit » du panneau', () => {
+  it('sans recommandation : aucune requête', async () => {
+    emit(readyContent(1));
+    await flush();
+    expect(pending('GET_LIST_STATES')).toHaveLength(0);
+    expect(ctl.similar).toEqual([]);
+  });
+
+  it('GET_LIST_STATES avec les recommandations non écartées et leurs préquels, puis lignes filtrées', async () => {
+    fake.stored = { [STORAGE_KEYS.recoDismissed]: [12] };
+    emit(withRecos(1, [recoOf(10, { prequelIds: [100] }), recoOf(11), recoOf(12), recoOf(13, { prequelIds: [101] })]));
+    await flush();
+    const call = callsOf('GET_LIST_STATES').find((c) => (c.payload as { mediaIds: number[] }).mediaIds.includes(10));
+    expect(call?.payload).toEqual({ mediaIds: [10, 11, 13, 100, 101], malIds: [1010, 1011, 1013] });
+    await answer('GET_FRANCHISE', ok(graphOf([1])));
+    call?.resolve({ anilist: { 11: { kind: 'planned', progress: null }, 100: { kind: 'watched', progress: null }, 101: null }, mal: null } satisfies ListStates);
+    await flush();
+    expect(ctl.similar.map((r) => r.mediaId)).toEqual([10]);
+  });
+
+  it('aucune session : aucune requête, lignes non filtrées par les listes mais écartées retirées', async () => {
+    fake.sessions = {};
+    fake.stored = { [STORAGE_KEYS.recoDismissed]: [11] };
+    emit(withRecos(1, [recoOf(10), recoOf(11)]));
+    await flush();
+    expect(callsOf('GET_LIST_STATES').filter((c) => (c.payload as { mediaIds: number[] }).mediaIds.includes(10))).toHaveLength(0);
+    expect(ctl.similar.map((r) => r.mediaId)).toEqual([10]);
+  });
+
+  it('échec de lecture des états avec un compte connecté : aucune ligne (rien ne prouve qu\'elles ne sont pas en liste)', async () => {
+    emit(withRecos(1, [recoOf(10)]));
+    await flush();
+    const call = callsOf('GET_LIST_STATES').find((c) => (c.payload as { mediaIds: number[] }).mediaIds.includes(10));
+    call?.resolve(Promise.reject(new Error('sw')));
+    await flush();
+    expect(ctl.similar).toEqual([]);
+  });
+
+  it('page quittée : lignes vidées', async () => {
+    fake.sessions = {};
+    emit(withRecos(1, [recoOf(10)]));
+    await flush();
+    expect(ctl.similar).toHaveLength(1);
+    emit({ status: 'idle' });
+    expect(ctl.similar).toEqual([]);
   });
 });

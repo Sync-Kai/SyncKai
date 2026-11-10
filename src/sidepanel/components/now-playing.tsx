@@ -10,7 +10,7 @@ import { joinSentences, t } from '../../i18n';
 import { entryLink, entryLinks, type EntryLinkContext } from '../../shared/entry-link';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
-import type { PanelMedia } from '../../shared/panel-media.types';
+import type { PanelMedia, PanelRecommendation } from '../../shared/panel-media.types';
 import type { SequelRecord } from '../../shared/sequels';
 import type { AddListStatus, AdjustRetry, MenuStatusChange } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
@@ -47,6 +47,8 @@ export interface NowPlayingSnapshot {
   liveEnabled: boolean;
   /** Ordre de visionnage de la franchise de la fiche (chargé après les détails) */
   order: OrderState;
+  /** « Dans le même esprit » : recommandations de la fiche, filtrées (au plus 5) */
+  similar: readonly PanelRecommendation[];
 }
 
 export interface NowPlayingHandlers {
@@ -206,6 +208,7 @@ function Ready({ props, snapshot, page, view, details, detailsError, refreshing 
         friends={friends}
         unlistedSequels={unlistedSequels}
         order={snapshot.order}
+        similar={snapshot.similar}
         onRetryOrder={props.onRetryOrder}
         busy={busy}
         sections={sections}

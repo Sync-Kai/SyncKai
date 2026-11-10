@@ -10,6 +10,7 @@ import {
   PANEL_RELATION_TYPES,
   type PanelMedia,
   type PanelMediaResult,
+  type PanelRecommendation,
   type PanelRelation,
 } from '../../shared/panel-media.types';
 import { learnedLinksFor, mergePlatformLinks, type PlatformLinkStore } from '../../platforms/links';
@@ -44,6 +45,7 @@ const PANEL_MEDIA_QUERY = /* GraphQL */ `
       nextAiringEpisode { episode airingAt }
       studios(isMain: true) { nodes { name siteUrl } }
       title { romaji english userPreferred }
+      recommendations(sort: RATING_DESC, perPage: 8) { nodes { rating mediaRecommendation { id idMal isAdult title { userPreferred } coverImage { medium } siteUrl format startDate { year } externalLinks { url } relations { edges { relationType node { id } } } } } }
       relations { edges { relationType node { id idMal type format status startDate { year month day } season seasonYear title { userPreferred } coverImage { medium } siteUrl externalLinks { url } } } }
     }
   }
@@ -52,6 +54,8 @@ const PANEL_MEDIA_QUERY = /* GraphQL */ `
 /** Relations affichées au plus (les franchises très longues en ont des dizaines) */
 const MAX_RELATIONS = 12;
 const MAX_GENRES = 8;
+/** Recommandations lues (« Dans le même esprit » en montre 5 : le surplus absorbe les séries déjà en liste) */
+const MAX_RECOMMENDATIONS = 8;
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -83,6 +87,45 @@ function parseRelation(edge: unknown): PanelRelation | null {
     season: isMediaSeason(node.season) ? node.season : null,
     seasonYear: num(node.seasonYear),
   };
+}
+
+function parseRecommendation(node: unknown): PanelRecommendation | null {
+  if (!isRecord(node) || !isRecord(node.mediaRecommendation)) return null;
+  const media = node.mediaRecommendation;
+  // Pas d'adulte dans le panneau ; fiche sans identifiant valide ignorée
+  if (media.isAdult === true || typeof media.id !== 'number' || !Number.isInteger(media.id) || media.id < 1) return null;
+  const title = isRecord(media.title) ? str(media.title.userPreferred) : null;
+  const cover = isRecord(media.coverImage) ? media.coverImage : {};
+  const idMal = num(media.idMal);
+  const start = isRecord(media.startDate) ? media.startDate : {};
+  return {
+    mediaId: media.id,
+    idMal: idMal !== null && Number.isInteger(idMal) && idMal > 0 ? idMal : null,
+    title: title ?? `#${media.id}`,
+    format: str(media.format),
+    startYear: num(start.year),
+    coverUrl: toSafeImageUrl(str(cover.medium)),
+    siteUrl: anilistUrl(media.siteUrl) ?? `https://anilist.co/anime/${media.id}`,
+    rating: num(node.rating) ?? 0,
+    platforms: buildPlatforms(media.externalLinks, []),
+    prequelIds: arr(isRecord(media.relations) ? media.relations.edges : []).flatMap((edge) =>
+      isRecord(edge) && edge.relationType === 'PREQUEL' && isRecord(edge.node) && typeof edge.node.id === 'number' ? [edge.node.id] : [],
+    ),
+  };
+}
+
+/** Recommandations de la fiche : doublons et la fiche elle-même écartés, ordre d'AniList (votes décroissants), 8 au plus */
+function parseRecommendations(value: unknown, mediaId: number): PanelRecommendation[] {
+  const seen = new Set<number>([mediaId]);
+  const kept: PanelRecommendation[] = [];
+  for (const node of arr(isRecord(value) ? value.nodes : [])) {
+    const reco = parseRecommendation(node);
+    if (!reco || seen.has(reco.mediaId)) continue;
+    seen.add(reco.mediaId);
+    kept.push(reco);
+    if (kept.length >= MAX_RECOMMENDATIONS) break;
+  }
+  return kept;
 }
 
 /** Réponse brute → fiche normalisée (champs absents ou invalides → null / []) ; null sans identifiant */
@@ -124,6 +167,7 @@ export function parsePanelMedia(media: unknown): PanelMedia | null {
       // Tri stable : ordre d'AniList conservé dans chaque type de relation
       .sort((a, b) => order(a) - order(b))
       .slice(0, MAX_RELATIONS),
+    recommendations: parseRecommendations(media.recommendations, media.id),
   };
 }
 

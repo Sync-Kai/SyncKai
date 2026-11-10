@@ -49,6 +49,13 @@ export interface RawRecoMedia {
 
 interface PickEntry { id: number; title: string; status: string; score10: number | null }
 
+/** Ids des préquels directs d'une fiche (arêtes `relations` d'AniList) */
+export const prequelIdsOf = (edges: readonly { relationType: string; node: { id: number } | null }[] | null | undefined): number[] =>
+  (edges ?? []).flatMap((e) => (e.relationType === 'PREQUEL' && e.node !== null ? [e.node.id] : []));
+
+/** Suite dont un préquel n'est ni vu, ni en cours, ni en revisionnage : on ne la propose pas */
+export const hasUnseenPrequel = (prequelIds: readonly number[], watchedOrCurrent: ReadonlySet<number>): boolean => prequelIds.some((id) => !watchedOrCurrent.has(id));
+
 const isDone = (status: string): boolean => status === 'COMPLETED' || status === 'REPEATING';
 
 export function pickSeeds(entries: readonly PickEntry[]): { seeds: Omit<Seed, 'genres' | 'tags'>[]; cold: boolean } {
@@ -121,8 +128,7 @@ export function buildBatch(
       if (media.isAdult || exclude.ids.has(media.id) || exclude.dismissed.has(media.id)) continue;
       if (media.idMal !== null && media.idMal !== undefined && exclude.malIds.has(media.idMal)) continue;
       // Suite dont le préquel n'est ni vu ni en cours : on ne la propose pas
-      const unseenPrequel = (media.relations?.edges ?? []).some((e) => e.relationType === 'PREQUEL' && e.node !== null && !exclude.watchedOrCurrent.has(e.node.id));
-      if (unseenPrequel) continue;
+      if (hasUnseenPrequel(prequelIdsOf(media.relations?.edges), exclude.watchedOrCurrent)) continue;
       const contribution = seed.score10 * Math.max(rating, 1);
       const prev = candidates.get(media.id);
       if (!prev) candidates.set(media.id, { media, sum: contribution, best: { seed, contribution } });
