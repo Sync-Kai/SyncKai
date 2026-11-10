@@ -17,7 +17,7 @@ import { mountStatusBar } from '../ui/status-bar-host';
 import { createSequelsStore } from '../ui/sequels-store';
 import { createStore, patchStore, type ExclusionsState, type InlineFeedback } from '../ui/state';
 import { canOpenPopup, openPopupOn } from '../browser/popup-screen';
-import { takePanelTab } from '../browser/panel-tab';
+import { takePanelTab, watchPanelTab } from '../browser/panel-tab';
 import { createRecoController, type RecoController, type RecoView } from '../ui/reco-controller';
 import { CLOSED_SECTIONS, type PanelSectionsState } from './components/details-card';
 import type { NowPlayingSnapshot } from './components/now-playing';
@@ -278,6 +278,8 @@ async function main(): Promise<void> {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes[EXCLUDED_SERIES_KEY]) void loadExclusions();
   });
+  // Panneau déjà ouvert quand le popup demande « Découvrir » : l'onglet change aussi (sans toucher au « dernier onglet »)
+  watchPanelTab((tab) => patchStore(shell, { tab, auto: false }));
   onLocaleChange(() => {
     // Agenda affiché : textes et premier jour de la semaine à jour (il n'est plus réactivé à chaque rendu)
     if (shownTab === 'agenda') agenda?.activate();
@@ -296,6 +298,7 @@ async function main(): Promise<void> {
         onSaveOffset: async (mediaId, offset) => {
           if (agenda) await agenda.saveOffset(mediaId, offset);
         },
+        onDiscover: () => selectTab('discover'),
       },
       discover: {
         state: recoStore,

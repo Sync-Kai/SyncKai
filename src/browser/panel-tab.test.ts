@@ -8,7 +8,7 @@ import { installFakeChrome } from '../test/fake-chrome';
 const open = vi.fn<(options: unknown) => Promise<void>>();
 const setOptions = vi.fn<(options: unknown) => Promise<void>>();
 const fake = installFakeChrome({ extra: { sidePanel: { open, setOptions } } });
-const { openPanelOn, PANEL_TAB_TTL_MS, takePanelTab } = await import('./panel-tab');
+const { openPanelOn, PANEL_TAB_TTL_MS, takePanelTab, watchPanelTab } = await import('./panel-tab');
 
 beforeEach(() => {
   fake.reset();
@@ -48,5 +48,30 @@ describe('takePanelTab', () => {
     expect(fake.session.peek(PANEL_TAB_KEY)).toBeUndefined();
     await fake.session.set({ [PANEL_TAB_KEY]: { tab: 'settings', at: 1_000 } });
     expect(await takePanelTab(1_001)).toBeNull();
+  });
+});
+
+describe('watchPanelTab', () => {
+  it('panneau déjà ouvert : la demande écrite par le popup est lue, retirée et transmise', async () => {
+    const onTab = vi.fn<(tab: 'discover') => void>();
+    const stop = watchPanelTab(onTab);
+    await fake.session.set({ [PANEL_TAB_KEY]: { tab: 'discover', at: Date.now() } });
+    await vi.waitFor(() => expect(onTab).toHaveBeenCalledWith('discover'));
+    expect(fake.session.peek(PANEL_TAB_KEY)).toBeUndefined();
+    stop();
+  });
+
+  it('autre clé, zone locale, demande périmée ou écoute coupée : rien', async () => {
+    const onTab = vi.fn<(tab: 'discover') => void>();
+    const stop = watchPanelTab(onTab);
+    await fake.local.set({ [PANEL_TAB_KEY]: { tab: 'discover', at: Date.now() } });
+    await fake.session.set({ autre: 1 });
+    await fake.session.set({ [PANEL_TAB_KEY]: { tab: 'discover', at: 1 } });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(onTab).not.toHaveBeenCalled();
+    stop();
+    await fake.session.set({ [PANEL_TAB_KEY]: { tab: 'discover', at: Date.now() } });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(onTab).not.toHaveBeenCalled();
   });
 });

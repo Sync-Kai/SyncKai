@@ -62,10 +62,12 @@ function sequel(id: number, state: SequelRecord['state'], patch: Partial<SequelR
 
 let sequelStore = createStore<SequelRecord[]>([]);
 
+const onDiscover = vi.fn<() => void>();
+
 async function show(status: AgendaStatus = READY, sequels: SequelRecord[] = [], patch: Partial<AgendaSnapshot> = {}): Promise<void> {
   const state = createStore<AgendaSnapshot | null>(snapshot(status, patch));
   sequelStore = createStore(sequels);
-  await act(() => render(<Agenda state={state} sequels={sequelStore} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} />, container));
+  await act(() => render(<Agenda state={state} sequels={sequelStore} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
 }
 
 async function click(selector: string): Promise<void> {
@@ -237,6 +239,27 @@ describe('Agenda', () => {
     await show({ ...READY, refreshing: true });
     expect($('[data-focus="agenda-today"]')).toBeNull();
     expect($('[data-week-busy]')).not.toBeNull();
+  });
+
+  describe('semaine vide : « Une idée ? »', () => {
+    const EMPTY = { ...READY, cache: { ...READY.cache, schedules: [] } } satisfies AgendaStatus;
+
+    it('le lien suit le texte de la semaine vide et ouvre Découvrir', async () => {
+      onDiscover.mockClear();
+      await show(EMPTY);
+      expect($('[data-agenda-state]')?.textContent).toContain(t('agenda.empty.week'));
+      const link = $<HTMLButtonElement>('[data-focus="agenda-discover"]');
+      expect(link?.textContent).toContain(t('reco.idea'));
+      await act(() => link?.click());
+      expect(onDiscover).toHaveBeenCalledTimes(1);
+    });
+
+    it('semaine remplie, aucun compte ou erreur : pas de lien', async () => {
+      await show(READY);
+      expect($('[data-focus="agenda-discover"]')).toBeNull();
+      await show({ kind: 'not-connected' });
+      expect($('[data-focus="agenda-discover"]')).toBeNull();
+    });
   });
 
   describe('vue « Annoncées »', () => {

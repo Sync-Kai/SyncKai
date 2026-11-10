@@ -44,3 +44,21 @@ export async function takePanelTab(now: number = Date.now()): Promise<RequestedP
   await chrome.storage.session.remove(PANEL_TAB_KEY);
   return isRequest(value) && value.at <= now && now - value.at < PANEL_TAB_TTL_MS ? value.tab : null;
 }
+
+/**
+ * Panneau déjà ouvert : la demande du popup (storage.session, clé PANEL_TAB_KEY) est lue, retirée et transmise à `onTab`.
+ * Écoute de page (autorisée hors service worker) ; renvoie la fonction qui la coupe.
+ */
+export function watchPanelTab(onTab: (tab: RequestedPanelTab) => void): () => void {
+  const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
+    if (area !== 'session' || !changes[PANEL_TAB_KEY]?.newValue) return;
+    takePanelTab().then(
+      (tab) => {
+        if (tab) onTab(tab);
+      },
+      (error: unknown) => log.debug('Onglet demandé illisible :', error),
+    );
+  };
+  chrome.storage.onChanged.addListener(listener);
+  return () => chrome.storage.onChanged.removeListener(listener);
+}

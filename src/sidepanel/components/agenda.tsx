@@ -66,6 +66,8 @@ export interface AgendaProps {
   onRetry: () => void;
   /** Délai propre à la série (null : délai de la plateforme) ; rejette en cas d'échec */
   onSaveOffset: (mediaId: number, offset: number | null) => Promise<void>;
+  /** « 🎲 Une idée ? » (semaine vide) : onglet Découvrir */
+  onDiscover: () => void;
 }
 
 /** Remplace `{time}` (ou un autre paramètre) par un repère, pour mettre l'heure en forme dans la phrase traduite */
@@ -425,7 +427,7 @@ function Day({ day, now, children }: { day: AgendaDay; now: number; children: Co
 }
 
 /** Carte d'état (aucun compte, aucune série, semaine vide, erreur sans programme en mémoire) */
-function StateCard({ text, tone = 'info', onRetry }: { text: string; tone?: 'info' | 'error'; onRetry?: () => void }) {
+function StateCard({ text, tone = 'info', onRetry, onDiscover }: { text: string; tone?: 'info' | 'error'; onRetry?: () => void; onDiscover?: () => void }) {
   return (
     <div
       class="flex flex-col items-center gap-2.5 rounded-card border border-line bg-surface px-4 py-6 text-center"
@@ -437,6 +439,11 @@ function StateCard({ text, tone = 'info', onRetry }: { text: string; tone?: 'inf
       {onRetry && (
         <Button size="sm" icon="retry" focusKey="agenda-retry" onClick={onRetry}>
           {t('common.retry')}
+        </Button>
+      )}
+      {onDiscover && (
+        <Button variant="secondary" size="sm" focusKey="agenda-discover" onClick={onDiscover}>
+          {t('reco.idea')} ›
         </Button>
       )}
     </div>
@@ -496,7 +503,7 @@ function Skeleton() {
   );
 }
 
-export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onSaveOffset }: AgendaProps) {
+export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onSaveOffset, onDiscover }: AgendaProps) {
   const locale = useLocale();
   const snapshot = useStore(state);
   const records = useStore(sequels);
@@ -571,7 +578,7 @@ export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onS
           <>
             {status.error !== null && <Alert message={t('agenda.stale', { error: status.error })} action={{ label: t('common.retry'), icon: 'retry', onClick: onRetry, focusKey: 'agenda-retry' }} />}
             {days.every((day) => day.rows.length === 0) ? (
-              <StateCard text={t('agenda.empty.week')} />
+              <StateCard text={t('agenda.empty.week')} onDiscover={onDiscover} />
             ) : (
               days.map((day) => (
                 <Day key={day.start} day={day} now={now}>

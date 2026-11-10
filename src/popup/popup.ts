@@ -32,12 +32,15 @@ import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, U
 import { createStore, hasOpenSession, patchStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
 import { createLogger } from '../browser/logger';
 import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
+import { openPanelOn } from '../browser/panel-tab';
+import { PLATFORMS } from '../platforms/registry';
+import type { StreamingPlatform } from '../shared/episode.types';
 import { createAccountsController } from '../ui/accounts';
 import { createSequelsStore } from '../ui/sequels-store';
 import { updateSequels } from '../ui/sequel-actions';
 import type { SettingsPage } from '../ui/settings/navigation';
 import type { SettingsView } from '../ui/settings/settings-view';
-import { createPlatformAccessStore } from '../ui/platform-access-store';
+import { createPlatformAccessStore, requestPlatformAccessFromClick } from '../ui/platform-access-store';
 import { importPageUrl } from '../ui/import-page';
 import { mountStatusBar } from '../ui/status-bar-host';
 import { takePopupScreen } from '../browser/popup-screen';
@@ -482,6 +485,22 @@ function openPanel(): void {
   );
 }
 
+/** Clic « Plus d'idées dans le panneau » : demande « Découvrir » écrite et panneau ouvert dans le même tour (sans await avant) */
+function openPanelOnDiscover(): void {
+  if (panelTarget === null) return;
+  openPanelOn('discover', panelTarget).then(
+    (opened) => {
+      if (opened) window.close();
+    },
+    (error: unknown) => log.warn('Ouverture du panneau impossible :', error),
+  );
+}
+
+/** Puce « Activer {plateforme} » : la demande d'accès part dans le clic */
+function enablePlatform(platform: StreamingPlatform): void {
+  requestPlatformAccessFromClick(platform, platformAccessStore).catch((error: unknown) => log.warn(`Demande d’accès à ${PLATFORMS[platform].label} impossible :`, error));
+}
+
 let pageStarted = false;
 
 /** Premier chargement, dès qu'un service est connecté (l'écran « En cours » devient visible) */
@@ -610,6 +629,8 @@ mountPopupApp(getRoot(), {
     },
     onRetry: () => void watching.reload(),
     onOpenPlatformsSettings: () => navigate('settings', 'platforms'),
+    onOpenDiscover: openPanelOnDiscover,
+    onEnablePlatform: enablePlatform,
   },
   onNavigate: (screen) => navigate(screen),
   onSettings: toggleSettings,

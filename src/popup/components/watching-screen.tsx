@@ -48,6 +48,7 @@ import { ResumeCard } from './resume-card';
 import { Section } from '../../ui/components/section';
 import { DormantSection, type DormantHost } from './dormant-section';
 import { entrySite } from './entry-site';
+import { EmptyReco } from './empty-reco';
 
 /** Ce dont dépend l'affichage des séries (réglages, accès aux plateformes, comptes), recalculé par l'hôte */
 export interface WatchingContext {
@@ -95,6 +96,10 @@ export interface WatchingScreenProps {
   onRetry: () => void;
   /** Lien de l'astuce de l'état vide : Réglages › Plateformes */
   onOpenPlatformsSettings: () => void;
+  /** État vide, « Plus d'idées dans le panneau » : panneau ouvert sur Découvrir (dans le clic) */
+  onOpenDiscover: () => void;
+  /** État vide, puce « Activer {plateforme} » de la suggestion */
+  onEnablePlatform: (platform: StreamingPlatform) => void;
 }
 
 const SORT_LABELS: Record<WatchingSort, MessageKey> = {
@@ -277,7 +282,7 @@ function SeriesSkeleton() {
 }
 
 /** Aucune série en cours : Kai endormi, une invitation par plateforme active (lecteur préféré en tête), astuce */
-function EmptyWatching({ context, onOpenSettings }: { context: WatchingContext; onOpenSettings: () => void }) {
+function EmptyWatching({ context, onOpenSettings, onOpenDiscover, onEnablePlatform }: { context: WatchingContext; onOpenSettings: () => void; onOpenDiscover: () => void; onEnablePlatform: (platform: StreamingPlatform) => void }) {
   const active = activePlatforms(context.optionalPlatforms);
   const ordered = [...active].sort((a, b) => Number(b === context.preferredPlayer) - Number(a === context.preferredPlayer));
   // Plus rien à activer (toutes les plateformes optionnelles accordées) : l'astuce disparaît
@@ -301,6 +306,7 @@ function EmptyWatching({ context, onOpenSettings }: { context: WatchingContext; 
           ))}
         </div>
       </section>
+      <EmptyReco granted={context.optionalPlatforms} onEnable={onEnablePlatform} onMore={onOpenDiscover} />
       {tip && (
         <aside class="flex flex-col gap-1 rounded-card border border-line bg-surface p-3" aria-label={t('watching.tipTitle')}>
           <span class="flex items-baseline gap-1.5">
@@ -499,7 +505,7 @@ export function WatchingScreen(props: WatchingScreenProps) {
         {errorAlert}
         {banner}
         {pageCardSlot}
-        <EmptyWatching context={context} onOpenSettings={props.onOpenPlatformsSettings} />
+        <EmptyWatching context={context} onOpenSettings={props.onOpenPlatformsSettings} onOpenDiscover={props.onOpenDiscover} onEnablePlatform={props.onEnablePlatform} />
       </div>
     );
   }
