@@ -16,6 +16,8 @@ import { fetchSequelRelations, readSourceSeries } from './fetch';
 // déjà amorcé. La première passe d'un service enregistre sans notifier.
 
 export const SEQUEL_CHECK_INTERVAL_MS = 24 * 3_600_000;
+/** Attente avant de relancer une passe en échec (alarme horaire) : une panne longue ne relit pas la liste AniList chaque heure */
+export const SEQUEL_FAILURE_BACKOFF_MS = 6 * 3_600_000;
 export const SEQUEL_NOTIFICATION_PREFIX = 'synckai-sequel:';
 
 const log = createLogger('sequels');
@@ -67,6 +69,11 @@ async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<
   if (services.length === 0) return { ...none, skipped: 'not-connected' };
   const { lastCheck } = await readSequelStore();
   if (!force && lastCheck !== null && now - lastCheck < SEQUEL_CHECK_INTERVAL_MS) return { ...none, skipped: 'not-due' };
+  // Passe en échec (aucun lastCheck posé depuis) : pas de nouvelle lecture des listes complètes avant 6 h, même sur l'alarme horaire
+  if (!force) {
+    const last = await readLastResult();
+    if (last !== null && last.error !== null && (lastCheck === null || lastCheck < last.checkedAt) && now - last.checkedAt >= 0 && now - last.checkedAt < SEQUEL_FAILURE_BACKOFF_MS) return { ...none, skipped: 'not-due' };
+  }
 
   // Toute lecture en échec (liste, relations) lève : la passe est abandonnée entière, aucun service marqué amorcé
   const { sources, inLists } = await readSourceSeries(services);

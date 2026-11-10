@@ -208,6 +208,34 @@ describe('checkSequels', () => {
     expect(fake.local.peek(STORAGE_KEYS.sequelsLastResult)).toEqual(result);
   });
 
+  it('passe en échec : l’alarme horaire attend 6 h avant de relire les listes ; « Vérifier maintenant » passe outre', async () => {
+    await seed();
+    const failedAt = NOW + 25 * HOUR_MS;
+    fakes.relationCalls = 0;
+    fakes.failRelationsAt = 1;
+    expect(await checkSequels(failedAt)).toMatchObject({ error: 'Limite' });
+    expect(fakes.relationCalls).toBe(1);
+    // Alarme horaire 1 h puis 5 h plus tard : aucune requête, le résumé d'échec reste affiché
+    expect(await checkSequels(failedAt + HOUR_MS)).toMatchObject({ skipped: 'not-due', error: null });
+    expect(await checkSequels(failedAt + 6 * HOUR_MS - 1)).toMatchObject({ skipped: 'not-due' });
+    expect(fakes.relationCalls).toBe(1);
+    expect(fake.local.peek(STORAGE_KEYS.sequelsLastResult)).toMatchObject({ checkedAt: failedAt, error: 'Limite' });
+    // 6 h après l'échec : nouvelle passe
+    fakes.failRelationsAt = 0;
+    await checkSequels(failedAt + 6 * HOUR_MS);
+    expect(fakes.relationCalls).toBe(2);
+  });
+
+  it('passe forcée pendant l’attente après un échec : relancée aussitôt', async () => {
+    await seed();
+    const failedAt = NOW + 25 * HOUR_MS;
+    fakes.relationCalls = 0;
+    fakes.failRelationsAt = 1;
+    await checkSequels(failedAt);
+    await checkSequels(failedAt + HOUR_MS, true);
+    expect(fakes.relationCalls).toBe(2);
+  });
+
   it('déconnexion entre la lecture des sessions et l’écriture : rien d’écrit, rien de notifié', async () => {
     await seed();
     const before = store();
