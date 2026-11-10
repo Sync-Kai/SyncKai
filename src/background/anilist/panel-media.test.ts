@@ -65,7 +65,7 @@ const recoNode = (id: number, over: Record<string, unknown> = {}): Record<string
   format: 'TV',
   startDate: { year: 2020 },
   externalLinks: [{ url: 'https://www.crunchyroll.com/series/GG5H5XQ7D/reco' }],
-  relations: { edges: [{ relationType: 'PREQUEL', node: { id: id + 500 } }, { relationType: 'SIDE_STORY', node: { id: 9 } }, { relationType: 'PREQUEL', node: null }] },
+  relations: { edges: [{ relationType: 'PREQUEL', node: { id: id + 500, idMal: id + 1500 } }, { relationType: 'SIDE_STORY', node: { id: 9 } }, { relationType: 'PREQUEL', node: null }, { relationType: 'PREQUEL', node: { id: id + 600, idMal: null } }] },
   ...over,
 });
 
@@ -84,7 +84,8 @@ describe('parsePanelMedia : recommandations (« Dans le même esprit »)', () =>
       siteUrl: 'https://anilist.co/anime/10',
       rating: 50,
       platforms: [{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/GG5H5XQ7D/reco' }],
-      prequelIds: [510],
+      prequelIds: [510, 610],
+      prequelMalIds: [1510, null],
     });
     expect(recos.map((r) => r.mediaId)).toEqual([10, 11, 12, 13, 14, 15, 16, 17]);
   });
@@ -106,15 +107,19 @@ describe('parsePanelMedia : recommandations (« Dans le même esprit »)', () =>
     expect(parsePanelMedia({ ...full, recommendations: { nodes: 'x' } })?.recommendations).toEqual([]);
   });
 
-  it('cache : une fiche sans recommandations (cache v4) est rejetée, la version a changé', () => {
-    expect(PANEL_MEDIA_CACHE_VERSION).toBeGreaterThanOrEqual(5);
+  it('cache : une fiche sans recommandations (cache v5, sans préquels MAL) est rejetée, la version a changé', () => {
+    expect(PANEL_MEDIA_CACHE_VERSION).toBeGreaterThanOrEqual(6);
     const media = parsePanelMedia(full);
     if (!media) throw new Error('fiche absente');
     const { recommendations: _r, ...legacy } = media;
     expect(isPanelMedia(legacy)).toBe(false);
     expect(isPanelMedia(media)).toBe(true);
+    const withReco = parsePanelMedia({ ...full, recommendations: { nodes: [{ rating: 3, mediaRecommendation: recoNode(2) }] } });
+    expect(isPanelMedia(withReco)).toBe(true);
     expect(isPanelMedia({ ...media, recommendations: [{ mediaId: 1 }] })).toBe(false);
-    expect(panelMediaCacheKey(1)).not.toContain('v4:');
+    const noMal = (withReco?.recommendations ?? []).map(({ prequelMalIds: _p, ...rest }) => rest);
+    expect(isPanelMedia({ ...withReco, recommendations: noMal })).toBe(false);
+    expect(panelMediaCacheKey(1)).not.toContain('v5:');
   });
 });
 

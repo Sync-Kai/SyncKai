@@ -348,7 +348,7 @@ describe('ordre de visionnage du panneau', () => {
 });
 
 const recoOf = (mediaId: number, over: Partial<PanelRecommendation> = {}): PanelRecommendation => ({
-  mediaId, idMal: mediaId + 1000, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 5, platforms: [], prequelIds: [], ...over,
+  mediaId, idMal: mediaId + 1000, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 5, platforms: [], prequelIds: [], prequelMalIds: [], ...over,
 });
 const withRecos = (mediaId: number, recommendations: PanelRecommendation[]): PageMediaContent<PanelMedia> =>
   readyContent(mediaId, { details: { mediaId, recommendations } as unknown as PanelMedia });
@@ -363,10 +363,10 @@ describe('« Dans le même esprit » du panneau', () => {
 
   it('GET_LIST_STATES avec les recommandations non écartées et leurs préquels, puis lignes filtrées', async () => {
     fake.stored = { [STORAGE_KEYS.recoDismissed]: [12] };
-    emit(withRecos(1, [recoOf(10, { prequelIds: [100] }), recoOf(11), recoOf(12), recoOf(13, { prequelIds: [101] })]));
+    emit(withRecos(1, [recoOf(10, { prequelIds: [100], prequelMalIds: [1100] }), recoOf(11), recoOf(12), recoOf(13, { prequelIds: [101], prequelMalIds: [null] })]));
     await flush();
     const call = callsOf('GET_LIST_STATES').find((c) => (c.payload as { mediaIds: number[] }).mediaIds.includes(10));
-    expect(call?.payload).toEqual({ mediaIds: [10, 11, 13, 100, 101], malIds: [1010, 1011, 1013] });
+    expect(call?.payload).toEqual({ mediaIds: [10, 11, 13, 100, 101], malIds: [1010, 1011, 1013, 1100] });
     await answer('GET_FRANCHISE', ok(graphOf([1])));
     call?.resolve({ anilist: { 11: { kind: 'planned', progress: null }, 100: { kind: 'watched', progress: null }, 101: null }, mal: null } satisfies ListStates);
     await flush();

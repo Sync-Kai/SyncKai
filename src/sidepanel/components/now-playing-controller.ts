@@ -8,13 +8,13 @@ import type { SessionEpochs } from '../../shared/session-epochs';
 import { sameSessions } from '../../shared/session-epochs';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PanelMedia, PanelRecommendation } from '../../shared/panel-media.types';
-import { pickSimilar, similarLookupIds } from '../../shared/similar';
 import { DEFAULT_SETTINGS, effectivePlayer, SETTINGS_STORAGE_KEY } from '../../shared/settings';
 import { getSettings } from '../../browser/storage/settings-access';
 import type { TrackerId } from '../../shared/tracker.types';
 import { createPageMediaController, type PageMediaContent, type PageMediaController } from '../../ui/page-media-controller';
 import type { PlatformAccessStore } from '../../ui/platform-access-store';
 import { liveEventRead } from '../now-playing-view';
+import { createSimilarLoader } from './similar-loader';
 import { createLiveProgress, type LiveProgress, type LiveTarget } from './live-progress';
 
 const log = createLogger('sidepanel');
@@ -197,82 +197,17 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
     const graph = order.status === 'ready' ? order.graph : graphInHand;
     if (graph) void reloadStates(graph);
     // Listes d'un autre compte : recommandations refiltrées
-    similarView = null;
-    syncSimilar();
+    similarLoader.sync(ctl.content, true);
   };
 
-  // ─── Dans le même esprit ───
-  let similar: PanelRecommendation[] = [];
-  /** Incrémenté à chaque lecture : une réponse plus ancienne (autre fiche, compte changé) est ignorée */
-  let similarRun = 0;
-  /** Fiche dont les recommandations sont filtrées (ou en cours de filtrage) */
-  let similarView: object | null = null;
-
-  const showSimilar = (next: PanelRecommendation[]): void => {
-    similar = next;
-    onChange();
-  };
-
-  const clearSimilar = (): void => {
-    similarRun++;
-    similarView = null;
-    if (similar.length > 0) showSimilar([]);
-  };
-
-  /** Séries écartées de Découvrir (lues au stockage de la page) ; illisibles : aucune */
-  const readDismissed = async (): Promise<ReadonlySet<number>> => {
-    try {
-      const stored: unknown = (await chrome.storage.local.get(STORAGE_KEYS.recoDismissed))[STORAGE_KEYS.recoDismissed];
-      return new Set(Array.isArray(stored) ? stored.filter((id): id is number => typeof id === 'number') : []);
-    } catch (error: unknown) {
-      log.debug('Séries écartées illisibles :', error);
-      return new Set();
-    }
-  };
-
-  /**
-   * Filtre les recommandations par les listes de l'utilisateur. Aucun compte : pas de liste à consulter. Compte connecté dont les
-   * états manquent (échec, session changée) : rien n'est proposé, rien ne prouve que les séries ne sont pas déjà en liste.
-   */
-  const loadSimilar = async (recos: readonly PanelRecommendation[]): Promise<void> => {
-    const run = ++similarRun;
-    const dismissed = await readDismissed();
-    if (run !== similarRun) return;
-    const ids = similarLookupIds(recos, dismissed);
-    if (ids.mediaIds.length === 0) return showSimilar([]);
-    let next: PanelRecommendation[] = [];
-    try {
-      const sessions = await getOpenSessions();
-      if (sessions.anilist === undefined && sessions.mal === undefined) next = pickSimilar(recos, NO_STATES, dismissed);
-      else {
-        const states = await sendMessage('GET_LIST_STATES', ids);
-        if ((sessions.anilist === undefined || states.anilist !== null) && (sessions.mal === undefined || states.mal !== null)) next = pickSimilar(recos, states, dismissed);
-      }
-    } catch (error: unknown) {
-      log.debug('États de liste illisibles (recommandations) :', error);
-    }
-    if (run === similarRun) showSimilar(next);
-  };
-
-  const syncSimilar = (): void => {
-    const { content } = ctl;
-    if (content.status !== 'ready') return clearSimilar();
-    if (content.refreshing) return;
-    if (!content.details) return clearSimilar();
-    if (similarView === content.view) return;
-    similarView = content.view;
-    if (content.details.recommendations.length === 0) {
-      similarRun++;
-      if (similar.length > 0) showSimilar([]);
-    } else void loadSimilar(content.details.recommendations);
-  };
+  const similarLoader = createSimilarLoader(onChange);
 
   const ctl = createPageMediaController<PanelMedia>({
     onChange,
     onContent: () => {
       live.follow(liveTarget());
       syncOrder();
-      syncSimilar();
+      similarLoader.sync(ctl.content);
     },
     loadDetails: (mediaId) => sendMessage('GET_PANEL_MEDIA', { mediaId }),
     platformAccess,
@@ -352,7 +287,7 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
       return order;
     },
     get similar() {
-      return similar;
+      return similarLoader.items;
     },
     retryOrder(): void {
       const { content } = ctl;
@@ -387,8 +322,7 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
       chrome.storage.onChanged.removeListener(onStorageChange);
       ctl.dispose();
       resetOrder();
-      similarRun++;
-      similar = [];
+      similarLoader.dispose();
       tabId = null;
       live.follow(null);
     },

@@ -45,7 +45,7 @@ const PANEL_MEDIA_QUERY = /* GraphQL */ `
       nextAiringEpisode { episode airingAt }
       studios(isMain: true) { nodes { name siteUrl } }
       title { romaji english userPreferred }
-      recommendations(sort: RATING_DESC, perPage: 8) { nodes { rating mediaRecommendation { id idMal isAdult title { userPreferred } coverImage { medium } siteUrl format startDate { year } externalLinks { url } relations { edges { relationType node { id } } } } } }
+      recommendations(sort: RATING_DESC, perPage: 8) { nodes { rating mediaRecommendation { id idMal isAdult title { userPreferred } coverImage { medium } siteUrl format startDate { year } externalLinks { url } relations { edges { relationType node { id idMal } } } } } }
       relations { edges { relationType node { id idMal type format status startDate { year month day } season seasonYear title { userPreferred } coverImage { medium } siteUrl externalLinks { url } } } }
     }
   }
@@ -98,6 +98,12 @@ function parseRecommendation(node: unknown): PanelRecommendation | null {
   const cover = isRecord(media.coverImage) ? media.coverImage : {};
   const idMal = num(media.idMal);
   const start = isRecord(media.startDate) ? media.startDate : {};
+  // Préquels directs avec leur id MyAnimeList (null si inconnu), listes parallèles
+  const prequels = arr(isRecord(media.relations) ? media.relations.edges : []).flatMap((edge) => {
+    if (!isRecord(edge) || edge.relationType !== 'PREQUEL' || !isRecord(edge.node) || typeof edge.node.id !== 'number') return [];
+    const malId = num(edge.node.idMal);
+    return [{ id: edge.node.id, malId: malId !== null && Number.isInteger(malId) && malId > 0 ? malId : null }];
+  });
   return {
     mediaId: media.id,
     idMal: idMal !== null && Number.isInteger(idMal) && idMal > 0 ? idMal : null,
@@ -108,9 +114,8 @@ function parseRecommendation(node: unknown): PanelRecommendation | null {
     siteUrl: anilistUrl(media.siteUrl) ?? `https://anilist.co/anime/${media.id}`,
     rating: num(node.rating) ?? 0,
     platforms: buildPlatforms(media.externalLinks, []),
-    prequelIds: arr(isRecord(media.relations) ? media.relations.edges : []).flatMap((edge) =>
-      isRecord(edge) && edge.relationType === 'PREQUEL' && isRecord(edge.node) && typeof edge.node.id === 'number' ? [edge.node.id] : [],
-    ),
+    prequelIds: prequels.map((p) => p.id),
+    prequelMalIds: prequels.map((p) => p.malId),
   };
 }
 

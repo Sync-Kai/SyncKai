@@ -56,6 +56,8 @@ export interface PanelRecommendation {
   platforms: PlatformLink[];
   /** Préquels directs : une suite dont le préquel n'est ni vu ni en cours n'est pas proposée */
   prequelIds: number[];
+  /** Ids MyAnimeList de ces préquels, même ordre que `prequelIds` (null : pas d'équivalent connu) */
+  prequelMalIds: (number | null)[];
 }
 
 export interface PanelMedia {
@@ -133,7 +135,10 @@ function isPanelRecommendation(value: unknown): value is PanelRecommendation {
     Array.isArray(value.platforms) &&
     value.platforms.every(isPlatformLink) &&
     Array.isArray(value.prequelIds) &&
-    value.prequelIds.every(isPositiveInt)
+    value.prequelIds.every(isPositiveInt) &&
+    Array.isArray(value.prequelMalIds) &&
+    value.prequelMalIds.length === value.prequelIds.length &&
+    value.prequelMalIds.every((id) => id === null || isPositiveInt(id))
   );
 }
 

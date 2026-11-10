@@ -6,7 +6,7 @@ import { pickSimilar, similarLookupIds } from './similar';
 // « Dans le même esprit » : filtre des recommandations de la fiche (listes, écartées, préquel non vu), 5 lignes au plus
 
 const reco = (mediaId: number, over: Partial<PanelRecommendation> = {}): PanelRecommendation => ({
-  mediaId, idMal: mediaId + 1000, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 10, platforms: [], prequelIds: [], ...over,
+  mediaId, idMal: mediaId + 1000, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 10, platforms: [], prequelIds: [], prequelMalIds: [], ...over,
 });
 const watched: ListState = { kind: 'watched', progress: null };
 const planned: ListState = { kind: 'planned', progress: null };
@@ -34,15 +34,22 @@ describe('pickSimilar', () => {
     expect(ids(pickSimilar(recos, states, new Set()))).toEqual([1, 2, 6]);
   });
 
-  it('MyAnimeList seul (préquel inconnu côté AniList) : la règle du préquel ne s’applique pas', () => {
-    const states: ListStates = { anilist: null, mal: { 1002: watched } };
-    expect(ids(pickSimilar([reco(1, { prequelIds: [100] }), reco(2)], states, new Set()))).toEqual([1]);
+  it('MyAnimeList seul : préquel terminé sur MyAnimeList, la suite est montrée ; absent des deux listes, elle est masquée', () => {
+    const states: ListStates = { anilist: null, mal: { 1100: watched, 1200: planned } };
+    const recos = [reco(1, { prequelIds: [100], prequelMalIds: [1100] }), reco(2, { prequelIds: [200], prequelMalIds: [1200] }), reco(3, { prequelIds: [300], prequelMalIds: [1300] }), reco(4, { prequelIds: [400], prequelMalIds: [null] }), reco(5)];
+    expect(ids(pickSimilar(recos, states, new Set()))).toEqual([1, 5]);
+  });
+
+  it('deux comptes : préquel vu seulement sur MyAnimeList, la suite est montrée', () => {
+    const states: ListStates = { anilist: { 100: null, 200: planned }, mal: { 1100: { kind: 'inProgress', progress: 2 }, 1200: null } };
+    const recos = [reco(1, { prequelIds: [100], prequelMalIds: [1100] }), reco(2, { prequelIds: [200], prequelMalIds: [1200] })];
+    expect(ids(pickSimilar(recos, states, new Set()))).toEqual([1]);
   });
 });
 
 describe('similarLookupIds', () => {
-  it('identifiants à lire : les recommandations non écartées et leurs préquels, dédoublonnés', () => {
-    const recos = [reco(1, { prequelIds: [100, 101] }), reco(2, { prequelIds: [100] }), reco(3)];
-    expect(similarLookupIds(recos, new Set([3]))).toEqual({ mediaIds: [1, 2, 100, 101], malIds: [1001, 1002] });
+  it('identifiants à lire : les recommandations non écartées et leurs préquels, dédoublonnés, par service', () => {
+    const recos = [reco(1, { prequelIds: [100, 101], prequelMalIds: [1100, null] }), reco(2, { prequelIds: [100], prequelMalIds: [1100] }), reco(3)];
+    expect(similarLookupIds(recos, new Set([3]))).toEqual({ mediaIds: [1, 2, 100, 101], malIds: [1001, 1002, 1100] });
   });
 });

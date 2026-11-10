@@ -81,7 +81,7 @@ describe('DetailsCard : ordre de visionnage', () => {
 });
 
 describe('DetailsCard : « Dans le même esprit »', () => {
-  const reco = (mediaId: number): PanelRecommendation => ({ mediaId, idMal: null, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 3, platforms: [], prequelIds: [] });
+  const reco = (mediaId: number): PanelRecommendation => ({ mediaId, idMal: null, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 3, platforms: [], prequelIds: [], prequelMalIds: [] });
 
   it('section après l’ordre de visionnage, un séparateur par section', async () => {
     await show(ready([1, 2]), [reco(5)]);

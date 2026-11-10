@@ -13,7 +13,7 @@ vi.mock('../../ui/sequel-actions', async (importActual) => ({ ...(await importAc
 const { Similar, showsSimilar } = await import('./similar');
 
 const reco = (mediaId: number, over: Partial<PanelRecommendation> = {}): PanelRecommendation => ({
-  mediaId, idMal: mediaId + 1000, title: `Reco ${mediaId}`, format: 'TV', startYear: 2021, coverUrl: 'https://s4.anilist.co/c.jpg', siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 12, platforms: [], prequelIds: [], ...over,
+  mediaId, idMal: mediaId + 1000, title: `Reco ${mediaId}`, format: 'TV', startYear: 2021, coverUrl: 'https://s4.anilist.co/c.jpg', siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 12, platforms: [], prequelIds: [], prequelMalIds: [], ...over,
 });
 const synced: SyncOutcome = { status: 'synced', results: [{ service: 'anilist', outcome: { status: 'updated' } }] } as unknown as SyncOutcome;
 
