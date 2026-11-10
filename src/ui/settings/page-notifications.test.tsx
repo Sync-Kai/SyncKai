@@ -44,6 +44,7 @@ describe('NotificationsPage (maquettes Notifications, NotificationsAlertes)', ()
       airing: null,
       sequels: null,
       sequelsDismissed: 0,
+      recoDismissed: 0,
       platformAccess: [],
       ...extra,
     };

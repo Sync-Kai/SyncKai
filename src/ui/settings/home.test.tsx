@@ -17,6 +17,7 @@ const DATA: SettingsData = {
   airing: null,
   sequels: null,
   sequelsDismissed: 0,
+  recoDismissed: 0,
   platformAccess: ['netflix'],
 };
 

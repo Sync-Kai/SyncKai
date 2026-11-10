@@ -43,6 +43,7 @@ describe('PlatformsPage (maquettes Plateformes, PlateformesLecteur, PlateformesA
       airing: null,
       sequels: null,
       sequelsDismissed: 0,
+      recoDismissed: 0,
       platformAccess: granted,
     };
     const platformAccess = { refresh: vi.fn(async () => granted), onPermissionsChange: () => () => undefined } as Partial<PlatformAccessStore> as PlatformAccessStore;

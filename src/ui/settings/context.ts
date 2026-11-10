@@ -53,6 +53,8 @@ export interface SettingsData {
   sequels: SequelCheckResult | null;
   /** Suites masquées (état « dismissed » du stockage), pour « Réafficher » */
   sequelsDismissed: number;
+  /** Suggestions passées (liste `reco:dismissed`), pour « Réafficher » */
+  recoDismissed: number;
   /**
    * Plateformes optionnelles accordées (interrupteurs, lecteur préféré Netflix ou Prime Video), copie du store de
    * l'hôte (`SettingsHost.platformAccess`) : undefined tant que les accès sont en lecture

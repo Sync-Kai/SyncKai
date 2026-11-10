@@ -141,6 +141,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     airing: null,
     sequels: null,
     sequelsDismissed: 0,
+    recoDismissed: 0,
     platformAccess: host.platformAccess.get(),
   };
   /** Instantanés de `data` pour les pages Preact */
@@ -276,6 +277,20 @@ export function createSettingsView(host: SettingsHost): SettingsView {
 
   function setSequelsState(value: unknown): void {
     data.sequelsDismissed = isSequelStore(value) ? value.records.filter((record) => record.state === 'dismissed').length : 0;
+    state.set({ ...data });
+  }
+
+  async function loadReco(): Promise<void> {
+    try {
+      const stored = await chrome.storage.local.get(STORAGE_KEYS.recoDismissed);
+      setRecoDismissed(stored[STORAGE_KEYS.recoDismissed]);
+    } catch (error: unknown) {
+      log.warn('Lecture des suggestions passées impossible :', error);
+    }
+  }
+
+  function setRecoDismissed(value: unknown): void {
+    data.recoDismissed = Array.isArray(value) ? value.length : 0;
     state.set({ ...data });
   }
 
@@ -416,6 +431,8 @@ export function createSettingsView(host: SettingsHost): SettingsView {
     if (sequelsResultChange) setSequelsResult(sequelsResultChange.newValue);
     const sequelsStateChange = changes[STORAGE_KEYS.sequelsState];
     if (sequelsStateChange) setSequelsState(sequelsStateChange.newValue);
+    const recoChange = changes[STORAGE_KEYS.recoDismissed];
+    if (recoChange) setRecoDismissed(recoChange.newValue);
   };
   chrome.storage.onChanged.addListener(onStorageChange);
   cleanups.push(() => chrome.storage.onChanged.removeListener(onStorageChange));
@@ -451,6 +468,7 @@ export function createSettingsView(host: SettingsHost): SettingsView {
   void refreshJournal();
   void loadAiring();
   void loadSequels();
+  void loadReco();
   void loadShortcuts();
   const onFocus = (): void => void loadShortcuts();
   window.addEventListener('focus', onFocus);

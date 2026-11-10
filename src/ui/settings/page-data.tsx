@@ -2,7 +2,7 @@
 // choisit dans la page d'import), sauvegarde (export : en cours, « Exporté », échec ; import dans la page Sauvegarde)
 // et ligne « Écarts AniList ↔ MyAnimeList » vers sa sous-page (compteur après la première analyse ; un seul compte
 // connecté : ligne inactive avec « Comptes »). Les correspondances et les séries exclues sont dans Synchronisation.
-import { t } from '../../i18n';
+import { t, tp } from '../../i18n';
 import { createLogger } from '../../browser/logger';
 import { BACKUP_EXPORT_PARAM, BACKUP_PAGE, downloadBackup } from '../backup-download';
 import { Alert } from '../components/alert';
@@ -11,6 +11,7 @@ import { Icon } from '../components/icon';
 import { Section } from '../components/section';
 import { SettingsCard, SettingsRow } from '../components/settings-row';
 import { importPageUrl } from '../import-page';
+import { callWorker } from '../worker-call';
 import { useLocale, useStore } from '../preact/hooks';
 import { createStore, type Store } from '../state';
 import { diffBadge } from './compare-model';
@@ -52,6 +53,7 @@ export function DataPage({ ctx, exportState, onExport }: DataPageProps) {
   const loading = anilist.status === 'loading' || mal.status === 'loading';
   const both = anilist.status === 'logged-in' && mal.status === 'logged-in';
   const count = diffBadge(compare.result);
+  const recoDismissed = useStore(ctx.state).recoDismissed;
   const perSeries = `${settingsPageTitle('sync')} › ${t('settings.section.perSeries')}`;
 
   return (
@@ -102,6 +104,16 @@ export function DataPage({ ctx, exportState, onExport }: DataPageProps) {
           {exporting === 'error' && <Alert message={t('settings.backup.exportFailed')} />}
         </div>
       </Section>
+
+      {recoDismissed > 0 && (
+        <SettingsCard>
+          <div class="flex p-3">
+            <Button size="sm" focusKey="reco-restore" onClick={() => void callWorker('RESTORE_RECOMMENDATIONS', null, () => false)}>
+              {tp('settings.reco.restore', recoDismissed)}
+            </Button>
+          </div>
+        </SettingsCard>
+      )}
 
       <Section title={t('settings.section.compare')}>
         <SettingsCard>
