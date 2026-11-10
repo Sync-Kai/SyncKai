@@ -177,8 +177,9 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
 
       <div class="flex flex-wrap items-center gap-2">
         {dismissed ? (
-          <span class="inline-flex min-w-0 items-center gap-1 rounded-pill bg-raised py-0.5 pl-3 pr-1 text-secondary text-muted">
-            <span class="min-w-0 truncate">{t('reco.dismissed', { title: view.dismissedTitle ?? '' })}</span>
+          <span class="inline-flex min-w-0 items-center gap-1 rounded-panel bg-raised py-0.5 pl-3 pr-1 text-secondary text-muted">
+            {/* Titre long ou traduction longue : le message passe à la ligne au lieu d'être tronqué */}
+            <span class="min-w-0 break-words">{t('reco.dismissed', { title: view.dismissedTitle ?? '' })}</span>
             <Button variant="text" size="sm" focusKey="reco-undo" onClick={onUndo}>
               {t('reco.undo')}
             </Button>

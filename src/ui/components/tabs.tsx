@@ -60,8 +60,9 @@ export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}
-      // Colonnes égales, une par onglet (CSSOM : pas de classe générée par nombre d'onglets)
-      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      // Une colonne par onglet (CSSOM : pas de classe générée par nombre d'onglets) : égales ; à trois onglets ou plus avec icône,
+      // l'onglet sélectionné prend au moins la largeur de son libellé (les autres se replient en icône, voir plus bas)
+      style={{ gridTemplateColumns: tabs.map((tab) => (tab.id === selected && tabs.length > 2 && tab.icon !== undefined ? 'minmax(max-content, 1fr)' : 'minmax(0, 1fr)')).join(' ') }}
     >
       {tabs.map((tab) => {
         const on = tab.id === selected;
