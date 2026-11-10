@@ -193,20 +193,6 @@ function Row({ node, ctx }: { node: FranchiseNode; ctx: RowContext }) {
               {title}
             </span>
           </a>
-          {watch && (
-            <Button
-              size="sm"
-              class="shrink-0"
-              href={watch.url}
-              target="_blank"
-              title={t('panel.nowPlaying.watchOn', { platform: PLATFORMS[watch.platform].label })}
-              ariaLabel={t('panel.nowPlaying.watchAria', { title: node.title, platform: PLATFORMS[watch.platform].label })}
-              focusKey={`order-watch-${node.id}`}
-            >
-              <ServiceLogo id={watch.platform} size="sm" />
-              {t('panel.nowPlaying.watch')}
-            </Button>
-          )}
         </div>
         {text !== null && (
           <span class={`text-secondary text-muted${kindOf(states, node) === 'watched' && !tooltip ? ' sr-only' : ''}`} title={tooltip} data-order-state="">
@@ -215,6 +201,21 @@ function Row({ node, ctx }: { node: FranchiseNode; ctx: RowContext }) {
         )}
         {sequel && <SequelActions node={node} links={props.links} unlisted={props.unlistedSequels.has(node.id)} />}
       </div>
+      {/* « Regarder » centré verticalement sur toute la ligne (surtitre, titre et état), pas sur le titre seul */}
+      {watch && (
+        <Button
+          size="sm"
+          class="mb-2 shrink-0 self-center"
+          href={watch.url}
+          target="_blank"
+          title={t('panel.nowPlaying.watchOn', { platform: PLATFORMS[watch.platform].label })}
+          ariaLabel={t('panel.nowPlaying.watchAria', { title: node.title, platform: PLATFORMS[watch.platform].label })}
+          focusKey={`order-watch-${node.id}`}
+        >
+          <ServiceLogo id={watch.platform} size="sm" />
+          {t('panel.nowPlaying.watch')}
+        </Button>
+      )}
     </li>
   );
 }
