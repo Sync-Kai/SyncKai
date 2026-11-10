@@ -77,4 +77,15 @@ describe('createSequelsStore', () => {
     store.dispose();
     expect(listeners.size).toBe(0);
   });
+
+  it('unlisted : les ids de toutes les suites sans liste, écartées comprises (la fiche de la page garde « + À regarder »)', async () => {
+    data[STORAGE_KEYS.sequelsState] = stored([record(1, 'seen', 10), record(2, 'dismissed', 30), record(3, 'new', 20)]);
+    const store = createSequelsStore();
+    await flush();
+    expect([...store.unlisted.get()].sort()).toEqual([1, 2, 3]);
+    const [listener] = [...listeners];
+    listener?.({ [SETTINGS_STORAGE_KEY]: { newValue: { sequelAlerts: false } } }, 'local');
+    expect(store.unlisted.get().size).toBe(0);
+    store.dispose();
+  });
 });

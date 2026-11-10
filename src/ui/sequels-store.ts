@@ -8,18 +8,24 @@ import { createStore, type ReadonlyStore } from './state';
 // rien quand « Alertes de suites » est coupé (réglage suivi aussi : popup, rail, panneau et Agenda se vident ensemble).
 
 export interface SequelsStore extends ReadonlyStore<SequelRecord[]> {
+  /** Ids de toutes les suites enregistrées, écartées comprises : une suite écartée n'est elle aussi dans aucune liste */
+  readonly unlisted: ReadonlyStore<ReadonlySet<number>>;
   dispose(): void;
 }
 
 export function createSequelsStore(): SequelsStore {
   const store = createStore<SequelRecord[]>([]);
+  const unlisted = createStore<ReadonlySet<number>>(new Set());
   let disposed = false;
   let raw: unknown;
   let enabled = true;
 
   /** Valeur absente ou invalide, ou alertes coupées : aucune suite */
   const publish = (): void => {
-    if (!disposed) store.set(enabled && isSequelStore(raw) ? visibleSequels(raw) : []);
+    if (disposed) return;
+    const valid = enabled && isSequelStore(raw) ? raw : null;
+    store.set(valid ? visibleSequels(valid) : []);
+    unlisted.set(new Set(valid?.records.map((record) => record.snapshot.id)));
   };
 
   const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
@@ -40,6 +46,7 @@ export function createSequelsStore(): SequelsStore {
   return {
     get: store.get,
     subscribe: store.subscribe,
+    unlisted,
     dispose() {
       disposed = true;
       chrome.storage.onChanged.removeListener(onChanged);

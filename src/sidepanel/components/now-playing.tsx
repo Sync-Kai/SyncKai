@@ -4,14 +4,12 @@
 // la fiche : en-tête, « Détails AniList indisponibles », « Tu regardes » (page de lecture), « Saison » (deux choix au
 // moins), « Ta liste », sections repliables. Données et actions : contrôleur sans rendu (components/now-playing-controller.ts,
 // publié par sidepanel.ts) ; parties partagées avec la carte « Sur cette page » du popup (src/ui/components/).
-import { useMemo } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { joinSentences, t } from '../../i18n';
 import { entryLink, entryLinks, type EntryLinkContext } from '../../shared/entry-link';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import type { PageMediaInfo, PageMediaView } from '../../shared/page-media.types';
 import type { PanelMedia, PanelRecommendation } from '../../shared/panel-media.types';
-import type { SequelRecord } from '../../shared/sequels';
 import type { AddListStatus, AdjustRetry, MenuStatusChange } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import { Alert } from '../../ui/components/alert';
@@ -81,8 +79,8 @@ export interface NowPlayingProps extends NowPlayingHandlers {
   /** Retour propre au panneau (exclusion, réactivation) */
   notice: ReadonlyStore<InlineFeedback | null>;
   sections: ReadonlyStore<PanelSectionsState>;
-  /** Suites annoncées sans liste (ui/sequels-store.ts) : actions des relations de la fiche */
-  sequels: ReadonlyStore<SequelRecord[]>;
+  /** Ids des suites annoncées sans liste, écartées comprises (ui/sequels-store.ts › unlisted) : actions des relations de la fiche */
+  unlistedSequels: ReadonlyStore<ReadonlySet<number>>;
 }
 
 /** L'heure des pastilles de diffusion avance tant que le panneau reste ouvert */
@@ -143,8 +141,7 @@ function Ready({ props, snapshot, page, view, details, detailsError, refreshing 
   const exclusions = useStore(props.exclusions);
   const notice = useStore(props.notice);
   const sections = useStore(props.sections);
-  const sequels = useStore(props.sequels);
-  const unlistedSequels = useMemo(() => new Set(sequels.map((record) => record.snapshot.id)), [sequels]);
+  const unlistedSequels = useStore(props.unlistedSequels);
   const { actions } = snapshot;
   const { media } = view;
   const busy = actions.busy !== null || refreshing;

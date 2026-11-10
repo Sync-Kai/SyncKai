@@ -330,7 +330,7 @@ async function main(): Promise<void> {
         exclusions: exclusionsStore,
         notice: noticeStore,
         sections: sectionsStore,
-        sequels: sequelsStore,
+        unlistedSequels: sequelsStore.unlisted,
         onToggleSection: (section, open) => sectionsStore.set({ ...sectionsStore.get(), [section]: open }),
         onRefresh: () => void nowPlayingCtl.refresh(true),
         onRetry: () => nowPlayingCtl.retry(),
