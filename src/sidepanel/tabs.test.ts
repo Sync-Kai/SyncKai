@@ -22,9 +22,10 @@ describe('nextTabIndex', () => {
 });
 
 describe('PANEL_TABS', () => {
-  it('« En lecture » puis « Agenda »', () => {
-    expect(PANEL_TABS).toEqual(['nowPlaying', 'agenda']);
+  it('« En lecture », « Agenda » puis « Découvrir »', () => {
+    expect(PANEL_TABS).toEqual(['nowPlaying', 'agenda', 'discover']);
     expect(isPanelTab('agenda')).toBe(true);
+    expect(isPanelTab('discover')).toBe(true);
     expect(isPanelTab('settings')).toBe(false);
   });
 });
@@ -37,6 +38,8 @@ describe('initialPanelTab', () => {
 
   it('« Dernier onglet ouvert » : onglet mémorisé, « En lecture » s’il est absent ou inconnu', () => {
     expect(initialPanelTab('last', 'agenda')).toBe('agenda');
+    // Le dernier onglet peut être « Découvrir » même si le réglage n'offre pas ce choix
+    expect(initialPanelTab('last', 'discover')).toBe('discover');
     expect(initialPanelTab('last', undefined)).toBe('nowPlaying');
     expect(initialPanelTab('last', 'settings')).toBe('nowPlaying');
   });
@@ -78,5 +81,13 @@ describe('followPageContext', () => {
 
   it('page de streaming sur « En lecture » : inchangé', () => {
     expect(followPageContext({ tab: 'nowPlaying', auto: false }, true)).toEqual({ tab: 'nowPlaying', auto: false });
+  });
+});
+
+describe('followPageContext et « Découvrir »', () => {
+  it('jamais choisi par le panneau, jamais quitté seul', () => {
+    expect(followPageContext({ tab: 'discover', auto: false }, false)).toEqual({ tab: 'discover', auto: false });
+    expect(followPageContext({ tab: 'discover', auto: false }, true)).toEqual({ tab: 'discover', auto: false });
+    expect(followPageContext({ tab: 'nowPlaying', auto: false }, false)).toEqual({ tab: 'agenda', auto: true });
   });
 });

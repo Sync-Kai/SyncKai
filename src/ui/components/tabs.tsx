@@ -65,6 +65,9 @@ export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect
     >
       {tabs.map((tab) => {
         const on = tab.id === selected;
+        // Trois onglets ou plus avec icône : le libellé d'un onglet non sélectionné qui ne tient pas se replie en icône
+        // (conteneur étroit) ; nom accessible gardé (sr-only) et infobulle, l'onglet sélectionné garde toujours le sien
+        const foldable = tabs.length > 2 && tab.icon !== undefined;
         return (
           <button
             key={tab.id}
@@ -78,13 +81,14 @@ export function Tabs<T extends string>({ label, idBase, tabs, selected, onSelect
             aria-controls={controls ? controls(tab.id) : panelId(idBase, tab.id)}
             tabIndex={on ? 0 : -1}
             aria-label={tab.ariaLabel}
+            title={foldable && !on ? tab.label : undefined}
             data-focus={focusKeyBase && `${focusKeyBase}-${tab.id}`}
             onClick={() => {
               if (!on) onSelect(tab.id);
             }}
           >
             {tab.icon && <Icon name={tab.icon} class={`size-3.5 ${tab.icon === 'play' ? 'fill-current' : ''}`} strokeWidth="2.2" />}
-            <span class="truncate">{tab.label}</span>
+            <span class={`truncate ${foldable && !on ? '@max-[300px]:sr-only' : ''}`}>{tab.label}</span>
             {tab.badge !== undefined && (
               <span class="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-pill bg-butter px-1.25 text-section tracking-normal text-on-fill tabular-nums" aria-hidden={tab.ariaLabel ? 'true' : undefined} data-tab-badge="">
                 {tab.badge}

@@ -1,5 +1,5 @@
 // Coquille Preact du panneau latéral (maquettes PanelOuverture, PanelLecture, PanelReglages, PanelReglages320,
-// PanelFirefox) : en-tête (onglets « En lecture » / « Agenda » et engrenage ; à l'ouverture, Kai et « SyncKai » le temps
+// PanelFirefox) : en-tête (onglets « En lecture » / « Agenda » / « Découvrir » et engrenage ; à l'ouverture, Kai et « SyncKai » le temps
 // de vérifier l'onglet ; Réglages ouverts : leur barre de retour à la place des onglets, engrenage enfoncé), zone qui
 // défile (onglet affiché, ou vue des Réglages), barre d'état en pied. L'état et la logique (onglet suivi, bascule
 // automatique, Réglages chargés à la première ouverture) restent dans sidepanel.ts, les données de l'Agenda dans son
@@ -16,6 +16,7 @@ import { ElementSlot } from '../ui/preact/vanilla-slot';
 import type { SettingsView } from '../ui/settings/settings-view';
 import type { ReadonlyStore } from '../ui/state';
 import { Agenda, type AgendaProps } from './components/agenda';
+import { Discover, type DiscoverProps } from './components/discover';
 import { NowPlaying, type NowPlayingProps } from './components/now-playing';
 import { OffTargetNotice } from './components/off-target';
 import type { PanelContext } from './presence';
@@ -43,6 +44,8 @@ export interface PanelAppProps {
   nowPlaying: NowPlayingProps;
   /** Onglet « Agenda » : instantané du contrôleur (créé à son premier affichage) et actions */
   agenda: Omit<AgendaProps, 'granted'>;
+  /** Onglet « Découvrir » : état du contrôleur de suggestions (créé à son premier affichage) et actions */
+  discover: Omit<DiscoverProps, 'granted'>;
   /** Barre d'état montée dans son conteneur (une fois, son propre arbre Preact) */
   mountFooter: (container: HTMLElement) => void;
   onSelectTab: (tab: PanelTab) => void;
@@ -131,6 +134,7 @@ export function PanelApp(props: PanelAppProps) {
               tabs={[
                 { id: 'nowPlaying', label: t('panel.tab.nowPlaying'), icon: 'play' },
                 { id: 'agenda', label: t('panel.tab.agenda'), icon: 'calendar' },
+                { id: 'discover', label: t('panel.tab.discover'), icon: 'dice' },
               ]}
             />
           </div>
@@ -151,6 +155,8 @@ export function PanelApp(props: PanelAppProps) {
         >
           {shown === 'agenda' ? (
             <Agenda {...props.agenda} granted={granted} />
+          ) : shown === 'discover' ? (
+            <Discover {...props.discover} granted={granted ?? []} />
           ) : shell.context.status === 'off' ? (
             <OffTargetNotice granted={granted} onEnable={props.onEnablePlatform} onOpenPlatformsSettings={props.onOpenPlatformsSettings} />
           ) : (

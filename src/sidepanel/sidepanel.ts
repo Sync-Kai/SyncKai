@@ -17,6 +17,8 @@ import { mountStatusBar } from '../ui/status-bar-host';
 import { createSequelsStore } from '../ui/sequels-store';
 import { createStore, patchStore, type ExclusionsState, type InlineFeedback } from '../ui/state';
 import { canOpenPopup, openPopupOn } from '../browser/popup-screen';
+import { takePanelTab } from '../browser/panel-tab';
+import { createRecoController, type RecoController, type RecoView } from '../ui/reco-controller';
 import { CLOSED_SECTIONS, type PanelSectionsState } from './components/details-card';
 import type { NowPlayingSnapshot } from './components/now-playing';
 import { createNowPlayingController } from './components/now-playing-controller';
@@ -133,8 +135,28 @@ function followShownTab(): void {
       },
     });
     agenda.activate();
-  }
+  } else if (next === 'discover') recoController();
 }
+
+/**
+ * Onglet « Découvrir » : contrôleur de suggestions créé au premier affichage (aucune requête avant) puis conservé, sa vue
+ * recopiée dans un store pour l'arbre Preact ; `dispose()` à la fermeture de la page.
+ */
+let reco: RecoController | null = null;
+const recoStore = createStore<RecoView>({ status: 'loading' });
+let stopReco: (() => void) | null = null;
+function recoController(): RecoController {
+  if (!reco) {
+    reco = createRecoController();
+    recoStore.set(reco.store.get());
+    stopReco = reco.store.subscribe((view) => recoStore.set(view));
+  }
+  return reco;
+}
+window.addEventListener('pagehide', () => {
+  stopReco?.();
+  reco?.dispose();
+});
 shell.subscribe(followShownTab);
 settingsViewStore.subscribe(followShownTab);
 
@@ -239,7 +261,9 @@ function setContext(next: PanelContext): void {
 async function loadInitialTab(): Promise<void> {
   try {
     const [settings, stored] = await Promise.all([getSettings(), chrome.storage.local.get(PANEL_LAST_TAB_KEY)]);
-    patchStore(shell, { tab: initialPanelTab(settings.panelDefaultTab, stored[PANEL_LAST_TAB_KEY]) });
+    // Panneau ouvert depuis le popup (« Plus d'idées dans le panneau ») : Découvrir, une seule fois
+    const requested = await takePanelTab();
+    patchStore(shell, { tab: requested ?? initialPanelTab(settings.panelDefaultTab, stored[PANEL_LAST_TAB_KEY]) });
   } catch (error: unknown) {
     log.debug('Onglet initial illisible :', error);
   }
@@ -272,6 +296,17 @@ async function main(): Promise<void> {
         onSaveOffset: async (mediaId, offset) => {
           if (agenda) await agenda.saveOffset(mediaId, offset);
         },
+      },
+      discover: {
+        state: recoStore,
+        onAnother: () => reco?.another(),
+        onAdd: () => void reco?.add(),
+        onDismiss: () => void reco?.dismiss(),
+        onUndo: () => void reco?.undo(),
+        onRetry: () => reco?.retry(),
+        onRestore: () => void reco?.restore(),
+        onEnable: enablePlatform,
+        onOpenAccounts: () => setSettingsOpen(true, 'accounts'),
       },
       // Barre d'état : Activité dans le popup (le panneau n'en a pas ; sans chrome.action.openPopup, messages en texte)
       mountFooter: (container) => {

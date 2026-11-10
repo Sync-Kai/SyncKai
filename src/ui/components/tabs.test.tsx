@@ -133,3 +133,31 @@ describe('Tabs', () => {
     expect(tabs()[0]?.id).toBe('sk-tab-watching');
   });
 });
+
+// Repli « icône seule » : trois onglets avec icône ou plus, un onglet non sélectionné perd son libellé à l'écran quand il ne
+// tient pas (conteneur étroit), jamais son nom accessible ni son infobulle ; l'onglet sélectionné garde toujours le sien
+const three = [
+  { id: 'a', label: 'Now playing', icon: 'play' as const },
+  { id: 'b', label: 'Schedule', icon: 'calendar' as const },
+  { id: 'c', label: 'Discover', icon: 'dice' as const },
+];
+const byId = (id: string): HTMLElement => container.querySelector<HTMLElement>(`#sk-tab-${id}`) as HTMLElement;
+const label = (id: string): HTMLElement => [...byId(id).querySelectorAll('span')].find((s) => s.textContent !== '' && !s.hasAttribute('data-tab-badge')) as HTMLElement;
+
+describe('Tabs, repli en icône', () => {
+  it('trois onglets : le non sélectionné se replie en icône (nom accessible et infobulle gardés), le sélectionné non', async () => {
+    await act(() => render(<Tabs label="Panel" idBase="sk" tabs={three} selected="a" onSelect={() => undefined} />, container));
+    expect(label('b').className).toContain('@max-');
+    expect(label('b').className).toContain('sr-only');
+    expect(label('b').textContent).toBe('Schedule');
+    expect(byId('b').getAttribute('title')).toBe('Schedule');
+    expect(label('a').className).not.toContain('sr-only');
+    expect(byId('a').getAttribute('title')).toBeNull();
+  });
+
+  it('deux onglets : aucun repli', async () => {
+    await act(() => render(<Tabs label="Panel" idBase="sk" tabs={three.slice(0, 2)} selected="a" onSelect={() => undefined} />, container));
+    expect(label('b').className).not.toContain('sr-only');
+    expect(byId('b').getAttribute('title')).toBeNull();
+  });
+});

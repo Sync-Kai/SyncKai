@@ -83,6 +83,9 @@ export const SYNC_ACTIVITY_KEY = 'syncActivity';
 /** Écran demandé au popup ouvert depuis le panneau latéral (Activité), dans chrome.storage.session, lu une fois (browser/popup-screen.ts) */
 export const POPUP_SCREEN_KEY = 'popupScreen';
 
+/** Onglet demandé au panneau latéral ouvert depuis le popup (Découvrir), dans chrome.storage.session, lu une fois (browser/panel-tab.ts) */
+export const PANEL_TAB_KEY = 'panelTab';
+
 /** Cartes « À noter » et revisionnages refusés (voir engagement-store.ts) */
 export const PENDING_RATINGS_KEY = 'pendingRatings';
 export const REWATCH_DECLINED_KEY = 'rewatchDeclined';

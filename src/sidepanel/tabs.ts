@@ -1,7 +1,7 @@
 import type { PanelDefaultTab } from '../shared/settings';
 
-/** Onglets du panneau latéral, dans l'ordre d'affichage */
-export const PANEL_TABS = ['nowPlaying', 'agenda'] as const;
+/** Onglets du panneau latéral, dans l'ordre d'affichage (« Découvrir » : jamais choisi par le panneau, voir followPageContext) */
+export const PANEL_TABS = ['nowPlaying', 'agenda', 'discover'] as const;
 export type PanelTab = (typeof PANEL_TABS)[number];
 
 export function isPanelTab(value: unknown): value is PanelTab {
