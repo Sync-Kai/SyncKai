@@ -13,6 +13,9 @@ vi.mock('../browser/storage/sessions', () => ({
 vi.mock('../browser/storage/tokens', () => ({ isSessionExpired: async () => false }));
 vi.stubGlobal('navigator', { locks: { request: <T>(_name: string, task: () => Promise<T>): Promise<T> => task() } });
 
+const reco = vi.hoisted(() => ({ dropSuggestion: vi.fn<(service: string, id: number) => Promise<void>>() }));
+vi.mock('./recommendations/messages', () => ({ dropSuggestion: reco.dropSuggestion }));
+
 const { runGuarded } = await import('./entry-commands');
 
 const ENTRY: TrackerEntry = { title: 'Frieren', episodes: 28, entry: { status: 'CURRENT', progress: 5, repeat: 0 }, notes: null };
@@ -54,6 +57,8 @@ function fakeTracker(): TrackerService & { requests: (number | undefined)[]; wri
 
 beforeEach(() => {
   sessions.open = { mal: 0 };
+  reco.dropSuggestion.mockReset();
+  reco.dropSuggestion.mockResolvedValue(undefined);
 });
 
 describe('runGuarded : requêtes liées à la session de l’écriture (L2)', () => {
@@ -114,5 +119,30 @@ describe('runGuarded : requêtes liées à la session de l’écriture (L2)', ()
     const tracker = fakeTracker();
     const failure = new Error('réseau');
     await expect(runGuarded({ tracker, id: 1 }, { epoch: 0, sessionClosed: () => 'closed', decide: () => ({ write: () => Promise.reject(failure) }) })).rejects.toBe(failure);
+  });
+});
+
+describe('runGuarded : suggestion retirée du lot quand une entrée est créée', () => {
+  const write = { epoch: 0, sessionClosed: () => 'closed', decide: (_c: TrackerEntry, target: TrackerService) => ({ write: async () => String((await target.saveProgress(1, 1, 'CURRENT')).progress) }) };
+
+  it('série absente de la liste puis écrite : retirée du lot', async () => {
+    const tracker = fakeTracker();
+    tracker.forSession = (epoch) => ({ ...fakeTracker(), getEntry: async () => ({ ...ENTRY, entry: null }), saveProgress: async (_id, progress, status) => ({ status, progress }), forSession: () => tracker.forSession(epoch) });
+    expect(await runGuarded({ tracker, id: 7 }, write)).toBe('1');
+    expect(reco.dropSuggestion).toHaveBeenCalledWith('mal', 7);
+  });
+
+  it('entrée déjà dans la liste, ou aucune écriture : lot intact', async () => {
+    const tracker = fakeTracker();
+    await runGuarded({ tracker, id: 7 }, write);
+    await runGuarded({ tracker, id: 7 }, { epoch: 0, sessionClosed: () => 'closed', decide: () => ({ done: 'lu' }) });
+    expect(reco.dropSuggestion).not.toHaveBeenCalled();
+  });
+
+  it('échec du retrait : l\'écriture reste réussie', async () => {
+    reco.dropSuggestion.mockRejectedValue(new Error('stockage'));
+    const tracker = fakeTracker();
+    tracker.forSession = (epoch) => ({ ...fakeTracker(), getEntry: async () => ({ ...ENTRY, entry: null }), saveProgress: async (_id, progress, status) => ({ status, progress }), forSession: () => tracker.forSession(epoch) });
+    expect(await runGuarded({ tracker, id: 7 }, write)).toBe('1');
   });
 });

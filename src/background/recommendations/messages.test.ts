@@ -4,7 +4,7 @@ import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { MAX_DISMISSED, type RecoBatch, type RecoItem } from '../../shared/recommendations';
 const sessions = vi.hoisted(() => ({ getOpenSessions: vi.fn() }));
 vi.mock('../../browser/storage/sessions', () => ({ getOpenSessions: sessions.getOpenSessions }));
-import { restoreRecommendations, updateRecommendation } from './messages';
+import { dropSuggestion, restoreRecommendations, updateRecommendation } from './messages';
 
 const fake = installFakeChrome();
 
@@ -13,6 +13,7 @@ const item = (id: number): RecoItem => ({
   score: 10,
   reason: null,
 });
+const malItem = (id: number): RecoItem => ({ ...item(id), card: { ...item(id).card, idMal: id + 1000 } });
 const batch = (...ids: number[]): RecoBatch => ({ items: ids.map(item), computedAt: 1, seedCount: 3, cold: false });
 const storedIds = (): number[] => ((fake.local.peek(STORAGE_KEYS.recoBatch) as RecoBatch | undefined)?.items ?? []).map((i) => i.card.id);
 const dismissed = (): unknown => fake.local.peek(STORAGE_KEYS.recoDismissed);
@@ -89,5 +90,28 @@ describe('restoreRecommendations', () => {
     expect(await restoreRecommendations()).toBe(true);
     expect(dismissed()).toBeUndefined();
     expect(fake.local.peek(STORAGE_KEYS.recoBatch)).toBeUndefined();
+  });
+});
+
+describe('dropSuggestion (série écrite dans une liste par SyncKai)', () => {
+  it('AniList : retire la fiche du lot par son id', async () => {
+    fake.local.seed({ [STORAGE_KEYS.recoBatch]: batch(1, 2, 3) });
+    await dropSuggestion('anilist', 2);
+    expect(storedIds()).toEqual([1, 3]);
+  });
+
+  it('MyAnimeList : retire la fiche par son idMal', async () => {
+    fake.local.seed({ [STORAGE_KEYS.recoBatch]: { ...batch(1, 2, 3), items: [1, 2, 3].map(malItem) } });
+    await dropSuggestion('mal', 1002);
+    expect(storedIds()).toEqual([1, 3]);
+  });
+
+  it('aucun lot enregistré, ou id absent du lot : aucune écriture', async () => {
+    const set = vi.spyOn(fake.local, 'set');
+    await dropSuggestion('anilist', 2);
+    fake.local.seed({ [STORAGE_KEYS.recoBatch]: batch(1, 3) });
+    await dropSuggestion('anilist', 2);
+    expect(set).not.toHaveBeenCalled();
+    expect(storedIds()).toEqual([1, 3]);
   });
 });

@@ -823,6 +823,16 @@ describe('syncEpisode : ordre des décisions avant écriture (TEST-01)', () => {
 });
 
 describe('écriture par service (TEST-01)', () => {
+  it('entrée créée par la synchro : la série quitte le lot de suggestions', async () => {
+    const card = (id: number, idMal: number) => ({ card: { id, idMal, title: `T${id}`, format: null, year: null, episodes: null, averageScore: null, genres: [], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: '', platforms: [] }, score: 1, reason: null });
+    fake.local.seed({ ...OPEN_SESSIONS, 'reco:batch': { items: [card(PART1, MAL_PART1), card(9999, 9998)], computedAt: 1, seedCount: 3, cold: false } });
+    connect(null);
+    fakes.resolutions = [resolved(PART1, 1)];
+    await syncEpisode(episode(1));
+    expect(anilist.writes).toHaveLength(1);
+    expect((fake.local.peek('reco:batch') as { items: { card: { id: number } }[] }).items.map((i) => i.card.id)).toEqual([9999]);
+  });
+
   it('fiche sans équivalent MAL (idMal null) : MAL ignoré, AniList écrit', async () => {
     catalog.set(PART1, [null, 12]);
     connect({ status: 'CURRENT', progress: 5 });

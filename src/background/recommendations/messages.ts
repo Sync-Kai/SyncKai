@@ -2,6 +2,7 @@ import { withStorageLock } from '../../browser/storage/lock';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { getOpenSessions } from '../../browser/storage/sessions';
 import { isRecoBatch, MAX_DISMISSED } from '../../shared/recommendations';
+import type { TrackerId } from '../../shared/tracker.types';
 import { forgetTouched, noteTouched } from './touched';
 
 // UPDATE_RECOMMENDATION et RESTORE_RECOMMENDATIONS : écritures sous le verrou du stockage, sans requête réseau.
@@ -51,5 +52,20 @@ export function purgeStoredBatch(ids: ReadonlySet<number>): Promise<void> {
   return withStorageLock(async () => {
     const batch: unknown = (await chrome.storage.local.get(STORAGE_KEYS.recoBatch))[STORAGE_KEYS.recoBatch];
     if (isRecoBatch(batch)) await chrome.storage.local.set({ [STORAGE_KEYS.recoBatch]: { ...batch, items: batch.items.filter((i) => !ids.has(i.card.id)) } });
+  });
+}
+
+/**
+ * Série écrite dans une liste par SyncKai (ajout, synchro, import) : elle quitte le lot enregistré, comme `added`.
+ * `id` : identifiant de la fiche sur le service (AniList : id de la fiche ; MyAnimeList : idMal). Sans lot enregistré,
+ * ou fiche absente du lot : une lecture, aucune écriture. Fiche AniList : aussi notée pour un lot en cours de calcul.
+ */
+export function dropSuggestion(service: TrackerId, id: number): Promise<void> {
+  if (service === 'anilist') noteTouched(id);
+  return withStorageLock(async () => {
+    const batch: unknown = (await chrome.storage.local.get(STORAGE_KEYS.recoBatch))[STORAGE_KEYS.recoBatch];
+    if (!isRecoBatch(batch)) return;
+    const items = batch.items.filter((i) => (service === 'anilist' ? i.card.id : i.card.idMal) !== id);
+    if (items.length < batch.items.length) await chrome.storage.local.set({ [STORAGE_KEYS.recoBatch]: { ...batch, items } });
   });
 }

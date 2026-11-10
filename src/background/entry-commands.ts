@@ -10,6 +10,7 @@ import { withEntryLock } from './sync/entry-lock';
 import type { ListEntryState } from './sync/rules';
 import type { CatalogMedia, TrackerEntry, TrackerService } from './ports/tracker';
 import { createLogger } from '../browser/logger';
+import { dropSuggestion } from './recommendations/messages';
 
 // Écriture gardée sur une fiche d'un service (audit 1-I6 / 6-P3) : verrou de la fiche → lecture fraîche → décision pure
 // → session revérifiée → écriture. Seul chemin d'écriture des actions sur une entrée (+1 / −1, statut, ajout, note,
@@ -46,21 +47,29 @@ export async function runGuarded<R>({ tracker, id }: EntryTarget, { epoch, lane,
   // Requêtes liées à la session (L2) : entre la dernière vérification et la lecture du token par la requête, une
   // déconnexion suivie d'une connexion à un autre compte ne lui donne jamais le nouveau token
   const bound = tracker.forSession(epoch);
+  // Entrée créée par cette écriture : la série ne doit plus être suggérée
+  let created = false;
   // Sous le verrou de la fiche : deux actions simultanées (panneau et popup, synchro et +1) ne se perdent pas
-  return withEntryLock(tracker.id, id, async (): Promise<R> => {
+  const result = await withEntryLock(tracker.id, id, async (): Promise<R> => {
     try {
       // Lecture fraîche juste avant l'écriture (la liste a pu changer depuis un autre appareil)
-      const step = decide(await bound.getEntry(id, lane), bound);
+      const current = await bound.getEntry(id, lane);
+      const step = decide(current, bound);
       if ('done' in step) return step.done;
       // Déconnexion (puis autre compte) pendant la lecture ou l'attente du verrou : la décision vaut pour l'ancienne session
       if (!(await isSessionOpen(tracker.id, epoch))) return sessionClosed();
-      return await step.write();
+      const written = await step.write();
+      created = current.entry === null;
+      return written;
     } catch (error: unknown) {
       // Requête refusée avant l'envoi : session fermée ou remplacée depuis la vérification
       if (error instanceof SessionChangedError) return sessionClosed();
       throw error;
     }
   });
+  // Hors du verrou de la fiche ; un échec ici ne remet pas en cause l'écriture
+  if (created) await dropSuggestion(tracker.id, id).catch((error: unknown) => log.warn('Suggestion non retirée du lot :', error));
+  return result;
 }
 
 /**

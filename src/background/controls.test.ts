@@ -62,6 +62,10 @@ vi.mock('./engagement', () => ({
   },
 }));
 
+// Retrait de la suggestion du lot enregistré (testé dans recommendations/messages.test.ts)
+const reco = vi.hoisted(() => ({ dropped: [] as [string, number][] }));
+vi.mock('./recommendations/messages', () => ({ dropSuggestion: async (service: string, id: number): Promise<void> => void reco.dropped.push([service, id]) }));
+
 const { addToList, adjustProgress, decideAdjustment, decideRetryAdjustment, handleCommand, setListStatus, shouldQueueRating } = await import('./controls');
 
 // Textes attendus en français
@@ -497,6 +501,12 @@ describe('addToList', () => {
       { service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } },
       { service: 'mal', outcome: { status: 'updated', progress: 0, completed: false } },
     ]);
+  });
+
+  it('série ajoutée : retirée du lot de suggestions sur chaque service écrit', async () => {
+    reco.dropped = [];
+    await addToList({ mediaId: MEDIA_ID, malId: null, status: 'PLANNING' });
+    expect(reco.dropped).toEqual(expect.arrayContaining([['anilist', MEDIA_ID], ['mal', MAL_ID]]));
   });
 
   it('entrée existante (n’importe quel statut) : jamais modifiée', async () => {
