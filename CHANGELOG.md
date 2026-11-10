@@ -5,6 +5,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-10
+
+### Added
+
+- **Sequel alerts**: once a day, SyncKai checks on AniList whether a series you finished or are watching got a sequel, and tells you with a browser notification (« Sequel announced: … », with *Open entry* and *+ Plan to watch*) or, if you prefer, only in the popup's *Activity* tab. The side panel's *Schedule* gains an *Announced* view with the coming sequels, and the related entries of *Now playing* mark them. Turn it on or off in *Settings › Notifications › Sequel alerts*. Sequels already in one of your lists are never announced.
+- **Watch order** in the side panel: *Now playing* shows the whole franchise in release order (seasons, films, OVAs, side stories), with what you watched on AniList or MyAnimeList ticked off, what comes next and a *Watch* button on your preferred player. Runs of watched entries fold into one line (« 4 watched »).
+- **Recommendations**, read from AniList only: a new *Discover* tab in the side panel suggests series from what you rated highly (« Because you rated … ★ 9/10 ») or, without enough ratings, from what you watched, with their genres, *+ Plan to watch* and *Not interested*. *Now playing* adds an *In the same spirit* section, an empty *Schedule* week and an empty *Watching* list suggest a few series, and the suggestions you turned down can be restored from *Settings › My data*. A sequel is never suggested before the season you have not watched.
+- **Remaining time**: each series in *My series* shows the time left to catch up (« ≈ 50 min », episodes aired × their length), the list header the total (« ≈ 1 h to catch up · 2 series »), and two new sorts, *Time left* and *Episodes left*.
+- **Dormant series**: *Watching* series with no episode watched for 30 days (60, 90 or never in *Settings › Display*) are grouped at the bottom of *My series*, with *Pause*, *Drop* or *Keep* for each and *Put all on hold* for the group, with an *Undo* right after.
+- **Friends on AniList**: the series card shows the people you follow on AniList who have the series in their list, with their status and rating and their average. Only their public lists are read, and nothing is kept.
+- **Airing status** of each series in *My series* (« Airing », « Finished »…), with an *Airing status* sort that groups them.
+
+### Changed
+
+- **Popup navigation moved to a left rail**: *Watching*, *Activity* (with a dot when a sequel is announced) and *Settings* now sit in a narrow column on the left, and the popup grows to 496 × 600 to give the lists more room.
+- Status changes from the popup and the side panel no longer read the AniList catalogue entry when they don't need it.
+
+### Fixed
+
+- New-episode alerts: when the browser blocks SyncKai's notifications, the hourly check stops and *Settings › Notifications* says so, with how to allow them, instead of failing silently.
+- The series banner at the top of *Watching* stays while the pointer or the keyboard focus is inside it.
+
 ## [2.4.2] - 2026-11-08
 
 First published version since 2.4.0: 2.4.1 was prepared but never tagged nor published, and its changes (below) ship with this version.
