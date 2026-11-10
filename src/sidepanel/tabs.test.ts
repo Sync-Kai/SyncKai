@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { followPageContext, initialPanelTab, isPanelTab, isTabEntering, nextTabIndex, PANEL_TABS, type PanelTab } from './tabs';
+import { followPageContext, requestedTabState, initialPanelTab, isPanelTab, isTabEntering, nextTabIndex, PANEL_TABS, type PanelTab } from './tabs';
 
 describe('nextTabIndex', () => {
   it('flèches en boucle', () => {
@@ -89,5 +89,11 @@ describe('followPageContext et « Découvrir »', () => {
     expect(followPageContext({ tab: 'discover', auto: false }, false)).toEqual({ tab: 'discover', auto: false });
     expect(followPageContext({ tab: 'discover', auto: false }, true)).toEqual({ tab: 'discover', auto: false });
     expect(followPageContext({ tab: 'nowPlaying', auto: false }, false)).toEqual({ tab: 'agenda', auto: true });
+  });
+});
+
+describe('requestedTabState (« Plus d\'idées dans le panneau »)', () => {
+  it('affiche l\'onglet demandé, choix de l\'utilisateur, et ferme les Réglages', () => {
+    expect(requestedTabState('discover')).toEqual({ tab: 'discover', auto: false, settingsOpen: false });
   });
 });

@@ -64,3 +64,6 @@ export function followPageContext(current: TabSelection, target: boolean): TabSe
   if (!target) return current.tab === 'nowPlaying' ? { tab: 'agenda', auto: true } : current;
   return current.auto ? { tab: 'nowPlaying', auto: false } : current;
 }
+
+/** Onglet demandé de l'extérieur (« Plus d'idées dans le panneau ») : affiché même si les Réglages étaient ouverts */
+export const requestedTabState = (tab: PanelTab): TabSelection & { settingsOpen: false } => ({ tab, auto: false, settingsOpen: false });
