@@ -279,6 +279,7 @@ const PRIVACY_TERMS: Readonly<Record<string, string>> = {
   'reco-batch': 'last suggestions',
   'reco-dismissed': 'suggestions you turned down',
   'dormant-keep': 'Dormant series',
+  'activity-history': 'Stats activity history',
 };
 
 /**

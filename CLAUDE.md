@@ -120,7 +120,7 @@ Section maintained by Claude so the project can be picked up on any machine afte
 | `docs/memory/matching.md` | resolver, mappings, season / entry matching, AniList search and request budget, matching signals |
 | `docs/memory/security.md` | sessions, tokens, episode guards, tracker writes, host permissions, CSP, images, messages |
 | `docs/memory/history-import.md` | Crunchyroll / ADN / Netflix history imports, background jobs |
-| `docs/memory/features.md` | keyboard shortcuts, account menu, airing alerts |
+| `docs/memory/features.md` | keyboard shortcuts, account menu, popup Stats and its activity history, airing alerts |
 | `docs/memory/i18n.md` | any UI string, locale, catalog or plural |
 | `docs/memory/testing-and-debugging.md` | dev builds, debug trace, `test:e2e`, `test:ext` |
 | `docs/memory/publication.md` | stores, screenshots, listings, release history |
