@@ -23,6 +23,9 @@ import { h } from '../ui/dom';
 import { createPageMediaController, detectPageMedia, PAGE_FEEDBACK_MS } from '../ui/page-media-controller';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../browser/host-access';
 import { createCompareController } from '../ui/compare-controller';
+import { createRecoController, type RecoController, type RecoView } from '../ui/reco-controller';
+import { ALL_RECO_FILTER, type RecoFilter } from '../shared/recommendations';
+import { loadSectionPrefs, saveSectionPrefs, type SectionPrefs } from './controllers/section-prefs';
 import { createQueueController } from './controllers/queue';
 import { createRatingsController } from './controllers/ratings';
 import { createWatchingController } from './controllers/watching';
@@ -32,7 +35,6 @@ import type { HostAccessState, PageCardState, Screen, SettingsState, SyncData, U
 import { createStore, hasOpenSession, patchStore, type AccountState, type ExclusionsState, type InlineFeedback, type Store } from '../ui/state';
 import { createLogger } from '../browser/logger';
 import { openSidePanel, sidePanelKind, type PanelTarget } from '../browser/side-panel';
-import { openPanelOn } from '../browser/panel-tab';
 import { PLATFORMS } from '../platforms/registry';
 import type { StreamingPlatform } from '../shared/episode.types';
 import { createAccountsController } from '../ui/accounts';
@@ -491,20 +493,37 @@ function openPanel(): void {
   );
 }
 
-/** Clic « Plus d'idées dans le panneau » : demande « Découvrir » écrite et panneau ouvert dans le même tour (sans await avant) */
-function openPanelOnDiscover(): void {
-  if (panelTarget === null) return;
-  openPanelOn('discover', panelTarget).then(
-    (opened) => {
-      if (opened) window.close();
-    },
-    (error: unknown) => log.warn('Ouverture du panneau impossible :', error),
-  );
-}
-
 /** Puce « Activer {plateforme} » : la demande d'accès part dans le clic */
 function enablePlatform(platform: StreamingPlatform): void {
   requestPlatformAccessFromClick(platform, platformAccessStore).catch((error: unknown) => log.warn(`Demande d’accès à ${PLATFORMS[platform].label} impossible :`, error));
+}
+
+// ─── Pour toi ───────────────────────────────────────────────────────────────
+
+/**
+ * Contrôleur de suggestions créé à la première apparition de la section (aucune demande avant), conservé ensuite ; sa
+ * vue est recopiée dans un store pour l'arbre Preact et il est coupé à la fermeture du popup. Le filtre retenu vient des
+ * préférences, lues une fois au démarrage (ALL_RECO_FILTER tant qu'elles ne le sont pas).
+ */
+let reco: RecoController | null = null;
+const recoState = createStore<RecoView>({ status: 'loading' });
+let sectionPrefs: SectionPrefs | null = null;
+void loadSectionPrefs().then((prefs) => {
+  sectionPrefs = prefs;
+});
+function startReco(): void {
+  if (reco) return;
+  const controller = createRecoController({ filter: sectionPrefs?.recoFilter ?? ALL_RECO_FILTER });
+  reco = controller;
+  const stop = controller.store.subscribe((view) => recoState.set(view));
+  window.addEventListener('pagehide', () => {
+    stop();
+    controller.dispose();
+  });
+}
+function filterReco(filter: RecoFilter): void {
+  reco?.setFilter(filter);
+  void saveSectionPrefs({ recoFilter: filter });
 }
 
 let pageStarted = false;
@@ -636,8 +655,20 @@ mountPopupApp(getRoot(), {
     },
     onRetry: () => void watching.reload(),
     onOpenPlatformsSettings: () => navigate('settings', 'platforms'),
-    onOpenDiscover: openPanelOnDiscover,
+    onOpenDiscover: () => navigate('foryou'),
     onEnablePlatform: enablePlatform,
+  },
+  forYou: {
+    state: recoState,
+    onAnother: () => reco?.another(),
+    onAdd: () => void reco?.add(),
+    onDismiss: () => void reco?.dismiss(),
+    onUndo: () => void reco?.undo(),
+    onRetry: () => reco?.retry(),
+    onRestore: () => void reco?.restore(),
+    onEnable: enablePlatform,
+    onOpenAccounts: () => navigate('settings', 'accounts'),
+    onFilter: filterReco,
   },
   onNavigate: (screen) => navigate(screen),
   onSettings: toggleSettings,
@@ -675,14 +706,15 @@ function markSequelsSeen(): void {
   void updateSequels(ids, 'seen');
 }
 uiStore.subscribe(markSequelsSeen);
+sequelsStore.subscribe(markSequelsSeen);
 // Section affichée (celle quittée pendant les Réglages) : « Pour toi », Agenda et Stats créent ici leur contrôleur à la
-// première apparition (tâches suivantes) ; rien ne part avant
+// première apparition ; rien ne part avant
 function followShownScreen(): void {
   const { screen, previous } = uiStore.get();
-  void (screen === 'settings' ? previous : screen);
+  const shown = screen === 'settings' ? previous : screen;
+  if (shown === 'foryou') startReco();
 }
 uiStore.subscribe(followShownScreen);
-sequelsStore.subscribe(markSequelsSeen);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store
 platformAccessStore.onPermissionsChange(() => void checkHostAccess());
 

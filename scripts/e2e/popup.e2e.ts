@@ -12,7 +12,7 @@ import { SETTINGS_STORAGE_KEY } from '../../src/shared/settings';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import { COMPARE_JOB_KEY, type CompareJob } from '../../src/shared/compare-job';
 import { SETTINGS_PAGE_PARENTS, type SettingsSubPage } from '../../src/ui/settings/navigation';
-import { PLANTED_SECRETS, type E2EState, type FrameParams } from './protocol';
+import { E2E_RECO_MOVIE_TITLE, PLANTED_SECRETS, type E2EState, type FrameParams } from './protocol';
 
 let server: HarnessServer;
 let browser: Browser;
@@ -1643,12 +1643,70 @@ describe('popup (bout en bout)', () => {
     const first = await text(page, '[data-empty-reco] [data-reco-item] a');
     await click(page, 'reco-another');
     await page.waitForFunction((title: string) => document.querySelector('[data-empty-reco] [data-reco-item] a')?.textContent?.trim() !== title, {}, first);
-    expect(await text(page, sel('reco-more-panel'))).toContain(fr('reco.morePanel'));
+    expect(await text(page, sel('reco-more'))).toContain(fr('reco.more'));
     expect(await sent(page, 'GET_RECOMMENDATIONS')).toHaveLength(1);
 
     const cold = await openPopup({ watching: 'empty', reco: 'cold' });
     await cold.waitForSelector('[data-empty-reco] [data-reco-item]');
     expect(await cold.$('[data-empty-reco] [data-reco-why]')).toBeNull();
+  });
+
+  it('Mes séries vide : « Plus d’idées » ouvre Pour toi dans le popup, sans panneau', async () => {
+    const page = await openPopup({ watching: 'empty', panel: 'chrome' });
+    await page.waitForSelector(`[data-empty-reco] ${sel('reco-more')}`);
+    await click(page, 'reco-more');
+    await page.waitForFunction(() => document.querySelector('[data-focus="rail-foryou"]')?.getAttribute('aria-current') === 'page');
+    expect(await shownScreen(page)).toBe(4);
+    await page.waitForSelector('[data-screen="foryou"] [data-reco-item]');
+    expect((await trace(page)).sidePanelOpens ?? []).toEqual([]);
+  });
+
+  it('Pour toi : aucun GET_RECOMMENDATIONS avant l’ouverture, un seul ensuite ; titre et sous-titre ; Autre', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel('rail-foryou'));
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    expect(await sent(page, 'GET_RECOMMENDATIONS')).toHaveLength(0);
+    await click(page, 'rail-foryou');
+    await page.waitForSelector('[data-screen="foryou"] [data-reco-item]');
+    expect(await shownScreen(page)).toBe(4);
+    expect(await text(page, '[data-screen-title] h1')).toBe(fr('reco.title'));
+    expect(await text(page, '[data-screen-subtitle]')).toBe(fr('reco.basedOnScores'));
+    const card = (): Promise<string> => text(page, '[data-screen="foryou"] [data-reco-item] a');
+    const first = await card();
+    await click(page, 'reco-another');
+    await page.waitForFunction((title: string) => document.querySelector('[data-screen="foryou"] [data-reco-item] a')?.textContent?.trim() !== title, {}, first);
+    // Ailleurs puis retour : le même contrôleur, aucune nouvelle demande
+    await click(page, 'rail-watching');
+    expect(await page.$('[data-screen-subtitle]')).toBeNull();
+    await click(page, 'rail-foryou');
+    await page.waitForSelector('[data-screen="foryou"] [data-reco-item]');
+    expect(await sent(page, 'GET_RECOMMENDATIONS')).toHaveLength(1);
+  });
+
+  it('filtre Films : la fiche est un film ; popup rouvert, filtre retenu', async () => {
+    const page = await openPopup();
+    await click(page, 'rail-foryou');
+    await page.waitForSelector('[data-screen="foryou"] [data-reco-item]');
+    await click(page, 'reco-format-movies');
+    await page.waitForFunction((title: string) => document.querySelector('[data-screen="foryou"] [data-reco-item] a')?.textContent?.trim() === title, {}, E2E_RECO_MOVIE_TITLE);
+    expect(await attr(page, sel('reco-format-movies'), 'aria-checked')).toBe('true');
+    // « Autre » : le seul film est tiré, plus rien dans ce filtre
+    await click(page, 'reco-another');
+    await page.waitForSelector(sel('reco-clear-filter'));
+    expect(await text(page, '[data-screen="foryou"]')).toContain(fr('compare.filter.empty'));
+    const saved = await page.evaluate(async () => (await chrome.storage.local.get('popupPrefs:sections'))['popupPrefs:sections']);
+    expect(saved).toEqual({ recoFilter: { genre: null, format: 'movies' } });
+    await click(page, 'reco-clear-filter');
+    await page.waitForSelector('[data-screen="foryou"] [data-reco-item]');
+    expect(await attr(page, sel('reco-format-all'), 'aria-checked')).toBe('true');
+
+    // Popup rouvert avec les préférences enregistrées
+    const reopened = await openPopup({ recoFilter: 'movies' });
+    await click(reopened, 'rail-foryou');
+    await reopened.waitForSelector('[data-screen="foryou"] [data-reco-item]');
+    expect(await text(reopened, '[data-screen="foryou"] [data-reco-item] a')).toBe(E2E_RECO_MOVIE_TITLE);
+    expect(await attr(reopened, sel('reco-format-movies'), 'aria-checked')).toBe('true');
+    expect(await sent(reopened, 'GET_RECOMMENDATIONS')).toHaveLength(1);
   });
 
   it('« Mes séries » suit « Fiche ouverte par défaut » (Réglages › Comptes) : pas de sélecteur AniList / MAL', async () => {

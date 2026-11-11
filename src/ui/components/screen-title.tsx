@@ -5,16 +5,30 @@ import type { ComponentChildren } from 'preact';
 
 export interface ScreenTitleProps {
   title: string;
+  /** Ligne d'explication sous le titre */
+  subtitle?: string;
   /** Actions à droite (tri, menu) */
   children?: ComponentChildren;
 }
 
-export function ScreenTitle({ title, children }: ScreenTitleProps) {
+export function ScreenTitle({ title, subtitle, children }: ScreenTitleProps) {
+  const heading = (
+    <h1 class={`m-0 min-w-0 truncate font-display text-stat font-extrabold ${subtitle ? '' : 'flex-1'}`} title={title}>
+      {title}
+    </h1>
+  );
   return (
     <div class="flex min-h-11 shrink-0 items-center gap-2 px-4" data-screen-title="">
-      <h1 class="m-0 min-w-0 flex-1 truncate font-display text-stat font-extrabold" title={title}>
-        {title}
-      </h1>
+      {subtitle ? (
+        <div class="flex min-w-0 flex-1 flex-col">
+          {heading}
+          <p class="m-0 truncate text-secondary text-muted" data-screen-subtitle="">
+            {subtitle}
+          </p>
+        </div>
+      ) : (
+        heading
+      )}
       {children}
     </div>
   );

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RecoBatch, RecoItem, RecoResult } from '../shared/recommendations';
+import { ALL_RECO_FILTER, type RecoBatch, type RecoFilter, type RecoItem, type RecoResult } from '../shared/recommendations';
 import type { RecoView } from './reco-controller';
 
 // Contrôleur des suggestions : faux service worker (réponses par type de message), tirage local et minuterie simulée.
@@ -280,5 +280,106 @@ describe('createRecoController', () => {
     c.dispose();
     vi.advanceTimersByTime(6000);
     expect(c.store.get()).toBe(snapshot);
+  });
+
+  describe('filtre', () => {
+    afterEach(() => vi.restoreAllMocks());
+    // 1 à 4 : films ; 5 à 7 : séries ; 8 : format inconnu
+    const mixed = (): RecoBatch => ({
+      items: [
+        ...[1, 2, 3, 4].map((id) => item(id, { format: 'MOVIE', genres: id === 4 ? ['Drama'] : ['Action'] })),
+        ...[5, 6, 7].map((id) => item(id, { format: 'TV', genres: ['Comedy', 'Action'] })),
+        item(8, { format: null, genres: [] }),
+      ],
+      computedAt: 1,
+      seedCount: 5,
+      cold: false,
+    });
+    const movies: RecoFilter = { genre: null, format: 'movies' };
+    const startWith = async (filter?: RecoFilter): Promise<ReturnType<typeof createRecoController>> => {
+      sw.handler = (type) => (type === 'GET_RECOMMENDATIONS' ? okResult(mixed()) : true);
+      const controller = createRecoController(filter ? { filter } : undefined);
+      await settle();
+      return controller;
+    };
+
+    it('sans option : vue ready avec ALL_RECO_FILTER (panneau inchangé)', async () => {
+      const c = await startWith();
+      const view = ready(c.store.get());
+      expect(view.filter).toEqual(ALL_RECO_FILTER);
+      expect(view.genres).toEqual(['Action', 'Comedy', 'Drama']);
+      c.dispose();
+    });
+
+    it('filtre Films : la fiche tirée et « Autre » restent des films', async () => {
+      const c = await startWith(movies);
+      const seen: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        const view = ready(c.store.get());
+        expect(view.filter).toEqual(movies);
+        expect(view.current.card.format).toBe('MOVIE');
+        seen.push(view.current.card.id);
+        c.another();
+      }
+      expect(new Set(seen).size).toBe(4);
+      expect(c.store.get().status).toBe('filtered');
+      c.dispose();
+    });
+
+    it('changer de filtre garde la fiche si elle correspond, sinon en tire une', async () => {
+      // Tirage déterministe : la première fiche du réservoir
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      const c = await startWith();
+      expect(ready(c.store.get()).current.card.id).toBe(1);
+      c.setFilter({ genre: 'Action', format: 'all' });
+      expect(ready(c.store.get()).current.card.id).toBe(1);
+      c.setFilter({ genre: 'Drama', format: 'all' });
+      expect(ready(c.store.get()).current.card.id).toBe(4);
+      c.setFilter({ genre: null, format: 'series' });
+      const view = ready(c.store.get());
+      expect(view.current.card.id).toBe(5);
+      expect(view.filter).toEqual({ genre: null, format: 'series' });
+      c.dispose();
+    });
+
+    it('filtre sans fiche : état filtered ; ALL_RECO_FILTER redonne une fiche', async () => {
+      const c = await startWith();
+      const none: RecoFilter = { genre: 'Drama', format: 'series' };
+      c.setFilter(none);
+      const view = c.store.get();
+      expect(view).toEqual({ status: 'filtered', filter: none, genres: ['Action', 'Comedy', 'Drama'] });
+      c.setFilter(ALL_RECO_FILTER);
+      expect(ready(c.store.get()).filter).toEqual(ALL_RECO_FILTER);
+      c.dispose();
+    });
+
+    it('sans filtre, plus rien à tirer : vide (pas filtered)', async () => {
+      const c = await startWith();
+      for (let i = 0; i < 8; i++) c.another();
+      expect(c.store.get().status).toBe('empty');
+      c.dispose();
+    });
+
+    it('genre retenu absent du lot : filtre ramené à Tous, une fiche s’affiche', async () => {
+      const c = await startWith({ genre: 'Horror', format: 'all' });
+      expect(ready(c.store.get()).filter).toEqual(ALL_RECO_FILTER);
+      c.dispose();
+      // Le format retenu, lui, est gardé
+      const films = await startWith({ genre: 'Horror', format: 'movies' });
+      const view = ready(films.store.get());
+      expect(view.filter).toEqual(movies);
+      expect(view.current.card.format).toBe('MOVIE');
+      films.dispose();
+    });
+
+    it('le filtre posé pendant le chargement s’applique au lot reçu', async () => {
+      sw.handler = (type) => (type === 'GET_RECOMMENDATIONS' ? okResult(mixed()) : true);
+      const c = createRecoController();
+      c.setFilter(movies);
+      expect(c.store.get().status).toBe('loading');
+      await settle();
+      expect(ready(c.store.get()).current.card.format).toBe('MOVIE');
+      c.dispose();
+    });
   });
 });

@@ -274,6 +274,17 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await page.waitForSelector('[data-focus^="queue-retry-"]');
     await page.waitForSelector('[data-focus="activity-compare"] [data-diff-count]');
     await shot(ctx, page, 'popup/activity');
+
+    // Pour toi : sous-titre, puces de genre et de format, fiche ; puis l'état « aucune fiche pour ce filtre »
+    ctx.step = 'popup/foryou';
+    await click(page, 'rail-foryou');
+    await page.waitForSelector('[data-screen="foryou"] [data-reco-item]');
+    await shot(ctx, page, 'popup/foryou');
+    ctx.step = 'popup/foryou-filtered';
+    await click(page, 'reco-format-movies');
+    await click(page, 'reco-another');
+    await page.waitForSelector(sel('reco-clear-filter'));
+    await shot(ctx, page, 'popup/foryou-filtered');
   } finally {
     await page.close();
   }

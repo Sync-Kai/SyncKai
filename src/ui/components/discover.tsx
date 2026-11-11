@@ -25,11 +25,13 @@ export interface DiscoverProps {
   onEnable: (platform: StreamingPlatform) => void;
   /** Aucun compte : Réglages › Comptes */
   onOpenAccounts: () => void;
+  /** « Retirer le filtre » (état `filtered`, seulement dans le popup) */
+  onClearFilter?: () => void;
 }
 
 const NOTE = 'm-0 text-secondary text-muted';
 
-export function Discover({ state, granted, onAnother, onAdd, onDismiss, onUndo, onRetry, onRestore, onEnable, onOpenAccounts }: DiscoverProps) {
+export function Discover({ state, granted, onAnother, onAdd, onDismiss, onUndo, onRetry, onRestore, onEnable, onOpenAccounts, onClearFilter }: DiscoverProps) {
   useLocale();
   const view = useStore(state);
   switch (view.status) {
@@ -50,6 +52,15 @@ export function Discover({ state, granted, onAnother, onAdd, onDismiss, onUndo, 
           <p class="m-0 text-body font-bold text-ink">{t('reco.empty.title')}</p>
           <Button variant="secondary" focusKey="reco-restore" onClick={onRestore}>
             {t('reco.empty.action')}
+          </Button>
+        </div>
+      );
+    case 'filtered':
+      return (
+        <div class="flex flex-col items-start gap-2 py-4">
+          <p class="m-0 text-body text-muted">{t('compare.filter.empty')}</p>
+          <Button variant="secondary" focusKey="reco-clear-filter" onClick={() => onClearFilter?.()}>
+            {t('reco.filter.clear')}
           </Button>
         </div>
       );

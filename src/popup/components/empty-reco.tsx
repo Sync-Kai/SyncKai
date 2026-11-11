@@ -1,5 +1,5 @@
-// Suggestion de l'état vide de « Mes séries » : une fiche compacte (RecoCard) du lot « Pour toi » et « Plus d'idées dans
-// le panneau › ». Le contrôleur (ui/reco-controller.ts) demande le lot au service worker une seule fois, qui sert celui
+// Suggestion de l'état vide de « Mes séries » : une fiche compacte (RecoCard) du lot « Pour toi » et « Plus d'idées › »
+// (ouvre la section « Pour toi »). Le contrôleur (ui/reco-controller.ts) demande le lot au service worker une seule fois, qui sert celui
 // qu'il garde en cache (24 h) avant d'en calculer un. Aucun compte, erreur, lot vide ou chargement : rien n'est affiché.
 import { useEffect, useState } from 'preact/hooks';
 import { t } from '../../i18n';
@@ -13,7 +13,7 @@ export interface EmptyRecoProps {
   /** Plateformes à accès optionnel accordées */
   granted: readonly StreamingPlatform[];
   onEnable: (platform: StreamingPlatform) => void;
-  /** « Plus d'idées dans le panneau » : appelé dans le clic (le panneau s'ouvre sans await avant, geste exigé) */
+  /** « Plus d'idées » : ouvre la section « Pour toi » */
   onMore: () => void;
 }
 
@@ -38,8 +38,8 @@ export function EmptyReco({ granted, onEnable, onMore }: EmptyRecoProps) {
         onUndo={() => void ctl.undo()}
         onEnable={onEnable}
       />
-      <Button variant="secondary" icon="panel" focusKey="reco-more-panel" onClick={onMore}>
-        {t('reco.morePanel')} ›
+      <Button variant="secondary" icon="sparkles" focusKey="reco-more" onClick={onMore}>
+        {t('reco.more')} ›
       </Button>
     </section>
   );

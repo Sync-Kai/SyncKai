@@ -3,7 +3,7 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
-import type { RecoItem } from '../../shared/recommendations';
+import { ALL_RECO_FILTER, type RecoItem } from '../../shared/recommendations';
 import type { RecoView } from '../reco-controller';
 import { createStore, type Store } from '../state';
 import { Discover, type DiscoverProps } from './discover';
@@ -28,7 +28,7 @@ const current: RecoItem = {
   reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, rated: true, matched: ['Action'] },
 };
 type Ready = Extract<RecoView, { status: 'ready' }>;
-const ready = (over: Partial<Ready> = {}): RecoView => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, ...over });
+const ready = (over: Partial<Ready> = {}): RecoView => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, filter: ALL_RECO_FILTER, genres: ['Action'], ...over });
 
 const handlers = {
   onAnother: vi.fn<() => void>(),
@@ -39,6 +39,7 @@ const handlers = {
   onRestore: vi.fn<() => void>(),
   onEnable: vi.fn<() => void>(),
   onOpenAccounts: vi.fn<() => void>(),
+  onClearFilter: vi.fn<() => void>(),
 };
 async function show(view: RecoView): Promise<Store<RecoView>> {
   const state = createStore<RecoView>(view);
@@ -107,5 +108,14 @@ describe('Discover', () => {
     const state = await show({ status: 'loading' });
     await act(() => state.set(ready()));
     expect(container.textContent).toContain('Dandadan');
+  });
+
+  it('filtered : « Aucune série pour ce filtre. » et « Retirer le filtre » appelle onClearFilter', async () => {
+    await show({ status: 'filtered', filter: { genre: null, format: 'series' }, genres: ['Action'] });
+    expect(container.textContent).toContain(t('compare.filter.empty'));
+    expect(container.textContent).not.toContain(t('reco.empty.title'));
+    await act(() => $<HTMLButtonElement>('[data-focus="reco-clear-filter"]')?.click());
+    expect(handlers.onClearFilter).toHaveBeenCalledTimes(1);
+    expect($('[data-focus="reco-clear-filter"]')?.textContent).toBe(t('reco.filter.clear'));
   });
 });

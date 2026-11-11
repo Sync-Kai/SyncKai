@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import fixture from './__fixtures__/recommendations/seeds.json';
 import {
+  ALL_RECO_FILTER,
   BATCH_SIZE,
   MAX_SEEDS,
   buildBatch,
   drawNext,
+  isRecoFilter,
+  matchesRecoFilter,
   pickSeeds,
+  recoGenres,
   withoutItem,
   type RawRecoMedia,
   type RecoBatch,
+  type RecoCard,
+  type RecoFilter,
   type RecoItem,
   type Seed,
 } from './recommendations';
@@ -165,5 +171,47 @@ describe('drawNext / withoutItem', () => {
     expect(next.items.map((i) => i.card.id)).toEqual([1, 3]);
     expect(batch.items).toHaveLength(3);
     expect(next.computedAt).toBe(batch.computedAt);
+  });
+});
+
+describe('filtre « Pour toi »', () => {
+  const card = (format: string | null, genres: string[] = []): RecoCard => ({ id: 1, idMal: null, title: 'T', format, year: null, episodes: null, averageScore: null, genres, tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: '', platforms: [] });
+  const only = (patch: Partial<RecoFilter>): RecoFilter => ({ ...ALL_RECO_FILTER, ...patch });
+
+  it('matchesRecoFilter : genre, films = MOVIE, séries = TV / TV_SHORT / ONA / OVA / SPECIAL, format inconnu seulement avec « all »', () => {
+    expect(ALL_RECO_FILTER).toEqual({ genre: null, format: 'all' });
+    expect(matchesRecoFilter(card('TV', ['Action', 'Drama']), only({ genre: 'Drama' }))).toBe(true);
+    expect(matchesRecoFilter(card('TV', ['Action']), only({ genre: 'Drama' }))).toBe(false);
+    for (const format of ['TV', 'TV_SHORT', 'ONA', 'OVA', 'SPECIAL']) {
+      expect(matchesRecoFilter(card(format), only({ format: 'series' }))).toBe(true);
+      expect(matchesRecoFilter(card(format), only({ format: 'movies' }))).toBe(false);
+    }
+    expect(matchesRecoFilter(card('MOVIE'), only({ format: 'movies' }))).toBe(true);
+    expect(matchesRecoFilter(card('MOVIE'), only({ format: 'series' }))).toBe(false);
+    for (const format of [null, 'MUSIC']) {
+      expect(matchesRecoFilter(card(format), only({ format: 'series' }))).toBe(false);
+      expect(matchesRecoFilter(card(format), only({ format: 'movies' }))).toBe(false);
+      expect(matchesRecoFilter(card(format), ALL_RECO_FILTER)).toBe(true);
+    }
+    // Genre et format se cumulent
+    expect(matchesRecoFilter(card('MOVIE', ['Action']), { genre: 'Action', format: 'series' })).toBe(false);
+    expect(matchesRecoFilter(card('MOVIE', ['Action']), { genre: 'Action', format: 'movies' })).toBe(true);
+  });
+
+  it('recoGenres : du plus fréquent au moins fréquent, puis par nom, sans doublon', () => {
+    const at = (genres: string[], id: number): RecoItem => ({ card: { ...card('TV', genres), id }, score: 1, reason: null });
+    const batch: RecoBatch = { items: [at(['Drama', 'Action', 'Action'], 1), at(['Comedy', 'Drama'], 2), at(['Fantasy'], 3), at([], 4)], computedAt: 1, seedCount: 1, cold: false };
+    expect(recoGenres(batch)).toEqual(['Drama', 'Action', 'Comedy', 'Fantasy']);
+    expect(recoGenres({ ...batch, items: [] })).toEqual([]);
+  });
+
+  it('isRecoFilter', () => {
+    expect(isRecoFilter({ genre: null, format: 'all' })).toBe(true);
+    expect(isRecoFilter({ genre: 'Action', format: 'movies' })).toBe(true);
+    expect(isRecoFilter({ genre: 'Action', format: 'tv' })).toBe(false);
+    expect(isRecoFilter({ genre: 3, format: 'all' })).toBe(false);
+    expect(isRecoFilter({ format: 'all' })).toBe(false);
+    expect(isRecoFilter(null)).toBe(false);
+    expect(isRecoFilter('all')).toBe(false);
   });
 });

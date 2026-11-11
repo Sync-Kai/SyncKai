@@ -17,6 +17,7 @@ import { useFocusFallback, useLocale, useNow, useStore } from '../ui/preact/hook
 import { ElementSlot } from '../ui/preact/vanilla-slot';
 import { ActivityScreen, type ActivityScreenProps } from './components/activity-screen';
 import type { PopupTab } from './components/header';
+import { ForYouScreen, type ForYouScreenProps } from './components/foryou-screen';
 import { HostAccessBanner } from './components/host-access-banner';
 import { Onboarding } from './components/onboarding';
 import { WatchingScreen, type WatchingScreenProps } from './components/watching-screen';
@@ -43,6 +44,8 @@ export interface PopupAppProps {
   /** Conteneur de la barre d'état (mountStatusBar) */
   footer: HTMLElement;
   watching: Omit<WatchingScreenProps, 'now'>;
+  /** « Pour toi » : contrôleur créé à la première ouverture de la section (popup.ts) */
+  forYou: Omit<ForYouScreenProps, 'granted'>;
   onNavigate: (screen: PopupTab) => void;
   onSettings: () => void;
   onOpenPanel: () => void;
@@ -100,6 +103,7 @@ export function PopupApp(props: PopupAppProps) {
   const hostAccess = useStore(props.hostAccess);
   const panelAvailable = useStore(props.panelAvailable);
   const settingsView = useStore(props.settingsView);
+  const granted = useStore(props.watching.context).optionalPlatforms;
   const now = useNow(CLOCK_TICK_MS);
 
   // Accueil : plus aucune lecture en cours et aucun compte connecté
@@ -127,7 +131,7 @@ export function PopupApp(props: PopupAppProps) {
         />
       </div>
       <div class="flex min-w-0 flex-1 flex-col">
-        {isSettings ? settingsView && <ElementSlot element={() => settingsView.bar} /> : !onboarding && <ScreenTitle title={t(SCREEN_TITLES[tab])} />}
+        {isSettings ? settingsView && <ElementSlot element={() => settingsView.bar} /> : !onboarding && <ScreenTitle title={t(SCREEN_TITLES[tab])} subtitle={tab === 'foryou' ? t('reco.basedOnScores') : undefined} />}
         <HostAccessBanner state={hostAccess} onAllow={props.onAllowHostAccess} />
         {/* Ordre des écrans fixe (tests : En cours, Activité, Réglages, accueil, Pour toi, Agenda, Stats) ; un seul visible */}
         <main class="sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3">
@@ -144,7 +148,9 @@ export function PopupApp(props: PopupAppProps) {
             {onboarding && <Onboarding accounts={{ anilist, mal }} onLogin={props.onLogin} onOpenPlatformsSettings={props.onOpenPlatformsSettings} />}
           </div>
           {/* Pour toi, Agenda, Stats : après les quatre premiers (indices 4 à 6), remplis par leurs contrôleurs */}
-          <div data-screen="foryou" hidden={isSettings || onboarding || tab !== 'foryou'} />
+          <div data-screen="foryou" hidden={isSettings || onboarding || tab !== 'foryou'}>
+            <ForYouScreen {...props.forYou} granted={granted} />
+          </div>
           <div data-screen="agenda" hidden={isSettings || onboarding || tab !== 'agenda'} />
           <div data-screen="stats" hidden={isSettings || onboarding || tab !== 'stats'} />
         </main>

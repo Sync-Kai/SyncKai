@@ -11,6 +11,8 @@ import { isRecord } from '../../src/shared/guards';
 import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
 import type { ListNotesResult } from '../../src/shared/list-notes';
 import { STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
+import { SECTION_PREFS_KEY } from '../../src/popup/controllers/section-prefs';
+import { isRecoBatch, type RecoItem } from '../../src/shared/recommendations';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../src/shared/watching.types';
@@ -18,7 +20,7 @@ import { accountDemo, demoChrome, demoFriendsHandler, isAccountDemo, PAGE_INFO, 
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
-import { E2E_ADJUST_SLOW_MS, E2E_DORMANT_PACE_MS, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
+import { E2E_ADJUST_SLOW_MS, E2E_DORMANT_PACE_MS, E2E_RECO_MOVIE_TITLE, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
@@ -344,6 +346,18 @@ function withoutTokens(storage: Record<string, unknown>): Record<string, unknown
   return Object.fromEntries(Object.entries(storage).filter(([key]) => !dropped.includes(key)));
 }
 
+/** Lot « Pour toi » de la démo, plus un film (la démo n'en a pas) pour le filtre « Films » */
+function recoWithMovie(cold: boolean): (payload: unknown) => unknown {
+  const base = recoHandlers(cold, now).GET_RECOMMENDATIONS;
+  return (payload) => {
+    const result = base?.(payload);
+    const model = isRecord(result) && result.ok === true && isRecoBatch(result.batch) ? result.batch.items.at(0) : undefined;
+    if (!isRecord(result) || !isRecoBatch(result.batch) || !model) return result;
+    const movie: RecoItem = { ...model, card: { ...model.card, id: 990001, idMal: 990001, title: E2E_RECO_MOVIE_TITLE, format: 'MOVIE', episodes: 1, genres: ['Drama'], siteUrl: 'https://anilist.co/anime/990001' } };
+    return { ...result, batch: { ...result.batch, items: [...result.batch.items, movie] } };
+  };
+}
+
 installChromeMock({
   ...demo,
   ...chromePanel,
@@ -356,6 +370,8 @@ installChromeMock({
     [DIAGNOSTICS_LOG_KEY]: journal,
     ...(hangWatching || slowWatching ? { [STORAGE_KEYS.watchingCache]: {} } : {}),
     ...account.storage,
+    // `recoFilter=movies` : filtre « Films » de « Pour toi » déjà retenu
+    ...(param('recoFilter') === 'movies' ? { [SECTION_PREFS_KEY]: { recoFilter: { genre: null, format: 'movies' } } } : {}),
     // Accueil, session AniList expirée : token échu (MyAnimeList retiré par withoutTokens)
     ...(onboarding === 'expired' ? { [STORAGE_KEYS.anilistToken]: { accessToken: PLANTED_SECRETS.anilistAccess, expiresAt: 1 } } : {}),
   }),
@@ -364,6 +380,7 @@ installChromeMock({
     ...account.handlers,
     // `reco=cold` : suggestions de l'état vide en démarrage à froid
     ...(param('reco') === 'cold' ? recoHandlers(true, now) : {}),
+    GET_RECOMMENDATIONS: recoWithMovie(param('reco') === 'cold'),
     // `login=pending` : fenêtre de connexion restée ouverte ; `login=error` : connexion annulée
     ...(loginMode === 'pending' ? { LOGIN_ANILIST: () => new Promise<never>(() => {}), LOGIN_MAL: () => new Promise<never>(() => {}) } : {}),
     ...(loginMode === 'error' ? { LOGIN_ANILIST: () => ({ ok: false, code: 'CANCELLED', message: t('auth.cancelled') }) } : {}),

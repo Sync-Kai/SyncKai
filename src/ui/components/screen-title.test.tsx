@@ -41,4 +41,12 @@ describe('ScreenTitle', () => {
     const row = $('[data-screen-title]');
     expect([...(row?.children ?? [])].map((child) => child.tagName)).toEqual(['H1', 'BUTTON']);
   });
+
+  it('sous-titre facultatif sous le titre', async () => {
+    await show(<ScreenTitle title="Pour toi" subtitle="D’après tes notes" />);
+    expect($('[data-screen-title] h1')?.textContent).toBe('Pour toi');
+    expect($('[data-screen-subtitle]')?.textContent).toBe('D’après tes notes');
+    await show(<ScreenTitle title="Pour toi" />);
+    expect($('[data-screen-subtitle]')).toBeNull();
+  });
 });

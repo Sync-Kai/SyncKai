@@ -170,6 +170,30 @@ export function drawNext(batch: RecoBatch, skip: ReadonlySet<number>, random: ()
   return pool[pool.length - 1];
 }
 
+export type RecoFormat = 'all' | 'series' | 'movies';
+/** Filtre de « Pour toi » : un genre (ou tous) et un format */
+export interface RecoFilter { genre: string | null; format: RecoFormat }
+export const ALL_RECO_FILTER: RecoFilter = { genre: null, format: 'all' };
+
+export const isRecoFilter = (value: unknown): value is RecoFilter =>
+  isRecord(value) && (value.genre === null || typeof value.genre === 'string') && (value.format === 'all' || value.format === 'series' || value.format === 'movies');
+
+const SERIES_FORMATS: readonly string[] = ['TV', 'TV_SHORT', 'ONA', 'OVA', 'SPECIAL'];
+
+/** movies = MOVIE ; series = TV, TV_SHORT, ONA, OVA, SPECIAL ; format null ou MUSIC : seulement « all » */
+export function matchesRecoFilter(card: RecoCard, filter: RecoFilter): boolean {
+  if (filter.genre !== null && !card.genres.includes(filter.genre)) return false;
+  if (filter.format === 'all') return true;
+  return filter.format === 'movies' ? card.format === 'MOVIE' : card.format !== null && SERIES_FORMATS.includes(card.format);
+}
+
+/** Genres du lot, du plus fréquent au moins fréquent, puis par nom */
+export function recoGenres(batch: RecoBatch): string[] {
+  const counts = new Map<string, number>();
+  for (const { card } of batch.items) for (const genre of new Set(card.genres)) counts.set(genre, (counts.get(genre) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([genre]) => genre);
+}
+
 export function withoutItem(batch: RecoBatch, id: number): RecoBatch {
   return { ...batch, items: batch.items.filter((i) => i.card.id !== id) };
 }

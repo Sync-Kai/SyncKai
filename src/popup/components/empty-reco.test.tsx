@@ -6,7 +6,7 @@ import { setLocale, t } from '../../i18n';
 import type { RecoBatch, RecoItem, RecoResult } from '../../shared/recommendations';
 
 // Suggestion de l'état vide de « Mes séries » : une fiche compacte tirée du lot (lu par le service worker, une seule
-// demande), « Plus d'idées dans le panneau › » rendu dans le clic, rien sans compte ni sans lot
+// demande), « Plus d'idées › » (ouvre « Pour toi ») rendu dans le clic, rien sans compte ni sans lot
 
 const sw = vi.hoisted(() => ({ calls: [] as { type: string; payload: unknown }[], handler: (_type: string, _payload: unknown): unknown => undefined }));
 vi.mock('../../protocol/messages', () => ({
@@ -53,7 +53,7 @@ afterEach(async () => {
 });
 
 describe('EmptyReco', () => {
-  it('une seule demande GET_RECOMMENDATIONS, une fiche et le lien du panneau', async () => {
+  it('une seule demande GET_RECOMMENDATIONS, une fiche et « Plus d’idées »', async () => {
     await mount();
     expect(sw.calls.filter((c) => c.type === 'GET_RECOMMENDATIONS')).toHaveLength(1);
     expect(container.textContent).toContain('Série 1');
@@ -61,10 +61,11 @@ describe('EmptyReco', () => {
     expect(container.querySelector('[data-reco]')).not.toBeNull();
   });
 
-  it('« Plus d’idées dans le panneau » appelle onMore dans le clic, sans attendre', async () => {
+  it('« Plus d’idées » appelle onMore dans le clic', async () => {
     await mount();
-    const more = [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes(t('reco.morePanel')));
+    const more = [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes(t('reco.more')));
     expect(more).toBeDefined();
+    expect(more?.getAttribute('data-focus')).toBe('reco-more');
     more?.click();
     expect(onMore).toHaveBeenCalledTimes(1);
   });

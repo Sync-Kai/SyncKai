@@ -2,7 +2,7 @@
 // répéter une fiche de la page. Un contrôleur par page ; aucune écoute du DOM, `dispose()` coupe la minuterie d'« Annuler ».
 import { t } from '../i18n';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
-import { drawNext, isRecoBatch, type RecoItem, type RecoBatch } from '../shared/recommendations';
+import { ALL_RECO_FILTER, drawNext, isRecoBatch, matchesRecoFilter, recoGenres, type RecoBatch, type RecoFilter, type RecoItem } from '../shared/recommendations';
 import { createStore, type ReadonlyStore } from './state';
 import { addToPlanning, sequelAddResult } from './sequel-actions';
 import { callWorker } from './worker-call';
@@ -15,7 +15,9 @@ export const UNDO_MS = 5000;
 export type RecoView =
   /** `none` : aucun compte connecté */
   | { status: 'loading' | 'error' | 'empty' | 'none'; message?: string }
-  | { status: 'ready'; current: RecoItem; previous: RecoItem[]; cold: boolean; malOnly: boolean; added: boolean; dismissedTitle: string | null; addError?: string };
+  | { status: 'ready'; current: RecoItem; previous: RecoItem[]; cold: boolean; malOnly: boolean; added: boolean; dismissedTitle: string | null; addError?: string; filter: RecoFilter; genres: readonly string[] }
+  /** Le filtre ne laisse aucune fiche à tirer */
+  | { status: 'filtered'; filter: RecoFilter; genres: readonly string[] };
 
 export interface RecoController {
   readonly store: ReadonlyStore<RecoView>;
@@ -24,15 +26,19 @@ export interface RecoController {
   dismiss(): Promise<void>;
   undo(): Promise<void>;
   retry(): void;
+  /** Filtre de genre et de format : la fiche affichée reste si elle correspond, sinon une autre est tirée */
+  setFilter(filter: RecoFilter): void;
   /** « Revoir les écartées » : les écartées reviennent, le lot est recalculé */
   restore(): Promise<void>;
   dispose(): void;
 }
 
-export function createRecoController(): RecoController {
+/** `filter` : filtre de départ (le panneau n'en passe pas : toujours ALL_RECO_FILTER) */
+export function createRecoController(options: { filter?: RecoFilter } = {}): RecoController {
   const store = createStore<RecoView>({ status: 'loading' });
   let batch: RecoBatch | null = null;
   let malOnly = false;
+  let filter: RecoFilter = options.filter ?? ALL_RECO_FILTER;
   /** Fiches déjà tirées sur cette page (jamais retirées deux fois) */
   let drawn = new Set<number>();
   let previous: RecoItem[] = [];
@@ -51,15 +57,23 @@ export function createRecoController(): RecoController {
     return view.status === 'ready' ? view : null;
   };
 
-  /** Tire la suivante hors des fiches déjà tirées ; plus aucune : état vide */
+  /**
+   * Tire la suivante dans le filtre, hors des fiches déjà tirées. Plus aucune fiche dans le filtre : état `filtered`
+   * (il reste des fiches hors filtre) ; plus aucune du tout : état vide
+   */
   function draw(): void {
-    const next = batch ? drawNext(batch, drawn, Math.random) : null;
-    if (!batch || !next) {
+    if (!batch) {
       store.set({ status: 'empty' });
       return;
     }
+    const next = drawNext({ ...batch, items: batch.items.filter((i) => matchesRecoFilter(i.card, filter)) }, drawn, Math.random);
+    if (!next) {
+      const left = batch.items.some((i) => !drawn.has(i.card.id));
+      store.set(left ? { status: 'filtered', filter, genres: recoGenres(batch) } : { status: 'empty' });
+      return;
+    }
     drawn.add(next.card.id);
-    store.set({ status: 'ready', current: next, previous, cold: batch.cold, malOnly, added: false, dismissedTitle: null });
+    store.set({ status: 'ready', current: next, previous, cold: batch.cold, malOnly, added: false, dismissedTitle: null, filter, genres: recoGenres(batch) });
   }
 
   async function load(retried: boolean): Promise<void> {
@@ -69,6 +83,8 @@ export function createRecoController(): RecoController {
     if (result.ok) {
       batch = result.batch;
       malOnly = result.malOnly;
+      // Genre retenu absent du nouveau lot : retiré, jamais un « aucune fiche » permanent
+      if (filter.genre !== null && !recoGenres(batch).includes(filter.genre)) filter = { ...filter, genre: null };
       draw();
     } else if (result.code === 'NO_ACCOUNT') {
       store.set({ status: 'none' });
@@ -167,6 +183,18 @@ export function createRecoController(): RecoController {
     retry() {
       reset();
       void load(false);
+    },
+    setFilter(next) {
+      filter = next;
+      const view = ready();
+      if (view && matchesRecoFilter(view.current.card, next)) {
+        store.set({ ...view, filter: next });
+        return;
+      }
+      // Pas de lot encore (chargement, erreur, aucun compte) : le filtre s'appliquera au lot reçu
+      if (!batch) return;
+      stopTimer();
+      draw();
     },
     async restore() {
       await callWorker('RESTORE_RECOMMENDATIONS', null, () => false);

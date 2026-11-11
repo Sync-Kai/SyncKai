@@ -4,7 +4,7 @@ import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t } from '../../i18n';
 import type { StreamingPlatform } from '../../platforms/registry';
-import type { RecoItem } from '../../shared/recommendations';
+import { ALL_RECO_FILTER, type RecoItem } from '../../shared/recommendations';
 import type { RecoView } from '../reco-controller';
 import { RecoCard, type RecoCardProps } from './reco-card';
 
@@ -27,7 +27,7 @@ const item = (over: Partial<RecoItem['card']> = {}, matched: string[] = ['Action
   reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, rated: true, matched },
 });
 type Ready = Extract<RecoView, { status: 'ready' }>;
-const view = (current: RecoItem, over: Partial<Ready> = {}): Ready => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, ...over });
+const view = (current: RecoItem, over: Partial<Ready> = {}): Ready => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, filter: ALL_RECO_FILTER, genres: [], ...over });
 
 const handlers = { onAnother: vi.fn<() => void>(), onAdd: vi.fn<() => void>(), onDismiss: vi.fn<() => void>(), onUndo: vi.fn<() => void>(), onEnable: vi.fn<(platform: StreamingPlatform) => void>() };
 const props = (current: RecoItem, over: Partial<Ready> = {}, extra: Partial<RecoCardProps> = {}): RecoCardProps => ({ item: current, view: view(current, over), granted: [], ...handlers, ...extra });

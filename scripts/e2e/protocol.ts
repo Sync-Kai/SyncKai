@@ -38,6 +38,9 @@ export const PLANTED_SECRETS = {
   malRefresh: 'e2e-mal-refresh-9a1c5e7b3d',
 } as const;
 
+/** Film ajouté au lot « Pour toi » de la démo (filtre « Films ») */
+export const E2E_RECO_MOVIE_TITLE = 'Film de démo (e2e)';
+
 /** Paramètres d'URL de popup.html */
 export interface FrameParams {
   /** Écran de démo (voir scripts/screenshots/demo-data.ts) */
@@ -88,6 +91,8 @@ export interface FrameParams {
   friends?: 'on' | 'error' | 'hang';
   /** `cold` : suggestions de l'état vide de « Mes séries » en démarrage à froid */
   reco?: 'cold';
+  /** `movies` : filtre « Films » déjà retenu pour « Pour toi » (préférences du popup relues à l'ouverture) */
+  recoFilter?: 'movies';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */
