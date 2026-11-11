@@ -28,3 +28,5 @@ a06efbc55ff815cbd4305b8da49bb89ce23af88a
 8da8701026ae21dda7741004e244961f8cfec51b
 # refactor: move the Discover view into ui/components (no code change)
 d6a714597bc47ec9be5a59298d34c0c88ee75de2
+# refactor: move the Agenda controller and view into ui/ (no code change)
+5f165f3866807085508ff91404b6a91844d386a9
