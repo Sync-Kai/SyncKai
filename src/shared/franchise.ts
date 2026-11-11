@@ -201,6 +201,12 @@ function demoteRecaps(graph: FranchiseGraph): FranchiseGraph {
   };
 }
 
+/** Racine qu'une entrée principale déclare récapitulatif, gardée par `demoteRecaps` : le graphe dépend du départ (comme plafonné) */
+export function keepsRecapRoot(graph: FranchiseGraph): boolean {
+  const root = graph.main[0];
+  return (graph.recaps ?? []).some((r) => r.id === root && graph.main.includes(r.from));
+}
+
 /**
  * Parcours fini ou interrompu (plafond de tours) : un départ dérivé que son parent ne déclare pas (COMPILATION, OTHER,
  * CONTAINS…) rejoint quand même les extras de son parent, hors plafond, pour que la page affichée soit toujours dans le graphe

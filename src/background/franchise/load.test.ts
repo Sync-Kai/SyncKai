@@ -3,7 +3,7 @@ import aot from '../../shared/__fixtures__/franchise/aot.json';
 import gundam from '../../shared/__fixtures__/franchise/gundam.json';
 import { FRANCHISE_CACHE_TTL_MS, franchiseCacheKey, franchiseRecordKey } from '../../browser/storage/session-cache';
 import { installFakeChrome } from '../../test/fake-chrome';
-import type { RawMedia } from '../../shared/franchise';
+import { franchiseProgress, releaseOrder, type FranchiseGraph, type ListState, type RawMedia } from '../../shared/franchise';
 
 const deps = vi.hoisted(() => ({ anilistPublicQuery: vi.fn() }));
 vi.mock('../anilist/client', () => ({ anilistPublicQuery: deps.anilistPublicQuery }));
@@ -27,6 +27,15 @@ function serve(fixture: Fixture, gate: (round: number) => Promise<void> = () => 
     round += 1;
     expect([...variables.ids].sort()).toEqual(page?.map((m) => m.id).sort());
     return held.then(() => ({ Page: { media: page } }));
+  });
+}
+
+/** Sert la capture à la demande, quel que soit le départ : chaque entrée demandée y a été lue avec ses relations */
+function serveAnyStart(fixture: Fixture): void {
+  const byId = new Map(fixture.rounds.flat().map((media) => [media.id, media]));
+  deps.anilistPublicQuery.mockImplementation((_query: string, _guard: unknown, variables: { ids: number[] }) => {
+    expect(variables.ids.filter((id) => !byId.has(id))).toEqual([]);
+    return Promise.resolve({ Page: { media: variables.ids.map((id) => byId.get(id)) } });
   });
 }
 
@@ -95,6 +104,24 @@ describe('loadFranchise', () => {
     const result = await loadFranchise(GUNDAM_START);
     expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(gundam.rounds.length);
     expect(result.ok && result.graph.capped).toBe(false);
+  });
+
+  it('ORD-03 : la page du film Gundam III (racine gardée bien que déclarée SUMMARY) ne remplace pas le graphe en cache de Ζ Gundam', async () => {
+    const ZETA = 85;
+    const GUNDAM_III = 1092;
+    serveAnyStart(gundam);
+    const watchedTv = new Map<number, ListState>([[GUNDAM_START, { kind: 'watched', progress: null }]]);
+    const next = (graph: FranchiseGraph): number | undefined => franchiseProgress(releaseOrder(graph, 'main'), watchedTv).next?.id;
+    const zeta = await loadFranchise(ZETA);
+    if (!zeta.ok) throw new Error('chargement attendu');
+    expect(next(zeta.graph)).toBe(ZETA);
+    expect((await loadFranchise(GUNDAM_III)).ok).toBe(true);
+    deps.anilistPublicQuery.mockClear();
+    const again = await loadFranchise(ZETA);
+    if (!again.ok) throw new Error('chargement attendu');
+    expect(deps.anilistPublicQuery).not.toHaveBeenCalled();
+    expect(again.graph.startId).toBe(ZETA);
+    expect(next(again.graph)).toBe(ZETA);
   });
 
   it('plafond de tours atteint avec la frontière non vide : le départ dérivé que le parent ne déclare pas reste dans les extras', async () => {

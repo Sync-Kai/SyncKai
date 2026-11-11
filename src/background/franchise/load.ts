@@ -2,7 +2,7 @@ import { t } from '../../i18n';
 import { createLogger } from '../../browser/logger';
 import { readFranchiseCache, writeFranchiseCache } from '../../browser/storage/session-cache';
 import { isRecord } from '../../shared/guards';
-import { mergeRound, MAX_ROUNDS, newFranchiseGraph, restoreStart, type FranchiseGraph, type FranchiseResult, type RawMedia } from '../../shared/franchise';
+import { keepsRecapRoot, mergeRound, MAX_ROUNDS, newFranchiseGraph, restoreStart, type FranchiseGraph, type FranchiseResult, type RawMedia } from '../../shared/franchise';
 import { anilistPublicQuery } from '../anilist/client';
 import { buildPlatforms } from '../anilist/watching';
 import { ApiError } from '../errors';
@@ -77,8 +77,9 @@ async function run(mediaId: number, read: Set<number>, maxRounds: number): Promi
     const cached = await readFranchiseCache(mediaId);
     if (cached) return { ok: true, graph: cached };
     const graph = await walk(mediaId, read, maxRounds);
-    // Graphe complet : valable pour toutes ses entrées principales ; plafonné : pour le départ seulement (il dépend du départ)
-    await writeFranchiseCache(graph.capped ? [mediaId] : [...new Set([mediaId, ...graph.main])], graph);
+    // Graphe complet : valable pour toutes ses entrées principales ; plafonné, ou parti d'un film de montage gardé en racine
+    // (ORD-03) : pour le départ seulement (il dépend du départ)
+    await writeFranchiseCache(graph.capped || keepsRecapRoot(graph) ? [mediaId] : [...new Set([mediaId, ...graph.main])], graph);
     return { ok: true, graph };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, message: error.message };
