@@ -517,7 +517,8 @@ describe('panneau latéral › amis AniList (bout en bout)', () => {
     await page.$eval(summary, (el) => (el as HTMLElement).click());
     await page.waitForFunction((h: string) => document.querySelector(h)?.getAttribute('aria-expanded') === 'true', {}, header);
     await page.waitForSelector(`${section} [data-friend]`);
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('data-focus'))).toBe('panel-section-friends');
+    // Le focus arrive une frame après l'ouverture (requestAnimationFrame)
+    await page.waitForFunction((key: string) => document.activeElement?.getAttribute('data-focus') === key, {}, 'panel-section-friends');
   });
 
   it('réponse none : ni résumé ni section', async () => {

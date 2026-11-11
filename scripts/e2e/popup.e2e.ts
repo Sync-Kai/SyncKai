@@ -1859,7 +1859,8 @@ describe('popup › séries en sommeil (bout en bout)', () => {
     await page.waitForSelector(sel('watching-undo'));
     expect(await text(page, '[data-watching-notice]')).toBe(`${fr('watching.dormant.paused', { title: 'Frieren' })}${fr('watching.dormant.undo')}`);
     expect(await text(page, '[data-watching-notice] span.min-w-0')).toBe('Frieren mise en pause');
-    expect(await focused(page)).toBe('watching-undo');
+    // Le focus arrive un tick après le bandeau (after-render, setTimeout 0)
+    await page.waitForFunction((key: string) => document.activeElement?.getAttribute('data-focus') === key, {}, 'watching-undo');
     expect((await dormantRows(page)).map((row) => row.title)).toEqual(['Solo Leveling', 'Kaiju No. 8']);
 
     // Annuler : CURRENT sur les services écrits, la série revient dans la liste principale (active pour un seuil)
