@@ -47,6 +47,7 @@ import { hasPageMediaCard, PageMediaCard, type PageMediaCardProps } from './page
 import { ResumeCard } from './resume-card';
 import { Section } from '../../ui/components/section';
 import { DormantSection, type DormantHost } from './dormant-section';
+import { progressLabel } from '../../ui/dormant-view';
 import { entrySite } from './entry-site';
 import { EmptyReco } from './empty-reco';
 
@@ -329,8 +330,11 @@ function EmptyWatching({ context, onOpenSettings, onOpenDiscover, onEnablePlatfo
  * action sur les séries en sommeil (« Annuler », « Réessayer »)
  */
 export function WatchingNoticeBanner({ notice, onHold }: { notice: WatchingNotice; onHold: (reason: NoticeHold, held: boolean) => void }) {
-  const { feedback, retry } = notice;
+  const { feedback, retry, progress } = notice;
   const services = feedback.retry ? formatList(feedback.retry.services.map((service) => TRACKER_LABELS[service])) : null;
+  // Écriture lancée d'ici : le bouton qui l'a lancée occupé, avec « 2 / 3 » pour un lot ; l'autre inactif
+  const undoText = progressLabel(progress?.button === 'undo' ? progress : null, t('watching.dormant.undo'));
+  const retryText = progressLabel(progress?.button === 'retry' ? progress : null, t('common.retry'), services !== null ? t('inline.retryOn', { services }) : undefined);
   const ref = useRef<HTMLParagraphElement>(null);
   const held = useRef({ pointer: false, focus: false });
   const hold = (reason: NoticeHold, value: boolean): void => {
@@ -369,13 +373,13 @@ export function WatchingNoticeBanner({ notice, onHold }: { notice: WatchingNotic
       </span>
       <span class="min-w-0 flex-1 break-words">{feedback.text}</span>
       {notice.undo && (
-        <Button size="sm" focusKey="watching-undo" onClick={notice.undo}>
-          {t('watching.dormant.undo')}
+        <Button size="sm" busy={progress?.button === 'undo'} disabled={progress?.button === 'retry'} ariaLabel={undoText.ariaLabel} focusKey="watching-undo" class="tabular-nums" onClick={notice.undo}>
+          {undoText.label}
         </Button>
       )}
       {retry && (
-        <Button size="sm" ariaLabel={services !== null ? t('inline.retryOn', { services }) : undefined} focusKey="watching-retry" onClick={retry}>
-          {t('common.retry')}
+        <Button size="sm" busy={progress?.button === 'retry'} disabled={progress?.button === 'undo'} ariaLabel={retryText.ariaLabel} focusKey="watching-retry" class="tabular-nums" onClick={retry}>
+          {retryText.label}
         </Button>
       )}
     </p>

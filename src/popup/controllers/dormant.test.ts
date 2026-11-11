@@ -507,16 +507,54 @@ describe('createDormantController : rythme des lots et occupation (PERF-02, POP-
     expect(watching.notice.get()?.feedback.text).toBe('Vinland Saga mise en pause');
   });
 
-  it('« Réessayer » puis « Annuler » : bandeau masqué pendant chaque écriture, jamais l’un pendant l’autre', async () => {
+  it('« Annuler » de 3 séries : le bandeau reste, « Annuler » porte 1 / 3 puis 2 / 3, ses boutons inactifs jusqu’au bout', async () => {
+    await showList([FRIEREN, VINLAND, BOCCHI, DANDADAN]);
+    void ctl.pauseAllDormant();
+    for (const title of ['Vinland Saga', 'Bocchi the Rock!', 'Frieren']) {
+      lastCall('SET_LIST_STATUS').resolve(outcome(title, [{ service: 'anilist', outcome: updated }]));
+      await settle();
+    }
+    expect(watching.notice.get()?.feedback.text).toBe('3 séries mises en pause');
+    // « Annuler » au rythme des lots, sur l'horloge simulée
+    popupTimeouts.dormantPaceMs = PACE_MS;
+    const sent = calls('SET_LIST_STATUS').length;
+    watching.notice.get()?.undo?.();
+    for (const done of [1, 2]) {
+      lastCall('SET_LIST_STATUS').resolve(outcome('Série', [{ service: 'anilist', outcome: updated }]));
+      await settle();
+      expect(watching.notice.get()).toMatchObject({ feedback: { text: '3 séries mises en pause' }, progress: { button: 'undo', done, total: 3 } });
+      // Un second « Annuler » pendant l'écriture n'envoie rien
+      watching.notice.get()?.undo?.();
+      await vi.advanceTimersByTimeAsync(PACE_MS);
+    }
+    // Délai du bandeau (10 s) dépassé : toujours affiché tant que la dernière série s'écrit
+    expect(watching.notice.get()?.progress).toEqual({ button: 'undo', done: 2, total: 3 });
+    expect(calls('SET_LIST_STATUS')).toHaveLength(sent + 3);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(watching.notice.get()?.feedback.text).toBe('3 séries remises en cours');
+    expect(watching.notice.get()?.progress).toBeUndefined();
+  });
+
+  it('« Réessayer » (d’une pause, puis d’un « Annuler ») : le bandeau reste, la progression sur « Réessayer », « Annuler » inactif', async () => {
     await showList([FRIEREN, VINLAND]);
     void ctl.pauseDormant(FRIEREN);
     lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }, { service: 'mal', outcome: { status: 'error', message: 'HTTP 500' } }]));
     await settle();
     watching.notice.get()?.retry?.();
-    expect(watching.notice.get()).toBeNull();
+    expect(watching.notice.get()).toMatchObject({ feedback: { text: 'Frieren mise en pause · échec MyAnimeList' }, progress: { button: 'retry', done: 0, total: 1 } });
+    // « Annuler » pendant l'essai : rien n'est envoyé
+    const sent = calls('SET_LIST_STATUS').length;
+    watching.notice.get()?.undo?.();
+    expect(calls('SET_LIST_STATUS')).toHaveLength(sent);
     lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'mal', outcome: updated }]));
     await settle();
+    expect(watching.notice.get()?.progress).toBeUndefined();
+    // « Annuler » en échec sur MyAnimeList, puis son « Réessayer »
     watching.notice.get()?.undo?.();
-    expect(watching.notice.get()).toBeNull();
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }, { service: 'mal', outcome: { status: 'error', message: 'HTTP 500' } }]));
+    await settle();
+    watching.notice.get()?.retry?.();
+    expect(watching.notice.get()?.progress).toEqual({ button: 'retry', done: 0, total: 1 });
   });
 });

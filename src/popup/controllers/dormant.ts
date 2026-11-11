@@ -33,7 +33,7 @@ export interface DormantState {
   busy: ReadonlySet<string>;
   /** « Tout mettre en pause », son « Réessayer » ou « Annuler » en cours : tout le groupe attend */
   bulk: boolean;
-  /** « Tout mettre en pause » (ou son « Réessayer ») en cours : séries traitées sur le total ; null sinon */
+  /** « Tout mettre en pause » en cours : séries traitées sur le total (« Réessayer », « Annuler » : sur le bandeau) ; null sinon */
   progress: { done: number; total: number } | null;
 }
 
@@ -249,7 +249,8 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
    * dans un lot une série toutes les `dormantPaceMs`. Tout le lot est occupé dès le départ, chaque série libérée après son
    * tour ; une série gardée pendant le lot n'est pas écrite (le dernier choix l'emporte). Arrêt à la première limite de
    * débit (`rest` : séries non envoyées, reprises par « Réessayer ») et dès qu'un compte change entre deux séries
-   * (`sessionChanged` : la suite écrirait sur une autre session, comme « Annuler », retiré). `onDone` : séries traitées
+   * (`sessionChanged` : la suite écrirait sur une autre session, comme « Annuler », retiré). `onDone` : séries traitées,
+   * 0 au départ
    */
   async function writeAll(items: readonly DormantItem[], status: (item: DormantItem) => 'CURRENT' | DormantStatus, onlyFrom: (item: DormantItem) => 'CURRENT' | DormantStatus, onDone?: (done: number) => void): Promise<BatchOutcome> {
     const results: DormantResult[] = [];
@@ -261,6 +262,7 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
       return { results, rest, sessionChanged };
     };
     setBusy(items, true);
+    onDone?.(0);
     for (const [index, item] of items.entries()) {
       if (index > 0 && popupTimeouts.dormantPaceMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, popupTimeouts.dormantPaceMs));
       if (sessionsKey() !== sessions) return finish(items.slice(index), true);
@@ -298,15 +300,16 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
 
   /**
    * Pause / abandon d'une ou plusieurs séries ; `previous` : écritures d'un essai précédent, donné par « Réessayer » (son
-   * bandeau est masqué pendant l'essai, comme pendant « Annuler » : jamais l'un pendant l'autre)
+   * bandeau reste pendant l'essai, ses boutons inactifs : jamais « Annuler » en même temps)
    */
   async function run(items: readonly DormantItem[], previous?: readonly DormantWrite[]): Promise<void> {
     const pending = items.filter((item) => !store.get().busy.has(entryKey(item.entry)));
     if (pending.length === 0) return;
-    if (previous) watching.banner.hide();
     const bulk = items.length > 1;
-    if (bulk) bulkRun(1, { progress: { done: 0, total: pending.length } });
-    const { results, rest, sessionChanged } = await writeAll(pending, (item) => item.status, () => 'CURRENT', bulk ? (done) => patch({ progress: { done, total: pending.length } }) : undefined);
+    if (bulk) bulkRun(1);
+    // Progression sur le bouton qui a lancé l'écriture : « Réessayer » du bandeau, sinon « Tout mettre en pause »
+    const onDone = previous ? watching.banner.track('retry', pending.length) : bulk ? (done: number) => patch({ progress: { done, total: pending.length } }) : undefined;
+    const { results, rest, sessionChanged } = await writeAll(pending, (item) => item.status, () => 'CURRENT', onDone);
     if (bulk) bulkRun(-1, { progress: null });
     patchList(new Set(results.filter((r) => leftShownList(r.outcome)).map((r) => entryKey(r.item.entry))));
     const { feedback, written, failed } = dormantFeedback(results, false, rest);
@@ -380,12 +383,14 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
       const writes = undoable;
       if (writes.length === 0) return [];
       undoable = [];
-      watching.banner.hide();
+      // Bandeau gardé, ses boutons inactifs : progression sur « Annuler », ou sur le « Réessayer » d'un « Annuler » en échec
+      const onDone = watching.banner.track(watching.banner.store.get()?.undo ? 'undo' : 'retry', writes.length);
       bulkRun(1);
       const { results, rest, sessionChanged } = await writeAll(
         writes.map(({ entry, status, services }) => ({ entry, status, services })),
         () => 'CURRENT',
         (item) => item.status,
+        onDone,
       );
       bulkRun(-1);
       // De retour dans la liste du service affiché, active pour un seuil entier (sa fiche vient d'être modifiée)

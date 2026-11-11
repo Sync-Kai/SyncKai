@@ -1,5 +1,16 @@
-// Textes du groupe « En sommeil » calculés hors du rendu (testés) : ancienneté de la dernière activité d'une série.
+// Textes du groupe « En sommeil » calculés hors du rendu (testés) : ancienneté de la dernière activité d'une série,
+// progression d'un lot sur le bouton qui l'a lancé.
 import { getLocale, type Locale } from '../i18n';
+
+/**
+ * Bouton qui a lancé un lot de plusieurs séries (« Tout mettre en pause », « Annuler », « Réessayer ») : « 3 / 20 » en
+ * chiffres à la place du libellé, nom accessible = son nom (`name`, sinon le libellé) suivi de la progression
+ */
+export function progressLabel(progress: { done: number; total: number } | null | undefined, label: string, name?: string): { label: string; ariaLabel: string | undefined } {
+  if (!progress || progress.total < 2) return { label, ariaLabel: name };
+  const digits = `${progress.done} / ${progress.total}`;
+  return { label: digits, ariaLabel: `${name ?? label} ${digits}` };
+}
 
 const DAY_MS = 86_400_000;
 /** Sous ce nombre de jours, l'ancienneté est dite en semaines ; au-delà, en mois */

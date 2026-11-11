@@ -11,6 +11,15 @@ export interface WatchingNotice {
   feedback: InlineFeedback;
   retry: (() => void) | null;
   undo: (() => void) | null;
+  /** Écriture lancée depuis ce bandeau, en cours : ses boutons inactifs, la progression sur celui qui l'a lancée */
+  progress?: NoticeProgress;
+}
+
+/** Écriture lancée depuis le bandeau : son bouton, séries traitées sur le total */
+export interface NoticeProgress {
+  button: 'undo' | 'retry';
+  done: number;
+  total: number;
 }
 
 export interface NoticeBanner {
@@ -25,6 +34,11 @@ export interface NoticeBanner {
    * reprend à la sortie (comme les toasts de la page, content/ui/toast.ts › createToastTimer)
    */
   hold(reason: NoticeHold, held: boolean): void;
+  /**
+   * Écriture lancée depuis le bandeau affiché (« Annuler », « Réessayer ») : il reste, délai suspendu jusqu'au bandeau
+   * suivant. Renvoie la mise à jour de sa progression (séries traitées), sans effet une fois le bandeau remplacé
+   */
+  track(button: NoticeProgress['button'], total: number): (done: number) => void;
   dispose(): void;
 }
 
@@ -38,7 +52,8 @@ export function createNoticeBanner(onShown: () => void): NoticeBanner {
   let remaining: number | undefined;
   let startedAt = 0;
   let running = false;
-  const holds = new Set<NoticeHold>();
+  /** 'run' : écriture lancée depuis le bandeau affiché (track) */
+  const holds = new Set<NoticeHold | 'run'>();
   const sync = (): void => {
     const run = remaining !== undefined && holds.size === 0;
     if (run === running) return;
@@ -64,6 +79,7 @@ export function createNoticeBanner(onShown: () => void): NoticeBanner {
     show(feedback, { retry = null, undo = null } = {}) {
       clearTimeout(timer);
       running = false;
+      holds.delete('run');
       store.set({ feedback, retry, undo });
       onShown();
       remaining = feedback.tone === 'success' && undo === null ? NOTICE_MS : NOTICE_MS * 2;
@@ -78,6 +94,16 @@ export function createNoticeBanner(onShown: () => void): NoticeBanner {
       if (held) holds.add(reason);
       else holds.delete(reason);
       sync();
+    },
+    track(button, total) {
+      let shown = store.get();
+      holds.add('run');
+      sync();
+      return (done) => {
+        if (shown === null || store.get() !== shown) return;
+        shown = { ...shown, progress: { button, done, total } };
+        store.set(shown);
+      };
     },
     dispose() {
       clearTimeout(timer);

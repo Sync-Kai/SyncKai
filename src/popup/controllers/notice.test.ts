@@ -59,6 +59,22 @@ describe('createNoticeBanner', () => {
     expect(banner.store.get()).toBeNull();
   });
 
+  it('écriture lancée depuis le bandeau : il reste (délai suspendu), sa progression suit ; le bandeau suivant n’est jamais touché', () => {
+    banner.show(SUCCESS, { undo });
+    const progress = banner.track('undo', 3);
+    progress(1);
+    vi.advanceTimersByTime(60_000);
+    expect(banner.store.get()).toMatchObject({ feedback: SUCCESS, undo, progress: { button: 'undo', done: 1, total: 3 } });
+    progress(2);
+    expect(banner.store.get()?.progress).toEqual({ button: 'undo', done: 2, total: 3 });
+    // Résultat affiché : fin de l'écriture, le délai reprend ; une mise à jour tardive ne s'y pose pas
+    banner.show(SUCCESS);
+    progress(3);
+    expect(banner.store.get()?.progress).toBeUndefined();
+    vi.advanceTimersByTime(NOTICE_MS);
+    expect(banner.store.get()).toBeNull();
+  });
+
   it('bandeau masqué : les pauses sont oubliées (le suivant n’attend pas un pointeur parti avec l’ancien)', () => {
     banner.show(SUCCESS);
     banner.hold('focus', true);

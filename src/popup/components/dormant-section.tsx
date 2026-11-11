@@ -6,7 +6,7 @@ import { lastActivity } from '../../shared/dormant';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { entryKey } from '../../shared/watching';
 import type { WatchingEntry } from '../../shared/watching.types';
-import { formatInactivity } from '../../ui/dormant-view';
+import { formatInactivity, progressLabel } from '../../ui/dormant-view';
 import type { ReadonlyStore } from '../../ui/state';
 import { DormantGroup, type DormantRowView } from '../../ui/components/dormant-group';
 import { useStore } from '../../ui/preact/hooks';
@@ -67,7 +67,7 @@ export function DormantSection({ host, state, links, now }: { host: DormantHost;
   if (entries.length === 0 || thresholdDays === null) return null;
   const pauseAll = t('watching.dormant.pauseAll');
   // Lot en cours : séries traitées en chiffres sur le bouton (« 3 / 20 »), le nom accessible garde l'action
-  const progress = state.progress && `${state.progress.done} / ${state.progress.total}`;
+  const pauseAllText = progressLabel(state.progress, pauseAll);
   return (
     <DormantGroup
       title={t('settings.dormant.label')}
@@ -80,8 +80,8 @@ export function DormantSection({ host, state, links, now }: { host: DormantHost;
       pauseAll={
         entries.length >= 2
           ? {
-              label: progress ?? pauseAll,
-              ariaLabel: progress === null ? pauseAll : `${pauseAll} ${progress}`,
+              label: pauseAllText.label,
+              ariaLabel: pauseAllText.ariaLabel ?? pauseAll,
               onClick: host.onPauseAll,
               busy: state.bulk,
               confirm: {
