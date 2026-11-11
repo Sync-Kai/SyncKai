@@ -16,6 +16,7 @@ import { isRecoBatch, type RecoItem } from '../../src/shared/recommendations';
 import type { ServiceOutcome, SyncOutcome } from '../../src/shared/sync.types';
 import { isTrackerId, TRACKER_IDS, type TrackerId } from '../../src/shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../src/shared/watching.types';
+import { agendaWeek } from '../screenshots/demo-panel';
 import { accountDemo, demoChrome, demoFriendsHandler, isAccountDemo, PAGE_INFO, pageView, recoHandlers, watchingList, type Scenario } from '../screenshots/demo-data';
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
@@ -386,6 +387,13 @@ installChromeMock({
     ...(loginMode === 'error' ? { LOGIN_ANILIST: () => ({ ok: false, code: 'CANCELLED', message: t('auth.cancelled') }) } : {}),
     GET_MAL_VIEWER: (payload) =>
       missingViewer && ++malViewerCalls === 1 ? { ok: false, code: 'NETWORK', message: 'MyAnimeList injoignable (e2e)' } : demo.handlers.GET_MAL_VIEWER?.(payload),
+    // Semaine demandée de l'Agenda ; `agenda=empty` : aucune sortie
+    GET_AGENDA: (payload) => {
+      const weekStart = isRecord(payload) && typeof payload.weekStart === 'string' ? payload.weekStart : null;
+      const week = weekStart === null ? null : agendaWeek(weekStart, now);
+      if (!week || weekStart === null) return { ok: false, code: 'API_ERROR', message: 'semaine invalide (e2e)' };
+      return { ok: true, data: param('agenda') === 'empty' ? { ...week, mediaIds: [], schedules: [] } : week };
+    },
     GET_WATCHING: (payload) => {
       const first = ++watchingCalls === 1;
       if (hangWatching && first) return new Promise<never>(() => {});

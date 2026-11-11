@@ -1,4 +1,4 @@
-// Onglet « Agenda » du panneau latéral (maquettes PanelAgenda, PanelAgendaSemaine, PanelAgendaAutreSemaine,
+// Onglet « Agenda » du panneau latéral et section « Agenda » du popup (même vue ; maquettes PanelAgenda, PanelAgendaSemaine, PanelAgendaAutreSemaine,
 // PanelAgendaEtats, PanelAgendaMenu, PanelAgendaMenuRecherche, PanelAgendaHeure, PanelAgendaHeureEtats) : sorties de la
 // semaine pour les séries en cours, du premier au dernier jour de la semaine (jours passés atténués, défilement jusqu'à
 // aujourd'hui), jour vide = son titre et « Aucun épisode » à droite, sans carte. Ligne : jaquette 32 × 44, titre … +
@@ -66,9 +66,19 @@ export interface AgendaProps {
   onRetry: () => void;
   /** Délai propre à la série (null : délai de la plateforme) ; rejette en cas d'échec */
   onSaveOffset: (mediaId: number, offset: number | null) => Promise<void>;
-  /** « 🎲 Une idée ? » (semaine vide) : onglet Découvrir */
+  /** « 🎲 Une idée ? » (semaine vide) : onglet Découvrir (panneau) ou section « Pour toi » (popup) */
   onDiscover: () => void;
+  /** Marge de la colonne de l'hôte : la navigation collante en couvre toute la largeur (panneau px-3, popup px-4) */
+  inset?: 'panel' | 'popup';
+  /** Écran affiché (false : monté mais masqué, aucune revérification des suites annoncées) ; le panneau ne monte que l'onglet visible */
+  visible?: boolean;
 }
+
+/**
+ * Classes complètes (Tailwind ne lit que des noms entiers) : marge négative et remplissage de la navigation collante. Popup : le
+ * <main> a un haut de 4 px (pt-1) que `top-0` laisserait voir au-dessus de la navigation, d'où `-top-1`.
+ */
+const NAV_INSET: Readonly<Record<NonNullable<AgendaProps['inset']>, string>> = { panel: 'top-0 -mx-3 px-3', popup: '-top-1 -mx-4 px-4' };
 
 /** Remplace `{time}` (ou un autre paramètre) par un repère, pour mettre l'heure en forme dans la phrase traduite */
 const MARK = '\u0000';
@@ -453,8 +463,8 @@ function StateCard({ text, tone = 'info', onRetry, onDiscover }: { text: string;
 type AgendaView = 'week' | 'announced';
 
 /** Vue « Annoncées » : suites des animes de l'utilisateur, groupées par saison d'anime (« Hiver 2027 », « 2027 », « Date à venir ») */
-function Announced({ records, enabled, connected }: { records: readonly SequelRecord[]; enabled: boolean; connected: readonly TrackerId[] }) {
-  const { all, busy, outcomes, add, dismiss } = useSequelActions(records);
+function Announced({ records, enabled, connected, visible }: { records: readonly SequelRecord[]; enabled: boolean; connected: readonly TrackerId[]; visible: boolean }) {
+  const { all, busy, outcomes, add, dismiss } = useSequelActions(records, visible);
   const root = useRef<HTMLDivElement>(null);
   // Suite retirée (×, ajout) : le focus passe à la ligne voisine, jamais au body
   useFocusFallback(root);
@@ -503,7 +513,7 @@ function Skeleton() {
   );
 }
 
-export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onSaveOffset, onDiscover }: AgendaProps) {
+export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onSaveOffset, onDiscover, inset = 'panel', visible = true }: AgendaProps) {
   const locale = useLocale();
   const snapshot = useStore(state);
   const records = useStore(sequels);
@@ -529,7 +539,8 @@ export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onS
   }, [editing]);
 
   // Semaine affichée prête : défilement jusqu'à aujourd'hui (sous la navigation collante), sinon en haut après un changement
-  // de semaine. Retour sur l'onglet : la coque rétablit ensuite le défilement gardé.
+  // de semaine (zone `data-scroll-root` de l'hôte : le tabpanel du panneau, le <main> du popup). Retour sur l'onglet : la coque
+  // rétablit ensuite le défilement gardé.
   useLayoutEffect(() => {
     if (!range || !ready || view !== 'week' || scrolled.current === range.key) return;
     const first = scrolled.current === null;
@@ -537,8 +548,8 @@ export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onS
     const today = root.current?.querySelector<HTMLElement>('[data-agenda-today]');
     if (today) today.scrollIntoView?.({ block: 'start' });
     else if (!first) {
-      const panel = root.current?.closest<HTMLElement>('[role="tabpanel"]');
-      if (panel) panel.scrollTop = 0;
+      const scroller = root.current?.closest<HTMLElement>('[data-scroll-root]');
+      if (scroller) scroller.scrollTop = 0;
     }
   }, [range?.key, ready, view]);
 
@@ -612,7 +623,7 @@ export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onS
   return (
     <div ref={root} class="flex flex-col gap-2.5" data-agenda="">
       {/* Navigation collante : reste visible quand la semaine défile */}
-      <div class="sticky top-0 z-10 -mx-3 flex flex-col gap-1.5 bg-ground px-3 pt-1 pb-1.5">
+      <div class={`sticky z-10 flex flex-col gap-1.5 bg-ground pt-1 pb-1.5 ${NAV_INSET[inset]}`} data-agenda-nav="">
         <Segmented
           fill
           label={t('panel.tab.agenda')}
@@ -656,7 +667,7 @@ export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onS
           }
         />}
       </div>
-      {view === 'week' ? body() : <Announced records={records} enabled={settings?.sequelAlerts !== false} connected={snapshot.connected} />}
+      {view === 'week' ? body() : <Announced records={records} enabled={settings?.sequelAlerts !== false} connected={snapshot.connected} visible={visible} />}
     </div>
   );
 }

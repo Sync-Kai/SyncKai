@@ -1,6 +1,8 @@
 // Tests de bout en bout du popup : le vrai popup.ts tourne dans Chrome headless sur l'API chrome simulée
 // (scripts/e2e/popup-frame.ts). On vérifie le DOM et les messages envoyés au service worker, pas les pixels.
 // Lancement : npm run test:e2e
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
 import type { Browser, Page } from 'puppeteer';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import manifest from '../../manifest.json';
@@ -81,6 +83,8 @@ async function waitForMessage(page: Page, type: string, count = 1): Promise<Sent
 }
 
 const sel = (focus: string): string => `[data-focus="${focus}"]`;
+
+const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function click(page: Page, focus: string): Promise<void> {
   await page.locator(sel(focus)).click();
@@ -1707,6 +1711,148 @@ describe('popup (bout en bout)', () => {
     expect(await text(reopened, '[data-screen="foryou"] [data-reco-item] a')).toBe(E2E_RECO_MOVIE_TITLE);
     expect(await attr(reopened, sel('reco-format-movies'), 'aria-checked')).toBe('true');
     expect(await sent(reopened, 'GET_RECOMMENDATIONS')).toHaveLength(1);
+  });
+
+  it('Agenda : aucun GET_AGENDA avant l’ouverture, une requête ensuite ; Semaine puis Annoncées ; ‹ › regroupés', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel('rail-agenda'));
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    expect(await sent(page, 'GET_AGENDA')).toHaveLength(0);
+    await click(page, 'rail-agenda');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
+    expect(await shownScreen(page)).toBe(5);
+    expect(await text(page, '[data-screen-title] h1')).toBe(fr('panel.tab.agenda'));
+    expect(await sent(page, 'GET_AGENDA')).toHaveLength(1);
+
+    // Annoncées : les quatre suites de la démo, groupées ; Semaine ramène la grille
+    await click(page, 'agenda-view-announced');
+    await page.waitForSelector('[data-screen="agenda"] [data-sequel-group]');
+    const ids = await page.$$eval('[data-screen="agenda"] [data-sequel]', (rows) => rows.map((row) => row.getAttribute('data-sequel')).sort());
+    expect(ids).toEqual(['900001', '900002', '900003', '900004']);
+    await click(page, 'agenda-view-week');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
+
+    // ‹ en rafale : une seule requête, pour la semaine finale ; ailleurs puis retour : aucune requête de plus
+    for (let i = 0; i < 3; i++) await click(page, 'agenda-prev');
+    await pause(700);
+    expect(await sent(page, 'GET_AGENDA')).toHaveLength(2);
+    await click(page, 'rail-watching');
+    await click(page, 'rail-agenda');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
+    await pause(300);
+    expect(await sent(page, 'GET_AGENDA')).toHaveLength(2);
+  });
+
+  it('Ajuster l’heure : enregistré, focus rendu au ⋯ de la série', async () => {
+    const page = await openPopup();
+    await click(page, 'rail-agenda');
+    await page.waitForSelector('[data-screen="agenda"] [data-focus^="agenda-menu-"]');
+    await page.locator('[data-screen="agenda"] [data-focus^="agenda-menu-"]').click();
+    await page.locator('[data-focus^="agenda-adjust-"]').click();
+    const field = '[data-focus^="agenda-offset-"]';
+    await page.waitForSelector(field);
+    const scheduleId = await page.$eval(field, (input) => (input instanceof HTMLElement ? (input.dataset.focus ?? '').replace('agenda-offset-', '') : ''));
+    await page.focus(field);
+    await page.$eval(field, (input) => {
+      if (input instanceof HTMLInputElement) input.select();
+    });
+    await page.keyboard.type('90');
+    await page.locator(sel(`agenda-save-${scheduleId}`)).click();
+    await page.waitForFunction((f: string) => document.querySelector(f) === null, {}, field);
+    expect(await focused(page)).toBe(`agenda-menu-${scheduleId}`);
+    const offsets = await page.evaluate(async () => {
+      const settings: unknown = (await chrome.storage.local.get('settings')).settings;
+      return typeof settings === 'object' && settings !== null && 'seriesOffsets' in settings ? Object.values(settings.seriesOffsets as Record<string, { minutes: number }>).map((o) => o.minutes) : null;
+    });
+    expect(offsets).toEqual([90]);
+  });
+
+  it('Annoncées ne marque aucune suite comme vue (aucun UPDATE_SEQUELS « seen »), le point du rail sur Activité reste', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel('rail-activity'));
+    expect(await page.$(`${sel('rail-activity')} [data-rail-dot]`)).not.toBeNull();
+    await click(page, 'rail-agenda');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
+    await click(page, 'agenda-view-announced');
+    await page.waitForSelector('[data-screen="agenda"] [data-sequel="900001"]');
+    await pause(500);
+    expect((await sent(page, 'UPDATE_SEQUELS')).filter((m) => JSON.stringify(m.payload).includes('seen'))).toEqual([]);
+    expect(await page.$(`${sel('rail-activity')} [data-rail-dot]`)).not.toBeNull();
+    // La revérification des suites affichées, elle, part une fois
+    expect(await sent(page, 'CHECK_SHOWN_SEQUELS')).toHaveLength(1);
+    // Activité, elle, les marque vues
+    await click(page, 'rail-activity');
+    await page.waitForFunction(() => window.__e2e?.messages.some((m) => m.type === 'UPDATE_SEQUELS' && JSON.stringify(m.payload).includes('seen')) ?? false);
+  });
+
+  it('440 px : heure du Japon jamais tronquée ([data-agenda-jp] scrollWidth ≤ clientWidth)', async () => {
+    const page = await openPopup();
+    await click(page, 'rail-agenda');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-jp]');
+    const cells = await page.$$eval('[data-screen="agenda"] [data-agenda-jp]', (els) => els.map((el) => ({ scroll: el.scrollWidth, client: el.clientWidth })));
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) expect(cell.scroll).toBeLessThanOrEqual(cell.client);
+  });
+
+  it('semaine vide : « Une idée ? » ouvre Pour toi', async () => {
+    const page = await openPopup({ agenda: 'empty' });
+    await click(page, 'rail-agenda');
+    await page.waitForSelector(sel('agenda-discover'));
+    await click(page, 'agenda-discover');
+    await page.waitForFunction(() => document.querySelector('[data-focus="rail-foryou"]')?.getAttribute('aria-current') === 'page');
+    expect(await shownScreen(page)).toBe(4);
+    await page.waitForSelector('[data-screen="foryou"] [data-reco-item]');
+  });
+
+  it('496 × 545 : navigation collante sur toute la largeur de la colonne, dernier jour atteignable, barre d’état visible', async () => {
+    const page = await openPopup();
+    await page.setViewport({ width: 496, height: 545 });
+    await click(page, 'rail-agenda');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
+    // Défiler jusqu'en bas : la navigation reste collée en haut, sur toute la largeur utile de la colonne
+    await page.$eval('main', (main) => {
+      main.scrollTop = main.scrollHeight;
+    });
+    const box = await page.evaluate(() => {
+      const main = document.querySelector('main');
+      const nav = document.querySelector('[data-agenda-nav]');
+      const days = [...document.querySelectorAll('[data-screen="agenda"] [data-agenda-day]')];
+      const last = days.at(-1);
+      const footer = document.querySelector('footer')?.getBoundingClientRect();
+      if (!main || !nav || !last) return null;
+      const m = main.getBoundingClientRect();
+      const n = nav.getBoundingClientRect();
+      return {
+        navLeft: n.left - m.left,
+        navRight: m.left + main.clientWidth - n.right,
+        navTop: n.top - m.top,
+        lastBottomGap: m.bottom - last.getBoundingClientRect().bottom,
+        horizontal: main.scrollWidth - main.clientWidth,
+        footerInView: !!footer && footer.top >= 0 && footer.bottom <= window.innerHeight,
+      };
+    });
+    expect(box).not.toBeNull();
+    const { lastBottomGap, ...rest } = box ?? { lastBottomGap: -1 };
+    expect(rest).toEqual({ navLeft: 0, navRight: 0, navTop: 0, horizontal: 0, footerInView: true });
+    expect(lastBottomGap).toBeGreaterThanOrEqual(0);
+  });
+
+  it('maquette Agenda', async () => {
+    // Captures pour la revue du propriétaire, seulement avec SYNCKAI_MOCKUP_DIR (aucun fichier écrit sinon)
+    const dir = process.env.SYNCKAI_MOCKUP_DIR;
+    if (!dir) return;
+    mkdirSync(dir, { recursive: true });
+    const page = await openPopup();
+    await click(page, 'rail-agenda');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
+    await page.screenshot({ path: path.join(dir, 'agenda-week.png') });
+    await click(page, 'agenda-view-announced');
+    await page.waitForSelector('[data-screen="agenda"] [data-sequel-group]');
+    await page.screenshot({ path: path.join(dir, 'agenda-announced.png') });
+    await click(page, 'agenda-view-week');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
+    await page.setViewport({ width: 496, height: 545 });
+    await page.screenshot({ path: path.join(dir, 'agenda-week-zoom110.png') });
   });
 
   it('« Mes séries » suit « Fiche ouverte par défaut » (Réglages › Comptes) : pas de sélecteur AniList / MAL', async () => {

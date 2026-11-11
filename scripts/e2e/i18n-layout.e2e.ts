@@ -285,6 +285,16 @@ async function popupScreens(ctx: LocaleContext): Promise<void> {
     await click(page, 'reco-another');
     await page.waitForSelector(sel('reco-clear-filter'));
     await shot(ctx, page, 'popup/foryou-filtered');
+
+    // Agenda : la semaine (lignes, heure du Japon, navigation collante), puis les suites annoncées
+    ctx.step = 'popup/agenda';
+    await click(page, 'rail-agenda');
+    await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
+    await shot(ctx, page, 'popup/agenda');
+    ctx.step = 'popup/agenda-announced';
+    await click(page, 'agenda-view-announced');
+    await page.waitForSelector('[data-screen="agenda"] [data-sequel-group]');
+    await shot(ctx, page, 'popup/agenda-announced');
   } finally {
     await page.close();
   }

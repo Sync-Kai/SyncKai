@@ -147,6 +147,7 @@ export function PanelApp(props: PanelAppProps) {
           id={tabPanelId(shown)}
           class="sk-scroll min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3"
           role="tabpanel"
+          data-scroll-root=""
           aria-labelledby={`sk-tab-${shown}`}
           tabIndex={0}
           onScroll={(event) => {

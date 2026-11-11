@@ -3,7 +3,7 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t, upperFirst } from '../../i18n';
-import { weekRange, type AgendaSeries, type AiringSchedule } from '../../shared/agenda';
+import { shiftWeek, weekRange, type AgendaSeries, type AiringSchedule } from '../../shared/agenda';
 import { DEFAULT_SETTINGS, type SyncSettings } from '../../shared/settings';
 import type { SequelRecord } from '../../shared/sequels';
 import type { SyncOutcome } from '../../shared/sync.types';
@@ -357,6 +357,20 @@ describe('Agenda', () => {
       expect(worker.send.mock.calls.filter(([type]) => type === 'CHECK_SHOWN_SEQUELS')).toEqual([['CHECK_SHOWN_SEQUELS', null]]);
     });
 
+    it('visible=false (écran du popup masqué) : aucune revérification ; elle part une fois l’écran affiché', async () => {
+      worker.send.mockReset();
+      worker.send.mockResolvedValue(null);
+      const state = createStore<AgendaSnapshot | null>(snapshot(READY));
+      sequelStore = createStore(SEQUELS);
+      const mount = (visible: boolean): Promise<void> =>
+        act(() => render(<Agenda state={state} sequels={sequelStore} granted={[]} visible={visible} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
+      await mount(false);
+      await act(() => radio(t('agenda.view.announced')).click());
+      expect(worker.send.mock.calls.filter(([type]) => type === 'CHECK_SHOWN_SEQUELS')).toEqual([]);
+      await mount(true);
+      expect(worker.send.mock.calls.filter(([type]) => type === 'CHECK_SHOWN_SEQUELS')).toEqual([['CHECK_SHOWN_SEQUELS', null]]);
+    });
+
     it('× masque la suite (UPDATE_SEQUELS dismissed)', async () => {
       worker.send.mockResolvedValue(true);
       await show(READY, SEQUELS);
@@ -364,5 +378,32 @@ describe('Agenda', () => {
       await click('[data-sequel="1"] [data-focus="sequel-dismiss-1"]');
       expect(worker.send).toHaveBeenCalledWith('UPDATE_SEQUELS', { ids: [1], state: 'dismissed' });
     });
+  });
+
+  it('changement de semaine : la zone [data-scroll-root] revient en haut', async () => {
+    const root = document.createElement('div');
+    root.dataset.scrollRoot = '';
+    container.append(root);
+    const state = createStore<AgendaSnapshot | null>(snapshot(READY));
+    const mount = (): Promise<void> =>
+      act(() => render(<Agenda state={state} sequels={createStore<SequelRecord[]>([])} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, root));
+    await mount();
+    root.scrollTop = 300;
+    const next = shiftWeek(RANGE, 1);
+    await act(() => state.set(snapshot({ ...READY, cache: { ...READY.cache, weekStart: next.key, schedules: [] } }, { range: next })));
+    expect(root.scrollTop).toBe(0);
+    await act(() => render(null, root));
+  });
+
+  it('inset popup : navigation collante en -mx-4 px-4 ; défaut panneau en -mx-3 px-3', async () => {
+    await show();
+    const nav = (): string => $('[data-agenda-nav]')?.className ?? '';
+    expect(nav()).toContain('-mx-3');
+    expect(nav()).toContain('px-3');
+    const state = createStore<AgendaSnapshot | null>(snapshot(READY));
+    await act(() => render(<Agenda state={state} sequels={createStore<SequelRecord[]>([])} granted={[]} inset="popup" onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
+    expect(nav()).toContain('-mx-4');
+    expect(nav()).toContain('px-4');
+    expect(nav()).not.toContain('-mx-3');
   });
 });

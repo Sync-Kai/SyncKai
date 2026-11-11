@@ -12,6 +12,7 @@ import type { TrackerId } from '../shared/tracker.types';
 import type { SettingsView } from '../ui/settings/settings-view';
 import type { AccountState, ReadonlyStore } from '../ui/state';
 import { NavRail, type NavRailFooterItem, type NavRailItem } from '../ui/components/nav-rail';
+import { Agenda, type AgendaProps } from '../ui/components/agenda';
 import { ScreenTitle } from '../ui/components/screen-title';
 import { useFocusFallback, useLocale, useNow, useStore } from '../ui/preact/hooks';
 import { ElementSlot } from '../ui/preact/vanilla-slot';
@@ -46,6 +47,8 @@ export interface PopupAppProps {
   watching: Omit<WatchingScreenProps, 'now'>;
   /** « Pour toi » : contrôleur créé à la première ouverture de la section (popup.ts) */
   forYou: Omit<ForYouScreenProps, 'granted'>;
+  /** Agenda : contrôleur créé à la première ouverture de la section (popup.ts) */
+  agenda: Omit<AgendaProps, 'granted' | 'inset' | 'visible'>;
   onNavigate: (screen: PopupTab) => void;
   onSettings: () => void;
   onOpenPanel: () => void;
@@ -114,6 +117,10 @@ export function PopupApp(props: PopupAppProps) {
   // Élément focalisé retiré par un rendu (barre des Réglages quittée, ligne disparue) : engrenage dans les Réglages,
   // sinon la section affichée du rail
   useFocusFallback(root, isSettings ? 'gear' : `rail-${tab}`);
+  // Agenda monté à sa première apparition seulement (rien ne part avant), puis gardé masqué : semaine et saisies conservées
+  const agendaShown = !isSettings && !onboarding && tab === 'agenda';
+  const agendaMounted = useRef(false);
+  if (agendaShown) agendaMounted.current = true;
 
   return (
     // Rail au-dessus de la colonne (z-20) : sa bulle déborde à droite du rail, sur le contenu, sans être rognée
@@ -134,7 +141,7 @@ export function PopupApp(props: PopupAppProps) {
         {isSettings ? settingsView && <ElementSlot element={() => settingsView.bar} /> : !onboarding && <ScreenTitle title={t(SCREEN_TITLES[tab])} subtitle={tab === 'foryou' ? t('reco.basedOnScores') : undefined} />}
         <HostAccessBanner state={hostAccess} onAllow={props.onAllowHostAccess} />
         {/* Ordre des écrans fixe (tests : En cours, Activité, Réglages, accueil, Pour toi, Agenda, Stats) ; un seul visible */}
-        <main class="sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3">
+        <main class="sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3" data-scroll-root="">
           <div class="min-h-full" data-screen="watching" hidden={isSettings || onboarding || tab !== 'watching'}>
             <WatchingScreen {...props.watching} now={now} />
           </div>
@@ -151,7 +158,9 @@ export function PopupApp(props: PopupAppProps) {
           <div data-screen="foryou" hidden={isSettings || onboarding || tab !== 'foryou'}>
             <ForYouScreen {...props.forYou} granted={granted} />
           </div>
-          <div data-screen="agenda" hidden={isSettings || onboarding || tab !== 'agenda'} />
+          <div data-screen="agenda" hidden={!agendaShown}>
+            {agendaMounted.current && <Agenda {...props.agenda} granted={granted} inset="popup" visible={agendaShown} />}
+          </div>
           <div data-screen="stats" hidden={isSettings || onboarding || tab !== 'stats'} />
         </main>
         <ElementSlot element={() => props.footer} />

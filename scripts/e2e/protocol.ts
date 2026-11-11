@@ -91,6 +91,8 @@ export interface FrameParams {
   friends?: 'on' | 'error' | 'hang';
   /** `cold` : suggestions de l'état vide de « Mes séries » en démarrage à froid */
   reco?: 'cold';
+  /** `empty` : semaine de l'Agenda sans sortie (« Une idée ? ») */
+  agenda?: 'empty';
   /** `movies` : filtre « Films » déjà retenu pour « Pour toi » (préférences du popup relues à l'ouverture) */
   recoFilter?: 'movies';
 }
