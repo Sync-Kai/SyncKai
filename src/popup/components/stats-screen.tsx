@@ -65,12 +65,12 @@ const SCORE_RANGE: Readonly<Record<AniListScoreFormat, { max: number; step: numb
   POINT_3: { max: 3, step: 1 },
 };
 
-/** Répartition des notes sur toute l'échelle du format (colonnes vides comprises), chaque note arrondie au palier supérieur */
+/** Répartition des notes sur toute l'échelle du format (colonnes vides comprises), chaque note rangée dans le palier [n, n+1) qui la contient */
 export function scoreBuckets(scores: ProfileStats['scores'], format: AniListScoreFormat): { score: number; count: number }[] {
   const { max, step } = SCORE_RANGE[format];
   const buckets = Array.from({ length: max / step }, (_, i) => ({ score: (i + 1) * step, count: 0 }));
   for (const { score, count } of scores) {
-    const index = Math.min(buckets.length, Math.max(1, Math.ceil(score / step))) - 1;
+    const index = Math.min(buckets.length, Math.max(1, Math.floor(score / step))) - 1;
     const bucket = buckets[index];
     if (bucket) bucket.count += count;
   }

@@ -211,10 +211,14 @@ describe('scoreBuckets', () => {
       'POINT_100',
     );
     expect(hundred.map((bucket) => bucket.score)).toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
-    expect(hundred.map((bucket) => bucket.count)).toEqual([3, 0, 0, 0, 0, 0, 7, 0, 0, 5]);
+    expect(hundred.map((bucket) => bucket.count)).toEqual([3, 0, 0, 0, 0, 3, 4, 0, 0, 5]);
     const decimal = scoreBuckets([{ score: 6.5, count: 2 }, { score: 7, count: 1 }], 'POINT_10_DECIMAL');
     expect(decimal).toHaveLength(10);
-    expect(decimal[6]).toEqual({ score: 7, count: 3 });
+    expect(decimal[5]).toEqual({ score: 6, count: 2 });
+    expect(decimal[6]).toEqual({ score: 7, count: 1 });
+    // Palier [n, n+1) : 7,5 reste dans la colonne 7, 85 (POINT_100) dans la colonne 80
+    expect(scoreBuckets([{ score: 7.5, count: 1 }], 'POINT_10_DECIMAL')[6]).toEqual({ score: 7, count: 1 });
+    expect(scoreBuckets([{ score: 85, count: 1 }], 'POINT_100')[7]).toEqual({ score: 80, count: 1 });
     expect(scoreBuckets([{ score: 2, count: 4 }], 'POINT_3')).toEqual([
       { score: 1, count: 0 },
       { score: 2, count: 4 },
