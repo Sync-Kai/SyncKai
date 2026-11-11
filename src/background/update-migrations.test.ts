@@ -8,6 +8,7 @@ import type { EpisodeInfo } from '../shared/episode.types';
 import type { SyncQueueItem } from '../shared/queue.types';
 import type { PendingReview, RecentSync } from '../shared/review.types';
 import type { MediaMapping } from '../shared/sync.types';
+import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { revealToken } from '../test/tokens';
 import { compareVersions, runUpdateMigrations } from './update-migrations';
 
@@ -26,6 +27,7 @@ vi.stubGlobal('chrome', {
       },
     },
   },
+  alarms: { clear: vi.fn(async () => true), get: vi.fn(async () => undefined), create: vi.fn(async () => undefined) },
 });
 let queue: Promise<unknown> = Promise.resolve();
 const request = vi.fn(<T>(_name: string, task: () => Promise<T>): Promise<T> => {
@@ -216,5 +218,36 @@ describe('runUpdateMigrations : correspondances vers une autre série (SYNC-01)'
     await runUpdateMigrations(undefined);
     expect(purge.markOtherSeriesPurgePending).not.toHaveBeenCalled();
     expect(purge.runPendingOtherSeriesPurge).not.toHaveBeenCalled();
+  });
+});
+
+describe('runUpdateMigrations : alertes de suite (TERMS-02)', () => {
+  const storedSettings = (): unknown => store[SETTINGS_STORAGE_KEY];
+
+  it('depuis la 2.4.2 avec les alertes de sortie coupées et sans clé de suite : alertes de suite coupées', async () => {
+    store = { [SETTINGS_STORAGE_KEY]: { airingAlerts: false, autoSync: false } };
+    await runUpdateMigrations('2.4.2');
+    expect(storedSettings()).toMatchObject({ airingAlerts: false, sequelAlerts: false, autoSync: false });
+    // Plus aucune alerte : l'alarme horaire est supprimée, pas créée
+    expect(chrome.alarms.create).not.toHaveBeenCalled();
+    expect(chrome.alarms.clear).toHaveBeenCalled();
+  });
+
+  it('depuis la 2.4.2 avec les alertes de sortie actives : réglages inchangés', async () => {
+    store = { [SETTINGS_STORAGE_KEY]: { airingAlerts: true } };
+    await runUpdateMigrations('2.4.2');
+    expect(storedSettings()).toEqual({ airingAlerts: true });
+  });
+
+  it('une clé sequelAlerts déjà présente est gardée', async () => {
+    store = { [SETTINGS_STORAGE_KEY]: { airingAlerts: false, sequelAlerts: true } };
+    await runUpdateMigrations('2.4.2');
+    expect(storedSettings()).toEqual({ airingAlerts: false, sequelAlerts: true });
+  });
+
+  it('depuis la 2.5.0 : réglages inchangés', async () => {
+    store = { [SETTINGS_STORAGE_KEY]: { airingAlerts: false } };
+    await runUpdateMigrations('2.5.0');
+    expect(storedSettings()).toEqual({ airingAlerts: false });
   });
 });

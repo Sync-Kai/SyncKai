@@ -2,7 +2,10 @@ import { migrateLegacySeriesOffsets } from '../browser/storage/agenda-store';
 import { bindLegacyDataToSession } from '../browser/storage/account-data';
 import { deleteMediaMappingsByPrefix } from '../browser/storage/mappings';
 import { encryptLegacyTokens } from '../browser/storage/tokens';
+import { updateSettings } from '../browser/storage/settings-store';
 import { createLogger } from '../browser/logger';
+import { isRecord } from '../shared/guards';
+import { SETTINGS_STORAGE_KEY } from '../shared/settings';
 import { markOtherSeriesPurgePending, runPendingOtherSeriesPurge } from './sync/mapping-purge';
 
 const log = createLogger('background');
@@ -32,6 +35,12 @@ const ENCRYPTED_TOKENS_IN = '2.2.0';
  * fois (voir mapping-purge.ts).
  */
 const OTHER_SERIES_MAPPINGS_FIXED_IN = '2.3.0';
+
+/**
+ * Alertes de suite activées par défaut depuis la 2.5.0 (TERMS-02) : un utilisateur qui avait coupé les alertes de sortie
+ * en 2.4.2 garde une extension silencieuse (sequelAlerts coupé, l'alarme horaire est alors supprimée).
+ */
+const SEQUEL_ALERTS_ADDED_IN = '2.5.0';
 
 /** Compare deux versions « x.y.z » ; négatif si a < b, NaN si l'une est illisible. */
 export function compareVersions(a: string, b: string): number {
@@ -74,6 +83,15 @@ export async function runUpdateMigrations(previousVersion: string | undefined): 
     }
   }
   if (before(OTHER_SERIES_MAPPINGS_FIXED_IN)) await markOtherSeriesPurgePending();
+  if (before(SEQUEL_ALERTS_ADDED_IN)) await keepSequelAlertsOffForQuietUsers();
   // Purge en attente, de cette mise à jour ou d'une précédente restée en échec (réseau) : jamais bloquante
   await runPendingOtherSeriesPurge();
+}
+
+/** Lit les réglages bruts (le normaliseur remplit les défauts et masquerait l'absence de la clé `sequelAlerts`). */
+async function keepSequelAlertsOffForQuietUsers(): Promise<void> {
+  const stored = (await chrome.storage.local.get(SETTINGS_STORAGE_KEY))[SETTINGS_STORAGE_KEY];
+  if (!isRecord(stored) || stored.airingAlerts !== false || 'sequelAlerts' in stored) return;
+  await updateSettings({ sequelAlerts: false });
+  log.info('Mise à jour : alertes de sortie coupées, alertes de suite coupées aussi');
 }
