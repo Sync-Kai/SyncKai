@@ -47,3 +47,44 @@ The 2.5.0 audit fixes (plan `docs/superpowers/plans/2026-11-11-2.5.0-audit-fixes
   - there is no unit test of the popup's `visible` wiring;
   - the MAL memo lasts 5 min while the throttle lasts 10.
 - **No reduced-height e2e covers Activité** or the refresh button: only « Mes séries » is tested at 545 px.
+
+## From the popup rail sections reviews (2026-11-11)
+
+**Pour toi**
+- No test of a filter change during the dice turn.
+- The empty-list card and « Pour toi » can each show a card that the other has just added or dismissed. Nothing is written twice.
+- « vide » versus « filtré » when every card has been drawn.
+- The genre fallback is not saved.
+- The e2e title still says « Plus d'idées dans le panneau » (`scripts/e2e/popup.e2e.ts`).
+
+**Popup Agenda**
+- « Annoncées » stays selected across visits, while the code comment says « Semaine » at each opening.
+- `agendaShownBefore` is misnamed: it also drives Stats. Rename it `lastShown`.
+- The panel has a 4 px gap above its sticky nav; it existed before.
+
+**Stats**
+- After a Backup import made while the session had already expired and no viewer was cached, the `stats.ts` fallback can show another account's part. Either soften the PRIVACY sentence or use only the cached ids.
+- « depuis le {today} » shows for a foreign part.
+- Settings → back to Stats does not call `show()`.
+- `ensureFresh` runs on every update (bounded by `checked`).
+- The day can be off by one past midnight while the popup stays open.
+
+**Activity history**
+- Mixed last-session endings: the owner should confirm the behaviour.
+- The `console.warn` spy restore in `viewer.test`.
+- No test for `endSessionIfUnreadable`.
+- `prefixesClearedOnLastSession` ignores `keepOnExpiry`.
+- « Remplacer » with a pre-2.5.0 Backup erases the local history.
+
+**Profile stats**
+- `ListStatus` is duplicated; add a type equality test.
+- Round-trip all five fixtures through `isProfileStats`.
+- `expect.anything` in `mal/client.test`.
+
+**Docs and store**
+- The CWS `storage` block is condensed (it drops « the last sequel check »).
+- The PRIVACY › Backup paragraph could mention the 400-day prune and the foreign-part drop on import.
+- The store listings (`docs/store/listing-*.md`) need a 2.5.0 refresh at release.
+
+**Dead code**
+- The panel-tab request path no longer has a popup caller: `openPanelOn`, `takePanelTab` / `watchPanelTab`, `requestedTabState`, `PANEL_TAB_KEY`.
