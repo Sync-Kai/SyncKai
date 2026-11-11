@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { mergeActivityHistory, parseActivityHistory, type ActivityHistory } from './activity-history';
 import { isPendingRating, MAX_PENDING_RATINGS } from '../browser/storage/engagement-store';
 import { PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY, STORAGE_KEYS } from '../protocol/storage-keys';
 import type { PendingRating } from './engagement.types';
@@ -33,6 +34,8 @@ export interface BackupData {
   rewatchDeclined: Record<string, number>;
   /** Suggestions écartées : ids AniList, les plus anciens d'abord (section facultative dans le fichier) */
   recoDismissed: number[];
+  /** Historique d'activité de l'écran Stats, lié au compte par son identifiant (section facultative dans le fichier) */
+  activityHistory: ActivityHistory;
 }
 
 export interface Backup {
@@ -46,7 +49,7 @@ export interface Backup {
 
 export type BackupSection = keyof BackupData;
 
-/** Section → clé chrome.storage.local (les 8 seules clés sauvegardées) */
+/** Section → clé chrome.storage.local (les 9 seules clés sauvegardées) */
 export const BACKUP_STORAGE_KEYS: Record<BackupSection, string> = {
   settings: SETTINGS_STORAGE_KEY,
   mediaMappings: STORAGE_KEYS.mediaMappings,
@@ -56,6 +59,7 @@ export const BACKUP_STORAGE_KEYS: Record<BackupSection, string> = {
   pendingRatings: PENDING_RATINGS_KEY,
   rewatchDeclined: REWATCH_DECLINED_KEY,
   recoDismissed: STORAGE_KEYS.recoDismissed,
+  activityHistory: STORAGE_KEYS.activityHistory,
 };
 
 export type BackupErrorCode = 'INVALID_JSON' | 'INVALID_FORMAT' | 'UNSUPPORTED_VERSION' | 'TOO_LARGE';
@@ -153,7 +157,7 @@ function sortDesc<T>(list: T[], at: (item: T) => number, max: number): T[] {
 }
 
 /**
- * Valide les 8 sections (valeurs brutes du stockage ou du fichier) et compte les éléments ignorés. `fromFile` : fichier
+ * Valide les 9 sections (valeurs brutes du stockage ou du fichier) et compte les éléments ignorés. `fromFile` : fichier
  * importé, non fiable (réglages absents non importables, correspondances au format de clé attendu et décalage borné).
  */
 function validateData(raw: Record<string, unknown>, fromFile: boolean): Validated<BackupData> {
@@ -166,6 +170,7 @@ function validateData(raw: Record<string, unknown>, fromFile: boolean): Validate
   const ratings = validateList(mapList(raw.pendingRatings, withSafeCover), isPendingRating, (r) => r.id);
   const declines = validateRecord(raw.rewatchDeclined, isTimestamp);
   const dismissed = validateIds(raw.recoDismissed);
+  const activity = parseActivityHistory(raw.activityHistory);
 
   return {
     value: {
@@ -178,6 +183,7 @@ function validateData(raw: Record<string, unknown>, fromFile: boolean): Validate
       pendingRatings: sortDesc(ratings.value, (r) => r.completedAt, MAX_PENDING_RATINGS),
       rewatchDeclined: declines.value,
       recoDismissed: dismissed.value,
+      activityHistory: activity.value,
     },
     invalid:
       (rawSettings !== undefined && !settingsValid ? 1 : 0) +
@@ -187,7 +193,8 @@ function validateData(raw: Record<string, unknown>, fromFile: boolean): Validate
       exclusions.invalid +
       ratings.invalid +
       declines.invalid +
-      dismissed.invalid,
+      dismissed.invalid +
+      activity.invalid,
   };
 }
 
@@ -216,6 +223,7 @@ export function sectionsFromStorage(stored: Record<string, unknown>): Record<Bac
     pendingRatings: stored[k.pendingRatings],
     rewatchDeclined: stored[k.rewatchDeclined],
     recoDismissed: stored[k.recoDismissed],
+    activityHistory: stored[k.activityHistory],
   };
 }
 
@@ -351,6 +359,8 @@ export function mergeBackup(current: BackupData, incoming: BackupData, mode: Imp
     rewatchDeclined,
     // Union : l'existant d'abord, les 500 derniers gardés
     recoDismissed: [...new Set([...current.recoDismissed, ...incoming.recoDismissed])].slice(-MAX_DISMISSED),
+    // Par service : même compte, maximum par jour ; autre compte, l'existant l'emporte (jamais rattaché à une session)
+    activityHistory: mergeActivityHistory(current.activityHistory, incoming.activityHistory, 'merge'),
   };
 }
 

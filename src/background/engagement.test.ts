@@ -173,7 +173,7 @@ describe('carte « À noter » (DATA-01)', () => {
 
   it('carte importée d’une sauvegarde avant toute connexion : notée sur les comptes connectés ensuite, puis retirée', async () => {
     const card = { id: 'anilist:1001', mediaId: 1001, malId: 2001, title: 'Frieren', coverUrl: null, completedAt: 1 };
-    const data = { settings: DEFAULT_SETTINGS, mediaMappings: {}, pendingReviews: [], recentSyncs: [], excludedSeries: [], pendingRatings: [card], rewatchDeclined: {}, recoDismissed: [] };
+    const data = { settings: DEFAULT_SETTINGS, mediaMappings: {}, pendingReviews: [], recentSyncs: [], excludedSeries: [], pendingRatings: [card], rewatchDeclined: {}, recoDismissed: [], activityHistory: {} };
     store.pendingRatings = bindBackupToSession(data, {}).pendingRatings;
     const outcome = await rateMedia(MEDIA, 8, true);
     expect(outcome).toMatchObject({ status: 'synced', results: [{ service: 'anilist', outcome: { status: 'updated' } }, { service: 'mal', outcome: { status: 'updated' } }] });

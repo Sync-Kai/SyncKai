@@ -6,6 +6,7 @@ import type { MalViewer, MalViewerResult } from '../../shared/mal.types';
 import { endSessionIfToken } from '../../browser/storage/session-end';
 import { getSessionEpoch } from '../../browser/storage/sessions';
 import { saveCachedMalViewer } from '../../browser/storage/viewer-cache';
+import { dropOtherAccountActivity } from '../../browser/storage/activity-history';
 import type { ManualListStatus } from '../../shared/sync.types';
 import { toSafeImageUrl } from '../../shared/url';
 import { getMalAccessToken } from './auth';
@@ -219,6 +220,12 @@ export async function getMalViewer(): Promise<MalViewerResult> {
     };
     if (!(await saveCachedMalViewer(viewer, epoch))) {
       return { ok: false, code: 'NOT_AUTHENTICATED', message: t('api.notAuthenticated', { service: 'MyAnimeList' }) };
+    }
+    // Historique de l'écran Stats : part d'un autre compte MAL retirée ; un échec ne fait jamais échouer le profil
+    try {
+      await dropOtherAccountActivity('mal', viewer.id);
+    } catch (error: unknown) {
+      log.warn('Historique d’activité non vérifié :', error);
     }
     return { ok: true, data: viewer };
   } catch (error: unknown) {

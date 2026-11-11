@@ -55,6 +55,7 @@ const emptyData = (): BackupData => ({
   pendingRatings: [],
   rewatchDeclined: {},
   recoDismissed: [],
+  activityHistory: {},
 });
 
 function fileText(data: unknown, overrides: Record<string, unknown> = {}): string {
@@ -62,9 +63,9 @@ function fileText(data: unknown, overrides: Record<string, unknown> = {}): strin
 }
 
 describe('BACKUP_STORAGE_KEYS', () => {
-  it('ne contient que les 8 clés sauvegardables (jamais les tokens ni les caches)', () => {
+  it('ne contient que les 9 clés sauvegardables (jamais les tokens ni les caches)', () => {
     expect(Object.values(BACKUP_STORAGE_KEYS).sort()).toEqual(
-      ['excludedSeries', 'mediaMappings', 'pendingRatings', 'pendingReviews', 'recentSyncs', 'reco:dismissed', 'rewatchDeclined', 'settings'].sort(),
+      ['excludedSeries', 'mediaMappings', 'pendingRatings', 'pendingReviews', 'recentSyncs', 'reco:dismissed', 'rewatchDeclined', 'settings', 'stats:activityHistory'].sort(),
     );
   });
 
@@ -443,5 +444,39 @@ describe('sauvegarde › recoDismissed (suggestions écartées)', () => {
     const incoming = { ...emptyData(), recoDismissed: [2, 3] };
     expect(mergeBackup(current, incoming, 'replace').recoDismissed).toEqual([2, 3]);
     expect(mergeBackup(current, incoming, 'merge').recoDismissed).toEqual([1, 2, 3]);
+  });
+});
+
+describe('sauvegarde › activityHistory (historique d’activité, écran Stats)', () => {
+  const parse = (data: Record<string, unknown>): { data: BackupData; invalid: number } => {
+    const result = parseBackup(fileText(data));
+    if (!result.ok) throw new Error(result.message);
+    return { data: result.data.backup.data, invalid: result.data.invalidCount };
+  };
+  // Identifiants de compte fictifs
+  const history = { anilist: { accountId: 7, days: { '2026-10-14': [2, 48], '2026-10-15': [1, 24] } } } as const;
+
+  it('activityHistory : aller-retour, section absente = vide, invalides comptés, fusion par compte', () => {
+    expect(BACKUP_STORAGE_KEYS.activityHistory).toBe('stats:activityHistory');
+    const backup = buildBackup(sectionsFromStorage({ 'stats:activityHistory': history }), '2.5.0', NOW);
+    expect(backup.data.activityHistory).toEqual(history);
+    expect(parse(backup.data as unknown as Record<string, unknown>)).toEqual({ data: expect.objectContaining({ activityHistory: history }), invalid: 0 });
+    // Sauvegarde d'une version précédente : section absente, historique vide
+    expect(parse({ settings: DEFAULT_SETTINGS }).data.activityHistory).toEqual({});
+    // Part et jour illisibles : ignorés et comptés
+    const invalid = parse({ activityHistory: { anilist: { accountId: 7, days: { '2026-10-15': [1, 24], 'demain': [1, 1] } }, mal: { accountId: 'x', days: {} } } });
+    expect(invalid).toEqual({ data: expect.objectContaining({ activityHistory: { anilist: { accountId: 7, days: { '2026-10-15': [1, 24] } } } }), invalid: 2 });
+    // Fusion : même compte, maximum par jour ; autre compte, l'existant l'emporte ; remplacement : l'entrant
+    const current: BackupData = { ...emptyData(), activityHistory: { anilist: { accountId: 7, days: { '2026-10-15': [3, 10] } }, mal: { accountId: 9, days: { '2026-10-15': [1, 24] } } } };
+    const incoming: BackupData = { ...emptyData(), activityHistory: { ...history, mal: { accountId: 4, days: { '2026-10-15': [5, 120] } } } };
+    expect(mergeBackup(current, incoming, 'merge').activityHistory).toEqual({
+      anilist: { accountId: 7, days: { '2026-10-14': [2, 48], '2026-10-15': [3, 24] } },
+      mal: { accountId: 9, days: { '2026-10-15': [1, 24] } },
+    });
+    expect(mergeBackup(current, incoming, 'replace').activityHistory).toEqual(incoming.activityHistory);
+    // Aucune session liée : l'historique porte le compte, pas la génération
+    expect(bindBackupToSession(incoming, { anilist: 3 }).activityHistory).toEqual(incoming.activityHistory);
+    // Absent de l'aperçu
+    expect(summarizeBackup(backup)).not.toHaveProperty('activityHistory');
   });
 });

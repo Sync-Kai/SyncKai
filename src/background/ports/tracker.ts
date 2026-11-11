@@ -14,6 +14,8 @@ export interface CatalogMedia {
   idMal: number | null;
   title: string;
   episodes: number | null;
+  /** Durée d'un épisode (minutes, AniList duration) ; absente ou null : inconnue (0 minute comptée) */
+  duration?: number | null;
 }
 
 export interface TrackerEntry {

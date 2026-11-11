@@ -5,6 +5,7 @@ import { aniListProfileStats } from '../../shared/profile-stats';
 import { isViewerQueryData, type AniListViewer, type ViewerResult } from '../../shared/anilist.types';
 import { getSessionEpoch } from '../../browser/storage/sessions';
 import { getCachedViewer, saveCachedViewer } from '../../browser/storage/viewer-cache';
+import { dropOtherAccountActivity } from '../../browser/storage/activity-history';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { anilistQuery } from './client';
 import { ApiError } from '../errors';
@@ -56,6 +57,12 @@ export async function getViewer(lane: RequestLane = 'interactive'): Promise<View
     if (!(await saveCachedViewer(viewer, epoch))) {
       // Ni profil de l'ancien compte en cache, ni renvoyé à l'interface
       return { ok: false, code: 'NOT_AUTHENTICATED', message: t('api.notAuthenticated', { service: 'AniList' }) };
+    }
+    // Historique de l'écran Stats : part d'un autre compte AniList retirée ; un échec ne fait jamais échouer le profil
+    try {
+      await dropOtherAccountActivity('anilist', viewer.id);
+    } catch (error: unknown) {
+      log.warn('Historique d’activité non vérifié :', error);
     }
     return { ok: true, data: viewer };
   } catch (error: unknown) {

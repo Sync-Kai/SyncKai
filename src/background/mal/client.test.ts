@@ -7,6 +7,7 @@ const auth = vi.hoisted(() => ({
   endSessionIfToken: vi.fn<(service: string, accessToken: string) => Promise<boolean>>(),
   getSessionEpoch: vi.fn<(service: string) => Promise<number>>(),
   saveCachedMalViewer: vi.fn<(viewer: MalViewer, epoch: number) => Promise<boolean>>(),
+  dropOtherAccountActivity: vi.fn<(service: string, accountId: number) => Promise<void>>(),
 }));
 vi.mock('./auth', () => ({ getMalAccessToken: auth.getMalAccessToken }));
 vi.mock('../../browser/storage/session-end', () => ({ endSessionIfToken: auth.endSessionIfToken }));
@@ -15,6 +16,7 @@ vi.mock('../../browser/storage/viewer-cache', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../browser/storage/viewer-cache')>()),
   saveCachedMalViewer: auth.saveCachedMalViewer,
 }));
+vi.mock('../../browser/storage/activity-history', () => ({ dropOtherAccountActivity: auth.dropOtherAccountActivity }));
 
 import {
   deleteMalEntry,
@@ -310,8 +312,21 @@ describe('getMalViewer (profil du popup, ne lève jamais)', () => {
     auth.getSessionEpoch.mockResolvedValue(3);
     auth.saveCachedMalViewer.mockReset();
     auth.saveCachedMalViewer.mockResolvedValue(true);
+    auth.dropOtherAccountActivity.mockReset();
+    auth.dropOtherAccountActivity.mockResolvedValue(undefined);
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it('profil enregistré : part d’activité d’un autre compte MAL retirée ; cache refusé : rien', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai' })));
+    await expect(getMalViewer()).resolves.toMatchObject({ ok: true, data: { id: 7 } });
+    expect(auth.dropOtherAccountActivity).toHaveBeenCalledWith('mal', 7);
+    auth.dropOtherAccountActivity.mockClear();
+    auth.saveCachedMalViewer.mockResolvedValue(false);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai' })));
+    await getMalViewer();
+    expect(auth.dropOtherAccountActivity).not.toHaveBeenCalled();
+  });
 
   it('profil lu et mis en cache avec la génération relevée avant la requête ; image hors des hôtes permis écartée', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => json({ id: 7, name: 'Kai', picture: 'https://cdn.myanimelist.net/images/userimages/7.jpg' })));

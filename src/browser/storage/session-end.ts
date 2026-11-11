@@ -8,16 +8,18 @@ import {
   clearUnreadableSession,
   clearUserSyncDataIfNoSession,
 } from './account-data';
+import type { SessionEndReason } from './account-keys';
 import type { SealedToken } from '../tokens/crypto';
 import type { TrackerId } from '../../shared/tracker.types';
 import { trace } from '../debug-trace-client';
 
 /**
- * Après la fermeture d'une session : données de l'utilisateur si plus aucun service n'est connecté, badge de l'icône,
- * alarme des sorties supprimée s'il ne reste aucun service (PERF-17 : depuis la page comme depuis le service worker)
+ * Après la fermeture d'une session : données de l'utilisateur si plus aucun service n'est connecté (une session expirée
+ * garde l'historique d'activité), badge de l'icône, alarme des sorties supprimée s'il ne reste aucun service
+ * (PERF-17 : depuis la page comme depuis le service worker)
  */
-async function afterSessionEnd(): Promise<void> {
-  await clearUserSyncDataIfNoSession();
+async function afterSessionEnd(reason: SessionEndReason): Promise<void> {
+  await clearUserSyncDataIfNoSession(reason);
   await refreshReviewBadge();
   await ensureAiringAlarm();
 }
@@ -31,7 +33,7 @@ export async function endSession(service: TrackerId): Promise<void> {
   // Trace de débogage (builds de développement seulement) : depuis une page (Réglages) ou le service worker
   if (__SYNCKAI_DEBUG__) trace('account', 'sign-out', { service });
   await (service === 'anilist' ? clearAniListSession() : clearMalSession());
-  await afterSessionEnd();
+  await afterSessionEnd('sign-out');
 }
 
 /**
@@ -41,7 +43,7 @@ export async function endSession(service: TrackerId): Promise<void> {
 export async function endSessionIfToken(service: TrackerId, accessToken: string): Promise<boolean> {
   const ended = await (service === 'anilist' ? clearAniListSessionIfToken(accessToken) : clearMalSessionIfToken(accessToken));
   if (__SYNCKAI_DEBUG__) trace('account', 'token-rejected', { service, sessionExpired: ended });
-  if (ended) await afterSessionEnd();
+  if (ended) await afterSessionEnd('expired');
   return ended;
 }
 
@@ -53,6 +55,6 @@ export async function endSessionIfToken(service: TrackerId, accessToken: string)
 export async function endSessionIfUnreadable(service: TrackerId, sealed: SealedToken): Promise<boolean> {
   const ended = await clearUnreadableSession(service, sealed);
   if (__SYNCKAI_DEBUG__) trace('account', 'token-unreadable', { service, sessionExpired: ended });
-  if (ended) await afterSessionEnd();
+  if (ended) await afterSessionEnd('expired');
   return ended;
 }

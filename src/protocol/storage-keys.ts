@@ -57,6 +57,11 @@ export const STORAGE_KEYS = {
    * (browser/storage/dormant-keep.ts)
    */
   watchingKeptDormant: 'watching:keptDormant',
+  /**
+   * Écran Stats : `{ [service]: { accountId, days: { [AAAA-MM-JJ]: [épisodes, minutes] } } }`, ce que SyncKai a
+   * synchronisé par jour local sur 400 jours (shared/activity-history.ts), écrit par le service worker
+   */
+  activityHistory: 'stats:activityHistory',
 } as const;
 
 /**

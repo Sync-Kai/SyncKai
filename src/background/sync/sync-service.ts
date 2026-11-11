@@ -31,6 +31,7 @@ import type { MediaRef, SyncPrompts } from '../../shared/engagement.types';
 import { getSettings } from '../../browser/storage/settings-access';
 import { withSyncActivity } from '../../browser/storage/sync-activity';
 import { recordWeeklySyncs } from '../../browser/storage/weekly-syncs';
+import { recordActivity } from '../../browser/storage/activity-history';
 import { mappingOrigin, type ServiceResult, type SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { ApiError } from '../errors';
@@ -100,7 +101,7 @@ async function queueReview(review: PendingReview): Promise<void> {
 export async function getCatalogMedia(mediaId: number): Promise<CatalogMedia> {
   const media = (await getAnimeByIds([mediaId])).find((m) => m.id === mediaId);
   if (!media) throw new ApiError('API_ERROR', t('api.httpError', { service: 'AniList', status: 404 }), { httpStatus: 404 });
-  return { mediaId, idMal: media.idMal, title: media.displayTitle, episodes: media.episodes };
+  return { mediaId, idMal: media.idMal, title: media.displayTitle, episodes: media.episodes, duration: media.duration ?? null };
 }
 
 /** Résultat d'écriture sur un service et état de l'entrée lue avant l'écriture */
@@ -273,6 +274,15 @@ async function countWeeklySyncs(services: readonly TrackerId[], epochs: SessionE
   }
 }
 
+/** Historique de l'écran Stats : facultatif, un échec du stockage ne fait jamais échouer la synchro */
+async function countActivity(services: readonly TrackerId[], epochs: SessionEpochs, minutes: number): Promise<void> {
+  try {
+    await recordActivity(services, epochs, minutes);
+  } catch (error: unknown) {
+    log.warn('Historique d’activité non enregistré :', error);
+  }
+}
+
 interface ServicesWrite {
   outcome: SyncOutcome;
   /** Épisode mis de côté sur la carte de correction retirée par cette écriture (à rejouer), null sinon */
@@ -302,9 +312,12 @@ async function writeToServices(
   const updated = results.filter((r) => r.outcome.status === 'updated').map((r) => r.service);
   if (updated.length > 0) {
     await addRecentSync({ key, episode, mediaId: catalog.mediaId, malId: catalog.idMal, mediaTitle: catalog.title, progress, syncedAt: Date.now(), epochs: options.epochs });
-    // « Synchro cette semaine » (menu du compte) : un épisode par service écrit. Une correction réécrit un épisode déjà
-    // compté ; l'import d'historique et les actions de liste (+1, statut…) ne passent pas par ici
-    if ((options.correctionFrom ?? null) === null) await countWeeklySyncs(updated, options.epochs);
+    // « Synchro cette semaine » (menu du compte) et historique de l'écran Stats : un épisode par service écrit. Une
+    // correction réécrit un épisode déjà compté ; l'import d'historique et les actions de liste (+1, statut…) ne passent pas par ici
+    if ((options.correctionFrom ?? null) === null) {
+      await countWeeklySyncs(updated, options.epochs);
+      await countActivity(updated, options.epochs, catalog.duration ?? 0);
+    }
     // Synchro réussie (correspondance sûre ou confirmée) : page de la série mémorisée au-delà des 5 synchros de l'historique
     const seriesUrl = platformSeriesUrl(episode.platform, episode.seriesId, episode.seriesSlug);
     if (seriesUrl) await learnPlatformLink(catalog.mediaId, { platform: episode.platform, url: seriesUrl });

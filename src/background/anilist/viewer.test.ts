@@ -11,10 +11,12 @@ const deps = vi.hoisted(() => ({
   anilistQuery: vi.fn<(query: string, isData: (data: unknown) => boolean, variables?: Record<string, unknown>, lane?: string) => Promise<unknown>>(),
   getSessionEpoch: vi.fn<(service: string) => Promise<number>>(),
   saveCachedViewer: vi.fn<(viewer: AniListViewer, epoch: number) => Promise<boolean>>(),
+  dropOtherAccountActivity: vi.fn<(service: string, accountId: number) => Promise<void>>(),
 }));
 vi.mock('./client', () => ({ anilistQuery: deps.anilistQuery }));
 vi.mock('../../browser/storage/sessions', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../browser/storage/sessions')>()), getSessionEpoch: deps.getSessionEpoch }));
 vi.mock('../../browser/storage/viewer-cache', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../browser/storage/viewer-cache')>()), saveCachedViewer: deps.saveCachedViewer }));
+vi.mock('../../browser/storage/activity-history', () => ({ dropOtherAccountActivity: deps.dropOtherAccountActivity }));
 
 const { getViewer } = await import('./viewer');
 
@@ -33,6 +35,8 @@ describe('getViewer (profil et statistiques du menu du compte)', () => {
     deps.getSessionEpoch.mockResolvedValue(2);
     deps.saveCachedViewer.mockReset();
     deps.saveCachedViewer.mockResolvedValue(true);
+    deps.dropOtherAccountActivity.mockReset();
+    deps.dropOtherAccountActivity.mockResolvedValue(undefined);
   });
 
   it('une seule requête Viewer : profil et statistics.anime (count, épisodes, minutes → jours), mis en cache avec la génération', async () => {
@@ -99,5 +103,17 @@ describe('getViewer (profil et statistiques du menu du compte)', () => {
     deps.saveCachedViewer.mockResolvedValue(false);
     answer({ Viewer: { id: 5, name: 'Kai', siteUrl: 'https://anilist.co/user/Kai', statistics: { anime: { count: 1, episodesWatched: 1, minutesWatched: 24 } } } });
     await expect(getViewer()).resolves.toMatchObject({ ok: false, code: 'NOT_AUTHENTICATED' });
+    expect(deps.dropOtherAccountActivity).not.toHaveBeenCalled();
+  });
+
+  it('profil enregistré : part d’activité d’un autre compte AniList retirée', async () => {
+    answer({ Viewer: { id: 5, name: 'Kai', siteUrl: 'https://anilist.co/user/Kai', statistics: null } });
+    await expect(getViewer()).resolves.toMatchObject({ ok: true, data: { id: 5 } });
+    expect(deps.dropOtherAccountActivity).toHaveBeenCalledWith('anilist', 5);
+    // Échec du stockage de l'historique : le profil reste renvoyé
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    deps.dropOtherAccountActivity.mockRejectedValueOnce(new Error('stockage illisible'));
+    await expect(getViewer()).resolves.toMatchObject({ ok: true, data: { id: 5 } });
+    vi.restoreAllMocks();
   });
 });

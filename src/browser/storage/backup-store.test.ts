@@ -77,3 +77,15 @@ describe('applyBackup — suggestions écartées', () => {
     expect(stored['reco:dismissed']).toEqual([7, 8]);
   });
 });
+
+describe('applyBackup — historique d’activité', () => {
+  it('applyBackup écrit activityHistory', async () => {
+    // Identifiants de compte fictifs
+    const stored = fakeBrowser(true, { 'stats:activityHistory': { anilist: { accountId: 7, days: { '2026-10-15': [1, 24] } } } });
+    const incoming = buildBackup({ activityHistory: { anilist: { accountId: 7, days: { '2026-10-14': [2, 48] } } } }, '2.5.0', new Date()).data;
+    await applyBackup(incoming, 'merge', false);
+    expect(stored['stats:activityHistory']).toEqual({ anilist: { accountId: 7, days: { '2026-10-14': [2, 48], '2026-10-15': [1, 24] } } });
+    await applyBackup(incoming, 'replace', false);
+    expect(stored['stats:activityHistory']).toEqual({ anilist: { accountId: 7, days: { '2026-10-14': [2, 48] } } });
+  });
+});

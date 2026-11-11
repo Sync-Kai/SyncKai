@@ -303,6 +303,48 @@ describe('« Synchro cette semaine » du menu du compte', () => {
   });
 });
 
+describe('historique d’activité (écran Stats)', () => {
+  const HISTORY_KEY = 'stats:activityHistory';
+  const today = (): string => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+
+  beforeEach(async () => {
+    // Profils en cache (identifiants fictifs) : le compte de chaque part
+    await fake.local.set({ anilistViewer: { id: 7, name: 'A', siteUrl: 'https://anilist.co/user/7', avatarUrl: null }, malViewer: { id: 9, name: 'M', pictureUrl: null } });
+    fakes.getAnimeByIds = async (ids) => ids.filter((id) => catalog.has(id)).map((id) => ({ ...media(id), duration: 24 }));
+  });
+
+  it('synchro réussie : épisode et durée de la fiche dans l’historique ; correction : rien', async () => {
+    connect({ status: 'CURRENT', progress: 5 }, { status: 'CURRENT', progress: 6 });
+    fakes.resolutions = [resolved(PART1, 6)];
+    await syncEpisode(episode(6));
+    // MAL déjà à jour : non compté
+    expect(fake.local.peek(HISTORY_KEY)).toEqual({ anilist: { accountId: 7, days: { [today()]: [1, 24] } } });
+
+    await savePendingReview(review({ episode: episode(6), suggestion: { mediaId: PART1, progress: 5 }, previous: { mediaId: PART1, title: 'Fiche 1001', progress: 6 } }));
+    await resolveReview({ key: KEY, mediaId: PART1, progress: 5 });
+    expect(anilist.entries.get(PART1)?.progress).toBe(5);
+    expect(fake.local.peek(HISTORY_KEY)).toEqual({ anilist: { accountId: 7, days: { [today()]: [1, 24] } } });
+  });
+
+  it('échec de l’historique : synchro réussie quand même', async () => {
+    connect({ status: 'CURRENT', progress: 5 });
+    const set = fake.local.set;
+    vi.spyOn(fake.local, 'set').mockImplementation(async (items) => {
+      if (HISTORY_KEY in items) throw new Error('quota dépassé');
+      return set(items);
+    });
+    fakes.resolutions = [resolved(PART1, 6)];
+    const outcome = await syncEpisode(episode(6));
+    expect(outcome).toMatchObject({ status: 'synced' });
+    expect(resultOf(outcome, 'anilist')).toMatchObject({ status: 'updated' });
+    expect(fake.local.peek(HISTORY_KEY)).toBeUndefined();
+    expect(await getWeeklySyncCount('anilist')).toBe(1);
+  });
+});
+
 describe('correction (« Corriger ») : jamais sur une valeur périmée (BAK-01)', () => {
   const correction = review({ episode: episode(5), suggestion: { mediaId: PART1, progress: 5 }, previous: { mediaId: PART1, title: 'Fiche 1001', progress: 5 } });
 

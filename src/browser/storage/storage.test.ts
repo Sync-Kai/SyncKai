@@ -123,6 +123,7 @@ function seedEverything(): void {
     [STORAGE_KEYS.mediaMappings]: { 'crunchyroll:GSERIES1:s1': { mediaId: 1, numbering: 'season', offset: 0, episodes: 12 } },
     [STORAGE_KEYS.pendingReviews]: [review(1)],
     [STORAGE_KEYS.recentSyncs]: [recent(1, BOTH)],
+    [STORAGE_KEYS.activityHistory]: { anilist: { accountId: 1, days: { '2026-10-15': [1, 24] } } },
     [STORAGE_KEYS.watchingCache]: { anilist: { service: 'anilist' }, mal: { service: 'mal' } },
     [STORAGE_KEYS.sessionEpoch]: { anilist: 0, mal: 0 },
     [STORAGE_KEYS.compareLast]: {},
@@ -212,7 +213,7 @@ describe('ensemble exact des clés effacées à la fin d’une session (registre
     const before = seedAll();
     await storage.clearAniListSession();
     await storage.clearMalSession();
-    expect(await storage.clearUserSyncDataIfNoSession()).toBe(true);
+    expect(await storage.clearUserSyncDataIfNoSession('sign-out')).toBe(true);
     const removed = before.filter((key) => !store.has(key)).sort();
     expect(removed).toEqual(
       [
@@ -225,6 +226,7 @@ describe('ensemble exact des clés effacées à la fin d’une session (registre
         ...ACCOUNT_KEYS,
         'pendingReviews',
         'recentSyncs',
+        'stats:activityHistory',
         'watchingCache',
         'syncQueue',
         'pendingRatings',
@@ -305,7 +307,7 @@ describe('clearUserSyncDataIfNoSession (DATA-01, DATA-06)', () => {
     seedEverything();
     store.set(STORAGE_KEYS.anilistToken, { accessToken: 'anilist', expiresAt: 1 });
     await storage.clearMalSession();
-    expect(await storage.clearUserSyncDataIfNoSession()).toBe(false);
+    expect(await storage.clearUserSyncDataIfNoSession('sign-out')).toBe(false);
     expect(store.has(SYNC_QUEUE_KEY)).toBe(true);
     expect(store.has(PLATFORM_LINKS_KEY)).toBe(true);
   });
@@ -314,7 +316,7 @@ describe('clearUserSyncDataIfNoSession (DATA-01, DATA-06)', () => {
     seedEverything();
     store.delete(STORAGE_KEYS.malToken);
     await storage.clearAniListSession();
-    expect(await storage.clearUserSyncDataIfNoSession()).toBe(true);
+    expect(await storage.clearUserSyncDataIfNoSession('sign-out')).toBe(true);
     expect(store.has(STORAGE_KEYS.pendingReviews)).toBe(false);
     expect(store.has(PLATFORM_LINKS_KEY)).toBe(false);
     expect(store.has('airingWeek:2026-10-12')).toBe(false);
@@ -469,6 +471,37 @@ describe('écritures sous session (ARCH-17, AUTH-04, DATA-05)', () => {
   });
 });
 
+describe('fin de session et historique d’activité (écran Stats)', () => {
+  const HISTORY = { anilist: { accountId: 7, days: { '2026-10-15': [1, 24] } } };
+
+  it('jeton refusé du dernier compte : historique d’activité gardé ; déconnexion du dernier compte : effacé', async () => {
+    const { endSession, endSessionIfToken } = await import('./session-end');
+    seedEverything();
+    store.delete(STORAGE_KEYS.malToken);
+    store.set(STORAGE_KEYS.activityHistory, HISTORY);
+    expect(await endSessionIfToken('anilist', 'anilist')).toBe(true);
+    // Le reste des données de l'utilisateur part comme avant (semaines de l'agenda comprises)
+    const { keysClearedOnLastSession } = await import('./account-keys');
+    for (const key of keysClearedOnLastSession('sign-out')) if (key !== STORAGE_KEYS.activityHistory) expect(store.has(key), key).toBe(false);
+    expect(store.has('airingWeek:2026-10-12')).toBe(false);
+    expect(store.get(STORAGE_KEYS.activityHistory)).toEqual(HISTORY);
+
+    // Reconnexion au même compte puis déconnexion volontaire du dernier compte : l'historique part
+    store.set(STORAGE_KEYS.anilistToken, ANILIST_TOKEN);
+    await endSession('anilist');
+    expect(store.has(STORAGE_KEYS.activityHistory)).toBe(false);
+  });
+
+  it('déconnexion d’un service, l’autre encore connecté : historique gardé', async () => {
+    const { endSession } = await import('./session-end');
+    seedEverything();
+    store.set(STORAGE_KEYS.activityHistory, HISTORY);
+    await endSession('anilist');
+    expect(store.get(STORAGE_KEYS.activityHistory)).toEqual(HISTORY);
+    expect(await storage.clearUserSyncDataIfNoSession('expired')).toBe(false);
+  });
+});
+
 describe('token refusé (AUTH-02)', () => {
   it('clearAniListSessionIfToken : n’efface que le token refusé, une reconnexion entre-temps est conservée', async () => {
     seedEverything();
@@ -505,7 +538,7 @@ describe('indicateur « Session expirée » (AUTH-03)', () => {
     expect(await storage.isSessionExpired('anilist')).toBe(true);
     expect(await storage.isSessionExpired('mal')).toBe(true);
     // Les données de l'utilisateur (plus aucune session ouverte) n'emportent pas l'indicateur
-    await storage.clearUserSyncDataIfNoSession();
+    await storage.clearUserSyncDataIfNoSession('sign-out');
     expect(store.get(SESSION_EXPIRED_KEYS.anilist)).toBe(true);
 
     await storage.saveToken(ANILIST_TOKEN);

@@ -8,7 +8,7 @@ import { isSyncQueueItem, restrictToSession } from '../../shared/queue.types';
 import { openWeeklySyncs } from '../../shared/weekly-syncs';
 import { openKeepMarks } from './dormant-keep';
 import { liveServices, type SessionEpochs } from '../../shared/session-epochs';
-import { keysClearedOnLastSession, keysClearedOnSessionEnd, prefixesClearedOnLastSession } from './account-keys';
+import { keysClearedOnLastSession, keysClearedOnSessionEnd, prefixesClearedOnLastSession, type SessionEndReason } from './account-keys';
 import { withStorageLock } from './lock';
 import { clearSessionCaches } from './session-cache';
 import { createLogger } from '../logger';
@@ -66,11 +66,11 @@ export function clearAniListSessionIfToken(accessToken: string): Promise<boolean
   });
 }
 
-/** Clés propres à l'utilisateur, sans verrou (voir clearUserSyncData) */
-async function removeUserSyncData(): Promise<void> {
+/** Clés propres à l'utilisateur, sans verrou (voir clearUserSyncData) ; `expired` garde l'historique d'activité */
+async function removeUserSyncData(reason: SessionEndReason = 'sign-out'): Promise<void> {
   // Semaines de l'agenda en cache (`airingWeek:<date>`, voir agenda.ts) : elles reflètent la liste de l'utilisateur
   const weeks = await storedKeysWithPrefix(prefixesClearedOnLastSession());
-  await chrome.storage.local.remove([...keysClearedOnLastSession(), ...weeks]);
+  await chrome.storage.local.remove([...keysClearedOnLastSession(reason), ...weeks]);
   await removeSessionCaches();
 }
 
@@ -92,18 +92,18 @@ async function removeSessionCaches(): Promise<void> {
  * service de suivi n'est connecté (déconnexion du dernier compte).
  */
 export function clearUserSyncData(): Promise<void> {
-  return withStorageLock(removeUserSyncData);
+  return withStorageLock(() => removeUserSyncData());
 }
 
 /**
  * Après une déconnexion ou un token refusé : efface les données de l'utilisateur si plus aucune session n'est
- * ouverte. Un token AniList seulement expiré garde sa session (« Reconnecter ») : rien n'est effacé. Retourne true
- * si les données ont été effacées.
+ * ouverte. Un token AniList seulement expiré garde sa session (« Reconnecter ») : rien n'est effacé. `expired`
+ * (token refusé ou illisible) garde l'historique d'activité. Retourne true si les données ont été effacées.
  */
-export function clearUserSyncDataIfNoSession(): Promise<boolean> {
+export function clearUserSyncDataIfNoSession(reason: SessionEndReason): Promise<boolean> {
   return withStorageLock(async () => {
     if (Object.keys(await getOpenSessions()).length > 0) return false;
-    await removeUserSyncData();
+    await removeUserSyncData(reason);
     return true;
   });
 }

@@ -21,7 +21,12 @@ export interface AccountBoundStore {
   keys: readonly string[];
   /** Clés dont seul le préfixe est connu (une par semaine : `airingWeek:<date>`) */
   prefixes?: readonly string[];
+  /** Scope `user` : gardée quand la dernière session expire (jeton refusé ou illisible), effacée à la dernière déconnexion */
+  keepOnExpiry?: true;
 }
+
+/** Fin de la dernière session : déconnexion volontaire, ou session expirée (jeton refusé ou illisible) */
+export type SessionEndReason = 'sign-out' | 'expired';
 
 export const ACCOUNT_STORES: readonly AccountBoundStore[] = [
   { name: 'anilist-session', scope: { kind: 'service', service: 'anilist' }, keys: [STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer, STORAGE_KEYS.anilistViewerAt] },
@@ -42,6 +47,9 @@ export const ACCOUNT_STORES: readonly AccountBoundStore[] = [
   { name: 'weekly-syncs', scope: { kind: 'user' }, keys: [STORAGE_KEYS.weeklySyncs] },
   // Marques « Garder » des séries dormantes (la part de chaque service est retirée à sa déconnexion par purgeClosedSessions)
   { name: 'dormant-keep', scope: { kind: 'user' }, keys: [STORAGE_KEYS.watchingKeptDormant] },
+  // Historique d'activité de l'écran Stats : lié au compte par son identifiant (part d'un autre compte retirée à la
+  // lecture de son profil), gardé quand la session expire (jusqu'à 400 jours), effacé à la dernière déconnexion
+  { name: 'activity-history', scope: { kind: 'user' }, keys: [STORAGE_KEYS.activityHistory], keepOnExpiry: true },
   // Liste « En cours » de chaque service : l'entrée du service déconnecté est retirée à sa déconnexion (removeCachedWatching)
   { name: 'watching-cache', scope: { kind: 'user' }, keys: [STORAGE_KEYS.watchingCache] },
   { name: 'sync-queue', scope: { kind: 'user' }, keys: [SYNC_QUEUE_KEY, PENDING_RATINGS_KEY, REWATCH_DECLINED_KEY] },
@@ -67,9 +75,12 @@ export function keysClearedOnSessionEnd(service: TrackerId): string[] {
   return ACCOUNT_STORES.filter(({ scope }) => (scope.kind === 'service' && scope.service === service) || scope.kind === 'account').flatMap(({ keys }) => keys);
 }
 
-/** Clés effacées quand plus aucune session n'est ouverte : données du compte et de l'utilisateur, jamais les jetons */
-export function keysClearedOnLastSession(): string[] {
-  return ACCOUNT_STORES.filter(({ scope }) => scope.kind !== 'service').flatMap(({ keys }) => keys);
+/**
+ * Clés effacées quand plus aucune session n'est ouverte : données du compte et de l'utilisateur, jamais les jetons ;
+ * `expired` garde les clés `keepOnExpiry`
+ */
+export function keysClearedOnLastSession(reason: SessionEndReason = 'sign-out'): string[] {
+  return ACCOUNT_STORES.filter(({ scope, keepOnExpiry }) => scope.kind !== 'service' && !(reason === 'expired' && keepOnExpiry)).flatMap(({ keys }) => keys);
 }
 
 /** Préfixes des clés effacées quand plus aucune session n'est ouverte */

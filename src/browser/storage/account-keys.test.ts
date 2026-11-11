@@ -24,6 +24,17 @@ describe('registre des données du compte', () => {
     expect(keysClearedOnLastSession()).toContain(STORAGE_KEYS.recoDismissed);
   });
 
+  it('activity-history : scope user, gardée quand la dernière session expire, effacée à la dernière déconnexion', () => {
+    expect(STORAGE_KEYS.activityHistory).toBe('stats:activityHistory');
+    expect(ACCOUNT_STORES.find(({ name }) => name === 'activity-history')).toEqual({ name: 'activity-history', scope: { kind: 'user' }, keys: [STORAGE_KEYS.activityHistory], keepOnExpiry: true });
+    expect(keysClearedOnLastSession('expired')).not.toContain(STORAGE_KEYS.activityHistory);
+    expect(keysClearedOnLastSession('sign-out')).toContain(STORAGE_KEYS.activityHistory);
+    expect(keysClearedOnLastSession()).toContain(STORAGE_KEYS.activityHistory);
+    expect(keysClearedOnSessionEnd('anilist')).not.toContain(STORAGE_KEYS.activityHistory);
+    // Seul l'historique d'activité survit à l'expiration : les autres clés de l'utilisateur partent comme avant
+    expect(keysClearedOnLastSession('sign-out').filter((key) => !keysClearedOnLastSession('expired').includes(key))).toEqual([STORAGE_KEYS.activityHistory]);
+  });
+
   it('aucune clé déclarée deux fois ; les clés globales sont de vraies clés de STORAGE_KEYS', () => {
     expect(new Set(accountKeys).size).toBe(accountKeys.length);
     for (const key of Object.keys(GLOBAL_STORAGE_KEYS)) expect(Object.values(STORAGE_KEYS), key).toContain(key);

@@ -15,6 +15,7 @@ const data = (patch: Partial<BackupData> = {}): BackupData => ({
   pendingRatings: [],
   rewatchDeclined: { 'anilist:1': 1, 'mal:2': 2 },
   recoDismissed: [],
+  activityHistory: {},
   ...patch,
 });
 
