@@ -90,6 +90,13 @@ function harness(options: { anilist?: AccountState<unknown>; mal?: AccountState<
   return { stores, refresh, saved, controller };
 }
 
+/** Vue publiée (null avant la fin des premières lectures) */
+function viewOf(controller: Harness['controller']) {
+  const view = controller.store.get();
+  if (view === null) throw new Error('vue pas encore publiée');
+  return view;
+}
+
 /** Lectures du stockage et requêtes du show() terminées */
 const settle = async (): Promise<void> => {
   for (let i = 0; i < 10; i++) await new Promise((resolve) => setTimeout(resolve, 0));
@@ -114,33 +121,45 @@ describe('createStatsController', () => {
     const { controller, saved } = harness({ prefs: { ...DEFAULT_SECTION_PREFS, statsService: 'mal' } });
     controller.show();
     await settle();
-    expect(controller.store.get()).toMatchObject({ service: 'mal', services: ['anilist', 'mal'] });
+    expect(viewOf(controller)).toMatchObject({ service: 'mal', services: ['anilist', 'mal'] });
     controller.setService('anilist');
-    expect(controller.store.get().service).toBe('anilist');
+    expect(viewOf(controller).service).toBe('anilist');
     expect(saved).toEqual([{ statsService: 'anilist' }]);
 
     // Préférence MAL sans compte MAL : le service par défaut
     const alone = harness({ prefs: { ...DEFAULT_SECTION_PREFS, statsService: 'mal' }, mal: LOGGED_OUT, defaultService: 'anilist' });
     alone.controller.show();
     await settle();
-    expect(alone.controller.store.get().service).toBe('anilist');
+    expect(viewOf(alone.controller).service).toBe('anilist');
     // Sans préférence : defaultService (watching.activeService())
     const fallback = harness({ defaultService: 'mal' });
     fallback.controller.show();
     await settle();
-    expect(fallback.controller.store.get().service).toBe('mal');
+    expect(viewOf(fallback.controller).service).toBe('mal');
+  });
+
+  it('premier affichage : rien de publié avant la fin des lectures (pas d’activité vide ni de service par défaut)', async () => {
+    const { controller } = harness({ prefs: { ...DEFAULT_SECTION_PREFS, statsService: 'mal' } });
+    const published: unknown[] = [];
+    controller.store.subscribe((view) => published.push(view));
+    controller.show();
+    expect(controller.store.get()).toBeNull();
+    await settle();
+    // Première vue publiée : celle des données lues (MAL retenu, son activité et son « En cours »)
+    expect(published.filter((view) => view !== null)[0]).toMatchObject({ service: 'mal', activity: { episodes: 1 }, remaining: '≈ 25 min à rattraper · 1 série' });
+    expect(published.slice(0, 1)).toEqual([null]);
   });
 
   it('un seul compte : services de longueur 1', async () => {
     const { controller } = harness({ anilist: LOGGED_OUT, defaultService: null });
     controller.show();
     await settle();
-    expect(controller.store.get()).toMatchObject({ service: 'mal', services: ['mal'] });
+    expect(viewOf(controller)).toMatchObject({ service: 'mal', services: ['mal'] });
     // Aucun compte : service null
     const none = harness({ anilist: LOGGED_OUT, mal: LOGGED_OUT, defaultService: null });
     none.controller.show();
     await settle();
-    expect(none.controller.store.get()).toMatchObject({ service: null, services: [] });
+    expect(viewOf(none.controller)).toMatchObject({ service: null, services: [] });
   });
 
   it('show : profil relu une fois s’il date de plus d’une heure, jamais sinon', async () => {
@@ -160,7 +179,7 @@ describe('createStatsController', () => {
     await settle();
     expect(stale.refresh).toHaveBeenCalledTimes(1);
     expect(stale.refresh).toHaveBeenCalledWith('anilist');
-    expect(stale.controller.store.get().refreshing).toBe(false);
+    expect(viewOf(stale.controller).refreshing).toBe(false);
   });
 
   it('profil en cache sans profile : totaux affichés, une relecture, blocs remplis à l’arrivée', async () => {
@@ -180,13 +199,13 @@ describe('createStatsController', () => {
     await settle();
     // Profil récent (10 min) mais sans statistiques détaillées : relu une fois, les totaux restent affichés
     expect(refresh).toHaveBeenCalledTimes(1);
-    const during = controller.store.get();
+    const during = viewOf(controller);
     expect(during.refreshing).toBe(true);
     expect(during.account.status === 'logged-in' && during.account.viewer?.stats).toEqual(ANILIST.stats);
     expect(during.account.status === 'logged-in' && during.account.viewer?.profile).toBeUndefined();
     release();
     await settle();
-    const after = controller.store.get();
+    const after = viewOf(controller);
     expect(after.refreshing).toBe(false);
     expect(after.account.status === 'logged-in' && after.account.viewer?.profile).toEqual(PROFILE);
     controller.show();
@@ -199,16 +218,16 @@ describe('createStatsController', () => {
     const { controller } = harness();
     controller.show();
     await settle();
-    const month = controller.store.get();
+    const month = viewOf(controller);
     expect(month.period).toBe('30d');
     expect(month.activity).toMatchObject({ episodes: 5, minutes: 120, unit: 'day' });
     expect(month.activity.bars).toHaveLength(30);
     const get = vi.spyOn(chrome.storage.local, 'get');
     controller.setPeriod('7d');
-    expect(controller.store.get().period).toBe('7d');
-    expect(controller.store.get().activity.bars).toHaveLength(7);
+    expect(viewOf(controller).period).toBe('7d');
+    expect(viewOf(controller).activity.bars).toHaveLength(7);
     controller.setPeriod('12m');
-    expect(controller.store.get().activity).toMatchObject({ unit: 'month', episodes: 5 });
+    expect(viewOf(controller).activity).toMatchObject({ unit: 'month', episodes: 5 });
     expect(get).not.toHaveBeenCalled();
   });
 
@@ -217,10 +236,10 @@ describe('createStatsController', () => {
     controller.show();
     await settle();
     await fake.local.set({ [STORAGE_KEYS.activityHistory]: { ...HISTORY, anilist: { accountId: 7, days: { '2026-11-11': [9, 200] } } } });
-    expect(controller.store.get().activity.episodes).toBe(5);
+    expect(viewOf(controller).activity.episodes).toBe(5);
     controller.reloadActivity();
     await settle();
-    expect(controller.store.get().activity).toMatchObject({ episodes: 9, minutes: 200 });
+    expect(viewOf(controller).activity).toMatchObject({ episodes: 9, minutes: 200 });
   });
 
   it('part d’un autre compte : activité vide', async () => {
@@ -228,9 +247,9 @@ describe('createStatsController', () => {
     const { controller } = harness({ anilist: { status: 'logged-in', viewer: { ...ANILIST, id: 8 }, error: null } });
     controller.show();
     await settle();
-    expect(controller.store.get().activity).toMatchObject({ episodes: 0, minutes: 0, firstDay: null });
+    expect(viewOf(controller).activity).toMatchObject({ episodes: 0, minutes: 0, firstDay: null });
     controller.setService('mal');
-    expect(controller.store.get().activity.episodes).toBe(1);
+    expect(viewOf(controller).activity.episodes).toBe(1);
   });
 
   it('session expirée : activité locale du compte en cache toujours calculée', async () => {
@@ -238,8 +257,8 @@ describe('createStatsController', () => {
     const { controller } = harness({ anilist: { ...LOGGED_OUT, expired: true } });
     controller.show();
     await settle();
-    expect(controller.store.get()).toMatchObject({ service: 'anilist', services: ['anilist', 'mal'], account: { status: 'logged-out', expired: true } });
-    expect(controller.store.get().activity.episodes).toBe(5);
+    expect(viewOf(controller)).toMatchObject({ service: 'anilist', services: ['anilist', 'mal'], account: { status: 'logged-out', expired: true } });
+    expect(viewOf(controller).activity.episodes).toBe(5);
   });
 
   it('remaining : formatRemainingTotal du cache du service affiché', async () => {
@@ -247,14 +266,14 @@ describe('createStatsController', () => {
     controller.show();
     await settle();
     // AniList : 16 + 3 épisodes de 24 min = 7,6 h → « ≈ 7,5 h » ; MAL : 1 épisode
-    expect(controller.store.get().remaining).toBe('≈ 7,5 h à rattraper · 2 séries');
+    expect(viewOf(controller).remaining).toBe('≈ 7,5 h à rattraper · 2 séries');
     controller.setService('mal');
-    expect(controller.store.get().remaining).toBe('≈ 25 min à rattraper · 1 série');
+    expect(viewOf(controller).remaining).toBe('≈ 25 min à rattraper · 1 série');
     // Aucune série à rattraper : null
     await fake.local.set({ [STORAGE_KEYS.watchingCache]: {} });
     controller.show();
     await settle();
-    expect(controller.store.get().remaining).toBeNull();
+    expect(viewOf(controller).remaining).toBeNull();
   });
 
   it('dispose : plus aucune mise à jour', async () => {
@@ -263,6 +282,6 @@ describe('createStatsController', () => {
     await settle();
     controller.dispose();
     stores.mal.set(LOGGED_OUT);
-    expect(controller.store.get().services).toEqual(['anilist', 'mal']);
+    expect(viewOf(controller).services).toEqual(['anilist', 'mal']);
   });
 });

@@ -38,7 +38,8 @@ export interface StatsView {
 }
 
 export interface StatsController {
-  readonly store: ReadonlyStore<StatsView>;
+  /** null jusqu'à la fin des premières lectures (jamais une activité vide ou le service par défaut à tort) */
+  readonly store: ReadonlyStore<StatsView | null>;
   /** Écran affiché : historique et cache relus, profil relu s'il date de plus d'une heure (menuNeedsRefresh) */
   show(): void;
   /** Retenu dans les préférences du popup */
@@ -69,7 +70,8 @@ export function createStatsController(deps: StatsControllerDeps): StatsControlle
   let chosen: TrackerId | null = null;
   let period: StatsPeriod = DEFAULT_STATS_PERIOD;
   let prefsRead: Promise<void> | null = null;
-  let shown = false;
+  /** Premières lectures terminées (historique, caches, préférences) : la vue est publiée à partir de là */
+  let loaded = false;
   let disposed = false;
   /** Services dont la fraîcheur du profil a été jugée (une relecture au plus par ouverture du popup) */
   const checked = new Set<TrackerId>();
@@ -109,14 +111,14 @@ export function createStatsController(deps: StatsControllerDeps): StatsControlle
     };
   }
 
-  const store = createStore<StatsView>(view());
+  const store = createStore<StatsView | null>(null);
 
   function update(): void {
-    if (disposed) return;
+    if (disposed || !loaded) return;
     const next = view();
     store.set(next);
     // Profil arrivé après l'affichage (lecture des sessions en cours à l'ouverture) : fraîcheur jugée à ce moment
-    if (shown && next.service !== null) void ensureFresh(next.service);
+    if (next.service !== null) void ensureFresh(next.service);
   }
 
   async function ensureFresh(service: TrackerId): Promise<void> {
@@ -161,11 +163,12 @@ export function createStatsController(deps: StatsControllerDeps): StatsControlle
   return {
     store,
     show() {
-      shown = true;
-      load().then(update, (error: unknown) => {
-        log.warn('Statistiques illisibles :', error);
-        update();
-      });
+      load()
+        .catch((error: unknown) => log.warn('Statistiques illisibles :', error))
+        .finally(() => {
+          loaded = true;
+          update();
+        });
     },
     setService(service) {
       chosen = service;

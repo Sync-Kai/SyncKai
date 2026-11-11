@@ -727,7 +727,7 @@ mountPopupApp(getRoot(), {
     onPeriod: (period) => stats?.setPeriod(period),
     onReconnect: (service) => void accounts.login(service),
     onRetry: () => {
-      const service = stats?.store.get().service;
+      const service = stats?.store.get()?.service;
       if (service) void accounts.refresh(service);
     },
     onOpenAccounts: () => navigate('settings', 'accounts'),
