@@ -44,10 +44,24 @@ describe('recordActivity / getActivityHistory', () => {
     await recordActivity(['anilist', 'mal'], { anilist: 0, mal: 0 }, 24, THU);
     await dropOtherAccountActivity('anilist', 7);
     await expect(getActivityHistory()).resolves.toHaveProperty('anilist');
+    // Profil du compte 8 enregistré (comme getViewer juste avant l'appel)
+    await fake.local.set({ [STORAGE_KEYS.anilistViewer]: { ...VIEWERS[STORAGE_KEYS.anilistViewer], id: 8 }, [STORAGE_KEYS.malViewer]: { ...VIEWERS[STORAGE_KEYS.malViewer], id: 10 } });
     await dropOtherAccountActivity('anilist', 8);
     await expect(getActivityHistory()).resolves.toEqual({ mal: { accountId: 9, days: { '2026-10-15': [1, 24] } } });
     // Dernière part retirée : clé retirée
     await dropOtherAccountActivity('mal', 10);
     expect(fake.local.peek(STORAGE_KEYS.activityHistory)).toBeUndefined();
+  });
+
+  it('dropOtherAccountActivity : profil en cache d’un autre compte que accountId (remplacé entre-temps) → rien retiré', async () => {
+    await recordActivity(['anilist', 'mal'], { anilist: 0, mal: 0 }, 24, THU);
+    // Le profil 8 a été enregistré puis remplacé par le 7 avant l'entrée dans le verrou : la part du 7 reste
+    await dropOtherAccountActivity('anilist', 8);
+    await expect(getActivityHistory()).resolves.toHaveProperty('anilist.accountId', 7);
+    fake.reset({ ...BOTH });
+    await fake.local.set({ [STORAGE_KEYS.activityHistory]: { mal: { accountId: 9, days: { '2026-10-15': [1, 24] } } } });
+    // Plus de profil en cache : rien retiré non plus
+    await dropOtherAccountActivity('mal', 10);
+    await expect(getActivityHistory()).resolves.toHaveProperty('mal.accountId', 9);
   });
 });

@@ -33,9 +33,12 @@ export async function getActivityHistory(): Promise<ActivityHistory> {
   return readActivityHistory((await chrome.storage.local.get(STORAGE_KEYS.activityHistory))[STORAGE_KEYS.activityHistory]);
 }
 
-/** Profil de `accountId` enregistré sur `service` : la part d'un autre compte est retirée (clé retirée sans part restante) */
+/** Profil de `accountId` enregistré sur `service` : la part d'un autre compte est retirée (clé retirée sans part restante) ; profil en cache d'un autre compte ou absent : rien */
 export function dropOtherAccountActivity(service: TrackerId, accountId: number): Promise<void> {
   return withStorageLock(async () => {
+    // Profil remplacé (ou effacé) avant l'entrée dans le verrou : la part n'est pas jugée sur un compte qui n'est plus là
+    const viewer = service === 'anilist' ? await getCachedViewer() : await getCachedMalViewer();
+    if (viewer === null || viewer.id !== accountId) return;
     const raw: unknown = (await chrome.storage.local.get(STORAGE_KEYS.activityHistory))[STORAGE_KEYS.activityHistory];
     const next = withoutOtherAccount(raw, service, accountId);
     if (next === null) return;

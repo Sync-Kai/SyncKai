@@ -135,13 +135,15 @@ export function mergeActivityHistory(current: ActivityHistory, incoming: Activit
 
 /**
  * Part d'un autre compte (ou accountId null) : résumé vide. 7d / 30d : une barre par jour ; 12m : par mois ; all : par
- * mois depuis le premier jour enregistré. Jours futurs ignorés
+ * mois depuis le premier jour enregistré. Jours futurs et de plus de 400 jours ignorés
  */
 export function activitySummary(history: ActivityHistory, service: TrackerId, accountId: number | null, period: StatsPeriod, now: number): ActivitySummary {
   const part = history[service];
   const days = part !== undefined && accountId !== null && part.accountId === accountId ? part.days : {};
   const today = dayKeyFrom(now, 0);
-  const past = Object.keys(days).filter((key) => key <= today).sort();
+  // Jours des 400 derniers seulement : une sauvegarde ancienne ou forgée ne donne jamais des centaines de barres
+  const oldest = dayKeyFrom(now, 1 - ACTIVITY_DAYS);
+  const past = Object.keys(days).filter((key) => key >= oldest && key <= today).sort();
   const firstDay = past[0] ?? null;
   const unit = period === '7d' || period === '30d' ? 'day' : 'month';
 

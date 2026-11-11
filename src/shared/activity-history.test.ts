@@ -117,6 +117,16 @@ describe('activitySummary', () => {
     expect(activitySummary({}, 'mal', 9, 'all', now)).toEqual({ episodes: 0, minutes: 0, firstDay: null, unit: 'month', bars: [] });
     expect(activitySummary({}, 'mal', 9, '12m', now).bars).toHaveLength(12);
   });
+
+  it('jours de plus de 400 jours (sauvegarde ancienne ou forgée) : hors des résumés, « tout » borné', () => {
+    const now = local(2026, 10, 15);
+    // 400 jours en comptant aujourd'hui : du 2025-09-11 au 2026-10-15
+    const history: ActivityHistory = { mal: { accountId: 9, days: { '2001-01-01': [5, 100], '2025-09-10': [2, 40], '2025-09-11': [1, 20], '2026-10-01': [1, 24] } } };
+    const all = activitySummary(history, 'mal', 9, 'all', now);
+    expect(all).toMatchObject({ episodes: 2, minutes: 44, firstDay: '2025-09-11' });
+    expect(all.bars[0]?.key).toBe('2025-09');
+    expect(all.bars).toHaveLength(14);
+  });
 });
 
 describe('withoutOtherAccount', () => {
