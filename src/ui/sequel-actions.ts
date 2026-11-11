@@ -1,6 +1,5 @@
 import type { SequelRecord } from '../shared/sequels';
 import type { SyncOutcome } from '../shared/sync.types';
-import type { TrackerId } from '../shared/tracker.types';
 import { callWorker, outcomeFailure } from './worker-call';
 
 // Actions sur les suites annoncées, partagées par le popup (Activité) et le panneau (Agenda) : messages au service worker
@@ -15,11 +14,6 @@ export type SequelAddResult = { kind: 'ended'; notOnMal: boolean; inList: boolea
 /** Mention d'une alerte terminée, gardée sur la ligne jusqu'à la fermeture de la page */
 export function sequelEndedKey(result: { notOnMal: boolean; inList: boolean }): 'sequel.notOnMal' | 'sequel.inList' | 'sequel.added' {
   return result.notOnMal ? 'sequel.notOnMal' : result.inList ? 'sequel.inList' : 'sequel.added';
-}
-
-/** Seul MyAnimeList est connecté : une suite sans idMal n'a pas d'entrée où écrire */
-export function noMalEntry(connected: readonly TrackerId[], idMal: number | null): boolean {
-  return idMal === null && connected.includes('mal') && !connected.includes('anilist');
 }
 
 /** Un service a écrit, ou la suite était déjà dans une liste : l'alerte se termine (règle de la spec : un succès suffit) */

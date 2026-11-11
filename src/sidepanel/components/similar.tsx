@@ -13,7 +13,8 @@ import { choosePlatformLink } from '../../shared/watching';
 import { Button } from '../../ui/components/button';
 import { Collapsible } from '../../ui/components/collapsible';
 import { ServiceLogo } from '../../ui/components/service-logo';
-import { addToPlanning, markRecommendationAdded, noMalEntry, sequelAddResult, sequelEndedKey } from '../../ui/sequel-actions';
+import { noMalEntry } from '../../shared/sequels';
+import { addToPlanning, markRecommendationAdded, sequelAddResult, sequelEndedKey } from '../../ui/sequel-actions';
 import { newTabLabel } from './now-playing-hero';
 
 export interface SimilarProps {

@@ -102,6 +102,11 @@ export function isSequelCheckResult(value: unknown): value is SequelCheckResult 
   );
 }
 
+/** Seul MyAnimeList est connecté : une suite sans idMal n'a pas d'entrée où écrire */
+export function noMalEntry(connected: readonly TrackerId[], idMal: number | null): boolean {
+  return idMal === null && connected.includes('mal') && !connected.includes('anilist');
+}
+
 export const EMPTY_SEQUEL_STORE: SequelStore = { records: [], known: [], seeded: [], lastCheck: null };
 export const MAX_SEQUEL_RECORDS = 200;
 export const MAX_KNOWN_SEQUELS = 2000;

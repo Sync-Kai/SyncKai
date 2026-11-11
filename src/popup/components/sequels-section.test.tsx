@@ -176,6 +176,20 @@ describe('SequelsSection', () => {
     expect($('[data-focus="sequel-add-1"]')).toBeNull();
   });
 
+  it('4 suites, la première ajoutée (AniList ok, MAL en échec) : la ligne reste parmi les 3 affichées avec sa mention', async () => {
+    const all = [1, 2, 3, 4].map((id) => record(id));
+    await mount(all);
+    worker.send.mockImplementation(async (type) => {
+      if (type === 'ADD_TO_LIST') return syncedWith('updated', 'error');
+      store.set(all.slice(1));
+      return true;
+    });
+    await click('[data-focus="sequel-add-1"]');
+    expect(rows()).toEqual(['1', '2', '3']);
+    expect($('[data-sequel="1"]')?.textContent).toContain('not on MyAnimeList yet');
+    expect($('[data-sequels-more]')?.textContent).toBe('1 more announced sequel');
+  });
+
   it('échec total : la ligne reste avec « Retry » et le message, rien n’est retiré', async () => {
     await mount([record(1)]);
     worker.send.mockResolvedValue(syncedWith('error', null));

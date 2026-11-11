@@ -120,6 +120,22 @@ describe('checkSequels', () => {
     expect(fakes.create.mock.calls[0]?.[1].title).toBe('3 suites annoncées');
   });
 
+  it('MAL seul, suite sans idMal : la notification n’offre que « Ouvrir la fiche »', async () => {
+    fake.reset({ ...SEED, [STORAGE_KEYS.anilistToken]: undefined, [STORAGE_KEYS.malToken]: { accessToken: 'm', refreshToken: 'r', expiresAt: Number.MAX_SAFE_INTEGER } });
+    fakes.anilist = [];
+    fakes.catalog.set(500, 900);
+    fakes.mal = [{ malId: 500, mediaId: null, title: 'Titre MAL', coverUrl: null, status: 'COMPLETED', progress: 12, score: null, repeat: 0 } satisfies MalListEntry];
+    await checkSequels(NOW);
+    fakes.sequels.set(900, [{ id: 10, idMal: null }]);
+    expect(await checkSequels(NOW + 25 * HOUR_MS)).toMatchObject({ notified: 1 });
+    expect(fakes.create.mock.calls[0]?.[1].buttons?.map((button) => button.title)).toEqual(['Ouvrir la fiche']);
+    // Avec un idMal, « + À regarder » reste offert
+    fakes.create.mockClear();
+    fakes.sequels.set(900, [{ id: 10, idMal: null }, { id: 11, idMal: 111 }]);
+    await checkSequels(NOW + 50 * HOUR_MS);
+    expect(fakes.create.mock.calls[0]?.[1].buttons?.map((button) => button.title)).toEqual(['+ À regarder', 'Ouvrir la fiche']);
+  });
+
   it('moins de 24 h après lastCheck : not-due sans requête ; force la relance', async () => {
     await seed();
     fakes.relationCalls = 0;

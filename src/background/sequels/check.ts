@@ -6,8 +6,9 @@ import { getSettings } from '../../browser/storage/settings-access';
 import { getOpenSessions, sessionsStillOpen, writeIfSessions } from '../../browser/storage/sessions';
 import { withStorageLock } from '../../browser/storage/lock';
 import { formatSequelDate } from '../../shared/sequel-date';
+import type { TrackerId } from '../../shared/tracker.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
-import { EMPTY_SEQUEL_STORE, isSequelCheckResult, isSequelStore, mergeSequelPass, sequelCandidates, type SequelCheckResult, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
+import { EMPTY_SEQUEL_STORE, isSequelCheckResult, isSequelStore, mergeSequelPass, noMalEntry, sequelCandidates, type SequelCheckResult, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
 import { notificationsBlocked } from '../../browser/notifications';
 import { fetchSequelRelations, readSourceSeries } from './fetch';
 
@@ -34,18 +35,20 @@ export async function readSequelStore(): Promise<SequelStore> {
 }
 
 /** Une notification pour une suite (boutons : ajouter, ouvrir), une seule groupée pour plusieurs. Retourne le nombre annoncé ; lève si refusée. */
-async function notify(sequels: readonly SequelSnapshot[], now: number): Promise<number> {
+async function notify(sequels: readonly SequelSnapshot[], now: number, services: readonly TrackerId[]): Promise<number> {
   const iconUrl = chrome.runtime.getURL('icons/icon-128.png');
   const [first] = sequels;
   if (first === undefined) return 0;
   // Firefox ne gère pas les boutons de notification : le clic ouvre déjà la suite
   if (sequels.length === 1) {
+    // MAL seul et sans idMal : « + À regarder » échouerait toujours, seul « Ouvrir la fiche » reste (bouton 0)
+    const buttons = noMalEntry(services, first.idMal) ? [{ title: t('sequel.notification.openEntry') }] : [{ title: t('sequel.add') }, { title: t('sequel.notification.openEntry') }];
     await chrome.notifications.create(`${SEQUEL_NOTIFICATION_PREFIX}${first.id}`, {
       type: 'basic',
       iconUrl,
       title: t('sequel.notification.single', { title: first.title }),
       message: t('sequel.notification.message', { date: formatSequelDate(first, getLocale()), source: first.sourceTitle }),
-      ...(__SYNCKAI_TARGET__ === 'firefox' ? {} : { buttons: [{ title: t('sequel.add') }, { title: t('sequel.notification.openEntry') }] }),
+      ...(__SYNCKAI_TARGET__ === 'firefox' ? {} : { buttons }),
       priority: 0,
     });
   } else {
@@ -99,7 +102,7 @@ async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<
   if (merged.toNotify.length === 0 || !settings.sequelNotifications) return { ...none, found, skipped: null };
   if (await notificationsBlocked()) return { ...none, found, skipped: 'blocked' };
   try {
-    return { found, notified: await notify(merged.toNotify, now), skipped: null, error: null };
+    return { found, notified: await notify(merged.toNotify, now, services), skipped: null, error: null };
   } catch (error) {
     // L'enregistrement reste « nouveau » : visible dans le panneau, jamais renotifié
     log.warn('Notification de suite non affichée :', error);

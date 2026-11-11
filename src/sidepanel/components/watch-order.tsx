@@ -21,7 +21,8 @@ import { Icon } from '../../ui/components/icon';
 import { Segmented } from '../../ui/components/segmented';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import type { IconName } from '../../ui/icons';
-import { addToPlanning, noMalEntry, sequelAddResult, sequelEndedKey, updateSequels } from '../../ui/sequel-actions';
+import { noMalEntry } from '../../shared/sequels';
+import { addToPlanning, sequelAddResult, sequelEndedKey, updateSequels } from '../../ui/sequel-actions';
 import type { OrderState } from './now-playing-controller';
 import { newTabLabel } from './now-playing-hero';
 

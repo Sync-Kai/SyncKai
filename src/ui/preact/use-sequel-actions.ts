@@ -55,5 +55,7 @@ export function useSequelActions(records: readonly SequelRecord[]): SequelAction
   const kept = [...outcomes.values()].filter(({ record, outcome }) => {
     return sequelAddResult(outcome, '').kind === 'ended' && !records.some((r) => r.snapshot.id === record.snapshot.id);
   });
-  return { all: [...records, ...kept.map(({ record }) => record)], busy, outcomes, add, dismiss };
+  // Même ordre que le stockage (la plus récemment détectée d'abord) : une ligne terminée garde sa place
+  const all = [...records, ...kept.map(({ record }) => record)].sort((a, b) => b.firstSeenAt - a.firstSeenAt);
+  return { all, busy, outcomes, add, dismiss };
 }
