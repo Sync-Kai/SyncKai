@@ -144,6 +144,23 @@ async function pass(now: number, force: boolean): Promise<SequelCheckResult> {
   return result;
 }
 
+/** Chrome arrête un worker sans appel d'API ni événement depuis 30 s ; les attentes du budget AniList durent jusqu'à 60 s */
+const KEEP_ALIVE_MS = 20_000;
+
+/** Appel d'API toutes les 20 s pendant toute la passe (sans écouteur ni écriture de stockage) */
+async function withKeepAlive<T>(task: () => Promise<T>): Promise<T> {
+  const ping = (): void => {
+    void chrome.runtime.getPlatformInfo().catch(() => undefined);
+  };
+  ping();
+  const timer = setInterval(ping, KEEP_ALIVE_MS);
+  try {
+    return await task();
+  } finally {
+    clearInterval(timer);
+  }
+}
+
 let inFlight: Promise<SequelCheckResult> | null = null;
 
 /**
@@ -151,7 +168,7 @@ let inFlight: Promise<SequelCheckResult> | null = null;
  * résumé est aussi enregistré sous `sequels:lastResult` (sauf `not-due`). Un appel pendant une passe en cours rend la même promesse.
  */
 export function checkSequels(now: number = Date.now(), force = false): Promise<SequelCheckResult> {
-  inFlight ??= pass(now, force).finally(() => {
+  inFlight ??= withKeepAlive(() => pass(now, force)).finally(() => {
     inFlight = null;
   });
   return inFlight;

@@ -312,7 +312,7 @@ export function installFakeChrome(options: FakeChromeOptions = {}): FakeChrome {
   const fakeFetch = new FakeFetch();
 
   vi.stubGlobal('chrome', {
-    runtime: { id: options.extensionId ?? 'synckai-test', getURL: (path: string) => `chrome-extension://${options.extensionId ?? 'synckai-test'}/${path.replace(/^\//, '')}` },
+    runtime: { id: options.extensionId ?? 'synckai-test', getPlatformInfo: vi.fn(async () => ({ os: 'linux', arch: 'x86-64', nacl_arch: 'x86-64' })), getURL: (path: string) => `chrome-extension://${options.extensionId ?? 'synckai-test'}/${path.replace(/^\//, '')}` },
     storage: { local, session, onChanged: onStorageChanged },
     alarms,
     ...options.extra,

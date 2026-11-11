@@ -291,4 +291,32 @@ describe('checkSequels', () => {
     await checkSequels(NOW);
     expect(store().records[0]?.snapshot).toMatchObject({ sourceId: 900, sourceTitle: 'Série 900' });
   });
+
+  it('garde le worker éveillé : getPlatformInfo au départ puis toutes les 20 s pendant une attente de 70 s', async () => {
+    vi.useFakeTimers();
+    try {
+      const ping = vi.mocked(chrome.runtime.getPlatformInfo);
+      ping.mockClear();
+      // Attente budgétaire simulée dans la requête de relations
+      fakes.onRelations = () => new Promise<void>((resolve) => setTimeout(resolve, 70_000));
+      const pending = checkSequels(NOW);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(ping).toHaveBeenCalledTimes(1);
+      const stamps: number[] = [Date.now()];
+      for (let elapsed = 0; elapsed < 70_000; elapsed += 5_000) {
+        const before = ping.mock.calls.length;
+        await vi.advanceTimersByTimeAsync(5_000);
+        if (ping.mock.calls.length > before) stamps.push(Date.now());
+      }
+      await pending;
+      expect(stamps.length).toBeGreaterThanOrEqual(4);
+      for (let i = 1; i < stamps.length; i++) expect((stamps[i] ?? 0) - (stamps[i - 1] ?? 0)).toBeLessThanOrEqual(25_000);
+      // Battement arrêté avec la passe
+      const after = ping.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(ping).toHaveBeenCalledTimes(after);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
