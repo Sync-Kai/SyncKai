@@ -18,7 +18,7 @@ import { accountDemo, demoChrome, demoFriendsHandler, isAccountDemo, PAGE_INFO, 
 import { installChromeMock } from '../screenshots/mock-chrome';
 import { loadedUiLocaleParam, param } from '../screenshots/params';
 import { popupTimeouts } from '../../src/popup/timeouts';
-import { E2E_ADJUST_SLOW_MS, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
+import { E2E_ADJUST_SLOW_MS, E2E_DORMANT_PACE_MS, E2E_WATCHING_SLOW_MS, E2E_WATCHING_TIMEOUT_MS, PLANTED_SECRETS, type E2EState } from './protocol';
 
 const SCENARIOS: readonly Scenario[] = ['watching', 'page', 'activity', 'compare', 'settings'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
@@ -33,8 +33,9 @@ const hangWatching = watchingMode === 'hang';
 const slowWatching = watchingMode === 'slow';
 let watchingCalls = 0;
 if (hangWatching || slowWatching) popupTimeouts.watchingMs = E2E_WATCHING_TIMEOUT_MS;
-// « Tout mettre en pause » sans l'attente de 6 s entre deux séries (rythme vérifié par les tests unitaires)
-popupTimeouts.dormantPaceMs = 0;
+// « Tout mettre en pause » sans l'attente de 6 s entre deux séries (rythme vérifié par les tests unitaires) ; `pace=slow` :
+// une attente courte, pour agir ailleurs pendant le lot
+popupTimeouts.dormantPaceMs = param('pace') === 'slow' ? E2E_DORMANT_PACE_MS : 0;
 
 const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [], openedTabs: [] };
 window.__e2e = trace;

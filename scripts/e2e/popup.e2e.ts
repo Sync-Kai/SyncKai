@@ -1900,6 +1900,40 @@ describe('popup › séries en sommeil (bout en bout)', () => {
     expect(await page.$('[data-dormant-group]')).toBeNull();
   });
 
+  it('lot rythmé : le focus parti dans l’éditeur de commentaire pendant « Tout mettre en pause », puis pendant « Annuler », y reste à la fin', async () => {
+    const SPY = '177937:59027';
+    const input = sel(`notes-${SPY}-input`);
+    const page = await openPopup({ dormant: 'on', pace: 'slow' });
+    await page.waitForSelector(sel('dormant-toggle'));
+    await click(page, 'dormant-toggle');
+    await page.waitForSelector('[data-dormant-body]:not([hidden])');
+    const noticeSays = (label: string): Promise<unknown> => page.waitForFunction((l: string) => document.querySelector('[data-watching-notice]')?.textContent?.includes(l) === true, {}, label);
+    // Le focus de fin de lot serait posé un tick après le bandeau (after-render, setTimeout 0) : on lui en laisse le temps
+    const settle = (): Promise<unknown> => page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 100)));
+
+    // Lot lancé (une série par seconde), éditeur ouvert dans la liste principale pendant qu'il tourne
+    await click(page, 'dormant-pause-all');
+    await click(page, 'confirm-yes-dormant-pause-all');
+    await waitForMessage(page, 'SET_LIST_STATUS');
+    await click(page, `more-${SPY}`);
+    await click(page, `notes-${SPY}`);
+    await page.waitForFunction((s: string) => document.activeElement === document.querySelector(s), {}, input);
+    expect(await page.$(`${sel('dormant-pause-all')}[aria-busy="true"]`)).not.toBeNull();
+    await noticeSays('3 séries mises en pause');
+    await settle();
+    // Jamais sur « Annuler » : Espace ou Entrée tapé dans l'éditeur annulerait tout le lot
+    expect(await focused(page)).toBe(`notes-${SPY}-input`);
+
+    // « Annuler » (rythmé aussi), focus rendu à l'éditeur pendant qu'il tourne : jamais tiré vers un titre remis en cours
+    await click(page, 'watching-undo');
+    await waitForMessage(page, 'SET_LIST_STATUS', 4);
+    await page.focus(input);
+    expect(await page.$(`${sel('watching-undo')}[aria-busy="true"]`)).not.toBeNull();
+    await noticeSays('3 séries remises en cours');
+    await settle();
+    expect(await focused(page)).toBe(`notes-${SPY}-input`);
+  });
+
   it('Abandonner : confirmation en ligne (focus sur « Non »), puis DROPPED depuis CURRENT ; Garder : la série retourne dans la liste', async () => {
     const page = await openGroup();
     await click(page, `dormant-drop-${KAIJU}`);

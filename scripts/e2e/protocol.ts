@@ -59,6 +59,8 @@ export interface FrameParams {
   remaining?: 'backlog' | 'unknown';
   /** `on` : listes au statut connu, trois séries sans activité depuis plus de 30 jours (groupe « En sommeil ») */
   dormant?: 'on';
+  /** `slow` : un lot « En sommeil » (« Tout mettre en pause », « Annuler ») attend E2E_DORMANT_PACE_MS entre deux séries, 0 sinon */
+  pace?: 'slow';
   airing?: 'mixed';
   /**
    * +1 / −1 : `partial` = MyAnimeList échoue, le nouvel essai (`retry`) n'écrit que MAL à la progression absolue ;
@@ -94,6 +96,8 @@ export const E2E_WATCHING_TIMEOUT_MS = 300;
 export const E2E_WATCHING_SLOW_MS = 1_500;
 /** Réponse à ADJUST_PROGRESS avec `adjust=slow` */
 export const E2E_ADJUST_SLOW_MS = 800;
+/** Attente entre deux séries d'un lot « En sommeil » avec `pace=slow` (6 s dans l'extension) : le temps d'agir ailleurs pendant le lot */
+export const E2E_DORMANT_PACE_MS = 1_000;
 
 /** Commandes du panneau latéral de test (sidepanel-frame.ts), appelées par les tests via `window.__e2ePanel` */
 export interface E2EPanelControls {

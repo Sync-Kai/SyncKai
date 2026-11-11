@@ -287,9 +287,15 @@ function openNotes(entry: WatchingEntry): void {
   afterRender(() => watchingRegion()?.querySelector(`[data-notes-row="${entryKey(entry)}"]`)?.scrollIntoView({ block: 'nearest' }));
 }
 
-/** Focus dans « En cours » sur la première clé présente (la ligne visée a pu disparaître), sinon l'en-tête du groupe */
+/**
+ * Focus dans « En cours » sur la première clé présente (la ligne visée a pu disparaître), sinon l'en-tête du groupe ; seulement
+ * si le focus est resté dans le groupe ou le bandeau, ou perdu (<body>) : un lot rythmé dure des minutes, le focus parti
+ * ailleurs (éditeur de commentaire, « ⋯ ») y reste, une frappe n'y déclenche jamais « Annuler »
+ */
 function focusFirstOf(keys: readonly string[]): void {
   afterRender(() => {
+    const active = document.activeElement;
+    if (active !== null && active !== document.body && !active.closest('[data-dormant-group], [data-watching-notice]')) return;
     const region = watchingRegion();
     const target = [...keys, 'dormant-toggle'].map((key) => region?.querySelector<HTMLElement>(`[data-focus="${key}"]`)).find((el) => el);
     target?.focus({ preventScroll: true });
