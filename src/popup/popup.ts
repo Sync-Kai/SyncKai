@@ -1,5 +1,6 @@
 import { initI18n, t } from '../i18n';
 import { mountPopupApp } from './popup-app';
+import { fitPopupHeight } from './fit-height';
 import { afterRender } from './after-render';
 import type { WatchingContext } from './components/watching-screen';
 import { refreshReviewBadge } from '../browser/badge';
@@ -561,6 +562,7 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
 
 // ─── Démarrage ────────────────────────────────────────────────────────────
 
+fitPopupHeight();
 watching.start();
 dormant.start();
 mountPopupApp(getRoot(), {

@@ -2153,3 +2153,45 @@ describe('popup › amis AniList (bout en bout)', () => {
     await page.waitForSelector(summary);
   });
 });
+
+describe('popup › hauteur donnée par Chrome (zoom)', () => {
+  /** Barre d'état entièrement dans la fenêtre, dernière série atteignable en faisant défiler la zone centrale, pas de défilement de la page */
+  async function fitState(page: Page): Promise<{ footerBottom: number; innerHeight: number; lastRowVisible: boolean; pageOverflow: boolean }> {
+    return page.evaluate(() => {
+      const main = document.querySelector('main');
+      const rows = [...document.querySelectorAll('main [data-series-row]')];
+      const last = rows[rows.length - 1];
+      if (!main || !last) throw new Error('Liste « Mes séries » absente');
+      main.scrollTop = main.scrollHeight;
+      const mainBox = main.getBoundingClientRect();
+      const lastBox = last.getBoundingClientRect();
+      const root = document.documentElement;
+      return {
+        footerBottom: document.querySelector('footer')?.getBoundingClientRect().bottom ?? Infinity,
+        innerHeight: window.innerHeight,
+        lastRowVisible: lastBox.bottom <= mainBox.bottom + 1 && lastBox.top >= mainBox.top,
+        pageOverflow: root.scrollHeight > root.clientHeight || root.scrollWidth > root.clientWidth,
+      };
+    });
+  }
+
+  it('fenêtre de 545 px (600 px à 110 %) : barre d’état visible, liste défilante, aucun défilement de la page', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    await page.setViewport({ width: 496, height: 545 });
+    // Deux images : l'événement resize et la mise en page qui suit
+    await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+    const state = await fitState(page);
+    expect(state.footerBottom).toBeLessThanOrEqual(state.innerHeight);
+    expect(state.lastRowVisible).toBe(true);
+    expect(state.pageOverflow).toBe(false);
+  });
+
+  it('fenêtre de 600 px : inchangé, barre d’état au bord bas', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    const state = await fitState(page);
+    expect(state.footerBottom).toBe(600);
+    expect(state.pageOverflow).toBe(false);
+  });
+});

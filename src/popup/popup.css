@@ -5,7 +5,8 @@
   html,
   body {
     width: 496px;
-    height: 600px;
+    /* 600 px demandés ; fit-height.ts réduit à la hauteur réellement accordée (zoom du navigateur) */
+    height: var(--popup-height, 600px);
     margin: 0;
     overflow: hidden;
   }
