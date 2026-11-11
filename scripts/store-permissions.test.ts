@@ -269,3 +269,41 @@ describe('justifications Chrome Web Store (docs/store/permissions.md)', () => {
     expect(hostOf('<all_urls>')).toBe('<all_urls>');
   });
 });
+
+/**
+ * Groupes de données du compte ajoutés en 2.5.0 (`name` dans ACCOUNT_STORES, account-keys.ts) et le terme qui les nomme
+ * dans la section anglaise de PRIVACY.md, version de référence de la politique du Chrome Web Store et d'AMO (SEC-01)
+ */
+const PRIVACY_TERMS: Readonly<Record<string, string>> = {
+  sequels: 'sequels found',
+  'reco-batch': 'last suggestions',
+  'reco-dismissed': 'suggestions you turned down',
+  'dormant-keep': 'Dormant series',
+};
+
+/**
+ * Noms des groupes de ACCOUNT_STORES, lus dans le source d'account-keys.ts : l'importer ferait entrer les modules du
+ * navigateur (types chrome, constantes du build) dans `tsc -p scripts`
+ */
+const ACCOUNT_GROUPS = [...readFileSync('src/browser/storage/account-keys.ts', 'utf8').matchAll(/\{ name: '([^']+)'/g)].map((match) => match[1]);
+
+/** Section anglaise de PRIVACY.md : de « ## English » au titre de niveau 2 suivant ; vide si absente */
+function englishSection(markdown: string): string {
+  const lines = markdown.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === '## English');
+  if (start === -1) return '';
+  const end = lines.findIndex((line, index) => index > start && line.startsWith('## '));
+  return lines.slice(start, end === -1 ? undefined : end).join('\n');
+}
+
+describe('politique de confidentialité (PRIVACY.md)', () => {
+  it('SEC-01 : la section anglaise nomme chaque groupe de données du compte ajouté en 2.5.0', () => {
+    const english = englishSection(readFileSync('PRIVACY.md', 'utf8'));
+    const groups = new Set(ACCOUNT_GROUPS);
+    const missing = Object.entries(PRIVACY_TERMS).flatMap(([group, term]) => {
+      if (!groups.has(group)) return [`${group} : groupe absent de account-keys.ts`];
+      return english.includes(term) ? [] : [`${group} : « ${term} » absent de la section anglaise`];
+    });
+    expect(missing).toEqual([]);
+  });
+});
