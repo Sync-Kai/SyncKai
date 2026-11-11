@@ -21,6 +21,7 @@ import type { PopupTab } from './components/header';
 import { ForYouScreen, type ForYouScreenProps } from './components/foryou-screen';
 import { HostAccessBanner } from './components/host-access-banner';
 import { Onboarding } from './components/onboarding';
+import { StatsScreen, StatsServiceControl, type StatsScreenProps } from './components/stats-screen';
 import { WatchingScreen, type WatchingScreenProps } from './components/watching-screen';
 import type { HostAccessState, UiState } from './state';
 
@@ -49,6 +50,8 @@ export interface PopupAppProps {
   forYou: Omit<ForYouScreenProps, 'granted'>;
   /** Agenda : contrôleur créé à la première ouverture de la section (popup.ts) */
   agenda: Omit<AgendaProps, 'granted' | 'inset' | 'visible'>;
+  /** Stats : contrôleur créé à la première ouverture de la section (popup.ts), vue null avant */
+  stats: Omit<StatsScreenProps, 'now'>;
   onNavigate: (screen: PopupTab) => void;
   onSettings: () => void;
   onOpenPanel: () => void;
@@ -138,7 +141,14 @@ export function PopupApp(props: PopupAppProps) {
         />
       </div>
       <div class="flex min-w-0 flex-1 flex-col">
-        {isSettings ? settingsView && <ElementSlot element={() => settingsView.bar} /> : !onboarding && <ScreenTitle title={t(SCREEN_TITLES[tab])} subtitle={tab === 'foryou' ? t('reco.basedOnScores') : undefined} />}
+        {isSettings
+          ? settingsView && <ElementSlot element={() => settingsView.bar} />
+          : !onboarding && (
+              <ScreenTitle title={t(SCREEN_TITLES[tab])} subtitle={tab === 'foryou' ? t('reco.basedOnScores') : undefined}>
+                {/* Stats : AniList / MAL à droite du titre, seulement avec deux comptes */}
+                {tab === 'stats' && <StatsServiceControl state={props.stats.state} onService={props.stats.onService} />}
+              </ScreenTitle>
+            )}
         <HostAccessBanner state={hostAccess} onAllow={props.onAllowHostAccess} />
         {/* Ordre des écrans fixe (tests : En cours, Activité, Réglages, accueil, Pour toi, Agenda, Stats) ; un seul visible */}
         <main class="sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3" data-scroll-root="">
@@ -161,7 +171,9 @@ export function PopupApp(props: PopupAppProps) {
           <div data-screen="agenda" hidden={!agendaShown}>
             {agendaMounted.current && <Agenda {...props.agenda} granted={granted} inset="popup" visible={agendaShown} />}
           </div>
-          <div data-screen="stats" hidden={isSettings || onboarding || tab !== 'stats'} />
+          <div data-screen="stats" hidden={isSettings || onboarding || tab !== 'stats'}>
+            <StatsScreen {...props.stats} now={now} />
+          </div>
         </main>
         <ElementSlot element={() => props.footer} />
       </div>

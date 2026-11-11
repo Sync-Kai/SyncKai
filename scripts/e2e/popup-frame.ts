@@ -8,6 +8,9 @@ import type { CompareJob } from '../../src/shared/compare-job';
 import { DIAGNOSTICS_LOG_KEY, type JournalEntry } from '../../src/browser/error-journal';
 import { diagnosticsReport } from '../../src/background/diagnostics-report';
 import { isRecord } from '../../src/shared/guards';
+import { dateKey } from '../../src/shared/agenda';
+import type { ActivityDay, ActivityHistory } from '../../src/shared/activity-history';
+import type { ProfileStats } from '../../src/shared/profile-stats';
 import type { PageMediaResult, PageMediaView } from '../../src/shared/page-media.types';
 import type { ListNotesResult } from '../../src/shared/list-notes';
 import { STORAGE_KEYS, SYNC_QUEUE_KEY } from '../../src/protocol/storage-keys';
@@ -341,9 +344,107 @@ const onboarding = onboardingParam === 'none' || onboardingParam === 'expired' ?
 /** `login=pending` : fenêtre de connexion restée ouverte ; `login=error` : connexion AniList annulée */
 const loginMode = param('login');
 
-/** Tokens retirés du stockage semé pour l'accueil */
+// ─── Stats ─────────────────────────────────────────────────────────────────
+
+const statsMode = param('stats');
+const statsOn = statsMode === 'both' || statsMode === 'anilist' || statsMode === 'mal' || statsMode === 'empty' || statsMode === 'foreign';
+/** Profil AniList de démo (maquette Stats) : format POINT_10, six genres, six formats, cinq studios, quatre décennies */
+const ANILIST_PROFILE: ProfileStats = {
+  scoreFormat: 'POINT_10',
+  meanScore100: 76,
+  statuses: [
+    { status: 'CURRENT', count: 12 },
+    { status: 'COMPLETED', count: 168 },
+    { status: 'PAUSED', count: 9 },
+    { status: 'DROPPED', count: 7 },
+    { status: 'PLANNING', count: 46 },
+  ],
+  formats: [
+    { format: 'TV', count: 152 },
+    { format: 'MOVIE', count: 21 },
+    { format: 'ONA', count: 11 },
+    { format: 'OVA', count: 7 },
+    { format: 'TV_SHORT', count: 5 },
+    { format: 'SPECIAL', count: 3 },
+  ],
+  genres: [
+    { genre: 'Action', count: 112, meanScore100: 77 },
+    { genre: 'Fantasy', count: 84, meanScore100: 79 },
+    { genre: 'Comedy', count: 79, meanScore100: 74 },
+    { genre: 'Drama', count: 61, meanScore100: 81 },
+    { genre: 'Adventure', count: 55, meanScore100: 76 },
+    { genre: 'Slice of Life', count: 38, meanScore100: 78 },
+  ],
+  scores: [1, 2, 3, 8, 19, 41, 58, 33, 12].map((count, i) => ({ score: i + 2, count })),
+  studios: [
+    { name: 'MAPPA', count: 14 },
+    { name: 'Madhouse', count: 12 },
+    { name: 'Bones', count: 11 },
+    { name: 'Kyoto Animation', count: 9 },
+    { name: 'Wit Studio', count: 8 },
+  ],
+  decades: [
+    { decade: 1990, count: 6 },
+    { decade: 2000, count: 18 },
+    { decade: 2010, count: 92 },
+    { decade: 2020, count: 80 },
+  ],
+  rewatched: null,
+};
+/** MyAnimeList : statuts, moyenne et revisionnages seulement */
+const MAL_PROFILE: ProfileStats = {
+  ...ANILIST_PROFILE,
+  meanScore100: 78,
+  statuses: [
+    { status: 'CURRENT', count: 11 },
+    { status: 'COMPLETED', count: 192 },
+    { status: 'PAUSED', count: 14 },
+    { status: 'DROPPED', count: 14 },
+    { status: 'PLANNING', count: 58 },
+  ],
+  formats: [],
+  genres: [],
+  scores: [],
+  studios: [],
+  decades: [],
+  rewatched: 14,
+};
+/** Épisodes des 30 derniers jours (le plus ancien d'abord, pic de 5 au milieu), 24 min chacun, plus quelques mois plus anciens */
+const EPS30 = [1, 0, 2, 3, 0, 1, 4, 2, 0, 0, 3, 1, 2, 5, 0, 1, 2, 0, 3, 1, 0, 2, 4, 1, 0, 3, 2, 1, 0, 2];
+function demoDays(): Record<string, ActivityDay> {
+  const today = new Date(now);
+  const days: Record<string, ActivityDay> = {};
+  EPS30.forEach((episodes, i) => {
+    if (episodes > 0) days[dateKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29 + i))] = [episodes, episodes * 24];
+  });
+  [12, 20, 9, 15].forEach((episodes, i) => {
+    days[dateKey(new Date(today.getFullYear(), today.getMonth() - 2 - i * 2, 12))] = [episodes, episodes * 24];
+  });
+  return days;
+}
+function statsHistory(anilistId: number, malId: number): ActivityHistory {
+  const days = demoDays();
+  return { anilist: { accountId: statsMode === 'foreign' ? anilistId + 1 : anilistId, days }, mal: { accountId: malId, days } };
+}
+/** Profils avec statistiques détaillées, lus il y a 10 min (aucune relecture à l'ouverture), historique selon `stats` */
+function statsStorage(base: Record<string, unknown>): Record<string, unknown> {
+  if (!statsOn) return {};
+  const anilist = base[STORAGE_KEYS.anilistViewer];
+  const mal = base[STORAGE_KEYS.malViewer];
+  if (!isRecord(anilist) || !isRecord(mal) || typeof anilist.id !== 'number' || typeof mal.id !== 'number') return {};
+  return {
+    [STORAGE_KEYS.anilistViewer]: { ...anilist, profile: ANILIST_PROFILE },
+    [STORAGE_KEYS.malViewer]: { ...mal, profile: MAL_PROFILE },
+    [STORAGE_KEYS.anilistViewerAt]: now - 10 * 60_000,
+    [STORAGE_KEYS.malViewerAt]: now - 10 * 60_000,
+    ...(statsMode === 'empty' ? {} : { [STORAGE_KEYS.activityHistory]: statsHistory(anilist.id, mal.id) }),
+  };
+}
+
+/** Tokens retirés du stockage semé pour l'accueil, ou pour un seul compte connecté (`stats=anilist|mal`) */
 function withoutTokens(storage: Record<string, unknown>): Record<string, unknown> {
-  const dropped: string[] = onboarding === 'none' ? [STORAGE_KEYS.anilistToken, STORAGE_KEYS.malToken] : onboarding === 'expired' ? [STORAGE_KEYS.malToken] : [];
+  const statsDrop = statsMode === 'anilist' ? [STORAGE_KEYS.malToken, STORAGE_KEYS.malViewer] : statsMode === 'mal' ? [STORAGE_KEYS.anilistToken, STORAGE_KEYS.anilistViewer] : [];
+  const dropped: string[] = onboarding === 'none' ? [STORAGE_KEYS.anilistToken, STORAGE_KEYS.malToken] : onboarding === 'expired' ? [STORAGE_KEYS.malToken] : statsDrop;
   return Object.fromEntries(Object.entries(storage).filter(([key]) => !dropped.includes(key)));
 }
 
@@ -373,6 +474,9 @@ installChromeMock({
     ...account.storage,
     // `recoFilter=movies` : filtre « Films » de « Pour toi » déjà retenu
     ...(param('recoFilter') === 'movies' ? { [SECTION_PREFS_KEY]: { recoFilter: { genre: null, format: 'movies' } } } : {}),
+    // `statsService=mal` : service MAL déjà retenu pour Stats
+    ...(param('statsService') === 'mal' ? { [SECTION_PREFS_KEY]: { statsService: 'mal' } } : {}),
+    ...statsStorage(demoStorage),
     // Accueil, session AniList expirée : token échu (MyAnimeList retiré par withoutTokens)
     ...(onboarding === 'expired' ? { [STORAGE_KEYS.anilistToken]: { accessToken: PLANTED_SECRETS.anilistAccess, expiresAt: 1 } } : {}),
   }),
@@ -385,8 +489,14 @@ installChromeMock({
     // `login=pending` : fenêtre de connexion restée ouverte ; `login=error` : connexion annulée
     ...(loginMode === 'pending' ? { LOGIN_ANILIST: () => new Promise<never>(() => {}), LOGIN_MAL: () => new Promise<never>(() => {}) } : {}),
     ...(loginMode === 'error' ? { LOGIN_ANILIST: () => ({ ok: false, code: 'CANCELLED', message: t('auth.cancelled') }) } : {}),
+    // `stats` : profils relus avec leurs statistiques détaillées
+    ...(statsOn ? { GET_VIEWER: () => ({ ok: true, data: statsStorage(demoStorage)[STORAGE_KEYS.anilistViewer] }) } : {}),
     GET_MAL_VIEWER: (payload) =>
-      missingViewer && ++malViewerCalls === 1 ? { ok: false, code: 'NETWORK', message: 'MyAnimeList injoignable (e2e)' } : demo.handlers.GET_MAL_VIEWER?.(payload),
+      missingViewer && ++malViewerCalls === 1
+        ? { ok: false, code: 'NETWORK', message: 'MyAnimeList injoignable (e2e)' }
+        : statsOn
+          ? { ok: true, data: statsStorage(demoStorage)[STORAGE_KEYS.malViewer] }
+          : demo.handlers.GET_MAL_VIEWER?.(payload),
     // Semaine demandée de l'Agenda ; `agenda=empty` : aucune sortie
     GET_AGENDA: (payload) => {
       const weekStart = isRecord(payload) && typeof payload.weekStart === 'string' ? payload.weekStart : null;

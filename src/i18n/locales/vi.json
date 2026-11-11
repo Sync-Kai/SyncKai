@@ -1185,5 +1185,22 @@
   "settings.help.diagnosticHelp": "Để dán vào báo cáo lỗi: phiên bản, trình duyệt, cài đặt, lỗi gần đây. Không có token hay tài khoản.",
   "settings.help.journalNote": "Tối đa 50 lỗi gần nhất, mới nhất trước; token đã được che.",
   "settings.about.whatsNew": "Có gì mới",
-  "settings.about.privacy": "Quyền riêng tư"
+  "settings.about.privacy": "Quyền riêng tư",
+  "stats.activity": "Hoạt động của SyncKai",
+  "stats.period": "Khoảng thời gian",
+  "stats.period.week": "7 ngày",
+  "stats.period.month": "30 ngày",
+  "stats.period.year": "12 tháng",
+  "stats.since": "từ {date}",
+  "stats.activity.empty": "Không có tập nào được đồng bộ trong khoảng này",
+  "stats.allTime": "Từ trước đến nay",
+  "stats.service": "Dịch vụ hiển thị",
+  "stats.statuses": "Trạng thái",
+  "stats.meanScore": "Điểm trung bình",
+  "stats.scores": "Điểm",
+  "stats.formats": "Định dạng",
+  "stats.studios": "Studio",
+  "stats.decades": "Thập niên",
+  "stats.decade": "thập niên {decade}",
+  "stats.rewatched_other": "Xem lại {count} lần"
 }

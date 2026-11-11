@@ -171,6 +171,29 @@ async function statusSortScreens(ctx: LocaleContext): Promise<void> {
   }
 }
 
+/**
+ * Stats : activité, « En cours », blocs du profil AniList (contrôle AniList / MAL dans le titre) ; MAL seul (moyenne et
+ * revisionnages). Relevé sur toute la hauteur du contenu (popup agrandi) : les derniers blocs comptent aussi
+ */
+async function statsScreens(ctx: LocaleContext): Promise<void> {
+  for (const [screen, mode, last] of [
+    ['popup/stats', 'both', 'decades'],
+    ['popup/stats-mal', 'mal', 'rewatched'],
+  ] as const) {
+    ctx.step = screen;
+    const stats = await openPage(ctx, 'popup.html', { stats: mode }, POPUP_VIEWPORT);
+    try {
+      await click(stats, 'rail-stats');
+      await stats.waitForSelector(`[data-screen="stats"] [data-stats-block="${last}"]`);
+      await attach(ctx, stats);
+      await stats.setViewport({ width: POPUP_VIEWPORT.width, height: 1600 });
+      await shot(ctx, stats, screen);
+    } finally {
+      await stats.close();
+    }
+  }
+}
+
 async function popupScreens(ctx: LocaleContext): Promise<void> {
   // Onglet actif sur une page série Crunchyroll : carte « Sur cette page » au-dessus de « Mes séries »
   ctx.step = 'popup/watching';
@@ -778,6 +801,7 @@ describe('mise en page des langues', () => {
       await mkdir(ctx.dir, { recursive: true });
       try {
         await popupScreens(ctx);
+        await statsScreens(ctx);
         await statusSortScreens(ctx);
         await panelScreens(ctx);
         await importScreens(ctx);

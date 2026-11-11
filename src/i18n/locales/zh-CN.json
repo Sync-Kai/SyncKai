@@ -1185,5 +1185,22 @@
   "settings.help.diagnosticHelp": "粘贴到错误报告中：版本、浏览器、设置、最近的错误。不含令牌和账号。",
   "settings.help.journalNote": "最多保留最近 50 条，最新的在前；令牌已隐去。",
   "settings.about.whatsNew": "新功能",
-  "settings.about.privacy": "隐私"
+  "settings.about.privacy": "隐私",
+  "stats.activity": "SyncKai 动态",
+  "stats.period": "时间范围",
+  "stats.period.week": "7 天",
+  "stats.period.month": "30 天",
+  "stats.period.year": "12 个月",
+  "stats.since": "自 {date} 起",
+  "stats.activity.empty": "此时间范围内没有同步的剧集",
+  "stats.allTime": "全部时间",
+  "stats.service": "显示的服务",
+  "stats.statuses": "状态",
+  "stats.meanScore": "平均评分",
+  "stats.scores": "评分",
+  "stats.formats": "格式",
+  "stats.studios": "制作公司",
+  "stats.decades": "年代",
+  "stats.decade": "{decade} 年代",
+  "stats.rewatched_other": "重看 {count} 次"
 }

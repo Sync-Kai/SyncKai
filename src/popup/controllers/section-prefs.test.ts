@@ -12,20 +12,29 @@ beforeEach(() => fake.reset());
 describe('section-prefs', () => {
   it('clé et défaut', () => {
     expect(SECTION_PREFS_KEY).toBe('popupPrefs:sections');
-    expect(DEFAULT_SECTION_PREFS).toEqual({ recoFilter: ALL_RECO_FILTER });
+    expect(DEFAULT_SECTION_PREFS).toEqual({ recoFilter: ALL_RECO_FILTER, statsService: null });
   });
 
   it('valeur illisible → défaut ; genre de plus de 40 caractères → null', async () => {
     for (const raw of [undefined, null, 'x', 3, [], {}, { recoFilter: 'x' }, { recoFilter: { genre: 3, format: 'all' } }, { recoFilter: { genre: null, format: 'tv' } }]) {
       expect(normalizeSectionPrefs(raw)).toEqual(DEFAULT_SECTION_PREFS);
     }
-    expect(normalizeSectionPrefs({ recoFilter: { genre: 'Action', format: 'movies' } })).toEqual({ recoFilter: { genre: 'Action', format: 'movies' } });
+    expect(normalizeSectionPrefs({ recoFilter: { genre: 'Action', format: 'movies' } })).toEqual({ recoFilter: { genre: 'Action', format: 'movies' }, statsService: null });
     expect(normalizeSectionPrefs({ recoFilter: { genre: 'x'.repeat(40), format: 'series' } }).recoFilter.genre).toBe('x'.repeat(40));
-    expect(normalizeSectionPrefs({ recoFilter: { genre: 'x'.repeat(41), format: 'series' } })).toEqual({ recoFilter: { genre: null, format: 'series' } });
+    expect(normalizeSectionPrefs({ recoFilter: { genre: 'x'.repeat(41), format: 'series' } })).toEqual({ recoFilter: { genre: null, format: 'series' }, statsService: null });
     fake.local.seed({ [SECTION_PREFS_KEY]: { recoFilter: { genre: 'Action', format: 'series' } } });
-    expect(await loadSectionPrefs()).toEqual({ recoFilter: { genre: 'Action', format: 'series' } });
+    expect(await loadSectionPrefs()).toEqual({ recoFilter: { genre: 'Action', format: 'series' }, statsService: null });
     fake.local.seed({});
     expect(await loadSectionPrefs()).toEqual(DEFAULT_SECTION_PREFS);
+  });
+
+  it('statsService : anilist | mal | null, autre valeur → null', () => {
+    expect(normalizeSectionPrefs({ statsService: 'anilist' }).statsService).toBe('anilist');
+    expect(normalizeSectionPrefs({ statsService: 'mal' }).statsService).toBe('mal');
+    for (const value of [null, undefined, 'kitsu', 3, {}]) expect(normalizeSectionPrefs({ statsService: value }).statsService).toBeNull();
+    // Champs lus séparément : un filtre illisible ne fait pas perdre le service retenu, et inversement
+    expect(normalizeSectionPrefs({ recoFilter: 'x', statsService: 'mal' })).toEqual({ recoFilter: ALL_RECO_FILTER, statsService: 'mal' });
+    expect(normalizeSectionPrefs({ recoFilter: { genre: 'Drama', format: 'all' }, statsService: 'x' })).toEqual({ recoFilter: { genre: 'Drama', format: 'all' }, statsService: null });
   });
 
   it('saveSectionPrefs fusionne avec la valeur enregistrée', async () => {

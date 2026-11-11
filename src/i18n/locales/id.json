@@ -1185,5 +1185,22 @@
   "settings.help.diagnosticHelp": "Untuk ditempel di laporan bug: versi, browser, setelan, error terbaru. Tanpa token dan akun.",
   "settings.help.journalNote": "Paling banyak 50 terakhir, terbaru dulu; token sudah disamarkan.",
   "settings.about.whatsNew": "Yang baru",
-  "settings.about.privacy": "Privasi"
+  "settings.about.privacy": "Privasi",
+  "stats.activity": "Aktivitas SyncKai",
+  "stats.period": "Periode",
+  "stats.period.week": "7 hr",
+  "stats.period.month": "30 hr",
+  "stats.period.year": "12 bln",
+  "stats.since": "sejak {date}",
+  "stats.activity.empty": "Tidak ada episode yang disinkronkan pada periode ini",
+  "stats.allTime": "Sejak awal",
+  "stats.service": "Layanan yang ditampilkan",
+  "stats.statuses": "Status",
+  "stats.meanScore": "Nilai rata-rata",
+  "stats.scores": "Nilai",
+  "stats.formats": "Format",
+  "stats.studios": "Studio",
+  "stats.decades": "Dekade",
+  "stats.decade": "tahun {decade}-an",
+  "stats.rewatched_other": "Ditonton ulang {count} kali"
 }

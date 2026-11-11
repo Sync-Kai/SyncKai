@@ -1185,5 +1185,22 @@
   "settings.help.diagnosticHelp": "버그 신고에 붙여 넣는 정보: 버전, 브라우저, 설정, 최근 오류. 토큰과 계정은 포함하지 않아요.",
   "settings.help.journalNote": "최근 50개까지, 최신순. 토큰은 이미 가려져 있어요.",
   "settings.about.whatsNew": "새로운 기능",
-  "settings.about.privacy": "개인정보"
+  "settings.about.privacy": "개인정보",
+  "stats.activity": "SyncKai 활동",
+  "stats.period": "기간",
+  "stats.period.week": "7일",
+  "stats.period.month": "30일",
+  "stats.period.year": "12개월",
+  "stats.since": "{date}부터",
+  "stats.activity.empty": "이 기간에 동기화된 에피소드 없음",
+  "stats.allTime": "전체 기간",
+  "stats.service": "표시할 서비스",
+  "stats.statuses": "상태",
+  "stats.meanScore": "평균 평점",
+  "stats.scores": "평점",
+  "stats.formats": "형식",
+  "stats.studios": "스튜디오",
+  "stats.decades": "연대",
+  "stats.decade": "{decade}년대",
+  "stats.rewatched_other": "재시청 {count}회"
 }

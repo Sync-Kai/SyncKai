@@ -95,6 +95,13 @@ export interface FrameParams {
   agenda?: 'empty';
   /** `movies` : filtre « Films » déjà retenu pour « Pour toi » (préférences du popup relues à l'ouverture) */
   recoFilter?: 'movies';
+  /**
+   * Stats : profils lus il y a 10 min avec leurs statistiques détaillées et 30 jours d'historique d'activité ; `anilist` /
+   * `mal` : ce seul compte connecté ; `empty` : aucun historique ; `foreign` : part AniList d'un autre compte (sauvegarde)
+   */
+  stats?: 'both' | 'anilist' | 'mal' | 'empty' | 'foreign';
+  /** `mal` : service MAL déjà retenu pour Stats (préférences du popup relues à l'ouverture) */
+  statsService?: 'mal';
 }
 
 /** Délai d'attente de GET_WATCHING dans la page de test avec `watching=hang|slow` */

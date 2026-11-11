@@ -12,7 +12,7 @@ const FORMAT_LABELS: Readonly<Record<string, MessageKey>> = {
   SPECIAL: 'review.format.special',
 };
 
-function formatLabel(format: string): string {
+export function formatLabel(format: string): string {
   const key = FORMAT_LABELS[format];
   return key ? t(key) : format;
 }

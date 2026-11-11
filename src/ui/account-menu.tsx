@@ -5,8 +5,7 @@
 // (ui/account-menu-model.ts) ; compteur de la semaine : browser/storage/weekly-syncs.ts.
 import type { RefObject } from 'preact';
 import { useEffect, useId, useState } from 'preact/hooks';
-import { getLocale, t, tp } from '../i18n';
-import type { AccountStats } from '../shared/account-stats';
+import { t, tp } from '../i18n';
 import type { AniListViewer } from '../shared/anilist.types';
 import type { MalViewer } from '../shared/mal.types';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
@@ -15,8 +14,9 @@ import { createLogger } from '../browser/logger';
 import { getCachedMalViewer, getCachedViewer, getViewerFetchedAt } from '../browser/storage/viewer-cache';
 import { getWeeklySyncCount } from '../browser/storage/weekly-syncs';
 import type { AccountsController } from './accounts';
-import { formatStatDays, menuNeedsRefresh, profileUrl, statsView, typedViewerState } from './account-menu-model';
+import { menuNeedsRefresh, profileUrl, statsView, typedViewerState } from './account-menu-model';
 import { AccountAvatar } from './components/account-avatar';
+import { Placeholder, StatTiles } from './components/stat-tiles';
 import { Icon } from './components/icon';
 import { MenuItem, MenuPopup, MenuSeparator } from './components/menu';
 import { useLocale, useStore } from './preact/hooks';
@@ -51,40 +51,6 @@ export interface AccountMenuProps {
 }
 
 const avatarOf = (viewer: Viewer | null): string | null => toImageSrc(viewer === null ? null : 'avatarUrl' in viewer ? viewer.avatarUrl : viewer.pictureUrl);
-
-/** Texte remplacé par un pavé de même hauteur pendant la lecture (aucun saut à l'arrivée des données) */
-function Placeholder({ width }: { width: string }) {
-  return (
-    <span class={`inline-block ${width} rounded-control bg-line text-transparent motion-safe:animate-pulse`} aria-hidden="true" data-skeleton="">
-      0
-    </span>
-  );
-}
-
-function StatTile({ value, label }: { value: string | null; label: string }) {
-  return (
-    <div class="flex min-w-0 flex-col items-center rounded-control bg-surface px-1 py-1.5" data-stat="">
-      <span class="font-display text-stat whitespace-nowrap text-ink tabular-nums">{value ?? <Placeholder width="w-10" />}</span>
-      <span class="max-w-full truncate text-section font-semibold tracking-normal text-muted" title={label}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function StatTiles({ stats }: { stats: AccountStats | 'loading' }) {
-  const locale = getLocale();
-  const count = new Intl.NumberFormat(locale);
-  const ready = stats === 'loading' ? null : stats;
-  const days = ready ? Math.round(ready.days) : 0;
-  return (
-    <div class="grid grid-cols-3 gap-1 px-1.5 py-1" aria-busy={ready ? undefined : 'true'} data-stats="">
-      <StatTile value={ready ? count.format(ready.animeCount) : null} label={tp('accountMenu.stats.anime', ready?.animeCount ?? 0)} />
-      <StatTile value={ready ? count.format(ready.episodes) : null} label={tp('accountMenu.stats.episodes', ready?.episodes ?? 0)} />
-      <StatTile value={ready ? t('accountMenu.stats.daysValue', { days: formatStatDays(ready.days, locale) }) : null} label={tp('accountMenu.stats.days', days)} />
-    </div>
-  );
-}
 
 /** « Synchro cette semaine … 9 épisodes » : le libellé se tronque (infobulle complète), la valeur ne passe jamais à la ligne */
 function WeekRow({ count }: { count: number | null }) {

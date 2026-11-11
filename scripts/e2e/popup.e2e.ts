@@ -1855,6 +1855,124 @@ describe('popup (bout en bout)', () => {
     await page.screenshot({ path: path.join(dir, 'agenda-week-zoom110.png') });
   });
 
+  /** Barres de l'activité de Stats */
+  const activityBars = (page: Page): Promise<number> => page.$$eval('[data-screen="stats"] [data-stats-block="activity"] [data-bar-columns] [data-bar]', (bars) => bars.length);
+
+  it('Stats : aucune requête à l’ouverture si le profil a moins d’une heure ; période 7 j → 7 barres ; service MAL retenu au rouvrir, « Mes séries » inchangé', async () => {
+    const page = await openPopup({ stats: 'both' });
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    await click(page, 'rail-stats');
+    await page.waitForSelector('[data-screen="stats"] [data-stats-block="decades"]');
+    expect(await shownScreen(page)).toBe(6);
+    expect(await text(page, '[data-screen-title] h1')).toBe(fr('nav.stats'));
+    expect(await activityBars(page)).toBe(30);
+    expect(await attr(page, sel('stats-service-anilist'), 'aria-checked')).toBe('true');
+    // 7 j : sept barres, sans aucune lecture
+    await click(page, 'stats-period-7d');
+    await page.waitForFunction(() => document.querySelectorAll('[data-screen="stats"] [data-stats-block="activity"] [data-bar-columns] [data-bar]').length === 7);
+    // MAL : statuts, moyenne et revisionnages, ni genres ni décennies ; choix enregistré dans les préférences du popup
+    await click(page, 'stats-service-mal');
+    await page.waitForSelector('[data-screen="stats"] [data-stats-block="rewatched"]');
+    expect(await page.$('[data-screen="stats"] [data-stats-block="genres"]')).toBeNull();
+    expect(await page.$('[data-screen="stats"] [data-stats-block="decades"]')).toBeNull();
+    expect(await text(page, '[data-screen="stats"] [data-stats-block="rewatched"]')).toContain(tpl('fr', 'stats.rewatched', 14));
+    const saved = await page.evaluate(async () => (await chrome.storage.local.get('popupPrefs:sections'))['popupPrefs:sections']);
+    expect(saved).toEqual({ statsService: 'mal' });
+    await pause(300);
+    expect(await sent(page, 'GET_VIEWER')).toHaveLength(0);
+    expect(await sent(page, 'GET_MAL_VIEWER')).toHaveLength(0);
+    // « Mes séries » reste sur AniList (« Fiche ouverte par défaut » inchangé)
+    await click(page, 'rail-watching');
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    expect((await sent(page, 'GET_WATCHING')).map((message) => JSON.stringify(message.payload))).not.toContain(JSON.stringify({ service: 'mal' }));
+    const entryService = await page.evaluate(async () => {
+      const settings: unknown = (await chrome.storage.local.get('settings')).settings;
+      return typeof settings === 'object' && settings !== null && 'entryService' in settings ? settings.entryService : null;
+    });
+    expect(entryService).toBe('anilist');
+
+    // Popup rouvert avec le choix enregistré : MAL d'emblée
+    const reopened = await openPopup({ stats: 'both', statsService: 'mal' });
+    await click(reopened, 'rail-stats');
+    await reopened.waitForSelector('[data-screen="stats"] [data-stats-block="rewatched"]');
+    expect(await attr(reopened, sel('stats-service-mal'), 'aria-checked')).toBe('true');
+  });
+
+  it('part d’un autre compte : aucune activité affichée', async () => {
+    const page = await openPopup({ stats: 'foreign' });
+    await click(page, 'rail-stats');
+    await page.waitForSelector('[data-screen="stats"] [data-stats-block="statuses"]');
+    expect(await text(page, '[data-screen="stats"] [data-activity-episodes]')).toBe(tpl('fr', 'accountMenu.week.value', 0));
+    expect(await text(page, '[data-screen="stats"] [data-stats-block="activity"]')).toContain(fr('stats.activity.empty'));
+    expect(await activityBars(page)).toBe(0);
+    // MAL, même compte que la part : l'activité revient
+    await click(page, 'stats-service-mal');
+    await page.waitForFunction(() => document.querySelectorAll('[data-screen="stats"] [data-stats-block="activity"] [data-bar-columns] [data-bar]').length === 30);
+  });
+
+  it('496 × 545 : dernier bloc atteignable, barre d’état visible, pas de défilement horizontal', async () => {
+    const page = await openPopup({ stats: 'both' });
+    await page.setViewport({ width: 496, height: 545 });
+    await click(page, 'rail-stats');
+    await page.waitForSelector('[data-screen="stats"] [data-stats-block="decades"]');
+    await page.$eval('main', (main) => {
+      main.scrollTop = main.scrollHeight;
+    });
+    const box = await page.evaluate(() => {
+      const main = document.querySelector('main');
+      const last = document.querySelector('[data-screen="stats"] [data-stats-block="decades"]');
+      const title = document.querySelector('[data-screen-title]')?.getBoundingClientRect();
+      const footer = document.querySelector('footer')?.getBoundingClientRect();
+      if (!main || !last) return null;
+      const m = main.getBoundingClientRect();
+      const blocks = [...document.querySelectorAll('[data-screen="stats"] [data-stats-block]')];
+      return {
+        lastBottomGap: Math.round(m.bottom - last.getBoundingClientRect().bottom),
+        horizontal: main.scrollWidth - main.clientWidth,
+        // Aucun bloc plus large que la colonne (libellés allemands, valeurs)
+        overflowing: blocks.filter((block) => block.scrollWidth > block.clientWidth).map((block) => block.getAttribute('data-stats-block')),
+        titleInView: !!title && title.top >= 0 && title.right <= window.innerWidth,
+        footerInView: !!footer && footer.top >= 0 && footer.bottom <= window.innerHeight,
+      };
+    });
+    expect(box).not.toBeNull();
+    const { lastBottomGap, ...rest } = box ?? { lastBottomGap: -1 };
+    expect(rest).toEqual({ horizontal: 0, overflowing: [], titleInView: true, footerInView: true });
+    expect(lastBottomGap).toBeGreaterThanOrEqual(0);
+  });
+
+  it('maquette Stats', async () => {
+    // Captures pour la revue du propriétaire, seulement avec SYNCKAI_MOCKUP_DIR (aucun fichier écrit sinon)
+    const dir = process.env.SYNCKAI_MOCKUP_DIR;
+    if (!dir) return;
+    mkdirSync(dir, { recursive: true });
+    const capture = async (params: FrameParams, file: string, last: string): Promise<Page> => {
+      const page = await openPopup(params);
+      await click(page, 'rail-stats');
+      await page.waitForSelector(`[data-screen="stats"] [data-stats-block="${last}"]`);
+      // Pointeur hors du rail (pas de bulle sur le contenu), rendu terminé
+      await page.mouse.move(300, 300);
+      await pause(300);
+      await page.screenshot({ path: path.join(dir, file) });
+      return page;
+    };
+    const anilist = await capture({ stats: 'both' }, 'stats-anilist.png', 'decades');
+    await capture({ stats: 'mal' }, 'stats-mal.png', 'rewatched');
+    await capture({ stats: 'empty' }, 'stats-empty.png', 'decades');
+    await anilist.setViewport({ width: 496, height: 545 });
+    await pause(300);
+    await anilist.screenshot({ path: path.join(dir, 'stats-anilist-zoom110.png') });
+    await anilist.$eval('main', (main) => {
+      main.scrollTop = main.scrollHeight;
+    });
+    await pause(300);
+    await anilist.screenshot({ path: path.join(dir, 'stats-anilist-zoom110-end.png') });
+    // Page entière (contenu défilé compris) pour la comparaison avec la maquette
+    await anilist.setViewport({ width: 496, height: 1600 });
+    await pause(300);
+    await anilist.screenshot({ path: path.join(dir, 'stats-anilist-full.png') });
+  });
+
   it('« Mes séries » suit « Fiche ouverte par défaut » (Réglages › Comptes) : pas de sélecteur AniList / MAL', async () => {
     const page = await openPopup();
     await page.waitForSelector(sel(`more-${SOLO}`));

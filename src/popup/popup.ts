@@ -28,6 +28,7 @@ import { createAgendaController, type AgendaController } from '../ui/agenda-cont
 import { agendaSnapshot, type AgendaSnapshot } from '../ui/components/agenda';
 import { ALL_RECO_FILTER, type RecoFilter } from '../shared/recommendations';
 import { loadSectionPrefs, saveSectionPrefs, type SectionPrefs } from './controllers/section-prefs';
+import { createStatsController, type StatsController, type StatsView } from './controllers/stats';
 import { createQueueController } from './controllers/queue';
 import { createRatingsController } from './controllers/ratings';
 import { createWatchingController } from './controllers/watching';
@@ -538,6 +539,25 @@ function startAgenda(): void {
   // À chaque affichage : textes et premier jour de la semaine à jour, semaine rechargée si nécessaire
   agenda.activate();
 }
+/** Stats : contrôleur créé au premier affichage de la section, relu à chaque affichage ; vue null avant (rien n'est lu) */
+let stats: StatsController | null = null;
+const statsState = createStore<StatsView | null>(null);
+function showStats(): void {
+  if (!stats) {
+    const controller = createStatsController({
+      accounts,
+      defaultService: () => watching.activeService(),
+      prefs: { load: loadSectionPrefs, save: saveSectionPrefs },
+    });
+    stats = controller;
+    const stop = controller.store.subscribe((view) => statsState.set(view));
+    window.addEventListener('pagehide', () => {
+      stop();
+      controller.dispose();
+    });
+  }
+  stats.show();
+}
 function filterReco(filter: RecoFilter): void {
   reco?.setFilter(filter);
   void saveSectionPrefs({ recoFilter: filter });
@@ -593,6 +613,9 @@ chrome.storage.onChanged.addListener((changes, areaName): void => {
   if (settingsChange) settingsStore.set({ status: 'ready', settings: normalizeSettings(settingsChange.newValue) });
 
   if (changes[EXCLUDED_SERIES_KEY]) void loadExclusions();
+
+  // Épisode synchronisé pendant que le popup est ouvert : activité de Stats relue (contrôleur créé seulement)
+  if (changes[STORAGE_KEYS.activityHistory]) stats?.reloadActivity();
 });
 
 // ─── Démarrage ────────────────────────────────────────────────────────────
@@ -698,6 +721,17 @@ mountPopupApp(getRoot(), {
     },
     onDiscover: () => navigate('foryou'),
   },
+  stats: {
+    state: statsState,
+    onService: (service) => stats?.setService(service),
+    onPeriod: (period) => stats?.setPeriod(period),
+    onReconnect: (service) => void accounts.login(service),
+    onRetry: () => {
+      const service = stats?.store.get().service;
+      if (service) void accounts.refresh(service);
+    },
+    onOpenAccounts: () => navigate('settings', 'accounts'),
+  },
   onNavigate: (screen) => navigate(screen),
   onSettings: toggleSettings,
   onOpenPanel: openPanel,
@@ -737,7 +771,7 @@ uiStore.subscribe(markSequelsSeen);
 sequelsStore.subscribe(markSequelsSeen);
 // Section affichée (celle quittée pendant les Réglages) : « Pour toi », Agenda et Stats créent ici leur contrôleur à la
 // première apparition ; rien ne part avant
-/** Dernière section affichée : l'Agenda est activé quand elle devient `agenda`, pas à chaque changement d'état de l'interface */
+/** Dernière section affichée : l'Agenda et Stats sont relus quand elle devient la leur, pas à chaque changement d'état de l'interface */
 let agendaShownBefore: Screen | null = null;
 function followShownScreen(): void {
   const { screen, previous } = uiStore.get();
@@ -746,10 +780,13 @@ function followShownScreen(): void {
   if (shown === agendaShownBefore) return;
   agendaShownBefore = shown;
   if (shown === 'agenda') startAgenda();
+  if (shown === 'stats') showStats();
 }
 uiStore.subscribe(followShownScreen);
 onLocaleChange(() => {
   if (agendaShownBefore === 'agenda') agenda?.activate();
+  // Temps à rattraper composé dans la langue : recalculé
+  if (agendaShownBefore === 'stats') stats?.show();
 });
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store
 platformAccessStore.onPermissionsChange(() => void checkHostAccess());

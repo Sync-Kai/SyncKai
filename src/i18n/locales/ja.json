@@ -1185,5 +1185,22 @@
   "settings.help.diagnosticHelp": "バグ報告に貼り付けるための情報：バージョン、ブラウザ、設定、最近のエラー。トークンやアカウントは含みません。",
   "settings.help.journalNote": "最新の50件まで、新しい順。トークンはマスク済みです。",
   "settings.about.whatsNew": "新機能",
-  "settings.about.privacy": "プライバシー"
+  "settings.about.privacy": "プライバシー",
+  "stats.activity": "SyncKaiのアクティビティ",
+  "stats.period": "期間",
+  "stats.period.week": "7日",
+  "stats.period.month": "30日",
+  "stats.period.year": "12か月",
+  "stats.since": "{date}から",
+  "stats.activity.empty": "この期間に同期したエピソードはありません",
+  "stats.allTime": "全期間",
+  "stats.service": "表示するサービス",
+  "stats.statuses": "ステータス",
+  "stats.meanScore": "平均評価",
+  "stats.scores": "評価",
+  "stats.formats": "形式",
+  "stats.studios": "スタジオ",
+  "stats.decades": "年代",
+  "stats.decade": "{decade}年代",
+  "stats.rewatched_other": "再視聴{count}回"
 }
