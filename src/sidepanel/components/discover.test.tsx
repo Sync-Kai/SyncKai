@@ -57,10 +57,10 @@ describe('Discover', () => {
   it('prêt : la carte, les actions branchées sur le contrôleur', async () => {
     await show(ready());
     expect(container.textContent).toContain('Dandadan');
-    await act(() => $<HTMLButtonElement>('[data-focus="reco-another"]')?.click());
-    expect(handlers.onAnother).toHaveBeenCalled();
     await act(() => $<HTMLButtonElement>('[data-focus="reco-dismiss"]')?.click());
     expect(handlers.onDismiss).toHaveBeenCalled();
+    await act(() => $<HTMLButtonElement>('[data-focus="reco-another"]')?.click());
+    expect(handlers.onAnother).toHaveBeenCalled();
     expect(container.textContent).not.toContain(t('reco.cold.title'));
     expect(container.textContent).not.toContain(t('reco.malOnly'));
   });

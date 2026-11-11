@@ -123,6 +123,14 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
     onAnother();
   };
 
+  // Pendant le tour du dé la fiche affichée n'est plus celle du contrôleur : ajouter ou écarter agirait sur une série jamais vue
+  const add = (): void => {
+    if (!held) onAdd();
+  };
+  const dismiss = (): void => {
+    if (!held) onDismiss();
+  };
+
   const notOnMal = view.malOnly && card.idMal === null;
   const bannerSrc = toImageSrc(card.bannerUrl);
   const bannerColor = card.color !== null && HEX_COLOR.test(card.color) ? card.color : null;
@@ -195,7 +203,7 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
         ) : notOnMal ? (
           <span class="text-secondary text-muted">{t('reco.notOnMal')}</span>
         ) : (
-          <Button variant="primary" focusKey="reco-add" onClick={onAdd}>
+          <Button variant="primary" focusKey="reco-add" onClick={add}>
             {t('page.addPlanning')}
           </Button>
         )}
@@ -205,7 +213,7 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
           {rolling ? t('reco.rolling') : t('reco.another')}
         </Button>
         {!dismissed && (
-          <Button variant="text" size="sm" focusKey="reco-dismiss" ariaLabel={t('reco.dismissAria', { title: card.title })} onClick={onDismiss}>
+          <Button variant="text" size="sm" focusKey="reco-dismiss" ariaLabel={t('reco.dismissAria', { title: card.title })} onClick={dismiss}>
             {t('reco.dismiss')}
           </Button>
         )}

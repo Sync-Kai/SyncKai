@@ -109,6 +109,22 @@ describe('RecoCard', () => {
       vi.unstubAllGlobals();
     });
 
+    it('pendant le tour du dé, « + À regarder » et « Pas intéressé » sont ignorés (la fiche affichée n\'est plus la tirée)', async () => {
+      vi.useFakeTimers();
+      vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }));
+      await show(<RecoCard {...props(item())} />);
+      await act(() => $<HTMLButtonElement>('[data-focus="reco-another"]')?.click());
+      await show(<RecoCard {...props(item({ id: 8, title: 'Nouvelle' }))} />);
+      await act(() => $<HTMLButtonElement>('[data-focus="reco-add"]')?.click());
+      await act(() => $<HTMLButtonElement>('[data-focus="reco-dismiss"]')?.click());
+      expect(handlers.onAdd).not.toHaveBeenCalled();
+      expect(handlers.onDismiss).not.toHaveBeenCalled();
+      await act(() => { vi.advanceTimersByTime(361); });
+      await act(() => $<HTMLButtonElement>('[data-focus="reco-add"]')?.click());
+      expect(handlers.onAdd).toHaveBeenCalledTimes(1);
+      vi.unstubAllGlobals();
+    });
+
     it('mouvement réduit : la nouvelle fiche apparaît tout de suite', async () => {
       vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
       await show(<RecoCard {...props(item())} />);
@@ -121,9 +137,9 @@ describe('RecoCard', () => {
 
   it('les clics appellent Autre, Ajouter et Pas intéressé', async () => {
     await show(<RecoCard {...props(item())} />);
-    await act(() => $<HTMLButtonElement>('[data-focus="reco-another"]')?.click());
     await act(() => $<HTMLButtonElement>('[data-focus="reco-add"]')?.click());
     await act(() => $<HTMLButtonElement>('[data-focus="reco-dismiss"]')?.click());
+    await act(() => $<HTMLButtonElement>('[data-focus="reco-another"]')?.click());
     expect(handlers.onAnother).toHaveBeenCalledTimes(1);
     expect(handlers.onAdd).toHaveBeenCalledTimes(1);
     expect(handlers.onDismiss).toHaveBeenCalledTimes(1);
