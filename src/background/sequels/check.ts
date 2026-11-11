@@ -41,14 +41,14 @@ async function notify(sequels: readonly SequelSnapshot[], now: number, services:
   if (first === undefined) return 0;
   // Firefox ne gère pas les boutons de notification : le clic ouvre déjà la suite
   if (sequels.length === 1) {
-    // MAL seul et sans idMal : « + À regarder » échouerait toujours, seul « Ouvrir la fiche » reste (bouton 0)
-    const buttons = noMalEntry(services, first.idMal) ? [{ title: t('sequel.notification.openEntry') }] : [{ title: t('sequel.add') }, { title: t('sequel.notification.openEntry') }];
+    // MAL seul et sans idMal : « + À regarder » échouerait toujours, aucun bouton (le clic sur le corps ouvre la fiche)
+    const buttons = noMalEntry(services, first.idMal) ? [] : [{ title: t('sequel.add') }, { title: t('sequel.notification.openEntry') }];
     await chrome.notifications.create(`${SEQUEL_NOTIFICATION_PREFIX}${first.id}`, {
       type: 'basic',
       iconUrl,
       title: t('sequel.notification.single', { title: first.title }),
       message: t('sequel.notification.message', { date: formatSequelDate(first, getLocale()), source: first.sourceTitle }),
-      ...(__SYNCKAI_TARGET__ === 'firefox' ? {} : { buttons }),
+      ...(__SYNCKAI_TARGET__ === 'firefox' || buttons.length === 0 ? {} : { buttons }),
       priority: 0,
     });
   } else {

@@ -103,14 +103,6 @@ describe('boutons', () => {
     expect(fakes.update).toHaveBeenCalledWith('synckai-sequel:10', { message: 'Ajoutée à À regarder' });
   });
 
-  it('MAL seul, suite sans idMal : le bouton 0 (« Ouvrir la fiche ») ouvre la fiche sans rien écrire', async () => {
-    const mal = record(11, 'new', 2);
-    fake.local.seed({ [STORAGE_KEYS.malToken]: { accessToken: 'm', refreshToken: 'r', expiresAt: Number.MAX_SAFE_INTEGER }, [STORAGE_KEYS.sequelsState]: { records: [mal], known: [11], seeded: ['mal'], lastCheck: 1 } satisfies SequelStore });
-    await handleSequelButton('synckai-sequel:11', 0);
-    expect(fakes.addToList).not.toHaveBeenCalled();
-    expect(fakes.tabsCreate).toHaveBeenCalledWith({ url: 'https://anilist.co/anime/11' });
-  });
-
   it('bouton 0 : déjà dans la liste → alerte terminée (retirée, id gardé dans known), message dédié', async () => {
     fakes.addToList.mockResolvedValue(synced('skipped'));
     await handleSequelButton('synckai-sequel:10', 0);

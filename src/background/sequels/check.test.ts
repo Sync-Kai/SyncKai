@@ -120,7 +120,7 @@ describe('checkSequels', () => {
     expect(fakes.create.mock.calls[0]?.[1].title).toBe('3 suites annoncées');
   });
 
-  it('MAL seul, suite sans idMal : la notification n’offre que « Ouvrir la fiche »', async () => {
+  it('MAL seul, suite sans idMal : la notification n’a aucun bouton (le clic ouvre la fiche)', async () => {
     fake.reset({ ...SEED, [STORAGE_KEYS.anilistToken]: undefined, [STORAGE_KEYS.malToken]: { accessToken: 'm', refreshToken: 'r', expiresAt: Number.MAX_SAFE_INTEGER } });
     fakes.anilist = [];
     fakes.catalog.set(500, 900);
@@ -128,7 +128,7 @@ describe('checkSequels', () => {
     await checkSequels(NOW);
     fakes.sequels.set(900, [{ id: 10, idMal: null }]);
     expect(await checkSequels(NOW + 25 * HOUR_MS)).toMatchObject({ notified: 1 });
-    expect(fakes.create.mock.calls[0]?.[1].buttons?.map((button) => button.title)).toEqual(['Ouvrir la fiche']);
+    expect(fakes.create.mock.calls[0]?.[1]).not.toHaveProperty('buttons');
     // Avec un idMal, « + À regarder » reste offert
     fakes.create.mockClear();
     fakes.sequels.set(900, [{ id: 10, idMal: null }, { id: 11, idMal: 111 }]);

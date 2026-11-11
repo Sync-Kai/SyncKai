@@ -1,11 +1,10 @@
 import { t } from '../../i18n';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import { connectedServices } from '../../browser/airing-alarm';
 import { openPopupOn } from '../../browser/popup-screen';
 import { createLogger } from '../../browser/logger';
 import { getOpenSessions, sessionsStillOpen } from '../../browser/storage/sessions';
 import { withStorageLock } from '../../browser/storage/lock';
-import { noMalEntry, setSequelStates, visibleSequels, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
+import { setSequelStates, visibleSequels, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { addToList } from '../controls';
 import { SEQUEL_NOTIFICATION_PREFIX, readSequelStore } from './check';
@@ -99,15 +98,13 @@ export async function handleSequelClick(notificationId: string): Promise<void> {
   }
 }
 
-/** Boutons : suite seule 0 = ajouter, 1 = ouvrir (0 = ouvrir quand « ajouter » est absent) ; groupée 0 = ouvrir Activité */
+/** Boutons : suite seule 0 = ajouter, 1 = ouvrir ; groupée 0 = ouvrir Activité */
 export async function handleSequelButton(notificationId: string, buttonIndex: number): Promise<void> {
   if (notificationId.startsWith(GROUP_PREFIX)) return buttonIndex === 0 ? handleSequelClick(notificationId) : undefined;
+  if (buttonIndex === 1) return handleSequelClick(notificationId);
+  if (buttonIndex !== 0) return;
   const id = sequelIdOf(notificationId);
   if (id === null) return;
-  // MAL seul et sans idMal : la notification n'a que « Ouvrir la fiche » (bouton 0, voir check.ts)
-  const openOnly = noMalEntry(await connectedServices(), (await snapshotOf(id)).idMal);
-  if (buttonIndex === 1 || (buttonIndex === 0 && openOnly)) return handleSequelClick(notificationId);
-  if (buttonIndex !== 0) return;
   try {
     await addToPlanning(notificationId, id);
   } catch (error) {
