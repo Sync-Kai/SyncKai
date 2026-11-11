@@ -261,9 +261,14 @@ export function mergeSequelPass(
   };
 }
 
+/** Ordre d'affichage : la plus récemment détectée d'abord ; à égalité (suites d'une même passe), par id, pour qu'une ligne garde sa place */
+export function newestFirst(a: SequelRecord, b: SequelRecord): number {
+  return b.firstSeenAt - a.firstSeenAt || a.snapshot.id - b.snapshot.id;
+}
+
 /** Suites à afficher (nouvelles et vues), la plus récemment détectée d'abord. */
 export function visibleSequels(store: SequelStore): SequelRecord[] {
-  return store.records.filter((record) => record.state !== 'dismissed').sort((a, b) => b.firstSeenAt - a.firstSeenAt);
+  return store.records.filter((record) => record.state !== 'dismissed').sort(newestFirst);
 }
 
 /** Change l'état des ids donnés ; `removed` supprime l'enregistrement mais garde `known` (jamais renotifié). */

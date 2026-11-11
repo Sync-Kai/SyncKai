@@ -176,8 +176,12 @@ describe('SequelsSection', () => {
     expect($('[data-focus="sequel-add-1"]')).toBeNull();
   });
 
-  it('4 suites, la première ajoutée (AniList ok, MAL en échec) : la ligne reste parmi les 3 affichées avec sa mention', async () => {
-    const all = [1, 2, 3, 4].map((id) => record(id));
+  it.each([
+    ['détectées à des moments différents', (id: number) => 1000 - id],
+    // Passe d'amorçage, ou passe qui trouve plusieurs suites : toutes reçoivent `firstSeenAt: now`
+    ['détectées par la même passe (même firstSeenAt)', () => 500],
+  ])('4 suites %s, la première ajoutée (AniList ok, MAL en échec) : la ligne reste parmi les 3 affichées avec sa mention', async (_when, seenAt) => {
+    const all = [1, 2, 3, 4].map((id) => ({ ...record(id), firstSeenAt: seenAt(id) }));
     await mount(all);
     worker.send.mockImplementation(async (type) => {
       if (type === 'ADD_TO_LIST') return syncedWith('updated', 'error');

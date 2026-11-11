@@ -190,6 +190,11 @@ describe('visibleSequels', () => {
     const s = store({ records: [record(1, 'seen', 10), record(2, 'dismissed', 50), record(3, 'new', 30)] });
     expect(visibleSequels(s).map((r) => r.snapshot.id)).toEqual([3, 1]);
   });
+
+  it('à firstSeenAt égal (suites d’une même passe) : par id croissant, comme les lignes d’Activité', () => {
+    const s = store({ records: [record(4, 'new', 30), record(2, 'seen', 30), record(3, 'new', 10)] });
+    expect(visibleSequels(s).map((r) => r.snapshot.id)).toEqual([2, 4, 3]);
+  });
 });
 
 describe('setSequelStates', () => {

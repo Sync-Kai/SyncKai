@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { t } from '../../i18n';
-import type { SequelRecord } from '../../shared/sequels';
+import { newestFirst, type SequelRecord } from '../../shared/sequels';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { addSequelToPlanning, sequelAddResult, updateSequels } from '../sequel-actions';
 
@@ -56,6 +56,6 @@ export function useSequelActions(records: readonly SequelRecord[]): SequelAction
     return sequelAddResult(outcome, '').kind === 'ended' && !records.some((r) => r.snapshot.id === record.snapshot.id);
   });
   // Même ordre que le stockage (la plus récemment détectée d'abord) : une ligne terminée garde sa place
-  const all = [...records, ...kept.map(({ record }) => record)].sort((a, b) => b.firstSeenAt - a.firstSeenAt);
+  const all = [...records, ...kept.map(({ record }) => record)].sort(newestFirst);
   return { all, busy, outcomes, add, dismiss };
 }
