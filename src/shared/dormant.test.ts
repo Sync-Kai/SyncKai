@@ -66,6 +66,12 @@ describe('isDormant', () => {
     const hiatus = entry({ airingStatus: 'HIATUS', totalEpisodes: null, updatedAt: NOW - 40 * DAY });
     expect(isDormant(hiatus, opts)).toBe(true);
     expect(isDormant(entry({ airingStatus: null, totalEpisodes: null, updatedAt: NOW - 40 * DAY }), opts)).toBe(true);
+    // Pas encore sortie, sans date : inconnu, donc éligible
+    expect(isDormant(entry({ airingStatus: 'NOT_YET_RELEASED', totalEpisodes: 12, progress: 0, updatedAt: NOW - 40 * DAY }), opts)).toBe(true);
+  });
+  it('épisode 1 daté dans 3 j, rien de sorti, progression 0, inactive 40 j : non (à jour sur son calendrier, POP-04)', () => {
+    const premiere = entry({ airingStatus: 'NOT_YET_RELEASED', totalEpisodes: 12, progress: 0, updatedAt: NOW - 40 * DAY, nextEpisode: { episode: 1, airingAt: NOW + 3 * DAY } });
+    expect(isDormant(premiere, opts)).toBe(false);
   });
   it('lastSync plus récent que updatedAt compte', () => {
     expect(isDormant(entry({ lastSync: sync(5) }), opts)).toBe(false);
