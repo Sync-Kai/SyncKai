@@ -14,7 +14,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Recommendations**, read from AniList only: a new *Discover* tab in the side panel suggests series from what you rated highly (« Because you rated … ★ 9/10 ») or, without enough ratings, from what you watched, with their genres, *+ Plan to watch* and *Not interested*. *Now playing* adds an *In the same spirit* section, an empty *Schedule* week and an empty *Watching* list suggest a few series, and the suggestions you turned down can be restored from *Settings › My data*. A sequel is never suggested before the season you have not watched.
 - **Remaining time**: each series in *My series* shows the time left to catch up (« ≈ 50 min », episodes aired × their length), the list header the total (« ≈ 1 h to catch up · 2 series »), and two new sorts, *Time left* and *Episodes left*.
 - **Dormant series**: *Watching* series with no episode watched for 30 days (60, 90 or never in *Settings › Display*) are grouped at the bottom of *My series*, with *Pause*, *Drop* or *Keep* for each and *Put all on hold* for the group, with an *Undo* right after.
-- **Friends on AniList**: the series card shows the people you follow on AniList who have the series in their list, with their status and rating and their average. Only their public lists are read, and nothing is kept.
+- **Friends on AniList**: the series card shows the people you follow on AniList who have the series in their list, with their status and rating and their average. Only their public lists are read, and nothing is stored.
 - **Airing status** of each series in *My series* (« Airing », « Finished »…), with an *Airing status* sort that groups them.
 
 ### Changed
