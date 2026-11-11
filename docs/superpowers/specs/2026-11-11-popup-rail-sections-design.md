@@ -111,3 +111,13 @@ Two sources, both without real extra cost:
 - The empty states.
 - The translations of the new strings: 21 languages, context notes, term sheets.
 - The mockups of Stats and of the popup Agenda, to show the owner on return.
+
+## Calls after the builder check (owner away, to review on return)
+
+1. **Lifetime of the activity history.** User-scoped, stored per service with the account id. It survives session expiry and a reconnect to the same account. A service's part is dropped when a different account signs in on that service, and everything is dropped with the user's data at the last sign-out (the `user` scope of `ACCOUNT_STORES`). Why: an expired token must not erase up to 400 days of statistics.
+2. **Service filter in Stats.** Stats has its own AniList / MAL segmented control, shown only when both accounts are connected.
+   - Default: the « Fiche ouverte par défaut » service (`activeService()`).
+   - The choice is remembered in the popup preferences. It changes neither that setting nor « Mes séries ».
+   - Both profiles are already cached by the account menu.
+3. **Announced sequels in the popup.** The Activité section « Suites annoncées » and the rail's dot on Activité stay as they are. The Agenda's « Annoncées » view is the calendar view, identical to the panel's: it does not mark sequels as seen. The panel already shows both, so this adds no new duplicate.
+4. **Order of work.** The Stats screen is built right after its mockup, without waiting for the owner, who reviews everything before the tag.
