@@ -16,7 +16,7 @@ import { ElementSlot } from '../ui/preact/vanilla-slot';
 import type { SettingsView } from '../ui/settings/settings-view';
 import type { ReadonlyStore } from '../ui/state';
 import { Agenda, type AgendaProps } from './components/agenda';
-import { Discover, type DiscoverProps } from './components/discover';
+import { Discover, type DiscoverProps } from '../ui/components/discover';
 import { NowPlaying, type NowPlayingProps } from './components/now-playing';
 import { OffTargetNotice } from './components/off-target';
 import type { PanelContext } from './presence';

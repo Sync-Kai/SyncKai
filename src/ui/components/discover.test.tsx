@@ -4,8 +4,8 @@ import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
 import type { RecoItem } from '../../shared/recommendations';
-import type { RecoView } from '../../ui/reco-controller';
-import { createStore, type Store } from '../../ui/state';
+import type { RecoView } from '../reco-controller';
+import { createStore, type Store } from '../state';
 import { Discover, type DiscoverProps } from './discover';
 
 // Onglet « Découvrir » : la carte de suggestion et ses états (chargement, démarrage à froid avec « En attendant »,

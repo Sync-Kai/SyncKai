@@ -1,15 +1,15 @@
-// Onglet « Découvrir » du panneau latéral : la carte « Pour toi » (ui/components/reco-card.tsx) et les états du lot
+// Vue « Pour toi » (onglet « Découvrir » du panneau latéral, section « Pour toi » du popup) : la carte « Pour toi » (ui/components/reco-card.tsx) et les états du lot
 // (chargement, démarrage à froid avec « En attendant », note MAL seul, erreur, vide, aucun compte). Données et requêtes :
-// ui/reco-controller.ts (créé au premier affichage de l'onglet par sidepanel.ts), sans accès direct au service worker.
+// ui/reco-controller.ts (créé au premier affichage de l'onglet par sidepanel.ts, de la section par popup.ts), sans accès direct au service worker.
 import { t } from '../../i18n';
 import type { StreamingPlatform } from '../../shared/episode.types';
-import { Alert } from '../../ui/components/alert';
-import { Button } from '../../ui/components/button';
-import { Icon } from '../../ui/components/icon';
-import { RecoCard } from '../../ui/components/reco-card';
-import { useLocale, useStore } from '../../ui/preact/hooks';
-import type { RecoView } from '../../ui/reco-controller';
-import type { ReadonlyStore } from '../../ui/state';
+import { Alert } from './alert';
+import { Button } from './button';
+import { Icon } from './icon';
+import { RecoCard } from './reco-card';
+import { useLocale, useStore } from '../preact/hooks';
+import type { RecoView } from '../reco-controller';
+import type { ReadonlyStore } from '../state';
 
 export interface DiscoverProps {
   state: ReadonlyStore<RecoView>;
