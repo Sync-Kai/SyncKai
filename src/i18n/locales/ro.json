@@ -1219,6 +1219,7 @@
   "watching.sortAria.time": "după timpul rămas",
   "watching.sortAria.title": "după titlu",
   "watching.sortMenu": "Sortează seriile mele",
+  "watching.refresh": "Actualizează lista",
   "watching.sortTrigger": "Sortare: {label}",
   "watching.status.COMPLETED": "Marchează ca terminată",
   "watching.status.DROPPED": "Abandonează",

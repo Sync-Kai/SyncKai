@@ -522,6 +522,20 @@ describe('popup (bout en bout)', () => {
     expect((await watchingRows(page)).map((r) => r.title)).not.toContain('Solo Leveling');
   });
 
+  it('« Actualiser » (en-tête de « Mes séries ») : nom accessible = infobulle, un clic relit la liste en forçant', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel(`more-${SOLO}`));
+    await page.waitForFunction(() => document.querySelector('main [aria-busy="false"]') !== null);
+    expect(await attr(page, sel('watching-refresh'), 'aria-label')).toBe(fr('watching.refresh'));
+    expect(await attr(page, sel('watching-refresh'), 'title')).toBe(fr('watching.refresh'));
+
+    const before = (await sent(page, 'GET_WATCHING')).length;
+    await click(page, 'watching-refresh');
+    const message = await waitForMessage(page, 'GET_WATCHING', before + 1);
+    expect(message.payload).toEqual({ service: 'anilist', force: true });
+    await page.waitForFunction(() => document.querySelector('main [aria-busy="false"]') !== null);
+  });
+
   it('menu « ⋯ » : « Retirer de la liste » demande confirmation (focus sur « Annuler »), « Retirer » envoie REMOVE_FROM_LIST et retire la série', async () => {
     const page = await openPopup();
     await click(page, `more-${SOLO}`);

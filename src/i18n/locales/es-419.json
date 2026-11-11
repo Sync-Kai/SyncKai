@@ -1141,6 +1141,7 @@
   "watching.sortAria.time": "por tiempo restante",
   "watching.sortAria.title": "por título",
   "watching.sortMenu": "Ordenar mis series",
+  "watching.refresh": "Actualizar la lista",
   "watching.sortTrigger": "Ordenar: {label}",
   "watching.status.COMPLETED": "Marcar como completada",
   "watching.status.DROPPED": "Abandonar",

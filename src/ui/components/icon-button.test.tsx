@@ -38,4 +38,16 @@ describe('IconButton', () => {
     expect(button?.getAttribute('aria-expanded')).toBe('true');
     expect(button?.disabled).toBe(true);
   });
+
+  it('occupé : aria-busy, clics ignorés, le bouton garde le focus (pas de disabled)', async () => {
+    const onClick = vi.fn<() => void>();
+    await show(<IconButton icon="retry" label="Actualiser" busy onClick={onClick} />);
+    const button = $<HTMLButtonElement>('button');
+    expect(button?.getAttribute('aria-busy')).toBe('true');
+    expect(button?.getAttribute('aria-disabled')).toBe('true');
+    expect(button?.disabled).toBe(false);
+    expect($('[class*="animate-spin"]')).not.toBeNull();
+    button?.click();
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

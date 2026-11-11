@@ -1297,6 +1297,7 @@
   "watching.sortAria.time": "według pozostałego czasu",
   "watching.sortAria.title": "według tytułu",
   "watching.sortMenu": "Sortuj moje serie",
+  "watching.refresh": "Odśwież listę",
   "watching.sortTrigger": "Sortowanie: {label}",
   "watching.status.COMPLETED": "Oznacz jako obejrzane",
   "watching.status.DROPPED": "Porzuć serię",

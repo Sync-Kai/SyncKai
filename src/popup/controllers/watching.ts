@@ -77,6 +77,8 @@ export interface WatchingController {
   setDormantOpen(open: boolean): Promise<void>;
   /** « Réessayer », fin d'un alignement : relit la liste même si le service worker en a une récente */
   reload(): Promise<void>;
+  /** Bouton « Actualiser » : relit la liste affichée en forçant ; sans effet tant qu'une lecture est en cours (pas de relecture automatique) */
+  refresh(): Promise<void>;
   /** Revalidation silencieuse (liste actuelle conservée, pas de skeleton), regroupée sur ~1 s */
   scheduleRevalidation(): void;
   /** +1 / −1 ; `retry` : nouvel essai après un échec partiel (progression absolue sur les seuls services en échec) */
@@ -165,6 +167,21 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
   function reload(): Promise<void> {
     const service = activeService();
     return service ? load(service, true) : Promise.resolve();
+  }
+
+  let refreshInFlight = false;
+
+  /** Une seule lecture à la fois : la lecture silencieuse du chargement (liste « refreshing ») compte aussi */
+  async function refresh(): Promise<void> {
+    const service = activeService();
+    const shown = store.get();
+    if (!service || refreshInFlight || (shown.status === 'ready' && shown.refreshing)) return;
+    refreshInFlight = true;
+    try {
+      await load(service, true);
+    } finally {
+      refreshInFlight = false;
+    }
   }
 
   /** Recharge la liste quand le service affiché change (connexion, déconnexion, réglage « Fiche ouverte par défaut ») */
@@ -287,6 +304,7 @@ export function createWatchingController(deps: WatchingControllerDeps): Watching
     notes,
     activeService,
     reload,
+    refresh,
     scheduleRevalidation,
 
     start() {

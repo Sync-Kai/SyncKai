@@ -1063,6 +1063,7 @@
   "watching.sortAria.time": "按剩余时间排序",
   "watching.sortAria.title": "按标题排序",
   "watching.sortMenu": "我的番剧排序方式",
+  "watching.refresh": "刷新列表",
   "watching.sortTrigger": "排序：{label}",
   "watching.status.COMPLETED": "标为看过",
   "watching.status.DROPPED": "标为抛弃",

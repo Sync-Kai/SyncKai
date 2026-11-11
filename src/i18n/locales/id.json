@@ -1063,6 +1063,7 @@
   "watching.sortAria.time": "berdasarkan sisa waktu",
   "watching.sortAria.title": "berdasarkan judul",
   "watching.sortMenu": "Urutkan anime saya",
+  "watching.refresh": "Muat ulang daftar",
   "watching.sortTrigger": "Urutkan: {label}",
   "watching.status.COMPLETED": "Tandai selesai",
   "watching.status.DROPPED": "Drop anime ini",

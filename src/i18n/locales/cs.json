@@ -1221,6 +1221,7 @@
   "watching.sortAria.time": "podle zbývajícího času",
   "watching.sortAria.title": "podle názvu",
   "watching.sortMenu": "Seřadit moje seriály",
+  "watching.refresh": "Obnovit seznam",
   "watching.sortTrigger": "Řazení: {label}",
   "watching.status.COMPLETED": "Označit jako dokončené",
   "watching.status.DROPPED": "Zahodit",

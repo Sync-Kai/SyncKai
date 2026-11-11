@@ -1063,6 +1063,7 @@
   "watching.sortAria.time": "依剩餘時間",
   "watching.sortAria.title": "依標題",
   "watching.sortMenu": "排序我的動畫",
+  "watching.refresh": "重新整理清單",
   "watching.sortTrigger": "排序：{label}",
   "watching.status.COMPLETED": "標記為已看完",
   "watching.status.DROPPED": "棄番",

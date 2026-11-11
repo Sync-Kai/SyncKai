@@ -1141,6 +1141,7 @@
   "watching.sortAria.time": "by time left",
   "watching.sortAria.title": "by title",
   "watching.sortMenu": "Sort my series",
+  "watching.refresh": "Refresh the list",
   "watching.sortTrigger": "Sort: {label}",
   "watching.status.COMPLETED": "Mark as completed",
   "watching.status.DROPPED": "Drop",

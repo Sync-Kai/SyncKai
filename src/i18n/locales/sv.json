@@ -1141,6 +1141,7 @@
   "watching.sortAria.time": "efter tid kvar",
   "watching.sortAria.title": "efter titel",
   "watching.sortMenu": "Sortera mina serier",
+  "watching.refresh": "Uppdatera listan",
   "watching.sortTrigger": "Sortera: {label}",
   "watching.status.COMPLETED": "Markera som färdigsedd",
   "watching.status.DROPPED": "Hoppa av serien",

@@ -1141,6 +1141,7 @@
   "watching.sortAria.time": "op resterende tijd",
   "watching.sortAria.title": "op titel",
   "watching.sortMenu": "Mijn series sorteren",
+  "watching.refresh": "Lijst vernieuwen",
   "watching.sortTrigger": "Sorteren: {label}",
   "watching.status.COMPLETED": "Als voltooid markeren",
   "watching.status.DROPPED": "Afhaken",

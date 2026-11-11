@@ -1063,6 +1063,7 @@
   "watching.sortAria.time": "남은 시간순",
   "watching.sortAria.title": "제목순",
   "watching.sortMenu": "내 작품 정렬",
+  "watching.refresh": "목록 새로고침",
   "watching.sortTrigger": "정렬: {label}",
   "watching.status.COMPLETED": "완료로 표시",
   "watching.status.DROPPED": "하차하기",

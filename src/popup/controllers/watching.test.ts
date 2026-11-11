@@ -147,6 +147,50 @@ describe('createWatchingController : chargement', () => {
     expect(lastCall('GET_WATCHING').payload).toEqual({ service: 'anilist', force: true });
   });
 
+  it('« Actualiser » : relit en forçant, un second clic pendant la lecture n’envoie rien', async () => {
+    connect('anilist');
+    await settle();
+    lastCall('GET_WATCHING').resolve({ ok: true, data: list('anilist', [FRIEREN]) });
+    await settle();
+    expect(calls('GET_WATCHING')).toHaveLength(1);
+
+    void ctl.refresh();
+    await settle();
+    expect(calls('GET_WATCHING')).toHaveLength(2);
+    expect(lastCall('GET_WATCHING').payload).toEqual({ service: 'anilist', force: true });
+    expect(ctl.store.get()).toMatchObject({ status: 'ready', refreshing: true });
+
+    void ctl.refresh();
+    await settle();
+    expect(calls('GET_WATCHING')).toHaveLength(2);
+
+    const fresh = list('anilist', [{ ...FRIEREN, progress: 9 }], 2_000);
+    lastCall('GET_WATCHING').resolve({ ok: true, data: fresh });
+    await settle();
+    expect(ctl.store.get()).toEqual({ status: 'ready', service: 'anilist', list: fresh, refreshing: false, error: null });
+
+    void ctl.refresh();
+    await settle();
+    expect(calls('GET_WATCHING')).toHaveLength(3);
+  });
+
+  it('« Actualiser » en échec : l’erreur s’affiche sur la liste conservée, puis un nouveau clic relit', async () => {
+    connect('anilist');
+    await settle();
+    lastCall('GET_WATCHING').resolve({ ok: true, data: list('anilist', [FRIEREN]) });
+    await settle();
+
+    void ctl.refresh();
+    await settle();
+    lastCall('GET_WATCHING').resolve({ ok: false, code: 'RATE_LIMITED', message: 'Limite atteinte' });
+    await settle();
+    expect(ctl.store.get()).toMatchObject({ status: 'ready', refreshing: false, error: 'Limite atteinte' });
+
+    void ctl.refresh();
+    await settle();
+    expect(calls('GET_WATCHING')).toHaveLength(3);
+  });
+
   it('délai dépassé : erreur affichée sur la liste en cache, la réponse tardive s’applique ensuite', async () => {
     fake.local.seed({ [STORAGE_KEYS.watchingCache]: { anilist: list('anilist', [FRIEREN]) } });
     connect('anilist');

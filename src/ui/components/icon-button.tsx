@@ -8,6 +8,8 @@ export interface IconButtonProps {
   label: string;
   onClick?: (event: MouseEvent) => void;
   disabled?: boolean;
+  /** Action en cours : aria-busy + aria-disabled (le bouton garde le focus clavier), clics ignorés, icône en rotation */
+  busy?: boolean;
   /** Bordure `line` (« J'ai vu, masquer » de la barre d'état) */
   outlined?: boolean;
   /** Bouton qui ouvre un menu : aria-haspopup / aria-expanded (ouvert : bordure `field`, fond `raised`) */
@@ -21,9 +23,9 @@ export interface IconButtonProps {
 }
 
 const BASE =
-  'inline-flex size-icon-button shrink-0 cursor-pointer items-center justify-center rounded-pill border bg-transparent p-0 text-muted transition-colors hover:bg-raised hover:text-ink disabled:pointer-events-none disabled:opacity-50 aria-expanded:border-field aria-expanded:bg-raised aria-expanded:text-ink aria-pressed:border-field aria-pressed:bg-raised aria-pressed:text-ink';
+  'inline-flex size-icon-button shrink-0 cursor-pointer items-center justify-center rounded-pill border bg-transparent p-0 text-muted transition-colors hover:bg-raised hover:text-ink disabled:pointer-events-none disabled:opacity-50 aria-expanded:border-field aria-expanded:bg-raised aria-expanded:text-ink aria-pressed:border-field aria-pressed:bg-raised aria-pressed:text-ink aria-disabled:pointer-events-none aria-disabled:opacity-50';
 
-export function IconButton({ icon, label, onClick, disabled = false, outlined = false, haspopup, expanded, pressed, focusKey, iconClass = 'size-4' }: IconButtonProps) {
+export function IconButton({ icon, label, onClick, disabled = false, busy = false, outlined = false, haspopup, expanded, pressed, focusKey, iconClass = 'size-4' }: IconButtonProps) {
   return (
     <button
       type="button"
@@ -33,11 +35,13 @@ export function IconButton({ icon, label, onClick, disabled = false, outlined = 
       aria-haspopup={haspopup}
       aria-expanded={haspopup ? (expanded ? 'true' : 'false') : undefined}
       aria-pressed={pressed === undefined ? undefined : pressed ? 'true' : 'false'}
+      aria-busy={busy ? 'true' : undefined}
+      aria-disabled={busy ? 'true' : undefined}
       disabled={disabled}
       data-focus={focusKey}
-      onClick={onClick}
+      onClick={busy ? undefined : onClick}
     >
-      <Icon name={icon} class={iconClass} strokeWidth="2.4" />
+      {busy ? <Icon name="spinner" class={`${iconClass} animate-spin motion-reduce:animate-none`} strokeWidth="2.6" /> : <Icon name={icon} class={iconClass} strokeWidth="2.4" />}
     </button>
   );
 }

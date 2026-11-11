@@ -1297,6 +1297,7 @@
   "watching.sortAria.time": "за залишком часу",
   "watching.sortAria.title": "за назвою",
   "watching.sortMenu": "Сортувати мої аніме",
+  "watching.refresh": "Оновити список",
   "watching.sortTrigger": "Сортування: {label}",
   "watching.status.COMPLETED": "Позначити переглянутим",
   "watching.status.DROPPED": "Закинути",

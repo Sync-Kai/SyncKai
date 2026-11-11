@@ -1297,6 +1297,7 @@
   "watching.sortAria.time": "по оставшемуся времени",
   "watching.sortAria.title": "по названию",
   "watching.sortMenu": "Сортировка моих аниме",
+  "watching.refresh": "Обновить список",
   "watching.sortTrigger": "Сортировка: {label}",
   "watching.status.COMPLETED": "Отметить как просмотренное",
   "watching.status.DROPPED": "Бросить",

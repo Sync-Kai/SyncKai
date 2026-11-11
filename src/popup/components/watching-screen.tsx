@@ -30,6 +30,7 @@ import type { ExclusionsState, InlineFeedback, ReadonlyStore } from '../../ui/st
 import { Alert } from '../../ui/components/alert';
 import { Button } from '../../ui/components/button';
 import { Icon, MountedNode } from '../../ui/components/icon';
+import { IconButton } from '../../ui/components/icon-button';
 import { MenuItem, MenuPopup } from '../../ui/components/menu';
 import { NotesEditor } from '../../ui/components/notes-editor';
 import { releaseChipView } from './release-chip';
@@ -92,6 +93,8 @@ export interface WatchingScreenProps {
   /** Enregistre le commentaire ; true si c'est fait */
   onSaveNotes: (entry: WatchingEntry, text: string) => Promise<boolean>;
   onPickSort: (sort: WatchingSort) => void;
+  /** « Actualiser » : relit la liste en contournant le cache du service worker */
+  onRefresh: () => void;
   /** Groupe « En sommeil » au bas de la liste */
   dormant: DormantHost;
   onRetry: () => void;
@@ -558,7 +561,12 @@ export function WatchingScreen(props: WatchingScreenProps) {
       {banner}
       {pageCardSlot}
       {hero && <ResumeEntry entry={hero} props={props} context={context} action={actions.get(entryKey(hero))} excluded={isExcluded(hero)} notes={notesOf(hero)} />}
-      <SeriesHeading>{rows.length > 1 && <SortMenu sort={sort} onPick={props.onPickSort} />}</SeriesHeading>
+      <SeriesHeading>
+        <div class="flex shrink-0 items-center gap-1">
+          {rows.length > 1 && <SortMenu sort={sort} onPick={props.onPickSort} />}
+          <IconButton icon="retry" label={t('watching.refresh')} busy={state.refreshing} focusKey="watching-refresh" iconClass="size-3.5" onClick={props.onRefresh} />
+        </div>
+      </SeriesHeading>
       <RemainingTotal entries={list.entries} now={now} />
       {rows.length > 0 && sort === 'status' ? (
         // Tri « État » : un groupe par statut de sortie, sous un titre de niveau 3 (séries actives seulement, le groupe

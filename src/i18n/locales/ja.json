@@ -1063,6 +1063,7 @@
   "watching.sortAria.time": "残り時間順",
   "watching.sortAria.title": "タイトル順",
   "watching.sortMenu": "作品の並べ替え",
+  "watching.refresh": "リストを再読み込み",
   "watching.sortTrigger": "並べ替え：{label}",
   "watching.status.COMPLETED": "視聴完了にする",
   "watching.status.DROPPED": "視聴中止にする",

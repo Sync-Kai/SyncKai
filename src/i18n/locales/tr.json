@@ -1141,6 +1141,7 @@
   "watching.sortAria.time": "kalan süreye göre",
   "watching.sortAria.title": "başlığa göre",
   "watching.sortMenu": "Serilerimi sırala",
+  "watching.refresh": "Listeyi yenile",
   "watching.sortTrigger": "Sırala: {label}",
   "watching.status.COMPLETED": "Tamamlandı olarak işaretle",
   "watching.status.DROPPED": "Seriyi bırak",

@@ -623,6 +623,7 @@ mountPopupApp(getRoot(), {
     onCloseNotes: closeNotes,
     onSaveNotes: saveNotes,
     onPickSort: pickSort,
+    onRefresh: () => void watching.refresh(),
     dormant: {
       state: dormant.store,
       prefs: watching.prefs,
