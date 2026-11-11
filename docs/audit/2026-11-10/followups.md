@@ -35,3 +35,15 @@ The 2.5.0 audit fixes (plan `docs/superpowers/plans/2026-11-11-2.5.0-audit-fixes
 - **`README.md:145`** « `alarms` (release alerts, retries) » misses sequel alerts.
 - **Firefox `data_collection_permissions`** was not reassessed for the 2.5.0 flows.
 - **15 ESLint `max-lines-per-function` warnings** remain in files the fixes did not touch.
+
+## From the tester-feedback reviews (2026-11-11)
+
+- **The refresh flag stays stuck after the worker timeout.** After `popupTimeouts.watchingMs` (`src/popup/controllers/watching.ts`), the error shows with `refreshing: false`, but `refreshInFlight` stays `true` until the late answer arrives. « Actualiser » then looks active and does nothing. « Réessayer » still works.
+- **The busy icon is dimmed** by `aria-disabled:opacity-50` while it spins. `watching.refresh` also sits between `watching.sortMenu` and `watching.sortTrigger` in the catalogs, out of alphabetical order.
+- **The announced-sequels check** (`src/background/sequels/listed.ts`):
+  - with both services connected, only AniList is checked, so a sequel added on MyAnimeList only stays until the daily pass;
+  - the throttle key is not cleared at logout, which the session epochs make harmless;
+  - no assertion checks that the removed ids stay in `known`;
+  - there is no unit test of the popup's `visible` wiring;
+  - the MAL memo lasts 5 min while the throttle lasts 10.
+- **No reduced-height e2e covers Activité** or the refresh button: only « Mes séries » is tested at 545 px.
