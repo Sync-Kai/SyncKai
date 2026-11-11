@@ -9,7 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Added
 
-- **Sequel alerts**: once a day, SyncKai checks on AniList whether a series you finished or are watching got a sequel, and tells you with a browser notification (« Sequel announced: … », with *Open entry* and *+ Plan to watch*) or, if you prefer, only in the popup's *Activity* tab. The side panel's *Schedule* gains an *Announced* view with the coming sequels, and the related entries of *Now playing* mark them. Turn it on or off in *Settings › Notifications › Sequel alerts*. Sequels already in one of your lists are never announced.
+- **Sequel alerts**: once a day, SyncKai checks on AniList whether a series you finished or are watching got a sequel, and tells you with a browser notification (« Sequel announced: … », with *Open entry* and *+ Plan to watch*) or, if you prefer, only in the popup's *Activity* tab. The side panel's *Schedule* gains an *Announced* view with the coming sequels, and the related entries of *Now playing* mark them. It is on by default, but stays off if you had turned release alerts off before this update. Turn it on or off in *Settings › Notifications › Sequel alerts*. Sequels already in one of your lists are never announced.
 - **Watch order** in the side panel: *Now playing* shows the whole franchise in release order (seasons, films, OVAs, side stories), with what you watched on AniList or MyAnimeList ticked off, what comes next and a *Watch* button on your preferred player. Runs of watched entries fold into one line (« 4 watched »).
 - **Recommendations**, read from AniList only: a new *Discover* tab in the side panel suggests series from what you rated highly (« Because you rated … ★ 9/10 ») or, without enough ratings, from what you watched, with their genres, *+ Plan to watch* and *Not interested*. *Now playing* adds an *In the same spirit* section, an empty *Schedule* week and an empty *Watching* list suggest a few series, and the suggestions you turned down can be restored from *Settings › My data*. A sequel is never suggested before the season you have not watched.
 - **Remaining time**: each series in *My series* shows the time left to catch up (« ≈ 50 min », episodes aired × their length), the list header the total (« ≈ 1 h to catch up · 2 series »), and two new sorts, *Time left* and *Episodes left*.
@@ -21,6 +21,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 - **Popup navigation moved to a left rail**: *Watching*, *Activity* (with a dot when a sequel is announced) and *Settings* now sit in a narrow column on the left, and the popup grows to 496 × 600 to give the lists more room.
 - Status changes from the popup and the side panel no longer read the AniList catalogue entry when they don't need it.
+- **Privacy policy** updated: sequel alerts read your AniList and MyAnimeList lists once a day, and suggestions when they are shown, together with AniList's public catalogue (MyAnimeList entries missing from your AniList list are looked up there by their MyAnimeList ID, with no token if you only use MyAnimeList). The policy also describes the watch order, friends on AniList and what each feature keeps in your browser.
 
 ### Fixed
 
