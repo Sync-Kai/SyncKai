@@ -49,11 +49,11 @@ const STATUSES: readonly (readonly [ListStatus, Tone])[] = [
   ['REPEATING', 'info'],
 ];
 
-const PERIODS: readonly { value: StatsPeriod; key: 'stats.period.week' | 'stats.period.month' | 'stats.period.year' | 'compare.filter.all' }[] = [
+const PERIODS: readonly { value: StatsPeriod; key: 'stats.period.week' | 'stats.period.month' | 'stats.period.year' | 'stats.period.all' }[] = [
   { value: '7d', key: 'stats.period.week' },
   { value: '30d', key: 'stats.period.month' },
   { value: '12m', key: 'stats.period.year' },
-  { value: 'all', key: 'compare.filter.all' },
+  { value: 'all', key: 'stats.period.all' },
 ];
 
 /** Plus haute note de chaque format, et pas des colonnes affichées (POINT_100 : paliers de 5 reçus, regroupés par 10) */

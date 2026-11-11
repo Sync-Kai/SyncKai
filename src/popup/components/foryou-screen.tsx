@@ -45,14 +45,14 @@ function Filters({ filter, genres, onFilter }: FiltersProps) {
   const shown = genres.slice(0, MAX_GENRE_CHIPS);
   if (filter.genre !== null && !shown.includes(filter.genre)) shown.push(filter.genre);
   const formats: readonly SegmentedOption<RecoFormat>[] = [
-    { value: 'all', label: t('compare.filter.all') },
+    { value: 'all', label: t('reco.filter.all') },
     { value: 'series', label: t('reco.filter.series') },
     { value: 'movies', label: t('reco.filter.movies') },
   ];
   return (
     <div class="flex flex-col gap-2 pt-1" data-reco-filters="">
       <div class="flex flex-wrap gap-1.5" role="group" aria-label={t('panel.nowPlaying.genres')}>
-        <GenreChip label={t('compare.filter.all')} on={filter.genre === null} focusKey="reco-genre-all" onPick={() => onFilter({ ...filter, genre: null })} />
+        <GenreChip label={t('reco.filter.all')} on={filter.genre === null} focusKey="reco-genre-all" onPick={() => onFilter({ ...filter, genre: null })} />
         {shown.map((genre) => (
           <GenreChip key={genre} label={genreLabel(genre)} on={filter.genre === genre} focusKey={`reco-genre-${genre}`} onPick={() => onFilter({ ...filter, genre })} />
         ))}

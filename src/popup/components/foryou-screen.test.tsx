@@ -62,7 +62,7 @@ describe('ForYouScreen', () => {
     expect(MAX_GENRE_CHIPS).toBe(8);
     await show(ready());
     let buttons = genreButtons();
-    expect(buttons.map((b) => b.textContent)).toEqual([t('compare.filter.all'), ...GENRES.slice(0, 8).map(label)]);
+    expect(buttons.map((b) => b.textContent)).toEqual([t('reco.filter.all'), ...GENRES.slice(0, 8).map(label)]);
     expect(buttons[0]?.getAttribute('aria-pressed')).toBe('true');
     expect(buttons.slice(1).every((b) => b.getAttribute('aria-pressed') === 'false')).toBe(true);
 
@@ -84,7 +84,7 @@ describe('ForYouScreen', () => {
     expect(onFilter).toHaveBeenLastCalledWith({ genre: null, format: 'series' });
 
     // Format : Tout / Séries / Films
-    expect(formatRadios().map((r) => r.textContent)).toEqual([t('compare.filter.all'), t('reco.filter.series'), t('reco.filter.movies')]);
+    expect(formatRadios().map((r) => r.textContent)).toEqual([t('reco.filter.all'), t('reco.filter.series'), t('reco.filter.movies')]);
     expect(formatRadios()[1]?.getAttribute('aria-checked')).toBe('true');
     await act(() => formatRadios()[2]?.click());
     expect(onFilter).toHaveBeenLastCalledWith({ genre: 'Action', format: 'movies' });
