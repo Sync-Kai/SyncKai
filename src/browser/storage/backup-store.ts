@@ -1,8 +1,11 @@
 import { ensureAiringAlarm } from '../airing-alarm';
 import { refreshReviewBadge } from '../badge';
 import { BACKUP_STORAGE_KEYS, bindBackupToSession, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type ImportMode } from '../../shared/backup';
+import { prunedActivityHistory, withoutOtherAccount, type ActivityHistory } from '../../shared/activity-history';
 import { isRecord } from '../../shared/guards';
+import type { TrackerId } from '../../shared/tracker.types';
 import { getOpenSessions } from './sessions';
+import { getCachedMalViewer, getCachedViewer } from './viewer-cache';
 import { withStorageLock } from './lock';
 import { createLogger } from '../logger';
 import { grantedOptionalPlatforms } from '../platform-access';
@@ -26,6 +29,21 @@ export function exportBackup(): Promise<Backup> {
 }
 
 /**
+ * Historique d'activité après import : 400 derniers jours seulement (une sauvegarde ancienne ou forgée n'est jamais
+ * stockée, donc jamais réexportée, au-delà), et part d'un autre compte que le profil en cache retirée, comme à
+ * l'enregistrement d'un profil (jamais montrée ensuite, même après l'expiration de la session). Lu sous le verrou de l'appelant.
+ */
+async function importableActivity(merged: ActivityHistory): Promise<ActivityHistory> {
+  let history = prunedActivityHistory(merged, Date.now());
+  const viewers: readonly [TrackerId, { id: number } | null][] = [
+    ['anilist', await getCachedViewer()],
+    ['mal', await getCachedMalViewer()],
+  ];
+  for (const [service, viewer] of viewers) if (viewer !== null) history = withoutOtherAccount(history, service, viewer.id) ?? history;
+  return history;
+}
+
+/**
  * Applique une sauvegarde importée sous verrou, puis met à jour le badge de l'icône.
  * Lecteur préféré « Netflix » ou « Prime Video » importé sur un profil sans cet accès : remplacé par le lecteur par défaut.
  */
@@ -40,6 +58,7 @@ export async function applyBackup(incoming: BackupData, mode: ImportMode, includ
     const rawMappings: unknown = stored[BACKUP_STORAGE_KEYS.mediaMappings];
     const mediaMappings = mode === 'merge' && isRecord(rawMappings) ? { ...rawMappings, ...next.mediaMappings } : next.mediaMappings;
     const settings = next.settings && { ...next.settings, preferredPlayer: effectivePlayer(next.settings.preferredPlayer, granted) };
+    const activityHistory = await importableActivity(next.activityHistory);
     const k = BACKUP_STORAGE_KEYS;
     await chrome.storage.local.set({
       ...(settings !== null ? { [k.settings]: settings } : {}),
@@ -50,7 +69,7 @@ export async function applyBackup(incoming: BackupData, mode: ImportMode, includ
       [k.pendingRatings]: next.pendingRatings,
       [k.rewatchDeclined]: next.rewatchDeclined,
       [k.recoDismissed]: next.recoDismissed,
-      [k.activityHistory]: next.activityHistory,
+      [k.activityHistory]: activityHistory,
     });
   });
   // Badge décoratif : son échec ne remet pas l'import en cause

@@ -83,6 +83,16 @@ function pruned(days: Readonly<Record<string, ActivityDay>>, now: number): Recor
   return Object.fromEntries(Object.entries(days).filter(([key]) => key >= oldest));
 }
 
+/** Chaque part réduite aux 400 derniers jours (et aux jours futurs) : sauvegarde importée, jamais stockée au-delà */
+export function prunedActivityHistory(history: ActivityHistory, now: number): ActivityHistory {
+  const next: ActivityHistory = {};
+  for (const service of TRACKER_IDS) {
+    const part = history[service];
+    if (part !== undefined) next[service] = { accountId: part.accountId, days: pruned(part.days, now) };
+  }
+  return next;
+}
+
 /** +1 épisode et +minutes au jour de `now` pour chaque écriture ; part d'un autre compte remplacée ; jours de plus de 400 jours retirés */
 export function addActivity(raw: unknown, writes: readonly { service: TrackerId; accountId: number }[], minutes: number, now: number): ActivityHistory {
   const next = readActivityHistory(raw);
@@ -95,11 +105,7 @@ export function addActivity(raw: unknown, writes: readonly { service: TrackerId;
     if (episodes < MAX_DAY_EPISODES) days[today] = [episodes + 1, total + added];
     next[service] = { accountId, days };
   }
-  for (const service of TRACKER_IDS) {
-    const part = next[service];
-    if (part !== undefined) next[service] = { accountId: part.accountId, days: pruned(part.days, now) };
-  }
-  return next;
+  return prunedActivityHistory(next, now);
 }
 
 /** Part de `service` retirée si elle appartient à un autre compte ; null si rien ne change */

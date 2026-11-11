@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeAlarms } from '../../test/fake-chrome';
 
 // Import d'une sauvegarde : stockage en mémoire, verrou immédiat, accès Netflix piloté.
@@ -79,6 +79,15 @@ describe('applyBackup — suggestions écartées', () => {
 });
 
 describe('applyBackup — historique d’activité', () => {
+  // Horloge fixe : les jours de la démo restent dans les 400 derniers jours
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 11, 12));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('applyBackup écrit activityHistory', async () => {
     // Identifiants de compte fictifs
     const stored = fakeBrowser(true, { 'stats:activityHistory': { anilist: { accountId: 7, days: { '2026-10-15': [1, 24] } } } });
@@ -87,5 +96,26 @@ describe('applyBackup — historique d’activité', () => {
     expect(stored['stats:activityHistory']).toEqual({ anilist: { accountId: 7, days: { '2026-10-14': [2, 48], '2026-10-15': [1, 24] } } });
     await applyBackup(incoming, 'replace', false);
     expect(stored['stats:activityHistory']).toEqual({ anilist: { accountId: 7, days: { '2026-10-14': [2, 48] } } });
+  });
+
+  it('jours de plus de 400 jours (2001) : jamais enregistrés, en fusion comme en remplacement', async () => {
+    const stored = fakeBrowser(true, { 'stats:activityHistory': { anilist: { accountId: 7, days: { '2026-10-15': [1, 24] } } } });
+    const incoming = buildBackup({ activityHistory: { anilist: { accountId: 7, days: { '2001-01-01': [5, 100], '2026-10-14': [2, 48] } }, mal: { accountId: 9, days: { '2001-06-01': [1, 24] } } } }, '2.5.0', new Date()).data;
+    await applyBackup(incoming, 'merge', false);
+    expect(stored['stats:activityHistory']).toEqual({ anilist: { accountId: 7, days: { '2026-10-14': [2, 48], '2026-10-15': [1, 24] } }, mal: { accountId: 9, days: {} } });
+    await applyBackup(incoming, 'replace', false);
+    expect(stored['stats:activityHistory']).toEqual({ anilist: { accountId: 7, days: { '2026-10-14': [2, 48] } }, mal: { accountId: 9, days: {} } });
+  });
+
+  it('part d’un autre compte importée alors qu’un profil est en cache : retirée (jamais montrée après une expiration)', async () => {
+    // Profil AniList 7 en cache ; sauvegarde du compte AniList 8 et du compte MAL 9 (aucun profil MAL en cache : gardée)
+    const stored = fakeBrowser(true, { anilistViewer: { id: 7, name: 'A', siteUrl: 'https://anilist.co/user/7', avatarUrl: null } });
+    const incoming = buildBackup({ activityHistory: { anilist: { accountId: 8, days: { '2026-11-10': [4, 96] } }, mal: { accountId: 9, days: { '2026-11-10': [1, 24] } } } }, '2.5.0', new Date()).data;
+    await applyBackup(incoming, 'replace', false);
+    expect(stored['stats:activityHistory']).toEqual({ mal: { accountId: 9, days: { '2026-11-10': [1, 24] } } });
+    // Session AniList expirée ensuite : la part relue d'un compte dont on retomberait sur l'identifiant n'existe plus
+    const { activitySummary, readActivityHistory } = await import('../../shared/activity-history');
+    const history = readActivityHistory(stored['stats:activityHistory']);
+    expect(activitySummary(history, 'anilist', history.anilist?.accountId ?? null, '30d', Date.now()).episodes).toBe(0);
   });
 });
