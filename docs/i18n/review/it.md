@@ -642,3 +642,4 @@ New suffix of the result banner after « Put all on hold » / « Undo » when a 
 - 2026-11-09, feature/recommendations: added the recommendation texts (reco.*, panel.tab.discover, panel.similar.*, settings.reco.*) and the AniList genres (genre.*).
 - 2026-11-10, feature/recommendations: added `reco.becauseWatched`, `reco.announceWatched` and `reco.announceCold` (suggestion drawn from a completed but unscored series; cold-start announcement), wording and register as `reco.because` / `reco.announce`.
 - 2026-11-10, bugfix/2.5-wording: `panel.order.watched_one` and `panel.order.watchedRun_one` now agree in the singular (« 1 / 8 visto »).
+- 2026-11-11, feature/watching-refresh: added `watching.refresh` « Aggiorna la lista » (verb of `panel.nowPlaying.refresh` + the term sheet's word for « list »).
