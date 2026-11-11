@@ -4,7 +4,7 @@ import type { WatchingEntry, WatchingList } from '../shared/watching.types';
 import { DEFAULT_SETTINGS } from '../shared/settings';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { StreamingPlatform } from '../platforms/registry';
-import type { PlatformAccessStore } from '../ui/platform-access-store';
+import type { PlatformAccessStore } from './platform-access-store';
 
 // Données de l'Agenda (sans rendu) : comptes, séries en cours, cache de la semaine, requête GET_AGENDA en cours jamais
 // jetée par un chargement automatique, écouteur du stockage retiré par dispose

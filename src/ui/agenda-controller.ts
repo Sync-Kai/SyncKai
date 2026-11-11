@@ -18,8 +18,8 @@ import { hasMalToken, hasValidAniListToken } from '../browser/storage/tokens';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { t } from '../i18n';
 import { TRACKER_IDS, type TrackerId } from '../shared/tracker.types';
-import { callWorker, networkFailure } from '../ui/worker-call';
-import type { PlatformAccessStore } from '../ui/platform-access-store';
+import { callWorker, networkFailure } from './worker-call';
+import type { PlatformAccessStore } from './platform-access-store';
 import { decideAgendaLoad } from './agenda-load';
 
 const log = createLogger('agenda');

@@ -22,8 +22,8 @@ import { createRecoController, type RecoController, type RecoView } from '../ui/
 import { CLOSED_SECTIONS, type PanelSectionsState } from './components/details-card';
 import type { NowPlayingSnapshot } from './components/now-playing';
 import { createNowPlayingController } from './components/now-playing-controller';
-import { agendaSnapshot, type AgendaSnapshot } from './components/agenda';
-import { createAgendaController, type AgendaController } from './agenda-controller';
+import { agendaSnapshot, type AgendaSnapshot } from '../ui/components/agenda';
+import { createAgendaController, type AgendaController } from '../ui/agenda-controller';
 import { mountPanelApp, type PanelShellState } from './panel-app';
 import { watchPanelContext, type PanelContext } from './presence';
 import { listenPanelToggle } from './toggle';

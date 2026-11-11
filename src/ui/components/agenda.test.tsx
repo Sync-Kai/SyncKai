@@ -7,7 +7,7 @@ import { weekRange, type AgendaSeries, type AiringSchedule } from '../../shared/
 import { DEFAULT_SETTINGS, type SyncSettings } from '../../shared/settings';
 import type { SequelRecord } from '../../shared/sequels';
 import type { SyncOutcome } from '../../shared/sync.types';
-import { createStore } from '../../ui/state';
+import { createStore } from '../state';
 import type { AgendaStatus } from '../agenda-controller';
 import { Agenda, type AgendaSnapshot } from './agenda';
 

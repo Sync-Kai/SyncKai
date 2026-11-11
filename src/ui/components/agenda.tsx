@@ -5,7 +5,7 @@
 // « · Ép. N », puis l'heure sur la plateforme en gras (lavande si réglée pour la série) · plateforme · « Japon HH:MM »
 // (tronqué en premier), « ● Vu » et ligne atténuée si l'épisode est vu ; « Ouvrir » (logo) et « ⋯ » (« Ajuster
 // l'heure », « Ouvrir la fiche › », « Chercher sur… › »). L'éditeur de délai s'ouvre sous la ligne et rend le focus au
-// « ⋯ » de la série en se fermant (4-A2). Données et requêtes : sidepanel/agenda-controller.ts (sans rendu).
+// « ⋯ » de la série en se fermant (4-A2). Données et requêtes : ui/agenda-controller.ts (sans rendu).
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { getLocale, t, upperFirst, type MessageKey } from '../../i18n';
@@ -18,21 +18,21 @@ import { entryLink, entryLinks, type EntryLinkContext } from '../../shared/entry
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { DEFAULT_SETTINGS, OFFSET_RANGE, parseOffsetInput, type SyncSettings } from '../../shared/settings';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
-import { Alert } from '../../ui/components/alert';
-import { Button } from '../../ui/components/button';
-import { Cover } from '../../ui/components/cover';
-import { Icon } from '../../ui/components/icon';
-import { LogoButton } from '../../ui/components/logo-button';
-import { Menu, MenuItem, MenuSeparator, SubMenu } from '../../ui/components/menu';
-import { Segmented } from '../../ui/components/segmented';
-import { SequelRow } from '../../ui/components/sequel-row';
-import { ServiceLogo } from '../../ui/components/service-logo';
-import { WeekPicker } from '../../ui/components/week-picker';
-import { alertAttrs } from '../../ui/live-region';
-import { formatPlatformList } from '../../ui/platform-list';
-import { useFocusFallback, useLocale, useStore } from '../../ui/preact/hooks';
-import { useSequelActions } from '../../ui/preact/use-sequel-actions';
-import type { ReadonlyStore } from '../../ui/state';
+import { Alert } from './alert';
+import { Button } from './button';
+import { Cover } from './cover';
+import { Icon } from './icon';
+import { LogoButton } from './logo-button';
+import { Menu, MenuItem, MenuSeparator, SubMenu } from './menu';
+import { Segmented } from './segmented';
+import { SequelRow } from './sequel-row';
+import { ServiceLogo } from './service-logo';
+import { WeekPicker } from './week-picker';
+import { alertAttrs } from '../live-region';
+import { formatPlatformList } from '../platform-list';
+import { useFocusFallback, useLocale, useStore } from '../preact/hooks';
+import { useSequelActions } from '../preact/use-sequel-actions';
+import type { ReadonlyStore } from '../state';
 import type { AgendaController, AgendaStatus } from '../agenda-controller';
 
 /** Instantané du contrôleur publié pour l'arbre Preact (sidepanel.ts) */
