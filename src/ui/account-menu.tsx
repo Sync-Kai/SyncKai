@@ -7,20 +7,19 @@ import type { RefObject } from 'preact';
 import { useEffect, useId, useState } from 'preact/hooks';
 import { getLocale, t, tp } from '../i18n';
 import type { AccountStats } from '../shared/account-stats';
-import { isAniListViewer, type AniListViewer } from '../shared/anilist.types';
-import { isMalViewer, type MalViewer } from '../shared/mal.types';
+import type { AniListViewer } from '../shared/anilist.types';
+import type { MalViewer } from '../shared/mal.types';
 import { TRACKER_LABELS, type TrackerId } from '../shared/tracker.types';
 import { toImageSrc } from '../shared/url';
 import { createLogger } from '../browser/logger';
 import { getCachedMalViewer, getCachedViewer, getViewerFetchedAt } from '../browser/storage/viewer-cache';
 import { getWeeklySyncCount } from '../browser/storage/weekly-syncs';
 import type { AccountsController } from './accounts';
-import { formatStatDays, menuNeedsRefresh, profileUrl, statsView } from './account-menu-model';
+import { formatStatDays, menuNeedsRefresh, profileUrl, statsView, typedViewerState } from './account-menu-model';
 import { AccountAvatar } from './components/account-avatar';
 import { Icon } from './components/icon';
 import { MenuItem, MenuPopup, MenuSeparator } from './components/menu';
 import { useLocale, useStore } from './preact/hooks';
-import type { AccountState } from './state';
 
 const log = createLogger('account-menu');
 
@@ -49,13 +48,6 @@ export interface AccountMenuProps {
   onClose: (restore: boolean) => void;
   data?: AccountMenuData;
   now?: () => number;
-}
-
-/** État du store avec un profil validé (le store générique des comptes porte un profil `unknown`) */
-function typedState(state: AccountState<unknown>): AccountState<Viewer> {
-  if (state.status !== 'logged-in') return state;
-  const viewer = isAniListViewer(state.viewer) || isMalViewer(state.viewer) ? state.viewer : null;
-  return { ...state, viewer };
 }
 
 const avatarOf = (viewer: Viewer | null): string | null => toImageSrc(viewer === null ? null : 'avatarUrl' in viewer ? viewer.avatarUrl : viewer.pictureUrl);
@@ -116,7 +108,7 @@ const DIVIDER = <div class="mx-1.5 my-1 h-px shrink-0 bg-line" aria-hidden="true
 
 export function AccountMenu({ service, accounts, root, onClose, data = STORAGE_MENU_DATA, now = Date.now }: AccountMenuProps) {
   useLocale();
-  const state = typedState(useStore(accounts.store(service)));
+  const state = typedViewerState(useStore(accounts.store(service)));
   const [refreshing, setRefreshing] = useState(false);
   const [weekly, setWeekly] = useState<number | 'hidden' | null>(null);
   const [cached, setCached] = useState<Viewer | null>(null);
@@ -133,7 +125,7 @@ export function AccountMenu({ service, accounts, root, onClose, data = STORAGE_M
       },
     );
     const open = async (): Promise<void> => {
-      const current = typedState(accounts.store(service).get());
+      const current = typedViewerState(accounts.store(service).get());
       if (current.status === 'logged-out' && current.expired) {
         const viewer = await data.cachedViewer(service);
         if (live) setCached(viewer);

@@ -1,0 +1,277 @@
+{
+  "mediaListOptions": {
+    "scoreFormat": "POINT_10"
+  },
+  "statistics": {
+    "anime": {
+      "count": 392,
+      "episodesWatched": 3640,
+      "minutesWatched": 84586,
+      "meanScore": 76.2,
+      "statuses": [
+        {
+          "status": "COMPLETED",
+          "count": 285
+        },
+        {
+          "status": "PLANNING",
+          "count": 159
+        },
+        {
+          "status": "DROPPED",
+          "count": 45
+        },
+        {
+          "status": "PAUSED",
+          "count": 32
+        },
+        {
+          "status": "CURRENT",
+          "count": 29
+        }
+      ],
+      "formats": [
+        {
+          "format": "TV",
+          "count": 248
+        },
+        {
+          "format": "OVA",
+          "count": 60
+        },
+        {
+          "format": "ONA",
+          "count": 37
+        },
+        {
+          "format": "MOVIE",
+          "count": 20
+        },
+        {
+          "format": "TV_SHORT",
+          "count": 14
+        },
+        {
+          "format": "SPECIAL",
+          "count": 13
+        }
+      ],
+      "genres": [
+        {
+          "genre": "Fantasy",
+          "count": 177,
+          "meanScore": 75.87
+        },
+        {
+          "genre": "Action",
+          "count": 173,
+          "meanScore": 77.53
+        },
+        {
+          "genre": "Comedy",
+          "count": 153,
+          "meanScore": 76.73
+        },
+        {
+          "genre": "Adventure",
+          "count": 132,
+          "meanScore": 76.67
+        },
+        {
+          "genre": "Drama",
+          "count": 117,
+          "meanScore": 81.79
+        },
+        {
+          "genre": "Romance",
+          "count": 92,
+          "meanScore": 77.61
+        }
+      ],
+      "scores": [
+        {
+          "score": 4,
+          "count": 4
+        },
+        {
+          "score": 5,
+          "count": 19
+        },
+        {
+          "score": 6,
+          "count": 48
+        },
+        {
+          "score": 7,
+          "count": 88
+        },
+        {
+          "score": 8,
+          "count": 118
+        },
+        {
+          "score": 9,
+          "count": 72
+        },
+        {
+          "score": 10,
+          "count": 22
+        }
+      ],
+      "studios": [
+        {
+          "studio": {
+            "name": "A-1 Pictures"
+          },
+          "count": 19
+        },
+        {
+          "studio": {
+            "name": "MADHOUSE"
+          },
+          "count": 15
+        },
+        {
+          "studio": {
+            "name": "EGG FIRM"
+          },
+          "count": 12
+        },
+        {
+          "studio": {
+            "name": "Studio DEEN"
+          },
+          "count": 12
+        },
+        {
+          "studio": {
+            "name": "J.C.STAFF"
+          },
+          "count": 11
+        }
+      ],
+      "releaseYears": [
+        {
+          "releaseYear": 2024,
+          "count": 74
+        },
+        {
+          "releaseYear": 2025,
+          "count": 67
+        },
+        {
+          "releaseYear": 2026,
+          "count": 40
+        },
+        {
+          "releaseYear": 2020,
+          "count": 37
+        },
+        {
+          "releaseYear": 2019,
+          "count": 22
+        },
+        {
+          "releaseYear": 2021,
+          "count": 20
+        },
+        {
+          "releaseYear": 2018,
+          "count": 20
+        },
+        {
+          "releaseYear": 2016,
+          "count": 19
+        },
+        {
+          "releaseYear": 2022,
+          "count": 17
+        },
+        {
+          "releaseYear": 2017,
+          "count": 11
+        },
+        {
+          "releaseYear": 2023,
+          "count": 11
+        },
+        {
+          "releaseYear": 2014,
+          "count": 11
+        },
+        {
+          "releaseYear": 2015,
+          "count": 10
+        },
+        {
+          "releaseYear": 2012,
+          "count": 6
+        },
+        {
+          "releaseYear": 2013,
+          "count": 5
+        },
+        {
+          "releaseYear": 2001,
+          "count": 3
+        },
+        {
+          "releaseYear": 2008,
+          "count": 3
+        },
+        {
+          "releaseYear": 2011,
+          "count": 2
+        },
+        {
+          "releaseYear": 1997,
+          "count": 2
+        },
+        {
+          "releaseYear": 2004,
+          "count": 2
+        },
+        {
+          "releaseYear": 1999,
+          "count": 1
+        },
+        {
+          "releaseYear": 2009,
+          "count": 1
+        },
+        {
+          "releaseYear": 1986,
+          "count": 1
+        },
+        {
+          "releaseYear": 1995,
+          "count": 1
+        },
+        {
+          "releaseYear": 1998,
+          "count": 1
+        },
+        {
+          "releaseYear": 2010,
+          "count": 1
+        },
+        {
+          "releaseYear": 2006,
+          "count": 1
+        },
+        {
+          "releaseYear": 1989,
+          "count": 1
+        },
+        {
+          "releaseYear": 2003,
+          "count": 1
+        },
+        {
+          "releaseYear": 1988,
+          "count": 1
+        }
+      ]
+    }
+  }
+}

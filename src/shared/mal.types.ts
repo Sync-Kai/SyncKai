@@ -1,6 +1,7 @@
 import type { AniListErrorCode } from './anilist.types';
 import { isAccountStats, type AccountStats } from './account-stats';
 import { isRecord } from './guards';
+import { isProfileStats, type ProfileStats } from './profile-stats';
 import type { Result } from './result';
 
 /** Token OAuth2 MyAnimeList (Authorization Code + PKCE, renouvelable) */
@@ -27,6 +28,8 @@ export interface MalViewer {
   pictureUrl: string | null;
   /** Statistiques du menu du compte, lues avec le profil ; null : illisibles ; absentes : profil enregistré avant elles */
   stats?: AccountStats | null;
+  /** Statistiques détaillées (écran Stats) ; null : illisibles ; absentes : profil enregistré avant elles */
+  profile?: ProfileStats | null;
 }
 
 export function isMalViewer(value: unknown): value is MalViewer {
@@ -35,7 +38,8 @@ export function isMalViewer(value: unknown): value is MalViewer {
     typeof value.id === 'number' &&
     typeof value.name === 'string' &&
     (value.pictureUrl === null || typeof value.pictureUrl === 'string') &&
-    (value.stats === undefined || value.stats === null || isAccountStats(value.stats))
+    (value.stats === undefined || value.stats === null || isAccountStats(value.stats)) &&
+    (value.profile === undefined || value.profile === null || isProfileStats(value.profile))
   );
 }
 

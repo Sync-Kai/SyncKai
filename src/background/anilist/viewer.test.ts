@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AniListViewer } from '../../shared/anilist.types';
+import { isAniListViewer } from '../../shared/anilist.types';
+import type { ProfileStats } from '../../shared/profile-stats';
+
+/** Profil lu sans bloc détaillé : tout est vide, format de note par défaut */
+const EMPTY_PROFILE: ProfileStats = { scoreFormat: 'POINT_10', meanScore100: null, statuses: [], formats: [], genres: [], scores: [], studios: [], decades: [], rewatched: null };
 
 // Requête AniList et cache simulés : getViewer est testé seul (le client l'est dans client.test.ts)
 const deps = vi.hoisted(() => ({
@@ -32,13 +37,55 @@ describe('getViewer (profil et statistiques du menu du compte)', () => {
 
   it('une seule requête Viewer : profil et statistics.anime (count, épisodes, minutes → jours), mis en cache avec la génération', async () => {
     answer({ Viewer: { id: 5, name: 'Kai', siteUrl: 'https://anilist.co/user/Kai', avatar: { medium: null }, statistics: { anime: { count: 258, episodesWatched: 3152, minutesWatched: 77760 } } } });
-    const viewer: AniListViewer = { id: 5, name: 'Kai', siteUrl: 'https://anilist.co/user/Kai', avatarUrl: null, stats: { animeCount: 258, episodes: 3152, days: 54 } };
+    const viewer: AniListViewer = { id: 5, name: 'Kai', siteUrl: 'https://anilist.co/user/Kai', avatarUrl: null, stats: { animeCount: 258, episodes: 3152, days: 54 }, profile: EMPTY_PROFILE };
     await expect(getViewer()).resolves.toEqual({ ok: true, data: viewer });
     expect(deps.saveCachedViewer).toHaveBeenCalledWith(viewer, 2);
     expect(deps.anilistQuery).toHaveBeenCalledTimes(1);
     const [query, , , lane] = deps.anilistQuery.mock.calls[0] ?? [];
-    expect(query).toMatch(/statistics\s*\{\s*anime\s*\{\s*count\s+episodesWatched\s+minutesWatched\s*\}\s*\}/);
+    // Mêmes statistiques que le menu, enrichies pour l'écran Stats, dans la même requête
+    for (const field of [
+      /mediaListOptions\s*\{\s*scoreFormat\s*\}/,
+      /statistics\s*\{\s*anime\s*\{/,
+      /count\s+episodesWatched\s+minutesWatched\s+meanScore/,
+      /statuses\s*\{\s*status\s+count\s*\}/,
+      /formats\s*\{\s*format\s+count\s*\}/,
+      /genres\(limit:\s*6,\s*sort:\s*COUNT_DESC\)\s*\{\s*genre\s+count\s+meanScore\s*\}/,
+      /scores\(sort:\s*MEAN_SCORE\)\s*\{\s*score\s+count\s*\}/,
+      /studios\(limit:\s*5,\s*sort:\s*COUNT_DESC\)\s*\{\s*studio\s*\{\s*name\s*\}\s+count\s*\}/,
+      /releaseYears\s*\{\s*releaseYear\s+count\s*\}/,
+    ]) {
+      expect(query).toMatch(field);
+    }
     expect(lane).toBe('interactive');
+  });
+
+  it('profil enregistré avec profile (statistiques détaillées), stats du menu inchangées', async () => {
+    answer({
+      Viewer: {
+        id: 5,
+        name: 'Kai',
+        siteUrl: 'https://anilist.co/user/Kai',
+        mediaListOptions: { scoreFormat: 'POINT_10_DECIMAL' },
+        statistics: { anime: { count: 10, episodesWatched: 120, minutesWatched: 2880, meanScore: 80.5, statuses: [{ status: 'COMPLETED', count: 10 }], scores: [{ score: 65, count: 3 }], releaseYears: [{ releaseYear: 1998, count: 4 }] } },
+      },
+    });
+    const result = await getViewer();
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        stats: { animeCount: 10, episodes: 120, days: 2 },
+        profile: { scoreFormat: 'POINT_10_DECIMAL', meanScore100: 80.5, statuses: [{ status: 'COMPLETED', count: 10 }], scores: [{ score: 6.5, count: 3 }], decades: [{ decade: 1990, count: 4 }] },
+      },
+    });
+    expect(deps.saveCachedViewer).toHaveBeenCalledWith(result.ok ? result.data : null, 2);
+  });
+
+  it('profil en cache sans profile (avant cette version) : toujours valide', () => {
+    const legacy: AniListViewer = { id: 5, name: 'Kai', siteUrl: 'https://anilist.co/user/Kai', avatarUrl: null, stats: { animeCount: 1, episodes: 1, days: 1 } };
+    expect(isAniListViewer(legacy)).toBe(true);
+    expect(isAniListViewer({ ...legacy, profile: null })).toBe(true);
+    expect(isAniListViewer({ ...legacy, profile: EMPTY_PROFILE })).toBe(true);
+    expect(isAniListViewer({ ...legacy, profile: { ...EMPTY_PROFILE, statuses: [{ status: 'CURRENT', count: -1 }] } })).toBe(false);
   });
 
   it('statistiques absentes ou illisibles : stats null, le profil reste valide', async () => {

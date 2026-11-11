@@ -1,0 +1,245 @@
+{
+  "mediaListOptions": {
+    "scoreFormat": "POINT_3"
+  },
+  "statistics": {
+    "anime": {
+      "count": 151,
+      "episodesWatched": 1555,
+      "minutesWatched": 38946,
+      "meanScore": 83.83,
+      "statuses": [
+        {
+          "status": "COMPLETED",
+          "count": 138
+        },
+        {
+          "status": "PLANNING",
+          "count": 28
+        },
+        {
+          "status": "DROPPED",
+          "count": 7
+        },
+        {
+          "status": "CURRENT",
+          "count": 2
+        }
+      ],
+      "formats": [
+        {
+          "format": "TV",
+          "count": 100
+        },
+        {
+          "format": "MOVIE",
+          "count": 33
+        },
+        {
+          "format": "ONA",
+          "count": 5
+        },
+        {
+          "format": "OVA",
+          "count": 4
+        },
+        {
+          "format": "TV_SHORT",
+          "count": 2
+        },
+        {
+          "format": "SPECIAL",
+          "count": 2
+        }
+      ],
+      "genres": [
+        {
+          "genre": "Drama",
+          "count": 82,
+          "meanScore": 84.23
+        },
+        {
+          "genre": "Romance",
+          "count": 78,
+          "meanScore": 82.64
+        },
+        {
+          "genre": "Comedy",
+          "count": 65,
+          "meanScore": 83.33
+        },
+        {
+          "genre": "Slice of Life",
+          "count": 55,
+          "meanScore": 81.95
+        },
+        {
+          "genre": "Action",
+          "count": 44,
+          "meanScore": 85
+        },
+        {
+          "genre": "Supernatural",
+          "count": 41,
+          "meanScore": 84.17
+        }
+      ],
+      "scores": [
+        {
+          "score": 1,
+          "count": 2
+        },
+        {
+          "score": 2,
+          "count": 1
+        },
+        {
+          "score": 3,
+          "count": 104
+        }
+      ],
+      "studios": [
+        {
+          "studio": {
+            "name": "A-1 Pictures"
+          },
+          "count": 11
+        },
+        {
+          "studio": {
+            "name": "Studio Ghibli"
+          },
+          "count": 11
+        },
+        {
+          "studio": {
+            "name": "Kyoto Animation"
+          },
+          "count": 10
+        },
+        {
+          "studio": {
+            "name": "Production I.G"
+          },
+          "count": 9
+        },
+        {
+          "studio": {
+            "name": "MADHOUSE"
+          },
+          "count": 9
+        }
+      ],
+      "releaseYears": [
+        {
+          "releaseYear": 2014,
+          "count": 18
+        },
+        {
+          "releaseYear": 2023,
+          "count": 14
+        },
+        {
+          "releaseYear": 2022,
+          "count": 13
+        },
+        {
+          "releaseYear": 2015,
+          "count": 12
+        },
+        {
+          "releaseYear": 2012,
+          "count": 10
+        },
+        {
+          "releaseYear": 2013,
+          "count": 9
+        },
+        {
+          "releaseYear": 2021,
+          "count": 8
+        },
+        {
+          "releaseYear": 2008,
+          "count": 6
+        },
+        {
+          "releaseYear": 2019,
+          "count": 6
+        },
+        {
+          "releaseYear": 2011,
+          "count": 6
+        },
+        {
+          "releaseYear": 2016,
+          "count": 6
+        },
+        {
+          "releaseYear": 2020,
+          "count": 6
+        },
+        {
+          "releaseYear": 2010,
+          "count": 6
+        },
+        {
+          "releaseYear": 2018,
+          "count": 6
+        },
+        {
+          "releaseYear": 2024,
+          "count": 5
+        },
+        {
+          "releaseYear": 2006,
+          "count": 3
+        },
+        {
+          "releaseYear": 2009,
+          "count": 2
+        },
+        {
+          "releaseYear": 2007,
+          "count": 2
+        },
+        {
+          "releaseYear": 1993,
+          "count": 1
+        },
+        {
+          "releaseYear": 2004,
+          "count": 1
+        },
+        {
+          "releaseYear": 2017,
+          "count": 1
+        },
+        {
+          "releaseYear": 2002,
+          "count": 1
+        },
+        {
+          "releaseYear": 1997,
+          "count": 1
+        },
+        {
+          "releaseYear": 1988,
+          "count": 1
+        },
+        {
+          "releaseYear": 1989,
+          "count": 1
+        },
+        {
+          "releaseYear": 2001,
+          "count": 1
+        },
+        {
+          "releaseYear": 2025,
+          "count": 1
+        }
+      ]
+    }
+  }
+}

@@ -2,8 +2,8 @@
 // statistiques viennent de la même requête (GET_VIEWER / GET_MAL_VIEWER, profil en cache) : à l'ouverture, une seule
 // relecture au plus, quand la dernière date de plus d'une heure.
 import type { AccountStats } from '../shared/account-stats';
-import type { AniListViewer } from '../shared/anilist.types';
-import type { MalViewer } from '../shared/mal.types';
+import { isAniListViewer, type AniListViewer } from '../shared/anilist.types';
+import { isMalViewer, type MalViewer } from '../shared/mal.types';
 import type { AccountState } from './state';
 
 /** Statistiques relues à l'ouverture du menu au-delà (le profil seul l'est toutes les 6 h, PROFILE_TTL_MS) */
@@ -30,6 +30,13 @@ export function statsView(state: AccountState<Viewer>, refreshing: boolean): Acc
   if (stats) return stats;
   if (refreshing || (state.viewer === null && state.error === null)) return 'loading';
   return 'hidden';
+}
+
+/** État du store avec un profil validé (le store générique des comptes porte un profil `unknown`) */
+export function typedViewerState(state: AccountState<unknown>): AccountState<Viewer> {
+  if (state.status !== 'logged-in') return state;
+  const viewer = isAniListViewer(state.viewer) || isMalViewer(state.viewer) ? state.viewer : null;
+  return { ...state, viewer };
 }
 
 /** Page du profil (comme Réglages › Comptes) */

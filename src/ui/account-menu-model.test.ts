@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AniListViewer } from '../shared/anilist.types';
 import type { MalViewer } from '../shared/mal.types';
-import { ACCOUNT_STATS_TTL_MS, formatStatDays, menuNeedsRefresh, profileUrl, statsView } from './account-menu-model';
+import { ACCOUNT_STATS_TTL_MS, formatStatDays, menuNeedsRefresh, profileUrl, statsView, typedViewerState } from './account-menu-model';
 import { LOGGED_OUT, type AccountState } from './state';
 
 // Menu du compte de la barre d'état : relecture du profil et de ses statistiques à l'ouverture, état des tuiles,
@@ -63,5 +63,15 @@ describe('formatStatDays', () => {
     expect(formatStatDays(2.46, 'fr')).toBe('2,5');
     expect(formatStatDays(0.09, 'en')).toBe('0.1');
     expect(formatStatDays(1234.4, 'en')).toBe('1,234');
+  });
+});
+
+describe('typedViewerState', () => {
+  it('typedViewerState : profil invalide → viewer null', () => {
+    expect(typedViewerState({ status: 'logged-in', viewer: ANILIST, error: null })).toEqual(IN(ANILIST));
+    expect(typedViewerState({ status: 'logged-in', viewer: MAL, error: null })).toEqual(IN(MAL));
+    expect(typedViewerState({ status: 'logged-in', viewer: { id: 'x' }, error: null })).toEqual(IN(null));
+    expect(typedViewerState({ status: 'logged-in', viewer: { ...ANILIST, profile: { scoreFormat: 'POINT_7' } }, error: null })).toEqual(IN(null));
+    expect(typedViewerState(LOGGED_OUT)).toBe(LOGGED_OUT);
   });
 });

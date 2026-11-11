@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { aniListStats } from '../../shared/account-stats';
 import { isRecord } from '../../shared/guards';
+import { aniListProfileStats } from '../../shared/profile-stats';
 import { isViewerQueryData, type AniListViewer, type ViewerResult } from '../../shared/anilist.types';
 import { getSessionEpoch } from '../../browser/storage/sessions';
 import { getCachedViewer, saveCachedViewer } from '../../browser/storage/viewer-cache';
@@ -19,7 +20,18 @@ const VIEWER_QUERY = /* GraphQL */ `
       name
       siteUrl
       avatar { medium }
-      statistics { anime { count episodesWatched minutesWatched } }
+      mediaListOptions { scoreFormat }
+      statistics {
+        anime {
+          count episodesWatched minutesWatched meanScore
+          statuses { status count }
+          formats { format count }
+          genres(limit: 6, sort: COUNT_DESC) { genre count meanScore }
+          scores(sort: MEAN_SCORE) { score count }
+          studios(limit: 5, sort: COUNT_DESC) { studio { name } count }
+          releaseYears { releaseYear count }
+        }
+      }
     }
   }
 `;
@@ -39,6 +51,7 @@ export async function getViewer(lane: RequestLane = 'interactive'): Promise<View
       siteUrl: toSafeUrl(Viewer.siteUrl, 'anilist.co') ?? `https://anilist.co/user/${Viewer.id}`,
       avatarUrl: toSafeImageUrl(Viewer.avatar?.medium),
       stats: aniListStats(isRecord(Viewer.statistics) ? Viewer.statistics.anime : null),
+      profile: aniListProfileStats(isRecord(Viewer.statistics) ? Viewer.statistics.anime : null, isRecord(Viewer.mediaListOptions) ? Viewer.mediaListOptions.scoreFormat : null),
     };
     if (!(await saveCachedViewer(viewer, epoch))) {
       // Ni profil de l'ancien compte en cache, ni renvoyé à l'interface

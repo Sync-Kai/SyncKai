@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { malStats } from '../../shared/account-stats';
 import { isRecord } from '../../shared/guards';
+import { malProfileStats } from '../../shared/profile-stats';
 import type { MalViewer, MalViewerResult } from '../../shared/mal.types';
 import { endSessionIfToken } from '../../browser/storage/session-end';
 import { getSessionEpoch } from '../../browser/storage/sessions';
@@ -195,7 +196,7 @@ interface RawMalUser {
   id: number;
   name: string;
   picture?: unknown;
-  /** Validé à part (shared/account-stats.ts › malStats) : illisible, le profil reste valide */
+  /** Validé à part (shared/account-stats.ts › malStats, shared/profile-stats.ts) : illisible, le profil reste valide */
   anime_statistics?: unknown;
 }
 
@@ -214,6 +215,7 @@ export async function getMalViewer(): Promise<MalViewerResult> {
       name: user.name,
       pictureUrl: toSafeImageUrl(user.picture),
       stats: malStats(user.anime_statistics),
+      profile: malProfileStats(user.anime_statistics),
     };
     if (!(await saveCachedMalViewer(viewer, epoch))) {
       return { ok: false, code: 'NOT_AUTHENTICATED', message: t('api.notAuthenticated', { service: 'MyAnimeList' }) };
