@@ -6,6 +6,7 @@ import type { WatchingEntry, WatchingList } from '../../shared/watching.types';
 import { setLocale } from '../../i18n';
 import { installFakeChrome } from '../../test/fake-chrome';
 import { createStore, LOGGED_OUT, type AccountState, type ExclusionsState, type Store } from '../../ui/state';
+import { popupTimeouts } from '../timeouts';
 import type { DormantController } from './dormant';
 import type { WatchingController } from './watching';
 
@@ -16,6 +17,8 @@ interface PendingCall {
   type: string;
   payload: unknown;
   resolve: (value: unknown) => void;
+  /** Envoi, sur l'horloge simulée (ms) */
+  at: number;
 }
 
 const sw = vi.hoisted(() => ({ calls: [] as PendingCall[] }));
@@ -27,7 +30,7 @@ interface KeepFake {
 const keep: KeepFake = vi.hoisted(() => ({ marks: {}, read: vi.fn(), write: vi.fn() }));
 
 vi.mock('../../protocol/messages', () => ({
-  sendMessage: (type: string, payload: unknown) => new Promise((resolve) => sw.calls.push({ type, payload, resolve })),
+  sendMessage: (type: string, payload: unknown) => new Promise((resolve) => sw.calls.push({ type, payload, resolve, at: vi.getMockedSystemTime()?.getTime() ?? 0 })),
 }));
 vi.mock('../../browser/storage/dormant-keep', () => ({ readKeepMarks: keep.read, keepDormant: keep.write }));
 
@@ -37,6 +40,8 @@ const { createDormantController } = await import('./dormant');
 
 const NOW = Date.UTC(2026, 10, 8, 12);
 const DAY = 86_400_000;
+/** Rythme des lots du popup ; 0 dans les autres tests (aucune attente entre deux séries) */
+const PACE_MS = popupTimeouts.dormantPaceMs;
 
 async function settle(): Promise<void> {
   for (let i = 0; i < 20; i++) await Promise.resolve();
@@ -108,6 +113,7 @@ beforeEach(() => {
   keep.marks = {};
   keep.read.mockReset().mockImplementation(() => Promise.resolve({ ...keep.marks }));
   keep.write.mockReset().mockResolvedValue(undefined);
+  popupTimeouts.dormantPaceMs = 0;
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   preferred = createStore<TrackerId | null>('anilist');
   onUndo.mockReset();
@@ -290,16 +296,22 @@ describe('createDormantController : pause, abandon, annuler', () => {
     void ctl.pauseAllDormant();
     expect(calls('SET_LIST_STATUS')).toHaveLength(1);
     expect(lastCall('SET_LIST_STATUS').payload).toMatchObject({ mediaId: VINLAND.mediaId, status: 'PAUSED', onlyFrom: 'CURRENT' });
+    // Progression du bouton : séries écrites sur le total
+    expect(ctl.store.get().progress).toEqual({ done: 0, total: 2 });
     lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
     await settle();
+    expect(ctl.store.get().progress).toEqual({ done: 1, total: 2 });
     expect(calls('SET_LIST_STATUS')).toHaveLength(2);
     expect(lastCall('SET_LIST_STATUS').payload).toMatchObject({ mediaId: FRIEREN.mediaId, status: 'PAUSED' });
     lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }]));
     await settle();
+    expect(ctl.store.get().progress).toBeNull();
     expect(shownTitles()).toEqual(['Dandadan']);
     expect(watching.notice.get()?.feedback).toMatchObject({ tone: 'success', text: '2 séries mises en pause' });
 
     watching.notice.get()?.undo?.();
+    // « Annuler » : le groupe attend, sans progression (le bouton nomme la pause groupée)
+    expect(ctl.store.get()).toMatchObject({ bulk: true, progress: null });
     expect(lastCall('SET_LIST_STATUS').payload).toMatchObject({ mediaId: VINLAND.mediaId, status: 'CURRENT', onlyFrom: 'PAUSED', services: ['anilist'] });
     lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
     await settle();
@@ -449,5 +461,62 @@ describe('createDormantController : lots interrompus, échecs complets, « Garde
     fail(new Error('storage'));
     await expect(kept).resolves.toBeUndefined();
     expect(watching.notice.get()?.feedback).toMatchObject({ tone: 'error' });
+  });
+});
+
+describe('createDormantController : rythme des lots et occupation (PERF-02, POP-02)', () => {
+  it('« Tout mettre en pause » sur 20 séries : jamais plus de 10 écritures (20 requêtes AniList) en 60 s', async () => {
+    popupTimeouts.dormantPaceMs = PACE_MS;
+    await showList(Array.from({ length: 20 }, (_, i) => entry(300_000 + i, `Série ${i + 1}`, 40 + i)));
+    let finished = false;
+    void ctl.pauseAllDormant().then(() => (finished = true));
+    // Faux service worker : chaque écriture répond dans la demi-seconde, jusqu'à la fin du lot
+    const answered = new Set<PendingCall>();
+    for (let step = 0; !finished && step < 1_000; step++) {
+      for (const call of calls('SET_LIST_STATUS').filter((c) => !answered.has(c))) {
+        answered.add(call);
+        call.resolve(outcome('Série', [{ service: 'anilist', outcome: updated }]));
+      }
+      await vi.advanceTimersByTimeAsync(500);
+    }
+    const starts = calls('SET_LIST_STATUS').map((c) => c.at);
+    expect(starts).toHaveLength(20);
+    const busiest = Math.max(...starts.map((start) => starts.filter((at) => at >= start && at < start + 60_000).length));
+    expect(busiest).toBeLessThanOrEqual(10);
+    expect(watching.notice.get()?.feedback.text).toBe('20 séries mises en pause');
+  });
+
+  it('pause seule finie pendant le lot : le groupe reste occupé, une série gardée entre-temps n’est jamais mise en pause', async () => {
+    await showList([FRIEREN, VINLAND, BOCCHI, DANDADAN]);
+    // Frieren en cours d'écriture : hors du lot (Vinland Saga, puis Bocchi)
+    void ctl.pauseDormant(FRIEREN);
+    const single = lastCall('SET_LIST_STATUS');
+    void ctl.pauseAllDormant();
+    expect(lastCall('SET_LIST_STATUS').payload).toMatchObject({ mediaId: VINLAND.mediaId, status: 'PAUSED' });
+    single.resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(ctl.store.get().bulk).toBe(true);
+    // Bocchi attend son tour : occupée (« Garder » désactivé à l'écran) ; un « Garder » passé quand même l'emporte
+    expect(ctl.store.get().busy.has(`${BOCCHI.mediaId}:${BOCCHI.malId}`)).toBe(true);
+    await ctl.keepDormant(BOCCHI);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(calls('SET_LIST_STATUS').map((c) => c.payload)).not.toContainEqual(expect.objectContaining({ mediaId: BOCCHI.mediaId }));
+    expect(ctl.store.get().bulk).toBe(false);
+    expect(ctl.store.get().busy.size).toBe(0);
+    expect(watching.notice.get()?.feedback.text).toBe('Vinland Saga mise en pause');
+  });
+
+  it('« Réessayer » puis « Annuler » : bandeau masqué pendant chaque écriture, jamais l’un pendant l’autre', async () => {
+    await showList([FRIEREN, VINLAND]);
+    void ctl.pauseDormant(FRIEREN);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }, { service: 'mal', outcome: { status: 'error', message: 'HTTP 500' } }]));
+    await settle();
+    watching.notice.get()?.retry?.();
+    expect(watching.notice.get()).toBeNull();
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'mal', outcome: updated }]));
+    await settle();
+    watching.notice.get()?.undo?.();
+    expect(watching.notice.get()).toBeNull();
   });
 });

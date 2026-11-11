@@ -168,7 +168,7 @@ export function DormantGroup(props: DormantGroupProps) {
               {props.threshold.label}
             </Button>
             {pauseAll && (
-              <Button size="sm" busy={pauseAll.busy} ariaLabel={pauseAll.ariaLabel} focusKey={ALL_FOCUS} onClick={() => setConfirming({ kind: 'all' })}>
+              <Button size="sm" busy={pauseAll.busy} ariaLabel={pauseAll.ariaLabel} focusKey={ALL_FOCUS} class="tabular-nums" onClick={() => setConfirming({ kind: 'all' })}>
                 {pauseAll.label}
               </Button>
             )}

@@ -33,7 +33,7 @@ function entry(mediaId: number, title: string): WatchingEntry {
   };
 }
 
-const STATE: DormantState = { entries: [entry(1, 'Frieren'), entry(2, 'Vinland Saga')], thresholdDays: 30, busy: new Set(), bulk: false };
+const STATE: DormantState = { entries: [entry(1, 'Frieren'), entry(2, 'Vinland Saga')], thresholdDays: 30, busy: new Set(), bulk: false, progress: null };
 
 const host = (): DormantHost => ({
   state: createStore(STATE),
@@ -81,5 +81,16 @@ describe('DormantSection : confirmation de « Tout mettre en pause »', () => {
     expect(hasOpenSession({ ...LOGGED_OUT, expired: true })).toBe(false);
     expect(hasOpenSession(LOGGED_OUT)).toBe(false);
     expect(hasOpenSession({ status: 'loading' })).toBe(false);
+  });
+});
+
+describe('DormantSection : « Tout mettre en pause » en cours', () => {
+  it('« 3 / 20 » en chiffres sur le bouton, nom accessible « Tout mettre en pause 3 / 20 », occupé', async () => {
+    const running: DormantState = { ...STATE, bulk: true, progress: { done: 3, total: 20 } };
+    await act(() => render(<DormantSection host={host()} state={running} links={{ connected: ['anilist'], preferred: 'anilist' }} now={NOW} />, container));
+    const button = container.querySelector('[data-focus="dormant-pause-all"]');
+    expect(button?.textContent).toBe('3 / 20');
+    expect(button?.getAttribute('aria-label')).toBe('Tout mettre en pause 3 / 20');
+    expect(button?.getAttribute('aria-busy')).toBe('true');
   });
 });

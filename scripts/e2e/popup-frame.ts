@@ -33,6 +33,8 @@ const hangWatching = watchingMode === 'hang';
 const slowWatching = watchingMode === 'slow';
 let watchingCalls = 0;
 if (hangWatching || slowWatching) popupTimeouts.watchingMs = E2E_WATCHING_TIMEOUT_MS;
+// « Tout mettre en pause » sans l'attente de 6 s entre deux séries (rythme vérifié par les tests unitaires)
+popupTimeouts.dormantPaceMs = 0;
 
 const trace: E2EState = { messages: [], permissionRequests: [], permissionRemovals: [], clipboard: [], openedTabs: [] };
 window.__e2e = trace;

@@ -66,6 +66,8 @@ export function DormantSection({ host, state, links, now }: { host: DormantHost;
   const { entries, thresholdDays } = state;
   if (entries.length === 0 || thresholdDays === null) return null;
   const pauseAll = t('watching.dormant.pauseAll');
+  // Lot en cours : séries traitées en chiffres sur le bouton (« 3 / 20 »), le nom accessible garde l'action
+  const progress = state.progress && `${state.progress.done} / ${state.progress.total}`;
   return (
     <DormantGroup
       title={t('settings.dormant.label')}
@@ -78,8 +80,8 @@ export function DormantSection({ host, state, links, now }: { host: DormantHost;
       pauseAll={
         entries.length >= 2
           ? {
-              label: pauseAll,
-              ariaLabel: pauseAll,
+              label: progress ?? pauseAll,
+              ariaLabel: progress === null ? pauseAll : `${pauseAll} ${progress}`,
               onClick: host.onPauseAll,
               busy: state.bulk,
               confirm: {

@@ -16,6 +16,7 @@ import type { WatchingEntry } from '../../shared/watching.types';
 import { createStore, withMember, type AccountState, type InlineFeedback, type ReadonlyStore, type Store } from '../../ui/state';
 import { callWorker, outcomeFailure } from '../../ui/worker-call';
 import type { WatchingState } from '../state';
+import { popupTimeouts } from '../timeouts';
 import type { NoticeBanner, WatchingNotice } from './notice';
 
 const log = createLogger('popup');
@@ -28,10 +29,12 @@ export interface DormantState {
   entries: WatchingEntry[];
   /** Seuil du réglage (jours) ; null : « Jamais » ou réglages pas encore lus */
   thresholdDays: DormantAfterDays;
-  /** Séries (entryKey) dont une action est en cours */
+  /** Séries (entryKey) dont une écriture est en cours ou attend son tour dans un lot */
   busy: ReadonlySet<string>;
-  /** « Tout mettre en pause » ou « Annuler » en cours : tout le groupe attend */
+  /** « Tout mettre en pause », son « Réessayer » ou « Annuler » en cours : tout le groupe attend */
   bulk: boolean;
+  /** « Tout mettre en pause » (ou son « Réessayer ») en cours : séries traitées sur le total ; null sinon */
+  progress: { done: number; total: number } | null;
 }
 
 /** Écriture d'une série : statut et services visés (absent : tous les services connectés) */
@@ -52,6 +55,13 @@ export interface DormantWrite {
 export interface DormantResult {
   item: DormantItem;
   outcome: SyncOutcome;
+}
+
+/** Issue d'un lot d'écritures : résultats par série, séries jamais envoyées, compte changé pendant le lot */
+interface BatchOutcome {
+  results: DormantResult[];
+  rest: DormantItem[];
+  sessionChanged: boolean;
 }
 
 export interface DormantControllerDeps {
@@ -160,7 +170,7 @@ function mergeWrites(previous: readonly DormantWrite[], next: readonly DormantWr
 export function createDormantController(deps: DormantControllerDeps): DormantController {
   const { watching } = deps;
   const now = deps.now ?? Date.now;
-  const store = createStore<DormantState>({ entries: [], thresholdDays: null, busy: new Set(), bulk: false });
+  const store = createStore<DormantState>({ entries: [], thresholdDays: null, busy: new Set(), bulk: false, progress: null });
   const unsubscribers: (() => void)[] = [];
   /** Marques « Garder » du service affiché ; null tant qu'elles ne sont pas lues (aucun groupe en attendant) */
   let marks: { service: TrackerId; marks: Record<string, KeepMark> } | null = null;
@@ -201,6 +211,14 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
   }
 
   const patch = (next: Partial<DormantState>): void => store.set({ ...store.get(), ...next });
+  /** Séries marquées occupées, ou libérées */
+  const setBusy = (items: readonly DormantItem[], busy: boolean): void => patch({ busy: items.reduce((set, { entry }) => withMember(set, entryKey(entry), busy), store.get().busy) });
+  /** Lots en cours : le groupe attend tant qu'il en reste un (une pause seule finie pendant un lot ne le libère pas) */
+  let bulkRuns = 0;
+  const bulkRun = (delta: 1 | -1, next: Partial<DormantState> = {}): void => {
+    bulkRuns += delta;
+    patch({ ...next, bulk: bulkRuns > 0 });
+  };
 
   /** Liste affichée modifiée sans relecture : séries retirées (`remove`), séries rétablies ajoutées (`restore`) */
   function patchList(remove: ReadonlySet<string>, restore: readonly WatchingEntry[] = []): void {
@@ -227,28 +245,36 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
   const sessionsKey = (): string => TRACKER_IDS.map(sessionOf).join('|');
 
   /**
-   * Une écriture par série, à la suite (jamais en parallèle : verrou des entrées et limite de débit du service worker).
-   * Arrêt à la première limite de débit (`rest` : séries non envoyées, reprises par « Réessayer ») et dès qu'un compte
-   * change entre deux séries (`sessionChanged` : la suite écrirait sur une autre session, comme « Annuler », retiré)
+   * Une écriture par série, à la suite (jamais en parallèle : verrou des entrées et limite de débit du service worker), et
+   * dans un lot une série toutes les `dormantPaceMs`. Tout le lot est occupé dès le départ, chaque série libérée après son
+   * tour ; une série gardée pendant le lot n'est pas écrite (le dernier choix l'emporte). Arrêt à la première limite de
+   * débit (`rest` : séries non envoyées, reprises par « Réessayer ») et dès qu'un compte change entre deux séries
+   * (`sessionChanged` : la suite écrirait sur une autre session, comme « Annuler », retiré). `onDone` : séries traitées
    */
-  async function writeAll(
-    items: readonly DormantItem[],
-    status: (item: DormantItem) => 'CURRENT' | DormantStatus,
-    onlyFrom: (item: DormantItem) => 'CURRENT' | DormantStatus,
-  ): Promise<{ results: DormantResult[]; rest: DormantItem[]; sessionChanged: boolean }> {
+  async function writeAll(items: readonly DormantItem[], status: (item: DormantItem) => 'CURRENT' | DormantStatus, onlyFrom: (item: DormantItem) => 'CURRENT' | DormantStatus, onDone?: (done: number) => void): Promise<BatchOutcome> {
     const results: DormantResult[] = [];
     const sessions = sessionsKey();
+    const startedAt = now();
+    // Séries jamais envoyées (limite de débit, compte changé) libérées à la sortie
+    const finish = (rest: DormantItem[], sessionChanged: boolean): BatchOutcome => {
+      setBusy(rest, false);
+      return { results, rest, sessionChanged };
+    };
+    setBusy(items, true);
     for (const [index, item] of items.entries()) {
-      if (sessionsKey() !== sessions) return { results, rest: items.slice(index), sessionChanged: true };
+      if (index > 0 && popupTimeouts.dormantPaceMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, popupTimeouts.dormantPaceMs));
+      if (sessionsKey() !== sessions) return finish(items.slice(index), true);
       const { entry } = item;
-      patch({ busy: withMember(store.get().busy, entryKey(entry), true) });
+      const kept = (marks?.marks[dormantKey(entry)]?.keptAt ?? 0) >= startedAt;
       const payload = { mediaId: entry.mediaId, malId: entry.malId, status: status(item), onlyFrom: onlyFrom(item), ...(item.services ? { services: item.services } : {}), coverUrl: toSafeImageUrl(entry.coverUrl) };
-      const outcome = await callWorker('SET_LIST_STATUS', payload, outcomeFailure);
-      patch({ busy: withMember(store.get().busy, entryKey(entry), false) });
+      const outcome = kept ? null : await callWorker('SET_LIST_STATUS', payload, outcomeFailure);
+      setBusy([item], false);
+      onDone?.(index + 1);
+      if (outcome === null) continue;
       results.push({ item, outcome });
-      if (rateLimited(outcome)) return { results, rest: items.slice(index + 1), sessionChanged: sessionsKey() !== sessions };
+      if (rateLimited(outcome)) return finish(items.slice(index + 1), sessionsKey() !== sessions);
     }
-    return { results, rest: [], sessionChanged: sessionsKey() !== sessions };
+    return finish([], sessionsKey() !== sessions);
   }
 
   /** Banderole avec « Annuler » (écritures de ce lot et des lots qu'il réessaie) et « Réessayer » (séries en échec) */
@@ -270,18 +296,23 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
     watching.banner.dropUndo();
   }
 
-  /** Pause / abandon d'une ou plusieurs séries ; `previous` : écritures d'un essai précédent (« Réessayer ») */
-  async function run(items: readonly DormantItem[], previous: readonly DormantWrite[] = []): Promise<void> {
+  /**
+   * Pause / abandon d'une ou plusieurs séries ; `previous` : écritures d'un essai précédent, donné par « Réessayer » (son
+   * bandeau est masqué pendant l'essai, comme pendant « Annuler » : jamais l'un pendant l'autre)
+   */
+  async function run(items: readonly DormantItem[], previous?: readonly DormantWrite[]): Promise<void> {
     const pending = items.filter((item) => !store.get().busy.has(entryKey(item.entry)));
     if (pending.length === 0) return;
-    if (items.length > 1) patch({ bulk: true });
-    const { results, rest, sessionChanged } = await writeAll(pending, (item) => item.status, () => 'CURRENT');
-    patch({ bulk: false });
+    if (previous) watching.banner.hide();
+    const bulk = items.length > 1;
+    if (bulk) bulkRun(1, { progress: { done: 0, total: pending.length } });
+    const { results, rest, sessionChanged } = await writeAll(pending, (item) => item.status, () => 'CURRENT', bulk ? (done) => patch({ progress: { done, total: pending.length } }) : undefined);
+    if (bulk) bulkRun(-1, { progress: null });
     patchList(new Set(results.filter((r) => leftShownList(r.outcome)).map((r) => entryKey(r.item.entry))));
     const { feedback, written, failed } = dormantFeedback(results, false, rest);
     // Compte changé pendant le lot : ni « Annuler » ni « Réessayer » (ils écriraient sur l'autre session)
     if (sessionChanged) showResult(feedback, [], []);
-    else showResult(feedback, mergeWrites(previous, written), failed);
+    else showResult(feedback, mergeWrites(previous ?? [], written), failed);
     watching.scheduleRevalidation();
   }
 
@@ -350,13 +381,13 @@ export function createDormantController(deps: DormantControllerDeps): DormantCon
       if (writes.length === 0) return [];
       undoable = [];
       watching.banner.hide();
-      patch({ bulk: true });
+      bulkRun(1);
       const { results, rest, sessionChanged } = await writeAll(
         writes.map(({ entry, status, services }) => ({ entry, status, services })),
         () => 'CURRENT',
         (item) => item.status,
       );
-      patch({ bulk: false });
+      bulkRun(-1);
       // De retour dans la liste du service affiché, active pour un seuil entier (sa fiche vient d'être modifiée)
       const shown = watching.store.get();
       const restored = results.filter(({ outcome }) => outcome.status === 'synced' && shown.status === 'ready' && outcome.results.some((r) => r.service === shown.service && r.outcome.status === 'updated'));
