@@ -2,11 +2,18 @@
 
 /* Dimensions fixes du popup */
 @layer base {
-  html,
-  body {
+  /* Taille demandée à Chrome (plafonnée à 600 DIP, donc moins en CSS dès que le zoom dépasse 100 %) */
+  html {
     width: 496px;
-    /* 600 px demandés ; fit-height.ts réduit à la hauteur réellement accordée (zoom du navigateur) */
-    height: var(--popup-height, 600px);
+    height: 600px;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  /* Calé sur le viewport réel (déjà plafonné) sans nourrir la taille du contenu : la barre d'état reste visible, la liste défile */
+  body {
+    position: fixed;
+    inset: 0;
     margin: 0;
     overflow: hidden;
   }

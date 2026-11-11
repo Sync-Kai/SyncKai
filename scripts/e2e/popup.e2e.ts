@@ -2155,6 +2155,7 @@ describe('popup › amis AniList (bout en bout)', () => {
 });
 
 describe('popup › hauteur donnée par Chrome (zoom)', () => {
+  // Valide la mise en page à viewport fixe, pas le dimensionnement automatique du popup par Chrome
   /** Barre d'état entièrement dans la fenêtre, dernière série atteignable en faisant défiler la zone centrale, pas de défilement de la page */
   async function fitState(page: Page): Promise<{ footerBottom: number; innerHeight: number; lastRowVisible: boolean; pageOverflow: boolean }> {
     return page.evaluate(() => {
@@ -2165,7 +2166,8 @@ describe('popup › hauteur donnée par Chrome (zoom)', () => {
       main.scrollTop = main.scrollHeight;
       const mainBox = main.getBoundingClientRect();
       const lastBox = last.getBoundingClientRect();
-      const root = document.documentElement;
+      // Le corps est calé sur la fenêtre : c'est lui qui ne doit pas déborder (la boîte de html garde les 600 px demandés)
+      const root = document.body;
       return {
         footerBottom: document.querySelector('footer')?.getBoundingClientRect().bottom ?? Infinity,
         innerHeight: window.innerHeight,
