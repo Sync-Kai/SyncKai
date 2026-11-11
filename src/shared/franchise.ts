@@ -40,6 +40,8 @@ export interface FranchiseGraph {
   main: number[];
   /** Entrées à un saut d'une entrée principale : `from` est l'entrée principale, `relation` son lien vers `id` */
   extras: { id: number; relation: FranchiseRelation; from: number }[];
+  /** Entrées qu'une entrée principale déclare SUMMARY / COMPILATION : sorties de la chaîne principale en fin de parcours (ORD-03) */
+  recaps?: { id: number; from: number }[];
   /** Plafond (50 entrées principales) atteint : le graphe est partiel */
   capped: boolean;
   /** Entrées dont les relations ont été lues (page de premier niveau) : la frontière est `main` moins ces identifiants */
@@ -88,6 +90,7 @@ const MAX_PV_MINUTES = 5;
 
 const CHAIN_RELATIONS: ReadonlySet<string> = new Set<FranchiseRelation>(['PREQUEL', 'SEQUEL']);
 const EXTRA_RELATIONS: ReadonlySet<string> = new Set<FranchiseRelation>(['SIDE_STORY', 'SPIN_OFF', 'ALTERNATIVE', 'SUMMARY', 'PARENT']);
+const RECAP_RELATIONS: ReadonlySet<string> = new Set(['SUMMARY', 'COMPILATION']);
 const SEASONS: ReadonlySet<string> = new Set<AniListSeason>(['WINTER', 'SPRING', 'SUMMER', 'FALL']);
 
 export function newFranchiseGraph(startId: number): FranchiseGraph {
@@ -131,6 +134,7 @@ export function mergeRound(graph: FranchiseGraph, page: readonly RawMedia[]): { 
   const extras = [...graph.extras];
   const expanded = new Set(graph.expanded);
   let capped = graph.capped;
+  const recaps = [...(graph.recaps ?? [])];
 
   const addMain = (media: RawMedia): void => {
     if (!isShown(media) || main.includes(media.id)) return;
@@ -170,14 +174,31 @@ export function mergeRound(graph: FranchiseGraph, page: readonly RawMedia[]): { 
 
     if (!main.includes(media.id)) continue;
     for (const edge of edges) {
+      if (RECAP_RELATIONS.has(edge.relationType) && !recaps.some((r) => r.id === edge.node.id)) recaps.push({ id: edge.node.id, from: media.id });
       if (CHAIN_RELATIONS.has(edge.relationType)) addMain(edge.node);
       else if (EXTRA_RELATIONS.has(edge.relationType)) addExtra(edge.node, edge.relationType as FranchiseRelation, media.id);
     }
   }
 
   const frontier = capped ? [] : main.filter((id) => !expanded.has(id));
-  const merged: FranchiseGraph = { startId: graph.startId, nodes, main, extras, capped, expanded: [...expanded] };
-  return { graph: frontier.length === 0 ? restoreStart(merged) : merged, frontier };
+  const merged: FranchiseGraph = { startId: graph.startId, nodes, main, extras, capped, expanded: [...expanded], recaps };
+  return { graph: frontier.length === 0 ? restoreStart(demoteRecaps(merged)) : merged, frontier };
+}
+
+/**
+ * Fin de parcours : une entrée que la chaîne relie par PREQUEL / SEQUEL mais qu'une entrée principale déclare SUMMARY ou
+ * COMPILATION (film de montage) rejoint les extras, hors plafond, et ne compte plus dans « Ensuite » (ORD-03). Jamais la racine.
+ */
+function demoteRecaps(graph: FranchiseGraph): FranchiseGraph {
+  const root = graph.main[0];
+  const demoted = (graph.recaps ?? []).filter((r) => r.id !== root && graph.main.includes(r.id) && graph.main.includes(r.from));
+  if (demoted.length === 0) return graph;
+  const ids = new Set(demoted.map((r) => r.id));
+  return {
+    ...graph,
+    main: graph.main.filter((id) => !ids.has(id)),
+    extras: [...graph.extras, ...demoted.map((r) => ({ id: r.id, relation: 'SUMMARY' as const, from: r.from }))],
+  };
 }
 
 /**
@@ -248,8 +269,10 @@ export function shortTitle(rootTitle: string, title: string): string {
   const rest = title.slice(root.length);
   if (/^[\p{L}\p{N}]/u.test(rest)) return title;
   const short = rest.replace(/^[\s:：\-–—·]+/u, '').trim();
-  // Un reste qui ne commence pas par une lettre (« 2 », « 5 (ONA) ») n'est plus un titre : on garde l'entier
-  return /^\p{L}/u.test(short) ? short : title;
+  // Un reste qui ne commence pas par une lettre (« 2 », « 5 (ONA) »), ou par un chiffre romain / une lettre seule
+  // (« II », « III: … », « S ») n'est plus un titre : on garde l'entier
+  const first = short.split(/[\s:：]/u)[0];
+  return /^\p{L}/u.test(short) && !/^(?:[IVX]+|\p{L})$/u.test(first) ? short : title;
 }
 
 /** États de liste des entrées d'une franchise, par service : null = service non connecté, session changée ou lecture échouée */

@@ -129,19 +129,49 @@ describe('mergeRound sur des captures réelles', () => {
     expect(ordered[5]?.status).toBe('NOT_YET_RELEASED');
   });
 
-  it('Gundam : ne garde que la composante connectée du départ, sans MANGA ni lien OTHER, et le plafond est réel (23 < MAX_MAIN)', () => {
+  it('Gundam : ne garde que la composante connectée du départ, sans MANGA ni lien OTHER, et le plafond est réel (19 < MAX_MAIN)', () => {
     const { graph } = walk(gundam, 80);
     const edges = (gundam as Fixture).rounds.flat().flatMap((m) => m.relations?.edges ?? []);
     const mangaIds = new Set(edges.filter((e) => e.node.type !== 'ANIME').map((e) => e.node.id));
     const otherIds = new Set(edges.filter((e) => e.relationType === 'OTHER').map((e) => e.node.id));
     expect(mangaIds.size).toBeGreaterThan(0);
-    expect(graph.main.length).toBe(23);
+    expect(graph.main.length).toBe(19);
     expect(graph.main.length).toBeLessThan(MAX_MAIN);
     expect(graph.capped).toBe(false);
     expect(graph.main).toContain(6336);
     for (const id of mangaIds) expect(graph.nodes[id]).toBeUndefined();
     for (const id of graph.main) expect(otherIds.has(id) && !edges.some((e) => e.node.id === id && ['SEQUEL', 'PREQUEL'].includes(e.relationType))).toBe(false);
     expect(graph.extras.length).toBeLessThanOrEqual(MAX_EXTRAS);
+  });
+});
+
+describe('récapitulatifs hors de la chaîne principale (ORD-03)', () => {
+  it('Gundam : les films de montage déclarés SUMMARY par une entrée principale passent aux extras, « Ensuite » après la série TV est Ζ Gundam', () => {
+    const { graph } = walk(gundam, 80);
+    for (const id of [1090, 1091, 1092, 14007]) {
+      expect(graph.main).not.toContain(id);
+      expect(graph.extras.map((e) => e.id)).toContain(id);
+    }
+    const states = new Map<number, ListState>([[80, { kind: 'watched', progress: null }]]);
+    expect(franchiseProgress(releaseOrder(graph, 'main'), states).next?.id).toBe(85);
+  });
+
+  it('un récapitulatif relié par PREQUEL / SEQUEL et déclaré COMPILATION quitte la chaîne, même découvert avant sa déclaration', () => {
+    const pages: Record<number, RawMedia> = {
+      1: raw(1, {}, [{ relationType: 'SEQUEL', node: { id: 2 } }, { relationType: 'SEQUEL', node: { id: 3 } }]),
+      2: raw(2, { format: 'MOVIE' }, [{ relationType: 'PREQUEL', node: { id: 1 } }]),
+      3: raw(3, {}, [{ relationType: 'PREQUEL', node: { id: 1 } }, { relationType: 'COMPILATION', node: { id: 2 } }]),
+    };
+    let graph = newFranchiseGraph(1);
+    let frontier = [1];
+    while (frontier.length) {
+      const merged = mergeRound(graph, frontier.map((id) => pages[id]));
+      graph = merged.graph;
+      frontier = merged.frontier;
+    }
+    expect([...graph.main].sort()).toEqual([1, 3]);
+    expect(graph.extras).toEqual([{ id: 2, relation: 'SUMMARY', from: 3 }]);
+    expect(graph.nodes[2]).toBeDefined();
   });
 });
 
@@ -365,6 +395,15 @@ describe('shortTitle', () => {
 
   it('ne renvoie jamais une chaîne vide', () => {
     expect(shortTitle('Gundam', 'Gundam')).toBe('Gundam');
+  });
+
+  it('garde le titre entier quand le reste est un chiffre romain ou une lettre seule (ORD-08)', () => {
+    expect(shortTitle('Overlord', 'Overlord II')).toBe('Overlord II');
+    expect(shortTitle('Kidou Senshi Gundam', 'Kidou Senshi Gundam I')).toBe('Kidou Senshi Gundam I');
+    expect(shortTitle('Kidou Senshi Gundam', 'Kidou Senshi Gundam II: Ai Senshi-hen')).toBe('Kidou Senshi Gundam II: Ai Senshi-hen');
+    expect(shortTitle('Mob Psycho 100', 'Mob Psycho 100 III')).toBe('Mob Psycho 100 III');
+    expect(shortTitle('Toaru Kagaku no Railgun', 'Toaru Kagaku no Railgun S')).toBe('Toaru Kagaku no Railgun S');
+    expect(shortTitle('Shingeki no Kyojin', 'Shingeki no Kyojin Season 2')).toBe('Season 2');
   });
 });
 
