@@ -234,4 +234,13 @@ describe('NavRail', () => {
     await act(() => items()[2]?.click());
     expect(onSelect).toHaveBeenCalledWith('agenda');
   });
+
+  it('footer list is tighter than the section list (gap-0.5 vs gap-1), buttons keep size-rail-item', async () => {
+    await show(<Host />);
+    const lists = [...container.querySelectorAll('nav ul')];
+    expect(lists[0]?.classList.contains('gap-1')).toBe(true);
+    expect(lists[1]?.classList.contains('gap-0.5')).toBe(true);
+    expect(lists[1]?.classList.contains('gap-1')).toBe(false);
+    expect([...items(), ...footer()].every((button) => button.classList.contains('size-rail-item'))).toBe(true);
+  });
 });

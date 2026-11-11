@@ -117,7 +117,7 @@ async function playerOption(page: Page, platform: string): Promise<'offered' | '
   return state;
 }
 
-/** Écran visible de la zone centrale : 0 En cours, 1 Activité, 2 Réglages, 3 accueil */
+/** Écran visible de la zone centrale : 0 En cours, 1 Activité, 2 Réglages, 3 accueil, 4 Pour toi, 5 Agenda, 6 Stats */
 async function shownScreen(page: Page): Promise<number> {
   return page.$eval('main', (main) => [...main.children].findIndex((child) => child instanceof HTMLElement && !child.hidden));
 }
@@ -391,6 +391,64 @@ describe('popup (bout en bout)', () => {
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => document.querySelector('[data-focus="rail-activity"]')?.getAttribute('aria-current') === 'page');
     expect(await shownScreen(page)).toBe(1);
+  });
+
+  it('rail : cinq sections dans l’ordre puis panneau et Réglages, noms = titres', async () => {
+    const page = await openPopup({ panel: 'chrome' });
+    await page.waitForSelector(sel('rail-stats'));
+    const names = await page.$$eval('[data-rail-section]', (buttons) => buttons.map((b) => b.getAttribute('aria-label')));
+    // Les données de démo ont une suite annoncée : le nom d'Activité porte alors son complément (point du rail)
+    expect(names.map((name, index) => (index === 1 ? name?.startsWith(fr('nav.activity')) : name))).toEqual([fr('nav.watching'), true, fr('reco.title'), fr('panel.tab.agenda'), fr('nav.stats')]);
+    expect(await page.$$eval('[data-rail-footer]', (buttons) => buttons.map((b) => b.getAttribute('data-focus')))).toEqual(['panel', 'gear']);
+    expect(await page.$(`${sel('rail-foryou')} [data-rail-badge], ${sel('rail-foryou')} [data-rail-dot]`)).toBeNull();
+  });
+
+  it('chaque section affiche son écran et son titre ; Réglages puis retour rend la section quittée', async () => {
+    const page = await openPopup();
+    await page.waitForSelector(sel('rail-stats'));
+    const title = (): Promise<string> => text(page, '[data-screen-title] h1');
+    await click(page, 'rail-foryou');
+    expect(await shownScreen(page)).toBe(4);
+    expect(await title()).toBe(fr('reco.title'));
+    await click(page, 'rail-agenda');
+    expect(await shownScreen(page)).toBe(5);
+    expect(await title()).toBe(fr('panel.tab.agenda'));
+    await click(page, 'rail-stats');
+    expect(await shownScreen(page)).toBe(6);
+    expect(await title()).toBe(fr('nav.stats'));
+    await click(page, 'gear');
+    await page.waitForSelector(sel('back'));
+    expect(await shownScreen(page)).toBe(2);
+    await click(page, 'gear');
+    await page.waitForSelector(sel('rail-stats'));
+    expect(await shownScreen(page)).toBe(6);
+    expect(await attr(page, sel('rail-stats'), 'aria-current')).toBe('page');
+  });
+
+  it('pied du rail resserré : 2 px entre panneau et Réglages, cibles 44 × 44', async () => {
+    const page = await openPopup({ panel: 'chrome' });
+    await page.waitForSelector(sel('panel'));
+    const [panel, gear] = await page.evaluate(() => ['panel', 'gear'].map((key) => {
+      const r = document.querySelector(`[data-focus="${key}"]`)?.getBoundingClientRect();
+      return r ? { top: r.top, bottom: r.bottom, width: r.width, height: r.height } : null;
+    }));
+    expect(panel).toMatchObject({ width: 44, height: 44 });
+    expect(gear).toMatchObject({ width: 44, height: 44 });
+    expect((gear?.top ?? 0) - (panel?.bottom ?? 0)).toBe(2);
+  });
+
+  it('496 × 545 : les sept boutons du rail et la barre d’état restent visibles', async () => {
+    const page = await openPopup({ panel: 'chrome' });
+    await page.setViewport({ width: 496, height: 545 });
+    await page.waitForSelector(sel('rail-stats'));
+    const hidden = await page.evaluate(() => {
+      const nav = document.querySelector('nav')?.getBoundingClientRect();
+      const buttons = [...document.querySelectorAll('[data-rail-section], [data-rail-footer]')];
+      const footer = document.querySelector('footer')?.getBoundingClientRect();
+      const inView = (r: DOMRect | undefined): boolean => !!r && r.top >= 0 && r.bottom <= window.innerHeight;
+      return { count: buttons.length, clipped: buttons.filter((b) => !inView(b.getBoundingClientRect()) || (nav && b.getBoundingClientRect().bottom > nav.bottom)).length, footer: inView(footer) };
+    });
+    expect(hidden).toEqual({ count: 7, clipped: 0, footer: true });
   });
 
   it('navigue entre En cours, Activité et Réglages, et change de langue', async () => {

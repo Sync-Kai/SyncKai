@@ -675,6 +675,13 @@ function markSequelsSeen(): void {
   void updateSequels(ids, 'seen');
 }
 uiStore.subscribe(markSequelsSeen);
+// Section affichée (celle quittée pendant les Réglages) : « Pour toi », Agenda et Stats créent ici leur contrôleur à la
+// première apparition (tâches suivantes) ; rien ne part avant
+function followShownScreen(): void {
+  const { screen, previous } = uiStore.get();
+  void (screen === 'settings' ? previous : screen);
+}
+uiStore.subscribe(followShownScreen);
 sequelsStore.subscribe(markSequelsSeen);
 // Accès accordé ou retiré pendant que le popup est ouvert (about:addons, autre fenêtre) : accès optionnels relus par leur store
 platformAccessStore.onPermissionsChange(() => void checkHostAccess());

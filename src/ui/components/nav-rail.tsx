@@ -145,7 +145,7 @@ export function NavRail<Id extends string>({ label, items, current, onSelect, fo
       )}
       <span class="flex-1" />
       {footerItems.length > 0 && (
-        <ul class="m-0 mt-2 flex w-full list-none flex-col items-center gap-1 border-t border-line p-0 pt-2">
+        <ul class="m-0 mt-2 flex w-full list-none flex-col items-center gap-0.5 border-t border-line p-0 pt-2">
           {footerItems.map((item) => (
             <li key={item.id}>
               <button

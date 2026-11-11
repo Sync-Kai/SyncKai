@@ -51,6 +51,8 @@ const ICON_PATHS = {
   clock: ['M22 12a10 10 0 1 1-20 0a10 10 0 1 1 20 0', 'M12 7v5l3 2'],
   // Fenêtre avec volet à droite : panneau latéral
   panel: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M15 4v16'],
+  // Trois barres verticales sur une ligne de base : statistiques
+  chart: ['M4 20h16', 'M7 20v-7', 'M12 20V5', 'M17 20v-10'],
   calendar: ['M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z', 'M3 10h18', 'M8 3v4', 'M16 3v4'],
   star: ['M12 2.6l2.85 5.95 6.55.85-4.8 4.55 1.25 6.5L12 17.3l-5.85 3.15 1.25-6.5-4.8-4.55 6.55-.85z'],
   // Catégories des Réglages

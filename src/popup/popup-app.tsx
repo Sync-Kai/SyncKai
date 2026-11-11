@@ -1,5 +1,5 @@
 // Coquille Preact du popup (maquettes PopupSeries, PopupOnboarding, PopupAcces ; 2.5.0 : rail R56) : rail de
-// navigation à gauche (Kai, « En cours » / « Activité », panneau latéral et Réglages en pied), puis la colonne de
+// navigation à gauche (Kai, cinq sections, panneau latéral et Réglages en pied), puis la colonne de
 // contenu : titre de l'écran (ou barre des Réglages), bandeau d'accès aux sites, zone centrale qui défile, barre d'état
 // sous la colonne seulement. Les données
 // et les actions restent dans popup.ts (contrôleurs sans rendu) ; les éléments créés hors de cet arbre y sont montés :
@@ -7,7 +7,7 @@
 // ui/status-bar-host.tsx).
 import { render } from 'preact';
 import { useRef } from 'preact/hooks';
-import { t, tp } from '../i18n';
+import { t, tp, type MessageKey } from '../i18n';
 import type { TrackerId } from '../shared/tracker.types';
 import type { SettingsView } from '../ui/settings/settings-view';
 import type { AccountState, ReadonlyStore } from '../ui/state';
@@ -21,6 +21,9 @@ import { HostAccessBanner } from './components/host-access-banner';
 import { Onboarding } from './components/onboarding';
 import { WatchingScreen, type WatchingScreenProps } from './components/watching-screen';
 import type { HostAccessState, UiState } from './state';
+
+/** Titre de chaque section : libellé du rail (infobulle, nom accessible) et titre d'écran */
+const SCREEN_TITLES: Readonly<Record<PopupTab, MessageKey>> = { watching: 'nav.watching', activity: 'nav.activity', foryou: 'reco.title', agenda: 'panel.tab.agenda', stats: 'nav.stats' };
 
 /** Les comptes à rebours et « il y a… » vieillissent tant que le popup reste ouvert */
 const CLOCK_TICK_MS = 60_000;
@@ -68,12 +71,15 @@ function PopupRail({ current, onboarding, pending, newSequels, settingsOpen, onN
   const items: NavRailItem<PopupTab>[] = onboarding
     ? []
     : [
-        { id: 'watching', icon: 'list', label: t('nav.watching') },
+        { id: 'watching', icon: 'list', label: t(SCREEN_TITLES.watching) },
         pending > 0
-          ? { id: 'activity', icon: 'history', label: t('nav.activity'), badge: pending, ariaLabel: tp('nav.activityPending', pending) }
+          ? { id: 'activity', icon: 'history', label: t(SCREEN_TITLES.activity), badge: pending, ariaLabel: tp('nav.activityPending', pending) }
           : newSequels
-            ? { id: 'activity', icon: 'history', label: t('nav.activity'), dot: true, ariaLabel: t('nav.activityNewSequels') }
-            : { id: 'activity', icon: 'history', label: t('nav.activity') },
+            ? { id: 'activity', icon: 'history', label: t(SCREEN_TITLES.activity), dot: true, ariaLabel: t('nav.activityNewSequels') }
+            : { id: 'activity', icon: 'history', label: t(SCREEN_TITLES.activity) },
+        { id: 'foryou', icon: 'sparkles', label: t(SCREEN_TITLES.foryou) },
+        { id: 'agenda', icon: 'calendar', label: t(SCREEN_TITLES.agenda) },
+        { id: 'stats', icon: 'chart', label: t(SCREEN_TITLES.stats) },
       ];
   // Clés data-focus « panel » et « gear » (ids des boutons du pied)
   const footerItems: NavRailFooterItem[] = [
@@ -99,7 +105,8 @@ export function PopupApp(props: PopupAppProps) {
   // Accueil : plus aucune lecture en cours et aucun compte connecté
   const onboarding = anilist.status === 'logged-out' && mal.status === 'logged-out';
   const isSettings = ui.screen === 'settings';
-  const tab: PopupTab = ui.screen === 'activity' ? 'activity' : 'watching';
+  // Section affichée : celle quittée pendant les Réglages
+  const tab: PopupTab = ui.screen === 'settings' ? ui.previous : ui.screen;
   // Élément focalisé retiré par un rendu (barre des Réglages quittée, ligne disparue) : engrenage dans les Réglages,
   // sinon la section affichée du rail
   useFocusFallback(root, isSettings ? 'gear' : `rail-${tab}`);
@@ -120,9 +127,9 @@ export function PopupApp(props: PopupAppProps) {
         />
       </div>
       <div class="flex min-w-0 flex-1 flex-col">
-        {isSettings ? settingsView && <ElementSlot element={() => settingsView.bar} /> : !onboarding && <ScreenTitle title={t(tab === 'activity' ? 'nav.activity' : 'nav.watching')} />}
+        {isSettings ? settingsView && <ElementSlot element={() => settingsView.bar} /> : !onboarding && <ScreenTitle title={t(SCREEN_TITLES[tab])} />}
         <HostAccessBanner state={hostAccess} onAllow={props.onAllowHostAccess} />
-        {/* Ordre des écrans fixe (tests : En cours, Activité, Réglages, accueil) ; un seul visible */}
+        {/* Ordre des écrans fixe (tests : En cours, Activité, Réglages, accueil, Pour toi, Agenda, Stats) ; un seul visible */}
         <main class="sk-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-3">
           <div class="min-h-full" data-screen="watching" hidden={isSettings || onboarding || tab !== 'watching'}>
             <WatchingScreen {...props.watching} now={now} />
@@ -136,6 +143,10 @@ export function PopupApp(props: PopupAppProps) {
           <div class="min-h-full" hidden={isSettings || !onboarding}>
             {onboarding && <Onboarding accounts={{ anilist, mal }} onLogin={props.onLogin} onOpenPlatformsSettings={props.onOpenPlatformsSettings} />}
           </div>
+          {/* Pour toi, Agenda, Stats : après les quatre premiers (indices 4 à 6), remplis par leurs contrôleurs */}
+          <div data-screen="foryou" hidden={isSettings || onboarding || tab !== 'foryou'} />
+          <div data-screen="agenda" hidden={isSettings || onboarding || tab !== 'agenda'} />
+          <div data-screen="stats" hidden={isSettings || onboarding || tab !== 'stats'} />
         </main>
         <ElementSlot element={() => props.footer} />
       </div>

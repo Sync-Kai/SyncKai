@@ -17,7 +17,7 @@ export interface SyncData {
   recentError: string | null;
 }
 
-export type Screen = 'watching' | 'activity' | 'settings';
+export type Screen = 'watching' | 'activity' | 'foryou' | 'agenda' | 'stats' | 'settings';
 
 export interface UiState {
   screen: Screen;
