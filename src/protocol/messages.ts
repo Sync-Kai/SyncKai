@@ -125,6 +125,8 @@ export interface MessageMap {
   CHECK_AIRING: { payload: null; response: AiringCheckResult };
   /** « Vérifier maintenant » (Réglages › Suites annoncées) : vérification des suites hors délai de 24 h */
   CHECK_SEQUELS: { payload: null; response: SequelCheckResult };
+  /** « Annoncées » (panneau), Activité (popup) : retire les suites affichées déjà dans une liste (au plus une fois par 10 min et par compte) */
+  CHECK_SHOWN_SEQUELS: { payload: null; response: null };
   /** Activité, Réglages : change l'état de suites ; `restore` (sans id : toutes) = masquée → vue ; false sans session ouverte */
   UPDATE_SEQUELS: { payload: { ids: number[]; state: 'seen' | 'dismissed' | 'removed' | 'restore' }; response: boolean };
   /** Fiche AniList de la série affichée dans l'onglet actif + état dans chaque liste (lecture seule) */

@@ -472,6 +472,8 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
       },
       CHECK_AIRING: () => airing,
       UPDATE_SEQUELS: updateSequelsDemo,
+      // Revérification des suites affichées : aucune n'est dans une liste dans la démo
+      CHECK_SHOWN_SEQUELS: () => null,
       SEARCH_ANIME: () => ({ ok: true, data: candidates() }),
       RESOLVE_PAGE_MEDIA: () => ({ ok: true, data: pageView() }),
       COMPARE_LISTS: () => ({ ok: true, data: comparison(now) }),

@@ -17,12 +17,14 @@ export interface SequelsSectionProps {
   records: readonly SequelRecord[];
   /** Services connectés : MyAnimeList seul, une suite sans idMal n'a pas de bouton d'ajout */
   connected: readonly TrackerId[];
+  /** Section affichée (écran Activité visible) : sinon, pas de revérification des suites contre les listes */
+  visible?: boolean;
 }
 
-export function SequelsSection({ records, connected }: SequelsSectionProps) {
+export function SequelsSection({ records, connected, visible = true }: SequelsSectionProps) {
   useLocale();
   const [expanded, setExpanded] = useState(false);
-  const { all, busy, outcomes, add, dismiss } = useSequelActions(records);
+  const { all, busy, outcomes, add, dismiss } = useSequelActions(records, visible);
   if (all.length === 0) return null;
   const shown = expanded ? all : all.slice(0, COLLAPSED_ROWS);
   const hidden = all.length - shown.length;

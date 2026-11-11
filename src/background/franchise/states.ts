@@ -42,11 +42,11 @@ async function readAnilist(ids: readonly number[]): Promise<Record<number, ListS
   return states;
 }
 
-/** Liste MAL mémorisée 5 minutes (mémoire du module, ni stockage ni écouteur) : charge raisonnable sur l'API MAL. Une clé par génération de session : un autre compte ne la partage jamais */
+/** Liste MAL mémorisée 5 minutes (mémoire du module, ni stockage ni écouteur) : charge raisonnable sur l'API MAL. Une clé par génération de session : un autre compte ne la partage jamais. Partagée avec la revérification des suites affichées (sequels/listed.ts) */
 const MAL_MEMO_TTL_MS = 5 * 60_000;
 let malMemo: { epoch: number; at: number; list: Promise<MalListEntry[]> } | null = null;
 
-function malList(epoch: number, fresh: boolean): Promise<MalListEntry[]> {
+export function malList(epoch: number, fresh: boolean): Promise<MalListEntry[]> {
   if (!fresh && malMemo?.epoch === epoch && Date.now() - malMemo.at < MAL_MEMO_TTL_MS) return malMemo.list;
   const memo = { epoch, at: Date.now(), list: fetchMalFullList() };
   malMemo = memo;

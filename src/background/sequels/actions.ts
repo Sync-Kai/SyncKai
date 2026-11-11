@@ -5,6 +5,7 @@ import { createLogger } from '../../browser/logger';
 import { getOpenSessions, sessionsStillOpen } from '../../browser/storage/sessions';
 import { withStorageLock } from '../../browser/storage/lock';
 import { setSequelStates, visibleSequels, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
+import type { SessionEpochs } from '../../shared/session-epochs';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { addToList } from '../controls';
 import { SEQUEL_NOTIFICATION_PREFIX, readSequelStore } from './check';
@@ -25,11 +26,11 @@ function applyUpdate(store: SequelStore, ids: readonly number[], update: SequelU
 }
 
 /**
- * Change l'état de suites du store, sous le verrou et avec les sessions ouvertes à l'instant (donnée du compte :
- * jamais recréée après une déconnexion). False sans session ouverte.
+ * Change l'état de suites du store, sous le verrou et avec les sessions ouvertes à l'instant, ou `before`, relevées avant une
+ * lecture des listes (donnée du compte : jamais recréée après une déconnexion). False sans session ouverte.
  */
-export async function updateSequels(ids: readonly number[], update: SequelUpdate): Promise<boolean> {
-  const epochs = await getOpenSessions();
+export async function updateSequels(ids: readonly number[], update: SequelUpdate, before?: SessionEpochs): Promise<boolean> {
+  const epochs = before ?? (await getOpenSessions());
   if (Object.keys(epochs).length === 0) return false;
   return withStorageLock(async () => {
     if (!(await sessionsStillOpen(epochs))) return false;

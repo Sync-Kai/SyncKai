@@ -38,6 +38,11 @@ export function addSequelToPlanning(record: SequelRecord): Promise<SyncOutcome> 
   return addToPlanning({ mediaId: record.snapshot.id, malId: record.snapshot.idMal });
 }
 
+/** Retire les suites affichées déjà dans une liste (le service worker freine). Ne lève jamais : injoignable, les lignes restent */
+export function checkShownSequels(): Promise<null> {
+  return callWorker('CHECK_SHOWN_SEQUELS', null, () => null);
+}
+
 /** Change l'état des suites ; service worker injoignable : false */
 export function updateSequels(ids: number[], state: 'seen' | 'dismissed' | 'removed' | 'restore'): Promise<boolean> {
   return callWorker('UPDATE_SEQUELS', { ids, state }, () => false);

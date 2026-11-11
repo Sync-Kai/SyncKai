@@ -61,6 +61,7 @@ export const MESSAGE_ORIGINS: { [K in MessageType]: MessageOrigin | 'both' } = {
   DECLINE_REWATCH: 'content',
   CHECK_AIRING: 'extension',
   CHECK_SEQUELS: 'extension',
+  CHECK_SHOWN_SEQUELS: 'extension',
   UPDATE_SEQUELS: 'extension',
   RESOLVE_PAGE_MEDIA: 'extension',
   // Réglages › Mes données (« Oublier », tout réinitialiser) et page Sauvegarde (restauration)
@@ -198,6 +199,7 @@ const PAYLOAD_GUARDS: { [K in MessageType]: (payload: unknown) => payload is Mes
   DECLINE_REWATCH: isMediaPayload,
   CHECK_AIRING: isNull,
   CHECK_SEQUELS: isNull,
+  CHECK_SHOWN_SEQUELS: isNull,
   UPDATE_SEQUELS: isUpdateSequelsPayload,
   RESOLVE_PAGE_MEDIA: isResolvePageMediaPayload,
   MAPPINGS_CHANGED: isNull,

@@ -15,6 +15,7 @@ import { checkNewEpisodes, handleAiringAlarm, handleNotificationButton, handleNo
 import { AIRING_ALARM, ensureAiringAlarm } from '../browser/airing-alarm';
 import { checkSequels } from './sequels/check';
 import { updateSequels } from './sequels/actions';
+import { checkShownSequels } from './sequels/listed';
 import { addToList, adjustProgress, handleCommand, setListStatus } from './controls';
 import { handleEpisodeCompleted } from './episode-completed';
 import { forgetPageResolutions, resolvePageMedia } from './page-media/page-media';
@@ -110,6 +111,7 @@ function unexpectedErrors(): { [K in MessageType]: MessageResponse<K> } {
     DECLINE_REWATCH: { ok: false, code: 'API_ERROR', message },
     CHECK_AIRING: { checkedAt: 0, notified: 0, skipped: null, error: message },
     CHECK_SEQUELS: { checkedAt: 0, found: 0, notified: 0, skipped: null, error: message },
+    CHECK_SHOWN_SEQUELS: null,
     UPDATE_SEQUELS: false,
     RESOLVE_PAGE_MEDIA: { ok: false, code: 'API_ERROR', message },
     MAPPINGS_CHANGED: null,
@@ -218,6 +220,7 @@ const handlers: MessageHandlers = {
     return checkNewEpisodes('interactive');
   },
   CHECK_SEQUELS: () => checkSequels(Date.now(), true),
+  CHECK_SHOWN_SEQUELS: () => checkShownSequels(),
   UPDATE_SEQUELS: ({ ids, state }) => updateSequels(ids, state),
 };
 

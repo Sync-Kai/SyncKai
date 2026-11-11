@@ -61,6 +61,9 @@ async function click(selector: string): Promise<void> {
   await flush();
 }
 
+/** Messages d'action (hors revérification des suites affichées, envoyée au montage) */
+const actions = (): unknown[][] => worker.send.mock.calls.filter(([type]) => type !== 'CHECK_SHOWN_SEQUELS');
+
 beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
@@ -77,6 +80,23 @@ describe('SequelsSection', () => {
   it('sans suite visible : rien', async () => {
     await mount([]);
     expect(container.querySelector('[data-sequel]')).toBeNull();
+  });
+
+  it('suites affichées : une revérification contre les listes, une seule fois', async () => {
+    await mount([]);
+    expect(worker.send).not.toHaveBeenCalled();
+    await act(() => store.set([record(1), record(2)]));
+    await act(() => store.set([record(1)]));
+    expect(worker.send.mock.calls).toEqual([['CHECK_SHOWN_SEQUELS', null]]);
+  });
+
+  it('section masquée (autre écran du popup) : aucune revérification avant son affichage', async () => {
+    store = createStore([record(1)]);
+    const Hidden = ({ visible }: { visible: boolean }) => <SequelsSection records={useStore(store)} connected={['anilist']} visible={visible} />;
+    await act(() => render(<Hidden visible={false} />, container));
+    expect(worker.send).not.toHaveBeenCalled();
+    await act(() => render(<Hidden visible />, container));
+    expect(worker.send.mock.calls).toEqual([['CHECK_SHOWN_SEQUELS', null]]);
   });
 
   it('jusqu’à 3 lignes sans repli, avec le titre de la section', async () => {
@@ -123,13 +143,12 @@ describe('SequelsSection', () => {
     await mount([record(1)]);
     worker.send.mockImplementation(async (type) => {
       if (type === 'ADD_TO_LIST') return syncedWith('updated', 'updated');
-      store.set([]);
+      if (type === 'UPDATE_SEQUELS') store.set([]);
       return true;
     });
     expect($('[data-focus="sequel-add-1"]')?.getAttribute('aria-label')).toBe('Add Suite 1 to Plan to watch');
     await click('[data-focus="sequel-add-1"]');
-    expect(worker.send).toHaveBeenNthCalledWith(1, 'ADD_TO_LIST', { mediaId: 1, malId: 1001, status: 'PLANNING' });
-    expect(worker.send).toHaveBeenNthCalledWith(2, 'UPDATE_SEQUELS', { ids: [1], state: 'removed' });
+    expect(actions()).toEqual([['ADD_TO_LIST', { mediaId: 1, malId: 1001, status: 'PLANNING' }], ['UPDATE_SEQUELS', { ids: [1], state: 'removed' }]]);
     expect($('[data-sequel="1"]')?.textContent).toContain('Added to Plan to watch');
     expect($('[data-focus="sequel-add-1"]')).toBeNull();
   });
@@ -138,13 +157,13 @@ describe('SequelsSection', () => {
     await mount([record(1)]);
     worker.send.mockImplementation(async (type) => {
       if (type === 'ADD_TO_LIST') return syncedWith('updated', 'updated');
-      store.set([]);
+      if (type === 'UPDATE_SEQUELS') store.set([]);
       return true;
     });
     await click('[data-focus="sequel-add-1"]');
     await click('[data-focus="sequel-dismiss-1"]');
     expect($('[data-sequel="1"]')).toBeNull();
-    expect(worker.send).toHaveBeenCalledTimes(2);
+    expect(actions()).toHaveLength(2);
   });
 
   it('cover et titre mènent à la fiche de la suite (nouvel onglet)', async () => {
@@ -198,7 +217,7 @@ describe('SequelsSection', () => {
     await mount([record(1)]);
     worker.send.mockResolvedValue(syncedWith('error', null));
     await click('[data-focus="sequel-add-1"]');
-    expect(worker.send).toHaveBeenCalledTimes(1);
+    expect(actions()).toHaveLength(1);
     expect($('[data-focus="sequel-add-1"]')?.textContent).toBe('Retry');
     expect($('[data-sequel="1"]')?.textContent).toContain('Échec AniList');
   });

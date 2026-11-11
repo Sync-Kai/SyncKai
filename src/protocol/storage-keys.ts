@@ -83,6 +83,9 @@ export const SYNC_ACTIVITY_KEY = 'syncActivity';
 /** Écran demandé au popup ouvert depuis le panneau latéral (Activité), dans chrome.storage.session, lu une fois (browser/popup-screen.ts) */
 export const POPUP_SCREEN_KEY = 'popupScreen';
 
+/** Dernière revérification des suites affichées contre les listes, dans chrome.storage.session : `{ at, epochs }` (background/sequels/listed.ts) */
+export const SHOWN_SEQUELS_CHECK_KEY = 'shownSequelsCheck';
+
 /** Onglet demandé au panneau latéral ouvert depuis le popup (Découvrir), dans chrome.storage.session, lu une fois (browser/panel-tab.ts) */
 export const PANEL_TAB_KEY = 'panelTab';
 

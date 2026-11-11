@@ -314,7 +314,7 @@ describe('Agenda', () => {
     it('« Nouveau » seulement tant que l’enregistrement est « new » dans le stockage (ligne gardée pour sa mention : sans pastille)', async () => {
       worker.send.mockImplementation(async (type) => {
         if (type === 'ADD_TO_LIST') return { status: 'synced', mediaTitle: 'S', results: [{ service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } }, { service: 'mal', outcome: { status: 'error', message: 'x' } }] } satisfies SyncOutcome;
-        sequelStore.set([]);
+        if (type === 'UPDATE_SEQUELS') sequelStore.set([]);
         return true;
       });
       await show(READY, [sequel(1, 'new', { year: 2027, month: 1, day: 10 })]);
@@ -331,7 +331,7 @@ describe('Agenda', () => {
     it('ajout réussi : la ligne reste avec son résultat ; compte MAL seul sans idMal : mention, pas de bouton', async () => {
       worker.send.mockImplementation(async (type) => {
         if (type === 'ADD_TO_LIST') return { status: 'synced', mediaTitle: 'S', results: [{ service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } }] } satisfies SyncOutcome;
-        sequelStore.set([]);
+        if (type === 'UPDATE_SEQUELS') sequelStore.set([]);
         return true;
       });
       await show(READY, [sequel(1, 'seen', {}), sequel(2, 'seen', {})]);
@@ -345,6 +345,16 @@ describe('Agenda', () => {
       await act(() => radio(t('agenda.view.announced')).click());
       expect($('[data-sequel="3"]')?.textContent).toContain(t('sequel.notOnMal'));
       expect($('[data-focus="sequel-add-3"]')).toBeNull();
+    });
+
+    it('ouvrir « Annoncées » demande une fois la vérification des suites affichées contre les listes', async () => {
+      worker.send.mockReset();
+      worker.send.mockResolvedValue(null);
+      await show(READY, SEQUELS);
+      expect(worker.send).not.toHaveBeenCalledWith('CHECK_SHOWN_SEQUELS', null);
+      await act(() => radio(t('agenda.view.announced')).click());
+      await act(() => sequelStore.set(SEQUELS.slice(1)));
+      expect(worker.send.mock.calls.filter(([type]) => type === 'CHECK_SHOWN_SEQUELS')).toEqual([['CHECK_SHOWN_SEQUELS', null]]);
     });
 
     it('× masque la suite (UPDATE_SEQUELS dismissed)', async () => {

@@ -45,6 +45,8 @@ export interface ActivityScreenProps {
   /** Écarts AniList ↔ MAL (compteur de la ligne) */
   compare: ReadonlyStore<CompareState>;
   now: number;
+  /** Écran affiché (il reste monté, masqué, sous les autres onglets) : la revérification des suites attend l'affichage */
+  visible?: boolean;
   reviewActions: ReviewActions;
   onRetryQueued: (id: string) => void;
   onAbandonQueued: (id: string) => void;
@@ -373,7 +375,7 @@ export function ActivityScreen(props: ActivityScreenProps) {
           </p>
         }
       />
-      <SequelsSection records={sequels} connected={links.connected} />
+      <SequelsSection records={sequels} connected={links.connected} visible={props.visible !== false} />
       <RecentSection data={data} exclusions={exclusions} links={links} props={props} />
       {connected === 2 && <CompareLink count={diffBadge(compare.result)} onOpen={props.onOpenCompare} />}
     </div>

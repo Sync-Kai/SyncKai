@@ -1,12 +1,13 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { t } from '../../i18n';
 import { newestFirst, type SequelRecord } from '../../shared/sequels';
 import type { SyncOutcome } from '../../shared/sync.types';
-import { addSequelToPlanning, sequelAddResult, updateSequels } from '../sequel-actions';
+import { addSequelToPlanning, checkShownSequels, sequelAddResult, updateSequels } from '../sequel-actions';
 
 // « + À regarder » et × des suites annoncées, partagés par Activité (popup) et Agenda (panneau) : ajout en cours, dernier
 // résultat par suite, et lignes terminées gardées avec leur mention (ajoutée, déjà dans la liste, pas sur MyAnimeList)
-// jusqu'à la fermeture de la page, quand le stockage ne les a plus.
+// jusqu'à la fermeture de la page, quand le stockage ne les a plus. À l'affichage des premières suites, une demande de
+// revérification contre les listes (ajoutées sur AniList / MAL depuis la passe quotidienne : leurs lignes disparaissent).
 
 export interface SequelActions {
   /** Suites du stockage, puis les terminées (avec leur mention) que le stockage n'a plus */
@@ -17,10 +18,19 @@ export interface SequelActions {
   dismiss: (id: number) => void;
 }
 
-export function useSequelActions(records: readonly SequelRecord[]): SequelActions {
+/** `shown` : suites à l'écran (false : écran monté mais masqué, aucune revérification) */
+export function useSequelActions(records: readonly SequelRecord[], shown = true): SequelActions {
   const [busy, setBusy] = useState<ReadonlySet<number>>(new Set());
   /** Dernier résultat par suite ; les suites terminées (retirées du stockage) gardent leur ligne avec leur mention */
   const [outcomes, setOutcomes] = useState<ReadonlyMap<number, { record: SequelRecord; outcome: SyncOutcome }>>(new Map());
+  const checked = useRef(false);
+
+  // Une fois par montage, dès que des suites sont affichées (le stockage est lu après le premier rendu)
+  useEffect(() => {
+    if (checked.current || !shown || records.length === 0) return;
+    checked.current = true;
+    void checkShownSequels();
+  }, [records, shown]);
 
   const withBusy = (id: number, on: boolean): void =>
     setBusy((current) => {

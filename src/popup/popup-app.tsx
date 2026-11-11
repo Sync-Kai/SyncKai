@@ -128,7 +128,7 @@ export function PopupApp(props: PopupAppProps) {
             <WatchingScreen {...props.watching} now={now} />
           </div>
           <div data-screen="activity" hidden={isSettings || onboarding || tab !== 'activity'}>
-            <ActivityScreen {...props.activity} now={now} />
+            <ActivityScreen {...props.activity} now={now} visible={!isSettings && !onboarding && tab === 'activity'} />
           </div>
           <div hidden={!isSettings}>
             <ElementSlot element={() => settingsView?.element ?? null} />
