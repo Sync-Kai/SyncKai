@@ -17,6 +17,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Rating with the arrow keys**: leaving the stars without pressing Enter no longer shows a score that was never saved; the saved score comes back. Enter or a click still saves it.
 - **Sub-menus** (*Open entry ›*, *Search on… ›*): a click right after hovering no longer closes the sub-menu that the hover just opened.
 - **Screen readers**: when the popup, the status bar or the settings showed several parts at once, some labels and descriptions pointed at another part's heading (in *Settings › Notifications*, the delay choice was announced as « Recent syncs »; the account menu's description too). Each one is now tied to its own text.
+- **Suggestions with MyAnimeList**: building suggestions from a long MyAnimeList list now takes 3 AniList requests instead of up to 22 for 1000 watched series, so « Analysing your tastes… » no longer stalls for about a minute.
+- A series SyncKai writes to your MyAnimeList list while suggestions are being built is no longer suggested.
+- « Because you rated … » now names the series with its AniList title, also for series from your MyAnimeList list.
+- Adult series from your lists are never named in « Because you rated … » nor used to pick suggestions.
 
 ## [2.5.0] - 2026-11-12
 

@@ -46,14 +46,14 @@ export interface RawRecoMedia {
   season: string | null;
   seasonYear: number | null;
   externalLinks: { url: string | null }[] | null;
-  relations: { edges: { relationType: string; node: { id: number } | null }[] } | null;
+  relations: { edges: { relationType: string; node: { id: number; idMal?: number | null } | null }[] } | null;
 }
 
 interface PickEntry { id: number; title: string; status: string; score10: number | null }
 
-/** Ids des préquels directs d'une fiche (arêtes `relations` d'AniList) */
-export const prequelIdsOf = (edges: readonly { relationType: string; node: { id: number } | null }[] | null | undefined): number[] =>
-  (edges ?? []).flatMap((e) => (e.relationType === 'PREQUEL' && e.node !== null ? [e.node.id] : []));
+/** Ids des préquels directs d'une fiche (arêtes `relations` d'AniList), hors ceux dont l'id MAL est dans `seenMalIds` (vus sur MyAnimeList) */
+export const prequelIdsOf = (edges: readonly { relationType: string; node: { id: number; idMal?: number | null } | null }[] | null | undefined, seenMalIds?: ReadonlySet<number>): number[] =>
+  (edges ?? []).flatMap((e) => (e.relationType === 'PREQUEL' && e.node !== null && !(typeof e.node.idMal === 'number' && seenMalIds?.has(e.node.idMal)) ? [e.node.id] : []));
 
 /** Suite dont un préquel n'est ni vu, ni en cours, ni en revisionnage : on ne la propose pas */
 export const hasUnseenPrequel = (prequelIds: readonly number[], watchedOrCurrent: ReadonlySet<number>): boolean => prequelIds.some((id) => !watchedOrCurrent.has(id));
@@ -120,7 +120,7 @@ function shareByLabel(seeds: readonly Seed[], pick: (s: Seed) => string[]): Map<
 export function buildBatch(
   seeds: readonly Seed[],
   recs: ReadonlyMap<number, { rating: number; media: RawRecoMedia }[]>,
-  exclude: { ids: ReadonlySet<number>; malIds: ReadonlySet<number>; dismissed: ReadonlySet<number>; watchedOrCurrent: ReadonlySet<number> },
+  exclude: { ids: ReadonlySet<number>; malIds: ReadonlySet<number>; dismissed: ReadonlySet<number>; watchedOrCurrent: ReadonlySet<number>; watchedMalIds?: ReadonlySet<number> },
   now: number,
 ): RecoBatch {
   const genreShare = shareByLabel(seeds, (s) => s.genres);
@@ -132,7 +132,7 @@ export function buildBatch(
       if (media.isAdult || exclude.ids.has(media.id) || exclude.dismissed.has(media.id)) continue;
       if (media.idMal !== null && media.idMal !== undefined && exclude.malIds.has(media.idMal)) continue;
       // Suite dont le préquel n'est ni vu ni en cours : on ne la propose pas
-      if (hasUnseenPrequel(prequelIdsOf(media.relations?.edges), exclude.watchedOrCurrent)) continue;
+      if (hasUnseenPrequel(prequelIdsOf(media.relations?.edges, exclude.watchedMalIds), exclude.watchedOrCurrent)) continue;
       const contribution = seed.score10 * Math.max(rating, 1);
       const prev = candidates.get(media.id);
       if (!prev) candidates.set(media.id, { media, sum: contribution, best: { seed, contribution } });
