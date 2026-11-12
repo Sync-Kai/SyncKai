@@ -8,7 +8,7 @@ Add-on: Gecko ID `synckai@sync-kai.github.io`, **listed** channel, MIT license. 
 
 | Field | Content |
 | --- | --- |
-| `name`, `summary`, `description` | en-US, fr, de: short description (optional Netflix added, AMO limit of 250 characters) and detailed description from `listing-{en,fr,de}.md`, adapted to Firefox ("browser notification"); bullets and subheadings converted to [AMO Markdown](https://blog.mozilla.org/addons/2025/03/03/markdown/) (lists, bold) |
+| `name`, `summary`, `description` | en-US, fr, de: short description (the five platforms, Netflix, Disney+ and Prime Video marked optional, plus the 2.5 highlights; AMO limit of 250 characters) and detailed description from `listing-{en,fr,de}.md`, adapted to Firefox ("browser notification"); bullets and subheadings converted to [AMO Markdown](https://blog.mozilla.org/addons/2025/03/03/markdown/) (lists, bold), separator lines dropped |
 | `categories` | `games-entertainment` (Games & Entertainment), `photos-music-videos` (Photos, Music & Videos): leisure use while streaming, like the *Entertainment* category of the Chrome Web Store |
 | `homepage`, `support_url` | GitHub repository, issues page |
 | `requires_payment` | `false` |

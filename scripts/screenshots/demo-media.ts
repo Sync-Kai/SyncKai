@@ -1,10 +1,18 @@
 // Fiches AniList des données de démo (demo-data.ts, demo-panel.ts) : module feuille, sans import, lu aussi par Node
 // (anilist-covers.ts) pour demander leurs vraies jaquettes. Titre = celui de la fiche AniList (anglais), vérifié sur
-// l'API le 2026-10-18.
+// l'API le 2026-10-18 (suggestions « Pour toi », franchise Mushoku Tensei et suites annoncées : 2026-11-12 ; sans titre
+// anglais sur AniList : titre romaji).
 
 export const DEMO_MEDIA = {
   21: 'ONE PIECE',
+  11061: 'Hunter x Hunter (2011)',
+  21355: 'Re:ZERO -Starting Life in Another World-',
+  21507: 'Mob Psycho 100',
+  21827: 'Violet Evergarden',
+  97986: 'Made in Abyss',
+  101348: 'Vinland Saga',
   108465: 'Mushoku Tensei: Jobless Reincarnation',
+  113415: 'JUJUTSU KAISEN',
   127230: 'Chainsaw Man',
   127720: 'Mushoku Tensei: Jobless Reincarnation Cour 2',
   136430: 'Vinland Saga Season 2',
@@ -21,9 +29,16 @@ export const DEMO_MEDIA = {
   176496: 'Solo Leveling Season 2 -Arise from the Shadow-',
   177709: 'SAKAMOTO DAYS',
   177937: 'SPY x FAMILY Season 3',
+  178031: 'Delicious in Dungeon Season 2',
   178754: 'Kaiju No. 8 Season 2',
+  178789: 'Mushoku Tensei: Jobless Reincarnation Season 3',
   182255: 'Frieren: Beyond Journey’s End Season 2',
   185660: 'DAN DA DAN Season 2',
+  198966: 'Dandadan 3rd Season',
+  209939: 'Sousou no Frieren 3rd Season',
+  213846: 'Solo Leveling: Beyond the System',
+  217434: 'Mushoku Tensei III: Isekai Ittara Honki Dasu Part 2',
+  219714: 'SPY×FAMILY Season 4',
 } as const satisfies Record<number, string>;
 
 export type DemoMediaId = keyof typeof DEMO_MEDIA;

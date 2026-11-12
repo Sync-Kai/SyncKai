@@ -199,24 +199,171 @@ export function panelFranchise(): FranchiseGraph {
   };
 }
 
-/** États des deux comptes de la démo : AniList par identifiant de fiche, MyAnimeList par identifiant MAL ; mêmes états aux deux */
-export function panelListStates(payload: unknown): ListStates {
-  const ids = (key: 'mediaIds' | 'malIds'): number[] => (isRecord(payload) && Array.isArray(payload[key]) ? payload[key].filter((id): id is number => typeof id === 'number') : []);
-  const entries = [...ORDER_MAIN, ORDER_EXTRA];
-  const read = (wanted: number[], idOf: (entry: DemoOrderEntry) => number | null): Record<number, ListState> =>
-    Object.fromEntries(wanted.map((id) => [id, entries.find((entry) => idOf(entry) === id)?.state ?? null]));
-  return { anilist: read(ids('mediaIds'), (entry) => entry.id), mal: read(ids('malIds'), (entry) => entry.idMal) };
+/** États des deux comptes d'une démo : AniList par identifiant de fiche, MyAnimeList par identifiant MAL ; mêmes états aux deux */
+function listStatesOf(entries: readonly { id: number; idMal: number | null; state: ListState }[]): (payload: unknown) => ListStates {
+  return (payload) => {
+    const ids = (key: 'mediaIds' | 'malIds'): number[] => (isRecord(payload) && Array.isArray(payload[key]) ? payload[key].filter((id): id is number => typeof id === 'number') : []);
+    const read = (wanted: number[], idOf: (entry: { id: number; idMal: number | null }) => number | null): Record<number, ListState> =>
+      Object.fromEntries(wanted.map((id) => [id, entries.find((entry) => idOf(entry) === id)?.state ?? null]));
+    return { anilist: read(ids('mediaIds'), (entry) => entry.id), mal: read(ids('malIds'), (entry) => entry.idMal) };
+  };
+}
+
+export const panelListStates: (payload: unknown) => ListStates = listStatesOf([...ORDER_MAIN, ORDER_EXTRA]);
+
+// ─── Captures du Store : « En lecture » sur une vraie franchise, Mushoku Tensei (saison 3, épisode 9) ──────────
+// Fiches AniList réelles, vérifiées sur l'API publique le 2026-11-12 : titres (anglais, sinon romaji), ids MAL, formats,
+// statuts, dates, épisodes, durées, genres, note, studio, plateformes, suite et recommandations. Aucune entrée ni date
+// inventée sur les images publiques ; seuls les états de liste (vu, en cours, à regarder) sont ceux du compte fictif.
+
+const MT_TITLE = 'Mushoku Tensei: Jobless Reincarnation';
+const MT_S3 = { id: 178789, idMal: 59193, title: 'Mushoku Tensei: Jobless Reincarnation Season 3' } as const;
+const MT_COVER = { from: '#3B2A6E', to: '#46D6FF', accent: '#FFE3A3', motif: 'sun' } as const;
+const MT_WATCH_URL = 'https://www.crunchyroll.com/watch/DEMOMUSHOKU3E9/';
+
+interface RealOrderEntry {
+  id: number;
+  idMal: number | null;
+  title: string;
+  format: string;
+  status: 'FINISHED' | 'NOT_YET_RELEASED';
+  episodes: number | null;
+  duration: number | null;
+  date: [year: number, month: number | null, day: number | null];
+  season: FranchiseNode['season'];
+  /** Lien Crunchyroll parmi les liens de streaming de la fiche AniList */
+  crunchyroll: boolean;
+  state: ListState;
+}
+
+/** Ordre de sortie ; l'OVA « Eris the Goblin Slayer » est une histoire parallèle de la partie 2 (vue « Tout ») */
+const MUSHOKU_ORDER: RealOrderEntry[] = [
+  { id: 108465, idMal: 39535, title: MT_TITLE, format: 'TV', status: 'FINISHED', episodes: 11, duration: 24, date: [2021, 1, 11], season: 'WINTER', crunchyroll: true, state: watched },
+  { id: 127720, idMal: 45576, title: 'Mushoku Tensei: Jobless Reincarnation Cour 2', format: 'TV', status: 'FINISHED', episodes: 12, duration: 24, date: [2021, 10, 4], season: 'FALL', crunchyroll: true, state: watched },
+  { id: 141534, idMal: 50360, title: 'Mushoku Tensei: Jobless Reincarnation Cour 2 - Eris the Goblin Slayer', format: 'SPECIAL', status: 'FINISHED', episodes: 1, duration: 24, date: [2022, 3, 16], season: 'WINTER', crunchyroll: true, state: { kind: 'planned', progress: null } },
+  { id: 146065, idMal: 51179, title: 'Mushoku Tensei: Jobless Reincarnation Season 2', format: 'TV', status: 'FINISHED', episodes: 13, duration: 24, date: [2023, 7, 3], season: 'SUMMER', crunchyroll: true, state: watched },
+  { id: 166873, idMal: 55888, title: 'Mushoku Tensei: Jobless Reincarnation Season 2 Part 2', format: 'TV', status: 'FINISHED', episodes: 12, duration: 24, date: [2024, 4, 8], season: 'SPRING', crunchyroll: true, state: watched },
+  { ...MT_S3, format: 'TV', status: 'FINISHED', episodes: 14, duration: 24, date: [2026, 7, 4], season: 'SUMMER', crunchyroll: true, state: { kind: 'inProgress', progress: 8 } },
+  // Annoncée : année seule sur AniList, aucun titre anglais
+  { id: 217434, idMal: 65077, title: 'Mushoku Tensei III: Isekai Ittara Honki Dasu Part 2', format: 'TV', status: 'NOT_YET_RELEASED', episodes: null, duration: null, date: [2027, null, null], season: null, crunchyroll: false, state: { kind: 'planned', progress: null } },
+];
+
+const MUSHOKU_EXTRA_ID = 141534;
+
+function mushokuFranchise(): FranchiseGraph {
+  const node = (entry: RealOrderEntry): FranchiseNode => ({
+    id: entry.id,
+    idMal: entry.idMal,
+    title: entry.title,
+    format: entry.format,
+    status: entry.status,
+    episodes: entry.episodes,
+    duration: entry.duration,
+    coverUrl: null,
+    siteUrl: `https://anilist.co/anime/${entry.id}`,
+    year: entry.date[0],
+    month: entry.date[1],
+    day: entry.date[2],
+    season: entry.season,
+    seasonYear: entry.season === null ? null : entry.date[0],
+    platforms: entry.crunchyroll ? [{ platform: 'crunchyroll', url: `https://www.crunchyroll.com/series/DEMOMUSHOKU${entry.id}` }] : [],
+  });
+  const main = MUSHOKU_ORDER.filter((entry) => entry.id !== MUSHOKU_EXTRA_ID).map((entry) => entry.id);
+  return {
+    startId: MT_S3.id,
+    nodes: Object.fromEntries(MUSHOKU_ORDER.map((entry) => [entry.id, node(entry)])),
+    main,
+    extras: [{ id: MUSHOKU_EXTRA_ID, relation: 'SIDE_STORY', from: 127720 }],
+    capped: false,
+    expanded: main,
+  };
+}
+
+const MUSHOKU_EPISODE: EpisodeInfo = { ...episode(MT_TITLE, 3, 9), episodeId: 'DEMOMUSHOKU3E9', seriesId: 'DEMOMUSHOKU', seriesSlug: 'mushoku-tensei-jobless-reincarnation', url: MT_WATCH_URL };
+
+const MUSHOKU_PAGE: PageMediaInfo = {
+  platform: 'crunchyroll',
+  kind: 'episode',
+  seriesId: 'DEMOMUSHOKU',
+  seriesSlug: 'mushoku-tensei-jobless-reincarnation',
+  seriesTitle: MT_TITLE,
+  seasonNumber: 3,
+  seasonTitle: null,
+  seasonEpisodeCount: 14,
+  episode: MUSHOKU_EPISODE,
+};
+
+function mushokuView(): PageMediaView {
+  const site = `https://anilist.co/anime/${MT_S3.id}`;
+  return {
+    media: { mediaId: MT_S3.id, idMal: MT_S3.idMal, title: MT_S3.title, coverUrl: coverUrl(MT_COVER, MT_S3.id), episodes: 14, format: 'TV', year: 2026, airingStatus: 'FINISHED', nextEpisode: null, siteUrl: site },
+    lists: [
+      { service: 'anilist', state: 'in-list', status: 'CURRENT', progress: 8, score: null, notes: null, siteUrl: site },
+      { service: 'mal', state: 'in-list', status: 'CURRENT', progress: 8, score: null, notes: null, siteUrl: `https://myanimelist.net/anime/${MT_S3.idMal}` },
+    ],
+    confidence: 'certain',
+    source: 'page',
+    seasons: [],
+    episodeProgress: 9,
+  };
+}
+
+function mushokuMedia(): PanelMedia {
+  return {
+    mediaId: MT_S3.id,
+    idMal: MT_S3.idMal,
+    siteUrl: `https://anilist.co/anime/${MT_S3.id}`,
+    title: MT_S3.title,
+    romajiTitle: 'Mushoku Tensei III: Isekai Ittara Honki Dasu',
+    englishTitle: MT_S3.title,
+    bannerUrl: bannerUrl({ from: '#3B2A6E', to: '#46D6FF', accent: '#FFE3A3' }, MT_S3.id),
+    coverUrl: coverUrl(MT_COVER, MT_S3.id),
+    coverColor: coverColor('#3b2a6e', MT_S3.id),
+    description: null,
+    genres: ['Adventure', 'Drama', 'Ecchi', 'Fantasy'],
+    averageScore: 86,
+    season: 'SUMMER',
+    seasonYear: 2026,
+    format: 'TV',
+    episodes: 14,
+    airingStatus: 'FINISHED',
+    nextEpisode: null,
+    studio: { name: 'Studio Bind', siteUrl: 'https://anilist.co/studio/6309' },
+    relations: [
+      {
+        relationType: 'SEQUEL',
+        mediaId: 217434,
+        idMal: 65077,
+        title: 'Mushoku Tensei III: Isekai Ittara Honki Dasu Part 2',
+        format: 'TV',
+        coverUrl: coverUrl(MT_COVER, 217434),
+        siteUrl: 'https://anilist.co/anime/217434',
+        platforms: [],
+        status: 'NOT_YET_RELEASED',
+        startYear: 2027,
+        startMonth: null,
+        startDay: null,
+        season: null,
+        seasonYear: null,
+      },
+    ],
+    recommendations: [
+      panelReco(154587, 'Frieren: Beyond Journey’s End', 2023, 98, { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'sun' }),
+      panelReco(189046, 'Re:ZERO -Starting Life in Another World- Season 4', 2026, 87, { from: '#3A2A6E', to: '#5FE3FF', accent: '#FFFFFF', motif: 'rings' }),
+      panelReco(21355, 'Re:ZERO -Starting Life in Another World-', 2016, 77, { from: '#3A2A6E', to: '#5FE3FF', accent: '#FFFFFF', motif: 'moon' }),
+    ],
+  };
 }
 
 /** Lecture en cours : 19:20 / 23:40, synchro au générique à 21:30 → « Synchro dans 2 min 10 » */
 export const PLAYBACK = { t: 19 * 60 + 20, duration: 23 * 60 + 40, credits: 21 * 60 + 30 } as const;
 
 /** Script de contenu simulé derrière chrome.tabs.connect : état de la page puis position de lecture */
-function livePort(name: string): chrome.runtime.Port {
+function livePort(name: string, episodeId: string): chrome.runtime.Port {
   const mock = createMockPort(name);
   if (name === LIVE_PORT_NAME) {
     const messages: LiveContentMessage[] = [
-      { type: 'page', episodeId: FRIEREN_EPISODE.episodeId },
+      { type: 'page', episodeId },
       { type: 'tick', t: PLAYBACK.t, duration: PLAYBACK.duration, paused: false, point: { seconds: PLAYBACK.credits, source: 'credits' }, state: 'watching' },
     ];
     setTimeout(() => messages.forEach((message) => mock.emit(message)), 30);
@@ -265,26 +412,45 @@ export function agendaWeek(weekStart: string, now: number): AiringWeekCache | nu
   return { weekStart, fetchedAt: now, mediaIds: SERIES.map((s) => s.id), schedules };
 }
 
-/** API chrome du panneau latéral sur un onglet Crunchyroll (page de lecture de Frieren) */
-export function panelChrome(locale: Locale, tab: PanelTab, now: number = Date.now()): ChromeMockOptions {
+/** Fiche « En lecture » d'une démo : page lue par le script de contenu, fiche résolue, données du panneau, franchise */
+interface NowPlayingDemo {
+  page: PageMediaInfo;
+  view: PageMediaView;
+  media: PanelMedia;
+  franchise: FranchiseGraph;
+  states: (payload: unknown) => ListStates;
+}
+
+/** `frieren` : démo des tests de bout en bout ; `mushoku` : vraie franchise des captures du Store (MUSHOKU ci-dessous) */
+export type NowPlayingId = 'frieren' | 'mushoku';
+
+function nowPlaying(id: NowPlayingId): NowPlayingDemo {
+  return id === 'mushoku'
+    ? { page: MUSHOKU_PAGE, view: mushokuView(), media: mushokuMedia(), franchise: mushokuFranchise(), states: listStatesOf(MUSHOKU_ORDER) }
+    : { page: PANEL_PAGE, view: panelView(), media: panelMedia(), franchise: panelFranchise(), states: panelListStates };
+}
+
+/** API chrome du panneau latéral sur un onglet Crunchyroll (page de lecture de Frieren, ou de Mushoku Tensei pour le Store) */
+export function panelChrome(locale: Locale, tab: PanelTab, now: number = Date.now(), demo: NowPlayingId = 'frieren'): ChromeMockOptions {
   const base = demoChrome(locale, 'watching', now);
-  const view = panelView();
+  const { page, view, media, franchise, states } = nowPlaying(demo);
+  const episodeId = page.episode?.episodeId ?? '';
   return {
     ...base,
     storage: { ...base.storage, [PANEL_LAST_TAB_KEY]: tab },
     // Fiche de l'onglet déjà résolue (cache de session partagé avec le popup et la synchro), sessions AniList et MAL de la démo
-    session: { [pageMediaCacheKey(TAB_ID)]: toCachedPageMedia(PANEL_PAGE, view, 'resolve', now - 60_000, { anilist: 0, mal: 0 }) },
+    session: { [pageMediaCacheKey(TAB_ID)]: toCachedPageMedia(page, view, 'resolve', now - 60_000, { anilist: 0, mal: 0 }) },
     manifest: { host_permissions: manifest.host_permissions, content_scripts: manifest.content_scripts },
-    tab: { url: WATCH_URL, title: FRIEREN_TITLE },
+    tab: { url: page.episode?.url ?? WATCH_URL, title: page.seriesTitle },
     sidePanel: true,
-    tabMessage: (message) => (isRecord(message) && message.type === 'GET_PAGE_MEDIA' ? PANEL_PAGE : undefined),
-    connect: (_tabId, name) => livePort(name),
+    tabMessage: (message) => (isRecord(message) && message.type === 'GET_PAGE_MEDIA' ? page : undefined),
+    connect: (_tabId, name) => livePort(name, episodeId),
     handlers: {
       ...base.handlers,
       RESOLVE_PAGE_MEDIA: () => ({ ok: true, data: view }),
-      GET_PANEL_MEDIA: () => ({ ok: true, data: panelMedia() }),
-      GET_FRANCHISE: () => ({ ok: true, graph: panelFranchise() }),
-      GET_LIST_STATES: (payload) => panelListStates(payload),
+      GET_PANEL_MEDIA: () => ({ ok: true, data: media }),
+      GET_FRANCHISE: () => ({ ok: true, graph: franchise }),
+      GET_LIST_STATES: (payload) => states(payload),
       GET_AGENDA: (payload) => {
         const week = isRecord(payload) && typeof payload.weekStart === 'string' ? agendaWeek(payload.weekStart, now) : null;
         return week ? { ok: true, data: week } : { ok: false, code: 'API_ERROR', message: 'semaine invalide' };

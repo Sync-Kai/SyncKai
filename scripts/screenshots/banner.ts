@@ -134,42 +134,47 @@ function syncScene(): HTMLElement[] {
   return [card(player, `./player.html?locale=${locale}&kind=sync&layer=scene`, 'player'), bubble];
 }
 
-/** Capture 2 : lecteur (lecture en cours) en arrière-plan, panneau latéral « En lecture » devant, à côté */
-function sidePanelScene(): HTMLElement[] {
+/** « En lecture » sur la vraie franchise Mushoku Tensei (saison 3, épisode 9), ordre de visionnage déplié : capture 2 et tuile promo */
+const MUSHOKU_ORDER = '&demo=mushoku&reveal=order';
+const MUSHOKU_LABEL = 'Mushoku Tensei · S3 E9';
+
+/** Capture 2 : lecteur (lecture en cours) en arrière-plan, panneau latéral « En lecture » devant, ordre de visionnage déplié */
+function watchOrderScene(): HTMLElement[] {
   const player: Box = { left: 636, top: 56, width: 540, height: 304 };
-  const panel: Box = { left: 844, top: 128, width: 392, height: 636 };
-  return [card(player, `./player.html?locale=${locale}&kind=watch&layer=scene`, 'player'), card(panel, panelSrc('nowPlaying', 1), 'panel')];
+  // Hauteur réglée pour que le pied du panneau couvre la section suivante sous « Dans le même esprit » (aucun titre coupé)
+  const panel: Box = { left: 812, top: 40, width: 424, height: 696 };
+  return [card(player, `./player.html?locale=${locale}&kind=watch&layer=scene&label=${encodeURIComponent(MUSHOKU_LABEL)}`, 'player'), card(panel, panelSrc('nowPlaying', 1, MUSHOKU_ORDER), 'panel')];
 }
 
-/** Capture 3 : panneau latéral seul, onglet « Agenda », agrandi ×1,25 */
-function agendaScene(): HTMLElement[] {
+/** Capture 4 : panneau latéral seul, onglet « Agenda », vue « Annoncées », agrandi ×1,25 */
+function announcedScene(): HTMLElement[] {
   const zoom = 1.25;
-  // 408 px CSS : la ligne « Vu · heure · plateforme · Japon heure » tient sans points de suspension, même en anglais (12 h)
-  const width = Math.round(408 * zoom);
-  const panel: Box = { left: 610 + (670 - width) / 2, top: 40, width, height: 720 };
-  return [card(panel, panelSrc('agenda', zoom), 'panel')];
+  // 432 px CSS : les trois onglets du panneau sans points de suspension, même en allemand
+  const width = Math.round(432 * zoom);
+  // Hauteur réglée pour que le pied du panneau tombe entre deux lignes (aucune ligne coupée)
+  const height = 632;
+  const panel: Box = { left: 610 + (670 - width) / 2, top: (800 - height) / 2, width, height };
+  return [card(panel, panelSrc('agenda', zoom, '&view=announced'), 'panel')];
 }
 
-/** Capture 4 : popup (carte « Sur cette page ») agrandi ×1,2 */
-function popupScene(): HTMLElement[] {
+/** Captures 3 et 5 : popup (« Pour toi », « Stats ») agrandi ×1,2 */
+function popupScene(scenario: 'foryou' | 'stats'): HTMLElement[] {
   const zoom = 1.2;
   const width = POPUP.width * zoom;
   const height = POPUP.height * zoom;
-  return [card({ left: 610 + (670 - width) / 2, top: (800 - height) / 2, width, height }, popupSrc('page', zoom))];
+  return [card({ left: 610 + (670 - width) / 2, top: (800 - height) / 2, width, height }, popupSrc(scenario, zoom))];
 }
 
-/** Capture 5 : page « Importer un historique » (aperçu) */
-function importScene(): HTMLElement[] {
-  // Rognée sous « Mettre à jour 3 séries » : aucune carte coupée par le bas
-  return [card({ left: 640, top: 80, width: 600, height: 640 }, `./import-cr.html?locale=${locale}&zoom=1`)];
-}
-
-/** Tuile promo 1400×560 : dos et texte à gauche, popup (« Sur cette page ») et panneau (« En lecture ») à droite, rognés en bas */
+/**
+ * Tuile promo 1400×560 : dos et texte à gauche, popup (rail, « Stats » : données du seul compte fictif) et panneau
+ * (« En lecture » sur Mushoku Tensei, ordre de visionnage déplié) à droite, rognés en bas ; panneau de 400 px : ses trois
+ * onglets sans points de suspension
+ */
 function marqueeParts(): HTMLElement[] {
   document.documentElement.classList.add('marquee');
-  const popup = card({ left: 736, top: 44, width: POPUP.width, height: POPUP.height }, popupSrc('page', 1));
-  const panelWidth = 372;
-  const panel = card({ left: MARQUEE.width - 48 - panelWidth, top: 96, width: panelWidth, height: MARQUEE.height - 96 + 40 }, panelSrc('nowPlaying', 1), 'panel');
+  const popup = card({ left: 736, top: 44, width: POPUP.width, height: POPUP.height }, popupSrc('stats', 1));
+  const panelWidth = 400;
+  const panel = card({ left: MARQUEE.width - 48 - panelWidth, top: 96, width: panelWidth, height: MARQUEE.height - 96 + 40 }, panelSrc('nowPlaying', 1, MUSHOKU_ORDER), 'panel');
   return [...stage(), ...spine(MARQUEE.kana), lockup(), copy(MARQUEE), serviceFlow(), popup, panel];
 }
 
@@ -181,14 +186,14 @@ function shotParts(): HTMLElement[] {
     case 1:
       return [...stage(), ...left, ...syncScene()];
     case 2:
-      return [...stage(), ...left, ...sidePanelScene()];
+      return [...stage(), ...left, ...watchOrderScene()];
     case 3:
-      // Panneau presque pleine hauteur : disque remonté, rogné par le haut
-      return [...stage(-120), ...left, ...agendaScene()];
+      return [...stage(), ...left, ...popupScene('foryou')];
     case 4:
-      return [...stage(), ...left, ...popupScene()];
+      // Panneau presque pleine hauteur : disque remonté, rogné par le haut
+      return [...stage(-120), ...left, ...announcedScene()];
     case 5:
-      return [...stage(), ...left, ...importScene()];
+      return [...stage(), ...left, ...popupScene('stats')];
   }
 }
 

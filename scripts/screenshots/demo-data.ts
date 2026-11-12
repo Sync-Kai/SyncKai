@@ -7,21 +7,24 @@ import type { ComparisonResult, DiffSide, ListDiff } from '../../src/shared/comp
 import type { PageMediaInfo, PageMediaView, PageSeason } from '../../src/shared/page-media.types';
 import type { ListStatus } from '../../src/shared/sync.types';
 import type { AiringCheckResult } from '../../src/shared/airing.types';
+import type { ActivityDay, ActivityHistory } from '../../src/shared/activity-history';
+import { dateKey } from '../../src/shared/agenda';
+import type { ProfileStats } from '../../src/shared/profile-stats';
 import type { AniListViewer } from '../../src/shared/anilist.types';
 import type { EpisodeInfo, StreamingPlatform } from '../../src/shared/episode.types';
 import type { FriendEntry, FriendsSummary } from '../../src/shared/friends';
 import type { MalViewer } from '../../src/shared/mal.types';
 import type { CandidateSummary, PendingReview, RecentSync } from '../../src/shared/review.types';
 import type { SyncSettings } from '../../src/shared/settings';
-import { isSequelStore, listSequels, setSequelStates, type SequelRecord, type SequelSnapshot, type SequelStore } from '../../src/shared/sequels';
+import { isSequelStore, listSequels, setSequelStates, type ListedEntry, type SequelDisplay, type SequelRecord, type SequelSnapshot, type SequelStore } from '../../src/shared/sequels';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import type { TrackerId } from '../../src/shared/tracker.types';
 import { currentWeekStart } from '../../src/shared/weekly-syncs';
 import type { RecoBatch, RecoItem, RecoResult } from '../../src/shared/recommendations';
 import type { AiringStatus, WatchingEntry, WatchingList } from '../../src/shared/watching.types';
-import { avatarUrl, coverUrl, type CoverMotif } from './covers';
-import type { DemoMediaId } from './demo-media';
+import { avatarUrl, bannerUrl, coverUrl, type CoverMotif } from './covers';
+import { isDemoMediaId, type DemoMediaId } from './demo-media';
 import type { ChromeMockOptions } from './mock-chrome';
 
 /** Version affichée dans le pied du popup : toujours celle du manifest (relue à chaque génération) */
@@ -307,9 +310,10 @@ export function accountDemo(mode: AccountDemo | null, base: ChromeMockOptions): 
  * Écran rendu par popup-frame :
  * - watching : « En cours » (carte « Reprendre ») ; menu : idem, menu « ⋯ » d'une ligne ouvert ;
  * - page : « En cours » avec la carte « Sur cette page » (onglet actif sur Crunchyroll) ;
- * - activity : carte « À vérifier » ; compare : « Écarts AniList ↔ MAL » analysés ; settings : Réglages.
+ * - activity : carte « À vérifier » ; compare : « Écarts AniList ↔ MAL » analysés ; settings : Réglages ;
+ * - foryou : « Pour toi » ; stats : « Stats » (statistiques des profils et historique d'activité de démo).
  */
-export type Scenario = 'watching' | 'menu' | 'page' | 'activity' | 'compare' | 'settings';
+export type Scenario = 'watching' | 'menu' | 'page' | 'activity' | 'compare' | 'settings' | 'foryou' | 'stats';
 
 /** Suites annoncées de démo (sans jaquette) : jour précis, mois seul, date inconnue, en cours de diffusion ; la plus récente est « nouvelle ». Plus une série de la liste à venir (« Annoncées ») */
 export function sequelsDemo(now: number): SequelStore {
@@ -327,6 +331,35 @@ export function sequelsDemo(now: number): SequelStore {
   return { records, known: records.map((r) => r.snapshot.id), seeded: ['anilist'], lastCheck: now - 12 * MIN, listed: [{ ...listed, listStatus: 'PLANNING' }] };
 }
 
+/**
+ * « Annoncées » des captures du Store : vraies suites à venir des séries de la démo et deux séries à venir de la liste,
+ * fiches AniList réelles vérifiées sur l'API publique le 2026-11-12 (titre anglais, sinon romaji ; id MAL, format,
+ * statut, date telle qu'AniList la donne) avec leurs vraies jaquettes. Seuls les états (nouvelle, vue, dans la liste) sont
+ * ceux du compte fictif. Les tests de bout en bout gardent sequelsDemo (ids 900001 à 900005).
+ */
+export function announcedDemo(now: number): SequelStore {
+  type Real = Pick<SequelSnapshot, 'id' | 'idMal' | 'title' | 'format' | 'year' | 'month' | 'season' | 'seasonYear'>;
+  const display = (real: Real): SequelDisplay => ({
+    ...real,
+    status: 'NOT_YET_RELEASED',
+    coverUrl: isDemoMediaId(real.id) ? coverUrl({ from: '#3E5C8A', to: '#B9A4FF', accent: '#FFD37A', motif: 'peaks' }, real.id) : null,
+    siteUrl: `https://anilist.co/anime/${real.id}`,
+    day: null,
+  });
+  const sequel = (real: Real, sourceId: number, sourceTitle: string, state: SequelRecord['state']): SequelRecord => ({ snapshot: { ...display(real), sourceId, sourceTitle }, state, firstSeenAt: now - (state === 'new' ? HOUR : 3 * DAY) });
+  const records: SequelRecord[] = [
+    sequel({ id: 209939, idMal: 63816, title: 'Sousou no Frieren 3rd Season', format: 'TV', year: 2027, month: 10, season: 'FALL', seasonYear: 2027 }, 182255, 'Frieren: Beyond Journey’s End Season 2', 'new'),
+    sequel({ id: 198966, idMal: 62516, title: 'Dandadan 3rd Season', format: 'TV', year: 2027, month: null, season: null, seasonYear: null }, 185660, 'DAN DA DAN Season 2', 'seen'),
+    sequel({ id: 219714, idMal: 65350, title: 'SPY×FAMILY Season 4', format: 'TV', year: 2027, month: null, season: null, seasonYear: null }, 177937, 'SPY x FAMILY Season 3', 'seen'),
+    sequel({ id: 213846, idMal: 64546, title: 'Solo Leveling: Beyond the System', format: 'MOVIE', year: null, month: null, season: null, seasonYear: null }, 176496, 'Solo Leveling Season 2 -Arise from the Shadow-', 'seen'),
+  ];
+  const listed: ListedEntry[] = [
+    { ...display({ id: 178031, idMal: 59068, title: 'Delicious in Dungeon Season 2', format: 'ONA', year: 2027, month: 10, season: 'FALL', seasonYear: 2027 }), listStatus: 'PLANNING' },
+    { ...display({ id: 217434, idMal: 65077, title: 'Mushoku Tensei III: Isekai Ittara Honki Dasu Part 2', format: 'TV', year: 2027, month: null, season: null, seasonYear: null }), listStatus: 'PLANNING' },
+  ];
+  return { records, known: records.map((r) => r.snapshot.id), seeded: ['anilist'], lastCheck: now - 12 * MIN, listed };
+}
+
 /** UPDATE_SEQUELS simulé : même effet sur le stockage que le service worker (état changé, `removed` supprime la ligne, `listed` la passe dans la liste) */
 async function updateSequelsDemo(payload: unknown): Promise<boolean> {
   if (typeof payload !== 'object' || payload === null || !('ids' in payload) || !('state' in payload) || !Array.isArray(payload.ids)) return false;
@@ -342,7 +375,7 @@ async function updateSequelsDemo(payload: unknown): Promise<boolean> {
 // ─── Suggestions « Découvrir » ───────────────────────────────────────────
 
 interface RecoSpec {
-  id: number;
+  id: DemoMediaId;
   title: string;
   format: string;
   year: number;
@@ -351,20 +384,22 @@ interface RecoSpec {
   genres: string[];
   tags: string[];
   cover: { from: string; to: string; accent: string; motif: CoverMotif };
+  /** Plateforme de la carte (liens de streaming AniList) ; Crunchyroll par défaut */
+  platform?: StreamingPlatform;
   /** Série de la démo à l'origine de la suggestion (absent : démarrage à froid, tops de la saison) */
   seed?: { title: string; score: number; matched: string[] };
 }
 
-/** Recommandations AniList réelles des séries de la démo (fiches publiques) ; ids des fiches AniList */
+/** Recommandations AniList réelles des séries de la démo (fiches publiques) ; ids des fiches AniList (vraies jaquettes : demo-media.ts) ; format, année, épisodes, note et genres vérifiés sur l'API le 2026-11-12 */
 const RECO_SPECS: readonly RecoSpec[] = [
-  { id: 108465, title: 'Mushoku Tensei: Jobless Reincarnation', format: 'TV', year: 2021, episodes: 11, score: 84, genres: ['Adventure', 'Drama', 'Fantasy'], tags: ['Isekai'], cover: { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'peaks' }, seed: { title: 'Frieren', score: 9, matched: ['Adventure', 'Fantasy'] } },
-  { id: 97986, title: 'Made in Abyss', format: 'TV', year: 2017, episodes: 13, score: 86, genres: ['Adventure', 'Drama', 'Fantasy'], tags: ['Exploration'], cover: { from: '#5A4A1E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }, seed: { title: 'Frieren', score: 9, matched: ['Adventure', 'Fantasy'] } },
+  { id: 108465, title: 'Mushoku Tensei: Jobless Reincarnation', format: 'TV', year: 2021, episodes: 11, score: 81, genres: ['Adventure', 'Drama', 'Ecchi', 'Fantasy'], tags: ['Isekai'], cover: { from: '#2F6E5E', to: '#7EE0C3', accent: '#FFF6D8', motif: 'peaks' }, seed: { title: 'Frieren', score: 9, matched: ['Adventure', 'Fantasy'] } },
+  { id: 97986, title: 'Made in Abyss', format: 'TV', year: 2017, episodes: 13, score: 84, genres: ['Adventure', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Sci-Fi'], tags: ['Exploration'], cover: { from: '#5A4A1E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }, platform: 'prime', seed: { title: 'Frieren', score: 9, matched: ['Adventure', 'Fantasy'] } },
   { id: 101348, title: 'Vinland Saga', format: 'TV', year: 2019, episodes: 24, score: 87, genres: ['Action', 'Adventure', 'Drama'], tags: ['Historical'], cover: { from: '#24506E', to: '#9FD8F0', accent: '#FFF6D8', motif: 'wave' }, seed: { title: 'Solo Leveling', score: 8, matched: ['Action', 'Adventure'] } },
-  { id: 113415, title: 'Jujutsu Kaisen', format: 'TV', year: 2020, episodes: 24, score: 85, genres: ['Action', 'Supernatural'], tags: ['Shounen'], cover: { from: '#3A2A6E', to: '#B9A4FF', accent: '#FFFFFF', motif: 'bolt' }, seed: { title: 'Dandadan', score: 9, matched: ['Action', 'Supernatural'] } },
-  { id: 21507, title: 'Mob Psycho 100', format: 'TV', year: 2016, episodes: 12, score: 85, genres: ['Action', 'Comedy', 'Supernatural'], tags: ['Super Power'], cover: { from: '#6E2A4A', to: '#FF8FB8', accent: '#FFF6D8', motif: 'rings' }, seed: { title: 'Dandadan', score: 9, matched: ['Comedy', 'Supernatural'] } },
-  { id: 21827, title: 'Violet Evergarden', format: 'TV', year: 2018, episodes: 13, score: 84, genres: ['Drama', 'Fantasy'], tags: ['Iyashikei'], cover: { from: '#24506E', to: '#FF8FB8', accent: '#FFF6D8', motif: 'moon' }, seed: { title: 'Frieren', score: 9, matched: ['Drama', 'Fantasy'] } },
-  { id: 21355, title: 'Re:ZERO -Starting Life in Another World-', format: 'TV', year: 2016, episodes: 25, score: 83, genres: ['Drama', 'Fantasy', 'Psychological'], tags: ['Time Loop'], cover: { from: '#3A2A6E', to: '#5FE3FF', accent: '#FFFFFF', motif: 'rings' }, seed: { title: 'Solo Leveling', score: 8, matched: ['Fantasy'] } },
-  { id: 11061, title: 'Hunter x Hunter (2011)', format: 'TV', year: 2011, episodes: 148, score: 90, genres: ['Action', 'Adventure', 'Fantasy'], tags: ['Shounen'], cover: { from: '#2F6E5E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }, seed: { title: 'Kaiju No. 8', score: 8, matched: ['Action', 'Adventure'] } },
+  { id: 113415, title: 'Jujutsu Kaisen', format: 'TV', year: 2020, episodes: 24, score: 84, genres: ['Action', 'Drama', 'Supernatural'], tags: ['Shounen'], cover: { from: '#3A2A6E', to: '#B9A4FF', accent: '#FFFFFF', motif: 'bolt' }, seed: { title: 'Dandadan', score: 9, matched: ['Action', 'Supernatural'] } },
+  { id: 21507, title: 'Mob Psycho 100', format: 'TV', year: 2016, episodes: 12, score: 84, genres: ['Action', 'Comedy', 'Drama', 'Psychological', 'Slice of Life', 'Supernatural'], tags: ['Super Power'], cover: { from: '#6E2A4A', to: '#FF8FB8', accent: '#FFF6D8', motif: 'rings' }, seed: { title: 'Dandadan', score: 9, matched: ['Comedy', 'Supernatural'] } },
+  { id: 21827, title: 'Violet Evergarden', format: 'TV', year: 2018, episodes: 13, score: 85, genres: ['Drama', 'Fantasy', 'Slice of Life'], tags: ['Iyashikei'], cover: { from: '#24506E', to: '#FF8FB8', accent: '#FFF6D8', motif: 'moon' }, platform: 'netflix', seed: { title: 'Frieren', score: 9, matched: ['Drama', 'Fantasy'] } },
+  { id: 21355, title: 'Re:ZERO -Starting Life in Another World-', format: 'TV', year: 2016, episodes: 25, score: 81, genres: ['Action', 'Adventure', 'Drama', 'Fantasy', 'Psychological', 'Romance', 'Thriller'], tags: ['Time Loop'], cover: { from: '#3A2A6E', to: '#5FE3FF', accent: '#FFFFFF', motif: 'rings' }, seed: { title: 'Solo Leveling', score: 8, matched: ['Fantasy'] } },
+  { id: 11061, title: 'Hunter x Hunter (2011)', format: 'TV', year: 2011, episodes: 148, score: 89, genres: ['Action', 'Adventure', 'Fantasy'], tags: ['Shounen'], cover: { from: '#2F6E5E', to: '#FFD37A', accent: '#FFFFFF', motif: 'sun' }, seed: { title: 'Kaiju No. 8', score: 8, matched: ['Action', 'Adventure'] } },
 ];
 
 /** Démarrage à froid : tops de la saison (sans raison) */
@@ -383,12 +418,12 @@ function recoItem(spec: RecoSpec, rank: number): RecoItem {
       averageScore: spec.score,
       genres: spec.genres,
       tags: spec.tags,
-      coverUrl: coverUrl(spec.cover),
-      coverLarge: coverUrl(spec.cover),
+      coverUrl: coverUrl(spec.cover, spec.id),
+      coverLarge: coverUrl(spec.cover, spec.id),
       color: null,
-      bannerUrl: null,
+      bannerUrl: bannerUrl(spec.cover, spec.id),
       siteUrl: `https://anilist.co/anime/${spec.id}`,
-      platforms: [{ platform: 'crunchyroll', url: `https://www.crunchyroll.com/series/DEMO${spec.id}` }],
+      platforms: [spec.platform === undefined ? { platform: 'crunchyroll', url: `https://www.crunchyroll.com/series/DEMO${spec.id}` } : { platform: spec.platform, url: `https://www.${spec.platform === 'prime' ? 'primevideo' : spec.platform}.com/DEMO${spec.id}` }],
     },
     score: 10 - rank,
     reason,
@@ -410,10 +445,90 @@ export function recoHandlers(cold: boolean, now: number): Record<string, (payloa
   };
 }
 
+// ─── « Stats » : statistiques des profils et historique d'activité ────────────
+
+/** Profil AniList de démo, cohérent avec les totaux du menu du compte (142 animes, dont les 6 séries « En cours ») */
+const ANILIST_PROFILE: ProfileStats = {
+  scoreFormat: 'POINT_10',
+  meanScore100: 78,
+  statuses: [
+    { status: 'CURRENT', count: 6 },
+    { status: 'COMPLETED', count: 98 },
+    { status: 'PAUSED', count: 5 },
+    { status: 'DROPPED', count: 4 },
+    { status: 'PLANNING', count: 29 },
+  ],
+  formats: [
+    { format: 'TV', count: 109 },
+    { format: 'MOVIE', count: 17 },
+    { format: 'ONA', count: 8 },
+    { format: 'OVA', count: 5 },
+    { format: 'SPECIAL', count: 3 },
+  ],
+  genres: [
+    { genre: 'Action', count: 78, meanScore100: 77 },
+    { genre: 'Fantasy', count: 61, meanScore100: 81 },
+    { genre: 'Adventure', count: 49, meanScore100: 80 },
+    { genre: 'Comedy', count: 44, meanScore100: 74 },
+    { genre: 'Drama', count: 39, meanScore100: 82 },
+    { genre: 'Supernatural', count: 27, meanScore100: 76 },
+  ],
+  scores: [1, 2, 4, 9, 21, 33, 24, 11].map((count, i) => ({ score: i + 3, count })),
+  studios: [
+    { name: 'MAPPA', count: 11 },
+    { name: 'Madhouse', count: 9 },
+    { name: 'Bones', count: 8 },
+    { name: 'Wit Studio', count: 7 },
+    { name: 'Science SARU', count: 5 },
+  ],
+  decades: [
+    { decade: 2000, count: 9 },
+    { decade: 2010, count: 58 },
+    { decade: 2020, count: 75 },
+  ],
+  rewatched: null,
+};
+
+/** MyAnimeList : statuts, moyenne et revisionnages seulement (139 animes) */
+const MAL_PROFILE: ProfileStats = {
+  ...ANILIST_PROFILE,
+  meanScore100: 79,
+  statuses: [
+    { status: 'CURRENT', count: 6 },
+    { status: 'COMPLETED', count: 96 },
+    { status: 'PAUSED', count: 5 },
+    { status: 'DROPPED', count: 4 },
+    { status: 'PLANNING', count: 28 },
+  ],
+  formats: [],
+  genres: [],
+  scores: [],
+  studios: [],
+  decades: [],
+  rewatched: 6,
+};
+
+/** Épisodes synchronisés des 30 derniers jours (le plus ancien d'abord), 24 min chacun, et quelques mois plus anciens */
+const ACTIVITY_30D = [2, 0, 1, 3, 0, 2, 4, 1, 0, 2, 3, 0, 1, 5, 2, 0, 1, 3, 2, 0, 4, 2, 1, 0, 3, 2, 0, 1, 3, 2];
+
+function activityDemo(now: number, anilistId: number, malId: number): ActivityHistory {
+  const today = new Date(now);
+  const days: Record<string, ActivityDay> = {};
+  ACTIVITY_30D.forEach((episodes, i) => {
+    if (episodes > 0) days[dateKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29 + i))] = [episodes, episodes * 24];
+  });
+  [14, 22, 9, 17].forEach((episodes, i) => {
+    days[dateKey(new Date(today.getFullYear(), today.getMonth() - 2 - i, 12))] = [episodes, episodes * 24];
+  });
+  return { anilist: { accountId: anilistId, days }, mal: { accountId: malId, days } };
+}
+
 export function demoChrome(locale: Locale, scenario: Scenario, now: number = Date.now()): ChromeMockOptions {
   // Statistiques du menu du compte (maquette MenuCompte : 142 animes, 3 210 épisodes, 54 jours)
-  const anilistViewer: AniListViewer = { id: 1000001, name: 'Kai_fan', siteUrl: 'https://anilist.co/user/Kai_fan', avatarUrl: avatarUrl('K', '#FF8FB8', '#B9A4FF'), stats: { animeCount: 142, episodes: 3210, days: 54.3 } };
-  const malViewer: MalViewer = { id: 2000002, name: 'Kai_fan', pictureUrl: avatarUrl('K', '#7EE0C3', '#5FE3FF'), stats: { animeCount: 139, episodes: 3164, days: 53.1 } };
+  // « Stats » : statistiques détaillées des profils, lus il y a 10 min (aucune relecture à l'ouverture)
+  const stats = scenario === 'stats';
+  const anilistViewer: AniListViewer = { id: 1000001, name: 'Kai_fan', siteUrl: 'https://anilist.co/user/Kai_fan', avatarUrl: avatarUrl('K', '#FF8FB8', '#B9A4FF'), stats: { animeCount: 142, episodes: 3210, days: 54.3 }, ...(stats ? { profile: ANILIST_PROFILE } : {}) };
+  const malViewer: MalViewer = { id: 2000002, name: 'Kai_fan', pictureUrl: avatarUrl('K', '#7EE0C3', '#5FE3FF'), stats: { animeCount: 139, episodes: 3164, days: 53.1 }, ...(stats ? { profile: MAL_PROFILE } : {}) };
   // « Synchro cette semaine » : 9 épisodes vers chaque service (sessions de démo, génération 0)
   const weekStart = currentWeekStart(now);
   const settings: SyncSettings = {
@@ -436,7 +551,9 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
     sequelNotifications: true,
   };
   const airing: AiringCheckResult = { checkedAt: now - 12 * MIN, notified: 1, skipped: null, error: null };
-  const lists = { anilist: watchingList('anilist', now), mal: watchingList('mal', now) };
+  // « Stats » : séries à jour (rien à rattraper), l'activité, les totaux et les statuts tiennent sans défilement
+  const caughtUp = (list: WatchingList): WatchingList => (stats ? { ...list, entries: list.entries.map((e) => ({ ...e, progress: e.nextEpisode ? e.nextEpisode.episode - 1 : (e.totalEpisodes ?? e.progress) })) } : list);
+  const lists = { anilist: caughtUp(watchingList('anilist', now)), mal: caughtUp(watchingList('mal', now)) };
   const far = now + 30 * DAY;
 
   return {
@@ -461,6 +578,7 @@ export function demoChrome(locale: Locale, scenario: Scenario, now: number = Dat
       airingLastResult: airing,
       [STORAGE_KEYS.sequelsState]: sequelsDemo(now),
       ...(scenario === 'compare' ? { [STORAGE_KEYS.compareLast]: comparison(now) } : {}),
+      ...(stats ? { [STORAGE_KEYS.anilistViewerAt]: now - 10 * MIN, [STORAGE_KEYS.malViewerAt]: now - 10 * MIN, [STORAGE_KEYS.activityHistory]: activityDemo(now, anilistViewer.id, malViewer.id) } : {}),
     },
     // Content script de l'onglet actif : page série Crunchyroll (scénario « page » seulement)
     tabMessage: (message) =>

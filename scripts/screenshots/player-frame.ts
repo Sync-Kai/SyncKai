@@ -41,7 +41,8 @@ installChromeMock({
 await initI18n();
 
 function fillScene(): void {
-  const ep = kind === 'sync' ? `Dandadan · S2 E8` : kind === 'watch' ? `Frieren · E27` : `Frieren · E28`;
+  // `label` : titre de l'épisode en lecture (scène du panneau des captures du Store)
+  const ep = kind === 'sync' ? `Dandadan · S2 E8` : kind === 'watch' ? (param('label') ?? `Frieren · E27`) : `Frieren · E28`;
   const epTitle = document.querySelector('#ep-title');
   if (epTitle) epTitle.textContent = ep;
   const title = document.querySelector('#credits-title');

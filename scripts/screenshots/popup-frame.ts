@@ -5,10 +5,13 @@ import { installChromeMock } from './mock-chrome';
 import { loadedLocaleParam, markReady, param, waitFor } from './params';
 import { isSettingsSubPage, SETTINGS_PAGE_PARENTS, type SettingsSubPage } from '../../src/ui/settings/navigation';
 
-const SCENARIOS: readonly Scenario[] = ['watching', 'menu', 'page', 'activity', 'compare', 'settings'];
+const SCENARIOS: readonly Scenario[] = ['watching', 'menu', 'page', 'activity', 'compare', 'settings', 'foryou', 'stats'];
 const scenario = SCENARIOS.find((s) => s === param('scenario')) ?? 'watching';
 
 installChromeMock(demoChrome(await loadedLocaleParam(), scenario));
+// Tirage de « Pour toi » reproductible (seul usage de Math.random dans src/) : 0,6 tombe sur la 4e fiche du lot pondéré
+// (Jujutsu Kaisen, « Parce que tu as noté Dandadan »), une série absente des listes montrées sur les autres captures
+Math.random = () => 0.6;
 await import('../../src/popup/popup.ts');
 
 // Zoom appliqué avant la navigation : les défilements se calculent à l'échelle finale
@@ -37,6 +40,16 @@ switch (scenario) {
   case 'activity':
     await click('[data-focus="rail-activity"]');
     await waitFor(() => document.querySelector('main article button[aria-pressed="true"]'));
+    break;
+  case 'foryou':
+    // « Pour toi » par le vrai bouton du rail : puces de genre, choix du format et fiches affichés
+    await click('[data-focus="rail-foryou"]');
+    await find('[data-screen="foryou"] [data-reco-filters]');
+    break;
+  case 'stats':
+    // « Stats » par le vrai bouton du rail : activité et blocs du profil affichés
+    await click('[data-focus="rail-stats"]');
+    await find('[data-screen="stats"] [data-stats-block]');
     break;
   case 'compare':
     // Réglages › Mes données › Écarts AniList ↔ MAL, analyse de démo affichée
