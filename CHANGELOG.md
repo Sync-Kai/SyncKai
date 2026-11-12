@@ -5,6 +5,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Fixed
+
+- **Watch order**: *Watch* again uses the links SyncKai learned while you browsed or synced (an ADN season AniList does not list) and your last synced episode, as the related entries did before 2.5.0.
+- **Watch order**: an entry with no state on the service you chose now shows the other service's state (« MyAnimeList: Watched ») instead of looking unwatched.
+- **Watch order**: an entry AniList no longer returns costs one request instead of twelve before showing the error.
+- **Watch order**: opening an OVA or a side story of a franchise already loaded no longer reads the whole franchise again.
+
 ## [2.5.0] - 2026-11-12
 
 ### Added
