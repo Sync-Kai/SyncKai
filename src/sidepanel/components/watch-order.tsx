@@ -161,9 +161,10 @@ function Row({ node, ctx }: { node: FranchiseNode; ctx: RowContext }) {
   const main = ctx.mainIds.has(node.id);
   const current = node.id === props.currentId;
   const state = states.get(node.id);
-  const text = state === undefined ? null : stateText(state);
   const counterpart = ctx.other.get(node.id);
   const tooltip = counterpart ? t('panel.order.otherService', { service: TRACKER_LABELS[counterpart.service], state: stateText(counterpart.state) ?? '—' }) : undefined;
+  // Service choisi sans état pour l'entrée : celui de l'autre service, affiché en texte discret (ORD-07)
+  const text = (state === undefined ? null : stateText(state)) ?? tooltip ?? null;
   const label = [node.format, when(node)].filter(Boolean).join(' · ');
   const watch = choosePlatformLink(node, props.preferred);
   // Fiche AniList toujours connue : repli sur sa page si MyAnimeList est préférée sans équivalent
