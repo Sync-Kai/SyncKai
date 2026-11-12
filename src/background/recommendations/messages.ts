@@ -22,7 +22,7 @@ export function updateRecommendation(id: number, action: 'added' | 'dismissed' |
     // Plus aucune session : les écartées ont été purgées à la dernière déconnexion, jamais recréées ici
     if (Object.keys(await getOpenSessions()).length === 0) return false;
     if (action === 'undo') forgetTouched(id);
-    else noteTouched(id);
+    else noteTouched('anilist', id);
     const stored = await chrome.storage.local.get([STORAGE_KEYS.recoBatch, STORAGE_KEYS.recoDismissed]);
     const changes: Record<string, unknown> = {};
     const batch: unknown = stored[STORAGE_KEYS.recoBatch];
@@ -58,10 +58,10 @@ export function purgeStoredBatch(ids: ReadonlySet<number>): Promise<void> {
 /**
  * Série écrite dans une liste par SyncKai (ajout, synchro, import) : elle quitte le lot enregistré, comme `added`.
  * `id` : identifiant de la fiche sur le service (AniList : id de la fiche ; MyAnimeList : idMal). Sans lot enregistré,
- * ou fiche absente du lot : une lecture, aucune écriture. Fiche AniList : aussi notée pour un lot en cours de calcul.
+ * ou fiche absente du lot : une lecture, aucune écriture. Aussi notée pour un lot en cours de calcul (par idMal pour MyAnimeList).
  */
 export function dropSuggestion(service: TrackerId, id: number): Promise<void> {
-  if (service === 'anilist') noteTouched(id);
+  noteTouched(service, id);
   return withStorageLock(async () => {
     const batch: unknown = (await chrome.storage.local.get(STORAGE_KEYS.recoBatch))[STORAGE_KEYS.recoBatch];
     if (!isRecoBatch(batch)) return;

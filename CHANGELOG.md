@@ -5,6 +5,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Fixed
+
+- **Suggestions with MyAnimeList**: building suggestions from a long MyAnimeList list now takes 3 AniList requests instead of up to 22 for 1000 watched series, so « Analysing your tastes… » no longer stalls for about a minute.
+- A series SyncKai writes to your MyAnimeList list while suggestions are being built is no longer suggested.
+- « Because you rated … » now names the series with its AniList title, also for series from your MyAnimeList list.
+- Adult series from your lists are never named in « Because you rated … » nor used to pick suggestions.
+
 ## [2.5.0] - 2026-11-12
 
 ### Added

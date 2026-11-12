@@ -4,7 +4,7 @@ import { getOpenSessions, writeIfSessions } from '../../browser/storage/sessions
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { AniListListEntry, MalListEntry } from '../../shared/compare';
 import { isRecord } from '../../shared/guards';
-import { buildBatch, hasUnseenPrequel, isRecoBatch, prequelIdsOf, pickSeeds, relevantTags, toCard, type RawRecoMedia, type RecoBatch, type RecoItem, type RecoResult, type Seed } from '../../shared/recommendations';
+import { buildBatch, hasUnseenPrequel, isRecoBatch, MAX_SEEDS, prequelIdsOf, pickSeeds, relevantTags, toCard, type RawRecoMedia, type RecoBatch, type RecoItem, type RecoResult, type Seed } from '../../shared/recommendations';
 import { sameSessions, type SessionEpochs } from '../../shared/session-epochs';
 import { fromAniListScore, fromMalScore } from '../../shared/score';
 import type { ListStatus } from '../../shared/sync.types';
@@ -24,20 +24,26 @@ import { beginBuild, endBuild, touchedIds } from './touched';
 const log = createLogger('reco');
 
 export const RECO_TTL_MS = 24 * 3600_000;
-/** Graines lues par requête : plafond de `perPage` retenu (mesuré le 2026-11-09 : 25 fiches + 10 recommandations + relations passent) */
-const SEEDS_PER_QUERY = 25;
+/**
+ * Graines lues par requête. Mesuré sur l'API publique le 2026-11-12 : la complexité AniList ne dépend pas de `perPage`
+ * (requête des graines avec `idMal` des relations, `isAdult` et titre : 49 sur 500 ; 44 avant ces champs) ; 50 graines
+ * avec 10 recommandations chacune passent en une requête (environ 1,4 Mo, 2,5 s). MAX_SEEDS (50) : une seule lecture.
+ */
+const SEEDS_PER_QUERY = 50;
+/** Séries MAL converties en ids AniList : candidates au rôle de graine seulement (2 pages `idMal_in` au plus, marge pour les ids inconnus) */
+const MAL_SEED_CANDIDATES = 2 * MAX_SEEDS;
 const SEASON_SIZE = 20;
 /** Démarrage à froid : 20 lues, les 10 meilleures gardées après filtrage */
 const COLD_SIZE = 10;
 
 const CARD_FIELDS =
-  'id idMal isAdult format status episodes duration averageScore genres tags { name rank isMediaSpoiler } title { userPreferred } coverImage { large medium color } bannerImage siteUrl startDate { year } season seasonYear externalLinks { url } relations { edges { relationType node { id } } }';
+  'id idMal isAdult format status episodes duration averageScore genres tags { name rank isMediaSpoiler } title { userPreferred } coverImage { large medium color } bannerImage siteUrl startDate { year } season seasonYear externalLinks { url } relations { edges { relationType node { id idMal } } }';
 
 const SEEDS_QUERY = /* GraphQL */ `
   query RecoSeeds($ids: [Int]) {
     Page(perPage: ${SEEDS_PER_QUERY}) {
       media(id_in: $ids) {
-        id genres tags { name rank isMediaSpoiler }
+        id isAdult title { userPreferred } genres tags { name rank isMediaSpoiler }
         recommendations(sort: RATING_DESC, perPage: 10) { nodes { rating mediaRecommendation { ${CARD_FIELDS} } } }
       }
     }
@@ -96,8 +102,8 @@ function toRaw(value: unknown): RawRecoMedia | null {
     externalLinks: Array.isArray(value.externalLinks) ? value.externalLinks.filter(isRecord).map((l) => ({ url: orNull(l.url, isString) })) : null,
     relations: edges
       ? {
-          edges: edges.flatMap((e): { relationType: string; node: { id: number } | null }[] =>
-            isRecord(e) && isString(e.relationType) ? [{ relationType: e.relationType, node: isRecord(e.node) && isNumber(e.node.id) ? { id: e.node.id } : null }] : []),
+          edges: edges.flatMap((e): { relationType: string; node: { id: number; idMal: number | null } | null }[] =>
+            isRecord(e) && isString(e.relationType) ? [{ relationType: e.relationType, node: isRecord(e.node) && isNumber(e.node.id) ? { id: e.node.id, idMal: orNull(e.node.idMal, isNumber) } : null }] : []),
         }
       : null,
   };
@@ -114,6 +120,8 @@ interface UserLists {
   malIds: Set<number>;
   /** Terminé, en cours ou revisionnage : un préquel de cette liste ne bloque pas sa suite */
   watchedOrCurrent: Set<number>;
+  /** Ids MAL terminés, en cours ou en revisionnage : préquels vus sans conversion en id AniList */
+  watchedMalIds: Set<number>;
 }
 
 const isWatched = (status: ListStatus): boolean => status === 'COMPLETED' || status === 'CURRENT' || status === 'REPEATING';
@@ -127,6 +135,7 @@ async function readLists(connected: { anilist: boolean; mal: boolean }): Promise
     if (isWatched(status)) watchedOrCurrent.add(id);
   };
   const watchedOrCurrent = new Set<number>();
+  const watchedMalIds = new Set<number>();
 
   let anilist: AniListListEntry[] = [];
   if (connected.anilist) {
@@ -142,18 +151,24 @@ async function readLists(connected: { anilist: boolean; mal: boolean }): Promise
     const mal: MalListEntry[] = await fetchMalFullList();
     // Ids MAL déjà connus de la liste AniList : pas de relecture du catalogue pour eux
     const known = new Map(anilist.flatMap((e) => (e.malId !== null ? [[e.malId, e.mediaId] as const] : [])));
-    // Seules les séries vues ou en cours servent de graines ou de préquel ; les autres sont déjà exclues par leur `idMal`
-    const unknown = [...new Set(mal.filter((e) => !known.has(e.malId) && isWatched(e.status)).map((e) => e.malId))];
+    // Seules les candidates au rôle de graine sont converties (RECO-01 : 22 requêtes pour 1000 séries avant) : terminées ou en
+    // revisionnage, notées ≥ 7 d'abord, puis non notées (complément de pickSeeds : rang 6,5), puis le reste. Les autres séries
+    // vues comptent pour la règle du préquel par leur id MAL (`watchedMalIds`), les séries en liste sont exclues par leur `idMal`.
+    const rank = (score: number | null): number => (score === null ? 6.5 : score);
+    const candidates = mal.filter((e) => !known.has(e.malId) && (e.status === 'COMPLETED' || e.status === 'REPEATING')).sort((a, b) => rank(b.score) - rank(a.score));
+    const unknown = [...new Set(candidates.map((e) => e.malId))].slice(0, MAL_SEED_CANDIDATES);
     const mapped = unknown.length > 0 ? await aniListIdsByMal(unknown) : new Map<number, number>();
     for (const e of mal) {
       malIds.add(e.malId);
+      if (isWatched(e.status)) watchedMalIds.add(e.malId);
       const id = known.get(e.malId) ?? mapped.get(e.malId);
       if (id === undefined) continue;
       seen(id, e.status);
-      entries.push({ id, title: e.title || `#${id}`, status: e.status, score10: e.score === null ? null : fromMalScore(e.score) });
+      // Jamais le titre MAL (TERMS-03) : readSeeds le remplace par le titre AniList de la graine
+      entries.push({ id, title: `#${id}`, status: e.status, score10: e.score === null ? null : fromMalScore(e.score) });
     }
   }
-  return { entries, ids, malIds, watchedOrCurrent };
+  return { entries, ids, malIds, watchedOrCurrent, watchedMalIds };
 }
 
 // ─── Lot ──────────────────────────────────────────────────────────────────
@@ -179,7 +194,7 @@ async function coldBatch(lists: UserLists, dismissed: ReadonlySet<number>, now: 
   const items: RecoItem[] = [];
   for (const raw of Page.media.map(toRaw)) {
     if (!raw || raw.isAdult || lists.ids.has(raw.id) || dismissed.has(raw.id) || (raw.idMal !== null && lists.malIds.has(raw.idMal))) continue;
-    if (hasUnseenPrequel(prequelIdsOf(raw.relations?.edges), lists.watchedOrCurrent)) continue;
+    if (hasUnseenPrequel(prequelIdsOf(raw.relations?.edges, lists.watchedMalIds), lists.watchedOrCurrent)) continue;
     links.set(raw.id, raw.externalLinks);
     items.push({ card: toCard(raw), score: raw.averageScore ?? 0, reason: null });
   }
@@ -187,7 +202,7 @@ async function coldBatch(lists: UserLists, dismissed: ReadonlySet<number>, now: 
   return { items: withPlatforms(items.slice(0, COLD_SIZE), links), computedAt: now, seedCount: 0, cold: true };
 }
 
-/** Recommandations des graines (25 par requête) : leurs genres et tags, les fiches proposées et leurs liens externes */
+/** Recommandations des graines (50 par requête) : leurs titre AniList, genres et tags, les fiches proposées et leurs liens externes */
 async function readSeeds(picked: readonly Omit<Seed, 'genres' | 'tags'>[]): Promise<{ seeds: Seed[]; recs: Map<number, { rating: number; media: RawRecoMedia }[]>; links: Map<number, unknown> }> {
   const byId = new Map<number, Record<string, unknown>>();
   const recs = new Map<number, { rating: number; media: RawRecoMedia }[]>();
@@ -210,9 +225,12 @@ async function readSeeds(picked: readonly Omit<Seed, 'genres' | 'tags'>[]): Prom
       );
     }
   }
-  const seeds = picked.map((s): Seed => {
+  const seeds = picked.flatMap((s): Seed[] => {
     const node = byId.get(s.id);
-    return { ...s, genres: orNull(node?.genres, isStringList) ?? [], tags: relevantTags({ tags: toTags(node?.tags) }) };
+    // Graine adulte : ni citée ni utilisée (spec §8, RECO-06)
+    if (node?.isAdult === true) return [];
+    const title = isRecord(node?.title) ? orNull(node.title.userPreferred, isString) : null;
+    return [{ ...s, title: title ?? s.title, genres: orNull(node?.genres, isStringList) ?? [], tags: relevantTags({ tags: toTags(node?.tags) }) }];
   });
   return { seeds, recs, links };
 }
@@ -233,23 +251,25 @@ async function buildWith(epochs: SessionEpochs): Promise<RecoResult> {
   const now = Date.now();
   const [lists, dismissed] = await Promise.all([readLists({ anilist: epochs.anilist !== undefined, mal: epochs.mal !== undefined }), readDismissed()]);
   const { seeds: picked, cold } = pickSeeds(lists.entries);
+  const read = cold ? null : await readSeeds(picked);
   let batch: RecoBatch;
-  if (cold) batch = await coldBatch(lists, dismissed, now);
+  // Aucune graine retenue (toutes adultes) : démarrage à froid plutôt qu'un lot vide gardé 24 h
+  if (!read || read.seeds.length === 0) batch = await coldBatch(lists, dismissed, now);
   else {
-    const { seeds, recs, links } = await readSeeds(picked);
-    const built = buildBatch(seeds, recs, { ids: lists.ids, malIds: lists.malIds, dismissed, watchedOrCurrent: lists.watchedOrCurrent }, now);
-    batch = { ...built, items: withPlatforms(built.items, links), cold: false };
+    const built = buildBatch(read.seeds, read.recs, { ids: lists.ids, malIds: lists.malIds, dismissed, watchedOrCurrent: lists.watchedOrCurrent, watchedMalIds: lists.watchedMalIds }, now);
+    batch = { ...built, items: withPlatforms(built.items, read.links), cold: false };
   }
-  // Ajoutées ou écartées pendant le calcul : jamais réécrites dans le lot
-  const skip = touchedIds();
-  batch = { ...batch, items: batch.items.filter((i) => !skip.has(i.card.id)), epochs };
+  // Ajoutées, écartées ou écrites sur un service pendant le calcul : jamais réécrites dans le lot
+  const all = batch.items;
+  const skip = touchedIds(all);
+  batch = { ...batch, items: all.filter((i) => !skip.has(i.card.id)), epochs };
   // Déconnexion ou autre compte pendant la construction : rien n'est écrit ni servi
   if (!(await writeIfSessions(epochs, { [STORAGE_KEYS.recoBatch]: batch }))) {
     log.warn('Session fermée ou changée pendant le calcul : suggestions abandonnées');
     return { ok: false, code: 'SESSION_CHANGED', message: t('error.unexpected') };
   }
   // Touchées entre le filtre et l'écriture : retirées du lot enregistré, et du lot servi
-  const late = touchedIds();
+  const late = touchedIds(all);
   if (late.size > skip.size) {
     await purgeStoredBatch(late);
     batch = { ...batch, items: batch.items.filter((i) => !late.has(i.card.id)) };

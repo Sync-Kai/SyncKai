@@ -96,14 +96,14 @@ describe('getRecommendations › construction', () => {
     expect(batch.items.some((i) => i.card.platforms.length > 0)).toBe(true);
   });
 
-  it('plus de 25 graines : ⌈graines / 25⌉ lectures de recommandations', async () => {
-    const ids = Array.from({ length: 30 }, (_, i) => 1000 + i);
+  it('60 terminées notées : 50 graines au plus, lues en une requête (complexité mesurée : 49 sur 500)', async () => {
+    const ids = Array.from({ length: 60 }, (_, i) => 1000 + i);
     deps.fetchAniListFullList.mockResolvedValue(ids.map((id) => entry(id, 'COMPLETED', 9)));
     deps.anilistPublicQuery.mockImplementation(async (_q: string, _g: unknown, v: { ids: number[] }) => ({ Page: { media: v.ids.map((id) => seedNode(id, [rawMedia(id + 5000)])) } }));
     const batch = batchOf(await getRecommendations(false));
-    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(2);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(1);
     expect(deps.anilistPublicQuery.mock.calls.every((c) => c[3] === 'background')).toBe(true);
-    expect(batch.items).toHaveLength(30);
+    expect(batch.items).toHaveLength(50);
   });
 
   it('écrit avec writeIfSessions sous les sessions relevées avant les requêtes ; session fermée pendant : rien servi ni écrit', async () => {
@@ -163,7 +163,8 @@ describe('getRecommendations › MyAnimeList seul', () => {
     expect(result.ok && result.malOnly).toBe(true);
     expect(deps.fetchAniListFullList).not.toHaveBeenCalled();
     expect(deps.getScoreFormat).not.toHaveBeenCalled();
-    expect(deps.aniListIdsByMal).toHaveBeenCalledWith([10, 11, 12, 13]);
+    // Candidates au rôle de graine, meilleure note d'abord
+    expect(deps.aniListIdsByMal).toHaveBeenCalledWith([10, 13, 11, 12]);
     expect(deps.anilistPublicQuery.mock.calls[0]?.[2]).toEqual({ ids: [1, 2, 3] });
     expect(deps.writeIfSessions.mock.calls[0]?.[0]).toEqual({ mal: 3 });
     expect(batchOf(result).items.map((i) => i.card.id)).toEqual([50]);
@@ -183,6 +184,81 @@ describe('getRecommendations › MyAnimeList seul', () => {
     expect(deps.aniListIdsByMal).toHaveBeenCalledWith([20]);
     expect(deps.anilistPublicQuery.mock.calls[0]?.[2]).toEqual({ ids: [1, 2, 3] });
     expect(deps.writeIfSessions.mock.calls[0]?.[0]).toEqual({ anilist: 7, mal: 3 });
+  });
+
+  it('RECO-01 : 1000 séries vues sur MAL → au plus 4 requêtes AniList (conversion réelle par idMal_in)', async () => {
+    const real = await vi.importActual<typeof import('../anilist/by-mal')>('../anilist/by-mal');
+    deps.aniListIdsByMal.mockImplementation(real.aniListIdsByMal);
+    deps.getOpenSessions.mockResolvedValue({ mal: 3 });
+    // 600 terminées notées de 1 à 10, 200 terminées sans note, 200 en cours
+    deps.fetchMalFullList.mockResolvedValue(Array.from({ length: 1000 }, (_, i) => ({
+      malId: i + 1, mediaId: null, title: `MAL ${i + 1}`, status: i < 800 ? 'COMPLETED' : 'CURRENT', score: i < 600 ? (i % 10) + 1 : null,
+    })));
+    deps.anilistPublicQuery.mockImplementation(async (query: string, _g: unknown, v: { ids: number[] }) => (query.includes('idMal_in')
+      ? { Page: { media: v.ids.map((malId) => ({ id: malId + 100_000, idMal: malId })) } }
+      : { Page: { media: v.ids.map((id) => seedNode(id, [rawMedia(id + 500_000)])) } }));
+    const batch = batchOf(await getRecommendations(false));
+    expect(batch.seedCount).toBe(50);
+    expect(deps.anilistPublicQuery.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+
+  it('MAL seul : un préquel vu sur MAL mais non converti (id MAL des relations) ne bloque pas sa suite', async () => {
+    deps.getOpenSessions.mockResolvedValue({ mal: 3 });
+    deps.fetchMalFullList.mockResolvedValue([
+      { malId: 10, mediaId: null, status: 'COMPLETED', score: 9 },
+      { malId: 11, mediaId: null, status: 'COMPLETED', score: 9 },
+      { malId: 12, mediaId: null, status: 'COMPLETED', score: 9 },
+      { malId: 13, mediaId: null, status: 'CURRENT', score: null },
+    ]);
+    deps.aniListIdsByMal.mockResolvedValue(new Map([[10, 1], [11, 2], [12, 3]]));
+    const sequel = (id: number, prequel: { id: number; idMal: number }): Record<string, unknown> => rawMedia(id, { relations: { edges: [{ relationType: 'PREQUEL', node: prequel }] } });
+    deps.anilistPublicQuery.mockImplementation(async (_q: string, _g: unknown, v: { ids: number[] }) => ({
+      Page: { media: v.ids.map((id) => seedNode(id, [sequel(60, { id: 99, idMal: 13 }), sequel(61, { id: 98, idMal: 14 })])) },
+    }));
+    expect(batchOf(await getRecommendations(false)).items.map((i) => i.card.id)).toEqual([60]);
+  });
+
+  it('TERMS-03 : graines MAL → titre AniList dans « Parce que tu as noté », jamais le titre MAL', async () => {
+    deps.getOpenSessions.mockResolvedValue({ mal: 3 });
+    deps.fetchMalFullList.mockResolvedValue([10, 11, 12].map((malId) => ({ malId, mediaId: null, title: `Titre MAL ${malId}`, status: 'COMPLETED', score: 9 })));
+    deps.aniListIdsByMal.mockResolvedValue(new Map([[10, 1], [11, 2], [12, 3]]));
+    deps.anilistPublicQuery.mockImplementation(async (_q: string, _g: unknown, v: { ids: number[] }) => ({
+      Page: { media: v.ids.map((id) => ({ ...seedNode(id, [rawMedia(50 + id)]), title: { userPreferred: `AniList ${id}` } })) },
+    }));
+    const titles = batchOf(await getRecommendations(false)).items.map((i) => i.reason?.seedTitle).sort();
+    expect(titles).toEqual(['AniList 1', 'AniList 2', 'AniList 3']);
+  });
+
+  it('RECO-03 : série écrite sur MAL pendant le calcul → absente du lot servi et écrit', async () => {
+    const { dropSuggestion } = await import('./messages');
+    deps.getOpenSessions.mockResolvedValue({ mal: 3 });
+    deps.fetchMalFullList.mockResolvedValue([10, 11, 12].map((malId) => ({ malId, mediaId: null, status: 'COMPLETED', score: 9 })));
+    deps.aniListIdsByMal.mockResolvedValue(new Map([[10, 1], [11, 2], [12, 3]]));
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    deps.anilistPublicQuery.mockImplementation(async (_q: string, _g: unknown, v: { ids: number[] }) => {
+      await gate;
+      return { Page: { media: v.ids.map((id) => seedNode(id, [rawMedia(77, { idMal: 500 }), rawMedia(78, { idMal: 501 })])) } };
+    });
+    const pending = getRecommendations(true);
+    await vi.waitFor(() => expect(deps.anilistPublicQuery).toHaveBeenCalled());
+    await dropSuggestion('mal', 500);
+    release();
+    expect(batchOf(await pending).items.map((i) => i.card.id)).toEqual([78]);
+    const written = (deps.writeIfSessions.mock.calls[0]?.[1] as Record<string, RecoBatch>)[STORAGE_KEYS.recoBatch];
+    expect(written?.items.map((i) => i.card.id)).toEqual([78]);
+  });
+});
+
+describe('getRecommendations › graines adultes (RECO-06)', () => {
+  it('une graine isAdult n’est jamais citée dans « Parce que tu as noté »', async () => {
+    deps.fetchAniListFullList.mockResolvedValue([entry(1, 'COMPLETED', 10), entry(2, 'COMPLETED', 8), entry(3, 'COMPLETED', 8)]);
+    deps.anilistPublicQuery.mockImplementation(async (_q: string, _g: unknown, v: { ids: number[] }) => ({
+      Page: { media: v.ids.map((id) => ({ ...seedNode(id, [rawMedia(10), rawMedia(10 + id)]), isAdult: id === 1 })) },
+    }));
+    const items = batchOf(await getRecommendations(false)).items;
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.some((i) => i.reason?.seedId === 1 || i.reason?.seedTitle === 'T1')).toBe(false);
   });
 });
 
@@ -288,7 +364,7 @@ describe('getRecommendations › cache de 24 h', () => {
     expect(batch.items[0]?.card.id).toBe(119);
   });
 
-  it('MAL : seules les séries terminées, en cours ou en revisionnage sont converties en ids AniList', async () => {
+  it('MAL : seules les séries terminées ou en revisionnage sont converties en ids AniList (les en cours comptent par leur id MAL)', async () => {
     deps.getOpenSessions.mockResolvedValue({ mal: 3 });
     deps.fetchMalFullList.mockResolvedValue([
       { malId: 10, mediaId: null, status: 'COMPLETED', score: 9 },
@@ -298,7 +374,7 @@ describe('getRecommendations › cache de 24 h', () => {
       { malId: 14, mediaId: null, status: 'REPEATING', score: 9 },
     ]);
     await getRecommendations(false);
-    expect(deps.aniListIdsByMal).toHaveBeenCalledWith([10, 13, 14]);
+    expect(deps.aniListIdsByMal).toHaveBeenCalledWith([10, 14]);
   });
 
   it('valeur stockée illisible : ignorée, lot reconstruit', async () => {
