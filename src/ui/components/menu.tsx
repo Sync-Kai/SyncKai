@@ -433,8 +433,9 @@ export function SubMenu({ label, icon, focusKey, children }: SubMenuProps) {
         aria-expanded={open ? 'true' : 'false'}
         data-submenu-entry={id}
         data-focus={focusKey}
-        // Clic (pointeur) : bascule, le focus reste sur l'entrée ; le clavier passe par onKeyDown du menu
-        onClick={() => (open ? api.hideSub(false) : api.showSub(id, false))}
+        // Clic (pointeur) : ouvre toujours (le survol a pu ouvrir juste avant), le focus reste sur l'entrée ; ←, Échap et la
+        // sortie du pointeur ferment ; le clavier passe par onKeyDown du menu
+        onClick={() => api.showSub(id, false)}
       >
         {icon && <Icon name={icon} class="size-4" strokeWidth="2.2" />}
         <span class="min-w-0 flex-1 truncate">{label}</span>

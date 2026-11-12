@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - Data read back from storage is checked more strictly: episode details carrying unknown fields are refused (a hostile page could fill the browser's storage with them), and links in *Discover*, in *My series* and to your AniList profile only ever lead to AniList or to the streaming platform they belong to. A damaged *Discover* batch is now rebuilt instead of breaking the tab for a day.
 - **Keyboard focus**: when an action removes the button you used (*Confirm* on a check card, *Drop* then *Yes* on a dormant series, *Show N more* or « N watched » in the watch order, *Add to Watching*), the focus now lands on the next useful control (*Close*, the series' *Pause*, the first revealed entry, the episode counter) instead of being lost, and no longer jumps to the tabs a minute later.
 - **Rating with the arrow keys**: leaving the stars without pressing Enter no longer shows a score that was never saved; the saved score comes back. Enter or a click still saves it.
+- **Sub-menus** (*Open entry ›*, *Search on… ›*): a click right after hovering no longer closes the sub-menu that the hover just opened.
 
 ## [2.5.0] - 2026-11-12
 
