@@ -798,7 +798,7 @@
   "reco.rolling": "Drawing…",
   "reco.inPlanning": "In Plan to watch",
   "reco.dismiss": "Not interested",
-  "reco.dismissAria": "Don't suggest {title} again",
+  "reco.dismissAria": "Not interested: {title}",
   "reco.dismissed": "Won't suggest again: {title}",
   "reco.undo": "Undo",
   "reco.previous": "Earlier draws",

@@ -798,7 +798,7 @@
   "reco.rolling": "Tirage…",
   "reco.inPlanning": "Dans À regarder",
   "reco.dismiss": "Pas intéressé",
-  "reco.dismissAria": "Ne plus suggérer {title}",
+  "reco.dismissAria": "Pas intéressé : {title}",
   "reco.dismissed": "Ne sera plus suggéré : {title}",
   "reco.undo": "Annuler",
   "reco.previous": "Déjà tirées",

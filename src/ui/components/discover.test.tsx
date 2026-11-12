@@ -28,7 +28,7 @@ const current: RecoItem = {
   reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, rated: true, matched: ['Action'] },
 };
 type Ready = Extract<RecoView, { status: 'ready' }>;
-const ready = (over: Partial<Ready> = {}): RecoView => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, filter: ALL_RECO_FILTER, genres: ['Action'], ...over });
+const ready = (over: Partial<Ready> = {}): RecoView => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: null, dismissedTitle: null, filter: ALL_RECO_FILTER, genres: ['Action'], ...over });
 
 const handlers = {
   onAnother: vi.fn<() => void>(),

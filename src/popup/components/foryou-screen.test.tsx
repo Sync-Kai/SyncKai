@@ -30,7 +30,7 @@ const current: RecoItem = {
   reason: null,
 };
 const GENRES = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'];
-const ready = (filter: RecoFilter = ALL_RECO_FILTER, genres: readonly string[] = GENRES): RecoView => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, filter, genres });
+const ready = (filter: RecoFilter = ALL_RECO_FILTER, genres: readonly string[] = GENRES): RecoView => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: null, dismissedTitle: null, filter, genres });
 
 const label = (name: string): string => {
   const key = genreKey(name);

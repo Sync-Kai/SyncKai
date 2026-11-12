@@ -5,6 +5,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Fixed
+
+- *Discover* / *For you*: after *+ Plan to watch*, the card now says « not on MyAnimeList yet » when only AniList got the series, and « Already in your list » when it was already in one of your lists, instead of always « In Plan to watch ».
+- *Discover*: a suggestion you turned down no longer shows up in *Earlier draws* when you click *Another* right away.
+- *Discover* / *For you*: the card shows the format in your language (« TV short », « Movie ») instead of AniList's raw name, and the average score with your language's decimal separator (« 8,4 »); the *Turn on {platform}* chips of a platform without access are no longer faded (dashed border instead), so their text stays readable.
+- Screen readers and voice control: the names of the *Not interested* and *Another* buttons of the suggestion card now contain their visible label, in every language.
+
 ## [2.5.0] - 2026-11-12
 
 ### Added

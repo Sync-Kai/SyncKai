@@ -15,9 +15,12 @@ export const UNDO_MS = 5000;
 export type RecoView =
   /** `none` : aucun compte connecté */
   | { status: 'loading' | 'error' | 'empty' | 'none'; message?: string }
-  | { status: 'ready'; current: RecoItem; previous: RecoItem[]; cold: boolean; malOnly: boolean; added: boolean; dismissedTitle: string | null; addError?: string; filter: RecoFilter; genres: readonly string[] }
+  | { status: 'ready'; current: RecoItem; previous: RecoItem[]; cold: boolean; malOnly: boolean; added: RecoAdded | null; dismissedTitle: string | null; addError?: string; filter: RecoFilter; genres: readonly string[] }
   /** Le filtre ne laisse aucune fiche à tirer */
   | { status: 'filtered'; filter: RecoFilter; genres: readonly string[] };
+
+/** « + À regarder » réussi : `notOnMal` = AniList écrit, MyAnimeList non ; `inList` = rien d'écrit, déjà dans une liste */
+export type RecoAdded = { notOnMal: boolean; inList: boolean };
 
 export interface RecoController {
   readonly store: ReadonlyStore<RecoView>;
@@ -73,7 +76,7 @@ export function createRecoController(options: { filter?: RecoFilter } = {}): Rec
       return;
     }
     drawn.add(next.card.id);
-    store.set({ status: 'ready', current: next, previous, cold: batch.cold, malOnly, added: false, dismissedTitle: null, filter, genres: recoGenres(batch) });
+    store.set({ status: 'ready', current: next, previous, cold: batch.cold, malOnly, added: null, dismissedTitle: null, filter, genres: recoGenres(batch) });
   }
 
   async function load(retried: boolean): Promise<void> {
@@ -133,7 +136,8 @@ export function createRecoController(options: { filter?: RecoFilter } = {}): Rec
       const view = ready();
       if (!view) return;
       stopTimer();
-      previous = [view.current, ...previous].slice(0, PREVIOUS_KEPT);
+      // Écartée pendant « Annuler » : elle ne figure pas dans « Déjà tirées »
+      if (view.dismissedTitle === null) previous = [view.current, ...previous].slice(0, PREVIOUS_KEPT);
       draw();
     },
     async add() {
@@ -152,7 +156,7 @@ export function createRecoController(options: { filter?: RecoFilter } = {}): Rec
       }
       await callWorker('UPDATE_RECOMMENDATION', { id: card.id, action: 'added' }, () => false);
       const after = ready();
-      if (!disposed && after && after.current.card.id === card.id) store.set({ ...after, added: true, addError: undefined });
+      if (!disposed && after && after.current.card.id === card.id) store.set({ ...after, added: { notOnMal: result.notOnMal, inList: result.inList }, addError: undefined });
     },
     async dismiss() {
       const view = ready();

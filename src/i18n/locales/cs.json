@@ -860,7 +860,7 @@
   "reco.rolling": "Losuje se…",
   "reco.inPlanning": "V „Chci vidět“",
   "reco.dismiss": "Nezajímá mě",
-  "reco.dismissAria": "Už nenavrhovat {title}",
+  "reco.dismissAria": "Nezajímá mě: {title}",
   "reco.dismissed": "Už se nebude navrhovat: {title}",
   "reco.undo": "Vrátit zpět",
   "reco.previous": "Dříve vylosované",

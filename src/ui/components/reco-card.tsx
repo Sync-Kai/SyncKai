@@ -2,14 +2,17 @@
 // actions « Autre » / « + À regarder » / « Pas intéressé ». Aucun accès au service worker : tout vient du contrôleur
 // (ui/reco-controller.ts). Mouvement réduit : le dé ne tourne pas, la fiche apparaît en fondu seul.
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { getLocale, t } from '../../i18n';
+import { t } from '../../i18n';
 import { PLATFORM_LABELS, isOptionalPlatform, type StreamingPlatform } from '../../platforms/registry';
 import { genreKey } from '../../shared/genres';
 import type { RecoItem } from '../../shared/recommendations';
 import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { toImageSrc, toSafeUrl } from '../../shared/url';
 import { useMediaQuery } from '../preact/hooks';
+import { formatStarValue } from '../rating';
 import type { RecoView } from '../reco-controller';
+import { formatLabel } from '../review-view';
+import { sequelEndedKey } from '../sequel-actions';
 import { Button } from './button';
 import { Cover } from './cover';
 import { Icon } from './icon';
@@ -42,9 +45,6 @@ const chipClass = 'inline-flex max-w-full items-center truncate rounded-pill bg-
 const genreChipClass = 'inline-flex max-w-full items-center truncate rounded-pill bg-lavender/14 px-2 py-0.5 text-secondary font-bold text-lavender';
 const tagChipClass = 'inline-flex max-w-full items-center truncate rounded-pill border border-line px-2 py-0.5 text-secondary text-muted';
 
-/** Note de l'utilisateur au format de la langue (« 8,5 » en français) */
-const formatScore = (score: number): string => new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(score);
-
 /** Genre traduit, sinon le nom AniList (étiquette ou genre inconnu) */
 function chipLabel(name: string): string {
   const key = genreKey(name);
@@ -62,9 +62,9 @@ function PlatformChips({ item, granted, onEnable }: Pick<RecoCardProps, 'item' |
           const label = PLATFORM_LABELS[platform];
           const href = toSafeUrl(url);
           if (isOptionalPlatform(platform) && !granted.includes(platform)) {
-            // Accès non accordé : puce grisée, le clic demande l'accès
+            // Accès non accordé : puce à bordure pointillée (contraste du texte gardé), le clic demande l'accès
             return (
-              <button key={platform} type="button" class={`${chipClass} cursor-pointer opacity-55 hover:opacity-100`} data-platform={platform} onClick={() => onEnable(platform)}>
+              <button key={platform} type="button" class={`${chipClass} cursor-pointer border border-dashed border-field hover:text-ink`} data-platform={platform} onClick={() => onEnable(platform)}>
                 {t('panel.enablePlatform', { platform: label })}
               </button>
             );
@@ -137,7 +137,7 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
   // Genres et étiquettes de la raison, séparés (leurs puces n'ont pas la même couleur)
   const matched = reason ? reason.matched.slice(0, MAX_CHIPS) : [];
   const href = toSafeUrl(card.siteUrl);
-  const meta = [card.format, card.year, card.episodes !== null ? t('review.episodes', { count: card.episodes }) : null].filter((part): part is string | number => part !== null && part !== '');
+  const meta = [card.format ? formatLabel(card.format) : null, card.year, card.episodes !== null ? t('review.episodes', { count: card.episodes }) : null].filter((part): part is string | number => part !== null && part !== '');
   const dismissed = view.dismissedTitle !== null;
 
   return (
@@ -163,14 +163,14 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
               </span>
             )}
             <span class="text-secondary text-muted">{meta.join(' · ')}</span>
-            {card.averageScore !== null && <span class="text-secondary font-bold text-butter">★ {(card.averageScore / 10).toFixed(1)}</span>}
+            {card.averageScore !== null && <span class="text-secondary font-bold text-butter">★ {formatStarValue(card.averageScore / 10)}</span>}
           </div>
         </div>
         {reason && (
           <div class="flex flex-col gap-1.5 rounded-panel bg-raised px-2.5 py-2" data-reco-why="">
             <span class="flex items-start gap-1.5 text-body text-ink">
               <Icon name="sparkles" class="mt-0.5 size-3.5 shrink-0 text-lavender" />
-              {reason.rated ? t('reco.because', { title: reason.seedTitle, score: formatScore(reason.seedScore) }) : t('reco.becauseWatched', { title: reason.seedTitle })}
+              {reason.rated ? t('reco.because', { title: reason.seedTitle, score: formatStarValue(reason.seedScore) }) : t('reco.becauseWatched', { title: reason.seedTitle })}
             </span>
             {matched.length > 0 && (
               <div class="flex flex-wrap gap-1.5">
@@ -198,7 +198,8 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
         ) : view.added ? (
           <span class="inline-flex h-8 items-center gap-1.5 rounded-pill bg-raised px-4 text-body font-extrabold text-muted" data-reco-added="">
             <Icon name="check" class="size-4" />
-            {t('reco.inPlanning')}
+            {/* Comme les lignes des suites : MyAnimeList sans entrée, ou rien d'écrit car déjà dans une liste */}
+            {view.added.notOnMal || view.added.inList ? t(sequelEndedKey(view.added)) : t('reco.inPlanning')}
           </span>
         ) : notOnMal ? (
           <span class="text-secondary text-muted">{t('reco.notOnMal')}</span>

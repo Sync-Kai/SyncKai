@@ -798,7 +798,7 @@
   "reco.rolling": "Trekken…",
   "reco.inPlanning": "In ‘Wil ik zien’",
   "reco.dismiss": "Geen interesse",
-  "reco.dismissAria": "{title} niet meer voorstellen",
+  "reco.dismissAria": "Geen interesse: {title}",
   "reco.dismissed": "Wordt niet meer voorgesteld: {title}",
   "reco.undo": "Ongedaan maken",
   "reco.previous": "Eerder getrokken",
