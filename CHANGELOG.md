@@ -5,6 +5,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Fixed
+
+- Crunchyroll music videos and concerts are no longer treated as episodes: watching one no longer shows a false « Episode not identified » error.
+
 ## [2.5.0] - 2026-11-12
 
 ### Added

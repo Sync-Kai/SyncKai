@@ -28,7 +28,8 @@ const log = createLogger('crunchyroll');
  * /watch/{episodeId}/{slug}, avec préfixe de langue optionnel (/fr/watch/…).
  * Le slug est le titre de l'ÉPISODE, pas celui de l'anime : il ne sert pas à l'identification.
  */
-const WATCH_PATH_REGEX = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?watch\/([A-Z0-9]+)(?:\/|$)/i;
+// Vidéos musicales et concerts (/watch/musicvideo/MV…, /watch/concert/MC…) : pas des épisodes
+const WATCH_PATH_REGEX = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?watch\/(?!(?:musicvideo|concert)\/)([A-Z0-9]+)(?:\/|$)/i;
 
 /** /series/{seriesId}/{slug} (présent dans le JSON-LD et le lien vers la série) */
 const SERIES_PATH_REGEX = /\/series\/([A-Z0-9]+)(?:\/([^/?#]+))?/i;

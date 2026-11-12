@@ -263,6 +263,11 @@ describe('getEpisodeId (page de lecture)', () => {
     expect(crunchyrollAdapter.getEpisodeId(new URL('https://www.crunchyroll.com/es-es/watch/GE00376431JAJP/slug'))).toBe('GE00376431JAJP');
     expect(crunchyrollAdapter.getEpisodeId(new URL('https://www.crunchyroll.com/watch/GE00376431JAJP'))).toBe('GE00376431JAJP');
   });
+
+  it('ignore les vidéos musicales et les concerts (pas des épisodes)', () => {
+    expect(crunchyrollAdapter.getEpisodeId(new URL('https://www.crunchyroll.com/de/watch/musicvideo/MV5B02C79/x'))).toBeNull();
+    expect(crunchyrollAdapter.getEpisodeId(new URL('https://www.crunchyroll.com/watch/concert/MC2E2AC135/x'))).toBeNull();
+  });
 });
 
 describe('episodeFromJsonLdNodes', () => {
