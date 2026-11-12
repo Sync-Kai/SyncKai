@@ -151,12 +151,12 @@ const isReopenReviewPayload = (p: unknown): p is { key: string } => isRecord(p) 
 const isResolvePageMediaPayload = (p: unknown): p is ResolvePageMediaPayload =>
   isRecord(p) && isPageMediaInfo(p.page) && (p.mediaId === null || isPositiveInt(p.mediaId));
 /** Ids de suites (au plus 200 : le store en garde autant), état demandé ; `restore` accepte une liste vide (= toutes) */
-const isUpdateSequelsPayload = (p: unknown): p is { ids: number[]; state: 'seen' | 'dismissed' | 'removed' | 'restore' } =>
+const isUpdateSequelsPayload = (p: unknown): p is { ids: number[]; state: 'seen' | 'dismissed' | 'removed' | 'restore' | 'listed' } =>
   isRecord(p) &&
   Array.isArray(p.ids) &&
   p.ids.length <= 200 &&
   p.ids.every(isPositiveInt) &&
-  (p.state === 'restore' || (p.ids.length > 0 && (p.state === 'seen' || p.state === 'dismissed' || p.state === 'removed')));
+  (p.state === 'restore' || (p.ids.length > 0 && (p.state === 'seen' || p.state === 'dismissed' || p.state === 'removed' || p.state === 'listed')));
 const isAddToListPayload = (p: unknown): p is AddToListPayload =>
   isRecord(p) && isPositiveInt(p.mediaId) && (p.malId === null || isPositiveInt(p.malId)) && isAddListStatus(p.status);
 

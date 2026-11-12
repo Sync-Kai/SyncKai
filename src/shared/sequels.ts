@@ -25,6 +25,17 @@ export interface SequelSnapshot {
   sourceTitle: string;
 }
 
+/** Champs d'affichage d'une fiche à venir : suite annoncée ou série de la liste (sans série source) */
+export type SequelDisplay = Omit<SequelSnapshot, 'sourceId' | 'sourceTitle'>;
+/** Date et format d'une fiche à venir (lue avec la liste AniList, compare-parse) */
+export type ReleaseInfo = Pick<SequelSnapshot, 'format' | 'status' | 'siteUrl' | 'year' | 'month' | 'day' | 'season' | 'seasonYear'>;
+export type ListedStatus = 'PLANNING' | 'CURRENT';
+
+/** Série d'une liste de l'utilisateur à venir (À regarder, ou En cours pas encore sortie) : « Annoncées » de l'Agenda */
+export interface ListedEntry extends SequelDisplay {
+  listStatus: ListedStatus;
+}
+
 export type SequelState = 'new' | 'seen' | 'dismissed';
 
 export interface SequelRecord {
@@ -38,6 +49,8 @@ export interface SequelStore {
   known: number[];
   seeded: TrackerId[];
   lastCheck: number | null;
+  /** Absent avant 2.5.0, jamais vérifié par isSequelStore : toujours lu par `listedEntries` */
+  listed?: ListedEntry[];
 }
 
 export interface RelationEdge {
@@ -110,6 +123,7 @@ export function noMalEntry(connected: readonly TrackerId[], idMal: number | null
 export const EMPTY_SEQUEL_STORE: SequelStore = { records: [], known: [], seeded: [], lastCheck: null };
 export const MAX_SEQUEL_RECORDS = 200;
 export const MAX_KNOWN_SEQUELS = 2000;
+export const MAX_LISTED_ENTRIES = 200;
 
 const FORMATS: readonly string[] = ['TV', 'TV_SHORT', 'ONA', 'MOVIE'];
 const STATUSES: readonly string[] = ['NOT_YET_RELEASED', 'RELEASING'];
@@ -145,7 +159,7 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
-function isSnapshot(value: unknown): value is SequelSnapshot {
+function isDisplay(value: unknown): value is SequelDisplay {
   return (
     isRecord(value) &&
     isFiniteNumber(value['id']) &&
@@ -160,10 +174,41 @@ function isSnapshot(value: unknown): value is SequelSnapshot {
     isNullableNumber(value['month']) &&
     isNullableNumber(value['day']) &&
     (value['season'] === null || isSeason(value['season'])) &&
-    isNullableNumber(value['seasonYear']) &&
-    isFiniteNumber(value['sourceId']) &&
-    typeof value['sourceTitle'] === 'string'
+    isNullableNumber(value['seasonYear'])
   );
+}
+
+function isSnapshot(value: unknown): value is SequelSnapshot {
+  return isRecord(value) && isFiniteNumber(value['sourceId']) && typeof value['sourceTitle'] === 'string' && isDisplay(value);
+}
+
+function isListedEntry(value: unknown): value is ListedEntry {
+  return isRecord(value) && (value['listStatus'] === 'PLANNING' || value['listStatus'] === 'CURRENT') && isDisplay(value);
+}
+
+/** Séries de la liste du store ; absentes ou illisibles → ignorées (un `listed` abîmé n'invalide jamais le store ni `known`) */
+export function listedEntries(store: SequelStore): ListedEntry[] {
+  const listed: unknown = store.listed;
+  return Array.isArray(listed) ? listed.filter(isListedEntry) : [];
+}
+
+/** Statut de liste montré dans « Annoncées » : À regarder (à venir ou en diffusion), En cours seulement pas encore sortie */
+export function listedQualifies(listStatus: string, status: SequelStatus): listStatus is ListedStatus {
+  return listStatus === 'PLANNING' || (listStatus === 'CURRENT' && status === 'NOT_YET_RELEASED');
+}
+
+const num = (value: unknown): number | null => (isFiniteNumber(value) ? value : null);
+
+/** Date et format d'une fiche AniList (réponse externe) ; hors TV / TV_SHORT / ONA / MOVIE à venir ou en diffusion → null */
+export function parseRelease(media: Record<string, unknown>, id: number): ReleaseInfo | null {
+  const { format, status } = media;
+  if (!isFormat(format) || !isStatus(status)) return null;
+  const date: Record<string, unknown> = isRecord(media['startDate']) ? media['startDate'] : {};
+  const siteUrl = typeof media['siteUrl'] === 'string' ? toSafeUrl(media['siteUrl'], 'anilist.co') : null;
+  return {
+    format, status, siteUrl: siteUrl ?? `https://anilist.co/anime/${id}`, year: num(date['year']), month: num(date['month']), day: num(date['day']),
+    season: isSeason(media['season']) ? media['season'] : null, seasonYear: num(media['seasonYear']),
+  };
 }
 
 function isSequelRecord(value: unknown): value is SequelRecord {
@@ -217,23 +262,28 @@ export function sequelCandidates(sources: readonly { source: SourceSeries; edges
 /** Rang de conservation : les nouvelles se gardent le plus, puis les vues, puis les masquées */
 const KEEP_RANK: Record<SequelState, number> = { new: 0, seen: 1, dismissed: 2 };
 
-/** Plafond des enregistrements : partent d'abord les masquées, puis les plus anciennes vues, puis les plus anciennes nouvelles. */
+/** Recréée vue (`firstSeenAt` 0) : sous les masquées, sinon elle en évincerait une, recréée vue à la passe suivante (masquage perdu) */
+const keepRank = (record: SequelRecord): number => (record.state === 'seen' && record.firstSeenAt === 0 ? 3 : KEEP_RANK[record.state]);
+
+/** Plafond des enregistrements : partent d'abord les recréées, puis les masquées, puis les plus anciennes vues, puis les plus anciennes nouvelles. */
 function capRecords(records: SequelRecord[]): SequelRecord[] {
   if (records.length <= MAX_SEQUEL_RECORDS) return records;
-  const ranked = [...records].sort((a, b) => KEEP_RANK[a.state] - KEEP_RANK[b.state] || b.firstSeenAt - a.firstSeenAt);
+  const ranked = [...records].sort((a, b) => keepRank(a) - keepRank(b) || b.firstSeenAt - a.firstSeenAt);
   const kept = new Set(ranked.slice(0, MAX_SEQUEL_RECORDS));
   return records.filter((record) => kept.has(record));
 }
 
 /**
- * Fusionne une passe de vérification. Un id déjà connu sans enregistrement n'est jamais recréé ; un service pas encore amorcé
- * enregistre sans notifier (première passe), les suivantes notifient les nouvelles suites de services déjà amorcés.
+ * Fusionne une passe de vérification. Un id déjà connu sans enregistrement (ajouté puis retiré de la liste) revient vu, le
+ * plus ancien, jamais renotifié ; un service pas encore amorcé enregistre sans notifier (première passe), les suivantes
+ * notifient les nouvelles suites de services déjà amorcés. `listed` remplace les séries de la liste du store.
  */
 export function mergeSequelPass(
   store: SequelStore,
   candidates: readonly SequelCandidate[],
   servicesThisPass: readonly TrackerId[],
   now: number,
+  listed: readonly ListedEntry[] = [],
 ): { store: SequelStore; toNotify: SequelSnapshot[] } {
   const byId = new Map(candidates.map((candidate) => [candidate.snapshot.id, candidate]));
   const known = new Set(store.known);
@@ -246,7 +296,12 @@ export function mergeSequelPass(
   const knownList = [...store.known];
   const toNotify: SequelSnapshot[] = [];
   for (const { snapshot, services } of candidates) {
-    if (known.has(snapshot.id) || present.has(snapshot.id)) continue;
+    if (present.has(snapshot.id)) continue;
+    // firstSeenAt 0 : la première à partir au plafond, d'une passe à l'autre (un id écarté par le plafond y reste écarté)
+    if (known.has(snapshot.id)) {
+      records.push({ snapshot, state: 'seen', firstSeenAt: 0 });
+      continue;
+    }
     records.push({ snapshot, state: 'new', firstSeenAt: now });
     knownList.push(snapshot.id);
     known.add(snapshot.id);
@@ -256,7 +311,7 @@ export function mergeSequelPass(
   const survivors = new Set(capped.map((record) => record.snapshot.id));
   const seeded = [...store.seeded, ...servicesThisPass.filter((service) => !store.seeded.includes(service))];
   return {
-    store: { records: capped, known: knownList.slice(-MAX_KNOWN_SEQUELS), seeded, lastCheck: now },
+    store: { records: capped, known: knownList.slice(-MAX_KNOWN_SEQUELS), seeded, lastCheck: now, listed: capListed(listed) },
     toNotify: toNotify.filter((snapshot) => survivors.has(snapshot.id)),
   };
 }
@@ -281,12 +336,39 @@ export function setSequelStates(store: SequelStore, ids: readonly number[], stat
   return { ...store, records };
 }
 
-export interface SequelGroup {
+/**
+ * Suites ajoutées à la liste (`listStatus` donné par id) : enregistrement retiré (id gardé dans `known`), fiche dans `listed`
+ * à la place d'une précédente du même id. Un id sans enregistrement est ignoré.
+ */
+export function listSequels(store: SequelStore, moves: readonly { id: number; listStatus: ListedStatus }[]): SequelStore {
+  const status = new Map(moves.map((move) => [move.id, move.listStatus]));
+  const moved = store.records.flatMap(({ snapshot: { sourceId: _sourceId, sourceTitle: _sourceTitle, ...display } }): ListedEntry[] => {
+    const listStatus = status.get(display.id);
+    return listStatus === undefined ? [] : [{ ...display, listStatus }];
+  });
+  if (moved.length === 0) return store;
+  const ids = new Set(moved.map((entry) => entry.id));
+  return {
+    ...store,
+    records: store.records.filter((record) => !ids.has(record.snapshot.id)),
+    listed: capListed([...moved, ...listedEntries(store).filter((entry) => !ids.has(entry.id))]),
+  };
+}
+
+/** Retire des séries de la liste (plus dans aucune liste, ou autre statut) */
+export function dropListed(store: SequelStore, ids: readonly number[]): SequelStore {
+  const targets = new Set(ids);
+  return { ...store, listed: listedEntries(store).filter((entry) => !targets.has(entry.id)) };
+}
+
+export interface SequelGroup<T> {
   key: string;
   season: AniListSeason | null;
   year: number | null;
-  records: SequelRecord[];
+  items: T[];
 }
+
+type Dated = Pick<SequelSnapshot, 'title' | 'year' | 'month' | 'day' | 'season' | 'seasonYear'>;
 
 const SEASON_ORDER: readonly AniListSeason[] = ['WINTER', 'SPRING', 'SUMMER', 'FALL'];
 
@@ -296,25 +378,35 @@ function seasonOfMonth(month: number): AniListSeason {
 }
 
 /** Période d'une suite : date exacte ou mois → sa saison ; saison seule ; année seule ; sinon inconnue. */
-function periodOf(snapshot: SequelSnapshot): { season: AniListSeason | null; year: number | null } {
+function periodOf(snapshot: Dated): { season: AniListSeason | null; year: number | null } {
   if (snapshot.year !== null && snapshot.month !== null) return { season: seasonOfMonth(snapshot.month), year: snapshot.year };
   if (snapshot.season !== null && snapshot.seasonYear !== null) return { season: snapshot.season, year: snapshot.seasonYear };
   return { season: null, year: snapshot.year };
 }
 
-/** Suites groupées par saison d'anime, dans l'ordre chronologique : l'année seule après les saisons de son année, l'inconnu en dernier ; par date puis titre dans un groupe. */
-export function groupSequelsByPeriod(records: readonly SequelRecord[]): SequelGroup[] {
-  const groups = new Map<string, SequelGroup>();
-  for (const record of records) {
-    const { season, year } = periodOf(record.snapshot);
+const periodRank = ({ season, year }: { season: AniListSeason | null; year: number | null }): number => (year === null ? Number.POSITIVE_INFINITY : year * 10 + (season === null ? 4 : SEASON_ORDER.indexOf(season)));
+const dayRank = (dated: Dated): number => (dated.month ?? 99) * 100 + (dated.day ?? 99);
+/** Ordre chronologique : période, puis date, puis titre */
+const byDate = (a: Dated, b: Dated): number => periodRank(periodOf(a)) - periodRank(periodOf(b)) || dayRank(a) - dayRank(b) || a.title.localeCompare(b.title);
+
+/** Séries de la liste : une par id (la première), les 200 plus proches, par date */
+function capListed(entries: readonly ListedEntry[]): ListedEntry[] {
+  const byId = new Map<number, ListedEntry>();
+  for (const entry of entries) if (!byId.has(entry.id)) byId.set(entry.id, entry);
+  return [...byId.values()].sort(byDate).slice(0, MAX_LISTED_ENTRIES);
+}
+
+/** Fiches groupées par saison d'anime, dans l'ordre chronologique : l'année seule après les saisons de son année, l'inconnu en dernier ; par date puis titre dans un groupe. */
+export function groupSequelsByPeriod<T>(items: readonly T[], dated: (item: T) => Dated): SequelGroup<T>[] {
+  const groups = new Map<string, SequelGroup<T>>();
+  for (const item of items) {
+    const { season, year } = periodOf(dated(item));
     const key = year === null ? 'unknown' : season === null ? String(year) : `${year}-${season}`;
     const group = groups.get(key);
-    if (group) group.records.push(record);
-    else groups.set(key, { key, season, year, records: [record] });
+    if (group) group.items.push(item);
+    else groups.set(key, { key, season, year, items: [item] });
   }
-  const rank = (group: SequelGroup): number => (group.year === null ? Number.POSITIVE_INFINITY : group.year * 10 + (group.season === null ? 4 : SEASON_ORDER.indexOf(group.season)));
-  const day = (snapshot: SequelSnapshot): number => (snapshot.month ?? 99) * 100 + (snapshot.day ?? 99);
   return [...groups.values()]
-    .sort((a, b) => rank(a) - rank(b))
-    .map((group) => ({ ...group, records: group.records.sort((a, b) => day(a.snapshot) - day(b.snapshot) || a.snapshot.title.localeCompare(b.snapshot.title)) }));
+    .sort((a, b) => periodRank(a) - periodRank(b))
+    .map((group) => ({ ...group, items: group.items.sort((a, b) => byDate(dated(a), dated(b))) }));
 }

@@ -791,6 +791,7 @@
   "sequel.dismissLabel": "{title} 숨기기",
   "sequel.heading": "발표된 속편",
   "sequel.inList": "이미 내 목록에 있음",
+  "sequel.listedAs": "내 목록에 있음 · {status}",
   "sequel.more_other": "발표된 속편 {count}개 더",
   "sequel.new": "신규",
   "sequel.notOnMal": "아직 MyAnimeList에 없음",

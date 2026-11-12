@@ -971,6 +971,7 @@
   "sequel.dismissLabel": "Скрыть «{title}»",
   "sequel.heading": "Анонсированные продолжения",
   "sequel.inList": "Уже в твоём списке",
+  "sequel.listedAs": "В твоём списке · {status}",
   "sequel.more_one": "ещё {count} анонсированное продолжение",
   "sequel.more_few": "ещё {count} анонсированных продолжения",
   "sequel.more_many": "ещё {count} анонсированных продолжений",

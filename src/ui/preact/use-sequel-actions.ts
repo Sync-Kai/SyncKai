@@ -6,8 +6,9 @@ import { addSequelToPlanning, checkShownSequels, sequelAddResult, updateSequels 
 
 // « + À regarder » et × des suites annoncées, partagés par Activité (popup) et Agenda (panneau) : ajout en cours, dernier
 // résultat par suite, et lignes terminées gardées avec leur mention (ajoutée, déjà dans la liste, pas sur MyAnimeList)
-// jusqu'à la fermeture de la page, quand le stockage ne les a plus. À l'affichage des premières suites, une demande de
-// revérification contre les listes (ajoutées sur AniList / MAL depuis la passe quotidienne : leurs lignes disparaissent).
+// jusqu'à la fermeture de la page, quand le stockage ne les a plus. Une suite ajoutée passe dans les séries de la liste
+// (`listed`) : « Annoncées » remplace alors sa ligne par celle de la liste. À l'affichage des premières suites (ou séries de
+// la liste), une demande de revérification contre les listes (ajoutées sur AniList / MAL depuis la passe quotidienne).
 
 export interface SequelActions {
   /** Suites du stockage, puis les terminées (avec leur mention) que le stockage n'a plus */
@@ -18,8 +19,8 @@ export interface SequelActions {
   dismiss: (id: number) => void;
 }
 
-/** `shown` : suites à l'écran (false : écran monté mais masqué, aucune revérification) */
-export function useSequelActions(records: readonly SequelRecord[], shown = true): SequelActions {
+/** `shown` : suites à l'écran (false : écran monté mais masqué, aucune revérification) ; `hasListed` : séries de la liste affichées */
+export function useSequelActions(records: readonly SequelRecord[], shown = true, hasListed = false): SequelActions {
   const [busy, setBusy] = useState<ReadonlySet<number>>(new Set());
   /** Dernier résultat par suite ; les suites terminées (retirées du stockage) gardent leur ligne avec leur mention */
   const [outcomes, setOutcomes] = useState<ReadonlyMap<number, { record: SequelRecord; outcome: SyncOutcome }>>(new Map());
@@ -27,10 +28,10 @@ export function useSequelActions(records: readonly SequelRecord[], shown = true)
 
   // Une fois par montage, dès que des suites sont affichées (le stockage est lu après le premier rendu)
   useEffect(() => {
-    if (checked.current || !shown || records.length === 0) return;
+    if (checked.current || !shown || (records.length === 0 && !hasListed)) return;
     checked.current = true;
     void checkShownSequels();
-  }, [records, shown]);
+  }, [records, shown, hasListed]);
 
   const withBusy = (id: number, on: boolean): void =>
     setBusy((current) => {
@@ -48,7 +49,7 @@ export function useSequelActions(records: readonly SequelRecord[], shown = true)
     const result = sequelAddResult(outcome, t('error.unexpectedAdd'));
     // Résultat noté avant le retrait du stockage : la ligne ne disparaît jamais entre les deux
     setOutcomes((current) => new Map(current).set(id, { record, outcome }));
-    if (result.kind === 'ended') await updateSequels([id], 'removed');
+    if (result.kind === 'ended') await updateSequels([id], 'listed');
     withBusy(id, false);
   };
 

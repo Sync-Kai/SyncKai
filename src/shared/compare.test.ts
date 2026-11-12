@@ -31,6 +31,7 @@ const al = (patch: Partial<AniListListEntry> = {}): AniListListEntry => ({
   progress: 5,
   score: null,
   repeat: 0,
+  release: null,
   ...patch,
 });
 

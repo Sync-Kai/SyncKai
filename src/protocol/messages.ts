@@ -128,7 +128,7 @@ export interface MessageMap {
   /** « Annoncées » (panneau), Activité (popup) : retire les suites affichées déjà dans une liste (au plus une fois par 10 min et par compte) */
   CHECK_SHOWN_SEQUELS: { payload: null; response: null };
   /** Activité, Réglages : change l'état de suites ; `restore` (sans id : toutes) = masquée → vue ; false sans session ouverte */
-  UPDATE_SEQUELS: { payload: { ids: number[]; state: 'seen' | 'dismissed' | 'removed' | 'restore' }; response: boolean };
+  UPDATE_SEQUELS: { payload: { ids: number[]; state: 'seen' | 'dismissed' | 'removed' | 'restore' | 'listed' }; response: boolean };
   /** Fiche AniList de la série affichée dans l'onglet actif + état dans chaque liste (lecture seule) */
   RESOLVE_PAGE_MEDIA: { payload: ResolvePageMediaPayload; response: PageMediaResult };
   /** Correspondances modifiées par une page (« Oublier », restauration d'une sauvegarde) : résolutions de page en mémoire oubliées */

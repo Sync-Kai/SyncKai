@@ -3,6 +3,7 @@ import type { ApplyDiffItem, CompareJob } from './compare-job';
 import { isRecord } from './guards';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { Result } from './result';
+import type { ReleaseInfo } from './sequels';
 import { aniListScoreOn10, aniListScores, isAniListScoreFormat, MAL_SCORES, scoreCodec, type AniListScoreFormat } from './score';
 import type { ListStatus } from './sync.types';
 import { entryIdOn, isTrackerId, TRACKER_LABELS, type TrackerId } from './tracker.types';
@@ -25,6 +26,8 @@ export interface AniListListEntry {
   /** Note brute AniList (format du profil), null si non notée (0) */
   score: number | null;
   repeat: number;
+  /** Date et format si la fiche est un TV / TV_SHORT / ONA / MOVIE à venir ou en diffusion (« Annoncées »), sinon null */
+  release: ReleaseInfo | null;
 }
 
 /** Entrée de la liste MAL, normalisée (is_rewatching → REPEATING) */

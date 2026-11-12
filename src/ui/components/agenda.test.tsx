@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t, upperFirst } from '../../i18n';
 import { shiftWeek, weekRange, type AgendaSeries, type AiringSchedule } from '../../shared/agenda';
 import { DEFAULT_SETTINGS, type SyncSettings } from '../../shared/settings';
-import type { SequelRecord } from '../../shared/sequels';
+import type { ListedEntry, SequelRecord } from '../../shared/sequels';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { createStore } from '../state';
 import type { AgendaStatus } from '../agenda-controller';
@@ -60,14 +60,21 @@ function sequel(id: number, state: SequelRecord['state'], patch: Partial<SequelR
   };
 }
 
+function listedEntry(id: number, listStatus: ListedEntry['listStatus'], patch: Partial<ListedEntry> = {}): ListedEntry {
+  const { sourceId: _sourceId, sourceTitle: _sourceTitle, ...rest } = sequel(id, 'seen', {}).snapshot;
+  return { ...rest, listStatus, ...patch };
+}
+
 let sequelStore = createStore<SequelRecord[]>([]);
+let listedStore = createStore<ListedEntry[]>([]);
 
 const onDiscover = vi.fn<() => void>();
 
-async function show(status: AgendaStatus = READY, sequels: SequelRecord[] = [], patch: Partial<AgendaSnapshot> = {}): Promise<void> {
+async function show(status: AgendaStatus = READY, sequels: SequelRecord[] = [], patch: Partial<AgendaSnapshot> = {}, listed: ListedEntry[] = []): Promise<void> {
   const state = createStore<AgendaSnapshot | null>(snapshot(status, patch));
   sequelStore = createStore(sequels);
-  await act(() => render(<Agenda state={state} sequels={sequelStore} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
+  listedStore = createStore(listed);
+  await act(() => render(<Agenda state={state} sequels={sequelStore} listed={listedStore} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
 }
 
 async function click(selector: string): Promise<void> {
@@ -363,11 +370,65 @@ describe('Agenda', () => {
       const state = createStore<AgendaSnapshot | null>(snapshot(READY));
       sequelStore = createStore(SEQUELS);
       const mount = (visible: boolean): Promise<void> =>
-        act(() => render(<Agenda state={state} sequels={sequelStore} granted={[]} visible={visible} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
+        act(() => render(<Agenda state={state} sequels={sequelStore} listed={createStore<ListedEntry[]>([])} granted={[]} visible={visible} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
       await mount(false);
       await act(() => radio(t('agenda.view.announced')).click());
       expect(worker.send.mock.calls.filter(([type]) => type === 'CHECK_SHOWN_SEQUELS')).toEqual([]);
       await mount(true);
+      expect(worker.send.mock.calls.filter(([type]) => type === 'CHECK_SHOWN_SEQUELS')).toEqual([['CHECK_SHOWN_SEQUELS', null]]);
+    });
+
+    it('séries de la liste : groupées avec les suites, « Dans ta liste · statut », sans bouton ni × ni « Nouveau » ; un id des deux : la ligne de la liste seule', async () => {
+      await show(READY, [sequel(1, 'new', { year: 2027, month: 1, day: 10 }), sequel(2, 'new', { year: 2027, month: 2 })], {}, [
+        listedEntry(2, 'PLANNING', { year: 2027, month: 2 }),
+        listedEntry(3, 'CURRENT', { year: 2027, month: 1, day: 5 }),
+      ]);
+      await act(() => radio(t('agenda.view.announced')).click());
+      expect(headings()).toEqual([t('panel.nowPlaying.season.WINTER', { year: 2027 })]);
+      expect($$('[data-sequel]').map((row) => row.getAttribute('data-sequel'))).toEqual(['3', '1', '2']);
+      expect($('[data-sequel="3"]')?.textContent).toContain(t('sequel.listedAs', { status: t('page.status.CURRENT') }));
+      expect($('[data-sequel="2"]')?.textContent).toContain(t('sequel.listedAs', { status: t('page.status.PLANNING') }));
+      for (const id of [2, 3]) {
+        expect($(`[data-focus="sequel-add-${id}"]`)).toBeNull();
+        expect($(`[data-focus="sequel-dismiss-${id}"]`)).toBeNull();
+        expect($(`[data-sequel="${id}"] [data-sequel-new]`)).toBeNull();
+      }
+      expect($('[data-focus="sequel-add-1"]')).not.toBeNull();
+    });
+
+    it('« + À regarder » terminé : la ligne devient celle de la liste sans disparaître (UPDATE_SEQUELS listed)', async () => {
+      const row = sequel(1, 'seen', { year: 2027, month: 1, day: 10 });
+      worker.send.mockImplementation(async (type) => {
+        if (type === 'ADD_TO_LIST') return { status: 'synced', mediaTitle: 'S', results: [{ service: 'anilist', outcome: { status: 'updated', progress: 0, completed: false } }] } satisfies SyncOutcome;
+        if (type === 'UPDATE_SEQUELS') {
+          sequelStore.set([]);
+          listedStore.set([listedEntry(1, 'PLANNING', { year: 2027, month: 1, day: 10 })]);
+        }
+        return true;
+      });
+      await show(READY, [row]);
+      await act(() => radio(t('agenda.view.announced')).click());
+      const before = $('[data-sequel="1"]');
+      await act(async () => {
+        $('[data-focus="sequel-add-1"]')?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(worker.send).toHaveBeenCalledWith('UPDATE_SEQUELS', { ids: [1], state: 'listed' });
+      // Même élément : la ligne n'a jamais été démontée (ni doublon de la ligne gardée pour sa mention)
+      expect($('[data-sequel="1"]')).toBe(before);
+      expect($$('[data-sequel]')).toHaveLength(1);
+      expect($('[data-sequel="1"]')?.textContent).not.toContain(t('sequel.added'));
+      expect($('[data-sequel="1"]')?.textContent).toContain(t('sequel.listedAs', { status: t('page.status.PLANNING') }));
+      expect($('[data-focus="sequel-add-1"]')).toBeNull();
+    });
+
+    it('seulement des séries de la liste : pas de message vide, et la vérification contre les listes est demandée', async () => {
+      worker.send.mockReset();
+      worker.send.mockResolvedValue(null);
+      await show(READY, [], {}, [listedEntry(3, 'PLANNING')]);
+      await act(() => radio(t('agenda.view.announced')).click());
+      expect($('[data-agenda-state]')).toBeNull();
+      expect($$('[data-sequel]')).toHaveLength(1);
       expect(worker.send.mock.calls.filter(([type]) => type === 'CHECK_SHOWN_SEQUELS')).toEqual([['CHECK_SHOWN_SEQUELS', null]]);
     });
 
@@ -386,7 +447,7 @@ describe('Agenda', () => {
     container.append(root);
     const state = createStore<AgendaSnapshot | null>(snapshot(READY));
     const mount = (): Promise<void> =>
-      act(() => render(<Agenda state={state} sequels={createStore<SequelRecord[]>([])} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, root));
+      act(() => render(<Agenda state={state} sequels={createStore<SequelRecord[]>([])} listed={createStore<ListedEntry[]>([])} granted={[]} onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, root));
     await mount();
     root.scrollTop = 300;
     const next = shiftWeek(RANGE, 1);
@@ -401,7 +462,7 @@ describe('Agenda', () => {
     expect(nav()).toContain('-mx-3');
     expect(nav()).toContain('px-3');
     const state = createStore<AgendaSnapshot | null>(snapshot(READY));
-    await act(() => render(<Agenda state={state} sequels={createStore<SequelRecord[]>([])} granted={[]} inset="popup" onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
+    await act(() => render(<Agenda state={state} sequels={createStore<SequelRecord[]>([])} listed={createStore<ListedEntry[]>([])} granted={[]} inset="popup" onStep={() => undefined} onChoose={() => undefined} onRetry={onRetry} onSaveOffset={onSaveOffset} onDiscover={onDiscover} />, container));
     expect(nav()).toContain('-mx-4');
     expect(nav()).toContain('px-4');
     expect(nav()).not.toContain('-mx-3');

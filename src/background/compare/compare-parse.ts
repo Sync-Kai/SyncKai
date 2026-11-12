@@ -1,6 +1,7 @@
 import type { AniListListEntry, MalListEntry } from '../../shared/compare';
 import { isListStatus } from '../../shared/compare';
 import { isRecord } from '../../shared/guards';
+import { parseRelease } from '../../shared/sequels';
 import { toSafeImageUrl } from '../../shared/url';
 import { fromMalStatus } from '../mal/client';
 
@@ -41,6 +42,7 @@ export function parseAniListCollection(collection: unknown): AniListListEntry[] 
           progress: count(raw.progress),
           score: score(raw.score),
           repeat: count(raw.repeat),
+          release: parseRelease(media, mediaId),
         },
       ];
     }),

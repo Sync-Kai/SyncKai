@@ -851,6 +851,7 @@
   "sequel.dismissLabel": "{title} gizle",
   "sequel.heading": "Duyurulan devam serileri",
   "sequel.inList": "Zaten listende",
+  "sequel.listedAs": "Listende · {status}",
   "sequel.more_one": "{count} devam serisi daha duyuruldu",
   "sequel.more_other": "{count} devam serisi daha duyuruldu",
   "sequel.new": "Yeni",

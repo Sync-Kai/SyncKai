@@ -4,7 +4,7 @@ import { openPopupOn } from '../../browser/popup-screen';
 import { createLogger } from '../../browser/logger';
 import { getOpenSessions, sessionsStillOpen } from '../../browser/storage/sessions';
 import { withStorageLock } from '../../browser/storage/lock';
-import { setSequelStates, visibleSequels, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
+import { listSequels, setSequelStates, visibleSequels, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
 import type { SessionEpochs } from '../../shared/session-epochs';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { addToList } from '../controls';
@@ -16,27 +16,33 @@ import { SEQUEL_NOTIFICATION_PREFIX, readSequelStore } from './check';
 const log = createLogger('sequels');
 const GROUP_PREFIX = `${SEQUEL_NOTIFICATION_PREFIX}group:`;
 
-export type SequelUpdate = 'seen' | 'dismissed' | 'removed' | 'restore';
+export type SequelUpdate = 'seen' | 'dismissed' | 'removed' | 'restore' | 'listed';
 
-/** `restore` : masquée → vue ; sans id, toutes les suites masquées */
+/** `restore` : masquée → vue ; sans id, toutes les suites masquées. `listed` : ajoutée à À regarder, passe dans les séries de la liste */
 function applyUpdate(store: SequelStore, ids: readonly number[], update: SequelUpdate): SequelStore {
+  if (update === 'listed') return listSequels(store, ids.map((id) => ({ id, listStatus: 'PLANNING' })));
   if (update !== 'restore') return setSequelStates(store, ids, update);
   const dismissed = store.records.filter((record) => record.state === 'dismissed' && (ids.length === 0 || ids.includes(record.snapshot.id)));
   return setSequelStates(store, dismissed.map((record) => record.snapshot.id), 'seen');
 }
 
 /**
- * Change l'état de suites du store, sous le verrou et avec les sessions ouvertes à l'instant, ou `before`, relevées avant une
- * lecture des listes (donnée du compte : jamais recréée après une déconnexion). False sans session ouverte.
+ * Change le store, sous le verrou et avec les sessions ouvertes à l'instant, ou `before`, relevées avant une lecture des
+ * listes (donnée du compte : jamais recréée après une déconnexion). False sans session ouverte.
  */
-export async function updateSequels(ids: readonly number[], update: SequelUpdate, before?: SessionEpochs): Promise<boolean> {
+export async function writeSequels(change: (store: SequelStore) => SequelStore, before?: SessionEpochs): Promise<boolean> {
   const epochs = before ?? (await getOpenSessions());
   if (Object.keys(epochs).length === 0) return false;
   return withStorageLock(async () => {
     if (!(await sessionsStillOpen(epochs))) return false;
-    await chrome.storage.local.set({ [STORAGE_KEYS.sequelsState]: applyUpdate(await readSequelStore(), ids, update) });
+    await chrome.storage.local.set({ [STORAGE_KEYS.sequelsState]: change(await readSequelStore()) });
     return true;
   });
+}
+
+/** Change l'état de suites du store (voir writeSequels). False sans session ouverte. */
+export function updateSequels(ids: readonly number[], update: SequelUpdate, before?: SessionEpochs): Promise<boolean> {
+  return writeSequels((store) => applyUpdate(store, ids, update), before);
 }
 
 /** Id AniList d'une notification de suite seule, null s'il est illisible */
@@ -77,9 +83,9 @@ async function addToPlanning(notificationId: string, id: number): Promise<void> 
     await chrome.notifications.update(notificationId, { message: t('sequel.notification.openEntry') });
     return;
   }
-  // `added` : l'alerte est terminée (ajoutée, ou déjà dans la liste)
+  // `added` : l'alerte est terminée (ajoutée, ou déjà dans la liste) ; la suite rejoint les séries de la liste (« Annoncées »)
   const { added, message } = addOutcome(await addToList({ mediaId: id, malId: found.snapshot.idMal, status: 'PLANNING' }));
-  if (added) await updateSequels([id], 'removed');
+  if (added) await updateSequels([id], 'listed');
   await chrome.notifications.update(notificationId, { message });
 }
 

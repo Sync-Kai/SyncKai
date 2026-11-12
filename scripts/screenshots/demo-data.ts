@@ -13,7 +13,7 @@ import type { FriendEntry, FriendsSummary } from '../../src/shared/friends';
 import type { MalViewer } from '../../src/shared/mal.types';
 import type { CandidateSummary, PendingReview, RecentSync } from '../../src/shared/review.types';
 import type { SyncSettings } from '../../src/shared/settings';
-import { isSequelStore, setSequelStates, type SequelRecord, type SequelSnapshot, type SequelStore } from '../../src/shared/sequels';
+import { isSequelStore, listSequels, setSequelStates, type SequelRecord, type SequelSnapshot, type SequelStore } from '../../src/shared/sequels';
 import { STORAGE_KEYS } from '../../src/protocol/storage-keys';
 import type { MediaMapping } from '../../src/shared/sync.types';
 import type { TrackerId } from '../../src/shared/tracker.types';
@@ -311,7 +311,7 @@ export function accountDemo(mode: AccountDemo | null, base: ChromeMockOptions): 
  */
 export type Scenario = 'watching' | 'menu' | 'page' | 'activity' | 'compare' | 'settings';
 
-/** Suites annoncées de démo (sans jaquette) : jour précis, mois seul, date inconnue, en cours de diffusion ; la plus récente est « nouvelle » */
+/** Suites annoncées de démo (sans jaquette) : jour précis, mois seul, date inconnue, en cours de diffusion ; la plus récente est « nouvelle ». Plus une série de la liste à venir (« Annoncées ») */
 export function sequelsDemo(now: number): SequelStore {
   const base = { idMal: null, format: 'TV' as const, coverUrl: null, season: null, seasonYear: null };
   const snap = (s: Partial<SequelSnapshot> & Pick<SequelSnapshot, 'id' | 'title' | 'status' | 'sourceId' | 'sourceTitle'>): SequelSnapshot => ({
@@ -323,17 +323,19 @@ export function sequelsDemo(now: number): SequelStore {
     { snapshot: snap({ id: 900003, title: 'Solo Leveling Season 3', status: 'NOT_YET_RELEASED', sourceId: 176496, sourceTitle: 'Solo Leveling' }), state: 'seen', firstSeenAt: now - 2 * DAY },
     { snapshot: snap({ id: 900004, title: 'Dandadan Season 3', status: 'RELEASING', year: 2026, month: 10, day: 3, sourceId: 185660, sourceTitle: 'Dandadan' }), state: 'seen', firstSeenAt: now - 3 * DAY },
   ];
-  return { records, known: records.map((r) => r.snapshot.id), seeded: ['anilist'], lastCheck: now - 12 * MIN };
+  const { sourceId: _sourceId, sourceTitle: _sourceTitle, ...listed } = snap({ id: 900005, title: 'Oshi no Ko Season 3', status: 'NOT_YET_RELEASED', year: 2026, month: 4, sourceId: 0, sourceTitle: '' });
+  return { records, known: records.map((r) => r.snapshot.id), seeded: ['anilist'], lastCheck: now - 12 * MIN, listed: [{ ...listed, listStatus: 'PLANNING' }] };
 }
 
-/** UPDATE_SEQUELS simulé : même effet sur le stockage que le service worker (état changé, `removed` supprime la ligne) */
+/** UPDATE_SEQUELS simulé : même effet sur le stockage que le service worker (état changé, `removed` supprime la ligne, `listed` la passe dans la liste) */
 async function updateSequelsDemo(payload: unknown): Promise<boolean> {
   if (typeof payload !== 'object' || payload === null || !('ids' in payload) || !('state' in payload) || !Array.isArray(payload.ids)) return false;
   const state = payload.state;
-  if (state !== 'seen' && state !== 'dismissed' && state !== 'removed') return false;
+  if (state !== 'seen' && state !== 'dismissed' && state !== 'removed' && state !== 'listed') return false;
   const ids = payload.ids.filter((id): id is number => typeof id === 'number');
   const stored: unknown = (await chrome.storage.local.get(STORAGE_KEYS.sequelsState))[STORAGE_KEYS.sequelsState];
-  if (isSequelStore(stored)) await chrome.storage.local.set({ [STORAGE_KEYS.sequelsState]: setSequelStates(stored, ids, state) });
+  const next = (store: SequelStore): SequelStore => (state === 'listed' ? listSequels(store, ids.map((id) => ({ id, listStatus: 'PLANNING' }))) : setSequelStates(store, ids, state));
+  if (isSequelStore(stored)) await chrome.storage.local.set({ [STORAGE_KEYS.sequelsState]: next(stored) });
   return true;
 }
 

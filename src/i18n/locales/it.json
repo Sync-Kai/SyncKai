@@ -851,6 +851,7 @@
   "sequel.dismissLabel": "Nascondi {title}",
   "sequel.heading": "Sequel annunciati",
   "sequel.inList": "Già nella tua lista",
+  "sequel.listedAs": "Nella tua lista · {status}",
   "sequel.more_one": "{count} altro sequel annunciato",
   "sequel.more_other": "{count} altri sequel annunciati",
   "sequel.new": "Nuovo",

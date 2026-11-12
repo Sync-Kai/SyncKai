@@ -44,7 +44,7 @@ export function checkShownSequels(): Promise<null> {
 }
 
 /** Change l'état des suites ; service worker injoignable : false */
-export function updateSequels(ids: number[], state: 'seen' | 'dismissed' | 'removed' | 'restore'): Promise<boolean> {
+export function updateSequels(ids: number[], state: 'seen' | 'dismissed' | 'removed' | 'restore' | 'listed'): Promise<boolean> {
   return callWorker('UPDATE_SEQUELS', { ids, state }, () => false);
 }
 

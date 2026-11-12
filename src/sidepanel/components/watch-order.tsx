@@ -123,8 +123,8 @@ function SequelActions({ node, links, unlisted }: { node: FranchiseNode; links: 
     if (busy) return;
     setBusy(true);
     const done = await addToPlanning({ mediaId: node.id, malId: node.idMal });
-    // Un service a écrit (ou déjà dans une liste) : l'alerte de cette suite n'a plus d'objet ; retrait en échec : le passage quotidien nettoiera
-    if (sequelAddResult(done, '').kind === 'ended') await updateSequels([node.id], 'removed');
+    // Un service a écrit (ou déjà dans une liste) : l'alerte de cette suite n'a plus d'objet, elle passe dans les séries de la liste ; échec : le passage quotidien nettoiera
+    if (sequelAddResult(done, '').kind === 'ended') await updateSequels([node.id], 'listed');
     setOutcome(done);
     setBusy(false);
   };

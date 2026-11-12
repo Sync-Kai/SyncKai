@@ -1724,11 +1724,11 @@ describe('popup (bout en bout)', () => {
     expect(await text(page, '[data-screen-title] h1')).toBe(fr('panel.tab.agenda'));
     expect(await sent(page, 'GET_AGENDA')).toHaveLength(1);
 
-    // Annoncées : les quatre suites de la démo, groupées ; Semaine ramène la grille
+    // Annoncées : les quatre suites de la démo et la série de la liste, groupées ; Semaine ramène la grille
     await click(page, 'agenda-view-announced');
     await page.waitForSelector('[data-screen="agenda"] [data-sequel-group]');
     const ids = await page.$$eval('[data-screen="agenda"] [data-sequel]', (rows) => rows.map((row) => row.getAttribute('data-sequel')).sort());
-    expect(ids).toEqual(['900001', '900002', '900003', '900004']);
+    expect(ids).toEqual(['900001', '900002', '900003', '900004', '900005']);
     await click(page, 'agenda-view-week');
     await page.waitForSelector('[data-screen="agenda"] [data-agenda-day]');
 

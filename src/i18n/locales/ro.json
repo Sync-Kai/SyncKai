@@ -911,6 +911,7 @@
   "sequel.dismissLabel": "Ascunde {title}",
   "sequel.heading": "Continuări anunțate",
   "sequel.inList": "Deja în lista ta",
+  "sequel.listedAs": "În lista ta · {status}",
   "sequel.more_one": "încă {count} continuare anunțată",
   "sequel.more_few": "încă {count} continuări anunțate",
   "sequel.more_other": "încă {count} de continuări anunțate",

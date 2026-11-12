@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import { isSequelStore, type SequelRecord, type SequelState, type SequelStore } from '../../shared/sequels';
+import { isSequelStore, listedEntries, type SequelRecord, type SequelState, type SequelStore } from '../../shared/sequels';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { installFakeChrome } from '../../test/fake-chrome';
 
@@ -37,6 +37,11 @@ const stored = (): SequelRecord[] => {
   const value: unknown = fake.local.peek(STORAGE_KEYS.sequelsState);
   if (!isSequelStore(value)) throw new Error('store absent');
   return value.records;
+};
+const listed = (): [number, string][] => {
+  const value: unknown = fake.local.peek(STORAGE_KEYS.sequelsState);
+  if (!isSequelStore(value)) throw new Error('store absent');
+  return listedEntries(value).map((entry) => [entry.id, entry.listStatus]);
 };
 const states = (): Record<number, SequelState> => Object.fromEntries(stored().map((r) => [r.snapshot.id, r.state]));
 const synced = (...statuses: ('updated' | 'skipped' | 'error')[]): SyncOutcome => ({
@@ -95,11 +100,12 @@ describe('clic sur la notification', () => {
 });
 
 describe('boutons', () => {
-  it('bouton 0 : ajoute à Planning, retire la suite du store et met la notification à jour', async () => {
+  it('bouton 0 : ajoute à Planning, passe la suite dans listed (À regarder) et met la notification à jour', async () => {
     fakes.addToList.mockResolvedValue(synced('updated'));
     await handleSequelButton('synckai-sequel:10', 0);
     expect(fakes.addToList).toHaveBeenCalledWith({ mediaId: 10, malId: 1010, status: 'PLANNING' });
     expect(states()).toEqual({ 11: 'seen', 12: 'dismissed' });
+    expect(listed()).toEqual([[10, 'PLANNING']]);
     expect(fakes.update).toHaveBeenCalledWith('synckai-sequel:10', { message: 'Ajoutée à À regarder' });
   });
 
@@ -107,6 +113,7 @@ describe('boutons', () => {
     fakes.addToList.mockResolvedValue(synced('skipped'));
     await handleSequelButton('synckai-sequel:10', 0);
     expect(states()[10]).toBeUndefined();
+    expect(listed()).toEqual([[10, 'PLANNING']]);
     expect(fake.local.peek(STORAGE_KEYS.sequelsState)).toMatchObject({ known: [10, 11, 12] });
     expect(fakes.update).toHaveBeenCalledWith('synckai-sequel:10', { message: 'Déjà dans ta liste' });
   });
@@ -149,6 +156,12 @@ describe('updateSequels', () => {
     expect(await updateSequels([11], 'dismissed')).toBe(true);
     expect(await updateSequels([12], 'removed')).toBe(true);
     expect(states()).toEqual({ 10: 'seen', 11: 'dismissed' });
+  });
+
+  it('listed : enregistrement retiré, fiche dans listed (À regarder)', async () => {
+    expect(await updateSequels([11], 'listed')).toBe(true);
+    expect(states()).toEqual({ 10: 'new', 12: 'dismissed' });
+    expect(listed()).toEqual([[11, 'PLANNING']]);
   });
 
   it('restore avec ids : dismissed → seen, les autres états inchangés', async () => {

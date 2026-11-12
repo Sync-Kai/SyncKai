@@ -275,10 +275,12 @@ describe('panneau latéral (bout en bout)', () => {
     await page.locator('[data-focus="agenda-view-announced"]').click();
     await page.waitForSelector('[data-sequel-group]');
     const groups = await page.$$eval('[data-sequel-group]', (els) => els.map((el) => ({ key: el.getAttribute('data-sequel-group'), ids: [...el.querySelectorAll('[data-sequel]')].map((row) => row.getAttribute('data-sequel')) })));
-    // Quatre suites réparties en groupes ; chacune apparaît une seule fois
+    // Quatre suites et une série de la liste réparties en groupes ; chacune apparaît une seule fois
     expect(groups.length).toBeGreaterThanOrEqual(2);
-    expect(groups.flatMap((g) => g.ids).sort()).toEqual(['900001', '900002', '900003', '900004']);
+    expect(groups.flatMap((g) => g.ids).sort()).toEqual(['900001', '900002', '900003', '900004', '900005']);
     expect(await page.$eval('[data-sequel="900003"]', (row) => row.textContent)).toContain(fr('sequel.dateUnknown'));
+    expect(await page.$eval('[data-sequel="900005"]', (row) => row.textContent)).toContain(fr('sequel.listedAs', { status: fr('page.status.PLANNING') }));
+    expect(await page.$('[data-focus="sequel-add-900005"]')).toBeNull();
 
     await page.locator('[data-focus="agenda-view-week"]').click();
     await page.waitForSelector('[data-sequel-group]', { hidden: true });

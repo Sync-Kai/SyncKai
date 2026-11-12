@@ -6,11 +6,16 @@ import {
   isSequelCheckResult,
   groupSequelsByPeriod,
   isSequelStore,
+  listedEntries,
   mergeSequelPass,
   sequelCandidates,
   setSequelStates,
   visibleSequels,
+  dropListed,
+  listSequels,
+  listedQualifies,
   type InLists,
+  type ListedEntry,
   type RelationEdge,
   type SequelRecord,
   type SequelSnapshot,
@@ -47,6 +52,11 @@ function record(id: number, state: SequelRecord['state'] = 'new', firstSeenAt = 
 
 function candidate(id: number, services: SourceSeries['services'] = ['anilist'], overrides: Partial<SequelSnapshot> = {}): { snapshot: SequelSnapshot; services: SourceSeries['services'] } {
   return { snapshot: snapshot(id, overrides), services: [...services] };
+}
+
+function listed(id: number, overrides: Partial<ListedEntry> = {}): ListedEntry {
+  const { sourceId: _sourceId, sourceTitle: _sourceTitle, ...rest } = snapshot(id);
+  return { ...rest, listStatus: 'PLANNING', ...overrides };
 }
 
 function store(overrides: Partial<SequelStore> = {}): SequelStore {
@@ -113,15 +123,40 @@ describe('mergeSequelPass', () => {
     expect(next.seeded).toEqual(['anilist', 'mal']);
   });
 
-  it('ne renotifie jamais un id connu dont l’enregistrement a disparu', () => {
+  it('un id connu sans enregistrement, de nouveau candidat (retiré de la liste), revient vu, le plus ancien, sans notification', () => {
     const start = store({ records: [record(2)], known: [2], seeded: ['anilist'], lastCheck: 1 });
     const pruned = mergeSequelPass(start, [], ['anilist'], 2000).store;
     expect(pruned.records).toEqual([]);
     expect(pruned.known).toEqual([2]);
     const again = mergeSequelPass(pruned, [candidate(2)], ['anilist'], 3000);
     expect(again.toNotify).toEqual([]);
-    expect(again.store.records).toEqual([]);
+    expect(again.store.records).toEqual([{ snapshot: snapshot(2), state: 'seen', firstSeenAt: 0 }]);
     expect(again.store.known).toEqual([2]);
+  });
+
+  it('une suite masquée reste masquée tant qu’elle est candidate', () => {
+    const start = store({ records: [record(2, 'dismissed', 500)], known: [2], seeded: ['anilist'], lastCheck: 1 });
+    const { store: next, toNotify } = mergeSequelPass(start, [candidate(2)], ['anilist'], 2000);
+    expect(toNotify).toEqual([]);
+    expect(next.records).toEqual([{ snapshot: snapshot(2), state: 'dismissed', firstSeenAt: 500 }]);
+  });
+
+  it('plafond atteint : un id connu recréé part en premier, sans évincer d’enregistrement (nouveau, vu ou masqué)', () => {
+    const records: SequelRecord[] = [];
+    for (let id = 1; id <= MAX_SEQUEL_RECORDS; id++) records.push(record(id, id <= 2 ? 'dismissed' : id % 2 ? 'seen' : 'new', 1000 + id));
+    const start = store({ records, known: [...records.map((r) => r.snapshot.id), 9000], seeded: ['anilist'], lastCheck: 1 });
+    const { store: next, toNotify } = mergeSequelPass(start, [...records.map((r) => candidate(r.snapshot.id)), candidate(9000)], ['anilist'], 5000);
+    expect(toNotify).toEqual([]);
+    expect(next.records).toEqual(records);
+  });
+
+  it('enregistre les séries de la liste données par la passe, à la place des précédentes, par date', () => {
+    const old = listed(7);
+    const start = store({ records: [], known: [], seeded: ['anilist'], lastCheck: 1, listed: [old] });
+    const later = listed(8, { year: 2027, month: 4 });
+    const sooner = listed(9, { year: 2027, month: 1, listStatus: 'CURRENT' });
+    const { store: next } = mergeSequelPass(start, [], ['anilist'], 2000, [later, sooner]);
+    expect(next.listed).toEqual([sooner, later]);
   });
 
   it('rafraîchit l’instantané sans changer l’état ni notifier', () => {
@@ -212,6 +247,30 @@ describe('setSequelStates', () => {
   });
 });
 
+describe('listSequels / dropListed', () => {
+  it('ajoutée à la liste : enregistrement retiré, fiche dans listed avec son statut, known gardé', () => {
+    const base = store({ records: [record(1), record(2)], known: [1, 2], listed: [listed(5, { year: 2028 })] });
+    const next = listSequels(base, [{ id: 1, listStatus: 'PLANNING' }, { id: 99, listStatus: 'PLANNING' }]);
+    expect(next.records.map((r) => r.snapshot.id)).toEqual([2]);
+    expect(next.known).toEqual([1, 2]);
+    expect(next.listed).toEqual([listed(1), listed(5, { year: 2028 })]);
+    expect(listSequels(next, [{ id: 2, listStatus: 'CURRENT' }]).listed?.map((e) => [e.id, e.listStatus])).toEqual([[1, 'PLANNING'], [2, 'CURRENT'], [5, 'PLANNING']]);
+  });
+
+  it('dropListed retire les fiches données de listed seulement', () => {
+    const base = store({ records: [record(1)], known: [1], listed: [listed(5), listed(6)] });
+    expect(dropListed(base, [5])).toEqual({ ...base, listed: [listed(6)] });
+  });
+
+  it('listedQualifies : À regarder à venir ou en diffusion ; En cours à venir seulement', () => {
+    expect(listedQualifies('PLANNING', 'NOT_YET_RELEASED')).toBe(true);
+    expect(listedQualifies('PLANNING', 'RELEASING')).toBe(true);
+    expect(listedQualifies('CURRENT', 'NOT_YET_RELEASED')).toBe(true);
+    expect(listedQualifies('CURRENT', 'RELEASING')).toBe(false);
+    expect(listedQualifies('COMPLETED', 'NOT_YET_RELEASED')).toBe(false);
+  });
+});
+
 describe('isSequelStore', () => {
   const valid = (): unknown => JSON.parse(JSON.stringify(store({ records: [record(1)], known: [1], seeded: ['anilist', 'mal'], lastCheck: 5 })));
 
@@ -231,6 +290,23 @@ describe('isSequelStore', () => {
     badSeeded.seeded.push('kitsu');
     expect(isSequelStore(badSeeded)).toBe(false);
     expect(isSequelStore(null)).toBe(false);
+  });
+
+  it('accepte un store sans listed (version précédente) : listed lu vide', () => {
+    const value = valid();
+    expect(isSequelStore(value)).toBe(true);
+    expect(isSequelStore(value) && listedEntries(value)).toEqual([]);
+  });
+
+  it('listed illisible : le store reste valide (known gardé), listed lu vide ou sans ses fiches illisibles', () => {
+    for (const bad of ['x', [{ id: 'x' }], { 0: listed(1) }]) {
+      const value = { ...(valid() as object), listed: bad };
+      expect(isSequelStore(value)).toBe(true);
+      expect(isSequelStore(value) && value.known).toEqual([1]);
+      expect(isSequelStore(value) && listedEntries(value)).toEqual([]);
+    }
+    const mixed = { ...(valid() as object), listed: [listed(1), { ...listed(2), siteUrl: 'javascript:alert(1)' }, { ...listed(3), listStatus: 'COMPLETED' }] };
+    expect(isSequelStore(mixed) && listedEntries(mixed)).toEqual([listed(1)]);
   });
 
   it('rejette un siteUrl qui n’est pas une URL https://anilist.co', () => {
@@ -261,26 +337,32 @@ describe('groupSequelsByPeriod', () => {
   const none = { year: null, month: null, day: null, season: null, seasonYear: null } as const;
 
   it('une date exacte ou un mois rejoint sa saison, comme une saison seule', () => {
-    const groups = groupSequelsByPeriod([
-      rec(1, { ...none, year: 2027, month: 1, day: 10 }),
-      rec(2, { ...none, season: 'WINTER', seasonYear: 2027 }),
-      rec(3, { ...none, year: 2027, month: 3 }),
-      rec(4, { ...none, year: 2026, month: 12, day: 31 }),
-    ]);
-    expect(groups.map((g) => [g.key, g.season, g.year, g.records.map((r) => r.snapshot.id)])).toEqual([
+    const groups = groupSequelsByPeriod(
+      [
+        rec(1, { ...none, year: 2027, month: 1, day: 10 }),
+        rec(2, { ...none, season: 'WINTER', seasonYear: 2027 }),
+        rec(3, { ...none, year: 2027, month: 3 }),
+        rec(4, { ...none, year: 2026, month: 12, day: 31 }),
+      ],
+      (r) => r.snapshot,
+    );
+    expect(groups.map((g) => [g.key, g.season, g.year, g.items.map((r) => r.snapshot.id)])).toEqual([
       ['2026-FALL', 'FALL', 2026, [4]],
       ['2027-WINTER', 'WINTER', 2027, [1, 3, 2]],
     ]);
   });
 
   it('saisons dans l’ordre de l’année, l’année seule après ses saisons, l’inconnu en dernier', () => {
-    const groups = groupSequelsByPeriod([
-      rec(1, none),
-      rec(2, { ...none, year: 2027 }),
-      rec(3, { ...none, season: 'FALL', seasonYear: 2027 }),
-      rec(4, { ...none, year: 2028, month: 4, day: 2 }),
-      rec(5, { ...none, season: 'SUMMER', seasonYear: 2027 }),
-    ]);
+    const groups = groupSequelsByPeriod(
+      [
+        rec(1, none),
+        rec(2, { ...none, year: 2027 }),
+        rec(3, { ...none, season: 'FALL', seasonYear: 2027 }),
+        rec(4, { ...none, year: 2028, month: 4, day: 2 }),
+        rec(5, { ...none, season: 'SUMMER', seasonYear: 2027 }),
+      ],
+      (r) => r.snapshot,
+    );
     expect(groups.map((g) => [g.key, g.season, g.year])).toEqual([
       ['2027-SUMMER', 'SUMMER', 2027],
       ['2027-FALL', 'FALL', 2027],
@@ -291,16 +373,25 @@ describe('groupSequelsByPeriod', () => {
   });
 
   it('dans un groupe : par date, puis par titre', () => {
-    const groups = groupSequelsByPeriod([
-      rec(1, { ...none, year: 2027, month: 2, day: 5 }, 'B'),
-      rec(2, { ...none, year: 2027, month: 1, day: 20 }, 'Z'),
-      rec(3, { ...none, year: 2027, month: 1, day: 20 }, 'A'),
-    ]);
-    expect(groups[0]?.records.map((r) => r.snapshot.id)).toEqual([3, 2, 1]);
+    const groups = groupSequelsByPeriod(
+      [
+        rec(1, { ...none, year: 2027, month: 2, day: 5 }, 'B'),
+        rec(2, { ...none, year: 2027, month: 1, day: 20 }, 'Z'),
+        rec(3, { ...none, year: 2027, month: 1, day: 20 }, 'A'),
+      ],
+      (r) => r.snapshot,
+    );
+    expect(groups[0]?.items.map((r) => r.snapshot.id)).toEqual([3, 2, 1]);
   });
 
   it('aucune suite : aucun groupe', () => {
-    expect(groupSequelsByPeriod([])).toEqual([]);
+    expect(groupSequelsByPeriod<SequelRecord>([], (r) => r.snapshot)).toEqual([]);
+  });
+
+  it('groupe ensemble les suites et les séries de la liste', () => {
+    const items: (SequelRecord | ListedEntry)[] = [rec(1, { ...none, year: 2027, month: 2 }), listed(2, { ...none, year: 2027, month: 1, day: 5 }), listed(3, { ...none, season: 'SPRING', seasonYear: 2027 })];
+    const groups = groupSequelsByPeriod(items, (item) => ('snapshot' in item ? item.snapshot : item));
+    expect(groups.map((g) => [g.key, g.items.map((item) => ('snapshot' in item ? item.snapshot.id : item.id))])).toEqual([['2027-WINTER', [2, 1]], ['2027-SPRING', [3]]]);
   });
 });
 

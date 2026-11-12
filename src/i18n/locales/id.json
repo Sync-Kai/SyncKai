@@ -791,6 +791,7 @@
   "sequel.dismissLabel": "Sembunyikan {title}",
   "sequel.heading": "Sekuel yang diumumkan",
   "sequel.inList": "Sudah ada di daftarmu",
+  "sequel.listedAs": "Di daftarmu · {status}",
   "sequel.more_other": "{count} sekuel lagi diumumkan",
   "sequel.new": "Baru",
   "sequel.notOnMal": "belum ada di MyAnimeList",

@@ -851,6 +851,7 @@
   "sequel.dismissLabel": "Dölj {title}",
   "sequel.heading": "Annonserade uppföljare",
   "sequel.inList": "Redan i din lista",
+  "sequel.listedAs": "I din lista · {status}",
   "sequel.more_one": "ytterligare {count} annonserad uppföljare",
   "sequel.more_other": "ytterligare {count} annonserade uppföljare",
   "sequel.new": "Ny",

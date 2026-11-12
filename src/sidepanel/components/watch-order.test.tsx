@@ -315,12 +315,12 @@ describe('Ordre de visionnage : suites annoncées (badge et « + À regarder »)
     expect(container.querySelector('[data-focus="relation-add-20"]')).toBeNull();
   });
 
-  it('ajout réussi : UPDATE_SEQUELS removed, « Ajoutée à À regarder », le bouton disparaît', async () => {
+  it('ajout réussi : UPDATE_SEQUELS listed, « Ajoutée à À regarder », le bouton disparaît', async () => {
     addToPlanning.mockResolvedValue(synced([{ service: 'anilist', status: 'updated' }]));
     await showSequel({});
     await click('[data-focus="relation-add-20"]');
     expect(addToPlanning).toHaveBeenCalledWith({ mediaId: 20, malId: 200 });
-    expect(updateSequels).toHaveBeenCalledWith([20], 'removed');
+    expect(updateSequels).toHaveBeenCalledWith([20], 'listed');
     expect(container.textContent).toContain(t('sequel.added'));
     expect(container.querySelector('[data-focus="relation-add-20"]')).toBeNull();
   });

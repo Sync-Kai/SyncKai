@@ -1,21 +1,24 @@
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import { normalizeSettings, SETTINGS_STORAGE_KEY } from '../shared/settings';
-import { isSequelStore, visibleSequels, type SequelRecord } from '../shared/sequels';
+import { isSequelStore, listedEntries, visibleSequels, type ListedEntry, type SequelRecord } from '../shared/sequels';
 import { createStore, type ReadonlyStore } from './state';
 
 // Suites annoncées vues par une page (popup, panneau) : lecture de `sequels:state` et suivi de storage.onChanged pour
-// cette clé seulement (une page peut écouter ; le service worker, non). Publie les suites visibles, la plus récente d'abord ;
-// rien quand « Alertes de suites » est coupé (réglage suivi aussi : popup, rail, panneau et Agenda se vident ensemble).
+// cette clé seulement (une page peut écouter ; le service worker, non). Publie les suites visibles, la plus récente d'abord,
+// et les séries à venir des listes (« Annoncées » de l'Agenda) ; rien quand « Alertes de suites » est coupé (réglage suivi aussi : popup, rail, panneau et Agenda se vident ensemble).
 
 export interface SequelsStore extends ReadonlyStore<SequelRecord[]> {
   /** Ids de toutes les suites enregistrées, écartées comprises : une suite écartée n'est elle aussi dans aucune liste */
   readonly unlisted: ReadonlyStore<ReadonlySet<number>>;
+  /** Séries des listes à venir (À regarder, En cours pas encore sortie), par date */
+  readonly listed: ReadonlyStore<ListedEntry[]>;
   dispose(): void;
 }
 
 export function createSequelsStore(): SequelsStore {
   const store = createStore<SequelRecord[]>([]);
   const unlisted = createStore<ReadonlySet<number>>(new Set());
+  const listed = createStore<ListedEntry[]>([]);
   let disposed = false;
   let raw: unknown;
   let enabled = true;
@@ -26,6 +29,7 @@ export function createSequelsStore(): SequelsStore {
     const valid = enabled && isSequelStore(raw) ? raw : null;
     store.set(valid ? visibleSequels(valid) : []);
     unlisted.set(new Set(valid?.records.map((record) => record.snapshot.id)));
+    listed.set(valid ? listedEntries(valid) : []);
   };
 
   const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string): void => {
@@ -47,6 +51,7 @@ export function createSequelsStore(): SequelsStore {
     get: store.get,
     subscribe: store.subscribe,
     unlisted,
+    listed,
     dispose() {
       disposed = true;
       chrome.storage.onChanged.removeListener(onChanged);

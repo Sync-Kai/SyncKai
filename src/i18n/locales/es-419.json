@@ -851,6 +851,7 @@
   "sequel.dismissLabel": "Ocultar {title}",
   "sequel.heading": "Secuelas anunciadas",
   "sequel.inList": "Ya está en tu lista",
+  "sequel.listedAs": "En tu lista · {status}",
   "sequel.more_one": "{count} secuela anunciada más",
   "sequel.more_other": "{count} secuelas anunciadas más",
   "sequel.new": "Nueva",

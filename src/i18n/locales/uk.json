@@ -971,6 +971,7 @@
   "sequel.dismissLabel": "Сховати «{title}»",
   "sequel.heading": "Анонсовані сиквели",
   "sequel.inList": "Уже у твоєму списку",
+  "sequel.listedAs": "У твоєму списку · {status}",
   "sequel.more_one": "ще {count} анонсований сиквел",
   "sequel.more_few": "ще {count} анонсовані сиквели",
   "sequel.more_many": "ще {count} анонсованих сиквелів",

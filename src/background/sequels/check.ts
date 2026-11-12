@@ -13,7 +13,7 @@ import { notificationsBlocked } from '../../browser/notifications';
 import { fetchSequelRelations, readSourceSeries } from './fetch';
 
 // Vérification quotidienne des suites, lancée par l'alarme horaire des alertes (airing.ts) : listes complètes des
-// services connectés, relations AniList, fusion dans `sequels:state`, notification des suites repérées sur un service
+// services connectés, relations AniList, fusion dans `sequels:state` (avec les séries à venir des listes), notification des suites repérées sur un service
 // déjà amorcé. La première passe d'un service enregistre sans notifier.
 
 export const SEQUEL_CHECK_INTERVAL_MS = 24 * 3_600_000;
@@ -79,7 +79,7 @@ async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<
   }
 
   // Toute lecture en échec (liste, relations) lève : la passe est abandonnée entière, aucun service marqué amorcé
-  const { sources, inLists } = await readSourceSeries(services);
+  const { sources, inLists, listed } = await readSourceSeries(services);
   const relations = await fetchSequelRelations(sources.map((source) => source.id));
   const candidates = sequelCandidates(
     // Titre de la série source : AniList seulement (les listes MAL ne donnent que des ids)
@@ -90,7 +90,7 @@ async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<
   // Store relu sous verrou (le panneau a pu changer des états), même verrou que la déconnexion
   const merged = await withStorageLock(async () => {
     if (!(await sessionsStillOpen(epochs))) return null;
-    const result = mergeSequelPass(await readSequelStore(), candidates, services, now);
+    const result = mergeSequelPass(await readSequelStore(), candidates, services, now, listed);
     await chrome.storage.local.set({ [STORAGE_KEYS.sequelsState]: result.store });
     return result;
   });

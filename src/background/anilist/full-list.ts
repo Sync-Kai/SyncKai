@@ -3,7 +3,7 @@ import { parseAniListCollection } from '../compare/compare-parse';
 import { anilistQuery } from './client';
 import { getAniListUserId } from './viewer';
 
-// Liste AniList complète de l'utilisateur (comparaison des services, import de l'historique).
+// Liste AniList complète de l'utilisateur (comparaison des services, import de l'historique, séries à venir des alertes de suite).
 
 /** 500 = maximum de `perChunk` ; chunk + hasNextChunk : listes de plus de 500 entrées */
 const ANILIST_CHUNK = 500;
@@ -24,6 +24,12 @@ const ANILIST_FULL_LIST_QUERY = /* GraphQL */ `
             idMal
             title { userPreferred romaji english }
             coverImage { medium }
+            format
+            status
+            siteUrl
+            startDate { year month day }
+            season
+            seasonYear
           }
         }
       }

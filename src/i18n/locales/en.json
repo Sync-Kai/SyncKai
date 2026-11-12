@@ -851,6 +851,7 @@
   "sequel.dismissLabel": "Hide {title}",
   "sequel.heading": "Announced sequels",
   "sequel.inList": "Already in your list",
+  "sequel.listedAs": "In your list · {status}",
   "sequel.more_one": "{count} more announced sequel",
   "sequel.more_other": "{count} more announced sequels",
   "sequel.new": "New",

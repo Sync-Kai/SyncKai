@@ -791,6 +791,7 @@
   "sequel.dismissLabel": "Ẩn {title}",
   "sequel.heading": "Phần tiếp theo đã công bố",
   "sequel.inList": "Đã có trong danh sách của bạn",
+  "sequel.listedAs": "Trong danh sách của bạn · {status}",
   "sequel.more_other": "còn {count} phần tiếp theo đã công bố",
   "sequel.new": "Mới",
   "sequel.notOnMal": "chưa có trên MyAnimeList",

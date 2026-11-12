@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { AniListListEntry, MalListEntry } from '../../shared/compare';
-import { isSequelStore, type SequelStore } from '../../shared/sequels';
+import { isSequelStore, listedEntries, listSequels, type ReleaseInfo, type SequelStore } from '../../shared/sequels';
 import { ApiError } from '../errors';
 import { installFakeChrome } from '../../test/fake-chrome';
 
@@ -58,7 +58,10 @@ const HOUR_MS = 3_600_000;
 const NOW = Date.UTC(2026, 10, 9, 12);
 const SEED = { [STORAGE_KEYS.anilistToken]: { accessToken: 'a', expiresAt: Number.MAX_SAFE_INTEGER }, settings: { sequelAlerts: true, sequelNotifications: true } };
 
-const ani = (mediaId: number): AniListListEntry => ({ mediaId, malId: null, title: `Série ${mediaId}`, coverUrl: null, status: 'COMPLETED', progress: 12, score: null, repeat: 0 });
+const ani = (mediaId: number): AniListListEntry => ({ mediaId, malId: null, title: `Série ${mediaId}`, coverUrl: null, status: 'COMPLETED', progress: 12, score: null, repeat: 0, release: null });
+const RELEASE: ReleaseInfo = { format: 'TV', status: 'NOT_YET_RELEASED', siteUrl: 'https://anilist.co/anime/10', year: 2027, month: 1, day: 10, season: null, seasonYear: null };
+/** Suite 10 dans la liste AniList, À regarder */
+const planned = (): AniListListEntry => ({ ...ani(10), title: 'Suite 10', status: 'PLANNING', progress: 0, release: RELEASE });
 const store = (): SequelStore => {
   const value: unknown = fake.local.peek(STORAGE_KEYS.sequelsState);
   if (!isSequelStore(value)) throw new Error('store absent');
@@ -97,6 +100,31 @@ describe('checkSequels', () => {
     expect(store()).toMatchObject({ lastCheck: NOW, seeded: ['anilist'] });
     expect(result).toEqual({ checkedAt: NOW, found: 1, notified: 0, skipped: null, error: null });
     expect(fake.local.peek(STORAGE_KEYS.sequelsLastResult)).toEqual(result);
+  });
+
+  it('enregistre les séries de la liste à venir lues pendant la passe', async () => {
+    fakes.anilist = [ani(1), planned()];
+    await checkSequels(NOW);
+    expect(listedEntries(store())).toEqual([{ id: 10, idMal: null, title: 'Suite 10', coverUrl: null, ...RELEASE, listStatus: 'PLANNING' }]);
+  });
+
+  it('suite ajoutée (listed), puis retirée de la liste : la passe suivante la remontre comme suite vue, sans notification', async () => {
+    fakes.sequels.set(1, [{ id: 10, idMal: null }]);
+    await seed();
+    fakes.create.mockClear();
+    expect(sequelIds()).toEqual([10]);
+    // « + À regarder » : la suite passe dans listed et rejoint la liste AniList
+    await chrome.storage.local.set({ [STORAGE_KEYS.sequelsState]: listSequels(store(), [{ id: 10, listStatus: 'PLANNING' }]) });
+    fakes.anilist = [ani(1), planned()];
+    await checkSequels(NOW + 25 * HOUR_MS);
+    expect(sequelIds()).toEqual([]);
+    expect(listedEntries(store()).map((entry) => entry.id)).toEqual([10]);
+    // Retirée de la liste AniList : de nouveau candidate
+    fakes.anilist = [ani(1)];
+    expect(await checkSequels(NOW + 50 * HOUR_MS)).toMatchObject({ found: 0, notified: 0 });
+    expect(store().records).toEqual([expect.objectContaining({ state: 'seen', firstSeenAt: 0, snapshot: expect.objectContaining({ id: 10 }) })]);
+    expect(listedEntries(store())).toEqual([]);
+    expect(fakes.create).not.toHaveBeenCalled();
   });
 
   it('25 h plus tard : une suite → une notification avec boutons ; trois → une notification groupée', async () => {

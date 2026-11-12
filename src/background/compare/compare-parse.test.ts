@@ -17,8 +17,23 @@ describe('parseAniListCollection', () => {
       ],
     });
     expect(entries).toEqual([
-      { mediaId: 1, malId: 101, title: 'Frieren', coverUrl: 'https://s4.anilist.co/a.jpg', status: 'REPEATING', progress: 3, score: null, repeat: 1 },
-      { mediaId: 3, malId: null, title: 'Romaji', coverUrl: null, status: 'PLANNING', progress: 0, score: 85, repeat: 0 },
+      { mediaId: 1, malId: 101, title: 'Frieren', coverUrl: 'https://s4.anilist.co/a.jpg', status: 'REPEATING', progress: 3, score: null, repeat: 1, release: null },
+      { mediaId: 3, malId: null, title: 'Romaji', coverUrl: null, status: 'PLANNING', progress: 0, score: 85, repeat: 0, release: null },
+    ]);
+  });
+
+  it('release : fiche TV / TV_SHORT / ONA / MOVIE à venir ou en diffusion, sinon null ; siteUrl validée', () => {
+    const media = (id: number, patch: Record<string, unknown>): unknown => ({
+      status: 'PLANNING', progress: 0, media: { id, title: { userPreferred: `A${id}` }, format: 'TV', status: 'NOT_YET_RELEASED', siteUrl: `https://anilist.co/anime/${id}`, startDate: { year: 2027, month: 4, day: null }, season: 'SPRING', seasonYear: 2027, ...patch },
+    });
+    const entries = parseAniListCollection({
+      lists: [{ entries: [media(1, {}), media(2, { siteUrl: 'javascript:alert(1)', status: 'RELEASING', season: 'BOGUS' }), media(3, { format: 'OVA' }), media(4, { status: 'FINISHED' })] }],
+    });
+    expect(entries.map((entry) => entry.release)).toEqual([
+      { format: 'TV', status: 'NOT_YET_RELEASED', siteUrl: 'https://anilist.co/anime/1', year: 2027, month: 4, day: null, season: 'SPRING', seasonYear: 2027 },
+      { format: 'TV', status: 'RELEASING', siteUrl: 'https://anilist.co/anime/2', year: 2027, month: 4, day: null, season: null, seasonYear: 2027 },
+      null,
+      null,
     ]);
   });
 });

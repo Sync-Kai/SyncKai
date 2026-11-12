@@ -791,6 +791,7 @@
   "sequel.dismissLabel": "{title}を非表示",
   "sequel.heading": "発表済みの続編",
   "sequel.inList": "すでにリストにあります",
+  "sequel.listedAs": "リスト登録済み · {status}",
   "sequel.more_other": "ほか{count}件の発表済み続編",
   "sequel.new": "新着",
   "sequel.notOnMal": "MyAnimeListにはまだありません",

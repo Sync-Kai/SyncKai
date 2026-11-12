@@ -139,7 +139,7 @@ describe('SequelsSection', () => {
     expect(document.activeElement?.closest('[data-sequel]')).not.toBeNull();
   });
 
-  it('+ Plan to watch : ADD_TO_LIST puis UPDATE_SEQUELS removed ; la ligne reste avec « Added to Plan to watch » jusqu’à la fermeture', async () => {
+  it('+ Plan to watch : ADD_TO_LIST puis UPDATE_SEQUELS listed ; la ligne reste avec « Added to Plan to watch » jusqu’à la fermeture', async () => {
     await mount([record(1)]);
     worker.send.mockImplementation(async (type) => {
       if (type === 'ADD_TO_LIST') return syncedWith('updated', 'updated');
@@ -148,7 +148,7 @@ describe('SequelsSection', () => {
     });
     expect($('[data-focus="sequel-add-1"]')?.getAttribute('aria-label')).toBe('Add Suite 1 to Plan to watch');
     await click('[data-focus="sequel-add-1"]');
-    expect(actions()).toEqual([['ADD_TO_LIST', { mediaId: 1, malId: 1001, status: 'PLANNING' }], ['UPDATE_SEQUELS', { ids: [1], state: 'removed' }]]);
+    expect(actions()).toEqual([['ADD_TO_LIST', { mediaId: 1, malId: 1001, status: 'PLANNING' }], ['UPDATE_SEQUELS', { ids: [1], state: 'listed' }]]);
     expect($('[data-sequel="1"]')?.textContent).toContain('Added to Plan to watch');
     expect($('[data-focus="sequel-add-1"]')).toBeNull();
   });
@@ -190,7 +190,7 @@ describe('SequelsSection', () => {
       return true;
     });
     await click('[data-focus="sequel-add-1"]');
-    expect(worker.send).toHaveBeenCalledWith('UPDATE_SEQUELS', { ids: [1], state: 'removed' });
+    expect(worker.send).toHaveBeenCalledWith('UPDATE_SEQUELS', { ids: [1], state: 'listed' });
     expect($('[data-sequel="1"]')?.textContent).toContain('not on MyAnimeList yet');
     expect($('[data-focus="sequel-add-1"]')).toBeNull();
   });
@@ -230,7 +230,7 @@ describe('SequelsSection', () => {
       return true;
     });
     await click('[data-focus="sequel-add-1"]');
-    expect(worker.send).toHaveBeenCalledWith('UPDATE_SEQUELS', { ids: [1], state: 'removed' });
+    expect(worker.send).toHaveBeenCalledWith('UPDATE_SEQUELS', { ids: [1], state: 'listed' });
     expect($('[data-sequel="1"]')?.textContent).toContain('Already in your list');
   });
 });

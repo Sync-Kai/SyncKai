@@ -913,6 +913,7 @@
   "sequel.dismissLabel": "Skrýt {title}",
   "sequel.heading": "Oznámená pokračování",
   "sequel.inList": "Už je v tvém seznamu",
+  "sequel.listedAs": "V tvém seznamu · {status}",
   "sequel.more_one": "další {count} oznámené pokračování",
   "sequel.more_few": "další {count} oznámená pokračování",
   "sequel.more_other": "dalších {count} oznámených pokračování",

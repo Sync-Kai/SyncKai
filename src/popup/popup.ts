@@ -713,6 +713,7 @@ mountPopupApp(getRoot(), {
   agenda: {
     state: agendaState,
     sequels: sequelsStore,
+    listed: sequelsStore.listed,
     onStep: (delta) => agenda?.step(delta),
     onChoose: (week) => agenda?.choose(week),
     onRetry: () => void agenda?.load(true),

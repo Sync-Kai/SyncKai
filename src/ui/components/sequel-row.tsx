@@ -1,8 +1,9 @@
 // Ligne d'une suite annoncée (Activité du popup, Agenda du panneau) : jaquette 32 × 44, titre, « ● date · format »
 // (point lavande, gris quand la date est inconnue), « + À regarder » et × (masquer). Jaquette et titre ouvrent la fiche de
-// la suite. Aucun accès au service worker : les actions et le résultat viennent de l'écran qui l'affiche.
-import { getLocale, t } from '../../i18n';
-import type { SequelRecord } from '../../shared/sequels';
+// la suite. Série d'une liste (`listStatus`, « Annoncées ») : « Dans ta liste · statut » à la place des boutons. Aucun accès au
+// service worker : les actions et le résultat viennent de l'écran qui l'affiche.
+import { getLocale, t, type MessageKey } from '../../i18n';
+import type { ListedStatus, SequelDisplay } from '../../shared/sequels';
 import { formatSequelDate } from '../../shared/sequel-date';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
@@ -13,7 +14,7 @@ import { Cover } from './cover';
 import { IconButton } from './icon-button';
 
 export interface SequelRowProps {
-  record: SequelRecord;
+  record: { snapshot: SequelDisplay };
   onAdd: () => void;
   onDismiss: () => void;
   /** Ajout en cours */
@@ -24,15 +25,17 @@ export interface SequelRowProps {
   showNew?: boolean;
   /** Services connectés : MyAnimeList seul et suite sans idMal = rien à ajouter (mention, sans bouton) */
   connected?: readonly TrackerId[];
+  /** Série d'une liste de l'utilisateur : mention de son statut, ni bouton ni × */
+  listStatus?: ListedStatus;
 }
 
 const FORMAT_KEYS = { TV_SHORT: 'review.format.tvShort', MOVIE: 'review.format.movie' } as const;
 
-function formatLabel(format: SequelRecord['snapshot']['format']): string {
+function formatLabel(format: SequelDisplay['format']): string {
   return format === 'TV_SHORT' || format === 'MOVIE' ? t(FORMAT_KEYS[format]) : format;
 }
 
-export function SequelRow({ record, onAdd, onDismiss, busy, outcome, showNew = false, connected = ['anilist'] }: SequelRowProps) {
+export function SequelRow({ record, onAdd, onDismiss, busy, outcome, showNew = false, connected = ['anilist'], listStatus }: SequelRowProps) {
   const { snapshot } = record;
   const result = outcome ? sequelAddResult(outcome, t('error.unexpectedAdd')) : null;
   const unaddable = noMalEntry(connected, snapshot.idMal);
@@ -59,16 +62,17 @@ export function SequelRow({ record, onAdd, onDismiss, busy, outcome, showNew = f
           <span class={`size-1.5 shrink-0 rounded-pill ${dated ? 'bg-lavender' : 'bg-muted'}`} aria-hidden="true" data-sequel-dot="" />
           <span class="line-clamp-2 break-words">{`${formatSequelDate(snapshot, getLocale())} · ${formatLabel(snapshot.format)}`}</span>
         </span>
-        {ended && <span class="text-secondary font-bold text-lavender">{t(sequelEndedKey(result))}</span>}
-        {!ended && unaddable && <span class="text-secondary font-bold text-lavender">{t('sequel.notOnMal')}</span>}
+        {listStatus !== undefined && <span class="text-secondary font-bold text-lavender">{t('sequel.listedAs', { status: t(`page.status.${listStatus}` satisfies MessageKey) })}</span>}
+        {listStatus === undefined && ended && <span class="text-secondary font-bold text-lavender">{t(sequelEndedKey(result))}</span>}
+        {listStatus === undefined && !ended && unaddable && <span class="text-secondary font-bold text-lavender">{t('sequel.notOnMal')}</span>}
         {result?.kind === 'failed' && <span class="line-clamp-2 text-secondary font-bold text-danger" title={result.message}>{result.message}</span>}
       </span>
-      {!ended && !unaddable && (
+      {listStatus === undefined && !ended && !unaddable && (
         <Button size="sm" busy={busy} ariaLabel={t('sequel.addLabel', { title: snapshot.title })} focusKey={`sequel-add-${snapshot.id}`} onClick={onAdd}>
           {result?.kind === 'failed' ? t('common.retry') : t('sequel.add')}
         </Button>
       )}
-      <IconButton icon="close" label={t('sequel.dismissLabel', { title: snapshot.title })} focusKey={`sequel-dismiss-${snapshot.id}`} onClick={onDismiss} />
+      {listStatus === undefined && <IconButton icon="close" label={t('sequel.dismissLabel', { title: snapshot.title })} focusKey={`sequel-dismiss-${snapshot.id}`} onClick={onDismiss} />}
     </li>
   );
 }

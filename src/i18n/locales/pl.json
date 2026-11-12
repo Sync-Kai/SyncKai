@@ -971,6 +971,7 @@
   "sequel.dismissLabel": "Ukryj {title}",
   "sequel.heading": "Zapowiedziane kontynuacje",
   "sequel.inList": "Już na Twojej liście",
+  "sequel.listedAs": "Na Twojej liście · {status}",
   "sequel.more_one": "jeszcze {count} zapowiedziana kontynuacja",
   "sequel.more_few": "jeszcze {count} zapowiedziane kontynuacje",
   "sequel.more_many": "jeszcze {count} zapowiedzianych kontynuacji",

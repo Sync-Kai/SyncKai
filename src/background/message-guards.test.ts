@@ -411,7 +411,8 @@ describe('isRuntimeMessage, branches négatives', () => {
   it('UPDATE_SEQUELS : ids entiers positifs, état connu ; liste vide seulement pour restore', () => {
     expect(accepts('UPDATE_SEQUELS', { ids: [1, 2], state: 'dismissed' })).toBe(true);
     expect(accepts('UPDATE_SEQUELS', { ids: [], state: 'restore' })).toBe(true);
-    for (const payload of [{ ids: [], state: 'seen' }, { ids: [0], state: 'seen' }, { ids: [1.5], state: 'seen' }, { ids: [1], state: 'new' }, { ids: 1, state: 'seen' }, { ids: Array.from({ length: 201 }, (_, i) => i + 1), state: 'restore' }, null]) {
+    expect(accepts('UPDATE_SEQUELS', { ids: [3], state: 'listed' })).toBe(true);
+    for (const payload of [{ ids: [], state: 'seen' }, { ids: [], state: 'listed' }, { ids: [0], state: 'seen' }, { ids: [1.5], state: 'seen' }, { ids: [1], state: 'new' }, { ids: 1, state: 'seen' }, { ids: Array.from({ length: 201 }, (_, i) => i + 1), state: 'restore' }, null]) {
       expect(accepts('UPDATE_SEQUELS', payload), JSON.stringify(payload)).toBe(false);
     }
   });

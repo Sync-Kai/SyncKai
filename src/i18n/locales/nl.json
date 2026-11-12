@@ -851,6 +851,7 @@
   "sequel.dismissLabel": "{title} verbergen",
   "sequel.heading": "Aangekondigde vervolgen",
   "sequel.inList": "Al in je lijst",
+  "sequel.listedAs": "In je lijst · {status}",
   "sequel.more_one": "nog {count} aangekondigd vervolg",
   "sequel.more_other": "nog {count} aangekondigde vervolgen",
   "sequel.new": "Nieuw",

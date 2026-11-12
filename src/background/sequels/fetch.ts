@@ -1,7 +1,8 @@
 import { isRecord } from '../../shared/guards';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
 import { getExcludedSeries, isEntryExcluded } from '../../shared/exclusions';
-import type { SourceSeries, InLists, RelationEdge } from '../../shared/sequels';
+import { listedQualifies, parseRelease, type InLists, type ListedEntry, type RelationEdge, type SourceSeries } from '../../shared/sequels';
+import type { MalListEntry } from '../../shared/compare';
 import type { TrackerId } from '../../shared/tracker.types';
 import { aniListIdsByMal } from '../anilist/by-mal';
 import { anilistPublicQuery } from '../anilist/client';
@@ -28,6 +29,15 @@ const RELATIONS_QUERY = /* GraphQL */ `
           }
         }
       }
+    }
+  }
+`;
+
+/** Fiches AniList à venir ou en diffusion des entrées MAL (MAL seul : séries de la liste pour « Annoncées ») */
+const LISTED_BY_MAL_QUERY = /* GraphQL */ `
+  query ListedByMal($ids: [Int]) {
+    Page(perPage: 50) {
+      media(idMal_in: $ids, type: ANIME, status_in: [NOT_YET_RELEASED, RELEASING]) { id idMal format status title { userPreferred } coverImage { medium } siteUrl startDate { year month day } season seasonYear }
     }
   }
 `;
@@ -80,12 +90,34 @@ export async function fetchSequelRelations(ids: readonly number[]): Promise<Map<
   return byId;
 }
 
+/** MAL seul : fiche AniList (par idMal, lots de 50, file de fond) des entrées À regarder / En cours retenues pour « Annoncées ». Lève une ApiError. */
+async function listedByMal(mal: readonly MalListEntry[]): Promise<ListedEntry[]> {
+  const statusByMal = new Map(mal.flatMap((entry) => (entry.status === 'PLANNING' || entry.status === 'CURRENT' ? [[entry.malId, entry.status] as const] : [])));
+  const ids = [...statusByMal.keys()];
+  const listed: ListedEntry[] = [];
+  for (let i = 0; i < ids.length; i += RELATIONS_CHUNK) {
+    const { Page } = await anilistPublicQuery(LISTED_BY_MAL_QUERY, isPageData, { ids: ids.slice(i, i + RELATIONS_CHUNK) }, 'background');
+    for (const media of Page.media) {
+      if (!isRecord(media)) continue;
+      const id = num(media.id);
+      const idMal = num(media.idMal);
+      const title = isRecord(media.title) ? str(media.title.userPreferred) : null;
+      const listStatus = idMal === null ? undefined : statusByMal.get(idMal);
+      const release = id === null ? null : parseRelease(media, id);
+      if (id === null || title === null || listStatus === undefined || release === null || !listedQualifies(listStatus, release.status)) continue;
+      listed.push({ id, idMal, title, coverUrl: toSafeImageUrl(isRecord(media.coverImage) ? str(media.coverImage.medium) : null), ...release, listStatus });
+    }
+  }
+  return listed;
+}
+
 /**
  * Séries sources (terminées, en cours, revues) des services donnés, sans les séries exclues, et ids de toutes les
  * entrées de toutes les listes (pour ne jamais proposer une suite déjà suivie). Les séries MAL sont rapprochées de leur
- * fiche AniList par `idMal`. Lève une ApiError si une liste n'a pas pu être lue en entier.
+ * fiche AniList par `idMal`. `listed` : séries des listes à venir pour « Annoncées » (liste AniList si connectée, sinon MAL
+ * par idMal). Lève une ApiError si une liste n'a pas pu être lue en entier.
  */
-export async function readSourceSeries(services: readonly TrackerId[]): Promise<{ sources: SourceSeries[]; inLists: InLists }> {
+export async function readSourceSeries(services: readonly TrackerId[]): Promise<{ sources: SourceSeries[]; inLists: InLists; listed: ListedEntry[] }> {
   const [anilist, mal, excluded] = await Promise.all([
     services.includes('anilist') ? fetchAniListFullList() : Promise.resolve([]),
     services.includes('mal') ? fetchMalFullList() : Promise.resolve([]),
@@ -109,5 +141,8 @@ export async function readSourceSeries(services: readonly TrackerId[]): Promise<
     if (id !== undefined) add(id, entry.title, 'mal');
   }
   const sources = [...byId.values()].filter((source) => !isEntryExcluded(excluded, { mediaId: source.id, platforms: [] }));
-  return { sources, inLists: { ids, malIds } };
+  const listed = services.includes('anilist')
+    ? anilist.flatMap(({ mediaId, malId, title, coverUrl, status, release }): ListedEntry[] => (release !== null && listedQualifies(status, release.status) ? [{ id: mediaId, idMal: malId, title, coverUrl, ...release, listStatus: status }] : []))
+    : await listedByMal(mal);
+  return { sources, inLists: { ids, malIds }, listed };
 }

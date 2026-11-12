@@ -791,6 +791,7 @@
   "sequel.dismissLabel": "隱藏「{title}」",
   "sequel.heading": "已公布的續作",
   "sequel.inList": "已在你的清單中",
+  "sequel.listedAs": "在你的清單中 · {status}",
   "sequel.more_other": "另有 {count} 部已公布的續作",
   "sequel.new": "新",
   "sequel.notOnMal": "MyAnimeList 上尚無",

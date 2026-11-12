@@ -13,7 +13,7 @@ import { activePlatforms } from '../../browser/platform-access';
 import { platformSearchUrl } from '../../platforms/links';
 import { PLATFORMS } from '../../platforms/registry';
 import { buildAgendaDays, dateKey, formatOffset, weekRange, type AgendaDay, type AgendaRow, type AgendaSeries, type IsoWeekday, type WeekRange } from '../../shared/agenda';
-import { groupSequelsByPeriod, type SequelGroup, type SequelRecord } from '../../shared/sequels';
+import { groupSequelsByPeriod, type ListedEntry, type SequelGroup, type SequelRecord } from '../../shared/sequels';
 import { entryLink, entryLinks, type EntryLinkContext } from '../../shared/entry-link';
 import type { StreamingPlatform } from '../../shared/episode.types';
 import { DEFAULT_SETTINGS, OFFSET_RANGE, parseOffsetInput, type SyncSettings } from '../../shared/settings';
@@ -56,6 +56,8 @@ export interface AgendaProps {
   state: ReadonlyStore<AgendaSnapshot | null>;
   /** Suites annoncées visibles (ui/sequels-store.ts, l'instance du panneau) : vue « Annoncées » */
   sequels: ReadonlyStore<SequelRecord[]>;
+  /** Séries à venir des listes de l'utilisateur (même instance) : « Annoncées » aussi */
+  listed: ReadonlyStore<ListedEntry[]>;
   /** Plateformes à accès optionnel accordées : recherches du menu « ⋯ » */
   granted: readonly StreamingPlatform[] | undefined;
   /** ‹ › (regroupés par le contrôleur) */
@@ -462,26 +464,43 @@ function StateCard({ text, tone = 'info', onRetry, onDiscover }: { text: string;
 
 type AgendaView = 'week' | 'announced';
 
-/** Vue « Annoncées » : suites des animes de l'utilisateur, groupées par saison d'anime (« Hiver 2027 », « 2027 », « Date à venir ») */
-function Announced({ records, enabled, connected, visible }: { records: readonly SequelRecord[]; enabled: boolean; connected: readonly TrackerId[]; visible: boolean }) {
-  const { all, busy, outcomes, add, dismiss } = useSequelActions(records, visible);
+/** Ligne d'« Annoncées » : suite annoncée (actions) ou série d'une liste (statut) */
+type AnnouncedItem = { kind: 'sequel'; record: SequelRecord } | { kind: 'listed'; entry: ListedEntry };
+
+const noop = (): void => undefined;
+
+/**
+ * Vue « Annoncées » : suites des animes de l'utilisateur et séries à venir de ses listes, groupées par saison d'anime
+ * (« Hiver 2027 », « 2027 », « Date à venir »). Un id dans les deux : la ligne de la liste seule (suite ajoutée à l'instant).
+ */
+function Announced({ records, listed, enabled, connected, visible }: { records: readonly SequelRecord[]; listed: readonly ListedEntry[]; enabled: boolean; connected: readonly TrackerId[]; visible: boolean }) {
+  const { all, busy, outcomes, add, dismiss } = useSequelActions(records, visible, listed.length > 0);
+  const listedIds = new Set(listed.map((entry) => entry.id));
+  const items: AnnouncedItem[] = [
+    ...all.filter((record) => !listedIds.has(record.snapshot.id)).map((record) => ({ kind: 'sequel', record }) as const),
+    ...listed.map((entry) => ({ kind: 'listed', entry }) as const),
+  ];
   const root = useRef<HTMLDivElement>(null);
   // Suite retirée (×, ajout) : le focus passe à la ligne voisine, jamais au body
   useFocusFallback(root);
   // Alertes coupées : la raison à la place de la liste (aucun enregistrement n'est montré)
-  const body = (): ComponentChildren => (!enabled ? <StateCard text={upperFirst(t('airing.skip.disabled'))} /> : all.length === 0 ? <StateCard text={t('agenda.announced.empty')} /> : groups());
-  const heading = (group: SequelGroup): string => (group.year === null ? t('sequel.dateUnknown') : group.season === null ? String(group.year) : t(`panel.nowPlaying.season.${group.season}` satisfies MessageKey, { year: group.year }));
+  const body = (): ComponentChildren => (!enabled ? <StateCard text={upperFirst(t('airing.skip.disabled'))} /> : items.length === 0 ? <StateCard text={t('agenda.announced.empty')} /> : groups());
+  const heading = (group: SequelGroup<AnnouncedItem>): string => (group.year === null ? t('sequel.dateUnknown') : group.season === null ? String(group.year) : t(`panel.nowPlaying.season.${group.season}` satisfies MessageKey, { year: group.year }));
   const groups = (): ComponentChildren => (
     <>
-      {groupSequelsByPeriod(all).map((group) => (
+      {groupSequelsByPeriod(items, (item) => (item.kind === 'sequel' ? item.record.snapshot : item.entry)).map((group) => (
         <section key={group.key} class="flex flex-col gap-1.5" data-sequel-group={group.key}>
           <h3 class="m-0 flex h-6 min-w-0 items-center px-1 text-body font-extrabold text-ink">
             <span class="min-w-0 truncate">{heading(group)}</span>
           </h3>
           <ul class="m-0 flex list-none flex-col gap-2 p-0">
-            {group.records.map((record) => (
-              <SequelRow key={record.snapshot.id} record={record} connected={connected} showNew={records.some((current) => current.snapshot.id === record.snapshot.id && current.state === 'new')} busy={busy.has(record.snapshot.id)} outcome={outcomes.get(record.snapshot.id)?.outcome ?? null} onAdd={() => void add(record)} onDismiss={() => dismiss(record.snapshot.id)} />
-            ))}
+            {group.items.map((item) =>
+              item.kind === 'listed' ? (
+                <SequelRow key={item.entry.id} record={{ snapshot: item.entry }} listStatus={item.entry.listStatus} busy={false} outcome={null} onAdd={noop} onDismiss={noop} />
+              ) : (
+                <SequelRow key={item.record.snapshot.id} record={item.record} connected={connected} showNew={records.some((current) => current.snapshot.id === item.record.snapshot.id && current.state === 'new')} busy={busy.has(item.record.snapshot.id)} outcome={outcomes.get(item.record.snapshot.id)?.outcome ?? null} onAdd={() => void add(item.record)} onDismiss={() => dismiss(item.record.snapshot.id)} />
+              ),
+            )}
           </ul>
         </section>
       ))}
@@ -513,10 +532,11 @@ function Skeleton() {
   );
 }
 
-export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onSaveOffset, onDiscover, inset = 'panel', visible = true }: AgendaProps) {
+export function Agenda({ state, sequels, listed, granted, onStep, onChoose, onRetry, onSaveOffset, onDiscover, inset = 'panel', visible = true }: AgendaProps) {
   const locale = useLocale();
   const snapshot = useStore(state);
   const records = useStore(sequels);
+  const listedEntries = useStore(listed);
   /** Vue choisie : jamais mémorisée, « Semaine » à chaque ouverture ; la semaine affichée vit dans le contrôleur */
   const [view, setView] = useState<AgendaView>('week');
   const root = useRef<HTMLDivElement>(null);
@@ -667,7 +687,7 @@ export function Agenda({ state, sequels, granted, onStep, onChoose, onRetry, onS
           }
         />}
       </div>
-      {view === 'week' ? body() : <Announced records={records} enabled={settings?.sequelAlerts !== false} connected={snapshot.connected} visible={visible} />}
+      {view === 'week' ? body() : <Announced records={records} listed={listedEntries} enabled={settings?.sequelAlerts !== false} connected={snapshot.connected} visible={visible} />}
     </div>
   );
 }
