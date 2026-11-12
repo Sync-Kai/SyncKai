@@ -182,7 +182,7 @@ describe('SubMenu', () => {
     expect(document.activeElement).toBe(subTrigger());
   });
 
-  it('Entrée et clic ouvrent ; Échap dans le sous-menu ne referme que lui', async () => {
+  it('Entrée et clic ouvrent ; Échap dans le sous-menu ne referme que lui ; un second clic ne referme pas', async () => {
     await show(<RowMenu />);
     await openMenu();
     await press('ArrowDown');
@@ -193,10 +193,27 @@ describe('SubMenu', () => {
     expect(subMenu()).toBeNull();
     expect(menu()).not.toBeNull();
     expect(document.activeElement).toBe(subTrigger());
+    // Clic sur l'entrée : ouvre toujours (un second clic ne referme pas ; ←, Échap et la sortie du pointeur ferment)
     await act(() => subTrigger()?.click());
     expect(subMenu()).not.toBeNull();
     await act(() => subTrigger()?.click());
-    expect(subMenu()).toBeNull();
+    expect(subMenu()).not.toBeNull();
+  });
+
+  it('survol 250 ms puis clic sur l’entrée : le sous-menu reste ouvert', async () => {
+    vi.useFakeTimers();
+    await show(<RowMenu />);
+    await openMenu();
+    await act(() => {
+      $('[data-submenu]')?.dispatchEvent(new MouseEvent('mouseenter'));
+    });
+    await act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    expect(subMenu()).not.toBeNull();
+    await act(() => subTrigger()?.click());
+    expect(subMenu()).not.toBeNull();
+    expect(subTrigger()?.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('options du sous-menu : liens dans un nouvel onglet, logo du service ; le choix ferme tout le menu', async () => {
