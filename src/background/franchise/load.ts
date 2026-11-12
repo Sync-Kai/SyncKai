@@ -2,7 +2,7 @@ import { t } from '../../i18n';
 import { createLogger } from '../../browser/logger';
 import { getPlatformLinks } from '../../browser/storage/platform-links-store';
 import { getRecentSyncs } from '../../browser/storage/reviews';
-import { readFranchiseCache, writeFranchiseCache } from '../../browser/storage/session-cache';
+import { readFranchiseCache, readFranchiseEntry, writeFranchiseCache } from '../../browser/storage/session-cache';
 import { isRecord } from '../../shared/guards';
 import { learnedLinksFor, mergePlatformLinks } from '../../platforms/links';
 import { keepsRecapRoot, mergeRound, MAX_ROUNDS, newFranchiseGraph, restoreStart, type FranchiseGraph, type FranchiseResult, type RawMedia } from '../../shared/franchise';
@@ -53,7 +53,8 @@ interface Walk {
 }
 const inFlight = new Map<number, Walk>();
 
-async function walk(startId: number, read: Set<number>, maxRounds: number): Promise<FranchiseGraph> {
+/** Graphe parcouru ; `at` : date d'écriture quand c'est le graphe en cache d'un autre départ (ORD-04) */
+async function walk(startId: number, read: Set<number>, maxRounds: number): Promise<{ graph: FranchiseGraph; at?: number }> {
   let graph = newFranchiseGraph(startId);
   let frontier = [startId];
   const links = new Map<number, unknown>();
@@ -74,22 +75,22 @@ async function walk(startId: number, read: Set<number>, maxRounds: number): Prom
     ({ graph, frontier } = mergeRound({ ...graph, expanded: [...graph.expanded, ...missing] }, page));
     if (round === 0) {
       const shared = await cachedParentGraph(startId, graph);
-      if (shared) return shared;
+      if (shared) return { graph: shared.value, at: shared.at };
     }
   }
   const nodes = Object.fromEntries(Object.entries(graph.nodes).map(([id, node]) => [id, { ...node, platforms: buildPlatforms(links.get(node.id), []) }]));
-  return { ...graph, nodes };
+  return { graph: { ...graph, nodes } };
 }
 
 /**
  * Extra sans chaîne propre (OVA, histoire parallèle : le premier tour a remplacé le départ par son PARENT) dont la franchise
  * complète est en cache et le liste déjà : ce graphe, sans relire la franchise (ORD-04). Un extra à chaîne propre reste parcouru.
  */
-async function cachedParentGraph(startId: number, graph: FranchiseGraph): Promise<FranchiseGraph | null> {
+async function cachedParentGraph(startId: number, graph: FranchiseGraph): Promise<{ at: number; value: FranchiseGraph } | null> {
   const parent = graph.main[0];
   if (parent === undefined || graph.main.includes(startId)) return null;
-  const cached = await readFranchiseCache(parent);
-  return cached && !cached.capped && cached.extras.some((extra) => extra.id === startId) ? cached : null;
+  const cached = await readFranchiseEntry(parent);
+  return cached && !cached.value.capped && cached.value.extras.some((extra) => extra.id === startId) ? cached : null;
 }
 
 /** Liens appris en naviguant puis historique SyncKai, après ceux d'AniList, sur une copie : le cache et le parcours partagé restent catalogue (ORD-01) */
@@ -108,12 +109,12 @@ async function run(mediaId: number, read: Set<number>, maxRounds: number): Promi
   try {
     const cached = await readFranchiseCache(mediaId);
     if (cached) return { ok: true, graph: cached };
-    const graph = await walk(mediaId, read, maxRounds);
+    const { graph, at } = await walk(mediaId, read, maxRounds);
     // Départ absent de la réponse (identifiant qu'AniList ne renvoie plus) : rien à afficher ni à garder (ORD-05)
     if (!graph.nodes[mediaId]) return { ok: false, message: t('panel.order.error') };
     // Graphe complet : valable pour toutes ses entrées principales ; plafonné, parti d'un film de montage gardé en racine
-    // (ORD-03) ou graphe en cache d'un autre départ (ORD-04) : pointeur du départ seulement
-    await writeFranchiseCache(graph.capped || keepsRecapRoot(graph) || graph.startId !== mediaId ? [mediaId] : [...new Set([mediaId, ...graph.main])], graph);
+    // (ORD-03) ou graphe en cache d'un autre départ (ORD-04) : pointeur du départ seulement, à la date du graphe (il expire avec lui)
+    await writeFranchiseCache(graph.capped || keepsRecapRoot(graph) || at !== undefined ? [mediaId] : [...new Set([mediaId, ...graph.main])], graph, at);
     return { ok: true, graph };
   } catch (error: unknown) {
     if (error instanceof ApiError) return { ok: false, message: error.message };
