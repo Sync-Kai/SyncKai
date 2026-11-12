@@ -229,6 +229,13 @@ describe('Ordre de visionnage : liste dépliée', () => {
     expect(first?.getAttribute('title')).toBe(t('panel.order.otherService', { service: 'MyAnimeList', state: t('panel.order.state.planned') }));
   });
 
+  it('ORD-07 : AniList sans état et MyAnimeList « Vu » : « MyAnimeList : Vu » visible, en texte discret', async () => {
+    await show(ready(graphOf([node(1), node(2)]), statesOf({ 1: watched }, { 10: watched, 20: watched })), { open: true });
+    const state = rows()[1]?.querySelector<HTMLElement>('[data-order-state]');
+    expect(state?.textContent).toBe(t('panel.order.otherService', { service: 'MyAnimeList', state: t('panel.order.state.watched') }));
+    expect(state?.classList.contains('sr-only')).toBe(false);
+  });
+
   it('ligne vue sans autre service : « Vu » seulement pour les lecteurs d’écran (la coche suffit à l’œil)', async () => {
     await show(ready(graphOf([node(1), node(2)]), statesOf({ 1: watched, 2: { kind: 'planned', progress: null } })), { open: true });
     const seen = rows()[0]?.querySelector<HTMLElement>('[data-order-state]');
