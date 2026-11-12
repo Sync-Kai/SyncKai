@@ -1,5 +1,5 @@
 import { isRecord } from './guards';
-import { isPlatformSignals, type PlatformSignals } from './match-signals';
+import { isKnownPlatformSignals, type PlatformSignals } from './match-signals';
 import { STREAMING_PLATFORMS, type StreamingPlatform } from '../platforms/ids';
 
 export type { StreamingPlatform } from '../platforms/ids';
@@ -114,6 +114,6 @@ export function isEpisodeInfo(value: unknown): value is EpisodeInfo {
     isText(value.url, MAX_URL) &&
     (value.platformSeasons === undefined || isPlatformSeasons(value.platformSeasons)) &&
     (value.primeAnime === undefined || isSentPrimeAnimeVerdict(value.primeAnime)) &&
-    (value.signals === undefined || isPlatformSignals(value.signals))
+    (value.signals === undefined || isKnownPlatformSignals(value.signals))
   );
 }

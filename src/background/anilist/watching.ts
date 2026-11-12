@@ -8,14 +8,15 @@ import { getRecentSyncs } from '../../browser/storage/reviews';
 import { getSessionEpoch } from '../../browser/storage/sessions';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { toSafeImageUrl, toSafeUrl } from '../../shared/url';
-import type {
-  AiringStatus,
-  NextEpisode,
-  PlatformLink,
-  WatchingEntry,
-  WatchingList,
-  WatchingListStatus,
-  WatchingResult,
+import {
+  isPlatformLink,
+  type AiringStatus,
+  type NextEpisode,
+  type PlatformLink,
+  type WatchingEntry,
+  type WatchingList,
+  type WatchingListStatus,
+  type WatchingResult,
 } from '../../shared/watching.types';
 import { isWatchingFresh, WATCHING_REVALIDATE_MS } from '../../shared/watching';
 import { anilistPublicQuery, anilistQuery } from './client';
@@ -65,9 +66,10 @@ export function buildPlatforms(externalLinks: unknown, syncs: readonly RecentSyn
     const parsed = platformLinkFromExternal(isRecord(link) ? str(link.url) : null);
     return parsed ? [parsed] : [];
   });
+  // Synchro relue du stockage : lien gardé seulement sur l'hôte de sa plateforme (SEC-03)
   const history = syncs.flatMap((sync): PlatformLink[] => {
-    const url = toSafeUrl(sync.episode.url);
-    return url ? [{ platform: sync.episode.platform, url }] : [];
+    const link = { platform: sync.episode.platform, url: toSafeUrl(sync.episode.url) };
+    return isPlatformLink(link) ? [link] : [];
   });
   return mergePlatformLinks(anilist, learned, history);
 }

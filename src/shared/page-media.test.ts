@@ -45,6 +45,9 @@ describe('fiche de la page', () => {
     expect(isPageMediaInfo({ ...page, seasonEpisodeCount: 12 })).toBe(true);
     expect(isPageMediaInfo({ ...page, seasonEpisodeCount: -1 })).toBe(false);
     expect(isPageMediaInfo({ ...page, seasonEpisodeCount: '25' })).toBe(false);
+    // CR-01 : signaux avec une clé inconnue refusés
+    expect(isPageMediaInfo({ ...page, signals: { seriesYear: 2020 } })).toBe(true);
+    expect(isPageMediaInfo({ ...page, signals: { seriesYear: 2020, junk: 'x' } })).toBe(false);
   });
 });
 

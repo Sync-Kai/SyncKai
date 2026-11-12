@@ -2,6 +2,7 @@ import { isAccountStats, type AccountStats } from './account-stats';
 import { isRecord } from './guards';
 import { isProfileStats, type ProfileStats } from './profile-stats';
 import type { Result } from './result';
+import { toSafeUrl } from './url';
 
 /**
  * Recherches AniList réunies dans UNE requête GraphQL (un alias par recherche, background/anilist/media.ts ›
@@ -27,7 +28,9 @@ export function isAniListViewer(value: unknown): value is AniListViewer {
     isRecord(value) &&
     typeof value.id === 'number' &&
     typeof value.name === 'string' &&
+    // Lien du menu du compte et des Réglages : anilist.co seulement (SEC-03, un script de contenu peut écrire dans le stockage)
     typeof value.siteUrl === 'string' &&
+    toSafeUrl(value.siteUrl, 'anilist.co') !== null &&
     (value.avatarUrl === null || typeof value.avatarUrl === 'string') &&
     (value.stats === undefined || value.stats === null || isAccountStats(value.stats)) &&
     (value.profile === undefined || value.profile === null || isProfileStats(value.profile))

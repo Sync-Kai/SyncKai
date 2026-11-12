@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isEpisodeInfo } from '../../shared/episode.types';
 import {
   AOT_S3,
   AOT_S3E1,
@@ -184,6 +185,15 @@ describe('table des signaux (monde MAIN → script isolé)', () => {
       { seasonNumber: null },
     ];
     for (const pick of picks) expect(crunchyrollTableSignals(table, pick)).toEqual(crunchyrollSignals(series, pick));
+  });
+
+  it('signaux réels de la table : acceptés par la garde du service worker (CR-01, aucune clé inconnue)', () => {
+    const episode = { platform: 'crunchyroll', episodeId: frierenEpisodeId(1, 5), seriesId: FRIEREN_SERIES_ID, seriesSlug: null, animeTitle: 'Frieren', seasonNumber: 1, seasonTitle: null, seasonEpisodeNumber: 5, displayedEpisodeNumber: 5, episodeTitle: null, url: 'https://www.crunchyroll.com/watch/X' };
+    for (const pick of [{ episodeId: frierenEpisodeId(1, 5), seasonNumber: 1 }, { episodeId: frierenEpisodeId(2, 3), seasonNumber: 2 }, { seasonNumber: null }]) {
+      const signals = crunchyrollTableSignals(table, pick);
+      expect(signals).toBeDefined();
+      expect(isEpisodeInfo({ ...episode, signals })).toBe(true);
+    }
   });
 
   it('table forgée par la page : valeurs invalides ou propriétés héritées jamais renvoyées', () => {

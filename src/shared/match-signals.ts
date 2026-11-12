@@ -60,6 +60,16 @@ export function isPlatformSignals(value: unknown): value is PlatformSignals {
   );
 }
 
+/** Champs connus : `Record` exhaustif, un nouveau signal oublié ici ne compile pas */
+const SIGNAL_KEYS: Record<keyof PlatformSignals, true> = { seasonYear: true, seriesYear: true, seasonEpisodeCount: true, airing: true, episodeMinutes: true, format: true, originalTitle: true, country: true };
+
+/**
+ * isPlatformSignals, sans clé inconnue (CR-01) : gardes du service worker et des données relues (épisode, page). Le script
+ * de contenu Crunchyroll garde isPlatformSignals seul (budget) : une clé en plus fait refuser tout le message ici.
+ */
+export const isKnownPlatformSignals = (value: unknown): value is PlatformSignals =>
+  isPlatformSignals(value) && Object.keys(value).every((key) => Object.hasOwn(SIGNAL_KEYS, key));
+
 /** Année plausible (entier de 1900 à 2100) : formes réduites des plateformes */
 export const isSignalYear = isYear;
 

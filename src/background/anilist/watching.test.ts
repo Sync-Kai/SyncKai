@@ -51,6 +51,12 @@ describe('buildPlatforms', () => {
     ]);
     expect(buildPlatforms(null, [])).toEqual([]);
   });
+
+  it('historique relu du stockage : lien hors de l’hôte de sa plateforme écarté (SEC-03)', () => {
+    expect(buildPlatforms(null, [sync('crunchyroll', 'https://evil.example/watch/E1/x'), sync('adn', 'https://animationdigitalnetwork.com/video/1311-x/5-ep')])).toEqual([
+      { platform: 'adn', url: 'https://animationdigitalnetwork.com/video/1311-x/5-ep' },
+    ]);
+  });
 });
 
 describe('lecture de la durée et du statut de liste', () => {
