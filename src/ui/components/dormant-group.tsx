@@ -3,8 +3,9 @@
 // a 2 mois », Pause / Abandonner / Garder), « Tout mettre en pause » (2 séries ou plus) et le lien du seuil. Abandon et
 // pause groupée confirmés en ligne (focus sur « Non », Échap annule, focus rendu au bouton qui l'a ouverte). Tous les
 // textes arrivent traduits.
-import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { kai } from '../icons';
+import { useDomId } from '../preact/hooks';
 import { Button } from './button';
 import { Cover } from './cover';
 import { Icon, MountedNode } from './icon';
@@ -99,7 +100,7 @@ function DormantRow({ row, separated, confirming, onConfirm, onYes, onCancel }: 
 }
 
 export function DormantGroup(props: DormantGroupProps) {
-  const bodyId = useId();
+  const bodyId = useDomId();
   const root = useRef<HTMLElement>(null);
   const [confirming, setConfirming] = useState<Confirming>(null);
   /** Bouton à refocaliser après une confirmation annulée */

@@ -2,7 +2,6 @@
 // résumé de l'aperçu, séries à mettre à jour (cochables), saisons « À vérifier » (vérifications à créer, fiche proposée),
 // « Déjà à jour » repliable et « Recommencer » ; pendant l'import, la carte de la tâche (progress.tsx › JobCard) au-dessus
 // et l'aperçu figé ; après, le bilan jusqu'à « OK ». Règles d'affichage dans ../preview.ts.
-import { useId } from 'preact/hooks';
 import { formatList, t, tp } from '../../i18n';
 import { PLATFORMS } from '../../platforms/registry';
 import { hasUpdate, importPlatformOf, planCounts, type CrImportJob, type CrImportPlan, type CrPlanItem, type CrReviewItem, type CrServicePlan } from '../../shared/cr-import';
@@ -15,6 +14,7 @@ import { Cover } from '../../ui/components/cover';
 import { FeedbackBanner } from '../../ui/components/feedback-banner';
 import { Icon } from '../../ui/components/icon';
 import { ServiceLogo } from '../../ui/components/service-logo';
+import { useDomId } from '../../ui/preact/hooks';
 import type { ImportActions } from '../actions';
 import { APPLY_HINTS, applyEnd, applyHint, isSelectable, itemResult, partialNotice, reviewGroups, reviewProposal, seasonPart, serviceChipText, summaryTiles, type SummaryTile } from '../preview';
 import type { PageState } from '../state';
@@ -134,7 +134,7 @@ interface UpdateProps {
 
 /** « À mettre à jour » : « Tout cocher », lignes, légende et « Mettre à jour N séries » ; rien à faire : un bandeau */
 function UpdateSection({ plan, page, job, running, actions }: UpdateProps) {
-  const titleId = useId();
+  const titleId = useDomId();
   const platform = PLATFORMS[importPlatformOf(plan)].label;
   const items = plan.items.filter(hasUpdate);
   const selectable = items.filter(isSelectable);
@@ -232,7 +232,7 @@ function ReviewRow({ item, checked, locked, onToggle }: { item: CrReviewItem; ch
 
 /** « À vérifier » : aide, saisons regroupées par série, « Créer N vérifications » tant qu'il en reste à créer */
 function ReviewSection({ plan, page, running, actions }: { plan: CrImportPlan; page: PageState; running: boolean; actions: ImportActions }) {
-  const titleId = useId();
+  const titleId = useDomId();
   const locked = running || page.busy !== null;
   const pending = planCounts(plan).reviewPending;
   const chosen = plan.review.filter((r) => !r.created && page.reviewSelected.has(r.key)).length;

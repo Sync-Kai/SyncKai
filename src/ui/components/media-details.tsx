@@ -3,7 +3,7 @@
 // l'hôte). Carte « Sur cette page » du popup, prévu pour le panneau. Libellé sur une ligne : trop long, il se tronque
 // (« … ») avec son texte complet en infobulle, jamais coupé au milieu d'un mot.
 import type { ComponentChildren } from 'preact';
-import { useId } from 'preact/hooks';
+import { useDomId } from '../preact/hooks';
 import { Icon } from './icon';
 
 export interface MediaDetailsProps {
@@ -17,7 +17,7 @@ export interface MediaDetailsProps {
 }
 
 export function MediaDetails({ label, open, onToggle, focusKey, children }: MediaDetailsProps) {
-  const id = useId();
+  const id = useDomId();
   return (
     <div class="flex min-w-0 flex-col gap-2.5" data-media-details="">
       <button

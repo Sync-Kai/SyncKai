@@ -1,7 +1,7 @@
 // Sélecteur de la saison AniList d'une série (maquettes PopupPageEtats « Saison devinée », PopupSeriesDeplie) : titre en
 // petites capitales, liste déroulante native (titre complet en infobulle), aide facultative dessous. Saison devinée :
 // avertissement beurre au-dessus, le tout dans un encadré beurre. Carte « Sur cette page » du popup, prévu pour le panneau.
-import { useId } from 'preact/hooks';
+import { useDomId } from '../preact/hooks';
 import { Icon } from './icon';
 
 export interface SeasonOption {
@@ -34,7 +34,7 @@ export interface SeasonPickerProps {
 }
 
 export function SeasonPicker({ label, ariaLabel, options, value, disabled = false, onPick, warning = null, help = null, focusKey, framed = true }: SeasonPickerProps) {
-  const id = useId();
+  const id = useDomId();
   const selected = options.find((option) => option.id === value)?.label;
   return (
     <div class={`flex min-w-0 flex-col gap-1.5 ${warning !== null && framed ? 'rounded-panel border border-butter/40 bg-butter/10 p-2.5' : ''}`} data-season-picker="">

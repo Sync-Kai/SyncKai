@@ -5,11 +5,11 @@
 // par → ou Entrée ; ← ou Échap la referment seule. Confirmation en ligne (MenuConfirm : « Abandonner ? Oui / Non ») :
 // l'option devient la question, focus sur « Non », Échap l'annule sans fermer le menu.
 import { createContext, type ComponentChildren, type RefObject } from 'preact';
-import { useContext, useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useContext, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { StreamingPlatform } from '../../platforms/ids';
 import type { TrackerId } from '../../shared/tracker.types';
 import type { IconName } from '../icons';
-import { useDismiss } from '../preact/hooks';
+import { useDismiss, useDomId } from '../preact/hooks';
 import { Icon } from './icon';
 import { ServiceLogo } from './service-logo';
 import { TONE_TEXT, type Tone } from './tone';
@@ -414,7 +414,7 @@ export interface SubMenuProps {
 
 export function SubMenu({ label, icon, focusKey, children }: SubMenuProps) {
   const api = useMenu();
-  const id = useId();
+  const id = useDomId();
   const open = api.openSub === id;
   const list = useRef<HTMLDivElement>(null);
   const [up, setUp] = useState(false);

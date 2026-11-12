@@ -5,8 +5,8 @@
 // ou Espace choisit, Échap ferme (focus rendu au bouton), Tab ou pointeur enfoncé dehors ferme. Une option indisponible
 // (plateforme à activer d'abord) reste visible, grisée, avec son indication à droite ; elle ne se choisit pas.
 import type { ComponentChildren, RefObject } from 'preact';
-import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { useDismiss } from '../preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useDismiss, useDomId } from '../preact/hooks';
 import { Icon } from './icon';
 
 export interface SelectOption<T extends string> {
@@ -35,7 +35,7 @@ export interface SelectProps<T extends string> {
 }
 
 export function Select<T extends string>({ label, options, value, onChange, describedBy, focusKey, defaultOpen = false }: SelectProps<T>) {
-  const id = useId();
+  const id = useDomId();
   const [open, setOpen] = useState(defaultOpen);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);

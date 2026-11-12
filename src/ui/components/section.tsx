@@ -3,7 +3,7 @@
 // PopupActiviteEtats) : titre teinté du ton de la section (échec, en attente, à noter, à vérifier) et compte à la suite
 // (« ÉCHEC · 1 »).
 import type { ComponentChildren } from 'preact';
-import { useId } from 'preact/hooks';
+import { useDomId } from '../preact/hooks';
 
 /** `danger` : zone de danger, échecs ; `info` : en attente ; `warn` : à vérifier ; `accent` : à noter */
 export type SectionTone = 'danger' | 'info' | 'warn' | 'accent';
@@ -29,7 +29,7 @@ const TONES: Readonly<Record<SectionTone | 'muted', string>> = {
 };
 
 export function Section({ title, count, countInline = false, tone, level = 2, children }: SectionProps) {
-  const id = useId();
+  const id = useDomId();
   const color = TONES[tone ?? 'muted'];
   const Heading = level === 3 ? 'h3' : 'h2';
   return (

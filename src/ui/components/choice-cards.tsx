@@ -4,7 +4,7 @@
 // cartes dans une carte) : aucune bordure, l'option choisie seulement sur fond `raised`. Groupe nommé par une légende (fieldset) ;
 // boutons radio natifs d'un même nom : un seul arrêt de tabulation, les flèches choisissent.
 import type { ComponentChildren } from 'preact';
-import { useId } from 'preact/hooks';
+import { useDomId } from '../preact/hooks';
 
 export interface ChoiceCardOption<T extends string> {
   value: T;
@@ -37,7 +37,7 @@ export interface ChoiceCardsProps<T extends string> {
 }
 
 export function ChoiceCards<T extends string>({ legend, options, value, onChange, disabled = false, focusKey, legendHidden = false, flush = false, columns = false }: ChoiceCardsProps<T>) {
-  const name = useId();
+  const name = useDomId();
   const layout = columns ? 'grid grid-cols-1 @min-[26rem]:grid-cols-2' : 'flex flex-col';
   return (
     <fieldset class={`m-0 ${layout} min-w-0 border-0 p-0 ${flush ? 'gap-0' : 'gap-2'}`} disabled={disabled} data-choice-cards="">

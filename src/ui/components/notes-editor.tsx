@@ -6,9 +6,10 @@
 // carte « Sur cette page », maquette PopupSeriesDeplie) : sans cadre ni « Annuler », aucun focus à l'ouverture, Échap
 // rend le texte enregistré, le brouillon suit le commentaire enregistré après l'envoi. Le panneau latéral garde l'éditeur
 // repliable vanilla (ui/notes-editor.ts) jusqu'à sa migration.
-import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { t } from '../../i18n';
 import { LIST_NOTES_MAX, normalizeListNotes } from '../../shared/list-notes';
+import { useDomId } from '../preact/hooks';
 import { Button } from './button';
 import { Icon } from './icon';
 
@@ -38,7 +39,7 @@ const NEAR_LIMIT = 0.9;
 
 export function NotesEditor({ title, notes, loading, unavailable, busy, focusKey, onSave, onClose, variant = 'card' }: NotesEditorProps) {
   const inline = variant === 'inline';
-  const id = useId();
+  const id = useDomId();
   const textarea = useRef<HTMLTextAreaElement>(null);
   /** Texte saisi depuis l'ouverture (null : rien saisi, la zone montre le commentaire lu, relecture comprise) */
   const [typed, setTyped] = useState<string | null>(null);

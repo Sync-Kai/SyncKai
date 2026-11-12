@@ -3,7 +3,6 @@
 // alertes de sortie : interrupteur, délai en plus (grisé alertes coupées), ligne d'état de la dernière vérification et
 // « Vérifier maintenant » (en cours : roue et « Vérification en cours… »). L'alarme horaire suit chaque changement de
 // réglage (ctx.update → updateSettings → ensureAiringAlarm).
-import { useId } from 'preact/hooks';
 import { t, tp, type MessageKey } from '../../i18n';
 import { formatAiringStatus, type AiringCheckResult, type AiringStatusLine } from '../../shared/airing.types';
 import type { SequelCheckResult } from '../../shared/sequels';
@@ -19,7 +18,7 @@ import { ChoiceCards, type ChoiceCardOption } from '../components/choice-cards';
 import { Section } from '../components/section';
 import { Segmented } from '../components/segmented';
 import { SettingsCard, SettingsRow } from '../components/settings-row';
-import { useLocale, useNow, useStore } from '../preact/hooks';
+import { useDomId, useLocale, useNow, useStore } from '../preact/hooks';
 import { createStore, type Store } from '../state';
 import type { SettingsContext, SettingsMountedPage } from './context';
 import { SettingsPlaceholder } from './placeholder';
@@ -38,7 +37,7 @@ type NotifArtKind = 'pill' | 'bubble' | 'alert';
  * Couleurs par jetons (classes fill-* / stroke-*) ; décorative.
  */
 function NotifArt({ kind }: { kind: NotifArtKind }) {
-  const gradient = useId();
+  const gradient = useDomId();
   return (
     <svg class="block h-8.75 w-14 shrink-0" viewBox="0 0 64 40" aria-hidden="true" data-notif-art={kind}>
       <defs>
@@ -161,7 +160,7 @@ export function NotificationsPage({ ctx, check, sequelCheck }: NotificationsPage
   const checking = useStore(check);
   const sequelChecking = useStore(sequelCheck);
   const now = useNow(CLOCK_TICK_MS);
-  const delayLabel = useId();
+  const delayLabel = useDomId();
   const s = data.settings;
   if (!s) return <SettingsPlaceholder error={data.settingsError} />;
 

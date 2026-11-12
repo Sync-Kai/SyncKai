@@ -4,7 +4,7 @@
 // par browser/storage/mappings.ts (forgetMapping, clearMediaMappings), puis notifyMappingsChanged (résolutions de page
 // gardées en mémoire par le service worker, L4) et relecture de la liste. Modèle sans DOM : mappings-model.ts.
 import type { ComponentChild } from 'preact';
-import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { t, tp } from '../../i18n';
 import { createLogger } from '../../browser/logger';
 import { clearMediaMappings, forgetMapping } from '../../browser/storage/mappings';
@@ -14,7 +14,7 @@ import { Button } from '../components/button';
 import { Icon } from '../components/icon';
 import { Section } from '../components/section';
 import { ServiceLogo } from '../components/service-logo';
-import { useFocusFallback, useLocale, useStore } from '../preact/hooks';
+import { useDomId, useFocusFallback, useLocale, useStore } from '../preact/hooks';
 import { createStore, type Store } from '../state';
 import { notifyMappingsChanged } from '../worker-call';
 import type { SettingsContext, SettingsMountedPage } from './context';
@@ -121,7 +121,7 @@ interface GroupProps {
 }
 
 function MappingGroup({ group, open, busy, failed, onToggle, onExpand, onForget }: GroupProps) {
-  const id = useId();
+  const id = useDomId();
   const platform = isStreamingPlatform(group.id) ? group.id : null;
   return (
     <section class="flex flex-col gap-2" aria-label={group.label} data-mapping-group={group.id}>

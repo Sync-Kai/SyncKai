@@ -4,7 +4,7 @@
 // Nouveautés, Confidentialité, Code source. Builds de dev seulement : diagnostic des correspondances et trace de
 // débogage (sous `__SYNCKAI_DEBUG__`, absents des bundles publiés). Le rapport est construit et expurgé par le service
 // worker (GET_DIAGNOSTICS_REPORT), seul à déchiffrer les jetons (SEC-06).
-import { useEffect, useId, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { getLocale, t, tp } from '../../i18n';
 import { buildIssueUrl } from '../../shared/diagnostics';
 import { currentBrowser } from '../../browser/storage/diagnostics-store';
@@ -15,7 +15,7 @@ import { Button } from '../components/button';
 import { Icon } from '../components/icon';
 import { Section } from '../components/section';
 import { SettingsCard, SettingsRow } from '../components/settings-row';
-import { useLocale, useStore } from '../preact/hooks';
+import { useDomId, useLocale, useStore } from '../preact/hooks';
 import { createStore, type Store } from '../state';
 import type { SettingsContext, SettingsMountedPage } from './context';
 import { DebugTraceSection } from './debug-trace';
@@ -95,7 +95,7 @@ export function HelpPage({ ctx, help, onCopy, onClear }: HelpPageProps) {
   const { busy, copy, clear } = useStore(help);
   const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const journalId = useId();
+  const journalId = useDomId();
   const manifest = chrome.runtime.getManifest();
   // Modèle court : version, navigateur, langue (le rapport complet est collé par l'utilisateur)
   const issueUrl = buildIssueUrl({ version: manifest.version, browser: currentBrowser(), locale });

@@ -5,9 +5,9 @@
 // focus rendu au bouton). Changer de mois ne choisit rien : seul le choix d'une semaine appelle `onSelect` (l'hôte
 // n'envoie aucune requête pendant la navigation dans le calendrier).
 import type { ComponentChildren } from 'preact';
-import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { shiftWeek, weekRange, type IsoWeekday, type WeekRange } from '../../shared/agenda';
-import { useDismiss } from '../preact/hooks';
+import { useDismiss, useDomId } from '../preact/hooks';
 import { Icon } from './icon';
 
 /** Lignes du calendrier : toujours 6 (hauteur fixe d'un mois à l'autre) */
@@ -98,7 +98,7 @@ export function WeekPicker({ week, firstDay, locale, labels, now = Date.now(), b
   const [open, setOpen] = useState(defaultOpen);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const id = useId();
+  const id = useDomId();
   const close = (restore: boolean): void => {
     setOpen(false);
     if (restore) trigger.current?.focus({ preventScroll: true });

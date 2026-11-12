@@ -3,7 +3,7 @@
 // (background/debug-trace.ts) dans storage.session : les plus récents d'abord, filtre par catégorie ; « Copier la trace »
 // donne toute la trace en JSON (à coller pour déboguer un cas réel), « Effacer » et le mode détaillé passent par le
 // service worker. Section repliée par défaut (liste longue). Logger créé à l'usage : rien au chargement du module.
-import { useEffect, useId, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { getLocale, t } from '../../i18n';
 import { clearTrace, readTraceEvents, readTraceVerbose, setTraceVerbose } from '../../browser/debug-trace-store';
 import { DEBUG_TRACE_KEY, DEBUG_TRACE_VERBOSE_KEY } from '../../protocol/storage-keys';
@@ -13,7 +13,7 @@ import { Button } from '../components/button';
 import { Collapsible } from '../components/collapsible';
 import { Icon } from '../components/icon';
 import { Switch } from '../components/switch';
-import { useLocale } from '../preact/hooks';
+import { useDomId, useLocale } from '../preact/hooks';
 
 const COPIED_MS = 2_000;
 /** Relecture regroupée : la trace change à chaque événement pendant qu'on la lit */
@@ -51,7 +51,7 @@ export function DebugTraceSection() {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [version, setVersion] = useState(0);
-  const verboseId = useId();
+  const verboseId = useDomId();
 
   useEffect(() => {
     let live = true;

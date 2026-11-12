@@ -2,7 +2,7 @@
 // (Crunchyroll et ADN inclus, Netflix / Disney+ / Prime Video par un interrupteur qui demande l'accès au site), accès
 // aux sites Crunchyroll / ADN retiré (Firefox), lecteur préféré (liste ; Netflix et Prime Video grisés tant qu'ils ne sont
 // pas activés, jamais Disney+) et heure de sortie estimée par plateforme (− / + par 15 min, valeur saisissable).
-import { useEffect, useId, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { joinSentences, t, type MessageKey } from '../../i18n';
 import { createLogger } from '../../browser/logger';
 import { hasHostAccess, requestHostAccess, requiredOrigins } from '../../browser/host-access';
@@ -17,7 +17,7 @@ import { ServiceLogo } from '../components/service-logo';
 import { SettingsCard, SettingsRow } from '../components/settings-row';
 import { alertAttrs } from '../live-region';
 import { requestPlatformAccessFromClick } from '../platform-access-store';
-import { useLocale, useStore } from '../preact/hooks';
+import { useDomId, useLocale, useStore } from '../preact/hooks';
 import { createStore, type Store } from '../state';
 import type { SettingsContext, SettingsMountedPage } from './context';
 import { OffsetField } from './offset-field';
@@ -136,8 +136,8 @@ export function PlatformsPage({ ctx, notices }: PlatformsPageProps) {
   const data = useStore(ctx.state);
   const notice = useStore(notices);
   const [host, allowHost] = useHostAccess(ctx);
-  const playerHelp = useId();
-  const offsetsHelp = useId();
+  const playerHelp = useDomId();
+  const offsetsHelp = useDomId();
   const s = data.settings;
   if (!s) return <SettingsPlaceholder error={data.settingsError} />;
   const granted = data.platformAccess;

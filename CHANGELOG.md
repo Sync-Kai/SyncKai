@@ -5,6 +5,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Fixed
+
+- **Screen readers**: when the popup, the status bar or the settings showed several parts at once, some labels and descriptions pointed at another part's heading (in *Settings › Notifications*, the delay choice was announced as « Recent syncs »; the account menu's description too). Each one is now tied to its own text.
+
 ## [2.5.0] - 2026-11-12
 
 ### Added

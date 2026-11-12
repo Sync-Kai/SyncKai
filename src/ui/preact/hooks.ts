@@ -9,6 +9,19 @@ import { pickFocusKey } from '../dom';
 import { createMenuDismiss, type MenuDismissHandlers } from '../menu';
 import type { ReadonlyStore } from '../state';
 
+// Compteur commun à toutes les racines Preact du document (popup, barre d'état, réglages…)
+let domIdSeq = 0;
+
+/**
+ * Identifiant DOM unique dans tout le document, stable pour la vie du composant. Remplace `useId` de Preact, qui repart
+ * de `P0-0` dans chaque racine : avec plusieurs racines dans une page, aria-labelledby, aria-controls ou url(#…)
+ * pointeraient vers l'élément d'un autre arbre. Pas de rendu serveur ici, l'identifiant n'a pas à être déterministe.
+ */
+export function useDomId(): string {
+  const [id] = useState(() => `sk-${++domIdSeq}`);
+  return id;
+}
+
 /**
  * Valeur courante d'un store, nouveau rendu à chaque changement. `subscribe` de createStore rappelle aussitôt avec la
  * valeur du moment : un changement survenu entre le rendu et l'abonnement (effet différé) n'est donc jamais perdu,

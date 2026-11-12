@@ -2,11 +2,12 @@
 // − / + par OFFSET_STEP (15 min, recalé sur le pas), et la valeur reste saisissable au clavier (décision du propriétaire,
 // −1440…10080 min) : ↑ ↓ font comme − / +, Entrée ou la sortie du champ enregistrent la saisie, Échap l'annule. Saisie
 // invalide (vide, décimale, hors bornes) : champ rouge et indication des bornes, rien n'est enregistré.
-import { useId, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { getLocale, t } from '../../i18n';
 import { formatOffsetDraft, OFFSET_RANGE, OFFSET_STEP, parseOffsetDraft } from '../../shared/settings';
 import { Icon } from '../components/icon';
 import { alertAttrs } from '../live-region';
+import { useDomId } from '../preact/hooks';
 
 export interface OffsetFieldProps {
   /** Nom de la plateforme (« Crunchyroll ») : titre de la ligne et noms accessibles */
@@ -33,7 +34,7 @@ const STEP =
   'inline-flex size-icon-button shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent p-0 text-ink transition-colors hover:bg-raised disabled:pointer-events-none disabled:opacity-40';
 
 export function OffsetField({ platform, value, onStep, onCommit, describedBy, focusKey, divider = false }: OffsetFieldProps) {
-  const id = useId();
+  const id = useDomId();
   /** Texte en cours de saisie ; null : la valeur enregistrée est affichée */
   const [draft, setDraft] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
