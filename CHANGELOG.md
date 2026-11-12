@@ -10,9 +10,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - Watching an episode with a decimal number (Crunchyroll « E48.5 ») no longer makes SyncKai forget the season it had matched, and validating its *To check* card no longer hides the season you had picked before.
 - A *To check* card for an episode without a number (an ADN film or OVA) can now be validated: choosing episode 1 syncs it instead of answering « invalid episode ».
 - A validated *To check* card is no longer asked again when its write to one service failed and is retried later: the retry writes it as you confirmed it.
-### Security
-
-- Data read back from storage is checked more strictly: episode details carrying unknown fields are refused (a hostile page could fill the browser's storage with them), and links in *Discover*, in *My series* and to your AniList profile only ever lead to AniList or to the streaming platform they belong to. A damaged *Discover* batch is now rebuilt instead of breaking the tab for a day.
 - **Keyboard focus**: when an action removes the button you used (*Confirm* on a check card, *Drop* then *Yes* on a dormant series, *Show N more* or « N watched » in the watch order, *Add to Watching*), the focus now lands on the next useful control (*Close*, the series' *Pause*, the first revealed entry, the episode counter) instead of being lost, and no longer jumps to the tabs a minute later.
 - **Rating with the arrow keys**: leaving the stars without pressing Enter no longer shows a score that was never saved; the saved score comes back. Enter or a click still saves it.
 - **Sub-menus** (*Open entry ›*, *Search on… ›*): a click right after hovering no longer closes the sub-menu that the hover just opened.
@@ -30,6 +27,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Watch order**: an entry AniList no longer returns costs one request instead of twelve before showing the error.
 - **Watch order**: opening an OVA or a side story of a franchise already loaded no longer reads the whole franchise again.
 - Crunchyroll music videos and concerts are no longer treated as episodes: watching one no longer shows a false « Episode not identified » error.
+
+### Security
+
+- Data read back from storage is checked more strictly: episode details carrying unknown fields are refused (a hostile page could fill the browser's storage with them), and links in *Discover*, in *My series* and to your AniList profile only ever lead to AniList or to the streaming platform they belong to. A damaged *Discover* batch is now rebuilt instead of breaking the tab for a day.
 
 ## [2.5.0] - 2026-11-12
 
