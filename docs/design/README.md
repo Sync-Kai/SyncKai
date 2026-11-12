@@ -359,7 +359,7 @@ Components in `src/ui/components/`, built from the tokens above. Every visible o
 - **`StatusBar`**: the 48 px footer, props only: account logo buttons (none when never connected, greyed with a red dot when expired; `aria-haspopup` only when they open a menu), message with its tone icon (or a muted dot), two lines when it names a series, a button with a trailing chevron when clickable, an optional accessible name, trailing slot, import progress line. Mounted with its data by `src/ui/status-bar-host.tsx` (`mountStatusBar`).
 - **`SeriesRow`**: the 80 px series row (cover with its progress bar, title link with tooltip, status dot + text with an optional tag, `Stepper`, `LogoButton`, then the host's actions); `SeriesTitle` and `SeriesStatusLine` are exported for the side panel.
 - **`ReviewCard` / `ReviewList`** (`src/ui/review-card.tsx`, texts through `t()`): the « À vérifier » card and its section (see Activité above); the host gives the actions (search, confirm, dismiss, exclude).
-- **`StarRating`**: 10 stars with halves as one `role="slider"` (← → ±0.5, Home / End, Enter confirms), half-star click, hover preview, read-only mode. Pages only: the end-of-series toast uses the content-safe `ui/star-rating.ts` (same values), styled by `content/ui/toast.css`.
+- **`StarRating`**: 10 stars with halves as one `role="slider"` (← → ±0.5, Home / End, Enter confirms; leaving it without Enter drops the unconfirmed value and shows the saved score again, in `RatingBlock` and « À noter »), half-star click, hover preview, read-only mode. Pages only: the end-of-series toast uses the content-safe `ui/star-rating.ts` (same values), styled by `content/ui/toast.css`.
 
 ## Mockups
 

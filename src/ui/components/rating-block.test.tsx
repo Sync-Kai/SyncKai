@@ -57,6 +57,31 @@ describe('RatingBlock', () => {
     expect(slider()?.getAttribute('aria-valuenow')).toBe('8');
   });
 
+  it('← ← puis sortie du curseur (Tab) : rien d’envoyé, la note enregistrée revient (« 8/10 »)', async () => {
+    const onRate = vi.fn<(value: number) => void>();
+    await show(<RatingBlock label="Ta note" sliderLabel="Noter Frieren" value={8} onRate={onRate} />);
+    slider()?.focus();
+    await press('ArrowLeft');
+    await press('ArrowLeft');
+    expect($('[data-star-value]')?.textContent).toBe('7/10');
+    await act(() => slider()?.blur());
+    expect(onRate).not.toHaveBeenCalled();
+    expect($('[data-star-value]')?.textContent).toBe('8/10');
+    expect(slider()?.getAttribute('aria-valuenow')).toBe('8');
+  });
+
+  it('Entrée puis sortie pendant l’envoi : la note envoyée reste affichée', async () => {
+    const onRate = vi.fn<(value: number) => void>();
+    await show(<RatingBlock label="Ta note" sliderLabel="Noter Frieren" value={8} onRate={onRate} />);
+    slider()?.focus();
+    await press('ArrowLeft');
+    await press('Enter');
+    await show(<RatingBlock label="Ta note" sliderLabel="Noter Frieren" value={8} onRate={onRate} disabled />);
+    await act(() => slider()?.blur());
+    expect(onRate).toHaveBeenCalledWith(7.5);
+    expect(slider()?.getAttribute('aria-valuenow')).toBe('7.5');
+  });
+
   it('titre masqué (section « Note et commentaire » du panneau) : groupe toujours nommé', async () => {
     await show(<RatingBlock label="Ta note" sliderLabel="Noter Frieren" value={9} onRate={() => undefined} labelHidden />);
     expect($('[data-rating-block]')?.getAttribute('aria-label')).toBe('Ta note');

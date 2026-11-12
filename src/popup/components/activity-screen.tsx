@@ -166,6 +166,8 @@ function QueueSections({ queue, now, props }: { queue: QueueState; now: number; 
 function RatingItem({ item, busy, error, now, links, props }: { item: PendingRating; busy: boolean; error: string | undefined; now: number; links: EntryLinkContext; props: ActivityScreenProps }) {
   /** Note choisie : affichée pendant l'envoi et après un échec (la carte reste pour réessayer) */
   const [chosen, setChosen] = useState(0);
+  /** Dernière note confirmée (clic, Entrée) : une note choisie aux flèches puis quittée sans Entrée est abandonnée */
+  const confirmed = useRef(0);
   const link = entryLink(item, links);
   const cover = <Cover size="row" title={item.title} src={item.coverUrl} />;
   return (
@@ -187,7 +189,7 @@ function RatingItem({ item, busy, error, now, links, props }: { item: PendingRat
         </div>
         {/* Étoiles et « Ignorer » sur une ligne quand ils tiennent ; sinon « Ignorer » passe dessous, à droite */}
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span class={busy ? 'opacity-50' : undefined}>
+          <span class={busy ? 'opacity-50' : undefined} onFocusOut={() => setChosen(confirmed.current)}>
             <StarRating
               size="sm"
               label={t('rating.groupLabel', { title: item.title })}
@@ -196,6 +198,7 @@ function RatingItem({ item, busy, error, now, links, props }: { item: PendingRat
               focusKey={`rate-${item.id}`}
               onChange={setChosen}
               onConfirm={(value) => {
+                confirmed.current = value;
                 setChosen(value);
                 props.onRate(item, value);
               }}
