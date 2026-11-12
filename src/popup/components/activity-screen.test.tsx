@@ -208,6 +208,21 @@ describe('ActivityScreen', () => {
     expect($('[data-star-value]')?.textContent).toBe('10/10');
   });
 
+  it('À noter : note choisie aux flèches puis sortie (Tab) : rien d’envoyé, aucune note affichée', async () => {
+    const { props, ratings } = setup();
+    ratings.set({ items: [RATING], busyIds: new Set(), errors: new Map(), notice: null, error: null });
+    await mount(props);
+    const slider = key('rate-anilist:21');
+    slider?.focus();
+    await act(() => {
+      slider?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    });
+    expect($('[data-star-value]')?.textContent).toBe('10/10');
+    await act(() => slider?.blur());
+    expect(props.onRate).not.toHaveBeenCalled();
+    expect($('[data-star-value]')?.textContent).toBe('–/10');
+  });
+
   it('À noter : note enregistrée (carte partie) : bandeau seul ; erreur de lecture', async () => {
     const { props, ratings } = setup();
     ratings.set({ items: [], busyIds: new Set(), errors: new Map(), notice: { tone: 'success', text: 'Note 8,5/10 enregistrée · Berserk (2016)', detail: '' }, error: null });

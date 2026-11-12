@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 ### Fixed
 
 - **Keyboard focus**: when an action removes the button you used (*Confirm* on a check card, *Drop* then *Yes* on a dormant series, *Show N more* or « N watched » in the watch order, *Add to Watching*), the focus now lands on the next useful control (*Close*, the series' *Pause*, the first revealed entry, the episode counter) instead of being lost, and no longer jumps to the tabs a minute later.
+- **Rating with the arrow keys**: leaving the stars without pressing Enter no longer shows a score that was never saved; the saved score comes back. Enter or a click still saves it.
 
 ## [2.5.0] - 2026-11-12
 
