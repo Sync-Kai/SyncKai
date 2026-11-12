@@ -86,5 +86,12 @@ The 2.5.0 audit fixes (plan `docs/superpowers/plans/2026-11-11-2.5.0-audit-fixes
 - The PRIVACY › Backup paragraph could mention the 400-day prune and the foreign-part drop on import.
 - The store listings (`docs/store/listing-*.md`) need a 2.5.0 refresh at release.
 
+## From the « Annoncées » calendar (2026-11-12)
+
+- **The 200-record cap.** A sequel that left a list comes back as `'seen'` with `firstSeenAt: 0`, and `capRecords` prunes it first. A dismissed sequel pruned by the cap in an earlier pass is known without a record, so it can come back as `'seen'` once the store drops below 200: the hide is lost. Only beyond 200 records.
+- **« Déjà dans ta liste » is stored as PLANNING** (`'listed'`). The real status (CURRENT, PAUSED…) is only corrected by the next shown-sequels check or the daily pass.
+- **A listed entry that leaves the list** disappears at the next check, and comes back as a sequel only at the next daily pass (no source series kept in `listed`).
+- **The new AniList fields** (full-list `release`, the MAL-only `idMal_in` + `status_in` query) were tested against fakes only; the owner's real account shows 18 listed entries (2026-11-12).
+
 **Dead code**
 - The panel-tab request path no longer has a popup caller: `openPanelOn`, `takePanelTab` / `watchPanelTab`, `requestedTabState`, `PANEL_TAB_KEY`.
