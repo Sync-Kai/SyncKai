@@ -18,6 +18,8 @@ const SHIPPED_CODE_RESTRICTIONS = [
 
 // Preact sans couche de compatibilité : preact/compat modifie Preact globalement et alourdit chaque page, React n'est pas une dépendance
 const COMPAT_IMPORTS = {
+  // useId de Preact repart de P0-0 dans chaque racine : identifiants en double quand une page en monte plusieurs
+  paths: [{ name: 'preact/hooks', importNames: ['useId'], message: 'useId interdit : useDomId (ui/preact/hooks.ts), unique dans tout le document.' }],
   patterns: [
     { group: ['preact/compat', 'preact/compat/*', 'react', 'react/*', 'react-dom', 'react-dom/*'], message: 'preact/compat et React interdits : Preact et preact/hooks seulement (ui/preact/hooks.ts).' },
   ],

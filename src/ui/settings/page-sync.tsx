@@ -2,13 +2,13 @@
 // où l'épisode compte comme vu (au générique ou à un pourcentage fixe) et curseur du pourcentage (pourcentage de repli en
 // mode générique), puis les pages « Par série » : Correspondances et Séries exclues. Le lecteur préféré et les accès aux
 // plateformes optionnelles sont dans Plateformes (page-platforms.ts).
-import { useId, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { t } from '../../i18n';
 import { PERCENTAGE_RANGE, type CompletionTrigger, type SyncSettings } from '../../shared/settings';
 import { ChoiceCards } from '../components/choice-cards';
 import { Section } from '../components/section';
 import { SettingsCard, SettingsRow } from '../components/settings-row';
-import { useLocale, useStore } from '../preact/hooks';
+import { useDomId, useLocale, useStore } from '../preact/hooks';
 import type { SettingsContext, SettingsData, SettingsMountedPage } from './context';
 import { settingsRowFocus } from './navigation';
 import { SettingsPlaceholder } from './placeholder';
@@ -31,7 +31,7 @@ function triggerOptions(): { value: CompletionTrigger; label: string; descriptio
  * (`change`). Mode générique : pourcentage de repli (plateforme sans générique, ADN).
  */
 function PercentField({ settings, onSave }: { settings: SyncSettings; onSave: (value: number) => void }) {
-  const id = useId();
+  const id = useDomId();
   const [draft, setDraft] = useState<number | null>(null);
   const value = draft ?? settings.completionPercentage;
   const percentage = settings.completionTrigger === 'percentage';

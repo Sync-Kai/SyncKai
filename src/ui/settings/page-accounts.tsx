@@ -1,7 +1,7 @@
 // Réglages › Comptes (maquettes Comptes, ComptesConnexion) : une carte par service (connecté, session expirée, non
 // connecté, connexion en cours, chargement, profil illisible, erreurs sous l'en-tête), « Fiche ouverte par défaut »
 // (désactivée tant que les deux comptes ne sont pas connectés) et la note sur le mot de passe.
-import { useEffect, useId, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { joinSentences, t } from '../../i18n';
 import { getCachedMalViewer, getCachedViewer } from '../../browser/storage/viewer-cache';
 import { isAniListViewer, type AniListViewer } from '../../shared/anilist.types';
@@ -17,7 +17,7 @@ import { Icon } from '../components/icon';
 import { Section } from '../components/section';
 import { Segmented } from '../components/segmented';
 import { TONE_BG } from '../components/tone';
-import { useLocale, useStore } from '../preact/hooks';
+import { useDomId, useLocale, useStore } from '../preact/hooks';
 import type { AccountState } from '../state';
 import type { SettingsContext, SettingsMountedPage } from './context';
 import { preactPage } from './preact-page';
@@ -194,8 +194,8 @@ const ENTRY_OPTIONS = [
 /** « Fiche ouverte par défaut » (clic sur un titre ou une affiche) : choix actif seulement avec les deux comptes connectés */
 function EntryService({ ctx, both }: { ctx: SettingsContext; both: boolean }) {
   const data = useStore(ctx.state);
-  const labelId = useId();
-  const noteId = useId();
+  const labelId = useDomId();
+  const noteId = useDomId();
   const s = data.settings;
   if (!s) return null;
   return (

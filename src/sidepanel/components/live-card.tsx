@@ -3,10 +3,9 @@
 // position « 14:40 / 23:40 » et légende « Générique à 21:32 », puis la ligne d'état (compte à rebours en texte simple,
 // sinon icône + état, ligne secondaire : raison, erreur, point attendu en pause). Seule cette carte est redessinée à
 // chaque tick. Changements d'état annoncés aux lecteurs d'écran, jamais le compte à rebours.
-import { useId } from 'preact/hooks';
 import { t } from '../../i18n';
 import { Icon } from '../../ui/components/icon';
-import { useStore } from '../../ui/preact/hooks';
+import { useDomId, useStore } from '../../ui/preact/hooks';
 import type { ReadonlyStore } from '../../ui/state';
 import { formatClock, liveBlock, type LiveDisplay, type LiveSnapshot, type LiveTone } from '../live-view';
 
@@ -83,7 +82,7 @@ function LiveStatus({ display }: { display: LiveDisplay }) {
 }
 
 export function LiveCard({ episode, enabled, live }: LiveCardProps) {
-  const id = useId();
+  const id = useDomId();
   const snapshot = useStore(live);
   const block = enabled ? liveBlock(snapshot) : { kind: 'none' as const };
   const tick = snapshot.tick;

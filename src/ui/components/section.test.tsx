@@ -79,6 +79,26 @@ describe('Section', () => {
     expect(first?.id).not.toBe(second?.id);
   });
 
+  it('deux racines Preact dans la page (popup et barre d’état, réglages) : chaque section nommée par son propre titre', async () => {
+    const other = document.createElement('div');
+    document.body.append(other);
+    try {
+      await show(<Section title="Dernières synchros">a</Section>);
+      await act(() => render(<Section title="Délai">b</Section>, other));
+      // Nom accessible tel que le résout le navigateur : aria-labelledby cherche l'id dans tout le document
+      const name = (root: HTMLElement): string | null | undefined => {
+        const id = root.querySelector('section')?.getAttribute('aria-labelledby');
+        return id ? document.getElementById(id)?.textContent : undefined;
+      };
+      expect(container.querySelector('h2')?.id).not.toBe(other.querySelector('h2')?.id);
+      expect(name(container)).toBe('Dernières synchros');
+      expect(name(other)).toBe('Délai');
+    } finally {
+      await act(() => render(null, other));
+      other.remove();
+    }
+  });
+
   it('titre de niveau 3 sous un titre de niveau 2 (groupes du tri « État »)', async () => {
     await show(
       <Section title="En diffusion" count={2} countInline level={3}>

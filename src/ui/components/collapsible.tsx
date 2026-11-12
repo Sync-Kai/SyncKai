@@ -1,7 +1,8 @@
 // Bloc repliable : bouton d'en-tête (aria-expanded, aria-controls), chevron et compte facultatif ; contenu masqué
 // (`hidden`) quand il est replié. Non contrôlé (`defaultOpen`) ou contrôlé (`open` + `onToggle`).
 import type { ComponentChildren } from 'preact';
-import { useId, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
+import { useDomId } from '../preact/hooks';
 import { Icon } from './icon';
 
 export interface CollapsibleProps {
@@ -33,7 +34,7 @@ const HEADERS = {
 } as const;
 
 export function Collapsible({ title, count, open, defaultOpen = false, onToggle, children, focusKey, variant = 'inline', summary }: CollapsibleProps) {
-  const id = useId();
+  const id = useDomId();
   const [own, setOwn] = useState(defaultOpen);
   const expanded = open ?? own;
   const toggle = (): void => {

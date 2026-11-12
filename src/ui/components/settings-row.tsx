@@ -3,8 +3,8 @@
 // barre latérale Firefox de 300 px ; à 360 px la carte mesure 322 px, barre de défilement comprise), requête de conteneur :
 // description et résumé masqués, la description reste l'infobulle et la description accessible (maquette PanelReglages320).
 import type { ComponentChildren } from 'preact';
-import { useId } from 'preact/hooks';
 import type { IconName } from '../icons';
+import { useDomId } from '../preact/hooks';
 import { Icon } from './icon';
 import { Switch } from './switch';
 
@@ -69,7 +69,7 @@ export interface SettingsRowProps {
 export const NARROW_HIDDEN = '@max-[304px]:hidden';
 
 export function SettingsRow({ title, description, descriptionTone, icon, tile = 'lavender', leading, onClick, href, external = false, summary, toggle, trailing, divider = false, focusKey }: SettingsRowProps) {
-  const id = useId();
+  const id = useDomId();
   const titleId = `${id}-title`;
   const descriptionId = description ? `${id}-description` : undefined;
   const navigates = toggle === undefined && (onClick !== undefined || href !== undefined);

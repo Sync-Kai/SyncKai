@@ -4,7 +4,7 @@
 // statistiques). Profil et statistiques : cache du profil, relu une fois à l'ouverture s'il date de plus d'une heure
 // (ui/account-menu-model.ts) ; compteur de la semaine : browser/storage/weekly-syncs.ts.
 import type { RefObject } from 'preact';
-import { useEffect, useId, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { t, tp } from '../i18n';
 import type { AniListViewer } from '../shared/anilist.types';
 import type { MalViewer } from '../shared/mal.types';
@@ -19,7 +19,7 @@ import { AccountAvatar } from './components/account-avatar';
 import { Placeholder, StatTiles } from './components/stat-tiles';
 import { Icon } from './components/icon';
 import { MenuItem, MenuPopup, MenuSeparator } from './components/menu';
-import { useLocale, useStore } from './preact/hooks';
+import { useDomId, useLocale, useStore } from './preact/hooks';
 
 const log = createLogger('account-menu');
 
@@ -78,7 +78,7 @@ export function AccountMenu({ service, accounts, root, onClose, data = STORAGE_M
   const [refreshing, setRefreshing] = useState(false);
   const [weekly, setWeekly] = useState<number | 'hidden' | null>(null);
   const [cached, setCached] = useState<Viewer | null>(null);
-  const infoId = useId();
+  const infoId = useDomId();
 
   // Ouverture : compteur de la semaine, profil en cache (session expirée), une relecture du profil au plus
   useEffect(() => {

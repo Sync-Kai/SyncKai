@@ -1,12 +1,11 @@
 // Réglages › Affichage (maquette Affichage) : langue de l'interface (page Langue), panneau latéral (onglet à
 // l'ouverture, progression en direct) et raccourcis clavier (page Raccourcis, la ligne décrit les touches sans les montrer).
-import { useId } from 'preact/hooks';
 import { getLocale, t } from '../../i18n';
 import { DORMANT_AFTER_DAYS, type DormantAfterDays, type PanelDefaultTab } from '../../shared/settings';
 import { Section } from '../components/section';
 import { Segmented } from '../components/segmented';
 import { SettingsCard, SettingsRow } from '../components/settings-row';
-import { useLocale, useStore } from '../preact/hooks';
+import { useDomId, useLocale, useStore } from '../preact/hooks';
 import type { SettingsContext, SettingsMountedPage } from './context';
 import { settingsRowFocus } from './navigation';
 import { SettingsPlaceholder } from './placeholder';
@@ -34,9 +33,9 @@ function dormantFromKey(key: DormantKey): DormantAfterDays {
 export function DisplayPage({ ctx }: { ctx: SettingsContext }) {
   useLocale();
   const data = useStore(ctx.state);
-  const tabLabel = useId();
-  const dormantLabel = useId();
-  const dormantHelp = useId();
+  const tabLabel = useDomId();
+  const dormantLabel = useDomId();
+  const dormantHelp = useDomId();
   const s = data.settings;
   if (!s) return <SettingsPlaceholder error={data.settingsError} />;
   return (
