@@ -86,11 +86,16 @@ export async function clearSessionCaches(): Promise<void> {
 /** Repli quand `storage.session` est absent : mémoire du service worker (perdue à sa mise en veille), un même objet partagé par identifiant */
 const franchiseMemory = new Map<number, { at: number; value: FranchiseGraph }>();
 
-const validRecord = (record: unknown, now: number): FranchiseGraph | null =>
-  isRecord(record) && fresh(record.at, FRANCHISE_CACHE_TTL_MS, now) && isFranchiseGraph(record.value) ? record.value : null;
+const validRecord = (record: unknown, now: number): { at: number; value: FranchiseGraph } | null =>
+  isRecord(record) && typeof record.at === 'number' && fresh(record.at, FRANCHISE_CACHE_TTL_MS, now) && isFranchiseGraph(record.value) ? { at: record.at, value: record.value } : null;
 
 /** Graphe en cache pour cet identifiant (pointeur puis enregistrement), null si absent, expiré ou illisible */
 export async function readFranchiseCache(mediaId: number, now: number = Date.now()): Promise<FranchiseGraph | null> {
+  return (await readFranchiseEntry(mediaId, now))?.value ?? null;
+}
+
+/** Comme `readFranchiseCache`, avec la date d'écriture du graphe (`at`) : un nouveau pointeur vers lui expire avec lui */
+export async function readFranchiseEntry(mediaId: number, now: number = Date.now()): Promise<{ at: number; value: FranchiseGraph } | null> {
   const area = sessionArea();
   if (!area) return validRecord(franchiseMemory.get(mediaId), now);
   try {

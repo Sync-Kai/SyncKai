@@ -178,6 +178,9 @@ describe('loadFranchise', () => {
     expect(result.graph.nodes[AOT_START]?.platforms).toEqual([{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/GR751KNZY/attack-on-titan' }]);
   });
 
+});
+
+describe('loadFranchise : liens appris, identifiant disparu et extras (ORD)', () => {
   it('ORD-01 : un lien ADN appris pour une entrée du graphe sert « Regarder », après un parcours et depuis le cache, sans entrer dans le cache', async () => {
     const S2 = 20958;
     const learnedAdn = 'https://animationdigitalnetwork.com/video/42-l-attaque-des-titans-saison-2';
@@ -222,6 +225,31 @@ describe('loadFranchise', () => {
     expect(deps.anilistPublicQuery).not.toHaveBeenCalled();
   });
 
+  it('ORD-04 : ouvrir un extra ne prolonge pas le cache de la franchise (graphe à T, extra à T+23 h, relu à T+24 h + 1 min)', async () => {
+    const OVA = 18397;
+    const T = 1_800_000_000_000;
+    const HOUR = 3_600_000;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(T);
+    const start = aot.rounds[0]?.[0];
+    const ova = start?.relations?.edges?.find((e) => e.node.id === OVA)?.node;
+    if (!start || !ova) throw new Error('fixture');
+    const withOva: Fixture = { rounds: [...aot.rounds, [{ ...ova, relations: { edges: [{ relationType: 'PARENT', node: { ...start, relations: { edges: [] } } }] } }]] };
+    serveAnyStart(withOva);
+    expect((await loadFranchise(AOT_START)).ok).toBe(true);
+    vi.setSystemTime(T + 23 * HOUR);
+    deps.anilistPublicQuery.mockClear();
+    expect((await loadFranchise(OVA)).ok).toBe(true);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(T + FRANCHISE_CACHE_TTL_MS + 60_000);
+    deps.anilistPublicQuery.mockClear();
+    expect((await loadFranchise(OVA)).ok).toBe(true);
+    expect(deps.anilistPublicQuery.mock.calls.length).toBeGreaterThan(1);
+  });
+
+});
+
+describe('loadFranchise : erreurs et expiration', () => {
   it('requête refusée : { ok: false } avec le message de l\'erreur, rien en cache', async () => {
     deps.anilistPublicQuery.mockRejectedValue(new ApiError('RATE_LIMITED', 'Trop de requêtes'));
     expect(await loadFranchise(AOT_START)).toEqual({ ok: false, message: 'Trop de requêtes' });
