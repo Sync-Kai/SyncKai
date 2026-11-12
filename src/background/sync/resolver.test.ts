@@ -248,6 +248,15 @@ describe('resolveEpisode — correspondance en cache', () => {
     expect(storage.saved).not.toHaveBeenCalled();
   });
 
+  it('épisode décimal (Slime S2 E48.5 sur Crunchyroll) et correspondance apprise : gardée, résolution sans écriture (SYNC-01)', async () => {
+    // S2 Part 2 = E37…E48 affichés ; E48.5 (relevé sur la page de série) donne 12,5 : position inconnue, pas une saison suivante
+    storage.getMediaMapping.mockResolvedValue({ mediaId: 116742, numbering: 'displayed', offset: 36, episodes: 12, learned: true });
+    api.searchAnime.mockResolvedValue([media({ id: 116742, titles: ['Tensei shitara Slime Datta Ken 2nd Season Part 2'], externalLinkUrls: ['https://www.crunchyroll.com/series/GYZJ43JMR'] })]);
+    await resolveEpisode(crunchyrollEpisode({ seriesId: 'GYZJ43JMR', animeTitle: 'Moi, quand je me réincarne en Slime', seasonNumber: 2, seasonEpisodeNumber: 48.5, displayedEpisodeNumber: 48.5 }));
+    expect(storage.forgotten).not.toHaveBeenCalled();
+    expect(storage.saved).not.toHaveBeenCalled();
+  });
+
   it('même cas en lecture seule (persist: false) : ni suppression ni écriture', async () => {
     const { result } = await resolveEpisode(crunchyrollEpisode({ seasonEpisodeNumber: 13, displayedEpisodeNumber: 13 }), { persist: false });
     expect(api.searchAnime).toHaveBeenCalled();

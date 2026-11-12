@@ -27,7 +27,8 @@ export function applyMapping(episode: EpisodeNumbers, mapping: MediaMapping): nu
 /**
  * Déduit une correspondance d'un choix manuel (fiche + épisode AniList confirmé par l'utilisateur).
  * Ex : Crunchyroll affiche E28, l'utilisateur confirme l'épisode 4 → numbering "displayed", offset 24,
- * donc E29 donnera 5. Retourne null si la progression est invalide pour la fiche.
+ * donc E29 donnera 5. Retourne null si la progression est invalide pour la fiche, ou si le numéro de l'épisode est
+ * absent ou décimal (film ADN sans numéro, Crunchyroll E48.5 : décalage non entier, rejeté par isMediaMapping).
  */
 export function mappingFromManualChoice(
   episode: EpisodeNumbers,
@@ -40,6 +41,7 @@ export function mappingFromManualChoice(
 
   // Numéro dans la saison identique : correspondance la plus simple et la plus stable
   if (season !== null && progress === season) return { mediaId, numbering: 'season', offset: 0, episodes };
+  if (!Number.isInteger(displayed ?? season)) return null;
   if (displayed !== null) return { mediaId, numbering: 'displayed', offset: displayed - progress, episodes };
   if (season !== null) return { mediaId, numbering: 'season', offset: season - progress, episodes };
   return null;

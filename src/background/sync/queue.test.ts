@@ -117,7 +117,7 @@ describe('relance de la file (DATA-01)', () => {
     signedInAsB(true);
     fake.local.data.set(SYNC_QUEUE_KEY, [item({ epochs: { anilist: 0, mal: 0 } })]);
     await processSyncQueue();
-    expect(mocks.syncEpisode).toHaveBeenCalledWith(episode, ['mal'], { mal: 0 });
+    expect(mocks.syncEpisode).toHaveBeenCalledWith(episode, ['mal'], { mal: 0 }, {});
     expect(await getSyncQueue()).toEqual([]);
   });
 
@@ -125,7 +125,7 @@ describe('relance de la file (DATA-01)', () => {
     signedInAsB();
     fake.local.data.set(SYNC_QUEUE_KEY, [item()]);
     await processSyncQueue();
-    expect(mocks.syncEpisode).toHaveBeenCalledWith(episode, ['anilist'], { anilist: 1 });
+    expect(mocks.syncEpisode).toHaveBeenCalledWith(episode, ['anilist'], { anilist: 1 }, {});
   });
 });
 
@@ -166,7 +166,7 @@ describe('cycle de la file et alarme de relance (TEST-07)', () => {
 
     vi.setSystemTime(T0 + BACKOFF_MS[0]);
     await processSyncQueue();
-    expect(mocks.syncEpisode).toHaveBeenCalledExactlyOnceWith(episode, ['anilist', 'mal'], BOTH);
+    expect(mocks.syncEpisode).toHaveBeenCalledExactlyOnceWith(episode, ['anilist', 'mal'], BOTH, {});
     expect(await getSyncQueue()).toEqual([]);
     expect(fake.local.peek(SYNC_QUEUE_KEY)).toBeUndefined();
     expect(await chrome.alarms.get(QUEUE_ALARM)).toBeUndefined();
@@ -237,7 +237,7 @@ describe('cycle de la file et alarme de relance (TEST-07)', () => {
     await vi.runAllTimersAsync();
     await run;
     expect(mocks.syncEpisode).toHaveBeenCalledTimes(2);
-    expect(mocks.syncEpisode).toHaveBeenLastCalledWith(episodeN(6), ['anilist', 'mal'], BOTH);
+    expect(mocks.syncEpisode).toHaveBeenLastCalledWith(episodeN(6), ['anilist', 'mal'], BOTH, {});
     expect(await getSyncQueue()).toMatchObject([{ id: 'crunchyroll:EP5', attempts: 1 }]);
     expect(await chrome.alarms.get(QUEUE_ALARM)).toBeDefined();
   });

@@ -56,12 +56,14 @@ async function refreshBadgeSafely(): Promise<void> {
  * ou services en erreur dans un résultat `synced`), et retourne le résultat avec `queued: true` le cas échéant.
  * Retire l'éventuelle entrée existante si la synchro a réussi pour tous les services demandés.
  * `epochs` : sessions ouvertes au début de la synchro (getOpenSessions), l'entrée n'est relancée que sur elles.
+ * `unguarded` : écriture d'une carte confirmée, relancée sans la garde du saut final (SYNC-03).
  */
 export async function recordSyncOutcome(
   episode: EpisodeInfo,
   services: TrackerId[] | null,
   outcome: SyncOutcome,
   epochs: SessionEpochs,
+  unguarded = false,
 ): Promise<SyncOutcome> {
   try {
     const id = queueItemId(episode);
@@ -72,7 +74,8 @@ export async function recordSyncOutcome(
       const existing = await findItem(id);
       if (result.kind === 'retry') {
         // Session fermée pendant la synchro : rien n'est mis en file
-        return saveQueueItem(upsertFailure(existing, episode, result.services, result.message, Date.now(), epochs));
+        const item = upsertFailure(existing, episode, result.services, result.message, Date.now(), epochs);
+        return saveQueueItem(unguarded ? { ...item, unguarded: true } : item);
       }
       // Succès (ou plus rien à relancer) : retire les services concernés de l'entrée existante
       if (existing !== null) {
@@ -112,7 +115,7 @@ async function retryItem(id: string, manual: boolean): Promise<SyncOutcome | nul
       return { status: 'error', message: t('queue.sessionClosed') };
     }
 
-    const outcome = await syncEpisode(item.episode, item.services, item.epochs);
+    const outcome = await syncEpisode(item.episode, item.services, item.epochs, item.unguarded ? { unguarded: true } : {});
     const decision = decideAfterRetry(item, outcome, Date.now(), manual);
     if (__SYNCKAI_DEBUG__) {
       const next = decision.action === 'remove' ? 'removed' : decision.item.status;

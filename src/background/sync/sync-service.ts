@@ -41,7 +41,7 @@ import type { CatalogMedia, TrackerEntry, TrackerService } from '../ports/tracke
 import { entryTargetId, runGuarded, type EntryStep } from '../entry-commands';
 import { seasonLabel } from './matching/matching';
 import { mappingFromManualChoice } from './matching/mapping';
-import { type ResolveResult, type SyncTarget } from './matching/model';
+import { isValidProgress, type ResolveResult, type SyncTarget } from './matching/model';
 import { findReviewCandidates, resolveEpisode, toCandidateSummary } from './resolver';
 import { decideListUpdate, isFinaleJump, type ListEntryState } from './rules';
 import { createLogger } from '../../browser/logger';
@@ -261,6 +261,8 @@ interface WriteOptions {
   only?: readonly TrackerId[] | null;
   /** Carte de vérification confirmée par l'utilisateur (voir settleReviewCard) ; jamais retenue par la garde du saut final */
   confirmed?: PendingReview;
+  /** Relance par la file de l'écriture d'une carte confirmée (SYNC-03) : jamais retenue par la garde du saut final */
+  unguarded?: boolean;
   /** Fiches candidates de la résolution, proposées sur la carte d'un saut final retenu */
   candidates?: CandidateSummary[];
 }
@@ -304,7 +306,7 @@ async function writeToServices(
   if (trackers.length === 0) return { outcome: { status: 'not-connected' }, deferred: null };
 
   // Garde du saut final (SEC-01) pour la synchro automatique seulement : un choix de l'utilisateur s'applique tel quel
-  const guardFinale = options.confirmed === undefined && (options.correctionFrom ?? null) === null;
+  const guardFinale = options.confirmed === undefined && options.unguarded !== true && (options.correctionFrom ?? null) === null;
   // « Synchro… » dans la barre d'état des pages ouvertes, le temps des lectures et écritures des services
   const writes = await withSyncActivity(() => Promise.all(trackers.map((tr) => writeToService(tr, catalog, progress, options.correctionFrom ?? null, options.epochs[tr.id], guardFinale))));
   const results = writes.map((w) => w.result);
@@ -430,6 +432,8 @@ async function resolveForSync(episode: EpisodeInfo, key: string): Promise<SyncRe
 export interface SyncOptions {
   /** Raison d'une vérification imposée (limite de débit de EPISODE_COMPLETED) : carte « À vérifier » au lieu d'écrire */
   review?: string;
+  /** Relance d'une carte « À vérifier » confirmée (SYNC-03) : sans la garde du saut final */
+  unguarded?: boolean;
 }
 
 /**
@@ -503,7 +507,7 @@ export async function syncEpisode(episode: EpisodeInfo, only: readonly TrackerId
       await queueReview({ key, episode, reason: options.review, suggestion: { mediaId: target.mediaId, progress: target.progress }, candidates, previous: null, createdAt: Date.now() });
       return { status: 'needs-review', reason: options.review };
     }
-    return (await writeToServices(key, episode, catalog, target.progress, { only, epochs: sessions, candidates })).outcome;
+    return (await writeToServices(key, episode, catalog, target.progress, { only, epochs: sessions, candidates, unguarded: options.unguarded === true })).outcome;
   } catch (error: unknown) {
     return toErrorOutcome(error);
   }
@@ -536,8 +540,7 @@ export async function resolveReview({ key, mediaId, progress }: ResolveReviewPay
     if (review.previous !== null) epochs = sessionsOf(review.epochs, current);
 
     const catalog = await getCatalogMedia(mediaId);
-    const mapping = mappingFromManualChoice(review.episode, mediaId, progress, catalog.episodes);
-    if (!mapping) {
+    if (!isValidProgress(progress, catalog.episodes)) {
       return {
         outcome: { status: 'error', message: t('sync.invalidEpisode', { progress, title: catalog.title, total: catalog.episodes ?? '?' }) },
         episode: null,
@@ -546,9 +549,13 @@ export async function resolveReview({ key, mediaId, progress }: ResolveReviewPay
       };
     }
 
-    // Choix de l'utilisateur : jamais remis en cause par les signaux de la plateforme (voir matching.ts › cachedMappingVerdict)
-    await saveChosen(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title });
-    log.info(`Correspondance manuelle enregistrée pour ${key} :`, mapping);
+    // Choix de l'utilisateur : jamais remis en cause par les signaux de la plateforme (voir matching.ts › cachedMappingVerdict).
+    // Épisode sans numéro ou décimal (SYNC-01) : aucune correspondance déduite, celle de la saison reste ; la progression est écrite
+    const mapping = mappingFromManualChoice(review.episode, mediaId, progress, catalog.episodes);
+    if (mapping) {
+      await saveChosen(key, { ...mapping, seriesLabel: seasonLabel(review.episode), mediaTitle: catalog.title });
+      log.info(`Correspondance manuelle enregistrée pour ${key} :`, mapping);
+    }
     // Correction sur la fiche déjà utilisée : la valeur choisie remplace celle écrite (même plus basse), seulement
     // sur un service resté à la progression écrite par la synchro corrigée (voir writeEntry)
     const correctionFrom = review.previous !== null && review.previous.mediaId === mediaId ? review.previous.progress : null;
