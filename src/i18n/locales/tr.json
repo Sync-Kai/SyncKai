@@ -798,7 +798,7 @@
   "reco.rolling": "Çekiliyor…",
   "reco.inPlanning": "İzlenecek listesinde",
   "reco.dismiss": "İlgilenmiyorum",
-  "reco.dismissAria": "{title} bir daha önerilmesin",
+  "reco.dismissAria": "İlgilenmiyorum: {title}",
   "reco.dismissed": "Bir daha önerilmeyecek: {title}",
   "reco.undo": "Geri al",
   "reco.previous": "Önceki çekilenler",

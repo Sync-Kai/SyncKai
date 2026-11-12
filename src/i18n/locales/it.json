@@ -798,7 +798,7 @@
   "reco.rolling": "Estrazione…",
   "reco.inPlanning": "In Da vedere",
   "reco.dismiss": "Non mi interessa",
-  "reco.dismissAria": "Non suggerire più {title}",
+  "reco.dismissAria": "Non mi interessa: {title}",
   "reco.dismissed": "Non verrà più suggerito: {title}",
   "reco.undo": "Annulla",
   "reco.previous": "Già estratti",

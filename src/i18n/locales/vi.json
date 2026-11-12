@@ -738,7 +738,7 @@
   "reco.rolling": "Đang rút…",
   "reco.inPlanning": "Trong Dự định xem",
   "reco.dismiss": "Không quan tâm",
-  "reco.dismissAria": "Không gợi ý {title} nữa",
+  "reco.dismissAria": "Không quan tâm: {title}",
   "reco.dismissed": "Sẽ không gợi ý nữa: {title}",
   "reco.undo": "Hoàn tác",
   "reco.previous": "Các gợi ý đã rút",

@@ -3,7 +3,7 @@ import { render, type ComponentChild } from 'preact';
 import { useRef } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setLocale, t } from '../../i18n';
+import { LOCALES, setLocale, t, tl } from '../../i18n';
 import type { StreamingPlatform } from '../../platforms/registry';
 import { ALL_RECO_FILTER, type RecoItem } from '../../shared/recommendations';
 import { useFocusFallback } from '../preact/hooks';
@@ -29,7 +29,7 @@ const item = (over: Partial<RecoItem['card']> = {}, matched: string[] = ['Action
   reason: { seedId: 1, seedTitle: 'Frieren', seedScore: 9, rated: true, matched },
 });
 type Ready = Extract<RecoView, { status: 'ready' }>;
-const view = (current: RecoItem, over: Partial<Ready> = {}): Ready => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: false, dismissedTitle: null, filter: ALL_RECO_FILTER, genres: [], ...over });
+const view = (current: RecoItem, over: Partial<Ready> = {}): Ready => ({ status: 'ready', current, previous: [], cold: false, malOnly: false, added: null, dismissedTitle: null, filter: ALL_RECO_FILTER, genres: [], ...over });
 
 const handlers = { onAnother: vi.fn<() => void>(), onAdd: vi.fn<() => void>(), onDismiss: vi.fn<() => void>(), onUndo: vi.fn<() => void>(), onEnable: vi.fn<(platform: StreamingPlatform) => void>() };
 const props = (current: RecoItem, over: Partial<Ready> = {}, extra: Partial<RecoCardProps> = {}): RecoCardProps => ({ item: current, view: view(current, over), granted: [], ...handlers, ...extra });
@@ -181,9 +181,32 @@ describe('RecoCard', () => {
   });
 
   it('ajoutée : « Dans À regarder » à la place du bouton d\'ajout', async () => {
-    await show(<RecoCard {...props(item(), { added: true })} />);
+    await show(<RecoCard {...props(item(), { added: { notOnMal: false, inList: false } })} />);
     expect($('[data-focus="reco-add"]')).toBeNull();
     expect(container.textContent).toContain(t('reco.inPlanning'));
+  });
+
+  it('ajoutée sur AniList seul : « pas encore sur MyAnimeList » ; rien d\'écrit, déjà listée : « Déjà dans ta liste »', async () => {
+    await show(<RecoCard {...props(item(), { added: { notOnMal: true, inList: false } })} />);
+    expect($('[data-reco-added]')?.textContent).toBe(t('sequel.notOnMal'));
+    await show(<RecoCard {...props(item(), { added: { notOnMal: false, inList: true } })} />);
+    expect($('[data-reco-added]')?.textContent).toBe(t('sequel.inList'));
+  });
+
+  it('français, TV_SHORT : format traduit et moyenne « 8,4 »', async () => {
+    setLocale('fr');
+    await show(<RecoCard {...props(item({ format: 'TV_SHORT', averageScore: 84 }))} />);
+    expect(container.textContent).toContain(t('review.format.tvShort'));
+    expect(container.textContent).not.toContain('TV_SHORT');
+    expect(container.textContent).toContain('★ 8,4');
+    setLocale('en');
+  });
+
+  // Libellé dans le nom (WCAG 2.5.3) : la commande vocale « Pas intéressé » ou « Autre » doit trouver le bouton
+  it.each(LOCALES)('%s : les noms accessibles de « Pas intéressé » et « Autre » contiennent le libellé visible', (locale) => {
+    const lower = (text: string): string => text.toLocaleLowerCase(locale);
+    expect(lower(tl(locale, 'reco.dismissAria', { title: 'Dandadan' }))).toContain(lower(tl(locale, 'reco.dismiss')));
+    expect(lower(tl(locale, 'reco.anotherAria'))).toContain(lower(tl(locale, 'reco.another')));
   });
 
   it('MyAnimeList seul et sans idMal : pas de bouton d\'ajout, mention « pas encore sur MyAnimeList »', async () => {

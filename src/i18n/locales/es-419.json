@@ -798,7 +798,7 @@
   "reco.rolling": "Eligiendo…",
   "reco.inPlanning": "En “Por ver”",
   "reco.dismiss": "No me interesa",
-  "reco.dismissAria": "No volver a sugerir {title}",
+  "reco.dismissAria": "No me interesa: {title}",
   "reco.dismissed": "No se volverá a sugerir: {title}",
   "reco.undo": "Deshacer",
   "reco.previous": "Sugeridas antes",

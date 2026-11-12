@@ -102,7 +102,22 @@ describe('createRecoController', () => {
     expect(sw.calls.find((call) => call.type === 'ADD_TO_LIST')?.payload).toEqual({ mediaId: id, malId: id + 1000, status: 'PLANNING' });
     expect(sw.calls.find((call) => call.type === 'UPDATE_RECOMMENDATION')?.payload).toEqual({ id, action: 'added' });
     expect(types().indexOf('ADD_TO_LIST')).toBeLessThan(types().indexOf('UPDATE_RECOMMENDATION'));
-    expect(ready(c.store.get()).added).toBe(true);
+    expect(ready(c.store.get()).added).toEqual({ notOnMal: false, inList: false });
+    c.dispose();
+  });
+
+  it('ajouter : AniList écrit et MyAnimeList ignoré → « pas encore sur MyAnimeList » ; rien d\'écrit, déjà dans une liste → « Déjà dans ta liste »', async () => {
+    const anilistOnly = { status: 'synced', results: [{ service: 'anilist', outcome: { status: 'updated' } }, { service: 'mal', outcome: { status: 'skipped', reason: 'no idMal' } }] };
+    sw.handler = (type) => (type === 'GET_RECOMMENDATIONS' ? okResult(batchOf(3)) : type === 'ADD_TO_LIST' ? anilistOnly : true);
+    let c = await start();
+    await c.add();
+    expect(ready(c.store.get()).added).toEqual({ notOnMal: true, inList: false });
+    c.dispose();
+    const inList = { status: 'synced', results: [{ service: 'anilist', outcome: { status: 'skipped', reason: 'listed', code: 'already-in-list' } }] };
+    sw.handler = (type) => (type === 'GET_RECOMMENDATIONS' ? okResult(batchOf(3)) : type === 'ADD_TO_LIST' ? inList : true);
+    c = await start();
+    await c.add();
+    expect(ready(c.store.get()).added).toEqual({ notOnMal: false, inList: true });
     c.dispose();
   });
 
@@ -111,7 +126,7 @@ describe('createRecoController', () => {
     const c = await start();
     await c.add();
     const view = ready(c.store.get());
-    expect(view.added).toBe(false);
+    expect(view.added).toBeNull();
     expect(view.addError).toBe('Réseau');
     expect(types()).not.toContain('UPDATE_RECOMMENDATION');
     c.dispose();
@@ -153,6 +168,17 @@ describe('createRecoController', () => {
     const first = ready(c.store.get()).current;
     await c.dismiss();
     vi.advanceTimersByTime(5100);
+    const view = ready(c.store.get());
+    expect(view.current.card.id).not.toBe(first.card.id);
+    expect(view.previous.map((i) => i.card.id)).not.toContain(first.card.id);
+    c.dispose();
+  });
+
+  it('écartée puis « Autre » pendant « Annuler » : absente de « Déjà tirées »', async () => {
+    const c = await start();
+    const first = ready(c.store.get()).current;
+    await c.dismiss();
+    c.another();
     const view = ready(c.store.get());
     expect(view.current.card.id).not.toBe(first.card.id);
     expect(view.previous.map((i) => i.card.id)).not.toContain(first.card.id);
