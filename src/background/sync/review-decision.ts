@@ -40,7 +40,8 @@ export async function replayDeferredEpisode(deferred: DeferredEpisode | null): P
 /** « Valider » : choix écrit (échec passager d'une vérification simple mis en file), puis épisode mis de côté rejoué */
 export async function confirmReview(payload: ResolveReviewPayload): Promise<SyncOutcome> {
   const { outcome, episode, epochs, deferred } = await resolveReview(payload);
-  const recorded = episode !== null ? await recordSyncOutcome(episode, null, outcome, epochs) : outcome;
+  // Choix confirmé : sa relance par la file n'est jamais retenue par la garde du saut final (SYNC-03)
+  const recorded = episode !== null ? await recordSyncOutcome(episode, null, outcome, epochs, true) : outcome;
   await replayDeferredEpisode(deferred);
   return recorded;
 }

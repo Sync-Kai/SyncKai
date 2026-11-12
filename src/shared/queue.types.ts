@@ -25,6 +25,8 @@ export interface SyncQueueItem {
   firstFailedAt: number;
   /** Dernière erreur, en français, affichée dans le popup */
   lastError: string;
+  /** Écriture d'une carte « À vérifier » confirmée (SYNC-03) : la relance n'applique pas la garde du saut final */
+  unguarded?: true;
 }
 
 /** Élément rattaché à ses sessions, services explicites */
@@ -45,7 +47,8 @@ export function isSyncQueueItem(value: unknown): value is SyncQueueItem {
     (value.status === 'pending' || value.status === 'failed') &&
     typeof value.nextAttemptAt === 'number' &&
     typeof value.firstFailedAt === 'number' &&
-    typeof value.lastError === 'string'
+    typeof value.lastError === 'string' &&
+    (value.unguarded === undefined || value.unguarded === true)
   );
 }
 

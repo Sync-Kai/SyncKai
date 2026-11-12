@@ -288,7 +288,7 @@ async function fromCache(
   // Fiche en cache introuvable sur AniList (rien à proposer à côté) : comme écartée, la nouvelle résolution l'emporte
   const cached = verdict.kind === 'drop' || (revalidated && (confirmedLearned || revalidated.media === null)) ? null : confirmed;
   const progress = cached ? applyMapping(episode, cached) : null;
-  if (!cached || progress === null) return { kind: 'miss', confirmed, verdict, unknownPosition: cached !== null && seasonPosition(episode, cached.numbering) === null };
+  if (!cached || progress === null) return { kind: 'miss', confirmed, verdict, unknownPosition: cached !== null && !Number.isInteger(seasonPosition(episode, cached.numbering)) };
   if (verdict.kind === 'doubt' && question?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, question.media, verdict, lane, catalog) };
   if (revalidated?.media) return { kind: 'hit', resolution: await doubtedMapping(episode, key, { ...cached, progress }, revalidated.media, { signals: [], refreshed: true }, lane, catalog) };
   const result: ResolveResult = { ok: true, target: { ...cached, progress, confidence: 'high', reason: 'Correspondance en cache', fromCache: true } };
@@ -367,8 +367,9 @@ export async function resolveEpisode(
   // Ex : numérotation absolue passée à la fiche suivante, correspondance importée réfutée → nouvelle résolution.
   // Choix de l'utilisateur hors de sa fiche (épisode d'une autre partie de la saison, revisionnage d'un épisode antérieur) :
   // jamais supprimé ni remplacé, nouvelle résolution sans rien enregistrer
-  // Position de l'épisode inconnue pour sa numérotation (M6 : numéro dans la saison absent de la page) : rien ne dit que
-  // la correspondance est fausse, elle est gardée telle quelle et l'épisode résolu sans mise en cache
+  // Position de l'épisode inconnue pour sa numérotation (M6 : numéro dans la saison absent de la page ; SYNC-01 : numéro
+  // décimal, Slime S2 E48.5) : rien ne dit que la correspondance est fausse, elle est gardée telle quelle et l'épisode
+  // résolu sans mise en cache
   const keepsChoice = (stored !== null && mappingOrigin(stored) === 'chosen' && confirmed !== null) || unknownPosition;
   if (keepsChoice) log.info(`Correspondance ${key} ${unknownPosition ? 'sans position connue pour cet épisode' : 'choisie hors de sa fiche pour cet épisode'} : conservée, résolution sans mise en cache`);
   // Suppression et apprentissage conditionnels : un choix enregistré pendant les requêtes (sélecteur, carte) n'est jamais écrasé

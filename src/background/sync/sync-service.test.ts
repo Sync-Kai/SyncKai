@@ -58,7 +58,8 @@ const OPEN_SESSIONS = {
 };
 
 const { resolveReview, shouldPromptRating, syncEpisode } = await import('./sync-service');
-const { recordSyncOutcome } = await import('./queue');
+const { recordSyncOutcome, retryQueued } = await import('./queue');
+const { queueItemId } = await import('../../shared/queue.types');
 const { confirmReview, ignoreReview } = await import('./review-decision');
 const { exclusionKey, mappingKey } = await import('../../platforms/series-identity');
 const { getMediaMapping, saveChosen, saveMediaMappingsIfAbsent } = await import('../../browser/storage/mappings');
@@ -779,6 +780,63 @@ describe('saut direct vers le dernier épisode depuis loin : « À vérifier » 
     expect(anilist.writes.map((w) => w.progress)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));
     expect(anilist.entries.get(PART1)).toMatchObject({ status: 'COMPLETED', progress: 24 });
     expect(await getPendingReviews()).toEqual([]);
+  });
+
+  it('carte validée puis MAL en 504 : la relance de la file écrit MAL 24 sans nouvelle carte (SYNC-03)', async () => {
+    // AniList à 23, MAL sans la série : E24 écrit AniList, MAL retenu par la garde (saut depuis 0), carte créée
+    connect({ status: 'CURRENT', progress: 23 }, null);
+    fakes.resolutions = [resolved(PART1, 24)];
+    await syncEpisode(episode(24));
+    expect(mal.writes).toEqual([]);
+    expect(await getPendingReviews()).toMatchObject([{ key: KEY }]);
+
+    mal.failWith = new ApiError('API_ERROR', 'MyAnimeList : erreur 504', { httpStatus: 504 });
+    expect(await confirmReview({ key: KEY, mediaId: PART1, progress: 24 })).toMatchObject({ status: 'synced', queued: true });
+    expect(await getPendingReviews()).toEqual([]);
+
+    mal.failWith = null;
+    await retryQueued(queueItemId(episode(24)));
+    expect(mal.writes).toEqual([{ id: MAL_PART1, progress: 24, status: 'COMPLETED' }]);
+    expect(await getPendingReviews()).toEqual([]);
+    expect(await getSyncQueue()).toEqual([]);
+  });
+});
+
+describe('carte sans numéro ou à numéro décimal (SYNC-01)', () => {
+  it('film ADN sans numéro (repli du lecteur) validé avec 1 : synchronisé, aucune correspondance déduite', async () => {
+    catalog.set(PART1, [MAL_PART1, 1]);
+    connect(null);
+    const film: EpisodeInfo = {
+      platform: 'adn',
+      episodeId: '27001',
+      seriesId: '1311',
+      seriesSlug: 'film',
+      animeTitle: 'Film',
+      seasonNumber: null,
+      seasonTitle: null,
+      seasonEpisodeNumber: null,
+      displayedEpisodeNumber: null,
+      episodeTitle: null,
+      url: 'https://animationdigitalnetwork.com/video/1311-film/27001-film',
+    };
+    const filmKey = mappingKey(film);
+    await savePendingReview(review({ key: filmKey, episode: film, suggestion: { mediaId: PART1, progress: 1 } }));
+
+    const { outcome } = await resolveReview({ key: filmKey, mediaId: PART1, progress: 1 });
+    expect(outcome).toMatchObject({ status: 'synced' });
+    expect(anilist.entries.get(PART1)).toMatchObject({ status: 'COMPLETED', progress: 1 });
+    expect(await getMediaMapping(filmKey)).toBeNull();
+  });
+
+  it('épisode décimal (Slime S2 E48.5) validé sur une saison déjà choisie : l’ancien choix reste lisible', async () => {
+    connect(null);
+    const chosen: MediaMapping = { mediaId: PART2, numbering: 'displayed', offset: 36, episodes: 12 };
+    await saveChosen(KEY, chosen);
+    await savePendingReview(review({ episode: episode(48.5), suggestion: { mediaId: PART1, progress: 1 } }));
+
+    const { outcome } = await resolveReview({ key: KEY, mediaId: PART1, progress: 1 });
+    expect(outcome).toMatchObject({ status: 'synced' });
+    expect(await getMediaMapping(KEY)).toMatchObject({ ...chosen, chosen: true });
   });
 });
 
