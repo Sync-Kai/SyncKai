@@ -56,7 +56,8 @@ export function AddToListButtons({ labels, busy, disabled = false, primary, onAd
     </Button>
   );
   return (
-    <div class="flex flex-col gap-2" data-add-buttons="">
+    // Bouton retiré une fois la série ajoutée : focus sur le + du compteur qui le remplace (même préfixe de clé)
+    <div class="flex flex-col gap-2" data-add-buttons="" data-focus-fallback={`${focusKey}-plus`}>
       {button('PLANNING')}
       {button('CURRENT')}
     </div>

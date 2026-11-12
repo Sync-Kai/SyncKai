@@ -97,14 +97,42 @@ interface FocusTrack {
   order: string[];
 }
 
+/** Rattrapage du focus après un rendu (voir useFocusFallback) ; relit aussi l'ordre des clés pour le prochain retrait */
+function restoreFocus(root: HTMLElement, track: FocusTrack, fallback: FocusFallback | undefined): void {
+  const { active, declared, order } = track;
+  track.order = focusKeys(root);
+  if (!active || isFocusable(root, active)) return;
+  // Focus déjà placé ailleurs (par le rendu ou l'utilisateur) : laissé en place
+  const current = document.activeElement;
+  if (current instanceof HTMLElement && current !== document.body && current !== active) return;
+  track.active = null;
+  const focusable = focusableByKey(root);
+  const available = (key: string): boolean => focusable.has(key);
+  const key = active.dataset.focus ?? '';
+  const ref = typeof fallback === 'object' ? fallback.current : null;
+  let target: HTMLElement | null = null;
+  if (ref !== null && isFocusable(root, ref)) {
+    // Repli par ref (sans clé) : après l'élément recréé et les replis déclarés, avant les voisins
+    const pick = pickFocusKey(key, [], declared, available);
+    target = pick === null ? ref : (focusable.get(pick) ?? ref);
+  } else {
+    const pick = pickFocusKey(key, order, typeof fallback === 'string' ? [...declared, fallback] : declared, available);
+    target = pick === null ? null : (focusable.get(pick) ?? null);
+  }
+  target?.focus({ preventScroll: true });
+}
+
 /**
  * Élément focalisé retiré (ou désactivé, masqué) par un rendu : le focus passe (ui/dom.ts › pickFocusKey) à l'élément
  * recréé sous la même clé `data-focus`, sinon au repli `data-focus-fallback` déclaré par l'élément ou un ancêtre,
  * sinon à `fallback`, sinon au voisin suivant puis précédent dans l'ordre d'avant le rendu ; jamais sur <body>. Le diff de Preact garde les nœuds : seuls les retraits sont à traiter. Focus parti hors du conteneur
- * avant le rendu : rien n'est déplacé.
+ * avant le rendu : rien n'est déplacé. Rendus de l'hôte (effet de mise en page) comme d'un enfant à état propre
+ * (MutationObserver du conteneur) : les deux passent par restoreFocus.
  */
 export function useFocusFallback(container: RefObject<HTMLElement | null>, fallback?: FocusFallback): void {
   const track = useRef<FocusTrack>({ active: null, declared: [], order: [] });
+  const latest = useRef(fallback);
+  latest.current = fallback;
 
   useEffect(() => {
     const root = container.current;
@@ -128,39 +156,22 @@ export function useFocusFallback(container: RefObject<HTMLElement | null>, fallb
         if (!root.contains(document.activeElement)) track.current.active = null;
       });
     };
+    // Rendu d'un enfant seul (état ou store propres) : l'effet de l'hôte ne passe pas, le DOM changé suffit
+    const observer = new MutationObserver(() => restoreFocus(root, track.current, latest.current));
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'hidden', 'inert'] });
     root.addEventListener('focusin', onFocusIn);
     root.addEventListener('focusout', onFocusOut);
     return () => {
+      observer.disconnect();
       root.removeEventListener('focusin', onFocusIn);
       root.removeEventListener('focusout', onFocusOut);
     };
   }, [container]);
 
-  // Après chaque rendu, avant que le navigateur ne peigne
+  // Après chaque rendu de l'hôte, avant que le navigateur ne peigne
   useLayoutEffect(() => {
     const root = container.current;
-    if (!root) return;
-    const { active, declared, order } = track.current;
-    track.current.order = focusKeys(root);
-    if (!active || isFocusable(root, active)) return;
-    // Focus déjà placé ailleurs (par le rendu ou l'utilisateur) : laissé en place
-    const current = document.activeElement;
-    if (current instanceof HTMLElement && current !== document.body && current !== active) return;
-    track.current.active = null;
-    const focusable = focusableByKey(root);
-    const available = (key: string): boolean => focusable.has(key);
-    const key = active.dataset.focus ?? '';
-    const ref = typeof fallback === 'object' ? fallback.current : null;
-    let target: HTMLElement | null = null;
-    if (ref !== null && isFocusable(root, ref)) {
-      // Repli par ref (sans clé) : après l'élément recréé et les replis déclarés, avant les voisins
-      const pick = pickFocusKey(key, [], declared, available);
-      target = pick === null ? ref : (focusable.get(pick) ?? ref);
-    } else {
-      const pick = pickFocusKey(key, order, typeof fallback === 'string' ? [...declared, fallback] : declared, available);
-      target = pick === null ? null : (focusable.get(pick) ?? null);
-    }
-    target?.focus({ preventScroll: true });
+    if (root) restoreFocus(root, track.current, fallback);
   });
 }
 

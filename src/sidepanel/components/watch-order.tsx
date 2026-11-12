@@ -253,6 +253,9 @@ function Timeline({ graph, ctx, list, mode, onMode }: { graph: FranchiseGraph; c
   const limit = showAll ? units.length : Math.max(firstRows, units.findIndex(holdsCurrent) + 1);
   const shown = units.slice(0, limit);
   const hidden = units.slice(limit).reduce((sum, unit) => sum + (unit.kind === 'row' ? 1 : unit.nodes.length), 0);
+  // « Afficher N de plus » disparu au clic : focus sur la première ligne révélée (ligne ou « N vus »)
+  const revealed = units[limit];
+  const moreFallback = revealed === undefined ? undefined : revealed.kind === 'row' ? `order-entry-${revealed.node.id}` : `order-run-${revealed.nodes[0]?.id ?? 0}`;
   return (
     <div class="flex flex-col gap-2">
       <Segmented
@@ -283,6 +286,7 @@ function Timeline({ graph, ctx, list, mode, onMode }: { graph: FranchiseGraph; c
                 aria-expanded="false"
                 data-order-run=""
                 data-focus={`order-run-${first}`}
+                data-focus-fallback={`order-entry-${first}`}
                 onClick={() => setExpanded(new Set([...expanded, first]))}
               >
                 {tp('panel.order.watchedRun', unit.nodes.length, { count: unit.nodes.length })}
@@ -297,6 +301,7 @@ function Timeline({ graph, ctx, list, mode, onMode }: { graph: FranchiseGraph; c
           class="cursor-pointer self-start border-0 bg-transparent p-0 text-secondary font-extrabold text-sakura underline underline-offset-2"
           data-order-more=""
           data-focus="order-more"
+          data-focus-fallback={moreFallback}
           onClick={() => setShowAll(true)}
         >
           {tp('panel.order.more', hidden, { count: hidden })}
@@ -390,7 +395,14 @@ export function WatchOrder(props: WatchOrderProps) {
     </Collapsible>
   );
   const graph = order.status === 'ready' ? order.graph : null;
-  if (order.status === 'error') return shell(<Alert message={order.message ?? t('panel.order.error')} action={{ label: t('common.retry'), onClick: props.onRetry, focusKey: 'order-retry' }} />);
+  if (order.status === 'error') {
+    // « Réessayer » remplacé par le chargement : focus sur l'en-tête de la section
+    return shell(
+      <div data-focus-fallback="panel-section-order">
+        <Alert message={order.message ?? t('panel.order.error')} action={{ label: t('common.retry'), onClick: props.onRetry, focusKey: 'order-retry' }} />
+      </div>,
+    );
+  }
   if (graph === null) {
     return shell(
       <div class="flex flex-col gap-2 motion-safe:animate-pulse" role="status" aria-busy="true" aria-label={t('panel.order.title')}>

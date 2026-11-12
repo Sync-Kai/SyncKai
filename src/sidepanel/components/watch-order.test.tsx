@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { render } from 'preact';
+import { useRef } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t, tp } from '../../i18n';
 import type { FranchiseGraph, FranchiseNode, ListState, ListStates } from '../../shared/franchise';
 import type { SyncOutcome } from '../../shared/sync.types';
+import { useFocusFallback } from '../../ui/preact/hooks';
 import type { OrderState } from './now-playing-controller';
 import { WatchOrder, type WatchOrderProps } from './watch-order';
 
@@ -67,6 +69,31 @@ async function show(order: OrderState, over: Partial<WatchOrderProps> = {}): Pro
   };
   await act(() => render(<WatchOrder {...props} />, container));
 }
+
+/** Hôte du panneau (panel-app.tsx) : repli du focus sur l'onglet affiché */
+function PanelHost({ order, currentId }: { order: OrderState; currentId: number }) {
+  const root = useRef<HTMLDivElement>(null);
+  useFocusFallback(root, 'tab-nowPlaying');
+  return (
+    <div ref={root}>
+      <button type="button" data-focus="tab-nowPlaying">
+        En lecture
+      </button>
+      <WatchOrder
+        order={order}
+        currentId={currentId}
+        links={{ connected: ['anilist'], preferred: 'anilist' }}
+        preferred="crunchyroll"
+        unlistedSequels={new Set<number>()}
+        open
+        onToggle={() => undefined}
+        onRetry={() => undefined}
+      />
+    </div>
+  );
+}
+const showInPanel = (order: OrderState, currentId = 1): Promise<void> => act(() => render(<PanelHost order={order} currentId={currentId} />, container));
+const focused = (): string | null => (document.activeElement instanceof HTMLElement ? (document.activeElement.dataset.focus ?? null) : null);
 
 const rows = (): HTMLElement[] => [...container.querySelectorAll<HTMLElement>('[data-order-row]')];
 const click = async (selector: string): Promise<void> => {
@@ -242,6 +269,23 @@ describe('Ordre de visionnage : liste dépliée', () => {
     await click('[data-order-more]');
     expect(rows()).toHaveLength(8);
     expect(container.querySelector('[data-order-more]')).toBeNull();
+  });
+
+  it('« Afficher N de plus » au clavier : focus sur la première ligne révélée, ni <body> ni l’onglet', async () => {
+    await showInPanel(ready(graphOf(eight()), statesOf({})));
+    const more = container.querySelector<HTMLElement>('[data-order-more]');
+    more?.focus();
+    await click('[data-order-more]');
+    expect(rows()).toHaveLength(8);
+    expect(focused()).toBe('order-entry-6');
+  });
+
+  it('« N vus » au clavier : focus sur la première ligne dépliée', async () => {
+    await showInPanel(ready(graphOf(eight()), statesOf({ 1: watched, 2: watched, 3: watched, 4: watched })), 8);
+    container.querySelector<HTMLElement>('[data-order-run]')?.focus();
+    await click('[data-order-run]');
+    expect(rows()).toHaveLength(8);
+    expect(focused()).toBe('order-entry-1');
   });
 
   it('panneau étroit (< 340 px) : 3 lignes avant « Afficher N de plus »', async () => {

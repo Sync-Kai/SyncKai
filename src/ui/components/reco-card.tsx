@@ -186,7 +186,8 @@ export function RecoCard({ item: liveItem, compact = false, view: liveView, onAn
         <PlatformChips item={item} granted={granted} onEnable={onEnable} />
       </div>
 
-      <div class="flex flex-wrap items-center gap-2">
+      {/* Bouton retiré avec le focus : « Pas intéressé » → « Annuler », « Annuler » → « Autre » (repli de useFocusFallback) */}
+      <div class="flex flex-wrap items-center gap-2" data-focus-fallback={dismissed ? 'reco-another' : 'reco-undo'}>
         {dismissed ? (
           <span class="inline-flex min-w-0 items-center gap-1 rounded-panel bg-raised py-0.5 pl-3 pr-1 text-secondary text-muted">
             {/* Titre long ou traduction longue : le message passe à la ligne au lieu d'être tronqué */}
