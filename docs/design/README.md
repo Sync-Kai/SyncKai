@@ -322,7 +322,7 @@ Extension pages move to Preact one screen at a time (decision 12, 2026-10-17); c
 - **Content-safe modules stay vanilla**: `ui/{rating,star-rating,kai-small,svg}.ts` are shared with content scripts. A page wraps them in a small component that mounts the vanilla node into a ref.
 - **Every mounted tree is unmounted on dispose** (`render(null, container)`), and on host navigation when the host mixes Preact and vanilla screens: a tree left mounted keeps its store and locale subscriptions.
 - **Texts through `t()`**, with `useLocale()` in the component so it re-renders when the language changes.
-- **Focus**: Preact keeps nodes across renders; where a render removes the focused element, `useFocusFallback` moves the focus (same key, declared `data-focus-fallback`, given fallback, then neighbours: `ui/dom.ts` › `pickFocusKey`).
+- **Focus**: Preact keeps nodes across renders; where a render removes the focused element, `useFocusFallback` moves the focus (same key, declared `data-focus-fallback`, given fallback, then neighbours: `ui/dom.ts` › `pickFocusKey`), after a render of the host or of a child alone (`MutationObserver` on the container); a child that removes its own control declares the local target (first revealed row, the stepper's +, the dormant group header).
 
 ### Base components
 

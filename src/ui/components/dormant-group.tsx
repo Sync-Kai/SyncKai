@@ -102,7 +102,7 @@ export function DormantGroup(props: DormantGroupProps) {
   const bodyId = useId();
   const root = useRef<HTMLElement>(null);
   const [confirming, setConfirming] = useState<Confirming>(null);
-  /** Bouton à refocaliser après une confirmation annulée */
+  /** Bouton à refocaliser après une confirmation annulée ou confirmée */
   const restore = useRef<string | null>(null);
   useLayoutEffect(() => {
     if (confirming !== null || restore.current === null) return;
@@ -113,13 +113,16 @@ export function DormantGroup(props: DormantGroupProps) {
     restore.current = focus;
     setConfirming(null);
   };
-  const confirmed = (run: () => void): void => {
+  // « Oui » : focus sur un bouton qui reste focalisable pendant l'envoi (« Pause » de la ligne, « Tout mettre en pause »)
+  const confirmed = (run: () => void, focus: string): void => {
+    restore.current = focus;
     setConfirming(null);
     run();
   };
   const { pauseAll } = props;
   return (
-    <section ref={root} class="flex flex-col gap-2" aria-labelledby={`${bodyId}-title`} data-dormant-group="">
+    // Ligne sortie du groupe (mise en pause, abandonnée, gardée) avec le focus : il passe à l'en-tête du groupe
+    <section ref={root} class="flex flex-col gap-2" aria-labelledby={`${bodyId}-title`} data-dormant-group="" data-focus-fallback="dormant-toggle">
       <button
         type="button"
         class="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-card border border-line bg-surface px-3 py-2 text-left transition-colors hover:bg-raised/50"
@@ -155,13 +158,13 @@ export function DormantGroup(props: DormantGroupProps) {
               separated={index > 0}
               confirming={confirming?.kind === 'drop' && confirming.key === row.rowKey}
               onConfirm={() => setConfirming({ kind: 'drop', key: row.rowKey })}
-              onYes={() => confirmed(row.drop.onClick)}
+              onYes={() => confirmed(row.drop.onClick, `dormant-pause-${row.rowKey}`)}
               onCancel={() => cancel(`dormant-drop-${row.rowKey}`)}
             />
           ))}
         </ul>
         {pauseAll && confirming?.kind === 'all' ? (
-          <InlineConfirm {...pauseAll.confirm} focusKey={ALL_FOCUS} onYes={() => confirmed(pauseAll.onClick)} onNo={() => cancel(ALL_FOCUS)} />
+          <InlineConfirm {...pauseAll.confirm} focusKey={ALL_FOCUS} onYes={() => confirmed(pauseAll.onClick, ALL_FOCUS)} onNo={() => cancel(ALL_FOCUS)} />
         ) : (
           <div class="mx-1 flex min-w-0 flex-wrap items-center justify-between gap-2">
             <Button size="sm" variant="text" focusKey="dormant-threshold" onClick={props.threshold.onClick}>

@@ -363,6 +363,9 @@ export function WatchingNoticeBanner({ notice, onHold }: { notice: WatchingNotic
       role="status"
       title={feedback.detail}
       data-watching-notice=""
+      // « Annuler » disparu (série remise en cours) : repli sur l'en-tête du groupe, que popup.ts › focusFirstOf remplace
+      // ensuite par le titre de la série (focus resté dans le groupe ou le bandeau)
+      data-focus-fallback={notice.undo ? 'dormant-toggle' : undefined}
       onPointerEnter={() => hold('pointer', true)}
       onPointerLeave={() => hold('pointer', false)}
       onFocusIn={() => hold('focus', true)}

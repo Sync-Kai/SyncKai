@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { render } from 'preact';
-import { useRef } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDismiss, useFocusFallback, useNow, type DismissOptions, type FocusFallback } from './hooks';
@@ -103,6 +103,29 @@ describe('useFocusFallback', () => {
     await show({ items: ['a'], fallback: 'a' });
     expect(document.activeElement).toBe(outside);
     outside.remove();
+  });
+
+  it('bouton retiré par un enfant (état propre, l’hôte ne se redessine pas) : focus sur le repli, jamais <body>', async () => {
+    function Child() {
+      const [done, setDone] = useState(false);
+      return done ? <p>fait</p> : <button type="button" data-focus="child-action" onClick={() => setDone(true)}>Agir</button>;
+    }
+    function Host() {
+      const root = useRef<HTMLDivElement>(null);
+      useFocusFallback(root, 'rail');
+      return (
+        <div ref={root}>
+          <button type="button" data-focus="rail">Rail</button>
+          <Child />
+        </div>
+      );
+    }
+    await act(() => render(<Host />, container));
+    const action = $('[data-focus="child-action"]');
+    action?.focus();
+    await act(() => action?.click());
+    expect($('[data-focus="child-action"]')).toBeNull();
+    expect(focusKey()).toBe('rail');
   });
 
   it('rendu qui ne retire rien : le focus ne bouge pas', async () => {

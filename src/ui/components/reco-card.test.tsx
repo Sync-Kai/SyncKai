@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { render, type ComponentChild } from 'preact';
+import { useRef } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, t } from '../../i18n';
 import type { StreamingPlatform } from '../../platforms/registry';
 import { ALL_RECO_FILTER, type RecoItem } from '../../shared/recommendations';
+import { useFocusFallback } from '../preact/hooks';
 import type { RecoView } from '../reco-controller';
 import { RecoCard, type RecoCardProps } from './reco-card';
 
@@ -31,6 +33,20 @@ const view = (current: RecoItem, over: Partial<Ready> = {}): Ready => ({ status:
 
 const handlers = { onAnother: vi.fn<() => void>(), onAdd: vi.fn<() => void>(), onDismiss: vi.fn<() => void>(), onUndo: vi.fn<() => void>(), onEnable: vi.fn<(platform: StreamingPlatform) => void>() };
 const props = (current: RecoItem, over: Partial<Ready> = {}, extra: Partial<RecoCardProps> = {}): RecoCardProps => ({ item: current, view: view(current, over), granted: [], ...handlers, ...extra });
+
+/** Hôte à repli du focus (panneau, popup) : l'onglet affiché */
+function Host({ card }: { card: RecoCardProps }) {
+  const root = useRef<HTMLDivElement>(null);
+  useFocusFallback(root, 'tab-discover');
+  return (
+    <div ref={root}>
+      <button type="button" data-focus="tab-discover">
+        Découvrir
+      </button>
+      <RecoCard {...card} />
+    </div>
+  );
+}
 
 describe('RecoCard', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -87,6 +103,16 @@ describe('RecoCard', () => {
     await show(<RecoCard {...props(current, { dismissedTitle: 'Dandadan' })} />);
     expect(document.activeElement).toBe($('[data-focus="reco-undo"]'));
     await show(<RecoCard {...props(current)} />);
+    expect(document.activeElement).toBe($('[data-focus="reco-another"]'));
+  });
+
+  it('focus dans un hôte à repli (panneau, popup) : « Annuler » puis « Autre », pas l’onglet', async () => {
+    const current = item();
+    await show(<Host card={props(current)} />);
+    $<HTMLButtonElement>('[data-focus="reco-dismiss"]')?.focus();
+    await show(<Host card={props(current, { dismissedTitle: 'Dandadan' })} />);
+    expect(document.activeElement).toBe($('[data-focus="reco-undo"]'));
+    await show(<Host card={props(current)} />);
     expect(document.activeElement).toBe($('[data-focus="reco-another"]'));
   });
 

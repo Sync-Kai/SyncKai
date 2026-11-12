@@ -276,6 +276,26 @@ describe('ReviewList', () => {
     expect(document.activeElement?.getAttribute('data-focus')).toBe('review-title');
   });
 
+  it('« Confirmer » au clavier, stockage relu avant la réponse : focus sur « Fermer », jamais <body>', async () => {
+    let reply: (outcome: SyncOutcome) => void = () => undefined;
+    const confirm = vi.fn(() => new Promise<SyncOutcome>((resolve) => (reply = resolve)));
+    const acts = actions({ confirm });
+    const list = (reviews: PendingReview[]) => <ReviewList title="À vérifier" reviews={reviews} actions={acts} empty={null} />;
+    await show(list([B, review()]));
+    $(focus('confirm'))?.focus();
+    await click(focus('confirm'));
+    // Le service worker retire la vérification avant de répondre : seule la liste se redessine
+    await show(list([B]));
+    expect(document.activeElement).toBe($(focus('confirm')));
+    // Réponse : seule la carte se redessine (« Confirmer » remplacé par « Fermer »)
+    await act(async () => {
+      reply(SYNCED);
+      await Promise.resolve();
+    });
+    expect($(focus('confirm'))).toBeNull();
+    expect(document.activeElement).toBe($(focus('close')));
+  });
+
   it('nouvelle vérification de la même saison : carte remise à zéro (choix et saisie)', async () => {
     const list = (reviews: PendingReview[]) => <ReviewList title="À vérifier" reviews={reviews} actions={actions()} empty={null} />;
     await show(list([review()]));
