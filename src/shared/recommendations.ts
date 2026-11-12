@@ -1,6 +1,7 @@
 import { isRecord } from './guards';
 import type { SessionEpochs } from './session-epochs';
-import type { PlatformLink } from './watching.types';
+import { toSafeUrl } from './url';
+import { isPlatformLink, type PlatformLink } from './watching.types';
 
 export const BATCH_SIZE = 60;
 export const MAX_SEEDS = 50;
@@ -99,7 +100,8 @@ export function toCard(m: RawRecoMedia): RecoCard {
     coverLarge: m.coverImage?.large ?? null,
     color: m.coverImage?.color ?? null,
     bannerUrl: m.bannerImage ?? null,
-    siteUrl: m.siteUrl ?? `https://anilist.co/anime/${m.id}`,
+    // Même règle que la garde du lot relu (isRecoBatch) : un lot calculé n'est jamais refusé, donc jamais recalculé en boucle
+    siteUrl: toSafeUrl(m.siteUrl, 'anilist.co') ?? `https://anilist.co/anime/${m.id}`,
     platforms: [],
   };
 }
@@ -198,6 +200,21 @@ export function withoutItem(batch: RecoBatch, id: number): RecoBatch {
   return { ...batch, items: batch.items.filter((i) => i.card.id !== id) };
 }
 
-/** Lot lu dans le stockage : forme vérifiée (les fiches ne sont pas relues une à une, le lot est écrit par le service worker) */
+const isStrings = (value: unknown): boolean => Array.isArray(value) && value.every((s) => typeof s === 'string');
+
+/**
+ * Fiche relue du stockage (SEC-02) : un script de contenu peut écrire dans `storage.local`. Les URL qui deviennent des liens
+ * sont revalidées (fiche sur anilist.co, plateformes sur leur hôte) ; les images passent par toImageSrc à l'affichage.
+ */
+const isRecoItem = (value: unknown): boolean => {
+  if (!isRecord(value) || typeof value.score !== 'number' || !(value.reason === null || (isRecord(value.reason) && isStrings(value.reason.matched)))) return false;
+  const card = value.card;
+  return (
+    isRecord(card) && typeof card.id === 'number' && Number.isInteger(card.id) && card.id > 0 && typeof card.title === 'string' && isStrings(card.genres) && isStrings(card.tags) &&
+    typeof card.siteUrl === 'string' && toSafeUrl(card.siteUrl, 'anilist.co') !== null && Array.isArray(card.platforms) && card.platforms.every(isPlatformLink)
+  );
+};
+
+/** Lot lu dans le stockage, fiches comprises : un lot altéré est refusé en bloc, donc recalculé */
 export const isRecoBatch = (value: unknown): value is RecoBatch =>
-  isRecord(value) && Array.isArray(value.items) && typeof value.computedAt === 'number' && typeof value.seedCount === 'number' && typeof value.cold === 'boolean';
+  isRecord(value) && Array.isArray(value.items) && value.items.every(isRecoItem) && typeof value.computedAt === 'number' && typeof value.seedCount === 'number' && typeof value.cold === 'boolean';

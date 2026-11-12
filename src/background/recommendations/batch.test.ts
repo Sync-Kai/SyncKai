@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import fixture from '../../shared/__fixtures__/recommendations/seeds.json';
 import { installFakeChrome } from '../../test/fake-chrome';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import type { RecoBatch, RecoResult } from '../../shared/recommendations';
+import { toCard, type RawRecoMedia, type RecoBatch, type RecoResult } from '../../shared/recommendations';
 
 const deps = vi.hoisted(() => ({
   anilistPublicQuery: vi.fn(),
@@ -204,6 +204,8 @@ describe('getRecommendations › démarrage à froid', () => {
 
 describe('getRecommendations › cache de 24 h', () => {
   const stored = (computedAt: number): RecoBatch => ({ items: [], computedAt, seedCount: 3, cold: false, epochs: { anilist: 7 } });
+  /** Fiche telle que le service worker l'écrit (toCard) */
+  const card = (id: number, extra: Record<string, unknown> = {}): Record<string, unknown> => ({ ...toCard(rawMedia(id) as unknown as RawRecoMedia), ...extra });
 
   it('lot plus récent que 24 h : servi sans aucune requête', async () => {
     fake.local.seed({ [STORAGE_KEYS.recoBatch]: stored(NOW - DAY + 1000) });
@@ -252,8 +254,22 @@ describe('getRecommendations › cache de 24 h', () => {
     expect(deps.fetchAniListFullList).toHaveBeenCalledTimes(1);
   });
 
+  it('lot stocké avec un lien étranger ou une fiche nulle (SEC-02) : jamais servi, recalculé', async () => {
+    deps.fetchAniListFullList.mockResolvedValue(SEED_IDS.map((id) => entry(id, 'COMPLETED', 9)));
+    for (const items of [
+      [{ card: card(1, { siteUrl: 'https://evil.example/anime/1' }), score: 1, reason: null }],
+      [{ card: card(1, { platforms: [{ platform: 'crunchyroll', url: 'https://evil.example/series/X' }] }), score: 1, reason: null }],
+      [null],
+    ]) {
+      deps.fetchAniListFullList.mockClear();
+      fake.local.seed({ [STORAGE_KEYS.recoBatch]: { ...stored(NOW - 1000), items } });
+      expect(batchOf(await getRecommendations(false)).computedAt).toBe(NOW);
+      expect(deps.fetchAniListFullList).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it('lot en cache : les suggestions écartées depuis ne sont pas servies', async () => {
-    const withItems = { ...stored(NOW - 1000), items: [{ card: { id: 1 }, score: 1, reason: null }, { card: { id: 2 }, score: 1, reason: null }] };
+    const withItems = { ...stored(NOW - 1000), items: [{ card: card(1), score: 1, reason: null }, { card: card(2), score: 1, reason: null }] };
     fake.local.seed({ [STORAGE_KEYS.recoBatch]: withItems, [STORAGE_KEYS.recoDismissed]: [2] });
     expect(batchOf(await getRecommendations(false)).items.map((i) => i.card.id)).toEqual([1]);
   });

@@ -866,7 +866,7 @@ describe('syncEpisode : ordre des décisions avant écriture (TEST-01)', () => {
 
 describe('écriture par service (TEST-01)', () => {
   it('entrée créée par la synchro : la série quitte le lot de suggestions', async () => {
-    const card = (id: number, idMal: number) => ({ card: { id, idMal, title: `T${id}`, format: null, year: null, episodes: null, averageScore: null, genres: [], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: '', platforms: [] }, score: 1, reason: null });
+    const card = (id: number, idMal: number) => ({ card: { id, idMal, title: `T${id}`, format: null, year: null, episodes: null, averageScore: null, genres: [], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: `https://anilist.co/anime/${id}`, platforms: [] }, score: 1, reason: null });
     fake.local.seed({ ...OPEN_SESSIONS, 'reco:batch': { items: [card(PART1, MAL_PART1), card(9999, 9998)], computedAt: 1, seedCount: 3, cold: false } });
     connect(null);
     fakes.resolutions = [resolved(PART1, 1)];

@@ -92,6 +92,13 @@ describe('getViewer (profil et statistiques du menu du compte)', () => {
     expect(isAniListViewer({ ...legacy, profile: { ...EMPTY_PROFILE, statuses: [{ status: 'CURRENT', count: -1 }] } })).toBe(false);
   });
 
+  it('profil relu du stockage : siteUrl hors d’anilist.co refusé (SEC-03, lien du menu du compte)', () => {
+    const viewer: AniListViewer = { id: 5, name: 'Kai', siteUrl: 'https://anilist.co/user/Kai', avatarUrl: null };
+    expect(isAniListViewer(viewer)).toBe(true);
+    expect(isAniListViewer({ ...viewer, siteUrl: 'https://evil.example/user/Kai' })).toBe(false);
+    expect(isAniListViewer({ ...viewer, siteUrl: 'http://anilist.co/user/Kai' })).toBe(false);
+  });
+
   it('statistiques absentes ou illisibles : stats null, le profil reste valide', async () => {
     answer({ Viewer: { id: 5, name: 'Kai', siteUrl: 'https://anilist.co/user/Kai', statistics: { anime: { count: '3' } } } });
     await expect(getViewer()).resolves.toMatchObject({ ok: true, data: { id: 5, stats: null } });

@@ -61,6 +61,8 @@ describe('isPlatformSignals', () => {
     expect(isEpisodeInfo(episode)).toBe(true);
     expect(isEpisodeInfo({ ...episode, signals: { seasonYear: 2023 } })).toBe(true);
     expect(isEpisodeInfo({ ...episode, signals: { seasonYear: 'x' } })).toBe(false);
+    // CR-01 : clé inconnue (une page peut y glisser des centaines de Ko, gardés dans les cartes, la file et les synchros)
+    expect(isEpisodeInfo({ ...episode, signals: { seriesYear: 2020, junk: 'x' } })).toBe(false);
   });
 
   it('EpisodeInfo bornée (SEC-10) : textes trop longs et nombres non finis ou négatifs refusés, épisode décimal accepté', () => {

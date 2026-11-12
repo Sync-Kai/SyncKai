@@ -84,7 +84,7 @@ function isPlatformUrl(platform: unknown, value: unknown): boolean {
   return platformFromHost(new URL(safe).hostname) === platform || (platform === 'prime' && primeIdInLink(safe) !== null);
 }
 
-const isPlatformLink = (value: unknown): value is PlatformLink => isRecord(value) && isPlatformUrl(value.platform, value.url);
+export const isPlatformLink = (value: unknown): value is PlatformLink => isRecord(value) && isPlatformUrl(value.platform, value.url);
 
 /** Page de la fiche sur AniList ou MyAnimeList (https, hôte exact) */
 const isSiteUrl = (value: unknown): boolean => typeof value === 'string' && (toSafeUrl(value, 'anilist.co') !== null || toSafeUrl(value, 'myanimelist.net') !== null);
