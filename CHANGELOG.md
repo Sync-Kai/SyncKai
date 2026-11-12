@@ -25,6 +25,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - *Discover*: a suggestion you turned down no longer shows up in *Earlier draws* when you click *Another* right away.
 - *Discover* / *For you*: the card shows the format in your language (« TV short », « Movie ») instead of AniList's raw name, and the average score with your language's decimal separator (« 8,4 »); the *Turn on {platform}* chips of a platform without access are no longer faded (dashed border instead), so their text stays readable.
 - Screen readers and voice control: the names of the *Not interested* and *Another* buttons of the suggestion card now contain their visible label, in every language.
+- **Watch order**: *Watch* again uses the links SyncKai learned while you browsed or synced (an ADN season AniList does not list) and your last synced episode, as the related entries did before 2.5.0.
+- **Watch order**: an entry with no state on the service you chose now shows the other service's state (« MyAnimeList: Watched ») instead of looking unwatched.
+- **Watch order**: an entry AniList no longer returns costs one request instead of twelve before showing the error.
+- **Watch order**: opening an OVA or a side story of a franchise already loaded no longer reads the whole franchise again.
 
 ## [2.5.0] - 2026-11-12
 

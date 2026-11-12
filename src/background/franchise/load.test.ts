@@ -4,6 +4,8 @@ import gundam from '../../shared/__fixtures__/franchise/gundam.json';
 import { FRANCHISE_CACHE_TTL_MS, franchiseCacheKey, franchiseRecordKey } from '../../browser/storage/session-cache';
 import { installFakeChrome } from '../../test/fake-chrome';
 import { franchiseProgress, releaseOrder, type FranchiseGraph, type ListState, type RawMedia } from '../../shared/franchise';
+import { PLATFORM_LINKS_KEY } from '../../platforms/links';
+import { choosePlatformLink } from '../../shared/watching';
 
 const deps = vi.hoisted(() => ({ anilistPublicQuery: vi.fn() }));
 vi.mock('../anilist/client', () => ({ anilistPublicQuery: deps.anilistPublicQuery }));
@@ -174,6 +176,50 @@ describe('loadFranchise', () => {
     const result = await loadFranchise(AOT_START);
     if (!result.ok) throw new Error('chargement attendu');
     expect(result.graph.nodes[AOT_START]?.platforms).toEqual([{ platform: 'crunchyroll', url: 'https://www.crunchyroll.com/series/GR751KNZY/attack-on-titan' }]);
+  });
+
+  it('ORD-01 : un lien ADN appris pour une entrée du graphe sert « Regarder », après un parcours et depuis le cache, sans entrer dans le cache', async () => {
+    const S2 = 20958;
+    const learnedAdn = 'https://animationdigitalnetwork.com/video/42-l-attaque-des-titans-saison-2';
+    fake.local.seed({ [PLATFORM_LINKS_KEY]: { [S2]: { links: { adn: learnedAdn }, updatedAt: 1 } } });
+    serve(aot);
+    const walked = await loadFranchise(AOT_START);
+    if (!walked.ok) throw new Error('chargement attendu');
+    expect(choosePlatformLink(walked.graph.nodes[S2] ?? { platforms: [] }, 'adn')?.url).toBe(learnedAdn);
+    const cached = await loadFranchise(S2);
+    if (!cached.ok) throw new Error('cache attendu');
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(aot.rounds.length);
+    expect(choosePlatformLink(cached.graph.nodes[S2] ?? { platforms: [] }, 'adn')?.url).toBe(learnedAdn);
+    expect(JSON.stringify([...fake.session.data.values()])).not.toContain('animationdigitalnetwork');
+  });
+
+  it('ORD-05 : un identifiant qu\'AniList ne renvoie plus (page vide) coûte une requête et échoue', async () => {
+    deps.anilistPublicQuery.mockResolvedValue({ Page: { media: [] } });
+    const result = await loadFranchise(424242);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    expect([...fake.session.data.keys()].filter((k) => k.startsWith('franchise:'))).toEqual([]);
+  });
+
+  it('ORD-04 : un extra de L\'Attaque des Titans (OVA) dont la franchise est en cache coûte une requête', async () => {
+    const OVA = 18397;
+    serve(aot);
+    const first = await loadFranchise(AOT_START);
+    if (!first.ok) throw new Error('chargement attendu');
+    expect(first.graph.extras.some((e) => e.id === OVA)).toBe(true);
+    const start = aot.rounds[0]?.[0];
+    const ova = start?.relations?.edges?.find((e) => e.node.id === OVA)?.node;
+    if (!start || !ova) throw new Error('fixture');
+    // Page de l'OVA : seule relation, son PARENT (la saison 1)
+    const parent: RawMedia = { ...start, relations: { edges: [] } };
+    deps.anilistPublicQuery.mockReset();
+    deps.anilistPublicQuery.mockResolvedValue({ Page: { media: [{ ...ova, relations: { edges: [{ relationType: 'PARENT', node: parent }] } }] } });
+    const extra = await loadFranchise(OVA);
+    expect(deps.anilistPublicQuery).toHaveBeenCalledTimes(1);
+    expect(extra.ok && extra.graph.main).toEqual(first.graph.main);
+    deps.anilistPublicQuery.mockClear();
+    expect((await loadFranchise(OVA)).ok).toBe(true);
+    expect(deps.anilistPublicQuery).not.toHaveBeenCalled();
   });
 
   it('requête refusée : { ok: false } avec le message de l\'erreur, rien en cache', async () => {
