@@ -31,6 +31,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Security
 
+- A list change waiting out an AniList rate limit is no longer sent when you sign out during the wait.
 - Data read back from storage is checked more strictly: episode details carrying unknown fields are refused (a hostile page could fill the browser's storage with them), and links in *Discover*, in *My series* and to your AniList profile only ever lead to AniList or to the streaming platform they belong to. A damaged *Discover* batch is now rebuilt instead of breaking the tab for a day.
 
 ## [2.5.0] - 2026-11-12
