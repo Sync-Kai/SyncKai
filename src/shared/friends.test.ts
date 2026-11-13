@@ -50,6 +50,12 @@ describe('reduceFriends (amis AniList qui ont la série)', () => {
     expect(reduceFriends(page([entry(1, 'COMPLETED', 8), entry(2, 'CURRENT', 0)], 'x'))?.total).toBe(2);
   });
 
+  it('POP-07 : plus d’amis que la page (total > 50 lus) : pas de moyenne, elle porterait sur un sous-ensemble trié', () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => entry(i + 1, 'COMPLETED', 8));
+    expect(reduceFriends(page(fifty, 57))).toMatchObject({ total: 57, averageScore: null });
+    expect(reduceFriends(page(fifty, 50))).toMatchObject({ total: 50, averageScore: 8 });
+  });
+
   it('liste vide : résumé vide ; réponse illisible : null', () => {
     expect(reduceFriends(page([], 0))).toEqual({ total: 0, averageScore: null, scoredCount: 0, friends: [] });
     for (const data of [null, {}, { Page: null }, { Page: { mediaList: 'x' } }]) expect(reduceFriends(data), JSON.stringify(data)).toBeNull();

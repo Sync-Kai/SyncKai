@@ -20,7 +20,7 @@ export interface FriendEntry {
 /** Résumé : `total` = tous les amis qui ont la série (pageInfo.total), `friends` = les 50 premiers au plus */
 export interface FriendsSummary {
   total: number;
-  /** Moyenne des notes > 0, au dixième ; null avec moins de 2 notes */
+  /** Moyenne des notes > 0, au dixième ; null avec moins de 2 notes, ou quand `total` dépasse les amis lus (POP-07) */
   averageScore: number | null;
   scoredCount: number;
   friends: FriendEntry[];
@@ -79,9 +79,11 @@ export function reduceFriends(data: unknown): FriendsSummary | null {
     friends.push(friend);
     if (friends.length === FRIENDS_PER_PAGE) break;
   }
-  // Moyenne et scoredCount calculés sur les 50 premiers amis lus (taille de la page), pas sur `total`
+  // scoredCount calculé sur les 50 premiers amis lus (taille de la page), pas sur `total`
   const scores = friends.flatMap((f) => (f.score === null ? [] : [f.score]));
-  const average = scores.length >= MIN_SCORES_FOR_AVERAGE ? Math.round((scores.reduce((sum, s) => sum + s, 0) / scores.length) * 10) / 10 : null;
-  const total: unknown = isRecord(data.Page.pageInfo) ? data.Page.pageInfo.total : undefined;
-  return { total: Math.max(isCount(total) ? total : 0, friends.length), averageScore: average, scoredCount: scores.length, friends };
+  const read: unknown = isRecord(data.Page.pageInfo) ? data.Page.pageInfo.total : undefined;
+  const total = Math.max(isCount(read) ? read : 0, friends.length);
+  // Page coupée (tri STATUS puis SCORE_DESC) : la moyenne porterait sur les premiers statuts et les meilleures notes (POP-07)
+  const average = scores.length >= MIN_SCORES_FOR_AVERAGE && total === friends.length ? Math.round((scores.reduce((sum, s) => sum + s, 0) / scores.length) * 10) / 10 : null;
+  return { total, averageScore: average, scoredCount: scores.length, friends };
 }
