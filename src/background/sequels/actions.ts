@@ -57,8 +57,21 @@ async function snapshotOf(id: number): Promise<Pick<SequelSnapshot, 'idMal' | 's
   return found?.snapshot ?? { idMal: null, siteUrl: `https://anilist.co/anime/${id}` };
 }
 
+/** Dernière fenêtre normale, mise au premier plan : Chrome et Firefox 149+ refusent openPopup pour une fenêtre inactive */
+async function focusLastWindow(): Promise<number | undefined> {
+  try {
+    const { id } = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
+    if (id !== undefined) await chrome.windows.update(id, { focused: true });
+    return id;
+  } catch (error) {
+    log.warn('Fenêtre introuvable :', error);
+    return undefined;
+  }
+}
+
+/** Activité dans le popup ; refusé (Firefox < 149 : pas de geste utilisateur depuis une notification), la fiche de la première suite */
 async function openGroup(): Promise<void> {
-  if (await openPopupOn('activity')) return;
+  if (await openPopupOn('activity', await focusLastWindow())) return;
   const [first] = visibleSequels(await readSequelStore());
   if (first !== undefined) await chrome.tabs.create({ url: first.snapshot.siteUrl });
 }
@@ -92,7 +105,7 @@ async function addToPlanning(notificationId: string, id: number): Promise<void> 
 /** Clic sur le corps de la notification : la fiche de la suite, ou Activité pour la notification groupée */
 export async function handleSequelClick(notificationId: string): Promise<void> {
   try {
-    // Ouvrir d'abord : Firefox exige le geste utilisateur sans await avant openPopup ; la fermeture suit
+    // Ouvrir d'abord, fermer ensuite : la notification reste si l'ouverture échoue
     if (notificationId.startsWith(GROUP_PREFIX)) await openGroup();
     else {
       const id = sequelIdOf(notificationId);
