@@ -117,6 +117,7 @@ This is a Taiwan localization written from the English/French source, not a char
 Verified on 2026-10-14 in Netflix's Taiwan help center ([如何查看觀影記錄和裝置活動](https://help.netflix.com/zh-tw/node/101917): 「選取 [使用者]，再選擇一位使用者。開啟 [觀影動態]。…請使用 [顯示更多] 按鈕」):
 
 - "Viewing activity" page (netflix.com/viewingactivity): **「觀影動態」**.
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « 觀看記錄頁面 (unquoted) ».
 - "Show more" button at the bottom of that page: **「顯示更多」**.
 - Netflix profiles: **使用者** (the profile picker and the account menu use 使用者, not 個人檔案, which stays the AniList/MyAnimeList profile).
 - Netflix calls the history itself 觀影記錄; the catalog keeps 觀看記錄 as the one generic word for every platform's watch history (history import), and quotes Netflix's names only where it points at Netflix's own page or button.

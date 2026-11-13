@@ -109,7 +109,7 @@ Binding for every change to `src/i18n/locales/ja.json` and `public/_locales/ja/m
 | N series remembered (Matches card header) | N作品を紐付け済み |
 | Next episode soon (badge) | 次話は近日放送 (近日 alone is an incomplete set phrase) |
 | Series title fallback (`sync.seriesFallback`) | この作品 (inserted as {title}: この作品：一時中断) |
-| Netflix "Viewing activity" page | 「視聴履歴」 (Netflix's own Japanese name) |
+| Netflix "Viewing activity" page | 「視聴履歴」 (Netflix's own Japanese name); former page name, no longer quoted since 2026-11-13: generic « 視聴履歴ページ » |
 | Firefox "Manage Extension Shortcuts" | 拡張機能のショートカットキーの管理 (Firefox's own Japanese label, `aboutAddons.ftl`) |
 | Show or hide the side panel (Firefox) | サイドパネルの表示を切り替え (same verb as Firefox's サイドバーの表示を切り替え) |
 

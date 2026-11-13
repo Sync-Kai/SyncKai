@@ -21,7 +21,7 @@ import { sendMessage } from '../../protocol/messages';
 import { SOURCE_SITES } from './sites';
 import { readErrorText, sleep, sourceParams, type HistorySource, type ReadContext, type ReadOutcome, type ReadProgress } from './source';
 
-// Historique Netflix : onglet « Activité de visionnage » piloté d'ici (voir platforms/netflix/history.ts) : a) lignes
+// Historique Netflix : onglet de la page d'historique (/settings/viewed) piloté d'ici (voir platforms/netflix/history.ts) : a) lignes
 // (bouton « Voir plus » du site), b) filtre « anime » des titres distincts (AniList, paquets de NETFLIX_TITLES_PER_REQUEST),
 // c) points de lecture des seules séries gardées (une requête Netflix chacune, espacées), d) une ligne par saison vue →
 // même analyse que Crunchyroll et ADN. Les titres écartés sont seulement comptés.
@@ -153,9 +153,9 @@ async function readNetflix(tabId: number, ctx: ReadContext): Promise<ReadOutcome
 
 export const netflixSource: HistorySource = {
   id: 'netflix',
-  // Page Activité de visionnage du profil (l'historique n'est lisible que là)
-  tabPatterns: ['https://www.netflix.com/viewingactivity*', 'https://www.netflix.com/*/viewingactivity*'],
-  home: 'https://www.netflix.com/viewingactivity',
+  // Page de l'historique du profil (lisible seulement là) : /settings/viewed depuis le 2026-11-13, l'ancienne /viewingactivity gardée
+  tabPatterns: ['https://www.netflix.com/settings/viewed*', 'https://www.netflix.com/*/settings/viewed*', 'https://www.netflix.com/viewingactivity*', 'https://www.netflix.com/*/viewingactivity*'],
+  home: 'https://www.netflix.com/settings/viewed',
   site: SOURCE_SITES.netflix,
   initialProgress: { kind: 'netflix', phase: 'rows', done: 0, total: 0 },
   // Accès optionnel, le même que dans Réglages (permission de la plateforme, voir browser/platform-access.ts)

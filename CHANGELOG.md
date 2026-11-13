@@ -27,6 +27,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Watch order**: an entry AniList no longer returns costs one request instead of twelve before showing the error.
 - **Watch order**: opening an OVA or a side story of a franchise already loaded no longer reads the whole franchise again.
 - Crunchyroll music videos and concerts are no longer treated as episodes: watching one no longer shows a false « Episode not identified » error.
+- **Netflix history import**: it finds the Netflix tab and reads the history again on Netflix's new viewing history page, instead of stopping at « No Netflix tab open ».
 
 ### Security
 

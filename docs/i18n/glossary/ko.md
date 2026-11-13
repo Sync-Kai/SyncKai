@@ -112,6 +112,7 @@ Binding for every change to `src/i18n/locales/ko.json` and `public/_locales/ko/m
 ## 3. Netflix
 
 - Viewing activity page (netflix.com/viewingactivity): ‘시청 기록’.
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « 시청 기록 페이지 (unquoted) ».
 - "Show more" button at the bottom of that page: unknown
 
   Probable candidate, not verified on a Korean profile: “더 보기” (spacing not confirmed: “더보기” is also possible). The UI text `crImport.netflix.rule` uses ‘더 보기’.

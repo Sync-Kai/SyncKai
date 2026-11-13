@@ -8,8 +8,8 @@ import { isEpisodeWatched, reduceWatchEvents, type WatchEvent } from '../../shar
 import { meaningfulSeasonTitle, normalizeTitle } from '../../shared/title';
 import { withSignals } from '../../shared/match-signals';
 
-// Import de l'historique Netflix (pur, testé), dans la page d'import : lecture de la page Activité de visionnage du profil
-// (netflix.com/viewingactivity) en pilotant l'onglet, regroupement des lignes par série, filtre « anime » (AniList, dans
+// Import de l'historique Netflix (pur, testé), dans la page d'import : lecture de la page d'historique du profil
+// (netflix.com/settings/viewed depuis le 2026-11-13, ou l'ancienne /viewingactivity) en pilotant l'onglet, regroupement des lignes par série, filtre « anime » (AniList, dans
 // le service worker), puis métadonnées des seules séries retenues → une ligne par saison (HistorySeason), analysée par le
 // même pipeline que Crunchyroll et ADN. Numérotation et clés identiques à la synchro en direct (platforms/netflix/metadata.ts).
 //
@@ -121,8 +121,8 @@ export function isNetflixPageState(value: unknown): value is NetflixPageState {
   return isRecord(value) && typeof value.path === 'string' && isCount(value.rows) && typeof value.more === 'boolean' && typeof value.gate === 'boolean' && typeof value.list === 'boolean';
 }
 
-/** Page Activité de visionnage du profil : /viewingactivity, éventuellement précédée du pays */
-const ACTIVITY_PATH = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?viewingactivity\/?$/i;
+/** Page de l'historique du profil : /settings/viewed (depuis le 2026-11-13) ou l'ancienne /viewingactivity, éventuellement précédées du pays */
+const ACTIVITY_PATH = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?(?:viewingactivity|settings\/viewed)\/?$/i;
 const LOGIN_PATH = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?(?:login|signup)(?:\/|$)/i;
 
 /** Page qui ne permet pas la lecture : déconnecté (ou choix du profil), autre page de Netflix ; null si c'est la bonne */

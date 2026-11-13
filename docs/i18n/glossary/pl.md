@@ -106,6 +106,7 @@ Statuses are neuter, so composed texts use the neuter too: “{title}: obejrzane
 ## 4. Netflix
 
 - Page netflix.com/viewingactivity: **„Historia oglądania”**; button at the bottom of the list: **„Pokaż więcej”**. Source: Netflix Help Center in Polish (help.netflix.com/pl/node/101917: “Otwórz sekcję Historia oglądania”, “kliknij przycisk Pokaż więcej”), checked 2026-10-14 during the review; not yet seen on a live Polish profile. Used in `crImport.netflix.rule`, `crImport.netflix.keepTab`, `crImport.read.error.netflixLoggedOut`.
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « strona historii oglądania ».
 
 ## 5. Grammar points settled by the review (2026-10-14)
 

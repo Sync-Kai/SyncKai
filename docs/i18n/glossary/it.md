@@ -101,6 +101,7 @@ Target: standard Italian as used by Crunchyroll Italia and big Italian apps (Chr
 
 - "Show more" button at the bottom of netflix.com/viewingactivity: **Mostra altri** (Netflix Help Center, Italian article "Come visualizzare l'attività di visione e del dispositivo", help.netflix.com/it/node/101917: "usa il pulsante Mostra altri"; the same article says "Show More" in English and "Voir plus" in French).
 - "Viewing activity" page: **Attività di visione contenuti** (same article: "Apri Attività di visione contenuti").
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « la pagina della cronologia ».
 - Both names re-checked against help.netflix.com/it/node/101917 on 2026-10-14 (review). Not checked on the live Italian netflix.com page itself.
 
 ## Development builds only

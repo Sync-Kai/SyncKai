@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Window } from 'happy-dom';
 import tabOpSource from './tab-op.ts?raw';
 import { netflixTabOp } from './tab-op';
+import { NETFLIX_VIEWED_ROWS, netflixViewedPageHtml } from '../../shared/__fixtures__/netflix-history';
 
 describe('netflixTabOp (fichier autonome)', () => {
   it('ne contient aucun import ni export de module externe : seule la fonction est sérialisée vers l’onglet', () => {
@@ -28,7 +30,7 @@ function fakeNetflixPage(path = '/viewingactivity', more = '  Voir plus '): { bu
     { href: '/title/60023642', text: 'Le Voyage de Chihiro' },
   ];
   const button = (textContent: string, inRow = false): FakeButton => {
-    const b: FakeButton = { textContent, disabled: false, inRow, clicks: 0, closest: (selector) => (b.inRow && selector === 'li.retableRow' ? {} : null), click: () => void b.clicks++ };
+    const b: FakeButton = { textContent, disabled: false, inRow, clicks: 0, closest: (selector) => (b.inRow && selector.includes('li.retableRow') ? {} : null), click: () => void b.clicks++ };
     return b;
   };
   const buttons = [button('Masquer dans l’historique', true), button('Signaler un problème', true), button('Masquer tout'), button(more)];
@@ -37,10 +39,11 @@ function fakeNetflixPage(path = '/viewingactivity', more = '  Voir plus '): { bu
     querySelectorAll: (selector: string) =>
       selector === 'button'
         ? buttons
-        : selector === 'li.retableRow'
+        : selector.includes('li.retableRow')
           ? rows.map((row) => ({ querySelector: () => ({ getAttribute: () => row.href, textContent: row.text }) }))
           : [],
-    querySelector: (selector: string) => (selector === '.retable' ? {} : null),
+    // Ancienne page : ni conteneur ni bouton data-uia de /settings/viewed
+    querySelector: (selector: string) => (selector.includes('.retable') ? {} : null),
   });
   return { buttons, rows };
 }
@@ -122,5 +125,60 @@ describe('netflixTabOp (exécutée dans l’onglet Netflix)', () => {
     expect(netflixTabOp('show', 'synckai.test.hook', '81301838')).toBe('absent');
     Reflect.set(globalThis, Symbol.for('synckai.test.hook'), (id: string) => Promise.resolve({ asked: id }));
     await expect(netflixTabOp('show', 'synckai.test.hook', '81301838')).resolves.toEqual({ asked: '81301838' });
+  });
+});
+
+// ─── Nouvelle page /settings/viewed (relevée le 2026-11-13), vrai DOM (happy-dom) ───
+
+describe('netflixTabOp sur la page /settings/viewed', () => {
+  let page: Window | null = null;
+
+  /** Page chargée dans l'onglet ; chaque clic sur un bouton est compté par son data-uia (ou son texte) */
+  function viewedPage(more: string | null = 'Voir plus'): string[] {
+    page = new Window({ url: 'https://www.netflix.com/settings/viewed' });
+    page.document.body.innerHTML = netflixViewedPageHtml(more);
+    const clicked: string[] = [];
+    for (const button of page.document.querySelectorAll('button')) {
+      button.addEventListener('click', () => clicked.push(button.getAttribute('data-uia') ?? button.textContent));
+    }
+    vi.stubGlobal('document', page.document);
+    vi.stubGlobal('location', page.location);
+    return clicked;
+  }
+
+  afterEach(async () => {
+    vi.unstubAllGlobals();
+    await page?.happyDOM.close();
+    page = null;
+  });
+
+  it('état : 6 lignes, « Voir plus » présent, liste présente', () => {
+    viewedPage();
+    expect(netflixTabOp('state', 'synckai.test.hook', '')).toEqual({ path: '/settings/viewed', rows: 6, more: true, gate: false, list: true });
+  });
+
+  it('lignes : { href, text } du lien du titre (href absolu)', () => {
+    viewedPage();
+    expect(netflixTabOp('rows', 'synckai.test.hook', '')).toEqual(NETFLIX_VIEWED_ROWS);
+  });
+
+  it('clic : « Voir plus » seulement, jamais « Signaler un problème », « Masquer » ni les onglets', () => {
+    const clicked = viewedPage();
+    expect(netflixTabOp('click', 'synckai.test.hook', '')).toBe(true);
+    expect(clicked).toEqual(['viewing-activity-page+show-more-btn']);
+  });
+
+  it('bouton trouvé par son data-uia quel que soit son libellé (langue de profil non vérifiée)', () => {
+    const clicked = viewedPage('ดูเพิ่มเติม');
+    expect(netflixTabOp('state', 'synckai.test.hook', '')).toMatchObject({ more: true });
+    expect(netflixTabOp('click', 'synckai.test.hook', '')).toBe(true);
+    expect(clicked).toEqual(['viewing-activity-page+show-more-btn']);
+  });
+
+  it('fin de l’historique (bouton absent) : aucun clic', () => {
+    const clicked = viewedPage(null);
+    expect(netflixTabOp('state', 'synckai.test.hook', '')).toMatchObject({ rows: 6, more: false, list: true });
+    expect(netflixTabOp('click', 'synckai.test.hook', '')).toBe(false);
+    expect(clicked).toEqual([]);
   });
 });
