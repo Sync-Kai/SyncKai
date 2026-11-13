@@ -306,6 +306,8 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
     setTab(next: number | null): void {
       tabId = next;
       ctl.setTab(next);
+      // Même page stable (F5, fin de chargement) : onContent ne passe pas, le port injoignable est relancé ici
+      live.follow(liveTarget());
     },
     refresh: (force) => ctl.refresh(force),
     retry: () => ctl.retry(),
