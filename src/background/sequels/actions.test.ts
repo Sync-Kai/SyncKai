@@ -10,7 +10,9 @@ import { installFakeChrome } from '../../test/fake-chrome';
 
 const fakes = vi.hoisted(() => ({
   addToList: vi.fn<(payload: { mediaId: number; malId: number | null; status: string }) => Promise<unknown>>(),
-  openPopupOn: vi.fn<(screen: string) => Promise<boolean>>(),
+  openPopupOn: vi.fn<(screen: string, windowId?: number) => Promise<boolean>>(),
+  getLastFocused: vi.fn<(query: { windowTypes: string[] }) => Promise<{ id?: number }>>(),
+  windowsUpdate: vi.fn<(id: number, options: { focused: boolean }) => Promise<unknown>>(),
   tabsCreate: vi.fn<(options: { url: string }) => Promise<unknown>>(),
   clear: vi.fn<(id: string) => Promise<boolean>>(),
   update: vi.fn<(id: string, options: { message: string }) => Promise<boolean>>(),
@@ -19,7 +21,7 @@ const fakes = vi.hoisted(() => ({
 vi.mock('../controls', () => ({ addToList: fakes.addToList }));
 vi.mock('../../browser/popup-screen', () => ({ openPopupOn: fakes.openPopupOn }));
 
-const fake = installFakeChrome({ extra: { notifications: { clear: fakes.clear, update: fakes.update }, tabs: { create: fakes.tabsCreate } } });
+const fake = installFakeChrome({ extra: { notifications: { clear: fakes.clear, update: fakes.update }, tabs: { create: fakes.tabsCreate }, windows: { getLastFocused: fakes.getLastFocused, update: fakes.windowsUpdate } } });
 const { handleSequelButton, handleSequelClick, updateSequels } = await import('./actions');
 
 setLocale('fr');
@@ -60,11 +62,13 @@ beforeEach(() => {
   fakes.tabsCreate.mockResolvedValue({});
   fakes.clear.mockResolvedValue(true);
   fakes.update.mockResolvedValue(true);
+  fakes.getLastFocused.mockResolvedValue({ id: 7 });
+  fakes.windowsUpdate.mockResolvedValue({});
   seedStore(record(10, 'new', 100), record(11, 'seen', 200), record(12, 'dismissed', 300));
 });
 
 describe('clic sur la notification', () => {
-  it('ouvre avant de fermer la notification (le geste utilisateur de Firefox ne survit pas à un await)', async () => {
+  it('ouvre avant de fermer la notification (elle reste si l’ouverture échoue)', async () => {
     const order: string[] = [];
     fakes.openPopupOn.mockImplementation(async () => order.push('open') > 0);
     fakes.clear.mockImplementation(async () => order.push('clear') > 0);
@@ -85,9 +89,15 @@ describe('clic sur la notification', () => {
     expect(fakes.clear).toHaveBeenCalledWith('synckai-sequel:10');
   });
 
-  it('groupée : ouvre Activité', async () => {
+  it('groupée : met au premier plan la dernière fenêtre normale, puis ouvre Activité dans cette fenêtre (XB-02)', async () => {
+    const order: string[] = [];
+    fakes.windowsUpdate.mockImplementation(async () => order.push('focus'));
+    fakes.openPopupOn.mockImplementation(async () => order.push('open') > 0);
     await handleSequelClick('synckai-sequel:group:5');
-    expect(fakes.openPopupOn).toHaveBeenCalledWith('activity');
+    expect(fakes.getLastFocused).toHaveBeenCalledWith({ windowTypes: ['normal'] });
+    expect(fakes.windowsUpdate).toHaveBeenCalledWith(7, { focused: true });
+    expect(fakes.openPopupOn).toHaveBeenCalledWith('activity', 7);
+    expect(order).toEqual(['focus', 'open']);
     expect(fakes.tabsCreate).not.toHaveBeenCalled();
     expect(fakes.clear).toHaveBeenCalledWith('synckai-sequel:group:5');
   });
@@ -95,6 +105,16 @@ describe('clic sur la notification', () => {
   it('groupée, popup refusé : ouvre la fiche de la première suite visible (la plus récente)', async () => {
     fakes.openPopupOn.mockResolvedValue(false);
     await handleSequelClick('synckai-sequel:group:5');
+    expect(fakes.tabsCreate).toHaveBeenCalledWith({ url: 'https://anilist.co/anime/11' });
+  });
+
+  it('groupée, aucune fenêtre normale : popup tenté sans fenêtre, puis le repli', async () => {
+    fakes.getLastFocused.mockRejectedValue(new Error('No last-focused window'));
+    fakes.openPopupOn.mockResolvedValue(false);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await handleSequelClick('synckai-sequel:group:5');
+    expect(fakes.windowsUpdate).not.toHaveBeenCalled();
+    expect(fakes.openPopupOn).toHaveBeenCalledWith('activity', undefined);
     expect(fakes.tabsCreate).toHaveBeenCalledWith({ url: 'https://anilist.co/anime/11' });
   });
 });
@@ -146,7 +166,7 @@ describe('boutons', () => {
 
   it('notification groupée, bouton 0 : comme le clic', async () => {
     await handleSequelButton('synckai-sequel:group:5', 0);
-    expect(fakes.openPopupOn).toHaveBeenCalledWith('activity');
+    expect(fakes.openPopupOn).toHaveBeenCalledWith('activity', 7);
   });
 });
 

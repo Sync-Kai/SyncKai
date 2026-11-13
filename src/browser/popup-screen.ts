@@ -27,14 +27,14 @@ export function canOpenPopup(): boolean {
 }
 
 /**
- * Ouvre le popup sur `screen`. Demande écrite puis popup ouvert dans le même tour, sans await entre les deux : Firefox
- * exige le geste de l'utilisateur, et les écritures du stockage passent avant la lecture faite par le popup qui s'ouvre.
- * false si l'ouverture est refusée (demande retirée).
+ * Ouvre le popup sur `screen`, dans la fenêtre `windowId` si elle est donnée. Demande écrite puis popup ouvert dans le même
+ * tour, sans await entre les deux : Firefox exige le geste de l'utilisateur, et les écritures du stockage passent avant la
+ * lecture faite par le popup qui s'ouvre. false si l'ouverture est refusée (demande retirée).
  */
-export async function openPopupOn(screen: PopupScreen, now: number = Date.now()): Promise<boolean> {
+export async function openPopupOn(screen: PopupScreen, windowId?: number, now: number = Date.now()): Promise<boolean> {
   const written = chrome.storage.session.set({ [POPUP_SCREEN_KEY]: { screen, at: now } satisfies PopupScreenRequest });
   try {
-    await Promise.all([written, chrome.action.openPopup()]);
+    await Promise.all([written, chrome.action.openPopup(windowId === undefined ? undefined : { windowId })]);
     return true;
   } catch (error: unknown) {
     log.warn('Popup non ouvert :', error);

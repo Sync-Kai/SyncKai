@@ -5,7 +5,7 @@ import { installFakeChrome } from '../test/fake-chrome';
 // Panneau latéral → popup ouvert sur un écran (Activité) : chrome.action.openPopup et une demande d'écran à usage
 // unique dans storage.session, lue et retirée par le popup à son ouverture
 
-const openPopup = vi.fn<() => Promise<void>>();
+const openPopup = vi.fn<(options?: { windowId: number }) => Promise<void>>();
 const fake = installFakeChrome({ extra: { action: { openPopup } } });
 const { canOpenPopup, openPopupOn, POPUP_SCREEN_TTL_MS, takePopupScreen } = await import('./popup-screen');
 
@@ -21,9 +21,10 @@ afterEach(() => vi.restoreAllMocks());
 describe('openPopupOn', () => {
   it('demande d’écran écrite dans storage.session, popup ouvert dans le même tour (geste de l’utilisateur conservé)', async () => {
     expect(canOpenPopup()).toBe(true);
-    const opened = openPopupOn('activity', 1_000);
+    const opened = openPopupOn('activity', undefined, 1_000);
     // Appelé avant tout await : Firefox exige le geste de l'utilisateur
     expect(openPopup).toHaveBeenCalledTimes(1);
+    expect(openPopup).toHaveBeenCalledWith(undefined);
     expect(await opened).toBe(true);
     expect(fake.session.peek(POPUP_SCREEN_KEY)).toEqual({ screen: 'activity', at: 1_000 });
     expect(fake.local.peek(POPUP_SCREEN_KEY)).toBeUndefined();
@@ -31,8 +32,13 @@ describe('openPopupOn', () => {
 
   it('ouverture refusée : false, demande retirée', async () => {
     openPopup.mockRejectedValue(new Error('no window'));
-    expect(await openPopupOn('activity', 1_000)).toBe(false);
+    expect(await openPopupOn('activity', undefined, 1_000)).toBe(false);
     expect(fake.session.peek(POPUP_SCREEN_KEY)).toBeUndefined();
+  });
+
+  it('fenêtre donnée : popup ouvert dans cette fenêtre (XB-02)', async () => {
+    expect(await openPopupOn('activity', 7, 1_000)).toBe(true);
+    expect(openPopup).toHaveBeenCalledWith({ windowId: 7 });
   });
 });
 
