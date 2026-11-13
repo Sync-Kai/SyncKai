@@ -35,7 +35,8 @@ export interface MediaMapping {
   /**
    * Choisie par l'utilisateur (carte « À vérifier » validée, saison choisie dans le sélecteur) : jamais remise en cause,
    * même si les signaux de la plateforme la contredisent. Ni `learned` ni `chosen` (enregistrée avant la 2.4.0, importée
-   * d'une sauvegarde) : origine inconnue, jamais supprimée ; contredite par les signaux, elle passe par « À vérifier ».
+   * d'une sauvegarde) : origine inconnue ; contredite par les signaux, elle passe par « À vérifier » sans être supprimée,
+   * mais un épisode hors de son intervalle (ou un total AniList plus petit) la supprime comme une `learned` (SYNC-02).
    */
   chosen?: true;
 }

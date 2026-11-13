@@ -24,8 +24,9 @@ episode count, duration, format, country signals…) is measured against the sam
     case without `signals` shows the behaviour without signals (page without the data).
   - `mappings`: matches already cached before the resolution (written to the fake storage): `learned` (saved
     automatically: dropped and re-resolved when the signals contradict it), `chosen` (the user's choice: never
-    questioned) or neither (saved before 2.4.0 or restored from a backup: never deleted; contradicted by the signals,
-    it goes to « À vérifier » with the entry the signals prove). A match without `learned` must be left untouched. A
+    questioned) or neither (saved before 2.4.0 or restored from a backup: contradicted by the signals, it is kept and goes
+    to « À vérifier » with the entry the signals prove; an episode outside it, or a smaller AniList total, drops it like a
+    `learned` one). A
     season title that names another season group questions it the same way (`cachedTitleVerdict`);
   - `import: true` (watch-page cases): resolved as the history-import analysis does (`IMPORT_RESOLVE_OPTIONS`: read-only,
     background lane, cached match checked against a fresh resolution) instead of the live sync.
