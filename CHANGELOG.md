@@ -37,6 +37,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Dormant series**: a series you put on hold no longer shows up again as dormant when you reopen the popup right away, and a series brought back with *Undo* no longer misses from *My series* for a minute and a half.
 - **Dormant series**: *Keep* on your MyAnimeList list now holds even when AniList does not answer, and *Put all on hold* running at the same time as an *Undo* no longer goes over AniList's request limit.
 - **Friends on AniList**: when more than 50 of the people you follow have the series, the friends' average is no longer shown (it was computed on the first 50 only).
+- **Side panel**: after reloading an episode page that was slow to load, the live progress no longer stays on « Reload the tab to follow playback. »: the panel tries again when the page is reloaded.
+- **Schedule**: clicking ‹ or › while a week is loading no longer shows that week's answer (« No episodes this week… » or an error) for the newly chosen week.
+- **Schedule**: a panel or popup left open now reads the week again once it is older than an hour (six hours for a coming week), so a delayed or newly scheduled episode shows its new day and time.
 
 ### Security
 
