@@ -26,9 +26,7 @@ The 2.5.0 audit fixes (plan `docs/superpowers/plans/2026-11-11-2.5.0-audit-fixes
 - **The specs still state the old rules.** The watch-order spec (`docs/superpowers/specs/2026-11-09-watch-order-design.md:47`, `:101`) and the sequel-alerts spec (`docs/superpowers/specs/2026-11-09-sequel-alerts-design.md:143`) predate ORD-03 (a) and TERMS-02 (a).
 
 ## Sequel alerts
-- **`capRecords` sorts by `firstSeenAt` only** (`src/shared/sequels.ts`). A tie decides which records survive the 200 cap; nothing is displayed differently.
 - **Restoring a 2.4.x backup with release alerts off leaves sequel alerts on.** TERMS-02's migration covers the update only.
-- **The CWS `notifications` block** says the group button « shows them in SyncKai », but the fallback (the first sequel's entry) is the usual path until XB-02 is fixed.
 
 ## Privacy texts and tooling
 - **The `PRIVACY.md` guard checks four hard-coded groups** (`scripts/store-permissions.test.ts`). Iterate the account-key groups instead, with an explicit exemption set (`status-bar`).

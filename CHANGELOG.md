@@ -27,6 +27,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Watch order**: an entry AniList no longer returns costs one request instead of twelve before showing the error.
 - **Watch order**: opening an OVA or a side story of a franchise already loaded no longer reads the whole franchise again.
 - Crunchyroll music videos and concerts are no longer treated as episodes: watching one no longer shows a false « Episode not identified » error.
+- **Sequel alerts**: clicking the « N sequels announced » notification now brings your browser window to the front and opens *Activity* in the popup, also when another application had the focus (on Firefox before 149, it still opens the first sequel's AniList page).
+- **Sequel alerts**: when *+ Plan to watch* fails on an announced sequel, screen readers now announce the error, and the button is named after its visible « Retry ».
 - **Netflix history import**: it finds the Netflix tab and reads the history again on Netflix's new viewing history page, instead of stopping at « No Netflix tab open ».
 
 ### Security
