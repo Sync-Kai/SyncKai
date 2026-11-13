@@ -92,6 +92,8 @@ Petits correctifs (effort S), tous sur des nouveautés 2.5.0, dans l'ordre de le
 
 ## 2. Décisions à prendre par le propriétaire
 
+**Décisions du propriétaire du 2026-11-13** (les autres étaient déjà prises pour la 2.5.0, la 4 est réglée par le calendrier « Annoncées ») : 3 (a), 5 (a), 6 (b), 7 (a), 8 (a), 9 (a), 10 (a), 11 (b), 12 (b) seule (pas de chantier de marge pour l'instant), 13 (a), 15 (a).
+
 | # | Constat | Options | Recommandation | Quand |
 |---|---|---|---|---|
 | 1 | **TERMS-02** : qui avait coupé les alertes de sortie en 2.4.2 reçoit, après la mise à jour, les alertes de suites (lectures quotidiennes des listes, notifications), sans en être prévenu. Le défaut « les deux activés » est consigné dans la spec. | (a) migration 2.5.0 : réglages bruts avec `airingAlerts === false` et sans clé `sequelAlerts` → `sequelAlerts: false` (la première alarme se supprime alors d'elle-même) ; (b) seulement `sequelNotifications: false` (garde Activité, le réveil horaire et les lectures) ; (c) rien, une ligne dans le CHANGELOG | **(a)** : cet utilisateur avait refusé la seule fonction d'alerte de SyncKai ; il retrouve l'état de la 2.4.2 (aucun réveil, aucune lecture) et peut activer les suites en un clic. Test dans `update-migrations.test.ts`. S. | avant le tag |
