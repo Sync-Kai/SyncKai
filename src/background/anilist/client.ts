@@ -57,6 +57,16 @@ async function request<T>(
   }
   // Budget partagé : les tâches de fond attendent leur tour, les requêtes interactives passent en priorité
   const release = await aniListBudget.acquire(lane);
+  // Requête liée à une session (TRK-02) : l'attente ci-dessus peut durer une minute ; session revérifiée juste avant
+  // l'envoi (SessionChangedError si elle a été fermée ou remplacée entre-temps : même génération = même jeton)
+  if (session !== undefined) {
+    try {
+      await getValidToken(session);
+    } catch (error: unknown) {
+      release();
+      throw error;
+    }
+  }
   const sentAt = __SYNCKAI_DEBUG__ ? Date.now() : 0;
   let response: Response;
   try {

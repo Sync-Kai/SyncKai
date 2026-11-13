@@ -167,4 +167,26 @@ describe('client AniList : token refusé et erreurs GraphQL (TEST-03)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(MAX_RETRY_WAIT_MS + 10_000);
   });
+
+  // TRK-02 : le jeton lu avant l'attente d'une pénalité 429 ne doit pas partir si la session a été fermée pendant l'attente
+  it.each(['interactive', 'background'] as const)('écriture liée à une session, file %s : session fermée 1 s après le début d’une pénalité de 15 s → SessionChangedError, rien n’est envoyé', async (lane) => {
+    // Après la pénalité du test précédent (budget partagé par le module)
+    vi.setSystemTime(Date.parse(lane === 'interactive' ? '2026-10-10T12:00:00Z' : '2026-10-11T12:00:00Z'));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(json(200, { data: { ok: true } }));
+    vi.stubGlobal('fetch', fetchMock);
+    let closed = false;
+    mocks.getValidToken.mockImplementation(async (session) => {
+      if (closed && session !== undefined) throw new SessionChangedError('anilist');
+      return closed ? null : token('A');
+    });
+    aniListBudget.penalize(15_000);
+
+    const result = anilistQuery('mutation { ok }', isAny, {}, lane, 4);
+    const settled = expect(result).rejects.toBeInstanceOf(SessionChangedError);
+    await vi.advanceTimersByTimeAsync(1_000);
+    closed = true;
+    await vi.advanceTimersByTimeAsync(20_000);
+    await settled;
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
