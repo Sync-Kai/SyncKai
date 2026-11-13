@@ -3,7 +3,8 @@ import { getOpenSessions } from '../../browser/storage/sessions';
 import { t } from '../../i18n';
 import { sendMessage } from '../../protocol/messages';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import type { FranchiseGraph, ListStates } from '../../shared/franchise';
+import { releaseOrder, toListState, type FranchiseGraph, type ListStates } from '../../shared/franchise';
+import type { PageMediaView } from '../../shared/page-media.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
 import { sameSessions } from '../../shared/session-epochs';
 import type { StreamingPlatform } from '../../shared/episode.types';
@@ -32,6 +33,23 @@ const NO_STATES: ListStates = { anilist: null, mal: null };
 
 /** Entrée du graphe (chaîne principale ou extras) : la page change sans quitter la franchise chargée */
 const inGraph = (graph: FranchiseGraph, id: number): boolean => graph.main.includes(id) || graph.extras.some((e) => e.id === id);
+
+/** Empreinte de « Ta liste » de la fiche (statut et progression par service) : un changement vient d'une écriture */
+const listsKey = (view: PageMediaView): string =>
+  JSON.stringify(view.lists.map((list) => (list.state === 'in-list' ? [list.service, list.status, list.progress] : [list.service, list.state])));
+
+/** États repris de la liste relue de la fiche (popup, synchro) : seule sa ligne change, sans relire les listes */
+function withViewLists(states: ListStates, view: PageMediaView): ListStates {
+  const next: ListStates = { anilist: states.anilist && { ...states.anilist }, mal: states.mal && { ...states.mal } };
+  for (const list of view.lists) {
+    const id = list.service === 'anilist' ? view.media.mediaId : view.media.idMal;
+    const target = next[list.service];
+    if (!target || id === null) continue;
+    if (list.state === 'in-list') target[id] = toListState(list.status, list.progress);
+    else if (list.state === 'not-in-list') target[id] = null;
+  }
+  return next;
+}
 
 export interface NowPlayingController extends Omit<PageMediaController<PanelMedia>, 'open' | 'redetect' | 'navigated' | 'synced'> {
   /** Ordre de visionnage : chargé après les détails, publié avec eux */
@@ -74,11 +92,18 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
   /** Action de liste en cours : les relectures de la fiche qu'elle provoque sont regroupées en une lecture `fresh` */
   let actionRunning = false;
   let skippedDuringAction = false;
-  /** Prochaine lecture des états après une action de liste : liste MAL relue (le service worker la garde 5 min sinon) */
+  /**
+   * États relus à la prochaine fiche de la franchise, liste MAL comprise (le service worker la garde 5 min sinon) : après une
+   * action de liste du panneau ou « Actualiser ». Sinon les états lus restent pour la vie de la page du panneau (PERF-03)
+   */
   let freshNext = false;
+  /** « Ta liste » de la dernière fiche vérifiée : changée sur la même fiche (popup, synchro), sa ligne est mise à jour */
+  let shownLists: { mediaId: number; key: string } | null = null;
 
   /** États de liste de l'utilisateur ; aucun compte connecté : aucune requête. Échec : pas d'états (l'ordre reste affiché) */
   const fetchStates = async (graph: FranchiseGraph, fresh: boolean): Promise<ListStates> => {
+    // Une seule entrée : section non dessinée, aucun état à lire
+    if (releaseOrder(graph, 'all').length < 2) return NO_STATES;
     try {
       const sessions = await getOpenSessions();
       seenSessions = sessions;
@@ -184,9 +209,16 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
     }
     settledView = content.view;
     const entry = content.view.media.mediaId;
+    const lists = listsKey(content.view);
+    const listsChanged = shownLists !== null && shownLists.mediaId === entry && shownLists.key !== lists;
+    shownLists = { mediaId: entry, key: lists };
     if (order.status === 'ready' && inGraph(order.graph, entry)) {
       orderEntry = entry;
-      void reloadStates(order.graph);
+      if (freshNext) void reloadStates(order.graph);
+      else if (listsChanged) {
+        order = { ...order, states: withViewLists(order.states, content.view) };
+        onChange();
+      }
     } else if (order.status === 'loading') {
       // Un chargement est en cours : pas de second parcours, la dernière fiche est tranchée à l'arrivée du graphe
       latestEntry = orderEntry === entry ? null : entry;
@@ -307,7 +339,11 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
       tabId = next;
       ctl.setTab(next);
     },
-    refresh: (force) => ctl.refresh(force),
+    refresh(force) {
+      // « Actualiser » : états relus avec la fiche, liste MAL comprise (ORD-06)
+      if (force) freshNext = true;
+      return ctl.refresh(force);
+    },
     retry: () => ctl.retry(),
     async runAction(request) {
       actionRunning = true;
@@ -318,7 +354,10 @@ export function createNowPlayingController(onChange: () => void, platformAccess:
         actionRunning = false;
       }
       // Action réussie : liste modifiée, états relus avec la liste MAL à jour ; sinon seulement les relectures reportées
-      if (feedback?.tone === 'success' && request.kind !== 'rate' && request.kind !== 'notes') freshNext = true;
+      if (feedback?.tone === 'success' && request.kind !== 'rate' && request.kind !== 'notes') {
+        freshNext = true;
+        similarLoader.sync(ctl.content, true);
+      }
       if (feedback?.tone === 'success' || skippedDuringAction) {
         skippedDuringAction = false;
         settledView = null;

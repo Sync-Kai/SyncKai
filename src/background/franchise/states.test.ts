@@ -12,6 +12,7 @@ vi.mock('../../browser/airing-alarm', () => ({ connectedServices: deps.connected
 vi.mock('../../browser/storage/sessions', () => ({ getOpenSessions: deps.getOpenSessions }));
 
 let loadListStates: typeof import('./states').loadListStates;
+let forgetCachedEntries: typeof import('../trackers/entry-cache').forgetCachedEntries;
 
 const entry = (id: number, status: string | null, progress = 0): { id: number; mediaListEntry: { status: string; progress: number } | null } => ({
   id,
@@ -22,6 +23,7 @@ beforeEach(async () => {
   // Mémoire du module remise à zéro : la liste MAL mémorisée ne passe pas d'un test à l'autre
   vi.resetModules();
   ({ loadListStates } = await import('./states'));
+  ({ forgetCachedEntries } = await import('../trackers/entry-cache'));
   vi.useRealTimers();
   for (const mock of Object.values(deps)) mock.mockReset();
   deps.getOpenSessions.mockResolvedValue({ anilist: 1, mal: 2 });
@@ -125,6 +127,20 @@ describe('loadListStates', () => {
       await loadListStates({ mediaIds: [], malIds: [10], fresh: true });
       await loadListStates({ mediaIds: [], malIds: [10] });
       expect(deps.fetchMalFullList).toHaveBeenCalledTimes(2);
+    });
+
+    it('ORD-06 : une écriture MAL (synchro, action de la popup ou du panneau) oublie la liste mémorisée', async () => {
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      forgetCachedEntries('mal');
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      expect(deps.fetchMalFullList).toHaveBeenCalledTimes(2);
+    });
+
+    it('une écriture AniList garde la liste MAL mémorisée', async () => {
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      forgetCachedEntries('anilist');
+      await loadListStates({ mediaIds: [], malIds: [10] });
+      expect(deps.fetchMalFullList).toHaveBeenCalledTimes(1);
     });
 
     it('une lecture rejetée n\'est pas mémorisée', async () => {

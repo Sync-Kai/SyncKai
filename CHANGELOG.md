@@ -26,6 +26,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Watch order**: an entry with no state on the service you chose now shows the other service's state (« MyAnimeList: Watched ») instead of looking unwatched.
 - **Watch order**: an entry AniList no longer returns costs one request instead of twelve before showing the error.
 - **Watch order**: opening an OVA or a side story of a franchise already loaded no longer reads the whole franchise again.
+- **Watch order** with MyAnimeList: the side panel no longer downloads your whole MyAnimeList list again for each episode (nor for a series with a single entry, where the section is not shown); it keeps your statuses while it stays open and reads them again on *Refresh*, after a list action, and for another franchise. After *Refresh*, or a status changed from the popup for the series shown, the watch order now shows your current state instead of an older one.
+- *In the same spirit* no longer reads your lists again each time the same series is refreshed.
 - Crunchyroll music videos and concerts are no longer treated as episodes: watching one no longer shows a false « Episode not identified » error.
 - **Netflix history import**: it finds the Netflix tab and reads the history again on Netflix's new viewing history page, instead of stopping at « No Netflix tab open ».
 

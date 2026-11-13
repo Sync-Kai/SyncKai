@@ -7,6 +7,7 @@ import type { MalListEntry } from '../../shared/compare';
 import type { TrackerId } from '../../shared/tracker.types';
 import { anilistQuery } from '../anilist/client';
 import { fetchMalFullList } from '../mal/full-list';
+import { entryGeneration } from '../trackers/entry-cache';
 
 // États de liste de l'utilisateur pour les entrées d'une franchise (panneau « Ordre de visionnage ») : lecture seule,
 // rien n'est stocké. AniList : une requête authentifiée par tranche de 50 ; MAL : sa liste complète (la sienne
@@ -42,13 +43,19 @@ async function readAnilist(ids: readonly number[]): Promise<Record<number, ListS
   return states;
 }
 
-/** Liste MAL mémorisée 5 minutes (mémoire du module, ni stockage ni écouteur) : charge raisonnable sur l'API MAL. Une clé par génération de session : un autre compte ne la partage jamais. Partagée avec la revérification des suites affichées (sequels/listed.ts) */
+/**
+ * Liste MAL mémorisée 5 minutes (mémoire du module, ni stockage ni écouteur) : lectures simultanées regroupées (ordre de
+ * visionnage et « Dans le même esprit » du panneau, qui garde lui-même les états lus). Une clé par génération de session :
+ * un autre compte ne la partage jamais ; oubliée à toute écriture MAL (génération des entrées, trackers/entry-cache.ts).
+ * Partagée avec la revérification des suites affichées (sequels/listed.ts)
+ */
 const MAL_MEMO_TTL_MS = 5 * 60_000;
-let malMemo: { epoch: number; at: number; list: Promise<MalListEntry[]> } | null = null;
+let malMemo: { epoch: number; generation: number; at: number; list: Promise<MalListEntry[]> } | null = null;
 
 export function malList(epoch: number, fresh: boolean): Promise<MalListEntry[]> {
-  if (!fresh && malMemo?.epoch === epoch && Date.now() - malMemo.at < MAL_MEMO_TTL_MS) return malMemo.list;
-  const memo = { epoch, at: Date.now(), list: fetchMalFullList() };
+  const generation = entryGeneration('mal');
+  if (!fresh && malMemo?.epoch === epoch && malMemo.generation === generation && Date.now() - malMemo.at < MAL_MEMO_TTL_MS) return malMemo.list;
+  const memo = { epoch, generation, at: Date.now(), list: fetchMalFullList() };
   malMemo = memo;
   // Lecture rejetée : jamais mémorisée
   memo.list.catch(() => {

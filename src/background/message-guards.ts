@@ -162,7 +162,7 @@ const isAddToListPayload = (p: unknown): p is AddToListPayload =>
 
 /** Payload { mediaId } (GET_PANEL_MEDIA, GET_FRANCHISE, GET_ANILIST_FRIENDS) */
 const isPanelMediaPayload = (p: unknown): p is { mediaId: number } => isRecord(p) && isPositiveInt(p.mediaId);
-/** Payload { mediaIds, malIds } (GET_LIST_STATES) : au plus 90 identifiants positifs par liste (MAX_MAIN + MAX_EXTRAS) ; `fresh` : relecture de la liste MAL après une action sur la liste */
+/** Payload { mediaIds, malIds } (GET_LIST_STATES) : au plus 90 identifiants positifs par liste (MAX_MAIN + MAX_EXTRAS) ; `fresh` : relecture de la liste MAL (« Actualiser », action sur la liste dans le panneau) */
 const isListStatesPayload = (p: unknown): p is { mediaIds: number[]; malIds: number[]; fresh?: boolean } =>
   isRecord(p) &&
   (p.fresh === undefined || typeof p.fresh === 'boolean') &&

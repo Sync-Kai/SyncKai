@@ -14,7 +14,7 @@ const log = createLogger('sidepanel');
 export interface SimilarLoader {
   /** Séries proposées (au plus 5) */
   readonly items: readonly PanelRecommendation[];
-  /** Fiche affichée changée (ou `force` : comptes changés, même fiche refiltrée) */
+  /** Fiche affichée changée (ou `force` : comptes changés, action de liste, même fiche refiltrée) */
   sync(content: PageMediaContent<PanelMedia>, force?: boolean): void;
   dispose(): void;
 }
@@ -23,8 +23,8 @@ export function createSimilarLoader(onChange: () => void): SimilarLoader {
   let items: PanelRecommendation[] = [];
   /** Incrémenté à chaque lecture : une réponse plus ancienne (autre fiche, compte changé) est ignorée */
   let run = 0;
-  /** Fiche dont les recommandations sont filtrées (ou en cours de filtrage) */
-  let loadedView: object | null = null;
+  /** Fiche (AniList) dont les recommandations sont filtrées (ou en cours de filtrage) : ses relectures ne relisent rien (RECO-07) */
+  let loadedId: number | null = null;
 
   const show = (next: PanelRecommendation[]): void => {
     items = next;
@@ -33,7 +33,7 @@ export function createSimilarLoader(onChange: () => void): SimilarLoader {
 
   const clear = (): void => {
     run++;
-    loadedView = null;
+    loadedId = null;
     if (items.length > 0) show([]);
   };
 
@@ -80,9 +80,9 @@ export function createSimilarLoader(onChange: () => void): SimilarLoader {
       if (content.status !== 'ready') return clear();
       if (content.refreshing) return;
       if (!content.details) return clear();
-      if (force) loadedView = null;
-      if (loadedView === content.view) return;
-      loadedView = content.view;
+      if (force) loadedId = null;
+      if (loadedId === content.view.media.mediaId) return;
+      loadedId = content.view.media.mediaId;
       if (content.details.recommendations.length === 0) {
         run++;
         if (items.length > 0) show([]);
