@@ -16,6 +16,7 @@ import {
 import { createLogger } from '../../browser/logger';
 import { saveLearned, saveMediaMappingsIfAbsent } from '../../browser/storage/mappings';
 import { getOpenSessions } from '../../browser/storage/sessions';
+import { isExcluded } from '../../shared/exclusions';
 import { withStorageLock } from '../../browser/storage/lock';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { PLATFORMS } from '../../platforms/registry';
@@ -147,7 +148,9 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
   /** Services écrits pour cet élément, y compris par un essai précédent */
   const written = new Set<TrackerId>(item.written ?? []);
   let fatal: string | null = null;
-  for (const planned of item.services) {
+  // Série exclue depuis l'analyse (« Ne plus synchroniser ») : rien n'est écrit, comme la synchro en direct (IMP-03)
+  const excluded = await isExcluded({ mediaId: item.mediaId });
+  for (const planned of excluded ? [] : item.services) {
     if (planned.action !== 'update') continue;
     if (written.has(planned.service)) {
       // Écrit par un essai précédent (l'autre service avait échoué) : compté, jamais relu ni réécrit
@@ -198,7 +201,7 @@ async function applyItem(job: CrImportJob, id: string, isLastAttempt: (reason: T
   const failed = outcomes.find((o) => o.result === 'failed');
   const result: CrItemResult = {
     outcome: updated ? 'updated' : failed ? 'failed' : 'skipped',
-    message: failed?.message ?? outcomes.find((o) => o.message !== null)?.message ?? null,
+    message: failed?.message ?? outcomes.find((o) => o.message !== null)?.message ?? (excluded ? t('common.excludedTitle') : null),
   };
   // Correspondances sûres mémorisées si la saison n'en a pas encore (la synchro en direct s'en sert)
   if (updated) memory.mappings.push(...itemMappings(item));

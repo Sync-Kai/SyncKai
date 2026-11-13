@@ -450,6 +450,18 @@ describe('application (TEST-05, CRI-05)', () => {
     });
   });
 
+  it('IMP-03 : série exclue après l’analyse (« Ne plus synchroniser ») : rien n’est écrit, élément ignoré', async () => {
+    seedPlan([planItem()]);
+    fake.local.data.set(EXCLUDED_SERIES_KEY, mergeExclusion([], { platformKey: null, mediaId: MEDIA_ID, label: 'Frieren' }, 1));
+    expect((await startCrApply({ ids: [`m:${MEDIA_ID}`] })).ok).toBe(true);
+    expect(await driveUntilEnded()).toMatchObject({ status: 'done', updated: 0, skipped: 1 });
+    expect(anilist.writes).toEqual([]);
+    expect(mal.writes).toEqual([]);
+    expect(storedPlan().items[0]?.result).toEqual({ outcome: 'skipped', message: t('common.excludedTitle') });
+    // Aucune correspondance apprise pour une série exclue
+    expect(fake.local.peek(STORAGE_KEYS.mediaMappings)).toEqual({ 'crunchyroll:GRF:s2': mapping(999) });
+  });
+
   it('1-D10 : correspondance apprise remplacée par l’analyse (`replaces`) : réécrite si elle n’a pas changé, jamais par-dessus un choix', async () => {
     const stale = { ...mapping(999), learned: true as const };
     const replaced = { key: 'crunchyroll:GRF:s2', mapping: { ...mapping(MEDIA_ID), learned: true as const }, replaces: stale };
