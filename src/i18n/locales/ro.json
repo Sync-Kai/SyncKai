@@ -533,6 +533,7 @@
   "import.invalid_one": "{count} element invalid omis",
   "import.invalid_few": "{count} elemente invalide omise",
   "import.invalid_other": "{count} de elemente invalide omise",
+  "import.keptMissing": "Datele absente din fișier (versiune mai veche) rămân neschimbate.",
   "import.merge.detail": "Adaugă fără să suprascrie",
   "import.merge.title": "Combină (recomandat)",
   "import.mode": "Mod de import",

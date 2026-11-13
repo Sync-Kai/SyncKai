@@ -76,7 +76,7 @@ async function runImport(): Promise<void> {
   const applying: ImportState = { ...current, applying: true, error: null };
   setState(applying);
   try {
-    await applyBackup(current.parsed.backup.data, current.mode, current.includeSettings);
+    await applyBackup(current.parsed.backup.data, current.mode, current.includeSettings, current.parsed.missing);
     // Correspondances restaurées : résolutions de page gardées en mémoire par le service worker oubliées (L4)
     void notifyMappingsChanged();
     // Résultat appliqué seulement si la page n'a pas changé d'état entre-temps (UI-07)

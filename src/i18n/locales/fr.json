@@ -486,6 +486,7 @@
   "import.intro": "Réglages, correspondances, séries exclues et historique. Tes connexions AniList/MAL ne sont jamais incluses.",
   "import.invalid_one": "{count} élément invalide ignoré",
   "import.invalid_other": "{count} éléments invalides ignorés",
+  "import.keptMissing": "Les données absentes du fichier (version précédente) restent telles quelles.",
   "import.merge.detail": "Ajoute sans écraser",
   "import.merge.title": "Fusionner (recommandé)",
   "import.mode": "Mode d’import",

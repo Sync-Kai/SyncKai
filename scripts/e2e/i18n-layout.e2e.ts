@@ -771,11 +771,14 @@ beforeAll(async () => {
   // Résultats d'un passage précédent : seuls les fichiers de ce contrôle sont retirés
   await mkdir(OUT_DIR, { recursive: true });
   await Promise.all([...LOCALES.map((locale) => rm(path.join(OUT_DIR, locale), { recursive: true, force: true })), rm(path.join(OUT_DIR, 'report.json'), { force: true }), rm(path.join(OUT_DIR, 'report.md'), { force: true })]);
-  // Sauvegarde choisie sur la page Sauvegarde : réglages, deux correspondances, un revisionnage refusé
+  // Sauvegarde choisie sur la page Sauvegarde : réglages, deux correspondances, un revisionnage refusé ; fichier 2.3.1, sans
+  // les sections de la 2.5.0 (note « données gardées » de « Contenu du fichier » mesurée)
   backupFile = path.join(OUT_DIR, 'synckai-backup.json');
   const mapping = (mediaId: number, seriesLabel: string) => ({ mediaId, numbering: 'season', offset: 0, episodes: 12, seriesLabel });
   const sections = { settings: DEFAULT_SETTINGS, mediaMappings: { 'crunchyroll:GFRIEREN:s1': mapping(154587, 'Frieren · S1'), 'adn:1311:s1': mapping(178680, 'Tougen Anki · S1') }, rewatchDeclined: { 'anilist:1': 1 } };
-  await writeFile(backupFile, JSON.stringify(buildBackup(sections, '2.3.1', new Date('2026-10-12T19:40:00Z'))));
+  const backup = buildBackup(sections, '2.3.1', new Date('2026-10-12T19:40:00Z'));
+  const { recoDismissed: _dismissed, activityHistory: _activity, ...olderData } = backup.data;
+  await writeFile(backupFile, JSON.stringify({ ...backup, data: olderData }));
   server = await startHarnessServer('e2e');
   browser = await launchBrowser();
 });

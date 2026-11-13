@@ -51,6 +51,9 @@ export function fileContents(parsed: ParsedBackup): ContentRow[] {
   ];
 }
 
+/** Note sous « Contenu du fichier » : sections absentes du fichier (version précédente), données actuelles gardées (STO-02) */
+export const missingNote = (parsed: ParsedBackup): string | null => (parsed.missing.length > 0 ? t('import.keptMissing') : null);
+
 const hasSettings = (state: ReadyState): boolean => state.parsed.backup.data.settings !== null;
 
 /** Fichier lu : fusion (recommandée), réglages décochés */

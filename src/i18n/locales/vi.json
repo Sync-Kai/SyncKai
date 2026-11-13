@@ -439,6 +439,7 @@
   "import.includeSettingsMissing": "Nhập cả cài đặt (không có trong tệp)",
   "import.intro": "Cài đặt, ghép nối, bộ anime bị loại trừ và lịch sử đồng bộ. Không bao giờ chứa thông tin đăng nhập AniList/MAL của bạn.",
   "import.invalid_other": "Đã bỏ qua {count} mục dữ liệu không hợp lệ",
+  "import.keptMissing": "Dữ liệu không có trong tệp (phiên bản cũ) được giữ nguyên.",
   "import.merge.detail": "Thêm vào mà không ghi đè",
   "import.merge.title": "Gộp (khuyên dùng)",
   "import.mode": "Chế độ nhập",

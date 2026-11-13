@@ -123,7 +123,7 @@ describe('parseBackup', () => {
     const backup = buildBackup({ mediaMappings: { [KEY]: mapping(1) }, recentSyncs: [recent('k', 1)] }, '1.7.0', NOW);
     const result = parseBackup(JSON.stringify(backup));
     const expected = { ...backup, data: { ...backup.data, mediaMappings: { [KEY]: { ...mapping(1), unverified: true } } } };
-    expect(result).toEqual({ ok: true, data: { backup: expected, invalidCount: 0 } });
+    expect(result).toEqual({ ok: true, data: { backup: expected, invalidCount: 0, missing: [] } });
   });
 
   it('origine des correspondances (`learned`, `chosen`) acceptée puis retirée : importées d’origine inconnue', () => {
@@ -242,7 +242,9 @@ describe('parseBackup', () => {
 
   it('sections absentes : vides, sans erreur', () => {
     const result = parseBackup(fileText({}));
-    expect(result).toEqual({ ok: true, data: { backup: expect.objectContaining({ data: { ...emptyData(), settings: null } }), invalidCount: 0 } });
+    // Sections absentes listées (réglages à part, `settings: null`) : l'import garde les données actuelles (STO-02)
+    const missing = ['mediaMappings', 'pendingReviews', 'recentSyncs', 'excludedSeries', 'pendingRatings', 'rewatchDeclined', 'recoDismissed', 'activityHistory'];
+    expect(result).toEqual({ ok: true, data: { backup: expect.objectContaining({ data: { ...emptyData(), settings: null } }), invalidCount: 0, missing } });
   });
 
   it('traite une clé "__proto__" comme une donnée (refusée comme clé de correspondance)', () => {
@@ -361,6 +363,17 @@ describe('mergeBackup', () => {
     const cur: BackupData = { ...emptyData(), excludedSeries: [{ id: 'anilist:7', platformKey: null, mediaId: 7, label: 'X', excludedAt: 1 }] };
     const inc: BackupData = { ...emptyData(), excludedSeries: [{ id: 'adn:9', platformKey: 'adn:9', mediaId: 7, label: 'X', excludedAt: 2 }] };
     expect(mergeBackup(cur, inc, 'merge').excludedSeries).toEqual([{ id: 'anilist:7', platformKey: 'adn:9', mediaId: 7, label: 'X', excludedAt: 1 }]);
+  });
+
+  it('IMP-01 : merge garde une correction en attente (et son épisode mis de côté) face à 20 cartes plus récentes', () => {
+    const correction: PendingReview = { ...review('fix', 1), previous: { mediaId: 1, title: 'T', progress: 3 }, epochs: { anilist: 2 }, deferred: { episode, epochs: { anilist: 2 } } };
+    const cur: BackupData = { ...emptyData(), pendingReviews: [correction, review('old', 0)] };
+    const inc: BackupData = { ...emptyData(), pendingReviews: Array.from({ length: 20 }, (_, i) => review(`new${i}`, 100 + i)) };
+    const merged = mergeBackup(cur, inc, 'merge').pendingReviews;
+    expect(merged).toHaveLength(20);
+    expect(merged).toContainEqual(correction);
+    // Places restantes : les vérifications simples les plus récentes, actuelles ou importées
+    expect(merged.filter((r) => r.previous === null).map((r) => r.createdAt)).toEqual(Array.from({ length: 19 }, (_, i) => 119 - i));
   });
 });
 

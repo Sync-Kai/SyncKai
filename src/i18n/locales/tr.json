@@ -486,6 +486,7 @@
   "import.intro": "Ayarlar, eşleşmeler, hariç tutulan seriler ve eşitleme geçmişi. AniList/MAL oturum bilgilerin asla dahil edilmez.",
   "import.invalid_one": "{count} geçersiz öğe atlandı",
   "import.invalid_other": "{count} geçersiz öğe atlandı",
+  "import.keptMissing": "Dosyada olmayan veriler (eski sürüm) olduğu gibi kalır.",
   "import.merge.detail": "Üzerine yazmadan ekler",
   "import.merge.title": "Birleştir (önerilen)",
   "import.mode": "İçe aktarma modu",

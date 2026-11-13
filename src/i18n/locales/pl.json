@@ -580,6 +580,7 @@
   "import.invalid_few": "Pominięto {count} nieprawidłowe elementy",
   "import.invalid_many": "Pominięto {count} nieprawidłowych elementów",
   "import.invalid_other": "Pominięto {count} nieprawidłowego elementu",
+  "import.keptMissing": "Dane, których brak w pliku (starsza wersja), pozostają bez zmian.",
   "import.merge.detail": "Dodaje bez nadpisywania",
   "import.merge.title": "Scalanie (zalecane)",
   "import.mode": "Tryb importu",

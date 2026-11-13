@@ -1,6 +1,6 @@
 import { ensureAiringAlarm } from '../airing-alarm';
 import { refreshReviewBadge } from '../badge';
-import { BACKUP_STORAGE_KEYS, bindBackupToSession, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type ImportMode } from '../../shared/backup';
+import { BACKUP_STORAGE_KEYS, bindBackupToSession, buildBackup, mergeBackup, sectionsFromStorage, type Backup, type BackupData, type BackupSection, type ImportMode } from '../../shared/backup';
 import { prunedActivityHistory, withoutOtherAccount, type ActivityHistory } from '../../shared/activity-history';
 import { isRecord } from '../../shared/guards';
 import type { TrackerId } from '../../shared/tracker.types';
@@ -46,8 +46,10 @@ async function importableActivity(merged: ActivityHistory): Promise<ActivityHist
 /**
  * Applique une sauvegarde importée sous verrou, puis met à jour le badge de l'icône.
  * Lecteur préféré « Netflix » ou « Prime Video » importé sur un profil sans cet accès : remplacé par le lecteur par défaut.
+ * `missing` : sections absentes du fichier (version précédente, ParsedBackup) : jamais écrites, les données actuelles
+ * restent, même en remplacement (absent ≠ vide, STO-02).
  */
-export async function applyBackup(incoming: BackupData, mode: ImportMode, includeSettings: boolean): Promise<void> {
+export async function applyBackup(incoming: BackupData, mode: ImportMode, includeSettings: boolean, missing: readonly BackupSection[] = []): Promise<void> {
   const granted = await grantedOptionalPlatforms();
   await withStorageLock(async () => {
     const stored = await readStored();
@@ -60,7 +62,8 @@ export async function applyBackup(incoming: BackupData, mode: ImportMode, includ
     const settings = next.settings && { ...next.settings, preferredPlayer: effectivePlayer(next.settings.preferredPlayer, granted) };
     const activityHistory = await importableActivity(next.activityHistory);
     const k = BACKUP_STORAGE_KEYS;
-    await chrome.storage.local.set({
+    const skipped = new Set(missing.map((section) => k[section]));
+    const written: Record<string, unknown> = {
       ...(settings !== null ? { [k.settings]: settings } : {}),
       [k.mediaMappings]: mediaMappings,
       [k.pendingReviews]: next.pendingReviews,
@@ -70,7 +73,8 @@ export async function applyBackup(incoming: BackupData, mode: ImportMode, includ
       [k.rewatchDeclined]: next.rewatchDeclined,
       [k.recoDismissed]: next.recoDismissed,
       [k.activityHistory]: activityHistory,
-    });
+    };
+    await chrome.storage.local.set(Object.fromEntries(Object.entries(written).filter(([key]) => !skipped.has(key))));
   });
   // Badge décoratif : son échec ne remet pas l'import en cause
   await refreshReviewBadge().catch((error: unknown) => log.warn('Badge non mis à jour après import :', error));

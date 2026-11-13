@@ -439,6 +439,7 @@
   "import.includeSettingsMissing": "Impor setelan juga (tidak ada di file)",
   "import.intro": "Setelan, pencocokan, anime yang dikecualikan, dan riwayat sinkron. Data login AniList/MAL kamu tidak pernah disertakan.",
   "import.invalid_other": "{count} item tidak valid dilewati",
+  "import.keptMissing": "Data yang tidak ada di file (versi lama) tetap seperti semula.",
   "import.merge.detail": "Menambahkan tanpa menimpa",
   "import.merge.title": "Gabungkan (disarankan)",
   "import.mode": "Mode impor",

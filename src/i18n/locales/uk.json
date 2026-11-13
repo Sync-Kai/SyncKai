@@ -580,6 +580,7 @@
   "import.invalid_few": "{count} недійсні елементи пропущено",
   "import.invalid_many": "{count} недійсних елементів пропущено",
   "import.invalid_other": "{count} недійсного елемента пропущено",
+  "import.keptMissing": "Дані, яких немає у файлі (старіша версія), залишаться без змін.",
   "import.merge.detail": "Додає, нічого не перезаписуючи",
   "import.merge.title": "Об’єднати (рекомендовано)",
   "import.mode": "Режим імпорту",

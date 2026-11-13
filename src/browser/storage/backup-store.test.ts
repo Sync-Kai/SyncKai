@@ -6,7 +6,7 @@ vi.mock('./lock', () => ({ withStorageLock: <T>(task: () => Promise<T>): Promise
 vi.mock('../badge', () => ({ refreshReviewBadge: () => Promise.resolve() }));
 
 const { applyBackup } = await import('./backup-store');
-const { buildBackup } = await import('../../shared/backup');
+const { buildBackup, parseBackup } = await import('../../shared/backup');
 const { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } = await import('../../shared/settings');
 
 afterEach(() => {
@@ -75,6 +75,32 @@ describe('applyBackup — suggestions écartées', () => {
     expect(stored['reco:dismissed']).toEqual([7, 8]);
     await applyBackup(buildBackup({}, '2.7.0', new Date()).data, 'merge', false);
     expect(stored['reco:dismissed']).toEqual([7, 8]);
+  });
+});
+
+describe('applyBackup — section absente du fichier (STO-02, décision 10 a : absent ≠ vide)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 11, 12));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('« Remplacer » avec une sauvegarde 2.4.x (sans suggestions écartées ni historique d’activité) : listes actuelles gardées', async () => {
+    // Identifiants de compte fictifs
+    const history = { anilist: { accountId: 7, days: { '2026-11-10': [2, 48] } } };
+    const stored = fakeBrowser(true, { 'reco:dismissed': [1, 2], 'stats:activityHistory': history, excludedSeries: [] });
+    const file = JSON.stringify({ format: 'synckai-backup', version: 1, exportedAt: '2026-10-12T19:40:00Z', appVersion: '2.4.2', data: { settings: DEFAULT_SETTINGS, mediaMappings: {}, excludedSeries: [] } });
+    const parsed = parseBackup(file);
+    if (!parsed.ok) throw new Error(parsed.message);
+    expect(parsed.data.missing).toEqual(['pendingReviews', 'recentSyncs', 'pendingRatings', 'rewatchDeclined', 'recoDismissed', 'activityHistory']);
+    await applyBackup(parsed.data.backup.data, 'replace', false, parsed.data.missing);
+    expect(stored['reco:dismissed']).toEqual([1, 2]);
+    expect(stored['stats:activityHistory']).toEqual(history);
+    // Section présente (même vide) : remplacée
+    await applyBackup({ ...parsed.data.backup.data, recoDismissed: [] }, 'replace', false, []);
+    expect(stored['reco:dismissed']).toEqual([]);
   });
 });
 

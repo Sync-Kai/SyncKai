@@ -486,6 +486,7 @@
   "import.intro": "Inställningar, kopplingar, uteslutna serier och synkhistorik. Dina inloggningar på AniList/MAL ingår aldrig.",
   "import.invalid_one": "{count} ogiltigt objekt hoppas över",
   "import.invalid_other": "{count} ogiltiga objekt hoppas över",
+  "import.keptMissing": "Data som inte finns i filen (äldre version) lämnas som de är.",
   "import.merge.detail": "Lägger till utan att skriva över",
   "import.merge.title": "Slå ihop (rekommenderas)",
   "import.mode": "Importläge",
