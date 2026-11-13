@@ -320,20 +320,19 @@ describe('alarme horaire (PERF-17) : vérifiée à son déclenchement, plus par 
     expect(await chrome.alarms.get(AIRING)).toMatchObject({ periodInMinutes: 60 });
   });
 
-  it('la vérification des suites suit celle des sorties ; son échec ne casse pas l’alarme', async () => {
+  it('la vérification des suites n’est plus lancée par l’alarme horaire (alarme unique `synckai:sequels`, PERF-04)', async () => {
     fake.reset({ ...OPEN_SESSIONS, [STORAGE_KEYS.watchingCache]: { anilist: list(Date.now(), [entry(1, 6)]) } });
     fakes.schedule.mockImplementation(() => page([]));
-    fakes.checkSequels.mockRejectedValue(new Error('boom'));
     await handleAiringAlarm();
     expect(fakes.schedule).toHaveBeenCalled();
-    expect(fakes.checkSequels).toHaveBeenCalledTimes(1);
+    expect(fakes.checkSequels).not.toHaveBeenCalled();
   });
 
-  it('sorties coupées, suites actives : l’alarme est gardée', async () => {
+  it('sorties coupées, suites actives : l’alarme horaire est supprimée, sans passe des suites', async () => {
     fake.reset({ ...OPEN_SESSIONS, settings: { airingAlerts: false, sequelAlerts: true } });
     await chrome.alarms.create(AIRING, { delayInMinutes: 1, periodInMinutes: 60 });
     await handleAiringAlarm();
-    expect(fakes.checkSequels).toHaveBeenCalledTimes(1);
-    expect(await chrome.alarms.get(AIRING)).toMatchObject({ periodInMinutes: 60 });
+    expect(fakes.checkSequels).not.toHaveBeenCalled();
+    expect(await chrome.alarms.get(AIRING)).toBeUndefined();
   });
 });

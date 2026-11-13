@@ -1,6 +1,6 @@
 import { formatList, getLocale, t, tp } from '../../i18n';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
-import { connectedServices } from '../../browser/airing-alarm';
+import { connectedServices, ensureAiringAlarm } from '../../browser/airing-alarm';
 import { createLogger } from '../../browser/logger';
 import { getSettings } from '../../browser/storage/settings-access';
 import { getOpenSessions, sessionsStillOpen, writeIfSessions } from '../../browser/storage/sessions';
@@ -8,17 +8,14 @@ import { withStorageLock } from '../../browser/storage/lock';
 import { formatSequelDate } from '../../shared/sequel-date';
 import type { TrackerId } from '../../shared/tracker.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
-import { EMPTY_SEQUEL_STORE, isSequelCheckResult, isSequelStore, mergeSequelPass, noMalEntry, sequelCandidates, type SequelCheckResult, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
+import { EMPTY_SEQUEL_STORE, SEQUEL_CHECK_INTERVAL_MS, SEQUEL_FAILURE_BACKOFF_MS, isSequelCheckResult, isSequelStore, mergeSequelPass, noMalEntry, sequelCandidates, type SequelCheckResult, type SequelSnapshot, type SequelStore } from '../../shared/sequels';
 import { notificationsBlocked } from '../../browser/notifications';
 import { fetchSequelRelations, readSourceSeries } from './fetch';
 
-// Vérification quotidienne des suites, lancée par l'alarme horaire des alertes (airing.ts) : listes complètes des
+// Vérification quotidienne des suites, lancée par son alarme unique `synckai:sequels` (browser/airing-alarm.ts, PERF-04) : listes complètes des
 // services connectés, relations AniList, fusion dans `sequels:state` (avec les séries à venir des listes), notification des suites repérées sur un service
 // déjà amorcé. La première passe d'un service enregistre sans notifier.
 
-export const SEQUEL_CHECK_INTERVAL_MS = 24 * 3_600_000;
-/** Attente avant de relancer une passe en échec (alarme horaire) : une panne longue ne relit pas la liste AniList chaque heure */
-export const SEQUEL_FAILURE_BACKOFF_MS = 6 * 3_600_000;
 export const SEQUEL_NOTIFICATION_PREFIX = 'synckai-sequel:';
 
 const log = createLogger('sequels');
@@ -72,7 +69,7 @@ async function run(now: number, force: boolean, epochs: SessionEpochs): Promise<
   if (services.length === 0) return { ...none, skipped: 'not-connected' };
   const { lastCheck } = await readSequelStore();
   if (!force && lastCheck !== null && now - lastCheck < SEQUEL_CHECK_INTERVAL_MS) return { ...none, skipped: 'not-due' };
-  // Passe en échec (aucun lastCheck posé depuis) : pas de nouvelle lecture des listes complètes avant 6 h, même sur l'alarme horaire
+  // Passe en échec (aucun lastCheck posé depuis) : pas de nouvelle lecture des listes complètes avant 6 h, même si l'alarme sonne plus tôt
   if (!force) {
     const last = await readLastResult();
     if (last !== null && last.error !== null && (lastCheck === null || lastCheck < last.checkedAt) && now - last.checkedAt >= 0 && now - last.checkedAt < SEQUEL_FAILURE_BACKOFF_MS) return { ...none, skipped: 'not-due' };
@@ -135,7 +132,7 @@ async function pass(now: number, force: boolean): Promise<SequelCheckResult> {
     log.error('Vérification des suites impossible :', error);
     result = { checkedAt: now, found: 0, notified: 0, skipped: null, error: describeError(error) };
   }
-  // `not-due` (alarme horaire) n'est pas un résultat : il écraserait le dernier résumé réel (suites trouvées, erreur, blocage)
+  // `not-due` (alarme en avance) n'est pas un résultat : il écraserait le dernier résumé réel (suites trouvées, erreur, blocage)
   if (result.skipped === 'not-due') return result;
   // Sans session ouverte, rien à écrire ; sinon écriture sous le verrou de la déconnexion
   if (Object.keys(epochs).length === 0) return result;
@@ -171,7 +168,12 @@ let inFlight: Promise<SequelCheckResult> | null = null;
  * résumé est aussi enregistré sous `sequels:lastResult` (sauf `not-due`). Un appel pendant une passe en cours rend la même promesse.
  */
 export function checkSequels(now: number = Date.now(), force = false): Promise<SequelCheckResult> {
-  inFlight ??= withKeepAlive(() => pass(now, force)).finally(() => {
+  inFlight ??= withKeepAlive(async () => {
+    const result = await pass(now, force);
+    // Prochaine alarme des suites selon le résultat enregistré (24 h, 6 h après un échec), passe forcée comprise
+    await ensureAiringAlarm();
+    return result;
+  }).finally(() => {
     inFlight = null;
   });
   return inFlight;

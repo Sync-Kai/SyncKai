@@ -115,6 +115,16 @@ export function isSequelCheckResult(value: unknown): value is SequelCheckResult 
   );
 }
 
+export const SEQUEL_CHECK_INTERVAL_MS = 24 * 3_600_000;
+/** Attente avant de relancer une passe en échec : une panne longue ne relit pas les listes complètes à chaque alarme */
+export const SEQUEL_FAILURE_BACKOFF_MS = 6 * 3_600_000;
+
+/** Prochaine passe due : lastCheck + 24 h, ou checkedAt + 6 h après un échec non suivi d'une réussite ; null si jamais vérifié */
+export function nextSequelCheckAt(lastCheck: number | null, last: SequelCheckResult | null): number | null {
+  if (last !== null && last.error !== null && (lastCheck === null || lastCheck < last.checkedAt)) return last.checkedAt + SEQUEL_FAILURE_BACKOFF_MS;
+  return lastCheck === null ? null : lastCheck + SEQUEL_CHECK_INTERVAL_MS;
+}
+
 /** Seul MyAnimeList est connecté : une suite sans idMal n'a pas d'entrée où écrire */
 export function noMalEntry(connected: readonly TrackerId[], idMal: number | null): boolean {
   return idMal === null && connected.includes('mal') && !connected.includes('anilist');

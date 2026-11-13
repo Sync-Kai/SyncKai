@@ -50,6 +50,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **AniList ↔ MyAnimeList differences**: *Match all to AniList* (or MAL) on more than 2000 series no longer fails with « Couldn't reach the extension »: it aligns the first 2000 (the confirmation counts them), and a second click aligns the rest.
 - **History import**: *Create N reviews* with more than 200 seasons checked no longer fails with an unexpected error: it creates the reviews that fit.
 - **History import**: a series you excluded after the analysis is no longer written by *Update*: it is skipped as « Series excluded from sync ».
+- **Sequel alerts** with release alerts off no longer wake SyncKai every hour: the daily sequel check now has its own once-a-day alarm (6 hours later after a failed check), and the hourly alarm only runs while release alerts are on.
 
 ### Security
 

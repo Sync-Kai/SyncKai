@@ -11,7 +11,7 @@ import { getWatchingList } from './anilist/watching';
 import { signIn } from './trackers/sign-in';
 import { getAgendaWeek } from './agenda';
 import { checkNewEpisodes, handleAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
-import { AIRING_ALARM, ensureAiringAlarm } from '../browser/airing-alarm';
+import { AIRING_ALARM, ensureAiringAlarm, SEQUEL_ALARM } from '../browser/airing-alarm';
 import { checkSequels } from './sequels/check';
 import { updateSequels } from './sequels/actions';
 import { checkShownSequels } from './sequels/listed';
@@ -292,6 +292,8 @@ chrome.runtime.onInstalled.addListener((): void => {
 
 chrome.alarms.onAlarm.addListener((alarm): void => {
   if (alarm.name === AIRING_ALARM) afterI18n(handleAiringAlarm);
+  // Passe quotidienne des suites (PERF-04) : même écouteur, reprogrammée par checkSequels
+  else if (alarm.name === SEQUEL_ALARM) afterI18n(() => checkSequels());
 });
 chrome.notifications.onClicked.addListener((id): void => {
   void handleNotificationClick(id);

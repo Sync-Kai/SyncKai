@@ -1,14 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AIRING_ALARM } from '../browser/airing-alarm';
+import { AIRING_ALARM, SEQUEL_ALARM } from '../browser/airing-alarm';
 import { catalogOf } from '../test/catalogs';
 import { FakeEvent, installFakeChrome } from '../test/fake-chrome';
 import type { AiringCheckResult } from '../shared/airing.types';
+import type { SequelCheckResult } from '../shared/sequels';
 
 // Langue du service worker (2026-10-15) : aucun écouteur storage.onChanged, qui réveillait le worker à chaque écriture
 // locale d'une page ou d'un script de contenu (mesuré par scripts/ext-e2e/worker-wake.ext.ts) ; la langue des réglages
 // est relue avant chaque traitement. Réglage changé sans événement (stockage semé) : comme pendant le sommeil du worker.
 
-const texts = vi.hoisted(() => ({ airing: [] as string[] }));
+const texts = vi.hoisted(() => ({ airing: [] as string[], sequels: [] as string[] }));
 
 // Textes traduits au moment du traitement, comme ceux des vrais modules (erreur d'API, bouton de notification)
 vi.mock('./airing', async () => {
@@ -18,6 +19,18 @@ vi.mock('./airing', async () => {
     handleAiringAlarm: async (): Promise<void> => void texts.airing.push(t('common.open')),
     handleNotificationButton: async (): Promise<void> => undefined,
     handleNotificationClick: async (): Promise<void> => undefined,
+  };
+});
+
+// Passe des suites (alarme unique `synckai:sequels`, PERF-04) : texte traduit au moment du traitement
+vi.mock('./sequels/check', async (importActual) => {
+  const { t } = await import('../i18n');
+  return {
+    ...(await importActual<typeof import('./sequels/check')>()),
+    checkSequels: async (): Promise<SequelCheckResult> => {
+      texts.sequels.push(t('common.open'));
+      return { checkedAt: 1, found: 0, notified: 0, skipped: null, error: null };
+    },
   };
 });
 
@@ -85,5 +98,12 @@ describe('langue du service worker', () => {
     fake.alarms.onAlarm.emit(airingAlarm());
     await vi.waitFor(() => expect(texts.airing).toHaveLength(2));
     expect(texts.airing).toEqual([catalogOf('fr')['common.open'], catalogOf('es-419')['common.open']]);
+  });
+
+  it('alarme des suites : passe lancée par l’écouteur onAlarm existant, dans la langue courante', async () => {
+    changeLanguageSilently('de');
+    fake.alarms.onAlarm.emit({ name: SEQUEL_ALARM, scheduledTime: Date.now(), persistAcrossSessions: true });
+    await vi.waitFor(() => expect(texts.sequels).toEqual([catalogOf('de')['common.open']]));
+    expect(texts.airing).toHaveLength(2);
   });
 });
