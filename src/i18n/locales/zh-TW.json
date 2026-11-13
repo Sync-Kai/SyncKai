@@ -439,6 +439,7 @@
   "import.includeSettingsMissing": "同時匯入設定（檔案中沒有）",
   "import.intro": "設定、對應記錄、已排除的動畫和同步記錄。絕不包含你的 AniList/MAL 登入資訊。",
   "import.invalid_other": "已略過 {count} 個無效項目",
+  "import.keptMissing": "檔案中沒有的資料（舊版本）會保持不變。",
   "import.merge.detail": "新增資料，不覆寫現有內容",
   "import.merge.title": "合併（建議）",
   "import.mode": "匯入模式",

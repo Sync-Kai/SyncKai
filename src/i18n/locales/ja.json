@@ -439,6 +439,7 @@
   "import.includeSettingsMissing": "設定もインポートする（ファイルに含まれていません）",
   "import.intro": "設定、紐付け、除外した作品、同期履歴。AniList/MALのログイン情報は含まれません。",
   "import.invalid_other": "無効な項目{count}件をスキップしました",
+  "import.keptMissing": "ファイルに含まれていないデータ（以前のバージョン）はそのまま残ります。",
   "import.merge.detail": "上書きせずに追加します",
   "import.merge.title": "統合（おすすめ）",
   "import.mode": "インポート方法",

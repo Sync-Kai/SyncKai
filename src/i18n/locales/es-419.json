@@ -486,6 +486,7 @@
   "import.intro": "Configuración, correspondencias, series excluidas e historial. Tus sesiones de AniList/MAL nunca se incluyen.",
   "import.invalid_one": "{count} elemento no válido omitido",
   "import.invalid_other": "{count} elementos no válidos omitidos",
+  "import.keptMissing": "Los datos que no están en el archivo (versión anterior) se mantienen como están.",
   "import.merge.detail": "Agrega sin sobrescribir",
   "import.merge.title": "Combinar (recomendado)",
   "import.mode": "Modo de importación",

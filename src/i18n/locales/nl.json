@@ -486,6 +486,7 @@
   "import.intro": "Instellingen, koppelingen, uitgesloten series en sync-geschiedenis. Je inloggegevens voor AniList/MAL zitten er nooit in.",
   "import.invalid_one": "{count} ongeldig item overgeslagen",
   "import.invalid_other": "{count} ongeldige items overgeslagen",
+  "import.keptMissing": "Gegevens die niet in het bestand staan (oudere versie), blijven ongewijzigd.",
   "import.merge.detail": "Voegt toe zonder te overschrijven",
   "import.merge.title": "Samenvoegen (aanbevolen)",
   "import.mode": "Importmodus",

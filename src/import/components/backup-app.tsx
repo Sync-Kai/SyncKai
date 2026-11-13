@@ -16,7 +16,7 @@ import { ChoiceCards } from '../../ui/components/choice-cards';
 import { Icon } from '../../ui/components/icon';
 import { PageHeader } from '../../ui/components/page-header';
 import { useFocusFallback, useLocale, useStore } from '../../ui/preact/hooks';
-import { fileContents, type BackupPageState, type ExportState, type ImportState, type ReadyState } from '../view';
+import { fileContents, missingNote, type BackupPageState, type ExportState, type ImportState, type ReadyState } from '../view';
 
 export interface BackupActions {
   exportBackup(): void;
@@ -179,6 +179,16 @@ function Ready({ state, actions }: { state: ReadyState; actions: BackupActions }
               </div>
             ))}
           </dl>
+          {missingNote(parsed) !== null && (
+            <p class="m-0 flex items-start gap-2 text-secondary text-muted">
+              <span class="flex shrink-0 pt-0.5">
+                <Icon name="info" class="size-3.5" strokeWidth="2.4" />
+              </span>
+              <span class="min-w-0 break-words" data-missing="">
+                {missingNote(parsed)}
+              </span>
+            </p>
+          )}
           {parsed.invalidCount > 0 && (
             <p class="m-0 flex items-start gap-2 text-secondary font-bold text-butter">
               <span class="flex shrink-0 pt-0.5">

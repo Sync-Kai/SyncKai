@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { t, tp } from '../i18n';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupData, type ParsedBackup } from '../shared/backup';
 import { DEFAULT_SETTINGS } from '../shared/settings';
-import { fileContents, readyState, withConfirming, withIncludeSettings, withMode } from './view';
+import { fileContents, missingNote, readyState, withConfirming, withIncludeSettings, withMode } from './view';
 
 // Page Sauvegarde : contenu du fichier choisi, mode d'import et réglages, confirmation du remplacement.
 
@@ -19,9 +19,10 @@ const data = (patch: Partial<BackupData> = {}): BackupData => ({
   ...patch,
 });
 
-const parsed = (patch: Partial<BackupData> = {}, invalidCount = 0): ParsedBackup => ({
+const parsed = (patch: Partial<BackupData> = {}, invalidCount = 0, missing: ParsedBackup['missing'] = []): ParsedBackup => ({
   backup: { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: '2026-10-12T19:40:00Z', appVersion: '2.3.1', data: data(patch) },
   invalidCount,
+  missing,
 });
 
 describe('page Sauvegarde : contenu du fichier', () => {
@@ -31,6 +32,11 @@ describe('page Sauvegarde : contenu du fichier', () => {
     expect(rows.map((row) => row.id)).toEqual(['settings', 'mediaMappings', 'excludedSeries', 'recentSyncs', 'pendingReviews', 'pendingRatings', 'rewatchDeclined']);
     expect(rows.at(-1)).toEqual({ id: 'rewatchDeclined', label: tp('import.summary.rewatchDeclined', 2), value: '2', tone: null });
     expect(fileContents(parsed({ settings: null }))[0]).toMatchObject({ value: t('import.summary.missing'), tone: 'warn' });
+  });
+
+  it('sections absentes du fichier (version précédente) : note « données actuelles gardées » (STO-02)', () => {
+    expect(missingNote(parsed())).toBeNull();
+    expect(missingNote(parsed({}, 0, ['recoDismissed', 'activityHistory']))).toBe(t('import.keptMissing'));
   });
 });
 

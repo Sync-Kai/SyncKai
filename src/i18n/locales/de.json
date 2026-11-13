@@ -486,6 +486,7 @@
   "import.intro": "Einstellungen, Zuordnungen, ausgeschlossene Serien und Verlauf. Deine AniList-/MAL-Anmeldungen sind nie enthalten.",
   "import.invalid_one": "{count} ungültiges Element übersprungen",
   "import.invalid_other": "{count} ungültige Elemente übersprungen",
+  "import.keptMissing": "Daten, die nicht in der Datei sind (ältere Version), bleiben unverändert.",
   "import.merge.detail": "Ergänzt ohne zu überschreiben",
   "import.merge.title": "Zusammenführen (empfohlen)",
   "import.mode": "Importmodus",

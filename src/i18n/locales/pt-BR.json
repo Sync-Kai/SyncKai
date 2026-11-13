@@ -486,6 +486,7 @@
   "import.intro": "Configurações, correspondências, animes ignorados e histórico. Seus logins do AniList/MAL nunca são incluídos.",
   "import.invalid_one": "{count} item inválido descartado",
   "import.invalid_other": "{count} itens inválidos descartados",
+  "import.keptMissing": "Os dados que não estão no arquivo (versão anterior) continuam como estão.",
   "import.merge.detail": "Adiciona sem sobrescrever",
   "import.merge.title": "Mesclar (recomendado)",
   "import.mode": "Modo de importação",

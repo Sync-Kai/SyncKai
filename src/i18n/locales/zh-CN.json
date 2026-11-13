@@ -439,6 +439,7 @@
   "import.includeSettingsMissing": "同时导入设置（文件中没有设置）",
   "import.intro": "包括设置、匹配记录、已排除的番剧和同步记录。绝不包含你的 AniList/MAL 登录信息。",
   "import.invalid_other": "已跳过 {count} 个无效项",
+  "import.keptMissing": "文件中没有的数据（旧版本）保持不变。",
   "import.merge.detail": "只添加，不覆盖",
   "import.merge.title": "合并（推荐）",
   "import.mode": "导入方式",

@@ -68,6 +68,8 @@ export interface ParsedBackup {
   backup: Backup;
   /** Éléments invalides ignorés pendant la validation */
   invalidCount: number;
+  /** Sections absentes du fichier (version précédente), réglages exceptés : l'import garde les données actuelles */
+  missing: BackupSection[];
 }
 
 export interface BackupSummary {
@@ -152,7 +154,7 @@ function withSafeCandidateCovers(review: unknown): unknown {
 const mapList = (raw: unknown, map: (item: unknown) => unknown): unknown => (Array.isArray(raw) ? raw.map(map) : raw);
 
 /** Plus récents d'abord, bornés aux maximums de l'application */
-function sortDesc<T>(list: T[], at: (item: T) => number, max: number): T[] {
+function sortDesc<T>(list: readonly T[], at: (item: T) => number, max: number): T[] {
   return [...list].sort((a, b) => at(b) - at(a)).slice(0, max);
 }
 
@@ -266,7 +268,8 @@ export function parseBackup(text: string): Result<ParsedBackup, BackupErrorCode>
     return fail('INVALID_FORMAT', t('backup.error.corrupted'));
   }
 
-  const validated = validateData(json.data, true);
+  const data = json.data;
+  const validated = validateData(data, true);
   const { invalid } = validated;
   // Une correction (« Corriger ») ne vaut que dans la session qui a écrit la valeur : importée (autre date, autre
   // compte peut-être), elle redevient une vérification simple, qui ne fait jamais reculer la progression. L'épisode
@@ -282,6 +285,7 @@ export function parseBackup(text: string): Result<ParsedBackup, BackupErrorCode>
     data: {
       backup: { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: json.exportedAt, appVersion: json.appVersion, data: value },
       invalidCount: invalid,
+      missing: (Object.keys(BACKUP_STORAGE_KEYS) as BackupSection[]).filter((section) => section !== 'settings' && data[section] === undefined),
     },
   };
 }
@@ -326,6 +330,12 @@ function mergeByKey<T>(current: readonly T[], incoming: readonly T[], key: (item
   return [...current, ...incoming.filter((item) => !known.has(key(item)))];
 }
 
+/** Vérifications fusionnées : chaque correction gardée (jamais évincée, comme savePendingReview), places restantes aux cartes simples les plus récentes */
+function capReviews(list: readonly PendingReview[]): PendingReview[] {
+  let free = MAX_PENDING_REVIEWS - list.filter((r) => r.previous !== null).length;
+  return sortDesc(list, (r) => r.createdAt, list.length).filter((r) => r.previous !== null || free-- > 0);
+}
+
 /**
  * Combine les données actuelles et importées.
  * - replace : les données importées remplacent tout
@@ -352,7 +362,7 @@ export function mergeBackup(current: BackupData, incoming: BackupData, mode: Imp
   return {
     settings,
     mediaMappings: { ...incoming.mediaMappings, ...current.mediaMappings },
-    pendingReviews: sortDesc(mergeByKey(current.pendingReviews, incoming.pendingReviews, (r) => r.key), (r) => r.createdAt, MAX_PENDING_REVIEWS),
+    pendingReviews: capReviews(mergeByKey(current.pendingReviews, incoming.pendingReviews, (r) => r.key)),
     recentSyncs: sortDesc(mergeByKey(current.recentSyncs, incoming.recentSyncs, (s) => s.key), (s) => s.syncedAt, MAX_RECENT_SYNCS),
     excludedSeries,
     pendingRatings: sortDesc(mergeByKey(current.pendingRatings, incoming.pendingRatings, (r) => r.id), (r) => r.completedAt, MAX_PENDING_RATINGS),

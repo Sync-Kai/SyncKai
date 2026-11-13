@@ -535,6 +535,7 @@
   "import.invalid_one": "{count} neplatná položka přeskočena",
   "import.invalid_few": "{count} neplatné položky přeskočeny",
   "import.invalid_other": "{count} neplatných položek přeskočeno",
+  "import.keptMissing": "Data, která v souboru chybí (starší verze), zůstanou beze změny.",
   "import.merge.detail": "Doplní bez přepisování",
   "import.merge.title": "Sloučit (doporučeno)",
   "import.mode": "Režim importu",

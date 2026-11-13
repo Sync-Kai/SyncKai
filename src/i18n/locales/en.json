@@ -486,6 +486,7 @@
   "import.intro": "Settings, matches, excluded series and history. Your AniList/MAL sign-ins are never included.",
   "import.invalid_one": "{count} invalid item skipped",
   "import.invalid_other": "{count} invalid items skipped",
+  "import.keptMissing": "Data not in this file (older version) stays as it is.",
   "import.merge.detail": "Adds without overwriting",
   "import.merge.title": "Merge (recommended)",
   "import.mode": "Import mode",
