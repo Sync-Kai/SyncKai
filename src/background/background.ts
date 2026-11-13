@@ -8,8 +8,7 @@ import { restoreRecommendations, updateRecommendation } from './recommendations/
 import { friendsResponse } from './anilist/friends';
 import { getViewer } from './anilist/viewer';
 import { getWatchingList } from './anilist/watching';
-import { loginWithAniList } from './anilist/auth';
-import { loginWithMal } from './mal/auth';
+import { signIn } from './trackers/sign-in';
 import { getAgendaWeek } from './agenda';
 import { checkNewEpisodes, handleAiringAlarm, handleNotificationButton, handleNotificationClick } from './airing';
 import { AIRING_ALARM, ensureAiringAlarm } from '../browser/airing-alarm';
@@ -142,18 +141,10 @@ type MessageHandlers = {
 };
 
 const handlers: MessageHandlers = {
-  LOGIN_ANILIST: async () => {
-    const result = await loginWithAniList();
-    // Précharge le profil : la popup, souvent fermée pendant l'OAuth, l'affichera instantanément
-    if (result.ok) await getViewer();
-    return result;
-  },
+  // Connexion puis profil préchargé ; autre compte par-dessus une session enregistrée : données de l'ancien effacées (STO-01)
+  LOGIN_ANILIST: () => signIn('anilist'),
   GET_VIEWER: () => getViewer(),
-  LOGIN_MAL: async () => {
-    const result = await loginWithMal();
-    if (result.ok) await getMalViewer();
-    return result;
-  },
+  LOGIN_MAL: () => signIn('mal'),
   GET_MAL_VIEWER: () => getMalViewer(),
   // Accès Netflix / Disney+ retiré → ignoré ; échec passager → mise en file de relance automatique (`queued: true`)
   EPISODE_COMPLETED: (payload, sender) => handleEpisodeCompleted(payload, sender.tab?.id),

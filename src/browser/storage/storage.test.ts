@@ -696,9 +696,11 @@ describe('tokens chiffrés au repos (SEC-01)', () => {
 
     expect(await tokenAccess.getValidToken()).toBeNull();
     expect(await storage.isSessionExpired('anilist')).toBe(true);
-    // Plus aucune session : données de l'utilisateur effacées comme après un token refusé
+    // Plus aucune session : données de l'utilisateur effacées comme après un token refusé (endSessionIfUnreadable :
+    // fin « expirée », l'historique d'activité est gardé)
     expect(store.has(SYNC_QUEUE_KEY)).toBe(false);
     expect(store.has(STORAGE_KEYS.recentSyncs)).toBe(false);
+    expect(store.has(STORAGE_KEYS.activityHistory)).toBe(true);
   });
 
   it('token d’une session (L2) : refusé dès que la session a été fermée, même si un autre compte est connecté depuis', async () => {
@@ -728,6 +730,8 @@ describe('tokens chiffrés au repos (SEC-01)', () => {
     if (read.kind !== 'unreadable') throw new Error('attendu : unreadable');
     await storage.saveMalToken({ ...MAL_TOKEN, accessToken: 'neuf' });
     expect(await storage.clearUnreadableSession('mal', read.sealed)).toBe(false);
+    const { endSessionIfUnreadable } = await import('./session-end');
+    expect(await endSessionIfUnreadable('mal', read.sealed)).toBe(false);
     expect(await tokenAccess.getMalToken()).toMatchObject({ accessToken: 'neuf' });
   });
 
