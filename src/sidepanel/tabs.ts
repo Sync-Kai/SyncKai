@@ -8,34 +8,6 @@ export function isPanelTab(value: unknown): value is PanelTab {
   return PANEL_TABS.some((tab) => tab === value);
 }
 
-/**
- * Navigation clavier d'une liste d'onglets (motif ARIA « tabs », activation automatique) :
- * flèches gauche/droite en boucle, Début/Fin ; null pour toute autre touche.
- */
-export function nextTabIndex(current: number, key: string, count: number): number | null {
-  if (count <= 0) return null;
-  switch (key) {
-    case 'ArrowRight':
-      return (current + 1) % count;
-    case 'ArrowLeft':
-      return (current - 1 + count) % count;
-    case 'Home':
-      return 0;
-    case 'End':
-      return count - 1;
-    default:
-      return null;
-  }
-}
-
-/**
- * L'onglet sélectionné devient-il visible ? (autre onglet que celui affiché, retour des Réglages ou d'une page
- * hors cible : `shown` null). Un simple nouveau rendu de l'onglet déjà affiché ne compte pas.
- */
-export function isTabEntering(shown: PanelTab | null, selected: PanelTab): boolean {
-  return shown !== selected;
-}
-
 /** Dernier onglet consulté (stockage local) : rouvert quand le réglage vaut « Dernier onglet ouvert » */
 export const PANEL_LAST_TAB_KEY = 'panelLastTab';
 

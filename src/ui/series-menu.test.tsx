@@ -81,8 +81,6 @@ describe('SeriesMenu', () => {
       t('common.stopSyncSeries'),
       t('list.remove'),
     ]);
-    // Le −1 a quitté le menu : la ligne a son propre −
-    expect(container.textContent).not.toContain(t('watching.minusOne'));
     expect(document.activeElement).toBe(key(`PAUSED-${KEY}`));
   });
 

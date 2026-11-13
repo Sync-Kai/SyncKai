@@ -1,8 +1,7 @@
 {
   "arbitraryColors": {},
   "hexColors": {
-    "browser/badge.ts": 4,
-    "ui/icons.ts": 1
+    "browser/badge.ts": 4
   },
   "pxFontSizes": {}
 }
