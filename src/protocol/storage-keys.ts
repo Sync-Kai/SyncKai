@@ -97,9 +97,6 @@ export const SHOWN_SEQUELS_CHECK_KEY = 'shownSequelsCheck';
  */
 export const DORMANT_UNDO_KEY = 'dormantUndo';
 
-/** Onglet demandé au panneau latéral ouvert depuis le popup (Découvrir), dans chrome.storage.session, lu une fois (browser/panel-tab.ts) */
-export const PANEL_TAB_KEY = 'panelTab';
-
 /** Cartes « À noter » et revisionnages refusés (voir engagement-store.ts) */
 export const PENDING_RATINGS_KEY = 'pendingRatings';
 export const REWATCH_DECLINED_KEY = 'rewatchDeclined';
