@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { contentCatalogsDefine } from './src/build/content-catalog';
 import en from './src/i18n/locales/en.json';
-import thresholds from './scripts/coverage-thresholds.json';
+import thresholds from './scripts/coverage-thresholds.json' with { type: 'json' };
 
 // Config séparée de vite.config.ts : le plugin crx n'a pas sa place dans les tests unitaires
 export default defineConfig({
