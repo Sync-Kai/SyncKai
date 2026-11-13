@@ -7,7 +7,8 @@
  * - budgets de taille des scripts de contenu (Crunchyroll, ADN, pont Crunchyroll du monde MAIN, Netflix, Disney+, Prime Video,
  *   lecteurs de l'historique injectés par la page d'import) ;
  * - catalogues de traduction chargés à la demande : chaque langue hors anglais dans assets/locales/, référencée par le code ;
- * - ponts du monde MAIN : aucune API d'extension, aucun en-tête ni cookie (chaînes interdites) ; aucun marqueur de build de développement.
+ * - ponts du monde MAIN : aucune API d'extension, aucun en-tête ni cookie (chaînes interdites) ; aucun marqueur de build de développement ;
+ * - THIRD_PARTY_NOTICES.txt : licence de chaque dépendance d'exécution embarquée (Preact, MIT).
  *
  * Usage : npm run verify:build                        (dist/ et dist-firefox/)
  *         node scripts/verify-build.ts --target chrome|firefox
@@ -33,6 +34,7 @@ import {
   checkContentSecurityPolicy,
   checkHttpsPatterns,
   checkFontFormats,
+  checkThirdPartyNotices,
   checkUnreferencedFiles,
   checkLocaleCatalogs,
   checkManifestScriptBudgets,
@@ -46,6 +48,7 @@ import {
   manifestReferences,
   manifestScriptFiles,
   reachableFiles,
+  runtimeLicenses,
   type BuiltManifest,
 } from './build-checks.ts';
 
@@ -164,6 +167,9 @@ function verifyTarget(target: BuildTarget, source: SourceManifest): string[] {
   // 8. Aucun fichier que rien ne référence (intermédiaires de crxjs, 2-H) ; polices en woff2 seul (PERF-22)
   errors.push(...checkUnreferencedFiles(files, used), ...checkFontFormats(files));
 
+  // 9. Notice des dépendances d'exécution embarquées (ARCH-06 : la licence MIT de Preact exige son texte dans le paquet)
+  errors.push(...checkThirdPartyNotices(files, read, licenses));
+
   const status = errors.length === 0 ? '✔' : '✖';
   console.log(`${status} ${outDir}/ : ${files.size} fichiers, ${roots.length} références du manifeste`);
   for (const script of manifestScripts) console.log(`  ${script.label} : ${kib(script.total)} / ${kib(script.bytes)} (${[...script.reached].filter((file) => files.has(file)).join(', ')})`);
@@ -187,6 +193,8 @@ try {
 }
 
 const source = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8')) as SourceManifest;
+const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
+const licenses = runtimeLicenses(Object.keys(pkg.dependencies ?? {}), (name) => readFileSync(join(ROOT, 'node_modules', name, 'LICENSE'), 'utf8'));
 let failed = false;
 for (const target of targets) {
   const errors = verifyTarget(target, source);

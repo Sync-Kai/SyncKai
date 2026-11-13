@@ -5,6 +5,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Changed
+
+- The extension package now includes `THIRD_PARTY_NOTICES.txt`, the licence notice of Preact, the interface library it bundles.
+
 ### Fixed
 
 - Watching an episode with a decimal number (Crunchyroll « E48.5 ») no longer makes SyncKai forget the season it had matched, and validating its *To check* card no longer hides the season you had picked before.
