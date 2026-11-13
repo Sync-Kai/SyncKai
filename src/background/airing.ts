@@ -46,7 +46,7 @@ import {
 } from '../browser/storage/reviews';
 import { connectedServices, ensureAiringAlarm } from '../browser/airing-alarm';
 import { notificationsBlocked } from '../browser/notifications';
-import { checkSequels, SEQUEL_NOTIFICATION_PREFIX } from './sequels/check';
+import { SEQUEL_NOTIFICATION_PREFIX } from './sequels/check';
 import { handleSequelButton, handleSequelClick } from './sequels/actions';
 import { withStorageLock } from '../browser/storage/lock';
 import type { TrackerId } from '../shared/tracker.types';
@@ -313,18 +313,11 @@ export async function checkNewEpisodes(lane: RequestLane = 'background'): Promis
 }
 
 /**
- * Déclenchement de l'alarme horaire : vérification des sorties en file de fond, puis des suites (au plus une fois par
- * 24 h, la passe quotidienne se déclare « pas due » sinon). Les deux vérifications ne lèvent jamais ; une erreur de la
- * seconde est seulement journalisée. Sorties coupées ou plus aucun service connecté : ensureAiringAlarm supprime
- * l'alarme, sauf si les alertes de suite la réclament encore (PERF-17).
+ * Déclenchement de l'alarme horaire : vérification des sorties en file de fond (ne lève jamais). Les suites ont leur
+ * alarme unique (PERF-04). Sorties coupées ou plus aucun service connecté : ensureAiringAlarm supprime l'alarme (PERF-17).
  */
 export async function handleAiringAlarm(): Promise<void> {
   const { skipped } = await checkNewEpisodes('background');
-  try {
-    await checkSequels();
-  } catch (error) {
-    log.error('Vérification des suites interrompue :', error);
-  }
   if (skipped === 'disabled' || skipped === 'not-connected') await ensureAiringAlarm();
 }
 

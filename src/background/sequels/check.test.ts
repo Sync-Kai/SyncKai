@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../i18n';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import type { AniListListEntry, MalListEntry } from '../../shared/compare';
-import { isSequelStore, listedEntries, listSequels, type ReleaseInfo, type SequelStore } from '../../shared/sequels';
+import { isSequelStore, listedEntries, listSequels, SEQUEL_CHECK_INTERVAL_MS, type ReleaseInfo, type SequelStore } from '../../shared/sequels';
 import { ApiError } from '../errors';
 import { installFakeChrome } from '../../test/fake-chrome';
 
@@ -50,7 +50,7 @@ vi.mock('../anilist/full-list', () => ({ fetchAniListFullList: async () => fakes
 vi.mock('../mal/full-list', () => ({ fetchMalFullList: async () => fakes.mal }));
 
 const fake = installFakeChrome({ extra: { notifications: { create: fakes.create, getPermissionLevel: fakes.permission } } });
-const { checkSequels, SEQUEL_CHECK_INTERVAL_MS } = await import('./check');
+const { checkSequels } = await import('./check');
 
 setLocale('fr');
 
@@ -334,6 +334,31 @@ describe('checkSequels', () => {
     fakes.sequels.set(900, [{ id: 10, idMal: null }]);
     await checkSequels(NOW);
     expect(store().records[0]?.snapshot).toMatchObject({ sourceId: 900, sourceTitle: 'Série 900' });
+  });
+
+  describe('alarme unique des suites reprogrammée après chaque passe (PERF-04)', () => {
+    const SEQUELS = 'synckai:sequels';
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'], now: NOW });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('alertes de sortie coupées, passe réussie (alarme ou forcée) : alarme à lastCheck + 24 h, aucune alarme horaire', async () => {
+      fake.reset({ ...SEED, settings: { ...SEED.settings, airingAlerts: false } });
+      await checkSequels(NOW);
+      expect(await chrome.alarms.getAll()).toEqual([expect.objectContaining({ name: SEQUELS, scheduledTime: NOW + 24 * HOUR_MS })]);
+      vi.setSystemTime(NOW + 2 * HOUR_MS);
+      await checkSequels(NOW + 2 * HOUR_MS, true);
+      expect((await chrome.alarms.get(SEQUELS))?.scheduledTime).toBe(NOW + 26 * HOUR_MS);
+    });
+
+    it('passe en échec : alarme à checkedAt + 6 h', async () => {
+      fakes.failRelationsAt = 1;
+      expect(await checkSequels(NOW)).toMatchObject({ error: 'Limite' });
+      expect((await chrome.alarms.get(SEQUELS))?.scheduledTime).toBe(NOW + 6 * HOUR_MS);
+    });
   });
 
   it('garde le worker éveillé : getPlatformInfo au départ puis toutes les 20 s pendant une attente de 70 s', async () => {

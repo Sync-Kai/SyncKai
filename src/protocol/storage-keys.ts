@@ -23,7 +23,7 @@ export const STORAGE_KEYS = {
   compareLast: 'compare:last',
   /** Alertes de suite : suites déjà repérées et notifiées par série (voir shared/sequels.ts) */
   sequelsState: 'sequels:state',
-  /** Alertes de suite : résultat de la dernière passe horaire */
+  /** Alertes de suite : résultat de la dernière passe quotidienne */
   sequelsLastResult: 'sequels:lastResult',
   /** Suggestions : dernier lot calculé pour le compte (voir shared/reco) */
   recoBatch: 'reco:batch',

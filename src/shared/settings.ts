@@ -30,7 +30,7 @@ export interface SyncSettings extends ContentSettings {
   ratingPrompt: boolean;
   /** Notifications Chrome à la sortie d'un nouvel épisode d'une série en cours */
   airingAlerts: boolean;
-  /** Suivi des suites : repérer, pour les séries terminées, la suite qui sort (passe horaire du service worker) */
+  /** Suivi des suites : repérer, pour les séries terminées, la suite qui sort (passe quotidienne du service worker) */
   sequelAlerts: boolean;
   /** Notification Chrome quand une suite est repérée (sans effet si `sequelAlerts` est coupé) */
   sequelNotifications: boolean;
