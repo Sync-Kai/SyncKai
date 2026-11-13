@@ -40,6 +40,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Side panel**: after reloading an episode page that was slow to load, the live progress no longer stays on « Reload the tab to follow playback. »: the panel tries again when the page is reloaded.
 - **Schedule**: clicking ‹ or › while a week is loading no longer shows that week's answer (« No episodes this week… » or an error) for the newly chosen week.
 - **Schedule**: a panel or popup left open now reads the week again once it is older than an hour (six hours for a coming week), so a delayed or newly scheduled episode shows its new day and time.
+- **Backup**: importing an older backup with *Replace* no longer erases what that file doesn't contain (the suggestions you turned down and the *Stats* activity history, for a file made before 2.5.0); *File contents* says so.
+- **Backup**: *Merge* no longer drops a correction (*Correct*) waiting on this device when the file holds newer *To check* cards.
+- **AniList ↔ MyAnimeList differences**: *Match all to AniList* (or MAL) on more than 2000 series no longer fails with « Couldn't reach the extension »: it aligns the first 2000 (the confirmation counts them), and a second click aligns the rest.
+- **History import**: *Create N reviews* with more than 200 seasons checked no longer fails with an unexpected error: it creates the reviews that fit.
+- **History import**: a series you excluded after the analysis is no longer written by *Update*: it is skipped as « Series excluded from sync ».
 
 ### Security
 
