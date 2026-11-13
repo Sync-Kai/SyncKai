@@ -268,7 +268,7 @@ const keepRank = (record: SequelRecord): number => (record.state === 'seen' && r
 /** Plafond des enregistrements : partent d'abord les recréées, puis les masquées, puis les plus anciennes vues, puis les plus anciennes nouvelles. */
 function capRecords(records: SequelRecord[]): SequelRecord[] {
   if (records.length <= MAX_SEQUEL_RECORDS) return records;
-  const ranked = [...records].sort((a, b) => keepRank(a) - keepRank(b) || b.firstSeenAt - a.firstSeenAt);
+  const ranked = [...records].sort((a, b) => keepRank(a) - keepRank(b) || b.firstSeenAt - a.firstSeenAt || a.snapshot.id - b.snapshot.id);
   const kept = new Set(ranked.slice(0, MAX_SEQUEL_RECORDS));
   return records.filter((record) => kept.has(record));
 }

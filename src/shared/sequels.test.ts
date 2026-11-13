@@ -134,6 +134,25 @@ describe('mergeSequelPass', () => {
     expect(again.store.known).toEqual([2]);
   });
 
+  it('source mise en pause puis reprise (SEQ-02) : la suite retirée revient vue, sans notification', () => {
+    const seen = store({ records: [record(2, 'seen', 500)], known: [2], seeded: ['anilist'], lastCheck: 1 });
+    // En pause : la source n'est plus lue (seuls COMPLETED, CURRENT et REPEATING comptent), sa suite n'est plus candidate
+    const paused = mergeSequelPass(seen, sequelCandidates([], NO_LISTS), ['anilist'], 2000).store;
+    expect(paused.records).toEqual([]);
+    const resumed = mergeSequelPass(paused, sequelCandidates([{ source: source(1), edges: [edge(2)] }], NO_LISTS), ['anilist'], 3000);
+    expect(resumed.toNotify).toEqual([]);
+    expect(resumed.store.records.map((r) => [r.snapshot.id, r.state])).toEqual([[2, 'seen']]);
+  });
+
+  it('plafond, à firstSeenAt égal (même passe) : gardées par id croissant, comme l’affichage, quel que soit l’ordre du store', () => {
+    const records: SequelRecord[] = [];
+    for (let id = MAX_SEQUEL_RECORDS + 1; id >= 1; id--) records.push(record(id, 'new', 1000));
+    const start = store({ records, known: records.map((r) => r.snapshot.id), seeded: ['anilist'], lastCheck: 1 });
+    const { store: next } = mergeSequelPass(start, records.map((r) => candidate(r.snapshot.id)), ['anilist'], 5000);
+    expect(next.records.map((r) => r.snapshot.id)).not.toContain(MAX_SEQUEL_RECORDS + 1);
+    expect(next.records.map((r) => r.snapshot.id)).toContain(1);
+  });
+
   it('une suite masquée reste masquée tant qu’elle est candidate', () => {
     const start = store({ records: [record(2, 'dismissed', 500)], known: [2], seeded: ['anilist'], lastCheck: 1 });
     const { store: next, toNotify } = mergeSequelPass(start, [candidate(2)], ['anilist'], 2000);
