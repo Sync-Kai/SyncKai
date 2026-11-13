@@ -91,6 +91,12 @@ export const POPUP_SCREEN_KEY = 'popupScreen';
 /** Dernière revérification des suites affichées contre les listes, dans chrome.storage.session : `{ at, epochs }` (background/sequels/listed.ts) */
 export const SHOWN_SEQUELS_CHECK_KEY = 'shownSequelsCheck';
 
+/**
+ * Jeu d'annulation des séries en sommeil, dans chrome.storage.session : écritures que « Annuler » rétablit, gardées deux
+ * minutes et liées aux sessions ouvertes (browser/storage/dormant-undo.ts, POP-05)
+ */
+export const DORMANT_UNDO_KEY = 'dormantUndo';
+
 /** Onglet demandé au panneau latéral ouvert depuis le popup (Découvrir), dans chrome.storage.session, lu une fois (browser/panel-tab.ts) */
 export const PANEL_TAB_KEY = 'panelTab';
 

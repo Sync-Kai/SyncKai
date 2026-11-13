@@ -30,6 +30,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - *In the same spirit* no longer reads your lists again each time the same series is refreshed.
 - Crunchyroll music videos and concerts are no longer treated as episodes: watching one no longer shows a false « Episode not identified » error.
 - **Netflix history import**: it finds the Netflix tab and reads the history again on Netflix's new viewing history page, instead of stopping at « No Netflix tab open ».
+- **Dormant series**: if you close the popup while *Put all on hold* runs, reopening it within two minutes still offers *Undo* for the series already put on hold.
+- **Dormant series**: *Pause*, *Drop* and *Put all on hold* now wait for your list to be read again when the popup opens, so a series you resumed on another device is no longer put on hold; if the list cannot be read, nothing is changed.
+- **Dormant series**: a series you put on hold no longer shows up again as dormant when you reopen the popup right away, and a series brought back with *Undo* no longer misses from *My series* for a minute and a half.
+- **Dormant series**: *Keep* on your MyAnimeList list now holds even when AniList does not answer, and *Put all on hold* running at the same time as an *Undo* no longer goes over AniList's request limit.
+- **Friends on AniList**: when more than 50 of the people you follow have the series, the friends' average is no longer shown (it was computed on the first 50 only).
 
 ### Security
 

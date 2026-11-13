@@ -4,6 +4,7 @@ import type { ServiceOutcome, SyncOutcome } from '../../shared/sync.types';
 import type { TrackerId } from '../../shared/tracker.types';
 import type { WatchingEntry, WatchingList } from '../../shared/watching.types';
 import { setLocale } from '../../i18n';
+import { STORAGE_KEYS } from '../../protocol/storage-keys';
 import { installFakeChrome } from '../../test/fake-chrome';
 import { createStore, LOGGED_OUT, type AccountState, type ExclusionsState, type Store } from '../../ui/state';
 import { popupTimeouts } from '../timeouts';
@@ -19,6 +20,8 @@ interface PendingCall {
   resolve: (value: unknown) => void;
   /** Envoi, sur l'horloge simulée (ms) */
   at: number;
+  /** Réponse déjà donnée */
+  answered: boolean;
 }
 
 const sw = vi.hoisted(() => ({ calls: [] as PendingCall[] }));
@@ -30,11 +33,15 @@ interface KeepFake {
 const keep: KeepFake = vi.hoisted(() => ({ marks: {}, read: vi.fn(), write: vi.fn() }));
 
 vi.mock('../../protocol/messages', () => ({
-  sendMessage: (type: string, payload: unknown) => new Promise((resolve) => sw.calls.push({ type, payload, resolve, at: vi.getMockedSystemTime()?.getTime() ?? 0 })),
+  sendMessage: (type: string, payload: unknown) =>
+    new Promise((resolve) => {
+      const call: PendingCall = { type, payload, at: vi.getMockedSystemTime()?.getTime() ?? 0, answered: false, resolve: (value) => ((call.answered = true), resolve(value)) };
+      sw.calls.push(call);
+    }),
 }));
 vi.mock('../../browser/storage/dormant-keep', () => ({ readKeepMarks: keep.read, keepDormant: keep.write }));
 
-installFakeChrome();
+const fake = installFakeChrome();
 const { createWatchingController } = await import('./watching');
 const { createDormantController } = await import('./dormant');
 
@@ -107,16 +114,19 @@ async function showList(entries: WatchingEntry[], services: TrackerId[] = ['anil
 
 let accounts: Record<TrackerId, Store<AccountState<unknown>>>;
 
-beforeEach(() => {
-  setLocale('fr');
+/** Comptes enregistrés (sessions ouvertes, génération 0) : le jeu d'annulation gardé leur est lié */
+const FAR = Date.UTC(2030, 0, 1);
+const TOKENS = { [STORAGE_KEYS.anilistToken]: { accessToken: 'a', expiresAt: FAR }, [STORAGE_KEYS.malToken]: { accessToken: 'm', refreshToken: 'r', expiresAt: FAR } };
+
+/** Popup rouvert : nouveaux contrôleurs sur le même stockage (l'ancienne page est morte avec son lot) */
+function reopen(now = NOW): void {
+  ctl.dispose();
+  watching.dispose();
   sw.calls.length = 0;
-  keep.marks = {};
-  keep.read.mockReset().mockImplementation(() => Promise.resolve({ ...keep.marks }));
-  keep.write.mockReset().mockResolvedValue(undefined);
-  popupTimeouts.dormantPaceMs = 0;
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-  preferred = createStore<TrackerId | null>('anilist');
-  onUndo.mockReset();
+  createControllers(now);
+}
+
+function createControllers(now = NOW): void {
   accounts = { anilist: createStore<AccountState<unknown>>({ status: 'loading' }), mal: createStore<AccountState<unknown>>({ status: 'loading' }) };
   accounts.mal.set(LOGGED_OUT);
   watching = createWatchingController({
@@ -127,10 +137,24 @@ beforeEach(() => {
     onServiceShown: vi.fn(),
     onNoticeShown: vi.fn(),
   });
-  threshold = createStore<DormantAfterDays | undefined>(30);
-  ctl = createDormantController({ watching, threshold, accounts: { store: (service) => accounts[service] }, now: () => NOW });
+  ctl = createDormantController({ watching, threshold, accounts: { store: (service) => accounts[service] }, now: () => now });
   watching.start();
   ctl.start();
+}
+
+beforeEach(() => {
+  setLocale('fr');
+  fake.reset(TOKENS);
+  sw.calls.length = 0;
+  keep.marks = {};
+  keep.read.mockReset().mockImplementation(() => Promise.resolve({ ...keep.marks }));
+  keep.write.mockReset().mockResolvedValue(undefined);
+  popupTimeouts.dormantPaceMs = 0;
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  preferred = createStore<TrackerId | null>('anilist');
+  onUndo.mockReset();
+  threshold = createStore<DormantAfterDays | undefined>(30);
+  createControllers();
 });
 
 afterEach(() => {
@@ -445,6 +469,8 @@ describe('createDormantController : lots interrompus, échecs complets, « Garde
     expect(notice?.undo).toBeNull();
     expect(notice?.retry).toBeNull();
     expect(ctl.store.get().bulk).toBe(false);
+    // Séries jamais envoyées libérées
+    expect(ctl.store.get().busy.size).toBe(0);
   });
 
   it('« Garder » en échec pendant un changement de service affiché : pas d’erreur, bandeau d’échec', async () => {
@@ -556,5 +582,197 @@ describe('createDormantController : rythme des lots et occupation (PERF-02, POP-
     await settle();
     watching.notice.get()?.retry?.();
     expect(watching.notice.get()?.progress).toEqual({ button: 'retry', done: 0, total: 1 });
+  });
+});
+
+/** Toutes les écritures répondues « écrite » (dans la demi-seconde) jusqu'à `done()`, sur l'horloge simulée */
+async function answerAll(done: () => boolean, answer: (call: PendingCall) => SyncOutcome = () => outcome('Série', [{ service: 'anilist', outcome: updated }]), except: PendingCall[] = []): Promise<void> {
+  for (let step = 0; !done() && step < 1_000; step++) {
+    for (const call of calls('SET_LIST_STATUS').filter((c) => !c.answered && !except.includes(c))) call.resolve(answer(call));
+    await vi.advanceTimersByTimeAsync(500);
+  }
+}
+
+describe('createDormantController : liste relue avant d’écrire (POP-03)', () => {
+  it('liste en cache en cours de revalidation : « Pause » n’envoie rien, puis la liste relue décide (série reprise ailleurs)', async () => {
+    await showList([FRIEREN, VINLAND, BOCCHI]);
+    // Liste affichée en attendant la relecture du service worker (réouverture du popup, « Actualiser »)
+    void watching.reload();
+    await settle();
+    void ctl.pauseDormant(FRIEREN);
+    void ctl.pauseAllDormant();
+    await settle();
+    expect(calls('SET_LIST_STATUS')).toHaveLength(0);
+    // Frieren reprise sur un autre appareil : plus en sommeil dans la liste relue
+    lastCall('GET_WATCHING').resolve({ ok: true, data: list([{ ...FRIEREN, updatedAt: NOW - DAY }, VINLAND, BOCCHI]) });
+    await settle();
+    expect(calls('SET_LIST_STATUS').map((c) => (c.payload as { mediaId: number }).mediaId)).toEqual([VINLAND.mediaId]);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(calls('SET_LIST_STATUS').map((c) => (c.payload as { mediaId: number }).mediaId)).toEqual([VINLAND.mediaId, BOCCHI.mediaId]);
+  });
+
+  it('relecture en échec (liste en cache gardée avec une alerte) : « Pause » n’envoie rien, bandeau d’échec', async () => {
+    await showList([FRIEREN, VINLAND]);
+    void watching.reload();
+    await settle();
+    lastCall('GET_WATCHING').resolve({ ok: false, code: 'NETWORK', message: 'Hors ligne' });
+    await settle();
+    expect(dormantTitles()).toEqual(['Vinland Saga', 'Frieren']);
+    await ctl.pauseDormant(FRIEREN);
+    expect(calls('SET_LIST_STATUS')).toHaveLength(0);
+    expect(watching.notice.get()?.feedback).toMatchObject({ tone: 'error', text: 'Échec de la mise à jour' });
+  });
+});
+
+describe('createDormantController : popup fermé pendant le lot (POP-05)', () => {
+  async function pauseTwoOfThree(): Promise<void> {
+    await showList([FRIEREN, VINLAND, BOCCHI, DANDADAN]);
+    void ctl.pauseAllDormant();
+    for (const title of ['Vinland Saga', 'Bocchi the Rock!']) {
+      lastCall('SET_LIST_STATUS').resolve(outcome(title, [{ service: 'anilist', outcome: updated }]));
+      await settle();
+    }
+    // Popup fermé avant la fin du lot : Frieren envoyée, sans réponse ; la page meurt avec le lot
+    await settle();
+  }
+
+  it('rouvert peu après : « Annuler » encore proposé pour les séries écrites, et il les rétablit', async () => {
+    await pauseTwoOfThree();
+    reopen();
+    await showList([FRIEREN, DANDADAN]);
+    const notice = watching.notice.get();
+    expect(notice?.feedback).toMatchObject({ tone: 'success', text: '2 séries mises en pause' });
+    expect(notice?.undo).not.toBeNull();
+    notice?.undo?.();
+    expect(lastCall('SET_LIST_STATUS').payload).toEqual({ mediaId: VINLAND.mediaId, malId: VINLAND.malId, status: 'CURRENT', onlyFrom: 'PAUSED', services: ['anilist'], coverUrl: null });
+    lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(lastCall('SET_LIST_STATUS').payload).toMatchObject({ mediaId: BOCCHI.mediaId, status: 'CURRENT', onlyFrom: 'PAUSED' });
+    lastCall('SET_LIST_STATUS').resolve(outcome('Bocchi the Rock!', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(shownTitles()).toEqual(expect.arrayContaining(['Vinland Saga', 'Bocchi the Rock!']));
+    // Jeu d'annulation consommé : une autre réouverture ne le propose plus
+    reopen();
+    await showList([FRIEREN, DANDADAN]);
+    expect(watching.notice.get()).toBeNull();
+  });
+
+  it('rouvert trop tard, ou après un changement de compte : rien n’est proposé', async () => {
+    await pauseTwoOfThree();
+    reopen(NOW + 10 * 60_000);
+    await showList([FRIEREN, DANDADAN]);
+    expect(watching.notice.get()).toBeNull();
+
+    reopen();
+    await pauseTwoOfThree();
+    // Déconnexion puis reconnexion (génération de session incrémentée)
+    await chrome.storage.local.set({ [STORAGE_KEYS.sessionEpoch]: { anilist: 1 } });
+    reopen();
+    await showList([FRIEREN, DANDADAN]);
+    expect(watching.notice.get()).toBeNull();
+  });
+
+  it('compte changé pendant le lot (ni « Annuler » ni « Réessayer ») : rien n’est proposé à la réouverture', async () => {
+    await showList([FRIEREN, VINLAND, BOCCHI, DANDADAN]);
+    void ctl.pauseAllDormant();
+    lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    accounts.mal.set({ ...LOGGED_OUT, expired: true });
+    lastCall('SET_LIST_STATUS').resolve(outcome('Bocchi the Rock!', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(watching.notice.get()?.undo).toBeNull();
+    await settle();
+    reopen();
+    await showList([FRIEREN, DANDADAN]);
+    expect(watching.notice.get()).toBeNull();
+  });
+
+  it('bandeau disparu (délai écoulé) : plus rien à proposer à la réouverture', async () => {
+    await showList([FRIEREN, VINLAND]);
+    void ctl.pauseDormant(FRIEREN);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    vi.advanceTimersByTime(60_000);
+    await settle();
+    reopen();
+    await showList([VINLAND]);
+    expect(watching.notice.get()).toBeNull();
+  });
+});
+
+describe('createDormantController : lots en parallèle et annulation (suivis de la revue)', () => {
+  it('nouveau lot pendant l’« Annuler » d’un lot interrompu : jamais deux séries à moins du rythme', async () => {
+    popupTimeouts.dormantPaceMs = PACE_MS;
+    const five = Array.from({ length: 5 }, (_, i) => entry(400_000 + i, `Série ${i + 1}`, 90 - i));
+    await showList(five);
+    void ctl.pauseAllDormant();
+    let sent = 0;
+    // Deux séries écrites, la troisième à la limite de débit : arrêt, deux jamais envoyées
+    await answerAll(
+      () => ctl.store.get().bulk === false,
+      () => (++sent < 3 ? outcome('Série', [{ service: 'anilist', outcome: updated }]) : outcome('Série', [{ service: 'anilist', outcome: { status: 'error', message: 'Trop de requêtes', code: 'RATE_LIMITED' } }])),
+    );
+    expect(watching.notice.get()?.undo).not.toBeNull();
+    const before = calls('SET_LIST_STATUS').length;
+    // « Tout mettre en pause » des trois restantes, puis « Annuler » des deux premières dans le délai du bandeau
+    let finished = 0;
+    void ctl.pauseAllDormant().then(() => (finished += 1));
+    void ctl.undoDormant().then(() => (finished += 1));
+    await answerAll(() => finished === 2);
+    const starts = calls('SET_LIST_STATUS').slice(before).map((c) => c.at);
+    expect(starts).toHaveLength(5);
+    for (let i = 1; i < starts.length; i++) expect((starts[i] ?? 0) - (starts[i - 1] ?? 0)).toBeGreaterThanOrEqual(PACE_MS);
+  });
+
+  it('« Annuler » saute une série en cours d’écriture, sans libérer sa marque d’occupation', async () => {
+    await showList([FRIEREN, VINLAND, BOCCHI]);
+    void ctl.pauseAllDormant();
+    for (const title of ['Vinland Saga', 'Bocchi the Rock!', 'Frieren']) {
+      lastCall('SET_LIST_STATUS').resolve(outcome(title, [{ service: 'anilist', outcome: updated }]));
+      await settle();
+    }
+    // Frieren de nouveau en cours d'écriture (abandon envoyé entre-temps)
+    void ctl.dropDormant(FRIEREN);
+    const drop = lastCall('SET_LIST_STATUS');
+    void ctl.undoDormant();
+    await answerAll(() => !ctl.store.get().bulk, undefined, [drop]);
+    const undone = calls('SET_LIST_STATUS').filter((c) => c !== drop && (c.payload as { status: string }).status === 'CURRENT');
+    expect(undone.map((c) => (c.payload as { mediaId: number }).mediaId)).toEqual([VINLAND.mediaId, BOCCHI.mediaId]);
+    expect(ctl.store.get().busy.has(`${FRIEREN.mediaId}:${FRIEREN.malId}`)).toBe(true);
+  });
+
+  it('« Annuler » écrit aussi une série « gardée » pendant l’annulation (la marque ne vaut que pour une pause)', async () => {
+    await showList([FRIEREN, VINLAND, BOCCHI, DANDADAN]);
+    void ctl.pauseAllDormant();
+    for (const title of ['Vinland Saga', 'Bocchi the Rock!', 'Frieren']) {
+      lastCall('SET_LIST_STATUS').resolve(outcome(title, [{ service: 'anilist', outcome: updated }]));
+      await settle();
+    }
+    void ctl.undoDormant();
+    await ctl.keepDormant(BOCCHI);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(lastCall('SET_LIST_STATUS').payload).toMatchObject({ mediaId: BOCCHI.mediaId, status: 'CURRENT', onlyFrom: 'PAUSED' });
+  });
+
+  it('« Réessayer » en cours : l’« Annuler » de l’essai précédent n’envoie rien (guard)', async () => {
+    await showList([FRIEREN, VINLAND]);
+    void ctl.pauseDormant(FRIEREN);
+    lastCall('SET_LIST_STATUS').resolve(outcome('Frieren', [{ service: 'anilist', outcome: updated }, { service: 'mal', outcome: { status: 'error', message: 'HTTP 500' } }]));
+    await settle();
+    watching.notice.get()?.retry?.();
+    const sent = calls('SET_LIST_STATUS').length;
+    await expect(Promise.race([ctl.undoDormant(), settle().then(() => 'pending')])).resolves.toEqual([]);
+    expect(calls('SET_LIST_STATUS')).toHaveLength(sent);
+  });
+
+  it('contrôleur libéré pendant un lot : la suite n’est pas envoyée', async () => {
+    await showList([FRIEREN, VINLAND, BOCCHI]);
+    void ctl.pauseAllDormant();
+    ctl.dispose();
+    lastCall('SET_LIST_STATUS').resolve(outcome('Vinland Saga', [{ service: 'anilist', outcome: updated }]));
+    await settle();
+    expect(calls('SET_LIST_STATUS')).toHaveLength(1);
   });
 });
