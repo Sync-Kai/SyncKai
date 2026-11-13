@@ -108,6 +108,19 @@ export function clearUserSyncDataIfNoSession(reason: SessionEndReason): Promise<
   });
 }
 
+/**
+ * Autre compte connecté par-dessus une session encore enregistrée (STO-01) : efface les données de l'utilisateur comme à
+ * la dernière déconnexion, si `service` est la seule session ouverte (sinon elles valent aussi pour l'autre service).
+ * Retourne true si les données ont été effacées.
+ */
+export function clearUserSyncDataForNewAccount(service: TrackerId): Promise<boolean> {
+  return withStorageLock(async () => {
+    if (Object.keys(await getOpenSessions()).some((open) => open !== service)) return false;
+    await removeUserSyncData();
+    return true;
+  });
+}
+
 /** Comme clearAniListSession : token, profil et liste « En cours » MAL en cache, puis la part MAL des données du compte. */
 export function clearMalSession(): Promise<void> {
   return withStorageLock(() => removeMalSession(false));

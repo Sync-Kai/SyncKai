@@ -6,6 +6,7 @@ import {
   clearMalSession,
   clearMalSessionIfToken,
   clearUnreadableSession,
+  clearUserSyncDataForNewAccount,
   clearUserSyncDataIfNoSession,
 } from './account-data';
 import type { SessionEndReason } from './account-keys';
@@ -34,6 +35,15 @@ export async function endSession(service: TrackerId): Promise<void> {
   if (__SYNCKAI_DEBUG__) trace('account', 'sign-out', { service });
   await (service === 'anilist' ? clearAniListSession() : clearMalSession());
   await afterSessionEnd('sign-out');
+}
+
+/**
+ * Connexion d'un autre compte par-dessus une session encore enregistrée (STO-01, décision 11 b) : données de
+ * l'utilisateur de l'ancien compte effacées si plus aucun autre service n'est connecté, puis badge de l'icône.
+ */
+export async function endPreviousAccountData(service: TrackerId): Promise<void> {
+  if (__SYNCKAI_DEBUG__) trace('account', 'account-changed', { service });
+  if (await clearUserSyncDataForNewAccount(service)) await refreshReviewBadge();
 }
 
 /**
