@@ -1,6 +1,6 @@
 import { t, tp, type MessageKey, type PluralKey } from '../i18n';
 import type { HistoryStats } from '../platforms/crunchyroll/history';
-import { hasUpdate, planCounts, type CrImportJob, type CrImportPlan, type CrPlanItem, type CrReviewItem, type CrServicePlan } from '../shared/cr-import';
+import { hasUpdate, MAX_REVIEW_KEYS, planCounts, type CrImportJob, type CrImportReviewsPayload, type CrImportPlan, type CrPlanItem, type CrReviewItem, type CrServicePlan } from '../shared/cr-import';
 import type { CandidateSummary } from '../shared/review.types';
 
 // Étapes 4 et 5 de l'import (maquettes ImportApercu, ImportApercuVariantes, ImportApplication, ImportTermine) : règles
@@ -59,6 +59,9 @@ export function serviceChipText(plan: CrServicePlan): string {
 
 /** Ligne cochable : la série avance sur au moins un service et n'a pas encore été écrite */
 export const isSelectable = (item: CrPlanItem): boolean => hasUpdate(item) && item.result?.outcome !== 'updated';
+
+/** « Créer N vérifications » : au plus MAX_REVIEW_KEYS saisons (garde du service worker, qui ne crée que les places libres et signale `limited`) */
+export const reviewsPayload = (selected: ReadonlySet<string>): CrImportReviewsPayload => ({ keys: [...selected].slice(0, MAX_REVIEW_KEYS) });
 
 /** Résultat d'une ligne après l'import : mis à jour, échec (avec sa raison), rien d'écrit */
 export function itemResult(item: CrPlanItem): { tone: 'success' | 'error' | 'muted'; text: string } | null {

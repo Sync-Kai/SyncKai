@@ -142,6 +142,15 @@ describe('createCompareController', () => {
     expect(onApplied).toHaveBeenCalledTimes(1);
   });
 
+  it('IMP-02 : 2001 écarts : les 2000 premiers envoyés, charge acceptée par la garde du service worker', async () => {
+    const { isApplyDiffsPayload, MAX_APPLY_ITEMS } = await import('../shared/compare');
+    const diffs = Array.from({ length: MAX_APPLY_ITEMS + 1 }, (_, i): ListDiff => ({ ...FRIEREN, key: `mal:${i + 1}`, mediaId: i + 1, malId: i + 1 }));
+    void ctl.apply(diffs, 'anilist');
+    const { payload } = lastCall('APPLY_DIFFS');
+    expect(isApplyDiffsPayload(payload)).toBe(true);
+    expect(payload).toMatchObject({ items: diffs.slice(0, MAX_APPLY_ITEMS).map((d) => ({ mediaId: d.mediaId, malId: d.malId })) });
+  });
+
   it('alignement terminé sans mise à jour : « En cours » non relu', async () => {
     await fake.local.set({ [COMPARE_JOB_KEY]: job() });
     await settle();

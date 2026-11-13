@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { t, tp } from '../i18n';
-import { startApplyJob, type CrImportJob, type CrImportPlan, type CrPlanItem, type CrReviewItem } from '../shared/cr-import';
+import { isCrImportReviewsPayload, MAX_REVIEW_KEYS, startApplyJob, type CrImportJob, type CrImportPlan, type CrPlanItem, type CrReviewItem } from '../shared/cr-import';
 import type { CandidateSummary } from '../shared/review.types';
-import { applyEnd, applyHint, isSelectable, itemResult, partialNotice, reviewGroups, reviewProposal, seasonPart, serviceChipText, summaryTiles } from './preview';
+import { applyEnd, applyHint, isSelectable, itemResult, partialNotice, reviewGroups, reviewProposal, reviewsPayload, seasonPart, serviceChipText, summaryTiles } from './preview';
 
 // Étapes 4 et 5 de l'import (aperçu, import, bilan) : règles d'affichage sans DOM.
 
@@ -187,5 +187,14 @@ describe('aperçu : à vérifier', () => {
     // Suggestion absente des fiches : la première est cochée dans la carte
     expect(reviewProposal(review({ suggestion: null, candidates: [cached, other] }))).toEqual({ proposed: cached, others: [other] });
     expect(reviewProposal(review())).toEqual({ proposed: null, others: [] });
+  });
+});
+
+describe('« Créer N vérifications » (IMP-02)', () => {
+  it('201 saisons cochées : les 200 premières envoyées, charge acceptée par la garde du service worker', () => {
+    const keys = new Set(Array.from({ length: MAX_REVIEW_KEYS + 1 }, (_, i) => `crunchyroll:S${i}:s1`));
+    const payload = reviewsPayload(keys);
+    expect(isCrImportReviewsPayload(payload)).toBe(true);
+    expect(payload.keys).toEqual([...keys].slice(0, MAX_REVIEW_KEYS));
   });
 });
