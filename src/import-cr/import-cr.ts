@@ -9,7 +9,7 @@ import { hasMalToken, hasValidAniListToken } from '../browser/storage/tokens';
 import { STORAGE_KEYS } from '../protocol/storage-keys';
 import type { ImportActions } from './actions';
 import { mountImportApp } from './components/import-app';
-import { isSelectable, partialNotice } from './preview';
+import { isSelectable, partialNotice, reviewsPayload } from './preview';
 import { findSourceTab } from './sources/source';
 import { SOURCES } from './sources/registry';
 import { platformParams } from './sources/sites';
@@ -278,7 +278,7 @@ async function createReviews(): Promise<void> {
   state.notice = null;
   draw();
   try {
-    const result = await sendMessage('CR_IMPORT_REVIEWS', { keys: [...state.reviewSelected] });
+    const result = await sendMessage('CR_IMPORT_REVIEWS', reviewsPayload(state.reviewSelected));
     if (!result.ok) state.error = result.message;
     else state.notice = result.data.limited ? tp('crImport.review.createdLimited', result.data.created) : tp('crImport.review.created', result.data.created);
   } catch (error: unknown) {

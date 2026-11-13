@@ -7,7 +7,7 @@
 // elles continuent page fermée.
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import { t, tp, type MessageKey } from '../../i18n';
-import { applicableDiffs, applyImpact, otherService, planApply, skipReasonText, type DiffFilter, type DiffSide, type ListDiff } from '../../shared/compare';
+import { applicableDiffs, applyImpact, MAX_APPLY_ITEMS, otherService, planApply, skipReasonText, type DiffFilter, type DiffSide, type ListDiff } from '../../shared/compare';
 import { currentApplyMalId, isJobActive, type CompareJob } from '../../shared/compare-job';
 import { entryLink, type EntryLink, type EntryLinkContext } from '../../shared/entry-link';
 import { DEFAULT_SETTINGS } from '../../shared/settings';
@@ -367,7 +367,9 @@ export function ComparePage({ ctx, compare }: ComparePageProps) {
     if (filtered.length === 0) return null;
     if (state.confirm && !busy) {
       const source = state.confirm;
-      return <Confirm filtered={filtered} source={source} onApply={() => void compare.apply(applicableDiffs(filtered, source), source)} onCancel={() => compare.setConfirm(null)} />;
+      // Confirmation et envoi sur le même lot : au plus MAX_APPLY_ITEMS séries (IMP-02)
+      const batch = applicableDiffs(filtered, source).slice(0, MAX_APPLY_ITEMS);
+      return <Confirm filtered={batch} source={source} onApply={() => void compare.apply(batch, source)} onCancel={() => compare.setConfirm(null)} />;
     }
     const empty = COMPARE_SIDES.filter((source) => applicableDiffs(filtered, source).length === 0);
     return (

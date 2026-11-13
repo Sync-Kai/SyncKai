@@ -2,7 +2,7 @@
 // d'alignement (lues du stockage, suivies par storage.onChanged) et demandes au service worker. Un contrôleur par page
 // hôte (popup, panneau latéral), passé aux Réglages par `SettingsHost.compare`. Le compte à rebours d'une pause est
 // recalculé par la page qui l'affiche (isCountingDown).
-import { COMPARE_STORAGE_KEY, isComparisonResult, type ApplyResult, type CompareResult, type ComparisonResult, type DiffFilter, type ListDiff } from '../shared/compare';
+import { COMPARE_STORAGE_KEY, isComparisonResult, MAX_APPLY_ITEMS, type ApplyResult, type CompareResult, type ComparisonResult, type DiffFilter, type ListDiff } from '../shared/compare';
 import { COMPARE_JOB_ITEMS_KEY, COMPARE_JOB_KEY, isCompareJob, type CompareJob } from '../shared/compare-job';
 import { createLogger } from '../browser/logger';
 import { withStorageLock } from '../browser/storage/lock';
@@ -108,7 +108,10 @@ export function createCompareController(deps: CompareControllerDeps): CompareCon
     async apply(diffs, source) {
       if (diffs.length === 0 || store.get().requesting !== null) return;
       patch({ requesting: 'apply', confirm: null, error: null });
-      const result: ApplyResult = await callWorker('APPLY_DIFFS', { items: diffs.map((d) => ({ mediaId: d.mediaId, malId: d.malId })), source }, networkFailure);
+      // Au plus MAX_APPLY_ITEMS par envoi (garde du service worker) : les séries alignées quittent la comparaison, un
+      // nouveau « Tout aligner » envoie la suite (IMP-02)
+      const items = diffs.slice(0, MAX_APPLY_ITEMS).map((d) => ({ mediaId: d.mediaId, malId: d.malId }));
+      const result: ApplyResult = await callWorker('APPLY_DIFFS', { items, source }, networkFailure);
       // Tâche acceptée : affichée tout de suite (le changement du stockage suit)
       if (result.ok) patch({ requesting: null, job: result.data });
       else patch({ requesting: null, error: result.message });
