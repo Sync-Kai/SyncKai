@@ -414,5 +414,8 @@ describe('Ordre de visionnage : suites annoncées (badge et « + À regarder »)
     expect(container.textContent).toContain('Hors ligne');
     expect(container.querySelector('[data-focus="relation-add-20"]')?.textContent).toBe(t('common.retry'));
     expect(updateSequels).not.toHaveBeenCalled();
+    // SEQ-03 : échec annoncé par la zone live, nom accessible construit autour du texte visible
+    expect(container.querySelector('[data-alert]')?.getAttribute('data-alert')).toBe('Hors ligne');
+    expect(container.querySelector('[data-focus="relation-add-20"]')?.getAttribute('aria-label')).toContain(t('common.retry'));
   });
 });
