@@ -92,6 +92,7 @@ Target: standard Swedish as used by Chrome, Firefox, Netflix and YouTube in Swed
 
 - "Show more" button at the bottom of netflix.com/viewingactivity in Swedish: **Visa mer**. Source: Netflix's Swedish help article "Visa streaming- och enhetsaktivitet" (help.netflix.com/sv/node/101917, step 4: "använder du knappen Visa mer"; re-checked 2026-10-14). Not checked on the live page with a Swedish profile.
 - The page itself is called **Streamingaktivitet** in Swedish (same article, step 3; also help.netflix.com/sv/node/22205); the catalog uses that name.
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « sidan med din visningshistorik ».
 
 ## Development builds only
 

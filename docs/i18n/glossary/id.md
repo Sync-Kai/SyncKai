@@ -99,6 +99,7 @@ Binding for every change to `src/i18n/locales/id.json` and `public/_locales/id/m
 
 - "Show more" button at the bottom of netflix.com/viewingactivity: **Tampilkan Lainnya**. Source: Netflix Help Center in Indonesian, article "Cara melihat riwayat streaming dan aktivitas perangkat" (help.netflix.com/id/node/101917), which tells users to "gunakan tombol Tampilkan Lainnya". The English article uses "Show More" at the same step.
 - The "Viewing activity" page is named **Aktivitas streaming** in Netflix's Indonesian UI (same article: "Buka Aktivitas streaming."). The catalog quotes it as halaman “Aktivitas streaming”.
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « halaman riwayat tontonan ».
 - Firefox (for `settings.shortcut.manualFirefox`): "Manage Extension Shortcuts" = **Kelola Pintasan Ekstensi** (mozilla-l10n `id` aboutAddons.ftl, message `addon-manage-extensions-shortcuts`).
 - All three names re-checked against the live sources in the 2026-10-14 review.
 

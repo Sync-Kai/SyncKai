@@ -5,6 +5,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Fixed
+
+- **Netflix history import**: it finds the Netflix tab and reads the history again on Netflix's new viewing history page, instead of stopping at « No Netflix tab open ».
+
 ## [2.5.0] - 2026-11-12
 
 ### Added

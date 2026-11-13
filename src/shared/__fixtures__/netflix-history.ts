@@ -84,3 +84,37 @@ export const NETFLIX_ROWS: NetflixHistoryRow[] = [
   { id: String(RANMA_ID + 1), text: 'Ranma ½ : Saison 1 : "Épisode 1"' },
   { id: '81231975', text: 'Mercredi : Saison 1 : "Malheur, malheur, malheur"' },
 ];
+
+// Nouvelle page d'historique (netflix.com/viewingactivity → /settings/viewed, relevée le 2026-11-13, profil français) :
+// structure assainie (titres et identifiants fictifs ; classes générées du site remplacées par une seule, factice).
+// Conteneur `viewing-activity-page+container` : onglets « Vu » / « Évalué », une ligne `+list-item` par vidéo (6 au
+// départ), puis un div sans data-uia ; lien du titre ABSOLU ; boutons « Signaler » / « Masquer » dans chaque ligne ;
+// « Voir plus » `+show-more-btn` hors des lignes.
+
+/** Liens des 6 premières lignes de la page /settings/viewed (plus récentes d'abord) */
+export const NETFLIX_VIEWED_ROWS: readonly { href: string; text: string }[] = [
+  { href: 'https://www.netflix.com/title/80000001', text: 'Le Renard des neiges : Saison 1 : "Épisode 4"' },
+  { href: 'https://www.netflix.com/title/80000002', text: 'Lames d’automne : Saison 2 : "Le pont"' },
+  { href: 'https://www.netflix.com/title/80000003', text: 'Le Phare' },
+  { href: 'https://www.netflix.com/title/80000004', text: 'Le Renard des neiges : Saison 1 : "Épisode 3"' },
+  { href: 'https://www.netflix.com/title/80000005', text: 'Cuisine de minuit : Mini-série : "Épisode 1"' },
+  { href: 'https://www.netflix.com/title/80000006', text: 'Lames d’automne : Saison 2 : "La forge"' },
+];
+
+/** HTML (corps de page) de /settings/viewed ; `more` : libellé du bouton « Voir plus » (null : bouton absent) */
+export function netflixViewedPageHtml(more: string | null = 'Voir plus'): string {
+  const rows = NETFLIX_VIEWED_ROWS.map(
+    (row, i) =>
+      `<div data-uia="viewing-activity-page+list-item" class="default-ltr-x-cache-0"><div>${String(13 - i).padStart(2, '0')}/11/26</div>` +
+      `<p><span data-uia="viewing-activity-page+list-item+description"><a data-uia="viewing-activity-page+list-item+description+title-link" href="${row.href}">${row.text}</a></span></p>` +
+      '<div data-uia="viewing-activity-page+list-item+action-list">' +
+      '<button data-uia="viewing-activity-page+list-item+report-problem-btn" aria-label="Signaler un problème"><svg></svg></button>' +
+      '<button data-uia="viewing-activity-page+list-item+hide-series-btn" aria-label="Masquer dans l’historique"><svg></svg></button></div></div>',
+  ).join('');
+  const button = more === null ? '' : `<button data-uia="viewing-activity-page+show-more-btn">${more}</button>`;
+  return (
+    '<main><div data-uia="viewing-activity-page+right-col"><section><h1>Historique de lecture et évaluations</h1>' +
+    '<div data-uia="viewing-activity-page+container"><div data-uia="viewing-activity-page+tabbed-layout+tabs"><button>Vu</button><button>Évalué</button></div>' +
+    `${rows}<div>${button}</div></div></section></div></main>`
+  );
+}

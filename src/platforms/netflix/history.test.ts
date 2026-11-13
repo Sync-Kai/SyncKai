@@ -29,6 +29,8 @@ describe('lignes de l’historique Netflix', () => {
   it('identifiant du lien /title/{id} et texte nettoyé ; ligne illisible ignorée', () => {
     expect(parseNetflixRow({ href: '/title/81301838', text: '  Ranma ½ :  Saison 1 : "Épisode 5" ' })).toEqual({ id: '81301838', text: 'Ranma ½ : Saison 1 : "Épisode 5"' });
     expect(parseNetflixRow({ href: 'https://www.netflix.com/title/81301838?trackId=1', text: 'X' })).toEqual({ id: '81301838', text: 'X' });
+    // Lien absolu de la page /settings/viewed (2026-11-13)
+    expect(parseNetflixRow({ href: 'https://www.netflix.com/title/80000001', text: 'X' })).toEqual({ id: '80000001', text: 'X' });
     expect(parseNetflixRow({ href: '/reportproblem/81301838', text: 'Signaler un problème' })).toBeNull();
     expect(parseNetflixRow({ href: '/title/81301838', text: '   ' })).toBeNull();
     expect(parseNetflixRow({ href: '/title/1234567890123', text: 'trop long' })).toBeNull();
@@ -181,6 +183,12 @@ describe('lecture de l’historique (« Voir plus » jusqu’à la fin)', () => 
     }
     expect(netflixPageProblem({ path: '/viewingactivity', rows: 0, more: false, gate: true, list: false })).toBe('logged-out');
     expect(netflixPageProblem({ path: '/be-fr/viewingactivity', rows: 3, more: false, gate: false, list: true })).toBeNull();
+    // Nouvelle page de l'historique (/viewingactivity y redirige, relevé le 2026-11-13) ; l'ancienne reste acceptée
+    for (const path of ['/settings/viewed', '/settings/viewed/', '/fr/settings/viewed']) {
+      expect(netflixPageProblem({ path, rows: 6, more: true, gate: false, list: true }), path).toBeNull();
+    }
+    expect(netflixPageProblem({ path: '/viewingactivity', rows: 6, more: true, gate: false, list: true })).toBeNull();
+    expect(netflixPageProblem({ path: '/settings/profile', rows: 0, more: false, gate: false, list: false })).toBe('wrong-page');
   });
 
   it('aucune ligne après NETFLIX_READY_TIMEOUT_MS : historique vide (liste présente) ou page modifiée', async () => {

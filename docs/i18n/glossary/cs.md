@@ -86,6 +86,7 @@ Target: natural Czech as used by Czech anime fans and by the Czech versions of N
 ## 4. Netflix and browser UI names
 
 - *Viewing activity* page (used in `crImport.read.error.netflixLoggedOut`, `crImport.netflix.rule`, `crImport.netflix.keepTab`): **„Divácká historie“**. Confirmed on 2026-10-14 in Netflix's Czech help center (help.netflix.com/cs/node/101917: *Otevřete sekci Divácká historie*); the earlier guess *Aktivita sledování* was wrong.
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « stránka historie sledování ».
 - "Show more" button at the bottom of netflix.com/viewingactivity: **„Zobrazit více“** (same article: *použijte tlačítko Zobrazit více*), quoted in `crImport.netflix.rule`.
 - Firefox gear-menu item *Manage Extension Shortcuts* (`settings.shortcut.manualFirefox`): **Správa klávesových zkratek pro rozšíření** (mozilla-l10n `cs/toolkit/toolkit/about/aboutAddons.ftl`, `addon-manage-extensions-shortcuts`, checked 2026-10-14). Firefox calls its sidebar *postranní lišta*; SyncKai keeps *boční panel* for both browsers.
 

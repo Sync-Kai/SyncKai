@@ -85,7 +85,7 @@ Binding for every change to `src/i18n/locales/tr.json` and `public/_locales/tr/m
 | Change / Set (shortcuts) | Değiştir / Ata |
 | Your rating? | Puanın kaç? |
 | To check | Doğrulanacak |
-| Netflix "Viewing activity" page | İzleme etkinliği |
+| Netflix "Viewing activity" page | İzleme etkinliği; former page name, no longer quoted since 2026-11-13: generic « izleme geçmişi sayfası » |
 | Firefox "Manage Extension Shortcuts" | Uzantı kısayollarını yönet |
 
 ## 3. Conventions

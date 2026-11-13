@@ -110,6 +110,7 @@ Target: standard Romanian as used by Chrome, Netflix and big Romanian apps, with
 
 - "Show more" button at the bottom of netflix.com/viewingactivity in Romanian: **„Mai multe”**, quoted in `crImport.netflix.rule`. Source: Netflix's Romanian help center (help.netflix.com/ro/node/101917, "folosește butonul Mai multe"), checked 2026-10-14; not seen on a live Romanian profile.
 - Viewing activity page: **„Activitate de vizionare”** (same help page: "Deschide Activitate de vizionare").
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « pagina cu istoricul de vizionare ».
 - Code note: `src/platforms/netflix/tab-op.ts` › `netflixTabOp` finds that button by its text; "mai multe" was added to its labels in the final pass of 2026-10-14, so the Netflix import reads the whole history on a Romanian profile.
 
 ## 5. Firefox

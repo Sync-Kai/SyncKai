@@ -9,8 +9,13 @@ export type NetflixTabOp = 'state' | 'click' | 'rows' | 'show';
  * contenu ; jamais le monde de la page) : AUTONOME, le navigateur n'en transmet que le texte (aucune référence à un import
  * ni à une constante de ce module). Hypothèses sur le DOM relevées le 2026-10-12 (profil français) : lignes
  * `li.retableRow`, lien du titre `a[href="/title/{id}"]`, bouton « Voir plus » (« Show more », « Mehr anzeigen ») hors des
- * lignes. Ne clique JAMAIS sur autre chose que ce bouton (ni « Masquer dans l'historique », ni « Signaler un problème »).
- * Libellé du bouton dans la langue du PROFIL Netflix (pas celle de SyncKai) : FR / EN / DE relevés sur le site, les autres
+ * lignes. Relevé le 2026-11-13 : /viewingactivity redirige vers /settings/viewed (data-uia stables, classes générées
+ * jamais utilisées) : liste `viewing-activity-page+container`, lignes `viewing-activity-page+list-item`, lien du titre
+ * absolu `https://www.netflix.com/title/{id}`, « Voir plus » `viewing-activity-page+show-more-btn` hors des lignes ; les
+ * deux pages sont lues. Ne clique JAMAIS sur autre chose que ce bouton (ni « Masquer dans l'historique », ni « Signaler un
+ * problème », ni les onglets « Vu » / « Évalué »).
+ * Libellé du bouton (ancienne page seulement, /settings/viewed le trouve par son data-uia) dans la langue du PROFIL
+ * Netflix (pas celle de SyncKai) : FR / EN / DE relevés sur le site, les autres
  * d'après l'article d'aide officiel de Netflix (help.netflix.com/<langue>/node/101917) ; langue absente (chinois
  * simplifié, coréen : libellé non vérifié) → bouton jamais trouvé, seules les premières lignes sont lues.
  * - state : chemin, lignes affichées, bouton présent, choix du profil affiché, liste présente ;
@@ -20,7 +25,7 @@ export type NetflixTabOp = 'state' | 'click' | 'rows' | 'show';
  *           Netflix (fonction exposée sous Symbol.for(`hook`)) au pont du monde MAIN ; 'absent' sans script de contenu.
  */
 export function netflixTabOp(op: NetflixTabOp, hook: string, movieId: string): unknown {
-  const row = 'li.retableRow';
+  const row = 'li.retableRow, [data-uia="viewing-activity-page+list-item"]';
   // « Voir plus » en minuscules (NFC) : FR / EN / DE (site), puis it, es / es-419, pt-BR, nl, sv, pl, cs, ro, ru, uk, tr,
   // id, vi, ja, zh-TW, zh-CN, ko (help.netflix.com/<langue>/node/101917)
   const labels = [
@@ -52,17 +57,20 @@ export function netflixTabOp(op: NetflixTabOp, hook: string, movieId: string): u
     '더 보기',
   ].map((label) => label.normalize('NFC'));
   const text = (value: string | null | undefined): string => (value ?? '').replace(/\s+/g, ' ').trim();
-  const more = (): HTMLButtonElement | undefined =>
-    [...document.querySelectorAll('button')].find(
-      (button) => !button.disabled && !button.closest(row) && labels.includes(text(button.textContent).normalize('NFC').toLowerCase()),
-    );
+  const usable = (button: HTMLButtonElement | null): button is HTMLButtonElement => button !== null && !button.disabled && !button.closest(row);
+  // Bouton de /settings/viewed par son data-uia (toute langue), sinon par son libellé (ancienne page)
+  const more = (): HTMLButtonElement | undefined => {
+    const marked = document.querySelector<HTMLButtonElement>('button[data-uia="viewing-activity-page+show-more-btn"]');
+    if (usable(marked)) return marked;
+    return [...document.querySelectorAll('button')].find((button) => usable(button) && labels.includes(text(button.textContent).normalize('NFC').toLowerCase()));
+  };
   if (op === 'state') {
     return {
       path: location.pathname,
       rows: document.querySelectorAll(row).length,
       more: more() !== undefined,
       gate: document.querySelector('.profile-gate-container, .list-profiles') !== null,
-      list: document.querySelector('.retable') !== null,
+      list: document.querySelector('.retable, [data-uia="viewing-activity-page+container"]') !== null,
     };
   }
   if (op === 'click') {

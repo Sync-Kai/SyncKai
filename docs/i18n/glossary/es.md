@@ -95,6 +95,7 @@ Binding for every change to `src/i18n/locales/es.json` and `public/_locales/es/m
 
 - "Show more" button at the bottom of netflix.com/viewingactivity: **Mostrar más** (Netflix Help Center, es-ES article on viewing activity: « Si ves una lista limitada, usa el botón Mostrar más. »).
 - "Viewing activity" page: **Actividad de visionado** (same article: « Abre Actividad de visionado »).
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « la página del historial de visionado ».
 
 ## Development builds only
 

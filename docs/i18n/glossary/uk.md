@@ -117,6 +117,7 @@ Airing statuses (`page.airing.*`): Airing «Виходить», Finished «За�
 Verified 2026-10-14 in Netflix's Ukrainian help (help.netflix.com/uk/node/101917, "Як подивитись історію перегляду й дії на пристрої"):
 
 - "Viewing activity" (profile section, netflix.com/viewingactivity) = «Переглянуте». Quoted as «сторінка «Переглянуте»» / «на сторінці «Переглянуте»».
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « сторінка історії переглядів ».
 - "Show more" button = «Показати більше»; "Download all" = «Завантажити все».
 
 ## Development builds only

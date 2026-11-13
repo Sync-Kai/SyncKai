@@ -140,6 +140,7 @@ Binding for every change to `src/i18n/locales/zh-CN.json` and `public/_locales/z
 ## 5. Netflix
 
 - “Viewing activity” page: 观看记录 (Netflix zh-Hans account page name, used in `crImport.*`).
+- Since 2026-11-13 Netflix moved the page to /settings/viewed with a new title: `crImport.netflix.rule`, `crImport.netflix.keepTab` and `crImport.read.error.netflixLoggedOut` no longer quote Netflix's page name; they describe it generically as « 观看记录页面 (unquoted) ».
 - “Show more” button at the bottom of netflix.com/viewingactivity: **unknown**. Not verified on the real page with high confidence; the catalog text (`crImport.netflix.rule`) uses the generic “显示更多”, to be checked before relying on it in code.
 
 ## Development builds only

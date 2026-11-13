@@ -84,7 +84,7 @@ Binding for every change to `src/i18n/locales/vi.json` and `public/_locales/vi/m
 | up to date | Sync results and on-site pills: **đã lưu từ trước** ("Tập 5 đã lưu từ trước", "AniList: đã lưu từ trước (tập 5)", pill "Đã lưu từ trước"); history-import chip only: **đã mới nhất** ("AL đã mới nhất", ≤ 15 chars); in counts **không cần cập nhật** | "đã cập nhật" avoided: it reads as "was updated" and is the import result "Đã cập nhật" |
 | default entry page (`settings.entry.label`) | **Mở mục trên** (followed by the AniList / MAL control) | |
 | no equivalent (MAL chip) | **không có mục** ("MAL không có mục") | |
-| Netflix "Viewing activity" page | **trang Hoạt động xem** | Netflix's Vietnamese name (section 4) |
+| Netflix "Viewing activity" page | **trang Hoạt động xem** | Netflix's Vietnamese name (section 4); former page name, no longer quoted since 2026-11-13: generic « trang lịch sử xem » |
 | absolute numbering | **đánh số liên tục** | Clearer than "tuyệt đối" |
 | special / movie (formats) | **Đặc biệt** / **Movie** | Fans say "movie", "OVA" |
 | unexpected error | **lỗi không mong muốn** | |
