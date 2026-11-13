@@ -28,6 +28,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Watch order**: opening an OVA or a side story of a franchise already loaded no longer reads the whole franchise again.
 - Crunchyroll music videos and concerts are no longer treated as episodes: watching one no longer shows a false « Episode not identified » error.
 - **Netflix history import**: it finds the Netflix tab and reads the history again on Netflix's new viewing history page, instead of stopping at « No Netflix tab open ».
+- **Backup**: importing an older backup with *Replace* no longer erases what that file doesn't contain (the suggestions you turned down and the *Stats* activity history, for a file made before 2.5.0); *File contents* says so.
+- **Backup**: *Merge* no longer drops a correction (*Correct*) waiting on this device when the file holds newer *To check* cards.
+- **AniList ↔ MyAnimeList differences**: *Match all to AniList* (or MAL) on more than 2000 series no longer fails with « Couldn't reach the extension »: it aligns the first 2000 (the confirmation counts them), and a second click aligns the rest.
+- **History import**: *Create N reviews* with more than 200 seasons checked no longer fails with an unexpected error: it creates the reviews that fit.
+- **History import**: a series you excluded after the analysis is no longer written by *Update*: it is skipped as « Series excluded from sync ».
 
 ### Security
 
