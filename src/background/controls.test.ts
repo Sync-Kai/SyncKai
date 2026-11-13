@@ -62,6 +62,26 @@ vi.mock('./engagement', () => ({
   },
 }));
 
+// Liste « En cours » en cache, par service (POP-06) : `fetchedAt` à 0 = périmée, relue au prochain GET_WATCHING
+interface CachedList {
+  entries: { mediaId: number | null; malId: number | null }[];
+  fetchedAt: number;
+  epoch: number;
+}
+const cache = vi.hoisted((): { lists: Record<string, CachedList> } => ({ lists: {} }));
+vi.mock('../browser/storage/watching-cache', () => ({
+  dropCachedWatchingEntry: async (service: string, epoch: number, match: (entry: { mediaId: number | null; malId: number | null }) => boolean): Promise<boolean> => {
+    const list = cache.lists[service];
+    if (list?.epoch !== epoch) return false;
+    list.entries = list.entries.filter((entry) => !match(entry));
+    return true;
+  },
+  expireCachedWatching: async (service: string, epoch: number): Promise<void> => {
+    const list = cache.lists[service];
+    if (list?.epoch === epoch) list.fetchedAt = 0;
+  },
+}));
+
 // Retrait de la suggestion du lot enregistré (testé dans recommendations/messages.test.ts)
 const reco = vi.hoisted(() => ({ dropped: [] as [string, number][] }));
 vi.mock('./recommendations/messages', () => ({ dropSuggestion: async (service: string, id: number): Promise<void> => void reco.dropped.push([service, id]) }));
@@ -213,6 +233,7 @@ beforeEach(() => {
   fakes.settingsError = null;
   fakes.sessions = { anilist: 0, mal: 0 };
   fakes.expired = [];
+  cache.lists = {};
   anilist = fakeTracker('anilist');
   mal = fakeTracker('mal');
   fakes.trackers = [anilist, mal];
@@ -434,6 +455,24 @@ describe('setListStatus', () => {
       { service: 'anilist', outcome: { status: 'updated', progress: 4, completed: false } },
       { service: 'mal', outcome: { status: 'error', message: 'Service indisponible', code: 'API_ERROR' } },
     ]);
+  });
+
+  it('POP-06 : pause écrite, la série quitte la liste en cache des services écrits ; « Annuler » rend la liste périmée', async () => {
+    const other = { mediaId: 1, malId: 2 };
+    cache.lists = {
+      anilist: { entries: [{ mediaId: MEDIA_ID, malId: MAL_ID }, other], fetchedAt: 1_000, epoch: 0 },
+      mal: { entries: [{ mediaId: MEDIA_ID, malId: MAL_ID }, other], fetchedAt: 1_000, epoch: 0 },
+    };
+    anilist.entries.set(MEDIA_ID, { status: 'CURRENT', progress: 4 });
+    // MAL : déjà en pause ailleurs, rien n'y est écrit (sa liste en cache est relue à 90 s, comme avant)
+    mal.entries.set(MAL_ID, { status: 'PAUSED', progress: 4 });
+    await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'PAUSED', onlyFrom: 'CURRENT', coverUrl: null });
+    expect(cache.lists.anilist?.entries).toEqual([other]);
+    expect(cache.lists.mal?.entries).toHaveLength(2);
+
+    await setListStatus({ mediaId: MEDIA_ID, malId: MAL_ID, status: 'CURRENT', onlyFrom: 'PAUSED', services: ['anilist'], coverUrl: null });
+    expect(cache.lists.anilist?.fetchedAt).toBe(0);
+    expect(cache.lists.mal?.fetchedAt).toBe(1_000);
   });
 
   it('fiche sans équivalent sur les services connectés : erreur « aucun service ne la suit »', async () => {
