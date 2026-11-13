@@ -196,10 +196,6 @@ export function recoGenres(batch: RecoBatch): string[] {
   return [...counts].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([genre]) => genre);
 }
 
-export function withoutItem(batch: RecoBatch, id: number): RecoBatch {
-  return { ...batch, items: batch.items.filter((i) => i.card.id !== id) };
-}
-
 const isStrings = (value: unknown): boolean => Array.isArray(value) && value.every((s) => typeof s === 'string');
 
 /**

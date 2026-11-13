@@ -133,20 +133,6 @@ export function icon(name: IconName, className = 'h-4 w-4', strokeWidth = '2'): 
   return svg;
 }
 
-/** Triangle "lecture" plein */
-export function playIcon(className = 'h-3 w-3'): SVGSVGElement {
-  const svg = svgEl('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', class: `shrink-0 ${className}` });
-  svg.append(svgEl('path', { d: 'M7 4.5 19.5 12 7 19.5Z', fill: 'currentColor', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round' }));
-  return svg;
-}
-
-/** Étincelle beurre posée sur la barre de progression de la carte « Reprendre » */
-export function sparkIcon(className: string): SVGSVGElement {
-  const svg = svgEl('svg', { viewBox: '0 0 10 10', 'aria-hidden': 'true', class: className });
-  svg.append(svgEl('path', { d: 'M5 0 6.2 3.8 10 5 6.2 6.2 5 10 3.8 6.2 0 5 3.8 3.8Z', fill: '#FFD37A' }));
-  return svg;
-}
-
 // ── Mascotte Kai, grand dessin (≥ 48 px) ; cadre commun et petit dessin : kai-small.ts ──
 
 function largeDefs(id: (name: string) => string): SVGElement[] {

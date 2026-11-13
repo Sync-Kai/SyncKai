@@ -93,8 +93,9 @@ describe('charte graphique : cliquet des valeurs en dur (docs/design/README.md)'
     expect(Object.keys(current.hexColors)).toContain('browser/badge.ts');
     expect(current.hexColors['ui/kai-small.ts']).toBeUndefined();
     // Plus aucune taille de police en pixels dans les sources (dernières : pages d'import, 2026-10-18) ; le toast du lecteur
-    // déclare ses couleurs une fois, en variables de sa feuille content/ui/toast.css (2026-10-18) : ui/icons.ts reste relevé
-    expect(current.hexColors['ui/icons.ts']).toBeGreaterThan(0);
+    // déclare ses couleurs une fois, en variables de sa feuille content/ui/toast.css (2026-10-18) ; ui/icons.ts à 0 depuis le
+    // retrait de sparkIcon (2026-11-13)
+    expect(current.hexColors['browser/badge.ts']).toBeGreaterThan(0);
   });
 
   it('tests TSX exclus comme les tests TS ; modules TSX lus avec la syntaxe JSX', () => {

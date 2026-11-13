@@ -10,7 +10,6 @@ import {
   matchesRecoFilter,
   pickSeeds,
   recoGenres,
-  withoutItem,
   type RawRecoMedia,
   type RecoBatch,
   type RecoCard,
@@ -149,7 +148,7 @@ describe('buildBatch sur la vraie capture AniList', () => {
   });
 });
 
-describe('drawNext / withoutItem', () => {
+describe('drawNext', () => {
   const item = (id: number, score: number): RecoItem => ({ card: { id, idMal: null, title: `T${id}`, format: null, year: null, episodes: null, averageScore: null, genres: [], tags: [], coverUrl: null, coverLarge: null, color: null, bannerUrl: null, siteUrl: '', platforms: [] }, score, reason: null });
   const batch: RecoBatch = { items: [item(1, 10), item(2, 30), item(3, 60)], computedAt: 0, seedCount: 1, cold: false };
 
@@ -164,13 +163,6 @@ describe('drawNext / withoutItem', () => {
     expect(drawNext(batch, new Set(), () => 0.15)?.card.id).toBe(2);
     expect(drawNext(batch, new Set(), () => 0.5)?.card.id).toBe(3);
     expect(drawNext(batch, new Set(), () => 0.9999)?.card.id).toBe(3);
-  });
-
-  it('withoutItem retire un seul id sans muter', () => {
-    const next = withoutItem(batch, 2);
-    expect(next.items.map((i) => i.card.id)).toEqual([1, 3]);
-    expect(batch.items).toHaveLength(3);
-    expect(next.computedAt).toBe(batch.computedAt);
   });
 });
 
