@@ -17,7 +17,6 @@ import { mountStatusBar } from '../ui/status-bar-host';
 import { createSequelsStore } from '../ui/sequels-store';
 import { createStore, patchStore, type ExclusionsState, type InlineFeedback } from '../ui/state';
 import { canOpenPopup, openPopupOn } from '../browser/popup-screen';
-import { takePanelTab, watchPanelTab } from '../browser/panel-tab';
 import { createRecoController, type RecoController, type RecoView } from '../ui/reco-controller';
 import { CLOSED_SECTIONS, type PanelSectionsState } from './components/details-card';
 import type { NowPlayingSnapshot } from './components/now-playing';
@@ -28,7 +27,7 @@ import { mountPanelApp, type PanelShellState } from './panel-app';
 import { watchPanelContext, type PanelContext } from './presence';
 import { listenPanelToggle } from './toggle';
 import { consumeReopenRequest, loadOrReload } from '../ui/lazy-module';
-import { followPageContext, initialPanelTab, PANEL_LAST_TAB_KEY, requestedTabState, type PanelTab } from './tabs';
+import { followPageContext, initialPanelTab, PANEL_LAST_TAB_KEY, type PanelTab } from './tabs';
 
 const log = createLogger('sidepanel');
 
@@ -261,9 +260,7 @@ function setContext(next: PanelContext): void {
 async function loadInitialTab(): Promise<void> {
   try {
     const [settings, stored] = await Promise.all([getSettings(), chrome.storage.local.get(PANEL_LAST_TAB_KEY)]);
-    // Panneau ouvert depuis le popup (« Plus d'idées dans le panneau ») : Découvrir, une seule fois
-    const requested = await takePanelTab();
-    patchStore(shell, { tab: requested ?? initialPanelTab(settings.panelDefaultTab, stored[PANEL_LAST_TAB_KEY]) });
+    patchStore(shell, { tab: initialPanelTab(settings.panelDefaultTab, stored[PANEL_LAST_TAB_KEY]) });
   } catch (error: unknown) {
     log.debug('Onglet initial illisible :', error);
   }
@@ -277,12 +274,6 @@ async function main(): Promise<void> {
   void loadExclusions();
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes[EXCLUDED_SERIES_KEY]) void loadExclusions();
-  });
-  // Panneau déjà ouvert quand le popup demande « Découvrir » : l'onglet change aussi (sans toucher au « dernier onglet »)
-  // Réglages ouverts (ou en cours de chargement) : fermés, sinon l'onglet demandé resterait caché derrière eux
-  watchPanelTab((tab) => {
-    settingsPending = false;
-    patchStore(shell, requestedTabState(tab));
   });
   onLocaleChange(() => {
     // Agenda affiché : textes et premier jour de la semaine à jour (il n'est plus réactivé à chaque rendu)
