@@ -28,6 +28,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 - **Watch order**: opening an OVA or a side story of a franchise already loaded no longer reads the whole franchise again.
 - Crunchyroll music videos and concerts are no longer treated as episodes: watching one no longer shows a false « Episode not identified » error.
 - **Netflix history import**: it finds the Netflix tab and reads the history again on Netflix's new viewing history page, instead of stopping at « No Netflix tab open ».
+- **Side panel**: after reloading an episode page that was slow to load, the live progress no longer stays on « Reload the tab to follow playback. »: the panel tries again when the page is reloaded.
+- **Schedule**: clicking ‹ or › while a week is loading no longer shows that week's answer (« No episodes this week… » or an error) for the newly chosen week.
+- **Schedule**: a panel or popup left open now reads the week again once it is older than an hour (six hours for a coming week), so a delayed or newly scheduled episode shows its new day and time.
 
 ### Security
 

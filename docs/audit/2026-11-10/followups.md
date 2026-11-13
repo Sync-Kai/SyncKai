@@ -94,4 +94,4 @@ The 2.5.0 audit fixes (plan `docs/superpowers/plans/2026-11-11-2.5.0-audit-fixes
 - **The new AniList fields** (full-list `release`, the MAL-only `idMal_in` + `status_in` query) were tested against fakes only; the owner's real account shows 18 listed entries (2026-11-12).
 
 **Dead code**
-- The panel-tab request path no longer has a popup caller: `openPanelOn`, `takePanelTab` / `watchPanelTab`, `requestedTabState`, `PANEL_TAB_KEY`.
+- ~~The panel-tab request path no longer has a popup caller: `openPanelOn`, `takePanelTab` / `watchPanelTab`, `requestedTabState`, `PANEL_TAB_KEY`.~~ Removed in `bugfix/panel-follow-ups` (it also closes PNL-04).
