@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FranchiseGraph, FranchiseNode, FranchiseResult, ListStates } from '../../shared/franchise';
 import type { PageMediaContent } from '../../ui/page-media-controller';
 import type { PanelMedia, PanelRecommendation } from '../../shared/panel-media.types';
+import type { PageListState } from '../../shared/page-media.types';
 import type { SessionEpochs } from '../../shared/session-epochs';
 import type { InlineFeedback } from '../../ui/state';
 import { STORAGE_KEYS } from '../../protocol/storage-keys';
@@ -107,11 +108,11 @@ function graphOf(ids: number[], extras: number[] = []): FranchiseGraph {
 
 const STATES: ListStates = { anilist: { 1: { kind: 'watched', progress: null } }, mal: null };
 
-const readyContent = (mediaId: number, over: { refreshing?: boolean; details?: PanelMedia | null; view?: object } = {}): PageMediaContent<PanelMedia> =>
+const readyContent = (mediaId: number, over: { refreshing?: boolean; details?: PanelMedia | null; view?: object; lists?: PageListState[] } = {}): PageMediaContent<PanelMedia> =>
   ({
     status: 'ready',
     page: {},
-    view: over.view ?? { media: { mediaId } },
+    view: over.view ?? { media: { mediaId, idMal: mediaId + 1000 }, lists: over.lists ?? [] },
     details: over.details === undefined ? ({ mediaId, recommendations: [] } as unknown as PanelMedia) : over.details,
     detailsError: null,
     refreshing: over.refreshing ?? false,
@@ -183,25 +184,14 @@ describe('ordre de visionnage du panneau', () => {
     expect(callsOf('GET_FRANCHISE')[1].payload).toEqual({ mediaId: 50 });
   });
 
-  it('page changée dans la même franchise : graphe gardé, états relus, aucun chargement affiché', async () => {
+  it('page changée dans la même franchise : graphe et états gardés, aucune requête, aucun chargement affiché', async () => {
     await loadedOrder(1, graphOf([1, 2, 3], [9]));
     emit(readyContent(2, { details: null }));
     emit(readyContent(2));
     await flush();
     expect(callsOf('GET_FRANCHISE')).toHaveLength(1);
-    expect(ctl.order.status).toBe('ready');
-    expect(pending('GET_LIST_STATES')).toHaveLength(1);
-    expect(pending('GET_LIST_STATES')[0].payload).toEqual({ mediaIds: [1, 2, 3, 9], malIds: [1001, 1002, 1003, 1009] });
-  });
-
-  it('relecture du panneau (Actualiser) : GET_LIST_STATES sans relire le graphe, sans fresh', async () => {
-    await loadedOrder();
-    emit(readyContent(1, { refreshing: true }));
-    emit(readyContent(1));
-    await flush();
-    expect(callsOf('GET_FRANCHISE')).toHaveLength(1);
-    expect(pending('GET_LIST_STATES')).toHaveLength(1);
-    expect(pending('GET_LIST_STATES')[0].payload).not.toHaveProperty('fresh');
+    expect(callsOf('GET_LIST_STATES')).toHaveLength(1);
+    expect(ctl.order).toMatchObject({ status: 'ready', states: STATES });
   });
 
   it('mise à jour des détails seule (même fiche) : aucune requête', async () => {
@@ -310,6 +300,7 @@ describe('ordre de visionnage du panneau', () => {
 
   it('réponse tardive d\'un ancien compte ignorée après déconnexion', async () => {
     await loadedOrder();
+    void ctl.refresh(true);
     emit(readyContent(1, { refreshing: true }));
     emit(readyContent(1));
     await flush();
@@ -369,6 +360,55 @@ describe('ordre de visionnage du panneau', () => {
   });
 });
 
+describe('états de liste gardés par la page du panneau (PERF-03, ORD-06)', () => {
+  it('PERF-03 : deux épisodes de la même fiche à 10 min d\'intervalle (service worker endormi entre-temps) : une seule lecture des listes', async () => {
+    fake.sessions = { mal: 1 };
+    await loadedOrder(1, graphOf([1, 2, 3]));
+    // Épisode suivant : nouvelle page, nouvelle fiche résolue, même franchise
+    emit(readyContent(1, { refreshing: true }));
+    emit(readyContent(1));
+    await flush();
+    expect(callsOf('GET_LIST_STATES')).toHaveLength(1);
+  });
+
+  it('PERF-03 : graphe d\'une seule entrée (section non dessinée) : aucun GET_LIST_STATES', async () => {
+    emit(readyContent(1));
+    await flush();
+    await answer('GET_FRANCHISE', ok(graphOf([1])));
+    expect(callsOf('GET_LIST_STATES')).toHaveLength(0);
+    expect(ctl.order).toMatchObject({ status: 'ready', states: { anilist: null, mal: null } });
+  });
+
+  it('ORD-06 : Actualiser : GET_LIST_STATES avec fresh, sans relire le graphe', async () => {
+    await loadedOrder();
+    void ctl.refresh(true);
+    emit({ status: 'detecting' });
+    emit(readyContent(1));
+    await flush();
+    expect(callsOf('GET_FRANCHISE')).toHaveLength(1);
+    expect(pending('GET_LIST_STATES')).toHaveLength(1);
+    expect(pending('GET_LIST_STATES')[0].payload).toMatchObject({ fresh: true });
+  });
+
+  it('ORD-06 : statut changé hors du panneau (popup, synchro) : ligne de la fiche mise à jour depuis la fiche relue, sans requête', async () => {
+    fake.sessions = { anilist: 0, mal: 1 };
+    const inList = (service: 'anilist' | 'mal', status: 'CURRENT' | 'COMPLETED', progress: number): PageListState =>
+      ({ service, state: 'in-list', status, progress, score: null, notes: null, siteUrl: '' });
+    emit(readyContent(1, { lists: [inList('anilist', 'CURRENT', 11), inList('mal', 'CURRENT', 11)] }));
+    await flush();
+    await answer('GET_FRANCHISE', ok(graphOf([1, 2])));
+    const states: ListStates = { anilist: { 1: { kind: 'inProgress', progress: 11 }, 2: null }, mal: { 1001: { kind: 'inProgress', progress: 11 }, 1002: null } };
+    await answer('GET_LIST_STATES', states);
+    emit(readyContent(1, { lists: [inList('anilist', 'COMPLETED', 12), inList('mal', 'COMPLETED', 12)] }));
+    await flush();
+    expect(callsOf('GET_LIST_STATES')).toHaveLength(1);
+    expect(ctl.order).toMatchObject({
+      status: 'ready',
+      states: { anilist: { 1: { kind: 'watched', progress: null }, 2: null }, mal: { 1001: { kind: 'watched', progress: null }, 1002: null } },
+    });
+  });
+});
+
 const recoOf = (mediaId: number, over: Partial<PanelRecommendation> = {}): PanelRecommendation => ({
   mediaId, idMal: mediaId + 1000, title: `R${mediaId}`, format: 'TV', startYear: 2020, coverUrl: null, siteUrl: `https://anilist.co/anime/${mediaId}`, rating: 5, platforms: [], prequelIds: [], prequelMalIds: [], ...over,
 });
@@ -418,6 +458,27 @@ describe('« Dans le même esprit » du panneau', () => {
     call?.resolve(Promise.reject(new Error('sw')));
     await flush();
     expect(ctl.similar).toEqual([]);
+  });
+
+  it('RECO-07 : 5 relectures de la même fiche : un seul GET_LIST_STATES ; autre fiche : un second', async () => {
+    const recoCalls = (): Call[] => callsOf('GET_LIST_STATES').filter((c) => (c.payload as { mediaIds: number[] }).mediaIds.includes(10));
+    for (let i = 0; i < 5; i++) {
+      emit(withRecos(1, [recoOf(10)]));
+      await flush();
+    }
+    expect(recoCalls()).toHaveLength(1);
+    emit(withRecos(2, [recoOf(10)]));
+    await flush();
+    expect(recoCalls()).toHaveLength(2);
+  });
+
+  it('RECO-07 : action de liste réussie : recommandations refiltrées', async () => {
+    emit(withRecos(1, [recoOf(10)]));
+    await flush();
+    fake.feedback = { tone: 'success', text: '', detail: '' } satisfies InlineFeedback;
+    await ctl.runAction({ kind: 'adjust', delta: 1 });
+    await flush();
+    expect(callsOf('GET_LIST_STATES').filter((c) => (c.payload as { mediaIds: number[] }).mediaIds.includes(10))).toHaveLength(2);
   });
 
   it('page quittée : lignes vidées', async () => {
