@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { EpisodeInfo } from '../../shared/episode.types';
 import type { RecentSync } from '../../shared/review.types';
 import { buildPlatforms, fetchAniListEntries, fetchMalEntries, MAL_WATCHING_PATH } from './watching';
-import { anilistQuery } from './client';
+import { anilistPublicQuery, anilistQuery } from './client';
 import { malRequest } from '../mal/client';
 
 vi.mock('./client', () => ({ anilistQuery: vi.fn(), anilistPublicQuery: vi.fn(() => Promise.reject(new Error('catalogue hors test'))) }));
@@ -82,23 +82,29 @@ describe('lecture de la durée et du statut de liste', () => {
     ]);
   });
 
-  it('MAL : average_episode_duration 1440 devient 24, is_rewatching true devient REPEATING', async () => {
+  it('MAL : minutes tirées du nœud catalogue AniList (TERMS-04), is_rewatching true devient REPEATING', async () => {
     vi.mocked(malRequest).mockResolvedValueOnce({
       data: [
         { node: { id: 1, title: 'A', average_episode_duration: 1440 }, list_status: { num_episodes_watched: 2, is_rewatching: true } },
-        { node: { id: 2, title: 'B', average_episode_duration: 0 }, list_status: { is_rewatching: false } },
+        { node: { id: 2, title: 'B' }, list_status: { is_rewatching: false } },
         { node: { id: 3, title: 'C', average_episode_duration: 1500 }, list_status: {} },
+        { node: { id: 4, title: 'D' }, list_status: {} },
       ],
+    });
+    // Nœud 3 absent du catalogue, nœud 4 sans duration : durée inconnue, la valeur MAL est ignorée
+    vi.mocked(anilistPublicQuery).mockResolvedValueOnce({
+      Page: { media: [{ id: 101, idMal: 1, duration: 24 }, { id: 102, idMal: 2, duration: 12 }, { id: 104, idMal: 4, duration: null }] },
     });
     const entries = await fetchMalEntries([], {}, 'interactive');
     expect(entries.map((e) => [e.episodeMinutes, e.listStatus])).toEqual([
       [24, 'REPEATING'],
+      [12, 'CURRENT'],
       [null, 'CURRENT'],
-      [25, 'CURRENT'],
+      [null, 'CURRENT'],
     ]);
   });
 
-  it('MAL_WATCHING_PATH demande average_episode_duration', () => {
-    expect(MAL_WATCHING_PATH).toContain('average_episode_duration');
+  it('MAL_WATCHING_PATH ne demande pas average_episode_duration (TERMS-04)', () => {
+    expect(MAL_WATCHING_PATH).not.toContain('average_episode_duration');
   });
 });

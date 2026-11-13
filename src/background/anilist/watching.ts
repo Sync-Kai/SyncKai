@@ -163,7 +163,7 @@ export async function fetchAniListEntries(syncs: readonly RecentSync[], learned:
 // limit=1000 = maximum de l'endpoint : une seule requête suffit pour une liste « en cours », pas de pagination.
 // nsfw=true : sans lui, MAL omet silencieusement les fiches classées NSFW.
 export const MAL_WATCHING_PATH =
-  '/users/@me/animelist?status=watching&sort=list_updated_at&limit=1000&nsfw=true&fields=list_status,num_episodes,main_picture,status,average_episode_duration';
+  '/users/@me/animelist?status=watching&sort=list_updated_at&limit=1000&nsfw=true&fields=list_status,num_episodes,main_picture,status';
 
 const isMalListData = (data: unknown): data is { data: unknown[] } => isRecord(data) && Array.isArray(data.data);
 
@@ -174,6 +174,7 @@ const CATALOG_BY_MAL_QUERY = /* GraphQL */ `
         id
         idMal
         episodes
+        duration
         status
         nextAiringEpisode { episode airingAt }
         externalLinks { url }
@@ -224,7 +225,6 @@ export async function fetchMalEntries(syncs: readonly RecentSync[], learned: Pla
     const updated = str(listStatus.updated_at);
     const updatedAt = updated ? Date.parse(updated) : Number.NaN;
     const mediaSyncs = syncsFor(mediaId, syncs);
-    const malSeconds = num(node.average_episode_duration);
     return {
       mediaId,
       malId: id,
@@ -236,8 +236,8 @@ export async function fetchMalEntries(syncs: readonly RecentSync[], learned: Pla
       updatedAt: Number.isNaN(updatedAt) ? null : updatedAt,
       nextEpisode: media ? parseNextEpisode(media.nextAiringEpisode) : null,
       airingStatus: (media ? toAiringStatus(media.status) : null) ?? fromMalAiringStatus(node.status),
-      // average_episode_duration en secondes (0 = inconnue côté MAL)
-      episodeMinutes: positiveMinutes(malSeconds === null ? null : Math.round(malSeconds / 60)),
+      // Durée lue sur AniList seulement : les nouveautés ne lisent pas MAL (TERMS-04)
+      episodeMinutes: media ? positiveMinutes(num(media.duration)) : null,
       listStatus: listStatus.is_rewatching === true ? 'REPEATING' : 'CURRENT',
       platforms: buildPlatforms(media?.externalLinks, mediaSyncs, learnedLinksFor(learned, mediaId)),
       lastSync: toLastSync(mediaSyncs),

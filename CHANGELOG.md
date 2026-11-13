@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ### Fixed
 
+- **Remaining time with MyAnimeList**: the episode length now comes from AniList's catalogue (the same request SyncKai already makes for your MyAnimeList list), no longer from MyAnimeList; a series not found on AniList shows no remaining time, as when the length is unknown.
 - Watching an episode with a decimal number (Crunchyroll « E48.5 ») no longer makes SyncKai forget the season it had matched, and validating its *To check* card no longer hides the season you had picked before.
 - A *To check* card for an episode without a number (an ADN film or OVA) can now be validated: choosing episode 1 syncs it instead of answering « invalid episode ».
 - A validated *To check* card is no longer asked again when its write to one service failed and is retried later: the retry writes it as you confirmed it.

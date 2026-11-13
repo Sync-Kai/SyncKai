@@ -38,7 +38,7 @@ export interface WatchingEntry {
   updatedAt: number | null;
   nextEpisode: NextEpisode | null;
   airingStatus: AiringStatus | null;
-  /** Durée d'un épisode en minutes (AniList duration, MAL average_episode_duration / 60) ; absent = inconnue (cache 2.4.x) */
+  /** Durée d'un épisode en minutes (duration AniList, aussi pour une liste MAL via le catalogue) ; absent = inconnue (cache 2.4.x) */
   episodeMinutes?: number | null;
   /** Statut de l'entrée dans la liste ; absent = inconnu (cache 2.4.x) */
   listStatus?: WatchingListStatus | null;
