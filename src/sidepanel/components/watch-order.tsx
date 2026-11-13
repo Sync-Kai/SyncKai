@@ -15,12 +15,14 @@ import { TRACKER_LABELS } from '../../shared/tracker.types';
 import { choosePlatformLink } from '../../shared/watching';
 import { useMediaQuery } from '../../ui/preact/hooks';
 import { Alert } from '../../ui/components/alert';
+import { sequelAddAria } from '../../ui/components/sequel-row';
 import { Button } from '../../ui/components/button';
 import { Collapsible } from '../../ui/components/collapsible';
 import { Icon } from '../../ui/components/icon';
 import { Segmented } from '../../ui/components/segmented';
 import { ServiceLogo } from '../../ui/components/service-logo';
 import type { IconName } from '../../ui/icons';
+import { alertAttrs } from '../../ui/live-region';
 import { noMalEntry } from '../../shared/sequels';
 import { addToPlanning, sequelAddResult, sequelEndedKey, updateSequels } from '../../ui/sequel-actions';
 import type { OrderState } from './now-playing-controller';
@@ -138,9 +140,9 @@ function SequelActions({ node, links, unlisted }: { node: FranchiseNode; links: 
       )}
       {ended && <span class="text-secondary font-bold text-lavender">{t(sequelEndedKey(result))}</span>}
       {!ended && unaddable && <span class="text-secondary font-bold text-lavender">{t('sequel.notOnMal')}</span>}
-      {result?.kind === 'failed' && <span class="line-clamp-2 text-secondary font-bold text-danger" title={result.message}>{result.message}</span>}
+      {result?.kind === 'failed' && <span class="line-clamp-2 text-secondary font-bold text-danger" title={result.message} {...alertAttrs(result.message)}>{result.message}</span>}
       {unlisted && !ended && !unaddable && (
-        <Button size="sm" class="self-start" busy={busy} ariaLabel={t('sequel.addLabel', { title: node.title })} focusKey={`relation-add-${node.id}`} onClick={() => void add()}>
+        <Button size="sm" class="self-start" busy={busy} ariaLabel={sequelAddAria(node.title, result?.kind === 'failed')} focusKey={`relation-add-${node.id}`} onClick={() => void add()}>
           {result?.kind === 'failed' ? t('common.retry') : t('sequel.add')}
         </Button>
       )}

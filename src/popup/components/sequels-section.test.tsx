@@ -220,6 +220,9 @@ describe('SequelsSection', () => {
     expect(actions()).toHaveLength(1);
     expect($('[data-focus="sequel-add-1"]')?.textContent).toBe('Retry');
     expect($('[data-sequel="1"]')?.textContent).toContain('Échec AniList');
+    // SEQ-03 : échec annoncé par la zone live, nom accessible construit autour du texte visible
+    expect($('[data-sequel="1"] [data-alert]')?.getAttribute('data-alert')).toBe('Échec AniList');
+    expect($('[data-focus="sequel-add-1"]')?.getAttribute('aria-label')).toBe('Retry · Add Suite 1 to Plan to watch');
   });
 
   it('déjà dans la liste : l’alerte est terminée comme après un ajout', async () => {

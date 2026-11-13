@@ -8,6 +8,7 @@ import { formatSequelDate } from '../../shared/sequel-date';
 import type { SyncOutcome } from '../../shared/sync.types';
 import { TRACKER_LABELS, type TrackerId } from '../../shared/tracker.types';
 import { noMalEntry } from '../../shared/sequels';
+import { alertAttrs } from '../live-region';
 import { sequelAddResult, sequelEndedKey } from '../sequel-actions';
 import { Button } from './button';
 import { Cover } from './cover';
@@ -33,6 +34,12 @@ const FORMAT_KEYS = { TV_SHORT: 'review.format.tvShort', MOVIE: 'review.format.m
 
 function formatLabel(format: SequelDisplay['format']): string {
   return format === 'TV_SHORT' || format === 'MOVIE' ? t(FORMAT_KEYS[format]) : format;
+}
+
+/** Nom accessible de « + À regarder » ; après un échec, il commence par le texte visible « Réessayer » (WCAG 2.5.3) */
+export function sequelAddAria(title: string, failed: boolean): string {
+  const label = t('sequel.addLabel', { title });
+  return failed ? `${t('common.retry')} · ${label}` : label;
 }
 
 export function SequelRow({ record, onAdd, onDismiss, busy, outcome, showNew = false, connected = ['anilist'], listStatus }: SequelRowProps) {
@@ -65,10 +72,10 @@ export function SequelRow({ record, onAdd, onDismiss, busy, outcome, showNew = f
         {listStatus !== undefined && <span class="text-secondary font-bold text-lavender">{t('sequel.listedAs', { status: t(`page.status.${listStatus}` satisfies MessageKey) })}</span>}
         {listStatus === undefined && ended && <span class="text-secondary font-bold text-lavender">{t(sequelEndedKey(result))}</span>}
         {listStatus === undefined && !ended && unaddable && <span class="text-secondary font-bold text-lavender">{t('sequel.notOnMal')}</span>}
-        {result?.kind === 'failed' && <span class="line-clamp-2 text-secondary font-bold text-danger" title={result.message}>{result.message}</span>}
+        {result?.kind === 'failed' && <span class="line-clamp-2 text-secondary font-bold text-danger" title={result.message} {...alertAttrs(result.message)}>{result.message}</span>}
       </span>
       {listStatus === undefined && !ended && !unaddable && (
-        <Button size="sm" busy={busy} ariaLabel={t('sequel.addLabel', { title: snapshot.title })} focusKey={`sequel-add-${snapshot.id}`} onClick={onAdd}>
+        <Button size="sm" busy={busy} ariaLabel={sequelAddAria(snapshot.title, result?.kind === 'failed')} focusKey={`sequel-add-${snapshot.id}`} onClick={onAdd}>
           {result?.kind === 'failed' ? t('common.retry') : t('sequel.add')}
         </Button>
       )}
