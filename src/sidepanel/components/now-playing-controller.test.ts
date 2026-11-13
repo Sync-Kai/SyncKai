@@ -58,7 +58,9 @@ vi.mock('../../browser/storage/settings-access', async () => {
   const { DEFAULT_SETTINGS } = await import('../../shared/settings');
   return { getSettings: () => Promise.resolve({ ...DEFAULT_SETTINGS, ...fake.settings }) };
 });
-vi.mock('./live-progress', () => ({ createLiveProgress: () => ({ follow: () => undefined, store: {} }) }));
+/** Épisodes suivis en direct (appels de `live.follow`) */
+const follows = vi.hoisted((): unknown[] => []);
+vi.mock('./live-progress', () => ({ createLiveProgress: () => ({ follow: (target: unknown) => void follows.push(target), store: {} }) }));
 vi.mock('../../ui/page-media-controller', () => ({
   createPageMediaController: (options: unknown) => {
     fake.options = options;
@@ -488,5 +490,17 @@ describe('« Dans le même esprit » du panneau', () => {
     expect(ctl.similar).toHaveLength(1);
     emit({ status: 'idle' });
     expect(ctl.similar).toEqual([]);
+  });
+});
+
+describe('progression en direct du panneau', () => {
+  it('même onglet signalé de nouveau (F5, fiche inchangée) : épisode suivi de nouveau, le port est relancé', async () => {
+    await flush();
+    ctl.setTab(4);
+    emit({ ...readyContent(1), page: { kind: 'episode', episode: { episodeId: 'E1' } } } as unknown as PageMediaContent<PanelMedia>);
+    const before = follows.length;
+    ctl.setTab(4);
+    expect(follows.length).toBe(before + 1);
+    expect(follows.at(-1)).toEqual({ tabId: 4, episodeId: 'E1' });
   });
 });

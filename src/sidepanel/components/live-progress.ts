@@ -179,8 +179,14 @@ export function createLiveProgress(onEvent: (event: LiveEvent) => void): LivePro
         return;
       }
       if (target.episodeId === next.episodeId) {
+        // Page injoignable puis signalée de nouveau (F5 lent, script prêt après les tentatives) : tentatives relancées
+        if (unreachable) {
+          failures = 0;
+          unreachable = false;
+          update();
+        }
         // Même épisode : port relancé seulement s'il n'existe plus et qu'aucune tentative n'est prévue
-        if (!port && retryTimer === undefined && !unreachable) connect();
+        if (!port && retryTimer === undefined) connect();
         return;
       }
       target = next;
