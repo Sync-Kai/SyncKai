@@ -136,9 +136,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # Couverture des tests unitaires en cliquet (décision 5 de l'audit 2026-10-15) : seuils de vitest.config.ts
-  # (branches, instructions, fonctions, lignes), le job échoue seulement si l'une des valeurs baisse.
-  # Une hausse durable se reporte à la main dans vitest.config.ts. Résumé des valeurs dans celui du run.
+  # Couverture des tests unitaires en cliquet (décision 5 de l'audit 2026-10-15) : seuils de
+  # scripts/coverage-thresholds.json (branches, instructions, fonctions, lignes), le job échoue seulement si l'une des
+  # valeurs baisse. Une valeur à plus d'un point au-dessus de son seuil donne un avertissement (décision 13 de l'audit
+  # 2026-11-10) : relever le seuil à la main. Résumé des valeurs dans celui du run.
   coverage:
     name: Couverture (cliquet)
     runs-on: ubuntu-latest
@@ -165,6 +166,7 @@ jobs:
             exit 0
           fi
           jq -r '.total | "| Coverage | % |\n|---|---|\n| Branches | \(.branches.pct) |\n| Statements | \(.statements.pct) |\n| Functions | \(.functions.pct) |\n| Lines | \(.lines.pct) |"' "$summary" >> "$GITHUB_STEP_SUMMARY"
+          jq -r --slurpfile limits scripts/coverage-thresholds.json '.total as $m | $limits[0] | to_entries[] | select($m[.key].pct - .value > 1) | "::warning title=Coverage ratchet::\(.key) at \($m[.key].pct) %, more than 1 point above its threshold of \(.value) %: raise it in scripts/coverage-thresholds.json."' "$summary"
 
   # Extension construite dans un vrai Chromium (npm run test:ext, scripts/ext-e2e) : informatif (décision 4 de
   # l'audit 2026-10-15), sur les pushs vers develop seulement ; à rendre requis dans release.yml après deux semaines
