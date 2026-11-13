@@ -99,9 +99,13 @@ describe('isDormant', () => {
 });
 
 describe('dormantKey', () => {
-  it('identifiant AniList, sinon « mal:<id> »', () => {
-    expect(dormantKey(entry({ mediaId: 101, malId: 7 }))).toBe('101');
-    expect(dormantKey(entry({ mediaId: null, malId: 7 }))).toBe('mal:7');
+  it('liste AniList : identifiant AniList, sinon « mal:<id> »', () => {
+    expect(dormantKey(entry({ mediaId: 101, malId: 7 }), 'anilist')).toBe('101');
+    expect(dormantKey(entry({ mediaId: null, malId: 7 }), 'anilist')).toBe('mal:7');
+  });
+  it('POP-08 : liste MAL, identifiant MAL qu’AniList ait répondu ou non', () => {
+    expect(dormantKey(entry({ mediaId: 101, malId: 7 }), 'mal')).toBe('mal:7');
+    expect(dormantKey(entry({ mediaId: null, malId: 7 }), 'mal')).toBe('mal:7');
   });
 });
 
@@ -110,7 +114,7 @@ describe('dormantEntries', () => {
   const b = entry({ mediaId: 2, title: 'Beta', updatedAt: NOW - 90 * DAY });
   const c = entry({ mediaId: 3, title: 'Gamma', updatedAt: NOW - 5 * DAY });
   const d = entry({ mediaId: 4, title: 'Delta', updatedAt: NOW - 40 * DAY });
-  const base = { now: NOW, thresholdDays: 30 as const, marks: {}, hero: null };
+  const base = { now: NOW, thresholdDays: 30 as const, marks: {}, hero: null, service: 'anilist' as const };
 
   it('séries en sommeil seulement, la plus longtemps inactive d\'abord (titre à égalité)', () => {
     expect(dormantEntries([a, b, c, d], base).map((e) => e.title)).toEqual(['Beta', 'Alpha', 'Delta']);
@@ -120,6 +124,17 @@ describe('dormantEntries', () => {
   });
   it('marque « Garder » de la série (clé dormantKey) : hors du groupe', () => {
     expect(dormantEntries([a, b], { ...base, marks: { '2': { keptAt: NOW - DAY } } }).map((e) => e.title)).toEqual(['Alpha']);
+  });
+  it('POP-08 : liste MAL, une marque posée avec la fiche AniList reste quand AniList ne répond pas (et inversement)', () => {
+    const malBase = { ...base, service: 'mal' as const };
+    const enriched = entry({ mediaId: 2, malId: 20, title: 'Beta', updatedAt: NOW - 90 * DAY });
+    const degraded = { ...enriched, mediaId: null };
+    const marks = { [dormantKey(enriched, 'mal')]: { keptAt: NOW - DAY } };
+    expect(dormantEntries([a, degraded], { ...malBase, marks }).map((e) => e.title)).toEqual(['Alpha']);
+    const degradedMarks = { [dormantKey(degraded, 'mal')]: { keptAt: NOW - DAY } };
+    expect(dormantEntries([a, enriched], { ...malBase, marks: degradedMarks }).map((e) => e.title)).toEqual(['Alpha']);
+    // Marque d'une 2.5.0 (clé AniList sur la liste MAL) : toujours lue tant que la fiche AniList est connue
+    expect(dormantEntries([a, enriched], { ...malBase, marks: { '2': { keptAt: NOW - DAY } } }).map((e) => e.title)).toEqual(['Alpha']);
   });
   it('seuil « Jamais » : aucun groupe', () => {
     expect(dormantEntries([a, b], { ...base, thresholdDays: null })).toEqual([]);

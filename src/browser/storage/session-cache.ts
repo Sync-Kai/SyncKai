@@ -1,5 +1,6 @@
 import { isFranchiseGraph, type FranchiseGraph } from '../../shared/franchise';
 import { isRecord } from '../../shared/guards';
+import { DORMANT_UNDO_KEY } from '../../protocol/storage-keys';
 import { storedKeys } from './stored-keys';
 
 // Caches de `storage.session` (Chrome 102+, Firefox 115+) : en mémoire, jamais écrits sur disque, vidés à la fermeture
@@ -39,7 +40,7 @@ export function sessionArea(): chrome.storage.StorageArea | null {
   return isRecord(area) && typeof area.get === 'function' ? chrome.storage.session : null;
 }
 
-const isCacheKey = (key: string): boolean => key.startsWith(PAGE_MEDIA_CACHE_PREFIX) || key.startsWith(PANEL_MEDIA_CACHE_PREFIX) || key.startsWith(FRANCHISE_CACHE_PREFIX);
+const isCacheKey = (key: string): boolean => key.startsWith(PAGE_MEDIA_CACHE_PREFIX) || key.startsWith(PANEL_MEDIA_CACHE_PREFIX) || key.startsWith(FRANCHISE_CACHE_PREFIX) || key === DORMANT_UNDO_KEY;
 
 /** Horodatage valable : ni dépassé de `ttl`, ni dans le futur (horloge reculée) */
 const fresh = (at: unknown, ttl: number, now: number): boolean => typeof at === 'number' && Number.isFinite(at) && now - at <= ttl && at - now <= 60_000;
@@ -72,7 +73,8 @@ export async function purgeStaleSessionCaches(now: number = Date.now()): Promise
 
 /**
  * Déconnexion d'un compte : fiches de page (états des listes du compte) et du panneau retirées tout de suite, sans
- * attendre la fermeture du navigateur (SEC-03). Les séries Netflix ignorées (catalogue, sans compte) restent.
+ * attendre la fermeture du navigateur (SEC-03), comme le jeu d'annulation des séries en sommeil (dormant-undo.ts). Les
+ * séries Netflix ignorées (catalogue, sans compte) restent.
  */
 export async function clearSessionCaches(): Promise<void> {
   const area = sessionArea();

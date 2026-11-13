@@ -1,5 +1,6 @@
 import { releasedEpisodes } from './released-episodes';
 import { episodesToCatchUp } from './remaining-time';
+import type { TrackerId } from './tracker.types';
 import type { WatchingEntry } from './watching.types';
 
 const DAY_MS = 86_400_000;
@@ -18,9 +19,17 @@ export function lastActivity(entry: WatchingEntry): number | null {
   return times.length === 0 ? null : Math.max(...times);
 }
 
-/** Clé d'une série dans les marques « Garder » : identifiant AniList, sinon « mal:<id> » */
-export function dormantKey(entry: Pick<WatchingEntry, 'mediaId' | 'malId'>): string {
-  return entry.mediaId !== null ? String(entry.mediaId) : `mal:${entry.malId}`;
+/**
+ * Clé d'une série dans les marques « Garder » du service affiché : son propre identifiant, « mal:<id> » sur la liste MAL
+ * (l'identifiant AniList y manque quand le catalogue ne répond pas, POP-08), l'identifiant AniList sur la liste AniList
+ */
+export function dormantKey(entry: Pick<WatchingEntry, 'mediaId' | 'malId'>, service: TrackerId): string {
+  return (service === 'mal' && entry.malId !== null) || entry.mediaId === null ? `mal:${entry.malId}` : String(entry.mediaId);
+}
+
+/** Marque « Garder » de la série ; liste MAL : aussi sous l'identifiant AniList (marques posées par la 2.5.0) */
+export function keepMarkOf(marks: Readonly<Record<string, KeepMark>>, entry: Pick<WatchingEntry, 'mediaId' | 'malId'>, service: TrackerId): KeepMark | null {
+  return marks[dormantKey(entry, service)] ?? (service === 'mal' && entry.mediaId !== null ? marks[String(entry.mediaId)] : undefined) ?? null;
 }
 
 /**
@@ -51,10 +60,10 @@ export function isDormant(entry: WatchingEntry, opts: { now: number; thresholdDa
  */
 export function dormantEntries(
   entries: readonly WatchingEntry[],
-  opts: { now: number; thresholdDays: 30 | 60 | 90 | null; marks: Readonly<Record<string, KeepMark>>; hero: WatchingEntry | null },
+  opts: { now: number; thresholdDays: 30 | 60 | 90 | null; marks: Readonly<Record<string, KeepMark>>; hero: WatchingEntry | null; service: TrackerId },
 ): WatchingEntry[] {
-  const { now, thresholdDays, marks, hero } = opts;
-  const dormant = entries.filter((entry) => entry !== hero && isDormant(entry, { now, thresholdDays, kept: marks[dormantKey(entry)] ?? null }));
+  const { now, thresholdDays, marks, hero, service } = opts;
+  const dormant = entries.filter((entry) => entry !== hero && isDormant(entry, { now, thresholdDays, kept: keepMarkOf(marks, entry, service) }));
   // lastActivity est connue pour toute série en sommeil (isDormant l'exige)
   return dormant.sort((a, b) => (lastActivity(a) ?? 0) - (lastActivity(b) ?? 0) || a.title.localeCompare(b.title));
 }
