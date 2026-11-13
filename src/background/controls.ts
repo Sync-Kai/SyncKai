@@ -5,8 +5,11 @@ import type { AddToListPayload, AdjustProgressPayload, AdjustRetryTarget, SetLis
 import type { MediaRef } from '../shared/engagement.types';
 import { getSettings } from '../browser/storage/settings-access';
 import { getOpenSessions } from '../browser/storage/sessions';
+import { dropCachedWatchingEntry, expireCachedWatching } from '../browser/storage/watching-cache';
+import type { SessionEpochs } from '../shared/session-epochs';
 import type { AddListStatus, ListStatus, ListStatusChange, ServiceResult, SyncOutcome } from '../shared/sync.types';
 import { TRACKER_LABELS } from '../shared/tracker.types';
+import { isSameSeries } from '../shared/watching';
 import { ApiError } from './errors';
 import { deferRating } from './engagement';
 import { entryTargetId, entryTargets, runOnServices, type EntryCommand, type ServiceRun } from './entry-commands';
@@ -179,6 +182,24 @@ function needsCatalog(trackers: readonly TrackerService[], payload: SetListStatu
 }
 
 /**
+ * Liste « En cours » en cache des services écrits (POP-06), sous la session relevée avant les requêtes : la série en sort
+ * (pause, abandon, terminé), ou la liste devient périmée quand elle y revient (« Annuler » : l'entrée n'y est plus). Sinon
+ * un popup rouvert dans les 90 s montrait l'ancien état. Ne lève jamais : l'écriture est faite.
+ */
+async function afterStatusWrite(payload: SetListStatusPayload, results: readonly ServiceResult[], epochs: SessionEpochs): Promise<void> {
+  try {
+    for (const { service, outcome } of results) {
+      const epoch = epochs[service];
+      if (outcome.status !== 'updated' || epoch === undefined) continue;
+      if (payload.status === 'CURRENT') await expireCachedWatching(service, epoch);
+      else await dropCachedWatchingEntry(service, epoch, isSameSeries(payload));
+    }
+  } catch (error: unknown) {
+    log.warn('Liste « En cours » en cache non mise à jour :', error);
+  }
+}
+
+/**
  * En pause / Abandonné / Terminé depuis le popup : écrit sur tous les services connectés où la série
  * est dans la liste. N'alimente pas les « dernières synchros » (action manuelle, comme +1 / −1).
  * Après « Terminé », la carte « À noter » est créée (comme « Plus tard ») ; `prompts.rate` le signale au popup.
@@ -197,6 +218,7 @@ export async function setListStatus(payload: SetListStatusPayload): Promise<Sync
     const runs = await runOnServices(targets, statusCommand(catalog?.episodes ?? null, payload.status, payload.onlyFrom), epochs);
     const mediaTitle = seriesTitle(catalog, runs);
     const outcome: SyncOutcome = { status: 'synced', mediaTitle, results: runs.map((r) => r.result) };
+    await afterStatusWrite(payload, outcome.results, epochs);
 
     if (shouldQueueRating(payload.status, runs.map(statusWrite), await isRatingPromptEnabled())) {
       const media: MediaRef = { mediaId: catalog?.mediaId ?? payload.mediaId, malId: catalog?.idMal ?? payload.malId, title: mediaTitle.slice(0, 300) };

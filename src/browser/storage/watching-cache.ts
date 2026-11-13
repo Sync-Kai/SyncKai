@@ -58,3 +58,18 @@ export function dropCachedWatchingEntry(service: TrackerId, epoch: number, match
     return true;
   });
 }
+
+/**
+ * Liste « en cours » en cache rendue périmée (`fetchedAt` à 0, gardée pour l'affichage immédiat), si la session n'a pas
+ * changé depuis `epoch` : une série remise en cours n'y est pas, la prochaine lecture la relit sur le service (POP-06).
+ */
+export function expireCachedWatching(service: TrackerId, epoch: number): Promise<void> {
+  return withStorageLock(async () => {
+    if ((await getSessionEpoch(service)) !== epoch) return;
+    const list = await getCachedWatching(service);
+    if (!list) return;
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.watchingCache);
+    const cache: unknown = stored[STORAGE_KEYS.watchingCache];
+    await chrome.storage.local.set({ [STORAGE_KEYS.watchingCache]: { ...(isRecord(cache) ? cache : {}), [service]: { ...list, fetchedAt: 0 } } });
+  });
+}

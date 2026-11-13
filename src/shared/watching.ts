@@ -197,6 +197,11 @@ export function entryKey(entry: Pick<WatchingEntry, 'mediaId' | 'malId'>): strin
   return `${entry.mediaId ?? '-'}:${entry.malId ?? '-'}`;
 }
 
+/** Entrée « En cours » de cette série (fiche AniList, ou fiche MAL sans équivalent AniList) */
+export function isSameSeries(media: Pick<WatchingEntry, 'mediaId' | 'malId'>): (entry: WatchingEntry) => boolean {
+  return (entry) => (media.mediaId !== null && entry.mediaId === media.mediaId) || (media.malId !== null && entry.malId === media.malId);
+}
+
 /**
  * Lien utilisé par « Ouvrir » : la plateforme préférée si l'anime y est, sinon la première disponible.
  * Choix assumé : sans lien connu sur la plateforme préférée, « Ouvrir » ouvre le lien direct de l'autre

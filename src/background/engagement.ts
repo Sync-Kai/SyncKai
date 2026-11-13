@@ -16,7 +16,7 @@ import { forgetCachedPageMedia } from '../browser/storage/page-media-cache';
 import type { EpisodeInfo } from '../shared/episode.types';
 import { mappingKey } from '../platforms/series-identity';
 import type { ServiceOutcome, ServiceResult, SyncOutcome } from '../shared/sync.types';
-import type { WatchingEntry } from '../shared/watching.types';
+import { isSameSeries } from '../shared/watching';
 import { TRACKER_LABELS } from '../shared/tracker.types';
 import { ApiError } from './errors';
 import { entryTargets, runOnServices, type EntryCommand, type EntryTarget } from './entry-commands';
@@ -173,11 +173,6 @@ export async function declineRewatch(media: MediaRef): Promise<Result<null, AniL
 }
 
 // ─── Retrait de la liste ──────────────────────────────────────────────────
-
-/** Entrée « En cours » de cette série (fiche AniList, ou fiche MAL sans équivalent AniList) */
-function isSameSeries(media: MediaRef): (entry: WatchingEntry) => boolean {
-  return (entry) => (media.mediaId !== null && entry.mediaId === media.mediaId) || (media.malId !== null && entry.malId === media.malId);
-}
 
 /**
  * Synchros en file et cartes « À vérifier » simples de la série, créées AVANT le retrait (décision 18, audit B7) :
