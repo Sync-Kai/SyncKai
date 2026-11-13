@@ -2,8 +2,8 @@
 // Le cache `airingWeek:<date>` (alarme horaire ou requête précédente) est lu d'abord ; le service worker n'est sollicité
 // (GET_AGENDA) que s'il manque ou a expiré (decideAgendaLoad). Budget de requêtes (maquette PanelAgendaSemaine) : ‹ ›
 // regroupés (une requête pour la semaine finale, 300 ms après le dernier clic), semaine choisie dans le calendrier
-// chargée aussitôt (une requête), semaines déjà reçues gardées en mémoire pour la vie de la page (revues sans requête,
-// même hors du cache du stockage, limité à ±35 jours). La vue (components/agenda.tsx) garde le menu « ⋯ », l'éditeur
+// chargée aussitôt (une requête), semaines déjà reçues gardées en mémoire pour la vie de la page (revues sans requête
+// tant qu'elles restent dans la durée de vie du cache, même hors du cache du stockage, limité à ±35 jours). La vue (components/agenda.tsx) garde le menu « ⋯ », l'éditeur
 // de délai et le rendu.
 import { airingWeekKey, isWeekCacheFresh, mergeWatchingSeries, rolloverWeek, shiftWeek, weekRange, type AgendaSeries, type AiringWeekCache, type IsoWeekday, type WeekRange } from '../shared/agenda';
 import { agendaFirstDay, readWeekCache, saveSeriesOffset } from '../browser/storage/agenda-store';
@@ -178,7 +178,8 @@ export function createAgendaController(options: AgendaControllerOptions): Agenda
         getExcludedSeries(),
         readWeekCache(target.key),
       ]);
-      if (current !== run) return;
+      // Autre semaine affichée pendant la rafale de ‹ › (son chargement attend) : rien affiché pour elle
+      if (current !== run || target.key !== range.key) return;
       settings = nextSettings;
       player = effectivePlayer(nextSettings.preferredPlayer, optionalGranted);
       connected = TRACKER_IDS.filter((id) => (id === 'anilist' ? anilistConnected : malConnected));
@@ -199,9 +200,10 @@ export function createAgendaController(options: AgendaControllerOptions): Agenda
       const now = Date.now();
       const fresh = cache !== null && isWeekCacheFresh(cache, target, now, series.keys());
       if (cache && fresh) remember(cache);
-      // Semaine déjà reçue par la page, au moins aussi récente que le cache du stockage : aucune requête (sauf « Réessayer »)
+      // Semaine déjà reçue par la page, encore dans sa durée de vie (comme le cache du stockage) et au moins aussi récente
+      // que lui : aucune requête (sauf « Réessayer »)
       const week = force || fresh ? null : rememberedFor(target.key);
-      if (week && (!cache || week.fetchedAt >= cache.fetchedAt)) {
+      if (week && isWeekCacheFresh(week, target, now, series.keys()) && (!cache || week.fetchedAt >= cache.fetchedAt)) {
         status = { kind: 'ready', cache: week, refreshing: false, error: lastError.get(target.key) ?? null };
         onChange();
         return;
@@ -242,14 +244,14 @@ export function createAgendaController(options: AgendaControllerOptions): Agenda
       else lastError.delete(target.key);
       // Gardée même si une autre semaine est affichée entre-temps (retour sans nouvelle requête)
       if (result.ok) remember(result.data);
-      if (current !== run) return;
+      if (current !== run || target.key !== range.key) return;
       if (result.ok) status = { kind: 'ready', cache: result.data, refreshing: false, error: null };
       else if (result.code === 'NOT_AUTHENTICATED') status = { kind: 'not-connected' };
       else status = cache ? { kind: 'ready', cache, refreshing: false, error: result.message } : { kind: 'error', message: result.message };
     } catch (error: unknown) {
       const message = error instanceof Error && error.message ? error.message : t('error.unexpected');
       if (requested) lastError.set(target.key, message);
-      if (current !== run) return;
+      if (current !== run || target.key !== range.key) return;
       log.warn('Agenda illisible :', error);
       status = status.kind === 'ready' ? { ...status, refreshing: false, error: message } : { kind: 'error', message };
     }

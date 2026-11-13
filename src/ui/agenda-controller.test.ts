@@ -527,6 +527,42 @@ describe('createAgendaController : budget de requêtes (semaines, calendrier)', 
     ctl.dispose();
   });
 
+  it('réponse de la semaine quittée arrivée pendant la rafale de ‹ › : non affichée pour la nouvelle semaine', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    const far = shiftWeek(ctl.range, -8);
+    ctl.choose(far);
+    await vi.advanceTimersByTimeAsync(0);
+    ctl.step(-1);
+    await vi.advanceTimersByTimeAsync(100);
+    answerAgenda({ ok: true, data: { weekStart: far.key, fetchedAt: Date.now(), mediaIds: [1], schedules: [] } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ctl.range.key).toBe(shiftWeek(far, -1).key);
+    expect(ctl.status).toEqual({ kind: 'loading' });
+    ctl.dispose();
+  });
+
+  it('semaine en cours gardée 5 h (au-delà de sa durée de vie d’1 h), stockage changé puis activate : un GET_AGENDA', async () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
+    const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
+    ctl.activate();
+    await vi.advanceTimersByTimeAsync(0);
+    answerAgenda({ ok: true, data: week(ctl) });
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(5 * 60 * 60_000);
+    for (const listener of fake.listeners) listener({ [STORAGE_KEYS.watchingCache]: { newValue: 1 } }, 'local');
+    ctl.activate();
+    await vi.advanceTimersByTimeAsync(STORAGE_DEBOUNCE_MS);
+    expect(agendaCalls()).toHaveLength(1);
+    // Semaine relue à l'instant : un nouvel affichage juste après n'envoie rien de plus
+    answerAgenda({ ok: true, data: week(ctl) });
+    await vi.advanceTimersByTimeAsync(0);
+    ctl.activate();
+    await vi.advanceTimersByTimeAsync(STORAGE_DEBOUNCE_MS);
+    expect(agendaCalls()).toHaveLength(0);
+    ctl.dispose();
+  });
+
   it('« Réessayer » sur une semaine en mémoire : nouvelle requête', async () => {
     vi.useFakeTimers({ now: new Date(2026, 9, 14, 12, 0, 0) });
     const ctl = createAgendaController({ platformAccess: access([]), onChange: () => undefined });
