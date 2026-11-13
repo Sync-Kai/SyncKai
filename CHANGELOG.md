@@ -5,6 +5,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 
 ## [Unreleased]
 
+### Changed
+
+- The extension package now includes `THIRD_PARTY_NOTICES.txt`, the licence notice of Preact, the interface library it bundles.
+
 ### Fixed
 
 - **Remaining time with MyAnimeList**: the episode length now comes from AniList's catalogue (the same request SyncKai already makes for your MyAnimeList list), no longer from MyAnimeList; a series not found on AniList shows no remaining time, as when the length is unknown.

@@ -321,13 +321,33 @@ export function reachableFiles(starts: readonly string[], referencesOf: (file: s
   return seen;
 }
 
+/** Notice des dépendances embarquées dans le paquet (public/, copiée telle quelle par Vite) : la licence MIT exige son texte dans chaque copie */
+export const THIRD_PARTY_NOTICES = 'THIRD_PARTY_NOTICES.txt';
+
+/** Licence de chaque dépendance d'exécution (package.json › dependencies, seules embarquées dans le paquet) */
+export function runtimeLicenses(dependencies: readonly string[], readLicense: (name: string) => string): Map<string, string> {
+  return new Map(dependencies.map((name) => [name, readLicense(name)]));
+}
+
+const squash = (text: string): string => text.replace(/\s+/g, ' ').trim();
+
+/** La notice est dans le paquet et reprend le texte de chaque licence (espaces et retours à la ligne ignorés) */
+export function checkThirdPartyNotices(files: ReadonlySet<string>, read: (file: string) => string, licenses: ReadonlyMap<string, string>): string[] {
+  if (!files.has(THIRD_PARTY_NOTICES)) return [`${THIRD_PARTY_NOTICES} absent du paquet (licences de ${[...licenses.keys()].join(', ')})`];
+  const notice = squash(read(THIRD_PARTY_NOTICES));
+  return [...licenses]
+    .filter(([, license]) => !notice.includes(squash(license)))
+    .map(([name]) => `${THIRD_PARTY_NOTICES} : licence de ${name} absente ou différente de node_modules/${name}`);
+}
+
 /**
  * Fichiers du paquet que rien ne référence (manifeste, pages, scripts, CSS), refusés (2-H) : intermédiaires de crxjs que
- * personne ne charge mais que la relecture AMO reçoit. Les langues de `_locales/` sont lues par le navigateur.
+ * personne ne charge mais que la relecture AMO reçoit. Les langues de `_locales/` sont lues par le navigateur, la notice
+ * des dépendances par les humains.
  */
 export function checkUnreferencedFiles(files: ReadonlySet<string>, used: ReadonlySet<string>): string[] {
   return [...files]
-    .filter((file) => !used.has(file) && !file.startsWith('_locales/'))
+    .filter((file) => !used.has(file) && !file.startsWith('_locales/') && file !== THIRD_PARTY_NOTICES)
     .sort()
     .map((file) => `${file} : fichier du paquet que rien ne référence`);
 }

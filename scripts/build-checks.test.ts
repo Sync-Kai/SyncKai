@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   DISNEY_PATTERN,
@@ -7,6 +8,7 @@ import {
   checkAccessDeclarations,
   checkCommands,
   checkFontFormats,
+  checkThirdPartyNotices,
   checkUnreferencedFiles,
   checkLocaleCatalogs,
   checkMainWorldBridge,
@@ -23,6 +25,8 @@ import {
   manifestReferences,
   manifestScriptFiles,
   reachableFiles,
+  runtimeLicenses,
+  THIRD_PARTY_NOTICES,
   type BuiltManifest,
 } from './build-checks.ts';
 import { isExtensionInjectedScript } from '../src/build/output-names.ts';
@@ -342,6 +346,29 @@ describe('checkUnreferencedFiles', () => {
   it('intermédiaires de crxjs refusés, langues de _locales acceptées', () => {
     const files = new Set(['manifest.json', 'assets/start-x.js', 'assets/page-bridge.iife.ts-y.js', '_locales/fr/messages.json']);
     expect(checkUnreferencedFiles(files, new Set(['manifest.json', 'assets/start-x.js']))).toEqual(['assets/page-bridge.iife.ts-y.js : fichier du paquet que rien ne référence']);
+  });
+
+  it('la notice des dépendances embarquées est acceptée sans référence', () => {
+    expect(checkUnreferencedFiles(new Set(['manifest.json', THIRD_PARTY_NOTICES]), new Set(['manifest.json']))).toEqual([]);
+  });
+});
+
+describe('checkThirdPartyNotices (ARCH-06 : licence MIT de Preact dans le paquet)', () => {
+  const licenses = new Map([['preact', 'The MIT License (MIT)\n\nCopyright (c) 2015-present Jason Miller\n\nPermission is hereby granted…']]);
+  const notice = 'Preact\n\nThe MIT License (MIT)\nCopyright (c) 2015-present Jason Miller\n  Permission is hereby granted…\n';
+
+  it('notice absente du paquet, ou sans le texte d’une licence (espaces ignorés) : refusé', () => {
+    expect(checkThirdPartyNotices(new Set(['manifest.json']), () => '', licenses)).toEqual([`${THIRD_PARTY_NOTICES} absent du paquet (licences de preact)`]);
+    expect(checkThirdPartyNotices(new Set([THIRD_PARTY_NOTICES]), () => 'Preact, MIT', licenses)).toEqual([`${THIRD_PARTY_NOTICES} : licence de preact absente ou différente de node_modules/preact`]);
+    expect(checkThirdPartyNotices(new Set([THIRD_PARTY_NOTICES]), () => notice, licenses)).toEqual([]);
+  });
+
+  it('la notice de public/ reprend la licence de chaque dépendance d’exécution (package.json › dependencies)', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { dependencies: Record<string, string> };
+    const real = runtimeLicenses(Object.keys(pkg.dependencies), (name) => readFileSync(`node_modules/${name}/LICENSE`, 'utf8'));
+    expect([...real.keys()]).toEqual(['preact']);
+    const path = `public/${THIRD_PARTY_NOTICES}`;
+    expect(checkThirdPartyNotices(new Set(existsSync(path) ? [THIRD_PARTY_NOTICES] : []), () => readFileSync(path, 'utf8'), real)).toEqual([]);
   });
 });
 
